@@ -24,6 +24,8 @@ def macneal_case(row):
 def classify_reference(row):
  name=row['test'].split('::')[-1]
  kinds={
+  'benchmark_q9_hypar':('self_consistency','self convergence'),
+  'benchmark_q9_spherical_cap':('self_consistency','self convergence'),
   'mattiasson_load_step_independence':('self_consistency','load-step consistency/self-convergence'),
   'signed_response_checks_reject_reversals':('checker_control','synthetic signed-response checker control'),
  }

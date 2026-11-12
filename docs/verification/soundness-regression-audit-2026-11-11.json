@@ -133,7 +133,7 @@
     "suspected_entries": 2827,
     "reference_observations": null,
     "farther_reference_observations": null,
-    "frozen_reference_observations": 176,
+    "frozen_reference_observations": 161,
     "frozen_farther_reference_observations": 53,
     "static_displacement_bisections": 138,
     "round_2_additional_native_models": 51,
@@ -143,7 +143,15 @@
     "archived_farther_reference_observations": 30,
     "archived_incomparable_reference_observations": 13,
     "site_gallery_endpoint_completeness_verified": false,
-    "frozen_refused_at_head_reference_observations": 0
+    "frozen_refused_at_head_reference_observations": 0,
+    "reference_coverage_counts": {
+      "checker_control": 10,
+      "engineering_reference": 325,
+      "self_consistency": 12,
+      "test_input_metric": 1
+    },
+    "self_consistency_frozen_observations": 15,
+    "site_gallery_reference_identity_verified": false
   },
   "verdict": "No newly introduced silent wrong engineering answer confirmed within the pinned interval. Existing missing arc-length reactions are known wrong under #1949. Adjacent-boundary attribution does not establish earliest introduction.",
   "explanations": {
@@ -276888,7 +276896,8 @@
             "reference": 45,
             "source": "wL\u00b2/8",
             "before_error": 7.105427357601002e-15,
-            "after_error": 7.105427357601002e-15
+            "after_error": 7.105427357601002e-15,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-beam-frame-default",
@@ -276898,7 +276907,8 @@
             "reference": 10.097534705600765,
             "source": "5wL\u2074/384EI",
             "before_error": 1.7763568394002505e-15,
-            "after_error": 1.7763568394002505e-15
+            "after_error": 1.7763568394002505e-15,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -276934,7 +276944,8 @@
             "reference": 45,
             "source": "wL\u00b2/8",
             "before_error": 7.105427357601002e-15,
-            "after_error": 7.105427357601002e-15
+            "after_error": 7.105427357601002e-15,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-beam-frame-height-max",
@@ -276944,7 +276955,8 @@
             "reference": 10.097534705600765,
             "source": "5wL\u2074/384EI",
             "before_error": 1.7763568394002505e-15,
-            "after_error": 1.7763568394002505e-15
+            "after_error": 1.7763568394002505e-15,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -276980,7 +276992,8 @@
             "reference": 45,
             "source": "wL\u00b2/8",
             "before_error": 7.105427357601002e-15,
-            "after_error": 7.105427357601002e-15
+            "after_error": 7.105427357601002e-15,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-beam-frame-height-min",
@@ -276990,7 +277003,8 @@
             "reference": 10.097534705600765,
             "source": "5wL\u2074/384EI",
             "before_error": 1.7763568394002505e-15,
-            "after_error": 1.7763568394002505e-15
+            "after_error": 1.7763568394002505e-15,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -277026,7 +277040,8 @@
             "reference": 225,
             "source": "wL\u00b2/8",
             "before_error": 1.1368683772161603e-13,
-            "after_error": 1.1368683772161603e-13
+            "after_error": 1.1368683772161603e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-beam-frame-load-max",
@@ -277036,7 +277051,8 @@
             "reference": 50.48767352800383,
             "source": "5wL\u2074/384EI",
             "before_error": 7.105427357601002e-15,
-            "after_error": 7.105427357601002e-15
+            "after_error": 7.105427357601002e-15,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -277114,7 +277130,8 @@
             "reference": 45,
             "source": "wL\u00b2/8",
             "before_error": 7.105427357601002e-15,
-            "after_error": 7.105427357601002e-15
+            "after_error": 7.105427357601002e-15,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-beam-frame-point-min",
@@ -277124,7 +277141,8 @@
             "reference": 10.097534705600765,
             "source": "5wL\u2074/384EI",
             "before_error": 1.7763568394002505e-15,
-            "after_error": 1.7763568394002505e-15
+            "after_error": 1.7763568394002505e-15,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -277160,7 +277178,8 @@
             "reference": 45,
             "source": "wL\u00b2/8",
             "before_error": 0,
-            "after_error": 0
+            "after_error": 0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-beam-frame-position-max",
@@ -277170,7 +277189,8 @@
             "reference": 10.097534705600765,
             "source": "5wL\u2074/384EI",
             "before_error": 8.881784197001252e-15,
-            "after_error": 8.881784197001252e-15
+            "after_error": 8.881784197001252e-15,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -277206,7 +277226,8 @@
             "reference": 45,
             "source": "wL\u00b2/8",
             "before_error": 0,
-            "after_error": 0
+            "after_error": 0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-beam-frame-position-min",
@@ -277216,7 +277237,8 @@
             "reference": 10.097534705600765,
             "source": "5wL\u2074/384EI",
             "before_error": 8.881784197001252e-15,
-            "after_error": 8.881784197001252e-15
+            "after_error": 8.881784197001252e-15,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -277252,7 +277274,8 @@
             "reference": 180,
             "source": "wL\u00b2/8",
             "before_error": 0,
-            "after_error": 0
+            "after_error": 0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-beam-frame-span-max",
@@ -277262,7 +277285,8 @@
             "reference": 161.56055528961224,
             "source": "5wL\u2074/384EI",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -277298,7 +277322,8 @@
             "reference": 5,
             "source": "wL\u00b2/8",
             "before_error": 1.7763568394002505e-15,
-            "after_error": 1.7763568394002505e-15
+            "after_error": 1.7763568394002505e-15,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-beam-frame-span-min",
@@ -277308,7 +277333,8 @@
             "reference": 0.12466092229136748,
             "source": "5wL\u2074/384EI",
             "before_error": 2.7755575615628914e-17,
-            "after_error": 2.7755575615628914e-17
+            "after_error": 2.7755575615628914e-17,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -277344,7 +277370,8 @@
             "reference": 30,
             "source": "wL\u00b2/12",
             "before_error": 0,
-            "after_error": 0
+            "after_error": 0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-beam-frame-supports-max",
@@ -277354,7 +277381,8 @@
             "reference": 2.019506941120153,
             "source": "wL\u2074/384EI",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -277390,7 +277418,8 @@
             "reference": 45,
             "source": "wL\u00b2/8",
             "before_error": 7.105427357601002e-15,
-            "after_error": 7.105427357601002e-15
+            "after_error": 7.105427357601002e-15,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-beam-frame-supports-min",
@@ -277400,7 +277429,8 @@
             "reference": 10.097534705600765,
             "source": "5wL\u2074/384EI",
             "before_error": 1.7763568394002505e-15,
-            "after_error": 1.7763568394002505e-15
+            "after_error": 1.7763568394002505e-15,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -277461,7 +277491,8 @@
             "reference": 45,
             "source": "wL\u00b2/8",
             "before_error": 7.105427357601002e-15,
-            "after_error": 7.105427357601002e-15
+            "after_error": 7.105427357601002e-15,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-beam-frame-system-min",
@@ -277471,7 +277502,8 @@
             "reference": 10.097534705600765,
             "source": "5wL\u2074/384EI",
             "before_error": 1.7763568394002505e-15,
-            "after_error": 1.7763568394002505e-15
+            "after_error": 1.7763568394002505e-15,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -277882,7 +277914,8 @@
             "reference": 290.14874944809975,
             "source": "Smith & Coull",
             "before_error": 6.620012982239132e-08,
-            "after_error": 6.620012982239132e-08
+            "after_error": 6.620012982239132e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-arm-max",
@@ -277892,7 +277925,8 @@
             "reference": 364.18185734264057,
             "source": "wH\u2074/8EI",
             "before_error": 2.8294323328736937e-08,
-            "after_error": 2.8294323328736937e-08
+            "after_error": 2.8294323328736937e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-arm-max",
@@ -277902,7 +277936,8 @@
             "reference": 996.1018688032698,
             "source": "Smith & Coull",
             "before_error": 2.2394931420421926e-07,
-            "after_error": 2.2394931420421926e-07
+            "after_error": 2.2394931420421926e-07,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -277938,7 +277973,8 @@
             "reference": 267.20463525752973,
             "source": "Smith & Coull",
             "before_error": 4.329592684371164e-09,
-            "after_error": 4.329592684371164e-09
+            "after_error": 4.329592684371164e-09,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-arm-min",
@@ -277948,7 +277984,8 @@
             "reference": 364.18185734264057,
             "source": "wH\u2074/8EI",
             "before_error": 2.8294323328736937e-08,
-            "after_error": 2.8294323328736937e-08
+            "after_error": 2.8294323328736937e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-arm-min",
@@ -277958,7 +277995,8 @@
             "reference": 3262.0267775308344,
             "source": "Smith & Coull",
             "before_error": 5.613264875137247e-08,
-            "after_error": 5.613264875137247e-08
+            "after_error": 5.613264875137247e-08,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -277994,7 +278032,8 @@
             "reference": 259.23158496583477,
             "source": "Smith & Coull",
             "before_error": 1.0476583156560082e-08,
-            "after_error": 1.0476583156560082e-08
+            "after_error": 1.0476583156560082e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-columnArea-max",
@@ -278004,7 +278043,8 @@
             "reference": 364.18185734264057,
             "source": "wH\u2074/8EI",
             "before_error": 2.8294323328736937e-08,
-            "after_error": 2.8294323328736937e-08
+            "after_error": 2.8294323328736937e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-columnArea-max",
@@ -278014,7 +278054,8 @@
             "reference": 2353.4777304154686,
             "source": "Smith & Coull",
             "before_error": 9.183941074297763e-08,
-            "after_error": 9.183941074297763e-08
+            "after_error": 9.183941074297763e-08,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278050,7 +278091,8 @@
             "reference": 296.59808558131726,
             "source": "Smith & Coull",
             "before_error": 2.9322791306185536e-08,
-            "after_error": 2.9322791306185536e-08
+            "after_error": 2.9322791306185536e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-columnArea-min",
@@ -278060,7 +278102,8 @@
             "reference": 364.18185734264057,
             "source": "wH\u2074/8EI",
             "before_error": 2.8294323328736937e-08,
-            "after_error": 2.8294323328736937e-08
+            "after_error": 2.8294323328736937e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-columnArea-min",
@@ -278070,7 +278113,8 @@
             "reference": 1515.545392837951,
             "source": "Smith & Coull",
             "before_error": 1.4848615137452725e-07,
-            "after_error": 1.4848615137452725e-07
+            "after_error": 1.4848615137452725e-07,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278106,7 +278150,8 @@
             "reference": 85.27399941388555,
             "source": "Smith & Coull",
             "before_error": 1.4817871374361857e-08,
-            "after_error": 1.4817871374361857e-08
+            "after_error": 1.4817871374361857e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-coreWidth-max",
@@ -278116,7 +278161,8 @@
             "reference": 93.33021325623328,
             "source": "wH\u2074/8EI",
             "before_error": 1.822471062951081e-09,
-            "after_error": 1.822471062951081e-09
+            "after_error": 1.822471062951081e-09,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-coreWidth-max",
@@ -278126,7 +278172,8 @@
             "reference": 704.9422770010189,
             "source": "Smith & Coull",
             "before_error": 1.202051862492226e-07,
-            "after_error": 1.202051862492226e-07
+            "after_error": 1.202051862492226e-07,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278162,7 +278209,8 @@
             "reference": 611.218966520842,
             "source": "Smith & Coull",
             "before_error": 3.1671788747189566e-08,
-            "after_error": 3.1671788747189566e-08
+            "after_error": 3.1671788747189566e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-coreWidth-min",
@@ -278172,7 +278220,8 @@
             "reference": 1292.9038372481243,
             "source": "wH\u2074/8EI",
             "before_error": 1.0542726158746518e-07,
-            "after_error": 1.0542726158746518e-07
+            "after_error": 1.0542726158746518e-07,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-coreWidth-min",
@@ -278182,7 +278231,8 @@
             "reference": 4305.883353853083,
             "source": "Smith & Coull",
             "before_error": 2.162860255339183e-07,
-            "after_error": 2.162860255339183e-07
+            "after_error": 2.162860255339183e-07,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278218,7 +278268,8 @@
             "reference": 268.81809817915354,
             "source": "Smith & Coull",
             "before_error": 2.0208233308949275e-08,
-            "after_error": 2.0208233308949275e-08
+            "after_error": 2.0208233308949275e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-default",
@@ -278228,7 +278279,8 @@
             "reference": 364.18185734264057,
             "source": "wH\u2074/8EI",
             "before_error": 2.8294323328736937e-08,
-            "after_error": 2.8294323328736937e-08
+            "after_error": 2.8294323328736937e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-default",
@@ -278238,7 +278290,8 @@
             "reference": 2138.503106253697,
             "source": "Smith & Coull",
             "before_error": 1.4931401892681606e-07,
-            "after_error": 1.4931401892681606e-07
+            "after_error": 1.4931401892681606e-07,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278274,7 +278327,8 @@
             "reference": 263.00651441947605,
             "source": "Smith & Coull",
             "before_error": 1.5759894722577883e-08,
-            "after_error": 1.5759894722577883e-08
+            "after_error": 1.5759894722577883e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-position-max",
@@ -278284,7 +278338,8 @@
             "reference": 364.18185734264057,
             "source": "wH\u2074/8EI",
             "before_error": 2.8294323328736937e-08,
-            "after_error": 2.8294323328736937e-08
+            "after_error": 2.8294323328736937e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-position-max",
@@ -278294,7 +278349,8 @@
             "reference": 1701.6195697561586,
             "source": "Smith & Coull",
             "before_error": 1.0096573532791808e-07,
-            "after_error": 1.0096573532791808e-07
+            "after_error": 1.0096573532791808e-07,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278330,7 +278386,8 @@
             "reference": 360.8546701115542,
             "source": "Smith & Coull",
             "before_error": 5.613344455923652e-09,
-            "after_error": 5.613344455923652e-09
+            "after_error": 5.613344455923652e-09,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-position-min",
@@ -278340,7 +278397,8 @@
             "reference": 364.18185734264057,
             "source": "wH\u2074/8EI",
             "before_error": 2.8294323328736937e-08,
-            "after_error": 2.8294323328736937e-08
+            "after_error": 2.8294323328736937e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-position-min",
@@ -278350,7 +278408,8 @@
             "reference": 573.9319625416066,
             "source": "Smith & Coull",
             "before_error": 7.534254109486938e-09,
-            "after_error": 7.534254109486938e-09
+            "after_error": 7.534254109486938e-09,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278386,7 +278445,8 @@
             "reference": 697.2557170783004,
             "source": "Smith & Coull",
             "before_error": 5.616914222628111e-08,
-            "after_error": 5.616914222628111e-08
+            "after_error": 5.616914222628111e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-storeyHeight-max",
@@ -278396,7 +278456,8 @@
             "reference": 995.1674993856997,
             "source": "wH\u2074/8EI",
             "before_error": 3.930779257643735e-08,
-            "after_error": 3.930779257643735e-08
+            "after_error": 3.930779257643735e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-storeyHeight-max",
@@ -278406,7 +278467,8 @@
             "reference": 4041.3388335455943,
             "source": "Smith & Coull",
             "before_error": 3.2513798942090943e-07,
-            "after_error": 3.2513798942090943e-07
+            "after_error": 3.2513798942090943e-07,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278442,7 +278504,8 @@
             "reference": 149.5221971591434,
             "source": "Smith & Coull",
             "before_error": 6.013806341798045e-09,
-            "after_error": 6.013806341798045e-09
+            "after_error": 6.013806341798045e-09,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-storeyHeight-min",
@@ -278452,7 +278515,8 @@
             "reference": 196.57629617495303,
             "source": "wH\u2074/8EI",
             "before_error": 1.4850343177386094e-08,
-            "after_error": 1.4850343177386094e-08
+            "after_error": 1.4850343177386094e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-storeyHeight-min",
@@ -278462,7 +278526,8 @@
             "reference": 1436.2087372100493,
             "source": "Smith & Coull",
             "before_error": 5.745596354245208e-08,
-            "after_error": 5.745596354245208e-08
+            "after_error": 5.745596354245208e-08,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278498,7 +278563,8 @@
             "reference": 1249.183727995296,
             "source": "Smith & Coull",
             "before_error": 4.567846190184355e-08,
-            "after_error": 4.567846190184355e-08
+            "after_error": 4.567846190184355e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-storeys-max",
@@ -278508,7 +278574,8 @@
             "reference": 1843.670652797118,
             "source": "wH\u2074/8EI",
             "before_error": 1.022405740513932e-06,
-            "after_error": 1.022405740513932e-06
+            "after_error": 1.022405740513932e-06,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-storeys-max",
@@ -278518,7 +278585,8 @@
             "reference": 5924.972134616685,
             "source": "Smith & Coull",
             "before_error": 2.0405423128977418e-07,
-            "after_error": 2.0405423128977418e-07
+            "after_error": 2.0405423128977418e-07,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278554,7 +278622,8 @@
             "reference": 6.176036876710226,
             "source": "Smith & Coull",
             "before_error": 1.709299368712891e-11,
-            "after_error": 1.709299368712891e-11
+            "after_error": 1.709299368712891e-11,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-storeys-min",
@@ -278564,7 +278633,8 @@
             "reference": 7.201838487488742,
             "source": "wH\u2074/8EI",
             "before_error": 1.1865175508773973e-11,
-            "after_error": 1.1865175508773973e-11
+            "after_error": 1.1865175508773973e-11,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-storeys-min",
@@ -278574,7 +278644,8 @@
             "reference": 156.84059386913836,
             "source": "Smith & Coull",
             "before_error": 4.425544375408208e-10,
-            "after_error": 4.425544375408208e-10
+            "after_error": 4.425544375408208e-10,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278610,7 +278681,8 @@
             "reference": 716.8482618110761,
             "source": "Smith & Coull",
             "before_error": 5.3888015827396885e-08,
-            "after_error": 5.3888015827396885e-08
+            "after_error": 5.3888015827396885e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-wind-max",
@@ -278620,7 +278692,8 @@
             "reference": 971.1516195803749,
             "source": "wH\u2074/8EI",
             "before_error": 7.545168045908213e-08,
-            "after_error": 7.545168045908213e-08
+            "after_error": 7.545168045908213e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-wind-max",
@@ -278630,7 +278703,8 @@
             "reference": 5702.674950009857,
             "source": "Smith & Coull",
             "before_error": 3.981667759944685e-07,
-            "after_error": 3.981667759944685e-07
+            "after_error": 3.981667759944685e-07,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278666,7 +278740,8 @@
             "reference": 44.803016363192256,
             "source": "Smith & Coull",
             "before_error": 3.3680009892123053e-09,
-            "after_error": 3.3680009892123053e-09
+            "after_error": 3.3680009892123053e-09,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-wind-min",
@@ -278676,7 +278751,8 @@
             "reference": 60.69697622377343,
             "source": "wH\u2074/8EI",
             "before_error": 4.715730028692633e-09,
-            "after_error": 4.715730028692633e-09
+            "after_error": 4.715730028692633e-09,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-outrigger-wind-min",
@@ -278686,7 +278762,8 @@
             "reference": 356.41718437561605,
             "source": "Smith & Coull",
             "before_error": 2.488542349965428e-08,
-            "after_error": 2.488542349965428e-08
+            "after_error": 2.488542349965428e-08,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278716,7 +278793,8 @@
             "reference": 5532.8760423713575,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-b-max",
@@ -278726,7 +278804,8 @@
             "reference": 2083.7223468333646,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 4.547473508864641e-13,
-            "after_error": 4.547473508864641e-13
+            "after_error": 4.547473508864641e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-b-max",
@@ -278736,7 +278815,8 @@
             "reference": 441.13920215221873,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278766,7 +278846,8 @@
             "reference": 3407.876042371358,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-b-min",
@@ -278776,7 +278857,8 @@
             "reference": 1148.7223468333646,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 4.547473508864641e-13,
-            "after_error": 4.547473508864641e-13
+            "after_error": 4.547473508864641e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-b-min",
@@ -278786,7 +278868,8 @@
             "reference": 310.2392021522187,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278816,7 +278899,8 @@
             "reference": 6174.162668470677,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-barDia-max",
@@ -278826,7 +278910,8 @@
             "reference": 1793.2292078934142,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-barDia-max",
@@ -278836,7 +278921,8 @@
             "reference": 624.4765067462162,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 1.1368683772161603e-13,
-            "after_error": 1.1368683772161603e-13
+            "after_error": 1.1368683772161603e-13,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278866,7 +278952,8 @@
             "reference": 4520.585375253689,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-barDia-min",
@@ -278876,7 +278963,8 @@
             "reference": 1879.7900448600108,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 6.821210263296962e-13,
-            "after_error": 6.821210263296962e-13
+            "after_error": 6.821210263296962e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-barDia-min",
@@ -278886,7 +278974,8 @@
             "reference": 316.1852940963734,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278916,7 +279005,8 @@
             "reference": 5001.6260423713575,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-cover-max",
@@ -278926,7 +279016,8 @@
             "reference": 1751.5083783179803,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 4.547473508864641e-13,
-            "after_error": 4.547473508864641e-13
+            "after_error": 4.547473508864641e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-cover-max",
@@ -278936,7 +279027,8 @@
             "reference": 387.71725359384334,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 1.1368683772161603e-13,
-            "after_error": 1.1368683772161603e-13
+            "after_error": 1.1368683772161603e-13,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -278966,7 +279058,8 @@
             "reference": 5001.6260423713575,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-cover-min",
@@ -278976,7 +279069,8 @@
             "reference": 1913.7223468333652,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 6.821210263296962e-13,
-            "after_error": 6.821210263296962e-13
+            "after_error": 6.821210263296962e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-cover-min",
@@ -278986,7 +279080,8 @@
             "reference": 421.6624450852886,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279016,7 +279111,8 @@
             "reference": 5001.6260423713575,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-default",
@@ -279026,7 +279122,8 @@
             "reference": 1849.9723468333643,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 2.2737367544323206e-13,
-            "after_error": 2.2737367544323206e-13
+            "after_error": 2.2737367544323206e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-default",
@@ -279036,7 +279133,8 @@
             "reference": 408.41420215221876,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279066,7 +279164,8 @@
             "reference": 9211.57073603809,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-fc-max",
@@ -279076,7 +279175,8 @@
             "reference": 3008.5161222381585,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-fc-max",
@@ -279086,7 +279186,8 @@
             "reference": 631.6051065139433,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 1.1368683772161603e-13,
-            "after_error": 1.1368683772161603e-13
+            "after_error": 1.1368683772161603e-13,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279116,7 +279217,8 @@
             "reference": 4159.637103638012,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-fc-min",
@@ -279126,7 +279228,8 @@
             "reference": 1479.9778774666913,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 2.2737367544323206e-13,
-            "after_error": 2.2737367544323206e-13
+            "after_error": 2.2737367544323206e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-fc-min",
@@ -279136,7 +279239,8 @@
             "reference": 356.81525297255087,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279166,7 +279270,8 @@
             "reference": 9251.626042371357,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 1.8189894035458565e-12,
-            "after_error": 1.8189894035458565e-12
+            "after_error": 1.8189894035458565e-12,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-h-max",
@@ -279176,7 +279281,8 @@
             "reference": 3974.972346833366,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-h-max",
@@ -279186,7 +279292,8 @@
             "reference": 1398.2026260367168,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 2.2737367544323206e-13,
-            "after_error": 2.2737367544323206e-13
+            "after_error": 2.2737367544323206e-13,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279216,7 +279323,8 @@
             "reference": 2451.6260423713584,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-h-min",
@@ -279226,7 +279334,8 @@
             "reference": 332.6209135564383,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-h-min",
@@ -279236,7 +279345,8 @@
             "reference": 59.84709049044265,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 1.4210854715202004e-14,
-            "after_error": 1.4210854715202004e-14
+            "after_error": 1.4210854715202004e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279266,7 +279376,8 @@
             "reference": 5001.6260423713575,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-mu-max",
@@ -279276,7 +279387,8 @@
             "reference": 1849.9723468333643,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 2.2737367544323206e-13,
-            "after_error": 2.2737367544323206e-13
+            "after_error": 2.2737367544323206e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-mu-max",
@@ -279286,7 +279398,8 @@
             "reference": 408.41420215221876,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279316,7 +279429,8 @@
             "reference": 5001.6260423713575,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-mu-min",
@@ -279326,7 +279440,8 @@
             "reference": 1849.9723468333643,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 2.2737367544323206e-13,
-            "after_error": 2.2737367544323206e-13
+            "after_error": 2.2737367544323206e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-mu-min",
@@ -279336,7 +279451,8 @@
             "reference": 408.41420215221876,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279366,7 +279482,8 @@
             "reference": 5001.6260423713575,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-perFace-max",
@@ -279376,7 +279493,8 @@
             "reference": 1849.9723468333643,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 2.2737367544323206e-13,
-            "after_error": 2.2737367544323206e-13
+            "after_error": 2.2737367544323206e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-perFace-max",
@@ -279386,7 +279504,8 @@
             "reference": 408.41420215221876,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279416,7 +279535,8 @@
             "reference": 4751.084028247572,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 9.094947017729282e-13,
-            "after_error": 9.094947017729282e-13
+            "after_error": 9.094947017729282e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-perFace-min",
@@ -279426,7 +279546,8 @@
             "reference": 1856.6482312222424,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 2.2737367544323206e-13,
-            "after_error": 2.2737367544323206e-13
+            "after_error": 2.2737367544323206e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-perFace-min",
@@ -279436,7 +279557,8 @@
             "reference": 359.5428014348125,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279466,7 +279588,8 @@
             "reference": 5001.6260423713575,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-pu-max",
@@ -279476,7 +279599,8 @@
             "reference": 1849.9723468333643,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 2.2737367544323206e-13,
-            "after_error": 2.2737367544323206e-13
+            "after_error": 2.2737367544323206e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-pu-max",
@@ -279486,7 +279610,8 @@
             "reference": 408.41420215221876,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279516,7 +279641,8 @@
             "reference": 5001.6260423713575,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-pu-min",
@@ -279526,7 +279652,8 @@
             "reference": 1849.9723468333643,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 2.2737367544323206e-13,
-            "after_error": 2.2737367544323206e-13
+            "after_error": 2.2737367544323206e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-pu-min",
@@ -279536,7 +279663,8 @@
             "reference": 408.41420215221876,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279566,7 +279694,8 @@
             "reference": 5152.422489743668,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-steel-max",
@@ -279576,7 +279705,8 @@
             "reference": 1666.8484570295177,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 2.2737367544323206e-13,
-            "after_error": 2.2737367544323206e-13
+            "after_error": 2.2737367544323206e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-steel-max",
@@ -279586,7 +279716,8 @@
             "reference": 422.9439880902265,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 1.1368683772161603e-13,
-            "after_error": 1.1368683772161603e-13
+            "after_error": 1.1368683772161603e-13,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -279616,7 +279747,8 @@
             "reference": 5001.6260423713575,
             "source": "0.85f\u2032c(Ag\u2212Ast)+fyAst",
             "before_error": 0.0,
-            "after_error": 0.0
+            "after_error": 0.0,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-steel-min",
@@ -279626,7 +279758,8 @@
             "reference": 1849.9723468333643,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 2.2737367544323206e-13,
-            "after_error": 2.2737367544323206e-13
+            "after_error": 2.2737367544323206e-13,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-rc-column-steel-min",
@@ -279636,7 +279769,8 @@
             "reference": 408.41420215221876,
             "source": "c_b = d\u00b7\u03b5cu/(\u03b5cu+\u03b5y)",
             "before_error": 5.684341886080802e-14,
-            "after_error": 5.684341886080802e-14
+            "after_error": 5.684341886080802e-14,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -288247,7 +288381,8 @@
             "reference": 24.339803852876383,
             "source": "Reissner\u2013Mindlin Navier series, \u03ba = 5/6 (Reddy 2007; Wang, Reddy & Lee 2000)",
             "before_error": 0.10032396176571012,
-            "after_error": 0.03256973597585855
+            "after_error": 0.03256973597585855,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -291180,7 +291315,8 @@
             "reference": 0.8470796598512744,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 4.553238552862382e-08,
-            "after_error": 4.553238552862382e-08
+            "after_error": 4.553238552862382e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-default",
@@ -291190,7 +291326,8 @@
             "reference": 5.308557612594137,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 1.1135345613588754e-05,
-            "after_error": 1.1135345613588754e-05
+            "after_error": 1.1135345613588754e-05,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-default",
@@ -291200,7 +291337,8 @@
             "reference": 14.864115030278079,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 0.00024330773455361054,
-            "after_error": 0.00024330773455361054
+            "after_error": 0.00024330773455361054,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-default",
@@ -291210,7 +291348,8 @@
             "reference": 14.958387773225546,
             "source": "\u03c0\u00b2EI/4H\u00b2P",
             "before_error": 7.902484817634559e-07,
-            "after_error": 7.902484817634559e-07
+            "after_error": 7.902484817634559e-07,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-default",
@@ -291220,7 +291359,8 @@
             "reference": 29916.775546451092,
             "source": "\u03c0\u00b2EI/4H\u00b2",
             "before_error": 0.0015804969625605736,
-            "after_error": 0.0015804969625605736
+            "after_error": 0.0015804969625605736,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -291271,7 +291411,8 @@
             "reference": 1.6998156429371305,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 9.087951147179751e-08,
-            "after_error": 9.087951147179751e-08
+            "after_error": 9.087951147179751e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-diameter-max",
@@ -291281,7 +291422,8 @@
             "reference": 10.652562797818579,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 2.2344959289100075e-05,
-            "after_error": 2.2344959289100075e-05
+            "after_error": 2.2344959289100075e-05,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-diameter-max",
@@ -291291,7 +291433,8 @@
             "reference": 29.82748429034373,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 0.0004882401262271685,
-            "after_error": 0.0004882401262271685
+            "after_error": 0.0004882401262271685,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-diameter-max",
@@ -291301,7 +291444,8 @@
             "reference": 120.87175933931566,
             "source": "\u03c0\u00b2EI/4H\u00b2P",
             "before_error": 6.3863414396791995e-06,
-            "after_error": 6.3863414396791995e-06
+            "after_error": 6.3863414396791995e-06,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-diameter-max",
@@ -291311,7 +291455,8 @@
             "reference": 241743.5186786313,
             "source": "\u03c0\u00b2EI/4H\u00b2",
             "before_error": 0.012772682879585773,
-            "after_error": 0.012772682879585773
+            "after_error": 0.012772682879585773,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -291362,7 +291507,8 @@
             "reference": 0.2786215512870515,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 1.4916810120446655e-08,
-            "after_error": 1.4916810120446655e-08
+            "after_error": 1.4916810120446655e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-diameter-min",
@@ -291372,7 +291518,8 @@
             "reference": 1.7460914565902261,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 3.662629977752019e-06,
-            "after_error": 3.662629977752019e-06
+            "after_error": 3.662629977752019e-06,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-diameter-min",
@@ -291382,7 +291529,8 @@
             "reference": 4.889106638415083,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 8.002880861468498e-05,
-            "after_error": 8.002880861468498e-05
+            "after_error": 8.002880861468498e-05,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-diameter-min",
@@ -291392,7 +291540,8 @@
             "reference": 0.5322007764380317,
             "source": "\u03c0\u00b2EI/4H\u00b2P",
             "before_error": 2.811430299676232e-08,
-            "after_error": 2.811430299676232e-08
+            "after_error": 2.811430299676232e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-diameter-min",
@@ -291402,7 +291551,8 @@
             "reference": 1064.4015528760633,
             "source": "\u03c0\u00b2EI/4H\u00b2",
             "before_error": 5.6228605899377726e-05,
-            "after_error": 5.6228605899377726e-05
+            "after_error": 5.6228605899377726e-05,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -291453,7 +291603,8 @@
             "reference": 0.1355327455762039,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 7.240788912898921e-09,
-            "after_error": 7.240788912898921e-09
+            "after_error": 7.240788912898921e-09,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-height-max",
@@ -291463,7 +291614,8 @@
             "reference": 0.8493692180150619,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 1.7816480293308956e-06,
-            "after_error": 1.7816480293308956e-06
+            "after_error": 1.7816480293308956e-06,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-height-max",
@@ -291473,7 +291625,8 @@
             "reference": 2.378258404844493,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 3.89292356466342e-05,
-            "after_error": 3.89292356466342e-05
+            "after_error": 3.89292356466342e-05,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-height-max",
@@ -291483,7 +291636,8 @@
             "reference": 2.3933420437160873,
             "source": "\u03c0\u00b2EI/4H\u00b2P",
             "before_error": 1.2643977242987603e-07,
-            "after_error": 1.2643977242987603e-07
+            "after_error": 1.2643977242987603e-07,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-height-max",
@@ -291493,7 +291647,8 @@
             "reference": 4786.684087432174,
             "source": "\u03c0\u00b2EI/4H\u00b2",
             "before_error": 0.00025287954485975206,
-            "after_error": 0.00025287954485975206
+            "after_error": 0.00025287954485975206,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -291544,7 +291699,8 @@
             "reference": 7.623716938661471,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 4.093605845412185e-07,
-            "after_error": 4.093605845412185e-07
+            "after_error": 4.093605845412185e-07,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-height-min",
@@ -291554,7 +291710,8 @@
             "reference": 47.777018513347244,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 0.00010021782622260389,
-            "after_error": 0.00010021782622260389
+            "after_error": 0.00010021782622260389,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-height-min",
@@ -291564,7 +291721,8 @@
             "reference": 133.77703527250273,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 0.0021897695349650803,
-            "after_error": 0.0021897695349650803
+            "after_error": 0.0021897695349650803,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-height-min",
@@ -291574,7 +291732,8 @@
             "reference": 134.62548995902992,
             "source": "\u03c0\u00b2EI/4H\u00b2P",
             "before_error": 7.111891477507015e-06,
-            "after_error": 7.111891477507015e-06
+            "after_error": 7.111891477507015e-06,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-height-min",
@@ -291584,7 +291743,8 @@
             "reference": 269250.97991805983,
             "source": "\u03c0\u00b2EI/4H\u00b2",
             "before_error": 0.01422378298593685,
-            "after_error": 0.01422378298593685
+            "after_error": 0.01422378298593685,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -291635,7 +291795,8 @@
             "reference": 0.8358646538611544,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 4.4736453097549145e-08,
-            "after_error": 4.4736453097549145e-08
+            "after_error": 4.4736453097549145e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-thickness-max",
@@ -291645,7 +291806,8 @@
             "reference": 5.238274369770678,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 1.0987876588153256e-05,
-            "after_error": 1.0987876588153256e-05
+            "after_error": 1.0987876588153256e-05,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-thickness-max",
@@ -291655,7 +291817,8 @@
             "reference": 14.667319915245248,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 0.00024008642917827672,
-            "after_error": 0.00024008642917827672
+            "after_error": 0.00024008642917827672,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-thickness-max",
@@ -291665,7 +291828,8 @@
             "reference": 43.108262891480564,
             "source": "\u03c0\u00b2EI/4H\u00b2P",
             "before_error": 2.2777638832849334e-06,
-            "after_error": 2.2777638832849334e-06
+            "after_error": 2.2777638832849334e-06,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-thickness-max",
@@ -291675,7 +291839,8 @@
             "reference": 86216.52578296112,
             "source": "\u03c0\u00b2EI/4H\u00b2",
             "before_error": 0.004555527775664814,
-            "after_error": 0.004555527775664814
+            "after_error": 0.004555527775664814,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -291726,7 +291891,8 @@
             "reference": 0.8504746052833876,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 4.540716314060944e-08,
-            "after_error": 4.540716314060944e-08
+            "after_error": 4.540716314060944e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-thickness-min",
@@ -291736,7 +291902,8 @@
             "reference": 5.32983337244552,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 1.1179912378089796e-05,
-            "after_error": 1.1179912378089796e-05
+            "after_error": 1.1179912378089796e-05,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-thickness-min",
@@ -291746,7 +291913,8 @@
             "reference": 14.923687773924536,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 0.00024428285318478515,
-            "after_error": 0.00024428285318478515
+            "after_error": 0.00024428285318478515,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-thickness-min",
@@ -291756,7 +291924,8 @@
             "reference": 6.055699239298422,
             "source": "\u03c0\u00b2EI/4H\u00b2P",
             "before_error": 3.1988251780745713e-07,
-            "after_error": 3.1988251780745713e-07
+            "after_error": 3.1988251780745713e-07,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-thickness-min",
@@ -291766,7 +291935,8 @@
             "reference": 12111.398478596844,
             "source": "\u03c0\u00b2EI/4H\u00b2",
             "before_error": 0.0006397650340659311,
-            "after_error": 0.0006397650340659311
+            "after_error": 0.0006397650340659311,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -291817,7 +291987,8 @@
             "reference": 0.8470796598512744,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 4.553238552862382e-08,
-            "after_error": 4.553238552862382e-08
+            "after_error": 4.553238552862382e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topLoad-max",
@@ -291827,7 +291998,8 @@
             "reference": 5.308557612594137,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 1.1135345613588754e-05,
-            "after_error": 1.1135345613588754e-05
+            "after_error": 1.1135345613588754e-05,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topLoad-max",
@@ -291837,7 +292009,8 @@
             "reference": 14.864115030278079,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 0.00024330773455361054,
-            "after_error": 0.00024330773455361054
+            "after_error": 0.00024330773455361054,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topLoad-max",
@@ -291847,7 +292020,8 @@
             "reference": 1.4958387773225545,
             "source": "\u03c0\u00b2EI/4H\u00b2P",
             "before_error": 7.902484577826385e-08,
-            "after_error": 7.902484577826385e-08
+            "after_error": 7.902484577826385e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topLoad-max",
@@ -291857,7 +292031,8 @@
             "reference": 29916.775546451092,
             "source": "\u03c0\u00b2EI/4H\u00b2",
             "before_error": 0.001580496915266849,
-            "after_error": 0.001580496915266849
+            "after_error": 0.001580496915266849,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -291908,7 +292083,8 @@
             "reference": 0.8470796598512744,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 4.553238552862382e-08,
-            "after_error": 4.553238552862382e-08
+            "after_error": 4.553238552862382e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topLoad-min",
@@ -291918,7 +292094,8 @@
             "reference": 5.308557612594137,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 1.1135345613588754e-05,
-            "after_error": 1.1135345613588754e-05
+            "after_error": 1.1135345613588754e-05,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topLoad-min",
@@ -291928,7 +292105,8 @@
             "reference": 14.864115030278079,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 0.00024330773455361054,
-            "after_error": 0.00024330773455361054
+            "after_error": 0.00024330773455361054,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topLoad-min",
@@ -291938,7 +292116,8 @@
             "reference": 299.16775546451095,
             "source": "\u03c0\u00b2EI/4H\u00b2P",
             "before_error": 1.580496729047809e-05,
-            "after_error": 1.580496729047809e-05
+            "after_error": 1.580496729047809e-05,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topLoad-min",
@@ -291948,7 +292127,8 @@
             "reference": 29916.775546451092,
             "source": "\u03c0\u00b2EI/4H\u00b2",
             "before_error": 0.0015804967333679087,
-            "after_error": 0.0015804967333679087
+            "after_error": 0.0015804967333679087,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -291999,7 +292179,8 @@
             "reference": 0.21877994628404987,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0, \u03bc = M/mL = 3.40",
             "before_error": 7.514161515231876e-11,
-            "after_error": 7.514161515231876e-11
+            "after_error": 7.514161515231876e-11,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topMass-max",
@@ -292009,7 +292190,8 @@
             "reference": 3.778961942673164,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0, \u03bc = M/mL = 3.40",
             "before_error": 3.899444592558865e-06,
-            "after_error": 3.899444592558865e-06
+            "after_error": 3.899444592558865e-06,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topMass-max",
@@ -292019,7 +292201,8 @@
             "reference": 12.106990557029004,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0, \u03bc = M/mL = 3.40",
             "before_error": 0.0001307940085908399,
-            "after_error": 0.0001307940085908399
+            "after_error": 0.0001307940085908399,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topMass-max",
@@ -292029,7 +292212,8 @@
             "reference": 14.958387773225546,
             "source": "\u03c0\u00b2EI/4H\u00b2P",
             "before_error": 7.902484817634559e-07,
-            "after_error": 7.902484817634559e-07
+            "after_error": 7.902484817634559e-07,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topMass-max",
@@ -292039,7 +292223,8 @@
             "reference": 29916.775546451092,
             "source": "\u03c0\u00b2EI/4H\u00b2",
             "before_error": 0.0015804969625605736,
-            "after_error": 0.0015804969625605736
+            "after_error": 0.0015804969625605736,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       },
@@ -292090,7 +292275,8 @@
             "reference": 0.8470796598512744,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 4.553238552862382e-08,
-            "after_error": 4.553238552862382e-08
+            "after_error": 4.553238552862382e-08,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topMass-min",
@@ -292100,7 +292286,8 @@
             "reference": 5.308557612594137,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 1.1135345613588754e-05,
-            "after_error": 1.1135345613588754e-05
+            "after_error": 1.1135345613588754e-05,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topMass-min",
@@ -292110,7 +292297,8 @@
             "reference": 14.864115030278079,
             "source": "(\u03b2L)\u00b2\u221a(EI/mL\u2074)/2\u03c0",
             "before_error": 0.00024330773455361054,
-            "after_error": 0.00024330773455361054
+            "after_error": 0.00024330773455361054,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topMass-min",
@@ -292120,7 +292308,8 @@
             "reference": 14.958387773225546,
             "source": "\u03c0\u00b2EI/4H\u00b2P",
             "before_error": 7.902484817634559e-07,
-            "after_error": 7.902484817634559e-07
+            "after_error": 7.902484817634559e-07,
+            "status": "archived; endpoint reference identity unverified"
           },
           {
             "case": "site-tower-topMass-min",
@@ -292130,7 +292319,8 @@
             "reference": 29916.775546451092,
             "source": "\u03c0\u00b2EI/4H\u00b2",
             "before_error": 0.0015804969625605736,
-            "after_error": 0.0015804969625605736
+            "after_error": 0.0015804969625605736,
+            "status": "archived; endpoint reference identity unverified"
           }
         ]
       }
@@ -292139,6 +292329,26 @@
     "endpoint_completeness_validation": {
       "status": "not reverified",
       "reason": "Raw baseline/head gallery captures and their manifests are absent from the worktree archives; site-gallery-diff.json alone cannot establish endpoint completeness."
+    },
+    "changed_reference_targets": [
+      {
+        "case": "site-slab-on-columns-supports-max",
+        "quantity": "maxDeflection",
+        "before_reference": {
+          "value": 24.302769941419953,
+          "source": "Navier"
+        },
+        "after_reference": {
+          "value": 24.339803852876383,
+          "source": "Reissner\u2013Mindlin Navier series, \u03ba = 5/6 (Reddy 2007; Wang, Reddy & Lee 2000)"
+        },
+        "evidence": "Archived readout-index diff and recorded head reference; raw endpoint reference identities remain unverified."
+      }
+    ],
+    "reference_identity_validation": {
+      "status": "unverified",
+      "reason": "Raw baseline/head captures are unavailable. Archived reference/error fields used only the head target and cannot establish matched endpoint reference identities. All archived gallery distance claims are withdrawn; the saved diff explicitly records one changed target.",
+      "validated_farther_from_reference": null
     }
   },
   "acceptance": {
@@ -295343,9 +295553,9 @@
         "after_error": null,
         "farther": null,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+        "pr": null,
+        "category": "self_consistency",
         "first_parent_merges": [],
         "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
         "reference_kind": "self convergence",
@@ -295367,9 +295577,9 @@
         "after_error": null,
         "farther": null,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+        "pr": null,
+        "category": "self_consistency",
         "first_parent_merges": [],
         "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
         "reference_kind": "self convergence",
@@ -295391,9 +295601,9 @@
         "after_error": null,
         "farther": null,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+        "pr": null,
+        "category": "self_consistency",
         "first_parent_merges": [],
         "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
         "reference_kind": "self convergence",
@@ -295415,9 +295625,9 @@
         "after_error": null,
         "farther": null,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+        "pr": null,
+        "category": "self_consistency",
         "first_parent_merges": [],
         "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
         "reference_kind": "self convergence",
@@ -295790,9 +296000,9 @@
           "solve_3d-a0c603b2f49029bf.json",
           "solve_3d-16f80d40bc2a7612.json"
         ],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+        "pr": null,
+        "category": "self_consistency",
         "first_parent_merges": [],
         "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
         "reference_kind": "self convergence",
@@ -295819,9 +296029,9 @@
           "solve_3d-8e3039046960e41e.json",
           "solve_3d-95239310a93e14b0.json"
         ],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+        "pr": null,
+        "category": "self_consistency",
         "first_parent_merges": [],
         "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
         "reference_kind": "self convergence",
@@ -295847,12 +296057,10 @@
           "solve_3d-1ddef2d9d9bcf406.json",
           "solve_3d-ce1f19b3352fb8ce.json"
         ],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
-        "first_parent_merges": [
-          "77294fe006d716bf2e1900a85b3818906cf2fd33"
-        ],
+        "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+        "pr": null,
+        "category": "self_consistency",
+        "first_parent_merges": [],
         "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
         "reference_kind": "self convergence",
         "comparison_status": "incomparable: endpoint references differ",
@@ -295878,9 +296086,9 @@
           "solve_3d-8e3039046960e41e.json",
           "solve_3d-95239310a93e14b0.json"
         ],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+        "pr": null,
+        "category": "self_consistency",
         "first_parent_merges": [],
         "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
         "reference_kind": "self convergence",
@@ -305609,399 +305817,6 @@
         "status": "compared"
       },
       {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
-        "model": "solve_3d-8c86fc3c9a42de15.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.826304719599367e-07,
-        "after": 2.826304719599367e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 4.6510989385126027e-10,
-        "after_error": 4.6510989385126027e-10,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": null,
-        "first_parent_merge": null,
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
-        "model": "solve_3d-ad4bcc7de66fb3e9.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.826304719599367e-07,
-        "after": 2.826304719599367e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 4.6510989385126027e-10,
-        "after_error": 4.6510989385126027e-10,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": null,
-        "first_parent_merge": null,
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
-        "model": "solve_3d-a0c603b2f49029bf.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.826304719599367e-07,
-        "after": 2.826304719599367e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 4.6510989385126027e-10,
-        "after_error": 4.6510989385126027e-10,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": null,
-        "first_parent_merge": null,
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
-        "model": "solve_3d-16f80d40bc2a7612.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.826304719599367e-07,
-        "after": 2.826304719599367e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 4.6510989385126027e-10,
-        "after_error": 4.6510989385126027e-10,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": null,
-        "first_parent_merge": null,
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
-        "model": "solve_3d-26783e873325fde8.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.8219311071198177e-07,
-        "after": 2.8219311071198177e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 2.7748645896309435e-11,
-        "after_error": 2.7748645896309435e-11,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": null,
-        "first_parent_merge": null,
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
-        "model": "solve_3d-cc3431e9332c03ef.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.8219311071198177e-07,
-        "after": 2.8219311071198177e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 2.7748645896309435e-11,
-        "after_error": 2.7748645896309435e-11,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": null,
-        "first_parent_merge": null,
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
-        "model": "solve_3d-8e3039046960e41e.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.8219311071198177e-07,
-        "after": 2.8219311071198177e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 2.7748645896309435e-11,
-        "after_error": 2.7748645896309435e-11,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": null,
-        "first_parent_merge": null,
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
-        "model": "solve_3d-95239310a93e14b0.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.8219311071198177e-07,
-        "after": 2.8219311071198177e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 2.7748645896309435e-11,
-        "after_error": 2.7748645896309435e-11,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": null,
-        "first_parent_merge": null,
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
-        "model": "solve_3d-c7886b5c64807661.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.821653620677993e-07,
-        "after": 2.8216536206608546e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 1.71386528965067e-18,
-        "after_error": 0.0,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": 1753,
-        "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz",
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
-        "model": "solve_3d-1ddef2d9d9bcf406.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.821653620677993e-07,
-        "after": 2.8216536206608546e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 1.71386528965067e-18,
-        "after_error": 0.0,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": 1753,
-        "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz",
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
-        "model": "solve_3d-ce1f19b3352fb8ce.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.821653620677993e-07,
-        "after": 2.8216536206608546e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 1.71386528965067e-18,
-        "after_error": 0.0,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": 1753,
-        "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz",
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
-        "model": "solve_3d-26783e873325fde8.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.8219311071198177e-07,
-        "after": 2.8219311071198177e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 2.7748645896309435e-11,
-        "after_error": 2.7748645896309435e-11,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": null,
-        "first_parent_merge": null,
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
-        "model": "solve_3d-cc3431e9332c03ef.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.8219311071198177e-07,
-        "after": 2.8219311071198177e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 2.7748645896309435e-11,
-        "after_error": 2.7748645896309435e-11,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": null,
-        "first_parent_merge": null,
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
-        "model": "solve_3d-8e3039046960e41e.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.8219311071198177e-07,
-        "after": 2.8219311071198177e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 2.7748645896309435e-11,
-        "after_error": 2.7748645896309435e-11,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": null,
-        "first_parent_merge": null,
-        "status": "compared"
-      },
-      {
-        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
-        "model": "solve_3d-95239310a93e14b0.json",
-        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-        "selector": {
-          "nodes": [
-            1
-          ],
-          "component": "uz",
-          "scale": 1,
-          "absolute": true,
-          "average": false
-        },
-        "before": 2.8219311071198177e-07,
-        "after": 2.8219311071198177e-07,
-        "reference": 2.8216536206608546e-07,
-        "before_error": 2.7748645896309435e-11,
-        "after_error": 2.7748645896309435e-11,
-        "farther": false,
-        "same_input": true,
-        "comparison_mode": "same frozen input",
-        "reference_kind": "self convergence",
-        "pr": null,
-        "first_parent_merge": null,
-        "status": "compared"
-      },
-      {
         "id": "benchmarks::shell_benchmark::benchmark_raasch_hook:0",
         "model": "solve_3d-6496121985f2aa27.json",
         "test": "benchmarks::shell_benchmark::benchmark_raasch_hook",
@@ -310072,8 +309887,8 @@
     "unresolved_frozen_measurements": [],
     "coverage_counts": {
       "checker_control": 10,
-      "engineering_reference": 333,
-      "self_consistency": 4,
+      "engineering_reference": 325,
+      "self_consistency": 12,
       "test_input_metric": 1
     },
     "as_shipped_identity_validation": {
@@ -310083,10 +309898,420 @@
       "requires": "Capture stable site and explicit model/quantity/parameter selectors for repeated observations, then rerun both endpoints."
     },
     "frozen_outcome_counts": {
-      "compared": 176,
+      "compared": 161,
       "refused at head": 0
     },
-    "model_attribution_limitation": "Model attribution and fallback measurement-selector recovery remain value-based and may be ambiguous where values coincide; the coordinator tracks that separately."
+    "model_attribution_limitation": "Model attribution and fallback measurement-selector recovery remain value-based and may be ambiguous where values coincide; the coordinator tracks that separately.",
+    "self_consistency_comparisons": [
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
+        "model": "solve_3d-8c86fc3c9a42de15.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.826304719599367e-07,
+        "after": 2.826304719599367e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 4.6510989385126027e-10,
+        "after_error": 4.6510989385126027e-10,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": null,
+        "first_parent_merge": null,
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
+        "model": "solve_3d-ad4bcc7de66fb3e9.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.826304719599367e-07,
+        "after": 2.826304719599367e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 4.6510989385126027e-10,
+        "after_error": 4.6510989385126027e-10,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": null,
+        "first_parent_merge": null,
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
+        "model": "solve_3d-a0c603b2f49029bf.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.826304719599367e-07,
+        "after": 2.826304719599367e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 4.6510989385126027e-10,
+        "after_error": 4.6510989385126027e-10,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": null,
+        "first_parent_merge": null,
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
+        "model": "solve_3d-16f80d40bc2a7612.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.826304719599367e-07,
+        "after": 2.826304719599367e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 4.6510989385126027e-10,
+        "after_error": 4.6510989385126027e-10,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": null,
+        "first_parent_merge": null,
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
+        "model": "solve_3d-26783e873325fde8.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.8219311071198177e-07,
+        "after": 2.8219311071198177e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 2.7748645896309435e-11,
+        "after_error": 2.7748645896309435e-11,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": null,
+        "first_parent_merge": null,
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
+        "model": "solve_3d-cc3431e9332c03ef.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.8219311071198177e-07,
+        "after": 2.8219311071198177e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 2.7748645896309435e-11,
+        "after_error": 2.7748645896309435e-11,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": null,
+        "first_parent_merge": null,
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
+        "model": "solve_3d-8e3039046960e41e.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.8219311071198177e-07,
+        "after": 2.8219311071198177e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 2.7748645896309435e-11,
+        "after_error": 2.7748645896309435e-11,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": null,
+        "first_parent_merge": null,
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
+        "model": "solve_3d-95239310a93e14b0.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.8219311071198177e-07,
+        "after": 2.8219311071198177e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 2.7748645896309435e-11,
+        "after_error": 2.7748645896309435e-11,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": null,
+        "first_parent_merge": null,
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
+        "model": "solve_3d-c7886b5c64807661.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.821653620677993e-07,
+        "after": 2.8216536206608546e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 1.71386528965067e-18,
+        "after_error": 0.0,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": 1753,
+        "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
+        "model": "solve_3d-1ddef2d9d9bcf406.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.821653620677993e-07,
+        "after": 2.8216536206608546e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 1.71386528965067e-18,
+        "after_error": 0.0,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": 1753,
+        "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
+        "model": "solve_3d-ce1f19b3352fb8ce.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.821653620677993e-07,
+        "after": 2.8216536206608546e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 1.71386528965067e-18,
+        "after_error": 0.0,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": 1753,
+        "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
+        "model": "solve_3d-26783e873325fde8.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.8219311071198177e-07,
+        "after": 2.8219311071198177e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 2.7748645896309435e-11,
+        "after_error": 2.7748645896309435e-11,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": null,
+        "first_parent_merge": null,
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
+        "model": "solve_3d-cc3431e9332c03ef.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.8219311071198177e-07,
+        "after": 2.8219311071198177e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 2.7748645896309435e-11,
+        "after_error": 2.7748645896309435e-11,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": null,
+        "first_parent_merge": null,
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
+        "model": "solve_3d-8e3039046960e41e.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.8219311071198177e-07,
+        "after": 2.8219311071198177e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 2.7748645896309435e-11,
+        "after_error": 2.7748645896309435e-11,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": null,
+        "first_parent_merge": null,
+        "status": "compared",
+        "category": "self_consistency"
+      },
+      {
+        "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
+        "model": "solve_3d-95239310a93e14b0.json",
+        "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+        "selector": {
+          "nodes": [
+            1
+          ],
+          "component": "uz",
+          "scale": 1,
+          "absolute": true,
+          "average": false
+        },
+        "before": 2.8219311071198177e-07,
+        "after": 2.8219311071198177e-07,
+        "reference": 2.8216536206608546e-07,
+        "before_error": 2.7748645896309435e-11,
+        "after_error": 2.7748645896309435e-11,
+        "farther": false,
+        "same_input": true,
+        "comparison_mode": "same frozen input",
+        "reference_kind": "self convergence",
+        "pr": null,
+        "first_parent_merge": null,
+        "status": "compared",
+        "category": "self_consistency"
+      }
+    ]
   },
   "merge_reviews": [
     {
@@ -335139,7 +335364,8 @@
     "Historical bisection artifacts establish the recorded adjacent transitions, not the earliest change: monotonicity was unverified. Corrected scripts scan revisions in order. A full history rerun was excluded by the targeted-only, no-heavy-runs constraint.",
     "Final endpoint checks reject the historical as-shipped reference comparison batch and withdraw its distance conclusions. Raw gallery endpoint captures are unavailable locally, so the archived 86-case gallery summary does not reverify endpoint completeness. See final-endpoint-checks.json. Frozen-input results retain explicit measurement selectors and archived adjacent outputs.",
     "Model attribution and fallback measurement-selector recovery remain value-based and may be ambiguous where values coincide; the coordinator tracks that separately.",
-    "Review rerun regenerates 95 frozen measurements from available adjacent full outputs and matches their archived endpoint measurements exactly, including all 53 distance flags. All 176 archived comparisons remain retained; complete pinned endpoint captures are unavailable locally, so this is not a full endpoint replay. The seven native refusals have no attributed engineering-reference measurement; refused-at-head reference count is zero. See review-endpoint-checks.json."
+    "Review rerun regenerates 95 frozen measurements from available adjacent full outputs and matches their archived endpoint measurements exactly, including all 53 distance flags. All 176 archived comparisons remain retained; complete pinned endpoint captures are unavailable locally, so this is not a full endpoint replay. The seven native refusals have no attributed engineering-reference measurement; refused-at-head reference count is zero. See review-endpoint-checks.json.",
+    "Round 9: archived gallery endpoint reference identities are unavailable; all archived gallery error/distance claims are unverified. The saved diff records a slab target change, explicitly separated from valid comparisons by the corrected script."
   ],
   "registration_gaps": [
     {
@@ -335221,8 +335447,8 @@
     },
     {
       "file": "annotate-references.py",
-      "bytes": 3945,
-      "sha256": "2b09e956230389449a75193bba4a8c5e5baa34b51e2400cf553c11338432d2c1"
+      "bytes": 4081,
+      "sha256": "1325d71aec479223a7d20317fd43d07201a773532eb640717e70c44f1fb6cedf"
     },
     {
       "file": "arc-bisection.json",
@@ -335231,8 +335457,8 @@
     },
     {
       "file": "audit_evidence.py",
-      "bytes": 6298,
-      "sha256": "0c172100b38198465bd5d5fa5490dc5b6682b7ae3da3853aed1d714d2d58510f"
+      "bytes": 7943,
+      "sha256": "d21be8f63d68003668ef80d71d19b9d9ef6aa07f79ac0a1ea564c5da4fec64ab"
     },
     {
       "file": "base-r3-fixed-replay.log",
@@ -335301,8 +335527,8 @@
     },
     {
       "file": "finish-analysis.py",
-      "bytes": 4151,
-      "sha256": "2d93b1e57afb44a986b8bfa5dbcd4ac8b2122d699e4797d0549ee7e707fc4632"
+      "bytes": 4113,
+      "sha256": "71662f0e6ef81bb104ccbe2eea216aec0db39ce82190cbe59480d8b946b79040"
     },
     {
       "file": "finish-corpus.sh",
@@ -335416,8 +335642,8 @@
     },
     {
       "file": "reference-comparisons.json",
-      "bytes": 601217,
-      "sha256": "8a27116af8cfe3921f9faf544a659c9bc9373bb07212912b5e2228aa6abcea12"
+      "bytes": 601425,
+      "sha256": "5c139a81cdeb8f4753348788116e95db41bc5a44f09e7789ab03c1ab3ca84159"
     },
     {
       "file": "reference-probe-logs.json.gz",
@@ -335496,8 +335722,8 @@
     },
     {
       "file": "site-gallery-diff.json",
-      "bytes": 445249,
-      "sha256": "26b80bd11004562e0d126cdaee6784e317bc97d81d1e44eaecc37e45a4687d02"
+      "bytes": 459299,
+      "sha256": "b74021ce0b09d6bc7b6173d1b7105015d7b9b3db2bc8a435cc87a0b986718169"
     },
     {
       "file": "site-gallery.test.ts",
@@ -335548,6 +335774,11 @@
       "file": "review-endpoint-checks.json",
       "bytes": 4301,
       "sha256": "37f427807575b5162282d6e3dcb0adec6c20076e525e9e8be0bea3c0deca9f8c"
+    },
+    {
+      "file": "round-9-endpoint-checks.json",
+      "bytes": 4327,
+      "sha256": "3e5241bab6cd8f6c3c8a996fd4b332ced1b20c3b95faab301bfcbda50e35a5c1"
     }
   ],
   "round_2_evidence": {
@@ -335632,6 +335863,12 @@
       "issue": "https://github.com/lambdaclass/stabileo/issues/1949",
       "path": "nonlinear.results.reactions",
       "status": "known wrong; expected-failure support-reaction check, not accepted output"
+    },
+    {
+      "model": "solve_arc_length-0006e86e35791232.json",
+      "issue": "https://github.com/lambdaclass/stabileo/issues/1949",
+      "path": "nonlinear.results.reactions",
+      "status": "known wrong on main: #1949; PR #1952 replaces this"
     }
   ],
   "bisection_scope": "Historical bisection artifacts establish the recorded adjacent transitions, not the earliest change: monotonicity was unverified. Corrected scripts scan revisions in order. A full history rerun was excluded by the targeted-only, no-heavy-runs constraint. Static signatures now include every output field except timing and build provenance. Rechecking the archived full outputs preserves all 142 archived adjacent comparisons (138 static plus 4 reference, with overlapping models); their original displacement-selected search cannot establish earliest full-output attribution. See full-output-boundary-proof.json. New scans also report quantity_transitions independently for each engineering quantity, preventing an earlier displacement boundary from attributing a later force change.",
@@ -336308,5 +336545,60 @@
       "endpoint_logs": "reference-probe-logs.json.gz",
       "verification": "Every regenerated before, after, reference, error, selector, test and farther flag equals its archived frozen comparison. Other archived comparisons are retained without claiming a fresh endpoint replay."
     }
+  },
+  "round_9_evidence": {
+    "checks": {
+      "collect-references.py": {
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/collect-references.py .audit-input/r9-replay",
+        "status": 1,
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 49, in <module>\n    main(pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path('/root/audit/soundness-2026-11-11'))\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 18, in main\n    endpoints[endpoint]=measurement_index(rows)\n                        ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 62, in measurement_index\n    raise ValueError(f'duplicate measurement identity: {key}; capture an explicit selector for every loop measurement')\nValueError: duplicate measurement identity: ('benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8', 'shell:6724', 'null'); capture an explicit selector for every loop measurement\n"
+      },
+      "finish-analysis.py": {
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py .audit-input/r9-replay",
+        "status": 1,
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py\", line 8, in <module>\n    for name in paired_endpoint_keys(*captures):\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 13, in paired_endpoint_keys\n    raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')\nValueError: endpoint identity mismatch: missing baseline=[], missing head=[], empty=True\n"
+      },
+      "frozen-references.py": {
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/frozen-references.py .audit-input/r9-replay",
+        "status": 0,
+        "stdout": "shipped rows 48 farther 25 frozen primary 92 farther 53 unresolved 0 outcomes {'compared': 92, 'refused at head': 0}\nno farther model []\n",
+        "stderr": ""
+      }
+    },
+    "regenerated_frozen_measurements": 92,
+    "regenerated_frozen_models": 77,
+    "regenerated_farther": 53,
+    "coverage_counts": {
+      "checker_control": 10,
+      "engineering_reference": 325,
+      "self_consistency": 12,
+      "test_input_metric": 1
+    },
+    "frozen_reference_measurements": 161,
+    "frozen_farther": 53,
+    "reclassified_frozen_measurements": 15,
+    "scope": "Targeted audit scripts only. The same archived adjacent outputs and reference definitions used for review-endpoint-checks.json regenerate a subset of the pinned comparisons; every regenerated value, error, selector, reference, test and distance flag equals the stored record. Full pinned captures and raw gallery captures remain unavailable. No engine suite or full replay run.",
+    "gallery_changed_reference_targets": [
+      {
+        "case": "site-slab-on-columns-supports-max",
+        "quantity": "maxDeflection",
+        "before_reference": {
+          "value": 24.302769941419953,
+          "source": "Navier"
+        },
+        "after_reference": {
+          "value": 24.339803852876383,
+          "source": "Reissner\u2013Mindlin Navier series, \u03ba = 5/6 (Reddy 2007; Wang, Reddy & Lee 2000)"
+        },
+        "evidence": "Archived readout-index diff and recorded head reference; raw endpoint reference identities remain unverified."
+      }
+    ],
+    "conclusion_changes": [
+      "Eight Q9 observations are self-consistency evidence. Their fifteen spherical-cap frozen measurements move out of primary engineering-reference comparisons into self_consistency_comparisons. There are 161 primary comparisons; all 53 distance flags remain.",
+      "Archived gallery reference distances cannot be validated without both raw targets. No conclusion of zero movements farther from reference is supported; one changed target is explicit in the saved slab diff.",
+      "The loaded frozen arc entry is known wrong on main: #1949; PR #1952 replaces this. It is defect evidence, not an accepted reaction result."
+    ]
   }
 }

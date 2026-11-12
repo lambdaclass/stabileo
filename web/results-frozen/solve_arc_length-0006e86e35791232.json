@@ -2938,5 +2938,12 @@
     "nonlinear.steps[576].loadFactor": 0.9560011200133866,
     "nonlinear.steps[576].step": 577,
     "nonlinear.totalIterations": 1318
-  }
+  },
+  "knownWrong": [
+    {
+      "issue": "https://github.com/lambdaclass/stabileo/issues/1949",
+      "path": "nonlinear.results.reactions",
+      "reason": "known wrong on main: #1949; PR #1952 replaces this"
+    }
+  ]
 }

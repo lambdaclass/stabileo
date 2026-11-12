@@ -768,9 +768,9 @@
       "after_error": null,
       "farther": null,
       "models": [],
-      "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-      "pr": 1753,
-      "category": "engineering_reference",
+      "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+      "pr": null,
+      "category": "self_consistency",
       "first_parent_merges": [],
       "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
       "reference_kind": "self convergence",
@@ -792,9 +792,9 @@
       "after_error": null,
       "farther": null,
       "models": [],
-      "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-      "pr": 1753,
-      "category": "engineering_reference",
+      "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+      "pr": null,
+      "category": "self_consistency",
       "first_parent_merges": [],
       "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
       "reference_kind": "self convergence",
@@ -816,9 +816,9 @@
       "after_error": null,
       "farther": null,
       "models": [],
-      "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-      "pr": 1753,
-      "category": "engineering_reference",
+      "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+      "pr": null,
+      "category": "self_consistency",
       "first_parent_merges": [],
       "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
       "reference_kind": "self convergence",
@@ -840,9 +840,9 @@
       "after_error": null,
       "farther": null,
       "models": [],
-      "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-      "pr": 1753,
-      "category": "engineering_reference",
+      "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+      "pr": null,
+      "category": "self_consistency",
       "first_parent_merges": [],
       "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
       "reference_kind": "self convergence",
@@ -1215,9 +1215,9 @@
         "solve_3d-a0c603b2f49029bf.json",
         "solve_3d-16f80d40bc2a7612.json"
       ],
-      "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-      "pr": 1753,
-      "category": "engineering_reference",
+      "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+      "pr": null,
+      "category": "self_consistency",
       "first_parent_merges": [],
       "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
       "reference_kind": "self convergence",
@@ -1244,9 +1244,9 @@
         "solve_3d-8e3039046960e41e.json",
         "solve_3d-95239310a93e14b0.json"
       ],
-      "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-      "pr": 1753,
-      "category": "engineering_reference",
+      "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+      "pr": null,
+      "category": "self_consistency",
       "first_parent_merges": [],
       "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
       "reference_kind": "self convergence",
@@ -1272,12 +1272,10 @@
         "solve_3d-1ddef2d9d9bcf406.json",
         "solve_3d-ce1f19b3352fb8ce.json"
       ],
-      "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-      "pr": 1753,
-      "category": "engineering_reference",
-      "first_parent_merges": [
-        "77294fe006d716bf2e1900a85b3818906cf2fd33"
-      ],
+      "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+      "pr": null,
+      "category": "self_consistency",
+      "first_parent_merges": [],
       "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
       "reference_kind": "self convergence",
       "comparison_status": "incomparable: endpoint references differ",
@@ -1303,9 +1301,9 @@
         "solve_3d-8e3039046960e41e.json",
         "solve_3d-95239310a93e14b0.json"
       ],
-      "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-      "pr": 1753,
-      "category": "engineering_reference",
+      "attribution": "No solver accuracy or engineering-reference coverage claim; self convergence.",
+      "pr": null,
+      "category": "self_consistency",
       "first_parent_merges": [],
       "comparison_mode": "historical as-shipped observation; endpoint identity unverified",
       "reference_kind": "self convergence",
@@ -11034,399 +11032,6 @@
       "status": "compared"
     },
     {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
-      "model": "solve_3d-8c86fc3c9a42de15.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.826304719599367e-07,
-      "after": 2.826304719599367e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 4.6510989385126027e-10,
-      "after_error": 4.6510989385126027e-10,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": null,
-      "first_parent_merge": null,
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
-      "model": "solve_3d-ad4bcc7de66fb3e9.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.826304719599367e-07,
-      "after": 2.826304719599367e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 4.6510989385126027e-10,
-      "after_error": 4.6510989385126027e-10,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": null,
-      "first_parent_merge": null,
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
-      "model": "solve_3d-a0c603b2f49029bf.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.826304719599367e-07,
-      "after": 2.826304719599367e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 4.6510989385126027e-10,
-      "after_error": 4.6510989385126027e-10,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": null,
-      "first_parent_merge": null,
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
-      "model": "solve_3d-16f80d40bc2a7612.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.826304719599367e-07,
-      "after": 2.826304719599367e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 4.6510989385126027e-10,
-      "after_error": 4.6510989385126027e-10,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": null,
-      "first_parent_merge": null,
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
-      "model": "solve_3d-26783e873325fde8.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.8219311071198177e-07,
-      "after": 2.8219311071198177e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 2.7748645896309435e-11,
-      "after_error": 2.7748645896309435e-11,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": null,
-      "first_parent_merge": null,
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
-      "model": "solve_3d-cc3431e9332c03ef.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.8219311071198177e-07,
-      "after": 2.8219311071198177e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 2.7748645896309435e-11,
-      "after_error": 2.7748645896309435e-11,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": null,
-      "first_parent_merge": null,
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
-      "model": "solve_3d-8e3039046960e41e.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.8219311071198177e-07,
-      "after": 2.8219311071198177e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 2.7748645896309435e-11,
-      "after_error": 2.7748645896309435e-11,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": null,
-      "first_parent_merge": null,
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
-      "model": "solve_3d-95239310a93e14b0.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.8219311071198177e-07,
-      "after": 2.8219311071198177e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 2.7748645896309435e-11,
-      "after_error": 2.7748645896309435e-11,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": null,
-      "first_parent_merge": null,
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
-      "model": "solve_3d-c7886b5c64807661.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.821653620677993e-07,
-      "after": 2.8216536206608546e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 1.71386528965067e-18,
-      "after_error": 0.0,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": 1753,
-      "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-      "evidence": "all-static-bisection.json.gz",
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
-      "model": "solve_3d-1ddef2d9d9bcf406.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.821653620677993e-07,
-      "after": 2.8216536206608546e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 1.71386528965067e-18,
-      "after_error": 0.0,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": 1753,
-      "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-      "evidence": "all-static-bisection.json.gz",
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
-      "model": "solve_3d-ce1f19b3352fb8ce.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.821653620677993e-07,
-      "after": 2.8216536206608546e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 1.71386528965067e-18,
-      "after_error": 0.0,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": 1753,
-      "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-      "evidence": "all-static-bisection.json.gz",
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
-      "model": "solve_3d-26783e873325fde8.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.8219311071198177e-07,
-      "after": 2.8219311071198177e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 2.7748645896309435e-11,
-      "after_error": 2.7748645896309435e-11,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": null,
-      "first_parent_merge": null,
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
-      "model": "solve_3d-cc3431e9332c03ef.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.8219311071198177e-07,
-      "after": 2.8219311071198177e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 2.7748645896309435e-11,
-      "after_error": 2.7748645896309435e-11,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": null,
-      "first_parent_merge": null,
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
-      "model": "solve_3d-8e3039046960e41e.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.8219311071198177e-07,
-      "after": 2.8219311071198177e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 2.7748645896309435e-11,
-      "after_error": 2.7748645896309435e-11,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": null,
-      "first_parent_merge": null,
-      "status": "compared"
-    },
-    {
-      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
-      "model": "solve_3d-95239310a93e14b0.json",
-      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
-      "selector": {
-        "nodes": [
-          1
-        ],
-        "component": "uz",
-        "scale": 1,
-        "absolute": true,
-        "average": false
-      },
-      "before": 2.8219311071198177e-07,
-      "after": 2.8219311071198177e-07,
-      "reference": 2.8216536206608546e-07,
-      "before_error": 2.7748645896309435e-11,
-      "after_error": 2.7748645896309435e-11,
-      "farther": false,
-      "same_input": true,
-      "comparison_mode": "same frozen input",
-      "reference_kind": "self convergence",
-      "pr": null,
-      "first_parent_merge": null,
-      "status": "compared"
-    },
-    {
       "id": "benchmarks::shell_benchmark::benchmark_raasch_hook:0",
       "model": "solve_3d-6496121985f2aa27.json",
       "test": "benchmarks::shell_benchmark::benchmark_raasch_hook",
@@ -15497,8 +15102,8 @@
   "unresolved_frozen_measurements": [],
   "coverage_counts": {
     "checker_control": 10,
-    "engineering_reference": 333,
-    "self_consistency": 4,
+    "engineering_reference": 325,
+    "self_consistency": 12,
     "test_input_metric": 1
   },
   "as_shipped_identity_validation": {
@@ -15508,8 +15113,418 @@
     "requires": "Capture stable site and explicit model/quantity/parameter selectors for repeated observations, then rerun both endpoints."
   },
   "frozen_outcome_counts": {
-    "compared": 176,
+    "compared": 161,
     "refused at head": 0
   },
-  "model_attribution_limitation": "Model attribution and fallback measurement-selector recovery remain value-based and may be ambiguous where values coincide; the coordinator tracks that separately."
+  "model_attribution_limitation": "Model attribution and fallback measurement-selector recovery remain value-based and may be ambiguous where values coincide; the coordinator tracks that separately.",
+  "self_consistency_comparisons": [
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
+      "model": "solve_3d-8c86fc3c9a42de15.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.826304719599367e-07,
+      "after": 2.826304719599367e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 4.6510989385126027e-10,
+      "after_error": 4.6510989385126027e-10,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": null,
+      "first_parent_merge": null,
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
+      "model": "solve_3d-ad4bcc7de66fb3e9.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.826304719599367e-07,
+      "after": 2.826304719599367e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 4.6510989385126027e-10,
+      "after_error": 4.6510989385126027e-10,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": null,
+      "first_parent_merge": null,
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
+      "model": "solve_3d-a0c603b2f49029bf.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.826304719599367e-07,
+      "after": 2.826304719599367e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 4.6510989385126027e-10,
+      "after_error": 4.6510989385126027e-10,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": null,
+      "first_parent_merge": null,
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
+      "model": "solve_3d-16f80d40bc2a7612.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.826304719599367e-07,
+      "after": 2.826304719599367e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 4.6510989385126027e-10,
+      "after_error": 4.6510989385126027e-10,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": null,
+      "first_parent_merge": null,
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
+      "model": "solve_3d-26783e873325fde8.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.8219311071198177e-07,
+      "after": 2.8219311071198177e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 2.7748645896309435e-11,
+      "after_error": 2.7748645896309435e-11,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": null,
+      "first_parent_merge": null,
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
+      "model": "solve_3d-cc3431e9332c03ef.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.8219311071198177e-07,
+      "after": 2.8219311071198177e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 2.7748645896309435e-11,
+      "after_error": 2.7748645896309435e-11,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": null,
+      "first_parent_merge": null,
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
+      "model": "solve_3d-8e3039046960e41e.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.8219311071198177e-07,
+      "after": 2.8219311071198177e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 2.7748645896309435e-11,
+      "after_error": 2.7748645896309435e-11,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": null,
+      "first_parent_merge": null,
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
+      "model": "solve_3d-95239310a93e14b0.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.8219311071198177e-07,
+      "after": 2.8219311071198177e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 2.7748645896309435e-11,
+      "after_error": 2.7748645896309435e-11,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": null,
+      "first_parent_merge": null,
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
+      "model": "solve_3d-c7886b5c64807661.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.821653620677993e-07,
+      "after": 2.8216536206608546e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 1.71386528965067e-18,
+      "after_error": 0.0,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": 1753,
+      "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+      "evidence": "all-static-bisection.json.gz",
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
+      "model": "solve_3d-1ddef2d9d9bcf406.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.821653620677993e-07,
+      "after": 2.8216536206608546e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 1.71386528965067e-18,
+      "after_error": 0.0,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": 1753,
+      "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+      "evidence": "all-static-bisection.json.gz",
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
+      "model": "solve_3d-ce1f19b3352fb8ce.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.821653620677993e-07,
+      "after": 2.8216536206608546e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 1.71386528965067e-18,
+      "after_error": 0.0,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": 1753,
+      "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+      "evidence": "all-static-bisection.json.gz",
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
+      "model": "solve_3d-26783e873325fde8.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.8219311071198177e-07,
+      "after": 2.8219311071198177e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 2.7748645896309435e-11,
+      "after_error": 2.7748645896309435e-11,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": null,
+      "first_parent_merge": null,
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
+      "model": "solve_3d-cc3431e9332c03ef.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.8219311071198177e-07,
+      "after": 2.8219311071198177e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 2.7748645896309435e-11,
+      "after_error": 2.7748645896309435e-11,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": null,
+      "first_parent_merge": null,
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
+      "model": "solve_3d-8e3039046960e41e.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.8219311071198177e-07,
+      "after": 2.8219311071198177e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 2.7748645896309435e-11,
+      "after_error": 2.7748645896309435e-11,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": null,
+      "first_parent_merge": null,
+      "status": "compared",
+      "category": "self_consistency"
+    },
+    {
+      "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
+      "model": "solve_3d-95239310a93e14b0.json",
+      "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+      "selector": {
+        "nodes": [
+          1
+        ],
+        "component": "uz",
+        "scale": 1,
+        "absolute": true,
+        "average": false
+      },
+      "before": 2.8219311071198177e-07,
+      "after": 2.8219311071198177e-07,
+      "reference": 2.8216536206608546e-07,
+      "before_error": 2.7748645896309435e-11,
+      "after_error": 2.7748645896309435e-11,
+      "farther": false,
+      "same_input": true,
+      "comparison_mode": "same frozen input",
+      "reference_kind": "self convergence",
+      "pr": null,
+      "first_parent_merge": null,
+      "status": "compared",
+      "category": "self_consistency"
+    }
+  ]
 }

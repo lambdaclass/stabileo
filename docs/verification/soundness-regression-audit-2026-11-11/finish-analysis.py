@@ -1,25 +1,21 @@
-from audit_evidence import contributing_tests, paired_endpoint_keys
+from audit_evidence import contributing_tests, paired_endpoint_keys, gallery_reference_comparisons
 import pathlib,json,importlib.util,gzip,collections,hashlib,re,sys
 area=pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path('/root/audit/soundness-2026-11-11')
 spec=importlib.util.spec_from_file_location('audit_compare',pathlib.Path(__file__).with_name('compare.py'));cmp=importlib.util.module_from_spec(spec);spec.loader.exec_module(cmp)
 base,head=area/'base-site-gallery',area/'repo-site-gallery'
-rows=[];farther=[]
+rows=[];farther=[];changed_targets=[]
 captures=[{p.name:p for p in endpoint.glob('site-*.json')} for endpoint in [base,head]]
 for name in paired_endpoint_keys(*captures):
  p=captures[1][name]
  a=json.loads(captures[0][name].read_text());b=json.loads(p.read_text())
  changes=cmp.diffs(cmp.normalize(a['outcome']),cmp.normalize(b['outcome']))
- refs=[]
- ar={r['key']:r for r in a['outcome'].get('readouts',[])}
- for br in b['outcome'].get('readouts',[]):
-  if br['key'] not in ar or 'reference' not in br:continue
-  av=ar[br['key']]['value'];bv=br['value'];ref=br['reference']['value']
-  item=dict(case=p.stem,quantity=br['key'],before=av,after=bv,reference=ref,source=br['reference']['source'],before_error=abs(av-ref),after_error=abs(bv-ref))
-  if av!=bv and item['after_error']>item['before_error']:farther.append(item)
-  refs.append(item)
+ refs,target_changes=gallery_reference_comparisons(p.stem,a['outcome'].get('readouts',[]),b['outcome'].get('readouts',[]))
+ changed_targets.extend(target_changes)
+ farther.extend(item for item in refs if item['before']!=item['after'] and item['after_error']>item['before_error'])
  rows.append(dict(case=p.stem,parameters=b['parameters'],same_model=cmp.normalize(a['model'])==cmp.normalize(b['model']),before_status=a['outcome']['status'],after_status=b['outcome']['status'],changes=changes,references=refs))
-site=dict(cases=len(rows),changed=sum(bool(r['changes']) for r in rows),drift=rows,farther_from_reference=farther)
+site=dict(cases=len(rows),changed=sum(bool(r['changes']) for r in rows),drift=rows,farther_from_reference=farther,changed_reference_targets=changed_targets)
 (area/'site-gallery-diff.json').write_text(json.dumps(site,indent=2))
+print('CHANGED REFERENCE TARGETS',json.dumps(changed_targets,sort_keys=True),flush=True)
 print('SITE',site['cases'],'changed',site['changed'],'new refusals',sum(r['before_status']=='ok' and r['after_status']=='refused' for r in rows),'farther nominal',len(farther),'model changes',sum(not r['same_model'] for r in rows),flush=True)
 for r in rows:
  if r['changes'] or r['before_status']!=r['after_status']:print(r['case'],r['before_status'],r['after_status'],len(r['changes']),r['same_model'],flush=True)

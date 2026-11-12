@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 from pathlib import Path
 import re
 
@@ -11,6 +12,40 @@ def paired_endpoint_keys(before, after):
     if not names or missing_before or missing_after:
         raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')
     return sorted(names)
+
+
+def gallery_reference_comparisons(case, before, after):
+    def numeric(value):
+        return type(value) in (int, float) and math.isfinite(value)
+
+    def indexed(readouts):
+        result = {}
+        for row in readouts:
+            key = row.get('key')
+            if not isinstance(key, str) or not key or key in result:
+                raise ValueError(f'{case}: missing or duplicate readout identity: {key}')
+            if 'reference' in row:
+                reference = row['reference']
+                if (not isinstance(reference, dict) or not numeric(reference.get('value'))
+                        or not isinstance(reference.get('source'), str) or not reference['source']
+                        or not numeric(row.get('value'))):
+                    raise ValueError(f'{case}: invalid reference evidence: {key}')
+            result[key] = row
+        return result
+
+    a, b = indexed(before), indexed(after)
+    comparisons, changed_targets = [], []
+    for key in sorted(a.keys() | b.keys()):
+        ar, br = a.get(key, {}).get('reference'), b.get(key, {}).get('reference')
+        if ar is None and br is None:
+            continue
+        if ar != br:
+            changed_targets.append(dict(case=case, quantity=key, before_reference=ar, after_reference=br))
+            continue
+        av, bv, reference = a[key]['value'], b[key]['value'], ar['value']
+        comparisons.append(dict(case=case, quantity=key, before=av, after=bv, reference=reference,
+                                source=ar['source'], before_error=abs(av-reference), after_error=abs(bv-reference)))
+    return comparisons, changed_targets
 
 
 def measurement_index(records):

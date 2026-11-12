@@ -108,7 +108,6 @@ class References(unittest.TestCase):
 
 
 class RoundNine(unittest.TestCase):
-    @unittest.skip('known wrong result: #1946')
     def test_loaded_arc_frozen_entry_discloses_main_defect_and_replacement(self):
         data = json.loads((ROOT / 'web/results-frozen/solve_arc_length-0006e86e35791232.json').read_text())
         self.assertEqual(data['values']['nonlinear.results.reactions.length'], 0)
@@ -117,7 +116,6 @@ class RoundNine(unittest.TestCase):
         self.assertEqual(data['knownWrong'][0]['issue'], 'https://github.com/lambdaclass/stabileo/issues/1949')
         self.assertIn('known wrong on main: #1949; PR #1952 replaces this', AUDIT.with_suffix('.md').read_text())
 
-    @unittest.skip('known wrong result: #1946')
     def test_q9_self_convergence_is_consistency_through_both_generators(self):
         data = json.loads((AUDIT / 'reference-comparisons.json').read_text())
         selected = [r for r in data['rows'] if r['test'].split('::')[-1] in
@@ -144,6 +142,11 @@ class RoundNine(unittest.TestCase):
                         self.assertIsNone(row['pr'])
         self.assertEqual(data['coverage_counts']['self_consistency'], 12)
         self.assertEqual(data['coverage_counts']['engineering_reference'], 325)
+        self.assertEqual(len(data.get('self_consistency_comparisons', [])), 15)
+        ids = {r['id'] for r in selected if 'benchmark_q9_' in r['test']}
+        self.assertFalse(any(r['id'] in ids for r in data['frozen_primary_comparisons']))
+        self.assertEqual({r['id'] for r in data['self_consistency_comparisons']},
+                         {r['id'] for r in selected if 'spherical_cap' in r['test']})
 
     def gallery(self, before, after):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
@@ -156,7 +159,6 @@ class RoundNine(unittest.TestCase):
             execute_audit_script('finish-analysis.py', area)
             return json.loads((area / 'site-gallery-diff.json').read_text())
 
-    @unittest.skip('known wrong result: #1946')
     def test_gallery_changes_of_target_are_explicit_and_never_compared(self):
         before = dict(key='control', value=2, reference=dict(value=2, source='synthetic control'))
         variants = [dict(value=3, source='synthetic control'), dict(value=2, source='other source'),
@@ -178,7 +180,6 @@ class RoundNine(unittest.TestCase):
             self.assertEqual(len(result.get('changed_reference_targets', 'missing target-change inventory')), 1)
             self.assertEqual(result['drift'][0]['references'], [])
 
-    @unittest.skip('known wrong result: #1946')
     def test_gallery_rejects_ambiguous_or_invalid_reference_evidence(self):
         readout = dict(key='control', value=2, reference=dict(value=2, source='synthetic control'))
         for invalid in [[readout, readout], [dict(readout, reference={})],
@@ -189,7 +190,6 @@ class RoundNine(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         self.gallery(invalid if reverse else [readout], [readout] if reverse else invalid)
 
-    @unittest.skip('known wrong result: #1946')
     def test_gallery_matching_targets_keep_signed_nonzero_answers_and_errors(self):
         reference = dict(value=-2, source='synthetic control', selector={'node': 1})
         before = [dict(key='control', value=-2, reference=reference)]
