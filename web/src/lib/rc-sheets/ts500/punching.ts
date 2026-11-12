@@ -55,5 +55,6 @@ export function punchingRow(d: PunchingDemand, c: PunchingContext, fmt: Fmt): Pu
     family: 'punching', key: d.key, name: d.name, level: d.level, demand: d, position: position.position ?? '—',
     vu: gov?.vpd ?? 0, phiVc: gov?.vpr ?? 0, utilization: u, verifications, combos,
     status: unsupported ? 'none' : ok ? 'ok' : 'fail', steps, isAdopted: true,
+    ...(crit && position.position ? { figure: { b: d.joint.b, h: d.joint.h, d: dd, offset: dd / 2, rounded: false, bo: crit.bo, clause: '8.3.1', position: position.position, openBearingDeg: position.openBearingDeg } } : {}),
   };
 }

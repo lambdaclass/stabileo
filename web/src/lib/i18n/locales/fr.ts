@@ -15499,6 +15499,14 @@ const fr: Translations = {
   "rcSheets.elev.n.ruleHolds": "Entre les extrémités, la règle de la partie courante donne le même espacement qu'aux extrémités : elle ne s'ouvre pas.",
   "rcSheets.adoptAllShort": "Adopter",
   "rcSheets.exportShort": "Excel",
+  "rcSheets.punchFig.title": "{name} · poinçonnement en plan",
+  "rcSheets.punchFig.perimeter": "Périmètre de contrôle u = {bo} m, avec d = {d} cm",
+  "rcSheets.punchFig.pos.interior": "Poteau intérieur : le périmètre fait tout le tour du poteau",
+  "rcSheets.punchFig.pos.edge": "Poteau de rive : le périmètre s'arrête au bord libre",
+  "rcSheets.punchFig.pos.corner": "Poteau d'angle : le périmètre s'arrête aux deux bords libres",
+  "rcSheets.punchFig.stirrups": "{n} files de cadres Ø{dia} e = {s} à {legs} brins, jusqu'à {ext} cm de la face",
+  "rcSheets.punchFig.overCeiling": "Au-delà du plafond avec cadres (0,5·√f'c) : il faut une dalle plus épaisse ou un poteau plus grand",
+  "rcSheets.v.punchingStirrups": "Cadres de poinçonnement (quand le béton seul ne suffit pas)",
 };
 
 export default fr;

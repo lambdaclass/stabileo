@@ -90,6 +90,7 @@ export function makePunchingRow(set: Ec2Set) {
       family: 'punching', key: d.key, name: d.name, level: d.level, demand: d, position: pos,
       vu: gov.Vu, phiVc: capForce, utilization: Math.max(ratioOf(vEd, concreteOk ? vrdc : vrdc2), ratioOf(vEd0, vrdMax)), verifications, combos,
       status: ok ? (rhoReq > 0 ? 'warn' : 'ok') : 'fail', steps, isAdopted: true,
+        figure: { b: d.joint.b, h: d.joint.h, d: dd, offset: 2 * dd, rounded: true, bo: g.u1, clause: '6.4.2', position: pos, openBearingDeg: position.openBearingDeg },
     };
   };
 }

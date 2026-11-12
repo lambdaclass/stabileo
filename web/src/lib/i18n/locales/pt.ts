@@ -15300,5 +15300,13 @@ const pt: Translations = {
   "rcSheets.elev.n.ruleHolds": "Entre as extremidades, a regra do centro dá o mesmo espaçamento das extremidades, por isso o centro não se abre.",
   "rcSheets.adoptAllShort": "Adotar",
   "rcSheets.exportShort": "Excel",
+  "rcSheets.punchFig.title": "{name} · punção em planta",
+  "rcSheets.punchFig.perimeter": "Perímetro de controle bo = {bo} m, com d = {d} cm",
+  "rcSheets.punchFig.pos.interior": "Pilar interno: o perímetro contorna todo o pilar",
+  "rcSheets.punchFig.pos.edge": "Pilar de borda: o perímetro termina na borda livre",
+  "rcSheets.punchFig.pos.corner": "Pilar de canto: o perímetro termina nas duas bordas livres",
+  "rcSheets.punchFig.stirrups": "{n} linhas de estribos Ø{dia} c/{s} com {legs} ramos, até {ext} cm da face",
+  "rcSheets.punchFig.overCeiling": "Passa do máximo com estribos (0,5·√f'c): é preciso mais espessura ou um pilar maior",
+  "rcSheets.v.punchingStirrups": "Estribos de punção (quando o concreto sozinho não basta)",
 };
 export default pt;

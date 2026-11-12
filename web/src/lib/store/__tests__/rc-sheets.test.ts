@@ -11,7 +11,7 @@ import { clearPlateMesh, physicalPlates, plateStatus, preparePlatesForAnalysis }
 import { ensurePhysicalModel } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 const modelEntryShells = (id: number) => modelStore.model.groups.get(id)!.members.quads?.length ?? 0;
-import { buildSheetRows, rcSheetsData, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
+import { buildSheetRows, setSheetCode, rcSheetsData, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
 
 beforeAll(async () => { await initSolver(); });
@@ -389,6 +389,17 @@ describe('reinforcement sheets from a solved model', () => {
     expect(p.vu).toBeLessThanOrEqual(Math.abs(axial) * 1.01);
     expect(p.phiVc).toBeGreaterThan(0);
     expect(p.verifications[0]!.label).toBe('rcSheets.v.punching');
+    // The plan of the joint: ACI's perimeter at d/2 with straight corners, EN 1992-1-1's at 2d rounded, TS 500's at d/2.
+    expect(p.figure).toMatchObject({ position: 'interior', rounded: false, clause: '§22.6.4.1', b: 0.4, h: 0.4 });
+    expect(p.figure!.offset).toBeCloseTo(p.figure!.d / 2, 9);
+    expect(p.figure!.bo).toBeCloseTo(4 * (0.4 + p.figure!.d), 6);
+    for (const [code, rounded, factor, clause] of [['en1992-1-1', true, 2, '6.4.2'], ['ts500-2000', false, 0.5, '8.3.1']] as const) {
+      setSheetCode(code);
+      const f = buildSheetRows().punching[0]!.figure!;
+      expect(f).toMatchObject({ rounded, clause, position: 'interior' });
+      expect(f.offset).toBeCloseTo(factor * f.d, 9);
+    }
+    setSheetCode('cirsoc201-2025');
   });
 
   it('cuts a column into storeys at the flat slabs it carries, as at beams, and checks punching at each', () => {

@@ -21,6 +21,7 @@
   import RcColumnElevation from './RcColumnElevation.svelte';
   import RcSlabLayers from './RcSlabLayers.svelte';
   import RcWallDetail from './RcWallDetail.svelte';
+  import RcPunchingSvg from './RcPunchingSvg.svelte';
   import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { designData } from '../../../lib/store/design-data';
   import { modelStore } from '../../../lib/store';
@@ -185,6 +186,8 @@
                     <div class="rcw-secs"><RcSlabLayers row={r} cover={slabCover} /></div>
                   {:else if r.family === 'wall'}
                     <div class="rcw-secs"><RcWallDetail row={r} {code} /></div>
+                  {:else if r.family === 'punching' && r.figure}
+                    <div class="rcw-secs"><RcPunchingSvg fig={r.figure} name={r.name} /></div>
                   {/if}
                   <RcChecks lines={r.verifications} />
                   <details open={r.status === 'fail'}>

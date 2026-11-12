@@ -15648,5 +15648,13 @@ const es: Record<string, string> = {
   "rcSheets.elev.n.ruleHolds": "Entre los extremos, la regla del centro da la misma separación que los extremos, así que el centro no se abre.",
   "rcSheets.adoptAllShort": "Adoptar",
   "rcSheets.exportShort": "Excel",
+  "rcSheets.punchFig.title": "{name} · punzonado en planta",
+  "rcSheets.punchFig.perimeter": "Perímetro de control bo = {bo} m, con d = {d} cm",
+  "rcSheets.punchFig.pos.interior": "Columna interior: el perímetro rodea toda la columna",
+  "rcSheets.punchFig.pos.edge": "Columna de borde: el perímetro se corta en el borde libre",
+  "rcSheets.punchFig.pos.corner": "Columna de esquina: el perímetro se corta en los dos bordes libres",
+  "rcSheets.punchFig.stirrups": "{n} líneas de estribos Ø{dia} c/{s} con {legs} ramas, hasta {ext} cm de la cara",
+  "rcSheets.punchFig.overCeiling": "Supera el máximo con estribos (0,5·√f'c): hace falta más espesor o una columna mayor",
+  "rcSheets.v.punchingStirrups": "Estribos de punzonado (cuando el hormigón solo no alcanza)",
 };
 export default es;

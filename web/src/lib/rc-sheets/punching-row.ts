@@ -24,6 +24,18 @@ export interface PunchingRow {
   status: RowStatus;
   steps: StepGroup[];
   isAdopted: true;
+  /** What the plan of the joint draws: the column, the code's control perimeter at `offset` from its faces, the free edges and any stirrup lines. */
+  figure?: PunchingFigure;
+}
+
+export interface PunchingFigure {
+  b: number; h: number; d: number;
+  /** Distance of the control perimeter from the column faces, m, rounded at the corners or not; its length, m, and the clause. */
+  offset: number; rounded: boolean; bo: number; clause: string;
+  position: 'interior' | 'edge' | 'corner';
+  /** Bearing the free edge faces, degrees CCW from +x; null inside a slab. */
+  openBearingDeg: number | null;
+  reinforcement?: { legDiameter: number; legs: number; spacing: number; lines: number; extent: number; overCeiling: boolean };
 }
 
 export function punchingRow(d: PunchingDemand, c: PunchingContext, fmt: Fmt): PunchingRow {
@@ -32,6 +44,7 @@ export function punchingRow(d: PunchingDemand, c: PunchingContext, fmt: Fmt): Pu
   const unsupported = r.status === 'UNSUPPORTED';
   const verifications: CheckLine[] = [
     check(unsupported ? 'rcSheets.v.punchingUnsupported' : 'rcSheets.v.punching', r.status === 'OK', { clause: '§22.6', demand: `${fmt(r.Vu)} kN`, capacity: `${fmt(r.phiVc)} kN`, ratio: unsupported ? undefined : r.utilization }),
+    ...(r.reinforcement ? [check('rcSheets.v.punchingStirrups', !r.reinforcement.overCeiling, { clause: '§22.6.7', demand: `${r.reinforcement.lines} × Ø${r.reinforcement.legDiameter} c/${fmt(r.reinforcement.spacing * 100, 1)} (${r.reinforcement.legs})`, capacity: r.reinforcement.overCeiling ? "> 0.5·√f'c" : `${fmt(r.reinforcement.extent * 100, 0)} cm` })] : []),
   ];
   const combos: ComboTable = {
     headers: ['ΔN', 'Mu', 'Vu'],
@@ -53,7 +66,13 @@ export function punchingRow(d: PunchingDemand, c: PunchingContext, fmt: Fmt): Pu
   }];
   return {
     family: 'punching', key: d.key, name: d.name, level: d.level, demand: d, position: position.position ?? '—',
-    vu: r.Vu, phiVc: r.phiVc, utilization: ratioOf(r.Vu, r.phiVc), verifications, combos,
+    // The engine's ratio carries the moment transfer's stress (§8.4.4.2); Vu/φVc alone reads lower than what decides.
+    vu: r.Vu, phiVc: r.phiVc, utilization: Number.isFinite(r.utilization) ? r.utilization : ratioOf(r.Vu, r.phiVc), verifications, combos,
     status: unsupported ? 'none' : r.status === 'OK' ? 'ok' : 'fail', steps, isAdopted: true,
+    ...(p && position.position ? { figure: {
+      b: d.joint.b, h: d.joint.h, d: p.d, offset: p.halfX - d.joint.b / 2, rounded: false, bo: p.bo, clause: '§22.6.4.1',
+      position: position.position, openBearingDeg: position.openBearingDeg,
+      ...(r.reinforcement ? { reinforcement: { legDiameter: r.reinforcement.legDiameter, legs: r.reinforcement.legs, spacing: r.reinforcement.spacing, lines: r.reinforcement.lines, extent: r.reinforcement.extent, overCeiling: r.reinforcement.overCeiling } } : {}),
+    } satisfies PunchingFigure } : {}),
   };
 }

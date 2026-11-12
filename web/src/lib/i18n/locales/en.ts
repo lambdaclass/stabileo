@@ -15659,5 +15659,13 @@ const en: Record<string, string> = {
   "rcSheets.elev.n.ruleHolds": "Between the ends, the middle's own rule gives the same spacing as the ends, so the middle does not open.",
   "rcSheets.adoptAllShort": "Adopt",
   "rcSheets.exportShort": "Excel",
+  "rcSheets.punchFig.title": "{name} · punching in plan",
+  "rcSheets.punchFig.perimeter": "Control perimeter bo = {bo} m, with d = {d} cm",
+  "rcSheets.punchFig.pos.interior": "Interior column: the perimeter runs all round the column",
+  "rcSheets.punchFig.pos.edge": "Edge column: the perimeter stops at the free edge",
+  "rcSheets.punchFig.pos.corner": "Corner column: the perimeter stops at both free edges",
+  "rcSheets.punchFig.stirrups": "{n} lines of stirrups Ø{dia} @ {s} with {legs} legs, out to {ext} cm from the face",
+  "rcSheets.punchFig.overCeiling": "Over the ceiling with stirrups (0.5·√f'c): a thicker slab or a larger column is needed",
+  "rcSheets.v.punchingStirrups": "Punching stirrups (where the concrete alone does not carry it)",
 };
 export default en;

@@ -15499,6 +15499,14 @@ const tr: Translations = {
   "rcSheets.elev.n.ruleHolds": "Uçlar arasında orta bölgenin kuralı uçlarla aynı aralığı veriyor; bu yüzden orta bölge açılmıyor.",
   "rcSheets.adoptAllShort": "Benimse",
   "rcSheets.exportShort": "Excel",
+  "rcSheets.punchFig.title": "{name} · planda zımbalama",
+  "rcSheets.punchFig.perimeter": "Kontrol çevresi u = {bo} m, d = {d} cm",
+  "rcSheets.punchFig.pos.interior": "İç kolon: çevre kolonun tamamını dolanır",
+  "rcSheets.punchFig.pos.edge": "Kenar kolon: çevre serbest kenarda biter",
+  "rcSheets.punchFig.pos.corner": "Köşe kolon: çevre iki serbest kenarda biter",
+  "rcSheets.punchFig.stirrups": "{n} sıra Ø{dia}/{s} etriye, {legs} kollu, yüzden {ext} cm'e kadar",
+  "rcSheets.punchFig.overCeiling": "Etriyeli üst sınırın üstünde (0,5·√f'c): daha kalın döşeme veya daha büyük kolon gerekir",
+  "rcSheets.v.punchingStirrups": "Zımbalama etriyeleri (beton tek başına yetmediğinde)",
 };
 
 export default tr;

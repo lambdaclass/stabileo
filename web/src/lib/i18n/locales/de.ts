@@ -15499,6 +15499,14 @@ const de: Translations = {
   "rcSheets.elev.n.ruleHolds": "Zwischen den Enden ergibt die Regel der Mitte denselben Abstand wie an den Enden, daher öffnet sich die Mitte nicht.",
   "rcSheets.adoptAllShort": "Übernehmen",
   "rcSheets.exportShort": "Excel",
+  "rcSheets.punchFig.title": "{name} · Durchstanzen im Grundriss",
+  "rcSheets.punchFig.perimeter": "Kontrollumfang u = {bo} m, mit d = {d} cm",
+  "rcSheets.punchFig.pos.interior": "Innenstütze: der Umfang läuft ganz um die Stütze",
+  "rcSheets.punchFig.pos.edge": "Randstütze: der Umfang endet am freien Rand",
+  "rcSheets.punchFig.pos.corner": "Eckstütze: der Umfang endet an beiden freien Rändern",
+  "rcSheets.punchFig.stirrups": "{n} Bügelreihen Ø{dia}/{s} mit {legs} Schenkeln, bis {ext} cm von der Stützenseite",
+  "rcSheets.punchFig.overCeiling": "Über der Grenze mit Bügeln (0,5·√f'c): eine dickere Platte oder eine größere Stütze ist nötig",
+  "rcSheets.v.punchingStirrups": "Durchstanzbügel (wo der Beton allein nicht reicht)",
 };
 
 export default de;
