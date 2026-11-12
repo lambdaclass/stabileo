@@ -37,6 +37,7 @@ function modules(f: EcFamily): AnyLoadCode[] {
     occupancies: () => occupancyTable(f),
     roofOccupancies: () => occupancyTable(f).filter((o) => o.category !== 'roof' && o.category !== 'storage'),
     reduce: (o) => reduceImposed(f, o),
+    imposedGroup: (key) => categoryOfOccupancy(key),
     roofLive: ecRoofLive(f),
   };
   const wind: WindCode = {

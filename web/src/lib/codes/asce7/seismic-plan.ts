@@ -55,7 +55,10 @@ export function planAsce7Seismic(input: LoadPlanInput, levels: LevelMass[], sink
   // Heights are above the model's lowest level, which is not always at z = 0.
   const base = levels.length ? Math.min(...levels.map((l) => l.elevation)) : 0;
   const elevated = levels.filter((l) => l.elevation > base + 1e-6);
+  // §12.7.2(1): 25 % of the floor live load in storage areas, by the occupancy of each part.
   const share = STORAGE_OCCUPANCIES.has(input.occupancyKey) ? STORAGE_SHARE : 0;
+  const roofKey = input.roof?.use === 'occupancy' ? input.roof.occupancyKey : undefined;
+  const roofShare = roofKey ? (STORAGE_OCCUPANCIES.has(roofKey) ? STORAGE_SHARE : 0) : share;
   const top = Math.max(...elevated.map((l) => l.elevation), base);
   // §12.7.2(2): partitions in the floor loads, or a partition weight typed here, bring at least the minimum.
   const partition = (input.partitionLive ?? 0) > 0 || (ci.partitionKNm2 ?? 0) > 0 ? Math.max(ci.partitionKNm2 ?? 0, PARTITION_MIN_KNM2) : 0;
@@ -67,7 +70,8 @@ export function planAsce7Seismic(input: LoadPlanInput, levels: LevelMass[], sink
     const parts = (input.roof && Math.abs(lv.elevation - top) < 1e-6 ? 0 : partition) * lv.planAreaM2;
     const snow = snowByLevel ? 0.2 * snowByLevel[k]! : 0;
     // The plan reports these levels: their weight is set to §12.7.2's, not the one the generator weighed them with.
-    lv.liveParticipatingKN = share * lv.liveTotalKN;
+    const roofLive = roofKey ? Math.min(lv.liveRoofKN ?? 0, lv.liveTotalKN) : 0;
+    lv.liveParticipatingKN = share * (lv.liveTotalKN - roofLive) + roofShare * roofLive;
     lv.weightKN = lv.selfWeightKN + lv.superimposedKN + lv.liveParticipatingKN + parts + snow;
   }
   derivation.push(msg('loads.asce7.seismic.derivation.weight', { share, partition: round(partition, 3), snow: snowByLevel ? 0.2 : 0 }));

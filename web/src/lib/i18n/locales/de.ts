@@ -15536,6 +15536,13 @@ const de: Translations = {
   "loads.ec.ui.verticalAbove": "avg = {avg} g liegt über 0,25 g: die vertikale Komponente ist für horizontale Bauteile mit 20 m Spannweite oder mehr, Kragarme über 5 m, vorgespannte horizontale Bauteile, Träger, die Stützen tragen, und basisisolierte Tragwerke erforderlich. Sie wird auf dem ganzen Tragwerk erzeugt.",
   "loads.ec.ui.verticalBelowHint": "avg = {avg} g liegt nicht über 0,25 g: §4.3.3.5.2 verlangt keine vertikale Komponente.",
   "loads.asce7.snow.derivation.psSurface": "Dachfläche mit {slope}°: Cs = {cs}, ausgeglichene Last {p} kN/m² (Gl. 7.4-1, §7.3.4).",
+  "autoLoad.liveRoofCase": "Nutzlast, Dach (Kategorie {group})",
+  "autoLoad.liveRoofCasePattern": "Nutzlast, Dach (Kategorie {group}), feldweise {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Nutzlast, Dach (Kategorie {group}), Felder neben {axis} = {at} m",
+  "loadPlan.derivation.roofLivePart": "Die Nutzung des Dachs ist Kategorie {roof}, die der Geschosse Kategorie {floor}: seine Nutzlast ist ein Teil der Nutzlasteinwirkung mit eigenen Lastfällen, kombiniert mit den ψ der Kategorie {roof} (EN 1990 Tabelle A1.1); beide Teile sind gemeinsam Leit- oder Begleiteinwirkung (EN 1991-1-1 §3.3.1(2)P).",
+  "loads.ec.combo.roofPart": "Nutzlasten zweier Kategorien: L, die der Geschosse (Kategorie {floor}), und L({roof}), die des Dachs, jede mit ihren ψ.",
+  "loads.ec.seismic.levelRoof": "Ebene +{elevation} m: ψE = {psiE} auf {live} kN Nutzlast der Geschosse und ψE = {psiRoof} auf {liveRoof} kN des Dachs, nach dessen eigener Kategorie; Erdbebengewicht {weight} kN (EN 1998-1 §3.2.4, §4.2.4 und Tabelle 4.2).",
+  "loads.tr.seismic.derivation.massRoof": "Die eigene Nutzung des Dachs gewichtet seine Nutzlast: {use} (Tablo 4.3).",
 };
 
 export default de;

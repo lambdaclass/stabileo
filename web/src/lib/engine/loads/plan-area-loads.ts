@@ -62,12 +62,14 @@ export interface AreaLoad {
   frame?: 'global' | 'projected';
   /** The arrangement this load belongs to, by `AreaLoadsResult.arrangements`; absent: the full load. */
   arrangement?: number;
+  /** From a roof's area, where the roof has loads of its own: its live load may be another action's part. */
+  roof?: true;
 }
-export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number }
+export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number; roof?: true }
 
 /** A panel's share past a side's end, at its node: kN along Z (negative down). */
 /** A panel's share at a re-entrant corner: at the node, `carrier` the side's member it belongs to. */
-export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; carrier: number; arrangement?: number }
+export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; carrier: number; arrangement?: number; roof?: true }
 
 export interface AreaLoadsResult {
   distributed: AreaLoad[];
@@ -126,14 +128,14 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       if (arrangement !== undefined && !arrangement.loads({ panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
       if (Math.abs(q * Math.max(p.wI, p.wJ)) <= 1e-3) continue;
-      out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr });
+      out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr, ...(roof && p.roof ? { roof: true as const } : {}) });
       if (arrangement === undefined) out.planned.add(caseType);
     }
     for (const p of layout.points) {
       if (arrangement !== undefined && !arrangement.loads({ panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
       if (Math.abs(q * p.w) <= 1e-3) continue;
-      out.nodal.push({ nodeId: p.nodeId, caseType, fz: -q * p.w, carrier: p.elementId, ...arr });
+      out.nodal.push({ nodeId: p.nodeId, caseType, fz: -q * p.w, carrier: p.elementId, ...arr, ...(roof && p.roof ? { roof: true as const } : {}) });
     }
     for (const m of layout.widthMembers) {
       if (arrangement !== undefined && !arrangement.loads({ member: m.elementId })) continue;
@@ -144,7 +146,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
         const q = -qOf(m.elementId, isRoof(m.elementId)) * s.width;
         if (Math.abs(q) <= 1e-3) continue;
         const span = m.spans ? { a: s.t0 * m.length, b: s.t1 * m.length } : {};
-        out.distributed.push({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr });
+        out.distributed.push({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr, ...(isRoof(m.elementId) ? { roof: true as const } : {}) });
         if (arrangement === undefined) out.planned.add(caseType);
       }
     }
@@ -153,7 +155,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
     for (const sq of layout.shellQuads) {
       // `SurfaceLoad3D` is per m² of shell: a load per plan m² on a sloped one is scaled by cos.
       const q = qOfQuad(sq.quadId) * (perProjection ? sq.cos : 1);
-      if (q > 1e-6) { out.surface.push({ quadId: sq.quadId, caseType, q }); out.planned.add(caseType); }
+      if (q > 1e-6) { out.surface.push({ quadId: sq.quadId, caseType, q, ...(isRoofQuad(sq.quadId) ? { roof: true as const } : {}) }); out.planned.add(caseType); }
     }
   };
 

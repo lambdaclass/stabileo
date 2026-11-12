@@ -15536,6 +15536,13 @@ const tr: Translations = {
   "loads.ec.ui.verticalAbove": "avg = {avg} g, 0,25 g'yi aşıyor: düşey bileşen 20 m ve üzeri açıklıklı yatay elemanlar, 5 m'den uzun konsollar, öngerilmeli yatay elemanlar, kolon taşıyan kirişler ve taban yalıtımlı yapılar için gereklidir. Tüm taşıyıcı sistem için üretilir.",
   "loads.ec.ui.verticalBelowHint": "avg = {avg} g, 0,25 g'yi aşmıyor: §4.3.3.5.2 düşey bileşeni gerektirmez.",
   "loads.asce7.snow.derivation.psSurface": "{slope}° eğimli çatı yüzeyi: Cs = {cs}, dengeli yük {p} kN/m² (Denk. 7.4-1, §7.3.4).",
+  "autoLoad.liveRoofCase": "Hareketli, çatı ({group} kategorisi)",
+  "autoLoad.liveRoofCasePattern": "Hareketli, çatı ({group} kategorisi), düzen {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Hareketli, çatı ({group} kategorisi), {axis} = {at} m yanındaki açıklıklar",
+  "loadPlan.derivation.roofLivePart": "Çatının kullanımı {roof} kategorisinde, katlarınki {floor} kategorisinde: çatının hareketli yükü, kendi yükleme durumlarıyla kullanım etkisinin bir parçasıdır ve {roof} kategorisinin ψ değerleriyle birleştirilir (EN 1990 Tablo A1.1); iki parça birlikte öncü ya da eşlik eden etkidir (EN 1991-1-1 §3.3.1(2)P).",
+  "loads.ec.combo.roofPart": "İki kategoride hareketli yük: katlarınki L ({floor} kategorisi) ve çatınınki L({roof}), her biri kendi ψ değerleriyle.",
+  "loads.ec.seismic.levelRoof": "+{elevation} m seviyesi: katların {live} kN hareketli yükü üzerinde ψE = {psiE}, kendi kategorisindeki çatının {liveRoof} kN yükü üzerinde ψE = {psiRoof}; deprem ağırlığı {weight} kN (EN 1998-1 §3.2.4, §4.2.4 ve Tablo 4.2).",
+  "loads.tr.seismic.derivation.massRoof": "Çatının hareketli yükü kendi kullanımına göre alınır: {use} (Tablo 4.3).",
 };
 
 export default tr;

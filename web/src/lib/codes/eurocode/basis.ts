@@ -3,7 +3,7 @@ import type { ClauseRef } from '../regulation';
 import { msg, type EngineMessage } from '../message';
 import type { ActionCategory } from '../families/origin';
 import { EN1990, EN1991_1_1, UK_NA_1990, type EcFamily } from './refs';
-import type { EcPlanContext, ImposedCategory } from './context';
+import { roofPartOf, type EcPlanContext, type ImposedCategory } from './context';
 
 export type Psi = readonly [number, number, number];
 
@@ -32,10 +32,16 @@ const VARIABLES: readonly Variable[] = ['L', 'Lr', 'S', 'W', 'T'];
 
 export interface PsiSet { L: Psi; Lr: Psi; S: Psi; W: Psi; T: Psi }
 
-export function psiSet(family: EcFamily, categories: ReadonlySet<ImposedCategory>, snowAltitudeM?: number): PsiSet {
+/**
+ * The ψ of each variable action. L is the floors' category's (Table A1.1 gives ψ by category);
+ * a roof of another category is a part of its own (`roofPart`), at its category's ψ. With no
+ * floor category known, the largest of the categories present.
+ */
+export function psiSet(family: EcFamily, categories: ReadonlySet<ImposedCategory>, snowAltitudeM?: number, floor?: ImposedCategory): PsiSet {
   const p = PSI[family];
   const cats = categories.size ? [...categories] : (['A'] as ImposedCategory[]);
-  const L = [0, 1, 2].map((k) => Math.max(...cats.filter((c) => c !== 'H').map((c) => p.imposed[c][k]!), 0)) as unknown as Psi;
+  const L = floor && floor !== 'H' ? p.imposed[floor]
+    : [0, 1, 2].map((k) => Math.max(...cats.filter((c) => c !== 'H').map((c) => p.imposed[c][k]!), 0)) as unknown as Psi;
   return { L, Lr: p.imposed.H, S: (snowAltitudeM ?? 0) > SNOW_ALTITUDE_LIMIT_M ? p.snowHigh : p.snowLow, W: p.wind, T: p.thermal };
 }
 
@@ -72,11 +78,24 @@ function presentVariables(ci: CombinationInputs): Variable[] {
 }
 
 function contextFor(family: EcFamily, ctx?: EcPlanContext) {
-  return { psi: psiSet(family, ctx?.categories ?? new Set(), ctx?.snowAltitudeM), known: !!ctx?.categories.size };
+  const roof = roofPartOf(ctx);
+  const psi = psiSet(family, ctx?.categories ?? new Set(), ctx?.snowAltitudeM, ctx?.floor);
+  /**
+   * A variable action's terms at one ψ (0, 1, 2) or leading (ψ = 1), times γ. The imposed load
+   * with a roof of another category is one action of two parts (EN 1991-1-1 §3.3.1(2)P), each at
+   * its own ψ: they lead together and accompany together.
+   */
+  const terms = (v: Variable, k: 0 | 1 | 2 | 'lead', gamma = 1): CombinationTerm[] => [
+    { symbol: v as LoadSymbol, factor: gamma * (k === 'lead' ? 1 : psi[v][k]) },
+    ...(v === 'L' && roof ? [{ symbol: 'L' as LoadSymbol, group: roof, factor: gamma * (k === 'lead' ? 1 : PSI[family].imposed[roof][k]) }] : []),
+  ];
+  /** Whether the action enters at ψk at all: any of its parts. */
+  const has = (v: Variable, k: 0 | 1 | 2) => terms(v, k).some((t) => t.factor > 0);
+  return { psi, known: !!ctx?.categories.size, terms, has, roof };
 }
 
 export function strengthCombinations(family: EcFamily, ci: CombinationInputs, ctx?: EcPlanContext): { combinations: LoadCombinationSpec[]; refs: ClauseRef[]; notes: EngineMessage[] } {
-  const { psi, known } = contextFor(family, ctx);
+  const { known, terms, has, roof } = contextFor(family, ctx);
   const xi = XI[family];
   const tableRefs = family === 'uk'
     ? [UK_NA_1990('Table NA.A1.2(B)', 'STR set B'), UK_NA_1990('Table NA.A1.1', 'psi')]
@@ -84,52 +103,53 @@ export function strengthCombinations(family: EcFamily, ci: CombinationInputs, ct
   const notActing = ci.notActing ?? true;
   const vars = presentVariables(ci);
   const b: Builder = { out: [], seen: new Set(), refs: [EN1990('6.4.3.2', 'eq. 6.10a and 6.10b'), ...tableRefs] };
-  const withPsi0 = (vs: readonly Variable[]) => vs.filter((v) => psi[v][0] > 0);
+  const withPsi0 = (vs: readonly Variable[]) => vs.filter((v) => has(v, 0));
 
   companionSets(withPsi0(vars), notActing).forEach((set, k) => {
-    push(b, `6.10a-${k + 1}`, [...permanent(ci, GAMMA.gSup), ...set.map((v) => ({ symbol: v as LoadSymbol, factor: GAMMA.q * psi[v][0] }))], 'strength');
+    push(b, `6.10a-${k + 1}`, [...permanent(ci, GAMMA.gSup), ...set.flatMap((v) => terms(v, 0, GAMMA.q))], 'strength');
   });
   for (const lead of vars) {
     const others = withPsi0(vars.filter((v) => v !== lead && compatible([lead, v])));
     companionSets(others, notActing).forEach((set, k) => {
-      const q: CombinationTerm[] = [{ symbol: lead, factor: GAMMA.q }, ...set.map((v) => ({ symbol: v as LoadSymbol, factor: GAMMA.q * psi[v][0] }))];
+      const q: CombinationTerm[] = [...terms(lead, 'lead', GAMMA.q), ...set.flatMap((v) => terms(v, 0, GAMMA.q))];
       push(b, `6.10b-${lead}-${k + 1}`, [...permanent(ci, xi * GAMMA.gSup), ...q], 'strength');
       push(b, `6.10b-${lead}-${k + 1}-inf`, [...permanent(ci, GAMMA.gInf), ...q], 'strength');
     });
   }
   if (ci.present.E) {
     b.refs = [EN1990('6.4.3.4', 'eq. 6.12b'), ...tableRefs];
-    const comp = vars.filter((v) => v !== 'W' && psi[v][2] > 0);
+    const comp = vars.filter((v) => v !== 'W' && has(v, 2));
     companionSets(comp, notActing).forEach((set, k) => {
-      push(b, `6.12b-${k + 1}`, [...permanent(ci, 1), { symbol: 'E', factor: 1 }, ...set.map((v) => ({ symbol: v as LoadSymbol, factor: psi[v][2] }))], 'strength');
+      push(b, `6.12b-${k + 1}`, [...permanent(ci, 1), { symbol: 'E', factor: 1 }, ...set.flatMap((v) => terms(v, 2))], 'strength');
     });
   }
   const notes: EngineMessage[] = [msg('loads.ec.combo.set610ab', { xi })];
   if (vars.includes('Lr')) notes.push(msg('loads.ec.combo.roofAlone'));
   if (ci.present.H || ci.present.F) notes.push(msg('loads.ec.combo.hfAsPermanent'));
   if (!known) notes.push(msg('loads.ec.combo.noContext'));
+  if (roof && vars.includes('L')) notes.push(msg('loads.ec.combo.roofPart', { floor: ctx?.floor ?? '—', roof }));
   const refs = [EN1990('6.4.3.2', 'eq. 6.10a and 6.10b'), ...tableRefs, ...(vars.includes('Lr') ? [EN1991_1_1('3.3.2(1)', 'roofs')] : [])];
   return { combinations: b.out, refs, notes };
 }
 
 export function serviceCombinations(family: EcFamily, ci: CombinationInputs, ctx?: EcPlanContext): LoadCombinationSpec[] {
-  const { psi } = contextFor(family, ctx);
+  const { terms, has } = contextFor(family, ctx);
   const vars = presentVariables(ci);
   const notActing = ci.notActing ?? true;
   const b: Builder = { out: [], seen: new Set(), refs: [EN1990('6.5.3', 'SLS combinations')] };
   for (const lead of vars) {
     const others = vars.filter((v) => v !== lead && compatible([lead, v]));
-    companionSets(others.filter((v) => psi[v][0] > 0), notActing).forEach((set, k) => {
-      push(b, `6.14b-${lead}-${k + 1}`, [...permanent(ci, 1), { symbol: lead, factor: 1 }, ...set.map((v) => ({ symbol: v as LoadSymbol, factor: psi[v][0] }))], 'service');
+    companionSets(others.filter((v) => has(v, 0)), notActing).forEach((set, k) => {
+      push(b, `6.14b-${lead}-${k + 1}`, [...permanent(ci, 1), ...terms(lead, 'lead'), ...set.flatMap((v) => terms(v, 0))], 'service');
     });
-    if (psi[lead][1] > 0) {
-      companionSets(others.filter((v) => psi[v][2] > 0), notActing).forEach((set, k) => {
-        push(b, `6.15b-${lead}-${k + 1}`, [...permanent(ci, 1), { symbol: lead, factor: psi[lead][1] }, ...set.map((v) => ({ symbol: v as LoadSymbol, factor: psi[v][2] }))], 'service');
+    if (has(lead, 1)) {
+      companionSets(others.filter((v) => has(v, 2)), notActing).forEach((set, k) => {
+        push(b, `6.15b-${lead}-${k + 1}`, [...permanent(ci, 1), ...terms(lead, 1), ...set.flatMap((v) => terms(v, 2))], 'service');
       });
     }
   }
-  companionSets(vars.filter((v) => psi[v][2] > 0), false).forEach((set, k) => {
-    push(b, `6.16b-${k + 1}`, [...permanent(ci, 1), ...set.map((v) => ({ symbol: v as LoadSymbol, factor: psi[v][2] }))], 'service');
+  companionSets(vars.filter((v) => has(v, 2)), false).forEach((set, k) => {
+    push(b, `6.16b-${k + 1}`, [...permanent(ci, 1), ...set.flatMap((v) => terms(v, 2))], 'service');
   });
   return b.out;
 }

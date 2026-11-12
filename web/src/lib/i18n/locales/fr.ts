@@ -15536,6 +15536,13 @@ const fr: Translations = {
   "loads.ec.ui.verticalAbove": "avg = {avg} g dépasse 0,25 g : la composante verticale est exigée pour les éléments horizontaux de 20 m de portée ou plus, les consoles de plus de 5 m, les éléments horizontaux précontraints, les poutres supportant des poteaux et les structures à isolation à la base. Elle est générée sur toute la structure.",
   "loads.ec.ui.verticalBelowHint": "avg = {avg} g ne dépasse pas 0,25 g : le §4.3.3.5.2 n’exige pas la composante verticale.",
   "loads.asce7.snow.derivation.psSurface": "Versant à {slope}° : Cs = {cs}, charge équilibrée {p} kN/m² (éq. 7.4-1, §7.3.4).",
+  "autoLoad.liveRoofCase": "Exploitation, toiture (catégorie {group})",
+  "autoLoad.liveRoofCasePattern": "Exploitation, toiture (catégorie {group}), alternée {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Exploitation, toiture (catégorie {group}), travées voisines de {axis} = {at} m",
+  "loadPlan.derivation.roofLivePart": "L’usage de la toiture est de catégorie {roof} et celui des planchers de catégorie {floor} : sa charge d’exploitation est une partie de l’action d’exploitation avec ses propres cas, combinée avec les ψ de la catégorie {roof} (EN 1990 tableau A1.1) ; les deux parties sont dominantes ou d’accompagnement ensemble (EN 1991-1-1 §3.3.1(2)P).",
+  "loads.ec.combo.roofPart": "Charges d’exploitation de deux catégories : L, celle des planchers (catégorie {floor}), et L({roof}), celle de la toiture, chacune avec ses ψ.",
+  "loads.ec.seismic.levelRoof": "Niveau +{elevation} m : ψE = {psiE} sur la charge d’exploitation des planchers, {live} kN, et ψE = {psiRoof} sur celle de la toiture, {liveRoof} kN, de sa propre catégorie ; poids sismique {weight} kN (EN 1998-1 §3.2.4, §4.2.4 et tableau 4.2).",
+  "loads.tr.seismic.derivation.massRoof": "L’usage propre de la toiture pondère sa charge d’exploitation : {use} (Tablo 4.3).",
 };
 
 export default fr;

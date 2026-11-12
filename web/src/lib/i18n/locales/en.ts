@@ -15696,5 +15696,12 @@ const en: Record<string, string> = {
   "loads.ec.ui.verticalAbove": "avg = {avg} g is over 0.25 g: the vertical component is required for horizontal members spanning 20 m or more, cantilevers longer than 5 m, prestressed horizontal components, beams supporting columns and base-isolated structures. It is generated on the whole structure.",
   "loads.ec.ui.verticalBelowHint": "avg = {avg} g is not over 0.25 g: §4.3.3.5.2 does not require the vertical component.",
   "loads.asce7.snow.derivation.psSurface": "Roof surface at {slope}°: Cs = {cs}, balanced load {p} kN/m² (Eq. 7.4-1, §7.3.4).",
+  "autoLoad.liveRoofCase": "Live, roof (category {group})",
+  "autoLoad.liveRoofCasePattern": "Live, roof (category {group}), alternate {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Live, roof (category {group}), spans beside {axis} = {at} m",
+  "loadPlan.derivation.roofLivePart": "The roof's occupancy is of category {roof} and the floors' of category {floor}: its live load is a part of the imposed action with cases of its own, combined at category {roof}'s ψ (EN 1990 Table A1.1); both parts lead and accompany together (EN 1991-1-1 §3.3.1(2)P).",
+  "loads.ec.combo.roofPart": "Imposed loads of two categories: L, the floors' (category {floor}), and L({roof}), the roof's, each at its own ψ.",
+  "loads.ec.seismic.levelRoof": "Level +{elevation} m: ψE = {psiE} on the floors' imposed load of {live} kN and ψE = {psiRoof} on the roof's, {liveRoof} kN, of its own category; seismic weight {weight} kN (EN 1998-1 §3.2.4, §4.2.4 and Table 4.2).",
+  "loads.tr.seismic.derivation.massRoof": "The roof's own occupancy weighs its live load: {use} (Tablo 4.3).",
 };
 export default en;

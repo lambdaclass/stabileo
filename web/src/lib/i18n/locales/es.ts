@@ -15685,5 +15685,12 @@ const es: Record<string, string> = {
   "loads.ec.ui.verticalAbove": "avg = {avg} g supera 0,25 g: la componente vertical se exige en elementos horizontales de 20 m de luz o más, voladizos de más de 5 m, elementos horizontales pretensados, vigas que reciben columnas y estructuras con aislamiento de base. Se genera sobre toda la estructura.",
   "loads.ec.ui.verticalBelowHint": "avg = {avg} g no supera 0,25 g: la §4.3.3.5.2 no exige la componente vertical.",
   "loads.asce7.snow.derivation.psSurface": "Superficie de cubierta a {slope}°: Cs = {cs}, carga equilibrada {p} kN/m² (ec. 7.4-1, §7.3.4).",
+  "autoLoad.liveRoofCase": "Sobrecarga, cubierta (categoría {group})",
+  "autoLoad.liveRoofCasePattern": "Sobrecarga, cubierta (categoría {group}), alternada {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Sobrecarga, cubierta (categoría {group}), tramos junto a {axis} = {at} m",
+  "loadPlan.derivation.roofLivePart": "El uso de la cubierta es de categoría {roof} y el de los pisos de categoría {floor}: su sobrecarga es una parte de la acción de uso con casos propios, combinada con los ψ de la categoría {roof} (EN 1990 Tabla A1.1); las dos partes son principales o concomitantes juntas (EN 1991-1-1 §3.3.1(2)P).",
+  "loads.ec.combo.roofPart": "Sobrecargas de dos categorías: L, la de los pisos (categoría {floor}), y L({roof}), la de la cubierta, cada una con sus ψ.",
+  "loads.ec.seismic.levelRoof": "Nivel +{elevation} m: ψE = {psiE} sobre la sobrecarga de los pisos, {live} kN, y ψE = {psiRoof} sobre la de la cubierta, {liveRoof} kN, de su propia categoría; peso sísmico {weight} kN (EN 1998-1 §3.2.4, §4.2.4 y Tabla 4.2).",
+  "loads.tr.seismic.derivation.massRoof": "El uso propio de la cubierta pesa su sobrecarga: {use} (Tablo 4.3).",
 };
 export default es;

@@ -65,6 +65,12 @@ export interface ImposedLoadCode extends CodeModule {
   }): { lKNm2: number; refs: ClauseRef[]; reason: EngineMessage };
   /** The rows a roof with an occupancy may take. Absent: CIRSOC 101 §4.8.2's, from Table 4.1. */
   roofOccupancies?(): readonly OccupancyEntry[];
+  /**
+   * The part of the imposed action an occupancy's load is, where the code combines the parts at
+   * their own factors (EN 1990 ψ by category of use): a roof of another part than the floors' gets
+   * cases of its own (`load-plan.ts`). Absent: the imposed load is one action at one set of factors.
+   */
+  imposedGroup?(occupancyKey: string): string | undefined;
   /** The roof's imposed load for maintenance, where the code has its own; such a code has no heavy and light roofs. Absent: CIRSOC 101 §4.8.1. */
   roofLive?(i: import('../cirsoc101/roof-live').RoofLiveInputs): import('../cirsoc101/roof-live').RoofLiveResult;
 }

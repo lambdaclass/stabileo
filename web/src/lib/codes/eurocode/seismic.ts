@@ -96,13 +96,18 @@ export function planEcSeismic(input: LoadPlanInput, levels: LevelMass[], sink: P
   const balanced = cases.findIndex((c) => c.type === 'S' && c.nameKey === 'loads.ec.snowCase.i');
   const snowByLevel = psi2S > 0 && balanced >= 0 ? snowWeightByLevel(input.model, sink.distributed, sink.nodal, balanced, levels.map((l) => l.elevation)) : levels.map(() => 0);
   const topIndex = levels.reduce((k, l, i) => (l.elevation > levels[k]!.elevation ? i : k), 0);
+  // ψE = φ·ψ2 by the category of each part of a level's live load (§4.2.4, Table 4.2): the floors'
+  // at their storey's φ, a roof with an occupancy of its own at its category and the roof's φ = 1.
+  const roofKey = input.roof?.use === 'occupancy' ? input.roof.occupancyKey : undefined;
   levels.forEach((lv, i) => {
-    // A roof with its own occupancy brings that occupancy's ψ to the top level; mixed with floors there, the larger one.
-    const roofKey = input.roof?.use === 'occupancy' ? input.roof.occupancyKey : undefined;
-    const e = Math.max(psiE(input.occupancyKey, i === topIndex, ci.occupancy), i === topIndex && roofKey ? psiE(roofKey, true, ci.occupancy) : 0);
-    lv.liveParticipatingKN = e * lv.liveTotalKN;
+    const e = psiE(input.occupancyKey, i === topIndex, ci.occupancy);
+    const roofLive = roofKey ? Math.min(lv.liveRoofKN ?? 0, lv.liveTotalKN) : 0;
+    const eRoof = roofKey ? psiE(roofKey, true, ci.occupancy) : e;
+    lv.liveParticipatingKN = e * (lv.liveTotalKN - roofLive) + eRoof * roofLive;
     lv.weightKN = lv.selfWeightKN + lv.superimposedKN + lv.liveParticipatingKN + psi2S * (snowByLevel[i] ?? 0);
-    derivation.push(msg('loads.ec.seismic.level', { elevation: round(lv.elevation, 2), psiE: round(e, 3), live: round(lv.liveTotalKN, 1), weight: round(lv.weightKN, 1) }));
+    derivation.push(roofLive > 0
+      ? msg('loads.ec.seismic.levelRoof', { elevation: round(lv.elevation, 2), psiE: round(e, 3), live: round(lv.liveTotalKN - roofLive, 1), psiRoof: round(eRoof, 3), liveRoof: round(roofLive, 1), weight: round(lv.weightKN, 1) })
+      : msg('loads.ec.seismic.level', { elevation: round(lv.elevation, 2), psiE: round(e, 3), live: round(lv.liveTotalKN, 1), weight: round(lv.weightKN, 1) }));
   });
   refs.push(EN1998_1('3.2.4', 'masses, eq. 3.17'), EN1998_1('4.2.4', 'psiE'), EN1998_1('Table 4.2', 'phi'), EN1990('Table A1.1', 'psi2'));
 

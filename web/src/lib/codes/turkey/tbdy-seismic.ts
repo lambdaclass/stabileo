@@ -62,11 +62,16 @@ export function planTbdy(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
   const base = Math.min(...levels.map((l) => l.elevation));
   const use = massUseOf(input, ti.massUse);
   const n = MASS_PARTICIPATION[use];
+  // Tablo 4.3 by occupancy: a roof with an occupancy of its own takes that occupancy's n.
+  const roofKey = input.roof?.use === 'occupancy' ? input.roof.occupancyKey : undefined;
+  const roofUse = roofKey ? occupancyUse(roofKey) ?? use : use;
+  const nRoof = MASS_PARTICIPATION[roofUse];
   const snowCase = sink.cases.findIndex((c) => c.type === 'S' && !c.pattern);
   const snow = snowWeightByLevel(input.model, sink.distributed, sink.nodal, snowCase, levels.map((l) => l.elevation));
   // The levels the plan reports carry this code's mass, not the fallback participation they came with.
   levels.forEach((l, k) => {
-    l.liveParticipatingKN = n * l.liveTotalKN;
+    const roofLive = roofKey ? Math.min(l.liveRoofKN ?? 0, l.liveTotalKN) : 0;
+    l.liveParticipatingKN = n * (l.liveTotalKN - roofLive) + nRoof * roofLive;
     l.weightKN = l.selfWeightKN + l.superimposedKN + l.liveParticipatingKN + SNOW_IN_MASS * snow[k]!;
   });
   const elevated = levels.map((l) => ({ l, w: l.weightKN }))
@@ -76,6 +81,7 @@ export function planTbdy(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
   sink.refs.push(TBDY('4.5.9.2', 'Denk. 4.16'), TBDY('Tablo 4.3'));
   const snowKN = snow.reduce((a, b) => a + b, 0);
   sink.derivation.push(msg('loads.tr.seismic.derivation.mass', { use: msg(`loads.tr.seismic.use.${use}`), n, snow: round(snowKN, 1), share: SNOW_IN_MASS, w: round(W, 1) }));
+  if (roofKey && levels.some((l) => (l.liveRoofKN ?? 0) > 0)) sink.derivation.push(msg('loads.tr.seismic.derivation.massRoof', { use: msg(`loads.tr.seismic.use.${roofUse}`) }));
   for (const x of elevated) sink.derivation.push(msg('loads.tr.seismic.derivation.level', { level: round(x.l.elevation, 2), w: round(x.w, 1) }));
 
   const hn = Math.max(...elevated.map((x) => x.l.elevation)) - base;

@@ -15337,5 +15337,12 @@ const pt: Translations = {
   "loads.ec.ui.verticalAbove": "avg = {avg} g excede 0,25 g: a componente vertical é exigida em elementos horizontais com vão de 20 m ou mais, balanços com mais de 5 m, elementos horizontais protendidos, vigas que apoiam pilares e estruturas com isolamento de base. É gerada sobre toda a estrutura.",
   "loads.ec.ui.verticalBelowHint": "avg = {avg} g não excede 0,25 g: a §4.3.3.5.2 não exige a componente vertical.",
   "loads.asce7.snow.derivation.psSurface": "Superfície de cobertura a {slope}°: Cs = {cs}, carga equilibrada {p} kN/m² (eq. 7.4-1, §7.3.4).",
+  "autoLoad.liveRoofCase": "Sobrecarga, cobertura (categoria {group})",
+  "autoLoad.liveRoofCasePattern": "Sobrecarga, cobertura (categoria {group}), alternada {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Sobrecarga, cobertura (categoria {group}), vãos junto a {axis} = {at} m",
+  "loadPlan.derivation.roofLivePart": "O uso da cobertura é de categoria {roof} e o dos pisos de categoria {floor}: sua sobrecarga é uma parte da ação de uso com casos próprios, combinada com os ψ da categoria {roof} (EN 1990 Tabela A1.1); as duas partes são principais ou acompanhantes juntas (EN 1991-1-1 §3.3.1(2)P).",
+  "loads.ec.combo.roofPart": "Sobrecargas de duas categorias: L, a dos pisos (categoria {floor}), e L({roof}), a da cobertura, cada uma com seus ψ.",
+  "loads.ec.seismic.levelRoof": "Nível +{elevation} m: ψE = {psiE} sobre a sobrecarga dos pisos, {live} kN, e ψE = {psiRoof} sobre a da cobertura, {liveRoof} kN, de sua própria categoria; peso sísmico {weight} kN (EN 1998-1 §3.2.4, §4.2.4 e Tabela 4.2).",
+  "loads.tr.seismic.derivation.massRoof": "O uso próprio da cobertura pesa sua sobrecarga: {use} (Tablo 4.3).",
 };
 export default pt;
