@@ -884,6 +884,10 @@ test.engine.nonlinear-convergence-wasm: wasm
 	$(NIX_RUN) node scripts/tests/nonlinear-convergence-wasm.mjs $(CURDIR)/.761-wasm-cases.json
 	rm -f $(CURDIR)/.761-wasm-cases.json
 
+.PHONY: test.engine.plastic-nightly-wasm
+test.engine.plastic-nightly-wasm: wasm
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-nightly-wasm.mjs
+
 .PHONY: test.engine.buckling-818-wasm
 
 test.engine.buckling-818-wasm: wasm
