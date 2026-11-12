@@ -3,7 +3,7 @@ import quantities from 'virtual:result-change-quantities';
 import { declaresMove } from '../../legacy-projects/legacy';
 import { assessProject, conditionHolds } from '../applicability';
 import { RESULT_CHANGES } from '../full-registry';
-import { modelFeatures, type FeatureSnapshot } from '../model-features';
+import { ANALYSIS_KINDS, modelFeatures, type FeatureSnapshot } from '../model-features';
 
 const stagedIds = ['staged-free-stiffness', 'staged-orphan-rotations'];
 const ids = (snapshot: FeatureSnapshot) => assessProject(snapshot, null).changes.map(change => change.id);
@@ -62,5 +62,19 @@ describe('staged result-change scope', () => {
     expect(declaresMove(change, 'base.finalResults.displacements[n1].uz')).toBe(true);
     expect(declaresMove(change, 'base.stages[0].results.displacements[n1].uz')).toBe(true);
     expect(declaresMove(change, 'solve.ok')).toBe(true);
+  });
+});
+
+
+describe('initial plastic refusal and stage cancellation notice', () => {
+  it.skip.each(['2d', '3d', 'pro'])('known wrong result: #1943 — scopes %s results by saved analysis and construction history', analysisMode => {
+    for (const analysesRun of [null, ['linear'], ['plastic']]) {
+      for (const phases of [undefined, [], [{ id: 'first' }]]) {
+        const snapshot = frame(analysisMode, phases);
+        const features = modelFeatures(snapshot, { analysesRun, analysesRecorded: ANALYSIS_KINDS });
+        const expected = !!phases?.length || (analysisMode !== '2d' && (analysesRun === null || analysesRun.includes('plastic')));
+        expect(conditionHolds(entry('initial-plastic-refusals-and-stage-cancellation').when!, features), JSON.stringify({ analysisMode, analysesRun, phases })).toBe(expected);
+      }
+    }
   });
 });

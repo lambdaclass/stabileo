@@ -369,6 +369,24 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect(status.t).toContain(`SA-2026-060 — ${draftStatus}.`);
   });
 
+  it.skip.each<[PublicLocale, string, string]>([
+    ['en', 'High', 'Draft: local fix awaiting review and release'],
+    ['es', 'Alta', 'Borrador: corrección local pendiente de revisión y publicación'],
+    ['pt', 'Alta', 'Rascunho: correção local aguardando revisão e lançamento'],
+    ['de', 'Hoch', 'Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung'],
+    ['fr', 'Haute', 'Brouillon : correction locale en attente de revue et de publication'],
+    ['tr', 'Yüksek', 'Taslak: yerel düzeltme inceleme ve yayın bekliyor'],
+  ])('known wrong result: #1943 — %s: lists SA-2026-062 as a pending draft', (locale, severity, draftStatus) => {
+    const blocks = post!.i18n[locale]!.blocks;
+    const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+    const status = blocks.find((b) => b.k === 'note') as Extract<Block, { k: 'note' }>;
+    const row = summary.rows.find((r) => r[0] === 'SA-2026-062');
+    expect(row, `${locale}: SA-2026-062 missing`).toBeDefined();
+    expect(row![2]).toBe(severity);
+    expect(row![3]).toBe(draftStatus);
+    expect(status.t).toContain(`SA-2026-062 — ${draftStatus}.`);
+  });
+
   it.each<[PublicLocale, string, string]>([
     ['en', 'Medium', 'Draft: fix not yet merged or deployed'],
     ['es', 'Media', 'Borrador: corrección aún no integrada ni publicada'],
