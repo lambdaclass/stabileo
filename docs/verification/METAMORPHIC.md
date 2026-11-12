@@ -474,13 +474,13 @@ cd engine
 nix develop .. -c cargo test --locked --release --test metamorphic
 nix develop .. -c cargo test --locked --release --test metamorphic metamorphic_nightly_generated -- --ignored --nocapture
 nix develop .. -c cargo test --locked --release --test metamorphic safety_cases -- --ignored --nocapture
-nix develop .. -c cargo test --locked --release --test metamorphic corotational_rigid_motion_reproducer -- --ignored --nocapture
+nix develop .. -c cargo test --locked --release --test metamorphic corotational_rigid_motions_preserve_converged_responses -- --nocapture
 ```
 
 The explicit safety reproduction commands are expected to fail while their
 issues remain open. They are deliberately separate from the required run.
-The targeted checks reproduced #758, #759, #760 and #762; the minimal
-co-rotational check reproduced #761.
+The targeted checks reproduce #758, #759, #760 and #762. The minimal and
+generated co-rotational #761 checks are active numerical regressions.
 
 ### Verification evidence
 
@@ -504,7 +504,7 @@ not rerun as part of this change.
 ### Generated matrix
 
 Snapshot: seed 20261018, 128 seeds per dimension. ✓ = pass on every exercised
-case; `ignored(#761)` = the separately executable issue-linked test; · = not
+case; · = not
 applicable or outside the stated adapter scope. There were no refused,
 unrepresentable or inconclusive generated comparisons. Active cable coverage
 is in the separate test described above. These small-model passes do not remove
@@ -528,7 +528,7 @@ the adverse-model exclusions #758, #759, #760 and #762.
 | SSI (no soil springs) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · |
 | creep & shrinkage (t = t0) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · |
 | P-Delta | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
-| corotational | ignored(#761) | ignored(#761) | ✓ | ✓ | ✓ | · | · | · | · | · | · |
+| corotational | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
 | material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
 | fiber nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
 | cable solver | · | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
@@ -562,7 +562,7 @@ the adverse-model exclusions #758, #759, #760 and #762.
 | SSI (no soil springs) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | ✓ |
 | creep & shrinkage (t = t0) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | ✓ |
 | P-Delta | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
-| corotational | ignored(#761) | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
+| corotational | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
 | material nonlinear | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
 | fiber nonlinear | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
 | cable solver | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | · |

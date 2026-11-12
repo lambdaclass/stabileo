@@ -5,7 +5,7 @@ use super::dof::DofNumbering;
 use super::assembly::*;
 use super::geometric_stiffness::{
     emit_buckling_geometric_stiffness_2d, emit_buckling_geometric_stiffness_3d, geometric_stiffness_terms_2d, geometric_stiffness_terms_3d,
-    span_axial_geometric_stiffness_2d, span_axial_geometric_stiffness_3d, BucklingKg, KgTriplets,
+    span_axial_geometric_stiffness_2d, span_axial_geometric_stiffness_3d, GeometricState, KgTriplets,
 };
 use super::constraints::FreeConstraintSystem;
 
@@ -121,9 +121,9 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     //    place — we solve K·φ = λ·(-Kg)·φ for positive eigenvalues, and nothing
     //    reads the un-negated Kg.
     let span_axial = span_axial_geometric_stiffness_2d(input, &dof_num);
-    let resolved = BucklingKg::Resolved { mean_n: &mean_n, noise: &axial_noise };
-    let round_off = BucklingKg::RoundOffAtCompression { mean_n: &mean_n, noise: &axial_noise };
-    let assemble = |parts: &[BucklingKg<'_>]| {
+    let resolved = GeometricState::Resolved { mean_n: &mean_n, noise: &axial_noise };
+    let round_off = GeometricState::RoundOffAtCompression { mean_n: &mean_n, noise: &axial_noise };
+    let assemble = |parts: &[GeometricState<'_>]| {
         let mut kg = KgTriplets::new(if inclined_transforms_2d.is_empty() { nf } else { dof_num.n_total });
         for &which in parts {
             emit_buckling_geometric_stiffness_2d(input, &dof_num, &u, which, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
@@ -567,9 +567,9 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     // Kg is collected over all DOFs when there are inclined supports and
     // rotated the same way once the surfaces are in.
 
-    let resolved = BucklingKg::Resolved { mean_n: &mean_n, noise: &axial_noise };
-    let round_off = BucklingKg::RoundOffAtCompression { mean_n: &mean_n, noise: &axial_noise };
-    let assemble = |parts: &[BucklingKg<'_>]| {
+    let resolved = GeometricState::Resolved { mean_n: &mean_n, noise: &axial_noise };
+    let round_off = GeometricState::RoundOffAtCompression { mean_n: &mean_n, noise: &axial_noise };
+    let assemble = |parts: &[GeometricState<'_>]| {
         let mut kg = KgTriplets::new(if inclined_transforms.is_empty() { nf } else { n });
         for &which in parts {
             emit_buckling_geometric_stiffness_3d(input, &dof_num, &u_full, which, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
@@ -816,9 +816,9 @@ mod tests {
         let phi = [1.0, -1.0];
         let (work, uncertainty, drivers) = geometric_work_uncertainty(&[term], &[], &mean_n, &noise, &phi);
         assert_eq!((work, uncertainty, drivers), (0.0, 8e-9, vec![1]));
-        let worst = super::super::geometric_stiffness::BucklingKg::RoundOffAtCompression { mean_n: &mean_n, noise: &noise };
+        let worst = super::super::geometric_stiffness::GeometricState::RoundOffAtCompression { mean_n: &mean_n, noise: &noise };
         assert_eq!(worst.axial_force(1), Some(Some(-2e-9)));
-        let resolved = super::super::geometric_stiffness::BucklingKg::Resolved { mean_n: &mean_n, noise: &noise };
+        let resolved = super::super::geometric_stiffness::GeometricState::Resolved { mean_n: &mean_n, noise: &noise };
         assert_eq!(resolved.axial_force(1), None);
     }
 }

@@ -888,3 +888,9 @@ test.engine.nonlinear-convergence-wasm: wasm
 test.engine.frozen-shell-refusals: wasm
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib frozen_shell_refusals -- --nocapture
 	$(NIX_RUN) node scripts/tests/frozen-shell-refusals-wasm.mjs
+
+.PHONY: test.engine.convergence-regressions-wasm
+test.engine.convergence-regressions-wasm: wasm
+	FLIP_WASM_CASES=$(CURDIR)/.flip-reference-cases.json FLIP_SUPPORTED_CASES=$(CURDIR)/.flip-supported-cases.json FLIP_RIGID_CASES=$(CURDIR)/.flip-rigid-cases.json FLIP_ROLL_CASES=$(CURDIR)/.flip-roll-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=flip_regressions::
+	$(NIX_RUN) node scripts/tests/convergence-regressions-wasm.mjs $(CURDIR)/.flip-reference-cases.json $(CURDIR)/.flip-supported-cases.json $(CURDIR)/.flip-rigid-cases.json $(CURDIR)/.flip-roll-cases.json
+	rm -f $(CURDIR)/.flip-reference-cases.json $(CURDIR)/.flip-supported-cases.json $(CURDIR)/.flip-rigid-cases.json $(CURDIR)/.flip-roll-cases.json
