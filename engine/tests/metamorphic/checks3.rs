@@ -107,6 +107,10 @@ pub fn with_eigen_3d(cond: Conditioning, c: &Case3) -> Conditioning {
 }
 
 fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditioning) -> Verdict {
+    same_with_assembly(a, tc, expected, cond, false)
+}
+
+fn same_with_assembly(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditioning, assembly: bool) -> Verdict {
     let expected = match expected {
         Ok(e) => e,
         Err(e) => return Verdict::Unrepresentable(e),
@@ -117,7 +121,14 @@ fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditionin
     };
     let rel = rel_for(a.name, a.iter_tol, &c2);
     match run(a, tc) {
-        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| crate::analysis_accuracy::compare(&g, &e, c2.lchar, rel, action_floor_3d(tc, a.name, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
+        Ok(mut got) => {
+            if assembly {
+                if let Err(e) = crate::analysis_accuracy::assembly_3d(tc, &mut got) {
+                    return Verdict::Refused(format!("no load assembly budget: {e}"));
+                }
+            }
+            bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| crate::analysis_accuracy::compare(&g, &e, c2.lchar, rel, action_floor_3d(tc, a.name, c2.lchar), crate::checks2::compliance(a.name, &c2))))
+        },
         Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => transformed_failure(e, expected.2),
     }
@@ -295,12 +306,20 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                     same(a, &c.relabel(&rl, seed), Ok(base.relabel(&rl)), &cond)
                 }
                 "reversal" => {
+                    let assembly = crate::analysis_accuracy::static_assembly(a.name);
+                    let mut base = base.clone();
+                    if assembly {
+                        if let Err(e) = crate::analysis_accuracy::assembly_3d(c, &mut base) {
+                            ctx.tally.record(a.name, inv, &c.name, Verdict::Refused(format!("no load assembly budget: {e}")));
+                            continue;
+                        }
+                    }
                     let mut ids: Vec<_> = c.s.elements.values().map(|e| e.id).collect();
                     ids.sort_unstable();
                     let mut flipped: std::collections::HashSet<usize> = ids.iter().copied().filter(|_| rng.f64() < 0.5).collect();
                     if crate::generated::strict() && flipped.is_empty() { flipped.insert(ids[0]); }
                     match dedaliano_engine::metamorphic::reversal::reverse_3d(&c.s, &|id| flipped.contains(&id)) {
-                        Ok(s) => same(a, &Case3 { s, ..c.clone() }, if a.name == "influence line" { base.reverse_influence(&flipped, c.path.as_ref().unwrap()[1]) } else { base.reverse(&flipped, true) }, &cond),
+                        Ok(s) => same_with_assembly(a, &Case3 { s, ..c.clone() }, if a.name == "influence line" { base.reverse_influence(&flipped, c.path.as_ref().unwrap()[1]) } else { base.reverse(&flipped, true) }, &cond, assembly),
                         Err(e) => Verdict::Unrepresentable(e.to_string()),
                     }
                 }
