@@ -1,23 +1,24 @@
 <script lang="ts">
   import { principalPlane, rotatePlane } from '../../lib/mohr/plane';
-  import { equalFrame, ticks, thetaOnCircle, snapAngle, roundTo } from '../../lib/mohr/plot';
-  import { wrapAngle, type Unit } from '../../lib/mohr/state';
+  import { equalFrame, gutter, ticks, thetaOnCircle, snapAngle, roundTo } from '../../lib/mohr/plot';
+  import { wrapAngle, unitScales, type Unit } from '../../lib/mohr/state';
   import { tm, formatter } from './i18n';
   import type { Focus2D } from './focus';
 
-  let { sx, sy, txy, theta = $bindable(), tauDown, unit, focus = $bindable(null) }: {
-    sx: number; sy: number; txy: number; theta: number; tauDown: boolean; unit: Unit; focus?: Focus2D;
+  let { sx, sy, txy, theta = $bindable(), tauDown, unit, focus = $bindable(null), fit = false, digits = 2 }: {
+    sx: number; sy: number; txy: number; theta: number; tauDown: boolean; unit: Unit; focus?: Focus2D; fit?: boolean; digits?: number;
   } = $props();
 
-  let cw = $state(0);
-  const W = $derived(Math.max(280, Math.round(cw) || 560));
-  const H = $derived(Math.round(Math.min(470, Math.max(280, W * 0.62))));
-  const box = $derived({ left: 46, top: 30, width: W - 46 - 14, height: H - 30 - 46 });
-  const fmt = $derived(formatter(2));
+  let cw = $state(0), ch = $state(0);
+  const W = $derived(Math.max(260, Math.round(cw) || 560));
+  const H = $derived(fit && ch > 160 ? Math.round(ch) : Math.round(Math.min(470, Math.max(260, W * 0.62))));
+  const fmt = $derived(formatter(digits));
   const fmt1 = $derived(formatter(1));
 
   const p = $derived(principalPlane({ sx, sy, txy }));
   const rot = $derived(rotatePlane({ sx, sy, txy }, theta));
+  const left = $derived(gutter(Math.max(p.radius, Math.abs(p.center) * 0.5, 1) * 1.4, true, unitScales(unit)));
+  const box = $derived({ left, top: 30, width: W - left - 14, height: H - 30 - 46 });
   const scaleRef = $derived(Math.max(Math.abs(sx), Math.abs(sy), Math.abs(txy), 1e-12));
   const point = $derived(p.radius <= 1e-9 * scaleRef);
 
@@ -128,10 +129,9 @@
   const hover = (f: Focus2D) => ({ onpointerenter: () => (focus = f), onpointerleave: () => (focus = null), onfocus: () => (focus = f), onblur: () => (focus = null) });
 </script>
 
-<div class="mh-plot-box" bind:clientWidth={cw}>
+<div class="mh-plot-box" bind:clientWidth={cw} bind:clientHeight={ch}>
 <svg bind:this={svg} class="mh-plot" class:mh-dragging={dragging} viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={tm('mohr.circleLabel')} data-testid="mohr2d-circle"
   onpointermove={follow} onpointerup={release} onpointercancel={release}>
-  <title>{tm('mohr.circleLabel')}</title>
   {#each xTicks as v (v)}
     <line class="mh-grid" x1={frame.x(v)} x2={frame.x(v)} y1={box.top} y2={box.top + box.height} />
     <text class="mh-tick" x={frame.x(v)} y={box.top + box.height + 16} text-anchor="middle">{tickLabel(v)}</text>

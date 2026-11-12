@@ -27,8 +27,8 @@ export function openMohrFromFibre(sigma: number, tau: number, components?: [numb
   const [xy, xz] = components ?? [tau, 0];
   openMohr({
     kind,
-    plane: { sx: sigma, sy: 0, txy: tau, theta: 0, unit: 'MPa', tauDown: mohrPanel.plane.tauDown },
-    space: { s: { xx: sigma, yy: 0, zz: 0, xy, xz, yz: 0 }, phi: mohrPanel.space.phi, theta: mohrPanel.space.theta, unit: 'MPa' },
+    plane: { sx: sigma, sy: 0, txy: tau, theta: 0, unit: mohrPanel.plane.unit, tauDown: mohrPanel.plane.tauDown },
+    space: { s: { xx: sigma, yy: 0, zz: 0, xy, xz, yz: 0 }, phi: mohrPanel.space.phi, theta: mohrPanel.space.theta, unit: mohrPanel.space.unit },
     fromModel: true,
   });
 }

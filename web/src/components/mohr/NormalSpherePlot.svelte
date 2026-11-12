@@ -10,17 +10,17 @@
   import { tm, formatter } from './i18n';
   import type { Focus3D } from './focus';
 
-  let { s, n, principal, settings, unit, onpick, alpha = $bindable(SPHERE_VIEW.alpha), beta = $bindable(SPHERE_VIEW.beta), focus = null }: {
-    s: Tensor3; n: Vec3; principal: Principal3; settings: SphereSettings; unit: Unit; onpick: (n: Vec3) => void; alpha?: number; beta?: number; focus?: Focus3D;
+  let { s, n, principal, settings, unit, onpick, alpha = $bindable(SPHERE_VIEW.alpha), beta = $bindable(SPHERE_VIEW.beta), focus = null, fit = false, digits = 2 }: {
+    s: Tensor3; n: Vec3; principal: Principal3; settings: SphereSettings; unit: Unit; onpick: (n: Vec3) => void; alpha?: number; beta?: number; focus?: Focus3D; fit?: boolean; digits?: number;
   } = $props();
   const uid = $props.id();
 
-  let cw = $state(0);
-  const W = $derived(Math.max(280, Math.round(cw) || 460));
-  const H = $derived(Math.round(Math.min(620, Math.max(320, W * 1.08))));
+  let cw = $state(0), ch = $state(0);
+  const W = $derived(Math.max(240, Math.round(cw) || 460));
+  const H = $derived(fit && ch > 200 ? Math.round(ch) : Math.round(Math.min(620, Math.max(300, W * (W < 480 ? 0.92 : 1.02)))));
   const CX = $derived(W / 2), CY = $derived((H - 44) / 2 + 6);
   const S = $derived(Math.min(W, H - 44) * 0.315);
-  const fmt = $derived(formatter(1));
+  const fmt = $derived(formatter(Math.max(0, digits - 1)));
 
   const basis = $derived.by(() => {
     const a = (alpha * Math.PI) / 180, b = (beta * Math.PI) / 180;
@@ -152,10 +152,9 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-<div class="mh-plot-box" bind:clientWidth={cw}>
+<div class="mh-plot-box" bind:clientWidth={cw} bind:clientHeight={ch}>
 <svg bind:this={svg} class="mh-plot mh-sphere" viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="application" aria-label={tm('mohr.sphereLabel')} tabindex="0" data-testid="mohr3d-sphere"
   onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)} onkeydown={key}>
-  <title>{tm('mohr.sphereLabel')}</title>
   <defs>
     <linearGradient id={`${uid}-bar`} x1="0" x2="1" y1="0" y2="0">
       <stop offset="0" stop-color={divergingColor(-1, 1)} />

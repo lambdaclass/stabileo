@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { encode2D, decode2D, encode3D, decode3D, appHref, readAppLink, wrapAngle, DEFAULT_2D, DEFAULT_3D, fibreTensor, type Mohr2DState, type Mohr3DState } from '../state';
-import { mergeCoincident, labelRows, ticks, equalFrame, divergingColor } from '../plot';
+import { encode2D, decode2D, encode3D, decode3D, appHref, readAppLink, wrapAngle, DEFAULT_2D, DEFAULT_3D, fibreTensor, toUnit, fromUnit, unitScales, UNITS, PER_MPA, UNIT_DIGITS, UNIT_STEP, type Mohr2DState, type Mohr3DState } from '../state';
+import { mergeCoincident, labelRows, ticks, equalFrame, divergingColor, gutter } from '../plot';
 
 describe('URL state', () => {
   it('2D round-trip', () => {
@@ -43,6 +43,48 @@ describe('URL state', () => {
   });
 });
 
+describe('units', () => {
+  it('converts MPa to each unit and back', () => {
+    expect(toUnit(80, 'MPa')).toBe(80);
+    expect(toUnit(80, 'kPa')).toBe(80000);
+    expect(toUnit(80, 'kN/cm²')).toBeCloseTo(8, 12);
+    expect(toUnit(80, 'kgf/cm²')).toBeCloseTo(815.773, 3);
+    expect(toUnit(9.80665, 'kgf/cm²')).toBeCloseTo(100, 10);
+    for (const u of UNITS) for (const v of [-37.1, 0, 1e-4, 92.53, 1e6]) expect(Math.abs(fromUnit(toUnit(v, u), u) - v)).toBeLessThanOrEqual(1e-12 * Math.max(1, Math.abs(v)));
+  });
+
+  it('every unit has its digits and a round step of about 1 MPa', () => {
+    for (const u of UNITS) {
+      expect(UNIT_DIGITS[u]).toBeGreaterThanOrEqual(0);
+      const mpa = fromUnit(UNIT_STEP[u], u);
+      expect(mpa).toBeGreaterThan(0.5);
+      expect(mpa).toBeLessThan(1.5);
+      expect(PER_MPA[u]).toBeGreaterThan(0);
+    }
+  });
+
+  it('links keep MPa whatever unit is shown, so changing the unit never changes the state', () => {
+    const mpa: Mohr2DState = { sx: 80, sy: 20, txy: 30, theta: 0, unit: 'MPa', tauDown: false };
+    for (const unit of UNITS) {
+      const p = encode2D({ ...mpa, unit });
+      expect(p.get('sx')).toBe('80');
+      expect(p.get('v')).toBe('2');
+      expect(decode2D(new URLSearchParams(p.toString()))).toEqual({ ...mpa, unit });
+    }
+    expect(encode3D({ ...DEFAULT_3D, unit: 'kPa' }).get('s')).toBe('80,20,-30,30,15,-10');
+  });
+
+  it('a link from before the unit change still means the numbers it shows, in its unit', () => {
+    const old = decode2D(new URLSearchParams('sx=100&sy=20&txy=30&th=90&u=kncm2&tdown=1'));
+    expect(old).toEqual({ sx: 1000, sy: 200, txy: 300, theta: 90, unit: 'kN/cm²', tauDown: true });
+    expect(decode2D(new URLSearchParams('sx=1000&u=kgfcm2')).sx).toBeCloseTo(98.0665, 9);
+    expect(decode2D(new URLSearchParams('sx=5&u=mpa')).sx).toBe(5);
+    const old3 = decode3D(new URLSearchParams('s=80000,20000,-30000,30000,15000,-10000&phi=10&th=20&u=kpa'));
+    expect(old3.s).toEqual({ xx: 80, yy: 20, zz: -30, xy: 30, yz: 15, xz: -10 });
+    expect(old3.unit).toBe('kPa');
+  });
+});
+
 describe('plot helpers', () => {
   it('merges coincident principal values into one label', () => {
     expect(mergeCoincident([{ key: 's1', value: 100 }, { key: 's2', value: 100 }, { key: 's3', value: 0 }], 1e-6))
@@ -53,6 +95,14 @@ describe('plot helpers', () => {
   it('puts close labels on separate rows', () => {
     expect(labelRows([0, 10, 100], 40)).toEqual([0, 1, 0]);
     expect(labelRows([200, 0, 100], 40)).toEqual([0, 0, 0]);
+  });
+
+  it('leaves room for the widest tick label', () => {
+    expect(gutter(60, true)).toBe(40);
+    expect(gutter(59396, true)).toBeGreaterThan(gutter(60, true) + 25);
+    expect(gutter(0.06, false)).toBeGreaterThanOrEqual(40);
+    expect(gutter(60, true, [1, 1000, 0.1])).toBe(gutter(60000, true));
+    for (const u of UNITS) expect(gutter(toUnit(42, u), true, unitScales(u))).toBe(gutter(42, true, unitScales('MPa')));
   });
 
   it('nice ticks', () => {

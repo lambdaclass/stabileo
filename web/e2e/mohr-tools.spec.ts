@@ -37,14 +37,16 @@ test('@smoke the 2D Mohr tool computes, keeps its state in a link and opens the 
   await page.getByTestId('mohr2d-taudown').check();
   await page.getByTestId('mohr2d-unit').selectOption('kN/cm²');
   await expect(page.getByTestId('mohr2d-circle')).toContainText('kN/cm²');
+  await expect(page.getByTestId('mohr2d-sx')).toHaveValue('10');
 
   await page.getByTestId('mohr-copy-link').click();
   await expect(page.getByTestId('mohr-copy-status')).toHaveText('Link copied');
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(copied).toContain('/en/tools/mohr-2d/?');
   expect(page.url()).toBe(copied);
+  expect(new URL(copied).searchParams.get('sx')).toBe('100');
   await page.goto(copied);
-  await expect(page.getByTestId('mohr2d-sx')).toHaveValue('100');
+  await expect(page.getByTestId('mohr2d-sx')).toHaveValue('10');
   await expect(page.getByTestId('mohr2d-theta-input')).toHaveValue('90');
   await expect(page.getByTestId('mohr2d-taudown')).toBeChecked();
   await expect(page.getByTestId('mohr2d-unit')).toHaveValue('kN/cm²');
@@ -55,13 +57,13 @@ test('@smoke the 2D Mohr tool computes, keeps its state in a link and opens the 
   const dialog = page.getByTestId('mohr-dialog');
   await expect(dialog).toBeVisible({ timeout: 30_000 });
   await expect(dialog).toHaveAttribute('data-kind', 'plane');
-  expect(await fieldValue(page, 'mohr2d-sx')).toBe('100');
-  expect(await fieldValue(page, 'mohr2d-sy')).toBe('20');
-  expect(await fieldValue(page, 'mohr2d-txy')).toBe('30');
+  expect(await fieldValue(page, 'mohr2d-sx')).toBe('10');
+  expect(await fieldValue(page, 'mohr2d-sy')).toBe('2');
+  expect(await fieldValue(page, 'mohr2d-txy')).toBe('3');
   await expect(page.getByTestId('mohr2d-taudown')).toBeChecked();
   await expect(page.getByTestId('mohr2d-unit')).toHaveValue('kN/cm²');
   expect(new URL(page.url()).searchParams.has('mohr')).toBe(false);
-  await expect(page.getByTestId('mohr-public-link')).toHaveAttribute('href', /\/en\/tools\/mohr-2d\/\?sx=100&sy=20&txy=30&th=90&u=kncm2&tdown=1$/);
+  await expect(page.getByTestId('mohr-public-link')).toHaveAttribute('href', /\/en\/tools\/mohr-2d\/\?sx=100&sy=20&txy=30&th=90&u=kncm2&v=2&tdown=1$/);
 });
 
 test('@smoke a degenerate 2D state draws one point with one label', async ({ page }) => {
@@ -197,6 +199,99 @@ test('@smoke the 3D circles cut along a principal plane and a plane of maximum s
   await expect(page.getByTestId('mohr3d-tn')).toHaveText('0.00');
   expect(await page.locator('[data-testid="mohr3d"] svg').evaluateAll((svgs) => svgs.every((s) => !s.outerHTML.includes('NaN')))).toBe(true);
 });
+
+test('@smoke changing the unit converts every field and result, keeps the drawing, and changing back restores them', async ({ page }) => {
+  await page.goto('/en/tools/mohr-2d/?th=30');
+  await expect(page.getByTestId('mohr2d')).toBeVisible();
+  const geometry = () => page.getByTestId('mohr2d-drag-x').evaluate((c) => `${Number(c.getAttribute('cx')).toFixed(1)},${Number(c.getAttribute('cy')).toFixed(1)}`);
+  const atStart = await geometry();
+  const rows: [string, string, number, number, number][] = [
+    ['kPa', '80000', 92426, 42426, 90981],
+    ['kgf/cm²', '815.77', 942.5, 432.6, 927.7],
+    ['kN/cm²', '8', 9.243, 4.243, 9.098],
+  ];
+  for (const [unit, sx, s1, tmax, sxr] of rows) {
+    await page.getByTestId('mohr2d-unit').selectOption(unit);
+    await expect(page.getByTestId('mohr2d-sx')).toHaveValue(sx);
+    expect(await number(page, 'mohr2d-s1')).toBeCloseTo(s1, 0);
+    expect(await number(page, 'mohr2d-tmax')).toBeCloseTo(tmax, 0);
+    expect(await number(page, 'mohr2d-sxr')).toBeCloseTo(sxr, 0);
+    await expect(page.getByTestId('mohr2d-circle')).toContainText(`σ [${unit}]`);
+    expect(await geometry()).toBe(atStart);
+  }
+  await expect(page.getByTestId('mohr2d-s1')).toHaveText('9.243');
+  await page.getByTestId('mohr2d-sx').fill('10');
+  await expect(page.getByTestId('mohr2d-s1')).not.toHaveText('9.243');
+  await page.getByTestId('mohr2d-unit').selectOption('MPa');
+  await expect(page.getByTestId('mohr2d-sx')).toHaveValue('100');
+  await page.getByTestId('mohr2d-sx').fill('80');
+  await expect(page.getByTestId('mohr2d-s1')).toHaveText('92.43');
+  await expect(page.getByTestId('mohr2d-sxr')).toHaveText('90.98');
+  expect(await geometry()).toBe(atStart);
+
+  await page.goto('/en/tools/mohr-3d/');
+  await page.getByTestId('mohr3d-unit').selectOption('kPa');
+  await expect(page.getByTestId('mohr3d-xx')).toHaveValue('80000');
+  await expect(page.getByTestId('mohr3d-s1')).toHaveText('92,529');
+  await expect(page.getByTestId('mohr3d-circles')).toContainText('σn [kPa]');
+  await page.getByTestId('mohr3d-unit').selectOption('MPa');
+  await expect(page.getByTestId('mohr3d-xx')).toHaveValue('80');
+  await expect(page.getByTestId('mohr3d-s1')).toHaveText('92.53');
+});
+
+test('@smoke a link written before stresses were kept in MPa still opens with the numbers it showed', async ({ page }) => {
+  await page.goto('/en/tools/mohr-2d/?sx=100&sy=20&txy=30&u=kncm2');
+  await expect(page.getByTestId('mohr2d-sx')).toHaveValue('100');
+  await expect(page.getByTestId('mohr2d-unit')).toHaveValue('kN/cm²');
+  expect(await number(page, 'mohr2d-s1')).toBeCloseTo(60 + Math.hypot(40, 30), 2);
+});
+
+async function toolBottom(page: Page) {
+  return page.evaluate(() => {
+    const root = document.querySelector('[data-testid="mohr2d"], [data-testid="mohr3d"]')!;
+    let bottom = 0;
+    for (const el of [document.querySelector('.mohr-head')!, root, ...root.querySelectorAll('*')]) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) bottom = Math.max(bottom, r.bottom);
+    }
+    const side = root.querySelector('.mh-side')!;
+    const scroller = document.querySelector('.landing')!;
+    return { bottom, sideHidden: side.scrollHeight - side.clientHeight, scrollTop: scroller.scrollTop, wide: scroller.scrollWidth - scroller.clientWidth };
+  });
+}
+
+for (const [w, h] of [[1280, 720], [1366, 768], [1440, 900], [1536, 864], [1920, 1080], [1024, 768]]) {
+  for (const id of ['mohr-2d', 'mohr-3d']) {
+    test(`@smoke ${id} fits one ${w} × ${h} screen without scrolling`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await page.goto(`/en/tools/${id}/`);
+      await expect(page.getByTestId(id === 'mohr-2d' ? 'mohr2d' : 'mohr3d')).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      const m = await toolBottom(page);
+      expect(m.scrollTop).toBe(0);
+      expect(m.bottom).toBeLessThanOrEqual(h);
+      expect(m.sideHidden).toBeLessThanOrEqual(1);
+      expect(m.wide).toBeLessThanOrEqual(0);
+      await noHorizontalScroll(page);
+      const hero = (await page.getByTestId(id === 'mohr-2d' ? 'mohr2d-circle' : 'mohr3d-sphere').boundingBox())!;
+      expect(hero.height).toBeGreaterThan(h * 0.4);
+    });
+  }
+}
+
+for (const id of ['mohr-2d', 'mohr-3d']) {
+  test(`@smoke on a 390 × 844 phone ${id} shows the results and the main drawing on the first screen`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/en/tools/${id}/`);
+    const prefix = id === 'mohr-2d' ? 'mohr2d' : 'mohr3d';
+    await expect(page.getByTestId(prefix)).toBeVisible();
+    const card = (await page.getByTestId(id === 'mohr-2d' ? 'mohr2d-circle-card' : 'mohr3d-sphere-card').boundingBox())!;
+    const results = (await page.getByTestId(`${prefix}-s1`).boundingBox())!;
+    expect(results.y + results.height).toBeLessThanOrEqual(844);
+    expect(card.y + card.height).toBeLessThanOrEqual(844);
+    await noHorizontalScroll(page);
+  });
+}
 
 for (const id of ['mohr-2d', 'mohr-3d']) {
   test(`@smoke ${id} fits a 360 × 640 phone`, async ({ page }) => {

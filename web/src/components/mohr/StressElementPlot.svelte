@@ -5,15 +5,15 @@
   import { tm, formatter } from './i18n';
   import type { Focus2D } from './focus';
 
-  let { sx, sy, txy, theta = $bindable(), focus = $bindable(null) }: { sx: number; sy: number; txy: number; theta: number; focus?: Focus2D } = $props();
+  let { sx, sy, txy, theta = $bindable(), focus = $bindable(null), fit = false, digits = 2 }: { sx: number; sy: number; txy: number; theta: number; focus?: Focus2D; fit?: boolean; digits?: number } = $props();
 
-  let cw = $state(0);
-  const W = $derived(Math.max(260, Math.round(cw) || 360));
-  const H = $derived(Math.round(Math.min(400, Math.max(270, W * 0.92))));
+  let cw = $state(0), ch = $state(0);
+  const W = $derived(Math.max(220, Math.round(cw) || 360));
+  const H = $derived(fit && ch > 160 ? Math.round(ch) : Math.round(Math.min(400, Math.max(260, W * 0.92))));
   const CX = $derived(W / 2), CY = $derived(H / 2);
   const reach = $derived(Math.min(W, H) / 2);
   const HALF = $derived(Math.max(26, Math.min(62, (reach - 40) / 2.2)));
-  const fmt = $derived(formatter(2));
+  const fmt = $derived(formatter(digits));
   const p = $derived(principalPlane({ sx, sy, txy }));
   const r = $derived(rotatePlane({ sx, sy, txy }, theta));
   const big = $derived(Math.max(Math.abs(p.sigma1), Math.abs(p.sigma2), p.tauMax, 1e-12));
@@ -121,10 +121,9 @@
   }
 </script>
 
-<div class="mh-plot-box" bind:clientWidth={cw}>
+<div class="mh-plot-box" bind:clientWidth={cw} bind:clientHeight={ch}>
 <svg bind:this={svg} class="mh-plot" class:mh-dragging={turn} viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={tm('mohr.elementLabel')} data-testid="mohr2d-element"
   onpointermove={drag} onpointerup={release} onpointercancel={release}>
-  <title>{tm('mohr.elementLabel')}</title>
   <line class="mh-ref-axis" x1={xAxis.a.x} y1={xAxis.a.y} x2={xAxis.b.x} y2={xAxis.b.y} />
   <line class="mh-ref-axis" x1={yAxis.a.x} y1={yAxis.a.y} x2={yAxis.b.x} y2={yAxis.b.y} />
   <g class="mh-triad" aria-hidden="true">

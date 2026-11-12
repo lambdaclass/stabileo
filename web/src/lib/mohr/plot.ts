@@ -13,6 +13,18 @@ export function ticks(min: number, max: number, target = 5): number[] {
   return out;
 }
 
+/**
+ * Room in px for the τ tick labels of an axis that reaches about `extent`, so grouped large numbers never clip.
+ * With `scales`, the widest of `extent × scale` is used, so the drawing does not move when only the unit changes.
+ */
+export function gutter(extent: number, signed: boolean, scales: number[] = [1]): number {
+  const width = (e: number) => {
+    const top = niceStep(e, 1);
+    return new Intl.NumberFormat('en', { maximumFractionDigits: top >= 1 ? 0 : Math.min(4, Math.ceil(-Math.log10(top)) + 1) }).format(top).length + (signed ? 1 : 0);
+  };
+  return Math.max(40, Math.round(14 + 7.4 * Math.max(...scales.map((s) => width(extent * s)))));
+}
+
 export interface Frame {
   xMin: number;
   xMax: number;

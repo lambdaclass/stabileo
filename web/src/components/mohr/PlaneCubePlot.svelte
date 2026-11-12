@@ -2,13 +2,13 @@
   import { planeThroughCube, splitTraction, type Tensor3, type Vec3 } from '../../lib/mohr/space';
   import { tm } from './i18n';
 
-  let { s, n, peak, alpha = $bindable(), beta = $bindable() }: { s: Tensor3; n: Vec3; peak: number; alpha: number; beta: number } = $props();
+  let { s, n, peak, alpha = $bindable(), beta = $bindable(), fit = false }: { s: Tensor3; n: Vec3; peak: number; alpha: number; beta: number; fit?: boolean } = $props();
 
-  let cw = $state(0);
-  const W = $derived(Math.max(240, Math.round(cw) || 320));
-  const H = $derived(Math.round(Math.min(340, Math.max(230, W * 0.78))));
+  let cw = $state(0), ch = $state(0);
+  const W = $derived(Math.max(200, Math.round(cw) || 320));
+  const H = $derived(fit && ch > 120 ? Math.round(ch) : Math.round(Math.min(340, Math.max(220, W * 0.78))));
   const CX = $derived(W / 2), CY = $derived(H / 2 + 4);
-  const h = $derived(Math.min(W, H) * 0.2);
+  const h = $derived(Math.min(W * 0.24, H * 0.29));
 
   const basis = $derived.by(() => {
     const a = (alpha * Math.PI) / 180, b = (beta * Math.PI) / 180;
@@ -95,10 +95,9 @@
   }
 </script>
 
-<div class="mh-plot-box" bind:clientWidth={cw}>
+<div class="mh-plot-box" bind:clientWidth={cw} bind:clientHeight={ch}>
 <svg class="mh-plot mh-sphere" viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={tm('mohr.cubeLabel')} data-testid="mohr3d-cube"
   onpointerdown={down} onpointermove={move} onpointerup={() => (drag = null)} onpointercancel={() => (drag = null)}>
-  <title>{tm('mohr.cubeLabel')}</title>
   <path class="mh-cube-edge-back" d={edges.back} />
   {#each faces as f, i (i)}<polygon class="mh-cube-face" points={f} />{/each}
   <polygon class="mh-cut" points={cut} data-testid="mohr3d-cut" />

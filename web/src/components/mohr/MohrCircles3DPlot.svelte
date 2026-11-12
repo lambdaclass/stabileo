@@ -1,24 +1,26 @@
 <script lang="ts">
-  import { equalFrame, ticks, mergeCoincident, labelRows } from '../../lib/mohr/plot';
-  import type { Unit } from '../../lib/mohr/state';
+  import { equalFrame, gutter, ticks, mergeCoincident, labelRows } from '../../lib/mohr/plot';
+  import { unitScales, type Unit } from '../../lib/mohr/state';
   import { tm, formatter } from './i18n';
   import type { Focus3D } from './focus';
 
-  let { values, sigmaN, tauN, unit, focus = $bindable(null), onprincipal, onmaxshear }: {
-    values: [number, number, number]; sigmaN: number; tauN: number; unit: Unit; focus?: Focus3D;
+  let { values, sigmaN, tauN, unit, focus = $bindable(null), onprincipal, onmaxshear, fit = false, digits = 2 }: {
+    values: [number, number, number]; sigmaN: number; tauN: number; unit: Unit; focus?: Focus3D; fit?: boolean; digits?: number;
     onprincipal: (i: 0 | 1 | 2) => void; onmaxshear: () => void;
   } = $props();
 
-  let cw = $state(0);
-  const W = $derived(Math.max(260, Math.round(cw) || 420));
-  const H = $derived(Math.round(Math.min(380, Math.max(240, W * 0.66))));
-  const box = $derived({ left: 44, top: 28, width: W - 44 - 12, height: H - 28 - 44 });
-  const fmt = $derived(formatter(2));
+  let cw = $state(0), ch = $state(0);
+  const W = $derived(Math.max(240, Math.round(cw) || 420));
+  const H = $derived(fit && ch > 140 ? Math.round(ch) : Math.round(Math.min(380, Math.max(220, W * 0.62))));
+  const left = $derived(gutter(Math.max((values[0] - values[2]) / 2, Math.abs(values[0] + values[2]) * 0.25, 1) * 1.3, false, unitScales(unit)));
+  const box = $derived({ left, top: 28, width: W - left - 12, height: H - 28 - 44 });
+  const fmt = $derived(formatter(digits));
   const [s1, s2, s3] = $derived(values);
   const scaleRef = $derived(Math.max(Math.abs(s1), Math.abs(s3), 1e-12));
   const R = $derived((s1 - s3) / 2), C = $derived((s1 + s3) / 2);
   const point = $derived(R <= 1e-9 * scaleRef);
 
+  const labelGap = $derived(9 * 7.3 + 6 * digits + 20);
   const frame = $derived.by(() => {
     let xr: [number, number], yr: [number, number];
     if (point) {
@@ -30,7 +32,10 @@
       yr = [-0.22 * R, R];
     }
     const pad = 0.12 * Math.max(xr[1] - xr[0], yr[1] - yr[0]);
-    return equalFrame(box, [xr[0] - pad, xr[1] + pad], [yr[0] - pad * 0.4, yr[1] + pad]);
+    const first = equalFrame(box, [xr[0] - pad, xr[1] + pad], [yr[0] - pad * 0.4, yr[1] + pad]);
+    const rows = Math.max(0, ...labelRows([s1, s2, s3].map(first.x), labelGap));
+    const below = Math.max(pad * 0.4 - yr[0], (30 + rows * 15) / first.scale);
+    return equalFrame(box, [xr[0] - pad, xr[1] + pad], [-below, yr[1] + pad]);
   });
   const xTicks = $derived(ticks(frame.xMin, frame.xMax, Math.max(3, Math.round(box.width / 80))));
   const yTicks = $derived(ticks(Math.max(0, frame.yMin), frame.yMax, Math.max(2, Math.round(box.height / 70))));
@@ -50,7 +55,7 @@
   const labels = $derived.by(() => {
     const groups = mergeCoincident([{ key: '0', value: s1 }, { key: '1', value: s2 }, { key: '2', value: s3 }], 1e-9 * scaleRef);
     const items = groups.map((g) => ({ x: frame.x(g.value), first: Number(g.keys[0]) as 0 | 1 | 2, keys: g.keys.map(Number), text: `${g.keys.map((k) => `σ${SUB[Number(k)]}`).join(' = ')} = ${fmt(g.value)}` }));
-    const rows = labelRows(items.map((i) => i.x), 104);
+    const rows = labelRows(items.map((i) => i.x), labelGap);
     return items.map((it, i) => {
       const w = it.text.length * 7.3;
       return { ...it, lx: Math.min(W - 4 - w / 2, Math.max(4 + w / 2, it.x)), y: y0 + 18 + rows[i] * 15 };
@@ -75,9 +80,8 @@
   const act = (fn: () => void) => (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
 </script>
 
-<div class="mh-plot-box" bind:clientWidth={cw}>
+<div class="mh-plot-box" bind:clientWidth={cw} bind:clientHeight={ch}>
 <svg class="mh-plot" viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={tm('mohr.circles3dLabel')} data-testid="mohr3d-circles">
-  <title>{tm('mohr.circles3dLabel')}</title>
   {#each xTicks as v (v)}
     <line class="mh-grid" x1={frame.x(v)} x2={frame.x(v)} y1={box.top} y2={box.top + box.height} />
     <text class="mh-tick" x={frame.x(v)} y={box.top + box.height + 16} text-anchor="middle">{tickLabel(v)}</text>
