@@ -55,6 +55,8 @@ export interface CombinationCode extends CodeModule {
 export interface ImposedLoadCode extends CodeModule {
   role: 'loads';
   occupancy(key: string): OccupancyEntry | undefined;
+  /** The occupancy a project of this code starts from. Absent: CIRSOC 101's dwellings. */
+  defaultOccupancy?: string;
   /** The code's table of occupancies, as the dialog lists them. Absent: CIRSOC 101 Table 4.1. */
   occupancies?(): readonly OccupancyEntry[];
   reduce(o: {
@@ -71,6 +73,12 @@ export interface ImposedLoadCode extends CodeModule {
    * cases of its own (`load-plan.ts`). Absent: the imposed load is one action at one set of factors.
    */
   imposedGroup?(occupancyKey: string): string | undefined;
+  /** What the plan says beside the reduction it applied, where the code limits its use. */
+  reductionNotes?(o: { elementKind: ElementKind; floorsSupported: number }): EngineMessage[];
+  /** The partition allowance, by the code's own rule (`partitions.ts`). Absent: CIRSOC 101 §4.3.2. */
+  partition?(loKNm2: number, requestedKNm2: number): import('../cirsoc101/live-loads').PartitionLiveAllowance;
+  /** What the dialog offers for the allowance. Absent: CIRSOC 101's minimum of 0,75 kN/m². */
+  partitionInput?: import('./partitions').PartitionInput;
   /** The roof's imposed load for maintenance, where the code has its own; such a code has no heavy and light roofs. Absent: CIRSOC 101 §4.8.1. */
   roofLive?(i: import('../cirsoc101/roof-live').RoofLiveInputs): import('../cirsoc101/roof-live').RoofLiveResult;
 }

@@ -35,7 +35,7 @@ export const CIRSOC101_BASIS: CombinationCode = {
 
 export const CIRSOC101_LOADS: ImposedLoadCode = {
   adapterId: 'cirsoc101-2025-loads', role: 'loads', family: 'cirsoc', edition: '2025',
-  title: 'CIRSOC 101-2025', sections: { dead: 'Tabla 3.1', live: 'Tabla 4.1', roof: '§4.8' },
+  title: 'CIRSOC 101-2025', sections: { dead: 'Tabla 3.1', live: 'Tabla 4.1', roof: '§4.8', partition: '§4.3.2', reduction: '§4.7.2', patterns: '§4.3.3' },
   occupancy: (key) => findOccupancy(key),
   reduce: (o) => reduceLiveLoad(o),
 };

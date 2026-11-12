@@ -733,6 +733,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     liveDesign = red.lKNm2;
     refs.push(...red.refs);
     derivation.push(red.reason);
+    unsupportedKeys.push(...(codes.loads.reductionNotes?.({ elementKind: input.reductionElementKind, floorsSupported: input.floorsSupported }) ?? []));
   } else {
     derivation.push(msg('loadPlan.derivation.reductionDisabled'));
   }
@@ -742,7 +743,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * the reduction, member by member; the roofs take their own loads, not this one.
    */
   const partitionAsked = input.partitionLive ?? 0;
-  const partition = partitionLiveAllowance(lo, partitionAsked);
+  // The code's own partition allowance (`ImposedLoadCode.partition`); CIRSOC 101 §4.3.2 where it has none.
+  const partition = (codes.loads.partition ?? partitionLiveAllowance)(lo, partitionAsked);
   if (partitionAsked > 0) {
     derivation.push(partition.message);
     refs.push(...partition.refs);
@@ -1133,7 +1135,9 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     cases.push({ existingId: earlier[1]?.id ?? null, type: 'T', nameKey: 'autoLoad.thermalCaseReversed', alternatives: THERMAL_SENSES, own: true });
     for (const th of special.thermal) thermal.push({ ...th, caseIndex: heat }, { ...th, dtUniform: -th.dtUniform || 0, dtGradient: -th.dtGradient || 0, caseIndex: heat + 1 });
     derivation.push(msg('loadPlan.derivation.thermalSenses'));
-    refs.push(codes.thermal?.combinationRef ?? clause('cirsoc-101', '2025', '2.3.4', 'cargas de coacción T'));
+    // The thermal role's clause; a family with no thermal code cites none of another family's.
+    const thermalRef = codes.thermal?.combinationRef ?? (codes.basis.family === 'cirsoc' ? clause('cirsoc-101', '2025', '2.3.4', 'cargas de coacción T') : undefined);
+    if (thermalRef) refs.push(thermalRef);
   }
   if (special.soil.length) {
     const index = cases.length;
@@ -1185,6 +1189,21 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     derivation.push(msg('loadPlan.derivation.combinationCount', { count: combinations.length }));
   }
 
+  /*
+   * The generator's own steps are said in CIRSOC 101's clauses (Table 4.1, §4.3.3, §4.7, §4.8.2,
+   * §2.3.4). Under another family the same steps are said without them: that family's own modules
+   * cite their clauses, and a CIRSOC clause there would be another code's.
+   */
+  if (codes.loads.family !== 'cirsoc') {
+    const code = [codes.loads.title, codes.loads.sections?.live ?? ''].filter(Boolean).join(' ');
+    for (const list of [derivation, assumptions, unsupportedKeys]) {
+      for (let i = 0; i < list.length; i++) {
+        const m = list[i]!;
+        if (NEUTRAL_KEYS.has(m.key)) list[i] = { ...m, key: `${m.key}Code`, params: { ...(m.params ?? {}), ...(m.key === 'loadPlan.derivation.occupancy' ? { code } : {}) } };
+      }
+    }
+  }
+
   // Each case with the action category of its type, as the basis code reads it.
   for (const c of cases) if (!c.category) c.category = codes.basis.categoryOf(String(c.type));
   return {
@@ -1205,6 +1224,13 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     unsupportedKeys, refs, derivation, blockedKeys: [],
   };
 }
+
+/** The generator's steps said in CIRSOC 101's clauses, each with a neutral `…Code` twin for the other families. */
+const NEUTRAL_KEYS: ReadonlySet<string> = new Set([
+  'loadPlan.derivation.occupancy', 'loadPlan.derivation.patterns', 'loadPlan.derivation.adjacentSpans',
+  'loadPlan.derivation.reductionPerMember', 'loadPlan.derivation.roofOccupancy', 'loadPlan.derivation.thermalSenses',
+  'loadPlan.derivation.soil',
+]);
 
 export { describePlanDelta, type CaseAction, type CaseDisposition, type PlanDelta, type CurrentLoadState } from './load-plan-delta';
 

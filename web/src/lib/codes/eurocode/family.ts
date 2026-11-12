@@ -7,6 +7,8 @@ import { planEcSnow } from './snow';
 import { ecVertical, planEcSeismic, psiE } from './seismic';
 import type { EcFamily } from './refs';
 import { ecRoofLive } from './roof-live';
+import { EC_PARTITIONS, ecPartition } from '../families/partitions';
+import { msg } from '../message';
 
 const TITLES: Readonly<Record<EcFamily, Record<'basis' | 'loads' | 'wind' | 'snow', string>>> = {
   eurocode: { basis: 'EN 1990', loads: 'EN 1991-1-1', wind: 'EN 1991-1-4', snow: 'EN 1991-1-3' },
@@ -32,12 +34,21 @@ function modules(f: EcFamily): AnyLoadCode[] {
   };
   const loads: ImposedLoadCode = {
     adapterId: ID[f].loads, role: 'loads', family: 'eurocode', edition: EDITION[f].loads, title: TITLES[f].loads,
-    sections: { live: uk ? 'Table NA.3' : 'Table 6.2', roof: uk ? 'Table NA.7' : 'Table 6.10' },
+    sections: {
+      dead: '§5, Annex A', live: uk ? 'Table NA.3' : 'Table 6.2', roof: uk ? 'Table NA.7' : 'Table 6.10',
+      partition: '6.3.1.2(8)', reduction: uk ? 'NA.2.5, NA.2.6' : '6.3.1.2(10), (11)', patterns: '6.2.1(1)',
+    },
     occupancy: (key) => findEcOccupancy(f, key),
     occupancies: () => occupancyTable(f),
+    defaultOccupancy: uk ? 'uk-A1' : 'ec-A-floor',
     roofOccupancies: () => occupancyTable(f).filter((o) => o.category !== 'roof' && o.category !== 'storage'),
     reduce: (o) => reduceImposed(f, o),
     imposedGroup: (key) => categoryOfOccupancy(key),
+    partition: ecPartition,
+    // §3.3.2(2)P: with L accompanying, ψ or αn, not both; the plan's case carries αn into every combination.
+    reductionNotes: (o) => (['interiorColumn', 'exteriorColumnNoCantilever', 'edgeColumnWithCantilever', 'cornerColumnWithCantilever'].includes(o.elementKind) && o.floorsSupported > 2
+      ? [msg('loads.ec.reduction.alphaNWithPsi')] : []),
+    partitionInput: { kind: 'choices', ...EC_PARTITIONS },
     roofLive: ecRoofLive(f),
   };
   const wind: WindCode = {

@@ -79,4 +79,26 @@ test.describe('@smoke loads by code family', () => {
     await page.getByTestId('al-roof-use').selectOption('maintenance');
     await expect(page.getByTestId('al-roof-weight')).toBeVisible();
   });
+
+  test('no pane of another family shows CIRSOC: each lists its own occupancies, dead load and rules', async ({ pro: page }) => {
+    await openDialog(page);
+    const own: Record<string, RegExp> = { eurocode: /^A · /, uk: /^A1 · /, us: /^Access floor/, turkey: /./ };
+    for (const family of ['eurocode', 'uk', 'us', 'turkey'] as const) {
+      await page.getByTestId('al-family').selectOption(family);
+      await expect(page.getByTestId('al-family-error')).toHaveCount(0);
+      for (const section of ['dead', 'live', 'roof', 'wind', 'snow', 'seismic', 'special', 'applying', 'combos'] as const) {
+        await alSection(page, section);
+        const pane = page.locator('.al-pane');
+        await expect(pane, `${family} · ${section}`).not.toContainText(/CIRSOC|INPRES|Tabla|Table 3\.1|Table 4\.1/);
+      }
+      await alSection(page, 'dead');
+      await expect(page.getByTestId('dead-picker')).toHaveCount(0);
+      await alSection(page, 'live');
+      const options = await page.getByTestId('al-occupancy').locator('option').allTextContents();
+      expect(options.length, family).toBeGreaterThan(1);
+      expect(options.some((o) => own[family]!.test(o)), `${family}: ${options[0]}`).toBe(true);
+      // CIRSOC 101 Tabla 4.1's dwellings row is not among them.
+      expect(options.some((o) => o.startsWith('Dwellings — rooms generally'))).toBe(false);
+    }
+  });
 });

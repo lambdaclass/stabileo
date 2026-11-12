@@ -59,9 +59,17 @@ describe('live loads, Çizelge 7 and 8', () => {
     expect(findTrOccupancy('tr_stand_unfixed')?.uniformKNm2).toBe(7.5);
     expect(TS498_OCCUPANCIES.every((o) => o.labelKey.startsWith('loads.tr.occ.'))).toBe(true);
   });
-  it('reduces a column over more than three floors by β, never a beam or a school', () => {
+  it('Çizelge 8 (a) for dwellings and offices, down to β = 0,6 (40 %)', () => {
+    const r = (floorsSupported: number, occupancyKey = 'tr_residential') => ts498Reduce({ loKNm2: 2, elementKind: 'interiorColumn', floorsSupported, noReduction: false, occupancyKey }).lKNm2;
+    expect(r(3)).toBe(2);
+    expect(r(4)).toBeCloseTo(2 * 0.95, 12);
+    expect(r(7)).toBeCloseTo(2 * 0.71, 12);
+    expect(r(9)).toBeCloseTo(1.2, 12);
+    expect(r(20, 'tr_office')).toBeCloseTo(1.2, 12);
+  });
+  it('reduces a column over more than three floors by β of Çizelge 8 (b) in shops and workshops, never a beam or a school', () => {
     const r = (floorsSupported: number, elementKind: 'interiorColumn' | 'interiorBeam' = 'interiorColumn', noReduction = false) =>
-      ts498Reduce({ loKNm2: 2, elementKind, floorsSupported, noReduction }).lKNm2;
+      ts498Reduce({ loKNm2: 2, elementKind, floorsSupported, noReduction, occupancyKey: 'tr_store' }).lKNm2;
     expect(r(3)).toBe(2);
     expect(r(5)).toBeCloseTo(2 * 0.94, 12);
     expect(r(9)).toBeCloseTo(1.6, 12);

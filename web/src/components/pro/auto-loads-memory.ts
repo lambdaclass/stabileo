@@ -22,6 +22,8 @@ import { defaultSnowConfig, type SnowConfig } from '../../lib/engine/loads/snow-
 import { loadCodeFor } from '../../lib/codes/families';
 import type { ProjectRegulations, RegulationRole } from '../../lib/codes/roles';
 import { PARTITION_LIVE_MINIMUM_KNM2, type ElementKind } from '../../lib/codes/cirsoc101/live-loads';
+import { deadComponentLoad, findDeadEntry } from '../../lib/codes/cirsoc101/dead-loads';
+import type { ImposedLoadCode } from '../../lib/codes/families/load-codes';
 import type { Enclosure, Exposure, ServiceRecurrence } from '../../lib/codes/cirsoc102/wind';
 import type { SeismicZone, SiteClass, DestinationGroup, OccupancyProbability } from '../../lib/codes/cirsoc103/spectrum';
 import type { PeriodSystem, PlanRegularity } from '../../lib/codes/cirsoc103/static-method';
@@ -106,6 +108,37 @@ const defaultDeadRows = (): DeadRow[] => [
 
 const defaultPartitionLive = (): PartitionLiveSetting => ({ on: true, q: PARTITION_LIVE_MINIMUM_KNM2 });
 
+/** The bound loads code when it is another family's than CIRSOC 101. */
+function otherLoads(roles?: Partial<ProjectRegulations>): ImposedLoadCode | null {
+  const m = loadCodeFor(roles?.loads?.adapterId);
+  return m?.role === 'loads' && m.family !== 'cirsoc' ? m : null;
+}
+
+/**
+ * Another family's starting partition allowance: on at the minimum where the code asks for one
+ * (ASCE 7 §4.3.2), off where it only allows one (EN 1991-1-1 6.3.1.2(8), at the middle value when
+ * turned on) or gives none (TS 498).
+ */
+function familyPartition(m: ImposedLoadCode): PartitionLiveSetting {
+  const i = m.partitionInput;
+  if (i?.kind === 'minimum') return { on: true, q: i.min };
+  if (i?.kind === 'choices') return { on: false, q: i.values[Math.min(1, i.values.length - 1)]! };
+  return { on: false, q: 0 };
+}
+
+/**
+ * A build-up of CIRSOC 101 Tabla 3.1 rows under another family: each row as the typed value it
+ * came to, so the dead load is the same and no CIRSOC row is named under another code.
+ */
+export function typedDeadRows(rows: DeadRow[]): DeadRow[] {
+  return rows.map((r) => {
+    if (r.entryKey === null) return r;
+    const e = findDeadEntry(r.entryKey);
+    const q = e ? deadComponentLoad(e, { thicknessM: r.thickness, onBattens: r.onBattens }).qKNm2 : 0;
+    return { ...r, entryKey: null, q: Math.round(q * 1e6) / 1e6, isPartition: false };
+  });
+}
+
 /**
  * The dialog with nothing saved: the app's defaults, and the bound wind and seismic codes' own
  * starting values (`codes/families`) in place of the app's where the code has them. Wind and
@@ -117,10 +150,14 @@ export function autoLoadsDefaults(roles?: Partial<ProjectRegulations>): AutoLoad
   const seismicCode = loadCodeFor(roles?.seismic?.adapterId);
   const wind = windCode?.role === 'wind' ? windCode.defaults : null;
   const seismic = seismicCode?.role === 'seismic' ? seismicCode.defaults : null;
+  // Another family starts from its own table, no CIRSOC build-up and its own partition rule.
+  const other = otherLoads(roles);
+  const occupancies = other?.occupancies?.() ?? [];
   return {
     genCombos: true, comboSet: 'ultimate', comboSource: 'regulation', bothSenses: true, patternsInCompanions: false,
-    selectedOccupancy: 'vivienda', tributaryWidth: 3.0, applyLiveReduction: true, reductionElementKind: 'interiorBeam', floorsSupported: 1,
-    deadRows: defaultDeadRows(), partitionLive: defaultPartitionLive(), gravityMode: 'panels', gravitySlab: 'twoWay', gravitySpan: 'x', gravityLoadEveryPanel: false,
+    selectedOccupancy: other ? (other.defaultOccupancy ?? occupancies[0]?.key ?? 'vivienda') : 'vivienda',
+    tributaryWidth: 3.0, applyLiveReduction: true, reductionElementKind: 'interiorBeam', floorsSupported: 1,
+    deadRows: other ? [] : defaultDeadRows(), partitionLive: other ? familyPartition(other) : defaultPartitionLive(), gravityMode: 'panels', gravitySlab: 'twoWay', gravitySpan: 'x', gravityLoadEveryPanel: false,
     roofCfg: defaultRoofConfig(), livePatterns: 'all', special: defaultSpecialLoads(),
     enableWind: false,
     windV: wind?.basicSpeed ?? 45, windExposure: (wind?.exposure ?? 'B') as Exposure, windEnclosure: (wind?.enclosure ?? 'enclosed') as Enclosure,
@@ -224,6 +261,7 @@ export function autoLoadsMemory(roles: ProjectRegulations, available: { wind: bo
     m.enableWind = available.wind;
   }
   const snow = set('snow');
+  if (otherLoads(regs)) m.deadRows = typedDeadRows(m.deadRows);
   if (snow && typeof snow.enabled === 'boolean') m.snowCfg = { ...defaultSnowConfig(), ...snow } as SnowConfig;
   const seismic = set('seismic');
   if (seismic && seismic.zone !== undefined) {

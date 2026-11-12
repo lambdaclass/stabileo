@@ -7,6 +7,7 @@ import { planAsce7Snow } from './snow';
 import { asce7Vertical, planAsce7Seismic, STORAGE_SHARE } from './seismic-plan';
 import { ADAPTER, WIND_DEFAULTS } from './inputs';
 import { asce7RoofLive } from './roof-live';
+import { ASCE7_PARTITION_MIN, asce7Partition } from '../families/partitions';
 
 const TITLE = 'ASCE/SEI 7-22';
 const base = { family: 'aci-aisc', edition: '7-22', title: TITLE } as const;
@@ -19,11 +20,14 @@ export const ASCE7_BASIS: CombinationCode = {
 };
 
 export const ASCE7_LOADS: ImposedLoadCode = {
-  ...base, adapterId: ADAPTER.loads, role: 'loads', sections: { dead: '§3.1', live: 'Table 4.3-1', roof: '§4.8' },
+  ...base, adapterId: ADAPTER.loads, role: 'loads', sections: { dead: '§3.1', live: 'Table 4.3-1', roof: '§4.8', partition: '§4.3.2', reduction: '§4.7', patterns: '§4.3.3' },
   occupancy: (key) => findAsce7Occupancy(key),
   occupancies: () => OCCUPANCY_TABLE_ASCE7_22,
+  defaultOccupancy: 'residentialPrivate',
   roofOccupancies: () => OCCUPANCY_TABLE_ASCE7_22.filter((o) => o.category === 'roof' && o.key !== 'roofOrdinary' && o.key !== 'awningsFabric'),
   reduce: (o) => reduceAsce7(o),
+  partition: asce7Partition,
+  partitionInput: { kind: 'minimum', min: ASCE7_PARTITION_MIN },
   roofLive: asce7RoofLive,
 };
 
