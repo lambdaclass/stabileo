@@ -85,6 +85,7 @@ fn solve_nonlinear_material_2d_inner(
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_2d(&solver, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_2d(solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Full elastic assembly to obtain the total external load vector.
@@ -144,10 +145,6 @@ fn solve_nonlinear_material_2d_inner(
 
         // Target external load for this increment.
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
-        let f_ext_free = extract_subvec(&f_ext, &free_idx);
-
-        // F_ext_free norm for convergence check.
-        let f_ext_norm = vec_norm_l2(&f_ext_free);
 
         // Apply this increment's prescribed displacements to the restrained
         // DOFs BEFORE the first residual evaluation: f_int then includes the
@@ -224,12 +221,8 @@ fn solve_nonlinear_material_2d_inner(
             // free-DOF residual carries the constraint forces, which never
             // vanish, and the iteration never converged (a model with a
             // single rigid link or EqualDOF always came back unconverged).
-            let r_norm = match &cs {
-                Some(cs) => vec_norm_l2(&cs.reduce_vector(&r_free)),
-                None => vec_norm_l2(&r_free),
-            };
-            let ref_norm = if f_ext_norm > 1e-20 { f_ext_norm } else { 1.0 };
-            if r_norm < tolerance * ref_norm {
+            let support_driven = u_r.iter().any(|v| *v != 0.0);
+            if (!support_driven || _nr_iter > 0) && metric.relative_residual(&residual, &f_ext, support_driven.then_some(load_factor), cs.as_ref()) < tolerance {
                 converged_increment = true;
                 break;
             }
@@ -812,9 +805,17 @@ fn update_element_states(
 // Yield interaction criterion: (N/Np)^2 + |M|/Mp
 // ---------------------------------------------------------------------------
 
+fn capacity_ratio(demand: f64, capacity: f64) -> f64 {
+    if capacity > 0.0 {
+        demand / capacity
+    } else {
+        0.0
+    }
+}
+
 fn yield_utilization(n: f64, m: f64, np: f64, mp: f64) -> f64 {
-    let axial_ratio = if np > 1e-20 { n / np } else { 0.0 };
-    let moment_ratio = if mp > 1e-20 { m.abs() / mp } else { 0.0 };
+    let axial_ratio = capacity_ratio(n, np);
+    let moment_ratio = capacity_ratio(m.abs(), mp);
     axial_ratio * axial_ratio + moment_ratio
 }
 
@@ -838,12 +839,7 @@ fn solve_system(k_ff: Vec<f64>, rhs: Vec<f64>, nf: usize) -> Result<Vec<f64>, St
 }
 
 // ---------------------------------------------------------------------------
-// L2 norm of a vector.
-// ---------------------------------------------------------------------------
 
-fn vec_norm_l2(v: &[f64]) -> f64 {
-    v.iter().map(|x| x * x).sum::<f64>().sqrt()
-}
 
 // ---------------------------------------------------------------------------
 // Compute the maximum absolute translational displacement.
@@ -1011,6 +1007,7 @@ fn solve_nonlinear_material_3d_inner(
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&solver, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_3d(solver, &dof_num, cs.as_ref())?;
 
     // Prescribed displacements, in the inclined-support frames the restrained
     // DOFs are numbered in (one definition with the linear solver: this
@@ -1059,8 +1056,6 @@ fn solve_nonlinear_material_3d_inner(
         let load_factor = inc as f64 / n_increments as f64;
 
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
-        let f_ext_free = extract_subvec(&f_ext, &free_idx);
-        let f_ext_norm = vec_norm_l2(&f_ext_free);
 
         // Apply this increment's prescribed displacements to the restrained
         // DOFs BEFORE the first residual evaluation — see the 2D solver for
@@ -1126,12 +1121,8 @@ fn solve_nonlinear_material_3d_inner(
             // free-DOF residual carries the constraint forces, which never
             // vanish, and the iteration never converged (a model with a
             // single rigid link or EqualDOF always came back unconverged).
-            let r_norm = match &cs {
-                Some(cs) => vec_norm_l2(&cs.reduce_vector(&r_free)),
-                None => vec_norm_l2(&r_free),
-            };
-            let ref_norm = if f_ext_norm > 1e-20 { f_ext_norm } else { 1.0 };
-            if r_norm < tolerance * ref_norm {
+            let support_driven = u_r.iter().any(|v| *v != 0.0);
+            if (!support_driven || _nr_iter > 0) && metric.relative_residual(&residual, &f_ext, support_driven.then_some(load_factor), cs.as_ref()) < tolerance {
                 converged_increment = true;
                 break;
             }
@@ -1650,9 +1641,9 @@ fn compute_global_internal_forces_3d(
 /// convex), so it never yields later than either uniaxial limit implies. It replaced
 /// `(N/Np)^2 + (My/Mpy)^2 + (Mz/Mpz)^2`, which gave 0.74 where 2D gives 0.95 (NL-6, #429).
 fn yield_utilization_3d(n: f64, my: f64, mz: f64, np: f64, mpy: f64, mpz: f64) -> f64 {
-    let axial_ratio = if np > 1e-20 { n / np } else { 0.0 };
-    let my_ratio = if mpy > 1e-20 { my.abs() / mpy } else { 0.0 };
-    let mz_ratio = if mpz > 1e-20 { mz.abs() / mpz } else { 0.0 };
+    let axial_ratio = capacity_ratio(n, np);
+    let my_ratio = capacity_ratio(my.abs(), mpy);
+    let mz_ratio = capacity_ratio(mz.abs(), mpz);
     axial_ratio * axial_ratio + my_ratio + mz_ratio
 }
 

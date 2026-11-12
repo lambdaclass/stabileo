@@ -172,20 +172,7 @@ fn sweep(count: u64, only: Option<&str>) {
                     if a.name == "contact (active gap)" {
                         return ["units", "relabel", "reversal"].contains(inv);
                     }
-                    if only.is_none()
-                        && a.name == "corotational"
-                        && ["rotation", "mirror"].contains(inv)
-                    {
-                        t2.record(
-                            a.name,
-                            inv,
-                            &c2.name,
-                            crate::tally::Verdict::Ignored("ignored(#761)"),
-                        );
-                        false
-                    } else {
-                        true
-                    }
+                    true
                 })
                 .collect();
             checks2::check_case(
@@ -209,17 +196,7 @@ fn sweep(count: u64, only: Option<&str>) {
                     if a.name == "contact (active gap)" {
                         return ["units", "relabel", "reversal"].contains(inv);
                     }
-                    if only.is_none() && a.name == "corotational" && *inv == "rotation" {
-                        t3.record(
-                            a.name,
-                            inv,
-                            &c3.name,
-                            crate::tally::Verdict::Ignored("ignored(#761)"),
-                        );
-                        false
-                    } else {
-                        true
-                    }
+                    true
                 })
                 .collect();
             checks3::check_case(
@@ -349,9 +326,14 @@ fn foundation_3d(c: &Case3) -> Result<crate::response::Resp, String> {
     )?))
 }
 
+fn compare_rigid_response(got: &crate::response::Resp, expected: &crate::response::Resp) {
+    assert!(got.1.is_empty() && expected.1.is_empty());
+    let report = dedaliano_engine::metamorphic::compare::compare_with_compliance(&got.flat(), &expected.flat(), 1.0, 1e-9, 0.0, [0.0;2]).unwrap();
+    assert!(report.values > 0 && report.refusals == 0);
+}
+
 #[test]
-#[ignore = "known wrong result: #761"]
-fn corotational_rigid_motion_reproducer() {
+fn corotational_rigid_motions_preserve_converged_responses() {
     use dedaliano_engine::metamorphic::transform::{Iso2, Iso3};
     use dedaliano_engine::solver::corotational;
     let mut failures = Vec::new();
@@ -363,12 +345,13 @@ fn corotational_rigid_motion_reproducer() {
         if spatial {
             let c = Case3::new("minimal", serde_json::from_value(v).unwrap());
             let base = corotational::solve_corotational_3d(&c.s, 100, 1e-10, 4, false).unwrap();
-            for x in [0.0] {
+            for x in [0.0, 3.0] {
                 let tc = c
                     .iso(&Iso3::from_euler(0.3, 0.7, 1.1).translated([x, x, x]))
                     .unwrap();
                 let got = corotational::solve_corotational_3d(&tc.s, 100, 1e-10, 4, false).unwrap();
                 assert!(base.converged);
+                compare_rigid_response(&crate::response::static_3d(&got.results), &crate::response::static_3d(&base.results).iso3(&Iso3::from_euler(0.3, 0.7, 1.1).translated([x,x,x])).unwrap());
                 if !got.converged {
                     failures.push("3D rotation");
                 }
@@ -376,10 +359,11 @@ fn corotational_rigid_motion_reproducer() {
         } else {
             let c = Case2::new("minimal", serde_json::from_value(v).unwrap());
             let base = corotational::solve_corotational_2d(&c.s, 100, 1e-10, 4, false).unwrap();
-            for x in [0.0] {
+            for x in [0.0, 3.0] {
                 let tc = c.iso(&Iso2::rotation(0.7).translated(x, x)).unwrap();
                 let got = corotational::solve_corotational_2d(&tc.s, 100, 1e-10, 4, false).unwrap();
                 assert!(base.converged);
+                compare_rigid_response(&crate::response::static_2d(&got.results), &crate::response::static_2d(&base.results).iso2(&Iso2::rotation(0.7).translated(x,x)).unwrap());
                 if !got.converged {
                     failures.push("2D rotation");
                 }
@@ -390,8 +374,8 @@ fn corotational_rigid_motion_reproducer() {
 }
 
 #[test]
-#[ignore = "known wrong result: #761"]
-fn generated_corotational_rigid_motions() {
+fn generated_corotational_rigid_motions_preserve_responses() {
+    crate::flip_regressions::verify_generated_corotational_equilibria(128);
     sweep(128, Some("corotational"));
 }
 
@@ -597,7 +581,7 @@ const MATRIX_2D: &[(&str, &str)] = &[
     ("SSI (no soil springs)", "PPPPPPP--P--"),
     ("creep & shrinkage (t = t0)", "PPPPPPP--P--"),
     ("P-Delta", "PPPPP------P"),
-    ("corotational", "IIPPP-------"),
+    ("corotational", "PPPPP-------"),
     ("material nonlinear", "PPPPP-------"),
     ("fiber nonlinear", "PPPPP-------"),
     ("cable solver", "-PPPP-------"),
@@ -630,7 +614,7 @@ const MATRIX_3D: &[(&str, &str)] = &[
     ("SSI (no soil springs)", "P-PPPPP--P-P"),
     ("creep & shrinkage (t = t0)", "P-PPPPP--P-P"),
     ("P-Delta", "PPPPP------P"),
-    ("corotational", "I-PPP------P"),
+    ("corotational", "P-PPP------P"),
     ("material nonlinear", "P-PPP------P"),
     ("fiber nonlinear", "P-PPP------P"),
     ("cable solver", "P-PPP-------"),
@@ -684,20 +668,12 @@ fn assert_coverage(t: &Tally, names: &[&str], spatial: bool, count: u64, only: O
                 0,
                 "coverage lost: {name} × {inv}: {cell:?}"
             );
-            if expected == 'I' && only.is_none() {
-                assert_eq!(
-                    cell.ignored.iter().copied().collect::<Vec<_>>(),
-                    vec!["ignored(#761)"]
-                );
-                assert_eq!(cell.pass + cell.same_refusal + cell.fails.len(), 0);
-            } else {
-                assert!(cell.ignored.is_empty(), "unexpected ignore: {name} × {inv}");
-                assert_eq!(
-                    cell.pass + cell.same_refusal + cell.fails.len(),
-                    if expected == '-' { 0 } else { count as usize },
-                    "coverage lost: {name} × {inv}"
-                );
-            }
+            assert!(cell.ignored.is_empty(), "unexpected ignore: {name} × {inv}");
+            assert_eq!(
+                cell.pass + cell.same_refusal + cell.fails.len(),
+                if expected == '-' { 0 } else { count as usize },
+                "coverage lost: {name} × {inv}"
+            );
         }
     }
 }
@@ -2014,4 +1990,14 @@ fn issue_1892_round_four_generated_dynamic_mirrors_are_required() {
         let mask = MATRIX_3D.iter().find(|row| row.0 == name).unwrap().1;
         assert_eq!(mask.as_bytes()[mirror], b'P', "{name} mirrors must retain all 128 comparisons");
     }
+}
+
+#[test]
+fn corotational_rigid_motion_reproducer() {
+    corotational_rigid_motions_preserve_converged_responses();
+}
+
+#[test]
+fn generated_corotational_rigid_motions() {
+    generated_corotational_rigid_motions_preserve_responses();
 }

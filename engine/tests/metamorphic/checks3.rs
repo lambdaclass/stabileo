@@ -219,7 +219,7 @@ pub fn scale_loads_3d(loads: &[SolverLoad3D], k: f64) -> Vec<SolverLoad3D> {
         .collect()
 }
 
-fn rotation_for(a: &Ana3, rng: &mut Rng) -> Iso3 {
+pub(crate) fn rotation_for(a: &Ana3, rng: &mut Rng) -> Iso3 {
     let t = [rng.range(-40.0, 40.0), rng.range(-40.0, 40.0), rng.range(-40.0, 40.0)];
     match a.motion {
         Motion::Any => {

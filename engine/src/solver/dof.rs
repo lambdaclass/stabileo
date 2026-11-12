@@ -12,6 +12,21 @@ pub struct DofNumbering {
 }
 
 impl DofNumbering {
+    pub(crate) fn displacement_vector_3d(&self, displacements: &[Displacement3D]) -> Vec<f64> {
+        let mut u = vec![0.0; self.n_total];
+        for d in displacements {
+            for (local, value) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)]
+                .into_iter()
+                .enumerate()
+            {
+                if let Some(&index) = self.map.get(&(d.node_id, local)) {
+                    u[index] = value;
+                }
+            }
+        }
+        u
+    }
+
     pub(crate) fn coupled_member_dofs_3d(&self, elem: &SolverElement3D, section: &SolverSection3D) -> Vec<usize> {
         let count = crate::element::MemberKinematics3D::from_elem(elem, section)
             .coupled_dofs_per_node().min(self.dofs_per_node);

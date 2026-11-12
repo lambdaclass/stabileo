@@ -3,23 +3,58 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::{rotate_inclined_free_block, InclinedFrame, InclinedTransformData, InclinedTransformData2D};
 
+fn member_axial_force(ea: f64, l: f64, direction: &[f64], ui: &[f64], uj: &[f64], alpha: f64, dt: f64) -> f64 {
+    let mut coefficients = [0.0; 7];
+    let mut values = [0.0; 7];
+    for i in 0..direction.len() {
+        coefficients[2 * i] = direction[i] / l;
+        coefficients[2 * i + 1] = -direction[i] / l;
+        values[2 * i] = uj[i];
+        values[2 * i + 1] = ui[i];
+    }
+    coefficients[6] = -alpha;
+    values[6] = dt;
+    ea * super::assembly::compensated_dot(&coefficients, &values)
+}
+
+enum BucklingProjection {
+    Frame,
+    Truss,
+}
+
 #[derive(Clone, Copy)]
-pub(crate) enum BucklingKg<'a> {
-    All,
+pub(crate) enum GeometricState<'a> {
+    Equilibrium,
     Resolved { mean_n: &'a std::collections::HashMap<usize, f64>, noise: &'a std::collections::HashMap<usize, f64> },
     RoundOffAtCompression { mean_n: &'a std::collections::HashMap<usize, f64>, noise: &'a std::collections::HashMap<usize, f64> },
 }
 
-impl BucklingKg<'_> {
+impl GeometricState<'_> {
+    fn member_force(&self, ea: f64, l: f64, direction: &[f64], endpoints: (&[f64], &[f64]), thermal: (f64, f64), projection: BucklingProjection) -> f64 {
+        let (ui, uj) = endpoints;
+        let (alpha, dt) = thermal;
+        if matches!(self, Self::Equilibrium) {
+            return member_axial_force(ea, l, direction, ui, uj, alpha, dt);
+        }
+        let delta = match projection {
+            BucklingProjection::Frame => {
+                let project = |u: &[f64]| direction.iter().zip(u).map(|(d,u)| d*u).sum::<f64>();
+                project(uj) - project(ui)
+            }
+            BucklingProjection::Truss => direction.iter().zip(ui.iter().zip(uj)).map(|(d,(ui,uj))| (uj-ui)*d).sum::<f64>(),
+        };
+        ea * (delta/l - alpha*dt)
+    }
+
     pub(crate) fn axial_force(&self, id: usize) -> Option<Option<f64>> {
         match *self {
-            BucklingKg::All => Some(None),
-            BucklingKg::Resolved { mean_n, noise } | BucklingKg::RoundOffAtCompression { mean_n, noise } => {
+            GeometricState::Equilibrium => Some(None),
+            GeometricState::Resolved { mean_n, noise } | GeometricState::RoundOffAtCompression { mean_n, noise } => {
                 let e = noise.get(&id).copied().unwrap_or(0.0);
                 let n = mean_n.get(&id).copied().unwrap_or(0.0);
                 match (self, n.abs() <= e) {
-                    (BucklingKg::Resolved { .. }, false) => Some(None),
-                    (BucklingKg::RoundOffAtCompression { .. }, true) if e > 0.0 => Some(Some(n - e)),
+                    (GeometricState::Resolved { .. }, false) => Some(None),
+                    (GeometricState::RoundOffAtCompression { .. }, true) if e > 0.0 => Some(Some(n - e)),
                     _ => None,
                 }
             }
@@ -736,7 +771,7 @@ pub(crate) fn emit_geometric_stiffness_2d(
     u: &[f64],
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
-    emit_geometric_stiffness_2d_filtered(input, dof_num, u, BucklingKg::All, emit);
+    emit_geometric_stiffness_2d_filtered(input, dof_num, u, GeometricState::Equilibrium, emit);
     emit_span_geometric_stiffness(span_axial_geometric_stiffness_2d(input, dof_num), emit);
 }
 
@@ -744,7 +779,7 @@ pub(crate) fn emit_buckling_geometric_stiffness_2d(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u: &[f64],
-    which: BucklingKg<'_>,
+    which: GeometricState<'_>,
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
     emit_geometric_stiffness_2d_filtered(input, dof_num, u, which, emit);
@@ -754,7 +789,7 @@ fn emit_geometric_stiffness_2d_filtered(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u: &[f64],
-    which: BucklingKg<'_>,
+    which: GeometricState<'_>,
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
     let node_by_id: std::collections::HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
@@ -767,7 +802,7 @@ fn emit_geometric_stiffness_2d_filtered(
         let (alpha, dt) = dt_by_elem.get(&elem.id).copied().unwrap_or((DEFAULT_FRAME_THERMAL_ALPHA, 0.0));
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             // Truss geometric stiffness
-            add_truss_kg_2d(&node_by_id, &mat_by_id, &sec_by_id, dof_num, elem, u, (alpha, dt), forced, emit);
+            add_truss_kg_2d(&node_by_id, &mat_by_id, &sec_by_id, dof_num, elem, u, (alpha, dt), forced, which, emit);
             continue;
         }
 
@@ -787,10 +822,8 @@ fn emit_geometric_stiffness_2d_filtered(
         let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
         let u_global: Vec<f64> = elem_dofs.iter().map(|&d| u[d]).collect();
         let t = crate::element::frame_transform_2d(cos, sin);
-        let u_local = transform_displacement(&u_global, &t, 6);
-
         // Axial deformation, less the free thermal strain → axial force
-        let axial_force = forced.unwrap_or(e * sec.a * ((u_local[3] - u_local[0]) / l - alpha * dt));
+        let axial_force = forced.unwrap_or_else(|| which.member_force(e * sec.a, l, &[cos, sin], (&u_global[..2], &u_global[3..5]), (alpha, dt), BucklingProjection::Frame));
 
         let k_g_global = frame_kg_global_2d(axial_force, l, &t, elem);
 
@@ -882,7 +915,7 @@ pub(crate) fn frame_geometric_end_forces_2d(input: &SolverInput, dof_num: &DofNu
         let u_local = transform_displacement(&u_global, &t, 6);
         let (alpha, dt) = dt_by_elem.get(&elem.id).copied().unwrap_or((DEFAULT_FRAME_THERMAL_ALPHA, 0.0));
         let e = mat_by_id[&elem.material_id].e * 1000.0;
-        let axial_force = e * sec_by_id[&elem.section_id].a * ((u_local[3] - u_local[0]) / l - alpha * dt);
+        let axial_force = member_axial_force(e * sec_by_id[&elem.section_id].a, l, &[dx / l, dy / l], &u_global[..2], &u_global[3..5], alpha, dt);
         let mut f = mat_vec(&frame_kg_local_2d(axial_force, l, elem.hinge_start, elem.hinge_end), &u_local);
         add_span_end_forces(&mut f, span.get(&elem.id), u, &t);
         out.push((elem.id, f));
@@ -920,7 +953,7 @@ pub(crate) fn frame_geometric_end_forces_3d(input: &SolverInput3D, dof_num: &Dof
         let u_local12 = transform_displacement(&u_12, &t12, 12);
         let (alpha, dt) = dt_by_elem.get(&elem.id).copied().unwrap_or((DEFAULT_FRAME_THERMAL_ALPHA, 0.0));
         let e = mat_by_id[&elem.material_id].e * 1000.0;
-        let axial_force = e * sec.a * ((u_local12[6] - u_local12[0]) / l - alpha * dt);
+        let axial_force = member_axial_force(e * sec.a, l, &ex, &u_12[..3], &u_12[6..9], alpha, dt);
         let (kg, t, dofs) = frame_kg_local_and_transform_3d(axial_force, l, elem, sec, (&ex, &ey, &ez), dof_num);
         let nd = dofs.len();
         let u_local = if nd == 12 {
@@ -962,6 +995,7 @@ fn add_truss_kg_2d(
     u: &[f64],
     (alpha, dt): (f64, f64),
     forced: Option<f64>,
+    which: GeometricState<'_>,
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
     let node_i = node_by_id[&elem.node_i];
@@ -984,8 +1018,7 @@ fn add_truss_kg_2d(
         dof_num.global_dof(elem.node_j, 0).map(|d| u[d]).unwrap_or(0.0),
         dof_num.global_dof(elem.node_j, 1).map(|d| u[d]).unwrap_or(0.0),
     ];
-    let delta = (uj[0] - ui[0]) * cos + (uj[1] - ui[1]) * sin;
-    let axial_force = forced.unwrap_or(e * sec.a * (delta / l - alpha * dt));
+    let axial_force = forced.unwrap_or_else(|| which.member_force(e * sec.a, l, &[cos, sin], (&ui, &uj), (alpha, dt), BucklingProjection::Truss));
 
     let k_g = truss_kg_2d(axial_force / l, cos, sin);
 
@@ -1457,7 +1490,7 @@ pub(crate) fn emit_geometric_stiffness_3d(
     u: &[f64],
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
-    emit_geometric_stiffness_3d_filtered(input, dof_num, u, BucklingKg::All, emit);
+    emit_geometric_stiffness_3d_filtered(input, dof_num, u, GeometricState::Equilibrium, emit);
     emit_span_geometric_stiffness(span_axial_geometric_stiffness_3d(input, dof_num).0, emit);
 }
 
@@ -1465,7 +1498,7 @@ pub(crate) fn emit_buckling_geometric_stiffness_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
-    which: BucklingKg<'_>,
+    which: GeometricState<'_>,
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
     emit_geometric_stiffness_3d_filtered(input, dof_num, u, which, emit);
@@ -1475,7 +1508,7 @@ fn emit_geometric_stiffness_3d_filtered(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
-    which: BucklingKg<'_>,
+    which: GeometricState<'_>,
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
     let left_hand = input.left_hand.unwrap_or(false);
@@ -1502,8 +1535,7 @@ fn emit_geometric_stiffness_3d_filtered(
             let dir = [dx / l, dy / l, dz / l];
             let ui: Vec<f64> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).map(|d| u[d]).unwrap_or(0.0)).collect();
             let uj: Vec<f64> = (0..3).map(|i| dof_num.global_dof(elem.node_j, i).map(|d| u[d]).unwrap_or(0.0)).collect();
-            let delta: f64 = (0..3).map(|i| (uj[i] - ui[i]) * dir[i]).sum();
-            let axial_force = forced.unwrap_or(e * sec.a * (delta / l - alpha * dt));
+            let axial_force = forced.unwrap_or_else(|| which.member_force(e * sec.a, l, &dir, (&ui, &uj), (alpha, dt), BucklingProjection::Truss));
             let kg_local = truss_kg_3d(axial_force / l, &dir);
             let truss_dofs: Vec<usize> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).unwrap())
                 .chain((0..3).map(|i| dof_num.global_dof(elem.node_j, i).unwrap()))
@@ -1520,7 +1552,6 @@ fn emit_geometric_stiffness_3d_filtered(
                 elem.local_yx, elem.local_yy, elem.local_yz,
                 elem.roll_angle, left_hand,
             );
-            let t = crate::element::frame_transform_3d(&ex, &ey, &ez);
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
 
             // Extract displacements using 12-DOF mapping (skip warping DOFs if present)
@@ -1529,10 +1560,8 @@ fn emit_geometric_stiffness_3d_filtered(
             } else {
                 elem_dofs.iter().map(|&d| u[d]).collect()
             };
-            let u_local = transform_displacement(&u_12, &t, 12);
-
             // Axial force from local displacements, less the free thermal strain
-            let axial_force = forced.unwrap_or(e * sec.a * ((u_local[6] - u_local[0]) / l - alpha * dt));
+            let axial_force = forced.unwrap_or_else(|| which.member_force(e * sec.a, l, &ex, (&u_12[..3], &u_12[6..9]), (alpha, dt), BucklingProjection::Frame));
 
             // Bending, Wagner and shear-centre terms (14×14 on warping members).
             let (dofs, kg_global) = frame_kg_global_3d(axial_force, l, elem, sec, (&ex, &ey, &ez), dof_num);
@@ -1549,7 +1578,7 @@ fn emit_geometric_stiffness_3d_filtered(
     // P-Delta on a model with slabs or walls left their membrane forces out
     // of the tangent, so a compressed wall strip came back as its linear
     // solution (13% short of the amplified one at P = 0.13·P_cr).
-    if !matches!(which, BucklingKg::RoundOffAtCompression { .. }) {
+    if !matches!(which, GeometricState::RoundOffAtCompression { .. }) {
         emit_shell_geometric_stiffness_3d(input, dof_num, u, emit);
     }
 }
@@ -1735,6 +1764,37 @@ mod tests {
                 let scale = mean.iter().fold(0.0f64, |m, v| m.max(v.abs()));
                 for (k, (a, b)) in span.iter().zip(&mean).enumerate() {
                     assert!((a - b).abs() <= 1e-12 * scale, "releases {bits:06b}, warping {warping}, entry {k}: {a} vs {b}");
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod axial_projection_precision {
+    use super::member_axial_force;
+    use num_rational::BigRational;
+    use num_traits::ToPrimitive;
+
+    #[test]
+    fn axial_strain_matches_exact_products_through_cancellation() {
+        let rational = |x: f64| BigRational::from_float(x).unwrap();
+        for dimensions in [2, 3] {
+            for length in [1e-3, 1.0, 25.0] {
+                for sign in [-1.0, 0.0, 1.0] {
+                    let direction = [0.6,0.8,0.0];
+                    let ui = [1e12,1e12,1e12];
+                    let uj = [1e12 + sign,1e12,1e12];
+                    for alpha in [0.0, 1e-5] {
+                        let dt = 1.0;
+                        let mut exact = -rational(alpha)*rational(dt);
+                        for i in 0..dimensions {
+                            exact += rational(direction[i]/length)*(rational(uj[i])-rational(ui[i]));
+                        }
+                        let expected = exact.to_f64().unwrap();
+                        let got = member_axial_force(1.0,length,&direction[..dimensions],&ui[..dimensions],&uj[..dimensions],alpha,dt);
+                        assert!((got-expected).abs() <= f64::EPSILON*expected.abs(), "{got:e} != {expected:e}");
+                    }
                 }
             }
         }

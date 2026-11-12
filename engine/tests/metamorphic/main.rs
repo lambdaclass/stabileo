@@ -15,6 +15,9 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod roll_reference;
+mod flip_regressions;
+mod plate_convergence;
 mod active;
 mod betti;
 mod stiffness;
@@ -239,7 +242,10 @@ mod harmonic_coverage;
 
 mod seeded_failures;
 
+mod nonlinear_convergence;
 mod cause_c_replay;
+
+mod red_ci;
 
 mod candidate_replay;
 mod nightly_triage;
