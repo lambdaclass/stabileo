@@ -15,6 +15,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod flip_regressions;
 mod active;
 mod betti;
 mod stiffness;
