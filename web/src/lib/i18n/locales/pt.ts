@@ -13676,6 +13676,8 @@ const pt: Translations = {
   "building.slabs.meshedCount": "{n} lajes têm malha.",
   "building.slabs.simplify": "Tirar a malha",
   "building.slabs.simplified": "{n} lajes ficaram sem malha; o próximo cálculo as malha de novo.",
+  "building.slabs.meshedAtSolve": "{n} lajes foram subdivididas para o cálculo ({shells} placas).",
+  "building.slabs.footprintsAtSolve": "{n} lajes foram subdivididas de novo para que cada pilar as sustente em toda a seção.",
   "desk.tab.sheets": "Plantas",
   "desk.tab.listings": "Listagens",
   "desk.tab.sheetsHint": "Todas as plantas do projeto em pranchas numeradas, por tipo, para ver, compor e exportar",

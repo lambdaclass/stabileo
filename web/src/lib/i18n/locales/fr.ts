@@ -13836,6 +13836,8 @@ const fr: Translations = {
   'building.slabs.meshedCount': '{n} dalles ont un maillage.',
   'building.slabs.simplify': 'Retirer leur maillage',
   'building.slabs.simplified': '{n} dalles n’ont plus de maillage ; le prochain calcul les maille à nouveau.',
+  'building.slabs.meshedAtSolve': '{n} dalles ont été subdivisées pour le calcul ({shells} coques).',
+  'building.slabs.footprintsAtSolve': '{n} dalles ont été subdivisées de nouveau pour que chaque poteau les porte sur toute sa section.',
   'desk.tab.sheets': 'Plans',
   'desk.tab.listings': 'Listes',
   'desk.tab.sheetsHint': 'Tous les plans du projet sur des planches numérotées, par type, pour les voir, les composer et les exporter',

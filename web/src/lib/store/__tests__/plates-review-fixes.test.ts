@@ -7,7 +7,8 @@
  *  - a load without a case is read as case 1;
  *  - taking a mesh out takes its foundation springs and nodes with it;
  *  - closing a hole leaves none of its corners behind;
- *  - remeshing gives back the support spread to a node the new mesh keeps.
+ *  - remeshing gives back the support spread to a node the new mesh keeps;
+ *  - a supported side spreads its support to the user's own nodes on it that have none, and only to those.
  */
 import { describe, it, expect } from 'vitest';
 import { historyStore, modelStore, uiStore } from '..';
@@ -157,5 +158,35 @@ describe('remeshing a supported plate', () => {
     const supported = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
     for (const n of first) if (modelStore.nodes.has(n)) expect(supported.has(n)).toBe(true);
     expect(physicalPlates()).toHaveLength(1);
+  });
+});
+
+describe('a supported side and the user\'s nodes on it', () => {
+  it('gives the side\'s support to a node of the user\'s on it that has none, leaves one that has its own, and takes back only what it gave', () => {
+    fresh();
+    const c = [[0, 0], [4, 0], [4, 3], [0, 3]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+    modelStore.addSupport(c[0]!, 'pinned3d'); modelStore.addSupport(c[1]!, 'pinned3d');
+    const bare = modelStore.addNode(1, 0, 0), own = modelStore.addNode(3, 0, 0);
+    modelStore.addSupport(own, 'rollerXY');
+    const typeOf = (n: number) => [...modelStore.supports.values()].filter((s) => s.nodeId === n).map((s) => s.type);
+    const { id } = createPlate({ outline: c, materialId: 1, thickness: 0.15 }) as { id: number };
+    applyPlateMeshes([planPlateMesh(id, { size: 0.5 })!]);
+    const inMesh = (n: number) => [...modelStore.quads.values()].some((q) => q.nodes.includes(n));
+    expect(inMesh(bare) && inMesh(own)).toBe(true);
+    expect(typeOf(bare)).toEqual(['pinned3d']);
+    expect(typeOf(own)).toEqual(['rollerXY']);
+    expect(plateEntry(id)!.surface.meshed!.supported).toContain(bare);
+    expect(plateEntry(id)!.surface.meshed!.supported).not.toContain(own);
+
+    applyPlateMeshes([planPlateMesh(id, { size: 1 })!]);
+    expect(inMesh(bare) && inMesh(own)).toBe(true);
+    expect(typeOf(bare)).toEqual(['pinned3d']);
+    expect(typeOf(own)).toEqual(['rollerXY']);
+
+    clearPlateMesh(id);
+    expect(modelStore.nodes.has(bare) && modelStore.nodes.has(own)).toBe(true);
+    expect(typeOf(bare)).toEqual([]);
+    expect(typeOf(own)).toEqual(['rollerXY']);
+    expect(typeOf(c[0]!)).toEqual(['pinned3d']);
   });
 });

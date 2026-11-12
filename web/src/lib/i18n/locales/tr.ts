@@ -13845,6 +13845,8 @@ const tr: Translations = {
   'building.slabs.meshedCount': '{n} döşemenin ağı var.',
   'building.slabs.simplify': 'Ağlarını kaldır',
   'building.slabs.simplified': '{n} döşemenin ağı kaldırıldı; bir sonraki hesap onları yeniden ağlar.',
+  'building.slabs.meshedAtSolve': '{n} döşeme analiz için bölündü ({shells} kabuk).',
+  'building.slabs.footprintsAtSolve': '{n} döşeme, her kolon onları tüm kesiti boyunca taşısın diye yeniden bölündü.',
   'desk.tab.sheets': 'Çizimler',
   'desk.tab.listings': 'Listeler',
   'desk.tab.sheetsHint': 'Projenin tüm çizimleri numaralı paftalarda, türe göre; görüntülemek, düzenlemek ve dışa aktarmak için',

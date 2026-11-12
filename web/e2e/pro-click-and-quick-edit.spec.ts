@@ -85,6 +85,7 @@ test.describe('@smoke PRO click selection and the quick editor', () => {
     await expect(card.getByTestId('qe-shell-nodes')).toHaveValue([n0, n3, n2, n1].join(', '));
     await card.getByTestId('qe-mesh-plate').click();
     await expect(page.getByTestId('plate-mesh-dialog')).toBeVisible();
+    await expect(page.getByTestId('plate-mesh-dialog').locator('h3')).toHaveText(/^Mesh (?!\d+ plates$)/);
     await expect(page.getByTestId('plate-mesh-plan')).toBeVisible();
   });
 

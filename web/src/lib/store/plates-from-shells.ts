@@ -253,10 +253,10 @@ export function platesFromMeshAtSolve(): number {
  */
 export function ensurePlates(): number {
   // Explore restores the model exactly as it was when it closes: nothing is read into it meanwhile.
-  if (whatIf.active) return 0;
+  // Basic 3D has no plates: there a slab waiting for its mesh stays one, and the solve meshes it (`deferred-slabs.ts`).
+  if (whatIf.active || uiStore.analysisMode !== 'pro') return 0;
   let n = 0;
   modelStore.withoutUndo(() => { n = platesFromMeshAtSolve(); });
-  if (uiStore.analysisMode !== 'pro') return n;
   const loose = looseShells();
   if (loose.length) modelStore.withoutUndo(() => { n += platesFromShells(loose, { inferred: true }).length; });
   return n;

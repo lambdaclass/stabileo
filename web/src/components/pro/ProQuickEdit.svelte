@@ -123,9 +123,10 @@
 
   const ownerPlate = $derived(shell && target && (target.kind === 'plate' || target.kind === 'quad') ? plateOfShell(`${target.kind === 'plate' ? 'p' : 'q'}${shell.id}`) : null);
   let meshing = $state<number[] | null>(null);
+  /** The button names one plate, so it meshes that one alone, whatever else is selected. */
   function meshPlate() {
     if (ownerPlate === null) return;
-    meshing = uiStore.selectedPlates.has(ownerPlate) ? [...uiStore.selectedPlates] : [ownerPlate];
+    meshing = [ownerPlate];
   }
 </script>
 
