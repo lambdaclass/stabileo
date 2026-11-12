@@ -175,6 +175,7 @@ jobs:
               - '.dockerignore'
               - *tooling
               - 'web/**'
+              - 'scripts/tests/modal-mass-range-wasm.mjs'
               - 'scripts/check-message-matching.py'
               - 'scripts/message-match-allow.txt'
               # The /research pages import the catalog and reference results and ship its WASM.

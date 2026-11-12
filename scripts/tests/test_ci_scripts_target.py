@@ -35,6 +35,11 @@ class CiScriptsTarget(unittest.TestCase):
         tests = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / 'scripts/tests').glob('*.mjs'))
         self.assertEqual([t for t in tests if not re.search(rf'(^|\s){re.escape(t)}(\s|$)', commands, re.M)], [])
 
+    def test_modal_mass_range_script_selects_the_wasm_job(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        web_paths = workflow.split('            web:\n', 1)[1].split('            research:\n', 1)[0]
+        self.assertIn('scripts/tests/modal-mass-range-wasm.mjs', web_paths)
+
     def test_a_file_named_only_inside_another_path_does_not_count(self):
         makefile = 'test.ci-scripts: test.a\n\tpython3 scripts/tests/test_x.py.bak\ntest.a:\n\tnode --test scripts/tests/y.test.cjs\n'
         commands = recipe(makefile, 'test.ci-scripts')
