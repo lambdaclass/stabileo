@@ -45,12 +45,16 @@ function checkArcWitness(result, w) {
   assert.ok(Math.abs(projected / (result.finalLoadFactor * w.force) - 1) < 1e-10);
 }
 function checkZeroBending(result, fixture) {
+  const solver = fixture.input.solver ?? fixture.input;
+  const expected = Object.values(solver.elements).map(e => e.id).sort((a, b) => a - b);
+  assert.ok(expected.length > 0, 'zero-bending fixture needs elements');
+  assert.deepEqual(result.results.elementForces.map(e => e.elementId).sort((a, b) => a - b), expected, 'element force coverage');
   for (const force of result.results.elementForces) {
     for (const key of ['vStart', 'vEnd', 'mStart', 'mEnd']) assert.ok(force[key] === 0, key);
   }
 }
 for (const fixture of cases.filter(c => c.zeroBending)) {
-  test(`r8 zero bending rejects missing force results ${JSON.stringify(fixture.expectedDisplacements)}`, { skip: process.env.RUN_KNOWN_WRONG_1940 !== '1' }, () => {
+  test(`r8 zero bending rejects missing force results ${JSON.stringify(fixture.expectedDisplacements)}`, () => {
     const result = JSON.parse(invokeCase(fixture));
     checkZeroBending(result, fixture);
     for (const mutation of ['missing', 'duplicate', 'unexpected', 'vStart', 'vEnd', 'mStart', 'mEnd']) {
@@ -60,7 +64,7 @@ for (const fixture of cases.filter(c => c.zeroBending)) {
       else if (mutation === 'duplicate') forces.push(structuredClone(forces[0]));
       else if (mutation === 'unexpected') forces[0].elementId = Number.MAX_SAFE_INTEGER;
       else forces[0][mutation] = 1;
-      assert.throws(() => checkZeroBending(wrong, fixture), mutation);
+      assert.throws(() => checkZeroBending(wrong, fixture), assert.AssertionError, mutation);
     }
   });
 }

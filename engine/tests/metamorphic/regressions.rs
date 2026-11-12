@@ -1390,10 +1390,12 @@ fn pdelta_shell_self_weight_converges_after_relabeling() {
 
 fn check_shell_invariants(tally: &crate::tally::Tally) {
     assert!(tally.failures().is_empty(), "{}", tally.failures().join("\n"));
+    for invariant in ["rotation", "mirror", "relabel"] {
+        assert_eq!(tally.status("P-Delta", invariant), "holds", "{}", tally.report());
+    }
 }
 
 #[test]
-#[ignore = "known wrong result: #1940"]
 fn r8_shell_invariants_reject_refused_and_skipped_comparisons() {
     use crate::tally::{Tally, Verdict};
     let mut accepted = Vec::new();

@@ -3216,11 +3216,57 @@ mod r5 {
     }
     fn check_continued_arc(
         result: &serde_json::Value,
-        _input: &ArcLengthInput,
-        _start: &corotational::CorotationalStart2D<'_>,
+        input: &ArcLengthInput,
+        start: &corotational::CorotationalStart2D<'_>,
         case: &serde_json::Value,
     ) {
         assert_eq!(result["converged"], true);
+        assert_eq!(input.max_steps, 1);
+        assert_eq!(input.initial_ds, input.min_ds);
+        assert_eq!(input.initial_ds, input.max_ds);
+        assert!(input
+            .solver
+            .supports
+            .values()
+            .all(|s| s.support_type != "inclinedRoller"
+                && [s.dx, s.dz, s.dry].into_iter().flatten().all(|v| v == 0.0)));
+        let dofs = dedaliano_engine::solver::dof::DofNumbering::build_2d(&input.solver);
+        let assembly = dedaliano_engine::solver::assembly::assemble_2d(&input.solver, &dofs);
+        let psi2 = assembly.f[..dofs.n_free].iter().map(|f| f * f).sum::<f64>();
+        assert!(psi2.is_finite() && psi2 > 0.0);
+        let displacements = result["results"]["displacements"].as_array().unwrap();
+        let mut du2 = 0.0;
+        for node in input.solver.nodes.values() {
+            let seed = start
+                .displacements
+                .iter()
+                .find(|d| d.node_id == node.id)
+                .unwrap();
+            let actual = displacements
+                .iter()
+                .find(|d| d["nodeId"] == node.id)
+                .unwrap();
+            for (component, (key, u0)) in ["ux", "uz", "ry"]
+                .into_iter()
+                .zip([seed.ux, seed.uz, seed.ry])
+                .enumerate()
+            {
+                if dofs
+                    .global_dof(node.id, component)
+                    .is_some_and(|index| index < dofs.n_free)
+                {
+                    du2 += (actual[key].as_f64().unwrap() - u0).powi(2);
+                }
+            }
+        }
+        let factor = result["finalLoadFactor"].as_f64().unwrap();
+        let arc2 = du2 + factor.powi(2) * psi2;
+        let ds2 = input.initial_ds.powi(2);
+        assert!(ds2.is_finite() && ds2 > 0.0);
+        assert!(
+            arc2.is_finite() && (arc2 - ds2).abs() <= 1e-10 * ds2,
+            "prescribed continued arc-length constraint: {arc2} != {ds2}"
+        );
         let mut expected = case.clone();
         expected["expectedDisplacements"][0]["ux"] = serde_json::json!(
             case["expectedDisplacements"][0]["ux"].as_f64().unwrap()
@@ -3230,7 +3276,6 @@ mod r5 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1940"]
     fn r8_continued_arc_rejects_unchanged_seed_and_wrong_step_length() {
         let mut accepted = Vec::new();
         for case in calls().into_iter().filter(|c| c["api"] == "solve_2d") {
@@ -3383,8 +3428,25 @@ mod r6 {
         calls
     }
 
-    pub(super) fn check_zero_bending(result: &serde_json::Value, _case: &serde_json::Value) {
-        for forces in result["results"]["elementForces"].as_array().unwrap() {
+    pub(super) fn check_zero_bending(result: &serde_json::Value, case: &serde_json::Value) {
+        let input = &case["input"];
+        let solver = input.get("solver").unwrap_or(input);
+        let mut expected: Vec<_> = solver["elements"]
+            .as_object()
+            .unwrap()
+            .values()
+            .map(|e| e["id"].as_u64().unwrap())
+            .collect();
+        assert!(!expected.is_empty(), "zero-bending fixture needs elements");
+        let forces = result["results"]["elementForces"].as_array().unwrap();
+        let mut actual: Vec<_> = forces
+            .iter()
+            .map(|e| e["elementId"].as_u64().unwrap())
+            .collect();
+        expected.sort_unstable();
+        actual.sort_unstable();
+        assert_eq!(actual, expected, "element force coverage");
+        for forces in forces {
             for key in ["vStart", "vEnd", "mStart", "mEnd"] {
                 assert_eq!(forces[key].as_f64().unwrap(), 0.0, "{key}: {result}");
             }
@@ -3392,7 +3454,6 @@ mod r6 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1940"]
     fn r8_zero_bending_rejects_missing_duplicate_and_unexpected_elements() {
         let mut accepted = Vec::new();
         for case in axial_calls()
