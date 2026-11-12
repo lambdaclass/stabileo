@@ -335360,7 +335360,7 @@
     "The large CAD gallery test exceeded its Vitest deadline at both endpoints after writing the complete capture; both raw engine captures are present. This is not a claim that every harness test passed.",
     "An early native attempt reused Cargo targets across worktrees and linked stale artifacts. Those runs were discarded; only isolated endpoint builds and frozen replays supply the report.",
     "A closure replay does not identify a fixing PR. Unattributed harness fixes are explicitly retained as unresolved rather than inferred from roadmap/cross-reference PRs.",
-    "The pinned endpoints lack three results registrations. Follow-up remediation in this PR adds the SSI, arc-length and public slab registry entries, result-change write-ups and exact frozen corpus. Two archived arc outputs omit reactions and are known wrong under #1949; expected-failure checks track them separately. No engine production fix, tolerance relaxation or advisory is included.",
+    "The pinned endpoints lack three results registrations. Follow-up remediation in this PR adds the SSI, arc-length and public slab registry entries, result-change write-ups and exact frozen corpus. Three arc outputs omit reactions and are known wrong under #1949; all three inputs and outputs are excluded from the live frozen set by the issue-keyed frozen-exclusions.json policy. No engine production fix, tolerance relaxation or advisory is included.",
     "Historical bisection artifacts establish the recorded adjacent transitions, not the earliest change: monotonicity was unverified. Corrected scripts scan revisions in order. A full history rerun was excluded by the targeted-only, no-heavy-runs constraint.",
     "Final endpoint checks reject the historical as-shipped reference comparison batch and withdraw its distance conclusions. Raw gallery endpoint captures are unavailable locally, so the archived 86-case gallery summary does not reverify endpoint completeness. See final-endpoint-checks.json. Frozen-input results retain explicit measurement selectors and archived adjacent outputs.",
     "Model attribution and fallback measurement-selector recovery remain value-based and may be ambiguous where values coincide; the coordinator tracks that separately.",
@@ -335851,24 +335851,26 @@
     "new_refusals": 0,
     "notes": "Corrected selectors execute 9 corotational and 7 buckling tests per endpoint. Both fixed replays produced all 51 manifest outputs with unchanged inputs and results."
   },
+  "frozen_inventory_review": "docs/verification/soundness-regression-audit-2026-11-11/frozen-issue-review.json",
+  "frozen_exclusions": "web/src/lib/results-snapshot/frozen-exclusions.json",
   "known_wrong_frozen_outputs": [
     {
       "model": "solve_arc_length-0015ab84c3baa36f.json",
       "issue": "https://github.com/lambdaclass/stabileo/issues/1949",
       "path": "nonlinear.results.reactions",
-      "status": "known wrong; expected-failure support-reaction check, not accepted output"
+      "status": "excluded from frozen inputs and outputs: #1949; PR #1952 restores corrected outputs"
     },
     {
       "model": "solve_arc_length-022317310499426d.json",
       "issue": "https://github.com/lambdaclass/stabileo/issues/1949",
       "path": "nonlinear.results.reactions",
-      "status": "known wrong; expected-failure support-reaction check, not accepted output"
+      "status": "excluded from frozen inputs and outputs: #1949; PR #1952 restores corrected outputs"
     },
     {
       "model": "solve_arc_length-0006e86e35791232.json",
       "issue": "https://github.com/lambdaclass/stabileo/issues/1949",
       "path": "nonlinear.results.reactions",
-      "status": "known wrong on main: #1949; PR #1952 replaces this"
+      "status": "known wrong on main: #1949; excluded from frozen inputs and outputs; PR #1952 restores corrected outputs"
     }
   ],
   "bisection_scope": "Historical bisection artifacts establish the recorded adjacent transitions, not the earliest change: monotonicity was unverified. Corrected scripts scan revisions in order. A full history rerun was excluded by the targeted-only, no-heavy-runs constraint. Static signatures now include every output field except timing and build provenance. Rechecking the archived full outputs preserves all 142 archived adjacent comparisons (138 static plus 4 reference, with overlapping models); their original displacement-selected search cannot establish earliest full-output attribution. See full-output-boundary-proof.json. New scans also report quantity_transitions independently for each engineering quantity, preventing an earlier displacement boundary from attributing a later force change.",
@@ -336598,7 +336600,7 @@
     "conclusion_changes": [
       "Eight Q9 observations are self-consistency evidence. Their fifteen spherical-cap frozen measurements move out of primary engineering-reference comparisons into self_consistency_comparisons. There are 161 primary comparisons; all 53 distance flags remain.",
       "Archived gallery reference distances cannot be validated without both raw targets. No conclusion of zero movements farther from reference is supported; one changed target is explicit in the saved slab diff.",
-      "The loaded frozen arc entry is known wrong on main: #1949; PR #1952 replaces this. It is defect evidence, not an accepted reaction result."
+      "The loaded arc entry is known wrong on main: #1949; it is excluded from the live frozen set with the other affected cases. Historical captures remain defect evidence; PR #1952 restores corrected outputs."
     ]
   }
 }

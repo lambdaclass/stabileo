@@ -1,4 +1,5 @@
 export const FROZEN_DIR: string;
+export function assertFrozenModelAllowed(model: string, exclusions: Record<string, readonly string[]>): void;
 export type FrozenLeaf = number | string | boolean | null;
 export type FrozenValues = Record<string, FrozenLeaf>;
 export interface FrozenDiff {

@@ -33,9 +33,10 @@ not a new acceptance criterion. For example, the shallow-toggle final load
 factor changes from 0.9560011200133861 to 0.9560011200133866. Some distances
 from independent references increase: the audit retains them rather than
 rounding them away. The existing benchmark assertions still pass at both audit
-endpoints; their tolerances are unchanged. The new exact WASM corpus retains
-these three actual inputs, including every continuation step, without rounding
-or suppressing values within a tolerance.
+endpoints; their tolerances are unchanged. The historical bisection captures
+retain these three actual inputs and every continuation step without rounding. The live frozen set excludes all three
+cases because their missing reactions are the open #1949 wrong-result defect;
+PR #1952 restores them with corrected outputs.
 
 See the [audit](../verification/soundness-regression-audit-2026-11-11.md) and its
 archived bisection evidence for the full comparison. Family sampling establishes
@@ -57,11 +58,12 @@ its old refusal boundary are described in the PR; this retrospective entry
 specifically records the previously unregistered numerical movement. No solver
 code or engineering limit is changed here, and no new advisory is added.
 
-The frozen loaded-arch outputs `solve_arc_length-0015ab84c3baa36f.json` and
-`solve_arc_length-022317310499426d.json` omit support reactions. They are explicitly
-known-wrong evidence linked to [#1949](https://github.com/lambdaclass/stabileo/issues/1949),
-with expected-failure reaction checks. This arithmetic registration does not accept
-those missing reactions as correct or fix that separate defect.
+The three arc-length cases are explicitly excluded from both the live frozen
+inputs and outputs by the issue-keyed `frozen-exclusions.json` inventory for
+[#1949](https://github.com/lambdaclass/stabileo/issues/1949). Historical captures
+remain evidence of the arithmetic movement and the missing support reactions;
+they are not accepted reference answers. PR #1952 restores the cases with
+corrected reactions. This arithmetic registration does not fix that defect.
 
 The legacy corpus judge checks the analysis of each compared field as well as
 model applicability. A conservative notice for unknown analysis history cannot
@@ -70,9 +72,10 @@ satisfy the entry's `when` with `analysis:linear`. The judge and snapshot gate
 share this analysis-condition check. In particular, the unchanged v0.2.0 truss
 linear solve remains unchanged, and a fabricated member force stays unexplained.
 
-The live audit-only frozen outputs were regenerated after merging main at
+Before the #1949 exclusions, the live audit-only frozen outputs were regenerated
+after merging main at
 `581495d9c` (#1940). The historical adjacent-parent measurements above remain
-archived evidence; the committed live snapshots now include main's registered
+archived evidence; the retained live snapshots include main's registered
 [nonlinear equilibrium arithmetic](2026-11-nonlinear-equilibrium-arithmetic.md).
 The #1949 disclosure remains in the audit report, outside the frozen files.
 This snapshot refresh changes no engine code or comparison tolerance.

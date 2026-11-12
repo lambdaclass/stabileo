@@ -6,7 +6,8 @@ import type { Reaction3D } from '../../engine/types-3d';
 import { slab } from '../../../components/examples/slab';
 import { defaults } from '../../../components/examples/define';
 import inputs from '../frozen-inputs.json';
-import { compareFrozen, freezeValues } from '../../../../scripts/results-snapshot/frozen.mjs';
+import exclusions from '../frozen-exclusions.json';
+import { assertFrozenModelAllowed, compareFrozen, freezeValues } from '../../../../scripts/results-snapshot/frozen.mjs';
 import { compareValues } from '../../../../scripts/results-snapshot/compare.mjs';
 
 const dir = new URL('../../../../results-frozen/', import.meta.url);
@@ -26,6 +27,7 @@ function expectSameReactions(reference: Reaction3D[], current: Reaction3D[]): vo
 }
 
 function check(name: string, features: string[], response: unknown, prefix: string): void {
+  assertFrozenModelAllowed(`${name}.json`, exclusions);
   names.push(`${name}.json`);
   const file = new URL(`${name}.json`, dir);
   const snapshot = { format: 1, features, values: freezeValues(response, prefix) };
@@ -42,13 +44,6 @@ function check(name: string, features: string[], response: unknown, prefix: stri
 }
 
 for (const c of inputs) {
-  if (['solve_arc_length-0015ab84c3baa36f.json', 'solve_arc_length-022317310499426d.json'].includes(c.model)) {
-    it.fails(`known wrong result: #1949 ${c.model} must return support reactions`, () => {
-      const result = engine.solveArcLength(c.input[0]);
-      expect(result.converged).toBe(true);
-      expect(result.results.reactions.length).toBeGreaterThan(0);
-    });
-  }
   if (c.analysis === 'solve_ssi_3d') {
     it(`known wrong result: #1946 no-soil reaction comparison for ${c.model}`, () => {
       const result = engine.solveSSI3D(c.input[0]);
@@ -108,7 +103,7 @@ for (const c of inputs) {
     const result = solve(c.input[0]);
     expect(result.converged).toBe(true);
     expect(result.results.displacements.length).toBeGreaterThan(0);
-    if (!arc) expect(result.results.reactions.length).toBeGreaterThan(0);
+    expect(result.results.reactions.length).toBeGreaterThan(0);
     const prefix = arc ? 'nonlinear' : 'ssi';
     check(c.model.replace(/\.json$/, ''), [three ? 'space3D' : 'plane2D', 'members', `analysis:${prefix}`], result, prefix);
   });

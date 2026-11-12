@@ -114,31 +114,67 @@ class References(unittest.TestCase):
                     else:
                         self.assertEqual(row['category'], 'engineering_reference')
 
-    def test_empty_arch_reactions_are_known_wrong(self):
+    def test_empty_arch_reactions_are_excluded_from_live_references(self):
         report = json.loads(AUDIT.with_suffix('.json').read_text())
-        for model in ['0015ab84c3baa36f', '022317310499426d']:
-            name = f'solve_arc_length-{model}.json'
-            entries = [entry for entry in report['known_wrong_frozen_outputs'] if entry['model'] == name]
-            self.assertEqual(len(entries), 1)
-            self.assertEqual(entries[0]['issue'], 'https://github.com/lambdaclass/stabileo/issues/1949')
-            self.assertEqual(entries[0]['path'], 'nonlinear.results.reactions')
-            data = json.loads((ROOT / 'web/results-frozen' / name).read_text())
-            self.assertEqual(data['values']['nonlinear.results.reactions.length'], 0)
+        exclusions = json.loads((ROOT / report['frozen_exclusions']).read_text())
+        inputs = json.loads((ROOT / 'web/src/lib/results-snapshot/frozen-inputs.json').read_text())
+        evidence = json.loads((AUDIT / 'arc-bisection.json').read_text())
+        self.assertEqual(set(exclusions), {'1949'})
+        self.assertEqual(len(exclusions['1949']), 3)
+        self.assertEqual(set(exclusions['1949']), {row['model'] for row in evidence})
+        self.assertEqual({row['model'] for row in report['known_wrong_frozen_outputs']}, set(exclusions['1949']))
+        for name in exclusions['1949']:
+            with self.subTest(model=name):
+                entries = [entry for entry in report['known_wrong_frozen_outputs'] if entry['model'] == name]
+                self.assertEqual(len(entries), 1)
+                self.assertEqual(entries[0]['issue'], 'https://github.com/lambdaclass/stabileo/issues/1949')
+                self.assertEqual(entries[0]['path'], 'nonlinear.results.reactions')
+                self.assertIn('excluded from frozen inputs and outputs', entries[0]['status'])
+                self.assertIn('PR #1952 restores corrected outputs', entries[0]['status'])
+                self.assertFalse((ROOT / 'web/results-frozen' / name).exists())
+                self.assertNotIn(name, {row['model'] for row in inputs})
+                archived = next(row for row in evidence if row['model'] == name)
+                for endpoint in ['before', 'after']:
+                    self.assertTrue(archived[endpoint]['Ok']['converged'])
+                    self.assertEqual(archived[endpoint]['Ok']['results']['reactions'], [])
+
+    def test_issue_review_accounts_for_every_original_frozen_case(self):
+        report = json.loads(AUDIT.with_suffix('.json').read_text())
+        review = json.loads((ROOT / report['frozen_inventory_review']).read_text())
+        exclusions = json.loads((ROOT / review['exclusions']).read_text())
+        excluded = {model: int(issue) for issue, models in exclusions.items() for model in models}
+        outputs = {file.name for file in (ROOT / 'web/results-frozen').glob('*.json')}
+        inputs = {row['model'] for row in json.loads((ROOT / 'web/src/lib/results-snapshot/frozen-inputs.json').read_text())}
+        self.assertTrue(inputs)
+        self.assertEqual(outputs, inputs | {'gallery-slab-columns.json', 'gallery-slab-walls.json'})
+        cases = review['cases']
+        self.assertEqual(len(cases), len({row['model'] for row in cases}))
+        self.assertEqual({row['model'] for row in cases}, outputs | set(excluded))
+        for row in cases:
+            with self.subTest(model=row['model']):
+                self.assertTrue(row['reason'])
+                if row['disposition'] == 'excluded':
+                    self.assertEqual(row['issue'], excluded[row['model']])
+                    self.assertNotIn(row['model'], outputs | inputs)
+                else:
+                    self.assertEqual(row['disposition'], 'retained')
+                    self.assertIn(row['model'], outputs)
+                    self.assertNotIn(row['model'], excluded)
+        self.assertIn(1949, review['reviewed_wrong_result_issue_ids'])
 
 
 class RoundNine(unittest.TestCase):
-    def test_loaded_arc_frozen_entry_discloses_main_defect_and_replacement(self):
+    def test_loaded_arc_exclusion_discloses_main_defect_and_replacement(self):
         model = 'solve_arc_length-0006e86e35791232.json'
-        data = json.loads((ROOT / 'web/results-frozen' / model).read_text())
-        self.assertEqual(set(data), {'format', 'features', 'values'})
-        self.assertEqual(data['values']['nonlinear.results.reactions.length'], 0)
+        self.assertFalse((ROOT / 'web/results-frozen' / model).exists())
         report = json.loads(AUDIT.with_suffix('.json').read_text())
         disclosures = [entry for entry in report['known_wrong_frozen_outputs'] if entry['model'] == model]
         self.assertEqual(disclosures, [dict(model=model,
                          issue='https://github.com/lambdaclass/stabileo/issues/1949',
                          path='nonlinear.results.reactions',
-                         status='known wrong on main: #1949; PR #1952 replaces this')])
-        self.assertIn('known wrong on main: #1949; PR #1952 replaces this', AUDIT.with_suffix('.md').read_text())
+                         status='known wrong on main: #1949; excluded from frozen inputs and outputs; PR #1952 restores corrected outputs')])
+        self.assertIn('known wrong on main: #1949', AUDIT.with_suffix('.md').read_text())
+        self.assertIn('excluded from the live frozen set', AUDIT.with_suffix('.md').read_text())
 
     def test_q9_self_convergence_is_consistency_through_both_generators(self):
         data = json.loads((AUDIT / 'reference-comparisons.json').read_text())

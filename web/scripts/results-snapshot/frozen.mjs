@@ -1,5 +1,11 @@
 export const FROZEN_DIR = 'web/results-frozen';
 
+export function assertFrozenModelAllowed(model, exclusions) {
+  for (const [issue, models] of Object.entries(exclusions)) {
+    if (models.includes(model)) throw new Error(`Cannot freeze ${model}: known wrong result: #${issue}`);
+  }
+}
+
 export function freezeValues(value, prefix = '', out = {}) {
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) throw new Error(`Non-finite frozen output: ${prefix}`);

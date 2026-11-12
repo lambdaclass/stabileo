@@ -22,6 +22,7 @@ class Selection(unittest.TestCase):
         paths = ['engine/src/solver/ssi.rs', 'engine/src/solver/arc_length.rs',
                  'web/src/components/examples/slab.ts', 'web/results-frozen/gallery-slab-walls.json',
                  'web/src/lib/results-snapshot/frozen-inputs.json',
+                 'web/src/lib/results-snapshot/frozen-exclusions.json',
                  'web/scripts/results-snapshot/frozen.mjs',
                  'web/src/lib/provenance/result-changes/ssi-support-reactions.json']
         for event in ['pull_request', 'merge_group']:
