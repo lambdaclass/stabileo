@@ -242,3 +242,4 @@ mod seeded_failures;
 mod cause_c_replay;
 
 mod candidate_replay;
+mod nightly_triage;
