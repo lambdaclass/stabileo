@@ -37,7 +37,7 @@ export const FEATURE_IDS = [
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
-  'generatedStructures', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
+  'stagedConstruction', 'generatedStructures', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
   'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -92,7 +92,7 @@ export interface FeatureSnapshot {
   regulations?: { roles?: Record<string, { adapterId?: string | null } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
-  designData?: { loadBasis?: { resultsVersion?: unknown } };
+  designData?: { loadBasis?: { resultsVersion?: unknown }; site?: { phases?: unknown[] } };
 }
 
 export interface FeatureContext {
@@ -250,6 +250,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
     if (fromLoadPlan(d.generatedBy)) f.add('generatedLoads');
   }
+  if (s.designData?.site?.phases?.length) f.add('stagedConstruction');
   if (s.designData?.loadBasis) f.add('generatedLoads');
   if (values(s.groups).some((g) => g?.kind === 'floorLoad')) f.add('areaDeadLoads');
   if (values(s.groups).some((g) => g?.kind === 'generated')) f.add('generatedStructures');

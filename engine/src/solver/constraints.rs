@@ -2470,6 +2470,10 @@ impl FreeConstraintSystem {
     }
 
     pub(crate) fn stability(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering, k_original: &CscMatrix, coupling: &[(usize, usize)], releases: &super::stability::ReleasedRotations) -> super::stability::Stability {
+        self.stability_excluding(k_reduced, dof_num, k_original, coupling, releases, &[])
+    }
+
+    pub(crate) fn stability_excluding(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering, k_original: &CscMatrix, coupling: &[(usize, usize)], releases: &super::stability::ReleasedRotations, inactive: &[usize]) -> super::stability::Stability {
         let tags = super::stability::tags(dof_num, self.dimensions == 2);
         let reduced_tags: Vec<_> = self.independent.iter().map(|&d| tags[d]).collect();
         let c = &self.c_ff;
@@ -2485,7 +2489,7 @@ impl FreeConstraintSystem {
         let mut magnitude_k = k_original.clone();
         for v in &mut magnitude_k.values { *v = v.abs(); }
         let rounding = magnitude_c.reduce_sparse(&magnitude_k);
-        super::stability::analyze_coupled_with_rounding(k_reduced, &reduced_tags, &moves, &coupling, Some(&rounding), &releases.project(c))
+        super::stability::analyze_excluding(k_reduced, &reduced_tags, &moves, &coupling, Some(&rounding), &releases.project(c), inactive)
     }
 
     /// Reduce a dense symmetric matrix: K_reduced = C_ff^T * K_ff * C_ff

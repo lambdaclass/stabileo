@@ -329,9 +329,26 @@ describe('edited projects with older provenance', () => {
   });
 
   it('a frame solved before the containment diagnostics opens with exactly that notice and the ones after it', async () => {
-    const store = createRecheckStore();
-    store.openProject({ ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 30 } }, 'pro');
-    await vi.waitFor(() => expect(store.pending).toBe(false));
+    const module = await import('../../provenance/applicability');
+    const precedingRegistry = {
+      ...RESULT_CHANGES,
+      changes: RESULT_CHANGES.changes.filter(c => c.id !== 'kinematic-translation-motion'),
+    };
+    const store = createRecheckStore(async () => ({
+      ...module,
+      assessProject: (...args: Parameters<typeof module.assessProject>) =>
+        module.assessProject(args[0], args[1], args[2], precedingRegistry, args[4], args[5]),
+    }));
+    const combined = createRecheckStore();
+    const snapshot = { ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 30 } };
+    store.openProject(snapshot, 'pro');
+    combined.openProject(snapshot, 'pro');
+    await vi.waitFor(() => expect(store.pending || combined.pending).toBe(false));
+    expect(combined.assessment?.changes.map(c => c.id).sort()).toEqual([
+      ...store.assessment!.changes.map(c => c.id), 'kinematic-translation-motion',
+    ].sort());
+    expect(combined.noticeOpen).toBe(true);
+    expect(combined.stale).toBe(true);
     expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);

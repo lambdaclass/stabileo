@@ -36,6 +36,30 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('also rechecks unreleased members and constraint-only snapshots for staged solve checks', () => {
+    const designData = { site: { phases: [{ id: 'first' }] } };
+    const ordinary = model({ designData, elements: [member(1, 1, 'frame')] });
+    const constrained = model({ designData, constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }] });
+    for (const snapshot of [ordinary, constrained]) {
+      expect(modelFeatures(snapshot)).not.toContain('hinges');
+      expect(ids(snapshot)).toContain('staged-free-stiffness');
+      expect(ids(snapshot, stampSolve('linear', null))).not.toContain('staged-free-stiffness');
+    }
+  });
+
+  it('rechecks staged spring and mixed member models without requiring end releases', () => {
+    const designData = { site: { phases: [{ id: 'first' }] } };
+    const ordinary = model({ designData, elements: [member(1, 1, 'frame')] });
+    const spring = model({ designData, elements: [member(1, 1, 'frame')], supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never });
+    const mixed = model({ designData, elements: [member(1, 1, 'frame'), member(2, 1, 'truss')] });
+    for (const snapshot of [spring, mixed]) {
+      expect(modelFeatures(snapshot)).not.toContain('hinges');
+      expect(ids(snapshot)).toContain('staged-orphan-rotations');
+    }
+    expect(ids(ordinary)).not.toContain('staged-orphan-rotations');
+    expect(ids(spring, stampSolve('linear', null))).not.toContain('staged-orphan-rotations');
+  });
+
   it('scopes generator stability guidance to recorded generated structures', () => {
     const ordinary = model({ elements: [member(1, 1, 'frame')] });
     const generated = { ...ordinary, groups: [[1, { kind: 'generated' }]] } as FeatureSnapshot;
@@ -681,6 +705,21 @@ describe('path reaction recovery registry regressions (#1952)', () => {
       expect(fieldCovered(reactionRecoveryChange, 'base.reactions[n1].rz', [...fixture.features, 'analysis:linear'])).toBe(false);
       expect(conditionHolds(reactionRecoveryChange.when, new Set(fixture.features.filter(f => f !== 'pathAnalysis')))).toBe(false);
     });
+  }
+});
+
+it('rechecks kinematic motion and dormant stiffness changes in both dimensions', () => {
+  const id = 'kinematic-translation-motion';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    for (const snapshot of [
+      model({ analysisMode, elements: [member(1, 1, 'frame')] }),
+      model({ analysisMode, constraints: [{ type: 'rigidLink', masterNode: 1, slaveNode: 2, dofs: [] }] }),
+      model({ analysisMode, supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never }),
+    ]) {
+      expect(ids(snapshot)).toContain(id);
+      expect(ids(snapshot, stampSolve('linear', null))).not.toContain(id);
+    }
+    expect(ids(model({ analysisMode }))).not.toContain(id);
   }
 });
 

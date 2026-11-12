@@ -35,8 +35,6 @@ fn settled_slave_residual(dim: usize) {
                         let a = assemble_staged_2d_triplets(
                             &stage,
                             &dofs,
-                            &input,
-                            &HashSet::new(),
                             &input.stages[0],
                         );
                         let k = CscMatrix::from_triplets(dofs.n_total, &a.rows, &a.cols, &a.vals);
@@ -51,8 +49,6 @@ fn settled_slave_residual(dim: usize) {
                         let a = assemble_staged_2d(
                             &stage,
                             &dofs,
-                            &input,
-                            &HashSet::new(),
                             &input.stages[0],
                         );
                         compute_stage_reactions_vec(
@@ -90,7 +86,7 @@ fn settled_slave_residual(dim: usize) {
                 }
                 let residual = crate::solver::assembly::without_artificial_stiffness(|| {
                     if sparse {
-                        let a = assemble_staged_3d_triplets(&stage, &full, &dofs);
+                        let a = assemble_staged_3d_triplets(&stage, &dofs);
                         let k = CscMatrix::from_triplets(dofs.n_total, &a.rows, &a.cols, &a.vals);
                         compute_stage_reactions_sparse(
                             &k,
@@ -100,8 +96,7 @@ fn settled_slave_residual(dim: usize) {
                             &u,
                         )
                     } else {
-                        let mut a = assemble_3d(&stage, &dofs);
-                        add_artificial_stiffness_3d(&mut a, &stage, &full, &dofs);
+                        let a = assemble_3d(&stage, &dofs);
                         compute_stage_reactions_vec(
                             &a,
                             dofs.n_total,

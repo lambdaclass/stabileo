@@ -104,7 +104,18 @@ describe('results versions', () => {
       elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
     };
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
-    const ids = (resultsVersion: number) => assessProject(frame, { ...stamp, resultsVersion }, 'pro').changes.map(c => c.id).sort();
+    const precedingRegistry = {
+      ...RESULT_CHANGES,
+      changes: RESULT_CHANGES.changes.filter(c => c.id !== 'kinematic-translation-motion'),
+    };
+    const ids = (resultsVersion: number) => {
+      const saved = { ...stamp, resultsVersion };
+      const preceding = assessProject(frame, saved, 'pro', precedingRegistry).changes.map(c => c.id).sort();
+      const combined = assessProject(frame, saved, 'pro').changes.map(c => c.id).sort();
+      const staged = resultsVersion === RESULT_CHANGES.currentResultsVersion ? [] : ['kinematic-translation-motion'];
+      expect(combined).toEqual([...preceding, ...staged].sort());
+      return preceding;
+    };
     for (const version of [4, 5, 6, 7, 8]) {
       expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'modal-basis-entrywise-rounding', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'static-modal-runtime-self-checks']);
     }
