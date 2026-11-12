@@ -38,8 +38,9 @@ export function planEcSnow(family: EcFamily, input: LoadPlanInput, sink: PlanSin
     sk = ci.sk!;
   }
   const geometry = roofGeometry(input.model);
-  const roof = roofMembers(input.model);
-  if (!geometry || roof.length === 0) { unsupportedKeys.push(msg('snow.note.noRoof')); return false; }
+  const chosen = input.snow?.roof ? new Set(input.snow.roof) : undefined;
+  const roof = roofMembers(input.model, chosen);
+  if (!geometry || roof.length === 0) { unsupportedKeys.push(msg(chosen ? 'snow.note.emptyRegion' : 'snow.note.noRoof')); return false; }
   const slopes = surfaceSlopes(input.model);
   const ce = EXPOSURE_CE[ci.exposure], ct = ci.ct;
   const nodes = input.model.nodes;
@@ -86,13 +87,15 @@ export function planEcSnow(family: EcFamily, input: LoadPlanInput, sink: PlanSin
     const index = cases.length;
     const d: PlannedDistributed[] = [], n: PlannedNodal[] = [];
     if (layout) {
+      // The roof the person chose, as the other codes read it; none chosen: what the layout calls roof.
+      const mine = (id: number, onRoof: boolean) => (chosen ? chosen.has(id) && (onRoof || !layout.roof.has(id)) : onRoof);
       for (const pc of layout.pieces) {
-        if (!pc.roof) continue;
+        if (!mine(pc.elementId, pc.roof)) continue;
         const s = sOf(pc.elementId, arr);
         if (s > 0) d.push({ elementId: pc.elementId, caseType: 'S', caseIndex: index, q: -s * pc.wI, qJ: -s * pc.wJ, ...(pc.a !== undefined ? { a: pc.a, b: pc.b } : {}), frame: 'projected' });
       }
       for (const w of layout.widthMembers) {
-        if (!layout.roof.has(w.elementId)) continue;
+        if (chosen ? !chosen.has(w.elementId) : !layout.roof.has(w.elementId)) continue;
         const s = sOf(w.elementId, arr);
         if (!(s > 0)) continue;
         for (const sp of widthSpans(w, input.tributaryWidth)) {
@@ -100,7 +103,7 @@ export function planEcSnow(family: EcFamily, input: LoadPlanInput, sink: PlanSin
         }
       }
       for (const pt of layout.points) {
-        if (!pt.roof) continue;
+        if (!mine(pt.elementId, pt.roof)) continue;
         const s = sOf(pt.elementId, arr);
         if (s > 0) n.push({ nodeId: pt.nodeId, caseType: 'S', caseIndex: index, fx: 0, fy: 0, fz: -s * pt.w, carrier: pt.elementId });
       }

@@ -9,7 +9,7 @@
 </script>
 
 <div class="rcs-steps" data-testid="rc-steps">
-  {#each groups as g (g.title)}
+  {#each groups as g, i (i)}
     <section>
       <h5>{t(g.title)}</h5>
       <table>

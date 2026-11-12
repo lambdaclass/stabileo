@@ -43,6 +43,8 @@ export function planTbdy(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
   dropCirsocSeismic(sink);
   const ti = seismicInputOf(input.codeInputs);
   const block = (key: string, params?: Record<string, string | number>) => { sink.blockedKeys.push(msg(key, params)); return out; };
+  const dirs = ti.directions ?? input.seismic.directions;
+  if (!dirs.x && !dirs.y) return block('loads.tr.noDirection');
   if (!(ti.ss! > 0) || !(ti.s1! > 0)) return block('loads.tr.seismic.blocked.spectrum');
   if (ti.soil === 'ZF') return block('loads.tr.seismic.blocked.zf');
   const sysX = findSystem(ti.system), sysY = findSystem(ti.systemY ?? ti.system);
@@ -62,7 +64,12 @@ export function planTbdy(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
   const n = MASS_PARTICIPATION[use];
   const snowCase = sink.cases.findIndex((c) => c.type === 'S' && !c.pattern);
   const snow = snowWeightByLevel(input.model, sink.distributed, sink.nodal, snowCase, levels.map((l) => l.elevation));
-  const elevated = levels.map((l, k) => ({ l, w: l.selfWeightKN + l.superimposedKN + n * l.liveTotalKN + SNOW_IN_MASS * snow[k]! }))
+  // The levels the plan reports carry this code's mass, not the fallback participation they came with.
+  levels.forEach((l, k) => {
+    l.liveParticipatingKN = n * l.liveTotalKN;
+    l.weightKN = l.selfWeightKN + l.superimposedKN + l.liveParticipatingKN + SNOW_IN_MASS * snow[k]!;
+  });
+  const elevated = levels.map((l) => ({ l, w: l.weightKN }))
     .filter((x) => x.l.elevation > base + 1e-6 && x.w > 0);
   const W = elevated.reduce((s, x) => s + x.w, 0);
   if (W <= 0) { sink.unsupportedKeys.push(msg('loadPlan.unsupported.noSeismicMass')); return out; }
@@ -95,7 +102,6 @@ export function planTbdy(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
     return { t: tpa, tpa, capped: false, ct };
   };
 
-  const dirs = ti.directions ?? input.seismic.directions;
   const needed = ti.orthogonal ? { x: dirs.x || dirs.y, y: dirs.x || dirs.y } : dirs;
   const levelsHW = elevated.map((x) => ({ h: x.l.elevation - base, w: x.w }));
   const byAxis: TbdyDetail['byAxis'] = {};

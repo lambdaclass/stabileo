@@ -54,7 +54,7 @@
     <rect x={X(xs) - w / 2} y={TOP - STUB} width={w} height={yBeamBottom - TOP + STUB + BELOW} class="col" />
     <line x1={X(xs)} y1={TOP - STUB - 6} x2={X(xs)} y2={yDim + 6} class="axis" />
   {/each}
-  {#each line.spans as s (s.name)}
+  {#each line.spans as s, i (i)}
     <rect x={X(s.x0)} y={TOP} width={(s.x1 - s.x0) * sx} height={s.h * sy} class="beam" />
   {/each}
   {#each ticks as tk, i (i)}
@@ -93,7 +93,7 @@
 
   <line x1={X(0)} y1={yDim} x2={X(line.length)} y2={yDim} class="dimline" />
   {#each supports as xs, j (j)}<line x1={X(xs) - 4} y1={yDim + 4} x2={X(xs) + 4} y2={yDim - 4} class="dimline" />{/each}
-  {#each line.spans as s (s.name)}
+  {#each line.spans as s, i (i)}
     <text x={X((s.x0 + s.x1) / 2)} y={yDim - 5} class="dim">{fmt(s.x1 - s.x0)}</text>
     <text x={X((s.x0 + s.x1) / 2)} y={yDim + 14} class="small">{s.name} · {fmt(s.b * 100, 0)}×{fmt(s.h * 100, 0)}</text>
   {/each}

@@ -77,7 +77,9 @@ export function planEcSeismic(input: LoadPlanInput, levels: LevelMass[], sink: P
   const snowByLevel = psi2S > 0 && balanced >= 0 ? snowWeightByLevel(input.model, sink.distributed, sink.nodal, balanced, levels.map((l) => l.elevation)) : levels.map(() => 0);
   const topIndex = levels.reduce((k, l, i) => (l.elevation > levels[k]!.elevation ? i : k), 0);
   levels.forEach((lv, i) => {
-    const e = psiE(input.occupancyKey, i === topIndex, ci.occupancy);
+    // A roof with its own occupancy brings that occupancy's ψ to the top level; mixed with floors there, the larger one.
+    const roofKey = input.roof?.use === 'occupancy' ? input.roof.occupancyKey : undefined;
+    const e = Math.max(psiE(input.occupancyKey, i === topIndex, ci.occupancy), i === topIndex && roofKey ? psiE(roofKey, true, ci.occupancy) : 0);
     lv.liveParticipatingKN = e * lv.liveTotalKN;
     lv.weightKN = lv.selfWeightKN + lv.superimposedKN + lv.liveParticipatingKN + psi2S * (snowByLevel[i] ?? 0);
     derivation.push(msg('loads.ec.seismic.level', { elevation: round(lv.elevation, 2), psiE: round(e, 3), live: round(lv.liveTotalKN, 1), weight: round(lv.weightKN, 1) }));

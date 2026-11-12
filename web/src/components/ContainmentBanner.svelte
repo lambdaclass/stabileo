@@ -5,6 +5,12 @@
   import { containmentDismissal } from '../lib/store/containment-dismissal.svelte';
   let { disposition, children, preserveModel = false }: { preserveModel?: boolean; disposition: { refused: boolean; messages: string[] }; children?: Snippet } = $props();
   let open = $state(false);
+  // A different notice starts folded, whatever the last one was left as.
+  let shown = '';
+  $effect(() => {
+    const now = disposition.messages.join('\n');
+    if (now !== shown) { shown = now; open = false; }
+  });
 </script>
 
 {#if disposition.messages.length && (disposition.refused || !containmentDismissal.isDismissed(disposition.messages))}

@@ -3,6 +3,7 @@
   import { modelStore, resultsStore } from '../../../lib/store';
   import { downloadRcSheets, meshWallsForSheets, setColumnEndZones, rcSheetsData, setRcOption, setTorsionMode, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { physicalGroups } from '../../../lib/store/physical';
+  import { uiStore } from '../../../lib/store/ui.svelte';
   import { plateSurfaceOf } from '../../../lib/model/physical/plate';
   import { runGlobalSolve } from '../../../lib/engine/live-calc';
   import { liveSheetRows, sheetSize } from '../../../lib/store/rc-sheets-view.svelte';
@@ -32,7 +33,9 @@
   async function meshWalls() {
     meshWallsForSheets();
     solving = true;
-    try { await runGlobalSolve(); } finally { solving = false; }
+    try { await runGlobalSolve(); }
+    catch (err) { uiStore.toast(err instanceof Error ? err.message : String(err), 'error'); }
+    finally { solving = false; }
   }
 </script>
 

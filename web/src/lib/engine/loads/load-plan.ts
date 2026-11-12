@@ -786,7 +786,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, widthSpans(m, input.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength]));
   const reducedFor = (entry: OccupancyEntry, loKNm2: number, _uniform: number, areas: Map<number, number>) => (elementId: number): number => {
     if (!input.applyLiveReduction) return loKNm2;
-    return codes.loads.reduce({ occupancyKey: input.occupancyKey,
+    return codes.loads.reduce({ occupancyKey: entry.key,
       loKNm2, tributaryAreaM2: (panelMode ? areas.get(elementId) : widthArea.get(elementId)) ?? 0, elementKind: input.reductionElementKind,
       floorsSupported: input.floorsSupported,
       passengerGarage: entry.assemblyKind === 'passengerGarage', publicAssembly: entry.assemblyKind === 'publicAssembly',

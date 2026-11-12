@@ -50,10 +50,15 @@ export function planAsce7Seismic(input: LoadPlanInput, levels: LevelMass[], sink
   }));
   derivation.push(msg('loads.asce7.seismic.derivation.category', { rc, ie, sdc, r: sys.r, cd: sys.cd, omega0: sys.omega0, rho }));
 
-  const elevated = levels.filter((l) => l.elevation > 0);
+  const dirs = ci.directions ?? SEISMIC_DEFAULTS.directions;
+  if (!dirs.x && !dirs.y) { blockedKeys.push(msg('loads.tr.noDirection')); return none; }
+  // Heights are above the model's lowest level, which is not always at z = 0.
+  const base = levels.length ? Math.min(...levels.map((l) => l.elevation)) : 0;
+  const elevated = levels.filter((l) => l.elevation > base + 1e-6);
   const share = STORAGE_OCCUPANCIES.has(input.occupancyKey) ? STORAGE_SHARE : 0;
-  const top = Math.max(...elevated.map((l) => l.elevation), 0);
-  const partition = (input.partitionLive ?? 0) > 0 ? Math.max(ci.partitionKNm2 ?? 0, PARTITION_MIN_KNM2) : 0;
+  const top = Math.max(...elevated.map((l) => l.elevation), base);
+  // §12.7.2(2): partitions in the floor loads, or a partition weight typed here, bring at least the minimum.
+  const partition = (input.partitionLive ?? 0) > 0 || (ci.partitionKNm2 ?? 0) > 0 ? Math.max(ci.partitionKNm2 ?? 0, PARTITION_MIN_KNM2) : 0;
   const snowCase = cases.findIndex((c) => c.type === 'S' && c.nameKey === 'snow.case.balanced');
   const pf = snowCase >= 0 ? Number(cases[snowCase]!.nameParams?.pf ?? 0) : 0;
   const snowByLevel = pf > SNOW_IN_W_LIMIT_KNM2 ? snowWeightByLevel(input.model, sink.distributed, nodal, snowCase, levels.map((l) => l.elevation)) : null;
@@ -69,7 +74,7 @@ export function planAsce7Seismic(input: LoadPlanInput, levels: LevelMass[], sink
   const W = elevated.reduce((s, l) => s + l.weightKN, 0);
   if (!(W > 0)) { unsupportedKeys.push(msg('loadPlan.unsupported.noSeismicMass')); return none; }
 
-  const hn = top;
+  const hn = top - base;
   const ta = period.ct * Math.pow(hn, period.x);
   const cu = upperLimitCu(sd1);
   const t = ci.computedT !== undefined && ci.computedT > 0 ? Math.min(ci.computedT, cu * ta) : ta;
@@ -78,13 +83,12 @@ export function planAsce7Seismic(input: LoadPlanInput, levels: LevelMass[], sink
   derivation.push(cs.steps);
   const V = cs.cs * W;
   const kExp = distributionExponent(t);
-  const forces = verticalDistribution(elevated.map((l) => ({ h: l.elevation, w: l.weightKN })), V, kExp).map((f) => f * rho);
+  const forces = verticalDistribution(elevated.map((l) => ({ h: l.elevation - base, w: l.weightKN })), V, kExp).map((f) => f * rho);
   derivation.push(msg('loads.asce7.seismic.derivation.baseShear', { w: round(W, 1), cs: round(cs.cs, 4), v: round(V, 1), k: round(kExp, 3), rho }));
   if (rho > 1 && 'ABC'.includes(sdc)) unsupportedKeys.push(msg('loads.asce7.seismic.note.rhoLowSdc', { sdc }));
   if (!input.seismic.vertical && sds > 0.125) unsupportedKeys.push(msg('loads.asce7.seismic.note.evOff', { kv: round(0.2 * sds, 4) }));
   unsupportedKeys.push(msg('loads.asce7.seismic.note.notCovered'));
 
-  const dirs = ci.directions ?? SEISMIC_DEFAULTS.directions;
   const torsion = ci.torsion ?? SEISMIC_DEFAULTS.torsion;
   if (torsion) refs.push(REF_SEIS.torsion);
   const orthogonal = (ci.orthogonal ?? SEISMIC_DEFAULTS.orthogonal) && dirs.x && dirs.y;

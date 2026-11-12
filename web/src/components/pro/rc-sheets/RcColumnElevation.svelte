@@ -13,7 +13,7 @@
 
   const H = 380, PADT = 18, PADB = 30, LEFT = 46, STUB = 34, COLW = 64;
   const jb = $derived(Math.max(layout.jointBottom, 0.04)), jt = $derived(Math.max(layout.jointTop, 0.04));
-  const total = $derived(jb + layout.clear + layout.jointTop);
+  const total = $derived(layout.jointBottom + layout.clear + layout.jointTop);
   const k = $derived((H - PADT - PADB) / Math.max(jb + layout.clear + jt, 0.1));
   // Elevation height to scale; the width drawn at least COLW, so ties stay apart from the bars.
   const kx = $derived(Math.max(k, COLW / row.b));
@@ -79,7 +79,7 @@
   <ul class="rce-notes">
     {#each segs as z, i (i)}<li>{t(kindKey(z.kind))}: Ø{layout.dia} c/{sp(z.spacing)} — {z.clause}</li>{/each}
     <li class="dimnote">{tp('rcSheets.elev.totals', { n: layout.ties.length, h: cm(total) })}</li>
-    {#each layout.notes as n (n)}<li class="why" data-testid="rc-elev-note">{t(n)}</li>{/each}
+    {#each layout.notes as n, i (i)}<li class="why" data-testid="rc-elev-note">{t(n)}</li>{/each}
   </ul>
 </figure>
 

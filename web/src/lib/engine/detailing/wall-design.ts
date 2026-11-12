@@ -53,6 +53,20 @@ export interface WallReinforcementRatios {
   note: string;
 }
 
+/** P, M and V at a wall's base from its bottom strips; `sigma` is negative in compression and `pu` comes out positive. */
+export function wallBaseResultants(
+  strips: ReadonlyArray<{ u: number; width: number; thickness: number; sigma: number; tau: number }>, centre: number,
+): { pu: number; mu: number; vu: number } {
+  let pu = 0, mu = 0, vu = 0;
+  for (const s of strips) {
+    const f = -s.sigma * s.thickness * s.width;
+    pu += f;
+    mu += f * (s.u - centre);
+    vu += s.tau * s.thickness * s.width;
+  }
+  return { pu, mu, vu };
+}
+
 /**
  * The minimum distributed reinforcement of a cast-in-place wall, CIRSOC 201-2025 §11.6
  * (docs/codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-11-tabiques.md:517-575, 590-608).
@@ -69,20 +83,6 @@ export interface WallReinforcementRatios {
  *
  * Without `shear` (the in-plane shear unknown) the table applies.
  */
-/** P, M and V at a wall's base from its bottom strips; `sigma` is negative in compression and `pu` comes out positive. */
-export function wallBaseResultants(
-  strips: ReadonlyArray<{ u: number; width: number; thickness: number; sigma: number; tau: number }>, centre: number,
-): { pu: number; mu: number; vu: number } {
-  let pu = 0, mu = 0, vu = 0;
-  for (const s of strips) {
-    const f = -s.sigma * s.thickness * s.width;
-    pu += f;
-    mu += f * (s.u - centre);
-    vu += s.tau * s.thickness * s.width;
-  }
-  return { pu, mu, vu };
-}
-
 export function minimumWallRatios(
   barDiameterMm: number, fy: number, edition: RegulationEdition,
   opts: {

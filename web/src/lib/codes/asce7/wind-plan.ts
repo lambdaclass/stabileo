@@ -29,7 +29,9 @@ export function planAsce7Wind(input: LoadPlanInput, allLevels: LevelMass[], sink
   const kzt = ci.kzt ?? WIND_DEFAULTS.kzt;
   const ke = ci.ke ?? (ci.groundElevationM !== undefined ? groundElevationKe(ci.groundElevationM) : 1);
   const w = { V, exposure, kzt, ke };
-  const h = Math.max(...levels.map((l) => l.elevation), 0);
+  // Heights are above the model's lowest level, which is not always at z = 0.
+  const base = modelElevations.length ? Math.min(...modelElevations) : 0;
+  const h = Math.max(...levels.map((l) => l.elevation - base), 0);
   const xs = pts.map((n) => n.x), ys = pts.map((n) => n.y);
   const bx = Math.max(...xs) - Math.min(...xs), by = Math.max(...ys) - Math.min(...ys);
   const qh = velocityPressure(h, w);
@@ -58,12 +60,12 @@ export function planAsce7Wind(input: LoadPlanInput, allLevels: LevelMass[], sink
       }
       return (designPressure(mean, qh, cp.windward, 0) - designPressure(qh, qh, cp.leeward, 0)) / 1000;
     };
-    const elevated = levels.filter((l) => l.elevation > 0);
+    const elevated = levels.filter((l) => l.elevation > base + 1e-6);
     const windLevels: WindLevel[] = [];
     elevated.forEach((lv, i) => {
-      const below = i === 0 ? Math.max(0, ...modelElevations.filter((z) => z < lv.elevation - 1e-6)) : elevated[i - 1]!.elevation;
+      const below = i === 0 ? Math.max(base, ...modelElevations.filter((z) => z < lv.elevation - 1e-6)) : elevated[i - 1]!.elevation;
       const above = i === elevated.length - 1 ? lv.elevation : elevated[i + 1]!.elevation;
-      const z0 = (below + lv.elevation) / 2, z1 = (lv.elevation + above) / 2;
+      const z0 = (below + lv.elevation) / 2 - base, z1 = (lv.elevation + above) / 2 - base;
       const net = bandNet(z0, z1);
       const force = net * across * (z1 - z0);
       const minimum = MIN_WALL_KNM2 * across * (z1 - z0);
@@ -82,7 +84,7 @@ export function planAsce7Wind(input: LoadPlanInput, allLevels: LevelMass[], sink
     axes.push({ axis, across, along, levels: windLevels, project, qhNm2: qh * KD_BUILDING, gcpi: gi, G: G_RIGID });
     derivation.push(msg('loadPlan.derivation.wind', { dir: axis.toUpperCase(), qh: round(qh, 0), net: round(bandNet(h, h), 3), front: round(across, 1) }));
   }
-  if (!axes.length) return { windQh: derived(qh, [REF.qz], 'N/m²') };
+  if (!axes.length) { blockedKeys.push(msg('loads.tr.noDirection')); return none; }
   const set = ci.caseSet ?? WIND_DEFAULTS.caseSet;
   const generated = windLoadCases({ model: input.model, axes, set, directions: dirs, tributaryWidth: input.tributaryWidth, speed: round(V, 1) });
   unsupportedKeys.push(...generated.notes.filter((n) => n.key !== 'loadPlan.note.windCases34NeedBothAxes'));

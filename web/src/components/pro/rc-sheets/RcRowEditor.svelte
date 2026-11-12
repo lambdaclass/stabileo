@@ -10,7 +10,16 @@
   const SMALL = [6, 8, 10, 12];
   const MESH = [6, 8, 10, 12, 16];
 
-  const num = (e: Event) => Number((e.currentTarget as HTMLInputElement | HTMLSelectElement).value);
+  // A number box cleared or typed past its limits takes the nearest limit: a spacing or a count of 0 would stall the drawings.
+  const num = (e: Event) => {
+    const el = e.currentTarget as HTMLInputElement | HTMLSelectElement;
+    const v = Number(el.value);
+    if (!(el instanceof HTMLInputElement) || el.type !== 'number') return v;
+    const lo = el.min === '' ? -Infinity : Number(el.min), hi = el.max === '' ? Infinity : Number(el.max);
+    const c = el.value.trim() !== '' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
+    if (Number.isFinite(c) && c !== v) el.value = String(c);
+    return c;
+  };
   const save = (a: BeamAdopted | ColumnAdopted | SlabAdopted | WallAdopted) => setAdopted(row.key, a);
   function wallPatch(patch: Partial<WallAdopted>) {
     if (row.family !== 'wall') return;

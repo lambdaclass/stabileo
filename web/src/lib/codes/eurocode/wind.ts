@@ -77,13 +77,17 @@ export function planEcWind(family: EcFamily, input: LoadPlanInput, levels: Level
   if (!basic) { blockedKeys.push(msg(family === 'uk' ? 'loads.ec.blocked.ukWindSpeed' : 'loads.ec.blocked.windSpeed')); return { windQh: undefined }; }
   if (!ci.terrain || !TERRAIN[ci.terrain]) { blockedKeys.push(msg('loads.ec.blocked.terrain')); return { windQh: undefined }; }
   const dirs = ci.directions ?? { x: true, y: true };
-  const nodes = [...input.model.nodes.values()];
-  const elevated = levels.filter((l) => l.elevation > 0);
+  const region = input.wind?.region ? new Set(input.wind.region) : null;
+  const inRegion = region ? levels.map((l) => ({ ...l, nodeIds: l.nodeIds.filter((id) => region.has(id)) })).filter((l) => l.nodeIds.length > 0) : levels;
+  const nodes = [...input.model.nodes.values()].filter((n) => !region || region.has(n.id));
+  // Heights are above the model's lowest level, which is not always at z = 0.
+  const base = Math.min(...levels.map((l) => l.elevation));
+  const elevated = inRegion.filter((l) => l.elevation > base + 1e-6);
   if (!nodes.length || !elevated.length || (!dirs.x && !dirs.y)) { unsupportedKeys.push(msg('loads.ec.wind.nothing')); return { windQh: undefined }; }
 
   const site: PeakSite = { vb: basic.vb, terrain: ci.terrain, c0: ci.c0 ?? 1, rho: RHO[family] };
   const cscd = ci.cscd ?? 1;
-  const h = Math.max(...elevated.map((l) => l.elevation));
+  const h = Math.max(...elevated.map((l) => l.elevation)) - base;
   const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
   const bx = Math.max(...xs) - Math.min(...xs), by = Math.max(...ys) - Math.min(...ys);
   const qh = peakPressure(h, site);
@@ -121,9 +125,9 @@ export function planEcWind(family: EcFamily, input: LoadPlanInput, levels: Level
       return cscd * f * (cpe.D * mean - cpe.E * qh);
     };
     const windLevels: WindLevel[] = elevated.map((lv, i) => {
-      const below = i === 0 ? 0 : elevated[i - 1]!.elevation;
+      const below = i === 0 ? base : elevated[i - 1]!.elevation;
       const above = i === elevated.length - 1 ? lv.elevation : elevated[i + 1]!.elevation;
-      const z0 = (below + lv.elevation) / 2, z1 = (lv.elevation + above) / 2;
+      const z0 = (below + lv.elevation) / 2 - base, z1 = (lv.elevation + above) / 2 - base;
       const net = bandNet(z0, z1);
       const force = net * b * (z1 - z0);
       derivation.push(msg('loadPlan.derivation.windLevel', { dir: axis.toUpperCase(), level: round(lv.elevation, 2), z0: round(z0, 2), z1: round(z1, 2), net: round(net, 3), force: round(force, 1) }));

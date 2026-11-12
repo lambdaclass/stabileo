@@ -699,6 +699,8 @@
   /** Wind and seismic beside their section, from the code's own inputs when it has them; null when it has them and they are still empty. */
   function navOf(role: 'wind' | 'seismic', cirsoc: () => string): string | null {
     const id = codeAdapter(role);
+    // A family with no code bound for the role (UK has no seismic one) has no CIRSOC zone to show either.
+    if (!id && family !== 'cirsoc') return null;
     if (!CODE_INPUTS[id]) return cirsoc();
     const s = codeInputStatus(role, codeInputs[id]);
     if (!s) return null;

@@ -9,7 +9,16 @@
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const LONG = [10, 12, 16, 20, 25, 32];
   const SMALL = [6, 8, 10, 12];
-  const num = (e: Event) => Number((e.currentTarget as HTMLInputElement | HTMLSelectElement).value);
+  // A number box cleared or typed past its limits takes the nearest limit: a spacing or a count of 0 would stall the drawings.
+  const num = (e: Event) => {
+    const el = e.currentTarget as HTMLInputElement | HTMLSelectElement;
+    const v = Number(el.value);
+    if (!(el instanceof HTMLInputElement) || el.type !== 'number') return v;
+    const lo = el.min === '' ? -Infinity : Number(el.min), hi = el.max === '' ? Infinity : Number(el.max);
+    const c = el.value.trim() !== '' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
+    if (Number.isFinite(c) && c !== v) el.value = String(c);
+    return c;
+  };
   const copy = (): LineAdopted => JSON.parse(JSON.stringify(line.adopted));
   function patch(f: (a: LineAdopted) => void) { const a = copy(); f(a); setAdopted(line.key, a); }
   const setGroup = (g: BarGroup, k: 'count' | 'dia', v: number) => { g[k] = v; };
