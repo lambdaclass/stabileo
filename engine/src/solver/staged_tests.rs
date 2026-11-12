@@ -143,3 +143,66 @@ fn issue_1952_r7_settled_slave_residual_2d() {
 fn issue_1952_r7_settled_slave_residual_3d() {
     settled_slave_residual(3);
 }
+
+fn r14_cached_stabilization(dim: usize, sparse: bool) {
+    let models: Value = serde_json::from_str(include_str!("../../tests/fixtures/staged-physical-r14.json")).unwrap();
+    let m = &models[dim.to_string()];
+    let motion = m["supports"]["2"]["dry"].as_f64().unwrap();
+    let rotation = if dim == 2 { 2 } else { 4 };
+    let (dof, cs, residual) = if dim == 2 {
+        let input: StagedInput = serde_json::from_value(m.clone()).unwrap();
+        let full = staged_to_full_solver_input(&input);
+        let dof = DofNumbering::build_2d(&full);
+        let cs = FreeConstraintSystem::build_2d(&full, &dof).unwrap();
+        let mut uncoupled = full.clone();
+        uncoupled.constraints.clear();
+        let mut u = vec![0.0; dof.n_total];
+        for node in [1,2] { u[dof.global_dof(node, rotation).unwrap()] = motion; }
+        let cached = if sparse {
+            super::super::sparse_assembly::assemble_stiffness_sparse_2d(&uncoupled, &dof).k_full
+        } else {
+            CscMatrix::from_dense_symmetric_exact(&assemble_2d(&uncoupled, &dof).k, dof.n_total)
+        };
+        assert!(cached.sym_mat_vec(&u)[dof.global_dof(1, rotation).unwrap()].abs() > 0.0);
+        let residual = PhysicalStageResidual::assemble(|| cached.sym_mat_vec(&u));
+        (dof, cs, residual)
+    } else {
+        let input: StagedInput3D = serde_json::from_value(m.clone()).unwrap();
+        let full = staged_to_full_solver_input_3d(&input);
+        let dof = DofNumbering::build_3d(&full);
+        let cs = FreeConstraintSystem::build_3d(&full, &dof).unwrap();
+        let mut uncoupled = full.clone();
+        uncoupled.constraints.clear();
+        let mut u = vec![0.0; dof.n_total];
+        for node in [1,2] { u[dof.global_dof(node, rotation).unwrap()] = motion; }
+        let cached = if sparse {
+            super::super::sparse_assembly::assemble_stiffness_sparse_3d_parallel(&uncoupled, &dof, true).k_full.unwrap()
+        } else {
+            CscMatrix::from_dense_symmetric_exact(&assemble_3d(&uncoupled, &dof).k, dof.n_total)
+        };
+        assert!(cached.sym_mat_vec(&u)[dof.global_dof(1, rotation).unwrap()].abs() > 0.0);
+        let residual = PhysicalStageResidual::assemble(|| cached.sym_mat_vec(&u));
+        (dof, cs, residual)
+    };
+    let recovered = super::super::reaction_recovery::RecoveredForces::from_stage(&residual, &dof, cs.as_ref());
+    for force in recovered.constraint_forces {
+        assert_eq!(force.force, 0.0, "{dim}D sparse={sparse}: {force:?}");
+    }
+    assert_eq!(residual.as_slice()[dof.global_dof(1, rotation).unwrap()], 0.0);
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn r14_cached_stabilization_dense_2d() { r14_cached_stabilization(2, false); }
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn r14_cached_stabilization_sparse_2d() { r14_cached_stabilization(2, true); }
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn r14_cached_stabilization_dense_3d() { r14_cached_stabilization(3, false); }
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn r14_cached_stabilization_sparse_3d() { r14_cached_stabilization(3, true); }

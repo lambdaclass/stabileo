@@ -1055,3 +1055,10 @@ test.engine.staged-springs-r12-wasm: wasm
 .PHONY: audit.1088
 audit.1088:
 	$(NIX_RUN) python3 -I docs/verification/issue-1088-rank.py
+
+.PHONY: test.engine.staged-physical-r14-wasm
+
+test.engine.staged-physical-r14-wasm: wasm
+	STABILEO_R14_CASES=$(CURDIR)/.1952-r14-cases $(MAKE) test.engine.targeted TEST=validation FILTER=issue_1952_r14
+	$(NIX_RUN) node scripts/tests/staged-physical-r14-wasm.mjs $(CURDIR)/.1952-r14-cases
+	rm -f $(CURDIR)/.1952-r14-cases-2.json $(CURDIR)/.1952-r14-cases-3.json
