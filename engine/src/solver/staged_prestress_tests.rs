@@ -320,7 +320,11 @@ fn staged_final_zero_stiffness_uses_accumulated_load() {
 
 #[test]
 fn staged_round8_multiple_null_rotations_keep_supported_loads() {
-    let input: SolverInput3D = serde_json::from_str(include_str!("../../tests/fixtures/staged-round8.json")).unwrap();
+    let input = serde_json::from_str::<crate::types::units::ElasticInput3D>(include_str!(
+        "../../tests/fixtures/staged-round8.json"
+    ))
+    .unwrap()
+    .into_legacy();
     let dof = DofNumbering::build_3d(&input);
     assert_eq!(dof.n_free, 3);
     for sparse in [false, true] {
@@ -345,7 +349,11 @@ fn staged_round8_multiple_null_rotations_keep_supported_loads() {
 #[cfg(test)]
 #[test]
 fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() {
-    let input: SolverInput3D = serde_json::from_str(include_str!("../../tests/fixtures/staged-round8.json")).unwrap();
+    let input = serde_json::from_str::<crate::types::units::ElasticInput3D>(include_str!(
+        "../../tests/fixtures/staged-round8.json"
+    ))
+    .unwrap()
+    .into_legacy();
     let dof = DofNumbering::build_3d(&input);
     for sparse in [false, true] {
         let oblique = CscMatrix::from_dense_symmetric_exact(&[1.0,-1.0,0.0,-1.0,1.0,0.0,0.0,0.0,2.0], 3);
