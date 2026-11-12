@@ -1,1 +1,0 @@
-const s="unavailable",t=`/research-wasm/builds/${s}/`;function a(r){return Array.isArray(r)?`[${r.map(a).join(",")}]`:r&&typeof r=="object"?`{${Object.entries(r).sort(([n],[i])=>n.localeCompare(i)).map(([n,i])=>`${JSON.stringify(n)}:${a(i)}`).join(",")}}`:JSON.stringify(r)}function e(r,n,i=s){return i!=="unavailable"&&r.build_id===i&&a(r.config)===a(n)}export{e as a,t as r};

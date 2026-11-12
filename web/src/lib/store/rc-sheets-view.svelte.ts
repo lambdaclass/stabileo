@@ -13,6 +13,7 @@ import { resultsStore } from './results.svelte';
 import { nextFrame } from './mesh-progress.svelte';
 import { buildSheetRows, rcSheetsData, sheetRowsSteps, type SheetProgress, type SheetRows } from './rc-sheets.svelte';
 import { designData } from './design-data';
+import { activeResultSet3D } from './active-results';
 import { decimalFor, makeFmt } from '../rc-sheets/format';
 import { sheetsProgress } from './rc-sheets-progress.svelte';
 
@@ -35,7 +36,8 @@ function stampNow(): Stamp {
   const { adopted, ...sheets } = rcSheetsData();
   const { rcSheets: _, ...rest } = designData() as { rcSheets?: unknown };
   return {
-    results: resultsStore.results3D, perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,
+    // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
+    results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,
     design: JSON.stringify({ rest, sheets }), adopted: JSON.stringify(adopted ?? null), locale: i18n.locale,
   };
 }
@@ -64,7 +66,8 @@ export async function designSheets(): Promise<void> {
       const r = it.next();
       if (r.done) {
         sheetsRun.rows = r.value;
-        sheetsRun.stamp = stamp;
+        // Taken again at the end: reading the forces can settle what the design data hold.
+        sheetsRun.stamp = stampNow();
         break;
       }
       if (performance.now() - last > 30) {

@@ -1,1 +1,0 @@
-let r=null;function s(n){r=n}class i extends Error{code="ENGINE_UNAVAILABLE";constructor(e){super(`The engine is not available, so the CIRSOC 201 ${e} was not computed.`),this.name="EngineUnavailableError"}}function o(n){const e=r?.[n];if(!e)throw new i(String(n));return e}const t=9;export{i as C,t as S,o as c,s as r};

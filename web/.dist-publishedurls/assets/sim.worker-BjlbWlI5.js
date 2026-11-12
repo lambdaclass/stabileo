@@ -1,1 +1,0 @@
-self.onmessage=async({data:s})=>{try{const e=await import(`${s.base}form.js`);await e.default({module_or_path:`${s.base}form_bg.wasm`});const o=JSON.parse(e.form_find(s.q,s.load));self.postMessage({form:o})}catch{self.postMessage({error:!0})}};
