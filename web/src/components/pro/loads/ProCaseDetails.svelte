@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { signedAxisText } from '../../../lib/axes/typed-frame';
+  import { modelIndexOfUser } from '../../../lib/axes/display';
   import Hint from '../Hint.svelte';
   /**
    * One case's composition and how it is solved (`engine/case-effects.ts`,
@@ -154,7 +156,7 @@
       </label>
       <label>{t('caseDetails.ratio')} <input type="text" class="cd-num" value={String(notional?.ratio ?? 0.002)} onchange={(e) => { const v = parseDecimal(e.currentTarget.value); if (v === null || !setNotional({ ratio: v })) e.currentTarget.value = String(notional?.ratio ?? 0.002); }} data-testid="cd-not-ratio" /></label>
       <select value={notional?.dir ?? '+X'} onchange={(e) => { if (!setNotional({ dir: e.currentTarget.value as '+X' })) e.currentTarget.value = notional?.dir ?? '+X'; }} data-testid="cd-not-dir">
-        {#each ['+X', '-X', '+Y', '-Y'] as d (d)}<option value={d}>{d}</option>{/each}
+        {#each ['+X', '-X', '+Y', '-Y'] as d (d)}<option value={d}>{signedAxisText(d)}</option>{/each}
       </select>
     </div>
     <Hint text={t('caseDetails.notionalHint')} />
@@ -177,8 +179,9 @@
         <label>{t('spectralCase.scale')} <input type="text" class="cd-num" value={String(sp.scale)} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ scale: v }); }} data-testid="cd-spec-scale" /></label>
       </div>
       <div class="cd-row">
-        {#each ['x', 'y', 'z'] as a (a)}
-          <label>{a.toUpperCase()} <input type="text" class="cd-num" value={String(sp.factors[a as 'x'])} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ factors: { ...sp.factors, [a]: v } }); }} data-testid="cd-spec-f{a}" /></label>
+        {#each ['x', 'y', 'z'] as u, ui (u)}
+          {@const a = 'xyz'[modelIndexOfUser(ui)]!}
+          <label>{u.toUpperCase()} <input type="text" class="cd-num" value={String(sp.factors[a as 'x'])} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ factors: { ...sp.factors, [a]: v } }); }} data-testid="cd-spec-f{u}" /></label>
         {/each}
         <!-- How the directions add, quantity by quantity (`spectral-case.ts` `directionCombine`). -->
         <label>{t('spectralCase.directions')}

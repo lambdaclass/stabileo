@@ -5,6 +5,7 @@
 </script>
 
 <script lang="ts">
+  import { axisName, modelAxisOf } from '../../../lib/axes/display';
   /**
    * What a load or a support goes on, the same choice everywhere (`model/loads/load-targets.ts`):
    * the selection, ids, a group, a range of coordinates, a section, a kind of member, for a member
@@ -45,7 +46,7 @@
   $effect.pre(() => { const kept = keepTargetMode(by, modes); if (kept !== by) by = kept; });
   let idsText = $state('');
   let groupId = $state<number | null>(null);
-  let axis = $state<'X' | 'Y' | 'Z'>('Z');
+  let axis = $state<'X' | 'Y' | 'Z'>(axisName(2));
   let min = $state(0);
   let max = $state(0);
   let sectionId = $state<number | null>(null);
@@ -62,7 +63,11 @@
       case 'all': case 'selection': case 'chain': spec = { by: mode }; break;
       case 'ids': spec = { by: 'ids', text: idsText }; break;
       case 'group': spec = { by: 'group', groupId: groupId ?? groups[0]?.id ?? -1 }; break;
-      case 'range': spec = { by: 'range', axis, min, max }; break;
+      case 'range': {
+        const m = modelAxisOf(axis);
+        spec = { by: 'range', axis: (['X', 'Y', 'Z'] as const)[m.index], min: m.sign > 0 ? min : -max, max: m.sign > 0 ? max : -min };
+        break;
+      }
       case 'section': spec = { by: 'section', sectionId: sectionId ?? sections[0]?.id ?? -1 }; break;
       case 'kind': spec = { by: 'kind', kind }; break;
     }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { along, axisName } from '../../lib/axes/display';
   /**
    * Story drift under each seismic case, checked against INPRES-CIRSOC 103 Tabla 6.4
    * (`engine/seismic-drift.ts`). C_d and the destination group come from the project's seismic
@@ -67,13 +68,13 @@
       <div class="pro-res-table-wrap">
         <table class="pro-res-table" data-testid="drift-table-{tb.caseId}">
           <thead><tr>
-            <th>{t('drift.level')}</th><th>h (m)</th><th>θx (%)</th><th>θy (%)</th><th>{t('drift.limit')}</th>
+            <th>{t('drift.level')}</th><th>h (m)</th><th>θ{axisName(0).toLowerCase()} (%)</th><th>θ{axisName(1).toLowerCase()} (%)</th><th>{t('drift.limit')}</th>
           </tr></thead>
           <tbody>
             {#each tb.stories as s (s.level)}
               {@const worst = Math.max(s.ratioX, s.ratioY)}
               <tr onclick={() => pick([s.columnX, s.columnY])} style="cursor:pointer">
-                <td class="col-num">{s.levelName ? `${s.levelName} (${s.level.toFixed(2)})` : s.level.toFixed(2)}</td>
+                <td class="col-num">{s.levelName ? `${s.levelName} (${(along(2).sign * s.level).toFixed(2)})` : (along(2).sign * s.level).toFixed(2)}</td>
                 <td class="col-num">{s.height.toFixed(2)}</td>
                 <td class="col-num">{pct(s.ratioX)}</td>
                 <td class="col-num">{pct(s.ratioY)}</td>

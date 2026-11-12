@@ -28,7 +28,8 @@
   import LoadSketch, { type SketchInput } from './LoadSketch.svelte';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import ProShellLoadForm from './ProShellLoadForm.svelte';
-  import { axisName } from '../../../lib/axes/display';
+  import { along, axisName, modelAxisOf, userVec } from '../../../lib/axes/display';
+  import { gravityFactorIn, typedFrame } from '../../../lib/axes/typed-frame';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
 
   type Kind = 'nodal' | 'displacement' | 'distributed' | 'point' | 'thermal' | 'strain' | 'prestress' | 'surface' | 'hydro' | 'shellPoint' | 'thermalQuad' | 'selfWeight';
@@ -86,7 +87,9 @@
   function incOrigin(): { x: number; y: number; z?: number } | null {
     if (incFromKind === 'node') return modelStore.nodes.get(Number(incFromNode)) ?? null;
     const p = incFrom;
-    return p.x === null && p.y === null && p.z === null ? null : { x: num(p.x), y: num(p.y), z: num(p.z) };
+    if (p.x === null && p.y === null && p.z === null) return null;
+    const [x, y, z] = typedFrame.vec([num(p.x), num(p.y), num(p.z)]);
+    return { x, y, z };
   }
   /** The force at the loaded node `at`, from the origin toward it; null when they make no direction. */
   function inclinedAt(at: { x: number; y: number; z?: number }, F: number) {
@@ -101,7 +104,7 @@
   let q = $state<Record<'xI' | 'xJ' | 'yI' | 'yJ' | 'zI' | 'zJ', N>>({ xI: null, xJ: null, yI: null, yJ: null, zI: null, zJ: null });
   let qa = $state<N>(null), qb = $state<N>(null);
   let peak = $state<N>(null), peakAt = $state<N>(null), peakComp = $state<'x' | 'y' | 'z'>('z');
-  let w1 = $state<N>(null), w2 = $state<N>(null), hydroAxis = $state<GlobalAxis>('Z'), hydroComp = $state<'x' | 'y' | 'z'>('x');
+  let w1 = $state<N>(null), w2 = $state<N>(null), hydroAxis = $state<GlobalAxis>(axisName(2)), hydroComp = $state<'x' | 'y' | 'z'>('x');
   // ── Point ──
   let pFrame = $state<'local' | 'global'>('local');
   let p = $state<Record<'px' | 'py' | 'pz' | 'mx' | 'my' | 'mz', N>>({ px: null, py: null, pz: null, mx: null, my: null, mz: null });
@@ -117,8 +120,8 @@
   // ── Slabs ──
   let tq = $state<Record<'dt' | 'g', N>>({ dt: null, g: null });
   // ── Self-weight ──
-  let swDir = $state<SwAxis>('Z');
-  let swFactor = $state('-1');
+  let swDir = $state<SwAxis>(axisName(2));
+  let swFactor = $state(along(2).sign > 0 ? '-1' : '1');
 
   let error = $state<string | null>(null);
   let done = $state<string | null>(null);
@@ -173,6 +176,7 @@
       element: (id) => modelStore.elements.get(id),
       axes: (id) => memberRef3D(modelStore.model as never, id)?.axes ?? null,
       length: (id) => loadedLength(modelStore.model as never, id),
+      toModel: typedFrame,
     });
   }
 
@@ -184,14 +188,15 @@
       : target.by === 'group' ? { groupId: target.groupId }
       : { elements: resolveTargets('members', target as never, modelStore.model as never, sel()) };
     if (reach.elements?.length === 0 || (reach.groupId !== undefined && !modelStore.model.groups.has(reach.groupId))) { error = t('writeLoad.noTarget'); done = null; return; }
-    const rule: SelfWeightLoad = { caseId: caseId ?? modelStore.model.loadCases[0]?.id ?? 1, direction: swDir, factor: f, ...reach };
+    const m = modelAxisOf(swDir);
+    const rule: SelfWeightLoad = { caseId: caseId ?? modelStore.model.loadCases[0]?.id ?? 1, direction: (['X', 'Y', 'Z'] as const)[m.index], factor: m.sign * f, ...reach };
     const key = (r: SelfWeightLoad) => JSON.stringify([r.caseId, r.direction, r.groupId ?? null, r.elements ? [...r.elements].sort((a, b) => a - b) : null]);
     const now = modelStore.analysis?.selfWeight ?? [];
     const same = now.findIndex((r) => key(r) === key(rule));
     modelStore.setAnalysis({ selfWeight: same >= 0 ? now.map((r, i) => (i === same ? rule : r)) : [...now, rule] });
     error = null;
     const c = modelStore.model.loadCases.find((lc) => lc.id === rule.caseId)?.name ?? '';
-    done = tp(same >= 0 ? 'writeLoad.swReplaced' : 'writeLoad.swAdded', { case: c, f: String(f).replace('-', '−'), dir: axisName(['X', 'Y', 'Z'].indexOf(swDir) as 0 | 1 | 2) });
+    done = tp(same >= 0 ? 'writeLoad.swReplaced' : 'writeLoad.swAdded', { case: c, f: String(f).replace('-', '−'), dir: swDir });
   }
 
   function add() {
@@ -209,7 +214,8 @@
     const first = [...uiStore.selectedNodes][0];
     const at = first !== undefined ? modelStore.nodes.get(first) : undefined;
     const F = opt(incF);
-    return F && at ? inclinedAt(at, F) : null;
+    const v = F && at ? inclinedAt(at, F) : null;
+    return v ? userVec(v[0], v[1], v[2]) : null;
   });
 </script>
 
@@ -296,7 +302,7 @@
     {:else}
       <div class="fg-r"><span class="fg-l">w₁</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={w1} quantity="distributedLoad" testid="wl-w1" /><span class="fg-u">{unitQ('distributedLoad')}</span></div>
       <div class="fg-r"><span class="fg-l">w₂</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={w2} quantity="distributedLoad" testid="wl-w2" /><span class="fg-u">{unitQ('distributedLoad')}</span></div>
-      <div class="fg-r"><span class="fg-l">{t('writeLoad.alongAxis')}</span><select class="fg-in" bind:value={hydroAxis} data-testid="wl-hydro-axis">{#each ['X', 'Y', 'Z'] as const as a, k (a)}<option value={a}>{axisName(k as 0 | 1 | 2)}</option>{/each}</select></div>
+      <div class="fg-r"><span class="fg-l">{t('writeLoad.alongAxis')}</span><select class="fg-in" bind:value={hydroAxis} data-testid="wl-hydro-axis"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></div>
       <div class="fg-r"><span class="fg-l">{t('writeLoad.acting')}</span><select class="fg-in" bind:value={hydroComp} data-testid="wl-hydro-comp">{#each ['x', 'y', 'z'] as c (c)}<option value={c}>{frame === 'local' ? c : c.toUpperCase()}</option>{/each}</select></div>
       <p class="wl-hint fg-full">{t('writeLoad.hydrostaticHint')}</p>
     {/if}
@@ -338,9 +344,9 @@
       <span class="fg-u">{unitQ('length')}</span></div>
     <p class="wl-hint fg-full">{t('writeLoad.prestressHint')}</p>
   {:else if kind === 'selfWeight'}
-    <div class="fg-r"><span class="fg-l">{t('selfWeight.direction')}</span><select class="fg-in" bind:value={swDir} data-testid="wl-sw-dir">{#each ['X', 'Y', 'Z'] as const as a, k (a)}<option value={a}>{axisName(k as 0 | 1 | 2)}</option>{/each}</select></div>
+    <div class="fg-r"><span class="fg-l">{t('selfWeight.direction')}</span><select class="fg-in" bind:value={swDir} data-testid="wl-sw-dir"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></div>
     <div class="fg-r"><span class="fg-l">{t('selfWeight.factor')}</span><input type="text" inputmode="decimal" bind:value={swFactor} class="fg-in" data-testid="wl-sw-factor" /></div>
-    <p class="wl-hint fg-full">{t('writeLoad.swHint')}</p>
+    <p class="wl-hint fg-full">{gravityFactorIn(t('writeLoad.swHint'))}</p>
   {:else if kind === 'surface' || kind === 'hydro' || kind === 'shellPoint'}
     {#key kind}<ProShellLoadForm {kind} bind:this={shellForm} bind:sketch={shellSketch} />{/key}
   {:else}

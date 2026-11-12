@@ -24,6 +24,7 @@
   import type { DiagramType } from '../lib/store/results.svelte';
   import type { SupportType } from '../lib/store/model.svelte';
   import { t } from '../lib/i18n';
+  import { userPlane, type Plane } from '../lib/axes/typed-frame';
   import { fmtQ, unitQ } from '../lib/store/display-units.svelte';
   import type { Quantity } from '../lib/utils/units';
   import {
@@ -98,6 +99,12 @@
     { v: 'rollerXY', k: 'pro.rollerXY' }, { v: 'rollerXZ', k: 'pro.rollerXZ' }, { v: 'rollerYZ', k: 'pro.rollerYZ' },
   ];
   const supportOptions = $derived(is3D ? SUPPORTS_3D : SUPPORTS_2D);
+  function supportLabel(o: { v: SupportType; k: string }): string {
+    const s = t(o.k);
+    if (o.v === 'rollerX') return s.replace(/\bX\b/, twoD.horizontal);
+    if (o.v === 'rollerZ') return s.replace(/\b[YZ]\b/, twoD.vertical);
+    return s.replace(/\b(XY|XZ|YZ)\b/, (m) => userPlane(m as Plane));
+  }
 
   function releaseOf(id: number, end: 'i' | 'j') {
     const o = whatIf.releases[id]?.[end];
@@ -282,7 +289,7 @@
               <select class="wif-select" value={type} onchange={(e) => whatIf.setSupportType(s.id, e.currentTarget.value as SupportType)}
                 data-testid="whatif-support-{s.id}">
                 {#if !supportOptions.some((o) => o.v === type)}<option value={type}>{type}</option>{/if}
-                {#each supportOptions as o (o.v)}<option value={o.v}>{t(o.k)}</option>{/each}
+                {#each supportOptions as o (o.v)}<option value={o.v}>{supportLabel(o)}</option>{/each}
               </select>
             </div>
           {/each}

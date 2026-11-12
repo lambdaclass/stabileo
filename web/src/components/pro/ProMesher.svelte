@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { modelVec } from '../../lib/axes/display';
   import Hint from './Hint.svelte';
   /**
    * The shell mesher (`model/edit/mesher.ts`): an outline through nodes or a circle, holes as
@@ -34,7 +35,9 @@
   /** A point typed as "x; y; z" in the display units, in SI. */
   const vec = (s: string): Vec3 | null => {
     const v = s.split(';').map(num);
-    return v.length === 3 && v.every(Number.isFinite) ? (v.map((x) => fromDisplay(x, 'length', uiStore.unitSystem)) as Vec3) : null;
+    if (v.length !== 3 || !v.every(Number.isFinite)) return null;
+    const [x, y, z] = v.map((c) => fromDisplay(c, 'length', uiStore.unitSystem));
+    return modelVec(x!, y!, z!) as Vec3;
   };
   const lenUnit = $derived(unitLabel('length', uiStore.unitSystem));
 

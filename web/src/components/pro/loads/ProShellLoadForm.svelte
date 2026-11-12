@@ -17,7 +17,8 @@
   import { buildShellLoads, type ShellLoadFields } from '../../../lib/model/loads/shell-load-form';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
   import type { WriteOutcome, WriteRefusal } from '../../../lib/model/loads/write-load';
-  import { signedModelName } from '../../../lib/axes/display';
+  import { twoD } from '../../../lib/axes/display';
+  import { gravityNameIn, typedFrame, verticalCoordIn, verticalNameIn } from '../../../lib/axes/typed-frame';
 
   interface Props {
     kind: 'surface' | 'hydro' | 'shellPoint';
@@ -30,13 +31,13 @@
 
   // ── Area load ──
   let dirMode = $state<ShellLoadFields['dirMode']>('down');
-  let dirAxis = $state<'X' | 'Y' | 'Z'>('Z');
+  let dirAxis = $state<'X' | 'Y' | 'Z'>(twoD.vertical);
   let field = $state<ShellLoadFields['field']>('uniform');
   let q = $state<N>(null);
   let qc = $state('');
-  let va = $state<{ axis: 'X' | 'Y' | 'Z'; c1: N; q1: N; c2: N; q2: N }>({ axis: 'Z', c1: null, q1: null, c2: null, q2: null });
+  let va = $state<{ axis: 'X' | 'Y' | 'Z'; c1: N; q1: N; c2: N; q2: N }>({ axis: twoD.vertical, c1: null, q1: null, c2: null, q2: null });
   let partial = $state(false);
-  let rect = $state<{ plane: 'XY' | 'XZ' | 'YZ'; u1: N; v1: N; u2: N; v2: N }>({ plane: 'XY', u1: null, v1: null, u2: null, v2: null });
+  let rect = $state<{ plane: 'XY' | 'XZ' | 'YZ'; u1: N; v1: N; u2: N; v2: N }>({ plane: ({ Z: 'XY', Y: 'XZ', X: 'YZ' } as const)[twoD.vertical], u1: null, v1: null, u2: null, v2: null });
   // ── Fluid ──
   let gamma = $state<N>(10);
   let level = $state<N>(null);
@@ -52,8 +53,8 @@
 
   /** The loads on the shells picked, or why there are none. */
   export function build(shells: readonly ShellRef[], caseId: number | undefined): WriteOutcome | WriteRefusal {
-    return buildShellLoads(kind, { dirMode, dirAxis, field, q, qc, va, partial, rect, gamma, level, inside, at, pf }, shells, caseId,
-      (v) => fromDisplay(v, 'areaLoad', uiStore.unitSystem));
+    return buildShellLoads(kind, { dirMode, dirAxis, field, q, qc, va, partial, rect, gamma, level: level === null ? null : twoD.fromZ(level), inside, at, pf }, shells, caseId,
+      (v) => fromDisplay(v, 'areaLoad', uiStore.unitSystem), typedFrame.vec);
   }
 </script>
 
@@ -61,13 +62,13 @@
   <div class="fg-r"><span class="fg-l">{t('writeLoad.shell.direction')}</span>
     <span class="fg-wide">
       <select class="fg-wide" bind:value={dirMode} data-testid="wl-sl-dir">
-        <option value="down">{t('writeLoad.shell.dir.down')}</option>
+        <option value="down">{gravityNameIn(t('writeLoad.shell.dir.down'))}</option>
         <option value="local">{t('writeLoad.shell.dir.local')}</option>
         <option value="global">{t('writeLoad.shell.dir.global')}</option>
         <option value="projected">{t('writeLoad.shell.dir.projected')}</option>
       </select>
       {#if dirMode === 'global' || dirMode === 'projected'}
-        <select class="fg-in sl-axis" bind:value={dirAxis} data-testid="wl-sl-axis">{#each ['X', 'Y', 'Z'] as a, k (a)}<option value={a}>{signedModelName(k as 0 | 1 | 2, 1)}</option>{/each}</select>
+        <select class="fg-in sl-axis" bind:value={dirAxis} data-testid="wl-sl-axis">{#each ['X', 'Y', 'Z'] as a (a)}<option value={a}>+{a}</option>{/each}</select>
       {/if}
     </span></div>
   <div class="fg-r"><span class="fg-l">{t('writeLoad.shell.field')}</span>
@@ -97,14 +98,14 @@
   {/if}
 {:else if kind === 'hydro'}
   <div class="fg-r"><span class="fg-l">γ</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={gamma} quantity="density" testid="wl-hy-gamma" /><span class="fg-u">{unitLabel('density', uiStore.unitSystem)}</span></div>
-  <div class="fg-r"><span class="fg-l">{t('writeLoad.shell.level')}</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={level} quantity="length" testid="wl-hy-level" /><span class="fg-u">{unitLabel('length', uiStore.unitSystem)}</span></div>
+  <div class="fg-r"><span class="fg-l">{verticalNameIn(t('writeLoad.shell.level'))}</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={level} quantity="length" testid="wl-hy-level" /><span class="fg-u">{unitLabel('length', uiStore.unitSystem)}</span></div>
   <p class="wl-hint fg-full">{t('writeLoad.shell.inside')}</p>
   <div class="fg-r fg-head"><span></span><span>X</span><span>Y</span><span>Z</span></div>
   <div class="fg-r"><span class="fg-l">{t('writeLoad.point')}</span>
     <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={inside.x} quantity="length" testid="wl-hy-x" />
     <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={inside.y} quantity="length" testid="wl-hy-y" />
     <QuantityInput nullable showUnit={false} cls="fg-in" bind:value={inside.z} quantity="length" testid="wl-hy-z" /><span class="fg-u">{unitLabel('length', uiStore.unitSystem)}</span></div>
-  <p class="wl-hint fg-full">{t('writeLoad.shell.hydroHint')}</p>
+  <p class="wl-hint fg-full">{verticalCoordIn(t('writeLoad.shell.hydroHint'))}</p>
 {:else}
   <div class="fg-r fg-head"><span></span><span>X</span><span>Y</span><span>Z</span></div>
   <div class="fg-r"><span class="fg-l">{t('writeLoad.point')}</span>

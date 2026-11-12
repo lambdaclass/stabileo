@@ -18,6 +18,7 @@
   import ProCaseDetails from './loads/ProCaseDetails.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   import { caseOrder, reductionApplies } from '../../lib/engine/case-effects';
+  import { signedAxisText } from '../../lib/axes/typed-frame';
 
   /** The case whose composition is open below its row. */
   let open = $state<number | null>(null);
@@ -236,7 +237,7 @@
   <div class="lc-not-row">
     <label>{t('caseDetails.ratio')} <input type="text" bind:value={notRatio} class="lc-not-num" data-testid="lc-not-ratio" /></label>
     {#each ['+X', '-X', '+Y', '-Y'] as d (d)}
-      <label><input type="checkbox" checked={notDirs.includes(d as '+X')} onchange={(e) => (notDirs = e.currentTarget.checked ? [...notDirs, d as '+X'] : notDirs.filter((x) => x !== d))} /> {d}</label>
+      <label><input type="checkbox" checked={notDirs.includes(d as '+X')} onchange={(e) => (notDirs = e.currentTarget.checked ? [...notDirs, d as '+X'] : notDirs.filter((x) => x !== d))} /> {signedAxisText(d)}</label>
     {/each}
     <button class="pk-btn" disabled={!notSources.length || !notDirs.length} onclick={addNotionalCases} data-testid="lc-not-add">{t('caseDetails.notionalAdd')}</button>
   </div>

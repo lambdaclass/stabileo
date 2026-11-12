@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { axisName } from '../../lib/axes/display';
   import Hint from './Hint.svelte';
   import PickKind from './PickKind.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
@@ -169,8 +170,8 @@
     {#if distribution === 'oneWay'}
       <label for="fl-span">{t('floorLoad.span')}</label>
       <select id="fl-span" bind:value={spanAxis} data-testid="fl-span">
-        <option value="x">X</option>
-        <option value="y">Y</option>
+        <option value="x">{axisName(0)}</option>
+        <option value="y">{axisName(1)}</option>
       </select>
     {/if}
     <label for="fl-name">{t('floorLoad.name')}</label>

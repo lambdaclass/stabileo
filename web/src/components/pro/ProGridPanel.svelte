@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { planNamesIn } from '../../lib/axes/typed-frame';
+  import { along, axisName } from '../../lib/axes/display';
   import { similarityIssues } from '../../lib/model/similar-storeys';
   import Hint from './Hint.svelte';
   /**
@@ -45,12 +47,13 @@
   let by = $state({ bays: shownList([5, 5]), origin: 0, naming: 'letters' as AxisNaming, start: 'A' });
 
   function setGrid(next: StructuralGrid) { modelStore.setGrid(next); }
+  const sg = (axis: 'x' | 'y' | 'z') => along(axis === 'x' ? 0 : axis === 'y' ? 1 : 2).sign;
 
   function generateAxes(axis: 'x' | 'y') {
     const d = axis === 'x' ? bx : by;
     const bays = readList(d.bays);
     if (!bays) return;
-    const axes = axesFromBays(bays, axis, d.origin, d.naming, d.start.trim() || (d.naming === 'letters' ? 'A' : '1'));
+    const axes = axesFromBays(bays.map((b) => sg(axis) * b), axis, sg(axis) * d.origin, d.naming, d.start.trim() || (d.naming === 'letters' ? 'A' : '1'));
     setGrid({ ...grid, axes: [...grid.axes.filter((a) => a.axis !== axis), ...axes] });
   }
 
@@ -59,9 +62,9 @@
   }
   function removeAxis(a: GridAxis) { setGrid({ ...grid, axes: grid.axes.filter((x) => x.id !== a.id) }); }
   function addAxis(axis: 'x' | 'y') {
-    const list = axis === 'x' ? xs : ys;
+    const list = sg(axis) > 0 ? (axis === 'x' ? xs : ys) : [...(axis === 'x' ? xs : ys)].reverse();
     const last = list[list.length - 1];
-    const [a] = axesFromBays([], axis, last ? last.at + (list.length > 1 ? last.at - list[list.length - 2]!.at : 5) : 0,
+    const [a] = axesFromBays([], axis, last ? last.at + (list.length > 1 ? last.at - list[list.length - 2]!.at : sg(axis) * 5) : 0,
       axis === 'x' ? bx.naming : by.naming, last ? nextName(last.name) : (axis === 'x' ? bx.start : by.start));
     setGrid({ ...grid, axes: [...grid.axes, a!] });
   }
@@ -76,7 +79,7 @@
   function generateLevels() {
     const h = readList(heights);
     if (!h) return;
-    const lv = levelsFromHeights(h, base, names.split(/[;,]/));
+    const lv = levelsFromHeights(h, sg('z') * base, names.split(/[;,]/));
     setGrid({ ...grid, levels: lv });
   }
   /** Levels some other level repeats. */
@@ -104,7 +107,7 @@
     <Hint text={t('grid.axesHint')} />
     {#each [{ axis: 'x' as const, d: bx, list: xs }, { axis: 'y' as const, d: by, list: ys }] as row (row.axis)}
       <div class="gr-dir" data-testid="grid-dir-{row.axis}">
-        <div class="gr-dir-head">{t(`grid.dir.${row.axis}`)}</div>
+        <div class="gr-dir-head">{planNamesIn(t(`grid.dir.${row.axis}`))}</div>
         <div class="pk-row gr-wrap">
           <label class="gr-field gr-grow">{t('grid.bays')}
             <span class="gr-unit"><input bind:value={row.d.bays} placeholder="6; 7,5; 6" data-testid="grid-bays-{row.axis}" /> {lenUnit}</span>
@@ -125,12 +128,12 @@
         </div>
         {#if row.list.length > 0}
           <table class="gr-table">
-            <thead><tr><th>{t('grid.name')}</th><th>{row.axis} ({unitQ('length')})</th><th></th></tr></thead>
+            <thead><tr><th>{t('grid.name')}</th><th>{axisName(row.axis === 'x' ? 0 : 1).toLowerCase()} ({unitQ('length')})</th><th></th></tr></thead>
             <tbody>
               {#each row.list as a (a.id)}
                 <tr data-testid="grid-axis-{a.name}">
                   <td><input class="gr-cell" value={a.name} onchange={(e) => editAxis(a, { name: e.currentTarget.value.trim() || a.name })} /></td>
-                  <td><QuantityInput cls="gr-cell gr-num" wrap="gr-qi" showUnit={false} value={a.at} quantity="length" onchange={(v) => editAxis(a, { at: v })} /></td>
+                  <td><QuantityInput cls="gr-cell gr-num" wrap="gr-qi" showUnit={false} value={sg(a.axis) * a.at} quantity="length" onchange={(v) => editAxis(a, { at: sg(a.axis) * v })} /></td>
                   <td><button class="pk-btn gr-del" title={t('grid.remove')} onclick={() => removeAxis(a)}>×</button></td>
                 </tr>
               {/each}
@@ -162,13 +165,13 @@
     </div>
     {#if levels.length > 0}
       <table class="gr-table">
-        <thead><tr><th>{t('grid.name')}</th><th>z ({unitQ('length')})</th><th>{t('storeys.similarTo')}</th><th title={t('storeys.spliceHint')}>{t('storeys.splice')}</th><th>{t('storeys.color')}</th><th>{t('grid.workHere')}</th><th></th></tr></thead>
+        <thead><tr><th>{t('grid.name')}</th><th>{axisName(2).toLowerCase()} ({unitQ('length')})</th><th>{t('storeys.similarTo')}</th><th title={t('storeys.spliceHint')}>{t('storeys.splice')}</th><th>{t('storeys.color')}</th><th>{t('grid.workHere')}</th><th></th></tr></thead>
         <tbody>
           {#each [...levels].reverse() as l (l.id)}
             {@const active = activeZ !== null && Math.abs(activeZ - l.z) < 1e-6}
             <tr class:gr-active={active} data-testid="grid-level-{l.name}">
               <td><input class="gr-cell" value={l.name} onchange={(e) => editLevel(l, { name: e.currentTarget.value.trim() || l.name })} /></td>
-              <td><QuantityInput cls="gr-cell gr-num" wrap="gr-qi" showUnit={false} value={l.z} quantity="length" onchange={(v) => editLevel(l, { z: v })} /></td>
+              <td><QuantityInput cls="gr-cell gr-num" wrap="gr-qi" showUnit={false} value={sg('z') * l.z} quantity="length" onchange={(v) => editLevel(l, { z: sg('z') * v })} /></td>
               <td>
                 <select class="gr-cell" value={l.similarTo ?? ''} onchange={(e) => editLevel(l, { similarTo: e.currentTarget.value || undefined })} aria-label={tp('storeys.similarToOf', { name: l.name })} data-testid="grid-similar-{l.name}">
                   <option value="">{masters.has(l.id) ? t('storeys.master') : '—'}</option>

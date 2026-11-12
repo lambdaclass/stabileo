@@ -1,5 +1,6 @@
 <script lang="ts">
   import { userRot, userVec } from '../../lib/axes/display';
+  import { userDof } from '../../lib/axes/typed-frame';
   import { shellStressInputs } from '../../lib/store/shell-contour';
   import { downloadResultText } from '../../lib/export/provenance-attach';
   import { resultCaseName } from '../../lib/engine/settlement-case';
@@ -1024,7 +1025,9 @@
                 <th>{t('pro.nodeLabel')}</th><th>DOF</th><th>{t('pro.forceLabel')}</th>
               </tr></thead>
               <tbody>
-                {#each cForces as cf}
+                {#each cForces as cf0}
+                  {@const u = userDof(cf0.dof, cf0.force)}
+                  {@const cf = { ...cf0, dof: u.dof, force: u.value }}
                   <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(cf.nodeId, false); }} style="cursor:pointer">
                     <td class="col-id">{cf.nodeId}</td>
                     <td>{cf.dof}</td>
