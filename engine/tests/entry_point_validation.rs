@@ -332,14 +332,15 @@ fn plastic_3d_valid_frame_still_forms_a_hinge() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1943"]
-fn plastic_3d_unrestrained_frame_is_still_a_mechanism() {
+fn plastic_3d_unrestrained_frame_returns_stability_refusal() {
     use dedaliano_engine::solver::plastic::solve_plastic_3d;
     let mut solver = beam_3d();
     solver.supports.clear();
-    let result = solve_plastic_3d(&plastic_3d_input(solver)).unwrap();
-    assert!(result.is_mechanism);
-    assert_eq!(result.collapse_factor, 0.0);
+    let expected = dedaliano_engine::solver::linear::solve_3d(&solver)
+        .expect_err("an unrestrained frame must fail the elastic stability check");
+    let err = solve_plastic_3d(&plastic_3d_input(solver))
+        .expect_err("plastic analysis must propagate the initial stability refusal");
+    assert_eq!(err, expected);
 }
 
 #[test]

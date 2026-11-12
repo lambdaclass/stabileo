@@ -893,7 +893,7 @@ test.engine.staged-orphan-wasm: wasm
 test.engine.staged-prestress:
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_prestress_inclined -- --nocapture $(if $(IGNORED),--ignored)
 
-test.staged-wasm-assertions:
+test.staged-wasm-assertions: scripts/tests/staged-orphan-1846-unloaded.mjs
 	$(NIX_RUN) node --test scripts/tests/staged-orphan-1846-assertions.test.mjs scripts/tests/staged-orphan-1846-unloaded.test.mjs
 
 .PHONY: test.engine.staged-review test.engine.staged-review-numeric
@@ -971,7 +971,7 @@ test.engine.staged-round7:
 test.engine.staged-round7-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-round7-wasm.mjs
 
-test.staged-round7-assertions:
+test.staged-round7-assertions: scripts/tests/staged-round7-reactions.mjs
 	$(NIX_RUN) node --test scripts/tests/staged-round7-reactions.test.mjs
 
 .PHONY: test.engine.staged-round8 test.engine.staged-round8-internal
