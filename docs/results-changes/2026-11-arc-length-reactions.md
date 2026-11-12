@@ -81,24 +81,60 @@ for the coordinator's advisory decision. No advisory is assigned here.
 ## Saved-project applicability and quantity declarations
 
 The notice requires members, shells, springs or constraints, plus an affected
-analysis context: P-Delta, a configured time history, or constraints with a
-nonlinear or time-history context. A current stamp recording only linear
-analysis does not receive the notice for an ordinary frame or shell. An empty
+analysis context: P-Delta, a configured time history, constraints with a
+nonlinear or time-history context, or an explicitly identified path analysis.
+The frozen arc-length fixtures carry `pathAnalysis` alongside
+`analysis:nonlinear`. This marker identifies arc-length/displacement-control
+results without treating every unconstrained corotational saved project as
+changed. Saved-project feature extraction does not invent this marker for an
+ordinary nonlinear solve. Current linear-only stamps remain excluded. An empty
 model does not qualify solely because its unknown history includes time history.
-Legacy stamps retain the existing conservative treatment of unrecorded analyses.
+Legacy stamps retain the conservative treatment of unrecorded analyses.
 
-The linear and SSI paths already transferred restrained-master forces; factoring
-that transfer into a shared helper does not change their answers. Unconstrained
-corotational results use the same internal residual as before. Neither is a
-reason to mark every saved member or shell model as affected. Planar arc-length
-and displacement-control research/API results are not saved-project analysis
-kinds; their direct numerical regressions remain covered by the native and WASM
-reproducers rather than a blanket declaration over saved linear results.
+The entry declares `equilibrium`, `reactions` and `elementForces`. The snapshot
+applicability checker recognizes the `nonlinear.results` family and evaluates
+conditions using only that field's analysis context. Both exact frozen arches
+therefore qualify for their recovered reactions. Linear forces, displacements,
+and generic solve refusals remain unexplained by this entry; it declares neither
+`*` nor `solve.ok`.
 
-The only result fields this entry declares to the snapshot and legacy gates are
-`equilibrium`. The changed committed PRO snapshots add P-Delta equilibrium fields;
-their existing reactions, displacements and member forces remain unchanged.
-Advanced stage refusals are not ordinary linear solve refusals, and corrected
-advanced forces are not arbitrary changes in saved linear forces. Consequently
-the entry declares neither `*` nor `solve.ok`. Historical truss force errors and
-fabricated bridge forces, displacements or reactions must remain unexplained.
+## Settlement-only and fully restrained states (#1952)
+
+P-Delta now builds a shared free-equation object for both dimensions and both
+storage paths. Its RHS includes the current tangent's coupling to prescribed
+support displacements and the affine free displacement induced by constraints
+on moving restrained masters. The iteration solves that equation and restores
+its prescribed free offset; the final residual is normalized by that same
+constraint-reduced RHS. The previous applied-load-only denominator could turn
+roundoff in settlement-only models into an unavailable-reactions warning.
+Constraints tied to settled masters also retain their imposed displacement.
+The requested residual and wrench tolerances are unchanged.
+
+Staged analysis accepts models with no free DOFs. Both result builders use one
+state-determinacy check covering direct restraints and constraint-determined
+free DOFs, including agreement with the actual prescribed state. Fully
+restrained stages apply prescribed displacements even when there is no active
+stiffness. Artificial stabilization is restricted to free DOFs through one
+shared lookup, so a restrained disconnected node cannot acquire an artificial
+support reaction. Loaded fixed nodes without elements recover the negative of
+their applied loads. Undetermined stiffness-free stages retain their existing
+warning or mechanism refusal, and incompatible support histories remain refused.
+
+Native and WASM regressions include positive and negative axial settlements,
+zero motion, constraint ties to moving masters, small dense and sparse models,
+fully restrained stages with and without inactive member declarations, and
+nonzero prescribed support motion. Existing loaded controls, undetermined
+stages, and incompatible histories remain tested.
+
+The independent member-load oracle adds a fully fixed beam to a loaded path
+model. Its deformation is exactly zero, so integrating the cubic Hermite shape
+functions against the synthetic linear distributed load and evaluating them at
+the synthetic point-load position directly gives the four equivalent nodal
+loads. Sign-adjusted negatives give the reported end shears and moments.
+Neither oracle calls an engine fixed-end-force or recovery function. Tests cover
+separate and combined distributed/point loads, zero member loads, a unit-factor
+linear control, nonunit final arc/displacement factors, both sides of the
+64-free-DOF storage dispatch, and native continuation with its retained start
+loads. The force assertions fail with the original pre-fix path recovery and
+with numerical force recovery deliberately reverted while scaled load metadata
+is retained. No numerical snapshot baseline is changed in this review round.

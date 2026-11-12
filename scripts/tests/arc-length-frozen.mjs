@@ -21,7 +21,7 @@ for (const suffix of ['0015ab84c3baa36f', '022317310499426d']) {
   for (const { data: l } of input.solver.loads) add(l.nodeId, l.fx * r.finalLoadFactor, l.fz * r.finalLoadFactor, l.my * r.finalLoadFactor);
   for (const a of r.results.reactions) add(a.nodeId, a.rx, a.rz, a.my);
   sum.forEach((v, i) => assert.ok(Math.abs(v) < 1e-6, `${name} equilibrium component ${i}: ${v}`));
-  const snapshot = { format: 1, features: ['plane2D', 'members', 'analysis:nonlinear'], values: freezeValues(r, 'nonlinear') };
+  const snapshot = { format: 1, features: ['plane2D', 'members', 'analysis:nonlinear', 'pathAnalysis'], values: freezeValues(r, 'nonlinear') };
   const file = new URL(`../../web/results-frozen/${name}`, import.meta.url);
   if (process.argv.includes('--update')) {
     mkdirSync(new URL('../../web/results-frozen/', import.meta.url), { recursive: true });

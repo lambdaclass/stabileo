@@ -611,7 +611,7 @@ describe('reaction recovery saved-model scope (#1949)', () => {
   });
 });
 
-describe.skip('path reaction recovery registry regressions (#1952)', () => {
+describe('path reaction recovery registry regressions (#1952)', () => {
   for (const [name, fixture] of [['0015ab84c3baa36f', frozenArchA], ['022317310499426d', frozenArchB]] as const) {
     it(`covers the actual frozen path result ${name}`, () => {
       expect(conditionHolds(reactionRecoveryChange.when, new Set([...fixture.features, 'pathAnalysis']))).toBe(true);

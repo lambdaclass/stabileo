@@ -3,7 +3,8 @@
   "features": [
     "plane2D",
     "members",
-    "analysis:nonlinear"
+    "analysis:nonlinear",
+    "pathAnalysis"
   ],
   "values": {
     "nonlinear.converged": true,

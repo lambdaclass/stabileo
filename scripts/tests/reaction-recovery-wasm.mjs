@@ -18,7 +18,7 @@ function run(kind, dim, m, extra = {}) {
   const o = { solver: m, maxIter: 40, tolerance: 1e-9, nIncrements: 2, materialModels: {}, sectionCapacities: {}, fiberSections: {}, soilSprings: [], foundationSprings: [], boundaryNodes: [1], ...extra };
   let raw;
   if (kind === 'arc') raw = engine.solve_arc_length(JSON.stringify({ ...o, maxSteps: 3, initialDs: 0.1, minDs: 1e-8, maxDs: 0.1, targetIter: 5 }));
-  else if (kind === 'displacement') raw = engine.solve_displacement_control(JSON.stringify({ ...o, controlNode: 1, controlDof: 1, targetDisplacement: -0.005, nSteps: 3 }));
+  else if (kind === 'displacement') raw = engine.solve_displacement_control(JSON.stringify({ ...o, controlNode: m.loads[0].data.nodeId, controlDof: 1, targetDisplacement: -0.005, nSteps: 3 }));
   else if (kind === 'linear') return [engine[`solve_${dim}d`](m), 1];
   else if (kind === 'corotational') raw = engine[`solve_corotational_${dim}d`](JSON.stringify(m), 40, 1e-9, 2);
   else if (kind === 'pdelta') raw = engine[`solve_pdelta_${dim}d`](JSON.stringify(m), 40, 1e-9);
@@ -140,40 +140,48 @@ for (const kind of ['arc','displacement']) {
   } catch (error) { failed = true; console.error(`FAIL ${kind} final member load factor: ${error}`); }
 }
 for (const kind of ['arc', 'displacement', 'linear']) {
-  for (const loading of ['distributed', 'pointOnElement', 'both', 'none']) {
-    try {
-      const m = model(2, false);
-      for (const [id, x] of [[2, 0], [3, 3]]) {
-        m.nodes[id] = { id, x, z: 2 };
-        m.supports[id] = { id, nodeId: id, type: 'fixed' };
-      }
-      m.elements[2] = { ...m.elements[1], id: 2, nodeI: 2, nodeJ: 3 };
-      const qi = ['distributed', 'both'].includes(loading) ? -10 : 0;
-      const qj = ['distributed', 'both'].includes(loading) ? -4 : 0;
-      const p = ['pointOnElement', 'both'].includes(loading) ? -7 : 0;
-      m.loads.push({ type: 'distributed', data: { elementId: 2, qI: qi, qJ: qj } });
-      m.loads.push({ type: 'pointOnElement', data: { elementId: 2, a: 1, p } });
-      const [r, factor] = run(kind, 2, m);
-      assert.ok(Number.isFinite(factor) && factor > 0);
-      if (kind !== 'linear') assert.ok(Math.abs(factor - 1) > 0.1, `${kind}: ${factor}`);
-      const a = r.elementForces.find(f => f.elementId === 2);
-      const l = 3, t = 1 / 3;
-      const equivalent = [
-        l * (7 * qi + 3 * qj) / 20 + p * (1 - 3 * t*t + 2 * t*t*t),
-        l*l * (3 * qi + 2 * qj) / 60 + p * l * (t - 2 * t*t + t*t*t),
-        l * (3 * qi + 7 * qj) / 20 + p * (3 * t*t - 2 * t*t*t),
-        -l*l * (2 * qi + 3 * qj) / 60 + p * l * (-t*t + t*t*t),
-      ];
-      for (const [i, key] of ['vStart', 'mStart', 'vEnd', 'mEnd'].entries()) {
-        const expected = (i < 2 ? -1 : 1) * equivalent[i] * factor;
-        assert.ok(Math.abs(a[key] - expected) < 1e-9, `${kind} ${loading} ${key}: ${a[key]}, expected=${expected}, factor=${factor}`);
-      }
-      for (const id of [2, 3]) {
-        const d = r.displacements.find(d => d.nodeId === id);
-        for (const key of ['ux', 'uz', 'ry']) assert.equal(d[key], 0);
-      }
-      console.log(`PASS ${kind} ${loading} independently calculated member shears and moments factor=${factor}`);
-    } catch (error) { failed = true; console.error(`FAIL ${kind} ${loading} member shears and moments: ${error}`); }
+  for (const segments of [1, 21, 22]) {
+    for (const loading of ['distributed', 'pointOnElement', 'both', 'none']) {
+      try {
+        const m = model(2, false);
+        m.nodes = {}; m.elements = {};
+        for (let i = 0; i <= segments; i++) {
+          m.nodes[i] = { id: i, x: 3 * i / segments, z: 0 };
+          if (i > 0) m.elements[i] = { id: i, type: 'frame', nodeI: i - 1, nodeJ: i, materialId: 1, sectionId: 1 };
+        }
+        m.loads[0].data.nodeId = segments;
+        for (const [id, x] of [[1000, 0], [1001, 3]]) {
+          m.nodes[id] = { id, x, z: 2 };
+          m.supports[id] = { id, nodeId: id, type: 'fixed' };
+        }
+        m.elements[1000] = { ...m.elements[1], id: 1000, nodeI: 1000, nodeJ: 1001 };
+        const qi = ['distributed', 'both'].includes(loading) ? -10 : 0;
+        const qj = ['distributed', 'both'].includes(loading) ? -4 : 0;
+        const p = ['pointOnElement', 'both'].includes(loading) ? -7 : 0;
+        m.loads.push({ type: 'distributed', data: { elementId: 1000, qI: qi, qJ: qj } });
+        m.loads.push({ type: 'pointOnElement', data: { elementId: 1000, a: 1, p } });
+        const [r, factor] = run(kind, 2, m);
+        assert.ok(Number.isFinite(factor) && factor > 0);
+        if (kind !== 'linear') assert.ok(Math.abs(factor - 1) > 0.1, `${kind}: ${factor}`);
+        const a = r.elementForces.find(f => f.elementId === 1000);
+        const l = 3, t = 1 / 3;
+        const equivalent = [
+          l * (7 * qi + 3 * qj) / 20 + p * (1 - 3 * t*t + 2 * t*t*t),
+          l*l * (3 * qi + 2 * qj) / 60 + p * l * (t - 2 * t*t + t*t*t),
+          l * (3 * qi + 7 * qj) / 20 + p * (3 * t*t - 2 * t*t*t),
+          -l*l * (2 * qi + 3 * qj) / 60 + p * l * (-t*t + t*t*t),
+        ];
+        for (const [i, key] of ['vStart', 'mStart', 'vEnd', 'mEnd'].entries()) {
+          const expected = (i < 2 ? -1 : 1) * equivalent[i] * factor;
+          assert.ok(Math.abs(a[key] - expected) < 1e-9, `${kind} ${loading} segments=${segments} ${key}: ${a[key]}, expected=${expected}, factor=${factor}`);
+        }
+        for (const id of [1000, 1001]) {
+          const d = r.displacements.find(d => d.nodeId === id);
+          for (const key of ['ux', 'uz', 'ry']) assert.equal(d[key], 0);
+        }
+        console.log(`PASS ${kind} ${loading} segments=${segments} independently calculated member shears and moments factor=${factor}`);
+      } catch (error) { failed = true; console.error(`FAIL ${kind} ${loading} segments=${segments} member shears and moments: ${error}`); }
+    }
   }
 }
 for (const dim of [2,3]) {
@@ -239,7 +247,7 @@ for (const dim of [2,3]) {
     } catch(error) { failed=true; console.error(`FAIL staged ${dim}D support-mask mismatch remove=${remove}: ${error}`); }
   }
 }
-for (const dim of process.env.STABILEO_RUN_KNOWN_WRONG_1952 === '1' ? [2, 3] : []) {
+for (const dim of [2, 3]) {
   for (const segments of [2, 22]) {
     for (const motion of [0, 0.0013, -0.0013]) {
       for (const tied of [false, true]) {
@@ -294,5 +302,19 @@ for (const dim of process.env.STABILEO_RUN_KNOWN_WRONG_1952 === '1' ? [2, 3] : [
       } catch (error) { failed = true; console.error(`FAIL fully restrained staged ${dim}D inactiveMember=${inactiveMember} motion=${motion}: ${error}`); }
     }
   }
+}
+for (const dim of [2, 3]) {
+  try {
+    const m = model(dim, false);
+    delete m.nodes[1]; m.elements = {};
+    m.supports[0] = dim === 2 ? { id: 0, nodeId: 0, type: 'rollerX' } : { nodeId: 0, rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true };
+    m.loads[0].data.nodeId = 0; m.loads[0].data.fx = 3; m.loads[0].data.fz = 0;
+    m.stages = [{ name: 'one free DOF', supportsAdded: [0], loadIndices: [0] }];
+    let r;
+    try { r = JSON.parse(engine[`solve_staged_${dim}d`](JSON.stringify(m))).finalResults; }
+    catch (error) { assert.match(String(error), /mechanism/); }
+    if (r) assert.ok(r.structuredDiagnostics.some(d => d.code === 'result_quantity_unavailable' && d.phase === 'stageResults'));
+    console.log(`PASS stiffness-free staged ${dim}D one free DOF remains unavailable`);
+  } catch (error) { failed = true; console.error(`FAIL stiffness-free staged ${dim}D one free DOF: ${error}`); }
 }
 if (failed) process.exitCode = 1;

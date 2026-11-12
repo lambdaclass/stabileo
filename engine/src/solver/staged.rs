@@ -105,10 +105,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
     super::linear::validate_input_2d(&full_solver_input)?;
     let dof_num = DofNumbering::build_2d(&full_solver_input);
 
-    if dof_num.n_free == 0 {
-        return Err("No free DOFs — all nodes are fully restrained".into());
-    }
-
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let nr = n - nf;
@@ -253,6 +249,10 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         };
 
         // Check if K_ff has any non-zero diagonal (structure might be a mechanism at this stage)
+        if nf == 0 {
+            cumulative_u.copy_from_slice(&u_r);
+            prev_u_r.clone_from(&u_r);
+        }
         if max_diag < 1e-30 {
             // No stiffness at this stage — skip
             let cumulative_solver_input = SolverInput {
@@ -576,7 +576,7 @@ fn assemble_staged_2d(
     for node in crate::ordered::values(&full_input.nodes) {
         if !connected_nodes.contains(&node.id) {
             for local_dof in 0..dof_num.dofs_per_node {
-                if let Some(&d) = dof_num.map.get(&(node.id, local_dof)) {
+                if let Some(d) = artificial_dof(dof_num, node.id, local_dof) {
                     if k_global[d * n + d].abs() < 1e-30 {
                         k_global[d * n + d] += artificial_k;
                         artificial_dofs.push(d);
@@ -607,7 +607,7 @@ fn assemble_staged_2d(
         for (&node_id, &frame_count) in &node_frame_count {
             let hinge_count = node_hinge_count.get(&node_id).copied().unwrap_or(0);
             if hinge_count == frame_count && frame_count > 0 {
-                if let Some(&d) = dof_num.map.get(&(node_id, 2)) {
+                if let Some(d) = artificial_dof(dof_num, node_id, 2) {
                     k_global[d * n + d] += artificial_k;
                     artificial_dofs.push(d);
                 }
@@ -822,7 +822,7 @@ fn assemble_staged_2d_triplets(
     for node in crate::ordered::values(&full_input.nodes) {
         if !connected_nodes.contains(&node.id) {
             for local_dof in 0..dof_num.dofs_per_node {
-                if let Some(&d) = dof_num.map.get(&(node.id, local_dof)) {
+                if let Some(d) = artificial_dof(dof_num, node.id, local_dof) {
                     if diag[d].abs() < 1e-30 {
                         rows.push(d);
                         cols.push(d);
@@ -855,7 +855,7 @@ fn assemble_staged_2d_triplets(
         for (&node_id, &frame_count) in &node_frame_count {
             let hinge_count = node_hinge_count.get(&node_id).copied().unwrap_or(0);
             if hinge_count == frame_count && frame_count > 0 {
-                if let Some(&d) = dof_num.map.get(&(node_id, 2)) {
+                if let Some(d) = artificial_dof(dof_num, node_id, 2) {
                     rows.push(d);
                     cols.push(d);
                     vals.push(artificial_k);
@@ -866,6 +866,16 @@ fn assemble_staged_2d_triplets(
     }
 
     StagedTriplets2D { rows, cols, vals, f: f_global, diag }
+}
+
+fn artificial_dof(dofs: &DofNumbering, node: usize, local: usize) -> Option<usize> {
+    dofs.global_dof(node, local).filter(|&d| d < dofs.n_free)
+}
+
+fn state_is_determined(u: &[f64], n_free: usize, prescribed: &[f64], cs: Option<&FreeConstraintSystem>) -> bool {
+    u[n_free..] == *prescribed && cs.map_or(n_free == 0, |cs| {
+        cs.n_free_indep == 0 && cs.prescribed_free(prescribed) == u[..n_free]
+    })
 }
 
 /// Build AnalysisResults from cumulative displacements.
@@ -883,7 +893,7 @@ fn build_results_from_u(
     let reactions = recovered.reactions_2d(input, dof_num, u, &[])?;
 
     let prescribed = super::linear::prescribed_displacements_2d(input, dof_num);
-    let determined = cs.is_some_and(|cs| cs.n_free_indep == 0 && u[dof_num.n_free..] == prescribed && cs.prescribed_free(&prescribed) == u[..dof_num.n_free]);
+    let determined = state_is_determined(u, dof_num.n_free, &prescribed, cs);
     let structured_diagnostics = if !determined && input.elements.is_empty() && super::assembly::support_spring_entries_2d(input, dof_num).is_empty() {
         vec![super::reaction_recovery::unavailable("stageResults", "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.")]
     } else { vec![] };
@@ -995,10 +1005,6 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
     let full_input = staged_to_full_solver_input_3d(input);
     super::linear::validate_input_3d(&full_input)?;
     let dof_num = DofNumbering::build_3d(&full_input);
-
-    if dof_num.n_free == 0 {
-        return Err("No free DOFs — all nodes are fully restrained".into());
-    }
 
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -1151,6 +1157,10 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         };
 
         // Check if K_ff has any non-zero diagonal
+        if nf == 0 {
+            cumulative_u.copy_from_slice(&u_r);
+            prev_u_r.clone_from(&u_r);
+        }
         if max_diag < 1e-30 {
             let cum_input = SolverInput3D { loads: cumulative_loads.clone(), ..stage_input.clone() };
             let results = build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &residual_at(&cum_input, &cumulative_u), cs.as_ref())?;
@@ -1385,7 +1395,7 @@ fn add_artificial_stiffness_3d(
     for node in crate::ordered::values(&full_input.nodes) {
         if !connected_nodes.contains(&node.id) {
             for local_dof in 0..dof_num.dofs_per_node {
-                if let Some(&d) = dof_num.map.get(&(node.id, local_dof)) {
+                if let Some(d) = artificial_dof(dof_num, node.id, local_dof) {
                     if asm.k[d * n + d].abs() < 1e-30 {
                         asm.k[d * n + d] += artificial_k;
                         asm.artificial_dofs.push(d);
@@ -1418,7 +1428,7 @@ fn add_artificial_stiffness_3d(
             if hinge_count == frame_count && frame_count > 0 {
                 // All frame connections are hinged — add artificial rotational stiffness
                 for rot_dof in 3..6 {
-                    if let Some(&d) = dof_num.map.get(&(node_id, rot_dof)) {
+                    if let Some(d) = artificial_dof(dof_num, node_id, rot_dof) {
                         if asm.k[d * n + d].abs() < artificial_k * 0.5 {
                             asm.k[d * n + d] += artificial_k;
                             asm.artificial_dofs.push(d);
@@ -1493,7 +1503,7 @@ fn assemble_staged_3d_triplets(
     for node in crate::ordered::values(&full_input.nodes) {
         if !connected_nodes.contains(&node.id) {
             for local_dof in 0..dof_num.dofs_per_node {
-                if let Some(&d) = dof_num.map.get(&(node.id, local_dof)) {
+                if let Some(d) = artificial_dof(dof_num, node.id, local_dof) {
                     if diag[d].abs() < 1e-30 {
                         rows.push(d);
                         cols.push(d);
@@ -1528,7 +1538,7 @@ fn assemble_staged_3d_triplets(
             if hinge_count == frame_count && frame_count > 0 {
                 // All frame connections are hinged — add artificial rotational stiffness
                 for rot_dof in 3..6 {
-                    if let Some(&d) = dof_num.map.get(&(node_id, rot_dof)) {
+                    if let Some(d) = artificial_dof(dof_num, node_id, rot_dof) {
                         if diag[d].abs() < artificial_k * 0.5 {
                             rows.push(d);
                             cols.push(d);
@@ -1573,7 +1583,7 @@ fn build_results_from_u_3d(
     let quad_nodal_stresses = super::linear::compute_quad_nodal_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
 
     let prescribed = super::linear::prescribed_displacements_3d(cum_input, dof_num);
-    let determined = cs.is_some_and(|cs| cs.n_free_indep == 0 && u[dof_num.n_free..] == prescribed && cs.prescribed_free(&prescribed) == u[..dof_num.n_free]);
+    let determined = state_is_determined(u, dof_num.n_free, &prescribed, cs);
     let structured_diagnostics = if !determined && cum_input.elements.is_empty() && super::assembly::support_spring_entries_3d(cum_input, dof_num).is_empty() && cum_input.plates.is_empty() && cum_input.quads.is_empty() && cum_input.quad9s.is_empty() {
         vec![super::reaction_recovery::unavailable("stageResults", "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.")]
     } else { vec![] };

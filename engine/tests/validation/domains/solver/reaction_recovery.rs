@@ -1067,13 +1067,11 @@ fn settlement_only_pdelta(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_settlement_only_pdelta_2d() {
     settlement_only_pdelta(2);
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_settlement_only_pdelta_3d() {
     settlement_only_pdelta(3);
 }
@@ -1133,63 +1131,84 @@ fn fully_restrained_stages(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_fully_restrained_stages_2d() {
     fully_restrained_stages(2);
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_fully_restrained_stages_3d() {
     fully_restrained_stages(3);
 }
 
-#[test]
-fn issue_1952_path_member_end_forces_use_final_factor() {
-    for kind in ["arc", "displacement", "linear"] {
+fn path_member_end_forces(kind: &str, continued: bool) {
+    for segments in [1, 21, 22] {
         for loading in ["distributed", "pointOnElement", "both", "none"] {
             let mut m = model(2, false);
-            for (id, x) in [(2, 0.0), (3, 3.0)] {
+            m["nodes"] = json!({});
+            m["elements"] = json!({});
+            for i in 0..=segments {
+                m["nodes"][i.to_string()] =
+                    json!({"id":i,"x":3.0*i as f64/segments as f64,"z":0.0});
+                if i > 0 {
+                    m["elements"][i.to_string()] = json!({"id":i,"type":"frame","nodeI":i-1,"nodeJ":i,"materialId":1,"sectionId":1});
+                }
+            }
+            m["loads"][0]["data"]["nodeId"] = json!(segments);
+            for (id, x) in [(1000, 0.0), (1001, 3.0)] {
                 m["nodes"][id.to_string()] = json!({"id":id,"x":x,"z":2.0});
                 m["supports"][id.to_string()] = json!({"id":id,"nodeId":id,"type":"fixed"});
             }
-            m["elements"]["2"] =
-                json!({"id":2,"type":"frame","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1});
-            let (qi, qj, p) = (
-                if loading == "distributed" || loading == "both" {
-                    -10.0
-                } else {
-                    0.0
-                },
-                if loading == "distributed" || loading == "both" {
-                    -4.0
-                } else {
-                    0.0
-                },
-                if loading == "pointOnElement" || loading == "both" {
-                    -7.0
-                } else {
-                    0.0
-                },
-            );
+            m["elements"]["1000"] = json!({"id":1000,"type":"frame","nodeI":1000,"nodeJ":1001,"materialId":1,"sectionId":1});
+            let distributed = loading == "distributed" || loading == "both";
+            let (qi, qj) = if distributed {
+                (-10.0, -4.0)
+            } else {
+                (0.0, 0.0)
+            };
+            let p = if loading == "pointOnElement" || loading == "both" {
+                -7.0
+            } else {
+                0.0
+            };
             m["loads"]
                 .as_array_mut()
                 .unwrap()
-                .push(json!({"type":"distributed","data":{"elementId":2,"qI":qi,"qJ":qj}}));
+                .push(json!({"type":"distributed","data":{"elementId":1000,"qI":qi,"qJ":qj}}));
             m["loads"]
                 .as_array_mut()
                 .unwrap()
-                .push(json!({"type":"pointOnElement","data":{"elementId":2,"a":1.0,"p":p}}));
-            let (r, factor) = run(kind, 2, &m);
+                .push(json!({"type":"pointOnElement","data":{"elementId":1000,"a":1.0,"p":p}}));
+            let (r, factor) = if continued {
+                let solver: SolverInput = serde_json::from_value(m.clone()).unwrap();
+                let initial =
+                    corotational::solve_corotational_2d(&solver, 40, 1e-9, 2, false).unwrap();
+                assert!(initial.converged);
+                let start = corotational::CorotationalStart2D {
+                    input: &solver,
+                    displacements: &initial.results.displacements,
+                };
+                let input = serde_json::from_value(json!({"solver":m,"maxSteps":3,"maxIter":40,"tolerance":1e-9,"initialDs":0.1,"minDs":1e-8,"maxDs":0.1,"targetIter":5})).unwrap();
+                let result = arc_length::solve_arc_length_from(&input, Some(&start)).unwrap();
+                assert!(result.converged);
+                (
+                    serde_json::to_value(result.results).unwrap(),
+                    1.0 + result.final_load_factor,
+                )
+            } else {
+                run(kind, 2, &m)
+            };
             assert!(factor.is_finite() && factor > 0.0);
             if kind != "linear" {
-                assert!((factor - 1.0).abs() > 0.1, "{kind}: {factor}");
+                assert!(
+                    (factor - 1.0).abs() > if continued { 0.01 } else { 0.1 },
+                    "{kind}: {factor}"
+                );
             }
             let a = r["elementForces"]
                 .as_array()
                 .unwrap()
                 .iter()
-                .find(|f| f["elementId"] == 2)
+                .find(|f| f["elementId"] == 1000)
                 .unwrap();
             let (l, t) = (3.0_f64, 1.0_f64 / 3.0);
             let equivalents = [
@@ -1207,13 +1226,9 @@ fn issue_1952_path_member_end_forces_use_final_factor() {
             .into_iter()
             .zip(equivalents)
             {
-                assert!(
-                    (num(a, key) - sign * expected * factor).abs() < 1e-9,
-                    "{kind} {loading} {key}: {a}, factor={factor}, expected={}",
-                    sign * expected * factor
-                );
+                assert!((num(a,key)-sign*expected*factor).abs() < 1e-9, "{kind} {loading} segments={segments} continued={continued} {key}: {a}, factor={factor}, expected={}", sign*expected*factor);
             }
-            for id in [2, 3] {
+            for id in [1000, 1001] {
                 let d = r["displacements"]
                     .as_array()
                     .unwrap()
@@ -1224,6 +1239,63 @@ fn issue_1952_path_member_end_forces_use_final_factor() {
                 assert_eq!(num(d, "uz"), 0.0);
                 assert_eq!(num(d, "ry"), 0.0);
             }
+        }
+    }
+}
+
+#[test]
+fn issue_1952_path_member_end_forces_use_final_factor() {
+    for kind in ["arc", "displacement", "linear"] {
+        path_member_end_forces(kind, false);
+    }
+}
+
+#[test]
+fn issue_1952_continued_path_member_end_forces_include_start_loads() {
+    path_member_end_forces("arc", true);
+}
+
+#[test]
+fn issue_1952_stiffness_free_one_free_dof_remains_unavailable() {
+    for dim in [2, 3] {
+        let mut m = model(dim, false);
+        m["nodes"].as_object_mut().unwrap().remove("1");
+        m["elements"] = json!({});
+        m["supports"]["0"] = if dim == 2 {
+            json!({"id":0,"nodeId":0,"type":"rollerX"})
+        } else {
+            json!({"nodeId":0,"rx":false,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true})
+        };
+        m["loads"][0]["data"]["nodeId"] = json!(0);
+        m["loads"][0]["data"]["fx"] = json!(3.0);
+        m["loads"][0]["data"]["fz"] = json!(0.0);
+        m["stages"] = json!([{"name":"one free DOF","supportsAdded":[0],"loadIndices":[0]}]);
+        let outcome = if dim == 2 {
+            let solver: SolverInput = serde_json::from_value(m.clone()).unwrap();
+            assert_eq!(
+                dedaliano_engine::solver::dof::DofNumbering::build_2d(&solver).n_free,
+                1
+            );
+            staged::solve_staged_2d(&serde_json::from_value(m).unwrap())
+                .map(|r| serde_json::to_value(r.final_results).unwrap())
+        } else {
+            let solver: SolverInput3D = serde_json::from_value(m.clone()).unwrap();
+            assert_eq!(
+                dedaliano_engine::solver::dof::DofNumbering::build_3d(&solver).n_free,
+                1
+            );
+            staged::solve_staged_3d(&serde_json::from_value(m).unwrap())
+                .map(|r| serde_json::to_value(r.final_results).unwrap())
+        };
+        match outcome {
+            Ok(r) => assert!(r["structuredDiagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(
+                    |d| d["code"] == "result_quantity_unavailable" && d["phase"] == "stageResults"
+                )),
+            Err(e) => assert!(e.contains("mechanism"), "{e}"),
         }
     }
 }

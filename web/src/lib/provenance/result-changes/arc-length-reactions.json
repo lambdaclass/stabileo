@@ -14,7 +14,8 @@
       [
         "constraints",
         "analysis:pdelta",
-        "timeHistorySpec"
+        "timeHistorySpec",
+        "pathAnalysis"
       ],
       [
         "analysis:pdelta",
@@ -24,7 +25,9 @@
     ]
   },
   "quantities": [
-    "equilibrium"
+    "equilibrium",
+    "reactions",
+    "elementForces"
   ],
   "title": {
     "en": "Support reactions follow the reported equilibrium state",

@@ -319,8 +319,8 @@ pub fn solve_pdelta_2d_on(
     for iter in 0..max_iter {
         state.iterations = iter + 1;
         let tangent = system.tangent(input, dof_num, &state.u);
-        let rhs = tangent.rhs(n, nf, f, &state.u);
-        let Some((u, indefinite)) = tangent.free_block(n, nf).solve(&rhs, nf, &cs, &mut symbolic) else {
+        let equations = tangent.free_equations(n, nf, f, &state.u, cs.as_ref());
+        let Some((u, indefinite)) = tangent.free_block(n, nf).solve(equations, nf, &cs, &mut symbolic) else {
             return Ok(PDeltaResult {
                 results: linear_results.clone(), linear_results,
                 iterations: state.iterations, converged: false, is_stable: false, b2_factor: f64::INFINITY,
@@ -346,9 +346,8 @@ pub fn solve_pdelta_2d_on(
     let reactions = recovered.reactions_2d(input, dof_num, &u_global, its)?;
     let constraint_forces = recovered.constraint_forces;
 
-    let residual_free = cs.as_ref().map_or_else(|| residual[..nf].to_vec(), |cs| cs.reduce_vector(&residual[..nf]));
-    let applied_free = cs.as_ref().map_or_else(|| f[..nf].to_vec(), |cs| cs.reduce_vector(&f[..nf]));
-    let relative_residual = residual_free.iter().map(|v| v*v).sum::<f64>().sqrt() / applied_free.iter().map(|v| v*v).sum::<f64>().sqrt().max(1e-30);
+    let equations = tangent.free_equations(n, nf, f, &state.u, cs.as_ref());
+    let relative_residual = equations.relative_residual(&residual[..nf], cs.as_ref());
     let mut equilibrium = super::reaction_recovery::balance_2d(input, dof_num, &u_global, f, &reactions, its, tolerance);
     equilibrium.relative_residual = relative_residual;
     equilibrium.residual_ok = relative_residual.is_finite() && relative_residual <= tolerance;
@@ -440,7 +439,32 @@ enum Tangent3D {
     Sparse(CscMatrix),
 }
 
+struct FreeEquations {
+    rhs: Vec<f64>,
+    prescribed: Vec<f64>,
+}
+
+impl FreeEquations {
+    fn relative_residual(&self, residual: &[f64], cs: Option<&FreeConstraintSystem>) -> f64 {
+        let reduced = |v: &[f64]| cs.map_or_else(|| v.to_vec(), |cs| cs.reduce_vector(v));
+        let norm = |v: &[f64]| v.iter().map(|v| v*v).sum::<f64>().sqrt();
+        norm(&reduced(residual)) / norm(&reduced(&self.rhs)).max(1e-30)
+    }
+}
+
 impl Tangent3D {
+    fn free_equations(&self, n: usize, nf: usize, f: &[f64], u: &[f64], cs: Option<&FreeConstraintSystem>) -> FreeEquations {
+        let prescribed = cs.map_or_else(|| vec![0.0; nf], |cs| cs.prescribed_free(&u[nf..]));
+        let mut rhs = self.rhs(n, nf, f, u);
+        if prescribed.iter().any(|v| *v != 0.0) {
+            let mut offset = vec![0.0; n];
+            offset[..nf].copy_from_slice(&prescribed);
+            let induced = self.residual(n, nf, &vec![0.0; n], &offset);
+            for (r, v) in rhs.iter_mut().zip(induced) { *r -= v; }
+        }
+        FreeEquations { rhs, prescribed }
+    }
+
     fn free_block(&self, n: usize, nf: usize) -> Self {
         match self {
             Self::Dense(k) => {
@@ -486,9 +510,9 @@ impl Tangent3D {
         }
     }
 
-    fn solve(self, rhs: &[f64], nf: usize, cs: &Option<FreeConstraintSystem>, cache: &mut Option<SparseSymbolicCache>) -> Option<(Vec<f64>, bool)> {
+    fn solve(self, equations: FreeEquations, nf: usize, cs: &Option<FreeConstraintSystem>, cache: &mut Option<SparseSymbolicCache>) -> Option<(Vec<f64>, bool)> {
         let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-        let f = cs.as_ref().map_or_else(|| rhs.to_vec(), |c| c.reduce_vector(rhs));
+        let f = cs.as_ref().map_or_else(|| equations.rhs.clone(), |c| c.reduce_vector(&equations.rhs));
         let (u, indefinite) = match self {
             Self::Dense(k) => {
                 let k = cs.as_ref().map_or_else(|| k.clone(), |c| c.reduce_matrix(&k));
@@ -507,7 +531,9 @@ impl Tangent3D {
                 }
             }
         };
-        Some((cs.as_ref().map_or_else(|| u.clone(), |c| c.expand_solution(&u)), indefinite))
+        let mut expanded = cs.as_ref().map_or_else(|| u.clone(), |c| c.expand_solution(&u));
+        for (u, prescribed) in expanded.iter_mut().zip(equations.prescribed) { *u += prescribed; }
+        Some((expanded, indefinite))
     }
 
 
@@ -587,8 +613,8 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     for iter in 0..max_iter {
         state.iterations = iter + 1;
         let tangent = system.tangent(input, dof_num, &state.u);
-        let rhs = tangent.rhs(n, nf, f, &state.u);
-        let Some((u, indefinite)) = tangent.free_block(n, nf).solve(&rhs, nf, &cs, &mut symbolic) else {
+        let equations = tangent.free_equations(n, nf, f, &state.u, cs.as_ref());
+        let Some((u, indefinite)) = tangent.free_block(n, nf).solve(equations, nf, &cs, &mut symbolic) else {
             return Ok(PDeltaResult3D { results: linear_results.clone(), linear_results, iterations: state.iterations,
                 converged: false, is_stable: false, b2_factor: f64::INFINITY });
         };
@@ -606,9 +632,8 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     let reactions = recovered.reactions_3d(input, dof_num, &u_global, its)?;
     let constraint_forces = recovered.constraint_forces;
 
-    let residual_free = cs.as_ref().map_or_else(|| residual[..nf].to_vec(), |cs| cs.reduce_vector(&residual[..nf]));
-    let applied_free = cs.as_ref().map_or_else(|| f[..nf].to_vec(), |cs| cs.reduce_vector(&f[..nf]));
-    let relative_residual = residual_free.iter().map(|v| v*v).sum::<f64>().sqrt() / applied_free.iter().map(|v| v*v).sum::<f64>().sqrt().max(1e-30);
+    let equations = tangent.free_equations(n, nf, f, &state.u, cs.as_ref());
+    let relative_residual = equations.relative_residual(&residual[..nf], cs.as_ref());
     let mut equilibrium = super::reaction_recovery::balance_3d(input, dof_num, &u_global, f, &reactions, its, tolerance);
     equilibrium.relative_residual = relative_residual;
     equilibrium.residual_ok = relative_residual.is_finite() && relative_residual <= tolerance;
