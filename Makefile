@@ -892,3 +892,8 @@ test.engine.frozen-shell-refusals: wasm
 
 test.engine.truss-balance-1969-wasm: wasm
 	$(NIX_RUN) node scripts/tests/truss-balance-1969-wasm.mjs
+
+.PHONY: test.engine.candidate-1901-wasm
+
+test.engine.candidate-1901-wasm: wasm
+	$(NIX_RUN) node scripts/tests/candidate-1901-wasm.mjs

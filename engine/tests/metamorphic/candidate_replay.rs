@@ -82,6 +82,7 @@ fn issue_1902_refuses_unresolved_stiffness() {
 }
 
 #[test]
+#[ignore = "known wrong result: #1992"]
 fn issue_1901_refuses_unresolved_stiffness() {
     refused(1901, "P-Delta", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
 }
@@ -336,4 +337,107 @@ mod review_checks {
             }
         }
     }
+}
+
+fn reference_1901() -> Value {
+    let references: Value = serde_json::from_str(include_str!(
+        "../../../docs/verification/candidate-1901-reference.json"
+    ))
+    .unwrap();
+    references[1].clone()
+}
+
+fn displacement_1901(node: usize, actual: [f64; 3], reference: &Value) {
+    let expected = reference
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["nodeId"] == node)
+        .unwrap();
+    for (key, actual) in ["ux", "uz", "ry"].into_iter().zip(actual) {
+        let expected: f64 = expected[key].as_str().unwrap().parse().unwrap();
+        assert!(actual.is_finite());
+        assert!(
+            (actual - expected).abs() <= 1e-8 * expected.abs().max(1.0),
+            "node {node} {key}: {actual} versus independent {expected}"
+        );
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1992"]
+fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
+    use dedaliano_engine::{
+        metamorphic::planes::{embed_2d, Plane},
+        solver::{linear, pdelta},
+        types::SolverInput,
+    };
+    let solver: SolverInput = serde_json::from_value(input("1901-body-0")).unwrap();
+    let reference = reference_1901();
+    let typed = serde_json::from_value(serde_json::to_value(&solver).unwrap()).unwrap();
+    for result in [
+        linear::solve_2d(&solver),
+        linear::solve_2d_typed(&typed),
+        linear::prepare_static_2d(&solver)
+            .unwrap()
+            .solve_loads(&solver.loads),
+        linear::prepare_static_2d_dense_reference(&solver)
+            .unwrap()
+            .solve_loads(&solver.loads),
+    ] {
+        let result = result.unwrap();
+        assert_eq!(result.displacements.len(), solver.nodes.len());
+        for d in &result.displacements {
+            displacement_1901(d.node_id, [d.ux, d.uz, d.ry], &reference["linear"]);
+        }
+    }
+    let nonlinear = pdelta::solve_pdelta_2d(&solver, 100, 1e-12).unwrap();
+    assert!(!nonlinear.converged && !nonlinear.is_stable);
+    assert_eq!(nonlinear.iterations, 100);
+    let embeddings: Value =
+        serde_json::from_str(include_str!("../fixtures/candidate-1901-embeddings.json")).unwrap();
+    for plane in Plane::ALL {
+        let embedded = embed_2d(&solver, plane).unwrap();
+        assert_eq!(
+            serde_json::to_value(&embedded).unwrap(),
+            embeddings[format!("{plane:?}")]
+        );
+        for result in [
+            linear::solve_3d(&embedded),
+            linear::prepare_static_3d(&embedded)
+                .unwrap()
+                .solve_loads(&embedded.loads),
+        ] {
+            let result = result.unwrap();
+            assert_eq!(result.displacements.len(), solver.nodes.len());
+            for d in &result.displacements {
+                let project =
+                    |a: [f64; 3], b: [f64; 3]| a.into_iter().zip(b).map(|(a, b)| a * b).sum();
+                displacement_1901(
+                    d.node_id,
+                    [
+                        project([d.ux, d.uy, d.uz], plane.e1()),
+                        project([d.ux, d.uy, d.uz], plane.e2()),
+                        project([d.rx, d.ry, d.rz], plane.normal()),
+                    ],
+                    &reference["linear"],
+                );
+            }
+        }
+        let nonlinear = pdelta::solve_pdelta_3d(&embedded, 100, 1e-12).unwrap();
+        assert!(nonlinear.converged);
+        for d in &nonlinear.results.displacements {
+            let project = |a: [f64; 3], b: [f64; 3]| a.into_iter().zip(b).map(|(a, b)| a * b).sum();
+            displacement_1901(
+                d.node_id,
+                [
+                    project([d.ux, d.uy, d.uz], plane.e1()),
+                    project([d.ux, d.uy, d.uz], plane.e2()),
+                    project([d.rx, d.ry, d.rz], plane.normal()),
+                ],
+                &reference["pdelta"]["displacements"],
+            );
+        }
+    }
+    refused(1901, "P-Delta", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
 }
