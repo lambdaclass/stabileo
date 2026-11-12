@@ -179,7 +179,6 @@ fn issue_1964_linear_certificate_accepts_record_ids_independent_of_map_keys() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1965"]
 fn issue_1965_rotation_preserves_the_two_finite_modes_of_rank_two_mass() {
     let value = witness("1965");
     let original: SolverInput = serde_json::from_value(value.clone()).unwrap();

@@ -2,6 +2,7 @@ use crate::types::*;
 use crate::linalg::*;
 use std::collections::HashMap;
 use super::dof::DofNumbering;
+use super::modal_mass::MassAssembly;
 use super::assembly::{rotate_inclined_free_block, InclinedTransformData, InclinedTransformData2D};
 
 // ==================== Mass beyond the densities ====================
@@ -239,7 +240,7 @@ pub fn assemble_mass_matrix_2d_sparse(
     dof_num: &DofNumbering,
     densities: &HashMap<String, f64>,
 ) -> CscMatrix {
-    assemble_mass_matrix_2d_sparse_impl(input, dof_num, densities, &[], dof_num.n_free)
+    assemble_mass_matrix_2d_sparse_impl(input, dof_num, densities, &[], dof_num.n_free, None)
 }
 
 /// `assemble_mass_matrix_2d_sparse` in the inclined-support frames K was
@@ -250,7 +251,7 @@ pub fn assemble_mass_matrix_2d_sparse_inclined(
     densities: &HashMap<String, f64>,
     inclined: &[InclinedTransformData2D],
 ) -> CscMatrix {
-    assemble_mass_matrix_2d_sparse_impl(input, dof_num, densities, inclined, dof_num.n_free)
+    assemble_mass_matrix_2d_sparse_impl(input, dof_num, densities, inclined, dof_num.n_free, None)
 }
 
 /// `assemble_mass_matrix_2d_sparse` (global axes) over the DOFs numbered below
@@ -263,16 +264,30 @@ pub fn assemble_mass_matrix_2d_sparse_block(
     densities: &HashMap<String, f64>,
     nf: usize,
 ) -> CscMatrix {
-    assemble_mass_matrix_2d_sparse_impl(input, dof_num, densities, &[], nf)
+    assemble_mass_matrix_2d_sparse_impl(input, dof_num, densities, &[], nf, None)
 }
 
 /// The block below `nf`, in the inclined frames `inclined` when not empty.
+pub(super) fn assemble_modal_mass_2d(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+    inclined: &[InclinedTransformData2D],
+    constraints: Option<&super::constraints::FreeConstraintSystem>,
+) -> Result<(CscMatrix, super::modal_mass::MassRange), String> {
+    let mut physical = MassAssembly::default();
+    let matrix = assemble_mass_matrix_2d_sparse_impl(input,dof_num,densities,inclined,dof_num.n_free,Some(&mut physical));
+    let range = physical.finish(dof_num.n_free,inclined.iter().map(|it| (it.dofs,it.r)),constraints)?;
+    Ok((matrix,range))
+}
+
 fn assemble_mass_matrix_2d_sparse_impl(
     input: &SolverInput,
     dof_num: &DofNumbering,
     densities: &HashMap<String, f64>,
     inclined: &[InclinedTransformData2D],
     nf: usize,
+    mut physical: Option<&mut MassAssembly>,
 ) -> CscMatrix {
     // With inclined supports, keep every DOF until the rotation is applied.
     let keep = if inclined.is_empty() { nf } else { dof_num.n_total };
@@ -325,6 +340,7 @@ fn assemble_mass_matrix_2d_sparse_impl(
                 dof_num.global_dof(elem.node_j, 0).unwrap(),
                 dof_num.global_dof(elem.node_j, 1).unwrap(),
             ];
+            if let Some(p) = physical.as_deref_mut() { p.add(&m_local, None, &truss_dofs); }
             for i in 0..4 {
                 for j in 0..=i {
                     scatter!(truss_dofs, i, j, m_local[i * 4 + j]);
@@ -336,6 +352,7 @@ fn assemble_mass_matrix_2d_sparse_impl(
             let m_glob = transform_stiffness(&m_local, &t, 6);
 
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+            if let Some(p) = physical.as_deref_mut() { p.add(&m_local, Some(&t), &elem_dofs); }
             let ndof = elem_dofs.len();
             for i in 0..ndof {
                 for j in 0..=i {
@@ -346,6 +363,7 @@ fn assemble_mass_matrix_2d_sparse_impl(
     }
 
     for (d, v) in nodal_mass_entries_2d(input, dof_num) {
+        if let Some(p) = physical.as_deref_mut() { p.add(&[v], None, &[d]); }
         scatter!([d], 0, 0, v);
     }
 
@@ -618,7 +636,7 @@ pub fn assemble_mass_matrix_3d_sparse(
     dof_num: &DofNumbering,
     densities: &HashMap<String, f64>,
 ) -> CscMatrix {
-    assemble_mass_matrix_3d_sparse_impl(input, dof_num, densities, &[], dof_num.n_free)
+    assemble_mass_matrix_3d_sparse_impl(input, dof_num, densities, &[], dof_num.n_free, None)
 }
 
 /// `assemble_mass_matrix_3d_sparse` in the inclined-support frames K was
@@ -629,7 +647,7 @@ pub fn assemble_mass_matrix_3d_sparse_inclined(
     densities: &HashMap<String, f64>,
     inclined: &[InclinedTransformData],
 ) -> CscMatrix {
-    assemble_mass_matrix_3d_sparse_impl(input, dof_num, densities, inclined, dof_num.n_free)
+    assemble_mass_matrix_3d_sparse_impl(input, dof_num, densities, inclined, dof_num.n_free, None)
 }
 
 /// `assemble_mass_matrix_3d_sparse` (global axes) over the DOFs numbered below
@@ -642,16 +660,30 @@ pub fn assemble_mass_matrix_3d_sparse_block(
     densities: &HashMap<String, f64>,
     nf: usize,
 ) -> CscMatrix {
-    assemble_mass_matrix_3d_sparse_impl(input, dof_num, densities, &[], nf)
+    assemble_mass_matrix_3d_sparse_impl(input, dof_num, densities, &[], nf, None)
 }
 
 /// The block below `nf`, in the inclined frames `inclined` when not empty.
+pub(super) fn assemble_modal_mass_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+    inclined: &[InclinedTransformData],
+    constraints: Option<&super::constraints::FreeConstraintSystem>,
+) -> Result<(CscMatrix, super::modal_mass::MassRange), String> {
+    let mut physical = MassAssembly::default();
+    let matrix = assemble_mass_matrix_3d_sparse_impl(input,dof_num,densities,inclined,dof_num.n_free,Some(&mut physical));
+    let range = physical.finish(dof_num.n_free,inclined.iter().map(|it| (it.dofs,it.r)),constraints)?;
+    Ok((matrix,range))
+}
+
 fn assemble_mass_matrix_3d_sparse_impl(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     densities: &HashMap<String, f64>,
     inclined: &[InclinedTransformData],
     nf: usize,
+    mut physical: Option<&mut MassAssembly>,
 ) -> CscMatrix {
     // With inclined supports, keep every DOF until the rotation is applied.
     let keep = if inclined.is_empty() { nf } else { dof_num.n_total };
@@ -704,6 +736,16 @@ fn assemble_mass_matrix_3d_sparse_impl(
             let truss_dofs: Vec<usize> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).unwrap())
                 .chain((0..3).map(|i| dof_num.global_dof(elem.node_j, i).unwrap()))
                 .collect();
+            if let Some(p) = physical.as_deref_mut() {
+                let mut local = vec![0.0;36];
+                for i in 0..3 {
+                    local[i*6+i] = 2.0*m;
+                    local[(i+3)*6+i+3] = 2.0*m;
+                    local[i*6+i+3] = m;
+                    local[(i+3)*6+i] = m;
+                }
+                p.add(&local, None, &truss_dofs);
+            }
             for i in 0..3 {
                 scatter!(truss_dofs, i, i, 2.0 * m);
                 scatter!(truss_dofs, i + 3, i + 3, 2.0 * m);
@@ -729,6 +771,7 @@ fn assemble_mass_matrix_3d_sparse_impl(
                 let t = crate::element::frame_transform_3d_warping(&ex, &ey, &ez);
                 let m_glob = transform_stiffness(&m14, &t, 14);
                 let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+                if let Some(p) = physical.as_deref_mut() { p.add(&m14, Some(&t), &elem_dofs); }
                 for i in 0..14 {
                     for j in 0..=i {
                         scatter!(elem_dofs, i, j, m_glob[i * 14 + j]);
@@ -740,6 +783,10 @@ fn assemble_mass_matrix_3d_sparse_impl(
                 let m_glob = transform_stiffness(&m_local, &t, 12);
                 let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
 
+                if let Some(p) = physical.as_deref_mut() {
+                    let dofs: Vec<_> = DOF_MAP_12_TO_14.iter().map(|&i| elem_dofs[i]).collect();
+                    p.add(&m_local, Some(&t), &dofs);
+                }
                 for i in 0..12 {
                     for j in 0..=i {
                         let gi14 = DOF_MAP_12_TO_14[i];
@@ -752,6 +799,7 @@ fn assemble_mass_matrix_3d_sparse_impl(
                 let m_glob = transform_stiffness(&m_local, &t, 12);
 
                 let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+                if let Some(p) = physical.as_deref_mut() { p.add(&m_local, Some(&t), &elem_dofs); }
                 let ndof = elem_dofs.len();
                 for i in 0..ndof {
                     for j in 0..=i {
@@ -786,6 +834,7 @@ fn assemble_mass_matrix_3d_sparse_impl(
             }
         }
 
+        if let Some(p) = physical.as_deref_mut() { p.add(&m_local, None, &plate_dofs); }
         for i in 0..18 {
             for j in 0..=i {
                 scatter!(plate_dofs, i, j, m_local[i * 18 + j]);
@@ -818,6 +867,9 @@ fn assemble_mass_matrix_3d_sparse_impl(
             &crate::element::quad::quad_transform_3d(&coords), 24);
 
         let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+        if let Some(p) = physical.as_deref_mut() {
+            p.add(&crate::element::quad::quad_consistent_mass(&coords, rho_t, quad.thickness), Some(&crate::element::quad::quad_transform_3d(&coords)), &quad_dofs);
+        }
         for i in 0..24 {
             for j in 0..=i {
                 scatter!(quad_dofs, i, j, m_local[i * 24 + j]);
@@ -842,6 +894,9 @@ fn assemble_mass_matrix_3d_sparse_impl(
             &crate::element::quad9::quad9_transform_3d(&coords), 54);
 
         let q9_dofs = dof_num.quad9_element_dofs(&quad9.nodes);
+        if let Some(p) = physical.as_deref_mut() {
+            p.add(&crate::element::quad9::quad9_consistent_mass(&coords, rho_t, quad9.thickness), Some(&crate::element::quad9::quad9_transform_3d(&coords)), &q9_dofs);
+        }
         for i in 0..54 {
             for j in 0..=i {
                 scatter!(q9_dofs, i, j, m_local[i * 54 + j]);
@@ -863,6 +918,7 @@ fn assemble_mass_matrix_3d_sparse_impl(
         let m_local = crate::element::solid_shell::solid_shell_consistent_mass(&coords, density / 1000.0);
 
         let ss_dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
+        if let Some(p) = physical.as_deref_mut() { p.add(&m_local, None, &ss_dofs); }
         for i in 0..24 {
             for j in 0..=i {
                 scatter!(ss_dofs, i, j, m_local[i * 24 + j]);
@@ -885,6 +941,7 @@ fn assemble_mass_matrix_3d_sparse_impl(
         let m_local = crate::element::curved_shell::curved_shell_consistent_mass(&coords, &dirs, rho_t, cs.thickness);
 
         let cs_dofs = dof_num.quad_element_dofs(&cs.nodes);
+        if let Some(p) = physical.as_deref_mut() { p.add_curved_shell(&coords, &dirs, rho_t, cs.thickness, &cs_dofs); }
         for i in 0..24 {
             for j in 0..=i {
                 scatter!(cs_dofs, i, j, m_local[i * 24 + j]);
@@ -893,6 +950,7 @@ fn assemble_mass_matrix_3d_sparse_impl(
     }
 
     for (d, v) in nodal_mass_entries_3d(input, dof_num) {
+        if let Some(p) = physical.as_deref_mut() { p.add(&[v], None, &[d]); }
         scatter!([d], 0, 0, v);
     }
 
