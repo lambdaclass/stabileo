@@ -325,6 +325,8 @@ fn sym_eigen_small_impl(a: &[f64], n: usize, vectors: bool) -> (Vec<f64>, Vec<f6
                 let theta = (m[q * n + q] - m[p * n + p]) / (2.0 * apq);
                 let t = theta.signum() / (theta.abs() + theta.hypot(1.0));
                 let t = if theta == 0.0 { 1.0 } else { t };
+                #[cfg(test)]
+                if t == 0.0 { tests::IDENTITY_ROTATIONS.with(|count| count.set(count.get() + 1)); }
                 let c = 1.0 / (t * t + 1.0).sqrt();
                 let s = t * c;
                 for k in 0..n {
@@ -1074,6 +1076,7 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
 mod tests {
     thread_local! {
         pub(super) static LANCZOS_RUNS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+        pub(super) static IDENTITY_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static EIGENVECTOR_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     }
     use super::*;
@@ -1279,6 +1282,32 @@ mod tests {
         let seed = 15_233_338_564_176_581_173;
         assert!(lanczos_top(&|x| matrix.sym_mat_vec(x), 2, seed, &|top| certified_top(&matrix, &Rc::new(symbolic_cholesky(&matrix)), top)).is_none());
     }
+    #[test]
+    #[ignore = "known wrong result: #1958"]
+    fn issue_1958_identity_jacobi_rotations_do_no_matrix_work() {
+        let tiny = f64::MIN_POSITIVE * f64::EPSILON * 16.0;
+        let matrix = [1.0, tiny, 0.0, tiny, 2.0, 0.25, 0.0, 0.25, 3.0];
+        for vectors in [false, true] {
+            IDENTITY_ROTATIONS.with(|count| count.set(0));
+            let (values, basis) = sym_eigen_small_impl(&matrix, 3, vectors);
+            let radius = 0.5f64.hypot(0.25);
+            for (got, exact) in values.iter().zip([1.0, 2.5 - radius, 2.5 + radius]) {
+                assert!((got - exact).abs() <= ROUNDING * f64::EPSILON * exact.abs());
+            }
+            if vectors {
+                for c in 0..3 {
+                    for r in 0..3 {
+                        let applied: f64 = (0..3).map(|k| matrix[r * 3 + k] * basis[k * 3 + c]).sum();
+                        assert!((applied - values[c] * basis[r * 3 + c]).abs() <= ROUNDING * f64::EPSILON * values[c]);
+                    }
+                }
+            } else {
+                assert!(basis.is_empty());
+            }
+            assert_eq!(IDENTITY_ROTATIONS.with(|count| count.get()), 0);
+        }
+    }
+
     #[test]
     fn issue_1753_fast_accepted_spectrum_avoids_unused_eigenvector_rotations() {
         let matrix = CscMatrix::from_dense_symmetric(&[2.0, 1.0, 0.0, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0], 3);
