@@ -34,7 +34,6 @@ class CiScriptsTarget(unittest.TestCase):
         tests = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / 'scripts/tests').glob('*.mjs'))
         self.assertEqual([t for t in tests if not re.search(rf'(^|\s){re.escape(t)}(\s|$)', commands, re.M)], [])
 
-    @unittest.skip("known wrong result: #1952")
     def test_staged_history_helper_is_required_by_the_wasm_ci_target(self):
         makefile = (ROOT / 'Makefile').read_text()
         target = 'test.engine.staged-orphan-wasm'

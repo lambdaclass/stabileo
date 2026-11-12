@@ -892,7 +892,7 @@ test.engine.reactions-frozen: wasm
 	$(NIX_RUN) node scripts/tests/arc-length-frozen.mjs $(if $(UPDATE),--update)
 
 .PHONY: test.engine.staged-orphan-wasm
-test.engine.staged-orphan-wasm: wasm
+test.engine.staged-orphan-wasm: wasm scripts/tests/staged-history-containment.mjs
 	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-orphan-1846-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-round4-wasm.mjs
