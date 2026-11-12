@@ -13,6 +13,11 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   test.setTimeout(180_000);
   await loadModel(page, 'pro-edificio-7p');
   await page.evaluate(() => window.__stabileoActions.setMeshBeforeAnalysis(false));
+  // Two combinations by the same name, as a file of one's own beside the generated ones can hold: each keeps its row.
+  await page.evaluate(() => {
+    const a = window.__stabileoActions as unknown as { combineCases(n: string): void };
+    a.combineCases('1.0 todos'); a.combineCases('1.0 todos');
+  });
   await solveModel(page);
 
   await page.getByTestId('pr-stage-analyse').click();
@@ -45,6 +50,9 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
     await page.setViewportSize({ width, height: 900 });
     const head = (await ws.locator('.rcw-head').boundingBox())!, close = (await ws.getByTestId('rc-close').boundingBox())!;
     expect(close.y - head.y).toBeLessThan(14);
+    // Everything on one row: the header no taller than its tallest control.
+    expect(head.height, `header at ${width} px`).toBeLessThan(52);
+    for (const tab of ['beam', 'column', 'slab', 'wall', 'punching']) await expect(ws.getByTestId(`rc-tab-${tab}`)).toBeInViewport();
     expect(head.x + head.width - (close.x + close.width)).toBeLessThan(16);
   }
   await expect(ws).toHaveClass(/st-panel-scrollbars/);
@@ -78,6 +86,7 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await ws.getByTestId('rc-span-toggle').first().click();
   await ws.locator('summary', { hasText: 'Por combinación' }).first().click();
   await expect(ws.getByTestId('rc-combos').first()).toBeVisible();
+  await expect(ws.getByTestId('rc-combos').first().locator('tr', { hasText: '1.0 todos' })).toHaveCount(2);
 
   await ws.getByTestId('rc-tab-column').click();
   await expect(ws.getByTestId('rc-table-column')).toBeVisible();

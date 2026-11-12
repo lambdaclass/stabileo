@@ -14,7 +14,7 @@
       <tr><th>{t('rcSheets.combo.name')}</th>{#each table.headers as h (h)}<th class="n">{head(h)}</th>{/each}<th class="n">{t('rcSheets.col.ratio')}</th><th></th></tr>
     </thead>
     <tbody>
-      {#each table.rows as r (r.combo)}
+      {#each table.rows as r, i (i)}
         <tr class:bad={!r.ok}>
           <td>{r.combo}</td>
           {#each r.values as v, i (i)}<td class="n">{v}</td>{/each}

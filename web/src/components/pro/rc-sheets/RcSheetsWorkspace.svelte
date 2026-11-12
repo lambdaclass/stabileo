@@ -38,6 +38,7 @@
   const slabCover = $derived.by(() => { void modelStore.designData; return designData().covers.slab; });
   const endZones = $derived.by(() => { void modelStore.designData; return designData().columnEndZones === true; });
   const rows = $derived(view.rows ?? EMPTY);
+  const basisText = $derived(rows.basis === 'combinations' ? tp('rcSheets.basis.combinations', { n: rows.combos }) : t(`rcSheets.basis.${rows.basis}`));
   const spansOf = (l: LineLayout) => rows.beam.filter((r) => r.demand.line?.group === l.group);
   const lineStatus = (l: LineLayout) => (l.status === 'fail' || spansOf(l).some((r) => r.status === 'fail') ? 'fail' : spansOf(l).some((r) => r.status === 'warn') ? 'warn' : 'ok');
   type ListRow = SheetRow | (LineLayout & { family: 'line'; status: 'ok' | 'warn' | 'fail' });
@@ -61,32 +62,29 @@
 <svelte:window onkeydown={onkey} />
 
 <div class="rcw" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile} use:portal role="dialog" aria-modal="true" aria-label={t('rcSheets.title')} data-testid="rc-sheets-workspace">
-  <header class="rcw-head">
-    <div class="rcw-head-main">
-      <div class="rcw-title">
-        <strong>{t('rcSheets.title')}</strong>
-        <span class="rcw-code" data-testid="rc-code"><RcCodePicker compact /></span>
-        <span class="rcw-dim">{rows.basis === 'combinations' ? tp('rcSheets.basis.combinations', { n: rows.combos }) : t(`rcSheets.basis.${rows.basis}`)}</span>
-        {#if view.building && view.rows}<span class="rcw-dim" role="status" data-testid="rc-updating">{t('rcSheets.updating')}</span>{/if}
-      </div>
-      <div class="rcw-tabs" role="tablist">
-        {#each SHEET_FAMILIES as f (f)}
-          <button type="button" role="tab" aria-selected={family === f} class:on={family === f} data-testid={`rc-tab-${f}`} onclick={() => { family = f; level = ''; openKey = null; }}>
-            {t(`rcSheets.family.${f}`)} <small>{counts[f].n}{counts[f].fail ? ` · ${counts[f].fail} ✗` : ''}</small>
-          </button>
-        {/each}
-      </div>
-      <div class="rcw-tools">
-        <label class="rcw-ctl">{t('rcSheets.col.level')}
-          <select bind:value={level}>
-            <option value="">{t('rcSheets.allLevels')}</option>
-            {#each levels as l (l)}<option value={l}>{l || '—'}</option>{/each}
-          </select>
-        </label>
-        <label class="rcw-ctl"><input type="checkbox" bind:checked={failingOnly} /> {t('rcSheets.onlyFailing')}</label>
-        <button type="button" class="rcs-btn" onclick={() => adoptAll(shown.filter((r): r is Exclude<ListRow, { family: 'punching' }> => r.family !== 'punching'))} disabled={!shown.length}>{t('rcSheets.adoptAll')}</button>
-        <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)} disabled={!rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length}>{t('rcSheets.export')}</button>
-      </div>
+  <!-- One row at any width: what matters least gives way first (the container queries below). -->
+  <header class="rcw-head" title={basisText}>
+    <strong class="rcw-name">{t('rcSheets.title')}</strong>
+    <span class="rcw-code" data-testid="rc-code"><RcCodePicker compact /></span>
+    <span class="rcw-dim rcw-basis">{basisText}</span>
+    {#if view.building && view.rows}<span class="rcw-dim" role="status" data-testid="rc-updating">{t('rcSheets.updating')}</span>{/if}
+    <div class="rcw-tabs" role="tablist">
+      {#each SHEET_FAMILIES as f (f)}
+        <button type="button" role="tab" aria-selected={family === f} class:on={family === f} data-testid={`rc-tab-${f}`} onclick={() => { family = f; level = ''; openKey = null; }}>
+          {t(`rcSheets.family.${f}`)} <small>{counts[f].n}{counts[f].fail ? ` · ${counts[f].fail} ✗` : ''}</small>
+        </button>
+      {/each}
+    </div>
+    <div class="rcw-tools">
+      <label class="rcw-ctl" title={t('rcSheets.col.level')}><span class="wide">{t('rcSheets.col.level')}</span>
+        <select bind:value={level} aria-label={t('rcSheets.col.level')}>
+          <option value="">{t('rcSheets.allLevels')}</option>
+          {#each levels as l (l)}<option value={l}>{l || '—'}</option>{/each}
+        </select>
+      </label>
+      <label class="rcw-ctl" title={t('rcSheets.onlyFailing')}><input type="checkbox" bind:checked={failingOnly} aria-label={t('rcSheets.onlyFailing')} /> <span class="wide">{t('rcSheets.onlyFailing')}</span><span class="narrow">✗</span></label>
+      <button type="button" class="rcs-btn" title={t('rcSheets.adoptAll')} onclick={() => adoptAll(shown.filter((r): r is Exclude<ListRow, { family: 'punching' }> => r.family !== 'punching'))} disabled={!shown.length}><span class="wide">{t('rcSheets.adoptAll')}</span><span class="narrow">{t('rcSheets.adoptAllShort')}</span></button>
+      <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} disabled={!rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">Excel</span></button>
     </div>
     <button type="button" class="rcs-btn rcw-close" onclick={onclose} aria-label={t('rcSheets.close')} data-testid="rc-close">✕</button>
   </header>
@@ -211,17 +209,24 @@
 
 <style>
   .rcw { position: fixed; inset: 0; z-index: 1000; background: var(--st-surface); color: var(--st-text); display: flex; flex-direction: column; }
-  .rcw-head { display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--st-hair); }
-  .rcw-head-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
-  .rcw-title, .rcw-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
-  .rcw-tools { margin-left: auto; }
+  .rcw-head { container-type: inline-size; display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--st-hair); }
+  .rcw-name { flex: none; white-space: nowrap; }
+  .rcw-code { flex: none; }
+  .rcw-basis { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rcw-tools { flex: none; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
   .rcw-close { flex: none; min-width: 30px; min-height: 28px; font-size: 0.85rem; }
+  .narrow { display: none; }
+  @container (max-width: 1500px) { .rcw-basis { display: none; } .rcw-tabs { margin-left: auto; } }
+  @container (max-width: 1320px) { .rcw-code :global(.rcc > span) { display: none; } .rcw-tools .wide { display: none; } .rcw-tools .narrow { display: inline; } }
+  @container (max-width: 1120px) { .rcw-tabs small { display: none; } .rcw-name { display: none; } }
+  @container (max-width: 940px) { .rcw-tabs { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin; } }
   .rcw-head strong { font-family: var(--st-display); font-size: 0.9rem; }
   .rcw-dim { font-size: 0.72rem; color: var(--st-text-3); }
   .rcw-code { font-size: 0.72rem; font-weight: 600; border: 1px solid var(--st-hair); border-radius: 4px; padding: 1px 6px; color: var(--st-text); }
   details { margin: 4px 0 8px; }
   summary { cursor: pointer; font-size: 0.72rem; font-weight: 600; color: var(--st-text-2); margin-bottom: 4px; }
-  .rcw-tabs { display: flex; flex-wrap: wrap; gap: 2px; }
+  .rcw-tabs { flex: none; display: flex; flex-wrap: nowrap; gap: 2px; }
+  .rcw-tabs button { flex: none; white-space: nowrap; }
   .rcw-tabs button { border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text-2); border-radius: 4px; padding: 3px 10px; font-size: 0.76rem; cursor: pointer; }
   .rcw-tabs button.on { background: var(--st-accent, var(--st-surface-3)); color: var(--st-on-accent, var(--st-text)); }
   .rcw-tabs small { opacity: 0.75; }

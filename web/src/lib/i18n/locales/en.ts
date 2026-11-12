@@ -15657,5 +15657,6 @@ const en: Record<string, string> = {
   "rcSheets.s.wallBoundaryLength": "Boundary element length",
   "rcSheets.s.wallBoundaryHoops": "Boundary element hoops",
   "rcSheets.elev.n.ruleHolds": "Between the ends, the middle's own rule gives the same spacing as the ends, so the middle does not open.",
+  "rcSheets.adoptAllShort": "Adopt",
 };
 export default en;

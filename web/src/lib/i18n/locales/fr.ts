@@ -15497,6 +15497,7 @@ const fr: Translations = {
   "rcSheets.s.wallBoundaryLength": "Longueur de l'élément de rive",
   "rcSheets.s.wallBoundaryHoops": "Cadres de l'élément de rive",
   "rcSheets.elev.n.ruleHolds": "Entre les extrémités, la règle de la partie courante donne le même espacement qu'aux extrémités : elle ne s'ouvre pas.",
+  "rcSheets.adoptAllShort": "Adopter",
 };
 
 export default fr;

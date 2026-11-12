@@ -15497,6 +15497,7 @@ const tr: Translations = {
   "rcSheets.s.wallBoundaryLength": "Uç bölgesi uzunluğu",
   "rcSheets.s.wallBoundaryHoops": "Uç bölgesi etriyeleri",
   "rcSheets.elev.n.ruleHolds": "Uçlar arasında orta bölgenin kuralı uçlarla aynı aralığı veriyor; bu yüzden orta bölge açılmıyor.",
+  "rcSheets.adoptAllShort": "Benimse",
 };
 
 export default tr;

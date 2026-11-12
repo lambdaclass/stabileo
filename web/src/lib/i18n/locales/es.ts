@@ -15646,5 +15646,6 @@ const es: Record<string, string> = {
   "rcSheets.s.wallBoundaryLength": "Longitud del elemento de borde",
   "rcSheets.s.wallBoundaryHoops": "Estribos del elemento de borde",
   "rcSheets.elev.n.ruleHolds": "Entre los extremos, la regla del centro da la misma separación que los extremos, así que el centro no se abre.",
+  "rcSheets.adoptAllShort": "Adoptar",
 };
 export default es;
