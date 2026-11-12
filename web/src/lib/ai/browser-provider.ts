@@ -17,6 +17,7 @@ import {
   AiActionError,
   buildConversation,
   buildSystemPrompt,
+  userAxesSection,
   checkPromptSize,
   checkText,
   checkListLen,
@@ -142,7 +143,7 @@ export async function reviewModel(
   context?: string,
 ): Promise<ReviewModelResponse> {
   if (context !== undefined) checkText('context', context);
-  const system = reviewSystemPrompt(sanitizeLocale(locale));
+  const system = reviewSystemPrompt(sanitizeLocale(locale)) + userAxesSection(axesStore.frame, 'The solver run artifact');
   const artifactJson = JSON.stringify(artifact, null, 2);
   const user = context !== undefined
     ? `## Solver Run Artifact\n\n\`\`\`json\n${artifactJson}\n\`\`\`\n\n## User Notes\n\n${context}`
@@ -165,7 +166,7 @@ export async function explainDiagnostic(
   locale?: string,
 ): Promise<ExplainDiagnosticResponse> {
   if (message !== undefined) checkText('message', message);
-  const system = explainSystemPrompt(sanitizeLocale(locale));
+  const system = explainSystemPrompt(sanitizeLocale(locale)) + userAxesSection(axesStore.frame, 'The diagnostic');
   let details = `Diagnostic code: ${promptLabel(code)}\nSeverity: ${promptLabel(severity)}`;
   if (message !== undefined) details += `\nMessage: ${message}`;
   const resp = await complete(creds, {
@@ -193,7 +194,7 @@ export async function interpretResults(
   modelInfo?: { nElements?: number; nNodes?: number; maxSpan?: number; structureType?: string },
 ): Promise<InterpretResultsResponse> {
   checkText('question', question);
-  const system = interpretSystemPrompt(sanitizeLocale(locale));
+  const system = interpretSystemPrompt(sanitizeLocale(locale)) + userAxesSection(axesStore.frame, 'The result summary');
   let user = `## Result Summary\n\n\`\`\`json\n${JSON.stringify(resultSummary, null, 2)}\n\`\`\`\n\n## Question\n\n${question}`;
   if (modelInfo) {
     user += '\n\n## Model Info\n';
