@@ -7,12 +7,45 @@ use dedaliano_engine::{
 };
 use serde_json::Value;
 
-fn assert_displacements_match(got: &Resp, reference: &Resp, _cond: Conditioning) {
+fn assert_displacements_match(got: &Resp, reference: &Resp, cond: Conditioning) {
+    assert!(!reference.0.is_empty());
     assert_eq!(got.0.len(), reference.0.len());
+    let rel = crate::checks2::rel_for("linear", 0.0, &cond);
+    assert!(rel.is_finite() && rel <= conditioning::INCONCLUSIVE);
+    let report = crate::analysis_accuracy::compare(
+        got,
+        reference,
+        cond.lchar,
+        rel,
+        0.0,
+        crate::checks2::compliance("linear", &cond),
+    )
+    .unwrap();
+    assert!(report.values > 0);
 }
 
-fn assert_rank_two_modes_match(got: &[f64], reference: &[f64], _cond: Conditioning) {
-    assert_eq!(got.len(), reference.len());
+fn assert_rank_two_modes_match(got: &[f64], reference: &[f64], cond: Conditioning) {
+    use dedaliano_engine::metamorphic::compare::{compare, Flat};
+    assert_eq!(got.len(), 2);
+    assert_eq!(reference.len(), 2);
+    for values in [got, reference] {
+        assert!(values.iter().all(|v| v.is_finite() && *v > 0.0));
+    }
+    let cond = cond.with_spectrum(
+        reference[0].min(reference[1]),
+        reference[0].max(reference[1]),
+    );
+    let rel = crate::checks2::rel_for("certified modal", 0.0, &cond);
+    assert!(rel.is_finite() && rel <= conditioning::INCONCLUSIVE);
+    for (i, (actual, expected)) in got.iter().zip(reference).enumerate() {
+        compare(
+            &Flat::scalar(format!("eigenvalue {i}"), *actual),
+            &Flat::scalar(format!("eigenvalue {i}"), *expected),
+            cond.lchar,
+            rel,
+        )
+        .unwrap();
+    }
 }
 
 fn modal_eigenvalues(result: &dedaliano_engine::solver::modal::ModalResult) -> Vec<f64> {
@@ -46,7 +79,6 @@ fn assert_displacement_substitutions_rejected(reference: Resp, cond: Conditionin
 }
 
 #[test]
-#[ignore = "known wrong result: #1989"]
 fn issue_1989_nodal_displacement_oracle_rejects_zero_and_empty_2d() {
     let nodal: SolverInput = serde_json::from_value(witness("nodal-1969")).unwrap();
     let reference = linear::solve_2d(&nodal).unwrap();
@@ -57,7 +89,6 @@ fn issue_1989_nodal_displacement_oracle_rejects_zero_and_empty_2d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1989"]
 fn issue_1989_nodal_displacement_oracle_rejects_zero_and_empty_3d() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
     let nodal: SolverInput = serde_json::from_value(witness("nodal-1969")).unwrap();
@@ -70,7 +101,6 @@ fn issue_1989_nodal_displacement_oracle_rejects_zero_and_empty_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1989"]
 fn issue_1989_rank_two_modal_oracle_rejects_empty_and_wrong_eigenvalues() {
     let value = witness("1965");
     let original: SolverInput = serde_json::from_value(value.clone()).unwrap();
