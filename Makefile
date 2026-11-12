@@ -880,6 +880,7 @@ evidence.research.feher:
 
 .PHONY: test.engine.staged-orphan-wasm
 test.engine.staged-orphan-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-orphan-1846-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-round4-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-round5-wasm.mjs
@@ -937,4 +938,15 @@ test.engine.frozen-shell-refusals: wasm
 .PHONY: test.engine.staged-settlement-1085-wasm
 
 test.engine.staged-settlement-1085-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs
+
+.PHONY: test.engine.staged-final test.engine.staged-final-wasm
+
+test.engine.staged-final:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1846_round5_persistent_moment_after_member_removal -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_final -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1943_final -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-final-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs

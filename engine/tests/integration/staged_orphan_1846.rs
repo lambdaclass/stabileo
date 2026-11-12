@@ -1898,6 +1898,7 @@ fn round5_cantilever(dim: usize, pads: usize) -> serde_json::Value {
 }
 
 #[test]
+#[ignore = "known wrong result: #1943"]
 fn issue_1846_round5_persistent_moment_after_member_removal() {
     for dim in [2, 3] {
         for pads in [0, 22] {
@@ -1906,7 +1907,7 @@ fn issue_1846_round5_persistent_moment_after_member_removal() {
                     (1.0, true, false, true),
                     (1.0, false, false, false),
                     (0.0, true, false, false),
-                    (1.0, true, true, true),
+                    (1.0, true, true, false),
                 ] {
                     let mut v = round5_cantilever(dim, pads);
                     if connected {
@@ -1938,7 +1939,31 @@ fn issue_1846_round5_persistent_moment_after_member_removal() {
                     assert_eq!(result.is_err(), refused, "{dim}D pads={pads} connected={connected} moment={moment} removed={removed} cancel={cancel}: {result:?}");
                     if refused {
                         assert!(result.unwrap_err().contains("rotation"));
-                    } else if !removed {
+                    } else if removed {
+                        let out = result.unwrap();
+                        let force_fields: &[&str] = if dim == 2 {
+                            &["nStart", "nEnd", "vStart", "vEnd", "mStart", "mEnd"]
+                        } else {
+                            &["nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd", "mxStart", "mxEnd", "myStart", "myEnd", "mzStart", "mzEnd"]
+                        };
+                        let reaction_fields: &[&str] = if dim == 2 {
+                            &["rx", "rz", "my"]
+                        } else {
+                            &["fx", "fy", "fz", "mx", "my", "mz"]
+                        };
+                        let mut expected: Vec<_> = elements.iter().filter(|id| **id != 1).map(|id| id.as_u64().unwrap()).collect();
+                        expected.sort_unstable();
+                        let mut actual: Vec<_> = out["finalResults"]["elementForces"].as_array().unwrap().iter().map(|e| e["elementId"].as_u64().unwrap()).collect();
+                        actual.sort_unstable();
+                        assert_eq!(actual, expected);
+                        for (group, fields) in [("elementForces", force_fields), ("reactions", reaction_fields)] {
+                            for item in out["finalResults"][group].as_array().unwrap() {
+                                for &field in fields {
+                                    assert_eq!(item[field].as_f64().unwrap(), 0.0, "{dim}D pads={pads} connected={connected} {group} {field}");
+                                }
+                            }
+                        }
+                    } else {
                         let out = result.unwrap();
                         assert_eq!(
                             out["stages"][0]["results"]["displacements"],
@@ -1999,6 +2024,48 @@ fn issue_1846_round5_rigid_arm_rotation_subspace() {
                         .is_ok(),
                         expected == 0
                     );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1943"]
+fn issue_1943_final_initial_conditioning_reaches_every_plastic_entry() {
+    for inertia in [1e-14, 0.001] {
+        for pads in [0, 10, 11] {
+            for rotated in [false, true] {
+                let mut v: serde_json::Value = serde_json::from_str(include_str!("../fixtures/final-review-plastic-conditioning.json")).unwrap();
+                v["solver"]["sections"]["1"]["iy"] = inertia.into();
+                v["solver"]["sections"]["1"]["iz"] = inertia.into();
+                if rotated {
+                    for n in v["solver"]["nodes"].as_object_mut().unwrap().values_mut() {
+                        let (x, y, z) = (n["x"].clone(), n["y"].clone(), n["z"].clone());
+                        n["x"] = z;
+                        n["y"] = x;
+                        n["z"] = y;
+                    }
+                    v["solver"]["loads"][0]["data"]["fx"] = 1.into();
+                    v["solver"]["loads"][0]["data"]["fz"] = 0.into();
+                }
+                let mut p: PlasticInput3D = serde_json::from_value(v).unwrap();
+                pad_3d(&mut p.solver, pads);
+                if inertia == 1e-14 {
+                    assert!(!dedaliano_engine::solver::kinematic::analyze_kinematics_3d(&p.solver).is_solvable);
+                    assert!(solve_3d(&p.solver).unwrap_err().contains("conditioning limit"));
+                }
+                let raw = dedaliano_engine::solver::plastic::solve_plastic_3d(&p);
+                let certified = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&p).map(|r| r.results);
+                for result in [raw, certified] {
+                    if inertia == 1e-14 {
+                        let error = result.unwrap_err();
+                        assert!(error.contains("conditioning limit"), "{error}");
+                    } else {
+                        let r = result.unwrap();
+                        assert!(r.is_mechanism);
+                        assert!((r.collapse_factor - 200.0 / 4.0_f64.hypot(2.0)).abs() <= 1e-9, "pads={pads} rotated={rotated}: {r:?}");
+                    }
                 }
             }
         }

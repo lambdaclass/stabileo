@@ -75,6 +75,25 @@ for (const dim of [2, 3]) for (const linked of [false, true]) for (const copies 
       assert.throws(() => reference(wrong, input, dim));
     }
     assert.throws(() => reference({ ...result.finalResults, displacements: [] }, input, dim));
+    for (const [group, key] of [['displacements', 'nodeId'], ['reactions', 'nodeId'], ['elementForces', 'elementId']]) {
+      const missing = structuredClone(result.finalResults);
+      missing[group].pop();
+      assert.throws(() => reference(missing, input, dim), `${group} missing ID`);
+      const unknown = structuredClone(result.finalResults);
+      unknown[group][0][key] = -1;
+      assert.throws(() => reference(unknown, input, dim), `${group} unknown ID`);
+      const absent = structuredClone(result.finalResults);
+      delete absent[group][0][key];
+      assert.throws(() => reference(absent, input, dim), `${group} absent ID`);
+      if (result.finalResults[group].length > 1) {
+        const duplicate = structuredClone(result.finalResults);
+        duplicate[group][1] = structuredClone(duplicate[group][0]);
+        assert.throws(() => reference(duplicate, input, dim), `${group} duplicate replaces missing ID`);
+      }
+      const reordered = structuredClone(result.finalResults);
+      reordered[group].reverse();
+      reference(reordered, input, dim);
+    }
     histories++;
   }
 }

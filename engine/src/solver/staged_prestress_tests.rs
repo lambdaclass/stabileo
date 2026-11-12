@@ -285,3 +285,33 @@ fn staged_round4_sparse_cumulative_nodal_reactions_keep_inclined_basis() {
 fn staged_round4_sparse_cumulative_prestress_reactions_keep_inclined_basis() {
     round4_reaction_check(true);
 }
+
+#[test]
+#[ignore = "known wrong result: #1943"]
+fn staged_final_zero_stiffness_uses_accumulated_load() {
+    let mut input = model(None);
+    input.supports.get_mut("2").unwrap().support_type = "pinned".into();
+    let dof = DofNumbering::build_2d(&input);
+    assert_eq!(dof.n_free, 1);
+    for sparse in [false, true] {
+        for connected in [HashSet::new(), HashSet::from([2])] {
+            for stiffness in [0.0, 1e-30, 1.0] {
+                let k = CscMatrix::from_triplets(1, &[0], &[0], &[stiffness]);
+                let solve = |increment: f64, applied: f64| solve_stage_free(
+                    &k, &dof, None, true, &connected, &[],
+                    &super::super::stability::ReleasedRotations::default(),
+                    &[increment], &[applied], sparse, &mut None, &mut None,
+                );
+                let u = solve(-1.0, 0.0).unwrap();
+                close(&u, &[if stiffness == 0.0 { 0.0 } else { -1.0 / stiffness }]);
+                if stiffness == 0.0 {
+                    for applied in [-f64::EPSILON, f64::EPSILON] {
+                        assert!(solve(0.0, applied).unwrap_err().contains("rotation"));
+                    }
+                } else {
+                    close(&solve(0.0, 1.0).unwrap(), &[0.0]);
+                }
+            }
+        }
+    }
+}

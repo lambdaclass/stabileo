@@ -22,7 +22,7 @@ function pad(input, count) {
   }
 }
 for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [false, true]) {
-  for (const [moment, removed, cancel, refused] of [[1,true,false,true], [1,false,false,false], [0,true,false,false], [1,true,true,true]]) {
+  for (const [moment, removed, cancel, refused] of [[1,true,false,true], [1,false,false,false], [0,true,false,false], [1,true,true,false]]) {
     const input = {
       nodes: { 1: { id: 1, x: 0, y: 0, z: 0 }, 2: { id: 2, x: 4, y: 0, z: 0 } },
       materials: { 1: { id: 1, e: 10000, nu: 0.3 } },
@@ -46,7 +46,14 @@ for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [f
       if (refused) assert.throws(() => solve(JSON.stringify(input)), /rotation/);
       else {
         const out = JSON.parse(solve(JSON.stringify(input)));
-        if (!removed) {
+        if (removed) {
+          const forceFields = dim === 2 ? ['nStart', 'nEnd', 'vStart', 'vEnd', 'mStart', 'mEnd'] : ['nStart', 'nEnd', 'vyStart', 'vyEnd', 'vzStart', 'vzEnd', 'mxStart', 'mxEnd', 'myStart', 'myEnd', 'mzStart', 'mzEnd'];
+          const reactionFields = dim === 2 ? ['rx', 'rz', 'my'] : ['fx', 'fy', 'fz', 'mx', 'my', 'mz'];
+          assert.deepEqual(out.finalResults.elementForces.map(e => e.elementId).sort((a, b) => a - b), Object.values(input.elements).filter(e => e.id !== 1).map(e => e.id).sort((a, b) => a - b));
+          for (const [group, fields] of [['elementForces', forceFields], ['reactions', reactionFields]]) {
+            for (const item of out.finalResults[group]) for (const field of fields) assert.equal(item[field], 0, `${group} ${field}`);
+          }
+        } else {
           assert.deepEqual(out.finalResults.displacements, out.stages[0].results.displacements);
           assert.ok(Math.abs(out.finalResults.displacements.find(d => d.nodeId === 2).ry) > 0);
         }

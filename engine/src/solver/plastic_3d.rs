@@ -1425,6 +1425,30 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #1943"]
+    fn staged_final_initial_conditioning_and_rank_boundaries() {
+        use crate::solver::stability::{Reason, Verdict};
+        for (inertia, verdict, reason, solvable) in [
+            (0.001, Verdict::Stable, Reason::Resolved, true),
+            (1e-13, Verdict::Stable, Reason::Resolved, false),
+            (1e-14, Verdict::Singular, Reason::Conditioning, false),
+            (1e-15, Verdict::Mechanism, Reason::FreeTranslation, false),
+        ] {
+            let mut p: PlasticInput3D = serde_json::from_str(include_str!("../../tests/fixtures/final-review-plastic-conditioning.json")).unwrap();
+            p.solver.sections.get_mut("1").unwrap().iy = inertia;
+            p.solver.sections.get_mut("1").unwrap().iz = inertia;
+            let stability = crate::solver::stability::of_3d(&p.solver).unwrap();
+            assert_eq!((stability.verdict, stability.reason), (verdict, reason), "{inertia}: {stability:?}");
+            assert_eq!(crate::solver::kinematic::analyze_kinematics_3d(&p.solver).is_solvable, solvable);
+            let result = carry(&p.solver, CarryState::InitialElastic);
+            match crate::solver::linear::solve_3d(&p.solver) {
+                Ok(expected) => assert_eq!(serde_json::to_value(result.unwrap().unwrap()).unwrap(), serde_json::to_value(expected).unwrap(), "inertia={inertia}"),
+                Err(expected) => assert_eq!(result.unwrap_err(), expected, "inertia={inertia}"),
+            }
+        }
+    }
+
+    #[test]
     fn issue_1753_balance_cannot_certify_constraints_or_connectors() {
         let base: PlasticInput3D = serde_json::from_str(include_str!("../../../verify/samples/plastic-3d-portal.input.json")).unwrap();
         let results = crate::solver::linear::solve_3d(&base.solver).unwrap();
