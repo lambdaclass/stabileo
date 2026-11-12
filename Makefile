@@ -505,7 +505,6 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
 test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
-test.ci-scripts: test.audit.evidence
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -543,6 +542,7 @@ test.ci-scripts: test.audit.evidence
 	python3 -B -I scripts/tests/test_issue_reproducers.py
 	python3 -B -I scripts/tests/test_verification_metrics.py
 	python3 -B -I scripts/tests/test_ci_scripts_target.py
+	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
 	python3 -B -I scripts/tests/test_benchmark_gate.py
 	$(NIX_RUN) node scripts/tests/snapshot-applicability.mjs
 	$(NIX_RUN) node --test scripts/tests/frozen-results-gate.test.mjs scripts/tests/frozen-results-values.test.mjs
