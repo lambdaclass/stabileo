@@ -1029,6 +1029,13 @@ pub(crate) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Ve
         }
     };
     let run = |tab: &mut Vec<Vec<f64>>, basis: &mut Vec<usize>, cost: &dyn Fn(usize) -> f64, allow: &dyn Fn(usize) -> bool| -> bool {
+        #[cfg(test)]
+        tests::PHASE_WIDTH.with(|count| count.set(count.get() + n + p));
+        let cost = |j| {
+            #[cfg(test)]
+            tests::COST_EVALUATIONS.with(|count| count.set(count.get() + 1));
+            cost(j)
+        };
         let max_iter = super::plastic_budget::SIMPLEX_PIVOTS_PER_COLUMN * (n + p);
         let mut degenerate = 0;
         let mut since = 0;
@@ -1775,6 +1782,46 @@ fn certify_plastic_2d_body(input: &PlasticInput) -> Result<CertifiedPlastic2D, S
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    thread_local! {
+        pub(super) static COST_EVALUATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+        pub(super) static PHASE_WIDTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
+
+    fn assert_phase_cost_work(f: impl FnOnce()) {
+        COST_EVALUATIONS.with(|count| count.set(0));
+        PHASE_WIDTH.with(|count| count.set(0));
+        f();
+        let calls = COST_EVALUATIONS.with(|count| count.get());
+        let width = PHASE_WIDTH.with(|count| count.get());
+        assert!(width > 0);
+        assert!(calls <= width, "phase costs evaluated {calls} times for {width} phase columns");
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1760"]
+    fn phase_cost_work_is_linear_for_issue_1760() {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin");
+        let input = serde_json::from_slice(&bytes[2..]).unwrap();
+        assert_phase_cost_work(|| {
+            let certificate = super::super::plastic_3d::certify_collapse_3d(&input, None);
+            assert!(certificate.certified, "{certificate:?}");
+        });
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1760"]
+    fn phase_cost_work_is_linear_for_feasible_degenerate_and_refused_lps() {
+        for (a, b, accepted) in [
+            (vec![vec![1.0, 2.0, 3.0]], vec![6.0], true),
+            (vec![vec![1.0, 1.0, 0.0], vec![0.0, 0.0, 1.0]], vec![0.0, 1.0], true),
+            (vec![vec![-1.0, -2.0]], vec![1.0], false),
+        ] {
+            assert_phase_cost_work(|| {
+                assert_eq!(simplex_min_sum(&a, &b).is_some(), accepted);
+            });
+        }
+    }
 
     #[test]
     fn mechanism_resource_refusal_is_preserved() {
