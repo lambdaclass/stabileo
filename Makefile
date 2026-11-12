@@ -883,6 +883,9 @@ evidence.research.feher:
 .PHONY: test.audit.evidence
 test.audit.evidence:
 	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
+.PHONY: test.engine.plastic-nightly-wasm
+test.engine.plastic-nightly-wasm: wasm
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-nightly-wasm.mjs
 
 .PHONY: test.engine.buckling-818-wasm
 
