@@ -1,0 +1,45 @@
+{
+  "id": "staged-free-stiffness",
+  "date": "2026-11-11",
+  "prs": [
+    1943
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "members",
+      "shells",
+      "constraints",
+      "springs",
+      "settlements"
+    ],
+    "all": [
+      "stagedConstruction"
+    ]
+  },
+  "quantities": [
+    "stages",
+    "finalResults",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Staged construction checks physical stiffness and solution accuracy",
+    "es": "El cálculo por etapas comprueba la rigidez física y la precisión",
+    "pt": "A análise por etapas verifica a rigidez física e a precisão",
+    "de": "Die Bauphasenberechnung prüft physikalische Steifigkeit und Genauigkeit",
+    "fr": "Le calcul par phases vérifie la rigidité physique et la précision",
+    "tr": "Aşamalı analiz fiziksel rijitliği ve çözüm doğruluğunu denetler"
+  },
+  "explanation": {
+    "en": "Staged analysis now refuses nonzero reduced loads on free inactive DOFs, preserves partial constraints and unloaded inactive DOFs, and checks solution accuracy and finiteness through the regular linear routines. Earlier artificial stiffness or omitted refinement could change displacements, reactions and member actions even without end releases. Re-run staged construction histories and review derived demands (#1846, PR #1943).",
+    "es": "El análisis por etapas ahora rechaza cargas reducidas no nulas en GDL libres inactivos, conserva restricciones parciales y GDL inactivos sin carga, y comprueba la precisión y los valores finitos mediante las rutinas lineales. La rigidez artificial o la falta de refinamiento podían alterar desplazamientos, reacciones y esfuerzos incluso sin liberaciones. Volvé a calcular las secuencias constructivas y revisá las solicitaciones (#1846, PR #1943).",
+    "pt": "A análise por etapas agora recusa cargas reduzidas não nulas em graus livres inativos, preserva restrições parciais e graus inativos sem carga e verifica precisão e valores finitos pelas rotinas lineares. A rigidez artificial ou a ausência de refinamento podia alterar deslocamentos, reações e esforços mesmo sem liberações. Recalcule as sequências construtivas e revise as solicitações (#1846, PR #1943).",
+    "de": "Die Bauphasenberechnung lehnt nun reduzierte Lasten ungleich null an freien inaktiven Freiheitsgraden ab, erhält Teilbindungen und unbelastete inaktive Freiheitsgrade und prüft Genauigkeit und endliche Werte mit den linearen Routinen. Künstliche Steifigkeit oder fehlende Nachiteration konnten Verschiebungen, Reaktionen und Stabkräfte auch ohne Gelenkfreigaben verändern. Berechnen Sie Baufolgen neu und prüfen Sie abgeleitete Beanspruchungen (#1846, PR #1943).",
+    "fr": "Le calcul par phases refuse désormais les charges réduites non nulles aux degrés libres inactifs, préserve les contraintes partielles et les degrés inactifs non chargés, et vérifie la précision et les valeurs finies avec les routines linéaires. La rigidité artificielle ou l’absence de raffinement pouvait modifier déplacements, réactions et efforts même sans libérations. Recalculez les séquences de construction et vérifiez les sollicitations (#1846, PR #1943).",
+    "tr": "Aşamalı analiz artık etkin olmayan serbestliklerdeki sıfır olmayan indirgenmiş yükleri reddeder, kısmi kısıtları ve yüksüz etkin olmayan serbestlikleri korur, doğruluğu ve sonlu değerleri doğrusal çözüm yordamlarıyla denetler. Yapay rijitlik veya eksik iyileştirme, uç serbestliği olmadan da öteleme, tepki ve eleman kuvvetlerini değiştirebiliyordu. Yapım aşamalarını yeniden çözün ve türetilen talepleri inceleyin (#1846, PR #1943)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-staged-free-stiffness.md",
+    "heading": "Staged construction checks physical stiffness and solution accuracy (2026-11-11)"
+  }
+}

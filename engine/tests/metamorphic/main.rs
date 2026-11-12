@@ -244,6 +244,7 @@ mod seeded_failures;
 
 mod nonlinear_convergence;
 mod cause_c_replay;
+mod translation_rank;
 
 mod red_ci;
 
