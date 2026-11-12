@@ -7,7 +7,8 @@
   } from '../../lib/axes/frame';
   import AxesFigure from './AxesFigure.svelte';
   import { portal } from '../../lib/utils/portal';
-  import { uiStore } from '../../lib/store';
+  import { resultsStore, uiStore } from '../../lib/store';
+  import DiagramConventionFigure from './DiagramConventionFigure.svelte';
 
   const SIGNED: SignedAxis[] = ['+X', '-X', '+Y', '-Y', '+Z', '-Z'];
   const PRESETS: Array<{ key: string; choice: AxesChoice }> = [
@@ -95,6 +96,16 @@
               </div>
               <p class="ax-note">{t('axes.localNote')}</p>
             </fieldset>
+            <fieldset class="ax-diag">
+              <legend>{t('axes.diagTitle')}</legend>
+              <label class="ax-check">
+                <input type="checkbox" bind:checked={resultsStore.drawPositiveTowardLocalAxes} data-testid="axes-toward-local" />
+                <span>{t('config.drawPositiveTowardLocalAxes')}</span>
+              </label>
+              <DiagramConventionFigure towardLocal={resultsStore.drawPositiveTowardLocalAxes} leftLocal={localHand === 'left'} />
+              <p class="ax-note" data-testid="axes-diag-caption">{t(resultsStore.drawPositiveTowardLocalAxes ? 'axes.diagOn' : 'axes.diagOff')}</p>
+              <p class="ax-note">{t('axes.diagNote')}</p>
+            </fieldset>
           </div>
 
           <div class="ax-figures">
@@ -162,7 +173,9 @@
   fieldset { border: none; margin: 0; padding: 0; min-width: 0; }
   legend { font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; padding: 0; }
   .ax-local { border-top: 1px solid var(--st-border); padding-top: 12px; }
-  .ax-local .ax-note { margin-top: 6px; }
+  .ax-local .ax-note, .ax-diag .ax-note { margin-top: 6px; }
+  .ax-diag { border-top: 1px solid var(--st-border); padding-top: 12px; }
+  .ax-check { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; margin-bottom: 8px; cursor: pointer; }
   .ax-options { display: flex; flex-wrap: wrap; gap: 6px; }
   .ax-opt { min-width: 42px; padding: 6px 8px; font-weight: 600; }
   .ax-opt.wide { display: flex; flex-direction: column; align-items: flex-start; flex: 1 1 120px; font-weight: 500; }
