@@ -164,6 +164,13 @@ describe('Vitest harness architecture', () => {
     ].sort());
   });
 
+  it.skip('known wrong result: #1946: frozen exclusion policy checks run in the unit pass', () => {
+    const file = 'src/lib/results-snapshot/frozen-exclusions.test.ts';
+    expect(files).toContain(file);
+    expect(inResultsPass(file)).toBe(false);
+    expect(PRODUCTION_BUILD_TESTS).not.toContain(file);
+  });
+
   it('the project-scale timing budgets run outside the parallel unit pool', () => {
     expect(PRODUCTION_BUILD_TESTS).toContain('src/lib/engine/__tests__/scale-budget.test.ts');
   });
