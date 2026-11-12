@@ -505,3 +505,67 @@ fn seeded_failure_replay_write_error_names_destination() {
         assert!(!stderr.contains("metamorphic violations:"), "{stderr}");
     }
 }
+
+#[test]
+fn seeded_failure_nightly_reversal_and_symmetry() {
+    for (issue, invariant) in [(1970, "reversal"), (1971, "symmetry")] {
+        for fault in [Fault::Sign, Fault::Unit, Fault::Stiffness] {
+            let mut c = crate::nightly_harness::witness(issue);
+            if invariant == "symmetry" {
+                let mut tip = c.s.nodes["2"].clone();
+                tip.id = 3;
+                let start = c.s.nodes["1"].clone();
+                let mid = c.s.nodes.get_mut("2").unwrap();
+                mid.x = start.x + (tip.x - start.x) * 0.5;
+                mid.z = start.z + (tip.z - start.z) * 0.5;
+                c.s.nodes.insert("3".into(), tip);
+                let mut element = c.s.elements["1"].clone();
+                (element.id, element.node_i, element.node_j) = (2, 2, 3);
+                c.s.elements.get_mut("1").unwrap().hinge_end = false;
+                c.s.elements.insert("2".into(), element);
+                let mut loads = Vec::new();
+                for load in &mut c.s.loads {
+                    if let dedaliano_engine::types::SolverLoad::Distributed(d) = load {
+                        let mut next = d.clone();
+                        next.element_id = 2;
+                        d.q_j = (d.q_i + d.q_j) * 0.5;
+                        next.q_i = d.q_j;
+                        loads.push(dedaliano_engine::types::SolverLoad::Distributed(next));
+                    }
+                }
+                c.s.loads.extend(loads);
+            }
+            let c3 = crate::case::Case3::new(c.name.clone(), dedaliano_engine::metamorphic::planes::embed_2d(&c.s, dedaliano_engine::metamorphic::planes::Plane::XZ).unwrap());
+            let check2 = || {
+                let mut a = crate::ana2::rows().into_iter().find(|a| a.name == "linear").unwrap();
+                a.run = static_2d;
+                let t = Tally::default();
+                if invariant == "symmetry" {
+                    let sym = crate::symmetry::symmetrize_2d(&c.name, &c.s, true).unwrap();
+                    crate::symmetry::check_2d(&t, &sym, true, &[a]);
+                } else {
+                    crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: 1919 }, &c, &[a], &[invariant]);
+                }
+                t.replay_results()
+            };
+            let control = check2();
+            assert_eq!(control["verdicts"][0]["pass"], 1, "{control}");
+            assert_red(&seeded(if invariant == "symmetry" { 0 } else { 1 }, fault, check2), invariant);
+            let check3 = || {
+                let mut a = crate::ana3::rows().into_iter().find(|a| a.name == "linear").unwrap();
+                a.run = static_3d;
+                let t = Tally::default();
+                if invariant == "symmetry" {
+                    let sym = crate::symmetry::symmetrize_3d(&c3.name, &c3.s, true).unwrap();
+                    crate::symmetry::check_3d(&t, &sym, true, &[a]);
+                } else {
+                    crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: 1919 }, &c3, &[a], &[invariant]);
+                }
+                t.replay_results()
+            };
+            let control = check3();
+            assert_eq!(control["verdicts"][0]["pass"], 1, "{control}");
+            assert_red(&seeded(if invariant == "symmetry" { 0 } else { 1 }, fault, check3), invariant);
+        }
+    }
+}

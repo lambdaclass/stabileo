@@ -49,6 +49,7 @@ mod newmark_1959;
 #[path = "../benchmarks/plastic_collapse.rs"]
 mod plastic_collapse_benchmark;
 
+mod truss_balance_1969;
 mod staged_orphan_1846;
 
 mod staged_round7;

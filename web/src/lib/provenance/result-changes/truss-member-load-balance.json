@@ -1,0 +1,34 @@
+{
+  "id": "truss-member-load-balance",
+  "date": "2026-11-12",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "memberLoads"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Include transverse truss actions in conditional member balance",
+    "es": "Incluir las acciones transversales de barras articuladas en el equilibrio condicional",
+    "pt": "Incluir ações transversais das barras de treliça no equilíbrio condicional",
+    "de": "Querlasten von Fachwerkstäben in der bedingten Gleichgewichtsprüfung berücksichtigen",
+    "fr": "Inclure les actions transversales des barres de treillis dans l’équilibre conditionnel",
+    "tr": "Koşullu eleman dengesine kafes çubuklarının enine etkilerini dahil et"
+  },
+  "explanation": {
+    "en": "2D and 3D conditional balance now includes transverse truss member-load end actions alongside recovered axial forces. Valid member-load models can solve where equivalent nodal loads already solved (#1969). Native and WASM paths share the transfer law. Accuracy limits and genuine imbalance refusals are unchanged.",
+    "es": "El equilibrio condicional 2D y 3D incluye ahora las acciones transversales de las cargas sobre barras articuladas junto con las fuerzas axiales recuperadas. Los modelos válidos pueden resolverse cuando las cargas nodales equivalentes ya se resolvían (#1969). Las rutas nativa y WASM comparten la transferencia. Los límites de precisión y los rechazos por desequilibrio real no cambian.",
+    "pt": "O equilíbrio condicional 2D e 3D inclui agora as ações transversais das cargas nas barras de treliça junto às forças axiais recuperadas. Modelos válidos podem ser resolvidos quando as cargas nodais equivalentes já eram resolvidas (#1969). Os caminhos nativo e WASM compartilham a transferência. Os limites de precisão e as recusas por desequilíbrio real permanecem iguais.",
+    "de": "Die bedingte Gleichgewichtsprüfung in 2D und 3D berücksichtigt jetzt die Querlastanteile an Fachwerkstabenden zusammen mit den rückgerechneten Normalkräften. Gültige Stablastmodelle können gelöst werden, wenn äquivalente Knotenlasten bereits lösbar waren (#1969). Native und WASM-Aufrufe verwenden dieselbe Lastübertragung. Genauigkeitsgrenzen und Ablehnungen bei tatsächlichem Ungleichgewicht bleiben unverändert.",
+    "fr": "L’équilibre conditionnel 2D et 3D inclut désormais les actions transversales des charges sur les barres de treillis avec les efforts axiaux récupérés. Les modèles valides peuvent être résolus lorsque leurs charges nodales équivalentes l’étaient déjà (#1969). Les appels natifs et WASM partagent le transfert. Les limites de précision et les refus pour déséquilibre réel restent inchangés.",
+    "tr": "2B ve 3B koşullu denge artık geri hesaplanan eksenel kuvvetlerle birlikte kafes çubuğu yüklerinin enine uç etkilerini de içerir. Eşdeğer düğüm yükleri çözülebilen geçerli çubuk yükü modelleri çözülebilir (#1969). Yerel ve WASM yolları aynı aktarımı kullanır. Doğruluk sınırları ve gerçek dengesizlik retleri değişmez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-truss-member-load-balance.md",
+    "heading": "Include transverse truss actions in conditional member balance (2026-11-12)"
+  }
+}
