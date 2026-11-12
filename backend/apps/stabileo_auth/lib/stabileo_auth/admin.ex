@@ -39,6 +39,7 @@ defmodule StabileoAuth.Admin do
     {accounts, meta} =
       Account
       |> filter_status(params["status"])
+      |> extension().filter(params)
       |> search(params["search"])
       |> Listing.paginate(params, @sortable, :inserted_at, default_dir: :desc)
 
@@ -100,4 +101,10 @@ defmodule StabileoAuth.Admin do
     |> Repo.all()
     |> Map.new()
   end
+
+  @doc "What the `:admin_accounts` module (config) adds to each account's row, keyed by account id."
+  def extend(account_ids), do: extension().extend(account_ids)
+
+  defp extension,
+    do: Application.get_env(:stabileo_auth, :admin_accounts, StabileoAuth.AdminAccounts)
 end

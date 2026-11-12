@@ -403,7 +403,8 @@
   import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
   import LandingPage from './components/LandingPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
-  import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
+  import { skipNextAnalysis } from './lib/tracking/activity.svelte';
+  import { routeKind, isAppPath, isDemoPath, isRegisterPath } from './lib/public-route';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
   import { publicI18n, ensurePublicLocale } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
@@ -583,7 +584,7 @@
   const initialPublicRoute = routeKind();
   const initialShell = publicShell();
   let showLanding = $state(initialShell.kind === 'landing');
-  let showExperiment = $state(['research', 'tools', 'examples'].includes(initialPublicRoute.kind));
+  let showExperiment = $state(['research', 'tools', 'examples', 'register'].includes(initialPublicRoute.kind));
   let showPaper = $state(initialPublicRoute.kind === 'paper');
   let publicPage = $state<import('svelte').Component<{ path: string }> | null>(null);
   let publicRevision = 0;
@@ -634,7 +635,7 @@
       if (token === publicRevision) location.reload();
       return;
     }
-    showExperiment = next.kind === 'research' || next.kind === 'tools' || next.kind === 'examples';
+    showExperiment = next.kind === 'research' || next.kind === 'tools' || next.kind === 'examples' || next.kind === 'register';
     showPaper = next.kind === 'paper';
     adoptLocaleFromPath();
     showBlog = shell.kind === 'blog';
@@ -997,6 +998,7 @@
         modelStore.loadExample(exampleId).then(() => {
           resultsStore.clear();
           resultsStore.clear3D();
+          skipNextAnalysis();
           window.dispatchEvent(new Event('stabileo-solve'));
           // Fire zoom-to-fit repeatedly until the canvas has non-zero size:
           // inside an iframe the canvas is 0×0 during first paint, so a single
@@ -1432,7 +1434,7 @@
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
 {#if publicActive}
-  <SiteHeader path={blogPath} />
+  {#if !isRegisterPath(blogPath)}<SiteHeader path={blogPath} />{/if}
   {#if showLanding}
     <LandingPage />
   {:else if publicPage}

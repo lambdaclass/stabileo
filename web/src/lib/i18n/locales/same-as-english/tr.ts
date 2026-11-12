@@ -1,5 +1,7 @@
 // Keys whose right translation is the English text itself: names of standards, symbols, units.
 export const SAME_AS_ENGLISH: readonly string[] = [
+  'admin.ads.channel.google',
+  'admin.ads.channel.meta',
   'admin.brand',
   'admin.detail.id',
   'admin.metrics.v.diagram.moment',
@@ -11,6 +13,8 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'admin.metrics.v.export.xlsx',
   'admin.metrics.v.mode.basic',
   'admin.metrics.v.mode.pro',
+  'admin.mkt.google',
+  'admin.mkt.meta',
   'admin.signIn.google',
   'adv.failed',
   'adv.name.modal',

@@ -12,7 +12,7 @@ import { isStandingPagePath } from './blog/pages/paths';
  */
 const SHARED_MODEL = /^#(data=|embed=|code=)/;
 
-export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'examples' | 'landing';
+export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'examples' | 'register' | 'landing';
 
 /** `/app` and everything under it: the application's own addresses. */
 export function isAppPath(pathname: string): boolean {
@@ -27,6 +27,11 @@ export function isResearchPath(path: string): boolean {
 /** `/paper`: the JAIE 2026 paper in full. */
 export function isPaperPath(path: string): boolean {
   return path === '/paper' || path === '/paper/';
+}
+
+/** `/register`: the sign-up page, which draws its own focused header. */
+export function isRegisterPath(path: string): boolean {
+  return path === '/register' || path === '/register/';
 }
 
 /** `/demo`: the application, on its demo model. */
@@ -47,6 +52,7 @@ export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = 
   if (top === 'tools' || top === 'examples') return { kind: top, path };
   if (isResearchPath(path)) return { kind: 'research', path };
   if (isPaperPath(path)) return { kind: 'paper', path };
+  if (isRegisterPath(path)) return { kind: 'register', path };
   return { kind: 'landing', path };
 }
 
