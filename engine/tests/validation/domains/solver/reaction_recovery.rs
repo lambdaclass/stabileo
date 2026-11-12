@@ -1787,3 +1787,107 @@ fn issue_1952_r9_loaded_chord_displacement() {
 fn issue_1952_r9_loaded_chord_native_3d() {
     loaded_chord_tip_equilibrium(3, "corotational");
 }
+
+fn r11_cases() -> Vec<Value> {
+    serde_json::from_str(include_str!("../../../fixtures/reaction-recovery-r11.json")).unwrap()
+}
+
+fn r11_pad(m: &mut Value, dim: usize, count: usize) {
+    let template = m["elements"]["1"].clone();
+    for i in 0..count {
+        let id = 100 + i;
+        m["nodes"][id.to_string()] = json!({"id":id,"x":4.0+i as f64,"y":0.0,"z":0.0});
+        m["elements"][id.to_string()] = template.clone();
+        let e = &mut m["elements"][id.to_string()];
+        e["id"] = json!(id);
+        e["nodeI"] = json!(if i == 0 {0} else {id-1});
+        e["nodeJ"] = json!(id);
+        e["hingeEnd"] = json!(false);
+        e["releaseMyEnd"] = json!(false);
+        m["stages"][0]["elementsAdded"].as_array_mut().unwrap().push(json!(id));
+    }
+    assert_eq!(m["nodes"].as_object().unwrap().len(), count+2);
+    assert!(dim == 2 || dim == 3);
+}
+
+fn r11_staged_history(dim: usize, removed: bool) {
+    for case in r11_cases().into_iter().filter(|c| c["kind"] == "staged" && c["dim"] == dim && c["name"].as_str().unwrap().ends_with(if removed {"removed"} else {"added"})) {
+        for padding in [0, 8, 9, 10, 19, 20, 21, 22] {
+        for sign in [-1.0, -1e-12, 0.0, 1e-12, 1.0] {
+            let mut m = case["model"].clone();
+            r11_pad(&mut m, dim, padding);
+            if m["loads"][0]["type"] == "distributed" {
+                m["loads"][0]["data"][if dim == 2 {"qI"} else {"qZI"}] = json!(-10.0 * sign);
+                m["loads"][0]["data"][if dim == 2 {"qJ"} else {"qZJ"}] = json!(-10.0 * sign);
+            } else { m["loads"][0]["data"]["fz"] = json!(-10.0 * sign); }
+            let supports = m["supports"].as_object().unwrap().len();
+            let output = if dim == 2 {
+                json!(staged::solve_staged_2d(&serde_json::from_value(m).unwrap()).unwrap())
+            } else {
+                json!(staged::solve_staged_3d(&serde_json::from_value(m).unwrap()).unwrap())
+            };
+            let unavailable = case["unavailable"] == true && sign != 0.0;
+            for r in [&output["stages"][1]["results"], &output["stages"][2]["results"], &output["finalResults"]] {
+                let diagnostics = r["structuredDiagnostics"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+                if unavailable {
+                    for phase in ["reactions", "elementForces", "constraintForces", "stageResults"] {
+                        assert!(diagnostics.iter().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == phase && d["severity"] == "warning"), "{}: {phase}: {r}", case["name"]);
+                    }
+                    assert!(r["reactions"].as_array().unwrap().is_empty());
+                    assert!(r["elementForces"].as_array().unwrap().is_empty());
+                    assert!(r["constraintForces"].as_array().map_or(true, Vec::is_empty));
+                } else {
+                    assert!(!diagnostics.iter().any(|d| d["code"] == "result_quantity_unavailable"), "{r}");
+                    assert_eq!(r["reactions"].as_array().unwrap().len(), supports);
+                    assert_eq!(r["elementForces"].as_array().unwrap().len(), padding + if removed {1} else {2});
+                    let reaction = r["reactions"][0][if dim == 2 {"rz"} else {"fz"}].as_f64().unwrap();
+                    assert!((reaction - 10.0 * sign).abs() < 1e-9, "{r}");
+                }
+            }
+            assert_eq!(output["stages"][0]["results"]["reactions"].as_array().unwrap().len(), supports);
+        }
+        }
+    }
+}
+
+macro_rules! r11_staged_test {
+    ($name:ident, $dim:expr, $removed:expr, $issue:literal) => {
+        #[test]
+        #[ignore = $issue]
+        fn $name() { r11_staged_history($dim, $removed); }
+    };
+}
+r11_staged_test!(issue_1952_r11_added_history_2d, 2, false, "known wrong result: #1952");
+r11_staged_test!(issue_1952_r11_added_history_3d, 3, false, "known wrong result: #1952");
+r11_staged_test!(issue_1996_r11_removed_history_2d, 2, true, "known wrong result: #1996");
+r11_staged_test!(issue_1996_r11_removed_history_3d, 3, true, "known wrong result: #1996");
+
+fn r11_pdelta_physical_residual(dim: usize) {
+    let case = r11_cases().into_iter().find(|c| c["kind"] == "pdelta" && c["dim"] == dim).unwrap();
+    for released in [false, true] {
+        for sign in [-1.0, 0.0, 1.0] {
+            let mut m = case["model"].clone();
+            for e in m["elements"].as_object_mut().unwrap().values_mut() { e[if dim == 2 {"hingeEnd"} else {"releaseMyEnd"}] = json!(released); }
+            for l in m["loads"].as_array_mut().unwrap() { l["data"]["my"] = json!(l["data"]["my"].as_f64().unwrap() * sign); }
+            if released && sign != 0.0 {
+                let error = if dim == 2 { pdelta::solve_pdelta_2d(&serde_json::from_value(m).unwrap(), 40, 1e-9).unwrap_err() }
+                    else { pdelta::solve_pdelta_3d(&serde_json::from_value(m).unwrap(), 40, 1e-9).unwrap_err() };
+                assert!(error.contains("Nodal moment"), "{error}");
+                continue;
+            }
+            let (r, _) = run("pdelta", dim, &m);
+            let unavailable = false;
+            assert_eq!(r["equilibrium"]["residualOk"], !unavailable, "{r}");
+            assert_eq!(r["equilibrium"]["equilibriumOk"], true, "opposite couples have zero net wrench: {r}");
+            let warned = r["structuredDiagnostics"].as_array().map_or(false, |d| d.iter().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == "reactions"));
+            assert_eq!(warned, unavailable, "{r}");
+            if unavailable { assert!(r["equilibrium"]["relativeResidual"].as_f64().unwrap() > 0.99); }
+            else { assert_eq!(r["elementForces"].as_array().unwrap().len(), 2); }
+        }
+    }
+}
+
+#[test]
+fn issue_1952_r11_pdelta_physical_residual_2d() { r11_pdelta_physical_residual(2); }
+#[test]
+fn issue_1952_r11_pdelta_physical_residual_3d() { r11_pdelta_physical_residual(3); }

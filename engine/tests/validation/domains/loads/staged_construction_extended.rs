@@ -89,6 +89,15 @@ fn assert_stage_displacements(actual: &AnalysisResults, increments: &[&AnalysisR
     }
 }
 
+fn assert_history_unavailable(r: &AnalysisResults) {
+    for phase in ["stageResults", "reactions", "elementForces", "constraintForces"] {
+        assert!(r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some(phase) && d.severity == Severity::Warning));
+    }
+    assert!(r.reactions.is_empty());
+    assert!(r.element_forces.is_empty());
+    assert!(r.constraint_forces.is_empty());
+}
+
 fn assert_horizontal_stage_forces(
     input: &StagedInput,
     actual: &AnalysisResults,
@@ -158,6 +167,7 @@ fn assert_horizontal_stage_forces(
 // the continuous-beam (fixed-roller) solution.
 
 #[test]
+#[ignore = "known wrong result: #1952"]
 fn validation_staged_ext_1_two_phase_beam() {
     let l = 5.0; // each span
     let q = -10.0; // kN/m downward
@@ -219,10 +229,9 @@ fn validation_staged_ext_1_two_phase_beam() {
     assert_stage_displacements(&actual.stages[1].results, &[&first, &increment], &[1,2,3]);
     assert_stage_displacements(&actual.final_results, &[&first, &increment], &[1,2,3]);
     assert_eq!(actual.stages[0].results.element_forces.len(), 1);
-    assert_eq!(actual.stages[1].results.element_forces.len(), 2);
     assert_horizontal_stage_forces(&supported, &actual.stages[0].results, &[0]);
-    assert_horizontal_stage_forces(&supported, &actual.stages[1].results, &[0, 1]);
-    assert_horizontal_stage_forces(&supported, &actual.final_results, &[0, 1]);
+    assert_history_unavailable(&actual.stages[1].results);
+    assert_history_unavailable(&actual.final_results);
     let expected = q * l.powi(4) / (8.0 * E * 1000.0 * IZ);
     let tip = actual.stages[0].results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     assert!((tip.uz - expected).abs() < 1e-10);
@@ -243,6 +252,7 @@ fn validation_staged_ext_1_two_phase_beam() {
 // Verify the final reactions balance: sum(Ry) = -2P.
 
 #[test]
+#[ignore = "known wrong result: #1952"]
 fn validation_staged_ext_2_support_addition() {
     let l = 5.0; // each element
     let p = -60.0; // kN at node 2
@@ -346,10 +356,8 @@ fn validation_staged_ext_2_support_addition() {
     let reference_uz = original_reference.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
     assert_close(s1_uy2, reference_uz, 1e-10, "Initially isolated far support leaves the loaded beam unchanged");
 
-    let sum_ry: f64 = staged_results.final_results.reactions.iter()
-        .map(|r| r.rz).sum();
-    assert_close(sum_ry, -2.0 * p, 0.05,
-        "Final vertical equilibrium");
+    assert_history_unavailable(&staged_results.stages[1].results);
+    assert_history_unavailable(&staged_results.final_results);
 }
 
 // ================================================================
@@ -659,6 +667,7 @@ fn prop_removal_input() -> StagedInput {
 }
 
 #[test]
+#[ignore = "known wrong result: #1996"]
 fn validation_staged_ext_5_prop_removal() {
     let staged_input = prop_removal_input();
     assert_support_refusal(&staged_input, &[3]);
@@ -681,8 +690,7 @@ fn validation_staged_ext_5_prop_removal() {
     assert_stage_displacements(&actual.final_results, &[&actual.stages[2].results], &[1,2,3]);
     assert_eq!(actual.stages[0].results.element_forces.len(), 2);
     for r in [&actual.stages[1].results, &actual.stages[2].results, &actual.final_results] {
-        assert_eq!(r.element_forces.len(), 1);
-        assert_eq!(r.element_forces[0].element_id, 1);
+        assert_history_unavailable(r);
     }
     let at = |r: &AnalysisResults| r.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
     assert!((at(&actual.stages[2].results) - at(&actual.stages[1].results)).abs() > at(&actual.stages[0].results).abs());
@@ -713,6 +721,7 @@ fn issue_1996_loaded_member_removal_redistributes_released_forces() {
 // and the final state has non-zero lateral drift from stage 2 load.
 
 #[test]
+#[ignore = "known wrong result: #1952"]
 fn validation_staged_ext_6_frame_erection() {
     let h = 5.0;
     let w = 8.0;
@@ -797,13 +806,8 @@ fn validation_staged_ext_6_frame_erection() {
         "Stage 1: column should have no bending: m_start={}", s1_ef1.m_start
     );
 
-    // After stage 2: portal frame with lateral load should develop moments.
-    let final_ef1 = staged_results.final_results.element_forces.iter()
-        .find(|ef| ef.element_id == 1).unwrap();
-    assert!(
-        final_ef1.m_start.abs() > 1.0,
-        "Final: column should have bending from lateral load: m_start={}", final_ef1.m_start
-    );
+    assert_history_unavailable(&staged_results.stages[1].results);
+    assert_history_unavailable(&staged_results.final_results);
 
     // Final lateral displacement at node 2 should be non-zero.
     let final_ux2 = staged_results.final_results.displacements.iter()

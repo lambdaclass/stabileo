@@ -341,14 +341,11 @@ pub fn solve_pdelta_2d_on(
 
     // Reactions and constraint forces of the system that was solved.
     let tangent = system.tangent(input, dof_num, &state.u);
-    let residual = tangent.residual(n, nf, f, &state.u);
     let physical = super::reaction_recovery::PhysicalForces::pdelta_2d(input, dof_num, &state.u, its);
-    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, f, dof_num, cs.as_ref());
+    let (recovered, relative_residual) = recover_pdelta_forces(&physical, &tangent, dof_num, f, &state.u, cs.as_ref());
     let reactions = recovered.reactions_2d(input, dof_num, &u_global, its)?;
     let constraint_forces = recovered.constraint_forces;
 
-    let equations = tangent.free_equations(n, nf, f, &state.u, cs.as_ref());
-    let relative_residual = equations.relative_residual(&residual[..nf], cs.as_ref());
     let mut equilibrium = super::reaction_recovery::balance_2d(input, dof_num, &u_global, f, &reactions, its, tolerance);
     equilibrium.relative_residual = relative_residual;
     equilibrium.residual_ok = relative_residual.is_finite() && relative_residual <= tolerance;
@@ -443,6 +440,21 @@ enum Tangent3D {
 struct FreeEquations {
     rhs: Vec<f64>,
     prescribed: Vec<f64>,
+}
+
+fn recover_pdelta_forces(
+    physical: &super::reaction_recovery::PhysicalForces,
+    tangent: &Tangent3D,
+    dofs: &DofNumbering,
+    f: &[f64],
+    u: &[f64],
+    cs: Option<&FreeConstraintSystem>,
+) -> (super::reaction_recovery::RecoveredForces, f64) {
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(physical, f, dofs, cs);
+    let residual = tangent.residual(dofs.n_total, dofs.n_free, f, u);
+    let equations = tangent.free_equations(dofs.n_total, dofs.n_free, f, u, cs);
+    let relative = equations.relative_residual(&residual[..dofs.n_free], cs);
+    (recovered, relative)
 }
 
 impl FreeEquations {
@@ -628,14 +640,11 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     let u_global = to_global_3d(&state.u, its);
     let b2 = stability_b2(state.indefinite, b2_factor(dof_num, 3, &to_global_3d(&u_prev, its), &u_global));
     let tangent = system.tangent(input, dof_num, &state.u);
-    let residual = tangent.residual(n, nf, f, &state.u);
     let physical = super::reaction_recovery::PhysicalForces::pdelta_3d(input, dof_num, &state.u, its);
-    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, f, dof_num, cs.as_ref());
+    let (recovered, relative_residual) = recover_pdelta_forces(&physical, &tangent, dof_num, f, &state.u, cs.as_ref());
     let reactions = recovered.reactions_3d(input, dof_num, &u_global, its)?;
     let constraint_forces = recovered.constraint_forces;
 
-    let equations = tangent.free_equations(n, nf, f, &state.u, cs.as_ref());
-    let relative_residual = equations.relative_residual(&residual[..nf], cs.as_ref());
     let mut equilibrium = super::reaction_recovery::balance_3d(input, dof_num, &u_global, f, &reactions, its, tolerance);
     equilibrium.relative_residual = relative_residual;
     equilibrium.residual_ok = relative_residual.is_finite() && relative_residual <= tolerance;
@@ -664,6 +673,60 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    fn r11_physical_residual(dim: usize) {
+        let cases: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-r11.json")).unwrap();
+        let model = cases.as_array().unwrap().iter().find(|c| c["kind"] == "pdelta" && c["dim"] == dim).unwrap()["model"].clone();
+        let mut failures = Vec::new();
+        for sparse in [false, true] {
+            for sign in [-1.0, 0.0, 1.0] {
+                let mut m = model.clone();
+                for load in m["loads"].as_array_mut().unwrap() { load["data"]["my"] = serde_json::json!(load["data"]["my"].as_f64().unwrap() * sign); }
+                let (dofs, f, tangent, physical, u) = if dim == 2 {
+                    let input: SolverInput = serde_json::from_value(m).unwrap();
+                    let dofs = DofNumbering::build_2d(&input);
+                    let system = if sparse {
+                        let stiff = super::super::sparse_assembly::assemble_stiffness_sparse_2d(&input, &dofs);
+                        let f = assemble_load_vector_2d(&input, &input.loads, &dofs, &stiff.inclined_transforms_2d);
+                        PDeltaSystem2D::Sparse(SparsePDelta2D { k_full: stiff.k_full, f, its: stiff.inclined_transforms_2d })
+                    } else { PDeltaSystem2D::Dense(assemble_2d(&input, &dofs)) };
+                    let (f, its) = system.data();
+                    let tangent = system.tangent(&input, &dofs, &vec![0.0; dofs.n_total]);
+                    let equations = tangent.free_equations(dofs.n_total, dofs.n_free, f, &vec![0.0; dofs.n_total], None);
+                    let (mut u, _) = tangent.free_block(dofs.n_total, dofs.n_free).solve(equations, dofs.n_free, &None, &mut None).unwrap();
+                    u.resize(dofs.n_total, 0.0);
+                    let physical = super::super::reaction_recovery::PhysicalForces::pdelta_2d(&input, &dofs, &u, its);
+                    (dofs, f.to_vec(), tangent, physical, u)
+                } else {
+                    let input: SolverInput3D = serde_json::from_value(m).unwrap();
+                    let dofs = DofNumbering::build_3d(&input);
+                    let system = if sparse { PDeltaSystem3D::Sparse(assemble_sparse_3d(&input, &dofs, true)) } else { PDeltaSystem3D::Dense(assemble_3d(&input, &dofs)) };
+                    let (f, its) = system.data();
+                    let tangent = system.tangent(&input, &dofs, &vec![0.0; dofs.n_total]);
+                    let equations = tangent.free_equations(dofs.n_total, dofs.n_free, f, &vec![0.0; dofs.n_total], None);
+                    let (mut u, _) = tangent.free_block(dofs.n_total, dofs.n_free).solve(equations, dofs.n_free, &None, &mut None).unwrap();
+                    u.resize(dofs.n_total, 0.0);
+                    let physical = super::super::reaction_recovery::PhysicalForces::pdelta_3d(&input, &dofs, &u, its);
+                    (dofs, f.to_vec(), tangent, physical, u)
+                };
+                assert!(tangent.residual(dofs.n_total, dofs.n_free, &f, &u).iter().all(|v| v.abs() < 1e-12));
+                assert!(physical.as_slice().iter().all(|v| *v == 0.0));
+                let (_, relative) = recover_pdelta_forces(&physical, &tangent, &dofs, &f, &u, None);
+                if (sign == 0.0 && relative != 0.0) || (sign != 0.0 && relative < 0.99) {
+                    failures.push(format!("sparse={sparse}, sign={sign}, certified residual={relative}"));
+                }
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn issue_1952_r11_physical_residual_dense_sparse_2d() { r11_physical_residual(2); }
+
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn issue_1952_r11_physical_residual_dense_sparse_3d() { r11_physical_residual(3); }
 
     /// A building of `bays`×`bays` bays and `storeys` storeys, fixed at the base, with gravity on
     /// every floor node and a push along x. With `diaphragms`, each floor is one.

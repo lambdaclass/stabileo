@@ -906,3 +906,7 @@ test.engine.load-frame-wasm: wasm
 .PHONY: test.engine.thermal-frame
 test.engine.thermal-frame:
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(or $(FILTER),r10_tests) -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.reactions-r11-wasm
+test.engine.reactions-r11-wasm: wasm
+	$(NIX_RUN) node scripts/tests/reaction-recovery-r11.mjs
