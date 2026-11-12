@@ -269,7 +269,210 @@ else flock -n {lock} echo retried; fi
         self.assertEqual(self.run_attempts(['HTTP error 418', 'AssertionError'])[:2], (7, 2))
 
 
+class BrowserDepsOutage(unittest.TestCase):
+    def module(self):
+        spec = importlib.util.spec_from_file_location('browser_deps', ROOT / '.github/scripts/browser-deps.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_package_plan_can_use_a_standalone_playwright_install(self):
+        from unittest.mock import patch
+        module = self.module()
+        def run(command, **kwargs):
+            self.assertEqual(kwargs['cwd'], '/runner/pw')
+            raise subprocess.CalledProcessError(1, command)
+        with patch.object(module.subprocess, 'run', side_effect=run):
+            with self.assertRaises(subprocess.CalledProcessError):
+                module.package_plan(['chromium'], '/runner/pw')
+
+    def test_apt_transport_errors_are_infrastructure(self):
+        for line in ("Temporary failure resolving 'azure.archive.ubuntu.com'", 'E: Failed to fetch http://archive.ubuntu.com/ubuntu/a.deb'):
+            with self.subTest(line=line), tempfile.TemporaryDirectory() as directory:
+                log = Path(directory) / 'log'
+                log.write_text(line)
+                self.assertEqual(subprocess.run([str(WRAPPER), '--matches', str(log)]).returncode, 0)
+
+    def test_genuine_apt_package_errors_are_not_infrastructure(self):
+        for line in ('E: Unable to locate package libmissing', 'E: Unmet dependencies. Try apt --fix-broken install.'):
+            with self.subTest(line=line), tempfile.TemporaryDirectory() as directory:
+                log = Path(directory) / 'log'
+                log.write_text(line)
+                self.assertEqual(subprocess.run([str(WRAPPER), '--matches', str(log)]).returncode, 1)
+
+    def test_action_uses_the_package_plan_for_cache_keys_and_installation(self):
+        text = (ROOT / '.github/actions/browser-deps/action.yml').read_text()
+        self.assertNotIn('package-lock.json', text)
+        self.assertIn('key $BROWSERS', text)
+        self.assertIn('.github/scripts/retry-infra.sh "${helper[@]}" .github/scripts/browser-deps.py', text)
+
+    def test_package_plan_is_normalized_and_unrecognized_output_is_refused(self):
+        module = self.module()
+        self.assertEqual(module.packages(['libb', 'liba', 'libb']), ['liba', 'libb'])
+        for plan in ('', [], ['-y'], ['liba; echo bad'], ['liba', 1], {'liba': True}):
+            with self.subTest(plan=plan), self.assertRaises(ValueError):
+                module.packages(plan)
+
+    def test_package_plan_captures_the_pinned_playwright_simulation(self):
+        import json
+        import sys
+        from unittest.mock import patch
+        module = self.module()
+        fixture_path = ROOT / 'scripts/tests/fixtures/playwright-deps-dry-run.json'
+        fixture = json.loads(fixture_path.read_text())
+        pin = json.loads((ROOT / 'web/package-lock.json').read_text())['packages']['node_modules/playwright-core']
+        self.assertEqual((fixture['version'], fixture['integrity']), (pin['version'], pin['integrity']))
+        with tempfile.TemporaryDirectory() as directory:
+            npx = Path(directory) / 'npx'
+            npx.write_text(f'#!{sys.executable}\nimport json,subprocess,sys\nfrom pathlib import Path\n'
+                           f'fixture=json.loads(Path({str(fixture_path)!r}).read_text())\n'
+                           'assert sys.argv[1:] == ["--no-install", "playwright", "install-deps", "--dry-run", *fixture["browsers"]]\n'
+                           'subprocess.run(["apt-get", *fixture["apt_argv"]], check=True)\n'
+                           'sys.stdout.write(fixture["stdout"])\nsys.stderr.write(fixture["stderr"])\nsys.exit(fixture["returncode"])\n')
+            npx.chmod(0o755)
+            with patch.dict(os.environ, {'PATH': directory + os.pathsep + os.environ['PATH']}):
+                self.assertEqual(module.package_plan(fixture['browsers']), sorted(set(fixture['apt_argv'][3:])))
+            for body, error in (('apt-get update', subprocess.CalledProcessError),
+                                ('printf "All system dependencies are installed.\\n"', ValueError)):
+                with self.subTest(body=body):
+                    npx.write_text('#!/bin/sh\n' + body + '\n')
+                    with patch.dict(os.environ, {'PATH': directory + os.pathsep + os.environ['PATH']}):
+                        with self.assertRaises(error):
+                            module.package_plan(['chromium'])
+
+    def test_both_modes_use_the_selected_playwright_directory(self):
+        from unittest.mock import patch
+        module = self.module()
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'output'
+            for mode in ('key', 'install'):
+                with self.subTest(mode=mode), patch.object(module, 'package_plan', return_value=['liba']) as plan, patch.object(module, 'install') as install, patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'amd64\n')), patch.dict(os.environ, {'GITHUB_OUTPUT': str(output)}), patch('sys.argv', ['browser-deps.py', '--playwright-directory', '/runner/pw', mode, 'chromium']):
+                    module.main()
+                    plan.assert_called_once_with(['chromium'], '/runner/pw')
+                    if mode == 'install':
+                        install.assert_called_once_with(['liba'], Path.home() / '.cache/browser-debs')
+                    else:
+                        install.assert_not_called()
+
+    def test_keys_follow_packages_for_every_browser_combination(self):
+        from itertools import combinations
+        from unittest.mock import patch
+        module = self.module()
+        keys = []
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'output'
+            for count in (1, 2, 3):
+                for browsers in combinations(('chromium', 'firefox', 'webkit'), count):
+                    def plan(requested, playwright_directory):
+                        self.assertEqual(requested, list(browsers))
+                        self.assertEqual(playwright_directory, 'web')
+                        return ['liba', 'libb']
+                    with patch.object(module, 'package_plan', side_effect=plan), patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'amd64\n')), patch.dict(os.environ, {'GITHUB_OUTPUT': str(output), 'ImageOS': 'ubuntu24', 'ImageVersion': 'fixture'}), patch('sys.argv', ['browser-deps.py', 'key', *browsers]):
+                        module.main()
+                    keys.append(output.read_text().splitlines()[-1])
+            self.assertEqual(len(set(keys)), 1)
+            with patch.object(module, 'package_plan', return_value=['libc']), patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'amd64\n')), patch.dict(os.environ, {'GITHUB_OUTPUT': str(output), 'ImageOS': 'ubuntu24', 'ImageVersion': 'fixture'}), patch('sys.argv', ['browser-deps.py', 'key', 'chromium']):
+                module.main()
+            self.assertNotEqual(output.read_text().splitlines()[-1], keys[0])
+
+    def test_fallback_splits_security_suites_and_preserves_signatures(self):
+        module = self.module()
+        original = 'Types: deb\nURIs: mirror+file:/etc/apt/apt-mirrors.txt\nSuites: noble noble-updates noble-security\nComponents: main universe\nSigned-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+        fallback = module.rewrite_sources(original, '.sources')
+        self.assertIn('URIs: http://archive.ubuntu.com/ubuntu', fallback)
+        self.assertIn('URIs: http://security.ubuntu.com/ubuntu', fallback)
+        self.assertIn('Suites: noble noble-updates', fallback)
+        self.assertIn('Suites: noble-security', fallback)
+        self.assertEqual(fallback.count('Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg'), 2)
+        for suites, host in (('noble', 'archive'), ('noble-security', 'security')):
+            single = original.replace('noble noble-updates noble-security', suites)
+            self.assertIn(f'URIs: http://{host}.ubuntu.com/ubuntu', module.rewrite_sources(single, '.sources'))
+        with self.assertRaises(ValueError):
+            module.rewrite_sources('URIs: http://azure.archive.ubuntu.com/ubuntu', '.sources')
+        legacy = 'deb [signed-by=/key] http://azure.archive.ubuntu.com/ubuntu noble-security main\n'
+        self.assertEqual(module.rewrite_sources(legacy, '.list'), legacy.replace('azure.archive', 'security'))
+        other = 'deb https://packages.example.com/ubuntu noble main\n'
+        self.assertEqual(module.rewrite_sources(other, '.list'), other)
+
+    def test_warm_install_uses_local_debs_without_update_or_dns(self):
+        from unittest.mock import patch
+        module = self.module()
+        with tempfile.TemporaryDirectory() as directory:
+            deb = Path(directory) / 'liba.deb'
+            deb.touch()
+            with patch.object(module.subprocess, 'run') as run, patch.object(module.socket, 'getaddrinfo', side_effect=AssertionError('DNS on warm run')):
+                run.return_value.returncode = 0
+                module.install(['liba'], Path(directory))
+                self.assertEqual(run.call_count, 1)
+                command = run.call_args.args[0]
+                self.assertIn('--no-download', command)
+                self.assertIn(str(deb), command)
+                self.assertIn('liba', command)
+                self.assertNotIn('update', command)
+
+    def test_cold_install_falls_back_only_for_unresolvable_azure(self):
+        from unittest.mock import patch
+        import socket
+        module = self.module()
+        for resolves in (True, False):
+            with self.subTest(resolves=resolves), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / 'sources.list.d').mkdir()
+                source = root / 'sources.list.d/ubuntu.sources'
+                original = 'Types: deb\nURIs: http://azure.archive.ubuntu.com/ubuntu\nSuites: noble noble-security\nComponents: main\n'
+                source.write_text(original)
+                calls = []
+                def run(command, **kwargs):
+                    calls.append(command)
+                    if 'update' in command:
+                        option = next(x for x in command if x.startswith('Dir::Etc::sourceparts='))
+                        scoped = Path(option.split('=', 1)[1]) / 'ubuntu.sources'
+                        self.assertEqual('azure.archive' in scoped.read_text(), resolves)
+                    return subprocess.CompletedProcess(command, 1 if '--no-download' in command else 0)
+                with patch.object(module.subprocess, 'run', side_effect=run), patch.object(module.socket, 'getaddrinfo', side_effect=None if resolves else socket.gaierror()):
+                    module.install(['liba'], root / 'debs', root)
+                self.assertEqual(len(calls), 3)
+                self.assertEqual(source.read_text(), original)
+                self.assertIn('APT::Update::Error-Mode=any', calls[1])
+
+    def test_failed_update_never_continues_to_install(self):
+        from unittest.mock import patch
+        module = self.module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'sources.list.d').mkdir()
+            def run(command, **kwargs):
+                if kwargs.get('check'):
+                    raise subprocess.CalledProcessError(100, command)
+                return subprocess.CompletedProcess(command, 1)
+            with patch.object(module.subprocess, 'run', side_effect=run) as mocked:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    module.install(['liba'], root / 'debs', root)
+                self.assertEqual(mocked.call_count, 2)
+
+
 class BrowserDeps(unittest.TestCase):
+    def test_all_workflows_share_browser_system_dependency_installation(self):
+        for workflow in sorted((ROOT / '.github/workflows').glob('*.yml')):
+            with self.subTest(workflow=workflow.name):
+                text = workflow.read_text()
+                self.assertNotIn('install-deps', text)
+                self.assertNotIn('--with-deps', text)
+        deploy = (ROOT / '.github/workflows/deploy.yml').read_text()
+        self.assertRegex(deploy, r'uses: \./\.github/actions/browser-deps\n\s+with:\n\s+browsers: chromium\n')
+        for workflow in ('performance', 'production-health'):
+            with self.subTest(workflow=workflow):
+                text = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+                self.assertRegex(text, r'uses: \./\.github/actions/browser-deps\n\s+with:\n\s+browsers: chromium\n\s+playwright-directory: \$\{\{ runner.temp \}\}/pw\n\s+use-nix: "false"')
+                for path in ('.github/actions/browser-deps', '.github/scripts/browser-deps.py', '.github/scripts/retry-infra.sh'):
+                    self.assertIn('            ' + path + '\n', text)
+                self.assertLess(text.index('npm install --prefix'), text.index('uses: ./.github/actions/browser-deps'))
+        ci = (ROOT / '.github/workflows/ci.yml').read_text()
+        for job, browsers in (('determinism', 'chromium firefox webkit'), ('e2e', 'chromium')):
+            with self.subTest(job=job):
+                body = re.search(r'\n  ' + job + r':\n(.*?)(?=\n  [a-z0-9_-]+:|\Z)', ci, re.S).group(1)
+                self.assertRegex(body, r'uses: \./\.github/actions/browser-deps\n\s+with:\n\s+browsers: ' + browsers + r'\n')
+
     def test_every_browser_package_install_goes_through_the_cached_action(self):
         text = (ROOT / '.github/workflows/ci.yml').read_text()
         self.assertNotIn('install-deps', text)
@@ -280,18 +483,22 @@ class BrowserDeps(unittest.TestCase):
     def test_apt_keeps_its_downloads_in_the_cache_and_waits_for_the_lock(self):
         text = (ROOT / '.github/actions/browser-deps/action.yml').read_text()
         steps = dict(part.split('\n', 1) for part in text.split('\n    - name: ')[1:])
-        for setting in ('Dir::Cache::Archives', 'APT::Keep-Downloaded-Packages \\"true\\"', 'DPkg::Lock::Timeout'):
-            self.assertIn(setting.replace('\\', ''), steps['Point apt at the package cache'].replace('\\', ''))
+        installer = (ROOT / '.github/scripts/browser-deps.py').read_text()
+        for setting in ('Dir::Cache::Archives', 'APT::Keep-Downloaded-Packages=true', 'DPkg::Lock::Timeout'):
+            self.assertIn(setting, installer)
+        self.assertNotIn('/etc/apt/apt.conf.d/', text)
         keys = [re.search(r'key: (.+)', steps[name]).group(1) for name in ('Restore downloaded packages', 'Save downloaded packages')]
         self.assertEqual(keys[0], keys[1])
         self.assertIn("if: steps.restore.outputs.cache-hit != 'true'", steps['Save downloaded packages'])
-        install = re.search(r'run: (.+)', steps['Install browser system dependencies']).group(1)
-        install = install.replace('${{ inputs.browsers }}', 'chromium firefox webkit')
-        self.assertTrue(install.startswith('.github/scripts/retry-infra.sh '))
+        install = steps['Install browser system dependencies'].split('run: |\n', 1)[1]
+        lines = [line.strip() for line in install.splitlines() if line.strip()]
+        self.assertTrue(lines[-1].startswith('.github/scripts/retry-infra.sh '))
         spec = importlib.util.spec_from_file_location('infra_retry', ROOT / '.github/scripts/infra-retry.py')
         infra = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(infra)
-        self.assertTrue(infra.acquisition({'title': install, 'script': [install]}))
+        self.assertTrue(infra.acquisition({'title': 'Install browser system dependencies', 'script': lines}))
+        self.assertFalse(infra.acquisition({'title': 'Install browser system dependencies', 'script': [*lines, 'make test.web.determinism']}))
+
 
 
 if __name__ == '__main__':

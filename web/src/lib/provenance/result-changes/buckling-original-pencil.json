@@ -1,0 +1,36 @@
+{
+  "id": "buckling-original-pencil",
+  "date": "2026-11-11",
+  "prs": [1939],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members", "shells", "curvedShells", "connectors"
+      ],
+      [
+        "analysis:buckling"
+      ]
+    ]
+  },
+  "title": {
+    "en": "Buckling factors use the original stiffness pencil",
+    "es": "Los factores de pandeo usan las matrices de rigidez originales",
+    "pt": "Os fatores de flambagem usam as matrizes de rigidez originais",
+    "de": "Knicklastfaktoren verwenden die ursprünglichen Steifigkeitsmatrizen",
+    "fr": "Les facteurs de flambement utilisent les matrices de rigidité originales",
+    "tr": "Burkulma katsayıları özgün rijitlik matrislerini kullanır"
+  },
+  "explanation": {
+    "en": "2D and 3D buckling factors are recomputed from each mode on the original matrices using compensated Rayleigh quotients. This corrects reciprocal eigensolver overestimates such as #818. Certified calls still refuse factors outside their certified bounds. Re-check saved buckling factors, critical member forces and effective lengths. Teaching buckling also retains resolved positive modes across wide load-factor ranges, checking each mode against its own eigenvalue error bound.",
+    "es": "Los factores de pandeo 2D y 3D se recalculan para cada modo con las matrices originales mediante cocientes de Rayleigh compensados. Esto corrige sobreestimaciones del cálculo recíproco como #818. Las llamadas certificadas siguen rechazando factores fuera de sus cotas. Revise los factores, esfuerzos críticos y longitudes efectivas guardados. El pandeo didáctico también conserva modos positivos resolubles en amplios rangos de factores de carga, comprobando cada modo con su propia cota de error del autovalor.",
+    "pt": "Os fatores de flambagem 2D e 3D são recalculados para cada modo nas matrizes originais com quocientes de Rayleigh compensados. Isso corrige superestimativas do cálculo recíproco como #818. Chamadas certificadas continuam recusando fatores fora dos limites certificados. Confira os fatores, forças críticas e comprimentos efetivos salvos. A flambagem didática também preserva modos positivos resolvíveis em amplas faixas de fatores de carga, verificando cada modo com seu próprio limite de erro do autovalor.",
+    "de": "2D- und 3D-Knicklastfaktoren werden für jede Eigenform mit kompensierten Rayleigh-Quotienten aus den ursprünglichen Matrizen neu berechnet. Dies korrigiert Überschätzungen des reziproken Eigenwertlösers wie #818. Zertifizierte Aufrufe verweigern weiterhin Faktoren außerhalb der bestätigten Grenzen. Gespeicherte Faktoren, kritische Stabkräfte und effektive Längen erneut prüfen. Die Lehrberechnung behält auch auflösbare positive Eigenformen über große Lastfaktorbereiche bei und prüft jede Eigenform anhand ihrer eigenen Eigenwertfehlergrenze.",
+    "fr": "Les facteurs de flambement 2D et 3D sont recalculés pour chaque mode sur les matrices originales avec des quotients de Rayleigh compensés. Cela corrige les surestimations du solveur réciproque comme #818. Les appels certifiés refusent toujours les facteurs hors des bornes certifiées. Revérifiez les facteurs, efforts critiques et longueurs efficaces enregistrés. Le calcul pédagogique conserve aussi les modes positifs résolus sur de larges plages de facteurs de charge, en vérifiant chaque mode avec sa propre borne d’erreur de valeur propre.",
+    "tr": "2B ve 3B burkulma katsayıları her mod için özgün matrislerden telafili Rayleigh oranlarıyla yeniden hesaplanır. Bu, #818 gibi ters özdeğer çözücüsünün fazla tahminlerini düzeltir. Sertifikalı çağrılar, doğrulanmış sınırların dışındaki katsayıları reddetmeye devam eder. Kayıtlı katsayıları, kritik çubuk kuvvetlerini ve etkin uzunlukları yeniden kontrol edin. Öğretim amaçlı burkulma, geniş yük katsayısı aralıklarında çözümlenebilen pozitif modları da korur ve her modu kendi özdeğer hata sınırıyla denetler."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-buckling-original-pencil.md",
+    "heading": "Buckling factors use the original stiffness pencil"
+  }
+}

@@ -1,0 +1,7 @@
+### BREAKING (results)
+
+#### Buckling factors use the original stiffness pencil (#818, 2026-11-11)
+
+Recompute every dense and sparse buckling eigenvalue from its mode's compensated Rayleigh quotient on the original stiffness and geometric-stiffness matrices. The shared path covers 2D, 3D, raw, certified and WASM calls. The loaded #741/#818 follow-up now returns 1.20879536047085723 inside its independently checked exact-rational bracket and certifies; its previous 1.2087954149900562 overestimate is still refused when deliberately supplied to the certificate. Certificate bounds and refusal thresholds are unchanged. See [the results-change evidence](../docs/results-changes/2026-11-buckling-original-pencil.md).
+
+Constrained mode finding, residual checks and completeness counts now share compensated reductions of the original pencil. This corrects rotated constrained modes and false refusals on both sides of the sparse cutoff. Teaching buckling keeps valid compressed modes when another candidate has zero or tensile work, and axially rigid teaching models retain original-matrix work. Curved-beam certificates expand interior nodes before rebuilding rigid-link constraints. Native and WASM regressions assert certified status and both requested factors. Unknown saved analysis histories retain the conservative buckling re-check notice, which explains no linear-static quantity changes. The sparse parity golden and arch evidence follow the corrected factors with their existing tolerances.

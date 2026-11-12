@@ -475,10 +475,10 @@ const GOLDEN_BUCKLING_2D: [f64; 4] = [
 ];
 
 const GOLDEN_BUCKLING_3D: [f64; 4] = [
-    4.934802199543485,
-    9.869604403009278,
-    44.41322214877091,
-    88.8264443044682,
+    4.934802200670535,
+    9.86960440134107,
+    44.41322215029449,
+    88.82644430058897,
 ];
 
 #[test]
@@ -506,6 +506,26 @@ fn buckling_3d_sparse_op_parity() {
 
     let result = buckling::solve_buckling_3d(&input, 4).unwrap();
     let actual: Vec<f64> = result.modes.iter().map(|m| m.load_factor).collect();
+    let sys = buckling::buckling_system_3d(&input).unwrap();
+    for mode in &result.modes {
+        use num_rational::BigRational;
+        use num_traits::{Zero,ToPrimitive};
+        let phi = dedaliano_engine::certify::buckling::gather_buckling_mode_3d(&sys,&mode.displacements).unwrap();
+        let work = |m: &CscMatrix| {
+            let r = |v| BigRational::from_float(v).unwrap();
+            let mut sum = BigRational::zero();
+            for j in 0..m.n { for p in m.col_ptr[j]..m.col_ptr[j+1] {
+                let i = m.row_idx[p];
+                let term = r(phi[i])*r(m.values[p])*r(phi[j]);
+                sum += if i==j { term } else { term*BigRational::from_integer(2.into()) };
+            }}
+            sum
+        };
+        let exact = (work(&sys.k_ff)/work(&sys.neg_kg_csc)).to_f64().unwrap();
+        eprintln!("3D sparse exact original-work reference {exact:.17}");
+        assert!((mode.load_factor/exact-1.0).abs()<1e-12);
+    }
+
 
     let pi2 = std::f64::consts::PI * std::f64::consts::PI;
     for (i, &exact) in [pi2 / 2.0, pi2, 9.0 * pi2 / 2.0, 9.0 * pi2].iter().enumerate() {
