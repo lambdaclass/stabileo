@@ -18,6 +18,7 @@ const tr: Translations = {
   "recheck.loadFailed": "Hesap sonuçlarındaki değişiklikler yüklenemedi. Okuduğunuzu onaylamadan önce tekrar deneyin.",
   "recheck.retry": "Tekrar dene",
   "landing.navTools": "Araçlar",
+  "landing.navExamples": "Örnekler",
 
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Görünüm',

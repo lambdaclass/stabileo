@@ -146,7 +146,7 @@ export const hubTranslations: Record<string, Record<string, string>> = {
     "tools.mohr-2d.case": "Rechner für Spannungstransformation und Hauptspannungen im ebenen Zustand",
     "tools.mohr-3d": "Räumlicher Spannungszustand und Mohrsche Kreise",
     "tools.mohr-3d.subtitle": "Hauptspannungen und Hauptrichtungen eines räumlichen Spannungstensors und der Spannungsvektor auf der Ebene, die Sie schneiden: am Element, auf der Kugel aller Ebenen und in den drei Mohrschen Kreisen.",
-    "tools.mohr-3d.case": "Hauptspannungen, Von-Mises-Spannung und die drei Mohrschen Kreise",
+    "tools.mohr-3d.case": "Hauptspannungen, Von Mises und drei Mohrsche Kreise",
     "tools.topic.beams": "Balken und Rahmen",
     "tools.topic.beams.lead": "Durchbiegung, Querkraft und Biegemoment von Balken, Durchlaufträgern, Rahmen und Fachwerken, mit Einflusslinien für Wanderlasten.",
     "tools.topic.stability": "Stabilität und Dynamik",
