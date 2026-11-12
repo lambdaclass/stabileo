@@ -1,3 +1,4 @@
+import stagedHistoryChange from '../../provenance/result-changes/staged-history-forces-unavailable.json';
 import reactionRecoveryChange from '../../provenance/result-changes/arc-length-reactions.json';
 import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 import declaredQuantities from 'virtual:result-change-quantities';
@@ -93,6 +94,43 @@ describe('analysis-scoped reaction quantities (#1952)', () => {
         expect(judge('unchanged static output', before, before, [entry]).kind, path).toBe('same');
       }
     }
+  });
+});
+
+describe('staged history quantity scope (#1952)', () => {
+  it.skip('known wrong result: #1952: staged declarations cannot authorize other analysis collections', () => {
+    const metadata = RESULT_CHANGES.changes.find(c => c.id === stagedHistoryChange.id)!;
+    const exported = { ...metadata, quantities: declaredQuantities[metadata.id] };
+    for (const dimension of ['plane2D', 'space3D']) {
+      for (const structure of ['members', 'shells']) {
+        const features = [dimension, structure, 'analysis:linear', 'analysis:nonlinear', 'analysis:pdelta'];
+        for (const family of ['base', 'case[1]', 'combo[1]', 'envelope.maxAbs', 'pdelta.results', 'nonlinear.results']) {
+          for (const quantity of ['reactions[n1].rz', 'elementForces[e1].mStart', 'constraintForces[0].force', 'plateStresses[e1].sigmaXx', 'quadStresses[e1].sigmaXx', 'quadNodalStresses[0].sigmaXx', 'structuredDiagnostics[0].message', 'displacements[n1].uz']) {
+            const path = `${family}.${quantity}`;
+            expect(fieldCovered(stagedHistoryChange, path, features), path).toBe(false);
+            expect(declaresMove(exported, path), path).toBe(false);
+          }
+        }
+        for (const path of ['stages[0].results.reactions.length', 'stages[1].results.structuredDiagnostics[0].message', 'finalResults.elementForces.length']) {
+          expect(fieldCovered(stagedHistoryChange, path, features), path).toBe(true);
+          expect(fieldCovered(stagedHistoryChange, path, [dimension, 'analysis:linear']), path).toBe(false);
+        }
+      }
+    }
+  });
+
+  it.skip('known wrong result: #1952: staged notices cannot explain fabricated static answers', () => {
+    const metadata = RESULT_CHANGES.changes.find(c => c.id === stagedHistoryChange.id)!;
+    const exported = { ...metadata, quantities: declaredQuantities[metadata.id] };
+    for (const family of ['base', 'case[1]', 'combo[1]', 'envelope.maxAbs']) {
+      for (const quantity of ['reactions[n1].rz', 'elementForces[e1].mStart', 'quadStresses[e1].sigmaXx']) {
+        const path = `${family}.${quantity}`;
+        const before = { 'solve.ok': true, [path]: 1 };
+        expect(judge('changed static result', before, { ...before, [path]: 2 }, [exported]).kind, path).toBe('unexplained');
+        expect(judge('unchanged static result', before, before, [exported]).kind, path).toBe('same');
+      }
+    }
+    expect(judge('linear refusal', { 'solve.ok': true }, { 'solve.ok': false }, [exported]).kind).toBe('unexplained');
   });
 });
 
