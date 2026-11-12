@@ -7,7 +7,13 @@ engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/truss-balance-1969.json', import.meta.url)));
 function assertDisplacements(result, input, dimension) {
   assert.equal(result.displacements.length, Object.keys(input.nodes).length);
-  assert.ok(result.displacements.every(d => Object.values(d).every(v => v === null || Number.isFinite(v))));
+  const fields = dimension === 2 ? ['nodeId', 'ux', 'uz', 'ry'] : ['nodeId', 'ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
+  for (const displacement of result.displacements) {
+    for (const field of fields) {
+      assert.ok(Number.isFinite(displacement[field]), `${dimension}D node ${displacement.nodeId} mandatory ${field} must be finite`);
+    }
+    assert.ok(Object.values(displacement).every(v => v === null || Number.isFinite(v)));
+  }
 }
 
 function equivalentNodal(dimension) {
@@ -44,11 +50,14 @@ for (const dimension of [2, 3]) {
   test(`${dimension}D truss member actions`, () => {
     const reference = engine[`solve_${dimension}d`](equivalentNodal(dimension));
     const result = engine[`solve_${dimension}d`](input);
+    assertDisplacements(reference, input, dimension);
+    assertDisplacements(result, input, dimension);
     assert.deepEqual(result.displacements, reference.displacements);
   });
   test(`${dimension}D nonlinear initial truss member actions`, () => {
     const result = JSON.parse(engine[`solve_pdelta_${dimension}d`](JSON.stringify(input), 1, Number.EPSILON));
-    assert.equal(result.linearResults.displacements.length, Object.keys(input.nodes).length);
+    assertDisplacements(result.linearResults, input, dimension);
+    assertDisplacements(result.results, input, dimension);
   });
 }
 for (const dimension of [2, 3]) {
@@ -58,7 +67,7 @@ for (const dimension of [2, 3]) {
       solver: fixtures[key],
       constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }],
     })));
-    assert.equal(result.displacements.length, Object.keys(fixtures[key].nodes).length);
+    assertDisplacements(result, fixtures[key], dimension);
   });
 }
 
@@ -66,7 +75,7 @@ for (const dimension of [2, 3]) {
   test(`${dimension}D constrained nodal control and existing rounding refusal`, () => {
     const key = dimension === 2 ? 'nodal-1969' : '3d-nodal-1969';
     const input = slaveNode => JSON.stringify({ solver: fixtures[key], constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode, dofs: [0] }] });
-    assert.equal(JSON.parse(engine[`solve_constrained_${dimension}d`](input(2))).displacements.length, Object.keys(fixtures[key].nodes).length);
+    assertDisplacements(JSON.parse(engine[`solve_constrained_${dimension}d`](input(2))), fixtures[key], dimension);
     assert.throws(() => engine[`solve_constrained_${dimension}d`](input(3)));
   });
 }
@@ -86,9 +95,10 @@ for (const dimension of [2, 3]) {
             ? { elementId: 5, p: load.qI, px: load.qJ, a: length/3 }
             : { elementId: 5, px: fixtures['1969'].loads[0].data.qJ, py: load.qYI, pz: load.qZI, a: length/3 } }];
         }
-        assert.equal(engine[`solve_${dimension}d`](input).displacements.length, Object.keys(input.nodes).length);
+        assertDisplacements(engine[`solve_${dimension}d`](input), input, dimension);
         const nonlinear = JSON.parse(engine[`solve_pdelta_${dimension}d`](JSON.stringify(input), 1, Number.EPSILON));
-        assert.equal(nonlinear.linearResults.displacements.length, Object.keys(input.nodes).length);
+        assertDisplacements(nonlinear.linearResults, input, dimension);
+        assertDisplacements(nonlinear.results, input, dimension);
       });
     }
   }
@@ -98,7 +108,7 @@ for (const dimension of [2, 3]) {
   const fields = dimension === 2 ? ['nodeId', 'ux', 'uz', 'ry'] : ['nodeId', 'ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
   for (const field of fields) {
     for (const absent of [false, true]) {
-      test(`${dimension}D mandatory ${field} rejects ${absent ? 'missing' : 'null'}`, { skip: 'known wrong result: #1992' }, () => {
+      test(`${dimension}D mandatory ${field} rejects ${absent ? 'missing' : 'null'}`, () => {
         const input = fixtures[dimension === 2 ? 'nodal-1969' : '3d-nodal-1969'];
         const result = engine[`solve_${dimension}d`](input);
         if (absent) delete result.displacements[0][field];
@@ -107,4 +117,30 @@ for (const dimension of [2, 3]) {
       });
     }
   }
+}
+
+for (const dimension of [2, 3]) {
+  const fields = dimension === 2 ? ['nodeId', 'ux', 'uz', 'ry'] : ['nodeId', 'ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
+  test(`${dimension}D mandatory fields reject nonfinite and nonnumeric values`, () => {
+    const input = fixtures[dimension === 2 ? 'nodal-1969' : '3d-nodal-1969'];
+    const baseline = engine[`solve_${dimension}d`](input);
+    for (const field of fields) {
+      for (const value of [NaN, Infinity, -Infinity, undefined, '0', false]) {
+        const result = structuredClone(baseline);
+        result.displacements[0][field] = value;
+        assert.throws(() => assertDisplacements(result, input, dimension));
+      }
+    }
+  });
+  test(`${dimension}D mandatory fields accept finite zero and signed finite limits`, () => {
+    const input = fixtures[dimension === 2 ? 'nodal-1969' : '3d-nodal-1969'];
+    const baseline = engine[`solve_${dimension}d`](input);
+    for (const field of fields.filter(field => field !== 'nodeId')) {
+      for (const value of [0, -0, Number.MIN_VALUE, -Number.MIN_VALUE, Number.MAX_VALUE, -Number.MAX_VALUE]) {
+        const result = structuredClone(baseline);
+        result.displacements[0][field] = value;
+        assertDisplacements(result, input, dimension);
+      }
+    }
+  });
 }
