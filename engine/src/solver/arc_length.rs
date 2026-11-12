@@ -175,22 +175,34 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
     let asm = assembly::assemble_2d(&input.solver, &dof_num);
     let art = assembly::artificial_stiffness_entries(&asm);
     let its = asm.inclined_transforms_2d;
-    let f_ref: Vec<f64> = asm.f[..nf].to_vec();
+    let f_ref_full = asm.f;
+    let f_ref: Vec<f64> = f_ref_full[..nf].to_vec();
     let (mut u_full, f_start) = match start {
         Some(start) => super::corotational::start_state_2d(&input.solver, start, &dof_num)?,
         None => (vec![0.0; n], vec![0.0; n]),
     };
-    let f_start: Vec<f64> = f_start[..nf].to_vec();
+    let f_start_full = f_start;
+    let f_start: Vec<f64> = f_start_full[..nf].to_vec();
     let u_r_start: Vec<f64> = u_full[nf..].to_vec();
     let du_support = super::linear::prescribed_displacements_2d(&input.solver, &dof_num);
     let moves_supports = du_support.iter().any(|&v| v != 0.0);
-    let f_ref_norm = vec_norm(&f_ref);
-    if f_ref_norm < 1e-15 && !moves_supports {
+    let support_extent: Vec<_> = u_r_start.iter().zip(&du_support)
+        .map(|(a,b)|a.abs()+b.abs()).collect();
+    let metric = super::convergence::EquilibriumMetric::for_2d_with_state(
+        &input.solver, &dof_num, cs.as_ref(), Some(&support_extent), &[],
+    )?;
+    let start_internal = if start.is_some() {
+        super::corotational::continuation_internal_2d(&input.solver, &dof_num, &u_full, &its, &art)
+    } else {
+        vec![0.0; n]
+    };
+    let f_ref_norm = metric.free_norm(&f_ref, cs.as_ref());
+    if f_ref_norm == 0.0 && !moves_supports {
         return Err("Zero reference load".into());
     }
     // The load-factor term of the arc-length constraint, in force² when there
     // is a reference load and in displacement² when only supports move.
-    let psi2 = if f_ref_norm >= 1e-15 { f_ref_norm * f_ref_norm } else { vec_norm(&du_support).powi(2) };
+    let psi2 = if f_ref_norm > 0.0 { vec_norm(&f_ref).powi(2) } else { vec_norm(&du_support).powi(2) };
     let set_supports = |u: &mut [f64], lambda: f64| {
         for (r, (&u0, &du)) in u_r_start.iter().zip(&du_support).enumerate() {
             u[nf + r] = u0 + lambda * du;
@@ -282,18 +294,8 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
             }
 
             // Check convergence on independent (reduced) DOFs
-            let r_check = if let Some(ref cs) = cs {
-                cs.reduce_vector(&residual)
-            } else {
-                residual.clone()
-            };
-            let r_norm = vec_norm(&r_check);
-            let applied: Vec<f64> = (0..nf).map(|i| f_start[i] + lambda * f_ref[i]).collect();
-            let mut f_ext_norm = vec_norm(&applied).max(1e-15);
-            if start.is_some() || moves_supports {
-                f_ext_norm = f_ext_norm.max(vec_norm(&f_int_new[nf..]));
-            }
-            if r_norm / f_ext_norm < input.tolerance {
+            let applied: Vec<f64> = (0..n).map(|i| f_start_full[i] + lambda * f_ref_full[i]).collect();
+            if metric.continuation_residual(&residual,&applied,&u_full[nf..],&f_start_full,&start_internal,cs.as_ref()) < input.tolerance {
                 step_converged = true;
                 break;
             }
@@ -460,6 +462,7 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
 
     // Build constraint system (if constraints present)
     let cs_dc = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_2d(&input.solver, &dof_num, cs_dc.as_ref())?;
     let ns_dc = cs_dc.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // At or above SPARSE_THRESHOLD independent DOFs the tangent is assembled
@@ -507,20 +510,21 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
     let asm = assembly::assemble_2d(&input.solver, &dof_num);
     let art = assembly::artificial_stiffness_entries(&asm);
     let its = asm.inclined_transforms_2d;
-    let f_ref: Vec<f64> = asm.f[..nf].to_vec();
+    let f_ref_full = asm.f;
+    let f_ref: Vec<f64> = f_ref_full[..nf].to_vec();
     let f_ref_s_dc = if let Some(ref cs) = cs_dc {
         cs.reduce_vector(&f_ref)
     } else {
         f_ref.clone()
     };
     // Loop-invariant: f_ref is built once and never mutated.
-    let f_ref_norm = vec_norm(&f_ref);
+    let f_ref_norm = metric.free_norm(&f_ref, cs_dc.as_ref());
     // Same guard `solve_arc_length` applies. Without a reference load the
     // tangent correction du_t is zero, so d_lambda is pinned at zero and the
     // control DOF is never driven anywhere — the solver would burn
     // n_steps * max_iter corotational assemblies to report a failure whose
     // cause was in the input all along.
-    if f_ref_norm < 1e-15 {
+    if f_ref_norm == 0.0 {
         return Err("Zero reference load".into());
     }
 
@@ -575,13 +579,13 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
             // full residual meant no constrained model could ever converge: step 1
             // exhausted max_iter and the whole analysis was truncated after it.
             // `solve_arc_length` has always reduced here.
+            let applied: Vec<f64> = f_ref_full.iter().map(|f| lambda * f).collect();
+            let rel_error = metric.relative_residual(&residual, &applied, None, cs_dc.as_ref());
             let residual_s = if let Some(ref cs) = cs_dc {
                 cs.reduce_vector(&residual)
             } else {
                 residual
             };
-            let r_norm = vec_norm(&residual_s);
-            let f_ext_norm = (lambda.abs() * f_ref_norm).max(1.0);
             // The displacement side is measured RELATIVE to the increment this step
             // asks for. It used to be `disp_error.abs() < tolerance * 10.0`, which
             // compares a displacement in model units against the dimensionless
@@ -592,7 +596,7 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
             // a fabricated equilibrium path from a method whose entire purpose is
             // to trace the real one.
             let disp_ok = disp_error.abs() <= input.tolerance * disp_scale;
-            if r_norm / f_ext_norm < input.tolerance && disp_ok {
+            if rel_error < input.tolerance && disp_ok {
                 step_converged = true;
                 break;
             }
@@ -615,8 +619,9 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
             // Determine δλ from displacement constraint:
             // (u[ctrl] + δu_r[ctrl] + δλ * δu_t[ctrl]) = target_disp
             // δλ = (target_disp - u[ctrl] - δu_r[ctrl]) / δu_t[ctrl]
-            let d_lambda = if du_t[ctrl].abs() > 1e-15 {
-                (disp_error - du_r[ctrl]) / du_t[ctrl]
+            let step = (disp_error - du_r[ctrl]) / du_t[ctrl];
+            let d_lambda = if du_t[ctrl] != 0.0 && step.is_finite() {
+                step
             } else {
                 0.0
             };
@@ -689,7 +694,7 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
 // ==================== Helpers ====================
 
 fn vec_norm(v: &[f64]) -> f64 {
-    v.iter().map(|x| x * x).sum::<f64>().sqrt()
+    v.iter().fold(0.0f64, |norm, v| norm.hypot(*v))
 }
 
 fn dot_product(a: &[f64], b: &[f64]) -> f64 {

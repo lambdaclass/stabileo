@@ -1,0 +1,354 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
+
+engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
+const cases = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+function checkAxial(tip, solver, expected, suppliedAxis) {
+  const node = solver.nodes['2'];
+  const chord = [node.x, node.y ?? 0, node.z];
+  const axis = suppliedAxis ?? chord.map(v => v / Math.hypot(...chord));
+  const u = [tip.ux, tip.uy ?? 0, tip.uz];
+  const axial = u.reduce((sum, v, i) => sum + v * axis[i], 0);
+  assert.ok(Math.abs(axial / expected - 1) < 1e-10, 'signed axial response');
+  assert.ok(Math.hypot(...u.map((v, i) => v - axial * axis[i])) <= 1e-10 * Math.abs(expected), 'transverse response');
+}
+function checkComponents(actual, expected, all) {
+  for (const keys of [['ux', 'uy', 'uz'], ['rx', 'ry', 'rz'], ['warping']]) {
+    const scale = Math.max(0, ...all.flatMap(d => keys.map(k => Math.abs(d[k] ?? 0))));
+    for (const key of keys) {
+      if (typeof expected[key] === 'number') {
+        const value = expected[key];
+        assert.ok(Number.isFinite(actual[key]) && Math.abs(actual[key] - value) <= 1e-10 * (value === 0 ? scale : Math.abs(value)), key);
+      }
+    }
+  }
+}
+function checkArcWitness(result, w) {
+  const base = result.results.displacements.find(d => d.nodeId === 1);
+  const tip = result.results.displacements.find(d => d.nodeId === 2);
+  const ux = tip.ux - base.ux, uz = tip.uz - base.uz;
+  const l0 = Math.hypot(w.dx, w.dz), ln = Math.hypot(w.dx + ux, w.dz + uz);
+  const axial = 1000 * w.e * w.a * (2 * w.dx * ux + 2 * w.dz * uz + ux * ux + uz * uz) / (l0 * (ln + l0));
+  const projected = axial * ((w.dx + ux) * w.tx + (w.dz + uz) * w.tz) / ln;
+  assert.ok(Number.isFinite(result.finalLoadFactor));
+  const freeNormSquared = w.freeDofs.reduce((sum, basis) => {
+    const d = result.results.displacements.find(d => d.nodeId === basis.nodeId);
+    return sum + ['ux', 'uz', 'ry'].reduce((value, key) => value + basis[key] * d[key], 0) ** 2;
+  }, 0);
+  const arcSquared = freeNormSquared + result.finalLoadFactor ** 2 * w.forceNormSquared;
+  const dsSquared = w.ds ** 2;
+  assert.ok(Number.isFinite(dsSquared) && dsSquared > 0);
+  assert.ok(Number.isFinite(arcSquared) && Math.abs(arcSquared - dsSquared) <= 1e-10 * dsSquared, 'prescribed arc-length constraint');
+
+  assert.ok(Math.abs(projected / (result.finalLoadFactor * w.force) - 1) < 1e-10);
+}
+function checkZeroBending(result, fixture) {
+  const solver = fixture.input.solver ?? fixture.input;
+  const expected = Object.values(solver.elements).map(e => e.id).sort((a, b) => a - b);
+  assert.ok(expected.length > 0, 'zero-bending fixture needs elements');
+  assert.deepEqual(result.results.elementForces.map(e => e.elementId).sort((a, b) => a - b), expected, 'element force coverage');
+  for (const force of result.results.elementForces) {
+    for (const key of ['vStart', 'vEnd', 'mStart', 'mEnd']) assert.ok(force[key] === 0, key);
+  }
+}
+for (const fixture of cases.filter(c => c.zeroBending)) {
+  test(`r8 zero bending rejects missing force results ${JSON.stringify(fixture.expectedDisplacements)}`, () => {
+    const result = JSON.parse(invokeCase(fixture));
+    checkZeroBending(result, fixture);
+    for (const mutation of ['missing', 'duplicate', 'unexpected', 'vStart', 'vEnd', 'mStart', 'mEnd']) {
+      const wrong = structuredClone(result);
+      const forces = wrong.results.elementForces;
+      if (mutation === 'missing') forces.length = 0;
+      else if (mutation === 'duplicate') forces.push(structuredClone(forces[0]));
+      else if (mutation === 'unexpected') forces[0].elementId = Number.MAX_SAFE_INTEGER;
+      else forces[0][mutation] = 1;
+      assert.throws(() => checkZeroBending(wrong, fixture), assert.AssertionError, mutation);
+    }
+  });
+}
+function checkExpectedDisplacements(result, fixture) {
+  if (fixture.requireNodeCoverage) {
+    const solver = fixture.input.solver ?? fixture.input;
+    const expectedNodes = Object.values(solver.nodes).map(node => node.id).sort((a, b) => a - b);
+    assert.deepEqual(result.results.displacements.map(d => d.nodeId).sort((a, b) => a - b), expectedNodes, 'displacement node coverage');
+    if (fixture.expectedDisplacements) assert.deepEqual(fixture.expectedDisplacements.map(d => d.nodeId).sort((a, b) => a - b), expectedNodes, 'reference node coverage');
+  }
+  for (const expected of fixture.expectedDisplacements ?? []) {
+    const actual = result.results.displacements.find(d => d.nodeId === expected.nodeId);
+    checkComponents(actual, expected, fixture.expectedDisplacements);
+  }
+}
+for (const fixture of cases.filter(c => c.arcWitness && !c.error)) {
+  test(`r7 arc constraint ${fixture.arcWitness.dx}, ${fixture.arcWitness.dz}`, () => {
+    const result = JSON.parse(invokeCase(fixture));
+    if (!result.converged) return;
+    checkArcWitness(result, fixture.arcWitness);
+    const zero = structuredClone(result);
+    zero.finalLoadFactor = 0;
+    for (const d of zero.results.displacements) {
+      for (const key of ['ux', 'uz', 'ry']) d[key] = 0;
+    }
+    assert.throws(() => checkArcWitness(zero, fixture.arcWitness));
+    for (const ratio of [0.5, 2]) {
+      assert.throws(() => checkArcWitness(result, { ...fixture.arcWitness, ds: fixture.arcWitness.ds * ratio }));
+    }
+  });
+}
+test('r7 displacement checker rejects zero answers and extra nodes', () => {
+  const fixture = { expectedDisplacements: [{ nodeId: 1, ux: 1, uz: 0, ry: 0 }], requireNodeCoverage: true, input: { nodes: { 1: { id: 1 } } } };
+  const result = { results: { displacements: structuredClone(fixture.expectedDisplacements) } };
+  checkExpectedDisplacements(result, fixture);
+  const zero = { results: { displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }] } };
+  assert.throws(() => checkExpectedDisplacements(zero, fixture));
+  for (const nodeId of [1, 2]) {
+    const extra = structuredClone(result);
+    extra.results.displacements.push({ nodeId, ux: 0, uz: 0, ry: 0 });
+    assert.throws(() => checkExpectedDisplacements(extra, fixture));
+  }
+});
+for (const fixture of cases.filter(c => c.requireNodeCoverage && c.expectedDisplacements)) {
+  test(`r7 ${fixture.api} displacement mutations ${JSON.stringify(fixture.expectedDisplacements)}`, () => {
+    const result = JSON.parse(invokeCase(fixture));
+    checkExpectedDisplacements(result, fixture);
+    for (const mutation of ['zero', 'missing', 'duplicate', 'extra', 'reversed', 'spurious-zero']) {
+      const wrong = structuredClone(result);
+      const ds = wrong.results.displacements;
+      if (mutation === 'missing') ds.pop();
+      else if (mutation === 'duplicate') ds.push(structuredClone(ds[0]));
+      else if (mutation === 'extra') ds.push({ ...ds[0], nodeId: Number.MAX_SAFE_INTEGER });
+      else {
+        for (const d of ds) {
+          for (const key of ['ux', 'uy', 'uz', 'rx', 'ry', 'rz']) {
+            if (typeof d[key] === 'number') d[key] = mutation === 'zero' ? 0 : mutation === 'reversed' ? -d[key] : d[key] === 0 ? 1 : d[key];
+          }
+        }
+      }
+      assert.throws(() => checkExpectedDisplacements(wrong, fixture), mutation);
+    }
+  });
+}
+function checkLoadedCantilever(tip, solver, dimension) {
+  const node = solver.nodes['2'];
+  const load = solver.loads[0].data;
+  const length = Math.hypot(node.x, node.y ?? 0, node.z);
+  const compliance = length / (1000 * solver.materials['1'].e * solver.sections['1'].a);
+  const components = [['ux', 'fx'], ['uz', 'fz']];
+  if (dimension === 3) components.push(['uy', 'fy']);
+  const scale = Math.max(...components.map(([, force]) => Math.abs(load[force] * compliance)));
+  for (const [displacement, force] of components) {
+    const expected = load[force] * compliance;
+    const actual = tip[displacement];
+    assert.ok(Number.isFinite(actual) && (expected === 0 ? Math.abs(actual) <= 1e-10 * scale : Math.abs(actual / expected - 1) < 1e-10), `${dimension}D ${displacement} response`);
+  }
+}
+for (const dimension of [2, 3]) {
+  for (const sign of [-1, 1]) {
+    for (const response of ['reversed', 'transverse']) {
+      test(`loaded cantilever rejects ${response} response, ${dimension}D, sign ${sign}`, () => {
+        const solver = {
+          nodes: { 2: { x: 2, y: 0, z: 0 } },
+          loads: [{ data: { fx: sign, fy: 0, fz: 0 } }],
+          materials: { 1: { e: 200000 } },
+          sections: { 1: { a: 0.01 } },
+        };
+        const expected = sign * solver.nodes[2].x / (1000 * solver.materials[1].e * solver.sections[1].a);
+        checkLoadedCantilever({ ux: expected, uy: 0, uz: 0 }, solver, dimension);
+        const tip = response === 'reversed' ? { ux: -expected, uy: 0, uz: 0 } : { ux: 0, uy: 0, uz: expected };
+        assert.throws(() => checkLoadedCantilever(tip, solver, dimension), /response|ux/);
+      });
+    }
+  }
+}
+for (const tip of [{ ux: -1e-20, uz: 0 }, { ux: 0, uz: 1e-20 }]) {
+  assert.throws(() => checkAxial(tip, { nodes: { 2: { x: 1, z: 0 } } }, 1e-20));
+}
+assert.throws(() => checkComponents({ ux: 1e-25, uz: 0 }, { ux: 0, uz: 0 }, [{ ux: 1e-20, uz: 0 }]));
+function invokeCase(test) {
+  const input = JSON.stringify(test.input);
+  if (/^solve_[23]d$/.test(test.api)) return JSON.stringify({ converged: true, results: engine[test.api](test.input) });
+  if (test.api.startsWith('solve_constrained')) return JSON.stringify({ converged: true, results: JSON.parse(engine[test.api](input)) });
+  if (test.api.startsWith('certify_pdelta')) return JSON.stringify(JSON.parse(engine[test.api](input, test.maxIter ?? 1, 1e-10)).results);
+  if (test.api.startsWith('solve_corotational')) return engine[test.api](input, test.maxIter ?? 2, 1e-10, 1);
+  if (test.api.startsWith('solve_pdelta')) return engine[test.api](input, test.maxIter ?? 1, test.tolerance ?? 1e-10);
+  return engine[test.api](input);
+}
+
+function settlementOnlyCase(test, factor) {
+  const baseline = structuredClone(test);
+  if (baseline.api === 'solve_arc_length') {
+    baseline.api = 'solve_corotational_2d';
+    baseline.input = baseline.input.solver;
+  }
+  const solver = baseline.input.solver ?? baseline.input;
+  solver.loads = [];
+  for (const support of Object.values(solver.supports)) {
+    for (const key of ['dx', 'dy', 'dz', 'drx', 'dry', 'drz']) {
+      if (typeof support[key] === 'number') support[key] *= factor;
+    }
+  }
+  return baseline;
+}
+function settlementOnlyResult(fixture, result) {
+  const factor = result.finalLoadFactor ?? 1;
+  if (fixture.settlementDisplacement) {
+    const solver = fixture.input.solver;
+    const support = solver.supports['1'];
+    const { x: dx, z: dz } = solver.nodes['2'];
+    const angle = factor * support.dry;
+    const cosm1 = -2 * Math.sin(angle / 2) ** 2;
+    return { converged: true, results: { displacements: [{ nodeId: 2,
+      ux: factor * support.dx + cosm1 * dx - Math.sin(angle) * dz,
+      uz: factor * support.dz + Math.sin(angle) * dx + cosm1 * dz, ry: angle }] } };
+  }
+  return JSON.parse(invokeCase(settlementOnlyCase(fixture, factor)));
+}
+function checkSettlementResponse(result, baseline, fixture) {
+  const tip = result.results.displacements.find(d => d.nodeId === 2);
+  assert.ok(Math.hypot(tip.ux, tip.uy ?? 0, tip.uz) > 0);
+  if (fixture.settlementControl || fixture.settlementDisplacement) {
+    const factor = result.finalLoadFactor;
+    assert.ok(Number.isFinite(factor) && factor > 0);
+    const baseTip = baseline.results.displacements.find(d => d.nodeId === 2);
+    const expectedValues = fixture.settlementControl ?? fixture.settlementDisplacement;
+    const scale = Math.max(...Object.values(expectedValues).map(Math.abs)) * factor;
+    for (const [key, value] of Object.entries(expectedValues)) {
+      const actual = tip[key] - (fixture.settlementDisplacement ? baseTip[key] : 0);
+      const expected = factor * value;
+      assert.ok(Number.isFinite(actual) && Math.abs(actual - expected) <= 1e-10 * (expected === 0 ? scale : Math.abs(expected)), `signed settlement load response ${key}`);
+    }
+    return;
+  }
+  const reaction = (r, key) => r.results.reactions.filter(r => r.nodeId === 2).reduce((sum, r) => sum + r[key], 0);
+  const factor = result.finalLoadFactor ?? 1;
+  assert.ok(Number.isFinite(factor) && factor > 0);
+  const scale = Math.max(...Object.values(fixture.settlementReaction).map(Math.abs)) * factor;
+  for (const [key, value] of Object.entries(fixture.settlementReaction)) {
+    const expected = value * factor;
+    const actual = reaction(result, key) - reaction(baseline, key);
+    assert.ok(Number.isFinite(actual) && Math.abs(actual - expected) <= 1e-10 * (expected === 0 ? scale : Math.abs(expected)), `signed settlement load response ${key}`);
+  }
+}
+for (const fixture of cases.filter(c => c.settlementResponse && !c.settlementControl)) {
+  test(`settlement response rejects dropping fz: ${fixture.api} ${JSON.stringify(fixture.settlementReaction)}`, () => {
+    const loaded = JSON.parse(invokeCase(fixture));
+    const factor = loaded.finalLoadFactor ?? 1;
+    const baseline = settlementOnlyResult(fixture, loaded);
+    assert.equal(baseline.converged, true);
+    checkSettlementResponse(loaded, baseline, fixture);
+    const dropped = { ...baseline, finalLoadFactor: factor };
+    assert.throws(() => checkSettlementResponse(dropped, baseline, fixture));
+  });
+}
+let checked = 0;
+for (const test of cases) {
+  if (test.api) {
+    const invoke = () => invokeCase(test);
+    if (test.error) { assert.throws(invoke, new RegExp(test.error, 'i')); checked++; continue; }
+    let result;
+    try { result = JSON.parse(invoke()); } catch (error) { if (test.unconvergedOrError || test.allowRefusal) { checked++; continue; } throw error; }
+    if (test.allowRefusal) {
+      if (result.converged) {
+        checkArcWitness(result, test.arcWitness);
+      }
+      checked++; continue;
+    }
+    assert.equal(result.converged, test.unconvergedOrError ? false : test.converged, test.api);
+    if (test.pileCapacity) {
+      const c = test.pileCapacity;
+      const close = (actual, expected) => assert.ok(Number.isFinite(actual) && Math.abs(actual - expected) <= 1e-6 * Math.max(Math.abs(expected), 1e-12), `pile capacity: ${actual} vs ${expected}`);
+      for (const d of result.results.displacements) close(-d[c.displacement], c.delta);
+      close(-result.springResults.slice(0, 11).reduce((sum, s) => sum + s.reaction, 0), c.shaft);
+      close(-result.springResults[11].reaction, c.tip);
+    }
+    if (test.nonzeroTip) {
+      const tip = result.results.displacements.find(d => d.nodeId === 2);
+      assert.ok(Math.hypot(tip.ux, tip.uy ?? 0, tip.uz) > 0);
+    }
+    if (test.zeroBending) checkZeroBending(result, test);
+    if (test.settlementResponse) {
+      const baseline = settlementOnlyResult(test, result);
+      assert.equal(baseline.converged, true);
+      checkSettlementResponse(result, baseline, test);
+    }
+    checkExpectedDisplacements(result, test);
+    if (test.expectedControl !== undefined) {
+      const tip = result.results.displacements.find(d => d.nodeId === 2);
+      assert.ok(Math.abs(tip.ux / test.expectedControl - 1) < 1e-10, 'signed controlled displacement');
+    }
+    for (const [i, expected] of (test.expectedAppliedSum ?? []).entries()) {
+      if (expected !== null) assert.equal(result.results.equilibrium.appliedForceSum[i], expected);
+    }
+    if (test.soilBalance !== undefined) {
+      const key = test.api === 'solve_ssi_2d' ? 'rz' : ['fx', 'fy', 'fz'][test.balanceDirection];
+      const reaction = result.results.reactions.reduce((sum, r) => sum + r[key], 0);
+      const soil = result.springResults.reduce((sum, r) => sum + r.reaction, 0);
+      assert.ok(Math.abs((reaction - soil) / -test.soilBalance - 1) < 1e-10, `${test.api} soil reaction balance`);
+    }
+    checked++; continue;
+  }
+  const dimension = test.dimension;
+  const maxIter = test.converged ? 100 : 1;
+  const solver = test.solver;
+  const text = JSON.stringify(solver);
+  const fiberSections = {};
+  for (const section of Object.values(solver.sections)) {
+    const h = Math.sqrt(12 * section.iz / section.a);
+    const b = dimension === 2 ? section.a / h : Math.sqrt(12 * section.iy / section.a);
+    const fibers = [];
+    if (dimension === 2) {
+      for (let i = 0; i < 40; i++) {
+        fibers.push({ y: -h / 2 + (i + 0.5) * h / 40, z: 0, area: b * h / 40, materialIdx: 0 });
+      }
+    } else {
+      for (const y of [-1, 1]) {
+        for (const z of [-1, 1]) {
+          fibers.push({ y: y * Math.sqrt(section.iz / section.a), z: z * Math.sqrt(section.iy / section.a), area: section.a / 4, materialIdx: 0 });
+        }
+      }
+    }
+    fiberSections[section.id] = { fibers, materials: [{ type: 'elastic', e: solver.materials['1'].e }] };
+  }
+  const fiberInput = { solver, fiberSections, nIntegrationPoints: 5, maxIter, tolerance: 1e-10, nIncrements: 1, modifiedNr: false };
+  const certificate = JSON.parse(engine[`certify_pdelta_${dimension}d`](text, maxIter, 1e-12));
+  assert.equal(certificate.results.converged, test.converged, `${test.name}, certified ${dimension}D`);
+  checked++;
+  const results = [
+    engine[`solve_pdelta_${dimension}d`](text, maxIter, 1e-12),
+    engine[`solve_corotational_${dimension}d`](text, maxIter, 1e-10, 1),
+    engine[`solve_fiber_nonlinear_${dimension}d`](JSON.stringify(fiberInput)),
+    engine[`solve_nonlinear_material_${dimension}d`](JSON.stringify({ solver, materialModels: {}, sectionCapacities: {}, maxIter, tolerance: 1e-10, nIncrements: 1 })),
+  ].map(JSON.parse);
+  if (test.name === 'rotated resolved axial beside support load' && dimension === 2) {
+    const expected = test.expectedAxialDisplacement;
+    const length = Math.hypot(solver.nodes['2'].x, solver.nodes['2'].z);
+    const force = expected * 1000 * solver.materials['1'].e * solver.sections['1'].a / length;
+    const ds = Math.hypot(force, expected) / 10;
+    const arc = JSON.parse(engine.solve_arc_length(JSON.stringify({ solver, maxSteps: 1, maxIter: 100, tolerance: 1e-10, initialDs: ds, minDs: ds, maxDs: ds, targetIter: 4 })));
+    assert.equal(arc.converged, true);
+    assert.ok(Math.abs(arc.finalLoadFactor / 0.1 - 1) < 1e-10);
+    const tip = arc.results.displacements.find(d => d.nodeId === 2);
+    checkAxial(tip, solver, expected * 0.1);
+    assert.throws(() => engine.solve_displacement_control(JSON.stringify({ solver, controlNode: 2, controlDof: 0, targetDisplacement: expected, nSteps: 2, maxIter: 100, tolerance: 1e-10 })), /inclined/i);
+    checked += 2;
+  }
+  if (test.expectedAxialDisplacement !== undefined) {
+    const result = engine[`solve_${dimension}d`](solver);
+    results.push({ converged: true, results: result });
+  }
+  for (const result of results) {
+    assert.equal(result.converged, test.converged, `${test.name}, ${dimension}D`);
+    if (test.expectedAxialDisplacement !== undefined) {
+      const tip = result.results.displacements.find((d) => d.nodeId === 2);
+      checkAxial(tip, solver, test.expectedAxialDisplacement, test.expectedAxis);
+    }
+    checkExpectedDisplacements(result, test);
+    if (test.name === 'loaded cantilever' && test.converged) {
+      const tip = result.results.displacements.find((d) => d.nodeId === 2);
+      checkLoadedCantilever(tip, solver, dimension);
+    }
+    checked++;
+  }
+}
+console.log(`${checked} nonlinear WASM convergence and refusal checks passed`);
