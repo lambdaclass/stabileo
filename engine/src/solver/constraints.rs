@@ -1553,56 +1553,8 @@ fn solve_constrained_2d_dense_validated(
     let asm = assembly::without_artificial_stiffness(|| assembly::assemble_2d(&input.solver, &dof_num));
 
     // Build prescribed displacements
-    let mut u_r = vec![0.0; nr];
-    for sup in crate::ordered::values(&input.solver.supports) {
-        if sup.support_type == "spring" { continue; }
+    let u_r = linear::prescribed_displacements_2d(&input.solver,dof_num);
 
-        if sup.support_type == "inclinedRoller" {
-            // Prescribed translations are given in GLOBAL coords; the
-            // restrained inclined DOF (local_dof 1) is the normal direction.
-            // Rotate into the inclined frame, mirroring prepare_static_2d.
-            if let Some(theta) = sup.angle {
-                let [s, c] = super::assembly::inclined_rotation_matrix_2d(theta)[1];
-                let u_normal = sup.dx.unwrap_or(0.0) * s + sup.dz.unwrap_or(0.0) * c;
-                if u_normal.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                        if d >= nf { u_r[d - nf] = u_normal; }
-                    }
-                }
-            } else {
-                if let Some(v) = sup.dz {
-                    if v.abs() > 1e-15 {
-                        if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                            if d >= nf { u_r[d - nf] = v; }
-                        }
-                    }
-                }
-            }
-            if let Some(v) = sup.dry {
-                if v.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                        if d >= nf { u_r[d - nf] = v; }
-                    }
-                }
-            }
-            continue;
-        }
-
-        let prescribed: [(usize, Option<f64>); 3] = [
-            (0, sup.dx), (1, sup.dz), (2, sup.dry),
-        ];
-        for &(local_dof, val) in &prescribed {
-            if let Some(v) = val {
-                if v.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
-                        if d >= nf { u_r[d - nf] = v; }
-                    }
-                }
-            }
-        }
-    }
-
-    // Pre-solve constraint validation
     let mut constraint_diags = validate_constraints(
         &input.constraints, &dof_num,
         Some(&input.solver.nodes), None,
@@ -1861,45 +1813,7 @@ pub(super) fn solve_constrained_2d_sparse(
     let f = assembly::assemble_load_vector_2d(&input.solver, &input.solver.loads, dof_num, &stiff.inclined_transforms_2d);
 
     // Prescribed displacements (same construction as the dense path).
-    let mut u_r = vec![0.0; nr];
-    for sup in crate::ordered::values(&input.solver.supports) {
-        if sup.support_type == "spring" { continue; }
-        if sup.support_type == "inclinedRoller" {
-            if let Some(theta) = sup.angle {
-                let [sn, c] = super::assembly::inclined_rotation_matrix_2d(theta)[1];
-                let u_normal = sup.dx.unwrap_or(0.0) * sn + sup.dz.unwrap_or(0.0) * c;
-                if u_normal.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                        if d >= nf { u_r[d - nf] = u_normal; }
-                    }
-                }
-            } else if let Some(v) = sup.dz {
-                if v.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                        if d >= nf { u_r[d - nf] = v; }
-                    }
-                }
-            }
-            if let Some(v) = sup.dry {
-                if v.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                        if d >= nf { u_r[d - nf] = v; }
-                    }
-                }
-            }
-            continue;
-        }
-        let prescribed: [(usize, Option<f64>); 3] = [(0, sup.dx), (1, sup.dz), (2, sup.dry)];
-        for &(local_dof, val) in &prescribed {
-            if let Some(v) = val {
-                if v.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
-                        if d >= nf { u_r[d - nf] = v; }
-                    }
-                }
-            }
-        }
-    }
+    let u_r = linear::prescribed_displacements_2d(&input.solver,dof_num);
 
     let mut constraint_diags = validate_constraints(
         &input.constraints, dof_num,
@@ -2133,50 +2047,8 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     let k_ff = &sasm.k_ff;
 
     // Build prescribed displacements
-    let mut u_r = vec![0.0; nr];
-    for sup in crate::ordered::values(&input.solver.supports) {
-        // Inclined supports: prescribed translations are given in GLOBAL
-        // coords; the restrained inclined DOF (local_dof 0) is the normal
-        // direction in the rotated frame. Project onto the normal —
-        // mirroring prepare_static_3d.
-        if sup.is_inclined.unwrap_or(false) {
-            if let (Some(nx), Some(ny), Some(nz)) = (sup.normal_x, sup.normal_y, sup.normal_z) {
-                let n_len = (nx * nx + ny * ny + nz * nz).sqrt();
-                if n_len > 1e-12 {
-                    let u_normal = (nx * sup.dx.unwrap_or(0.0)
-                        + ny * sup.dy.unwrap_or(0.0)
-                        + nz * sup.dz.unwrap_or(0.0)) / n_len;
-                    if u_normal.abs() > 1e-15 {
-                        if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                            if d >= nf { u_r[d - nf] = u_normal; }
-                        }
-                    }
-                    for (i, pd) in [sup.drx, sup.dry, sup.drz].iter().enumerate() {
-                        if let Some(val) = pd {
-                            if val.abs() > 1e-15 {
-                                if let Some(&d) = dof_num.map.get(&(sup.node_id, 3 + i)) {
-                                    if d >= nf { u_r[d - nf] = *val; }
-                                }
-                            }
-                        }
-                    }
-                    continue;
-                }
-            }
-        }
-        let prescribed = [sup.dx, sup.dy, sup.dz, sup.drx, sup.dry, sup.drz];
-        for (i, pd) in prescribed.iter().enumerate() {
-            if let Some(val) = pd {
-                if val.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
-                        if d >= nf { u_r[d - nf] = *val; }
-                    }
-                }
-            }
-        }
-    }
+    let u_r = linear::prescribed_displacements_3d(&input.solver,&dof_num);
 
-    // Pre-solve constraint validation
     let mut constraint_diags = validate_constraints(
         &input.constraints, &dof_num,
         None, Some(&input.solver.nodes),

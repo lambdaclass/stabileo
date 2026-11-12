@@ -152,15 +152,12 @@ pub const EXPECTED: &[Expected] = &[
     xrefused(20754, "fuzz_rich_2d/20843", "plastic collapse", "rotation", 758),
     xrefused(20754, "fuzz_rich_2d/20843", "plastic collapse", "units", 758),
     xfail(20754, "feature_matrix/3d-curved-beam-arch-with", "plastic collapse", "rotation", 758),
-    xfail(20754, "fuzz_rich_2d/20772-rigid-control", "P-Delta", "units", 971),
     xrefused(20261105, "fuzz_rich_2d/20832", "plastic collapse", "reversal", 758),
     xrefused(20261105, "fuzz_rich_2d/20843", "plastic collapse", "relabel", 758),
     xrefused(20261105, "fuzz_rich_2d/20843", "plastic collapse", "reversal", 758),
     xrefused(20261105, "fuzz_rich_2d/20843", "plastic collapse", "rotation", 758),
     xrefused(20261105, "fuzz_rich_2d/20843", "plastic collapse", "units", 758),
     xfail(20261105, "feature_matrix/3d-curved-beam-arch-with", "plastic collapse", "rotation", 758),
-    xfail(20261105, "fuzz_rich_2d/20772-rigid-control", "P-Delta", "units", 971),
-    xfail(20261105, "feature_matrix/3d-local-axes--roll-angle--rolled-90--with", "corotational", "rotation", 971),
 ];
 
 fn fixture(name: &str) -> Model {
@@ -493,7 +490,10 @@ fn issue_1780_pdelta_units_expectations_match_current_outcomes() {
     let problems = judge(&sel, &out, EXPECTED);
     assert!(problems.is_empty(), "{}", problems.join("\n"));
     for seed in SEEDS {
-        assert!(EXPECTED.iter().any(|e| e.seed == *seed && e.case == "fuzz_rich_2d/20772-rigid-control" && e.analysis == "P-Delta" && e.invariant == "units" && e.issue == 971 && !e.refused));
+        let key = format!("{seed}:fuzz_rich_2d/20772-rigid-control");
+        for invariant in ["rotation", "units"] {
+            assert!(out.passed.contains(&(key.clone(), "P-Delta".into(), invariant.into())), "{key}: {invariant} did not complete a comparison");
+        }
     }
 }
 

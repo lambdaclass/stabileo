@@ -1,0 +1,45 @@
+{
+  "id": "merged-path-convergence-state",
+  "date": "2026-11-12",
+  "prs": [
+    1952
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members"
+      ],
+      [
+        "pathAnalysis"
+      ],
+      [
+        "analysis:nonlinear"
+      ]
+    ]
+  },
+  "quantities": [
+    "nonlinear.displacements",
+    "nonlinear.steps"
+  ],
+  "title": {
+    "en": "Path states include the merged convergence corrections",
+    "es": "Las trayectorias incluyen las correcciones de convergencia",
+    "pt": "As trajetórias incluem as correções de convergência",
+    "de": "Pfadzustände enthalten die Konvergenzkorrekturen",
+    "fr": "Les trajectoires intègrent les corrections de convergence",
+    "tr": "Yol durumları yakınsama düzeltmelerini içerir"
+  },
+  "explanation": {
+    "en": "Merged nonlinear chord arithmetic and convergence checks change path displacements and intermediate history at floating-point precision. Re-run saved arc-length and displacement-control analyses (#1952, #1940).",
+    "es": "La aritmética de la cuerda y las comprobaciones de convergencia cambian desplazamientos e historia a precisión de coma flotante. Repita los análisis guardados de longitud de arco y control de desplazamiento (#1952, #1940).",
+    "pt": "A aritmética da corda e as verificações de convergência alteram deslocamentos e histórico na precisão de ponto flutuante. Refaça as análises salvas de comprimento de arco e controle de deslocamento (#1952, #1940).",
+    "de": "Sehnenarithmetik und Konvergenzprüfungen ändern Verschiebungen und Verlauf innerhalb der Gleitkommagenauigkeit. Gespeicherte Bogenlängen- und Verschiebungsanalysen erneut ausführen (#1952, #1940).",
+    "fr": "L’arithmétique de la corde et les contrôles de convergence modifient déplacements et historique à la précision flottante. Relancer les analyses enregistrées de longueur d’arc et de contrôle en déplacement (#1952, #1940).",
+    "tr": "Kiriş aritmetiği ve yakınsama denetimleri yer değiştirmeleri ve geçmişi kayan nokta hassasiyetinde değiştirir. Kaydedilmiş yay uzunluğu ve yer değiştirme kontrollü analizleri yeniden çalıştırın (#1952, #1940)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-merged-nonlinear-recovery.md",
+    "heading": "Merged nonlinear convergence and physical reaction recovery (2026-11-12)"
+  }
+}

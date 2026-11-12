@@ -838,17 +838,17 @@ fn validation_staged_6_self_weight() {
     assert_close(s1_uy2, ref_uy2, REL_TOL,
         "Stage 1 tip deflection matches 3m cantilever");
 
-    // After stage 2, element 1 forces should be different from stage 1
-    // because the extension's self-weight adds moment/shear to element 1.
-    let s2_ef1 = results.stages[1].results.element_forces.iter()
-        .find(|ef| ef.element_id == 1).unwrap();
-
-    // The fixed-end moment should increase (more negative) due to extension weight.
-    assert!(
-        s2_ef1.m_start.abs() > s1_ef1.m_start.abs(),
-        "Extension self-weight should increase fixed-end moment: stage1={:.4}, stage2={:.4}",
-        s1_ef1.m_start, s2_ef1.m_start
-    );
+    for result in [&results.stages[1].results, &results.final_results] {
+        for phase in ["stageResults", "reactions", "elementForces", "constraintForces"] {
+            assert!(result.structured_diagnostics.iter().any(|d|
+                d.code == DiagnosticCode::ResultQuantityUnavailable
+                    && d.phase.as_deref() == Some(phase)
+                    && d.severity == Severity::Warning));
+        }
+        assert!(result.reactions.is_empty());
+        assert!(result.element_forces.is_empty());
+        assert!(result.constraint_forces.is_empty());
+    }
 
     // Tip deflection at node 2 should also increase after extension.
     let s2_uy2 = results.stages[1].results.displacements.iter()

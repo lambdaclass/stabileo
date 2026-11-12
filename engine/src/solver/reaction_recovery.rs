@@ -426,23 +426,34 @@ impl PhysicalForces {
         self
     }
 
-    pub(super) fn with_soil<T: super::assembly::InclinedFrame>(
-        self,
-        springs: &[super::ssi::SoilSpring],
-        spring_k: &[f64],
+    pub(super) fn ssi_2d(
+        input: &SolverInput,
         dofs: &DofNumbering,
-        its: &[T],
-        u: &[f64],
-    ) -> Self {
-        Self(super::ssi::residual(
-            self.0,
-            springs,
-            spring_k,
-            dofs,
-            its,
-            u,
-            &vec![0.0; dofs.n_total],
-        ))
+        u_frame: &[f64],
+        springs: &[super::ssi::SoilSpring],
+        its: &[InclinedTransformData2D],
+        u_global: &[f64],
+    ) -> Result<Self, String> {
+        let a = super::assembly::physical_stiffness(|| {
+            super::sparse_assembly::assemble_stiffness_sparse_2d(input, dofs)
+        });
+        let balance = super::equilibrium::sparse_balance(&a.k_full, &vec![0.0; dofs.n_total], u_frame);
+        Ok(Self(super::ssi::residual(balance, springs, dofs, its, u_global)?))
+    }
+
+    pub(super) fn ssi_3d(
+        input: &SolverInput3D,
+        dofs: &DofNumbering,
+        u_frame: &[f64],
+        springs: &[super::ssi::SoilSpring],
+        its: &[InclinedTransformData],
+        u_global: &[f64],
+    ) -> Result<Self, String> {
+        let a = super::assembly::physical_stiffness(|| {
+            super::assembly::assemble_stiffness_sparse_3d(input, dofs, true)
+        });
+        let balance = super::equilibrium::sparse_balance(a.k_full.as_ref().unwrap(), &vec![0.0; dofs.n_total], u_frame);
+        Ok(Self(super::ssi::residual(balance, springs, dofs, its, u_global)?))
     }
 
     pub(super) fn with_cables_2d(

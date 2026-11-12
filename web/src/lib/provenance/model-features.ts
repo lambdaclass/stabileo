@@ -278,5 +278,6 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (s.dynamics?.timeHistory) f.add('analysis:timeHistory');
     if ((s.dynamics?.spectra?.length ?? 0) > 0 || cases.some((c) => c.spectral)) { f.add('analysis:spectral'); f.add('analysis:modal'); }
   }
+  if (is3DWorkspace(mode) && supports.some((sp) => !!sp.curves)) f.add('analysis:ssi');
   return f;
 }

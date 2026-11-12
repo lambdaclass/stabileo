@@ -6,8 +6,8 @@
   "engineBuild": {
     "main": "make wasm with origin/main production sources temporarily substituted in this worktree; STABILEO_GIT_COMMIT set to originMain; sources and original WASM restored in finally",
     "mainWasmSha256": "33fef82618cd15294a5dfc133d99c3f3b1df97662a0bd421ba322f0217d9499b",
-    "fixed": "make wasm from the final round 9 engine sources; re-run every recorded exact argument using scripts/helpers/arc-evidence-equilibrium.mjs --update",
-    "fixedWasmSha256": "0e8185991eb3c9e22309449788ecb6b12ae5f7d97a9adc279c5df0f9449d4ef3"
+    "fixed": "make wasm from the merged #1952 and #1940 engine sources; every recorded exact method and argument rerun with regenerateAfterResults from scripts/helpers/arc-evidence-equilibrium.mjs. Original before results are unchanged.",
+    "fixedWasmSha256": "012ad75419ca6435572872facdd859b96809af656a741ccba5b1e6f283cdff54"
   },
   "scope": [
     "WASM records contain exact positional arguments and selected returned fields. All warning/diagnostic fields throughout each response are retained in notices, including empty arrays. Unlisted output fields are not claimed equal.",
@@ -625,10 +625,10 @@
             "elementId": 1,
             "nStart": -2530.813415833356,
             "nEnd": -2530.813415833356,
-            "vStart": 0.009120538867785025,
-            "vEnd": 0.009120538867785025,
-            "mStart": 1.662558979376172e-14,
-            "mEnd": -0.03246844698606487,
+            "vStart": 0.00912053886778505,
+            "vEnd": 0.00912053886778505,
+            "mStart": 1.6653345369377348e-14,
+            "mEnd": -0.03246844698606492,
             "length": 3.5599263877668927,
             "qI": 0,
             "qJ": 0,
@@ -641,10 +641,10 @@
             "elementId": 2,
             "nStart": -2530.813415833356,
             "nEnd": -2530.813415833356,
-            "vStart": -0.009120538867785025,
-            "vEnd": -0.009120538867785025,
-            "mStart": -0.03246844698606487,
-            "mEnd": 1.662558979376172e-14,
+            "vStart": -0.009120538867785043,
+            "vEnd": -0.009120538867785043,
+            "mStart": -0.03246844698606491,
+            "mEnd": 1.664640647547344e-14,
             "length": 3.5599263877668927,
             "qI": 0,
             "qJ": 0,
@@ -659,19 +659,19 @@
             "nodeId": 1,
             "ux": 0,
             "uz": 0,
-            "ry": -0.029266662610720286
+            "ry": -0.029266662610720307
           },
           {
             "nodeId": 2,
-            "ux": -2.1781227534358095e-23,
+            "ux": 9.865035498961922e-24,
             "uz": -0.08347296227811164,
-            "ry": -1.9474886438699535e-19
+            "ry": 3.323379214803758e-18
           },
           {
             "nodeId": 3,
             "ux": 0,
             "uz": 0,
-            "ry": 0.029266662610720286
+            "ry": 0.029266662610720307
           }
         ],
         "notices": []
@@ -1108,25 +1108,25 @@
       },
       "after": {
         "converged": true,
-        "finalLoadFactor": 1.1111131481603436,
+        "finalLoadFactor": 1.1111131481603433,
         "reactions": [
           {
             "nodeId": 0,
-            "rx": -1.9171164657385392e-13,
-            "rz": 11.111131481526856,
-            "my": 33.33334845680921
+            "rx": -1.9170028220776195e-13,
+            "rz": 11.111131481526865,
+            "my": 33.33334845680922
           },
           {
             "nodeId": 1000,
             "rx": 0,
-            "rz": 19.42801915727771,
-            "my": 9.79014140545725
+            "rz": 19.428019157277706,
+            "my": 9.790141405457245
           },
           {
             "nodeId": 1001,
             "rx": 0,
-            "rz": 11.683148991211908,
-            "my": -7.061741341641294
+            "rz": 11.683148991211905,
+            "my": -7.061741341641293
           }
         ],
         "elementForces": [
@@ -1134,10 +1134,10 @@
             "elementId": 1,
             "nStart": 0.01851855229793475,
             "nEnd": 0.01851855229793475,
-            "vStart": 11.111116049389368,
-            "vEnd": 11.111116049389368,
-            "mStart": 33.33334845680921,
-            "mEnd": -1.566746732351021e-12,
+            "vStart": 11.111116049389373,
+            "vEnd": 11.111116049389373,
+            "mStart": 33.33334845680922,
+            "mEnd": -1.580957587066223e-12,
             "length": 3.0000000277778285,
             "qI": 0,
             "qJ": 0,
@@ -1150,23 +1150,23 @@
             "elementId": 1000,
             "nStart": 0,
             "nEnd": 0,
-            "vStart": 19.42801915727771,
-            "vEnd": -11.683148991211908,
-            "mStart": 9.79014140545725,
-            "mEnd": 7.061741341641294,
+            "vStart": 19.428019157277706,
+            "vEnd": -11.683148991211905,
+            "mStart": 9.790141405457245,
+            "mEnd": 7.061741341641293,
             "length": 3,
-            "qI": -11.111131481603437,
-            "qJ": -4.444452592641374,
+            "qI": -11.111131481603433,
+            "qJ": -4.444452592641373,
             "pointLoads": [
               {
                 "a": 1,
-                "p": -7.7777920371224045
+                "p": -7.777792037122404
               }
             ],
             "distributedLoads": [
               {
-                "qI": -11.111131481603437,
-                "qJ": -4.444452592641374,
+                "qI": -11.111131481603433,
+                "qJ": -4.444452592641373,
                 "a": 0,
                 "b": 3
               }
@@ -1186,7 +1186,7 @@
             "nodeId": 1,
             "ux": -0.000004138891693161905,
             "uz": -0.005,
-            "ry": -0.002500001134260573
+            "ry": -0.0025000011342605727
           },
           {
             "nodeId": 1000,
@@ -2057,8 +2057,8 @@
           {
             "nodeId": 0,
             "rx": -2.99999999999991,
-            "rz": 20.000000000383228,
-            "my": 27.999966476238626
+            "rz": 20.000000000383242,
+            "my": 27.999966476238647
           }
         ],
         "constraintForces": [
@@ -2083,10 +2083,10 @@
             "elementId": 1,
             "nStart": 0.014999977613625511,
             "nEnd": 0.014999977613625511,
-            "vStart": 9.99998875041048,
-            "vEnd": 9.99998875041048,
-            "mStart": 29.999966476238626,
-            "mEnd": 7.773337529215496e-12,
+            "vStart": 9.999988750410493,
+            "vEnd": 9.999988750410493,
+            "mStart": 29.999966476238647,
+            "mEnd": 7.755573960821494e-12,
             "length": 3.0000000224999663,
             "qI": 0,
             "qJ": 0,
@@ -2465,8 +2465,8 @@
           {
             "nodeId": 0,
             "rx": -3,
-            "rz": 19.999999999999993,
-            "my": 27.999999999999993
+            "rz": 20.000000000000004,
+            "my": 28.00000000000001
           }
         ],
         "constraintForces": [
@@ -2491,9 +2491,9 @@
             "elementId": 1,
             "nStart": 0,
             "nEnd": 0,
-            "vStart": 9.999999999999993,
-            "vEnd": 9.999999999999993,
-            "mStart": 29.999999999999993,
+            "vStart": 10.000000000000004,
+            "vEnd": 10.000000000000004,
+            "mStart": 30.00000000000001,
             "mEnd": 0,
             "length": 3,
             "qI": 0,
@@ -2514,8 +2514,8 @@
           {
             "nodeId": 1,
             "ux": 0,
-            "uz": -0.004499999999999999,
-            "ry": -0.0022499999999999994
+            "uz": -0.004500000000000001,
+            "ry": -0.0022500000000000007
           },
           {
             "nodeId": 2,
@@ -2525,7 +2525,7 @@
           }
         ],
         "equilibrium": {
-          "relativeResidual": 7.105427357601002e-16,
+          "relativeResidual": 3.552713678800501e-16,
           "residualOk": true,
           "appliedForceSum": [
             3,
@@ -2534,10 +2534,10 @@
           ],
           "reactionForceSum": [
             -3,
-            19.999999999999993,
+            20.000000000000004,
             -1.9932499999999962
           ],
-          "maxImbalance": 7.105427357601002e-15,
+          "maxImbalance": 3.552713678800501e-15,
           "equilibriumOk": true
         },
         "notices": [
@@ -3015,8 +3015,8 @@
           {
             "nodeId": 0,
             "rx": -3,
-            "rz": 19.999999999999993,
-            "my": 27.999999999999993
+            "rz": 20,
+            "my": 28.00000000000001
           }
         ],
         "constraintForces": [
@@ -3041,9 +3041,9 @@
             "elementId": 1,
             "nStart": 0,
             "nEnd": 0,
-            "vStart": 9.999999999999993,
-            "vEnd": 9.999999999999993,
-            "mStart": 29.999999999999993,
+            "vStart": 10.000000000000004,
+            "vEnd": 10.000000000000004,
+            "mStart": 30.00000000000001,
             "mEnd": 0,
             "length": 3,
             "qI": 0,
@@ -3064,8 +3064,8 @@
           {
             "nodeId": 1,
             "ux": 0,
-            "uz": -0.004499999999999999,
-            "ry": -0.0022499999999999994
+            "uz": -0.004500000000000001,
+            "ry": -0.0022500000000000007
           },
           {
             "nodeId": 2,
@@ -4690,7 +4690,7 @@
             "fy": 0,
             "fz": 20.000000000006665,
             "mx": 0,
-            "my": -31.999966475084253,
+            "my": -31.99996647508425,
             "mz": 0
           }
         ],
@@ -4719,12 +4719,12 @@
             "nEnd": 0.01499998177541156,
             "vyStart": 0,
             "vyEnd": 0,
-            "vzStart": 9.999988750027676,
-            "vzEnd": 9.999988750027676,
+            "vzStart": 9.999988750027672,
+            "vzEnd": 9.999988750027672,
             "mxStart": 0,
             "mxEnd": 0,
-            "myStart": -29.999966475084253,
-            "myEnd": -1.751487843648647e-12,
+            "myStart": -29.99996647508425,
+            "myEnd": -1.758593271006248e-12,
             "mzStart": 0,
             "mzEnd": 0,
             "releaseMyStart": false,
@@ -4755,11 +4755,11 @@
           },
           {
             "nodeId": 1,
-            "ux": -0.0000033524918767380345,
+            "ux": -0.0000033524918767380357,
             "uy": 0,
-            "uz": -0.004499993317518524,
+            "uz": -0.004499993317518525,
             "rx": 0,
-            "ry": 0.00224999748563145,
+            "ry": 0.0022499974856314505,
             "rz": 0
           },
           {
@@ -5242,9 +5242,9 @@
             "nodeId": 0,
             "fx": -3,
             "fy": 0,
-            "fz": 19.999999999999993,
+            "fz": 20.000000000000004,
             "mx": 0,
-            "my": -31.999999999999993,
+            "my": -32.000000000000014,
             "mz": 0
           }
         ],
@@ -5273,11 +5273,11 @@
             "nEnd": 0,
             "vyStart": 0,
             "vyEnd": 0,
-            "vzStart": 9.999999999999993,
-            "vzEnd": 9.999999999999993,
+            "vzStart": 10.000000000000004,
+            "vzEnd": 10.000000000000004,
             "mxStart": 0,
             "mxEnd": 0,
-            "myStart": -29.999999999999993,
+            "myStart": -30.00000000000001,
             "myEnd": 0,
             "mzStart": 0,
             "mzEnd": 0,
@@ -5311,9 +5311,9 @@
             "nodeId": 1,
             "ux": 0,
             "uy": 0,
-            "uz": -0.004499999999999999,
+            "uz": -0.004500000000000001,
             "rx": 0,
-            "ry": 0.0022499999999999994,
+            "ry": 0.0022500000000000007,
             "rz": 0
           },
           {
@@ -5327,7 +5327,7 @@
           }
         ],
         "equilibrium": {
-          "relativeResidual": 7.105427357601002e-16,
+          "relativeResidual": 3.552713678800501e-16,
           "residualOk": true,
           "appliedForceSum": [
             3,
@@ -5340,12 +5340,12 @@
           "reactionForceSum": [
             -3,
             0,
-            19.999999999999993,
+            20.000000000000004,
             0,
-            -2.006750000000004,
+            -2.0067500000000074,
             0
           ],
-          "maxImbalance": 7.105427357601002e-15,
+          "maxImbalance": 3.552713678800501e-15,
           "equilibriumOk": true
         },
         "notices": [
@@ -5925,9 +5925,9 @@
             "nodeId": 0,
             "fx": -3,
             "fy": 0,
-            "fz": 19.999999999999993,
+            "fz": 20,
             "mx": 0,
-            "my": -31.999999999999993,
+            "my": -32.000000000000014,
             "mz": 0
           }
         ],
@@ -5956,11 +5956,11 @@
             "nEnd": 0,
             "vyStart": 0,
             "vyEnd": 0,
-            "vzStart": 9.999999999999993,
-            "vzEnd": 9.999999999999993,
+            "vzStart": 10.000000000000004,
+            "vzEnd": 10.000000000000004,
             "mxStart": 0,
             "mxEnd": 0,
-            "myStart": -29.999999999999993,
+            "myStart": -30.00000000000001,
             "myEnd": 0,
             "mzStart": 0,
             "mzEnd": 0,
@@ -5994,9 +5994,9 @@
             "nodeId": 1,
             "ux": 0,
             "uy": 0,
-            "uz": -0.004499999999999999,
+            "uz": -0.004500000000000001,
             "rx": 0,
-            "ry": 0.0022499999999999994,
+            "ry": 0.0022500000000000007,
             "rz": 0
           },
           {
@@ -7015,8 +7015,8 @@
       "after": "passed against full linear member-force reference, both with and without constraints"
     }
   },
-  "fixedSourceParentCommit": "d18f09bc4662b0e3886a248639ac3e69e736e0ab",
-  "fixedSource": "Final engine sources in the signed commit containing this replay; fixedSourceParentCommit identifies its parent.",
+  "fixedSourceParentCommit": "392208163e8c9b04777db58e2b2a3a99b5ac8e86",
+  "fixedSource": "Merged engine in the signed main-merge commit containing this replay; parents are fixedSourceParentCommit and mergedMainCommit.",
   "round9NativeReplay": {
     "originMain": "144296aadc772a13ec768a58ecb5e387aecb787e",
     "build": "All origin/main engine/src production sources temporarily substituted in this worktree; public native solve_corotational_2d/3d with max_iter=40, tolerance=1e-9, n_increments=2, modified_nr=false; restored in finally. Full returned outputs retained.",
@@ -7437,5 +7437,6 @@
       }
     ],
     "afterBuild": "Fixed WASM built by make wasm from final round 9 production sources; same public options. The before field is the full native output; afterWasm is the full WASM output. Final WASM hash is engineBuild.fixedWasmSha256."
-  }
+  },
+  "mergedMainCommit": "581495d9c9204004b4ed3a37788aa79ecf25952d"
 }

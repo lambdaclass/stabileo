@@ -886,6 +886,13 @@ test.engine.reactions-wasm: wasm
 .PHONY: test.engine.reactions-frozen
 test.engine.reactions-frozen: wasm
 	$(NIX_RUN) node scripts/tests/arc-length-frozen.mjs $(if $(UPDATE),--update)
+
+.PHONY: test.engine.nonlinear-convergence-wasm
+test.engine.nonlinear-convergence-wasm: wasm
+	NONLINEAR_CONVERGENCE_CASES=$(CURDIR)/.761-wasm-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=nonlinear_convergence::issue_761_native_and_wasm_cases
+	$(NIX_RUN) node scripts/tests/nonlinear-convergence-wasm.mjs $(CURDIR)/.761-wasm-cases.json
+	rm -f $(CURDIR)/.761-wasm-cases.json
+
 .PHONY: test.engine.plastic-nightly-wasm
 test.engine.plastic-nightly-wasm: wasm
 	$(NIX_RUN) timeout 30s node scripts/tests/plastic-nightly-wasm.mjs
@@ -911,3 +918,15 @@ test.engine.thermal-frame:
 .PHONY: test.engine.reactions-r11-wasm
 test.engine.reactions-r11-wasm: wasm
 	$(NIX_RUN) node scripts/tests/reaction-recovery-r11.mjs
+
+.PHONY: test.engine.convergence-regressions-wasm
+test.engine.convergence-regressions-wasm: wasm
+	FLIP_WASM_CASES=$(CURDIR)/.flip-reference-cases.json FLIP_SUPPORTED_CASES=$(CURDIR)/.flip-supported-cases.json FLIP_RIGID_CASES=$(CURDIR)/.flip-rigid-cases.json FLIP_ROLL_CASES=$(CURDIR)/.flip-roll-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=flip_regressions::
+	$(NIX_RUN) node scripts/tests/convergence-regressions-wasm.mjs $(CURDIR)/.flip-reference-cases.json $(CURDIR)/.flip-supported-cases.json $(CURDIR)/.flip-rigid-cases.json $(CURDIR)/.flip-roll-cases.json
+	rm -f $(CURDIR)/.flip-reference-cases.json $(CURDIR)/.flip-supported-cases.json $(CURDIR)/.flip-rigid-cases.json $(CURDIR)/.flip-roll-cases.json
+
+.PHONY: test.engine.pdelta-rotation-wasm
+test.engine.pdelta-rotation-wasm: wasm
+	PLATE_CONVERGENCE_CASES=$(CURDIR)/.1940-plate-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=plate_convergence::native_exports_and_wasm_cases_keep_answers_and_iteration_limits
+	$(NIX_RUN) node scripts/tests/pdelta-rotation-wasm.mjs $(CURDIR)/.1940-plate-cases.json
+	rm -f $(CURDIR)/.1940-plate-cases.json

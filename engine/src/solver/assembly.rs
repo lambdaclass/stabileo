@@ -468,19 +468,33 @@ fn rotate_inclined_k_2d(k: &mut [f64], n: usize, dofs: &[usize; 2], r: &[[f64; 2
     }
 }
 
+pub(crate) fn compensated_dot<const D: usize>(a: &[f64; D], b: &[f64; D]) -> f64 {
+    let mut sum = 0.0f64;
+    let mut correction = 0.0;
+    for (&a, &b) in a.iter().zip(b) {
+        let product = a * b;
+        let next = sum + product;
+        correction += if sum.abs() >= product.abs() {
+            (sum - next) + product
+        } else {
+            (product - next) + sum
+        };
+        correction += a.mul_add(b, -product);
+        sum = next;
+    }
+    sum + correction
+}
+
+fn rotate_inclined_vector<const D: usize>(f: &mut [f64], dofs: &[usize; D], r: &[[f64; D]; D]) {
+    let values = std::array::from_fn(|i| f[dofs[i]]);
+    for (i, row) in r.iter().enumerate() {
+        f[dofs[i]] = compensated_dot(row, &values);
+    }
+}
+
 /// Rotate force vector at the given DOFs: F[dofs] = R * F[dofs_orig] (2D inclined support).
 pub fn rotate_inclined_f_2d(f: &mut [f64], dofs: &[usize; 2], r: &[[f64; 2]; 2]) {
-    let mut fv = [0.0; 2];
-    for a in 0..2 {
-        fv[a] = f[dofs[a]];
-    }
-    for a in 0..2 {
-        let mut sum = 0.0;
-        for b in 0..2 {
-            sum += r[a][b] * fv[b];
-        }
-        f[dofs[a]] = sum;
-    }
+    rotate_inclined_vector(f, dofs, r);
 }
 
 /// Apply 2D inclined support rotation to K and F at the given translational DOFs.
@@ -497,17 +511,8 @@ pub(crate) fn apply_inclined_transform_2d(k: &mut [f64], f: &mut [f64], n: usize
 
 /// Reverse 2D inclined rotation on displacement vector: u_global = R^T * u_rotated
 pub fn reverse_inclined_transform_2d(u: &mut [f64], dofs: &[usize; 2], r: &[[f64; 2]; 2]) {
-    let mut vals = [0.0; 2];
-    for a in 0..2 {
-        vals[a] = u[dofs[a]];
-    }
-    for a in 0..2 {
-        let mut sum = 0.0;
-        for b in 0..2 {
-            sum += r[b][a] * vals[b]; // R^T[a][b] = R[b][a]
-        }
-        u[dofs[a]] = sum;
-    }
+    let rt = std::array::from_fn(|i| std::array::from_fn(|j| r[j][i]));
+    rotate_inclined_vector(u, dofs, &rt);
 }
 
 /// Build rotation matrix that maps global to local frame where ê₁ = normal.
@@ -567,17 +572,7 @@ fn rotate_inclined_k_3d(k: &mut [f64], n: usize, dofs: &[usize; 3], r: &[[f64; 3
 
 /// Rotate force vector at the given DOFs: F[dofs] = R * F[dofs_orig] (3D inclined support).
 pub fn rotate_inclined_f_3d(f: &mut [f64], dofs: &[usize; 3], r: &[[f64; 3]; 3]) {
-    let mut fv = [0.0; 3];
-    for a in 0..3 {
-        fv[a] = f[dofs[a]];
-    }
-    for a in 0..3 {
-        let mut sum = 0.0;
-        for b in 0..3 {
-            sum += r[a][b] * fv[b];
-        }
-        f[dofs[a]] = sum;
-    }
+    rotate_inclined_vector(f, dofs, r);
 }
 
 /// Apply 3D inclined support rotation to K and F at the given translational DOFs.
@@ -592,17 +587,8 @@ pub(crate) fn apply_inclined_transform(k: &mut [f64], f: &mut [f64], n: usize,
 
 /// Reverse inclined rotation on displacement vector: u_global = R^T * u_rotated
 pub fn reverse_inclined_transform(u: &mut [f64], dofs: &[usize; 3], r: &[[f64; 3]; 3]) {
-    let mut vals = [0.0; 3];
-    for a in 0..3 {
-        vals[a] = u[dofs[a]];
-    }
-    for a in 0..3 {
-        let mut sum = 0.0;
-        for b in 0..3 {
-            sum += r[b][a] * vals[b]; // R^T[a][b] = R[b][a]
-        }
-        u[dofs[a]] = sum;
-    }
+    let rt = std::array::from_fn(|i| std::array::from_fn(|j| r[j][i]));
+    rotate_inclined_vector(u, dofs, &rt);
 }
 
 /// Stiffness-only assembly result for 2D (K with inclined support transforms applied).
@@ -2383,10 +2369,7 @@ pub fn apply_inclined_transform_triplets(
 
 /// Rotate force vector at inclined-support DOFs: F'[dofs[a]] = sum_b R[a][b] * F[dofs[b]].
 pub fn rotate_inclined_f_triplets(f_global: &mut [f64], dofs: &[usize; 3], r: &[[f64; 3]; 3]) {
-    let fv = [f_global[dofs[0]], f_global[dofs[1]], f_global[dofs[2]]];
-    for a in 0..3 {
-        f_global[dofs[a]] = r[a][0] * fv[0] + r[a][1] * fv[1] + r[a][2] * fv[2];
-    }
+    rotate_inclined_vector(f_global, dofs, r);
 }
 
 /// One inclined-support rotation, plane (`InclinedTransformData2D`) or
@@ -2468,6 +2451,20 @@ pub(crate) fn to_inclined_free<T: InclinedFrame>(mut v: Vec<f64>, its: &[T], nf:
     }
     v.truncate(nf);
     v
+}
+
+pub(crate) fn inclined_residual<T: InclinedFrame>(
+    external: &[f64],
+    internal: &[f64],
+    its: &[T],
+) -> Vec<f64> {
+    let mut external = external.to_vec();
+    let mut internal = internal.to_vec();
+    for it in its {
+        it.rotate(&mut external);
+        it.rotate(&mut internal);
+    }
+    external.iter().zip(internal).map(|(a, b)| a - b).collect()
 }
 
 /// A free-DOF vector in the inclined-support frames (a mode shape, a state)
