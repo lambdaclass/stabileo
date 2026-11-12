@@ -48,10 +48,11 @@ function checkSupportedResult(result, solver, dimension) {
   const length = Math.hypot(b.x - a.x, (b.y ?? 0) - (a.y ?? 0), b.z - a.z);
   const ei = 1000 * solver.materials['1'].e * solver.sections['1'].iz;
   assert.equal(result.converged, true);
-  assert.equal(result.results.displacements.length, Object.keys(solver.nodes).length);
+  const expectedNodeIds = Object.values(solver.nodes).map(node => node.id).sort((a, b) => a - b);
+  assert.deepEqual(result.results.displacements.map(d => d.nodeId).sort((a, b) => a - b), expectedNodeIds, 'displacement node coverage');
   for (const d of result.results.displacements) {
     for (const key of ['ux', 'uy', 'uz']) if (key in d) close(d[key], 0, force * length ** 3 / ei);
-    for (const key of ['rx', 'ry', 'rz']) if (key in d) close(d[key], 0, force * length / ei);
+    for (const key of ['rx', 'ry', 'rz']) if (key in d) close(d[key], 0, force * length ** 2 / ei);
   }
   const r = result.results.reactions.find(r => r.nodeId === load.nodeId);
   assert.ok(r);
@@ -69,7 +70,7 @@ for (const fixture of read(process.argv[3])) {
   for (const [index, result] of results.entries()) {
     checkSupportedResult(result, solver, dimension);
     const label = `${dimension}D ${['linear', 'P-Delta', 'corotational', 'fiber nonlinear'][index]} fixture ${checked}`;
-    test(`r9 supported displacement node coverage ${label}`, { skip: process.env.RUN_KNOWN_WRONG_1940 !== '1' && 'known wrong result: #1940' }, () => {
+    test(`r9 supported displacement node coverage ${label}`, () => {
       checkSupportedResult(result, solver, dimension);
       const reordered = structuredClone(result);
       reordered.results.displacements.reverse();
@@ -86,7 +87,7 @@ for (const fixture of read(process.argv[3])) {
       }
       assert.deepEqual(accepted, [], 'accepted wrong displacement nodes');
     });
-    test(`r9 dimensionless supported rotation tolerance ${label}`, { skip: process.env.RUN_KNOWN_WRONG_1940 !== '1' && 'known wrong result: #1940' }, () => {
+    test(`r9 dimensionless supported rotation tolerance ${label}`, () => {
       checkSupportedResult(result, solver, dimension);
       const load = solver.loads[0].data;
       const force = Math.hypot(load.fx, load.fy ?? 0, load.fz);
@@ -98,7 +99,7 @@ for (const fixture of read(process.argv[3])) {
       const wrongDecisions = [];
       for (const key of dimension === 2 ? ['ry'] : ['rx', 'ry', 'rz']) {
         for (const sign of [-1, 1]) {
-          for (const ratio of [0, 0.5, 1, 2]) {
+          for (const ratio of [0, 0.5, 0.99, 1, 1.01, 2]) {
             const candidate = structuredClone(result);
             for (const d of candidate.results.displacements) for (const k of ['ux', 'uy', 'uz', 'rx', 'ry', 'rz']) if (k in d) d[k] = 0;
             candidate.results.displacements[0][key] = sign * ratio * angleLimit;

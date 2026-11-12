@@ -3092,11 +3092,13 @@ mod infinitesimal_rotation_regressions {
         }
     }
 
-    fn check_recovered_axial_forces(
-        _input: &SolverInput,
-        forces: &[ElementForces],
-        extension: f64,
-    ) {
+    fn check_recovered_axial_forces(input: &SolverInput, forces: &[ElementForces], extension: f64) {
+        let mut expected: Vec<_> = input.elements.values().map(|e| e.id).collect();
+        expected.sort_unstable();
+        let mut actual: Vec<_> = forces.iter().map(|f| f.element_id).collect();
+        actual.sort_unstable();
+        assert_eq!(actual, expected, "recovered element force coverage");
+        assert!(!expected.is_empty(), "axial fixture needs elements");
         for force in forces {
             assert_eq!(
                 [force.v_start, force.v_end, force.m_start, force.m_end],
@@ -3148,7 +3150,6 @@ mod infinitesimal_rotation_regressions {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1940"]
     fn r9_recovered_axial_forces_reject_missing_duplicate_and_unexpected_elements() {
         let mut accepted = Vec::new();
         check_rotated_pure_axial_states(|input, forces, extension| {
