@@ -17,6 +17,7 @@ mod common;
 
 mod roll_reference;
 mod flip_regressions;
+mod plate_convergence;
 mod active;
 mod betti;
 mod stiffness;
