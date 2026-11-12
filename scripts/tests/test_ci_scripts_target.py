@@ -30,6 +30,7 @@ class CiScriptsTarget(unittest.TestCase):
         targets = re.findall(r'\bmake ([\w.-]+)', workflows)
         commands = workflows + ''.join(recipe(makefile, target) for target in targets)
         self.assertIn('scripts/tests/buckling-818-wasm.mjs', commands)
+        self.assertTrue('scripts/tests/modal-mass-range-wasm.mjs' in commands, 'modal mass range WASM regressions must run in CI')
         commands += makefile
         tests = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / 'scripts/tests').glob('*.mjs'))
         self.assertEqual([t for t in tests if not re.search(rf'(^|\s){re.escape(t)}(\s|$)', commands, re.M)], [])

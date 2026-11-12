@@ -403,3 +403,73 @@ fn issue_1965_3d_units_boundary_preserves_finite_modes() {
         );
     }
 }
+
+#[test]
+fn issue_2007_massless_mechanism_refuses_with_positive_physical_mass() {
+    for spatial in [false, true] {
+        for constrained in [false, true] {
+            for padding in [1, 65] {
+                for stiffness in [-1.0, 0.0, 1e-10, 1.0] {
+                    let mut value = family(spatial, 1, constrained, padding, 0.0);
+                    value["supports"]["3"]["kx"] = json!(stiffness);
+                    if stiffness > 0.0 {
+                        let lambda = if constrained {
+                            1.0 + 1.0
+                                / (0.3_f64.powi(2)
+                                    + 0.7_f64.powi(2)
+                                    + if spatial { 0.9_f64.powi(2) } else { 0.0 })
+                        } else {
+                            1.0
+                        };
+                        check(spatial, value, &[lambda]);
+                        continue;
+                    }
+                    assert_eq!(value["masses"]["nodal"][0]["massX"], json!(1.0));
+                    let errors = if spatial {
+                        let input: SolverInput3D = serde_json::from_value(value.clone()).unwrap();
+                        vec![
+                            modal::solve_modal_3d(&input, &HashMap::new(), 3).unwrap_err(),
+                            certified::certify_modal_3d(&input, &HashMap::new(), 3).unwrap_err(),
+                        ]
+                    } else {
+                        let input: SolverInput = serde_json::from_value(value.clone()).unwrap();
+                        vec![
+                            modal::solve_modal_2d(&input, &HashMap::new(), 3).unwrap_err(),
+                            certified::certify_modal_2d(&input, &HashMap::new(), 3).unwrap_err(),
+                        ]
+                    };
+                    let wrapped = json!({"solver":value,"densities":{}});
+                    let input = serde_json::to_string(&wrapped).unwrap();
+                    let json_errors = if spatial {
+                        vec![
+                            dedaliano_engine::solve_modal_3d(&input, 3).unwrap_err(),
+                            dedaliano_engine::certify_modal_3d(&input, 3).unwrap_err(),
+                        ]
+                    } else {
+                        vec![
+                            dedaliano_engine::solve_modal_2d(&input, 3).unwrap_err(),
+                            dedaliano_engine::certify_modal_2d(&input, 3).unwrap_err(),
+                        ]
+                    };
+                    for error in errors.into_iter().chain(json_errors) {
+                        assert!(error.contains("Eigenvalue decomposition failed"), "{error}");
+                    }
+                    if let Ok(path) = std::env::var("MODAL_MASS_RANGE_CASES") {
+                        use std::io::Write;
+                        let mut file = std::fs::OpenOptions::new()
+                            .create(true)
+                            .append(true)
+                            .open(path)
+                            .unwrap();
+                        writeln!(
+                            file,
+                            "{}",
+                            json!({"spatial":spatial,"input":wrapped,"refusal":true})
+                        )
+                        .unwrap();
+                    }
+                }
+            }
+        }
+    }
+}

@@ -30,6 +30,12 @@ if (process.argv[2]) {
   for (const item of cases) {
     const dim = item.spatial ? '3d' : '2d';
     const input = JSON.stringify(item.input);
+    if (item.refusal) {
+      for (const api of ['solve_modal', 'certify_modal']) {
+        assert.throws(() => engine[`${api}_${dim}`](input, 3), /Eigenvalue decomposition failed/);
+      }
+      continue;
+    }
     const raw = JSON.parse(engine[`solve_modal_${dim}`](input, item.expected.length+3));
     const checked = JSON.parse(engine[`certify_modal_${dim}`](input, item.expected.length+3));
     assert.deepEqual(raw, checked.results);

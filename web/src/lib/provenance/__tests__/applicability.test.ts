@@ -28,6 +28,28 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it.skip('known wrong result: #2007: scopes physical mass range changes to modal constraints or support rotations', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'modal-physical-mass-range')!;
+    for (const analysisMode of ['2d', 'pro']) {
+      const ordinary = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+      const constrained = model({ ...ordinary, constraints: [{ type: 'linearMPC', terms: [
+        { nodeId: 1, dof: 0, coefficient: 1 }, { nodeId: 2, dof: 0, coefficient: -0.3 }, { nodeId: 2, dof: 1, coefficient: -0.7 },
+      ] }] });
+      const rotated = model({ ...ordinary, supports: [[1, { nodeId: 1, type: 'inclinedRoller', angle: 30, isInclined: true }]] });
+      for (const snapshot of [ordinary, constrained, rotated]) {
+        for (const analysesRun of [['modal'], ['spectral'], ['linear']]) {
+          const features = modelFeatures(snapshot, { analysesRun });
+          expect(conditionHolds(entry.when ?? {}, features)).toBe(snapshot !== ordinary && analysesRun[0] !== 'linear');
+        }
+      }
+      expect(ids(ordinary)).not.toContain(entry.id);
+      for (const snapshot of [constrained, rotated]) {
+        expect(ids(snapshot)).toContain(entry.id);
+        expect(ids(snapshot, stampSolve('modal', null))).not.toContain(entry.id);
+      }
+    }
+  });
+
   it('also rechecks unreleased members and constraint-only snapshots for staged solve checks', () => {
     const designData = { site: { phases: [{ id: 'first' }] } };
     const ordinary = model({ designData, elements: [member(1, 1, 'frame')] });
