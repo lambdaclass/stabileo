@@ -4,7 +4,7 @@
   import { stirrupsLabel } from '../../../lib/rc-sheets/bars';
   import type { LineBar, LineLayout } from '../../../lib/rc-sheets/beam-line';
 
-  let { line }: { line: LineLayout } = $props();
+  let { line, marks = false }: { line: LineLayout; marks?: boolean } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const W = 1200, M = 56, TOP = 40, STUB = 22, BELOW = 12, ROW = 30;
   const sx = $derived((W - 2 * M) / Math.max(line.length, 1e-6));
@@ -68,6 +68,19 @@
     {#if segs.length && bar.hooks[0]}<line x1={segs[0]!.x1} y1={segs[0]!.y} x2={segs[0]!.x1} y2={hookTo(bar, segs[0]!.y)} class="bar {bar.kind}" />{/if}
     {#if segs.length && bar.hooks[1]}<line x1={segs[segs.length - 1]!.x2} y1={segs[segs.length - 1]!.y} x2={segs[segs.length - 1]!.x2} y2={hookTo(bar, segs[segs.length - 1]!.y)} class="bar {bar.kind}" />{/if}
   {/each}
+  {#if marks}
+    <g data-testid="rc-line-marks">
+      {#each line.bars as bar (bar.mark)}
+        {@const segs = trace(bar)}
+        {#if segs.length}
+          {@const mid = segs.reduce((a, b) => (b.x2 - b.x1 > a.x2 - a.x1 ? b : a))}
+          {@const cy = bar.face === 'top' ? mid.y - 13 : mid.y + 13}
+          <circle cx={(mid.x1 + mid.x2) / 2} cy={cy} r="7.5" class="mark onbeam {bar.kind}" />
+          <text x={(mid.x1 + mid.x2) / 2} y={cy + 3.2} class="markt small-mark">{bar.mark}</text>
+        {/if}
+      {/each}
+    </g>
+  {/if}
   {#each line.splices as sp, i (i)}
     {@const sg = line.spans.find((x) => sp.x >= x.x0 - 1e-9 && sp.x <= x.x1 + 1e-9) ?? line.spans[0]!}
     {@const y = sp.face === 'top' ? TOP + coverPx : bottomOf(sg.h) - coverPx}
@@ -123,4 +136,6 @@
   .mark.support { stroke: var(--st-danger); }
   .mark.span { stroke: var(--st-ok); }
   .markt { font-size: 10px; font-weight: 700; fill: var(--st-text); text-anchor: middle; font-family: var(--st-mono); }
+  .mark.onbeam { fill: var(--st-surface-2); }
+  .small-mark { font-size: 9px; }
 </style>

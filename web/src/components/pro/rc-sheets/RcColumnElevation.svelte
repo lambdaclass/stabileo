@@ -6,9 +6,9 @@
   import type { ColumnRow } from '../../../lib/rc-sheets/column-row';
   import type { SheetCode } from '../../../lib/rc-sheets/types';
 
-  let { row, code }: { row: ColumnRow; code: SheetCode } = $props();
+  let { row, code, endZones = false }: { row: ColumnRow; code: SheetCode; endZones?: boolean } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
-  const layout = $derived(columnTieLayout(row, code));
+  const layout = $derived(columnTieLayout(row, code, { endZones }));
   const segs = $derived(tieSegments(layout));
 
   const H = 380, PADT = 18, PADB = 30, LEFT = 46, STUB = 34, COLW = 64;
@@ -79,6 +79,7 @@
   <ul class="rce-notes">
     {#each segs as z, i (i)}<li>{t(kindKey(z.kind))}: Ø{layout.dia} c/{sp(z.spacing)} — {z.clause}</li>{/each}
     <li class="dimnote">{tp('rcSheets.elev.totals', { n: layout.ties.length, h: cm(total) })}</li>
+    {#each layout.notes as n (n)}<li class="why" data-testid="rc-elev-note">{t(n)}</li>{/each}
   </ul>
 </figure>
 
@@ -99,4 +100,5 @@
   .lbl.strong { fill: var(--st-text); font-weight: 600; }
   .rce-notes { margin: 0; padding-left: 14px; font-size: 0.66rem; color: var(--st-text-2); font-family: var(--st-mono); max-width: 46ch; }
   .dimnote { color: var(--st-text-3); }
+  .why { color: var(--st-text-2); font-family: var(--st-font, inherit); list-style: none; margin-left: -14px; margin-top: 2px; }
 </style>

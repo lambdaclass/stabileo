@@ -8,15 +8,21 @@
  * (§18.7.5.5), at so over a lap kept to the middle half (§18.7.4.3) and through the joint
  * (§18.8.3.1). EN 1992-1-1 takes 0.6·scl,max within max(b; h) of a beam or slab and over a lap of
  * bars larger than 14 mm, with three ties at least in the lap (9.5.3(4)), and scl,max between
- * (9.5.3(3)). TS 500 spaces them evenly (7.4.1). Between the ends a spacing never opens beyond
- * what the row's shear check leaves room for.
+ * (9.5.3(3)). TS 500 spaces them evenly (7.4.1); its confinement zones are TBDY 2018's. Where
+ * the project asks for denser ends (`columnEndZones`, the design's own rule) and the code asks
+ * for none, they are drawn as the design places them. Between the ends a spacing never opens
+ * beyond what the row's shear check leaves room for.
  */
 import { roundDown } from './bars';
+import { columnEndZone } from '../engine/design/candidate-enumerate-column';
 import type { ColumnRow } from './column-row';
 import type { SheetCode } from './types';
 
 export type TieZoneKind = 'end' | 'middle' | 'lap' | 'joint';
 export interface TieZone { kind: TieZoneKind; from: number; to: number; spacing: number; clause: string }
+
+/** Why the storey looks as it does, as i18n keys: one spacing by the code, ends asked by the project, the shear holding the middle. */
+export type TieNote = 'rcSheets.elev.n.oneSpacingAci' | 'rcSheets.elev.n.oneSpacingTs500' | 'rcSheets.elev.n.projectEnds' | 'rcSheets.elev.n.shearHolds' | 'rcSheets.elev.n.ruleHolds';
 
 export interface ColumnTieLayout {
   /** Clear height between the beam or slab below and the deepest beam above, m. */
@@ -28,6 +34,7 @@ export interface ColumnTieLayout {
   zones: TieZone[];
   ties: number[];
   dia: number;
+  notes: TieNote[];
 }
 
 const family = (code: SheetCode): 'aci' | 'ec2' | 'ts500' => (code === 'en1992-1-1' || code === 'bs-en1992-1-1' ? 'ec2' : code === 'ts500-2000' ? 'ts500' : 'aci');
@@ -35,7 +42,7 @@ const family = (code: SheetCode): 'aci' | 'ec2' | 'ts500' => (code === 'en1992-1
 /** The widest spacing between the ends the shear check allows, given its use at the zone spacing. */
 const shearRoom = (row: ColumnRow, s: number) => s / Math.max(row.checks.shearX, row.checks.shearY, 1e-6);
 
-export function columnTieLayout(row: ColumnRow, code: SheetCode): ColumnTieLayout {
+export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZones?: boolean } = {}): ColumnTieLayout {
   const a = row.adopted;
   const clear = Math.max(0.1, row.demand.lu);
   const jointBottom = row.demand.joints?.bottom ?? 0, jointTop = row.demand.joints?.top ?? 0;
@@ -44,12 +51,24 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode): ColumnTieLayou
   const longest = Math.max(a.corner, a.nx > 0 ? a.dx : 0, a.ny > 0 ? a.dy : 0);
   const fam = family(code);
   const zones: TieZone[] = [];
+  const notes: TieNote[] = [];
   let lap: ColumnTieLayout['lap'] = null;
   // The shear check can hold the middle closer than its rule; the clause then names both.
   const middle = (rule: number, clause: string, shearClause?: string) => {
     const room = shearClause ? shearRoom(row, s) : Infinity;
-    const spacing = Math.round(Math.max(s, roundDown(Math.min(rule, room))) * 1e6) / 1e6;
+    const spacing = Math.round(Math.max(s, roundDown(Math.min(rule, room) + 1e-6)) * 1e6) / 1e6;
     zones.push({ kind: 'middle', from: 0, to: clear, spacing, clause: room < rule - 1e-9 ? `${clause}, ${shearClause}` : clause });
+    if (rule > s + 1e-9 && spacing <= s + 1e-9) {
+      if (roundDown(rule + 1e-6) <= s + 1e-9) notes.push('rcSheets.elev.n.ruleHolds');
+      else if (room < rule) notes.push('rcSheets.elev.n.shearHolds');
+    }
+  };
+  /** The project's denser ends over a code that asks for one spacing. */
+  const projectEnds = (clause: string) => {
+    const z = columnEndZone(row.b, row.h, clear, s);
+    const lo = Math.min(z.endLength, clear / 2);
+    zones.push({ kind: 'end', from: 0, to: lo, spacing: z.endSpacing, clause }, { kind: 'end', from: clear - lo, to: clear, spacing: z.endSpacing, clause });
+    notes.push('rcSheets.elev.n.projectEnds');
   };
 
   if (fam === 'aci' && row.confinement) {
@@ -74,13 +93,15 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode): ColumnTieLayou
     if (jointTop > 0) zones.push({ kind: 'joint', from: clear, to: clear + jointTop, spacing: s, clause: '9.5.3(4)' });
   } else {
     middle(s, fam === 'aci' ? '§25.7.2.1, §10.7.6.2' : '7.4.1');
+    if (opts.endZones) projectEnds(fam === 'aci' ? '§25.7.2.1' : '7.4.1');
+    else notes.push(fam === 'aci' ? 'rcSheets.elev.n.oneSpacingAci' : 'rcSheets.elev.n.oneSpacingTs500');
     if (row.lap) {
       lap = { from: 0, to: Math.min(row.lap.length, clear) };
       zones.push({ kind: 'lap', ...lap, spacing: s, clause: fam === 'aci' ? (row.lap.tension ? '§25.5.2' : '§25.5.5.1') : '9.3' });
     }
     if (jointTop > 0) zones.push({ kind: 'joint', from: clear, to: clear + jointTop, spacing: s, clause: fam === 'aci' ? '§15.7.1' : '7.4.1' });
   }
-  return { clear, jointBottom, jointTop, lap, zones, ties: placeTies(zones, clear + jointTop), dia: a.tieDia };
+  return { clear, jointBottom, jointTop, lap, zones, ties: placeTies(zones, clear + jointTop), dia: a.tieDia, notes };
 }
 
 /** The densest spacing of the zones over [y, y + ahead]. */
@@ -123,9 +144,13 @@ export function tieSegments(layout: ColumnTieLayout): TieZone[] {
     const over = layout.zones.filter((z) => z.from <= mid && z.to >= mid);
     if (!over.length) continue;
     const pick = over.reduce((p, q) => (q.spacing < p.spacing - 1e-9 || (Math.abs(q.spacing - p.spacing) < 1e-9 && PRECEDENCE[q.kind] > PRECEDENCE[p.kind]) ? q : p));
+    // An end no denser than the middle is middle: dimensioned apart it would read as a densification.
+    const middleSpacing = layout.zones.find((z) => z.kind === 'middle')?.spacing;
+    const kind = pick.kind === 'end' && middleSpacing !== undefined && Math.abs(pick.spacing - middleSpacing) < 1e-9 ? 'middle' : pick.kind;
+    const piece = { ...pick, kind, ...(kind !== pick.kind ? { clause: layout.zones.find((z) => z.kind === 'middle')!.clause } : {}), from, to };
     const prev = out[out.length - 1];
-    if (prev && prev.kind === pick.kind && Math.abs(prev.spacing - pick.spacing) < 1e-9 && Math.abs(prev.to - from) < 1e-6) prev.to = to;
-    else out.push({ ...pick, from, to });
+    if (prev && prev.kind === piece.kind && Math.abs(prev.spacing - piece.spacing) < 1e-9 && Math.abs(prev.to - from) < 1e-6) prev.to = to;
+    else out.push(piece);
   }
   return out;
 }

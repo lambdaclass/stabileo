@@ -37,10 +37,13 @@ describe('column ties along the storey', () => {
     for (const [a, b] of [[0, 0.5], [2.5, 3.6], [1.1, 1.9]] as const) expect(Math.max(...gaps(within(l.ties, a, b)))).toBeLessThanOrEqual(0.1 + 1e-9);
     const mid = gaps(within(l.ties, 0.55, 1.05));
     expect(Math.max(...mid)).toBeCloseTo(0.1, 9);
-    const seg = tieSegments(l);
-    expect(seg.map((z) => z.kind)).toEqual(['end', 'middle', 'lap', 'middle', 'end', 'joint']);
-    expect(seg.find((z) => z.kind === 'middle')!.spacing).toBeCloseTo(0.1, 9);
-    expect(seg[0]!.clause).toBe('§18.7.5.1, §18.7.5.3');
+    // 6·db of a Ø20 rounds to so itself: the ends are no denser than the middle, and are not dimensioned apart.
+    expect(tieSegments(l).map((z) => z.kind)).toEqual(['middle', 'lap', 'middle', 'joint']);
+    expect(l.notes).toEqual(['rcSheets.elev.n.ruleHolds']);
+    const wide = tieSegments(columnTieLayout(row({ s: 0.075, dia: 20, seismic: { lo: 0.5, so: 0.075 }, lap: 0.8 }), 'aci318-19'));
+    expect(wide.map((z) => z.kind)).toEqual(['end', 'middle', 'lap', 'middle', 'end', 'joint']);
+    expect(wide[0]!.clause).toBe('§18.7.5.1, §18.7.5.3');
+    expect(wide[1]!.spacing).toBeCloseTo(0.1, 9);
   });
 
   it('with chapter 18 and Ø25 bars the middle opens to 150 mm, and never past what the shear check leaves room for', () => {
@@ -67,6 +70,25 @@ describe('column ties along the storey', () => {
   it('EN 1992-1-1 with bars of 14 mm or less: no closer ties over the lap', () => {
     const seg = tieSegments(columnTieLayout(row({ s: 0.15, dia: 12, tieMax: 0.6 * 0.24, lap: 0.5 }), 'bs-en1992-1-1'));
     expect(seg.map((z) => z.kind)).toEqual(['end', 'middle', 'end', 'joint']);
+  });
+
+  it('ACI 318 without chapter 18 draws the project\'s denser ends, the design\'s rule: lo = max(side, lu/6, 450 mm) at half the spacing', () => {
+    const plain = columnTieLayout(row({ s: 0.2 }), 'cirsoc201-2025');
+    expect(plain.notes).toEqual(['rcSheets.elev.n.oneSpacingAci']);
+    const l = columnTieLayout(row({ s: 0.2 }), 'cirsoc201-2025', { endZones: true });
+    const seg = tieSegments(l);
+    expect(seg.map((z) => [z.kind, z.spacing])).toEqual([['end', 0.1], ['middle', 0.2], ['end', 0.1], ['joint', 0.2]]);
+    expect(seg[0]!.to).toBeCloseTo(0.5, 9);
+    expect(l.notes).toEqual(['rcSheets.elev.n.projectEnds']);
+    expect(Math.max(...gaps(within(l.ties, 0, 0.5)))).toBeLessThanOrEqual(0.1 + 1e-9);
+  });
+
+  it('EN 1992-1-1 opens the middle to what the shear leaves room for, a spacing that sits on the grid included', () => {
+    const seg = tieSegments(columnTieLayout(row({ s: 0.175, tieMax: 0.6 * 0.32, shear: 0.875 }), 'en1992-1-1'));
+    expect(seg.find((z) => z.kind === 'middle')!.spacing).toBeCloseTo(0.2, 9);
+    const held = columnTieLayout(row({ s: 0.175, tieMax: 0.6 * 0.32, shear: 0.99 }), 'en1992-1-1');
+    expect(tieSegments(held).map((z) => z.kind)).toEqual(['middle', 'joint']);
+    expect(held.notes).toContain('rcSheets.elev.n.shearHolds');
   });
 
   it('TS 500: one spacing along the storey', () => {

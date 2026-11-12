@@ -5,7 +5,7 @@ import { rulesFor } from '../rc-sheets/codes';
 import { resultsStore } from './results.svelte';
 import { physicalGroups, physicalThickness } from './physical';
 import { applyPlateMeshes, clearPlateMesh, physicalPlates, planPlateMesh, plateShellKeys, plateStatus, setPlateMeshSpec, type PlateMeshPlan } from './physical-plates';
-import { designData, patchOwnDesignData } from './design-data';
+import { designData, patchOwnDesignData, setDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
 import { seismicCaseIds, seismicSettings } from './seismic-design.svelte';
 import { defaultLevelName } from '../model/grid';
@@ -83,6 +83,13 @@ export function setSheetCode(code: SheetCode): void {
 
 export function setTorsionMode(torsion: TorsionMode): void {
   save({ ...rcSheetsData(), torsion });
+}
+
+/** The project's denser column ends (`columnEndZones`), the same setting the design reads. */
+export function setColumnEndZones(on: boolean): void {
+  const d = { ...designData() };
+  if (on) d.columnEndZones = true; else delete d.columnEndZones;
+  setDesignData(d);
 }
 
 export function setRcOption(option: 'faces' | 'flange' | 'seismic', on: boolean): void {
@@ -310,7 +317,7 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   });
   const wall = dem.walls.map((d) => {
     const g = groupOf(d.key);
-    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm };
+    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm, ...(seismic ? { seismic } : {}) };
     const a = data.adopted[d.key] as WallAdopted | undefined;
     return cached(d, [code, ctx, a, dec], () => rules.wallRow(d, ctx, a, fmt));
   });

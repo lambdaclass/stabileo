@@ -6,9 +6,9 @@
   import type { WallRow } from '../../../lib/rc-sheets/wall-row';
   import type { SheetCode } from '../../../lib/rc-sheets/types';
 
-  let { row, code, seismic = false }: { row: WallRow; code: SheetCode; seismic?: boolean } = $props();
+  let { row, code }: { row: WallRow; code: SheetCode } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
-  const d = $derived(wallDetail(row, code, { seismic }));
+  const d = $derived(wallDetail(row, code));
   let on = $state({ vertical: true, horizontal: true, ends: true, ties: true });
 
   const EW = 380, EH = 230, PAD = 26, MAXLINES = 70;
@@ -38,6 +38,9 @@
     return `M ${xl} ${ya} L ${xe + dir * r} ${ya} Q ${xe} ${ya} ${xe} ${ya + r} L ${xe} ${yb - r} Q ${xe} ${yb} ${xe + dir * r} ${yb} L ${xl} ${yb}`;
   };
   const cm = (m: number) => fmt(m * 100, 0);
+  const sp = (m: number) => { const c = Math.round(m * 1000) / 10; return fmt(c, Number.isInteger(c) ? 0 : 1); };
+  /** A note's numbers in the reader's decimals. */
+  const local = (p: Record<string, string | number>) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, typeof v === 'number' && !Number.isInteger(v) ? fmt(v, 1) : typeof v === 'string' && /^\d+\.\d+$/.test(v) ? fmt(Number(v), v.split('.')[1]!.length) : v]));
 </script>
 
 <figure class="rwd-fig" data-testid="rc-wall-detail">
@@ -65,11 +68,11 @@
         {#each hLevels as y, i (i)}<line x1={EX(d.cover)} y1={EY(y)} x2={EX(d.length - d.cover)} y2={EY(y)} />{/each}
       </g>
     {/if}
-    {#if on.ends}
+    {#if on.ends && d.ends.kind === 'ubar'}
       <g class="u" data-testid="rc-wall-elev-ends">
         {#each hLevels as y, i (i)}
-          <line x1={EX(d.cover)} y1={EY(y) - 2} x2={EX(d.cover + (d.ends.kind === 'ubar' ? uLeg : 0.12))} y2={EY(y) - 2} />
-          <line x1={EX(d.length - d.cover)} y1={EY(y) - 2} x2={EX(d.length - d.cover - (d.ends.kind === 'ubar' ? uLeg : 0.12))} y2={EY(y) - 2} />
+          <line x1={EX(d.cover)} y1={EY(y) - 2} x2={EX(d.cover + uLeg)} y2={EY(y) - 2} />
+          <line x1={EX(d.length - d.cover)} y1={EY(y) - 2} x2={EX(d.length - d.cover - uLeg)} y2={EY(y) - 2} />
         {/each}
       </g>
     {/if}
@@ -113,9 +116,14 @@
     {#if on.ties && d.boundary?.ties}
       {@const i0 = PY(d.cover)}
       {@const i1 = PY(d.thickness - d.cover)}
-      <g class="t">
+      {@const legs = d.boundary.ties.legs ?? 2}
+      <g class="t" data-testid="rc-wall-plan-boundary-ties">
         <rect x={PX(d.cover)} y={i0} width={(d.boundary.length - d.cover) * kx} height={i1 - i0} />
         <rect x={PX(d.length - d.boundary.length)} y={i0} width={(d.boundary.length - d.cover) * kx} height={i1 - i0} />
+        {#each Array.from({ length: Math.max(0, legs - 2) }, (_, k) => d.cover + ((k + 1) * (d.boundary.length - 2 * d.cover)) / (legs - 1)) as x, k (k)}
+          <line x1={PX(x)} y1={i0} x2={PX(x)} y2={i1} />
+          <line x1={PX(d.length - x)} y1={i0} x2={PX(d.length - x)} y2={i1} />
+        {/each}
       </g>
     {/if}
     {#if on.ties && crossGrid && d.horizontals.y.length === 2}
@@ -128,8 +136,8 @@
   </svg>
 
   <ul class="rwd-notes">
-    <li>{t('rcSheets.wallFig.vertical')}: {row.adopted.curtains} × Ø{row.adopted.vertical.diameter} c/{cm(row.adopted.vertical.spacing)} · {t('rcSheets.wallFig.horizontal')}: Ø{d.horizontals.dia} c/{cm(d.horizontals.spacing)}</li>
-    {#each d.notes as n, i (i)}<li>{n.params ? tp(n.key, n.params) : t(n.key)}{n.clause ? ` — ${n.clause}` : ''}</li>{/each}
+    <li>{t('rcSheets.wallFig.vertical')}: {row.adopted.curtains} × Ø{row.adopted.vertical.diameter} c/{sp(row.adopted.vertical.spacing)} · {t('rcSheets.wallFig.horizontal')}: Ø{d.horizontals.dia} c/{sp(d.horizontals.spacing)}</li>
+    {#each d.notes as n, i (i)}<li data-testid="rc-wall-note">{n.params ? tp(n.key, local(n.params)) : t(n.key)}{n.clause ? ` — ${n.clause}` : ''}</li>{/each}
   </ul>
 </figure>
 

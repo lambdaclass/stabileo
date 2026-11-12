@@ -15,20 +15,28 @@
   let { line, spans }: { line: LineLayout; spans: BeamRow[] } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   let open = $state<string | null>(null);
+  const MARKS_KEY = 'stabileo-rc-marks';
+  let showMarks = $state((() => { try { return localStorage.getItem(MARKS_KEY) !== '0'; } catch { return true; } })());
+  function setMarks(on: boolean) { showMarks = on; try { localStorage.setItem(MARKS_KEY, on ? '1' : '0'); } catch { /* lasts the session */ } }
+  /** The marks of the bars a face has at x along the line. */
+  const marksAt = (face: 'top' | 'bottom', x: number) => line.bars.filter((b) => b.face === face && b.from <= x + 1e-6 && b.to >= x - 1e-6).map((b) => b.mark);
   const kind = (k: string) => t(`rcSheets.line.kind.${k}`);
   /** The sections of every span, the identical ones drawn once with every place they stand. */
   const sections = $derived.by(() => {
-    const out: Array<{ key: string; drawing: ReturnType<typeof beamSection>; notes: string[]; tags: string[]; title: string }> = [];
+    const out: Array<{ key: string; drawing: ReturnType<typeof beamSection>; notes: string[]; tags: string[]; title: string; marks: { top: string[]; bottom: string[] } }> = [];
     line.spanAdopted.forEach((sa, k) => {
       const sp = line.spans[k]!;
-      const places: Array<['start' | 'span' | 'end', string]> = [['start', 'i'], ['span', `x* = ${fmt(spans[k]?.demand.span.x ?? (sp.x1 - sp.x0) / 2)} m`], ['end', 'j']];
-      for (const [sec, tag] of places) {
+      const xStar = spans[k]?.demand.span.x ?? (sp.x1 - sp.x0) / 2;
+      const places: Array<['start' | 'span' | 'end', string, number]> = [['start', 'i', sp.x0 + 1e-3], ['span', `x* = ${fmt(xStar)} m`, sp.x0 + xStar], ['end', 'j', sp.x1 - 1e-3]];
+      for (const [sec, tag, x] of places) {
         const g = sa.at?.[sec] ?? { top: sa.top, bottom: sa.bottom };
         const notes = [`↑ ${groupsLabel(g.top)}`, `↓ ${groupsLabel(g.bottom)}`, stirrupsLabel(sa.stirrups)];
-        const key = `${sp.b}×${sp.h}|${notes.join('|')}|${sa.stirrups.legs}`;
-        const same = out.find((x) => x.key === key);
+        const marks = { top: marksAt('top', x), bottom: marksAt('bottom', x) };
+        // With the marks shown, the same bars by other marks are another section.
+        const key = `${sp.b}×${sp.h}|${notes.join('|')}|${sa.stirrups.legs}${showMarks ? `|${marks.top.join()}|${marks.bottom.join()}` : ''}`;
+        const same = out.find((q) => q.key === key);
         if (same) same.tags.push(`${sp.name} · ${tag}`);
-        else out.push({ key, drawing: beamSection(sp.b, sp.h, line.cover, g.top, g.bottom, sa.stirrups), notes, tags: [`${sp.name} · ${tag}`], title: '' });
+        else out.push({ key, drawing: beamSection(sp.b, sp.h, line.cover, g.top, g.bottom, sa.stirrups), notes, tags: [`${sp.name} · ${tag}`], title: '', marks });
       }
     });
     for (const x of out) x.title = x.tags.length <= 2 ? x.tags.join(', ') : `${x.tags[0]} … ${x.tags[x.tags.length - 1]} (${x.tags.length})`;
@@ -37,11 +45,12 @@
 </script>
 
 <RcLineEditor {line} />
-<RcLineSvg {line} />
+<label class="rcd-marks"><input type="checkbox" checked={showMarks} onchange={(e) => setMarks(e.currentTarget.checked)} data-testid="rc-marks-toggle" /> {t('rcSheets.line.showMarks')}</label>
+<RcLineSvg {line} marks={showMarks} />
 <h5 class="rcd-h">{t('rcSheets.sections')}</h5>
 <div class="rcd-secs">
   {#each sections as g (g.key)}
-    <RcSectionSvg drawing={g.drawing} title={g.title} notes={g.notes} />
+    <RcSectionSvg drawing={g.drawing} title={g.title} notes={g.notes} marks={showMarks ? g.marks : undefined} />
   {/each}
 </div>
 <table class="rcd" data-testid="rc-schedule">
@@ -92,4 +101,5 @@
   .st-warn .rcd-toggle span { color: var(--st-warn); }
   .st-fail .rcd-toggle span { color: var(--st-danger); }
   .rcd-secs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .rcd-marks { display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--st-text-2); margin: 2px 0 4px; cursor: pointer; }
 </style>

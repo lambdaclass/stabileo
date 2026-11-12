@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t, tp } from '../../../lib/i18n';
   import { modelStore, resultsStore } from '../../../lib/store';
-  import { downloadRcSheets, meshWallsForSheets, rcSheetsData, setRcOption, setTorsionMode, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
+  import { downloadRcSheets, meshWallsForSheets, setColumnEndZones, rcSheetsData, setRcOption, setTorsionMode, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { physicalGroups } from '../../../lib/store/physical';
   import { plateSurfaceOf } from '../../../lib/model/physical/plate';
   import { runGlobalSolve } from '../../../lib/engine/live-calc';
@@ -12,6 +12,7 @@
   import { SHEET_CODES } from '../../../lib/rc-sheets/types';
   import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { rulesFor } from '../../../lib/rc-sheets/codes';
+  import { designData } from '../../../lib/store/design-data';
 
   let open = $state(false);
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
@@ -22,7 +23,7 @@
   const view = liveSheetRows(() => solved && hasPhysical);
   const rows = $derived(view.rows);
   const torsion = $derived.by(() => { void modelStore.designData; return rcSheetsData().torsion; });
-  const options = $derived.by(() => { void modelStore.designData; const d = rcSheetsData(); return { faces: d.faces === true, flange: d.flange === true, seismic: d.seismic === true }; });
+  const options = $derived.by(() => { void modelStore.designData; const d = rcSheetsData(); return { faces: d.faces === true, flange: d.flange === true, seismic: d.seismic === true, endZones: designData().columnEndZones === true }; });
   const stat = (list: SheetRow[]) => ({ n: list.length, ok: list.filter((r) => r.status !== 'fail').length, fail: list.filter((r) => r.status === 'fail').length });
 
   function openAt(f: SheetFamily) { family = f; open = true; }
@@ -75,6 +76,7 @@
     </label>
     <label class="rcp-chk"><input type="checkbox" checked={options.faces} onchange={(e) => setRcOption('faces', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-faces" /> <span>{t('rcSheets.opt.faces')}</span></label>
     <label class="rcp-chk"><input type="checkbox" checked={options.flange} onchange={(e) => setRcOption('flange', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-flange" /> <span>{t('rcSheets.opt.flange')}</span></label>
+    <label class="rcp-chk"><input type="checkbox" checked={options.endZones} onchange={(e) => setColumnEndZones((e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-end-zones" /> <span>{t('rcSheets.opt.endZones')}</span></label>
     {#if rulesFor(code).seismic}<label class="rcp-chk"><input type="checkbox" checked={options.seismic} onchange={(e) => setRcOption('seismic', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-seismic" /> <span>{t('rcSheets.opt.seismic')}</span></label>{/if}
     <div class="rcp-actions">
       <button type="button" class="rcs-btn primary" onclick={() => openAt(family)} data-testid="rc-open">{t('rcSheets.open')}</button>

@@ -26,7 +26,7 @@ export interface WallDetail {
   horizontals: { dia: number; spacing: number; y: number[] };
   ends: { kind: 'ubar' | 'hook'; dia: number; spacing: number; lap: number; clause: string };
   /** The zone from each end to past its last boundary bar, its ratio, and its ties when it needs them. */
-  boundary: { length: number; rho: number; ties: { dia: number; spacing: number; clause: string } | null } | null;
+  boundary: { length: number; rho: number; ties: { dia: number; spacing: number; clause: string; legs?: number } | null; special?: boolean } | null;
   crossTies: { along: number; up: number; dia: number; clause: string } | null;
   notes: WallDetailNote[];
 }
@@ -34,7 +34,7 @@ export interface WallDetail {
 const family = (code: SheetCode): 'aci' | 'ec2' | 'ts500' => (code === 'en1992-1-1' || code === 'bs-en1992-1-1' ? 'ec2' : code === 'ts500-2000' ? 'ts500' : 'aci');
 const floorTo = (x: number, step: number) => Math.round(Math.max(step, Math.floor(x / step + 1e-9) * step) * 1e6) / 1e6;
 
-export function wallDetail(row: WallRow, code: SheetCode, opts: { seismic?: boolean } = {}): WallDetail {
+export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   const fam = family(code);
   const a = row.adopted, L = row.length, t = row.thickness, cover = row.cover;
   const hd = a.horizontal.diameter / 1000;
@@ -45,17 +45,27 @@ export function wallDetail(row: WallRow, code: SheetCode, opts: { seismic?: bool
   const hy = curtains === 2 ? [cover + hd / 2, t - cover - hd / 2] : [t / 2];
   const notes: WallDetailNote[] = [];
 
-  const lapClause = fam === 'aci' ? (opts.seismic ? '§25.5.2, §18.10.6.5(b)' : '§25.5.2') : fam === 'ec2' ? '8.7.3' : '9.3';
+  const seis = row.seismic;
+  const lapClause = fam === 'aci' ? (seis?.anchorEnds ? '§25.5.2, §18.10.6.5(b)' : '§25.5.2') : fam === 'ec2' ? '8.7.3' : '9.3';
   const ends: WallDetail['ends'] = curtains === 2
     ? { kind: 'ubar', dia: a.horizontal.diameter, spacing: a.horizontal.spacing, lap: row.hLap, clause: lapClause }
-    : { kind: 'hook', dia: a.horizontal.diameter, spacing: a.horizontal.spacing, lap: 0, clause: fam === 'aci' ? '§25.3' : fam === 'ec2' ? '8.5' : '' };
+    : { kind: 'hook', dia: a.horizontal.diameter, spacing: a.horizontal.spacing, lap: 0, clause: fam === 'aci' ? (seis?.anchorEnds ? '§25.3, §18.10.6.5(b)' : '§25.3') : fam === 'ec2' ? '8.5' : '' };
   notes.push(ends.kind === 'ubar'
-    ? { key: 'rcSheets.wallFig.n.ubar', clause: ends.clause, params: { dia: ends.dia, s: Math.round(ends.spacing * 100), lap: Math.round(ends.lap * 100) } }
+    ? { key: 'rcSheets.wallFig.n.ubar', clause: ends.clause, params: { dia: ends.dia, s: Math.round(ends.spacing * 1000) / 10, lap: Math.round(ends.lap * 100) } }
     : { key: 'rcSheets.wallFig.n.hook', clause: ends.clause });
 
   let boundary: WallDetail['boundary'] = null;
   const ext = verticals.filter((v) => v.boundary && v.x < L / 2);
-  if (ext.length) {
+  if (seis?.hoops && seis.boundaryLength > 0) {
+    const zone = seis.boundaryLength;
+    const inZone = verticals.filter((v) => v.x <= zone + 1e-9);
+    const rho = inZone.reduce((s, v) => s + barArea(v.dia), 0) * 1e-4 / (zone * t);
+    const h = seis.hoops;
+    boundary = { length: zone, rho, special: seis.special, ties: { dia: h.dia, spacing: h.spacing, clause: h.clause, legs: h.legsAcross } };
+    notes.push(seis.special
+      ? { key: 'rcSheets.wallFig.n.special', clause: '§18.10.6.3, §18.10.6.4', params: { l: Math.round(zone * 100), sigma: seis.sigma.toFixed(1), tdia: h.dia, ts: Math.round(h.spacing * 1000) / 10, legs: h.legsAcross } }
+      : { key: 'rcSheets.wallFig.n.edgeTies', clause: '§18.10.6.5(a)', params: { l: Math.round(zone * 100), tdia: h.dia, ts: Math.round(h.spacing * 1000) / 10 } });
+  } else if (ext.length) {
     const pitch = Math.max(0.05, 2 * a.boundary!.diameter / 1000);
     const zone = Math.min(L / 2, Math.max(...ext.map((v) => v.x)) + pitch / 2);
     const inZone = verticals.filter((v) => v.x <= zone + 1e-9);
@@ -70,9 +80,12 @@ export function wallDetail(row: WallRow, code: SheetCode, opts: { seismic?: bool
     }
     boundary = { length: zone, rho, ties };
     notes.push(ties
-      ? { key: 'rcSheets.wallFig.n.boundaryTied', clause: ties.clause, params: { n: ext.length, dia: a.boundary!.diameter, rho: (rho * 100).toFixed(2), tdia: ties.dia, ts: Math.round(ties.spacing * 100) } }
+      ? { key: 'rcSheets.wallFig.n.boundaryTied', clause: ties.clause, params: { n: ext.length, dia: a.boundary!.diameter, rho: (rho * 100).toFixed(2), tdia: ties.dia, ts: Math.round(ties.spacing * 1000) / 10 } }
       : { key: 'rcSheets.wallFig.n.boundary', clause: fam === 'aci' ? '§11.7.4.1' : fam === 'ec2' ? '9.6.4(1)' : '', params: { n: ext.length, dia: a.boundary!.diameter, rho: (rho * 100).toFixed(2) } });
   }
+
+  if (fam === 'aci' && !seis) notes.push({ key: 'rcSheets.wallFig.n.ordinary', clause: '§11.7, §18.10' });
+  else if (seis && !seis.hoops) notes.push({ key: 'rcSheets.wallFig.n.noBoundary', clause: '§18.10.6.3', params: { sigma: seis.sigma.toFixed(1) } });
 
   let crossTies: WallDetail['crossTies'] = null;
   const rhoV = curtains * barArea(a.vertical.diameter) * 1e-4 / (a.vertical.spacing * t);

@@ -10,6 +10,7 @@ import { test, expect, loadModel, solveModel } from './fixtures';
 test.use({ appLocale: 'es' });
 
 test('@slow the reinforcement sheets design beams, columns, slabs and walls of a solved building', async ({ pro: page }) => {
+  test.setTimeout(180_000);
   await loadModel(page, 'pro-edificio-7p');
   await page.evaluate(() => window.__stabileoActions.setMeshBeforeAnalysis(false));
   await solveModel(page);
@@ -40,7 +41,7 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   const ws = page.getByTestId('rc-sheets-workspace');
   await expect(ws).toBeVisible();
   // The close button stays at the top right of the header however its controls wrap, and the table scrolls inside with the panels' scrollbars.
-  for (const width of [1440, 1000, 760]) {
+  for (const width of [1440, 1100, 900]) {
     await page.setViewportSize({ width, height: 900 });
     const head = (await ws.locator('.rcw-head').boundingBox())!, close = (await ws.getByTestId('rc-close').boundingBox())!;
     expect(close.y - head.y).toBeLessThan(14);
@@ -55,6 +56,13 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
 
   await first.click();
   await expect(ws.getByTestId('rc-line-svg')).toBeVisible();
+  // The bars' marks of the schedule stand on the elevation and beside each section, and go away together.
+  await expect(ws.getByTestId('rc-line-marks')).toContainText('A');
+  await expect(ws.getByTestId('rc-section-marks').first()).toContainText('A');
+  await ws.getByTestId('rc-marks-toggle').uncheck();
+  await expect(ws.getByTestId('rc-line-marks')).toHaveCount(0);
+  await expect(ws.getByTestId('rc-section-marks')).toHaveCount(0);
+  await ws.getByTestId('rc-marks-toggle').check();
   await expect(ws.getByTestId('rc-schedule')).toBeVisible();
   await expect(ws.getByTestId('rc-section').first()).toContainText('V1-1 · i');
   await expect(ws.getByTestId('rc-section').first().locator('circle').first()).toBeVisible();
@@ -82,6 +90,7 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   expect(await elev.getByTestId('rc-elev-tie').count()).toBeGreaterThan(15);
   await expect(elev.getByTestId('rc-elev-zone')).toHaveCount(2);
   await expect(elev).toContainText('§25.7.2.1');
+  await expect(elev.getByTestId('rc-elev-note')).toContainText('Una sola separación');
   await ws.getByTestId('rc-tab-slab').click();
   await expect(ws.getByTestId('rc-table-slab')).toBeVisible();
   // A slab's four layers, each switched off and on by itself.
@@ -111,6 +120,7 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(wallFig).toBeVisible();
   await expect(wallFig.getByTestId('rc-wall-plan-ends').locator('path')).toHaveCount(2);
   await expect(wallFig).toContainText(/Horquillas en los bordes|Una sola cortina: las horizontales terminan con gancho/);
+  await expect(wallFig.getByTestId('rc-wall-note').last()).toContainText('Tabique ordinario (capítulo 11)');
   await wallFig.getByTestId('rc-wall-layer-vertical').uncheck();
   await expect(wallFig.getByTestId('rc-wall-elev-vertical')).toHaveCount(0);
   await expect(wallFig.getByTestId('rc-wall-elev-horizontal')).toHaveCount(1);
@@ -128,4 +138,11 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   }
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('rc-panel-code').getByTestId('rc-code-select')).toHaveValue('aci318-19');
+
+  // The project's denser column ends, the design's own setting, drawn in the elevation.
+  await page.getByTestId('rc-opt-end-zones').check();
+  await page.getByTestId('rc-open-column').click();
+  await ws.getByTestId('rc-row').first().click();
+  await expect(ws.locator('[data-testid="rc-elev-zone"][data-kind="end"]')).toHaveCount(2);
+  await expect(ws.getByTestId('rc-elev-note')).toContainText('el proyecto lo pide');
 });

@@ -13,7 +13,8 @@ describe('wall detailing', () => {
       expect(d.ends).toMatchObject({ kind: 'ubar', dia: 8, spacing: 0.2, lap: 0.48 });
       expect(d.horizontals.y).toEqual([0.025 + 0.004, 0.3 - 0.025 - 0.004]);
     }
-    expect(wallDetail(wall({ t: 0.3, adopted: two(0.2, 0.2) }), 'aci318-19', { seismic: true }).ends.clause).toBe('§25.5.2, §18.10.6.5(b)');
+    const seis = { ...wall({ t: 0.3, adopted: two(0.2, 0.2) }), seismic: { anchorEnds: true, hoops: null, special: false, sigma: 2, boundaryLength: 0 } } as unknown as WallRow;
+    expect(wallDetail(seis, 'aci318-19').ends.clause).toBe('§25.5.2, §18.10.6.5(b)');
   });
 
   it('hooks the horizontals of one curtain round the end bar', () => {

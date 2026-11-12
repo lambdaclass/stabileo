@@ -21,9 +21,8 @@
   import RcColumnElevation from './RcColumnElevation.svelte';
   import RcSlabLayers from './RcSlabLayers.svelte';
   import RcWallDetail from './RcWallDetail.svelte';
-  import { rcSheetsData, sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { designData } from '../../../lib/store/design-data';
-  import { rulesFor } from '../../../lib/rc-sheets/codes';
   import { modelStore } from '../../../lib/store';
 
   let { onclose, family = $bindable<SheetFamily>('beam') }: { onclose: () => void; family?: SheetFamily } = $props();
@@ -36,8 +35,8 @@
   const EMPTY: SheetRows = { beam: [], line: [], column: [], slab: [], wall: [], punching: [], code: '', basis: 'combinations', combos: 0 };
   const view = liveSheetRows(() => true);
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
-  const seismic = $derived.by(() => { void modelStore.designData; return rcSheetsData().seismic === true && rulesFor(code).seismic; });
   const slabCover = $derived.by(() => { void modelStore.designData; return designData().covers.slab; });
+  const endZones = $derived.by(() => { void modelStore.designData; return designData().columnEndZones === true; });
   const rows = $derived(view.rows ?? EMPTY);
   const spansOf = (l: LineLayout) => rows.beam.filter((r) => r.demand.line?.group === l.group);
   const lineStatus = (l: LineLayout) => (l.status === 'fail' || spansOf(l).some((r) => r.status === 'fail') ? 'fail' : spansOf(l).some((r) => r.status === 'warn') ? 'warn' : 'ok');
@@ -182,12 +181,12 @@
                     <div class="rcw-secs">
                       <RcSectionSvg drawing={columnSection(r.b, r.h, r.cover, r.adopted)} title="{r.name} · {fmt(r.b * 100, 0)}×{fmt(r.h * 100, 0)}"
                         notes={[columnLabel(r.adopted), `${tieLabel(r.adopted)} · ${t('rcSheets.col.crossties')} ${r.checks.crossties.x} · ${r.checks.crossties.y}`]} />
-                      <RcColumnElevation row={r} {code} />
+                      <RcColumnElevation row={r} {code} {endZones} />
                     </div>
                   {:else if r.family === 'slab'}
                     <div class="rcw-secs"><RcSlabLayers row={r} cover={slabCover} /></div>
                   {:else if r.family === 'wall'}
-                    <div class="rcw-secs"><RcWallDetail row={r} {code} {seismic} /></div>
+                    <div class="rcw-secs"><RcWallDetail row={r} {code} /></div>
                   {/if}
                   <RcChecks lines={r.verifications} />
                   <details open={r.status === 'fail'}>

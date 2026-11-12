@@ -246,10 +246,21 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
   return out;
 }
 
+/** Nodes a horizontal shell takes: a flat slab cuts a column into storeys as a beam does. */
+function slabNodes(m: DemandInput): Set<number> {
+  const out = new Set<number>();
+  for (const map of [m.shells.quads, m.shells.plates]) for (const sh of map?.values() ?? []) {
+    const zs = sh.nodes.map((n) => zOf(m.nodes.get(n)));
+    if (Math.max(...zs) - Math.min(...zs) < 1e-3) for (const n of sh.nodes) out.add(n);
+  }
+  return out;
+}
+
 export function columnDemands(m: DemandInput): ColumnDemand[] {
   const inc = incidence(m);
   const out: ColumnDemand[] = [];
   const deadBy = (m.dead ?? []).map((r) => new Map(r.elementForces.map((f) => [f.elementId, f])));
+  const floorNodes = slabNodes(m);
   for (const g of m.groups) {
     if (g.kind !== 'column') continue;
     const run = chain(m, g.elements);
@@ -259,7 +270,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
     run.forEach((r, i) => {
       storeys[storeys.length - 1]!.push(r);
       const top = r.forward ? r.e.nodeJ : r.e.nodeI;
-      if (i < run.length - 1 && (inc.get(top) ?? []).some((o) => !mine.has(o.id) && !isVertical(m, o))) storeys.push([]);
+      if (i < run.length - 1 && ((inc.get(top) ?? []).some((o) => !mine.has(o.id) && !isVertical(m, o)) || floorNodes.has(top))) storeys.push([]);
     });
     const deepest = (node: number) => Math.max(0, ...(inc.get(node) ?? []).filter((o) => !mine.has(o.id) && !isVertical(m, o)).map((o) => m.sections.get(o.sectionId)?.h ?? 0));
     storeys.forEach((st, k) => {

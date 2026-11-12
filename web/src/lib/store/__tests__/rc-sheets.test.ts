@@ -391,6 +391,32 @@ describe('reinforcement sheets from a solved model', () => {
     expect(p.verifications[0]!.label).toBe('rcSheets.v.punching');
   });
 
+  it('cuts a column into storeys at the flat slabs it carries, as at beams, and checks punching at each', () => {
+    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
+    const col = modelStore.addSection({ name: '40×40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.1406 * 0.4 ** 4, b: 0.4, h: 0.4, shape: 'rect' } as never);
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    const N = 6, mid: number[] = [];
+    for (const z of [3, 6]) {
+      const id: number[][] = [];
+      for (let i = 0; i <= N; i++) { id.push([]); for (let j = 0; j <= N; j++) id[i]!.push(modelStore.addNode(-3 + i, -3 + j, z)); }
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) modelStore.addSurfaceLoad3D(modelStore.addQuad([id[i]![j]!, id[i + 1]![j]!, id[i + 1]![j + 1]!, id[i]![j + 1]!], conc, 0.2), 12, D);
+      for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) if (i === 0 || j === 0 || i === N || j === N) modelStore.addSupport(id[i]![j]!, 'pinned3d');
+      mid.push(id[3]![3]!);
+    }
+    const base = modelStore.addNode(0, 0, 0);
+    for (const [a, b] of [[base, mid[0]!], [mid[0]!, mid[1]!]] as const) {
+      const c = modelStore.addElement(a, b, 'frame');
+      modelStore.updateElementSection(c, col); modelStore.updateElementMaterial(c, conc);
+    }
+    modelStore.addSupport(base, 'fixed3d');
+    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+    solve();
+    const rows = buildSheetRows();
+    expect(rows.column).toHaveLength(2);
+    for (const c of rows.column) { expect(c.length).toBeCloseTo(3, 6); expect(c.demand.lu).toBeCloseTo(3, 6); }
+    expect(rows.punching).toHaveLength(2);
+  });
+
   it('checks strong column–weak beam and joint shear where a column continues above a floor, with the seismic option', () => {
     const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
     const col = modelStore.addSection({ name: '40×40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.1406 * 0.4 ** 4, b: 0.4, h: 0.4, shape: 'rect' } as never);

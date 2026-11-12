@@ -2,6 +2,7 @@ import { checkWallInPlaneShear, maxWallSpacing, minimumWallRatios, minimumWallTh
 import { wallInPlane, wallOutOfPlane } from '../engine/detailing/wall-member';
 import { shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
 import { tensionLap } from './column-row';
+import { wallSeismic, type WallSeismic } from './wall-seismic';
 import { barArea, roundDown } from './bars';
 import type { Fmt } from './format';
 import { check, ratioOf, type CheckLine, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, type WallAdopted } from './types';
@@ -22,7 +23,7 @@ export interface WallDemand {
   combos: WallComboForces[];
 }
 
-export interface WallContext { mat: Materials; cover: number; barDia: number; diameters: readonly number[] }
+export interface WallContext { mat: Materials; cover: number; barDia: number; diameters: readonly number[]; seismic?: import('./seismic').Seismic }
 
 export interface WallRow {
   family: 'wall';
@@ -44,6 +45,8 @@ export interface WallRow {
   /** Clear cover to the horizontal bars, m, and the tension lap of a horizontal bar, m: what the end U-bars overlap it by. */
   cover: number;
   hLap: number;
+  /** Chapter 18, where the sheets apply it. */
+  seismic?: WallSeismic;
 }
 
 const rhoOf = (m: { diameter: number; spacing: number }, curtains: number, t: number) => (m.spacing > 0 ? curtains * barArea(m.diameter) * 1e-4 / (m.spacing * t) : 0);
@@ -81,10 +84,11 @@ function evaluate(d: WallDemand, c: WallContext, a: WallAdopted): Eval {
 const ok1 = (v: number) => v <= 1 + 1e-6;
 
 export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | undefined, fmt: Fmt): WallRow {
-  const curtains: 1 | 2 = d.thickness > 0.25 ? 2 : 1;
   const acv = d.length * d.thickness;
   const vuMax = Math.max(0, ...d.combos.map((k) => k.vu));
   const vc = 0.17 * shearSqrtFc(c.mat.fc) * acv * 1000;
+  // §18.10.2.2 under chapter 18, §11.7.2.3 always.
+  const curtains: 1 | 2 = d.thickness > 0.25 || (c.seismic && (vuMax > vc || d.height / d.length >= 2)) ? 2 : 1;
   const rhoTShear = Math.max(0, vuMax / PHI_WALL_SHEAR - vc) / (c.mat.fy * 1000 * acv);
 
   const meshFor = (dia: number, rho: number, sMax: number) => ({ diameter: dia, spacing: roundDown(Math.max(0.075, Math.min(sMax, curtains * barArea(dia) * 1e-4 / Math.max(rho * d.thickness, 1e-9)))) });
@@ -119,6 +123,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
   const worst = (xs: number[]) => xs.reduce((w, x, i) => (x > xs[w]! ? i : w), 0);
   const ipm = worst(ev.pm), iout = worst(ev.out), ish = worst(ev.shear);
 
+  const seis = c.seismic ? wallSeismic(d, c, ad, d.combos.map((k) => wallInPlane({ length: d.length, thickness: d.thickness, cover: c.cover, fc: c.mat.fc, fy: c.mat.fy, pu: k.pu, mu: k.mu, r: { vertical: ad.vertical, horizontal: ad.horizontal, curtains: ad.curtains, ...(ad.boundary && ad.boundary.count > 0 ? { boundary: ad.boundary } : {}) } }).c), fmt) : null;
   const verifications: CheckLine[] = [
     ...((d.baseElements ?? 2) < 2 ? [check('rcSheets.v.wallMesh', false, { clause: '', demand: String(d.baseElements ?? 0), capacity: '≥ 2' })] : []),
     ...(d.base && d.base.held < d.base.nodes ? [check('rcSheets.v.wallBase', false, { clause: '', demand: `${d.base.held} / ${d.base.nodes}`, capacity: `${d.base.nodes} / ${d.base.nodes}` })] : []),
@@ -130,6 +135,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     check('rcSheets.v.wallSpacing', ad.vertical.spacing <= ev.sMaxV + 1e-6 && ad.horizontal.spacing <= ev.sMaxH + 1e-6, { clause: '§11.7.2, §11.7.3', capacity: `V ≤ ${fmt(ev.sMaxV * 100, 0)} · H ≤ ${fmt(ev.sMaxH * 100, 0)} cm` }),
     check('rcSheets.v.wallCurtains', ad.curtains >= curtains, { clause: '§11.7.2.3', demand: `t = ${fmt(d.thickness * 100, 0)} cm`, capacity: String(ad.curtains) }),
     check('rcSheets.v.wallThickness', d.thickness >= tMin - 1e-6, { clause: '§11.3.1.1', demand: `${fmt(d.thickness * 100, 0)} cm`, capacity: `≥ ${fmt(tMin * 100, 0)} cm` }),
+    ...(seis?.checks ?? []),
   ];
   const allOk = verifications.every((v) => v.ok);
   const generous = ev.rhoL > 1.2 * ev.rhoLMin + 1e-6 && ev.rhoT > 1.2 * ev.rhoTMin + 1e-6 && Math.max(0, ...ev.pm, ...ev.shear, ...ev.out) < 0.5;
@@ -169,6 +175,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
         { label: 'rcSheets.s.wallOut', formula: 'Mv, Mh ≤ φMn (b = 1 m)', value: `${fmt(Math.max(0, ...ev.out), 3)}`, ok: ev.out.every(ok1) },
       ],
     },
+    ...(seis ? [{ title: 'rcSheets.g.seismic', steps: seis.steps }] : []),
     {
       title: 'rcSheets.g.proposal',
       steps: [
@@ -187,6 +194,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     cover: c.cover,
     hLap: tensionLap(c.mat, ad.horizontal.diameter),
+    ...(seis ? { seismic: seis } : {}),
   };
 }
 

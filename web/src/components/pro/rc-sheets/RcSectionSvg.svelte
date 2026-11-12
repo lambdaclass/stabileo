@@ -3,7 +3,7 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import type { SectionDrawing } from '../../../lib/rc-sheets/drawing';
 
-  let { drawing, title, notes = [] }: { drawing: SectionDrawing; title: string; notes?: string[] } = $props();
+  let { drawing, title, notes = [], marks }: { drawing: SectionDrawing; title: string; notes?: string[]; marks?: { top: string[]; bottom: string[] } } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const BOX = 130, PAD = 26;
   const k = $derived(BOX / Math.max(drawing.b, drawing.h));
@@ -11,11 +11,14 @@
   const X = (x: number) => PAD + x * k;
   const Y = (y: number) => PAD + hh - y * k;
   const inset = $derived((drawing.cover + drawing.tieDia / 2000) * k);
+  const MARKW = 34;
+  /** The y of a face's outer bars on screen: where its marks stand. */
+  const faceY = (top: boolean) => { const ys = drawing.bars.filter((b) => (top ? b.y > drawing.h / 2 : b.y <= drawing.h / 2)).map((b) => Y(b.y)); return ys.length ? (top ? Math.min(...ys) : Math.max(...ys)) : Y(top ? drawing.h : 0); };
 </script>
 
 <figure class="rcs-fig" data-testid="rc-section">
   <figcaption>{title}</figcaption>
-  <svg viewBox="0 0 {w + 2 * PAD} {hh + 2 * PAD}" width={w + 2 * PAD} height={hh + 2 * PAD} role="img" aria-label={title}>
+  <svg viewBox="0 0 {w + 2 * PAD + (marks ? MARKW : 0)} {hh + 2 * PAD}" width={w + 2 * PAD + (marks ? MARKW : 0)} height={hh + 2 * PAD} role="img" aria-label={title}>
     <rect x={PAD} y={PAD} width={w} height={hh} class="conc" />
     <rect x={PAD + inset} y={PAD + inset} width={Math.max(0, w - 2 * inset)} height={Math.max(0, hh - 2 * inset)} rx="3" class="hoop" style="stroke-width: {Math.max(1, drawing.tieDia / 1000 * k)}px" />
     {#each drawing.ties as t, i (i)}
@@ -24,6 +27,16 @@
     {#each drawing.bars as b, i (i)}
       <circle cx={X(b.x)} cy={Y(b.y)} r={Math.max(3, (b.dia / 2000) * k)} class="bar" />
     {/each}
+    {#if marks}
+      <g data-testid="rc-section-marks">
+        {#each [{ top: true, list: marks.top }, { top: false, list: marks.bottom }] as f (f.top)}
+          {#if f.list.length}
+            <line x1={PAD + w - inset + 2} y1={faceY(f.top)} x2={PAD + w + 6} y2={faceY(f.top)} class="lead" />
+            <text x={PAD + w + 8} y={faceY(f.top) + 3.5} class="mk">{f.list.join(' ')}</text>
+          {/if}
+        {/each}
+      </g>
+    {/if}
     <text x={PAD + w / 2} y={PAD + hh + 16} class="dim">{fmt(drawing.b * 100, 0)}</text>
     <text x={PAD - 8} y={PAD + hh / 2} class="dim" transform="rotate(-90 {PAD - 8} {PAD + hh / 2})">{fmt(drawing.h * 100, 0)}</text>
   </svg>
@@ -38,4 +51,6 @@
   .bar { fill: var(--st-text); }
   .dim { font-size: 10px; fill: var(--st-text-3); text-anchor: middle; font-family: var(--st-mono); }
   .note { font-size: 0.68rem; font-family: var(--st-mono); color: var(--st-text-2); }
+  .mk { font-size: 10px; font-weight: 700; fill: var(--st-text); font-family: var(--st-mono); }
+  .lead { stroke: var(--st-text-3); stroke-width: 0.8; }
 </style>

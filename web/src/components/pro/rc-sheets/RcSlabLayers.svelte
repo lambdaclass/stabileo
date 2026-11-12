@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
-   * A slab panel's four layers of bars, in plan and in a cut along X: each drawn at its own
-   * spacing and switched on and off on its own. X bars are the outer layer of each face, as the
-   * row's effective depths take them.
+   * A slab panel's four layers of bars: a plan of each face with its X and Y bars, and a cut
+   * along X; each layer drawn at its own spacing and switched on and off on its own. X bars are
+   * the outer layer of each face, as the row's effective depths take them.
    */
   import { t, tp, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
@@ -13,7 +13,7 @@
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   let on = $state<Record<string, boolean>>({ bottomX: true, bottomY: true, topX: true, topY: true });
 
-  const PW = 300, PH = 210, PAD = 24, MAXLINES = 24;
+  const PW = 220, PH = 190, PAD = 24, MAXLINES = 24;
   const k = $derived(Math.min((PW - 2 * PAD) / Math.max(row.lx, 0.1), (PH - 2 * PAD) / Math.max(row.ly, 0.1)));
   const w = $derived(row.lx * k), h = $derived(row.ly * k);
   const present = (f: (typeof SLAB_FACES)[number]) => row.adopted[f].dia > 0 && row.adopted[f].spacing > 0;
@@ -57,26 +57,30 @@
       </label>
     {/each}
   </div>
-  <svg viewBox="0 0 {PW} {PH}" width={PW} height={PH} role="img" aria-label={t('rcSheets.slabFig.plan')} data-testid="rc-slab-plan">
-    <rect x={PAD} y={PAD} width={w} height={h} class="conc" />
-    {#each layers as L (L.f)}
-      {#if on[L.f]}
-        <g class="layer layer-{L.f}" data-testid="rc-slab-plan-{L.f}" data-bars={L.n}>
-          {#each L.at as p, i (i)}
-            {@const o = L.top ? 2.5 : 0}
-            {#if L.alongX}
-              <line x1={PAD + 3} y1={PAD + h - p * k - o} x2={PAD + w - 3} y2={PAD + h - p * k - o} />
-            {:else}
-              <line x1={PAD + p * k + o} y1={PAD + 3} x2={PAD + p * k + o} y2={PAD + h - 3} />
-            {/if}
-          {/each}
-        </g>
-      {/if}
+  <div class="rsl-plans" data-testid="rc-slab-plan">
+    {#each ['bottom', 'top'] as face (face)}
+      <svg viewBox="0 0 {PW} {PH}" width={PW} height={PH} role="img" aria-label={t(`rcSheets.slabFig.${face}Face`)} data-testid="rc-slab-plan-{face}">
+        <text x={PAD} y={14} class="ttl">{t(`rcSheets.slabFig.${face}Face`)}</text>
+        <rect x={PAD} y={PAD} width={w} height={h} class="conc" />
+        {#each layers.filter((L) => (face === 'top') === L.top) as L (L.f)}
+          {#if on[L.f]}
+            <g class="layer layer-{L.f}" data-testid="rc-slab-plan-{L.f}" data-bars={L.n}>
+              {#each L.at as p, i (i)}
+                {#if L.alongX}
+                  <line x1={PAD + 3} y1={PAD + h - p * k} x2={PAD + w - 3} y2={PAD + h - p * k} />
+                {:else}
+                  <line x1={PAD + p * k} y1={PAD + 3} x2={PAD + p * k} y2={PAD + h - 3} />
+                {/if}
+              {/each}
+            </g>
+          {/if}
+        {/each}
+        <text x={PAD + w / 2} y={PAD + h + 14} class="dim">Lx = {fmt(row.lx, 2)} m</text>
+        <text x={PAD - 8} y={PAD + h / 2} class="dim" transform="rotate(-90 {PAD - 8} {PAD + h / 2})">Ly = {fmt(row.ly, 2)} m</text>
+        {#if !layers.some((L) => (face === 'top') === L.top)}<text x={PAD + w / 2} y={PAD + h / 2} class="dim">{t('rcSheets.slabFig.none')}</text>{/if}
+      </svg>
     {/each}
-    <text x={PAD + w / 2} y={PAD + h + 14} class="dim">Lx = {fmt(row.lx, 2)} m</text>
-    <text x={PAD - 8} y={PAD + h / 2} class="dim" transform="rotate(-90 {PAD - 8} {PAD + h / 2})">Ly = {fmt(row.ly, 2)} m</text>
-    <g class="axes"><line x1={PAD + w + 8} y1={PAD + h} x2={PAD + w + 20} y2={PAD + h} /><text x={PAD + w + 23} y={PAD + h + 3}>X</text><line x1={PAD + w + 8} y1={PAD + h} x2={PAD + w + 8} y2={PAD + h - 12} /><text x={PAD + w + 5} y={PAD + h - 15}>Y</text></g>
-  </svg>
+  </div>
   <svg viewBox="0 0 {SW} {row.h * kh + 2 * PAD}" width={SW} height={row.h * kh + 2 * PAD} role="img" aria-label={t('rcSheets.slabFig.cut')} data-testid="rc-slab-cut">
     <rect x={sx(0)} y={sy(row.h)} width={row.lx * ks} height={row.h * kh} class="conc" />
     {#each layers as L (L.f)}
@@ -104,11 +108,9 @@
   .rsl-tg.off { opacity: 0.5; cursor: default; }
   .rsl-tg .v { font-family: var(--st-mono); color: var(--st-text-3); margin-left: 2px; }
   .sw { width: 14px; height: 0; border-top: 2px solid var(--c); display: inline-block; }
-  .rsl-topX .sw, .rsl-topY .sw { border-top-style: dashed; }
   .conc { fill: var(--st-surface-3, rgba(128, 128, 128, 0.12)); stroke: var(--st-text-3); stroke-width: 1; }
   .layer line { stroke: var(--c); stroke-width: 1.1; opacity: 0.9; }
   .layer circle { fill: var(--c); }
-  .layer-topX line, .layer-topY line { stroke-dasharray: 5 3; }
   .rsl-bottomX, .layer-bottomX { --c: #4ecdc4; }
   .rsl-bottomY, .layer-bottomY { --c: #5b8def; }
   .rsl-topX, .layer-topX { --c: #e0a03c; }
@@ -118,4 +120,6 @@
   .axes line { stroke: var(--st-text-3); }
   .axes text { font-size: 9px; fill: var(--st-text-3); }
   .note { font-size: 0.66rem; color: var(--st-text-3); }
+  .rsl-plans { display: flex; flex-wrap: wrap; gap: 4px; }
+  .ttl { font-size: 10px; fill: var(--st-text-2); font-weight: 600; }
 </style>
