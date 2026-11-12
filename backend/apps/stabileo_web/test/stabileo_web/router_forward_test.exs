@@ -19,8 +19,8 @@ defmodule StabileoWeb.RouterForwardTest do
         "/api/v1/insights/events",
         Jason.encode!(%{install_id: "5f0c2c3e-8a7b", events: []})
       )
-      |> json_response(422)
+      |> json_response(202)
 
-    assert body["details"]["events"]
+    assert body["enabled"] == false
   end
 end

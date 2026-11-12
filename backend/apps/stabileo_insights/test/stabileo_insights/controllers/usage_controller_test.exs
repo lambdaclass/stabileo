@@ -53,7 +53,17 @@ defmodule StabileoInsights.Controllers.UsageControllerTest do
     assert Repo.aggregate(UsageEvent, :count) == 0
   end
 
+  test "202 enabled: false while switched off, even for a batch it would refuse" do
+    body =
+      request(:post, "/events", %{"install_id" => "5f0c2c3e-8a7b", "events" => []})
+      |> json_body(202)
+
+    assert body == %{"accepted" => 0, "rejected" => 0, "enabled" => false}
+  end
+
   test "422 with the failing field" do
+    {:ok, _} = StabileoRepo.Features.set_usage_telemetry_enabled(true)
+
     body =
       request(:post, "/events", %{"install_id" => "5f0c2c3e-8a7b", "events" => []})
       |> json_body(422)

@@ -77,6 +77,27 @@ defmodule StabileoInsights.Controllers.FeedbackControllerTest do
     assert Repo.aggregate(Feedback, :count) == 0
   end
 
+  describe "rate limit" do
+    setup do
+      Application.put_env(:stabileo_utils, :rate_limit, true)
+      StabileoUtils.RateLimit.reset()
+
+      on_exit(fn ->
+        Application.put_env(:stabileo_utils, :rate_limit, false)
+        StabileoUtils.RateLimit.reset()
+      end)
+    end
+
+    test "429 once one address sends more than 10 a minute", %{token: token} do
+      note = %{"kind" => "idea", "message" => "IFC"}
+      for _ <- 1..10, do: request(:post, "/feedback", note, token) |> json_body(201)
+
+      conn = request(:post, "/feedback", note, token)
+      assert json_body(conn, 429)["error"] == "rate_limited"
+      assert Repo.aggregate(StabileoRepo.Schemas.Feedback, :count) == 10
+    end
+  end
+
   test "401 without a token, and with a bad one" do
     assert request(:post, "/feedback", %{"kind" => "idea", "message" => "IFC"})
            |> json_body(401)

@@ -63,12 +63,14 @@ defmodule StabileoRepo.Schemas.Project do
   end
 
   def purge_changeset(project) do
-    change(project, is_active: false, content: nil, content_bytes: 0)
+    project
+    |> change(is_active: false, content: nil, content_bytes: 0)
+    |> optimistic_lock(:revision)
   end
 
   defp validate_common(changeset) do
     changeset
-    |> update_change(:name, &String.trim/1)
+    |> update_change(:name, &trim/1)
     |> validate_length(:name, min: 1, max: 200)
     |> validate_inclusion(:app_mode, @modes)
     |> validate_number(:content_bytes, greater_than: 0)
@@ -76,4 +78,7 @@ defmodule StabileoRepo.Schemas.Project do
     |> validate_number(:element_count, greater_than_or_equal_to: 0)
     |> validate_length(:app_version, max: 32)
   end
+
+  defp trim(value) when is_binary(value), do: String.trim(value)
+  defp trim(value), do: value
 end

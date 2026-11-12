@@ -37,8 +37,8 @@ defmodule StabileoAuth.UserOAuth do
     with {:ok, claims} <- verify(code),
          :ok <- same_attempt(claims, verifier) do
       case claims do
-        %{"type" => @session_code, "session_id" => session_id} ->
-          open_session(session_id, metadata)
+        %{"type" => @session_code, "session_id" => _} ->
+          open_session(claims, metadata)
 
         %{"type" => @signup_code} ->
           signup =
@@ -85,13 +85,8 @@ defmodule StabileoAuth.UserOAuth do
     case find(user) do
       {:ok, account, link} ->
         with :ok <- ensure_active(account),
-             {:ok, account} <- link_if(account, link, user["sub"]),
              {:ok, session} <- Sessions.create_session(account, metadata, @code_ttl) do
-          {:ok,
-           sign(
-             %{"type" => @session_code, "session_id" => session.id, "attempt" => attempt},
-             @code_ttl
-           )}
+          {:ok, session_code(session, attempt, link && user["sub"])}
         end
 
       :new ->
@@ -110,6 +105,12 @@ defmodule StabileoAuth.UserOAuth do
     end
   end
 
+  defp session_code(session, attempt, link) do
+    claims = %{"type" => @session_code, "session_id" => session.id, "attempt" => attempt}
+    claims = if link, do: Map.put(claims, "link", link), else: claims
+    sign(claims, @code_ttl)
+  end
+
   defp find(user) do
     case Repo.get_by(Account, google_subject: user["sub"]) do
       %Account{} = account -> {:ok, account, false}
@@ -125,10 +126,12 @@ defmodule StabileoAuth.UserOAuth do
 
   defp find_by_email(_user, %Account{}), do: {:error, :callback_failed}
 
-  defp link_if(account, false, _subject), do: {:ok, account}
-  defp link_if(account, true, subject), do: link(account, subject)
+  defp link_if(account, nil, _session), do: {:ok, account}
 
-  defp link(%Account{email_verified_at: nil} = account, subject) do
+  defp link_if(account, subject, session) when is_binary(subject),
+    do: link(account, subject, session)
+
+  defp link(%Account{email_verified_at: nil} = account, subject, session) do
     Repo.transaction(fn ->
       with {:ok, account} <-
              account
@@ -137,8 +140,9 @@ defmodule StabileoAuth.UserOAuth do
                password_hash: nil,
                email_verified_at: now()
              )
+             |> Ecto.Changeset.unique_constraint(:google_subject)
              |> Repo.update(),
-           {:ok, _count} <- Sessions.revoke_all(account.id) do
+           {:ok, _count} <- Sessions.revoke_all_except(account.id, session.id) do
         account
       else
         {:error, reason} -> Repo.rollback(reason)
@@ -146,8 +150,11 @@ defmodule StabileoAuth.UserOAuth do
     end)
   end
 
-  defp link(%Account{} = account, subject) do
-    account |> Ecto.Changeset.change(google_subject: subject) |> Repo.update()
+  defp link(%Account{} = account, subject, _session) do
+    account
+    |> Ecto.Changeset.change(google_subject: subject)
+    |> Ecto.Changeset.unique_constraint(:google_subject)
+    |> Repo.update()
   end
 
   defp google_mail?(user) do
@@ -156,15 +163,18 @@ defmodule StabileoAuth.UserOAuth do
     domain in @google_mail or domain == hd
   end
 
-  defp open_session(session_id, metadata) do
-    with %{} = session <- Sessions.get_session(session_id),
+  defp open_session(%{"session_id" => session_id} = claims, metadata) do
+    with :ok <- login_open(),
+         %{} = session <- Sessions.get_session(session_id),
          :ok <- Sessions.validate_session(session),
          %Account{is_active: true} = account <- Accounts.get_account(session.account_id),
+         {:ok, account} <- link_if(account, claims["link"], session),
          {:ok, rotated} <-
            Sessions.rotate_session(session, metadata, Tokens.refresh_token_ttl("app")),
          {:ok, account} <- Accounts.record_sign_in(account) do
       StabileoAuth.session_payload(account, rotated, "app")
     else
+      {:error, :user_login_disabled} -> {:error, :user_login_disabled}
       _ -> {:error, :invalid_or_expired_code}
     end
   end

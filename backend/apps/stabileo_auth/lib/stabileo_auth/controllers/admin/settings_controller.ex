@@ -34,7 +34,7 @@ defmodule StabileoAuth.Controllers.Admin.SettingsController do
   end
 
   defp validate(changes) when map_size(changes) == 0 do
-    {:error, {:validation, Map.new(@flags, fn {key, _} -> {key, ["must be true or false"]} end)}}
+    {:error, {:validation, Map.new(@settings, fn {key, _} -> {key, [invalid(key, nil)]} end)}}
   end
 
   defp validate(changes) do

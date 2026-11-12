@@ -244,6 +244,27 @@ defmodule StabileoAuth.Controllers.GoogleControllerTest do
     assert json_body(conn, 404)["error"] == "not_found"
   end
 
+  test "the local stand-in page sends the browser only to a configured redirect" do
+    Application.put_env(:stabileo_auth, :dev_google, true)
+    on_exit(fn -> Application.put_env(:stabileo_auth, :dev_google, false) end)
+    configured = Application.get_env(:stabileo_auth, :google_oauth, [])[:app_redirect_uri]
+
+    foreign =
+      get_with_session(
+        "/google/dev",
+        %{"state" => "s", "redirect_uri" => "javascript:alert(1)"},
+        %{}
+      )
+
+    assert json_body(foreign, 404)["error"] == "not_found"
+
+    if is_binary(configured) do
+      own = get_with_session("/google/dev", %{"state" => "s", "redirect_uri" => configured}, %{})
+      assert own.status == 200
+      assert own.resp_body =~ String.replace(configured, "/", "\\/")
+    end
+  end
+
   test "GET /config reports Google as the only sign-in, and the password routes are gone" do
     body = request(:get, "/config") |> json_body(200)
     assert body["google_login"] == true

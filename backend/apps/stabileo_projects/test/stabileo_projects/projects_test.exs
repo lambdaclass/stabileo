@@ -145,6 +145,39 @@ defmodule StabileoProjects.ProjectsTest do
     assert {:error, :not_found} = Projects.get(account, project.id)
   end
 
+  test "a save read before a delete does not write into the deleted project", %{account: account} do
+    {:ok, project} = Projects.create(account, attrs())
+    {:ok, _} = Projects.delete(account, project.id)
+    stale = Project.update_changeset(%{project | revision: 1}, %{"name" => "Still here?"})
+
+    assert {:error, %Ecto.Changeset{errors: errors}} =
+             Repo.update(stale, stale_error_field: :revision)
+
+    assert Keyword.has_key?(errors, :revision)
+    saved = Repo.get!(Project, project.id)
+    refute saved.is_active
+    assert saved.name == "Pórtico"
+    assert saved.content == nil
+  end
+
+  test "a rename to null answers which field failed instead of raising", %{account: account} do
+    {:ok, project} = Projects.create(account, attrs())
+
+    assert {:error, changeset} =
+             Projects.update(account, project.id, %{"name" => nil, "revision" => 1})
+
+    assert %{name: ["can't be blank"]} = errors_on(changeset)
+  end
+
+  test "admin_list ignores a filter that is not a string", %{account: account} do
+    {:ok, project} = Projects.create(account, attrs())
+
+    assert {[{listed, _, _}], %{total: 1}} =
+             Projects.admin_list(%{"search" => ["x"], "app_mode" => %{"a" => 1}})
+
+    assert listed.id == project.id
+  end
+
   test "list meta counts every active project, whatever the search", %{account: account} do
     {:ok, _} = Features.set_cloud_projects_limit(5)
     {:ok, _} = Projects.create(account, attrs(%{"name" => "Truss"}))

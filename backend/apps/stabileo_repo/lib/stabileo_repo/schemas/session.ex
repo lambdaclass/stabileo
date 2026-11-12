@@ -35,4 +35,10 @@ defmodule StabileoRepo.Schemas.Session do
   def revoke_changeset(session) do
     change(session, revoked_at: DateTime.utc_now() |> DateTime.truncate(:second))
   end
+
+  @doc "Sessions that outlived a sign-in code: an unexchanged Google code leaves a session of at most a minute."
+  def lasting(query) do
+    import Ecto.Query, only: [where: 3]
+    where(query, [s], s.expires_at > fragment("? + interval '60 seconds'", s.inserted_at))
+  end
 end

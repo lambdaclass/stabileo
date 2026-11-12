@@ -50,6 +50,7 @@ defmodule StabileoAuth.AdminAudit do
   end
 
   defp filter(query, _field, value) when value in [nil, ""], do: query
+  defp filter(query, _field, value) when not is_binary(value), do: query
   defp filter(query, :action, value), do: where(query, [a], a.action == ^value)
   defp filter(query, :target_id, value), do: where(query, [a], a.target_id == ^value)
 

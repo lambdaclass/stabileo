@@ -153,6 +153,24 @@ defmodule StabileoAuth.UserOAuthTest do
   end
 
   describe "a known person" do
+    test "a code exchanged after sign-in was switched off opens nothing and links nothing" do
+      account = Factory.insert(:account, email: "person@gmail.com")
+      assert {:ok, code} = UserOAuth.sign_in(google(), @attempt)
+      {:ok, _} = Features.set_user_login_enabled(false)
+
+      assert {:error, :user_login_disabled} = UserOAuth.exchange(code, @verifier)
+      saved = Repo.get!(Account, account.id)
+      assert saved.google_subject == nil
+      assert saved.password_hash != nil
+    end
+
+    test "a code nobody exchanges does not count as activity" do
+      account = Factory.insert(:account, email: "person@gmail.com")
+      assert {:ok, _code} = UserOAuth.sign_in(google(), @attempt)
+
+      assert Sessions.last_active([account.id]) == %{}
+    end
+
     test "is found by Google's subject, even after the email changed at Google" do
       account =
         Factory.insert(:account, email: "old@gmail.com")
@@ -190,8 +208,11 @@ defmodule StabileoAuth.UserOAuthTest do
 
       {:ok, earlier} = Sessions.create_session(account)
 
-      assert {:ok, _code} = UserOAuth.sign_in(google(), @attempt)
+      assert {:ok, code} = UserOAuth.sign_in(google(), @attempt)
+      assert Repo.get!(Account, account.id).google_subject == nil
 
+      assert {:ok, %{account: %{id: id}}} = UserOAuth.exchange(code, @verifier)
+      assert id == account.id
       saved = Repo.get!(Account, account.id)
       assert saved.google_subject == "g-person"
       assert Repo.get!(Session, earlier.id).revoked_at == nil
@@ -201,8 +222,17 @@ defmodule StabileoAuth.UserOAuthTest do
       account = Factory.insert(:account, email: "person@gmail.com")
       {:ok, earlier} = Sessions.create_session(account)
 
-      assert {:ok, _code} = UserOAuth.sign_in(google(), @attempt)
+      assert {:ok, code} = UserOAuth.sign_in(google(), @attempt)
+      untouched = Repo.get!(Account, account.id)
+      assert untouched.google_subject == nil
+      assert untouched.password_hash != nil
+      assert Repo.get!(Session, earlier.id).revoked_at == nil
 
+      assert {:ok, %{account: %{id: id}, refresh_token: refresh}} =
+               UserOAuth.exchange(code, @verifier)
+
+      assert id == account.id
+      assert is_binary(refresh)
       saved = Repo.get!(Account, account.id)
       assert saved.google_subject == "g-person"
       assert saved.password_hash == nil

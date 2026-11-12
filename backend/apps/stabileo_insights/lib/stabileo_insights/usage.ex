@@ -15,11 +15,11 @@ defmodule StabileoInsights.Usage do
 
   def ingest(%{"install_id" => _, "events" => events} = batch) when is_list(events) do
     cond do
-      events == [] or length(events) > @max_events ->
-        {:error, {:validation, %{events: ["must hold between 1 and #{@max_events} events"]}}}
-
       not Features.usage_telemetry_enabled?() ->
         {:ok, %{accepted: 0, rejected: 0, enabled: false}}
+
+      events == [] or length(events) > @max_events ->
+        {:error, {:validation, %{events: ["must hold between 1 and #{@max_events} events"]}}}
 
       true ->
         store(batch, events)

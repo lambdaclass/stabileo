@@ -116,6 +116,7 @@ defmodule StabileoAuth.Sessions do
 
   def last_active(account_ids) when is_list(account_ids) do
     Session
+    |> Session.lasting()
     |> where([s], s.account_id in ^account_ids)
     |> group_by([s], s.account_id)
     |> select([s], {s.account_id, max(s.inserted_at)})

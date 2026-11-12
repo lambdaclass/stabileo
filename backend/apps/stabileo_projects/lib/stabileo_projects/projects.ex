@@ -101,10 +101,14 @@ defmodule StabileoProjects.Projects do
 
   defp conflict(result), do: result
 
-  def delete(%Account{} = account, id) do
+  def delete(%Account{} = account, id, attempts \\ 2) do
     with :ok <- enabled(),
          {:ok, project} <- fetch(account, id) do
-      project |> Project.purge_changeset() |> Repo.update()
+      result = project |> Project.purge_changeset() |> Repo.update(stale_error_field: :revision)
+
+      if attempts > 1 and conflict(result) == {:error, :project_conflict},
+        do: delete(account, id, attempts - 1),
+        else: conflict(result)
     end
   end
 
@@ -195,6 +199,7 @@ defmodule StabileoProjects.Projects do
   defp search(query, _term), do: query
 
   defp admin_filter(query, _key, value) when value in [nil, ""], do: query
+  defp admin_filter(query, _key, value) when not is_binary(value), do: query
 
   defp admin_filter(query, :account_id, value) do
     case Ecto.UUID.cast(value) do

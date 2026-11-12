@@ -73,6 +73,7 @@ defmodule StabileoInsights.FeedbackInbox do
   end
 
   defp filter(query, _field, value) when value in [nil, ""], do: query
+  defp filter(query, _field, value) when not is_binary(value), do: query
   defp filter(query, :status, value), do: where(query, [f], f.status == ^value)
   defp filter(query, :kind, value), do: where(query, [f], f.kind == ^value)
 

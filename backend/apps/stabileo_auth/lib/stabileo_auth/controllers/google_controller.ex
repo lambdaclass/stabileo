@@ -52,7 +52,7 @@ defmodule StabileoAuth.Controllers.GoogleController do
   end
 
   def dev(conn, %{"state" => state, "redirect_uri" => redirect_uri}) do
-    if DevGoogle.enabled?() do
+    if DevGoogle.enabled?() and DevGoogle.configured_redirect?(redirect_uri) do
       conn
       |> put_resp_content_type("text/html")
       |> send_resp(200, DevGoogle.page(state, redirect_uri))

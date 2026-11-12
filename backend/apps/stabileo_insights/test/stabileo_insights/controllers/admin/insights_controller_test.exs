@@ -45,6 +45,18 @@ defmodule StabileoInsights.Controllers.Admin.InsightsControllerTest do
     assert Repo.get!(Feedback, fb.id).status == "read"
   end
 
+  test "GET /feedback ignores filters that are not strings instead of failing", %{token: token} do
+    sender = Factory.insert(:account, name: "Sender")
+    {:ok, fb} = FeedbackInbox.create(%{"kind" => "bug", "message" => "x"}, sender, %{})
+
+    body =
+      admin_request(:get, "/feedback?search[]=x&status[]=new&kind[a]=b", %{}, token)
+      |> json_body(200)
+
+    assert [%{"id" => id}] = body["data"]
+    assert id == fb.id
+  end
+
   test "PUT /feedback 404 and 422", %{token: token} do
     {:ok, fb} = FeedbackInbox.create(%{"kind" => "bug", "message" => "x"}, nil, %{})
 

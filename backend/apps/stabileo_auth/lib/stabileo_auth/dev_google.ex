@@ -3,6 +3,13 @@ defmodule StabileoAuth.DevGoogle do
 
   def enabled?, do: Application.get_env(:stabileo_auth, :dev_google, false) == true
 
+  def configured_redirect?(redirect_uri) when is_binary(redirect_uri) do
+    oauth = Application.get_env(:stabileo_auth, :google_oauth, [])
+    redirect_uri in Enum.filter([oauth[:app_redirect_uri], oauth[:redirect_uri]], &is_binary/1)
+  end
+
+  def configured_redirect?(_redirect_uri), do: false
+
   def authorize_url(config) do
     state = :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
     uri = URI.parse(config[:redirect_uri])

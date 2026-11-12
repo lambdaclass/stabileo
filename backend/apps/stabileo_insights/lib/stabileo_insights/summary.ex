@@ -163,7 +163,7 @@ defmodule StabileoInsights.Summary do
       new: Repo.aggregate(from(a in Account, where: a.inserted_at >= ^since), :count),
       active_7d:
         Repo.one(
-          from(s in Session,
+          from(s in Session.lasting(Session),
             where: s.inserted_at >= ^week_ago,
             select: count(s.account_id, :distinct)
           )

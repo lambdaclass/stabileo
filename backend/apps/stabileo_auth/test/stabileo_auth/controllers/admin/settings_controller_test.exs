@@ -63,6 +63,14 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
     assert body["details"]["user_login_enabled"] == ["must be true or false"]
   end
 
+  test "422 naming every setting, the limit included, when the body has none", %{token: token} do
+    body = admin_request(:put, "/settings", %{"unknown" => true}, token) |> json_body(422)
+
+    assert body["details"]["user_login_enabled"] == ["must be true or false"]
+    assert [limit] = body["details"]["cloud_projects_limit"]
+    assert limit =~ "whole number"
+  end
+
   test "sets several flags at once and records the change", %{token: token} do
     body =
       admin_request(

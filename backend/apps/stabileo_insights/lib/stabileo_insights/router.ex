@@ -19,6 +19,10 @@ defmodule StabileoInsights.Router do
     plug(StabileoUtils.Plugs.RateLimit, bucket: :usage_events, limit: 30, period_ms: 60_000)
   end
 
+  pipeline :feedback_limit do
+    plug(StabileoUtils.Plugs.RateLimit, bucket: :feedback, limit: 10, period_ms: 60_000)
+  end
+
   scope "/", StabileoInsights.Controllers do
     pipe_through([:api, :events_limit])
 
@@ -26,7 +30,7 @@ defmodule StabileoInsights.Router do
   end
 
   scope "/", StabileoInsights.Controllers do
-    pipe_through([:api, :authenticated])
+    pipe_through([:api, :feedback_limit, :authenticated])
 
     post("/feedback", FeedbackController, :create)
   end
