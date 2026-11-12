@@ -16,7 +16,9 @@ fn rotated_rigid_control_keeps_its_pdelta_equilibrium() {
     let seed = 20754 ^ crate::checks2::hash("fuzz_rich_2d/20772") ^ crate::checks2::hash("P-Delta");
     let mut rng = Rng::new(seed);
     let iso = Iso2::rotation(rng.range(0.1, 6.2)).translated(rng.range(-50.0, 50.0), rng.range(-50.0, 50.0));
-    let tc = c.iso(&iso).unwrap();
+    assert!(c.iso(&iso).is_err());
+    let q = Iso2::rotation(std::f64::consts::FRAC_PI_2 * (1 + rng.below(3)) as f64).translated(rng.range(-50.0, 50.0), rng.range(-50.0, 50.0));
+    let tc = c.iso(&q).unwrap();
     let base = pdelta::solve_pdelta_2d(&c.s, 100, 1e-12).unwrap();
     let got = pdelta::solve_pdelta_2d(&tc.s, 100, 1e-12).unwrap();
     eprintln!("original={}\nrotated={}\nresult={}", serde_json::to_string(&c.s).unwrap(), serde_json::to_string(&tc.s).unwrap(), serde_json::to_string(&got).unwrap());
