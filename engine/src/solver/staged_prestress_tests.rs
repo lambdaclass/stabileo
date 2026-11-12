@@ -286,6 +286,7 @@ fn staged_round4_sparse_cumulative_prestress_reactions_keep_inclined_basis() {
     round4_reaction_check(true);
 }
 
+#[cfg(test)]
 #[test]
 fn staged_final_zero_stiffness_uses_accumulated_load() {
     let mut input = model(None);

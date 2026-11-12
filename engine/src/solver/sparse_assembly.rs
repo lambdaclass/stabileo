@@ -946,7 +946,8 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                 let e = mat.e * 1000.0;
                 let g = e / (2.0 * (1.0 + mat.nu));
 
-                if elem.elem_type == "truss" || elem.elem_type == "cable" {
+                let kinematics = element::MemberKinematics3D::from_elem(elem, sec);
+                if kinematics == element::MemberKinematics3D::Axial {
                     let ea_l = e * sec.a / l;
                     let dir = [dx / l, dy / l, dz / l];
                     for a in 0..2 {
@@ -976,7 +977,6 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                         elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, left_hand,
                     );
                     let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
-                    let has_cw = sec.cw.map_or(false, |cw| cw > 0.0);
 
                     let (phi_y, phi_z) = if sec.as_y.is_some() || sec.as_z.is_some() {
                         let l2 = l * l;
@@ -987,7 +987,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                         (0.0, 0.0)
                     };
 
-                    if has_cw && dof_num.dofs_per_node >= 7 {
+                    if kinematics.uses_warping_formulation() && dof_num.dofs_per_node >= 7 {
                         let k_local = element::frame_local_stiffness_3d_warping(
                             e, sec.a, sec.iy, sec.iz, sec.j, sec.cw.unwrap(), l, g,
                             Hinge3D::from_elem(elem),
@@ -1398,7 +1398,8 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                 let e = mat.e * 1000.0;
                 let g = e / (2.0 * (1.0 + mat.nu));
 
-                if elem.elem_type == "truss" || elem.elem_type == "cable" {
+                let kinematics = element::MemberKinematics3D::from_elem(elem, sec);
+                if kinematics == element::MemberKinematics3D::Axial {
                     let dir = [dx / l, dy / l, dz / l];
                     // Same member-load transfer as `assemble_frame_loads_3d`:
                     // axial, transverse lever rule, point loads, thermal.
@@ -1415,7 +1416,6 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                         elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, left_hand,
                     );
                     let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
-                    let has_cw = sec.cw.map_or(false, |cw| cw > 0.0);
 
                     let (phi_y, phi_z) = if sec.as_y.is_some() || sec.as_z.is_some() {
                         let l2 = l * l;
@@ -1426,7 +1426,7 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                         (0.0, 0.0)
                     };
 
-                    if has_cw && dof_num.dofs_per_node >= 7 {
+                    if kinematics.uses_warping_formulation() && dof_num.dofs_per_node >= 7 {
                         let t = element::frame_transform_3d_warping(&ex, &ey, &ez);
                         // Warping element loads
                         if let Some(elem_loads) = load_index.get(&elem.id) {

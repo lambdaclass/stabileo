@@ -164,6 +164,10 @@ pub struct Hinge3D {
 }
 
 impl Hinge3D {
+    pub(crate) fn transmits_torsion(self) -> bool {
+        !self.release_t_start && !self.release_t_end
+    }
+
     /// Build from a `SolverElement3D` reference.
     pub fn from_elem(elem: &crate::types::SolverElement3D) -> Self {
         Self {
@@ -173,6 +177,42 @@ impl Hinge3D {
             release_my_end: elem.release_my_end,
             release_mz_end: elem.release_mz_end,
             release_t_end: elem.release_t_end,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MemberKinematics3D {
+    Axial,
+    Frame,
+    WarpingFrame,
+    TorsionReleasedWarpingFrame,
+}
+
+impl MemberKinematics3D {
+    pub(crate) fn from_elem(elem: &crate::types::SolverElement3D, section: &crate::types::SolverSection3D) -> Self {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
+            Self::Axial
+        } else if section.cw.is_some_and(|cw| cw > 0.0) {
+            if Hinge3D::from_elem(elem).transmits_torsion() {
+                Self::WarpingFrame
+            } else {
+                Self::TorsionReleasedWarpingFrame
+            }
+        } else {
+            Self::Frame
+        }
+    }
+
+    pub(crate) fn uses_warping_formulation(self) -> bool {
+        matches!(self, Self::WarpingFrame | Self::TorsionReleasedWarpingFrame)
+    }
+
+    pub(crate) fn coupled_dofs_per_node(self) -> usize {
+        match self {
+            Self::Axial => 3,
+            Self::Frame | Self::TorsionReleasedWarpingFrame => 6,
+            Self::WarpingFrame => 7,
         }
     }
 }
@@ -262,7 +302,7 @@ pub fn frame_local_stiffness_3d(
 
     // Torsion — released entirely if either end is released (single-DOF
     // condensation collapses to zero stiffness for the remaining DOF).
-    if !hinge.release_t_start && !hinge.release_t_end {
+    if hinge.transmits_torsion() {
         let gj_l = g * j / l;
         k[3 * n + 3] = gj_l;
         k[3 * n + 9] = -gj_l;
@@ -354,7 +394,7 @@ pub fn frame_local_stiffness_3d_warping(
     // Torsion release at either end kills all twist transmission, including
     // warping torsion. Without this guard the warping block below would
     // silently overwrite the release applied by frame_local_stiffness_3d.
-    if !hinge.release_t_start && !hinge.release_t_end {
+    if hinge.transmits_torsion() {
         let tw = torsion_warping_block(gj, ecw, l, l2, l3);
 
         for i in 0..4 {

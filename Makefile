@@ -930,6 +930,11 @@ test.engine.staged-round5-wasm: wasm
 test.engine.translation-rank-wasm: wasm
 	$(NIX_RUN) node scripts/tests/translation-rank-red-wasm.mjs
 
+.PHONY: test.engine.buckling-818-wasm
+
+test.engine.buckling-818-wasm: wasm
+	$(NIX_RUN) node scripts/tests/buckling-818-wasm.mjs
+
 .PHONY: test.engine.frozen-shell-refusals
 test.engine.frozen-shell-refusals: wasm
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib frozen_shell_refusals -- --nocapture

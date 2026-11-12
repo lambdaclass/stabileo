@@ -26,8 +26,13 @@ ACQUIRE_LINE = re.compile(
     r'|(?:nix develop --command )?gh run download "\$RUN_ID" --name [\w-]+ --dir [\w/.-]+'
     r'|make (?:web\.deps|e2e\.web\.setup)(?: NIX_RUN=)?'
     r'|nix develop --command cargo fetch --locked(?: --manifest-path [\w/.-]+)?'
+    r'|nix develop --command python3 \.github/scripts/browser-deps\.py install (?:[a-z ]+|\$BROWSERS)'
     r'|nix develop --command bash -c "cd web && npx playwright install-deps [a-z ]+")'
-    r'|if \[ "[\w-]+" = [\w-]+ \]; then|else|fi')
+    r'|if \[ "[\w-]+" = [\w-]+ \]; then|else|fi'
+    r'|helper=\(python3\)'
+    r'|if \[\[ "\$USE_NIX" == true \]\]; then helper=\(nix develop --command python3\); fi'
+    r'|\.github/scripts/retry-infra\.sh "\$\{helper\[@\]\}" \.github/scripts/browser-deps\.py '
+    r'--playwright-directory "\$PLAYWRIGHT_DIRECTORY" install \$BROWSERS')
 TEST_STEP = re.compile(r'\bmake (?:test|e2e\.web\.(?:smoke|slow|flaky|visual|build)|typecheck|lint|check)'
                        r'|vitest|nextest|playwright test|cargo (?:test|clippy)|mix test|check\.mjs|run-area-e2e')
 BUILD_LINE = re.compile(r'nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/[\w/.-]+/wasm/build\.sh'
