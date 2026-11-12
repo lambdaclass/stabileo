@@ -15281,5 +15281,9 @@
       ]
     }
   ],
-  "farther_from_reference": []
+  "farther_from_reference": [],
+  "endpoint_completeness_validation": {
+    "status": "not reverified",
+    "reason": "Raw baseline/head gallery captures and their manifests are absent from the worktree archives; site-gallery-diff.json alone cannot establish endpoint completeness."
+  }
 }

@@ -428,6 +428,7 @@ fn main() {
                           input=[{'nodes': {'1': {'id': 1, 'x': 0, 'y': 1, 'z': 0}}}], result={'Ok': {'displacements': [{'nodeId': 1, 'uz': 1}]}})
             for endpoint in ['base', 'repo']:
                 (area / f'{endpoint}-fixed-native/model.json').write_text(json.dumps(record))
+                (area / f'{endpoint}-site-gallery/site-control.json').write_text(json.dumps(dict(parameters={}, model={}, outcome=dict(status='ok', readouts=[]))))
             for script in ['finish-analysis.py', 'frozen-references.py']:
                 source = (AUDIT / script).read_text().replace('/root/audit/soundness-2026-11-11', directory)
                 with patch.object(sys, 'argv', [script, directory]):
@@ -515,7 +516,6 @@ fn main() {
         self.assertNotIn('issue_1760_plastic', row)
 
 
-@unittest.skip("known wrong result: #1946")
 class EndpointIdentity(unittest.TestCase):
     def execute(self, filename, area):
         source = (AUDIT / filename).read_text().replace('/root/audit/soundness-2026-11-11', str(area))
@@ -524,7 +524,7 @@ class EndpointIdentity(unittest.TestCase):
 
     def gallery(self, area, before, after):
         (area / 'compare.py').write_text((AUDIT / 'compare.py').read_text())
-        capture = dict(parameters={}, model={}, outcome=dict(status='ok', readouts=[]))
+        capture = dict(parameters={}, model={}, outcome=dict(status='ok', readouts=[dict(key='control', value=1, reference=dict(value=1, source='synthetic control'))]))
         for endpoint, names in [('base', before), ('repo', after)]:
             folder = area / f'{endpoint}-site-gallery'
             folder.mkdir()
@@ -556,10 +556,14 @@ class EndpointIdentity(unittest.TestCase):
             self.assertEqual(result['cases'], 1)
             self.assertEqual(result['changed'], 0)
             self.assertTrue(result['drift'][0]['same_model'])
+            self.assertEqual((result['drift'][0]['references'][0]['before'], result['drift'][0]['references'][0]['after']), (1, 1))
 
-    def references(self, area, before, after):
+    def references(self, area, before, after, source='reference'):
         for endpoint, rows in [('base', before), ('repo', after)]:
-            (area / f'{endpoint}-reference-test.log').write_text(''.join('AUDIT_REFERENCE=' + json.dumps(r) + '\n' for r in rows))
+            if source == 'reference':
+                (area / f'{endpoint}-reference-test.log').write_text(''.join('AUDIT_REFERENCE=' + json.dumps(r) + '\n' for r in rows))
+            else:
+                (area / f'{endpoint}-complete-shells-test.log').write_text('MACNEAL_HARDER_RESULTS=' + json.dumps([dict(id=r['site'], value=r['actual'], reference=r['reference']) for r in rows]))
 
     def measurement(self, site, value, selector=None):
         row = dict(test='reference_test', site=site, actual=value, reference=1)
@@ -569,27 +573,29 @@ class EndpointIdentity(unittest.TestCase):
 
     def test_reordering_cannot_pair_different_sites(self):
         a, b = self.measurement('tip', 1), self.measurement('support', 2)
-        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
-            area = Path(directory)
-            self.references(area, [a, b], [b, a])
-            self.execute('collect-references.py', area)
-            rows = json.loads((area / 'reference-comparisons.json').read_text())['rows']
-            self.assertEqual(len(rows), 2)
-            for row in rows:
-                self.assertEqual(row['before_site'], row['after_site'])
-                self.assertEqual(row['before'], row['after'])
+        for source in ['reference', 'shells']:
+            with self.subTest(source=source), tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                area = Path(directory)
+                self.references(area, [a, b], [b, a], source)
+                self.execute('collect-references.py', area)
+                rows = json.loads((area / 'reference-comparisons.json').read_text())['rows']
+                self.assertEqual(len(rows), 2)
+                for row in rows:
+                    self.assertEqual(row['before_site'], row['after_site'])
+                    self.assertEqual(row['before'], row['after'])
 
     def test_inserted_removed_and_changed_selectors_are_rejected(self):
-        a = self.measurement('tip', 1, {'node': 1, 'component': 'uz'})
-        b = self.measurement('tip', 2, {'node': 2, 'component': 'uz'})
-        for before, after in [([a], [b, a]), ([a, b], [a]), ([a], [b]), ([], []),
-                              ([a], [self.measurement('other-site', 1, a['selector'])])]:
-            with self.subTest(before=before, after=after), tempfile.TemporaryDirectory(dir=ROOT) as directory:
-                area = Path(directory)
-                self.references(area, before, after)
-                with self.assertRaises(ValueError):
-                    self.execute('collect-references.py', area)
-                self.assertFalse((area / 'reference-comparisons.json').exists())
+        for source in ['reference', 'shells']:
+            a = self.measurement('tip', 1, {'node': 1, 'component': 'uz'})
+            b = self.measurement('tip' if source == 'reference' else 'support', 2, {'node': 2, 'component': 'uz'})
+            for before, after in [([a], [b, a]), ([a, b], [a]), ([a], [b]), ([], []),
+                                  ([a], [self.measurement('other-site', 1, a['selector'])])]:
+                with self.subTest(before=before, after=after), tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                    area = Path(directory)
+                    self.references(area, before, after, source)
+                    with self.assertRaises(ValueError):
+                        self.execute('collect-references.py', area)
+                    self.assertFalse((area / 'reference-comparisons.json').exists())
 
     def test_duplicate_identity_requires_explicit_selector(self):
         a, b = self.measurement('loop', 1), self.measurement('loop', 2)

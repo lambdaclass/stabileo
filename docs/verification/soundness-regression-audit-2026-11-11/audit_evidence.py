@@ -4,6 +4,31 @@ from pathlib import Path
 import re
 
 
+def paired_endpoint_keys(before, after):
+    names = before.keys() | after.keys()
+    missing_before = sorted(names - before.keys())
+    missing_after = sorted(names - after.keys())
+    if not names or missing_before or missing_after:
+        raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')
+    return sorted(names)
+
+
+def measurement_index(records):
+    indexed = {}
+    for record in records:
+        test, site = record.get('test'), record.get('site')
+        if not isinstance(test, str) or not test or not isinstance(site, str) or not site:
+            raise ValueError('measurement requires nonempty test and site')
+        selector = record.get('selector')
+        if selector is not None and (not isinstance(selector, dict) or not selector):
+            raise ValueError('measurement selector must be a nonempty object')
+        key = (test, site, json.dumps(selector, sort_keys=True, separators=(',', ':'), allow_nan=False))
+        if key in indexed:
+            raise ValueError(f'duplicate measurement identity: {key}; capture an explicit selector for every loop measurement')
+        indexed[key] = record
+    return indexed
+
+
 def first_boundary(revisions, evaluate, signature):
     baseline = signature(evaluate(0))
     for index in range(1, len(revisions)):

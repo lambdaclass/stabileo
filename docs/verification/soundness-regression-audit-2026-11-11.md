@@ -6,20 +6,20 @@ No newly introduced silent wrong engineering answer confirmed within the pinned 
 
 ## Findings first
 
-Seven frozen shell inputs now refuse. Six SSI reaction outputs and 2760 arc-length inputs change without a matching registry entry. One public-gallery boundary changes both its model and reference without a matching registration. The literal distance check flags 53 frozen-input reference observations and 30 comparable as-shipped test observations; 13 further as-shipped observations have differing endpoint references and are incomparable; exact before/after values are retained, including changes below printed precision. These are suspected findings, not new safety advisories. The missing registrations describe the pinned endpoints; follow-up remediation in this PR adds the three result-change write-ups and registry entries.
+Seven frozen shell inputs now refuse. Six SSI reaction outputs and 2760 arc-length inputs change without a matching registry entry. One public-gallery boundary changes both its model and reference without a matching registration. The literal distance check flags 53 frozen-input reference observations. The historical claims of 30 comparable as-shipped distance flags and 13 differing-target pairs are withdrawn: the corrected collector rejects ambiguous measurement identities in the archived logs. Exact historical values remain available as unvalidated observations. These are suspected findings, not new safety advisories. The missing registrations describe the pinned endpoints; follow-up remediation in this PR adds the three result-change write-ups and registry entries.
 
 | Corpus | Compared | Changed | New refusals |
 | --- | --- | --- | --- |
 | Frozen native | 3771 | 3369 | 7 |
 | Snapshot + bundled gallery | 106 | 101 | 0 |
-| Parameterized public gallery | 86 | 62 | 0 |
+| Parameterized public gallery (archived; endpoint completeness unverified) | 86 | 62 | 0 |
 | Published acceptance references | 105 | 0 | 0 |
 
-Round 2 reran the corrected `three_d::three_d_corotational::` and `three_d::three_d_buckling::` selections on `stabileo-ci-1`: **9 and 7 tests pass per endpoint**, respectively. The old zero-test log entries are invalid evidence and are marked superseded in `run-summary.json`. The additional 51 inputs were frozen and replayed completely at both endpoints; all are unchanged. Thus the corpus grows from 3720 to 3771 and the unchanged count from 351 to 402, with no new drift or refusal finding. All six MacNeal frame observations now use their actual 2D frame input and signed component (`ry` for observation 5); each frozen value exactly reproduces its source observation. Their prior shell-model/PR #1753 attribution is removed. The 176 frozen comparisons, 53 frozen distance flags and 30 comparable as-shipped flags are unchanged.
+Round 2 reran the corrected `three_d::three_d_corotational::` and `three_d::three_d_buckling::` selections on `stabileo-ci-1`: **9 and 7 tests pass per endpoint**, respectively. The old zero-test log entries are invalid evidence and are marked superseded in `run-summary.json`. The additional 51 inputs were frozen and replayed completely at both endpoints; all are unchanged. Thus the corpus grows from 3720 to 3771 and the unchanged count from 351 to 402, with no new drift or refusal finding. All six MacNeal frame observations now use their actual 2D frame input and signed component (`ry` for observation 5); each frozen value exactly reproduces its source observation. Their prior shell-model/PR #1753 attribution is removed. The 176 frozen comparisons and 53 frozen distance flags are unchanged. The final identity check below withdraws the historical as-shipped flags.
 
 The two frozen arch outputs `solve_arc_length-0015ab84c3baa36f.json` and `solve_arc_length-022317310499426d.json` omit support reactions. They are **known wrong**, linked to [#1949](https://github.com/lambdaclass/stabileo/issues/1949), with expected-failure reaction checks. Their archived empty lists are defect evidence, not accepted engineering answers; the solver fix belongs to #1949.
 
-The acceptance models supply 105 unchanged references in 12 models, all within their original bounds. The parameterized gallery contains all six defaults plus 80 individual parameter boundaries. The 106 other web cases contain the 39 snapshot cases and 67 bundled fixtures. The frozen native union includes the selected acceptance, benchmark and research paths and is replayed identically at both endpoints.
+The acceptance models supply 105 unchanged references in 12 models, all within their original bounds. The archived parameterized-gallery summary lists six defaults plus 80 individual parameter boundaries. Raw endpoint captures and manifests are absent from this worktree, so completeness cannot be reverified here. The 106 other web cases contain the 39 snapshot cases and 67 bundled fixtures. The frozen native union includes the selected acceptance, benchmark and research paths and is replayed identically at both endpoints.
 
 ### Suspected new refusals
 
@@ -112,7 +112,7 @@ There are 176 primary reference comparisons on identical frozen inputs. The 53 i
 | solve_3d-94e9dddefab49b9b.json / scordelis-lo https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm:uz | -0.30447690527156496 | -0.30447690527170584 | -0.3024 | #1753 |
 | solve_3d-94e9dddefab49b9b.json / scordelis-lo https://doc.comsol.com/6.4/doc/com.comsol.help.models.sme.scordelis_lo_roof/scordelis_lo_roof.html:uz | -0.30447690527156496 | -0.30447690527170584 | -0.302 | #1753 |
 
-The following table separately retains all 30 comparable as-shipped test observations that move farther. Thirteen observations with different endpoint targets are marked incomparable in the JSON and excluded from this distance table. Model variants and test-builder arithmetic can differ; do not substitute this table for the identical-input comparison above. Adjacent arc-length benchmark-family transitions reproduce PR #1885; earliest attribution is unverified. A geometric-volume sum in a test builder is labelled as an input metric and excluded from engine findings.
+The following table preserves the 30 historical as-shipped distance flags for traceability only. These flags and the 13 historical differing-target pairs are unvalidated and withdrawn as conclusions: positional pairing ignored differing sites and repeated measurements. The corrected collector rejects this batch. Do not use this table as comparison evidence; the identical-input comparisons above retain explicit selectors. Adjacent arc-length benchmark-family transitions reproduce PR #1885; earliest attribution is unverified. A geometric-volume sum in a test builder is labelled as an input metric and excluded from engine findings.
 
 | Observation / model | Before | After | Reference | First-parent attribution |
 | --- | --- | --- | --- | --- |
@@ -612,26 +612,27 @@ Use `make shell` in remote scratch checkouts at the pinned revisions. The suppli
 | [acceptance-comparison.json](soundness-regression-audit-2026-11-11/acceptance-comparison.json) | 116,498 bytes; SHA-256 `06f9e750f40e6daef4336a6f6d91708596cc0425a3fd9b47959a6740dbf8e88a` |
 | [all-static-bisection-summary.json](soundness-regression-audit-2026-11-11/all-static-bisection-summary.json) | 58,239 bytes; SHA-256 `5bb3fc438ebae25907cb88ded4aba789f765955a44ed0310980e4042d7e59c15` |
 | [all-static-bisection.json.gz](soundness-regression-audit-2026-11-11/all-static-bisection.json.gz) | 15,447,730 bytes; SHA-256 `5f42511eb1b09a802def345a19448e77b55a7af71f84e4987ba11202e129efa8` |
-| [annotate-references.py](soundness-regression-audit-2026-11-11/annotate-references.py) | 3,276 bytes; SHA-256 `30e237e8b0e2fa508539b342034d359c1d96b0e2f9fc716557a9d3c3e3822c5d` |
+| [annotate-references.py](soundness-regression-audit-2026-11-11/annotate-references.py) | 3,945 bytes; SHA-256 `2b09e956230389449a75193bba4a8c5e5baa34b51e2400cf553c11338432d2c1` |
 | [arc-bisection.json](soundness-regression-audit-2026-11-11/arc-bisection.json) | 180,280 bytes; SHA-256 `245d8f6d1633d22ba0851a9e0176e94e09e98eca496acd6d30629f3f1bd967fd` |
-| [audit_evidence.py](soundness-regression-audit-2026-11-11/audit_evidence.py) | 5,075 bytes; SHA-256 `7533b49c183426f9604e2b1200a29379b02f379ee710b9900490554de0ac3c36` |
+| [audit_evidence.py](soundness-regression-audit-2026-11-11/audit_evidence.py) | 6,298 bytes; SHA-256 `0c172100b38198465bd5d5fa5490dc5b6682b7ae3da3853aed1d714d2d58510f` |
 | [base-r3-fixed-replay.log](soundness-regression-audit-2026-11-11/base-r3-fixed-replay.log) | 12,675 bytes; SHA-256 `d52b3db157167442f897975d2678eb16a564f4d0463ee06827b8545e018df9b6` |
 | [base-r3-validation-three_d__three_d_buckling__.log](soundness-regression-audit-2026-11-11/base-r3-validation-three_d__three_d_buckling__.log) | 146,222 bytes; SHA-256 `e1aa1b9fb16c7bac1ad63f3d188a33e033f1ba3e34445e0408b98ae901700cc4` |
 | [base-r3-validation-three_d__three_d_corotational__.log](soundness-regression-audit-2026-11-11/base-r3-validation-three_d__three_d_corotational__.log) | 146,724 bytes; SHA-256 `22fce2e36adaf6d198eda2f4571fbab0c03ff1318be8b6ccd9a274b1dfde8060` |
 | [bisect-all-static.py](soundness-regression-audit-2026-11-11/bisect-all-static.py) | 2,521 bytes; SHA-256 `4f2b5f20abf93d18fea452c5e5ef86309da179e319c16e6ea0c93788bb9e39bb` |
-| [bisect-arc.py](soundness-regression-audit-2026-11-11/bisect-arc.py) | 2,793 bytes; SHA-256 `a4a229e300c708d90094585aab3f7745757945deea25fbc3aaa16739180ab764` |
+| [bisect-arc.py](soundness-regression-audit-2026-11-11/bisect-arc.py) | 2,849 bytes; SHA-256 `9541cb518fa8b9d637de89c05dc611646b62a8d95a1b7274ad47747d95aaedcf` |
 | [bisect-reference.py](soundness-regression-audit-2026-11-11/bisect-reference.py) | 2,376 bytes; SHA-256 `b7157ded272a8c3635e93f0406cebb2ecda8a32c6783a9444e8055408c3f198c` |
 | [bisect-refusals.py](soundness-regression-audit-2026-11-11/bisect-refusals.py) | 2,644 bytes; SHA-256 `170b717eebd1c2bb0296734484be6a05e3b2b94b12847002f9a5e55297991ae2` |
 | [capture.test.ts](soundness-regression-audit-2026-11-11/capture.test.ts) | 2,127 bytes; SHA-256 `5063c7fc987b7a0bb10d6e6ae5248169e955124dcd2cb28b8faf199db4afa3b3` |
 | [codeaster-tests.log](soundness-regression-audit-2026-11-11/codeaster-tests.log) | 111 bytes; SHA-256 `fc523972b6a1714a1d54810e5e0468e39c4bd3e3d5232a86ffd2e808fc829bd9` |
-| [collect-references.py](soundness-regression-audit-2026-11-11/collect-references.py) | 3,068 bytes; SHA-256 `0e85283a65d37c1dd34ad5db1c102ea827dace48f8e2f6f26719196e67bb8727` |
+| [collect-references.py](soundness-regression-audit-2026-11-11/collect-references.py) | 3,285 bytes; SHA-256 `7799349f5240f4078915e40caf3a2b53932f3fba444242ec7859f5b33044db35` |
 | [compare.py](soundness-regression-audit-2026-11-11/compare.py) | 3,391 bytes; SHA-256 `d23fa8f8af9b80ea164e970ba0079bf805b3b265d8ba897bc5e537675379dab3` |
 | [coverage-frontiers.json](soundness-regression-audit-2026-11-11/coverage-frontiers.json) | 1,945 bytes; SHA-256 `91a07c579488ee7cfff0ba8ad8dbe59621fc4e9b628abd4800a4129e62910bf5` |
 | [diagnostic-drift-samples.json](soundness-regression-audit-2026-11-11/diagnostic-drift-samples.json) | 3,234 bytes; SHA-256 `590e481b522bd8ea79d9d3b0dea892c5d71163e8e3741261b8b64af70bc9b9f3` |
-| [finish-analysis.py](soundness-regression-audit-2026-11-11/finish-analysis.py) | 3,931 bytes; SHA-256 `8209fc495a3c7138452464078c3f5e8db1df47584f834f6c43a8c3860893c115` |
-| [finish-corpus.sh](soundness-regression-audit-2026-11-11/finish-corpus.sh) | 3,483 bytes; SHA-256 `31d4d863ffc1a2c1a82e7268e7eb32903a23613cf78d5861a2e53b36b1b0bb7a` |
+| [final-endpoint-checks.json](soundness-regression-audit-2026-11-11/final-endpoint-checks.json) | 13,316 bytes; SHA-256 `e732be353484dff686c20e2833ec726b0a61e702e44c34ab90b83f2d918cb882` |
+| [finish-analysis.py](soundness-regression-audit-2026-11-11/finish-analysis.py) | 4,151 bytes; SHA-256 `2d93b1e57afb44a986b8bfa5dbcd4ac8b2122d699e4797d0549ee7e707fc4632` |
+| [finish-corpus.sh](soundness-regression-audit-2026-11-11/finish-corpus.sh) | 3,599 bytes; SHA-256 `b8e64a0be7ed253916eee6661b482bd3e510e9ea9f2d625d31447f94fe52b2d9` |
 | [fixed-models.json.gz](soundness-regression-audit-2026-11-11/fixed-models.json.gz) | 1,829,811 bytes; SHA-256 `a64a01d0648e272e78bdd7dbcff6db3c13ddcdaadfce2bcd0a4eda35379debff` |
-| [frozen-references.py](soundness-regression-audit-2026-11-11/frozen-references.py) | 8,179 bytes; SHA-256 `07b5c4202b4c3289815dac0a53c1cd5530176ac06162f64db6fda12d532b416b` |
+| [frozen-references.py](soundness-regression-audit-2026-11-11/frozen-references.py) | 8,310 bytes; SHA-256 `510cf2e9c7b64403aaba475e1b4623b925f0dfe014f7a3b98dfc61e927a87120` |
 | [harmonic-fix-a9d72cbe6.log](soundness-regression-audit-2026-11-11/harmonic-fix-a9d72cbe6.log) | 11,528 bytes; SHA-256 `6b8e588a46632c4aaab23fb1d186753b44d7b624d3a43bb8e200463568d22c4a` |
 | [harmonic-fix-a9d72cbe6^1.log](soundness-regression-audit-2026-11-11/harmonic-fix-a9d72cbe6^1.log) | 12,731 bytes; SHA-256 `7bc248f701332dbbc4406f0a31700a522b2dd8610902b7338d8c7a64d6fc8a71` |
 | [health-tests.log](soundness-regression-audit-2026-11-11/health-tests.log) | 1,366 bytes; SHA-256 `c979720a422210b36e19bb697927b02ec49d1a52a05fa42992ec7852846a0421` |
@@ -651,7 +652,7 @@ Use `make shell` in remote scratch checkouts at the pinned revisions. The suppli
 | [probe-units.sh](soundness-regression-audit-2026-11-11/probe-units.sh) | 1,008 bytes; SHA-256 `8a30a6ab0686a43a08c9ef3cb79a33b387033f1711d560171bbe4fc1775d0c80` |
 | [r3-additional-native.json.gz](soundness-regression-audit-2026-11-11/r3-additional-native.json.gz) | 106,741 bytes; SHA-256 `945ac27130c6981d73e5e055997cddcf000b2e444dd0dd693e1b206f2cdcd116` |
 | [reference-bisection.json](soundness-regression-audit-2026-11-11/reference-bisection.json) | 82,714 bytes; SHA-256 `4ac4e474b558c36d0d71f10368775044cbae5e819a3265f22b2b6bddd7d26428` |
-| [reference-comparisons.json](soundness-regression-audit-2026-11-11/reference-comparisons.json) | 567,731 bytes; SHA-256 `89f55b78ae536d9096e177ab97fd2f4939e58b8a40cd5c9f1ca4c289d9675bc6` |
+| [reference-comparisons.json](soundness-regression-audit-2026-11-11/reference-comparisons.json) | 594,524 bytes; SHA-256 `536a416ea7d1f9bfe3cd90b0faa85c6e5d5c0b4f33783f5ddbe08e17974ff7fb` |
 | [reference-probe-logs.json.gz](soundness-regression-audit-2026-11-11/reference-probe-logs.json.gz) | 84,964 bytes; SHA-256 `7a0f8e0331d1c79c31d02e2ab523a5c80c5c1ca442af9251a250f9a25c8c8e9c` |
 | [reference-warnings.json](soundness-regression-audit-2026-11-11/reference-warnings.json) | 323,571 bytes; SHA-256 `760e9315fcdb5be060604494e4524708848250d5ac64106fb7974072ffa74275` |
 | [refusal-bisection.json](soundness-regression-audit-2026-11-11/refusal-bisection.json) | 1,252,214 bytes; SHA-256 `4d37e180cb814b05c9d2a89d83dc220b017c3c6d75ee623c2fc82dd8f4f24a56` |
@@ -667,7 +668,7 @@ Use `make shell` in remote scratch checkouts at the pinned revisions. The suppli
 | [run-complete-native.sh](soundness-regression-audit-2026-11-11/run-complete-native.sh) | 3,356 bytes; SHA-256 `5b325f4ba4a298b3086886217f8457a8f73fa181c2f66bc6f63df052c148643c` |
 | [run-evidence.json.gz](soundness-regression-audit-2026-11-11/run-evidence.json.gz) | 373,814 bytes; SHA-256 `a0b15ee22438c5550e6c15c75ed66ffbd55d8dca9c2a23ddd2cc440ef70773aa` |
 | [run-summary.json](soundness-regression-audit-2026-11-11/run-summary.json) | 19,749 bytes; SHA-256 `00cbc76025c0e7e3e3c6a2cc6d4e216128e464c46ea378c1d99a85c2f86a2512` |
-| [site-gallery-diff.json](soundness-regression-audit-2026-11-11/site-gallery-diff.json) | 444,992 bytes; SHA-256 `6e87a522893bb462749f83411f4ca75b531721c8664673843975304877411449` |
+| [site-gallery-diff.json](soundness-regression-audit-2026-11-11/site-gallery-diff.json) | 445,249 bytes; SHA-256 `26b80bd11004562e0d126cdaee6784e317bc97d81d1e44eaecc37e45a4687d02` |
 | [site-gallery.test.ts](soundness-regression-audit-2026-11-11/site-gallery.test.ts) | 1,637 bytes; SHA-256 `1abfdd1567cf67555a0510f2d25e0012259e70f19910076a778b67cfd50301a6` |
 | [ssi-probe.rs](soundness-regression-audit-2026-11-11/ssi-probe.rs) | 769 bytes; SHA-256 `8fad51b78bbba51cf6a3546958465518be09b05681dc20defb6fc282afcbcd1f` |
 | [tooling-parent-controls.log](soundness-regression-audit-2026-11-11/tooling-parent-controls.log) | 17,288 bytes; SHA-256 `565e5b692de9ce26912b58530778429c361e4a3510a703434adf206367217132` |
@@ -697,6 +698,15 @@ Round 3 evidence checks retain all 142 archived adjacent static/reference compar
 
 ## Round 4 evidence classification
 
-Four Mattiasson load-step-independence observations compare solver runs and are load-step consistency/self-convergence evidence. Ten signed-response observations are synthetic checker controls. Both groups remain in the raw observations with explicit categories and are excluded from engineering-reference coverage totals (see `coverage_counts` in the JSON). Neither group supplies independent accuracy evidence. None of these fourteen unchanged observations contributed to the 176 frozen primary comparisons, 53 frozen distance flags, 30 comparable as-shipped distance flags, refusals or result-registration conclusions; those conclusions are unchanged.
+Four Mattiasson load-step-independence observations compare solver runs and are load-step consistency/self-convergence evidence. Ten signed-response observations are synthetic checker controls. Both groups remain in the raw observations with explicit categories and are excluded from engineering-reference coverage totals (see `coverage_counts` in the JSON). Neither group supplies independent accuracy evidence. None of these fourteen unchanged observations contributed to the 176 frozen primary comparisons, 53 frozen distance flags, historical as-shipped distance flags, refusals or result-registration conclusions. The final endpoint check separately withdraws the historical as-shipped conclusions.
 
 Arc history selection now retains every unique drifted model filename, with all contributing tests, including multiple inputs captured by one test. Archived historical boundaries were not rerun; their existing adjacent-transition and earliest-attribution limitations still apply.
+
+
+### Final endpoint identity checks
+
+The corrected scripts compare the union of endpoint filenames and require matching unique measurement identities `(test, site, selector)`. Reordering cannot alter a pairing. Missing counterparts, empty captures and duplicate identities fail before a comparison file is written. Repeated observations require explicit selectors; source line-number shifts are not silently treated as equivalent sites. Extra frozen replays print and validate their own exit status and stop on failure.
+
+Rerunning `collect-references.py` with the archived probe logs fails on a duplicate `shell:6724` measurement identity. The logs contain 32 duplicate-site groups at baseline and 33 at head; they also contain differing source-line sites. The as-shipped batch therefore needs a new capture with stable measurement selectors. All 348 historical paired rows, their 30 distance flags and 13 differing-target classifications remain archived, with `pairing_validated: false`; the eight as-shipped-only suspected findings are moved to `withdrawn_as_shipped_findings`. These observations no longer count as validated conclusions. The 176 frozen comparisons, 53 frozen flags, native refusal and registry findings remain separate and unchanged.
+
+Rerunning `finish-analysis.py` from the available archived inputs refuses an empty gallery rather than publishing zero cases. The raw gallery endpoint directories/manifests were not archived, and the saved diff cannot establish that a baseline case was not dropped. Its 86 rows and 62 changes remain historical evidence with endpoint completeness explicitly unverified. Controlled script tests verify missing-head and missing-baseline refusal, reordered/inserted observations, repeated-site selectors, valid comparisons and successful/failed replay statuses. Historical engine suites and full scratch replays were not rerun under the targeted-only/no-heavy-runs constraint. See [final-endpoint-checks.json](soundness-regression-audit-2026-11-11/final-endpoint-checks.json) for commands, refusals and scope. No new silent wrong engine output is established by these tooling checks.

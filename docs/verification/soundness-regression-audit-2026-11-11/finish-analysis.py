@@ -1,11 +1,13 @@
-from audit_evidence import contributing_tests
-import pathlib,json,importlib.util,gzip,collections,hashlib,re
-area=pathlib.Path('/root/audit/soundness-2026-11-11')
-spec=importlib.util.spec_from_file_location('audit_compare',area/'compare.py');cmp=importlib.util.module_from_spec(spec);spec.loader.exec_module(cmp)
+from audit_evidence import contributing_tests, paired_endpoint_keys
+import pathlib,json,importlib.util,gzip,collections,hashlib,re,sys
+area=pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path('/root/audit/soundness-2026-11-11')
+spec=importlib.util.spec_from_file_location('audit_compare',pathlib.Path(__file__).with_name('compare.py'));cmp=importlib.util.module_from_spec(spec);spec.loader.exec_module(cmp)
 base,head=area/'base-site-gallery',area/'repo-site-gallery'
 rows=[];farther=[]
-for p in sorted(head.glob('site-*.json')):
- a=json.loads((base/p.name).read_text());b=json.loads(p.read_text())
+captures=[{p.name:p for p in endpoint.glob('site-*.json')} for endpoint in [base,head]]
+for name in paired_endpoint_keys(*captures):
+ p=captures[1][name]
+ a=json.loads(captures[0][name].read_text());b=json.loads(p.read_text())
  changes=cmp.diffs(cmp.normalize(a['outcome']),cmp.normalize(b['outcome']))
  refs=[]
  ar={r['key']:r for r in a['outcome'].get('readouts',[])}

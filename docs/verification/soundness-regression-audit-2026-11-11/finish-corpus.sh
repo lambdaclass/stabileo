@@ -43,12 +43,14 @@ unset AUDIT_NATIVE_OUT
 for endpoint in repo base; do
 cd "$area/$endpoint"
 replay_target=$(mktemp -d "$area/extra-$endpoint-XXXXXX")
-AUDIT_FIXED_FROM="$area/extra-inputs" AUDIT_FIXED_TO="$replay_target" nice -n 19 nix develop --command env CARGO_BUILD_JOBS=2 CARGO_TARGET_DIR="$area/target-$endpoint" RUSTC_WRAPPER= cargo test --locked --release -p dedaliano-engine --lib unrefused_oracles::audit_capture_lib::audit_replay_fixed_corpus -- --nocapture --test-threads=1 > "$area/$endpoint-extra-replay.log" 2>&1
-python3 "$area/audit_evidence.py" check-suite "$area/$endpoint-extra-replay.log" 0
+replay_status=0
+AUDIT_FIXED_FROM="$area/extra-inputs" AUDIT_FIXED_TO="$replay_target" nice -n 19 nix develop --command env CARGO_BUILD_JOBS=2 CARGO_TARGET_DIR="$area/target-$endpoint" RUSTC_WRAPPER= cargo test --locked --release -p dedaliano-engine --lib unrefused_oracles::audit_capture_lib::audit_replay_fixed_corpus -- --nocapture --test-threads=1 > "$area/$endpoint-extra-replay.log" 2>&1 || replay_status=$?
+printf '%s extra frozen replay status=%s\n' "$endpoint" "$replay_status"
+python3 "$area/audit_evidence.py" check-suite "$area/$endpoint-extra-replay.log" "$replay_status"
+if test "$replay_status" -ne 0; then exit "$replay_status"; fi
 python3 "$area/audit_evidence.py" check-replay "$area/extra-inputs" "$replay_target"
 cp "$replay_target"/*.json "$area/$endpoint-fixed-native/"
 python3 "$area/audit_evidence.py" check-replay "$area/fixed-inputs" "$area/$endpoint-fixed-native" --additional "$area/extra-inputs"
-printf '%s extra frozen replay status=%s\n' "$endpoint" "${status:-0}"
 done
 nice -n 19 nix develop --command python3 "$area/compare.py" native
 nice -n 19 nix develop --command python3 "$area/summarize-native.py"
