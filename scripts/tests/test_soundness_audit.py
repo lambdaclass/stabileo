@@ -13,6 +13,12 @@ ROOT = Path(__file__).resolve().parents[2]
 AUDIT = ROOT / 'docs/verification/soundness-regression-audit-2026-11-11'
 
 
+def execute_audit_script(filename, area):
+    source = (AUDIT / filename).read_text().replace('/root/audit/soundness-2026-11-11', str(area))
+    with patch.object(sys, 'argv', [filename, str(area)]):
+        exec(compile(source, str(AUDIT / filename), 'exec'), {'__file__': str(AUDIT / filename)})
+
+
 def partial():
     tree = ast.parse((AUDIT / 'annotate-references.py').read_text())
     function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'partial')
@@ -389,7 +395,6 @@ fn main() {
             with self.assertRaises(ValueError):
                 merge_input_records(first, invalid)
 
-    @unittest.skip('known wrong result: #1946')
     def test_reference_collection_is_independent_of_runner_arguments(self):
         for arguments in [[], ['--verbose'], ['scripts/tests/test_soundness_audit.py']]:
             with self.subTest(arguments=arguments), patch.object(sys, 'argv', ['unittest', *arguments]):
@@ -398,14 +403,14 @@ fn main() {
     def test_reference_collection_uses_all_provenance_and_refuses_changed_targets(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             area = Path(directory)
-            (area / 'base-fixed-native').mkdir()
-            model = dict(analysis='solve_3d', test='first', tests=['first', 'second'], input=[{}], result={'Ok': {'displacements': [{'ux': 1}]}})
-            (area / 'base-fixed-native/model.json').write_text(json.dumps(model))
+            model = dict(analysis='solve_3d', test='first', tests=['first', 'second'], input=[{}])
             for endpoint, actual, reference in [('base', 1, 1), ('repo', 2, 3)]:
+                (area / f'{endpoint}-fixed-native').mkdir()
+                record = dict(model, result={'Ok': {'displacements': [{'ux': actual}]}})
+                (area / f'{endpoint}-fixed-native/model.json').write_text(json.dumps(record))
                 observation = dict(test='second', site='test', actual=actual, reference=reference)
                 (area / f'{endpoint}-reference-test.log').write_text('AUDIT_REFERENCE=' + json.dumps(observation))
-            source = (AUDIT / 'collect-references.py').read_text().replace('/root/audit/soundness-2026-11-11', directory)
-            exec(compile(source, str(AUDIT / 'collect-references.py'), 'exec'), {})
+            execute_audit_script('collect-references.py', area)
             row = json.loads((area / 'reference-comparisons.json').read_text())['rows'][0]
             self.assertEqual(row['models'], ['model.json'])
             self.assertIsNone(row['farther'])
@@ -413,7 +418,7 @@ fn main() {
             self.assertIsNone(row['after_error'])
             observation = dict(test='second', site='test', actual=2, reference=1)
             (area / 'repo-reference-test.log').write_text('AUDIT_REFERENCE=' + json.dumps(observation))
-            exec(compile(source, str(AUDIT / 'collect-references.py'), 'exec'), {})
+            execute_audit_script('collect-references.py', area)
             row = json.loads((area / 'reference-comparisons.json').read_text())['rows'][0]
             self.assertTrue(row['farther'])
             self.assertEqual((row['before_error'], row['after_error']), (0, 1))
@@ -523,11 +528,6 @@ fn main() {
 
 
 class EndpointIdentity(unittest.TestCase):
-    def execute(self, filename, area):
-        source = (AUDIT / filename).read_text().replace('/root/audit/soundness-2026-11-11', str(area))
-        with patch.object(sys, 'argv', [filename]):
-            exec(compile(source, str(AUDIT / filename), 'exec'), {'__file__': str(AUDIT / filename)})
-
     def gallery(self, area, before, after):
         (area / 'compare.py').write_text((AUDIT / 'compare.py').read_text())
         capture = dict(parameters={}, model={}, outcome=dict(status='ok', readouts=[dict(key='control', value=1, reference=dict(value=1, source='synthetic control'))]))
@@ -542,7 +542,7 @@ class EndpointIdentity(unittest.TestCase):
             area = Path(directory)
             self.gallery(area, ['site-control.json', 'site-missing.json'], ['site-control.json'])
             with self.assertRaisesRegex(ValueError, 'site-missing.json'):
-                self.execute('finish-analysis.py', area)
+                execute_audit_script('finish-analysis.py', area)
             self.assertFalse((area / 'site-gallery-diff.json').exists())
 
     def test_missing_baseline_and_empty_gallery_are_rejected(self):
@@ -551,13 +551,13 @@ class EndpointIdentity(unittest.TestCase):
                 area = Path(directory)
                 self.gallery(area, before, after)
                 with self.assertRaises(ValueError):
-                    self.execute('finish-analysis.py', area)
+                    execute_audit_script('finish-analysis.py', area)
 
     def test_complete_gallery_retains_correct_answer(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             area = Path(directory)
             self.gallery(area, ['site-control.json'], ['site-control.json'])
-            self.execute('finish-analysis.py', area)
+            execute_audit_script('finish-analysis.py', area)
             result = json.loads((area / 'site-gallery-diff.json').read_text())
             self.assertEqual(result['cases'], 1)
             self.assertEqual(result['changed'], 0)
@@ -583,7 +583,7 @@ class EndpointIdentity(unittest.TestCase):
             with self.subTest(source=source), tempfile.TemporaryDirectory(dir=ROOT) as directory:
                 area = Path(directory)
                 self.references(area, [a, b], [b, a], source)
-                self.execute('collect-references.py', area)
+                execute_audit_script('collect-references.py', area)
                 rows = json.loads((area / 'reference-comparisons.json').read_text())['rows']
                 self.assertEqual(len(rows), 2)
                 for row in rows:
@@ -600,7 +600,7 @@ class EndpointIdentity(unittest.TestCase):
                     area = Path(directory)
                     self.references(area, before, after, source)
                     with self.assertRaises(ValueError):
-                        self.execute('collect-references.py', area)
+                        execute_audit_script('collect-references.py', area)
                     self.assertFalse((area / 'reference-comparisons.json').exists())
 
     def test_empty_reference_endpoints_are_rejected_before_publishing(self):
@@ -610,7 +610,7 @@ class EndpointIdentity(unittest.TestCase):
                 if source is not None:
                     self.references(area, [], [], source)
                 with self.assertRaisesRegex(ValueError, 'endpoint identity mismatch:.*empty=True'):
-                    self.execute('collect-references.py', area)
+                    execute_audit_script('collect-references.py', area)
                 self.assertFalse((area / 'reference-comparisons.json').exists())
                 self.assertFalse((area / 'reference-probe-logs.json.gz').exists())
 
@@ -620,7 +620,7 @@ class EndpointIdentity(unittest.TestCase):
             area = Path(directory)
             self.references(area, [a, b], [a, b])
             with self.assertRaisesRegex(ValueError, 'duplicate'):
-                self.execute('collect-references.py', area)
+                execute_audit_script('collect-references.py', area)
 
     def test_explicit_selectors_pair_loop_measurements_after_reordering(self):
         a = self.measurement('loop', 1, {'node': 1, 'component': 'uz'})
@@ -628,7 +628,7 @@ class EndpointIdentity(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             area = Path(directory)
             self.references(area, [a, b], [b, a])
-            self.execute('collect-references.py', area)
+            execute_audit_script('collect-references.py', area)
             rows = json.loads((area / 'reference-comparisons.json').read_text())['rows']
             self.assertEqual(len(rows), 2)
             self.assertTrue(all(r['before'] == r['after'] for r in rows))
