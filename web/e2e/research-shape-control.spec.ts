@@ -51,6 +51,20 @@ test('@smoke research shape control: a heavier load snaps, and Back to the paper
   await expect(page.locator('#shape-q')).toHaveValue('2.5');
 });
 
+test('@smoke research shape control: an arch that cannot carry the load leaves the previous run marked as not current', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(PAGE);
+  const app = page.locator('.shape-app');
+  await expect(app).toHaveAttribute('data-stale', 'false');
+  await app.getByRole('radio', { name: 'half span' }).click();
+  await expect(app).toContainText('cannot carry this load', { timeout: 60000 }); // slow-ok: the shape-control WASM worker loads before it refuses the start.
+  await expect(app).toHaveAttribute('data-stale', 'true');
+  await expect(app).toHaveAttribute('data-load', '2.5');
+  await app.getByRole('button', { name: 'Back to the paper' }).click();
+  await expect(app).toHaveAttribute('data-stale', 'false');
+  await expect(app).toHaveAttribute('data-paper', 'true');
+});
+
 test('@smoke research shape control: the page reads in Hungarian and explains each difference', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/hu/research/stability/feher-sipos-varkonyi-2026/');

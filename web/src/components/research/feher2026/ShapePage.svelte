@@ -226,12 +226,12 @@
   {#snippet app()}
     <div lang={publicI18n.locale} class="shape-app" bind:this={host} data-source={source} data-step={playback.shown} data-tab={tab}
       data-theta={frame.theta} data-delta={frame.delta} data-ymid={frame.y_mid} data-stable={frame.stable}
-      data-load={run.load} data-distribution={run.distribution} data-elements={run.elements} data-paper={atPaper && source === 'replay'}
+      data-load={run.load} data-distribution={run.distribution} data-elements={run.elements} data-paper={atPaper && source === 'replay'} data-stale={startLost}
       onpointerdowncapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} role="group" aria-label={s.title}>
       <PaneTabs label={s.caseLabel} tabs={[{ id: 'strip', label: s.tabs.strip }, { id: 'path', label: s.tabs.path }]}
         bind:active={() => tab, setTab} oninteract={() => playback.interact()} />
       <p class="source">{source === 'replay' ? shared.replaySource : shared.liveSource}</p>
-      <div id="rs-panel-strip" role="tabpanel" aria-labelledby="rs-tab-strip" hidden={tab !== 'strip'}>
+      <div id="rs-panel-strip" role="tabpanel" aria-labelledby="rs-tab-strip" hidden={tab !== 'strip'} class:stale={startLost}>
         <StabileoViewer editorButton={false} {xy} {cells} cellSize={2} values={frame.curvature} {displacement} deformScale={1}
           range={{ min: -10, max: 10 }} colourMap="diverging" title={s.curvature} height="max(240px, min(20rem, 38svh))" view={[-0.12, -0.27, 1.08, 0.3]} lineWidth={5} showAxes={false} />
         <p class="caption">{s.coordinates}</p>
@@ -243,7 +243,7 @@
           <dt>{s.stability}</dt><dd class:bad={!frame.stable}>{frame.stable ? s.stable : s.unstable}</dd>
         </dl>
       </div>
-      <div id="rs-panel-path" role="tabpanel" aria-labelledby="rs-tab-path" hidden={tab !== 'path'}>
+      <div id="rs-panel-path" role="tabpanel" aria-labelledby="rs-tab-path" hidden={tab !== 'path'} class:stale={startLost}>
         {#if tab === 'path'}
           <svg class="plane" viewBox="0 0 300 218" role="img" aria-label={s.plane}>
             <title>{s.plane}</title>
@@ -305,6 +305,7 @@
   [role='tabpanel'][hidden] { display: none; }
   p { font-size: 0.85rem; margin: 0; }
   .source, .caption { color: var(--fg-2); font-size: 0.8rem; }
+  .stale { opacity: 0.45; }
   .outcome { font-size: 0.85rem; }
   label { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
   input[type='range'] { width: 100%; min-height: 44px; margin: 0; }

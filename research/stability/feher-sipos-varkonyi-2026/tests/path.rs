@@ -40,6 +40,14 @@ fn an_arch_that_snaps_while_loaded_is_reported_before_the_path() {
 }
 
 #[test]
+fn an_arch_whose_loading_finds_no_equilibrium_is_a_snap_not_a_solver_error() {
+    for elements in [80, 90, 100, 120] {
+        assert_eq!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, elements).unwrap_err(), run::PathError::StartSnaps);
+    }
+    assert_eq!(run::PathError::StartUnsolved.code(), "start_unsolved");
+}
+
+#[test]
 fn settings_outside_the_sliders_are_refused() {
     assert!(run::path_with(1.3, 1.3, 4.5, Distribution::Uniform, 60).is_err());
     assert!(run::path_with(1.3, 1.3, 2.5, Distribution::Uniform, 10).is_err());

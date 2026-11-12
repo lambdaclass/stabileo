@@ -112,6 +112,7 @@ const steelHu: Translations = {
   "generator.assume.webPinned": "A függőleges és átlós rudak csuklós végűek.",
   "generator.assume.webContinuous": "A függőleges és átlós rudak folytonosak.",
   "generator.assume.raftersContinuous": "A szarufák folytonosak a gerincen át.",
+  "generator.assume.planarRestraints": "Síkbeli modell: a mezőcsomópontok síkra merőleges elmozdulása gátolt; a támaszok a csavarodást is gátolják.",
   "generator.assume.supportsSimple": "Egyszerű alátámasztás: egy csuklós és egy görgős támasz.",
   "generator.assume.baseFixed": "Befogott lábak.",
   "generator.assume.baseChordsPinned": "Minden öv a saját horgonyzásához van csuklósan kötve.",

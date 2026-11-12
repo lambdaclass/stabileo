@@ -1,4 +1,4 @@
-use crate::{bend, Distribution, Setting, State};
+use crate::{bend, Distribution, Setting, State, NO_EQUILIBRIUM};
 use serde_json::{json, Value};
 
 pub const ELEMENTS: usize = 60;
@@ -42,6 +42,8 @@ pub enum PathError {
     LoadOrMeshOutOfRange,
     /// The arch at (1, 0) does not carry the load: it snaps while being loaded.
     StartSnaps,
+    /// The solver itself failed while loading the arch at (1, 0).
+    StartUnsolved,
 }
 
 impl PathError {
@@ -50,6 +52,7 @@ impl PathError {
             PathError::CornerOutOfRange => "corner_out_of_range",
             PathError::LoadOrMeshOutOfRange => "load_or_mesh_out_of_range",
             PathError::StartSnaps => "start_snaps",
+            PathError::StartUnsolved => "start_unsolved",
         }
     }
 }
@@ -60,6 +63,7 @@ impl std::fmt::Display for PathError {
             PathError::CornerOutOfRange => "corner out of range",
             PathError::LoadOrMeshOutOfRange => "load or mesh out of range",
             PathError::StartSnaps => "the arch at (1, 0) snaps under this load",
+            PathError::StartUnsolved => "the solver failed while loading the arch at (1, 0)",
         })
     }
 }
@@ -82,10 +86,12 @@ pub fn path_with(theta: f64, delta: f64, q: f64, distribution: Distribution, ele
     if !(0.0..=4.0).contains(&q) || !(20..=120).contains(&elements) {
         return Err(PathError::LoadOrMeshOutOfRange);
     }
-    let mut s = bend(elements, Setting { theta: 1.0, delta: 0.0, q }, distribution, 2)
-        .ok()
-        .filter(|s| s.snapshot().y_mid > 0.0)
-        .ok_or(PathError::StartSnaps)?;
+    let mut s = bend(elements, Setting { theta: 1.0, delta: 0.0, q }, distribution, 2).map_err(|e| {
+        if e.starts_with(NO_EQUILIBRIUM) { PathError::StartSnaps } else { PathError::StartUnsolved }
+    })?;
+    if s.snapshot().y_mid <= 0.0 {
+        return Err(PathError::StartSnaps);
+    }
     let mut frames = vec![frame(&s)];
     let mut corners = vec![0];
     let mut snaps = vec![];

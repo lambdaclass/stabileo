@@ -14,7 +14,11 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Állapot 2026. november 10-én: az SA-2026-001–020 a 0.3.0-s, az SA-2026-021–024 a 0.4.0-s, az SA-2026-025–047 pedig a 0.5.0-s verzióban javult (az SA-2026-040 kezelve van: az ellenőrzés hiányosként van jelölve), kivéve az SA-2026-044-et: a 2D képlékeny tönkremenetel számítását a program a #758 lezárásáig elutasítja. Az SA-2026-048 a 0.5.0-s verzió után javult, és 2026. november 8. óta él a stabileo.com-on. Az SA-2026-049, az SA-2026-050, az SA-2026-051, az SA-2026-052 és az SA-2026-053 a 0.5.0-s verzió után javult, és 2026. november 9. óta él a stabileo.com-on. A közzétételük annak része, ahogyan az eredményeket ellenőrizzük, nem annak jele, hogy még nyitottak. Egy figyelmeztetés akkor számít javítottnak, amikor a javítás élesben fut a stabileo.com-on, nem akkor, amikor a módosítás elkészült. Amíg egy figyelmeztetés nyitott, alkalmazza a benne leírt kerülőmegoldást, és aláírás előtt ellenőrizze kézzel az érintett eredményt. SA-2026-055 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-056 – Tervezet: megoldatlan; javítás még nincs beolvasztva és élesítve. SA-2026-057 – Tervezet: a javítás még nincs beolvasztva és élesítve."
+      "t": "Állapot 2026. november 10-én: az SA-2026-001–020 a 0.3.0-s, az SA-2026-021–024 a 0.4.0-s, az SA-2026-025–047 pedig a 0.5.0-s verzióban javult (az SA-2026-040 kezelve van: az ellenőrzés hiányosként van jelölve), kivéve az SA-2026-044-et: a 2D képlékeny tönkremenetel számítását a program a #758 lezárásáig elutasítja. Az SA-2026-048 a 0.5.0-s verzió után javult, és 2026. november 8. óta él a stabileo.com-on. Az SA-2026-049, az SA-2026-050, az SA-2026-051, az SA-2026-052 és az SA-2026-053 a 0.5.0-s verzió után javult, és 2026. november 9. óta él a stabileo.com-on. A közzétételük annak része, ahogyan az eredményeket ellenőrizzük, nem annak jele, hogy még nyitottak. Egy figyelmeztetés akkor számít javítottnak, amikor a javítás élesben fut a stabileo.com-on, nem akkor, amikor a módosítás elkészült. Amíg egy figyelmeztetés nyitott, alkalmazza a benne leírt kerülőmegoldást, és aláírás előtt ellenőrizze kézzel az érintett eredményt. SA-2026-054 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-055 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-056 – Tervezet: megoldatlan; javítás még nincs beolvasztva és élesítve. SA-2026-057 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-059 – Javítva a #1921-es PR-ben, kiadásra vár."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-058 – Javítva a #1922-es PR-ben, kiadásra vár."
     },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO egy vasbeton kerettel, amelyet még az eredmények verziózása előtt mentettek. Alul egy sáv jelzi, hogy az eredmények elavultak, mert a projektet legutóbb egy régebbi verzióval számították, és 19 nyilvántartott változás érinti; mellette a változások megtekintésére és az újraszámításra szolgáló gombok.", "caption": "Így jut el egy javítás egy mentett projekthez: amíg újra nem számítják, az eredményei elavultként vannak jelölve, és az őt érintő változások egy kattintásnyira vannak."},
     {
@@ -206,6 +210,12 @@ const body: PostBody = {
           "0.5.0 után javítva; 2026. november 9. óta a stabileo.com-on"
         ],
         [
+          "SA-2026-054",
+          "A lineáris analízis figyelmeztetés nélkül pontatlan eredményt adhatott fel nem oldható merevség vagy a PCG által kihagyott teherkomponensek miatt",
+          "Magas",
+          "Tervezet: a javítás még nincs beolvasztva és élesítve"
+        ],
+        [
           "SA-2026-055",
           "A 2D és 3D P-Delta alulbecsülhette a másodrendű növekményt, és stabil eredményt jelezhetett, ha a normálerő egy keretrúd mentén megoszló vagy koncentrált terhek hatására változott",
           "Magas",
@@ -222,6 +232,18 @@ const body: PostBody = {
           "A képlékeny tanúsítvány megjelenítése a tanúsított intervallumon kívüli tényezőket belül lévőként jelölhette; a pontos mechanizmus-kinyerés a #1888-as PR javítása előtti buildekben elvetette az erőforrás miatti elutasításokat",
           "Közepes",
           "Tervezet: a javítás még nincs beolvasztva és élesítve"
+        ],
+        [
+          "SA-2026-058",
+          "A 3000-nél több független szabad szabadságfokú, nagy 2D/3D harmonikus modellek q ≤ 1/16 tartományon kívül megtarthatták a kihagyott rezgésalakok pontatlan válaszát a csonkítási figyelmeztetés által nem lefedett frekvenciákon (a célválasz mért komplex hibája 8,079%)",
+          "Magas",
+          "Javítva a #1922-es PR-ben, kiadásra vár"
+        ],
+        [
+          "SA-2026-059",
+          "A webes haladó analízisek figyelmeztetés nélkül nyomási ellenállást adhattak a kábeleknek (P-Delta-reprodukció: −4,599884347090908 kN); ellenőrizze a kábeles modellek igénybevételeit a haladó analízisekből, a közvetlen analízisből és az oktató varázslókból",
+          "Magas",
+          "Javítva a #1921-es PR-ben, kiadásra vár"
         ],
         [
           "SA-2026-037",
