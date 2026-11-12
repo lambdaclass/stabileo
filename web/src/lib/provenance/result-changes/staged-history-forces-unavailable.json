@@ -13,14 +13,7 @@
   },
   "quantities": [
     "stages",
-    "finalResults",
-    "reactions",
-    "elementForces",
-    "constraintForces",
-    "plateStresses",
-    "quadStresses",
-    "quadNodalStresses",
-    "structuredDiagnostics"
+    "finalResults"
   ],
   "title": {
     "en": "Staged history forces are withheld when recovery is unsupported",

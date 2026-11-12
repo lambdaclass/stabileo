@@ -48,10 +48,19 @@ The new `merged-path-convergence-state` registry entry covers the changed path
 displacements and step history. Existing #1952 reaction/member entries retain
 their narrow quantities. Main's released convergence and SSI registry entries
 remain unchanged; they describe the effects imported from #1940. The separate
-staged-history entry must declare only its `stages` and `finalResults` collections,
+staged-history entry declares only its `stages` and `finalResults` collections,
 so it cannot authorize a fabricated static reaction, member force or shell stress.
 
 No convergence threshold, engineering tolerance, numeric assertion or historical
 snapshot baseline was loosened. Staged histories that cannot be recovered still
 return structured unavailability diagnostics, including the self-weight extension
 case; valid first-stage forces and the retained displacement checks remain tested.
+
+The snapshot applicability classifier also recognizes nonlinear history fields
+outside `nonlinear.results`, such as `nonlinear.steps[i].controlDisplacement`.
+These use the same nonlinear analysis qualification as final-state fields. The
+registry audit regression tests every changed frozen field against the actual
+registered declarations, plus static, P-Delta and missing-path negative cases.
+Stage collection scope is tested through source JSON, exported quantities, the
+snapshot classifier and the legacy judge, in both dimensional feature contexts.
+Both registry failures were demonstrated against the signed reproducer parents.

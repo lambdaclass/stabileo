@@ -6,8 +6,8 @@
   "engineBuild": {
     "main": "make wasm with origin/main production sources temporarily substituted in this worktree; STABILEO_GIT_COMMIT set to originMain; sources and original WASM restored in finally",
     "mainWasmSha256": "33fef82618cd15294a5dfc133d99c3f3b1df97662a0bd421ba322f0217d9499b",
-    "fixed": "make wasm from the merged #1952 and #1940 engine sources; every recorded exact method and argument rerun with regenerateAfterResults from scripts/helpers/arc-evidence-equilibrium.mjs. Original before results are unchanged.",
-    "fixedWasmSha256": "012ad75419ca6435572872facdd859b96809af656a741ccba5b1e6f283cdff54"
+    "fixed": "make wasm from the engine sources identified by fixedSource; re-run every recorded exact argument using scripts/helpers/arc-evidence-equilibrium.mjs --update. Original before results are unchanged.",
+    "fixedWasmSha256": "df3fd753392fc63ef5782c42baeaa9c86f634909c003a0236c5a568f8697e8e3"
   },
   "scope": [
     "WASM records contain exact positional arguments and selected returned fields. All warning/diagnostic fields throughout each response are retained in notices, including empty arrays. Unlisted output fields are not claimed equal.",
@@ -7015,8 +7015,8 @@
       "after": "passed against full linear member-force reference, both with and without constraints"
     }
   },
-  "fixedSourceParentCommit": "392208163e8c9b04777db58e2b2a3a99b5ac8e86",
-  "fixedSource": "Merged engine in the signed main-merge commit containing this replay; parents are fixedSourceParentCommit and mergedMainCommit.",
+  "fixedSourceParentCommit": "e60bd370917dd05804b617d976a9b0c52010bfec",
+  "fixedSource": "Final engine sources in the signed commit containing this replay; fixedSourceParentCommit is its first parent and mergedMainCommit is the imported main revision.",
   "round9NativeReplay": {
     "originMain": "144296aadc772a13ec768a58ecb5e387aecb787e",
     "build": "All origin/main engine/src production sources temporarily substituted in this worktree; public native solve_corotational_2d/3d with max_iter=40, tolerance=1e-9, n_increments=2, modified_nr=false; restored in finally. Full returned outputs retained.",

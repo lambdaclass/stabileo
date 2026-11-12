@@ -1,7 +1,7 @@
 {
   "startingHead": "392208163e8c9b04777db58e2b2a3a99b5ac8e86",
   "mergedMain": "581495d9c9204004b4ed3a37788aa79ecf25952d",
-  "fixedWasmSha256": "012ad75419ca6435572872facdd859b96809af656a741ccba5b1e6f283cdff54",
+  "fixedWasmSha256": "df3fd753392fc63ef5782c42baeaa9c86f634909c003a0236c5a568f8697e8e3",
   "originalReplayBeforeAndArgumentsUnchanged": true,
   "artifacts": [
     {

@@ -811,7 +811,7 @@ describe('physical reaction recovery boundary', () => {
   });
 });
 
-it.skip('known wrong result: #1952: merged path registry covers every changed frozen value without authorizing static output', () => {
+it('known wrong result: #1952: merged path registry covers every changed frozen value without authorizing static output', () => {
   const entries = [mergedPathChange, reactionRecoveryChange];
   for (const artifact of mergedValueAudit.artifacts.filter(a => a.file.startsWith('web/results-frozen/'))) {
     const fixture = artifact.file.includes('0015ab84c3baa36f') ? frozenArchA : frozenArchB;

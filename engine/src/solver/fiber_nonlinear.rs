@@ -548,7 +548,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
     }
 
     let (reactions, balance) = fiber_reactions_and_equilibrium_2d(
-        input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, cs.as_ref(), &metric,
+        input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, &art, cs.as_ref(), &metric,
     )?;
     if !balance.summary.residual_ok || !balance.gate {
         return Err(not_in_equilibrium(last_lf, &balance.summary));
@@ -1708,13 +1708,15 @@ fn fiber_reactions_and_equilibrium_2d(
     f_total: &[f64],
     load_factor: f64,
     its: &[assembly::InclinedTransformData2D],
+    _art: &[(usize, f64)],
     cs: Option<&FreeConstraintSystem>,
     metric: &super::convergence::EquilibriumMetric,
 ) -> Result<(Vec<Reaction>, WrenchBalance), String> {
     let n = dof_num.n_total;
     let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
     let physical = super::reaction_recovery::PhysicalForces::fiber_2d(input, dof_num, u_full, elem_states, n_ip);
-    let rel_residual = metric.global_residual(&f_ext, physical.as_slice(), its, cs, false);
+    let f_int = physical.as_slice();
+    let rel_residual = metric.global_residual(&f_ext, &f_int, its, cs, false);
     let recovered = super::reaction_recovery::RecoveredForces::from_physical(
         &physical.in_frame(its),
         &assembly::to_inclined_free(f_ext.clone(), its, n), dof_num, cs,
@@ -1757,7 +1759,8 @@ fn fiber_reactions_and_equilibrium_3d(
     let n = dof_num.n_total;
     let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
     let physical = super::reaction_recovery::PhysicalForces::fiber_3d(input, dof_num, u_full, elem_states, n_ip);
-    let rel_residual = metric.global_residual(&f_ext, physical.as_slice(), its, cs, false);
+    let f_int = physical.as_slice();
+    let rel_residual = metric.global_residual(&f_ext, &f_int, its, cs, false);
     let recovered = super::reaction_recovery::RecoveredForces::from_physical(
         &physical.in_frame(its),
         &assembly::to_inclined_free(f_ext.clone(), its, n), dof_num, cs,

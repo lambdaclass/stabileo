@@ -19,7 +19,7 @@ export function fieldCovered(entry, path, features) {
   const quantities = entry.quantities;
   if (path === 'solve.ok' || path === 'solve.refusal') return quantities.includes('solve.ok');
   if (quantities.includes('*')) return true;
-  const rest = path.replace(/^(base|(?:case|combo)\[[^\]]+\]|envelope\.maxAbs|pdelta\.results|nonlinear\.results|spectral\.[XYZ]|modal|buckling|pdelta|design)\./, '');
+  const rest = path.replace(/^(base|(?:case|combo)\[[^\]]+\]|envelope\.maxAbs|pdelta\.results|nonlinear\.results|spectral\.[XYZ]|modal|buckling|pdelta|nonlinear|design)\./, '');
   const collection = /^[A-Za-z][A-Za-z0-9]*/.exec(rest)?.[0];
   const field = /\]\.([A-Za-z][A-Za-z0-9]*)$/.exec(rest)?.[1];
   return quantities.includes(rest) || (!!collection && (quantities.includes(collection) || quantities.includes(`${analysis}.${collection}`) || (!!field && quantities.includes(`${collection}.${field}`))));

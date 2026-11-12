@@ -32,17 +32,32 @@ impl RecoveredForces {
         cs: Option<&FreeConstraintSystem>,
     ) -> Self {
         assert_eq!(residual.len(), dofs.n_total);
-        let mut restrained = residual[dofs.n_free..].to_vec();
+        Self::from_parts(residual[..dofs.n_free].to_vec(), residual[dofs.n_free..].to_vec(), dofs, cs)
+    }
+
+    pub(super) fn from_soil(
+        residual: super::ssi::PhysicalSoilResidual,
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+    ) -> Self {
+        let (free, restrained) = residual.into_parts();
+        Self::from_parts(free, restrained, dofs, cs)
+    }
+
+    fn from_parts(
+        free_residual: Vec<f64>,
+        mut restrained: Vec<f64>,
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+    ) -> Self {
+        assert_eq!(free_residual.len(), dofs.n_free);
+        assert_eq!(restrained.len(), dofs.n_total - dofs.n_free);
         let constraint_forces = cs.map_or_else(Vec::new, |cs| {
-            let raw = cs.constraint_forces_from_residual(&residual[..dofs.n_free]);
+            let raw = cs.constraint_forces_from_residual(&free_residual);
             cs.add_restrained_master_forces(&raw, &mut restrained);
             cs.constraint_forces(&raw, dofs)
         });
-        Self {
-            restrained,
-            free_residual: residual[..dofs.n_free].to_vec(),
-            constraint_forces,
-        }
+        Self { restrained, free_residual, constraint_forces }
     }
 
     pub(super) fn free_residual(&self) -> &[f64] {
@@ -424,36 +439,6 @@ impl PhysicalForces {
             }
         }
         self
-    }
-
-    pub(super) fn ssi_2d(
-        input: &SolverInput,
-        dofs: &DofNumbering,
-        u_frame: &[f64],
-        springs: &[super::ssi::SoilSpring],
-        its: &[InclinedTransformData2D],
-        u_global: &[f64],
-    ) -> Result<Self, String> {
-        let a = super::assembly::physical_stiffness(|| {
-            super::sparse_assembly::assemble_stiffness_sparse_2d(input, dofs)
-        });
-        let balance = super::equilibrium::sparse_balance(&a.k_full, &vec![0.0; dofs.n_total], u_frame);
-        Ok(Self(super::ssi::residual(balance, springs, dofs, its, u_global)?))
-    }
-
-    pub(super) fn ssi_3d(
-        input: &SolverInput3D,
-        dofs: &DofNumbering,
-        u_frame: &[f64],
-        springs: &[super::ssi::SoilSpring],
-        its: &[InclinedTransformData],
-        u_global: &[f64],
-    ) -> Result<Self, String> {
-        let a = super::assembly::physical_stiffness(|| {
-            super::assembly::assemble_stiffness_sparse_3d(input, dofs, true)
-        });
-        let balance = super::equilibrium::sparse_balance(a.k_full.as_ref().unwrap(), &vec![0.0; dofs.n_total], u_frame);
-        Ok(Self(super::ssi::residual(balance, springs, dofs, its, u_global)?))
     }
 
     pub(super) fn with_cables_2d(
