@@ -74,3 +74,15 @@ handoff. Re-check saved modal frequencies, mode counts, shapes and participation
 and dependent spectral/harmonic/transient responses for affected singular-mass
 models. This change does not claim to resolve other documented dynamic-model
 limitations.
+
+Review #2007 narrows the saved-project notice to modal or spectral analyses
+with constraints or inclined supports. The feature predicate conservatively
+identifies transformations that can expose rank-deficient mass; the snapshot
+reader does not repeat the engine's exact physical-rank calculation. Ordinary
+projects without either transformation are excluded, including the unchanged
+empty-model exact-list regression. Native and WASM negative cases now also
+cover positive physical mass alongside a singular or indefinite massless
+stiffness block, with positive-stiffness controls that retain their finite mode.
+The public WASM regression target runs in the required WASM CI job and exports
+the native family inputs before replaying them through both WASM entry points.
+No engine result or numerical bound changes in this review follow-up.

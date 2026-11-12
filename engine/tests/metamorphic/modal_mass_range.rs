@@ -27,6 +27,20 @@ fn assert_same_bits(actual: &Value, expected: &Value) {
     }
 }
 
+fn export_case(case: Value) {
+    if let Ok(path) = std::env::var("MODAL_MASS_RANGE_CASES") {
+        use std::io::Write;
+        static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _lock = LOCK.lock().unwrap();
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .unwrap();
+        writeln!(file, "{case}").unwrap();
+    }
+}
+
 fn family(spatial: bool, copies: usize, constrained: bool, padding: usize, split: f64) -> Value {
     let mut nodes = serde_json::Map::new();
     let mut supports = serde_json::Map::new();
@@ -190,15 +204,9 @@ fn check(spatial: bool, value: Value, expected: &[f64]) {
             assert!(expected[i] <= bounds[i]["omega2Upper"].as_f64().unwrap());
         }
     }
-    if let Ok(path) = std::env::var("MODAL_MASS_RANGE_CASES") {
-        use std::io::Write;
-        let mut file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)
-            .unwrap();
-        writeln!(file, "{}", json!({"spatial":spatial,"input":{"solver":value,"densities":densities},"expected":expected})).unwrap();
-    }
+    export_case(
+        json!({"spatial":spatial,"input":{"solver":value,"densities":densities},"expected":expected}),
+    );
 }
 
 #[test]
@@ -439,35 +447,10 @@ fn issue_2007_massless_mechanism_refuses_with_positive_physical_mass() {
                         ]
                     };
                     let wrapped = json!({"solver":value,"densities":{}});
-                    let input = serde_json::to_string(&wrapped).unwrap();
-                    let json_errors = if spatial {
-                        vec![
-                            dedaliano_engine::solve_modal_3d(&input, 3).unwrap_err(),
-                            dedaliano_engine::certify_modal_3d(&input, 3).unwrap_err(),
-                        ]
-                    } else {
-                        vec![
-                            dedaliano_engine::solve_modal_2d(&input, 3).unwrap_err(),
-                            dedaliano_engine::certify_modal_2d(&input, 3).unwrap_err(),
-                        ]
-                    };
-                    for error in errors.into_iter().chain(json_errors) {
+                    for error in errors {
                         assert!(error.contains("Eigenvalue decomposition failed"), "{error}");
                     }
-                    if let Ok(path) = std::env::var("MODAL_MASS_RANGE_CASES") {
-                        use std::io::Write;
-                        let mut file = std::fs::OpenOptions::new()
-                            .create(true)
-                            .append(true)
-                            .open(path)
-                            .unwrap();
-                        writeln!(
-                            file,
-                            "{}",
-                            json!({"spatial":spatial,"input":wrapped,"refusal":true})
-                        )
-                        .unwrap();
-                    }
+                    export_case(json!({"spatial":spatial,"input":wrapped,"refusal":true}));
                 }
             }
         }

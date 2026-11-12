@@ -28,7 +28,7 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
-  it.skip('known wrong result: #2007: scopes physical mass range changes to modal constraints or support rotations', () => {
+  it('#2007: scopes physical mass range changes to modal constraints or support rotations', () => {
     const entry = RESULT_CHANGES.changes.find(c => c.id === 'modal-physical-mass-range')!;
     for (const analysisMode of ['2d', 'pro']) {
       const ordinary = model({ analysisMode, elements: [member(1, 1, 'frame')] });

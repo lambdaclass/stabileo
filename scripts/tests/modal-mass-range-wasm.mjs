@@ -27,6 +27,7 @@ for (const [name, expected] of [
 if (process.argv[2]) {
   const cases = readFileSync(process.argv[2], 'utf8').trim().split('\n').map(JSON.parse);
   assert.ok(cases.length > 0);
+  assert.ok(cases.some(item => item.refusal), 'exported family must include massless mechanism refusals');
   for (const item of cases) {
     const dim = item.spatial ? '3d' : '2d';
     const input = JSON.stringify(item.input);

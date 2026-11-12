@@ -938,6 +938,8 @@ jobs:
         run: make test.engine.staged-orphan-wasm
       - name: Buckling original-pencil WASM regressions
         run: make test.engine.buckling-818-wasm
+      - name: Modal physical mass range WASM regressions
+        run: make test.engine.modal-mass-range-wasm
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

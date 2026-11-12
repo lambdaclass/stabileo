@@ -1009,3 +1009,7 @@ test.engine.pdelta-rotation-wasm: wasm
 	PLATE_CONVERGENCE_CASES=$(CURDIR)/.1940-plate-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=plate_convergence::native_exports_and_wasm_cases_keep_answers_and_iteration_limits
 	$(NIX_RUN) node scripts/tests/pdelta-rotation-wasm.mjs $(CURDIR)/.1940-plate-cases.json
 	rm -f $(CURDIR)/.1940-plate-cases.json
+
+.PHONY: test.engine.modal-mass-range-wasm
+test.engine.modal-mass-range-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-mass-range.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MODAL_MASS_RANGE_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER="modal_mass_range:: --release"; node scripts/tests/modal-mass-range-wasm.mjs "$$cases"'

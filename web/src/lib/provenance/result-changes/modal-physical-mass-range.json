@@ -4,9 +4,15 @@
   "prs": [],
   "area": "analysis",
   "when": {
-    "any": [
-      "analysis:modal",
-      "analysis:spectral"
+    "allOf": [
+      [
+        "analysis:modal",
+        "analysis:spectral"
+      ],
+      [
+        "constraints",
+        "inclinedSupports"
+      ]
     ]
   },
   "title": {
