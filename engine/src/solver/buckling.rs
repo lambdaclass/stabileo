@@ -61,6 +61,7 @@ pub struct BucklingSystem2D {
     pub neg_kg_csc: CscMatrix,
     pub neg_kg_round_off_csc: Option<CscMatrix>,
     pub inclined_transforms_2d: Vec<InclinedTransformData2D>,
+    pub cs: Option<FreeConstraintSystem>,
     /// Each element's mean axial force at the linear solution; Kg is built from it and `span_axial`.
     pub mean_n: HashMap<usize, f64>,
     pub span_axial: Vec<(usize, Vec<usize>, Vec<f64>)>,
@@ -95,10 +96,12 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     // span load both end forces can be 0 with the member compressed.
     let mean_n = super::geometric_stiffness::mean_axial_forces_2d(input, &dof_num, &u);
     let SparseAssemblyResult { k_ff, inclined_transforms_2d, .. } = assemble_sparse_2d(input, &dof_num);
+    let cs = FreeConstraintSystem::build_2d(input, &dof_num)?;
     let member_dofs: Vec<(usize, Vec<usize>)> = crate::ordered::values(&input.elements)
-        .map(|e| (e.id, [e.node_i, e.node_j].iter().flat_map(|&n| (0..3).map(move |i| (n, i))).filter_map(|k| dof_num.map.get(&k).copied()).collect()))
+        .map(|e| (e.id, dof_num.element_dofs(e.node_i, e.node_j)))
         .collect();
-    let axial_noise = coupled_round_off(&k_ff, !input.constraints.is_empty(), &member_dofs, &axial_force_round_off_2d(input, &linear));
+    let inclined_dofs: Vec<&[usize]> = inclined_transforms_2d.iter().map(|it| it.dofs.as_slice()).collect();
+    let axial_noise = coupled_round_off(&k_ff, cs.as_ref(), &member_dofs, &inclined_dofs, &axial_force_round_off_2d(input, &linear));
     let resolvable = |id: &usize, n: f64| n < -axial_noise.get(id).copied().unwrap_or(0.0);
     if !mean_n.values().any(|&n| n < 0.0) {
         return Err(crate::refusal::no_compressed_elements());
@@ -143,7 +146,7 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     };
     let neg_kg_csc = assemble(&[resolved]);
     let neg_kg_round_off_csc = has_round_off_member(&mean_n, &axial_noise).then(|| assemble(&[resolved, round_off]));
-    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, mean_n, span_axial, axial_noise })
+    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, cs, mean_n, span_axial, axial_noise })
 }
 
 /// Per member, the axial force that is round-off: 100 ε times the magnitudes N = EA·δ/L is
@@ -229,10 +232,13 @@ fn refuse_round_off_buckling(lambda_round_off: Option<f64>, lambda_cr: f64, mean
     ))
 }
 
-/// Per member, the largest round-off bound among the members its free degrees of freedom are coupled
-/// to through K: the solve's residual is set by the largest forces in the coupled block and can land in
-/// any member of it. Constraints couple the whole model.
-fn coupled_round_off(k_ff: &CscMatrix, constrained: bool, member_dofs: &[(usize, Vec<usize>)], own: &HashMap<usize, f64>) -> HashMap<usize, f64> {
+fn coupled_round_off(
+    k_ff: &CscMatrix,
+    cs: Option<&FreeConstraintSystem>,
+    member_dofs: &[(usize, Vec<usize>)],
+    inclined_dofs: &[&[usize]],
+    own: &HashMap<usize, f64>,
+) -> HashMap<usize, f64> {
     let n = k_ff.n;
     let mut parent: Vec<usize> = (0..n).collect();
     fn root(parent: &mut [usize], mut i: usize) -> usize {
@@ -255,8 +261,14 @@ fn coupled_round_off(k_ff: &CscMatrix, constrained: bool, member_dofs: &[(usize,
         let free: Vec<usize> = dofs.iter().copied().filter(|&d| d < n).collect();
         for w in free.windows(2) { join(&mut parent, w[0], w[1]) }
     }
-    if constrained {
-        for i in 1..n { join(&mut parent, 0, i) }
+    for dofs in inclined_dofs {
+        let free: Vec<usize> = dofs.iter().copied().filter(|&d| d < n).collect();
+        for w in free.windows(2) { join(&mut parent, w[0], w[1]) }
+    }
+    if let Some(cs) = cs {
+        for (a, b) in cs.coupled_free_dofs() {
+            if a < n && b < n { join(&mut parent, a, b) }
+        }
     }
     let component = |parent: &mut Vec<usize>, dofs: &[usize]| dofs.iter().find(|&&d| d < n).map(|&d| root(parent, d));
     let mut largest: HashMap<usize, f64> = HashMap::new();
@@ -334,12 +346,9 @@ pub fn solve_buckling_2d(
     let sec_by_id: HashMap<usize, &SolverSection> =
         crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
 
-    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, mean_n, span_axial, axial_noise } = buckling_system_2d(input)?;
+    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, cs, mean_n, span_axial, axial_noise } = buckling_system_2d(input)?;
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
-
-    // Apply constraint transform if present
-    let cs = FreeConstraintSystem::build_2d(&input, &dof_num)?;
 
     // 5. Solve generalized eigenvalue: (-Kg)·φ = μ·K·φ  (K is SPD), sparse
     // shift-invert Lanczos in both branches; with constraints, K and -Kg are
@@ -477,6 +486,7 @@ pub struct BucklingSystem3D {
     pub neg_kg_round_off_csc: Option<CscMatrix>,
     /// Inclined supports: K and −Kg are in each one's (normal, tangent) frame.
     pub inclined_transforms: Vec<InclinedTransformData>,
+    pub cs: Option<FreeConstraintSystem>,
     /// Each member's mean axial force at the linear solution; Kg is built from it and `span_axial`.
     pub mean_n: HashMap<usize, f64>,
     pub span_axial: Vec<(usize, Vec<usize>, Vec<f64>)>,
@@ -511,10 +521,13 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     let (span_axial, span_least) = span_axial_geometric_stiffness_3d(input, &dof_num);
     let compression = |id: &usize, n: f64| n + span_least.get(id).copied().unwrap_or(0.0).min(0.0);
     let SparseAssemblyResult3D { k_ff, inclined_transforms, .. } = assemble_sparse_3d(input, &dof_num, false);
+    let cs = FreeConstraintSystem::build_3d(input, &dof_num)?;
+    let sections: HashMap<usize, &SolverSection3D> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
     let member_dofs: Vec<(usize, Vec<usize>)> = crate::ordered::values(&input.elements)
-        .map(|e| (e.id, [e.node_i, e.node_j].iter().flat_map(|&n| (0..6).map(move |i| (n, i))).filter_map(|k| dof_num.map.get(&k).copied()).collect()))
+        .map(|e| (e.id, dof_num.coupled_member_dofs_3d(e, sections[&e.section_id])))
         .collect();
-    let axial_noise = coupled_round_off(&k_ff, !input.constraints.is_empty(), &member_dofs, &axial_force_round_off_3d(input, &dof_num, &u_full, &linear));
+    let inclined_dofs: Vec<&[usize]> = inclined_transforms.iter().map(|it| it.dofs.as_slice()).collect();
+    let axial_noise = coupled_round_off(&k_ff, cs.as_ref(), &member_dofs, &inclined_dofs, &axial_force_round_off_3d(input, &dof_num, &u_full, &linear));
     let resolvable = |id: &usize, n: f64| compression(id, n) < -axial_noise.get(id).copied().unwrap_or(0.0);
     let has_frame_compression = mean_n.iter().any(|(id, &n)| n < 0.0 || resolvable(id, n));
     let has_resolved_compression = mean_n.iter().any(|(id, &n)| resolvable(id, n));
@@ -591,7 +604,7 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     if !has_resolved_compression && !has_shell_kg {
         return Err(not_determinable());
     }
-    Ok(BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms, mean_n, span_axial, axial_noise })
+    Ok(BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms, cs, mean_n, span_axial, axial_noise })
 }
 
 /// 3D buckling analysis result.
@@ -642,12 +655,9 @@ pub fn solve_buckling_3d(
     let sec_by_id: HashMap<usize, &SolverSection3D> =
         crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
 
-    let BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms, mean_n, axial_noise, .. } = buckling_system_3d(input)?;
+    let BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms, cs, mean_n, axial_noise, .. } = buckling_system_3d(input)?;
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
-
-    // Apply constraint transform if present
-    let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
 
     // Solve eigenproblem: (-Kg)*φ = μ*K*φ, then λ = 1/μ. Sparse shift-invert
     // Lanczos in both branches; with constraints, K and -Kg are reduced as
