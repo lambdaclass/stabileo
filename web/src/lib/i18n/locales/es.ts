@@ -1305,6 +1305,7 @@ const es: Record<string, string> = {
   'axes.configTip': 'Cómo se llaman y hacia dónde apuntan los ejes globales y los ejes locales de las barras.',
   'axes.configOpen': 'Definir…',
   'axes.configSummary': '{up} hacia arriba, terna {hand}; ejes locales: terna {local}',
+  'axes.diagShow': 'Ver diagramas de referencia',
   'axes.diagTitle': 'Hacia dónde se dibujan los diagramas positivos',
   'axes.diagOff': 'Viga simplemente apoyada con P en el centro. El corte positivo y el momento que tracciona abajo se dibujan del lado de abajo, como a mano.',
   'axes.diagOn': 'Viga simplemente apoyada con P en el centro. El corte positivo y el momento que tracciona abajo se dibujan hacia +z local, arriba en una viga horizontal.',

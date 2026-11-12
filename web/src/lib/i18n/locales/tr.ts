@@ -1306,6 +1306,7 @@ const tr: Translations = {
   'axes.configTip': 'Global eksenlerin ve çubukların yerel eksenlerinin adı ve yönü.',
   'axes.configOpen': 'Tanımla…',
   'axes.configSummary': '{up} yukarı, {hand} kuralı; yerel eksenler: {local} kuralı',
+  'axes.diagShow': 'Referans diyagramlarını göster',
   'axes.diagTitle': 'Pozitif diyagramlar hangi tarafa çizilir',
   'axes.diagOff': 'Ortasında P olan basit kiriş. Pozitif kesme ve alt lifi çeken moment, elle çizildiği gibi alt tarafa çizilir.',
   'axes.diagOn': 'Ortasında P olan basit kiriş. Pozitif kesme ve alt lifi çeken moment yerel +z yönüne, yatay bir kirişte yukarıya çizilir.',

@@ -1297,6 +1297,7 @@ const de: Translations = {
   'axes.configTip': 'Wie die globalen Achsen und die lokalen Stabachsen heißen und wohin sie zeigen.',
   'axes.configOpen': 'Festlegen…',
   'axes.configSummary': '{up} nach oben, {hand}; lokale Achsen: {local}',
+  'axes.diagShow': 'Referenzverläufe anzeigen',
   'axes.diagTitle': 'Auf welcher Seite positive Verläufe gezeichnet werden',
   'axes.diagOff': 'Einfeldträger mit P in Feldmitte. Positive Querkraft und das Moment, das unten Zug erzeugt, werden unten gezeichnet, wie von Hand.',
   'axes.diagOn': 'Einfeldträger mit P in Feldmitte. Positive Querkraft und das Moment, das unten Zug erzeugt, werden in Richtung lokales +z gezeichnet, bei einem waagrechten Träger nach oben.',

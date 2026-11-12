@@ -1297,6 +1297,7 @@ const fr: Translations = {
   'axes.configTip': 'Le nom et l’orientation des axes globaux et des axes locaux des barres.',
   'axes.configOpen': 'Définir…',
   'axes.configSummary': '{up} vers le haut, règle de la {hand} ; axes locaux : règle de la {local}',
+  'axes.diagShow': 'Voir les diagrammes de référence',
   'axes.diagTitle': 'De quel côté se tracent les diagrammes positifs',
   'axes.diagOff': 'Poutre sur deux appuis avec P à mi-portée. L’effort tranchant positif et le moment qui tend la fibre inférieure se tracent en dessous, comme à la main.',
   'axes.diagOn': 'Poutre sur deux appuis avec P à mi-portée. L’effort tranchant positif et le moment qui tend la fibre inférieure se tracent vers +z local, vers le haut pour une poutre horizontale.',

@@ -34,6 +34,9 @@ test('@smoke Settings links to the axes picker', async ({ pro: page }) => {
   await expect(page.getByTestId('cfg-axes-summary')).toContainText('Z');
   await page.getByTestId('cfg-axes-open').click();
   await expect(page.getByTestId('axes-picker')).toBeVisible();
+  await expect(page.getByTestId('axes-toward-local')).not.toBeChecked();
+  await expect(page.getByTestId('axes-diag-body')).toHaveCount(0);
+  await page.getByTestId('axes-diag-toggle').click();
   const caption = page.getByTestId('axes-diag-caption');
   const before = await caption.textContent();
   await page.getByTestId('axes-toward-local').check();

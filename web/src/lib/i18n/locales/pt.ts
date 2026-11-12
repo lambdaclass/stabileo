@@ -1021,6 +1021,7 @@ const pt: Translations = {
   'axes.configTip': 'Como se chamam e para onde apontam os eixos globais e os eixos locais das barras.',
   'axes.configOpen': 'Definir…',
   'axes.configSummary': '{up} para cima, regra da {hand}; eixos locais: regra da {local}',
+  'axes.diagShow': 'Ver diagramas de referência',
   'axes.diagTitle': 'Para onde se desenham os diagramas positivos',
   'axes.diagOff': 'Viga simplesmente apoiada com P no centro. O cortante positivo e o momento que traciona embaixo são desenhados do lado de baixo, como à mão.',
   'axes.diagOn': 'Viga simplesmente apoiada com P no centro. O cortante positivo e o momento que traciona embaixo são desenhados para +z local, para cima numa viga horizontal.',

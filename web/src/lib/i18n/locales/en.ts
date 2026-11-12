@@ -1312,6 +1312,7 @@ const en: Record<string, string> = {
   'axes.configTip': 'What the global axes and the members’ local axes are called and where they point.',
   'axes.configOpen': 'Set…',
   'axes.configSummary': '{up} up, {hand} rule; local axes: {local} rule',
+  'axes.diagShow': 'Show reference diagrams',
   'axes.diagTitle': 'Which side positive diagrams are drawn on',
   'axes.diagOff': 'Simply supported beam with P at midspan. Positive shear and the moment that puts the bottom in tension are drawn below, as by hand.',
   'axes.diagOn': 'Simply supported beam with P at midspan. Positive shear and the moment that puts the bottom in tension are drawn toward local +z, up on a horizontal beam.',

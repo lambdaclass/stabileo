@@ -19,6 +19,7 @@
   const choice = $derived(axesStore.choice);
   const frame = $derived(axesStore.frame);
   const plane = $derived(plane2D(frame));
+  let showDiagrams = $state(false);
   const localHand = $derived<Handedness>(uiStore.axisConvention3D === 'leftHand' ? 'left' : 'right');
   const rightOptions = $derived(SIGNED.filter((s) => s[1] !== choice.up[1]));
 
@@ -102,9 +103,16 @@
                 <input type="checkbox" bind:checked={resultsStore.drawPositiveTowardLocalAxes} data-testid="axes-toward-local" />
                 <span>{t('config.drawPositiveTowardLocalAxes')}</span>
               </label>
-              <DiagramConventionFigure towardLocal={resultsStore.drawPositiveTowardLocalAxes} leftLocal={localHand === 'left'} />
-              <p class="ax-note" data-testid="axes-diag-caption">{t(resultsStore.drawPositiveTowardLocalAxes ? 'axes.diagOn' : 'axes.diagOff')}</p>
-              <p class="ax-note">{t('axes.diagNote')}</p>
+              <button type="button" class="ax-disclosure" aria-expanded={showDiagrams} data-testid="axes-diag-toggle" onclick={() => (showDiagrams = !showDiagrams)}>
+                {showDiagrams ? '▾' : '▸'} {t('axes.diagShow')}
+              </button>
+              {#if showDiagrams}
+                <div class="ax-disclosure-body" data-testid="axes-diag-body">
+                  <DiagramConventionFigure towardLocal={resultsStore.drawPositiveTowardLocalAxes} leftLocal={localHand === 'left'} />
+                  <p class="ax-note" data-testid="axes-diag-caption">{t(resultsStore.drawPositiveTowardLocalAxes ? 'axes.diagOn' : 'axes.diagOff')}</p>
+                  <p class="ax-note">{t('axes.diagNote')}</p>
+                </div>
+              {/if}
             </fieldset>
           </div>
 
@@ -175,6 +183,13 @@
   .ax-local { border-top: 1px solid var(--st-border); padding-top: 12px; }
   .ax-local .ax-note, .ax-diag .ax-note { margin-top: 6px; }
   .ax-diag { border-top: 1px solid var(--st-border); padding-top: 12px; }
+  .ax-disclosure {
+    width: 100%; padding: 0.3rem 0.5rem; text-align: left; cursor: pointer;
+    font: inherit; font-size: 0.74rem; font-weight: 500; letter-spacing: 0.03em;
+    color: var(--st-text-2); background: none; border: 1px solid var(--st-hair); border-radius: 3px;
+  }
+  .ax-disclosure:hover, .ax-disclosure:focus-visible { color: var(--st-text); border-color: var(--st-hair-strong); background: var(--st-bg); }
+  .ax-disclosure-body { margin-top: 4px; padding: 8px; border: 1px solid var(--st-hair); border-radius: 4px; }
   .ax-check { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; margin-bottom: 8px; cursor: pointer; }
   .ax-options { display: flex; flex-wrap: wrap; gap: 6px; }
   .ax-opt { min-width: 42px; padding: 6px 8px; font-weight: 600; }
