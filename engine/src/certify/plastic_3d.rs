@@ -1076,6 +1076,7 @@ fn polyf(c: &[f64; 4], t: f64) -> f64 {
     ((c[3] * t + c[2]) * t + c[1]) * t + c[0]
 }
 
+#[derive(Clone)]
 struct Sample {
     e: usize,
     t: Q,
@@ -1199,7 +1200,13 @@ struct LpSolution {
 
 /// max λ s.t. `cos φ m_y + sin φ m_z ≤ 1` for every sample and tangent
 /// direction φ (an outer polygon of the ellipse), through its dual.
-fn solve_lp(samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Option<LpSolution> {
+fn solve_lp(model: &PlasticModel3, samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Result<Option<LpSolution>, String> {
+    let halfspaces = samples.iter().fold(0usize, |count, sample| count.saturating_add(sample.dirs.len()));
+    lp_work(model).check_candidate(eq.null.len(), halfspaces)?;
+    Ok(solve_lp_unchecked(samples, ef, eq))
+}
+
+fn solve_lp_unchecked(samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Option<LpSolution> {
     let r = eq.null.len();
     let mut g = Vec::new();
     let mut h: Vec<Vec<f64>> = vec![Vec::new(); r];
@@ -1768,6 +1775,29 @@ fn irls_mechanism(
     Some(v)
 }
 
+fn refine_lp(
+    model: &PlasticModel3,
+    ef: &[ElemF],
+    eq: &EqF,
+    samples: &mut Vec<Sample>,
+    lp: &mut LpSolution,
+    passes: usize,
+    mut solve: impl FnMut(&[Sample]) -> Result<Option<LpSolution>, String>,
+) {
+    for _ in 0..passes {
+        let x = field_f64(eq, lp.lambda, &lp.z);
+        let mut refined = samples.clone();
+        let (added, _) = refine(model, ef, &x, lp.lambda, &mut refined);
+        if !added {
+            break;
+        }
+        match solve(&refined) {
+            Ok(Some(next)) => (*lp, *samples) = (next, refined),
+            Ok(None) | Err(_) => break,
+        }
+    }
+}
+
 /// Exact candidates found for a model (exposed for tests that tamper with them).
 #[derive(Debug, Clone)]
 pub struct PlasticCandidates3 {
@@ -1786,24 +1816,13 @@ pub fn plastic_candidates_3d(
     model: &PlasticModel3,
     solver: Option<(&PlasticInput3D, &PlasticResult3D)>,
 ) -> Result<PlasticCandidates3, String> {
-    lp_work(model).check_engine_budget()?;
+    lp_work(model).initial().check_engine_budget()?;
     let eq = equilibrium_system(model)?;
-    lp_work(model).check_candidate_workspace(eq.null.len())?;
     let eqf = EqF { xp: eq.xp.iter().map(to_f64).collect(), null: eq.null.iter().map(|v| v.iter().map(to_f64).collect()).collect() };
     let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
     let mut samples = initial_samples(model, &ef);
-    let mut lp = solve_lp(&samples, &ef, &eqf).ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
-    for _ in 0..REFINEMENT_PASSES {
-        let x = field_f64(&eqf, lp.lambda, &lp.z);
-        let (added, _) = refine(model, &ef, &x, lp.lambda, &mut samples);
-        if !added {
-            break;
-        }
-        match solve_lp(&samples, &ef, &eqf) {
-            Some(s) => lp = s,
-            None => break,
-        }
-    }
+    let mut lp = solve_lp(model, &samples, &ef, &eqf)?.ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
+    refine_lp(model, &ef, &eqf, &mut samples, &mut lp, REFINEMENT_PASSES, |candidate| solve_lp(model, candidate, &ef, &eqf));
 
     // static candidates
     let mut best_static: Option<(StaticField3, StaticCheck3, String)> = None;
@@ -1950,18 +1969,8 @@ pub fn plastic_candidates_3d(
             }
         }
         if changed {
-            if let Some(mut lp2) = solve_lp(&samples, &ef, &eqf) {
-                for _ in 0..10 {
-                    let x = field_f64(&eqf, lp2.lambda, &lp2.z);
-                    let (added, _) = refine(model, &ef, &x, lp2.lambda, &mut samples);
-                    if !added {
-                        break;
-                    }
-                    match solve_lp(&samples, &ef, &eqf) {
-                        Some(s) => lp2 = s,
-                        None => break,
-                    }
-                }
+            if let Ok(Some(mut lp2)) = solve_lp(model, &samples, &ef, &eqf) {
+                refine_lp(model, &ef, &eqf, &mut samples, &mut lp2, 10, |candidate| solve_lp(model, candidate, &ef, &eqf));
                 if lp2.lambda > 0.0 && lp2.lambda.is_finite() {
                     let lam = q(lp2.lambda).unwrap_or_else(Q::zero);
                     let z: Vec<Q> = lp2.z.iter().map(|v| q(*v).unwrap_or_else(Q::zero)).collect();
@@ -2116,7 +2125,7 @@ fn collapse_3d(input: &PlasticInput3D, solver: Option<&PlasticResult3D>) -> Plas
 pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, String> {
     super::finite::check_input(input)?;
     if let Ok(model) = build_model_3d(input) {
-        lp_work(&model).check_engine_budget()?;
+        lp_work(&model).initial().check_engine_budget()?;
     }
     let mut results = solve_plastic_3d(input)?;
     super::finite::check_results(&results)?;
@@ -2147,6 +2156,180 @@ pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct RefinementFixture {
+        model: PlasticModel3,
+        ef: Vec<ElemF>,
+        eq: EqF,
+        samples: Vec<Sample>,
+        lp: LpSolution,
+    }
+
+    fn refinement_fixture(biaxial: bool) -> RefinementFixture {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
+        let mut input: serde_json::Value = serde_json::from_slice(&bytes[2..]).unwrap();
+        if biaxial {
+            input["solver"]["loads"][0]["data"]["qYI"] = 10.into();
+            input["solver"]["loads"][0]["data"]["qYJ"] = 10.into();
+        }
+        let model = build_model_3d(&serde_json::from_value(input).unwrap()).unwrap();
+        let exact = equilibrium_system(&model).unwrap();
+        let eq = EqF {
+            xp: exact.xp.iter().map(to_f64).collect(),
+            null: exact.null.iter().map(|v| v.iter().map(to_f64).collect()).collect(),
+        };
+        let ef: Vec<_> = model.elems.iter().map(elem_f64).collect();
+        let samples = initial_samples(&model, &ef);
+        let lp = solve_lp(&model, &samples, &ef, &eq).unwrap().unwrap();
+        RefinementFixture { model, ef, eq, samples, lp }
+    }
+
+    fn assert_samples_equal(actual: &[Sample], expected: &[Sample]) {
+        assert_eq!(actual.len(), expected.len());
+        for (a, b) in actual.iter().zip(expected) {
+            assert_eq!((a.e, &a.t, a.tf, a.loc, a.lm, &a.dirs), (b.e, &b.t, b.tf, b.loc, b.lm, &b.dirs));
+        }
+    }
+
+    fn assert_lp_equal(actual: &LpSolution, expected: &LpSolution) {
+        assert_eq!(actual.lambda, expected.lambda);
+        assert_eq!(actual.z, expected.z);
+        assert_eq!(actual.mu, expected.mu);
+    }
+
+    fn candidate_boundary(model: &PlasticModel3, eq: &EqF) -> usize {
+        let work = lp_work(model);
+        let (mut admitted, mut refused) = (0, super::super::plastic_budget::MAX_ENGINE_LP_BYTES);
+        assert!(work.check_candidate(eq.null.len(), admitted).is_ok());
+        assert!(work.check_candidate(eq.null.len(), refused).is_err());
+        while refused - admitted > 1 {
+            let middle = admitted + (refused - admitted) / 2;
+            if work.check_candidate(eq.null.len(), middle).is_ok() {
+                admitted = middle;
+            } else {
+                refused = middle;
+            }
+        }
+        assert_eq!(refused, admitted + 1);
+        admitted
+    }
+
+    fn halfspaces(samples: &[Sample]) -> usize {
+        samples.iter().map(|s| s.dirs.len()).sum()
+    }
+
+    #[test]
+    fn optional_refinement_over_budget_preserves_samples_and_solution() {
+        for biaxial in [false, true] {
+            let RefinementFixture { model, ef, eq, mut samples, mut lp } = refinement_fixture(biaxial);
+            let original = samples.clone();
+            let expected = solve_lp(&model, &samples, &ef, &eq).unwrap().unwrap();
+            let mut proposal = samples.clone();
+            assert!(refine(&model, &ef, &field_f64(&eq, lp.lambda, &lp.z), lp.lambda, &mut proposal).0);
+            let proposed_count = halfspaces(&proposal);
+            assert!(proposed_count > halfspaces(&samples));
+            let boundary = candidate_boundary(&model, &eq);
+            let retained_halfspaces = boundary - (proposed_count - 1);
+            let mut refused = false;
+            refine_lp(&model, &ef, &eq, &mut samples, &mut lp, 10, |candidate| {
+                let reason = lp_work(&model).check_candidate(eq.null.len(), retained_halfspaces + halfspaces(candidate)).unwrap_err();
+                assert!(reason.contains("resource budget exceeded"), "{reason}");
+                refused = true;
+                Err(reason)
+            });
+            assert!(refused);
+            assert_samples_equal(&samples, &original);
+            assert_lp_equal(&lp, &expected);
+        }
+    }
+
+    #[test]
+    fn optional_refinement_breakdown_preserves_samples_and_solution() {
+        for biaxial in [false, true] {
+            let RefinementFixture { model, ef, eq, mut samples, mut lp } = refinement_fixture(biaxial);
+            let original = samples.clone();
+            let expected = solve_lp(&model, &samples, &ef, &eq).unwrap().unwrap();
+            let mut attempted = false;
+            refine_lp(&model, &ef, &eq, &mut samples, &mut lp, 10, |_| {
+                attempted = true;
+                Ok(None)
+            });
+            assert!(attempted);
+            assert_samples_equal(&samples, &original);
+            assert_lp_equal(&lp, &expected);
+        }
+    }
+
+    #[test]
+    fn optional_refinement_retains_last_success_before_budget_refusal() {
+        for biaxial in [false, true] {
+            let RefinementFixture { model, ef, eq, mut samples, mut lp } = refinement_fixture(biaxial);
+            let boundary = candidate_boundary(&model, &eq);
+            let mut accepted: Option<(Vec<Sample>, LpSolution)> = None;
+            let mut refused = false;
+            refine_lp(&model, &ef, &eq, &mut samples, &mut lp, 10, |candidate| {
+                if let Some((previous, _)) = &accepted {
+                    let retained_halfspaces = boundary - halfspaces(previous);
+                    let reason = lp_work(&model).check_candidate(eq.null.len(), retained_halfspaces + halfspaces(candidate)).unwrap_err();
+                    assert!(reason.contains("resource budget exceeded"), "{reason}");
+                    refused = true;
+                    return Err(reason);
+                }
+                let solution = solve_lp(&model, candidate, &ef, &eq).unwrap().unwrap();
+                accepted = Some((candidate.to_vec(), solve_lp(&model, candidate, &ef, &eq).unwrap().unwrap()));
+                Ok(Some(solution))
+            });
+            assert!(refused);
+            let (expected_samples, expected_lp) = accepted.unwrap();
+            assert_samples_equal(&samples, &expected_samples);
+            assert_lp_equal(&lp, &expected_lp);
+        }
+    }
+
+    #[test]
+    fn optional_refinement_at_budget_commits_samples_and_solution() {
+        for biaxial in [false, true] {
+            let RefinementFixture { model, ef, eq, mut samples, mut lp } = refinement_fixture(biaxial);
+            let boundary = candidate_boundary(&model, &eq);
+            let mut expected_samples = samples.clone();
+            assert!(refine(&model, &ef, &field_f64(&eq, lp.lambda, &lp.z), lp.lambda, &mut expected_samples).0);
+            let retained_halfspaces = boundary - halfspaces(&expected_samples);
+            let expected_lp = solve_lp(&model, &expected_samples, &ef, &eq).unwrap().unwrap();
+            let mut solved = false;
+            refine_lp(&model, &ef, &eq, &mut samples, &mut lp, 1, |candidate| {
+                lp_work(&model).check_candidate(eq.null.len(), retained_halfspaces + halfspaces(candidate))?;
+                solved = true;
+                solve_lp(&model, candidate, &ef, &eq)
+            });
+            assert!(solved);
+            assert_samples_equal(&samples, &expected_samples);
+            assert_lp_equal(&lp, &expected_lp);
+            assert_eq!(lp.mu.len(), samples.len());
+            for (sample, weights) in samples.iter().zip(&lp.mu) {
+                assert_eq!(sample.dirs.len(), weights.len());
+            }
+        }
+    }
+
+    #[test]
+    fn optional_refinement_without_new_constraints_does_not_solve() {
+        let RefinementFixture { model, ef, eq, mut samples, mut lp } = refinement_fixture(false);
+        lp.lambda = 0.0;
+        lp.z.fill(0.0);
+        let original = samples.clone();
+        refine_lp(&model, &ef, &eq, &mut samples, &mut lp, 10, |_| panic!("unchanged constraints must not be solved"));
+        assert_samples_equal(&samples, &original);
+    }
+
+    #[test]
+    fn optional_refinement_with_no_passes_does_not_change_state() {
+        let RefinementFixture { model, ef, eq, mut samples, mut lp } = refinement_fixture(true);
+        let original = samples.clone();
+        let expected = solve_lp(&model, &samples, &ef, &eq).unwrap().unwrap();
+        refine_lp(&model, &ef, &eq, &mut samples, &mut lp, 0, |_| panic!("zero passes must not solve"));
+        assert_samples_equal(&samples, &original);
+        assert_lp_equal(&lp, &expected);
+    }
 
     #[test]
     fn mechanism_resource_refusal_is_preserved() {

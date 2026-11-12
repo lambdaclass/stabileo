@@ -931,6 +931,9 @@ test.engine.staged-round5-wasm: wasm
 
 test.engine.translation-rank-wasm: wasm
 	$(NIX_RUN) node scripts/tests/translation-rank-red-wasm.mjs
+.PHONY: test.engine.plastic-nightly-wasm
+test.engine.plastic-nightly-wasm: wasm
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-nightly-wasm.mjs
 
 .PHONY: test.engine.buckling-818-wasm
 
