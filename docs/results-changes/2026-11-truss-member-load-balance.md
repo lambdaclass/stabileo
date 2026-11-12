@@ -48,3 +48,12 @@ tests, and 8 passing / 10 failing public WASM tests. Each failure is the retaine
 missing-truss-action refusal. The fixed engine passes all 18, 8 and 18 tests,
 respectively. The span-transfer tests also cover both sides of its unchanged
 short-span cutoff, zero loads, zero-total-force couples, and endpoint point loads.
+
+The #1992 review also verifies the newly reachable #1901 linear solutions against
+an independent 60/100-digit strain-energy assembly in 2D and all three 3D planes.
+The original 2D P-Delta replay still rejects its explicitly unconverged iterate;
+its old conditioning-refusal expectation was stale. Converged 3D nonlinear
+solutions agree with the independent reference. #1901's closure stays valid.
+See [the reference and replay evidence](../verification/candidate-1901-after-truss-balance.md).
+The review changes no engine results or limits and needs no additional registry
+entry beyond `truss-member-load-balance`.

@@ -82,12 +82,6 @@ fn issue_1902_refuses_unresolved_stiffness() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1992"]
-fn issue_1901_refuses_unresolved_stiffness() {
-    refused(1901, "P-Delta", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
-}
-
-#[test]
 fn issue_1859_refuses_unrestrained_translation() {
     refused(1859, "P-Delta", "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens", None);
 }
@@ -365,9 +359,9 @@ fn displacement_1901(node: usize, actual: [f64; 3], reference: &Value) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1992"]
 fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
     use dedaliano_engine::{
+        load_session::{LoadSession2D, LoadSession3D},
         metamorphic::planes::{embed_2d, Plane},
         solver::{linear, pdelta},
         types::SolverInput,
@@ -377,6 +371,9 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
     let typed = serde_json::from_value(serde_json::to_value(&solver).unwrap()).unwrap();
     for result in [
         linear::solve_2d(&solver),
+        LoadSession2D::from_input(solver.clone())
+            .unwrap()
+            .solve_loads(&solver.loads),
         linear::solve_2d_typed(&typed),
         linear::prepare_static_2d(&solver)
             .unwrap()
@@ -394,6 +391,25 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
     let nonlinear = pdelta::solve_pdelta_2d(&solver, 100, 1e-12).unwrap();
     assert!(!nonlinear.converged && !nonlinear.is_stable);
     assert_eq!(nonlinear.iterations, 100);
+    let angle = 37.0_f64.to_radians();
+    let rotated = dedaliano_engine::metamorphic::transform::transform_2d(
+        &solver,
+        &dedaliano_engine::metamorphic::transform::Iso2::rotation(angle),
+    )
+    .unwrap();
+    let nonlinear = pdelta::solve_pdelta_2d(&rotated, 100, 1e-12).unwrap();
+    assert!(nonlinear.converged);
+    for d in &nonlinear.results.displacements {
+        displacement_1901(
+            d.node_id,
+            [
+                angle.cos() * d.ux + angle.sin() * d.uz,
+                -angle.sin() * d.ux + angle.cos() * d.uz,
+                d.ry,
+            ],
+            &reference["pdelta"]["displacements"],
+        );
+    }
     let embeddings: Value =
         serde_json::from_str(include_str!("../fixtures/candidate-1901-embeddings.json")).unwrap();
     for plane in Plane::ALL {
@@ -404,6 +420,9 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
         );
         for result in [
             linear::solve_3d(&embedded),
+            LoadSession3D::from_input(embedded.clone())
+                .unwrap()
+                .solve_loads(&embedded.loads),
             linear::prepare_static_3d(&embedded)
                 .unwrap()
                 .solve_loads(&embedded.loads),
@@ -439,5 +458,5 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
             );
         }
     }
-    refused(1901, "P-Delta", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    refused(1901, "P-Delta", "did not converge", None);
 }
