@@ -27,6 +27,8 @@ import type { StaticsRows } from '../store/statics-rows';
 import type { ProjectInfo } from '../model/project-info';
 import type { SolverDiagnostic } from './types';
 import { membranePrincipals } from './shell-stress';
+import { DEFAULT_AXES, makeFrame, pseudoToUser, toUser, userAxisAlong, type AxesChoice } from '../axes/frame';
+import { axesStatement } from '../axes/statement';
 
 /** Translation function type — accepts key, returns translated string */
 type TFunc = (key: string) => string;
@@ -75,6 +77,8 @@ export interface ReportConfig {
   resultModes?: Partial<Record<ReportResult, ResultMode>>;
   /** The result set the tables and figures are of (`pro/export-results.ts`); the screen's when absent. */
   resultSetKey?: string;
+  /** The axes global coordinates and results are printed in; the model's own when absent. */
+  axes?: AxesChoice;
 }
 
 /** The model data's tables the report can leave out. */
@@ -269,6 +273,11 @@ export function generateReportHtml(data: ReportData): string {
   const { projectName, date, nodes, elements, materials, sections, supports, loadCount, results, quantities, screenshot } = data;
   // Use provided translation function or fallback to identity (returns key)
   const tr: TFunc = data.t ?? ((k: string) => k);
+  const axes = data.config?.axes ?? DEFAULT_AXES;
+  const frame = makeFrame(axes);
+  const vec = (x: number, y: number, z: number) => toUser(frame, [x, y, z]).map((v) => v + 0);
+  const rot = (x: number, y: number, z: number) => pseudoToUser(frame, [x, y, z]).map((v) => v + 0);
+  const alongName = (k: 0 | 1 | 2) => userAxisAlong(frame, k).name;
 
   const html: string[] = [];
 
@@ -317,7 +326,7 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`<div style="font-size:11px;color:#888;margin-top:16px">${coverFooterParts.join(' &mdash; ')}</div>`);
   }
   // Informational only (not a global-axis switch): state the canonical solver frame.
-  html.push(`<div style="font-size:10px;color:#aaa;margin-top:8px">${escHtml(tr('report.solverCoordsNote'))}</div>`);
+  html.push(`<div style="font-size:10px;color:#aaa;margin-top:8px">${escHtml(tr('report.solverCoordsNote'))}${frame.identity ? '' : ` ${escHtml(axesStatement(tr, axes))}`}</div>`);
   html.push(`<div class="logo">${escHtml(tr('report.coverFooter'))}</div>`);
   html.push(`</div>`);
 
@@ -398,7 +407,8 @@ export function generateReportHtml(data: ReportData): string {
     const named = nodes.some((n) => n.name);
     html.push(`<table><thead><tr><th>ID</th>${named ? `<th>${escHtml(tr('pro.thName'))}</th>` : ''}<th>${km('X')} (m)</th><th>${km('Y')} (m)</th><th>${km('Z')} (m)</th></tr></thead><tbody>`);
     for (const n of nodes) {
-      html.push(`<tr><td>${n.id}</td>${named ? `<td>${escHtml(n.name ?? '')}</td>` : ''}<td class="num">${fmtNum(n.x, 3)}</td><td class="num">${fmtNum(n.y, 3)}</td><td class="num">${fmtNum(n.z ?? 0, 3)}</td></tr>`);
+      const [x, y, z] = vec(n.x, n.y, n.z ?? 0);
+      html.push(`<tr><td>${n.id}</td>${named ? `<td>${escHtml(n.name ?? '')}</td>` : ''}<td class="num">${fmtNum(x!, 3)}</td><td class="num">${fmtNum(y!, 3)}</td><td class="num">${fmtNum(z!, 3)}</td></tr>`);
     }
     html.push(`</tbody></table>`);
   }
@@ -586,7 +596,8 @@ export function generateReportHtml(data: ReportData): string {
   if (showTable('reactions')) {
   html.push(`<table data-printed="reactions"><thead><tr><th>${escHtml(tr('pro.nodeLabel'))}</th><th>${km('F_x')} (kN)</th><th>${km('F_y')} (kN)</th><th>${km('F_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
   for (const r of results.reactions) {
-    html.push(`<tr><td>${r.nodeId}</td><td class="num">${fmtNum(r.fx)}</td><td class="num">${fmtNum(r.fy)}</td><td class="num">${fmtNum(r.fz)}</td><td class="num">${fmtNum(r.mx)}</td><td class="num">${fmtNum(r.my)}</td><td class="num">${fmtNum(r.mz)}</td></tr>`);
+    const v = [...vec(r.fx, r.fy, r.fz), ...rot(r.mx, r.my, r.mz)];
+    html.push(`<tr><td>${r.nodeId}</td>${v.map((x) => `<td class="num">${fmtNum(x)}</td>`).join('')}</tr>`);
   }
   html.push(`</tbody></table>`);
   }
@@ -609,7 +620,8 @@ export function generateReportHtml(data: ReportData): string {
   if (showTable('displacements')) {
     html.push(`<table data-printed="displacements"><thead><tr><th>${escHtml(tr('pro.nodeLabel'))}</th><th>${km('u_x')} (m)</th><th>${km('u_y')} (m)</th><th>${km('u_z')} (m)</th><th>${km('\\theta_x')} (rad)</th><th>${km('\\theta_y')} (rad)</th><th>${km('\\theta_z')} (rad)</th></tr></thead><tbody>`);
     for (const d of results.displacements) {
-      html.push(`<tr><td>${d.nodeId}</td><td class="num">${fmtNum(d.ux, 6)}</td><td class="num">${fmtNum(d.uy, 6)}</td><td class="num">${fmtNum(d.uz, 6)}</td><td class="num">${fmtNum(d.rx, 6)}</td><td class="num">${fmtNum(d.ry, 6)}</td><td class="num">${fmtNum(d.rz, 6)}</td></tr>`);
+      const v = [...vec(d.ux, d.uy, d.uz), ...rot(d.rx, d.ry, d.rz)];
+      html.push(`<tr><td>${d.nodeId}</td>${v.map((x) => `<td class="num">${fmtNum(x, 6)}</td>`).join('')}</tr>`);
     }
     html.push(`</tbody></table>`);
   }
@@ -663,8 +675,8 @@ export function generateReportHtml(data: ReportData): string {
     }
   }
 
-  if (showSection('envelope') && data.resultSets?.length) html.push(...envelopeSectionHtml(data.resultSets, tr, `${subNo('sec-results')} ${tr('report.env.title')}`));
-  if (showSection('statics') && data.statics) html.push(...staticsSectionHtml(data.statics, tr, `${subNo('sec-results')} ${tr('pro.statics.title')}`));
+  if (showSection('envelope') && data.resultSets?.length) html.push(...envelopeSectionHtml(data.resultSets, tr, `${subNo('sec-results')} ${tr('report.env.title')}`, axes));
+  if (showSection('statics') && data.statics) html.push(...staticsSectionHtml(data.statics, tr, `${subNo('sec-results')} ${tr('pro.statics.title')}`, axes));
   if (showSection('deflections') && data.deflections?.length) html.push(...deflectionSectionHtml(data.deflections, tr, `${subNo('sec-results')} ${tr('defl.title')}`));
 
   } // end showSection('results')
@@ -708,14 +720,16 @@ export function generateReportHtml(data: ReportData): string {
       const finiteWarning = finiteSpectrumWarning(adv.modal, tr);
       if (finiteWarning) html.push(`<p role="status">${escHtml(finiteWarning)}</p>`);
       if (adv.modal.ratiosWithheld) html.push(`<p>${escHtml(tr('pro.modalConstrained'))}</p>`);
-      html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead><tbody>`);
+      html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM ${alongName(0)}</th><th>ΣM ${alongName(1)}</th></tr></thead><tbody>`);
       let cx = 0, cy = 0;
       const pct = (v?: number) => (v != null ? `${(v * 100).toFixed(1)} %` : '—');
       for (let i = 0; i < adv.modal.modes.length; i++) {
         const m = adv.modal.modes[i];
         cx += m.massRatioX ?? 0; cy += m.massRatioY ?? 0;
         const has = m.massRatioX != null;
-        html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(m.frequency, 3)}</td><td class="num">${fmtNum(m.period, 3)}</td><td class="num">${m.participationX != null ? fmtNum(m.participationX, 3) : '—'}</td><td class="num">${m.participationY != null ? fmtNum(m.participationY, 3) : '—'}</td><td class="num">${m.participationZ != null ? fmtNum(m.participationZ, 3) : '—'}</td><td class="num">${has ? pct(cx) : '—'}</td><td class="num">${has ? pct(cy) : '—'}</td></tr>`);
+        const model = [m.participationX, m.participationY, m.participationZ];
+        const part = frame.rows.map((row) => { const k = row.findIndex((c) => c !== 0); const v = model[k]; return v != null ? row[k]! * v + 0 : null; });
+        html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(m.frequency, 3)}</td><td class="num">${fmtNum(m.period, 3)}</td>${part.map((v) => `<td class="num">${v != null ? fmtNum(v, 3) : '—'}</td>`).join('')}<td class="num">${has ? pct(cx) : '—'}</td><td class="num">${has ? pct(cy) : '—'}</td></tr>`);
       }
       html.push(`</tbody></table>`);
     }
@@ -732,9 +746,9 @@ export function generateReportHtml(data: ReportData): string {
     if (adv.spectral && wants('spectral')) {
       html.push(`<h3>${escHtml(tr('report.spectralTitle'))}</h3>`);
       html.push(`<table><tbody>`);
-      if (adv.spectral.baseShearX != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} X</td><td class="num">${fmtNum(adv.spectral.baseShearX)} kN</td></tr>`);
-      if (adv.spectral.baseShearY != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} Y</td><td class="num">${fmtNum(adv.spectral.baseShearY)} kN</td></tr>`);
-      if (adv.spectral.baseShearZ != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} Z</td><td class="num">${fmtNum(adv.spectral.baseShearZ)} kN</td></tr>`);
+      if (adv.spectral.baseShearX != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} ${alongName(0)}</td><td class="num">${fmtNum(adv.spectral.baseShearX)} kN</td></tr>`);
+      if (adv.spectral.baseShearY != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} ${alongName(1)}</td><td class="num">${fmtNum(adv.spectral.baseShearY)} kN</td></tr>`);
+      if (adv.spectral.baseShearZ != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} ${alongName(2)}</td><td class="num">${fmtNum(adv.spectral.baseShearZ)} kN</td></tr>`);
       html.push(`</tbody></table>`);
     }
   }
@@ -749,7 +763,7 @@ export function generateReportHtml(data: ReportData): string {
           .replace('{cd}', String(b.cd)).replace('{group}', b.group)
           .replace('{limit}', (b.limit * 100).toFixed(2)).replace('{cases}', b.cases.join(', '))
       : tr('report.driftLimit'))}</p>`);
-    html.push(`<table data-printed="drift"><thead><tr><th>${escHtml(tr('report.level'))} (m)</th><th>h (m)</th><th>Δx (mm)</th><th>Δy (mm)</th><th>Δx/h</th><th>Δy/h</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+    html.push(`<table data-printed="drift"><thead><tr><th>${escHtml(tr('report.level'))} (m)</th><th>h (m)</th><th>Δ${alongName(0).toLowerCase()} (mm)</th><th>Δ${alongName(1).toLowerCase()} (mm)</th><th>Δ${alongName(0).toLowerCase()}/h</th><th>Δ${alongName(1).toLowerCase()}/h</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
     for (const d of data.storyDrifts) {
       const statusStr = d.status === 'ok' ? '✓ OK' : d.status === 'fail' ? `✗ ${tr('report.fail')}` : `⚠ ${tr('report.attention')}`;
       const cls = d.status === 'fail' ? ' style="color:#e94560;font-weight:bold"' : d.status === 'warn' ? ' style="color:#f0a500"' : '';

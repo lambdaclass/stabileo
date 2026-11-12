@@ -40,6 +40,7 @@ import type { ShellContourComponent } from '../engine/shell-stress';
 import { t as tr } from '../i18n';
 import { modelStore, resultsStore } from '../store';
 import { resultSet, hasResultSet } from './export-results';
+import { axesStore } from '../axes/axes.svelte';
 
 export interface ReportExportInputs {
   config: ReportConfig;
@@ -113,7 +114,7 @@ async function exportReportWithEngine(input: ReportExportInputs, token: ReturnTy
   // The model's figure is drawn; a capture of the screen only when it cannot be.
   const capture = input.config.sections?.modelData !== false && !figures.model;
   const data = buildProReportData({
-    config: input.config,
+    config: withUserAxes(input.config),
     advancedResults: Object.keys(input.advancedResults).length > 0
       ? input.advancedResults as ReportData['advancedResults']
       : undefined,
@@ -131,6 +132,10 @@ async function exportReportWithEngine(input: ReportExportInputs, token: ReturnTy
   if (!input.format || input.format === 'pdf') { openReport(data); return; }
   const { downloadReport } = await import('../export/report-download');
   await downloadReport(input.format, { title: data.projectName || input.t('proReport.title'), html: generateReportHtml(data), stem: `report-${(data.projectName || 'model').replace(/[^\w.-]+/g, '-')}`, ...(data.resultProvenance ? { provenance: reportProvenanceLines(data.resultProvenance.record) } : {}) });
+}
+
+export function withUserAxes(config: ReportConfig): ReportConfig {
+  return axesStore.frame.identity ? config : { ...config, axes: { ...axesStore.choice } };
 }
 
 /** Load cases drawn as figures, one each; the tables list them all. */

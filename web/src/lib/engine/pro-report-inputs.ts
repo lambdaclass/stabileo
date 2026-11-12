@@ -23,6 +23,9 @@ import { knownIssueResultDisposition } from './known-issues';
  */
 
 import { shellText, surfaceValueText, surfaceHowText } from '../model/loads/surface-load-text';
+import { DEFAULT_AXES, makeFrame, userAxisAlong, type AxesChoice } from '../axes/frame';
+import { transformSnapshot } from '../model/code/frame';
+import type { Load } from '../store/model.svelte';
 import { definitionName, type DefinitionModel } from '../model/loads/floor-definitions';
 import { deflectionChecks } from '../store/serviceability';
 import { seismicDrifts } from './seismic-drift';
@@ -60,8 +63,21 @@ type Translate = (key: string) => string;
  * ones, which are all a PRO model carries, used to fall through as empty rows, so the report
  * listed as many blank lines as the model had loads.
  */
-export function serializeLoads(t: Translate): NonNullable<ReportData['loads']> {
+const PLANE_LOADS = new Set(['nodal', 'distributed', 'pointOnElement', 'thermal']);
+
+function loadsIn(axes: AxesChoice): Load[] {
+  const loads = modelStore.model.loads;
+  if (makeFrame(axes).identity) return loads;
+  const plane = transformSnapshot({ analysisMode: '2d', loads: loads.filter((l) => PLANE_LOADS.has(l.type)) }, axes, 'toUser').loads as Load[];
+  const space = transformSnapshot({ analysisMode: 'pro', loads: loads.filter((l) => !PLANE_LOADS.has(l.type)) }, axes, 'toUser').loads as Load[];
+  let p = 0, q = 0;
+  return loads.map((l) => (PLANE_LOADS.has(l.type) ? plane[p++]! : space[q++]!));
+}
+
+export function serializeLoads(t: Translate, axes: AxesChoice = DEFAULT_AXES): NonNullable<ReportData['loads']> {
   const loads: NonNullable<ReportData['loads']> = [];
+  const frame = makeFrame(axes);
+  const h = userAxisAlong(frame, 0).name, v = userAxisAlong(frame, 2).name, nrm = userAxisAlong(frame, 1).name;
   /** A component to four significant figures, never "-0". */
   const n = (v: number) => { const r = +v.toPrecision(4); return Object.is(r, -0) ? '0' : String(r); };
   /** The non-zero components, named; "0" when all are zero. */
@@ -76,13 +92,13 @@ export function serializeLoads(t: Translate): NonNullable<ReportData['loads']> {
   const turn = (d: { angle?: number; isGlobal?: boolean }) =>
     (d.angle ? `, θ=${n(d.angle)}°` : '') + (d.isGlobal ? ` (${t('report.loadGlobal')})` : '');
   const caseName = (id: number | undefined) => modelStore.model.loadCases.find((c) => c.id === (id ?? 1))?.name;
-  for (const load of modelStore.model.loads) {
+  for (const load of loadsIn(axes)) {
     let tipo = '', destino = '', valores = '';
     switch (load.type) {
       case 'nodal': {
         const d = load.data;
         tipo = t('file.loadNodal'); destino = `${t('report.loadNode')} ${d.nodeId}`;
-        valores = `Fx=${n(d.fx)} kN, Fz=${n(get2DDisplayNodalLoadVertical(d))} kN, My=${n(get2DDisplayNodalLoadMoment(d))} kN·m`;
+        valores = `F${h.toLowerCase()}=${n(d.fx)} kN, F${v.toLowerCase()}=${n(get2DDisplayNodalLoadVertical(d))} kN, M${nrm.toLowerCase()}=${n(get2DDisplayNodalLoadMoment(d))} kN·m`;
         break;
       }
       case 'distributed': {
@@ -94,7 +110,7 @@ export function serializeLoads(t: Translate): NonNullable<ReportData['loads']> {
       case 'pointOnElement': {
         const d = load.data;
         tipo = t('file.loadPointOnElement'); destino = `${t('report.loadMember')} ${d.elementId}`;
-        valores = `${parts('kN', [['P', d.p], ['Px', d.px]])}${Math.abs(d.my ?? d.mz ?? 0) > 1e-12 ? `, My=${n(d.my ?? d.mz!)} kN·m` : ''}, a=${n(d.a)} m` + turn(d);
+        valores = `${parts('kN', [['P', d.p], ['Px', d.px]])}${Math.abs(d.my ?? d.mz ?? 0) > 1e-12 ? `, M${nrm.toLowerCase()}=${n(d.my ?? d.mz!)} kN·m` : ''}, a=${n(d.a)} m` + turn(d);
         break;
       }
       case 'thermal': {
@@ -259,7 +275,7 @@ export function buildProReportData(opts: {
     supports: [...modelStore.supports.values()],
     quads: modelStore.model.quads.size > 0 ? [...modelStore.model.quads.values()] : undefined,
     loadCount: modelStore.loads.length,
-    loads: serializeLoads(t),
+    loads: serializeLoads(t, config.axes),
     results,
     combinations: serializeCombinations(),
     advancedResults,

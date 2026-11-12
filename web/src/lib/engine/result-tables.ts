@@ -29,6 +29,7 @@ import type { ElementDesignDemands, GoverningDemand } from './station-design-for
 import { stationTs, type StationSpec } from './station-forces';
 import { evaluateDiagramAt } from './diagrams-3d';
 import { userRot, userVec } from '../axes/display';
+import { makeFrame, pseudoToUser, toUser, type AxesChoice } from '../axes/frame';
 
 export type TableKind = 'displacements' | 'reactions' | 'forces';
 
@@ -67,6 +68,8 @@ export interface TableOptions {
    * (`station-forces.ts#buildCriticalStations`). 2 (or absent): the ends.
    */
   stations?: StationSpec;
+  /** The axes global components are written in: these, rather than the user's current ones. */
+  axes?: AxesChoice;
 }
 
 /** The columns a table has under `opts`. */
@@ -100,12 +103,15 @@ export interface Row { entity: number; end?: 'i' | 'j'; x?: number; values: numb
 function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visit: (entity: number, end: 'i' | 'j' | undefined, x: number | undefined, values: number[]) => void): void {
   const keep = (id: number) => !opts.entities || opts.entities.has(id);
   const fin = (v: number[]) => (opts.resultant ? withResultants(kind, v) : v);
+  const f = opts.axes ? makeFrame(opts.axes) : null;
+  const vec = (x: number, y: number, z: number) => (f ? toUser(f, [x, y, z]) : userVec(x, y, z));
+  const rot = (x: number, y: number, z: number) => (f ? pseudoToUser(f, [x, y, z]) : userRot(x, y, z));
   if (kind === 'displacements') {
-    for (const d of r.displacements) if (keep(d.nodeId)) visit(d.nodeId, undefined, undefined, fin([...userVec(d.ux, d.uy, d.uz), ...userRot(d.rx, d.ry, d.rz)]));
+    for (const d of r.displacements) if (keep(d.nodeId)) visit(d.nodeId, undefined, undefined, fin([...vec(d.ux, d.uy, d.uz), ...rot(d.rx, d.ry, d.rz)]));
     return;
   }
   if (kind === 'reactions') {
-    for (const x of r.reactions) if (keep(x.nodeId)) visit(x.nodeId, undefined, undefined, fin([...userVec(x.fx, x.fy, x.fz), ...userRot(x.mx, x.my, x.mz)]));
+    for (const x of r.reactions) if (keep(x.nodeId)) visit(x.nodeId, undefined, undefined, fin([...vec(x.fx, x.fy, x.fz), ...rot(x.mx, x.my, x.mz)]));
     return;
   }
   const spec = opts.stations ?? 2;
