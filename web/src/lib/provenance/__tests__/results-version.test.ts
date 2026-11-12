@@ -1,6 +1,6 @@
 import { RESULT_CHANGES, RESULT_CHANGES as CURRENT_RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
-import { assessProject } from '../applicability';
+import { assessProject, assessProject as assessWithRegistry } from '../applicability';
 import { ANALYSIS_KINDS, type FeatureSnapshot } from '../model-features';
 import type { SolveStamp } from '../solve-stamp';
 
@@ -100,6 +100,8 @@ describe('results versions', () => {
 
   describe.each([false, true])('SSI notice registered: %s', (includeSSI) => {
     const RESULT_CHANGES = includeSSI ? CURRENT_RESULT_CHANGES : { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
+    const assessProject = (...args: Parameters<typeof assessWithRegistry>) =>
+      assessWithRegistry(args[0], args[1], args[2], RESULT_CHANGES, args[4], args[5]);
   it('tells a modal frame about modal completeness up to version 8, self-checks up to 9, the mechanism refusal up to 12, the 3D co-rotational rotations up to 23 and the containment diagnostics up to 29, until it is re-solved', () => {
     const frame: FeatureSnapshot = {
       analysisMode: 'pro',
