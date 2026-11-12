@@ -1,3 +1,4 @@
+use super::member_actions::TransverseMemberActions;
 use super::assembly::InclinedFrame;
 use super::{assembly, dof::DofNumbering, stability::{Stability, CONDITIONAL_ACCURACY}};
 use crate::types::*;
@@ -72,6 +73,15 @@ pub(super) fn member_balance_2d(input: &SolverInput, loads: &[SolverLoad], dof: 
             if let Some(i) = dof.global_dof(d.node_id, local) { u[i] = value; }
         }
     }
+    let mut member_loads: std::collections::HashMap<usize, Vec<&SolverLoad>> = std::collections::HashMap::new();
+    for load in loads {
+        let id = match load {
+            SolverLoad::Distributed(l) => l.element_id,
+            SolverLoad::PointOnElement(l) => l.element_id,
+            _ => continue,
+        };
+        member_loads.entry(id).or_default().push(load);
+    }
     let mut ends = vec![0.0; dof.n_total];
     for f in &r.element_forces {
         let e = &input.elements[&f.element_id.to_string()];
@@ -79,7 +89,12 @@ pub(super) fn member_balance_2d(input: &SolverInput, loads: &[SolverLoad], dof: 
         let (dx, dz) = (b.x - a.x, b.z - a.z);
         let length = dx.hypot(dz);
         let (c, s) = (dx / length, dz / length);
-        for (node, axial, shear, moment) in [(e.node_i, -f.n_start, f.v_start, f.m_start), (e.node_j, f.n_end, -f.v_end, -f.m_end)] {
+        let mut actions = TransverseMemberActions::default();
+        if e.elem_type == "truss" || e.elem_type == "cable" {
+            for load in member_loads.get(&e.id).into_iter().flatten() { actions.add(TransverseMemberActions::from_2d(load, length)); }
+        }
+        let forces = actions.complete_axial_member_forces([[-f.n_start, f.v_start, 0.0], [f.n_end, -f.v_end, 0.0]]);
+        for (node, [axial, shear, _], moment) in [(e.node_i, forces[0], f.m_start), (e.node_j, forces[1], -f.m_end)] {
             for (local, value) in [c*axial - s*shear, s*axial + c*shear, moment].into_iter().enumerate() {
                 if let Some(i) = dof.global_dof(node, local) { ends[i] += value; }
             }
@@ -108,15 +123,32 @@ pub(super) fn member_balance_3d(input: &SolverInput3D, loads: &[SolverLoad3D], d
             if let Some(i) = dof.global_dof(d.node_id, local) { u[i] = value; }
         }
     }
+    let sections: std::collections::HashMap<_, _> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
+    let mut member_loads: std::collections::HashMap<usize, Vec<&SolverLoad3D>> = std::collections::HashMap::new();
+    for load in loads {
+        let id = match load {
+            SolverLoad3D::Distributed(l) => l.element_id,
+            SolverLoad3D::PointOnElement(l) => l.element_id,
+            _ => continue,
+        };
+        member_loads.entry(id).or_default().push(load);
+    }
     let mut ends = vec![0.0; dof.n_total];
     for f in &r.element_forces {
         let e = &input.elements[&f.element_id.to_string()];
         let (a, b) = (&input.nodes[&e.node_i.to_string()], &input.nodes[&e.node_j.to_string()]);
         let (ex, ey, ez) = crate::element::compute_local_axes_3d(a.x, a.y, a.z, b.x, b.y, b.z,
             e.local_yx, e.local_yy, e.local_yz, e.roll_angle, input.left_hand.unwrap_or(false));
+        let mut actions = TransverseMemberActions::default();
+        let section = sections[&e.section_id];
+        if crate::element::MemberKinematics3D::from_elem(e, section) == crate::element::MemberKinematics3D::Axial {
+            let length = ((b.x-a.x).powi(2) + (b.y-a.y).powi(2) + (b.z-a.z).powi(2)).sqrt();
+            for load in member_loads.get(&e.id).into_iter().flatten() { actions.add(TransverseMemberActions::from_3d(load, length)); }
+        }
+        let forces = actions.complete_axial_member_forces([[-f.n_start, f.vy_start, f.vz_start], [f.n_end, -f.vy_end, -f.vz_end]]);
         for (node, force, moment, bimoment) in [
-            (e.node_i, [-f.n_start, f.vy_start, f.vz_start], [f.mx_start, f.my_start, f.mz_start], -f.bimoment_start.unwrap_or(0.0)),
-            (e.node_j, [f.n_end, -f.vy_end, -f.vz_end], [-f.mx_end, -f.my_end, -f.mz_end], f.bimoment_end.unwrap_or(0.0)),
+            (e.node_i, forces[0], [f.mx_start, f.my_start, f.mz_start], -f.bimoment_start.unwrap_or(0.0)),
+            (e.node_j, forces[1], [-f.mx_end, -f.my_end, -f.mz_end], f.bimoment_end.unwrap_or(0.0)),
         ] {
             for (offset, v) in [(0, force), (3, moment)] {
                 for local in 0..3 {
@@ -401,6 +433,27 @@ mod tests {
             serde_json::json!({"type":"thermal","data":{"elementId":1,"dtUniform":3.0,"dtGradient":0.0}}),
         ].into_iter().enumerate() {
             if which != index { continue; }
+            let mut variants = vec![load.clone()];
+            if which == 0 {
+                for span in [1e-15*(1.0-1e-4), 1e-15*(1.0+1e-4), 2.0] {
+                    let mut v = load.clone();
+                    v["data"]["a"] = 0.0.into();
+                    v["data"]["b"] = span.into();
+                    variants.push(v);
+                }
+                for q in [-3.0, 0.0, 3.0] {
+                    let mut v = load.clone();
+                    v["data"]["qI"] = q.into();
+                    v["data"]["qJ"] = (-q).into();
+                    variants.push(v);
+                }
+            }
+            if which == 1 {
+                for a in [0.0, 2.0] {
+                    let mut v = load.clone(); v["data"]["a"] = a.into(); variants.push(v);
+                }
+            }
+            for load in variants {
             let mut input = beam(false);
             input.elements.get_mut("1").unwrap().elem_type = kind.into();
             input.loads = serde_json::from_value(serde_json::json!([load])).unwrap();
@@ -420,33 +473,55 @@ mod tests {
                 assert_eq!(member_balance_3d(&input, &input.loads, &dof, &conditional(), &r, None).unwrap_err(), conditional().conditioning_refusal());
             }
             }
+            }
         }
     }
 
     #[test]
-    #[ignore = "known wrong result: #1969"]
-    fn truss_distributed_actions_2d() { for kind in ["truss"] { member_action_cases(kind, 0, 2); } }
+    fn truss_distributed_actions_2d() {
+        for kind in ["truss"] {
+            member_action_cases(kind, 0, 2);
+        }
+    }
 
     #[test]
-    #[ignore = "known wrong result: #1969"]
-    fn truss_distributed_actions_3d() { for kind in ["truss"] { member_action_cases(kind, 0, 3); } }
+    fn truss_distributed_actions_3d() {
+        for kind in ["truss"] {
+            member_action_cases(kind, 0, 3);
+        }
+    }
 
     #[test]
-    #[ignore = "known wrong result: #1969"]
-    fn truss_point_actions_2d() { for kind in ["truss"] { member_action_cases(kind, 1, 2); } }
+    fn truss_point_actions_2d() {
+        for kind in ["truss"] {
+            member_action_cases(kind, 1, 2);
+        }
+    }
 
     #[test]
-    #[ignore = "known wrong result: #1969"]
-    fn truss_point_actions_3d() { for kind in ["truss"] { member_action_cases(kind, 1, 3); } }
+    fn truss_point_actions_3d() {
+        for kind in ["truss"] {
+            member_action_cases(kind, 1, 3);
+        }
+    }
 
     #[test]
     fn axial_and_thermal_actions_still_balance() {
-        for kind in ["truss"] { for load in [2, 3] { for dimension in [2, 3] { member_action_cases(kind, load, dimension); } } }
+        for kind in ["truss"] {
+            for load in [2, 3] {
+                for dimension in [2, 3] {
+                    member_action_cases(kind, load, dimension);
+                }
+            }
+        }
     }
 
     #[test]
     fn frame_member_actions_pass_but_corrupted_axial_forces_refuse() {
-        for load in 0..4 { for dimension in [2, 3] { member_action_cases("frame", load, dimension); } }
+        for load in 0..4 {
+            for dimension in [2, 3] {
+                member_action_cases("frame", load, dimension);
+            }
+        }
     }
-
 }

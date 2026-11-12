@@ -887,21 +887,7 @@ fn truss_member_load_2d(
 ) {
     match load {
         SolverLoad::Distributed(dl) if dl.element_id == elem_id => {
-            let a = dl.a.unwrap_or(0.0);
-            let b = dl.b.unwrap_or(l);
-            let span = b - a;
-            if span.abs() < 1e-15 { return; }
-            // Rectangle + triangle, so an antisymmetric load (W = 0 but
-            // a couple) needs no division by a load magnitude.
-            let parts = [
-                (dl.q_i * span, (a + b) / 2.0),
-                ((dl.q_j - dl.q_i) * span / 2.0, a + 2.0 * span / 3.0),
-            ];
-            let (mut ri, mut rj) = (0.0, 0.0);
-            for (w, xc) in parts {
-                ri += w * (l - xc) / l;
-                rj += w * xc / l;
-            }
+            let [[ri, _], [rj, _]] = super::member_actions::TransverseMemberActions::from_2d(load, l).0;
             // Local transverse y = (−sin, cos)
             f_global[truss_dofs[0]] += -sin * ri;
             f_global[truss_dofs[1]] += cos * ri;
@@ -911,11 +897,9 @@ fn truss_member_load_2d(
         SolverLoad::PointOnElement(pl) if pl.element_id == elem_id => {
             let a = pl.a;
             let px = pl.px.unwrap_or(0.0);
-            let mz = pl.my.unwrap_or(0.0);
             // Transverse: the point load by the lever rule, the moment
             // (CCW positive) as a couple ±mz/L.
-            let ri = pl.p * (1.0 - a / l) - mz / l;
-            let rj = pl.p * a / l + mz / l;
+            let [[ri, _], [rj, _]] = super::member_actions::TransverseMemberActions::from_2d(load, l).0;
             f_global[truss_dofs[0]] += -sin * ri;
             f_global[truss_dofs[1]] += cos * ri;
             f_global[truss_dofs[2]] += -sin * rj;
@@ -1609,27 +1593,12 @@ pub(crate) fn truss_member_load_3d(
             // The transverse parts reach the nodes by the lever rule
             // (the bar's simply-supported reactions), as in 2D: a truss
             // carries nothing transverse, and they used to be dropped.
-            let a = dl.a.unwrap_or(0.0);
-            let b = dl.b.unwrap_or(l);
-            let span = b - a;
-            if span.abs() >= 1e-15 && (dl.q_yi != 0.0 || dl.q_yj != 0.0 || dl.q_zi != 0.0 || dl.q_zj != 0.0) {
+            let actions = super::member_actions::TransverseMemberActions::from_3d(load, l);
+            if actions.0.iter().flatten().any(|v| *v != 0.0) {
                 let (_ex, ey, ez) = compute_local_axes_3d(
                     node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
                     elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, left_hand);
-                let lever = |qi: f64, qj: f64| {
-                    let parts = [
-                        (qi * span, (a + b) / 2.0),
-                        ((qj - qi) * span / 2.0, a + 2.0 * span / 3.0),
-                    ];
-                    let (mut ri, mut rj) = (0.0, 0.0);
-                    for (w, xc) in parts {
-                        ri += w * (l - xc) / l;
-                        rj += w * xc / l;
-                    }
-                    (ri, rj)
-                };
-                let (ryi, ryj) = lever(dl.q_yi, dl.q_yj);
-                let (rzi, rzj) = lever(dl.q_zi, dl.q_zj);
+                let [[ryi, rzi], [ryj, rzj]] = actions.0;
                 for k in 0..3 {
                     let comp_i = ryi * ey[k] + rzi * ez[k];
                     let comp_j = ryj * ey[k] + rzj * ez[k];
@@ -1645,9 +1614,10 @@ pub(crate) fn truss_member_load_3d(
                 elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, left_hand);
             let f_i = 1.0 - pl.a / l;
             let f_j = pl.a / l;
+            let [[ryi, rzi], [ryj, rzj]] = super::member_actions::TransverseMemberActions::from_3d(load, l).0;
             for k in 0..3 {
-                let comp_i = pl.px * f_i * ex[k] + pl.py * f_i * ey[k] + pl.pz * f_i * ez[k];
-                let comp_j = pl.px * f_j * ex[k] + pl.py * f_j * ey[k] + pl.pz * f_j * ez[k];
+                let comp_i = pl.px * f_i * ex[k] + ryi * ey[k] + rzi * ez[k];
+                let comp_j = pl.px * f_j * ex[k] + ryj * ey[k] + rzj * ez[k];
                 if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += comp_i; }
                 if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += comp_j; }
             }

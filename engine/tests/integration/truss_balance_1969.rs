@@ -44,7 +44,6 @@ fn assert_displacements<T: serde::Serialize>(a: &T, b: &T) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1969"]
 fn issue_1969_transverse_truss_member_loads_reach_the_balance_check() {
     let input = witness("1969");
     let reference = linear::solve_2d(&witness("nodal-1969")).unwrap();
@@ -66,7 +65,6 @@ fn issue_1969_transverse_truss_member_loads_reach_the_balance_check() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1969"]
 fn issue_1969_transverse_truss_actions_survive_a_3d_embedding() {
     let input = embed_2d(&witness("1969"), Plane::XZ).unwrap();
     let reference =
@@ -84,7 +82,6 @@ fn issue_1969_transverse_truss_actions_survive_a_3d_embedding() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1969"]
 fn issue_1969_nonlinear_initial_balance_accepts_member_actions() {
     let input = witness("1969");
     let input3 = embed_2d(&input, Plane::XZ).unwrap();
@@ -138,13 +135,11 @@ fn constrained_family(input: serde_json::Value, copies: usize) -> serde_json::Va
 }
 
 #[test]
-#[ignore = "known wrong result: #1969"]
 fn issue_1969_constrained_dense_and_sparse_balance_accept_member_actions() {
     for copies in [1, 4] {
         let original = witness("1969");
         let embedded = embed_2d(&original, Plane::XZ).unwrap();
-        let constraint =
-            serde_json::json!([{"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[0]}]);
+        let constraint = serde_json::Value::Array((0..copies).map(|copy| serde_json::json!({"type":"equalDOF","masterNode":1+copy*100,"slaveNode":2+copy*100,"dofs":[0]})).collect());
         let input = constraints::ConstrainedInput {
             solver: serde_json::from_value(constrained_family(
                 serde_json::to_value(original).unwrap(),
@@ -239,7 +234,6 @@ fn member_load_class(kind: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1969"]
 fn truss_distributed_and_point_actions_reach_linear_and_nonlinear_solvers() {
     member_load_class("truss");
 }

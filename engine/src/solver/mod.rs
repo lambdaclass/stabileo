@@ -65,6 +65,7 @@ pub use winkler::*;
 pub(crate) mod self_checks;
 
 pub(crate) mod conditioning_accuracy;
+mod member_actions;
 
 #[cfg(test)]
 mod web_mechanism_regressions;
