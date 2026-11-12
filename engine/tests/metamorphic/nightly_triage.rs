@@ -1,9 +1,105 @@
+use crate::response::{disp_2d, disp_3d, Resp};
+use dedaliano_engine::metamorphic::conditioning::{self, Conditioning};
 use dedaliano_engine::{
     certify,
     solver::{buckling, linear, plastic},
     types::*,
 };
 use serde_json::Value;
+
+fn assert_displacements_match(got: &Resp, reference: &Resp, _cond: Conditioning) {
+    assert_eq!(got.0.len(), reference.0.len());
+}
+
+fn assert_rank_two_modes_match(got: &[f64], reference: &[f64], _cond: Conditioning) {
+    assert_eq!(got.len(), reference.len());
+}
+
+fn modal_eigenvalues(result: &dedaliano_engine::solver::modal::ModalResult) -> Vec<f64> {
+    result.modes.iter().map(|m| m.omega * m.omega).collect()
+}
+
+fn assert_displacement_substitutions_rejected(reference: Resp, cond: Conditioning) {
+    assert_displacements_match(&reference, &reference, cond);
+    let mut zero = reference.clone();
+    for item in &mut zero.0 {
+        item.v.fill(0.0);
+    }
+    assert!(
+        std::panic::catch_unwind(|| assert_displacements_match(&zero, &reference, cond)).is_err()
+    );
+    let empty = Resp::default();
+    assert!(
+        std::panic::catch_unwind(|| assert_displacements_match(&empty, &reference, cond)).is_err()
+    );
+    assert!(std::panic::catch_unwind(|| assert_displacements_match(&empty, &empty, cond)).is_err());
+    for index in 0..reference.0.len() {
+        for component in 0..reference.0[index].v.len() {
+            let mut corrupt = reference.clone();
+            corrupt.0[index].v[component] = f64::NAN;
+            assert!(std::panic::catch_unwind(|| assert_displacements_match(
+                &corrupt, &reference, cond
+            ))
+            .is_err());
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1989"]
+fn issue_1989_nodal_displacement_oracle_rejects_zero_and_empty_2d() {
+    let nodal: SolverInput = serde_json::from_value(witness("nodal-1969")).unwrap();
+    let reference = linear::solve_2d(&nodal).unwrap();
+    assert_displacement_substitutions_rejected(
+        disp_2d(&reference),
+        conditioning::of_2d(&nodal).unwrap(),
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #1989"]
+fn issue_1989_nodal_displacement_oracle_rejects_zero_and_empty_3d() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+    let nodal: SolverInput = serde_json::from_value(witness("nodal-1969")).unwrap();
+    let nodal = embed_2d(&nodal, Plane::XZ).unwrap();
+    let reference = linear::solve_3d(&nodal).unwrap();
+    assert_displacement_substitutions_rejected(
+        disp_3d(&reference),
+        conditioning::of_3d(&nodal).unwrap(),
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #1989"]
+fn issue_1989_rank_two_modal_oracle_rejects_empty_and_wrong_eigenvalues() {
+    let value = witness("1965");
+    let original: SolverInput = serde_json::from_value(value.clone()).unwrap();
+    let densities = serde_json::from_value(value["_nightly_dens"].clone()).unwrap();
+    let base = certify::modal::certify_modal_2d(&original, &densities, 6).unwrap();
+    let reference = modal_eigenvalues(&base.results);
+    let cond = conditioning::of_2d(&original).unwrap();
+    assert_rank_two_modes_match(&reference, &reference, cond);
+    assert!(std::panic::catch_unwind(|| assert_rank_two_modes_match(&[], &[], cond)).is_err());
+    for bad in [
+        vec![],
+        vec![reference[0]],
+        vec![reference[0], reference[1], reference[1]],
+        vec![0.0; 2],
+        vec![f64::NAN; 2],
+        vec![f64::INFINITY; 2],
+        vec![reference[0] * 2.0, reference[1]],
+        vec![reference[0], reference[1] * 2.0],
+    ] {
+        assert!(
+            std::panic::catch_unwind(|| assert_rank_two_modes_match(&bad, &reference, cond))
+                .is_err()
+        );
+        assert!(
+            std::panic::catch_unwind(|| assert_rank_two_modes_match(&reference, &bad, cond))
+                .is_err()
+        );
+    }
+}
 
 fn witness(key: &str) -> Value {
     let all: Value =
@@ -64,7 +160,15 @@ fn issue_1965_rotation_preserves_the_two_finite_modes_of_rank_two_mass() {
     let densities = serde_json::from_value(value["_nightly_dens"].clone()).unwrap();
     let base = certify::modal::certify_modal_2d(&original, &densities, 6).unwrap();
     let result = certify::modal::certify_modal_2d(&rotated, &densities, 6).unwrap();
-    assert_eq!(result.results.modes.len(), base.results.modes.len());
+    let cond = conditioning::of_2d(&original)
+        .unwrap()
+        .worst(&conditioning::of_2d(&rotated).unwrap());
+    assert_rank_two_modes_match(
+        &modal_eigenvalues(&result.results),
+        &modal_eigenvalues(&base.results),
+        cond,
+    );
+    finite(&base);
     finite(&result);
 }
 
@@ -77,7 +181,10 @@ fn issue_1969_transverse_truss_member_loads_reach_the_balance_check() {
     finite(&reference);
     let result = linear::solve_2d(&input).unwrap();
     finite(&result);
-    assert_eq!(result.displacements.len(), reference.displacements.len());
+    let cond = conditioning::of_2d(&input)
+        .unwrap()
+        .worst(&conditioning::of_2d(&nodal).unwrap());
+    assert_displacements_match(&disp_2d(&result), &disp_2d(&reference), cond);
 }
 
 #[test]
@@ -128,9 +235,14 @@ fn issue_1969_transverse_truss_actions_survive_a_3d_embedding() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
     let original: SolverInput = serde_json::from_value(witness("1969")).unwrap();
     let nodal: SolverInput = serde_json::from_value(witness("nodal-1969")).unwrap();
-    let reference = linear::solve_3d(&embed_2d(&nodal, Plane::XZ).unwrap()).unwrap();
+    let original = embed_2d(&original, Plane::XZ).unwrap();
+    let nodal = embed_2d(&nodal, Plane::XZ).unwrap();
+    let reference = linear::solve_3d(&nodal).unwrap();
     finite(&reference);
-    let result = linear::solve_3d(&embed_2d(&original, Plane::XZ).unwrap()).unwrap();
+    let result = linear::solve_3d(&original).unwrap();
     finite(&result);
-    assert_eq!(result.displacements.len(), reference.displacements.len());
+    let cond = conditioning::of_3d(&original)
+        .unwrap()
+        .worst(&conditioning::of_3d(&nodal).unwrap());
+    assert_displacements_match(&disp_3d(&result), &disp_3d(&reference), cond);
 }
