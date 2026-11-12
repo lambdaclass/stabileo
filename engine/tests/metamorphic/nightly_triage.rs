@@ -151,7 +151,6 @@ fn finite<T: serde::Serialize>(r: &T) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1962"]
 fn issue_1962_buckling_accepts_record_ids_independent_of_map_keys() {
     let bytes = raw("1962");
     let input: SolverInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
@@ -162,7 +161,6 @@ fn issue_1962_buckling_accepts_record_ids_independent_of_map_keys() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1963"]
 fn issue_1963_plastic_accepts_record_ids_independent_of_map_keys() {
     let bytes = raw("1963");
     let input: PlasticInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
@@ -172,7 +170,6 @@ fn issue_1963_plastic_accepts_record_ids_independent_of_map_keys() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1964"]
 fn issue_1964_linear_certificate_accepts_record_ids_independent_of_map_keys() {
     let bytes = raw("1964");
     let input: SolverInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
@@ -182,7 +179,7 @@ fn issue_1964_linear_certificate_accepts_record_ids_independent_of_map_keys() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1965"]
+#[ignore = "known wrong result: #1965; false refusal at the modal basis rounding bound"]
 fn issue_1965_rotation_preserves_the_two_finite_modes_of_rank_two_mass() {
     let value = witness("1965");
     let original: SolverInput = serde_json::from_value(value.clone()).unwrap();
@@ -203,7 +200,7 @@ fn issue_1965_rotation_preserves_the_two_finite_modes_of_rank_two_mass() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1969"]
+#[ignore = "known wrong result: #1969; false refusal for transverse truss member actions"]
 fn issue_1969_transverse_truss_member_loads_reach_the_balance_check() {
     let input: SolverInput = serde_json::from_value(witness("1969")).unwrap();
     let nodal: SolverInput = serde_json::from_value(witness("nodal-1969")).unwrap();
@@ -218,7 +215,7 @@ fn issue_1969_transverse_truss_member_loads_reach_the_balance_check() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1977"]
+#[ignore = "known wrong result: #1977; reaction units mismatch with the NL-5/#428 warning"]
 fn issue_1977_material_reactions_preserve_units() {
     let s = serde_json::from_value(witness("1977")).unwrap();
     let case = crate::case::Case2::new("replay", s);
@@ -260,7 +257,7 @@ fn issue_1969_equivalent_nodal_actions_return_an_answer() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1969"]
+#[ignore = "known wrong result: #1969; false refusal for transverse truss member actions"]
 fn issue_1969_transverse_truss_actions_survive_a_3d_embedding() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
     let original: SolverInput = serde_json::from_value(witness("1969")).unwrap();
