@@ -18,6 +18,10 @@ use super::linear::{
 };
 use super::prestress::prestress_fef_2d;
 use super::constraints::FreeConstraintSystem;
+
+#[cfg(test)]
+#[path = "staged_tests.rs"]
+mod tests;
 use super::sparse_tangent::{
     SparseSymbolicCache, tangent_free_sparse_triplets, solve_tangent_sparse_diagnosed,
 };
