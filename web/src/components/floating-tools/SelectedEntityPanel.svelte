@@ -3,7 +3,7 @@
   import { t } from '../../lib/i18n';
   import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical, TWO_D_NODAL_LOAD_LABELS } from '../../lib/geometry/coordinate-system';
-  import { along, modelIndexOfUser, modelRot, modelVec, twoD, userRot, userVec, XYZ } from '../../lib/axes/display';
+  import { along, modelIndexOfUser, modelRot, modelVec, planeGlobalAngle, planeGlobalValue, twoD, userRot, userVec, XYZ } from '../../lib/axes/display';
   import { memberLoadPerpComponent } from '../../lib/engine/model-diagnostics';
   import { isDefinedLoad } from '../../lib/model/loads/floor-definitions';
 
@@ -234,12 +234,12 @@
       {@const elemLen = modelStore.getElementLength(dl.elementId)}
       <label class="ft-input-group">
         <span>qI:</span>
-        <UnitInput value={dl.qI} qty="distributedLoad" onchange={(v) => updateLoadField(dl.id, 'qI', String(v))} unit={false} />
+        <UnitInput value={dl.isGlobal ? planeGlobalValue(dl.qI) : dl.qI} qty="distributedLoad" onchange={(v) => updateLoadField(dl.id, 'qI', String(dl.isGlobal ? planeGlobalValue(v) : v))} unit={false} />
         <span class="ft-unit">{unitQ('distributedLoad')}</span>
       </label>
       <label class="ft-input-group">
         <span>qJ:</span>
-        <UnitInput value={dl.qJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl.id, 'qJ', String(v))} unit={false} />
+        <UnitInput value={dl.isGlobal ? planeGlobalValue(dl.qJ) : dl.qJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl.id, 'qJ', String(dl.isGlobal ? planeGlobalValue(v) : v))} unit={false} />
         <span class="ft-unit">{unitQ('distributedLoad')}</span>
       </label>
       <label class="ft-input-group">
@@ -257,7 +257,7 @@
       <button class="ft-opt-btn ft-coord-btn" class:active={!dl.isGlobal} onclick={() => updateLoadField(dl.id, 'isGlobal', false)} title={t('float.loadPerpDir')}>⊥</button>
       <label class="ft-input-group">
         <span>α:</span>
-        <input type="number" step="5" value={dl.angle ?? 0} onchange={(e) => updateLoadField(dl.id, 'angle', e.currentTarget.value)} />
+        <input type="number" step="5" value={dl.isGlobal ? planeGlobalAngle(dl.angle ?? 0) + 0 : dl.angle ?? 0} onchange={(e) => updateLoadField(dl.id, 'angle', String(dl.isGlobal ? planeGlobalAngle(Number(e.currentTarget.value)) : e.currentTarget.value))} />
         <span class="ft-unit">°</span>
       </label>
     {:else if selectedLoad.type === 'pointOnElement'}
@@ -269,8 +269,8 @@
         <span class="ft-unit">{unitQ('length')}</span>
       </label>
       <label class="ft-input-group">
-        <span>{pl.isGlobal ? 'Fz' : 'Fj'}:</span>
-        <UnitInput value={pl.p} qty="force" onchange={(v) => updateLoadField(pl.id, 'p', String(v))} unit={false} />
+        <span>{pl.isGlobal ? `F${twoD.vertical.toLowerCase()}` : 'Fj'}:</span>
+        <UnitInput value={pl.isGlobal ? planeGlobalValue(pl.p) : pl.p} qty="force" onchange={(v) => updateLoadField(pl.id, 'p', String(pl.isGlobal ? planeGlobalValue(v) : v))} unit={false} />
         <span class="ft-unit">{unitQ('force')}</span>
       </label>
       <label class="ft-input-group">
@@ -288,7 +288,7 @@
       <button class="ft-opt-btn ft-coord-btn" class:active={!pl.isGlobal} onclick={() => updateLoadField(pl.id, 'isGlobal', false)} title={t('float.loadPerpDir')}>⊥</button>
       <label class="ft-input-group">
         <span>α:</span>
-        <input type="number" step="5" value={pl.angle ?? 0} onchange={(e) => updateLoadField(pl.id, 'angle', e.currentTarget.value)} />
+        <input type="number" step="5" value={pl.isGlobal ? planeGlobalAngle(pl.angle ?? 0) + 0 : pl.angle ?? 0} onchange={(e) => updateLoadField(pl.id, 'angle', String(pl.isGlobal ? planeGlobalAngle(Number(e.currentTarget.value)) : e.currentTarget.value))} />
         <span class="ft-unit">°</span>
       </label>
     {:else if selectedLoad.type === 'thermal'}

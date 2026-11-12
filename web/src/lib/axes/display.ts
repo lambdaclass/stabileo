@@ -95,3 +95,6 @@ export const XYZ = ['x', 'y', 'z'] as const;
 export function modelIndexOfUser(userIndex: 0 | 1 | 2 | number): 0 | 1 | 2 {
   return modelAxisOf((['X', 'Y', 'Z'] as const)[userIndex]).index;
 }
+
+export const planeGlobalValue = (v: number): number => along(2).sign * v;
+export const planeGlobalAngle = (a: number): number => (planeFlipped() ? -a : a);

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { axesStore } from '../axes.svelte';
 import { makeFrame, DEFAULT_AXES } from '../frame';
 import { axesStatement } from '../statement';
-import { shownDofText } from '../../engine/kinematic-report';
+import { kinDofSymbol } from '../../engine/kinematic-report';
 import { userAxesSection } from '../../ai/capabilities/build-model';
 import { fragmentFromCode, fragmentToCode } from '../../model/edit/fragment-code';
 import type { Fragment } from '../../model/edit/fragment';
@@ -29,7 +29,7 @@ describe('imports, exports and reports go through the user frame', () => {
     ['lib/engine/calc-report.ts', /axes\/display'/],
     ['lib/engine/calc-report-loads.ts', /axes\/display'/],
     ['lib/engine/forces-report.ts', /axes\/display'/],
-    ['lib/engine/kinematic-report.ts', /axes\/display'/],
+    ['lib/engine/kinematic-report.ts', /TWO_D_DISPLACEMENT_LABELS/],
     ['lib/report/memoria/render.ts', /axes\/display'/],
     ['lib/model/edit/fragment-code.ts', /axes\/axes\.svelte'/],
     ['lib/ai/browser-provider.ts', /userAxesSection\(axesStore\.frame, 'The result summary'\)/],
@@ -50,10 +50,9 @@ describe('imports, exports and reports go through the user frame', () => {
 
 describe('small display pieces', () => {
   it('names DOFs by the user axes, and leaves the default as it was', () => {
-    expect(shownDofText('ux, uz, θy')).toBe('ux, uz, θy');
+    expect((['ux', 'uz', 'θy'] as const).map(kinDofSymbol)).toEqual(['ux', 'uz', 'θy']);
     axesStore.choice = { up: '+Y', right: '+X', hand: 'right' };
-    expect(shownDofText('ux, uz, θy')).toBe('ux, uy, θz');
-    expect(shownDofText('ux, uz — note')).toBe('ux, uy — note');
+    expect((['ux', 'uz', 'θy'] as const).map(kinDofSymbol)).toEqual(['ux', 'uy', 'θz']);
   });
 
   it('states a frame in words and in its own line', () => {

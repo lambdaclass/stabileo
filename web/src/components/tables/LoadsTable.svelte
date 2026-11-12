@@ -8,7 +8,7 @@
   import { unitQ } from '../../lib/store/display-units.svelte';
   import type { DistributedLoad, PointLoadOnElement, PointLoadOnElement3D, NodalLoad, ThermalLoad, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical, TWO_D_NODAL_LOAD_LABELS } from '../../lib/geometry/coordinate-system';
-  import { along, modelRot, modelVec, twoD, userRot, userVec, XYZ } from '../../lib/axes/display';
+  import { XYZ, along, modelRot, modelVec, planeGlobalValue, twoD, userRot, userVec } from '../../lib/axes/display';
   import { pruneStaleSelection } from '../../lib/store/selection-prune';
   import { setLoadCasesEnabled } from '../../lib/actions/load-cases';
 
@@ -182,8 +182,8 @@
             <span class="load-field">Mz<UnitInput value={d.mz} qty="moment" onchange={(v) => updateLoadField(d.id, 'mz', String(v))} unit={false} /><span class="lf-unit">{unitQ('moment')}</span></span>
           {:else if load.type === 'distributed'}
             {@const d = load.data as DistributedLoad}
-            <span class="load-field">qI<UnitInput value={d.qI} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qI', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
-            <span class="load-field">qJ<UnitInput value={d.qJ} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qJ', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+            <span class="load-field">qI<UnitInput value={d.isGlobal ? planeGlobalValue(d.qI) : d.qI} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qI', String(d.isGlobal ? planeGlobalValue(v) : v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+            <span class="load-field">qJ<UnitInput value={d.isGlobal ? planeGlobalValue(d.qJ) : d.qJ} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qJ', String(d.isGlobal ? planeGlobalValue(v) : v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
             <span class="load-field">a<UnitInput value={d.a ?? 0} qty="length" onchange={(v) => updateLoadField(d.id, 'a', String(v))} unit={false} /><span class="lf-unit">{unitQ('length')}</span></span>
             <span class="load-field">b<UnitInput value={d.b ?? modelStore.getElementLength(d.elementId)} qty="length" onchange={(v) => updateLoadField(d.id, 'b', String(v))} unit={false} /><span class="lf-unit">{unitQ('length')}</span></span>
           {:else if load.type === 'distributed3d'}
@@ -216,7 +216,7 @@
             <span class="load-field">a<UnitInput value={d.a} qty="length" onchange={(v) => updateLoadField(d.id, 'a', String(v))} unit={false} /><span class="lf-unit">{unitQ('length')}</span></span>
           {:else}
             {@const d = load.data as PointLoadOnElement}
-            <span class="load-field">P<UnitInput value={d.p} qty="force" onchange={(v) => updateLoadField(d.id, 'p', String(v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
+            <span class="load-field">P<UnitInput value={d.isGlobal ? planeGlobalValue(d.p) : d.p} qty="force" onchange={(v) => updateLoadField(d.id, 'p', String(d.isGlobal ? planeGlobalValue(v) : v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
             <span class="load-field">a<UnitInput value={d.a} qty="length" onchange={(v) => updateLoadField(d.id, 'a', String(v))} unit={false} /><span class="lf-unit">{unitQ('length')}</span></span>
           {/if}
         </td>

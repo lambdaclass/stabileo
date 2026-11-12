@@ -19,7 +19,7 @@
   import { scaleCanvasText } from '../lib/canvas/text-scale';
   import HiddenItemsChip from './viewport/HiddenItemsChip.svelte';
   import { TWO_D_DISPLACEMENT_LABELS, get2DDisplayDisplacementVertical, get2DDisplayedVertical } from '../lib/geometry/coordinate-system';
-  import { planeFlipped, twoD } from '../lib/axes/display';
+  import { planeGlobalAngle, planeGlobalValue, twoD } from '../lib/axes/display';
   import { axesStore } from '../lib/axes/axes.svelte';
   import { projectNode, to2D, to3D } from '../lib/geometry/plane-projection';
   import { placementStore } from '../lib/store/placement.svelte';
@@ -2169,14 +2169,14 @@
                * the global vertical or the perpendicular; My is a couple, the
                * same in any axes.
                */
-              const userAngle = uiStore.loadIsGlobal && planeFlipped() ? -uiStore.loadAngle : uiStore.loadAngle;
               if (dir === 'my') {
                 modelStore.addPointLoadOnElement(nearElem.id, a, 0, { mz: twoD.fromRot(v) || undefined, caseId: activeCaseId });
               } else if (dir === 'fx' && !uiStore.loadIsGlobal) {
                 modelStore.addPointLoadOnElement(nearElem.id, a, 0, { px: v || undefined, caseId: activeCaseId });
               } else {
-                const angle = (dir === 'fx' ? 90 : 0) + userAngle;
-                const p = !uiStore.loadIsGlobal ? v : dir === 'fx' ? twoD.fromX(v) : twoD.fromZ(v);
+                const typed = (dir === 'fx' ? 90 : 0) + uiStore.loadAngle;
+                const angle = uiStore.loadIsGlobal ? planeGlobalAngle(typed) + 0 : typed;
+                const p = !uiStore.loadIsGlobal ? v : planeGlobalValue(v);
                 modelStore.addPointLoadOnElement(nearElem.id, a, p, {
                   angle: angle !== 0 ? angle : undefined, isGlobal: uiStore.loadIsGlobal ? true : undefined, caseId: activeCaseId,
                 });
@@ -2187,11 +2187,13 @@
       } else if (uiStore.loadType === 'distributed') {
         const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
         if (nearElem) {
-          const angle = uiStore.loadAngle !== 0 ? uiStore.loadAngle : undefined;
+          const typedAngle = uiStore.loadIsGlobal ? planeGlobalAngle(uiStore.loadAngle) + 0 : uiStore.loadAngle;
+          const angle = typedAngle !== 0 ? typedAngle : undefined;
           const isGlobal = uiStore.loadIsGlobal ? true : undefined;
+          const q = (v: number) => (isGlobal ? planeGlobalValue(v) : v);
           const L = modelStore.getElementLength(nearElem.id);
           const st = toolStretch(uiStore.distLoadPartial, uiStore.distLoadFrom, uiStore.distLoadTo, L);
-          if (st.ok) modelStore.addDistributedLoad(nearElem.id, uiStore.loadValue, uiStore.loadValueJ, angle, isGlobal, activeCaseId, st.a, st.b);
+          if (st.ok) modelStore.addDistributedLoad(nearElem.id, q(uiStore.loadValue), q(uiStore.loadValueJ), angle, isGlobal, activeCaseId, st.a, st.b);
           else uiStore.toast(t('float.distStretchRefused').replace('{id}', String(nearElem.id)).replace('{L}', fixedQuantity(L, 'length', 2, uiStore.unitSystem)), 'error');
         }
       } else if (uiStore.loadType === 'thermal') {

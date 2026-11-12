@@ -151,8 +151,8 @@ const T6 = ['xx', 'yy', 'zz', 'xy', 'yz', 'zx'] as const;
 const hasShells = (input: ResultSheetsInput) => input.sources.some((s) => (s.results.plateStresses?.length ?? 0) + (s.results.quadStresses?.length ?? 0) > 0);
 
 /** The shell centres of some results, as the workbook writes them; the results panel exports the same table. */
-export function shellCentreTable(sources: readonly WorkbookSource[], shells: ShellModel): WorkbookSheet {
-  return materialize(shellCentresSheet({ sources, shells, stations: 2, statics: null }));
+export function shellCentreTable(sources: readonly WorkbookSource[], shells: ShellModel, axes?: AxesChoice | null): WorkbookSheet {
+  return materialize(shellCentresSheet({ sources, shells, stations: 2, statics: null, axes }));
 }
 
 const shellCount = (s: WorkbookSource) => (s.results.plateStresses?.length ?? 0) + (s.results.quadStresses?.length ?? 0);

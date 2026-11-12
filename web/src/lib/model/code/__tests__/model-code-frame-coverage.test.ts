@@ -123,7 +123,7 @@ describe('model code carries every global direction in the user axes', () => {
     expect(sp.curves).toEqual({ z: [[0.01, 5]], y: [[0.02, 8]] });
   });
 
-  it('turns the in-plane couple of a point load on a plane member with the plane, and keeps its magnitude and angle', () => {
+  it('turns the in-plane couple and the global magnitude and angle of plane member loads with the plane', () => {
     const plane = {
       analysisMode: '2d',
       nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 5, y: 0 }]],
@@ -136,8 +136,8 @@ describe('model code carries every global direction in the user axes', () => {
     const mirrored: AxesChoice = { up: '+Z', right: '-X', hand: 'right' };
     const f = makeFrame(mirrored);
     const u = transformSnapshot(strip(plane), mirrored, 'toUser');
-    expect(u.loads[0].data).toEqual({ id: 1, elementId: 1, a: 2, p: -10, angle: 30, isGlobal: true, my: pseudoToUser(f, [0, 4, 0])[1] + 0 });
-    expect(u.loads[1].data).toEqual(plane.loads[1].data);
+    expect(u.loads[0].data).toEqual({ id: 1, elementId: 1, a: 2, p: -10, angle: -30, isGlobal: true, my: pseudoToUser(f, [0, 4, 0])[1] + 0 });
+    expect(u.loads[1].data).toEqual({ ...plane.loads[1].data, angle: -15 });
     for (const c of allChoices()) {
       expect(transformSnapshot(transformSnapshot(strip(plane), c, 'toUser'), c, 'toModel').loads).toEqual(plane.loads);
     }

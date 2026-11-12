@@ -37,6 +37,11 @@ function plane(f: AxesFrame) {
   return { h: userAxisAlong(f, 0).sign, v: userAxisAlong(f, 2).sign, r: f.det * userAxisAlong(f, 1).sign };
 }
 
+function planeGlobal(d: Obj, keys: readonly string[], p: { h: number; v: number }): void {
+  for (const k of keys) if (typeof d[k] === 'number') d[k] = p.v * d[k] + 0;
+  if (typeof d.angle === 'number') d.angle = p.h * p.v * d.angle + 0;
+}
+
 const SPACE_MODES = new Set(['3d', 'pro']);
 
 const AXIS = ['X', 'Y', 'Z'] as const;
@@ -140,6 +145,9 @@ export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, wa
       }
     } else if (l.type === 'pointOnElement' && !space) {
       for (const k of ['my', 'mz']) if (d[k] !== undefined) d[k] = p.r * d[k] + 0;
+      if (d.isGlobal) planeGlobal(d, ['p'], p);
+    } else if (l.type === 'distributed' && !space && d.isGlobal) {
+      planeGlobal(d, ['qI', 'qJ'], p);
     }
   }
   if (space) {
@@ -183,4 +191,4 @@ export function frameLine(choice: AxesChoice): string {
   return `frame up=${JSON.stringify(choice.up)} right=${JSON.stringify(choice.right)} hand=${JSON.stringify(choice.hand)}`;
 }
 
-export const FRAME_NOTE = '# Coordinates, global loads, supports, member orientations and offsets and constraints are in the axes of the frame line; support type names, plane-model load angles, footings and the project settings lines keep the model\'s axes.';
+export const FRAME_NOTE = '# Coordinates, global loads, supports, member orientations and offsets and constraints are in the axes of the frame line; support type names, footings and the project settings lines keep the model\'s axes.';

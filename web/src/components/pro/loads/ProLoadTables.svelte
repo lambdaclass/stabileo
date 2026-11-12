@@ -357,7 +357,7 @@
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{shellText(d)}</td>
           {#if d.qNodes || d.vary}<td class="col-num">{surfaceValueText(d)}</td>{:else}{@render cell(l.data.id, 'q', l.data.q, 'areaLoad')}{/if}
-          <td class="col-how">{surfaceHowText(d, defName)}</td>{@render x(l.data.id)}
+          <td class="col-how">{surfaceHowText(d, defName, (v) => userVec(v[0], v[1], v[2]))}</td>{@render x(l.data.id)}
         </tr>
       {/each}
     </tbody></table>

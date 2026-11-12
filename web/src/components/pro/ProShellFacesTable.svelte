@@ -11,6 +11,7 @@
   import { toCsv } from '../../lib/engine/result-tables';
   import { shellCentreRows } from '../../lib/engine/shell-results';
   import { shellCentreTable } from '../../lib/export/workbook-results';
+  import { axesStore } from '../../lib/axes/axes.svelte';
   import { activeWorkbookSource } from '../../lib/store/active-workbook-source';
 
   const shells = $derived({ nodes: modelStore.nodes, plates: modelStore.plates, quads: modelStore.quads });
@@ -20,7 +21,7 @@
 
   function table() {
     const source = activeWorkbookSource();
-    return shellCentreTable(source ? [source] : [], shells);
+    return shellCentreTable(source ? [source] : [], shells, axesStore.choice);
   }
   function csv() {
     const s = table();
