@@ -375,7 +375,7 @@ pub(crate) struct ReleasedRotations {
 }
 
 impl ReleasedRotations {
-    fn permits(&self, node: usize, dofs: &[usize], direction: &[f64]) -> bool {
+    pub(crate) fn permits(&self, node: usize, dofs: &[usize], direction: &[f64]) -> bool {
         self.nodes.contains(&node) && self.rows.iter().all(|row| {
             let (value, magnitude) = row.iter().fold((0.0f64, 0.0f64), |(sum, size), &(i, a)| {
                 let product = dofs.iter().position(|&d| d == i).map_or(0.0, |j| a * direction[j]);

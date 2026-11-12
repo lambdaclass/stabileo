@@ -2018,7 +2018,6 @@ fn round8_history(axis: [f64; 3], pads: usize, constrained: bool, residual: f64)
 }
 
 #[test]
-#[ignore = "known wrong result: #1943"]
 fn issue_1943_round8_oblique_cancelled_moment_after_member_removal() {
     for pads in [0, 4, 5] {
         for constrained in [false, true] {
@@ -2069,7 +2068,6 @@ fn issue_1943_round8_oblique_cancelled_moment_after_member_removal() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1943"]
 fn issue_1943_round8_supported_moment_keeps_its_incremental_response() {
     for pads in [0, 4, 5] {
         for constrained in [false, true] {

@@ -11,9 +11,13 @@ then report collapse instead of refusing the initial elastic state.
 
 The retained `final-review-plastic-conditioning.json` fixture is an oblique
 cantilever with translations free and rotations held at its loaded end. Both
-bending inertias are positive. On PR parent `6d2d7082ef`, the regular solve
-refuses with `Reason::Conditioning`, kinematics reports unsolvable metadata, and
-raw plastic analysis returns a zero collapse factor with no diagnostics. On
+bending inertias are positive. A supplementary isolated replay combines the
+plastic carry module from `6d2d7082ef46066290f244da325665ff971430e8` with other
+engine sources from `c8e104e4ed4c15293226badb4308db96abe9214a`. In that experiment,
+the regular solve refuses with `Reason::Conditioning`, kinematics reports
+unsolvable metadata, and raw plastic analysis returns zero with no diagnostics.
+This is not a whole-parent replay; it does not establish the parent commit's
+regular-solve behavior. On
 main `02b4dd5d2b07e14faf2d7f53b78c986b0ff4b031`, the same fixture's regular
 solve refuses as a mechanism, while plastic again silently returns zero collapse
 with no steps or diagnostics. Main has the same kinematic branch into the
@@ -32,10 +36,14 @@ and cancelled its previously applied nodal moment. The incremental moment was
 nonzero, but the accumulated moment was exactly zero. A direction with an exactly
 zero physical stiffness column cannot carry earlier member forces; its load
 compatibility is determined by accumulated applied loads. The shared stage solve
-now uses those loads as the right-hand side in such directions, before deciding
-whether they are inactive or unloaded free rotations. Every nonzero physical
-column continues to use its incremental right-hand side. The same exact column
-classification serves inactive-DOF detection. No numerical tolerance changes.
+initially used those loads as the right-hand side in such directions, before
+deciding whether they were inactive or unloaded free rotations. Every nonzero physical
+column continued to use its incremental right-hand side. That initial correction
+missed an oblique null direction spanning several nonzero columns. The
+[rotation-subspace follow-up](2026-11-staged-cancelled-rotation-subspaces.md)
+projects cancelled applied moments along detected free rotations instead.
+Exact column classification still serves inactive-DOF detection. No numerical
+tolerance changes.
 
 Main accepts seven of the eight reviewed cancellation variants with zero final
 forces and reactions. Its 2D sparse truss-connected variant refuses with singular

@@ -249,7 +249,9 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         let u_s_inc = solve_stage_free(
             &k_physical, &dof_num, cs.as_ref(), true, &connected_nodes_2d(&stage_solver_input),
             &super::stability::coupling_2d(&stage_solver_input, &dof_num),
-            &super::stability::ReleasedRotations::default(), &f_f, &applied[..nf], use_sparse,
+            &super::stability::ReleasedRotations::default(), &f_f,
+            &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f, |t| &t.f)[..nf],
+            &applied[..nf], use_sparse,
             &mut sparse_sym_cache, &mut conditioning,
         )?;
 
@@ -379,30 +381,42 @@ fn solve_stage_free(
     coupling: &[(usize, usize)],
     releases: &super::stability::ReleasedRotations,
     f: &[f64],
+    incremental_applied: &[f64],
     cumulative_applied: &[f64],
     sparse: bool,
     cache: &mut Option<SparseSymbolicCache>,
     conditioning: &mut Option<StructuredDiagnostic>,
 ) -> Result<Vec<f64>, String> {
     let mut f = constraints.map_or_else(|| f.to_vec(), |c| c.reduce_vector(f));
+    let incremental_applied = constraints.map_or_else(|| incremental_applied.to_vec(), |c| c.reduce_vector(incremental_applied));
     let cumulative_applied = constraints.map_or_else(|| cumulative_applied.to_vec(), |c| c.reduce_vector(cumulative_applied));
     let reduced = constraints.map_or_else(|| k.clone(), |c| c.reduce_matrix_sparse(k));
     let stiff = stiffness_columns(&reduced);
-    for (j, increment) in f.iter_mut().enumerate() {
-        if !stiff[j] { *increment = cumulative_applied[j]; }
-    }
-    let inactive = inactive_dofs(&stiff, dof, two_d, constraints, connected, &f, &cumulative_applied);
+    let inactive = inactive_dofs(&stiff, dof, two_d, constraints, connected, &cumulative_applied);
+    for &j in &inactive { f[j] = 0.0; }
     let (reduced, stability) = super::stability::analyze_free_stiffness_excluding(k, dof, two_d, constraints, coupling, releases, &inactive);
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
+    if let Some(node) = stability.load_on_free_rotation(&cumulative_applied) {
+        return Err(format!("Nodal moment at node {node} is not supported: a free rotation would carry load"));
+    }
+    let projected_releases = constraints.map(|c| releases.project(&c.c_ff));
+    let releases = projected_releases.as_ref().unwrap_or(releases);
+    for direction in stability.free_rotations() {
+        if !releases.permits(direction.node, &direction.dofs, &direction.direction) && direction.dofs.iter().any(|&i| stiff[i]) {
+            if !annihilates_rotation(&reduced, direction) { continue; }
+        }
+        let along = direction.dofs.iter().zip(&direction.direction).map(|(&i, &v)| incremental_applied[i] * v).sum::<f64>();
+        let norm = direction.direction.iter().map(|v| v * v).sum::<f64>();
+        for (&i, &v) in direction.dofs.iter().zip(&direction.direction) {
+            f[i] -= along / norm * v;
+        }
+    }
     let pinned = stability.pin_sparse(&reduced);
     let (mut rows, mut cols, mut vals) = full_triplets(&pinned);
     let active_scale = pinned.diagonal().into_iter().fold(0.0f64, f64::max);
     let inactive_scale = if active_scale > 0.0 { active_scale } else { 1.0 };
     for &d in &inactive { rows.push(d); cols.push(d); vals.push(inactive_scale); }
     let pinned = CscMatrix::from_triplets(pinned.n, &rows, &cols, &vals);
-    if let Some(node) = stability.load_on_free_rotation(&cumulative_applied) {
-        return Err(format!("Nodal moment at node {node} is not supported: a free rotation would carry load"));
-    }
     let u = if sparse {
         let factor = numeric_cholesky(cached_symbolic(cache, &pinned), &pinned).ok_or_else(super::linear::not_positive_definite)?;
         *conditioning = crate::known_issues::sparse_factor_conditioning(&pinned, Some(&factor));
@@ -421,6 +435,29 @@ fn solve_stage_free(
     Ok(u)
 }
 
+fn annihilates_rotation(k: &CscMatrix, direction: &super::stability::FreeDirection) -> bool {
+    use num_rational::BigRational;
+    use num_traits::Zero;
+    let mut vector = HashMap::new();
+    for (&i, &v) in direction.dofs.iter().zip(&direction.direction) {
+        let Some(value) = BigRational::from_float(v) else { return false; };
+        if !value.is_zero() { vector.insert(i, value); }
+    }
+    let mut product: HashMap<usize, BigRational> = HashMap::new();
+    for j in 0..k.n {
+        for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+            let i = k.row_idx[p];
+            if !vector.contains_key(&i) && !vector.contains_key(&j) { continue; }
+            let Some(value) = BigRational::from_float(k.values[p]) else { return false; };
+            if let Some(v) = vector.get(&j) { *product.entry(i).or_default() += &value * v; }
+            if i != j {
+                if let Some(v) = vector.get(&i) { *product.entry(j).or_default() += value * v; }
+            }
+        }
+    }
+    product.values().all(Zero::is_zero)
+}
+
 fn stiffness_columns(k: &CscMatrix) -> Vec<bool> {
     let mut stiff = vec![false; k.n];
     for j in 0..k.n { for p in k.col_ptr[j]..k.col_ptr[j + 1] {
@@ -431,14 +468,14 @@ fn stiffness_columns(k: &CscMatrix) -> Vec<bool> {
 
 fn inactive_dofs(
     stiff: &[bool], dof: &DofNumbering, two_d: bool, constraints: Option<&FreeConstraintSystem>,
-    connected: &HashSet<usize>, f: &[f64], applied: &[f64],
+    connected: &HashSet<usize>, applied: &[f64],
 ) -> Vec<usize> {
     let tags = super::stability::tags(dof, two_d);
     (0..stiff.len()).filter(|&j| {
         let active = if let Some(c) = constraints {
             (c.c_ff.col_ptr[j]..c.c_ff.col_ptr[j + 1]).any(|p| c.c_ff.csc_vals[p] != 0.0 && connected.contains(&tags[c.c_ff.row_idx[p]].node))
         } else { connected.contains(&tags[j].node) };
-        !stiff[j] && !active && f[j] == 0.0 && applied[j] == 0.0
+        !stiff[j] && !active && applied[j] == 0.0
     }).collect()
 }
 
@@ -843,7 +880,9 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         let u_s_inc = solve_stage_free(
             &k_physical, &dof_num, cs.as_ref(), false, &connected_nodes_3d(&stage_input),
             &super::stability::coupling_3d(&stage_input, &dof_num),
-            &super::stability::released_rotations_3d(&stage_input, &dof_num), &f_f, &applied[..nf], use_sparse,
+            &super::stability::released_rotations_3d(&stage_input, &dof_num), &f_f,
+            &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f, |t| &t.f)[..nf],
+            &applied[..nf], use_sparse,
             &mut sparse_sym_cache, &mut conditioning,
         )?;
 

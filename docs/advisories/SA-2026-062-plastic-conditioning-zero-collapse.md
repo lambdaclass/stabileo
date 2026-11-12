@@ -67,9 +67,13 @@ represent plastic collapse of this fixture. No historical release binary was run
 
 The prior retained main replay at
 `02b4dd5d2b07e14faf2d7f53b78c986b0ff4b031` also records a silent raw zero and a
-regular mechanism refusal. On PR parent `6d2d7082ef46066290f244da325665ff971430e8`,
-the same regular solve instead refuses at its conditioning limit. The underlying
-initial-state dispatch failure is the same. Refusal wording must not be used as
+regular mechanism refusal. A supplementary isolated replay uses the plastic
+carry module from `6d2d7082ef46066290f244da325665ff971430e8` with other engine
+sources from `c8e104e4ed4c15293226badb4308db96abe9214a`. In that mixed-source
+experiment, the regular solve refuses at its conditioning limit and raw plastic
+returns zero. This is not a whole-parent replay and does not establish the
+parent commit's regular-solve behavior. It demonstrates the same initial-state
+dispatch failure with those dependencies. Refusal wording must not be used as
 proof that the plastic result is valid.
 
 ## Affected-version evidence

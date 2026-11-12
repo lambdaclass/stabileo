@@ -503,7 +503,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions
+test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -884,6 +884,8 @@ test.engine.staged-orphan-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-orphan-1846-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-round4-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-round5-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-round7-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-round8-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs
 	$(NIX_RUN) node scripts/tests/translation-rank-red-wasm.mjs
 

@@ -188,6 +188,7 @@ fn staged_review_numeric_nonfinite_solutions_are_refused() {
                     &super::super::stability::ReleasedRotations::default(),
                     &f,
                     &f,
+                    &f,
                     sparse,
                     &mut None,
                     &mut None,
@@ -301,7 +302,7 @@ fn staged_final_zero_stiffness_uses_accumulated_load() {
                 let solve = |increment: f64, applied: f64| solve_stage_free(
                     &k, &dof, None, true, &connected, &[],
                     &super::super::stability::ReleasedRotations::default(),
-                    &[increment * force_scale], &[applied * force_scale], sparse, &mut None, &mut None,
+                    &[increment * force_scale], &[increment * force_scale], &[applied * force_scale], sparse, &mut None, &mut None,
                 );
                 let u = solve(-1.0, 0.0).unwrap();
                 close(&u, &[if stiffness == 0.0 { 0.0 } else { -1.0 / stiffness }]);
@@ -318,7 +319,6 @@ fn staged_final_zero_stiffness_uses_accumulated_load() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1943"]
 fn staged_round8_multiple_null_rotations_keep_supported_loads() {
     let input: SolverInput3D = serde_json::from_str(include_str!("../../tests/fixtures/staged-round8.json")).unwrap();
     let dof = DofNumbering::build_3d(&input);
@@ -327,19 +327,74 @@ fn staged_round8_multiple_null_rotations_keep_supported_loads() {
         for (matrix, increment, expected) in [
             (vec![1.0,-1.0,0.0,-1.0,1.0,0.0,0.0,0.0,2.0], vec![-1.0,-1.0,0.0], vec![0.0,0.0,0.0]),
             (vec![1.0,-1.0,0.0,-1.0,1.0,0.0,0.0,0.0,2.0], vec![0.0,-2.0,2.0], vec![0.5,-0.5,1.0]),
-            (vec![1.0;9], vec![1.0,-1.0,0.0], vec![0.0,0.0,0.0]),
-            (vec![1.0;9], vec![2.0,0.0,1.0], vec![1.0/3.0;3]),
+            (vec![1.0,-1.0,0.0,-1.0,1.0,0.0,0.0,0.0,0.0], vec![-1.0,-1.0,1.0], vec![0.0,0.0,0.0]),
+            (vec![1.0,-1.0,0.0,-1.0,1.0,0.0,0.0,0.0,0.0], vec![0.0,-2.0,1.0], vec![0.5,-0.5,0.0]),
         ] {
             let k = CscMatrix::from_dense_symmetric_exact(&matrix, 3);
             let applied = k.sym_mat_vec(&expected);
             let u = solve_stage_free(
                 &k, &dof, None, false, &HashSet::from([1,2]), &[],
                 &super::super::stability::ReleasedRotations::default(),
-                &increment, &applied, sparse, &mut None, &mut None,
+                &increment, &increment, &applied, sparse, &mut None, &mut None,
             ).unwrap();
             close(&u, &expected);
         }
     }
+}
+
+#[test]
+fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() {
+    let input: SolverInput3D = serde_json::from_str(include_str!("../../tests/fixtures/staged-round8.json")).unwrap();
+    let dof = DofNumbering::build_3d(&input);
+    for sparse in [false, true] {
+        let oblique = CscMatrix::from_dense_symmetric_exact(&[1.0,-1.0,0.0,-1.0,1.0,0.0,0.0,0.0,2.0], 3);
+        let driven = solve_stage_free(
+            &oblique, &dof, None, false, &HashSet::from([1,2]), &[],
+            &super::super::stability::ReleasedRotations::default(),
+            &[-1.0,-1.0,0.0], &[0.0;3], &[0.0;3], sparse, &mut None, &mut None,
+        );
+        assert!(driven.unwrap_err().contains("rotation"));
+        let tiny = 1e-13;
+        let unresolved = CscMatrix::from_dense_symmetric_exact(&[1.0+tiny,-1.0+tiny,0.0,-1.0+tiny,1.0+tiny,0.0,0.0,0.0,1.0], 3);
+        let loaded = solve_stage_free(
+            &unresolved, &dof, None, false, &HashSet::from([1,2]), &[],
+            &super::super::stability::ReleasedRotations::default(),
+            &[-1.0,-1.0,0.0], &[-1.0,-1.0,0.0], &[0.0;3], sparse, &mut None, &mut None,
+        );
+        assert!(loaded.unwrap_err().contains("rotation"));
+        for stiffness in [-1e-30, 0.0, 1e-30, 1e-13, 1e-11, 1.0] {
+            let force_scale = 1e30;
+            let k = CscMatrix::from_triplets(3, &[0,1,2], &[0,1,2], &[stiffness * force_scale;3]);
+            let solve = |applied: &[f64]| solve_stage_free(
+                &k, &dof, None, false, &HashSet::from([1,2]), &[],
+                &super::super::stability::ReleasedRotations::default(),
+                &[-force_scale,0.0,0.0], &applied.iter().map(|x| x * force_scale).collect::<Vec<_>>(), &[0.0;3], sparse, &mut None, &mut None,
+            );
+            if stiffness == 0.0 {
+                close(&solve(&[-1.0,0.0,0.0]).unwrap(), &[0.0;3]);
+            } else if stiffness < 0.0 {
+                for applied in [[-1.0,0.0,0.0], [0.0;3]] {
+                    assert!(solve(&applied).unwrap_err().contains("stiffness"));
+                }
+            } else {
+                for applied in [[-1.0,0.0,0.0], [0.0;3]] {
+                    close(&solve(&applied).unwrap(), &[-1.0/stiffness,0.0,0.0]);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn staged_round8_null_witness_does_not_round_away_positive_stiffness() {
+    let large = 2.0_f64.powi(54);
+    let k = CscMatrix::from_dense_symmetric_exact(&[large,1.0,-large,1.0,large,-large,-large,-large,2.0*large], 3);
+    let direction = super::super::stability::FreeDirection {
+        node: 2, kind: super::super::stability::DofKind::Rotation, moves_translation: false,
+        dofs: vec![0,1,2], direction: vec![1.0;3], scale: large, coupling: Vec::new(),
+    };
+    assert_eq!(k.sym_mat_vec(&direction.direction), vec![0.0;3]);
+    assert!(!annihilates_rotation(&k, &direction));
 }
 
 fn round7_inclined(pads: usize, angle: f64) -> StagedInput {
