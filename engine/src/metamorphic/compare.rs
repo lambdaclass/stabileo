@@ -293,8 +293,19 @@ pub fn compare_floored(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: 
 /// its family: a soft rotational DOF must not lift the translation scale
 /// through `|r|·L` in a response that reports no rotations.
 pub fn compare_compliant(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: f64, rel: f64, force_floor: f64, compliance: [f64; 2]) -> Result<Report, String> {
+    compare_compliant_bounded(actual, expected, scale_src, lchar, rel, force_floor, compliance, None)
+}
+
+pub fn compare_compliant_bounded(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: f64, rel: f64, force_floor: f64, compliance: [f64; 2], errors: Option<&Flat>) -> Result<Report, String> {
     check_shape(actual, expected)?;
     check_shape(scale_src, expected)?;
+    if let Some(errors) = errors {
+        check_shape(errors, expected)?;
+        if !(rel > 0.0 && rel.is_finite()) || [&errors.t, &errors.r, &errors.f, &errors.m, &errors.s, &errors.x]
+            .iter().flat_map(|f| &f.vals).any(|v| !(*v >= 0.0 && v.is_finite())) {
+            return Err("invalid component accuracy budget".into());
+        }
+    }
     let diff = Flat::lin_comb(1.0, actual, -1.0, expected);
     let (t, r) = (scale_src.t.maxabs(), scale_src.r.maxabs());
     let f = scale_src.f.maxabs().max(force_floor);
@@ -313,7 +324,12 @@ pub fn compare_compliant(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar
         for k in 0..d.vals.len() {
             if d.labels[k].starts_with("refusal:") { rep.refusals += 1 } else { rep.values += 1 }
             let scale = if name == "scalar" { src.scales.get(k).copied().unwrap_or(src.vals[k].abs()) } else { s };
+            let error = errors.map_or(0.0, |e| expected_val(e, name, k));
+            let scale = if errors.is_some() { scale.max(error / rel) } else { scale };
             let tol = rel * scale + f64::MIN_POSITIVE;
+            if errors.is_some() && !tol.is_finite() {
+                return Err("unbounded component accuracy budget".into());
+            }
             let ratio = d.vals[k].abs() / tol;
             if !d.vals[k].is_finite() || !(ratio <= 1.0) {
                 return Err(format!(

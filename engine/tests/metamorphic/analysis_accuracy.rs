@@ -1,6 +1,6 @@
 use crate::response::{Dim, Kind, Resp};
 use dedaliano_engine::linalg::*;
-use dedaliano_engine::metamorphic::compare::{compare_compliant, Flat, Report};
+use dedaliano_engine::metamorphic::compare::{compare_compliant_bounded, Flat, Report};
 use dedaliano_engine::solver::{assembly, constraints::FreeConstraintSystem, dof::DofNumbering};
 use num_rational::BigRational;
 use num_traits::ToPrimitive;
@@ -45,33 +45,24 @@ pub fn compare_scaled(
     let errors = |r: &Resp| {
         let mut r = r.clone();
         for i in &mut r.0 {
-            i.v.fill(0.0);
-            i.floor = i.error;
+            i.v.fill(i.error);
+            i.floor = 0.0;
         }
         r.flat()
     };
     let error = Flat::abs_comb(1.0, &errors(got), 1.0, &errors(expected));
-    let mut scale = scale_source.flat();
-    for (s, e) in [
-        (&mut scale.t, &error.t),
-        (&mut scale.r, &error.r),
-        (&mut scale.f, &error.f),
-        (&mut scale.m, &error.m),
-        (&mut scale.s, &error.s),
-    ] {
-        s.floor = s.floor.max(e.floor / rel);
+    if [&error.t, &error.r, &error.f, &error.m, &error.s, &error.x].iter().flat_map(|f| &f.vals).any(|v| !v.is_finite()) {
+        return Err("unbounded combined analysis error certificate".into());
     }
-    for (s, e) in scale.x.scales.iter_mut().zip(&error.x.scales) {
-        *s = s.max(e / rel);
-    }
-    let report = compare_compliant(
+    let report = compare_compliant_bounded(
         &got.flat(),
         &expected.flat(),
-        &scale,
+        &scale_source.flat(),
         lchar,
         rel,
         floor,
         compliance,
+        Some(&error),
     )?;
     if report.values == 0 && report.refusals == 0 {
         return Err("no result values were compared".into());
@@ -349,6 +340,70 @@ pub fn pcg_3d(c: &crate::case::Case3, r: &mut Resp) -> Result<(), String> {
     let cs = FreeConstraintSystem::build_3d(&c.s, &dof)?;
     attach_displacements(r, &dof, &static_errors(&dof, &asm, cs.as_ref(), u, &dedaliano_engine::metamorphic::conditioning::of_3d(&c.s)?)?, 3);
     Ok(())
+}
+
+fn assembly_errors(
+    dof: &DofNumbering,
+    asm: &assembly::AssemblyResult,
+    cs: Option<&FreeConstraintSystem>,
+    cond: &dedaliano_engine::metamorphic::conditioning::Conditioning,
+    floor: f64,
+    loads: usize,
+    translations: usize,
+) -> Result<Vec<f64>, String> {
+    if dof.n_free == 0 { return Ok(vec![0.0; dof.n_total]); }
+    let (inverse, _, _) = static_system(dof, asm, cs, vec![0.0; dof.n_total])?;
+    let rows = physical_rows(dof, asm, cs);
+    let mut rhs = vec![0.0; inverse.n];
+    let rate = gamma(4 * (cond.n + 24) + loads) * cond.geom;
+    for ((_, local), global) in dof.entries_by_dof() {
+        if asm.artificial_dofs.contains(&global)
+            && asm.f[global] == 0.0
+            && (0..dof.n_total).all(|j| j == global || asm.k[global * dof.n_total + j] == 0.0) {
+            continue;
+        }
+        let magnitude = floor * if local < translations { 1.0 } else { cond.lchar };
+        for (j, value) in rows[global].iter().enumerate() {
+            rhs[j] += value.abs() * magnitude * rate;
+        }
+    }
+    rhs.iter_mut().for_each(|v| *v *= 1.0 + gamma(3 * dof.n_total + 2));
+    let error = inverse.absolute_solve(&rhs);
+    let error: Vec<_> = rows.iter().map(|row| dot(&abs(row), &error) * (1.0 + gamma(2 * inverse.n + 2))).collect();
+    if error.iter().any(|e| !e.is_finite()) {
+        return Err("unbounded load assembly uncertainty".into());
+    }
+    Ok(error)
+}
+
+pub fn assembly_2d(c: &crate::case::Case2, r: &mut Resp) -> Result<(), String> {
+    let dof = DofNumbering::build_2d(&c.s);
+    let asm = assembly::assemble_2d(&c.s, &dof);
+    let cs = FreeConstraintSystem::build_2d(&c.s, &dof)?;
+    let cond = dedaliano_engine::metamorphic::conditioning::of_2d(&c.s)?;
+    let err = assembly_errors(&dof, &asm, cs.as_ref(), &cond, crate::checks2::load_floor_2d(&c.s, cond.lchar), c.s.loads.len(), 2)?;
+    let mut budget = r.clone();
+    for item in &mut budget.0 { item.error = 0.0; }
+    attach_displacements(&mut budget, &dof, &err, 2);
+    for (item, bound) in r.0.iter_mut().zip(budget.0) { item.error += bound.error; }
+    Ok(())
+}
+
+pub fn assembly_3d(c: &crate::case::Case3, r: &mut Resp) -> Result<(), String> {
+    let dof = DofNumbering::build_3d(&c.s);
+    let asm = assembly::assemble_3d(&c.s, &dof);
+    let cs = FreeConstraintSystem::build_3d(&c.s, &dof)?;
+    let cond = dedaliano_engine::metamorphic::conditioning::of_3d(&c.s)?;
+    let err = assembly_errors(&dof, &asm, cs.as_ref(), &cond, crate::checks3::load_floor_3d(&c.s, cond.lchar), c.s.loads.len(), 3)?;
+    let mut budget = r.clone();
+    for item in &mut budget.0 { item.error = 0.0; }
+    attach_displacements(&mut budget, &dof, &err, 3);
+    for (item, bound) in r.0.iter_mut().zip(budget.0) { item.error += bound.error; }
+    Ok(())
+}
+
+pub fn static_assembly(analysis: &str) -> bool {
+    analysis.starts_with("linear") || crate::checks2::REDUCES_TO_LINEAR.contains(&analysis)
 }
 
 fn gather(r: &Resp, dof: &DofNumbering, translations: usize) -> Vec<f64> {
@@ -1679,4 +1734,34 @@ fn refusal_only_accuracy_comparison_is_not_a_pass() {
     assert_eq!(results["verdicts"][0]["same_refusal"], 1);
     assert_eq!(t.status("witness", "accuracy"), "refused");
     assert!(results["failures"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn load_assembly_budget_respects_certificate_limits_and_exact_zeros() {
+    for translations in [2, 3] {
+        for n in [0, 160, 161] {
+            let dof = DofNumbering {
+                map: (0..n).map(|j| ((j + 1, 0), j)).collect(),
+                n_free: n, n_total: n, dofs_per_node: translations, node_order: (1..=n).collect(),
+            };
+            let mut k = vec![0.0; n * n];
+            for i in 0..n { k[i * n + i] = 1.0; }
+            let asm = assembly::AssemblyResult { k, f: vec![0.0; n], max_diag_k: 1.0, artificial_dofs: vec![], inclined_transforms: vec![], inclined_transforms_2d: vec![], diagnostics: vec![] };
+            let cond = dedaliano_engine::metamorphic::conditioning::Conditioning { n, ..unit_conditioning() };
+            let result = assembly_errors(&dof, &asm, None, &cond, 1.0, 1, translations);
+            if n <= 160 {
+                let errors = result.unwrap();
+                assert_eq!(errors.len(), n);
+                assert!(errors.iter().all(|e| e.is_finite() && *e > 0.0));
+            } else {
+                assert!(result.is_err());
+            }
+        }
+        let (dof, mut asm, _) = unit_static_system(translations);
+        asm.f[0] = 0.0;
+        asm.artificial_dofs.push(0);
+        assert_eq!(assembly_errors(&dof, &asm, None, &unit_conditioning(), 1.0, 1, translations).unwrap(), vec![0.0]);
+        asm.f[0] = 1.0;
+        assert!(assembly_errors(&dof, &asm, None, &unit_conditioning(), 1.0, 1, translations).unwrap()[0] > 0.0);
+    }
 }
