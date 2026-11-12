@@ -162,6 +162,25 @@ export function apparentGap(a: Diagram, b: Diagram, m: GameModel): { rms: number
   return { rms: Math.sqrt(sum / sa.length), max: Math.sqrt(max) };
 }
 
+const CLEAR_SHARE = 0.2;
+
+/** Each truss bar as drawn: 1 in tension, -1 in compression, 0 dashed as unloaded, null when too faint to read either way. */
+export function barStates(d: Diagram, m: GameModel): Array<-1 | 0 | 1 | null> {
+  const n = d.traces.map((tr, e) => drawnOrdinate(m, e, tr.at(0.5), 'N'));
+  const top = Math.max(...n.map(Math.abs));
+  return n.map((v) => (Math.abs(v) < 1e-6 * top ? 0 : Math.abs(v) < CLEAR_SHARE * top ? null : v > 0 ? 1 : -1));
+}
+
+/** Bars that read differently in two truss diagrams, under the best overall flip; magnitude alone never counts. */
+export function barsChangingState(a: Diagram, b: Diagram, m: GameModel): number {
+  const sa = barStates(a, m), sb = barStates(b, m);
+  const count = (flip: 1 | -1) => sa.filter((x, e) => {
+    const y = sb[e];
+    return x !== null && y !== null && x !== (y === 0 ? 0 : y * flip);
+  }).length;
+  return Math.min(count(1), count(-1));
+}
+
 export function negated(d: Diagram): Diagram {
   return { kind: d.kind, traces: d.traces.map((tr) => ({ breaks: tr.breaks, at: (t) => { const p = tr.at(t); return [-p[0], -p[1]]; } })) };
 }

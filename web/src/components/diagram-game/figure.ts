@@ -133,8 +133,9 @@ function diagramShapes(m: GameModel, d: Diagram, S: number): { shapes: Shape[]; 
       shapes.push({ d: polyline([start, base(1)]), ink: zero ? 'zero' : n > 0 ? 'tension' : 'compression', width: zero ? 1 : 2 + 6 * Math.abs(n) / top });
       if (!zero) {
         const { normal } = memberAxis(m, e);
-        const q = add(base(0.5), normal, 0.07 * S);
-        labels.push({ x: q[0], y: -q[1], text: n > 0 ? '+' : '−', ink: n > 0 ? 'tension' : 'compression' });
+        const free = (q: Vec) => labels.every((l) => Math.hypot(l.x - q[0], l.y + q[1]) > 0.09 * S);
+        const q = [add(base(0.5), normal, 0.07 * S), add(base(0.5), normal, -0.07 * S)].find(free);
+        if (q) labels.push({ x: q[0], y: -q[1], text: n > 0 ? '+' : '−', ink: n > 0 ? 'tension' : 'compression' });
       }
       return;
     }

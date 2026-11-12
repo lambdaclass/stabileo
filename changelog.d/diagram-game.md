@@ -13,7 +13,9 @@ support or rotates at a fixed one), and the explanation after each answer says w
 same structure drawn as the one asked for, and the right one mirrored end for end. No option is
 the right one drawn with its sign reversed, on the whole diagram or on one straight run of a
 frame, since textbooks disagree on that convention, and no two options are closer than a widest
-visible gap that shrinks with the level. The question names the diagram in its own colour with its
+visible gap that shrinks with the level. In a truss, read bar by bar by its colour, two options must also
+turn at least one clearly loaded bar from tension to compression or to unloaded; a change of magnitude
+alone never makes them different. The question names the diagram in its own colour with its
 symbol (N, Vz, My, δ). The game fills one screen with no scroll on a desktop, a tablet and a phone
 held either way, always with the loaded structure, the question and every option in view and no
 text under 12 px; every figure of a round shares one frame fitted to what it draws. On a phone held

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { drawVariant } from '../../edu/exercise-params';
 import { resolveGameModel, solveGame } from '../game-model';
-import { apparentGap, diagramOf, negated, sampleDiagram, shapeDistance, peak } from '../traces';
+import { apparentGap, barsChangingState, diagramOf, negated, sampleDiagram, shapeDistance, peak } from '../traces';
 import { buildRound, dealRound } from '../round';
 import { LEVELS } from '../levels';
 import { figure } from '../figure';
@@ -124,5 +124,21 @@ describe('rounds', () => {
   it('different seeds deal different rounds', () => {
     const seen = new Set(SEEDS.slice(0, 30).map((s) => JSON.stringify(fingerprint(1, s).options.map((o) => o.samples[3]))));
     expect(seen.size).toBeGreaterThan(20);
+  });
+});
+
+describe('truss rounds', () => {
+  it('turn at least one bar between tension, compression and unloaded across every pair of options, at every level', () => {
+    let rounds = 0;
+    for (let level = 0; level < LEVELS.length; level++) for (let seed = 1; seed <= 160; seed++) {
+      const r = dealRound(level, seed * 104729);
+      if (!r.model.allTruss || r.kind !== 'N') continue;
+      rounds++;
+      const ds = r.options.map((o) => o.diagram);
+      for (let i = 0; i < ds.length; i++) for (let j = i + 1; j < ds.length; j++) {
+        expect(barsChangingState(ds[i]!, ds[j]!, r.model), `level ${level + 1} seed ${seed} options ${i + 1} and ${j + 1}`).toBeGreaterThanOrEqual(1);
+      }
+    }
+    expect(rounds).toBeGreaterThan(40);
   });
 });

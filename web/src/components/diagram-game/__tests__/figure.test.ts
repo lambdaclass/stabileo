@@ -76,3 +76,15 @@ describe('the frame a round shares', () => {
     expect(frame.w).toBeLessThan(old.w);
   });
 });
+
+describe('truss sign labels', () => {
+  it('never sit on top of each other', () => {
+    for (const id of ['truss-warren', 'truss-pratt', 'truss-howe', 'truss-bracket', 'truss-triangle']) {
+      const s = solved(id);
+      const f = figure(s.model, diagramOf(s, 'N'));
+      for (let i = 0; i < f.labels.length; i++) for (let j = i + 1; j < f.labels.length; j++) {
+        expect(Math.hypot(f.labels[i]!.x - f.labels[j]!.x, f.labels[i]!.y - f.labels[j]!.y), id).toBeGreaterThan(0.09 * f.unit);
+      }
+    }
+  });
+});

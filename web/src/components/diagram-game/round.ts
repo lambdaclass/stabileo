@@ -1,6 +1,6 @@
 import { drawVariant, rng, seedFrom } from '../edu/exercise-params';
 import { resolveGameModel, solveGame, type GameModel, type Solved } from './game-model';
-import { apparentGap, diagramOf, isEmpty, type Diagram, type DiagramKind } from './traces';
+import { apparentGap, barsChangingState, diagramOf, isEmpty, type Diagram, type DiagramKind } from './traces';
 import type { GameModel as Model } from './game-model';
 import { isPhysical, mutate, mutateModel, PHYSICAL_TAGS, type Tag } from './mutations';
 import { LEVELS, type Level, type Template } from './levels';
@@ -49,8 +49,12 @@ function tagOrder(tags: Tag[], next: () => number, late: Tag[] = []): Tag[] {
   return [...shuffle(early, next), ...shuffle(early, next), ...shuffle(last, next), ...shuffle(last, next)];
 }
 
-/** Whether two options read as different shapes to an eye that ignores sign conventions. */
+/**
+ * Whether two options read as different shapes to an eye that ignores sign conventions. A truss is read bar by bar,
+ * by colour, so its options must also turn at least one bar from tension to compression or to unloaded.
+ */
 export function distinct(a: Diagram, b: Diagram, m: Model, level: Level): boolean {
+  if (m.allTruss && a.kind === 'N' && barsChangingState(a, b, m) < 1) return false;
   const g = apparentGap(a, b, m);
   return g.rms >= level.minGap && g.max >= level.minPeak;
 }
