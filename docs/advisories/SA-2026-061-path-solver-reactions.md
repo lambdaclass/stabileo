@@ -141,6 +141,46 @@ loads whenever the chord or spatial member frame rotates. See the
 [round-9 write-up](../results-changes/2026-11-corotational-member-load-frame.md)
 and re-check entry `corotational-member-load-frame`.
 
+## Staged support springs (round 12)
+
+Staged analysis 2D and 3D did not record support springs in its stage history.
+A spring added, removed or replaced after a stage had already carried load left
+the member set and the rigid restraint DOFs unchanged, so no history check
+fired. Reactions were then recovered with the new spring stiffness applied to
+the cumulative displacement, as if the spring had been present from the start.
+Main returned these results without warnings or diagnostics.
+
+A replay of origin/main `a8add9c41a2ca033420ba5e3588dbf51652590de` uses two
+identical 3 m cantilevers sharing a fixed root, with their tips tied, a 10 kN
+load on one tip in stage 1, and a later spring change. Total upward reaction
+must equal the 10 kN load in every case:
+
+| Later stage change | Main total reaction (kN) | Correct (kN) |
+|---|---:|---:|
+| 3000 kN/m spring added at a loaded tip | 16.749999999999993 | 10 |
+| That spring present from the start, removed after loading | 5.970149253731339 | 10 |
+| Spring removed and a 7000 kN/m spring added at the tied tip | 15.373134328358203 | 10 |
+
+The added spring reported 6.749999999999998 kN although an unloaded spring
+activated after loading carries no force. Removal and replacement also left
+stale member shears, moments and cumulative displacements; each beam shear in
+the removal case was 2.9850746268656696 kN instead of 5. Affected outputs are
+the reactions of the stage that changes the spring, every later stage and the
+final result. Spring changes before any load or response, unchanged springs and
+non-staged analyses are outside this case. Fixture
+`engine/tests/fixtures/staged-springs-r12.json` (cases
+`spring-{2d,3d}-{added,removed,changed}`, with `unchanged` as the control)
+retains the inputs.
+
+The fix builds one stage-history fingerprint from every stiffness contributor,
+including support springs, so a spring change is handled like a member change:
+results are recovered from a clean activation state or marked unavailable with
+`result_quantity_unavailable`. To screen past models, look for staged support
+activations, removals or stiffness changes after any stage with nonzero load or
+response, and re-check that stage and everything after it. A reaction total
+that does not balance the applied load confirms the defect; a balanced total
+alone does not prove the result correct.
+
 ## How to tell if your results are affected
 
 Identify the analysis method and the engine/build that produced the saved
