@@ -1031,3 +1031,10 @@ test.engine.pdelta-rotation-wasm: wasm
 .PHONY: audit.1088
 audit.1088:
 	$(NIX_RUN) python3 -I docs/verification/issue-1088-rank.py
+
+.PHONY: test.engine.prescribed-master-2008 test.engine.prescribed-master-2008-wasm
+test.engine.prescribed-master-2008:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration prescribed_master_2008 -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.prescribed-master-2008-wasm: wasm
+	$(NIX_RUN) node scripts/tests/prescribed-master-2008-wasm.mjs

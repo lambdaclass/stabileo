@@ -1,0 +1,164 @@
+use dedaliano_engine::{solver, types::*};
+use serde_json::{json, Value};
+
+fn numeric_bits(value: &Value) -> u64 {
+    fn walk(value: &Value, hash: &mut u64) {
+        match value {
+            Value::Number(n) => for byte in n.as_f64().unwrap().to_bits().to_le_bytes() { *hash = (*hash ^ u64::from(byte)).wrapping_mul(1099511628211); },
+            Value::Array(a) => for v in a { walk(v,hash); },
+            Value::Object(o) => for (_,v) in o { walk(v,hash); },
+            _ => (),
+        }
+    }
+    let mut hash = 14695981039346656037;
+    walk(value,&mut hash);
+    hash
+}
+
+fn cases() -> Vec<Value> {
+    serde_json::from_str(include_str!("../fixtures/prescribed-master-2008.json")).unwrap()
+}
+
+fn run(case: &Value, path: &str) -> Result<Value, String> {
+    let model = case["model"].clone();
+    let wrapper = json!({"solver":model,"foundationSprings":[],"materialModels":{},"sectionCapacities":{},"nIncrements":3,"tolerance":1e-10,"maxIter":50,"maxSteps":3,"initialDs":0.001,"minDs":1e-8,"maxDs":0.001});
+    let value = if case["dim"] == 2 {
+        let input: SolverInput = serde_json::from_value(model.clone()).unwrap();
+        match path {
+            "linear" => serde_json::to_value(solver::linear::solve_2d(&input)?),
+            "staged" => serde_json::to_value(solver::staged::solve_staged_2d(&serde_json::from_value(model).unwrap())?),
+            "winkler" => serde_json::to_value(solver::winkler::solve_winkler_2d(&serde_json::from_value(wrapper).unwrap())?),
+            "contact" => serde_json::to_value(solver::contact::solve_contact_2d(&serde_json::from_value(wrapper).unwrap())?),
+            "material" => serde_json::to_value(solver::material_nonlinear::solve_nonlinear_material_2d(&serde_json::from_value(wrapper).unwrap())?),
+            "corotational" => serde_json::to_value(solver::corotational::solve_corotational_2d(&input,50,1e-10,3,false)?),
+            "arc" => serde_json::to_value(solver::arc_length::solve_arc_length(&serde_json::from_value(wrapper).unwrap())?),
+            "pdelta" => serde_json::to_value(solver::pdelta::solve_pdelta_2d(&input,50,1e-10)?),
+            _ => unreachable!(),
+        }
+    } else {
+        let input: SolverInput3D = serde_json::from_value(model.clone()).unwrap();
+        match path {
+            "linear" => serde_json::to_value(solver::linear::solve_3d(&input)?),
+            "staged" => serde_json::to_value(solver::staged::solve_staged_3d(&serde_json::from_value(model).unwrap())?),
+            "winkler" => serde_json::to_value(solver::winkler::solve_winkler_3d(&serde_json::from_value(wrapper).unwrap())?),
+            "contact" => serde_json::to_value(solver::contact::solve_contact_3d(&serde_json::from_value(wrapper).unwrap())?),
+            "material" => serde_json::to_value(solver::material_nonlinear::solve_nonlinear_material_3d(&serde_json::from_value(wrapper).unwrap())?),
+            "pdelta" => serde_json::to_value(solver::pdelta::solve_pdelta_3d(&input,50,1e-10)?),
+            _ => unreachable!(),
+        }
+    };
+    Ok(value.unwrap())
+}
+
+fn check(case: &Value, result: &Value, path: &str) -> Result<(), String> {
+    if result.get("converged") == Some(&Value::Bool(false)) { return Err("unconverged".into()); }
+    let motion = case["motion"].as_f64().unwrap();
+    let mut snapshots = vec![result.get("results").or_else(|| result.get("finalResults")).unwrap_or(result)];
+    if let Some(stages) = result["stages"].as_array() { snapshots.extend(stages.iter().map(|s| &s["results"])); }
+    let factor = if path == "arc" { result["finalLoadFactor"].as_f64().unwrap() } else { 1.0 };
+    for snapshot in snapshots {
+        let slave = snapshot["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 1).unwrap();
+        let key = if case["rotation"] == true { "ry" } else { "uz" };
+        let expected = factor * motion;
+        let actual = slave[key].as_f64().unwrap();
+        if (actual-expected).abs() > 1e-11 { return Err(format!("{key}={actual}, expected {expected}")); }
+        if matches!(path, "linear" | "staged" | "winkler" | "contact" | "material") && case["rotation"] == true && case["kind"] != "rigidLink" {
+            let sign = if case["dim"] == 2 { 1.0 } else { -1.0 };
+            let expected = sign * 3.0 / 2.0 * motion;
+            let actual = slave["uz"].as_f64().unwrap();
+            if (actual-expected).abs() > 1e-11 { return Err(format!("free uz={actual}, expected beam shear equilibrium uz=L*theta/2={expected}")); }
+        }
+        if case["rotation"] == true && case["kind"] == "rigidLink" {
+            let sign = if case["dim"] == 2 { 1.0 } else { -1.0 };
+            let expected = sign * 3.0 * motion * factor;
+            let actual = slave["uz"].as_f64().unwrap();
+            if (actual-expected).abs() > 1e-11 { return Err(format!("rigid uz={actual}, expected omega cross offset={expected}")); }
+        }
+    }
+    Ok(())
+}
+
+fn matrix(path: &str, dim: i64, zero: bool) {
+    let mut failures = Vec::new();
+    let mut replay = Vec::new();
+    for (index, case) in cases().iter().enumerate().filter(|(_,c)| c["dim"] == dim && (c["motion"] == 0.0) == zero) {
+        let result = run(case,path);
+        if zero {
+            let baseline: Value = serde_json::from_str(include_str!("../fixtures/prescribed-master-2008-zero.json")).unwrap();
+            assert_eq!(numeric_bits(result.as_ref().unwrap()).to_string(),baseline[format!("{path}:{index}")].as_str().unwrap(),"zero motion bits {path}:{index}");
+        }
+        let error = result.as_ref().map_err(Clone::clone).and_then(|r| check(case,r,path)).err();
+        if let Some(error) = error { failures.push(format!("case {index} {path}: {error}")); }
+        replay.push(json!({"index":index,"path":path,"result":result}));
+    }
+    if let Ok(dir) = std::env::var("REPLAY_2008") {
+        std::fs::write(format!("{dir}/{path}-{dim}-{zero}.json"),serde_json::to_string_pretty(&replay).unwrap()).unwrap();
+    }
+    assert!(failures.is_empty(),"{}",failures.join("\n"));
+}
+
+macro_rules! regression {
+    ($name:ident, $path:literal, $dim:literal) => {
+        #[test]
+        #[ignore = "known wrong result: #2008"]
+        fn $name() { matrix($path,$dim,false); }
+    };
+}
+regression!(staged_2d,"staged",2);
+regression!(staged_3d,"staged",3);
+regression!(winkler_2d,"winkler",2);
+regression!(winkler_3d,"winkler",3);
+regression!(contact_2d,"contact",2);
+regression!(contact_3d,"contact",3);
+regression!(material_2d,"material",2);
+regression!(material_3d,"material",3);
+regression!(corotational_2d,"corotational",2);
+regression!(arc_2d,"arc",2);
+
+#[test]
+fn controls() {
+    for dim in [2,3] {
+        for path in ["linear","staged","winkler","contact","material","pdelta"] { matrix(path,dim,true); }
+        matrix("linear",dim,false);
+        matrix("pdelta",dim,false);
+    }
+    for path in ["corotational","arc"] { matrix(path,2,true); }
+}
+
+#[test]
+#[ignore = "known wrong result: #2008"]
+fn unsupported_motion_is_refused() {
+    let mut failures = Vec::new();
+    for dim in [2,3] {
+        for motion in [-0.0013,-1e-16,f64::MIN_POSITIVE,0.0,1e-16,0.0013] {
+            let mut case = cases().into_iter().find(|c| c["dim"] == dim && c["fillers"] == 1 && c["rotation"] == false).unwrap();
+            case["model"]["supports"]["2"]["dz"] = json!(motion);
+            let wrapper = json!({"solver":case["model"],"densities":{"1":7850.0},"timeStep":0.001,"nSteps":2});
+            let result = if dim == 2 {
+                solver::time_integration::solve_time_history_2d(&serde_json::from_value(wrapper).unwrap()).map(|_| ())
+            } else {
+                solver::time_integration::solve_time_history_3d(&serde_json::from_value(wrapper).unwrap()).map(|_| ())
+            };
+            if motion == 0.0 { assert!(result.is_ok(),"{result:?}"); }
+            else if !result.as_ref().is_err_and(|e| e.contains("prescribed support displacements")) { failures.push(format!("time history {dim}D motion {motion}: {result:?}")); }
+            case["model"]["elements"]["3"] = case["model"]["elements"]["2"].clone();
+            case["model"]["elements"]["3"]["id"] = json!(3);
+            case["model"]["elements"]["3"]["type"] = json!("cable");
+            case["model"]["loads"][0]["data"]["fx"] = json!(1.0);
+            for pretensioned in [false,true] {
+                let result = if dim == 2 {
+                    let input: SolverInput = serde_json::from_value(case["model"].clone()).unwrap();
+                    if pretensioned { solver::cable::solve_cable_2d_pretensioned(&input,&Default::default(),&Default::default(),50,1e-10) }
+                    else { solver::cable::solve_cable_2d(&input,&Default::default(),50,1e-10) }.map(|r| r.converged)
+                } else {
+                    let input: SolverInput3D = serde_json::from_value(case["model"].clone()).unwrap();
+                    if pretensioned { solver::cable::solve_cable_3d_pretensioned(&input,&Default::default(),&Default::default(),50,1e-10) }
+                    else { solver::cable::solve_cable_3d(&input,&Default::default(),50,1e-10) }.map(|r| r.converged)
+                };
+                if motion == 0.0 { assert_eq!(result,Ok(true)); }
+                else if !result.as_ref().is_err_and(|e| e.contains("prescribed support displacements")) { failures.push(format!("cable {dim}D motion {motion}: {result:?}")); }
+            }
+        }
+    }
+    assert!(failures.is_empty(),"{}",failures.join("\n"));
+}

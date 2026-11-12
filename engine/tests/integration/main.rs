@@ -53,3 +53,5 @@ mod truss_balance_1969;
 mod staged_orphan_1846;
 
 mod staged_round7;
+
+mod prescribed_master_2008;
