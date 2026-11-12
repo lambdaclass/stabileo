@@ -1786,12 +1786,13 @@ fn refine_lp(
 ) {
     for _ in 0..passes {
         let x = field_f64(eq, lp.lambda, &lp.z);
-        let (added, _) = refine(model, ef, &x, lp.lambda, samples);
+        let mut refined = samples.clone();
+        let (added, _) = refine(model, ef, &x, lp.lambda, &mut refined);
         if !added {
             break;
         }
-        match solve(samples) {
-            Ok(Some(next)) => *lp = next,
+        match solve(&refined) {
+            Ok(Some(next)) => (*lp, *samples) = (next, refined),
             Ok(None) | Err(_) => break,
         }
     }
@@ -1821,16 +1822,7 @@ pub fn plastic_candidates_3d(
     let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
     let mut samples = initial_samples(model, &ef);
     let mut lp = solve_lp(model, &samples, &ef, &eqf)?.ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
-    for _ in 0..REFINEMENT_PASSES {
-        let x = field_f64(&eqf, lp.lambda, &lp.z);
-        let mut refined = samples.clone();
-        let (added, _) = refine(model, &ef, &x, lp.lambda, &mut refined);
-        if !added { break; }
-        match solve_lp(model, &refined, &ef, &eqf) {
-            Ok(Some(next)) => { lp = next; samples = refined; }
-            Ok(None) | Err(_) => break,
-        }
-    }
+    refine_lp(model, &ef, &eqf, &mut samples, &mut lp, REFINEMENT_PASSES, |candidate| solve_lp(model, candidate, &ef, &eqf));
 
     // static candidates
     let mut best_static: Option<(StaticField3, StaticCheck3, String)> = None;
@@ -2227,7 +2219,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1957"]
     fn optional_refinement_over_budget_preserves_samples_and_solution() {
         for biaxial in [false, true] {
             let RefinementFixture { model, ef, eq, mut samples, mut lp } = refinement_fixture(biaxial);
@@ -2253,7 +2244,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1957"]
     fn optional_refinement_breakdown_preserves_samples_and_solution() {
         for biaxial in [false, true] {
             let RefinementFixture { model, ef, eq, mut samples, mut lp } = refinement_fixture(biaxial);
@@ -2271,7 +2261,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1957"]
     fn optional_refinement_retains_last_success_before_budget_refusal() {
         for biaxial in [false, true] {
             let RefinementFixture { model, ef, eq, mut samples, mut lp } = refinement_fixture(biaxial);
