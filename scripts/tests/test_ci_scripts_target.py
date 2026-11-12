@@ -19,7 +19,7 @@ def recipe(makefile, target, seen=None):
 class CiScriptsTarget(unittest.TestCase):
     def test_every_script_test_runs_in_the_required_job(self):
         commands = recipe((ROOT / 'Makefile').read_text(), 'test.ci-scripts')
-        tests = sorted(p.relative_to(ROOT).as_posix() for pattern in ('test_*.py', '*.test.cjs')
+        tests = sorted(p.relative_to(ROOT).as_posix() for pattern in ('test_*.py', '*.test.cjs', '*.test.mjs')
                        for p in (ROOT / 'scripts/tests').glob(pattern))
         self.assertIn('scripts/tests/test_ci_scripts_target.py', tests)
         self.assertEqual([t for t in tests if not re.search(rf'(^|\s){re.escape(t)}(\s|$)', commands, re.M)], [])

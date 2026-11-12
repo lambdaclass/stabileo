@@ -1,0 +1,54 @@
+{
+  "id": "initial-plastic-refusals-and-stage-cancellation",
+  "date": "2026-11-12",
+  "prs": [
+    1943
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members",
+        "stagedConstruction"
+      ],
+      [
+        "space3D",
+        "stagedConstruction"
+      ],
+      [
+        "analysis:plastic",
+        "stagedConstruction"
+      ]
+    ]
+  },
+  "quantities": [
+    "collapseFactor",
+    "steps",
+    "hinges",
+    "isMechanism",
+    "warnings",
+    "stages",
+    "finalResults",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Initial plastic refusals and unloaded staged rotations",
+    "es": "Rechazos plásticos iniciales y giros sin carga por etapas",
+    "pt": "Recusas plásticas iniciais e rotações sem carga por etapas",
+    "de": "Anfängliche plastische Ablehnungen und unbelastete Bauphasendrehungen",
+    "fr": "Refus plastiques initiaux et rotations sans charge par phases",
+    "tr": "Başlangıç plastik retleri ve yüksüz aşamalı dönmeler"
+  },
+  "explanation": {
+    "en": "Initial 3D plastic states now propagate regular elastic refusals instead of reporting collapse through the hinge fallback. Staged member removal accepts rotations with exactly zero accumulated load and zero physical stiffness, while retaining nonzero-load refusals. Re-run affected plastic and staged histories (PR #1943).",
+    "es": "Los estados plásticos 3D iniciales propagan los rechazos elásticos en vez de informar un colapso mediante el cálculo de rótulas. Al retirar miembros por etapas se admiten giros con carga acumulada y rigidez física exactamente nulas; las cargas no nulas siguen rechazándose. Volvé a calcular los historiales afectados (PR #1943).",
+    "pt": "Os estados plásticos 3D iniciais propagam as recusas elásticas em vez de informar colapso pelo cálculo de rótulas. A remoção de membros por etapas aceita rotações com carga acumulada e rigidez física exatamente nulas, mantendo as recusas para cargas não nulas. Recalcule os históricos afetados (PR #1943).",
+    "de": "Anfängliche plastische 3D-Zustände geben elastische Ablehnungen weiter, statt über das Gelenkverfahren Kollaps zu melden. Stabentfernung in Bauphasen erlaubt Drehungen mit exakt null kumulierter Last und physischer Steifigkeit; Lasten ungleich null werden weiter abgelehnt. Betroffene Verläufe neu berechnen (PR #1943).",
+    "fr": "Les états plastiques 3D initiaux transmettent les refus élastiques au lieu de déclarer un effondrement par le calcul des rotules. Le retrait de barres par phases accepte les rotations à charge cumulée et rigidité physique exactement nulles ; les charges non nulles restent refusées. Recalculer les historiques concernés (PR #1943).",
+    "tr": "Başlangıç 3D plastik durumları mafsal hesabıyla göçme bildirmek yerine elastik retleri iletir. Aşamalı eleman kaldırma, birikmiş yükü ve fiziksel rijitliği tam sıfır olan dönmeleri kabul eder; sıfır olmayan yükler reddedilmeye devam eder. Etkilenen geçmişleri yeniden çözün (PR #1943)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-initial-plastic-refusals-and-stage-cancellation.md",
+    "heading": "Initial plastic refusals and unloaded staged rotations (2026-11-12)"
+  }
+}

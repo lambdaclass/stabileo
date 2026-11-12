@@ -504,7 +504,8 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.audit.evidence
+test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
+test.ci-scripts: test.audit.evidence
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -884,6 +885,60 @@ evidence.research.feher:
 test.audit.evidence:
 	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
 
+.PHONY: test.engine.staged-orphan-wasm
+test.engine.staged-orphan-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-orphan-1846-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-round4-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-round5-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-round7-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-round8-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs
+	$(NIX_RUN) node scripts/tests/translation-rank-red-wasm.mjs
+
+.PHONY: test.engine.staged-prestress test.staged-wasm-assertions
+test.engine.staged-prestress:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_prestress_inclined -- --nocapture $(if $(IGNORED),--ignored)
+
+test.staged-wasm-assertions: scripts/tests/staged-orphan-1846-unloaded.mjs
+	$(NIX_RUN) node --test scripts/tests/staged-orphan-1846-assertions.test.mjs scripts/tests/staged-orphan-1846-unloaded.test.mjs
+
+.PHONY: test.engine.staged-review test.engine.staged-review-numeric
+test.engine.staged-review:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1846_review -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-review-numeric:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_review_numeric -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.staged-round3
+test.engine.staged-round3:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1846_round3 -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.staged-round4 test.engine.staged-round4-internal test.engine.staged-round4-wasm
+
+test.engine.staged-round4:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration $(or $(FILTER),issue_1846_round4) -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round4-internal:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(or $(FILTER),staged_round4) -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round4-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round4-wasm.mjs
+
+.PHONY: test.engine.staged-round5 test.engine.staged-round5-wasm
+
+test.engine.staged-round5:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_round5 -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1846_round5 -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round5-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round5-wasm.mjs
+
+.PHONY: test.engine.translation-rank-wasm
+
+test.engine.translation-rank-wasm: wasm
+	$(NIX_RUN) node scripts/tests/translation-rank-red-wasm.mjs
+
 .PHONY: test.engine.nonlinear-convergence-wasm
 test.engine.nonlinear-convergence-wasm: wasm
 	NONLINEAR_CONVERGENCE_CASES=$(CURDIR)/.761-wasm-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=nonlinear_convergence::issue_761_native_and_wasm_cases
@@ -903,6 +958,48 @@ test.engine.buckling-818-wasm: wasm
 test.engine.frozen-shell-refusals: wasm
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib frozen_shell_refusals -- --nocapture
 	$(NIX_RUN) node scripts/tests/frozen-shell-refusals-wasm.mjs
+
+.PHONY: test.engine.staged-settlement-1085-wasm
+
+test.engine.staged-settlement-1085-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs
+
+.PHONY: test.engine.staged-final test.engine.staged-final-wasm
+
+test.engine.staged-final:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1846_round5_persistent_moment_after_member_removal -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_final -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1943_final -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-final-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round5-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs
+
+.PHONY: test.engine.staged-round7 test.engine.staged-round7-wasm test.staged-round7-assertions
+
+test.engine.staged-round7:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_round7 -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1943_round7 -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round7-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round7-wasm.mjs
+
+test.staged-round7-assertions: scripts/tests/staged-round7-reactions.mjs
+	$(NIX_RUN) node --test scripts/tests/staged-round7-reactions.test.mjs
+
+.PHONY: test.engine.staged-round8 test.engine.staged-round8-internal
+
+test.engine.staged-round8-internal:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_round8 -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round8:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1943_round8 -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.staged-round8-wasm
+
+test.engine.staged-round8-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round8-wasm.mjs
 
 .PHONY: test.engine.convergence-regressions-wasm
 test.engine.convergence-regressions-wasm: wasm

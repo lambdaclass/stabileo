@@ -1,0 +1,378 @@
+{
+  "date": "2026-11-12",
+  "advisory": "SA-2026-062",
+  "fixing_pr": 1943,
+  "fixture": "engine/tests/fixtures/final-review-plastic-conditioning.json",
+  "input_sha256": "799e2501c291dcf637500a90adccdde3e5e4d006e694279835851701cbfc1ea0",
+  "input": {
+    "solver": {
+      "elements": {
+        "1": {
+          "id": 1,
+          "materialId": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "sectionId": 1,
+          "type": "frame"
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 2,
+            "fx": 0,
+            "fy": 0,
+            "fz": 1,
+            "mx": 0,
+            "my": 0,
+            "mz": 0
+          }
+        }
+      ],
+      "materials": {
+        "1": {
+          "e": 10000,
+          "id": 1,
+          "nu": 0.3
+        }
+      },
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 4,
+          "y": 2,
+          "z": 3
+        }
+      },
+      "sections": {
+        "1": {
+          "a": 0.01,
+          "id": 1,
+          "iy": 1e-14,
+          "iz": 1e-14,
+          "j": 0.003
+        },
+        "2": {
+          "a": 0.01,
+          "id": 2,
+          "iy": 0.001,
+          "iz": 0.002,
+          "j": 0.003
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "type": "fixed"
+        },
+        "2": {
+          "id": 1,
+          "nodeId": 2,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rx": false,
+          "ry": false,
+          "rz": false,
+          "type": "fixed"
+        }
+      }
+    },
+    "sections": {
+      "1": {
+        "a": 0.01,
+        "iy": 0.001,
+        "iz": 0.002,
+        "materialId": 1
+      }
+    },
+    "materials": {
+      "1": {
+        "fy": 1.0
+      }
+    },
+    "maxHinges": 60,
+    "mpOverrides": {
+      "1": [
+        100.0,
+        100.0
+      ]
+    }
+  },
+  "observations": [
+    {
+      "tested_main": "c11af4e36316a0c1251a7175cb4fe16660090778",
+      "method": "Native source replay: every differing engine/src production file restored from the named main revision in this worktree; temporary probe appended to integration test module. All files restored byte-for-byte in finally.",
+      "command": "make test.engine.targeted TEST=integration FILTER=advisory_062_source_probe",
+      "native": {
+        "certified": {
+          "Ok": {
+            "certificate": {
+              "certified": true,
+              "lambdaLower": 44.721359548637885,
+              "lambdaUpper": 44.721359549995796,
+              "lowerSource": "limit-analysis LP (mechanism vertices)",
+              "mechanism": [
+                {
+                  "elementId": 1,
+                  "position": 0.0,
+                  "rotationY": -1.1180339887498725,
+                  "rotationZ": -1.8231240259728955e-13
+                },
+                {
+                  "elementId": 1,
+                  "position": 1.0,
+                  "rotationY": 1.1180339887498725,
+                  "rotationZ": 1.8231240259728955e-13
+                }
+              ],
+              "reason": null,
+              "solverCollapseFactor": 0.0,
+              "solverDeviation": 0.9999999999696362,
+              "solverWithinBounds": false
+            },
+            "results": {
+              "collapseFactor": 44.721359548637885,
+              "hinges": [],
+              "isMechanism": true,
+              "redundancy": 0,
+              "steps": [],
+              "structuredDiagnostics": [
+                {
+                  "code": "known_issue",
+                  "message": "collapseFactor is the certified lower bound 44.721359548637885. PL-3D-CERTIFICATE-MISMATCH: raw incremental factor 0 lies outside the certified interval [44.721359548637885, 44.721359549995796]. Incremental steps and hinges retain raw solver values and are not certified by this interval.",
+                  "phase": "PL-3D-CERTIFICATE-MISMATCH",
+                  "severity": "warning",
+                  "value": 1760.0
+                }
+              ],
+              "warnings": [
+                "collapseFactor is the certified lower bound 44.721359548637885. PL-3D-CERTIFICATE-MISMATCH: raw incremental factor 0 lies outside the certified interval [44.721359548637885, 44.721359549995796]. Incremental steps and hinges retain raw solver values and are not certified by this interval."
+              ]
+            }
+          }
+        },
+        "kinematic": {
+          "classification": "hypostatic",
+          "degree": 3,
+          "diagnosis": "Mecanismo en nodo 2 (2 modos de mecanismo). GDL sin restringir: nodo 2 (desplazamiento en Y); nodo 2 (desplazamiento en Z). Revisá las articulaciones y apoyos en esa zona.",
+          "isSolvable": false,
+          "mechanismModes": 2,
+          "mechanismNodes": [
+            2
+          ],
+          "unconstrainedDofs": [
+            {
+              "dof": "uy",
+              "nodeId": 2
+            },
+            {
+              "dof": "uz",
+              "nodeId": 2
+            }
+          ]
+        },
+        "linear": {
+          "Err": "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases"
+        },
+        "raw": {
+          "Ok": {
+            "collapseFactor": 0.0,
+            "hinges": [],
+            "isMechanism": true,
+            "redundancy": 0,
+            "steps": [],
+            "warnings": [],
+            "structuredDiagnostics": []
+          }
+        }
+      }
+    },
+    {
+      "plastic_source_revision": "6d2d7082ef46066290f244da325665ff971430e8",
+      "other_engine_sources": "c8e104e4ed4c15293226badb4308db96abe9214a",
+      "method": "Supplementary isolated replay of the pre-fix plastic carry module with current branch dependencies; not a whole-parent replay.",
+      "command": "make test.engine.targeted TEST=integration FILTER=advisory_062_source_probe",
+      "native": {
+        "certified": {
+          "Ok": {
+            "certificate": {
+              "certified": true,
+              "lambdaLower": 44.721359548637885,
+              "lambdaUpper": 44.721359549995796,
+              "lowerSource": "limit-analysis LP (mechanism vertices)",
+              "mechanism": [
+                {
+                  "elementId": 1,
+                  "position": 0.0,
+                  "rotationY": -1.1180339887498725,
+                  "rotationZ": -1.8231240259728955e-13
+                },
+                {
+                  "elementId": 1,
+                  "position": 1.0,
+                  "rotationY": 1.1180339887498725,
+                  "rotationZ": 1.8231240259728955e-13
+                }
+              ],
+              "reason": null,
+              "solverCollapseFactor": 0.0,
+              "solverDeviation": 0.9999999999696362,
+              "solverWithinBounds": false
+            },
+            "results": {
+              "collapseFactor": 44.721359548637885,
+              "hinges": [],
+              "isMechanism": true,
+              "redundancy": 0,
+              "steps": [],
+              "structuredDiagnostics": [
+                {
+                  "code": "known_issue",
+                  "message": "collapseFactor is the certified lower bound 44.721359548637885. PL-3D-CERTIFICATE-MISMATCH: raw incremental factor 0 lies outside the certified interval [44.721359548637885, 44.721359549995796]. Incremental steps and hinges retain raw solver values and are not certified by this interval.",
+                  "phase": "PL-3D-CERTIFICATE-MISMATCH",
+                  "severity": "warning",
+                  "value": 1760.0
+                }
+              ],
+              "warnings": [
+                "collapseFactor is the certified lower bound 44.721359548637885. PL-3D-CERTIFICATE-MISMATCH: raw incremental factor 0 lies outside the certified interval [44.721359548637885, 44.721359549995796]. Incremental steps and hinges retain raw solver values and are not certified by this interval."
+              ]
+            }
+          }
+        },
+        "kinematic": {
+          "classification": "hypostatic",
+          "degree": 3,
+          "diagnosis": "Mecanismo en nodo 2 (2 modos de mecanismo). GDL sin restringir: nodo 2 (desplazamiento en Y); nodo 2 (desplazamiento en Z). Revisá las articulaciones y apoyos en esa zona.",
+          "isSolvable": false,
+          "mechanismModes": 2,
+          "mechanismNodes": [
+            2
+          ],
+          "unconstrainedDofs": [
+            {
+              "dof": "uy",
+              "nodeId": 2
+            },
+            {
+              "dof": "uz",
+              "nodeId": 2
+            }
+          ]
+        },
+        "linear": {
+          "Err": "the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2] (scaled condition number 1.0e0, node anisotropy 2.4e12; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts"
+        },
+        "raw": {
+          "Ok": {
+            "collapseFactor": 0.0,
+            "hinges": [],
+            "isMechanism": true,
+            "redundancy": 0,
+            "steps": [],
+            "warnings": [],
+            "structuredDiagnostics": []
+          }
+        }
+      }
+    }
+  ],
+  "empty_raw_fields": "warnings and structuredDiagnostics are serialized only when nonempty by PlasticResult3D; explicit empty arrays above restore the omitted empty fields. The supplementary raw Debug observation also shows both empty arrays.",
+  "native_probe_source": "\n#[test]\nfn advisory_062_source_probe() {\n    let p: PlasticInput3D = serde_json::from_str(include_str!(\"../fixtures/final-review-plastic-conditioning.json\")).unwrap();\n    let linear = solve_3d(&p.solver).map(|_| \"solved\".to_string());\n    let kinematic = dedaliano_engine::solver::kinematic::analyze_kinematics_3d(&p.solver);\n    let raw = dedaliano_engine::solver::plastic::solve_plastic_3d(&p);\n    let certified = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&p);\n    println!(\"ADVISORY_062_JSON {}\", serde_json::json!({\"linear\": linear, \"kinematic\": kinematic, \"raw\": raw, \"certified\": certified}));\n}\n",
+  "release_source_evidence": [
+    {
+      "tag": "desktop-v0.1.0-alpha.1",
+      "commit": "6e6655ba6431f1c39637536f4a797030771f5eb6",
+      "descends_from_carry_introduction": true,
+      "initial_carry_dispatches_on_kinematic_rank": true,
+      "combined_certification_returns_raw_results_unchanged": true,
+      "plastic_source_sha256": "6381c62141293d6654045f8378b2e20f263d2b29ed8f70ce7d3195987c7c6ac6",
+      "certification_source_sha256": "0d51f5226a1001568a20bc5ffcf51f1d8fd20845b8cd3ff279d7447f7f7e4f31",
+      "evidence": "Source inspection only; no release binary replay."
+    },
+    {
+      "tag": "desktop-v0.1.0-alpha.2",
+      "commit": "2002004557fc129b8a128701b2685056270341d9",
+      "descends_from_carry_introduction": true,
+      "initial_carry_dispatches_on_kinematic_rank": true,
+      "combined_certification_returns_raw_results_unchanged": true,
+      "plastic_source_sha256": "6381c62141293d6654045f8378b2e20f263d2b29ed8f70ce7d3195987c7c6ac6",
+      "certification_source_sha256": "0d51f5226a1001568a20bc5ffcf51f1d8fd20845b8cd3ff279d7447f7f7e4f31",
+      "evidence": "Source inspection only; no release binary replay."
+    },
+    {
+      "tag": "desktop-v0.1.0-alpha.3",
+      "commit": "7182159a9689851678ba8319fc6d116764b88ea3",
+      "descends_from_carry_introduction": true,
+      "initial_carry_dispatches_on_kinematic_rank": true,
+      "combined_certification_returns_raw_results_unchanged": true,
+      "plastic_source_sha256": "6381c62141293d6654045f8378b2e20f263d2b29ed8f70ce7d3195987c7c6ac6",
+      "certification_source_sha256": "0d51f5226a1001568a20bc5ffcf51f1d8fd20845b8cd3ff279d7447f7f7e4f31",
+      "evidence": "Source inspection only; no release binary replay."
+    },
+    {
+      "tag": "v0.2.0",
+      "commit": "5b1482c78c0c462f72cf2ea99fc7e7d2e80e9e35",
+      "descends_from_carry_introduction": true,
+      "initial_carry_dispatches_on_kinematic_rank": true,
+      "combined_certification_returns_raw_results_unchanged": true,
+      "plastic_source_sha256": "d5dbd367bb9d82f547b115c0da41e8302b2d42a069b762f7bc5bc85b6fc8b327",
+      "certification_source_sha256": "824ded01362f05d9523068a60dd5fbfca24a3bb39249c9d6435804b3762d1a7f",
+      "evidence": "Source inspection only; no release binary replay."
+    },
+    {
+      "tag": "v0.3.0",
+      "commit": "cc1c88dc62db44c6cf223500d5b014f99159c8bc",
+      "descends_from_carry_introduction": true,
+      "initial_carry_dispatches_on_kinematic_rank": true,
+      "combined_certification_returns_raw_results_unchanged": true,
+      "plastic_source_sha256": "6381c62141293d6654045f8378b2e20f263d2b29ed8f70ce7d3195987c7c6ac6",
+      "certification_source_sha256": "0d51f5226a1001568a20bc5ffcf51f1d8fd20845b8cd3ff279d7447f7f7e4f31",
+      "evidence": "Source inspection only; no release binary replay."
+    },
+    {
+      "tag": "v0.4.0",
+      "commit": "9aad844d596f318f574bf59909e1f4cadaab34b2",
+      "descends_from_carry_introduction": true,
+      "initial_carry_dispatches_on_kinematic_rank": true,
+      "combined_certification_returns_raw_results_unchanged": true,
+      "plastic_source_sha256": "6381c62141293d6654045f8378b2e20f263d2b29ed8f70ce7d3195987c7c6ac6",
+      "certification_source_sha256": "0d51f5226a1001568a20bc5ffcf51f1d8fd20845b8cd3ff279d7447f7f7e4f31",
+      "evidence": "Source inspection only; no release binary replay."
+    },
+    {
+      "tag": "v0.5.0",
+      "commit": "5b940bef711b3e701ae3bf35b015affc69dd082c",
+      "descends_from_carry_introduction": true,
+      "initial_carry_dispatches_on_kinematic_rank": true,
+      "combined_certification_returns_raw_results_unchanged": true,
+      "plastic_source_sha256": "05466a5d5763c92f991bb9657a9864f0d27fb292a63f5f0ba7a2c1d79511a9e7",
+      "certification_source_sha256": "e1a348f7d6605a75c9669151e9b1d2558a5ccc7a871466e8dccfaed590c212a2",
+      "evidence": "Source inspection only; no release binary replay."
+    }
+  ],
+  "carry_introduction": "7dbe2624d4cd918142e8e4fc8d7f5777a8144b79",
+  "current_main_certificate_correction": "aa4119f787c9ef2bd2a8181f6daa7f795617b55f",
+  "scope_limits": [
+    "No historical release binaries replayed.",
+    "This replay is native; native and WASM exports share the plastic carry implementation. Existing corrected native/WASM regression families are listed in the results-change write-up.",
+    "Current main combined certified results return a positive lower bound with mismatch warnings; only raw plastic silently returns zero in the current-main observation.",
+    "The supplementary pre-fix carry replay reports a conditioning refusal; the full frozen main replay reports a mechanism refusal."
+  ],
+  "corrected_regression": "make test.engine.targeted TEST=integration FILTER=issue_1943_final_initial_conditioning_reaches_every_plastic_entry"
+}
