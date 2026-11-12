@@ -26,8 +26,8 @@
   },
   "quantities": [
     "equilibrium",
-    "reactions",
-    "elementForces"
+    "nonlinear.reactions",
+    "nonlinear.elementForces"
   ],
   "title": {
     "en": "Support reactions follow the reported equilibrium state",

@@ -61,7 +61,7 @@ describe('which values a registered change declares it moves', () => {
 });
 
 describe('analysis-scoped reaction quantities (#1952)', () => {
-  it.skip('known wrong result: #1952: path declarations cannot excuse static values through either gate', () => {
+  it('known wrong result: #1952: path declarations cannot excuse static values through either gate', () => {
     const metadata = RESULT_CHANGES.changes.find(c => c.id === 'arc-length-reactions')!;
     const entry = { ...metadata, quantities: declaredQuantities[metadata.id] };
     for (const dimension of ['space2D', 'space3D']) {
@@ -82,7 +82,7 @@ describe('analysis-scoped reaction quantities (#1952)', () => {
     }
   });
 
-  it.skip('known wrong result: #1952: exported quantities cannot explain fabricated static corpus values', () => {
+  it('known wrong result: #1952: exported quantities cannot explain fabricated static corpus values', () => {
     const metadata = RESULT_CHANGES.changes.find(c => c.id === 'arc-length-reactions')!;
     const entry = { ...metadata, quantities: declaredQuantities[metadata.id] };
     for (const family of ['base', 'case[1]', 'combo[1]']) {

@@ -138,3 +138,14 @@ linear control, nonunit final arc/displacement factors, both sides of the
 loads. The force assertions fail with the original pre-fix path recovery and
 with numerical force recovery deliberately reverted while scaled load metadata
 is retained. No numerical snapshot baseline is changed in this review round.
+
+## Analysis-qualified quantity declarations
+
+The path reaction and member-force declarations use `nonlinear.reactions` and
+`nonlinear.elementForces`. The snapshot gate matches these against the result
+field's analysis family. The legacy corpus judge captures linear result sets;
+its collection matcher cannot treat either qualified name as a static
+`reactions` or `elementForces` declaration. This retains coverage for the two
+frozen arc-length results while preventing the notice for an unknown saved
+analysis history from excusing fabricated static forces. `equilibrium` remains
+declared for the added P-Delta diagnostic fields. No engine value changes.
