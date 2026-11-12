@@ -31,6 +31,8 @@ import { deserializeProject, loadFile } from '../store/file';
 import { tabManager } from '../store/tabs.svelte';
 import { solveNow } from '../actions/solve';
 import { setLocale } from '../i18n';
+import { ANALYSIS_KINDS, modelFeatures } from '../provenance/model-features';
+import { conditionHolds } from '../provenance/applicability';
 import type { ResultChange } from '../provenance/registry';
 import declaredQuantities from 'virtual:result-change-quantities';
 import { resultValues, type Values } from './capture-results';
@@ -220,7 +222,8 @@ export async function openSession(text: string, opts: { beforeOpen?: (session: R
 export async function assessedChanges(): Promise<ResultChange[]> {
   await recheckStore.retry();
   if (recheckStore.loadFailed || recheckStore.pending) throw new Error('the re-check assessment did not complete');
-  return (recheckStore.assessment?.changes ?? []).map((c) => ({ ...c, quantities: declaredQuantities[c.id] }));
+  const features = modelFeatures(modelStore.snapshot(), { analysisMode: uiStore.analysisMode, analysesRun: ['linear'], analysesRecorded: ANALYSIS_KINDS });
+  return (recheckStore.assessment?.changes ?? []).map((c) => ({ ...c, quantities: conditionHolds(c.when ?? {}, features) ? declaredQuantities[c.id] : [] }));
 }
 
 /**

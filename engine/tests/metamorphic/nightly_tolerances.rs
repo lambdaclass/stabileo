@@ -478,8 +478,7 @@ fn issue_1088_pdelta_plane_convergence() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1100"]
-fn issue_1100_nonlinear_mirror_convergence() {
+fn issue_1100_supported_nonlinear_mirrors_complete_comparisons() {
     holds(1100, 20759, &[("P-Delta", "mirror"), ("fiber nonlinear", "mirror")]);
 }
 
@@ -1457,8 +1456,7 @@ fn issue_1085_staged_linear_agreement_remains_unresolved() {
 }
 
 #[test]
-#[ignore = "known wrong result: #971"]
-fn issue_971_pdelta_units_convergence_remains_unresolved() {
+fn issue_971_pdelta_unit_changes_preserve_converged_response() {
     holds(971, 2026103104672, &[("P-Delta", "units")]);
 }
 
@@ -1803,4 +1801,14 @@ fn audit_issue_994_harmonic_oracle_rejects_a_planted_physical_response() {
     let node = got.0.iter().find(|i| i.tag == "H_re0").unwrap().node;
     nudge(&mut got, "H_re0", node, 0, physical);
     assert!(matches!(cmp(&got), Verdict::Fail(_)), "a planted physical harmonic response passed");
+}
+
+#[test]
+fn issue_1100_nonlinear_mirror_convergence() {
+    issue_1100_supported_nonlinear_mirrors_complete_comparisons();
+}
+
+#[test]
+fn issue_971_pdelta_units_convergence_remains_unresolved() {
+    issue_971_pdelta_unit_changes_preserve_converged_response();
 }
