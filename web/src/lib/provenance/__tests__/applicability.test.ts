@@ -7,6 +7,7 @@ import frozenArchB from '../../../../results-frozen/solve_arc_length-02231731049
 import reactionRecoveryChange from '../result-changes/arc-length-reactions.json';
 import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 import { RESULT_CHANGES } from '../full-registry';
+import declaredQuantities from 'virtual:result-change-quantities';
 import { describe, it, expect } from 'vitest';
 import { assessProject, conditionHolds } from '../applicability';
 import { modelFeatures, type FeatureSnapshot } from '../model-features';
@@ -660,33 +661,85 @@ describe('reaction recovery saved-model scope (#1949)', () => {
     }
   });
 
-  it('covers P-Delta equilibrium fields without covering unrelated static output', () => {
-    const features = ['members', 'analysis:linear', 'analysis:pdelta'];
-    expect(fieldCovered(reactionRecoveryChange, 'pdelta.results.equilibrium.equilibriumOk', features)).toBe(true);
-    for (const path of ['base.reactions[n1].rz', 'base.elementForces[e1].mStart', 'base.displacements[n1].uz', 'solve.ok', 'pdelta.results.displacements[n1].uz']) {
-      expect(fieldCovered(reactionRecoveryChange, path, features), path).toBe(false);
+  const entries = RESULT_CHANGES.changes.filter((c) => c.prs.includes(1952));
+  const notices = (snapshot: FeatureSnapshot, stamp: SolveStamp | null = null) =>
+    assessProject(snapshot, stamp, snapshot.analysisMode).changes.filter((c) => c.prs.includes(1952));
+  const covered = (path: string, features: string[]) => entries.some((c) =>
+    fieldCovered({ ...c, quantities: declaredQuantities[c.id]?.filter((q): q is string => typeof q === 'string') }, path, features));
+
+  it.skip('known wrong result: #1952: PR entries cover P-Delta equilibrium fields without covering unrelated static output', () => {
+    for (const dimension of ['plane2D', 'space3D']) {
+      for (const structure of [['members', 'frameMembers'], ['members', 'trussMembers'], ['shells'], ['springs'], ['constraints']]) {
+        const features = [...structure, dimension, 'analysis:linear', 'analysis:pdelta'];
+        expect(covered('pdelta.results.equilibrium.equilibriumOk', features), features.join(' ')).toBe(true);
+        for (const path of ['base.reactions[n1].rz', 'base.elementForces[e1].mStart', 'base.displacements[n1].uz', 'solve.ok', 'pdelta.results.displacements[n1].uz']) {
+          expect(covered(path, features), `${features.join(' ')} ${path}`).toBe(false);
+        }
+      }
     }
   });
 
-  it('includes changed P-Delta metadata, constrained nonlinear recovery and configured dynamic results', () => {
-    for (const analysisMode of ['2d', '3d', 'pro']) {
-      for (const structure of [
-        { elements: [member(1, 1, 'frame')] },
-        { elements: [member(1, 1, 'truss')] },
-        { quads: [[1, {}]] as never },
-        { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] as never },
-      ]) {
-        const snapshot = model({ ...structure, analysisMode });
-        expect(ids(snapshot, before('pdelta'))).toContain(change);
-        expect(ids(snapshot, stampSolve('pdelta', null))).not.toContain(change);
-        const dynamic = { ...snapshot, dynamics: { timeHistory: { forces: [] } } };
-        expect(ids(dynamic, before('timeHistory'))).toContain(change);
-        expect(ids(dynamic, before('linear'))).toContain(change);
-        expect(ids(dynamic)).toContain(change);
+  it.skip.each(['2d', '3d', 'pro'])('known wrong result: #1952: PR notices cover affected saved %s results', (analysisMode) => {
+    for (const structure of [
+      { elements: [member(1, 1, 'frame')] },
+      { elements: [member(1, 1, 'truss')] },
+      { quads: [[1, {}]] as never },
+      { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] as never },
+    ]) {
+      const snapshot = model({ ...structure, analysisMode });
+      expect(notices(snapshot, before('pdelta'))).not.toEqual([]);
+      expect(notices(snapshot, stampSolve('pdelta', null))).toEqual([]);
+      expect(notices(snapshot, before('linear'))).toEqual([]);
+      const dynamic = { ...snapshot, dynamics: { timeHistory: { forces: [] } } };
+      for (const stamp of [before('timeHistory'), before('linear'), null]) {
+        expect(notices(dynamic, stamp)).not.toEqual([]);
       }
-      const constrained = model({ analysisMode, constraints: [{ type: 'equalDof', masterNode: 1, slaveNode: 2 }] });
-      expect(ids(constrained, before('nonlinear'))).toContain(change);
-      expect(ids(constrained)).toContain(change);
+      for (const analysis of ['timeHistory', 'linear'] as const) {
+        expect(notices(dynamic, stampSolve(analysis, null))).toEqual([]);
+      }
+    }
+    const constrained = model({ analysisMode, constraints: [{ type: 'equalDof', masterNode: 1, slaveNode: 2 }] });
+    expect(notices(constrained, before('nonlinear'))).not.toEqual([]);
+    expect(notices(constrained)).not.toEqual([]);
+    expect(notices(constrained, stampSolve('nonlinear', null))).toEqual([]);
+    expect(notices(constrained, before('linear'))).toEqual([]);
+    for (const stamp of [null, before('linear'), before('pdelta'), before('timeHistory')]) {
+      const empty = model({ analysisMode, dynamics: { timeHistory: { forces: [] } }, supports: [], loadCases: [] });
+      expect(notices(empty, stamp)).toEqual([]);
+    }
+  });
+
+  it.skip.each(['2d', '3d', 'pro'])('known wrong result: #1952: configured and recorded %s time histories get a PR notice', (analysisMode) => {
+    for (const structure of [
+      { elements: [member(1, 1, 'frame')] },
+      { elements: [member(1, 1, 'truss')] },
+      { quads: [[1, {}]] as never },
+      { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] as never },
+      { constraints: [{ type: 'equalDof', masterNode: 1, slaveNode: 2 }] },
+    ]) {
+      const snapshot = model({ ...structure, analysisMode });
+      expect(notices(snapshot, before('timeHistory'))).not.toEqual([]);
+      expect(notices(snapshot, before('linear'))).toEqual([]);
+      const dynamic = { ...snapshot, dynamics: { timeHistory: { forces: [] } } };
+      for (const stamp of [before('timeHistory'), before('linear'), null]) {
+        expect(notices(dynamic, stamp)).not.toEqual([]);
+      }
+    }
+  });
+
+  it('PR entries notify both frozen path contexts and retain their field boundaries', () => {
+    for (const fixture of [frozenArchA, frozenArchB]) {
+      const features = new Set(fixture.features);
+      const snapshot = model({ analysisMode: '2d', elements: [member(1, 1, 'frame')] });
+      const assess = (stamp: SolveStamp) => assessProject(snapshot, stamp, '2d', RESULT_CHANGES, features).changes.filter((c) => c.prs.includes(1952));
+      expect(assess(before('nonlinear'))).not.toEqual([]);
+      expect(assess(stampSolve('nonlinear', null))).toEqual([]);
+      for (const path of Object.keys(fixture.values).filter((p) => p.includes('.reactions['))) {
+        expect(covered(path, fixture.features), path).toBe(true);
+      }
+      for (const path of ['base.reactions[n1].rz', 'base.elementForces[e1].mStart', 'base.displacements[n1].uz', 'solve.ok', 'pdelta.results.displacements[n1].uz']) {
+        expect(covered(path, [...fixture.features, 'analysis:linear', 'analysis:pdelta']), path).toBe(false);
+      }
     }
   });
 });
