@@ -1042,3 +1042,11 @@ test.engine.prescribed-master-2008-wasm: wasm
 .PHONY: test.engine.prescribed-master-2008-internals
 test.engine.prescribed-master-2008-internals:
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib solver::constraints::tests -- --nocapture
+
+.PHONY: test.engine.time-history-2009 test.engine.time-history-2009-wasm
+
+test.engine.time-history-2009:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration time_history_2009 -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.time-history-2009-wasm: wasm
+	$(NIX_RUN) node scripts/tests/time-history-2009-wasm.mjs

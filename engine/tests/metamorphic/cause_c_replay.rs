@@ -87,8 +87,7 @@ fn issue_1465_buckling_refuses_a_moment_on_the_released_axis() {
     );
 }
 
-fn support_conflict(issue: &str, analysis: &str, node: usize) {
-    let solver: SolverInput3D = serde_json::from_value(input(issue)).unwrap();
+fn support_conflict_model(solver: SolverInput3D, analysis: &str, node: usize) {
     let row = ana3::rows()
         .into_iter()
         .find(|a| a.name == analysis)
@@ -105,14 +104,39 @@ fn support_conflict(issue: &str, analysis: &str, node: usize) {
     assert_eq!(diagnostics[0]["dofIndices"], serde_json::json!([0]));
 }
 
+fn support_conflict(issue: &str, analysis: &str, node: usize) {
+    support_conflict_model(serde_json::from_value(input(issue)).unwrap(), analysis, node);
+}
+
 #[test]
 fn issue_1533_static_refuses_a_spring_on_a_rigid_translation() {
     support_conflict("1533", "linear", 5);
 }
 
 #[test]
+#[ignore = "known wrong result: #2009"]
 fn issue_1463_time_history_refuses_a_spring_on_a_rigid_translation() {
-    support_conflict("1463", "time history (ground motion)", 11);
+    let solver: SolverInput3D = serde_json::from_value(input("1463")).unwrap();
+    for analysis in ["time history", "time history (ground motion)"] {
+        support_conflict_model(solver.clone(), analysis, 11);
+        let mut motion_only = solver.clone();
+        for s in motion_only.supports.values_mut() {
+            for (rigid, spring) in [(s.rx, &mut s.kx), (s.ry, &mut s.ky), (s.rz, &mut s.kz),
+                (s.rrx, &mut s.krx), (s.rry, &mut s.kry), (s.rrz, &mut s.krz)] {
+                if rigid { *spring = None; }
+            }
+        }
+        let row = ana3::rows().into_iter().find(|a| a.name == analysis).unwrap();
+        let error = (row.run)(&Case3::new("prescribed motion", motion_only.clone())).unwrap_err();
+        let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+        assert_eq!(error["structuredDiagnostics"][0]["code"], "unsupported_feature");
+        assert!(error["message"].as_str().unwrap().contains("prescribed support displacements"));
+        for s in motion_only.supports.values_mut() {
+            s.dx = Some(0.0); s.dy = Some(0.0); s.dz = Some(0.0);
+            s.drx = Some(0.0); s.dry = Some(0.0); s.drz = Some(0.0);
+        }
+        (row.run)(&Case3::new("zero prescribed motion", motion_only)).unwrap();
+    }
 }
 
 #[test]
