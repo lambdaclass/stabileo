@@ -70,6 +70,36 @@ export function labelRows(positions: number[], gap: number): number[] {
   return rows;
 }
 
+const wrap = (deg: number) => { const w = ((((deg + 180) % 360) + 360) % 360) - 180; return w === -180 ? 180 : w; };
+
+/**
+ * θ in degrees that puts X′ at the screen angle `angle` (radians, y down) of a circle whose X is at `angleX`.
+ * X′ repeats every 180° of θ, so of those the one nearest `current` is returned.
+ */
+export function thetaOnCircle(angle: number, angleX: number, tauDown: boolean, current: number): number {
+  const base = ((angle - angleX) * 180) / Math.PI / (tauDown ? -2 : 2);
+  let best = wrap(base), gap = Infinity;
+  for (let k = -2; k <= 2; k++) {
+    const c = wrap(base + 180 * k), d = Math.abs(wrap(c - current));
+    if (d < gap - 1e-9) { best = c; gap = d; }
+  }
+  return best;
+}
+
+/** `theta` pulled onto the nearest of `targets` within `tolerance` degrees, measured around the circle. */
+export function snapAngle(theta: number, targets: number[], tolerance: number): number {
+  let best = theta, gap = tolerance;
+  for (const t of targets) {
+    const d = Math.abs(wrap(t - theta));
+    if (d <= gap) { best = wrap(t); gap = d; }
+  }
+  return best;
+}
+
+export function roundTo(value: number, step: number): number {
+  return Number((Math.round(value / step) * step).toFixed(6));
+}
+
 const NEG = [74, 143, 212], MID = [143, 163, 179], POS = [232, 112, 95];
 
 /** Blue for compression through slate to red for tension; `range` is the magnitude at full colour. */

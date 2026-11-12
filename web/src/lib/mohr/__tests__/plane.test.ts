@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeMohrCircle, principalPlane, rotatePlane } from '../plane';
+import { thetaOnCircle, snapAngle, roundTo } from '../plot';
 import { computeMohrCircle as fromSectionStress } from '../../engine/section-stress';
 
 describe('plane stress', () => {
@@ -64,5 +65,35 @@ describe('plane stress', () => {
     expect(m.center).toBe(50);
     expect(m.radius).toBeCloseTo(Math.sqrt(50 ** 2 + 40 ** 2), 12);
     expect(m.thetaP).toBeCloseTo(0.5 * Math.atan2(80, 100), 12);
+  });
+});
+
+describe('dragging X′ around the circle', () => {
+  const screenAngle = (s: { sx: number; sy: number; txy: number }, theta: number, tauDown: boolean) => {
+    const p = principalPlane(s), r = rotatePlane(s, theta);
+    return Math.atan2((tauDown ? 1 : -1) * r.txy, r.sx - p.center);
+  };
+  for (const tauDown of [false, true]) {
+    it(`gives back the θ that put X′ there (τ ${tauDown ? 'down' : 'up'})`, () => {
+      const s = { sx: 80, sy: 20, txy: 30 };
+      const a0 = screenAngle(s, 0, tauDown);
+      for (const theta of [-170, -95, -30, 0, 12.5, 44, 89, 120, 179]) {
+        const got = thetaOnCircle(screenAngle(s, theta, tauDown), a0, tauDown, theta + 3);
+        expect(got).toBeCloseTo(theta, 9);
+        const r = rotatePlane(s, got), want = rotatePlane(s, theta);
+        expect(r.sx).toBeCloseTo(want.sx, 9);
+        expect(r.txy).toBeCloseTo(want.txy, 9);
+      }
+    });
+  }
+  it('stays continuous across ±180°', () => {
+    expect(thetaOnCircle(Math.PI * 2 * (181 / 180), 0, false, 179)).toBeCloseTo(-179, 9);
+    expect(thetaOnCircle(Math.PI * 2 * (1 / 180), 0, false, 2)).toBeCloseTo(1, 9);
+  });
+  it('snaps to the nearest target within the tolerance, around the circle', () => {
+    expect(snapAngle(21.2, [22.5, 112.5], 2)).toBe(22.5);
+    expect(snapAngle(18, [22.5], 2)).toBe(18);
+    expect(snapAngle(-179.5, [180], 1)).toBe(180);
+    expect(roundTo(12.3456, 0.5)).toBe(12.5);
   });
 });

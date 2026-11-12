@@ -33,17 +33,19 @@
 </script>
 
 <div class="mohr-tool">
-  <header class="tool-intro">
-    <p class="crumb"><PublicLink to="/tools">{t('tools.index')}</PublicLink></p>
-    <h1>{t(`tools.${id}`)}</h1>
-    <p class="lead">{t(`tools.${id}.subtitle`)}</p>
+  <header class="tool-intro mohr-head">
+    <div class="mohr-title">
+      <p class="crumb"><PublicLink to="/tools">{t('tools.index')}</PublicLink></p>
+      <h1>{t(`tools.${id}`)}</h1>
+      <p class="lead">{t(`tools.${id}.subtitle`)}</p>
+    </div>
+    <div class="mh-shell mh-toolbar mohr-actions">
+      <button type="button" class="mh-btn" aria-expanded={showHelp} aria-controls="mohr-help" onclick={() => (showHelp = !showHelp)} data-testid="mohr-help-toggle">{tm('mohr.help')}</button>
+      <button type="button" class="mh-btn" onclick={copyLink} data-testid="mohr-copy-link">{tm('mohr.copyLink')}</button>
+      <a class="mh-btn mh-btn-primary" href={appLink} data-testid="mohr-open-app">{tm('mohr.openInApp')} ↗</a>
+      <span class="mh-status" role="status" data-testid="mohr-copy-status">{status}</span>
+    </div>
   </header>
-  <div class="mh-shell mh-toolbar mohr-actions">
-    <button type="button" class="mh-btn" aria-expanded={showHelp} aria-controls="mohr-help" onclick={() => (showHelp = !showHelp)} data-testid="mohr-help-toggle">? {tm('mohr.help')}</button>
-    <button type="button" class="mh-btn" onclick={copyLink} data-testid="mohr-copy-link">{tm('mohr.copyLink')}</button>
-    <a class="mh-btn mh-btn-primary" href={appLink} data-testid="mohr-open-app">{tm('mohr.openInApp')} ↗</a>
-    <span class="mh-status" role="status" data-testid="mohr-copy-status">{status}</span>
-  </div>
   {#if showHelp}<div class="mh-shell"><MohrHelp {kind} id="mohr-help" /></div>{/if}
   {#if kind === 'plane'}
     <Mohr2D bind:value={plane} />
@@ -54,11 +56,20 @@
 </div>
 
 <style>
-  .mohr-tool { display: grid; gap: 1rem; min-width: 0; }
-  h1 { font: 600 clamp(2rem, 4.5vw, 3rem)/1.1 var(--lp-display); margin: .75rem 0; overflow-wrap: anywhere; hyphens: auto; }
-  .lead { font-size: 1.05rem; color: var(--fg); margin-bottom: 0; max-width: 60rem; }
-  .crumb { font-size: .95rem; color: var(--fg-2); margin-bottom: 1rem; }
+  .mohr-tool { display: grid; gap: 1.25rem; min-width: 0; }
+  .mohr-head { display: grid; gap: .75rem 2rem; min-width: 0; }
+  .mohr-title { min-width: 0; }
+  h1 { font: 600 clamp(1.75rem, 3.6vw, 2.75rem)/1.08 var(--lp-display); margin: .25rem 0 .5rem; overflow-wrap: anywhere; hyphens: auto; text-wrap: balance; }
+  .lead { font-size: 1rem; line-height: 1.5; color: var(--fg); margin: 0; max-width: 46rem; }
+  .crumb { font-size: .9375rem; color: var(--fg-2); margin: 0; }
   .crumb :global(a), .mohr-other :global(a) { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+  .mohr-actions { align-self: end; }
   .mohr-actions :global(.mh-btn) { min-height: 44px; }
+  .mohr-actions :global(.mh-status) { flex-basis: 100%; }
   .mohr-other { margin: 0; font-size: .95rem; }
+  @media (min-width: 62rem) {
+    .mohr-head { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+    .mohr-actions { justify-content: flex-end; }
+    .mohr-actions :global(.mh-status) { text-align: right; }
+  }
 </style>

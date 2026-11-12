@@ -24,7 +24,7 @@ export interface Mohr3DState {
 export type MohrKind = 'plane' | 'space';
 
 export const DEFAULT_2D: Mohr2DState = { sx: 80, sy: 20, txy: 30, theta: 0, unit: 'MPa', tauDown: false };
-export const DEFAULT_3D: Mohr3DState = { s: { ...PRESETS.general }, phi: 30, theta: 60, unit: 'MPa' };
+export const DEFAULT_3D: Mohr3DState = { s: { ...PRESETS.general }, phi: -20, theta: 70, unit: 'MPa' };
 
 export const TOOL_PATH: Record<MohrKind, string> = { 'plane': '/tools/mohr-2d', 'space': '/tools/mohr-3d' };
 

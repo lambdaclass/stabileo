@@ -1,19 +1,25 @@
 <script lang="ts" module>
   export interface SphereSettings { density: number; length: number; opacity: number; range: number; showPrincipal: boolean }
+  export const SPHERE_VIEW = { alpha: 35, beta: 20 };
 </script>
 
 <script lang="ts">
-  import { onPlane, sphereSamples, traction, type Tensor3, type Vec3, type Principal3 } from '../../lib/mohr/space';
+  import { onPlane, sphereSamples, traction, planeBasis, type Tensor3, type Vec3, type Principal3 } from '../../lib/mohr/space';
   import { divergingColor } from '../../lib/mohr/plot';
   import type { Unit } from '../../lib/mohr/state';
   import { tm, formatter } from './i18n';
+  import type { Focus3D } from './focus';
 
-  let { s, n, principal, settings, unit, onpick }: { s: Tensor3; n: Vec3; principal: Principal3; settings: SphereSettings; unit: Unit; onpick: (n: Vec3) => void } = $props();
+  let { s, n, principal, settings, unit, onpick, alpha = $bindable(SPHERE_VIEW.alpha), beta = $bindable(SPHERE_VIEW.beta), focus = null }: {
+    s: Tensor3; n: Vec3; principal: Principal3; settings: SphereSettings; unit: Unit; onpick: (n: Vec3) => void; alpha?: number; beta?: number; focus?: Focus3D;
+  } = $props();
   const uid = $props.id();
 
-  const W = 460, H = 520, CX = 230, CY = 245, S = 140;
-  const VIEW = { alpha: 35, beta: 20 };
-  let alpha = $state(VIEW.alpha), beta = $state(VIEW.beta);
+  let cw = $state(0);
+  const W = $derived(Math.max(280, Math.round(cw) || 460));
+  const H = $derived(Math.round(Math.min(620, Math.max(320, W * 1.08))));
+  const CX = $derived(W / 2), CY = $derived((H - 44) / 2 + 6);
+  const S = $derived(Math.min(W, H - 44) * 0.315);
   const fmt = $derived(formatter(1));
 
   const basis = $derived.by(() => {
@@ -71,11 +77,7 @@
   const wire = $derived([ring([1, 0, 0], [0, 1, 0]), ring([1, 0, 0], [0, 0, 1]), ring([0, 1, 0], [0, 0, 1])]);
 
   const planeRing = $derived.by(() => {
-    const helper: Vec3 = Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
-    const e1raw: Vec3 = [helper[1] * n[2] - helper[2] * n[1], helper[2] * n[0] - helper[0] * n[2], helper[0] * n[1] - helper[1] * n[0]];
-    const l = Math.hypot(...e1raw) || 1;
-    const e1: Vec3 = [e1raw[0] / l, e1raw[1] / l, e1raw[2] / l];
-    const e2: Vec3 = [n[1] * e1[2] - n[2] * e1[1], n[2] * e1[0] - n[0] * e1[2], n[0] * e1[1] - n[1] * e1[0]];
+    const [e1, e2] = planeBasis(n);
     const capAngle = 0.32, cc = Math.cos(capAngle), cs = Math.sin(capAngle);
     const cap = Array.from({ length: 48 }, (_, i) => {
       const a = (2 * Math.PI * i) / 48;
@@ -90,7 +92,7 @@
     const normal = arrowPath([0, 0, 0], [1.3 * n[0], 1.3 * n[1], 1.3 * n[2]], 6);
     const tip: Vec3 = [n[0] + k * t[0], n[1] + k * t[1], n[2] + k * t[2]];
     const label = proj([1.42 * n[0], 1.42 * n[1], 1.42 * n[2]]);
-    return { normal, traction: arrowPath(n, tip, 6), colour: divergingColor(sigmaN, colourRange), label, base: proj(n) };
+    return { normal, traction: arrowPath(n, tip, 6), colour: divergingColor(sigmaN, colourRange), label, base: proj(n), tLabel: proj([n[0] + k * t[0] * 1.12, n[1] + k * t[1] * 1.12, n[2] + k * t[2] * 1.12]) };
   });
 
   const axes = $derived((['x', 'y', 'z'] as const).map((name, i) => {
@@ -101,7 +103,7 @@
   const principalAxes = $derived(principal.directions.map((d, i) => {
     const a = proj([1.35 * d[0], 1.35 * d[1], 1.35 * d[2]]), b = proj([-1.35 * d[0], -1.35 * d[1], -1.35 * d[2]]);
     const label = proj([1.48 * d[0], 1.48 * d[1], 1.48 * d[2]]);
-    return { a, b, label, name: ['σ₁', 'σ₂', 'σ₃'][i] };
+    return { a, b, label, name: ['σ₁', 'σ₂', 'σ₃'][i], key: (['s1', 's2', 's3'] as const)[i] };
   }));
 
   let svg = $state<SVGSVGElement>();
@@ -146,13 +148,12 @@
     else return;
     e.preventDefault();
   }
-  export function resetView() { alpha = VIEW.alpha; beta = VIEW.beta; }
-
-  const BAR = { x: 40, y: H - 46, w: W - 80, h: 10 };
+  const BAR = $derived({ x: 24, y: H - 34, w: W - 48, h: 6 });
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-<svg bind:this={svg} class="mh-plot mh-sphere" viewBox={`0 0 ${W} ${H}`} role="application" aria-label={tm('mohr.sphereLabel')} tabindex="0" data-testid="mohr3d-sphere"
+<div class="mh-plot-box" bind:clientWidth={cw}>
+<svg bind:this={svg} class="mh-plot mh-sphere" viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="application" aria-label={tm('mohr.sphereLabel')} tabindex="0" data-testid="mohr3d-sphere"
   onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)} onkeydown={key}>
   <title>{tm('mohr.sphereLabel')}</title>
   <defs>
@@ -178,20 +179,24 @@
   {/each}
   {#if settings.showPrincipal}
     {#each principalAxes as a (a.name)}
-      <line class="mh-principal-axis" x1={a.a.x} y1={a.a.y} x2={a.b.x} y2={a.b.y} />
-      <text class="mh-principal-axis-label" x={a.label.x} y={a.label.y + 5} text-anchor="middle">{a.name}</text>
+      <g class:mh-on={focus === a.key}>
+        <line class="mh-principal-axis" x1={a.a.x} y1={a.a.y} x2={a.b.x} y2={a.b.y} />
+        <text class="mh-principal-axis-label" x={a.label.x} y={a.label.y + 5} text-anchor="middle">{a.name}</text>
+      </g>
     {/each}
   {/if}
   <path class="mh-plane-front" d={planeRing.front} />
   {#if planeRing.capFront}<polygon class="mh-cap" points={planeRing.cap} />{/if}
   {#each front as a, i (i)}<path class="mh-vec" d={a.d} stroke={a.colour} /><polygon points={a.head} fill={a.colour} />{/each}
   <path class="mh-normal-vec" d={selected.normal.d} /><polygon class="mh-normal-vec-head" points={selected.normal.head} />
-  <path class="mh-selected-t" d={selected.traction.d} stroke={selected.colour} /><polygon points={selected.traction.head} fill={selected.colour} />
+  <path class="mh-t-vec" d={selected.traction.d} /><polygon class="mh-t-head" points={selected.traction.head} />
   <circle class="mh-selected-base" cx={selected.base.x} cy={selected.base.y} r="4" />
   <text class="mh-n-label" x={selected.label.x} y={selected.label.y + 5} text-anchor="middle">n</text>
+  {#if selected.traction.head}<text class="mh-t-label" x={selected.tLabel.x} y={selected.tLabel.y + 5} text-anchor="middle">t</text>{/if}
 
-  <rect x={BAR.x} y={BAR.y} width={BAR.w} height={BAR.h} rx="3" fill={`url(#${uid}-bar)`} />
-  <text class="mh-tick" x={BAR.x} y={BAR.y + 26} text-anchor="start">{fmt(-colourRange)}</text>
-  <text class="mh-tick" x={BAR.x + BAR.w} y={BAR.y + 26} text-anchor="end">{fmt(colourRange)}</text>
-  <text class="mh-tick" x={BAR.x + BAR.w / 2} y={BAR.y + 26} text-anchor="middle">{tm('mohr.colorbar')} [{unit}]</text>
+  <rect x={BAR.x} y={BAR.y} width={BAR.w} height={BAR.h} rx="2" fill={`url(#${uid}-bar)`} />
+  <text class="mh-tick" x={BAR.x} y={BAR.y + 22} text-anchor="start">{fmt(-colourRange)}</text>
+  <text class="mh-tick" x={BAR.x + BAR.w} y={BAR.y + 22} text-anchor="end">{fmt(colourRange)}</text>
+  <text class="mh-tick" x={BAR.x + BAR.w / 2} y={BAR.y + 22} text-anchor="middle">{tm('mohr.colorbar')} [{unit}]</text>
 </svg>
+</div>

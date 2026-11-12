@@ -1,178 +1,291 @@
 .mh, .mh-shell {
-  --mh-bg: var(--st-surface, #0f1e2b);
-  --mh-card: var(--st-surface, #0f1e2b);
+  --mh-bg: var(--st-bg, #0c1620);
+  --mh-sheet: var(--st-surface, #0f1e2b);
   --mh-well: var(--st-surface-3, #17293a);
   --mh-fg: var(--st-text, #f4f7fa);
   --mh-fg2: var(--st-text-2, #8fa3b3);
+  --mh-fg3: var(--st-text-3, #64798a);
   --mh-hair: var(--st-hair, rgba(143, 163, 179, 0.22));
   --mh-hair-strong: var(--st-hair-strong, rgba(143, 163, 179, 0.38));
-  --mh-normal: var(--st-red-text, #e8705f);
-  --mh-shear: var(--st-provisional-text, #d8b4ff);
-  --mh-principal: var(--st-value, #7fd4cc);
-  --mh-rot: var(--st-amber-text, #d9a441);
-  --mh-circle: var(--st-blue-text, #4a8fd4);
-  --mh-accent: var(--st-accent, #e5482a);
+  --mh-grid: var(--st-canvas-grid, rgba(143, 163, 179, 0.13));
+  --mh-axis: var(--st-canvas-axis, rgba(143, 163, 179, 0.32));
+  --mh-geom: var(--st-model-member, #c7d3dd);
+  --mh-ten: var(--st-red-text, #e8705f);
+  --mh-comp: var(--st-blue-text, #4a8fd4);
+  --mh-shear: var(--st-amber-text, #d9a441);
+  --mh-current: var(--st-accent, #e5482a);
+  --mh-current-dim: var(--st-vermillion-dim, rgba(229, 72, 42, 0.14));
+  --mh-principal: var(--st-paper, #e7ecf1);
+  --mh-focus: var(--st-focus, #6fb0ea);
+  --mh-display: var(--st-display, 'Space Grotesk', sans-serif);
   --mh-mono: var(--st-mono, ui-monospace, monospace);
+  --mh-sans: var(--st-sans, sans-serif);
   color: var(--mh-fg);
-  font-family: var(--st-sans, sans-serif);
+  font-family: var(--mh-sans);
+  font-variant-numeric: tabular-nums;
 }
 
-.mh {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
-  align-items: start;
-  min-width: 0;
+.mh { container: mh / inline-size; min-width: 0; }
+.mh-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; min-width: 0; }
+.mh-layout > * { min-width: 0; }
+.mh-main { container: mh-main / inline-size; display: grid; gap: 0.875rem; align-content: start; min-width: 0; }
+@container mh (min-width: 54rem) {
+  .mh-layout { grid-template-columns: minmax(15rem, 18.5rem) minmax(0, 1fr); gap: 1.25rem 2rem; align-items: start; }
+  .mh-3d .mh-layout { grid-template-columns: minmax(17rem, 20rem) minmax(0, 1fr); }
 }
-.mh > * { min-width: 0; }
 
-.mh-card {
-  background: var(--mh-card);
-  border: 1px solid var(--mh-hair);
-  border-radius: 6px;
-  padding: 0.875rem;
-  min-width: 0;
+.mh-side { display: grid; gap: 0.875rem; align-content: start; padding-top: 0.75rem; border-top: 1px solid var(--mh-hair-strong); }
+.mh-side-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+:is(.mh, .mh-shell) .mh-kicker { margin: 0; font: 500 0.75rem/1.3 var(--mh-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--mh-fg2); }
+.mh-block { display: grid; gap: 0.6rem; padding-top: 0.75rem; border-top: 1px solid var(--mh-hair); }
+
+.mh-fields { display: grid; gap: 0.5rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mh-tensor { display: grid; gap: 0.4rem; grid-template-columns: repeat(3, minmax(0, 1fr)); position: relative; }
+.mh-sym-cell { grid-column: 1; grid-row: 3; align-self: end; justify-self: start; padding: 0 0 0.6rem 0.2rem; font: italic 0.8125rem var(--mh-sans); color: var(--mh-fg3); }
+
+.mh-field { display: grid; gap: 0.2rem; min-width: 0; }
+.mh-field-label { font: italic 500 0.8125rem/1.2 var(--mh-sans); color: var(--mh-fg2); }
+.mh-field-shear .mh-field-label { color: var(--mh-shear); }
+.mh-field input, .mh-select {
+  min-height: 40px; min-width: 0; width: 100%; box-sizing: border-box;
+  background: var(--mh-sheet); color: var(--mh-fg);
+  border: 1px solid var(--mh-hair-strong); border-radius: 3px;
+  font: 0.9375rem var(--mh-mono); padding: 0.2rem 0.5rem;
 }
-.mh-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; }
-:is(.mh, .mh-shell) .mh-card-head h3 { margin: 0; font: 600 1rem/1.3 var(--st-display, sans-serif); color: var(--mh-fg); }
-.mh-card-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; }
-.mh-card-body { position: relative; }
+.mh-field input { text-align: right; }
+.mh-field input:hover, .mh-select:hover { border-color: var(--mh-fg2); }
+.mh-field input[aria-invalid='true'] { border-color: var(--mh-ten); }
+.mh-readonly input { border-style: dashed; color: var(--mh-fg2); background: transparent; }
+.mh-field-compact { grid-template-columns: auto 4.75rem auto; align-items: center; gap: 0.35rem; }
+.mh-field-compact input { min-height: 36px; text-align: right; }
+.mh-field-suffix { color: var(--mh-fg2); font: 0.875rem var(--mh-mono); }
+.mh-select { width: auto; font-family: var(--mh-sans); padding-right: 1.6rem; }
+.mh-unit { min-height: 32px; font-size: 0.8125rem; }
 
-.mh-plot { display: block; width: 100%; height: auto; font-family: var(--st-sans, sans-serif); user-select: none; }
-.mh-sphere { touch-action: pan-y; cursor: grab; }
-.mh-sphere:focus-visible { outline: 2px solid var(--st-focus, #6fb0ea); outline-offset: 2px; border-radius: 4px; }
+.mh-angle { display: grid; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--mh-hair); }
+.mh-angle-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.mh-angle-head .mh-field-label { display: none; }
+.mh-angle-head .mh-field-compact { grid-template-columns: 5.5rem auto; }
+.mh-range { width: 100%; min-height: 28px; margin: 0; accent-color: var(--mh-current); }
+.mh-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.mh-chip {
+  min-height: 34px; padding: 0.25rem 0.65rem; border-radius: 3px; cursor: pointer;
+  background: transparent; color: var(--mh-fg); border: 1px solid var(--mh-hair-strong);
+  font: 0.8125rem/1.2 var(--mh-sans);
+}
+.mh-chip:hover:not(:disabled) { border-color: var(--mh-fg2); }
+.mh-chip[aria-pressed='true'] { border-color: var(--mh-current); color: var(--mh-fg); background: var(--mh-current-dim); }
+.mh-chip:disabled { opacity: 0.45; cursor: default; }
 
 .mh-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;
-  min-height: 36px; padding: 0.25rem 0.7rem;
-  background: var(--mh-well); color: var(--mh-fg);
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+  min-height: 36px; padding: 0.25rem 0.75rem;
+  background: var(--mh-sheet); color: var(--mh-fg);
   border: 1px solid var(--mh-hair-strong); border-radius: 3px;
-  font: 500 0.8125rem/1.2 var(--st-sans, sans-serif); cursor: pointer; text-decoration: none;
+  font: 500 0.8125rem/1.2 var(--mh-sans); cursor: pointer; text-decoration: none; white-space: nowrap;
 }
 .mh-btn:hover { border-color: var(--mh-fg2); }
-.mh-btn:focus-visible, .mh input:focus-visible, .mh select:focus-visible, .mh summary:focus-visible { outline: 2px solid var(--st-focus, #6fb0ea); outline-offset: 1px; }
-.mh-btn[aria-pressed='true'] { border-color: var(--mh-rot); color: var(--mh-rot); }
-.mh-btn-sm { min-height: 32px; padding: 0.2rem 0.55rem; font-size: 0.75rem; }
+.mh-btn[aria-pressed='true'] { border-color: var(--mh-current); background: var(--mh-current-dim); }
+.mh-btn-sm { min-height: 32px; padding: 0.2rem 0.6rem; font-size: 0.8125rem; }
+.mh-btn-ghost { background: transparent; border-color: transparent; color: var(--mh-fg2); padding: 0.2rem 0.45rem; min-height: 32px; font: 500 0.75rem var(--mh-mono); }
+.mh-btn-ghost:hover { color: var(--mh-fg); border-color: var(--mh-hair-strong); }
 .mh-btn-primary { background: var(--st-accent-fill, #c4401f); border-color: var(--st-accent-fill, #c4401f); color: #fff; }
-.mh-info { width: 32px; padding: 0; border-radius: 50%; }
+.mh-btn-primary:hover { background: var(--st-accent-fill-hover, #b0381b); border-color: var(--st-accent-fill-hover, #b0381b); }
+.mh-btn-icon { min-height: 36px; padding: 0.2rem 0.6rem; font-size: 0.8125rem; }
+.mh-btn-icon [aria-hidden] { font-size: 0.6875rem; color: var(--mh-current); }
+.mh-info { width: 32px; padding: 0; border-radius: 50%; font-family: var(--mh-sans); }
+:is(.mh, .mh-shell) :is(.mh-btn, .mh-chip, .mh-select, summary, input):focus-visible,
+.mh-plot :is(.mh-drag, .mh-hit, .mh-knob):focus-visible { outline: 2px solid var(--mh-focus); outline-offset: 2px; }
 
-.mh-select, .mh-field input, .mh input[type='text'] {
-  min-height: 32px; min-width: 0;
-  background: var(--mh-well); color: var(--mh-fg);
-  border: 1px solid var(--mh-hair-strong); border-radius: 3px;
-  font: 0.8125rem var(--mh-mono); padding: 0.2rem 0.4rem;
+.mh-switch { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 32px; font-size: 0.8125rem; color: var(--mh-fg2); cursor: pointer; }
+:is(.mh, .mh-shell) .mh-switch input {
+  min-width: 0; min-height: 0; padding: 0; box-sizing: border-box;
+  appearance: none; -webkit-appearance: none; flex: none; position: relative; margin: 0; cursor: pointer;
+  width: 30px; height: 18px; border-radius: 9px; background: var(--mh-well); border: 1px solid var(--mh-hair-strong);
 }
-.mh-check { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8125rem; color: var(--mh-fg2); min-height: 32px; cursor: pointer; }
-.mh-check input { width: 16px; height: 16px; accent-color: var(--mh-circle); }
+.mh-switch input::before { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--mh-fg2); transition: transform 0.15s; }
+.mh-switch input:checked { background: var(--mh-current-dim); border-color: var(--mh-current); }
+.mh-switch input:checked::before { transform: translateX(12px); background: var(--mh-current); }
+.mh-check { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8125rem; color: var(--mh-fg2); min-height: 32px; cursor: pointer; }
+:is(.mh, .mh-shell) .mh-check input { width: 18px; height: 18px; min-width: 0; min-height: 0; margin: 0; accent-color: var(--mh-current); }
 
-.mh-matrix-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; }
-.mh-sigma { font: italic 600 1.25rem var(--st-display, serif); color: var(--mh-fg2); }
-.mh-matrix {
-  display: grid; grid-template-columns: repeat(2, minmax(4.5rem, 6rem)); gap: 0.375rem;
-  padding: 0.375rem; border-left: 2px solid var(--mh-fg2); border-right: 2px solid var(--mh-fg2); border-radius: 4px;
+:is(.mh, .mh-shell) .mh-note { font-size: 0.8125rem; line-height: 1.5; color: var(--mh-fg2); margin: 0; }
+:is(.mh, .mh-shell) .mh-hint { color: var(--mh-fg3); }
+.mh-hint { padding-left: 0.6rem; border-left: 2px solid var(--mh-current); }
+:is(.mh, .mh-shell) .mh-callout { padding: 0.5rem 0.75rem; border-left: 3px solid var(--mh-fg2); background: var(--mh-sheet); color: var(--mh-fg); }
+:is(.mh, .mh-shell) .mh-popover { position: absolute; z-index: 2; top: 0.25rem; left: 0.75rem; right: 0.75rem; background: var(--mh-well); border: 1px solid var(--mh-hair-strong); border-radius: 4px; padding: 0.5rem 0.65rem; color: var(--mh-fg); }
+
+.mh-readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr)); gap: 0.25rem 1.25rem; margin: 0; }
+.mh-ro { display: grid; gap: 0.15rem; align-content: start; padding: 0.55rem 0 0.35rem; border-top: 2px solid var(--mh-hair); transition: border-color 0.15s; min-width: 0; }
+.mh-ro.mh-on { border-top-color: var(--mh-principal); }
+.mh-ro dt { font-size: 0.8125rem; line-height: 1.3; color: var(--mh-fg2); }
+.mh-ro dd { margin: 0; overflow-wrap: anywhere; }
+.mh-ro-num { font: 500 clamp(1.5rem, 1rem + 2.2cqi, 2.25rem)/1.1 var(--mh-display); color: var(--mh-fg); letter-spacing: -0.01em; }
+.mh-ro-unit { font: 0.8125rem var(--mh-mono); color: var(--mh-fg2); }
+.mh-ro-sub { font: 0.8125rem var(--mh-mono); color: var(--mh-fg2); }
+.mh-ro-dir { font: 0.75rem var(--mh-mono); color: var(--mh-fg3); }
+.mh-sym { font-style: italic; color: var(--mh-fg); margin-right: 0.15rem; }
+.mh-sym sub, .mh-ro-sub sub { font-size: 0.75em; }
+
+.mh-strip { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 1.25rem; margin: 0; padding: 0.55rem 0.8rem; border-left: 3px solid var(--mh-current); background: linear-gradient(90deg, var(--mh-current-dim), transparent 85%); }
+.mh-strip dt { font: 500 0.8125rem var(--mh-sans); color: var(--mh-fg); margin-right: 0.25rem; }
+.mh-strip dd { margin: 0; font-size: 0.875rem; color: var(--mh-fg2); }
+.mh-strip-num { font: 500 1.0625rem var(--mh-mono); color: var(--mh-fg); }
+.mh-strip-vec { font-size: 0.9375rem; }
+
+.mh-board { display: grid; grid-template-columns: minmax(0, 1fr); background: var(--mh-sheet); border: 1px solid var(--mh-hair); border-radius: 6px; min-width: 0; }
+.mh-board > * + * { border-top: 1px solid var(--mh-hair); }
+@container mh-main (min-width: 40rem) {
+  .mh-board-2d { grid-template-columns: minmax(0, 1.7fr) minmax(14rem, 1fr); }
+  .mh-board-2d > * + * { border-top: 0; border-left: 1px solid var(--mh-hair); }
 }
-.mh-matrix-3 { grid-template-columns: repeat(3, minmax(3.75rem, 5.5rem)); }
-.mh-field { display: grid; gap: 0.1rem; min-width: 0; }
-.mh-field-label { font: 0.6875rem var(--mh-mono); color: var(--mh-fg2); }
-.mh-field input { width: 100%; text-align: center; font-size: 0.9375rem; min-height: 36px; }
-.mh-field input[aria-invalid='true'] { border-color: var(--mh-normal); }
-.mh-readonly input { border-style: dashed; color: var(--mh-fg2); background: transparent; }
-.mh-field-compact { grid-template-columns: auto 4.75rem auto; align-items: center; gap: 0.3rem; }
-.mh-field-compact input { min-height: 30px; font-size: 0.8125rem; }
-.mh-field-suffix { color: var(--mh-fg2); font-size: 0.8125rem; }
+@container mh-main (min-width: 46rem) {
+  .mh-board-3d { grid-template-columns: minmax(0, 1.35fr) minmax(15rem, 1fr); grid-template-rows: auto auto; }
+  .mh-board-3d > .mh-fig-hero { grid-row: 1 / span 2; }
+  .mh-board-3d > * + * { border-top: 0; border-left: 1px solid var(--mh-hair); }
+  .mh-board-3d > * + * + * { border-top: 1px solid var(--mh-hair); }
+}
 
-.mh-rotation { display: grid; gap: 0.3rem; flex: 1 1 10rem; min-width: 10rem; font-size: 0.8125rem; color: var(--mh-fg2); }
-.mh-rotation input[type='range'], .mh-slider input[type='range'], .mh-settings input[type='range'] { width: 100%; accent-color: var(--mh-circle); min-height: 28px; }
-.mh-slider { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.2rem 0.5rem; margin: 0.4rem 0; font-size: 0.8125rem; color: var(--mh-fg2); }
-.mh-slider input[type='range'] { grid-column: 1 / -1; }
-.mh-row { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; margin-top: 0.6rem; font-size: 0.8125rem; color: var(--mh-fg2); }
-.mh-buttons { display: flex; flex-wrap: wrap; gap: 0.375rem; margin: 0.5rem 0; }
+.mh-fig { position: relative; padding: 0.625rem 0.75rem 0.5rem; min-width: 0; }
+.mh-fig-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.25rem 0.75rem; margin-bottom: 0.25rem; min-height: 32px; }
+:is(.mh, .mh-shell) .mh-fig-head h3 { margin: 0; font: 500 0.9375rem/1.3 var(--mh-display); color: var(--mh-fg); }
+.mh-fig-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; }
+.mh-export { display: inline-flex; gap: 0.125rem; }
+.mh-fig-body { position: relative; }
+.mh-fig-foot { margin-top: 0.25rem; }
 
-:is(.mh, .mh-shell) .mh-note { font-size: 0.75rem; line-height: 1.45; color: var(--mh-fg2); margin: 0.5rem 0 0; }
-:is(.mh, .mh-shell) .mh-popover { position: absolute; z-index: 2; top: 0; left: 0; right: 0; background: var(--mh-well); border: 1px solid var(--mh-hair-strong); border-radius: 4px; padding: 0.5rem 0.65rem; margin: 0; color: var(--mh-fg); }
+.mh-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; list-style: none; margin: 0; padding: 0; font-size: 0.8125rem; color: var(--mh-fg2); }
+.mh-legend li { display: inline-flex; align-items: center; gap: 0.45rem; min-height: 24px; }
+.mh-key { display: inline-block; width: 18px; height: 3px; border-radius: 2px; }
+.mh-key-ten { background: var(--mh-ten); }
+.mh-key-comp { background: var(--mh-comp); }
+.mh-key-shear { background: var(--mh-shear); }
+.mh-key-current { width: 10px; height: 10px; border-radius: 50%; background: var(--mh-current); box-shadow: 0 0 0 3px var(--mh-current-dim); }
+.mh-key-principal { height: 2px; background: repeating-linear-gradient(90deg, var(--mh-principal) 0 7px, transparent 7px 9px, var(--mh-principal) 9px 10px, transparent 10px 12px); }
 
-.mh-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 0.5rem 1.25rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--mh-hair); }
-:is(.mh, .mh-shell) .mh-results-title { margin: 0.9rem 0 0.4rem; font: 600 0.6875rem/1.2 var(--st-sans, sans-serif); letter-spacing: 0.06em; text-transform: uppercase; color: var(--mh-fg2); }
-:is(.mh, .mh-shell) .mh-results .mh-results-title { margin-top: 0; }
-.mh dl { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.75rem; margin: 0; font-size: 0.875rem; }
-.mh dt { color: var(--mh-fg2); font-style: italic; }
-.mh dd { margin: 0; text-align: right; font-family: var(--mh-mono); color: var(--mh-fg); overflow-wrap: anywhere; }
-.mh-principal-list dd { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 0.75rem; }
-.mh-dir { color: var(--mh-fg2); font-size: 0.75rem; }
+.mh-plot-box { width: 100%; min-width: 0; }
+.mh-plot { display: block; width: 100%; height: auto; font-family: var(--mh-sans); user-select: none; -webkit-user-select: none; overflow: visible; }
+.mh-plot text { paint-order: stroke; stroke: var(--mh-sheet); stroke-width: 3px; stroke-linejoin: round; }
+.mh-dragging, .mh-dragging * { cursor: grabbing !important; }
+.mh-sphere { touch-action: pan-y; cursor: grab; }
 
-.mh-settings { margin-top: 0.5rem; font-size: 0.8125rem; color: var(--mh-fg2); }
-.mh-settings summary { min-height: 32px; display: flex; align-items: center; cursor: pointer; }
-.mh-settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.5rem 1rem; }
-.mh-settings-grid label { display: block; }
-.mh-val { float: right; font-family: var(--mh-mono); color: var(--mh-fg); }
+.mh-ten { color: var(--mh-ten); fill: var(--mh-ten); }
+.mh-comp { color: var(--mh-comp); fill: var(--mh-comp); }
+.mh-shear-text { color: var(--mh-shear); fill: var(--mh-shear); }
 
-.mh-frame { fill: none; stroke: var(--mh-hair-strong); }
-.mh-grid { stroke: var(--mh-hair); stroke-width: 0.6; }
-.mh-axis { stroke: var(--mh-fg2); stroke-width: 1; }
-.mh-tick { fill: var(--mh-fg2); font-size: 11px; }
-.mh-axis-title { fill: var(--mh-fg); font-size: 13px; font-style: italic; }
-.mh-circle { fill: none; stroke: var(--mh-circle); stroke-width: 2; }
-.mh-region { fill: var(--mh-circle); fill-opacity: 0.12; }
+.mh-grid { stroke: var(--mh-grid); stroke-width: 1; }
+.mh-axis { stroke: var(--mh-axis); stroke-width: 1.2; }
+.mh-tick { fill: var(--mh-fg2); font: 12px var(--mh-mono); }
+.mh-axis-title { fill: var(--mh-fg2); font-size: 13px; font-style: italic; }
+.mh-circle { fill: var(--mh-geom); fill-opacity: 0.035; stroke: var(--mh-geom); stroke-width: 1.8; }
+.mh-region { fill: var(--mh-geom); fill-opacity: 0.08; }
 .mh-center { fill: var(--mh-fg2); }
-.mh-diam { stroke: var(--mh-rot); stroke-width: 2; }
-.mh-diam-ref { stroke: var(--mh-fg2); stroke-width: 1; stroke-dasharray: 4 3; }
-.mh-arc { fill: none; stroke: var(--mh-rot); stroke-width: 1.4; }
-.mh-arc-label { fill: var(--mh-rot); font-size: 12px; font-style: italic; }
-.mh-tau-pt { fill: var(--mh-bg); stroke: var(--mh-shear); stroke-width: 1.8; }
-.mh-tau-label { fill: var(--mh-shear); font-size: 12px; }
-.mh-sub { font-size: 9px; }
-.mh-principal-pt { fill: var(--mh-principal); }
-.mh-principal-label { fill: var(--mh-principal); font-size: 12px; }
-.mh-ref-pt { fill: var(--mh-fg); }
-.mh-ref-label { fill: var(--mh-fg); font-size: 12px; font-weight: 600; }
-.mh-rot-pt { fill: var(--mh-rot); stroke: var(--mh-bg); stroke-width: 1.5; }
-.mh-rot-pt.mh-hollow { fill: var(--mh-bg); stroke: var(--mh-rot); stroke-width: 2; }
-.mh-rot-label { fill: var(--mh-rot); font-size: 12px; font-weight: 600; }
-.mh-drop { stroke: var(--mh-rot); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.mh-diam { stroke: var(--mh-current); stroke-width: 2; }
+.mh-diam-ref { stroke: var(--mh-fg3); stroke-width: 1; stroke-dasharray: 4 3; }
+.mh-arc { fill: none; stroke: var(--mh-current); stroke-width: 1.3; }
+.mh-arc-label { fill: var(--mh-current); font-size: 13px; font-style: italic; font-weight: 600; }
+.mh-sub { font-size: 10px; }
+.mh-hit { cursor: pointer; outline: none; }
+.mh-hit-area, .mh-hit-line { fill: transparent; stroke: transparent; }
+.mh-hit-line { stroke-width: 14; }
+.mh-principal-pt { fill: var(--mh-principal); stroke: var(--mh-principal); stroke-opacity: 0; stroke-width: 7; transition: stroke-opacity 0.15s; }
+.mh-shear-pt { fill: var(--mh-sheet); stroke: var(--mh-shear); stroke-width: 2; transition: stroke-width 0.15s; }
+.mh-hit:hover .mh-principal-pt, .mh-hit:focus-visible .mh-principal-pt, .mh-hit.mh-on .mh-principal-pt { stroke-opacity: 0.28; }
+.mh-hit:hover .mh-shear-pt, .mh-hit.mh-on .mh-shear-pt { stroke-width: 3.5; }
+.mh-principal-label { fill: var(--mh-principal); font: 500 13px var(--mh-mono); }
+.mh-principal-label.mh-on { text-decoration: underline; }
+.mh-ref-pt { fill: var(--mh-fg3); }
+.mh-ref-label { fill: var(--mh-fg2); font-size: 12px; font-weight: 600; }
+.mh-rot-pt { fill: var(--mh-current); stroke: var(--mh-sheet); stroke-width: 2; }
+.mh-rot-pt.mh-hollow { fill: var(--mh-sheet); stroke: var(--mh-current); stroke-width: 2; }
+.mh-rot-halo { fill: var(--mh-current); fill-opacity: 0.14; stroke: var(--mh-current); stroke-opacity: 0.5; stroke-width: 1; }
+.mh-rot-label { fill: var(--mh-current); font-size: 14px; font-weight: 700; }
+.mh-rot-label-y { font-size: 13px; font-weight: 600; opacity: 0.85; }
+.mh-drag { fill: transparent; cursor: grab; touch-action: none; outline: none; }
+.mh-drag:focus-visible { stroke: var(--mh-focus); stroke-width: 2; }
+.mh-drop { stroke: var(--mh-current); stroke-width: 1.2; stroke-dasharray: 4 3; }
 
-.mh-square { fill: var(--mh-well); stroke: var(--mh-fg); stroke-width: 1.6; }
-.mh-normal { stroke: var(--mh-normal); stroke-width: 2.2; }
-.mh-normal-head { fill: var(--mh-normal); }
-.mh-normal-label { fill: var(--mh-normal); font-size: 13px; font-weight: 600; }
+.mh-ref-axis { stroke: var(--mh-axis); stroke-width: 1; stroke-dasharray: 6 4; }
+.mh-triad-head { fill: var(--mh-fg2); }
+.mh-ref-axis-label { fill: var(--mh-fg2); font-size: 13px; font-style: italic; }
+.mh-dir-line { cursor: help; }
+.mh-direction { stroke: var(--mh-principal); stroke-width: 1.1; stroke-dasharray: 14 4 2 4; opacity: 0.55; transition: opacity 0.15s, stroke-width 0.15s; }
+.mh-direction-label { fill: var(--mh-principal); font-size: 13px; opacity: 0.8; }
+.mh-dir-line.mh-on .mh-direction { opacity: 1; stroke-width: 2; }
+.mh-dir-line.mh-on .mh-direction-label { opacity: 1; font-weight: 700; }
+.mh-square { fill: var(--mh-well); stroke: var(--mh-geom); stroke-width: 1.6; cursor: grab; touch-action: none; }
+.mh-square:hover { stroke: var(--mh-fg); }
+.mh-xray { stroke: var(--mh-current); stroke-width: 1.4; }
+.mh-normal { stroke: currentColor; stroke-width: 2.2; }
+.mh-normal-head { fill: currentColor; }
 .mh-shear { stroke: var(--mh-shear); stroke-width: 2; }
 .mh-shear-head { fill: var(--mh-shear); }
-.mh-shear-label { fill: var(--mh-shear); font-size: 13px; font-weight: 600; }
-.mh-direction { stroke: var(--mh-principal); stroke-width: 1.3; stroke-dasharray: 5 4; }
-.mh-direction-label { fill: var(--mh-principal); font-size: 13px; font-weight: 700; }
-.mh-glyph { stroke: var(--mh-fg2); stroke-width: 1.2; }
-.mh-glyph-head { fill: var(--mh-fg2); }
-.mh-glyph-label { fill: var(--mh-fg2); font-size: 12px; font-style: italic; }
-.mh-rot { stroke: var(--mh-rot); stroke-width: 1.6; }
-.mh-rot-head { fill: var(--mh-rot); }
-.mh-rot-text { fill: var(--mh-rot); font-size: 12px; font-style: italic; }
-.mh-legend-text { fill: var(--mh-fg2); font-size: 11px; }
+.mh-value { font: 500 13px var(--mh-mono); }
+.mh-knob { cursor: grab; touch-action: none; outline: none; }
+.mh-knob-arc { fill: none; stroke: var(--mh-current); stroke-width: 2; stroke-linecap: round; }
+.mh-knob-dot { fill: var(--mh-current); }
+.mh-knob:hover .mh-knob-arc { stroke-width: 2.6; }
 
-.mh-ball-light { stop-color: #5a86b4; }
-.mh-ball-dark { stop-color: #1d3a57; }
+.mh-ball-light { stop-color: #2b4054; }
+.mh-ball-dark { stop-color: #0f1c27; }
 .mh-ball { stroke: var(--mh-hair-strong); }
-.mh-wire { fill: none; stroke: rgba(244, 247, 250, 0.28); stroke-width: 0.8; }
-.mh-wire-back { stroke: rgba(244, 247, 250, 0.12); stroke-dasharray: 2 3; }
-.mh-vec { fill: none; stroke-width: 1.4; stroke-linecap: round; }
-.mh-axis3 { stroke: var(--mh-fg); stroke-width: 1.2; opacity: 0.85; }
-.mh-axis3-label { fill: var(--mh-fg); font-size: 15px; font-weight: 700; font-style: italic; }
-.mh-principal-axis { stroke: var(--mh-principal); stroke-width: 1.8; opacity: 0.9; }
-.mh-principal-axis-label { fill: var(--mh-principal); font-size: 13px; font-weight: 700; }
-.mh-plane-front { fill: none; stroke: var(--mh-rot); stroke-width: 2; }
-.mh-cap { fill: var(--mh-rot); fill-opacity: 0.28; stroke: var(--mh-rot); stroke-width: 1; }
-.mh-plane-back { fill: none; stroke: var(--mh-rot); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: 0.5; }
-.mh-normal-vec { fill: none; stroke: var(--mh-rot); stroke-width: 2.6; }
-.mh-normal-vec-head { fill: var(--mh-rot); }
-.mh-selected-t { fill: none; stroke-width: 3; }
-.mh-selected-base { fill: var(--mh-rot); stroke: var(--mh-bg); stroke-width: 1.5; }
-.mh-n-label { fill: var(--mh-rot); font-size: 15px; font-weight: 700; font-style: italic; }
+.mh-wire { fill: none; stroke: rgba(199, 211, 221, 0.3); stroke-width: 0.8; }
+.mh-wire-back { stroke: rgba(199, 211, 221, 0.12); stroke-dasharray: 2 3; }
+.mh-vec { fill: none; stroke-width: 1.3; stroke-linecap: round; }
+.mh-axis3 { stroke: var(--mh-fg2); stroke-width: 1.1; }
+.mh-axis3-label { fill: var(--mh-fg2); font-size: 14px; font-weight: 600; font-style: italic; }
+.mh-axis3-small { font-size: 12px; }
+.mh-principal-axis { stroke: var(--mh-principal); stroke-width: 1.2; stroke-dasharray: 14 4 2 4; opacity: 0.6; transition: opacity 0.15s, stroke-width 0.15s; }
+.mh-principal-axis-label { fill: var(--mh-principal); font-size: 13px; opacity: 0.85; }
+.mh-on .mh-principal-axis { opacity: 1; stroke-width: 2.2; }
+.mh-on .mh-principal-axis-label { opacity: 1; font-weight: 700; }
+.mh-plane-front { fill: none; stroke: var(--mh-current); stroke-width: 2; }
+.mh-cap { fill: var(--mh-current); fill-opacity: 0.22; stroke: var(--mh-current); stroke-width: 1; }
+.mh-plane-back { fill: none; stroke: var(--mh-current); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: 0.5; }
+.mh-normal-vec { fill: none; stroke: var(--mh-current); stroke-width: 2.4; }
+.mh-normal-vec-head { fill: var(--mh-current); }
+.mh-t-vec { fill: none; stroke: var(--mh-fg); stroke-width: 2.6; }
+.mh-t-head { fill: var(--mh-fg); }
+.mh-selected-base { fill: var(--mh-current); stroke: var(--mh-sheet); stroke-width: 1.5; }
+.mh-n-label { fill: var(--mh-current); font-size: 15px; font-weight: 700; font-style: italic; }
+.mh-t-label { fill: var(--mh-fg); font-size: 14px; font-weight: 700; font-style: italic; }
+
+.mh-cube-edge { stroke: var(--mh-geom); stroke-width: 1.2; fill: none; }
+.mh-cube-edge-back { stroke: var(--mh-geom); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.4; fill: none; }
+.mh-cube-face { fill: var(--mh-well); fill-opacity: 0.35; }
+.mh-cut { fill: var(--mh-current); fill-opacity: 0.18; stroke: var(--mh-current); stroke-width: 1.6; stroke-linejoin: round; }
+.mh-comp-line { stroke: var(--mh-fg2); stroke-width: 1; stroke-dasharray: 3 3; }
+.mh-part { stroke-width: 2.4; fill: none; }
+.mh-part.mh-ten, .mh-part.mh-comp { stroke: currentColor; }
+.mh-part-head.mh-ten, .mh-part-head.mh-comp { fill: currentColor; }
+.mh-part.mh-shear-text { stroke: var(--mh-shear); }
+.mh-part-head.mh-shear-text { fill: var(--mh-shear); }
+.mh-part-label { font-size: 13px; font-weight: 600; font-style: italic; }
+
+.mh-settings { margin-top: 0.25rem; font-size: 0.8125rem; color: var(--mh-fg2); }
+.mh-settings summary { min-height: 32px; display: flex; align-items: center; gap: 0.4rem; cursor: pointer; width: fit-content; }
+.mh-settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.5rem 1rem; padding: 0.25rem 0 0.5rem; }
+.mh-settings-grid label { display: grid; gap: 0.15rem; }
+.mh-settings-grid input[type='range'] { width: 100%; accent-color: var(--mh-fg2); min-height: 28px; margin: 0; }
+.mh-val { float: right; font-family: var(--mh-mono); color: var(--mh-fg); }
+
+.mh-plane-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.mh-slider { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.25rem 0.5rem; font-size: 0.8125rem; color: var(--mh-fg2); }
+.mh-slider .mh-range { grid-column: 1 / -1; }
+.mh-buttons { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.mh-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.8125rem; color: var(--mh-fg2); }
+.mh-row .mh-select { flex: 1 1 auto; max-width: 13rem; }
 
 .mh-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
-:is(.mh, .mh-shell) .mh-help { background: var(--mh-card); border: 1px solid var(--mh-hair); border-radius: 6px; padding: 0.75rem 1rem; margin: 0 0 1rem; font-size: 0.875rem; line-height: 1.5; color: var(--mh-fg); }
-:is(.mh, .mh-shell) .mh-help h3 { margin: 0 0 0.4rem; font: 600 0.95rem var(--st-display, sans-serif); }
-:is(.mh, .mh-shell) .mh-help p { margin: 0.35rem 0; }
-.mh-status { font-size: 0.8125rem; color: var(--mh-principal); min-height: 1.2em; }
-:is(.mh, .mh-shell) .mh-check input[type='checkbox'] { min-width: 0; min-height: 0; width: 18px; height: 18px; margin: 0; }
+:is(.mh, .mh-shell) .mh-help { background: var(--mh-sheet); border: 1px solid var(--mh-hair); border-left: 3px solid var(--mh-fg2); border-radius: 3px; padding: 0.75rem 1rem; margin: 0; font-size: 0.875rem; line-height: 1.55; color: var(--mh-fg); }
+:is(.mh, .mh-shell) .mh-help h3 { margin: 0 0 0.4rem; font: 500 0.95rem var(--mh-display); }
+:is(.mh, .mh-shell) .mh-help p { margin: 0.35rem 0; max-width: 46rem; }
+.mh-status { font-size: 0.8125rem; color: var(--mh-fg2); min-height: 1.2em; }
+
 @media (any-pointer: coarse) {
-  :is(.mh, .mh-shell) :is(.mh-check, .mh-btn, .mh-select, .mh-settings summary) { min-height: 44px; }
+  :is(.mh, .mh-shell) :is(.mh-btn, .mh-chip, .mh-select, .mh-settings summary, .mh-switch) { min-height: 44px; }
+  :is(.mh, .mh-shell) .mh-field input { min-height: 44px; }
   :is(.mh, .mh-shell) .mh-info { width: 44px; }
+  :is(.mh, .mh-shell) .mh-range { min-height: 44px; }
+  .mh-plot .mh-hit-area { r: 22px; }
 }

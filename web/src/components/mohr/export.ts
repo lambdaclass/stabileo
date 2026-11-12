@@ -1,4 +1,4 @@
-const PAINT = ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'opacity', 'fill-opacity', 'stroke-opacity', 'font-family', 'font-size', 'font-weight', 'font-style', 'text-anchor', 'dominant-baseline'] as const;
+const PAINT = ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'opacity', 'fill-opacity', 'stroke-opacity', 'font-family', 'font-size', 'font-weight', 'font-style', 'text-anchor', 'dominant-baseline', 'paint-order', 'stroke-linejoin', 'stroke-linecap'] as const;
 
 /** A standalone copy of a drawn SVG: CSS variables and classes resolved into attributes, on a solid background. */
 export function standaloneSvg(svg: SVGSVGElement): string {
@@ -23,7 +23,7 @@ export function standaloneSvg(svg: SVGSVGElement): string {
   bg.setAttribute('y', String(box.y));
   bg.setAttribute('width', String(box.width));
   bg.setAttribute('height', String(box.height));
-  bg.setAttribute('fill', getComputedStyle(svg).getPropertyValue('--mh-bg').trim() || '#0f1e2b');
+  bg.setAttribute('fill', getComputedStyle(svg).getPropertyValue('--mh-sheet').trim() || '#0f1e2b');
   clone.insertBefore(bg, clone.firstChild);
   return new XMLSerializer().serializeToString(clone);
 }

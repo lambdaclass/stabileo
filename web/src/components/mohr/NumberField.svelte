@@ -1,6 +1,6 @@
 <script lang="ts">
-  let { label, value = $bindable(), readonly = false, title, min, max, step, suffix, testid, compact = false }: {
-    label: string; value: number; readonly?: boolean; title?: string; min?: number; max?: number; step?: number; suffix?: string; testid?: string; compact?: boolean;
+  let { label, value = $bindable(), readonly = false, title, min, max, step, suffix, testid, compact = false, shear = false }: {
+    label: string; value: number; readonly?: boolean; title?: string; min?: number; max?: number; step?: number; suffix?: string; testid?: string; compact?: boolean; shear?: boolean;
   } = $props();
 
   const show = (v: number) => String(Number(v.toPrecision(10)));
@@ -17,7 +17,7 @@
   }
 </script>
 
-<span class="mh-field" class:mh-field-compact={compact} class:mh-readonly={readonly}>
+<span class="mh-field" class:mh-field-compact={compact} class:mh-readonly={readonly} class:mh-field-shear={shear}>
   <span class="mh-field-label" aria-hidden="true">{label}</span>
   <input type="text" inputmode="decimal" aria-label={label} {title} value={text} {readonly} tabindex={readonly ? -1 : undefined}
     aria-invalid={invalid} data-testid={testid}

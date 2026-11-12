@@ -6,7 +6,7 @@ import { MOHR_IDS } from '../../tools/mohr-tools';
 import { hubTranslations as mohrToolTranslations } from '../../tools/hub-i18n';
 import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
 
-const SAME_AS_ENGLISH = ['pt mohr.face', 'fr mohr.face', 'fr mohr.conventions', 'fr mohr.rotation'];
+const SAME_AS_ENGLISH = ['pt mohr.face', 'fr mohr.face', 'fr mohr.conventions', 'fr mohr.compression', 'de mohr.sym', 'fr mohr.sym'];
 
 const names = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
@@ -44,7 +44,8 @@ describe('Mohr tool strings', () => {
   });
 
   it('Spanish speaks with vos', () => {
-    expect(mohrTranslations.es['mohr.pickTip']).toMatch(/Hacé clic o tocá/);
+    expect(mohrTranslations.es['mohr.pickTip']).toMatch(/^Tocá la esfera/);
+    expect(mohrTranslations.es['mohr.dragHint']).toMatch(/^Arrastrá X′/);
     expect(mohrTranslations.es['mohr.helpPlane.1']).toMatch(/^Cargá/);
     for (const value of Object.values(mohrTranslations.es)) expect(value).not.toMatch(/\b(haga|toque|ingrese|elija|puede)\b/i);
   });

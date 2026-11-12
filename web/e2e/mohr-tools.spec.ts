@@ -13,6 +13,7 @@ function watchAppChunk(page: Page) {
 
 async function noHorizontalScroll(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(await page.evaluate(() => [...document.querySelectorAll('.landing')].every((l) => l.scrollWidth <= l.clientWidth))).toBe(true);
 }
 
 test('@smoke the 2D Mohr tool computes, keeps its state in a link and opens the app with it', async ({ page, context }) => {
@@ -122,6 +123,79 @@ test('@smoke the 3D tool solves the presets, picks planes and opens the app with
   await expect(dialog).toHaveAttribute('data-kind', 'plane');
   await page.getByTestId('mohr-close').click();
   await expect(dialog).toHaveCount(0);
+});
+
+const centre = async (page: Page, testid: string) => {
+  const b = (await page.getByTestId(testid).boundingBox())!;
+  return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+};
+
+test('@smoke dragging X′ around the circle, turning the element and tapping a principal point all set θ', async ({ page }) => {
+  await page.goto('/en/tools/mohr-2d/');
+  await expect(page.getByTestId('mohr2d')).toBeVisible();
+  await expect(page.getByTestId('mohr2d-sxr')).toHaveText('80.00');
+
+  const from = await centre(page, 'mohr2d-drag-x');
+  const to = await centre(page, 'mohr2d-go-tmax');
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move((from.x + to.x) / 2, Math.min(from.y, to.y) - 10, { steps: 6 });
+  await page.mouse.move(to.x, to.y, { steps: 6 });
+  await page.mouse.up();
+  expect(Number(await fieldValue(page, 'mohr2d-theta-input'))).toBeCloseTo(-22.5, 0);
+  expect(await number(page, 'mohr2d-txyr')).toBeCloseTo(42.43, 1);
+  expect(await number(page, 'mohr2d-sxr')).toBeCloseTo(50, 1);
+  await expect(page.getByTestId('mohr2d-drag-x')).toHaveAttribute('aria-valuenow', /^-22\.5/);
+
+  await page.getByTestId('mohr2d-go-p1').click();
+  await expect(page.getByTestId('mohr2d-theta-input')).toHaveValue('22.5');
+  await expect(page.getByTestId('mohr2d-sxr')).toHaveText('92.43');
+  await expect(page.getByTestId('mohr2d-txyr')).toHaveText('0.00');
+  await expect(page.getByTestId('mohr2d-to-principal')).toHaveAttribute('aria-pressed', 'true');
+
+  await page.getByTestId('mohr2d-to-origin').click();
+  await expect(page.getByTestId('mohr2d-theta-input')).toHaveValue('0');
+  const element = (await page.getByTestId('mohr2d-element').boundingBox())!;
+  const c = { x: element.x + element.width / 2, y: element.y + element.height / 2 };
+  const knob = await centre(page, 'mohr2d-element-knob');
+  const r = Math.hypot(knob.x - c.x, knob.y - c.y);
+  const start = Math.atan2(-(knob.y - c.y), knob.x - c.x);
+  await page.mouse.move(knob.x, knob.y);
+  await page.mouse.down();
+  for (let k = 1; k <= 9; k++) {
+    const a = start + (k / 9) * (Math.PI / 2);
+    await page.mouse.move(c.x + r * Math.cos(a), c.y - r * Math.sin(a));
+  }
+  await page.mouse.up();
+  expect(Number(await fieldValue(page, 'mohr2d-theta-input'))).toBeCloseTo(90, 0);
+  await expect(page.getByTestId('mohr2d-sxr')).toHaveText('20.00');
+  await expect(page.getByTestId('mohr2d-syr')).toHaveText('80.00');
+  await expect(page.getByTestId('mohr2d-txyr')).toHaveText('-30.00');
+
+  await page.getByTestId('mohr2d-drag-x').focus();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('mohr2d-theta-input')).toHaveValue('0.5');
+});
+
+test('@smoke the 3D circles cut along a principal plane and a plane of maximum shear, and the cube draws the cut', async ({ page }) => {
+  await page.goto('/en/tools/mohr-3d/');
+  await expect(page.getByTestId('mohr3d')).toBeVisible();
+  await expect(page.getByTestId('mohr3d-cut')).toHaveAttribute('points', /\d/);
+  const before = await page.getByTestId('mohr3d-cut').getAttribute('points');
+
+  await page.getByTestId('mohr3d-go-s1').click();
+  await expect(page.getByTestId('mohr3d-sn')).toHaveText('92.53');
+  await expect(page.getByTestId('mohr3d-tn')).toHaveText('0.00');
+  await expect(page.getByTestId('mohr3d-cut')).not.toHaveAttribute('points', before!);
+
+  await page.getByTestId('mohr3d-go-tmax').click();
+  await expect(page.getByTestId('mohr3d-tn')).toHaveText('64.81');
+  expect(await number(page, 'mohr3d-sn')).toBeCloseTo((92.53 - 37.10) / 2, 1);
+
+  await page.getByTestId('mohr3d-preset').selectOption('hydrostatic');
+  await expect(page.getByTestId('mohr3d-tn')).toHaveText('0.00');
+  expect(await page.locator('[data-testid="mohr3d"] svg').evaluateAll((svgs) => svgs.every((s) => !s.outerHTML.includes('NaN')))).toBe(true);
 });
 
 for (const id of ['mohr-2d', 'mohr-3d']) {

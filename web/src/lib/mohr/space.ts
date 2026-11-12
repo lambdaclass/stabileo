@@ -60,6 +60,48 @@ export function onPlane(s: Tensor3, n: Vec3): PlaneTraction {
   return { t, sigmaN, tauN: Math.sqrt(Math.max(0, tt - sigmaN * sigmaN)) };
 }
 
+/** Two unit vectors that span the plane with normal `n`, so that (e1, e2, n) is right-handed. */
+export function planeBasis(n: Vec3): [Vec3, Vec3] {
+  const helper: Vec3 = Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+  const raw: Vec3 = [helper[1] * n[2] - helper[2] * n[1], helper[2] * n[0] - helper[0] * n[2], helper[0] * n[1] - helper[1] * n[0]];
+  const l = Math.hypot(...raw) || 1;
+  const e1: Vec3 = [raw[0] / l, raw[1] / l, raw[2] / l];
+  return [e1, [n[1] * e1[2] - n[2] * e1[1], n[2] * e1[0] - n[0] * e1[2], n[0] * e1[1] - n[1] * e1[0]]];
+}
+
+/** The polygon where the plane through the origin with normal `n` cuts the cube [−h, h]³, in order around `n`. */
+export function planeThroughCube(n: Vec3, h = 1): Vec3[] {
+  const points: Vec3[] = [];
+  for (let i = 0; i < 3; i++) {
+    const j = (i + 1) % 3, k = (i + 2) % 3;
+    if (Math.abs(n[i]) < 1e-12) continue;
+    for (const a of [-h, h]) for (const b of [-h, h]) {
+      const x = -(n[j] * a + n[k] * b) / n[i];
+      if (Math.abs(x) > h * (1 + 1e-9)) continue;
+      const p: Vec3 = [0, 0, 0];
+      p[i] = x; p[j] = a; p[k] = b;
+      if (!points.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]) < 1e-9 * h)) points.push(p);
+    }
+  }
+  const [e1, e2] = planeBasis(n);
+  const angle = (p: Vec3) => Math.atan2(p[0] * e2[0] + p[1] * e2[1] + p[2] * e2[2], p[0] * e1[0] + p[1] * e1[1] + p[2] * e1[2]);
+  return points.sort((a, b) => angle(a) - angle(b));
+}
+
+export function splitTraction(s: Tensor3, n: Vec3): { t: Vec3; normal: Vec3; shear: Vec3; sigmaN: number; tauN: number } {
+  const { t, sigmaN, tauN } = onPlane(s, n);
+  const normal: Vec3 = [sigmaN * n[0], sigmaN * n[1], sigmaN * n[2]];
+  return { t, normal, shear: [t[0] - normal[0], t[1] - normal[1], t[2] - normal[2]], sigmaN, tauN };
+}
+
+/** The normal of a plane of maximum shear: halfway between the σ1 and σ3 directions. */
+export function maxShearNormal(directions: [Vec3, Vec3, Vec3]): Vec3 {
+  const [a, , c] = directions;
+  const v: Vec3 = [a[0] + c[0], a[1] + c[1], a[2] + c[2]];
+  const l = Math.hypot(...v) || 1;
+  return [v[0] / l, v[1] / l, v[2] / l];
+}
+
 export interface Principal3 {
   values: [number, number, number];
   directions: [Vec3, Vec3, Vec3];

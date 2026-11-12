@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PRESETS, principal3, invariants3, onPlane, normalFromAngles, anglesFromNormal, OCTAHEDRAL, sphereSamples, matrixOf, type Vec3, type Tensor3 } from '../space';
+import { PRESETS, principal3, invariants3, onPlane, normalFromAngles, anglesFromNormal, OCTAHEDRAL, sphereSamples, matrixOf, planeBasis, planeThroughCube, splitTraction, maxShearNormal, type Vec3, type Tensor3 } from '../space';
 
 const close = (a: number[], b: number[], digits = 9) => a.forEach((v, i) => expect(v).toBeCloseTo(b[i], digits));
 const r = Math.SQRT1_2;
@@ -150,5 +150,45 @@ describe('plane angles', () => {
     const samples = sphereSamples(250);
     expect(samples).toHaveLength(250);
     for (const v of samples as Vec3[]) expect(Math.hypot(...v)).toBeCloseTo(1, 12);
+  });
+});
+
+describe('the cutting plane on the element', () => {
+  const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  it('a face plane cuts the cube in a square, the octahedral plane in a hexagon, all points on the plane and in order', () => {
+    for (const [n, count] of [[[1, 0, 0], 4], [[0, 0, 1], 4], [normalFromAngles(OCTAHEDRAL.phi, OCTAHEDRAL.theta), 6], [[r, r, 0], 4], [normalFromAngles(30, 60), 6]] as [Vec3, number][]) {
+      const poly = planeThroughCube(n, 2);
+      expect(poly).toHaveLength(count);
+      for (const p of poly) {
+        expect(dot(p, n)).toBeCloseTo(0, 9);
+        expect(Math.max(...p.map(Math.abs))).toBeLessThanOrEqual(2 + 1e-9);
+      }
+      const [e1, e2] = planeBasis(n);
+      const angles = poly.map((p) => Math.atan2(dot(p, e2), dot(p, e1)));
+      expect([...angles].sort((a, b) => a - b)).toEqual(angles);
+    }
+  });
+  it('the plane basis is orthonormal and right-handed with n', () => {
+    for (const n of [[0, 0, 1], [1, 0, 0], normalFromAngles(30, 60)] as Vec3[]) {
+      const [e1, e2] = planeBasis(n);
+      expect(dot(e1, e2)).toBeCloseTo(0, 12);
+      expect(dot(e1, n)).toBeCloseTo(0, 12);
+      expect(Math.hypot(...e2)).toBeCloseTo(1, 12);
+      const cross: Vec3 = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+      close(cross, n, 12);
+    }
+  });
+  it('splits the traction into σn along n and τn in the plane', () => {
+    const n = normalFromAngles(30, 60);
+    const { t, normal, shear, sigmaN, tauN } = splitTraction(PRESETS.general, n);
+    close(normal.map((v, i) => v + shear[i]), t, 12);
+    expect(dot(shear, n)).toBeCloseTo(0, 9);
+    expect(Math.hypot(...shear)).toBeCloseTo(tauN, 9);
+    expect(sigmaN).toBeCloseTo(59.73, 2);
+  });
+  it('the plane halfway between σ1 and σ3 carries τmax', () => {
+    const p = principal3(PRESETS.general);
+    const { tauN } = onPlane(PRESETS.general, maxShearNormal(p.directions));
+    expect(tauN).toBeCloseTo(invariants3(PRESETS.general).tauMax, 8);
   });
 });
