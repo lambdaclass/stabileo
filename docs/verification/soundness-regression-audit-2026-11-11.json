@@ -142,7 +142,8 @@
     "archived_reference_observations": 348,
     "archived_farther_reference_observations": 30,
     "archived_incomparable_reference_observations": 13,
-    "site_gallery_endpoint_completeness_verified": false
+    "site_gallery_endpoint_completeness_verified": false,
+    "frozen_refused_at_head_reference_observations": 0
   },
   "verdict": "No newly introduced silent wrong engineering answer confirmed within the pinned interval. Existing missing arc-length reactions are known wrong under #1949. Adjacent-boundary attribution does not establish earliest introduction.",
   "explanations": {
@@ -304009,7 +304010,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_16x16:0",
@@ -304035,7 +304037,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8:0",
@@ -304060,7 +304063,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8:1",
@@ -304086,7 +304090,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8:2",
@@ -304112,7 +304117,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8:2",
@@ -304138,7 +304144,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_hole:0",
@@ -304164,7 +304171,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_hole:1",
@@ -304190,7 +304198,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_navier_plate:0",
@@ -304215,7 +304224,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_navier_plate:1",
@@ -304240,7 +304250,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_raasch_hook:0",
@@ -304266,7 +304277,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_raasch_hook:1",
@@ -304292,7 +304304,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_scordelis_lo:0",
@@ -304318,7 +304331,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_scordelis_lo:1",
@@ -304344,7 +304358,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_twisted_beam:0",
@@ -304370,7 +304385,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_twisted_beam:1",
@@ -304396,7 +304412,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_twisted_beam:2",
@@ -304422,7 +304439,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_navier_plate_quad_pressure:0",
@@ -304448,7 +304466,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_navier_plate_quad_pressure:1",
@@ -304474,7 +304493,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_plate_bending_navier_convergence:0",
@@ -304499,7 +304519,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_plate_bending_navier_convergence:1",
@@ -304524,7 +304545,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_plate_bending_navier_convergence:2",
@@ -304550,7 +304572,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_hemisphere_rt_sweep:0",
@@ -304575,7 +304598,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_hemisphere_rt_sweep:1",
@@ -304600,7 +304624,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_hemisphere_rt_sweep:2",
@@ -304626,7 +304651,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:0",
@@ -304651,7 +304677,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:0",
@@ -304676,7 +304703,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:1",
@@ -304701,7 +304729,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:1",
@@ -304726,7 +304755,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:1",
@@ -304751,7 +304781,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:1",
@@ -304776,7 +304807,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:1",
@@ -304801,7 +304833,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:1",
@@ -304826,7 +304859,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:1",
@@ -304851,7 +304885,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:1",
@@ -304876,7 +304911,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:2",
@@ -304902,7 +304938,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:2",
@@ -304928,7 +304965,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:2",
@@ -304954,7 +304992,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:2",
@@ -304980,7 +305019,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:3",
@@ -305005,7 +305045,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:3",
@@ -305030,7 +305071,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:3",
@@ -305055,7 +305097,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:3",
@@ -305080,7 +305123,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:3",
@@ -305105,7 +305149,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:3",
@@ -305130,7 +305175,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:3",
@@ -305155,7 +305201,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:3",
@@ -305180,7 +305227,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_pinched_hemisphere:0",
@@ -305206,7 +305254,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_pinched_hemisphere:1",
@@ -305232,7 +305281,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_raasch_hook:0",
@@ -305258,7 +305308,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_raasch_hook:1",
@@ -305284,7 +305335,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_raasch_hook:2",
@@ -305310,7 +305362,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:0",
@@ -305336,7 +305389,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:0",
@@ -305362,7 +305416,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:0",
@@ -305388,7 +305443,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:0",
@@ -305414,7 +305470,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:1",
@@ -305440,7 +305497,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:2",
@@ -305466,7 +305524,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:2",
@@ -305492,7 +305551,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:2",
@@ -305518,7 +305578,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:2",
@@ -305544,7 +305605,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
@@ -305569,7 +305631,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "self convergence",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
@@ -305594,7 +305657,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "self convergence",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
@@ -305619,7 +305683,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "self convergence",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:0",
@@ -305644,7 +305709,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "self convergence",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
@@ -305669,7 +305735,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "self convergence",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
@@ -305694,7 +305761,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "self convergence",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
@@ -305719,7 +305787,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "self convergence",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
@@ -305744,7 +305813,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "self convergence",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
@@ -305770,7 +305840,8 @@
         "reference_kind": "self convergence",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
@@ -305796,7 +305867,8 @@
         "reference_kind": "self convergence",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
@@ -305822,7 +305894,8 @@
         "reference_kind": "self convergence",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
@@ -305847,7 +305920,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "self convergence",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
@@ -305872,7 +305946,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "self convergence",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
@@ -305897,7 +305972,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "self convergence",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
@@ -305922,7 +305998,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "self convergence",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_raasch_hook:0",
@@ -305948,7 +306025,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_raasch_hook:1",
@@ -305974,7 +306052,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_raasch_hook:2",
@@ -306000,7 +306079,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_mixed_tri_quad_patch:0",
@@ -306025,7 +306105,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_bending:0",
@@ -306051,7 +306132,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_bending:0",
@@ -306077,7 +306159,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_bending:0",
@@ -306103,7 +306186,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_bending:0",
@@ -306129,7 +306213,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:0",
@@ -306154,7 +306239,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:0",
@@ -306179,7 +306265,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:0",
@@ -306204,7 +306291,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:0",
@@ -306229,7 +306317,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:1",
@@ -306255,7 +306344,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:1",
@@ -306281,7 +306371,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:1",
@@ -306307,7 +306398,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:1",
@@ -306333,7 +306425,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:2",
@@ -306359,7 +306452,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:2",
@@ -306385,7 +306479,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:2",
@@ -306411,7 +306506,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:2",
@@ -306437,7 +306533,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_navier_plate:0",
@@ -306464,7 +306561,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_navier_plate:0",
@@ -306491,7 +306589,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_navier_plate:0",
@@ -306518,7 +306617,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_navier_plate:0",
@@ -306545,7 +306645,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_pinched_hemisphere:0",
@@ -306571,7 +306672,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_pinched_hemisphere:1",
@@ -306597,7 +306699,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:0",
@@ -306623,7 +306726,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:0",
@@ -306649,7 +306753,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:0",
@@ -306675,7 +306780,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:0",
@@ -306701,7 +306807,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:1",
@@ -306727,7 +306834,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:1",
@@ -306753,7 +306861,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:1",
@@ -306779,7 +306888,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:1",
@@ -306805,7 +306915,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_spherical_cap:0",
@@ -306831,7 +306942,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_twisted_beam:0",
@@ -306856,7 +306968,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_twisted_beam:1",
@@ -306882,7 +306995,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_warped_element_accuracy:0",
@@ -306908,7 +307022,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:0",
@@ -306933,7 +307048,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:1",
@@ -306958,7 +307074,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:2",
@@ -306983,7 +307100,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:3",
@@ -307008,7 +307126,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:4",
@@ -307033,7 +307152,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:5",
@@ -307058,7 +307178,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:6",
@@ -307083,7 +307204,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:7",
@@ -307108,7 +307230,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:8",
@@ -307133,7 +307256,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:9",
@@ -307158,7 +307282,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:10",
@@ -307183,7 +307308,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:11",
@@ -307208,7 +307334,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:12",
@@ -307233,7 +307360,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:13",
@@ -307258,7 +307386,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:14",
@@ -307283,7 +307412,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:15",
@@ -307308,7 +307438,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:16",
@@ -307333,7 +307464,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:17",
@@ -307358,7 +307490,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:18",
@@ -307383,7 +307516,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:19",
@@ -307408,7 +307542,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:21",
@@ -307433,7 +307568,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:22",
@@ -307458,7 +307594,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:23",
@@ -307483,7 +307620,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:24",
@@ -307508,7 +307646,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:25",
@@ -307533,7 +307672,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:28",
@@ -307558,7 +307698,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "navier_plate::navier_plate_shared_cases:29",
@@ -307584,7 +307725,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "research_benchmarks::macneal_frame_shear_and_moment:0",
@@ -307609,7 +307751,8 @@
         "comparison_mode": "identical frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "research_benchmarks::macneal_frame_shear_and_moment:1",
@@ -307634,7 +307777,8 @@
         "comparison_mode": "identical frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "research_benchmarks::macneal_frame_shear_and_moment:2",
@@ -307659,7 +307803,8 @@
         "comparison_mode": "identical frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "research_benchmarks::macneal_frame_shear_and_moment:3",
@@ -307684,7 +307829,8 @@
         "comparison_mode": "identical frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "research_benchmarks::macneal_frame_shear_and_moment:4",
@@ -307709,7 +307855,8 @@
         "comparison_mode": "identical frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "research_benchmarks::macneal_frame_shear_and_moment:5",
@@ -307734,7 +307881,8 @@
         "comparison_mode": "identical frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "research_benchmarks::macneal_regular_in:0",
@@ -307761,7 +307909,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "research_benchmarks::macneal_regular_out:0",
@@ -307788,7 +307937,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "macneal:frame-shear-1-uz:0",
@@ -307813,7 +307963,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "macneal:frame-shear-2-uz:0",
@@ -307838,7 +307989,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "macneal:frame-shear-4-uz:0",
@@ -307863,7 +308015,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "macneal:frame-shear-8-uz:0",
@@ -307888,7 +308041,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "macneal:frame-moment-4-uz:0",
@@ -307913,7 +308067,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "macneal:frame-moment-4-ry:0",
@@ -307938,7 +308093,8 @@
         "comparison_mode": "same frozen input",
         "reference_kind": "source formula or published target",
         "pr": null,
-        "first_parent_merge": null
+        "first_parent_merge": null,
+        "status": "compared"
       },
       {
         "id": "macneal:mitc4-regular-out:0",
@@ -307965,7 +308121,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "macneal:mitc4-regular-in:0",
@@ -307992,7 +308149,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "macneal:mitc4-trapezoidal-out:0",
@@ -308019,7 +308177,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "macneal:mitc4-parallelogram-out:0",
@@ -308046,7 +308205,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "NAFEMS R0031 cantilever, test source:ux",
@@ -308070,7 +308230,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "NAFEMS R0031 cantilever, test source:uy",
@@ -308094,7 +308255,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "NAFEMS R0031 cantilever, test source:uz",
@@ -308118,7 +308280,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "NAFEMS R0031 cantilever, test source:rz",
@@ -308142,7 +308305,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "NAFEMS R0031 cantilever, test source:ry",
@@ -308166,7 +308330,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "NAFEMS R0031 global equilibrium, test source:fx",
@@ -308190,7 +308355,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "NAFEMS R0031 global equilibrium, test source:fy",
@@ -308214,7 +308380,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "NAFEMS R0031 global equilibrium, test source:fz",
@@ -308238,7 +308405,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "scordelis-lo https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm:uz",
@@ -308262,7 +308430,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "scordelis-lo https://doc.comsol.com/6.4/doc/com.comsol.help.models.sme.scordelis_lo_roof/scordelis_lo_roof.html:uz",
@@ -308286,7 +308455,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "scordelis-lo https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm:uz",
@@ -308310,7 +308480,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "scordelis-lo https://doc.comsol.com/6.4/doc/com.comsol.help.models.sme.scordelis_lo_roof/scordelis_lo_roof.html:uz",
@@ -308334,7 +308505,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "scordelis-lo https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm:uz",
@@ -308358,7 +308530,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "scordelis-lo https://doc.comsol.com/6.4/doc/com.comsol.help.models.sme.scordelis_lo_roof/scordelis_lo_roof.html:uz",
@@ -308382,7 +308555,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "scordelis-lo https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm:uz",
@@ -308406,7 +308580,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "scordelis-lo https://doc.comsol.com/6.4/doc/com.comsol.help.models.sme.scordelis_lo_roof/scordelis_lo_roof.html:uz",
@@ -308430,7 +308605,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "VM41 bending plus torsion, test source:uy",
@@ -308454,7 +308630,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       }
     ],
     "frozen_farther": [
@@ -308482,7 +308659,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8:1",
@@ -308508,7 +308686,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8:2",
@@ -308534,7 +308713,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_hole:1",
@@ -308560,7 +308740,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_curved_shell_scordelis_lo:1",
@@ -308586,7 +308767,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_hemisphere_rt_sweep:2",
@@ -308612,7 +308794,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:2",
@@ -308638,7 +308821,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:2",
@@ -308664,7 +308848,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:2",
@@ -308690,7 +308875,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:2",
@@ -308716,7 +308902,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_raasch_hook:1",
@@ -308742,7 +308929,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:2",
@@ -308768,7 +308956,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:2",
@@ -308794,7 +308983,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:2",
@@ -308820,7 +309010,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo:2",
@@ -308846,7 +309037,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_raasch_hook:0",
@@ -308872,7 +309064,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_bending:0",
@@ -308898,7 +309091,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_bending:0",
@@ -308924,7 +309118,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_bending:0",
@@ -308950,7 +309145,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_bending:0",
@@ -308976,7 +309172,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:1",
@@ -309002,7 +309199,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:1",
@@ -309028,7 +309226,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:1",
@@ -309054,7 +309253,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:1",
@@ -309080,7 +309280,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:2",
@@ -309106,7 +309307,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:2",
@@ -309132,7 +309334,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:2",
@@ -309158,7 +309361,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence:2",
@@ -309184,7 +309388,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_navier_plate:0",
@@ -309211,7 +309416,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_navier_plate:0",
@@ -309238,7 +309444,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_navier_plate:0",
@@ -309265,7 +309472,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_navier_plate:0",
@@ -309292,7 +309500,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_pinched_hemisphere:1",
@@ -309318,7 +309527,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:0",
@@ -309344,7 +309554,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:0",
@@ -309370,7 +309581,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:0",
@@ -309396,7 +309608,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:0",
@@ -309422,7 +309635,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:1",
@@ -309448,7 +309662,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:1",
@@ -309474,7 +309689,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:1",
@@ -309500,7 +309716,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo:1",
@@ -309526,7 +309743,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_ss_twisted_beam:1",
@@ -309552,7 +309770,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_warped_element_accuracy:0",
@@ -309578,7 +309797,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "research_benchmarks::macneal_regular_in:0",
@@ -309605,7 +309825,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "research_benchmarks::macneal_regular_out:0",
@@ -309632,7 +309853,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "macneal:mitc4-regular-out:0",
@@ -309659,7 +309881,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "macneal:mitc4-regular-in:0",
@@ -309686,7 +309909,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "macneal:mitc4-trapezoidal-out:0",
@@ -309713,7 +309937,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "macneal:mitc4-parallelogram-out:0",
@@ -309740,7 +309965,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "scordelis-lo https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm:uz",
@@ -309764,7 +309990,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "scordelis-lo https://doc.comsol.com/6.4/doc/com.comsol.help.models.sme.scordelis_lo_roof/scordelis_lo_roof.html:uz",
@@ -309788,7 +310015,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "scordelis-lo https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm:uz",
@@ -309812,7 +310040,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       },
       {
         "id": "scordelis-lo https://doc.comsol.com/6.4/doc/com.comsol.help.models.sme.scordelis_lo_roof/scordelis_lo_roof.html:uz",
@@ -309836,7 +310065,8 @@
         "reference_kind": "source formula or published target",
         "pr": 1753,
         "first_parent_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-        "evidence": "all-static-bisection.json.gz"
+        "evidence": "all-static-bisection.json.gz",
+        "status": "compared"
       }
     ],
     "unresolved_frozen_measurements": [],
@@ -309851,7 +310081,12 @@
       "reason": "Archived observations lack unique stable measurement selectors; positional pairing is not valid evidence.",
       "evidence": "final-endpoint-checks.json",
       "requires": "Capture stable site and explicit model/quantity/parameter selectors for repeated observations, then rerun both endpoints."
-    }
+    },
+    "frozen_outcome_counts": {
+      "compared": 176,
+      "refused at head": 0
+    },
+    "model_attribution_limitation": "Model attribution and fallback measurement-selector recovery remain value-based and may be ambiguous where values coincide; the coordinator tracks that separately."
   },
   "merge_reviews": [
     {
@@ -334902,7 +335137,9 @@
     "A closure replay does not identify a fixing PR. Unattributed harness fixes are explicitly retained as unresolved rather than inferred from roadmap/cross-reference PRs.",
     "The pinned endpoints lack three results registrations. Follow-up remediation in this PR adds the SSI, arc-length and public slab registry entries, result-change write-ups and exact frozen corpus. Two archived arc outputs omit reactions and are known wrong under #1949; expected-failure checks track them separately. No engine production fix, tolerance relaxation or advisory is included.",
     "Historical bisection artifacts establish the recorded adjacent transitions, not the earliest change: monotonicity was unverified. Corrected scripts scan revisions in order. A full history rerun was excluded by the targeted-only, no-heavy-runs constraint.",
-    "Final endpoint checks reject the historical as-shipped reference comparison batch and withdraw its distance conclusions. Raw gallery endpoint captures are unavailable locally, so the archived 86-case gallery summary does not reverify endpoint completeness. See final-endpoint-checks.json. Frozen-input results retain explicit measurement selectors and archived adjacent outputs."
+    "Final endpoint checks reject the historical as-shipped reference comparison batch and withdraw its distance conclusions. Raw gallery endpoint captures are unavailable locally, so the archived 86-case gallery summary does not reverify endpoint completeness. See final-endpoint-checks.json. Frozen-input results retain explicit measurement selectors and archived adjacent outputs.",
+    "Model attribution and fallback measurement-selector recovery remain value-based and may be ambiguous where values coincide; the coordinator tracks that separately.",
+    "Review rerun regenerates 95 frozen measurements from available adjacent full outputs and matches their archived endpoint measurements exactly, including all 53 distance flags. All 176 archived comparisons remain retained; complete pinned endpoint captures are unavailable locally, so this is not a full endpoint replay. The seven native refusals have no attributed engineering-reference measurement; refused-at-head reference count is zero. See review-endpoint-checks.json."
   ],
   "registration_gaps": [
     {
@@ -335044,8 +335281,8 @@
     },
     {
       "file": "collect-references.py",
-      "bytes": 3285,
-      "sha256": "7799349f5240f4078915e40caf3a2b53932f3fba444242ec7859f5b33044db35"
+      "bytes": 3372,
+      "sha256": "73f89503957c7d83b2709e7d4b348408d5957a375940ddf48a312275be65462d"
     },
     {
       "file": "compare.py",
@@ -335079,8 +335316,8 @@
     },
     {
       "file": "frozen-references.py",
-      "bytes": 8310,
-      "sha256": "510cf2e9c7b64403aaba475e1b4623b925f0dfe014f7a3b98dfc61e927a87120"
+      "bytes": 8938,
+      "sha256": "c7ca00691b68273974c91ddd737208584aa0ff6ad2a82d6def35cf19d4886562"
     },
     {
       "file": "harmonic-fix-a9d72cbe6.log",
@@ -335179,8 +335416,8 @@
     },
     {
       "file": "reference-comparisons.json",
-      "bytes": 594524,
-      "sha256": "536a416ea7d1f9bfe3cd90b0faa85c6e5d5c0b4f33783f5ddbe08e17974ff7fb"
+      "bytes": 601217,
+      "sha256": "8a27116af8cfe3921f9faf544a659c9bc9373bb07212912b5e2228aa6abcea12"
     },
     {
       "file": "reference-probe-logs.json.gz",
@@ -335306,6 +335543,11 @@
       "file": "final-endpoint-checks.json",
       "bytes": 13316,
       "sha256": "e732be353484dff686c20e2833ec726b0a61e702e44c34ab90b83f2d918cb882"
+    },
+    {
+      "file": "review-endpoint-checks.json",
+      "bytes": 4301,
+      "sha256": "37f427807575b5162282d6e3dcb0adec6c20076e525e9e8be0bea3c0deca9f8c"
     }
   ],
   "round_2_evidence": {
@@ -336014,5 +336256,57 @@
       },
       "status": "withdrawn: historical endpoint measurement identity not validated"
     }
-  ]
+  ],
+  "review_endpoint_checks": {
+    "checks": {
+      "collect-references.py": {
+        "status": 1,
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 49, in <module>\n    main(pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path('/root/audit/soundness-2026-11-11'))\n    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 18, in main\n    endpoints[endpoint]=measurement_index(rows)\n                        ~~~~~~~~~~~~~~~~~^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 27, in measurement_index\n    raise ValueError(f'duplicate measurement identity: {key}; capture an explicit selector for every loop measurement')\nValueError: duplicate measurement identity: ('benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8', 'shell:6724', 'null'); capture an explicit selector for every loop measurement\n",
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/collect-references.py .cache/issue-1946-review/replay"
+      },
+      "finish-analysis.py": {
+        "status": 1,
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py\", line 8, in <module>\n    for name in paired_endpoint_keys(*captures):\n                ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 12, in paired_endpoint_keys\n    raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')\nValueError: endpoint identity mismatch: missing baseline=[], missing head=[], empty=True\n",
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py .cache/issue-1946-review/replay"
+      },
+      "frozen-references.py": {
+        "status": 0,
+        "stdout": "shipped rows 48 farther 25 frozen primary 95 farther 53 unresolved 0 outcomes {'compared': 95, 'refused at head': 0}\nno farther model []\n",
+        "stderr": "",
+        "scope": "Available archived adjacent full outputs, not a complete pinned-endpoint replay; each regenerated measurement exactly matches its stored pinned-endpoint values.",
+        "models": 80,
+        "measurements": 95,
+        "farther": 53,
+        "outcome_counts": {
+          "compared": 95,
+          "refused at head": 0
+        },
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/frozen-references.py .cache/issue-1946-review/replay"
+      }
+    },
+    "refusal_coverage": {
+      "native_refused_models": 7,
+      "reference_attributed_refused_models": 0,
+      "formula_reference_refused_models": 0,
+      "archived_reference_measurements": 176,
+      "refused_at_head": 0
+    },
+    "attribution_limitation": "Model attribution and fallback measurement-selector recovery remain value-based and may be ambiguous where values coincide; the coordinator tracks that separately.",
+    "conclusion_changes": [],
+    "scope": "No engine suite or full replay run. Complete pinned endpoint captures are unavailable locally. Historical as-shipped measurements and gallery completeness remain unvalidated; their scripts still refuse.",
+    "reconstruction": {
+      "inputs": "fixed-models.json.gz",
+      "outputs": [
+        "all-static-bisection.json.gz",
+        "reference-bisection.json"
+      ],
+      "references": "reference-comparisons.json; engineering rows with all attributed models present in the available output archives",
+      "benchmark_cases": "3e8b33d1c11b39ccf7590596196a8c9443151491:engine/tests/benchmarks/macneal_harder.json",
+      "roof_references": "85c002b3a378a076fe118d75fcb665b5099dba46:engine/tests/benchmarks/spec/scordelis-lo.json",
+      "endpoint_logs": "reference-probe-logs.json.gz",
+      "verification": "Every regenerated before, after, reference, error, selector, test and farther flag equals its archived frozen comparison. Other archived comparisons are retained without claiming a fresh endpoint replay."
+    }
+  }
 }

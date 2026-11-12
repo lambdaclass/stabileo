@@ -15,8 +15,13 @@ AUDIT = ROOT / 'docs/verification/soundness-regression-audit-2026-11-11'
 
 def execute_audit_script(filename, area):
     source = (AUDIT / filename).read_text().replace('/root/audit/soundness-2026-11-11', str(area))
-    with patch.object(sys, 'argv', [filename, str(area)]):
-        exec(compile(source, str(AUDIT / filename), 'exec'), {'__file__': str(AUDIT / filename)})
+    namespace = {'__file__': str(AUDIT / filename), '__name__': 'audit_script'}
+    if filename in ['collect-references.py', 'frozen-references.py']:
+        exec(compile(source, str(AUDIT / filename), 'exec'), namespace)
+        namespace['main'](area)
+    else:
+        with patch.object(sys, 'argv', [filename, str(area)]):
+            exec(compile(source, str(AUDIT / filename), 'exec'), namespace)
 
 
 def partial():
@@ -78,9 +83,7 @@ class References(unittest.TestCase):
                 row['category'] = 'engineering_reference'
                 row['reference_kind'] = 'source formula or published target'
             (area / 'reference-comparisons.json').write_text(json.dumps({'rows': stale}))
-            source = (AUDIT / 'frozen-references.py').read_text()
-            with patch.object(sys, 'argv', ['frozen-references.py', directory]):
-                exec(compile(source, str(AUDIT / 'frozen-references.py'), 'exec'), {'__file__': str(AUDIT / 'frozen-references.py')})
+            execute_audit_script('frozen-references.py', area)
             frozen = json.loads((area / 'reference-comparisons.json').read_text())
             self.assertEqual(frozen['coverage_counts'], regenerated['coverage_counts'])
             self.assertEqual(frozen['frozen_primary_comparisons'], [])
@@ -113,7 +116,7 @@ class FrozenRefusals(unittest.TestCase):
         (area / 'repo/engine/tests/benchmarks/spec').mkdir(parents=True)
         (area / 'repo/engine/tests/benchmarks/spec/scordelis-lo.json').write_text(json.dumps({
             'references': [{'value': 1, 'citation': 'synthetic control'}]}))
-        model = dict(nodes={'1': dict(id=1, x=0, y=0, z=0), '2': dict(id=2, x=1, y=1, z=1)},
+        model = dict(nodes={'1': dict(id=1, x=0, y=1, z=0), '2': dict(id=2, x=1, y=1, z=1)},
                      materials={'1': dict(e=1, nu=0)}, sections={'1': dict(a=1, iy=1, iz=1, j=1)},
                      loads=[dict(type='nodal', data=dict(fx=1, fy=1, fz=1))])
         result = dict(displacements=[dict(nodeId=n, ux=1, uy=1, uz=1, ry=1, rz=1) for n in [1, 2]],
@@ -126,7 +129,23 @@ class FrozenRefusals(unittest.TestCase):
         (area / 'reference-comparisons.json').write_text(json.dumps({'rows': [row] if generic else []}))
         return record
 
-    @unittest.skip('known wrong result: #1946')
+    def test_cli_and_explicit_directory_produce_identical_outcomes(self):
+        for script in ['collect-references.py', 'frozen-references.py']:
+            for refused in [False, True]:
+                with self.subTest(script=script, refused=refused), tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                    area = Path(directory)
+                    record = self.fixture(area, 'solve_3d', 'synthetic_reference')
+                    head = {**record, 'result': {'Err': 'synthetic refusal'}} if refused else record
+                    (area / 'repo-fixed-native/model.json').write_text(json.dumps(head))
+                    for endpoint in ['base', 'repo']:
+                        row = dict(test='synthetic_reference', site='tip', actual=1, reference=1)
+                        (area / f'{endpoint}-reference-test.log').write_text('AUDIT_REFERENCE=' + json.dumps(row))
+                    execute_audit_script(script, area)
+                    expected = json.loads((area / 'reference-comparisons.json').read_text())
+                    result = subprocess.run([sys.executable, '-B', str(AUDIT / script), directory], text=True, capture_output=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(json.loads((area / 'reference-comparisons.json').read_text()), expected)
+
     def test_head_refusal_retains_each_successful_reference_measurement(self):
         entries = [(analysis, 'synthetic_reference', 1) for analysis in
                    ['solve_2d', 'solve_3d', 'solve_corotational_2d', 'solve_corotational_3d']]
@@ -146,7 +165,8 @@ class FrozenRefusals(unittest.TestCase):
                     rows = data['frozen_primary_comparisons']
                     self.assertEqual(len(rows), count)
                     status = 'refused at head' if refused else 'compared'
-                    self.assertEqual(data['frozen_outcome_counts'], {status: count})
+                    self.assertEqual(data['frozen_outcome_counts'], {'compared': 0 if refused else count,
+                                                                   'refused at head': count if refused else 0})
                     self.assertEqual(data['frozen_farther'], [])
                     self.assertEqual(data['unresolved_frozen_measurements'], [])
                     for row in rows:
@@ -301,6 +321,11 @@ class EvidenceChecks(unittest.TestCase):
         import hashlib
         report = json.loads(AUDIT.with_suffix('.json').read_text())
         self.assertEqual(report['reference_comparisons'], json.loads((AUDIT / 'reference-comparisons.json').read_text()))
+        references = report['reference_comparisons']
+        outcomes = {status: sum(r['status'] == status for r in references['frozen_primary_comparisons'])
+                    for status in ['compared', 'refused at head']}
+        self.assertEqual(references['frozen_outcome_counts'], outcomes)
+        self.assertEqual(report['counts']['frozen_refused_at_head_reference_observations'], outcomes['refused at head'])
         summary = json.loads((AUDIT / 'run-summary.json').read_text())
         evidence = json.loads(gzip.decompress((AUDIT / 'run-evidence.json.gz').read_bytes()))
         self.assertEqual(summary, evidence['summary'])
@@ -457,7 +482,6 @@ fn main() {
             with self.assertRaises(ValueError):
                 merge_input_records(first, invalid)
 
-    @unittest.skip('known wrong result: #1946')
     def test_reference_executor_preserves_runner_arguments(self):
         read_text = Path.read_text
         for arguments in [[], ['--verbose'], ['scripts/tests/test_soundness_audit.py']]:
@@ -527,9 +551,7 @@ fn main() {
                 (area / f'{endpoint}-fixed-native/model.json').write_text(json.dumps(record))
                 (area / f'{endpoint}-site-gallery/site-control.json').write_text(json.dumps(dict(parameters={}, model={}, outcome=dict(status='ok', readouts=[]))))
             for script in ['finish-analysis.py', 'frozen-references.py']:
-                source = (AUDIT / script).read_text().replace('/root/audit/soundness-2026-11-11', directory)
-                with patch.object(sys, 'argv', [script, directory]):
-                    exec(compile(source, str(AUDIT / script), 'exec'), {'__file__': str(AUDIT / script)})
+                execute_audit_script(script, area)
             acceptance = json.loads((area / 'acceptance-comparison.json').read_text())
             self.assertEqual((acceptance['cases'], acceptance['references']), (1, 1))
             self.assertTrue(acceptance['comparisons'][0]['after_pass'])
