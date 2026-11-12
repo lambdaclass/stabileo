@@ -853,6 +853,10 @@ test.engine.plastic-budget-corpus: build.engine.plastic-budget
 check.engine.plastic-fuzz:
 	$(NIX_RUN) cargo check --locked --release --manifest-path engine/fuzz/Cargo.toml --bin json_plastic -j 2
 
+.PHONY: test.engine.plastic-costs
+test.engine.plastic-costs:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib phase_cost_work -- --nocapture
+
 .PHONY: test.engine.plastic-wasm
 test.engine.plastic-wasm: wasm
 	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/over-budget-grid.bin 'dense storage bytes'

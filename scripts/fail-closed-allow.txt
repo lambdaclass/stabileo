@@ -86,7 +86,6 @@ engine/src/certify/plastic.rs: r.extend((0..p).map(|j| if i == j { 1.0 } else { 
 engine/src/certify/plastic.rs: theta = theta.min((r[w - 1].max(0.0) + delta) / r[jc]);
 engine/src/certify/plastic.rs: if r[jc] > ptol && r[w - 1].max(0.0) / r[jc] <= theta && row.is_none_or(|k| r[jc] > tab[k][jc]) {
 engine/src/certify/plastic.rs: degenerate = if tab[ir][w - 1].abs() < 1e-14 { degenerate + 1 } else { 0 };
-engine/src/certify/plastic.rs: if !run(&mut tab, &mut basis, &|j| if j >= n { 1.0 } else { 0.0 }, &|_| true) {
 engine/src/certify/plastic.rs: mu[basis[i]] = tab[i][w - 1].max(0.0);
 engine/src/certify/plastic.rs: .map(|k| (0..p).map(|i| if basis[i] < n { tab[i][n + k] } else { 0.0 }).sum())
 engine/src/certify/plastic.rs: let y: Vec<f64> = yhat.iter().zip(&scales).map(|(y, s)| if *s > 0.0 { y / s } else { 0.0 }).collect();
