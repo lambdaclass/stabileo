@@ -1020,3 +1020,7 @@ test.engine.pdelta-rotation-wasm: wasm
 	PLATE_CONVERGENCE_CASES=$(CURDIR)/.1940-plate-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=plate_convergence::native_exports_and_wasm_cases_keep_answers_and_iteration_limits
 	$(NIX_RUN) node scripts/tests/pdelta-rotation-wasm.mjs $(CURDIR)/.1940-plate-cases.json
 	rm -f $(CURDIR)/.1940-plate-cases.json
+
+.PHONY: audit.1088
+audit.1088:
+	$(NIX_RUN) python3 -I docs/verification/issue-1088-rank.py
