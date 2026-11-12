@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { assertUnloadedStages } from './staged-orphan-1846-unloaded.mjs';
 import { readFileSync } from 'node:fs';
 import { initSync, solve_staged_2d, solve_staged_3d, solve_2d, solve_3d, solve_corotational_2d, solve_corotational_3d, solve_pdelta_2d, solve_pdelta_3d, solve_nonlinear_material_3d, analyze_kinematics_2d, analyze_kinematics_3d, certify_linear_2d, solve_plastic_3d, solve_plastic_2d } from '../../web/src/lib/wasm/dedaliano_engine.js';
 
@@ -406,10 +407,7 @@ for (const dimension of [2, 3]) {
       ];
       const solve = dimension === 2 ? solve_staged_2d : solve_staged_3d;
       const result = JSON.parse(solve(JSON.stringify({ ...input, stages })));
-      for (const stage of result.stages) {
-        assert.ok(!(stage.results.structuredDiagnostics ?? []).some(d => d.phase === 'NUM-INVARIANCE'), JSON.stringify(stage));
-        assert.ok(stage.results.displacements.every(d => Number.isFinite(d.ux)));
-      }
+      assertUnloadedStages(result, input, stages, dimension, false);
     }
   }
 }
@@ -450,9 +448,6 @@ for (const dimension of [2, 3]) {
     { name: 'erect', elementsAdded: [1], loadIndices: [] },
   ];
   const result = JSON.parse((dimension === 2 ? solve_staged_2d : solve_staged_3d)(JSON.stringify({ ...input, stages })));
-  for (const stage of result.stages) {
-    assert.ok(!(stage.results.structuredDiagnostics ?? []).some(d => d.phase === 'NUM-INVARIANCE'));
-    assert.ok(stage.results.displacements.every(d => d.ux === 0));
-  }
+  assertUnloadedStages(result, input, stages, dimension, true);
 }
 console.log('zero-arm and entirely inactive-stage WASM boundaries pass');

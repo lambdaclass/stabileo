@@ -894,7 +894,7 @@ test.engine.staged-prestress:
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_prestress_inclined -- --nocapture $(if $(IGNORED),--ignored)
 
 test.staged-wasm-assertions:
-	$(NIX_RUN) node --test scripts/tests/staged-orphan-1846-assertions.test.mjs
+	$(NIX_RUN) node --test scripts/tests/staged-orphan-1846-assertions.test.mjs scripts/tests/staged-orphan-1846-unloaded.test.mjs
 
 .PHONY: test.engine.staged-review test.engine.staged-review-numeric
 test.engine.staged-review:
