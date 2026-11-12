@@ -1,6 +1,6 @@
 # Member load actions follow the final member frame (2026-11-12)
 
-PR #1952, round 9. Registry entry `corotational-member-load-frame`.
+PR #1952, rounds 9 and 10. Registry entry `corotational-member-load-frame`.
 This extends [SA-2026-061](../advisories/SA-2026-061-path-solver-reactions.md).
 
 Corotational recovery combined elastic end actions expressed in the final member
@@ -9,9 +9,10 @@ member load consequently lacked its axial projection after chord rotation and
 retained the original shear instead of its projection. Spatial fixed-end moments
 also require transformation when the member frame turns.
 
-Both dimensions now pass all fixed-end force and moment vectors through one
-reference-to-final-frame transformation before combining them with elastic
-actions. The spatial transformation uses the same natural-rotation frame as the
+Both dimensions transform dead mechanical fixed-end force and moment vectors
+from the reference frame before combining them with elastic actions. Thermal
+eigenstrain actions remain in the current member frame, including thermal
+gradients and released-end condensation. The spatial transformation uses the same natural-rotation frame as the
 elastic member. Planar arc-length, displacement control and native continuation
 share this recovery. The solve, applied load vectors and convergence tolerances
 are unchanged. End actions change; load metadata continues to describe loads in
@@ -42,3 +43,20 @@ element does not redistribute its released forces. The prop-removal test now
 checks the valid first-stage solution, the subsequent load increment and result
 topology; it no longer endorses unchanged displacement or cumulative equilibrium
 after removal. The known wrong redistribution result is tracked by [#1996](https://github.com/lambdaclass/stabileo/issues/1996) with an ignored physical-equilibrium reproducer; it is not fixed by this round. The coordinator owns the advisory decision.
+
+Round 10 corrects a regression introduced by round 9: transforming thermal
+fixed-end actions as dead loads gave uniform heating a transverse component
+and rotated spatial thermal-gradient moments. Recovery now keeps reference-frame
+dead loads and member-frame eigenstrain actions separate until the common final
+combination. Uniform and gradient regressions in both dimensions fail on round 9
+and retain main's thermal recovery behavior. They cover signed finite and tiny
+rotations, zero rotation, releases in 2D and superposed mechanical loads.
+
+Public corotational 2D/3D, planar path and native continuation solvers continue
+to refuse thermal loads before assembly. This correction does not enable
+nonlinear thermal analysis or change thermal assembly. Native and WASM controls
+check those refusals for positive, zero and negative temperature input. Linear
+thermal behavior is unchanged. The existing notice now requires member loads
+as well as members and nonlinear/path context, so nodal-only models do not get
+this member-load recovery notice. No new advisory applies to the branch-only
+thermal regression.

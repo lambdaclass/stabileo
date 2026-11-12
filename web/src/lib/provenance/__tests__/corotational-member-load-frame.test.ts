@@ -14,7 +14,7 @@ const changes = (loads: unknown[], analyses = ['nonlinear'], v = version - 1) =>
 const member = [{ type: 'distributed', data: { elementId: 1, qI: -2, qJ: -2 } }];
 
 describe('member-load frame notice (#1952)', () => {
-  it.fails('excludes nodal-only nonlinear models', () => {
+  it('excludes nodal-only nonlinear models', () => {
     expect(changes([{ type: 'nodal', data: { nodeId: 1, fz: -2 } }])).not.toContain(id);
   });
 

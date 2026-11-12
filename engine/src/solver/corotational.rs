@@ -862,6 +862,25 @@ fn wrap_angle(a: f64) -> f64 {
     if r <= -std::f64::consts::PI { r + two_pi } else { r }
 }
 
+struct MemberFixedEndActions<const N: usize> {
+    dead_reference: [f64; N],
+    eigenstrain_current: [f64; N],
+}
+
+impl<const N: usize> MemberFixedEndActions<N> {
+    fn in_final_frame(self, reference: Axes3, final_axes: Axes3) -> [f64; N] {
+        let dead = fixed_end_actions_in_final_frame(self.dead_reference, reference, final_axes);
+        std::array::from_fn(|i| dead[i] + self.eigenstrain_current[i])
+    }
+}
+
+fn spatial_end_actions(f: &ElementForces3D) -> [f64; 12] {
+    [
+        -f.n_start, f.vy_start, f.vz_start, f.mx_start, f.my_start, f.mz_start,
+        f.n_end, -f.vy_end, -f.vz_end, -f.mx_end, -f.my_end, -f.mz_end,
+    ]
+}
+
 fn fixed_end_actions_in_final_frame<const N: usize>(
     actions: [f64; N],
     reference: Axes3,
@@ -902,7 +921,7 @@ fn subtract_element_fef(
         0.0
     };
 
-    let mut reference_actions = [0.0; 6];
+    let mut actions = MemberFixedEndActions { dead_reference: [0.0; 6], eigenstrain_current: [0.0; 6] };
     for load in &input.loads {
         match load {
             SolverLoad::Distributed(dl) if dl.element_id == elem.id => {
@@ -918,7 +937,7 @@ fn subtract_element_fef(
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 for i in 0..6 {
-                    reference_actions[i] += fef[i];
+                    actions.dead_reference[i] += fef[i];
                 }
             }
             SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
@@ -928,7 +947,7 @@ fn subtract_element_fef(
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 for i in 0..6 {
-                    reference_actions[i] += fef[i];
+                    actions.dead_reference[i] += fef[i];
                 }
             }
             SolverLoad::Thermal(tl) if tl.element_id == elem.id => {
@@ -939,7 +958,7 @@ fn subtract_element_fef(
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 for i in 0..6 {
-                    reference_actions[i] += fef[i];
+                    actions.eigenstrain_current[i] += fef[i];
                 }
             }
             SolverLoad::AxialDistributed(al) if al.element_id == elem.id => {
@@ -951,15 +970,14 @@ fn subtract_element_fef(
                     l,
                 );
                 for i in 0..6 {
-                    reference_actions[i] += fef[i];
+                    actions.dead_reference[i] += fef[i];
                 }
             }
             _ => {}
         }
     }
     let ([c0, s0], [cn, sn]) = member_chords;
-    let actions = fixed_end_actions_in_final_frame(
-        reference_actions,
+    let actions = actions.in_final_frame(
         ([c0, s0, 0.0], [-s0, c0, 0.0], [0.0, 0.0, 1.0]),
         ([cn, sn, 0.0], [-sn, cn, 0.0], [0.0, 0.0, 1.0]),
     );
@@ -2264,11 +2282,21 @@ fn compute_corotational_forces_3d(
     left_hand: bool,
 ) -> Vec<ElementForces3D> {
     let zero = vec![0.0; dof_num.n_total];
+    let (eigenstrain_loads, dead_loads): (Vec<_>, Vec<_>) = input.loads.iter().cloned()
+        .partition(|load| matches!(load, SolverLoad3D::Thermal(_)));
     let fixed_end: std::collections::HashMap<usize, ElementForces3D> =
-        super::linear::compute_internal_forces_3d(input, dof_num, &zero)
+        super::linear::compute_internal_forces_3d_with_loads(input, &dead_loads, dof_num, &zero)
             .into_iter()
             .map(|f| (f.element_id, f))
             .collect();
+    let eigenstrain: std::collections::HashMap<usize, [f64; 12]> = if eigenstrain_loads.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        super::linear::compute_internal_forces_3d_with_loads(input, &eigenstrain_loads, dof_num, &zero)
+            .into_iter()
+            .map(|f| (f.element_id, spatial_end_actions(&f)))
+            .collect()
+    };
     let elements: std::collections::HashMap<_, _> = crate::ordered::values(&input.elements)
         .map(|e| (e.id, e))
         .collect();
@@ -2316,24 +2344,10 @@ fn compute_corotational_forces_3d(
                     [3, 4, 5].map(|k| at(elem.node_i, k)),
                     [3, 4, 5].map(|k| at(elem.node_j, k)),
                 );
-                let actions = fixed_end_actions_in_final_frame(
-                    [
-                        -fe.n_start,
-                        fe.vy_start,
-                        fe.vz_start,
-                        fe.mx_start,
-                        fe.my_start,
-                        fe.mz_start,
-                        fe.n_end,
-                        -fe.vy_end,
-                        -fe.vz_end,
-                        -fe.mx_end,
-                        -fe.my_end,
-                        -fe.mz_end,
-                    ],
-                    reference,
-                    final_axes,
-                );
+                let actions = MemberFixedEndActions {
+                    dead_reference: spatial_end_actions(fe),
+                    eigenstrain_current: eigenstrain.get(&el.element_id).copied().unwrap_or([0.0; 12]),
+                }.in_final_frame(reference, final_axes);
                 ElementForces3D {
                     length: el.length,
                     n_start: el.n_start - actions[0],
@@ -3242,25 +3256,21 @@ mod r10_tests {
         }
     }
     #[test]
-    #[ignore = "known wrong result: #1952"]
     fn issue_1952_r10_uniform_thermal_follows_member_2d() {
         thermal_2d(true);
     }
 
     #[test]
-    #[ignore = "known wrong result: #1952"]
     fn issue_1952_r10_gradient_thermal_follows_member_2d() {
         thermal_2d(false);
     }
 
     #[test]
-    #[ignore = "known wrong result: #1952"]
     fn issue_1952_r10_uniform_thermal_follows_member_3d() {
         thermal_3d(true);
     }
 
     #[test]
-    #[ignore = "known wrong result: #1952"]
     fn issue_1952_r10_gradient_thermal_follows_member_3d() {
         thermal_3d(false);
     }
