@@ -342,6 +342,7 @@ fn staged_round8_multiple_null_rotations_keep_supported_loads() {
     }
 }
 
+#[cfg(test)]
 #[test]
 fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() {
     let input: SolverInput3D = serde_json::from_str(include_str!("../../tests/fixtures/staged-round8.json")).unwrap();
@@ -424,6 +425,7 @@ fn round7_close(got: f64, expected: f64) {
     assert!((got - expected).abs() <= 1e-10 * expected.abs().max(1.0), "got={got}, expected={expected}");
 }
 
+#[cfg(test)]
 #[test]
 fn staged_round7_inclined_global_axes_reference() {
     for pads in [0, 20, 21] {
@@ -459,6 +461,7 @@ fn staged_round7_inclined_global_axes_reference() {
     }
 }
 
+#[cfg(test)]
 #[test]
 fn staged_round7_inclined_disconnected_tangent_load() {
     for pads in [0, 20, 21] {

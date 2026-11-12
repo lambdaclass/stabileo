@@ -407,7 +407,7 @@ for (const dimension of [2, 3]) {
       ];
       const solve = dimension === 2 ? solve_staged_2d : solve_staged_3d;
       const result = JSON.parse(solve(JSON.stringify({ ...input, stages })));
-      assertUnloadedStages(result, input, stages, dimension, false);
+      assertUnloadedStages(result, input, stages, dimension);
     }
   }
 }
@@ -448,6 +448,6 @@ for (const dimension of [2, 3]) {
     { name: 'erect', elementsAdded: [1], loadIndices: [] },
   ];
   const result = JSON.parse((dimension === 2 ? solve_staged_2d : solve_staged_3d)(JSON.stringify({ ...input, stages })));
-  assertUnloadedStages(result, input, stages, dimension, true);
+  assertUnloadedStages(result, input, stages, dimension);
 }
 console.log('zero-arm and entirely inactive-stage WASM boundaries pass');

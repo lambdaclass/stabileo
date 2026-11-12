@@ -14,15 +14,14 @@ for (const dimension of [2, 3]) {
     const result = () => ({ stages: stages.map(() => ({ results: output() })), finalResults: output() });
     const label = `${dimension}D ${zero ? 'inactive' : 'dormant'}`;
     test(`${label} complete unloaded result passes`, () => {
-      assertUnloadedStages(result(), input, stages, dimension, zero);
+      assertUnloadedStages(result(), input, stages, dimension);
     });
     const rejects = (name, mutate) => {
-      test(`${label} rejects ${name}`, {
-        skip: process.env.STABILEO_RUN_KNOWN_WRONG ? false : 'known wrong result: #1943',
-      }, () => {
+      test(`${label} rejects ${name}`, () => {
+        assertUnloadedStages(result(), input, stages, dimension);
         const fabricated = result();
         mutate(fabricated);
-        assert.throws(() => assertUnloadedStages(fabricated, input, stages, dimension, zero));
+        assert.throws(() => assertUnloadedStages(fabricated, input, stages, dimension));
       });
     };
     rejects('empty stages', r => { r.stages = []; });
