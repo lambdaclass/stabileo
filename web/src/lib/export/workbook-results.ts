@@ -21,6 +21,8 @@ import { materialize, safeText, type StreamedSheet, type WorkbookPart, type Work
 import { getShellEnvelopeKernel, SHELL_ENVELOPE_KEYS } from '../engine/shell-combination-kernel';
 import { EngineUnavailableError } from '../engine/engine-unavailable';
 import type { ShellEnvelopeKey, ShellEnvelopeSource } from '../engine/types-3d';
+import type { AxesChoice, AxesFrame } from '../axes/frame';
+import { rotToUser, tensorToUser, vecToUser, workbookFrame } from './workbook-frame';
 
 /** A result source; standalone solves and envelope views use id 0, not a load-case id. */
 /**
@@ -47,6 +49,8 @@ export interface ResultSheetsInput {
   comboNames?: ReadonlyMap<number, string>;
   /** The shells' geometry and thickness, for their face and global results. */
   shells?: ShellModel;
+  /** The user's axes, for the global components the result tables do not already turn. */
+  axes?: AxesChoice | null;
 }
 
 const UNITS: Record<TableKind, string[]> = {
@@ -166,8 +170,9 @@ function shellCentresSheet(input: ResultSheetsInput): StreamedSheet {
     count: () => input.sources.reduce((n, s) => n + shellCount(s), 0),
     *body() {
       for (const s of input.sources) {
+        const f = workbookFrame(input.axes);
         for (const r of shellCentreRows(s.results, input.shells!)) {
-          const g = r.global;
+          const g = r.global && f ? { stress: tensorToUser(f, r.global.stress), moment: tensorToUser(f, r.global.moment), shear: r.global.shear && vecToUser(f, r.global.shear) } : r.global;
           yield [
             ...src(s), r.kind, r.id, r.thickness,
             r.sigmaXx, r.sigmaYy, r.tauXy, opt(r.mx), opt(r.my), opt(r.mxy), opt(r.qx), opt(r.qy),
@@ -193,8 +198,10 @@ function shellNodesSheet(input: ResultSheetsInput): StreamedSheet {
     },
     *body() {
       for (const s of input.sources) {
+        const f = workbookFrame(input.axes);
         for (const n of shellNodeRows(shellCentreRows(s.results, input.shells!), input.shells!)) {
-          yield [...src(s), n.node, n.elements, ...T6.map((k) => n.stress[k]), ...T6.map((k) => n.moment[k])];
+          const stress = f ? tensorToUser(f, n.stress) : n.stress, moment = f ? tensorToUser(f, n.moment) : n.moment;
+          yield [...src(s), n.node, n.elements, ...T6.map((k) => stress[k]), ...T6.map((k) => moment[k])];
         }
       }
     },
@@ -343,12 +350,17 @@ function shellEnvelopeRows(sources: readonly WorkbookSource[], all: readonly Wor
   return out;
 }
 
-function staticsSheet(statics: StaticsRows | null): WorkbookSheet | null {
+function staticsSheet(statics: StaticsRows | null, axes?: AxesChoice | null): WorkbookSheet | null {
   if (!statics) return null;
   const rows: WorkbookSheet['rows'] = [['source', 'sourceId', 'sourceName', 'component', 'unit', 'applied', 'reactions', 'residual', 'worstRelative']];
   const K = ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const;
+  const f = workbookFrame(axes);
+  const shown = (v: Record<(typeof K)[number], number>): number[] => (f
+    ? [...vecToUser(f, [v.fx, v.fy, v.fz]), ...rotToUser(f, [v.mx, v.my, v.mz])]
+    : K.map((k) => v[k]));
   const push = (kind: string, id: number | string, name: string, r: StaticsRows['cases'][number]) => {
-    for (const k of K) rows.push([kind, id, safeText(name), k, k.startsWith('f') ? 'kN' : 'kN·m', r.applied[k], r.reactions[k], r.difference[k], r.worstRelative]);
+    const [a, re, d] = [shown(r.applied), shown(r.reactions), shown(r.difference)];
+    K.forEach((k, i) => rows.push([kind, id, safeText(name), k, k.startsWith('f') ? 'kN' : 'kN·m', a[i]!, re[i]!, d[i]!, r.worstRelative]));
   };
   for (const r of statics.cases) push(r.caseId === null ? 'single' : 'case', r.caseId ?? 0, r.caseName, r);
   for (const r of statics.combos) push('combination', r.comboId, r.caseName, r);
@@ -426,7 +438,7 @@ export function resultSheetParts(input: ResultSheetsInput, want: (name: string) 
     ['ShellCentres', () => (shells ? shellCentresSheet(input) : null)],
     ['ShellNodes', () => (shells ? shellNodesSheet(input) : null)],
     ['ShellCorners', () => (shells ? shellCornersSheet(input) : null)],
-    ['Statics', () => staticsSheet(input.statics)],
+    ['Statics', () => staticsSheet(input.statics, input.axes)],
     ['SecondOrder', () => secondOrderSheet(input)],
     ['OneWay', () => oneWaySheet(input.sources)],
     ['Cables', () => cablesSheet(input.sources)],

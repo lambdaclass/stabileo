@@ -35,6 +35,7 @@ import { detailingStore } from './detailing.svelte';
 import { currentResultProvenance, provenanceLabels, captureProvenanceToken, provenanceForExport, assertExportCurrent, ExportChangedError, type ProvenanceToken } from './result-provenance';
 import type { ResultProvenance } from '../provenance/result-provenance';
 import { provenanceTextLines } from '../provenance/result-provenance';
+import { axesStore } from '../axes/axes.svelte';
 
 function workbookModel(): WorkbookModel {
   const m = modelStore.model;
@@ -127,6 +128,7 @@ export function currentWorkbookParts(stations: StationSpec, opts: WorkbookOption
       },
     },
     tr: t,
+    axes: axesStore.choice,
     include: { model: opts.model, results: opts.results, sheets: opts.sheets },
     // The model's specifications, grouped by value as Specifications › List shows them; the
     // fields themselves are already in the Members, Supports and Quads sheets.
