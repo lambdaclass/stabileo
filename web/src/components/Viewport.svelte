@@ -21,6 +21,8 @@
   import { TWO_D_DISPLACEMENT_LABELS, get2DDisplayDisplacementVertical, get2DDisplayedVertical } from '../lib/geometry/coordinate-system';
   import { planeGlobalAngle, planeGlobalValue, twoD } from '../lib/axes/display';
   import { axesStore } from '../lib/axes/axes.svelte';
+  import { pressOnGizmo, releaseOnGizmo } from '../lib/axes/gizmo-press';
+  let axesHit2D: HTMLButtonElement | undefined = $state();
   import { projectNode, to2D, to3D } from '../lib/geometry/plane-projection';
   import { placementStore } from '../lib/store/placement.svelte';
   import { drawPlacementGhost } from '../lib/canvas/draw-placement';
@@ -1880,6 +1882,7 @@
   }
 
   function handleMouseDown(e: MouseEvent) {
+    if (uiStore.showAxes && pressOnGizmo(e, axesHit2D)) return;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
@@ -2609,6 +2612,11 @@
 
   function handleMouseUp(e?: MouseEvent) {
     isPanning = false;
+    if (e) {
+      const onGizmo = releaseOnGizmo(e);
+      if (onGizmo === 'click') { axesStore.pickerOpen = true; return; }
+      if (onGizmo === 'drag') return;
+    }
 
     if (placementDown) {
       const down = placementDown;
@@ -3316,7 +3324,7 @@
     style="cursor: {getCursor()}"
   ></canvas>
   {#if uiStore.showAxes}
-    <button type="button" class="axes-hit-2d" title={t('axes.open')} aria-label={t('axes.open')} data-testid="axes-open-2d" onclick={() => { axesStore.pickerOpen = true; }}></button>
+    <button type="button" class="axes-hit-2d" bind:this={axesHit2D} title={t('axes.open')} aria-label={t('axes.open')} data-testid="axes-open-2d" onclick={() => { axesStore.pickerOpen = true; }}></button>
   {/if}
 
   <div class="viewport-controls" style="top: {uiStore.floatingToolsTopOffset}px">
@@ -3402,7 +3410,7 @@
     border: 1px solid transparent;
     border-radius: var(--st-radius);
     background: transparent;
-    cursor: pointer;
+    pointer-events: none;
     z-index: 2;
   }
   .axes-hit-2d:hover, .axes-hit-2d:focus-visible { border-color: var(--st-interactive); }

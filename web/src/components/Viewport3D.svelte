@@ -18,6 +18,7 @@
   import '../styles/viewer-chrome.css';
   import { drawAxisGizmoOn } from '../lib/viewport3d/axis-gizmo';
   import { axesStore } from '../lib/axes/axes.svelte';
+  import { pressOnGizmo, releaseOnGizmo } from '../lib/axes/gizmo-press';
   import { XYZ, along, modelAxisOf, modelLoad3D, modelVec, planeGlobalAngle, twoD } from '../lib/axes/display';
   import { nodeShown3D } from '../lib/axes/node-coords';
   import { supportTypeShown } from '../lib/axes/user-names';
@@ -2191,6 +2192,7 @@
   }
 
   function handleMouseDown(e: MouseEvent) {
+    if (uiStore.showAxes3D && pressOnGizmo(e, axesHit3D)) return;
     // Placing: the model is view-only; a click (not a drag, which orbits) places.
     if (placementStore.active) { if (e.button === 0) mouseDownPos = { x: e.clientX, y: e.clientY }; return; }
     if (e.button === 0) {
@@ -2882,6 +2884,9 @@
   // ─── Main mouse up handler ─────────────────────────────────
   function handleMouseUp(e: MouseEvent) {
     if (e.button !== 0) return;
+    const onGizmo = releaseOnGizmo(e);
+    if (onGizmo === 'click') { axesStore.pickerOpen = true; return; }
+    if (onGizmo === 'drag') return;
 
     if (placementStore.active) {
       const moved = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
@@ -4110,6 +4115,7 @@
 
   // ─── 3D Axis gizmo (bottom-left corner) ────────────────────
   let gizmoCanvas: HTMLCanvasElement | null = null;
+  let axesHit3D: HTMLButtonElement | undefined = $state();
 
   /*
    * A second window on a saved view, in the lower-right corner of the same canvas.
@@ -4709,7 +4715,7 @@
     height="80"
   ></canvas>
   {#if uiStore.showAxes3D}
-    <button type="button" class="axis-gizmo-hit" title={t('axes.open')} aria-label={t('axes.open')} data-testid="axes-open-3d" onclick={() => { axesStore.pickerOpen = true; }}></button>
+    <button type="button" class="axis-gizmo-hit" bind:this={axesHit3D} title={t('axes.open')} aria-label={t('axes.open')} data-testid="axes-open-3d" onclick={() => { axesStore.pickerOpen = true; }}></button>
   {/if}
 
   <!-- Shell contour legend (visible only while a shell contour map is active) -->
@@ -5030,7 +5036,7 @@
     border: 1px solid transparent;
     border-radius: var(--st-radius);
     background: transparent;
-    cursor: pointer;
+    pointer-events: none;
   }
   .axis-gizmo-hit:hover, .axis-gizmo-hit:focus-visible { border-color: var(--st-interactive); }
 </style>

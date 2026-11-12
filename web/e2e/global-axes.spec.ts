@@ -1,7 +1,8 @@
 import { test, expect } from './fixtures';
 
 test('@smoke with Y chosen as up, a node written at Y = 3 is stored three metres up and the tables follow', async ({ pro: page }) => {
-  await page.getByTestId('axes-open-3d').click();
+  const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
+  await page.mouse.click(triad.x + triad.width / 2, triad.y + triad.height / 2);
   const picker = page.getByTestId('axes-picker');
   await picker.getByTestId('axes-up-+Y').click();
   await expect(picker.getByTestId('axes-summary')).toContainText('−Y');
@@ -27,6 +28,18 @@ test('@smoke with Y chosen as up, a node written at Y = 3 is stored three metres
   await page.reload();
   await page.waitForFunction(() => !!window.__stabileoActions);
   expect(await page.evaluate(() => localStorage.getItem('stabileo-axes'))).toContain('"up":"+Y"');
+});
+
+test('@smoke a drag that starts on the axis triad still orbits, and a click opens the picker', async ({ pro: page }) => {
+  const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
+  const before = await page.evaluate(() => window.__stabileo.cameraState());
+  await page.mouse.move(triad.x + triad.width / 2, triad.y + triad.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(triad.x + triad.width / 2 + 150, triad.y + triad.height / 2 - 60, { steps: 12 });
+  await page.mouse.up();
+  await expect(page.getByTestId('axes-picker')).toHaveCount(0);
+  const after = await page.evaluate(() => window.__stabileo.cameraState());
+  expect(JSON.stringify(after)).not.toBe(JSON.stringify(before));
 });
 
 test('@smoke Settings links to the axes picker', async ({ pro: page }) => {
