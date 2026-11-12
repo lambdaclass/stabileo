@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../../lib/axes/case-names';
   import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import CombosTable from './CombosTable.svelte';
@@ -90,7 +91,7 @@
           onchange={(e) => { uiStore.selfWeightCaseId = parseInt(e.currentTarget.value); resultsStore.clear(); }}
           data-testid="selfweight-case">
           {#each modelStore.loadCases as lc}
-            <option value={String(lc.id)}>{lc.type ? `${lc.type} · ` : ''}{lc.name}</option>
+            <option value={String(lc.id)}>{lc.type ? `${lc.type} · ` : ''}{caseNameShown(lc)}</option>
           {/each}
         </select>
       {/if}
@@ -113,7 +114,7 @@
         <td>
           <select value={String(load.data.caseId ?? 1)} onchange={(e) => { modelStore.updateLoadCaseId(load.data.id, parseInt(e.currentTarget.value)); if (resultsStore.hasCombinations) resultsStore.combinationsDirty = true; }}>
             {#each modelStore.loadCases as lc}
-              <option value={String(lc.id)}>{lc.type || lc.name}</option>
+              <option value={String(lc.id)}>{lc.type || caseNameShown(lc)}</option>
             {/each}
           </select>
         </td>

@@ -54,6 +54,7 @@
   import { portal } from '../../../lib/utils/portal';
   import type { Quantity } from '../../../lib/utils/units';
   import { axisLetter, modelAxisOf, modelVec, signedModelName } from '../../../lib/axes/display';
+  import { verticalNameIn } from '../../../lib/axes/typed-frame';
 
   let { v }: { v: SketchInput } = $props();
   const id = `ls${++seq}`;
@@ -479,7 +480,7 @@
       <!-- A wall below the fluid's level: pressure γ·depth, pushing the wall out of the fluid. -->
       <rect x="128" y="22" width="8" height="98" class="ls-slab" />
       <line x1="40" y1="44" x2="136" y2="44" class="ls-level" />
-      <text x="40" y="40" class="ls-t">{lbl(t('writeLoad.shell.level'), s.level, 'length')}</text>
+      <text x="40" y="40" class="ls-t">{lbl(verticalNameIn(t('writeLoad.shell.level')), s.level, 'length')}</text>
       <polygon points="128,44 128,120 76,120" class="ls-diag" />
       {#each [0.3, 0.55, 0.8] as k (k)}{@render arrow([128 - 52 * k, 44 + 76 * k], [126, 44 + 76 * k], 'ls-load ls-thin')}{/each}
       {@render dim([150, 44], [150, 120], 'h', [6, 3])}

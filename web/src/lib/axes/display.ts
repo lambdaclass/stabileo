@@ -98,3 +98,9 @@ export function modelIndexOfUser(userIndex: 0 | 1 | 2 | number): 0 | 1 | 2 {
 
 export const planeGlobalValue = (v: number): number => along(2).sign * v;
 export const planeGlobalAngle = (a: number): number => (planeFlipped() ? -a : a);
+
+export function planeDistributedLoad(qI: number, qJ: number, angle: number, global: boolean): { qI: number; qJ: number; angle: number | undefined; isGlobal: true | undefined } {
+  const a = global ? planeGlobalAngle(angle) + 0 : angle;
+  const q = (v: number) => (global ? planeGlobalValue(v) : v);
+  return { qI: q(qI), qJ: q(qJ), angle: a !== 0 ? a : undefined, isGlobal: global ? true : undefined };
+}

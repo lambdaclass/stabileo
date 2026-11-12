@@ -36,7 +36,7 @@ import { SHEETS, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from 
 import { unguardText } from '../export/workbook-cells';
 import { massPresetById, type MassPresetParamValue } from '../engine/dynamics/mass-presets';
 import type { MassSource, MassSourceFactor, MassWeight } from '../engine/dynamics/mass-source';
-import { DEFAULT_AXES, makeFrame, pseudoToModel, toModel, userAxisAlong, validChoice, type AxesFrame } from '../axes/frame';
+import { DEFAULT_AXES, makeFrame, pseudoToModel, relabelAxesWith, toModel, userAxisAlong, validChoice, type AxesFrame } from '../axes/frame';
 import { AXES_SHEET } from './schema';
 
 const DEFAULT_CASE_IDS = new Set(defaultLoadCases().map((c) => c.id));
@@ -494,7 +494,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     }
     if (invalidCoordinate) continue;
     if (cell(depth) === null && cell(height) === null) {
-      problems.push({ sheet: 'Nodes', row: row.n, column: height, message: t('xls.err.noPosition') });
+      problems.push({ sheet: 'Nodes', row: row.n, column: height, message: relabelAxesWith(frame, t('xls.err.noPosition')) });
       continue;
     }
     if (!firstNode(id, row)) continue;

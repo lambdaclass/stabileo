@@ -13040,6 +13040,8 @@ const en: Record<string, string> = {
   'proExport.sizeLarge': 'Large',
   'proExport.dxf3dNote': 'The model in its coordinates, Z up: the diagrams stay in the plane the 3D view draws them in.',
   'proExport.dxfProjectedNote': 'A flat projection of the model: what is seen edge-on overlaps.',
+  'proExport.dxfAxes': 'Drawing axes: {axes}.',
+  'proExport.dxfLeftHandNote': 'Your axes are left-handed and CAD is right-handed: {axis} is written with its sign reversed so the drawing is not mirrored.',
   'proExport.dxfNoResults': 'The model could not be solved: the DXF comes out without results.',
   "proExport.reportBtn": "Calculation report…",
   "proExport.reportTip": "The calculation report as a document: you choose its sections, whether each result is a table, a figure or both, and PDF, Word or HTML.",

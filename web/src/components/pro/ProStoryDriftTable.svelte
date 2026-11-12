@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../../lib/axes/case-names';
   import { along, axisName } from '../../lib/axes/display';
   /**
    * Story drift under each seismic case, checked against INPRES-CIRSOC 103 Tabla 6.4
@@ -33,7 +34,7 @@
         nodes: modelStore.nodes, elements: modelStore.elements.values(),
         displacements: r.displacements, cd, group, condition, embedded2D, levels: modelStore.grid?.levels,
       });
-      return out ? [{ caseId: c.id, name: c.name, ...out }] : [];
+      return out ? [{ caseId: c.id, name: caseNameShown(c), ...out }] : [];
     });
   });
 

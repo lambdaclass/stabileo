@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { planeLettersShown } from '../../lib/axes/user-names';
   import { modelIndexOfUser, twoD, XYZ } from '../../lib/axes/display';
   import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
@@ -95,8 +96,8 @@
             <select value={sup.type} onchange={(e) => changeSupportType(sup.id, e.currentTarget.value)}>
               <option value="fixed">{t('table.fixed')}</option>
               <option value="pinned">{t('table.pinned')}</option>
-              <option value="rollerX">{t('table.rollerX')}</option>
-              <option value="rollerZ">{t('table.rollerY')}</option>
+              <option value="rollerX">{planeLettersShown(t('table.rollerX'))}</option>
+              <option value="rollerZ">{planeLettersShown(t('table.rollerY'))}</option>
               <option value="spring">{t('table.spring')}</option>
             </select>
           </td>

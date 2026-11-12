@@ -12849,6 +12849,8 @@ const tr: Translations = {
   'proExport.sizeLarge': 'Büyük',
   'proExport.dxf3dNote': 'Model kendi koordinatlarında, Z yukarı: diyagramlar 3B görünümün onları çizdiği düzlemde kalır.',
   'proExport.dxfProjectedNote': 'Modelin düz bir izdüşümü: yandan görünenler üst üste biner.',
+  'proExport.dxfAxes': 'Çizimin eksenleri: {axes}.',
+  'proExport.dxfLeftHandNote': 'Eksenleriniz sol el kuralına göre, CAD ise sağ el kuralına göre: çizim ayna görüntüsü olmasın diye {axis} ters işaretle yazılır.',
   'proExport.dxfNoResults': 'Model çözülemedi: DXF sonuçsuz oluşturulur.',
   'proExport.reportBtn': 'Hesap raporu…',
   'proExport.reportTip': 'Belge olarak hesap raporu: bölümlerini, her sonucun tablo, şekil veya ikisi birden olarak mı yer alacağını ve PDF, Word ya da HTML biçimini seçin.',

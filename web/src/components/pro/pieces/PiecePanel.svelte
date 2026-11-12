@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../../../lib/axes/case-names';
   /**
    * The member selected whole (`store/curved-members.ts`): an arc or a member a mesh cut. For an
    * arc, its geometry, the segments it is analysed with and their chord error, remade from here
@@ -77,7 +78,7 @@
           </div>
         {/each}
         <div class="pc-row">
-          <select bind:value={loadCase} data-testid="piece-load-case">{#each cases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}</select>
+          <select bind:value={loadCase} data-testid="piece-load-case">{#each cases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}</select>
           <QuantityInput value={loadQ} quantity="distributedLoad" cls="pc-num" testid="piece-load-q" onchange={(v) => (loadQ = v)} />
           <select bind:value={loadDir} data-testid="piece-load-dir">
             {#each Object.keys(DIRS) as k (k)}<option value={k}>{dirText(k)}</option>{/each}

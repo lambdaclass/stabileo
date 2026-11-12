@@ -12681,6 +12681,8 @@ const pt: Translations = {
   'proExport.sizeLarge': 'Grandes',
   'proExport.dxf3dNote': 'O modelo nas suas coordenadas, com Z para cima: os diagramas ficam no plano em que a vista 3D os desenha.',
   'proExport.dxfProjectedNote': 'Uma projeção plana do modelo: o que fica de perfil se sobrepõe.',
+  'proExport.dxfAxes': 'Eixos do desenho: {axes}.',
+  'proExport.dxfLeftHandNote': 'Seus eixos são de mão esquerda e o CAD é de mão direita: {axis} é escrito com o sinal trocado para que o desenho não fique espelhado.',
   'proExport.dxfNoResults': 'Não foi possível calcular o modelo: o DXF sai sem resultados.',
   "proExport.reportBtn": "Relatório de cálculo…",
   "proExport.reportTip": "O relatório de cálculo como documento: você escolhe as seções, se cada resultado vai em tabela, figura ou ambos, e se sai em PDF, Word ou HTML.",

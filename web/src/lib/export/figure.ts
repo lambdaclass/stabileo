@@ -8,6 +8,9 @@
  * copy of the picture with a caption band under it. One routine for the PNG export and the
  * report's figures.
  */
+import { axesStore } from '../axes/axes.svelte';
+import { caseNameIn, combinationNameIn } from '../axes/case-names';
+import type { AxesFrame } from '../axes/frame';
 import { resultsStore, modelStore } from '../store';
 import { t } from '../i18n';
 import { viewportCanvas } from '../utils/viewport-canvas';
@@ -33,14 +36,16 @@ const QUANTITY: Record<string, string> = {
 };
 
 /** Which result set is on screen, by name. */
-export function resultSetName(): string {
+export function resultSetName(f: AxesFrame = axesStore.frame): string {
   const v = resultsStore.activeView;
   if (v === 'combo' && resultsStore.activeComboId !== null) {
-    return modelStore.combinations.find((c) => c.id === resultsStore.activeComboId)?.name ?? `${t('pro.comboN')}${resultsStore.activeComboId}`;
+    const c = modelStore.combinations.find((x) => x.id === resultsStore.activeComboId);
+    return c ? combinationNameIn(f, c) : `${t('pro.comboN')}${resultsStore.activeComboId}`;
   }
   // A single load case is the single view with a case chosen.
   if (v === 'single' && resultsStore.activeCaseId !== null && resultsStore.perCase3D.size > 0) {
-    return modelStore.loadCases.find((c) => c.id === resultsStore.activeCaseId)?.name ?? `${t('pro.caseN')}${resultsStore.activeCaseId}`;
+    const c = modelStore.loadCases.find((x) => x.id === resultsStore.activeCaseId);
+    return c ? caseNameIn(f, c) : `${t('pro.caseN')}${resultsStore.activeCaseId}`;
   }
   if (v === 'envelope') return resultsStore.viewedEnvelopeName ?? t('tables.mode.envelope');
   if (v === 'single' && Math.max(resultsStore.perCase3D.size, resultsStore.perCase.size) > 1) return t('tables.shownSum');

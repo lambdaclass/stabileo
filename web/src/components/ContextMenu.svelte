@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { axisTextShown } from '../lib/axes/user-names';
   import { modelLoad3D, twoD } from '../lib/axes/display';
   import { uiStore, modelStore, resultsStore } from '../lib/store';
   import { t } from '../lib/i18n';
@@ -163,8 +164,8 @@
     {:else}
       {#if uiStore.selectedNodes.size > 0}
         <span class="ctx-label">{t('ctx.transformSelection')} ({uiStore.selectedNodes.size})</span>
-        <button class="ctx-item" onclick={() => handleContextAction('mirror-x')}>{t('ctx.mirrorX')}</button>
-        <button class="ctx-item" onclick={() => handleContextAction('mirror-y')}>{t('ctx.mirrorY')}</button>
+        <button class="ctx-item" onclick={() => handleContextAction('mirror-x')}>{axisTextShown(t('ctx.mirrorX'), uiStore.is3DWorkspace)}</button>
+        <button class="ctx-item" onclick={() => handleContextAction('mirror-y')}>{axisTextShown(t('ctx.mirrorY'), uiStore.is3DWorkspace)}</button>
         <button class="ctx-item" onclick={() => handleContextAction('rotate-90')}>{t('ctx.rotate90cw')}</button>
         <button class="ctx-item" onclick={() => handleContextAction('rotate-neg90')}>{t('ctx.rotate90ccw')}</button>
       {:else}

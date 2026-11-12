@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { planeLettersShown } from '../../lib/axes/user-names';
   import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
@@ -96,7 +97,7 @@
     </label>
     <span class="ft-sep">|</span>
     <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = true}
-      title={t('float.supportGlobalAxes')}>Gl</button>
+      title={planeLettersShown(t('float.supportGlobalAxes'))}>Gl</button>
     <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = false}
       title={t('float.supportLocalAxes')}>{t('prop.localAxesShort')}</button>
     <label class="ft-input-group" title={t('float.supportAngle')}>
@@ -109,18 +110,18 @@
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.supportDirection === 'x'}
       onclick={() => uiStore.supportDirection = 'x'}
       title={uiStore.supportIsGlobal
-        ? t('float.rollerRestrictsYGlobal')
+        ? planeLettersShown(t('float.rollerRestrictsYGlobal'))
         : t('float.rollerRestrictsJLocal')}
     >{uiStore.supportIsGlobal ? twoD.horizontal : 'i'}</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.supportDirection === 'y'}
       onclick={() => uiStore.supportDirection = 'y'}
       title={uiStore.supportIsGlobal
-        ? t('float.rollerRestrictsXGlobal')
+        ? planeLettersShown(t('float.rollerRestrictsXGlobal'))
         : t('float.rollerRestrictsILocal')}
     >{uiStore.supportIsGlobal ? twoD.vertical : 'j'}</button>
     <span class="ft-sep">|</span>
     <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = true}
-      title={t('float.rollerGlobalLabel')}>Gl</button>
+      title={planeLettersShown(t('float.rollerGlobalLabel'))}>Gl</button>
     <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = false}
       title={t('float.rollerLocalLabel')}>{t('prop.localAxesShort')}</button>
     <label class="ft-input-group" title={t('float.prescribedRollerDisp')}>

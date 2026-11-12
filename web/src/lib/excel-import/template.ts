@@ -28,7 +28,7 @@ import { t } from '../i18n';
 import { uiStore } from '../store';
 import { SHEETS, INSTRUCTIONS_SHEET, AXES_SHEET, headerFor, LOAD_TYPES } from './schema';
 import { axesStore } from '../axes/axes.svelte';
-import { makeFrame, pseudoToUser, toUser, userAxisAlong, type AxesChoice, type AxesFrame } from '../axes/frame';
+import { makeFrame, pseudoToUser, relabelAxesWith, toUser, userAxisAlong, type AxesChoice, type AxesFrame } from '../axes/frame';
 import type { SheetSpec } from './schema';
 
 /** Column widths, so a header is readable without dragging anything. */
@@ -44,7 +44,7 @@ function widthsFor(headers: string[]): Array<{ wch: number }> {
  * `schema.ts`. A reader gets the explanation in Spanish and the keys in the
  * one spelling every version of the importer will accept.
  */
-function instructionRows(): Array<Array<string | number>> {
+function instructionRows(frame: AxesFrame | null = null): Array<Array<string | number>> {
   const rows: Array<Array<string | number>> = [
     [t('xls.tpl.title')],
     [],
@@ -65,7 +65,7 @@ function instructionRows(): Array<Array<string | number>> {
         '',
         headerFor(col),
         col.required ? t('xls.tpl.required') : t('xls.tpl.optionalMark'),
-        t(col.helpKey),
+        frame ? columnHelpIn(frame, col.helpKey) : t(col.helpKey),
       ]);
     }
     rows.push([]);
@@ -96,7 +96,7 @@ function instructionRows(): Array<Array<string | number>> {
 export function buildTemplateWorkbook(XLSX: NonNullable<Awaited<ReturnType<typeof loadXlsxModule>>>, axes: AxesChoice | null = axesStore.frame.identity ? null : axesStore.choice) {
   const wb = XLSX.utils.book_new();
 
-  const help = XLSX.utils.aoa_to_sheet(instructionRows());
+  const help = XLSX.utils.aoa_to_sheet(instructionRows(axes ? makeFrame(axes) : null));
   help['!cols'] = [{ wch: 2 }, { wch: 18 }, { wch: 12 }, { wch: 90 }];
   XLSX.utils.book_append_sheet(wb, help, INSTRUCTIONS_SHEET);
 
@@ -146,6 +146,14 @@ function examplesIn(sheet: SheetSpec, f: AxesFrame): Array<Array<string | number
     }
     return [row];
   });
+}
+
+/** A user-axis column's help is the help of the model axis it stands for, renamed: user Y under Y up is the height. */
+export function columnHelpIn(frame: AxesFrame, helpKey: string): string {
+  const m = /^(xls\.col\.(?:|f|m|k|kr|d))([xyz])$/.exec(helpKey);
+  if (!m) return t(helpKey);
+  const model = frame.rows['xyz'.indexOf(m[2]!)]!.findIndex((c) => c !== 0);
+  return relabelAxesWith(frame, t(`${m[1]}${'xyz'[model]}`));
 }
 
 export const axesRows = (axes: AxesChoice): Array<Array<string>> => [['up', 'right', 'hand'], [axes.up, axes.right, axes.hand]];

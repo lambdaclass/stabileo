@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../../lib/axes/case-names';
   import { along, axisName, signedModelName } from '../../lib/axes/display';
   import { axisNamesIn, planNamesIn } from '../../lib/axes/typed-frame';
   import KnownIssueResult from "../KnownIssueResult.svelte";
@@ -1373,7 +1374,7 @@
               </select>
             </label>
             {#if pushPattern === 'case'}
-              <select class="adv-sel" bind:value={pushCase}>{#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}</select>
+              <select class="adv-sel" bind:value={pushCase}>{#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}</select>
             {:else if pushPattern !== 'loads'}
               <select class="adv-sel" bind:value={pushDir} data-testid="push-dir"><option value="X">{signedModelName(0, 1)}</option><option value="Y">{signedModelName(1, 1)}</option></select>
             {/if}
@@ -1633,7 +1634,7 @@
               <span class="adv-label">{t('adv.stageCases')}:
                 {#each modelStore.model.loadCases as lc (lc.id)}
                   <label class="adv-check"><input type="checkbox" checked={stage.caseIds.includes(lc.id)}
-                    onchange={(e) => { const on = (e.target as HTMLInputElement).checked; stage.caseIds = on ? [...stage.caseIds, lc.id] : stage.caseIds.filter((c) => c !== lc.id); stages = [...stages]; }} /> {lc.name}</label>
+                    onchange={(e) => { const on = (e.target as HTMLInputElement).checked; stage.caseIds = on ? [...stage.caseIds, lc.id] : stage.caseIds.filter((c) => c !== lc.id); stages = [...stages]; }} /> {caseNameShown(lc)}</label>
                 {/each}
               </span>
             </div>

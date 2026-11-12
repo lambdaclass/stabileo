@@ -19,7 +19,7 @@
   import { scaleCanvasText } from '../lib/canvas/text-scale';
   import HiddenItemsChip from './viewport/HiddenItemsChip.svelte';
   import { TWO_D_DISPLACEMENT_LABELS, get2DDisplayDisplacementVertical, get2DDisplayedVertical } from '../lib/geometry/coordinate-system';
-  import { planeGlobalAngle, planeGlobalValue, twoD } from '../lib/axes/display';
+  import { planeDistributedLoad, planeGlobalAngle, planeGlobalValue, twoD } from '../lib/axes/display';
   import { axesStore } from '../lib/axes/axes.svelte';
   import { pressOnGizmo, releaseOnGizmo } from '../lib/axes/gizmo-press';
   let axesHit2D: HTMLButtonElement | undefined = $state();
@@ -2190,13 +2190,10 @@
       } else if (uiStore.loadType === 'distributed') {
         const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
         if (nearElem) {
-          const typedAngle = uiStore.loadIsGlobal ? planeGlobalAngle(uiStore.loadAngle) + 0 : uiStore.loadAngle;
-          const angle = typedAngle !== 0 ? typedAngle : undefined;
-          const isGlobal = uiStore.loadIsGlobal ? true : undefined;
-          const q = (v: number) => (isGlobal ? planeGlobalValue(v) : v);
+          const d = planeDistributedLoad(uiStore.loadValue, uiStore.loadValueJ, uiStore.loadAngle, uiStore.loadIsGlobal);
           const L = modelStore.getElementLength(nearElem.id);
           const st = toolStretch(uiStore.distLoadPartial, uiStore.distLoadFrom, uiStore.distLoadTo, L);
-          if (st.ok) modelStore.addDistributedLoad(nearElem.id, q(uiStore.loadValue), q(uiStore.loadValueJ), angle, isGlobal, activeCaseId, st.a, st.b);
+          if (st.ok) modelStore.addDistributedLoad(nearElem.id, d.qI, d.qJ, d.angle, d.isGlobal, activeCaseId, st.a, st.b);
           else uiStore.toast(t('float.distStretchRefused').replace('{id}', String(nearElem.id)).replace('{L}', fixedQuantity(L, 'length', 2, uiStore.unitSystem)), 'error');
         }
       } else if (uiStore.loadType === 'thermal') {

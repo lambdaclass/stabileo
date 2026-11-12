@@ -12840,6 +12840,8 @@ const de: Translations = {
   'proExport.sizeLarge': 'Groß',
   'proExport.dxf3dNote': 'Das Modell in seinen Koordinaten, Z nach oben: Die Diagramme bleiben in der Ebene, in der die 3D-Ansicht sie zeichnet.',
   'proExport.dxfProjectedNote': 'Eine ebene Projektion des Modells: Was in Kantenansicht liegt, überlappt.',
+  'proExport.dxfAxes': 'Achsen der Zeichnung: {axes}.',
+  'proExport.dxfLeftHandNote': 'Ihre Achsen sind linkshändig, CAD ist rechtshändig: {axis} wird mit umgekehrtem Vorzeichen geschrieben, damit die Zeichnung nicht gespiegelt ist.',
   'proExport.dxfNoResults': 'Das Modell konnte nicht berechnet werden: Die DXF-Datei wird ohne Ergebnisse erstellt.',
   'proExport.reportBtn': 'Statische Berechnung…',
   'proExport.reportTip': 'Die statische Berechnung als Dokument: Sie wählen die Abschnitte, ob jedes Ergebnis als Tabelle, Abbildung oder beides erscheint, und PDF, Word oder HTML.',

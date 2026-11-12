@@ -36,6 +36,7 @@ import { currentResultProvenance, provenanceLabels, captureProvenanceToken, prov
 import type { ResultProvenance } from '../provenance/result-provenance';
 import { provenanceTextLines } from '../provenance/result-provenance';
 import { axesStore } from '../axes/axes.svelte';
+import { caseNameShown, combinationNameShown } from '../axes/case-names';
 
 function workbookModel(): WorkbookModel {
   const m = modelStore.model;
@@ -57,8 +58,8 @@ export interface SourcePick { cases?: ReadonlySet<number>; combinations?: Readon
 
 /** Every solved case and combination; the single result on screen when nothing else was solved. */
 function workbookSources(pick: SourcePick = {}): WorkbookSource[] {
-  const caseName = new Map(modelStore.model.loadCases.map((c) => [c.id, c.name]));
-  const comboName = new Map(modelStore.combinations.map((c) => [c.id, c.name]));
+  const caseName = new Map(modelStore.model.loadCases.map((c) => [c.id, caseNameShown(c)]));
+  const comboName = new Map(modelStore.combinations.map((c) => [c.id, combinationNameShown(c)]));
   const out: WorkbookSource[] = [
     ...[...resultsStore.perCase3D].filter(([id]) => !pick.cases || pick.cases.has(id))
       .map(([id, results]) => ({ kind: 'case' as const, id, name: caseName.get(id) ?? String(id), results })),
@@ -118,7 +119,7 @@ export function currentWorkbookParts(stations: StationSpec, opts: WorkbookOption
       stations,
       statics: staticsRows(),
       unstable: unstableCombinations(),
-      comboNames: new Map(modelStore.combinations.map((c) => [c.id, c.name])),
+      comboNames: new Map(modelStore.combinations.map((c) => [c.id, combinationNameShown(c)])),
       deflections: elementStationDeflections,
       shells: { nodes: modelStore.nodes, plates: modelStore.plates, quads: modelStore.quads },
       stressModel: (id) => {

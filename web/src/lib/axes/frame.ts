@@ -124,3 +124,24 @@ export function allChoices(): AxesChoice[] {
   }
   return out;
 }
+
+export function userLetterIn(f: AxesFrame, modelLetter: string): AxisName {
+  return userAxisAlong(f, AXIS_NAMES.indexOf(modelLetter.toUpperCase() as AxisName)).name;
+}
+
+export function relabelAxesWith(f: AxesFrame, text: string): string {
+  return text.replace(/(?<![A-Za-z])([XYZ]{1,2})(?![A-Za-z])/g, (token) => {
+    const letters = [...token].map((l) => userLetterIn(f, l));
+    return (token.length === 2 ? letters.sort() : letters).join('');
+  });
+}
+
+export function supportTypeIn(f: AxesFrame, type: string): string {
+  const m = /^(roller|guided)([XYZ]{1,2})$/.exec(type);
+  // 2D's legacy rollerY is the vertical, the model's Z.
+  return m ? `${m[1]}${relabelAxesWith(f, m[2] === 'Y' ? 'Z' : m[2]!)}` : type;
+}
+
+export function planeLettersIn(f: AxesFrame, text: string): string {
+  return text.replace(/(?<![A-Za-z])([XYZ])(?![A-Za-z])/g, (l) => userAxisAlong(f, l === 'X' ? 0 : 2).name);
+}

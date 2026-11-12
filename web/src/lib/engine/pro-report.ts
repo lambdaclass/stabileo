@@ -28,7 +28,7 @@ import type { StaticsRows } from '../store/statics-rows';
 import type { ProjectInfo } from '../model/project-info';
 import type { SolverDiagnostic } from './types';
 import { membranePrincipals } from './shell-stress';
-import { DEFAULT_AXES, makeFrame, pseudoToUser, toUser, userAxisAlong, type AxesChoice } from '../axes/frame';
+import { DEFAULT_AXES, makeFrame, pseudoToUser, supportTypeIn, toUser, userAxisAlong, type AxesChoice } from '../axes/frame';
 import { axesStatement } from '../axes/statement';
 
 /** Translation function type — accepts key, returns translated string */
@@ -80,6 +80,8 @@ export interface ReportConfig {
   resultSetKey?: string;
   /** The axes global coordinates and results are printed in; the model's own when absent. */
   axes?: AxesChoice;
+  /** A plane model printed standing in X–Z, as the view showed it when the report was made; the current view's when absent. */
+  uprightPlane?: boolean;
 }
 
 /** The model data's tables the report can leave out. */
@@ -407,7 +409,7 @@ export function generateReportHtml(data: ReportData): string {
     // The name column only when some node has one.
     const named = nodes.some((n) => n.name);
     html.push(`<table><thead><tr><th>ID</th>${named ? `<th>${escHtml(tr('pro.thName'))}</th>` : ''}<th>${km('X')} (m)</th><th>${km('Y')} (m)</th><th>${km('Z')} (m)</th></tr></thead><tbody>`);
-    const upright = standingPlane();
+    const upright = data.config?.uprightPlane ?? standingPlane();
     for (const n of nodes) {
       const [x, y, z] = upright ? vec(n.x, 0, n.y) : vec(n.x, n.y, n.z ?? 0);
       html.push(`<tr><td>${n.id}</td>${named ? `<td>${escHtml(n.name ?? '')}</td>` : ''}<td class="num">${fmtNum(x!, 3)}</td><td class="num">${fmtNum(y!, 3)}</td><td class="num">${fmtNum(z!, 3)}</td></tr>`);
@@ -455,7 +457,7 @@ export function generateReportHtml(data: ReportData): string {
   html.push(`<h2>${subNo('sec-model-data')} ${escHtml(tr('report.supports'))} (${supports.length})</h2>`);
   html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.nodes'))}</th><th>${escHtml(tr('report.type'))}</th></tr></thead><tbody>`);
   for (const s of supports) {
-    html.push(`<tr><td>${s.id}</td><td>${s.nodeId}</td><td>${s.type}</td></tr>`);
+    html.push(`<tr><td>${s.id}</td><td>${s.nodeId}</td><td>${escHtml(supportTypeIn(frame, s.type))}</td></tr>`);
   }
   html.push(`</tbody></table>`);
   }

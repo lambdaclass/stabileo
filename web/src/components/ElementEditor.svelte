@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { relabelComponents } from '../lib/axes/user-names';
   /**
    * The member card, opened by double-clicking a member.
    *
@@ -168,7 +169,7 @@
     </div>
 
     {#if is3DMode && elem.type === 'frame'}
-      <div class="joint3d" title={t('editor.joint3dHint')}>
+      <div class="joint3d" title={relabelComponents(t('editor.joint3dHint'))}>
         <div class="joint3d-title">{t('editor.joint3dTitle')}</div>
         {#each [{ end: 'i', label: 'I' }, { end: 'j', label: 'J' }] as const as row (row.end)}
           {@const dof = (row.end === 'i' ? elem.jointI?.dof : elem.jointJ?.dof) ?? [false, false, false, false, false, false]}

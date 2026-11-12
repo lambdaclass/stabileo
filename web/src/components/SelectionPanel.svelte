@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../lib/axes/case-names';
   /**
    * What a selection picks up.
    *
@@ -391,7 +392,7 @@
     <div class="sel-byid-row">
       <span class="sel-like-label">{t('selection.loadedIn')}</span>
       <select value={loadCase ?? cases[0]?.id} onchange={(e) => (loadCase = Number(e.currentTarget.value))} data-testid="sel-loaded-case" aria-label={t('selection.loadedIn')}>
-        {#each cases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+        {#each cases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}
       </select>
       <button class="sel-op" disabled={cases.length === 0 || !loadedApplies} onclick={selectLoaded} data-testid="sel-loaded-go">{t('selection.go')}</button>
     </div>

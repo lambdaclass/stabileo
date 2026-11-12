@@ -12840,6 +12840,8 @@ const fr: Translations = {
   'proExport.sizeLarge': 'Grands',
   'proExport.dxf3dNote': 'Le modèle dans ses coordonnées, Z vers le haut : les diagrammes restent dans le plan où la vue 3D les dessine.',
   'proExport.dxfProjectedNote': 'Une projection plane du modèle : ce qui est vu par la tranche se superpose.',
+  'proExport.dxfAxes': 'Axes du dessin : {axes}.',
+  'proExport.dxfLeftHandNote': 'Vos axes sont à main gauche et la CAO est à main droite : {axis} est écrit avec le signe inversé pour que le dessin ne soit pas en miroir.',
   'proExport.dxfNoResults': 'Le modèle n\'a pas pu être calculé : le DXF est produit sans résultats.',
   'proExport.reportBtn': 'Note de calcul…',
   'proExport.reportTip': 'La note de calcul comme document : vous choisissez ses sections, si chaque résultat figure sous forme de tableau, de figure ou des deux, et le format PDF, Word ou HTML.',

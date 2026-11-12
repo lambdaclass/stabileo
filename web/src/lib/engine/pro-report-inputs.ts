@@ -23,7 +23,9 @@ import { knownIssueResultDisposition } from './known-issues';
  */
 
 import { shellText, surfaceValueText, surfaceHowText } from '../model/loads/surface-load-text';
-import { DEFAULT_AXES, makeFrame, userAxisAlong, type AxesChoice } from '../axes/frame';
+import { DEFAULT_AXES, makeFrame, userAxisAlong, type AxesChoice, type AxesFrame } from '../axes/frame';
+import { axesStore } from '../axes/axes.svelte';
+import { caseNameIn, combinationNameIn } from '../axes/case-names';
 import { transformSnapshot } from '../model/code/frame';
 import type { Load } from '../store/model.svelte';
 import { definitionName, type DefinitionModel } from '../model/loads/floor-definitions';
@@ -91,7 +93,7 @@ export function serializeLoads(t: Translate, axes: AxesChoice = DEFAULT_AXES): N
   /** A 2D member load's angle from its base direction, and its axes when they are global. */
   const turn = (d: { angle?: number; isGlobal?: boolean }) =>
     (d.angle ? `, θ=${n(d.angle)}°` : '') + (d.isGlobal ? ` (${t('report.loadGlobal')})` : '');
-  const caseName = (id: number | undefined) => modelStore.model.loadCases.find((c) => c.id === (id ?? 1))?.name;
+  const caseName = (id: number | undefined) => { const c = modelStore.model.loadCases.find((x) => x.id === (id ?? 1)); return c ? caseNameIn(frame, c) : undefined; };
   for (const load of loadsIn(axes)) {
     let tipo = '', destino = '', valores = '';
     switch (load.type) {
@@ -186,15 +188,15 @@ export function serializeLoads(t: Translate, axes: AxesChoice = DEFAULT_AXES): N
 }
 
 /** The load combinations, with each factor's case named rather than numbered. */
-function serializeCombinations(): ReportData['combinations'] {
+function serializeCombinations(frame: AxesFrame): ReportData['combinations'] {
   if (modelStore.model.combinations.length === 0) return undefined;
   return modelStore.model.combinations.map((c) => ({
     id: c.id,
-    name: c.name,
+    name: combinationNameIn(frame, c),
     factors: c.factors
       .map((f) => {
         const lc = modelStore.model.loadCases.find((lc2) => lc2.id === f.caseId);
-        return lc ? { caseName: lc.name, factor: f.factor } : null;
+        return lc ? { caseName: caseNameIn(frame, lc), factor: f.factor } : null;
       })
       .filter((f): f is { caseName: string; factor: number } => f !== null),
   }));
@@ -209,7 +211,7 @@ function serializeCombinations(): ReportData['combinations'] {
  * it, so the report and the panel gave two different checks. Without the seismic settings, or
  * with no seismic case solved, there is no check to print.
  */
-export function reportStoryDrifts(): { drifts: ReportData['storyDrifts']; basis?: ReportData['storyDriftBasis'] } {
+export function reportStoryDrifts(frame: AxesFrame = axesStore.frame): { drifts: ReportData['storyDrifts']; basis?: ReportData['storyDriftBasis'] } {
   const settings = regulationsStore.binding('seismic').settings as { destinationGroup?: DestinationGroup; systemKey?: string };
   const cd = settings.systemKey ? findBehaviour(settings.systemKey)?.cd ?? null : null;
   const group = settings.destinationGroup ?? null;
@@ -223,7 +225,7 @@ export function reportStoryDrifts(): { drifts: ReportData['storyDrifts']; basis?
     if (!r) continue;
     const out = seismicDrifts({ nodes: modelStore.nodes, elements: modelStore.elements.values(), displacements: r.displacements, cd, group, condition: 'D', embedded2D, levels: modelStore.grid?.levels });
     if (!out) continue;
-    limit = out.limit; cases.push(c.name);
+    limit = out.limit; cases.push(caseNameIn(frame, c));
     for (const d of out.stories) {
       const key = Math.round(d.level * 1000);
       const prev = worst.get(key);
@@ -257,7 +259,8 @@ export function buildProReportData(opts: {
   t: Translate;
 }): ReportData | null {
   const { config, advancedResults, screenshot, t } = opts;
-  const chosen = config.resultSetKey && config.resultSetKey !== 'screen' ? resultSet(config.resultSetKey) : null;
+  const reportFrame = makeFrame(config.axes ?? DEFAULT_AXES);
+  const chosen = config.resultSetKey && config.resultSetKey !== 'screen' ? resultSet(config.resultSetKey, reportFrame) : null;
   if (chosen && !hasResultSet(config.resultSetKey!)) return null;
   const results = chosen?.results ?? resultsStore.results3D
     ?? (modelStore.nodes.size === 0 ? { displacements: [], reactions: [], elementForces: [] } : null);
@@ -277,7 +280,7 @@ export function buildProReportData(opts: {
     loadCount: modelStore.loads.length,
     loads: serializeLoads(t, config.axes),
     results,
-    combinations: serializeCombinations(),
+    combinations: serializeCombinations(reportFrame),
     advancedResults,
     diagnostics: resultsStore.diagnostics3D.length > 0 ? resultsStore.diagnostics3D : undefined,
     screenshot,
@@ -292,10 +295,10 @@ export function buildProReportData(opts: {
   );
   // The project's own data for the cover, and the project-scale sections.
   data.projectInfo = modelStore.projectInfo;
-  data.resultSetName = chosen?.results ? chosen.name : resultSetName();
+  data.resultSetName = chosen?.results ? chosen.name : resultSetName(reportFrame);
   const combos = activePerCombo3D();
-  const cname = new Map(modelStore.combinations.map((c) => [c.id, c.name]));
-  const kname = new Map(modelStore.loadCases.map((c) => [c.id, c.name]));
+  const cname = new Map(modelStore.combinations.map((c) => [c.id, combinationNameIn(reportFrame, c)]));
+  const kname = new Map(modelStore.loadCases.map((c) => [c.id, caseNameIn(reportFrame, c)]));
   data.resultSets = combos.size > 0
     ? [...combos].map(([id, r]) => ({ id, name: cname.get(id) ?? String(id), results: r }))
     : [...resultsStore.perCase3D].map(([id, r]) => ({ id, name: kname.get(id) ?? String(id), results: r }));
@@ -319,7 +322,7 @@ export function buildProReportData(opts: {
       direction: c.rule.direction, ratio: c.check.ratio, status: c.check.status, cantilever: !!c.deflection.cantilever,
     }];
   }).sort((a, b) => b.ratio - a.ratio);
-  const drift = reportStoryDrifts();
+  const drift = reportStoryDrifts(reportFrame);
   data.storyDrifts = drift.drifts;
   if (drift.basis) data.storyDriftBasis = drift.basis;
   return data;

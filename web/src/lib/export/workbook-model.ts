@@ -21,6 +21,7 @@ import { safeText, type WorkbookSheet } from './workbook-cells';
 import type { AxesChoice, AxesFrame } from '../axes/frame';
 import { axisToUser, boxToUser, flagsToUser, modelToUser, workbookFrame } from './workbook-frame';
 import { AXES_SHEET } from '../excel-import/schema';
+import { caseNameIn, combinationNameIn } from '../axes/case-names';
 
 export interface WorkbookModel extends ModelData {
   loadCases: readonly LoadCase[];
@@ -103,14 +104,14 @@ function supportsSheet(m: WorkbookModel, solved: SolverInput3D | null, f: AxesFr
   return { name: 'Supports', rows };
 }
 
-function casesSheet(m: WorkbookModel): WorkbookSheet {
-  return { name: 'LoadCases', rows: [['id', 'name', 'type'], ...m.loadCases.map((c) => [c.id, safeText(c.name), c.type])] };
+function casesSheet(m: WorkbookModel, f: AxesFrame | null): WorkbookSheet {
+  return { name: 'LoadCases', rows: [['id', 'name', 'type'], ...m.loadCases.map((c) => [c.id, safeText(f ? caseNameIn(f, c) : c.name), c.type])] };
 }
 
 /** Long form, as the importer reads it: one row per combination and case. */
-function combinationsSheet(m: WorkbookModel): WorkbookSheet {
+function combinationsSheet(m: WorkbookModel, frame: AxesFrame | null): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['combination', 'case', 'factor', 'id']];
-  for (const c of m.combinations) for (const f of c.factors) rows.push([safeText(c.name), f.caseId, f.factor, c.id]);
+  for (const c of m.combinations) for (const f of c.factors) rows.push([safeText(frame ? combinationNameIn(frame, c) : c.name), f.caseId, f.factor, c.id]);
   return { name: 'Combinations', rows };
 }
 
@@ -240,8 +241,8 @@ export function modelSheets(model: WorkbookModel, solved: SolverInput3D | null, 
   const all: Array<[string, () => WorkbookSheet | WorkbookSheet[] | null]> = [
     ['Nodes', () => nodesSheet(m)], ['Members', () => membersSheet(m)], ['Materials', () => materialsSheet(m)],
     ['Sections', () => sectionsSheet(m, solved)], ['Supports', () => supportsSheet(m, solved, f)],
-    ['Shells', () => shellSheets(m)], ['LoadCases', () => casesSheet(m)], ['LoadData', () => loadsSheet(m)],
-    ['SelfWeight', () => selfWeightSheet(model, f)], ['Combinations', () => combinationsSheet(m)],
+    ['Shells', () => shellSheets(m)], ['LoadCases', () => casesSheet(m, f)], ['LoadData', () => loadsSheet(m)],
+    ['SelfWeight', () => selfWeightSheet(model, f)], ['Combinations', () => combinationsSheet(m, f)],
     ['Constraints', () => constraintsSheet(m)], ['PointMasses', () => pointMassesSheet(m)],
     ['MassSource', () => massSourceSheet(m, f)], ['Groups', () => groupsSheet(m)],
   ];

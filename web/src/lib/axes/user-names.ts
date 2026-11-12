@@ -1,19 +1,13 @@
-import { along, modelIndexOfUser, twoD, userFlags, userRot, userVec } from './display';
-import type { AxisName } from './frame';
+import { modelIndexOfUser, twoD, userFlags, userRot, userVec } from './display';
+import { planeLettersIn, relabelAxesWith, supportTypeIn, userLetterIn, type AxisName } from './frame';
+import { axesStore } from './axes.svelte';
 import { TWO_D_DISPLACEMENT_LABELS, TWO_D_REACTION_LABELS } from '../geometry/coordinate-system';
 
 const MODEL_LETTERS = ['X', 'Y', 'Z'] as const;
 
-function userLetterOf(modelLetter: string): AxisName {
-  return along(MODEL_LETTERS.indexOf(modelLetter.toUpperCase() as AxisName) as 0 | 1 | 2).name;
-}
+const userLetterOf = (modelLetter: string): AxisName => userLetterIn(axesStore.frame, modelLetter);
 
-export function relabelAxes(text: string): string {
-  return text.replace(/(?<![A-Za-z])([XYZ]{1,2})(?![A-Za-z])/g, (token) => {
-    const letters = [...token].map(userLetterOf);
-    return (token.length === 2 ? letters.sort() : letters).join('');
-  });
-}
+export const relabelAxes = (text: string): string => relabelAxesWith(axesStore.frame, text);
 
 export function relabelComponents(text: string): string {
   return text.replace(/(?<![A-Za-z])(F|R|M|u|d|θ|δ)([xyz])(?![A-Za-z])/g, (_, p: string, l: string) => `${p}${userLetterOf(l).toLowerCase()}`);
@@ -72,7 +66,17 @@ export function ilText(q: string, text: string): string {
   return shown.symbol === q || q === 'ry' ? text : relabelAxes(text.replace(new RegExp(`(?<![A-Za-z])${q}(?![A-Za-z])`, 'g'), shown.symbol));
 }
 
-export function supportTypeShown(type: string): string {
-  const m = /^(roller)([XYZ]{2})$/.exec(type);
-  return m ? `${m[1]}${planeName(m[2])}` : type;
+export const supportTypeShown = (type: string): string => supportTypeIn(axesStore.frame, type);
+
+/** A 2D text whose X is the horizontal and whose Y or Z is the vertical, in the user's names. */
+export const planeLettersShown = (text: string): string => planeLettersIn(axesStore.frame, text);
+
+export const axisTextShown = (text: string, is3D: boolean): string => (is3D ? relabelAxes(text) : planeLettersShown(text));
+
+/** The text written for the model axis the user's `userLetter` stands for, renamed: "Force in Z (vertical)" is the user Y's under Y up. */
+export function userAxisText(tr: (key: string) => string, key: (modelLetter: 'X' | 'Y' | 'Z') => string, userLetter: 'X' | 'Y' | 'Z'): string {
+  return relabelAxes(tr(key(MODEL_LETTERS[modelIndexOfUser(MODEL_LETTERS.indexOf(userLetter))]!)));
 }
+
+/** A support type's label, its letters in the user's names: a 2D roller's Y is the vertical. */
+export const supportNameShown = (type: string, label: string): string => (/^(roller|guided)[XYZ]$/.test(type) ? planeLettersShown(label) : relabelAxes(label));

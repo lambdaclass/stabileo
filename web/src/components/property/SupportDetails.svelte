@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { planeLettersShown } from '../../lib/axes/user-names';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import type { SupportType } from '../../lib/store/model.svelte.ts';
@@ -126,7 +127,7 @@
     <div class="property-row">
       <span>{t('prop.axes')}:</span>
       <button class="btn-small" class:active={sup.isGlobal !== false} onclick={() => updateSpringField(supId, 'isGlobal', '1')}
-        title={t('prop.globalAxesTitle')}>Gl</button>
+        title={planeLettersShown(t('prop.globalAxesTitle'))}>Gl</button>
       <button class="btn-small" class:active={sup.isGlobal === false} onclick={() => updateSpringField(supId, 'isGlobal', '0')}
         title={t('prop.localAxesTitle')}>{t('prop.localAxesShort')}</button>
     </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../../lib/axes/case-names';
   import Hint from './Hint.svelte';
   /**
    * The load cases: which ones show in the model, the self-weight, the table of cases, and the
@@ -36,7 +37,7 @@
         const s = modelStore.model.loadCases.find((c) => c.id === src);
         if (!s) continue;
         for (const dir of notDirs) {
-          const id = modelStore.addLoadCase(tp('caseDetails.notionalName', { dir, name: s.name }), 'N');
+          const id = modelStore.addLoadCase(tp('caseDetails.notionalName', { dir, name: s.name }), 'N', { axisNamed: true });
           modelStore.updateLoadCaseFields(id, { notional: { sourceCaseId: src, ratio, dir } });
         }
       }
@@ -181,7 +182,7 @@
             {#each TYPES as ty (ty)}<option value={ty} title={typeName(ty)}>{ty || '—'}</option>{/each}
           </select>
         </td>
-        <td class="lc-name-cell"><input class="cell lc-name" type="text" value={lc.name} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCase(lc.id, e.currentTarget.value)} aria-label={t('pro.lcName')} />
+        <td class="lc-name-cell"><input class="cell lc-name" type="text" value={caseNameShown(lc)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoadCase(lc.id, e.currentTarget.value)} aria-label={t('pro.lcName')} />
           <!-- One of an alternatives group (a checkerboard, an unbalanced snow): the combinations
                take one case of the group at a time. -->
           {#if lc.alternatives}<span class="lc-alt" title={t('pro.lcAlternativeHint')} data-testid="lc-alt-{lc.id}">{t('pro.lcAlternative')}</span>{/if}
@@ -189,7 +190,7 @@
           {#if lc.includes?.length}<span class="lc-alt" title={t('caseDetails.includes')} data-testid="lc-composite-{lc.id}">⊕ {lc.includes.length}</span>{/if}
           {#if lc.reference}<span class="lc-alt" title={t('caseDetails.reference')} data-testid="lc-ref-{lc.id}">{t('caseDetails.referenceBadge')}</span>
           {:else if lc.solve === false}<span class="lc-alt" title={t('caseDetails.solve')}>{t('caseDetails.notSolvedBadge')}</span>{/if}
-          {#if lc.notional}<span class="lc-alt" title={t('caseDetails.notional')}>{lc.notional.ratio} · {lc.notional.dir}</span>{/if}
+          {#if lc.notional}<span class="lc-alt" title={t('caseDetails.notional')}>{lc.notional.ratio} · {signedAxisText(lc.notional.dir)}</span>{/if}
           <!-- A ratio the case states but the solve does not apply (retyped from L) is no badge. -->
           {#if lc.reduction && reductionApplies(lc)}<span class="lc-alt" title={t('caseDetails.reduction')}>× {lc.reduction.ratio.toFixed(2)}</span>{/if}
           {#if looped.has(lc.id)}<span class="lc-alt lc-loop" title={t('caseDetails.loop')} data-testid="lc-loop-{lc.id}">{t('caseDetails.loopBadge')}</span>{/if}</td>
@@ -215,7 +216,7 @@
           <td colspan="9">
             <!-- And what removeLoadCase takes beyond the loads: self-weight rows, a mass-source factor,
                  its place in composite cases, the source of notional cases (left empty). -->
-            <span>{tp('pro.removeCaseConfirm', { name: lc.name, loads: scope.loads, combos: scope.combinations })}{#if scope.selfWeight}{' '}{tp('pro.removeCaseSelfWeight', { n: scope.selfWeight })}{/if}{#if scope.mass}{' '}{t('pro.removeCaseMass')}{/if}{#if scope.composites.length}{' '}{tp('pro.removeCaseComposites', { names: scope.composites.join(', ') })}{/if}{#if scope.notional.length}{' '}{tp('pro.removeCaseNotional', { names: scope.notional.join(', ') })}{/if}</span>
+            <span>{tp('pro.removeCaseConfirm', { name: caseNameShown(lc), loads: scope.loads, combos: scope.combinations })}{#if scope.selfWeight}{' '}{tp('pro.removeCaseSelfWeight', { n: scope.selfWeight })}{/if}{#if scope.mass}{' '}{t('pro.removeCaseMass')}{/if}{#if scope.composites.length}{' '}{tp('pro.removeCaseComposites', { names: scope.composites.join(', ') })}{/if}{#if scope.notional.length}{' '}{tp('pro.removeCaseNotional', { names: scope.notional.join(', ') })}{/if}</span>
             <button class="pk-btn lc-danger" onclick={(e) => { e.stopPropagation(); removeLoadCase(lc.id); }} data-testid="lc-confirm-yes">{t('pro.removeCase')}</button>
             <button class="pk-btn" onclick={(e) => { e.stopPropagation(); confirming = null; }}>{t('calcReport.cancel')}</button>
           </td>
@@ -231,7 +232,7 @@
   <Hint text={t('caseDetails.notionalCasesHint')} />
   <div class="lc-not-row">
     {#each loadCases.filter((c) => !c.notional) as c (c.id)}
-      <label><input type="checkbox" checked={notSources.includes(c.id)} onchange={(e) => (notSources = e.currentTarget.checked ? [...notSources, c.id] : notSources.filter((x) => x !== c.id))} data-testid="lc-not-src-{c.id}" /> {c.type ? `${c.type} · ` : ''}{c.name}</label>
+      <label><input type="checkbox" checked={notSources.includes(c.id)} onchange={(e) => (notSources = e.currentTarget.checked ? [...notSources, c.id] : notSources.filter((x) => x !== c.id))} data-testid="lc-not-src-{c.id}" /> {c.type ? `${c.type} · ` : ''}{caseNameShown(c)}</label>
     {/each}
   </div>
   <div class="lc-not-row">

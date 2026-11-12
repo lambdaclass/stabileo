@@ -7,7 +7,7 @@ import { printedTables } from '../report/printed-values';
 import { comparePrintedReport } from '../../actions/reproduce';
 import { axesStore } from '../../axes/axes.svelte';
 import { makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
-import { withUserAxes } from '../../pro/report-export';
+import { withPresentation } from '../../pro/report-export';
 import { t } from '../../i18n';
 
 const YUP: AxesChoice = { up: '+Y', right: '-Z', hand: 'left' };
@@ -49,7 +49,7 @@ describe('the report in the user axes', () => {
   it('prints reactions, coordinates, loads and statics in the axes it declares, and reproduces under any frame', () => {
     axesStore.choice = YUP;
     const f = makeFrame(YUP);
-    const cfg = withUserAxes(config());
+    const cfg = withPresentation(config());
     expect(cfg.axes).toEqual(YUP);
     const html = generateReportHtml(buildProReportData({ config: cfg, t })!);
     expect(html).toContain('up=+Y right=-Z hand=left');

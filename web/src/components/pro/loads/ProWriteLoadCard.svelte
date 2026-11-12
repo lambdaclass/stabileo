@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../../../lib/axes/case-names';
   /**
    * Write a load: its kind, its values, and what it goes on (`LoadTargetPicker`), added in one undo
    * step to the active case. What the form describes is `model/loads/write-load.ts`'s: the numbers
@@ -232,7 +233,7 @@
   <div class="wl-head">
     <div class="fg-r"><span class="fg-l">{t('pro.writeLoadCase')}</span>
       <select class="fg-wide" bind:value={uiStore.activeLoadCaseId} data-testid="write-load-case">
-        {#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+        {#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}
       </select></div>
     <div class="fg-r"><span class="fg-l">{t('writeLoad.kindShort')}</span>
       <select class="fg-wide" value={kind} onchange={(e) => pick(e.currentTarget.value as Kind)} aria-label={t('writeLoad.kind')} data-testid="wl-kind">

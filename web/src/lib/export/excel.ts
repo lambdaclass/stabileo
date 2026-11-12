@@ -52,6 +52,8 @@ import { coordLabels, shownCoords, twoD, userRot, userVec } from '../axes/displa
 import { nodeShown3D, standingPlane } from '../axes/node-coords';
 import { axesStore } from '../axes/axes.svelte';
 import { axesStatement } from '../axes/statement';
+import { combinationNameShown } from '../axes/case-names';
+import { supportNameShown, supportTypeShown } from '../axes/user-names';
 
 interface ExcelExportOptions {
   filename?: string;
@@ -402,7 +404,7 @@ function createReactionsSheet(): Xlsx.WorkSheet {
     for (const r of shown) {
       const sup = [...modelStore.supports.values()].find(s => s.nodeId === r.nodeId);
       data.push([
-        r.nodeId, sup?.type ?? '-',
+        r.nodeId, sup ? supportTypeShown(sup.type) : '-',
         Number(r.fx.toFixed(4)), Number(r.fy.toFixed(4)), Number(r.fz.toFixed(4)),
         Number(r.mx.toFixed(4)), Number(r.my.toFixed(4)), Number(r.mz.toFixed(4)),
       ]);
@@ -437,9 +439,10 @@ function createReactionsSheet(): Xlsx.WorkSheet {
       rollerXY: t('selEntity.supRollerXY'), rollerXZ: t('selEntity.supRollerXZ'), rollerYZ: t('selEntity.supRollerYZ'),
       spring3d: t('excel.spring'), custom3d: t('selEntity.supCustom3d'),
     } as Record<string, string>)[sup.type] ?? sup.type : '-';
+    const supShown = sup ? supportNameShown(sup.type, supType) : supType;
 
     data.push([
-      r.nodeId, supType,
+      r.nodeId, supShown,
       Number(twoD.x(r.rx).toFixed(4)), Number(twoD.z(get2DDisplayReactionVertical(r)).toFixed(4)), Number(twoD.rot(get2DDisplayMoment(r)).toFixed(4)),
     ]);
   }
@@ -590,7 +593,7 @@ export function combinationPeakRows(): Array<[string, number, number, number, nu
   } else {
     rows = [...resultsStore.perCombo].map(([id, r]) => [id, peaks2D(r)]);
   }
-  const comboName = new Map(modelStore.model.combinations.map((c) => [c.id, c.name]));
+  const comboName = new Map(modelStore.model.combinations.map((c) => [c.id, combinationNameShown(c)]));
   for (const [id, p] of rows) {
     data.push([
       comboName.get(id) ?? String(id),

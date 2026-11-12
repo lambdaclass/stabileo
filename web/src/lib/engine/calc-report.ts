@@ -19,6 +19,7 @@ import { modelFigureSvg } from './report/model-figure';
 import { formatValue, toDisplay, unitLabel, type Quantity, type UnitSystem } from '../utils/units';
 import { extraDecimals, smallDisplacement } from '../utils/unit-format';
 import type { KinematicReport } from './kinematic-report';
+import { supportTypeShown } from '../axes/user-names';
 import {
   EXTRA_CSS, figureCounter, forceTable2D, forceTable3D, kinematicsSectionHtml, solveErrorHtml,
   type CalcReportContent, type ReportFigure,
@@ -291,7 +292,7 @@ function buildModelSection(data: CalcReportData, num = '1', fig?: ReturnType<typ
   const ul = U.u('length');
   h.push(`<table><tr><th>ID</th>${coordLabels(data.is3D).map((l) => `<th>${l} (${ul})</th>`).join('')}</tr>`);
   const showNodes = condensed ? [...data.nodes.slice(0, 20), null, ...data.nodes.slice(-5)] : data.nodes;
-  const upright = data.is3D && standingPlane();
+  const upright = data.is3D && (data.project2DToXZ ?? standingPlane());
   for (const n of showNodes) {
     if (!n) { h.push(`<tr><td colspan="${data.is3D ? 4 : 3}" style="text-align:center;color:#888">${esc(tp('calcReport.moreNodes', { n: nodeCount - 25 }))}</td></tr>`); continue; }
     const c = data.is3D ? nodeShown3D(n, upright) : shownCoords(n, false);
@@ -320,7 +321,7 @@ function buildModelSection(data: CalcReportData, num = '1', fig?: ReturnType<typ
   h.push(`<h2>${num}.5 ${t('report.supports')} (${data.supports.length})</h2>`);
   h.push(`<table><tr><th>ID</th><th>${t('table.nodeLabel')}</th><th>${t('report.type')}</th></tr>`);
   for (const s of data.supports) {
-    h.push(`<tr><td>${s.id}</td><td>${s.nodeId}</td><td>${esc(s.type)}</td></tr>`);
+    h.push(`<tr><td>${s.id}</td><td>${s.nodeId}</td><td>${esc(supportTypeShown(s.type))}</td></tr>`);
   }
   h.push('</table>');
 

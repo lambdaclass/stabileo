@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../../../lib/axes/case-names';
   /**
    * The loads, as tables: the active case's or every case's, one table per kind, each cell edited in
    * place, the totals each case applies before anything is solved, and the operations on the loads
@@ -196,7 +197,7 @@
   <div class="lt-ops" data-testid="lt-ops">
     <span class="lt-ops-n">{tp('loadTables.selected', { n: selected.length })}</span>
     <select value={destination} onchange={(e) => (toCase = Number(e.currentTarget.value))} data-testid="lt-ops-case" aria-label={t('loadTables.toCase')}>
-      {#each cases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+      {#each cases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}
     </select>
     <label>× <input type="text" class="lt-k" bind:value={factorText} data-testid="lt-ops-factor" /></label>
     <button type="button" class="pk-btn" disabled={factor === null} onclick={() => copyLoadsToCase(selected, destination, factor ?? 1)} data-testid="lt-ops-copy">{t('loadTables.copy')}</button>
@@ -236,7 +237,7 @@
       {#each swShown as { w, i } (i)}
         <tr data-testid="sw-row">
           <td><select class="inp-cell" value={String(w.caseId)} onchange={(e) => swChange(i, { caseId: Number(e.currentTarget.value) })} data-testid="sw-case">
-            {#each cases as c (c.id)}<option value={String(c.id)}>{c.name}</option>{/each}
+            {#each cases as c (c.id)}<option value={String(c.id)}>{caseNameShown(c)}</option>{/each}
           </select></td>
           <td><select class="inp-cell" value={swShownDir(w)} onchange={(e) => swDirection(i, w, e.currentTarget.value as GlobalAxis)} data-testid="sw-dir">
             <option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option>

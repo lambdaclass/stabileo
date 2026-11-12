@@ -13029,6 +13029,8 @@ const es: Record<string, string> = {
   'proExport.sizeLarge': 'Grandes',
   'proExport.dxf3dNote': 'El modelo en sus coordenadas, con Z hacia arriba: los diagramas quedan en el plano en que los dibuja la vista 3D.',
   'proExport.dxfProjectedNote': 'Una proyección plana del modelo: lo que queda de canto se superpone.',
+  'proExport.dxfAxes': 'Ejes del dibujo: {axes}.',
+  'proExport.dxfLeftHandNote': 'Tus ejes son de mano izquierda y el CAD es de mano derecha: {axis} se escribe con el signo cambiado para que el dibujo no quede espejado.',
   'proExport.dxfNoResults': 'No se pudo calcular el modelo: el DXF sale sin resultados.',
   "proExport.reportBtn": "Reporte de cálculo…",
   "proExport.reportTip": "El reporte de cálculo como documento: elegís qué secciones lleva, si cada resultado va en tabla, en figura o en ambas, y si sale en PDF, Word o HTML.",

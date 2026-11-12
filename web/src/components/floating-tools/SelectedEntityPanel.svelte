@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { planeLettersShown, relabelAxes, supportNameShown, supportTypeShown } from '../../lib/axes/user-names';
+  import { caseNameShown } from '../../lib/axes/case-names';
   import { uiStore, resultsStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D } from '../../lib/store/model.svelte.ts';
@@ -193,7 +195,7 @@
 
 {#snippet frameToggle(id: number, global: boolean)}
   <!-- The axes the values are along: switching re-reads the same numbers in the other axes. -->
-  <button class="ft-opt-btn ft-coord-btn" class:active={global} onclick={() => setLoadFrame(id, 'global')} title={t('float.loadFrameGlobalTip')}>{t('float.frameGlobal')}</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={global} onclick={() => setLoadFrame(id, 'global')} title={relabelAxes(t('float.loadFrameGlobalTip'))}>{t('float.frameGlobal')}</button>
   <button class="ft-opt-btn ft-coord-btn" class:active={!global} onclick={() => setLoadFrame(id, 'local')} title={t('float.loadFrameLocalTip')}>{t('float.frameLocal')}</button>
 {/snippet}
 
@@ -207,7 +209,7 @@
       onchange={(e) => { updateLoadField(selectedLoad.data.id, 'caseId', e.currentTarget.value); }}
       title={t('selEntity.loadCase')}>
       {#each modelStore.loadCases as lc}
-        <option value={String(lc.id)}>{lc.type || lc.name}</option>
+        <option value={String(lc.id)}>{lc.type || caseNameShown(lc)}</option>
       {/each}
     </select>
     <span class="ft-sep">|</span>
@@ -253,7 +255,7 @@
         <span class="ft-unit">{unitQ('length')}</span>
       </label>
       <span class="ft-sep">|</span>
-      <button class="ft-opt-btn ft-coord-btn" class:active={dl.isGlobal === true} onclick={() => updateLoadField(dl.id, 'isGlobal', true)} title={t('float.loadGlobalYDir')}>{twoD.vertical}</button>
+      <button class="ft-opt-btn ft-coord-btn" class:active={dl.isGlobal === true} onclick={() => updateLoadField(dl.id, 'isGlobal', true)} title={planeLettersShown(t('float.loadGlobalYDir'))}>{twoD.vertical}</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={!dl.isGlobal} onclick={() => updateLoadField(dl.id, 'isGlobal', false)} title={t('float.loadPerpDir')}>⊥</button>
       <label class="ft-input-group">
         <span>α:</span>
@@ -284,7 +286,7 @@
         <span class="ft-unit">{unitQ('moment')}</span>
       </label>
       <span class="ft-sep">|</span>
-      <button class="ft-opt-btn ft-coord-btn" class:active={pl.isGlobal === true} onclick={() => updateLoadField(pl.id, 'isGlobal', true)} title={t('float.loadGlobalYDir')}>{twoD.vertical}</button>
+      <button class="ft-opt-btn ft-coord-btn" class:active={pl.isGlobal === true} onclick={() => updateLoadField(pl.id, 'isGlobal', true)} title={planeLettersShown(t('float.loadGlobalYDir'))}>{twoD.vertical}</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={!pl.isGlobal} onclick={() => updateLoadField(pl.id, 'isGlobal', false)} title={t('float.loadPerpDir')}>⊥</button>
       <label class="ft-input-group">
         <span>α:</span>
@@ -367,7 +369,7 @@
 
 {#if selectedSup}
   <div class="ft-load-edit" class:in-bar={inBar}>
-    <span class="ft-load-tag">{t('selEntity.support')} {t(supTypeLabelKeys[selectedSup.type] ?? '') || selectedSup.type}</span>
+    <span class="ft-load-tag">{t('selEntity.support')} {supportNameShown(selectedSup.type, t(supTypeLabelKeys[selectedSup.type] ?? '')) || supportTypeShown(selectedSup.type)}</span>
     <span class="ft-sep">|</span>
     {#if is3DSupport(selectedSup.type)}
       <!-- 3D per-DOF editing for selected support -->
@@ -415,15 +417,15 @@
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-dir-btn" class:active={selectedSup.type === 'rollerX'}
         onclick={() => changeSupportType(selectedSup.id, 'rollerX')}
-        title={selectedSup.isGlobal !== false ? t('float.rollerRestrictsYGlobal') : t('float.rollerRestrictsJLocal')}
+        title={selectedSup.isGlobal !== false ? planeLettersShown(t('float.rollerRestrictsYGlobal')) : t('float.rollerRestrictsJLocal')}
       >{selectedSup.isGlobal !== false ? twoD.horizontal : 'i'}</button>
       <button class="ft-opt-btn ft-dir-btn" class:active={selectedSup.type === 'rollerY' || selectedSup.type === 'rollerZ'}
         onclick={() => changeSupportType(selectedSup.id, 'rollerZ')}
-        title={selectedSup.isGlobal !== false ? t('float.rollerRestrictsXGlobal') : t('float.rollerRestrictsILocal')}
+        title={selectedSup.isGlobal !== false ? planeLettersShown(t('float.rollerRestrictsXGlobal')) : t('float.rollerRestrictsILocal')}
       >{selectedSup.isGlobal !== false ? twoD.vertical : 'j'}</button>
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal !== false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', true)}
-        title={t('float.rollerGlobalLabel')}>Gl</button>
+        title={planeLettersShown(t('float.rollerGlobalLabel'))}>Gl</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal === false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', false)}
         title={t('float.rollerLocalLabel')}>{t('prop.localAxesShort')}</button>
       <label class="ft-input-group" title={t('float.prescribedRollerDisp')}>
@@ -452,7 +454,7 @@
       </label>
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal !== false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', true)}
-        title={t('float.supportGlobalAxes')}>Gl</button>
+        title={planeLettersShown(t('float.supportGlobalAxes'))}>Gl</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal === false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', false)}
         title={t('float.supportLocalAxes')}>{t('prop.localAxesShort')}</button>
       <label class="ft-input-group" title={t('float.supportAngle')}>

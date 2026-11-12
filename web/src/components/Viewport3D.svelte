@@ -19,9 +19,9 @@
   import { drawAxisGizmoOn } from '../lib/viewport3d/axis-gizmo';
   import { axesStore } from '../lib/axes/axes.svelte';
   import { forgetGizmoPress, pressOnGizmo, releaseOnGizmo } from '../lib/axes/gizmo-press';
-  import { XYZ, along, modelAxisOf, modelLoad3D, planeGlobalAngle, twoD } from '../lib/axes/display';
+  import { XYZ, along, modelAxisOf, modelLoad3D, planeDistributedLoad, planeGlobalAngle, twoD } from '../lib/axes/display';
   import { nodeMoveArgs3D, nodeShown3D } from '../lib/axes/node-coords';
-  import { supportTypeShown } from '../lib/axes/user-names';
+  import { relabelComponents, supportTypeShown } from '../lib/axes/user-names';
   import { createViewerScene, createViewerPerspectiveCamera, createViewerOrthographicCamera, createViewerRenderer, createViewerControls, applyDefaultNavigation, addViewerLights } from '../lib/viewport3d/scene-setup';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
@@ -2487,7 +2487,7 @@
     updateMouseNDC(e);
     if (!camera) return;
     const mask = uiStore.jointDof3d;
-    if (!mask.some(Boolean)) { uiStore.toast(t('float.jointPickDof'), 'info'); return; }
+    if (!mask.some(Boolean)) { uiStore.toast(relabelComponents(t('float.jointPickDof')), 'info'); return; }
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
     const elemHits = raycaster.intersectObjects(elementsParent.children, true);
@@ -2705,7 +2705,8 @@
         const L = modelStore.getElementLength(elemId);
         const st = toolStretch(uiStore.distLoadPartial, uiStore.distLoadFrom, uiStore.distLoadTo, L);
         if (!st.ok) { uiStore.toast(t('float.distStretchRefused').replace('{id}', String(elemId)).replace('{L}', fixedQuantity(L, 'length', 2, uiStore.unitSystem)), 'error'); return; }
-        modelStore.addDistributedLoad(elemId, uiStore.loadValue, uiStore.loadValueJ, undefined, undefined, uiStore.activeLoadCaseId, st.a, st.b);
+        const d = planeDistributedLoad(uiStore.loadValue, uiStore.loadValueJ, uiStore.loadAngle, uiStore.loadIsGlobal);
+        modelStore.addDistributedLoad(elemId, d.qI, d.qJ, d.angle, d.isGlobal, uiStore.activeLoadCaseId, st.a, st.b);
       }
       uiStore.toast(t('viewport3d.distLoadApplied').replace('{id}', String(elemId)), 'success');
     } else if (uiStore.loadType === 'thermal') {

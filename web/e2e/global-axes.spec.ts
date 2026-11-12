@@ -57,3 +57,22 @@ test('@smoke Settings links to the axes picker', async ({ pro: page }) => {
   await page.getByTestId('axes-toward-local').uncheck();
   await expect(caption).toHaveText(before ?? '');
 });
+
+test('@smoke Settings → Set… opens the picker over the app, and an axis edited there is kept', async ({ pro: page }) => {
+  await page.getByTestId('pro-settings').click();
+  await page.getByTestId('cfg-axes-open').click();
+  const picker = page.getByTestId('axes-picker');
+  await expect(picker).toBeVisible();
+  const overlay = page.locator('.ax-overlay');
+  await expect(overlay).toHaveCSS('position', 'fixed');
+  const box = (await picker.boundingBox())!;
+  const vp = page.viewportSize()!;
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(vp.height);
+  await picker.getByTestId('axes-up-+Y').click();
+  await expect(picker.getByTestId('axes-summary')).toContainText('−Y');
+  await picker.getByTestId('axes-done').click();
+  await expect(picker).toHaveCount(0);
+  await expect(page.getByTestId('cfg-axes-summary')).toContainText('Y');
+  expect(await page.evaluate(() => localStorage.getItem('stabileo-axes'))).toContain('"up":"+Y"');
+});
