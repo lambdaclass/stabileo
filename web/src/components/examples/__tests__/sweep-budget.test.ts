@@ -127,20 +127,20 @@ describe('seeded slider sweep execution', () => {
     for (const samples of seen.values()) expect(samples).toHaveLength(300);
   });
 
-  it.each([0, 24, 25, 299])('rejects a dirty sample at index %i, including chunk boundaries', dirty => {
+  it.each([0, 24, 25, 299])('rejects a dirty sample at index %i in both chunk and aggregate checks', dirty => {
     outcome = index => {
       const result = clean();
       if (index === dirty && result.status === 'ok') result.views.outrigger.values[0] = NaN;
       return result;
     };
     const { failures } = run();
-    expect(failures).toHaveLength(EXAMPLES.length);
+    expect(failures).toHaveLength(2 * EXAMPLES.length);
     for (const failure of failures) expect((failure.error as { actual: unknown }).actual).toEqual([expect.stringContaining('non-finite value')]);
     for (const samples of seen.values()) expect(samples).toHaveLength(300);
   });
 });
 
-describe.skip('known wrong result: #1960', () => {
+describe('seeded slider sweep execution order (#1960)', () => {
   it.each(['alone', 'first', 'reversed'] as const)('checks complete refusal counts with the aggregate %s', order => {
     const aggregates = registered.filter(test => test.name.includes('refuses less than'));
     const chunks = registered.filter(test => !test.name.includes('refuses less than'));
@@ -160,6 +160,20 @@ describe.skip('known wrong result: #1960', () => {
       expect(failure.name).toContain('refuses less than 20%');
       expect((failure.error as { actual: unknown }).actual).toBe(60 / 300);
     }
+    for (const samples of seen.values()) expect(samples).toHaveLength(300);
+  });
+});
+
+describe('aggregate sample validation', () => {
+  it.each([0, 24, 25, 299])('rejects a dirty sample at index %i when run alone', dirty => {
+    outcome = index => {
+      const result = clean();
+      if (index === dirty && result.status === 'ok') result.views.outrigger.values[0] = NaN;
+      return result;
+    };
+    const { failures } = run(registered.filter(test => test.name.includes('refuses less than')));
+    expect(failures).toHaveLength(EXAMPLES.length);
+    for (const failure of failures) expect((failure.error as { actual: unknown }).actual).toEqual([expect.stringContaining('non-finite value')]);
     for (const samples of seen.values()) expect(samples).toHaveLength(300);
   });
 });

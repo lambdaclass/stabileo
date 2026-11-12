@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as engine from '../../../lib/engine/wasm-solver';
 import { EXAMPLES } from '../catalog';
 import { defaults, refusedOutcome, type Example, type Outcome, type Param, type Values } from '../define';
@@ -149,35 +149,43 @@ describe.each(EXAMPLES.map(e => [e.id, e] as const))('example %s across its slid
     expect(found).toEqual([]);
   });
 
-  const random = mulberry32(0x5eed + id.length * 7919 + id.charCodeAt(0));
-  const grids = example.params.map(grid);
-  const samples = Array.from({ length: SAMPLES }, () => Object.fromEntries(example.params.map((p, i) => [p.key, grids[i][Math.floor(random() * grids[i].length)]])));
-  const refusals = new Map<number, string | undefined>();
+  describe('seeded samples', () => {
+    const random = mulberry32(0x5eed + id.length * 7919 + id.charCodeAt(0));
+    const grids = example.params.map(grid);
+    const samples = Array.from({ length: SAMPLES }, () => Object.fromEntries(example.params.map((p, i) => [p.key, grids[i][Math.floor(random() * grids[i].length)]])));
+    const checked = new Map<number, { code: string | undefined; problems: string[] }>();
 
-  for (let start = 0; start < SAMPLES; start += SAMPLES_PER_TEST) {
-    const end = Math.min(start + SAMPLES_PER_TEST, SAMPLES);
-    it(`every seeded sample is clean: samples ${start + 1}–${end} of ${SAMPLES}`, () => {
-      const found: string[] = [];
-      for (let k = start; k < end; k++) {
-        const values = samples[k];
-        const solved = solve(example, values);
-        for (const p of problems(example, values, solved)) found.push(`${label(values)}: ${p}`);
-        refusals.set(k, solved.outcome.status === 'refused' ? solved.outcome.code : undefined);
-      }
-      expect(found).toEqual([]);
-    }, 120000);
-  }
-
-  it(`refuses less than ${MAX_REFUSED_SHARE * 100}% of a seeded sample of the slider space, and every sample is clean`, () => {
-    expect(refusals.size).toBe(SAMPLES);
-    let refused = 0;
-    const codes: Record<string, number> = {};
-    for (const code of refusals.values()) {
-      if (code !== undefined) { refused++; codes[code] = (codes[code] ?? 0) + 1; }
+    for (let start = 0; start < SAMPLES; start += SAMPLES_PER_TEST) {
+      const end = Math.min(start + SAMPLES_PER_TEST, SAMPLES);
+      beforeAll(() => {
+        for (let k = start; k < end; k++) {
+          const values = samples[k];
+          const solved = solve(example, values);
+          checked.set(k, {
+            code: solved.outcome.status === 'refused' ? solved.outcome.code : undefined,
+            problems: problems(example, values, solved).map(p => `${label(values)}: ${p}`),
+          });
+        }
+      }, 120000);
+      it(`every seeded sample is clean: samples ${start + 1}–${end} of ${SAMPLES}`, () => {
+        const found: string[] = [];
+        for (let k = start; k < end; k++) found.push(...checked.get(k)!.problems);
+        expect(found).toEqual([]);
+      }, 120000);
     }
-    shares.push(`${id}: ${(100 * refused / SAMPLES).toFixed(1)}% ${JSON.stringify(codes)}`);
-    expect(refused / SAMPLES).toBeLessThan(MAX_REFUSED_SHARE);
-  }, 120000);
+
+    it(`refuses less than ${MAX_REFUSED_SHARE * 100}% of a seeded sample of the slider space, and every sample is clean`, () => {
+      expect(checked.size).toBe(SAMPLES);
+      expect([...checked.values()].flatMap(sample => sample.problems)).toEqual([]);
+      let refused = 0;
+      const codes: Record<string, number> = {};
+      for (const { code } of checked.values()) {
+        if (code !== undefined) { refused++; codes[code] = (codes[code] ?? 0) + 1; }
+      }
+      shares.push(`${id}: ${(100 * refused / SAMPLES).toFixed(1)}% ${JSON.stringify(codes)}`);
+      expect(refused / SAMPLES).toBeLessThan(MAX_REFUSED_SHARE);
+    }, 120000);
+  });
 });
 
 describe('rc-column width', () => {
