@@ -128,6 +128,7 @@ web/scripts/legacy-projects/in-version.capture.ts: if (!(e instanceof ReferenceE
 .github/scripts/slow-e2e-alert.cjs: const slowPassed = (j) => (j.steps ?? []).some((step) => step.name.startsWith('E2E slow suite') && step.conclusion === 'success');
 
 ## Not a message: ids, input labels, field names, file, HTML or source text that the name heuristic took for one.
+web/scripts/translation-gate.ts: return /<meta\s+name="robots"\s+content="noindex"/i.test(head) && /<meta\s+http-equiv="refresh"\s+content="0;/i.test(head);
 engine/src/certify/finite.rs: .filter(|(p, x)| !(*x == f64::INFINITY && DOCUMENTED_INFINITE.iter().any(|f| p.ends_with(&format!(".{f}")))))
 engine/src/postprocess/cirsoc301_check.rs: let long = cond.ends_with("Long");
 engine/src/postprocess/cirsoc301_check.rs: let a_case = cond.starts_with("e5a");

@@ -67,7 +67,7 @@ test('a route over its absolute ceiling is named; at the ceiling it is not', () 
 });
 test('the shipped ceilings cover every measured route', () => {
   const { routes } = JSON.parse(readFileSync(new URL('./route-size-ceilings.json', import.meta.url), 'utf8'));
-  assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/beam-frame/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
+  assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/beam-frame/', '/en/tools/continuous-beam/', '/en/tools/mohr-2d/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
   for (const bytes of Object.values(routes)) assert.ok(Number.isInteger(bytes) && bytes > 0);
 });
 
