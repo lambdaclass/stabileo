@@ -1,3 +1,4 @@
+import { assertHistoryWithheld } from './staged-history-containment.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initSync, solve_3d, solve_staged_3d } from '../../web/src/lib/wasm/dedaliano_engine.js';
@@ -52,12 +53,18 @@ for (const pads of [0, 4, 5]) for (const constrained of [false, true]) {
         const tip = stage.results.displacements.find(d => d.nodeId === 2);
         for (const [i, field] of ['rx', 'ry', 'rz'].entries()) close(tip[field], expected[i]);
       }
+      assertHistoryWithheld(out.finalResults);
+      const unloadedControl = structuredClone(input);
+      for (const load of unloadedControl.loads) Object.assign(load.data, { mx: 0, my: 0, mz: 0 });
+      {
+      const out = JSON.parse(solve_staged_3d(JSON.stringify(unloadedControl)));
       assert.deepEqual(out.finalResults.elementForces.map(e => e.elementId).sort((a,b) => a-b), Object.values(input.elements).filter(e => e.id !== 1).map(e => e.id).sort((a,b) => a-b));
       assert.deepEqual(out.finalResults.reactions.map(r => r.nodeId).sort((a,b) => a-b), Object.values(input.supports).map(s => s.nodeId).sort((a,b) => a-b));
       for (const [group, fields] of [
         ['reactions', ['fx', 'fy', 'fz', 'mx', 'my', 'mz']],
         ['elementForces', ['nStart', 'nEnd', 'vyStart', 'vyEnd', 'vzStart', 'vzEnd', 'mxStart', 'mxEnd', 'myStart', 'myEnd', 'mzStart', 'mzEnd']],
       ]) for (const row of out.finalResults[group]) for (const field of fields) close(row[field], 0);
+      }
     });
   }
   check(`supported increment pads=${pads} constrained=${constrained}`, () => {
@@ -77,10 +84,16 @@ for (const pads of [0, 4, 5]) for (const constrained of [false, true]) {
       const final = out.finalResults.displacements.find(d => d.nodeId === tip.nodeId);
       for (const field of ['rx', 'ry', 'rz']) close(final[field] - first[field], tip[field]);
     }
+    assertHistoryWithheld(out.finalResults);
+    const unloadedControl = structuredClone(input);
+    for (const load of unloadedControl.loads.slice(0, 2)) Object.assign(load.data, { mx: 0, my: 0, mz: 0 });
+    {
+    const out = JSON.parse(solve_staged_3d(JSON.stringify(unloadedControl)));
     assert.deepEqual(out.finalResults.reactions.map(r => r.nodeId).sort((a,b) => a-b), reference.reactions.map(r => r.nodeId).sort((a,b) => a-b));
     for (const reaction of reference.reactions) {
       const got = out.finalResults.reactions.find(r => r.nodeId === reaction.nodeId);
       for (const field of ['fx', 'fy', 'fz', 'mx', 'my', 'mz']) close(got[field], reaction[field]);
+    }
     }
   });
 }

@@ -247,6 +247,7 @@ fn round4_reaction_check(prestress_only: bool) {
                 for (r, f) in full_r.iter_mut().zip(&dense.f) {
                     *r -= f;
                 }
+                let r = &r[dof.n_free..];
                 full_r[dof.n_free..].copy_from_slice(&r);
                 for it in &asm.inclined_transforms_2d {
                     super::super::assembly::reverse_inclined_transform_2d(

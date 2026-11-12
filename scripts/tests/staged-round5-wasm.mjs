@@ -1,3 +1,4 @@
+import { assertHistoryWithheld } from './staged-history-containment.mjs';
 import { assertZeroReactions } from './staged-round7-reactions.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -48,12 +49,18 @@ for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [f
       else {
         const out = JSON.parse(solve(JSON.stringify(input)));
         if (removed) {
+          if (moment !== 0) assertHistoryWithheld(out.finalResults);
+          const unloadedControl = structuredClone(input);
+          for (const load of unloadedControl.loads) load.data.my = 0;
+          {
+          const out = JSON.parse(solve(JSON.stringify(unloadedControl)));
           const forceFields = dim === 2 ? ['nStart', 'nEnd', 'vStart', 'vEnd', 'mStart', 'mEnd'] : ['nStart', 'nEnd', 'vyStart', 'vyEnd', 'vzStart', 'vzEnd', 'mxStart', 'mxEnd', 'myStart', 'myEnd', 'mzStart', 'mzEnd'];
           const reactionFields = dim === 2 ? ['rx', 'rz', 'my'] : ['fx', 'fy', 'fz', 'mx', 'my', 'mz'];
           assert.deepEqual(out.finalResults.elementForces.map(e => e.elementId).sort((a, b) => a - b), Object.values(input.elements).filter(e => e.id !== 1).map(e => e.id).sort((a, b) => a - b));
           assertZeroReactions(out.finalResults.reactions, Object.values(input.supports).map(s => s.nodeId), reactionFields);
           for (const [group, fields] of [['elementForces', forceFields]]) {
             for (const item of out.finalResults[group]) for (const field of fields) assert.ok(Number.isFinite(item[field]) && item[field] === 0, `${group} ${field}: ${item[field]}`);
+          }
           }
         } else {
           assert.deepEqual(out.finalResults.displacements, out.stages[0].results.displacements);

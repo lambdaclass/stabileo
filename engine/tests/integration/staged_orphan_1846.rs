@@ -1897,6 +1897,19 @@ fn round5_cantilever(dim: usize, pads: usize) -> serde_json::Value {
     v
 }
 
+fn assert_history_withheld(result: &serde_json::Value) {
+    for group in ["reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"] {
+        if let Some(rows) = result.get(group) { assert!(rows.as_array().unwrap().is_empty(), "{group}: {rows}"); }
+    }
+    for phase in ["stageResults", "reactions", "elementForces", "constraintForces"] {
+        assert!(result["structuredDiagnostics"].as_array().unwrap().iter().any(|d| {
+            d["code"] == "result_quantity_unavailable" && d["severity"] == "warning" && d["phase"] == phase
+                && d["message"].as_str().unwrap().contains("active stiffness changed")
+        }), "{phase}: {result}");
+    }
+    assert!(result["structuredDiagnostics"].as_array().unwrap().iter().any(|d| d["phase"] == "stageResults" && d["message"].as_str().unwrap().contains("not a certified equilibrium solution")));
+}
+
 #[test]
 fn issue_1846_round5_persistent_moment_after_member_removal() {
     for dim in [2, 3] {
@@ -1937,12 +1950,17 @@ fn issue_1846_round5_persistent_moment_after_member_removal() {
                         {"name":"loaded","elementsAdded":elements,"supportsAdded":supports,"loadIndices":[0]},
                         {"name":"removal","elementsRemoved":if removed {vec![1]} else {vec![]},"loadIndices":if cancel {vec![1]} else {vec![]}}
                     ]);
+                    let mut unloaded_control = v.clone();
                     let result = review_solve(dim, v);
                     assert_eq!(result.is_err(), refused, "{dim}D pads={pads} connected={connected} moment={moment} removed={removed} cancel={cancel} residual={residual}: {result:?}");
                     if refused {
                         assert!(result.unwrap_err().contains("rotation"));
                     } else if removed {
                         let out = result.unwrap();
+                        if moment != 0.0 { assert_history_withheld(&out["finalResults"]); }
+                        for load in unloaded_control["loads"].as_array_mut().unwrap() { load["data"]["my"] = 0.0.into(); }
+                        let out = if moment == 0.0 { out } else { review_solve(dim, unloaded_control).unwrap() };
+                        assert!(!out["finalResults"]["elementForces"].as_array().unwrap().is_empty() || elements.len() == 1);
                         let force_fields: &[&str] = if dim == 2 {
                             &["nStart", "nEnd", "vStart", "vEnd", "mStart", "mEnd"]
                         } else {
@@ -2039,6 +2057,12 @@ fn issue_1943_round8_oblique_cancelled_moment_after_member_removal() {
                             assert!(got.is_finite() && (got - expected).abs() <= 1e-10, "axis={axis:?} pads={pads}: {tip:?}, expected={expected}");
                         }
                     }
+                    assert_history_withheld(&serde_json::to_value(&out.final_results).unwrap());
+                    let mut unloaded_control = input.clone();
+                    for load in &mut unloaded_control.loads {
+                        if let SolverLoad3D::Nodal(load) = load { load.mx = 0.0; load.my = 0.0; load.mz = 0.0; }
+                    }
+                    let out = solve_staged_3d(&unloaded_control).unwrap();
                     let result = serde_json::to_value(&out.final_results).unwrap();
                     let mut actual: Vec<_> = result["elementForces"].as_array().unwrap().iter().map(|e| e["elementId"].as_u64().unwrap()).collect();
                     actual.sort_unstable();
@@ -2092,6 +2116,12 @@ fn issue_1943_round8_supported_moment_keeps_its_incremental_response() {
                     assert!(b.is_finite() && (b - a - expected).abs() <= 1e-10, "{tip:?}");
                 }
             }
+            assert_history_withheld(&serde_json::to_value(&out.final_results).unwrap());
+            let mut unloaded_control = input.clone();
+            for load in &mut unloaded_control.loads[..2] {
+                if let SolverLoad3D::Nodal(load) = load { load.mx = 0.0; load.my = 0.0; load.mz = 0.0; }
+            }
+            let out = solve_staged_3d(&unloaded_control).unwrap();
             for reaction in &reference.reactions {
                 let got = out.final_results.reactions.iter().find(|r| r.node_id == reaction.node_id).unwrap();
                 for (a,b) in [(got.fx,reaction.fx),(got.fy,reaction.fy),(got.fz,reaction.fz),(got.mx,reaction.mx),(got.my,reaction.my),(got.mz,reaction.mz)] {

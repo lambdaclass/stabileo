@@ -24,10 +24,12 @@ reaction, input fixture, tolerance or snapshot baseline is changed by this merge
 
 The values below are transcribed from the committed snapshots, not recalculated
 or selected to fit a tolerance. Components 0–2 are the assembled global force
-components; 3–5 are the global moment components. Applied sums use the physical
+components; 3–5 are moment components about the centre of the deformed nodal
+bounding box, including each force lever arm. Applied sums use the physical
 assembled load vector. Reaction sums use recovered physical support forces.
-`residualOk` checks the physical free residual; `equilibriumOk` combines that
-check with the existing global equilibrium check. Neither flag certifies a
+`residualOk` checks the physical free residual; `equilibriumOk` reports the
+existing global force and moment check. Both are required for P-Delta reaction
+availability. Neither flag certifies a
 stabilized residual as physical equilibrium. Small nonzero reaction components
 and moment differences are retained as produced, without rounding them to zero.
 
@@ -39,7 +41,7 @@ and moment differences are retained as produced, without rounding them to zero.
 | `appliedForceSum[3]` | `-10.00326795` | `0.0008519511831` | Physical applied moment sum, component 3 |
 | `appliedForceSum[4]` | `44.9912306` | `120.0070384` | Physical applied moment sum, component 4 |
 | `appliedForceSum[5]` | `30.00990716` | `8.1705561e-06` | Physical applied moment sum, component 5 |
-| `equilibriumOk` | `true` | `true` | Physical residual and global equilibrium acceptance |
+| `equilibriumOk` | `true` | `true` | Global force and moment equilibrium acceptance |
 | `reactionForceSum[0]` | `-15` | `-40` | Recovered support force sum, component 0 |
 | `reactionForceSum[1]` | `-7.275381964e-10` | `-5.278368419e-10` | Recovered support force sum, component 1 |
 | `reactionForceSum[2]` | `134.4994` | `34.45107203` | Recovered support force sum, component 2 |
@@ -56,3 +58,13 @@ The latter check may refuse a model before recovery. A refusal and a structured
 unavailable result are both containment, and neither permits a numerical result
 outside the existing assertions. Full activation-state recovery and released-force
 redistribution remain outside this merge.
+
+Main's round-5 and round-8 tests for cancelled moments after loaded-member removal
+previously required force collections even when the history had changed. The
+merged contract retains their nonzero free-rotation refusal checks and numerical
+increment checks. Those exact loaded histories now must withhold every force
+collection with the structured history warning. Separate zero-history controls
+run every original force-component and row-completeness assertion, with the
+original tolerances, including the supported increment against the regular
+linear solution. This preserves the public spring and member containment rather
+than exempting special cancelled histories from the complete fingerprint.

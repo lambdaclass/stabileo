@@ -1,5 +1,7 @@
 ### BREAKING (results)
 
+#### Preserve staged containment and result registrations when merging main (#1952)
+
 - Preserve main's staged physical-stiffness and kinematic checks together with
   #1952's complete staged stiffness fingerprint and support-spring history
   containment. Retain all seven #1943 result registrations. The intended P-Delta
