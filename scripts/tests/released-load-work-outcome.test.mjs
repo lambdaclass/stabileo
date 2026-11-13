@@ -188,7 +188,7 @@ test('an additional unresolved identity breaks the full pinned-set verification'
   assert.throws(()=>assertExpectedUnresolved([outside,...exact.slice(1)]));
 });
 
-for(const baseline of ['valid','missing','corrupted']) test(`#2074: pinned non-convergence validates its ${baseline} linear baseline`, {skip:process.env.RUN_KNOWN_WRONG?false:'known wrong result: #2074'},()=>{
+for(const baseline of ['valid','missing','corrupted']) test(`#2074: pinned non-convergence validates its ${baseline} linear baseline`,()=>{
   const script=readFileSync(new URL('./released-load-work-2023-wasm.mjs',import.meta.url),'utf8');
   const loop=script.slice(script.indexOf('let solves=0'),script.indexOf('let exactSolves=0'));
   const good={displacements:[{nodeId:1,ux:1}],reactions:[],elementForces:[{elementId:1,nStart:1}]};

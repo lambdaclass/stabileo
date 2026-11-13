@@ -361,7 +361,7 @@ fn native_and_wasm_share_released_load_models() {
         let exact: Value =
             serde_json::from_str(include_str!("../fixtures/released-load-work-2023.json")).unwrap();
         let exact: Vec<_> = exact.as_object().unwrap().iter().map(|(name, model)| json!({"name":name,"model":model,"references":native_references(3, model),"gauges":released_gauges(3, model)})).collect();
-        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact,"orphanTranslations":orphan_translation_models(),"cancellations":cancellation_models_2074().into_iter().map(|mut c| { c["references"] = native_references(c["dim"].as_u64().unwrap(), &c["model"]); c["gauges"] = released_gauges(c["dim"].as_u64().unwrap(), &c["model"]); c }).collect::<Vec<_>>(),"trussCases":truss_models_2074(),"assemblyCases":assembly_models_2074(),"mixedOrphans":mixed_orphan_cases_2074(),"mixedDynamics":mixed_dynamic_cases_2074(),"nearParallel":near_parallel_models_2074().into_iter().map(|mut c| {c["references"]=native_references(3,&c["model"]);c["gauges"]=released_gauges(3,&c["model"]);c}).collect::<Vec<_>>()})).unwrap()).unwrap();
+        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact,"orphanTranslations":orphan_translation_models(),"cancellations":cancellation_models_2074().into_iter().map(|mut c| { c["references"] = native_references(c["dim"].as_u64().unwrap(), &c["model"]); c["gauges"] = released_gauges(c["dim"].as_u64().unwrap(), &c["model"]); c }).collect::<Vec<_>>(),"trussCases":truss_models_2074(),"assemblyCases":assembly_models_2074(),"mixedOrphans":mixed_orphan_cases_2074(),"mixedDynamics":mixed_dynamic_cases_2074(),"nearParallel":near_parallel_models_2074().into_iter().map(|mut c| {c["references"]=native_references(3,&c["model"]);c["gauges"]=released_gauges(3,&c["model"]);c["extraReferences"]=near_parallel_extra_references(&c["extraInputs"]);c}).collect::<Vec<_>>()})).unwrap()).unwrap();
     }
     assert_eq!(cases.len(), 234);
 }
@@ -1290,19 +1290,34 @@ fn near_parallel_models_2074() -> Vec<Value> {
             second.roll_angle = Some(angle);
             model.elements.insert("2".into(),second);
             let (a,b) = (&model.nodes["1"],&model.nodes["2"]);
-            let (ex,ey,ez) = dedaliano_engine::element::compute_local_axes_3d(a.x,a.y,a.z,b.x,b.y,b.z,None,None,None,None,false);
+            let (_,ey,ez) = dedaliano_engine::element::compute_local_axes_3d(a.x,a.y,a.z,b.x,b.y,b.z,None,None,None,None,false);
             let node = if end=="Start" {1} else {2};
-            let moment = f64::EPSILON.sqrt();
-            model.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {node_id:node,fx:0.0,fy:0.0,fz:0.0,mx:moment*ex[0],my:moment*ex[1],mz:moment*ex[2],bw:None}));
             let direction: Vec<_> = (0..3).map(|i|0.8*ey[i]+0.6*ez[i]).collect();
-            cases.push(json!({"dim":3,"end":end,"angle":angle,"model":model,"node":node,"direction":direction}));
+            let mut extra_model = model.clone();
+            let (a,b) = (&model.nodes["1"],&model.nodes["2"]);
+            let (ex,_,_) = dedaliano_engine::element::compute_local_axes_3d(a.x,a.y,a.z,b.x,b.y,b.z,None,None,None,None,false);
+            extra_model.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {node_id:node,fx:0.0,fy:0.0,fz:0.0,mx:ex[0],my:ex[1],mz:ex[2],bw:None}));
+            let fy = crate::case::Case3::new("near parallel plastic",model.clone()).p.fy;
+            let sections: serde_json::Map<String,Value> = model.sections.iter().map(|(id,section)| {
+                let (b,h) = crate::ana3::rect3(section);
+                let material = model.elements.values().find(|e|e.section_id==section.id).unwrap().material_id;
+                (id.clone(),json!({"a":section.a,"iy":section.iy,"iz":section.iz,"materialId":material,"b":b,"h":h,"d":b}))
+            }).collect();
+            let materials: serde_json::Map<String,Value> = model.materials.keys().map(|id|(id.clone(),json!({"fy":fy}))).collect();
+            let mut multi = extra_model.clone();
+            multi.loads.clear();
+            let extra = json!({
+                "creep":{"solver":extra_model,"creepParams":{},"timeSteps":[{"tDays":28.0,"additionalLoads":[]}],"agingCoefficient":0.8},
+                "plastic":{"solver":extra_model,"sections":sections,"materials":materials},
+                "multi":{"solver":multi,"loadCases":[{"name":"A","loads":extra_model.loads}],"combinations":[{"name":"C","factors":{"A":1.0}}]}
+            });
+            cases.push(json!({"dim":3,"end":end,"angle":angle,"model":model,"node":node,"direction":direction,"extraInputs":extra}));
         }
     }
     cases
 }
 
 #[test]
-#[ignore = "known wrong result: #2074"]
 fn near_parallel_release_candidates_admit_zero_work_and_refuse_moments() {
     let mut failures = Vec::new();
     for c in near_parallel_models_2074() {
@@ -1313,14 +1328,17 @@ fn near_parallel_release_candidates_admit_zero_work_and_refuse_moments() {
                 let mut input = model.clone();
                 let direction: Vec<f64> = serde_json::from_value(c["direction"].clone()).unwrap();
                 input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {node_id:c["node"].as_u64().unwrap() as usize,fx:0.0,fy:0.0,fz:0.0,mx:factor*direction[0],my:factor*direction[1],mz:factor*direction[2],bw:None}));
+                if name=="linear" {
+                    let initial = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&input,0,1e-12);
+                    if factor==0.0 {
+                        let initial = initial.unwrap();
+                        assert!(!initial.converged);
+                        assert_eq!(initial.linear_results.displacements.len(),input.nodes.len());
+                    } else {assert!(initial.is_err());}
+                }
                 let result = (adapter.run)(&crate::case::Case3::new("near parallel releases",input));
                 let accepted = if factor==0.0 {
-                    match (&result,name) {
-                        (Err(e),"SSI (no soil springs)") => e=="Singular stiffness in SSI iteration",
-                        (Err(e),"corotational") => e=="Singular tangent stiffness — structure may be a mechanism or load increment too large",
-                        (Err(e),"material nonlinear") => e=="Singular tangent stiffness matrix",
-                        _ => result.is_ok(),
-                    }
+                    result.is_ok() || (name=="SSI (no soil springs)" && result.as_ref().err().is_some_and(|e|e=="Singular stiffness in SSI iteration"))
                 } else {
                     result.as_ref().err().is_some_and(|e|e.contains("Nodal moment") || e.contains("free rotation would carry load") || e.contains("loaded released rotation"))
                 };
@@ -1329,4 +1347,11 @@ fn near_parallel_release_candidates_admit_zero_work_and_refuse_moments() {
         }
     }
     assert!(failures.is_empty(),"{}",failures.join("\n"));
+}
+
+fn near_parallel_extra_references(inputs: &Value) -> Value {
+    let creep = dedaliano_engine::solver::creep_shrinkage::solve_creep_shrinkage_3d(&serde_json::from_value(inputs["creep"].clone()).unwrap()).unwrap();
+    let plastic = dedaliano_engine::solver::plastic::solve_plastic_3d(&serde_json::from_value(inputs["plastic"].clone()).unwrap()).unwrap();
+    let multi = dedaliano_engine::solver::load_cases::solve_multi_case_3d(&serde_json::from_value(inputs["multi"].clone()).unwrap()).unwrap();
+    json!({"creep":creep,"plastic":plastic,"multi":multi})
 }

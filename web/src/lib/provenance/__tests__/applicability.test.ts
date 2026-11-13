@@ -921,7 +921,7 @@ it('#2074: plain unreleased frames and unloaded connectors need no released-load
   for (const analysisMode of ['2d', 'pro']) {
     for (const snapshot of [
       model({ analysisMode, elements: [member(1, 1, 'frame')] }),
-      model({ analysisMode, connectors: [[1, { id: 1 }]] }),
+      model({ analysisMode, connectors: [[1, { kShear: 0, kShearZ: 0 }]] }),
       model({ analysisMode, quads: [[1, { id: 1 }]] }),
       model({ analysisMode, elements: [member(1, 1, 'frame'), member(2, 1, 'truss')], loads: [{ type: 'distributed3d', data: { elementId: 1, qYI: 1, qYJ: 1 } }] }),
     ]) {
@@ -939,7 +939,7 @@ it('#2074: retains released-load notices for every affected assembly feature', (
       ...['mx', 'my', 'mz'].map((key) => model({ ...frame, loads: [{ type: 'nodal3d', data: { nodeId: 1, [key]: 1 } }] })),
       model({ analysisMode, quads: [[1, { id: 1 }]], loads: [{ type: 'nodal3d', data: { nodeId: 1, mz: 1 } }] }),
       model({ ...frame, supports: [[1, { nodeId: 1, type: 'inclinedRoller', angle: 30, isInclined: true }]] }),
-      model({ analysisMode, connectors: [[1, { id: 1 }]], loads: [{ type: 'nodal3d', data: { nodeId: 1, mx: 1 } }] }),
+      model({ analysisMode, connectors: [[1, { kShear: 0, kShearZ: 0 }]], loads: [{ type: 'nodal3d', data: { nodeId: 1, mx: 1 } }] }),
     ]) {
       for (const id of ['released-load-work', 'transformed-load-assembly']) {
         const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
@@ -1073,7 +1073,7 @@ it('#2074: truss direction notice requires member loads and respects its version
   }
 });
 
-(process.env.RUN_KNOWN_WRONG ? it : it.skip)('known wrong result: #2074: axial distributed loads on trusses retain result notices', () => {
+it('#2074: axial distributed loads on trusses retain result notices', () => {
   for (const analysisMode of ['2d', 'pro']) for (const type of ['frame', 'truss', 'cable']) {
     const element = { id: 1, materialId: 1, nodeI: 1, nodeJ: 2, type };
     const snapshot = model({ analysisMode, elements: [[1, element]], loads: [{ type: 'axialDistributed', data: { elementId: 1, qI: 1, qJ: 1 } }] });
@@ -1086,6 +1086,18 @@ it('#2074: truss direction notice requires member loads and respects its version
         expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(id);
         expect(ids(model({ ...snapshot, loads: [{ type: 'axialDistributed', data: { elementId: 2, qI: 1, qJ: 1 } }] }), before)).not.toContain(id);
       }
+    }
+  }
+});
+
+it('#2074: release basis notice covers spatial releases and excludes planar and unreleased frames', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'released-basis-pivoting')!;
+  for (const analysisMode of ['2d', 'pro']) for (const released of [false, true]) {
+    const snapshot = model({ analysisMode, elements: [member(1, 1, 'frame', { releaseI: released ? { mz: true } : {} })] });
+    for (const analysis of ['linear', 'nonlinear'] as const) {
+      const before = { ...stampSolve(analysis, null), resultsVersion: entry.resultsVersion - 1 };
+      expect(ids(snapshot, before).includes(entry.id)).toBe(analysisMode === 'pro' && released);
+      expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
     }
   }
 });

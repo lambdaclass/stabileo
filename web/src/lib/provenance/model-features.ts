@@ -243,7 +243,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     const t = l.type ?? '';
     const d = l.data ?? {};
     if (/^nodal/.test(t) && ['mx', 'my', 'mz'].some((key) => typeof d[key] === 'number' && d[key] !== 0)) f.add('nodalMoments');
-    if (/^(distributed|pointOnElement|thermal)/.test(t)) {
+    if (/^(distributed|axialDistributed|pointOnElement|thermal)/.test(t)) {
       f.add('memberLoads');
       if (axialMembers.has(d.elementId as number)) f.add('trussMemberLoads');
     }

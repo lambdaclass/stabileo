@@ -423,8 +423,9 @@ impl ReleasedVector {
     }
 
     fn normalized(self) -> Option<Self> {
-        if !self.values.iter().zip(&self.rounding).any(|(value,error)|value.abs()>*error) {return None;}
         let length=self.values.iter().fold(0.0_f64,|length,x|length.hypot(*x));
+        let uncertainty=self.rounding.iter().fold(0.0_f64,|length,x|length.hypot(*x));
+        if !uncertainty.is_finite() || length<=uncertainty {return None;}
         let inverse=1.0/length;
         if !length.is_finite() || !inverse.is_finite() {return None;}
         let mut normalized=Self::zero(self.values.len());
@@ -451,21 +452,24 @@ impl ReleasedRotations {
                 if let Some(i)=dofs.iter().position(|&i|i==d) {direction.values[i]=x;direction.rounding[i]=error;}
             }
             if !self.permits(node,dofs,&direction.values) {return None;}
-            let direction=direction.normalized()?;
-            let score=v.iter().zip(&direction.values).map(|(a,b)|a*b).sum::<f64>().abs();
-            Some((score,direction))
+            direction.normalized()
         }).collect();
-        candidates.sort_by(|a,b|b.0.total_cmp(&a.0));
         let mut basis:Vec<ReleasedVector>=Vec::new();
-        for (_,mut candidate) in candidates {
-            for _ in 0..2 {
-                for axis in &basis {
-                    let projection=candidate.values.iter().zip(&axis.values).map(|(a,b)|a*b).sum::<f64>();
-                    candidate.add_scaled(axis,-projection);
+        while basis.len()<rank {
+            let pivot=candidates.iter().enumerate().filter_map(|(i,source)| {
+                let mut candidate=ReleasedVector {values:source.values.clone(),rounding:source.rounding.clone()};
+                for _ in 0..2 {
+                    for axis in &basis {
+                        let projection=candidate.values.iter().zip(&axis.values).map(|(a,b)|a*b).sum::<f64>();
+                        candidate.add_scaled(axis,-projection);
+                    }
                 }
-            }
-            if let Some(candidate)=candidate.normalized() {basis.push(candidate);}
-            if basis.len()==rank {break;}
+                let length=norm(&candidate.values);
+                candidate.normalized().map(|direction|(i,length,direction))
+            }).max_by(|a,b|a.1.total_cmp(&b.1));
+            let (i,_,direction)=pivot?;
+            candidates.remove(i);
+            basis.push(direction);
         }
         let mut direction=ReleasedVector::zero(dofs.len());
         for axis in &basis {
@@ -1330,8 +1334,13 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2074"]
     fn near_parallel_released_candidates_do_not_hide_genuine_work() {
+        for error in [1.0_f64.next_down(),1.0,1.0_f64.next_up(),f64::INFINITY] {
+            let candidate = ReleasedVector {values:vec![1.0,0.0],rounding:vec![0.0,error]};
+            assert_eq!(candidate.normalized().is_some(),error<1.0);
+        }
+        let residual = ReleasedVector {values:vec![1e-13,0.0],rounding:vec![f64::EPSILON,0.0]}.normalized().unwrap();
+        assert!(residual.rounding[0]>=f64::EPSILON/1e-13);
         let (ex, ey, ez) = crate::element::compute_local_axes_3d(0.0,0.0,0.0,3.0,4.0,2.0,None,None,None,None,false);
         let bounds = super::super::load_work::frame_rounding(&[ex,ey,ez]);
         for angle in [0.0, 1e-16, 1e-13, 1e-8] {
