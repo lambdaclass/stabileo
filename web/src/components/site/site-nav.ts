@@ -3,7 +3,7 @@
  * `section` items are parts of the landing (scrolled to there, linked to from elsewhere); `page`
  * items are pages of their own.
  */
-export type NavPage = 'tools' | 'research' | 'blog';
+export type NavPage = 'tools' | 'game' | 'research' | 'blog';
 
 export type NavItem =
   | { kind: 'section'; id: string; key: string }
@@ -12,6 +12,7 @@ export type NavItem =
 export const SITE_NAV: NavItem[] = [
   { kind: 'section', id: 'basic', key: 'landing.navProduct' },
   { kind: 'page', id: 'tools', to: '/tools', key: 'landing.navTools' },
+  { kind: 'page', id: 'game', to: '/diagram-game', key: 'landing.navGame' },
   { kind: 'page', id: 'research', to: '/research', key: 'landing.navResearch' },
   { kind: 'section', id: 'pricing', key: 'landing.navPricing' },
   { kind: 'page', id: 'blog', to: '/blog', key: 'landing.navBlog' },

@@ -18,6 +18,7 @@ const tr: Translations = {
   "recheck.loadFailed": "Hesap sonuçlarındaki değişiklikler yüklenemedi. Okuduğunuzu onaylamadan önce tekrar deneyin.",
   "recheck.retry": "Tekrar dene",
   "landing.navTools": "Araçlar",
+  "landing.navGame": "Oyun",
   "landing.navExamples": "Örnekler",
 
   // ─── Shared scalar-field viewer ───
@@ -4655,6 +4656,8 @@ const tr: Translations = {
   'edu.author.untitled': 'Adsız alıştırma',
   'edu.author.diagramQuestion': 'Diyagram sorusu',
   'edu.moreExercises': 'Daha fazla alıştırma yakında.',
+  'edu.game.open': 'Diyagramlar: doğru olanı seç',
+  'edu.game.hint': 'Bir oyun: bir yapı, üç diyagram ve yalnızca biri doğru.',
   'edu.solverInsight': 'Bu sistemde {dofs} serbest SD var (toplam {total}). {solver} ayrıştırmasıyla {time} ms içinde çözüldü.',
   'edu.dq.shearAtSupport': 'Mesnette V',
   'edu.dq.momentAtCenter': 'Ortada M',

@@ -5,6 +5,9 @@
   import { getExerciseSections, type EduExercise } from './exercises';
   import EduExerciseView from './EduExerciseView.svelte';
   import { t } from '../../lib/i18n';
+  import { publicI18n } from '../../lib/i18n/store.svelte';
+  import { publicHref } from '../../lib/i18n/public-routes';
+  import { goPublic } from '../landing/landing-utils';
   import { solveForEdu } from './edu-solver';
   import { isSolverReady } from '../../lib/engine/wasm-solver';
   import { eduStore } from './edu-store.svelte';
@@ -288,6 +291,12 @@
     <div class="edu-welcome">
       <h2>{t('edu.title')}</h2>
       <p class="edu-subtitle">{t('edu.subtitle')}</p>
+
+      <a class="edu-game-card" href={publicHref('/diagram-game', publicI18n.locale)} data-testid="edu-open-game"
+        onclick={(e) => { e.preventDefault(); goPublic('/diagram-game'); }}>
+        <span class="edu-game-title">{t('edu.game.open')}</span>
+        <span class="edu-game-hint">{t('edu.game.hint')}</span>
+      </a>
 
       {#each sections as section}
         {#if section.exercises.length > 0}
@@ -599,6 +608,25 @@
     border-color: var(--st-hair-strong);
     color: var(--st-text);
   }
+
+  .edu-game-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0 0 20px;
+    padding: 10px 12px;
+    border: 1px solid var(--st-hair-strong);
+    border-left: 3px solid var(--st-accent);
+    border-radius: var(--st-radius);
+    background: var(--st-surface-2);
+    color: var(--st-text);
+    text-decoration: none;
+  }
+
+  .edu-game-card:hover { background: var(--st-surface-3); }
+  .edu-game-card:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 2px; }
+  .edu-game-title { font-size: 0.82rem; font-weight: 600; }
+  .edu-game-hint { font-size: 0.72rem; color: var(--st-text-2); }
 
   .edu-footer {
     margin-top: 24px;

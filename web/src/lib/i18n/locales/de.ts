@@ -9,6 +9,7 @@ const de: Translations = {
   'steps.catalog.title': 'Schritt für Schritt erklärt',
   'steps.catalog.intro': 'Wählen Sie ein Verfahren, um die Lösung Ihres Tragwerks Schritt für Schritt zu sehen. Zu jedem steht, was das Modell erfüllen muss, und ein Beispiel, das es erfüllt.',
   "landing.navTools": "Werkzeuge",
+  "landing.navGame": "Spiel",
   "landing.navExamples": "Beispiele",
 
   // ─── Shared scalar-field viewer ───
@@ -4646,6 +4647,8 @@ const de: Translations = {
   'edu.author.untitled': 'Übung ohne Titel',
   'edu.author.diagramQuestion': 'Frage zum Verlauf',
   'edu.moreExercises': 'Weitere Übungen folgen in Kürze.',
+  'edu.game.open': 'Diagramme: Wähle das richtige',
+  'edu.game.hint': 'Ein Spiel: ein Tragwerk, drei Diagramme und nur eines richtig.',
   'edu.solverInsight': 'Dieses System hat {dofs} freie Freiheitsgrade (insgesamt {total}). Gelöst mit {solver}-Faktorisierung in {time} ms.',
   'edu.dq.shearAtSupport': 'V am Auflager',
   'edu.dq.momentAtCenter': 'M in der Mitte',

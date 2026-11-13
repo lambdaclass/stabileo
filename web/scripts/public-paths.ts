@@ -63,6 +63,6 @@ export async function publicPaths(): Promise<string[]> {
     const day = researchLastReview(path);
     if (day) POST_LASTMOD.set(path, day);
   }
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, ...toolPaths()];
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, ...toolPaths(), '/diagram-game'];
 }
 
