@@ -38,8 +38,9 @@ Re-run cable and time-history inputs with prescribed support motion; those calls
 now refuse instead of returning a response that omits it. Native and WASM
 regressions cover both dimensions, constraint types, both signs, repeated stages,
 and dense and sparse dispatch. Zero-motion numerical fingerprints are compared
-bit for bit with origin/main. Advisory classification and numbering are left to
-the coordinator.
+bit for bit with origin/main. The coordinator assigned
+[SA-2026-063](../advisories/SA-2026-063-prescribed-master-motion.md); fixed in
+PR #2009, pending release.
 
 The separate reaction and member-force recovery defects tracked by #1949 and
 PR #1952 still require their own correction. In particular, transferring slave
