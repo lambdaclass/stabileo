@@ -25,8 +25,8 @@
     "pt": "P-Delta preserva a deformação axial nas cancelações",
     "de": "P-Delta erhält die axiale Dehnung bei Auslöschung",
     "fr": "P-Delta préserve la déformation axiale malgré les annulations",
-    "tr": "P-Delta birbirini götüren terimlerde eksenel şekil değiştirmeyi korur",
-    "hu": "A P-Delta megőrzi a tengelyirányú alakváltozást kivonási veszteség mellett"
+    "hu": "A P-Delta megőrzi a tengelyirányú alakváltozást kivonási veszteség mellett",
+    "tr": "P-Delta birbirini götüren terimlerde eksenel şekil değiştirmeyi korur"
   },
   "explanation": {
     "en": "Compensated member axial strain prevents false nonconvergence after rotation. P-Delta displacements, forces and convergence may change. Re-run affected analyses (PR #1940).",
@@ -34,8 +34,8 @@
     "pt": "A deformação axial compensada evita falsas falhas de convergência após rotações. Deslocamentos, esforços e convergência em P-Delta podem mudar. Refaça as análises afetadas (PR #1940).",
     "de": "Kompensierte axiale Dehnung verhindert falsche Konvergenzfehler nach Drehungen. Verschiebungen, Kräfte und Konvergenz bei P-Delta können sich ändern. Betroffene Analysen erneut ausführen (PR #1940).",
     "fr": "La déformation axiale compensée évite les faux défauts de convergence après rotation. Déplacements, efforts et convergence en P-Delta peuvent changer. Relancer les analyses concernées (PR #1940).",
-    "tr": "Dengelenmiş eksenel şekil değiştirme dönüşten sonra hatalı yakınsamama durumlarını önler. P-Delta yer değiştirmeleri, kuvvetleri ve yakınsaması değişebilir. Etkilenen analizleri yeniden çalıştırın (PR #1940).",
-    "hu": "A kompenzált tengelyirányú alakváltozás megakadályozza a forgatás utáni téves konvergenciahibát. A P-Delta elmozdulásai, erői és konvergenciája változhatnak. Futtassa újra az érintett vizsgálatokat (PR #1940)."
+    "hu": "A kompenzált tengelyirányú alakváltozás megakadályozza a forgatás utáni téves konvergenciahibát. A P-Delta elmozdulásai, erői és konvergenciája változhatnak. Futtassa újra az érintett vizsgálatokat (PR #1940).",
+    "tr": "Dengelenmiş eksenel şekil değiştirme dönüşten sonra hatalı yakınsamama durumlarını önler. P-Delta yer değiştirmeleri, kuvvetleri ve yakınsaması değişebilir. Etkilenen analizleri yeniden çalıştırın (PR #1940)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-pdelta-axial-strain.md",

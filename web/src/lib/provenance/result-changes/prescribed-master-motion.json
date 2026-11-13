@@ -17,8 +17,8 @@
     "pt": "Preservar o movimento prescrito do mestre em soluções com restrições",
     "de": "Vorgegebene Masterbewegungen in Zwangsbedingungen erhalten",
     "fr": "Conserver le mouvement imposé du maître dans les solutions contraintes",
-    "tr": "Kısıtlı çözümlerde tanımlı ana düğüm hareketini koru",
-    "hu": "A kényszerített mestercsomópont-elmozdulás megőrzése"
+    "hu": "A kényszerített mestercsomópont-elmozdulás megőrzése",
+    "tr": "Kısıtlı çözümlerde tanımlı ana düğüm hareketini koru"
   },
   "explanation": {
     "en": "Staged, foundation, contact and nonlinear analyses now include prescribed constraint-master motion in slave displacements and equilibrium (#2008). Cable analyses with cable elements and time histories refuse prescribed support motion they do not implement. Re-run affected analyses.",
@@ -26,8 +26,8 @@
     "pt": "As análises por etapas, de fundação, contato e não lineares incluem o movimento prescrito do mestre nos deslocamentos do escravo e no equilíbrio (#2008). Análises com cabos e históricos no tempo recusam movimentos prescritos não implementados. Execute novamente as análises afetadas.",
     "de": "Bauzustands-, Bettungs-, Kontakt- und nichtlineare Analysen berücksichtigen vorgegebene Masterbewegungen in Slaveverschiebungen und Gleichgewicht (#2008). Seilanalysen und Zeitverlaufsanalysen lehnen nicht unterstützte vorgegebene Auflagerbewegungen ab. Betroffene Analysen erneut ausführen.",
     "fr": "Les analyses par étapes, de fondation, de contact et non linéaires incluent le mouvement imposé du maître dans les déplacements de l’esclave et l’équilibre (#2008). Les analyses de câbles et les historiques temporels refusent les mouvements imposés non pris en charge. Relancer les analyses concernées.",
-    "tr": "Aşamalı, temel, temas ve doğrusal olmayan analizler ana düğüm hareketini bağımlı düğüm deplasmanlarına ve dengeye dahil eder (#2008). Kablo ve zaman tanım alanı analizleri desteklenmeyen mesnet hareketlerini reddeder. Etkilenen analizleri yeniden çalıştırın.",
-    "hu": "Az építési fázisok, alapozás, érintkezés és nemlineáris vizsgálatok a kényszerek mestercsomópontjainak előírt mozgását is figyelembe veszik a szolga-elmozdulásokban és az egyensúlyban (#2008). A kábeles vizsgálatok kábelelemek mellett, valamint az időtörténetek elutasítják a nem támogatott előírt támaszmozgást. Futtassa újra az érintett vizsgálatokat."
+    "hu": "Az építési fázisok, alapozás, érintkezés és nemlineáris vizsgálatok a kényszerek mestercsomópontjainak előírt mozgását is figyelembe veszik a szolga-elmozdulásokban és az egyensúlyban (#2008). A kábeles vizsgálatok kábelelemek mellett, valamint az időtörténetek elutasítják a nem támogatott előírt támaszmozgást. Futtassa újra az érintett vizsgálatokat.",
+    "tr": "Aşamalı, temel, temas ve doğrusal olmayan analizler ana düğüm hareketini bağımlı düğüm deplasmanlarına ve dengeye dahil eder (#2008). Kablo ve zaman tanım alanı analizleri desteklenmeyen mesnet hareketlerini reddeder. Etkilenen analizleri yeniden çalıştırın."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-prescribed-master-motion.md",

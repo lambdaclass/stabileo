@@ -30,8 +30,8 @@
     "pt": "A convergência não linear segue o equilíbrio físico",
     "de": "Nichtlineare Konvergenz folgt dem physikalischen Gleichgewicht",
     "fr": "La convergence non linéaire suit l’équilibre physique",
-    "tr": "Doğrusal olmayan yakınsama fiziksel dengeyi izler",
-    "hu": "A nemlineáris konvergencia a fizikai egyensúlyt követi"
+    "hu": "A nemlineáris konvergencia a fizikai egyensúlyt követi",
+    "tr": "Doğrusal olmayan yakınsama fiziksel dengeyi izler"
   },
   "explanation": {
     "en": "P-Delta, fiber, corotational, material nonlinear and path correctors share a frame-invariant residual metric with consistent force and moment units. Support-only loads no longer cause false refusals after rotation or reflection (#761). Convergence status, carried load and the accepted final response can change. Re-run affected nonlinear analyses.",
@@ -39,8 +39,8 @@
     "pt": "P-Delta, fibras, corrotacional, material não linear e corretores de trajetória compartilham uma métrica residual invariante com unidades coerentes de força e momento. Cargas apenas nos apoios deixam de causar recusas falsas após rotação ou reflexão (#761). A convergência, a carga atingida e a resposta final podem mudar. Refaça as análises afetadas.",
     "de": "P-Delta, Faser-, korotationale und nichtlineare Materialanalyse sowie Pfadkorrektoren nutzen dieselbe rahmeninvariante Residualmetrik mit konsistenten Kraft- und Momenteinheiten. Reine Auflagerlasten verursachen nach Drehung oder Spiegelung keine falsche Ablehnung mehr (#761). Konvergenz, erreichte Last und Endantwort können sich ändern. Betroffene Analysen erneut ausführen.",
     "fr": "P-Delta, fibres, corotation, matériau non linéaire et correcteurs de trajectoire partagent une métrique résiduelle invariante avec des unités de force et de moment cohérentes. Les charges uniquement aux appuis ne provoquent plus de refus erronés après rotation ou réflexion (#761). La convergence, la charge atteinte et la réponse finale peuvent changer. Relancer les analyses concernées.",
-    "tr": "P-Delta, lif, eşdönel, doğrusal olmayan malzeme ve yol düzelticileri tutarlı kuvvet ve moment birimleriyle aynı koordinat sisteminden bağımsız artık ölçütünü kullanır. Yalnız mesnet yönlerindeki yükler dönüş veya yansıma sonrasında hatalı ret oluşturmaz (#761). Yakınsama, ulaşılan yük ve son yanıt değişebilir. Etkilenen analizleri yeniden çalıştırın.",
-    "hu": "A P-Delta, szálas, korotációs, anyagilag nemlineáris és út-korrektorok közös, koordinátarendszertől független maradékmértéket használnak, következetes erő- és nyomatékegységekkel. A csak támaszra ható terhek forgatás vagy tükrözés után többé nem okoznak téves elutasítást (#761). A konvergencia állapota, a viselt teher és az elfogadott végső válasz változhat. Futtassa újra az érintett nemlineáris vizsgálatokat."
+    "hu": "A P-Delta, szálas, korotációs, anyagilag nemlineáris és út-korrektorok közös, koordinátarendszertől független maradékmértéket használnak, következetes erő- és nyomatékegységekkel. A csak támaszra ható terhek forgatás vagy tükrözés után többé nem okoznak téves elutasítást (#761). A konvergencia állapota, a viselt teher és az elfogadott végső válasz változhat. Futtassa újra az érintett nemlineáris vizsgálatokat.",
+    "tr": "P-Delta, lif, eşdönel, doğrusal olmayan malzeme ve yol düzelticileri tutarlı kuvvet ve moment birimleriyle aynı koordinat sisteminden bağımsız artık ölçütünü kullanır. Yalnız mesnet yönlerindeki yükler dönüş veya yansıma sonrasında hatalı ret oluşturmaz (#761). Yakınsama, ulaşılan yük ve son yanıt değişebilir. Etkilenen analizleri yeniden çalıştırın."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-nonlinear-convergence.md",

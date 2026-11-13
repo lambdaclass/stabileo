@@ -28,8 +28,8 @@
     "pt": "Esforços indisponíveis por etapas são omitidos",
     "de": "Nicht verfügbare Bauphasenkräfte werden zurückgehalten",
     "fr": "Les efforts par phases indisponibles sont retirés",
-    "tr": "Kullanılamayan aşama kuvvetleri döndürülmez",
-    "hu": "A nem elérhető fázisos erők visszatartása"
+    "hu": "A nem elérhető fázisos erők visszatartása",
+    "tr": "Kullanılamayan aşama kuvvetleri döndürülmez"
   },
   "explanation": {
     "en": "Staged recovery checks physical equilibrium after constraint projection. Unavailable reactions, member forces, constraint forces and stresses are returned as empty collections, including when a stage inherits the diagnostic. Recheck saved staged forces (#1952).",
@@ -37,8 +37,8 @@
     "pt": "A recuperação por etapas verifica o equilíbrio físico após projetar as restrições. Reações, esforços, forças de restrição e tensões indisponíveis são retornados vazios, inclusive ao herdar o diagnóstico. Reveja os esforços por etapas salvos (#1952).",
     "de": "Die Bauphasenermittlung prüft das physikalische Gleichgewicht nach der Zwangsprojektion. Nicht verfügbare Reaktionen, Stabkräfte, Zwangskräfte und Spannungen werden auch bei geerbter Diagnose leer zurückgegeben. Prüfen Sie gespeicherte Bauphasenkräfte (#1952).",
     "fr": "La récupération par phases vérifie l’équilibre physique après projection des contraintes. Réactions, efforts, forces de liaison et contraintes indisponibles sont renvoyés vides, même pour un diagnostic hérité. Revérifiez les efforts par phases enregistrés (#1952).",
-    "tr": "Aşama hesabı kısıt izdüşümünden sonra fiziksel dengeyi denetler. Kullanılamayan tepkiler, eleman kuvvetleri, kısıt kuvvetleri ve gerilmeler, tanı önceki aşamadan gelse de boş döndürülür. Kayıtlı aşama kuvvetlerini yeniden denetleyin (#1952).",
-    "hu": "A fázisos helyreállítás a kényszervetítés után ellenőrzi a fizikai egyensúlyt. A nem elérhető reakciók, rúderők, kényszererők és feszültségek üres gyűjteményként térnek vissza, az örökölt diagnosztikájú fázisokban is. Ellenőrizze újra a mentett fázisos erőket (#1952)."
+    "hu": "A fázisos helyreállítás a kényszervetítés után ellenőrzi a fizikai egyensúlyt. A nem elérhető reakciók, rúderők, kényszererők és feszültségek üres gyűjteményként térnek vissza, az örökölt diagnosztikájú fázisokban is. Ellenőrizze újra a mentett fázisos erőket (#1952).",
+    "tr": "Aşama hesabı kısıt izdüşümünden sonra fiziksel dengeyi denetler. Kullanılamayan tepkiler, eleman kuvvetleri, kısıt kuvvetleri ve gerilmeler, tanı önceki aşamadan gelse de boş döndürülür. Kayıtlı aşama kuvvetlerini yeniden denetleyin (#1952)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-unavailable-equilibrium-forces.md",

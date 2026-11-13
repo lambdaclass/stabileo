@@ -25,8 +25,8 @@
     "pt": "As verificações cinemáticas de molas usam rigidez local",
     "de": "Kinematische Federprüfungen verwenden lokale Steifigkeit",
     "fr": "Les vérifications cinématiques des ressorts utilisent la rigidité locale",
-    "tr": "Kinematik yay denetimleri yerel rijitliği kullanır",
-    "hu": "A kinematikai rugóellenőrzés helyi merevséget használ"
+    "hu": "A kinematikai rugóellenőrzés helyi merevséget használ",
+    "tr": "Kinematik yay denetimleri yerel rijitliği kullanır"
   },
   "explanation": {
     "en": "An unrelated stiff member could falsely make a constrained spring model appear to be a mechanism on PR #1943. Spring normalization now uses only constraint-connected DOFs. Re-run affected spring models; mechanism metadata and solve availability can change. Ordinary elastic component results are unchanged.",
@@ -34,8 +34,8 @@
     "pt": "No PR #1943, uma barra rígida sem ligação podia indicar um mecanismo falso num modelo vinculado com molas. A normalização agora usa apenas graus de liberdade ligados pelos vínculos. Recalcule os modelos afetados; os dados cinemáticos e a disponibilidade do cálculo podem mudar. Os resultados elásticos comuns permanecem iguais.",
     "de": "In PR #1943 konnte ein unverbundener steifer Stab bei einem Federmodell mit Kopplungen einen falschen Mechanismus erzeugen. Die Normierung verwendet jetzt nur durch Kopplungen verbundene Freiheitsgrade. Betroffene Modelle neu berechnen; Mechanismusdaten und Lösbarkeit können sich ändern. Gewöhnliche elastische Ergebnisse bleiben gleich.",
     "fr": "Dans la PR #1943, une barre rigide sans liaison pouvait créer un faux mécanisme dans un modèle contraint avec ressorts. La normalisation utilise maintenant les seuls degrés liés par les contraintes. Recalculer les modèles concernés ; les données cinématiques et la disponibilité du calcul peuvent changer. Les résultats élastiques ordinaires restent identiques.",
-    "tr": "PR #1943 üzerinde bağlantısız rijit bir eleman, yaylı ve kısıtlı bir modeli yanlışlıkla mekanizma gösterebiliyordu. Normalleştirme artık yalnızca kısıtlarla bağlı serbestlikleri kullanır. Etkilenen yaylı modelleri yeniden çözün; mekanizma bilgileri ve çözüm kullanılabilirliği değişebilir. Olağan elastik bileşen sonuçları değişmez.",
-    "hu": "Egy független merev elem a PR #1943 ágán tévesen mechanizmusnak mutathatott egy kényszeres rugómodellt. A rugók normalizálása most csak a kényszerekkel összekapcsolt szabadságfokokat használja. Futtassa újra az érintett rugómodelleket; a mechanizmus adatai és a megoldás elérhetősége változhatnak. A szokásos rugalmas komponensek eredményei változatlanok."
+    "hu": "Egy független merev elem a PR #1943 ágán tévesen mechanizmusnak mutathatott egy kényszeres rugómodellt. A rugók normalizálása most csak a kényszerekkel összekapcsolt szabadságfokokat használja. Futtassa újra az érintett rugómodelleket; a mechanizmus adatai és a megoldás elérhetősége változhatnak. A szokásos rugalmas komponensek eredményei változatlanok.",
+    "tr": "PR #1943 üzerinde bağlantısız rijit bir eleman, yaylı ve kısıtlı bir modeli yanlışlıkla mekanizma gösterebiliyordu. Normalleştirme artık yalnızca kısıtlarla bağlı serbestlikleri kullanır. Etkilenen yaylı modelleri yeniden çözün; mekanizma bilgileri ve çözüm kullanılabilirliği değişebilir. Olağan elastik bileşen sonuçları değişmez."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-local-kinematic-spring-rank.md",

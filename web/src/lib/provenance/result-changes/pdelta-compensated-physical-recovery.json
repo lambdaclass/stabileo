@@ -35,8 +35,8 @@
     "pt": "A recuperação física P-Delta usa resíduos compensados",
     "de": "P-Delta berechnet physikalische Residuen mit kompensierter Arithmetik",
     "fr": "La récupération physique P-Delta utilise des résidus compensés",
-    "tr": "P-Delta fiziksel geri kazanımı telafili artıklar kullanır",
-    "hu": "A P-Delta fizikai helyreállítása kompenzált maradékot használ"
+    "hu": "A P-Delta fizikai helyreállítása kompenzált maradékot használ",
+    "tr": "P-Delta fiziksel geri kazanımı telafili artıklar kullanır"
   },
   "explanation": {
     "en": "Recheck saved P-Delta results. Physical recovery now shares tangent assembly and compensated residual arithmetic with the iteration, retaining correct answers near the requested criterion across rotations and unit changes. Failed physical residuals still withhold force and stress quantities (#1952).",
@@ -44,8 +44,8 @@
     "pt": "Reveja resultados P-Delta salvos. A recuperação compartilha a montagem tangente e a aritmética compensada com a iteração, mantendo respostas corretas perto do critério sob rotações e mudanças de unidades. Resíduos físicos em falha continuam retirando forças e tensões (#1952).",
     "de": "Prüfen Sie gespeicherte P-Delta-Ergebnisse. Physikalische Rückgewinnung und Iteration verwenden dieselbe Tangentenassemblierung und kompensierte Residuenarithmetik. Korrekte Antworten nahe dem Kriterium bleiben bei Rotation und Einheitenwechsel erhalten. Fehlerhafte physikalische Residuen sperren weiterhin Kräfte und Spannungen (#1952).",
     "fr": "Revérifiez les résultats P-Delta enregistrés. La récupération partage assemblage tangent et arithmétique compensée avec l’itération, conservant les réponses correctes près du critère après rotation ou changement d’unités. Les résidus physiques en échec retirent toujours forces et contraintes (#1952).",
-    "tr": "Kayıtlı P-Delta sonuçlarını yeniden denetleyin. Fiziksel geri kazanım, iterasyonla aynı teğet montajını ve telafili artık aritmetiğini kullanır; dönme ve birim değişimlerinde ölçüte yakın doğru yanıtları korur. Başarısız fiziksel artıklar kuvvet ve gerilmeleri kullanılamaz kılmaya devam eder (#1952).",
-    "hu": "Ellenőrizze újra a mentett P-Delta eredményeket. A fizikai helyreállítás közös érintőmerevség-összeállítást és kompenzált maradékaritmetikát használ az iterációval, megőrizve a helyes választ a kért feltétel közelében forgatás és egységváltás mellett is. A sikertelen fizikai maradék továbbra is visszatartja az erő- és feszültségértékeket (#1952)."
+    "hu": "Ellenőrizze újra a mentett P-Delta eredményeket. A fizikai helyreállítás közös érintőmerevség-összeállítást és kompenzált maradékaritmetikát használ az iterációval, megőrizve a helyes választ a kért feltétel közelében forgatás és egységváltás mellett is. A sikertelen fizikai maradék továbbra is visszatartja az erő- és feszültségértékeket (#1952).",
+    "tr": "Kayıtlı P-Delta sonuçlarını yeniden denetleyin. Fiziksel geri kazanım, iterasyonla aynı teğet montajını ve telafili artık aritmetiğini kullanır; dönme ve birim değişimlerinde ölçüte yakın doğru yanıtları korur. Başarısız fiziksel artıklar kuvvet ve gerilmeleri kullanılamaz kılmaya devam eder (#1952)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-pdelta-compensated-recovery.md",
