@@ -359,12 +359,12 @@ fn staged_r20_inclined_spring_uses_global_displacements() {
 fn staged_r20_spatial_springs_keep_global_components() {
     use serde_json::json;
     for scale in [-1.0, 0.0, 1.0] {
-        let model: SolverInput3D = serde_json::from_value(json!({
+        let model = serde_json::from_value::<crate::types::units::ElasticInput3D>(json!({
             "nodes":{"1":{"id":1,"x":0.0,"y":0.0,"z":0.0}},
             "materials":{},"sections":{},"elements":{},
             "supports":{"1":{"nodeId":1,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":2.0,"ky":4.0,"kz":6.0}},
             "loads":[{"type":"nodal","data":{"nodeId":1,"fx":scale,"fy":4.0*scale,"fz":9.0*scale,"mx":0.0,"my":0.0,"mz":0.0}}]
-        })).unwrap();
+        })).unwrap().into_legacy();
         let dofs = DofNumbering::build_3d(&model);
         let mut u = vec![0.0; dofs.n_total];
         for (i, value) in [0.5, 1.0, 1.5].into_iter().enumerate() { u[dofs.map[&(1,i)]] = value * scale; }
@@ -382,12 +382,12 @@ fn staged_r20_spatial_springs_keep_global_components() {
 fn staged_r20_spatial_inclined_spring_reactions_use_global_displacements() {
     use serde_json::json;
     for scale in [-1.0, 0.0, 1.0] {
-        let model: SolverInput3D = serde_json::from_value(json!({
+        let model = serde_json::from_value::<crate::types::units::ElasticInput3D>(json!({
             "nodes":{"1":{"id":1,"x":0.0,"y":0.0,"z":0.0}},
             "materials":{},"sections":{},"elements":{},
             "supports":{"1":{"nodeId":1,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":2.0,"ky":4.0,"kz":8.0,"isInclined":true,"normalX":1.0,"normalY":1.0,"normalZ":0.0}},
             "loads":[{"type":"nodal","data":{"nodeId":1,"fx":1.5*scale,"fy":-1.5*scale,"fz":2.0*scale,"mx":0.0,"my":0.0,"mz":0.0}}]
-        })).unwrap();
+        })).unwrap().into_legacy();
         let dofs = DofNumbering::build_3d(&model);
         let asm = super::super::assembly::without_artificial_stiffness(|| assemble_3d(&model, &dofs));
         let mut u = vec![0.0; dofs.n_total];
@@ -436,12 +436,12 @@ fn staged_r20_uncertified_state_cannot_certify_unloaded_removal() {
 fn staged_r23_spatial_inclined_recovery_uses_assembled_frame() {
     use serde_json::json;
     for scale in [-1.0, 0.0, 1.0] {
-        let model: SolverInput3D = serde_json::from_value(json!({
+        let model = serde_json::from_value::<crate::types::units::ElasticInput3D>(json!({
             "nodes":{"1":{"id":1,"x":0.0,"y":0.0,"z":0.0}},
             "materials":{},"sections":{},"elements":{},
             "supports":{"1":{"nodeId":1,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":2.0,"ky":4.0,"kz":8.0,"isInclined":true,"normalX":1.0,"normalY":1.0,"normalZ":0.0}},
             "loads":[{"type":"nodal","data":{"nodeId":1,"fx":1.5*scale,"fy":-1.5*scale,"fz":2.0*scale,"mx":0.0,"my":0.0,"mz":0.0}}]
-        })).unwrap();
+        })).unwrap().into_legacy();
         let dofs = DofNumbering::build_3d(&model);
         let asm =
             super::super::assembly::without_artificial_stiffness(|| assemble_3d(&model, &dofs));

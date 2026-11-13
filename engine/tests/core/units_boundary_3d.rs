@@ -250,7 +250,6 @@ fn units_3d_every_deserialized_model_goes_through_the_typed_boundary() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn units_3d_staged_test_models_use_the_typed_boundary() {
     let (_, unrouted) = unrouted_lines(include_str!("../../src/solver/staged_tests.rs"));
     assert!(unrouted.is_empty(), "staged test models bypass the typed boundary at lines {unrouted:?}");

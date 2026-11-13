@@ -4,6 +4,7 @@
 |---|---|
 | Severity | High |
 | Status | Draft 2026-11-12; fixed in PR #1952, pending release |
+| Revision | 2026-11-13: clarify P-Delta containment, unavailable dynamic forces and determined staged results; original draft date retained |
 | Issue | [#1949](https://github.com/lambdaclass/stabileo/issues/1949) and the PR #1952 result-field sweep |
 | Fix | PR [#1952](https://github.com/lambdaclass/stabileo/pull/1952); not yet merged or released |
 | Affected versions | 0.2.0–0.5.0, desktop-v0.1.0-alpha.1–alpha.3, and subsequent affected main builds through verified `c11af4e36`; continuation has a separate boundary below |
@@ -264,7 +265,7 @@ forces and stresses; WASM and certified exports refuse that state. A passing
 physical residual retains small-displacement answers, with an
 `equilibrium_violation` warning if displaced-geometry wrench balance fails.
 The P-Delta formulation is unchanged. Time history returns `peakReactions: []`
-with an unavailable-quantity diagnostic; it does not recover total dynamic forces.
+with an unavailable-quantity diagnostic; this is not recovery of total dynamic forces.
 Spatial path solvers are not added; spatial payloads remain refused, as do
 unsupported displacement-control inclined/prescribed-support inputs.
 
