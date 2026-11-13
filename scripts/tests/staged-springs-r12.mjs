@@ -14,8 +14,8 @@ function answer(r, m, dim, beam, u, load) {
   const total = r.reactions.reduce((s, r) => s + r[key], 0);
   assert.ok(Math.abs(total + load) < tol, `hand total reaction expected ${-load}, got ${total}`);
   const f = r.elementForces.find(f => f.elementId === 1), length = m.nodes[1].x;
-  assert.ok(Math.abs(Math.abs(f[dim === 2 ? 'vStart' : 'vzStart']) - Math.abs(beam * u / 2)) < tol);
-  assert.ok(Math.abs(Math.abs(f[dim === 2 ? 'mStart' : 'myStart']) - Math.abs(beam * u * length / 2)) < tol * length);
+  assert.ok(Math.abs(f[dim === 2 ? 'vStart' : 'vzStart'] + beam * u / 2) < tol);
+  assert.ok(Math.abs(f[dim === 2 ? 'mStart' : 'myStart'] - (dim === 2 ? -1 : 1) * beam * u * length / 2) < tol * length);
 }
 
 for (const c of cases) {

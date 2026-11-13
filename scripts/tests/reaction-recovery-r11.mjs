@@ -38,7 +38,7 @@ for (const c of cases) {
           const r = JSON.parse(engine[`solve_pdelta_${dim}d`](JSON.stringify(control), 40, 1e-9)).results;
           assert.equal(r.equilibrium.residualOk, true);
           assert.equal(r.elementForces.length, 2);
-          for (const f of r.elementForces) assert.ok(Math.abs(Math.abs(f[dim === 2 ? 'mStart' : 'myStart']) - 2 * Math.abs(sign)) < 1e-9);
+          for (const f of r.elementForces) assert.ok(Math.abs(f[dim === 2 ? 'mStart' : 'myStart'] + control.loads.find(l => l.data.nodeId === control.elements[f.elementId].nodeJ).data.my) < 1e-9);
           assert.equal(engine[`solve_${dim}d`](control).elementForces.length, 2);
         }
       }

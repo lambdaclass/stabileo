@@ -375,6 +375,10 @@ fn pdelta_retains_small_displacement_reactions_and_warns_about_displaced_balance
     assert!(pd.results.equilibrium.as_ref().unwrap().residual_ok);
     assert!(pd.results.structured_diagnostics.iter().any(|d| d.code == dedaliano_engine::types::DiagnosticCode::EquilibriumViolation));
     let equilibrium = pd.results.equilibrium.as_ref().unwrap();
+    let returned_rx: f64 = pd.results.reactions.iter().map(|r| r.rx).sum();
+    let returned_rz: f64 = pd.results.reactions.iter().map(|r| r.rz).sum();
+    assert!((returned_rx + 20.0).abs() < 1e-6, "returned ΣRx = {returned_rx}");
+    assert!((returned_rz - 600.0).abs() < 1e-6, "returned ΣRz = {returned_rz}");
     let rx = equilibrium.reaction_force_sum[0];
     let rz = equilibrium.reaction_force_sum[1];
     assert!((rx + 20.0).abs() < 1e-6, "ΣRx = {rx:.6}, lateral load 20");
@@ -410,7 +414,9 @@ fn pdelta_3d_inclined_roller_matches_linear_without_axial_load() {
     assert!(!pd.results.reactions.is_empty());
     assert!(pd.results.equilibrium.as_ref().unwrap().residual_ok);
     assert!(pd.results.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::EquilibriumViolation));
+    let returned = sum(&pd.results.reactions);
     let (p, l) = (&pd.results.equilibrium.as_ref().unwrap().reaction_force_sum, sum(&lin.reactions));
+    for i in 0..3 { assert!((returned[i] - l[i]).abs() < 1e-3, "returned ΣR[{i}] P-Δ {} vs linear {}", returned[i], l[i]); }
     for i in 0..3 { assert!((p[i] - l[i]).abs() < 1e-3, "ΣR[{i}] P-Δ {:.4} vs linear {:.4}", p[i], l[i]); }
 }
 

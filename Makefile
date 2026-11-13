@@ -1125,3 +1125,12 @@ test.engine.containment-r19-wasm: wasm
 
 test.engine.staged-r20-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-r20-wasm.mjs
+
+.PHONY: test.engine.staged-r23 test.engine.staged-r23-wasm
+
+test.engine.staged-r23:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_r23 -- --nocapture $(if $(IGNORED),--include-ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test validation issue_1952_r23 -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.staged-r23-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-determined-r23-wasm.mjs
