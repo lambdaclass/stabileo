@@ -329,7 +329,7 @@ it('a warned SVG with a tiny coordinate system is enlarged so its warnings stay 
   expect(Number(nested[1]) + Number(nested[3])).toBeCloseTo(h, 6);
 });
 
-it.skip.each([
+it.each([
   ['SH-MITC4-DISTORTION', 798],
   ['SH-WARPED-MITC4', 1057],
   ['SH-WARPED-MITC9', 1057],
@@ -372,6 +372,12 @@ it.skip.each([
   expect(text).toContain('slab reinforcement');
   expect(text).toContain('wall reinforcement');
   expect(text).toContain(message);
+  const { listingBytes } = await import('../../store/listing-export');
+  const { currentResultProvenance } = await import('../../store/result-provenance');
+  const listing = await listingBytes('slabs', 'pdf', 'en', currentResultProvenance());
+  const listingPdf = new TextDecoder('latin1').decode(listing as Uint8Array);
+  const listingText = [...listingPdf.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map(m => m[1]!.replace(/\\([\\()])/g, '$1')).join(' ');
+  expect(listingText).toContain(message);
   resultsStore.setResults3D({ ...result, structuredDiagnostics: [{ ...diagnostic, severity: 'error' }] });
   blobs.length = 0;
   await exportSheetsDxf(null, sheets, '');
