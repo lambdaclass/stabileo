@@ -248,3 +248,13 @@ fn units_3d_every_deserialized_model_goes_through_the_typed_boundary() {
     assert!(unrouted.is_empty(), "3D models parsed without the typed boundary: {unrouted:?}");
     assert_eq!(wrappers, 18, "routed wrapper fields");
 }
+
+#[test]
+fn units_3d_ssi_wrapper_preserves_typed_section_and_material_bits() {
+    let model = every_section_field();
+    let wrapped: dedaliano_engine::solver::ssi::SSIInput3D = serde_json::from_value(json!({"solver":model,"soilSprings":[]})).unwrap();
+    let legacy = legacy::parse(&model.to_string()).unwrap();
+    assert_same_input(&wrapped.solver, &legacy, "SSI wrapper");
+    let source = include_str!("../../src/solver/ssi.rs");
+    assert!(source.contains("#[serde(deserialize_with = \"crate::types::units::deserialize_input_3d\")]\n    pub solver: SolverInput3D"));
+}

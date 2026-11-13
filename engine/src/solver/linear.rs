@@ -1467,16 +1467,22 @@ fn compensated_sparse_residual(k: &CscMatrix, f: &[f64], u: &[f64]) -> Vec<f64> 
     super::equilibrium::sparse_residual(k, f, u)
 }
 
-fn refined_static_solve(f: &[f64], solve: impl Fn(&[f64]) -> Vec<f64>, residual: impl Fn(&[f64]) -> Vec<f64>) -> Result<Vec<f64>, String> {
-    let mut u = solve(f);
-    for _ in 0..6 {
-        let correction = solve(&residual(&u));
-        assert_finite_3d(&u)?;
-        assert_finite_3d(&correction)?;
-        let error = correction.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
-        let scale = u.iter().map(|v| v.abs()).fold(1.0f64, f64::max);
-        if error <= 8.0*f64::EPSILON*scale { return Ok(u); }
-        for (u, delta) in u.iter_mut().zip(correction) { *u += delta; }
+fn refined_static_solve(
+    f: &[f64],
+    solve: impl Fn(&[f64]) -> Vec<f64>,
+    residual: impl Fn(&[f64]) -> Vec<f64>,
+) -> Result<Vec<f64>, String> {
+    let (u, resolved) = super::equilibrium::refine_solution(
+        solve(f),
+        |u| Ok(solve(&residual(u))),
+        |u, correction| {
+            let error = correction.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+            let scale = u.iter().map(|v| v.abs()).fold(1.0f64, f64::max);
+            Ok(error <= 8.0 * f64::EPSILON * scale)
+        },
+    )?;
+    if resolved {
+        return Ok(u);
     }
     Err("the structure is a mechanism or so close to one that its displacement accuracy cannot be resolved: compensated residual refinement of the static solve did not converge; add supports or members, or reduce extreme stiffness contrasts".into())
 }

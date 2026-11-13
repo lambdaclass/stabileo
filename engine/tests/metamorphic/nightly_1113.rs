@@ -61,7 +61,6 @@ fn relation(issue: &str, analysis: &str, invariant: &str, seed: u64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2011"]
 fn issue_2011_ssi_rotation() {
     relation("2011", "SSI (no soil springs)", "rotation", 2026111302208);
 }
