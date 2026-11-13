@@ -55,7 +55,7 @@ describe('tracking', () => {
     expect(scripts).toEqual([]);
     expect(win.fbq).toBeUndefined();
     expect(document.cookie).toBe('');
-    tracking.completeRegistration('acc-0');
+    await tracking.completeRegistration('acc-0');
 
     adConsent.decide('granted');
     expect(scripts).toHaveLength(2);
@@ -66,7 +66,7 @@ describe('tracking', () => {
     const { win, scripts } = stubBrowser();
     await startTracking(async () => ids);
     adConsent.decide('denied');
-    tracking.completeRegistration('acc-0');
+    await tracking.completeRegistration('acc-0');
     await new Promise((r) => setTimeout(r, 0));
 
     expect(adConsent.asking).toBe(false);
