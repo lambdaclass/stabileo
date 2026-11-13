@@ -4,7 +4,7 @@ import { allowsUnresolved, assertExpectedUnresolved, assertAdmittedPdeltaConverg
 import {readFileSync} from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 engine.initSync({module:readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm',import.meta.url))});
-const {cases,exact:exactCases,orphanTranslations,cancellations,assemblyCases,trussCases,mixedOrphans,mixedDynamics}=JSON.parse(readFileSync(process.argv[2],'utf8'));
+const {cases,exact:exactCases,orphanTranslations,cancellations,assemblyCases,trussCases,mixedOrphans,mixedDynamics,nearParallel}=JSON.parse(readFileSync(process.argv[2],'utf8'));
 assert.equal(cases.length,234);
 const parse=x=>typeof x==='string'?JSON.parse(x):x;
 function stage(model,dim,two) {
@@ -326,3 +326,23 @@ console.log(`Released-load work: ${trussCases.length} loaded truss harmonic cont
 
 assert.deepEqual(failures,[]);
 assert.equal(solves+unresolved,cases.length*paths.length);
+
+if(process.env.RUN_KNOWN_WRONG) {
+  for(const c of nearParallel) for(const path of paths) {
+    const expectedError={ssi:'Singular stiffness in SSI iteration',corotational:'Singular tangent stiffness — structure may be a mechanism or load increment too large',material:'Singular tangent stiffness matrix'}[path];
+    if(expectedError) {
+      assert.equal(c.references[path].error,expectedError);
+      assert.throws(()=>run(path,3,c.model),error=>String(error).includes(expectedError));
+    } else {
+      const result=run(path,3,c.model);
+      if(path==='pdelta') {check(result.linearResults,c.model,{ok:c.references[path].ok.linearResults},c.gauges);assertAdmittedPdeltaConverged(c.references[path],result);}
+      check(result,c.model,c.references[path],c.gauges);
+    }
+    for(const factor of [-Number.EPSILON,-Math.sqrt(Number.EPSILON),Number.EPSILON,Math.sqrt(Number.EPSILON)]) {
+      const bad=structuredClone(c.model);
+      bad.loads.push({type:'nodal',data:{nodeId:c.node,fx:0,fy:0,fz:0,mx:factor*c.direction[0],my:factor*c.direction[1],mz:factor*c.direction[2]}});
+      assert.throws(()=>run(path,3,bad),/Nodal moment|free rotation would carry load|loaded released rotation/i,`near parallel/${c.end}/${c.angle}/${path}/${factor}`);
+    }
+  }
+  console.log(`Released-load work: ${nearParallel.length*paths.length} near-parallel zero-work checks and ${nearParallel.length*paths.length*4} genuine-moment refusals`);
+}

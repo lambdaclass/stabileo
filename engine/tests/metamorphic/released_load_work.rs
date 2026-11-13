@@ -361,7 +361,7 @@ fn native_and_wasm_share_released_load_models() {
         let exact: Value =
             serde_json::from_str(include_str!("../fixtures/released-load-work-2023.json")).unwrap();
         let exact: Vec<_> = exact.as_object().unwrap().iter().map(|(name, model)| json!({"name":name,"model":model,"references":native_references(3, model),"gauges":released_gauges(3, model)})).collect();
-        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact,"orphanTranslations":orphan_translation_models(),"cancellations":cancellation_models_2074().into_iter().map(|mut c| { c["references"] = native_references(c["dim"].as_u64().unwrap(), &c["model"]); c["gauges"] = released_gauges(c["dim"].as_u64().unwrap(), &c["model"]); c }).collect::<Vec<_>>(),"trussCases":truss_models_2074(),"assemblyCases":assembly_models_2074(),"mixedOrphans":mixed_orphan_cases_2074(),"mixedDynamics":mixed_dynamic_cases_2074()})).unwrap()).unwrap();
+        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact,"orphanTranslations":orphan_translation_models(),"cancellations":cancellation_models_2074().into_iter().map(|mut c| { c["references"] = native_references(c["dim"].as_u64().unwrap(), &c["model"]); c["gauges"] = released_gauges(c["dim"].as_u64().unwrap(), &c["model"]); c }).collect::<Vec<_>>(),"trussCases":truss_models_2074(),"assemblyCases":assembly_models_2074(),"mixedOrphans":mixed_orphan_cases_2074(),"mixedDynamics":mixed_dynamic_cases_2074(),"nearParallel":near_parallel_models_2074().into_iter().map(|mut c| {c["references"]=native_references(3,&c["model"]);c["gauges"]=released_gauges(3,&c["model"]);c}).collect::<Vec<_>>()})).unwrap()).unwrap();
     }
     assert_eq!(cases.len(), 234);
 }
@@ -1278,4 +1278,55 @@ fn mixed_dynamic_cases_2074() -> Vec<Value> {
     }
     cases.push(json!({"history":history,"refuses":true}));
     cases
+}
+
+fn near_parallel_models_2074() -> Vec<Value> {
+    let mut cases = Vec::new();
+    for end in ["Start","End"] {
+        for angle in [0.0,1e-16,1e-13,1e-8] {
+            let mut model = release_pair("My","Mz",end,true);
+            let mut second = model.elements["1"].clone();
+            second.id = 2;
+            second.roll_angle = Some(angle);
+            model.elements.insert("2".into(),second);
+            let (a,b) = (&model.nodes["1"],&model.nodes["2"]);
+            let (ex,ey,ez) = dedaliano_engine::element::compute_local_axes_3d(a.x,a.y,a.z,b.x,b.y,b.z,None,None,None,None,false);
+            let node = if end=="Start" {1} else {2};
+            let moment = f64::EPSILON.sqrt();
+            model.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {node_id:node,fx:0.0,fy:0.0,fz:0.0,mx:moment*ex[0],my:moment*ex[1],mz:moment*ex[2],bw:None}));
+            let direction: Vec<_> = (0..3).map(|i|0.8*ey[i]+0.6*ez[i]).collect();
+            cases.push(json!({"dim":3,"end":end,"angle":angle,"model":model,"node":node,"direction":direction}));
+        }
+    }
+    cases
+}
+
+#[test]
+#[ignore = "known wrong result: #2074"]
+fn near_parallel_release_candidates_admit_zero_work_and_refuse_moments() {
+    let mut failures = Vec::new();
+    for c in near_parallel_models_2074() {
+        let model: SolverInput3D = serde_json::from_value(c["model"].clone()).unwrap();
+        for name in entry_names() {
+            let adapter = crate::ana3::rows().into_iter().find(|a|a.name==name).unwrap();
+            for factor in [0.0,-f64::EPSILON,-f64::EPSILON.sqrt(),f64::EPSILON,f64::EPSILON.sqrt()] {
+                let mut input = model.clone();
+                let direction: Vec<f64> = serde_json::from_value(c["direction"].clone()).unwrap();
+                input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {node_id:c["node"].as_u64().unwrap() as usize,fx:0.0,fy:0.0,fz:0.0,mx:factor*direction[0],my:factor*direction[1],mz:factor*direction[2],bw:None}));
+                let result = (adapter.run)(&crate::case::Case3::new("near parallel releases",input));
+                let accepted = if factor==0.0 {
+                    match (&result,name) {
+                        (Err(e),"SSI (no soil springs)") => e=="Singular stiffness in SSI iteration",
+                        (Err(e),"corotational") => e=="Singular tangent stiffness — structure may be a mechanism or load increment too large",
+                        (Err(e),"material nonlinear") => e=="Singular tangent stiffness matrix",
+                        _ => result.is_ok(),
+                    }
+                } else {
+                    result.as_ref().err().is_some_and(|e|e.contains("Nodal moment") || e.contains("free rotation would carry load") || e.contains("loaded released rotation"))
+                };
+                if !accepted {failures.push(format!("{name}/{}/{}/{factor}: {result:?}",c["end"],c["angle"]));}
+            }
+        }
+    }
+    assert!(failures.is_empty(),"{}",failures.join("\n"));
 }

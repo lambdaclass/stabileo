@@ -1072,3 +1072,20 @@ it('#2074: truss direction notice requires member loads and respects its version
     expect(ids({...snapshot,loads:[]},before)).not.toContain(entry.id);
   }
 });
+
+(process.env.RUN_KNOWN_WRONG ? it : it.skip)('known wrong result: #2074: axial distributed loads on trusses retain result notices', () => {
+  for (const analysisMode of ['2d', 'pro']) for (const type of ['frame', 'truss', 'cable']) {
+    const element = { id: 1, materialId: 1, nodeI: 1, nodeJ: 2, type };
+    const snapshot = model({ analysisMode, elements: [[1, element]], loads: [{ type: 'axialDistributed', data: { elementId: 1, qI: 1, qJ: 1 } }] });
+    expect(modelFeatures(snapshot).has('trussMemberLoads')).toBe(type !== 'frame');
+    for (const id of ['released-load-work', 'transformed-load-assembly', 'truss-load-direction-rounding']) {
+      const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+      for (const analysis of ['linear', 'nonlinear'] as const) {
+        const before = { ...stampSolve(analysis, null), resultsVersion: entry.resultsVersion - 1 };
+        expect(ids(snapshot, before).includes(id)).toBe(type !== 'frame');
+        expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(id);
+        expect(ids(model({ ...snapshot, loads: [{ type: 'axialDistributed', data: { elementId: 2, qI: 1, qJ: 1 } }] }), before)).not.toContain(id);
+      }
+    }
+  }
+});

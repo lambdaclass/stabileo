@@ -1330,6 +1330,29 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #2074"]
+    fn near_parallel_released_candidates_do_not_hide_genuine_work() {
+        let (ex, ey, ez) = crate::element::compute_local_axes_3d(0.0,0.0,0.0,3.0,4.0,2.0,None,None,None,None,false);
+        let bounds = super::super::load_work::frame_rounding(&[ex,ey,ez]);
+        for angle in [0.0, 1e-16, 1e-13, 1e-8] {
+            let (_, y, z) = crate::element::compute_local_axes_3d(0.0,0.0,0.0,3.0,4.0,2.0,None,None,None,Some(angle),false);
+            let other = super::super::load_work::frame_rounding(&[ex,y,z]);
+            let releases = ReleasedRotations {
+                rows: vec![ex.into_iter().enumerate().collect()],
+                nodes: [1].into_iter().collect(),
+                directions: [(ey,bounds[1]),(y,other[1]),(ez,bounds[2]),(z,other[2])].into_iter().map(|(v,e)|(1,(0..3).map(|i|(i,v[i],e[i])).collect())).collect(),
+            };
+            let v: Vec<_> = (0..3).map(|i|0.8*ey[i]+0.6*ez[i]).collect();
+            let direction = releases.canonical(1,&[0,1,2],&v,2,ROUNDING*3.0*f64::EPSILON).unwrap_or_else(||panic!("angle {angle}"));
+            for moment in [0.0,-f64::EPSILON.sqrt(),f64::EPSILON.sqrt()] {
+                let mut work = super::super::load_work::Work::default();
+                for i in 0..3 {work.product(direction.values[i],direction.rounding[i],ex[i]+moment*v[i],0.0);}
+                assert_eq!(work.contains_zero(),moment==0.0,"{angle}/{moment}: {} +/- {}",work.value,work.bound());
+            }
+        }
+    }
+
+    #[test]
     fn translational_rank_requires_stiffness_above_eigenvalue_rounding() {
         for n in [2, 3] {
             let tags = vec![DofTag { node: 3, kind: DofKind::Translation }; n];

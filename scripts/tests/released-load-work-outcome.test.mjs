@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { allowsUnresolved, assertExpectedUnresolved, assertAdmittedPdeltaConverged } from './released-load-work-outcome.mjs';
 
@@ -185,4 +186,21 @@ test('an additional unresolved identity breaks the full pinned-set verification'
   assert.throws(()=>assertAdmittedPdeltaConverged({ok:{converged:false}},{converged:false}));
   assert.throws(()=>assertExpectedUnresolved([...exact,outside]));
   assert.throws(()=>assertExpectedUnresolved([outside,...exact.slice(1)]));
+});
+
+for(const baseline of ['valid','missing','corrupted']) test(`#2074: pinned non-convergence validates its ${baseline} linear baseline`, {skip:process.env.RUN_KNOWN_WRONG?false:'known wrong result: #2074'},()=>{
+  const script=readFileSync(new URL('./released-load-work-2023-wasm.mjs',import.meta.url),'utf8');
+  const loop=script.slice(script.indexOf('let solves=0'),script.indexOf('let exactSolves=0'));
+  const good={displacements:[{nodeId:1,ux:1}],reactions:[],elementForces:[{elementId:1,nStart:1}]};
+  const result={converged:false,linearResults:baseline==='missing'?undefined:structuredClone(good)};
+  if(baseline==='corrupted') result.linearResults.elementForces[0].nStart=-1;
+  const references=Object.fromEntries(['linear','session','certified','constrained','staged','staged-two','corotational','material','cable','contact','ssi','winkler','pdelta'].map(path=>[path,path==='pdelta'?{ok:{converged:false,linearResults:good}}:{ok:good}]));
+  const c={dim:3,model:{loads:[]},references,scale:1,direction:[1,0,0],node:1};
+  const cases={length:1,entries:()=>[[15,c]]};
+  const failures=runInNewContext(loop+'; failures',{
+    assert,cases,structuredClone,console:{log:()=>{}},allowsUnresolved,assertAdmittedPdeltaConverged,
+    run:(path,dim,model)=>{if(model.loads.length) throw new Error('Nodal moment');return path==='pdelta'?result:good;},
+    check:(actual,model,reference)=>assert.deepEqual(actual,reference.ok),
+  });
+  assert.equal(failures.length===0,baseline==='valid',JSON.stringify(failures));
 });
