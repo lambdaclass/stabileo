@@ -511,6 +511,7 @@ const es: Record<string, string> = {
   'despiece.inspectEmpty': 'Sin fuerzas aquí (¿resolver primero?)',
   'despiece.colMember': 'Barra·Extremo',
   'advanced.sectionAnalysis': 'Análisis de sección',
+  'advanced.mohr': "Círculo de Mohr / estado tensional",
   'advanced.pdelta': 'P-Δ (2.º orden)',
   'advanced.group.buckling': 'Pandeo',
   'advanced.group.structure': 'Estructura y secciones',
@@ -691,6 +692,8 @@ const es: Record<string, string> = {
   'advHelp.kinematic.text': 'Análisis paso a paso de la estabilidad cinemática de la estructura. Muestra el grado de hiperestaticidad (fórmula detallada con cada apoyo y articulación), verifica numéricamente por rango de Kff si hay mecanismos ocultos, y sugiere correcciones si la estructura es inestable. Funciona sin necesidad de resolver: se calcula al abrirlo y, con Cálculo en tiempo real activado, se actualiza al modificar el modelo.',
   'advHelp.stress.label': 'Tensiones — Análisis de sección',
   'advHelp.stress.text': 'Análisis tensional completo de secciones transversales. Clickeá una barra para ver: tensión normal σ (Navier: σ = N/A + M·y/I), tensión de corte τ (Jourawski: τ = V·Q/(I·b)), tensión equivalente de Von Mises (σ_vm = √(σ² + 3τ²)), círculo de Mohr con tensiones principales, diagrama de flujo de corte para perfiles de pared delgada, y aprovechamiento respecto de fy. Incluye un slider para recorrer las fibras de la sección (0=borde inferior, 1=borde superior) y navegación por secciones críticas (máximo momento, apoyos, puntos de carga). Soporta secciones rectangular, I, U, L, cajón (RHS) y tubular (CHS).',
+  'advHelp.mohr.label': "Círculo de Mohr — estado tensional en un punto",
+  'advHelp.mohr.text': "Círculo de Mohr para un estado plano y los tres círculos de Mohr para un estado 3D. Cargá las componentes de tensión o traelas desde una fibra del análisis de sección: da las tensiones y direcciones principales, el corte máximo, la tensión en cualquier plano rotado y la tensión de von Mises. No necesita un modelo calculado. La misma herramienta está entre las herramientas públicas de Stabileo y cada una abre la otra con los mismos valores.",
   'advHelp.whatif.label': 'Explorar (¿Qué pasa si…?)',
   'advHelp.whatif.text': 'Panel interactivo de análisis de sensibilidad paramétrica. Permite ajustar en tiempo real la magnitud de las cargas, el módulo de elasticidad E del material, y las propiedades de sección (área A e inercia Iz) mediante sliders. La estructura se recalcula instantáneamente con cada cambio (~60ms) mostrando cómo varían los diagramas, deformadas y reacciones. Ideal para entender el comportamiento estructural, optimizar secciones, y responder preguntas tipo "¿qué pasa si duplico la carga?" o "¿qué pasa si uso un perfil más rígido?". Los cambios son temporales — al cerrar el panel se restaura el modelo original.',
 
@@ -3202,6 +3205,7 @@ const es: Record<string, string> = {
 
   // ─── Stress analysis (P3) ───
   'stress.mohrCircle': 'Círculo de Mohr',
+  'stress.openMohr': "Abrir en Círculo de Mohr",
   'stress.mohrCircleHelp': 'Representación gráfica del estado tensional en todos los planos.\n\nEl círculo muestra cómo varían σ y τ al rotar el plano de análisis.\nEl punto rojo es el estado actual (σ, τ).\nLos puntos donde el círculo toca el eje σ son las tensiones principales (σ1, σ2) donde τ=0.\nEl radio del círculo es τmax (Tresca).',
   'teach.centroidTitle': "Baricentro",
   'teach.centroidHelp': "Dónde se equilibra el ÁREA. Sale de un momento estático y nada más, así que toda sección tiene uno y encontrarlo no requiere ninguna noción de carga.\n\nLa sección se parte en rectángulos; cada uno aporta su área por su brazo, y el total dividido por el área total es la respuesta.",

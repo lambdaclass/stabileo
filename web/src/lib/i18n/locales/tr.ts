@@ -514,6 +514,7 @@ const tr: Translations = {
   'despiece.inspectEmpty': 'Burada kuvvet yok (önce çözmek gerekebilir)',
   'despiece.colMember': 'Çubuk·Uç',
   'advanced.sectionAnalysis': 'Kesit analizi',
+  'advanced.mohr': "Mohr dairesi / gerilme durumu",
   'advanced.pdelta': 'P-Δ (2. mertebe)',
   'advanced.group.buckling': 'Burkulma',
   'advanced.group.structure': 'Yapı ve kesitler',
@@ -692,6 +693,8 @@ const tr: Translations = {
   'advHelp.kinematic.text': 'Yapının kinematik kararlılığının adım adım analizi. Hiperstatiklik derecesini (her mesnet ve mafsalla ayrıntılı formül) gösterir, gizli mekanizmalar için Kff\'nin rankını sayısal olarak kontrol eder ve yapı kararsızsa düzeltmeler önerir. Çözüm gerektirmez: açıldığında hesaplanır ve Canlı hesaplama açıkken model değiştikçe güncellenir.',
   'advHelp.stress.label': 'Gerilme — kesit analizi',
   'advHelp.stress.text': 'Kesitlerin kapsamlı gerilme analizi. Bir çubuğa tıklayarak şunları görün: normal gerilme σ (Navier: σ = N/A + M·y/I), kayma gerilmesi τ (Jourawski: τ = V·Q/(I·b)), Von Mises eşdeğer gerilmesi (σ_vm = √(σ² + 3τ²)), asal gerilmelerle Mohr dairesi, ince cidarlı profiller için kayma akışı diyagramı ve fy\'ye göre kullanım oranı. Kesit lifleri arasında gezinmek için bir kaydırıcı (0=alt, 1=üst) ve kritik kesitlere (maksimum moment, mesnetler, yük noktaları) geçiş içerir. Dikdörtgen, I, U, L, kutu (RHS) ve boru (CHS) kesitleri destekler.',
+  'advHelp.mohr.label': "Mohr dairesi — bir noktadaki gerilme durumu",
+  'advHelp.mohr.text': "Düzlem gerilme durumu için Mohr dairesi, 3B durum için üç Mohr dairesi. Gerilme bileşenlerini girin veya kesit analizindeki bir liften alın: asal gerilmeleri ve doğrultuları, en büyük kayma gerilmesini, döndürülmüş her düzlemdeki gerilmeyi ve von Mises gerilmesini verir. Çözülmüş bir model gerekmez. Aynı araç Stabileo’nun herkese açık araçları arasında da bulunur ve her biri diğerini aynı değerlerle açar.",
   'advHelp.whatif.label': 'Keşfet (Ya … olursa?)',
   'advHelp.whatif.text': 'Etkileşimli parametrik duyarlılık analizi paneli. Yük büyüklüklerini, malzemenin elastisite modülü E\'yi ve kesit özelliklerini (alan A ve atalet momenti Iz) kaydırıcılarla gerçek zamanlı ayarlayın. Yapı her değişiklikte anında (~60ms) yeniden hesaplanır ve diyagramların, şekil değiştirmiş durumun ve mesnet tepkilerinin nasıl değiştiğini gösterir. Yapı davranışını anlamak, kesitleri optimize etmek ve “yükü iki katına çıkarırsam ne olur?” veya “daha rijit bir profil kullanırsam ne olur?” gibi soruları yanıtlamak için idealdir. Değişiklikler geçicidir — panel kapatıldığında orijinal model geri yüklenir.',
 
@@ -3185,6 +3188,7 @@ const tr: Translations = {
 
   // ─── Stress analysis (P3) ───
   'stress.mohrCircle': 'Mohr dairesi',
+  'stress.openMohr': "Mohr dairesinde aç",
   'stress.mohrCircleHelp': 'Tüm düzlemlerdeki gerilme durumunun grafik gösterimi.\n\nDaire, analiz düzlemi döndürüldüğünde σ ve τ\'nun nasıl değiştiğini gösterir.\nKırmızı nokta mevcut durumdur (σ, τ).\nDairenin σ eksenine değdiği noktalar, τ=0 olan asal gerilmelerdir (σ1, σ2).\nDairenin yarıçapı τmax\'tır (Tresca).',
   'teach.centroidTitle': 'Ağırlık merkezi',
   'teach.centroidHelp': 'ALANIN dengelendiği nokta. Yalnızca birinci momentten (statik moment) elde edilir; bu yüzden her kesitin bir ağırlık merkezi vardır ve onu bulmak için yük kavramı gerekmez.\n\nKesit dikdörtgenlere ayrılır; her biri alanı ile kolunun çarpımı kadar katkı yapar ve toplamın toplam alana bölümü sonucu verir.',

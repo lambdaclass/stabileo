@@ -11,7 +11,7 @@ afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 it('wires the prefetch action to the crawlable PublicLink anchor', () => {
   const source = readFileSync('src/components/landing/PublicLink.svelte', 'utf8');
-  expect(source).toContain('<a use:prefetchPublicLink={to} {href}');
+  expect(source).toContain('<a use:prefetchPublicLink={target} {href}');
 });
 
 it.each(['pointerenter', 'focus', 'touchstart'])('prefetches on %s, deduplicates, updates and cleans up', async event => {
@@ -133,4 +133,13 @@ it('owns native scroll restoration while the public router is mounted', async ()
   expect(history.scrollRestoration).toBe('manual');
   cleanup();
   expect(history.scrollRestoration).toBe('auto');
+});
+
+it('a link to a moved page points straight at its new address', async () => {
+  const { movedRoute } = await import('../../../lib/legacy-routes');
+  const source = readFileSync('src/components/landing/PublicLink.svelte', 'utf8');
+  expect(source).toContain('const target = $derived(movedRoute(to) ?? to);');
+  expect(movedRoute('/examples')).toBe('/tools');
+  expect(movedRoute('/examples/beam-frame')).toBe('/tools/beam-frame');
+  expect(movedRoute('/tools')).toBeNull();
 });

@@ -505,6 +505,7 @@ const de: Translations = {
   'despiece.inspectEmpty': 'Hier keine Kräfte (zuerst berechnen?)',
   'despiece.colMember': 'Stab·Ende',
   'advanced.sectionAnalysis': 'Querschnittsanalyse',
+  'advanced.mohr': "Mohrscher Kreis / Spannungszustand",
   'advanced.pdelta': 'P-Δ (II. Ordnung)',
   'advanced.group.buckling': 'Knicken',
   'advanced.group.structure': 'Tragwerk und Querschnitte',
@@ -683,6 +684,8 @@ const de: Translations = {
   'advHelp.kinematic.text': 'Schrittweise Untersuchung der kinematischen Stabilität des Tragwerks. Zeigt den Grad der statischen Unbestimmtheit (ausführliche Formel mit jedem Auflager und Gelenk), prüft numerisch den Rang von Kff auf verborgene Mechanismen und schlägt Korrekturen vor, falls das Tragwerk instabil ist. Funktioniert ohne Berechnung: Es wird beim Öffnen ermittelt und bei aktivierter Live-Berechnung aktualisiert, wenn das Modell geändert wird.',
   'advHelp.stress.label': 'Spannungen — Querschnittsanalyse',
   'advHelp.stress.text': 'Vollständige Spannungsanalyse von Querschnitten. Klicken Sie auf einen Stab, um zu sehen: Normalspannung σ (Navier: σ = N/A + M·y/I), Schubspannung τ (Jourawski: τ = V·Q/(I·b)), Von-Mises-Vergleichsspannung (σ_vm = √(σ² + 3τ²)), Mohrscher Spannungskreis mit Hauptspannungen, Schubflussdiagramm für dünnwandige Profile und Ausnutzungsgrad bezogen auf fy. Enthält einen Schieberegler zum Durchlaufen der Querschnittsfasern (0=unten, 1=oben) und die Navigation zu maßgebenden Schnitten (maximales Moment, Auflager, Lastangriffspunkte). Unterstützt Rechteck-, I-, U-, L-, Hohlkasten- (RHS) und Rohrquerschnitte (CHS).',
+  'advHelp.mohr.label': "Mohrscher Kreis — Spannungszustand in einem Punkt",
+  'advHelp.mohr.text': "Mohrscher Kreis für einen ebenen Spannungszustand und die drei Mohrschen Kreise für einen räumlichen. Geben Sie die Spannungskomponenten ein oder übernehmen Sie sie aus einer Faser der Querschnittsanalyse: Sie erhalten Hauptspannungen und Hauptrichtungen, die maximale Schubspannung, die Spannung auf jeder gedrehten Ebene und die Von-Mises-Spannung. Ein berechnetes Modell ist nicht nötig. Dasselbe Werkzeug gibt es unter den öffentlichen Werkzeugen von Stabileo, und jedes öffnet das andere mit denselben Werten.",
   'advHelp.whatif.label': 'Erkunden (Was wäre, wenn…?)',
   'advHelp.whatif.text': 'Interaktiver Bereich für parametrische Sensitivitätsanalysen. Passen Sie Lastgrößen, den Elastizitätsmodul E des Materials und Querschnittswerte (Fläche A und Trägheitsmoment Iz) in Echtzeit mit Schiebereglern an. Das Tragwerk wird bei jeder Änderung sofort neu berechnet (~60 ms) und zeigt, wie sich Diagramme, Verformungsfiguren und Reaktionen ändern. Ideal, um das Tragverhalten zu verstehen, Querschnitte zu optimieren und Fragen wie „Was, wenn ich die Last verdopple?“ oder „Was, wenn ich ein steiferes Profil verwende?“ zu beantworten. Die Änderungen sind vorübergehend — beim Schließen des Bereichs wird das ursprüngliche Modell wiederhergestellt.',
 
@@ -3176,6 +3179,7 @@ const de: Translations = {
 
   // ─── Stress analysis (P3) ───
   'stress.mohrCircle': 'Mohrscher Spannungskreis',
+  'stress.openMohr': "Im Mohrschen Kreis öffnen",
   'stress.mohrCircleHelp': 'Grafische Darstellung des Spannungszustands in allen Schnittebenen.\n\nDer Kreis zeigt, wie sich σ und τ beim Drehen der Schnittebene ändern.\nDer rote Punkt ist der aktuelle Zustand (σ, τ).\nDie Punkte, an denen der Kreis die σ-Achse berührt, sind die Hauptspannungen (σ1, σ2) mit τ=0.\nDer Kreisradius ist τmax (Tresca).',
   'teach.centroidTitle': 'Schwerpunkt',
   'teach.centroidHelp': 'Wo sich die FLÄCHE im Gleichgewicht befindet. Er folgt allein aus einem statischen Moment, daher hat jeder Querschnitt einen, und zu seiner Ermittlung braucht man keinerlei Vorstellung von Lasten.\n\nDer Querschnitt wird in Rechtecke zerlegt; jedes trägt seine Fläche mal seinem Hebelarm bei, und die Summe geteilt durch die Gesamtfläche ist das Ergebnis.',

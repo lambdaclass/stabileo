@@ -6,7 +6,7 @@
  * dependencies. Modes share an entry, so receive the same conservative byte budget.
  * /en/research/ and /en/tools/: the landing's closure plus the page loader's static closure and
  * its page chunk; per-page details (load-detail) are excluded, so every paper's code stays out.
- * A tool page adds its own detail chunk's static closure (never the solver, which is lazy).
+ * A tool page adds its own detail chunk's static closure (never the solver, which is lazy, nor the worker that runs it).
  * Every route counts the largest per-language public dictionary chunk, which it loads lazily: a reader loads one.
  */
 import { build } from 'vite';
@@ -69,7 +69,12 @@ try {
       const pageLoader = `src/components/${feature}/load-page.ts`;
       if (!manifest[pageLoader]) throw new Error(`missing manifest entry ${pageLoader}`);
       const featureRoots = [pageLoader, ...(manifest[pageLoader].dynamicImports ?? []).filter((dep) => !/load-detail\.ts$/.test(dep))];
-      if (detail && manifest[`src/components/${feature}/${detail}`]) featureRoots.push(`src/components/${feature}/${detail}`);
+      if (detail) {
+        const name = detail.replace(/\.svelte$/, '');
+        const key = manifest[`src/components/${feature}/${detail}`] ? `src/components/${feature}/${detail}` : Object.keys(manifest).find((k) => manifest[k].name === name && manifest[k].src === undefined);
+        if (!key) throw new Error(`missing manifest entry for ${detail}`);
+        featureRoots.push(key);
+      }
       for (const file of routeChunkFiles(manifest, featureRoots.map((key) => [key, false]))) files.add(file);
     }
     // Public fonts/images and emitted workers referenced by the selected bundles also count.
@@ -78,7 +83,7 @@ try {
       if (!/\.(?:js|css|html)$/.test(file)) continue;
       for (const match of readFileSync(join(outDir, file), 'utf8').matchAll(/["'(](\/[^"'()\s]+)["')]/g)) {
         const relative = match[1].slice(1).split('?')[0];
-        if (!relative.includes('..') && existsSync(join(outDir, relative)) && statSync(join(outDir, relative)).isFile()) files.add(relative);
+        if (!relative.includes('..') && !/\.worker-[\w-]+\.js$/.test(relative) && existsSync(join(outDir, relative)) && statSync(join(outDir, relative)).isFile()) files.add(relative);
       }
     }
     const size = (file) => statSync(join(outDir, file)).size;
@@ -89,8 +94,10 @@ try {
   const measured = { '/en/': landing, '/es/': landing, '/pt/': landing,
     '/app/basic': app, '/app/education': app, '/app/pro': app,
     '/en/research/': footprint(false, 'research'), '/en/tools/': footprint(false, 'tools'),
-    '/en/tools/simply-supported-beam/': footprint(false, 'tools', 'ToolViewer.svelte'),
-    '/en/tools/continuous-beam/': footprint(false, 'tools', 'BatchTool.svelte') };
+    '/en/tools/simply-supported-beam/': footprint(false, 'tools', 'CalculatorTool.svelte'),
+    '/en/tools/continuous-beam/': footprint(false, 'tools', 'BatchTool.svelte'),
+    '/en/tools/beam-frame/': footprint(false, 'tools', 'ModelTool.svelte'),
+    '/en/tools/mohr-2d/': footprint(false, 'tools', 'MohrTool.svelte') };
   for (const [route, bytes] of Object.entries(measured)) console.log(`${route}: ${bytes} bytes`);
   if (ceilingPath) {
     const over = overCeilings(measured, JSON.parse(readFileSync(ceilingPath, 'utf8')).routes);

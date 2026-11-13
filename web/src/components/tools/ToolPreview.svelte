@@ -1,9 +1,22 @@
 <script lang="ts">
-  import type { ToolId } from './calculators';
-  import type { BatchId } from './batch';
-  let { id }: { id: ToolId | BatchId } = $props();
+  import ExampleThumb from '../examples/ExampleThumb.svelte';
+  import { TOOLS } from './registry';
+  let { id }: { id: string } = $props();
+  const BEAMS = ['simply-supported-beam', 'cantilever-beam', 'column-buckling', 'continuous-beam', 'influence-line', 'beam-natural-frequency'];
+  const model = $derived(TOOLS.find(tool => tool.id === id)?.kind === 'model');
 </script>
 
+{#if model}
+  <ExampleThumb {id} />
+{:else if id === 'mohr-2d' || id === 'mohr-3d'}
+<svg viewBox="0 0 600 300" fill="none" aria-hidden="true">
+  {#if id === 'mohr-2d'}
+    <path d="M60 160H540 M150 40V280" stroke="var(--fg-2)" stroke-width="2"/><circle cx="330" cy="160" r="110" stroke="var(--lp-accent)" stroke-width="3"/><path d="M408 82L252 238" stroke="var(--fg-2)" stroke-width="2"/><circle cx="408" cy="82" r="7" fill="var(--lp-accent)"/><circle cx="252" cy="238" r="7" fill="var(--lp-accent)"/><circle cx="440" cy="160" r="6" fill="var(--fg-2)"/><circle cx="220" cy="160" r="6" fill="var(--fg-2)"/>
+  {:else}
+    <path d="M40 170H560 M130 40V290" stroke="var(--fg-2)" stroke-width="2"/><circle cx="330" cy="170" r="130" stroke="var(--lp-accent)" stroke-width="3"/><circle cx="260" cy="170" r="60" stroke="var(--lp-accent)" stroke-width="2"/><circle cx="390" cy="170" r="70" stroke="var(--lp-accent)" stroke-width="2"/><path d="M372 64V170" stroke="var(--fg-2)" stroke-width="2" stroke-dasharray="6 5"/><circle cx="372" cy="64" r="7" fill="var(--lp-accent)"/>
+  {/if}
+</svg>
+{:else if id === 'portal-frame' || id === 'truss-2d' || BEAMS.includes(id)}
 <svg viewBox="0 0 600 300" fill="none" aria-hidden="true">
   {#if id === 'portal-frame'}
     <path d="M100 250V80H500V250 M75 250H125 M475 250H525" stroke="var(--fg-2)" stroke-width="3"/><path d="M100 250Q100 160 145 80H545Q500 160 500 250 M20 80H85L70 70 M85 80L70 90" stroke="var(--lp-accent)" stroke-width="3"/>
@@ -28,4 +41,10 @@
   {/if}
   {/if}
 </svg>
+{:else}
+<svg viewBox="0 0 600 300" fill="none" aria-hidden="true">
+  <path d="M60 240H540M300 40V260" stroke="var(--fg-2)" stroke-width="2"/>
+  <circle cx="300" cy="150" r="90" stroke="var(--lp-accent)" stroke-width="3"/>
+</svg>
+{/if}
 <style>svg { display: block; width: 100%; }</style>
