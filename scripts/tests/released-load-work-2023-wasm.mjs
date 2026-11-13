@@ -104,6 +104,21 @@ for(const collection of ['displacements','reactions','elementForces']) for(const
   }
   assert.throws(()=>check(wrong,oracle3.model,oracle3.references.linear,oracle3.gauges),`${collection} corruption ${factor} passed`);
 }
+if(!process.env.RUN_KNOWN_WRONG) console.log('SKIP known wrong result: #2074 released rotation corruption');
+else {
+  const gaugeCase=cases.find(c=>c.dim===3&&c.gauges.length>0);
+  assert.ok(gaugeCase);
+  for(const side of ['wasm','native','both']) {
+    const wrong=structuredClone(run('linear',3,gaugeCase.model));
+    const reference=structuredClone(gaugeCase.references.linear);
+    const {node,rotation}=gaugeCase.gauges[0];
+    for(const result of side==='both'?[wrong,reference.ok]:[side==='wasm'?wrong:reference.ok]) {
+      const row=result.displacements.find(d=>d.nodeId===node);
+      for(const [i,key] of ['rx','ry','rz'].entries()) row[key]+=rotation[i];
+    }
+    assert.throws(()=>check(wrong,gaugeCase.model,reference,gaugeCase.gauges),`${side} released rotation corruption passed`);
+  }
+}
 const corrupted=structuredClone(run('linear',2,oracleModel));
 for(const f of corrupted.elementForces) for(const key of Object.keys(f)) if(/(Start|End)$/.test(key)&&typeof f[key]==='number') f[key]=0;
 assert.throws(()=>check(corrupted,oracleModel,cases[0].references.linear));

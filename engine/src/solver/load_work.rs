@@ -265,6 +265,62 @@ mod tests {
         assert!(nonzero);
     }
 
+    fn oblique_truss_transform_enclosure(point: bool) {
+        use super::super::assembly::*;
+        use serde_json::json;
+        let fixture: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/nightly-2026-11-13.json")).unwrap();
+        let mut model = fixture["2023"].clone();
+        model["nodes"] = json!({"1":{"id":1,"x":0.0,"y":0.0,"z":0.0},"2":{"id":2,"x":3.0,"y":4.0,"z":2.0}});
+        let mut element = model["elements"]["1"].clone();
+        element["type"] = json!("truss");
+        element["nodeI"] = json!(1);
+        element["nodeJ"] = json!(2);
+        model["elements"] = json!({"1":element});
+        model["supports"] = json!({"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false},"2":{"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false}});
+        model["loads"] = if point {
+            json!([{"type":"pointOnElement","data":{"elementId":1,"a":0.7,"px":0.3,"py":0.7,"pz":1.1}}])
+        } else {
+            json!([{"type":"distributed","data":{"elementId":1,"qXI":0.0,"qXJ":0.0,"qYI":0.3,"qYJ":0.7,"qZI":1.1,"qZJ":-0.3}}])
+        };
+        let input: SolverInput3D = serde_json::from_value(model).unwrap();
+        let dof = DofNumbering::build_3d(&input);
+        let l = 29.0_f64.sqrt();
+        let element = &input.elements["1"];
+        let (ex,ey,ez) = crate::element::compute_local_axes_3d(0.0,0.0,0.0,3.0,4.0,2.0,element.local_yx,element.local_yy,element.local_yz,element.roll_angle,false);
+        let actions = super::super::member_actions::TransverseMemberActions::from_3d(&input.loads[0],l).0;
+        let values = assemble_load_vector_3d_dense(&input,&input.loads,&dof,&[]);
+        let bounds = assembly_rounding_3d(&input,&input.loads,&dof,&[]);
+        let mut nonzero = false;
+        for end in 0..2 {
+            for k in 0..3 {
+                let axial = if point { exact(0.3)*exact(if end == 0 {1.0-0.7/l} else {0.7/l}) } else {BigRational::zero()};
+                let expected = axial*exact(ex[k])+exact(actions[end][0])*exact(ey[k])+exact(actions[end][1])*exact(ez[k]);
+                let d = dof.global_dof(end+1,k).unwrap();
+                let error = (exact(values[d])-expected).abs();
+                nonzero |= !error.is_zero();
+                assert!(error <= exact(bounds[d]),"{point}/{end}/{k}: {error} > {}",bounds[d]);
+            }
+        }
+        assert!(nonzero);
+        let answer = super::super::linear::solve_3d(&input).unwrap();
+        assert_eq!(answer.displacements.len(),2);
+        let mut bad = input;
+        bad.loads.push(serde_json::from_value(json!({"type":"nodal","data":{"nodeId":1,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":1.0}})).unwrap());
+        assert!(super::super::linear::solve_3d(&bad).is_err());
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2074"]
+    fn oblique_truss_transverse_load_encloses_transform_error() {
+        oblique_truss_transform_enclosure(false);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2074"]
+    fn oblique_truss_point_load_encloses_transform_error() {
+        oblique_truss_transform_enclosure(true);
+    }
+
     #[test]
     fn single_2d_fef_rounding_encloses_member_transform() {
         use super::super::assembly::*;
