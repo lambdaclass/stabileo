@@ -125,7 +125,7 @@ it.each([
       expect(panel).toContain('role="alert"');
       expect(panel).toContain(expected);
       if (severity === 'error') expect(panel).not.toContain('data-testid="rc-design"');
-      for (const family of ['slab', 'wall'] as const) {
+      for (const family of ['beam', 'column', 'slab', 'wall', 'punching'] as const) {
         const html = render(Workspace, { props: { family, onclose() {} } }).body;
         expect(html).toContain('role="alert"');
         expect(html).toContain(expected);
@@ -139,7 +139,7 @@ it.each([
     new Map([...combinations].map(([id, r]) => [id, { ...r, structuredDiagnostics: [] }])),
     { ...envelope, maxAbsResults3D: { ...envelope.maxAbsResults3D, structuredDiagnostics: [] } });
   expect(buildSheetRows().beam.length).toBeGreaterThan(0);
-  for (const family of ['slab', 'wall'] as const) {
+  for (const family of ['beam', 'column', 'slab', 'wall', 'punching'] as const) {
     expect(render(Workspace, { props: { family, onclose() {} } }).body).not.toContain('data-testid="rc-result-warnings"');
   }
 });
