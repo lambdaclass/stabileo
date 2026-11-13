@@ -14,13 +14,28 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Állapot 2026. november 10-én: az SA-2026-001–020 a 0.3.0-s, az SA-2026-021–024 a 0.4.0-s, az SA-2026-025–047 pedig a 0.5.0-s verzióban javult (az SA-2026-040 kezelve van: az ellenőrzés hiányosként van jelölve), kivéve az SA-2026-044-et: a 2D képlékeny tönkremenetel számítását a program a #758 lezárásáig elutasítja. Az SA-2026-048 a 0.5.0-s verzió után javult, és 2026. november 8. óta él a stabileo.com-on. Az SA-2026-049, az SA-2026-050, az SA-2026-051, az SA-2026-052 és az SA-2026-053 a 0.5.0-s verzió után javult, és 2026. november 9. óta él a stabileo.com-on. A közzétételük annak része, ahogyan az eredményeket ellenőrizzük, nem annak jele, hogy még nyitottak. Egy figyelmeztetés akkor számít javítottnak, amikor a javítás élesben fut a stabileo.com-on, nem akkor, amikor a módosítás elkészült. Amíg egy figyelmeztetés nyitott, alkalmazza a benne leírt kerülőmegoldást, és aláírás előtt ellenőrizze kézzel az érintett eredményt. SA-2026-054 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-055 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-056 – Tervezet: megoldatlan; javítás még nincs beolvasztva és élesítve. SA-2026-057 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-059 – Javítva a #1921-es PR-ben, kiadásra vár."
+      "t": "Állapot 2026. november 12-én: az SA-2026-001–020 a 0.3.0-s, az SA-2026-021–024 a 0.4.0-s, az SA-2026-025–047 pedig a 0.5.0-s verzióban javult (az SA-2026-040 kezelve van: az ellenőrzés hiányosként van jelölve), kivéve az SA-2026-044-et: a 2D képlékeny tönkremenetel számítását a program a #758 lezárásáig elutasítja. Az SA-2026-048 a 0.5.0-s verzió után javult, és 2026. november 8. óta él a stabileo.com-on. Az SA-2026-049, az SA-2026-050, az SA-2026-051, az SA-2026-052 és az SA-2026-053 a 0.5.0-s verzió után javult, és 2026. november 9. óta él a stabileo.com-on. A közzétételük annak része, ahogyan az eredményeket ellenőrizzük, nem annak jele, hogy még nyitottak. Egy figyelmeztetés akkor számít javítottnak, amikor a javítás élesben fut a stabileo.com-on, nem akkor, amikor a módosítás elkészült. Amíg egy figyelmeztetés nyitott, alkalmazza a benne leírt kerülőmegoldást, és aláírás előtt ellenőrizze kézzel az érintett eredményt. SA-2026-054 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-055 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-056 – Tervezet: megoldatlan; javítás még nincs beolvasztva és élesítve. SA-2026-057 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-059 – Javítva a #1921-es PR-ben, kiadásra vár. SA-2026-060 – Tervezet: helyi javítás felülvizsgálatra és kiadásra vár. SA-2026-062 – Tervezet: helyi javítás felülvizsgálatra és kiadásra vár."
     },
     {
       "k": "note",
       "t": "SA-2026-058 – Javítva a #1922-es PR-ben, kiadásra vár."
     },
-    {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO egy vasbeton kerettel, amelyet még az eredmények verziózása előtt mentettek. Alul egy sáv jelzi, hogy az eredmények elavultak, mert a projektet legutóbb egy régebbi verzióval számították, és 19 nyilvántartott változás érinti; mellette a változások megtekintésére és az újraszámításra szolgáló gombok.", "caption": "Így jut el egy javítás egy mentett projekthez: amíg újra nem számítják, az eredményei elavultként vannak jelölve, és az őt érintő változások egy kattintásnyira vannak."},
+    {
+      "k": "note",
+      "t": "SA-2026-061 – Javítva a #1952-es PR-ben, kiadásra vár."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-063 – Javítva a #2009-es PR-ben, kiadásra vár."
+    },
+    {
+      "k": "img",
+      "base": "blog/recheck-stale",
+      "w": 1600,
+      "h": 1000,
+      "alt": "Stabileo PRO egy vasbeton kerettel, amelyet még az eredmények verziózása előtt mentettek. Alul egy sáv jelzi, hogy az eredmények elavultak, mert a projektet legutóbb egy régebbi verzióval számították, és 19 nyilvántartott változás érinti; mellette a változások megtekintésére és az újraszámításra szolgáló gombok.",
+      "caption": "Így jut el egy javítás egy mentett projekthez: amíg újra nem számítják, az eredményei elavultként vannak jelölve, és az őt érintő változások egy kattintásnyira vannak."
+    },
     {
       "k": "h",
       "t": "Összefoglaló"
@@ -388,6 +403,30 @@ const body: PostBody = {
           "A generált kombinációk és terhek (CIRSOC 101, 102, 103) a biztonság kárára tévedtek",
           "Magas",
           "Javítva: 0.2.0"
+        ],
+        [
+          "SA-2026-061",
+          "Az ívhossz- és elmozdulásvezérlés reakciókat hagyott ki, és skálázatlan rúdterheket használt; a 2D/3D kényszeres, Guyan-, fázisos és időtörténeti eredmények kihagyásait is ellenőrizni kell. Futtassa újra az érintett eredményeket, vagy ellenőrizze függetlenül; 0.2.0–0.5.0 és az azt követő érintett main buildek.",
+          "Magas",
+          "Javítva a #1952-es PR-ben, kiadásra vár"
+        ],
+        [
+          "SA-2026-060",
+          "A fázisos vizsgálat egységváltás után vagy támaszrugós kioldott végeknél figyelmeztetés nélkül merevíthette a valódi forgásokat; ellenőrizze újra a rúdkioldásos fázismodelleket.",
+          "Magas",
+          "Tervezet: helyi javítás felülvizsgálatra és kiadásra vár"
+        ],
+        [
+          "SA-2026-062",
+          "A közvetlen 3D képlékeny vizsgálat a kezdeti rugalmas állapot hibájánál figyelmeztetés nélkül nullát adhatott; régi tanúsított buildek megtartották ezt a tényezőt. A main már pozitív tanúsított korlátot ad figyelmeztetéssel; a PR #1943 továbbadja a kezdeti elutasítást.",
+          "Magas",
+          "Tervezet: helyi javítás felülvizsgálatra és kiadásra vár"
+        ],
+        [
+          "SA-2026-063",
+          "A kényszeres fázisos és nemlineáris vizsgálatok elhagyták az előírt mestercsomópont-mozgást; a kábeles és időtörténeti vizsgálat most elutasítja a nem támogatott támaszmozgást. A korábbi általános dinamikai figyelmeztetések ezt a kihagyást külön nem jelezték.",
+          "Magas",
+          "Javítva a #2009-es PR-ben, kiadásra vár"
         ]
       ]
     },

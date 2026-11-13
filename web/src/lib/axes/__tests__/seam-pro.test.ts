@@ -13,7 +13,7 @@ const SEAM = [
   'components/pro/ProAdvancedTab.svelte', 'components/pro/ProSpecialLoadsSection.svelte', 'components/pro/ProStoryDriftTable.svelte',
   'components/pro/SupportDofFields.svelte', 'components/pro/ProSupportsTab.svelte', 'components/pro/ProFloorLoadSection.svelte',
   'components/pro/ProAutoLoadsApplying.svelte', 'components/pro/ProAutoLoadsDialog.svelte', 'components/pro/ProWindCasesPanel.svelte',
-  'components/pro/ProWindStructure.svelte', 'components/pro/ProDirectAnalysis.svelte', 
+  'components/pro/ProWindStructure.svelte', 'components/pro/ProDirectAnalysis.svelte',
   'components/pro/ProEditPanel.svelte', 'components/pro/ProMovingLoadsPanel.svelte', 'components/pro/ProSeismicMethod.svelte',
   'components/pro/building/UnderlayRow.svelte', 'components/pro/building/UnderlayConvertDialog.svelte', 'components/pro/building/BuildingTools.svelte',
   'components/pro/building/BuildingRange.svelte', 'components/pro/building/BuildingBeams.svelte', 'components/pro/generators/GeneratorOutput.svelte',
