@@ -26,8 +26,10 @@
     { key: 'email', label: 'admin.col.email' },
     { key: null, label: 'admin.col.status' },
     { key: 'inserted_at', label: 'admin.col.created' },
-    { key: 'last_sign_in_at', label: 'admin.col.lastSignIn' },
+    { key: null, label: 'admin.col.lastActive' },
     { key: null, label: 'admin.col.sessions', numeric: true },
+    { key: null, label: 'admin.col.terms' },
+    { key: null, label: 'admin.col.projects', numeric: true },
   ];
 
   function setQuery(next: ListQuery, replace = false) {
@@ -107,6 +109,7 @@
     <h1 id="adm-users-title" class="adm-h1">{t('admin.users.title')}</h1>
     <span class="adm-count" data-testid="admin-users-total">{tp('admin.users.total', { count: adminUsers.total })}</span>
   </div>
+  <p class="adm-users-lede">{t('admin.users.what')}</p>
 
   <div class="adm-toolbar">
     <input
@@ -186,8 +189,10 @@
               </span>
             </td>
             <td class="adm-date">{formatDateTime(user.inserted_at)}</td>
-            <td class="adm-date">{formatDateTime(user.last_sign_in_at)}</td>
+            <td class="adm-date" data-testid="admin-user-last-active">{formatDateTime(user.last_active_at ?? user.last_sign_in_at)}</td>
             <td class="num">{user.active_sessions}</td>
+            <td><span class="adm-badge" class:off={!user.consents?.terms_current} data-testid="admin-user-terms">{user.consents?.terms ? user.consents.terms.version : t('admin.users.termsMissing')}</span></td>
+            <td class="num" data-testid="admin-user-projects">{user.project_count ?? 0}</td>
           </tr>
         {:else}
           <tr>
@@ -221,6 +226,7 @@
 {/if}
 
 <style>
+  .adm-users-lede { margin: 0 0 12px; font-size: 0.8rem; line-height: 1.5; color: var(--st-text-2); max-width: 90ch; }
   .adm-users { display: flex; flex-direction: column; gap: 12px; }
 
   .adm-users-head { display: flex; align-items: baseline; gap: 10px; }

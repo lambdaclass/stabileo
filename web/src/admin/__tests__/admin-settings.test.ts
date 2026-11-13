@@ -162,4 +162,27 @@ describe('the admin settings store', () => {
     expect(adminSettings.userLoginEnabled).toBe(false);
     expect(adminSettings.savedAt).toBeNull();
   });
+
+  it('saves the project limit as a number and shows it while saving', async () => {
+    const { adminSettings } = await signedIn();
+    on('GET /settings', () => json(200, { data: { user_login_enabled: true, cloud_projects_limit: 1 } }));
+    await adminSettings.load();
+    expect(adminSettings.projectLimit).toBe(1);
+
+    on('PUT /settings', () => json(200, { data: { user_login_enabled: true, cloud_projects_limit: 3 } }));
+    const pending = adminSettings.setProjectLimit(3);
+    expect(adminSettings.projectLimit).toBe(3);
+    expect(adminSettings.saving).toBe(true);
+    await expect(pending).resolves.toBe(true);
+
+    expect(adminSettings.projectLimit).toBe(3);
+    expect(seen.at(-1)).toEqual({ route: 'PUT /settings', body: { cloud_projects_limit: 3 }, auth: 'Bearer admin-access-1' });
+  });
+
+  it('reads the project limit as 1 when the server does not say', async () => {
+    const { adminSettings } = await signedIn();
+    on('GET /settings', () => json(200, { data: { user_login_enabled: true } }));
+    await adminSettings.load();
+    expect(adminSettings.projectLimit).toBe(1);
+  });
 });

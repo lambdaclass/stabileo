@@ -795,28 +795,6 @@ const ar: Translations = {
   'float.vShear': 'V قص',
   'float.ilHint': 'انقر على عقدة (ردود فعل) أو على عنصر (M/V داخلية)',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': 'إبلاغ / اقتراح',
-  'feedback.close': 'إغلاق',
-  'feedback.reportCreated': 'تم إنشاء التقرير #{n}',
-  'feedback.bugError': 'خلل / خطأ',
-  'feedback.suggestion': 'اقتراح',
-  'feedback.other': 'أخرى',
-  'feedback.namePlaceholder': 'اسمك أو لقبك (اختياري)',
-  'feedback.textPlaceholder': 'صف المشكلة أو الاقتراح...',
-  'feedback.linkAttached': 'سيتم إرفاق رابط لمنشأك',
-  'feedback.copy': 'نسخ',
-  'feedback.sending': 'جارٍ الإرسال...',
-  'feedback.submitReport': 'إرسال التقرير',
-  'feedback.toastCreated': 'تم إنشاء التقرير #{n} — شكراً!',
-  'feedback.toastError': 'تعذّر إرسال التقرير',
-  'feedback.toastConnectionError': 'خطأ في الاتصال — حاول مجدداً',
-  'feedback.toastEmptyText': 'اكتب وصفاً للمشكلة أو الاقتراح',
-  'feedback.toastSecurityWait': 'في انتظار التحقق الأمني...',
-  'feedback.toastLinkCopied': 'تم نسخ الرابط',
-  'feedback.reportBug': 'إبلاغ عن خلل / اقتراح',
-  'feedback.communityTelegram': 'مجتمع تيليغرام',
-  'feedback.buyCoffee': 'اشترِ لي قهوة',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': 'المقطع {id}',

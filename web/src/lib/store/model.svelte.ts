@@ -1,4 +1,5 @@
 import { migrateDesignData } from '../model/design-data';
+import { trackUsage } from '../telemetry/usage';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
 import {
@@ -4715,6 +4716,7 @@ function createModelStore() {
     },
 
     async loadExample(name: string, fixture?: () => Promise<unknown>, opts: { keepCombinations?: boolean } = {}): Promise<void> {
+      trackUsage('example.open', { example: name });
       const loader = fixture ?? getFixture(name);
       if (!loader) return;
 

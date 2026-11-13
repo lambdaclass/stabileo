@@ -19,6 +19,7 @@
   import { captureProvenanceToken, provenanceForExport, provenanceLabels, ensureEngineHashes } from '../lib/store/result-provenance';
   import { reportProvenanceLines } from '../lib/export/provenance-attach';
   import type { ReportFormat } from '../lib/export/report-formats';
+  import { accountGate } from '../lib/store/account-gate.svelte';
 
   const FORMATS: ReportFormat[] = ['pdf', 'docx', 'html'];
   let format = $state<ReportFormat>('pdf');
@@ -111,6 +112,7 @@
 
   async function generateReport() {
     if (busy) return;
+    if (accountGate.defer('export', generateReport)) return;
     // The tab is opened now, inside the click: one opened after the solve and the figures is
     // one the pop-up blocker refuses.
     const win = format === 'pdf' ? window.open('', '_blank') : null;

@@ -219,7 +219,7 @@
         <button type="button" class="rpt-link" onclick={() => { companyLogo = null; persist(); }}>{t('report.removeLogo')}</button>
       {:else}
         <label class="rpt-file-btn">{t('report.chooseLogo')}
-          <input type="file" accept="image/png,image/jpeg,image/svg+xml" onchange={handleLogoUpload} class="rpt-file-input" data-testid="rpt-logo-file" />
+          <input type="file" accept="image/png,image/jpeg,image/svg+xml" onchange={handleLogoUpload} class="rpt-file-input" data-testid="rpt-logo-file" data-account-free />
         </label>
         {#if logoError}<span class="rpt-error" role="alert" data-testid="rpt-logo-error">{logoError}</span>{/if}
       {/if}

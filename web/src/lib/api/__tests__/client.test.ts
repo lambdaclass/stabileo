@@ -38,14 +38,14 @@ describe('the API client', () => {
     setAuthHooks({ accessToken: () => 'tok-1', refresh: vi.fn() });
     fetchMock.mockResolvedValueOnce(json(200, { ok: 1 }));
 
-    const out = await request<{ ok: number }>('POST', '/api/v1/auth/login', { body: { email: 'a@b.c', password: 'pw' } });
+    const out = await request<{ ok: number }>('POST', '/api/v1/auth/google/exchange', { body: { code: 'c', verifier: 'v' } });
 
     expect(out).toEqual({ ok: 1 });
     const [c] = calls(fetchMock);
-    expect(c.url).toBe('http://localhost:4100/api/v1/auth/login');
+    expect(c.url).toBe('http://localhost:4100/api/v1/auth/google/exchange');
     expect(c.method).toBe('POST');
     expect(c.headers).toEqual({ Accept: 'application/json', 'Content-Type': 'application/json' });
-    expect(c.body).toEqual({ email: 'a@b.c', password: 'pw' });
+    expect(c.body).toEqual({ code: 'c', verifier: 'v' });
   });
 
   it('attaches the access token on an authenticated call and sends no body on a GET', async () => {
@@ -115,11 +115,11 @@ describe('the API client', () => {
   it('does not refresh on a 401 that is about the request, not the session', async () => {
     const refresh = vi.fn(async () => 'ok' as const);
     setAuthHooks({ accessToken: () => 'tok', refresh });
-    fetchMock.mockResolvedValueOnce(json(401, { error: 'invalid_current_password', message: 'Wrong password' }));
+    fetchMock.mockResolvedValueOnce(json(401, { error: 'invalid_credentials', message: 'Invalid email or password' }));
 
-    const err = await request('PUT', '/api/v1/auth/password', { auth: true, body: { current_password: 'x', password: 'yyyyyyyy' } }).catch((e) => e);
+    const err = await request('POST', '/api/v1/admin/auth/login', { auth: true, body: { email: 'a@b.c', password: 'x' } }).catch((e) => e);
 
-    expect(err).toMatchObject({ status: 401, code: 'invalid_current_password', message: 'Wrong password' });
+    expect(err).toMatchObject({ status: 401, code: 'invalid_credentials', message: 'Invalid email or password' });
     expect(refresh).not.toHaveBeenCalled();
   });
 
@@ -128,7 +128,7 @@ describe('the API client', () => {
     setAuthHooks({ accessToken: () => 'tok', refresh });
     fetchMock.mockResolvedValueOnce(json(401, { error: 'unauthorized', message: 'nope' }));
 
-    await expect(request('POST', '/api/v1/auth/login', { body: {} })).rejects.toMatchObject({ status: 401 });
+    await expect(request('POST', '/api/v1/auth/google/exchange', { body: {} })).rejects.toMatchObject({ status: 401 });
     expect(refresh).not.toHaveBeenCalled();
   });
 
@@ -136,10 +136,10 @@ describe('the API client', () => {
     fetchMock.mockResolvedValueOnce(json(422, {
       error: 'validation_error',
       message: 'Validation failed',
-      details: { email: ['has already been taken'], password: ['should be at least 8 character(s)'] },
+      details: { email: ['has already been taken'], accept_terms: ['must be accepted'] },
     }));
 
-    const err = (await request('POST', '/api/v1/auth/register', { body: {} }).catch((e: unknown) => e)) as ApiError;
+    const err = (await request('POST', '/api/v1/auth/google/register', { body: {} }).catch((e: unknown) => e)) as ApiError;
 
     expect(err).toBeInstanceOf(ApiError);
     expect(err.status).toBe(422);
@@ -147,7 +147,7 @@ describe('the API client', () => {
     expect(err.message).toBe('Validation failed');
     expect(err.details).toEqual({
       email: ['has already been taken'],
-      password: ['should be at least 8 character(s)'],
+      accept_terms: ['must be accepted'],
     });
   });
 
@@ -162,7 +162,7 @@ describe('the API client', () => {
   it('turns a failed connection into a network_error', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
-    const err = await request('POST', '/api/v1/auth/login', { body: {} }).catch((e) => e);
+    const err = await request('POST', '/api/v1/auth/google/exchange', { body: {} }).catch((e) => e);
 
     expect(err).toBeInstanceOf(ApiError);
     expect(err).toMatchObject({ status: 0, code: 'network_error', message: 'Failed to fetch' });

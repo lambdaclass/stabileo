@@ -789,28 +789,6 @@ const zh: Translations = {
   'float.vShear': 'V 剪力',
   'float.ilHint': '点击节点（反力）或杆件（内力 M/V）',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': '报告 / 建议',
-  'feedback.close': '关闭',
-  'feedback.reportCreated': '报告 #{n} 已创建',
-  'feedback.bugError': 'Bug / 错误',
-  'feedback.suggestion': '建议',
-  'feedback.other': '其他',
-  'feedback.namePlaceholder': '您的姓名或昵称（可选）',
-  'feedback.textPlaceholder': '描述问题或建议...',
-  'feedback.linkAttached': '将附带您结构的链接',
-  'feedback.copy': '复制',
-  'feedback.sending': '发送中...',
-  'feedback.submitReport': '提交报告',
-  'feedback.toastCreated': '报告 #{n} 已创建 — 谢谢！',
-  'feedback.toastError': '无法发送报告',
-  'feedback.toastConnectionError': '连接错误 — 请重试',
-  'feedback.toastEmptyText': '请输入问题或建议的描述',
-  'feedback.toastSecurityWait': '正在等待安全验证...',
-  'feedback.toastLinkCopied': '链接已复制',
-  'feedback.reportBug': '报告 Bug / 建议',
-  'feedback.communityTelegram': 'Telegram 社区',
-  'feedback.buyCoffee': '请我喝杯咖啡',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': '截面 {id}',

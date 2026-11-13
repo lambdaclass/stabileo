@@ -9,6 +9,8 @@
    */
   import { modelStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
+  import { accountGate } from '../../lib/store/account-gate.svelte';
+  import { saveFile } from '../../lib/export/save-file';
   import { modelToCode, type CodeError } from '../../lib/model/code/format';
   import { applyCode } from '../../lib/model/code/apply';
   import { DERIVED_FIELDS } from '../../lib/model/code/coverage';
@@ -65,12 +67,7 @@
   }
 
   function download() {
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${(modelStore.model.name || 'model').replace(/[^\w.-]+/g, '_')}.stabileo.txt`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    saveFile(`${(modelStore.model.name || 'model').replace(/[^\w.-]+/g, '_')}.stabileo.txt`, new Blob([text], { type: 'text/plain;charset=utf-8' }));
   }
 
   async function openFile(e: Event) {
@@ -86,7 +83,7 @@
   <div class="cp-bar">
     <button class="cp-primary" onclick={apply} disabled={!dirty} data-testid="cp-apply">{t('code.apply')}</button>
     <button onclick={regenerate} data-testid="cp-regenerate">{t('code.fromModel')}</button>
-    <button onclick={copy}>{t('code.copy')}</button>
+    <button onclick={() => accountGate.guard('code', copy)}>{t('code.copy')}</button>
     <button onclick={download}>{t('code.download')}</button>
     <button onclick={() => fileInput?.click()}>{t('code.open')}</button>
     <input type="file" accept=".txt,.stabileo" bind:this={fileInput} onchange={openFile} hidden />

@@ -5,6 +5,10 @@
   import { t, tp, i18n, OFFERED_LOCALES, isOfferedLocale } from '../../lib/i18n';
   import { LOCALE_NAMES } from '../../lib/i18n/offered';
   import LocaleSelect from '../LocaleSelect.svelte';
+  import CloudProjectsDialog from './CloudProjectsDialog.svelte';
+  import { usageConsent } from '../../lib/telemetry/consent.svelte';
+  import { feedbackDialog } from '../../lib/store/feedback-dialog.svelte';
+  import { legalHref, TERMS_PATH, PRIVACY_PATH, USAGE_DATA_PATH } from '../../lib/legal/legal';
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -17,12 +21,6 @@
   let profileMsg = $state<{ kind: 'ok' | 'bad'; text: string } | null>(null);
   let profileFields = $state<Record<string, string>>({});
 
-  let currentPassword = $state('');
-  let newPassword = $state('');
-  let changing = $state(false);
-  let passwordMsg = $state<{ kind: 'ok' | 'bad'; text: string } | null>(null);
-  let passwordFields = $state<Record<string, string>>({});
-
   $effect(() => {
     if (!open) return;
     untrack(() => {
@@ -34,10 +32,6 @@
       locale = a && isOfferedLocale(a.locale) ? a.locale : 'es';
       profileMsg = null;
       profileFields = {};
-      passwordMsg = null;
-      passwordFields = {};
-      currentPassword = '';
-      newPassword = '';
     });
   });
 
@@ -57,6 +51,11 @@
 
   function close() {
     open = false;
+  }
+
+  function openFeedback() {
+    close();
+    feedbackDialog.open = true;
   }
 
   async function saveProfile(e: SubmitEvent) {
@@ -86,26 +85,24 @@
     }
   }
 
-  async function changePassword(e: SubmitEvent) {
-    e.preventDefault();
-    if (changing) return;
-    changing = true;
-    passwordMsg = null;
-    passwordFields = {};
+  let consentMsg = $state<string | null>(null);
+
+  const termsDate = $derived.by(() => {
+    const at = authStore.account?.consents?.terms?.accepted_at;
+    return at ? new Date(at).toLocaleDateString(i18n.locale, { dateStyle: 'long' }) : null;
+  });
+
+  function setUsage(granted: boolean) {
+    usageConsent.set(granted ? 'granted' : 'denied');
+    void authStore.recordConsent('usage_analytics', granted).catch((e) => (consentMsg = errorText(e)));
+  }
+
+  async function setResearch(granted: boolean) {
+    consentMsg = null;
     try {
-      await authStore.changePassword(currentPassword, newPassword);
-      currentPassword = '';
-      newPassword = '';
-      passwordMsg = { kind: 'ok', text: t('account.passwordChanged') };
-    } catch (err) {
-      passwordFields = fieldErrors(err);
-      passwordMsg = {
-        kind: 'bad',
-        text: Object.keys(passwordFields).length ? t('account.err.validation_error') : errorText(err),
-      };
-      if (!authStore.isAuthenticated) close();
-    } finally {
-      changing = false;
+      await authStore.recordConsent('model_research', granted);
+    } catch (e) {
+      consentMsg = errorText(e);
     }
   }
 
@@ -113,6 +110,7 @@
     close();
     await authStore.logout();
   }
+  let cloudOpen = $state(false);
 </script>
 
 {#if open && authStore.account}
@@ -130,6 +128,11 @@
     >
       <h3 class="acc-title" id="acc-profile-title">{t('account.profileTitle')}</h3>
       <p class="acc-lede">{tp('account.signedInAs', { email: authStore.account.email })}</p>
+      <div class="acc-actions acc-top-actions">
+        {#if authStore.isAuthenticated && authStore.cloudProjectsEnabled}
+      <button class="acc-btn" onclick={() => (cloudOpen = true)} data-testid="cloud-projects-open">{t('account.myProjects')}</button>
+    {/if}
+      </div>
 
       <form class="acc-section" onsubmit={saveProfile} novalidate>
         <h4 class="acc-section-head">{t('account.profileSection')}</h4>
@@ -192,43 +195,37 @@
         </div>
       </form>
 
-      <form class="acc-section" onsubmit={changePassword} novalidate>
-        <h4 class="acc-section-head">{t('account.passwordSection')}</h4>
-        <div class="acc-row">
-          <label class="acc-field">
-            <span class="acc-label">{t('account.currentPassword')}</span>
-            <input
-              type="password" bind:value={currentPassword} autocomplete="current-password"
-              class:bad={passwordFields.current_password} data-testid="password-current"
-            />
-            {#if passwordFields.current_password}<span class="acc-field-err">{passwordFields.current_password}</span>{/if}
-          </label>
-          <label class="acc-field">
-            <span class="acc-label">{t('account.newPassword')}</span>
-            <input
-              type="password" bind:value={newPassword} autocomplete="new-password"
-              class:bad={passwordFields.password} data-testid="password-new"
-            />
-            {#if passwordFields.password}
-              <span class="acc-field-err">{passwordFields.password}</span>
-            {:else}
-              <span class="acc-hint">{t('account.passwordHint')}</span>
-            {/if}
-          </label>
-        </div>
+      <section class="acc-section">
+        <h4 class="acc-section-head">{t('account.google.section')}</h4>
+        <p class="acc-hint" data-testid="profile-google">{tp('account.google.signedInAs', { email: authStore.account?.email ?? '' })}</p>
+      </section>
 
-        {#if passwordMsg}
-          <p class="acc-msg" class:bad={passwordMsg.kind === 'bad'} role="status" data-testid="password-msg">{passwordMsg.text}</p>
-        {/if}
+      <section class="acc-section" data-testid="profile-privacy">
+        <h4 class="acc-section-head">{t('account.privacySection')}</h4>
+        {#if termsDate}<p class="acc-hint">{tp('account.termsAccepted', { date: termsDate })}</p>{/if}
+        <p class="acc-hint acc-links">
+          <a href={legalHref(TERMS_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.termsLink')}</a> ·
+          <a href={legalHref(PRIVACY_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.privacyLink')}</a> ·
+          <a href={legalHref(USAGE_DATA_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('usage.whatIsSent')}</a>
+        </p>
+        <label class="acc-check">
+          <input type="checkbox" checked={usageConsent.granted} onchange={(e) => setUsage(e.currentTarget.checked)} data-testid="profile-usage" />
+          <span>{t('usage.registerOptIn')}</span>
+        </label>
+        <label class="acc-check">
+          <input type="checkbox" checked={authStore.account.consents?.model_research === true} onchange={(e) => setResearch(e.currentTarget.checked)} data-testid="profile-research" />
+          <span>{t('account.researchToggle')}<br /><span class="acc-hint">{t('account.researchHint')}</span></span>
+        </label>
+        {#if consentMsg}<p class="acc-msg bad" role="status">{consentMsg}</p>{/if}
+      </section>
 
+      <section class="acc-section">
+        <h4 class="acc-section-head">{t('feedbackForm.section')}</h4>
+        <p class="acc-hint">{t('feedbackForm.lede')}</p>
         <div class="acc-actions">
-          <button
-            type="submit" class="acc-btn"
-            disabled={changing || !currentPassword || !newPassword}
-            data-testid="password-submit"
-          >{changing ? t('account.working') : t('account.changePassword')}</button>
+          <button type="button" class="acc-btn" onclick={openFeedback} data-testid="profile-feedback-open">{t('feedbackForm.open')}</button>
         </div>
-      </form>
+      </section>
 
       <div class="acc-footer">
         <button type="button" class="acc-btn acc-quiet" onclick={logout} data-testid="account-logout">
@@ -240,7 +237,14 @@
   </div>
 {/if}
 
+<CloudProjectsDialog bind:open={cloudOpen} />
+
 <style>
+  .acc-top-actions { justify-content: flex-start; margin: -6px 0 10px; }
+  .acc-check { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0; font-size: 0.74rem; color: var(--st-text-2); line-height: 1.4; }
+  .acc-check input { margin-top: 2px; }
+  .acc-links a { color: var(--st-interactive, var(--st-accent)); }
+
   .acc-overlay {
     position: fixed;
     inset: 0;

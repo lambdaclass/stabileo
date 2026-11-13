@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { saveFile } from '../../lib/export/save-file';
   import { resultsStore } from '../../lib/store';
   import type { EduExercise, DiagramShape } from './exercises';
   import { t } from '../../lib/i18n';
@@ -306,13 +307,8 @@
 
   function downloadSubmission() {
     const sub = buildSubmission();
-    const blob = new Blob([toSubmissionFile(sub)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
     const who = sub.student ? sub.student.replace(/[^\w\-]+/g, '-').toLowerCase() : 'entrega';
-    a.download = `${who}-${sub.exerciseId}.stabileo-entrega.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    saveFile(`${who}-${sub.exerciseId}.stabileo-entrega.json`, new Blob([toSubmissionFile(sub)], { type: 'application/json' }));
     handinNote = t('edu.handin.downloaded');
   }
 

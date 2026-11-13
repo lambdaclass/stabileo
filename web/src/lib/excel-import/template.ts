@@ -23,7 +23,7 @@
  * the explanation.
  */
 
-import { loadXlsxModule } from '../export/excel';
+import { loadXlsxModule, saveWorkbook } from '../export/excel';
 import { t } from '../i18n';
 import { uiStore } from '../store';
 import { SHEETS, INSTRUCTIONS_SHEET, AXES_SHEET, headerFor, LOAD_TYPES } from './schema';
@@ -161,7 +161,7 @@ export const axesRows = (axes: AxesChoice): Array<Array<string>> => [['up', 'rig
 export async function downloadTemplate(): Promise<boolean> {
   const XLSX = await loadXlsxModule();
   if (!XLSX) return false;
-  XLSX.writeFile(buildTemplateWorkbook(XLSX), 'plantilla-stabileo.xlsx');
+  saveWorkbook(XLSX, buildTemplateWorkbook(XLSX), 'plantilla-stabileo.xlsx');
   uiStore.toast(t('xls.tpl.downloaded'), 'success');
   return true;
 }

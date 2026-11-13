@@ -109,7 +109,7 @@
     <div class="pk-row">
       <label class="pk-btn ul-file" class:disabled={u.locked}>
         {t('underlay.replace')}
-        <input type="file" accept=".dxf" disabled={u.locked} onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) void replace(f); e.currentTarget.value = ''; }} />
+        <input type="file" accept=".dxf" disabled={u.locked} onchange={(e) => { const input = e.currentTarget as HTMLInputElement; const f = input.files?.[0]; if (f) void replace(f); input.value = ''; }} />
       </label>
       <button class="pk-btn" disabled={!u.shapes?.length} onclick={() => (convertOpen = true)} data-testid="underlay-convert-{u.name}">{t('underlay.convert')}…</button>
     </div>
