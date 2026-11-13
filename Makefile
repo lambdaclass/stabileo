@@ -1054,3 +1054,10 @@ test.engine.time-history-2009:
 
 test.engine.time-history-2009-wasm: wasm
 	$(NIX_RUN) node scripts/tests/time-history-2009-wasm.mjs
+
+.PHONY: test.engine.arc-corrector-2009-wasm
+
+test.engine.arc-corrector-2009-wasm: wasm
+	ARC_CORRECTOR_2009_CASES=$(CURDIR)/.arc-corrector-2009.json $(MAKE) test.engine.targeted TEST=integration FILTER=prescribed_master_2008::arc_corrector_preserves_motion_and_free_equilibrium
+	$(NIX_RUN) node scripts/tests/arc-corrector-2009-wasm.mjs $(CURDIR)/.arc-corrector-2009.json
+	rm -f $(CURDIR)/.arc-corrector-2009.json

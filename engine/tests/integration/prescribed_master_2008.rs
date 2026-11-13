@@ -312,3 +312,93 @@ fn cable_refuses_each_support_dof() {
     }
     assert!(failures.is_empty(),"{}",failures.join("\n"));
 }
+
+fn check_arc_corrector_steps(
+    input: &solver::arc_length::ArcLengthInput,
+    result: &solver::arc_length::ArcLengthResult,
+    rotation: bool,
+    motion: f64,
+    start_motion: f64,
+    start_loads: &[f64],
+) {
+    assert!(result.converged);
+    assert_eq!(result.steps.len(), input.max_steps);
+    assert!(result.final_load_factor > 0.0);
+    if motion != 0.0 {
+        assert!(result.steps.iter().all(|s| s.iterations >= 3));
+        assert!((result.final_load_factor * motion).abs() > 0.1);
+    }
+    let numbering = solver::dof::DofNumbering::build_2d(&input.solver);
+    let constraints = solver::constraints::FreeConstraintSystem::build_2d(&input.solver, &numbering).unwrap().unwrap();
+    let applied = solver::assembly::assemble_2d(&input.solver, &numbering).f;
+    let mut secant_stiffness = Vec::new();
+    for step in &result.steps {
+        assert!(step.converged);
+        let slave = step.displacements.iter().find(|d| d.node_id == 1).unwrap();
+        let master = step.displacements.iter().find(|d| d.node_id == 2).unwrap();
+        let (slave_motion, master_motion) = if rotation { (slave.ry, master.ry) } else { (slave.uz, master.uz) };
+        assert!((master_motion - start_motion - step.load_factor * motion).abs() <= 1e-11);
+        assert!((slave_motion - master_motion).abs() <= 1e-11, "step {}: slave {slave_motion}, master {master_motion}", step.step);
+        let mut u = vec![0.0; numbering.n_total];
+        for d in &step.displacements {
+            for (local, value) in [d.ux, d.uz, d.ry].into_iter().enumerate() {
+                u[numbering.global_dof(d.node_id, local).unwrap()] = value;
+            }
+        }
+        let mut internal = vec![0.0; numbering.n_total];
+        let mut tangent = vec![0.0; numbering.n_total * numbering.n_total];
+        solver::corotational::assemble_corotational_public(&input.solver, &numbering, &u, &mut internal, &mut tangent);
+        if motion != 0.0 && !rotation {
+            secant_stiffness.push(internal[numbering.global_dof(1, 1).unwrap()] / slave_motion);
+        }
+        let residual: Vec<_> = (0..numbering.n_free).map(|i| start_loads[i] + step.load_factor * applied[i] - internal[i]).collect();
+        for r in constraints.reduce_vector(&residual) {
+            assert!(r.abs() <= 1e-7, "step {}: free residual {r}", step.step);
+        }
+    }
+    if !secant_stiffness.is_empty() {
+        let first = secant_stiffness[0];
+        let last = *secant_stiffness.last().unwrap();
+        assert!((last / first - 1.0).abs() > 1e-3, "path must change stiffness: {secant_stiffness:?}");
+    }
+}
+
+#[test]
+fn arc_corrector_preserves_motion_and_free_equilibrium() {
+    let mut replay = Vec::new();
+    for fillers in [1, 21] {
+        for kind in ["equalDOF", "linearMPC"] {
+            for rotation in [false, true] {
+                let case = cases().into_iter().find(|c| c["dim"] == 2 && c["fillers"] == fillers && c["kind"] == kind && c["rotation"] == rotation && c["motion"] != 0.0).unwrap();
+                for motion in [-1.0, 0.0, 1.0] {
+                    let mut model = case["model"].clone();
+                    model["supports"]["2"][if rotation { "dry" } else { "dz" }] = json!(motion);
+                    model["loads"][0]["data"]["fx"] = json!(0.0);
+                    model["loads"][0]["data"]["fz"] = json!(-1.0);
+                    let input: solver::arc_length::ArcLengthInput = serde_json::from_value(json!({"solver":model,"maxSteps":4,"maxIter":50,"tolerance":1e-10,"initialDs":0.3,"minDs":1e-8,"maxDs":0.3})).unwrap();
+                    let numbering = solver::dof::DofNumbering::build_2d(&input.solver);
+                    let constraints = solver::constraints::FreeConstraintSystem::build_2d(&input.solver, &numbering).unwrap().unwrap();
+                    assert_eq!(constraints.n_free_indep >= solver::linear::SPARSE_THRESHOLD, fillers == 21);
+                    let result = solver::arc_length::solve_arc_length(&input).unwrap();
+                    check_arc_corrector_steps(&input, &result, rotation, motion, 0.0, &vec![0.0; numbering.n_total]);
+                    let snapshots: Vec<_> = result.steps.iter().map(|s| json!({"loadFactor":s.load_factor,"displacements":s.displacements})).collect();
+                    replay.push(json!({"input":input,"rotation":rotation,"motion":motion,"snapshots":snapshots}));
+                    let mut initial = input.solver.clone();
+                    let start_motion = 0.1 * motion;
+                    let support = initial.supports.get_mut("2").unwrap();
+                    if rotation { support.dry = Some(start_motion); } else { support.dz = Some(start_motion); }
+                    let solved = solver::corotational::solve_corotational_2d(&initial,50,1e-10,3,false).unwrap();
+                    assert!(solved.converged);
+                    let start = solver::corotational::CorotationalStart2D { input:&initial, displacements:&solved.results.displacements };
+                    let result = solver::arc_length::solve_arc_length_from(&input,Some(&start)).unwrap();
+                    let start_loads = solver::assembly::assemble_2d(&initial, &numbering).f;
+                    check_arc_corrector_steps(&input, &result, rotation, motion, start_motion, &start_loads);
+                    eprintln!("fillers={fillers} {kind} rotation={rotation} motion={motion}: continued iterations={:?}", result.steps.iter().map(|s| s.iterations).collect::<Vec<_>>());
+                }
+            }
+        }
+    }
+    if let Ok(path) = std::env::var("ARC_CORRECTOR_2009_CASES") {
+        std::fs::write(path,serde_json::to_string(&replay).unwrap()).unwrap();
+    }
+}
