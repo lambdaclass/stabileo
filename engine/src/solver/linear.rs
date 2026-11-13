@@ -2851,7 +2851,7 @@ pub(crate) fn build_displacements_3d(dof_num: &DofNumbering, u: &[f64]) -> Vec<D
     }).collect()
 }
 
-pub(crate) fn build_reactions_2d(
+pub(super) fn build_reactions_2d(
     input: &super::reaction_recovery::ExpandedReactionModel2D,
     dof_num: &DofNumbering,
     reactions_vec: &[f64],
@@ -2944,7 +2944,7 @@ fn sorted_supports_2d(input: &super::reaction_recovery::ExpandedReactionModel2D)
     sups
 }
 
-pub(crate) fn build_reactions_2d_inclined(
+pub(super) fn build_reactions_2d_inclined(
     input: &super::reaction_recovery::ExpandedReactionModel2D,
     dof_num: &DofNumbering,
     reactions_vec: &[f64],
@@ -2978,7 +2978,7 @@ pub(crate) fn build_reactions_2d_inclined(
     reactions
 }
 
-pub(crate) fn build_reactions_3d(
+pub(super) fn build_reactions_3d(
     input: &super::reaction_recovery::ExpandedReactionModel3D,
     dof_num: &DofNumbering,
     reactions_vec: &[f64],
@@ -3053,7 +3053,7 @@ pub(crate) fn build_reactions_3d(
 }
 
 /// Build 3D reactions with inclined support back-transformation.
-pub(crate) fn build_reactions_3d_inclined(
+pub(super) fn build_reactions_3d_inclined(
     input: &super::reaction_recovery::ExpandedReactionModel3D,
     dof_num: &DofNumbering,
     reactions_vec: &[f64],

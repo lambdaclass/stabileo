@@ -20,15 +20,14 @@
   },
   "quantities": [
     "solve.ok",
-    "pdelta.results.reactions",
-    "pdelta.results.elementForces",
-    "pdelta.results.constraintForces",
-    "pdelta.results.plateStresses",
-    "pdelta.results.quadStresses",
-    "pdelta.results.quadNodalStresses",
-    "pdelta.results.equilibrium.relativeResidual",
-    "pdelta.results.equilibrium.residualOk",
-    "pdelta.results.structuredDiagnostics"
+    "reactions",
+    "elementForces",
+    "constraintForces",
+    "plateStresses",
+    "quadStresses",
+    "quadNodalStresses",
+    "equilibrium",
+    "structuredDiagnostics"
   ],
   "title": {
     "en": "P-Delta physical recovery uses compensated residuals",

@@ -95,7 +95,7 @@ describe('staged history quantity scope (#1952)', () => {
 });
 
 describe('compensated P-Delta recovery scope (#1952)', () => {
-  it('registers changed P-Delta forces and keeps static numeric changes unexplained', () => {
+  it('registers P-Delta snapshot fields without widening the legacy static gate', () => {
     const metadata = RESULT_CHANGES.changes.find(c => c.id === compensatedChange.id);
     expect(metadata).toBeDefined();
     const entry = { ...metadata!, quantities: declaredQuantities[compensatedChange.id] };
@@ -104,7 +104,7 @@ describe('compensated P-Delta recovery scope (#1952)', () => {
       for (const quantity of ['reactions[n1].rz','elementForces[e1].mStart','equilibrium.relativeResidual','equilibrium.residualOk']) {
         const path = `pdelta.results.${quantity}`;
         expect(fieldCovered(compensatedChange,path,features)).toBe(true);
-        expect(declaresMove(entry,path)).toBe(true);
+        expect(declaresMove(entry,path)).toBe(false);
         for (const family of ['base','case[1]','combo[1]']) {
           const unrelated = `${family}.${quantity}`;
           expect(fieldCovered(compensatedChange,unrelated,features)).toBe(false);

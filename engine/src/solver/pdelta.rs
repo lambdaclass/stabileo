@@ -486,12 +486,6 @@ impl PDeltaTangent {
         }
     }
 
-    fn rhs(&self, n: usize, nf: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
-        let mut prescribed = u.to_vec();
-        prescribed[..nf].fill(0.0);
-        self.all_residual(n, f, &prescribed)[..nf].iter().map(|r| -r).collect()
-    }
-
     fn all_residual(&self, n: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
         let residual = match self {
             Self::Dense(k) => super::equilibrium::dense_residual(k, f, u),
@@ -499,10 +493,6 @@ impl PDeltaTangent {
         };
         assert_eq!(residual.len(), n);
         residual.into_iter().map(|r| -r).collect()
-    }
-
-    fn residual(&self, n: usize, nf: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
-        self.all_residual(n, f, u)[nf..].to_vec()
     }
 
     fn solve(self, rhs: &[f64], nf: usize, cs: &Option<FreeConstraintSystem>, cache: &mut Option<SparseSymbolicCache>) -> Option<(Vec<f64>, bool)> {

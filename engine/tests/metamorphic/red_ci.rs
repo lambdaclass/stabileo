@@ -127,7 +127,7 @@ pub(crate) fn calls() -> Vec<Value> {
     }
     for case in &mut calls {
         case["requireNodeCoverage"] = json!(true);
-        if case["withheld"] == true { case["error"] = json!("NaN"); }
+        if case["withheld"] == true { case["wasmError"] = json!("NaN"); }
         if case["api"].as_str().unwrap().ends_with("3d") {
             if let Some(expected) = case["expectedDisplacements"].as_array_mut() {
                 for d in expected {
