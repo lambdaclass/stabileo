@@ -12,7 +12,7 @@ import { isStandingPagePath } from './blog/pages/paths';
  */
 const SHARED_MODEL = /^#(data=|embed=|code=)/;
 
-export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'examples' | 'landing';
+export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'examples' | 'game' | 'landing';
 
 /** `/app` and everything under it: the application's own addresses. */
 export function isAppPath(pathname: string): boolean {
@@ -27,6 +27,11 @@ export function isResearchPath(path: string): boolean {
 /** `/paper`: the JAIE 2026 paper in full. */
 export function isPaperPath(path: string): boolean {
   return path === '/paper' || path === '/paper/';
+}
+
+/** `/diagram-game`: the diagram game, which loads the engine but not the application. */
+export function isGamePath(path: string): boolean {
+  return path === '/diagram-game' || path === '/diagram-game/';
 }
 
 /** `/demo`: the application, on its demo model. */
@@ -45,6 +50,7 @@ export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = 
   if (path === '/blog' || path.startsWith('/blog/') || isStandingPagePath(path)) return { kind: 'blog', path };
   const top = path.split('/')[1];
   if (top === 'tools' || top === 'examples') return { kind: top, path };
+  if (isGamePath(path)) return { kind: 'game', path };
   if (isResearchPath(path)) return { kind: 'research', path };
   if (isPaperPath(path)) return { kind: 'paper', path };
   return { kind: 'landing', path };

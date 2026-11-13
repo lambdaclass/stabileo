@@ -7,6 +7,7 @@ const es: Record<string, string> = {
   "advanced.modalIncomplete": "Análisis modal rechazado: solo {n} de {m} modos calculados tienen frecuencia positiva (ω² > 0). No se devolvió un conjunto incompleto de modos. Revisá el condicionamiento de rigidez y masa y los apoyos.",
   "advanced.eigenFailure": "Análisis de autovalores rechazado: no se pudo establecer la convergencia ni la completitud de Sturm para {n} grados de libertad libres. No se devolvió un conjunto incompleto de resultados. Revisá apoyos y liberaciones en busca de mecanismos, el condicionamiento de rigidez y masa, o pedí menos modos.",
   "landing.navTools": "Herramientas",
+  "landing.navGame": "Juego",
   "landing.navExamples": "Ejemplos",
 
   // Shared scalar-field viewer
@@ -4743,6 +4744,8 @@ const es: Record<string, string> = {
   'edu.author.untitled': 'Ejercicio sin título',
   'edu.author.diagramQuestion': 'Pregunta de diagrama',
   'edu.moreExercises': 'Más ejercicios próximamente.',
+  'edu.game.open': 'Diagramas: elegí el correcto',
+  'edu.game.hint': 'Un juego: una estructura, tres diagramas y uno solo correcto.',
   'edu.solverInsight': 'Este sistema tiene {dofs} grados de libertad libres ({total} totales). Se resolvió por factorización {solver} en {time} ms.',
   // Diagram questions
   'edu.dq.shearAtSupport': 'V en el apoyo',

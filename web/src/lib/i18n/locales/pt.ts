@@ -8,6 +8,7 @@ const pt: Translations = {
   "advanced.modalIncomplete": "Análise modal recusada: apenas {n} de {m} modos calculados têm frequência positiva (ω² > 0). Nenhum conjunto incompleto de modos foi retornado. Verifique o condicionamento de rigidez e massa e os apoios.",
   "advanced.eigenFailure": "Análise de autovalores recusada: não foi possível estabelecer a convergência e a completude de Sturm para {n} graus de liberdade livres. Nenhum conjunto incompleto de resultados foi retornado. Verifique apoios e liberações em busca de mecanismos, o condicionamento de rigidez e massa, ou peça menos modos.",
   "landing.navTools": "Ferramentas",
+  "landing.navGame": "Jogo",
   "landing.navExamples": "Exemplos",
 
   // Shared scalar-field viewer
@@ -2973,6 +2974,8 @@ const pt: Translations = {
   'edu.kinematicQuestion': 'Como esta estrutura é classificada?',
   'edu.medium': 'Médio',
   'edu.moreExercises': 'Mais exercícios em breve.',
+  'edu.game.open': 'Diagramas: escolha o correto',
+  'edu.game.hint': 'Um jogo: uma estrutura, três diagramas e só um correto.',
   'edu.noDiagramQuestions': 'Sem perguntas de diagramas para este exercício — prossiga para o Passo 3.',
   'edu.reactions': 'Reações',
   'edu.reveal': 'Mostrar',
