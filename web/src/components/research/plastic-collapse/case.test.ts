@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { StructuredDiagnostic } from '../../../lib/engine/types';
 import { checks, compare, cornerMoment, cumulativeStep, events, fixed, hingeNode, mechanisms, portal, residual, run, viewer, type Result } from './case';
 import { fill, plasticLocale, ps, strings } from './i18n';
 import { publicI18n, setLocale } from '../../../lib/i18n/store.svelte';
@@ -177,4 +178,27 @@ it('known wrong result: #2084: verifies the portal despite the explicit certifie
     disclosure.replace(`certified lower bound ${replay.collapseFactor}`, `certified lower bound ${2 * replay.collapseFactor}`),
     disclosure + ' extra',
   ]) expect(checks({ ...result, warnings: [warning] }).find(c => c.id === 'mechanism')!.passed).toBe(false);
+});
+
+it.skip('known wrong result: #2084: identifies history disclosure independently of its wording', () => {
+  const raw = replay.steps.at(-1)!.loadFactor;
+  const diagnostic: StructuredDiagnostic = { code: 'plastic_history_within_certificate', severity: 'info', message: 'Reworded disclosure', value: replay.collapseFactor, threshold: raw };
+  const result = { ...replay, warnings: [diagnostic.message], structuredDiagnostics: [diagnostic] };
+  const passed = (value: Result & { structuredDiagnostics?: StructuredDiagnostic[] }) => checks(value).find(c => c.id === 'mechanism')!.passed;
+  expect(passed(result)).toBe(true);
+  expect(passed({ ...result, structuredDiagnostics: [] })).toBe(false);
+  const invalid: Partial<StructuredDiagnostic>[] = [
+    { code: 'known_issue', phase: 'PL-3D-CERTIFICATE-MISMATCH' },
+    { code: 'unknown' }, { severity: 'warning' }, { severity: 'error' },
+    { value: raw + 1 }, { value: raw - 1 }, { value: NaN }, { value: Infinity },
+    { threshold: raw - 1 }, { threshold: NaN }, { threshold: Infinity },
+    { value: undefined }, { threshold: undefined },
+    { message: 'Another warning' },
+  ];
+  for (const patch of invalid) expect(passed({ ...result, structuredDiagnostics: [{ ...diagnostic, ...patch }] })).toBe(false);
+  expect(passed({ ...result, warnings: [...result.warnings, 'unexpected warning'] })).toBe(false);
+  expect(passed({ ...result, warnings: [result.warnings[0], result.warnings[0]] })).toBe(false);
+  for (const upper of [raw, raw + 1]) {
+    expect(passed({ ...result, structuredDiagnostics: [{ ...diagnostic, threshold: upper }] })).toBe(true);
+  }
 });

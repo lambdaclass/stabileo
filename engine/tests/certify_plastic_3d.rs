@@ -900,3 +900,28 @@ fn issue_2084_distorted_shell_refusal_identity() {
         assert_eq!(diagnostic["elementIds"], serde_json::json!([1,2,3,4,5,6]));
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2084"]
+fn issue_2084_portal_history_disclosure_has_structured_bounds() {
+    let case: serde_json::Value = serde_json::from_str(include_str!("benchmarks/plastic_collapse.json")).unwrap();
+    let input: PlasticInput3D = serde_json::from_value(case["input"].clone()).unwrap();
+    let checked = certify_plastic_3d(&input).unwrap();
+    let raw = checked.certificate.solver_collapse_factor.unwrap();
+    let lower = checked.certificate.lambda_lower.unwrap();
+    let upper = checked.certificate.lambda_upper.unwrap();
+    for result in [checked.results, solve_plastic_3d(&input).unwrap()] {
+        let json = serde_json::to_value(&result).unwrap();
+        let disclosures: Vec<_> = json["structuredDiagnostics"].as_array().unwrap().iter()
+            .filter(|d| d["code"] == "plastic_history_within_certificate").collect();
+        assert_eq!(disclosures.len(), 1);
+        let disclosure = disclosures[0];
+        assert_eq!(disclosure["severity"], "info");
+        assert_eq!(disclosure["value"].as_f64(), Some(lower));
+        assert_eq!(disclosure["threshold"].as_f64(), Some(upper));
+        assert_eq!(result.collapse_factor, lower);
+        assert_eq!(result.steps.last().unwrap().load_factor, raw);
+        assert!(lower <= raw && raw <= upper);
+        assert_eq!(result.warnings.last().unwrap(), disclosure["message"].as_str().unwrap());
+    }
+}
