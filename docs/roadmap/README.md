@@ -83,7 +83,7 @@ order and dates its historical cause-count snapshot separately; the dashboard ha
 
 | Document | Answers | Status | Owner |
 |---|---|---|---|
-| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-13 evening): merged reaction, prescribed-motion, truss, modal, SSI and rounding fixes; #2023 in flight; #2073/#2077/#2078 follow-ups; #1996 owner decision | Federico Carrone |
+| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-13 evening): merged reaction, prescribed-motion, truss, modal, SSI and rounding fixes; priorities reordered by expected harm (#1316, #1040/#972, #1318, shell warnings into design, #759); #2023 in flight; #1996 decided (keep refusing) | Federico Carrone |
 | [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver mechanics, numerical methods, long-term solver sequence (Steps 1–14+) | Long-term sequence current; its "Where we are" and "Wave 1" sections predate v0.2.0 (see the note at its top) | Diego K (last editor) |
 | [../../research/DESIGN.md](../../research/DESIGN.md) | Stabileo Research: what it is, its rules, the engine-benchmarks track and the ordered paper queue (summary in PRODUCT_ROADMAP "Stabileo Research") | Current (2026-10-29) | Federico Carrone |
 | [AI_ROADMAP.md](AI_ROADMAP.md) | AI capabilities, their order, prerequisites and safety rules | Current as of 2026-10-07 | Diego K (last editor) |
