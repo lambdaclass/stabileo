@@ -9,6 +9,7 @@
  * leave them alone, and the response is affine in k instead of proportional.
  * Closing Explore gives back the model exactly as it was.
  */
+import { ensurePhysicalModel } from '../plates-from-shells';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { historyStore, modelStore, uiStore } from '..';
 import { whatIf } from '../whatif.svelte';
@@ -128,6 +129,8 @@ function proveLinear(types: Load['type'][]) {
   });
 
   it('closing Explore restores the model exactly', async () => {
+    // In PRO the workspace reads the physical model as the model changes, before anything is explored.
+    ensurePhysicalModel();
     const snap = structuredClone(modelStore.snapshot());
     const base = solve();
     whatIf.open();

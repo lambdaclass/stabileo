@@ -1,17 +1,16 @@
 <script lang="ts">
   import Hint from '../Hint.svelte';
   /**
-   * Slabs: the typology (drawn), the thickness, the levels, and the mesh the analysis reads them
-   * with: meshed now, or kept as one shell per panel and meshed by the first solve, which keeps the
-   * model light while it is edited (`deferred-slabs.ts`). Slabs a solve meshed can go back to one
-   * shell. Placed in every bay of the grid on each level chosen, in the building's concrete.
+   * Slabs: the typology (drawn), the thickness, the levels, and when their mesh is made: now, or by
+   * the analysis, which keeps the model light while it is edited. Each slab is a physical plate;
+   * meshed slabs can give their mesh back. Placed in every bay of the grid on each level chosen.
    */
   import { modelStore } from '../../../lib/store';
   import { t } from '../../../lib/i18n';
   import TypologyPicker from './TypologyPicker.svelte';
   import { placeSlabs, type PlaceResult } from '../../../lib/model/building/build-on-grid';
   import { buildingUi } from '../../../lib/store/building-ui.svelte';
-  import { simplifySlabs, slabsToMesh, slabsToSimplify } from '../../../lib/model/building/deferred-slabs';
+  import { clearPlateMesh, physicalPlates, plateStatus } from '../../../lib/store/physical-plates';
   import { tp } from '../../../lib/i18n';
 
   let { meshSize = $bindable(1), report }: { meshSize?: number; report: (r: PlaceResult) => void } = $props();
@@ -21,10 +20,11 @@
   let typology = $state('solid'), thickness = $state(0.15), chosen = $state<string[]>([]);
   /** When the analysis mesh is made: at the first solve (the default, the model stays light) or now. */
   let meshWhen = $state<'solve' | 'now'>('solve');
-  const waiting = $derived.by(() => { void modelStore.model.groups; return slabsToMesh(); });
-  const meshed = $derived.by(() => { void modelStore.model.groups; return slabsToSimplify(); });
+  const slabs = $derived.by(() => { void modelStore.model.groups; void modelStore.modelVersion; return physicalPlates().filter((p) => p.physical.kind === 'slab').map((p) => ({ id: p.id, status: plateStatus(p.id) })); });
+  const waiting = $derived(slabs.filter((s) => s.status === 'unmeshed').length);
+  const meshed = $derived(slabs.filter((s) => s.status === 'current' || s.status === 'stale'));
   let simplified = $state<string | null>(null);
-  function simplify() { const r = simplifySlabs(); simplified = tp('building.slabs.simplified', { n: r.slabs }); }
+  function simplify() { const ids = meshed.map((s) => s.id); modelStore.batch(() => { for (const id of ids) clearPlateMesh(id); }); simplified = tp('building.slabs.simplified', { n: ids.length }); }
   const toggle = (id: string) => (chosen = chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]);
   /** Every level above the lowest, unless some are chosen. */
   const onLevels = () => (chosen.length > 0 ? chosen : levels.slice(1).map((l) => l.id));
@@ -54,9 +54,9 @@
   <p class="pk-hint">{t('building.levelsDefault')}</p>
   <button class="pk-btn pk-btn-primary" onclick={place} data-testid="building-place-slabs">{t('building.place')}</button>
   {#if waiting > 0}<p class="pk-hint" data-testid="building-slabs-waiting">{tp('building.slabs.waiting', { n: waiting })}</p>{/if}
-  {#if meshed > 0}
+  {#if meshed.length > 0}
     <div class="bs-simplify">
-      <span class="pk-hint">{tp('building.slabs.meshedCount', { n: meshed })}</span>
+      <span class="pk-hint">{tp('building.slabs.meshedCount', { n: meshed.length })}</span>
       <button class="pk-btn" onclick={simplify} data-testid="building-slabs-simplify">{t('building.slabs.simplify')}</button>
     </div>
   {/if}

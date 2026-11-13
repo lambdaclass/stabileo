@@ -7,9 +7,8 @@
    * With nothing to design yet (`empty`), it is design's way in, with two routes, each listing
    * what is missing for it:
    *
-   *  - prepare an existing model: the physical pieces recognised from the analytical model
-   *    (`ProPhysicalPanel`'s recognition, reviewed before it is applied), its levels from the
-   *    model, its solve;
+   *  - prepare an existing model: its levels from the model and its solve (the physical pieces
+   *    are read off it on their own, `ensurePhysicalModel`);
    *  - start from scratch, oriented to design: the building constructor on the grid and levels.
    *
    * Both open the existing tools of the model stage. Nothing here builds or changes the model.
@@ -17,7 +16,6 @@
   import { t, tp } from '../../../lib/i18n';
   import { modelStore, resultsStore } from '../../../lib/store';
   import { axesOf, sortedLevels } from '../../../lib/model/grid';
-  import { physicalGroups } from '../../../lib/store/physical';
   import { materialFamilyOf } from '../../../lib/engine/steel/material-family';
   import { catalogueGradeFamily } from '../../../lib/engine/steel/grade-family';
   import { openDeskAt, openModelTool } from '../../../lib/pro/design-navigation';
@@ -29,7 +27,6 @@
   const solved = $derived(!!resultsStore.results3D || !!resultsStore.results);
   const levels = $derived(sortedLevels(modelStore.grid).length);
   const axes = $derived(modelStore.grid ? axesOf(modelStore.grid, 'x').length + axesOf(modelStore.grid, 'y').length : 0);
-  const pieces = $derived.by(() => { void modelStore.model.groups; return physicalGroups().length; });
   /** Members of a material design reads: concrete or steel. */
   const designable = $derived.by(() => {
     let n = 0;
@@ -45,7 +42,6 @@
     ...(members === 0 ? ['desk.prep.miss.members'] : []),
     ...(members > 0 && designable === 0 ? ['desk.prep.miss.material'] : []),
     ...(levels === 0 ? ['desk.prep.miss.levels'] : []),
-    ...(pieces === 0 ? ['desk.prep.miss.pieces'] : []),
     ...(!solved ? ['desk.prep.miss.solve'] : []),
   ]);
   /** What a model started for design still lacks. */
@@ -68,8 +64,8 @@
           <ul data-testid="desk-route-existing-missing">{#each existingMissing as k (k)}<li>{t(k)}</li>{/each}</ul>
         {:else}<p class="pp-hint" data-testid="desk-route-existing-ready">{t('desk.prep.readyToDesign')}</p>{/if}
         <div class="pp-actions">
-          <button class="pp-primary" disabled={members === 0} onclick={() => openModelTool('physical')} data-testid="desk-route-recognize">{t('desk.prep.recognize')}</button>
-          <button disabled={members === 0} onclick={() => openModelTool('grid')} data-testid="desk-route-levels">{t('desk.prep.levelsFromModel')}</button>
+          <button class="pp-primary" disabled={members === 0} onclick={() => openModelTool('grid')} data-testid="desk-route-levels">{t('desk.prep.levelsFromModel')}</button>
+          <button disabled={members === 0} onclick={() => openModelTool('physical')} data-testid="desk-route-pieces">{t('physical.title')} ↗</button>
         </div>
       </section>
       <section class="pp-route" data-testid="desk-route-scratch">

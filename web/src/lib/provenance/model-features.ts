@@ -17,6 +17,7 @@
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
+import { DEFAULT_PLATE_MESH } from '../model/physical/plate';
 
 export const ANALYSIS_KINDS = [
   'linear', 'pdelta', 'modal', 'buckling', 'spectral', 'timeHistory', 'plastic', 'nonlinear', 'harmonic', 'ssi',
@@ -35,7 +36,7 @@ export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
-  'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
+  'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities', 'coarseShellsPro',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
@@ -70,6 +71,7 @@ interface Sup {
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
 export interface FeatureSnapshot {
   analysisMode?: string;
+  nodes?: Entries<{ x?: number; y?: number; z?: number }>;
   gapElements?: unknown[];
   nodeToSurfacePairs?: unknown[];
   upliftSupports?: unknown[];
@@ -214,6 +216,15 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const quads = values(s.quads);
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
+  // PRO meshes before the analysis a plate whose shells came coarser than its mesh size (`coarseAsModelled`): a side over 1.5 times the default size stands for it.
+  if (mode === 'pro') {
+    const at = new Map((Array.isArray(s.nodes) ? s.nodes : []).map((e) => [e?.[0], e?.[1]] as const));
+    const long = (ns: number[] | undefined) => (ns ?? []).some((a, k) => {
+      const p = at.get(a), q = at.get(ns![(k + 1) % ns!.length]!);
+      return !!p && !!q && Math.hypot((q.x ?? 0) - (p.x ?? 0), (q.y ?? 0) - (p.y ?? 0), (q.z ?? 0) - (p.z ?? 0)) > 1.5 * DEFAULT_PLATE_MESH.size;
+    });
+    if ([...quads, ...values(s.plates)].some((q) => long((q as { nodes?: number[] } | undefined)?.nodes))) f.add('coarseShellsPro');
+  }
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 
   const supports = values(s.supports);

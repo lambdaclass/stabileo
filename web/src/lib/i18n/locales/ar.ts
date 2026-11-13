@@ -2612,10 +2612,8 @@ const ar: Translations = {
   'pro.unknown': 'غير معروف',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} لوحة، {quads} رباعي',
   'pro.plateTriDKT': 'لوحة مثلثية (DKT)',
   'pro.quadMITC4': 'رباعي MITC4',
-  'pro.meshGenerator': 'مولد الشبكة',
   'pro.meshHint': 'حدد 4 عقد زاوية (عكس عقارب الساعة) وتقسيمات N×M. العقد الوسيطة والعناصر الرباعية تُنشأ تلقائياً.',
   'pro.corners': 'الزوايا',
   'pro.subdivisions': 'التقسيمات',

@@ -16,6 +16,15 @@ describe('addShellOnCorners', () => {
     expect(addShellOnCorners([a!, b!, c!, d!], mat(), 0.2)).toEqual({ key: expect.stringMatching(/^q\d+$/) });
   });
 
+  it('solves a quad as a curved shell when its corners leave one plane, and as a flat one when they do not', () => {
+    const [a, b, c] = square();
+    const lifted = modelStore.addNode(0, 1, 0.2), flat = modelStore.addNode(0, 1, 0.0004);
+    const curvedOf = (r: ReturnType<typeof addShellOnCorners>) => !!modelStore.quads.get(Number(('key' in r ? r.key : '').slice(1)))?.curved;
+    expect(curvedOf(addShellOnCorners([a!, b!, c!, lifted], mat(), 0.2))).toBe(true);
+    expect(curvedOf(addShellOnCorners([a!, b!, c!, flat], mat(), 0.2))).toBe(false);
+    expect(curvedOf(addShellOnCorners([a!, b!, c!, lifted], mat(), 0.2, false))).toBe(false);
+  });
+
   it('says what is wrong instead of adding', () => {
     const [a, b, c] = square();
     expect(addShellOnCorners([a!, b!], mat(), 0.2)).toEqual({ error: 'pro.shellNeedNodes' });

@@ -2752,10 +2752,8 @@ const zh: Translations = {
   'pro.unknown': '未知',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} 块板，{quads} 个四边形',
   'pro.plateTriDKT': '三角形板 (DKT)',
   'pro.quadMITC4': '四边形 MITC4',
-  'pro.meshGenerator': '网格生成器',
   'pro.meshHint': '定义 4 个角节点（逆时针方向）和 NxM 细分。自动创建中间节点和四边形。',
   'pro.corners': '角节点',
   'pro.subdivisions': '细分',
