@@ -6,7 +6,7 @@ use super::dof::DofNumbering;
 use super::assembly::*;
 use super::mass_matrix::*;
 use super::damping::*;
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::time_integration::MAX_DENSE_FALLBACK_DOFS;
 
 // ==================== Types ====================
@@ -243,7 +243,7 @@ fn solve_harmonic_2d_contained(input: &HarmonicInput) -> Result<(HarmonicResult,
         let (u_real_s, u_imag_s) = solve_complex_system(&k_s, &m_s, &c_s, &f_s, ns, omega)?;
 
         let (u_real, u_imag) = if let Some(ref cs) = cs {
-            (cs.expand_solution(&u_real_s), cs.expand_solution(&u_imag_s))
+            (cs.expand_solution(&u_real_s, MasterMotion::Homogeneous), cs.expand_solution(&u_imag_s, MasterMotion::Homogeneous))
         } else {
             (u_real_s, u_imag_s)
         };
@@ -431,7 +431,7 @@ fn solve_harmonic_3d_contained(input: &HarmonicInput3D) -> Result<(HarmonicResul
         let (u_real_s, u_imag_s) = solve_complex_system(&k_s, &m_s, &c_s, &f_s, ns, omega)?;
 
         let (u_real, u_imag) = if let Some(ref cs) = cs {
-            (cs.expand_solution(&u_real_s), cs.expand_solution(&u_imag_s))
+            (cs.expand_solution(&u_real_s, MasterMotion::Homogeneous), cs.expand_solution(&u_imag_s, MasterMotion::Homogeneous))
         } else {
             (u_real_s, u_imag_s)
         };

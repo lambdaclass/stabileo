@@ -25,7 +25,7 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly;
 use super::linear;
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::sparse_tangent::{
     solve_tangent_sparse_diagnosed, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
@@ -418,9 +418,10 @@ fn solve_contact_state(
     let n = f_base.len();
     let mut u0 = vec![0.0; n];
     u0[nf..].copy_from_slice(u_r);
+    if let Some(cs) = cs { cs.impose_motion(&mut u0); }
     // f_f − K_fr·u_r, with the corrections' share of both.
     let mut rhs: Vec<f64> = f_base[..nf].to_vec();
-    if u_r.iter().any(|v| *v != 0.0) {
+    if u0.iter().any(|v| *v != 0.0) {
         let ku0 = base.mul(&u0);
         for i in 0..nf {
             rhs[i] -= ku0[i];
@@ -507,7 +508,7 @@ fn solve_contact_state(
         }
     };
     let u_f = match cs {
-        Some(cs) => cs.expand_solution(&u_indep),
+        Some(cs) => cs.expand_solution(&u_indep, MasterMotion::Prescribed(u_r)),
         None => u_indep,
     };
     if u_f.iter().any(|v| !v.is_finite()) {

@@ -8,7 +8,7 @@ use crate::solver::linear::{build_displacements_2d, compute_internal_forces_2d,
                              compute_plate_stresses, compute_quad_stresses};
 use crate::linalg::*;
 use serde::{Deserialize, Serialize};
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 
 // ==================== Types ====================
 
@@ -94,6 +94,9 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
 
     // Constraint reduction
     let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
+    if let Some(ref cs) = cs {
+        cs.subtract_prescribed_force(&crate::linalg::sparse::CscMatrix::from_dense_symmetric_exact(&k_ff, nf), &mut f_f, &u_r);
+    }
     let (k_solve, f_solve, ns) = if let Some(ref cs) = cs {
         (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f), cs.n_free_indep)
     } else {
@@ -117,7 +120,7 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
     };
 
     let u_f = if let Some(ref cs) = cs {
-        cs.expand_solution(&u_indep)
+        cs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r))
     } else {
         u_indep
     };
@@ -212,6 +215,9 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
 
     // Constraint reduction
     let cs = FreeConstraintSystem::build_3d(&input_solver, &dof_num)?;
+    if let Some(ref cs) = cs {
+        cs.subtract_prescribed_force(&crate::linalg::sparse::CscMatrix::from_dense_symmetric_exact(&k_ff, nf), &mut f_f, &u_r);
+    }
     let (k_solve, f_solve, ns) = if let Some(ref cs) = cs {
         (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f), cs.n_free_indep)
     } else {
@@ -235,7 +241,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     };
 
     let u_f = if let Some(ref cs) = cs {
-        cs.expand_solution(&u_indep)
+        cs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r))
     } else {
         u_indep
     };

@@ -249,3 +249,15 @@ pub fn refuse_3d(input: &SolverInput3D, analysis: &str, unsupported: &[Feature])
     }
     Ok(())
 }
+
+fn structured_refusal(message: String) -> String {
+    super::validity::refusal(DiagnosticCode::UnsupportedFeature, vec![], "input", &message)
+}
+
+pub(crate) fn refuse_2d_structured(input: &SolverInput, analysis: &str, unsupported: &[Feature]) -> Result<(), String> {
+    refuse_2d(input, analysis, unsupported).map_err(structured_refusal)
+}
+
+pub(crate) fn refuse_3d_structured(input: &SolverInput3D, analysis: &str, unsupported: &[Feature]) -> Result<(), String> {
+    refuse_3d(input, analysis, unsupported).map_err(structured_refusal)
+}
