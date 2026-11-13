@@ -32,6 +32,28 @@ describe('result-change registry', () => {
     expect(validateRegistry(source(), new Set(FEATURE_IDS))).toEqual([]);
   });
 
+  describe.each([
+    ['source', source],
+    ['packed', () => RESULT_CHANGES],
+  ] as const)('%s Hungarian result-change notices', (_name, registry) => {
+    it.skip.each([
+      'released-basis-pivoting',
+      'released-load-work',
+      'transformed-load-assembly',
+      'truss-load-direction-rounding',
+    ])('known wrong result: #2081 translates %s', (id) => {
+      const entry = registry().changes.find((change) => change.id === id)!;
+      expect(entry, id).toBeDefined();
+      for (const field of ['title', 'explanation'] as const) {
+        const text = entry[field].hu;
+        expect(text, `${id} ${field}.hu`).toBeTypeOf('string');
+        expect(text.trim(), `${id} ${field}.hu`).not.toBe('');
+        expect(text, `${id} ${field}.hu`).not.toBe(entry[field].en);
+        expect(text.match(/#\d+/g) ?? []).toEqual(entry[field].en.match(/#\d+/g) ?? []);
+      }
+    });
+  });
+
   it('links every entry to a heading that exists in the named file', () => {
     for (const c of RESULT_CHANGES.changes) {
       const text = readFileSync(resolve(repo, c.changelog.file), 'utf8');
