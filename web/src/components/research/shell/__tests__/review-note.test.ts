@@ -16,12 +16,12 @@ const original = publicI18n.locale;
 afterEach(() => setLocale(original));
 const empty = createRawSnippet(() => ({ render: () => '<p></p>' }));
 const header = (paperId: string) => render(ExperimentShell, { props: { paperId, name: 'N', lead: 'L', sourcePath: 'x', actions: { goToStep: () => {}, setParams: () => {}, showTab: () => {} }, article: empty, app: empty } }).body;
-const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu/;
+const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu|Első változat|felülvizsgálati köre?\b/;
 
 it('shows no first-version or review-round note in any paper header, while the catalogue keeps the records', () => {
   expect(reviewCount('mattiasson-elastica')).toBe(3);
   expect(reviewCount('newmark-1959')).toBe(2);
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
     setLocale(locale);
     for (const e of EXPERIMENTS) {
       const body = header(e.paperId);

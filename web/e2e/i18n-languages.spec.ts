@@ -32,6 +32,7 @@ import pt from '../src/lib/i18n/locales/pt';
 import de from '../src/lib/i18n/locales/full/de';
 import fr from '../src/lib/i18n/locales/full/fr';
 import tr from '../src/lib/i18n/locales/full/tr';
+import hu from '../src/lib/i18n/locales/full/hu';
 import type { Page } from '@playwright/test';
 import { OFFERED_LOCALES, isComplete } from '../src/lib/i18n/offered';
 
@@ -39,14 +40,14 @@ const DICTS: Record<string, Record<string, string>> = {
   en: en as unknown as Record<string, string>,
   es: es as unknown as Record<string, string>,
   pt: pt as unknown as Record<string, string>,
-  de, fr, tr,
+  de, fr, tr, hu,
 };
 
 /** What a key renders as in a language: a language still being translated shows the English for what it lacks. */
 const rendered = (locale: string, key: string) => DICTS[locale][key] ?? DICTS.en[key];
 
 /** Where a browser in this language lands: the language once it is complete, English until then. */
-const reach = (code: 'de' | 'fr' | 'tr') => (isComplete(code) ? code : 'en');
+const reach = (code: 'de' | 'fr' | 'tr' | 'hu') => (isComplete(code) ? code : 'en');
 
 /**
  * Boot PRO with NOTHING stored — the app must decide from the browser alone.
@@ -105,7 +106,7 @@ const SMOKE_DETECTION = [
 
 /** The rest of the sweep: same assertion, outside the blocking suite. */
 const FULL_DETECTION = [
-  ['de-DE', reach('de')], ['de-AT', reach('de')], ['tr-TR', reach('tr')], ['fr-CA', reach('fr')], ['ja-JP', 'en'], ['zh-CN', 'en'], ['ru-RU', 'en'],
+  ['de-DE', reach('de')], ['de-AT', reach('de')], ['tr-TR', reach('tr')], ['hu-HU', reach('hu')], ['fr-CA', reach('fr')], ['ja-JP', 'en'], ['zh-CN', 'en'], ['ru-RU', 'en'],
 ] as const;
 
 test.describe('@smoke the language a browser gets', () => {

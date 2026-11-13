@@ -878,6 +878,7 @@ FEHER_DIR = research/stability/feher-sipos-varkonyi-2026
 .PHONY: test.research.feher evidence.research.feher
 test.research.feher:
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin validate
+	$(NIX_RUN) cargo test --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml
 	$(NIX_RUN) cargo test --locked -p dedaliano-engine --test validation corotational_prescribed
 
 evidence.research.feher:

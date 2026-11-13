@@ -66,7 +66,32 @@ const pt: Strings = {
   speed: 'A reprodução é {x} vezes mais lenta que o tempo real em qualquer passo de tempo, então um período mais longo realmente demora mais.',
   displacement: 'Deslocamento axial', time: 'Tempo (s)', scaled: 'Deformação ×10; nó esquerdo fixo, nó direito guiado axialmente.', tryCoarse: 'Testar o maior passo de tempo', failure: 'O cálculo falhou; o resultado anterior foi mantido.', paper: 'O artigo descreve um procedimento de integração temporal para dinâmica estrutural. Aqui testamos sua especialização de aceleração média em um pequeno ensaio linear; não afirmamos reproduzir uma figura do artigo.', alt: 'Histórico de deslocamento axial da nossa execução de Newmark de produção',
 };
-export const translations = { en, es, pt };
+const hu: Strings = {
+  title: 'Newmark-féle átlagos gyorsulás',
+  metaTitle: 'Newmark (1959) — Stabileo Research',
+  metaDescription: 'A termékben használt Newmark-féle átlagosgyorsulás-módszer összevetése egy egy szabadságfokú rendszer pontos ugrásválaszával.',
+  lead: 'Egyetlen csillapítatlan szabadságfok hirtelen ráadott, állandó erő alatt. Növelje az időlépést, és figyelje, hogyan nő a numerikus periódus.',
+  model: 'A példa',
+  description: 'Egy {L} m hosszú, normálerővel terhelt keretrúd, bal végén befogva, jobb végén csak a tengelyirányú eltolódás szabad. E = {E} MPa, A = {A} m², szintetikus sűrűség = {rho} kg/m³. A konzisztens tengelyirányú tömeg m = ρAL/3 = {m} t, és k = EA/L = {k} kN/m. Egy {F} kN nagyságú ugrásszerű erő hat t = 0-tól; a kezdeti elmozdulás és sebesség zérus. Ez egy egy szabadságfokú végeselemes referenciafeladat pontos megoldással, nem egy kontinuumrúd megoldása.',
+  method: 'A termékben használt 3D időtörténeti megoldó a meglévő WASM-burkolón keresztül fut, β = ¼, γ = ½ értékkel, csillapítás nélkül. A visszajátszás ugyanennek a Rust-megoldónak natív futtatása. Új integrátor nincs használatban.',
+  reference: 'Pontos referencia', difference: 'Eltérés', measured: 'Stabileo T (s)', predicted: 'Diszkrét előrejelzés Tₙ (s)',
+  formula: 'u(t) = (F/k)[1 − cos(ωt)], ω = √(k/m) = {omega} rad/s, T = 2π/ω = {T} s. Az átlagos gyorsulás diszkrét megoldása uₙ = (F/k)[1 − cos(nθ)], ahol θ = 2 atan(ωΔt/2), így a periódusa Tₙ = πΔt / atan(ωΔt/2). Az alábbi periódusokat az u = F/k szint egymást követő felfelé irányuló metszéseiből mérjük; durva lépésnél az interpoláció befolyásolja a mérést.',
+  comparison: 'A periódus megnyúlása az időlépés függvényében', elongation: 'Megnyúlás T-hez képest (%)',
+  errors: 'Elmozduláseltérések', discreteError: 'Max. |u − uₙ| (m)', continuousError: 'Max. |u − u(t)| (mm)', bound: 'Fáziskésési korlát (mm)',
+  error: 'Legnagyobb elmozduláseltérés (mm)',
+  tolerance: 'Ellenőrzések, a megjelenített időtörténetekből számítva (élő újraszámítás után azt követik): minden minta 10⁻¹⁰ m-en belül egyezik az uₙ diszkrét megoldással; minden mért periódus 0,5%-on belül egyezik Tₙ-nel; a folytonos megoldástól való legnagyobb eltérés a (F/k)·min(2, N(ωΔt − θ)) fáziskésési korlát alatt marad, amely az N lépésen át vett uₙ-ből következik; Δt/T = 0,025 esetén négy perióduson át 0,5 mm alatt is marad. A durvább lépések szándékosan nagyobb hibát mutatnak.',
+  published: 'Nincs: ez az oldal a módszert pontos, zárt alakú megoldásokkal ellenőrzi; nem reprodukál a cikkben közölt ábrát vagy táblázatot.',
+  notYet: 'Még nincs', limitations: ['A cikkben közölt ábrák és numerikus példák.', 'Csillapítás, harmonikus teher, nemlineáris válasz és több szabadságfokú keretek.', 'Ez nem mérnöki tanúsítás.'],
+  replay: 'Előre kiszámított visszajátszás (ugyanaz a megoldó)', live: 'Élő számítás a böngészőben', cached: 'Tárolt eredmény (ebben a böngészőben számítva)',
+  run: 'Újraszámítás élőben', stop: 'Leállítás', restart: 'Újraindítás', busy: 'Számítás…', step: 'Időlépés', sample: 'Minta',
+  sampleValue: '{i}. minta / {n}, t = {t} s',
+  speed: 'A lejátszás minden időlépésnél {x}-szer lassabb a valós időnél, így a hosszabb periódus valóban tovább tart.',
+  displacement: 'Tengelyirányú elmozdulás', time: 'Idő (s)', scaled: 'Alakváltozás ×10; a bal csomópont befogott, a jobb tengelyirányban vezetett.',
+  tryCoarse: 'A legdurvább időlépés kipróbálása', failure: 'A számítás sikertelen; az előző eredmény megmaradt.',
+  paper: 'A cikk egy időléptetéses eljárást ír le a szerkezetdinamikához. Itt annak átlagos gyorsulású változatát próbáljuk ki egy szándékosan kicsi lineáris referenciafeladaton; nem állítjuk, hogy a cikk valamelyik ábráját reprodukáljuk.',
+  alt: 'Tengelyirányú elmozdulás időtörténete a termékben használt Newmark-megoldó futtatásából',
+};
+export const translations = { en, es, pt, hu };
 export const strings = () => translations[researchLocale() as keyof typeof translations] ?? translations.en;
 export const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match);

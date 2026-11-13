@@ -10,7 +10,7 @@ import { rs } from '../../i18n';
 import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 
 afterEach(() => setLocale('en'));
-for (const locale of ['en', 'es', 'pt']) {
+for (const locale of ['en', 'es', 'pt', 'hu']) {
   it(`renders the paper references and actual model in ${locale}`, () => {
     setLocale(locale);
     const body = render(FerrariPage).body.replace(/<!--.*?-->/g, '');
