@@ -44,7 +44,9 @@ On parent b6f13f250, the raw API returns 0.000015648939943807853 and reports a
 mechanism. Independently generated static and mechanism candidates, supplied
 without any incremental result and rechecked in rational arithmetic, enclose
 the collapse factor in [0.020350445200427728, 0.02035044520059531]. The new public
-factor is 0.020350445200427728. Its mirror, numbering, reversal, axis rotation,
+factor measured through WASM is 0.02035044520042775, as recorded in the
+values report; 0.020350445200427728 is the independent lower bound. Its mirror,
+numbering, reversal, axis rotation,
 unit changes in both directions and positive load scaling receive their own
 independent rational checks in the tests. No baseline or tolerance is widened.
 The parent has structured accuracy and instability warnings for this input;
@@ -207,3 +209,19 @@ and the actual November 13 point-load model supplies an additional independent
 mechanism. This is targeted containment and correction, not a claim to have
 independently solved every one of the nightly random models. Issue #972 concerns
 nodal rotation responses across other analysis families and remains uncovered.
+
+## Mechanism work validation failures are refusals
+
+The IRLS work vector now collects exact mechanism validation results before
+optimisation and propagates any error through `best_mechanism` and the shared
+certificate path. An invalid basis vector no longer receives a fabricated zero
+work coefficient. Genuine zero work remains a successful calculation and may
+produce no candidate. Optional numerical recovery failures still produce no
+candidate; final candidates remain subject to the exact mechanism check.
+
+The ignored reproducer in commit 173ad4b1b fails on its parent: invalid hinge
+positions return `Ok(None)` instead of the validation error. It also covers
+hinges where no plastic capacity exists. Valid interior positions near both
+endpoints and a genuinely unloaded mechanism remain accepted or absent as
+appropriate. This is an internal invariant regression; no new public input
+returning a silently wrong factor on main was established by this change.

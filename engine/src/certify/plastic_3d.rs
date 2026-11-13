@@ -1682,7 +1682,7 @@ fn best_mechanism(
         }
         cands.push(v);
     }
-    if let Some(v) = irls_mechanism(model, &basis, &to_mech, end_hinge, interior) {
+    if let Some(v) = irls_mechanism(model, &basis, &to_mech, end_hinge, interior)? {
         cands.push(v);
     }
     let mut best: Option<(Mechanism3, MechanismCheck3)> = None;
@@ -1710,12 +1710,12 @@ fn irls_mechanism(
     to_mech: &dyn Fn(&[Q]) -> Mechanism3,
     end_hinge: &[[bool; 2]],
     interior: &[Vec<Q>],
-) -> Option<Vec<Q>> {
+) -> Result<Option<Vec<Q>>, String> {
     let m = basis.len();
     let mechs: Vec<Mechanism3> = basis.iter().map(|v| to_mech(v)).collect();
-    let mut w: Vec<f64> = mechs.iter().map(|mm| mechanism_terms(model, mm).map(|t| to_f64(&t.0)).unwrap_or(0.0)).collect();
+    let mut w: Vec<f64> = mechs.iter().map(|mm| mechanism_terms(model, mm).map(|t| to_f64(&t.0))).collect::<Result<_, _>>()?;
     if w.iter().all(|x| *x == 0.0) {
-        return None;
+        return Ok(None);
     }
     // dissipation rows: per hinge, the scaled rotation components per basis vector
     let mut rows: Vec<[Vec<f64>; 2]> = Vec::new();
@@ -1754,7 +1754,7 @@ fn irls_mechanism(
         }
     }
     let physical_column_norms: Vec<f64> = (0..m).map(|j| rows.iter().fold(0.0f64, |norm,r| norm.hypot(r[0][j]).hypot(r[1][j]))).collect();
-    if physical_column_norms.iter().any(|norm| !norm.is_finite()) { return None; }
+    if physical_column_norms.iter().any(|norm| !norm.is_finite()) { return Ok(None); }
     let physical_column_norms: Vec<f64> = physical_column_norms.into_iter().map(|norm| if norm > 0.0 { norm } else { 1.0 }).collect();
     for row in &mut rows {
         for component in row {
@@ -1827,17 +1827,17 @@ fn irls_mechanism(
         let eps = eps_rel * d.max(1e-300) / rows.len().max(1) as f64;
         weights = rows.iter().map(|r| 1.0 / (norm(r, &c).powi(2) + eps * eps).sqrt()).collect();
     }
-    let (_, c) = best?;
+    let Some((_, c)) = best else { return Ok(None) };
     let mut v = vec![Q::zero(); basis[0].len()];
     for ((cj,bj),norm) in c.iter().zip(basis).zip(&physical_column_norms) {
-        let cq = q(*cj / norm)?;
+        let Some(cq) = q(*cj / norm) else { return Ok(None) };
         for (vi, bi) in v.iter_mut().zip(bj) {
             if !bi.is_zero() {
                 *vi += &cq * bi;
             }
         }
     }
-    Some(v)
+    Ok(Some(v))
 }
 
 fn refine_lp(
@@ -2406,7 +2406,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1040"]
     fn issue_1040_mechanism_work_failure_is_refused() {
         let model = mechanism_work_fixture();
         let ends = vec![[true; 2]; model.elems.len()];
