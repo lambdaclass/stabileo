@@ -1084,3 +1084,28 @@ test.engine.containment-r18-wasm: wasm
 	STABILEO_R18_CASES=$(CURDIR)/.1952-r18-cases $(MAKE) test.engine.targeted TEST=validation FILTER=issue_1952_r18
 	$(NIX_RUN) node scripts/tests/containment-r18-wasm.mjs $(CURDIR)/.1952-r18-cases
 	rm -f $(CURDIR)/.1952-r18-cases-*.json
+.PHONY: test.engine.prescribed-master-2008 test.engine.prescribed-master-2008-wasm
+test.engine.prescribed-master-2008:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration prescribed_master_2008 -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.prescribed-master-2008-wasm: wasm
+	$(NIX_RUN) node scripts/tests/prescribed-master-2008-wasm.mjs
+
+.PHONY: test.engine.prescribed-master-2008-internals
+test.engine.prescribed-master-2008-internals:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib solver::constraints::tests -- --nocapture
+
+.PHONY: test.engine.time-history-2009 test.engine.time-history-2009-wasm
+
+test.engine.time-history-2009:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration time_history_2009 -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.time-history-2009-wasm: wasm
+	$(NIX_RUN) node scripts/tests/time-history-2009-wasm.mjs
+
+.PHONY: test.engine.arc-corrector-2009-wasm
+
+test.engine.arc-corrector-2009-wasm: wasm
+	ARC_CORRECTOR_2009_CASES=$(CURDIR)/.arc-corrector-2009.json $(MAKE) test.engine.targeted TEST=integration FILTER=prescribed_master_2008::arc_corrector_preserves_motion_and_free_equilibrium
+	$(NIX_RUN) node scripts/tests/arc-corrector-2009-wasm.mjs $(CURDIR)/.arc-corrector-2009.json
+	rm -f $(CURDIR)/.arc-corrector-2009.json

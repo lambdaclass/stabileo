@@ -823,7 +823,7 @@ fn physical_rows(
     for j in 0..n {
         let mut unit = vec![0.0; n];
         unit[j] = 1.0;
-        let free = cs.map_or(unit.clone(), |cs| cs.expand_solution(&unit));
+        let free = cs.map_or(unit.clone(), |cs| cs.expand_solution(&unit, dedaliano_engine::solver::constraints::MasterMotion::Homogeneous));
         let mut full = [free, vec![0.0; dof.n_total - dof.n_free]].concat();
         for it in &asm.inclined_transforms_2d {
             assembly::reverse_inclined_transform_2d(&mut full, &it.dofs, &it.r);

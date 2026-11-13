@@ -21,7 +21,7 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly;
 use super::linear;
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::sparse_tangent::{SparseSymbolicCache, tangent_free_sparse_triplets, solve_tangent_sparse};
 
 /// Result of a cable analysis.
@@ -377,6 +377,9 @@ fn solve_cable_2d_inner(
 
     // Identify cable elements
     let has_cables = crate::ordered::values(&input.elements).any(|e| e.elem_type == "cable");
+    if has_cables {
+        super::feature_gates::refuse_2d(input, "Cable analysis", &[super::feature_gates::Feature::PrescribedDisplacements])?;
+    }
 
     if !has_cables {
         let results = linear::solve_2d(input)?;
@@ -563,7 +566,7 @@ fn solve_cable_2d_inner(
             solve_system(&k_solve, &f_solve, ns)?
         };
         let u_f = if let Some(ref cs) = cs {
-            cs.expand_solution(&u_indep)
+            cs.expand_solution(&u_indep, MasterMotion::Homogeneous)
         } else {
             u_indep
         };
@@ -753,6 +756,9 @@ fn solve_cable_3d_inner(
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     let has_cables = crate::ordered::values(&input.elements).any(|e| e.elem_type == "cable");
+    if has_cables {
+        super::feature_gates::refuse_3d(input, "Cable analysis", &[super::feature_gates::Feature::PrescribedDisplacements])?;
+    }
 
     if !has_cables {
         let results = linear::solve_3d(input)?;
@@ -935,7 +941,7 @@ fn solve_cable_3d_inner(
             solve_system(&k_solve, &f_solve, ns)?
         };
         let u_f = if let Some(ref cs) = cs {
-            cs.expand_solution(&u_indep)
+            cs.expand_solution(&u_indep, MasterMotion::Homogeneous)
         } else {
             u_indep
         };

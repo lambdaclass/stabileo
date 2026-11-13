@@ -19,7 +19,7 @@ use super::dof::DofNumbering;
 use super::assembly::{self, InclinedFrame};
 use super::linear;
 use super::soil_curves::{SoilCurve, evaluate_soil_curve};
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::sparse_tangent::{SparseSymbolicCache, solve_tangent_sparse_refined_diagnosed};
 
 /// The soil springs at their current secants as stiffness triplets in the
@@ -395,7 +395,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
         let u_indep = solve_secant(&k, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
 
         let u_f = if let Some(ref cs) = cs {
-            cs.expand_solution(&u_indep)
+            cs.expand_solution(&u_indep, MasterMotion::Homogeneous)
         } else {
             u_indep
         };
@@ -590,7 +590,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         let u_indep = solve_secant(&k, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
 
         let u_f = if let Some(ref cs) = cs {
-            cs.expand_solution(&u_indep)
+            cs.expand_solution(&u_indep, MasterMotion::Homogeneous)
         } else {
             u_indep
         };

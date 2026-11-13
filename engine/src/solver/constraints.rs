@@ -1605,20 +1605,7 @@ fn solve_constrained_2d_dense_validated(
     // Particular solution: free slaves of restrained (prescribed) masters must
     // follow them. u_f = C_ff * q + u_p with u_p = C_fr * u_r (restrained
     // independent columns of C times their prescribed values).
-    let mut u_p = vec![0.0; nf];
-    for (j, &d) in ct.independent_dofs.iter().enumerate() {
-        if d >= nf {
-            let v = u_r[d - nf];
-            if v != 0.0 {
-                for p in ct.c.col_ptr[j]..ct.c.col_ptr[j + 1] {
-                    let i = ct.c.row_idx[p];
-                    if i < nf {
-                        u_p[i] += ct.c.csc_vals[p] * v;
-                    }
-                }
-            }
-        }
-    }
+    let u_p = fcs.prescribed_free(&u_r);
     let has_up = u_p.iter().any(|&v| v != 0.0);
     // Kept only when has_up: K_ff*u_p, needed later to un-do the RHS
     // correction when recovering the true (non-double-counted) constraint
@@ -1652,12 +1639,7 @@ fn solve_constrained_2d_dense_validated(
     stability.check_pins(&u_indep, &f_reduced, &[])?;
 
     // Recover free DOF displacements: u_f = C_ff * u_indep
-    let mut u_f = fcs.expand_solution(&u_indep);
-    if has_up {
-        for i in 0..nf {
-            u_f[i] += u_p[i];
-        }
-    }
+    let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
 
     // NaN/Inf guard, matching the unconstrained paths. `cholesky_solve` reports success on
     // any pivot > 1e-15 without inspecting the solved values, so a blown-up reduced system
@@ -1844,20 +1826,7 @@ pub(super) fn solve_constrained_2d_sparse(
     let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters.
-    let mut u_p = vec![0.0; nf];
-    for (j, &d) in ct.independent_dofs.iter().enumerate() {
-        if d >= nf {
-            let v = u_r[d - nf];
-            if v != 0.0 {
-                for p in ct.c.col_ptr[j]..ct.c.col_ptr[j + 1] {
-                    let i = ct.c.row_idx[p];
-                    if i < nf {
-                        u_p[i] += ct.c.csc_vals[p] * v;
-                    }
-                }
-            }
-        }
-    }
+    let u_p = fcs.prescribed_free(&u_r);
     let has_up = u_p.iter().any(|&v| v != 0.0);
     let mut k_ff_up_opt: Option<Vec<f64>> = None;
     if has_up {
@@ -1879,12 +1848,7 @@ pub(super) fn solve_constrained_2d_sparse(
     let u_indep = linear::conditional_sparse_refinement(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
     stability.check_pins(&u_indep, &f_reduced, &[])?;
 
-    let mut u_f = fcs.expand_solution(&u_indep);
-    if has_up {
-        for i in 0..nf {
-            u_f[i] += u_p[i];
-        }
-    }
+    let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
 
     super::linear::assert_finite_3d(&u_f)?;
 
@@ -2093,20 +2057,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     // Particular solution: free slaves of restrained (prescribed) masters must
     // follow them. u_f = C_ff * q + u_p with u_p = C_fr * u_r (restrained
     // independent columns of C times their prescribed values).
-    let mut u_p = vec![0.0; nf];
-    for (j, &d) in ct.independent_dofs.iter().enumerate() {
-        if d >= nf {
-            let v = u_r[d - nf];
-            if v != 0.0 {
-                for p in ct.c.col_ptr[j]..ct.c.col_ptr[j + 1] {
-                    let i = ct.c.row_idx[p];
-                    if i < nf {
-                        u_p[i] += ct.c.csc_vals[p] * v;
-                    }
-                }
-            }
-        }
-    }
+    let u_p = fcs.prescribed_free(&u_r);
     let has_up = u_p.iter().any(|&v| v != 0.0);
     // Kept only when has_up: K_ff*u_p, needed later to un-do the RHS
     // correction when recovering the true (non-double-counted) constraint
@@ -2135,12 +2086,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     let u_indep = linear::conditional_sparse_refinement(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
     stability.check_pins(&u_indep, &f_reduced, &[])?;
 
-    let mut u_f = fcs.expand_solution(&u_indep);
-    if has_up {
-        for i in 0..nf {
-            u_f[i] += u_p[i];
-        }
-    }
+    let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
 
     // NaN/Inf guard, matching the unconstrained paths. The sparse Cholesky
     // reports success on any pivot > 1e-15 without inspecting the solved
@@ -2343,6 +2289,11 @@ fn reduced_relative_residual(fcs: &FreeConstraintSystem, r_full: &[f64], f_reduc
     norm(&fcs.reduce_vector(r_full)) / norm(f_reduced).max(1e-30)
 }
 
+pub enum MasterMotion<'a> {
+    Homogeneous,
+    Prescribed(&'a [f64]),
+}
+
 /// Pre-computed constraint system for use by any solver.
 ///
 /// Encapsulates the C_ff matrix (free-free portion of the constraint
@@ -2366,6 +2317,7 @@ pub struct FreeConstraintSystem {
     /// and dropped their constraint forces from the results entirely.
     dependent: Vec<bool>,
     independent: Vec<usize>,
+    n_restrained: usize,
     restrained_masters: Vec<Vec<(usize, f64)>>,
     /// Inclined-support frames the transform was built in (constraint
     /// forces there are rotated back to global components).
@@ -2447,6 +2399,7 @@ impl FreeConstraintSystem {
             nf,
             dependent,
             independent,
+            n_restrained: ct.n_total - nf,
             restrained_masters,
             inclined: Vec::new(),
             dimensions,
@@ -2518,6 +2471,7 @@ impl FreeConstraintSystem {
     }
 
     pub(super) fn prescribed_free(&self, restrained: &[f64]) -> Vec<f64> {
+        assert_eq!(restrained.len(), self.n_restrained);
         self.restrained_masters.iter().map(|terms| terms.iter().map(|&(i, c)| c * restrained[i]).sum()).collect()
     }
 
@@ -2526,9 +2480,30 @@ impl FreeConstraintSystem {
         self.c_ff.mul_transpose_vec(f_f)
     }
 
-    /// Expand solution: u_f = C_ff * u_indep
-    pub fn expand_solution(&self, u_indep: &[f64]) -> Vec<f64> {
-        self.c_ff.mul_vec(u_indep)
+    pub fn expand_solution(&self, u_indep: &[f64], motion: MasterMotion<'_>) -> Vec<f64> {
+        assert_eq!(u_indep.len(), self.n_free_indep);
+        let mut free = self.c_ff.mul_vec(u_indep);
+        if let MasterMotion::Prescribed(restrained) = motion {
+            for (u, p) in free.iter_mut().zip(self.prescribed_free(restrained)) {
+                if p != 0.0 { *u += p; }
+            }
+        }
+        free
+    }
+
+    pub(super) fn subtract_prescribed_force(&self, k_ff: &CscMatrix, rhs: &mut [f64], restrained: &[f64]) {
+        assert_eq!(k_ff.n, self.nf);
+        assert_eq!(rhs.len(), self.nf);
+        let particular = self.prescribed_free(restrained);
+        if particular.iter().any(|&p| p != 0.0) {
+            for (f, kp) in rhs.iter_mut().zip(k_ff.sym_mat_vec(&particular)) { *f -= kp; }
+        }
+    }
+
+    pub(super) fn impose_motion(&self, full: &mut [f64]) {
+        let independent: Vec<_> = self.independent.iter().map(|&d| full[d]).collect();
+        let free = self.expand_solution(&independent, MasterMotion::Prescribed(&full[self.nf..]));
+        full[..self.nf].copy_from_slice(&free);
     }
 
     /// Map reduced-space DOF indices back to physical free DOF indices.

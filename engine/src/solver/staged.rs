@@ -18,7 +18,7 @@ use super::linear::{
     compute_plate_stresses,
 };
 use super::prestress::prestress_fef_2d;
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 
 #[cfg(test)]
 #[path = "staged_tests.rs"]
@@ -205,7 +205,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         let du_r: Vec<f64> = u_r.iter().zip(&prev_u_r).map(|(a, b)| a - b).collect();
         // Extract Kff, Ff and apply F_f_modified = F_f - K_fr * du_r.
         let mut k_ff_dense: Option<Vec<f64>> = None;
-        let f_f: Vec<f64>;
+        let mut f_f: Vec<f64>;
         if let Some(ref t) = asm_trips {
             let k_full = CscMatrix::from_triplets(n, &t.rows, &t.cols, &t.vals);
             let mut ff = t.f[..nf].to_vec();
@@ -236,6 +236,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         } else {
             CscMatrix::from_dense_symmetric_exact(&k_ff_dense.unwrap(), nf)
         };
+        if let Some(ref cs) = cs { cs.subtract_prescribed_force(&k_physical, &mut f_f, &du_r); }
         let cumulative_solver_input = SolverInput {
             solver_options: None, masses: Default::default(),
             loads: cumulative_loads.clone(),
@@ -262,7 +263,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
 
         // Expand back to full free DOFs
         let u_f_inc = if let Some(ref cs) = cs {
-            cs.expand_solution(&u_s_inc)
+            cs.expand_solution(&u_s_inc, MasterMotion::Prescribed(&du_r))
         } else {
             u_s_inc
         };
@@ -932,7 +933,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         // K_fr·u_r cross-block matvec; the free×free CSC for the solve is
         // filtered from the same triplets further below.
         let mut k_ff_dense: Option<Vec<f64>> = None;
-        let f_f: Vec<f64>;
+        let mut f_f: Vec<f64>;
         if let Some(ref t) = asm_trips {
             let k_full = CscMatrix::from_triplets(n, &t.rows, &t.cols, &t.vals);
             let mut ff = t.f[..nf].to_vec();
@@ -963,6 +964,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         } else {
             CscMatrix::from_dense_symmetric_exact(&k_ff_dense.unwrap(), nf)
         };
+        if let Some(ref cs) = cs { cs.subtract_prescribed_force(&k_physical, &mut f_f, &du_r); }
         let cum_input = SolverInput3D { loads: cumulative_loads.clone(), ..stage_input.clone() };
         let applied = super::sparse_assembly::assemble_load_vector_sparse_3d(
             &cum_input, &cum_input.loads, &dof_num, &[],
@@ -979,7 +981,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
 
         // Expand back to full free DOFs
         let u_f_inc = if let Some(ref cs) = cs {
-            cs.expand_solution(&u_s_inc)
+            cs.expand_solution(&u_s_inc, MasterMotion::Prescribed(&du_r))
         } else {
             u_s_inc
         };

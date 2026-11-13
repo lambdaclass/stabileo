@@ -5,7 +5,7 @@ use super::assembly::*;
 use super::linear::{build_displacements_2d, compute_internal_forces_2d,
     build_displacements_3d, compute_internal_forces_3d,
     compute_plate_stresses, compute_quad_stresses};
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic};
 
 /// The linear pass's structured diagnostics that describe the model, not the
@@ -507,7 +507,7 @@ impl PDeltaTangent {
                 }
             }
         };
-        Some((cs.as_ref().map_or_else(|| u.clone(), |c| c.expand_solution(&u)), indefinite))
+        Some((cs.as_ref().map_or_else(|| u.clone(), |c| c.expand_solution(&u, MasterMotion::Homogeneous)), indefinite))
     }
 
 

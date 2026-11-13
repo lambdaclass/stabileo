@@ -4,7 +4,7 @@ use crate::linalg::*;
 use crate::element::*;
 use super::dof::DofNumbering;
 use super::assembly;
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::linear::SPARSE_THRESHOLD;
 use super::sparse_tangent::{
     cached_symbolic, solve_tangent_sparse_diagnosed, tangent_free_sparse_triplets, SparseSymbolicCache,
@@ -285,17 +285,17 @@ pub fn solve_corotational_2d_from(
             // would crush the elements next to them.
             let mut r_f = r_f;
             if let Some(ref du_r) = support_step {
+                let mut known = vec![0.0; n];
+                known[nf..].copy_from_slice(du_r);
+                if let Some(ref cs) = cs { cs.impose_motion(&mut known); }
                 if sparse_tangent {
                     for ((&i, &j), &v) in trip_rows.iter().zip(&trip_cols).zip(&trip_vals) {
-                        if i >= nf && j < nf {
-                            r_f[j] -= v * du_r[i - nf];
-                        } else if j >= nf && i < nf {
-                            r_f[i] -= v * du_r[j - nf];
-                        }
+                        if i < nf { r_f[i] -= v * known[j]; }
+                        if i != j && j < nf { r_f[j] -= v * known[i]; }
                     }
                 } else {
                     for i in 0..nf {
-                        r_f[i] -= (0..n - nf).map(|r| k_t[i * n + nf + r] * du_r[r]).sum::<f64>();
+                        r_f[i] -= (0..n).map(|j| k_t[i * n + j] * known[j]).sum::<f64>();
                     }
                 }
             }
@@ -371,7 +371,10 @@ pub fn solve_corotational_2d_from(
             };
 
             let delta_u_f = if let Some(ref cs) = cs {
-                cs.expand_solution(&delta_u_indep)
+                cs.expand_solution(&delta_u_indep, support_step.as_deref().map_or(
+                    MasterMotion::Homogeneous,
+                    MasterMotion::Prescribed,
+                ))
             } else {
                 delta_u_indep
             };
@@ -1589,7 +1592,7 @@ pub fn solve_corotational_3d(
             };
 
             let delta_u = if let Some(ref cs) = cs {
-                cs.expand_solution(&delta_u_indep)
+                cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous)
             } else {
                 delta_u_indep
             };
