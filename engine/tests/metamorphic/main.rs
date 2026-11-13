@@ -256,3 +256,4 @@ mod nightly_triage;
 mod nightly_harness;
 
 mod nightly_1113;
+mod ssi_elastic_2011;

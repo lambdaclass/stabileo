@@ -1,0 +1,1650 @@
+[
+  {
+    "api": "solve_ssi_2d",
+    "expected": {
+      "converged": false,
+      "iterations": 0,
+      "results": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "ry": 0.0,
+            "ux": 0.0,
+            "uz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "ry": 0.0,
+            "ux": 0.0,
+            "uz": 0.0
+          }
+        ],
+        "elementForces": [
+          {
+            "distributedLoads": [],
+            "elementId": 1,
+            "hingeEnd": false,
+            "hingeStart": false,
+            "length": 3.935680227354169,
+            "mEnd": -0.0,
+            "mStart": 0.0,
+            "nEnd": 0.0,
+            "nStart": -0.0,
+            "pointLoads": [],
+            "qI": 0.0,
+            "qJ": 0.0,
+            "vEnd": -0.0,
+            "vStart": 0.0
+          }
+        ],
+        "reactions": [
+          {
+            "my": -0.0,
+            "nodeId": 1,
+            "rx": -0.0,
+            "rz": -0.0
+          }
+        ]
+      },
+      "springResults": [
+        {
+          "direction": 0,
+          "displacement": 0.0,
+          "nodeId": 2,
+          "reaction": 0.0,
+          "secantStiffness": 1557830.445758118
+        }
+      ]
+    },
+    "input": {
+      "maxIter": 0,
+      "soilSprings": [
+        {
+          "curve": {
+            "points": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.6047959563297502e-7,
+                0.25
+              ],
+              [
+                5.135347060255201e-6,
+                0.5
+              ]
+            ],
+            "type": "custom"
+          },
+          "direction": 0,
+          "nodeId": 2,
+          "tributaryLength": 1.0
+        }
+      ],
+      "solver": {
+        "connectors": {},
+        "constraints": [],
+        "elements": {
+          "1": {
+            "hingeEnd": false,
+            "hingeStart": false,
+            "id": 1,
+            "materialId": 1,
+            "nodeI": 1,
+            "nodeJ": 2,
+            "sectionId": 1,
+            "type": "frame"
+          }
+        },
+        "loads": [
+          {
+            "data": {
+              "fx": -1.0,
+              "fz": 0.0,
+              "my": 0.0,
+              "nodeId": 2
+            },
+            "type": "nodal"
+          }
+        ],
+        "materials": {
+          "1": {
+            "e": 200000.0,
+            "id": 1,
+            "nu": 0.3
+          }
+        },
+        "nodes": {
+          "1": {
+            "id": 1,
+            "x": 0.0,
+            "z": 0.0
+          },
+          "2": {
+            "id": 2,
+            "x": 3.935680227354169,
+            "z": 0.0
+          }
+        },
+        "sections": {
+          "1": {
+            "a": 0.015327806207351389,
+            "asY": null,
+            "id": 1,
+            "iz": 0.0006754600636311807
+          }
+        },
+        "solverOptions": null,
+        "supports": {
+          "1": {
+            "angle": null,
+            "dry": null,
+            "dx": null,
+            "dz": null,
+            "id": 1,
+            "kx": null,
+            "ky": null,
+            "kz": null,
+            "nodeId": 1,
+            "type": "fixed"
+          }
+        }
+      },
+      "tolerance": 1e-10
+    }
+  },
+  {
+    "api": "solve_ssi_2d",
+    "expected": {
+      "converged": false,
+      "iterations": 1,
+      "results": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "ry": 0.0,
+            "ux": 0.0,
+            "uz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "ry": 0.0,
+            "ux": -4.2794558835460007e-7,
+            "uz": 0.0
+          }
+        ],
+        "elementForces": [
+          {
+            "distributedLoads": [],
+            "elementId": 1,
+            "hingeEnd": false,
+            "hingeStart": false,
+            "length": 3.935680227354169,
+            "mEnd": -0.0,
+            "mStart": 0.0,
+            "nEnd": -0.3333333333333333,
+            "nStart": -0.3333333333333333,
+            "pointLoads": [],
+            "qI": 0.0,
+            "qJ": 0.0,
+            "vEnd": -0.0,
+            "vStart": 0.0
+          }
+        ],
+        "reactions": [
+          {
+            "my": -0.0,
+            "nodeId": 1,
+            "rx": 0.3333333333333333,
+            "rz": -0.0
+          }
+        ]
+      },
+      "springResults": [
+        {
+          "direction": 0,
+          "displacement": -4.2794558835460007e-7,
+          "nodeId": 2,
+          "reaction": -0.26344086021505375,
+          "secantStiffness": 615594.2890495788
+        }
+      ]
+    },
+    "input": {
+      "maxIter": 1,
+      "soilSprings": [
+        {
+          "curve": {
+            "points": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.6047959563297502e-7,
+                0.25
+              ],
+              [
+                5.135347060255201e-6,
+                0.5
+              ]
+            ],
+            "type": "custom"
+          },
+          "direction": 0,
+          "nodeId": 2,
+          "tributaryLength": 1.0
+        }
+      ],
+      "solver": {
+        "connectors": {},
+        "constraints": [],
+        "elements": {
+          "1": {
+            "hingeEnd": false,
+            "hingeStart": false,
+            "id": 1,
+            "materialId": 1,
+            "nodeI": 1,
+            "nodeJ": 2,
+            "sectionId": 1,
+            "type": "frame"
+          }
+        },
+        "loads": [
+          {
+            "data": {
+              "fx": -1.0,
+              "fz": 0.0,
+              "my": 0.0,
+              "nodeId": 2
+            },
+            "type": "nodal"
+          }
+        ],
+        "materials": {
+          "1": {
+            "e": 200000.0,
+            "id": 1,
+            "nu": 0.3
+          }
+        },
+        "nodes": {
+          "1": {
+            "id": 1,
+            "x": 0.0,
+            "z": 0.0
+          },
+          "2": {
+            "id": 2,
+            "x": 3.935680227354169,
+            "z": 0.0
+          }
+        },
+        "sections": {
+          "1": {
+            "a": 0.015327806207351389,
+            "asY": null,
+            "id": 1,
+            "iz": 0.0006754600636311807
+          }
+        },
+        "solverOptions": null,
+        "supports": {
+          "1": {
+            "angle": null,
+            "dry": null,
+            "dx": null,
+            "dz": null,
+            "id": 1,
+            "kx": null,
+            "ky": null,
+            "kz": null,
+            "nodeId": 1,
+            "type": "fixed"
+          }
+        }
+      },
+      "tolerance": 1e-10
+    }
+  },
+  {
+    "api": "solve_ssi_2d",
+    "expected": {
+      "converged": false,
+      "iterations": 2,
+      "results": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "ry": 0.0,
+            "ux": 0.0,
+            "uz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "ry": 0.0,
+            "ux": -7.170980129185191e-7,
+            "uz": 0.0
+          }
+        ],
+        "elementForces": [
+          {
+            "distributedLoads": [],
+            "elementId": 1,
+            "hingeEnd": false,
+            "hingeStart": false,
+            "length": 3.935680227354169,
+            "mEnd": -0.0,
+            "mStart": 0.0,
+            "nEnd": -0.5585585585585586,
+            "nStart": -0.5585585585585586,
+            "pointLoads": [],
+            "qI": 0.0,
+            "qJ": 0.0,
+            "vEnd": -0.0,
+            "vStart": 0.0
+          }
+        ],
+        "reactions": [
+          {
+            "my": -0.0,
+            "nodeId": 1,
+            "rx": 0.5585585585585586,
+            "rz": -0.0
+          }
+        ]
+      },
+      "springResults": [
+        {
+          "direction": 0,
+          "displacement": -7.170980129185191e-7,
+          "nodeId": 2,
+          "reaction": -0.2779715199070038,
+          "secantStiffness": 387633.92855557747
+        }
+      ]
+    },
+    "input": {
+      "maxIter": 2,
+      "soilSprings": [
+        {
+          "curve": {
+            "points": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.6047959563297502e-7,
+                0.25
+              ],
+              [
+                5.135347060255201e-6,
+                0.5
+              ]
+            ],
+            "type": "custom"
+          },
+          "direction": 0,
+          "nodeId": 2,
+          "tributaryLength": 1.0
+        }
+      ],
+      "solver": {
+        "connectors": {},
+        "constraints": [],
+        "elements": {
+          "1": {
+            "hingeEnd": false,
+            "hingeStart": false,
+            "id": 1,
+            "materialId": 1,
+            "nodeI": 1,
+            "nodeJ": 2,
+            "sectionId": 1,
+            "type": "frame"
+          }
+        },
+        "loads": [
+          {
+            "data": {
+              "fx": -1.0,
+              "fz": 0.0,
+              "my": 0.0,
+              "nodeId": 2
+            },
+            "type": "nodal"
+          }
+        ],
+        "materials": {
+          "1": {
+            "e": 200000.0,
+            "id": 1,
+            "nu": 0.3
+          }
+        },
+        "nodes": {
+          "1": {
+            "id": 1,
+            "x": 0.0,
+            "z": 0.0
+          },
+          "2": {
+            "id": 2,
+            "x": 3.935680227354169,
+            "z": 0.0
+          }
+        },
+        "sections": {
+          "1": {
+            "a": 0.015327806207351389,
+            "asY": null,
+            "id": 1,
+            "iz": 0.0006754600636311807
+          }
+        },
+        "solverOptions": null,
+        "supports": {
+          "1": {
+            "angle": null,
+            "dry": null,
+            "dx": null,
+            "dz": null,
+            "id": 1,
+            "kx": null,
+            "ky": null,
+            "kz": null,
+            "nodeId": 1,
+            "type": "fixed"
+          }
+        }
+      },
+      "tolerance": 1e-10
+    }
+  },
+  {
+    "api": "solve_ssi_2d",
+    "expected": {
+      "converged": true,
+      "iterations": 18,
+      "results": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "ry": 0.0,
+            "ux": 0.0,
+            "uz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "ry": 0.0,
+            "ux": -9.142473932683776e-7,
+            "uz": 0.0
+          }
+        ],
+        "elementForces": [
+          {
+            "distributedLoads": [],
+            "elementId": 1,
+            "hingeEnd": false,
+            "hingeStart": false,
+            "length": 3.935680227354169,
+            "mEnd": -0.0,
+            "mStart": 0.0,
+            "nEnd": -0.712121212094237,
+            "nStart": -0.712121212094237,
+            "pointLoads": [],
+            "qI": 0.0,
+            "qJ": 0.0,
+            "vEnd": -0.0,
+            "vStart": 0.0
+          }
+        ],
+        "reactions": [
+          {
+            "my": -0.0,
+            "nodeId": 1,
+            "rx": 0.712121212094237,
+            "rz": -0.0
+          }
+        ]
+      },
+      "springResults": [
+        {
+          "direction": 0,
+          "displacement": -9.142473932683776e-7,
+          "nodeId": 2,
+          "reaction": -0.28787878787704757,
+          "secantStiffness": 314880.62202496285
+        }
+      ]
+    },
+    "input": {
+      "maxIter": 50,
+      "soilSprings": [
+        {
+          "curve": {
+            "points": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.6047959563297502e-7,
+                0.25
+              ],
+              [
+                5.135347060255201e-6,
+                0.5
+              ]
+            ],
+            "type": "custom"
+          },
+          "direction": 0,
+          "nodeId": 2,
+          "tributaryLength": 1.0
+        }
+      ],
+      "solver": {
+        "connectors": {},
+        "constraints": [],
+        "elements": {
+          "1": {
+            "hingeEnd": false,
+            "hingeStart": false,
+            "id": 1,
+            "materialId": 1,
+            "nodeI": 1,
+            "nodeJ": 2,
+            "sectionId": 1,
+            "type": "frame"
+          }
+        },
+        "loads": [
+          {
+            "data": {
+              "fx": -1.0,
+              "fz": 0.0,
+              "my": 0.0,
+              "nodeId": 2
+            },
+            "type": "nodal"
+          }
+        ],
+        "materials": {
+          "1": {
+            "e": 200000.0,
+            "id": 1,
+            "nu": 0.3
+          }
+        },
+        "nodes": {
+          "1": {
+            "id": 1,
+            "x": 0.0,
+            "z": 0.0
+          },
+          "2": {
+            "id": 2,
+            "x": 3.935680227354169,
+            "z": 0.0
+          }
+        },
+        "sections": {
+          "1": {
+            "a": 0.015327806207351389,
+            "asY": null,
+            "id": 1,
+            "iz": 0.0006754600636311807
+          }
+        },
+        "solverOptions": null,
+        "supports": {
+          "1": {
+            "angle": null,
+            "dry": null,
+            "dx": null,
+            "dz": null,
+            "id": 1,
+            "kx": null,
+            "ky": null,
+            "kz": null,
+            "nodeId": 1,
+            "type": "fixed"
+          }
+        }
+      },
+      "tolerance": 1e-10
+    }
+  },
+  {
+    "api": "solve_ssi_3d",
+    "expected": {
+      "converged": false,
+      "iterations": 0,
+      "results": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          }
+        ],
+        "elementForces": [
+          {
+            "distributedLoadsY": [],
+            "distributedLoadsZ": [],
+            "elementId": 1,
+            "length": 3.935680227354169,
+            "mxEnd": -0.0,
+            "mxStart": 0.0,
+            "myEnd": -0.0,
+            "myStart": 0.0,
+            "mzEnd": -0.0,
+            "mzStart": 0.0,
+            "nEnd": 0.0,
+            "nStart": -0.0,
+            "pointLoadsY": [],
+            "pointLoadsZ": [],
+            "qYI": 0.0,
+            "qYJ": 0.0,
+            "qZI": 0.0,
+            "qZJ": 0.0,
+            "releaseMyEnd": false,
+            "releaseMyStart": false,
+            "releaseMzEnd": false,
+            "releaseMzStart": false,
+            "releaseTEnd": false,
+            "releaseTStart": false,
+            "vyEnd": -0.0,
+            "vyStart": 0.0,
+            "vzEnd": -0.0,
+            "vzStart": 0.0
+          }
+        ],
+        "reactions": [
+          {
+            "fx": -0.0,
+            "fy": -0.0,
+            "fz": -0.0,
+            "mx": -0.0,
+            "my": -0.0,
+            "mz": -0.0,
+            "nodeId": 1
+          },
+          {
+            "fx": 0.0,
+            "fy": -0.0,
+            "fz": 0.0,
+            "mx": -0.0,
+            "my": 0.0,
+            "mz": -0.0,
+            "nodeId": 2
+          }
+        ]
+      },
+      "springResults": [
+        {
+          "direction": 0,
+          "displacement": 0.0,
+          "nodeId": 2,
+          "reaction": 0.0,
+          "secantStiffness": 1557830.445758118
+        }
+      ]
+    },
+    "input": {
+      "maxIter": 0,
+      "soilSprings": [
+        {
+          "curve": {
+            "points": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.6047959563297502e-7,
+                0.25
+              ],
+              [
+                5.135347060255201e-6,
+                0.5
+              ]
+            ],
+            "type": "custom"
+          },
+          "direction": 0,
+          "nodeId": 2,
+          "tributaryLength": 1.0
+        }
+      ],
+      "solver": {
+        "connectors": {},
+        "constraints": [],
+        "curvedBeams": [],
+        "curvedShells": {},
+        "elements": {
+          "1": {
+            "id": 1,
+            "localYx": null,
+            "localYy": null,
+            "localYz": null,
+            "materialId": 1,
+            "nodeI": 1,
+            "nodeJ": 2,
+            "releaseMyEnd": false,
+            "releaseMyStart": false,
+            "releaseMzEnd": false,
+            "releaseMzStart": false,
+            "releaseTEnd": false,
+            "releaseTStart": false,
+            "rollAngle": null,
+            "sectionId": 1,
+            "type": "frame"
+          }
+        },
+        "leftHand": null,
+        "loads": [
+          {
+            "data": {
+              "bw": null,
+              "fx": -1.0,
+              "fy": 0.0,
+              "fz": 0.0,
+              "mx": 0.0,
+              "my": -0.0,
+              "mz": 0.0,
+              "nodeId": 2
+            },
+            "type": "nodal"
+          }
+        ],
+        "materials": {
+          "1": {
+            "e": 200000.0,
+            "id": 1,
+            "nu": 0.3
+          }
+        },
+        "nodes": {
+          "1": {
+            "id": 1,
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          },
+          "2": {
+            "id": 2,
+            "x": 3.935680227354169,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        "plates": {},
+        "quad9s": {},
+        "quads": {},
+        "sections": {
+          "1": {
+            "a": 0.015327806207351389,
+            "asY": null,
+            "asZ": null,
+            "cw": null,
+            "id": 1,
+            "iy": 0.0006754600636311807,
+            "iz": 0.0006754600636311807,
+            "j": 0.0006754600636311807,
+            "name": null,
+            "shearCenterY": null,
+            "shearCenterZ": null
+          }
+        },
+        "solidShells": {},
+        "solverOptions": null,
+        "supports": {
+          "1": {
+            "drx": null,
+            "dry": null,
+            "drz": null,
+            "dx": null,
+            "dy": null,
+            "dz": null,
+            "isInclined": null,
+            "krx": null,
+            "kry": null,
+            "krz": null,
+            "kw": null,
+            "kx": null,
+            "ky": null,
+            "kz": null,
+            "nodeId": 1,
+            "normalX": null,
+            "normalY": null,
+            "normalZ": null,
+            "rrx": true,
+            "rry": true,
+            "rrz": true,
+            "rw": null,
+            "rx": true,
+            "ry": true,
+            "rz": true
+          },
+          "2": {
+            "drx": null,
+            "dry": null,
+            "drz": null,
+            "dx": null,
+            "dy": null,
+            "dz": null,
+            "isInclined": null,
+            "krx": null,
+            "kry": null,
+            "krz": null,
+            "kw": null,
+            "kx": null,
+            "ky": null,
+            "kz": null,
+            "nodeId": 2,
+            "normalX": null,
+            "normalY": null,
+            "normalZ": null,
+            "rrx": true,
+            "rry": false,
+            "rrz": true,
+            "rw": null,
+            "rx": false,
+            "ry": true,
+            "rz": false
+          }
+        }
+      },
+      "tolerance": 1e-10
+    }
+  },
+  {
+    "api": "solve_ssi_3d",
+    "expected": {
+      "converged": false,
+      "iterations": 1,
+      "results": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0,
+            "ux": -4.2794558835460007e-7,
+            "uy": 0.0,
+            "uz": 0.0
+          }
+        ],
+        "elementForces": [
+          {
+            "distributedLoadsY": [],
+            "distributedLoadsZ": [],
+            "elementId": 1,
+            "length": 3.935680227354169,
+            "mxEnd": -0.0,
+            "mxStart": 0.0,
+            "myEnd": -0.0,
+            "myStart": 0.0,
+            "mzEnd": -0.0,
+            "mzStart": 0.0,
+            "nEnd": -0.3333333333333333,
+            "nStart": -0.3333333333333333,
+            "pointLoadsY": [],
+            "pointLoadsZ": [],
+            "qYI": 0.0,
+            "qYJ": 0.0,
+            "qZI": 0.0,
+            "qZJ": 0.0,
+            "releaseMyEnd": false,
+            "releaseMyStart": false,
+            "releaseMzEnd": false,
+            "releaseMzStart": false,
+            "releaseTEnd": false,
+            "releaseTStart": false,
+            "vyEnd": -0.0,
+            "vyStart": 0.0,
+            "vzEnd": -0.0,
+            "vzStart": 0.0
+          }
+        ],
+        "reactions": [
+          {
+            "fx": 0.3333333333333333,
+            "fy": -0.0,
+            "fz": -0.0,
+            "mx": -0.0,
+            "my": -0.0,
+            "mz": -0.0,
+            "nodeId": 1
+          },
+          {
+            "fx": 0.0,
+            "fy": -0.0,
+            "fz": 0.0,
+            "mx": -0.0,
+            "my": 0.0,
+            "mz": -0.0,
+            "nodeId": 2
+          }
+        ]
+      },
+      "springResults": [
+        {
+          "direction": 0,
+          "displacement": -4.2794558835460007e-7,
+          "nodeId": 2,
+          "reaction": -0.26344086021505375,
+          "secantStiffness": 615594.2890495788
+        }
+      ]
+    },
+    "input": {
+      "maxIter": 1,
+      "soilSprings": [
+        {
+          "curve": {
+            "points": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.6047959563297502e-7,
+                0.25
+              ],
+              [
+                5.135347060255201e-6,
+                0.5
+              ]
+            ],
+            "type": "custom"
+          },
+          "direction": 0,
+          "nodeId": 2,
+          "tributaryLength": 1.0
+        }
+      ],
+      "solver": {
+        "connectors": {},
+        "constraints": [],
+        "curvedBeams": [],
+        "curvedShells": {},
+        "elements": {
+          "1": {
+            "id": 1,
+            "localYx": null,
+            "localYy": null,
+            "localYz": null,
+            "materialId": 1,
+            "nodeI": 1,
+            "nodeJ": 2,
+            "releaseMyEnd": false,
+            "releaseMyStart": false,
+            "releaseMzEnd": false,
+            "releaseMzStart": false,
+            "releaseTEnd": false,
+            "releaseTStart": false,
+            "rollAngle": null,
+            "sectionId": 1,
+            "type": "frame"
+          }
+        },
+        "leftHand": null,
+        "loads": [
+          {
+            "data": {
+              "bw": null,
+              "fx": -1.0,
+              "fy": 0.0,
+              "fz": 0.0,
+              "mx": 0.0,
+              "my": -0.0,
+              "mz": 0.0,
+              "nodeId": 2
+            },
+            "type": "nodal"
+          }
+        ],
+        "materials": {
+          "1": {
+            "e": 200000.0,
+            "id": 1,
+            "nu": 0.3
+          }
+        },
+        "nodes": {
+          "1": {
+            "id": 1,
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          },
+          "2": {
+            "id": 2,
+            "x": 3.935680227354169,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        "plates": {},
+        "quad9s": {},
+        "quads": {},
+        "sections": {
+          "1": {
+            "a": 0.015327806207351389,
+            "asY": null,
+            "asZ": null,
+            "cw": null,
+            "id": 1,
+            "iy": 0.0006754600636311807,
+            "iz": 0.0006754600636311807,
+            "j": 0.0006754600636311807,
+            "name": null,
+            "shearCenterY": null,
+            "shearCenterZ": null
+          }
+        },
+        "solidShells": {},
+        "solverOptions": null,
+        "supports": {
+          "1": {
+            "drx": null,
+            "dry": null,
+            "drz": null,
+            "dx": null,
+            "dy": null,
+            "dz": null,
+            "isInclined": null,
+            "krx": null,
+            "kry": null,
+            "krz": null,
+            "kw": null,
+            "kx": null,
+            "ky": null,
+            "kz": null,
+            "nodeId": 1,
+            "normalX": null,
+            "normalY": null,
+            "normalZ": null,
+            "rrx": true,
+            "rry": true,
+            "rrz": true,
+            "rw": null,
+            "rx": true,
+            "ry": true,
+            "rz": true
+          },
+          "2": {
+            "drx": null,
+            "dry": null,
+            "drz": null,
+            "dx": null,
+            "dy": null,
+            "dz": null,
+            "isInclined": null,
+            "krx": null,
+            "kry": null,
+            "krz": null,
+            "kw": null,
+            "kx": null,
+            "ky": null,
+            "kz": null,
+            "nodeId": 2,
+            "normalX": null,
+            "normalY": null,
+            "normalZ": null,
+            "rrx": true,
+            "rry": false,
+            "rrz": true,
+            "rw": null,
+            "rx": false,
+            "ry": true,
+            "rz": false
+          }
+        }
+      },
+      "tolerance": 1e-10
+    }
+  },
+  {
+    "api": "solve_ssi_3d",
+    "expected": {
+      "converged": false,
+      "iterations": 2,
+      "results": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0,
+            "ux": -7.170980129185191e-7,
+            "uy": 0.0,
+            "uz": 0.0
+          }
+        ],
+        "elementForces": [
+          {
+            "distributedLoadsY": [],
+            "distributedLoadsZ": [],
+            "elementId": 1,
+            "length": 3.935680227354169,
+            "mxEnd": -0.0,
+            "mxStart": 0.0,
+            "myEnd": -0.0,
+            "myStart": 0.0,
+            "mzEnd": -0.0,
+            "mzStart": 0.0,
+            "nEnd": -0.5585585585585586,
+            "nStart": -0.5585585585585586,
+            "pointLoadsY": [],
+            "pointLoadsZ": [],
+            "qYI": 0.0,
+            "qYJ": 0.0,
+            "qZI": 0.0,
+            "qZJ": 0.0,
+            "releaseMyEnd": false,
+            "releaseMyStart": false,
+            "releaseMzEnd": false,
+            "releaseMzStart": false,
+            "releaseTEnd": false,
+            "releaseTStart": false,
+            "vyEnd": -0.0,
+            "vyStart": 0.0,
+            "vzEnd": -0.0,
+            "vzStart": 0.0
+          }
+        ],
+        "reactions": [
+          {
+            "fx": 0.5585585585585586,
+            "fy": -0.0,
+            "fz": -0.0,
+            "mx": -0.0,
+            "my": -0.0,
+            "mz": -0.0,
+            "nodeId": 1
+          },
+          {
+            "fx": 0.0,
+            "fy": -0.0,
+            "fz": 0.0,
+            "mx": -0.0,
+            "my": 0.0,
+            "mz": -0.0,
+            "nodeId": 2
+          }
+        ]
+      },
+      "springResults": [
+        {
+          "direction": 0,
+          "displacement": -7.170980129185191e-7,
+          "nodeId": 2,
+          "reaction": -0.2779715199070038,
+          "secantStiffness": 387633.92855557747
+        }
+      ]
+    },
+    "input": {
+      "maxIter": 2,
+      "soilSprings": [
+        {
+          "curve": {
+            "points": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.6047959563297502e-7,
+                0.25
+              ],
+              [
+                5.135347060255201e-6,
+                0.5
+              ]
+            ],
+            "type": "custom"
+          },
+          "direction": 0,
+          "nodeId": 2,
+          "tributaryLength": 1.0
+        }
+      ],
+      "solver": {
+        "connectors": {},
+        "constraints": [],
+        "curvedBeams": [],
+        "curvedShells": {},
+        "elements": {
+          "1": {
+            "id": 1,
+            "localYx": null,
+            "localYy": null,
+            "localYz": null,
+            "materialId": 1,
+            "nodeI": 1,
+            "nodeJ": 2,
+            "releaseMyEnd": false,
+            "releaseMyStart": false,
+            "releaseMzEnd": false,
+            "releaseMzStart": false,
+            "releaseTEnd": false,
+            "releaseTStart": false,
+            "rollAngle": null,
+            "sectionId": 1,
+            "type": "frame"
+          }
+        },
+        "leftHand": null,
+        "loads": [
+          {
+            "data": {
+              "bw": null,
+              "fx": -1.0,
+              "fy": 0.0,
+              "fz": 0.0,
+              "mx": 0.0,
+              "my": -0.0,
+              "mz": 0.0,
+              "nodeId": 2
+            },
+            "type": "nodal"
+          }
+        ],
+        "materials": {
+          "1": {
+            "e": 200000.0,
+            "id": 1,
+            "nu": 0.3
+          }
+        },
+        "nodes": {
+          "1": {
+            "id": 1,
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          },
+          "2": {
+            "id": 2,
+            "x": 3.935680227354169,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        "plates": {},
+        "quad9s": {},
+        "quads": {},
+        "sections": {
+          "1": {
+            "a": 0.015327806207351389,
+            "asY": null,
+            "asZ": null,
+            "cw": null,
+            "id": 1,
+            "iy": 0.0006754600636311807,
+            "iz": 0.0006754600636311807,
+            "j": 0.0006754600636311807,
+            "name": null,
+            "shearCenterY": null,
+            "shearCenterZ": null
+          }
+        },
+        "solidShells": {},
+        "solverOptions": null,
+        "supports": {
+          "1": {
+            "drx": null,
+            "dry": null,
+            "drz": null,
+            "dx": null,
+            "dy": null,
+            "dz": null,
+            "isInclined": null,
+            "krx": null,
+            "kry": null,
+            "krz": null,
+            "kw": null,
+            "kx": null,
+            "ky": null,
+            "kz": null,
+            "nodeId": 1,
+            "normalX": null,
+            "normalY": null,
+            "normalZ": null,
+            "rrx": true,
+            "rry": true,
+            "rrz": true,
+            "rw": null,
+            "rx": true,
+            "ry": true,
+            "rz": true
+          },
+          "2": {
+            "drx": null,
+            "dry": null,
+            "drz": null,
+            "dx": null,
+            "dy": null,
+            "dz": null,
+            "isInclined": null,
+            "krx": null,
+            "kry": null,
+            "krz": null,
+            "kw": null,
+            "kx": null,
+            "ky": null,
+            "kz": null,
+            "nodeId": 2,
+            "normalX": null,
+            "normalY": null,
+            "normalZ": null,
+            "rrx": true,
+            "rry": false,
+            "rrz": true,
+            "rw": null,
+            "rx": false,
+            "ry": true,
+            "rz": false
+          }
+        }
+      },
+      "tolerance": 1e-10
+    }
+  },
+  {
+    "api": "solve_ssi_3d",
+    "expected": {
+      "converged": true,
+      "iterations": 18,
+      "results": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0,
+            "ux": -9.142473932683776e-7,
+            "uy": 0.0,
+            "uz": 0.0
+          }
+        ],
+        "elementForces": [
+          {
+            "distributedLoadsY": [],
+            "distributedLoadsZ": [],
+            "elementId": 1,
+            "length": 3.935680227354169,
+            "mxEnd": -0.0,
+            "mxStart": 0.0,
+            "myEnd": -0.0,
+            "myStart": 0.0,
+            "mzEnd": -0.0,
+            "mzStart": 0.0,
+            "nEnd": -0.712121212094237,
+            "nStart": -0.712121212094237,
+            "pointLoadsY": [],
+            "pointLoadsZ": [],
+            "qYI": 0.0,
+            "qYJ": 0.0,
+            "qZI": 0.0,
+            "qZJ": 0.0,
+            "releaseMyEnd": false,
+            "releaseMyStart": false,
+            "releaseMzEnd": false,
+            "releaseMzStart": false,
+            "releaseTEnd": false,
+            "releaseTStart": false,
+            "vyEnd": -0.0,
+            "vyStart": 0.0,
+            "vzEnd": -0.0,
+            "vzStart": 0.0
+          }
+        ],
+        "reactions": [
+          {
+            "fx": 0.712121212094237,
+            "fy": -0.0,
+            "fz": -0.0,
+            "mx": -0.0,
+            "my": -0.0,
+            "mz": -0.0,
+            "nodeId": 1
+          },
+          {
+            "fx": 0.0,
+            "fy": -0.0,
+            "fz": 0.0,
+            "mx": -0.0,
+            "my": 0.0,
+            "mz": -0.0,
+            "nodeId": 2
+          }
+        ]
+      },
+      "springResults": [
+        {
+          "direction": 0,
+          "displacement": -9.142473932683776e-7,
+          "nodeId": 2,
+          "reaction": -0.28787878787704757,
+          "secantStiffness": 314880.62202496285
+        }
+      ]
+    },
+    "input": {
+      "maxIter": 50,
+      "soilSprings": [
+        {
+          "curve": {
+            "points": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.6047959563297502e-7,
+                0.25
+              ],
+              [
+                5.135347060255201e-6,
+                0.5
+              ]
+            ],
+            "type": "custom"
+          },
+          "direction": 0,
+          "nodeId": 2,
+          "tributaryLength": 1.0
+        }
+      ],
+      "solver": {
+        "connectors": {},
+        "constraints": [],
+        "curvedBeams": [],
+        "curvedShells": {},
+        "elements": {
+          "1": {
+            "id": 1,
+            "localYx": null,
+            "localYy": null,
+            "localYz": null,
+            "materialId": 1,
+            "nodeI": 1,
+            "nodeJ": 2,
+            "releaseMyEnd": false,
+            "releaseMyStart": false,
+            "releaseMzEnd": false,
+            "releaseMzStart": false,
+            "releaseTEnd": false,
+            "releaseTStart": false,
+            "rollAngle": null,
+            "sectionId": 1,
+            "type": "frame"
+          }
+        },
+        "leftHand": null,
+        "loads": [
+          {
+            "data": {
+              "bw": null,
+              "fx": -1.0,
+              "fy": 0.0,
+              "fz": 0.0,
+              "mx": 0.0,
+              "my": -0.0,
+              "mz": 0.0,
+              "nodeId": 2
+            },
+            "type": "nodal"
+          }
+        ],
+        "materials": {
+          "1": {
+            "e": 200000.0,
+            "id": 1,
+            "nu": 0.3
+          }
+        },
+        "nodes": {
+          "1": {
+            "id": 1,
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          },
+          "2": {
+            "id": 2,
+            "x": 3.935680227354169,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        "plates": {},
+        "quad9s": {},
+        "quads": {},
+        "sections": {
+          "1": {
+            "a": 0.015327806207351389,
+            "asY": null,
+            "asZ": null,
+            "cw": null,
+            "id": 1,
+            "iy": 0.0006754600636311807,
+            "iz": 0.0006754600636311807,
+            "j": 0.0006754600636311807,
+            "name": null,
+            "shearCenterY": null,
+            "shearCenterZ": null
+          }
+        },
+        "solidShells": {},
+        "solverOptions": null,
+        "supports": {
+          "1": {
+            "drx": null,
+            "dry": null,
+            "drz": null,
+            "dx": null,
+            "dy": null,
+            "dz": null,
+            "isInclined": null,
+            "krx": null,
+            "kry": null,
+            "krz": null,
+            "kw": null,
+            "kx": null,
+            "ky": null,
+            "kz": null,
+            "nodeId": 1,
+            "normalX": null,
+            "normalY": null,
+            "normalZ": null,
+            "rrx": true,
+            "rry": true,
+            "rrz": true,
+            "rw": null,
+            "rx": true,
+            "ry": true,
+            "rz": true
+          },
+          "2": {
+            "drx": null,
+            "dry": null,
+            "drz": null,
+            "dx": null,
+            "dy": null,
+            "dz": null,
+            "isInclined": null,
+            "krx": null,
+            "kry": null,
+            "krz": null,
+            "kw": null,
+            "kx": null,
+            "ky": null,
+            "kz": null,
+            "nodeId": 2,
+            "normalX": null,
+            "normalY": null,
+            "normalZ": null,
+            "rrx": true,
+            "rry": false,
+            "rrz": true,
+            "rw": null,
+            "rx": false,
+            "ry": true,
+            "rz": false
+          }
+        }
+      },
+      "tolerance": 1e-10
+    }
+  }
+]
