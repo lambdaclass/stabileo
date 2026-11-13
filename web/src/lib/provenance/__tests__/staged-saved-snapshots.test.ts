@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { defaultDesignData } from '../../model/design-data';
 import type { ModelSnapshot } from '../../store/history.svelte';
 import { assessProject } from '../applicability';
 import { RESULT_CHANGES } from '../full-registry';
@@ -29,7 +30,7 @@ function savedShell(analysisMode: typeof modes[number]): ModelSnapshot {
   return roundTrip({
     ...snapshot,
     analysisMode,
-    designData: { site: {
+    designData: { ...defaultDesignData(), site: {
       phases: [{ id: 'first', name: 'Shells', start: '2026-11-13', days: 1 }],
       assign: Object.fromEntries(snapshot.quads!.map(([id]) => [`q${id}`, 'first'])),
     } },
@@ -87,7 +88,7 @@ describe('known wrong result: #1952 — saved staged snapshot notice extraction'
     const staged = savedShell(analysisMode);
     const spring = readSnapshot('spring-support');
     for (const snapshot of [staged, { ...spring, analysisMode }]) {
-      for (const designData of [undefined, {}, { site: { phases: [], assign: {} } }]) {
+      for (const designData of [undefined, defaultDesignData(), { ...defaultDesignData(), site: { phases: [], assign: {} } }]) {
         const saved = roundTrip({ ...snapshot, designData });
         expect(modelFeatures(saved)).not.toContain('stagedConstruction');
         expect(modelFeatures(saved)).not.toContain('pathAnalysis');
