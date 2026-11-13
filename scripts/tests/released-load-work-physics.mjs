@@ -4,7 +4,7 @@ export function snapshot(result) {
   assert.notEqual(result.converged,false);
   return result.results??result;
 }
-export function check(result,model,reference,gauges=[]) {
+export function check(result,model,reference,gauges=[],deformed=false) {
   assert.ok(reference && Object.hasOwn(reference,'ok'),`missing native answer: ${JSON.stringify(reference)}`);
   const expected=snapshot(reference.ok);
   const r=snapshot(result);
@@ -50,7 +50,25 @@ export function check(result,model,reference,gauges=[]) {
       scale[family(key)]=Math.max(scale[family(key)],Math.abs(value));
     }
   }
-  const length=Math.max(...expected.elementForces.map(f=>f.length));
+  const nodes=new Map(Object.values(model.nodes).map(n=>[n.id,n]));
+  const geometry=response=>{
+    const displacements=new Map(response.displacements.map(d=>[d.nodeId,d]));
+    return new Map(Object.values(model.elements).map(e=>{
+      const a=nodes.get(e.nodeI),b=nodes.get(e.nodeJ);
+      const delta=['x','y','z'].map(axis=>(b[axis]??0)-(a[axis]??0)+(deformed?(displacements.get(e.nodeJ)[`u${axis}`]??0)-(displacements.get(e.nodeI)[`u${axis}`]??0):0));
+      const length=Math.hypot(...delta);
+      assert.ok(Number.isFinite(length)&&length>0,`model/${e.id}/length`);
+      return [e.id,length];
+    }));
+  };
+  for(const [label,response] of [['WASM',r],['native',expected]]) {
+    const lengths=geometry(response);
+    for(const row of response.elementForces) {
+      const length=lengths.get(row.elementId);
+      assert.ok(Number.isFinite(row.length)&&row.length>0&&Math.abs(row.length-length)<=2.5e-10*length,`${label}/${row.elementId}/length: ${row.length} != geometry ${length}`);
+    }
+  }
+  const length=Math.max(...geometry(expected).values());
   assert.ok(Number.isFinite(length)&&length>0);
   const bound={t:Math.max(scale.t,scale.r*length),r:Math.max(scale.r,scale.t/length),f:Math.max(scale.f,scale.m/length),m:Math.max(scale.m,scale.f*length)};
   for(const [label,response] of [['WASM',r],['native',expected]]) {

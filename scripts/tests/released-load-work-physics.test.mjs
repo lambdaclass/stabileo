@@ -92,13 +92,13 @@ for(const [release,component,axis] of [['hinge','m',1],['releaseMy','my',1],['re
   });
 }
 
-for(const dim of [2,3]) for(const side of ['wasm','native','both']) {
-  test(`${dim}D ${side} member lengths must match each member geometry`,{skip:!process.env.RUN_KNOWN_WRONG},()=>{
+for(const dim of [2,3]) for(const deformed of [false,true]) for(const side of ['wasm','native','both']) {
+  test(`${dim}D ${deformed?'deformed':'initial'} ${side} member lengths must match each member geometry`,()=>{
     const geometry=structuredClone(model);
     geometry.nodes={1:{id:1,x:0,z:0},2:{id:2,x:3,z:4},3:{id:3,x:3,z:6}};
     if(dim===3) for(const node of Object.values(geometry.nodes)) node.y=node.id===1?0:12;
     geometry.elements[2]={id:2,nodeI:2,nodeJ:3};
-    const lengths=[dim===2?5:13,2];
+    const lengths=[deformed?Math.hypot(4,dim===3?12:0,4):(dim===2?5:13),2];
     const make=()=>{
       const r=answer();
       r.displacements.push({...r.displacements[1],nodeId:3});
@@ -106,16 +106,16 @@ for(const dim of [2,3]) for(const side of ['wasm','native','both']) {
       r.elementForces.push({...r.elementForces[0],elementId:2,length:lengths[1]});
       return r;
     };
-    check(make(),geometry,{ok:make()},gauges);
+    check(make(),geometry,{ok:make()},gauges,deformed);
     for(const index of [0,1]) for(const length of [0,-1,NaN,Infinity,undefined,lengths[index]*2,lengths[index]*(1+1e-8)]) {
       const wasm=make(),native=make();
       for(const response of side==='both'?[wasm,native]:[side==='wasm'?wasm:native]) response.elementForces[index].length=length;
-      assert.throws(()=>check(wasm,geometry,{ok:native},gauges),/length/);
+      assert.throws(()=>check(wasm,geometry,{ok:native},gauges,deformed),/length/);
     }
   });
 }
 
-test('member length keeps the existing comparison factor on both sides',{skip:!process.env.RUN_KNOWN_WRONG},()=>{
+test('member length keeps the existing comparison factor on both sides',()=>{
   for(const side of ['wasm','native','both']) for(const delta of [2.5e-10*(1-1e-5),2.5e-10*(1+1e-5)]) {
     const wasm=answer(),native=answer();
     for(const response of side==='both'?[wasm,native]:[side==='wasm'?wasm:native]) response.elementForces[0].length+=delta;
@@ -123,4 +123,13 @@ test('member length keeps the existing comparison factor on both sides',{skip:!p
     if(delta<2.5e-10) verify();
     else assert.throws(verify,/length/);
   }
+});
+
+test('initial and deformed length conventions cannot substitute for each other',()=>{
+  const initial=answer(),deformed=answer();
+  deformed.elementForces[0].length=2;
+  check(initial,model,{ok:answer()},gauges);
+  check(deformed,model,{ok:structuredClone(deformed)},gauges,true);
+  assert.throws(()=>check(initial,model,{ok:answer()},gauges,true),/length/);
+  assert.throws(()=>check(deformed,model,{ok:structuredClone(deformed)},gauges),/length/);
 });

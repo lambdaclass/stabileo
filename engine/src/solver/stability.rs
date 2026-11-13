@@ -493,24 +493,44 @@ impl ReleasedRotations {
             }
             projected.into_iter().collect()
         }).collect();
-        let directions = self.directions.iter().filter_map(|(node,direction)| {
-            let mut projected:BTreeMap<usize,(f64,f64)>=BTreeMap::new();
-            for i in 0..c.n_rows {
-                #[cfg(test)]
-                tests::PROJECT_ROWS.with(|count| count.set(count.get() + 1));
-                let (value,error)=direction.iter().find(|(d,_,_)|*d==i).map_or((0.0,0.0),|(_,x,e)|(*x,*e));
-                let span=c.row_ptr[i]..c.row_ptr[i+1];
+        let unit_rows = self.directions.is_empty() || (0..c.n_rows).all(|i| {
+            #[cfg(test)]
+            tests::PROJECT_ROWS.with(|count| count.set(count.get() + 1));
+            let span = c.row_ptr[i]..c.row_ptr[i + 1];
+            span.is_empty() || (span.len() == 1 && c.vals[span.start] == 1.0)
+        });
+        let directions = self.directions.iter().filter(|_| unit_rows).filter_map(|(node,direction)| {
+            let mut touched = std::collections::BTreeSet::new();
+            for &(i, value, error) in direction {
+                if i >= c.n_rows { continue; }
+                let span = c.row_ptr[i]..c.row_ptr[i + 1];
                 if span.is_empty() {
-                    if value!=0.0 {return None;}
-                } else if span.len()==1 && c.vals[span.start]==1.0 {
-                    let j=c.col_idx[span.start];
-                    if let Some((previous,bound))=projected.get_mut(&j) {
-                        if *previous!=value {return None;}
-                        *bound=bound.max(error);
-                    } else {projected.insert(j,(value,error));}
-                } else {return None;}
+                    if value != 0.0 { return None; }
+                } else if value != 0.0 || error != 0.0 {
+                    touched.insert(c.col_idx[span.start]);
+                }
             }
-            Some((*node,projected.into_iter().filter_map(|(j,(x,e))|(x!=0.0 || e!=0.0).then_some((j,x,e))).collect()))
+            let mut projected = Vec::new();
+            for j in touched {
+                let mut component = None;
+                for p in c.col_ptr[j]..c.col_ptr[j + 1] {
+                    #[cfg(test)]
+                    tests::PROJECT_ROWS.with(|count| count.set(count.get() + 1));
+                    let i = c.row_idx[p];
+                    let (value, error) = direction.iter().find(|(d, _, _)| *d == i).map_or((0.0, 0.0), |(_, x, e)| (*x, *e));
+                    match &mut component {
+                        Some((previous, bound)) => {
+                            if *previous != value { return None; }
+                            *bound = f64::max(*bound, error);
+                        }
+                        None => component = Some((value, error)),
+                    }
+                }
+                if let Some((value, error)) = component {
+                    if value != 0.0 || error != 0.0 { projected.push((j, value, error)); }
+                }
+            }
+            Some((*node, projected))
         }).collect();
         Self { rows, nodes: self.nodes.clone(), directions }
     }
@@ -1337,7 +1357,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2074"]
     fn sparse_release_projection_visits_only_touched_columns() {
         let n = 512;
         let c = crate::solver::constraints::SparseTransform::from_rows(n, n, (0..n).map(|i| vec![(i, 1.0)]).collect());
@@ -1353,6 +1372,54 @@ mod tests {
             assert_eq!(result.directions.len(), count);
             let visits = PROJECT_ROWS.with(|visits| visits.get());
             assert!(visits <= n + 3*count, "{count} sparse directions visited {visits} rows");
+        }
+    }
+
+    #[test]
+    fn sparse_release_projection_preserves_dense_compatibility_and_error_bounds() {
+        use crate::solver::constraints::SparseTransform;
+        for transform in [
+            vec![vec![(0, 1.0)], vec![(1, 1.0)], vec![(2, 1.0)], vec![(3, 1.0)]],
+            vec![vec![(0, 1.0)], vec![(0, 1.0)], vec![(1, 1.0)], vec![]],
+            vec![vec![(0, 1.0)], vec![(1, 1.0)], vec![(2, 1.0)], vec![]],
+            vec![vec![(0, 1.0)], vec![(1, 1.0)], vec![(2, 1.0)], vec![(3, 1.0_f64.next_down())]],
+            vec![vec![(0, 1.0)], vec![(1, 1.0)], vec![(2, 1.0)], vec![(3, 1.0_f64.next_up())]],
+            vec![vec![(0, 1.0)], vec![(1, 1.0)], vec![(2, 1.0)], vec![(2, 0.5), (3, 0.5)]],
+        ] {
+            let c = SparseTransform::from_rows(4, 4, transform);
+            for source in [
+                vec![],
+                vec![(0, 1.0, f64::EPSILON)],
+                vec![(0, 1.0, f64::EPSILON), (1, 1.0, 2.0*f64::EPSILON)],
+                vec![(0, 1.0, f64::EPSILON), (1, 1.0_f64.next_up(), f64::EPSILON)],
+                vec![(0, 0.0, f64::EPSILON)],
+                vec![(3, 1.0, 0.0)],
+                vec![(3, 0.0, f64::EPSILON)],
+            ] {
+                let dense = || {
+                    let mut projected: BTreeMap<usize, (f64, f64)> = BTreeMap::new();
+                    for i in 0..c.n_rows {
+                        let (value, error) = source.iter().find(|(d, _, _)| *d == i).map_or((0.0, 0.0), |(_, x, e)| (*x, *e));
+                        let span = c.row_ptr[i]..c.row_ptr[i + 1];
+                        if span.is_empty() {
+                            if value != 0.0 { return None; }
+                        } else if span.len() == 1 && c.vals[span.start] == 1.0 {
+                            let j = c.col_idx[span.start];
+                            if let Some((previous, bound)) = projected.get_mut(&j) {
+                                if *previous != value { return None; }
+                                *bound = bound.max(error);
+                            } else { projected.insert(j, (value, error)); }
+                        } else { return None; }
+                    }
+                    Some(projected.into_iter().filter_map(|(j, (x, e))| (x != 0.0 || e != 0.0).then_some((j, x, e))).collect::<Vec<_>>())
+                };
+                let expected = dense();
+                let releases = ReleasedRotations { rows: vec![vec![(0, 1.0)]], nodes: [1].into(), directions: vec![(1, source)] };
+                let actual = releases.project(&c);
+                assert_eq!(actual.directions.first().map(|(_, v)| v.clone()), expected);
+                assert_eq!(actual.nodes, releases.nodes);
+                assert_eq!(actual.rows, vec![vec![(0, 1.0)]]);
+            }
         }
     }
 

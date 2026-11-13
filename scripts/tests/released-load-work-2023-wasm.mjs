@@ -38,8 +38,8 @@ function condensedLoads(model) {
   }
   return condensedCache.get(model);
 }
-function check(result,model,reference,gauges=modelGauges.get(model)) {
-  checkPhysics({...snapshot(result),condensedLoads:condensedLoads(model)},model,reference,gauges);
+function check(result,model,reference,gauges=modelGauges.get(model),deformed=false) {
+  checkPhysics({...snapshot(result),condensedLoads:condensedLoads(model)},model,reference,gauges,deformed);
 }
 const oracleModel=cases[0].model;
 const mutationFailures=[];
@@ -89,6 +89,15 @@ for(const collection of ['displacements','reactions','elementForces']) for(const
     check(wrong,gaugeCase.model,reference,gaugeCase.gauges);
   }
 }
+for(const dim of [2,3]) for(const path of ['linear','corotational']) {
+  const c=trussCases.find(c=>c.dim===dim&&c.kind!=='thermal');
+  for(const side of ['wasm','native','both']) for(const length of [0,-1,NaN,Infinity,undefined,2*snapshot(c.references[path].ok).elementForces[0].length]) {
+    const wrong=structuredClone(run(path,dim,c.model));
+    const reference=structuredClone(c.references[path]);
+    for(const response of side==='both'?[wrong,reference.ok]:[side==='wasm'?wrong:reference.ok]) snapshot(response).elementForces[0].length=length;
+    assert.throws(()=>check(wrong,c.model,reference,c.gauges,path==='corotational'),/length/,`${dim}D/${path}/${side} length corruption passed`);
+  }
+}
 const corrupted=structuredClone(run('linear',2,oracleModel));
 for(const f of corrupted.elementForces) for(const key of Object.keys(f)) if(/(Start|End)$/.test(key)&&typeof f[key]==='number') f[key]=0;
 assert.throws(()=>check(corrupted,oracleModel,cases[0].references.linear));
@@ -110,8 +119,8 @@ for(const [i,c] of cases.entries()) {
       else {
         if(path==='pdelta') {
           assertAdmittedPdeltaConverged(c.references[path],result);
-          if(result.converged) check(result,c.model,c.references[path],c.gauges);
-        } else check(result,c.model,c.references[path],c.gauges);
+          if(result.converged) check(result,c.model,c.references[path],c.gauges,path==='corotational');
+        } else check(result,c.model,c.references[path],c.gauges,path==='corotational');
         solves++;
         const key=`${c.dim}:${path}`;
         admitted.set(key,(admitted.get(key)??0)+1);
@@ -138,7 +147,7 @@ console.log(`Released-load work: ${solves} public WASM admissions, ${unresolved}
 let exactSolves=0;
 for(const {name,model,references,gauges} of exactCases) {
   for(const path of ['linear','session','certified','constrained','staged','staged-two']) {
-    try {check(run(path,3,model),model,references[path],gauges);exactSolves++;}
+    try {check(run(path,3,model),model,references[path],gauges,path==='corotational');exactSolves++;}
     catch(e){throw new Error(`${name}/${path}: ${e}`);}
   }
 }
@@ -167,7 +176,7 @@ for(const c of cancellations) for(const path of paths) {
       check(result.linearResults,c.model,{ok:c.references[path].ok.linearResults});
       assert.equal(result.converged,true);
     }
-    check(result,c.model,c.references[path]);
+    check(result,c.model,c.references[path],undefined,path==='corotational');
     cancellationSolves++;
     const roundoff=structuredClone(c.model);
     const load=roundoff.loads[1];
@@ -179,7 +188,7 @@ for(const c of cancellations) for(const path of paths) {
       roundoff.loads.push(term);
     }
     const roundedResult=run(path,c.dim,roundoff);
-    check(roundedResult,roundoff,c.references[path],c.gauges);
+    check(roundedResult,roundoff,c.references[path],c.gauges,path==='corotational');
     cancellationRoundoffSolves++;
     for(const residual of [-Number.EPSILON,Number.EPSILON]) {
       const bad=structuredClone(roundoff);
@@ -209,7 +218,7 @@ for(const c of trussCases) for(const path of paths) {
     check(result.linearResults,c.model,{ok:c.references[path].ok.linearResults},c.gauges);
     assert.equal(result.converged,true);
   }
-  check(result,c.model,c.references[path],c.gauges);
+  check(result,c.model,c.references[path],c.gauges,path==='corotational');
   trussSolves++;
   for(const nodeId of [1,2]) for(const magnitude of [-1,-Number.EPSILON,Number.EPSILON,1]) {
     const bad=structuredClone(c.model);
@@ -241,8 +250,8 @@ for(const [i,c] of assemblyCases.entries()) for(const path of paths) {
     else {
       if(path==='pdelta') {
         assertAdmittedPdeltaConverged(c.references[path],result);
-        if(result.converged) check(result,c.model,c.references[path],c.gauges);
-      } else check(result,c.model,c.references[path],c.gauges);
+        if(result.converged) check(result,c.model,c.references[path],c.gauges,path==='corotational');
+      } else check(result,c.model,c.references[path],c.gauges,path==='corotational');
       assemblySolves++;
     }
   } catch(e) {
@@ -280,7 +289,7 @@ for(const [i,c] of mixedOrphans.entries()) for(const path of paths) {
       check(result.linearResults,c.model,{ok:c.references[path].ok.linearResults},[]);
       assert.equal(result.converged,true);
     }
-    check(result,c.model,c.references[path],[]);
+    check(result,c.model,c.references[path],[],path==='corotational');
     mixedSolves++;
   }
 }
@@ -338,7 +347,7 @@ assert.equal(solves+unresolved,cases.length*paths.length);
       if(path==='pdelta') {
         check(result.linearResults,c.model,c.references.linear,c.gauges);
         assert.equal(result.converged,false);
-      } else check(result,c.model,c.references[path],c.gauges);
+      } else check(result,c.model,c.references[path],c.gauges,path==='corotational');
     }
     for(const factor of [-Number.EPSILON,-Math.sqrt(Number.EPSILON),Number.EPSILON,Math.sqrt(Number.EPSILON)]) {
       const bad=structuredClone(c.model);
