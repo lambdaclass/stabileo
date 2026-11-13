@@ -354,7 +354,12 @@ fn native_and_wasm_share_released_load_models() {
         }
     }
     if let Ok(path) = std::env::var("RELEASED_LOAD_CASES") {
-        std::fs::write(path, serde_json::to_vec(&cases).unwrap()).unwrap();
+        for c in &mut cases {
+            c["references"] = native_references(c["dim"].as_u64().unwrap(), &c["model"]);
+        }
+        let exact: Value = serde_json::from_str(include_str!("../fixtures/released-load-work-2023.json")).unwrap();
+        let exact: Vec<_> = exact.as_object().unwrap().iter().map(|(name, model)| json!({"name":name,"model":model,"references":native_references(3, model)})).collect();
+        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact})).unwrap()).unwrap();
     }
     assert_eq!(cases.len(), 234);
 }
@@ -634,4 +639,65 @@ fn material_nonlinear_retained_moments_use_the_physical_release_check() {
         }
     }
     assert!(completed > 0);
+}
+
+fn native_references(dim: u64, model: &Value) -> Value {
+    use dedaliano_engine::solver::{cable, constraints, contact, corotational, material_nonlinear, pdelta, ssi, winkler};
+    let wrapper = json!({"solver":model,"soilSprings":[],"foundationSprings":[],"densities":{},"materialModels":{},"sectionCapacities":{},"maxIter":60,"tolerance":1e-10,"nIncrements":4});
+    macro_rules! references {
+        ($input:ty, $solve:path, $session:ty, $constrained:path, $corot:path, $material:path, $cable:path, $contact:path, $ssi:path, $winkler:path, $pdelta:path, $stage:path, $all:path) => {{
+            let s: $input = serde_json::from_value(model.clone()).unwrap();
+            let encode = |r| match r { Ok(v) => json!({"ok":v}), Err(e) => json!({"error":e}) };
+            let mut refs = serde_json::Map::new();
+            refs.insert("linear".into(), encode($solve(&s).map(|r| serde_json::to_value(r).unwrap())));
+            refs.insert("session".into(), encode(<$session>::from_input(s.clone()).and_then(|session| session.solve_loads(&s.loads)).map(|r| serde_json::to_value(r).unwrap())));
+            refs.insert("certified".into(), refs["linear"].clone());
+            refs.insert("constrained".into(), encode($constrained(&serde_json::from_value(json!({"solver":s,"constraints":s.constraints})).unwrap()).map(|r| serde_json::to_value(r).unwrap())));
+            refs.insert("corotational".into(), encode($corot(&s,100,1e-10,4,false).map(|r| serde_json::to_value(r).unwrap())));
+            refs.insert("material".into(), encode($material(&serde_json::from_value(wrapper.clone()).unwrap()).map(|r| serde_json::to_value(r).unwrap())));
+            refs.insert("cable".into(), encode($cable(&s,&Default::default(),100,1e-10).map(|r| json!({"results":r.results,"converged":r.converged}))));
+            refs.insert("contact".into(), encode($contact(&serde_json::from_value(wrapper.clone()).unwrap()).map(|r| serde_json::to_value(r).unwrap())));
+            refs.insert("ssi".into(), encode($ssi(&serde_json::from_value(wrapper.clone()).unwrap()).map(|r| serde_json::to_value(r).unwrap())));
+            refs.insert("winkler".into(), encode($winkler(&serde_json::from_value(wrapper.clone()).unwrap()).map(|r| serde_json::to_value(r).unwrap())));
+            refs.insert("pdelta".into(), encode($pdelta(&s,100,1e-12).map(|r| serde_json::to_value(r).unwrap())));
+            let all = $all(&s,(0..s.loads.len()).collect());
+            refs.insert("staged".into(), encode($stage(&s,json!([all])).map(|r| serde_json::to_value(r.final_results).unwrap())));
+            let empty = $all(&s,vec![]);
+            let second = json!({"name":"loads","elementsAdded":[],"supportsAdded":[],"loadIndices":(0..s.loads.len()).collect::<Vec<_>>()});
+            refs.insert("staged-two".into(), encode($stage(&s,json!([empty,second])).map(|r| serde_json::to_value(r.final_results).unwrap())));
+            Value::Object(refs)
+        }};
+    }
+    if dim == 2 {
+        references!(SolverInput, linear::solve_2d, dedaliano_engine::load_session::LoadSession2D, constraints::solve_constrained_2d, corotational::solve_corotational_2d, material_nonlinear::solve_nonlinear_material_2d, cable::solve_cable_2d, contact::solve_contact_2d, ssi::solve_ssi_2d, winkler::solve_winkler_2d, pdelta::solve_pdelta_2d, released_stage_2d, released_stage_all_2d)
+    } else {
+        references!(SolverInput3D, linear::solve_3d, dedaliano_engine::load_session::LoadSession3D, constraints::solve_constrained_3d, corotational::solve_corotational_3d, material_nonlinear::solve_nonlinear_material_3d, cable::solve_cable_3d, contact::solve_contact_3d, ssi::solve_ssi_3d, winkler::solve_winkler_3d, pdelta::solve_pdelta_3d, crate::ana3::staged_3d, crate::ana3::stage_all)
+    }
+}
+
+fn released_stage_all_2d(s: &SolverInput, loads: Vec<usize>) -> Value {
+    json!({"name":"all","elementsAdded":s.elements.values().map(|e| e.id).collect::<Vec<_>>(),"supportsAdded":s.supports.values().map(|s| s.id).collect::<Vec<_>>(),"loadIndices":loads})
+}
+
+fn released_stage_2d(s: &SolverInput, stages: Value) -> Result<StagedAnalysisResults, String> {
+    let mut v = serde_json::to_value(s).unwrap();
+    v["stages"] = stages;
+    dedaliano_engine::solver::staged::solve_staged_2d(&dedaliano_engine::solver::staged::parse_staged_2d(&v.to_string())?)
+}
+
+#[test]
+fn released_nodes_do_not_hide_unsupported_translational_forces() {
+    for dim in [2,3] {
+        for local in 0..dim {
+            let mut model = if dim == 2 { serde_json::to_value(member_2d("Start")).unwrap() } else { serde_json::to_value(member("Mz", "Start", false)).unwrap() };
+            model["nodes"]["3"] = if dim == 2 { json!({"id":3,"x":1.0,"z":1.0}) } else { json!({"id":3,"x":1.0,"y":1.0,"z":1.0}) };
+            let mut load = if dim == 2 { json!({"type":"nodal","data":{"nodeId":3,"fx":0.0,"fz":0.0,"my":0.0}}) } else { json!({"type":"nodal","data":{"nodeId":3,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":0.0}}) };
+            load["data"][["fx","fy","fz"][if dim == 2 && local == 1 {2} else {local}]] = json!(1.0);
+            model["loads"].as_array_mut().unwrap().push(load);
+            for path in ["corotational","material","ssi"] {
+                let result = native_references(dim as u64, &model);
+                assert!(result[path]["error"].is_string(), "{dim}/{local}/{path}: {}", result[path]);
+            }
+        }
+    }
 }

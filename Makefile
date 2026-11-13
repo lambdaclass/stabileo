@@ -1092,3 +1092,8 @@ test.engine.ssi-elastic-2011-wasm: wasm
 	SSI_ELASTIC_2011_CASES=$(CURDIR)/.2011-cases $(MAKE) test.engine.ssi-elastic-2011
 	$(NIX_RUN) node scripts/tests/ssi-elastic-2011-wasm.mjs $(CURDIR)/.2011-cases.2.json $(CURDIR)/.2011-cases.3.json $(CURDIR)/.2011-cases.4.json $(CURDIR)/.2011-cases.5.json $(CURDIR)/.2011-cases.6.json $(CURDIR)/.2011-cases.7.json $(CURDIR)/.2011-cases.8.json $(CURDIR)/.2011-cases.9.json
 	rm -f $(CURDIR)/.2011-cases.*.json
+
+.PHONY: test.engine.released-orphan-2074
+
+test.engine.released-orphan-2074:
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib released_orphan_2074_tests -- --nocapture $(if $(IGNORED),--include-ignored)

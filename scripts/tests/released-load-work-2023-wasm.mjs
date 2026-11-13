@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 engine.initSync({module:readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm',import.meta.url))});
-const cases=JSON.parse(readFileSync(process.argv[2],'utf8'));
+const {cases,exact:exactCases}=JSON.parse(readFileSync(process.argv[2],'utf8'));
 assert.equal(cases.length,234);
 const parse=x=>typeof x==='string'?JSON.parse(x):x;
 function stage(model,dim,two) {
@@ -38,6 +38,13 @@ function check(result,model) {
   for(const d of r.displacements) for(const value of Object.values(d)) if(typeof value==='number') assert.ok(Number.isFinite(value));
 }
 const oracleModel=cases[0].model;
+const mutationFailures=[];
+for(const factor of [2,-1]) {
+  const wrong=structuredClone(run('linear',2,oracleModel));
+  for(const f of wrong.elementForces) for(const key of Object.keys(f)) if(/(Start|End)$/.test(key)&&typeof f[key]==='number') f[key]*=factor;
+  try {assert.throws(()=>check(wrong,oracleModel,cases[0].references.linear),`force corruption ${factor} passed`);} catch(e) {mutationFailures.push(String(e));}
+}
+assert.deepEqual(mutationFailures,[]);
 const corrupted=structuredClone(run('linear',2,oracleModel));
 for(const f of corrupted.elementForces) for(const key of Object.keys(f)) if(/(Start|End)$/.test(key)&&typeof f[key]==='number') f[key]=0;
 assert.throws(()=>check(corrupted,oracleModel));
@@ -82,9 +89,8 @@ assert.equal(solves+unresolved,cases.length*paths.length);
 assert.equal(refusals,cases.length*paths.length*2);
 console.log(`Released-load work: ${solves} public WASM admissions, ${unresolved} explicit nonlinear numerical refusals, ${refusals} unsupported-moment refusals`);
 
-const exactCases=JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/released-load-work-2023.json',import.meta.url),'utf8'));
 let exactSolves=0;
-for(const [name,model] of Object.entries(exactCases)) {
+for(const {name,model} of exactCases) {
   for(const path of ['linear','session','certified','constrained','staged','staged-two']) {
     try {check(run(path,3,model),model);exactSolves++;}
     catch(e){throw new Error(`${name}/${path}: ${e}`);}

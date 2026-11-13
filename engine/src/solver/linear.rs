@@ -5521,3 +5521,71 @@ fn checked_initial_released_loads_3d(input: &SolverInput3D) -> Result<ReleasedLo
         None=>Ok(certificate),
     }
 }
+
+#[cfg(test)]
+mod released_orphan_2074_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn model() -> SolverInput3D {
+        let mut v: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/nightly-2026-11-13.json")).unwrap();
+        let v = &mut v["2023"];
+        v["nodes"] = json!({"1":{"id":1,"x":0.0,"y":0.0,"z":0.0},"2":{"id":2,"x":3.0,"y":0.0,"z":0.0}});
+        let mut e = v["elements"]["1"].clone();
+        e["nodeI"] = json!(1);
+        e["nodeJ"] = json!(2);
+        e["releaseMzStart"] = json!(true);
+        v["elements"] = json!({"1":e});
+        v["supports"] = json!({"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false},"2":{"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}});
+        v["loads"] = json!([{"type":"nodal","data":{"nodeId":1,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":1.0,"mz":0.0}}]);
+        serde_json::from_value(v.clone()).unwrap()
+    }
+
+    fn check_translations(material: bool) {
+        for local in 0..3 {
+            for force in [-1.0, -f64::from_bits(1), f64::from_bits(1), 1.0] {
+                let mut s = model();
+                let SolverLoad3D::Nodal(n) = &mut s.loads[0] else { unreachable!() };
+                match local { 0 => n.fx = force, 1 => n.fy = force, _ => n.fz = force }
+                let dof = DofNumbering::build_3d(&s);
+                let certificate = checked_initial_released_loads_3d(&s).unwrap();
+                assert!(certificate.nodes.contains(&1));
+                let orphan = [dof.global_dof(1, local).unwrap()].into_iter().collect();
+                let r = if material {
+                    refuse_material_loads_on_orphan_dofs_3d(&s, &dof, &orphan)
+                } else {
+                    refuse_loads_on_orphan_dofs_3d(&dof, &orphan, &s.loads)
+                };
+                assert!(r.is_err(), "local={local}, force={force}, material={material}");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2074"]
+    fn material_certificate_never_admits_orphan_translations() {
+        check_translations(true);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2074"]
+    fn uncertified_backstop_never_admits_orphan_translations() {
+        check_translations(false);
+    }
+
+    #[test]
+    fn zero_orphan_forces_and_retained_moments_keep_their_answer() {
+        let mut s = model();
+        let dof = DofNumbering::build_3d(&s);
+        let orphan = (0..3).map(|local| dof.global_dof(1, local).unwrap()).collect();
+        for zero in [0.0, -0.0] {
+            let SolverLoad3D::Nodal(n) = &mut s.loads[0] else { unreachable!() };
+            n.fx = zero; n.fy = zero; n.fz = zero;
+            refuse_material_loads_on_orphan_dofs_3d(&s, &dof, &orphan).unwrap();
+            refuse_loads_on_orphan_dofs_3d(&dof, &orphan, &s.loads).unwrap();
+            let r = solve_3d(&s).unwrap();
+            assert_eq!(r.element_forces.len(), 1);
+            assert!(r.element_forces[0].my_start != 0.0);
+        }
+    }
+}
