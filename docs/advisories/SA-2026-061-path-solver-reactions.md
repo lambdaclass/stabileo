@@ -181,6 +181,33 @@ response, and re-check that stage and everything after it. A reaction total
 that does not balance the applied load confirms the defect; a balanced total
 alone does not prove the result correct.
 
+## Staged removal of a loaded member
+
+Staged analysis 2D and 3D did not redistribute the internal force a member
+carried when a later stage removed it. The remaining structure kept the
+displacements of the earlier stage, and reactions and member forces were
+recovered from that state as if the removed member were still sharing the
+load. Main returned these results without warnings or diagnostics
+([#1996](https://github.com/lambdaclass/stabileo/issues/1996)).
+
+A replay of origin/main `56caebec4875af81d72a0673f191c2b77b1d1594` uses two
+identical parallel 5 m members from a fixed root, each with EA/L = 400000. Stage
+1 activates both and applies Fx = 100 at the tip, which correctly gives tip
+`ux = 0.000125` and an axial force of 50 in each member. Stage 2 removes one
+member with no new load. Equilibrium then requires tip `ux = 0.00025` and a root
+reaction of -100. Main kept `ux = 0.000125`, reported a root reaction of -50 and
+a force of 50 in the remaining member, in 2D and 3D, and carried that answer
+into every later stage and the final result. Fixture
+`engine/tests/fixtures/staged-removal-r20.json` retains the inputs.
+
+After #1952, removing a member that carries load after loading refuses the
+staged history with a structured error naming #1996. Removing an unloaded
+member, or one removed before any load, still solves. Redistribution of the
+released force is not implemented. To screen past models, look for staged
+member removals after any stage with nonzero load, and re-check that stage and
+everything after it. A reaction total that does not balance the applied load
+confirms the defect.
+
 ## How to tell if your results are affected
 
 Identify the analysis method and the engine/build that produced the saved
