@@ -159,6 +159,10 @@ fn issue_2067_released_rotation_load() {
 fn issue_2019_rigid_translation_matches_the_independent_zero_strain_solution() {
     let input = serde_json::from_value(witness("decoded-2019")).unwrap();
     let out = dedaliano_engine::certify::certify_linear_3d_full(&input).unwrap();
+    verify_2019_rigid_translation(&out);
+}
+
+fn verify_2019_rigid_translation(out: &dedaliano_engine::certify::CertifiedResults3D) {
     let dedaliano_engine::certify::Certificate::Certified { abs_bound, .. } = out.certificate
     else {
         panic!("{:?}", out.certificate)
@@ -187,4 +191,105 @@ fn issue_2019_rigid_translation_matches_the_independent_zero_strain_solution() {
             assert!(v.abs() <= b, "{reaction:?} outside {bound:?}");
         }
     }
+}
+
+fn certified_2019() -> dedaliano_engine::certify::CertifiedResults3D {
+    let input = serde_json::from_value(witness("decoded-2019")).unwrap();
+    dedaliano_engine::certify::certify_linear_3d_full(&input).unwrap()
+}
+
+#[test]
+#[ignore = "known wrong result: #2070"]
+fn issue_2070_rejects_empty_displacements() {
+    let mut out = certified_2019();
+    out.results.displacements.clear();
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted empty displacements"
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #2070"]
+fn issue_2070_rejects_missing_displacements() {
+    let mut out = certified_2019();
+    out.results.displacements.pop().unwrap();
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted missing displacements"
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #2070"]
+fn issue_2070_rejects_duplicate_displacements() {
+    let mut out = certified_2019();
+    out.results.displacements.push(out.results.displacements[0].clone());
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted duplicate displacements"
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #2070"]
+fn issue_2070_rejects_unexpected_displacements() {
+    let mut out = certified_2019();
+    out.results.displacements[0].node_id = usize::MAX;
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted unexpected displacements"
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #2070"]
+fn issue_2070_rejects_empty_reactions() {
+    let mut out = certified_2019();
+    out.results.reactions.clear();
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted empty reactions"
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #2070"]
+fn issue_2070_rejects_missing_reactions() {
+    let mut out = certified_2019();
+    out.results.reactions.pop().unwrap();
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted missing reactions"
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #2070"]
+fn issue_2070_rejects_duplicate_reactions() {
+    let mut out = certified_2019();
+    out.results.reactions.push(out.results.reactions[0].clone());
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted duplicate reactions"
+    );
+}
+
+#[test]
+fn issue_2070_rejects_unexpected_reactions() {
+    let mut out = certified_2019();
+    out.results.reactions[0].node_id = usize::MAX;
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted unexpected reactions"
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #2070"]
+fn issue_2070_rejects_empty_result_arrays() {
+    let mut out = certified_2019();
+    out.results.displacements.clear();
+    out.results.reactions.clear();
+    assert!(std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err());
 }
