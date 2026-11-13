@@ -658,6 +658,72 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
+    fn r19_unpruned_physical(dim: usize) {
+        let mut model: serde_json::Value = serde_json::from_str(if dim == 2 {
+            include_str!("../../tests/fixtures/reaction-recovery-2d.json")
+        } else {
+            include_str!("../../tests/fixtures/reaction-recovery-3d.json")
+        }).unwrap();
+        model["loads"] = serde_json::json!([]);
+        let evaluate = |model: serde_json::Value, sparse: bool, zero: bool| {
+            if dim == 2 {
+                let input: SolverInput = serde_json::from_value(model).unwrap();
+                let dofs = DofNumbering::build_2d(&input);
+                let max = assemble_2d(&input,&dofs).k.iter().map(|v|v.abs()).fold(0.0,f64::max);
+                let mut u = vec![0.0;dofs.n_total];
+                if !zero {
+                    u[dofs.global_dof(1,0).unwrap()] = 0.1;
+                    u[dofs.global_dof(1,1).unwrap()] = 0.2;
+                    u[dofs.global_dof(1,2).unwrap()] = 0.03;
+                }
+                let residual = PDeltaSystem2D::physical_residual(&input,&dofs,sparse,&u);
+                let metric = super::super::convergence::EquilibriumMetric::for_2d(&input,&dofs,None).unwrap();
+                let (_,relative) = recover_pdelta_forces(&residual,&metric,&dofs,&vec![0.0;dofs.n_total],&u,None);
+                (residual.residual,max,relative)
+            } else {
+                let input: SolverInput3D = serde_json::from_value(model).unwrap();
+                let dofs = DofNumbering::build_3d(&input);
+                let max = assemble_3d(&input,&dofs).k.iter().map(|v|v.abs()).fold(0.0,f64::max);
+                let mut u = vec![0.0;dofs.n_total];
+                if !zero {
+                    u[dofs.global_dof(1,0).unwrap()] = 0.1;
+                    u[dofs.global_dof(1,2).unwrap()] = 0.2;
+                    u[dofs.global_dof(1,4).unwrap()] = -0.03;
+                }
+                let residual = PDeltaSystem3D::physical_residual(&input,&dofs,sparse,&u);
+                let metric = super::super::convergence::EquilibriumMetric::for_3d(&input,&dofs,None).unwrap();
+                let (_,relative) = recover_pdelta_forces(&residual,&metric,&dofs,&vec![0.0;dofs.n_total],&u,None);
+                (residual.residual,max,relative)
+            }
+        };
+        let (reference,max,_) = evaluate(model.clone(),false,false);
+        let norm = reference.iter().fold(0.0_f64,|n,v|n.hypot(*v));
+        assert!(norm > 0.0);
+        for scale in [1.0,0.5e-30/max,2.0e-30/max] {
+            let mut scaled = model.clone();
+            scaled["materials"]["1"]["e"] = serde_json::json!(scaled["materials"]["1"]["e"].as_f64().unwrap()*scale);
+            for sparse in [false,true] {
+                for zero in [false,true] {
+                    let (residual,_,relative) = evaluate(scaled.clone(),sparse,zero);
+                    eprintln!("r19 unpruned {dim}D sparse={sparse} zero={zero} scale={scale:e} relative={relative:e}");
+                    assert_eq!(relative == 0.0,zero);
+                    for (actual,expected) in residual.iter().zip(&reference) {
+                        let expected = if zero {0.0} else {expected*scale};
+                        assert!((actual-expected).abs() <= 64.0*f64::EPSILON*norm*scale,"{dim}D sparse={sparse} scale={scale:e}: {actual:e} != {expected:e}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn r19_unpruned_physical_2d() { r19_unpruned_physical(2); }
+
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn r19_unpruned_physical_3d() { r19_unpruned_physical(3); }
+
     #[test]
     fn r19_spatial_physical_dense_sparse() {
         let mut model: SolverInput = serde_json::from_str(include_str!("../../tests/metamorphic_corpus/nightly/issue-971.json")).unwrap();

@@ -1112,7 +1112,7 @@ test.engine.arc-corrector-2009-wasm: wasm
 
 .PHONY: test.engine.containment-r19 test.engine.containment-r19-wasm
 test.engine.containment-r19:
-	$(NIX_RUN) cargo test -p dedaliano-engine --lib r19_ -- --nocapture
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib r19_ -- --nocapture $(if $(IGNORED),--ignored)
 	$(NIX_RUN) cargo test -p dedaliano-engine --test metamorphic issue_1952_r19 -- --nocapture $(if $(IGNORED),--ignored)
 	$(NIX_RUN) cargo test -p dedaliano-engine --test validation issue_1952_r19 -- --nocapture
 
