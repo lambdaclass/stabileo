@@ -179,6 +179,170 @@ Teaching buckling checks each mode's refined geometric work against that mode's 
 - Restrained reactions cannot mask a free residual. Support-only increments use physical support-to-free coupling, and material Newton steps apply settlements before accepting convergence. Model length uses the geometric centroid; valid point springs and coincident connectors retain their answers. P-Delta includes prescribed displacement scales and the spatial warping seed.
 - Path following rejects reference loads eliminated by constraints. Nonlinear SSI checks relative stiffness changes and equilibrium with the updated soil curves. Positive material capacities are no longer ignored below an absolute force floor. Re-run affected nonlinear and SSI analyses (#761, PR #1940). See [the results-change record](docs/results-changes/2026-11-supported-and-soil-equilibrium.md).
 
+#### Recover reactions from the reported equilibrium state (2026-11-11)
+
+Arc-length and displacement control recover support reactions
+and member loading at the final load factor. Staged, P-Delta, corotational,
+material-nonlinear, contact, cable, Winkler and Guyan analyses include forces transferred through
+constraints to restrained masters in 2D and 3D. Nonlinear constraint forces use
+the final internal-force residual. Unavailable time-history total reactions and
+undetermined stages without physical stiffness receive explicit diagnostics.
+Stages whose active restraints disagree with the solved DOFs are refused;
+fully determined constraint-only stages recover their actual reactions.
+Guyan 3D also recovers previously omitted member forces. P-Delta states
+that fail finite-displacement equilibrium are explicitly diagnosed. See the
+[results-change write-up](docs/results-changes/2026-11-arc-length-reactions.md)
+(#1949).
+
+#### Keep correct P-Delta answers across rotations and unit changes
+
+P-Delta physical recovery now shares the iteration's assembled tangent and
+compensated residual arithmetic. Correct answers near the requested residual
+criterion remain available; failed physical residuals still withhold forces
+and stresses. The sparse tangent also retains small real coefficients instead
+of erasing them with an absolute cutoff before physical checking. Reaction recovery binds the assembled support model to its
+physical forces, preventing callers from substituting raw inputs. Recheck
+saved P-Delta results; see the
+[results-change write-up](docs/results-changes/2026-11-pdelta-compensated-recovery.md)
+(#1952).
+
+#### Preserve settlement-only and fully restrained equilibrium states
+
+Normalize P-Delta residuals by the effective prescribed-motion RHS, retain
+constraint motion from settled masters, and recover valid fully restrained
+stages without artificial support forces. Scope the reaction-change registry
+to explicitly identified path results and verify final scaled member shears
+and moments independently for distributed and point loads (#1952). See the
+[results-change write-up](docs/results-changes/2026-11-arc-length-reactions.md).
+
+#### Preserve physical recovery across the nonlinear convergence merge
+
+- Preserve main's nonlinear convergence and soil-curve corrections together with
+  physical reaction recovery. Regenerate the two frozen arc paths and existing
+  replay outputs from the merged engine; record every changed scalar in
+  `docs/results-changes/1952-main-merge-values.json` (#1952, #1940).
+
+- Limit staged-history declarations to their stage and final-stage collections,
+  and register nonlinear path history through its own analysis context. Static
+  force changes remain unexplained by these notices (#1952).
+
+#### Member load actions follow the final member frame (2026-11-12)
+
+Transform fixed-end forces and moments into the final member frame before
+recovering 2D/3D corotational end actions, including planar path solvers. Rotated
+members under dead member loads now report the axial and transverse projections
+consistent with their final orientation. See the
+[results-change write-up](docs/results-changes/2026-11-corotational-member-load-frame.md)
+and existing SA-2026-061 (#1952).
+
+#### Preserve staged containment and result registrations when merging main (#1952)
+
+- Preserve main's staged physical-stiffness and kinematic checks together with
+  #1952's complete staged stiffness fingerprint and support-spring history
+  containment. Retain all seven #1943 result registrations. The intended P-Delta
+  equilibrium fields for the spatial portal and tower remain registered by
+  `pdelta-physical-residual-certification`; every added value is explained in
+  [the merge registration](docs/results-changes/2026-11-1952-merge-registration.md).
+
+#### Distinguish physical P-Delta failure from displaced-geometry moment imbalance
+
+P-Delta retains correct small-displacement answers when only the moment balance
+on displaced geometry fails, with an explicit limitation warning. A failed
+physical residual withholds reaction, member, constraint and stress quantities
+while preserving record identities. Time history returns an empty
+`peakReactions` collection instead of its unavailable elastic-only estimate.
+Recheck saved P-Delta and time-history forces; see the
+[results-change write-up](docs/results-changes/2026-11-pdelta-physical-containment.md)
+(#1952).
+
+#### Recover reactions through a physical force boundary
+
+Reaction recovery now requires physical member and spring forces. Artificial
+stabilization cannot become a released slave's constraint moment or a restrained
+master's support reaction. Every shared recovery caller uses the physical
+assembly path. Regenerate the existing arch replay from the final engine and
+check equilibrium in both replay and frozen evidence. Staged validation now
+rejects missing displacement nodes and checks cumulative final displacements
+and member forces under total stage loads (#1952). See the
+[results-change write-up](docs/results-changes/2026-11-physical-reaction-force-boundary.md).
+
+#### Exclude staged stabilization forces and balance deformed planar members
+
+Staged 2D and 3D reactions and constraint forces now use only physical stiffness;
+undetermined constraint-only stages without physical stiffness retain the
+unavailable-state warning. Fully determined constraint-only stages return results.
+Planar corotational, arc-length and displacement-control member shears
+use the same final chord as the end moments and reported length. Re-check saved
+planar nonlinear member shears. Restore actual multistage displacement and force
+controls while retaining support-history refusals. See the
+[results-change write-up](docs/results-changes/2026-11-physical-stage-and-member-equilibrium.md)
+for the eight changed values in the two requested frozen arches (#1952).
+
+#### Physical P-Delta residuals and staged history containment (2026-11-12)
+
+Check the physical free residual in both P-Delta certificates. Withhold staged
+reactions, member and constraint forces, and shell stresses after active stiffness
+changes following prior loading or motion, with structured unavailability warnings
+through subsequent stages. Full loaded-member redistribution remains unsupported
+(#1952, #1996). See the
+[results-change write-up](docs/results-changes/2026-11-pdelta-and-staged-history-certification.md).
+
+#### Staged support spring history containment (2026-11-12)
+
+Withhold staged reactions and forces with structured unavailable-result warnings
+when support springs change after earlier loading or motion. Both dimensions
+fingerprint the full assembled stiffness, active contributors and rigid restraints
+through one shared history check. Unchanged springs and changes before loading
+retain their answers (#1952). See the
+[results-change write-up](docs/results-changes/2026-11-staged-support-spring-history.md).
+
+#### Retain equilibrium results for fully constrained stiffness-free stages
+
+Both staged dimensions now retain equilibrium forces when supports and constraints determine every DOF and the state agrees exactly with prescribed motion. Partial constraints and inconsistent states remain unavailable or refused. Spatial recovery uses inclined transforms from its physical residual assembly. Public inclined-support refusals remain. Signed force regressions and returned P-Delta reaction sums strengthen coverage. Correct the P-Delta and dynamic-result documentation, advisory ordering, language count and translated restrictions. See the [results-change write-up](docs/results-changes/2026-11-staged-constrained-determinacy.md) (#1952).
+
+#### Refuse staged histories that remove a loaded member
+
+Both dimensions refuse removal of members with nonzero internal force with an
+explicit #1996 diagnostic, returning no unredistributed displacement or force
+results. Exactly unloaded removals and removals before loading retain their
+answers. Require global-displacement types at the shared reaction boundary and
+solver-displacement types for staged equilibrium checks. See the
+[results-change write-up](docs/results-changes/2026-11-staged-loaded-member-removal.md)
+(#1952).
+
+#### Recover staged reactions from freshly assembled physical stiffness
+
+Dense and sparse staged analyses in 2D and 3D now share one physical stiffness
+recovery function. Its private matrix type prevents cached artificial
+stabilization from entering constraint forces or support reactions. Physical
+springs, cumulative loads and planar prestress remain included. Review saved
+staged force results; see the [results-change write-up](docs/results-changes/2026-11-staged-physical-stiffness-recovery.md) (#1952).
+
+#### Withhold forces diagnosed unavailable in staged and P-Delta analyses
+
+Staged analyses now check the projected physical residual and return empty force
+and stress collections when equilibrium is unavailable. P-Delta now clears
+reactions when its existing equilibrium or residual check diagnoses them
+unavailable. Both dimensions use one operation that attaches diagnostics and
+clears matching fields together. Recheck saved staged forces and P-Delta
+reactions; see the [results-change write-up](docs/results-changes/2026-11-unavailable-equilibrium-forces.md) (#1952).
+
+#### Preserve the physical mass range in modal analysis (#1965, 2026-11-12)
+
+Modal analysis carries massive element rows through support rotations and MPCs, then statically condenses massless coordinates. Rank-deficient models can return their valid finite modes without a spurious inertial direction causing a refusal. The modal orthogonality check and its bounds are unchanged. Re-run affected modal analyses and dependent dynamic responses. See [the results-change evidence](docs/results-changes/2026-11-modal-physical-mass-range.md).
+
+#### Include transverse truss actions in conditional member balance (#1969, 2026-11-12)
+
+Conditional balance checks now include the transverse end actions of truss member loads alongside their recovered axial forces. Load assembly and balance share the same transfer law in 2D and 3D. This allows the retained distributed-load witness and its XZ embedding to solve where the equivalent nodal models already solved, including native and WASM calls and nonlinear initialization. Distributed and point frame loads, genuine imbalance refusals, and the existing accuracy limits are retained. See [the results-change note](docs/results-changes/2026-11-truss-member-load-balance.md).
+
+#### Preserve prescribed master motion in constrained solutions (2026-11-12)
+
+Staged, Winkler, contact, material nonlinear, 2D corotational and arc-length analyses now carry prescribed constraint-master settlements and rotations into slave displacements and equilibrium (#2008). Every constraint expansion explicitly selects prescribed or homogeneous master motion through one shared API. Cable analyses with cable elements and linear time histories now refuse nonzero prescribed support motion that they previously omitted. Re-run affected analyses; displacements and forces can change. See [the results-change write-up](docs/results-changes/2026-11-prescribed-master-motion.md).
+
+#### Refine elastic SSI solutions against physical equilibrium
+
+SSI now retains unchanged secant factorizations and corrects the current displacement with the physical force residual through the shared elastic refinement contract. Rotated and unit-scaled elastic models that previously exhausted identical solves can converge in 2D and 3D, including native and WASM calls. The existing convergence tolerance, prescribed-motion refusals and iteration limits remain in force. Re-run affected SSI analyses (#2011).
+
 #### Frozen contact states and cable bar analyses are withheld (2026-11-10)
 
 2D/3D contact now refuses frozen states that fail contact conditions after the final solve without damping (#432). Frozen states within the contact tolerance can converge. Analyses outside the dedicated cable solver now refuse cable elements because their two-way bar formulation does not enforce slackening, including tensile and unloaded cases (#417). Structured errors are translated in all six languages. The native base reproducers carried warnings; web requests now preserve cable identity so advanced analyses cannot bypass cable validation. Details: [results-change write-up](docs/results-changes/2026-11-contact-and-cable-validity.md).
@@ -192,6 +356,11 @@ Teaching buckling checks each mode's refined geometric work against that mode's 
 Recompute every dense and sparse buckling eigenvalue from its mode's compensated Rayleigh quotient on the original stiffness and geometric-stiffness matrices. The shared path covers 2D, 3D, raw, certified and WASM calls. The loaded #741/#818 follow-up now returns 1.20879536047085723 inside its independently checked exact-rational bracket and certifies; its previous 1.2087954149900562 overestimate is still refused when deliberately supplied to the certificate. Certificate bounds and refusal thresholds are unchanged. See [the results-change evidence](docs/results-changes/2026-11-buckling-original-pencil.md).
 
 Constrained mode finding, residual checks and completeness counts now share compensated reductions of the original pencil. This corrects rotated constrained modes and false refusals on both sides of the sparse cutoff. Teaching buckling keeps valid compressed modes when another candidate has zero or tensile work, and axially rigid teaching models retain original-matrix work. Curved-beam certificates expand interior nodes before rebuilding rigid-link constraints. Native and WASM regressions assert certified status and both requested factors. Unknown saved analysis histories retain the conservative buckling re-check notice, which explains no linear-static quantity changes. The sparse parity golden and arch evidence follow the corrected factors with their existing tolerances.
+
+#### Register SSI, arc-length and public slab result changes
+
+- Register PR #1675's previously missing 2D/3D SSI support reactions and corrected soil-spring constraint forces, PR #1885's low-order changes to existing 2D arc-length paths, and PR #1627's changed wall-supported public slab demo and reference. Each entry has six-language wording and a restricted applicability condition. See `docs/results-changes/2026-11-ssi-support-reactions.md`, `2026-11-arc-length-reference-norm.md` and `2026-11-gallery-slab-hard-walls.md`.
+- Freeze exact SSI, arc-length and public slab gallery outputs in CI and require a matching new result-change entry and results changelog when those outputs move. Existing numerical assertions and tolerances are unchanged.
 
 #### Buckling no longer takes geometric stiffness from round-off axial forces (2026-11-08)
 
@@ -245,6 +414,10 @@ a declared Lb shorter than the member ([write-up](docs/results-changes/cb-segmen
 
 ### Security
 
+#### Update quinn-udp for RUSTSEC-2026-0538 (#2076)
+
+Update quinn-udp from 0.5.14 to 0.5.16 in the root Cargo.lock to address a receive loop that can spin after a truncated datagram. The merged change updates the dependency lockfile; structural analysis results are unchanged.
+
 #### Revert Check also runs from a definition the pull request cannot edit (2026-11-08)
 
 - A new workflow, Revert Check (trusted), runs on `pull_request_target` and on every merge-queue CI
@@ -285,6 +458,14 @@ Document [SA-2026-058](docs/advisories/SA-2026-058-harmonic-omitted-modes.md) fo
 
 Static solver regressions now compare restrained thermal bending with imposed mechanical curvature and the 2D thermal solve. The verification derivation records that positive `dtGradientY` heats the minus-y face and gives a positive start `Mz` reaction. Warping-member reactions must include a bimoment, and thermal load inputs and reference calculations share their fixture constants. Engine results are unchanged (#1925).
 
+#### Document missing path reactions and recovery at the wrong load factor
+
+Add draft [SA-2026-061](docs/advisories/SA-2026-061-path-solver-reactions.md) for the silent wrong or missing results corrected or contained by PR #1952. Retain current-main replay inputs, before/after fields, diagnostics and release-history evidence; list the pending fix in the advisory index and the four available blog languages (English, German, French and Turkish). Link the existing results-change write-up and registry to #1952; no engine results change.
+
+#### Prescribed constraint-master motion safety advisory
+
+- Add coordinator-assigned SA-2026-063 for #2008 / PR #2009 with exact retained main-source replay values, source/tag release boundaries, affected-result screening and workarounds. Register the pending-release draft in the advisory index and the site advisory list (English, German, French and Turkish), and distinguish time history's general warnings and the separate #1949/#1952 reaction defect.
+
 #### A blog post on Stabileo 0.5.0 (2026-11-06)
 
 The blog announces 0.5.0 in English, Spanish and Portuguese: the twenty-three advisories published since
@@ -315,9 +496,17 @@ Preserve all seven frozen models, prove their physical in-plane rigid rotation, 
 
 Archive exact witnesses and targeted native, public WASM and independent-reference replays for #1962–#1985. Identify three crash duplicates fixed by merged PR #1957, two false refusals, eighteen harness/reference findings and one warned numerical-invariance duplicate. Keep three record-ID crash regressions active after the #1957 merge, four unresolved reproducers ignored with explicit failure reasons, two passing controls and three active oracle guards. Establish that the symmetry cluster predates November 10. Engine results, limits and comparison assertions are unchanged.
 
+#### Classify all 58 November 13 nightly findings with exact witnesses
+
+Archive every issue model and targeted native, public WASM, exact-rank and high-precision checks. Distinguish forty-one harness artefacts, fifteen false-refusal observations in three engine groups, the #1966 oracle duplicate and the retained plastic resource finding. Pin the new SSI refusal to #1940, document older refusals exposed by improved admission, and add fifteen ignored issue-keyed reproducers with parent-failure evidence plus a passing rigid-translation control. Engine results, admission limits and comparison assertions are unchanged.
+
 #### One stability verdict that does not depend on units, orientation or numbering (2026-11-08)
 
 `solver::stability` decides whether a free stiffness matrix is stable, a mechanism, or too close to singular to tell, from the spectrum of the matrix scaled node block by node block. That spectrum is the same under a change of units, a rigid rotation or mirror and a relabelling, and every C08 reproducer gets the same verdict in all its transformed copies. Two exceptions are refused rather than solved: a free rotation that rounding leaves coupled, or swinging a rigid-link slave, is Singular in frames where rounding makes that motion non-zero and may be Stable in an axis-aligned frame where it is exactly zero (docs/solver/stability.md §2.4 lists the cases with their numbers). No solver calls it yet and no result changes; the following slices make every solver entry refuse what it refuses (docs/solver/stability.md).
+
+#### Soundness regression audit (2026-11-11)
+
+Retain published time-history, harmonic, modal, PCG, moving-load and influence-line findings as active numerical regressions, and check the differential oracles against planted displacement, reaction and member-force errors in both dimensions and through both comparison entry points. A planted harmonic response also checks the original #994 model after identifying its oracle-floor calibration. The production health oracle is also checked against planted wrong results and invalid deployment responses. The audit records results drift, merge-path coverage and the closed-issue test inventory. Engine numerics and acceptance tolerances are unchanged.
 
 ### Changed
 
@@ -363,6 +552,18 @@ Merge main into PR #1921, retaining both branches’ advisory listings in number
 
 Merge main into the fibre load-control branch, retaining both parents' advisory records, status notes in all six blog languages, result-change registry entries, write-ups and changelog fragments. List advisory summaries in number order. The merge retains main's P-Delta correction alongside the branch's fibre load-control refinement.
 
+#### Preserve reaction and buckling regression coverage together
+
+Merge current main into reaction recovery, retaining both native and WASM regression targets and the independent reaction and buckling saved-result applicability tests (#1952, #1939).
+
+#### Keep reaction recovery checks alongside the latest solver regressions
+
+Integrate the current main branch into the reaction recovery change, preserving the native and WASM reaction, frozen arc-length, and frozen shell refusal test targets together with the buckling constraint-component checks (#1952).
+
+#### Verify prescribed motion through nonlinear arc-length corrections
+
+Regression checks now verify prescribed constraint-master motion and free equilibrium at every nonlinear arc-length step, including multiple corrector iterations, dense and sparse tangents, continuation starts and the WASM export. Engine results are unchanged.
+
 #### Tighten candidate replay evidence and diagnostic assertions
 
 Link the silent multi-member and multi-stage comment witnesses to the existing #1846 coordinator escalation. Record exact regression symbols and audit historical test inventories, qualify unretained warning evidence, and assert every expected structured diagnostic field, including messages for all 13 support-conflict regressions. Engine results and tolerances are unchanged.
@@ -404,6 +605,10 @@ nonlinear, buckling and plastic fixes, performance improvements and nightly
 triage. Link SA-2026-060 and SA-2026-062, refresh Unreleased from fragments,
 and distinguish completed roadmap work from in-flight and deferred follow-ups.
 Engine results and numerical limits are unchanged by this documentation update.
+
+#### Refresh the weekly changelog and soundness roadmap (2026-11-13)
+
+Extend the November 13 website changelog in all six locales with truss member-load balance, modal mass rank, prescribed constraint-master motion, final-state force recovery, explicit unavailable-force and staged-removal limits, elastic SSI refinement and constrained rounding corrections. Link SA-2026-061 and SA-2026-063, refresh the file changelog, mark merged work done and track #2023 in #2074, follow-ups #2073/#2077/#2078 and the #1996 owner decision on redistribution or continued refusal. Engine results and numerical limits are unchanged.
 
 #### Reuse linear factorizations in the independent 3D feature-matrix reference (2026-11-09)
 
@@ -954,6 +1159,140 @@ The November 6 entry again warns in all six public languages about the MITC4/MIT
 
 - Restrict staged notices to saved construction phases and kinematic subspace notices to affected features. Declare staged, kinematic and plastic output fields explicitly so these notices cannot excuse unrelated linear forces or displacements (#1846, #1943).
 
+#### Exclude known-wrong arc reactions from frozen references (#1946)
+
+Exclude all three arc-length input/output pairs affected by the open missing-reactions defect #1949 from the live frozen reference set (#1946). Keep an issue-keyed exclusion inventory, reject attempts to freeze excluded models, and retain historical defect evidence and the per-file open-issue review. PR #1952 restores the cases with corrected outputs; this change does not alter engine results.
+
+#### Run frozen exclusion policy checks in the web unit pass (#1946)
+
+Move the frozen reference exclusion policy tests out of the results-only test directory. These tests check exclusion policy and file inventories rather than compare frozen engine outputs. Preserve the exact results-pass inventory and add a regression check that the exclusion policy tests remain in the unit pass.
+
+#### Restore typechecking for the frozen results tests (#1946)
+
+Declare the shared snapshot comparator API with explicit leaf, snapshot and difference types, replacing its import suppressions. Narrow the frozen SSI input before inspecting soil springs. Preserve all numerical comparisons and frozen results.
+
+#### Reaction recovery notices preserve unexplained static result changes
+
+Restrict the reaction recovery notice to structural models with an affected analysis context. Empty models and unchanged recorded linear results no longer receive the notice. Declare only the added equilibrium fields to the result gates, preserving failures for wrong historical forces, displacements and unrelated linear refusals (#1949).
+
+#### Staged CI fixtures retain the support-state refusal boundary
+
+Correct staged construction test fixtures to activate their supports explicitly, while checking that incompatible support histories are refused. Retain dense/sparse numerical comparisons and support reactions without changing engine results or tolerances. Type saved-model applicability fixtures explicitly so the web typecheck accepts connector entries without type assertions (#1949).
+
+#### Keep path reaction notices from excusing static result changes
+
+Qualify reaction and member-force declarations by their nonlinear analysis family, preserving frozen path-result coverage while the legacy corpus judge continues to reject unrelated static value changes (#1952).
+
+#### Check determined values for member-free staged ties in both dimensions (#1952)
+
+The artificial-tie regression now checks the prescribed displacements and zero
+reactions and constraint forces against hand values in 2D and 3D. Independent
+elimination of the input support and tie equations proves rank 6 of 6 and 12
+of 12; removing any single tie DOF leaves one undetermined motion. The previous
+expectation of an unavailable-result warning encoded behavior superseded by
+round 23. The loaded rigid-link regressions likewise check transferred forces
+and the support moment derived from the input load and offset. Engine code, numerical results and tolerances are unchanged.
+
+#### Route staged 3D test models through typed units and retain the advisory draft date (#1952)
+
+The three spatial staged-recovery test models now deserialize through
+`ElasticInput3D` before conversion to the solver input, satisfying the existing
+units-boundary guard without exemptions. SA-2026-061 and the site retain the
+2026-11-12 draft date; a separate 2026-11-13 revision records the clarification
+of P-Delta containment, unavailable dynamic forces and determined stage results.
+The dynamic-force wording again states that withholding is not recovery.
+Engine production code, numerical results and tolerances are unchanged.
+
+#### Refresh staged replay evidence and complete P-Delta notice translations (#1952)
+
+Refresh the SA-2026-061 replay through the current engine so fully determined 2D staged ties retain their answers without obsolete withholding notices. Complete every P-Delta physical-residual notice translation, update the safety-advisory post revision date, and show the evidence behind the documented replay scalar count (#1952).
+
+#### Clarify nonlinear replay counts and final force availability
+
+Document the eight replay records and their 83 changed scalars, verified against
+both the value audit and the recorded merge results. Align both P-Delta notices
+in all six locales with retained native record identities, unavailable numerical
+quantities and diagnostics on physical-residual failure, and refusal by WASM and
+certified exports. Clarify that undetermined constraint-only stages keep the
+unavailable warning, while fully determined stages return results (#1952).
+
+#### Retain result-change scope with the main audit gate
+
+Re-register the pending nonlinear result declarations with collection names
+under explicit nonlinear analysis conditions. P-Delta equilibrium keeps its
+separate physical residual declaration. Preserve static negative controls and
+main's frozen exclusions and audit files when merging #1946 into #1952.
+
+#### Verify the physical P-Delta residual with an independent dimensional calculation
+
+Correct the 2D and 3D diagnostic tests to form elastic and geometric force actions separately and scale moment residuals by the model length, matching the physical equilibrium definition. Keep exact equality checks and add exact arithmetic regressions for the oracle. Engine results are unchanged (#1952).
+
+#### Cover every affected reaction result with a PR re-check notice (#1952)
+
+Check the union of this PR’s notices for P-Delta equilibrium, constrained
+nonlinear recovery, configured and recorded time histories, and path results.
+Extend the dedicated P-Delta notice to non-frame structural contexts and add a
+scoped time-history reaction-availability notice. Unrelated static fields and
+current results remain excluded; engine results and tolerances are unchanged.
+
+#### Recovery and CI regressions exercise their intended paths
+
+Exercise each artificial stiffness through the residual recovery negative control.
+Move the reusable arch evidence helper out of the script-test directory so both
+CI script registration checks pass. Prop-removal tests no longer endorse the
+unresolved released-force redistribution behavior (#1996; PR #1952).
+
+#### Restore corrected arc-length frozen coverage after the main merge (#1952)
+
+Restore the two exact arch inputs and regenerate their frozen outputs with
+recovered support reactions. Remove their named #1949 exclusions, retain the
+remaining excluded case, and preserve the path-analysis feature for registry
+coverage. Fix the applicability test's implicit callback type without changing
+the typecheck baseline. Independent force and moment checks validate the live
+reactions at the final load factor against the restored frozen outputs.
+
+#### Build complete design data in saved staged notice tests (#1952)
+
+Use the project design defaults when constructing saved staged snapshots and
+empty-phase controls, so the fixtures satisfy `ProjectDesignData` and the web
+typecheck passes without a baseline change. Engine results and notice conditions
+are unchanged.
+
+#### Recheck saved shell-only staged forces (#1952)
+
+Extract staged path context from saved construction phases through the same
+check as staged construction, so shell-only histories receive the existing
+physical-stiffness and unavailable-force notices. Spring histories also receive
+their correction notice; absent or empty phases do not match staged notices.
+Correct all six time-history notice translations to state that `peakReactions`
+is empty even for spring-only supports. Displacement histories and peaks remain
+available. Engine results and shipped notice conditions are unchanged.
+
+#### Restore staged diagnostic lint and WASM history checks
+
+Assert on the structured diagnostic code, severity, phase and member identity for uncertified staged removal, and run the shared history-containment assertions from both staged WASM CI consumers (#1952). Solver results are unchanged.
+
+#### Keep staged history assertions connected to WASM CI
+
+Declare the staged history assertion helper as a dependency of the staged WASM regression target already run by CI, and check that its consumers and CI job remain connected (#1952).
+
+#### Limit staged history correction notices to path analyses (#1952)
+
+Require explicit path analysis context as well as members or shells for the staged history results-change entry. Ordinary linear frames and shells retain their existing correction notices. Staged quantities remain covered when path context is present. Engine results, numerical tolerances and result baselines are unchanged.
+
+#### Staged and P-Delta validation follows the recovered-result contract
+
+Keep the original staged support histories as explicit refusal tests and check their physical configurations with independent linear references, retaining the analytical cantilever expectations. Validate P-Delta equilibrium against the final second-order state while continuing to reject diagnostics copied from the linear solve. Cover the additional staged failures found by the cross-binary CI filter. No engine result, reference value, baseline or tolerance changes (#1952).
+
+#### Thermal actions stay in the current member frame
+
+- Keep thermal fixed-end actions in the current member frame during 2D/3D
+  corotational recovery, including gradients and released ends. This corrects
+  the round-9 branch regression without enabling nonlinear thermal analysis;
+  main's thermal answers and public refusals are retained. Restrict the
+  member-load frame recheck notice to projects with member loads (#1952).
+  See the [results-change write-up](docs/results-changes/2026-11-corotational-member-load-frame.md).
+
 #### BREAKING (results): recover plastic balance by model IDs and certify frames within actual storage limits (2026-11-11)
 
 Resolve recovered member and node IDs from the same model used by the solve, independently of JSON object keys. An absent recovered member returns the existing conditioning error as a coded refusal instead of panicking. Exact 2D and 3D plastic certificates check the initial model and each actual LP candidate against the unchanged storage limits; an oversized optional refinement retains earlier exact bounds. This restores certification of provable random 3D frames without changing numerical tolerances. See `docs/results-changes/2026-11-plastic-nightly-model-and-candidate-budgets.md` and issues #1953 and #1954.
@@ -986,9 +1325,65 @@ in isolated aggregate runs as well. Engine results are unchanged.
 
 Strengthen the ignored #1969 regressions in 2D and 3D to compare nodal displacement values against equivalent nodal-load controls using the established conditioning bounds. Require exactly two positive finite eigenvalues in each #1965 modal solve and compare them within the existing spectral bounds. Active negative controls reject zero or empty displacement responses and empty, missing, extra, nonfinite or incorrect eigenvalues. Engine results and tolerances are unchanged.
 
+#### Verify the #1901 replay after truss member-load balance (#1992)
+
+Replace the stale conditioning-refusal expectation with an independent high-precision linear displacement regression in 2D and all three 3D embeddings. Retain explicit rejection of the unconverged 2D P-Delta iterate and verify converged P-Delta displacements in a rigidly rotated 2D control and all 3D embeddings against the independent reference. Cover native and public WASM calls. Engine results and accuracy limits are unchanged by this regression correction. See [the verification note](docs/verification/candidate-1901-after-truss-balance.md).
+
+#### Keep the #1901 replay consistent with physical nonlinear equilibrium (#1992)
+
+After merging main's nonlinear convergence checks, require explicit P-Delta nonconvergence for the original #1901 model, its rotated copy and all three spatial embeddings. Retain the independent linear displacement comparisons and verify the rejected nonlinear iterates with a separate high-precision equilibrium audit. Unloaded copies still converge to their exact zero response. This merge correction changes tests and verification tools; it does not change engine tolerances or add another engine result change beyond main's existing convergence registry entries.
+
+#### Enable the repaired truss reproducers in merge-queue checks (#1969, #1992)
+
+Enable main's two #1969 reproducers as passing regressions now that the truss member-load fix satisfies their unchanged assertions. Add an independent exact-rank audit showing that #1088's released frame has a physical mechanism; retain that test's existing expectations and ignore. No engine result or numerical limit changes.
+
+#### Retain staged rotation and truss balance regression coverage together (#1992)
+
+Merge main's staged rotation safeguards while retaining the truss member-load balance implementation, both families of native test registrations, and all targeted WASM checks. Conflict resolution changes no engine algorithm or numerical limit; main's existing results-change entries remain intact.
+
+#### Require finite mandatory displacements in truss WASM regressions (#1992)
+
+Check every mandatory displacement field in the 2D and 3D linear, constrained, and P-Delta truss regressions. Reject null, missing, nonnumeric, and nonfinite values while retaining valid finite answers and the existing refusal checks. Engine results and accuracy limits are unchanged.
+
 #### Restore the plastic simplex fail-closed lint gate (#2003)
 
 Remove the obsolete allow-list entry for the phase-cost callback after its replacement by a typed phase policy. Engine results and refusal checks are unchanged.
+
+#### Scope modal mass range notices and run WASM regressions in CI (#2007, 2026-11-12)
+
+The modal physical mass range recheck notice now requires modal or spectral analysis together with constraints or inclined supports. The public WASM regressions run through Make and CI, including refusal of massless mechanisms with positive physical mass through raw and certified 2D/3D APIs.
+
+#### Check cable refusal for every prescribed support direction
+
+Native and WASM cable regression tests now isolate every 2D and 3D support translation and rotation. Both native cable entry points check nonzero motion down to adjacent-to-zero values of either sign, while absent motion and signed zero retain the loaded answer (#2009). Engine results are unchanged.
+
+#### Detect repeated prescribed settlement and stalled arc-length regressions
+
+Prescribed-master tests now continue from solved nonzero motion through changed targets and reversals. Native and WASM arc-length checks require motion above the assertion tolerance, preventing a converged zero-progress result from passing (#2009). Engine results are unchanged.
+
+#### Preserve structured time-history refusals
+
+Time-history prescribed-motion refusals now return structured JSON diagnostics through native, traced, certified and WASM entry points (#2009). Input validation takes precedence over unsupported-motion checks in 3D, preserving the original conflicting-support-spring diagnostic. Explicit zero prescribed translations and rotations remain accepted with identical loaded responses.
+
+#### Constraint reduction preserves resolvable physical stiffness (#2013–#2018)
+
+Constrained analyses compare the directional input-rounding envelope with the retained physical stiffness instead of multiplying unrelated worst-case conditioning and cancellation factors. Rotated and mirrored copies of the four-node frame/truss witness now solve through linear, load-session, staged, creep and certified paths. The refusal limit, mechanism checks and response accuracy checks are unchanged. Native and public WASM coverage includes loaded and unloaded models, planar 3D equivalents, pinned spins and P-Delta initial solves.
+
+#### November 13 nightly verification coverage (#2070)
+
+Require exact displacement and reaction node coverage, without duplicates, before the #2019 independent oracle checks values. Exercise empty, missing, duplicate and unexpected IDs and retain acceptance of the complete Certified response. Confirm from the retained source that #2012 element 9 uses material 2 in both unit-equivalent models; preserve the witnesses and winding conclusion. Engine results and tolerances are unchanged.
+
+#### Scope elastic SSI rechecks to SSI histories
+
+- Restrict elastic SSI recheck notices to explicit SSI histories or stored support curves, excluding unrelated legacy linear frames and shells. Keep potentially affected linear-range soil cases and require a load-bearing spring in the independent linear-soil regression (#2072).
+
+#### Keep nonlinear SSI soil on its original solve path
+
+Restrict elastic SSI refinement to absent soil or springs verified from their constitutive state to remain in the initial linear range. Settled nonlinear secants preserve main’s results bit for bit in 2D and 3D, including native and WASM calls. Correction candidates cannot leave the linear range. No equilibrium tolerance or iteration limit changes (#2072).
+
+#### Verify redundant-restraint admission and execute 2D P-Delta regressions (#2075)
+
+Replace an obsolete rounding-refusal expectation for a tie between already fixed nodes with exact-rank evidence and an independent high-precision displacement oracle. Native dense/sparse and public WASM constrained checks cover both dimensions. Fix the WASM runner's shadowed dimension so admitted and refused 2D P-Delta cases execute, and require successful P-Delta coverage in both dimensions. `IGNORED=1` now retains the six unignored constrained-release regressions. Engine code, refusal limits and existing tolerances are unchanged. See [the results-change audit](docs/results-changes/2026-11-constraint-rounding.md#review-audit-redundant-fixed-node-constraints-2075).
 
 #### Reject self-certified buckling and time-history comparison allowances (2026-11-10)
 
@@ -1005,6 +1400,61 @@ Metamorphic comparisons account for true linear residuals, damping and resonance
 #### Reject self-certified invariance errors and exercise public dynamic entry points (2026-11-10)
 
 Metamorphic PCG residual allowances now require an independent accuracy ceiling. Negative buckling factors use the absolute reciprocal radius, and intervals crossing zero grant no finite allowance. Dynamic adapters compare public solver results and verify diagnostic results before using their error data. Regressions lock retained failures, every documented #1763 relation, and successful 3D moving-load comparisons with planted errors. No engine results change.
+
+#### Run the soundness audit checks in CI
+
+Register the soundness audit tests with the required script job, allow them to run in a fresh checkout without local audit directories or cached Cargo dependencies, and include the frozen engine checks in the exact results-pass test inventory. Preserve all numerical assertions and known-wrong result expectations.
+
+#### Soundness audit endpoint and measurement identity checks
+
+Reject missing gallery captures and ambiguous or mismatched reference measurement selectors instead of dropping cases or pairing by position. Report the actual extra-replay exit status. Withdraw unvalidated historical as-shipped comparison conclusions and mark archived gallery endpoint completeness as unverified. Engine results and numerical bounds are unchanged.
+
+#### Correct soundness audit attribution and evidence checks
+
+- Match all required reference-model fields and use each MacNeal frame observation's own model and signed displacement or rotation. Rerun the previously empty 3D corotational and buckling selections on both pinned revisions; all 51 additional frozen inputs are unchanged.
+- Abort audit scripts on failed setup, integrity checks or incomplete replay; reject suites that execute zero tests. Scan revision history before claiming an earliest change, and label the historical bisections as adjacent-boundary evidence with unverified earliest attribution.
+- Mark the two frozen arch outputs with missing support reactions as known wrong under #1949, backed by expected-failure checks. Clarify the audit's follow-up result registrations.
+
+#### Close the final soundness-audit evidence gaps
+
+- Preserve every test contributing an audit input, compare full engineering outputs in static history scans, and reject differing reference targets, missing replay manifests, empty frozen evidence, missing numeric components and non-finite differential outputs. Retain the failure names behind every recorded failing run and correct the #1784 coverage citations.
+- Record the exact wall-gallery reference with the pinned Node runtime and include the applicable SSI notice in the affected recheck test expectations.
+
+#### Keep audit and frozen shell checks available together
+
+Retain both the soundness audit evidence target and the native/WASM frozen shell refusal target when integrating the latest main branch into the regression audit.
+
+#### Retain audit regressions alongside nonlinear convergence checks
+
+Merge the current main branch while preserving the soundness audit tests, native and WASM nonlinear convergence targets, and exact legacy result notices for both SSI support reactions and nonlinear corrections.
+
+#### Preserve audit and staged-motion checks when merging main
+
+Keep both audit and staged-motion test targets, and check the exact legacy result notices before and after registering the SSI support-reaction notice alongside main's staged-motion notice.
+
+#### Isolate audit reference test evidence from runner arguments (2026-11-12)
+
+Give the soundness audit reference collector test paired baseline and head fixtures and pass their temporary directory explicitly through a shared script executor. Test runner arguments can no longer redirect the collector to external captures. Keep empty reference endpoints as an explicit rejection test. Engine results and audit validation rules are unchanged. Fixes #1946.
+
+#### Keep refused reference measurements in the soundness audit (2026-11-12)
+
+Retain successful baseline reference measurements whose head solve refuses, including their refusal text and an explicit outcome count. Share outcome construction across generic and formula-derived references. Preserve varied runner arguments in collector tests by passing the evidence directory directly, and verify that reading runner arguments makes the regression test fail. Rerun available archived evidence without changing engineering conclusions; document that model attribution remains value-based and can be ambiguous where values coincide. Engine results are unchanged. Fixes #1946.
+
+#### Audit model history and evidence classification
+
+Retain every drifted arc model and its contributing tests in audit history searches. Distinguish load-step self-consistency and synthetic signed-response controls from engineering-reference coverage. Exercise frozen-evidence identity checks with complete duplicate and incorrect model sets and a valid control. Engine results and tolerances are unchanged.
+
+#### Match audit references at both endpoints and separate convergence evidence
+
+Soundness audit #1946 now compares gallery errors only against matching endpoint references and explicitly reports changed targets. Q9 self-convergence observations count as self-consistency, including fifteen reclassified frozen measurements. The loaded arc frozen entry discloses the known wrong main result #1949 and its replacement by PR #1952.
+
+#### Keep the loaded arc frozen snapshot in its serialized shape
+
+Remove audit-only defect metadata from the loaded arc snapshot so its exact comparison passes. Audit #1946 retains the known wrong main result #1949, affected reaction path and PR #1952 replacement note in its reports; the disclosure test checks that location. Engine results and frozen numerical values are unchanged.
+
+#### Refresh audit frozen additions after nonlinear main changes
+
+Regenerate the audit-only SSI and arc-length snapshots with the merged engine. Keep main-owned result snapshots unchanged and #1949 defect annotations in the audit report. Check the exact SSI-versus-linear reaction invariant independently so its failure does not prevent the frozen corpus from recording every case.
 
 #### Enforce both-copy silence evidence and per-mode replay accuracy
 
@@ -1090,6 +1540,14 @@ The verification harness now rejects NaN and infinite response values before con
 
 If preparation without the initial loads fails, a successful retry with those loads now creates the session. If both attempts fail, the original preparation error is retained. The linear-stability documentation also distinguishes the solved axis-aligned #1496 cantilever from its refused coupled orientation and discloses corrected PCG components and sparse direct residual refinement.
 
+#### Preserve ordinary metamorphic comparison budgets (2026-11-12)
+
+Restore the original maximum of the relative allowance and the matching absolute accuracy bound in metamorphic comparisons (#1991). Ordinary response ratios remain bit-for-bit unchanged; bounds stay local to their result component, and assembly uncertainty remains confined to static-equivalent member reversal. The existing ratio guard and seeded wrong-result checks remain unchanged. Production analysis results are unchanged.
+
+#### Construct exact metamorphic symmetry and budget load assembly rounding (2026-11-12)
+
+The metamorphic harness centers each half-model on a zero axis before reflecting it, so paired coordinates and spans are exactly symmetric in floating point. Only nodes exactly on the axis are merged; nonfinite centered geometry is rejected. Reversal comparisons propagate a load assembly uncertainty derived from the existing operation budget and applied-action magnitudes through the reduced stiffness inverse. Absolute accuracy bounds apply only to their own response items. Relative comparison tolerances, limits, expected-failure baselines, and production engine results are unchanged. Exact nightly regressions cover #1970–#1976 and #1978–#1985; seeded sign, scale, and stiffness faults remain detectable in 2D and 3D. See `docs/verification/SYMMETRY_REVERSAL_BUDGET.md`.
+
 #### Compare support refusals against the original input (2026-11-09)
 
 The OpenSees comparison now checks the support contract independently before using reference stiffness to judge an engine refusal. Prescribed movement on a free direction or a direction without rotational DOFs, and a spring conflicting with a rigid restraint, make the input invalid. An engine refusal identifying the detected support defect is recorded as correct; an engine result that accepts that input is flagged and saved as a mismatch. Valid settlements still undergo the existing result comparison at unchanged tolerances. This corrects the shared cause of 52 harness findings, including #1120, #1121 and #1191, without changing engine results.
@@ -1117,6 +1575,10 @@ Plastic replay script tests build their real replay example before running, usin
 #### Publish safety advisories SA-2026-049 through SA-2026-053 (2026-11-09)
 
 Publish the five advisories with the merge timestamps of #1780, #1784 and #1783, their status on stabileo.com after 0.5.0, and matching status notes and summary rows in all six blog languages. Correct SA-2026-051 and its results-change evidence using the pre-fix engine: the inclined fixture gave an axial envelope of [0, +60] kN over axle positions 0, 5 and 10 m, with +30 kN tension at the midpoint, rather than zero (#1874). The corrected envelope is [−30, +30] kN. No engine results change in this documentation update.
+
+#### Released-reaction WASM check accepts either sign of zero (2026-11-13)
+
+The reaction recovery test compares the released rotational slave reaction with exact numeric zero, accepting both `-0` and `0`. Every nonzero value still fails that assertion. No engine results, tolerances or baselines change. Fixes the last signed-zero test failure in #1952.
 
 #### Complete 0.5.0 release notes in German, French and Turkish (2026-11-08)
 
@@ -1165,6 +1627,10 @@ The harness architecture check now expects `applicability-context.test.ts` in th
 
 The seeded replay and nightly findings self-tests now create unique temporary directories and clean them up on exit, including assertion failures. They run when `CARGO_TARGET_DIR` points elsewhere and the repository's `target/` directory does not exist. Replay output write errors identify the destination path. No engine results or numerical assertions change.
 
+#### Compare no-soil SSI reactions with the shared numerical comparator
+
+The 3D no-soil SSI regression now uses the existing results comparison rule for cross-solver reactions, while keeping frozen outputs exact. On origin/main the vertical reaction differs from linear by 3.552713678800501e-15 (8.881784197001279e-17 of the largest reaction); both answers balance the input loads. Add independent load-balance checks and controls rejecting changed, missing, relabelled and non-finite reactions. Engine results are unchanged.
+
 #### Cancelled moments in staged free-rotation subspaces
 
 - Project cancelled staged applied moments along detected null rotations, including oblique releases after member removal, while preserving supported increments, prescribed-displacement drives and refusals for remaining loads. Run round-seven WASM and reaction assertion regressions in the required CI targets. Correct the plastic-conditioning replay's mixed-source attribution (PR #1943).
@@ -1203,6 +1669,10 @@ Yield between mesh solves and member checks, share the autodesign fixture solve,
 #### Keep Web Unit workers responsive between synchronous analyses
 
 Yield to the event loop between models in the 3D modal, sway-frame and what-if sweeps and the slab-column reference audit. Clear completed slab-audit fixture results before yielding so their deferred background certification cannot outlive the assertions. This lets workers receive pending progress RPC replies instead of timing out after a sequence of passing synchronous tests. Keep every model, sample, numerical assertion and timeout unchanged.
+
+#### Respect analysis conditions when judging legacy results
+
+- Keep nonlinear and SSI result-change notices from explaining corrupted linear results in the saved-project regression checks. Share the result-analysis condition with the snapshot gate, and include the SSI support-reaction notice in the legacy deep-beam exact lists.
 
 ### Performance
 
