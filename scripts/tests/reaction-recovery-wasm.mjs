@@ -399,7 +399,7 @@ for (const dim of [2, 3]) {
         assert.match(String(e), /prescribed/i);
         continue;
       }
-      assert.equal(r.reactions.find(r => r.nodeId === 2).my, 0, `${kind} ${dim}D motion=${motion}`);
+      assert.ok(r.reactions.find(r => r.nodeId === 2).my === 0, `${kind} ${dim}D motion=${motion}`);
       for (const cf of r.constraintForces ?? []) assert.equal(cf.force, 0);
     }
     }
