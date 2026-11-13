@@ -17,6 +17,14 @@ function numericBits(value) {
   walk(value);
   return hash.toString();
 }
+function assertArcProgress(motion, factor) {
+  if (motion !== 0) assert.ok(Number.isFinite(factor) && factor > 0 && Math.abs(motion*factor) > 1000*1e-11,`insufficient arc progress: load factor ${factor}, motion ${motion*factor}`);
+}
+for (const motion of [-1,1]) {
+  for (const factor of [0,Number.MIN_VALUE,0.5*1000*1e-11,-1]) assert.throws(() => assertArcProgress(motion,factor),/insufficient arc progress/);
+  assertArcProgress(motion,2*1000*1e-11);
+}
+assertArcProgress(0,0);
 const failures = [];
 const replay = [];
 for (const [index, c] of cases.entries()) {
@@ -33,6 +41,7 @@ for (const [index, c] of cases.entries()) {
       if (c.motion === 0) assert.equal(numericBits(result),zero[`${path}:${index}`],`zero motion bits ${path}:${index}`);
       assert.notEqual(result.converged,false);
       const factor = path === 'arc' ? result.finalLoadFactor : 1;
+      if (path === 'arc') assertArcProgress(c.motion,factor);
       const snapshots = [result.results ?? result.finalResults ?? result,...(result.stages ?? []).map(s => s.results)];
       for (const snapshot of snapshots) {
         const d = snapshot.displacements.find(d => d.nodeId === 1);

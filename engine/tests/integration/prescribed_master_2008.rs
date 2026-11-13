@@ -68,6 +68,9 @@ fn check(case: &Value, result: &Value, path: &str) -> Result<(), String> {
     let mut snapshots = vec![result.get("results").or_else(|| result.get("finalResults")).unwrap_or(result)];
     if let Some(stages) = result["stages"].as_array() { snapshots.extend(stages.iter().map(|s| &s["results"])); }
     let factor = if path == "arc" { result["finalLoadFactor"].as_f64().unwrap() } else { 1.0 };
+    if path == "arc" && motion != 0.0 && !(factor.is_finite() && factor > 0.0 && (factor*motion).abs() > 1000.0*1e-11) {
+        return Err(format!("insufficient arc progress: load factor {factor}, motion {}",factor*motion));
+    }
     for snapshot in snapshots {
         let slave = snapshot["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 1).unwrap();
         let key = if case["rotation"] == true { "ry" } else { "uz" };
@@ -143,14 +146,23 @@ fn controls() {
     for path in ["corotational","arc"] { matrix(path,2,true); }
 }
 
+fn check_continuation(case: &Value, result: &Value) -> Result<(), String> {
+    check(case,result,"corotational")?;
+    let master = result["results"]["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 2).unwrap();
+    let key = if case["rotation"] == true { "ry" } else { "uz" };
+    let expected = case["motion"].as_f64().unwrap();
+    let actual = master[key].as_f64().unwrap();
+    if (actual-expected).abs() > 1e-11 { return Err(format!("master {key}={actual}, expected {expected}")); }
+    Ok(())
+}
+
 #[test]
-#[ignore = "known wrong result: #2009"]
 fn nonzero_corotational_continuation() {
     for case in cases().iter().filter(|c| c["dim"] == 2 && c["motion"] != 0.0) {
         let initial: SolverInput = serde_json::from_value(case["model"].clone()).unwrap();
         let solved = solver::corotational::solve_corotational_2d(&initial,50,1e-10,3,false).unwrap();
         assert!(solved.converged);
-        check(case,&serde_json::to_value(&solved).unwrap(),"corotational").unwrap();
+        check_continuation(case,&serde_json::to_value(&solved).unwrap()).unwrap();
         let start = solver::corotational::CorotationalStart2D { input:&initial, displacements:&solved.results.displacements };
         let motion = case["motion"].as_f64().unwrap();
         for target in [motion,2.0*motion,0.0,-motion] {
@@ -161,7 +173,7 @@ fn nonzero_corotational_continuation() {
             for modified_nr in [false,true] {
                 let result = solver::corotational::solve_corotational_2d_from(&input,Some(&start),50,1e-10,3,modified_nr).unwrap();
                 assert!(result.converged);
-                check(&target_case,&serde_json::to_value(result).unwrap(),"corotational")
+                check_continuation(&target_case,&serde_json::to_value(result).unwrap())
                     .unwrap_or_else(|e| panic!("start {motion}, target {target}, modified NR {modified_nr}, case {case}: {e}"));
             }
         }
@@ -169,13 +181,12 @@ fn nonzero_corotational_continuation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2009"]
 fn nonzero_arc_continuation() {
     for case in cases().iter().filter(|c| c["dim"] == 2 && c["motion"] != 0.0) {
         let initial: SolverInput = serde_json::from_value(case["model"].clone()).unwrap();
         let solved = solver::corotational::solve_corotational_2d(&initial,50,1e-10,3,false).unwrap();
         assert!(solved.converged);
-        check(case,&serde_json::to_value(&solved).unwrap(),"corotational").unwrap();
+        check_continuation(case,&serde_json::to_value(&solved).unwrap()).unwrap();
         let start = solver::corotational::CorotationalStart2D { input:&initial, displacements:&solved.results.displacements };
         let motion = case["motion"].as_f64().unwrap();
         for pattern in [motion,-motion] {
@@ -191,18 +202,32 @@ fn nonzero_arc_continuation() {
             if pattern == -motion { assert!(expected*motion < 0.0,"arc did not reverse the initial motion"); }
             let mut expected_case = case.clone();
             expected_case["motion"] = json!(expected);
-            check(&expected_case,&serde_json::to_value(result).unwrap(),"corotational")
+            check_continuation(&expected_case,&serde_json::to_value(result).unwrap())
                 .unwrap_or_else(|e| panic!("start {motion}, pattern {pattern}, case {case}: {e}"));
         }
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #2009"]
 fn arc_rejects_zero_progress() {
     for case in cases().iter().filter(|c| c["dim"] == 2 && c["motion"] != 0.0) {
+        let motion = case["motion"].as_f64().unwrap();
+        for factor in [0.0,f64::MIN_POSITIVE,0.5*1000.0*1e-11/motion.abs(),-1.0] {
+            let expected = motion*factor;
+            let uz = if case["rotation"] == true {
+                if case["kind"] == "rigidLink" { 3.0*expected } else { 0.0 }
+            } else { expected };
+            let result = json!({"converged":true,"finalLoadFactor":factor,"results":{"displacements":[{"nodeId":1,"uz":uz,"ry":if case["rotation"] == true { expected } else { 0.0 }}]}});
+            assert!(check(case,&result,"arc").is_err(),"accepted insufficient progress {factor}: {case}");
+        }
+        let factor = 2.0*1000.0*1e-11/motion.abs();
+        let mut boundary_case = case.clone();
+        boundary_case["rotation"] = json!(false);
+        let result = json!({"converged":true,"finalLoadFactor":factor,"results":{"displacements":[{"nodeId":1,"uz":motion*factor,"ry":0.0}]}});
+        check(&boundary_case,&result,"arc").unwrap();
+        boundary_case["motion"] = json!(0.0);
         let result = json!({"converged":true,"finalLoadFactor":0.0,"results":{"displacements":[{"nodeId":1,"uz":0.0,"ry":0.0}]}});
-        assert!(check(case,&result,"arc").is_err(),"accepted zero progress: {case}");
+        check(&boundary_case,&result,"arc").unwrap();
     }
 }
 
