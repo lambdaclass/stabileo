@@ -254,3 +254,5 @@ mod candidate_replay;
 mod nightly_triage;
 
 mod nightly_harness;
+
+mod nightly_1113;
