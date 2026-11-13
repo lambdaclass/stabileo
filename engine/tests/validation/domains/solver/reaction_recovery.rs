@@ -2242,9 +2242,10 @@ fn r17_public(dim: usize, kind: &str) {
                     let results: Vec<_> = if kind == "staged" {
                         output["stages"].as_array().unwrap().iter().map(|s| &s["results"]).chain([&output["finalResults"]]).collect()
                     } else { vec![&output["results"]] };
-                    for r in results {
+                    for (stage_idx, r) in results.into_iter().enumerate() {
                         let diagnostics: Vec<_> = r["structuredDiagnostics"].as_array().into_iter().flatten().filter(|d| d["code"] == "result_quantity_unavailable").collect();
-                        if released && sign != 0.0 { assert!(!diagnostics.is_empty(), "{r}"); }
+                        if released && sign != 0.0 && !empty_first { assert!(!diagnostics.is_empty(), "{r}"); }
+                        if empty_first { assert!(diagnostics.is_empty(), "fully constrained states remain determined after activation: {r}"); }
                         for d in &diagnostics {
                             let fields: Vec<_> = if d["phase"] == "stageResults" {
                                 vec!["reactions","elementForces","constraintForces","plateStresses","quadStresses","quadNodalStresses"]
@@ -2253,7 +2254,7 @@ fn r17_public(dim: usize, kind: &str) {
                         }
                         if diagnostics.is_empty() {
                             assert!(!r["reactions"].as_array().unwrap().is_empty());
-                            assert!(!r["elementForces"].as_array().unwrap().is_empty());
+                            assert_eq!(r["elementForces"].as_array().unwrap().len(), if empty_first && stage_idx == 0 {0} else {1});
                         }
                     }
                 }
@@ -2566,59 +2567,126 @@ fn issue_1952_r19_soil_balance_2d() { r19_soil_balance(2); }
 fn issue_1952_r19_soil_balance_3d() { r19_soil_balance(3); }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r23_constraint_determined_stages() {
-    let cases: Vec<Value> = serde_json::from_str(include_str!("../../../fixtures/staged-determined-r23.json")).unwrap();
+    let cases: Vec<Value> =
+        serde_json::from_str(include_str!("../../../fixtures/staged-determined-r23.json")).unwrap();
     for base in cases {
-    for tie in ["rigidLink", "equalDOF", "partial"] {
-    for padding in [0, 22] {
-    for sign in [-1.0, 0.0, 1.0] {
-    for motion in [-0.0013, 0.0, 0.0013] {
-        let mut c = base.clone();
-        c["tie"] = json!(tie);
-        c["sign"] = json!(sign);
-        c["motion"] = json!(motion);
-        let dim = c["dim"].as_u64().unwrap() as usize;
-        let m = &mut c["model"];
-        m["loads"][0]["data"]["fz"] = json!(-10.0 * sign);
-        m["supports"]["0"]["dx"] = json!(motion);
-        m["constraints"][0]["type"] = json!(if tie == "partial" {"equalDOF"} else {tie});
-        if tie == "partial" { m["constraints"][0]["dofs"] = json!((0..if dim == 2 {3} else {6}).filter(|i| *i != if dim == 2 {1} else {2}).collect::<Vec<_>>()); }
-        for i in 0..padding {
-            let id = 100 + i;
-            m["nodes"][id.to_string()] = json!({"id":id,"x":4+i,"z":0});
-            if dim == 3 { m["nodes"][id.to_string()]["y"] = json!(0); }
-            let mut support = m["supports"]["0"].clone();
-            support["nodeId"] = json!(id);
-            support.as_object_mut().unwrap().remove("dx");
-            m["supports"][id.to_string()] = support;
-            m["stages"][0]["supportsAdded"].as_array_mut().unwrap().push(json!(id));
-        }
-        let dim = c["dim"].as_u64().unwrap() as usize;
-        let result = if dim == 2 {
-            staged::solve_staged_2d(&serde_json::from_value(c["model"].clone()).unwrap()).map(|r| serde_json::to_value(r).unwrap())
-        } else {
-            staged::solve_staged_3d(&serde_json::from_value(c["model"].clone()).unwrap()).map(|r| serde_json::to_value(r).unwrap())
-        };
-        if c["tie"] == "partial" {
-            if let Ok(r) = result {
-                assert!(r["finalResults"]["structuredDiagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "result_quantity_unavailable"), "{c}: {r}");
-                assert!(r["finalResults"]["reactions"].as_array().unwrap().is_empty());
-            }
-            continue;
-        }
-        let r = result.unwrap();
-        for result in r["stages"].as_array().unwrap().iter().map(|s| &s["results"]).chain(std::iter::once(&r["finalResults"])) {
-            assert!(!result["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable"), "{c}: {result}");
-            let root = result["reactions"].as_array().unwrap().iter().find(|r| r["nodeId"] == 0).unwrap();
-            let sign = c["sign"].as_f64().unwrap();
-            assert_eq!(root[if dim == 2 {"rz"} else {"fz"}], json!(10.0 * sign), "{c}: {result}");
-            assert_eq!(root["my"], json!(if c["tie"] == "rigidLink" {(if dim == 2 {30.0} else {-30.0}) * sign} else {0.0}), "{c}: {result}");
-            for u in result["displacements"].as_array().unwrap().iter().filter(|u| u["nodeId"] == 0 || u["nodeId"] == 1) {
-                assert_eq!(u["ux"], c["motion"], "{c}: {result}");
-                assert_eq!(u["uz"], json!(0.0));
+        for tie in ["rigidLink", "equalDOF", "partial"] {
+            for padding in [0, 22] {
+                for sign in [-1.0, 0.0, 1.0] {
+                    for motion in [-0.0013, 0.0, 0.0013] {
+                        let mut c = base.clone();
+                        c["tie"] = json!(tie);
+                        c["sign"] = json!(sign);
+                        c["motion"] = json!(motion);
+                        let dim = c["dim"].as_u64().unwrap() as usize;
+                        let m = &mut c["model"];
+                        m["loads"][0]["data"]["fz"] = json!(-10.0 * sign);
+                        m["supports"]["0"]["dx"] = json!(motion);
+                        m["constraints"][0]["type"] =
+                            json!(if tie == "partial" { "equalDOF" } else { tie });
+                        if tie == "partial" {
+                            m["constraints"][0]["dofs"] = json!((0..if dim == 2 { 3 } else { 6 })
+                                .filter(|i| *i != if dim == 2 { 1 } else { 2 })
+                                .collect::<Vec<_>>());
+                        }
+                        for i in 0..padding {
+                            let id = 100 + i;
+                            m["nodes"][id.to_string()] = json!({"id":id,"x":4+i,"z":0});
+                            if dim == 3 {
+                                m["nodes"][id.to_string()]["y"] = json!(0);
+                            }
+                            let mut support = m["supports"]["0"].clone();
+                            support["nodeId"] = json!(id);
+                            support.as_object_mut().unwrap().remove("dx");
+                            m["supports"][id.to_string()] = support;
+                            m["stages"][0]["supportsAdded"]
+                                .as_array_mut()
+                                .unwrap()
+                                .push(json!(id));
+                        }
+                        let dim = c["dim"].as_u64().unwrap() as usize;
+                        let result = if dim == 2 {
+                            staged::solve_staged_2d(
+                                &serde_json::from_value(c["model"].clone()).unwrap(),
+                            )
+                            .map(|r| serde_json::to_value(r).unwrap())
+                        } else {
+                            staged::solve_staged_3d(
+                                &serde_json::from_value(c["model"].clone()).unwrap(),
+                            )
+                            .map(|r| serde_json::to_value(r).unwrap())
+                        };
+                        if c["tie"] == "partial" {
+                            match result {
+                                Ok(r) => {
+                                    assert!(
+                                        r["finalResults"]["structuredDiagnostics"]
+                                            .as_array()
+                                            .unwrap()
+                                            .iter()
+                                            .any(|d| d["code"] == "result_quantity_unavailable"),
+                                        "{c}: {r}"
+                                    );
+                                    assert!(r["finalResults"]["reactions"]
+                                        .as_array()
+                                        .unwrap()
+                                        .is_empty());
+                                }
+                                Err(error) => assert!(error.contains("mechanism"), "{c}: {error}"),
+                            }
+                            continue;
+                        }
+                        let r = result.unwrap();
+                        for result in r["stages"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .map(|s| &s["results"])
+                            .chain(std::iter::once(&r["finalResults"]))
+                        {
+                            assert!(
+                                !result["structuredDiagnostics"]
+                                    .as_array()
+                                    .into_iter()
+                                    .flatten()
+                                    .any(|d| d["code"] == "result_quantity_unavailable"),
+                                "{c}: {result}"
+                            );
+                            let root = result["reactions"]
+                                .as_array()
+                                .unwrap()
+                                .iter()
+                                .find(|r| r["nodeId"] == 0)
+                                .unwrap();
+                            let sign = c["sign"].as_f64().unwrap();
+                            assert_eq!(
+                                root[if dim == 2 { "rz" } else { "fz" }],
+                                json!(10.0 * sign),
+                                "{c}: {result}"
+                            );
+                            assert_eq!(
+                                root["my"],
+                                json!(if c["tie"] == "rigidLink" {
+                                    (if dim == 2 { 30.0 } else { -30.0 }) * sign
+                                } else {
+                                    0.0
+                                }),
+                                "{c}: {result}"
+                            );
+                            for u in result["displacements"]
+                                .as_array()
+                                .unwrap()
+                                .iter()
+                                .filter(|u| u["nodeId"] == 0 || u["nodeId"] == 1)
+                            {
+                                assert_eq!(u["ux"], c["motion"], "{c}: {result}");
+                                assert_eq!(u["uz"], json!(0.0));
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
-    }}}}

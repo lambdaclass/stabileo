@@ -32,29 +32,31 @@ DOFs actually used by the solve. A mismatch returns a structured error instead
 of reporting reactions, displacements and member forces for different supports.
 This catches staged support activation/removal with incompatible global DOF
 numbering. Per-stage renumbering and construction history have not been rebuilt.
-Stages with free DOFs and no active physical stiffness explicitly mark their
-state unavailable as an equilibrium solution, including constraint-determined
-states. Constraint-only force recovery excludes stabilization; this warning
-does not certify their displacements as a physical equilibrium solution. Staged
+Stages without active physical stiffness retain equilibrium results only when
+every DOF is fixed directly or through constraints and the state agrees exactly
+with prescribed motion. Undetermined states are refused or marked unavailable.
+Constraint-only force recovery excludes stabilization. Staged
 final results require an actual stage result; there is no empty-result fallback.
 
 P-Delta still uses its existing small-strain second-order model. The recovered
 state now receives a force/moment check on its displaced geometry using the
 same wrench checker as fiber analysis, together with the actual reduced residual.
-If those checks fail the requested tolerance, `equilibrium` reports the failure
-and `result_quantity_unavailable` with phase `reactions` explains that finite-
-displacement reactions are unavailable and directs the caller to corotational
-analysis. The inclined-support class exposes this limitation; its assertions
-are not relaxed. Ordinary balanced P-Delta controls retain numerical reactions.
-No constitutive or geometric P-Delta solve is silently substituted.
+A failed or non-finite physical residual withholds reactions, member forces,
+constraint forces and spatial stresses as native NaNs while retaining record
+identities and field-specific `result_quantity_unavailable` diagnostics. WASM
+and certified exports refuse those states. A passing physical residual retains
+small-displacement answers; a failed displaced-geometry wrench check reports
+`equilibrium_violation` and directs finite-displacement reaction work to
+corotational analysis. The equilibrium summary retains both check outcomes.
+No constitutive or geometric P-Delta solve is substituted.
 
 Time history still does not recover total dynamic support reactions or member
-forces. Its `peakReactions` field contains a legacy elastic-only estimate from the
-displacement-peak selector, not total reactions or a reaction envelope.
-Every time-history result now carries `result_quantity_unavailable` with phase
-`peakReactions`, explaining the omitted inertia, damping and time-dependent
-support loading. Spring-only models retain support entries instead of returning
-an empty array. This is containment of an unavailable quantity; it is not a
+forces. Its `peakReactions` field is withheld as an empty collection in both
+dimensions, including spring-only models, through native, traced, certified and
+WASM entry points. Every time-history result carries
+`result_quantity_unavailable` with phase `peakReactions`, explaining the omitted
+inertia, damping and time-dependent support loading. Displacement histories and
+peaks remain available. This is containment of an unavailable quantity; it is not a
 validation of total dynamic equilibrium.
 
 The exact two requested frozen arch inputs and their previous outputs were
@@ -116,9 +118,10 @@ Constraints tied to settled masters also retain their imposed displacement.
 The requested residual and wrench tolerances are unchanged.
 
 Staged analysis accepts models with no free DOFs. Both result builders use one
-state-determinacy check for directly restrained DOFs, including agreement with
-the actual prescribed state. Constraint-determined free DOFs without physical
-stiffness retain the unavailable-state warning. Fully
+state-determinacy check for directly restrained and constraint-determined DOFs,
+including exact agreement with the actual prescribed state. Constraints must
+leave no independent free DOFs; partially constrained stiffness-free states
+retain the unavailable-state warning or refusal. Fully
 restrained stages apply prescribed displacements even when there is no active
 stiffness. Artificial stabilization is restricted to free DOFs through one
 shared lookup, and force recovery reassembles the physical stiffness without stabilization,

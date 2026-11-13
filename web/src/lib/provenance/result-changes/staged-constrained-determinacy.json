@@ -1,0 +1,42 @@
+{
+  "id": "staged-constrained-determinacy",
+  "date": "2026-11-13",
+  "prs": [
+    1952
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "constraints"
+      ],
+      [
+        "stagedConstruction"
+      ]
+    ]
+  },
+  "quantities": [
+    "stages",
+    "finalResults"
+  ],
+  "title": {
+    "en": "Fully constrained stages retain equilibrium results",
+    "es": "Las etapas completamente restringidas conservan resultados de equilibrio",
+    "pt": "Etapas totalmente restringidas mantêm resultados de equilíbrio",
+    "de": "Vollständig gebundene Bauphasen behalten Gleichgewichtsergebnisse",
+    "fr": "Les phases entièrement liées conservent les résultats d’équilibre",
+    "tr": "Tam kısıtlanmış aşamalar denge sonuçlarını korur"
+  },
+  "explanation": {
+    "en": "Recheck saved constraint-only staged results. Both dimensions now retain reactions and forces when supports and constraints determine every DOF and the state exactly matches prescribed motion. Partial constraints, incompatible motion and failed physical equilibrium remain unavailable or refused. Public staged inclined-support refusals are unchanged (#1952).",
+    "es": "Revisá los resultados por etapas guardados con solo restricciones. Ambas dimensiones conservan reacciones y esfuerzos cuando apoyos y restricciones determinan todos los grados de libertad y el estado coincide exactamente con el movimiento prescrito. Las restricciones parciales, los movimientos incompatibles y el equilibrio físico fallido siguen sin resultados disponibles o se rechazan. No cambian los rechazos públicos de apoyos inclinados por etapas (#1952).",
+    "pt": "Revise resultados salvos de etapas apenas com restrições. Ambas as dimensões mantêm reações e esforços quando apoios e restrições determinam todos os graus de liberdade e o estado coincide exatamente com o movimento prescrito. Restrições parciais, movimento incompatível e falha de equilíbrio físico continuam indisponíveis ou recusados. As recusas públicas de apoios inclinados por etapas não mudam (#1952).",
+    "de": "Prüfen Sie gespeicherte Bauphasenergebnisse mit ausschließlich kinematischen Bindungen. Beide Dimensionen behalten Reaktionen und Kräfte, wenn Auflager und Bindungen jeden Freiheitsgrad bestimmen und der Zustand exakt zur vorgeschriebenen Bewegung passt. Teilbindungen, unverträgliche Bewegung und fehlendes physikalisches Gleichgewicht bleiben nicht verfügbar oder werden abgelehnt. Öffentliche Ablehnungen geneigter Bauphasenauflager bleiben unverändert (#1952).",
+    "fr": "Revérifiez les résultats par phases enregistrés avec uniquement des liaisons. Dans les deux dimensions, réactions et efforts restent disponibles si appuis et liaisons déterminent chaque degré de liberté et si l’état correspond exactement au mouvement prescrit. Les liaisons partielles, mouvements incompatibles et échecs d’équilibre physique restent indisponibles ou refusés. Les refus publics des appuis inclinés par phases restent inchangés (#1952).",
+    "tr": "Yalnızca kısıtlar içeren kayıtlı aşama sonuçlarını yeniden denetleyin. Her iki boyutta mesnetler ve kısıtlar her serbestlik derecesini belirlediğinde ve durum öngörülen harekete tam uyduğunda tepkiler ve kuvvetler korunur. Kısmi kısıtlar, uyumsuz hareket ve başarısız fiziksel denge kullanılamaz kalır veya reddedilir. Aşamalı analizde eğimli mesnetlere yönelik genel kullanıma açık retler değişmez (#1952)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-staged-constrained-determinacy.md",
+    "heading": "Constraint-determined staged equilibrium (2026-11-13)"
+  }
+}

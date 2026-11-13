@@ -741,8 +741,10 @@ fn contain_stage_results(
     }
 }
 
-fn state_is_directly_prescribed(u: &[f64], n_free: usize, prescribed: &[f64]) -> bool {
-    n_free == 0 && u == prescribed
+fn state_is_fully_prescribed(u: &[f64], n_free: usize, prescribed: &[f64], cs: Option<&FreeConstraintSystem>) -> bool {
+    if u[n_free..] != *prescribed { return false; }
+    if n_free == 0 { return true; }
+    cs.is_some_and(|cs| cs.n_free_indep == 0 && u[..n_free] == cs.prescribed_free(prescribed))
 }
 
 /// Build AnalysisResults from cumulative displacements.
@@ -765,7 +767,7 @@ fn build_results_from_u(
     let reactions = recovered.reactions_2d(dof_num, &global_u, inclined_transforms)?;
 
     let prescribed = super::linear::prescribed_displacements_2d(input, dof_num);
-    let determined = state_is_directly_prescribed(u, dof_num.n_free, &prescribed);
+    let determined = state_is_fully_prescribed(solver_u.as_slice(), dof_num.n_free, &prescribed, cs);
     let no_stiffness = !determined && input.elements.is_empty() && super::assembly::support_spring_entries_2d(input, dof_num).is_empty();
     let metric = super::convergence::EquilibriumMetric::for_2d(input, dof_num, cs)?;
     let equilibrium_ok = reactions_vec.equilibrium_ok(&metric, dof_num, solver_u, cs);
@@ -1225,19 +1227,20 @@ fn build_results_from_u_3d(
     cs: Option<&FreeConstraintSystem>,
     history: &mut StageRecoveryHistory,
 ) -> Result<AnalysisResults3D, String> {
-    let global_u = solver_u.to_global_3d(&[]);
+    let transforms = reactions_vec.inclined_transforms_3d();
+    let global_u = solver_u.to_global_3d(transforms);
     let u = global_u.as_slice();
     let displacements = build_displacements_3d(dof_num, u);
     let mut element_forces = super::linear::compute_internal_forces_3d_with_loads(cum_input, &cum_input.loads, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
     let recovered = super::reaction_recovery::RecoveredForces::from_stage(reactions_vec, dof_num, cs);
-    let reactions = recovered.reactions_3d(dof_num, &global_u, &[])?;
+    let reactions = recovered.reactions_3d(dof_num, &global_u, transforms)?;
     let plate_stresses = compute_plate_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
     let quad_stresses = super::linear::compute_quad_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
     let quad_nodal_stresses = super::linear::compute_quad_nodal_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
 
     let prescribed = super::linear::prescribed_displacements_3d(cum_input, dof_num);
-    let determined = state_is_directly_prescribed(u, dof_num.n_free, &prescribed);
+    let determined = state_is_fully_prescribed(solver_u.as_slice(), dof_num.n_free, &prescribed, cs);
     let no_stiffness = !determined && cum_input.elements.is_empty() && super::assembly::support_spring_entries_3d(cum_input, dof_num).is_empty() && cum_input.plates.is_empty() && cum_input.quads.is_empty() && cum_input.quad9s.is_empty();
     let metric = super::convergence::EquilibriumMetric::for_3d(cum_input, dof_num, cs)?;
     let equilibrium_ok = reactions_vec.equilibrium_ok(&metric, dof_num, solver_u, cs);

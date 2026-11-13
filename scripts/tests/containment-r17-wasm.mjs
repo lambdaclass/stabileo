@@ -3,9 +3,11 @@ import { readFileSync } from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
+const kinds = process.argv[3] ? [process.argv[3]] : ['staged', 'pdelta'];
+assert.ok(kinds.every(kind => ['staged', 'pdelta'].includes(kind)));
 let checks = 0;
 for (const dim of [2, 3]) {
-  for (const kind of ['staged', 'pdelta']) {
+  for (const kind of kinds) {
     const cases = JSON.parse(readFileSync(`${process.argv[2]}-${kind}-${dim}.json`));
     for (const c of cases) {
       const width = dim === 2 ? 3 : 6;
@@ -26,7 +28,14 @@ for (const dim of [2, 3]) {
           } else {
             const output = JSON.parse(solve());
             const results = kind === 'staged' ? [...output.stages.map(s => s.results), output.finalResults] : [output.results];
-            for (const r of results) {
+            const active = new Set();
+            const expectedCounts = kind === 'staged' ? model.stages.map(stage => {
+              for (const id of stage.elementsAdded ?? []) active.add(id);
+              for (const id of stage.elementsRemoved ?? []) active.delete(id);
+              return active.size;
+            }) : [Object.keys(model.elements).length];
+            if (kind === 'staged') expectedCounts.push(active.size);
+            for (const [index, r] of results.entries()) {
               const diagnostics = (r.structuredDiagnostics ?? []).filter(d => d.code === 'result_quantity_unavailable');
               for (const d of diagnostics) {
                 const fields = d.phase === 'stageResults' ? ['reactions', 'elementForces', 'constraintForces', 'plateStresses', 'quadStresses', 'quadNodalStresses'] : [d.phase];
@@ -41,7 +50,7 @@ for (const dim of [2, 3]) {
               }
               if (!diagnostics.length) {
                 assert.ok(r.reactions.length > 0);
-                assert.ok(r.elementForces.length > 0);
+                assert.equal(r.elementForces.length, expectedCounts[index]);
               }
             }
             if (padding === 0 && iterations === 40) assert.deepEqual(output, c.output);

@@ -261,7 +261,7 @@ fn r17_recovery(dim: usize, empty: bool) {
                 let residual = physical_recovery::recover(physical_recovery::StageModel::Space(&model), &dofs, &u);
                 json!(build_results_from_u_3d(&SolverDisplacements::new(&u), &dofs, &model, &residual, cs.as_ref(), &mut StageRecoveryHistory::default()).unwrap())
             };
-            let unavailable = empty || (!tied && sign != 0.0);
+            let unavailable = !tied && (empty || sign != 0.0);
             let warned = result["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable");
             assert_eq!(warned, unavailable, "{dim}D empty={empty} tied={tied} sign={sign}: {result}");
             if unavailable {
@@ -433,7 +433,6 @@ fn staged_r20_uncertified_state_cannot_certify_unloaded_removal() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn staged_r23_spatial_inclined_recovery_uses_assembled_frame() {
     use serde_json::json;
     for scale in [-1.0, 0.0, 1.0] {
@@ -444,60 +443,128 @@ fn staged_r23_spatial_inclined_recovery_uses_assembled_frame() {
             "loads":[{"type":"nodal","data":{"nodeId":1,"fx":1.5*scale,"fy":-1.5*scale,"fz":2.0*scale,"mx":0.0,"my":0.0,"mz":0.0}}]
         })).unwrap();
         let dofs = DofNumbering::build_3d(&model);
-        let asm = super::super::assembly::without_artificial_stiffness(|| assemble_3d(&model, &dofs));
+        let asm =
+            super::super::assembly::without_artificial_stiffness(|| assemble_3d(&model, &dofs));
         let mut u = vec![0.0; dofs.n_total];
         let it = &asm.inclined_transforms[0];
         for i in 0..3 {
             u[it.dofs[i]] = (it.r[i][0] * 0.5 - it.r[i][1] * 0.5 + it.r[i][2] * 0.25) * scale;
         }
-        let residual = physical_recovery::recover(physical_recovery::StageModel::Space(&model), &dofs, &u);
-        let result = build_results_from_u_3d(&SolverDisplacements::new(&u), &dofs, &model, &residual, None, &mut StageRecoveryHistory::default()).unwrap();
+        let residual =
+            physical_recovery::recover(physical_recovery::StageModel::Space(&model), &dofs, &u);
+        let result = build_results_from_u_3d(
+            &SolverDisplacements::new(&u),
+            &dofs,
+            &model,
+            &residual,
+            None,
+            &mut StageRecoveryHistory::default(),
+        )
+        .unwrap();
         let displacement = &result.displacements[0];
-        for (value, expected) in [displacement.ux, displacement.uy, displacement.uz].into_iter().zip([0.5,-0.5,0.25]) {
+        for (value, expected) in [displacement.ux, displacement.uy, displacement.uz]
+            .into_iter()
+            .zip([0.5, -0.5, 0.25])
+        {
             assert!((value - expected * scale).abs() < 1e-12, "{result:?}");
         }
         let reactions = result.reactions;
         assert_eq!(reactions.len(), 1);
-        for (value, expected) in [reactions[0].fx, reactions[0].fy, reactions[0].fz].into_iter().zip([-1.5,1.5,-2.0]) {
+        for (value, expected) in [reactions[0].fx, reactions[0].fy, reactions[0].fz]
+            .into_iter()
+            .zip([-1.5, 1.5, -2.0])
+        {
             assert!((value - expected * scale).abs() < 1e-12, "{reactions:?}");
         }
     }
 }
 
-
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn staged_r23_determinacy_requires_every_equation_and_prescribed_value() {
-    let cases: Vec<Value> = serde_json::from_str(include_str!("../../tests/fixtures/staged-determined-r23.json")).unwrap();
+    let cases: Vec<Value> = serde_json::from_str(include_str!(
+        "../../tests/fixtures/staged-determined-r23.json"
+    ))
+    .unwrap();
     for base in cases {
         let dim = base["dim"].as_u64().unwrap();
         for partial in [false, true] {
             for corrupt in [false, true] {
                 let mut m = base["model"].clone();
-                if partial { m["constraints"] = json!([]); }
+                if partial {
+                    m["constraints"] = json!([]);
+                }
                 let result = if dim == 2 {
                     let input: StagedInput = serde_json::from_value(m).unwrap();
                     let full = staged_to_full_solver_input(&input);
                     let dofs = DofNumbering::build_2d(&full);
-                    let model = build_stage_solver_input(&input, &HashSet::new(), &HashSet::from([0]), &input.stages[0]);
+                    let model = build_stage_solver_input(
+                        &input,
+                        &HashSet::new(),
+                        &HashSet::from([0]),
+                        &input.stages[0],
+                    );
                     let cs = FreeConstraintSystem::build_2d(&model, &dofs).unwrap();
                     let mut u = vec![0.0; dofs.n_total];
-                    if corrupt { u[dofs.global_dof(1, 0).unwrap()] = 1.0; }
-                    let residual = physical_recovery::recover(physical_recovery::StageModel::Plane(&model, &input.stages[0]), &dofs, &u);
-                    json!(build_results_from_u(&SolverDisplacements::new(&u), &dofs, &model, &residual, cs.as_ref(), &mut StageRecoveryHistory::default(), &[]).unwrap())
+                    if corrupt {
+                        u[dofs.global_dof(1, 0).unwrap()] = 1.0;
+                    }
+                    let residual = physical_recovery::recover(
+                        physical_recovery::StageModel::Plane(&model, &input.stages[0]),
+                        &dofs,
+                        &u,
+                    );
+                    json!(build_results_from_u(
+                        &SolverDisplacements::new(&u),
+                        &dofs,
+                        &model,
+                        &residual,
+                        cs.as_ref(),
+                        &mut StageRecoveryHistory::default(),
+                        &[]
+                    )
+                    .unwrap())
                 } else {
                     let input: StagedInput3D = serde_json::from_value(m).unwrap();
                     let full = staged_to_full_solver_input_3d(&input);
                     let dofs = DofNumbering::build_3d(&full);
-                    let model = build_stage_solver_input_3d(&input, &HashSet::new(), &HashSet::from([0]), &HashSet::new(), &HashSet::new(), &input.stages[0]);
+                    let model = build_stage_solver_input_3d(
+                        &input,
+                        &HashSet::new(),
+                        &HashSet::from([0]),
+                        &HashSet::new(),
+                        &HashSet::new(),
+                        &input.stages[0],
+                    );
                     let cs = FreeConstraintSystem::build_3d(&model, &dofs).unwrap();
                     let mut u = vec![0.0; dofs.n_total];
-                    if corrupt { u[dofs.global_dof(1, 0).unwrap()] = 1.0; }
-                    let residual = physical_recovery::recover(physical_recovery::StageModel::Space(&model), &dofs, &u);
-                    json!(build_results_from_u_3d(&SolverDisplacements::new(&u), &dofs, &model, &residual, cs.as_ref(), &mut StageRecoveryHistory::default()).unwrap())
+                    if corrupt {
+                        u[dofs.global_dof(1, 0).unwrap()] = 1.0;
+                    }
+                    let residual = physical_recovery::recover(
+                        physical_recovery::StageModel::Space(&model),
+                        &dofs,
+                        &u,
+                    );
+                    json!(build_results_from_u_3d(
+                        &SolverDisplacements::new(&u),
+                        &dofs,
+                        &model,
+                        &residual,
+                        cs.as_ref(),
+                        &mut StageRecoveryHistory::default()
+                    )
+                    .unwrap())
                 };
-                let unavailable = result["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable");
-                assert_eq!(unavailable, partial || corrupt, "dim={dim} partial={partial} corrupt={corrupt}: {result}");
+                let unavailable = result["structuredDiagnostics"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|d| d["code"] == "result_quantity_unavailable");
+                assert_eq!(
+                    unavailable,
+                    partial || corrupt,
+                    "dim={dim} partial={partial} corrupt={corrupt}: {result}"
+                );
             }
         }
     }

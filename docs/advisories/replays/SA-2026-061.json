@@ -6811,32 +6811,10 @@
             "rz": 0
           }
         ],
-        "notices": [
-          {
-            "path": "$.stages.0.results.structuredDiagnostics",
-            "value": [
-              {
-                "code": "result_quantity_unavailable",
-                "severity": "warning",
-                "message": "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.",
-                "phase": "stageResults"
-              }
-            ]
-          },
-          {
-            "path": "$.finalResults.structuredDiagnostics",
-            "value": [
-              {
-                "code": "result_quantity_unavailable",
-                "severity": "warning",
-                "message": "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.",
-                "phase": "stageResults"
-              }
-            ]
-          }
-        ]
+        "notices": []
       },
-      "reportedReactionField": "finalResults.reactions"
+      "reportedReactionField": "finalResults.reactions",
+      "round23Correction": "The rigid link determines every slave DOF from the fixed master. The earlier after-state unavailability notices were false withholding. Round 23 retains these reactions, constraint forces and displacements without such notices; historical before fields are unchanged."
     },
     {
       "id": "staged-3d-support-change",

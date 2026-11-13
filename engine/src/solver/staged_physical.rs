@@ -10,12 +10,15 @@ pub(super) enum StageModel<'a> {
 struct PhysicalStageStiffness(CscMatrix);
 
 pub(in crate::solver) struct PhysicalStageResidual {
+    inclined_transforms_3d: Vec<super::super::assembly::InclinedTransformData>,
     residual: Vec<f64>,
     applied: Vec<f64>,
     model: super::super::reaction_recovery::ExpandedReactionModel,
 }
 
 impl PhysicalStageResidual {
+    pub(super) fn inclined_transforms_3d(&self) -> &[super::super::assembly::InclinedTransformData] { &self.inclined_transforms_3d }
+
     pub(in crate::solver) fn model(&self) -> &super::super::reaction_recovery::ExpandedReactionModel { &self.model }
     pub(super) fn equilibrium_ok(
         &self,
@@ -37,9 +40,9 @@ impl PhysicalStageResidual {
 fn assemble_physical_stiffness(
     model: StageModel<'_>,
     dof: &DofNumbering,
-) -> (PhysicalStageStiffness, Vec<f64>) {
+) -> (PhysicalStageStiffness, Vec<f64>, Vec<super::super::assembly::InclinedTransformData>) {
     super::super::assembly::physical_stiffness(|| {
-        let (k, f) = match model {
+        let (k, f, transforms) = match model {
             StageModel::Plane(input, stage) => {
                 let stiffness =
                     super::super::sparse_assembly::assemble_stiffness_sparse_2d(input, dof);
@@ -50,7 +53,7 @@ fn assemble_physical_stiffness(
                     dof,
                     &stiffness.inclined_transforms_2d,
                 );
-                (stiffness.k_full, f)
+                (stiffness.k_full, f, Vec::new())
             }
             StageModel::Space(input) => {
                 let stiffness =
@@ -63,18 +66,19 @@ fn assemble_physical_stiffness(
                     dof,
                     &stiffness.inclined_transforms,
                 );
-                (stiffness.k_full.unwrap(), f)
+                (stiffness.k_full.unwrap(), f, stiffness.inclined_transforms)
             }
         };
-        (PhysicalStageStiffness(k), f)
+        (PhysicalStageStiffness(k), f, transforms)
     })
 }
 
 impl PhysicalStageStiffness {
-    fn residual(self, applied: &[f64], u: &[f64], model: super::super::reaction_recovery::ExpandedReactionModel) -> PhysicalStageResidual {
+    fn residual(self, applied: &[f64], u: &[f64], inclined_transforms_3d: Vec<super::super::assembly::InclinedTransformData>, model: super::super::reaction_recovery::ExpandedReactionModel) -> PhysicalStageResidual {
         assert_eq!(applied.len(), self.0.n);
         assert_eq!(u.len(), self.0.n);
         PhysicalStageResidual {
+            inclined_transforms_3d,
             model,
             residual: self.0
                 .sym_mat_vec(u)
@@ -96,6 +100,6 @@ pub(super) fn recover(
         StageModel::Plane(input, _) => super::super::reaction_recovery::ExpandedReactionModel::plane(input),
         StageModel::Space(input) => super::super::reaction_recovery::ExpandedReactionModel::space(input),
     };
-    let (stiffness, applied) = assemble_physical_stiffness(model, dof);
-    stiffness.residual(&applied, u, reactions)
+    let (stiffness, applied, transforms) = assemble_physical_stiffness(model, dof);
+    stiffness.residual(&applied, u, transforms, reactions)
 }

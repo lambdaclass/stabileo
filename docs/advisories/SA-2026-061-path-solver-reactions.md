@@ -27,7 +27,7 @@ The sweep accompanying #1952 also repairs or explicitly contains these fields:
 |---|---|---|
 | Guyan 2D/3D, dense/sparse | Reactions omit force transferred to restrained constraint masters; 3D member forces always empty; spring-only 3D reactions can be empty | Full residual and master transfer; recover 3D member forces and spring entries |
 | Staged 2D/3D | Stage and final reactions omit master shares; constraint forces empty; constraint-only stages return zero reactions; incompatible support histories can return displacements, reactions and forces for different support states | Joint recovery; recover determined stages; refuse restraint/DOF mismatch; diagnose undetermined stiffness-free states |
-| P-Delta 2D/3D | Final reactions omit master shares; small-strain forces may fail moment balance on displaced geometry | Recover master shares; failed residual or displaced-geometry wrench check explicitly marks finite-displacement reactions unavailable |
+| P-Delta 2D/3D | Final reactions omit master shares; small-strain forces may fail moment balance on displaced geometry | Recover master shares; failed physical residual withholds equilibrium forces and stresses in native records and is refused by WASM/certified exports; a passing residual retains small-displacement answers and warns if displaced-geometry moment balance fails |
 | Corotational 2D/3D, including native 2D continuation | Reactions omit master shares; constraint forces use tangent times displacement instead of actual nonlinear internal force | Recover both from the actual final internal-minus-applied residual |
 | Material nonlinear 2D/3D | Reactions omit master shares; constraint forces can use initial elastic stiffness after yielding | Recover both from the final secant state; existing constitutive/convergence warnings remain |
 | Contact, dedicated cable and Winkler 2D/3D | Reactions omit restrained-master shares; cable recovery must retain actual chord tension | Common full-residual recovery with the solver's actual internal force |
@@ -259,9 +259,12 @@ prescribed-motion/constraint-reduced equation for iteration and residual
 normalization. Numerical tolerances are unchanged.
 
 `result_quantity_unavailable` explicitly identifies unsupported reaction or
-stage quantities. P-Delta's finite-displacement equilibrium failure is a
-containment, not a replacement with a finite-kinematics solve. Time history's
-new diagnostic is a containment, not recovery of total dynamic forces.
+stage quantities. A failed P-Delta physical residual withholds equilibrium
+forces and stresses; WASM and certified exports refuse that state. A passing
+physical residual retains small-displacement answers, with an
+`equilibrium_violation` warning if displaced-geometry wrench balance fails.
+The P-Delta formulation is unchanged. Time history returns `peakReactions: []`
+with an unavailable-quantity diagnostic; it does not recover total dynamic forces.
 Spatial path solvers are not added; spatial payloads remain refused, as do
 unsupported displacement-control inclined/prescribed-support inputs.
 

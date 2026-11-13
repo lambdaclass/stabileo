@@ -4,7 +4,7 @@ import test from 'node:test';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
-test('constraint-determined stages retain physical answers', { skip: process.env.RUN_KNOWN_WRONG ? false : 'known wrong result: #1952' }, () => {
+test('constraint-determined stages retain physical answers', () => {
   for (const base of JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/staged-determined-r23.json', import.meta.url)))) {
     for (const tie of ['rigidLink', 'equalDOF', 'partial']) {
       for (const padding of [0, 22]) {
@@ -23,7 +23,7 @@ test('constraint-determined stages retain physical answers', { skip: process.env
             }
             let r;
             try { r = JSON.parse(engine[`solve_staged_${dim}d`](JSON.stringify(m))); }
-            catch (error) { if (tie !== 'partial') throw error; continue; }
+            catch (error) { if (tie !== 'partial') throw error; assert.match(String(error), /mechanism/); continue; }
             if (tie === 'partial') {
               assert.ok(r.finalResults.structuredDiagnostics.some(d => d.code === 'result_quantity_unavailable'));
               assert.deepEqual(r.finalResults.reactions, []);
