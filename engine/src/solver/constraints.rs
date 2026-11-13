@@ -2641,6 +2641,42 @@ impl FreeConstraintSystem {
 mod tests {
 
     #[test]
+    fn constraint_2013_independent_cancellation_and_conditioning_boundaries() {
+        use super::super::stability::{ReleasedRotations, Verdict, RESOLVABLE};
+        use crate::linalg::sparse::CscMatrix;
+        for dimensions in [2, 3] {
+            for (stiff, gap, admitted) in [
+                (1e8, 1e-5, true),
+                ((RESOLVABLE - 2.0) / 4.0, 1e-5, true),
+                (RESOLVABLE / 4.0, 1e-5, false),
+                (1.0, 1e-10, true),
+                (1.0, 1e-13, false),
+                (1.0, 0.0, false),
+            ] {
+                let k = CscMatrix::from_dense_symmetric(&[
+                    1.0, 1.0-gap, 0.0, 0.0,
+                    1.0-gap, 1.0, 0.0, 0.0,
+                    0.0, 0.0, stiff+0.5, -stiff,
+                    0.0, 0.0, -stiff, stiff+0.5,
+                ], 4);
+                let ct = ConstraintTransform {
+                    c: SparseTransform::from_rows(4, 3, vec![vec![(0,1.0)], vec![(1,1.0)], vec![(2,1.0)], vec![(2,1.0)]]),
+                    n_independent: 3, n_total: 4, independent_dofs: vec![0,1,2], dependent_dofs: [3].into_iter().collect(),
+                };
+                let cs = FreeConstraintSystem::from_transform(&ct, 4, dimensions);
+                let dof = DofNumbering {
+                    map: (0..4).map(|i| ((i+1,0),i)).collect(), n_free:4, n_total:4,
+                    dofs_per_node: if dimensions==2 {3} else {6}, node_order: vec![1,2,3,4],
+                };
+                let reduced = cs.reduce_matrix_sparse(&k);
+                assert_eq!(reduced.diagonal(), vec![1.0;3]);
+                let actual = cs.stability(&reduced, &dof, &k, &[], &ReleasedRotations::default());
+                assert_eq!(actual.verdict == Verdict::Stable, admitted, "{dimensions}D stiff={stiff} gap={gap}: {actual:?}");
+            }
+        }
+    }
+
+    #[test]
     fn buckling_818_coupled_constraints_preserve_eigenvectors() {
         use crate::linalg::sparse::CscMatrix;
         use num_rational::BigRational;
