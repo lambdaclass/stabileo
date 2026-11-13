@@ -3,18 +3,18 @@
   import DataTable from '../DataTable.svelte';
   import { t, tp, capitalized } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
-  import ProMesher from './ProMesher.svelte';
-  import ProSurfaces from './ProSurfaces.svelte';
   import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
-  import { drawState, addShellOnCorners } from '../../lib/store/draw-state.svelte';
-  import { createPlate, plateOfShell } from '../../lib/store/physical-plates';
+  import { drawState, addShellOnCorners, CURVED_QUAD_TOL } from '../../lib/store/draw-state.svelte';
+  import { createCircularPlate, createPlate, physicalPlates, plateOfShell } from '../../lib/store/physical-plates';
+  import { platesFromShells } from '../../lib/store/plates-from-shells';
   import PlatePanel from './plates/PlatePanel.svelte';
-  import PlateList from './plates/PlateList.svelte';
+  import PlateBrowser from './plates/PlateBrowser.svelte';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import Icon from '../ribbon/Icon.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
+  import { fromDisplay } from '../../lib/utils/units';
 
   /* The two creators' state is gone with them — see the note on `newNodeIds`.
      Three corners make a triangle and four make a quad, so one set serves. */
@@ -36,27 +36,22 @@
   const plateCount = $derived(plates.length);
   const quadCount = $derived(quads.length);
 
-  // Nodes that connect a shell to the rest of the structure: any frame/truss
-  // endpoint, any support, or a node shared by ≥2 shells. (Stabileo shells
-  // couple to beams ONLY through shared nodes — there is no continuous edge
-  // coupling — so a corner attached to none of these transfers no load.)
-  const structureNodes = $derived.by(() => {
-    const s = new Set<number>();
-    for (const el of modelStore.elements.values()) { s.add(el.nodeI); s.add(el.nodeJ); }
-    for (const sup of modelStore.supports.values()) s.add(sup.nodeId);
-    const shellCount = new Map<number, number>();
-    for (const q of quads) for (const n of q.nodes) shellCount.set(n, (shellCount.get(n) ?? 0) + 1);
-    for (const p of plates) for (const n of p.nodes) shellCount.set(n, (shellCount.get(n) ?? 0) + 1);
-    for (const [n, c] of shellCount) if (c >= 2) s.add(n);
-    return s;
-  });
-  // Shells with a corner attached to nothing else (floating / no load path there).
-  const disconnectedShells = $derived(
-    quads.filter(q => q.nodes.some(n => !structureNodes.has(n))).length
-    + plates.filter(p => p.nodes.some(n => !structureNodes.has(n))).length,
-  );
-
-  let showShellInfo = $state(true);
+  /** The panel lists what a click in the model picks: whole plates, or their mesh's elements. */
+  function toScope(scope: 'plate' | 'element') {
+    if (scope === uiStore.shellPickScope) return;
+    uiStore.selectMode = 'shells';
+    if (scope === 'plate') {
+      const owners = [...new Set([...uiStore.selectedShells].map((k) => plateOfShell(k)).filter((x): x is number => x !== null))];
+      uiStore.shellPickScope = 'plate';
+      uiStore.selectPlates(owners);
+    } else {
+      const keys = new Set(uiStore.selectedShells);
+      uiStore.shellPickScope = 'element';
+      uiStore.selectPlates([]);
+      uiStore.setSelection(new Set(), new Set(), false, keys);
+    }
+  }
+  const physicalCount = $derived.by(() => { void modelStore.model.groups; return physicalPlates().length; });
 
 
 
@@ -76,7 +71,6 @@
   let newNodeIds = $state<[string, string, string, string]>(['', '', '', '']);
   /* Material, thickness and corner count are the drawing's too (`drawState`): a plate written
      here and one drawn in the model come out the same. */
-  let newCurved = $state(false);
   let newError = $state<string | null>(null);
 
   /**
@@ -166,8 +160,26 @@
     newNodeIds = next;
   });
 
+  let circle = $state(false);
+  let circleCenter = $state('0; 0; 0'), circleRadius = $state(3);
+  let circleHole = $state(false), holeCenter = $state('0; 0; 0'), holeRadius = $state(0.5);
+  /** A point typed as "x; y; z" in the display units, decimal comma or point, in SI. */
+  const point = (s: string): [number, number, number] | null => {
+    const v = s.split(/[;\s]+/).filter(Boolean).map((x) => Number(x.replace(',', '.')));
+    return v.length === 3 && v.every(Number.isFinite) ? (v.map((x) => fromDisplay(x, 'length', uiStore.unitSystem)) as [number, number, number]) : null;
+  };
+  function cornersAs(v: 3 | 4 | 'outline') { circle = false; drawState.plateCorners = v; }
+
   function addShell() {
     newError = null;
+    if (circle) {
+      const c = point(circleCenter), h = point(holeCenter);
+      const r = c && (!circleHole || h) ? createCircularPlate({ center: c, radius: circleRadius, ...(circleHole ? { hole: { center: h!, radius: holeRadius } } : {}), materialId: drawState.plateMaterialId, thickness: drawState.plateThickness }) : null;
+      if (!r || 'problem' in r) { newError = t('plates.circle.invalid'); return; }
+      uiStore.selectMode = 'shells';
+      uiStore.selectPlates([r.id]);
+      return;
+    }
     if (drawState.plateCorners === 'outline') {
       // A physical plate on the outline typed, meshed later (`store/physical-plates.ts`).
       const ids = outlineIds;
@@ -181,15 +193,16 @@
     }
     const ids = newGiven.map((v) => Number(v));
     if (ids.length < cornerBoxes) { newError = t('pro.shellNeedNodes'); return; }
-    const r = addShellOnCorners(ids, drawState.plateMaterialId, drawState.plateThickness, newCurved);
+    const r = addShellOnCorners(ids, drawState.plateMaterialId, drawState.plateThickness);
     if ('error' in r) { newError = t(r.error); return; }
-    uiStore.selectShell(r.key, false);
+    // The plate it is made into belongs to the same undo step as the shell.
+    let plate: number | undefined;
+    modelStore.amendLastStep(() => { [plate] = platesFromShells([r.key]); });
+    if (plate !== undefined) { uiStore.selectMode = 'shells'; uiStore.selectPlates([plate]); } else uiStore.selectShell(r.key, false);
     /* The recommendation follows the corners, so clearing them clears it. */
     newNodeIds = ['', '', '', ''];
-    newCurved = false;
   }
 
-  let showMeshGen = $state(false);
 
 
 
@@ -207,7 +220,7 @@
     boxes hold.
   -->
   <div class="pro-shells-header">
-    <span class="pro-shells-count">{t('pro.nPlatesQuads').replace('{plates}', String(plateCount)).replace('{quads}', String(quadCount))}</span>
+    <span class="pro-shells-count" data-testid="plates-count">{tp('plates.header', { plates: physicalCount, elements: quadCount + plateCount })}</span>
     <span class="pro-shells-actions">
     <button
       class="dim-like"
@@ -224,54 +237,30 @@
   </div>
 
   <div class="pro-shells-scroll">
-    <PlatePanel />
-    {#if uiStore.selectedPlates.size === 0 && uiStore.selectedShells.size > 0}
-      {@const owner = plateOfShell([...uiStore.selectedShells][0]!)}
-      {#if owner !== null}
-        <!-- An element of a plate's mesh: back to the plate it was made from. -->
-        <button class="pro-btn" onclick={() => { uiStore.shellPickScope = 'plate'; uiStore.selectPlates([owner]); }} data-testid="shell-select-owner">{tp('plates.selectOwner', { name: modelStore.model.groups.get(owner)?.name ?? '' })}</button>
-      {/if}
-    {/if}
-    <PlateList />
-    <!-- Model-wide warning: shells with a corner attached to nothing else -->
-    {#if disconnectedShells > 0}
-      <div class="shell-warn">⚠ {t('pro.shellWarnDisconnected').replace('{n}', String(disconnectedShells))}</div>
-    {/if}
-
-    <!--
-      ── ONE creator: three nodes make a triangle, four make a quad ─────
-      There were two, side by side, near-identical and each with its own
-      node boxes, material, thickness and family: "Plate (DKT triangle)" and
-      "Quad (MITC4)". Those are ELEMENT FORMULATIONS, and a reader drawing a
-      slab does not start from one — they start from the corners. How many
-      corners there are already decides which formulation applies, so asking
-      is asking the reader to answer a question the geometry has answered.
-
-      Pick the nodes; three or four; the panel says what it is about to make
-      and makes it.
-
-      The formulation is still SHOWN — the recommendation below names it and
-      says why — but it is no longer chooseable, and the `auto` choice the two
-      creators used to write onto the element is not written either. That is
-      worth knowing rather than glossing: the engine chooses the formulation by
-      the shell's node count, and the `shellFamily` field that stood for a choice
-      was read by nothing and has been removed.
-    -->
     {#if drawState.writing === 'plate'}
       <WriteCard
         title={capitalized(tp('pro.writeWhat', { what: t('pro.onePlate') }))}
         submitLabel={capitalized(tp('pro.addWhat', { what: t('pro.onePlate') }))}
         onsubmit={addShell}
         error={newError}
-        disabled={drawState.plateCorners === 'outline' ? outlineIds.length < 3 : newCount < cornerBoxes}
+        disabled={circle ? !(circleRadius > 0) : drawState.plateCorners === 'outline' ? outlineIds.length < 3 : newCount < cornerBoxes}
         testid="write-plate-card"
       >
         <div class="corner-seg" role="group" aria-label={t('drawBar.corners')}>
-          <button type="button" class:on={drawState.plateCorners === 'outline'} aria-pressed={drawState.plateCorners === 'outline'} onclick={() => (drawState.plateCorners = 'outline')} title={t('drawBar.outlineHint')} data-testid="write-corners-outline">{t('drawBar.outline')}</button>
-          <button type="button" class:on={drawState.plateCorners === 3} aria-pressed={drawState.plateCorners === 3} onclick={() => (drawState.plateCorners = 3)} data-testid="write-corners-3">{t('drawBar.triangle')}</button>
-          <button type="button" class:on={drawState.plateCorners === 4} aria-pressed={drawState.plateCorners === 4} onclick={() => (drawState.plateCorners = 4)} data-testid="write-corners-4">{t('drawBar.quad')}</button>
+          <button type="button" class:on={!circle && drawState.plateCorners === 'outline'} aria-pressed={!circle && drawState.plateCorners === 'outline'} onclick={() => cornersAs('outline')} title={t('drawBar.outlineHint')} data-testid="write-corners-outline">{t('drawBar.outline')}</button>
+          <button type="button" class:on={!circle && drawState.plateCorners === 3} aria-pressed={!circle && drawState.plateCorners === 3} onclick={() => cornersAs(3)} data-testid="write-corners-3">{t('drawBar.triangle')}</button>
+          <button type="button" class:on={!circle && drawState.plateCorners === 4} aria-pressed={!circle && drawState.plateCorners === 4} onclick={() => cornersAs(4)} data-testid="write-corners-4">{t('drawBar.quad')}</button>
+          <button type="button" class:on={circle} aria-pressed={circle} onclick={() => (circle = true)} data-testid="write-corners-circle">{t('drawBar.circle')}</button>
         </div>
-        {#if drawState.plateCorners === 'outline'}
+        {#if circle}
+          <label>{t('plates.circle.center')} <input type="text" class="node-input outline-input" placeholder="x; y; z" bind:value={circleCenter} data-testid="plate-circle-center" /></label>
+          <label>{t('plates.circle.radius')} <QuantityInput min={0.01} bind:value={circleRadius} quantity="length" cls="node-input" testid="plate-circle-radius" /></label>
+          <label><input type="checkbox" bind:checked={circleHole} data-testid="plate-circle-hole" /> {t('plates.circle.hole')}</label>
+          {#if circleHole}
+            <label>{t('plates.circle.holeCenter')} <input type="text" class="node-input outline-input" placeholder="x; y; z" bind:value={holeCenter} data-testid="plate-circle-hole-center" /></label>
+            <label>{t('plates.circle.holeRadius')} <QuantityInput min={0.01} bind:value={holeRadius} quantity="length" cls="node-input" testid="plate-circle-hole-radius" /></label>
+          {/if}
+        {:else if drawState.plateCorners === 'outline'}
           <label>{t('plates.outlineNodes')}
             <input type="text" class="node-input outline-input" placeholder="1, 2, 3, 4" bind:value={outlineText} data-testid="plate-outline-nodes" />
           </label>
@@ -303,23 +292,8 @@
                  onchange={(v) => { if (v > 0) drawState.plateThickness = v; }} testid="shell-thickness" />
         </label>
 
-        <!--
-          A cáscara, offered only where it can mean anything: three points
-          are coplanar by definition, so a triangle is never curved. Whether
-          FOUR are is arithmetic, and the panel measures it rather than
-          leaving a dome to be solved as facets.
-        -->
-        {#if newCount === 4}
-          <label class="curved-check">
-            <input type="checkbox" bind:checked={newCurved} data-testid="quad-curved" />
-            <span>{t('pro.curvedShell')}</span>
-          </label>
-          {#if newOutOfPlane != null && newOutOfPlane > 1e-6 && !newCurved}
-            <div class="recommendation warn" data-testid="quad-curved-hint">
-              <span class="rec-icon">⚠</span>
-              <span class="rec-text">{tp('pro.curvedShellHint', { mm: (newOutOfPlane * 1000).toFixed(1) })}</span>
-            </div>
-          {/if}
+        {#if newCount === 4 && newOutOfPlane != null && newOutOfPlane > CURVED_QUAD_TOL}
+          <p class="mesh-hint" data-testid="quad-curved-hint">{tp('pro.curvedShellAuto', { mm: (newOutOfPlane * 1000).toFixed(1) })}</p>
         {/if}
 
         {#if newRecommendation}
@@ -334,66 +308,29 @@
       </WriteCard>
     {/if}
 
-    <!-- Curvature, offset and foundation springs of the selected shell are specified in
-         Specifications › Surfaces; like Members, offered for one shell. Two or more get the
-         group editing bar of the table, which opens it too. -->
-    {#if uiStore.selectedShells.size === 1}
-      <button class="pro-btn shell-open-spec" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">
-        {t('spec.surfaces.open').replace('{n}', String(uiStore.selectedShells.size))}
-      </button>
-    {/if}
+    <div class="pro-shells-scope" role="radiogroup" aria-label={t('plates.pickScope')} data-testid="plates-scope">
+      <button role="radio" aria-checked={uiStore.shellPickScope === 'plate'} class:on={uiStore.shellPickScope === 'plate'} onclick={() => toScope('plate')} data-testid="plates-scope-plate">{tp('plates.scopePlates', { n: physicalCount })}</button>
+      <button role="radio" aria-checked={uiStore.shellPickScope === 'element'} class:on={uiStore.shellPickScope === 'element'} onclick={() => toScope('element')} data-testid="plates-scope-element">{tp('plates.scopeElements', { n: quadCount + plateCount })}</button>
+    </div>
 
-    <!--
-      Stairs are not modelled here: they belong to the design desk, where a stair is stated by its
-      flight, landings and supports and designed (roadmap, review at the close of stage 1).
-    -->
-
-    <!-- Quick mesh generator -->
-    <div class="section">
-      <button class="section-toggle" onclick={() => showMeshGen = !showMeshGen}>
-        <span class="toggle-arrow">{showMeshGen ? '\u25BE' : '\u25B8'}</span>
-        {t('pro.meshGenerator')}
-      </button>
-      {#if showMeshGen}
-        <div class="section-body">
-          <ProMesher />
-          <div class="mesh-hint" style="margin-top: 8px; font-weight: 600;">{t('surface.title')}</div>
-          <ProSurfaces />
-
-          <!-- How shells connect & transfer load (lives with the mesh tool, the
-               place where node-sharing actually matters) -->
-          <div class="shell-info">
-            <button class="shell-info-toggle" onclick={() => showShellInfo = !showShellInfo}>
-              <span>{showShellInfo ? '▾' : '▸'}</span> {t('pro.shellInfoTitle')}
-            </button>
-            {#if showShellInfo}
-              <div class="shell-info-body">
-                <p>{t('pro.shellInfoTransfer')}</p>
-                <p>{t('pro.shellInfoMesh')}</p>
-                <p>{t('pro.shellInfoSplit')}</p>
-                <p>{t('pro.shellInfoSlab')}</p>
-              </div>
-            {/if}
-          </div>
+    {#if uiStore.shellPickScope === 'plate'}
+      <PlateBrowser />
+      <PlatePanel />
+    {:else}
+      <p class="mesh-hint pro-shells-note">{t('plates.elementsNote')}</p>
+      {#if uiStore.selectedShells.size > 0}
+        {@const owner = plateOfShell([...uiStore.selectedShells][0]!)}
+        <div class="pro-shells-actions-row">
+          {#if owner !== null}
+            <button class="pk-btn" onclick={() => toScope('plate')} data-testid="shell-select-owner">{tp('plates.selectOwner', { name: modelStore.model.groups.get(owner)?.name ?? '' })}</button>
+          {/if}
+          {#if uiStore.selectedShells.size === 1}
+            <button class="pk-btn" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">{t('plates.openSpecElement')}</button>
+          {/if}
         </div>
       {/if}
-    </div>
-
-
-    <!--
-      ── Tools above, the shared table below ────────────────────────────
-      The panel used to draw its own two tables — one of triangles, one of
-      quads — which is a third place shells are listed and a third set of
-      columns to keep in step with the other two. This is the table Basic
-      uses, pinned to shells because the ribbon has already chosen which
-      entity you are working on.
-
-      The shape is the same in every modelling panel: what you can DO to this
-      kind of thing at the top, and what the model currently holds underneath.
-    -->
-    <div class="section shell-table">
-      <DataTable pinned="plates" />
-    </div>
+      <div class="shell-table"><DataTable pinned="plates" /></div>
+    {/if}
   </div>
 </div>
 
@@ -445,6 +382,12 @@
     font-weight: 600;
   }
 
+.pro-shells-scope { position: sticky; top: 0; z-index: 2; background: var(--st-surface, var(--st-ink)); display: flex; margin: 6px 8px; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); overflow: hidden; }
+  .pro-shells-scope button { flex: 1; padding: 4px 8px; background: none; border: none; color: var(--st-text-2); font: inherit; font-size: 0.74rem; cursor: pointer; }
+  .pro-shells-scope button + button { border-left: 1px solid var(--st-hair-strong); }
+  .pro-shells-scope button.on { background: var(--st-selected-bg, var(--st-surface-3)); color: var(--st-text); font-weight: 600; }
+  .pro-shells-note { margin: 0 8px 6px; }
+  .pro-shells-actions-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 8px 6px; }
   .pro-shells-scroll {
     flex: 1;
     overflow-y: auto;
@@ -560,23 +503,6 @@
 
 
 
-  .shell-info {
-    margin: 6px 8px 10px;
-    border: 1px solid var(--st-surface-3);
-    border-radius: 4px;
-    background: rgba(20, 40, 60, 0.4);
-  }
-  .shell-info-toggle {
-    width: 100%; text-align: left; background: none; border:  1px solid var(--st-hair); cursor: pointer;
-    color: var(--st-text-2); font-size: 0.72rem; font-weight: 600; padding: 7px 9px;
-  }
-  .shell-info-body { padding: 0 10px 8px; }
-  .shell-info-body p { margin: 4px 0; font-size: 0.68rem; line-height: 1.4; color: var(--st-text-2); }
-  .shell-warn {
-    margin: 0 8px 8px; padding: 6px 9px; border-radius: 4px;
-    background: rgba(120, 80, 0, 0.25); border: 1px solid var(--st-warn);
-    color: var(--st-warn); font-size: 0.68rem; line-height: 1.35;
-  }
   @keyframes pickPulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.4); }
     50% { box-shadow: 0 0 0 4px rgba(0, 255, 255, 0); }
@@ -592,8 +518,6 @@
   }
 
   /* Recommendation display */
-  .curved-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  .curved-check input { cursor: pointer; }
 
   .recommendation {
     display: flex;

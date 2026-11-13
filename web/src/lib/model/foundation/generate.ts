@@ -11,6 +11,7 @@
  * Footings go on the foundation undo channel, which keeps the solve. Beams are bars between the
  * footings' nodes and change the model, so placing them is a model undo step.
  */
+import { plateLoops } from '../physical/plate';
 import { modelStore } from '../../store/model.svelte';
 import type { Footing } from '../footing';
 import type { PhysicalData } from '../physical/types';
@@ -105,6 +106,8 @@ export function wallBaseNodes(wallGroupId: number): number[] {
   const nodes = new Set<number>();
   for (const q of g.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) nodes.add(n);
   for (const p of g.members.plates ?? []) for (const n of modelStore.plates.get(p)?.nodes ?? []) nodes.add(n);
+  // A wall waiting for its mesh stands on its outline's nodes; its mesh takes the base from them.
+  if (!nodes.size) { const l = plateLoops(g); for (const n of [...l.outer, ...l.holes.flat()]) nodes.add(n); }
   const pts = [...nodes].map((id) => modelStore.nodes.get(id)!).filter(Boolean);
   if (pts.length === 0) return [];
   const zMin = Math.min(...pts.map((p) => p.z ?? 0));

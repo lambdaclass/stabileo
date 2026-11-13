@@ -2749,10 +2749,8 @@ const ko: Translations = {
   'pro.unknown': '알 수 없음',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates}개 판, {quads}개 사각형',
   'pro.plateTriDKT': '삼각 판 (DKT)',
   'pro.quadMITC4': '사각형 MITC4',
-  'pro.meshGenerator': '메쉬 생성기',
   'pro.meshHint': '4개 모서리 절점(반시계 방향)과 NxM 분할을 정의하세요. 중간 절점과 사각형이 자동 생성됩니다.',
   'pro.corners': '모서리',
   'pro.subdivisions': '분할',

@@ -2609,10 +2609,8 @@ const ja: Translations = {
   'pro.unknown': '不明',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} プレート、{quads} クワッド',
   'pro.plateTriDKT': '三角プレート (DKT)',
   'pro.quadMITC4': 'クワッド MITC4',
-  'pro.meshGenerator': 'メッシュジェネレーター',
   'pro.meshHint': '4つのコーナー節点（反時計回り）とNxM分割を定義します。中間節点とクワッドが自動生成されます。',
   'pro.corners': 'コーナー',
   'pro.subdivisions': '分割数',

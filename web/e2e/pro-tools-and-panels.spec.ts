@@ -144,12 +144,11 @@ test.describe('@smoke PRO — plates are one creator', () => {
     await page.getByTestId('shell-node-2').fill('3');
     await expect(add, 'three corners is a triangle').toBeEnabled();
 
-    /* The curved option appears only where it can mean anything: three points
-       are coplanar by definition. */
-    await expect(page.getByTestId('quad-curved')).toHaveCount(0);
     await page.getByTestId('write-corners-4').click();
     await expect(add, 'a quad wants its fourth corner').toBeDisabled();
     await page.getByTestId('shell-node-3').fill('4');
-    await expect(page.getByTestId('quad-curved')).toHaveCount(1);
+    await expect(add).toBeEnabled();
+    /* Curvature is read off the corners: there is no box to tick. */
+    await expect(page.getByTestId('quad-curved')).toHaveCount(0);
   });
 });

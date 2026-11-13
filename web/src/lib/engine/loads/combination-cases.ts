@@ -120,22 +120,37 @@ const VARIABLE: ReadonlySet<LoadSymbol> = new Set(['L', 'Lr', 'S', 'R', 'W', 'Wa
 
 export function expandCombinations(
   specs: readonly LoadCombinationSpec[],
-  cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string; pattern?: boolean; includes?: ReadonlyArray<unknown> }>,
+  cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string; pattern?: boolean; includes?: ReadonlyArray<unknown>; group?: string }>,
   opts: ExpandOptions = {},
 ): CaseCombination[] {
-  type Case = { id: number; name: string; alternatives?: string; pattern?: boolean };
-  const bySymbol = new Map<LoadSymbol, Case[]>();
+  type Case = { id: number; name: string; alternatives?: string; pattern?: boolean; group?: string };
+  const bySymbol0 = new Map<LoadSymbol, Case[]>();
   for (const c of cases) {
     const s = symbolOfCase(c);
     if (!s) continue;
-    bySymbol.set(s, [...(bySymbol.get(s) ?? []), { id: c.id, name: c.name, alternatives: c.alternatives, pattern: c.pattern }]);
+    bySymbol0.set(s, [...(bySymbol0.get(s) ?? []), { id: c.id, name: c.name, alternatives: c.alternatives, pattern: c.pattern, group: c.group }]);
   }
   /** One way of taking a term: the cases it adds, their sign, and what names it. */
   type Pick = { cases: Case[]; sense: 1 | -1; label: string };
   const out: CaseCombination[] = [];
   for (const spec of specs) {
-    const terms = spec.terms.filter((t) => t.factor !== 0);
-    if (terms.some((t) => !bySymbol.has(t.symbol))) continue;
+    const terms0 = spec.terms.filter((t) => t.factor !== 0);
+    /*
+     * A term with a group takes the cases planned with that group; a term of the same symbol with
+     * none takes the others. A spec that names no group takes every case of the symbol, as always.
+     */
+    const termKey = (t: (typeof terms0)[number]) => (t.group ? `${t.symbol}|${t.group}` : t.symbol);
+    const bySymbol = new Map<string, Case[]>();
+    for (const t of terms0) {
+      const all = bySymbol0.get(t.symbol);
+      if (!all) continue;
+      const named = new Set(terms0.filter((o) => o.symbol === t.symbol && o.group).map((o) => o.group!));
+      const mine = all.filter((c) => (t.group ? c.group === t.group : !(c.group && named.has(c.group))));
+      if (mine.length) bySymbol.set(termKey(t), mine);
+    }
+    // A group term with no case of its group is the part absent from the model: it drops, the rest stays.
+    const terms = terms0.filter((t) => !t.group || bySymbol.has(termKey(t)));
+    if (terms.some((t) => !bySymbol.has(termKey(t)))) continue;
     /*
      * Each term offers one or more picks, and a combination takes one pick of every term.
      * A directional symbol (W, Wa, E) offers each of its cases on its own, and each sense when
@@ -145,14 +160,14 @@ export function expandCombinations(
      * is taken one case at a time too; it used to sum every direction of it.
      */
     const principal = Math.max(0, ...terms.filter((t) => VARIABLE.has(t.symbol)).map((t) => Math.abs(t.factor)));
-    const arranged = (t: (typeof terms)[number]) => !ALTERNATIVE.has(t.symbol) && bySymbol.get(t.symbol)!.some((c) => c.pattern);
+    const arranged = (t: (typeof terms)[number]) => !ALTERNATIVE.has(t.symbol) && bySymbol.get(termKey(t))!.some((c) => c.pattern);
     // The terms that may be the principal one and have arrangements to vary (see the header).
     const tied = terms.flatMap((t, i) => (VARIABLE.has(t.symbol) && Math.abs(t.factor) >= principal - 1e-9 && arranged(t) ? [i] : []));
     /** The slots of the rule with the patterned term `varying` the principal (null: none varies). */
     const slotsFor = (varying: number | null) => {
       const slots: Array<{ factor: number; picks: Pick[] }> = [];
       terms.forEach((t, i) => {
-        const all = bySymbol.get(t.symbol)!;
+        const all = bySymbol.get(termKey(t))!;
         if (ALTERNATIVE.has(t.symbol)) {
           const reverse = !!opts.bothSenses?.[t.symbol as 'W' | 'E'];
           const sensesOf = (c: Case): Array<1 | -1> =>

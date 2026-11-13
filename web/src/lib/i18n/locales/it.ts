@@ -2763,10 +2763,8 @@ const it: Translations = {
   'pro.unknown': 'Sconosciuto',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} piastre, {quads} quad',
   'pro.plateTriDKT': 'Piastra triangolare (DKT)',
   'pro.quadMITC4': 'Quad MITC4',
-  'pro.meshGenerator': 'Generatore di mesh',
   'pro.meshHint': 'Definisci 4 nodi angolari (senso antiorario) e suddivisioni NxM. I nodi intermedi e i quad vengono creati automaticamente.',
   'pro.corners': 'Angoli',
   'pro.subdivisions': 'Suddivisioni',

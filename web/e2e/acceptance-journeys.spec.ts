@@ -330,8 +330,6 @@ test.describe('@slow acceptance of the two journeys', () => {
     await step(page, j, 'recognise', async () => {
       await page.getByTestId('pr-stage-model').click();
       await ribbonCmd(page, 'physical');
-      await page.getByTestId('physical-recognize').click();
-      await page.getByTestId('recognition-apply').click();
       await expect(page.getByTestId('physical-table')).toBeVisible();
       return physical(page);
     });

@@ -2,6 +2,7 @@
  * Every export of results carries the provenance record and the stale status, in its own format,
  * prepared like every export's (awaited engine hashes, bound to the state it started on).
  */
+import { ensurePhysicalModel } from '../../store/plates-from-shells';
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 const texts = vi.hoisted(() => [] as Array<{ content: string; name: string }>);
 vi.mock('../../store/file', async (orig) => ({
@@ -34,6 +35,8 @@ function frame(): void {
   modelStore.addElement(a, b, 'frame'); modelStore.addElement(b, c, 'frame');
   modelStore.addSupport(a, 'fixed3d');
   modelStore.addNodalLoad3D(c, 0, 0, -2, 0, 0, 0);
+  // As the PRO workspace does once the model changes: its physical elements read off it.
+  ensurePhysicalModel();
 }
 function solve(): void {
   const r = modelStore.solve3D(true, false, true);

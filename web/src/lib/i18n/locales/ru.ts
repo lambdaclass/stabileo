@@ -2754,10 +2754,8 @@ const ru: Translations = {
   'pro.unknown': 'Неизвестно',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} пластин, {quads} четырёхугольников',
   'pro.plateTriDKT': 'Треугольная пластина (DKT)',
   'pro.quadMITC4': 'Четырёхугольник MITC4',
-  'pro.meshGenerator': 'Генератор сетки',
   'pro.meshHint': 'Задайте 4 угловых узла (против часовой стрелки) и NxM разбиений. Промежуточные узлы и четырёхугольники создаются автоматически.',
   'pro.corners': 'Углы',
   'pro.subdivisions': 'Разбиения',

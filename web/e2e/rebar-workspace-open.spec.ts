@@ -143,6 +143,8 @@ test('@slow the 3-D workspace opens without freezing the window', async ({ pro: 
   test.setTimeout(900_000);
   const rows: Array<[string, OpenTiming]> = [];
 
+  // The building as it comes, one shell per bay, as these budgets were calibrated on.
+  await page.evaluate(() => window.__stabileoActions.setMeshBeforeAnalysis(false));
   await loadModel(page, 'pro-edificio-7p');
   await designAll(page);
   await generateDetailing(page);

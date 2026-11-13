@@ -9,6 +9,7 @@
   import ProFoundationSprings from '../ProFoundationSprings.svelte';
   import SpecEmpty from './SpecEmpty.svelte';
   import QuantityInput from '../loads/QuantityInput.svelte';
+  import { plateEntry, platesWholeIn, setPlateShellSpec } from '../../../lib/store/physical-plates';
 
   /* ── Curvature, on a shell that already exists ─────────────────────
    *
@@ -47,6 +48,7 @@
   function setSelectedCurved(on: boolean) {
     modelStore.batch(() => {
       for (const q of selectedQuads) modelStore.setQuadCurved(q.id, on);
+      setPlateShellSpec(platesWholeIn(uiStore.selectedShells), { curved: on });
     });
   }
 
@@ -82,11 +84,19 @@
     }
   }
   // One undo step for the whole selection.
+  // A plate selected whole keeps the offset too, so every mesh it is given gets it.
   function applyShellOffset() {
-    modelStore.batch(() => eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, { frame: offFrame, x: offX, y: offY, z: offZ })));
+    const offset = { frame: offFrame, x: offX, y: offY, z: offZ };
+    modelStore.batch(() => {
+      eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, offset));
+      setPlateShellSpec(platesWholeIn(uiStore.selectedShells), { offset });
+    });
   }
   function clearShellOffset() {
-    modelStore.batch(() => eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, undefined)));
+    modelStore.batch(() => {
+      eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, undefined));
+      setPlateShellSpec(platesWholeIn(uiStore.selectedShells), { offset: null });
+    });
   }
   /** Quick preset: offset along the shell normal by ±half its thickness so the
    *  top/bottom face sits at the node plane (slab top-of-beam, wall face). */
@@ -94,10 +104,16 @@
     // Each shell by its own thickness: a slab and its thicker drop panel both get their face
     // on the node plane. The first shell's used to be applied to all.
     offFrame = 'local';
-    modelStore.batch(() => eachSelectedShell((kind, id) => {
-      const shell = kind === 'plate' ? modelStore.model.plates.get(id) : modelStore.model.quads.get(id);
-      if (shell) modelStore.setShellOffset(kind, id, { frame: 'local', x: 0, y: 0, z: sign * shell.thickness / 2 });
-    }));
+    modelStore.batch(() => {
+      eachSelectedShell((kind, id) => {
+        const shell = kind === 'plate' ? modelStore.model.plates.get(id) : modelStore.model.quads.get(id);
+        if (shell) modelStore.setShellOffset(kind, id, { frame: 'local', x: 0, y: 0, z: sign * shell.thickness / 2 });
+      });
+      for (const id of platesWholeIn(uiStore.selectedShells)) {
+        const e = plateEntry(id);
+        if (e) setPlateShellSpec([id], { offset: { frame: 'local', x: 0, y: 0, z: sign * e.surface.thickness / 2 } });
+      }
+    });
   }
 </script>
 

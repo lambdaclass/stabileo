@@ -13,7 +13,7 @@ import type { LoadPlan } from './load-plan';
  * by hand missed both senses of the earthquake, the Wa cases and the snow patterns.
  */
 function plannedCombinationCount(plan: LoadPlan, bothSenses: ExpandOptions['bothSenses'], patternsInCompanions?: boolean): number {
-  const cases = plan.cases.map((c, i) => ({ id: i + 1, type: c.type, name: String(i), ...(c.alternatives ? { alternatives: c.alternatives } : {}), ...(c.pattern ? { pattern: true } : {}) }));
+  const cases = plan.cases.map((c, i) => ({ id: i + 1, type: c.type, name: String(i), ...(c.alternatives ? { alternatives: c.alternatives } : {}), ...(c.pattern ? { pattern: true } : {}), ...(c.group ? { group: c.group } : {}) }));
   return expandCombinations(plan.combinations, cases, { bothSenses, patternsInCompanions }).length;
 }
 
