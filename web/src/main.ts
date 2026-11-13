@@ -8,7 +8,6 @@ import './styles/tokens.css';
 import './styles/touch-density.css';
 import './styles/pro-kit.css';
 import './styles/panel-scrollbars.css';
-import 'katex/dist/katex.min.css';
 import Root from './Root.svelte';
 import { mount } from 'svelte';
 import { routeKind, restoreRedirectedRoute } from './lib/public-route';
