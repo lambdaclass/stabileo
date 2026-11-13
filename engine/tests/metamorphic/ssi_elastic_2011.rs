@@ -570,3 +570,71 @@ fn unchanged_residual_and_iteration_limits_still_refuse() {
     }
     export(&cases, 6);
 }
+
+fn settled_nonlinear_matches_main(api: &str, dimension: usize) {
+    let cases: Vec<Value> =
+        serde_json::from_str(include_str!("ssi-settled-nonlinear-2072.json")).unwrap();
+    let mut output = Vec::new();
+    for case in cases.into_iter().filter(|c| c["api"] == api) {
+        let input = &case["input"];
+        let actual = if api == "solve_ssi_2d" {
+            let input: SSIInput = serde_json::from_value(input.clone()).unwrap();
+            let dofs = dedaliano_engine::solver::dof::DofNumbering::build_2d(&input.solver);
+            assert_eq!(dofs.n_free >= linear::SPARSE_THRESHOLD, case["count"] != 1);
+            serde_json::to_value(ssi::solve_ssi_2d(&input).unwrap()).unwrap()
+        } else {
+            let input: SSIInput3D = serde_json::from_value(input.clone()).unwrap();
+            let dofs = dedaliano_engine::solver::dof::DofNumbering::build_3d(&input.solver);
+            assert_eq!(dofs.n_free >= linear::SPARSE_THRESHOLD, case["count"] != 1);
+            serde_json::to_value(ssi::solve_ssi_3d(&input).unwrap()).unwrap()
+        };
+        let mut previous_input = input.clone();
+        previous_input["maxIter"] = json!(case["expected"]["iterations"].as_u64().unwrap() - 1);
+        let previous = if api == "solve_ssi_2d" {
+            serde_json::to_value(
+                ssi::solve_ssi_2d(&serde_json::from_value(previous_input).unwrap()).unwrap(),
+            )
+            .unwrap()
+        } else {
+            serde_json::to_value(
+                ssi::solve_ssi_3d(&serde_json::from_value(previous_input).unwrap()).unwrap(),
+            )
+            .unwrap()
+        };
+        let old = previous["springResults"][0]["secantStiffness"]
+            .as_f64()
+            .unwrap();
+        let new = case["expected"]["springResults"][0]["secantStiffness"]
+            .as_f64()
+            .unwrap();
+        assert!(
+            (new - old).abs() / old.abs().max(new.abs()) < input["tolerance"].as_f64().unwrap(),
+            "secant must have settled: {api} {} {}",
+            case["count"],
+            input["tolerance"]
+        );
+        let spring = &case["expected"]["springResults"][0];
+        assert!(
+            spring["displacement"].as_f64().unwrap().abs()
+                > input["soilSprings"][0]["curve"]["points"][1][0]
+                    .as_f64()
+                    .unwrap()
+        );
+        assert_bits(&actual, &case["expected"]);
+        record(&mut output, api, input.clone(), actual);
+    }
+    assert_eq!(output.len(), 6);
+    export(&output, dimension);
+}
+
+#[test]
+#[ignore = "known wrong result: #2072"]
+fn settled_nonlinear_2d_is_bit_identical_to_main() {
+    settled_nonlinear_matches_main("solve_ssi_2d", 8);
+}
+
+#[test]
+#[ignore = "known wrong result: #2072"]
+fn settled_nonlinear_3d_is_bit_identical_to_main() {
+    settled_nonlinear_matches_main("solve_ssi_3d", 9);
+}

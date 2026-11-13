@@ -916,3 +916,222 @@ mod residual_precision_regressions {
         }
     }
 }
+
+#[cfg(test)]
+mod refinement_scope_2072 {
+    use super::*;
+
+    fn correct(curve: SoilCurve, displacement: f64, force_increment: f64) -> SecantState {
+        let controls: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/metamorphic/ssi-elastic-2011-controls.json"
+        ))
+        .unwrap();
+        let input: SSIInput = serde_json::from_value(controls[3]["input"].clone()).unwrap();
+        let dofs = DofNumbering::build_2d(&input.solver);
+        let (n, nf) = (dofs.n_total, dofs.n_free);
+        let d = dofs.global_dof(2, 0).unwrap();
+        let mut u = vec![0.0; nf];
+        u[d] = displacement;
+        let indices: Vec<_> = (0..nf).collect();
+        let mut diagonal = vec![1.0; nf];
+        diagonal[d] = evaluate_soil_curve(&curve, 0.0).unwrap().1;
+        if diagonal[d] == 0.0 {
+            diagonal[d] = 1.0;
+        }
+        let k = CscMatrix::from_triplets(nf, &indices, &indices, &diagonal);
+        let factor = SecantFactor::new(&k, false, &mut None, &mut None).unwrap();
+        let mut state = SecantState {
+            k,
+            factor,
+            u,
+            rounding_round: 0.0,
+        };
+        let mut force = vec![0.0; n];
+        force[d] = evaluate_soil_curve(&curve, displacement).unwrap().0 + force_increment;
+        let metric =
+            super::super::convergence::EquilibriumMetric::for_2d(&input.solver, &dofs, None)
+                .unwrap();
+        let springs = [SoilSpring {
+            node_id: 2,
+            direction: 0,
+            curve,
+            tributary_length: 1.0,
+        }];
+        let zero = vec![0.0; n * n];
+        refine_secant::<assembly::InclinedTransformData2D>(
+            &mut state,
+            nf,
+            n,
+            None,
+            &[],
+            &springs,
+            &dofs,
+            |frame| dense_balance(&zero, n, frame, &force),
+            &metric,
+            &force,
+            1e-10,
+        )
+        .unwrap();
+        state
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2072"]
+    fn nonlinear_states_never_enter_refinement_even_when_secant_matches_initial() {
+        let curve = SoilCurve::Custom {
+            points: vec![[0.0, 0.0], [1.0, 1.0], [2.0, 4.0], [4.0, 4.0]],
+        };
+        assert_eq!(
+            evaluate_soil_curve(&curve, 0.0).unwrap().1,
+            evaluate_soil_curve(&curve, 4.0).unwrap().1
+        );
+        for displacement in [1.0_f64.next_up(), 2.0, 4.0] {
+            for sign in [-1.0, 1.0] {
+                let displacement = sign * displacement;
+                let state = correct(curve.clone(), displacement, sign);
+                assert_eq!(state.u[0].to_bits(), displacement.to_bits());
+                assert_eq!(state.rounding_round, 0.0);
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2072"]
+    fn linear_corrections_cannot_commit_a_nonlinear_soil_state() {
+        for sign in [-1.0, 1.0] {
+            let curve = SoilCurve::Custom {
+                points: vec![[0.0, 0.0], [1.0, 1.0]],
+            };
+            let state = correct(curve, 0.0, sign * 2.0);
+            assert!(state.u[0].abs() <= 1.0);
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2072"]
+    fn every_soil_law_keeps_nonlinear_states_outside_refinement() {
+        use super::super::soil_curves::{SandLoading, API_SOFT_CLAY_STATIC, WELCH_REESE_ABSCISSAE};
+        let curves = [
+            (
+                SoilCurve::PySoftClay {
+                    su: 20.0,
+                    gamma_eff: 6.0,
+                    d: 1.0,
+                    depth: 3.0,
+                    eps_50: 0.01,
+                    j: Some(0.5),
+                },
+                2.5 * 0.01 * API_SOFT_CLAY_STATIC[1].0,
+            ),
+            (
+                SoilCurve::PyStiffClay {
+                    su: 100.0,
+                    gamma_eff: 9.0,
+                    d: 1.0,
+                    depth: 3.0,
+                    eps_50: 0.005,
+                    j: Some(0.5),
+                    free_water: Some(false),
+                },
+                2.5 * 0.005 * WELCH_REESE_ABSCISSAE[1],
+            ),
+            (
+                SoilCurve::Tz {
+                    t_ult: 50.0,
+                    z_ult: 0.01,
+                    perimeter: Some(1.0),
+                },
+                1e-6 * 0.01,
+            ),
+            (
+                SoilCurve::Qz {
+                    q_ult: 5000.0,
+                    d: 0.6,
+                    tip_area: Some(1.0),
+                },
+                0.002 * 0.6,
+            ),
+            (
+                SoilCurve::Custom {
+                    points: vec![[0.0, 0.0], [1.0, 1.0], [2.0, 1.5]],
+                },
+                1.0,
+            ),
+            (
+                SoilCurve::Custom {
+                    points: vec![[1.0, 1.0], [2.0, 1.5]],
+                },
+                1.0,
+            ),
+        ];
+        for (curve, limit) in curves {
+            let signs: &[f64] = if curve.is_point_spring() {
+                &[-1.0]
+            } else {
+                &[-1.0, 1.0]
+            };
+            for &sign in signs {
+                for disp in [0.0, limit.next_down(), limit] {
+                    let original = sign * disp;
+                    let increment =
+                        -sign * evaluate_soil_curve(&curve, limit).unwrap().0.abs() * 0.5;
+                    let state = correct(curve.clone(), original, increment);
+                    assert_ne!(
+                        state.u[0].to_bits(),
+                        original.to_bits(),
+                        "linear state must still refine: {curve:?} {original}"
+                    );
+                }
+                let original = sign * limit.next_up();
+                let state = correct(curve.clone(), original, sign);
+                assert_eq!(
+                    state.u[0].to_bits(),
+                    original.to_bits(),
+                    "nonlinear state: {curve:?}"
+                );
+                assert_eq!(state.rounding_round, 0.0);
+            }
+        }
+        for curve in [
+            SoilCurve::PySand {
+                phi: 35.0,
+                gamma_eff: 10.0,
+                d: 1.0,
+                depth: 3.0,
+                loading: Some(SandLoading::Static),
+            },
+            SoilCurve::PySand {
+                phi: 35.0,
+                gamma_eff: 10.0,
+                d: 1.0,
+                depth: 3.0,
+                loading: Some(SandLoading::Cyclic),
+            },
+            SoilCurve::Qz {
+                q_ult: 5000.0,
+                d: 0.6,
+                tip_area: Some(1.0),
+            },
+        ] {
+            for original in [f64::from_bits(1), 1.0] {
+                let state = correct(curve.clone(), original, 1.0);
+                assert_eq!(state.u[0].to_bits(), original.to_bits());
+                assert_eq!(state.rounding_round, 0.0);
+            }
+        }
+    }
+
+    #[test]
+    fn linear_range_includes_its_endpoint_and_both_signs() {
+        for displacement in [0.0, 1.0_f64.next_down(), 1.0] {
+            for sign in [-1.0, 1.0] {
+                let curve = SoilCurve::Custom {
+                    points: vec![[0.0, 0.0], [1.0, 1.0]],
+                };
+                let state = correct(curve, sign * displacement, -sign * 0.5);
+                assert_eq!(state.u[0], sign * (displacement - 0.5));
+                assert_eq!(state.rounding_round, 0.0);
+            }
+        }
+    }
+}
