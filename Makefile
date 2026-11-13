@@ -1074,3 +1074,15 @@ test.engine.ssi-elastic-2011-wasm: wasm
 	SSI_ELASTIC_2011_CASES=$(CURDIR)/.2011-cases $(MAKE) test.engine.ssi-elastic-2011
 	$(NIX_RUN) node scripts/tests/ssi-elastic-2011-wasm.mjs $(CURDIR)/.2011-cases.2.json $(CURDIR)/.2011-cases.3.json $(CURDIR)/.2011-cases.4.json $(CURDIR)/.2011-cases.5.json $(CURDIR)/.2011-cases.6.json $(CURDIR)/.2011-cases.7.json $(CURDIR)/.2011-cases.8.json $(CURDIR)/.2011-cases.9.json
 	rm -f $(CURDIR)/.2011-cases.*.json
+
+.PHONY: test.engine.constraint-rounding-2013 test.engine.constraint-rounding-2013-wasm
+
+test.engine.constraint-rounding-2013:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib constraint_2013 --release -- --nocapture $(if $(IGNORED),--include-ignored)
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='constraint_rounding_2013:: --release $(if $(IGNORED),-- --include-ignored)'
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='nightly_1113::issue_201 --release $(if $(IGNORED),-- --ignored)'
+
+test.engine.constraint-rounding-2013-wasm: wasm
+	CONSTRAINT_2013_CASES=$(CURDIR)/.2013-cases $(MAKE) test.engine.constraint-rounding-2013
+	$(NIX_RUN) node scripts/tests/constraint-rounding-2013-wasm.mjs $(CURDIR)/.2013-cases.2.false.json $(CURDIR)/.2013-cases.2.true.json $(CURDIR)/.2013-cases.3.false.json $(CURDIR)/.2013-cases.3.true.json
+	rm -f $(CURDIR)/.2013-cases.*.json
