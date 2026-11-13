@@ -65,9 +65,9 @@ describe('EN 1993-1-1 on every combination at every station', () => {
   it('the peaks alone read 0,811; every tuple finds C3 at 1,413, with its combination and station', () => {
     const ctx = column('HEB 200');
     expect(ctx.demands.some((d) => d.comboName === 'C3')).toBe(false);
-    const peaks = runOtherCode(EC3, [ctx]).rows[0]!;
+    const peaks = runOtherCode(EC3, [{ ...ctx, tuples: [] }]).rows[0]!;
     expect(peaks.status === 'checked' && [peaks.comboName, +peaks.reading.ratio.toFixed(3)]).toEqual(['C1', 0.811]);
-    const all = runOtherCode(EC3, [ctx], { tuples: true }).rows[0]!;
+    const all = runOtherCode(EC3, [ctx]).rows[0]!;
     expect(all.status).toBe('checked');
     if (all.status !== 'checked') return;
     expect(all.reading.ratio).toBeCloseTo(1.413, 3);

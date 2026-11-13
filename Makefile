@@ -508,7 +508,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
+test.ci-scripts: test.replay-steel-cb test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -1167,3 +1167,7 @@ test.engine.constraint-rounding-2013-wasm: wasm
 .PHONY: replay.advisory.steel-cb
 replay.advisory.steel-cb:
 	$(NIX_RUN) python3 -B scripts/replay-steel-cb-advisory.py
+
+.PHONY: test.replay-steel-cb
+test.replay-steel-cb:
+	$(NIX_RUN) python3 -B -I scripts/tests/test_steel_cb_replay.py

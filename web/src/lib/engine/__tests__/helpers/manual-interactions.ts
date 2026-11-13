@@ -22,13 +22,13 @@ export function manualSteelDemand<T extends import('../../verification-service')
 export function verifySteelElement(input: SteelVerificationInput, opts: { trace?: boolean } = {}) {
   const p = input.params;
   const hasSigns = p.LbNeg !== undefined && (input.MuzPos !== undefined || input.MuzNeg !== undefined);
-  const cases = hasSigns ? [{ moment: input.MuzPos ?? 0, Lb: p.Lb }, { moment: -(input.MuzNeg ?? 0), Lb: p.LbNeg! }]
-    : [{ moment: input.Muz, Lb: p.LbNeg !== undefined ? Math.max(p.Lb, p.LbNeg) : p.Lb }];
+  const cases = hasSigns ? [{ moment: input.MuzPos ?? 0 }, { moment: -(input.MuzNeg ?? 0) }]
+    : [{ moment: input.Muz }];
   const runs = cases.map((c, k) => {
     const demand = ConcurrentDemand.fromTuples([{ comboId: k, comboName: `manual ${k}`, forces: {
       n: -input.Nu, my: c.moment, mz: input.Muy, vy: input.VuWeak ?? 0, vz: input.Vu, torsion: 0, t: 0, x: 0,
     } }])[0]!.section('My');
-    return steelElement({ elementId: input.elementId, params: { ...p, Lb: c.Lb, LbNeg: hasSigns ? c.Lb : undefined }, demand }, opts);
+    return steelElement({ elementId: input.elementId, params: p, demand }, opts);
   });
   return { ...runs.reduce(worseSteelVerification), Muz: input.Muz };
 }

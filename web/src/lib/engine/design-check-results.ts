@@ -179,7 +179,7 @@ export function normalizeCirsoc301(verifs: SteelVerification[], sectionNames: Ma
 
     checks.push({
       name: 'Flexure (strong)',
-      demand: Math.abs(v.Muz),
+      demand: v.flexureZ.Mu,
       capacity: v.flexureZ.phiMn,
       ratio: v.flexureZ.ratio,
       unit: 'kN·m',
@@ -190,17 +190,18 @@ export function normalizeCirsoc301(verifs: SteelVerification[], sectionNames: Ma
     if (v.flexureY) {
       checks.push({
         name: 'Flexure (weak)',
-        demand: Math.abs(v.Muy),
+        demand: v.flexureY.Mu,
         capacity: v.flexureY.phiMn,
         ratio: v.flexureY.ratio,
         unit: 'kN·m',
         status: v.flexureY.status as CheckStatus,
+        comboName: v.governingCombos?.flexureY?.comboName,
       });
     }
 
     checks.push({
       name: 'Shear',
-      demand: Math.abs(v.Vu),
+      demand: v.shear.Vu,
       capacity: v.shear.phiVn,
       ratio: v.shear.ratio,
       unit: 'kN',
@@ -211,24 +212,24 @@ export function normalizeCirsoc301(verifs: SteelVerification[], sectionNames: Ma
     if (v.tension) {
       checks.push({
         name: 'Tension',
-        demand: Math.abs(v.Nu),
+        demand: v.tension.Pu,
         capacity: v.tension.phiPn,
         ratio: v.tension.ratio,
         unit: 'kN',
         status: v.tension.status as CheckStatus,
-        comboName: v.governingCombos?.axial?.comboName,
+        comboName: v.governingCombos?.tension?.comboName ?? v.governingCombos?.axial?.comboName,
       });
     }
 
     if (v.compression) {
       checks.push({
         name: 'Compression',
-        demand: Math.abs(v.Nu),
+        demand: v.compression.Pu,
         capacity: v.compression.phiPn,
         ratio: v.compression.ratio,
         unit: 'kN',
         status: v.compression.status as CheckStatus,
-        comboName: v.governingCombos?.axial?.comboName,
+        comboName: v.governingCombos?.compression?.comboName ?? v.governingCombos?.axial?.comboName,
       });
     }
 
@@ -240,6 +241,7 @@ export function normalizeCirsoc301(verifs: SteelVerification[], sectionNames: Ma
         ratio: v.interaction.ratio,
         unit: '—',
         status: v.interaction.status as CheckStatus,
+        comboName: v.governingCombos?.interaction?.comboName,
       });
     }
 

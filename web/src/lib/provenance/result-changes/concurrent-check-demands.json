@@ -1,0 +1,39 @@
+{
+  "id": "concurrent-check-demands",
+  "date": "2026-11-13",
+  "prs": [
+    2080
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers",
+      "steelMembers"
+    ]
+  },
+  "title": {
+    "en": "Concurrent checks retain governing demands",
+    "es": "Las verificaciones simultáneas conservan las demandas determinantes",
+    "pt": "As verificações simultâneas preservam os esforços determinantes",
+    "de": "Gleichzeitige Nachweise behalten maßgebende Schnittgrößen",
+    "fr": "Les vérifications simultanées conservent les efforts déterminants",
+    "tr": "Eşzamanlı kontroller belirleyici talepleri korur"
+  },
+  "explanation": {
+    "en": "Steel checks retain their own maximum tension and governing combination. Negative moments select the bottom flange length, and station axial forces survive zero endpoint summaries. Concrete certification includes every concurrent case. Re-run saved designs and review demands, utilization, certificates and combination labels (PR #2080).",
+    "es": "El acero conserva su tracción máxima y su combinación determinante. Los momentos negativos usan la longitud del ala inferior y los axiles de estación se conservan aunque los extremos sean cero. La certificación del hormigón incluye todos los casos simultáneos. Repetí los diseños guardados y revisá esfuerzos, utilización, certificados y combinaciones (PR #2080).",
+    "pt": "O aço preserva a tração máxima e sua combinação determinante. Momentos negativos usam o comprimento da mesa inferior e os esforços normais nas estações permanecem mesmo com extremos nulos. A certificação do concreto inclui todos os casos simultâneos. Refaça os projetos salvos e revise esforços, utilização, certificados e combinações (PR #2080).",
+    "de": "Stahlnachweise behalten die maximale Zugkraft und ihre maßgebende Kombination. Negative Momente verwenden die Länge des unteren Flanschs; Normalkräfte an Zwischenstellen bleiben bei null Endkräften erhalten. Die Betonzertifizierung umfasst alle gleichzeitigen Fälle. Gespeicherte Bemessungen erneut ausführen und Schnittgrößen, Ausnutzung, Zertifikate und Kombinationen prüfen (PR #2080).",
+    "fr": "Les vérifications acier conservent la traction maximale et sa combinaison déterminante. Les moments négatifs utilisent la longueur de la semelle inférieure et les efforts normaux intermédiaires restent présents lorsque les extrémités sont nulles. La certification béton inclut tous les cas simultanés. Relancer les projets enregistrés et vérifier efforts, taux, certificats et combinaisons (PR #2080).",
+    "tr": "Çelik kontrolleri en büyük çekme kuvvetini ve belirleyici kombinasyonunu korur. Negatif momentler alt başlık uzunluğunu kullanır; uç kuvvetleri sıfır olsa da ara istasyon eksenel kuvvetleri korunur. Beton sertifikasyonu tüm eşzamanlı durumları içerir. Kayıtlı tasarımları yeniden çalıştırıp talepleri, oranları, sertifikaları ve kombinasyonları inceleyin (PR #2080)."
+  },
+  "quantities": [
+    "member",
+    "rc",
+    "steel"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-concurrent-check-demands.md",
+    "heading": "Concurrent checks retain governing demands (2026-11-13)"
+  }
+}

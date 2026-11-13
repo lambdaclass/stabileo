@@ -21,7 +21,7 @@ function stations(V: number) {
   const out = [];
   for (let i = 0; i <= 10; i++) {
     const t = i / 10;
-    out.push({ t, x: t * 4, n: 0, vy: 0, vz: V * (1 - 2 * t), my: 40 * t * (1 - t), mz: 0, mx: 0 });
+    out.push({ t, x: t * 4, n: 0, vy: 0, vz: V * (1 - 2 * t), my: 40 * t * (1 - t), mz: 0, torsion: 0 });
   }
   return out;
 }

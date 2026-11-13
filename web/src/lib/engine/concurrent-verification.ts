@@ -45,5 +45,14 @@ export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationI
     disagreements: [...new Set(engine.flatMap(e => e.disagreements))], notRechecked: [...new Set(engine.flatMap(e => e.notRechecked))],
     flexureRatio: f.verification.engineRecheck!.flexureRatio, shearRatio: s.verification.engineRecheck!.shearRatio,
     columnRatio: c?.verification.engineRecheck!.columnRatio, biaxialRatio: b?.verification.engineRecheck!.biaxialRatio };
+  if (engine.some(e => e.certified)) {
+    const reasons = [...new Set(engine.flatMap(e => e.certified?.reason ? [e.certified.reason] : e.certified ? [] : ['Concurrent certificate unavailable']))];
+    out.engineRecheck.certified = {
+      ok: engine.every(e => !e.unavailable && !e.disagreements.length && e.certified?.ok === true),
+      lower: Math.max(...engine.map(e => e.certified?.lower ?? 0)),
+      upper: Math.max(...engine.map(e => e.certified?.upper ?? Infinity)),
+      ...(reasons.length ? { reason: reasons.join('; ') } : {}),
+    };
+  }
   return out;
 }

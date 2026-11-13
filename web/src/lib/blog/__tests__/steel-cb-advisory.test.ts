@@ -34,6 +34,7 @@ describe('SA-2026-064 steel combination Cb', () => {
     expect(replay.fixingPr).toBe(2080);
     expect(replay.mainSource).toBe('b6f13f2500d700adecc48a974d7298f527e3388b');
     expect(replay.fixedSource).toBe('8a28989f34e11bc7fe7118471e4027d51a50bfeb');
+    expect(replay.fixedSourceFilesSha256['web/src/lib/engine/verification-service.ts']).toMatch(/^[a-f0-9]{64}$/);
     expect(replay.records).toHaveLength(2);
     const [silent, warned] = replay.records;
     expect(silent.oracle).toEqual({ axialFraction: 0.4, momentFraction: 0.5, utilization: 0.4 + (8 / 9) * 0.5 });
@@ -52,6 +53,8 @@ describe('SA-2026-064 steel combination Cb', () => {
     expect(warned.after.engineRecheck.certifiedOk).toBe(false);
     expect(text).toContain('**not silent**');
     for (const record of replay.records) {
+      expect(record.after.governingCombos.flexure.comboId).toBe(1);
+      expect(record.after.governingCombos.flexure.comboName).toBe('uniform with compression');
       expect(text).toContain(String(record.before.interaction.ratio));
       expect(text).toContain(String(record.after.interaction.ratio));
       expect(record.singleCombinationControls.after.map((r: { interaction: { ratio: number } }) => r.interaction.ratio))

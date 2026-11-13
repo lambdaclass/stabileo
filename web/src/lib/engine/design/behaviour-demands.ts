@@ -12,6 +12,7 @@
  *
  * Pure.
  */
+import type { ConcurrentDemand } from '../concurrent-demand';
 import type { ElementDesignDemands } from '../station-design-forces';
 import type { Section } from '../../store/model.svelte';
 import { isVariableMember } from '../../section/variable';
@@ -39,7 +40,11 @@ const noCompression = (b: Behaviour) => b === 'tensionOnly' || b === 'cable';
 const noTension = (b: Behaviour) => b === 'compressionOnly';
 
 /** A member's axial demand as its behaviour allows. In place, returned. */
-export function maskAxialDemand<T extends { Nc: number; Nt: number }>(demand: T, behaviour: Behaviour): T {
+export function maskAxialDemand<T extends { Nc: number; Nt: number; concurrent?: readonly ConcurrentDemand[]; tuples?: Array<{ N: number }> }>(demand: T, behaviour: Behaviour): T {
+  if (!noCompression(behaviour) && !noTension(behaviour)) return demand;
+  const axial = (n: number) => noCompression(behaviour) ? Math.max(0, n) : Math.min(0, n);
+  if (demand.concurrent) demand.concurrent = demand.concurrent.map(d => d.withAxial(axial(d.forces.n)));
+  if (demand.tuples) demand.tuples = demand.tuples.map(d => ({ ...d, N: 0 - axial(0 - d.N) }));
   if (noCompression(behaviour)) demand.Nc = 0;
   if (noTension(behaviour)) demand.Nt = 0;
   return demand;

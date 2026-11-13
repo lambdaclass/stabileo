@@ -10,7 +10,7 @@ const inputs = ConcurrentDemand.fromTuples([1, 2].map(comboId => ({ comboId, com
 afterEach(() => vi.restoreAllMocks());
 
 for (const missing of [false, true]) {
-  it.fails(`#2080 — aggregate RC certification includes a later ${missing ? 'missing' : 'refused'} certificate`, () => {
+  it(`#2080 — aggregate RC certification includes a later ${missing ? 'missing' : 'refused'} certificate`, () => {
     let k = 0;
     vi.spyOn(gate, 'engineRecheckElement').mockImplementation(v => ({ ...v, engineRecheck: {
       edition: '2025', unavailable: false, disagreements: k === 0 ? [] : ['shear'], notRechecked: [],

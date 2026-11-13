@@ -78,6 +78,7 @@ export class ConcurrentSectionDemand {
   static at(source: ConcurrentDemand, axis: 'My' | 'Mz'): ConcurrentSectionDemand {
     return new ConcurrentSectionDemand(source, axis, Math.abs(axis === 'My' ? source.forces.my : source.forces.mz), Math.abs(axis === 'My' ? source.forces.mz : source.forces.my));
   }
+  get signedMu(): number { return this.axis === 'My' ? this.source.forces.my : this.source.forces.mz; }
   get Nu(): number { return 0 - this.source.forces.n; }
   get Vu(): number { return Math.abs(this.axis === 'My' ? this.source.forces.vz : this.source.forces.vy); }
   get VuSecondary(): number { return Math.abs(this.axis === 'My' ? this.source.forces.vy : this.source.forces.vz); }

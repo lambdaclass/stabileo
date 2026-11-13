@@ -31,21 +31,18 @@ class SteelCbReplay(unittest.TestCase):
     def test_valid_before_witnesses(self):
         self.assertEqual(len(self.observe(observations())), 2)
 
-    @unittest.expectedFailure
     def test_rejects_a_correct_before_result_even_when_the_process_fails(self):
         rows = observations()
         rows[0]['result']['interaction']['ratio'] = rows[0]['oracle']['utilization']
         with self.assertRaises(RuntimeError):
             self.observe(rows)
 
-    @unittest.expectedFailure
     def test_validates_the_second_witness_independently(self):
         rows = observations()
         rows[1]['result']['interaction']['ratio'] = rows[1]['oracle']['utilization']
         with self.assertRaises(RuntimeError):
             self.observe(rows)
 
-    @unittest.expectedFailure
     def test_rejects_an_unrelated_failure(self):
         rows = observations()
         rows[0]['result']['interaction']['ratio'] = -1

@@ -25,7 +25,7 @@ const params: SteelDesignParams = { Fy: steel.fy, Fu: steel.fu, E: steel.e, A: s
   h: section.h!, b: section.b!, tw: section.tw!, tf: section.tf!, J: 1e-7, shape: 'I', builtUp: false,
   ...lengths, Lb: 1, LbNeg: 8 };
 
-it.fails('#1316 — held D.2 retains maximum tension and its own combination apart from interaction', () => {
+it('#1316 — held D.2 retains maximum tension and its own combination apart from interaction', () => {
   const a = packet(100, 0, 1), b = packet(40, 60, 2);
   const v = checkSteelMember(1, demand([a, b], 0, 100), section, steel, lengths)!;
   expect(v.tension!.Pu).toBe(100);
@@ -48,11 +48,12 @@ for (const connected of [false, true]) {
 
 for (const axis of ['My', 'Mz'] as const) {
   for (const entry of ['single', 'batch'] as const) {
-    it.fails(`#2080 — ${entry} ${axis} negative moment uses the longer bottom flange length`, () => {
+    it(`#2080 — ${entry} ${axis} negative moment uses the longer bottom flange length`, () => {
       const d = packet(-20, -20, 1, axis).section(axis);
       const expected = checkSteelInteraction({ ...params, Lb: params.LbNeg!, LbNeg: undefined }, d).ratio;
       const actual = entry === 'single' ? checkSteelInteraction(params, d).ratio : interactionRatios([{ params, demand: d }])![0];
       expect(actual).toBe(expected);
+      expect(verifySteelElement({ elementId: 1, params, demand: d }).interaction!.ratio).toBe(expected);
       expect(expected).toBeGreaterThan(checkSteelInteraction({ ...params, LbNeg: undefined }, d).ratio);
     });
   }
@@ -71,7 +72,7 @@ for (const axis of ['My', 'Mz'] as const) {
 
 for (const n of [-100, 100]) {
   for (const entry of ['concurrent', 'tuples', 'stations'] as const) {
-    it.fails(`#2080 — ${entry} preserves interior signed axial ${n} with zero endpoint envelopes`, () => {
+    it(`#2080 — ${entry} preserves interior signed axial ${n} with zero endpoint envelopes`, () => {
       const d = packet(n, 20);
       const expected = checkSteelMember(1, demand([d], Math.max(0, -n), Math.max(0, n)), section, steel, lengths)!;
       const stations: ElementStationResult = { elementId: 1, length: 8, stationTs: [0.5],
@@ -101,7 +102,7 @@ for (const behaviour of ['tensionOnly', 'cable', 'compressionOnly', undefined]) 
   });
 }
 
-it.fails('#2080 — flexure attribution follows utilization with its own Cb instead of the moment envelope', () => {
+it('#2080 — flexure attribution follows utilization with its own Cb instead of the moment envelope', () => {
   const seed = checkSteelMember(1, demand([packet(-1, 1)], 1), section, steel, lengths)!;
   const M = 0.5 * seed.flexureZ.phiMn;
   const ts = [0, 0.25, 0.5, 0.75, 1];
@@ -115,3 +116,28 @@ it.fails('#2080 — flexure attribution follows utilization with its own Cb inst
   expect(actual.flexureZ.ratio).toBe(own[0]!.flexureZ.ratio);
   expect(actual.governingCombos!.flexure!.comboId).toBe(1);
 });
+
+for (const reverse of [false, true]) {
+  it(`#2080 — independent shear and axial checks keep separate maxima, reversed=${reverse}`, () => {
+    const ds = ConcurrentDemand.fromTuples([
+      { comboId: 1, comboName: 'tension', forces: { ...packet(100, 0).forces, vz: 1, vy: 2 } },
+      { comboId: 2, comboName: 'strong shear', forces: { ...packet(40, 20).forces, vz: 40, vy: 3 } },
+      { comboId: 3, comboName: 'weak shear', forces: { ...packet(-60, 0).forces, vz: 2, vy: 30 } },
+    ]);
+    const input = demand(reverse ? ds.reverse() : ds, 60, 100);
+    const len = { ...lengths, tensionConnection: { resolved: { Ae: section.a!, steps: [] } } };
+    for (const screen of [false, true]) {
+      const v = checkSteelMember(1, input, section, steel, len, undefined, { screen })!;
+      expect(v.tension!.Pu).toBe(100);
+      expect(v.compression!.Pu).toBe(60);
+      expect(v.shear.Vu).toBe(40);
+      expect(v.shearWeak!.Vu).toBe(30);
+      expect(v.governingCombos).toMatchObject({ tension: { comboId: 1 }, compression: { comboId: 3 },
+        shear: { comboId: 2 }, shearWeak: { comboId: 3 } });
+      const rows = normalizeCirsoc301([v], new Map())[0]!.checks;
+      expect(rows.find(c => c.name === 'Shear')!.demand).toBe(40);
+      expect(rows.find(c => c.name === 'Tension')!.demand).toBe(100);
+      expect(rows.find(c => c.name === 'Compression')!.demand).toBe(60);
+    }
+  });
+}
