@@ -63,11 +63,16 @@ fn relative_residual(
     let norm = |values: &[f64]| {
         values.iter().zip(scales).fold(0.0_f64, |n, (v, scale)| n.hypot(v / scale))
     };
+    use num_rational::BigRational;
+    use num_traits::ToPrimitive;
+    let exact = |v| BigRational::from_float(v).unwrap();
     let residual: Vec<_> = (0..scales.len()).map(|i| {
-        let action = |k: &[f64]| {
-            u.iter().enumerate().map(|(j, v)| k[i * u.len() + j] * v).sum::<f64>()
-        };
-        action(elastic) + action(geometric) - f[i]
+        let mut action = -exact(f[i]);
+        for (j, value) in u.iter().enumerate() {
+            let coefficient = elastic[i*u.len()+j] + geometric[i*u.len()+j];
+            action += exact(coefficient) * exact(*value);
+        }
+        action.to_f64().unwrap()
     }).collect();
     norm(&residual) / norm(f)
 }
@@ -81,23 +86,23 @@ fn residual_oracle_scales_moments_to_forces() {
 }
 
 #[test]
-fn residual_oracle_keeps_elastic_and_geometric_actions_separate() {
+fn residual_oracle_preserves_small_actions_through_cancellation() {
     let large = 2.0_f64.powi(53);
     let elastic = [large, 1.0, 1.0, 0.0];
     let geometric = [-large, 0.0, 0.0, 0.0];
-    assert_eq!(relative_residual(&elastic, &geometric, &[2.0, 0.0], &[1.0; 2], &[1.0]), 1.0);
+    assert_eq!(relative_residual(&elastic, &geometric, &[2.0, 0.0], &[1.0; 2], &[1.0]), 0.5);
 }
 
 fn assert_final_equilibrium(
     equilibrium: &EquilibriumSummary,
     linear: &[f64],
-    geometric: &[f64],
+    tangent: &[f64],
     f: &[f64],
     u: &[f64],
     scales: &[f64],
 ) {
     let linear_at_final_state = relative_residual(linear, &vec![0.0; linear.len()], f, u, scales);
-    let second_order_at_final_state = relative_residual(linear, geometric, f, u, scales);
+    let second_order_at_final_state = relative_residual(tangent, &vec![0.0; tangent.len()], f, u, scales);
     println!("final-state residuals: linear={linear_at_final_state:e}, second-order={second_order_at_final_state:e}, reported={:e}", equilibrium.relative_residual);
     assert!(linear_at_final_state > 1e-6);
     assert!(second_order_at_final_state.is_finite() && second_order_at_final_state <= 1e-6);
@@ -142,7 +147,7 @@ fn pdelta_2d_does_not_claim_linear_residual_ok() {
             if let Some(i) = dofs.global_dof(d.node_id, k) { u[i] = v; }
         }
     }
-    let mut geometric = vec![0.0; asm.k.len()];
+    let mut geometric = asm.k.clone();
     geometric_stiffness::add_geometric_stiffness_2d(&input, &dofs, &u, &mut geometric);
     let points: Vec<_> = input.nodes.values().map(|n| [n.x, 0.0, n.z]).collect();
     let scales = force_scales(&dofs, &points, 2);
@@ -225,7 +230,7 @@ fn pdelta_3d_does_not_claim_linear_residual_ok() {
             if let Some(i) = dofs.global_dof(d.node_id, k) { u[i] = v; }
         }
     }
-    let mut geometric = vec![0.0; asm.k.len()];
+    let mut geometric = asm.k.clone();
     geometric_stiffness::add_geometric_stiffness_3d(&input, &dofs, &u, &mut geometric);
     let points: Vec<_> = input.nodes.values().map(|n| [n.x, n.y, n.z]).collect();
     let scales = force_scales(&dofs, &points, 3);

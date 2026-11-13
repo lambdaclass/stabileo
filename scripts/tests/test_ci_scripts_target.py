@@ -64,6 +64,18 @@ class CiScriptsTarget(unittest.TestCase):
         self.assertIn('FILTER=issue_1952_r18', commands)
         self.assertIn('scripts/tests/containment-r18-wasm.mjs', commands)
 
+    def test_compensated_recovery_runs_in_the_wasm_job(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        self.assertIn('run: make test.engine.containment-r19-wasm', workflow)
+        web_paths = workflow.split('            web:\n', 1)[1].split('            research:\n', 1)[0]
+        self.assertIn('scripts/tests/containment-r19-wasm.mjs', web_paths)
+        commands = recipe((ROOT / 'Makefile').read_text(), 'test.engine.containment-r19-wasm')
+        self.assertIn('$(MAKE) test.engine.containment-r19', commands)
+        native = recipe((ROOT / 'Makefile').read_text(), 'test.engine.containment-r19')
+        self.assertIn('--test metamorphic issue_1952_r19', native)
+        self.assertIn('--test validation issue_1952_r19', native)
+        self.assertIn('scripts/tests/containment-r19-wasm.mjs', commands)
+
     def test_a_file_named_only_inside_another_path_does_not_count(self):
         makefile = 'test.ci-scripts: test.a\n\tpython3 scripts/tests/test_x.py.bak\ntest.a:\n\tnode --test scripts/tests/y.test.cjs\n'
         commands = recipe(makefile, 'test.ci-scripts')

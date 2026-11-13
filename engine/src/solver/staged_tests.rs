@@ -40,7 +40,7 @@ fn settled_slave_residual(dim: usize) {
                     &dofs,
                     cs.as_ref(),
                 );
-                json!({"reactions":recovered.reactions_2d(&stage,&dofs,&u,&[]).unwrap(),"constraintForces":recovered.constraint_forces})
+                json!({"reactions":recovered.reactions_2d(&dofs,&u,&[]).unwrap(),"constraintForces":recovered.constraint_forces})
             } else {
                 let input: StagedInput3D = serde_json::from_value(m).unwrap();
                 let full = staged_to_full_solver_input_3d(&input);
@@ -68,7 +68,7 @@ fn settled_slave_residual(dim: usize) {
                     &dofs,
                     cs.as_ref(),
                 );
-                json!({"reactions":recovered.reactions_3d(&stage,&dofs,&u,&[]).unwrap(),"constraintForces":recovered.constraint_forces})
+                json!({"reactions":recovered.reactions_3d(&dofs,&u,&[]).unwrap(),"constraintForces":recovered.constraint_forces})
             };
             let forces = r["constraintForces"]
                 .as_array()
@@ -191,11 +191,11 @@ fn r14_cached_stabilization(dim: usize, sparse: bool) {
         }
         let reactions = if dim == 2 {
             json!(recovered
-                .reactions_2d(&serde_json::from_value(m).unwrap(), &dof, &u, &[])
+                .reactions_2d(&dof, &u, &[])
                 .unwrap())
         } else {
             json!(recovered
-                .reactions_3d(&serde_json::from_value(m).unwrap(), &dof, &u, &[])
+                .reactions_3d(&dof, &u, &[])
                 .unwrap())
         };
         let master = reactions
@@ -305,7 +305,7 @@ fn r17_residual_boundary(dim: usize) {
             let residual = physical_recovery::recover(physical_recovery::StageModel::Plane(&model,&stage), &dofs, &u);
             json!(build_results_from_u(&u,&dofs,&model,&residual,None,StageForceRecovery::CumulativeElastic,&[]).unwrap())
         } else {
-            let model: SolverInput3D = serde_json::from_value(m).unwrap();
+            let model = serde_json::from_value::<crate::types::units::ElasticInput3D>(m).unwrap().into_legacy();
             let dofs = DofNumbering::build_3d(&model);
             let solved = super::super::linear::solve_3d(&model).unwrap();
             let mut u = dofs.displacement_vector_3d(&solved.displacements);

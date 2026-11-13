@@ -47,11 +47,12 @@ fn spring_triplets<T: InclinedFrame>(
 pub(super) struct PhysicalSoilResidual {
     free: Vec<f64>,
     restrained: Vec<f64>,
+    model: super::reaction_recovery::ExpandedReactionModel,
 }
 
 impl PhysicalSoilResidual {
-    pub(super) fn into_parts(self) -> (Vec<f64>, Vec<f64>) {
-        (self.free, self.restrained)
+    pub(super) fn into_parts(self) -> (Vec<f64>, Vec<f64>, super::reaction_recovery::ExpandedReactionModel) {
+        (self.free, self.restrained, self.model)
     }
 }
 
@@ -468,9 +469,9 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
     };
     let mut free_residual = residual(ku, &input.soil_springs, &dof_num, its, &u_full)?;
     let restrained = free_residual.split_off(nf);
-    let physical = PhysicalSoilResidual { free: free_residual, restrained };
+    let physical = PhysicalSoilResidual { free: free_residual, restrained, model: super::reaction_recovery::ExpandedReactionModel::plane(&input.solver) };
     let recovered = super::reaction_recovery::RecoveredForces::from_soil(physical, &dof_num, cs.as_ref());
-    let reactions = recovered.reactions_2d(&input.solver, &dof_num, &u_full, its)?;
+    let reactions = recovered.reactions_2d(&dof_num, &u_full, its)?;
     let constraint_forces = recovered.constraint_forces;
 
     Ok(SSIResult {
@@ -661,9 +662,9 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     };
     let mut free_residual = residual(ku, &input.soil_springs, &dof_num, its, &u_full)?;
     let restrained = free_residual.split_off(nf);
-    let physical = PhysicalSoilResidual { free: free_residual, restrained };
+    let physical = PhysicalSoilResidual { free: free_residual, restrained, model: super::reaction_recovery::ExpandedReactionModel::space(&expanded_solver) };
     let recovered = super::reaction_recovery::RecoveredForces::from_soil(physical, &dof_num, cs.as_ref());
-    let reactions = recovered.reactions_3d(&input.solver, &dof_num, &u_full, its)?;
+    let reactions = recovered.reactions_3d(&dof_num, &u_full, its)?;
     let constraint_forces = recovered.constraint_forces;
 
     Ok(SSIResult3D {

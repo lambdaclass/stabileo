@@ -1043,7 +1043,7 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
     // forces.
     let physical = super::reaction_recovery::PhysicalForces::contact_2d(&input.solver, &dof_num, &u, &inactive, &corr);
     let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_base, &dof_num, cs.as_ref());
-    let reactions = recovered.reactions_2d(&input.solver, &dof_num, &u_global, &its)?;
+    let reactions = recovered.reactions_2d(&dof_num, &u_global, &its)?;
     let constraint_forces = recovered.constraint_forces;
     // A deactivated member is not deformed by the structure; it carries only
     // its own fixed-end forces (the member loads it still passes to its nodes).
@@ -1537,7 +1537,7 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
     // R = K·u − f over all DOFs (frames of K): reactions and constraint forces.
     let physical = super::reaction_recovery::PhysicalForces::contact_3d(input_solver, &dof_num, &u, &inactive, &corr);
     let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_base, &dof_num, cs.as_ref());
-    let reactions = recovered.reactions_3d(input_solver, &dof_num, &u_global, &its)?;
+    let reactions = recovered.reactions_3d(&dof_num, &u_global, &its)?;
     let constraint_forces = recovered.constraint_forces;
     let mut element_forces = linear::compute_internal_forces_3d(input_solver, &dof_num, &u_global);
     if !inactive.is_empty() {

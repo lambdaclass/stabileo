@@ -6,7 +6,39 @@ use super::{
 };
 use crate::types::*;
 
+#[derive(Clone)]
+pub(super) enum ExpandedReactionModel {
+    Plane(ExpandedReactionModel2D),
+    Space(ExpandedReactionModel3D),
+}
+
+#[derive(Clone)]
+pub(super) struct ExpandedReactionModel2D {
+    supports: std::collections::HashMap<String, SolverSupport>,
+}
+
+#[derive(Clone)]
+pub(super) struct ExpandedReactionModel3D {
+    supports: std::collections::HashMap<String, SolverSupport3D>,
+}
+
+impl ExpandedReactionModel2D {
+    pub(super) fn from_assembly(input: &SolverInput) -> Self { Self { supports: input.supports.clone() } }
+    pub(super) fn supports(&self) -> &std::collections::HashMap<String, SolverSupport> { &self.supports }
+}
+
+impl ExpandedReactionModel3D {
+    pub(super) fn from_assembly(input: &SolverInput3D) -> Self { Self { supports: input.supports.clone() } }
+    pub(super) fn supports(&self) -> &std::collections::HashMap<String, SolverSupport3D> { &self.supports }
+}
+
+impl ExpandedReactionModel {
+    pub(super) fn plane(input: &SolverInput) -> Self { Self::Plane(ExpandedReactionModel2D::from_assembly(input)) }
+    pub(super) fn space(input: &SolverInput3D) -> Self { Self::Space(ExpandedReactionModel3D::from_assembly(input)) }
+}
+
 pub(crate) struct RecoveredForces {
+    model: ExpandedReactionModel,
     restrained: Vec<f64>,
     free_residual: Vec<f64>,
     pub constraint_forces: Vec<ConstraintForce>,
@@ -19,20 +51,31 @@ impl RecoveredForces {
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
     ) -> Self {
+        let model = internal.1.clone();
         let internal = &internal.0;
         assert_eq!(internal.len(), dofs.n_total);
         assert_eq!(applied.len(), dofs.n_total);
         let residual: Vec<f64> = internal.iter().zip(applied).map(|(i, e)| i - e).collect();
-        Self::from_residual(&residual, dofs, cs)
+        Self::from_residual(&residual, dofs, cs, model)
     }
 
     fn from_residual(
         residual: &[f64],
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
+        model: ExpandedReactionModel,
     ) -> Self {
         assert_eq!(residual.len(), dofs.n_total);
-        Self::from_parts(residual[..dofs.n_free].to_vec(), residual[dofs.n_free..].to_vec(), dofs, cs)
+        Self::from_parts(residual[..dofs.n_free].to_vec(), residual[dofs.n_free..].to_vec(), dofs, cs, model)
+    }
+
+    pub(super) fn from_pdelta(
+        residual: &super::pdelta::PhysicalPDeltaResidual,
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+    ) -> Self {
+        let (values, model) = residual.parts();
+        Self::from_residual(values, dofs, cs, model.clone())
     }
 
     pub(super) fn from_soil(
@@ -40,8 +83,8 @@ impl RecoveredForces {
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
     ) -> Self {
-        let (free, restrained) = residual.into_parts();
-        Self::from_parts(free, restrained, dofs, cs)
+        let (free, restrained, model) = residual.into_parts();
+        Self::from_parts(free, restrained, dofs, cs, model)
     }
 
     fn from_parts(
@@ -49,6 +92,7 @@ impl RecoveredForces {
         mut restrained: Vec<f64>,
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
+        model: ExpandedReactionModel,
     ) -> Self {
         assert_eq!(free_residual.len(), dofs.n_free);
         assert_eq!(restrained.len(), dofs.n_total - dofs.n_free);
@@ -57,7 +101,7 @@ impl RecoveredForces {
             cs.add_restrained_master_forces(&raw, &mut restrained);
             cs.constraint_forces(&raw, dofs)
         });
-        Self { restrained, free_residual, constraint_forces }
+        Self { model, restrained, free_residual, constraint_forces }
     }
 
     pub(super) fn free_residual(&self) -> &[f64] {
@@ -69,7 +113,7 @@ impl RecoveredForces {
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
     ) -> Self {
-        Self::from_residual(&residual.as_slice(), dofs, cs)
+        Self::from_residual(&residual.as_slice(), dofs, cs, residual.model().clone())
     }
 
     pub(super) fn checked_restrained_2d(
@@ -85,12 +129,15 @@ impl RecoveredForces {
 
     pub(super) fn reactions_2d(
         &self,
-        input: &SolverInput,
         dofs: &DofNumbering,
         u_global: &[f64],
         its: &[InclinedTransformData2D],
     ) -> Result<Vec<Reaction>, String> {
-        let restrained = self.checked_restrained_2d(input, dofs)?;
+        let ExpandedReactionModel::Plane(input) = &self.model else { return Err("Spatial recovery model used for planar reactions".into()); };
+        check_restraints(dofs, crate::ordered::values(&input.supports).flat_map(|s| {
+            super::support::support_dofs_2d(s).into_iter().enumerate().filter_map(move |(k,d)| d.restrained.then_some((s.node_id,k)))
+        }))?;
+        let restrained = &self.restrained;
         let mut r = linear::build_reactions_2d_inclined(
             input,
             dofs,
@@ -106,11 +153,11 @@ impl RecoveredForces {
 
     pub(super) fn reactions_3d(
         &self,
-        input: &SolverInput3D,
         dofs: &DofNumbering,
         u_global: &[f64],
         its: &[InclinedTransformData],
     ) -> Result<Vec<Reaction3D>, String> {
+        let ExpandedReactionModel::Space(input) = &self.model else { return Err("Planar recovery model used for spatial reactions".into()); };
         check_restraints(dofs, crate::ordered::values(&input.supports).flat_map(|s| {
             super::support::support_dofs_3d(s).into_iter().enumerate().filter_map(move |(k, d)| d.restrained.then_some((s.node_id, k)))
         }))?;
@@ -372,14 +419,14 @@ fn check_restraints(dofs: &DofNumbering, required: impl Iterator<Item = (usize, 
     Err(serde_json::json!({"message":diagnostic.message,"structuredDiagnostics":[diagnostic]}).to_string())
 }
 
-pub(crate) struct PhysicalForces(Vec<f64>);
+pub(crate) struct PhysicalForces(Vec<f64>, ExpandedReactionModel);
 
 impl PhysicalForces {
     pub(super) fn linear_2d(input: &SolverInput, dofs: &DofNumbering, u: &[f64]) -> Self {
         let a = super::assembly::physical_stiffness(|| {
             super::sparse_assembly::assemble_stiffness_sparse_2d(input, dofs)
         });
-        Self(a.k_full.sym_mat_vec(u))
+        Self(a.k_full.sym_mat_vec(u), ExpandedReactionModel::plane(input))
     }
 
     pub(super) fn linear_3d(input: &SolverInput3D, dofs: &DofNumbering, u: &[f64]) -> Self {
@@ -390,6 +437,7 @@ impl PhysicalForces {
             a.k_full
                 .expect("physical full stiffness requested")
                 .sym_mat_vec(u),
+            ExpandedReactionModel::space(input),
         )
     }
 
@@ -409,7 +457,7 @@ impl PhysicalForces {
             &mut f,
             &mut discard,
         );
-        Self(super::assembly::to_inclined_free(f, its, dofs.n_total))
+        Self(super::assembly::to_inclined_free(f, its, dofs.n_total), ExpandedReactionModel::plane(input))
     }
 
     pub(super) fn corotational_3d(
@@ -430,7 +478,7 @@ impl PhysicalForces {
             left_hand,
         );
         super::corotational::add_spring_contributions_3d(input, dofs, u, &mut f, &mut discard);
-        Self(super::assembly::to_inclined_free(f, its, dofs.n_total))
+        Self(super::assembly::to_inclined_free(f, its, dofs.n_total), ExpandedReactionModel::space(input))
     }
 
     pub(super) fn material_2d(
@@ -451,7 +499,7 @@ impl PhysicalForces {
                 &it.r,
             );
         }
-        Self(crate::linalg::mat_vec(&k, u, dofs.n_total))
+        Self(crate::linalg::mat_vec(&k, u, dofs.n_total), ExpandedReactionModel::plane(input))
     }
 
     pub(super) fn material_3d(
@@ -473,73 +521,7 @@ impl PhysicalForces {
                 &it.r,
             );
         }
-        Self(crate::linalg::mat_vec(&k, u, dofs.n_total))
-    }
-
-    pub(super) fn pdelta_2d(
-        input: &SolverInput,
-        dofs: &DofNumbering,
-        u: &[f64],
-        its: &[InclinedTransformData2D],
-    ) -> Self {
-        let mut f = Self::linear_2d(input, dofs, u);
-        let global = super::assembly::to_global(u, dofs.n_total, its);
-        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
-        super::geometric_stiffness::emit_geometric_stiffness_2d(
-            input,
-            dofs,
-            &global,
-            &mut |i, j, v| {
-                if i >= j {
-                    rows.push(i);
-                    cols.push(j);
-                    vals.push(v);
-                }
-            },
-        );
-        for it in its {
-            super::assembly::apply_inclined_transform_triplets_2d(
-                &mut rows, &mut cols, &mut vals, &it.dofs, &it.r,
-            );
-        }
-        let k = crate::linalg::sparse::CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals);
-        for (a, b) in f.0.iter_mut().zip(k.sym_mat_vec(u)) {
-            *a += b;
-        }
-        f
-    }
-
-    pub(super) fn pdelta_3d(
-        input: &SolverInput3D,
-        dofs: &DofNumbering,
-        u: &[f64],
-        its: &[InclinedTransformData],
-    ) -> Self {
-        let mut f = Self::linear_3d(input, dofs, u);
-        let global = super::assembly::to_global(u, dofs.n_total, its);
-        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
-        super::geometric_stiffness::emit_geometric_stiffness_3d(
-            input,
-            dofs,
-            &global,
-            &mut |i, j, v| {
-                if i >= j {
-                    rows.push(i);
-                    cols.push(j);
-                    vals.push(v);
-                }
-            },
-        );
-        for it in its {
-            super::assembly::apply_inclined_transform_triplets_k(
-                &mut rows, &mut cols, &mut vals, &it.dofs, &it.r,
-            );
-        }
-        let k = crate::linalg::sparse::CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals);
-        for (a, b) in f.0.iter_mut().zip(k.sym_mat_vec(u)) {
-            *a += b;
-        }
-        f
+        Self(crate::linalg::mat_vec(&k, u, dofs.n_total), ExpandedReactionModel::space(input))
     }
 
     pub(super) fn contact_2d(
@@ -637,7 +619,7 @@ impl PhysicalForces {
                 dofs,
             )?;
         }
-        Ok(Self(crate::linalg::mat_vec(&a.k, u, dofs.n_total)))
+        Ok(Self(crate::linalg::mat_vec(&a.k, u, dofs.n_total), ExpandedReactionModel::plane(&input.solver)))
     }
 
     pub(super) fn winkler_3d(
@@ -665,7 +647,7 @@ impl PhysicalForces {
                 dofs,
             )?;
         }
-        Ok(Self(crate::linalg::mat_vec(&a.k, u, dofs.n_total)))
+        Ok(Self(crate::linalg::mat_vec(&a.k, u, dofs.n_total), ExpandedReactionModel::space(model)))
     }
 
     pub(super) fn fiber_2d(
@@ -697,7 +679,7 @@ impl PhysicalForces {
             &mut discard,
         );
         super::fiber_nonlinear::add_springs(&input.solver, dofs, u, &mut f, &[], &mut discard);
-        Self(f)
+        Self(f, ExpandedReactionModel::plane(&input.solver))
     }
 
     pub(super) fn fiber_3d(
@@ -729,12 +711,12 @@ impl PhysicalForces {
             &mut discard,
         );
         super::fiber_nonlinear::add_springs_3d(&input.solver, dofs, u, &mut f, &mut discard);
-        Self(f)
+        Self(f, ExpandedReactionModel::space(&input.solver))
     }
 
     pub(super) fn in_frame<T: super::assembly::InclinedFrame>(self, its: &[T]) -> Self {
         let n = self.0.len();
-        Self(super::assembly::to_inclined_free(self.0, its, n))
+        Self(super::assembly::to_inclined_free(self.0, its, n), self.1)
     }
 
     pub(super) fn as_slice(&self) -> &[f64] {
@@ -780,9 +762,9 @@ mod r8_tests {
                     &mut |_, _, _| {},
                 );
                 assert_eq!(artificial[slave], k * motion);
-                let contaminated = RecoveredForces::from_residual(&artificial, &dofs, cs.as_ref());
+                let contaminated = RecoveredForces::from_residual(&artificial, &dofs, cs.as_ref(), ExpandedReactionModel::plane(&input));
                 let contaminated_reactions =
-                    contaminated.reactions_2d(&input, &dofs, &u, &[]).unwrap();
+                    contaminated.reactions_2d(&dofs, &u, &[]).unwrap();
                 let master = contaminated_reactions
                     .iter()
                     .find(|r| r.node_id == 2)

@@ -107,7 +107,31 @@ fn matrix(path: &str, dim: i64, zero: bool) {
         }
         if zero {
             let baseline: Value = serde_json::from_str(include_str!("../fixtures/prescribed-master-2008-zero.json")).unwrap();
-            assert_eq!(numeric_bits(result.as_ref().unwrap()).to_string(),baseline[format!("{path}:{index}")].as_str().unwrap(),"zero motion bits {path}:{index}");
+            let mut legacy_shape = result.as_ref().unwrap().clone();
+            if matches!(path,"pdelta"|"corotational"|"arc") {
+                let snapshot = legacy_shape.get_mut("results").unwrap();
+                let summary = snapshot.as_object_mut().unwrap().remove("equilibrium");
+                if let Some(summary) = summary {
+                assert_eq!(summary["residualOk"],true);
+                assert_eq!(summary["equilibriumOk"],true);
+                assert!(summary["relativeResidual"].as_f64().unwrap() <= 1e-10);
+                } else { assert_ne!(path,"pdelta"); }
+            }
+            if path == "arc" {
+                let factor = legacy_shape["finalLoadFactor"].as_f64().unwrap();
+                let reactions = legacy_shape["results"]["reactions"].as_array_mut().unwrap();
+                assert_eq!(reactions.len(),case["model"]["supports"].as_object().unwrap().len());
+                for (load_key,reaction_key) in [("fx","rx"),("fz","rz")] {
+                    let applied: f64 = case["model"]["loads"].as_array().unwrap().iter().map(|l|l["data"][load_key].as_f64().unwrap()*factor).sum();
+                    let support: f64 = reactions.iter().map(|r|r[reaction_key].as_f64().unwrap()).sum();
+                    assert!((applied+support).abs() <= 1e-11);
+                }
+                reactions.clear();
+                let forces = legacy_shape["results"]["elementForces"].as_array_mut().unwrap();
+                assert!(forces.windows(2).all(|w| w[0]["elementId"].as_u64().unwrap() < w[1]["elementId"].as_u64().unwrap()));
+                forces.sort_by_key(|f|f["elementId"].as_u64().unwrap().to_string());
+            }
+            assert_eq!(numeric_bits(&legacy_shape).to_string(),baseline[format!("{path}:{index}")].as_str().unwrap(),"zero motion bits {path}:{index}");
         }
         let error = result.as_ref().map_err(Clone::clone).and_then(|r| check(case,r,path)).err();
         if let Some(error) = error { failures.push(format!("case {index} {path}: {error}")); }

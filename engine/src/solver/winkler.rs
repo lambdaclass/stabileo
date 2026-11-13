@@ -139,7 +139,7 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
     }
 
     let displacements = build_displacements_2d(&dof_num, &u_full);
-    let reactions = recovered.reactions_2d(&input.solver, &dof_num, &u_full, &asm.inclined_transforms_2d)?;
+    let reactions = recovered.reactions_2d(&dof_num, &u_full, &asm.inclined_transforms_2d)?;
     let constraint_forces = recovered.constraint_forces;
     let mut element_forces = compute_internal_forces_2d(&input.solver, &dof_num, &u_full);
     add_foundation_forces_2d(&mut element_forces, input, &node_by_id, &elem_by_id, &dof_num, &u_full);
@@ -240,7 +240,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     }
 
     let displacements = build_displacements_3d(&dof_num, &u_full);
-    let reactions = recovered.reactions_3d(input_solver, &dof_num, &u_full, &asm.inclined_transforms)?;
+    let reactions = recovered.reactions_3d(&dof_num, &u_full, &asm.inclined_transforms)?;
     let constraint_forces = recovered.constraint_forces;
     let mut element_forces = compute_internal_forces_3d(input_solver, &dof_num, &u_full);
     add_foundation_forces_3d(&mut element_forces, input, input_solver, &node_by_id, &elem_by_id, &dof_num, &u_full);

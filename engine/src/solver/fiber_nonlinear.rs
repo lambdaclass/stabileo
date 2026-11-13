@@ -1721,7 +1721,7 @@ fn fiber_reactions_and_equilibrium_2d(
         &physical.in_frame(its),
         &assembly::to_inclined_free(f_ext.clone(), its, n), dof_num, cs,
     );
-    let reactions = recovered.reactions_2d(&input.solver, dof_num, u_full, its)?;
+    let reactions = recovered.reactions_2d(dof_num, u_full, its)?;
     let at = |node: usize, k: usize, v: &[f64]| dof_num.global_dof(node, k).map_or(0.0, |d| v[d]);
     let position = |node: usize| {
         let nd = crate::ordered::values(&input.solver.nodes).find(|nd| nd.id == node).expect("validated node");
@@ -1765,7 +1765,7 @@ fn fiber_reactions_and_equilibrium_3d(
         &physical.in_frame(its),
         &assembly::to_inclined_free(f_ext.clone(), its, n), dof_num, cs,
     );
-    let reactions = recovered.reactions_3d(&input.solver, dof_num, u_full, its)?;
+    let reactions = recovered.reactions_3d(dof_num, u_full, its)?;
     let at = |node: usize, k: usize, v: &[f64]| dof_num.global_dof(node, k).map_or(0.0, |d| v[d]);
     let position = |node: usize| {
         let nd = crate::ordered::values(&input.solver.nodes).find(|nd| nd.id == node).expect("validated node");

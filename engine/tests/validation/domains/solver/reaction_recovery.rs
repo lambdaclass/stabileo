@@ -2457,7 +2457,7 @@ fn issue_1952_r18_mpc_accounting_3d() { r18_mpc_accounting(3); }
 
 fn r19_soil_balance(dim: usize) {
     let mut replay = Vec::new();
-    for members in [1, 12] {
+    for members in if dim == 2 { [1,21,22] } else { [1,10,11] } {
         for sign in [-1.0, 0.0, 1.0] {
             for nonlinear in [false,true] {
                 let mut m = model(dim,false);
@@ -2487,6 +2487,18 @@ fn r19_soil_balance(dim: usize) {
                     if copy == 0 { m["loads"] = json!([load]); } else { m["loads"].as_array_mut().unwrap().push(load); }
                     springs.push(json!({"nodeId":tip,"direction":if dim==2 {1} else {2},"tributaryLength":1.0,"curve":{"type":"custom","points":if nonlinear {json!([[0.0,0.0],[0.001,2.0],[0.1,20.0]])} else {json!([[0.0,0.0],[0.1,20.0]])}}}));
                 }
+                for support_spring in [false,true] {
+                    let mut m = m.clone();
+                    if support_spring {
+                        for copy in 0..members {
+                            let tip = 2*copy+1;
+                            m["supports"][tip.to_string()] = if dim == 2 {
+                                json!({"id":tip,"nodeId":tip,"type":"spring","ky":300.0})
+                            } else {
+                                json!({"nodeId":tip,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kz":300.0})
+                            };
+                        }
+                    }
                 let input = json!({"solver":m,"soilSprings":springs,"maxIter":100,"tolerance":1e-10});
                 let result = if dim == 2 {
                     serde_json::to_value(ssi::solve_ssi_2d(&serde_json::from_value(input.clone()).unwrap()).unwrap()).unwrap()
@@ -2501,10 +2513,26 @@ fn r19_soil_balance(dim: usize) {
                 balance += support - soil;
                 eprintln!("r19 SSI {dim}D members={members} sign={sign} nonlinear={nonlinear}: supports={support:e} soil={soil:e} balance={balance:e}");
                 assert!(balance.abs() < 1e-7,"{input}: {result}");
+                let mut moment = 0.0;
+                for load in m["loads"].as_array().unwrap() {
+                    let load = &load["data"];
+                    let node = &m["nodes"][load["nodeId"].as_u64().unwrap().to_string()];
+                    moment += node["z"].as_f64().unwrap()*load["fx"].as_f64().unwrap() - node["x"].as_f64().unwrap()*load["fz"].as_f64().unwrap() + if dim == 2 {-load["my"].as_f64().unwrap()} else {load["my"].as_f64().unwrap()};
+                }
+                for r in result["results"]["reactions"].as_array().unwrap() {
+                    let node = &m["nodes"][r["nodeId"].as_u64().unwrap().to_string()];
+                    moment += node["z"].as_f64().unwrap()*r[if dim==2 {"rx"} else {"fx"}].as_f64().unwrap() - node["x"].as_f64().unwrap()*r[if dim==2 {"rz"} else {"fz"}].as_f64().unwrap() + if dim == 2 {-r["my"].as_f64().unwrap()} else {r["my"].as_f64().unwrap()};
+                }
+                for spring in result["springResults"].as_array().unwrap() {
+                    let node = &m["nodes"][spring["nodeId"].as_u64().unwrap().to_string()];
+                    moment += node["x"].as_f64().unwrap()*spring["reaction"].as_f64().unwrap();
+                }
+                assert!(moment.abs() < 1e-7,"{dim}D SSI independent moment balance={moment:e}");
                 if sign != 0.0 { assert!(soil.abs() > 1e-6); assert!(support.abs() > 1e-6); }
                 let exported = if dim == 2 { dedaliano_engine::solve_ssi_2d(&input.to_string()).unwrap() } else { dedaliano_engine::solve_ssi_3d(&input.to_string()).unwrap() };
                 assert_eq!(serde_json::from_str::<Value>(&exported).unwrap()["results"],result["results"]);
                 replay.push(input);
+                }
             }
         }
     }

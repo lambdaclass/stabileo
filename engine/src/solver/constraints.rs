@@ -1698,7 +1698,7 @@ fn solve_constrained_2d_dense_validated(
 
     let displacements = linear::build_displacements_2d(&dof_num, &u_full);
     let mut reactions = linear::build_reactions_2d_inclined(
-        &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms_2d,
+        &super::reaction_recovery::ExpandedReactionModel2D::from_assembly(&input.solver), &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms_2d,
     );
     reactions.sort_by_key(|r| r.node_id);
     let mut element_forces = linear::compute_internal_forces_2d(
@@ -1907,7 +1907,7 @@ pub(super) fn solve_constrained_2d_sparse(
 
     let displacements = linear::build_displacements_2d(dof_num, &u_full);
     let mut reactions = linear::build_reactions_2d_inclined(
-        &input.solver, dof_num, &reactions_vec, &f_r, nf, &u_full, &stiff.inclined_transforms_2d,
+        &super::reaction_recovery::ExpandedReactionModel2D::from_assembly(&input.solver), dof_num, &reactions_vec, &f_r, nf, &u_full, &stiff.inclined_transforms_2d,
     );
     reactions.sort_by_key(|r| r.node_id);
     let mut element_forces = linear::compute_internal_forces_2d(&input.solver, dof_num, &u_full);
@@ -2146,7 +2146,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
 
     // Build reactions for output
     let mut reactions = linear::build_reactions_3d_inclined(
-        &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &sasm.inclined_transforms,
+        &super::reaction_recovery::ExpandedReactionModel3D::from_assembly(&input.solver), &dof_num, &reactions_vec, &f_r, nf, &u_full, &sasm.inclined_transforms,
     );
     reactions.sort_by_key(|r| r.node_id);
 

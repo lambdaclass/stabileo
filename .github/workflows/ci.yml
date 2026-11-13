@@ -177,6 +177,7 @@ jobs:
               - 'web/**'
               - 'scripts/tests/modal-mass-range-wasm.mjs'
               - 'scripts/tests/containment-r18-wasm.mjs'
+              - 'scripts/tests/containment-r19-wasm.mjs'
               - 'scripts/check-message-matching.py'
               - 'scripts/message-match-allow.txt'
               # The /research pages import the catalog and reference results and ship its WASM.
@@ -940,6 +941,8 @@ jobs:
         run: make test.engine.staged-orphan-wasm
       - name: Physical P-Delta and time-history containment through WASM
         run: make test.engine.containment-r18-wasm
+      - name: Compensated physical recovery and SSI balance through WASM
+        run: make test.engine.containment-r19-wasm
       - name: Buckling original-pencil WASM regressions
         run: make test.engine.buckling-818-wasm
       - name: Modal physical mass range WASM regressions

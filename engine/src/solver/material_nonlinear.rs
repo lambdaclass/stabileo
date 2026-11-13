@@ -313,7 +313,7 @@ fn solve_nonlinear_material_2d_inner(
 
     let displacements = super::linear::build_displacements_2d(&dof_num, &u_geom);
 
-    let reactions = recovered.reactions_2d(solver, &dof_num, &u_geom, &asm.inclined_transforms_2d)?;
+    let reactions = recovered.reactions_2d(&dof_num, &u_geom, &asm.inclined_transforms_2d)?;
 
     // Member forces from the stiffness the solve balanced: a yielded member at α·EI (NL-4).
     // They were recovered with the elastic EI, so after yield they were up to ~100× off and did
@@ -1187,7 +1187,7 @@ fn solve_nonlinear_material_3d_inner(
     // would silently report zero reaction at an inclined 3D support. Use the
     // shared, dof_num-driven (and inclined-aware) builder instead, which
     // correctly detects restraint via the actual DOF partition.
-    let reactions = recovered.reactions_3d(solver, &dof_num, &u_geom, &asm.inclined_transforms)?;
+    let reactions = recovered.reactions_3d(&dof_num, &u_geom, &asm.inclined_transforms)?;
 
     // Member forces from the stiffness the solve balanced, as in 2D (NL-4).
     let mut element_forces = secant_member_forces_3d(solver, &states, &dof_num, &u_geom);

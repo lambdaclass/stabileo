@@ -13,7 +13,6 @@ use super::assembly::{AssemblyResult, assemble_2d, assemble_3d};
 use super::linear::{
     build_displacements_2d,
     build_displacements_3d,
-    build_reactions_2d_inclined,
     compute_internal_forces_2d,
     compute_plate_stresses,
 };
@@ -729,10 +728,8 @@ fn build_results_from_u(
     let mut element_forces = compute_internal_forces_2d(input, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
     let recovered = super::reaction_recovery::RecoveredForces::from_stage(reactions_vec, dof_num, cs);
-    let restrained = recovered.checked_restrained_2d(input, dof_num)?;
-    let nf = dof_num.n_free;
-    let mut reactions = build_reactions_2d_inclined(input, dof_num, restrained, &[], nf, u, inclined_transforms);
-    reactions.sort_by_key(|r| r.node_id);
+    recovered.checked_restrained_2d(input, dof_num)?;
+    let reactions = recovered.reactions_2d(dof_num, u, inclined_transforms)?;
 
     let prescribed = super::linear::prescribed_displacements_2d(input, dof_num);
     let determined = state_is_directly_prescribed(u, dof_num.n_free, &prescribed);
@@ -1190,7 +1187,7 @@ fn build_results_from_u_3d(
     let mut element_forces = super::linear::compute_internal_forces_3d_with_loads(cum_input, &cum_input.loads, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
     let recovered = super::reaction_recovery::RecoveredForces::from_stage(reactions_vec, dof_num, cs);
-    let reactions = recovered.reactions_3d(cum_input, dof_num, u, &[])?;
+    let reactions = recovered.reactions_3d(dof_num, u, &[])?;
     let plate_stresses = compute_plate_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
     let quad_stresses = super::linear::compute_quad_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
     let quad_nodal_stresses = super::linear::compute_quad_nodal_stresses(cum_input, dof_num, u, Some(&cum_input.loads));

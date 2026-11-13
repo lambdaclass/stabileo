@@ -18,9 +18,9 @@ pub(crate) fn calls() -> Vec<Value> {
     .unwrap();
     let relabel = Relabel::random_3d(&s, 12758164673192605130);
     let mut calls = Vec::new();
-    for solver in [s.clone(), relabel.apply_3d(&s, 12758164673192605130)] {
+    for (index,solver) in [s.clone(), relabel.apply_3d(&s, 12758164673192605130)].into_iter().enumerate() {
         for max_iter in [0, 100] {
-            calls.push(json!({"api":"solve_pdelta_3d","input":solver,"maxIter":max_iter,"tolerance":1e-12,"converged":max_iter>0}));
+            calls.push(json!({"api":"solve_pdelta_3d","input":solver,"maxIter":max_iter,"tolerance":1e-12,"converged":max_iter>0,"withheld":max_iter==0 && index==1}));
         }
         let r = linear::solve_3d(&solver).unwrap();
         calls.push(json!({"api":"solve_3d","input":solver,"converged":true,"expectedDisplacements":r.displacements}));
@@ -127,6 +127,7 @@ pub(crate) fn calls() -> Vec<Value> {
     }
     for case in &mut calls {
         case["requireNodeCoverage"] = json!(true);
+        if case["withheld"] == true { case["error"] = json!("NaN"); }
         if case["api"].as_str().unwrap().ends_with("3d") {
             if let Some(expected) = case["expectedDisplacements"].as_array_mut() {
                 for d in expected {
@@ -162,8 +163,8 @@ fn native_result(c: &Value) -> Value {
     let text = c["input"].to_string();
     let max_iter = c["maxIter"].as_u64().unwrap_or(0) as usize;
     let result = match api {
-        "solve_pdelta_2d" => dedaliano_engine::solve_pdelta_2d(&text, max_iter, 1e-12).unwrap(),
-        "solve_pdelta_3d" => dedaliano_engine::solve_pdelta_3d(&text, max_iter, 1e-12).unwrap(),
+        "solve_pdelta_2d" => return json!(pdelta::solve_pdelta_2d(&serde_json::from_str(&text).unwrap(), max_iter, 1e-12).unwrap()),
+        "solve_pdelta_3d" => return json!(pdelta::solve_pdelta_3d(&serde_json::from_str(&text).unwrap(), max_iter, 1e-12).unwrap()),
         "solve_ssi_2d" => dedaliano_engine::solve_ssi_2d(&text).unwrap(),
         "solve_ssi_3d" => dedaliano_engine::solve_ssi_3d(&text).unwrap(),
         "solve_2d" => {
@@ -179,6 +180,13 @@ fn native_result(c: &Value) -> Value {
 
 pub(crate) fn check_result(r: &Value, c: &Value) {
     assert_eq!(r["converged"], c["converged"], "{} convergence", c["api"]);
+    if c["withheld"] == true {
+        assert_eq!(r["results"]["equilibrium"]["residualOk"],false);
+        assert!(r["results"]["structuredDiagnostics"].as_array().unwrap().iter().any(|d|d["code"]=="result_quantity_unavailable"));
+        assert!(r["results"]["reactions"].as_array().unwrap().iter().all(|r|r["fx"].is_null() && r["fy"].is_null() && r["fz"].is_null()));
+        assert!(r["results"]["displacements"].as_array().unwrap().iter().any(|d|d["uz"].as_f64().is_some_and(|v|v != 0.0)));
+        return;
+    }
     crate::nonlinear_convergence::check_expected_displacements(r, c);
     check_capacity(r, c);
 }

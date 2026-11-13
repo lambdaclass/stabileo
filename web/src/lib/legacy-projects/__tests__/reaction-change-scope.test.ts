@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import stagedHistoryChange from '../../provenance/result-changes/staged-history-forces-unavailable.json';
+import compensatedChange from '../../provenance/result-changes/pdelta-compensated-physical-recovery.json';
 import pdeltaPhysicalChange from '../../provenance/result-changes/pdelta-physical-residual-certification.json';
 import reactionRecoveryChange from '../../provenance/result-changes/arc-length-reactions.json';
 import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
@@ -90,5 +91,27 @@ describe('staged history quantity scope (#1952)', () => {
       }
     }
     expect(judge('linear refusal', { 'solve.ok': true }, { 'solve.ok': false }, [exported]).kind).toBe('unexplained');
+  });
+});
+
+describe('compensated P-Delta recovery scope (#1952)', () => {
+  it('registers changed P-Delta forces and keeps static numeric changes unexplained', () => {
+    const metadata = RESULT_CHANGES.changes.find(c => c.id === compensatedChange.id);
+    expect(metadata).toBeDefined();
+    const entry = { ...metadata!, quantities: declaredQuantities[compensatedChange.id] };
+    for (const dimension of ['plane2D','space3D']) {
+      const features = ['members',dimension,'analysis:linear','analysis:pdelta'];
+      for (const quantity of ['reactions[n1].rz','elementForces[e1].mStart','equilibrium.relativeResidual','equilibrium.residualOk']) {
+        const path = `pdelta.results.${quantity}`;
+        expect(fieldCovered(compensatedChange,path,features)).toBe(true);
+        expect(declaresMove(entry,path)).toBe(true);
+        for (const family of ['base','case[1]','combo[1]']) {
+          const unrelated = `${family}.${quantity}`;
+          expect(fieldCovered(compensatedChange,unrelated,features)).toBe(false);
+          expect(declaresMove(entry,unrelated)).toBe(false);
+        }
+      }
+      expect(fieldCovered(compensatedChange,'pdelta.results.reactions[n1].rz',[dimension,'members','analysis:linear'])).toBe(false);
+    }
   });
 });

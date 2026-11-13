@@ -215,6 +215,24 @@ struct SparsePDelta2D {
 }
 
 impl PDeltaSystem2D {
+    fn new(input: &SolverInput, dofs: &DofNumbering, sparse: bool) -> Self {
+        if sparse {
+            let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(input, dofs);
+            let f = assemble_load_vector_2d(input, &input.loads, dofs, &stiff.inclined_transforms_2d);
+            Self::Sparse(SparsePDelta2D { k_full: stiff.k_full, f, its: stiff.inclined_transforms_2d })
+        } else {
+            Self::Dense(assemble_2d(input, dofs))
+        }
+    }
+
+    fn physical_residual(input: &SolverInput, dofs: &DofNumbering, sparse: bool, u: &[f64]) -> PhysicalPDeltaResidual {
+        let system = super::assembly::physical_stiffness(|| Self::new(input, dofs, sparse));
+        let (f, _) = system.data();
+        PhysicalPDeltaResidual {
+            residual: system.tangent(input, dofs, u).all_residual(dofs.n_total, f, u),
+            model: super::reaction_recovery::ExpandedReactionModel::plane(input),
+        }
+    }
     fn data(&self) -> (&[f64], &[InclinedTransformData2D]) {
         match self {
             Self::Dense(a) => (&a.f, &a.inclined_transforms_2d),
@@ -265,13 +283,7 @@ pub fn solve_pdelta_2d_on(
     let linear_results = super::linear::solve_2d(input)?;
     let (n, nf) = (dof_num.n_total, dof_num.n_free);
 
-    let system = if sparse {
-        let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(input, dof_num);
-        let f = assemble_load_vector_2d(input, &input.loads, dof_num, &stiff.inclined_transforms_2d);
-        PDeltaSystem2D::Sparse(SparsePDelta2D { k_full: stiff.k_full, f, its: stiff.inclined_transforms_2d })
-    } else {
-        PDeltaSystem2D::Dense(assemble_2d(input, dof_num))
-    };
+    let system = PDeltaSystem2D::new(input, dof_num, sparse);
     let (f, its) = system.data();
 
     let mut u_prev = vec![0.0; n];
@@ -317,9 +329,9 @@ pub fn solve_pdelta_2d_on(
     let max_ratio = stability_b2(state.indefinite, b2_factor(dof_num, 2, &to_global_2d(&u_prev, its), &u_global));
 
     // Reactions and constraint forces of the system that was solved.
-    let physical = super::reaction_recovery::PhysicalForces::pdelta_2d(input, dof_num, &state.u, its);
+    let physical = PDeltaSystem2D::physical_residual(input, dof_num, sparse, &state.u);
     let (recovered, relative_residual) = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref());
-    let reactions = recovered.reactions_2d(input, dof_num, &u_global, its)?;
+    let reactions = recovered.reactions_2d(dof_num, &u_global, its)?;
     let constraint_forces = recovered.constraint_forces;
 
     let mut equilibrium = super::reaction_recovery::balance_2d(input, dof_num, &u_global, f, &reactions, its, tolerance);
@@ -408,15 +420,24 @@ enum PDeltaTangent {
     Sparse(CscMatrix),
 }
 
+pub(super) struct PhysicalPDeltaResidual {
+    residual: Vec<f64>,
+    model: super::reaction_recovery::ExpandedReactionModel,
+}
+
+impl PhysicalPDeltaResidual {
+    pub(super) fn parts(&self) -> (&[f64], &super::reaction_recovery::ExpandedReactionModel) { (&self.residual, &self.model) }
+}
+
 fn recover_pdelta_forces(
-    physical: &super::reaction_recovery::PhysicalForces,
+    physical: &PhysicalPDeltaResidual,
     metric: &super::convergence::EquilibriumMetric,
     dofs: &DofNumbering,
     f: &[f64],
     u: &[f64],
     cs: Option<&FreeConstraintSystem>,
 ) -> (super::reaction_recovery::RecoveredForces, f64) {
-    let recovered = super::reaction_recovery::RecoveredForces::from_physical(physical, f, dofs, cs);
+    let recovered = super::reaction_recovery::RecoveredForces::from_pdelta(physical, dofs, cs);
     let support_driven = u[dofs.n_free..].iter().any(|v| *v != 0.0);
     let relative = metric.relative_residual(recovered.free_residual(), f, support_driven.then_some(1.0), cs);
     (recovered, relative)
@@ -519,6 +540,19 @@ enum PDeltaSystem3D {
 }
 
 impl PDeltaSystem3D {
+    fn new(input: &SolverInput3D, dofs: &DofNumbering, sparse: bool) -> Self {
+        if sparse { Self::Sparse(assemble_sparse_3d(input, dofs, true)) }
+        else { Self::Dense(assemble_3d(input, dofs)) }
+    }
+
+    fn physical_residual(input: &SolverInput3D, dofs: &DofNumbering, sparse: bool, u: &[f64]) -> PhysicalPDeltaResidual {
+        let system = super::assembly::physical_stiffness(|| Self::new(input, dofs, sparse));
+        let (f, _) = system.data();
+        PhysicalPDeltaResidual {
+            residual: system.tangent(input, dofs, u).all_residual(dofs.n_total, f, u),
+            model: super::reaction_recovery::ExpandedReactionModel::space(input),
+        }
+    }
     fn data(&self) -> (&[f64], &[InclinedTransformData]) {
         match self {
             Self::Dense(a) => (&a.f, &a.inclined_transforms),
@@ -572,8 +606,7 @@ pub fn solve_pdelta_3d(input: &SolverInput3D, max_iter: usize, tolerance: f64) -
 fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<FreeConstraintSystem>, sparse: bool, max_iter: usize, tolerance: f64) -> Result<PDeltaResult3D, String> {
     let linear_results = super::linear::solve_3d(input)?;
     let (n, nf) = (dof_num.n_total, dof_num.n_free);
-    let system = if sparse { PDeltaSystem3D::Sparse(assemble_sparse_3d(input, dof_num, true)) }
-        else { PDeltaSystem3D::Dense(assemble_3d(input, dof_num)) };
+    let system = PDeltaSystem3D::new(input, dof_num, sparse);
     let (f, its) = system.data();
     let mut u_prev = dof_num.displacement_vector_3d(&linear_results.displacements);
     for it in its { rotate_inclined_f_3d(&mut u_prev, &it.dofs, &it.r); }
@@ -602,9 +635,9 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     }
     let u_global = to_global_3d(&state.u, its);
     let b2 = stability_b2(state.indefinite, b2_factor(dof_num, 3, &to_global_3d(&u_prev, its), &u_global));
-    let physical = super::reaction_recovery::PhysicalForces::pdelta_3d(input, dof_num, &state.u, its);
+    let physical = PDeltaSystem3D::physical_residual(input, dof_num, sparse, &state.u);
     let (recovered, relative_residual) = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref());
-    let reactions = recovered.reactions_3d(input, dof_num, &u_global, its)?;
+    let reactions = recovered.reactions_3d(dof_num, &u_global, its)?;
     let constraint_forces = recovered.constraint_forces;
 
     let mut equilibrium = super::reaction_recovery::balance_3d(input, dof_num, &u_global, f, &reactions, its, tolerance);
@@ -634,6 +667,29 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    #[test]
+    fn r19_spatial_physical_dense_sparse() {
+        let mut model: SolverInput = serde_json::from_str(include_str!("../../tests/metamorphic_corpus/nightly/issue-971.json")).unwrap();
+        for reflected in [false,true] {
+            if reflected {
+                for n in model.nodes.values_mut() { n.z = -n.z; }
+                for l in &mut model.loads { if let SolverLoad::Nodal(l) = l { l.fz = -l.fz; l.my = -l.my; } }
+            }
+            for plane in crate::metamorphic::planes::Plane::ALL {
+                let input = crate::metamorphic::planes::embed_2d(&model,plane).unwrap();
+                let dofs = DofNumbering::build_3d(&input);
+                for sparse in [false,true] {
+                    let solved = solve_pdelta_3d_on(&input,&dofs,None,sparse,100,1e-12).unwrap();
+                    let uniterated = solve_pdelta_3d_on(&input,&dofs,None,sparse,0,1e-12).unwrap();
+                    assert!(solved.results.equilibrium.as_ref().unwrap().residual_ok);
+                    assert!(!uniterated.results.equilibrium.as_ref().unwrap().residual_ok);
+                    assert!(solved.results.reactions.iter().all(|r|r.fx.is_finite() && r.fy.is_finite() && r.fz.is_finite()));
+                    assert!(uniterated.results.reactions.iter().all(|r|r.fx.is_nan() && r.fy.is_nan() && r.fz.is_nan()));
+                }
+            }
+        }
+    }
 
     fn r17_withheld_pdelta(dim: usize) {
         for sparse in [false, true] {
@@ -741,27 +797,27 @@ mod tests {
                         let f = assemble_load_vector_2d(&input, &input.loads, &dofs, &stiff.inclined_transforms_2d);
                         PDeltaSystem2D::Sparse(SparsePDelta2D { k_full: stiff.k_full, f, its: stiff.inclined_transforms_2d })
                     } else { PDeltaSystem2D::Dense(assemble_2d(&input, &dofs)) };
-                    let (f, its) = system.data();
+                    let (f, _) = system.data();
                     let tangent = system.tangent(&input, &dofs, &vec![0.0; dofs.n_total]);
                     let (mut u, _) = tangent.correct_equilibrium(dofs.n_total, dofs.n_free, f, &vec![0.0; dofs.n_total], &None, &mut None).unwrap();
                     u.resize(dofs.n_total, 0.0);
-                    let physical = super::super::reaction_recovery::PhysicalForces::pdelta_2d(&input, &dofs, &u, its);
+                    let physical = PDeltaSystem2D::physical_residual(&input, &dofs, sparse, &u);
                     let metric = super::super::convergence::EquilibriumMetric::for_2d(&input, &dofs, None).unwrap();
                     (dofs, f.to_vec(), tangent, physical, u, metric)
                 } else {
                     let input: SolverInput3D = serde_json::from_value(m).unwrap();
                     let dofs = DofNumbering::build_3d(&input);
                     let system = if sparse { PDeltaSystem3D::Sparse(assemble_sparse_3d(&input, &dofs, true)) } else { PDeltaSystem3D::Dense(assemble_3d(&input, &dofs)) };
-                    let (f, its) = system.data();
+                    let (f, _) = system.data();
                     let tangent = system.tangent(&input, &dofs, &vec![0.0; dofs.n_total]);
                     let (mut u, _) = tangent.correct_equilibrium(dofs.n_total, dofs.n_free, f, &vec![0.0; dofs.n_total], &None, &mut None).unwrap();
                     u.resize(dofs.n_total, 0.0);
-                    let physical = super::super::reaction_recovery::PhysicalForces::pdelta_3d(&input, &dofs, &u, its);
+                    let physical = PDeltaSystem3D::physical_residual(&input, &dofs, sparse, &u);
                     let metric = super::super::convergence::EquilibriumMetric::for_3d(&input, &dofs, None).unwrap();
                     (dofs, f.to_vec(), tangent, physical, u, metric)
                 };
                 assert!(tangent.all_residual(dofs.n_total, &f, &u).iter().all(|v| v.abs() < 1e-12));
-                assert!(physical.as_slice().iter().all(|v| *v == 0.0));
+                assert!(physical.residual.iter().zip(&f).all(|(r,f)| *r == -*f));
                 let (_, relative) = recover_pdelta_forces(&physical, &metric, &dofs, &f, &u, None);
                 if (sign == 0.0 && relative != 0.0) || (sign != 0.0 && relative < 0.99) {
                     failures.push(format!("sparse={sparse}, sign={sign}, certified residual={relative}"));

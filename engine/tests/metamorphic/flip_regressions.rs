@@ -635,11 +635,14 @@ fn r19_physical_cantilever(dim: usize) {
                         eprintln!("r19 {dim}D iter={iterations} units={l:e}/{f:e} residual={:e}",equilibrium.relative_residual);
                         assert_eq!(equilibrium.residual_ok, iterations > 0);
                         assert_eq!(result.results.reactions.iter().all(|r|[r.fx,r.fy,r.fz,r.mx,r.my,r.mz].iter().all(|v|v.is_finite())), iterations > 0);
-                        if iterations > 0 { check_tip_3d(&c.s,&result.results,expected,plane); }
+                        if iterations > 0 {
+                            check_tip_3d(&c.s,&result.results,expected,plane);
+                            calls.push(json!({"dim":dim,"model":spatial,"expected":expected_3d(expected,plane),"length":l}));
+                        }
                     }
                 }
             }
-            calls.push(json!({"dim":dim,"model":c.s,"expected":expected}));
+            if dim == 2 { calls.push(json!({"dim":dim,"model":c.s,"expected":{"nodeId":2,"ux":expected[0],"uz":expected[1],"ry":expected[2]},"length":l})); }
         }
     }
     if let Ok(prefix) = std::env::var("R19_CANTILEVERS") {
@@ -648,9 +651,7 @@ fn r19_physical_cantilever(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r19_physical_cantilever_2d() { r19_physical_cantilever(2); }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r19_physical_cantilever_3d() { r19_physical_cantilever(3); }

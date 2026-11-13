@@ -1126,7 +1126,7 @@ pub(super) fn build_final_results(
 
     let physical = super::reaction_recovery::PhysicalForces::corotational_2d(input, dof_num, &u_geom, its);
     let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_applied, dof_num, cs.as_ref());
-    let reactions = recovered.reactions_2d(input, dof_num, &u_geom, its)?;
+    let reactions = recovered.reactions_2d(dof_num, &u_geom, its)?;
     let constraint_forces = recovered.constraint_forces;
     let mut element_forces = compute_corotational_forces(input, dof_num, &u_geom);
     element_forces.sort_by_key(|ef| ef.element_id);
@@ -1150,7 +1150,7 @@ fn corotational_frame_end_forces(k_local: &[f64], d_local: &[f64; 6], length: f6
     let mi = at(2);
     let mj = at(5);
     let shear = (mi + mj) / length;
-    [-n, shear, mi, n, -shear, mj]
+    [-n, shear, mi, n, -shear, mj].map(|force| if force == 0.0 { 0.0 } else { force })
 }
 
 /// Compute element internal forces using the co-rotational formulation.
@@ -2319,7 +2319,7 @@ fn build_final_results_3d(
 
     let physical = super::reaction_recovery::PhysicalForces::corotational_3d(input, dof_num, &u_geom, left_hand, its);
     let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_applied, dof_num, cs.as_ref());
-    let reactions = recovered.reactions_3d(input, dof_num, &u_geom, its)?;
+    let reactions = recovered.reactions_3d(dof_num, &u_geom, its)?;
     let constraint_forces = recovered.constraint_forces;
     let mut element_forces = compute_corotational_forces_3d(input, dof_num, &u_geom, left_hand);
     element_forces.sort_by_key(|ef| ef.element_id);
