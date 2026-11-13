@@ -256,3 +256,5 @@ mod nightly_triage;
 mod nightly_harness;
 
 mod nightly_1113;
+
+mod released_load_work;
