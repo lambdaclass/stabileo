@@ -19,11 +19,11 @@ const migrated = {
 };
 
 describe('Hungarian key migrations', () => {
-  it.skip.each(dictionaries)('known wrong result: #2081 removes retired English keys from the %s dictionary', (_name, dict) => {
+  it.each(dictionaries)('known wrong result: #2081 removes retired English keys from the %s dictionary', (_name, dict) => {
     expect(Object.keys(dict).filter((key) => !(key in ALL_DICTS.en))).toEqual([]);
   });
 
-  it.skip.each(dictionaries)('known wrong result: #2081 preserves moved translations in the %s dictionary', (_name, dict) => {
+  it.each(dictionaries)('known wrong result: #2081 preserves moved translations in the %s dictionary', (_name, dict) => {
     for (const [key, value] of Object.entries(migrated)) {
       expect(key in ALL_DICTS.en, key).toBe(true);
       expect(dict[key], key).toBe(value);
