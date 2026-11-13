@@ -98,3 +98,36 @@ describe('designing the sheets on asking', () => {
     expect(sheetsStale()).toBe(true);
   });
 });
+
+it.skip.each([
+  ['SH-MITC4-DISTORTION', 798],
+  ['SH-WARPED-MITC4', 1057],
+  ['SH-WARPED-MITC9', 1057],
+] as const)('known wrong result: #1929: slab and wall reinforcement views retain %s warnings and refusals', async (phase, issue) => {
+  const { render } = await import('svelte/server');
+  const { default: Workspace } = await import('../../../components/pro/rc-sheets/RcSheetsWorkspace.svelte');
+  const { default: Panel } = await import('../../../components/pro/rc-sheets/ProRcSheetsTab.svelte');
+  const { knownIssueMessage } = await import('../../engine/known-issue-message');
+  solvedFrame();
+  const result = resultsStore.results3D!;
+  for (const severity of ['warning', 'error'] as const) {
+    const diagnostic = { code: 'known_issue', severity, phase, value: issue, message: 'ENGINE' };
+    resultsStore.setResults3D({ ...result, structuredDiagnostics: [diagnostic] });
+    const expected = knownIssueMessage(diagnostic).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+    const panel = render(Panel).body;
+    expect(panel).toContain('role="alert"');
+    expect(panel).toContain(expected);
+    if (severity === 'error') expect(panel).not.toContain('data-testid="rc-design"');
+    for (const family of ['slab', 'wall'] as const) {
+      const html = render(Workspace, { props: { family, onclose() {} } }).body;
+      expect(html).toContain('role="alert"');
+      expect(html).toContain(expected);
+      if (severity === 'error') expect(html).not.toContain('data-testid="rc-row"');
+    }
+  }
+  resultsStore.setResults3D({ ...result, structuredDiagnostics: [] });
+  expect(buildSheetRows().beam.length).toBeGreaterThan(0);
+  for (const family of ['slab', 'wall'] as const) {
+    expect(render(Workspace, { props: { family, onclose() {} } }).body).not.toContain('data-testid="rc-result-warnings"');
+  }
+});
