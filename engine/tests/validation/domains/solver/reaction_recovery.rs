@@ -2454,3 +2454,67 @@ fn issue_1952_r18_mpc_accounting_2d() { r18_mpc_accounting(2); }
 
 #[test]
 fn issue_1952_r18_mpc_accounting_3d() { r18_mpc_accounting(3); }
+
+fn r19_soil_balance(dim: usize) {
+    let mut replay = Vec::new();
+    for members in [1, 12] {
+        for sign in [-1.0, 0.0, 1.0] {
+            for nonlinear in [false,true] {
+                let mut m = model(dim,false);
+                let base = m.clone();
+                let mut springs = Vec::new();
+                for copy in 0..members {
+                    let root = 2 * copy;
+                    let tip = root + 1;
+                    for (id,key) in [(root,"0"),(tip,"1")] {
+                        let mut node = base["nodes"][key].clone();
+                        node["id"] = json!(id);
+                        node["z"] = json!(copy as f64 * 5.0);
+                        m["nodes"][id.to_string()] = node;
+                    }
+                    let mut element = base["elements"]["1"].clone();
+                    element["id"] = json!(copy+1);
+                    element["nodeI"] = json!(root);
+                    element["nodeJ"] = json!(tip);
+                    m["elements"][(copy+1).to_string()] = element;
+                    let mut support = base["supports"]["0"].clone();
+                    support["nodeId"] = json!(root);
+                    if dim == 2 { support["id"] = json!(root); }
+                    m["supports"][root.to_string()] = support;
+                    let mut load = base["loads"][0].clone();
+                    load["data"]["nodeId"] = json!(tip);
+                    load["data"]["fz"] = json!(-10.0 * sign);
+                    if copy == 0 { m["loads"] = json!([load]); } else { m["loads"].as_array_mut().unwrap().push(load); }
+                    springs.push(json!({"nodeId":tip,"direction":if dim==2 {1} else {2},"tributaryLength":1.0,"curve":{"type":"custom","points":if nonlinear {json!([[0.0,0.0],[0.001,2.0],[0.1,20.0]])} else {json!([[0.0,0.0],[0.1,20.0]])}}}));
+                }
+                let input = json!({"solver":m,"soilSprings":springs,"maxIter":100,"tolerance":1e-10});
+                let result = if dim == 2 {
+                    serde_json::to_value(ssi::solve_ssi_2d(&serde_json::from_value(input.clone()).unwrap()).unwrap()).unwrap()
+                } else {
+                    serde_json::to_value(ssi::solve_ssi_3d(&serde_json::from_value(input.clone()).unwrap()).unwrap()).unwrap()
+                };
+                assert_eq!(result["converged"],true);
+                let mut balance = 0.0;
+                for load in m["loads"].as_array().unwrap() { balance += load["data"]["fz"].as_f64().unwrap(); }
+                let support: f64 = result["results"]["reactions"].as_array().unwrap().iter().map(|r|r[if dim==2 {"rz"} else {"fz"}].as_f64().unwrap()).sum();
+                let soil: f64 = result["springResults"].as_array().unwrap().iter().map(|r|r["reaction"].as_f64().unwrap()).sum();
+                balance += support - soil;
+                eprintln!("r19 SSI {dim}D members={members} sign={sign} nonlinear={nonlinear}: supports={support:e} soil={soil:e} balance={balance:e}");
+                assert!(balance.abs() < 1e-7,"{input}: {result}");
+                if sign != 0.0 { assert!(soil.abs() > 1e-6); assert!(support.abs() > 1e-6); }
+                let exported = if dim == 2 { dedaliano_engine::solve_ssi_2d(&input.to_string()).unwrap() } else { dedaliano_engine::solve_ssi_3d(&input.to_string()).unwrap() };
+                assert_eq!(serde_json::from_str::<Value>(&exported).unwrap()["results"],result["results"]);
+                replay.push(input);
+            }
+        }
+    }
+    if let Ok(prefix) = std::env::var("R19_SSI_CASES") {
+        std::fs::write(format!("{prefix}-{dim}.json"),serde_json::to_string(&replay).unwrap()).unwrap();
+    }
+}
+
+#[test]
+fn issue_1952_r19_soil_balance_2d() { r19_soil_balance(2); }
+
+#[test]
+fn issue_1952_r19_soil_balance_3d() { r19_soil_balance(3); }

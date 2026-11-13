@@ -1109,3 +1109,13 @@ test.engine.arc-corrector-2009-wasm: wasm
 	ARC_CORRECTOR_2009_CASES=$(CURDIR)/.arc-corrector-2009.json $(MAKE) test.engine.targeted TEST=integration FILTER=prescribed_master_2008::arc_corrector_preserves_motion_and_free_equilibrium
 	$(NIX_RUN) node scripts/tests/arc-corrector-2009-wasm.mjs $(CURDIR)/.arc-corrector-2009.json
 	rm -f $(CURDIR)/.arc-corrector-2009.json
+
+.PHONY: test.engine.containment-r19 test.engine.containment-r19-wasm
+test.engine.containment-r19:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test metamorphic issue_1952_r19 -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test validation issue_1952_r19 -- --nocapture
+
+test.engine.containment-r19-wasm: wasm
+	R19_CANTILEVERS=$(CURDIR)/.1952-r19-cantilevers R19_SSI_CASES=$(CURDIR)/.1952-r19-ssi $(MAKE) test.engine.containment-r19
+	$(NIX_RUN) node scripts/tests/containment-r19-wasm.mjs $(CURDIR)/.1952-r19-cantilevers $(CURDIR)/.1952-r19-ssi
+	rm -f $(CURDIR)/.1952-r19-cantilevers-*.json $(CURDIR)/.1952-r19-ssi-*.json

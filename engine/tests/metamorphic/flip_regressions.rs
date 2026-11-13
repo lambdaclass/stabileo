@@ -607,3 +607,50 @@ pub(crate) fn verify_generated_corotational_equilibria(count: u64) {
         .unwrap();
     }
 }
+
+fn r19_physical_cantilever(dim: usize) {
+    let original: SolverInput = serde_json::from_str(include_str!("../metamorphic_corpus/nightly/issue-971.json")).unwrap();
+    let base = Case2::new("r19-971", original);
+    let mut calls = Vec::new();
+    for (l, f) in [(1.0, 1.0), (1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)] {
+        for iso in [Iso2::rotation(0.0), Iso2::rotation(0.7).translated(3.0,-2.0), Iso2::mirror_line(0.7)] {
+            let c = base.units(&Units::froude(l,f)).iso(&iso).unwrap();
+            let expected = tip_reference(&c.s, false, true);
+            for iterations in [0,100] {
+                if dim == 2 {
+                    let dofs = dedaliano_engine::solver::dof::DofNumbering::build_2d(&c.s);
+                    for sparse in [false,true] {
+                        let result = pdelta::solve_pdelta_2d_on(&c.s,&dofs,None,sparse,iterations,1e-12).unwrap();
+                        let equilibrium = result.results.equilibrium.as_ref().unwrap();
+                        eprintln!("r19 {dim}D sparse={sparse} iter={iterations} units={l:e}/{f:e} residual={:e}",equilibrium.relative_residual);
+                        assert_eq!(equilibrium.residual_ok, iterations > 0);
+                        assert_eq!(result.results.reactions.iter().all(|r|r.rx.is_finite() && r.rz.is_finite() && r.my.is_finite()), iterations > 0);
+                        if iterations > 0 { check_tip_2d(&c.s,&result.results,expected); }
+                    }
+                } else {
+                    for plane in Plane::ALL {
+                        let spatial = embed_2d(&c.s,plane).unwrap();
+                        let result = pdelta::solve_pdelta_3d(&spatial,iterations,1e-12).unwrap();
+                        let equilibrium = result.results.equilibrium.as_ref().unwrap();
+                        eprintln!("r19 {dim}D iter={iterations} units={l:e}/{f:e} residual={:e}",equilibrium.relative_residual);
+                        assert_eq!(equilibrium.residual_ok, iterations > 0);
+                        assert_eq!(result.results.reactions.iter().all(|r|[r.fx,r.fy,r.fz,r.mx,r.my,r.mz].iter().all(|v|v.is_finite())), iterations > 0);
+                        if iterations > 0 { check_tip_3d(&c.s,&result.results,expected,plane); }
+                    }
+                }
+            }
+            calls.push(json!({"dim":dim,"model":c.s,"expected":expected}));
+        }
+    }
+    if let Ok(prefix) = std::env::var("R19_CANTILEVERS") {
+        std::fs::write(format!("{prefix}-{dim}.json"),serde_json::to_string(&calls).unwrap()).unwrap();
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_r19_physical_cantilever_2d() { r19_physical_cantilever(2); }
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_r19_physical_cantilever_3d() { r19_physical_cantilever(3); }
