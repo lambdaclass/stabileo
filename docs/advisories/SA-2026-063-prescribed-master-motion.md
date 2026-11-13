@@ -118,7 +118,12 @@ controls remain accepted and unchanged.
 The [retained replay](replays/SA-2026-063.json) contains exact selected static
 inputs, complete before/after outputs, selected time-history inputs and outputs,
 and source/tag evidence. The main source replay, rather than a release-binary
-replay, establishes the numerical observations above.
+replay, establishes the numerical observations above. Its displacements and
+load factors are the evidence for this advisory. Its arc-length reactions and
+constraint forces are not: path-solver force recovery is the separate #1949
+defect (PR #1952, SA-2026-061). For example, the corrected 2D arc-length replay
+reports a near-zero equal-DOF constraint force at node 1 although the connected
+member carries a shear of about 0.0087.
 
 ### Release boundary
 
