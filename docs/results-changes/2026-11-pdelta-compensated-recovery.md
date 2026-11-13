@@ -15,6 +15,13 @@ Both dimensions now construct the physical tangent through the same system
 factory and tangent assembly as the iteration, with artificial stiffness
 disabled, and evaluate its residual with the existing compensated arithmetic.
 A dedicated physical-residual type transports this evidence into recovery.
+The shared sparse tangent retains every coefficient: it no longer applies the
+absolute 1e-30 matrix-entry cutoff. Physical checking must not inherit solver
+sparsification that erases real stiffness actions. Unit-scaling controls put
+the largest elastic coefficient below and above that cutoff in both dimensions
+and storage paths. Nonzero force-free test states retain nonzero physical
+residuals; the zero state remains exact. Both new regressions fail on the
+pre-fix parent, where the sparse physical check incorrectly returns zero.
 The requested tolerance and the withholding rule are unchanged. The same
 uniterated cantilevers still fail the physical criterion and their exports
 refuse. Tests retain independent element solutions, both dense and sparse

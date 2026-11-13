@@ -260,9 +260,7 @@ impl PDeltaSystem2D {
                         rows.push(k.row_idx[p]); cols.push(j); vals.push(k.values[p]);
                     }
                 }
-                let mut k = CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals);
-                k.drop_below_threshold(1e-30);
-                PDeltaTangent::Sparse(k)
+                PDeltaTangent::Sparse(CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals))
             }
         }
     }
@@ -570,9 +568,7 @@ impl PDeltaSystem3D {
                         rows.push(k.row_idx[p]); cols.push(j); vals.push(k.values[p]);
                     }
                 }
-                let mut k = CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals);
-                k.drop_below_threshold(1e-30);
-                PDeltaTangent::Sparse(k)
+                PDeltaTangent::Sparse(CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals))
             }
         }
     }
@@ -717,11 +713,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1952"]
     fn r19_unpruned_physical_2d() { r19_unpruned_physical(2); }
 
     #[test]
-    #[ignore = "known wrong result: #1952"]
     fn r19_unpruned_physical_3d() { r19_unpruned_physical(3); }
 
     #[test]
