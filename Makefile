@@ -1134,3 +1134,16 @@ test.engine.staged-r23:
 
 test.engine.staged-r23-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-determined-r23-wasm.mjs
+
+.PHONY: test.engine.ssi-elastic-2011 test.engine.ssi-elastic-2011-wasm
+
+test.engine.ssi-elastic-2011:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib refinement_scope_2072 --release -- $(if $(IGNORED),--include-ignored) --nocapture
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='ssi_elastic_2011:: --release $(if $(IGNORED),-- --include-ignored)'
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='nightly_1113::issue_2011 --release $(if $(IGNORED),-- --ignored)'
+	$(MAKE) test.engine.targeted TEST=core FILTER='units_3d_ssi_wrapper --release'
+
+test.engine.ssi-elastic-2011-wasm: wasm
+	SSI_ELASTIC_2011_CASES=$(CURDIR)/.2011-cases $(MAKE) test.engine.ssi-elastic-2011
+	$(NIX_RUN) node scripts/tests/ssi-elastic-2011-wasm.mjs $(CURDIR)/.2011-cases.2.json $(CURDIR)/.2011-cases.3.json $(CURDIR)/.2011-cases.4.json $(CURDIR)/.2011-cases.5.json $(CURDIR)/.2011-cases.6.json $(CURDIR)/.2011-cases.7.json $(CURDIR)/.2011-cases.8.json $(CURDIR)/.2011-cases.9.json
+	rm -f $(CURDIR)/.2011-cases.*.json

@@ -37,6 +37,36 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('known wrong result: #2072: excludes unrelated legacy frames and shells from elastic SSI notices', () => {
+    for (const analysisMode of ['2d', 'pro']) {
+      for (const snapshot of [
+        model({ analysisMode, elements: [member(1, 1, 'frame')] }),
+        model({ analysisMode, quads: [[1, { id: 1 }]] }),
+      ]) {
+        expect(ids(snapshot)).not.toContain('ssi-elastic-refinement');
+        const linear = { ...stampSolve('linear', null), resultsVersion: 30 };
+        expect(ids(snapshot, linear)).not.toContain('ssi-elastic-refinement');
+        const { recorded: _recorded, ...legacy } = linear;
+        expect(ids(snapshot, legacy)).not.toContain('ssi-elastic-refinement');
+      }
+    }
+  });
+
+  it('#2072: retains elastic SSI notices for explicit SSI and stored linear support curves', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'ssi-elastic-refinement')!;
+    for (const analysisMode of ['2d', 'pro']) {
+      const snapshot = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+      const before = { ...stampSolve('ssi', null), resultsVersion: entry.resultsVersion - 1 };
+      expect(ids(snapshot, before)).toContain(entry.id);
+      expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
+      expect(ids(snapshot, stampSolve('ssi', null))).not.toContain(entry.id);
+    }
+    const curved = model({ supports: [[1, { nodeId: 1, type: 'spring3d', curves: { x: [[0, 0], [1, 1]] } }]] });
+    const before = { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - 1 };
+    expect(ids(curved, before)).toContain(entry.id);
+    expect(ids(curved)).toContain(entry.id);
+  });
+
   it('#2007: scopes physical mass range changes to modal constraints or support rotations', () => {
     const entry = RESULT_CHANGES.changes.find(c => c.id === 'modal-physical-mass-range')!;
     for (const analysisMode of ['2d', 'pro']) {

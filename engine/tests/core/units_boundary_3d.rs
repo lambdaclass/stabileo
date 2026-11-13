@@ -254,3 +254,13 @@ fn units_3d_staged_test_models_use_the_typed_boundary() {
     let (_, unrouted) = unrouted_lines(include_str!("../../src/solver/staged_tests.rs"));
     assert!(unrouted.is_empty(), "staged test models bypass the typed boundary at lines {unrouted:?}");
 }
+
+#[test]
+fn units_3d_ssi_wrapper_preserves_typed_section_and_material_bits() {
+    let model = every_section_field();
+    let wrapped: dedaliano_engine::solver::ssi::SSIInput3D = serde_json::from_value(json!({"solver":model,"soilSprings":[]})).unwrap();
+    let legacy = legacy::parse(&model.to_string()).unwrap();
+    assert_same_input(&wrapped.solver, &legacy, "SSI wrapper");
+    let source = include_str!("../../src/solver/ssi.rs");
+    assert!(source.contains("#[serde(deserialize_with = \"crate::types::units::deserialize_input_3d\")]\n    pub solver: SolverInput3D"));
+}
