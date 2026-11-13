@@ -144,6 +144,69 @@ fn controls() {
 }
 
 #[test]
+#[ignore = "known wrong result: #2009"]
+fn nonzero_corotational_continuation() {
+    for case in cases().iter().filter(|c| c["dim"] == 2 && c["motion"] != 0.0) {
+        let initial: SolverInput = serde_json::from_value(case["model"].clone()).unwrap();
+        let solved = solver::corotational::solve_corotational_2d(&initial,50,1e-10,3,false).unwrap();
+        assert!(solved.converged);
+        check(case,&serde_json::to_value(&solved).unwrap(),"corotational").unwrap();
+        let start = solver::corotational::CorotationalStart2D { input:&initial, displacements:&solved.results.displacements };
+        let motion = case["motion"].as_f64().unwrap();
+        for target in [motion,2.0*motion,0.0,-motion] {
+            let mut target_case = case.clone();
+            target_case["motion"] = json!(target);
+            target_case["model"]["supports"]["2"][if case["rotation"] == true { "dry" } else { "dz" }] = json!(target);
+            let input: SolverInput = serde_json::from_value(target_case["model"].clone()).unwrap();
+            for modified_nr in [false,true] {
+                let result = solver::corotational::solve_corotational_2d_from(&input,Some(&start),50,1e-10,3,modified_nr).unwrap();
+                assert!(result.converged);
+                check(&target_case,&serde_json::to_value(result).unwrap(),"corotational")
+                    .unwrap_or_else(|e| panic!("start {motion}, target {target}, modified NR {modified_nr}, case {case}: {e}"));
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2009"]
+fn nonzero_arc_continuation() {
+    for case in cases().iter().filter(|c| c["dim"] == 2 && c["motion"] != 0.0) {
+        let initial: SolverInput = serde_json::from_value(case["model"].clone()).unwrap();
+        let solved = solver::corotational::solve_corotational_2d(&initial,50,1e-10,3,false).unwrap();
+        assert!(solved.converged);
+        check(case,&serde_json::to_value(&solved).unwrap(),"corotational").unwrap();
+        let start = solver::corotational::CorotationalStart2D { input:&initial, displacements:&solved.results.displacements };
+        let motion = case["motion"].as_f64().unwrap();
+        for pattern in [motion,-motion] {
+            let mut model = case["model"].clone();
+            model["loads"] = json!([]);
+            model["supports"]["2"][if case["rotation"] == true { "dry" } else { "dz" }] = json!(pattern);
+            let input = serde_json::from_value(json!({"solver":model,"maxSteps":3,"maxIter":50,"tolerance":1e-10,"initialDs":4.0*motion.abs(),"minDs":1e-8,"maxDs":4.0*motion.abs()})).unwrap();
+            let result = solver::arc_length::solve_arc_length_from(&input,Some(&start)).unwrap();
+            assert!(result.converged);
+            let change = result.final_load_factor * pattern;
+            assert!(result.final_load_factor > 0.0 && change.abs() > 1000.0*1e-11,"no arc progress: {change}");
+            let expected = motion + change;
+            if pattern == -motion { assert!(expected*motion < 0.0,"arc did not reverse the initial motion"); }
+            let mut expected_case = case.clone();
+            expected_case["motion"] = json!(expected);
+            check(&expected_case,&serde_json::to_value(result).unwrap(),"corotational")
+                .unwrap_or_else(|e| panic!("start {motion}, pattern {pattern}, case {case}: {e}"));
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2009"]
+fn arc_rejects_zero_progress() {
+    for case in cases().iter().filter(|c| c["dim"] == 2 && c["motion"] != 0.0) {
+        let result = json!({"converged":true,"finalLoadFactor":0.0,"results":{"displacements":[{"nodeId":1,"uz":0.0,"ry":0.0}]}});
+        assert!(check(case,&result,"arc").is_err(),"accepted zero progress: {case}");
+    }
+}
+
+#[test]
 fn unsupported_motion_is_refused() {
     let mut failures = Vec::new();
     for (dim,rotation) in [(2,false),(2,true),(3,false),(3,true)] {
