@@ -20,7 +20,7 @@ use super::assembly::{self, InclinedFrame};
 use super::linear;
 use super::soil_curves::{SoilCurve, evaluate_soil_curve};
 use super::constraints::{FreeConstraintSystem, MasterMotion};
-use super::sparse_tangent::{SparseSymbolicCache, solve_tangent_sparse_refined_diagnosed};
+use super::sparse_tangent::SparseSymbolicCache;
 
 /// The soil springs at their current secants as stiffness triplets in the
 /// frames K was assembled in (each unordered pair once). A spring acts along a
@@ -148,30 +148,193 @@ fn secant_system(
     CscMatrix::from_triplets(base.n, &rows, &cols, &values)
 }
 
-fn solve_secant(
-    k: &CscMatrix,
-    f: &[f64],
-    sparse: bool,
-    cache: &mut Option<SparseSymbolicCache>,
-    conditioning: &mut Option<StructuredDiagnostic>,
-) -> Result<Vec<f64>, String> {
-    if sparse {
-        return solve_tangent_sparse_refined_diagnosed(k, f, cache, conditioning);
+enum SecantFactor {
+    Dense { factor: Vec<f64>, n: usize },
+    Sparse(NumericCholesky),
+    Lu { matrix: Vec<f64>, n: usize },
+}
+
+impl SecantFactor {
+    fn new(
+        k: &CscMatrix,
+        sparse: bool,
+        cache: &mut Option<SparseSymbolicCache>,
+        conditioning: &mut Option<StructuredDiagnostic>,
+    ) -> Result<Self, String> {
+        if sparse {
+            let factor = numeric_cholesky(super::sparse_tangent::cached_symbolic(cache, k), k);
+            if let Some(found) = crate::known_issues::sparse_factor_conditioning(k, factor.as_ref())
+            {
+                *conditioning = Some(found);
+            }
+            if let Some(factor) = factor {
+                return Ok(Self::Sparse(factor));
+            }
+            if k.n > super::time_integration::MAX_DENSE_FALLBACK_DOFS {
+                return Err(format!("SSI tangent stiffness is not SPD and exceeds the dense LU fallback ceiling ({} DOFs)", k.n));
+            }
+        }
+        let dense = k.to_dense_symmetric();
+        if !sparse {
+            let mut factor = dense.clone();
+            let success = cholesky_decompose(&mut factor, k.n);
+            if let Some(found) = crate::known_issues::dense_factor_conditioning(
+                &dense,
+                k.n,
+                success.then_some(factor.as_slice()),
+            ) {
+                *conditioning = Some(found);
+            }
+            if success {
+                return Ok(Self::Dense { factor, n: k.n });
+            }
+        }
+        Ok(Self::Lu {
+            matrix: dense,
+            n: k.n,
+        })
     }
-    let n = k.n;
-    let dense = k.to_dense_symmetric();
-    let mut factor = dense.clone();
-    let solved = cholesky_solve(&mut factor, f, n);
-    if let Some(found) = crate::known_issues::dense_factor_conditioning(&dense, n, solved.as_ref().map(|_| factor.as_slice())) {
-        *conditioning = Some(found);
+
+    fn solve(&self, rhs: &[f64]) -> Result<Vec<f64>, String> {
+        match self {
+            Self::Dense { factor, n } => {
+                Ok(back_solve(factor, &forward_solve(factor, rhs, *n), *n))
+            }
+            Self::Sparse(factor) => Ok(sparse_cholesky_solve(factor, rhs)),
+            Self::Lu { matrix, n } => lu_solve(&mut matrix.clone(), &mut rhs.to_vec(), *n)
+                .ok_or_else(|| "Singular stiffness in SSI iteration".into()),
+        }
     }
-    if let Some(u) = solved {
-        Ok(super::equilibrium::refine(u,
-            |rhs| back_solve(&factor, &forward_solve(&factor, rhs, n), n),
-            |u| super::equilibrium::dense_residual(&dense, f, u)))
-    } else {
-        lu_solve(&mut dense.clone(), &mut f.to_vec(), n).ok_or_else(|| "Singular stiffness in SSI iteration".into())
+
+    fn initial_solution(&self, k: &CscMatrix, rhs: &[f64]) -> Result<Vec<f64>, String> {
+        let u = self.solve(rhs)?;
+        if matches!(self, Self::Lu { .. }) {
+            return Ok(u);
+        }
+        Ok(super::equilibrium::refine(
+            u,
+            |rhs| self.solve(rhs).unwrap(),
+            |u| super::equilibrium::sparse_residual(k, rhs, u),
+        ))
     }
+}
+
+struct SecantState {
+    k: CscMatrix,
+    factor: SecantFactor,
+    u: Vec<f64>,
+    rounding_round: f64,
+}
+
+impl SecantState {
+    fn update(
+        state: &mut Option<Self>,
+        k: CscMatrix,
+        force: &[f64],
+        sparse: bool,
+        cache: &mut Option<SparseSymbolicCache>,
+        conditioning: &mut Option<StructuredDiagnostic>,
+    ) -> Result<(), String> {
+        if state.as_ref().is_some_and(|s| {
+            s.k.col_ptr == k.col_ptr
+                && s.k.row_idx == k.row_idx
+                && s.k
+                    .values
+                    .iter()
+                    .map(|v| v.to_bits())
+                    .eq(k.values.iter().map(|v| v.to_bits()))
+        }) {
+            return Ok(());
+        }
+        let factor = SecantFactor::new(&k, sparse, cache, conditioning)?;
+        let u = factor.initial_solution(&k, force)?;
+        *state = Some(Self {
+            k,
+            factor,
+            u,
+            rounding_round: 0.0,
+        });
+        Ok(())
+    }
+}
+
+fn refine_secant<T: InclinedFrame>(
+    state: &mut SecantState,
+    nf: usize,
+    n: usize,
+    cs: Option<&FreeConstraintSystem>,
+    its: &[T],
+    springs: &[SoilSpring],
+    dof_num: &DofNumbering,
+    balance: impl Fn(&[f64]) -> super::equilibrium::Residual,
+    metric: &super::convergence::EquilibriumMetric,
+    force: &[f64],
+    tolerance: f64,
+) -> Result<(), String> {
+    let physical_residual = |u: &[f64]| {
+        let frame = cs.map_or_else(
+            || u.to_vec(),
+            |cs| cs.expand_solution(u, MasterMotion::Homogeneous),
+        );
+        let global = assembly::to_global(&frame, n, its);
+        residual(balance(&frame), springs, dof_num, its, &global)
+    };
+    let accepted = |u: &[f64]| -> Result<bool, String> {
+        Ok(metric.relative_residual(&physical_residual(u)?, force, None, cs) < tolerance)
+    };
+    if accepted(&state.u)? {
+        return Ok(());
+    }
+    let (u, _) = super::equilibrium::refine_solution(
+        state.u.clone(),
+        |u| {
+            let r = physical_residual(u)?;
+            let rhs: Vec<_> = r[..nf].iter().map(|v| -v).collect();
+            state
+                .factor
+                .solve(&cs.map_or_else(|| rhs.clone(), |cs| cs.reduce_vector(&rhs)))
+        },
+        |u, _| accepted(u),
+    )?;
+    let measure = |u: &[f64]| -> Result<f64, String> {
+        Ok(metric.relative_residual(&physical_residual(u)?, force, None, cs))
+    };
+    let diagonal = state.k.diagonal();
+    let polish = |u: &[f64]| {
+        let r = physical_residual(u)?;
+        let rhs: Vec<_> = r[..nf].iter().map(|v| -v).collect();
+        let rhs = cs.map_or_else(|| rhs.clone(), |cs| cs.reduce_vector(&rhs));
+        Ok(rhs
+            .iter()
+            .zip(&diagonal)
+            .map(|(r, d)| if *d == 0.0 { 0.0 } else { r / d })
+            .collect())
+    };
+    let mut candidates = vec![u, state.u.clone()];
+    for center in candidates.clone() {
+        if accepted(&center)? {
+            state.u = center;
+            return Ok(());
+        }
+        candidates.push(super::equilibrium::round_solution(
+            center,
+            state.rounding_round,
+            measure,
+            |value| value < tolerance,
+            polish,
+        )?);
+        if accepted(candidates.last().unwrap())? {
+            state.u = candidates.pop().unwrap();
+            return Ok(());
+        }
+    }
+    for candidate in candidates {
+        if measure(&candidate)? < measure(&state.u)? {
+            state.u = candidate;
+        }
+    }
+    state.rounding_round += 1.0;
+    Ok(())
 }
 
 /// Soil spring attached to a node along a pile.
@@ -377,11 +540,14 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
     // symbolic if an entry ever crosses exactly zero).
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
+    let mut secant_state = None;
     for iter in 0..input.max_iter {
         total_iters = iter + 1;
 
         let k = secant_system(&base, spring_triplets(&input.soil_springs, &spring_k, &dof_num, its), nf, cs.as_ref());
-        let u_indep = solve_secant(&k, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
+        SecantState::update(&mut secant_state, k, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
+        let state = secant_state.as_mut().unwrap();
+        let u_indep = state.u.clone();
 
         let u_f = if let Some(ref cs) = cs {
             cs.expand_solution(&u_indep, MasterMotion::Homogeneous)
@@ -413,11 +579,24 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
         }
 
         if max_change < input.tolerance && iter > 0 {
+            refine_secant(state, nf, n, cs.as_ref(), its, &input.soil_springs, &dof_num,
+                |frame| if let Some(ref s) = sparse_stiff {
+                    sparse_balance(&s.k_full, n, frame, &f_global)
+                } else { dense_balance(&dense_asm.as_ref().unwrap().k, n, frame, &f_global) },
+                &metric, &f_global, input.tolerance)?;
+            u_frame = cs.as_ref().map_or_else(|| state.u.clone(), |cs|cs.expand_solution(&state.u, MasterMotion::Homogeneous));
+            u_full = assembly::to_global(&u_frame, n, its);
+            for (si, spring) in input.soil_springs.iter().enumerate() {
+                let disp = dof_num.global_dof(spring.node_id, spring.direction).map_or(0.0, |d|u_full[d]);
+                let new_k = evaluate_soil_curve(&spring.curve, disp)?.1 * spring.length_factor();
+                max_change = max_change.max(relative_stiffness_change(spring_k[si], new_k));
+                spring_k[si] = new_k;
+            }
             let ku = if let Some(ref s) = sparse_stiff {
                 sparse_balance(&s.k_full, n, &u_frame, &f_global)
             } else { dense_balance(&dense_asm.as_ref().unwrap().k, n, &u_frame, &f_global) };
             let r = residual(ku, &input.soil_springs, &dof_num, its, &u_full)?;
-            if metric.relative_residual(&r, &f_global, None, cs.as_ref()) < input.tolerance {
+            if max_change < input.tolerance && metric.relative_residual(&r, &f_global, None, cs.as_ref()) < input.tolerance {
                 converged = true;
                 break;
             }
@@ -574,11 +753,14 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     // symbolic if an entry ever crosses exactly zero).
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
+    let mut secant_state = None;
     for iter in 0..input.max_iter {
         total_iters = iter + 1;
 
         let k = secant_system(&base, spring_triplets(&input.soil_springs, &spring_k, &dof_num, its), nf, cs.as_ref());
-        let u_indep = solve_secant(&k, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
+        SecantState::update(&mut secant_state, k, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
+        let state = secant_state.as_mut().unwrap();
+        let u_indep = state.u.clone();
 
         let u_f = if let Some(ref cs) = cs {
             cs.expand_solution(&u_indep, MasterMotion::Homogeneous)
@@ -609,11 +791,24 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         }
 
         if max_change < input.tolerance && iter > 0 {
+            refine_secant(state, nf, n, cs.as_ref(), its, &input.soil_springs, &dof_num,
+                |frame| if let Some(ref s) = sparse_asm {
+                    sparse_balance(s.k_full.as_ref().ok_or("SSI: sparse assembly without the full stiffness").unwrap(), n, frame, &f_global)
+                } else { dense_balance(&dense_asm.as_ref().unwrap().k, n, frame, &f_global) },
+                &metric, &f_global, input.tolerance)?;
+            u_frame = cs.as_ref().map_or_else(|| state.u.clone(), |cs|cs.expand_solution(&state.u, MasterMotion::Homogeneous));
+            u_full = assembly::to_global(&u_frame, n, its);
+            for (si, spring) in input.soil_springs.iter().enumerate() {
+                let disp = dof_num.global_dof(spring.node_id, spring.direction).map_or(0.0, |d|u_full[d]);
+                let new_k = evaluate_soil_curve(&spring.curve, disp)?.1 * spring.length_factor();
+                max_change = max_change.max(relative_stiffness_change(spring_k[si], new_k));
+                spring_k[si] = new_k;
+            }
             let ku = if let Some(ref s) = sparse_asm {
                 sparse_balance(s.k_full.as_ref().ok_or("SSI: sparse assembly without the full stiffness")?, n, &u_frame, &f_global)
             } else { dense_balance(&dense_asm.as_ref().unwrap().k, n, &u_frame, &f_global) };
             let r = residual(ku, &input.soil_springs, &dof_num, its, &u_full)?;
-            if metric.relative_residual(&r, &f_global, None, cs.as_ref()) < input.tolerance {
+            if max_change < input.tolerance && metric.relative_residual(&r, &f_global, None, cs.as_ref()) < input.tolerance {
                 converged = true;
                 break;
             }

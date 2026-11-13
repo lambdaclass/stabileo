@@ -89,7 +89,7 @@ fn record(cases: &mut Vec<Value>, api: &str, input: Value, expected: Value) {
     }
     .unwrap();
     assert_eq!(serde_json::from_str::<Value>(&returned).unwrap(), expected);
-    cases.push(json!({"api":api,"input":input,"expected":expected}));
+    cases.push(json!({"api":api,"inputText":input.to_string(),"input":input,"expected":expected}));
 }
 
 fn export(cases: &[Value], dimension: usize) {
@@ -109,11 +109,14 @@ fn export(cases: &[Value], dimension: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2011"]
 fn no_soil_2d_matches_linear_rotations_and_units() {
     let mut cases = Vec::new();
     let mut failures = Vec::new();
-    for (i, solver) in models2().into_iter().enumerate() {
+    let mut models = models2();
+    let constrained: SSIInput =
+        serde_json::from_str(include_str!("ssi-constrained-761.json")).unwrap();
+    models.push(constrained.solver);
+    for (i, solver) in models.into_iter().enumerate() {
         let input = SSIInput {
             solver,
             soil_springs: vec![],
@@ -137,11 +140,14 @@ fn no_soil_2d_matches_linear_rotations_and_units() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2011"]
 fn no_soil_3d_matches_linear_rotations_and_units() {
     let mut cases = Vec::new();
     let mut failures = Vec::new();
-    for (i, solver) in models3().into_iter().enumerate() {
+    let mut models = models3();
+    let constrained: SSIInput3D =
+        serde_json::from_str(include_str!("ssi-constrained-3d-761.json")).unwrap();
+    models.push(constrained.solver);
+    for (i, solver) in models.into_iter().enumerate() {
         let input = SSIInput3D {
             solver,
             soil_springs: vec![],
@@ -243,7 +249,6 @@ fn copies(s: &SolverInput, count: usize) -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #2011"]
 fn sparse_dispatch_boundary_preserves_elastic_answers() {
     let mut failures = Vec::new();
     let mut cases = Vec::new();
@@ -293,7 +298,6 @@ fn sparse_dispatch_boundary_preserves_elastic_answers() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2011"]
 fn soil_in_its_linear_range_uses_elastic_equilibrium() {
     let mut failures = Vec::new();
     let mut cases = Vec::new();
@@ -360,6 +364,20 @@ fn soil_in_its_linear_range_uses_elastic_equilibrium() {
             failures.push("3d");
         }
         assert!(r.spring_results[0].reaction != 0.0);
+        let mut equivalent = input.solver.clone();
+        equivalent.supports.insert("2".into(), serde_json::from_value(json!({"nodeId":2,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":f64::EPSILON})).unwrap());
+        let c = conditioning::of_3d(&equivalent).unwrap();
+        compare::compare(
+            &compare::flat_3d(&r.results, Parts::DISPLACEMENTS),
+            &compare::flat_3d(
+                &linear::solve_3d(&equivalent).unwrap(),
+                Parts::DISPLACEMENTS,
+            ),
+            c.lchar,
+            c.rel(),
+        )
+        .unwrap();
+
         record(
             &mut cases,
             "solve_ssi_3d",
@@ -372,7 +390,6 @@ fn soil_in_its_linear_range_uses_elastic_equilibrium() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2011"]
 fn unchanged_residual_and_iteration_limits_still_refuse() {
     let mut cases = Vec::new();
     for (tolerance, limit, converged) in [
@@ -410,27 +427,107 @@ fn unchanged_residual_and_iteration_limits_still_refuse() {
             serde_json::to_value(r).unwrap(),
         );
     }
-    for displacement in [f64::from_bits(1), -f64::from_bits(1)] {
+    let mut solver = witness("2011");
+    solver.elements.clear();
+    solver.nodes.retain(|_, n| n.id == 2);
+    solver.supports.clear();
+    solver.supports.insert(
+        "2".into(),
+        serde_json::from_value(json!({"id":2,"nodeId":2,"type":"guidedX"})).unwrap(),
+    );
+    solver.loads = vec![dedaliano_engine::types::SolverLoad::Nodal(
+        dedaliano_engine::types::SolverNodalLoad {
+            node_id: 2,
+            fx: -2.0,
+            fz: 0.0,
+            my: 0.0,
+        },
+    )];
+    let spring = ssi::SoilSpring {
+        node_id: 2,
+        direction: 0,
+        tributary_length: 1.0,
+        curve: dedaliano_engine::solver::soil_curves::SoilCurve::Custom {
+            points: vec![[0.0, 0.0], [1.0, 1.0]],
+        },
+    };
+    let input = SSIInput {
+        solver: solver.clone(),
+        soil_springs: vec![spring.clone()],
+        max_iter: 50,
+        tolerance: 1e-10,
+    };
+    let r = ssi::solve_ssi_2d(&input).unwrap();
+    assert!(!r.converged);
+    assert_eq!(r.iterations, 50);
+    record(
+        &mut cases,
+        "solve_ssi_2d",
+        serde_json::to_value(input).unwrap(),
+        serde_json::to_value(r).unwrap(),
+    );
+    let input = SSIInput3D {
+        solver: embed_2d(&solver, Plane::XZ).unwrap(),
+        soil_springs: vec![spring],
+        max_iter: 50,
+        tolerance: 1e-10,
+    };
+    let r = ssi::solve_ssi_3d(&input).unwrap();
+    assert!(!r.converged);
+    assert_eq!(r.iterations, 50);
+    record(
+        &mut cases,
+        "solve_ssi_3d",
+        serde_json::to_value(input).unwrap(),
+        serde_json::to_value(r).unwrap(),
+    );
+    for displacement in [0.0, -0.0, f64::from_bits(1), -f64::from_bits(1)] {
         let mut solver = witness("2011");
         solver.supports.values_mut().next().unwrap().dx = Some(displacement);
-        assert!(ssi::solve_ssi_2d(&SSIInput {
+        let input = SSIInput {
             solver,
             soil_springs: vec![],
             max_iter: 50,
-            tolerance: 1e-10
-        })
-        .unwrap_err()
-        .contains("prescribed"));
+            tolerance: 1e-10,
+        };
+        if displacement == 0.0 {
+            let r = ssi::solve_ssi_2d(&input).unwrap();
+            assert!(r.converged);
+            record(
+                &mut cases,
+                "solve_ssi_2d",
+                serde_json::to_value(input).unwrap(),
+                serde_json::to_value(r).unwrap(),
+            );
+        } else {
+            assert!(ssi::solve_ssi_2d(&input)
+                .unwrap_err()
+                .contains("prescribed"));
+            cases.push(json!({"api":"solve_ssi_2d","input":input,"error":"prescribed"}));
+        }
         let mut solver = models3().remove(0);
         solver.supports.values_mut().next().unwrap().dx = Some(displacement);
-        assert!(ssi::solve_ssi_3d(&SSIInput3D {
+        let input = SSIInput3D {
             solver,
             soil_springs: vec![],
             max_iter: 50,
-            tolerance: 1e-10
-        })
-        .unwrap_err()
-        .contains("prescribed"));
+            tolerance: 1e-10,
+        };
+        if displacement == 0.0 {
+            let r = ssi::solve_ssi_3d(&input).unwrap();
+            assert!(r.converged);
+            record(
+                &mut cases,
+                "solve_ssi_3d",
+                serde_json::to_value(input).unwrap(),
+                serde_json::to_value(r).unwrap(),
+            );
+        } else {
+            assert!(ssi::solve_ssi_3d(&input)
+                .unwrap_err()
+                .contains("prescribed"));
+            cases.push(json!({"api":"solve_ssi_3d","input":input,"error":"prescribed"}));
+        }
     }
     export(&cases, 6);
 }

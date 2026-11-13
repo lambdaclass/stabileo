@@ -1,0 +1,37 @@
+{
+  "id": "ssi-elastic-refinement",
+  "date": "2026-11-13",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "analysis:ssi"
+      ]
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "SSI corrects elastic residual plateaus",
+    "es": "SSI corrige los residuos elásticos estancados",
+    "pt": "SSI corrige resíduos elásticos estagnados",
+    "de": "SSI korrigiert stagnierende elastische Residuen",
+    "fr": "SSI corrige les résidus élastiques stagnants",
+    "tr": "SSI elastik artık duraklamalarını düzeltir"
+  },
+  "explanation": {
+    "en": "Unchanged SSI systems now retain their factorization and correct the displacement using the physical residual. Elastic models that previously exhausted identical solves can converge without changing the equilibrium tolerance. Re-run affected SSI analyses (#2011).",
+    "es": "Los sistemas SSI sin cambios conservan su factorización y corrigen el desplazamiento con el residuo físico. Los modelos elásticos antes estancados pueden converger sin cambiar la tolerancia de equilibrio. Repita los análisis SSI afectados (#2011).",
+    "pt": "Sistemas SSI inalterados preservam a fatoração e corrigem o deslocamento com o resíduo físico. Modelos elásticos antes estagnados podem convergir sem alterar a tolerância de equilíbrio. Refaça as análises SSI afetadas (#2011).",
+    "de": "Unveränderte SSI-Systeme behalten ihre Faktorisierung und korrigieren die Verschiebung anhand des physikalischen Residuums. Zuvor stagnierende elastische Modelle können bei unveränderter Gleichgewichtstoleranz konvergieren. Betroffene SSI-Analysen erneut berechnen (#2011).",
+    "fr": "Les systèmes SSI inchangés conservent leur factorisation et corrigent le déplacement avec le résidu physique. Les modèles élastiques auparavant stagnants peuvent converger sans modifier la tolérance d’équilibre. Relancer les analyses SSI concernées (#2011).",
+    "tr": "Değişmeyen SSI sistemleri çarpanlarına ayırmayı korur ve fiziksel artıkla yer değiştirmeyi düzeltir. Önceden duran elastik modeller denge toleransı değişmeden yakınsayabilir. Etkilenen SSI analizlerini yeniden hesaplayın (#2011)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-ssi-elastic-refinement.md",
+    "heading": "SSI corrects elastic residual plateaus"
+  }
+}
