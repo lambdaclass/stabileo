@@ -214,7 +214,10 @@ impl SecantFactor {
         Ok(super::equilibrium::refine(
             u,
             |rhs| self.solve(rhs).unwrap(),
-            |u| super::equilibrium::sparse_residual(k, rhs, u),
+            |u| match self {
+                Self::Dense { .. } => super::equilibrium::dense_residual(&k.to_dense_symmetric(), rhs, u),
+                _ => super::equilibrium::sparse_residual(k, rhs, u),
+            },
         ))
     }
 }
@@ -271,6 +274,21 @@ fn refine_secant<T: InclinedFrame>(
     force: &[f64],
     tolerance: f64,
 ) -> Result<(), String> {
+    let is_linear = |u: &[f64]| {
+        let frame = cs.map_or_else(
+            || u.to_vec(),
+            |cs| cs.expand_solution(u, MasterMotion::Homogeneous),
+        );
+        let global = assembly::to_global(&frame, n, its);
+        springs.iter().all(|spring| {
+            dof_num
+                .global_dof(spring.node_id, spring.direction)
+                .is_some_and(|d| spring.curve.is_in_initial_linear_range(global[d]))
+        })
+    };
+    if !is_linear(&state.u) {
+        return Ok(());
+    }
     let physical_residual = |u: &[f64]| {
         let frame = cs.map_or_else(
             || u.to_vec(),
@@ -280,7 +298,8 @@ fn refine_secant<T: InclinedFrame>(
         residual(balance(&frame), springs, dof_num, its, &global)
     };
     let accepted = |u: &[f64]| -> Result<bool, String> {
-        Ok(metric.relative_residual(&physical_residual(u)?, force, None, cs) < tolerance)
+        Ok(is_linear(u)
+            && metric.relative_residual(&physical_residual(u)?, force, None, cs) < tolerance)
     };
     if accepted(&state.u)? {
         return Ok(());
@@ -297,6 +316,9 @@ fn refine_secant<T: InclinedFrame>(
         |u, _| accepted(u),
     )?;
     let measure = |u: &[f64]| -> Result<f64, String> {
+        if !is_linear(u) {
+            return Ok(f64::INFINITY);
+        }
         Ok(metric.relative_residual(&physical_residual(u)?, force, None, cs))
     };
     let diagonal = state.k.diagonal();
@@ -976,7 +998,6 @@ mod refinement_scope_2072 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2072"]
     fn nonlinear_states_never_enter_refinement_even_when_secant_matches_initial() {
         let curve = SoilCurve::Custom {
             points: vec![[0.0, 0.0], [1.0, 1.0], [2.0, 4.0], [4.0, 4.0]],
@@ -996,7 +1017,6 @@ mod refinement_scope_2072 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2072"]
     fn linear_corrections_cannot_commit_a_nonlinear_soil_state() {
         for sign in [-1.0, 1.0] {
             let curve = SoilCurve::Custom {
@@ -1008,7 +1028,6 @@ mod refinement_scope_2072 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2072"]
     fn every_soil_law_keeps_nonlinear_states_outside_refinement() {
         use super::super::soil_curves::{SandLoading, API_SOFT_CLAY_STATIC, WELCH_REESE_ABSCISSAE};
         let curves = [
@@ -1073,8 +1092,13 @@ mod refinement_scope_2072 {
             for &sign in signs {
                 for disp in [0.0, limit.next_down(), limit] {
                     let original = sign * disp;
+                    let inward = if curve.is_point_spring() && disp == 0.0 {
+                        sign
+                    } else {
+                        -sign
+                    };
                     let increment =
-                        -sign * evaluate_soil_curve(&curve, limit).unwrap().0.abs() * 0.5;
+                        inward * evaluate_soil_curve(&curve, sign * limit).unwrap().0.abs() * 0.5;
                     let state = correct(curve.clone(), original, increment);
                     assert_ne!(
                         state.u[0].to_bits(),

@@ -628,13 +628,11 @@ fn settled_nonlinear_matches_main(api: &str, dimension: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2072"]
 fn settled_nonlinear_2d_is_bit_identical_to_main() {
     settled_nonlinear_matches_main("solve_ssi_2d", 8);
 }
 
 #[test]
-#[ignore = "known wrong result: #2072"]
 fn settled_nonlinear_3d_is_bit_identical_to_main() {
     settled_nonlinear_matches_main("solve_ssi_3d", 9);
 }
