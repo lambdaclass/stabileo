@@ -32,6 +32,7 @@ mod checks2;
 mod checks3;
 mod corpus;
 mod modal_checks;
+mod modal_mass_range;
 mod parity;
 mod nightly_tolerances;
 mod dynamic_accuracy;
