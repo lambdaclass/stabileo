@@ -2215,6 +2215,10 @@ pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, 
         diagnostic.severity = Severity::Warning;
         diagnostic.message = warning.clone();
         results.structured_diagnostics.push(diagnostic);
+    } else {
+        results.structured_diagnostics.push(
+            StructuredDiagnostic::global(DiagnosticCode::PlasticHistoryWithinCertificate, Severity::Info, warning.clone()).with_value(lower, upper),
+        );
     }
     results.warnings.push(warning);
     results.collapse_factor = lower;

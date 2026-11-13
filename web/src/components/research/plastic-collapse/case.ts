@@ -1,4 +1,5 @@
 import data from '../../../../../engine/tests/benchmarks/plastic_collapse.json';
+import type { StructuredDiagnostic } from '../../../lib/engine/types';
 export const portal = data;
 export const DEFORM_SCALE = 10;
 export type Displacement = { nodeId: number; ux: number; uz: number };
@@ -10,7 +11,7 @@ export type Step = {
   hingesFormed?: Hinge[];
   results: { displacements: Displacement[]; reactions?: Reaction[]; elementForces?: Forces[] };
 };
-export type Result = { collapseFactor: number; isMechanism: boolean; warnings?: string[]; steps: Step[] };
+export type Result = { collapseFactor: number; isMechanism: boolean; warnings?: string[]; structuredDiagnostics?: StructuredDiagnostic[]; steps: Step[] };
 export type Place = 'leftBase' | 'leftCorner' | 'midspan' | 'rightCorner' | 'rightBase';
 export type CheckId = 'collapse' | 'mechanism' | 'hinges' | 'yield' | 'equilibrium' | 'corner';
 
@@ -83,16 +84,16 @@ export function residual(result: Result) {
 export const cornerMoment = (lambda: number) => 3 * portal.mp - lambda * portal.horizontal * portal.height;
 
 export function historyWarnings(result: Result): string[] {
-  const prefix = `collapseFactor is the certified lower bound ${result.collapseFactor}. Raw incremental factor `;
-  const suffix = ']. Incremental steps, hinges and the mechanism flag retain raw solver values and are not certified by this interval.';
+  const raw = result.steps.at(-1)?.loadFactor;
+  const disclosures = (result.structuredDiagnostics ?? []).filter(d =>
+    d.code === 'plastic_history_within_certificate' && d.severity === 'info'
+    && Number.isFinite(d.value) && Number.isFinite(d.threshold) && Number.isFinite(raw)
+    && d.value === result.collapseFactor && d.value! <= raw! && raw! <= d.threshold!);
   return (result.warnings ?? []).filter(warning => {
-    if (!warning.startsWith(prefix) || !warning.endsWith(suffix)) return true;
-    const parts = warning.slice(prefix.length, -suffix.length).split(' lies within the certified interval [');
-    if (parts.length !== 2) return true;
-    const bounds = parts[1].split(', ');
-    if (bounds.length !== 2) return true;
-    const [raw, lower, upper] = [parts[0], ...bounds].map(Number);
-    return ![raw, lower, upper].every(Number.isFinite) || lower !== result.collapseFactor || raw < lower || raw > upper;
+    const index = disclosures.findIndex(d => d.message === warning);
+    if (index < 0) return true;
+    disclosures.splice(index, 1);
+    return false;
   });
 }
 

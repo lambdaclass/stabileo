@@ -471,6 +471,9 @@ fn issue_1760_portal_above_certificate_returns_certified_lower() {
     let warning = out.results.structured_diagnostics.iter().find(|d|
         d.phase.as_deref() == Some("PL-3D-CERTIFICATE-MISMATCH")).unwrap();
     assert_eq!(warning.severity, Severity::Warning);
+    for answer in [&results, &out.results] {
+        assert!(!answer.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::PlasticHistoryWithinCertificate));
+    }
     assert!(warning.message.contains("outside the certified interval"));
     assert!(warning.message.contains(&raw_factor.to_string()));
     assert!(warning.message.contains(&format!("[{lower}, {upper}]")));
@@ -902,7 +905,6 @@ fn issue_2084_distorted_shell_refusal_identity() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2084"]
 fn issue_2084_portal_history_disclosure_has_structured_bounds() {
     let case: serde_json::Value = serde_json::from_str(include_str!("benchmarks/plastic_collapse.json")).unwrap();
     let input: PlasticInput3D = serde_json::from_value(case["input"].clone()).unwrap();

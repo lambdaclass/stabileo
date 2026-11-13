@@ -243,7 +243,8 @@ The portal benchmark remains solvable. Its combined-mechanism value and all
 numeric tolerances are unchanged. Its native check now verifies the certified
 lower bound and the exact disclosure, then checks the raw history against its
 existing hinge, force and reaction assertions. The browser benchmark recognizes
-only the complete within-interval disclosure for its reported factor; all other
+the `plastic_history_within_certificate` informational diagnostic for its reported
+factor, with finite numeric bounds containing the final history factor; all other
 solver warnings still fail its warning check and remain visible. The disclosure
 is not removed from the displayed result.
 
@@ -272,3 +273,20 @@ and unequal local moment capacities. Both public native APIs return factors
 within the independent mechanism interval at the existing accuracy requirement.
 The skew control and original irrational-frame refusal also run through both
 WASM exports. No numerical reference for the saved fixture was changed.
+
+### Structured history disclosure and published-factor regression (#2084 round 4)
+
+The within-certificate disclosure now has the stable diagnostic code
+`plastic_history_within_certificate`. Its `value` is the certified lower bound
+returned as `collapseFactor`; its `threshold` is the certified upper bound.
+The final incremental step retains the raw factor. The browser joins each warning
+to its diagnostic and checks these numeric fields instead of parsing prose.
+The existing `PL-3D-CERTIFICATE-MISMATCH` warning identity remains unchanged for
+raw factors outside the interval and cannot pass this benchmark check.
+
+This adds diagnostic metadata without changing a factor, step, supported input,
+refusal or numerical limit. The native portal test again checks its published
+factor directly against the hand calculation at the original case-file tolerance,
+in addition to the retained raw-history checks. The signed reproducer commit's
+native and browser tests fail against the preceding implementation because the
+structured disclosure is absent and a reworded disclosure is rejected.

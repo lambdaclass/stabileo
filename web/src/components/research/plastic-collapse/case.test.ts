@@ -168,6 +168,8 @@ describe('page text', () => {
 
 it('known wrong result: #2084: verifies the portal despite the explicit certified-factor history disclosure', () => {
   const result = { ...replay, warnings: [`collapseFactor is the certified lower bound ${replay.collapseFactor}. Raw incremental factor ${replay.collapseFactor} lies within the certified interval [${replay.collapseFactor}, ${replay.collapseFactor}]. Incremental steps, hinges and the mechanism flag retain raw solver values and are not certified by this interval.`] };
+  const diagnostic: StructuredDiagnostic = { code: 'plastic_history_within_certificate', severity: 'info', message: result.warnings[0], value: result.collapseFactor, threshold: result.steps.at(-1)!.loadFactor };
+  Object.assign(result, { structuredDiagnostics: [diagnostic] });
   expect(checks(result).every(c => c.passed)).toBe(true);
   expect(checks({ ...result, warnings: [...result.warnings, 'unexpected solver warning'] }).find(c => c.id === 'mechanism')!.passed).toBe(false);
   const disclosure = result.warnings[0];
@@ -180,7 +182,7 @@ it('known wrong result: #2084: verifies the portal despite the explicit certifie
   ]) expect(checks({ ...result, warnings: [warning] }).find(c => c.id === 'mechanism')!.passed).toBe(false);
 });
 
-it.skip('known wrong result: #2084: identifies history disclosure independently of its wording', () => {
+it('known wrong result: #2084: identifies history disclosure independently of its wording', () => {
   const raw = replay.steps.at(-1)!.loadFactor;
   const diagnostic: StructuredDiagnostic = { code: 'plastic_history_within_certificate', severity: 'info', message: 'Reworded disclosure', value: replay.collapseFactor, threshold: raw };
   const result = { ...replay, warnings: [diagnostic.message], structuredDiagnostics: [diagnostic] };
@@ -196,6 +198,11 @@ it.skip('known wrong result: #2084: identifies history disclosure independently 
     { message: 'Another warning' },
   ];
   for (const patch of invalid) expect(passed({ ...result, structuredDiagnostics: [{ ...diagnostic, ...patch }] })).toBe(false);
+  for (const loadFactor of [raw - 1, raw + 1, NaN, Infinity]) {
+    const steps = result.steps.map((step, i) => i === result.steps.length - 1 ? { ...step, loadFactor } : step);
+    expect(passed({ ...result, steps })).toBe(false);
+  }
+  expect(passed({ ...result, steps: [] })).toBe(false);
   expect(passed({ ...result, warnings: [...result.warnings, 'unexpected warning'] })).toBe(false);
   expect(passed({ ...result, warnings: [result.warnings[0], result.warnings[0]] })).toBe(false);
   for (const upper of [raw, raw + 1]) {

@@ -34,7 +34,7 @@ fn portal_combined_mechanism() {
     assert!(q(result.collapse_factor).unwrap() <= exact && exact <= q(upper).unwrap());
 
     assert!((raw - combined).abs() < tolerance);
-    let mut history = result;
+    let mut history = result.clone();
     history.collapse_factor = raw;
     let events = case["events"].as_array().unwrap();
     assert_eq!(history.steps.len(), events.len());
@@ -82,6 +82,8 @@ fn portal_combined_mechanism() {
     assert!((corner - num(&case, "leftCornerMoment")).abs() < tolerance);
     assert!((moments[&(1, "end")].abs() - corner).abs() < tolerance, "{}", moments[&(1, "end")]);
     assert!((3.0 * mp + corner - history.collapse_factor * v * l / 2.0).abs() < tolerance);
+    let corner = 3.0 * mp - result.collapse_factor * h * height;
+    assert!((3.0 * mp + corner - result.collapse_factor * v * l / 2.0).abs() < tolerance);
 
     let lambda = history.collapse_factor;
     let node = |id: usize| {
