@@ -25,7 +25,7 @@ fn member(axis: &str, end: &str, oblique: bool) -> SolverInput3D {
     serde_json::from_value(v).unwrap()
 }
 
-fn transforms(s: &SolverInput3D) -> Vec<SolverInput3D> {
+fn response_transforms(s: &SolverInput3D) -> Vec<(SolverInput3D, Iso3, Units)> {
     [
         Iso3::from_euler(0.0, 0.0, 0.0),
         Iso3::from_euler(0.3, -0.7, 1.1),
@@ -35,9 +35,16 @@ fn transforms(s: &SolverInput3D) -> Vec<SolverInput3D> {
     .flat_map(|r| {
         let rotated = transform_3d(s, r).unwrap();
         [(1.0, 1.0), (0.001, 1000.0), (1000.0, 0.001)]
-            .map(|(l, f)| scale_3d(&rotated, &Units::froude(l, f)))
+            .map(|(l, f)| {
+                let units = Units::froude(l, f);
+                (scale_3d(&rotated, &units), r.clone(), units)
+            })
     })
     .collect()
+}
+
+fn transforms(s: &SolverInput3D) -> Vec<SolverInput3D> {
+    response_transforms(s).into_iter().map(|(model, _, _)| model).collect()
 }
 
 #[test]
@@ -45,30 +52,61 @@ fn compatible_3d_release_axes_ends_rotations_and_units() {
     for axis in ["My", "Mz", "T"] {
         for end in ["Start", "End"] {
             for oblique in [false, true] {
-                for s in transforms(&member(axis, end, oblique)) {
+                let model = member(axis, end, oblique);
+                let baseline = linear::solve_3d(&model).unwrap();
+                for (s, rotation, units) in response_transforms(&model) {
                     let r = linear::solve_3d(&s)
                         .unwrap_or_else(|e| panic!("{axis}/{end}/{oblique}: {e}"));
-                    assert_eq!(r.displacements.len(), 2);
-                    assert_eq!(r.element_forces.len(), 1);
-                    assert!(r
-                        .element_forces
-                        .iter()
-                        .any(|f| f.vy_start != 0.0 || f.vz_start != 0.0));
+                    let inverse = Iso3 { r: dedaliano_engine::metamorphic::transform::mat3_t(&rotation.r), t: [0.0; 3] };
+                    let unscaled = dedaliano_engine::metamorphic::units::scale_results_3d(&r, &Units::froude(1.0 / units.length, 1.0 / units.force));
+                    let restored = dedaliano_engine::metamorphic::transform::map_results_3d(&unscaled, &inverse);
+                    assert_response_3d(&model, &baseline, &restored);
                 }
             }
         }
     }
 }
 
+fn assert_response_3d(_model: &SolverInput3D, _baseline: &AnalysisResults3D, actual: &AnalysisResults3D) {
+    assert_eq!(actual.displacements.len(), 2);
+    assert_eq!(actual.element_forces.len(), 1);
+    assert!(actual.element_forces.iter().any(|f| f.vy_start != 0.0 || f.vz_start != 0.0));
+}
+
+#[test]
+#[ignore = "known wrong result: #2074"]
+fn transformed_response_checks_reject_corruption_outside_gauge_dofs() {
+    let model = member("Mz", "Start", true);
+    let baseline = linear::solve_3d(&model).unwrap();
+    assert_response_3d(&model, &baseline, &baseline);
+    for quantity in ["translation", "rotation", "reaction", "force", "moment", "length"] {
+        let mut wrong = baseline.clone();
+        match quantity {
+            "translation" => wrong.displacements[0].ux += 1.0,
+            "rotation" => wrong.displacements[0].rx += 1.0,
+            "reaction" => wrong.reactions[0].fx += 1.0,
+            "force" => wrong.element_forces[0].vy_start += 1.0,
+            "moment" => wrong.element_forces[0].my_start += 1.0,
+            "length" => wrong.element_forces[0].length *= 2.0,
+            _ => unreachable!(),
+        }
+        assert!(std::panic::catch_unwind(|| assert_response_3d(&model, &baseline, &wrong)).is_err(), "unchecked {quantity} corruption");
+    }
+}
+
 #[test]
 fn compatible_3d_units_boundary_guard() {
     let s: SolverInput3D = serde_json::from_value(fixture()).unwrap();
+    let baseline = linear::solve_3d(&s).unwrap();
     for length in [0.001, 1.0, 1000.0] {
         for force in [0.001, 1.0, 1000.0] {
             let s = scale_3d(&s, &Units::froude(length, force));
             let result = linear::solve_3d(&s).unwrap();
             assert_eq!(result.displacements.len(), s.nodes.len());
             assert_eq!(result.element_forces.len(), s.elements.len());
+            let restored = dedaliano_engine::metamorphic::units::scale_results_3d(&result, &Units::froude(1.0 / length, 1.0 / force));
+            let model: SolverInput3D = serde_json::from_value(fixture()).unwrap();
+            assert_response_3d(&model, &baseline, &restored);
         }
     }
 }

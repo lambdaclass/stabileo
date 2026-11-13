@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { check } from './released-load-work-physics.mjs';
 
-const model={nodes:{1:{id:1},2:{id:2}},elements:{1:{id:1,nodeI:1,nodeJ:2,releaseTStart:true}}};
+const model={nodes:{1:{id:1,x:0,y:0,z:0},2:{id:2,x:1,y:0,z:0}},elements:{1:{id:1,nodeI:1,nodeJ:2,releaseTStart:true}}};
 const gauges=[{node:1,rotation:[1,0,0]}];
 const answer=()=>({displacements:[{nodeId:1,ux:0,uy:0,uz:0,rx:0,ry:1,rz:0},{nodeId:2,ux:1,uy:0,uz:0,rx:0,ry:0,rz:0}],reactions:[{nodeId:2,fx:1,fy:0,fz:0,mx:0,my:1,mz:0}],elementForces:[{elementId:1,length:1,nStart:1,nEnd:1,mxStart:0,mxEnd:0,myStart:1,myEnd:1,mzStart:0,mzEnd:0}],condensedLoads:[{nodeId:1,mx:0,my:1,mz:0},{nodeId:2,mx:0,my:0,mz:0}]});
 
@@ -91,3 +91,36 @@ for(const [release,component,axis] of [['hinge','m',1],['releaseMy','my',1],['re
     }
   });
 }
+
+for(const dim of [2,3]) for(const side of ['wasm','native','both']) {
+  test(`${dim}D ${side} member lengths must match each member geometry`,{skip:!process.env.RUN_KNOWN_WRONG},()=>{
+    const geometry=structuredClone(model);
+    geometry.nodes={1:{id:1,x:0,z:0},2:{id:2,x:3,z:4},3:{id:3,x:3,z:6}};
+    if(dim===3) for(const node of Object.values(geometry.nodes)) node.y=node.id===1?0:12;
+    geometry.elements[2]={id:2,nodeI:2,nodeJ:3};
+    const lengths=[dim===2?5:13,2];
+    const make=()=>{
+      const r=answer();
+      r.displacements.push({...r.displacements[1],nodeId:3});
+      r.elementForces[0].length=lengths[0];
+      r.elementForces.push({...r.elementForces[0],elementId:2,length:lengths[1]});
+      return r;
+    };
+    check(make(),geometry,{ok:make()},gauges);
+    for(const index of [0,1]) for(const length of [0,-1,NaN,Infinity,undefined,lengths[index]*2,lengths[index]*(1+1e-8)]) {
+      const wasm=make(),native=make();
+      for(const response of side==='both'?[wasm,native]:[side==='wasm'?wasm:native]) response.elementForces[index].length=length;
+      assert.throws(()=>check(wasm,geometry,{ok:native},gauges),/length/);
+    }
+  });
+}
+
+test('member length keeps the existing comparison factor on both sides',{skip:!process.env.RUN_KNOWN_WRONG},()=>{
+  for(const side of ['wasm','native','both']) for(const delta of [2.5e-10*(1-1e-5),2.5e-10*(1+1e-5)]) {
+    const wasm=answer(),native=answer();
+    for(const response of side==='both'?[wasm,native]:[side==='wasm'?wasm:native]) response.elementForces[0].length+=delta;
+    const verify=()=>check(wasm,model,{ok:native},gauges);
+    if(delta<2.5e-10) verify();
+    else assert.throws(verify,/length/);
+  }
+});
