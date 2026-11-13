@@ -45,3 +45,32 @@ test('constraint-determined stages retain physical answers', () => {
     }
   }
 });
+
+test('unloaded member-free equal-DOF stages return the hand-determined state in 2D and 3D', () => {
+  for (const base of JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/staged-determined-r23.json', import.meta.url)))) {
+    const { dim } = base;
+    for (const motion of [0, 0.0013, -0.0013]) {
+      const m = structuredClone(base.model);
+      m.elements = {};
+      m.loads = [];
+      m.supports[0].dx = motion;
+      m.constraints[0].type = 'equalDOF';
+      m.stages = [{ name: 'settled master', elementsAdded: [], supportsAdded: [0], loadIndices: [] }];
+      const output = JSON.parse(engine[`solve_staged_${dim}d`](JSON.stringify(m)));
+      for (const r of [output.finalResults, output.stages[0].results]) {
+        assert.ok(!(r.structuredDiagnostics ?? []).some(d => d.code === 'result_quantity_unavailable'));
+        assert.deepEqual(r.elementForces, []);
+        assert.equal(r.displacements.length, 2);
+        for (const id of [0, 1]) {
+          const u = r.displacements.find(u => u.nodeId === id);
+          assert.equal(u.ux, motion);
+          for (const key of dim === 2 ? ['uz', 'ry'] : ['uy', 'uz', 'rx', 'ry', 'rz']) assert.ok(u[key] === 0);
+        }
+        assert.equal(r.reactions.length, 1);
+        assert.equal(r.reactions[0].nodeId, 0);
+        for (const key of dim === 2 ? ['rx', 'rz', 'my'] : ['fx', 'fy', 'fz', 'mx', 'my', 'mz']) assert.ok(r.reactions[0][key] === 0);
+        for (const cf of r.constraintForces ?? []) assert.ok(cf.force === 0);
+      }
+    }
+  }
+});

@@ -897,13 +897,70 @@ fn staged_constraints_only(dim: usize) {
             )
             .unwrap()
         };
-        let r = &r["finalResults"];
-        for field in ["reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"] {
-            assert!(r[field].as_array().is_none_or(Vec::is_empty), "{r}");
+        for result in [&r["finalResults"], &r["stages"][0]["results"]] {
+            assert!(
+                !result["structuredDiagnostics"]
+                    .as_array()
+                    .is_some_and(|ds| ds
+                        .iter()
+                        .any(|d| d["code"] == "result_quantity_unavailable")),
+                "{result}"
+            );
+            for field in [
+                "elementForces",
+                "plateStresses",
+                "quadStresses",
+                "quadNodalStresses",
+            ] {
+                assert!(
+                    result[field].as_array().is_none_or(Vec::is_empty),
+                    "{result}"
+                );
+            }
+            let u = result["displacements"].as_array().unwrap();
+            assert_eq!(u.len(), 2);
+            for id in [0, 1] {
+                let row = u.iter().find(|u| u["nodeId"] == id).unwrap();
+                for key in if dim == 2 {
+                    vec!["ux", "uz", "ry"]
+                } else {
+                    vec!["ux", "uy", "uz", "rx", "ry", "rz"]
+                } {
+                    assert_eq!(num(row, key), 0.0, "{row}");
+                }
+            }
+            let load = &m["loads"][0]["data"];
+            let fx = num(load, "fx");
+            let fz = num(load, "fz");
+            let dx = num(&m["nodes"]["1"], "x") - num(&m["nodes"]["0"], "x");
+            let dz = num(&m["nodes"]["1"], "z") - num(&m["nodes"]["0"], "z");
+            let reactions = result["reactions"].as_array().unwrap();
+            assert_eq!(reactions.len(), 1);
+            let root = &reactions[0];
+            assert_eq!(root["nodeId"], 0);
+            assert_eq!(num(root, if dim == 2 { "rx" } else { "fx" }), -fx);
+            assert_eq!(num(root, if dim == 2 { "rz" } else { "fz" }), -fz);
+            assert_eq!(
+                num(root, "my"),
+                (if dim == 2 { -1.0 } else { 1.0 }) * (dx * fz - dz * fx) - num(load, "my")
+            );
+            if dim == 3 {
+                for key in ["fy", "mx", "mz"] {
+                    assert_eq!(num(root, key), 0.0);
+                }
+            }
+            let forces = result["constraintForces"].as_array().unwrap();
+            assert_eq!(forces.len(), 1);
+            assert_eq!(forces[0]["nodeId"], 1);
+            assert_eq!(
+                forces[0]["dof"],
+                if member_type == "truss" { "ux" } else { "uz" }
+            );
+            assert_eq!(
+                num(&forces[0], "force"),
+                if member_type == "truss" { -fx } else { -fz }
+            );
         }
-        assert!(r["structuredDiagnostics"].as_array().is_some_and(|ds| ds
-            .iter()
-            .any(|d| d["code"] == "result_quantity_unavailable")));
     }
 }
 
@@ -1315,7 +1372,7 @@ fn staged_artificial_ties_model(dim: usize, segments: usize, motion: f64) -> Val
         m["nodes"][id.to_string()] = m["nodes"]["0"].clone();
         m["nodes"][id.to_string()]["id"] = json!(id);
         m["constraints"] = json!([{"type":"equalDOF","masterNode":0,"slaveNode":id,"dofs":(0..if dim == 2 {3} else {6}).collect::<Vec<_>>()}]);
-}
+    }
     m["stages"] = json!([{"name":"settled master","elementsAdded":(1..=segments).collect::<Vec<_>>(),"supportsAdded":if segments == 0 {vec![0]} else {vec![0,segments]},"loadIndices":[]}]);
     m
 }
@@ -1335,17 +1392,20 @@ fn staged_artificial_ties(dim: usize) {
                 )
                 .unwrap()
             };
+            let exported = if dim == 2 {
+                dedaliano_engine::solve_staged_2d(&m.to_string()).unwrap()
+            } else {
+                dedaliano_engine::solve_staged_3d(&m.to_string()).unwrap()
+            };
+            let exported: Value = serde_json::from_str(&exported).unwrap();
+            assert_eq!(exported, output);
             for r in [&output["finalResults"], &output["stages"][0]["results"]] {
                 let warned = r["structuredDiagnostics"].as_array().is_some_and(|ds| {
                     ds.iter().any(|d| {
                         d["code"] == "result_quantity_unavailable" && d["phase"] == "stageResults"
                     })
                 });
-                assert_eq!(
-                    warned,
-                    segments == 0,
-                    "{dim}D segments={segments} motion={motion}: {r}"
-                );
+                assert!(!warned, "{dim}D segments={segments} motion={motion}: {r}");
                 for cf in r["constraintForces"]
                     .as_array()
                     .map(Vec::as_slice)
@@ -1358,7 +1418,28 @@ fn staged_artificial_ties(dim: usize) {
                     );
                 }
                 if segments == 0 {
-                    for a in r["reactions"].as_array().unwrap() {
+                    assert_eq!(
+                        artificial_tie_constraint_rank(dim, &m),
+                        if dim == 2 { 6 } else { 12 }
+                    );
+                    assert!(r["elementForces"].as_array().unwrap().is_empty());
+                    let displacements = r["displacements"].as_array().unwrap();
+                    assert_eq!(displacements.len(), 2);
+                    for id in [0, 1] {
+                        let u = displacements.iter().find(|u| u["nodeId"] == id).unwrap();
+                        assert_eq!(num(u, "ux"), motion, "{dim}D motion={motion}: {u}");
+                        for key in if dim == 2 {
+                            vec!["uz", "ry"]
+                        } else {
+                            vec!["uy", "uz", "rx", "ry", "rz"]
+                        } {
+                            assert_eq!(num(u, key), 0.0, "{dim}D motion={motion}: {u}");
+                        }
+                    }
+                    let reactions = r["reactions"].as_array().unwrap();
+                    assert_eq!(reactions.len(), 1);
+                    assert_eq!(reactions[0]["nodeId"], 0);
+                    for a in reactions {
                         for k in if dim == 2 {
                             vec!["rx", "rz", "my"]
                         } else {
@@ -1444,19 +1525,45 @@ fn full_rank_artificial_tie_regression(dim: usize) {
             partial["constraints"][0]["dofs"] =
                 json!((0..ndof).filter(|&dof| dof != omitted).collect::<Vec<_>>());
             assert_eq!(artificial_tie_constraint_rank(dim, &partial), 2 * ndof - 1);
+            partial["elements"] = settlement_only_model(dim, 1, motion, false)["elements"].clone();
+            let outcome = if dim == 2 {
+                staged::solve_staged_2d(&serde_json::from_value(partial).unwrap())
+                    .map(|r| serde_json::to_value(r).unwrap())
+            } else {
+                staged::solve_staged_3d(&serde_json::from_value(partial).unwrap())
+                    .map(|r| serde_json::to_value(r).unwrap())
+            };
+            match outcome {
+                Ok(output) => {
+                    for r in [&output["finalResults"], &output["stages"][0]["results"]] {
+                        assert!(
+                            r["structuredDiagnostics"]
+                                .as_array()
+                                .unwrap()
+                                .iter()
+                                .any(|d| d["code"] == "result_quantity_unavailable"
+                                    && d["phase"] == "stageResults"),
+                            "{dim}D omitted={omitted}: {r}"
+                        );
+                        assert!(r["reactions"].as_array().unwrap().is_empty());
+                    }
+                }
+                Err(error) => assert!(
+                    error.contains("mechanism"),
+                    "{dim}D omitted={omitted}: {error}"
+                ),
+            }
         }
     }
     staged_artificial_ties(dim);
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r7_full_rank_artificial_tie_regression_2d() {
     full_rank_artificial_tie_regression(2);
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r7_full_rank_artificial_tie_regression_3d() {
     full_rank_artificial_tie_regression(3);
 }
