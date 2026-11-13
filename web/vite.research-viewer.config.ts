@@ -19,7 +19,7 @@ export default defineConfig({
         // The shared store also imports the lazy browser dictionaries. Their
         // app modules must resolve to this viewer's scoped dictionary as well.
         const ids = ['virtual:public-i18n', 'virtual:app-i18n',
-          ...['de', 'fr', 'tr'].map(locale => `virtual:app-i18n/${locale}`)];
+          ...['de', 'fr', 'tr', 'hu'].map(locale => `virtual:app-i18n/${locale}`)];
         return ids.includes(id) ? '\0scalar-viewer-i18n' : null;
       },
       load(id) {
@@ -28,7 +28,7 @@ export default defineConfig({
         this.addWatchFile(tools);
         const toolLines = readFileSync(tools, 'utf8').split('\n');
         const key = (line: string) => line.match(/^\s*['"](scalarViewer\.[\w.]+)['"]/)?.[1];
-        return ['en', 'es', 'pt', 'de', 'fr', 'tr'].map((locale) => {
+        return ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'].map((locale) => {
           const file = resolve(__dirname, `src/lib/i18n/locales/${locale}.ts`);
           this.addWatchFile(file);
           const entries = readFileSync(file, 'utf8').split('\n').filter((line) => key(line));

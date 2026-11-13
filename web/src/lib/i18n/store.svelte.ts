@@ -1,6 +1,6 @@
 import {
   es as publicEs, en as publicEn, pt as publicPt,
-  de as publicDe, fr as publicFr, tr as publicTr, loaders as publicLoaders,
+  de as publicDe, fr as publicFr, tr as publicTr, hu as publicHu, loaders as publicLoaders,
 } from 'virtual:public-i18n';
 import type { Translations } from './types';
 import { OFFERED_LOCALES, PUBLIC_LOCALES, type Locale } from './offered';
@@ -8,7 +8,7 @@ import { OFFERED_LOCALES, PUBLIC_LOCALES, type Locale } from './offered';
 // A key a language lacks renders in English. The steel keys live only in `locales/steel/*`,
 // so a bundled dictionary registered without its steel half shows raw keys instead.
 const PUBLIC_DICTS: Record<Locale, Translations> = {
-  es: publicEs, en: publicEn, pt: publicPt, de: publicDe, fr: publicFr, tr: publicTr,
+  es: publicEs, en: publicEn, pt: publicPt, de: publicDe, fr: publicFr, tr: publicTr, hu: publicHu,
 };
 const dicts: Record<string, Translations> = Object.fromEntries(
   OFFERED_LOCALES.map((l) => [l, { ...PUBLIC_DICTS[l] }]),
@@ -18,6 +18,7 @@ const LAZY_LOCALES: Record<string, () => Promise<{ default: Translations }>> = {
   de: () => import('./locales/browser/de'),
   fr: () => import('./locales/browser/fr'),
   tr: () => import('./locales/browser/tr'),
+  hu: () => import('./locales/browser/hu'),
 };
 const pendingLoads = new Map<string, Promise<void>>();
 

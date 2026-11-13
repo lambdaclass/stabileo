@@ -92,6 +92,6 @@ describe('the unoffered dictionaries stay out of the application', () => {
     expect(imported).toEqual(['steel/en', 'steel/es', 'steel/pt']);
     expect(src).toContain("import { es, en, pt } from 'virtual:app-i18n'");
     const course = readFileSync(join(SRC, 'lib/course/course-dictionaries.ts'), 'utf8');
-    expect([...course.matchAll(/from '\.\.\/i18n\/locales\/([\w/]+)'/g)].map((m) => m[1]).sort()).toEqual(['steps', 'steps/de', 'steps/fr', 'steps/tr']);
+    expect([...course.matchAll(/from '\.\.\/i18n\/locales\/([\w/]+)'/g)].map((m) => m[1]).sort()).toEqual(['steps', 'steps/de', 'steps/fr', 'steps/hu', 'steps/tr']);
   });
 });

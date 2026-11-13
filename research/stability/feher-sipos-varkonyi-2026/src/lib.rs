@@ -123,6 +123,10 @@ pub struct Snapshot {
     pub lowest_stiffness: f64,
 }
 
+/// How `bend` and `advance` begin the error when load control finds no
+/// equilibrium near the setting (a fold), as opposed to a solver failure.
+pub const NO_EQUILIBRIUM: &str = "no equilibrium near";
+
 /// The paper's path to a loaded state: the end rotations are applied while B
 /// slides freely, B is then clamped and moved to the span ν, and the load is
 /// applied last.
@@ -165,7 +169,7 @@ impl State {
         let start = CorotationalStart2D { input: &self.input, displacements: &self.displacements };
         let r = solve_corotational_2d_from(&input, Some(&start), MAX_ITERATIONS, TOLERANCE, increments, false)?;
         if !r.converged {
-            return Err(format!("no equilibrium near {to:?} (stopped at {} of the step)", r.load_factor));
+            return Err(format!("{NO_EQUILIBRIUM} {to:?} (stopped at {} of the step)", r.load_factor));
         }
         Ok(State {
             n: self.n,

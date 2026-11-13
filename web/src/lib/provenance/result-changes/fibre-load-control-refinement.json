@@ -31,7 +31,8 @@
     "pt": "O controle de carga de fibras de concreto refina o intervalo de parada",
     "de": "Laststeuerung für Betonfasern verfeinert das Abbruchintervall",
     "fr": "Le contrôle en charge des fibres de béton affine son intervalle d’arrêt",
-    "tr": "Beton liflerinde yük kontrolü durma aralığını daraltır"
+    "tr": "Beton liflerinde yük kontrolü durma aralığını daraltır",
+    "hu": "A betonszálas terhelésvezérlés finomítja a leállási intervallumát"
   },
   "explanation": {
     "en": "Concrete fibre runs now cut back failed or non-positive-tangent trials and report a refined, uncertified load-control interval. Re-run stopped 2D fibre pushovers. The last converged load is an equilibrium, not certified capacity.",
@@ -39,7 +40,8 @@
     "pt": "As análises de fibras de concreto reduzem incrementos que falham ou têm tangente não positiva e informam um intervalo refinado sem certificação. Repita as análises 2D interrompidas. A última carga convergida é um equilíbrio, não uma capacidade certificada.",
     "de": "Betonfaseranalysen verkleinern fehlgeschlagene Lastschritte oder Versuche ohne positive Tangente und melden ein verfeinertes, unzertifiziertes Intervall. Abgebrochene 2D-Analysen erneut rechnen. Die letzte konvergierte Last ist ein Gleichgewicht, keine zertifizierte Tragfähigkeit.",
     "fr": "Les analyses de fibres de béton réduisent les incréments en échec ou à tangente non positive et fournissent un intervalle affiné non certifié. Relancez les analyses 2D arrêtées. La dernière charge convergée est un équilibre, pas une capacité certifiée.",
-    "tr": "Beton lifi analizleri başarısız veya pozitif olmayan teğetli adımları küçültür ve daraltılmış, sertifikasız bir aralık bildirir. Durmuş 2B analizleri yeniden çalıştırın. Son yakınsayan yük bir denge durumudur, sertifikalı kapasite değildir."
+    "tr": "Beton lifi analizleri başarısız veya pozitif olmayan teğetli adımları küçültür ve daraltılmış, sertifikasız bir aralık bildirir. Durmuş 2B analizleri yeniden çalıştırın. Son yakınsayan yük bir denge durumudur, sertifikalı kapasite değildir.",
+    "hu": "A betonszálas futtatások most visszalépnek a sikertelen vagy nem pozitív érintőmerevségű próbáknál, és finomított, nem tanúsított terhelésvezérlési intervallumot közölnek. Futtassa újra a leállt 2D szálas pushover-analíziseket. Az utolsó konvergált teher egyensúlyi állapot, nem tanúsított teherbírás."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-fibre-load-control-refinement.md",
