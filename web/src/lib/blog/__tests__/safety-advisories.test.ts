@@ -8,6 +8,13 @@ const advisoryUrl = new URL('../../../../../docs/advisories/SA-2026-061-path-sol
 const replayUrl = new URL('../../../../../docs/advisories/replays/SA-2026-061.json', import.meta.url);
 
 describe('safety-advisories SA-2026-061', () => {
+  it.skip('known wrong result: #1952 — retains the advisory draft date on the site after revisions', () => {
+    const text = readFileSync(advisoryUrl, 'utf8');
+    const draftDate = text.match(/\| Status \| Draft (\d{4}-\d{2}-\d{2});/)?.[1];
+    expect(draftDate).toBe('2026-11-12');
+    expect(findPost('safety-advisories')!.updated).toBe(draftDate);
+  });
+
   it.each<[PublicLocale, string, string]>([
     ['en', 'High', 'Fixed in PR #1952, pending release'],
     ['es', 'Alta', 'Corregido en PR #1952, pendiente de publicación'],
