@@ -1062,3 +1062,14 @@ test.engine.staged-physical-r14-wasm: wasm
 	STABILEO_R14_CASES=$(CURDIR)/.1952-r14-cases $(MAKE) test.engine.targeted TEST=validation FILTER=issue_1952_r14
 	$(NIX_RUN) node scripts/tests/staged-physical-r14-wasm.mjs $(CURDIR)/.1952-r14-cases
 	rm -f $(CURDIR)/.1952-r14-cases-2.json $(CURDIR)/.1952-r14-cases-3.json
+
+.PHONY: test.engine.containment-r17 test.engine.containment-r17-wasm
+
+test.engine.containment-r17:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib r17_ -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test validation issue_1952_r17 -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.containment-r17-wasm: wasm
+	STABILEO_R17_CASES=$(CURDIR)/.1952-r17-cases $(MAKE) test.engine.containment-r17
+	$(NIX_RUN) node scripts/tests/containment-r17-wasm.mjs $(CURDIR)/.1952-r17-cases
+	rm -f $(CURDIR)/.1952-r17-cases-*.json

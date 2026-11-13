@@ -227,3 +227,106 @@ fn r14_cached_stabilization_dense_3d() {
 fn r14_cached_stabilization_sparse_3d() {
     r14_cached_stabilization(3, true);
 }
+
+fn r17_recovery(dim: usize, empty: bool) {
+    for sign in [-1.0, 0.0, 1.0] {
+        for tied in [false, true] {
+            let mut m: Value = serde_json::from_str(if dim == 2 {
+                include_str!("../../tests/fixtures/reaction-recovery-2d.json")
+            } else {
+                include_str!("../../tests/fixtures/reaction-recovery-3d.json")
+            }).unwrap();
+            m["elements"]["1"][if dim == 2 { "hingeEnd" } else { "releaseMyEnd" }] = json!(true);
+            m["loads"][0]["data"]["fz"] = json!(0.0);
+            m["loads"][0]["data"]["my"] = json!(sign * 2.0);
+            if empty { m["elements"] = json!({}); }
+            if tied {
+                m["constraints"] = json!([{"type":"equalDOF","masterNode":0,"slaveNode":1,"dofs":(0..if dim == 2 {3} else {6}).collect::<Vec<_>>()}]);
+            }
+            m["stages"] = json!([{"name":"recovery","elementsAdded":[1],"supportsAdded":[0],"loadIndices":[0]}]);
+            let result = if dim == 2 {
+                let input: StagedInput = serde_json::from_value(m).unwrap();
+                let model = staged_to_full_solver_input(&input);
+                let dofs = DofNumbering::build_2d(&model);
+                let cs = FreeConstraintSystem::build_2d(&model, &dofs).unwrap();
+                let u = vec![0.0; dofs.n_total];
+                let residual = physical_recovery::recover(physical_recovery::StageModel::Plane(&model, &input.stages[0]), &dofs, &u);
+                json!(build_results_from_u(&u, &dofs, &model, &residual, cs.as_ref(), StageForceRecovery::CumulativeElastic, &[]).unwrap())
+            } else {
+                let input: StagedInput3D = serde_json::from_value(m).unwrap();
+                let model = staged_to_full_solver_input_3d(&input);
+                let dofs = DofNumbering::build_3d(&model);
+                let cs = FreeConstraintSystem::build_3d(&model, &dofs).unwrap();
+                let u = vec![0.0; dofs.n_total];
+                let residual = physical_recovery::recover(physical_recovery::StageModel::Space(&model), &dofs, &u);
+                json!(build_results_from_u_3d(&u, &dofs, &model, &residual, cs.as_ref(), StageForceRecovery::CumulativeElastic).unwrap())
+            };
+            let unavailable = empty || (!tied && sign != 0.0);
+            let warned = result["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable");
+            assert_eq!(warned, unavailable, "{dim}D empty={empty} tied={tied} sign={sign}: {result}");
+            if unavailable {
+                for field in ["reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"] {
+                    assert!(result[field].as_array().is_none_or(Vec::is_empty), "{field}: {result}");
+                }
+            } else {
+                assert!(!result["reactions"].as_array().unwrap().is_empty());
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn r17_loaded_released_rotation_recovery_2d() { r17_recovery(2, false); }
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn r17_loaded_released_rotation_recovery_3d() { r17_recovery(3, false); }
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn r17_stiffness_free_quantities_2d() { r17_recovery(2, true); }
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn r17_stiffness_free_quantities_3d() { r17_recovery(3, true); }
+
+fn r17_residual_boundary(dim: usize) {
+    for relative in [0.0, 0.5e-6, 2.0e-6] {
+        let m: Value = serde_json::from_str(if dim == 2 {
+            include_str!("../../tests/fixtures/reaction-recovery-2d.json")
+        } else {
+            include_str!("../../tests/fixtures/reaction-recovery-3d.json")
+        }).unwrap();
+        let result = if dim == 2 {
+            let model: SolverInput = serde_json::from_value(m).unwrap();
+            let dofs = DofNumbering::build_2d(&model);
+            let solved = super::super::linear::solve_2d(&model).unwrap();
+            let mut u = vec![0.0; dofs.n_total];
+            for d in solved.displacements {
+                for (k,v) in [d.ux,d.uz,d.ry].into_iter().enumerate() {
+                    u[dofs.global_dof(d.node_id,k).unwrap()] = v * (1.0 + relative);
+                }
+            }
+            let stage = serde_json::from_value(json!({"name":"boundary"})).unwrap();
+            let residual = physical_recovery::recover(physical_recovery::StageModel::Plane(&model,&stage), &dofs, &u);
+            json!(build_results_from_u(&u,&dofs,&model,&residual,None,StageForceRecovery::CumulativeElastic,&[]).unwrap())
+        } else {
+            let model: SolverInput3D = serde_json::from_value(m).unwrap();
+            let dofs = DofNumbering::build_3d(&model);
+            let solved = super::super::linear::solve_3d(&model).unwrap();
+            let mut u = dofs.displacement_vector_3d(&solved.displacements);
+            for v in &mut u { *v *= 1.0 + relative; }
+            let residual = physical_recovery::recover(physical_recovery::StageModel::Space(&model), &dofs, &u);
+            json!(build_results_from_u_3d(&u,&dofs,&model,&residual,None,StageForceRecovery::CumulativeElastic).unwrap())
+        };
+        let warned = result["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable");
+        assert_eq!(warned, relative >= 1e-6, "{dim}D relative={relative}: {result}");
+        assert_eq!(result["reactions"].as_array().unwrap().is_empty(), warned);
+        assert_eq!(result["elementForces"].as_array().unwrap().is_empty(), warned);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn r17_residual_boundary_2d() { r17_residual_boundary(2); }
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn r17_residual_boundary_3d() { r17_residual_boundary(3); }

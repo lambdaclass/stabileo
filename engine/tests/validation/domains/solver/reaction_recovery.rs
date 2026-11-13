@@ -2176,3 +2176,73 @@ fn issue_1952_r14_staged_physical_2d() {
 fn issue_1952_r14_staged_physical_3d() {
     r14_staged_physical(3);
 }
+
+fn r17_public(dim: usize, kind: &str) {
+    let mut replay = Vec::new();
+    for sign in [-1.0, 0.0, 1.0] {
+        for released in [false, true] {
+            let mut m = model(dim, false);
+            m["elements"]["1"][if dim == 2 {"hingeEnd"} else {"releaseMyEnd"}] = json!(released);
+            m["loads"][0]["data"]["my"] = json!(sign * 2.0);
+            if kind == "pdelta" { m["loads"][0]["data"]["fx"] = json!(sign * 3.0); }
+            if kind == "staged" {
+                m["stages"] = json!([{"name":"first stage","elementsAdded":[1],"supportsAdded":[0],"loadIndices":[0]}]);
+            }
+            let outcome = if dim == 2 {
+                let input: SolverInput = serde_json::from_value(m.clone()).unwrap();
+                if kind == "staged" {
+                    staged::solve_staged_2d(&serde_json::from_value(m.clone()).unwrap()).map(|r| json!(r))
+                } else {
+                    pdelta::solve_pdelta_2d(&input,40,1e-9).map(|r| json!(r))
+                }
+            } else {
+                let input: SolverInput3D = serde_json::from_value(m.clone()).unwrap();
+                if kind == "staged" {
+                    staged::solve_staged_3d(&serde_json::from_value(m.clone()).unwrap()).map(|r| json!(r))
+                } else {
+                    pdelta::solve_pdelta_3d(&input,40,1e-9).map(|r| json!(r))
+                }
+            };
+            match &outcome {
+                Err(error) => {
+                    assert!(released && sign != 0.0, "{error}");
+                    assert!(error.contains("Nodal moment") || error.contains("free rotation"), "{error}");
+                }
+                Ok(output) => {
+                    let results: Vec<_> = if kind == "staged" {
+                        output["stages"].as_array().unwrap().iter().map(|s| &s["results"]).chain([&output["finalResults"]]).collect()
+                    } else { vec![&output["results"]] };
+                    for r in results {
+                        let diagnostics: Vec<_> = r["structuredDiagnostics"].as_array().into_iter().flatten().filter(|d| d["code"] == "result_quantity_unavailable").collect();
+                        if released && sign != 0.0 { assert!(!diagnostics.is_empty(), "{r}"); }
+                        for d in &diagnostics {
+                            let fields: Vec<_> = if d["phase"] == "stageResults" {
+                                vec!["reactions","elementForces","constraintForces","plateStresses","quadStresses","quadNodalStresses"]
+                            } else { vec![d["phase"].as_str().unwrap()] };
+                            for field in fields { assert!(r[field].as_array().is_none_or(Vec::is_empty), "{kind} {dim}D {field}: {r}"); }
+                        }
+                        if diagnostics.is_empty() {
+                            assert!(!r["reactions"].as_array().unwrap().is_empty());
+                            assert!(!r["elementForces"].as_array().unwrap().is_empty());
+                        }
+                    }
+                }
+            }
+            replay.push(json!({"dim":dim,"kind":kind,"model":m,"output":outcome.as_ref().ok(),"error":outcome.as_ref().err()}));
+        }
+    }
+    if let Ok(prefix) = std::env::var("STABILEO_R17_CASES") {
+        std::fs::write(format!("{prefix}-{kind}-{dim}.json"), serde_json::to_vec(&replay).unwrap()).unwrap();
+    }
+}
+
+#[test]
+fn issue_1952_r17_staged_2d() { r17_public(2,"staged"); }
+#[test]
+fn issue_1952_r17_staged_3d() { r17_public(3,"staged"); }
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_r17_pdelta_2d() { r17_public(2,"pdelta"); }
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_r17_pdelta_3d() { r17_public(3,"pdelta"); }
