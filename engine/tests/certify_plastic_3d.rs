@@ -720,12 +720,12 @@ fn refusal_names_member(e: &str, member: usize, section: usize) {
 #[test]
 fn the_portal_sample_collapses_with_hinges_on_both_columns_1525() {
     let base: PlasticInput3D = serde_json::from_value(portal_sample()).unwrap();
-    let r = solve_plastic_3d(&base).unwrap();
+    let (_, r) = certify_with_history(&base);
     assert!((r.collapse_factor - 31.865).abs() < 5e-4, "{}", r.collapse_factor);
     assert!(r.is_mechanism);
     assert_eq!(hinged_members(&r), vec![1, 3]);
     let same = column_1_on_section_2(portal_sample(), Some(serde_json::json!({"a": 0.001, "iy": 8e-6, "iz": 4e-6, "materialId": 1})), Some([100.0, 50.0]));
-    let s = solve_plastic_3d(&same).unwrap();
+    let (_, s) = certify_with_history(&same);
     assert_eq!(s.collapse_factor.to_bits(), r.collapse_factor.to_bits());
     assert_eq!(hinged_members(&s), vec![1, 3]);
     let checked = certify_plastic_3d(&same).unwrap();
@@ -734,8 +734,7 @@ fn the_portal_sample_collapses_with_hinges_on_both_columns_1525() {
     assert!(checked.certificate.certified);
     assert_eq!(checked.certificate.solver_within_bounds, Some(false));
     assert!(checked.results.collapse_factor <= checked.certificate.lambda_upper.unwrap());
-    let raw = solve_plastic_3d(&same).unwrap();
-    let independent = certify_collapse_3d(&same, Some(&raw));
+    let independent = certify_collapse_3d(&same, Some(&s));
     assert!(independent.certified);
     assert_eq!(checked.certificate.lambda_lower, independent.lambda_lower);
     assert_eq!(checked.certificate.lambda_upper, independent.lambda_upper);
@@ -841,7 +840,6 @@ fn nightly_space_case_two_has_provable_bounds() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2084"]
 fn issue_2084_capacity_identity_survives_exact_admission() {
     let input = column_1_on_section_2(portal_sample(), None, None);
     for error in [
@@ -854,7 +852,6 @@ fn issue_2084_capacity_identity_survives_exact_admission() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2084"]
 fn issue_2084_model_refusal_precedes_exact_scope() {
     let mut input: PlasticInput3D = serde_json::from_value(portal_sample()).unwrap();
     input.solver.left_hand = Some(true);
@@ -870,7 +867,6 @@ fn issue_2084_model_refusal_precedes_exact_scope() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2084"]
 fn issue_2084_distorted_shell_refusal_identity() {
     let mut value = portal_sample();
     let solver = &mut value["solver"];
@@ -900,7 +896,7 @@ fn issue_2084_distorted_shell_refusal_identity() {
         let diagnostic = refusal["structuredDiagnostics"].as_array().unwrap().iter().find(|d| d["phase"] == "SH-MITC4-DISTORTION").unwrap();
         assert_eq!(diagnostic["code"], "known_issue");
         assert_eq!(diagnostic["severity"], "error");
-        assert_eq!(diagnostic["value"], 798);
+        assert_eq!(diagnostic["value"].as_f64(), Some(798.0));
         assert_eq!(diagnostic["elementIds"], serde_json::json!([1,2,3,4,5,6]));
     }
 }

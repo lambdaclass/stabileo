@@ -7,7 +7,8 @@
     "all": [
       "space3D",
       "analysis:plastic"
-    ]
+    ],
+    "any": ["members", "shells", "curvedShells", "springs", "constraints", "connectors"]
   },
   "quantities": [
     "*",

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { run, portal, checks, cumulativeStep, viewer, type Result } from './case';
+import { run, portal, checks, cumulativeStep, viewer, historyWarnings, type Result } from './case';
 import replayFile from '../../../../../research/benchmarks/plastic-collapse/results/stabileo_results.json';
 
 const replay = replayFile.result as Result;
@@ -8,7 +8,9 @@ const METRES = 1e-9;
 it('recomputes the replay with the production WASM wrapper', async () => {
   const result = await run();
   expect(result.isMechanism).toBe(true);
-  expect(result.warnings ?? []).toEqual([]);
+  expect(result.warnings).toHaveLength(1);
+  expect(result.warnings![0]).toContain('not certified by this interval');
+  expect(historyWarnings(result)).toEqual([]);
   expect(Math.abs(result.collapseFactor - portal.reference.combined)).toBeLessThan(portal.tolerance);
   expect(Math.abs(result.collapseFactor - replay.collapseFactor)).toBeLessThan(portal.tolerance);
   expect(checks(result).every(c => c.passed)).toBe(true);

@@ -225,3 +225,50 @@ hinges where no plastic capacity exists. Valid interior positions near both
 endpoints and a genuinely unloaded mechanism remain accepted or absent as
 appropriate. This is an internal invariant regression; no new public input
 returning a silently wrong factor on main was established by this change.
+
+## Admission diagnostics and benchmark compatibility (#2084)
+
+Exact model construction now runs the existing analysis-specific model validation
+before checking certificate scope. Distorted MITC4 shells retain their structured
+`SH-MITC4-DISTORTION` refusal even though shells cannot enter the plastic
+certificate. Missing frame capacities use the same structured
+`plastic_capacity_missing` constructor as the incremental solver. Public scalar
+and checked APIs propagate these errors unchanged, so JSON diagnostics cannot be
+turned into unparseable prefixed prose. The shared exact builder also protects
+independent certificate and bundle callers. Valid solid shells still cannot
+produce plastic frame certificates; their refusal identifies that unsupported
+scope rather than claiming that an elastic shell has no yielding section.
+
+The portal benchmark remains solvable. Its combined-mechanism value and all
+numeric tolerances are unchanged. Its native check now verifies the certified
+lower bound and the exact disclosure, then checks the raw history against its
+existing hinge, force and reaction assertions. The browser benchmark recognizes
+only the complete within-interval disclosure for its reported factor; all other
+solver warnings still fail its warning check and remain visible. The disclosure
+is not removed from the displayed result.
+
+The registry entry `plastic-collapse-shared-proof` now requires structural
+members, shells, springs, constraints or connectors in addition to 3D plastic
+analysis. An empty unknown-history project has no plastic result to re-check.
+The notice still covers prior shell-only plastic attempts, whose availability
+changed under the shared proof contract.
+
+### Local point-load coordinates
+
+The November 13 fixture is already a `PlasticInput3D`, not a web global-load
+record. Its `pointOnElement.py` and `.pz` are member-local components.
+`web/src/lib/engine/member-point-loads.ts::pointToSolver` projects the global
+force onto `ey` and `ez` before constructing that record.
+`engine/src/solver/plastic_3d.rs::local_fef` passes those components
+directly to the local fixed-end-force kernel. The exact model builder likewise
+stores them as local transverse member loads. Thus P_y and P_z in the formula
+above are local forces; applying another global-to-local transformation would
+rotate the load twice. The skew geometry changes the exact chord length, but
+not the meaning of these stored components.
+
+A new independently calculated control fixes both ends and compares equal-length
+axis-aligned and rational skew chords while retaining the same local point load
+and unequal local moment capacities. Both public native APIs return factors
+within the independent mechanism interval at the existing accuracy requirement.
+The skew control and original irrational-frame refusal also run through both
+WASM exports. No numerical reference for the saved fixture was changed.

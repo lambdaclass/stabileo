@@ -481,7 +481,7 @@ describe('which registered changes concern a model', () => {
     expect(ids(model())).not.toContain(change);
   });
 
-  it.skip('known wrong result: #2084: plastic proof notices require structural elements and preserve version boundaries', () => {
+  it('known wrong result: #2084: plastic proof notices require structural elements and preserve version boundaries', () => {
     const entry = RESULT_CHANGES.changes.find(c => c.id === 'plastic-collapse-shared-proof')!;
     for (const analysisMode of ['2d', '3d', 'pro']) {
       const empty = model({ analysisMode, supports: [], loadCases: [] });

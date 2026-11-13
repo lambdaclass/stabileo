@@ -557,7 +557,8 @@ fn plastic_3d_frame3d_2_is_a_lower_bound_of_its_certificate() {
     let checked = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&certifiable(&inp)).unwrap();
     let r = checked.results;
     assert!(r.collapse_factor >= lo && r.collapse_factor <= up, "{} vs [{lo}, {up}]", r.collapse_factor);
-    assert!(plastic::solve_plastic_3d(&inp).unwrap_err().contains("certificate unavailable"));
+    let error = plastic::solve_plastic_3d(&inp).unwrap_err();
+    assert_eq!(error, "prescribed support displacements are not supported");
 }
 
 /// Nightly findings that were harness defects (docs/verification/CONTAINMENT.md): each model,

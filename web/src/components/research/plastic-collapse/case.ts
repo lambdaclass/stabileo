@@ -82,6 +82,20 @@ export function residual(result: Result) {
 
 export const cornerMoment = (lambda: number) => 3 * portal.mp - lambda * portal.horizontal * portal.height;
 
+export function historyWarnings(result: Result): string[] {
+  const prefix = `collapseFactor is the certified lower bound ${result.collapseFactor}. Raw incremental factor `;
+  const suffix = ']. Incremental steps, hinges and the mechanism flag retain raw solver values and are not certified by this interval.';
+  return (result.warnings ?? []).filter(warning => {
+    if (!warning.startsWith(prefix) || !warning.endsWith(suffix)) return true;
+    const parts = warning.slice(prefix.length, -suffix.length).split(' lies within the certified interval [');
+    if (parts.length !== 2) return true;
+    const bounds = parts[1].split(', ');
+    if (bounds.length !== 2) return true;
+    const [raw, lower, upper] = [parts[0], ...bounds].map(Number);
+    return ![raw, lower, upper].every(Number.isFinite) || lower !== result.collapseFactor || raw < lower || raw > upper;
+  });
+}
+
 export function checks(result: Result): { id: CheckId; passed: boolean }[] {
   const { mp, vertical: v, span: l, tolerance, yieldTolerance, equilibriumTolerance } = portal;
   const lambda = result.collapseFactor;
@@ -119,7 +133,7 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
   const r = reactionsAtSupports ? residual(result) : { fx: NaN, fz: NaN, my: NaN };
   return [
     { id: 'collapse', passed: Math.abs(lambda - mechanisms().combined) < tolerance },
-    { id: 'mechanism', passed: result.isMechanism && !(result.warnings ?? []).length },
+    { id: 'mechanism', passed: result.isMechanism && !historyWarnings(result).length },
     { id: 'hinges', passed: hingeNodes.join() === '1,3,4,5' && hingesMatch && hingesCarryForces },
     { id: 'yield', passed: completeEvents && ends.length === 2 * elements.length && ends.every(m => Math.abs(m) <= mp * (1 + yieldTolerance)) && !yieldedOnTheWay },
     { id: 'equilibrium', passed: reactionsAtSupports && [r.fx, r.fz, r.my].every(x => Math.abs(x) < equilibriumTolerance) },

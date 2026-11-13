@@ -276,7 +276,8 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
     // inside this range; outside it the certificate is refused, not slow.
     super::finite::check_magnitudes(input, super::plastic::EXACT_MIN_ABS, super::plastic::EXACT_MAX_ABS)?;
     let s = &input.solver;
-    crate::solver::support::validate_supports_3d(s)?;
+    crate::solver::linear::validate_input_3d_for_analysis(s, crate::known_issues::Analysis::Plastic)?;
+    crate::known_issues::refuse_distorted(&crate::known_issues::for_3d(s, crate::known_issues::Analysis::Plastic))?;
     if !s.constraints.is_empty() {
         return Err("constraints are not supported by the plastic certificate".into());
     }
@@ -392,7 +393,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
             frame,
             rel,
             mp: if frame_elem {
-                Some(mp_by_sec.get(&el.section_id).cloned().ok_or_else(|| crate::solver::plastic::no_plastic_capacity_message(el.id, el.section_id))?)
+                Some(mp_by_sec.get(&el.section_id).cloned().ok_or_else(|| crate::solver::plastic::no_plastic_capacity(el.id, el.section_id))?)
             } else {
                 None
             },
@@ -2184,9 +2185,8 @@ fn collapse_3d(input: &PlasticInput3D, solver: Option<&PlasticResult3D>) -> Plas
 /// Run the incremental 3D plastic solver and certify its collapse load factor.
 pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, String> {
     super::finite::check_input(input)?;
-    crate::known_issues::refuse(&crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Plastic))?;
     {
-        let model = build_model_3d(input).map_err(|reason| format!("3D plastic collapse certificate unavailable: {reason}"))?;
+        let model = build_model_3d(input)?;
         lp_work(&model).initial().check_engine_budget()?;
     }
     let mut results = solve_plastic_3d_incremental(input)?;

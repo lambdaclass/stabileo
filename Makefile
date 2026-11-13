@@ -1167,4 +1167,10 @@ test.engine.plastic-1040:
 
 test.engine.plastic-1040-wasm: wasm
 	PLASTIC_1040_CASES=$(CURDIR)/.1040-wasm-cases $(MAKE) test.engine.plastic-1040
+	PLASTIC_1040_CASES=$(CURDIR)/.1040-wasm-cases $(MAKE) test.engine.targeted TEST=integration FILTER=issue_2084_point_load_components_are_local_for_skew_members
 	$(NIX_RUN) node scripts/tests/plastic-1040-wasm.mjs $(CURDIR)/.1040-wasm-cases
+
+.PHONY: test.web.containment
+
+test.web.containment:
+	$(NIX_RUN) node --test $(if $(FILTER),--test-name-pattern='$(FILTER)') web/determinism/containment.test.mjs

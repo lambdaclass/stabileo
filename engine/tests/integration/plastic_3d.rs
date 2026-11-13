@@ -667,3 +667,32 @@ fn issue_1040_wide_interval_is_refused_and_tight_control_returns() {
     let (lower,upper) = (independent.lambda_lower.unwrap(), independent.lambda_upper.unwrap());
     assert!((upper-lower)/lower > 5e-8);
 }
+
+#[test]
+fn issue_2084_point_load_components_are_local_for_skew_members() {
+    use dedaliano_engine::certify::exact::{q, qi};
+    let mut point: PlasticInput3D = serde_json::from_str(include_str!("../fixtures/plastic-1040-point-reversal.json")).unwrap();
+    for support in point.solver.supports.values_mut() {
+        (support.rx,support.ry,support.rz,support.rrx,support.rry,support.rrz) = (true,true,true,true,true,true);
+    }
+    for (id,x) in [("1",0.0),("2",5.0)] {
+        let node = point.solver.nodes.get_mut(id).unwrap();
+        (node.x,node.y,node.z) = (x,0.0,0.0);
+    }
+    let reference = issue_1040_point_mechanism(&point);
+    let node = point.solver.nodes.get_mut("2").unwrap();
+    (node.x,node.y) = (3.0,4.0);
+    let bounds = issue_1040_point_mechanism(&point);
+    assert_eq!(bounds, reference);
+    let lower = &bounds.0 / (qi(1) + q(5e-8).unwrap());
+    for factor in [solve_plastic_3d(&point).unwrap().collapse_factor, dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&point).unwrap().results.collapse_factor] {
+        let factor = q(factor).unwrap();
+        assert!(factor >= lower && factor <= bounds.1);
+    }
+    if let Ok(root) = std::env::var("PLASTIC_1040_CASES") {
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(std::path::Path::new(&root).join("point-skew-local-control.json"),serde_json::to_vec(&serde_json::json!({
+            "input":point,"lower":dedaliano_engine::certify::exact::to_f64_down(&lower).unwrap(),"upper":dedaliano_engine::certify::exact::to_f64_up(&bounds.1).unwrap()
+        })).unwrap()).unwrap();
+    }
+}

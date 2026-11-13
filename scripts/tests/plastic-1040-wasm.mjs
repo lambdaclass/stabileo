@@ -6,7 +6,7 @@ import { initSync, solve_plastic_3d, certify_plastic_3d, solve_plastic_2d, certi
 initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 const root = resolve(process.argv[2] ?? '.1040-wasm-cases');
 const cases = readdirSync(root).filter(name => name.endsWith('.json'));
-for (const name of ['base', 'mirror', 'relabel', 'reversal', 'rotation', 'small-units', 'large-units', 'inverse-load-scaling', 'arbitrary-rotation-control', 'point-reversal-refusal', 'point-rational-control']) {
+for (const name of ['base', 'mirror', 'relabel', 'reversal', 'rotation', 'small-units', 'large-units', 'inverse-load-scaling', 'arbitrary-rotation-control', 'point-reversal-refusal', 'point-rational-control', 'point-skew-local-control']) {
   assert.ok(cases.includes(`${name}.json`), `missing native case ${name}`);
 }
 const failures = [];
