@@ -22,23 +22,23 @@
     "reactions"
   ],
   "title": {
-    "en": "Unavailable P-Delta reactions are withheld",
-    "es": "Se omiten las reacciones P-Delta no disponibles",
-    "pt": "Reações P-Delta indisponíveis são omitidas",
-    "de": "Nicht verfügbare P-Delta-Reaktionen werden zurückgehalten",
-    "fr": "Les réactions P-Delta indisponibles sont retirées",
-    "tr": "Kullanılamayan P-Delta tepkileri döndürülmez"
+    "en": "P-Delta reactions require a passing physical residual",
+    "es": "Las reacciones P-Delta requieren que el residuo físico pase la comprobación",
+    "pt": "Reações P-Delta exigem aprovação na verificação do resíduo físico",
+    "de": "P-Delta-Reaktionen erfordern einen bestandenen physikalischen Residuencheck",
+    "fr": "Les réactions P-Delta exigent un résidu physique satisfaisant le contrôle",
+    "tr": "P-Delta tepkileri için fiziksel artık denetimi başarılı olmalıdır"
   },
   "explanation": {
-    "en": "P-Delta reactions are now returned as an empty collection when the existing equilibrium or residual check diagnoses them unavailable. Recheck saved P-Delta reactions (#1952).",
-    "es": "Las reacciones P-Delta se devuelven vacías cuando la comprobación existente de equilibrio o residuo las declara no disponibles. Revisá las reacciones P-Delta guardadas (#1952).",
-    "pt": "Reações P-Delta são retornadas vazias quando a verificação existente de equilíbrio ou resíduo as declara indisponíveis. Reveja as reações P-Delta salvas (#1952).",
-    "de": "P-Delta-Reaktionen werden leer zurückgegeben, wenn die vorhandene Gleichgewichts- oder Residuenprüfung sie als nicht verfügbar meldet. Prüfen Sie gespeicherte P-Delta-Reaktionen (#1952).",
-    "fr": "Les réactions P-Delta sont renvoyées vides lorsque le contrôle existant d’équilibre ou de résidu les déclare indisponibles. Revérifiez les réactions P-Delta enregistrées (#1952).",
-    "tr": "Mevcut denge veya artık denetimi P-Delta tepkilerini kullanılamaz olarak bildirirse tepkiler boş döndürülür. Kayıtlı P-Delta tepkilerini yeniden denetleyin (#1952)."
+    "en": "Recheck saved P-Delta forces. In native results, a failed physical residual preserves reaction, member-force, constraint-force and stress record identities while marking their numerical quantities unavailable with field-specific diagnostics. WASM and certified exports refuse these states. A passing residual retains the small-displacement answer, with a warning if the displaced-geometry balance check fails (#1952).",
+    "es": "Revisá los esfuerzos P-Delta guardados. En los resultados nativos, un residuo físico fallido conserva las identidades de los registros de reacciones, esfuerzos de miembros, fuerzas de restricciones y tensiones, pero marca sus cantidades numéricas como no disponibles con diagnósticos por campo. WASM y las exportaciones certificadas rechazan estos estados. Si el residuo pasa la comprobación, se conserva la respuesta de pequeños desplazamientos, con una advertencia si falla la comprobación de equilibrio en la geometría desplazada (#1952).",
+    "pt": "Reveja os esforços P-Delta salvos. Nos resultados nativos, uma falha do resíduo físico preserva as identidades dos registros de reações, esforços de membros, forças de restrições e tensões, mas marca suas grandezas numéricas como indisponíveis com diagnósticos por campo. WASM e as exportações certificadas recusam esses estados. Se o resíduo passa na verificação, a resposta de pequenos deslocamentos é mantida, com um aviso se a verificação de equilíbrio na geometria deslocada falhar (#1952).",
+    "de": "Prüfen Sie gespeicherte P-Delta-Kräfte. Bei fehlerhaftem physikalischem Residuum bleiben in nativen Ergebnissen die Identitäten der Reaktions-, Stabkraft-, Zwangskraft- und Spannungsdatensätze erhalten; ihre numerischen Größen werden mit feldspezifischen Diagnosen als nicht verfügbar gekennzeichnet. WASM und zertifizierte Exporte lehnen diese Zustände ab. Bei bestandenem Residuencheck bleibt das Ergebnis für kleine Verschiebungen erhalten, mit einer Warnung, falls die Gleichgewichtsprüfung an der verformten Geometrie fehlschlägt (#1952).",
+    "fr": "Revérifiez les efforts P-Delta enregistrés. Dans les résultats natifs, un résidu physique en échec conserve les identités des enregistrements de réactions, efforts de barres, forces de liaison et contraintes, mais marque leurs grandeurs numériques comme indisponibles avec des diagnostics propres à chaque champ. WASM et les exports certifiés refusent ces états. Si le résidu satisfait le contrôle, la réponse aux petits déplacements reste disponible, avec un avertissement si le contrôle d’équilibre dans la géométrie déplacée échoue (#1952).",
+    "tr": "Kayıtlı P-Delta kuvvetlerini yeniden denetleyin. Yerel sonuçlarda fiziksel artık denetimi başarısız olduğunda tepki, eleman kuvveti, kısıt kuvveti ve gerilme kayıtlarının kimlikleri korunur; sayısal büyüklükleri, her alana özgü tanılarla kullanılamaz olarak işaretlenir. WASM ve sertifikalı dışa aktarımlar bu durumları reddeder. Artık denetimi başarılıysa küçük yer değiştirme sonucu korunur; yer değiştirmiş geometrideki denge denetimi başarısızsa uyarı eklenir (#1952)."
   },
   "changelog": {
-    "file": "docs/results-changes/2026-11-unavailable-equilibrium-forces.md",
-    "heading": "Withhold unavailable equilibrium forces (2026-11-13)"
+    "file": "docs/results-changes/2026-11-pdelta-physical-containment.md",
+    "heading": "Physical P-Delta containment and withheld dynamic estimates (2026-11-13)"
   }
 }

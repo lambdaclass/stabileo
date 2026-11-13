@@ -2,6 +2,13 @@
 
 PR #1952, review round 17.
 
+The P-Delta behavior described for this round was superseded by
+[physical P-Delta containment](2026-11-pdelta-physical-containment.md): native
+records retain their identities with unavailable numerical quantities and
+field-specific diagnostics when the physical residual fails; WASM and certified
+exports refuse those states. A passing physical residual retains the answer,
+with a warning if the displaced-geometry balance check fails.
+
 Both staged result builders now check the physical free-DOF residual after
 constraint projection. The check uses the existing equilibrium metric with the
 static residual criterion (`relative_residual < 1e-6`), cumulative applied loads,

@@ -42,7 +42,25 @@ new claim about released results is made here.
 full field path, exact old and new serialized value, and explanation. The audit
 also records the merged main revision and WASM hash. It covers 144 frozen scalars
 and 83 replay scalars (12 + 22 + 6 + 10 + 7 + 8 + 11 + 7 = 83).
-No unlisted replay record changes. Existing web results
+
+The replay counts are computed from the audit and checked against the numeric
+leaves of each record's `after` result at `startingHead` and `7211457e8`, the
+merged recovery commit. They count this merge's changes, before later review
+rounds updated the replay again.
+
+| Replay record | Changed scalars |
+| --- | ---: |
+| `frozen-arch-0015ab84c3baa36f` | 12 |
+| `displacement-member-loads` | 22 |
+| `corotational-2d-restrained-master` | 6 |
+| `pdelta-2d-restrained-master` | 10 |
+| `ssi-2d-restrained-master` | 7 |
+| `corotational-3d-restrained-master` | 8 |
+| `pdelta-3d-restrained-master` | 11 |
+| `ssi-3d-restrained-master` | 7 |
+| **Total** | **83** |
+
+No unlisted replay record changed in this merge. Existing web results
 snapshots were compared against the merged engine and did not need regeneration.
 
 The new `merged-path-convergence-state` registry entry covers the changed path
