@@ -1,4 +1,3 @@
-import { assertHistoryWithheld } from './staged-history-containment.mjs';
 import { assertZeroReactions } from './staged-round7-reactions.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -45,11 +44,13 @@ for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [f
     ];
     const solve = dim === 2 ? solve_staged_2d : solve_staged_3d;
     check(`${dim}D pads=${pads} connected=${connected} moment=${moment} removed=${removed} cancel=${cancel} residual=${residual}`, () => {
-      if (refused) assert.throws(() => solve(JSON.stringify(input)), /rotation/);
-      else {
+      if (removed && moment !== 0) {
+        assert.throws(() => solve(JSON.stringify(input)), /#1996/);
+        for (const load of input.loads) load.data.my = 0;
+      }
+      {
         const out = JSON.parse(solve(JSON.stringify(input)));
         if (removed) {
-          if (moment !== 0) assertHistoryWithheld(out.finalResults);
           const unloadedControl = structuredClone(input);
           for (const load of unloadedControl.loads) load.data.my = 0;
           {

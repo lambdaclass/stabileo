@@ -329,7 +329,7 @@ pub fn solve_pdelta_2d_on(
     // Reactions and constraint forces of the system that was solved.
     let physical = PDeltaSystem2D::physical_residual(input, dof_num, sparse, &state.u);
     let (recovered, relative_residual) = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref());
-    let reactions = recovered.reactions_2d(dof_num, &u_global, its)?;
+    let reactions = recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_global), its)?;
     let constraint_forces = recovered.constraint_forces;
 
     let mut equilibrium = super::reaction_recovery::balance_2d(input, dof_num, &u_global, f, &reactions, its, tolerance);
@@ -623,7 +623,7 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     let b2 = stability_b2(state.indefinite, b2_factor(dof_num, 3, &to_global_3d(&u_prev, its), &u_global));
     let physical = PDeltaSystem3D::physical_residual(input, dof_num, sparse, &state.u);
     let (recovered, relative_residual) = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref());
-    let reactions = recovered.reactions_3d(dof_num, &u_global, its)?;
+    let reactions = recovered.reactions_3d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_global), its)?;
     let constraint_forces = recovered.constraint_forces;
 
     let mut equilibrium = super::reaction_recovery::balance_3d(input, dof_num, &u_global, f, &reactions, its, tolerance);

@@ -408,7 +408,6 @@ fn stage_with_no_elements() {
 
 /// Test 7: Element removal reduces stiffness.
 #[test]
-#[ignore = "known wrong result: #1996"]
 fn loaded_element_removal_refuses_unredistributed_deflection() {
     let (nodes, materials, sections, elements, supports) = make_three_node_beam();
 

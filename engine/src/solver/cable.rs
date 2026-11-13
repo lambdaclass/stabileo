@@ -648,7 +648,7 @@ fn solve_cable_2d_inner(
     }
 
     let displacements = linear::build_displacements_2d(&dof_num, &u_full);
-    let reactions = recovered.reactions_2d(&dof_num, &u_full, inclined_2d)?;
+    let reactions = recovered.reactions_2d(&dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_full), inclined_2d)?;
 
     let mut element_forces = linear::compute_internal_forces_2d(input, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
@@ -1021,7 +1021,7 @@ fn solve_cable_3d_inner(
     }
 
     let displacements = linear::build_displacements_3d(&dof_num, &u_full);
-    let reactions = recovered.reactions_3d(&dof_num, &u_full, inclined_3d)?;
+    let reactions = recovered.reactions_3d(&dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_full), inclined_3d)?;
 
     let mut element_forces = linear::compute_internal_forces_3d(input, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);

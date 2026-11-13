@@ -667,35 +667,23 @@ fn prop_removal_input() -> StagedInput {
 #[test]
 fn validation_staged_ext_5_prop_removal() {
     let staged_input = prop_removal_input();
-    assert_support_refusal(&staged_input, &[3]);
+    let error = solve_staged_2d(&staged_input).unwrap_err();
+    assert!(error.contains("#1996"), "{error}");
     let first = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2], &[0])).unwrap();
-    let increment = solve_2d(&reference_input(&staged_input, &[1, 2], &[1], &[1], &[1])).unwrap();
     let mut supported = staged_input.clone();
     supported.stages[1].supports_removed.clear();
+    let error = solve_staged_2d(&supported).unwrap_err();
+    assert!(error.contains("#1996"), "{error}");
+    supported.stages.truncate(1);
     let actual = solve_staged_2d(&supported).unwrap();
-    assert_eq!(actual.stages.len(), 3);
+    assert_eq!(actual.stages.len(), 1);
     assert_stage_displacements(&actual.stages[0].results, &[&first], &[1,2,3]);
     assert_horizontal_stage_forces(&supported, &actual.stages[0].results, &[0]);
-    let mut load_increment = actual.stages[2].results.clone();
-    for d in &mut load_increment.displacements {
-        let before = actual.stages[1].results.displacements.iter().find(|b| b.node_id == d.node_id).unwrap();
-        d.ux -= before.ux;
-        d.uz -= before.uz;
-        d.ry -= before.ry;
-    }
-    assert_stage_displacements(&load_increment, &[&increment], &[1,2,3]);
-    assert_stage_displacements(&actual.final_results, &[&actual.stages[2].results], &[1,2,3]);
     assert_eq!(actual.stages[0].results.element_forces.len(), 2);
-    for r in [&actual.stages[1].results, &actual.stages[2].results, &actual.final_results] {
-        assert_history_unavailable(r);
-    }
-    let at = |r: &AnalysisResults| r.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
-    assert!((at(&actual.stages[2].results) - at(&actual.stages[1].results)).abs() > at(&actual.stages[0].results).abs());
 
 }
 
 #[test]
-#[ignore = "known wrong result: #1996"]
 fn issue_1996_loaded_member_removal_refuses_unredistributed_results() {
     let mut supported = prop_removal_input();
     supported.stages[1].supports_removed.clear();
@@ -1077,7 +1065,7 @@ fn check_r20_removal_cases(dim: i64, refused: bool) {
             let load = case["load"].as_f64().unwrap();
             for stage in result["stages"].as_array().unwrap().iter().skip(1) {
                 let r = &stage["results"];
-                assert!(!r["structuredDiagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "result_quantity_unavailable"), "{case}: {r}");
+                assert!(!r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable"), "{case}: {r}");
                 let u = r["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 1).unwrap()["ux"].as_f64().unwrap();
                 let expected = load * 5.0 / (200000.0 * 1000.0 * 0.01);
                 assert!((u - expected).abs() <= 1e-12 * expected.abs().max(1e-30), "{case}: {u} != {expected}");
@@ -1092,17 +1080,43 @@ fn check_r20_removal_cases(dim: i64, refused: bool) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1996"]
 fn issue_1996_r20_2d_loaded_removal() { check_r20_removal_cases(2, true); }
 
 #[test]
-#[ignore = "known wrong result: #1996"]
 fn issue_1996_r20_2d_unloaded_removal() { check_r20_removal_cases(2, false); }
 
 #[test]
-#[ignore = "known wrong result: #1996"]
 fn issue_1996_r20_3d_loaded_removal() { check_r20_removal_cases(3, true); }
 
 #[test]
-#[ignore = "known wrong result: #1996"]
 fn issue_1996_r20_3d_unloaded_removal() { check_r20_removal_cases(3, false); }
+
+#[test]
+fn issue_1952_r20_public_springs_preserve_global_components_and_inclined_refusal() {
+    use dedaliano_engine::solver::staged::{parse_staged_2d, parse_staged_3d, solve_staged_3d};
+    let cases: serde_json::Value = serde_json::from_str(include_str!("../../../fixtures/staged-global-springs-r20.json")).unwrap();
+    for case in cases.as_array().unwrap() {
+        let model = case["model"].to_string();
+        let result = if case["dim"] == 2 {
+            solve_staged_2d(&parse_staged_2d(&model).unwrap()).map(|r| serde_json::to_value(r).unwrap())
+        } else {
+            solve_staged_3d(&parse_staged_3d(&model).unwrap()).map(|r| serde_json::to_value(r).unwrap())
+        };
+        if case["refused"] == true {
+            assert!(result.unwrap_err().contains("Inclined supports"));
+            continue;
+        }
+        let result = result.unwrap();
+        let r = &result["finalResults"];
+        let (displacements, reactions): (&[&str], &[&str]) = if case["dim"] == 2 { (&["ux","uz"], &["rx","rz"]) } else { (&["ux","uy","uz"], &["fx","fy","fz"]) };
+        assert_eq!(r["displacements"].as_array().unwrap().len(), 1);
+        assert_eq!(r["reactions"].as_array().unwrap().len(), 1);
+        for (keys, group, expected) in [(displacements, "displacements", "u"), (reactions, "reactions", "r")] {
+            for (i, key) in keys.iter().enumerate() {
+                let value = r[group][0][key].as_f64().unwrap();
+                let expected = case[expected][i].as_f64().unwrap();
+                assert!((value - expected).abs() < 1e-12, "{case}: {value} != {expected}");
+            }
+        }
+    }
+}

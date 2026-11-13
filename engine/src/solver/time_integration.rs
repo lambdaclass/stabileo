@@ -1169,7 +1169,7 @@ fn compute_reactions_at_state(
     u_frame.resize(n, 0.0);
     let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::linear_2d(solver_input, dof_num, &u_frame), f_full, dof_num, cs);
     let u_global = assembly::to_global(&u_frame, n, its);
-    recovered.reactions_2d(dof_num, &u_global, its)
+    recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_global), its)
 }
 
 // ============================================================================
@@ -1754,7 +1754,7 @@ fn compute_reactions_at_state_3d(
     u_frame.resize(n, 0.0);
     let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::linear_3d(solver_input, dof_num, &u_frame), f_full, dof_num, cs);
     let u_global = assembly::to_global(&u_frame, n, its);
-    recovered.reactions_3d(dof_num, &u_global, its)
+    recovered.reactions_3d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_global), its)
 }
 
 #[cfg(test)]

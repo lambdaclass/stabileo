@@ -543,7 +543,8 @@ fn validation_staged_4_support_removal() {
         constraints: vec![],
     };
 
-    assert_support_refusal(&staged_input, &[3]);
+    let error = solve_staged_2d(&staged_input).unwrap_err();
+    assert!(error.contains("#1996"), "{error}");
     let full_reference = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2], &[0])).unwrap();
     let cantilever_reference = solve_2d(&reference_input(&staged_input, &[1, 2], &[1], &[1], &[0])).unwrap();
     let reloaded_reference = solve_2d(&reference_input(&staged_input, &[1, 2], &[1], &[1], &[0, 1])).unwrap();

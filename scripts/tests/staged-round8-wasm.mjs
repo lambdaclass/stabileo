@@ -1,4 +1,3 @@
-import { assertHistoryWithheld } from './staged-history-containment.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initSync, solve_3d, solve_staged_3d } from '../../web/src/lib/wasm/dedaliano_engine.js';
@@ -42,18 +41,16 @@ for (const pads of [0, 4, 5]) for (const constrained of [false, true]) {
   for (const axis of axes) for (const residual of [0, Number.EPSILON, -Number.EPSILON]) {
     check(`axis=${axis} pads=${pads} constrained=${constrained} residual=${residual}`, () => {
       const input = history(axis, pads, constrained, residual);
-      if (residual !== 0) {
-        assert.throws(() => solve_staged_3d(JSON.stringify(input)), /rotation/);
-        return;
-      }
-      const out = JSON.parse(solve_staged_3d(JSON.stringify(input)));
+      assert.throws(() => solve_staged_3d(JSON.stringify(input)), /#1996/);
+      const prefix = structuredClone(input);
+      prefix.stages = prefix.stages.slice(0, 1);
+      const out = JSON.parse(solve_staged_3d(JSON.stringify(prefix)));
       const shear = input.materials[1].e * 1000 / (2 * (1 + input.materials[1].nu));
       const expected = axis.map(x => x / 4 * Math.hypot(...axis) / (shear * input.sections[1].j));
       for (const stage of out.stages) {
         const tip = stage.results.displacements.find(d => d.nodeId === 2);
         for (const [i, field] of ['rx', 'ry', 'rz'].entries()) close(tip[field], expected[i]);
       }
-      assertHistoryWithheld(out.finalResults);
       const unloadedControl = structuredClone(input);
       for (const load of unloadedControl.loads) Object.assign(load.data, { mx: 0, my: 0, mz: 0 });
       {
@@ -77,18 +74,16 @@ for (const pads of [0, 4, 5]) for (const constrained of [false, true]) {
     delete referenceInput.elements[1];
     referenceInput.loads = [load];
     const reference = solve_3d(referenceInput);
-    const out = JSON.parse(solve_staged_3d(JSON.stringify(input)));
+    assert.throws(() => solve_staged_3d(JSON.stringify(input)), /#1996/);
     assert.ok(Math.abs(reference.displacements.find(d => d.nodeId === 2).rx) > 0);
-    for (const tip of reference.displacements) {
-      const first = out.stages[0].results.displacements.find(d => d.nodeId === tip.nodeId);
-      const final = out.finalResults.displacements.find(d => d.nodeId === tip.nodeId);
-      for (const field of ['rx', 'ry', 'rz']) close(final[field] - first[field], tip[field]);
-    }
-    assertHistoryWithheld(out.finalResults);
     const unloadedControl = structuredClone(input);
     for (const load of unloadedControl.loads.slice(0, 2)) Object.assign(load.data, { mx: 0, my: 0, mz: 0 });
     {
     const out = JSON.parse(solve_staged_3d(JSON.stringify(unloadedControl)));
+    for (const tip of reference.displacements) {
+      const got = out.finalResults.displacements.find(d => d.nodeId === tip.nodeId);
+      for (const field of ['rx', 'ry', 'rz']) close(got[field], tip[field]);
+    }
     assert.deepEqual(out.finalResults.reactions.map(r => r.nodeId).sort((a,b) => a-b), reference.reactions.map(r => r.nodeId).sort((a,b) => a-b));
     for (const reaction of reference.reactions) {
       const got = out.finalResults.reactions.find(r => r.nodeId === reaction.nodeId);

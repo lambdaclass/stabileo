@@ -1834,12 +1834,28 @@ fn r11_staged_history(dim: usize, removed: bool) {
                 for stage in m["stages"].as_array_mut().unwrap() { stage["loadIndices"] = json!([]); }
                 m["supports"]["0"]["dx"] = json!(0.0013 * sign);
             }
-            let output = if dim == 2 {
-                json!(staged::solve_staged_2d(&serde_json::from_value(m).unwrap()).unwrap())
-            } else {
-                json!(staged::solve_staged_3d(&serde_json::from_value(m).unwrap()).unwrap())
+            let solve = |model: Value| {
+                if dim == 2 {
+                    staged::solve_staged_2d(&serde_json::from_value(model).unwrap()).map(|r| json!(r))
+                } else {
+                    staged::solve_staged_3d(&serde_json::from_value(model).unwrap()).map(|r| json!(r))
+                }
             };
-            let unavailable = (case["unavailable"] == true || motion_only) && sign != 0.0;
+            let mut prefix = m.clone();
+            prefix["stages"].as_array_mut().unwrap().truncate(1);
+            let first = solve(prefix).unwrap();
+            let removed_ids = m["stages"][1]["elementsRemoved"].as_array();
+            let removes_loaded = first["finalResults"]["elementForces"].as_array().unwrap().iter().any(|f| {
+                removed_ids.is_some_and(|ids| ids.contains(&f["elementId"])) && f.as_object().unwrap().iter()
+                    .any(|(key, value)| (key.ends_with("Start") || key.ends_with("End")) && value.as_f64().is_some_and(|v| v != 0.0))
+            });
+            let output = solve(m);
+            if removes_loaded {
+                assert!(output.unwrap_err().contains("#1996"));
+                continue;
+            }
+            let output = output.unwrap();
+            let unavailable = !removed && (case["unavailable"] == true || motion_only) && sign != 0.0;
             for r in [&output["stages"][1]["results"], &output["stages"][2]["results"], &output["finalResults"]] {
                 let diagnostics = r["structuredDiagnostics"].as_array().map(Vec::as_slice).unwrap_or(&[]);
                 if unavailable {

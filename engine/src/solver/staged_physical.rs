@@ -21,10 +21,10 @@ impl PhysicalStageResidual {
         &self,
         metric: &super::super::convergence::EquilibriumMetric,
         dof: &DofNumbering,
-        u: &[f64],
+        u: &super::SolverDisplacements<'_>,
         cs: Option<&super::super::constraints::FreeConstraintSystem>,
     ) -> bool {
-        let support_driven = u[dof.n_free..].iter().any(|v| *v != 0.0);
+        let support_driven = u.as_slice()[dof.n_free..].iter().any(|v| *v != 0.0);
         let relative = metric.relative_residual(&self.residual, &self.applied, support_driven.then_some(1.0), cs);
         relative.is_finite() && relative < 1e-6
     }

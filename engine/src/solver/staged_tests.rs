@@ -40,7 +40,7 @@ fn settled_slave_residual(dim: usize) {
                     &dofs,
                     cs.as_ref(),
                 );
-                json!({"reactions":recovered.reactions_2d(&dofs,&u,&[]).unwrap(),"constraintForces":recovered.constraint_forces})
+                json!({"reactions":recovered.reactions_2d(&dofs,&crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u),&[]).unwrap(),"constraintForces":recovered.constraint_forces})
             } else {
                 let input: StagedInput3D = serde_json::from_value(m).unwrap();
                 let full = staged_to_full_solver_input_3d(&input);
@@ -68,7 +68,7 @@ fn settled_slave_residual(dim: usize) {
                     &dofs,
                     cs.as_ref(),
                 );
-                json!({"reactions":recovered.reactions_3d(&dofs,&u,&[]).unwrap(),"constraintForces":recovered.constraint_forces})
+                json!({"reactions":recovered.reactions_3d(&dofs,&crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u),&[]).unwrap(),"constraintForces":recovered.constraint_forces})
             };
             let forces = r["constraintForces"]
                 .as_array()
@@ -191,11 +191,11 @@ fn r14_cached_stabilization(dim: usize, sparse: bool) {
         }
         let reactions = if dim == 2 {
             json!(recovered
-                .reactions_2d(&dof, &u, &[])
+                .reactions_2d(&dof, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u), &[])
                 .unwrap())
         } else {
             json!(recovered
-                .reactions_3d(&dof, &u, &[])
+                .reactions_3d(&dof, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u), &[])
                 .unwrap())
         };
         let master = reactions
@@ -251,7 +251,7 @@ fn r17_recovery(dim: usize, empty: bool) {
                 let cs = FreeConstraintSystem::build_2d(&model, &dofs).unwrap();
                 let u = vec![0.0; dofs.n_total];
                 let residual = physical_recovery::recover(physical_recovery::StageModel::Plane(&model, &input.stages[0]), &dofs, &u);
-                json!(build_results_from_u(&u, &dofs, &model, &residual, cs.as_ref(), StageForceRecovery::CumulativeElastic, &[]).unwrap())
+                json!(build_results_from_u(&SolverDisplacements::new(&u), &dofs, &model, &residual, cs.as_ref(), &mut StageRecoveryHistory::default(), &[]).unwrap())
             } else {
                 let input: StagedInput3D = serde_json::from_value(m).unwrap();
                 let model = staged_to_full_solver_input_3d(&input);
@@ -259,7 +259,7 @@ fn r17_recovery(dim: usize, empty: bool) {
                 let cs = FreeConstraintSystem::build_3d(&model, &dofs).unwrap();
                 let u = vec![0.0; dofs.n_total];
                 let residual = physical_recovery::recover(physical_recovery::StageModel::Space(&model), &dofs, &u);
-                json!(build_results_from_u_3d(&u, &dofs, &model, &residual, cs.as_ref(), StageForceRecovery::CumulativeElastic).unwrap())
+                json!(build_results_from_u_3d(&SolverDisplacements::new(&u), &dofs, &model, &residual, cs.as_ref(), &mut StageRecoveryHistory::default()).unwrap())
             };
             let unavailable = empty || (!tied && sign != 0.0);
             let warned = result["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable");
@@ -303,7 +303,7 @@ fn r17_residual_boundary(dim: usize) {
             }
             let stage = serde_json::from_value(json!({"name":"boundary"})).unwrap();
             let residual = physical_recovery::recover(physical_recovery::StageModel::Plane(&model,&stage), &dofs, &u);
-            json!(build_results_from_u(&u,&dofs,&model,&residual,None,StageForceRecovery::CumulativeElastic,&[]).unwrap())
+            json!(build_results_from_u(&SolverDisplacements::new(&u),&dofs,&model,&residual,None,&mut StageRecoveryHistory::default(),&[]).unwrap())
         } else {
             let model = serde_json::from_value::<crate::types::units::ElasticInput3D>(m).unwrap().into_legacy();
             let dofs = DofNumbering::build_3d(&model);
@@ -311,7 +311,7 @@ fn r17_residual_boundary(dim: usize) {
             let mut u = dofs.displacement_vector_3d(&solved.displacements);
             for v in &mut u { *v *= 1.0 + relative; }
             let residual = physical_recovery::recover(physical_recovery::StageModel::Space(&model), &dofs, &u);
-            json!(build_results_from_u_3d(&u,&dofs,&model,&residual,None,StageForceRecovery::CumulativeElastic).unwrap())
+            json!(build_results_from_u_3d(&SolverDisplacements::new(&u),&dofs,&model,&residual,None,&mut StageRecoveryHistory::default()).unwrap())
         };
         let warned = result["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable");
         assert_eq!(warned, relative >= 1e-6, "{dim}D relative={relative}: {result}");
@@ -344,7 +344,7 @@ fn staged_r20_inclined_spring_uses_global_displacements() {
             u[it.dofs[1]] = (it.r[1][0] * 0.5 + it.r[1][1] * -sign * 0.5) * scale;
             let stage: ConstructionStage = serde_json::from_value(json!({"name":"inclined","supportsAdded":[1],"loadIndices":[0]})).unwrap();
             let residual = physical_recovery::recover(physical_recovery::StageModel::Plane(&model, &stage), &dofs, &u);
-            let result = build_results_from_u(&u, &dofs, &model, &residual, None, StageForceRecovery::CumulativeElastic, &asm.inclined_transforms_2d).unwrap();
+            let result = build_results_from_u(&SolverDisplacements::new(&u), &dofs, &model, &residual, None, &mut StageRecoveryHistory::default(), &asm.inclined_transforms_2d).unwrap();
             assert!(!result.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable), "{:?}", result);
             assert_eq!(result.reactions.len(), 1);
             assert!((result.reactions[0].rx + 2.0 * scale).abs() < 1e-12);
@@ -369,11 +369,54 @@ fn staged_r20_spatial_springs_keep_global_components() {
         let mut u = vec![0.0; dofs.n_total];
         for (i, value) in [0.5, 1.0, 1.5].into_iter().enumerate() { u[dofs.map[&(1,i)]] = value * scale; }
         let residual = physical_recovery::recover(physical_recovery::StageModel::Space(&model), &dofs, &u);
-        let result = build_results_from_u_3d(&u, &dofs, &model, &residual, None, StageForceRecovery::CumulativeElastic).unwrap();
+        let result = build_results_from_u_3d(&SolverDisplacements::new(&u), &dofs, &model, &residual, None, &mut StageRecoveryHistory::default()).unwrap();
         assert!(!result.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable), "{:?}", result);
         assert_eq!(result.reactions.len(), 1);
         assert!((result.reactions[0].fx + scale).abs() < 1e-12);
         assert!((result.reactions[0].fy + 4.0 * scale).abs() < 1e-12);
         assert!((result.reactions[0].fz + 9.0 * scale).abs() < 1e-12);
     }
+}
+
+#[test]
+fn staged_r20_spatial_inclined_spring_reactions_use_global_displacements() {
+    use serde_json::json;
+    for scale in [-1.0, 0.0, 1.0] {
+        let model: SolverInput3D = serde_json::from_value(json!({
+            "nodes":{"1":{"id":1,"x":0.0,"y":0.0,"z":0.0}},
+            "materials":{},"sections":{},"elements":{},
+            "supports":{"1":{"nodeId":1,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":2.0,"ky":4.0,"kz":8.0,"isInclined":true,"normalX":1.0,"normalY":1.0,"normalZ":0.0}},
+            "loads":[{"type":"nodal","data":{"nodeId":1,"fx":1.5*scale,"fy":-1.5*scale,"fz":2.0*scale,"mx":0.0,"my":0.0,"mz":0.0}}]
+        })).unwrap();
+        let dofs = DofNumbering::build_3d(&model);
+        let asm = super::super::assembly::without_artificial_stiffness(|| assemble_3d(&model, &dofs));
+        let mut u = vec![0.0; dofs.n_total];
+        let it = &asm.inclined_transforms[0];
+        for i in 0..3 {
+            u[it.dofs[i]] = (it.r[i][0] * 0.5 - it.r[i][1] * 0.5 + it.r[i][2] * 0.25) * scale;
+        }
+        let residual = physical_recovery::recover(physical_recovery::StageModel::Space(&model), &dofs, &u);
+        let recovered = super::super::reaction_recovery::RecoveredForces::from_stage(&residual, &dofs, None);
+        let solver_u = SolverDisplacements::new(&u);
+        let global_u = solver_u.to_global_3d(&asm.inclined_transforms);
+        let reactions = recovered.reactions_3d(&dofs, &global_u, &asm.inclined_transforms).unwrap();
+        assert_eq!(reactions.len(), 1);
+        for (value, expected) in [reactions[0].fx, reactions[0].fy, reactions[0].fz].into_iter().zip([-1.5,1.5,-2.0]) {
+            assert!((value - expected * scale).abs() < 1e-12, "{reactions:?}");
+        }
+    }
+}
+
+#[test]
+fn staged_r20_uncertified_state_cannot_certify_unloaded_removal() {
+    let mut history = StageRecoveryHistory::default();
+    history.record_member_forces([(1, false)].into_iter(), true);
+    assert!(history.check_member_removal(&[1]).is_ok());
+    history.record_member_forces([(1, false)].into_iter(), false);
+    let error = history.check_member_removal(&[1]).unwrap_err();
+    assert!(error.contains("#1996"), "{error}");
+    history.unavailable = true;
+    history.record_member_forces([(1, false)].into_iter(), true);
+    let error = history.check_member_removal(&[1]).unwrap_err();
+    assert!(error.contains("#1996"), "{error}");
 }

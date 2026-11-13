@@ -398,7 +398,7 @@ fn guyan_reduce_2d_sparse(input: &GuyanInput, dof_num: &DofNumbering) -> Result<
     // Build results
     let displacements = super::linear::build_displacements_2d(dof_num, &u_full);
     let element_forces = super::linear::compute_internal_forces_2d(&input.solver, dof_num, &u_full);
-    let reactions = recovered.reactions_2d(dof_num, &u_full, &stiff.inclined_transforms_2d)?;
+    let reactions = recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_full), &stiff.inclined_transforms_2d)?;
 
     Ok(GuyanResult {
         structured_diagnostics: crate::known_issues::sparse_stiffness_conditioning(k_sp).or_else(|| crate::known_issues::sparse_conditioning(&stiff.k_ff)).into_iter().collect(),
@@ -560,7 +560,7 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
     // Build results
     let displacements = super::linear::build_displacements_2d(dof_num, &u_full);
     let element_forces = super::linear::compute_internal_forces_2d(&input.solver, dof_num, &u_full);
-    let reactions = recovered.reactions_2d(dof_num, &u_full, &asm.inclined_transforms_2d)?;
+    let reactions = recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_full), &asm.inclined_transforms_2d)?;
 
     Ok(GuyanResult {
         structured_diagnostics: crate::known_issues::dense_stiffness_conditioning(&k_ff, ns).or(assembled_conditioning).into_iter().collect(),
@@ -1258,7 +1258,7 @@ fn guyan_reduce_3d_contained(input: &GuyanInput3D) -> Result<GuyanResult3D, Stri
         assembly::reverse_inclined_transform(&mut u_full, &it.dofs, &it.r);
     }
 
-    let reactions = recovered.reactions_3d(&dof_num, &u_full, &sasm_full.inclined_transforms)?;
+    let reactions = recovered.reactions_3d(&dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_full), &sasm_full.inclined_transforms)?;
 
     // Build 3D results
     let displacements = super::linear::build_displacements_3d(&dof_num, &u_full);

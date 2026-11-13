@@ -6,6 +6,34 @@ use super::{
 };
 use crate::types::*;
 
+pub(super) struct SolverDisplacements<'a>(&'a [f64]);
+
+pub(super) struct GlobalDisplacements<'a>(std::borrow::Cow<'a, [f64]>);
+
+impl<'a> SolverDisplacements<'a> {
+    pub(super) fn new(values: &'a [f64]) -> Self { Self(values) }
+    pub(super) fn as_slice(&self) -> &[f64] { self.0 }
+    pub(super) fn to_global_2d(&self, transforms: &[InclinedTransformData2D]) -> GlobalDisplacements<'a> {
+        let mut values = self.0.to_vec();
+        for transform in transforms {
+            super::assembly::reverse_inclined_transform_2d(&mut values, &transform.dofs, &transform.r);
+        }
+        GlobalDisplacements(std::borrow::Cow::Owned(values))
+    }
+    pub(super) fn to_global_3d(&self, transforms: &[InclinedTransformData]) -> GlobalDisplacements<'a> {
+        let mut values = self.0.to_vec();
+        for transform in transforms {
+            super::assembly::reverse_inclined_transform(&mut values, &transform.dofs, &transform.r);
+        }
+        GlobalDisplacements(std::borrow::Cow::Owned(values))
+    }
+}
+
+impl<'a> GlobalDisplacements<'a> {
+    pub(super) fn from_global(values: &'a [f64]) -> Self { Self(std::borrow::Cow::Borrowed(values)) }
+    pub(super) fn as_slice(&self) -> &[f64] { &self.0 }
+}
+
 #[derive(Clone)]
 pub(super) enum ExpandedReactionModel {
     Plane(ExpandedReactionModel2D),
@@ -130,7 +158,7 @@ impl RecoveredForces {
     pub(super) fn reactions_2d(
         &self,
         dofs: &DofNumbering,
-        u_global: &[f64],
+        u_global: &GlobalDisplacements<'_>,
         its: &[InclinedTransformData2D],
     ) -> Result<Vec<Reaction>, String> {
         let ExpandedReactionModel::Plane(input) = &self.model else { return Err("Spatial recovery model used for planar reactions".into()); };
@@ -144,7 +172,7 @@ impl RecoveredForces {
             restrained,
             &[],
             dofs.n_free,
-            u_global,
+            u_global.as_slice(),
             its,
         );
         r.sort_by_key(|r| r.node_id);
@@ -154,7 +182,7 @@ impl RecoveredForces {
     pub(super) fn reactions_3d(
         &self,
         dofs: &DofNumbering,
-        u_global: &[f64],
+        u_global: &GlobalDisplacements<'_>,
         its: &[InclinedTransformData],
     ) -> Result<Vec<Reaction3D>, String> {
         let ExpandedReactionModel::Space(input) = &self.model else { return Err("Planar recovery model used for spatial reactions".into()); };
@@ -167,7 +195,7 @@ impl RecoveredForces {
             &self.restrained,
             &[],
             dofs.n_free,
-            u_global,
+            u_global.as_slice(),
             its,
         );
         r.sort_by_key(|r| r.node_id);
@@ -764,7 +792,7 @@ mod r8_tests {
                 assert_eq!(artificial[slave], k * motion);
                 let contaminated = RecoveredForces::from_residual(&artificial, &dofs, cs.as_ref(), ExpandedReactionModel::plane(&input));
                 let contaminated_reactions =
-                    contaminated.reactions_2d(&dofs, &u, &[]).unwrap();
+                    contaminated.reactions_2d(&dofs, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u), &[]).unwrap();
                 let master = contaminated_reactions
                     .iter()
                     .find(|r| r.node_id == 2)

@@ -16,7 +16,7 @@ for (const c of cases) {
       for (const stage of m.stages) stage.loadIndices = [];
       m.supports[0].dx = motion;
     }
-    const unavailable = motion === null ? c.unavailable : !c.name.endsWith('unchanged') && motion !== 0;
+    let unavailable = motion === null ? c.unavailable : !c.name.endsWith('unchanged') && motion !== 0;
     for (let i = 0; i < padding; i++) {
       const id = 100+i;
       m.nodes[id] = {id,x:4+i,z:0,...(dim === 3 ? {y:0} : {})};
@@ -43,6 +43,17 @@ for (const c of cases) {
         }
       }
     } else {
+      const prefix = structuredClone(m);
+      prefix.stages = prefix.stages.slice(0, 1);
+      const first = JSON.parse(engine[`solve_staged_${dim}d`](JSON.stringify(prefix)));
+      const removed = m.stages[1].elementsRemoved ?? [];
+      const removesLoaded = first.finalResults.elementForces.some(f => removed.includes(f.elementId) && Object.entries(f).some(([key, value]) => (key.endsWith('Start') || key.endsWith('End')) && typeof value === 'number' && value !== 0));
+      if (removesLoaded) {
+        assert.throws(() => engine[`solve_staged_${dim}d`](JSON.stringify(m)), /#1996/);
+        console.log(`PASS ${c.name} padding=${padding} motion=${motion}: #1996 refusal`);
+        continue;
+      }
+      if (removed.length) unavailable = false;
       output = JSON.parse(engine[`solve_staged_${dim}d`](JSON.stringify(m)));
       if (!padding && motion === null) replay.push({name:c.name, dim, kind:c.kind, model:m, output});
       for (const r of [output.stages[1].results, output.stages[2].results, output.finalResults]) {

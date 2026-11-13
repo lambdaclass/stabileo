@@ -9,6 +9,7 @@ use crate::types::*;
 use crate::element::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
+use super::reaction_recovery::SolverDisplacements;
 use super::assembly::{AssemblyResult, assemble_2d, assemble_3d};
 use super::linear::{
     build_displacements_2d,
@@ -126,6 +127,9 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
     let use_sparse = ns >= super::linear::SPARSE_THRESHOLD;
 
     for (stage_idx, stage) in input.stages.iter().enumerate() {
+        recovery_history.check_member_removal(&stage.elements_removed)?;
+        let unloaded_removal_only = !stage.elements_removed.is_empty()
+            && stage.elements_added.is_empty() && stage.supports_added.is_empty() && stage.supports_removed.is_empty();
         // Update active sets
         for &eid in &stage.elements_added {
             active_elements.insert(eid);
@@ -167,7 +171,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             None
         };
 
-        let recovery = recovery_history.advance(
+        recovery_history.advance(
             StageStiffnessFingerprint::from_assembly(
                 stage_stiffness_contributors_2d(&stage_solver_input),
                 n, asm_dense.as_ref(),
@@ -176,6 +180,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             &cumulative_u,
             stage_results.last().is_some_and(|r| r.results.element_forces.iter().any(|f| [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end].iter().any(|v| *v != 0.0))),
             asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.f),
+            unloaded_removal_only,
         );
         // Build prescribed displacement vector
         let mut u_r = vec![0.0; nr];
@@ -286,12 +291,12 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             stage_name: stage.name.clone(),
             stage_index: stage_idx,
             results: build_results_from_u(
-                &cumulative_u,
+                &SolverDisplacements::new(&cumulative_u),
                 &dof_num,
                 &cumulative_solver_input,
                 &reactions_vec,
                 cs.as_ref(),
-                recovery,
+                &mut recovery_history,
                 inclined_transforms,
             )?,
         });
@@ -649,25 +654,57 @@ impl StageStiffnessFingerprint {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StageMemberState {
+    Unloaded,
+    Loaded,
+    Uncertified,
+}
+
 #[derive(Default)]
 struct StageRecoveryHistory {
     stiffness: StageStiffnessFingerprint,
     loaded: bool,
     unavailable: bool,
+    member_forces: HashMap<usize, StageMemberState>,
 }
 
 impl StageRecoveryHistory {
+    fn record_member_forces(&mut self, forces: impl Iterator<Item = (usize, bool)>, equilibrium_ok: bool) {
+        let certified = !self.unavailable && equilibrium_ok;
+        self.member_forces = forces.map(|(id, loaded)| (id, if !certified {
+            StageMemberState::Uncertified
+        } else if loaded {
+            StageMemberState::Loaded
+        } else {
+            StageMemberState::Unloaded
+        })).collect();
+    }
+
+    fn check_member_removal(&self, removed: &[usize]) -> Result<(), String> {
+        let loaded: Vec<_> = removed.iter().copied().filter(|id| self.member_forces.get(id).is_some_and(|state| *state != StageMemberState::Unloaded)).collect();
+        if loaded.is_empty() { return Ok(()); }
+        let message = format!("Staged history refused (#1996): removing member(s) {loaded:?} carrying internal force or lacking a certified unloaded state requires redistribution of released internal forces. Displacements, reactions and member forces for this history are unavailable.");
+        let diagnostic = StructuredDiagnostic::global(DiagnosticCode::ResultQuantityUnavailable, Severity::Error, &message)
+            .with_elements(loaded).with_phase("stageResults");
+        Err(serde_json::json!({"message": message, "structuredDiagnostics": [diagnostic]}).to_string())
+    }
+
+    fn recovery(&self) -> StageForceRecovery {
+        if self.unavailable { StageForceRecovery::UnavailableHistory } else { StageForceRecovery::CumulativeElastic }
+    }
+
     fn advance(
         &mut self,
         stiffness: StageStiffnessFingerprint,
         previous_u: &[f64],
         previous_forces: bool,
         stage_load: &[f64],
-    ) -> StageForceRecovery {
-        self.unavailable |= stiffness != self.stiffness && (self.loaded || previous_forces || previous_u.iter().any(|v| *v != 0.0));
+        unloaded_removal_only: bool,
+    ) {
+        self.unavailable |= !unloaded_removal_only && stiffness != self.stiffness && (self.loaded || previous_forces || previous_u.iter().any(|v| *v != 0.0));
         self.loaded |= stage_load.iter().any(|v| *v != 0.0);
         self.stiffness = stiffness;
-        if self.unavailable { StageForceRecovery::UnavailableHistory } else { StageForceRecovery::CumulativeElastic }
     }
 }
 
@@ -710,32 +747,31 @@ fn state_is_directly_prescribed(u: &[f64], n_free: usize, prescribed: &[f64]) ->
 
 /// Build AnalysisResults from cumulative displacements.
 fn build_results_from_u(
-    u: &[f64],
+    solver_u: &SolverDisplacements<'_>,
     dof_num: &DofNumbering,
     input: &SolverInput,
     reactions_vec: &PhysicalStageResidual,
     cs: Option<&FreeConstraintSystem>,
-    recovery: StageForceRecovery,
+    history: &mut StageRecoveryHistory,
     inclined_transforms: &[super::assembly::InclinedTransformData2D],
 ) -> Result<AnalysisResults, String> {
-    let solver_u = u;
-    let mut global_u = u.to_vec();
-    for it in inclined_transforms {
-        super::assembly::reverse_inclined_transform_2d(&mut global_u, &it.dofs, &it.r);
-    }
+    let global_u = solver_u.to_global_2d(inclined_transforms);
     let u = global_u.as_slice();
     let displacements = build_displacements_2d(dof_num, u);
     let mut element_forces = compute_internal_forces_2d(input, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
     let recovered = super::reaction_recovery::RecoveredForces::from_stage(reactions_vec, dof_num, cs);
     recovered.checked_restrained_2d(input, dof_num)?;
-    let reactions = recovered.reactions_2d(dof_num, u, inclined_transforms)?;
+    let reactions = recovered.reactions_2d(dof_num, &global_u, inclined_transforms)?;
 
     let prescribed = super::linear::prescribed_displacements_2d(input, dof_num);
     let determined = state_is_directly_prescribed(u, dof_num.n_free, &prescribed);
     let no_stiffness = !determined && input.elements.is_empty() && super::assembly::support_spring_entries_2d(input, dof_num).is_empty();
     let metric = super::convergence::EquilibriumMetric::for_2d(input, dof_num, cs)?;
     let equilibrium_ok = reactions_vec.equilibrium_ok(&metric, dof_num, solver_u, cs);
+
+    history.record_member_forces(element_forces.iter().map(|f| (f.element_id,
+        [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end].iter().any(|v| *v != 0.0))), equilibrium_ok && !no_stiffness);
 
     let mut results = AnalysisResults {
         displacements,
@@ -748,7 +784,7 @@ fn build_results_from_u(
         equilibrium: None,
         result_summary: None, solver_run_meta: None,
     };
-    contain_stage_results(&mut results, recovery, no_stiffness, equilibrium_ok);
+    contain_stage_results(&mut results, history.recovery(), no_stiffness, equilibrium_ok);
     Ok(results)
 }
 
@@ -851,6 +887,11 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
     for (stage_idx, stage) in input.stages.iter().enumerate() {
         cumulative_loads.extend(stage.load_indices.iter().filter_map(|&idx| input.loads.get(idx).cloned()));
         // Update active sets
+        recovery_history.check_member_removal(&stage.elements_removed)?;
+        let unloaded_removal_only = !stage.elements_removed.is_empty()
+            && stage.elements_added.is_empty() && stage.supports_added.is_empty() && stage.supports_removed.is_empty()
+            && stage.plates_added.is_empty() && stage.plates_removed.is_empty()
+            && stage.quads_added.is_empty() && stage.quads_removed.is_empty();
         for &eid in &stage.elements_added {
             active_elements.insert(eid);
         }
@@ -893,7 +934,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
             None
         };
 
-        let recovery = recovery_history.advance(
+        recovery_history.advance(
             StageStiffnessFingerprint::from_assembly(
                 stage_stiffness_contributors_3d(&stage_input),
                 n, asm_dense.as_ref(),
@@ -902,6 +943,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
             &cumulative_u,
             stage_results.last().is_some_and(|r| r.results.element_forces.iter().any(|f| [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.mx_start, f.mx_end, f.my_start, f.my_end, f.mz_start, f.mz_end].iter().any(|v| *v != 0.0))),
             asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.f),
+            unloaded_removal_only,
         );
         // Build prescribed displacement vector
         let mut u_r = vec![0.0; nr];
@@ -999,7 +1041,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         );
 
         // Build results for this stage
-        let results = build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &reactions_vec, cs.as_ref(), recovery)?;
+        let results = build_results_from_u_3d(&SolverDisplacements::new(&cumulative_u), &dof_num, &cum_input, &reactions_vec, cs.as_ref(), &mut recovery_history)?;
         crate::known_issues::membrane_bending_3d(&cum_input, &cum_input.loads, &results)?;
         stage_results.push(StageResult3D {
             stage_name: stage.name.clone(),
@@ -1176,18 +1218,20 @@ fn assemble_staged_3d_triplets(
 /// fixed-end forces), and quad stresses were never reported (found by the
 /// metamorphic energy and member-reversal checks).
 fn build_results_from_u_3d(
-    u: &[f64],
+    solver_u: &SolverDisplacements<'_>,
     dof_num: &DofNumbering,
     cum_input: &SolverInput3D,
     reactions_vec: &PhysicalStageResidual,
     cs: Option<&FreeConstraintSystem>,
-    recovery: StageForceRecovery,
+    history: &mut StageRecoveryHistory,
 ) -> Result<AnalysisResults3D, String> {
+    let global_u = solver_u.to_global_3d(&[]);
+    let u = global_u.as_slice();
     let displacements = build_displacements_3d(dof_num, u);
     let mut element_forces = super::linear::compute_internal_forces_3d_with_loads(cum_input, &cum_input.loads, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
     let recovered = super::reaction_recovery::RecoveredForces::from_stage(reactions_vec, dof_num, cs);
-    let reactions = recovered.reactions_3d(dof_num, u, &[])?;
+    let reactions = recovered.reactions_3d(dof_num, &global_u, &[])?;
     let plate_stresses = compute_plate_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
     let quad_stresses = super::linear::compute_quad_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
     let quad_nodal_stresses = super::linear::compute_quad_nodal_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
@@ -1196,7 +1240,11 @@ fn build_results_from_u_3d(
     let determined = state_is_directly_prescribed(u, dof_num.n_free, &prescribed);
     let no_stiffness = !determined && cum_input.elements.is_empty() && super::assembly::support_spring_entries_3d(cum_input, dof_num).is_empty() && cum_input.plates.is_empty() && cum_input.quads.is_empty() && cum_input.quad9s.is_empty();
     let metric = super::convergence::EquilibriumMetric::for_3d(cum_input, dof_num, cs)?;
-    let equilibrium_ok = reactions_vec.equilibrium_ok(&metric, dof_num, u, cs);
+    let equilibrium_ok = reactions_vec.equilibrium_ok(&metric, dof_num, solver_u, cs);
+
+    history.record_member_forces(element_forces.iter().map(|f| (f.element_id,
+        [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.mx_start, f.mx_end, f.my_start, f.my_end, f.mz_start, f.mz_end].iter().any(|v| *v != 0.0)
+            || f.bimoment_start.is_some_and(|v| v != 0.0) || f.bimoment_end.is_some_and(|v| v != 0.0))), equilibrium_ok && !no_stiffness);
 
     let mut results = AnalysisResults3D {
         displacements,
@@ -1213,7 +1261,7 @@ fn build_results_from_u_3d(
         timings: None,
         result_summary: None, solver_run_meta: None,
     };
-    contain_stage_results(&mut results, recovery, no_stiffness, equilibrium_ok);
+    contain_stage_results(&mut results, history.recovery(), no_stiffness, equilibrium_ok);
     Ok(results)
 }
 

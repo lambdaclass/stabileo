@@ -1952,6 +1952,12 @@ fn issue_1846_round5_persistent_moment_after_member_removal() {
                     ]);
                     let mut unloaded_control = v.clone();
                     let result = review_solve(dim, v);
+                    if removed && moment != 0.0 {
+                        assert!(result.unwrap_err().contains("#1996"));
+                        for load in unloaded_control["loads"].as_array_mut().unwrap() { load["data"]["my"] = 0.0.into(); }
+                        review_solve(dim, unloaded_control).unwrap();
+                        continue;
+                    }
                     assert_eq!(result.is_err(), refused, "{dim}D pads={pads} connected={connected} moment={moment} removed={removed} cancel={cancel} residual={residual}: {result:?}");
                     if refused {
                         assert!(result.unwrap_err().contains("rotation"));
@@ -2050,19 +2056,17 @@ fn issue_1943_round8_oblique_cancelled_moment_after_member_removal() {
                     let length = axis.iter().map(|x| x * x).sum::<f64>().sqrt();
                     let shear = input.materials["1"].e * 1000.0 / (2.0 * (1.0 + input.materials["1"].nu));
                     let expected: Vec<_> = axis.iter().map(|x| x / 4.0 * length / (shear * input.sections["1"].j)).collect();
-                    let out = solve_staged_3d(&input);
-                    if residual != 0.0 {
-                        assert!(out.unwrap_err().contains("rotation"), "axis={axis:?} pads={pads} residual={residual}");
-                        continue;
-                    }
-                    let out = out.unwrap_or_else(|e| panic!("axis={axis:?} pads={pads} constrained={constrained}: {e}"));
+                    let error = solve_staged_3d(&input).unwrap_err();
+                    assert!(error.contains("#1996"), "{error}");
+                    let mut loaded_prefix = input.clone();
+                    loaded_prefix.stages.truncate(1);
+                    let out = solve_staged_3d(&loaded_prefix).unwrap();
                     for stage in &out.stages {
                         let tip = stage.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
                         for (got, expected) in [tip.rx, tip.ry, tip.rz].into_iter().zip(&expected) {
                             assert!(got.is_finite() && (got - expected).abs() <= 1e-10, "axis={axis:?} pads={pads}: {tip:?}, expected={expected}");
                         }
                     }
-                    assert_history_withheld(&serde_json::to_value(&out.final_results).unwrap());
                     let mut unloaded_control = input.clone();
                     for load in &mut unloaded_control.loads {
                         if let SolverLoad3D::Nodal(load) = load { load.mx = 0.0; load.my = 0.0; load.mz = 0.0; }
@@ -2111,22 +2115,20 @@ fn issue_1943_round8_supported_moment_keeps_its_incremental_response() {
             reference.elements.remove("1");
             reference.loads = vec![load];
             let reference = solve_3d(&reference).unwrap();
-            let out = solve_staged_3d(&input).unwrap();
-            let first = &out.stages[0].results;
+            let error = solve_staged_3d(&input).unwrap_err();
+            assert!(error.contains("#1996"), "{error}");
             assert!(reference.displacements.iter().find(|d| d.node_id == 2).unwrap().rx.abs() > 0.0);
-            for tip in &reference.displacements {
-                let a = first.displacements.iter().find(|d| d.node_id == tip.node_id).unwrap();
-                let b = out.final_results.displacements.iter().find(|d| d.node_id == tip.node_id).unwrap();
-                for (a, b, expected) in [(a.rx,b.rx,tip.rx), (a.ry,b.ry,tip.ry), (a.rz,b.rz,tip.rz)] {
-                    assert!(b.is_finite() && (b - a - expected).abs() <= 1e-10, "{tip:?}");
-                }
-            }
-            assert_history_withheld(&serde_json::to_value(&out.final_results).unwrap());
             let mut unloaded_control = input.clone();
             for load in &mut unloaded_control.loads[..2] {
                 if let SolverLoad3D::Nodal(load) = load { load.mx = 0.0; load.my = 0.0; load.mz = 0.0; }
             }
             let out = solve_staged_3d(&unloaded_control).unwrap();
+            for tip in &reference.displacements {
+                let got = out.final_results.displacements.iter().find(|d| d.node_id == tip.node_id).unwrap();
+                for (a, b) in [(got.rx, tip.rx), (got.ry, tip.ry), (got.rz, tip.rz)] {
+                    assert!(a.is_finite() && (a - b).abs() <= 1e-10, "{got:?}, {tip:?}");
+                }
+            }
             for reaction in &reference.reactions {
                 let got = out.final_results.reactions.iter().find(|r| r.node_id == reaction.node_id).unwrap();
                 for (a,b) in [(got.fx,reaction.fx),(got.fy,reaction.fy),(got.fz,reaction.fz),(got.mx,reaction.mx),(got.my,reaction.my),(got.mz,reaction.mz)] {
