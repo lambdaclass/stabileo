@@ -258,3 +258,4 @@ mod nightly_harness;
 mod nightly_1113;
 
 mod released_load_work;
+mod ssi_elastic_2011;
