@@ -35,6 +35,12 @@ for (const dim of [2, 3]) {
     const support = out.results.reactions.reduce((sum,r) => sum + r[dim === 2 ? 'rz' : 'fz'], 0);
     const soil = out.springResults.reduce((sum,r) => sum + r.reaction, 0);
     assert.ok(Math.abs(applied + support - soil) < 1e-7, `${dim}D: ${applied} + ${support} - ${soil}`);
+    const nodes = input.solver.nodes;
+    const momentAt = (id, fx, fz, my) => nodes[id].z * fx - nodes[id].x * fz + (dim === 2 ? -my : my);
+    let moment = input.solver.loads.reduce((sum,l) => sum + momentAt(l.data.nodeId,l.data.fx,l.data.fz,l.data.my),0);
+    moment += out.results.reactions.reduce((sum,r) => sum + momentAt(r.nodeId,r[dim === 2 ? 'rx' : 'fx'],r[dim === 2 ? 'rz' : 'fz'],r.my),0);
+    moment += out.springResults.reduce((sum,r) => sum + nodes[r.nodeId].x * r.reaction,0);
+    assert.ok(Math.abs(moment) < 1e-7, `${dim}D independent SSI moment: ${moment}`);
     if (applied !== 0) { assert.ok(Math.abs(soil) > 1e-6); assert.ok(Math.abs(support) > 1e-6); }
     count++;
   }
