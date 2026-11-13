@@ -1,0 +1,45 @@
+{
+  "id": "time-history-withheld-reaction-estimates",
+  "date": "2026-11-13",
+  "prs": [
+    1952
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "springs",
+        "constraints"
+      ],
+      [
+        "analysis:timeHistory"
+      ]
+    ]
+  },
+  "quantities": [
+    "peakReactions",
+    "structuredDiagnostics"
+  ],
+  "title": {
+    "en": "Time-history elastic-only reaction estimates are withheld",
+    "es": "Se omiten las reacciones dinámicas estimadas solo con elasticidad",
+    "pt": "Estimativas de reações dinâmicas apenas elásticas são retiradas",
+    "de": "Rein elastische Zeitverlaufsreaktionen werden zurückgehalten",
+    "fr": "Les estimations purement élastiques des réactions temporelles sont retirées",
+    "tr": "Zaman tanım alanının yalnız elastik tepki tahminleri döndürülmez"
+  },
+  "explanation": {
+    "en": "Recheck saved time-history reactions. peakReactions is now empty with an unavailable diagnostic; the legacy elastic-only estimate is no longer returned. Displacement histories and peaks remain available (#1952; SA-2026-061).",
+    "es": "Revisá las reacciones dinámicas guardadas. peakReactions queda vacío con un diagnóstico de no disponibilidad; ya no se devuelve la estimación solo elástica. Se conservan historias y máximos de desplazamientos (#1952; SA-2026-061).",
+    "pt": "Reveja reações dinâmicas salvas. peakReactions fica vazio com diagnóstico de indisponibilidade; a estimativa apenas elástica deixa de ser retornada. Históricos e picos de deslocamento continuam disponíveis (#1952; SA-2026-061).",
+    "de": "Prüfen Sie gespeicherte Zeitverlaufsreaktionen. peakReactions ist jetzt leer und als nicht verfügbar gemeldet; die rein elastische Schätzung entfällt. Verschiebungsverläufe und Spitzen bleiben verfügbar (#1952; SA-2026-061).",
+    "fr": "Revérifiez les réactions temporelles enregistrées. peakReactions est désormais vide avec un diagnostic d’indisponibilité ; l’estimation purement élastique est retirée. Les historiques et pics de déplacement restent disponibles (#1952 ; SA-2026-061).",
+    "tr": "Kayıtlı zaman tanım alanı tepkilerini yeniden denetleyin. peakReactions artık kullanılamaz tanısıyla boştur; yalnız elastik tahmin döndürülmez. Yer değiştirme geçmişleri ve tepe değerleri korunur (#1952; SA-2026-061)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-pdelta-physical-containment.md",
+    "heading": "Physical P-Delta containment and withheld dynamic estimates (2026-11-13)"
+  }
+}

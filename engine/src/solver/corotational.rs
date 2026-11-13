@@ -414,7 +414,7 @@ pub fn solve_corotational_2d_from(
     } else {
         input
     };
-    let mut results = build_final_results(at_state, &dof_num, &u_full, &cs)?;
+    let mut results = build_final_results(at_state, &dof_num, &u_full, &cs, &asm.inclined_transforms_2d)?;
     crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
     crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Corotational));
 
@@ -431,7 +431,7 @@ pub fn solve_corotational_2d_from(
 /// The model under `factor` times its loads: the state an unconverged solve
 /// reports is the last converged increment, and its reactions and member
 /// forces are those of the load that increment carries.
-fn scaled_loads_2d(input: &SolverInput, factor: f64) -> SolverInput {
+pub(super) fn scaled_loads_2d(input: &SolverInput, factor: f64) -> SolverInput {
     let mut m = input.clone();
     for l in m.loads.iter_mut() {
         match l {
@@ -554,14 +554,15 @@ fn timoshenko_phi(e: f64, iz: f64, g_as: Option<f64>, l: f64) -> f64 {
 
 /// Assemble co-rotational internal forces and tangent stiffness for all elements.
 fn assemble_corotational(
-    input: &SolverInput,
-    dof_num: &DofNumbering,
-    u_full: &[f64],
-    f_int: &mut [f64],
-    k_t: &mut [f64],
+    input: &SolverInput, dof_num: &DofNumbering, u_full: &[f64], f_int: &mut [f64], k_t: &mut [f64],
 ) {
     let n = dof_num.n_total;
+    assemble_corotational_impl(input, dof_num, u_full, f_int, &mut |i, j, v| k_t[i * n + j] += v);
+}
 
+pub(super) fn assemble_corotational_impl(
+    input: &SolverInput, dof_num: &DofNumbering, u_full: &[f64], f_int: &mut [f64], scatter: &mut impl FnMut(usize, usize, f64),
+) {
     let node_by_id: std::collections::HashMap<usize, &SolverNode> =
         crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> =
@@ -569,24 +570,23 @@ fn assemble_corotational(
     let sec_by_id: std::collections::HashMap<usize, &SolverSection> =
         crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
 
-    let mut scatter = |gi: usize, gj: usize, v: f64| k_t[gi * n + gj] += v;
     for elem in crate::ordered::values(&input.elements) {
         let node_i = node_by_id[&elem.node_i];
         let node_j = node_by_id[&elem.node_j];
         let mat = mat_by_id[&elem.material_id];
         let sec = sec_by_id[&elem.section_id];
 
-        let e = mat.e * 1000.0; // MPa -> kN/m^2
+        let e = mat.e * 1000.0;
 
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             assemble_truss_corotational(
                 dof_num, elem, node_i, node_j, e, sec.a,
-                u_full, f_int, &mut scatter,
+                u_full, f_int, scatter,
             );
         } else {
             assemble_frame_corotational(
                 dof_num, elem, node_i, node_j, e, sec.a, sec.iz, shear_rigidity_2d(mat, sec),
-                u_full, f_int, &mut scatter,
+                u_full, f_int, scatter,
             );
         }
     }
@@ -607,40 +607,13 @@ pub(crate) fn assemble_corotational_triplets_2d(
     trip_cols: &mut Vec<usize>,
     trip_vals: &mut Vec<f64>,
 ) {
-    let node_by_id: std::collections::HashMap<usize, &SolverNode> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
-    let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> =
-        crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
-    let sec_by_id: std::collections::HashMap<usize, &SolverSection> =
-        crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
-
-    let mut scatter = |gi: usize, gj: usize, v: f64| {
+    assemble_corotational_impl(input, dof_num, u_full, f_int, &mut |gi, gj, v| {
         if gi >= gj {
             trip_rows.push(gi);
             trip_cols.push(gj);
             trip_vals.push(v);
         }
-    };
-    for elem in crate::ordered::values(&input.elements) {
-        let node_i = node_by_id[&elem.node_i];
-        let node_j = node_by_id[&elem.node_j];
-        let mat = mat_by_id[&elem.material_id];
-        let sec = sec_by_id[&elem.section_id];
-
-        let e = mat.e * 1000.0; // MPa -> kN/m^2
-
-        if elem.elem_type == "truss" || elem.elem_type == "cable" {
-            assemble_truss_corotational(
-                dof_num, elem, node_i, node_j, e, sec.a,
-                u_full, f_int, &mut scatter,
-            );
-        } else {
-            assemble_frame_corotational(
-                dof_num, elem, node_i, node_j, e, sec.a, sec.iz, shear_rigidity_2d(mat, sec),
-                u_full, f_int, &mut scatter,
-            );
-        }
-    }
+    });
 }
 
 /// Co-rotational treatment for a 2D truss element.
@@ -809,14 +782,8 @@ fn assemble_frame_corotational(
         }
     }
 
-    // Natural internal forces: q = K_nat * d_natural
-    let d_natural = [d_axial, theta_i, theta_j];
-    let mut q = [0.0; 3]; // [N, Mi, Mj]
-    for i in 0..3 {
-        for j in 0..3 {
-            q[i] += k_nat[i][j] * d_natural[j];
-        }
-    }
+    let f_local = corotational_frame_end_forces(&k_local, &[0.0, 0.0, theta_i, d_axial, 0.0, theta_j], l_n);
+    let q = [f_local[3], f_local[2], f_local[5]];
 
     // Global internal forces: f_int = B^T * q
     let ndof = 6;
@@ -900,6 +867,45 @@ fn wrap_angle(a: f64) -> f64 {
     if r <= -std::f64::consts::PI { r + two_pi } else { r }
 }
 
+struct MemberFixedEndActions<const N: usize> {
+    dead_reference: [f64; N],
+    eigenstrain_current: [f64; N],
+}
+
+impl<const N: usize> MemberFixedEndActions<N> {
+    fn in_final_frame(self, reference: Axes3, final_axes: Axes3) -> [f64; N] {
+        let dead = fixed_end_actions_in_final_frame(self.dead_reference, reference, final_axes);
+        std::array::from_fn(|i| dead[i] + self.eigenstrain_current[i])
+    }
+}
+
+fn spatial_end_actions(f: &ElementForces3D) -> [f64; 12] {
+    [
+        -f.n_start, f.vy_start, f.vz_start, f.mx_start, f.my_start, f.mz_start,
+        f.n_end, -f.vy_end, -f.vz_end, -f.mx_end, -f.my_end, -f.mz_end,
+    ]
+}
+
+fn fixed_end_actions_in_final_frame<const N: usize>(
+    actions: [f64; N],
+    reference: Axes3,
+    final_axes: Axes3,
+) -> [f64; N] {
+    assert_eq!(N % 3, 0);
+    let reference = [reference.0, reference.1, reference.2];
+    let final_axes = [final_axes.0, final_axes.1, final_axes.2];
+    let mut result = [0.0; N];
+    for offset in (0..N).step_by(3) {
+        for i in 0..3 {
+            for j in 0..3 {
+                let projection: f64 = (0..3).map(|k| final_axes[i][k] * reference[j][k]).sum();
+                result[offset + i] += projection * actions[offset + j];
+            }
+        }
+    }
+    result
+}
+
 /// Subtract fixed-end forces (FEF) from element loads in local coordinates.
 fn subtract_element_fef(
     input: &SolverInput,
@@ -907,7 +913,7 @@ fn subtract_element_fef(
     l: f64,
     e: f64,
     nu: f64,
-    _iz: f64,
+    member_chords: ([f64; 2], [f64; 2]),
     f_local: &mut [f64; 6],
     sec: &SolverSection,
 ) {
@@ -920,6 +926,7 @@ fn subtract_element_fef(
         0.0
     };
 
+    let mut actions = MemberFixedEndActions { dead_reference: [0.0; 6], eigenstrain_current: [0.0; 6] };
     for load in &input.loads {
         match load {
             SolverLoad::Distributed(dl) if dl.element_id == elem.id => {
@@ -935,7 +942,7 @@ fn subtract_element_fef(
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 for i in 0..6 {
-                    f_local[i] -= fef[i];
+                    actions.dead_reference[i] += fef[i];
                 }
             }
             SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
@@ -945,30 +952,42 @@ fn subtract_element_fef(
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 for i in 0..6 {
-                    f_local[i] -= fef[i];
+                    actions.dead_reference[i] += fef[i];
                 }
             }
             SolverLoad::Thermal(tl) if tl.element_id == elem.id => {
                 let alpha = tl.alpha();
                 let h = tl.depth(sec.a, sec.iz);
-                let mut fef = fef_thermal_2d(
-                    e, sec.a, sec.iz, l,
-                    tl.dt_uniform, tl.dt_gradient, alpha, h,
-                );
+                let mut fef =
+                    fef_thermal_2d(e, sec.a, sec.iz, l, tl.dt_uniform, tl.dt_gradient, alpha, h);
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 for i in 0..6 {
-                    f_local[i] -= fef[i];
+                    actions.eigenstrain_current[i] += fef[i];
                 }
             }
             SolverLoad::AxialDistributed(al) if al.element_id == elem.id => {
-                let fef = crate::element::fef_axial_distributed_2d(al.q_i, al.q_j, al.a.unwrap_or(0.0), al.b.unwrap_or(l), l);
+                let fef = crate::element::fef_axial_distributed_2d(
+                    al.q_i,
+                    al.q_j,
+                    al.a.unwrap_or(0.0),
+                    al.b.unwrap_or(l),
+                    l,
+                );
                 for i in 0..6 {
-                    f_local[i] -= fef[i];
+                    actions.dead_reference[i] += fef[i];
                 }
             }
             _ => {}
         }
+    }
+    let ([c0, s0], [cn, sn]) = member_chords;
+    let actions = actions.in_final_frame(
+        ([c0, s0, 0.0], [-s0, c0, 0.0], [0.0, 0.0, 1.0]),
+        ([cn, sn, 0.0], [-sn, cn, 0.0], [0.0, 0.0, 1.0]),
+    );
+    for i in 0..6 {
+        f_local[i] -= actions[i];
     }
 }
 
@@ -986,14 +1005,23 @@ pub(crate) fn add_spring_contributions(
     art: &[(usize, f64)],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    // Shared with the linear assembler (angle, rotational springs on any support).
-    for (i, j, k) in super::assembly::support_spring_entries_2d(input, dof_num) {
-        scatter(i, j, k);
-        f_int[i] += k * u_full[j];
-    }
+    add_physical_spring_contributions(input, dof_num, u_full, f_int, scatter);
     for &(d, k) in art {
         scatter(d, d, k);
         f_int[d] += k * u_full[d];
+    }
+}
+
+pub(super) fn add_physical_spring_contributions(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    f_int: &mut [f64],
+    scatter: &mut impl FnMut(usize, usize, f64),
+) {
+    for (i, j, k) in super::assembly::support_spring_entries_2d(input, dof_num) {
+        scatter(i, j, k);
+        f_int[i] += k * u_full[j];
     }
     crate::element::connector::corotational_connectors_2d(input, dof_num, u_full, f_int, scatter);
 }
@@ -1075,100 +1103,33 @@ fn compute_max_displacement(dof_num: &DofNumbering, u_full: &[f64]) -> f64 {
 }
 
 /// Build final AnalysisResults from the converged displacement field.
-fn build_final_results(
+pub(super) fn build_final_results(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u_full: &[f64],
     cs: &Option<FreeConstraintSystem>,
+    its: &[assembly::InclinedTransformData2D],
 ) -> Result<AnalysisResults, String> {
-    let n = dof_num.n_total;
-    let nf = dof_num.n_free;
-
     // Reactions: co-rotational internal forces at restrained DOFs minus external loads
-    let asm = assembly::assemble_2d(input, dof_num);
-    let art = assembly::artificial_stiffness_entries(&asm);
-    let nr = n - nf;
-    let f_r: Vec<f64> = (nf..n).map(|i| asm.f[i]).collect();
-
+    let f_applied = assembly::assemble_load_vector_2d(input, &input.loads, dof_num, its);
     // Reverse the inclined-support rotation to get TRUE global displacements
     // — needed both for correct co-rotational element geometry (elements
     // must see real nodal x/z, not the rotated tangent/normal pair stored
     // at inclined-support DOFs) and for reporting displacements/reactions/
     // element forces in GLOBAL axes, mirroring linear::solve_2d.
     let mut u_geom = u_full.to_vec();
-    for it in &asm.inclined_transforms_2d {
+    for it in its {
         assembly::reverse_inclined_transform_2d(&mut u_geom, &it.dofs, &it.r);
     }
 
     let displacements = super::linear::build_displacements_2d(dof_num, &u_geom);
 
-    let mut f_int_corot = vec![0.0; n];
-    // The dense k_dummy tangent is only consumed by the constraint-forces
-    // path below; when no constraints are active, skip the O(n²) assembly
-    // entirely and accumulate f_int via the triplet variants (f_int math is
-    // identical — reactions come from f_int, never from k_dummy).
-    let mut k_dummy = if cs.is_some() { vec![0.0; n * n] } else { Vec::new() };
-    if cs.is_some() {
-        assemble_corotational(input, dof_num, &u_geom, &mut f_int_corot, &mut k_dummy);
-        add_spring_contributions(
-            input, dof_num, &u_geom, &mut f_int_corot, &art,
-            &mut |gi, gj, v| k_dummy[gi * n + gj] += v,
-        );
-
-        // Rotate back into the same rotated frame as asm.f before differencing —
-        // mirrors the per-iteration treatment in solve_corotational_2d.
-        for it in &asm.inclined_transforms_2d {
-            assembly::apply_inclined_transform_2d(&mut k_dummy, &mut f_int_corot, n, &it.dofs, &it.r);
-        }
-    } else {
-        let mut tr = Vec::new();
-        let mut tc = Vec::new();
-        let mut tv = Vec::new();
-        assemble_corotational_triplets_2d(
-            input, dof_num, &u_geom, &mut f_int_corot, &mut tr, &mut tc, &mut tv,
-        );
-        add_spring_contributions(
-            input, dof_num, &u_geom, &mut f_int_corot, &art,
-            &mut |d, _, v| {
-                tr.push(d);
-                tc.push(d);
-                tv.push(v);
-            },
-        );
-        for it in &asm.inclined_transforms_2d {
-            assembly::rotate_inclined_f_2d(&mut f_int_corot, &it.dofs, &it.r);
-        }
-    }
-
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = f_int_corot[nf + i] - asm.f[nf + i];
-    }
-
-    let mut reactions = super::linear::build_reactions_2d_inclined(
-        input, dof_num, &reactions_vec, &f_r, nf, &u_geom, &asm.inclined_transforms_2d,
-    );
-    reactions.sort_by_key(|r| r.node_id);
-
+    let physical = super::reaction_recovery::PhysicalForces::corotational_2d(input, dof_num, &u_geom, its);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_applied, dof_num, cs.as_ref());
+    let reactions = recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_geom), its)?;
+    let constraint_forces = recovered.constraint_forces;
     let mut element_forces = compute_corotational_forces(input, dof_num, &u_geom);
     element_forces.sort_by_key(|ef| ef.element_id);
-
-    // Compute constraint forces if constraints are active. Uses the
-    // pre-reversal u_full/k_dummy/asm.f — all three stay in the same
-    // "mixed" (rotated-at-incline-DOFs) convention the free-DOF solve used,
-    // same rationale as the constrained-path fix (constraints.rs).
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let mut k_ff = vec![0.0; nf * nf];
-        for i in 0..nf {
-            for j in 0..nf {
-                k_ff[i * nf + j] = k_dummy[i * n + j];
-            }
-        }
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        fcs.constraint_forces(&raw, dof_num)
-    } else {
-        vec![]
-    };
 
     Ok(AnalysisResults {
         displacements,
@@ -1181,6 +1142,15 @@ fn build_final_results(
         equilibrium: None,
         result_summary: None, solver_run_meta: None,
     })
+}
+
+fn corotational_frame_end_forces(k_local: &[f64], d_local: &[f64; 6], length: f64) -> [f64; 6] {
+    let at = |i: usize| (0..6).map(|j| k_local[i * 6 + j] * d_local[j]).sum::<f64>();
+    let n = at(3);
+    let mi = at(2);
+    let mj = at(5);
+    let shear = (mi + mj) / length;
+    [-n, shear, mi, n, -shear, mj].map(|force| if force == 0.0 { 0.0 } else { force })
 }
 
 /// Compute element internal forces using the co-rotational formulation.
@@ -1295,16 +1265,10 @@ pub fn compute_corotational_forces(
                 timoshenko_phi(e, sec.iz, shear_rigidity_2d(mat, sec), l0),
             );
 
-            // f_local = K_local * d_local
-            let mut f_local = [0.0; 6];
-            for i in 0..6 {
-                for j in 0..6 {
-                    f_local[i] += k_local[i * 6 + j] * d_local[j];
-                }
-            }
+            let mut f_local = corotational_frame_end_forces(&k_local, &d_local, l_n);
 
             // Subtract FEF for output (element forces = K*u - FEF)
-            subtract_element_fef(input, elem, l0, e, mat.nu, sec.iz, &mut f_local, sec);
+            subtract_element_fef(input, elem, l0, e, mat.nu, ([dx0 / l0, dy0 / l0], [dx_n / l_n, dy_n / l_n]), &mut f_local, sec);
 
             // Collect load metadata
             let (mut total_qi, mut total_qj) = (0.0, 0.0);
@@ -1659,7 +1623,7 @@ pub fn solve_corotational_3d(
     } else {
         input
     };
-    let mut results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags)?;
+    let mut results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags, &asm.inclined_transforms)?;
     crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
     crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Corotational));
     if deformations.iter().any(|d| d.natural > crate::known_issues::NL3_NATURAL_ROTATION) {
@@ -1716,7 +1680,7 @@ fn assemble_corotational_triplets_3d(
     assemble_corotational_3d_impl(input, dof_num, u_full, f_int, &mut scatter, left_hand);
 }
 
-fn assemble_corotational_3d_impl(
+pub(super) fn assemble_corotational_3d_impl(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u_full: &[f64],
@@ -2293,7 +2257,7 @@ fn rotation_vector(r: &[[f64; 3]; 3]) -> [f64; 3] {
 
 /// Add spring and connector stiffness and internal forces (3D); `scatter`
 /// receives every entry, off-diagonal ones included (see the 2D twin).
-fn add_spring_contributions_3d(
+pub(super) fn add_spring_contributions_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u_full: &[f64],
@@ -2342,85 +2306,24 @@ fn build_final_results_3d(
     left_hand: bool,
     cs: &Option<FreeConstraintSystem>,
     pre_solve_diags: Vec<StructuredDiagnostic>,
+    its: &[assembly::InclinedTransformData],
 ) -> Result<AnalysisResults3D, String> {
-    let n = dof_num.n_total;
-    let nf = dof_num.n_free;
-    let nr = n - nf;
-
-    // Reactions from co-rotational internal forces at restrained DOFs
-    let asm = assembly::assemble_3d(input, dof_num);
-
+    let f_applied = assembly::assemble_load_vector_3d_dense(input, &input.loads, dof_num, its);
     // Reverse the inclined-support rotation to get TRUE global displacements
     // — see the 2D build_final_results for the full rationale.
     let mut u_geom = u_full.to_vec();
-    for it in &asm.inclined_transforms {
+    for it in its {
         assembly::reverse_inclined_transform(&mut u_geom, &it.dofs, &it.r);
     }
 
     let displacements = super::linear::build_displacements_3d(dof_num, &u_geom);
 
-    let mut f_int_corot = vec![0.0; n];
-    // See build_final_results (2D): the dense k_dummy tangent is only used by
-    // the constraint-forces path; skip the O(n²) assembly when unconstrained.
-    let mut k_dummy = if cs.is_some() { vec![0.0; n * n] } else { Vec::new() };
-    if cs.is_some() {
-        assemble_corotational_3d(input, dof_num, &u_geom, &mut f_int_corot, &mut k_dummy, left_hand);
-        add_spring_contributions_3d(
-            input, dof_num, &u_geom, &mut f_int_corot,
-            &mut |gi, gj, v| k_dummy[gi * n + gj] += v,
-        );
-
-        for it in &asm.inclined_transforms {
-            assembly::apply_inclined_transform(&mut k_dummy, &mut f_int_corot, n, &it.dofs, &it.r);
-        }
-    } else {
-        let mut tr = Vec::new();
-        let mut tc = Vec::new();
-        let mut tv = Vec::new();
-        assemble_corotational_triplets_3d(
-            input, dof_num, &u_geom, &mut f_int_corot, &mut tr, &mut tc, &mut tv, left_hand,
-        );
-        add_spring_contributions_3d(
-            input, dof_num, &u_geom, &mut f_int_corot,
-            &mut |d, _, v| {
-                tr.push(d);
-                tc.push(d);
-                tv.push(v);
-            },
-        );
-        for it in &asm.inclined_transforms {
-            assembly::rotate_inclined_f_triplets(&mut f_int_corot, &it.dofs, &it.r);
-        }
-    }
-
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = f_int_corot[nf + i] - asm.f[nf + i];
-    }
-
-    let f_r: Vec<f64> = (nf..n).map(|i| asm.f[i]).collect();
-    let mut reactions = super::linear::build_reactions_3d_inclined(
-        input, dof_num, &reactions_vec, &f_r, nf, &u_geom, &asm.inclined_transforms,
-    );
-    reactions.sort_by_key(|r| r.node_id);
-
+    let physical = super::reaction_recovery::PhysicalForces::corotational_3d(input, dof_num, &u_geom, left_hand, its);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_applied, dof_num, cs.as_ref());
+    let reactions = recovered.reactions_3d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_geom), its)?;
+    let constraint_forces = recovered.constraint_forces;
     let mut element_forces = compute_corotational_forces_3d(input, dof_num, &u_geom, left_hand);
     element_forces.sort_by_key(|ef| ef.element_id);
-
-    // Compute constraint forces if constraints are active. Uses pre-reversal
-    // u_full/k_dummy/asm.f — same "mixed" convention rationale as the 2D path.
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let mut k_ff = vec![0.0; nf * nf];
-        for i in 0..nf {
-            for j in 0..nf {
-                k_ff[i * nf + j] = k_dummy[i * n + j];
-            }
-        }
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        fcs.constraint_forces(&raw, dof_num)
-    } else {
-        vec![]
-    };
 
     Ok(AnalysisResults3D {
         displacements,
@@ -2458,24 +2361,88 @@ fn compute_corotational_forces_3d(
     left_hand: bool,
 ) -> Vec<ElementForces3D> {
     let zero = vec![0.0; dof_num.n_total];
+    let (eigenstrain_loads, dead_loads): (Vec<_>, Vec<_>) = input.loads.iter().cloned()
+        .partition(|load| matches!(load, SolverLoad3D::Thermal(_)));
     let fixed_end: std::collections::HashMap<usize, ElementForces3D> =
-        super::linear::compute_internal_forces_3d(input, dof_num, &zero)
+        super::linear::compute_internal_forces_3d_with_loads(input, &dead_loads, dof_num, &zero)
             .into_iter()
             .map(|f| (f.element_id, f))
             .collect();
+    let eigenstrain: std::collections::HashMap<usize, [f64; 12]> = if eigenstrain_loads.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        super::linear::compute_internal_forces_3d_with_loads(input, &eigenstrain_loads, dof_num, &zero)
+            .into_iter()
+            .map(|f| (f.element_id, spatial_end_actions(&f)))
+            .collect()
+    };
+    let elements: std::collections::HashMap<_, _> = crate::ordered::values(&input.elements)
+        .map(|e| (e.id, e))
+        .collect();
+    let nodes: std::collections::HashMap<_, _> = crate::ordered::values(&input.nodes)
+        .map(|n| (n.id, n))
+        .collect();
     elastic_corotational_forces_3d(input, dof_num, u_full, left_hand)
         .into_iter()
         .map(|el| match fixed_end.get(&el.element_id) {
-            Some(fe) => ElementForces3D {
-                length: el.length,
-                n_start: fe.n_start + el.n_start, n_end: fe.n_end + el.n_end,
-                vy_start: fe.vy_start + el.vy_start, vy_end: fe.vy_end + el.vy_end,
-                vz_start: fe.vz_start + el.vz_start, vz_end: fe.vz_end + el.vz_end,
-                mx_start: fe.mx_start + el.mx_start, mx_end: fe.mx_end + el.mx_end,
-                my_start: fe.my_start + el.my_start, my_end: fe.my_end + el.my_end,
-                mz_start: fe.mz_start + el.mz_start, mz_end: fe.mz_end + el.mz_end,
-                ..fe.clone()
-            },
+            Some(fe) => {
+                let elem = elements[&el.element_id];
+                let ni = nodes[&elem.node_i];
+                let nj = nodes[&elem.node_j];
+                let at = |node, k| dof_num.global_dof(node, k).map_or(0.0, |d| u_full[d]);
+                let chord = [nj.x - ni.x, nj.y - ni.y, nj.z - ni.z];
+                let length = chord.iter().map(|v| v * v).sum::<f64>().sqrt();
+                let (yx, yy, yz) = corot_local_y_ref(
+                    ni.x,
+                    ni.y,
+                    ni.z,
+                    nj.x,
+                    nj.y,
+                    nj.z,
+                    elem.local_yx,
+                    elem.local_yy,
+                    elem.local_yz,
+                );
+                let reference = compute_local_axes_3d(
+                    ni.x,
+                    ni.y,
+                    ni.z,
+                    nj.x,
+                    nj.y,
+                    nj.z,
+                    yx,
+                    yy,
+                    yz,
+                    elem.roll_angle,
+                    left_hand,
+                );
+                let (final_axes, _, _, _) = natural_rotations_3d(
+                    (&reference.0, &reference.1, &reference.2),
+                    [3, 4, 5].map(|k| at(elem.node_i, k)),
+                    [3, 4, 5].map(|k| at(elem.node_j, k)),
+                    [0, 1, 2].map(|k| (at(elem.node_j, k) - at(elem.node_i, k)) / length),
+                );
+                let actions = MemberFixedEndActions {
+                    dead_reference: spatial_end_actions(fe),
+                    eigenstrain_current: eigenstrain.get(&el.element_id).copied().unwrap_or([0.0; 12]),
+                }.in_final_frame(reference, final_axes);
+                ElementForces3D {
+                    length: el.length,
+                    n_start: el.n_start - actions[0],
+                    n_end: el.n_end + actions[6],
+                    vy_start: el.vy_start + actions[1],
+                    vy_end: el.vy_end - actions[7],
+                    vz_start: el.vz_start + actions[2],
+                    vz_end: el.vz_end - actions[8],
+                    mx_start: el.mx_start + actions[3],
+                    mx_end: el.mx_end - actions[9],
+                    my_start: el.my_start + actions[4],
+                    my_end: el.my_end - actions[10],
+                    mz_start: el.mz_start + actions[5],
+                    mz_end: el.mz_end - actions[11],
+                    ..fe.clone()
+                }
+            }
             None => el,
         })
         .collect()
@@ -3067,6 +3034,346 @@ mod tests {
             "Axial force should be ~100 kN, got {}",
             ef.n_start
         );
+    }
+}
+
+#[cfg(test)]
+mod r9_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn close(actual: f64, expected: f64) {
+        assert!(
+            actual.is_finite() && (actual - expected).abs() < 1e-9,
+            "{actual} != {expected}"
+        );
+    }
+
+    #[test]
+    fn issue_1952_r9_reference_load_in_final_frame_2d() {
+        for alpha in [-1.0_f64, -1e-8, 0.0, 1e-8, 1.0] {
+            for hinge in [false, true] {
+                for load in [
+                    json!({"type":"distributed","data":{"elementId":1,"qI":-2.0,"qJ":-2.0}}),
+                    json!({"type":"distributed","data":{"elementId":1,"qI":-2.0,"qJ":-1.0,"a":0.4,"b":2.6}}),
+                    json!({"type":"pointOnElement","data":{"elementId":1,"p":-2.0,"px":1.0,"a":1.2}}),
+                    json!({"type":"axialDistributed","data":{"elementId":1,"qI":1.0,"qJ":2.0}}),
+                ] {
+                    let mut m: serde_json::Value = serde_json::from_str(include_str!(
+                        "../../tests/fixtures/reaction-recovery-2d.json"
+                    ))
+                    .unwrap();
+                    m["loads"] = json!([load]);
+                    m["elements"]["1"]["hingeEnd"] = json!(hinge);
+                    let input: SolverInput = serde_json::from_value(m).unwrap();
+                    let dofs = DofNumbering::build_2d(&input);
+                    let zero = vec![0.0; dofs.n_total];
+                    let reference = super::super::linear::compute_internal_forces_2d_with_loads(
+                        &input,
+                        &input.loads,
+                        &dofs,
+                        &zero,
+                    );
+                    assert_eq!(reference.len(), 1);
+                    let fe = &reference[0];
+                    let mut u = zero;
+                    u[dofs.global_dof(1, 0).unwrap()] = 3.0 * (alpha.cos() - 1.0);
+                    u[dofs.global_dof(1, 1).unwrap()] = 3.0 * alpha.sin();
+                    for node in [0, 1] {
+                        u[dofs.global_dof(node, 2).unwrap()] = alpha;
+                    }
+                    let result = compute_corotational_forces(&input, &dofs, &u);
+                    assert_eq!(result.len(), 1);
+                    let f = &result[0];
+                    for (n, v, rn, rv) in [
+                        (f.n_start, f.v_start, fe.n_start, fe.v_start),
+                        (f.n_end, f.v_end, fe.n_end, fe.v_end),
+                    ] {
+                        close(n, alpha.cos() * rn - alpha.sin() * rv);
+                        close(v, alpha.sin() * rn + alpha.cos() * rv);
+                    }
+                    close(f.m_start, fe.m_start);
+                    close(f.m_end, fe.m_end);
+                    close(f.length, 3.0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn issue_1952_r9_reference_load_in_final_frame_3d() {
+        for alpha in [-1.0_f64, -1e-8, 0.0, 1e-8, 1.0] {
+            for axis in [1, 2] {
+                let mut m: serde_json::Value = serde_json::from_str(include_str!(
+                    "../../tests/fixtures/reaction-recovery-3d.json"
+                ))
+                .unwrap();
+                m["elements"]["1"]["localYx"] = json!(0.0);
+                m["elements"]["1"]["localYy"] = json!(1.0);
+                m["elements"]["1"]["localYz"] = json!(0.0);
+                m["loads"] = json!([{"type":"distributed","data":{"elementId":1,"qYI":-2.0,"qYJ":-2.0,"qZI":-3.0,"qZJ":-3.0}}]);
+                let input: SolverInput3D = serde_json::from_value(m).unwrap();
+                let dofs = DofNumbering::build_3d(&input);
+                let zero = vec![0.0; dofs.n_total];
+                let reference = super::super::linear::compute_internal_forces_3d_with_loads(
+                    &input,
+                    &input.loads,
+                    &dofs,
+                    &zero,
+                );
+                assert_eq!(reference.len(), 1);
+                let fe = &reference[0];
+                let mut u = zero;
+                u[dofs.global_dof(1, 0).unwrap()] = 3.0 * (alpha.cos() - 1.0);
+                let transverse = if axis == 1 { 2 } else { 1 };
+                let sign = if axis == 1 { -1.0 } else { 1.0 };
+                u[dofs.global_dof(1, transverse).unwrap()] = sign * 3.0 * alpha.sin();
+                for node in [0, 1] {
+                    u[dofs.global_dof(node, 3 + axis).unwrap()] = alpha;
+                }
+                let result = compute_corotational_forces_3d(&input, &dofs, &u, false);
+                assert_eq!(result.len(), 1);
+                let f = &result[0];
+                let turn = |a: [f64; 3]| {
+                    if axis == 1 {
+                        [
+                            alpha.cos() * a[0] - alpha.sin() * a[2],
+                            a[1],
+                            alpha.sin() * a[0] + alpha.cos() * a[2],
+                        ]
+                    } else {
+                        [
+                            alpha.cos() * a[0] + alpha.sin() * a[1],
+                            -alpha.sin() * a[0] + alpha.cos() * a[1],
+                            a[2],
+                        ]
+                    }
+                };
+                for (a, b) in [
+                    (
+                        [-f.n_start, f.vy_start, f.vz_start],
+                        [-fe.n_start, fe.vy_start, fe.vz_start],
+                    ),
+                    (
+                        [f.n_end, -f.vy_end, -f.vz_end],
+                        [fe.n_end, -fe.vy_end, -fe.vz_end],
+                    ),
+                    (
+                        [f.mx_start, f.my_start, f.mz_start],
+                        [fe.mx_start, fe.my_start, fe.mz_start],
+                    ),
+                    (
+                        [-f.mx_end, -f.my_end, -f.mz_end],
+                        [-fe.mx_end, -fe.my_end, -fe.mz_end],
+                    ),
+                ] {
+                    for (v, expected) in a.into_iter().zip(turn(b)) {
+                        close(v, expected);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod r10_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn close(actual: f64, expected: f64) {
+        assert!(
+            actual.is_finite() && (actual - expected).abs() < 1e-9,
+            "{actual} != {expected}"
+        );
+    }
+
+    fn thermal_2d(uniform: bool) {
+        for alpha in [0.0_f64, -1e-8, 1e-8, -1.0, 1.0] {
+            for hinge in [false, true] {
+                for load in [json!({"type":"thermal","data":{"elementId":1,"dtUniform":if uniform {20.0} else {0.0},"dtGradient":if uniform {0.0} else {15.0},"alpha":0.00001,"depth":0.2}})] {
+                    let mut m: serde_json::Value = serde_json::from_str(include_str!(
+                        "../../tests/fixtures/reaction-recovery-2d.json"
+                    ))
+                    .unwrap();
+                    m["loads"] = json!([load]);
+                    m["elements"]["1"]["hingeEnd"] = json!(hinge);
+                    let input: SolverInput = serde_json::from_value(m).unwrap();
+                    let dofs = DofNumbering::build_2d(&input);
+                    let zero = vec![0.0; dofs.n_total];
+                    let reference = super::super::linear::compute_internal_forces_2d_with_loads(
+                        &input,
+                        &input.loads,
+                        &dofs,
+                        &zero,
+                    );
+                    assert_eq!(reference.len(), 1);
+                    let fe = &reference[0];
+                    if uniform {
+                        close(fe.n_start, -input.materials["1"].e * 1000.0 * input.sections["1"].a * 0.00001 * 20.0);
+                    } else {
+                        assert!(fe.m_start.abs() + fe.m_end.abs() > 0.0);
+                    }
+                    let mut u = zero;
+                    u[dofs.global_dof(1, 0).unwrap()] = 3.0 * (alpha.cos() - 1.0);
+                    u[dofs.global_dof(1, 1).unwrap()] = 3.0 * alpha.sin();
+                    for node in [0, 1] {
+                        u[dofs.global_dof(node, 2).unwrap()] = alpha;
+                    }
+                    let result = compute_corotational_forces(&input, &dofs, &u);
+                    assert_eq!(result.len(), 1);
+                    let f = &result[0];
+                    for (n, v, rn, rv) in [
+                        (f.n_start, f.v_start, fe.n_start, fe.v_start),
+                        (f.n_end, f.v_end, fe.n_end, fe.v_end),
+                    ] {
+                        close(n, rn);
+                        close(v, rv);
+                    }
+                    close(f.m_start, fe.m_start);
+                    close(f.m_end, fe.m_end);
+                    close(f.length, 3.0);
+                    let mut mechanical = input.clone();
+                    mechanical.loads = serde_json::from_value(json!([{"type":"distributed","data":{"elementId":1,"qI":-2.0,"qJ":-2.0}}])).unwrap();
+                    let mut mixed = input.clone();
+                    mixed.loads.extend(mechanical.loads.clone());
+                    let dead = compute_corotational_forces(&mechanical, &dofs, &u);
+                    let combined = compute_corotational_forces(&mixed, &dofs, &u);
+                    let d = &dead[0];
+                    let c = &combined[0];
+                    for (actual, thermal, mechanical) in [
+                        (c.n_start, fe.n_start, d.n_start), (c.n_end, fe.n_end, d.n_end),
+                        (c.v_start, fe.v_start, d.v_start), (c.v_end, fe.v_end, d.v_end),
+                        (c.m_start, fe.m_start, d.m_start), (c.m_end, fe.m_end, d.m_end),
+                    ] {
+                        close(actual, thermal + mechanical);
+                    }
+                }
+            }
+        }
+    }
+
+    fn thermal_3d(uniform: bool) {
+        for alpha in [0.0_f64, -1e-8, 1e-8, -1.0, 1.0] {
+            for axis in [1, 2] {
+                let mut m: serde_json::Value = serde_json::from_str(include_str!(
+                    "../../tests/fixtures/reaction-recovery-3d.json"
+                ))
+                .unwrap();
+                m["elements"]["1"]["localYx"] = json!(0.0);
+                m["elements"]["1"]["localYy"] = json!(1.0);
+                m["elements"]["1"]["localYz"] = json!(0.0);
+                m["loads"] = json!([{"type":"thermal","data":{"elementId":1,"dtUniform":if uniform {20.0} else {0.0},"dtGradientY":if uniform {0.0} else {15.0},"dtGradientZ":if uniform {0.0} else {-10.0},"alpha":0.00001,"depthY":0.2,"depthZ":0.3}}]);
+                let input: SolverInput3D = serde_json::from_value(m).unwrap();
+                let dofs = DofNumbering::build_3d(&input);
+                let zero = vec![0.0; dofs.n_total];
+                let reference = super::super::linear::compute_internal_forces_3d_with_loads(
+                    &input,
+                    &input.loads,
+                    &dofs,
+                    &zero,
+                );
+                assert_eq!(reference.len(), 1);
+                let fe = &reference[0];
+                if uniform {
+                    close(fe.n_start, -input.materials["1"].e * 1000.0 * input.sections["1"].a * 0.00001 * 20.0);
+                } else {
+                    assert!(fe.my_start.abs() + fe.mz_start.abs() > 0.0);
+                }
+                let mut u = zero;
+                u[dofs.global_dof(1, 0).unwrap()] = 3.0 * (alpha.cos() - 1.0);
+                let transverse = if axis == 1 { 2 } else { 1 };
+                let sign = if axis == 1 { -1.0 } else { 1.0 };
+                u[dofs.global_dof(1, transverse).unwrap()] = sign * 3.0 * alpha.sin();
+                for node in [0, 1] {
+                    u[dofs.global_dof(node, 3 + axis).unwrap()] = alpha;
+                }
+                let result = compute_corotational_forces_3d(&input, &dofs, &u, false);
+                assert_eq!(result.len(), 1);
+                let f = &result[0];
+                let mut mechanical = input.clone();
+                mechanical.loads = serde_json::from_value(json!([{"type":"distributed","data":{"elementId":1,"qYI":-2.0,"qYJ":-2.0,"qZI":-3.0,"qZJ":-3.0}}])).unwrap();
+                let mut mixed = input.clone();
+                mixed.loads.extend(mechanical.loads.clone());
+                let dead = compute_corotational_forces_3d(&mechanical, &dofs, &u, false);
+                let combined = compute_corotational_forces_3d(&mixed, &dofs, &u, false);
+                let d = &dead[0];
+                let c = &combined[0];
+                for (actual, thermal, mechanical) in [
+                    (c.n_start, fe.n_start, d.n_start), (c.n_end, fe.n_end, d.n_end),
+                    (c.vy_start, fe.vy_start, d.vy_start), (c.vy_end, fe.vy_end, d.vy_end),
+                    (c.vz_start, fe.vz_start, d.vz_start), (c.vz_end, fe.vz_end, d.vz_end),
+                    (c.mx_start, fe.mx_start, d.mx_start), (c.mx_end, fe.mx_end, d.mx_end),
+                    (c.my_start, fe.my_start, d.my_start), (c.my_end, fe.my_end, d.my_end),
+                    (c.mz_start, fe.mz_start, d.mz_start), (c.mz_end, fe.mz_end, d.mz_end),
+                ] {
+                    close(actual, thermal + mechanical);
+                }
+                for (a, b) in [
+                    (
+                        [-f.n_start, f.vy_start, f.vz_start],
+                        [-fe.n_start, fe.vy_start, fe.vz_start],
+                    ),
+                    (
+                        [f.n_end, -f.vy_end, -f.vz_end],
+                        [fe.n_end, -fe.vy_end, -fe.vz_end],
+                    ),
+                    (
+                        [f.mx_start, f.my_start, f.mz_start],
+                        [fe.mx_start, fe.my_start, fe.mz_start],
+                    ),
+                    (
+                        [-f.mx_end, -f.my_end, -f.mz_end],
+                        [-fe.mx_end, -fe.my_end, -fe.mz_end],
+                    ),
+                ] {
+                    for (v, expected) in a.into_iter().zip(b) {
+                        close(v, expected);
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn issue_1952_r10_uniform_thermal_follows_member_2d() {
+        thermal_2d(true);
+    }
+
+    #[test]
+    fn issue_1952_r10_gradient_thermal_follows_member_2d() {
+        thermal_2d(false);
+    }
+
+    #[test]
+    fn issue_1952_r10_uniform_thermal_follows_member_3d() {
+        thermal_3d(true);
+    }
+
+    #[test]
+    fn issue_1952_r10_gradient_thermal_follows_member_3d() {
+        thermal_3d(false);
+    }
+
+    #[test]
+    fn issue_1952_r10_native_thermal_refusals_unchanged() {
+        use super::super::arc_length::*;
+        for dt in [-20.0, 0.0, 20.0] {
+            let mut m: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-2d.json")).unwrap();
+            m["loads"] = json!([{"type":"thermal","data":{"elementId":1,"dtUniform":dt,"dtGradient":dt,"alpha":0.00001,"depth":0.2}}]);
+            let input: SolverInput = serde_json::from_value(m.clone()).unwrap();
+            let start = CorotationalStart2D { input: &input, displacements: &[] };
+            assert!(solve_corotational_2d(&input, 40, 1e-9, 2, false).unwrap_err().contains("thermal loads"));
+            assert!(solve_corotational_2d_from(&input, Some(&start), 40, 1e-9, 2, false).unwrap_err().contains("thermal loads"));
+            let arc: ArcLengthInput = serde_json::from_value(json!({"solver":m})).unwrap();
+            assert!(solve_arc_length(&arc).unwrap_err().contains("thermal loads"));
+            assert!(solve_arc_length_from(&arc, Some(&start)).unwrap_err().contains("thermal loads"));
+            let disp: DisplacementControlInput = serde_json::from_value(json!({"solver":m,"controlNode":1,"controlDof":1,"targetDisplacement":-0.01})).unwrap();
+            assert!(solve_displacement_control(&disp).unwrap_err().contains("thermal loads"));
+            let mut m: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
+            m["loads"] = json!([{"type":"thermal","data":{"elementId":1,"dtUniform":dt,"dtGradientY":dt,"dtGradientZ":dt,"alpha":0.00001,"depthY":0.2,"depthZ":0.3}}]);
+            let input: SolverInput3D = serde_json::from_value(m).unwrap();
+            assert!(solve_corotational_3d(&input, 40, 1e-9, 2, false).unwrap_err().contains("thermal loads"));
+        }
     }
 }
 

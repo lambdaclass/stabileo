@@ -1,0 +1,212 @@
+{
+  "2": {
+    "nodes": {
+      "0": {
+        "id": 0,
+        "x": 0.0,
+        "z": 0.0
+      },
+      "1": {
+        "id": 1,
+        "x": 3.0,
+        "z": 0.0
+      },
+      "2": {
+        "id": 2,
+        "x": 0.0,
+        "z": 0.0
+      }
+    },
+    "materials": {
+      "1": {
+        "id": 1,
+        "e": 200000.0,
+        "nu": 0.3
+      }
+    },
+    "sections": {
+      "1": {
+        "id": 1,
+        "a": 0.01,
+        "iz": 0.0001
+      }
+    },
+    "elements": {
+      "1": {
+        "id": 1,
+        "type": "frame",
+        "nodeI": 0,
+        "nodeJ": 1,
+        "materialId": 1,
+        "sectionId": 1,
+        "hingeStart": false,
+        "hingeEnd": true
+      }
+    },
+    "supports": {
+      "0": {
+        "id": 0,
+        "nodeId": 0,
+        "type": "fixed"
+      },
+      "2": {
+        "id": 2,
+        "nodeId": 2,
+        "type": "fixed",
+        "dry": 0.0013
+      }
+    },
+    "loads": [
+      {
+        "type": "nodal",
+        "data": {
+          "nodeId": 1,
+          "fx": 0.0,
+          "fz": -10.0,
+          "my": 0.0
+        }
+      }
+    ],
+    "constraints": [
+      {
+        "type": "equalDOF",
+        "masterNode": 2,
+        "slaveNode": 1,
+        "dofs": [
+          2
+        ]
+      }
+    ],
+    "stages": [
+      {
+        "name": "released rotation follows restrained master",
+        "elementsAdded": [
+          1
+        ],
+        "supportsAdded": [
+          0,
+          2
+        ],
+        "loadIndices": [
+          0
+        ]
+      },
+      {
+        "name": "unchanged stage"
+      }
+    ]
+  },
+  "3": {
+    "nodes": {
+      "0": {
+        "id": 0,
+        "x": 0.0,
+        "z": 0.0,
+        "y": 0.0
+      },
+      "1": {
+        "id": 1,
+        "x": 3.0,
+        "z": 0.0,
+        "y": 0.0
+      },
+      "2": {
+        "id": 2,
+        "x": 0.0,
+        "z": 0.0,
+        "y": 0.0
+      }
+    },
+    "materials": {
+      "1": {
+        "id": 1,
+        "e": 200000.0,
+        "nu": 0.3
+      }
+    },
+    "sections": {
+      "1": {
+        "id": 1,
+        "a": 0.01,
+        "iz": 0.0001,
+        "iy": 0.0001,
+        "j": 0.0001
+      }
+    },
+    "elements": {
+      "1": {
+        "id": 1,
+        "type": "frame",
+        "nodeI": 0,
+        "nodeJ": 1,
+        "materialId": 1,
+        "sectionId": 1,
+        "releaseMyEnd": true
+      }
+    },
+    "supports": {
+      "0": {
+        "nodeId": 0,
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      },
+      "2": {
+        "nodeId": 2,
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true,
+        "id": 2,
+        "dry": 0.0013
+      }
+    },
+    "loads": [
+      {
+        "type": "nodal",
+        "data": {
+          "nodeId": 1,
+          "fx": 0.0,
+          "fz": -10.0,
+          "my": 0.0,
+          "fy": 0.0,
+          "mx": 0.0,
+          "mz": 0.0
+        }
+      }
+    ],
+    "constraints": [
+      {
+        "type": "equalDOF",
+        "masterNode": 2,
+        "slaveNode": 1,
+        "dofs": [
+          4
+        ]
+      }
+    ],
+    "stages": [
+      {
+        "name": "released rotation follows restrained master",
+        "elementsAdded": [
+          1
+        ],
+        "supportsAdded": [
+          0,
+          2
+        ],
+        "loadIndices": [
+          0
+        ]
+      },
+      {
+        "name": "unchanged stage"
+      }
+    ]
+  }
+}

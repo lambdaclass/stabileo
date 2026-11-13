@@ -901,7 +901,7 @@ impl PreparedStatic2D<'_> {
 
                 let displacements = build_displacements_2d(dof_num, &u_full);
                 let mut reactions = build_reactions_2d_inclined(
-                    input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
+                    &super::reaction_recovery::ExpandedReactionModel2D::from_assembly(input), dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
                 );
                 reactions.sort_by_key(|r| r.node_id);
                 let mut element_forces = compute_internal_forces_2d_typed(input, loads, dof_num, &u_full, &self.properties);
@@ -989,7 +989,7 @@ impl PreparedStatic2D<'_> {
                 // Build results
                 let displacements = build_displacements_2d(dof_num, &u_full);
                 let mut reactions = build_reactions_2d_inclined(
-                    input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
+                    &super::reaction_recovery::ExpandedReactionModel2D::from_assembly(input), dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
                 );
                 reactions.sort_by_key(|r| r.node_id);
                 let mut element_forces = compute_internal_forces_2d_typed(input, loads, dof_num, &u_full, &self.properties);
@@ -1152,7 +1152,7 @@ impl PreparedStatic2D<'_> {
                 // Build results
                 let displacements = build_displacements_2d(dof_num, &u_full);
                 let mut reactions = build_reactions_2d_inclined(
-                    input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
+                    &super::reaction_recovery::ExpandedReactionModel2D::from_assembly(input), dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
                 );
                 reactions.sort_by_key(|r| r.node_id);
                 let mut element_forces = compute_internal_forces_2d_typed(input, loads, dof_num, &u_full, &self.properties);
@@ -1322,7 +1322,7 @@ impl PreparedStatic2D<'_> {
                 // Build results
                 let displacements = build_displacements_2d(dof_num, &u_full);
                 let mut reactions = build_reactions_2d_inclined(
-                    input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
+                    &super::reaction_recovery::ExpandedReactionModel2D::from_assembly(input), dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
                 );
                 reactions.sort_by_key(|r| r.node_id);
                 let mut element_forces = compute_internal_forces_2d_typed(input, loads, dof_num, &u_full, &self.properties);
@@ -2041,7 +2041,7 @@ impl PreparedStatic3D {
 
         let displacements = build_displacements_3d(dof_num, &u_full);
         let mut reactions = build_reactions_3d_inclined(
-            input, dof_num, &reactions_vec, &f_r, nf, &u_full, &p.inclined_transforms,
+            &super::reaction_recovery::ExpandedReactionModel3D::from_assembly(input), dof_num, &reactions_vec, &f_r, nf, &u_full, &p.inclined_transforms,
         );
         reactions.sort_by_key(|r| r.node_id);
         let mut element_forces = compute_internal_forces_3d_with_loads(input, loads, dof_num, &u_full);
@@ -2152,7 +2152,7 @@ impl PreparedStatic3D {
 
         let displacements = build_displacements_3d(dof_num, &u_full);
         let mut reactions = build_reactions_3d_inclined(
-            input, dof_num, &reactions_vec, &f_r, nf, &u_full, &p.inclined_transforms,
+            &super::reaction_recovery::ExpandedReactionModel3D::from_assembly(input), dof_num, &reactions_vec, &f_r, nf, &u_full, &p.inclined_transforms,
         );
         reactions.sort_by_key(|r| r.node_id);
         let mut element_forces = compute_internal_forces_3d_with_loads(input, loads, dof_num, &u_full);
@@ -2365,7 +2365,7 @@ impl PreparedStatic3D {
 
         let displacements = build_displacements_3d(dof_num, &u_full);
         let mut reactions = build_reactions_3d_inclined(
-            input, dof_num, &reactions_vec, &f_r, nf, &u_full, &p.inclined_transforms,
+            &super::reaction_recovery::ExpandedReactionModel3D::from_assembly(input), dof_num, &reactions_vec, &f_r, nf, &u_full, &p.inclined_transforms,
         );
         reactions.sort_by_key(|r| r.node_id);
         let mut element_forces = compute_internal_forces_3d_with_loads(input, loads, dof_num, &u_full);
@@ -2673,7 +2673,7 @@ impl PreparedStatic3D {
 
         let displacements = build_displacements_3d(dof_num, &u_full);
         let mut reactions = build_reactions_3d_inclined(
-            input, dof_num, &reactions_vec, &f_r, nf, &u_full, &p.inclined_transforms,
+            &super::reaction_recovery::ExpandedReactionModel3D::from_assembly(input), dof_num, &reactions_vec, &f_r, nf, &u_full, &p.inclined_transforms,
         );
         reactions.sort_by_key(|r| r.node_id);
         let mut element_forces = compute_internal_forces_3d_with_loads(input, loads, dof_num, &u_full);
@@ -2864,8 +2864,8 @@ pub(crate) fn build_displacements_3d(dof_num: &DofNumbering, u: &[f64]) -> Vec<D
     }).collect()
 }
 
-pub(crate) fn build_reactions_2d(
-    input: &SolverInput,
+pub(super) fn build_reactions_2d(
+    input: &super::reaction_recovery::ExpandedReactionModel2D,
     dof_num: &DofNumbering,
     reactions_vec: &[f64],
     _f_r: &[f64],
@@ -2951,14 +2951,14 @@ pub(crate) fn build_reactions_2d(
 }
 
 /// Supports in id order, so reactions are built deterministically.
-fn sorted_supports_2d(input: &SolverInput) -> Vec<&SolverSupport> {
-    let mut sups: Vec<&SolverSupport> = crate::ordered::values(&input.supports).collect();
+fn sorted_supports_2d(input: &super::reaction_recovery::ExpandedReactionModel2D) -> Vec<&SolverSupport> {
+    let mut sups: Vec<&SolverSupport> = crate::ordered::values(input.supports()).collect();
     sups.sort_by_key(|s| s.id);
     sups
 }
 
-pub(crate) fn build_reactions_2d_inclined(
-    input: &SolverInput,
+pub(super) fn build_reactions_2d_inclined(
+    input: &super::reaction_recovery::ExpandedReactionModel2D,
     dof_num: &DofNumbering,
     reactions_vec: &[f64],
     f_r: &[f64],
@@ -2980,7 +2980,7 @@ pub(crate) fn build_reactions_2d_inclined(
             // r_global = R^T * r_rotated
             r.rx = it.r[0][0] * rotated[0] + it.r[1][0] * rotated[1];
             r.rz = it.r[0][1] * rotated[0] + it.r[1][1] * rotated[1];
-            for sup in crate::ordered::values(&input.supports).filter(|s| s.node_id == it.node_id && s.support_type == "inclinedRoller") {
+            for sup in crate::ordered::values(input.supports()).filter(|s| s.node_id == it.node_id && s.support_type == "inclinedRoller") {
                 let (ux, uz) = (u_full[it.dofs[0]], u_full[it.dofs[1]]);
                 r.rx -= support_dofs_2d(sup)[0].spring.unwrap_or(0.0).max(0.0) * ux;
                 r.rz -= support_dofs_2d(sup)[1].spring.unwrap_or(0.0).max(0.0) * uz;
@@ -2991,8 +2991,8 @@ pub(crate) fn build_reactions_2d_inclined(
     reactions
 }
 
-pub(crate) fn build_reactions_3d(
-    input: &SolverInput3D,
+pub(super) fn build_reactions_3d(
+    input: &super::reaction_recovery::ExpandedReactionModel3D,
     dof_num: &DofNumbering,
     reactions_vec: &[f64],
     _f_r: &[f64],
@@ -3003,7 +3003,7 @@ pub(crate) fn build_reactions_3d(
     // As in build_reactions_2d: restrained-DOF reactions once per node, one
     // entry per node.
     let mut reported = std::collections::HashSet::new();
-    let mut sups: Vec<&SolverSupport3D> = crate::ordered::values(&input.supports).collect();
+    let mut sups: Vec<&SolverSupport3D> = crate::ordered::values(input.supports()).collect();
     sups.sort_by_key(|s| s.node_id);
     for sup in sups {
         let mut vals = [0.0f64; 6];
@@ -3066,8 +3066,8 @@ pub(crate) fn build_reactions_3d(
 }
 
 /// Build 3D reactions with inclined support back-transformation.
-pub(crate) fn build_reactions_3d_inclined(
-    input: &SolverInput3D,
+pub(super) fn build_reactions_3d_inclined(
+    input: &super::reaction_recovery::ExpandedReactionModel3D,
     dof_num: &DofNumbering,
     reactions_vec: &[f64],
     f_r: &[f64],
@@ -3089,7 +3089,7 @@ pub(crate) fn build_reactions_3d_inclined(
         if let Some(r) = reactions.iter_mut().find(|r| r.node_id == it.node_id) {
             let rn = r.fx;
             let mut f = [it.r[0][0] * rn, it.r[0][1] * rn, it.r[0][2] * rn];
-            if let Some(sup) = crate::ordered::values(&input.supports).find(|s| s.node_id == it.node_id && s.is_inclined.unwrap_or(false)) {
+            if let Some(sup) = crate::ordered::values(input.supports()).find(|s| s.node_id == it.node_id && s.is_inclined.unwrap_or(false)) {
                 let k = [support_dofs_3d(sup)[0].spring, support_dofs_3d(sup)[1].spring, support_dofs_3d(sup)[2].spring].map(|v| v.unwrap_or(0.0).max(0.0));
                 for c in 0..3 {
                     f[c] -= k[c] * u_full[it.dofs[c]];

@@ -1,0 +1,310 @@
+[
+  {
+    "dim": 2,
+    "refused": false,
+    "model": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        }
+      },
+      "elements": {},
+      "materials": {},
+      "sections": {},
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "spring",
+          "angle": -0.7853981633974483,
+          "kx": 2,
+          "ky": 6
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 2.0,
+            "fz": 1.0,
+            "my": 0
+          }
+        }
+      ],
+      "stages": [
+        {
+          "name": "spring",
+          "supportsAdded": [
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        }
+      ]
+    },
+    "u": [
+      0.5,
+      0
+    ],
+    "r": [
+      -2.0,
+      -1.0
+    ]
+  },
+  {
+    "dim": 2,
+    "refused": false,
+    "model": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        }
+      },
+      "elements": {},
+      "materials": {},
+      "sections": {},
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "spring",
+          "angle": 0,
+          "kx": 2,
+          "ky": 6
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 1.0,
+            "fz": -0.0,
+            "my": 0
+          }
+        }
+      ],
+      "stages": [
+        {
+          "name": "spring",
+          "supportsAdded": [
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        }
+      ]
+    },
+    "u": [
+      0.5,
+      0
+    ],
+    "r": [
+      -1.0,
+      0.0
+    ]
+  },
+  {
+    "dim": 2,
+    "refused": false,
+    "model": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        }
+      },
+      "elements": {},
+      "materials": {},
+      "sections": {},
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "spring",
+          "angle": 0.7853981633974483,
+          "kx": 2,
+          "ky": 6
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 2.0,
+            "fz": -1.0,
+            "my": 0
+          }
+        }
+      ],
+      "stages": [
+        {
+          "name": "spring",
+          "supportsAdded": [
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        }
+      ]
+    },
+    "u": [
+      0.5,
+      0
+    ],
+    "r": [
+      -2.0,
+      1.0
+    ]
+  },
+  {
+    "dim": 3,
+    "refused": false,
+    "model": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      },
+      "elements": {},
+      "materials": {},
+      "sections": {},
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": false,
+          "ry": false,
+          "rz": false,
+          "rrx": false,
+          "rry": false,
+          "rrz": false,
+          "kx": 2,
+          "ky": 4,
+          "kz": 6,
+          "isInclined": false,
+          "normalX": 1,
+          "normalY": 1,
+          "normalZ": 0
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 1,
+            "fy": 4,
+            "fz": 9,
+            "mx": 0,
+            "my": 0,
+            "mz": 0
+          }
+        }
+      ],
+      "stages": [
+        {
+          "name": "spring",
+          "supportsAdded": [
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        }
+      ]
+    },
+    "u": [
+      0.5,
+      1,
+      1.5
+    ],
+    "r": [
+      -1,
+      -4,
+      -9
+    ]
+  },
+  {
+    "dim": 3,
+    "refused": true,
+    "model": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      },
+      "elements": {},
+      "materials": {},
+      "sections": {},
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": false,
+          "ry": false,
+          "rz": false,
+          "rrx": false,
+          "rry": false,
+          "rrz": false,
+          "kx": 2,
+          "ky": 4,
+          "kz": 6,
+          "isInclined": true,
+          "normalX": 1,
+          "normalY": 1,
+          "normalZ": 0
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 1,
+            "fy": 4,
+            "fz": 9,
+            "mx": 0,
+            "my": 0,
+            "mz": 0
+          }
+        }
+      ],
+      "stages": [
+        {
+          "name": "spring",
+          "supportsAdded": [
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        }
+      ]
+    },
+    "u": [
+      0.5,
+      1,
+      1.5
+    ],
+    "r": [
+      -1,
+      -4,
+      -9
+    ]
+  }
+]

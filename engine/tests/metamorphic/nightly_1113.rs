@@ -66,37 +66,31 @@ fn issue_2011_ssi_rotation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2013"]
 fn issue_2013_constrained_release() {
     relation("2013", "linear (load session)", "rotation", 20770);
 }
 
 #[test]
-#[ignore = "known wrong result: #2014"]
 fn issue_2014_constrained_release() {
     relation("2014", "linear", "rotation", 20770);
 }
 
 #[test]
-#[ignore = "known wrong result: #2015"]
 fn issue_2015_constrained_release() {
     relation("2015", "staged (loads in two stages)", "mirror", 20770);
 }
 
 #[test]
-#[ignore = "known wrong result: #2016"]
 fn issue_2016_constrained_release() {
     relation("2016", "creep & shrinkage (t = t0)", "rotation", 20770);
 }
 
 #[test]
-#[ignore = "known wrong result: #2017"]
 fn issue_2017_constrained_release() {
     relation("2017", "constrained", "mirror", 20770);
 }
 
 #[test]
-#[ignore = "known wrong result: #2018"]
 fn issue_2018_constrained_release() {
     relation("2018", "certified linear", "mirror", 20770);
 }

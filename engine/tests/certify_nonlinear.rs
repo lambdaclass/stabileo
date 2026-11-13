@@ -411,9 +411,16 @@ fn certify_pdelta_unconverged_and_perturbed() {
     let few = solve_pdelta_2d(&input, 2, 1e-12).unwrap();
     let u = gather_2d(&dof, &few.results.displacements);
     let cert = certify_pdelta_results_2d(&input, &few.results);
-    let (err, bound) = assert_pd_honest("2 iterations", &cert, &model, &u);
+    let residual = few.results.equilibrium.as_ref().unwrap().relative_residual;
+    assert!(residual > 1e-12);
+    assert!(!cert.is_certified(), "withheld force records must be refused: {cert:?}");
+    assert!(few.results.reactions.iter().all(|r|r.rx.is_nan() && r.rz.is_nan() && r.my.is_nan()));
+    let mut candidate = few.linear_results.clone();
+    candidate.displacements = few.results.displacements.clone();
+    let cert = certify_pdelta_results_2d(&input, &candidate);
+    let (err, bound) = assert_pd_honest("2 iteration displacement candidate", &cert, &model, &u);
     assert!(err > 1e-9, "2 iterations should not have converged: {err:e}");
-    eprintln!("unconverged: err={err:.2e} bound={bound:.2e}");
+    eprintln!("unconverged: residual={residual:.17e} err={err:.17e} bound={bound:.17e}");
 
     // Perturb a converged answer: the bound must grow to cover it (small
     // perturbation), or the certificate is refused (one beyond the reach

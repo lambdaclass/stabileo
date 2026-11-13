@@ -4,8 +4,7 @@ use super::dof::DofNumbering;
 use super::assembly::*;
 use super::linear::{build_displacements_2d, compute_internal_forces_2d,
     build_displacements_3d, compute_internal_forces_3d,
-    compute_plate_stresses, compute_quad_stresses,
-    build_reactions_2d_inclined, build_reactions_3d_inclined};
+    compute_plate_stresses, compute_quad_stresses};
 use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic};
 
@@ -216,6 +215,24 @@ struct SparsePDelta2D {
 }
 
 impl PDeltaSystem2D {
+    fn new(input: &SolverInput, dofs: &DofNumbering, sparse: bool) -> Self {
+        if sparse {
+            let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(input, dofs);
+            let f = assemble_load_vector_2d(input, &input.loads, dofs, &stiff.inclined_transforms_2d);
+            Self::Sparse(SparsePDelta2D { k_full: stiff.k_full, f, its: stiff.inclined_transforms_2d })
+        } else {
+            Self::Dense(assemble_2d(input, dofs))
+        }
+    }
+
+    fn physical_residual(input: &SolverInput, dofs: &DofNumbering, sparse: bool, u: &[f64]) -> PhysicalPDeltaResidual {
+        let system = super::assembly::physical_stiffness(|| Self::new(input, dofs, sparse));
+        let (f, _) = system.data();
+        PhysicalPDeltaResidual {
+            residual: system.tangent(input, dofs, u).all_residual(dofs.n_total, f, u),
+            model: super::reaction_recovery::ExpandedReactionModel::plane(input),
+        }
+    }
     fn data(&self) -> (&[f64], &[InclinedTransformData2D]) {
         match self {
             Self::Dense(a) => (&a.f, &a.inclined_transforms_2d),
@@ -243,9 +260,7 @@ impl PDeltaSystem2D {
                         rows.push(k.row_idx[p]); cols.push(j); vals.push(k.values[p]);
                     }
                 }
-                let mut k = CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals);
-                k.drop_below_threshold(1e-30);
-                PDeltaTangent::Sparse(k)
+                PDeltaTangent::Sparse(CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals))
             }
         }
     }
@@ -266,13 +281,7 @@ pub fn solve_pdelta_2d_on(
     let linear_results = super::linear::solve_2d(input)?;
     let (n, nf) = (dof_num.n_total, dof_num.n_free);
 
-    let system = if sparse {
-        let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(input, dof_num);
-        let f = assemble_load_vector_2d(input, &input.loads, dof_num, &stiff.inclined_transforms_2d);
-        PDeltaSystem2D::Sparse(SparsePDelta2D { k_full: stiff.k_full, f, its: stiff.inclined_transforms_2d })
-    } else {
-        PDeltaSystem2D::Dense(assemble_2d(input, dof_num))
-    };
+    let system = PDeltaSystem2D::new(input, dof_num, sparse);
     let (f, its) = system.data();
 
     let mut u_prev = vec![0.0; n];
@@ -318,34 +327,30 @@ pub fn solve_pdelta_2d_on(
     let max_ratio = stability_b2(state.indefinite, b2_factor(dof_num, 2, &to_global_2d(&u_prev, its), &u_global));
 
     // Reactions and constraint forces of the system that was solved.
-    let tangent = system.tangent(input, dof_num, &state.u);
-    let residual = tangent.residual(n, nf, f, &state.u);
-    let mut reactions = build_reactions_2d_inclined(input, dof_num, &residual, &f[nf..], nf, &u_global, its);
-    reactions.sort_by_key(|r| r.node_id);
+    let physical = PDeltaSystem2D::physical_residual(input, dof_num, sparse, &state.u);
+    let (recovered, relative_residual) = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref());
+    let reactions = recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_global), its)?;
+    let constraint_forces = recovered.constraint_forces;
 
-    let constraint_forces = cs.as_ref().map_or_else(Vec::new, |cs| {
-        let raw = tangent.free_block(n, nf).constraint_forces(cs, &state.u[..nf], &tangent.rhs(n, nf, f, &state.u));
-        cs.constraint_forces(&raw, dof_num)
-    });
+    let mut equilibrium = super::reaction_recovery::balance_2d(input, dof_num, &u_global, f, &reactions, its, tolerance);
+    equilibrium.relative_residual = relative_residual;
+    equilibrium.residual_ok = relative_residual.is_finite() && relative_residual <= tolerance;
+    let containment = equilibrium.clone();
+    let mut results = AnalysisResults {
+        displacements: build_displacements_2d(dof_num, &u_global),
+        reactions,
+        element_forces: second_order_forces_2d(input, dof_num, &u_global),
+        constraint_forces,
+        diagnostics: linear_results.diagnostics.clone(),
+        solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
+        structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
+        equilibrium: Some(equilibrium),
+        result_summary: None, solver_run_meta: None,
+    };
+    super::reaction_recovery::contain_pdelta(&mut results, &containment);
 
     Ok(PDeltaResult {
-        results: AnalysisResults {
-            displacements: build_displacements_2d(dof_num, &u_global),
-            reactions,
-            element_forces: second_order_forces_2d(input, dof_num, &u_global),
-            constraint_forces,
-            // The model's diagnostics belong to the model, not to the path that
-            // analysed it: the linear pass above already ran the pre-solve gates
-            // and the conditioning checks on this same structure. Only the
-            // model's, though: see `model_structured_diagnostics`.
-            diagnostics: linear_results.diagnostics.clone(),
-            solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
-            structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
-            // Still not computed for the second-order state: the residual would
-            // have to be formed against (K + K_G) and the P-Delta reactions.
-            equilibrium: None,
-            result_summary: None, solver_run_meta: None,
-        },
+        results,
         iterations: state.iterations,
         converged: state.converged,
         is_stable: state.converged && max_ratio < 100.0,
@@ -413,6 +418,29 @@ enum PDeltaTangent {
     Sparse(CscMatrix),
 }
 
+pub(super) struct PhysicalPDeltaResidual {
+    residual: Vec<f64>,
+    model: super::reaction_recovery::ExpandedReactionModel,
+}
+
+impl PhysicalPDeltaResidual {
+    pub(super) fn parts(&self) -> (&[f64], &super::reaction_recovery::ExpandedReactionModel) { (&self.residual, &self.model) }
+}
+
+fn recover_pdelta_forces(
+    physical: &PhysicalPDeltaResidual,
+    metric: &super::convergence::EquilibriumMetric,
+    dofs: &DofNumbering,
+    f: &[f64],
+    u: &[f64],
+    cs: Option<&FreeConstraintSystem>,
+) -> (super::reaction_recovery::RecoveredForces, f64) {
+    let recovered = super::reaction_recovery::RecoveredForces::from_pdelta(physical, dofs, cs);
+    let support_driven = u[dofs.n_free..].iter().any(|v| *v != 0.0);
+    let relative = metric.relative_residual(recovered.free_residual(), f, support_driven.then_some(1.0), cs);
+    (recovered, relative)
+}
+
 impl PDeltaTangent {
     fn correct_equilibrium(
         &self,
@@ -456,12 +484,6 @@ impl PDeltaTangent {
         }
     }
 
-    fn rhs(&self, n: usize, nf: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
-        let mut prescribed = u.to_vec();
-        prescribed[..nf].fill(0.0);
-        self.all_residual(n, f, &prescribed)[..nf].iter().map(|r| -r).collect()
-    }
-
     fn all_residual(&self, n: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
         let residual = match self {
             Self::Dense(k) => super::equilibrium::dense_residual(k, f, u),
@@ -469,10 +491,6 @@ impl PDeltaTangent {
         };
         assert_eq!(residual.len(), n);
         residual.into_iter().map(|r| -r).collect()
-    }
-
-    fn residual(&self, n: usize, nf: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
-        self.all_residual(n, f, u)[nf..].to_vec()
     }
 
     fn solve(self, rhs: &[f64], nf: usize, cs: &Option<FreeConstraintSystem>, cache: &mut Option<SparseSymbolicCache>) -> Option<(Vec<f64>, bool)> {
@@ -501,12 +519,7 @@ impl PDeltaTangent {
         Some((cs.as_ref().map_or_else(|| u.clone(), |c| c.expand_solution(&u, MasterMotion::Homogeneous)), indefinite))
     }
 
-    fn constraint_forces(&self, cs: &FreeConstraintSystem, u: &[f64], rhs: &[f64]) -> Vec<(usize, f64)> {
-        match self {
-            Self::Dense(k) => cs.compute_constraint_forces(k, u, rhs),
-            Self::Sparse(k) => cs.compute_constraint_forces_sparse(k, u, rhs),
-        }
-    }
+
 }
 
 enum PDeltaSystem3D {
@@ -515,6 +528,19 @@ enum PDeltaSystem3D {
 }
 
 impl PDeltaSystem3D {
+    fn new(input: &SolverInput3D, dofs: &DofNumbering, sparse: bool) -> Self {
+        if sparse { Self::Sparse(assemble_sparse_3d(input, dofs, true)) }
+        else { Self::Dense(assemble_3d(input, dofs)) }
+    }
+
+    fn physical_residual(input: &SolverInput3D, dofs: &DofNumbering, sparse: bool, u: &[f64]) -> PhysicalPDeltaResidual {
+        let system = super::assembly::physical_stiffness(|| Self::new(input, dofs, sparse));
+        let (f, _) = system.data();
+        PhysicalPDeltaResidual {
+            residual: system.tangent(input, dofs, u).all_residual(dofs.n_total, f, u),
+            model: super::reaction_recovery::ExpandedReactionModel::space(input),
+        }
+    }
     fn data(&self) -> (&[f64], &[InclinedTransformData]) {
         match self {
             Self::Dense(a) => (&a.f, &a.inclined_transforms),
@@ -542,9 +568,7 @@ impl PDeltaSystem3D {
                         rows.push(k.row_idx[p]); cols.push(j); vals.push(k.values[p]);
                     }
                 }
-                let mut k = CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals);
-                k.drop_below_threshold(1e-30);
-                PDeltaTangent::Sparse(k)
+                PDeltaTangent::Sparse(CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals))
             }
         }
     }
@@ -568,8 +592,7 @@ pub fn solve_pdelta_3d(input: &SolverInput3D, max_iter: usize, tolerance: f64) -
 fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<FreeConstraintSystem>, sparse: bool, max_iter: usize, tolerance: f64) -> Result<PDeltaResult3D, String> {
     let linear_results = super::linear::solve_3d(input)?;
     let (n, nf) = (dof_num.n_total, dof_num.n_free);
-    let system = if sparse { PDeltaSystem3D::Sparse(assemble_sparse_3d(input, dof_num, true)) }
-        else { PDeltaSystem3D::Dense(assemble_3d(input, dof_num)) };
+    let system = PDeltaSystem3D::new(input, dof_num, sparse);
     let (f, its) = system.data();
     let mut u_prev = dof_num.displacement_vector_3d(&linear_results.displacements);
     for it in its { rotate_inclined_f_3d(&mut u_prev, &it.dofs, &it.r); }
@@ -598,25 +621,29 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     }
     let u_global = to_global_3d(&state.u, its);
     let b2 = stability_b2(state.indefinite, b2_factor(dof_num, 3, &to_global_3d(&u_prev, its), &u_global));
-    let tangent = system.tangent(input, dof_num, &state.u);
-    let residual = tangent.residual(n, nf, f, &state.u);
-    let mut reactions = build_reactions_3d_inclined(input, dof_num, &residual, &f[nf..], nf, &u_global, its);
-    reactions.sort_by_key(|r| r.node_id);
-    let constraint_forces = cs.as_ref().map_or_else(Vec::new, |cs| {
-        let raw = tangent.free_block(n, nf).constraint_forces(cs, &state.u[..nf], &tangent.rhs(n, nf, f, &state.u));
-        cs.constraint_forces(&raw, dof_num)
-    });
+    let physical = PDeltaSystem3D::physical_residual(input, dof_num, sparse, &state.u);
+    let (recovered, relative_residual) = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref());
+    let reactions = recovered.reactions_3d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_global), its)?;
+    let constraint_forces = recovered.constraint_forces;
+
+    let mut equilibrium = super::reaction_recovery::balance_3d(input, dof_num, &u_global, f, &reactions, its, tolerance);
+    equilibrium.relative_residual = relative_residual;
+    equilibrium.residual_ok = relative_residual.is_finite() && relative_residual <= tolerance;
+    let containment = equilibrium.clone();
+    let mut results = AnalysisResults3D {
+        displacements: build_displacements_3d(dof_num, &u_global), reactions,
+        element_forces: second_order_forces_3d(input, dof_num, &u_global),
+        plate_stresses: compute_plate_stresses(input, dof_num, &u_global, None),
+        quad_stresses: compute_quad_stresses(input, dof_num, &u_global, None), quad_nodal_stresses: vec![], constraint_forces,
+        diagnostics: linear_results.diagnostics.clone(),
+        solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
+        structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
+        equilibrium: Some(equilibrium), timings: None, result_summary: None, solver_run_meta: None,
+    };
+    super::reaction_recovery::contain_pdelta(&mut results, &containment);
+
     Ok(PDeltaResult3D {
-        results: AnalysisResults3D {
-            displacements: build_displacements_3d(dof_num, &u_global), reactions,
-            element_forces: second_order_forces_3d(input, dof_num, &u_global),
-            plate_stresses: compute_plate_stresses(input, dof_num, &u_global, None),
-            quad_stresses: compute_quad_stresses(input, dof_num, &u_global, None), quad_nodal_stresses: vec![], constraint_forces,
-            diagnostics: linear_results.diagnostics.clone(),
-            solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
-            structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
-            equilibrium: None, timings: None, result_summary: None, solver_run_meta: None,
-        },
+        results,
         iterations: state.iterations, converged: state.converged,
         is_stable: state.converged && b2 < 100.0, b2_factor: b2, linear_results,
     })
@@ -626,6 +653,235 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    fn r19_unpruned_physical(dim: usize) {
+        let mut model: serde_json::Value = serde_json::from_str(if dim == 2 {
+            include_str!("../../tests/fixtures/reaction-recovery-2d.json")
+        } else {
+            include_str!("../../tests/fixtures/reaction-recovery-3d.json")
+        }).unwrap();
+        model["loads"] = serde_json::json!([]);
+        let evaluate = |model: serde_json::Value, sparse: bool, zero: bool| {
+            if dim == 2 {
+                let input: SolverInput = serde_json::from_value(model).unwrap();
+                let dofs = DofNumbering::build_2d(&input);
+                let max = assemble_2d(&input,&dofs).k.iter().map(|v|v.abs()).fold(0.0,f64::max);
+                let mut u = vec![0.0;dofs.n_total];
+                if !zero {
+                    u[dofs.global_dof(1,0).unwrap()] = 0.1;
+                    u[dofs.global_dof(1,1).unwrap()] = 0.2;
+                    u[dofs.global_dof(1,2).unwrap()] = 0.03;
+                }
+                let residual = PDeltaSystem2D::physical_residual(&input,&dofs,sparse,&u);
+                let metric = super::super::convergence::EquilibriumMetric::for_2d(&input,&dofs,None).unwrap();
+                let (_,relative) = recover_pdelta_forces(&residual,&metric,&dofs,&vec![0.0;dofs.n_total],&u,None);
+                (residual.residual,max,relative)
+            } else {
+                let input: SolverInput3D = serde_json::from_value(model).unwrap();
+                let dofs = DofNumbering::build_3d(&input);
+                let max = assemble_3d(&input,&dofs).k.iter().map(|v|v.abs()).fold(0.0,f64::max);
+                let mut u = vec![0.0;dofs.n_total];
+                if !zero {
+                    u[dofs.global_dof(1,0).unwrap()] = 0.1;
+                    u[dofs.global_dof(1,2).unwrap()] = 0.2;
+                    u[dofs.global_dof(1,4).unwrap()] = -0.03;
+                }
+                let residual = PDeltaSystem3D::physical_residual(&input,&dofs,sparse,&u);
+                let metric = super::super::convergence::EquilibriumMetric::for_3d(&input,&dofs,None).unwrap();
+                let (_,relative) = recover_pdelta_forces(&residual,&metric,&dofs,&vec![0.0;dofs.n_total],&u,None);
+                (residual.residual,max,relative)
+            }
+        };
+        let (reference,max,_) = evaluate(model.clone(),false,false);
+        let norm = reference.iter().fold(0.0_f64,|n,v|n.hypot(*v));
+        assert!(norm > 0.0);
+        for scale in [1.0,0.5e-30/max,2.0e-30/max] {
+            let mut scaled = model.clone();
+            scaled["materials"]["1"]["e"] = serde_json::json!(scaled["materials"]["1"]["e"].as_f64().unwrap()*scale);
+            for sparse in [false,true] {
+                for zero in [false,true] {
+                    let (residual,_,relative) = evaluate(scaled.clone(),sparse,zero);
+                    eprintln!("r19 unpruned {dim}D sparse={sparse} zero={zero} scale={scale:e} relative={relative:e}");
+                    assert_eq!(relative == 0.0,zero);
+                    for (actual,expected) in residual.iter().zip(&reference) {
+                        let expected = if zero {0.0} else {expected*scale};
+                        assert!((actual-expected).abs() <= 64.0*f64::EPSILON*norm*scale,"{dim}D sparse={sparse} scale={scale:e}: {actual:e} != {expected:e}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn r19_unpruned_physical_2d() { r19_unpruned_physical(2); }
+
+    #[test]
+    fn r19_unpruned_physical_3d() { r19_unpruned_physical(3); }
+
+    #[test]
+    fn r19_spatial_physical_dense_sparse() {
+        let mut model: SolverInput = serde_json::from_str(include_str!("../../tests/metamorphic_corpus/nightly/issue-971.json")).unwrap();
+        for reflected in [false,true] {
+            if reflected {
+                for n in model.nodes.values_mut() { n.z = -n.z; }
+                for l in &mut model.loads { if let SolverLoad::Nodal(l) = l { l.fz = -l.fz; l.my = -l.my; } }
+            }
+            for plane in crate::metamorphic::planes::Plane::ALL {
+                let input = crate::metamorphic::planes::embed_2d(&model,plane).unwrap();
+                let dofs = DofNumbering::build_3d(&input);
+                for sparse in [false,true] {
+                    let solved = solve_pdelta_3d_on(&input,&dofs,None,sparse,100,1e-12).unwrap();
+                    let uniterated = solve_pdelta_3d_on(&input,&dofs,None,sparse,0,1e-12).unwrap();
+                    assert!(solved.results.equilibrium.as_ref().unwrap().residual_ok);
+                    assert!(!uniterated.results.equilibrium.as_ref().unwrap().residual_ok);
+                    assert!(solved.results.reactions.iter().all(|r|r.fx.is_finite() && r.fy.is_finite() && r.fz.is_finite()));
+                    assert!(uniterated.results.reactions.iter().all(|r|r.fx.is_nan() && r.fy.is_nan() && r.fz.is_nan()));
+                }
+            }
+        }
+    }
+
+    fn r17_withheld_pdelta(dim: usize) {
+        for sparse in [false, true] {
+            for iterations in [0, 40] {
+                for axial in [-3.0, 0.0, 3.0] {
+                    let mut m: serde_json::Value = serde_json::from_str(if dim == 2 {
+                        include_str!("../../tests/fixtures/reaction-recovery-2d.json")
+                    } else {
+                        include_str!("../../tests/fixtures/reaction-recovery-3d.json")
+                    }).unwrap();
+                    m["loads"][0]["data"]["fx"] = serde_json::json!(axial);
+                    let r = if dim == 2 {
+                        let input: SolverInput = serde_json::from_value(m).unwrap();
+                        let dofs = DofNumbering::build_2d(&input);
+                        let cs = FreeConstraintSystem::build_2d(&input, &dofs).unwrap();
+                        serde_json::to_value(solve_pdelta_2d_on(&input, &dofs, cs, sparse, iterations, 1e-9).unwrap().results).unwrap()
+                    } else {
+                        let input: SolverInput3D = serde_json::from_value(m).unwrap();
+                        let dofs = DofNumbering::build_3d(&input);
+                        let cs = FreeConstraintSystem::build_3d(&input, &dofs).unwrap();
+                        serde_json::to_value(solve_pdelta_3d_on(&input, &dofs, cs, sparse, iterations, 1e-9).unwrap().results).unwrap()
+                    };
+                    let unavailable = iterations == 0 && axial != 0.0;
+                    let warned = r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == "reactions");
+                    assert_eq!(warned, unavailable, "{dim}D sparse={sparse} iterations={iterations}: {r}");
+                    assert_eq!(r["reactions"].as_array().unwrap().len(), 1, "{r}");
+                    assert_eq!(r["reactions"][0][if dim == 2 {"rz"} else {"fz"}].is_null(), unavailable, "{r}");
+                    assert_eq!(r["elementForces"][0]["nStart"].is_null(), unavailable, "{r}");
+                    assert!(!r["elementForces"].as_array().unwrap().is_empty());
+                    if axial != 0.0 {
+                        assert_eq!(r["equilibrium"]["residualOk"], iterations != 0, "{r}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn r17_withheld_pdelta_2d() { r17_withheld_pdelta(2); }
+    #[test]
+    fn r17_withheld_pdelta_3d() { r17_withheld_pdelta(3); }
+
+    fn r18_physical_and_geometric_balance(dim: usize) {
+        for sparse in [false, true] {
+            for iterations in [0, 40] {
+                for axial in [-3.0, 0.0, 3.0] {
+                    let mut m: serde_json::Value = serde_json::from_str(if dim == 2 {
+                        include_str!("../../tests/fixtures/reaction-recovery-2d.json")
+                    } else {
+                        include_str!("../../tests/fixtures/reaction-recovery-3d.json")
+                    }).unwrap();
+                    m["loads"][0]["data"]["fx"] = serde_json::json!(axial);
+                    let r = if dim == 2 {
+                        let input: SolverInput = serde_json::from_value(m).unwrap();
+                        let dofs = DofNumbering::build_2d(&input);
+                        let cs = FreeConstraintSystem::build_2d(&input, &dofs).unwrap();
+                        serde_json::to_value(solve_pdelta_2d_on(&input, &dofs, cs, sparse, iterations, 1e-9).unwrap().results).unwrap()
+                    } else {
+                        let input: SolverInput3D = serde_json::from_value(m).unwrap();
+                        let dofs = DofNumbering::build_3d(&input);
+                        let cs = FreeConstraintSystem::build_3d(&input, &dofs).unwrap();
+                        serde_json::to_value(solve_pdelta_3d_on(&input, &dofs, cs, sparse, iterations, 1e-9).unwrap().results).unwrap()
+                    };
+                    println!("r18 {dim}D sparse={sparse} iterations={iterations} axial={axial}: {}", r["equilibrium"]);
+                    let failed = iterations == 0 && axial != 0.0;
+                    assert_eq!(r["equilibrium"]["residualOk"], !failed);
+                    for (field, id) in [("reactions", "nodeId"), ("elementForces", "elementId")] {
+                        let rows = r[field].as_array().unwrap();
+                        assert_eq!(rows.len(), 1, "{field}: {r}");
+                        for row in rows {
+                            let values = row.as_object().unwrap();
+                            assert!(values[id].is_number());
+                            let key = if field == "reactions" { if dim == 2 { "rz" } else { "fz" } } else { "nStart" };
+                            assert_eq!(values[key].is_null(), failed, "{field}: {r}");
+                        }
+                    }
+                    for phase in ["reactions", "elementForces", "constraintForces"] {
+                        let warned = r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == phase);
+                        assert_eq!(warned, failed, "{phase}: {r}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn r18_physical_and_geometric_balance_2d() { r18_physical_and_geometric_balance(2); }
+
+    #[test]
+    fn r18_physical_and_geometric_balance_3d() { r18_physical_and_geometric_balance(3); }
+
+    fn r11_physical_residual(dim: usize) {
+        let cases: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-r11.json")).unwrap();
+        let model = cases.as_array().unwrap().iter().find(|c| c["kind"] == "pdelta" && c["dim"] == dim).unwrap()["model"].clone();
+        let mut failures = Vec::new();
+        for sparse in [false, true] {
+            for sign in [-1.0, 0.0, 1.0] {
+                let mut m = model.clone();
+                for load in m["loads"].as_array_mut().unwrap() { load["data"]["my"] = serde_json::json!(load["data"]["my"].as_f64().unwrap() * sign); }
+                let (dofs, f, tangent, physical, u, metric) = if dim == 2 {
+                    let input: SolverInput = serde_json::from_value(m).unwrap();
+                    let dofs = DofNumbering::build_2d(&input);
+                    let system = if sparse {
+                        let stiff = super::super::sparse_assembly::assemble_stiffness_sparse_2d(&input, &dofs);
+                        let f = assemble_load_vector_2d(&input, &input.loads, &dofs, &stiff.inclined_transforms_2d);
+                        PDeltaSystem2D::Sparse(SparsePDelta2D { k_full: stiff.k_full, f, its: stiff.inclined_transforms_2d })
+                    } else { PDeltaSystem2D::Dense(assemble_2d(&input, &dofs)) };
+                    let (f, _) = system.data();
+                    let tangent = system.tangent(&input, &dofs, &vec![0.0; dofs.n_total]);
+                    let (mut u, _) = tangent.correct_equilibrium(dofs.n_total, dofs.n_free, f, &vec![0.0; dofs.n_total], &None, &mut None).unwrap();
+                    u.resize(dofs.n_total, 0.0);
+                    let physical = PDeltaSystem2D::physical_residual(&input, &dofs, sparse, &u);
+                    let metric = super::super::convergence::EquilibriumMetric::for_2d(&input, &dofs, None).unwrap();
+                    (dofs, f.to_vec(), tangent, physical, u, metric)
+                } else {
+                    let input: SolverInput3D = serde_json::from_value(m).unwrap();
+                    let dofs = DofNumbering::build_3d(&input);
+                    let system = if sparse { PDeltaSystem3D::Sparse(assemble_sparse_3d(&input, &dofs, true)) } else { PDeltaSystem3D::Dense(assemble_3d(&input, &dofs)) };
+                    let (f, _) = system.data();
+                    let tangent = system.tangent(&input, &dofs, &vec![0.0; dofs.n_total]);
+                    let (mut u, _) = tangent.correct_equilibrium(dofs.n_total, dofs.n_free, f, &vec![0.0; dofs.n_total], &None, &mut None).unwrap();
+                    u.resize(dofs.n_total, 0.0);
+                    let physical = PDeltaSystem3D::physical_residual(&input, &dofs, sparse, &u);
+                    let metric = super::super::convergence::EquilibriumMetric::for_3d(&input, &dofs, None).unwrap();
+                    (dofs, f.to_vec(), tangent, physical, u, metric)
+                };
+                assert!(tangent.all_residual(dofs.n_total, &f, &u).iter().all(|v| v.abs() < 1e-12));
+                assert!(physical.residual.iter().zip(&f).all(|(r,f)| *r == -*f));
+                let (_, relative) = recover_pdelta_forces(&physical, &metric, &dofs, &f, &u, None);
+                if (sign == 0.0 && relative != 0.0) || (sign != 0.0 && relative < 0.99) {
+                    failures.push(format!("sparse={sparse}, sign={sign}, certified residual={relative}"));
+                }
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    #[test]
+    fn issue_1952_r11_physical_residual_dense_sparse_2d() { r11_physical_residual(2); }
+
+    #[test]
+    fn issue_1952_r11_physical_residual_dense_sparse_3d() { r11_physical_residual(3); }
 
     /// A building of `bays`×`bays` bays and `storeys` storeys, fixed at the base, with gravity on
     /// every floor node and a push along x. With `diaphragms`, each floor is one.
@@ -764,7 +1020,12 @@ mod tests {
         assert_same(&d, &s);
         assert!((s.results.displacements.iter().find(|d| d.node_id == 1).unwrap().uz + 0.002).abs() < 1e-12);
         let fx: f64 = input.loads.iter().filter_map(|l| match l { SolverLoad3D::Nodal(l) => Some(l.fx), _ => None }).sum();
-        let rx: f64 = s.results.reactions.iter().map(|r| r.fx).sum();
+        for result in [&d.results, &s.results] {
+            assert!(!result.reactions.is_empty());
+            assert!(result.equilibrium.as_ref().unwrap().residual_ok);
+            assert!(result.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::EquilibriumViolation));
+        }
+        let rx = s.results.equilibrium.as_ref().unwrap().reaction_force_sum[0];
         assert!((rx + fx).abs() < 1e-7 * fx, "reactions balance second-order forces: {rx} vs {fx}");
         let cd = &d.results.constraint_forces;
         let cs = &s.results.constraint_forces;

@@ -393,42 +393,14 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
 
     // Build final results using corotational forces (not linear)
     set_supports(&mut u_full, lambda);
-    let u_global = assembly::to_global(&u_full, n, &its);
-    let displacements = super::linear::build_displacements_2d(&dof_num, &u_global);
-    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_global);
-
-    // Compute constraint forces using final tangent stiffness
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
-        let raw = if sparse {
-            // Unreduced free-block CSC (lower triangle) for K_ff * u_f — the
-            // dense final tangent is never built on the sparse path.
-            let k_ff_csc = tangent_free_sparse_triplets(
-                &asm_final.trip_rows, &asm_final.trip_cols, &asm_final.trip_vals, nf, &None,
-            );
-            fcs.compute_constraint_forces_sparse(&k_ff_csc, &u_full[..nf], &asm_final.f_int[..nf])
-        } else {
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&asm_final.k_t, n, &free_idx, &free_idx);
-            fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm_final.f_int[..nf])
-        };
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let mut at_state = super::corotational::scaled_loads_2d(&input.solver, lambda);
+    if let Some(start) = start {
+        at_state.loads.extend(start.input.loads.clone());
+    }
+    let results = super::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs, &its)?;
 
     Ok(ArcLengthResult {
-        results: AnalysisResults {
-            displacements,
-            reactions: vec![],
-            element_forces,
-            constraint_forces,
-            diagnostics: vec![],
-            solver_diagnostics: vec![],
-            structured_diagnostics: vec![],
-            equilibrium: None,
-            result_summary: None, solver_run_meta: None,
-        },
+        results,
         steps,
         final_load_factor: lambda,
         converged: overall_converged,
@@ -639,7 +611,7 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
             control_displacement: u_full[ctrl],
             converged: step_converged,
             iterations: step_iters,
-            displacements: Vec::new(),
+            displacements: super::linear::build_displacements_2d(&dof_num, &assembly::to_global(&u_full, n, &its)),
         });
 
         if !step_converged {
@@ -648,42 +620,11 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
         }
     }
 
-    let u_global = assembly::to_global(&u_full[..nf], n, &its);
-    let displacements = super::linear::build_displacements_2d(&dof_num, &u_global);
-    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_global);
-
-    // Compute constraint forces using final tangent stiffness
-    let constraint_forces = if let Some(ref fcs) = cs_dc {
-        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
-        let raw = if sparse {
-            // Unreduced free-block CSC (lower triangle) for K_ff * u_f — the
-            // dense final tangent is never built on the sparse path.
-            let k_ff_csc = tangent_free_sparse_triplets(
-                &asm_final.trip_rows, &asm_final.trip_cols, &asm_final.trip_vals, nf, &None,
-            );
-            fcs.compute_constraint_forces_sparse(&k_ff_csc, &u_full[..nf], &asm_final.f_int[..nf])
-        } else {
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&asm_final.k_t, n, &free_idx, &free_idx);
-            fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm_final.f_int[..nf])
-        };
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let at_state = super::corotational::scaled_loads_2d(&input.solver, lambda);
+    let results = super::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs_dc, &its)?;
 
     Ok(DisplacementControlResult {
-        results: AnalysisResults {
-            displacements,
-            reactions: vec![],
-            element_forces,
-            constraint_forces,
-            diagnostics: vec![],
-            solver_diagnostics: vec![],
-            structured_diagnostics: vec![],
-            equilibrium: None,
-            result_summary: None, solver_run_meta: None,
-        },
+        results,
         steps,
         final_load_factor: lambda,
         converged: overall_converged,

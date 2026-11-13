@@ -37,7 +37,7 @@ export const FEATURE_IDS = [
   'concreteMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
-  'connectors', 'connectorsWithShear',
+  'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -256,7 +256,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
     if (fromLoadPlan(d.generatedBy)) f.add('generatedLoads');
   }
-  if (s.designData?.site?.phases?.length) f.add('stagedConstruction');
+  if (s.designData?.site?.phases?.length) {
+    f.add('stagedConstruction');
+    f.add('pathAnalysis');
+  }
   if (s.designData?.loadBasis) f.add('generatedLoads');
   if (values(s.groups).some((g) => g?.kind === 'floorLoad')) f.add('areaDeadLoads');
   if (values(s.groups).some((g) => g?.kind === 'generated')) f.add('generatedStructures');

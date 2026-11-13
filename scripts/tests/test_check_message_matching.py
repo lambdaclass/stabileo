@@ -34,6 +34,10 @@ def py(body):
 
 
 class Caught(unittest.TestCase):
+    def test_staged_removal_assertions_use_diagnostic_identity(self):
+        path = 'engine/src/solver/staged_tests.rs'
+        self.assertEqual(run({path: (ROOT / path).read_text()}), [])
+
     def assert_caught(self, files, line=2):
         problems = run(files)
         self.assertEqual(len(problems), 1, problems)

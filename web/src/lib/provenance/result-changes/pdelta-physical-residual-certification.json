@@ -1,0 +1,45 @@
+{
+  "id": "pdelta-physical-residual-certification",
+  "date": "2026-11-12",
+  "prs": [
+    1952
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "springs",
+        "constraints"
+      ],
+      [
+        "analysis:pdelta"
+      ]
+    ]
+  },
+  "quantities": [
+    "equilibrium",
+    "structuredDiagnostics"
+  ],
+  "title": {
+    "en": "P-Delta checks the physical free residual",
+    "es": "P-Delta comprueba el residuo libre físico",
+    "pt": "P-Delta verifica o resíduo livre físico",
+    "de": "P-Delta prüft das physikalische freie Residuum",
+    "fr": "P-Delta vérifie le résidu libre physique",
+    "tr": "P-Delta fiziksel serbest artığı denetler"
+  },
+  "explanation": {
+    "en": "P-Delta equilibrium diagnostics now use the same physical forces as reactions, excluding artificial stiffness. Opposite lost moments cannot cancel in a global balance and certify a nonzero physical free residual. Re-check saved P-Delta equilibrium diagnostics (#1952).",
+    "es": "Los diagnósticos de equilibrio P-Delta usan las mismas fuerzas físicas que las reacciones y excluyen la rigidez artificial. Los momentos opuestos perdidos no pueden cancelarse en el balance global y certificar un residuo libre físico distinto de cero. Revisá los diagnósticos P-Delta guardados (#1952).",
+    "pt": "Os diagnósticos de equilíbrio P-Delta usam as mesmas forças físicas das reações, sem rigidez artificial. Momentos opostos perdidos não podem se anular no balanço global e certificar um resíduo livre físico não nulo. Reveja os diagnósticos P-Delta salvos (#1952).",
+    "de": "P-Delta-Gleichgewichtsdiagnosen verwenden dieselben physikalischen Kräfte wie die Reaktionen, ohne künstliche Steifigkeit. Entgegengesetzte verlorene Momente können sich nicht in der globalen Bilanz aufheben und ein von null verschiedenes physikalisches freies Residuum bestätigen. Prüfen Sie gespeicherte P-Delta-Diagnosen (#1952).",
+    "fr": "Les diagnostics P-Delta utilisent les mêmes forces physiques que les réactions, sans rigidité artificielle. Des moments opposés perdus ne peuvent pas se compenser dans le bilan global et certifier un résidu libre physique non nul. Revérifiez les diagnostics P-Delta enregistrés (#1952).",
+    "tr": "P-Delta denge tanıları tepkilerle aynı fiziksel kuvvetleri kullanır, yapay rijitliği dışlar. Kaybolan zıt momentler global dengede birbirini götürerek sıfır olmayan fiziksel serbest artığı doğrulayamaz. Kayıtlı P-Delta tanılarını yeniden denetleyin (#1952)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-pdelta-and-staged-history-certification.md",
+    "heading": "Physical P-Delta residuals and staged history containment (2026-11-12)"
+  }
+}

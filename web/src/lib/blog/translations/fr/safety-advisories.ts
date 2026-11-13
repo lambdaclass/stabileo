@@ -22,6 +22,10 @@ const body: PostBody = {
     },
     {
       "k": "note",
+      "t": "SA-2026-061 — Corrigé dans PR #1952, publication en attente."
+    },
+    {
+      "k": "note",
       "t": "SA-2026-063 — Corrigé dans PR #2009, en attente de publication."
     },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
@@ -387,6 +391,12 @@ const body: PostBody = {
           "Les analyses web avancées pouvaient attribuer aux câbles une résistance à la compression sans avertissement (reproduction P-Delta : −4,599884347090908 kN) ; revoir les sollicitations des modèles avec câbles issues des analyses avancées, de l’analyse directe et des assistants pédagogiques",
           "Élevée",
           "Corrigé dans PR #1921, en attente de publication"
+        ],
+        [
+          "SA-2026-061",
+          "La longueur d’arc et le contrôle en déplacement omettaient les réactions et utilisaient les charges de barres sans mise à l’échelle ; vérifier aussi les omissions des résultats 2D/3D avec liaisons, Guyan, phases et historiques temporels. Recalculer ou vérifier indépendamment ; 0.2.0–0.5.0 et compilations ultérieures de main concernées.",
+          "Élevée",
+          "Corrigé dans PR #1952, publication en attente"
         ],
         ["SA-2026-060", "Le calcul par phases pouvait raidir sans avertissement des rotations réelles après un changement d’unités ou aux extrémités articulées avec ressorts d’appui ; revérifiez les modèles par phases avec libérations", "Haute", "Brouillon : correction locale en attente de revue et de publication"],
         ["SA-2026-062", "Le calcul plastique 3D brut pouvait annoncer zéro sans avertissement en cas d’échec de l’état élastique initial ; les anciennes versions certifiées conservaient ce facteur. Main renvoie déjà une borne certifiée positive avec avertissement ; la PR #1943 transmet le refus initial", "Haute", "Brouillon : correction locale en attente de revue et de publication"],

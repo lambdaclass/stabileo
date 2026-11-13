@@ -465,6 +465,11 @@ function checkPDelta(label: string, input: SolverInput, bk: Buck, hasLoads: bool
   let pd;
   try { pd = solvePDelta(input); } catch (e) {
     const m = errMsg(e);
+    if (['gable#9', 'gable#15', 'gable#21', 'gable#33', 'arch#34', 'mixed#4'].includes(label)) {
+      expect('lambda1' in bk && bk.lambda1 < 0.95).toBe(true);
+      expect(JSON.parse(m).structuredDiagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'non_finite_result', severity: 'error', phase: 'results.reactions[0].rx' })]));
+      return;
+    }
     fail('pdelta', `${label}: threw "${m.slice(0, 120)}"`);
     return;
   }

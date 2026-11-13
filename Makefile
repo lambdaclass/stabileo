@@ -885,12 +885,20 @@ evidence.research.feher:
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin validate -- --write
 	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("$(FEHER_DIR)/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]={n: hashlib.sha256(p.with_name(n).read_bytes()).hexdigest() for n in d["files_sha256"]}; p.write_text(json.dumps(d,indent=2)+"\n")'
 
+.PHONY: test.engine.reactions-wasm
+test.engine.reactions-wasm: wasm
+	$(NIX_RUN) node scripts/tests/reaction-recovery-wasm.mjs
+	$(NIX_RUN) node scripts/tests/reaction-recovery-r11.mjs
+
+.PHONY: test.engine.reactions-frozen
+test.engine.reactions-frozen: wasm
+	$(NIX_RUN) node scripts/tests/arc-length-frozen.mjs $(if $(UPDATE),--update)
 .PHONY: test.audit.evidence
 test.audit.evidence:
 	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
 
 .PHONY: test.engine.staged-orphan-wasm
-test.engine.staged-orphan-wasm: wasm
+test.engine.staged-orphan-wasm: wasm scripts/tests/staged-history-containment.mjs test.engine.staged-physical-r14-wasm test.engine.staged-r20-wasm test.engine.staged-r23-wasm
 	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-orphan-1846-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-round4-wasm.mjs
@@ -963,6 +971,19 @@ test.engine.frozen-shell-refusals: wasm
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib frozen_shell_refusals -- --nocapture
 	$(NIX_RUN) node scripts/tests/frozen-shell-refusals-wasm.mjs
 
+.PHONY: test.engine.load-frame-wasm
+test.engine.load-frame-wasm: wasm
+	$(NIX_RUN) node scripts/tests/corotational-load-frame.mjs
+
+.PHONY: test.engine.thermal-frame
+test.engine.thermal-frame:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(or $(FILTER),r10_tests) -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.reactions-r11-wasm
+test.engine.reactions-r11-wasm: wasm
+	$(NIX_RUN) node scripts/tests/reaction-recovery-r11.mjs
+	$(NIX_RUN) node scripts/tests/staged-springs-r12.mjs
+
 .PHONY: test.engine.truss-balance-1969-wasm
 
 test.engine.truss-balance-1969-wasm: wasm
@@ -1028,6 +1049,10 @@ test.engine.pdelta-rotation-wasm: wasm
 	$(NIX_RUN) node scripts/tests/pdelta-rotation-wasm.mjs $(CURDIR)/.1940-plate-cases.json
 	rm -f $(CURDIR)/.1940-plate-cases.json
 
+.PHONY: test.engine.staged-springs-r12-wasm
+test.engine.staged-springs-r12-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-springs-r12.mjs
+
 .PHONY: test.engine.modal-mass-range-wasm
 test.engine.modal-mass-range-wasm: wasm
 	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-mass-range.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MODAL_MASS_RANGE_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER="modal_mass_range:: --release"; node scripts/tests/modal-mass-range-wasm.mjs "$$cases"'
@@ -1036,6 +1061,29 @@ test.engine.modal-mass-range-wasm: wasm
 audit.1088:
 	$(NIX_RUN) python3 -I docs/verification/issue-1088-rank.py
 
+.PHONY: test.engine.staged-physical-r14-wasm
+
+test.engine.staged-physical-r14-wasm: wasm
+	STABILEO_R14_CASES=$(CURDIR)/.1952-r14-cases $(MAKE) test.engine.targeted TEST=validation FILTER=issue_1952_r14
+	$(NIX_RUN) node scripts/tests/staged-physical-r14-wasm.mjs $(CURDIR)/.1952-r14-cases
+	rm -f $(CURDIR)/.1952-r14-cases-2.json $(CURDIR)/.1952-r14-cases-3.json
+
+.PHONY: test.engine.containment-r17 test.engine.containment-r17-wasm
+
+test.engine.containment-r17:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib r17_ -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test validation issue_1952_r17 -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.containment-r17-wasm: wasm
+	STABILEO_R17_CASES=$(CURDIR)/.1952-r17-cases $(MAKE) test.engine.containment-r17
+	$(NIX_RUN) node scripts/tests/containment-r17-wasm.mjs $(CURDIR)/.1952-r17-cases
+	rm -f $(CURDIR)/.1952-r17-cases-*.json
+
+.PHONY: test.engine.containment-r18-wasm
+test.engine.containment-r18-wasm: wasm
+	STABILEO_R18_CASES=$(CURDIR)/.1952-r18-cases $(MAKE) test.engine.targeted TEST=validation FILTER=issue_1952_r18
+	$(NIX_RUN) node scripts/tests/containment-r18-wasm.mjs $(CURDIR)/.1952-r18-cases
+	rm -f $(CURDIR)/.1952-r18-cases-*.json
 .PHONY: test.engine.prescribed-master-2008 test.engine.prescribed-master-2008-wasm
 test.engine.prescribed-master-2008:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test integration prescribed_master_2008 -- --nocapture $(if $(IGNORED),--include-ignored)
@@ -1080,6 +1128,31 @@ test.engine.released-load-work-2023:
 
 test.engine.released-load-work-2023-parallel:
 	$(NIX_RUN) cargo test -p dedaliano-engine --release --features parallel --test metamorphic released_load_work:: -- --nocapture
+.PHONY: test.engine.containment-r19 test.engine.containment-r19-wasm
+test.engine.containment-r19:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib r19_ -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test metamorphic issue_1952_r19 -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test validation issue_1952_r19 -- --nocapture
+
+test.engine.containment-r19-wasm: wasm
+	R19_CANTILEVERS=$(CURDIR)/.1952-r19-cantilevers R19_SSI_CASES=$(CURDIR)/.1952-r19-ssi $(MAKE) test.engine.containment-r19
+	$(NIX_RUN) node scripts/tests/containment-r19-wasm.mjs $(CURDIR)/.1952-r19-cantilevers $(CURDIR)/.1952-r19-ssi
+	rm -f $(CURDIR)/.1952-r19-cantilevers-*.json $(CURDIR)/.1952-r19-ssi-*.json
+
+.PHONY: test.engine.staged-r20-wasm
+
+test.engine.staged-r20-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-r20-wasm.mjs
+
+.PHONY: test.engine.staged-r23 test.engine.staged-r23-wasm
+
+test.engine.staged-r23:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_r23 -- --nocapture $(if $(IGNORED),--include-ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test validation issue_1952_r23 -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.staged-r23-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-determined-r23-wasm.mjs
+
 .PHONY: test.engine.ssi-elastic-2011 test.engine.ssi-elastic-2011-wasm
 
 test.engine.ssi-elastic-2011:
@@ -1113,3 +1186,14 @@ test.released-load-work-outcomes: scripts/tests/released-load-work-outcome.mjs s
 
 test.released-load-work-physics: scripts/tests/released-load-work-physics.mjs
 	$(NIX_RUN) node --test scripts/tests/released-load-work-physics.test.mjs
+.PHONY: test.engine.constraint-rounding-2013 test.engine.constraint-rounding-2013-wasm
+
+test.engine.constraint-rounding-2013:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib constraint_2013 --release -- --nocapture $(if $(IGNORED),--include-ignored)
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='constraint_rounding_2013:: --release $(if $(IGNORED),-- --include-ignored)'
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='constrained_release --release $(if $(IGNORED),-- --include-ignored)'
+
+test.engine.constraint-rounding-2013-wasm: wasm
+	CONSTRAINT_2013_CASES=$(CURDIR)/.2013-cases $(MAKE) test.engine.constraint-rounding-2013
+	$(NIX_RUN) node scripts/tests/constraint-rounding-2013-wasm.mjs $(CURDIR)/.2013-cases.2.false.json $(CURDIR)/.2013-cases.2.true.json $(CURDIR)/.2013-cases.3.false.json $(CURDIR)/.2013-cases.3.true.json
+	rm -f $(CURDIR)/.2013-cases.*.json

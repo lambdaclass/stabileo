@@ -44,6 +44,18 @@ fn spring_triplets<T: InclinedFrame>(
     (rows, cols, vals)
 }
 
+pub(super) struct PhysicalSoilResidual {
+    free: Vec<f64>,
+    restrained: Vec<f64>,
+    model: super::reaction_recovery::ExpandedReactionModel,
+}
+
+impl PhysicalSoilResidual {
+    pub(super) fn into_parts(self) -> (Vec<f64>, Vec<f64>, super::reaction_recovery::ExpandedReactionModel) {
+        (self.free, self.restrained, self.model)
+    }
+}
+
 fn residual<T: InclinedFrame>(
     mut balance: super::equilibrium::Residual,
     springs: &[SoilSpring],
@@ -646,24 +658,22 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
         })
         .collect::<Result<_, String>>()?;
 
+    u_frame.resize(n, 0.0);
+    let sparse_stiff = sparse_stiff.as_ref().map(|_| assembly::physical_stiffness(||
+        super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, &dof_num)));
+    let dense_asm = dense_asm.as_ref().map(|_| assembly::physical_stiffness(||
+        assembly::assemble_2d(&input.solver, &dof_num)));
     let ku = if let Some(ref s) = sparse_stiff {
         sparse_balance(&s.k_full, n, &u_frame, &f_global)
     } else {
         dense_balance(&dense_asm.as_ref().unwrap().k, n, &u_frame, &f_global)
     };
     let mut free_residual = residual(ku, &input.soil_springs, &dof_num, its, &u_full)?;
-    let mut reactions_vec = free_residual.split_off(nf);
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let raw = fcs.constraint_forces_from_residual(&free_residual);
-        fcs.add_restrained_master_forces(&raw, &mut reactions_vec);
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
-    let mut reactions = linear::build_reactions_2d_inclined(
-        &input.solver, &dof_num, &reactions_vec, &f_global[nf..], nf, &u_full, its,
-    );
-    reactions.sort_by_key(|r| r.node_id);
+    let restrained = free_residual.split_off(nf);
+    let physical = PhysicalSoilResidual { free: free_residual, restrained, model: super::reaction_recovery::ExpandedReactionModel::plane(&input.solver) };
+    let recovered = super::reaction_recovery::RecoveredForces::from_soil(physical, &dof_num, cs.as_ref());
+    let reactions = recovered.reactions_2d(&dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_full), its)?;
+    let constraint_forces = recovered.constraint_forces;
 
     Ok(SSIResult {
         results: AnalysisResults {
@@ -860,24 +870,22 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         })
         .collect::<Result<_, String>>()?;
 
+    u_frame.resize(n, 0.0);
+    let sparse_asm = sparse_asm.as_ref().map(|_| assembly::physical_stiffness(||
+        assembly::assemble_sparse_3d(&expanded_solver, &dof_num, true)));
+    let dense_asm = dense_asm.as_ref().map(|_| assembly::physical_stiffness(||
+        assembly::assemble_3d(&expanded_solver, &dof_num)));
     let ku = if let Some(ref s) = sparse_asm {
         sparse_balance(s.k_full.as_ref().ok_or("SSI: sparse assembly without the full stiffness")?, n, &u_frame, &f_global)
     } else {
         dense_balance(&dense_asm.as_ref().unwrap().k, n, &u_frame, &f_global)
     };
     let mut free_residual = residual(ku, &input.soil_springs, &dof_num, its, &u_full)?;
-    let mut reactions_vec = free_residual.split_off(nf);
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let raw = fcs.constraint_forces_from_residual(&free_residual);
-        fcs.add_restrained_master_forces(&raw, &mut reactions_vec);
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
-    let mut reactions = linear::build_reactions_3d_inclined(
-        &expanded_solver, &dof_num, &reactions_vec, &f_global[nf..], nf, &u_full, its,
-    );
-    reactions.sort_by_key(|r| r.node_id);
+    let restrained = free_residual.split_off(nf);
+    let physical = PhysicalSoilResidual { free: free_residual, restrained, model: super::reaction_recovery::ExpandedReactionModel::space(&expanded_solver) };
+    let recovered = super::reaction_recovery::RecoveredForces::from_soil(physical, &dof_num, cs.as_ref());
+    let reactions = recovered.reactions_3d(&dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_full), its)?;
+    let constraint_forces = recovered.constraint_forces;
 
     Ok(SSIResult3D {
         results: AnalysisResults3D {

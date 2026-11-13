@@ -9,16 +9,20 @@ use crate::types::*;
 use crate::element::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
+use super::reaction_recovery::SolverDisplacements;
 use super::assembly::{AssemblyResult, assemble_2d, assemble_3d};
 use super::linear::{
     build_displacements_2d,
     build_displacements_3d,
-    build_reactions_2d_inclined,
     compute_internal_forces_2d,
     compute_plate_stresses,
 };
 use super::prestress::prestress_fef_2d;
 use super::constraints::{FreeConstraintSystem, MasterMotion};
+
+#[cfg(test)]
+#[path = "staged_tests.rs"]
+mod tests;
 use super::sparse_tangent::{
     SparseSymbolicCache, cached_symbolic,
 };
@@ -100,10 +104,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
     super::linear::validate_input_2d(&full_solver_input)?;
     let dof_num = DofNumbering::build_2d(&full_solver_input);
 
-    if dof_num.n_free == 0 {
-        return Err("No free DOFs — all nodes are fully restrained".into());
-    }
-
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let nr = n - nf;
@@ -114,11 +114,12 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
 
     // Track cumulative state
     let mut cumulative_u = vec![0.0; n];
+    let mut recovery_history = StageRecoveryHistory::default();
     let mut prev_u_r = vec![0.0; n - dof_num.n_free];
     let mut active_elements: HashSet<usize> = HashSet::new();
     let mut active_supports: HashSet<usize> = HashSet::new();
     let mut cumulative_loads: Vec<SolverLoad> = Vec::new();
-    let mut stage_results = Vec::new();
+    let mut stage_results: Vec<StageResult> = Vec::new();
     let mut cumulative_diagnostics = Vec::new();
 
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
@@ -126,6 +127,9 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
     let use_sparse = ns >= super::linear::SPARSE_THRESHOLD;
 
     for (stage_idx, stage) in input.stages.iter().enumerate() {
+        recovery_history.check_member_removal(&stage.elements_removed)?;
+        let unloaded_removal_only = !stage.elements_removed.is_empty()
+            && stage.elements_added.is_empty() && stage.supports_added.is_empty() && stage.supports_removed.is_empty();
         // Update active sets
         for &eid in &stage.elements_added {
             active_elements.insert(eid);
@@ -167,6 +171,17 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             None
         };
 
+        recovery_history.advance(
+            StageStiffnessFingerprint::from_assembly(
+                stage_stiffness_contributors_2d(&stage_solver_input),
+                n, asm_dense.as_ref(),
+                asm_trips.as_ref().map(|a| (a.rows.as_slice(), a.cols.as_slice(), a.vals.as_slice())),
+            ),
+            &cumulative_u,
+            stage_results.last().is_some_and(|r| r.results.element_forces.iter().any(|f| [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end].iter().any(|v| *v != 0.0))),
+            asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.f),
+            unloaded_removal_only,
+        );
         // Build prescribed displacement vector
         let mut u_r = vec![0.0; nr];
         for sup in crate::ordered::values(&stage_solver_input.supports) {
@@ -193,11 +208,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         // linear-agreement check: two load stages gave twice the settlement).
         let du_r: Vec<f64> = u_r.iter().zip(&prev_u_r).map(|(a, b)| a - b).collect();
         // Extract Kff, Ff and apply F_f_modified = F_f - K_fr * du_r.
-        // Sparse path: the full-K CSC (built once from the stage triplets)
-        // provides the K_fr·u_r cross-block matvec and is reused for the
-        // reaction computation at the end of the stage; the free×free CSC
-        // for the solve is filtered from the same triplets further below.
-        let mut k_full_csc: Option<CscMatrix> = None;
         let mut k_ff_dense: Option<Vec<f64>> = None;
         let mut f_f: Vec<f64>;
         if let Some(ref t) = asm_trips {
@@ -208,7 +218,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
                 ff[i] -= k_fr_ur[i];
             }
             f_f = ff;
-            k_full_csc = Some(k_full);
         } else {
             let asm = asm_dense.as_ref().unwrap();
             let free_idx: Vec<usize> = (0..nf).collect();
@@ -274,51 +283,34 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         }
         prev_u_r = u_r.clone();
 
-        // Reassemble with cumulative loads for correct reaction F_r.
-        // Sparse path: K is load-independent, so the stage's full-K CSC is
-        // also the cumulative one — only the force vector is reassembled.
-        let reactions_vec = if let Some(ref k_full) = k_full_csc {
-            asm_trips.as_ref().unwrap().cumulative_reactions(
-                k_full, &cumulative_solver_input, stage, &dof_num, &cumulative_u,
-            )
-        } else {
-            let cumulative_asm = assemble_staged_2d(
-                &cumulative_solver_input, &dof_num, stage,
-            );
-            compute_stage_reactions_vec(&cumulative_asm, n, nf, nr, &cumulative_u, &u_r)
-        };
+        let reactions_vec = physical_recovery::recover(
+            physical_recovery::StageModel::Plane(&cumulative_solver_input, stage),
+            &dof_num, &cumulative_u,
+        );
 
         // Build results for this stage
         stage_results.push(StageResult {
             stage_name: stage.name.clone(),
             stage_index: stage_idx,
             results: build_results_from_u(
-                &cumulative_u,
+                &SolverDisplacements::new(&cumulative_u),
                 &dof_num,
                 &cumulative_solver_input,
                 &reactions_vec,
-                nf,
+                cs.as_ref(),
+                &mut recovery_history,
                 inclined_transforms,
-            ),
+            )?,
         });
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, conditioning.into_iter().collect());
         crate::known_issues::attach(&mut cumulative_diagnostics, stage_results.last().unwrap().results.structured_diagnostics.clone());
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, cumulative_diagnostics.clone());
+        withhold_inherited_stage_results(&mut stage_results.last_mut().unwrap().results, &cumulative_diagnostics);
     }
 
     let final_results = stage_results.last()
-        .map(|sr| sr.results.clone())
-        .unwrap_or_else(|| AnalysisResults {
-            displacements: vec![],
-            reactions: vec![],
-            element_forces: vec![],
-            constraint_forces: vec![],
-            diagnostics: vec![],
-            solver_diagnostics: vec![],
-            structured_diagnostics: vec![],
-            equilibrium: None,
-            result_summary: None, solver_run_meta: None,
-        });
+        .ok_or("Staged analysis produced no stage results")?
+        .results.clone();
 
     Ok(StagedAnalysisResults {
         stages: stage_results,
@@ -554,21 +546,6 @@ struct StagedTriplets2D {
     f: Vec<f64>,
 }
 
-impl StagedTriplets2D {
-    fn cumulative_reactions(
-        &self,
-        k_full: &CscMatrix,
-        input: &SolverInput,
-        stage: &ConstructionStage,
-        dof: &DofNumbering,
-        u: &[f64],
-    ) -> Vec<f64> {
-        let loads = stage_loads_2d(input, stage);
-        let f = super::assembly::assemble_load_vector_2d(input, &loads, dof, &self.inclined_transforms_2d);
-        compute_stage_reactions_sparse(k_full, &f, dof.n_free, dof.n_total - dof.n_free, u)
-    }
-}
-
 fn full_triplets(k: &CscMatrix) -> (Vec<usize>, Vec<usize>, Vec<f64>) {
     let mut rows = Vec::with_capacity(k.nnz());
     let mut cols = Vec::with_capacity(k.nnz());
@@ -595,86 +572,228 @@ fn assemble_staged_2d_triplets(
     StagedTriplets2D { inclined_transforms_2d: stiff.inclined_transforms_2d, k_ff: stiff.k_ff, rows, cols, vals, f }
 }
 
+#[path = "staged_physical.rs"]
+mod physical_recovery;
+pub(super) use physical_recovery::PhysicalStageResidual;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StageForceRecovery {
+    CumulativeElastic,
+    UnavailableHistory,
+}
+
+#[derive(PartialEq, Eq, Hash)]
+enum StageStiffnessEntry {
+    Member(usize),
+    Plate(usize),
+    Quad(usize),
+    Support(String),
+    Restraint(usize, usize),
+    Coefficient(usize, usize, u64),
+}
+
+fn stage_support_contributors<const N: usize>(
+    supports: impl Iterator<Item = (String, usize, [super::support::SupportDof; N])>,
+) -> Vec<StageStiffnessEntry> {
+    let mut entries = Vec::new();
+    for (key, node, dofs) in supports {
+        if !dofs.iter().any(|d| d.restrained || d.spring.is_some_and(|k| k > 0.0)) { continue; }
+        entries.push(StageStiffnessEntry::Support(key));
+        entries.extend(dofs.into_iter().enumerate().filter_map(|(i, d)| {
+            d.restrained.then_some(StageStiffnessEntry::Restraint(node, i))
+        }));
+    }
+    entries
+}
+
+fn stage_stiffness_contributors_2d(input: &SolverInput) -> Vec<StageStiffnessEntry> {
+    let mut entries = stage_support_contributors(crate::ordered::entries(&input.supports).map(|(key, s)| {
+        (key.clone(), s.node_id, super::support::support_dofs_2d(s))
+    }));
+    entries.extend(crate::ordered::values(&input.elements).map(|e| StageStiffnessEntry::Member(e.id)));
+    entries
+}
+
+fn stage_stiffness_contributors_3d(input: &SolverInput3D) -> Vec<StageStiffnessEntry> {
+    let mut entries = stage_support_contributors(crate::ordered::entries(&input.supports).map(|(key, s)| {
+        (key.clone(), s.node_id, super::support::support_dofs_3d(s))
+    }));
+    entries.extend(crate::ordered::values(&input.elements).map(|e| StageStiffnessEntry::Member(e.id)));
+    entries.extend(crate::ordered::values(&input.plates).map(|e| StageStiffnessEntry::Plate(e.id)));
+    entries.extend(crate::ordered::values(&input.quads).map(|e| StageStiffnessEntry::Quad(e.id)));
+    entries
+}
+
+#[derive(Default, PartialEq, Eq)]
+struct StageStiffnessFingerprint(HashSet<StageStiffnessEntry>);
+
+impl StageStiffnessFingerprint {
+    fn from_assembly(
+        contributors: Vec<StageStiffnessEntry>,
+        n: usize,
+        dense: Option<&AssemblyResult>,
+        triplets: Option<(&[usize], &[usize], &[f64])>,
+    ) -> Self {
+        let mut entries: HashSet<_> = contributors.into_iter().collect();
+        if let Some(a) = dense {
+            assert!(triplets.is_none());
+            for j in 0..n {
+                for i in j..n {
+                    let k = a.k[i * n + j];
+                    if k != 0.0 {
+                        entries.insert(StageStiffnessEntry::Coefficient(i, j, k.to_bits()));
+                    }
+                }
+            }
+        } else {
+            let (rows, cols, vals) = triplets.expect("stage stiffness assembly");
+            let k = CscMatrix::from_triplets(n, rows, cols, vals);
+            for j in 0..n {
+                for at in k.col_ptr[j]..k.col_ptr[j + 1] {
+                    if k.values[at] != 0.0 {
+                        entries.insert(StageStiffnessEntry::Coefficient(k.row_idx[at], j, k.values[at].to_bits()));
+                    }
+                }
+            }
+        }
+        Self(entries)
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StageMemberState {
+    Unloaded,
+    Loaded,
+    Uncertified,
+}
+
+#[derive(Default)]
+struct StageRecoveryHistory {
+    stiffness: StageStiffnessFingerprint,
+    loaded: bool,
+    unavailable: bool,
+    member_forces: HashMap<usize, StageMemberState>,
+}
+
+impl StageRecoveryHistory {
+    fn record_member_forces(&mut self, forces: impl Iterator<Item = (usize, bool)>, equilibrium_ok: bool) {
+        let certified = !self.unavailable && equilibrium_ok;
+        self.member_forces = forces.map(|(id, loaded)| (id, if !certified {
+            StageMemberState::Uncertified
+        } else if loaded {
+            StageMemberState::Loaded
+        } else {
+            StageMemberState::Unloaded
+        })).collect();
+    }
+
+    fn check_member_removal(&self, removed: &[usize]) -> Result<(), String> {
+        let loaded: Vec<_> = removed.iter().copied().filter(|id| self.member_forces.get(id).is_some_and(|state| *state != StageMemberState::Unloaded)).collect();
+        if loaded.is_empty() { return Ok(()); }
+        let message = format!("Staged history refused (#1996): removing member(s) {loaded:?} carrying internal force or lacking a certified unloaded state requires redistribution of released internal forces. Displacements, reactions and member forces for this history are unavailable.");
+        let diagnostic = StructuredDiagnostic::global(DiagnosticCode::ResultQuantityUnavailable, Severity::Error, &message)
+            .with_elements(loaded).with_phase("stageResults");
+        Err(serde_json::json!({"message": message, "structuredDiagnostics": [diagnostic]}).to_string())
+    }
+
+    fn recovery(&self) -> StageForceRecovery {
+        if self.unavailable { StageForceRecovery::UnavailableHistory } else { StageForceRecovery::CumulativeElastic }
+    }
+
+    fn advance(
+        &mut self,
+        stiffness: StageStiffnessFingerprint,
+        previous_u: &[f64],
+        previous_forces: bool,
+        stage_load: &[f64],
+        unloaded_removal_only: bool,
+    ) {
+        self.unavailable |= !unloaded_removal_only && stiffness != self.stiffness && (self.loaded || previous_forces || previous_u.iter().any(|v| *v != 0.0));
+        self.loaded |= stage_load.iter().any(|v| *v != 0.0);
+        self.stiffness = stiffness;
+    }
+}
+
+const UNAVAILABLE_HISTORY: &str = "Stage equilibrium results are unavailable: the active stiffness changed after earlier loading or displacement. Recovery does not track member or support-spring deformation since activation or redistribute forces released by removal. Reactions and member forces are withheld; retained cumulative displacements are incremental history only, not a certified equilibrium solution. Later stages remain unavailable.";
+const UNAVAILABLE_STIFFNESS: &str = "This stage has no active physical stiffness. Its equilibrium forces are withheld; retained cumulative displacements are incremental history only, not a certified equilibrium solution.";
+const UNAVAILABLE_RESIDUAL: &str = "Stage equilibrium results are unavailable: the physical free-DOF residual after constraint projection exceeds the residual criterion. Artificial stabilization cannot establish physical equilibrium. Forces are withheld; retained cumulative displacements are incremental history only, not a certified equilibrium solution.";
+
+fn withhold_inherited_stage_results(
+    results: &mut impl super::reaction_recovery::WithholdForces,
+    diagnostics: &[StructuredDiagnostic],
+) {
+    if let Some(diagnostic) = diagnostics.iter().find(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("stageResults")) {
+        super::reaction_recovery::withhold(results, super::reaction_recovery::UnavailableQuantity::StageEquilibrium, &diagnostic.message);
+    }
+}
+
+fn contain_stage_results(
+    results: &mut impl super::reaction_recovery::WithholdForces,
+    recovery: StageForceRecovery,
+    no_stiffness: bool,
+    equilibrium_ok: bool,
+) {
+    let message = if recovery == StageForceRecovery::UnavailableHistory {
+        Some(UNAVAILABLE_HISTORY)
+    } else if no_stiffness {
+        Some(UNAVAILABLE_STIFFNESS)
+    } else if !equilibrium_ok {
+        Some(UNAVAILABLE_RESIDUAL)
+    } else {
+        None
+    };
+    if let Some(message) = message {
+        super::reaction_recovery::withhold(results, super::reaction_recovery::UnavailableQuantity::StageEquilibrium, message);
+    }
+}
+
+fn state_is_fully_prescribed(u: &[f64], n_free: usize, prescribed: &[f64], cs: Option<&FreeConstraintSystem>) -> bool {
+    if u[n_free..] != *prescribed { return false; }
+    if n_free == 0 { return true; }
+    cs.is_some_and(|cs| cs.n_free_indep == 0 && u[..n_free] == cs.prescribed_free(prescribed))
+}
+
 /// Build AnalysisResults from cumulative displacements.
 fn build_results_from_u(
-    u: &[f64],
+    solver_u: &SolverDisplacements<'_>,
     dof_num: &DofNumbering,
     input: &SolverInput,
-    reactions_vec: &[f64],
-    nf: usize,
+    reactions_vec: &PhysicalStageResidual,
+    cs: Option<&FreeConstraintSystem>,
+    history: &mut StageRecoveryHistory,
     inclined_transforms: &[super::assembly::InclinedTransformData2D],
-) -> AnalysisResults {
-    let mut global_u = u.to_vec();
-    for it in inclined_transforms {
-        super::assembly::reverse_inclined_transform_2d(&mut global_u, &it.dofs, &it.r);
-    }
+) -> Result<AnalysisResults, String> {
+    let global_u = solver_u.to_global_2d(inclined_transforms);
     let u = global_u.as_slice();
     let displacements = build_displacements_2d(dof_num, u);
     let mut element_forces = compute_internal_forces_2d(input, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
-    let mut reactions = build_reactions_2d_inclined(input, dof_num, reactions_vec, &[], nf, u, inclined_transforms);
-    reactions.sort_by_key(|r| r.node_id);
+    let recovered = super::reaction_recovery::RecoveredForces::from_stage(reactions_vec, dof_num, cs);
+    recovered.checked_restrained_2d(input, dof_num)?;
+    let reactions = recovered.reactions_2d(dof_num, &global_u, inclined_transforms)?;
 
-    AnalysisResults {
+    let prescribed = super::linear::prescribed_displacements_2d(input, dof_num);
+    let determined = state_is_fully_prescribed(solver_u.as_slice(), dof_num.n_free, &prescribed, cs);
+    let no_stiffness = !determined && input.elements.is_empty() && super::assembly::support_spring_entries_2d(input, dof_num).is_empty();
+    let metric = super::convergence::EquilibriumMetric::for_2d(input, dof_num, cs)?;
+    let equilibrium_ok = reactions_vec.equilibrium_ok(&metric, dof_num, solver_u, cs);
+
+    history.record_member_forces(element_forces.iter().map(|f| (f.element_id,
+        [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end].iter().any(|v| *v != 0.0))), equilibrium_ok && !no_stiffness);
+
+    let mut results = AnalysisResults {
         displacements,
         reactions,
         element_forces,
-        constraint_forces: vec![],
+        constraint_forces: recovered.constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
         structured_diagnostics: vec![],
         equilibrium: None,
         result_summary: None, solver_run_meta: None,
-    }
-}
-
-fn compute_stage_reactions_vec(
-    asm: &AssemblyResult,
-    n: usize,
-    nf: usize,
-    nr: usize,
-    u_full: &[f64],
-    u_r: &[f64],
-) -> Vec<f64> {
-    if nr == 0 {
-        return Vec::new();
-    }
-
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let rest_idx: Vec<usize> = (nf..n).collect();
-    let k_rf = extract_submatrix(&asm.k, n, &rest_idx, &free_idx);
-    let k_rr = extract_submatrix(&asm.k, n, &rest_idx, &rest_idx);
-    let f_r = extract_subvec(&asm.f, &rest_idx);
-    let k_rf_uf = mat_vec_rect(&k_rf, &u_full[..nf], nr, nf);
-    let k_rr_ur = mat_vec_rect(&k_rr, u_r, nr, nr);
-
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = k_rf_uf[i] + k_rr_ur[i] - f_r[i];
-    }
-    reactions_vec
-}
-
-/// Sparse counterpart of `compute_stage_reactions_vec`: with the full-K CSC,
-/// (K·u)[r] − F_r is exactly K_rf·u_f + K_rr·u_r − F_r (u_full already holds
-/// the prescribed displacements at the restrained DOFs).
-fn compute_stage_reactions_sparse(
-    k_full: &CscMatrix,
-    f: &[f64],
-    nf: usize,
-    nr: usize,
-    u_full: &[f64],
-) -> Vec<f64> {
-    if nr == 0 {
-        return Vec::new();
-    }
-
-    let ku = k_full.sym_mat_vec(u_full);
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = ku[nf + i] - f[nf + i];
-    }
-    reactions_vec
+    };
+    contain_stage_results(&mut results, history.recovery(), no_stiffness, equilibrium_ok);
+    Ok(results)
 }
 
 // ==================== 3D Staged Construction Analysis ====================
@@ -748,10 +867,6 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
     super::linear::validate_input_3d(&full_input)?;
     let dof_num = DofNumbering::build_3d(&full_input);
 
-    if dof_num.n_free == 0 {
-        return Err("No free DOFs — all nodes are fully restrained".into());
-    }
-
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let nr = n - nf;
@@ -761,6 +876,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
 
     // Track cumulative state
     let mut cumulative_u = vec![0.0; n];
+    let mut recovery_history = StageRecoveryHistory::default();
     let mut prev_u_r = vec![0.0; n - dof_num.n_free];
     let mut active_elements: HashSet<usize> = HashSet::new();
     let mut active_supports: HashSet<usize> = HashSet::new(); // node_ids
@@ -768,7 +884,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
     // may share a number with an element.
     let mut active_plates: HashSet<usize> = HashSet::new();
     let mut active_quads: HashSet<usize> = HashSet::new();
-    let mut stage_results = Vec::new();
+    let mut stage_results: Vec<StageResult3D> = Vec::new();
     let mut cumulative_diagnostics = Vec::new();
 
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
@@ -779,6 +895,11 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
     for (stage_idx, stage) in input.stages.iter().enumerate() {
         cumulative_loads.extend(stage.load_indices.iter().filter_map(|&idx| input.loads.get(idx).cloned()));
         // Update active sets
+        recovery_history.check_member_removal(&stage.elements_removed)?;
+        let unloaded_removal_only = !stage.elements_removed.is_empty()
+            && stage.elements_added.is_empty() && stage.supports_added.is_empty() && stage.supports_removed.is_empty()
+            && stage.plates_added.is_empty() && stage.plates_removed.is_empty()
+            && stage.quads_added.is_empty() && stage.quads_removed.is_empty();
         for &eid in &stage.elements_added {
             active_elements.insert(eid);
         }
@@ -821,6 +942,17 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
             None
         };
 
+        recovery_history.advance(
+            StageStiffnessFingerprint::from_assembly(
+                stage_stiffness_contributors_3d(&stage_input),
+                n, asm_dense.as_ref(),
+                asm_trips.as_ref().map(|a| (a.rows.as_slice(), a.cols.as_slice(), a.vals.as_slice())),
+            ),
+            &cumulative_u,
+            stage_results.last().is_some_and(|r| r.results.element_forces.iter().any(|f| [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.mx_start, f.mx_end, f.my_start, f.my_end, f.mz_start, f.mz_end].iter().any(|v| *v != 0.0))),
+            asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.f),
+            unloaded_removal_only,
+        );
         // Build prescribed displacement vector
         let mut u_r = vec![0.0; nr];
         for sup in crate::ordered::values(&stage_input.supports) {
@@ -913,23 +1045,13 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         prev_u_r = u_r.clone();
 
         // Reactions (K·u − F_cumulative)_r with this stage's stiffness.
-        let reactions_vec = if let Some(ref t) = asm_trips {
-            let k_full = CscMatrix::from_triplets(n, &t.rows, &t.cols, &t.vals);
-            let f_cum = super::sparse_assembly::assemble_load_vector_sparse_3d(&cum_input, &cum_input.loads, &dof_num, &[]);
-            compute_stage_reactions_sparse(&k_full, &f_cum, nf, nr, &cumulative_u)
-        } else {
-            let asm = asm_dense.as_ref().unwrap();
-            let f_cum = assemble_3d(&cum_input, &dof_num).f;
-            (0..nr)
-                .map(|r| {
-                    let row = nf + r;
-                    (0..n).map(|c| asm.k[row * n + c] * cumulative_u[c]).sum::<f64>() - f_cum[row]
-                })
-                .collect()
-        };
+        let reactions_vec = physical_recovery::recover(
+            physical_recovery::StageModel::Space(&cum_input),
+            &dof_num, &cumulative_u,
+        );
 
         // Build results for this stage
-        let results = build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &reactions_vec, nf);
+        let results = build_results_from_u_3d(&SolverDisplacements::new(&cumulative_u), &dof_num, &cum_input, &reactions_vec, cs.as_ref(), &mut recovery_history)?;
         crate::known_issues::membrane_bending_3d(&cum_input, &cum_input.loads, &results)?;
         stage_results.push(StageResult3D {
             stage_name: stage.name.clone(),
@@ -939,25 +1061,12 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, conditioning.into_iter().collect());
         crate::known_issues::attach(&mut cumulative_diagnostics, stage_results.last().unwrap().results.structured_diagnostics.clone());
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, cumulative_diagnostics.clone());
+        withhold_inherited_stage_results(&mut stage_results.last_mut().unwrap().results, &cumulative_diagnostics);
     }
 
     let final_results = stage_results.last()
-        .map(|sr| sr.results.clone())
-        .unwrap_or_else(|| AnalysisResults3D {
-            displacements: vec![],
-            reactions: vec![],
-            element_forces: vec![],
-            plate_stresses: vec![],
-            quad_stresses: vec![],
-            quad_nodal_stresses: vec![],
-            constraint_forces: vec![],
-            diagnostics: vec![],
-            solver_diagnostics: vec![],
-            structured_diagnostics: vec![],
-            equilibrium: None,
-            timings: None,
-            result_summary: None, solver_run_meta: None,
-        });
+        .ok_or("Staged analysis produced no stage results")?
+        .results.clone();
 
     Ok(StagedAnalysisResults3D {
         stages: stage_results,
@@ -1119,36 +1228,52 @@ fn assemble_staged_3d_triplets(
 /// fixed-end forces), and quad stresses were never reported (found by the
 /// metamorphic energy and member-reversal checks).
 fn build_results_from_u_3d(
-    u: &[f64],
+    solver_u: &SolverDisplacements<'_>,
     dof_num: &DofNumbering,
     cum_input: &SolverInput3D,
-    reactions_vec: &[f64],
-    nf: usize,
-) -> AnalysisResults3D {
+    reactions_vec: &PhysicalStageResidual,
+    cs: Option<&FreeConstraintSystem>,
+    history: &mut StageRecoveryHistory,
+) -> Result<AnalysisResults3D, String> {
+    let transforms = reactions_vec.inclined_transforms_3d();
+    let global_u = solver_u.to_global_3d(transforms);
+    let u = global_u.as_slice();
     let displacements = build_displacements_3d(dof_num, u);
     let mut element_forces = super::linear::compute_internal_forces_3d_with_loads(cum_input, &cum_input.loads, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
-    let mut reactions = super::linear::build_reactions_3d(cum_input, dof_num, reactions_vec, &[], nf, u);
-    reactions.sort_by_key(|r| r.node_id);
+    let recovered = super::reaction_recovery::RecoveredForces::from_stage(reactions_vec, dof_num, cs);
+    let reactions = recovered.reactions_3d(dof_num, &global_u, transforms)?;
     let plate_stresses = compute_plate_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
     let quad_stresses = super::linear::compute_quad_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
     let quad_nodal_stresses = super::linear::compute_quad_nodal_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
 
-    AnalysisResults3D {
+    let prescribed = super::linear::prescribed_displacements_3d(cum_input, dof_num);
+    let determined = state_is_fully_prescribed(solver_u.as_slice(), dof_num.n_free, &prescribed, cs);
+    let no_stiffness = !determined && cum_input.elements.is_empty() && super::assembly::support_spring_entries_3d(cum_input, dof_num).is_empty() && cum_input.plates.is_empty() && cum_input.quads.is_empty() && cum_input.quad9s.is_empty();
+    let metric = super::convergence::EquilibriumMetric::for_3d(cum_input, dof_num, cs)?;
+    let equilibrium_ok = reactions_vec.equilibrium_ok(&metric, dof_num, solver_u, cs);
+
+    history.record_member_forces(element_forces.iter().map(|f| (f.element_id,
+        [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.mx_start, f.mx_end, f.my_start, f.my_end, f.mz_start, f.mz_end].iter().any(|v| *v != 0.0)
+            || f.bimoment_start.is_some_and(|v| v != 0.0) || f.bimoment_end.is_some_and(|v| v != 0.0))), equilibrium_ok && !no_stiffness);
+
+    let mut results = AnalysisResults3D {
         displacements,
         reactions,
         element_forces,
         plate_stresses,
         quad_stresses,
         quad_nodal_stresses,
-        constraint_forces: vec![],
+        constraint_forces: recovered.constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
         structured_diagnostics: vec![],
         equilibrium: None,
         timings: None,
         result_summary: None, solver_run_meta: None,
-    }
+    };
+    contain_stage_results(&mut results, history.recovery(), no_stiffness, equilibrium_ok);
+    Ok(results)
 }
 
 #[cfg(test)]

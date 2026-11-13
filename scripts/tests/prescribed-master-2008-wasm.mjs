@@ -38,7 +38,33 @@ for (const [index, c] of cases.entries()) {
       else if (path === 'corotational') result = JSON.parse(engine[`${name}_${c.dim}d`](JSON.stringify(c.model),50,1e-10,3));
       else result = JSON.parse(engine[`${name}_${c.dim}d`](JSON.stringify(path === 'staged' ? c.model : wrapper)));
       replay.push({index,path,result,bits:numericBits(result)});
-      if (c.motion === 0) assert.equal(numericBits(result),zero[`${path}:${index}`],`zero motion bits ${path}:${index}`);
+      if (c.motion === 0) {
+        const legacyShape = structuredClone(result);
+        if (['corotational','arc'].includes(path)) {
+          const summary = legacyShape.results.equilibrium;
+          if (summary) {
+          assert.equal(summary.residualOk, true);
+          assert.equal(summary.equilibriumOk, true);
+          assert.ok(summary.relativeResidual <= 1e-10);
+          delete legacyShape.results.equilibrium;
+          }
+        }
+        if (path === 'arc') {
+          const factor = legacyShape.finalLoadFactor;
+          const reactions = legacyShape.results.reactions;
+          assert.equal(reactions.length, Object.keys(c.model.supports).length);
+          for (const [loadKey,reactionKey] of [['fx','rx'],['fz','rz']]) {
+            const applied = c.model.loads.reduce((sum,l) => sum+l.data[loadKey]*factor,0);
+            const support = reactions.reduce((sum,r) => sum+r[reactionKey],0);
+            assert.ok(Math.abs(applied+support) <= 1e-11);
+          }
+          legacyShape.results.reactions = [];
+          const forces = legacyShape.results.elementForces;
+          assert.ok(forces.every((f,i) => i === 0 || forces[i-1].elementId < f.elementId));
+          forces.sort((a,b) => String(a.elementId).localeCompare(String(b.elementId),'en',{numeric:false}));
+        }
+        assert.equal(numericBits(legacyShape),zero[`${path}:${index}`],`zero motion bits ${path}:${index}`);
+      }
       assert.notEqual(result.converged,false);
       const factor = path === 'arc' ? result.finalLoadFactor : 1;
       if (path === 'arc') assertArcProgress(c.motion,factor);

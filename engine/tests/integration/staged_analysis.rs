@@ -11,6 +11,17 @@ use dedaliano_engine::solver::linear::solve_2d;
 use dedaliano_engine::solver::staged::solve_staged_2d;
 use std::collections::HashMap;
 
+pub(super) fn assert_support_refusal(error: String, nodes: &[usize]) {
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let diagnostics = error["structuredDiagnostics"].as_array().unwrap();
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0]["code"], "result_quantity_unavailable");
+    assert_eq!(diagnostics[0]["severity"], "error");
+    assert_eq!(diagnostics[0]["phase"], "reactions");
+    assert_eq!(diagnostics[0]["nodeIds"], serde_json::json!(nodes));
+    assert!(error.get("results").is_none());
+}
+
 /// Helper: create a simple 3-node beam (node 1 -- node 2 -- node 3), 10m total span.
 fn make_three_node_beam() -> (
     HashMap<String, SolverNode>,
@@ -118,7 +129,7 @@ fn two_stage_cantilever_then_span() {
         }),
     ];
 
-    let staged_input = StagedInput {
+    let mut staged_input = StagedInput {
         nodes, materials, sections, elements, supports,
         loads,
         stages: vec![
@@ -142,6 +153,11 @@ fn two_stage_cantilever_then_span() {
         constraints: vec![],
     };
 
+    assert_support_refusal(solve_staged_2d(&staged_input).unwrap_err(), &[3]);
+    staged_input.stages[0].supports_added.push(2);
+    staged_input.stages[1].supports_added.clear();
+    staged_input.stages[0].elements_added.push(2);
+    staged_input.stages[1].elements_added.clear();
     let results = solve_staged_2d(&staged_input).unwrap();
 
     // Should have 2 stage results
@@ -155,8 +171,11 @@ fn two_stage_cantilever_then_span() {
     // Stage 2: completed span — cumulative displacement should change
     let s2_uy = results.stages[1].results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
-    // Stage 2 adds support at node 3, so stiffness increases — but cumulative includes stage 1
     assert!(s2_uy < 0.0, "Stage 2: midspan should still be negative (cumulative)");
+    let reference: SolverInput = serde_json::from_value(serde_json::to_value(&staged_input).unwrap()).unwrap();
+    let linear = solve_2d(&reference).unwrap();
+    let expected = linear.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    assert!((s2_uy - expected).abs() < 1e-10);
 }
 
 /// Test 3: Prestress on a simply supported beam.
@@ -389,7 +408,7 @@ fn stage_with_no_elements() {
 
 /// Test 7: Element removal reduces stiffness.
 #[test]
-fn element_removal_increases_deflection() {
+fn loaded_element_removal_refuses_unredistributed_deflection() {
     let (nodes, materials, sections, elements, supports) = make_three_node_beam();
 
     let loads = vec![
@@ -424,23 +443,8 @@ fn element_removal_increases_deflection() {
         constraints: vec![],
     };
 
-    let results = solve_staged_2d(&staged_input).unwrap();
-
-    // Stage 1 has full span behavior
-    let s1_uy = results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uz;
-
-    // Stage 2 becomes a cantilever — less stiff, but no new load,
-    // so node 2 displacement changes due to redistribution
-    let s2_uy = results.stages[1].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uz;
-
-    // Both stages should have negative deflection at node 2
-    assert!(s1_uy < 0.0, "Stage 1 uy = {}", s1_uy);
-    // Stage 2 cumulative should still be negative (and potentially larger magnitude)
-    assert!(s2_uy < 0.0, "Stage 2 uy = {}", s2_uy);
-
-    assert_eq!(results.stages.len(), 2);
+    let error = solve_staged_2d(&staged_input).unwrap_err();
+    assert!(error.contains("#1996"), "{error}");
 }
 
 /// Test 8: Multiple stages with increasing load.
@@ -681,7 +685,7 @@ fn staged_sparse_path_matches_linear_reference() {
             .collect();
         let load_indices: Vec<usize> = (0..loads.len()).collect();
 
-        let staged_input = StagedInput {
+        let mut staged_input = StagedInput {
             nodes: nodes.clone(),
             materials: materials.clone(),
             sections: sections.clone(),
@@ -711,6 +715,9 @@ fn staged_sparse_path_matches_linear_reference() {
             constraints: vec![],
         };
 
+        assert_support_refusal(solve_staged_2d(&staged_input).unwrap_err(), &[n_elem + 1]);
+        staged_input.stages[0].supports_added.push(2);
+        staged_input.stages[1].supports_added.clear();
         let staged = solve_staged_2d(&staged_input).unwrap();
 
         let normal_input = SolverInput {
@@ -883,6 +890,9 @@ fn staged_sparse_path_without_cables_numeric_parity() {
         };
         assert_eq!(dedaliano_engine::solver::DofNumbering::build_2d(&full).n_free
             >= dedaliano_engine::solver::linear::SPARSE_THRESHOLD, n_elem == 24);
+        assert_support_refusal(solve_staged_2d(&input).unwrap_err(), &[n_elem + 1]);
+        input.stages[0].supports_added.push(2);
+        input.stages[1].supports_added.clear();
         let result = solve_staged_2d(&input).unwrap();
         let uz_mid = result.final_results.displacements.iter()
             .find(|d| d.node_id == mid_node).unwrap().uz;

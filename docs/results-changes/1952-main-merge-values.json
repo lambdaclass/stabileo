@@ -1,0 +1,1428 @@
+{
+  "startingHead": "392208163e8c9b04777db58e2b2a3a99b5ac8e86",
+  "mergedMain": "581495d9c9204004b4ed3a37788aa79ecf25952d",
+  "fixedWasmSha256": "df3fd753392fc63ef5782c42baeaa9c86f634909c003a0236c5a568f8697e8e3",
+  "originalReplayBeforeAndArgumentsUnchanged": true,
+  "artifacts": [
+    {
+      "file": "web/results-frozen/solve_arc_length-0015ab84c3baa36f.json",
+      "changes": [
+        {
+          "path": "$.nonlinear.results.displacements[0].ry",
+          "before": -0.029266662610720286,
+          "after": -0.029266662610720307,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.results.displacements[1].ry",
+          "before": -1.9474886438699535e-19,
+          "after": 3.323379214803758e-18,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.results.displacements[1].ux",
+          "before": -2.1781227534358095e-23,
+          "after": 9.865035498961922e-24,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.results.displacements[2].ry",
+          "before": 0.029266662610720286,
+          "after": 0.029266662610720307,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.results.elementForces[0].mEnd",
+          "before": -0.03246844698606487,
+          "after": -0.03246844698606492,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.results.elementForces[0].mStart",
+          "before": 1.662558979376172e-14,
+          "after": 1.6653345369377348e-14,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.results.elementForces[0].vEnd",
+          "before": 0.009120538867785025,
+          "after": 0.00912053886778505,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.results.elementForces[0].vStart",
+          "before": 0.009120538867785025,
+          "after": 0.00912053886778505,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.results.elementForces[1].mEnd",
+          "before": 1.662558979376172e-14,
+          "after": 1.664640647547344e-14,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.results.elementForces[1].mStart",
+          "before": -0.03246844698606487,
+          "after": -0.03246844698606491,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.results.elementForces[1].vEnd",
+          "before": -0.009120538867785025,
+          "after": -0.009120538867785043,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.results.elementForces[1].vStart",
+          "before": -0.009120538867785025,
+          "after": -0.009120538867785043,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[0].controlDisplacement",
+          "before": -0.0002536390771049239,
+          "after": -0.0002536390771049612,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[100].controlDisplacement",
+          "before": -0.026997073845785487,
+          "after": -0.026997073845785403,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[101].controlDisplacement",
+          "before": -0.027279616560802553,
+          "after": -0.027279616560802515,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[102].controlDisplacement",
+          "before": -0.027562487591657418,
+          "after": -0.027562487591657407,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[103].controlDisplacement",
+          "before": -0.027845687900396373,
+          "after": -0.02784568790039635,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[104].controlDisplacement",
+          "before": -0.028129218453708332,
+          "after": -0.028129218453708343,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[105].controlDisplacement",
+          "before": -0.02841308022295631,
+          "after": -0.028413080222956327,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[106].controlDisplacement",
+          "before": -0.028697274184208862,
+          "after": -0.02869727418420882,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[107].controlDisplacement",
+          "before": -0.028981801318271702,
+          "after": -0.02898180131827167,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[108].controlDisplacement",
+          "before": -0.029266662610720286,
+          "after": -0.029266662610720307,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[10].controlDisplacement",
+          "before": -0.0028039126498665056,
+          "after": -0.0028039126498664696,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[11].controlDisplacement",
+          "before": -0.00306034210790417,
+          "after": -0.0030603421079041346,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[12].controlDisplacement",
+          "before": -0.0033170290396661,
+          "after": -0.003317029039666051,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[13].controlDisplacement",
+          "before": -0.0035739740902334975,
+          "after": -0.0035739740902334476,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[14].controlDisplacement",
+          "before": -0.0038311779073458467,
+          "after": -0.0038311779073458858,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[15].controlDisplacement",
+          "before": -0.004088641141416583,
+          "after": -0.004088641141416557,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[16].controlDisplacement",
+          "before": -0.004346364445547719,
+          "after": -0.004346364445547675,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[17].controlDisplacement",
+          "before": -0.004604348475545949,
+          "after": -0.004604348475546012,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[18].controlDisplacement",
+          "before": -0.004862593889938571,
+          "after": -0.004862593889938514,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[19].controlDisplacement",
+          "before": -0.005121101349988096,
+          "after": -0.005121101349988067,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[1].controlDisplacement",
+          "before": -0.0005075287032456535,
+          "after": -0.0005075287032457029,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[20].controlDisplacement",
+          "before": -0.005379871519709343,
+          "after": -0.005379871519709347,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[21].controlDisplacement",
+          "before": -0.005638905065884841,
+          "after": -0.005638905065884825,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[22].controlDisplacement",
+          "before": -0.005898202658080818,
+          "after": -0.005898202658080854,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[23].controlDisplacement",
+          "before": -0.006157764968663894,
+          "after": -0.0061577649686638935,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[24].controlDisplacement",
+          "before": -0.006417592672816841,
+          "after": -0.006417592672816871,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[25].controlDisplacement",
+          "before": -0.006677686448555605,
+          "after": -0.006677686448555645,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[26].controlDisplacement",
+          "before": -0.0069380469767455375,
+          "after": -0.006938046976745589,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[27].controlDisplacement",
+          "before": -0.007198674941118374,
+          "after": -0.0071986749411183095,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[28].controlDisplacement",
+          "before": -0.007459571028288531,
+          "after": -0.007459571028288521,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[29].controlDisplacement",
+          "before": -0.007720735927770925,
+          "after": -0.007720735927770953,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[2].controlDisplacement",
+          "before": -0.0007616694952215873,
+          "after": -0.0007616694952216347,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[30].controlDisplacement",
+          "before": -0.007982170331997572,
+          "after": -0.007982170331997522,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[31].controlDisplacement",
+          "before": -0.008243874936334529,
+          "after": -0.00824387493633451,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[32].controlDisplacement",
+          "before": -0.008505850439099946,
+          "after": -0.008505850439099944,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[33].controlDisplacement",
+          "before": -0.008768097541581123,
+          "after": -0.008768097541581086,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[34].controlDisplacement",
+          "before": -0.009030616948052074,
+          "after": -0.009030616948052052,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[35].controlDisplacement",
+          "before": -0.009293409365791568,
+          "after": -0.009293409365791578,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[36].controlDisplacement",
+          "before": -0.009556475505100975,
+          "after": -0.009556475505100923,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[37].controlDisplacement",
+          "before": -0.009819816079321916,
+          "after": -0.009819816079321877,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[38].controlDisplacement",
+          "before": -0.010083431804854933,
+          "after": -0.010083431804854954,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[39].controlDisplacement",
+          "before": -0.010347323401177687,
+          "after": -0.010347323401177685,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[3].controlDisplacement",
+          "before": -0.0010160620723475035,
+          "after": -0.0010160620723474872,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[40].controlDisplacement",
+          "before": -0.010611491590863088,
+          "after": -0.010611491590863092,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[41].controlDisplacement",
+          "before": -0.010875937099598245,
+          "after": -0.010875937099598255,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[42].controlDisplacement",
+          "before": -0.011140660656203097,
+          "after": -0.01114066065620307,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[44].controlDisplacement",
+          "before": -0.01167094484407868,
+          "after": -0.011670944844078667,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[45].controlDisplacement",
+          "before": -0.011936506948824026,
+          "after": -0.011936506948823944,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[46].controlDisplacement",
+          "before": -0.012202350048426385,
+          "after": -0.012202350048426331,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[47].controlDisplacement",
+          "before": -0.012468474887655987,
+          "after": -0.012468474887655928,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[48].controlDisplacement",
+          "before": -0.012734882214531148,
+          "after": -0.012734882214531146,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[49].controlDisplacement",
+          "before": -0.013001572780338509,
+          "after": -0.013001572780338498,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[4].controlDisplacement",
+          "before": -0.0012707070564494131,
+          "after": -0.0012707070564494155,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[50].controlDisplacement",
+          "before": -0.013268547339652574,
+          "after": -0.013268547339652536,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[51].controlDisplacement",
+          "before": -0.013535806650355942,
+          "after": -0.013535806650355931,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[52].controlDisplacement",
+          "before": -0.013803351473659731,
+          "after": -0.013803351473659716,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[53].controlDisplacement",
+          "before": -0.014071182574123795,
+          "after": -0.014071182574123745,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[54].controlDisplacement",
+          "before": -0.01433930071967716,
+          "after": -0.014339300719677185,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[55].controlDisplacement",
+          "before": -0.014607706681639293,
+          "after": -0.014607706681639309,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[56].controlDisplacement",
+          "before": -0.014876401234740393,
+          "after": -0.014876401234740374,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[57].controlDisplacement",
+          "before": -0.015145385157142675,
+          "after": -0.015145385157142663,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[58].controlDisplacement",
+          "before": -0.015414659230461775,
+          "after": -0.015414659230461751,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[59].controlDisplacement",
+          "before": -0.015684224239787856,
+          "after": -0.01568422423978786,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[5].controlDisplacement",
+          "before": -0.0015256050718792135,
+          "after": -0.001525605071879212,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[60].controlDisplacement",
+          "before": -0.015954080973707423,
+          "after": -0.015954080973707475,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[61].controlDisplacement",
+          "before": -0.01622423022432505,
+          "after": -0.016224230224325027,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[62].controlDisplacement",
+          "before": -0.016494672787284836,
+          "after": -0.01649467278728486,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[63].controlDisplacement",
+          "before": -0.01676540946179322,
+          "after": -0.01676540946179329,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[64].controlDisplacement",
+          "before": -0.01703644105064088,
+          "after": -0.01703644105064089,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[65].controlDisplacement",
+          "before": -0.01730776836022494,
+          "after": -0.017307768360224903,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[66].controlDisplacement",
+          "before": -0.01757939220057187,
+          "after": -0.017579392200571912,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[67].controlDisplacement",
+          "before": -0.017851313385360595,
+          "after": -0.017851313385360622,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[68].controlDisplacement",
+          "before": -0.0181235327319448,
+          "after": -0.01812353273194483,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[69].controlDisplacement",
+          "before": -0.018396051061376695,
+          "after": -0.01839605106137668,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[6].controlDisplacement",
+          "before": -0.001780756745528682,
+          "after": -0.0017807567455286244,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[70].controlDisplacement",
+          "before": -0.018668869198429888,
+          "after": -0.018668869198429944,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[71].controlDisplacement",
+          "before": -0.018941987971623605,
+          "after": -0.01894198797162363,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[72].controlDisplacement",
+          "before": -0.01921540821324573,
+          "after": -0.01921540821324571,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[73].controlDisplacement",
+          "before": -0.019489130759377006,
+          "after": -0.01948913075937707,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[74].controlDisplacement",
+          "before": -0.019763156449915643,
+          "after": -0.019763156449915664,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[75].controlDisplacement",
+          "before": -0.02003748612860085,
+          "after": -0.020037486128600797,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[77].controlDisplacement",
+          "before": -0.020587060844722373,
+          "after": -0.020587060844722338,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[78].controlDisplacement",
+          "before": -0.020862307589066174,
+          "after": -0.020862307589066136,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[79].controlDisplacement",
+          "before": -0.021137861735421398,
+          "after": -0.021137861735421346,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[7].controlDisplacement",
+          "before": -0.0020361627068438025,
+          "after": -0.0020361627068437808,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[80].controlDisplacement",
+          "before": -0.02141372414710628,
+          "after": -0.02141372414710629,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[81].controlDisplacement",
+          "before": -0.02168989569143098,
+          "after": -0.02168989569143096,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[82].controlDisplacement",
+          "before": -0.021966377239722716,
+          "after": -0.021966377239722744,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[83].controlDisplacement",
+          "before": -0.022243169667352486,
+          "after": -0.022243169667352482,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[84].controlDisplacement",
+          "before": -0.02252027385376065,
+          "after": -0.022520273853760608,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[85].controlDisplacement",
+          "before": -0.02279769068248358,
+          "after": -0.02279769068248363,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[86].controlDisplacement",
+          "before": -0.023075421041180634,
+          "after": -0.023075421041180693,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[87].controlDisplacement",
+          "before": -0.023353465821660514,
+          "after": -0.02335346582166053,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[88].controlDisplacement",
+          "before": -0.023631825919908533,
+          "after": -0.02363182591990853,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[89].controlDisplacement",
+          "before": -0.02391050223611405,
+          "after": -0.023910502236114,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[8].controlDisplacement",
+          "before": -0.00229182358783972,
+          "after": -0.002291823587839712,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[90].controlDisplacement",
+          "before": -0.02418949567469774,
+          "after": -0.024189495674697793,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[91].controlDisplacement",
+          "before": -0.024468807144340014,
+          "after": -0.024468807144340018,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[92].controlDisplacement",
+          "before": -0.024748437558008166,
+          "after": -0.024748437558008145,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[93].controlDisplacement",
+          "before": -0.025028387832985166,
+          "after": -0.025028387832985128,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[94].controlDisplacement",
+          "before": -0.025308658890898054,
+          "after": -0.025308658890898006,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[95].controlDisplacement",
+          "before": -0.02558925165774661,
+          "after": -0.025589251657746608,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[96].controlDisplacement",
+          "before": -0.025870167063932494,
+          "after": -0.02587016706393249,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[97].controlDisplacement",
+          "before": -0.026151406044288242,
+          "after": -0.026151406044288224,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[99].controlDisplacement",
+          "before": -0.026714858489171458,
+          "after": -0.026714858489171413,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[9].controlDisplacement",
+          "before": -0.002547740023115015,
+          "after": -0.00254774002311499,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        }
+      ]
+    },
+    {
+      "file": "web/results-frozen/solve_arc_length-022317310499426d.json",
+      "changes": [
+        {
+          "path": "$.nonlinear.steps[0].controlDisplacement",
+          "before": -0.0009448463075664296,
+          "after": -0.0009448463075664301,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[10].controlDisplacement",
+          "before": -0.010907078345545487,
+          "after": -0.010907078345545489,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[11].controlDisplacement",
+          "before": -0.011957754168488332,
+          "after": -0.01195775416848833,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[13].controlDisplacement",
+          "before": -0.01409060722881626,
+          "after": -0.014090607228816264,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[14].controlDisplacement",
+          "before": -0.015173051645890931,
+          "after": -0.01517305164589093,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[16].controlDisplacement",
+          "before": -0.017370623394548822,
+          "after": -0.01737062339454882,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[17].controlDisplacement",
+          "before": -0.01848599897303014,
+          "after": -0.018485998973030143,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[18].controlDisplacement",
+          "before": -0.019612592547802437,
+          "after": -0.01961259254780244,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[19].controlDisplacement",
+          "before": -0.020750516283759856,
+          "after": -0.020750516283759853,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[1].controlDisplacement",
+          "before": -0.001898616461150062,
+          "after": -0.0018986164611500614,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[20].controlDisplacement",
+          "before": -0.021899876290129947,
+          "after": -0.021899876290129943,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[21].controlDisplacement",
+          "before": -0.023060771834011434,
+          "after": -0.02306077183401144,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[22].controlDisplacement",
+          "before": -0.024233294500993482,
+          "after": -0.024233294500993475,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[23].controlDisplacement",
+          "before": -0.02541752730218587,
+          "after": -0.025417527302185876,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[24].controlDisplacement",
+          "before": -0.02661354372748903,
+          "after": -0.026613543727489027,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[25].controlDisplacement",
+          "before": -0.027821406745529454,
+          "after": -0.027821406745529458,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[26].controlDisplacement",
+          "before": -0.02904116775138629,
+          "after": -0.02904116775138628,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[27].controlDisplacement",
+          "before": -0.03027286546404698,
+          "after": -0.030272865464046977,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[28].controlDisplacement",
+          "before": -0.031516524776459366,
+          "after": -0.03151652477645937,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[2].controlDisplacement",
+          "before": -0.0028614482553109854,
+          "after": -0.0028614482553109867,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[3].controlDisplacement",
+          "before": -0.003833480424808881,
+          "after": -0.0038334804248088797,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[4].controlDisplacement",
+          "before": -0.004814852473788395,
+          "after": -0.004814852473788397,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[5].controlDisplacement",
+          "before": -0.005805704484500408,
+          "after": -0.005805704484500407,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[7].controlDisplacement",
+          "before": -0.00781641030627966,
+          "after": -0.007816410306279659,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[8].controlDisplacement",
+          "before": -0.008836545130328284,
+          "after": -0.008836545130328286,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.nonlinear.steps[9].controlDisplacement",
+          "before": -0.009866721388280682,
+          "after": -0.00986672138828068,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        }
+      ]
+    },
+    {
+      "file": "docs/advisories/replays/SA-2026-061.json",
+      "record": "frozen-arch-0015ab84c3baa36f",
+      "changes": [
+        {
+          "path": "$.displacements[0].ry",
+          "before": -0.029266662610720286,
+          "after": -0.029266662610720307,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.displacements[1].ry",
+          "before": -1.9474886438699535e-19,
+          "after": 3.323379214803758e-18,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.displacements[1].ux",
+          "before": -2.1781227534358095e-23,
+          "after": 9.865035498961922e-24,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.displacements[2].ry",
+          "before": 0.029266662610720286,
+          "after": 0.029266662610720307,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].mEnd",
+          "before": -0.03246844698606487,
+          "after": -0.03246844698606492,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].mStart",
+          "before": 1.662558979376172e-14,
+          "after": 1.6653345369377348e-14,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].vEnd",
+          "before": 0.009120538867785025,
+          "after": 0.00912053886778505,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].vStart",
+          "before": 0.009120538867785025,
+          "after": 0.00912053886778505,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].mEnd",
+          "before": 1.662558979376172e-14,
+          "after": 1.664640647547344e-14,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].mStart",
+          "before": -0.03246844698606487,
+          "after": -0.03246844698606491,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].vEnd",
+          "before": -0.009120538867785025,
+          "after": -0.009120538867785043,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].vStart",
+          "before": -0.009120538867785025,
+          "after": -0.009120538867785043,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        }
+      ]
+    },
+    {
+      "file": "docs/advisories/replays/SA-2026-061.json",
+      "record": "displacement-member-loads",
+      "changes": [
+        {
+          "path": "$.displacements[1].ry",
+          "before": -0.002500001134260573,
+          "after": -0.0025000011342605727,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].mEnd",
+          "before": -1.566746732351021e-12,
+          "after": -1.580957587066223e-12,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].mStart",
+          "before": 33.33334845680921,
+          "after": 33.33334845680922,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].vEnd",
+          "before": 11.111116049389368,
+          "after": 11.111116049389373,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].vStart",
+          "before": 11.111116049389368,
+          "after": 11.111116049389373,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].distributedLoads[0].qI",
+          "before": -11.111131481603437,
+          "after": -11.111131481603433,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].distributedLoads[0].qJ",
+          "before": -4.444452592641374,
+          "after": -4.444452592641373,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].mEnd",
+          "before": 7.061741341641294,
+          "after": 7.061741341641293,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].mStart",
+          "before": 9.79014140545725,
+          "after": 9.790141405457245,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].pointLoads[0].p",
+          "before": -7.7777920371224045,
+          "after": -7.777792037122404,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].qI",
+          "before": -11.111131481603437,
+          "after": -11.111131481603433,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].qJ",
+          "before": -4.444452592641374,
+          "after": -4.444452592641373,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].vEnd",
+          "before": -11.683148991211908,
+          "after": -11.683148991211905,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[1].vStart",
+          "before": 19.42801915727771,
+          "after": 19.428019157277706,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.finalLoadFactor",
+          "before": 1.1111131481603436,
+          "after": 1.1111131481603433,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.reactions[0].my",
+          "before": 33.33334845680921,
+          "after": 33.33334845680922,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.reactions[0].rx",
+          "before": -1.9171164657385392e-13,
+          "after": -1.9170028220776195e-13,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.reactions[0].rz",
+          "before": 11.111131481526856,
+          "after": 11.111131481526865,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.reactions[1].my",
+          "before": 9.79014140545725,
+          "after": 9.790141405457245,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.reactions[1].rz",
+          "before": 19.42801915727771,
+          "after": 19.428019157277706,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.reactions[2].my",
+          "before": -7.061741341641294,
+          "after": -7.061741341641293,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.reactions[2].rz",
+          "before": 11.683148991211908,
+          "after": 11.683148991211905,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        }
+      ]
+    },
+    {
+      "file": "docs/advisories/replays/SA-2026-061.json",
+      "record": "corotational-2d-restrained-master",
+      "changes": [
+        {
+          "path": "$.elementForces[0].mEnd",
+          "before": 7.773337529215496e-12,
+          "after": 7.755573960821494e-12,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].mStart",
+          "before": 29.999966476238626,
+          "after": 29.999966476238647,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].vEnd",
+          "before": 9.99998875041048,
+          "after": 9.999988750410493,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].vStart",
+          "before": 9.99998875041048,
+          "after": 9.999988750410493,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.reactions[0].my",
+          "before": 27.999966476238626,
+          "after": 27.999966476238647,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.reactions[0].rz",
+          "before": 20.000000000383228,
+          "after": 20.000000000383242,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        }
+      ]
+    },
+    {
+      "file": "docs/advisories/replays/SA-2026-061.json",
+      "record": "pdelta-2d-restrained-master",
+      "changes": [
+        {
+          "path": "$.displacements[1].ry",
+          "before": -0.0022499999999999994,
+          "after": -0.0022500000000000007,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.displacements[1].uz",
+          "before": -0.004499999999999999,
+          "after": -0.004500000000000001,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.elementForces[0].mStart",
+          "before": 29.999999999999993,
+          "after": 30.00000000000001,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.elementForces[0].vEnd",
+          "before": 9.999999999999993,
+          "after": 10.000000000000004,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.elementForces[0].vStart",
+          "before": 9.999999999999993,
+          "after": 10.000000000000004,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.equilibrium.maxImbalance",
+          "before": 7.105427357601002e-15,
+          "after": 3.552713678800501e-15,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.equilibrium.reactionForceSum[1]",
+          "before": 19.999999999999993,
+          "after": 20.000000000000004,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.equilibrium.relativeResidual",
+          "before": 7.105427357601002e-16,
+          "after": 3.552713678800501e-16,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.reactions[0].my",
+          "before": 27.999999999999993,
+          "after": 28.00000000000001,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.reactions[0].rz",
+          "before": 19.999999999999993,
+          "after": 20.000000000000004,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        }
+      ]
+    },
+    {
+      "file": "docs/advisories/replays/SA-2026-061.json",
+      "record": "ssi-2d-restrained-master",
+      "changes": [
+        {
+          "path": "$.displacements[1].ry",
+          "before": -0.0022499999999999994,
+          "after": -0.0022500000000000007,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        },
+        {
+          "path": "$.displacements[1].uz",
+          "before": -0.004499999999999999,
+          "after": -0.004500000000000001,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        },
+        {
+          "path": "$.elementForces[0].mStart",
+          "before": 29.999999999999993,
+          "after": 30.00000000000001,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        },
+        {
+          "path": "$.elementForces[0].vEnd",
+          "before": 9.999999999999993,
+          "after": 10.000000000000004,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        },
+        {
+          "path": "$.elementForces[0].vStart",
+          "before": 9.999999999999993,
+          "after": 10.000000000000004,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        },
+        {
+          "path": "$.reactions[0].my",
+          "before": 27.999999999999993,
+          "after": 28.00000000000001,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        },
+        {
+          "path": "$.reactions[0].rz",
+          "before": 19.999999999999993,
+          "after": 20,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        }
+      ]
+    },
+    {
+      "file": "docs/advisories/replays/SA-2026-061.json",
+      "record": "corotational-3d-restrained-master",
+      "changes": [
+        {
+          "path": "$.displacements[1].ry",
+          "before": 0.00224999748563145,
+          "after": 0.0022499974856314505,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.displacements[1].ux",
+          "before": -3.3524918767380345e-06,
+          "after": -3.3524918767380357e-06,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.displacements[1].uz",
+          "before": -0.004499993317518524,
+          "after": -0.004499993317518525,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].myEnd",
+          "before": -1.751487843648647e-12,
+          "after": -1.758593271006248e-12,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].myStart",
+          "before": -29.999966475084253,
+          "after": -29.99996647508425,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].vzEnd",
+          "before": 9.999988750027676,
+          "after": 9.999988750027672,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.elementForces[0].vzStart",
+          "before": 9.999988750027676,
+          "after": 9.999988750027672,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        },
+        {
+          "path": "$.reactions[0].my",
+          "before": -31.999966475084253,
+          "after": -31.99996647508425,
+          "reason": "Main #1940 retains small chord rotations through incremental chord arithmetic and uses the shared dimensional equilibrium metric. The accepted state changes at floating-point precision; physical final-frame recovery follows that state."
+        }
+      ]
+    },
+    {
+      "file": "docs/advisories/replays/SA-2026-061.json",
+      "record": "pdelta-3d-restrained-master",
+      "changes": [
+        {
+          "path": "$.displacements[1].ry",
+          "before": 0.0022499999999999994,
+          "after": 0.0022500000000000007,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.displacements[1].uz",
+          "before": -0.004499999999999999,
+          "after": -0.004500000000000001,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.elementForces[0].myStart",
+          "before": -29.999999999999993,
+          "after": -30.00000000000001,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.elementForces[0].vzEnd",
+          "before": 9.999999999999993,
+          "after": 10.000000000000004,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.elementForces[0].vzStart",
+          "before": 9.999999999999993,
+          "after": 10.000000000000004,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.equilibrium.maxImbalance",
+          "before": 7.105427357601002e-15,
+          "after": 3.552713678800501e-15,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.equilibrium.reactionForceSum[2]",
+          "before": 19.999999999999993,
+          "after": 20.000000000000004,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.equilibrium.reactionForceSum[4]",
+          "before": -2.006750000000004,
+          "after": -2.0067500000000074,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.equilibrium.relativeResidual",
+          "before": 7.105427357601002e-16,
+          "after": 3.552713678800501e-16,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.reactions[0].fz",
+          "before": 19.999999999999993,
+          "after": 20.000000000000004,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        },
+        {
+          "path": "$.reactions[0].my",
+          "before": -31.999999999999993,
+          "after": -32.000000000000014,
+          "reason": "Main #1940 solves and refines the incremental equilibrium correction. Physical reactions and certification use the same recovered physical state; certification now uses the dimensional metric."
+        }
+      ]
+    },
+    {
+      "file": "docs/advisories/replays/SA-2026-061.json",
+      "record": "ssi-3d-restrained-master",
+      "changes": [
+        {
+          "path": "$.displacements[1].ry",
+          "before": 0.0022499999999999994,
+          "after": 0.0022500000000000007,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        },
+        {
+          "path": "$.displacements[1].uz",
+          "before": -0.004499999999999999,
+          "after": -0.004500000000000001,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        },
+        {
+          "path": "$.elementForces[0].myStart",
+          "before": -29.999999999999993,
+          "after": -30.00000000000001,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        },
+        {
+          "path": "$.elementForces[0].vzEnd",
+          "before": 9.999999999999993,
+          "after": 10.000000000000004,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        },
+        {
+          "path": "$.elementForces[0].vzStart",
+          "before": 9.999999999999993,
+          "after": 10.000000000000004,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        },
+        {
+          "path": "$.reactions[0].fz",
+          "before": 19.999999999999993,
+          "after": 20,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        },
+        {
+          "path": "$.reactions[0].my",
+          "before": -31.999999999999993,
+          "after": -32.000000000000014,
+          "reason": "Main #1940 refines the secant solve and evaluates the actual soil curve at the accepted displacement. Physical recovery excludes artificial stiffness and shares the compensated soil residual path."
+        }
+      ]
+    }
+  ]
+}

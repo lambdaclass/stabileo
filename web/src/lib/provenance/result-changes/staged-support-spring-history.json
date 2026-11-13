@@ -1,0 +1,42 @@
+{
+  "id": "staged-support-spring-history",
+  "date": "2026-11-12",
+  "prs": [
+    1952
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "springs"
+      ],
+      [
+        "pathAnalysis"
+      ]
+    ]
+  },
+  "quantities": [
+    "stages",
+    "finalResults"
+  ],
+  "title": {
+    "en": "Changed staged support springs withhold unsupported forces",
+    "es": "Los resortes por etapas modificados retienen esfuerzos sin recuperación válida",
+    "pt": "Molas de apoio alteradas por etapas retêm esforços sem recuperação válida",
+    "de": "Geänderte Bauphasenfedern halten nicht ermittelbare Kräfte zurück",
+    "fr": "Les ressorts modifiés par phases retiennent les efforts non récupérables",
+    "tr": "Aşamalarda değişen mesnet yayları desteklenmeyen kuvvetleri sunmaz"
+  },
+  "explanation": {
+    "en": "Adding, removing or changing support spring stiffness after earlier loading or motion now withholds staged reactions and forces with structured unavailability warnings. Later stages remain unavailable; retained incremental displacements do not certify equilibrium. Unchanged springs and changes before loading retain their answers. Re-check saved staged results (#1952).",
+    "es": "Agregar, quitar o cambiar la rigidez de resortes tras cargas o movimientos previos retiene reacciones y esfuerzos por etapas con avisos estructurados. Las etapas posteriores siguen sin resultados disponibles; los desplazamientos incrementales no certifican equilibrio. Los resortes sin cambios y los cambios antes de cargar conservan sus resultados. Revisá los resultados por etapas (#1952).",
+    "pt": "Adicionar, remover ou alterar a rigidez de molas após cargas ou movimentos retém reações e esforços por etapas com avisos estruturados. Etapas posteriores permanecem indisponíveis; deslocamentos incrementais não certificam equilíbrio. Molas inalteradas e alterações antes de carregar mantêm os resultados. Reveja os resultados por etapas (#1952).",
+    "de": "Hinzufügen, Entfernen oder Ändern von Federsteifigkeiten nach Belastung oder Bewegung unterdrückt Bauphasenreaktionen und Kräfte mit strukturierten Hinweisen. Spätere Phasen bleiben unverfügbar; inkrementelle Verschiebungen bestätigen kein Gleichgewicht. Unveränderte Federn und Änderungen vor Belastung behalten ihre Ergebnisse. Prüfen Sie gespeicherte Bauphasenergebnisse (#1952).",
+    "fr": "Ajouter, retirer ou modifier la rigidité des ressorts après chargement ou mouvement retient les réactions et efforts par phases avec des avertissements structurés. Les phases suivantes restent indisponibles; les déplacements incrémentaux ne certifient pas l’équilibre. Les ressorts inchangés et les changements avant chargement conservent leurs résultats. Revérifiez les résultats par phases (#1952).",
+    "tr": "Önceki yük veya hareketten sonra mesnet yayı eklemek, kaldırmak ya da rijitliğini değiştirmek aşama tepkileri ve kuvvetlerini yapılandırılmış uyarılarla sunmaz. Sonraki aşamalar da kullanılamaz; artımlı yer değiştirmeler dengeyi doğrulamaz. Değişmeyen yaylar ve yükleme öncesi değişiklikler sonuçlarını korur. Kayıtlı aşamalı sonuçları yeniden denetleyin (#1952)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-staged-support-spring-history.md",
+    "heading": "Staged support spring history containment (2026-11-12)"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "id": "staged-physical-stiffness-recovery",
+  "date": "2026-11-12",
+  "prs": [
+    1952
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "pathAnalysis"
+      ],
+      [
+        "members",
+        "shells"
+      ]
+    ]
+  },
+  "quantities": [
+    "stages",
+    "finalResults"
+  ],
+  "title": {
+    "en": "Staged reactions use physical stiffness",
+    "es": "Las reacciones por etapas usan rigidez física",
+    "pt": "Reações por etapas usam rigidez física",
+    "de": "Bauphasenreaktionen verwenden physikalische Steifigkeit",
+    "fr": "Les réactions par phases utilisent la rigidité physique",
+    "tr": "Aşama tepkileri fiziksel rijitlik kullanır"
+  },
+  "explanation": {
+    "en": "All staged reaction recovery now assembles physical stiffness through one private matrix type. Cached artificial stabilization cannot become a constraint force or support reaction. Physical springs, cumulative loads and prestress remain included. Re-check saved staged force results (#1952).",
+    "es": "La recuperación de reacciones por etapas ensambla rigidez física mediante un único tipo de matriz privado. La estabilización artificial almacenada no puede generar fuerzas de restricción ni reacciones. Se conservan resortes físicos, cargas acumuladas y pretensado. Revisá los esfuerzos por etapas guardados (#1952).",
+    "pt": "A recuperação de reações por etapas monta a rigidez física por um único tipo privado de matriz. A estabilização artificial armazenada não pode gerar forças de restrição ou reações. Molas físicas, cargas acumuladas e protensão permanecem incluídas. Revise os esforços por etapas salvos (#1952).",
+    "de": "Die Bauphasenreaktionsermittlung baut physikalische Steifigkeit über einen privaten Matrixtyp auf. Gespeicherte künstliche Stabilisierung kann keine Zwangskräfte oder Auflagerreaktionen erzeugen. Physikalische Federn, kumulierte Lasten und Vorspannung bleiben enthalten. Prüfen Sie gespeicherte Bauphasenkräfte erneut (#1952).",
+    "fr": "La récupération des réactions par phases assemble la rigidité physique via un type de matrice privé unique. La stabilisation artificielle stockée ne peut produire de forces de liaison ni de réactions. Ressorts physiques, charges cumulées et précontrainte restent inclus. Revérifiez les efforts par phases enregistrés (#1952).",
+    "tr": "Aşama tepkilerinin hesabı fiziksel rijitliği tek bir özel matris türüyle oluşturur. Önbellekteki yapay stabilizasyon kısıt kuvvetine veya mesnet tepkisine dönüşemez. Fiziksel yaylar, birikmiş yükler ve öngerme korunur. Kayıtlı aşama kuvvetlerini yeniden denetleyin (#1952)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-staged-physical-stiffness-recovery.md",
+    "heading": "Staged physical stiffness recovery (2026-11-12)"
+  }
+}
