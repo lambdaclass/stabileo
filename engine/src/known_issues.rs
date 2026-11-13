@@ -1340,6 +1340,12 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #1316"]
+    fn corrected_rc_nm_pairing_is_retired_from_registry() {
+        assert!(!ENTRIES.iter().any(|entry| entry.issue == 1316));
+    }
+
+    #[test]
     fn known_issues_registry_and_ledger_agree() {
         let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
         let mut contained = std::collections::BTreeSet::new();
