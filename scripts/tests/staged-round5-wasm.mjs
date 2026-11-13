@@ -1,3 +1,4 @@
+import { assertHistoryWithheld } from './staged-history-containment.mjs';
 import { assertZeroReactions } from './staged-round7-reactions.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -71,6 +72,12 @@ for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [f
         } else {
           assert.deepEqual(out.finalResults.displacements, out.stages[0].results.displacements);
           assert.ok(Math.abs(out.finalResults.displacements.find(d => d.nodeId === 2).ry) > 0);
+          const activation = structuredClone(input);
+          activation.elements[3] = { ...activation.elements[1], id: 3 };
+          activation.stages[1].elementsAdded = [3];
+          const history = JSON.parse(solve(JSON.stringify(activation)));
+          assertHistoryWithheld(history.stages[1].results);
+          assertHistoryWithheld(history.finalResults);
         }
       }
     });

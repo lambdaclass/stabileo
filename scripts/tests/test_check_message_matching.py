@@ -34,7 +34,6 @@ def py(body):
 
 
 class Caught(unittest.TestCase):
-    @unittest.skip("known wrong result: #1952")
     def test_staged_removal_assertions_use_diagnostic_identity(self):
         path = 'engine/src/solver/staged_tests.rs'
         self.assertEqual(run({path: (ROOT / path).read_text()}), [])

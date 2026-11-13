@@ -1,3 +1,4 @@
+import { assertHistoryWithheld } from './staged-history-containment.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initSync, solve_3d, solve_staged_3d } from '../../web/src/lib/wasm/dedaliano_engine.js';
@@ -51,6 +52,13 @@ for (const pads of [0, 4, 5]) for (const constrained of [false, true]) {
         const tip = stage.results.displacements.find(d => d.nodeId === 2);
         for (const [i, field] of ['rx', 'ry', 'rz'].entries()) close(tip[field], expected[i]);
       }
+      const activation = structuredClone(input);
+      activation.elements[3] = { ...activation.elements[1], id: 3 };
+      activation.stages[1].elementsRemoved = [];
+      activation.stages[1].elementsAdded = [3];
+      const activated = JSON.parse(solve_staged_3d(JSON.stringify(activation)));
+      assertHistoryWithheld(activated.stages[1].results);
+      assertHistoryWithheld(activated.finalResults);
       const unloadedControl = structuredClone(input);
       for (const load of unloadedControl.loads) Object.assign(load.data, { mx: 0, my: 0, mz: 0 });
       {

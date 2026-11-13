@@ -409,14 +409,25 @@ fn staged_r20_spatial_inclined_spring_reactions_use_global_displacements() {
 
 #[test]
 fn staged_r20_uncertified_state_cannot_certify_unloaded_removal() {
+    let assert_refusal = |error: String| {
+        let payload: Value = serde_json::from_str(&error).unwrap();
+        let diagnostics: Vec<StructuredDiagnostic> =
+            serde_json::from_value(payload["structuredDiagnostics"].clone()).unwrap();
+        assert_eq!(diagnostics.len(), 1);
+        let diagnostic = &diagnostics[0];
+        assert_eq!(diagnostic.code, DiagnosticCode::ResultQuantityUnavailable);
+        assert_eq!(diagnostic.severity, Severity::Error);
+        assert_eq!(diagnostic.phase.as_deref(), Some("stageResults"));
+        assert_eq!(diagnostic.element_ids, vec![1]);
+    };
     let mut history = StageRecoveryHistory::default();
     history.record_member_forces([(1, false)].into_iter(), true);
     assert!(history.check_member_removal(&[1]).is_ok());
     history.record_member_forces([(1, false)].into_iter(), false);
     let error = history.check_member_removal(&[1]).unwrap_err();
-    assert!(error.contains("#1996"), "{error}");
+    assert_refusal(error);
     history.unavailable = true;
     history.record_member_forces([(1, false)].into_iter(), true);
     let error = history.check_member_removal(&[1]).unwrap_err();
-    assert!(error.contains("#1996"), "{error}");
+    assert_refusal(error);
 }

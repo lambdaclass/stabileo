@@ -50,7 +50,6 @@ class CiScriptsTarget(unittest.TestCase):
         self.assertIsNotNone(wasm_job)
         self.assertRegex(wasm_job.group(1), rf'run: make {re.escape(target)}(?:\s|$)')
 
-    @unittest.skip("known wrong result: #1952")
     def test_staged_history_helper_is_called_by_each_consumer(self):
         for consumer in ('staged-round5-wasm.mjs', 'staged-round8-wasm.mjs'):
             with self.subTest(consumer=consumer):
