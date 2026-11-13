@@ -156,7 +156,7 @@ uncontained ones.
   [SA-2026-060](../advisories/SA-2026-060-staged-orphan-rotations.md).
   Initial elastic refusals in 3D plastic analysis propagate instead of returning silent zero
   collapse factors ([SA-2026-062](../advisories/SA-2026-062-plastic-conditioning-zero-collapse.md)).
-  Loaded-member removal now refuses under #1952; redistribution remains an owner decision in #1996.
+  Loaded-member removal now refuses under #1952; the decision in #1996 is to keep refusing; redistribution is a future feature.
 - Nonlinear convergence uses physical equilibrium consistently across orientations and units
   ([#1940](https://github.com/lambdaclass/stabileo/pull/1940), [#761](https://github.com/lambdaclass/stabileo/issues/761), [#1100](https://github.com/lambdaclass/stabileo/issues/1100) and [#971](https://github.com/lambdaclass/stabileo/issues/971) done).
   Buckling factors use the original stiffness pencil, with constrained and curved-member coverage
