@@ -2399,6 +2399,55 @@ mod tests {
         assert_lp_equal(&lp, &expected);
     }
 
+    fn mechanism_work_fixture() -> PlasticModel3 {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
+        let input = serde_json::from_slice(&bytes[2..]).unwrap();
+        build_model_3d(&input).unwrap()
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1040"]
+    fn issue_1040_mechanism_work_failure_is_refused() {
+        let model = mechanism_work_fixture();
+        let ends = vec![[true; 2]; model.elems.len()];
+        for positions in [
+            vec![qr(-1, 16)],
+            vec![Q::zero()],
+            vec![Q::one()],
+            vec![qr(17, 16)],
+            vec![qr(1, 2), qr(1, 2)],
+            vec![qr(3, 4), qr(1, 4)],
+        ] {
+            let result = best_mechanism(&model, &ends, &[positions], &[]);
+            let actual = format!("{result:?}");
+            assert!(actual.starts_with("Err("), "{actual}");
+            assert!(actual.contains("hinge positions must increase strictly inside (0, 1)"), "{actual}");
+        }
+        let mut model = model;
+        model.elems[0].mp = None;
+        let result = best_mechanism(&model, &ends, &[vec![qr(1, 4), qr(1, 2), qr(3, 4)]], &[]);
+        let actual = format!("{result:?}");
+        assert!(actual.starts_with("Err("), "{actual}");
+        assert!(actual.contains("hinge where no plastic hinge can form"), "{actual}");
+    }
+
+    #[test]
+    fn mechanism_work_valid_boundaries_and_zero_work_are_preserved() {
+        let mut model = mechanism_work_fixture();
+        let ends = vec![[true; 2]; model.elems.len()];
+        for position in [qr(1, 16), qr(1, 2), qr(15, 16)] {
+            let (mech, checked) = best_mechanism(&model, &ends, &[vec![position]], &[]).unwrap().unwrap();
+            assert!(checked.work.is_positive());
+            assert!(checked.lambda_upper.is_positive());
+            assert_eq!(check_mechanism_3d(&model, &mech).unwrap().lambda_upper, checked.lambda_upper);
+        }
+        model.elems[0].loads_x.clear();
+        model.elems[0].loads_y.clear();
+        model.elems[0].loads_z.clear();
+        assert!(model.nodal.iter().flatten().all(Zero::is_zero));
+        assert!(best_mechanism(&model, &ends, &[vec![qr(1, 2)]], &[]).unwrap().is_none());
+    }
+
     #[test]
     fn mechanism_resource_refusal_is_preserved() {
         let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
