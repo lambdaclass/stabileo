@@ -4,6 +4,7 @@
    * B₂ is and how much the displacements actually grew under it, and, folded, the iterations one
    * by one, the engine's answer beside the method chosen, and the answer as members are cut.
    */
+  import type { Snippet } from 'svelte';
   import { t, tp } from '../../lib/i18n';
   import { modelStore, uiStore } from '../../lib/store';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
@@ -11,7 +12,7 @@
   import { pdeltaConvergence, type ConvergenceRow, type PDeltaInfo } from '../../lib/engine/second-order/run-pdelta';
   import { openSecondOrderSteps } from '../../lib/actions/second-order';
 
-  let { result }: { result: any } = $props();
+  let { result, options }: { result: any; options?: Snippet } = $props();
   const K = 'course.second-order.pd';
   const info = $derived(result.secondOrder as (PDeltaInfo | { lambda1: number | null; b2: number; bucklingError?: string } | undefined));
   const full = $derived(info && 'settings' in info ? info : null);
@@ -108,6 +109,7 @@
     {/if}
     {#if convError}<p class="pd-note">{convError}</p>{/if}
   </details>
+  {@render options?.()}
   <button class="small-btn pd-steps" onclick={() => openSecondOrderSteps(full.settings.method === 'phi' ? 'so-pdelta-phi' : 'so-pdelta-kg', full.settings)} data-testid="pdelta-open-steps">{t(`${K}.openSteps`)}</button>
 {/if}
 

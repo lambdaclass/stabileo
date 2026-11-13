@@ -36,7 +36,6 @@ const words: Translations = {
   'course.second-order.opts.help.modes': 'Kaç burkulma modu aranacağı, 1 ile 12 arası. İlki kritik yükü verir; sonrakiler başka burkulma biçimlerini gösterir.',
   'course.second-order.opts.byEngine': 'Hesap motoru çözer.',
   'course.second-order.opts.byTeaching': 'Tarayıcıdaki öğretici çözücü çözer ve panel sonucu hesap motoruyla karşılaştırır.',
-  'course.second-order.opts.steps': 'Açıklamalı adım adım çözümü gör',
   'course.second-order.opts.short.consistent': 'tutarlı Kg',
   'course.second-order.opts.short.string': 'basit Kg',
   'course.second-order.opts.short.phi': 'φ fonksiyonları',

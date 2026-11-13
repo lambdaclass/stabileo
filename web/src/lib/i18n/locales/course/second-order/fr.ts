@@ -36,7 +36,6 @@ const words: Translations = {
   'course.second-order.opts.help.modes': 'Combien de modes de flambement chercher, de 1 à 12. Le premier donne la charge critique ; les suivants montrent d\'autres façons de flamber.',
   'course.second-order.opts.byEngine': 'Résolu par le moteur de calcul.',
   'course.second-order.opts.byTeaching': 'Résolu par le solveur pédagogique dans le navigateur, et le panneau le compare au moteur.',
-  'course.second-order.opts.steps': 'Voir le pas à pas expliqué',
   'course.second-order.opts.short.consistent': 'Kg cohérente',
   'course.second-order.opts.short.string': 'Kg simplifiée',
   'course.second-order.opts.short.phi': 'fonctions φ',

@@ -10,6 +10,7 @@
   import { t } from '../../lib/i18n';
   import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../../lib/geometry/coordinate-system';
   import { runSolve } from '../../lib/actions/solve';
+  import { deformedScaleMax, stepDeformedScale, DEFORMED_SCALE_LIMIT } from '../../lib/store/deformed-scale';
 
   // ─── Educational Tooltips (subset used by Results) ─────────────
   const HELP_TEXTS: Record<string, { title: string; desc: string }> = {
@@ -123,6 +124,8 @@
     }
     return false;
   }
+  const scaleMax = $derived(resultsStore.diagramType === 'deformed' ? deformedScaleMax() : DEFORMED_SCALE_LIMIT);
+  $effect(() => { if (resultsStore.deformedScale > scaleMax) resultsStore.deformedScale = scaleMax; });
 </script>
 
 <!--
@@ -178,9 +181,9 @@
       {#if resultsStore.diagramType === 'deformed'}
         <div class="input-group">
           <label>{t('results.diagramScale')}:</label>
-          <button class="scale-step-btn" onclick={() => resultsStore.deformedScale = Math.max(1, resultsStore.deformedScale - (resultsStore.deformedScale <= 10 ? 1 : resultsStore.deformedScale <= 100 ? 5 : 50))} title={t('results.decreaseScale')}>◀</button>
-          <input type="range" min="1" max="1000" step="1" bind:value={resultsStore.deformedScale} />
-          <button class="scale-step-btn" onclick={() => resultsStore.deformedScale = Math.min(1000, resultsStore.deformedScale + (resultsStore.deformedScale < 10 ? 1 : resultsStore.deformedScale < 100 ? 5 : 50))} title={t('results.increaseScale')}>▶</button>
+          <button class="scale-step-btn" onclick={() => resultsStore.deformedScale = stepDeformedScale(resultsStore.deformedScale, -1, scaleMax)} title={t('results.decreaseScale')}>◀</button>
+          <input type="range" min="1" max={scaleMax} step="1" bind:value={resultsStore.deformedScale} data-testid="deformed-scale" />
+          <button class="scale-step-btn" onclick={() => resultsStore.deformedScale = stepDeformedScale(resultsStore.deformedScale, 1, scaleMax)} title={t('results.increaseScale')}>▶</button>
           <span style="font-size: 0.7rem; color: #888">{Math.round(resultsStore.deformedScale)}×</span>
         </div>
       {:else if resultsStore.diagramType !== 'none' && resultsStore.diagramType !== 'colorMap' && resultsStore.diagramType !== 'axialColor'}

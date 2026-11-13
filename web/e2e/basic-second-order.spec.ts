@@ -15,10 +15,14 @@ test.describe('@slow second order and buckling in Basic', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
 
+    await expect(page.getByTestId('so-options')).toHaveCount(0);
+    await page.locator('button.adv-btn', { hasText: 'P-Δ' }).click();
+    await expect(page.getByTestId('pdelta-result')).toContainText(/B₂ = 1\.\d{3}/);
     await page.getByTestId('so-options-toggle').click();
     await page.getByTestId('so-method').selectOption('phi');
     await page.getByTestId('so-n-4').click();
-    await page.locator('button.adv-btn', { hasText: 'P-Δ' }).click();
+    await expect(page.getByTestId('so-options')).toHaveAttribute('open', '');
+    await expect(page.getByTestId('pdelta-compare')).toBeVisible();
     await expect(page.getByTestId('pdelta-result')).toContainText(/B₂ = 1\.\d{3}/);
     await expect(page.getByTestId('pdelta-b2-line')).toContainText('λ₁');
     await page.getByTestId('pdelta-iterations').locator('summary').click();
@@ -34,7 +38,6 @@ test.describe('@slow second order and buckling in Basic', () => {
     await page.getByTestId('steps-back').click();
     await page.getByTestId('steps-catalog-back').click();
 
-    await page.getByTestId('so-options-toggle').click();
     await page.getByTestId('so-method').selectOption('consistent');
     await expect(page.getByTestId('pdelta-compare')).toHaveCount(0);
     await page.getByTestId('adv-close').click();

@@ -44,7 +44,7 @@
   <span class="tb-sep" aria-hidden="true"></span>
   <SelectedEntityPanel inBar />
 {:else if showOptions}
-  <span class="tb-tool-name" data-testid={creating ? 'tool-mode-create' : undefined}>{t(creating ? (uiStore.currentTool === 'load' ? 'float.createLoad' : 'float.createSupport') : `float.${uiStore.currentTool}`)}</span>
+  <span class="tb-tool-name" class:tb-armed={uiStore.currentTool === 'influenceLine'} data-testid={creating ? 'tool-mode-create' : uiStore.currentTool === 'influenceLine' ? 'tool-mode-influence' : undefined}>{t(creating ? (uiStore.currentTool === 'load' ? 'float.createLoad' : 'float.createSupport') : `float.${uiStore.currentTool}`)}</span>
   <span class="tb-sep" aria-hidden="true"></span>
   <!--
     No select options here any more: they live in the Selection panel, so
@@ -94,6 +94,14 @@
 
   /* Editing reads apart from creating at a glance: the warm accent of a change in progress. */
   .tb-tool-name.tb-editing { color: var(--st-amber-text, #d9a441); }
+
+  .tb-tool-name.tb-armed {
+    background: var(--st-accent);
+    color: var(--st-text-on-accent, #fff);
+    border-radius: var(--st-radius);
+    padding: 0.2rem 0.5rem;
+    font-weight: 600;
+  }
 
   .tb-sep {
     width: 1px;

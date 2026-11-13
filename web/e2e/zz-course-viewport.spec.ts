@@ -52,6 +52,7 @@ for (const width of [390, 820]) {
       test.skip(!MODULES.includes('second'));
       test.setTimeout(120_000);
       await boot(page, width, 'portal-second-order');
+      await page.locator('button.adv-btn', { hasText: /P-Δ/ }).click();
       await page.getByTestId('so-options-toggle').click();
       await noOverflow(page, 'so-method', `${width}-so`);
     });

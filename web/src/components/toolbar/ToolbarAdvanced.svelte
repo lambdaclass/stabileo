@@ -630,6 +630,8 @@
   });
 </script>
 
+{#snippet soOptions()}<SecondOrderOptions onchange={() => rerunSecondOrder(handlePDelta, handleBuckling)} />{/snippet}
+
 <div class="toolbar-section" class:flat data-tour="advanced-section" onclickcapture={noteOpening}>
   {#if !flat}<button class="section-toggle" onclick={() => showAdvanced = !showAdvanced}>
     {showAdvanced ? '▾' : '▸'} {t('advanced.title')}
@@ -773,9 +775,6 @@
       {/if}
     {@render helpPanel('pdelta')}
     {@render helpPanel('buckling')}
-    {/if}
-    {#if !is3D && (shown('pdelta') || shown('buckling'))}
-      <SecondOrderOptions onchange={() => rerunSecondOrder(handlePDelta, handleBuckling)} />
     {/if}
     {#if !(flat && active) && (shown('modal') || shown('plastic'))}
     <!-- Beyond the static elastic answer: vibration modes and the plastic collapse. -->
@@ -1002,7 +1001,7 @@
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
   {#if pdR}
-    <PDeltaSummary result={pdR} />
+    <PDeltaSummary result={pdR} options={is3D ? undefined : soOptions} />
     <PDeltaCertificate result={pdR} />
   {/if}
   {#if moR}
@@ -1046,7 +1045,7 @@
       &lambda;_cr = {buR.modes[resultsStore.activeBucklingMode]?.loadFactor.toFixed(3) ?? '—'}
     </div>
     <BucklingCertificate certificate={buR.certificate} />
-    <BucklingDetails result={buR} />
+    <BucklingDetails result={buR} options={is3D || pdR ? undefined : soOptions} />
   {/if}
   {#if plasticWithheld && !is3D}
     <div class="adv-withheld" role="alert" data-testid="plastic-withheld">

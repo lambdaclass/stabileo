@@ -36,7 +36,6 @@ const words: Translations = {
   'course.second-order.opts.help.modes': 'Wie viele Knickformen gesucht werden, von 1 bis 12. Die erste liefert die kritische Last; die weiteren zeigen andere Arten auszuknicken.',
   'course.second-order.opts.byEngine': 'Gelöst vom Rechenkern.',
   'course.second-order.opts.byTeaching': 'Gelöst vom Lehrlöser im Browser; das Panel vergleicht ihn mit dem Rechenkern.',
-  'course.second-order.opts.steps': 'Schritt für Schritt erklärt ansehen',
   'course.second-order.opts.short.consistent': 'Kg konsistent',
   'course.second-order.opts.short.string': 'Kg vereinfacht',
   'course.second-order.opts.short.phi': 'φ-Funktionen',

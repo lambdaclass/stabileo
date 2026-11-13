@@ -7,9 +7,7 @@
   let tabBarEl: HTMLDivElement;
 
   function handleNameInput(tabId: string, e: Event) {
-    const el = e.target as HTMLInputElement;
-    const name = el.value || t('tabBar.newStructure');
-    tabManager.renameTab(tabId, name);
+    tabManager.renameTab(tabId, (e.target as HTMLInputElement).value);
   }
 
   function handleNameBlur(tabId: string, e: Event) {

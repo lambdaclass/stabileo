@@ -144,6 +144,41 @@ export function deformedFigureScale(
   return dmax > 1e-12 && span > 0 ? (0.05 * span) / dmax : user;
 }
 
+/**
+ * Every member's deformed curve at unit scale, in the scene's axes, and the largest movement on any
+ * of them: interior movement counts even when every node stays put (a simple span, a fixed-fixed beam).
+ */
+export function deformedMemberCurves3D(r3d: AnalysisResults3D, flat: boolean): { curves: Array<{ p0: P3[]; p1: P3[] }>; memberDisplacement: number } {
+  const disp = new Map(r3d.displacements.map((d) => [d.nodeId, d]));
+  const efMap = new Map(r3d.elementForces.map((f) => [f.elementId, f]));
+  const curves: Array<{ p0: P3[]; p1: P3[] }> = [];
+  let memberDisplacement = 0;
+  for (const e of modelStore.elements.values()) {
+    const nI = modelStore.nodes.get(e.nodeI), nJ = modelStore.nodes.get(e.nodeJ);
+    const dI = disp.get(e.nodeI), dJ = disp.get(e.nodeJ), ef = efMap.get(e.id);
+    if (!nI || !nJ || !dI || !dJ) continue;
+    const pI = projectNodeToScene(nI, flat), pJ = projectNodeToScene(nJ, flat);
+    const ei: ElementEI | undefined = eiOf(modelStore.materials.get(e.materialId), modelStore.sections.get(e.sectionId), modelStore.analysis);
+    const localY = (e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined) ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
+    const roll = (e.rollAngle ?? 0) + (modelStore.sections.get(e.sectionId)?.rotation ?? 0);
+    const pair = takesNoBending(e) || !ef || !ei ? {
+      p0: [pI, pJ], p1: [
+        { x: pI.x + dI.ux, y: pI.y + dI.uy, z: (pI.z ?? 0) + dI.uz },
+        { x: pJ.x + dJ.ux, y: pJ.y + dJ.uy, z: (pJ.z ?? 0) + dJ.uz },
+      ],
+    } : computeDeformedShape3DPair(
+      { id: e.nodeI, x: pI.x, y: pI.y, z: pI.z ?? 0 }, { id: e.nodeJ, x: pJ.x, y: pJ.y, z: pJ.z ?? 0 },
+      dI, dJ, ef, ei, localY, roll || undefined,
+    );
+    for (let k = 0; k < pair.p0.length; k++) {
+      const p = pair.p0[k]!, q = pair.p1[k]!;
+      memberDisplacement = Math.max(memberDisplacement, Math.hypot(q.x - p.x, q.y - p.y, (q.z ?? 0) - (p.z ?? 0)));
+    }
+    curves.push(pair);
+  }
+  return { curves, memberDisplacement };
+}
+
 export function createFigure3DRenderer(): Figure2DRenderer {
   const flat = () => project2D();
   const scenePos = (id: number): P3 | undefined => {
@@ -310,34 +345,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
         drawMembers('#8fa3b3', 1.2, [5, 4]);
         const pts = [...modelStore.nodes.values()].map((n) => projectNodeToScene(n, flat()));
         const disp = new Map(r3d.displacements.map((d) => [d.nodeId, d]));
-        const efMap = new Map(r3d.elementForces.map((f) => [f.elementId, f]));
-        // Compute the actual member curves once at unit scale. Their interior movement counts
-        // even when all node translations are zero (a simple span or a fixed-fixed beam).
-        const curves: Array<{ p0: P3[]; p1: P3[] }> = [];
-        let memberDisplacement = 0;
-        for (const e of modelStore.elements.values()) {
-          const nI = modelStore.nodes.get(e.nodeI), nJ = modelStore.nodes.get(e.nodeJ);
-          const dI = disp.get(e.nodeI), dJ = disp.get(e.nodeJ), ef = efMap.get(e.id);
-          if (!nI || !nJ || !dI || !dJ) continue;
-          const pI = projectNodeToScene(nI, flat()), pJ = projectNodeToScene(nJ, flat());
-          const ei: ElementEI | undefined = eiOf(modelStore.materials.get(e.materialId), modelStore.sections.get(e.sectionId), modelStore.analysis);
-          const localY = (e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined) ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
-          const roll = (e.rollAngle ?? 0) + (modelStore.sections.get(e.sectionId)?.rotation ?? 0);
-          const pair = takesNoBending(e) || !ef || !ei ? {
-            p0: [pI, pJ], p1: [
-              { x: pI.x + dI.ux, y: pI.y + dI.uy, z: (pI.z ?? 0) + dI.uz },
-              { x: pJ.x + dJ.ux, y: pJ.y + dJ.uy, z: (pJ.z ?? 0) + dJ.uz },
-            ],
-          } : computeDeformedShape3DPair(
-            { id: e.nodeI, x: pI.x, y: pI.y, z: pI.z ?? 0 }, { id: e.nodeJ, x: pJ.x, y: pJ.y, z: pJ.z ?? 0 },
-            dI, dJ, ef, ei, localY, roll || undefined,
-          );
-          for (let k = 0; k < pair.p0.length; k++) {
-            const p = pair.p0[k]!, q = pair.p1[k]!;
-            memberDisplacement = Math.max(memberDisplacement, Math.hypot(q.x - p.x, q.y - p.y, (q.z ?? 0) - (p.z ?? 0)));
-          }
-          curves.push(pair);
-        }
+        const { curves, memberDisplacement } = deformedMemberCurves3D(r3d, flat());
         const scale = deformedFigureScale(pts, r3d.displacements, resultsStore.deformedScale, memberDisplacement);
         drawShells(undefined, (id) => {
           const n = modelStore.nodes.get(id), d = disp.get(id);

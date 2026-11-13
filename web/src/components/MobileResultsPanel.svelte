@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deformedScaleMax, stepDeformedScale, DEFORMED_SCALE_LIMIT } from '../lib/store/deformed-scale';
   import { uiStore, resultsStore, modelStore } from '../lib/store';
   import { t } from '../lib/i18n';
 
@@ -18,11 +19,8 @@
     window.dispatchEvent(new Event('stabileo-solve'));
   }
 
-  function stepDeformedScale(delta: number) {
-    const s = resultsStore.deformedScale;
-    const step = s <= 10 ? 1 : s <= 100 ? 5 : 50;
-    resultsStore.deformedScale = Math.max(1, Math.min(1000, s + delta * step));
-  }
+  const scaleMax = $derived(resultsStore.diagramType === 'deformed' ? deformedScaleMax() : DEFORMED_SCALE_LIMIT);
+  $effect(() => { if (resultsStore.deformedScale > scaleMax) resultsStore.deformedScale = scaleMax; });
 
   function stepDiagramScale(delta: number) {
     resultsStore.diagramScale = Math.max(0.1, Math.min(5, +(resultsStore.diagramScale + delta * 0.1).toFixed(1)));
@@ -92,9 +90,9 @@
         {#if resultsStore.diagramType === 'deformed'}
           <div class="mrp-scale">
             <span class="mrp-scale-label">{t('mobile.scale')}</span>
-            <button class="mrp-step" onclick={() => stepDeformedScale(-1)}>◀</button>
-            <input type="range" min="1" max="1000" step="1" bind:value={resultsStore.deformedScale} />
-            <button class="mrp-step" onclick={() => stepDeformedScale(1)}>▶</button>
+            <button class="mrp-step" onclick={() => resultsStore.deformedScale = stepDeformedScale(resultsStore.deformedScale, -1, scaleMax)}>◀</button>
+            <input type="range" min="1" max={scaleMax} step="1" bind:value={resultsStore.deformedScale} data-testid="deformed-scale" />
+            <button class="mrp-step" onclick={() => resultsStore.deformedScale = stepDeformedScale(resultsStore.deformedScale, 1, scaleMax)}>▶</button>
             <span class="mrp-scale-val">{resultsStore.deformedScale}x</span>
           </div>
           <label class="mrp-check">

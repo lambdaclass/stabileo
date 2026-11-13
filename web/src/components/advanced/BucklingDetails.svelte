@@ -4,13 +4,14 @@
    * deserves), and, folded, every factor found (beside the engine's when the method is another),
    * each compressed member's effective length factor, and λ₁ as the members are cut.
    */
+  import type { Snippet } from 'svelte';
   import { t, tp } from '../../lib/i18n';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { fmtQ, unitQ, fmtCoord } from '../../lib/store/display-units.svelte';
   import { bucklingConvergence, type BucklingConvergenceRow, type BucklingInfo } from '../../lib/engine/second-order/run-buckling';
   import { openSecondOrderSteps } from '../../lib/actions/second-order';
 
-  let { result }: { result: any } = $props();
+  let { result, options }: { result: any; options?: Snippet } = $props();
   const K = 'course.second-order.bk';
   const info = $derived(result.secondOrder as BucklingInfo | undefined);
   const data = $derived((result.elementData ?? []) as Array<{ elementId: number; axialForce: number; criticalForce: number; kEffective: number; effectiveLength: number }>);
@@ -93,6 +94,7 @@
       {#if convError}<p class="bk-note" data-testid="buckling-convergence-error">{convError}</p>{/if}
     {/if}
   </details>
+  {@render options?.()}
   <button class="small-btn bk-steps" onclick={() => openSecondOrderSteps(info.settings.method === 'phi' ? 'so-buckling-phi' : 'so-buckling-kg', info.settings)} data-testid="buckling-open-steps">{t('course.second-order.pd.openSteps')}</button>
 {/if}
 

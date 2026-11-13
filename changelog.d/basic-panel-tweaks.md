@@ -1,0 +1,4 @@
+### Changed
+#### Basic: the deformed scale stops where the shape would leave the screen, and how P-Δ is calculated sits under its result (2026-11-13)
+
+The deformed shape's slider used to reach 1000× on every model, so a structure that already moves a lot under its loads flew off the screen. It now stops at the scale that draws the largest movement, member interiors included, at a quarter of the structure's size (still at most 1000×), in 2D and 3D, on desktop and phone. The second-order options (method, elements per member, axial stiffness, modes) left the Advanced list, where they hung under Pcr without saying what they belonged to; they are now a fold under the P-Δ or Pcr result they change, like its iterations and convergence, and a change re-runs that result with the fold left open. The armed influence-line tool shows its name as a filled label, and the project name can be emptied while it is typed, taking the default name only when the field is left blank.
