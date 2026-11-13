@@ -251,7 +251,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
     if (fromLoadPlan(d.generatedBy)) f.add('generatedLoads');
   }
-  if (s.designData?.site?.phases?.length) f.add('stagedConstruction');
+  if (s.designData?.site?.phases?.length) {
+    f.add('stagedConstruction');
+    f.add('pathAnalysis');
+  }
   if (s.designData?.loadBasis) f.add('generatedLoads');
   if (values(s.groups).some((g) => g?.kind === 'floorLoad')) f.add('areaDeadLoads');
   if (values(s.groups).some((g) => g?.kind === 'generated')) f.add('generatedStructures');

@@ -36,7 +36,7 @@ function savedShell(analysisMode: typeof modes[number]): ModelSnapshot {
   });
 }
 
-describe.skip('known wrong result: #1952 — saved staged snapshot notice extraction', () => {
+describe('known wrong result: #1952 — saved staged snapshot notice extraction', () => {
   it.each(modes)('assesses a real shell-only %s snapshot without feature overrides', analysisMode => {
     const snapshot = savedShell(analysisMode);
     expect(snapshot.elements).toEqual([]);
@@ -100,7 +100,7 @@ describe.skip('known wrong result: #1952 — saved staged snapshot notice extrac
   });
 });
 
-it.skip.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)(
+it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)(
   'known wrong result: #1952 — %s time-history notice describes empty peak reactions', locale => {
     expect(timeHistoryNotice.explanation[locale]).toContain('peakReactions: []');
   },
