@@ -392,3 +392,138 @@ fn plastic_3d_mp_override() {
     assert!(ratio > 1.8 && ratio < 2.2,
         "Doubling Mp should ~double collapse factor: ratio={}", ratio);
 }
+
+fn issue_1040_input() -> PlasticInput3D {
+    serde_json::from_str(include_str!("../fixtures/plastic-1040-single-member.json")).unwrap()
+}
+
+fn issue_1040_bounds(input: &PlasticInput3D) -> (f64, f64) {
+    use dedaliano_engine::certify::exact::{to_f64_down, to_f64_up};
+    use dedaliano_engine::certify::plastic_3d::{
+        build_model_3d, check_mechanism_3d, check_static_3d, plastic_candidates_3d,
+    };
+    let model = build_model_3d(input).unwrap();
+    let candidates = plastic_candidates_3d(&model, None).unwrap();
+    let lower = check_static_3d(&model, candidates.static_field.as_ref().unwrap()).unwrap().lambda_lower;
+    let upper = check_mechanism_3d(&model, candidates.mechanism.as_ref().unwrap()).unwrap().lambda_upper;
+    assert!(lower <= upper);
+    let (lower, upper) = (to_f64_down(&lower).unwrap(), to_f64_up(&upper).unwrap());
+    assert!((upper - lower) / lower < 1e-8);
+    (lower, upper)
+}
+
+fn issue_1040_relation(name: &str, transformed: PlasticInput3D, scale: f64) {
+    let base = issue_1040_input();
+    let base_bounds = issue_1040_bounds(&base);
+    let bounds = issue_1040_bounds(&transformed);
+    assert!((bounds.0 * scale / base_bounds.0 - 1.0).abs() < 1e-8);
+    if let Ok(root) = std::env::var("PLASTIC_1040_CASES") {
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(std::path::Path::new(&root).join(format!("{name}.json")),
+            serde_json::to_vec(&serde_json::json!({"input":transformed,"lower":bounds.0,"upper":bounds.1})).unwrap()).unwrap();
+    }
+    let planar: PlasticInput = serde_json::from_str(include_str!("../../../verify/samples/plastic-2d-portal.input.json")).unwrap();
+    let error = dedaliano_engine::solver::plastic::solve_plastic_2d(&planar).unwrap_err();
+    assert!(error.contains("PL-2D-INVARIANCE"), "{error}");
+    let control: PlasticInput3D = serde_json::from_slice(&include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-cantilever.bin")[2..]).unwrap();
+    let control_bounds = issue_1040_bounds(&control);
+    let control_result = solve_plastic_3d(&control).unwrap();
+    assert!((control_result.collapse_factor / control_bounds.0 - 1.0).abs() < 1e-8);
+    for (input, (lower, upper)) in [(&transformed, bounds), (&base, base_bounds)] {
+        let result = solve_plastic_3d(input).unwrap();
+        println!("{name}: factor={:.17e} exact=[{lower:.17e},{upper:.17e}] mechanism={} warnings={:?}",result.collapse_factor,result.is_mechanism,result.warnings);
+        assert!(result.collapse_factor >= lower && result.collapse_factor <= upper,
+            "{name}: factor {} outside independent rational bounds [{lower}, {upper}]", result.collapse_factor);
+        let checked = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(input).unwrap();
+        assert_eq!(result.collapse_factor, checked.results.collapse_factor);
+        let json = serde_json::to_string(input).unwrap();
+        let exported: serde_json::Value = serde_json::from_str(&dedaliano_engine::solve_plastic_3d(&json).unwrap()).unwrap();
+        assert_eq!(exported["collapseFactor"].as_f64().unwrap(), result.collapse_factor);
+        let exported: serde_json::Value = serde_json::from_str(&dedaliano_engine::certify_plastic_3d(&json).unwrap()).unwrap();
+        assert_eq!(exported["results"]["collapseFactor"].as_f64().unwrap(), result.collapse_factor);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1040"]
+fn issue_1040_rotation() {
+    let mut input = issue_1040_input();
+    input.solver = dedaliano_engine::metamorphic::transform::transform_3d(&input.solver,
+        &dedaliano_engine::metamorphic::transform::Iso3::axis_permutation(7)).unwrap();
+    issue_1040_relation("rotation", input, 1.0);
+}
+
+#[test]
+#[ignore = "known wrong result: #1040"]
+fn issue_1040_mirror() {
+    let mut input = issue_1040_input();
+    input.solver = dedaliano_engine::metamorphic::mirror::mirror_3d(&input.solver, 0, [0.0;3]).unwrap();
+    issue_1040_relation("mirror", input, 1.0);
+}
+
+#[test]
+#[ignore = "known wrong result: #1040"]
+fn issue_1040_relabel() {
+    use dedaliano_engine::metamorphic::relabel::Relabel;
+    let mut input = issue_1040_input();
+    let relabel = Relabel::random_3d(&input.solver, 1040);
+    input.solver = relabel.apply_3d(&input.solver, 1040);
+    input.sections = relabel.section_keyed(&input.sections);
+    for section in input.sections.values_mut() { section.material_id = relabel.mat(section.material_id); }
+    input.materials = relabel.material_keyed(&input.materials);
+    issue_1040_relation("relabel", input, 1.0);
+}
+
+#[test]
+#[ignore = "known wrong result: #1040"]
+fn issue_1040_reversal() {
+    let mut input = issue_1040_input();
+    input.solver = dedaliano_engine::metamorphic::reversal::reverse_3d(&input.solver, &|_| true).unwrap();
+    issue_1040_relation("reversal", input, 1.0);
+}
+
+#[test]
+#[ignore = "known wrong result: #1040"]
+fn issue_1040_units() {
+    use dedaliano_engine::metamorphic::units::{scale_3d, Units};
+    for (name,length,force) in [("small-units",0.001,1000.0),("large-units",1000.0,0.001)] {
+        let mut input = issue_1040_input();
+        let units = Units::froude(length, force);
+        input.solver = scale_3d(&input.solver, &units);
+        for section in input.sections.values_mut() {
+            section.a *= length*length;
+            section.iy *= length.powi(4);
+            section.iz *= length.powi(4);
+            for dim in [&mut section.b,&mut section.h,&mut section.d] { *dim = dim.map(|v|v*length); }
+        }
+        for material in input.materials.values_mut() { material.fy = material.fy.map(|v|v*units.stress()); }
+        issue_1040_relation(name, input, 1.0);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1040"]
+fn issue_1040_inverse_load_scaling() {
+    use dedaliano_engine::metamorphic::units::{scale_load_3d, Units};
+    let mut input = issue_1040_input();
+    for load in &mut input.solver.loads { scale_load_3d(load,&Units {length:1.0,force:3.7,time:1.0}); }
+    issue_1040_relation("inverse-load-scaling", input, 3.7);
+}
+
+#[test]
+#[ignore = "known wrong result: #1040"]
+fn issue_1040_wide_interval_is_refused_and_tight_control_returns() {
+    let control: PlasticInput3D = serde_json::from_slice(&include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-cantilever.bin")[2..]).unwrap();
+    let wide: PlasticInput3D = serde_json::from_slice(&include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/issue-1459.bin")[2..]).unwrap();
+    let control_bounds = issue_1040_bounds(&control);
+    assert!((control_bounds.1 - control_bounds.0) / control_bounds.0 < 5e-8);
+    assert!(solve_plastic_3d(&control).is_ok());
+    let independent = dedaliano_engine::certify::plastic_3d::certify_collapse_3d(&wide, None);
+    assert!(independent.certified);
+    let (lower,upper) = (independent.lambda_lower.unwrap(), independent.lambda_upper.unwrap());
+    assert!((upper-lower)/lower > 5e-8);
+    for result in [solve_plastic_3d(&wide).map(|_|()), dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&wide).map(|_|())] {
+        let error = result.expect_err("a wide bound is not a collapse factor");
+        assert!(error.contains("plastic collapse interval"), "{error}");
+    }
+}

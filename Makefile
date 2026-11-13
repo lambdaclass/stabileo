@@ -1159,3 +1159,11 @@ test.engine.constraint-rounding-2013-wasm: wasm
 	CONSTRAINT_2013_CASES=$(CURDIR)/.2013-cases $(MAKE) test.engine.constraint-rounding-2013
 	$(NIX_RUN) node scripts/tests/constraint-rounding-2013-wasm.mjs $(CURDIR)/.2013-cases.2.false.json $(CURDIR)/.2013-cases.2.true.json $(CURDIR)/.2013-cases.3.false.json $(CURDIR)/.2013-cases.3.true.json
 	rm -f $(CURDIR)/.2013-cases.*.json
+
+.PHONY: test.engine.plastic-1040 test.engine.plastic-1040-wasm
+
+test.engine.plastic-1040:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1040_ -- --nocapture --test-threads=1 $(if $(IGNORED),--ignored)
+
+test.engine.plastic-1040-wasm: wasm
+	$(NIX_RUN) node scripts/tests/plastic-1040-wasm.mjs
