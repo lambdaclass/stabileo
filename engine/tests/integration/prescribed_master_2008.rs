@@ -281,3 +281,52 @@ fn unsupported_motion_is_refused() {
     }
     assert!(failures.is_empty(),"{}",failures.join("\n"));
 }
+
+#[test]
+#[ignore = "known wrong result: #2009"]
+fn cable_refuses_each_support_dof() {
+    let mut failures = Vec::new();
+    for dim in [2,3] {
+        let fields: &[&str] = if dim == 2 { &["dx","dz","dry"] } else { &["dx","dy","dz","drx","dry","drz"] };
+        for rotation in [false,true] {
+            let mut model = cases().into_iter().find(|c| c["dim"] == dim && c["fillers"] == 1 && c["rotation"] == rotation).unwrap()["model"].clone();
+            for support in model["supports"].as_object_mut().unwrap().values_mut() {
+                for field in fields { support.as_object_mut().unwrap().remove(*field); }
+            }
+            model["elements"]["3"] = model["elements"]["2"].clone();
+            model["elements"]["3"]["id"] = json!(3);
+            model["elements"]["3"]["type"] = json!("cable");
+            model["loads"][0]["data"]["fx"] = json!(1.0);
+            for pretensioned in [false,true] {
+                let run = |model: &Value| -> Result<Value,String> {
+                    if dim == 2 {
+                        let input: SolverInput = serde_json::from_value(model.clone()).unwrap();
+                        let result = if pretensioned { solver::cable::solve_cable_2d_pretensioned(&input,&Default::default(),&Default::default(),50,1e-10)? }
+                            else { solver::cable::solve_cable_2d(&input,&Default::default(),50,1e-10)? };
+                        Ok(json!({"converged":result.converged,"results":result.results}))
+                    } else {
+                        let input: SolverInput3D = serde_json::from_value(model.clone()).unwrap();
+                        let result = if pretensioned { solver::cable::solve_cable_3d_pretensioned(&input,&Default::default(),&Default::default(),50,1e-10)? }
+                            else { solver::cable::solve_cable_3d(&input,&Default::default(),50,1e-10)? };
+                        Ok(json!({"converged":result.converged,"results":result.results}))
+                    }
+                };
+                let absent = run(&model).unwrap();
+                assert_eq!(absent["converged"],true);
+                assert!(absent["results"]["displacements"].as_array().unwrap().iter().any(|d| d["ux"].as_f64().unwrap() != 0.0));
+                for field in fields {
+                    for motion in [-0.0013,-1e-16,-f64::from_bits(1),-0.0,0.0,f64::from_bits(1),1e-16,0.0013] {
+                        let mut prescribed = model.clone();
+                        prescribed["supports"]["2"][field] = json!(motion);
+                        let result = run(&prescribed);
+                        if motion == 0.0 { assert_eq!(result,Ok(absent.clone()),"{dim}D {field} zero={motion} rotation={rotation} pretensioned={pretensioned}"); }
+                        else if !result.as_ref().is_err_and(|e| e.contains("prescribed support displacements")) {
+                            failures.push(format!("cable {dim}D {field} motion={motion} rotation={rotation} pretensioned={pretensioned}: {result:?}"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(),"{}",failures.join("\n"));
+}
