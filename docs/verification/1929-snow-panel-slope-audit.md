@@ -80,6 +80,48 @@ the higher minimum: observed CIRSOC shed 0.846154 instead of 0.592308, ASCE 0.95
 of 0.567197. This conservative threshold representation behavior is outside this change;
 no tolerance or assertion has been relaxed to hide it.
 
+
+## Unconservative main case: pitched lower roof at a low step
+
+The subsequent drift audit **does find a silently unconservative result on origin/main**.
+`web/src/lib/engine/loads/__tests__/snow-drift-audit.test.ts` is the retained, ignored reproducer.
+The full main source snapshot at `b6f13f250` returns `READY`, with no blocked keys, and generates
+1.000000 kN/m² on the lower roof in every generated case. The integration generates
+0.769231 kN/m². Both claim that no drift is required at the modeled higher roof.
+The independent CIRSOC 104 §7.1 local balanced-plus-drift peak is **1.181700 kN/m²**.
+This supersedes any interpretation that the simple balanced-load comparisons establish safety.
+No advisory number or advisory file has been assigned here; integration work stops for the
+coordinator's advisory decision and review of the required drift repair.
+
+The lower roof is a 6 m by 2 m smooth gable at 20°, with eaves at +3 m and a ridge at
+3 + tan(20°) m. A modeled flat 6 m by 2 m higher roof lies beside its x = 0 edge at
++3.45 m. The gable slopes along y, so the step along x does not obstruct snow sliding off
+the two y eaves. At the step's eave, the local height difference is 0.45 m. The upper roof
+stands above the lower ridge. The underlying beam-enclosed panels are not extra flat roofs.
+
+For W = 1 m, §3.4's gable minimum applies below 21/W + 0.5 = 21.5°. With pg = Ce = Ct = I = 1,
+pf = 1, Cs = (70 − 20)/65, and ps = 0.7692307692307693. Equation (4) gives γ =
+0.426 × 1 + 2.2 = 2.626 kN/m³. Thus hb = ps/γ = 0.29292870115413905 m,
+hc = 0.45 − hb = 0.15707129884586096 m and hc/hb exceeds 0.2: drift is required.
+Figure 9 at pg = 1 and the minimum upwind length 7.5 m gives hd = 0.381 m (the 6 m fetch
+uses that minimum). It exceeds hc, so §7.1 caps the drift height at hc and its width at
+min(4 hd²/hc, 8 hc). The local peak is ps + γ hc = γ × 0.45 = 1.1817 kN/m².
+The quoted Figure 9 ordinate is the repository's recorded vector-path reading, not a new
+independent digitization; the peak only needs hd to exceed hc.
+
+The generator instead always gives the drift routine the **flat** reference 1.0:
+hb = 1/2.626, hc/hb = 0.1817 < 0.2, so it emits `snow.derivation.noDrift` and no surcharge.
+Main's 1.0 is below 1.1817; c003f0ae7 lowers the panel's balanced part without correcting
+this drift reference. The only main planner warning is `snow.note.notCoveredPanels`, whose
+text excludes ice dams and drifts at projections **not** modeled as higher roofs. It does
+not cover this explicitly modeled roof step. The derivation incorrectly tells the reader
+that §7.1 requires no drift. This is not an ASCE/Eurocode limitation or an unmerged-only defect.
+
+The live test fails on both the full main snapshot and the integration because it requires
+`snow.derivation.drift` rather than `snow.derivation.noDrift`. It is committed with Vitest's
+`it.skip` and the exact `known wrong result: #1929` marker pending the coordinator's decision.
+The fix has intentionally not been attempted at this advisory gate.
+
 ### Unbalanced snow, valleys and drift are separate requirements
 
 A higher balanced intensity does not prove that every analysis effect is conservative.

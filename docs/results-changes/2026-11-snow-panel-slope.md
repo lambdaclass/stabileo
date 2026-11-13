@@ -36,3 +36,14 @@ on a panel whose shared slope reader detects a roof pitch. Merely having snow ca
 a generated dead load, an unrelated pitched roof, a flat roof or members loaded by width
 does not select this notice. Its tests also check that a new solve with stale generated
 loads keeps the regeneration notice until the loads themselves are regenerated.
+
+## Open drift defect: coordinator review required
+
+The subsequent audit reproduced an unconservative modeled roof-step case on the full main
+snapshot: generated lower-roof snow is 1.000000 kN/m², versus the independently required
+CIRSOC §7.1 local balanced-plus-drift peak of 1.181700 kN/m². This branch lowers the balanced
+part to 0.769231 kN/m² but still omits the drift, because the drift calculation keeps a flat
+snow-depth reference. Regeneration alone does not repair this defect. See the audit's
+unconservative-case section and retained ignored reproducer. Independently check drift at
+height steps before using these generated loads. No advisory has been created or numbered;
+work stops for coordinator review. This branch is not release-ready.
