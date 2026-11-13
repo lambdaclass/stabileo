@@ -361,7 +361,7 @@ fn native_and_wasm_share_released_load_models() {
         let exact: Value =
             serde_json::from_str(include_str!("../fixtures/released-load-work-2023.json")).unwrap();
         let exact: Vec<_> = exact.as_object().unwrap().iter().map(|(name, model)| json!({"name":name,"model":model,"references":native_references(3, model),"gauges":released_gauges(3, model)})).collect();
-        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact,"orphanTranslations":orphan_translation_models()})).unwrap()).unwrap();
+        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact,"orphanTranslations":orphan_translation_models(),"cancellations":cancellation_models_2074()})).unwrap()).unwrap();
     }
     assert_eq!(cases.len(), 234);
 }
@@ -800,4 +800,43 @@ fn released_gauges(dim: u64, model: &Value) -> Value {
         })
         .collect();
     json!(directions)
+}
+
+fn cancellation_models_2074() -> Vec<Value> {
+    let mut cases = Vec::new();
+    for dim in [2,3] {
+        for end in ["Start","End"] {
+            for residual in [-f64::EPSILON, 0.0, f64::EPSILON] {
+                let mut model = if dim == 2 { serde_json::to_value(member_2d(end)).unwrap() } else { serde_json::to_value(member("Mz",end,false)).unwrap() };
+                let node = if end == "Start" {1} else {2};
+                let mut load = if dim == 2 {json!({"type":"nodal","data":{"nodeId":node,"fx":0.0,"fz":0.0,"my":1.0}})} else {json!({"type":"nodal","data":{"nodeId":node,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":1.0}})};
+                model["loads"].as_array_mut().unwrap().push(load.clone());
+                load["data"][if dim == 2 {"my"} else {"mz"}] = json!(-1.0+residual);
+                model["loads"].as_array_mut().unwrap().push(load);
+                if residual == 0.0 { model["loads"].as_array_mut().unwrap().truncate(1); }
+                cases.push(json!({"dim":dim,"end":end,"residual":residual,"model":model}));
+            }
+        }
+    }
+    cases
+}
+
+#[test]
+#[ignore = "known wrong result: #2074"]
+fn exact_nodal_cancellation_never_hides_a_genuine_released_moment() {
+    let mut failures = Vec::new();
+    for c in cancellation_models_2074() {
+        let refs = native_references(c["dim"].as_u64().unwrap(),&c["model"]);
+        for (path, reference) in refs.as_object().unwrap() {
+            let refused = c["residual"].as_f64().unwrap() != 0.0;
+            if reference["error"].is_string() != refused {
+                failures.push(format!("{}/{}/{}/{path}: {reference}", c["dim"],c["end"],c["residual"]));
+            }
+            if refused && reference["error"].is_string() {
+                let error = reference["error"].as_str().unwrap();
+                assert!(error.contains("moment") || error.contains("rotation") || error.contains("Singular"), "{path}: {error}");
+            }
+        }
+    }
+    assert!(failures.is_empty(),"{}", failures.join("\n"));
 }

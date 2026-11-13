@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { allowsUnresolved } from './released-load-work-outcome.mjs';
 import {readFileSync} from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 engine.initSync({module:readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm',import.meta.url))});
@@ -118,7 +119,7 @@ for(const [i,c] of cases.entries()) {
     const mayRefuse=c.dim===3&&['corotational','material','ssi'].includes(path);
     try {
       const result=run(path,c.dim,c.model);
-      if(mayRefuse&&result.converged===false) unresolved++;
+      if(allowsUnresolved(c.references[path],result,undefined,mayRefuse)) unresolved++;
       else {
         if(path==='pdelta') {
           check(result.linearResults,c.model,{ok:c.references[path].ok?.linearResults},c.gauges);
@@ -130,7 +131,7 @@ for(const [i,c] of cases.entries()) {
         admitted.set(key,(admitted.get(key)??0)+1);
       }
     } catch(e) {
-      if(mayRefuse&&/^Singular (tangent )?stiffness/.test(String(e))) unresolved++;
+      if(allowsUnresolved(c.references[path],undefined,e,mayRefuse)) unresolved++;
       else failures.push(`${path}/${i}: ${e}`);
     }
     for(const factor of [1,Number.EPSILON*28/(1-Number.EPSILON*28)]) {

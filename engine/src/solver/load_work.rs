@@ -256,6 +256,84 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2074"]
+    fn nonlinear_released_moments_reduce_only_free_constraint_rows() {
+        use serde_json::json;
+        for constrained in [false,true] {
+            for unsupported in [false,true] {
+                let mut v: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/nightly-2026-11-13.json")).unwrap();
+                let v = &mut v["2023"];
+                v["nodes"] = json!({"1":{"id":1,"x":0.0,"y":0.0,"z":0.0},"2":{"id":2,"x":3.0,"y":0.0,"z":0.0}});
+                let mut e = v["elements"]["1"].clone();
+                e["nodeI"] = json!(1); e["nodeJ"] = json!(2); e["releaseMzStart"] = json!(true);
+                v["elements"] = json!({"1":e});
+                v["supports"] = json!({"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false},"2":{"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}});
+                v["loads"] = json!([{"type":"nodal","data":{"nodeId":1,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":1.0,"mz":if unsupported {1.0} else {0.0}}}]);
+                let mut input: SolverInput3D = serde_json::from_value(v.clone()).unwrap();
+                if constrained { input.constraints.push(Constraint::EqualDOF(EqualDOFConstraint {master_node:2,slave_node:1,dofs:vec![3]})); }
+                let r = super::super::linear::refuse_initial_free_rotation_loads_3d(&input);
+                assert_eq!(r.is_err(),unsupported,"{constrained}/{unsupported}: {r:?}");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2074"]
+    fn inclined_3d_single_nodal_load_rounding_encloses_transformed_assembly() {
+        use super::super::assembly::*;
+        use serde_json::json;
+        let mut v: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/nightly-2026-11-13.json")).unwrap();
+        let v = &mut v["2023"];
+        v["loads"] = json!([{"type":"nodal","data":{"nodeId":1,"fx":0.3,"fy":0.7,"fz":1.1,"mx":0.0,"my":0.0,"mz":0.0}}]);
+        let input: SolverInput3D = serde_json::from_value(v.clone()).unwrap();
+        let dof = DofNumbering::build_3d(&input);
+        let iso = crate::metamorphic::transform::Iso3::from_euler(0.3, -0.7, 1.1);
+        let r = iso.r;
+        let it = InclinedTransformData { node_id:1, dofs:[0,1,2].map(|j| dof.global_dof(1,j).unwrap()), r };
+        let values = assemble_load_vector_3d_dense(&input,&input.loads,&dof,std::slice::from_ref(&it));
+        let bounds = assembly_rounding_3d(&input,&input.loads,&dof,std::slice::from_ref(&it));
+        let mut nonzero = false;
+        for i in 0..3 {
+            let expected = (0..3).fold(BigRational::zero(), |sum,j| sum + exact(r[i][j])*exact([0.3,0.7,1.1][j]));
+            let error = (exact(values[it.dofs[i]])-expected).abs();
+            nonzero |= !error.is_zero();
+            assert!(error <= exact(bounds[it.dofs[i]]), "component {i}: {error} > {}", bounds[it.dofs[i]]);
+        }
+        assert!(nonzero);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2074"]
+    fn single_2d_fef_rounding_encloses_member_transform() {
+        use super::super::assembly::*;
+        use serde_json::json;
+        let input: SolverInput = serde_json::from_value(json!({
+            "nodes":{"1":{"id":1,"x":0.0,"z":0.0},"2":{"id":2,"x":3.0,"z":2.0}},
+            "materials":{"1":{"id":1,"e":210000.0,"nu":0.3}},
+            "sections":{"1":{"id":1,"a":0.01,"iz":0.0001}},
+            "elements":{"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeStart":true,"hingeEnd":false}},
+            "supports":{"1":{"id":1,"nodeId":1,"type":"pinned"},"2":{"id":2,"nodeId":2,"type":"fixed"}},
+            "loads":[{"type":"pointOnElement","data":{"elementId":1,"a":0.5,"p":1.0}}]
+        })).unwrap();
+        let dof = DofNumbering::build_2d(&input);
+        let l = 13.0_f64.sqrt();
+        let t = crate::element::frame_transform_2d(3.0/l,2.0/l);
+        let mut local = crate::element::fef_point_load_2d(1.0,0.0,0.0,0.5,l,0.0);
+        crate::element::adjust_fef_for_hinges(&mut local,l,true,false,0.0);
+        let values = assemble_load_vector_2d(&input,&input.loads,&dof,&[]);
+        let bounds = assembly_rounding_2d(&input,&input.loads,&dof,&[]);
+        let dofs = dof.element_dofs(1,2);
+        let mut nonzero = false;
+        for i in 0..6 {
+            let expected = (0..6).fold(BigRational::zero(), |sum,j| sum + exact(t[j*6+i])*exact(local[j]));
+            let error = (exact(values[dofs[i]])-expected).abs();
+            nonzero |= !error.is_zero();
+            assert!(error <= exact(bounds[dofs[i]]), "component {i}: {error} > {}", bounds[dofs[i]]);
+        }
+        assert!(nonzero);
+    }
+
+    #[test]
     fn released_work_rounding_encloses_exact_products_and_cancellation() {
         for (a, b) in [
             (1.0, f64::from_bits(1)),
