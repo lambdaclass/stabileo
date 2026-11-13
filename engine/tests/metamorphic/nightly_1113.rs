@@ -1,0 +1,357 @@
+use crate::tally::Tally;
+use serde_json::Value;
+
+fn witness(issue: &str) -> Value {
+    let all: Value =
+        serde_json::from_str(include_str!("../fixtures/nightly-2026-11-13.json")).unwrap();
+    all[issue].clone()
+}
+
+fn relation(issue: &str, analysis: &str, invariant: &str, seed: u64) {
+    let value = witness(issue);
+    let text = serde_json::to_string(&value).unwrap();
+    let name = value["_nightly_name"].as_str().unwrap_or("replay");
+    let tally = Tally::default();
+    match crate::corpus::parse(&text).unwrap() {
+        crate::corpus::Model::D2(s) => {
+            let mut case = crate::case::Case2::new(name, s);
+            if let Some(dens) = value.get("_nightly_dens") {
+                case.dens = serde_json::from_value(dens.clone()).unwrap();
+            }
+            let adapter = crate::ana2::rows()
+                .into_iter()
+                .find(|a| a.name == analysis)
+                .unwrap();
+            let end = crate::INV_2D.iter().position(|r| *r == invariant).unwrap() + 1;
+            crate::checks2::check_case(
+                &crate::checks2::Ctx {
+                    tally: &tally,
+                    rng_seed: seed,
+                },
+                &case,
+                &[adapter],
+                &crate::INV_2D[..end],
+            );
+        }
+        crate::corpus::Model::D3(s) => {
+            let mut case = crate::case::Case3::new(name, s);
+            if let Some(dens) = value.get("_nightly_dens") {
+                case.dens = serde_json::from_value(dens.clone()).unwrap();
+            }
+            let adapter = crate::ana3::rows()
+                .into_iter()
+                .find(|a| a.name == analysis)
+                .unwrap();
+            let end = crate::INV_3D.iter().position(|r| *r == invariant).unwrap() + 1;
+            crate::checks3::check_case(
+                &crate::checks3::Ctx {
+                    tally: &tally,
+                    rng_seed: seed,
+                },
+                &case,
+                &[adapter],
+                &crate::INV_3D[..end],
+            );
+        }
+    }
+    let cells = tally.cells.lock().unwrap();
+    let cell = &cells[&(analysis.to_owned(), invariant.to_owned())];
+    assert!(cell.fails.is_empty(), "{:?}", cell.fails);
+    assert!(cell.pass > 0, "{cell:?}");
+}
+
+#[test]
+#[ignore = "known wrong result: #2011"]
+fn issue_2011_ssi_rotation() {
+    relation("2011", "SSI (no soil springs)", "rotation", 2026111302208);
+}
+
+#[test]
+#[ignore = "known wrong result: #2013"]
+fn issue_2013_constrained_release() {
+    relation("2013", "linear (load session)", "rotation", 20770);
+}
+
+#[test]
+#[ignore = "known wrong result: #2014"]
+fn issue_2014_constrained_release() {
+    relation("2014", "linear", "rotation", 20770);
+}
+
+#[test]
+#[ignore = "known wrong result: #2015"]
+fn issue_2015_constrained_release() {
+    relation("2015", "staged (loads in two stages)", "mirror", 20770);
+}
+
+#[test]
+#[ignore = "known wrong result: #2016"]
+fn issue_2016_constrained_release() {
+    relation("2016", "creep & shrinkage (t = t0)", "rotation", 20770);
+}
+
+#[test]
+#[ignore = "known wrong result: #2017"]
+fn issue_2017_constrained_release() {
+    relation("2017", "constrained", "mirror", 20770);
+}
+
+#[test]
+#[ignore = "known wrong result: #2018"]
+fn issue_2018_constrained_release() {
+    relation("2018", "certified linear", "mirror", 20770);
+}
+
+#[test]
+#[ignore = "known wrong result: #2023"]
+fn issue_2023_released_rotation_load() {
+    relation(
+        "2023",
+        "staged (loads in two stages)",
+        "rotation",
+        2026111301655,
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #2035"]
+fn issue_2035_released_rotation_load() {
+    relation("2035", "certified linear", "units", 2026111301655);
+}
+
+#[test]
+#[ignore = "known wrong result: #2036"]
+fn issue_2036_released_rotation_load() {
+    relation("2036", "linear (PCG)", "units", 2026111301655);
+}
+
+#[test]
+#[ignore = "known wrong result: #2039"]
+fn issue_2039_released_rotation_load() {
+    relation("2039", "staged (one stage)", "units", 2026111301655);
+}
+
+#[test]
+#[ignore = "known wrong result: #2058"]
+fn issue_2058_released_rotation_load() {
+    relation("2058", "plastic collapse", "units", 2026111301655);
+}
+
+#[test]
+#[ignore = "known wrong result: #2064"]
+fn issue_2064_released_rotation_load() {
+    relation("2064", "linear (load session)", "units", 2026111301655);
+}
+
+#[test]
+#[ignore = "known wrong result: #2066"]
+fn issue_2066_released_rotation_load() {
+    relation("2066", "cable solver", "units", 2026111301655);
+}
+
+#[test]
+#[ignore = "known wrong result: #2067"]
+fn issue_2067_released_rotation_load() {
+    relation("2067", "linear (sparse path)", "units", 2026111301655);
+}
+
+#[test]
+fn issue_2019_rigid_translation_matches_the_independent_zero_strain_solution() {
+    let input = serde_json::from_value(witness("decoded-2019")).unwrap();
+    let out = dedaliano_engine::certify::certify_linear_3d_full(&input).unwrap();
+    verify_2019_rigid_translation(&out);
+}
+
+fn verify_2019_rigid_translation(out: &dedaliano_engine::certify::CertifiedResults3D) {
+    let dedaliano_engine::certify::Certificate::Certified { abs_bound, .. } = out.certificate
+    else {
+        panic!("{:?}", out.certificate)
+    };
+    assert_node_ids(
+        out.results.displacements.iter().map(|d| d.node_id),
+        &[1, 2, 3],
+        "displacements",
+    );
+    assert_node_ids(
+        out.results.reactions.iter().map(|r| r.node_id),
+        &[1, 3],
+        "reactions",
+    );
+    for d in &out.results.displacements {
+        assert!((d.ux + 0.001).abs() <= abs_bound);
+        for v in [d.uy, d.uz, d.rx, d.ry, d.rz] {
+            assert!(v.abs() <= abs_bound);
+        }
+    }
+    for reaction in &out.results.reactions {
+        let bound = out
+            .shown
+            .reaction_bounds
+            .iter()
+            .find(|b| b.node_id == reaction.node_id)
+            .unwrap();
+        for (v, b) in [
+            (reaction.fx, bound.fx),
+            (reaction.fy, bound.fy),
+            (reaction.fz, bound.fz),
+            (reaction.mx, bound.mx),
+            (reaction.my, bound.my),
+            (reaction.mz, bound.mz),
+        ] {
+            assert!(v.abs() <= b, "{reaction:?} outside {bound:?}");
+        }
+    }
+}
+
+fn assert_node_ids(ids: impl Iterator<Item = usize>, expected: &[usize], field: &str) {
+    let mut actual: Vec<_> = ids.collect();
+    actual.sort_unstable();
+    assert_eq!(
+        actual, expected,
+        "{field} must contain each expected node once"
+    );
+}
+
+fn certified_2019() -> dedaliano_engine::certify::CertifiedResults3D {
+    let input = serde_json::from_value(witness("decoded-2019")).unwrap();
+    dedaliano_engine::certify::certify_linear_3d_full(&input).unwrap()
+}
+
+#[test]
+fn issue_2070_rejects_empty_displacements() {
+    let mut out = certified_2019();
+    out.results.displacements.clear();
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted empty displacements"
+    );
+}
+
+#[test]
+fn issue_2070_rejects_missing_displacements() {
+    let mut out = certified_2019();
+    out.results.displacements.pop().unwrap();
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted missing displacements"
+    );
+}
+
+#[test]
+fn issue_2070_rejects_duplicate_displacements() {
+    let mut out = certified_2019();
+    out.results
+        .displacements
+        .push(out.results.displacements[0].clone());
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted duplicate displacements"
+    );
+}
+
+#[test]
+fn issue_2070_rejects_unexpected_displacements() {
+    let mut out = certified_2019();
+    out.results.displacements[0].node_id = usize::MAX;
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted unexpected displacements"
+    );
+}
+
+#[test]
+fn issue_2070_rejects_empty_reactions() {
+    let mut out = certified_2019();
+    out.results.reactions.clear();
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted empty reactions"
+    );
+}
+
+#[test]
+fn issue_2070_rejects_missing_reactions() {
+    let mut out = certified_2019();
+    out.results.reactions.pop().unwrap();
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted missing reactions"
+    );
+}
+
+#[test]
+fn issue_2070_rejects_duplicate_reactions() {
+    let mut out = certified_2019();
+    out.results.reactions.push(out.results.reactions[0].clone());
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted duplicate reactions"
+    );
+}
+
+#[test]
+fn issue_2070_rejects_unexpected_reactions() {
+    let mut out = certified_2019();
+    out.results.reactions[0].node_id = usize::MAX;
+    assert!(
+        std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
+        "accepted unexpected reactions"
+    );
+}
+
+#[test]
+fn issue_2070_rejects_empty_result_arrays() {
+    let mut out = certified_2019();
+    out.results.displacements.clear();
+    out.results.reactions.clear();
+    assert!(std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err());
+}
+
+#[test]
+fn issue_2070_accepts_complete_result_arrays_in_any_order() {
+    let mut out = certified_2019();
+    out.results.displacements.reverse();
+    out.results.reactions.reverse();
+    verify_2019_rigid_translation(&out);
+}
+
+#[test]
+fn issue_2012_archived_pair_preserves_source_and_scaled_physics() {
+    use dedaliano_engine::metamorphic::units::{scale_2d, Units};
+    use dedaliano_engine::types::SolverInput;
+
+    let archive: Value = serde_json::from_str(
+        &std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../docs/verification/triage/2026-11-13.json"
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    let issue = archive["issues"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|issue| issue["issue"] == 2012)
+        .unwrap();
+    let source: Value = serde_json::from_str(
+        issue["source"]["body"]
+            .as_str()
+            .unwrap()
+            .split_once("```json\n")
+            .unwrap()
+            .1
+            .split_once("\n```")
+            .unwrap()
+            .0,
+    )
+    .unwrap();
+    assert_eq!(source, witness("2012"));
+    assert_eq!(source["elements"]["9"]["materialId"], 2);
+    let input: SolverInput = serde_json::from_value(source).unwrap();
+    let transformed: SolverInput = serde_json::from_value(witness("transformed-2012")).unwrap();
+    assert_eq!(
+        serde_json::to_value(transformed).unwrap(),
+        serde_json::to_value(scale_2d(&input, &Units::froude(0.001, 1000.0))).unwrap()
+    );
+}
