@@ -228,8 +228,8 @@ function runModel(cs: ModelCase, log: SweepLog): void {
     const p = pd.value;
     if (p.results.equilibrium?.residualOk && p.results.equilibrium.equilibriumOk === false) {
       expect(p.results.reactions.length).toBeGreaterThan(0);
-      expect(p.results.structuredDiagnostics.some(d => d.code === 'equilibrium_violation' && d.severity === 'warning')).toBe(true);
-      expect(p.results.structuredDiagnostics.some(d => d.code === 'result_quantity_unavailable')).toBe(false);
+      expect(p.results.structuredDiagnostics.some((d: { code: string; severity: string }) => d.code === 'equilibrium_violation' && d.severity === 'warning')).toBe(true);
+      expect(p.results.structuredDiagnostics.some((d: { code: string }) => d.code === 'result_quantity_unavailable')).toBe(false);
     }
     if (p.converged && p.isStable) {
       // Tension stiffens: B2 < 1 is right when members pull. Only a model with no tension must have B2 ≥ 1.

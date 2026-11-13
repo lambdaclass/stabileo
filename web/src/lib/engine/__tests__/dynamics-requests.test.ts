@@ -186,7 +186,7 @@ describe('time history', () => {
     const { res } = freeVibration(densities, input);
     expect(res.peakReactions).toEqual([]);
     expect(res.structuredDiagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'result_quantity_unavailable', phase: 'peakReactions', severity: 'warning' })]));
-    expect(res.peakDisplacements.some(d => Math.abs(d.ux) + Math.abs(d.uy) + Math.abs(d.uz) > 0)).toBe(true);
+    expect(res.peakDisplacements.some((d: { ux: number; uy: number; uz: number }) => Math.abs(d.ux) + Math.abs(d.uy) + Math.abs(d.uz) > 0)).toBe(true);
     expect(peakBaseShear([{ fx: 3, fy: 0 }, { fx: 1, fy: 3 }])).toBeCloseTo(5, 9);
   });
 });
