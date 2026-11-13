@@ -12,7 +12,7 @@ use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly;
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::linear::SPARSE_THRESHOLD;
 use super::time_integration::MAX_DENSE_FALLBACK_DOFS;
 
@@ -375,7 +375,7 @@ fn guyan_reduce_2d_sparse(input: &GuyanInput, dof_num: &DofNumbering) -> Result<
 
     // Expand through constraint system to full free DOFs
     let u_f = if let Some(ref cs) = cs {
-        cs.expand_solution(&u_reduced)
+        cs.expand_solution(&u_reduced, MasterMotion::Homogeneous)
     } else {
         u_reduced
     };
@@ -546,7 +546,7 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
 
     // Expand through constraint system to full free DOFs
     let u_f = if let Some(ref cs) = cs {
-        cs.expand_solution(&u_reduced)
+        cs.expand_solution(&u_reduced, MasterMotion::Homogeneous)
     } else {
         u_reduced
     };
@@ -1259,7 +1259,7 @@ fn guyan_reduce_3d_contained(input: &GuyanInput3D) -> Result<GuyanResult3D, Stri
 
     // Expand through constraint system
     let u_f = if let Some(ref cs) = cs {
-        cs.expand_solution(&u_reduced)
+        cs.expand_solution(&u_reduced, MasterMotion::Homogeneous)
     } else {
         u_reduced
     };

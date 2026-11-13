@@ -6,7 +6,7 @@ use super::linear::{build_displacements_2d, compute_internal_forces_2d,
     build_displacements_3d, compute_internal_forces_3d,
     compute_plate_stresses, compute_quad_stresses,
     build_reactions_2d_inclined, build_reactions_3d_inclined};
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic};
 
 /// The linear pass's structured diagnostics that describe the model, not the
@@ -498,7 +498,7 @@ impl PDeltaTangent {
                 }
             }
         };
-        Some((cs.as_ref().map_or_else(|| u.clone(), |c| c.expand_solution(&u)), indefinite))
+        Some((cs.as_ref().map_or_else(|| u.clone(), |c| c.expand_solution(&u, MasterMotion::Homogeneous)), indefinite))
     }
 
     fn constraint_forces(&self, cs: &FreeConstraintSystem, u: &[f64], rhs: &[f64]) -> Vec<(usize, f64)> {
