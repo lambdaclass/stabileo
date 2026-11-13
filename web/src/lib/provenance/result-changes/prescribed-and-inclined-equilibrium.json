@@ -31,7 +31,8 @@
     "pt": "Recalques impostos e somas de forças inclinadas preservam valores pequenos",
     "de": "Vorgegebene Setzungen und geneigte Kraftsummen erhalten kleine Werte",
     "fr": "Les tassements imposés et sommes de forces inclinées conservent les petites valeurs",
-    "tr": "Verilen oturmalar ve eğik kuvvet toplamları küçük değerleri korur"
+    "tr": "Verilen oturmalar ve eğik kuvvet toplamları küçük değerleri korur",
+    "hu": "Az előírt süllyedések és ferde erőösszegek megőrzik a kis értékeket"
   },
   "explanation": {
     "en": "Re-run analyses with prescribed settlements or inclined supports. Nonzero prescribed motion is no longer discarded below an absolute cutoff. Equilibrium summaries transform each inclined node before summing, preserving loads on other nodes (#761, PR #1940).",
@@ -39,7 +40,8 @@
     "pt": "Refaça análises com recalques impostos ou apoios inclinados. Movimentos não nulos deixam de ser descartados por um limite absoluto. Os resumos transformam cada nó inclinado antes de somar e preservam cargas nos demais nós (#761, PR #1940).",
     "de": "Berechnungen mit vorgegebenen Setzungen oder geneigten Auflagern erneut ausführen. Bewegungen ungleich null werden nicht mehr durch eine absolute Grenze verworfen. Gleichgewichtssummen transformieren jeden geneigten Knoten vor der Addition und erhalten Lasten anderer Knoten (#761, PR #1940).",
     "fr": "Relancer les analyses avec tassements imposés ou appuis inclinés. Les mouvements non nuls ne sont plus supprimés par un seuil absolu. Les bilans transforment chaque nœud incliné avant la somme et conservent les charges des autres nœuds (#761, PR #1940).",
-    "tr": "Verilen oturmalar veya eğik mesnetler içeren analizleri yeniden çalıştırın. Sıfır olmayan hareketler mutlak eşik nedeniyle silinmez. Denge toplamları, her eğik düğümü toplamadan önce dönüştürerek diğer düğümlerin yüklerini korur (#761, PR #1940)."
+    "tr": "Verilen oturmalar veya eğik mesnetler içeren analizleri yeniden çalıştırın. Sıfır olmayan hareketler mutlak eşik nedeniyle silinmez. Denge toplamları, her eğik düğümü toplamadan önce dönüştürerek diğer düğümlerin yüklerini korur (#761, PR #1940).",
+    "hu": "Futtassa újra az előírt süllyedésekkel vagy ferde támaszokkal végzett vizsgálatokat. A nem nulla előírt mozgás többé nem vész el egy abszolút küszöb alatt. Az egyensúlyösszegzés minden ferde csomópontot külön transzformál az összegzés előtt, megőrizve a többi csomópont terheit (#761, PR #1940)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-continuation-and-curve-reactions.md",

@@ -31,7 +31,8 @@
     "pt": "A convergência de apoios e solos verifica o equilíbrio livre",
     "de": "Nichtlineare Lager- und Bodenkonvergenz prüft das freie Gleichgewicht",
     "fr": "La convergence des appuis et des sols vérifie l’équilibre libre",
-    "tr": "Doğrusal olmayan mesnet ve zemin yakınsaması serbest dengeyi denetler"
+    "tr": "Doğrusal olmayan mesnet ve zemin yakınsaması serbest dengeyi denetler",
+    "hu": "A nemlineáris támasz- és talajkonvergencia a szabad egyensúlyt ellenőrzi"
   },
   "explanation": {
     "en": "Restrained reactions cannot mask free residuals. Prescribed motion, coincident springs, constrained path loads, warping, positive material capacities and nonlinear soil curves now use consistent convergence checks. SSI also checks force equilibrium with updated soil stiffness. Re-run affected nonlinear, P-Delta and SSI analyses; convergence, carried load and results can change (#761; PR #1940).",
@@ -39,7 +40,8 @@
     "pt": "Reações restringidas não podem ocultar resíduos livres. Foram corrigidas verificações para movimentos impostos, molas coincidentes, cargas de trajetória restringidas, empenamento, capacidades positivas e curvas de solo. SSI também verifica o equilíbrio com a rigidez atualizada. Refaça as análises não lineares, P-Delta e SSI afetadas (#761; PR #1940).",
     "de": "Gebundene Reaktionen können freie Residuen nicht verdecken. Die Prüfungen für vorgegebene Bewegungen, zusammenfallende Federn, gebundene Pfadlasten, Verwölbung, positive Tragfähigkeiten und Bodenkurven wurden korrigiert. SSI prüft auch das Gleichgewicht mit aktualisierter Bodensteifigkeit. Betroffene nichtlineare, P-Delta- und SSI-Analysen erneut ausführen (#761; PR #1940).",
     "fr": "Les réactions bloquées ne peuvent masquer les résidus libres. Les contrôles des déplacements imposés, ressorts coïncidents, charges de trajectoire contraintes, gauchissement, capacités positives et courbes de sol sont corrigés. SSI vérifie aussi l’équilibre avec la raideur actualisée. Relancer les analyses non linéaires, P-Delta et SSI concernées (#761 ; PR #1940).",
-    "tr": "Kısıtlı tepkiler serbest artıkları gizleyemez. Verilen hareketler, çakışan yaylar, kısıtlı yol yükleri, çarpılma, pozitif kapasiteler ve zemin eğrileri için denetimler düzeltildi. SSI güncellenmiş zemin rijitliğiyle kuvvet dengesini de denetler. Etkilenen doğrusal olmayan, P-Delta ve SSI analizlerini yeniden çalıştırın (#761; PR #1940)."
+    "tr": "Kısıtlı tepkiler serbest artıkları gizleyemez. Verilen hareketler, çakışan yaylar, kısıtlı yol yükleri, çarpılma, pozitif kapasiteler ve zemin eğrileri için denetimler düzeltildi. SSI güncellenmiş zemin rijitliğiyle kuvvet dengesini de denetler. Etkilenen doğrusal olmayan, P-Delta ve SSI analizlerini yeniden çalıştırın (#761; PR #1940).",
+    "hu": "A megtámasztott reakciók nem fedhetik el a szabad maradékot. Az előírt mozgás, egybeeső rugók, kényszeres útterhek, vetemedés, pozitív anyagi kapacitások és nemlineáris talajgörbék következetes konvergenciaellenőrzést használnak. Az SSI a frissített talajmerevséggel is ellenőrzi az erőegyensúlyt. Futtassa újra az érintett nemlineáris, P-Delta és SSI vizsgálatokat; a konvergencia, viselt teher és eredmények változhatnak (#761; PR #1940)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-supported-and-soil-equilibrium.md",

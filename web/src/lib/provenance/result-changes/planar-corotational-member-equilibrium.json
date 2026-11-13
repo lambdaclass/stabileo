@@ -27,7 +27,8 @@
     "pt": "O cortante plano usa a corda final",
     "de": "Ebene Stabquerkräfte verwenden die endgültige Sehne",
     "fr": "L’effort tranchant plan utilise la corde finale",
-    "tr": "Düzlemsel eleman kesmesi son kirişi kullanır"
+    "tr": "Düzlemsel eleman kesmesi son kirişi kullanır",
+    "hu": "A síkbeli rúd nyíróereje a végső húrt használja"
   },
   "explanation": {
     "en": "Planar corotational, arc-length and displacement-control member recovery now uses the current chord to recover shear from the end moments, consistently with the reported length and the equilibrium residual. Re-check member shears in saved nonlinear planar results (#1952).",
@@ -35,7 +36,8 @@
     "pt": "A recuperação de membros planos em análise corrotacional, comprimento de arco e controle de deslocamento usa a corda atual para obter o cortante dos momentos nas extremidades, coerente com o comprimento e o resíduo de equilíbrio. Reveja os cortantes dos resultados planos não lineares salvos (#1952).",
     "de": "Bei ebenen korotationalen Analysen sowie Bogenlängen- und Verschiebungssteuerung wird die Querkraft aus den Endmomenten mit der aktuellen Sehne ermittelt, konsistent mit Länge und Gleichgewichtsresiduum. Prüfen Sie gespeicherte nichtlineare ebene Stabquerkräfte erneut (#1952).",
     "fr": "La récupération des barres planes en corotation, longueur d’arc et contrôle en déplacement utilise la corde actuelle pour calculer l’effort tranchant à partir des moments d’extrémité, conformément à la longueur et au résidu d’équilibre. Revérifiez les efforts tranchants des résultats plans non linéaires enregistrés (#1952).",
-    "tr": "Düzlemsel eş dönel, yay uzunluğu ve yer değiştirme kontrollü analizlerde uç momentlerinden kesme kuvveti hesaplanırken mevcut kiriş kullanılır; raporlanan uzunluk ve denge artığıyla tutarlılık sağlanır. Kaydedilmiş doğrusal olmayan düzlemsel sonuçların kesme kuvvetlerini yeniden kontrol edin (#1952)."
+    "tr": "Düzlemsel eş dönel, yay uzunluğu ve yer değiştirme kontrollü analizlerde uç momentlerinden kesme kuvveti hesaplanırken mevcut kiriş kullanılır; raporlanan uzunluk ve denge artığıyla tutarlılık sağlanır. Kaydedilmiş doğrusal olmayan düzlemsel sonuçların kesme kuvvetlerini yeniden kontrol edin (#1952).",
+    "hu": "A síkbeli korotációs, ívhossz- és elmozdulásvezérelt rúdhelyreállítás az aktuális húrral számítja a végnyomatékokból a nyíróerőt, összhangban a közölt hosszal és egyensúlyi maradékkal. Ellenőrizze újra a mentett nemlineáris síkbeli eredmények rúdnyíróerőit (#1952)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-physical-stage-and-member-equilibrium.md",

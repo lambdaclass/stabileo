@@ -29,7 +29,8 @@
     "pt": "Modelos pontuais com vínculos usam os movimentos admissíveis",
     "de": "Gekoppelte Punktmodelle verwenden zulässige Bewegungen",
     "fr": "Les modèles ponctuels contraints utilisent les mouvements admissibles",
-    "tr": "Kısıtlı nokta modelleri izin verilen hareketleri kullanır"
+    "tr": "Kısıtlı nokta modelleri izin verilen hareketleri kullanır",
+    "hu": "A kényszeres pontmodellek megengedett mozgási kategóriákat használnak"
   },
   "explanation": {
     "en": "Re-run refused coincident spring models: rotations eliminated by constraints no longer require a rotational stiffness scale (#761, PR #1940).",
@@ -37,7 +38,8 @@
     "pt": "Refaça modelos coincidentes com molas que foram recusados: rotações eliminadas por vínculos não exigem mais uma escala de rigidez rotacional (#761, PR #1940).",
     "de": "Abgelehnte koinzidente Federmodelle neu berechnen: durch Kopplungen eliminierte Rotationen benötigen keine Rotationssteifigkeitsskala mehr (#761, PR #1940).",
     "fr": "Relancer les modèles coïncidents à ressorts refusés : les rotations éliminées par les contraintes ne nécessitent plus une échelle de rigidité en rotation (#761, PR #1940).",
-    "tr": "Reddedilen çakışık yay modellerini yeniden hesaplayın: kısıtlarla kaldırılan dönmeler artık dönme rijitliği ölçeği gerektirmez (#761, PR #1940)."
+    "tr": "Reddedilen çakışık yay modellerini yeniden hesaplayın: kısıtlarla kaldırılan dönmeler artık dönme rijitliği ölçeği gerektirmez (#761, PR #1940).",
+    "hu": "Futtassa újra az elutasított egybeeső rugómodelleket: a kényszerekkel megszüntetett forgások többé nem igényelnek forgási merevségskálát (#761, PR #1940)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-admissible-point-categories.md",
