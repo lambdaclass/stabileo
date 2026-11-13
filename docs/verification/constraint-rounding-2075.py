@@ -5,9 +5,12 @@ from pathlib import Path
 
 source = Path("engine/tests/fixtures/truss-balance-1969.json")
 model = json.loads(source.read_text(), parse_float=lambda x: F(float(x)))["nodal-1969"]
+assert sorted(n["id"] for n in model["nodes"].values()) == list(range(1, len(model["nodes"]) + 1))
+assert all(str(n["id"]) == key for key, n in model["nodes"].items())
 size = 3 * len(model["nodes"])
 assert not model["constraints"] and not model["connectors"]
 assert all(s["type"] == "fixed" for s in model["supports"].values())
+assert all(s.get(field) in (None, 0) for s in model["supports"].values() for field in ["dx", "dz", "dry"])
 restrained = {3 * (s["nodeId"] - 1) + d for s in model["supports"].values() for d in range(3)}
 parts = []
 compatibility = []

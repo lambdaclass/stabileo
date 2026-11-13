@@ -24,15 +24,15 @@ function verify(result, c) {
 const pdeltaCoverage = new Set();
 
 for (const [index, c] of cases.entries()) {
-  const s = c.model;
+  const { model: s, dim } = c;
   const stage = { name: 'all', elementsAdded: Object.values(s.elements).map(e => e.id), supportsAdded: Object.keys(s.supports).map(Number), loadIndices: s.loads.map((_, i) => i) };
-  const jsonCall = (api, input, ...args) => () => JSON.parse(engine[`${api}_${c.dim}d`](JSON.stringify(input), ...args));
+  const jsonCall = (api, input, ...args) => () => JSON.parse(engine[`${api}_${dim}d`](JSON.stringify(input), ...args));
   const runs = {
-    linear: () => engine[`solve_${c.dim}d`](s),
-    linearPcg: () => engine[`solve_${c.dim}d`]({ ...s, solverOptions: { method: 'pcg', tolerance: 1e-12, maxIterations: 100000 } }),
-    certified: () => engine[`certify_linear_${c.dim}d`](s),
+    linear: () => engine[`solve_${dim}d`](s),
+    linearPcg: () => engine[`solve_${dim}d`]({ ...s, solverOptions: { method: 'pcg', tolerance: 1e-12, maxIterations: 100000 } }),
+    certified: () => engine[`certify_linear_${dim}d`](s),
     session: () => {
-      const session = new engine[`LoadSession${c.dim}D`](s);
+      const session = new engine[`LoadSession${dim}D`](s);
       try { return session.solve(s.loads); } finally { session.free(); }
     },
     constrained: jsonCall('solve_constrained', { solver: s, constraints: s.constraints }),
@@ -40,27 +40,27 @@ for (const [index, c] of cases.entries()) {
     stagedTwo: jsonCall('solve_staged', { ...s, stages: [stage, { name: 'second' }] }),
     creep: jsonCall('solve_creep_shrinkage', { solver: s, creepParams: {}, timeSteps: [{ tDays: 28, additionalLoads: [] }], agingCoefficient: 0.8 }),
     pdelta: jsonCall('solve_pdelta', s, 100, 1e-12),
-    combinations: () => engine[`solve_multi_case_${c.dim}d`]({ solver: s, loadCases: [{ name: 'A', loads: s.loads }], combinations: [{ name: 'C', factors: { A: 1 } }] }),
+    combinations: () => engine[`solve_multi_case_${dim}d`]({ solver: s, loadCases: [{ name: 'A', loads: s.loads }], combinations: [{ name: 'C', factors: { A: 1 } }] }),
   };
   for (const [name, run] of Object.entries(runs)) {
-    if (name === 'pdelta' && !s.constraints.some(c => c.terms.every(t => t.dof >= (c.dim === 2 ? 2 : 3)))) continue;
-    if (name === 'pdelta') pdeltaCoverage.add(`${c.dim}:${c.refused}`);
-    test(`${index} ${c.dim}D ${name} refused=${c.refused}`, () => {
+    if (name === 'pdelta' && !s.constraints.some(constraint => constraint.terms.every(term => term.dof >= (dim === 2 ? 2 : 3)))) continue;
+    test(`${index} ${dim}D ${name} refused=${c.refused}`, () => {
       if (c.refused) assert.throws(run);
       else verify(run(), c);
+      if (name === 'pdelta') pdeltaCoverage.add(`${dim}:${c.refused}`);
     });
   }
 }
 
 for (const dim of [2, 3]) {
   for (const refused of [false, true]) {
-    test(`${dim}D P-Delta coverage refused=${refused}`, { skip: 'known wrong result: #2075' }, () => {
-      assert.ok(pdeltaCoverage.has(`${dim}:${refused}`), 'P-Delta cases must be registered');
+    test(`${dim}D P-Delta coverage refused=${refused}`, () => {
+      assert.ok(pdeltaCoverage.has(`${dim}:${refused}`), 'P-Delta cases must execute successfully');
     });
   }
 }
 
-test('IGNORED=1 retains the unignored constrained-release regressions', { skip: 'known wrong result: #2075' }, () => {
+test('IGNORED=1 retains the unignored constrained-release regressions', () => {
   const commands = execFileSync('make', ['-n', 'test.engine.constraint-rounding-2013', 'IGNORED=1'], { encoding: 'utf8' });
   const seeded = commands.split('\n').find(line => line.includes('cargo test') && line.includes('constrained_release'));
   assert.ok(seeded);

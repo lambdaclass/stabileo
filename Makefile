@@ -1080,7 +1080,7 @@ test.engine.ssi-elastic-2011-wasm: wasm
 test.engine.constraint-rounding-2013:
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib constraint_2013 --release -- --nocapture $(if $(IGNORED),--include-ignored)
 	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='constraint_rounding_2013:: --release $(if $(IGNORED),-- --include-ignored)'
-	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='constrained_release --release $(if $(IGNORED),-- --ignored)'
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='constrained_release --release $(if $(IGNORED),-- --include-ignored)'
 
 test.engine.constraint-rounding-2013-wasm: wasm
 	CONSTRAINT_2013_CASES=$(CURDIR)/.2013-cases $(MAKE) test.engine.constraint-rounding-2013

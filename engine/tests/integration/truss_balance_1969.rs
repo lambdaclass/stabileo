@@ -162,8 +162,7 @@ fn issue_1969_constrained_dense_and_sparse_balance_accept_member_actions() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2075"]
-fn constrained_nodal_controls_and_existing_rounding_refusals_remain() {
+fn constrained_nodal_controls_and_redundant_fixed_restraints_return_answers() {
     for dimension in [2, 3] {
         for copies in [1, 4] {
             for slave in [2, 3] {
@@ -188,10 +187,9 @@ fn constrained_nodal_controls_and_existing_rounding_refusals_remain() {
                     })
                     .map(|r| finite(&r))
                 };
-                assert_eq!(
+                assert!(
                     result.is_ok(),
-                    slave == 2,
-                    "{dimension}D {copies} copies: {result:?}"
+                    "{dimension}D {copies} copies slave {slave}: {result:?}"
                 );
             }
         }

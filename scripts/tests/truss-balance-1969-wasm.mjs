@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
+const audit = JSON.parse(readFileSync(new URL('../../docs/verification/constraint-rounding-2075.json', import.meta.url)));
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/truss-balance-1969.json', import.meta.url)));
 function assertDisplacements(result, input, dimension) {
   assert.equal(result.displacements.length, Object.keys(input.nodes).length);
@@ -72,11 +73,20 @@ for (const dimension of [2, 3]) {
 }
 
 for (const dimension of [2, 3]) {
-  test(`${dimension}D constrained nodal control and existing rounding refusal`, () => {
+  test(`${dimension}D constrained nodal controls match independent high-precision answers`, () => {
     const key = dimension === 2 ? 'nodal-1969' : '3d-nodal-1969';
     const input = slaveNode => JSON.stringify({ solver: fixtures[key], constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode, dofs: [0] }] });
-    assertDisplacements(JSON.parse(engine[`solve_constrained_${dimension}d`](input(2))), fixtures[key], dimension);
-    assert.throws(() => engine[`solve_constrained_${dimension}d`](input(3)));
+    for (const [caseIndex, slave] of [[1, 2], [2, 3]]) {
+      const result = JSON.parse(engine[`solve_constrained_${dimension}d`](input(slave)));
+      assertDisplacements(result, fixtures[key], dimension);
+      const expected = audit[caseIndex].displacements.map(row => row.map(Number));
+      const scale = Math.max(...expected.flat().map(Math.abs));
+      for (const d of result.displacements) {
+        const actual = [d.ux, d.uz, dimension === 2 ? d.ry : -d.ry];
+        actual.forEach((value, i) => assert.ok(Math.abs(value - expected[d.nodeId - 1][i]) <= 1e-8 * scale));
+        if (dimension === 3) assert.deepEqual([d.uy, d.rx, d.rz], [0, 0, 0]);
+      }
+    }
   });
 }
 for (const dimension of [2, 3]) {
