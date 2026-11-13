@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { check as checkPhysics, snapshot } from './released-load-work-physics.mjs';
-import { allowsUnresolved, assertExpectedUnresolved } from './released-load-work-outcome.mjs';
+import { allowsUnresolved, assertExpectedUnresolved, assertAdmittedPdeltaConverged } from './released-load-work-outcome.mjs';
 import {readFileSync} from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 engine.initSync({module:readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm',import.meta.url))});
@@ -109,7 +109,7 @@ for(const [i,c] of cases.entries()) {
       else {
         if(path==='pdelta') {
           check(result.linearResults,c.model,{ok:c.references[path].ok?.linearResults},c.gauges);
-          assert.equal(result.converged,c.references[path].ok.converged);
+          assertAdmittedPdeltaConverged(c.references[path],result);
           if(result.converged) check(result,c.model,c.references[path],c.gauges);
         } else check(result,c.model,c.references[path],c.gauges);
         solves++;
@@ -212,8 +212,9 @@ for(const c of trussCases) for(const path of paths) {
     trussRefusals++;
   }
 }
-assert.equal(trussSolves,4*paths.length);
-assert.equal(trussRefusals,4*paths.length*8);
+assert.equal(trussCases.length,8);
+assert.equal(trussSolves,8*paths.length);
+assert.equal(trussRefusals,8*paths.length*8);
 console.log(`Released-load work: ${cancellationSolves} loaded exact cancellations, ${cancellationRoundoffSolves} roundoff-order cancellations, ${cancellationRoundoffRefusals} roundoff-order residual refusals, ${trussSolves} oblique truss admissions, ${trussRefusals} truss moment refusals`);
 
 let assemblySolves=0,assemblyUnresolved=0,assemblyRefusals=0,featureRefusals=0;
@@ -231,7 +232,7 @@ for(const [i,c] of assemblyCases.entries()) for(const path of paths) {
     else {
       if(path==='pdelta') {
         check(result.linearResults,c.model,{ok:c.references[path].ok?.linearResults},c.gauges);
-        assert.equal(result.converged,c.references[path].ok.converged);
+        assertAdmittedPdeltaConverged(c.references[path],result);
         if(result.converged) check(result,c.model,c.references[path],c.gauges);
       } else check(result,c.model,c.references[path],c.gauges);
       assemblySolves++;

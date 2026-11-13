@@ -394,6 +394,124 @@ mod tests {
         oblique_truss_transform_enclosure(true);
     }
 
+    fn check_truss_component_boundary(value: f64, bound: f64, local: [f64; 3], local_error: [f64; 3], axes: [[f64; 3]; 3], k: usize) {
+        use super::super::stability::*;
+        let frame = frame_rounding(&axes);
+        let mut expected = Work::default();
+        let mut rational = BigRational::zero();
+        for j in 0..3 {
+            expected.product(local[j], local_error[j], axes[j][k], frame[j][k]);
+            rational += exact(local[j])*exact(axes[j][k]);
+        }
+        let radius = expected.bound();
+        assert!(radius.is_finite() && radius > 0.0);
+        assert!((rational-exact(value)).abs() <= exact(bound));
+        let mut stability = Stability::stable();
+        stability.free.push(FreeDirection {
+            node: 1, kind: DofKind::Rotation, moves_translation: false,
+            dofs: vec![0], direction: vec![1.0], direction_rounding: vec![0.0],
+            scale: 1.0, coupling: vec![],
+        });
+        for sign in [-1.0,1.0] {
+            assert_eq!(stability.load_on_free_rotation_with_rounding(&[sign*radius.next_up()], &[bound]),Some(1),"above true bound: {bound} / {radius}");
+            for residual in [0.0,radius.next_down(),radius] {
+                assert_eq!(stability.load_on_free_rotation_with_rounding(&[sign*residual], &[bound]),None,"inside true bound: {bound} / {radius}");
+            }
+        }
+        assert_eq!(bound,radius);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2074"]
+    fn truss_2d_member_transforms_bound_directions_and_refuse_above_boundary() {
+        use serde_json::json;
+        for kind in ["distributed","pointOnElement","axialDistributed","thermal"] {
+            for element_type in ["truss","cable"] {
+                let load = match kind {
+                    "distributed" => json!({"elementId":1,"qI":0.3,"qJ":0.7}),
+                    "pointOnElement" => json!({"elementId":1,"a":0.7,"p":0.7,"px":0.3}),
+                    "axialDistributed" => json!({"elementId":1,"qI":0.3,"qJ":0.7}),
+                    _ => json!({"elementId":1,"dtUniform":0.7,"dtGradient":0.0,"alpha":0.3}),
+                };
+                let input: SolverInput = serde_json::from_value(json!({
+                    "nodes":{"1":{"id":1,"x":0.0,"z":0.0},"2":{"id":2,"x":3.0,"z":2.0}},
+                    "materials":{"1":{"id":1,"e":1.0,"nu":0.3}},
+                    "sections":{"1":{"id":1,"a":0.01,"iz":0.0001}},
+                    "elements":{"1":{"id":1,"type":element_type,"nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+                    "supports":{},"loads":[{"type":kind,"data":load}]
+                })).unwrap();
+                let dof = DofNumbering::build_2d(&input);
+                let l = 13.0_f64.sqrt();
+                let axes = [[3.0/l,2.0/l,0.0],[-2.0/l,3.0/l,0.0],[0.0,0.0,1.0]];
+                let actions = super::super::member_actions::TransverseMemberActions::from_2d(&input.loads[0],l).0;
+                let mut local = [[0.0;3];2];
+                let mut errors = [[0.0;3];2];
+                for end in 0..2 { local[end][1] = actions[end][0]; }
+                match &input.loads[0] {
+                    SolverLoad::PointOnElement(p) => {
+                        for (end,factor) in [1.0-p.a/l,p.a/l].into_iter().enumerate() {
+                            local[end][0] = p.px.unwrap()*factor;
+                            errors[end][0] = product_rounding(p.px.unwrap(),factor,local[end][0]);
+                        }
+                    }
+                    SolverLoad::AxialDistributed(a) => {
+                        let f = crate::element::axial_distributed_fef(a.q_i,a.q_j,0.0,l,l);
+                        for end in 0..2 { local[end][0] = f[end]; }
+                    }
+                    SolverLoad::Thermal(t) => {
+                        let f = input.materials["1"].e*1000.0*input.sections["1"].a*t.alpha()*t.dt_uniform;
+                        local[0][0] = -f; local[1][0] = f;
+                    }
+                    _ => {}
+                }
+                let (values,bounds) = super::super::assembly::assemble_load_vector_2d_with_rounding(&input,&input.loads,&dof,&[],true);
+                for end in 0..2 { for k in 0..2 {
+                    let d = dof.global_dof(end+1,k).unwrap();
+                    check_truss_component_boundary(values[d],bounds[d],local[end],errors[end],axes,k);
+                } }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2074"]
+    fn truss_3d_axial_and_thermal_bound_directions_and_refuse_above_boundary() {
+        use serde_json::json;
+        for thermal in [false,true] {
+            for element_type in ["truss","cable"] {
+                let fixture: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/nightly-2026-11-13.json")).unwrap();
+                let mut model = fixture["2023"].clone();
+                model["nodes"] = json!({"1":{"id":1,"x":0.0,"y":0.0,"z":0.0},"2":{"id":2,"x":3.0,"y":4.0,"z":2.0}});
+                let mut element = model["elements"]["1"].clone();
+                element["type"] = json!(element_type); element["nodeI"] = json!(1); element["nodeJ"] = json!(2);
+                model["elements"] = json!({"1":element});
+                model["supports"] = json!({});
+                model["loads"] = if thermal {
+                    json!([{"type":"thermal","data":{"elementId":1,"dtUniform":0.7,"dtGradientY":0.0,"dtGradientZ":0.0,"alpha":0.3}}])
+                } else {
+                    json!([{"type":"distributed","data":{"elementId":1,"qXI":0.3,"qXJ":0.7,"qYI":0.0,"qYJ":0.0,"qZI":0.0,"qZJ":0.0}}])
+                };
+                let input: SolverInput3D = serde_json::from_value(model).unwrap();
+                let dof = DofNumbering::build_3d(&input);
+                let e = &input.elements["1"];
+                let (ex,ey,ez) = crate::element::compute_local_axes_3d(0.0,0.0,0.0,3.0,4.0,2.0,e.local_yx,e.local_yy,e.local_yz,e.roll_angle,false);
+                let axial = match &input.loads[0] {
+                    SolverLoad3D::Distributed(d) => crate::element::axial_distributed_fef(d.q_xi,d.q_xj,0.0,29.0_f64.sqrt(),29.0_f64.sqrt()),
+                    SolverLoad3D::Thermal(t) => {
+                        let f = input.materials["1"].e*1000.0*input.sections["1"].a*t.alpha()*t.dt_uniform;
+                        [-f,f]
+                    }
+                    _ => unreachable!(),
+                };
+                let (values,bounds) = super::super::assembly::assemble_load_vector_3d_with_rounding(&input,&input.loads,&dof,&[],true);
+                for end in 0..2 { for k in 0..3 {
+                    let d = dof.global_dof(end+1,k).unwrap();
+                    check_truss_component_boundary(values[d],bounds[d],[axial[end],0.0,0.0],[0.0;3],[ex,ey,ez],k);
+                } }
+            }
+        }
+    }
+
     #[test]
     fn single_2d_fef_rounding_encloses_member_transform() {
         use super::super::assembly::*;

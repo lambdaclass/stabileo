@@ -1042,7 +1042,8 @@ fn zero_residual_controls_keep_the_cancelling_loads() {
 fn truss_models_2074() -> Vec<Value> {
     let mut cases = Vec::new();
     for dim in [2,3] {
-        for point in [false,true] {
+        for kind in ["distributed","point","axial","thermal"] {
+            let point = kind == "point";
             let mut model = if dim == 2 {serde_json::to_value(member_2d("Start")).unwrap()} else {serde_json::to_value(member("Mz","Start",true)).unwrap()};
             model["elements"]["1"]["type"] = json!("truss");
             if dim == 2 {
@@ -1052,9 +1053,16 @@ fn truss_models_2074() -> Vec<Value> {
                 for key in ["rx","rrx","rry","rrz"] { model["supports"]["2"][key] = json!(false); }
                 model["loads"] = if point {json!([{"type":"pointOnElement","data":{"elementId":1,"a":0.7,"px":0.3,"py":0.7,"pz":1.1}}])} else {json!([{"type":"distributed","data":{"elementId":1,"qXI":0.0,"qXJ":0.0,"qYI":0.3,"qYJ":0.7,"qZI":1.1,"qZJ":-0.3}}])};
             }
+            if kind == "axial" {
+                model["loads"] = if dim == 2 { json!([{"type":"axialDistributed","data":{"elementId":1,"qI":0.3,"qJ":0.7}}]) }
+                else { json!([{"type":"distributed","data":{"elementId":1,"qXI":0.3,"qXJ":0.7,"qYI":0.0,"qYJ":0.0,"qZI":0.0,"qZJ":0.0}}]) };
+            } else if kind == "thermal" {
+                model["loads"] = if dim == 2 { json!([{"type":"thermal","data":{"elementId":1,"dtUniform":0.7,"dtGradient":0.0,"alpha":0.00001}}]) }
+                else { json!([{"type":"thermal","data":{"elementId":1,"dtUniform":0.7,"dtGradientY":0.0,"dtGradientZ":0.0,"alpha":0.00001}}]) };
+            }
             let references = native_references(dim,&model);
             let gauges = released_gauges(dim,&model);
-            cases.push(json!({"dim":dim,"point":point,"model":model,"references":references,"gauges":gauges}));
+            cases.push(json!({"dim":dim,"point":point,"kind":kind,"model":model,"references":references,"gauges":gauges}));
         }
     }
     cases

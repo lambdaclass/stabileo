@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { allowsUnresolved, assertExpectedUnresolved } from './released-load-work-outcome.mjs';
+import { allowsUnresolved, assertExpectedUnresolved, assertAdmittedPdeltaConverged } from './released-load-work-outcome.mjs';
 
 for(const outcome of [{result:{converged:false}},{error:'Singular tangent stiffness matrix'}]) {
   test(`native success requires WASM completion: ${JSON.stringify(outcome)}`,()=>{
@@ -39,4 +39,19 @@ test('a same-count substitution cannot change the pinned unresolved cases',()=>{
   const replaced=[...exact];
   replaced[0]='cases/0/material';
   assert.throws(()=>assertExpectedUnresolved(replaced));
+});
+
+const knownWrong=process.env.RUN_KNOWN_WRONG==='1'?{}:{skip:'known wrong result: #2074'};
+test('#2074: matching unpinned P-Delta non-convergence cannot count as admitted',knownWrong,()=>{
+  const reference={ok:{converged:false}};
+  const result={converged:false};
+  assert.equal(allowsUnresolved(reference,result,undefined,'cases/0/pdelta'),false);
+  assert.throws(()=>assertAdmittedPdeltaConverged(reference,result));
+});
+
+test('P-Delta completion requires both runtimes to converge',()=>{
+  assertAdmittedPdeltaConverged({ok:{converged:true}},{converged:true});
+  for(const [native,wasm] of [[true,false],[false,true]]) {
+    assert.throws(()=>assertAdmittedPdeltaConverged({ok:{converged:native}},{converged:wasm}));
+  }
 });
