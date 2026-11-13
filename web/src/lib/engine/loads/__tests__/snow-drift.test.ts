@@ -68,7 +68,7 @@ describe('drifts on the model', () => {
   it('a step: the triangle along it, on the lower roof only, about p_d · w / 2 per metre of step', () => {
     const m = stepModel();
     const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
-    const out = driftAndSlidingLoads(m, layout, { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 });
+    const out = driftAndSlidingLoads(m, layout, { pg: 1, balanced: () => 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 });
     expect(out.derivation.some((x) => x.key === 'snow.derivation.drift')).toBe(true);
     for (const d of out.distributed) expect((m.nodes.get(m.elements.get(d.elementId)!.nodeI)!.z)).toBe(3);
     const d = stepDrift({ pg: 1, balanced: 0.7, stepHeight: 3, luUpper: 6, luLower: 6 });
@@ -86,7 +86,7 @@ describe('drifts on the model', () => {
     const node = (x: number, y: number, z: number) => { m.nodes.set(n, { id: n, x, y, z }); return n++; };
     for (const y of [0, 6]) m.elements.set(e, { id: e++, nodeI: node(6, y, 4), nodeJ: node(0, y, 5.5), sectionId: 1 });
     const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
-    const out = driftAndSlidingLoads(m, layout, { pg: 1, balanced: 0.7, pf: 0.7, slippery: true, tributaryWidth: 3 });
+    const out = driftAndSlidingLoads(m, layout, { pg: 1, balanced: () => 0.7, pf: 0.7, slippery: true, tributaryWidth: 3 });
     const msg = out.derivation.find((x) => x.key === 'snow.derivation.sliding')!;
     expect(msg.params?.W).toBeCloseTo(6, 6);
     // 0,4 · 0,7 · 6 = 1,68 kN per metre of eave over the 6 m of eave, all on the lower roof.
@@ -107,7 +107,7 @@ describe('drifts on the model', () => {
     const separate = new Set(ring([node(8, 0, 3), node(12, 0, 3), node(12, 6, 3), node(8, 6, 3)]));
     const m: GravityModel = { nodes, elements };
     const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
-    const out = driftAndSlidingLoads(m, layout, { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 });
+    const out = driftAndSlidingLoads(m, layout, { pg: 1, balanced: () => 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 });
     const d = out.derivation.find((x) => x.key === 'snow.derivation.drift')!;
     expect(d.params?.w as number).toBeGreaterThan(2);
     expect(out.distributed.length).toBeGreaterThan(0);

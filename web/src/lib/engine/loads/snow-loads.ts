@@ -38,6 +38,7 @@
  *
  * Pure: no store.
  */
+import { snowRoofSurfaces } from './snow-roof-surfaces';
 import { roofMembers, type WindModel } from './wind-cases';
 import type { GravityLayout, GravityModel } from './plan-gravity';
 import { driftAndSlidingLoads } from './snow-drift-loads';
@@ -151,34 +152,9 @@ export function snowSlopes(model: WindModel, layout?: GravityLayout): {
     return (Math.atan(Math.abs(Z(b) - Z(a)) / Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1e-9)) * 180) / Math.PI;
   };
   const member = (id: number) => surfaces.get(id) ?? own(id);
-  const sloped = roofMembers(model).filter((m) => Math.abs(m.dz) / Math.max(m.lh, 1e-9) > SLOPED).map((m) => {
-    const e = model.elements.get(m.id)!;
-    return { m, low: Math.min(Z(model.nodes.get(e.nodeI)!), Z(model.nodes.get(e.nodeJ)!)), deg: (Math.atan(Math.abs(m.dz) / m.lh) * 180) / Math.PI };
-  });
-  const cache = new Map<number, number>();
-  const panel = (index: number) => {
-    const hit = cache.get(index);
-    if (hit !== undefined) return hit;
-    const pn = layout?.panels[index];
-    let deg = 0;
-    if (pn) {
-      const over = sloped.filter((x) => x.low >= pn.z - 0.05 && insidePolygon([x.m.mid.x, x.m.mid.y], pn.polygon));
-      const w = over.reduce((sum, x) => sum + x.m.lh, 0);
-      if (w > 0) deg = over.reduce((sum, x) => sum + x.deg * x.m.lh, 0) / w;
-    }
-    cache.set(index, deg);
-    return deg;
-  };
+  const surfacesByPanel = snowRoofSurfaces(model, layout);
+  const panel = (index: number) => surfacesByPanel(index).slope;
   return { member, panel, of: (elementId, p) => (p === undefined ? member(elementId) : panel(p)) };
-}
-
-function insidePolygon(pt: [number, number], poly: ReadonlyArray<[number, number]>): boolean {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i]!, [xj, yj] = poly[j]!;
-    if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
 }
 
 /** An intensity on a member, kN/m² of horizontal projection: one value, or one at each end. */
@@ -360,9 +336,8 @@ export function snowLoadCases(input: SnowCasesInput): {
     ...on((id, u) => balancedOf(id, u)),
   }];
   if (layout) {
-    // The drifts and the sliding snow land on panels, which are level: h_b reads the flat roof's p_s.
     const extra = driftAndSlidingLoads(input.model as GravityModel, layout, {
-      pg: input.snow.pg, balanced: shaped || !slopes ? result.ps : surfaceAt(0).ps, pf: result.pf, slippery: input.snow.slippery,
+      pg: input.snow.pg, balanced: (panel, pt) => shaped ? shaped.balanced({ x: pt[0], y: pt[1], z: layout.panels[panel]!.z }) + result.rainOnSnow : psOf(0, { panel }), pf: result.pf, slippery: input.snow.slippery,
       tributaryWidth: input.tributaryWidth, parapet: input.snow.parapet, adjacent: input.snow.adjacent,
     });
     cases[0]!.distributed.push(...extra.distributed);

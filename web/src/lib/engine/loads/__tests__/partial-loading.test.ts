@@ -96,7 +96,7 @@ describe('drifts on exterior edges', () => {
   it('a parapet loads the members along every exterior edge, a separate structure only the side it faces', () => {
     const m = roof();
     const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
-    const base = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 };
+    const base = { pg: 1, balanced: () => 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 };
     const p = driftAndSlidingLoads(m, layout, { ...base, parapet: { height: 1.2 } });
     expect(p.derivation.filter((x) => x.key === 'snow.derivation.parapet').length).toBe(8);
     expect(p.distributed.length).toBeGreaterThan(0);

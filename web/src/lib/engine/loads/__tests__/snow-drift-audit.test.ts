@@ -7,7 +7,7 @@ import { snowLoadCases } from '../snow-loads';
 import { stepRoof } from './snow-step-fixture';
 import { driftAndSlidingLoads } from '../snow-drift-loads';
 
-it.skip('known wrong result: #2082: CIRSOC 104 section 7.1 retains drift at a low step beside a pitched roof', () => {
+it('CIRSOC 104 section 7.1 retains drift at a low step beside a pitched roof', () => {
   const model = auditRoof('gable', 20);
   for (const n of model.nodes.values()) {
     n.y /= 3;
@@ -42,14 +42,11 @@ it.skip('known wrong result: #2082: CIRSOC 104 section 7.1 retains drift at a lo
   expect(requiredWidth).toBeGreaterThan(0);
   const requiredPeak = requiredBalanced + Math.min(hd, hc) * gamma;
   expect(requiredPeak).toBeCloseTo(1.1817, 6);
-  const pieces = layout.pieces.filter(p => p.panel === 0 && p.wI > 0);
-  const pressures = out.cases.map(c => pieces.map(p => {
-    const d = c.distributed.find(d => d.elementId === p.elementId && d.a === p.a && d.b === p.b);
-    return d ? -d.q / p.wI : 0;
-  }));
-  console.info(JSON.stringify({ planOutcome: plan.outcome, warnings: plan.unsupportedKeys, requiredBalanced, hb, hc, requiredPeak, generatedBalanced: [Math.min(...pressures[0]!), Math.max(...pressures[0]!)], maximumAcrossCases: Math.max(...pressures.flat()), derivation: out.derivation }));
   expect(out.derivation.map(d => d.key)).toContain('snow.derivation.drift');
-  expect(pressure(out.cases[0]!.distributed, 1, 0)).toBeCloseTo(1.1817, 6);
+  const probe = stepRoof();
+  const probeOut = snowLoadCases({ model: probe, snow, tributaryWidth: 1, layout: gravityLayout(probe, { mode: 'panels', tributaryWidth: 1 }) })!;
+  const generated = pressure(probeOut.cases[0]!.distributed, 500, 0);
+  expect(requiredBalanced + (generated - requiredBalanced) / (1 - 0.1 / requiredWidth)).toBeCloseTo(1.1817, 6);
 });
 
 
@@ -62,50 +59,52 @@ function pressure(loads: Array<{ elementId: number; q: number; qJ?: number; a?: 
   }, 0);
 }
 
-function required(ps: number, h: number) {
+function required(ps: number, h: number, distance = 0.1) {
   const gamma = 0.426 * 1 + 2.2, hb = ps / gamma, hc = Math.max(0, h - hb), hd = 0.381;
-  return ps + (hc / hb < 0.2 ? 0 : gamma * Math.min(hd, hc));
+  const w = Math.min(hd <= hc ? 4 * hd : 4 * hd * hd / hc, 8 * hc);
+  return ps + (hc / hb < 0.2 || distance > w ? 0 : gamma * Math.min(hd, hc) * (1 - distance / w));
 }
 
-it.skip.each([0, 0.37])('known wrong result: #2082: local step height along a pitched lower roof, rotation %s', angle => {
+it.each([0, 0.37])('local step height along a pitched lower roof, rotation %s', angle => {
   const model = stepRoof(20, 0, 0.45, angle);
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   const out = snowLoadCases({ model, snow, layout, tributaryWidth: 1 })!;
   const loads = out.cases[0]!.distributed;
-  const ps = (70 - 20) / 65;
-  expect(pressure(loads, 1, 0)).toBeCloseTo(required(ps, 0.45), 6);
+  const ps = (angle === 0 ? 1 : 0.7) * (70 - 20) / 65;
+  expect(pressure(loads, 500, 0)).toBeCloseTo(required(ps, 0.45), 6);
   const L = 1 / Math.cos(20 * Math.PI / 180);
-  expect(pressure(loads, 1, L / 2)).toBeCloseTo(required(ps, 0.45 - 0.5 * Math.tan(20 * Math.PI / 180)), 6);
+  expect(pressure(loads, 500, L / 2)).toBeCloseTo(required(ps, 0.45 - 0.5 * Math.tan(20 * Math.PI / 180)), 6);
 });
 
-it.skip.each([1.199, 1.201])('known wrong result: #2082: local hc/hb on either side of 0.2, height/hb %s', ratio => {
+it.each([1.199, 1.201])('local hc/hb on either side of 0.2, height/hb %s', ratio => {
   const ps = (70 - 20) / 65, hb = ps / (0.426 + 2.2);
   const model = stepRoof(20, 0, ratio * hb);
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   const out = snowLoadCases({ model, snow, layout, tributaryWidth: 1 })!;
-  expect(pressure(out.cases[0]!.distributed, 1, 0)).toBeCloseTo(required(ps, ratio * hb), 6);
+  expect(pressure(out.cases[0]!.distributed, 500, 0)).toBeCloseTo(required(ps, ratio * hb), 6);
   expect(out.derivation.some(d => d.key === 'snow.derivation.drift')).toBe(ratio > 1.2);
   expect(out.derivation.find(d => d.key === 'snow.derivation.drift' || d.key === 'snow.derivation.noDrift')!.params!.hb).toBeCloseTo(Math.round(hb * 1000) / 1000, 6);
 });
 
-it.skip.each([0.45, 1.5])('known wrong result: #2082: capped and uncapped hd at a pitched lower roof, height %s', height => {
+it.each([0.45, 1.5])('capped and uncapped hd at a pitched lower roof, height %s', height => {
   const model = stepRoof(20, 0, height);
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   const direct = snowLoadCases({ model, snow, layout, tributaryWidth: 1 })!;
   const plan = buildLoadPlan(planInput('cirsoc', { model, gravity: { mode: 'panels' }, tributaryWidth: 1, snow: { ...snow, enabled: true, source: 'site' } }));
   const index = plan.cases.findIndex(c => c.type === 'S');
   const want = required((70 - 20) / 65, height);
-  expect(pressure(direct.cases[0]!.distributed, 1, 0)).toBeCloseTo(want, 6);
-  expect(pressure(plan.distributed.filter(d => d.caseIndex === index), 1, 0)).toBeCloseTo(want, 6);
+  expect(pressure(direct.cases[0]!.distributed, 500, 0)).toBeCloseTo(want, 6);
+  expect(pressure(plan.distributed.filter(d => d.caseIndex === index), 500, 0)).toBeCloseTo(want, 6);
 });
 
-it.skip('known wrong result: #2082: a flat lower roof reads the pitched upper surface locally', () => {
+it('a flat lower roof reads the pitched upper surface locally', () => {
   const model = stepRoof(0, 20, 0.45);
+  model.nodes.set(500, { id: 500, x: 0.1, y: 0.75, z: 3 });
+  model.nodes.set(501, { id: 501, x: 1.1, y: 0.75, z: 3 });
+  model.elements.set(500, { id: 500, nodeI: 500, nodeJ: 501, sectionId: 1, materialId: 1 });
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   const out = snowLoadCases({ model, snow, layout, tributaryWidth: 1 })!;
-  const piece = layout.pieces.find(p => p.panel === 0 && p.wI > 0)!;
-  const extras = out.cases[0]!.distributed.filter(d => d.elementId === piece.elementId && d.a !== undefined);
-  expect(extras.some(d => Math.abs(d.qJ ?? d.q) > Math.abs(d.q))).toBe(true);
+  expect(pressure(out.cases[0]!.distributed, 500, 0)).toBeCloseTo(required(1, 0.45 + 0.75 * Math.tan(20 * Math.PI / 180)), 6);
 });
 
 it.each(['us', 'eurocode', 'uk', 'turkey'] as const)('%s explicitly warns about omitted step drift and sliding', family => {
@@ -131,36 +130,50 @@ it.each([0, 20])('no-step control retains balanced snow at %s degrees', slope =>
   const out = snowLoadCases({ model, snow, layout, tributaryWidth: 1 })!;
   expect(out.derivation.some(d => d.key === 'snow.derivation.drift')).toBe(false);
   expect(out.cases[0]!.distributed.length).toBeGreaterThan(0);
+  const want = slope === 0 ? 1 : 0.7 * (70 - 20) / 65;
+  for (const piece of layout.pieces.filter(p => p.roof && p.wI > 0)) {
+    const load = out.cases[0]!.distributed.find(d => d.elementId === piece.elementId && d.a === piece.a && d.b === piece.b)!;
+    expect(-load.q / piece.wI).toBeCloseTo(want, 6);
+  }
 });
 
-it.skip('known wrong result: #2082: sliding snow reaches the actual pitched lower surface', () => {
-  const model = stepRoof(20, 0, 0.6);
+it.each([[false, 0.6], [true, 0.6], [false, 0.2], [true, 0.2]] as const)('sliding snow uses its own source and local receiver: unrelated=%s, eave height=%s', (unrelated, height) => {
+  const model = stepRoof(20, 0, height);
   let nid = 300, eid = 300;
   for (const y of [0, 2]) {
-    model.nodes.set(nid, { id: nid, x: 0, y, z: 3.6 });
-    model.nodes.set(nid + 1, { id: nid + 1, x: -6, y, z: 4.2 });
+    model.nodes.set(nid, { id: nid, x: 0, y, z: 3 + height });
+    model.nodes.set(nid + 1, { id: nid + 1, x: -6, y, z: 3 + height + 0.6 });
     model.elements.set(eid, { id: eid, nodeI: nid, nodeJ: nid + 1, sectionId: 1, materialId: 1 });
     nid += 2; eid++;
   }
+  if (unrelated) {
+    for (const y of [0, 2]) {
+      model.nodes.set(nid, { id: nid, x: -30, y, z: 8 });
+      model.nodes.set(nid + 1, { id: nid + 1, x: -36, y, z: 9 });
+      model.elements.set(eid, { id: eid, nodeI: nid, nodeJ: nid + 1, sectionId: 1, materialId: 1 });
+      nid += 2; eid++;
+    }
+  }
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
-  const inputs = { pg: 1, balanced: (70 - 20) / 65, pf: 1, tributaryWidth: 1 };
+  const inputs = { pg: 1, balanced: () => (70 - 20) / 65, pf: 1, tributaryWidth: 1 };
   const sliding = driftAndSlidingLoads(model, layout, { ...inputs, slippery: true });
   const retained = driftAndSlidingLoads(model, layout, { ...inputs, slippery: false });
   expect(sliding.derivation.some(d => d.key === 'snow.derivation.sliding')).toBe(true);
-  expect(pressure(sliding.distributed, 1, 0) - pressure(retained.distributed, 1, 0)).toBeCloseTo(0.4 * 1 * 6 / 4.5, 6);
+  expect(pressure(sliding.distributed, 500, 0) - pressure(retained.distributed, 500, 0)).toBeCloseTo(0.4 * 1 * 6 / 4.5, 6);
+  const mid = 0.5 / Math.cos(20 * Math.PI / 180);
+  expect(pressure(sliding.distributed, 500, mid) - pressure(retained.distributed, 500, mid)).toBeCloseTo(height === 0.6 ? 0.4 * 1 * 6 / 4.5 : 0, 6);
 });
 
-it.skip('known wrong result: #2082: independent steps on either side of the same pitched roof', () => {
+it('independent steps on either side of the same pitched roof', () => {
   const model = stepRoof(20, 0, 0.45);
   const other = stepRoof(20, 0, 0.8);
-  for (const n of other.nodes.values()) if (n.id > 100) model.nodes.set(n.id + 300, { ...n, id: n.id + 300, x: 6 - n.x });
-  for (const e of other.elements.values()) if (e.id > 100) model.elements.set(e.id + 300, { ...e, id: e.id + 300, nodeI: e.nodeI + 300, nodeJ: e.nodeJ + 300 });
+  for (const n of other.nodes.values()) if (n.id >= 100 && n.id < 200) model.nodes.set(n.id + 300, { ...n, id: n.id + 300, x: 6 - n.x });
+  for (const e of other.elements.values()) if (e.id >= 100 && e.id < 200) model.elements.set(e.id + 300, { ...e, id: e.id + 300, nodeI: e.nodeI + 300, nodeJ: e.nodeJ + 300 });
+  model.nodes.set(600, { id: 600, x: 5.9, y: 0, z: 3 });
+  model.nodes.set(601, { id: 601, x: 5.9, y: 1, z: 3 + Math.tan(20 * Math.PI / 180) });
+  model.elements.set(600, { id: 600, nodeI: 600, nodeJ: 601, sectionId: 1, materialId: 1 });
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   const out = snowLoadCases({ model, snow, layout, tributaryWidth: 1 })!;
-  const right = [...model.elements.values()].find(e => {
-    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-    return a.x === 6 && b.x === 6 && a.y === 0 && b.y === 1;
-  })!;
-  expect(pressure(out.cases[0]!.distributed, 1, 0)).toBeCloseTo(required((70 - 20) / 65, 0.45), 6);
-  expect(pressure(out.cases[0]!.distributed, right.id, 0)).toBeCloseTo(required((70 - 20) / 65, 0.8), 6);
+  expect(pressure(out.cases[0]!.distributed, 500, 0)).toBeCloseTo(required((70 - 20) / 65, 0.45), 6);
+  expect(pressure(out.cases[0]!.distributed, 600, 0)).toBeCloseTo(required((70 - 20) / 65, 0.8), 6);
 });

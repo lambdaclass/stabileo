@@ -1,0 +1,39 @@
+{
+  "id": "snow-lower-roof-step",
+  "date": "2026-11-13",
+  "prs": [
+    2081
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedLoads",
+      "generatedSnowRoofSteps"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Recheck snow on lower roofs at modeled steps",
+    "es": "Revisá la nieve en cubiertas inferiores junto a desniveles modelados",
+    "pt": "Reveja a neve nas coberturas inferiores junto a desníveis modelados",
+    "de": "Schnee auf tieferen Dächern an modellierten Höhensprüngen prüfen",
+    "fr": "Revérifier la neige sur les toits inférieurs aux décrochements modélisés",
+    "tr": "Modellenmiş kot farklarındaki alt çatıların kar yükünü yeniden kontrol edin",
+    "hu": "Ellenőrizze a modellezett szintlépcsők alatti tetők hóterhét"
+  },
+  "explanation": {
+    "en": "Regenerate snow on lower roofs at modeled height steps with the corrected version, then solve again and review dependent results (SA-2026-065). Drift now uses each receiving roof’s balanced snow depth and the local step height along its surface; sliding snow reaches pitched receiving roofs. Other codes’ explicit drift and sliding omissions still require independent loads. Roofs without modeled steps and hand-entered loads are outside this notice.",
+    "es": "Regenerá la nieve de las cubiertas inferiores junto a desniveles modelados con la versión corregida; volvé a calcular y revisá los resultados derivados (SA-2026-065). La acumulación usa la profundidad de nieve equilibrada de cada cubierta receptora y la altura local del escalón; la nieve deslizada alcanza las cubiertas receptoras inclinadas. Las omisiones explícitas de acumulación y deslizamiento de otros códigos siguen requiriendo cargas independientes. El aviso excluye cubiertas sin escalones modelados y cargas manuales.",
+    "pt": "Regenere a neve nas coberturas inferiores junto a desníveis modelados com a versão corrigida, calcule novamente e reveja os resultados dependentes (SA-2026-065). A acumulação usa a profundidade de neve equilibrada de cada cobertura receptora e a altura local do degrau; a neve deslizada alcança coberturas receptoras inclinadas. As omissões explícitas de acumulação e deslizamento dos outros códigos ainda exigem cargas independentes. Coberturas sem desníveis modelados e cargas manuais ficam fora deste aviso.",
+    "de": "Erzeugen Sie Schnee auf tieferen Dächern an modellierten Höhensprüngen mit der korrigierten Version neu, berechnen Sie erneut und prüfen Sie abhängige Ergebnisse (SA-2026-065). Verwehungen verwenden die ausgeglichene Schneehöhe jedes aufnehmenden Dachs und die örtliche Stufenhöhe; abrutschender Schnee erreicht geneigte untere Dächer. Ausdrücklich ausgelassene Verwehungs- und Abrutschlasten anderer Normen erfordern weiterhin unabhängige Lasten. Dächer ohne modellierte Höhensprünge und manuelle Lasten sind von diesem Hinweis ausgenommen.",
+    "fr": "Régénérez la neige sur les toits inférieurs aux décrochements modélisés avec la version corrigée, recalculez et vérifiez les résultats dépendants (SA-2026-065). L’accumulation utilise la hauteur de neige équilibrée de chaque toit récepteur et la hauteur locale du décrochement ; la neige glissante atteint les toits récepteurs inclinés. Les omissions explicites d’accumulation et de glissement des autres normes exigent toujours des charges indépendantes. Les toits sans décrochement modélisé et les charges manuelles sont exclus de cet avis.",
+    "tr": "Düzeltilmiş sürümle modellenmiş kot farklarındaki alt çatıların kar yükünü yeniden üretin, çözümü tekrarlayın ve bağlı sonuçları inceleyin (SA-2026-065). Birikme, her alıcı çatının dengeli kar derinliğini ve yüzey boyunca yerel kot farkını kullanır; kayan kar eğimli alt çatılara ulaşır. Diğer yönetmeliklerin açıkça belirtilen birikme ve kayma eksikleri için bağımsız yükler hâlâ gereklidir. Modellenmiş kot farkı olmayan çatılar ve elle girilen yükler bu bildirimin dışındadır.",
+    "hu": "A javított verzióval generálja újra a modellezett szintlépcsők alatti tetők hóterhét, számoljon újra, és vizsgálja felül a kapcsolódó eredményeket (SA-2026-065). A hótorlasz minden fogadó tető saját kiegyensúlyozott hómélységét és helyi lépcsőmagasságát használja; a lecsúszó hó eléri a ferde fogadó tetőket. Más szabványok kifejezetten jelzett torlasz- és csúszásteher-hiányai továbbra is külön terheket igényelnek. A modellezett szintlépcső nélküli tetők és a kézi terhek nem tartoznak az értesítéshez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-snow-roof-step.md",
+    "heading": "Snow on lower roofs at modeled steps (2026-11-13)"
+  }
+}
