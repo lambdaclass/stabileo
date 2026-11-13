@@ -24,7 +24,7 @@ keeps a curated defect list. Ergodic Group backs and publishes Stabileo.
   history goes to `CHANGELOG.md` and the website changelog. Sections 2 to 4 are rewritten when an item lands; sections 5 to 7 change rarely. The
   in-flight table in section 2 is generated: run `make roadmap.inflight` and commit the result.
 
-## 2. Now: soundness first (updated 2026-11-12)
+## 2. Now: soundness first (updated 2026-11-13 evening)
 
 ### Overall order
 
@@ -36,12 +36,17 @@ new release or deployment.
 
 ### Priority now
 
-1. Finish [#1949](https://github.com/lambdaclass/stabileo/issues/1949) in
-   [#1952](https://github.com/lambdaclass/stabileo/pull/1952): final-state support reactions and
-   member-force recovery, including support-spring staged history. The PR remains in flight;
-   it is not a fix on main.
-2. Continue the regression audit in [#1946](https://github.com/lambdaclass/stabileo/pull/1946) and
-   follow up unresolved replay evidence. [#1941](https://github.com/lambdaclass/stabileo/pull/1941)
+1. Follow up the remaining result-availability questions from
+   [#1952](https://github.com/lambdaclass/stabileo/pull/1952):
+   [#2077](https://github.com/lambdaclass/stabileo/issues/2077) asks whether P-Delta displacements
+   remain trustworthy after physical-residual failure and narrows result-summary clearing.
+   [#2078](https://github.com/lambdaclass/stabileo/issues/2078) needs a consistent convention for
+   undetermined released rotations in nonlinear solvers. Forces and reactions are unaffected by
+   those gauge values, but the rotations must not be read as physical predictions.
+   [#2073](https://github.com/lambdaclass/stabileo/issues/2073) tracks deferred test-strength,
+   result-notice scope and dead-code items from #1952; verify each against the final merged code.
+2. Follow up unresolved replay evidence from the merged regression audit
+   [#1946](https://github.com/lambdaclass/stabileo/pull/1946). [#1941](https://github.com/lambdaclass/stabileo/pull/1941)
    merged the replay of 94 candidates outside the earlier cause-C inventory: 28 body witnesses
    now refuse, and evidence review closed 25 candidate issues. This does not establish that all
    other candidates are correct; comment witnesses, inconclusive comparisons and warned
@@ -52,14 +57,13 @@ new release or deployment.
    Run each original reproducer and its reachable entry points, both sides of each limit and a
    valid control, and prove failure on the pre-fix parent. Seeded wrong-output checks and
    closed-form regressions are slices of this audit, not its completion.
-3. Finish [#1969](https://github.com/lambdaclass/stabileo/issues/1969) in
-   [#1992](https://github.com/lambdaclass/stabileo/pull/1992): truss member loads must enter the
-   conditional balance check so equivalent nodal and member loads agree. Finish harness symmetry
-   construction and reversal-budget work in [#1991](https://github.com/lambdaclass/stabileo/pull/1991).
-   Next is [#1965](https://github.com/lambdaclass/stabileo/issues/1965), the rotated rank-two modal
-   pencil's spurious extra eigenvalue. The [November 12 triage](../verification/nightly-triage-2026-11-12.md)
-   ([#1989](https://github.com/lambdaclass/stabileo/pull/1989)) found no new silent wrong results;
-   these false refusals and harness defects remain separate from the merged record-ID crash fix.
+3. In flight: [#2023](https://github.com/lambdaclass/stabileo/issues/2023) in
+   [#2074](https://github.com/lambdaclass/stabileo/pull/2074), preserving zero-work released loads
+   across rotations and unit changes while retaining refusal of genuinely unsupported moments.
+   The [November 13 triage](../verification/triage/2026-11-13.md)
+   ([#2070](https://github.com/lambdaclass/stabileo/pull/2070)) established no new silent wrong
+   results. SSI #2011 and constrained rounding #2013–#2018 are done below; #2023 remains in flight.
+   False refusals and harness defects remain distinct from silent wrong engineering answers.
 4. Next individual investigations, in order: [#1040](https://github.com/lambdaclass/stabileo/issues/1040)
    (plastic collapse invariance), [#972](https://github.com/lambdaclass/stabileo/issues/972)
    (rotation invariance), [#1453](https://github.com/lambdaclass/stabileo/issues/1453)
@@ -70,8 +74,9 @@ new release or deployment.
    confirmed wrong result to the front. Require harness self-tests to reject seeded bad results
    before trusting further mass closures.
 5. Deferred pending an owner decision: [#1996](https://github.com/lambdaclass/stabileo/issues/1996),
-   staged removal of a loaded member without redistribution of its released forces. Decide between
-   redistribution and explicit refusal or warning; the merged staged fix does not close this gap.
+   staged removal of a loaded member now refuses explicitly in both dimensions under #1952.
+   Decide whether to implement redistribution of the released force or keep refusing. The refusal
+   contains the wrong result; it does not implement redistribution or close the owner decision.
    Deferred review follow-ups remain tracked individually:
    [#1997](https://github.com/lambdaclass/stabileo/issues/1997) (nonlinear regression coverage),
    [#1998](https://github.com/lambdaclass/stabileo/issues/1998) (staged cancellation and coverage),
@@ -90,13 +95,58 @@ new release or deployment.
 
 ### Done on main since November 7
 
+- Final-state path reactions and member forces are recovered in
+  [#1952](https://github.com/lambdaclass/stabileo/pull/1952)
+  ([#1949](https://github.com/lambdaclass/stabileo/issues/1949) done), including restrained-master
+  force transfer and physical staged stiffness. Re-run affected analyses and derived checks; see
+  [SA-2026-061](../advisories/SA-2026-061-path-solver-reactions.md). Unsupported dynamic forces
+  and staged histories carry explicit unavailable diagnostics; loaded-member removal refuses.
+  P-Delta physical-residual failure withholds forces and stresses; displacement handling remains
+  under #2077. Fully determined constraint-only stages retain their answers.
+- Prescribed constraint-master motion is retained in staged and nonlinear solutions
+  ([#2009](https://github.com/lambdaclass/stabileo/pull/2009),
+  [#2008](https://github.com/lambdaclass/stabileo/issues/2008) done). Cable-element and linear
+  time-history analyses refuse unsupported nonzero prescribed support motion. Re-run affected
+  analyses and derived checks; see [SA-2026-063](../advisories/SA-2026-063-prescribed-master-motion.md),
+  documented in [#2069](https://github.com/lambdaclass/stabileo/pull/2069).
+- Truss member loads enter conditional balance checks in both dimensions
+  ([#1992](https://github.com/lambdaclass/stabileo/pull/1992),
+  [#1969](https://github.com/lambdaclass/stabileo/issues/1969) done). Modal constraints preserve
+  physical mass rank and valid finite modes
+  ([#2007](https://github.com/lambdaclass/stabileo/pull/2007),
+  [#1965](https://github.com/lambdaclass/stabileo/issues/1965) done). Re-run affected truss and modal
+  analyses and dependent dynamic responses; the reported defects were false refusals.
+- Elastic SSI refines the physical residual without restarting unchanged solves
+  ([#2072](https://github.com/lambdaclass/stabileo/pull/2072),
+  [#2011](https://github.com/lambdaclass/stabileo/issues/2011) done). No-soil and initial-linear-range
+  soil models can converge within the existing tolerance and iteration limit. Nonlinear soil
+  controls retain their answers. Re-run affected SSI analyses; the reported witness was explicitly
+  unconverged on main, not silently wrong.
+- Rotated or mirrored constrained models retain resolvable physical stiffness
+  ([#2075](https://github.com/lambdaclass/stabileo/pull/2075),
+  [#2013](https://github.com/lambdaclass/stabileo/issues/2013),
+  [#2014](https://github.com/lambdaclass/stabileo/issues/2014),
+  [#2015](https://github.com/lambdaclass/stabileo/issues/2015),
+  [#2016](https://github.com/lambdaclass/stabileo/issues/2016),
+  [#2017](https://github.com/lambdaclass/stabileo/issues/2017) and
+  [#2018](https://github.com/lambdaclass/stabileo/issues/2018) done).
+  Mechanism, conditioning and accuracy limits remain unchanged. These were false refusals;
+  re-run affected analyses.
+- Exact reflection geometry and the reversal assembly-rounding budget landed in
+  [#1991](https://github.com/lambdaclass/stabileo/pull/1991); the soundness regression audit landed in
+  [#1946](https://github.com/lambdaclass/stabileo/pull/1946). They strengthen verification evidence;
+  the audit also registered previously undocumented SSI, arc-length and public slab result changes.
+  November 13 triage [#2070](https://github.com/lambdaclass/stabileo/pull/2070) retained exact witnesses
+  and classified false refusals separately from harness artefacts, without establishing a new
+  silent wrong result. The quinn-udp security update landed in
+  [#2076](https://github.com/lambdaclass/stabileo/pull/2076).
 - Staged free rotations and settlements share regular linear handling
   ([#1943](https://github.com/lambdaclass/stabileo/pull/1943), [#1846](https://github.com/lambdaclass/stabileo/issues/1846) and [#1085](https://github.com/lambdaclass/stabileo/issues/1085) done).
   Re-run affected staged results and derived checks; see
   [SA-2026-060](../advisories/SA-2026-060-staged-orphan-rotations.md).
   Initial elastic refusals in 3D plastic analysis propagate instead of returning silent zero
   collapse factors ([SA-2026-062](../advisories/SA-2026-062-plastic-conditioning-zero-collapse.md)).
-  Loaded-member removal remains separate under #1996.
+  Loaded-member removal now refuses under #1952; redistribution remains an owner decision in #1996.
 - Nonlinear convergence uses physical equilibrium consistently across orientations and units
   ([#1940](https://github.com/lambdaclass/stabileo/pull/1940), [#761](https://github.com/lambdaclass/stabileo/issues/761), [#1100](https://github.com/lambdaclass/stabileo/issues/1100) and [#971](https://github.com/lambdaclass/stabileo/issues/971) done).
   Buckling factors use the original stiffness pencil, with constrained and curved-member coverage
@@ -111,7 +161,7 @@ new release or deployment.
   ([#1960](https://github.com/lambdaclass/stabileo/pull/1960), [#1958](https://github.com/lambdaclass/stabileo/issues/1958) done).
 - November 12 nightly findings were replayed and classified
   ([#1989](https://github.com/lambdaclass/stabileo/pull/1989)): no new silent wrong results.
-  The remaining false refusals and harness work are listed above; triage does not close them.
+  Subsequent truss, modal and harness fixes are recorded above; triage itself did not close them.
 - Buckling round-off bounds follow actual member and constraint coupling in 2D and 3D
   ([#1947](https://github.com/lambdaclass/stabileo/pull/1947), #1756 done). A constraint in an
   independent structure no longer refuses a resolved column; genuinely coupled uncertainty still
@@ -182,17 +232,14 @@ The open pull requests into main, apart from Dependabot updates, rewritten by `m
 <!-- inflight:start -->
 | PR | What | State |
 |---|---|---|
-| [#1992](https://github.com/lambdaclass/stabileo/pull/1992) | Truss member loads count in the conditional balance check, so they no longer refuse where nodal loads solve (\#1969) | ready |
-| [#1991](https://github.com/lambdaclass/stabileo/pull/1991) | Metamorphic harness: exactly symmetric reflections and an assembly term in the reversal budget | ready |
 | [#1986](https://github.com/lambdaclass/stabileo/pull/1986) | Global axes chosen by each user, in 2D, 3D and PRO | ready |
 | [#1950](https://github.com/lambdaclass/stabileo/pull/1950) | Tools: one section with live diagrams, and Mohr circle 2D/3D tools linked to the app | ready |
-| [#1946](https://github.com/lambdaclass/stabileo/pull/1946) | Audit: did the soundness fixes since 2026-11-06 introduce new bugs, and is every closed soundness issue tested (in progress) | ready |
 | [#1928](https://github.com/lambdaclass/stabileo/pull/1928) | PRO: every shell a plate, and the physical model read by itself | ready |
 | [#1926](https://github.com/lambdaclass/stabileo/pull/1926) | Diagram game: pick the right diagram, on its own route and in the site navigation | ready |
 | [#1916](https://github.com/lambdaclass/stabileo/pull/1916) | Research: Fehér et al. page sliders and why the numbers differ; Hungarian as the seventh language | ready |
 | [#1698](https://github.com/lambdaclass/stabileo/pull/1698) | Verification dashboard: regenerated metrics | ready |
+| [#2074](https://github.com/lambdaclass/stabileo/pull/2074) | Preserve zero-work released loads across rotations and unit changes | draft |
 | [#2005](https://github.com/lambdaclass/stabileo/pull/2005) | Linear solves and the gravity load plan cost what they did in October again | draft |
-| [#1952](https://github.com/lambdaclass/stabileo/pull/1952) | Recover path-solver reactions and member forces from the final state (\#1949) | draft |
 | [#1781](https://github.com/lambdaclass/stabileo/pull/1781) | Design: unifying the 2D and 3D solvers (inventory, cost of 2D as 3D, plan) | draft |
 | [#765](https://github.com/lambdaclass/stabileo/pull/765) | Accounts: terms, anonymous usage, cloud projects, saving behind an account, and the admin site | parked |
 <!-- inflight:end -->
