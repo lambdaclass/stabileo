@@ -62,7 +62,10 @@ It prevents a small incompatible moment from being hidden by an iterative
 residual measured against larger retained loads.
 The material solver also uses a private load-admission certificate from this
 check to replace its componentwise artificial-orphan refusal at certified
-nodes. That certificate exists only after bounded work passes and every free
+nodes, and only for the three moment components. Translational forces and
+warping loads always pass through the shared orphan-load backstop. The
+component type distinguishes forces, moments and warping before consulting
+the certificate. That certificate exists only after bounded work passes and every free
 rotation at the node is a physical release in a stable initial system.
 Warping and uncertified orphan checks remain strict. Dynamic callers retain
 their existing orphan checks because their inertia and force histories need
@@ -93,3 +96,18 @@ explicit singular-tangent or unconverged outcomes from their existing
 nonlinear solve paths. These are withheld responses, recorded separately
 from both completed controls and unsupported-moment refusals. This change
 does not redesign those tangents. No advisory is assigned here.
+
+Round-two review (#2074) also strengthens public WASM verification. Each
+completed displacement, reaction and member-end force response is compared
+with a native reference for that entry point, including the exact filed
+witnesses. Comparisons retain the existing strict metamorphic relative limit
+and physical-family scales. Rotations are compared after projecting out the
+same native physical released-spin basis on both sides, since those free
+gauge values are not unique. Retained rotations, translations, reactions and
+member forces are compared without increasing a tolerance. Doubled and
+sign-reversed responses must fail.
+The backstop tests inject translational orphan sets at a certified node;
+current production assembly only creates rotational and warping artificial
+DOFs, so those tests establish a defensive invariant rather than a newly
+observed silent result on main. Detached-translation models exercise the
+public nonlinear callers in both dimensions and remain refused.

@@ -4192,17 +4192,47 @@ fn refuse_loads_on_orphan_dofs_with_certificate_3d(
     if orphan.is_empty() {
         return Ok(());
     }
+    use NodalLoadComponent3D::*;
     for load in loads {
-        let (node, comps): (usize, [(usize, f64); 4]) = match load {
-            SolverLoad3D::Nodal(l) => (l.node_id, [(3, l.mx), (4, l.my), (5, l.mz), (6, l.bw.unwrap_or(0.0))]),
-            SolverLoad3D::Bimoment(l) => (l.node_id, [(6, l.bimoment), (6, 0.0), (6, 0.0), (6, 0.0)]),
+        let (node, comps) = match load {
+            SolverLoad3D::Nodal(l) => (
+                l.node_id,
+                [
+                    (Fx, l.fx),
+                    (Fy, l.fy),
+                    (Fz, l.fz),
+                    (Mx, l.mx),
+                    (My, l.my),
+                    (Mz, l.mz),
+                    (Bw, l.bw.unwrap_or(0.0)),
+                ],
+            ),
+            SolverLoad3D::Bimoment(l) => (
+                l.node_id,
+                [
+                    (Bw, l.bimoment),
+                    (Bw, 0.0),
+                    (Bw, 0.0),
+                    (Bw, 0.0),
+                    (Bw, 0.0),
+                    (Bw, 0.0),
+                    (Bw, 0.0),
+                ],
+            ),
             _ => continue,
         };
-        for (local, v) in comps {
-            if v == 0.0 { continue; }
-            if local < 6 && certificate.is_some_and(|c| c.nodes.contains(&node)) { continue; }
-            if let Some(d) = dof_num.global_dof(node, local) {
+        for (component, v) in comps {
+            if v == 0.0 {
+                continue;
+            }
+            if certificate.is_some_and(|c| c.permits(node, component)) {
+                continue;
+            }
+            if let Some(d) = dof_num.global_dof(node, component as usize) {
                 if orphan.contains(&d) {
+                    if matches!(component, Fx | Fy | Fz) {
+                        return Err(format!("Nodal force at node {node} is not supported: nothing in the model gives that translation stiffness, so the force would not reach the structure"));
+                    }
                     return Err(moment_lost_3d(
                         node,
                         "nothing in the model gives that rotation (or warping) of the node stiffness — every member is released there, or only solid shells and trusses reach it",
@@ -5483,9 +5513,30 @@ mod r3_summary_tests {
     }
 }
 
+#[derive(Clone, Copy)]
+#[repr(usize)]
+enum NodalLoadComponent3D {
+    Fx = 0,
+    Fy = 1,
+    Fz = 2,
+    Mx = 3,
+    My = 4,
+    Mz = 5,
+    Bw = 6,
+}
+
 #[derive(Default)]
 struct ReleasedLoadCertificate3D {
     nodes: std::collections::BTreeSet<usize>,
+}
+
+impl ReleasedLoadCertificate3D {
+    fn permits(&self, node: usize, component: NodalLoadComponent3D) -> bool {
+        matches!(
+            component,
+            NodalLoadComponent3D::Mx | NodalLoadComponent3D::My | NodalLoadComponent3D::Mz
+        ) && self.nodes.contains(&node)
+    }
 }
 
 pub(crate) fn refuse_initial_free_rotation_loads_3d(input: &SolverInput3D) -> Result<(),String> {
@@ -5528,9 +5579,12 @@ mod released_orphan_2074_tests {
     use serde_json::json;
 
     fn model() -> SolverInput3D {
-        let mut v: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/nightly-2026-11-13.json")).unwrap();
+        let mut v: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/nightly-2026-11-13.json"))
+                .unwrap();
         let v = &mut v["2023"];
-        v["nodes"] = json!({"1":{"id":1,"x":0.0,"y":0.0,"z":0.0},"2":{"id":2,"x":3.0,"y":0.0,"z":0.0}});
+        v["nodes"] =
+            json!({"1":{"id":1,"x":0.0,"y":0.0,"z":0.0},"2":{"id":2,"x":3.0,"y":0.0,"z":0.0}});
         let mut e = v["elements"]["1"].clone();
         e["nodeI"] = json!(1);
         e["nodeJ"] = json!(2);
@@ -5545,8 +5599,14 @@ mod released_orphan_2074_tests {
         for local in 0..3 {
             for force in [-1.0, -f64::from_bits(1), f64::from_bits(1), 1.0] {
                 let mut s = model();
-                let SolverLoad3D::Nodal(n) = &mut s.loads[0] else { unreachable!() };
-                match local { 0 => n.fx = force, 1 => n.fy = force, _ => n.fz = force }
+                let SolverLoad3D::Nodal(n) = &mut s.loads[0] else {
+                    unreachable!()
+                };
+                match local {
+                    0 => n.fx = force,
+                    1 => n.fy = force,
+                    _ => n.fz = force,
+                }
                 let dof = DofNumbering::build_3d(&s);
                 let certificate = checked_initial_released_loads_3d(&s).unwrap();
                 assert!(certificate.nodes.contains(&1));
@@ -5556,19 +5616,18 @@ mod released_orphan_2074_tests {
                 } else {
                     refuse_loads_on_orphan_dofs_3d(&dof, &orphan, &s.loads)
                 };
-                assert!(r.is_err(), "local={local}, force={force}, material={material}");
+                let error = r.expect_err(&format!("local={local}, force={force}, material={material}"));
+                assert!(error.contains("Nodal force at node 1 is not supported"), "{error}");
             }
         }
     }
 
     #[test]
-    #[ignore = "known wrong result: #2074"]
     fn material_certificate_never_admits_orphan_translations() {
         check_translations(true);
     }
 
     #[test]
-    #[ignore = "known wrong result: #2074"]
     fn uncertified_backstop_never_admits_orphan_translations() {
         check_translations(false);
     }
@@ -5577,10 +5636,16 @@ mod released_orphan_2074_tests {
     fn zero_orphan_forces_and_retained_moments_keep_their_answer() {
         let mut s = model();
         let dof = DofNumbering::build_3d(&s);
-        let orphan = (0..3).map(|local| dof.global_dof(1, local).unwrap()).collect();
+        let orphan = (0..3)
+            .map(|local| dof.global_dof(1, local).unwrap())
+            .collect();
         for zero in [0.0, -0.0] {
-            let SolverLoad3D::Nodal(n) = &mut s.loads[0] else { unreachable!() };
-            n.fx = zero; n.fy = zero; n.fz = zero;
+            let SolverLoad3D::Nodal(n) = &mut s.loads[0] else {
+                unreachable!()
+            };
+            n.fx = zero;
+            n.fy = zero;
+            n.fz = zero;
             refuse_material_loads_on_orphan_dofs_3d(&s, &dof, &orphan).unwrap();
             refuse_loads_on_orphan_dofs_3d(&dof, &orphan, &s.loads).unwrap();
             let r = solve_3d(&s).unwrap();

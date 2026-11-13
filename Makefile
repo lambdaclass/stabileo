@@ -1097,3 +1097,5 @@ test.engine.ssi-elastic-2011-wasm: wasm
 
 test.engine.released-orphan-2074:
 	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib released_orphan_2074_tests -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.released-load-work-2023: test.engine.released-orphan-2074
