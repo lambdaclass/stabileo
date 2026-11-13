@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { appendFileSync } from 'node:fs';
 import { steelDemandOf, checkSteelMember, checkVariableSteelMember, type SteelMemberDemand } from '../verification-service';
 import { profileByName, profileToSectionFull } from '../../data/steel-profiles';
 import type { AnalysisResults3D } from '../types-3d';
@@ -63,6 +64,11 @@ for (const fraction of [0.5, 0.7]) {
     const hand = 0.4 + (8 / 9) * fraction;
     expect(own[0]!.interaction!.ratio).toBeCloseTo(hand, 8);
     const actual = checkSteelMember(1, steelDemandOf(ef, extractGoverningDemands(stations), stations), sec, steel, len)!;
+    if (process.env.SA_064_RECORD) appendFileSync(process.env.SA_064_RECORD, JSON.stringify({
+      fraction, input: { section: sec, material: steel, lengths: len, elementForces: ef, stations },
+      oracle: { axialFraction: 0.4, momentFraction: fraction, utilization: hand },
+      result: actual, singleCombinationControls: own,
+    }) + '\n');
     expect(actual.interaction!.ratio).toBe(Math.max(...own.map(v => v.interaction!.ratio)));
     expect(actual.overallStatus).toBe(hand > 1 ? 'fail' : 'ok');
     expect(actual.governingCombos!.interaction!.comboName).toBe('uniform with compression');

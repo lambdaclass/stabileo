@@ -26,7 +26,7 @@ The steel capacity factor Cb was computed from an enveloped moment diagram and r
 
 The IPE 300 reproducer derives its loads from the section's own capacities: N/Pc = 0.4 and M/Mc = 0.5 in the uniform combination. CIRSOC 301 H.1 gives 0.4 + (8/9) × 0.5 = 0.8444444444444444. Origin/main b6f13f250 reports 0.6864197530864198, status `ok`, with no diagnostic and `engineRecheck.certifiedOk = true`. The certificate used the same incorrect Cb input. The fixed result is 0.8444444444444444.
 
-A second case at M/Mc = 0.7 checks the failure side: the hand result is 1.0222222222222221. Main reports 0.812 and `ok`, but also retains an error diagnostic from its preliminary synthetic envelope check. That second case has a warning signal; the first is the silent unconservative witness for the coordinator's advisory assessment. No new advisory has been authored here, and no release range has been bisected.
+A second case at M/Mc = 0.7 checks the failure side: the hand result is 1.0222222222222221. Main reports 0.812 and `ok`, but also retains an error diagnostic from its preliminary synthetic envelope check. That second case emits `VERIF_STEEL_FAIL_INTERACTION` and is not silent. The first is the silent unconservative witness documented in [SA-2026-064](../advisories/SA-2026-064-steel-cb-combination.md), with the generated replay and source/tag release boundary. PR [#2080](https://github.com/lambdaclass/stabileo/pull/2080) fixes the defect; re-run affected steel interaction checks after upgrading.
 
 ## Saved projects
 

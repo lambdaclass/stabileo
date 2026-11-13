@@ -1163,3 +1163,7 @@ test.engine.constraint-rounding-2013-wasm: wasm
 	CONSTRAINT_2013_CASES=$(CURDIR)/.2013-cases $(MAKE) test.engine.constraint-rounding-2013
 	$(NIX_RUN) node scripts/tests/constraint-rounding-2013-wasm.mjs $(CURDIR)/.2013-cases.2.false.json $(CURDIR)/.2013-cases.2.true.json $(CURDIR)/.2013-cases.3.false.json $(CURDIR)/.2013-cases.3.true.json
 	rm -f $(CURDIR)/.2013-cases.*.json
+
+.PHONY: replay.advisory.steel-cb
+replay.advisory.steel-cb:
+	$(NIX_RUN) python3 -B scripts/replay-steel-cb-advisory.py
