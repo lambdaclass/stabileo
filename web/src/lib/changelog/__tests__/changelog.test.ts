@@ -59,6 +59,31 @@ describe('the changelog', () => {
     }
   });
 
+  it.skip.each(LOCALES)('known wrong result: #2081 keeps November 13 notices in their reference areas and order in %s', (locale) => {
+    const entry = CHANGELOG.find((e) => e.date === '2026-11-13')!;
+    const groups = itemsByArea(entry, locale);
+    expect(groups.map((group) => [group.area, group.items.length])).toEqual([['engine', 21], ['pro', 1], ['app', 1]]);
+    const items = entry.i18n[locale].items;
+    expect(items[15]).toContain('SA-2026-063');
+    for (const index of [16, 17, 18]) expect(items[index]).toContain('SA-2026-061');
+    expect(items[21]).toContain('CIRSOC 301');
+  });
+
+  it.skip.each([
+    [13, ['rácsrudak', 'csomóponti', '2D', '3D']],
+    [14, ['modális', 'tömeg', 'véges']],
+    [15, ['Winkler', 'korotációs', 'SA-2026-063']],
+    [16, ['ívhossz', 'tehertényező', 'SA-2026-061']],
+    [17, ['P-Delta', 'nem elérhető', 'figyelmeztetés', 'SA-2026-061']],
+    [18, ['eltávolítás', 'átrendeződése', 'SA-2026-061']],
+    [19, ['talaj–szerkezet', 'lineáris', 'iteráció']],
+    [20, ['tükrözött', 'kúszási', 'kerekítési']],
+  ] as const)('known wrong result: #2081 translates missing Hungarian engine item at index %i', (index, details) => {
+    const entry = CHANGELOG.find((e) => e.date === '2026-11-13')!;
+    expect(entry.areas[index]).toBe('engine');
+    for (const detail of details) expect(entry.i18n.hu.items[index]).toContain(detail);
+  });
+
   it.each(LOCALES)('known wrong result: #1057 retains the unresolved warped-shell warning in %s', (locale) => {
     const entry = CHANGELOG.find((e) => e.date === '2026-11-06')!;
     const warning = entry.i18n[locale].items.find((item) => item.includes('#1057'));
