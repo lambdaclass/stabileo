@@ -2641,7 +2641,6 @@ impl FreeConstraintSystem {
 mod tests {
 
     #[test]
-    #[ignore = "known wrong result: #2013"]
     fn constraint_2013_independent_cancellation_and_conditioning_boundaries() {
         use super::super::stability::{ReleasedRotations, Verdict, RESOLVABLE};
         use crate::linalg::sparse::CscMatrix;

@@ -1,0 +1,35 @@
+{
+  "id": "constraint-rounding",
+  "date": "2026-11-13",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "constraints"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Constraint reduction retains directional rounding uncertainty",
+    "es": "La reducción de restricciones conserva la incertidumbre direccional",
+    "pt": "A redução de restrições preserva a incerteza direcional",
+    "de": "Die Zwangsreduktion erhält die richtungsabhängige Rundungsunsicherheit",
+    "fr": "La réduction des contraintes conserve l’incertitude directionnelle",
+    "tr": "Kısıt indirgeme yönsel yuvarlama belirsizliğini korur"
+  },
+  "explanation": {
+    "en": "Constrained analyses can now solve rotated or mirrored models previously refused by a product of unrelated worst-case rounding factors. A shared directional uncertainty check retains the existing refusal limit and physical mechanism checks. Re-run affected linear, load-session, staged, creep, certified and initial P-Delta analyses (#2013–#2018).",
+    "es": "Los análisis con restricciones pueden resolver modelos rotados o reflejados antes rechazados al multiplicar factores extremos de redondeo no relacionados. La comprobación direccional compartida conserva el límite de rechazo y las comprobaciones de mecanismos. Repita los análisis afectados (#2013–#2018).",
+    "pt": "Análises com restrições podem resolver modelos girados ou refletidos antes recusados pelo produto de fatores extremos de arredondamento sem relação. A verificação direcional compartilhada mantém o limite de recusa e as verificações de mecanismos. Recalcule as análises afetadas (#2013–#2018).",
+    "de": "Zwangsgebundene Analysen können gedrehte oder gespiegelte Modelle lösen, die zuvor durch das Produkt unabhängiger ungünstigster Rundungsfaktoren abgelehnt wurden. Die gemeinsame richtungsabhängige Prüfung erhält die Ablehnungsgrenze und Mechanismusprüfungen. Betroffene Analysen erneut berechnen (#2013–#2018).",
+    "fr": "Les analyses avec contraintes peuvent résoudre des modèles tournés ou réfléchis auparavant refusés par un produit de facteurs extrêmes d’arrondi sans lien. Le contrôle directionnel commun conserve la limite de refus et les contrôles de mécanismes. Relancer les analyses concernées (#2013–#2018).",
+    "tr": "Kısıtlı analizler, bağımsız en kötü yuvarlama çarpanlarının çarpımı nedeniyle daha önce reddedilen döndürülmüş veya yansıtılmış modelleri çözebilir. Ortak yönsel denetim mevcut ret sınırını ve mekanizma denetimlerini korur. Etkilenen analizleri yeniden çalıştırın (#2013–#2018)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-constraint-rounding.md",
+    "heading": "Constraint reduction retains directional rounding uncertainty"
+  }
+}

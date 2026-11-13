@@ -142,6 +142,22 @@ fn verify(r: &Resp, expected: &[Vec<f64>], three: bool) {
     }
 }
 
+fn cancellation_boundaries(loaded: bool) -> Vec<(SolverInput, Vec<[f64; 2]>, bool)> {
+    use dedaliano_engine::solver::stability::RESOLVABLE;
+    [(1e8, false), ((RESOLVABLE-2.0)/4.0, false), (RESOLVABLE/4.0, true)].into_iter().map(|(stiff, refused)| {
+        let mut s: Value = serde_json::to_value(witness("2013")).unwrap();
+        s["nodes"] = json!({"1":{"id":1,"x":0.0,"z":0.0},"2":{"id":2,"x":1.0,"z":0.0},"3":{"id":3,"x":0.0,"z":1.0},"4":{"id":4,"x":1.0,"z":1.0}});
+        s["materials"]["1"]["e"] = json!(stiff/1000.0);
+        s["sections"]["1"]["a"] = json!(1.0);
+        s["elements"] = json!({"1":{"id":1,"nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"type":"truss","hingeStart":false,"hingeEnd":false}});
+        s["supports"] = json!({"1":{"id":1,"nodeId":1,"type":"rollerX","kx":0.5},"2":{"id":2,"nodeId":2,"type":"rollerX","kx":0.5},"3":{"id":3,"nodeId":3,"type":"fixed"},"4":{"id":4,"nodeId":4,"type":"fixed"}});
+        s["constraints"] = json!([{"type":"linearMPC","terms":[{"nodeId":2,"dof":0,"coefficient":1.0},{"nodeId":1,"dof":0,"coefficient":-1.0}]}]);
+        s["loads"] = if loaded {json!([{"type":"nodal","data":{"nodeId":1,"fx":1.0,"fz":0.0,"my":0.0}}])} else {json!([])};
+        let x = if loaded {1.0} else {0.0};
+        (serde_json::from_value(s).unwrap(), vec![[x,0.0],[x,0.0],[0.0;2],[0.0;2]], refused)
+    }).collect()
+}
+
 fn run(loaded: bool, three: bool) {
     let mut failures = Vec::new();
     let mut cases = Vec::new();
@@ -154,6 +170,8 @@ fn run(loaded: bool, three: bool) {
             .retain(|c| matches!(c, Constraint::LinearMPC(c) if c.terms.iter().all(|t| t.dof==2)));
         models.push((s, u, true));
     }
+    models.extend(cancellation_boundaries(loaded));
+    let boundary_start = models.len() - 3;
     for (index, (s, expected, refused)) in models.into_iter().enumerate() {
         if three {
             for plane in Plane::ALL {
@@ -176,8 +194,14 @@ fn run(loaded: bool, three: bool) {
         } else {
             let expected: Vec<Vec<f64>> = expected.iter().map(|v| v.to_vec()).collect();
             cases.push(json!({"model":s,"dim":2,"expected":expected,"refused":refused}));
+            if index == 2 || index == 3 || index >= boundary_start {
+                let (padded, _, _) = crate::case::pad_2d(&s);
+                let mut expected = expected.clone();
+                expected.resize(padded.nodes.len(), vec![0.0; 2]);
+                cases.push(json!({"model":padded,"dim":2,"expected":expected,"refused":refused}));
+            }
             let c = Case2::new("2013", s.clone());
-            for entry in crate::ana2::rows().into_iter().filter(|a| (ENTRIES.contains(&a.name) || a.name == "linear (WASM typed path)") && (a.name != "P-Delta" || s.constraints.iter().any(|c| matches!(c, Constraint::LinearMPC(c) if c.terms.iter().all(|t| t.dof==2))))) {
+            for entry in crate::ana2::rows().into_iter().filter(|a| (ENTRIES.contains(&a.name) || ["linear (WASM typed path)", "linear (sparse path)", "linear (PCG)"].contains(&a.name)) && (a.name != "P-Delta" || s.constraints.iter().any(|c| matches!(c, Constraint::LinearMPC(c) if c.terms.iter().all(|t| t.dof==2))))) {
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     let r = (entry.run)(&c);
                     if refused { assert!(r.is_err(), "accepted a translational mechanism"); }
@@ -198,25 +222,21 @@ fn run(loaded: bool, three: bool) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2013"]
 fn unloaded_2d_entry_points() {
     run(false, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #2013"]
 fn loaded_2d_entry_points() {
     run(true, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #2013"]
 fn unloaded_3d_entry_points() {
     run(false, true);
 }
 
 #[test]
-#[ignore = "known wrong result: #2013"]
 fn loaded_3d_entry_points() {
     run(true, true);
 }
@@ -261,37 +281,31 @@ fn exact_zero(issue: &str, name: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2013"]
 fn issue_2013_exact_zero_answer() {
     exact_zero("2013", "linear (load session)");
 }
 
 #[test]
-#[ignore = "known wrong result: #2014"]
 fn issue_2014_exact_zero_answer() {
     exact_zero("2014", "linear");
 }
 
 #[test]
-#[ignore = "known wrong result: #2015"]
 fn issue_2015_exact_zero_answer() {
     exact_zero("2015", "staged (loads in two stages)");
 }
 
 #[test]
-#[ignore = "known wrong result: #2016"]
 fn issue_2016_exact_zero_answer() {
     exact_zero("2016", "creep & shrinkage (t = t0)");
 }
 
 #[test]
-#[ignore = "known wrong result: #2017"]
 fn issue_2017_exact_zero_answer() {
     exact_zero("2017", "constrained");
 }
 
 #[test]
-#[ignore = "known wrong result: #2018"]
 fn issue_2018_exact_zero_answer() {
     exact_zero("2018", "certified linear");
 }

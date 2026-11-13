@@ -686,8 +686,13 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
     if !unresolved_negative.is_empty() {
         return Stability { verdict: Verdict::Singular, reason: Reason::Conditioning, kappa: f64::INFINITY, anisotropy, free: Vec::new(), mode_nodes: unresolved_negative };
     }
-    let amplification = rounding.map(|bound| rounding_amplification(bound, &columns, &free, &own, &groups, &group_of)).unwrap_or(1.0);
-    if !amplification.is_finite() || amplification > RESOLVABLE {
+    let projected_rounding = rounding.map(|bound| ProjectedRounding::new(bound, &columns, &free, &own, &groups, &group_of));
+    if projected_rounding.as_ref().is_some_and(Option::is_none) {
+        return Stability { verdict: Verdict::Singular, reason: Reason::ConstraintRounding, kappa: f64::INFINITY, anisotropy, free, mode_nodes: tags.iter().map(|t| t.node).collect() };
+    }
+    let projected_rounding = projected_rounding.flatten();
+    let amplification = projected_rounding.as_ref().map_or(1.0, |bound| bound.dropped.max(1.0));
+    if amplification > RESOLVABLE {
         return Stability { verdict: Verdict::Singular, reason: Reason::ConstraintRounding, kappa: f64::INFINITY, anisotropy, free, mode_nodes: tags.iter().map(|t| t.node).collect() };
     }
     let m = columns.len();
@@ -699,8 +704,11 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
         return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa: 1.0, anisotropy, free, mode_nodes: Vec::new() };
     }
     let s = scaled(k, &groups, &group_of, &columns);
-    let symbolic = (m > FULL_SPECTRUM).then(|| Rc::new(symbolic_cholesky(&s)));
-    if let Some(kappa) = symbolic.as_ref().and_then(|sym| fast_sparse_bound(&s, sym, anisotropy, amplification)) {
+    let symbolic = (m > FULL_SPECTRUM || projected_rounding.is_some()).then(|| Rc::new(symbolic_cholesky(&s)));
+    if projected_rounding.as_ref().is_some_and(|bound| !bound.resolved(&s, symbolic.as_ref().unwrap())) {
+        return Stability { verdict: Verdict::Singular, reason: Reason::ConstraintRounding, kappa: f64::INFINITY, anisotropy, free, mode_nodes: tags.iter().map(|t| t.node).collect() };
+    }
+    if let Some(kappa) = symbolic.as_ref().filter(|_| m > FULL_SPECTRUM).and_then(|sym| fast_sparse_bound(&s, sym, anisotropy, amplification)) {
         let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, kappa, releases);
         if coupled.is_empty() && free.iter().all(|direction| direction.coupling.is_empty()) {
             return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa, anisotropy, free, mode_nodes: Vec::new() };
@@ -1059,21 +1067,49 @@ fn mode_nodes(x: &[f64], columns: &[Column], groups: &[((usize, DofKind), Vec<us
     by_node.into_iter().filter(|&(_, v)| v >= 0.01 * top).map(|(n, _)| n).collect()
 }
 
-fn rounding_amplification(bound: &CscMatrix, columns: &[Column], free: &[FreeDirection], own: &[(f64, f64, usize)], groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)]) -> f64 {
-    if bound.values.iter().any(|x| !x.is_finite()) { return f64::INFINITY; }
-    let mut weights: Vec<Column> = columns.iter().map(|c| Column { group: c.group, w: c.w.iter().map(|v| v.abs()).collect() }).collect();
-    for (f, &(_, top, _)) in free.iter().zip(own) {
-        if top == 0.0 {
-            let mut u = vec![0.0; bound.n];
-            for (&d, &v) in f.dofs.iter().zip(&f.direction) { u[d] = v.abs(); }
-            if bound.sym_mat_vec(&u).iter().any(|&x| x != 0.0) { return f64::INFINITY; }
-        } else {
-            weights.push(Column { group: group_of[f.dofs[0]].0, w: f.direction.iter().map(|v| v.abs() / top.sqrt()).collect() });
+struct ProjectedRounding {
+    retained: Vec<f64>,
+    dropped: f64,
+}
+
+impl ProjectedRounding {
+    fn new(bound: &CscMatrix, columns: &[Column], free: &[FreeDirection], own: &[(f64, f64, usize)], groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)]) -> Option<Self> {
+        if bound.values.iter().any(|x| !x.is_finite()) { return None; }
+        let mut weights: Vec<Column> = columns.iter().map(|c| Column { group: c.group, w: c.w.iter().map(|v| v.abs()).collect() }).collect();
+        for (f, &(_, top, _)) in free.iter().zip(own) {
+            if top == 0.0 {
+                let mut u = vec![0.0; bound.n];
+                for (&d, &v) in f.dofs.iter().zip(&f.direction) { u[d] = v.abs(); }
+                if bound.sym_mat_vec(&u).iter().any(|&x| x != 0.0) { return None; }
+            } else {
+                weights.push(Column { group: group_of[f.dofs[0]].0, w: f.direction.iter().map(|v| v.abs() / top.sqrt()).collect() });
+            }
         }
+        let projected = scaled(bound, groups, group_of, &weights);
+        if projected.values.iter().any(|x| !x.is_finite()) { return None; }
+        let mut terms = vec![0usize; weights.len()];
+        for j in 0..projected.n {
+            for p in projected.col_ptr[j]..projected.col_ptr[j+1] {
+                let i = projected.row_idx[p];
+                terms[i] += 1;
+                if i != j { terms[j] += 1; }
+            }
+        }
+        let envelope: Vec<_> = projected.sym_mat_vec(&vec![1.0; weights.len()]).into_iter().zip(terms).map(|(v, count)| v * (1.0 + ROUNDING * count as f64 * f64::EPSILON)).collect();
+        if envelope.iter().any(|v| !v.is_finite()) { return None; }
+        let dropped = envelope[columns.len()..].iter().copied().fold(0.0, f64::max);
+        Some(Self { retained: envelope[..columns.len()].to_vec(), dropped })
     }
-    let projected = scaled(bound, groups, group_of, &weights);
-    if projected.values.iter().any(|x| !x.is_finite()) { return f64::INFINITY; }
-    projected.sym_mat_vec(&vec![1.0; weights.len()]).into_iter().fold(0.0, f64::max)
+
+    fn resolved(&self, s: &CscMatrix, symbolic: &Rc<SymbolicCholesky>) -> bool {
+        if self.dropped > RESOLVABLE { return false; }
+        let mut shifted = s.clone();
+        for j in 0..s.n {
+            let Some(p) = (shifted.col_ptr[j]..shifted.col_ptr[j+1]).find(|&p| shifted.row_idx[p]==j) else { return false; };
+            shifted.values[p] -= self.retained[j] / RESOLVABLE;
+        }
+        numeric_cholesky(symbolic, &shifted).is_some()
+    }
 }
 
 pub(crate) fn analyze_excluding(

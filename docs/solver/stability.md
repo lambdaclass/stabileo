@@ -116,7 +116,8 @@ Before Lanczos, the sparse path may certify a wider interval directly. It takes 
 row-sum upper bound, widened by the same certification margin, and a lower endpoint
 whose ratio to that upper endpoint is `sqrt(RESOLVABLE)`. Both shifted Cholesky
 factorizations must succeed. This path returns Stable only when the certified ratio
-passes both the anisotropy product and constraint-rounding product limits, and every
+passes the anisotropy product and the conservative dropped-direction rounding guard,
+after the retained directional envelope check (§3), and every
 dropped rotation has empty off-node coupling. Otherwise the full spectrum path runs.
 `Stability.kappa` is a condition-number upper bound on either sparse path; its
 contract does not require the interval to be tight. Up to `FULL_SPECTRUM`, it is the
@@ -193,11 +194,20 @@ before an uncertified estimate becomes a refusal.
   `P = |W|ᵀ H |W|`; its maximum row sum `h` bounds its spectral norm. For this bound,
   dropped directions are included with scale `1/√μ_max,c`. A zero-scale component with
   nonzero envelope is refused. Nonfinite envelopes or projected bounds are refused.
-  Require `κ_S h ≤ 1e12` independently of the fast/conditional acceptance rule; since the kept `S`
-  has unit diagonal, `λ_min(S) ≥ 1/κ_S`, and the first-order error amplification is
-  bounded by `ε κ_S h`. This is a conservative entrywise rounding envelope, not a claim
-  that constraint reduction can recover precision already lost during assembly.
-  The standalone verdict and all constrained solve paths use the same check.
+  On the retained space keep `D = diag(P 1)` instead of its scalar maximum.
+  For any symmetric perturbation with `|δS| ≤ η P`,
+  `|xᵀδSx| ≤ η |x|ᵀP|x| ≤ η xᵀDx`; the last inequality follows from
+  `2|x_i x_j| ≤ x_i²+x_j²`. Require a positive-definite factorization of
+  `S − D / RESOLVABLE`, at the unchanged `1e12` limit. Widen the envelope for its
+  accumulation rounding using the number of contributing entries in each row;
+  disconnected DOFs cannot widen a row they do not contribute to. The previous `κ_S h` bound multiplied worst cases from
+  unrelated retained directions and falsely refused rotated copies (#2013–#2018).
+  Dropped soft directions retain the conservative `κ_S h_dropped` guard, where
+  `h_dropped` is the largest envelope row sum on those directions. Exact zero-scale
+  gauges still require a zero envelope. Nonfinite envelopes and failed factorizations
+  refuse. This bounds the actual rounded global reduction, without claiming to
+  recover precision already lost during assembly. The standalone verdict and all
+  constrained solve paths use the same check.
 - **Stable**, with its **free rotations** (local free directions that are rotations or
   warping), otherwise.
 

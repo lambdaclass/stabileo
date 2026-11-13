@@ -10,8 +10,8 @@ assert.ok(cases.length > 0);
 function verify(result, c) {
   if ('converged' in result) assert.equal(result.converged, true);
   const r = result.finalResults ?? result.results ?? result.steps?.at(-1) ?? result.combinationResults?.[0].results ?? result;
-  assert.equal(r.displacements.length, 4);
-  assert.deepEqual(r.displacements.map(d => d.nodeId).sort(), [1, 2, 3, 4]);
+  assert.equal(r.displacements.length, c.expected.length);
+  assert.deepEqual(r.displacements.map(d => d.nodeId).sort((a, b) => a - b), Object.values(c.model.nodes).map(n => n.id).sort((a, b) => a - b));
   const bound = Math.max(...c.expected.flat().map(Math.abs)) * 1e-8;
   for (const d of r.displacements) {
     const actual = c.dim === 2 ? [d.ux, d.uz] : [d.ux, d.uy, d.uz];
@@ -26,6 +26,7 @@ for (const [index, c] of cases.entries()) {
   const jsonCall = (api, input, ...args) => () => JSON.parse(engine[`${api}_${c.dim}d`](JSON.stringify(input), ...args));
   const runs = {
     linear: () => engine[`solve_${c.dim}d`](s),
+    linearPcg: () => engine[`solve_${c.dim}d`]({ ...s, solverOptions: { method: 'pcg', tolerance: 1e-12, maxIterations: 100000 } }),
     certified: () => engine[`certify_linear_${c.dim}d`](s),
     session: () => {
       const session = new engine[`LoadSession${c.dim}D`](s);
@@ -38,9 +39,11 @@ for (const [index, c] of cases.entries()) {
     pdelta: jsonCall('solve_pdelta', s, 100, 1e-12),
     combinations: () => engine[`solve_multi_case_${c.dim}d`]({ solver: s, loadCases: [{ name: 'A', loads: s.loads }], combinations: [{ name: 'C', factors: { A: 1 } }] }),
   };
-  for (const [name, run] of Object.entries(runs)) test(`${index} ${c.dim}D ${name} refused=${c.refused}`, () => {
-    if (name === 'pdelta' && !s.constraints.some(c => c.terms.every(t => t.dof >= (c.dim === 2 ? 2 : 3)))) return;
-    if (c.refused) assert.throws(run);
-    else verify(run(), c);
-  });
+  for (const [name, run] of Object.entries(runs)) {
+    if (name === 'pdelta' && !s.constraints.some(c => c.terms.every(t => t.dof >= (c.dim === 2 ? 2 : 3)))) continue;
+    test(`${index} ${c.dim}D ${name} refused=${c.refused}`, () => {
+      if (c.refused) assert.throws(run);
+      else verify(run(), c);
+    });
+  }
 }
