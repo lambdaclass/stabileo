@@ -35,12 +35,13 @@ function referenceChecks(inputs: readonly ConcurrentVerificationInput[]) {
 
 afterEach(() => vi.restoreAllMocks());
 
-it.fails.each(cases)('#2080 — $elementType $axis $edition sizes each station once while checking the shared cage', options => {
+it.each(cases)('#2080 — $elementType $axis $edition sizes each station once while checking the shared cage', options => {
   const inputs = inputsFor(options);
   const get = engine.cirsoc201Engine;
   const sizing = vi.fn(get('designBeam'));
-  vi.spyOn(engine, 'cirsoc201Engine').mockImplementation(<K extends keyof engine.Cirsoc201Engine>(key: K): engine.Cirsoc201Engine[K] =>
-    key === 'designBeam' ? sizing as engine.Cirsoc201Engine[K] : get(key));
+  const registered: engine.Cirsoc201Engine = { Section: get('Section'), basis: get('basis'), phi: get('phi'),
+    designBeam: sizing, slabProvisions: get('slabProvisions') };
+  vi.spyOn(engine, 'cirsoc201Engine').mockImplementation(key => registered[key]);
   inputs.forEach(i => verifyElement(i));
   const once = sizing.mock.calls.length;
   expect(once).toBeGreaterThan(0);

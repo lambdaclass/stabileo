@@ -1,4 +1,4 @@
-import { checkColumn, verifyElement, verificationCase, amplifiedDemand, type ConcurrentVerificationInput, type ElementVerification, type DemandLocation } from './codes/argentina/cirsoc201';
+import { checkColumn, prepareElementVerification, verificationCase, amplifiedDemand, type ConcurrentVerificationInput, type ElementVerification, type DemandLocation } from './codes/argentina/cirsoc201';
 import { engineRecheckElement } from './codes/argentina/cirsoc201-engine-gate';
 
 export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationInput[]): ElementVerification {
@@ -9,15 +9,16 @@ export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationI
   const column = first.elementType !== 'beam'
     ? checkColumn(params, amplified, { edition: first.edition }) : undefined;
   const fixedColumn = column ? { barCount: column.barCount, barDia: column.barDia } : undefined;
-  const preliminary = inputs.map(i => verifyElement(i, { column: fixedColumn }));
+  const prepared = inputs.map(prepareElementVerification);
+  const preliminary = prepared.map(verify => verify({ column: fixedColumn }));
   const maxFlexure = preliminary.reduce((a, b) => b.flexure.AsProv > a.flexure.AsProv ? b : a).flexure;
   const maxCompression = preliminary.reduce((a, b) => (b.flexure.AsComp ?? 0) > (a.flexure.AsComp ?? 0) ? b : a).flexure;
   const flexure = { ...maxFlexure, AsComp: maxCompression.AsComp, barCountComp: maxCompression.barCountComp,
     barDiaComp: maxCompression.barDiaComp, barsComp: maxCompression.barsComp, isDoublyReinforced: maxCompression.isDoublyReinforced };
   const shear = { spacing: Math.min(...preliminary.flatMap(v => [v.shear.spacing, v.shearSecondary?.spacing ?? Infinity])),
     legs: Math.max(...preliminary.flatMap(v => [v.shear.stirrupLegs, v.shearSecondary?.stirrupLegs ?? 0])) };
-  const checks = inputs.map(i => {
-    const v = verifyElement(i, { column: fixedColumn, flexure, shear });
+  const checks = inputs.map((i, index) => {
+    const v = prepared[index]!({ column: fixedColumn, flexure, shear });
     const d = verificationCase(i);
     return { demand: i.demand.source, verification: engineRecheckElement(v, { edition: i.edition, stirrupDia: i.stirrupDia, NuShear: d.Nu }) };
   });
