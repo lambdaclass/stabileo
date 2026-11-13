@@ -1304,21 +1304,26 @@ fn issue_1952_stiffness_free_one_free_dof_remains_unavailable() {
         }
     }
 }
+fn staged_artificial_ties_model(dim: usize, segments: usize, motion: f64) -> Value {
+    let mut m = settlement_only_model(dim, segments.max(1), motion, false);
+    if segments == 0 {
+        m["elements"] = json!({});
+        m["supports"].as_object_mut().unwrap().remove("1");
+        m["constraints"] = json!([{"type":"equalDOF","masterNode":0,"slaveNode":1,"dofs":(0..if dim == 2 {3} else {6}).collect::<Vec<_>>()}]);
+    } else {
+        let id = segments + 1;
+        m["nodes"][id.to_string()] = m["nodes"]["0"].clone();
+        m["nodes"][id.to_string()]["id"] = json!(id);
+        m["constraints"] = json!([{"type":"equalDOF","masterNode":0,"slaveNode":id,"dofs":(0..if dim == 2 {3} else {6}).collect::<Vec<_>>()}]);
+}
+    m["stages"] = json!([{"name":"settled master","elementsAdded":(1..=segments).collect::<Vec<_>>(),"supportsAdded":if segments == 0 {vec![0]} else {vec![0,segments]},"loadIndices":[]}]);
+    m
+}
+
 fn staged_artificial_ties(dim: usize) {
     for segments in [0, 21, 22] {
         for motion in [0.0, 0.0013, -0.0013] {
-            let mut m = settlement_only_model(dim, segments.max(1), motion, false);
-            if segments == 0 {
-                m["elements"] = json!({});
-                m["supports"].as_object_mut().unwrap().remove("1");
-                m["constraints"] = json!([{"type":"equalDOF","masterNode":0,"slaveNode":1,"dofs":(0..if dim == 2 {3} else {6}).collect::<Vec<_>>()}]);
-            } else {
-                let id = segments + 1;
-                m["nodes"][id.to_string()] = m["nodes"]["0"].clone();
-                m["nodes"][id.to_string()]["id"] = json!(id);
-                m["constraints"] = json!([{"type":"equalDOF","masterNode":0,"slaveNode":id,"dofs":(0..if dim == 2 {3} else {6}).collect::<Vec<_>>()}]);
-            }
-            m["stages"] = json!([{"name":"settled master","elementsAdded":(1..=segments).collect::<Vec<_>>(),"supportsAdded":if segments == 0 {vec![0]} else {vec![0,segments]},"loadIndices":[]}]);
+            let m = staged_artificial_ties_model(dim, segments, motion);
             let output = if dim == 2 {
                 serde_json::to_value(
                     staged::solve_staged_2d(&serde_json::from_value(m.clone()).unwrap()).unwrap(),
@@ -1376,6 +1381,84 @@ fn issue_1952_r7_artificial_ties_2d() {
 #[test]
 fn issue_1952_r7_artificial_ties_3d() {
     staged_artificial_ties(3);
+}
+
+fn artificial_tie_constraint_rank(dim: usize, m: &Value) -> usize {
+    let ndof = if dim == 2 { 3 } else { 6 };
+    assert_eq!(m["nodes"].as_object().unwrap().len(), 2);
+    assert!(m["elements"].as_object().unwrap().is_empty());
+    assert!(m["loads"].as_array().unwrap().is_empty());
+    assert_eq!(m["supports"].as_object().unwrap().len(), 1);
+    let support = &m["supports"]["0"];
+    assert_eq!(support["nodeId"], 0);
+    if dim == 2 {
+        assert_eq!(support["type"], "fixed");
+    } else {
+        for key in ["rx", "ry", "rz", "rrx", "rry", "rrz"] {
+            assert_eq!(support[key], true);
+        }
+    }
+    let mut rows = Vec::new();
+    for dof in 0..ndof {
+        let mut row = vec![0_i32; 2 * ndof];
+        row[dof] = 1;
+        rows.push(row);
+    }
+    for tie in m["constraints"].as_array().unwrap() {
+        assert_eq!(tie["type"], "equalDOF");
+        assert_eq!(tie["masterNode"], 0);
+        assert_eq!(tie["slaveNode"], 1);
+        for dof in tie["dofs"].as_array().unwrap() {
+            let dof = dof.as_u64().unwrap() as usize;
+            let mut row = vec![0; 2 * ndof];
+            row[dof] = -1;
+            row[ndof + dof] = 1;
+            rows.push(row);
+        }
+    }
+    let mut rank = 0;
+    for col in 0..2 * ndof {
+        if let Some(pivot) = (rank..rows.len()).find(|&i| rows[i][col] != 0) {
+            rows.swap(rank, pivot);
+            let pivot = rows[rank].clone();
+            assert_eq!(pivot[col].abs(), 1);
+            for row in rows.iter_mut().skip(rank + 1) {
+                let factor = row[col] / pivot[col];
+                for j in col..2 * ndof {
+                    row[j] -= factor * pivot[j];
+                }
+            }
+            rank += 1;
+        }
+    }
+    rank
+}
+
+fn full_rank_artificial_tie_regression(dim: usize) {
+    let ndof = if dim == 2 { 3 } else { 6 };
+    for motion in [0.0, 0.0013, -0.0013] {
+        let m = staged_artificial_ties_model(dim, 0, motion);
+        assert_eq!(artificial_tie_constraint_rank(dim, &m), 2 * ndof);
+        for omitted in 0..ndof {
+            let mut partial = m.clone();
+            partial["constraints"][0]["dofs"] =
+                json!((0..ndof).filter(|&dof| dof != omitted).collect::<Vec<_>>());
+            assert_eq!(artificial_tie_constraint_rank(dim, &partial), 2 * ndof - 1);
+        }
+    }
+    staged_artificial_ties(dim);
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_r7_full_rank_artificial_tie_regression_2d() {
+    full_rank_artificial_tie_regression(2);
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_r7_full_rank_artificial_tie_regression_3d() {
+    full_rank_artificial_tie_regression(3);
 }
 
 fn unloaded_member_equilibrium(m: &Value, r: &Value) {
