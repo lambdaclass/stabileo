@@ -41,8 +41,7 @@ test('a same-count substitution cannot change the pinned unresolved cases',()=>{
   assert.throws(()=>assertExpectedUnresolved(replaced));
 });
 
-const knownWrong=process.env.RUN_KNOWN_WRONG==='1'?{}:{skip:'known wrong result: #2074'};
-test('#2074: matching unpinned P-Delta non-convergence cannot count as admitted',knownWrong,()=>{
+test('#2074: matching unpinned P-Delta non-convergence cannot count as admitted',()=>{
   const reference={ok:{converged:false}};
   const result={converged:false};
   assert.equal(allowsUnresolved(reference,result,undefined,'cases/0/pdelta'),false);
@@ -53,5 +52,13 @@ test('P-Delta completion requires both runtimes to converge',()=>{
   assertAdmittedPdeltaConverged({ok:{converged:true}},{converged:true});
   for(const [native,wasm] of [[true,false],[false,true]]) {
     assert.throws(()=>assertAdmittedPdeltaConverged({ok:{converged:native}},{converged:wasm}));
+  }
+});
+
+test('missing or malformed P-Delta convergence flags cannot count as completion',()=>{
+  for(const converged of [undefined,null,0,1,'true']) {
+    assert.throws(()=>assertAdmittedPdeltaConverged({ok:{converged}},{converged}));
+    assert.throws(()=>assertAdmittedPdeltaConverged({ok:{converged:true}},{converged}));
+    assert.throws(()=>assertAdmittedPdeltaConverged({ok:{converged}},{converged:true}));
   }
 });

@@ -195,8 +195,15 @@ assert.equal(cancellationRoundoffRefusals,8*paths.length);
 assert.equal(cancellationRefusals,8*paths.length);
 console.log(`Released-load work: ${cancellationRefusals} exact residual refusals`);
 
-let trussSolves=0,trussRefusals=0;
+let trussSolves=0,trussRefusals=0,trussFeatureRefusals=0;
 for(const c of trussCases) for(const path of paths) {
+  if(c.kind==='thermal'&&path==='corotational') {
+    const error='Corotational analysis does not support thermal loads (member 1); it would solve the model without them. Remove them or use an analysis that supports them.';
+    assert.equal(c.references[path].error,error);
+    assert.throws(()=>run(path,c.dim,c.model),e=>String(e)===error);
+    trussFeatureRefusals++;
+    continue;
+  }
   const result=run(path,c.dim,c.model);
   if(path==='pdelta') {
     check(result.linearResults,c.model,{ok:c.references[path].ok.linearResults},c.gauges);
@@ -213,8 +220,9 @@ for(const c of trussCases) for(const path of paths) {
   }
 }
 assert.equal(trussCases.length,8);
-assert.equal(trussSolves,8*paths.length);
-assert.equal(trussRefusals,8*paths.length*8);
+assert.equal(trussFeatureRefusals,2);
+assert.equal(trussSolves,8*paths.length-2);
+assert.equal(trussRefusals,(8*paths.length-2)*8);
 console.log(`Released-load work: ${cancellationSolves} loaded exact cancellations, ${cancellationRoundoffSolves} roundoff-order cancellations, ${cancellationRoundoffRefusals} roundoff-order residual refusals, ${trussSolves} oblique truss admissions, ${trussRefusals} truss moment refusals`);
 
 let assemblySolves=0,assemblyUnresolved=0,assemblyRefusals=0,featureRefusals=0;
@@ -253,8 +261,6 @@ assert.equal(featureRefusals,8);
 assert.equal(assemblyRefusals,4*(paths.length-2)*4);
 console.log(`Released-load work: ${assemblySolves} inclined-support admissions, ${assemblyUnresolved} expected numerical refusals, ${assemblyRefusals} genuine moment refusals, ${featureRefusals} existing staged feature refusals`);
 
-assert.deepEqual(failures,[]);
-assert.equal(solves+unresolved,cases.length*paths.length);
 for(const dim of [2,3]) for(const path of paths) assert.ok((admitted.get(`${dim}:${path}`)??0)>0,`no completed control ${dim}:${path}`);
 assert.equal(assemblySolves+assemblyUnresolved+featureRefusals,4*paths.length);
 
@@ -299,3 +305,24 @@ for(const c of mixedDynamics) {
 console.log(`Released-load work: ${mixedSolves} mixed frame/truss cancellations and controls, ${mixedRefusals} mixed-resultant refusals; harmonic and per-record time-history controls passed`);
 
 assertExpectedUnresolved(unresolvedCases);
+
+for(const c of trussCases) {
+  const result=parse(engine[`solve_harmonic_${c.dim}d`](JSON.stringify(c.harmonic)));
+  assert.ok(result.peakAmplitude>0);
+  assert.equal(result.responsePoints.length,c.harmonicReference.responsePoints.length);
+  for(const [i,point] of result.responsePoints.entries()) for(const key of ['frequency','omega','amplitude','phase','real','imag']) {
+    const expected=c.harmonicReference.responsePoints[i][key];
+    assert.ok(Number.isFinite(point[key])&&Number.isFinite(expected));
+    assert.ok(Math.abs(point[key]-expected)<=2.5e-10*Math.max(Math.abs(point[key]),Math.abs(expected),1e-30),`harmonic truss ${c.dim}/${c.kind}/${i}/${key}`);
+  }
+  for(const nodeId of [1,2]) for(const magnitude of [-1,-Number.EPSILON,Number.EPSILON,1]) {
+    const bad=structuredClone(c.harmonic);
+    const moment=c.dim===2?{my:magnitude}:{mx:magnitude,my:0,mz:0,fy:0};
+    bad.solver.loads.push({type:'nodal',data:{nodeId,fx:0,fz:0,...moment}});
+    assert.throws(()=>engine[`solve_harmonic_${c.dim}d`](JSON.stringify(bad)),/moment|rotation/i);
+  }
+}
+console.log(`Released-load work: ${trussCases.length} loaded truss harmonic controls passed`);
+
+assert.deepEqual(failures,[]);
+assert.equal(solves+unresolved,cases.length*paths.length);

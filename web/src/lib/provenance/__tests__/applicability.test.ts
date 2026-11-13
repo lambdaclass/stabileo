@@ -925,7 +925,7 @@ it('#2074: plain unreleased frames and unloaded connectors need no released-load
       model({ analysisMode, quads: [[1, { id: 1 }]] }),
       model({ analysisMode, elements: [member(1, 1, 'frame'), member(2, 1, 'truss')], loads: [{ type: 'distributed3d', data: { elementId: 1, qYI: 1, qYJ: 1 } }] }),
     ]) {
-      for (const id of ['released-load-work', 'transformed-load-assembly']) expect(ids(snapshot)).not.toContain(id);
+      for (const id of ['released-load-work', 'transformed-load-assembly', 'truss-load-direction-rounding']) expect(ids(snapshot)).not.toContain(id);
     }
   }
 });
@@ -1059,5 +1059,16 @@ it('scopes staged spring history changes to springs with explicit path context',
         }
       }
     }
+  }
+});
+
+it('#2074: truss direction notice requires member loads and respects its version boundary', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'truss-load-direction-rounding')!;
+  for (const analysisMode of ['2d','pro']) for (const type of ['truss','cable']) {
+    const snapshot = model({analysisMode, elements: [member(1,1,'truss',{type})], loads: [{type:'thermal',data:{elementId:1,dtUniform:1}}]});
+    const before = {...stampSolve('linear',null),resultsVersion:entry.resultsVersion-1};
+    expect(ids(snapshot,before)).toContain(entry.id);
+    expect(ids(snapshot,{...before,resultsVersion:entry.resultsVersion})).not.toContain(entry.id);
+    expect(ids({...snapshot,loads:[]},before)).not.toContain(entry.id);
   }
 });

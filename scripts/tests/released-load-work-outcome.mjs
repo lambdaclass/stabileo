@@ -16,5 +16,6 @@ export function allowsUnresolved(reference,result,error,key) {
 }
 
 export function assertAdmittedPdeltaConverged(reference,result) {
-  assert.equal(result.converged,reference.ok.converged);
+  assert.equal(reference.ok?.converged,true,'admitted native P-Delta must converge');
+  assert.equal(result.converged,true,'admitted WASM P-Delta must converge');
 }

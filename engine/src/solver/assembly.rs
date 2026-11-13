@@ -526,11 +526,6 @@ fn accumulate_load(global: &mut [f64], rounding: &mut Option<super::load_work::A
     global[dof] += value;
 }
 
-fn accumulate_product(global: &mut [f64], rounding: &mut Option<super::load_work::AssemblyRoundoff>, dof: usize, a: f64, b: f64) {
-    let value = a*b;
-    accumulate_load(global,rounding,dof,value,super::load_work::product_rounding(a,b,value));
-}
-
 /// Rotate force vector at the given DOFs: F[dofs] = R * F[dofs_orig] (2D inclined support).
 pub fn rotate_inclined_f_2d(f: &mut [f64], dofs: &[usize; 2], r: &[[f64; 2]; 2]) {
     rotate_inclined_vector(f, dofs, r);
@@ -834,8 +829,6 @@ pub(crate) fn assemble_stiffness_2d_typed(
 /// A member load on a 2D truss bar, at its nodes: the bar's simply-supported reactions (lever
 /// rule), statically exact, since a truss carries nothing transverse. Read by
 /// `assemble_load_vector_2d`, which every 2D path (dense and sparse) builds its loads with.
-/// The loads on a 2D truss or cable bar into the global load vector: thermal as its
-/// free-expansion end forces, member loads by the lever rule (`truss_member_load_2d`).
 /// Shared by the linear assembly and staged construction, which used to drop every
 /// member load on a bar.
 #[allow(clippy::too_many_arguments)]
@@ -846,67 +839,66 @@ pub(crate) fn assemble_truss_loads_2d(
     assemble_truss_loads_2d_with_rounding(loads,elem_id,l,cos,sin,e,area,truss_dofs,f_global,&mut None);
 }
 
+fn accumulate_truss_components<const D: usize>(
+    local: [[f64; 3]; 2],
+    local_error: [[f64; 3]; 2],
+    axes: [[f64; 3]; 3],
+    dofs: [[Option<usize>; D]; 2],
+    global: &mut [f64],
+    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
+) {
+    let frame_error = if rounding.is_some() { super::load_work::frame_rounding(&axes) } else { [[0.0; 3]; 3] };
+    for end in 0..2 {
+        for k in 0..D {
+            if let Some(d) = dofs[end][k] {
+                let mut work = super::load_work::Work::default();
+                for j in 0..3 {
+                    work.product(local[end][j], local_error[end][j], axes[j][k], frame_error[j][k]);
+                }
+                accumulate_load(global, rounding, d, work.value, work.bound());
+            }
+        }
+    }
+}
+
 fn assemble_truss_loads_2d_with_rounding(
     loads: &[&SolverLoad], elem_id: usize, l: f64, cos: f64, sin: f64, e: f64, area: f64,
     truss_dofs: &[usize; 4], f_global: &mut [f64],
     rounding: &mut Option<super::load_work::AssemblyRoundoff>,
 ) {
+    let axes = [[cos,sin,0.0],[-sin,cos,0.0],[0.0,0.0,1.0]];
+    let dofs = [[Some(truss_dofs[0]),Some(truss_dofs[1])],[Some(truss_dofs[2]),Some(truss_dofs[3])]];
     for load in loads {
+        let mut local = [[0.0;3];2];
+        let mut error = [[0.0;3];2];
         match load {
             SolverLoad::Thermal(tl) if tl.element_id == elem_id => {
-                // Convention matches fef_thermal_2d: node I gets -fx, node J gets +fx (local axial).
-                let alpha = tl.alpha();
-                let fx = e * area * alpha * tl.dt_uniform;
-                accumulate_product(f_global, rounding, truss_dofs[0], -fx, cos);
-                accumulate_product(f_global, rounding, truss_dofs[1], -fx, sin);
-                accumulate_product(f_global, rounding, truss_dofs[2], fx, cos);
-                accumulate_product(f_global, rounding, truss_dofs[3], fx, sin);
+                let fx = e * area * tl.alpha() * tl.dt_uniform;
+                local[0][0] = -fx;
+                local[1][0] = fx;
             }
-            _ => truss_member_load_2d(load, elem_id, l, cos, sin, truss_dofs, f_global, rounding),
+            SolverLoad::Distributed(dl) if dl.element_id == elem_id => {
+                let [[ri,_],[rj,_]] = super::member_actions::TransverseMemberActions::from_2d(load,l).0;
+                local[0][1] = ri;
+                local[1][1] = rj;
+            }
+            SolverLoad::PointOnElement(pl) if pl.element_id == elem_id => {
+                let [[ri,_],[rj,_]] = super::member_actions::TransverseMemberActions::from_2d(load,l).0;
+                let px = pl.px.unwrap_or(0.0);
+                for (end,factor) in [1.0-pl.a/l,pl.a/l].into_iter().enumerate() {
+                    local[end][0] = px*factor;
+                    error[end][0] = super::load_work::product_rounding(px,factor,local[end][0]);
+                }
+                local[0][1] = ri;
+                local[1][1] = rj;
+            }
+            SolverLoad::AxialDistributed(al) if al.element_id == elem_id => {
+                let f = crate::element::axial_distributed_fef(al.q_i,al.q_j,al.a.unwrap_or(0.0),al.b.unwrap_or(l),l);
+                for end in 0..2 { local[end][0] = f[end]; }
+            }
+            _ => continue,
         }
-    }
-}
-
-fn truss_member_load_2d(
-    load: &SolverLoad, elem_id: usize, l: f64, cos: f64, sin: f64,
-    truss_dofs: &[usize; 4], f_global: &mut [f64],
-    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
-) {
-    match load {
-        SolverLoad::Distributed(dl) if dl.element_id == elem_id => {
-            let [[ri, _], [rj, _]] = super::member_actions::TransverseMemberActions::from_2d(load, l).0;
-            // Local transverse y = (−sin, cos)
-            accumulate_product(f_global, rounding, truss_dofs[0], -sin, ri);
-            accumulate_product(f_global, rounding, truss_dofs[1], cos, ri);
-            accumulate_product(f_global, rounding, truss_dofs[2], -sin, rj);
-            accumulate_product(f_global, rounding, truss_dofs[3], cos, rj);
-        }
-        SolverLoad::PointOnElement(pl) if pl.element_id == elem_id => {
-            let a = pl.a;
-            let px = pl.px.unwrap_or(0.0);
-            // Transverse: the point load by the lever rule, the moment
-            // (CCW positive) as a couple ±mz/L.
-            let [[ri, _], [rj, _]] = super::member_actions::TransverseMemberActions::from_2d(load, l).0;
-            accumulate_product(f_global, rounding, truss_dofs[0], -sin, ri);
-            accumulate_product(f_global, rounding, truss_dofs[1], cos, ri);
-            accumulate_product(f_global, rounding, truss_dofs[2], -sin, rj);
-            accumulate_product(f_global, rounding, truss_dofs[3], cos, rj);
-            // Axial: the lever rule along the bar.
-            let ni = px * (1.0 - a / l);
-            let nj = px * a / l;
-            accumulate_product(f_global, rounding, truss_dofs[0], cos, ni);
-            accumulate_product(f_global, rounding, truss_dofs[1], sin, ni);
-            accumulate_product(f_global, rounding, truss_dofs[2], cos, nj);
-            accumulate_product(f_global, rounding, truss_dofs[3], sin, nj);
-        }
-        SolverLoad::AxialDistributed(al) if al.element_id == elem_id => {
-            let [ni, nj] = crate::element::axial_distributed_fef(al.q_i, al.q_j, al.a.unwrap_or(0.0), al.b.unwrap_or(l), l);
-            accumulate_product(f_global, rounding, truss_dofs[0], cos, ni);
-            accumulate_product(f_global, rounding, truss_dofs[1], sin, ni);
-            accumulate_product(f_global, rounding, truss_dofs[2], cos, nj);
-            accumulate_product(f_global, rounding, truss_dofs[3], sin, nj);
-        }
-        _ => {}
+        accumulate_truss_components(local,error,axes,dofs,f_global,rounding);
     }
 }
 
@@ -1570,29 +1562,6 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
     }
 }
 
-/// A member load on a 3D truss/cable bar, at its nodes: axial distributed via
-/// `axial_distributed_fef`, transverse distributed and point loads by the lever
-/// rule (the bar's simply-supported reactions, statically exact — a truss
-/// carries nothing transverse), thermal as a pair of axial forces. The 3D
-/// analogue of `truss_member_load_2d`, shared by `assemble_frame_loads_3d` and
-/// the parallel sparse load vector so the two can never drift again.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn truss_member_load_3d(
-    load: &SolverLoad3D,
-    elem: &SolverElement3D,
-    node_i: &SolverNode3D,
-    node_j: &SolverNode3D,
-    l: f64,
-    dir: &[f64; 3],
-    e: f64,
-    area: f64,
-    left_hand: bool,
-    dof_num: &DofNumbering,
-    f_global: &mut [f64],
-) {
-    truss_member_load_3d_with_rounding(load,elem,node_i,node_j,l,dir,e,area,left_hand,dof_num,f_global,&mut None);
-}
-
 fn accumulate_truss_components_3d(
     local: [[f64; 3]; 2],
     local_error: [[f64; 3]; 2],
@@ -1602,18 +1571,8 @@ fn accumulate_truss_components_3d(
     global: &mut [f64],
     rounding: &mut Option<super::load_work::AssemblyRoundoff>,
 ) {
-    let frame_error = if rounding.is_some() { super::load_work::frame_rounding(&axes) } else { [[0.0; 3]; 3] };
-    for (end, node) in [elem.node_i, elem.node_j].into_iter().enumerate() {
-        for k in 0..3 {
-            if let Some(&d) = dof_num.map.get(&(node, k)) {
-                let mut work = super::load_work::Work::default();
-                for j in 0..3 {
-                    work.product(local[end][j], local_error[end][j], axes[j][k], frame_error[j][k]);
-                }
-                accumulate_load(global, rounding, d, work.value, work.bound());
-            }
-        }
-    }
+    let dofs = [elem.node_i,elem.node_j].map(|node| std::array::from_fn::<_,3,_>(|k| dof_num.map.get(&(node,k)).copied()));
+    accumulate_truss_components(local,local_error,axes,dofs,global,rounding);
 }
 
 fn truss_member_load_3d_with_rounding(
@@ -1622,7 +1581,6 @@ fn truss_member_load_3d_with_rounding(
     node_i: &SolverNode3D,
     node_j: &SolverNode3D,
     l: f64,
-    dir: &[f64; 3],
     e: f64,
     area: f64,
     left_hand: bool,
@@ -1630,30 +1588,24 @@ fn truss_member_load_3d_with_rounding(
     f_global: &mut [f64],
     rounding: &mut Option<super::load_work::AssemblyRoundoff>,
 ) {
+    let (ex,ey,ez) = compute_local_axes_3d(
+        node_i.x,node_i.y,node_i.z,node_j.x,node_j.y,node_j.z,
+        elem.local_yx,elem.local_yy,elem.local_yz,elem.roll_angle,left_hand);
     match load {
         SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
             let f = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
-            for k in 0..3 {
-                if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { accumulate_product(f_global, rounding, d, f[0], dir[k]); }
-                if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { accumulate_product(f_global, rounding, d, f[1], dir[k]); }
-            }
+            accumulate_truss_components_3d([[f[0],0.0,0.0],[f[1],0.0,0.0]],[[0.0;3];2],[ex,ey,ez],elem,dof_num,f_global,rounding);
             // The transverse parts reach the nodes by the lever rule
             // (the bar's simply-supported reactions), as in 2D: a truss
             // carries nothing transverse, and they used to be dropped.
             let actions = super::member_actions::TransverseMemberActions::from_3d(load, l);
             if actions.0.iter().flatten().any(|v| *v != 0.0) {
-                let (ex, ey, ez) = compute_local_axes_3d(
-                    node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
-                    elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, left_hand);
                 let [[ryi, rzi], [ryj, rzj]] = actions.0;
                 accumulate_truss_components_3d([[0.0, ryi, rzi], [0.0, ryj, rzj]], [[0.0; 3]; 2], [ex, ey, ez], elem, dof_num, f_global, rounding);
             }
         }
         SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id && (pl.px != 0.0 || pl.py != 0.0 || pl.pz != 0.0) => {
             // A point load on a truss reaches its nodes by the lever rule.
-            let (ex, ey, ez) = compute_local_axes_3d(
-                node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
-                elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, left_hand);
             let f_i = 1.0 - pl.a / l;
             let f_j = pl.a / l;
             let [[ryi, rzi], [ryj, rzj]] = super::member_actions::TransverseMemberActions::from_3d(load, l).0;
@@ -1668,15 +1620,7 @@ fn truss_member_load_3d_with_rounding(
         SolverLoad3D::Thermal(tl) if tl.element_id == elem.id => {
             let alpha = tl.alpha();
             let fx = e * area * alpha * tl.dt_uniform;
-            // Equivalent nodal loads: node I ← -fx along axis, node J ← +fx along axis
-            for k in 0..3 {
-                if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) {
-                    accumulate_product(f_global, rounding, d, -fx, dir[k]);
-                }
-                if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) {
-                    accumulate_product(f_global, rounding, d, fx, dir[k]);
-                }
-            }
+            accumulate_truss_components_3d([[-fx,0.0,0.0],[fx,0.0,0.0]],[[0.0;3];2],[ex,ey,ez],elem,dof_num,f_global,rounding);
         }
         _ => {}
     }
@@ -1733,9 +1677,8 @@ fn assemble_frame_loads_3d(
 
         let kinematics = MemberKinematics3D::from_elem(elem, sec);
         if kinematics == MemberKinematics3D::Axial {
-            let dir = [dx / l, dy / l, dz / l];
             for load in loads {
-                truss_member_load_3d_with_rounding(load, elem, node_i, node_j, l, &dir, e, sec.a, left_hand, dof_num, f_global, rounding);
+                truss_member_load_3d_with_rounding(load, elem, node_i, node_j, l, e, sec.a, left_hand, dof_num, f_global, rounding);
             }
         } else {
             let (ex, ey, ez) = compute_local_axes_3d(

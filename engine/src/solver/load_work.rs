@@ -422,7 +422,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2074"]
     fn truss_2d_member_transforms_bound_directions_and_refuse_above_boundary() {
         use serde_json::json;
         for kind in ["distributed","pointOnElement","axialDistributed","thermal"] {
@@ -474,7 +473,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2074"]
     fn truss_3d_axial_and_thermal_bound_directions_and_refuse_above_boundary() {
         use serde_json::json;
         for thermal in [false,true] {

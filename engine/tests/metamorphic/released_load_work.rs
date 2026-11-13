@@ -956,6 +956,10 @@ fn inclined_supports_keep_single_fef_zero_work_and_refuse_real_moments() {
 fn assert_static_adapters_complete(dim: u64, model: &Value) {
     for name in entry_names().into_iter().chain(["linear (WASM typed path)","linear (dense reference)"]) {
         if name == "plastic collapse" || (dim == 3 && ["linear (WASM typed path)","linear (dense reference)"].contains(&name)) { continue; }
+        if name == "corotational" && model["loads"].as_array().unwrap().iter().any(|load| load["type"] == json!("thermal")) {
+            assert_eq!(native_references(dim,model)["corotational"]["error"],json!("Corotational analysis does not support thermal loads (member 1); it would solve the model without them. Remove them or use an analysis that supports them."));
+            continue;
+        }
         if name == "staged (loads in two stages)" {
             let reference = native_references(dim,model);
             assert!(reference["staged-two"]["ok"].is_object(),"{dim}/{name}: {}",reference["staged-two"]);
@@ -1059,10 +1063,22 @@ fn truss_models_2074() -> Vec<Value> {
             } else if kind == "thermal" {
                 model["loads"] = if dim == 2 { json!([{"type":"thermal","data":{"elementId":1,"dtUniform":0.7,"dtGradient":0.0,"alpha":0.00001}}]) }
                 else { json!([{"type":"thermal","data":{"elementId":1,"dtUniform":0.7,"dtGradientY":0.0,"dtGradientZ":0.0,"alpha":0.00001}}]) };
+                model["loads"].as_array_mut().unwrap().push(if dim == 2 {
+                    json!({"type":"nodal","data":{"nodeId":2,"fx":0.3,"fz":0.0,"my":0.0}})
+                } else {
+                    json!({"type":"nodal","data":{"nodeId":2,"fx":0.3,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":0.0}})
+                });
             }
+            let harmonic = json!({"solver":model,"densities":{"1":1.0},"frequencies":[0.0,1.0],"dampingRatio":0.05,"responseNodeId":2,"responseDof":"x"});
+            let harmonic_reference = if dim == 2 {
+                serde_json::to_value(dedaliano_engine::solver::harmonic::solve_harmonic_2d(&serde_json::from_value(harmonic.clone()).unwrap()).unwrap()).unwrap()
+            } else {
+                serde_json::to_value(dedaliano_engine::solver::harmonic::solve_harmonic_3d(&serde_json::from_value(harmonic.clone()).unwrap()).unwrap()).unwrap()
+            };
+            assert!(harmonic_reference["peakAmplitude"].as_f64().unwrap() > 0.0);
             let references = native_references(dim,&model);
             let gauges = released_gauges(dim,&model);
-            cases.push(json!({"dim":dim,"point":point,"kind":kind,"model":model,"references":references,"gauges":gauges}));
+            cases.push(json!({"dim":dim,"point":point,"kind":kind,"model":model,"references":references,"gauges":gauges,"harmonic":harmonic,"harmonicReference":harmonic_reference}));
         }
     }
     cases
@@ -1074,6 +1090,10 @@ fn oblique_truss_loads_solve_and_genuine_moments_refuse_across_static_entries() 
         let dim = c["dim"].as_u64().unwrap();
         assert_static_adapters_complete(dim,&c["model"]);
         for (path,reference) in c["references"].as_object().unwrap() {
+            if c["kind"] == json!("thermal") && path == "corotational" {
+                assert_eq!(reference["error"],json!("Corotational analysis does not support thermal loads (member 1); it would solve the model without them. Remove them or use an analysis that supports them."));
+                continue;
+            }
             assert!(reference["ok"].is_object(),"{dim}/{}/{path}: {reference}",c["point"]);
             assert_ne!(reference["ok"]["converged"],json!(false),"{dim}/{path}: {reference}");
         }
@@ -1086,6 +1106,13 @@ fn oblique_truss_loads_solve_and_genuine_moments_refuse_across_static_entries() 
                 bad["loads"].as_array_mut().unwrap().push(json!({"type":"nodal","data":data}));
                 for (path,reference) in native_references(dim,&bad).as_object().unwrap() {
                     assert!(reference["error"].is_string(),"{dim}/{node}/{magnitude}/{path}: {reference}");
+                }
+                let mut harmonic = c["harmonic"].clone();
+                harmonic["solver"] = bad;
+                if dim == 2 {
+                    assert!(dedaliano_engine::solver::harmonic::solve_harmonic_2d(&serde_json::from_value(harmonic).unwrap()).is_err());
+                } else {
+                    assert!(dedaliano_engine::solver::harmonic::solve_harmonic_3d(&serde_json::from_value(harmonic).unwrap()).is_err());
                 }
             }
         }
