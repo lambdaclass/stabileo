@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { along, axisName } from '../../../lib/axes/display';
+  import { modelAxisText } from '../../../lib/axes/typed-frame';
   import { knownIssueResultDisposition } from '../../../lib/engine/known-issues';
   import { plainNumber } from '../../../lib/utils/units';
   /**
@@ -141,6 +143,7 @@
   // ── Response viewer ─────────────────────────────────────────────
 
   let component = $state<'ux' | 'uy' | 'uz'>('ux');
+  const KX = { ux: 0, uy: 1, uz: 2 } as const;
   let nodeId = $state<number | null>(null);
 
   function peakNode(r: TimeHistoryResult3D): number | null {
@@ -191,7 +194,7 @@
   {#each spec.forces as f, i (i)}
     <div class="adv-form" data-testid="th-force-{i}">
       <label class="adv-label">{t('pro.th.node')} <input type="number" class="adv-num" bind:value={f.nodeId} min={1} step={1} /></label>
-      <select class="adv-sel" bind:value={f.dir}><option value="x">Fx</option><option value="y">Fy</option><option value="z">Fz</option></select>
+      <select class="adv-sel" bind:value={f.dir}><option value="x">F{modelAxisText(0)}</option><option value="y">F{modelAxisText(1)}</option><option value="z">F{modelAxisText(2)}</option></select>
       <select class="adv-sel" bind:value={f.kind}><option value="sine">{t('pro.th.force.sine')}</option><option value="step">{t('pro.th.force.step')}</option></select>
       <label class="adv-label">{t('pro.th.amplitude')} <QuantityInput bind:value={f.amplitude} quantity="force" cls="adv-num" /></label>
       {#if f.kind === 'sine'}<label class="adv-label">Hz <input type="number" class="adv-num" bind:value={f.freqHz} step={0.1} /></label>
@@ -239,17 +242,17 @@
           </label>
           <label class="adv-label">{t('pro.th.component')}:
             <select class="adv-sel" bind:value={component}>
-              <option value="ux">ux</option><option value="uy">uy</option><option value="uz">uz</option>
+              <option value="ux">u{axisName(0).toLowerCase()}</option><option value="uy">u{axisName(1).toLowerCase()}</option><option value="uz">u{axisName(2).toLowerCase()}</option>
             </select>
           </label>
         </div>
         {#if history}
           <TimeSeriesChart
             times={result.timeSteps}
-            values={history[component]}
+            values={history[component].map((v) => along(KX[component]).sign * v)}
             cursor={timeHistoryView.step}
             unitLabel="mm" scale={1000}
-            label={tp('pro.th.chartLabel', { node: nodeId ?? '—', component })}
+            label={tp('pro.th.chartLabel', { node: nodeId ?? '—', component: `u${axisName(KX[component]).toLowerCase()}` })}
             onscrub={(i) => { timeHistoryView.setStep(i); if (!timeHistoryView.shown) show(true); }}
           />
         {/if}

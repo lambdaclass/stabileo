@@ -4,11 +4,12 @@
   import type { NodalLoad } from '../../lib/store/model.svelte.ts';
   import { toDisplay, unitLabel } from '../../lib/utils/units';
   import SupportDetails from './SupportDetails.svelte';
+  import { shownCoords, coordLabels, twoD, userRot, userVec } from '../../lib/axes/display';
+  import { nodeShown3D } from '../../lib/axes/node-coords';
   import {
     TWO_D_DISPLACEMENT_LABELS,
     TWO_D_NODAL_LOAD_LABELS,
     TWO_D_REACTION_LABELS,
-    TWO_D_VERTICAL_AXIS_LABEL,
     get2DDisplayDisplacementVertical,
     get2DDisplayNodalLoadMoment,
     get2DDisplayNodalLoadVertical,
@@ -54,95 +55,67 @@
         <span>ID:</span>
         <span>{node.id}</span>
       </div>
-      <div class="property-row">
-        <span>X:</span>
-        <span>{dv(node.x, 'length').toFixed(3)} {ul('length')}</span>
-      </div>
-      <div class="property-row">
-        <span>{is3DMode ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL}:</span>
-        <span>{dv(is3DMode ? node.y : get2DDisplayedVertical(node), 'length').toFixed(3)} {ul('length')}</span>
-      </div>
-      {#if is3DMode}
+      {#each is3DMode ? nodeShown3D(node) : shownCoords({ x: node.x, y: get2DDisplayedVertical(node) }, false) as c, i}
         <div class="property-row">
-          <span>Z:</span>
-          <span>{dv(node.z ?? 0, 'length').toFixed(3)} {ul('length')}</span>
+          <span>{coordLabels(is3DMode)[i]}:</span>
+          <span>{dv(c, 'length').toFixed(3)} {ul('length')}</span>
         </div>
-      {/if}
+      {/each}
 
       {#if showResults}
         {#if is3DMode && resultsStore.results3D}
           {@const disp3D = resultsStore.getDisplacement3D(nodeId)}
           {#if disp3D}
+            {@const du = userVec(disp3D.ux, disp3D.uy, disp3D.uz)}
+            {@const ru = userRot(disp3D.rx, disp3D.ry, disp3D.rz)}
             <h4>{t('prop.displacements3d')}</h4>
-            <div class="property-row">
-              <span>ux:</span>
-              <span>{dv(disp3D.ux, 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
-            </div>
-            <div class="property-row">
-              <span>uy:</span>
-              <span>{dv(disp3D.uy, 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
-            </div>
-            <div class="property-row">
-              <span>uz:</span>
-              <span>{dv(disp3D.uz, 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
-            </div>
-            <div class="property-row">
-              <span>θx:</span>
-              <span>{disp3D.rx.toFixed(6)} rad</span>
-            </div>
-            <div class="property-row">
-              <span>θy:</span>
-              <span>{disp3D.ry.toFixed(6)} rad</span>
-            </div>
-            <div class="property-row">
-              <span>θz:</span>
-              <span>{disp3D.rz.toFixed(6)} rad</span>
-            </div>
+            {#each ['x', 'y', 'z'] as a, i}
+              <div class="property-row">
+                <span>u{a}:</span>
+                <span>{dv(du[i], 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
+              </div>
+            {/each}
+            {#each ['x', 'y', 'z'] as a, i}
+              <div class="property-row">
+                <span>θ{a}:</span>
+                <span>{ru[i].toFixed(6)} rad</span>
+              </div>
+            {/each}
           {/if}
 
           {@const reaction3D = resultsStore.getReaction3D(nodeId)}
           {#if reaction3D}
+            {@const fu = userVec(reaction3D.fx, reaction3D.fy, reaction3D.fz)}
+            {@const mu = userRot(-reaction3D.mx, -reaction3D.my, -reaction3D.mz)}
             <h4>{t('prop.reactions3d')}</h4>
-            <div class="property-row">
-              <span>Rx:</span>
-              <span>{dv(reaction3D.fx, 'force').toFixed(2)} {ul('force')}</span>
-            </div>
-            <div class="property-row">
-              <span>Ry:</span>
-              <span>{dv(reaction3D.fy, 'force').toFixed(2)} {ul('force')}</span>
-            </div>
-            <div class="property-row">
-              <span>Rz:</span>
-              <span>{dv(reaction3D.fz, 'force').toFixed(2)} {ul('force')}</span>
-            </div>
-            <div class="property-row">
-              <span>Mx:</span>
-              <span>{dv(-reaction3D.mx, 'moment').toFixed(2)} {ul('moment')}</span>
-            </div>
-            <div class="property-row">
-              <span>My:</span>
-              <span>{dv(-reaction3D.my, 'moment').toFixed(2)} {ul('moment')}</span>
-            </div>
-            <div class="property-row">
-              <span>Mz:</span>
-              <span>{dv(-reaction3D.mz, 'moment').toFixed(2)} {ul('moment')}</span>
-            </div>
+            {#each ['x', 'y', 'z'] as a, i}
+              <div class="property-row">
+                <span>R{a}:</span>
+                <span>{dv(fu[i], 'force').toFixed(2)} {ul('force')}</span>
+              </div>
+            {/each}
+            {#each ['x', 'y', 'z'] as a, i}
+              <div class="property-row">
+                <span>M{a}:</span>
+                <span>{dv(mu[i], 'moment').toFixed(2)} {ul('moment')}</span>
+              </div>
+            {/each}
           {/if}
         {:else}
           {@const disp = resultsStore.getDisplacement(nodeId)}
           {#if disp}
             <h4>{t('prop.displacements')}</h4>
             <div class="property-row">
-              <span>ux:</span>
-              <span>{dv(disp.ux, 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
+              <span>{TWO_D_DISPLACEMENT_LABELS.horizontal}:</span>
+              <span>{dv(twoD.x(disp.ux), 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
             </div>
             <div class="property-row">
               <span>{TWO_D_DISPLACEMENT_LABELS.vertical}:</span>
-              <span>{dv(get2DDisplayDisplacementVertical(disp), 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
+              <span>{dv(twoD.z(get2DDisplayDisplacementVertical(disp)), 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
             </div>
             <div class="property-row">
               <span>{TWO_D_DISPLACEMENT_LABELS.rotation}:</span>
-              <span>{get2DDisplayRotation(disp).toFixed(6)} rad</span>
+              <span>{twoD.rot(get2DDisplayRotation(disp)).toFixed(6)} rad</span>
             </div>
           {/if}
 
@@ -150,16 +123,16 @@
           {#if reaction}
             <h4>{t('prop.reactions')}</h4>
             <div class="property-row">
-              <span>Rx:</span>
-              <span>{dv(reaction.rx, 'force').toFixed(2)} {ul('force')}</span>
+              <span>{TWO_D_REACTION_LABELS.horizontal}:</span>
+              <span>{dv(twoD.x(reaction.rx), 'force').toFixed(2)} {ul('force')}</span>
             </div>
             <div class="property-row">
               <span>{TWO_D_REACTION_LABELS.vertical}:</span>
-              <span>{dv(get2DDisplayReactionVertical(reaction), 'force').toFixed(2)} {ul('force')}</span>
+              <span>{dv(twoD.z(get2DDisplayReactionVertical(reaction)), 'force').toFixed(2)} {ul('force')}</span>
             </div>
             <div class="property-row">
               <span>{TWO_D_REACTION_LABELS.moment}:</span>
-              <span>{dv(-get2DDisplayMoment(reaction), 'moment').toFixed(2)} {ul('moment')}</span>
+              <span>{dv(twoD.rot(-get2DDisplayMoment(reaction)), 'moment').toFixed(2)} {ul('moment')}</span>
             </div>
           {/if}
         {/if}
@@ -175,18 +148,18 @@
         <h4>{t('prop.nodalLoads')}</h4>
         {#each nodalLoads as nl}
           <div class="property-row">
-            <span>Fx:</span>
-            <input type="number" step="1" value={nl.fx} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'fx', e.currentTarget.value)} />
+            <span>{TWO_D_NODAL_LOAD_LABELS.horizontal}:</span>
+            <input type="number" step="1" value={twoD.x(nl.fx)} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'fx', String(twoD.fromX(parseFloat(e.currentTarget.value))))} />
             <span>kN</span>
           </div>
           <div class="property-row">
             <span>{TWO_D_NODAL_LOAD_LABELS.vertical}:</span>
-            <input type="number" step="1" value={get2DDisplayNodalLoadVertical(nl)} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'fz', e.currentTarget.value)} />
+            <input type="number" step="1" value={twoD.z(get2DDisplayNodalLoadVertical(nl))} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'fz', String(twoD.fromZ(parseFloat(e.currentTarget.value))))} />
             <span>kN</span>
           </div>
           <div class="property-row">
             <span>{TWO_D_NODAL_LOAD_LABELS.moment}:</span>
-            <input type="number" step="1" value={get2DDisplayNodalLoadMoment(nl)} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'my', e.currentTarget.value)} />
+            <input type="number" step="1" value={twoD.rot(get2DDisplayNodalLoadMoment(nl))} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'my', String(twoD.fromRot(parseFloat(e.currentTarget.value))))} />
             <span>kN·m</span>
           </div>
         {/each}

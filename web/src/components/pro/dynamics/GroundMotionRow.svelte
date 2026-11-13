@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { modelAxisText } from '../../../lib/axes/typed-frame';
   import Hint from '../Hint.svelte';
   import { plainNumber } from '../../../lib/utils/units';
   /**
@@ -63,7 +64,7 @@
 
 <div class="gm" data-testid="th-ground-{dir}">
   <div class="gm-row">
-    <span class="gm-dir">{dir.toUpperCase()}</span>
+    <span class="gm-dir">{modelAxisText(dir === 'x' ? 0 : dir === 'y' ? 1 : 2)}</span>
     <select value={g.source} onchange={(e) => (g = withGroundSource(g, e.currentTarget.value as GroundSource))} data-testid="th-src-{dir}">
       <option value="none">{t('pro.th.none')}</option>
       <option value="sine">{t('pro.th.source.sine')}</option>

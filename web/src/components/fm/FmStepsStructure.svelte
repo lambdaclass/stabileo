@@ -13,7 +13,7 @@
   import type { ForceMethodResult, StateResult } from '../../lib/engine/force-method/solve';
   import FmSketch from './FmSketch.svelte';
   import FmDiagramPicker from './FmDiagramPicker.svelte';
-  import { redundantText, xName, num, componentName, sub } from './fm-text';
+  import { redundantText, xName, num, componentShown, sub } from './fm-text';
   import FmFundamentalPicker from './FmFundamentalPicker.svelte';
   import { fmChoice } from '../../lib/store/fm-choice.svelte';
   import StepBlocks from '../steps/StepBlocks.svelte';
@@ -39,7 +39,7 @@
     <thead><tr><th>{t('fm.s3.node')}</th><th></th><th>kN · kN·m</th></tr></thead>
     <tbody>
       {#each st.reactions.filter((q) => Math.abs(q.value) > 1e-9) as q (q.nodeId + ':' + q.component)}
-        <tr><td>{q.nodeId}</td><td>{componentName(q.component, rotated(q.nodeId), is3D)}</td><td>{num(q.value)}</td></tr>
+        <tr><td>{q.nodeId}</td><td>{componentShown(q.component, rotated(q.nodeId), is3D).name}</td><td>{num(componentShown(q.component, rotated(q.nodeId), is3D).sign * q.value)}</td></tr>
       {/each}
     </tbody>
   </table>

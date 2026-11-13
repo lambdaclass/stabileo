@@ -428,3 +428,17 @@ describe('change summaries', () => {
     }
   });
 });
+
+describe('the user axes in the system prompt', async () => {
+  const { buildSystemPrompt, userAxesSection } = await import('../build-model');
+  const { makeFrame, DEFAULT_AXES } = await import('../../../axes/frame');
+  it('says nothing when the user keeps the model axes', () => {
+    expect(userAxesSection(makeFrame(DEFAULT_AXES))).toBe('');
+  });
+  it('maps every model axis to the user one and keeps the tools in model axes', () => {
+    const text = buildSystemPrompt('es', 'basic', undefined, undefined, makeFrame({ up: '+Y', right: '+X', hand: 'left' }));
+    expect(text).toContain("Model +X is the user's +X, model +Y is the user's +Z, model +Z (up) is the user's +Y; gravity is the user's −Y");
+    expect(text).toContain('left-handed: moments and rotations convert like the axis they turn about, times −1');
+    expect(text).toContain('Tools, JSON and the current model below stay in MODEL axes');
+  });
+});

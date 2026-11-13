@@ -53,6 +53,8 @@
   import { viewportCanvas } from '../../../lib/utils/viewport-canvas';
   import { portal } from '../../../lib/utils/portal';
   import type { Quantity } from '../../../lib/utils/units';
+  import { axisLetter, modelAxisOf, modelVec, signedModelName } from '../../../lib/axes/display';
+  import { verticalNameIn } from '../../../lib/axes/typed-frame';
 
   let { v }: { v: SketchInput } = $props();
   const id = `ls${++seq}`;
@@ -70,8 +72,14 @@
   const add = (a: V, b: V, k = 1): V => [a[0] + b[0] * k, a[1] + b[1] * k];
   const sub = (a: V, b: V): V => [a[0] - b[0], a[1] - b[1]];
   const unit = (a: V): V => { const l = Math.hypot(a[0], a[1]) || 1; return [a[0] / l, a[1] / l]; };
-  /** The global axes on paper: X to the right, Z up, Y into the page drawn oblique. */
-  const AX: Record<'X' | 'Y' | 'Z', V> = { X: [1, 0], Y: unit([0.62, -0.45]), Z: [0, -1] };
+  const AXM: V[] = [[1, 0], unit([0.62, -0.45]), [0, -1]];
+  const AX = $derived(Object.fromEntries((['X', 'Y', 'Z'] as const).map((a) => {
+    const m = modelAxisOf(a);
+    return [a, [AXM[m.index]![0] * m.sign, AXM[m.index]![1] * m.sign] as V];
+  })) as Record<'X' | 'Y' | 'Z', V>);
+  const modelIndex = (a: 'X' | 'Y' | 'Z') => modelAxisOf(a).index;
+  const planName = (k: 0 | 1) => signedModelName(k, 1).replace('+', '');
+  const pfModel = $derived(v.shell ? modelVec(v.shell.pf.fx ?? 0, v.shell.pf.fy ?? 0, v.shell.pf.fz ?? 0) : [0, 0, 0]);
   // A member, sloping, I to J; its local x along it, local z up from it, local y into the page.
   const MI: V = [34, 98], MJ: V = [186, 58];
   const MU = unit(sub(MJ, MI)), MN: V = [MU[1], -MU[0]];
@@ -422,16 +430,16 @@
       <!-- Side on: the slab sloping, the load's direction, and the area it is spread over. -->
       <line x1={S1[0]} y1={S1[1]} x2={S2[0]} y2={S2[1]} class="ls-slabline" />
       {#each slabSide as a, i (i)}{@render arrow(a.t, a.h, 'ls-load ls-thin')}{/each}
-      {#if projected && s.dirAxis === 'Z'}
+      {#if projected && modelIndex(s.dirAxis) === 2}
         <line x1={S1[0]} y1={S1[1]} x2={S1[0]} y2="122" class="ls-guide" /><line x1={S2[0]} y1={S2[1]} x2={S2[0]} y2="122" class="ls-guide" />
         <line x1={S1[0]} y1="122" x2={S2[0]} y2="122" class="ls-proj" />
-      {:else if projected && s.dirAxis === 'X'}
+      {:else if projected && modelIndex(s.dirAxis) === 0}
         <line x1={S1[0]} y1={S1[1]} x2="108" y2={S1[1]} class="ls-guide" /><line x1={S2[0]} y1={S2[1]} x2="108" y2={S2[1]} class="ls-guide" />
         <line x1="108" y1={S1[1]} x2="108" y2={S2[1]} class="ls-proj" />
       {/if}
-      <text x="4" y="12" class="ls-t">{s.dirMode === 'down' ? '−Z' : s.dirMode === 'local' ? t('writeLoad.sketch.normal') : `+${s.dirAxis}`} · {projected ? t('writeLoad.sketch.projectedArea') : t('writeLoad.sketch.trueArea')}</text>
+      <text x="4" y="12" class="ls-t">{s.dirMode === 'down' ? signedModelName(2, -1) : s.dirMode === 'local' ? t('writeLoad.sketch.normal') : `+${s.dirAxis}`} · {projected ? t('writeLoad.sketch.projectedArea') : t('writeLoad.sketch.trueArea')}</text>
       <text x="4" y="22" class="ls-t">{t('writeLoad.sketch.qPositive')}</text>
-      {#if !(projected && s.dirAxis === 'Z')}{@render axes(70, 124)}{/if}
+      {#if !(projected && modelIndex(s.dirAxis) === 2)}{@render axes(70, 124)}{/if}
       <!-- In plan: how the value spreads over the slab, and the rectangle it is limited to. -->
       <rect x={PL.x0} y={PL.y0} width={PL.x1 - PL.x0} height={PL.y1 - PL.y0} class="ls-slab" />
       {#if s.field === 'uniform'}
@@ -442,21 +450,21 @@
           <circle cx={x} cy={y} r="2" class="ls-node" />
           <text x={x} y={y + dy} class="ls-t" text-anchor={anchor}>q{['₁', '₂', '₃', '₄'][i]}{s.corners[i] !== undefined ? ` = ${fmtQ(s.corners[i]!, 'areaLoad')}` : ''}</text>
         {/each}
-      {:else if s.va.axis === 'Z'}
-        <text x={(PL.x0 + PL.x1) / 2} y={(PL.y0 + PL.y1) / 2} class="ls-t" text-anchor="middle">{t('writeLoad.sketch.variesZ')}</text>
+      {:else if modelIndex(s.va.axis) === 2}
+        <text x={(PL.x0 + PL.x1) / 2} y={(PL.y0 + PL.y1) / 2} class="ls-t" text-anchor="middle">{t('writeLoad.sketch.variesZ').replace(/\bZ\b/, s.va.axis)}</text>
         <text x={(PL.x0 + PL.x1) / 2} y={(PL.y0 + PL.y1) / 2 + 10} class="ls-t" text-anchor="middle">{lbl('q₁', s.va.q1, 'areaLoad')} → {lbl('q₂', s.va.q2, 'areaLoad')}</text>
-      {:else if s.va.axis === 'X'}
+      {:else if modelIndex(s.va.axis) === 0}
         {@const qm = Math.max(mag(s.va.q1), mag(s.va.q2), 1e-9)}
         <line x1={PL.x0 + 14} y1={PL.y0} x2={PL.x0 + 14} y2={PL.y1} class="ls-guide" /><line x1={PL.x1 - 14} y1={PL.y0} x2={PL.x1 - 14} y2={PL.y1} class="ls-guide" />
         <polygon points="{PL.x0 + 14},{PL.y1} {PL.x0 + 14},{PL.y1 - 6 - 30 * mag(s.va.q1) / qm} {PL.x1 - 14},{PL.y1 - 6 - 30 * mag(s.va.q2) / qm} {PL.x1 - 14},{PL.y1}" class="ls-diag" />
-        <text x={PL.x0 + 14} y={PL.y1 + 10} class="ls-t" text-anchor="middle">{lbl('X₁', s.va.c1, 'length')}</text>
-        <text x={PL.x1 - 14} y={PL.y1 + 20} class="ls-t" text-anchor="middle">{lbl('X₂', s.va.c2, 'length')}</text>
+        <text x={PL.x0 + 14} y={PL.y1 + 10} class="ls-t" text-anchor="middle">{lbl(`${s.va.axis}₁`, s.va.c1, 'length')}</text>
+        <text x={PL.x1 - 14} y={PL.y1 + 20} class="ls-t" text-anchor="middle">{lbl(`${s.va.axis}₂`, s.va.c2, 'length')}</text>
         <text x={PL.x0 + 16} y={PL.y0 + 9} class="ls-t">{lbl('q₁', s.va.q1, 'areaLoad')}</text>
         <text x={PL.x1 - 16} y={PL.y0 + 18} class="ls-t" text-anchor="end">{lbl('q₂', s.va.q2, 'areaLoad')}</text>
       {:else}
         <line x1={PL.x0} y1={PL.y1 - 12} x2={PL.x1} y2={PL.y1 - 12} class="ls-guide" /><line x1={PL.x0} y1={PL.y0 + 12} x2={PL.x1} y2={PL.y0 + 12} class="ls-guide" />
-        <text x={PL.x0 + 2} y={PL.y1 - 15} class="ls-t">{lbl('Y₁', s.va.c1, 'length')} · {lbl('q₁', s.va.q1, 'areaLoad')}</text>
-        <text x={PL.x0 + 2} y={PL.y0 + 21} class="ls-t">{lbl('Y₂', s.va.c2, 'length')} · {lbl('q₂', s.va.q2, 'areaLoad')}</text>
+        <text x={PL.x0 + 2} y={PL.y1 - 15} class="ls-t">{lbl(`${s.va.axis}₁`, s.va.c1, 'length')} · {lbl('q₁', s.va.q1, 'areaLoad')}</text>
+        <text x={PL.x0 + 2} y={PL.y0 + 21} class="ls-t">{lbl(`${s.va.axis}₂`, s.va.c2, 'length')} · {lbl('q₂', s.va.q2, 'areaLoad')}</text>
       {/if}
       {#if s.partial}
         <rect x={PL.x0 + 38} y={PL.y0 + 30} width="34" height="24" class="ls-region" />
@@ -464,15 +472,15 @@
         <text x={PL.x0 + 36} y={PL.y0 + 62} class="ls-t" text-anchor="end">({s.rect?.plane[0]}₁; {s.rect?.plane[1]}₁)</text>
         <text x={PL.x1 - 2} y={PL.y0 + 27} class="ls-t" text-anchor="end">({s.rect?.plane[0]}₂; {s.rect?.plane[1]}₂)</text>
       {/if}
-      <line x1={PL.x0} y1="126" x2={PL.x0 + 12} y2="126" class="ls-axis" marker-end="url(#{A}-a)" /><text x={PL.x0 + 14} y="129" class="ls-ax">X</text>
-      <line x1={PL.x0} y1="126" x2={PL.x0} y2="114" class="ls-axis" marker-end="url(#{A}-a)" /><text x={PL.x0 + 3} y="114" class="ls-ax">Y</text>
+      <line x1={PL.x0} y1="126" x2={PL.x0 + 12} y2="126" class="ls-axis" marker-end="url(#{A}-a)" /><text x={PL.x0 + 14} y="129" class="ls-ax">{planName(0)}</text>
+      <line x1={PL.x0} y1="126" x2={PL.x0} y2="114" class="ls-axis" marker-end="url(#{A}-a)" /><text x={PL.x0 + 3} y="114" class="ls-ax">{planName(1)}</text>
       <text x={PL.x1} y="128" class="ls-t" text-anchor="end">{t('writeLoad.sketch.plan')}</text>
     {:else if v.kind === 'hydro' && v.shell}
       {@const s = v.shell}
       <!-- A wall below the fluid's level: pressure γ·depth, pushing the wall out of the fluid. -->
       <rect x="128" y="22" width="8" height="98" class="ls-slab" />
       <line x1="40" y1="44" x2="136" y2="44" class="ls-level" />
-      <text x="40" y="40" class="ls-t">{lbl(t('writeLoad.shell.level'), s.level, 'length')}</text>
+      <text x="40" y="40" class="ls-t">{lbl(verticalNameIn(t('writeLoad.shell.level')), s.level, 'length')}</text>
       <polygon points="128,44 128,120 76,120" class="ls-diag" />
       {#each [0.3, 0.55, 0.8] as k (k)}{@render arrow([128 - 52 * k, 44 + 76 * k], [126, 44 + 76 * k], 'ls-load ls-thin')}{/each}
       {@render dim([150, 44], [150, 120], 'h', [6, 3])}
@@ -491,18 +499,16 @@
         <circle cx={x} cy={y} r="2.2" class="ls-node" /><line x1={P0[0]} y1={P0[1]} x2={x} y2={y} class="ls-share" />
       {/each}
       <circle cx={P0[0]} cy={P0[1]} r="2.6" class="ls-pt" />
-      {#if sgn(s.pf.fx)}{@render arrow([P0[0] - sgn(s.pf.fx) * 30, P0[1]], [P0[0] - sgn(s.pf.fx) * 4, P0[1]])}{/if}
-      {#if sgn(s.pf.fy)}{@render arrow([P0[0], P0[1] + sgn(s.pf.fy) * 30], [P0[0], P0[1] + sgn(s.pf.fy) * 4])}{/if}
-      <!-- Z toward the reader: a dot for +Z, a cross for −Z. -->
+      {#if sgn(pfModel[0])}{@render arrow([P0[0] - sgn(pfModel[0]) * 30, P0[1]], [P0[0] - sgn(pfModel[0]) * 4, P0[1]])}{/if}
+      {#if sgn(pfModel[1])}{@render arrow([P0[0], P0[1] + sgn(pfModel[1]) * 30], [P0[0], P0[1] + sgn(pfModel[1]) * 4])}{/if}
       <circle cx={P0[0] + 14} cy={P0[1] - 14} r="5" class="ls-zsym" />
-      {#if sgn(s.pf.fz) >= 0}<circle cx={P0[0] + 14} cy={P0[1] - 14} r="1.4" class="ls-pt" />{:else}<path d="M{P0[0] + 10.5},{P0[1] - 17.5} l7,7 m0,-7 l-7,7" class="ls-load ls-thin" />{/if}
-      <text x="132" y="44" class="ls-v">{lbl('Fx', s.pf.fx, 'force')}</text>
-      <text x="132" y="56" class="ls-v">{lbl('Fy', s.pf.fy, 'force')}</text>
-      <text x="132" y="68" class="ls-v">{lbl('Fz', s.pf.fz, 'force')}</text>
+      {#if sgn(pfModel[2]) >= 0}<circle cx={P0[0] + 14} cy={P0[1] - 14} r="1.4" class="ls-pt" />{:else}<path d="M{P0[0] + 10.5},{P0[1] - 17.5} l7,7 m0,-7 l-7,7" class="ls-load ls-thin" />{/if}
+      <!-- The arrows are drawn along the model's axes, so each line names the axis it draws, in the user's letters. -->
+      {#each [0, 1, 2] as const as k (k)}<text x="132" y={44 + 12 * k} class="ls-v">{lbl(`F${axisLetter(k)}`, s.pf[`f${axisLetter(k)}` as 'fx'], 'force')}</text>{/each}
       <text x="30" y="124" class="ls-t">{t('writeLoad.point')} {pt3(s.at)}</text>
       <text x="4" y="12" class="ls-t">{t('writeLoad.sketch.shared')}</text>
-      <line x1="10" y1="118" x2="22" y2="118" class="ls-axis" marker-end="url(#{A}-a)" /><text x="24" y="121" class="ls-ax">X</text>
-      <line x1="10" y1="118" x2="10" y2="106" class="ls-axis" marker-end="url(#{A}-a)" /><text x="12" y="105" class="ls-ax">Y</text>
+      <line x1="10" y1="118" x2="22" y2="118" class="ls-axis" marker-end="url(#{A}-a)" /><text x="24" y="121" class="ls-ax">{planName(0)}</text>
+      <line x1="10" y1="118" x2="10" y2="106" class="ls-axis" marker-end="url(#{A}-a)" /><text x="12" y="105" class="ls-ax">{planName(1)}</text>
     {/if}
   </svg>
 {/snippet}

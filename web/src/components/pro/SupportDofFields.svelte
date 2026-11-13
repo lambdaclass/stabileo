@@ -9,13 +9,20 @@
   import { drawState } from '../../lib/store/draw-state.svelte';
   import { DOF_SPRING, type Dof3D } from '../../lib/model/support-3d';
   import QuantityInput from './loads/QuantityInput.svelte';
+  import { modelIndexOfUser } from '../../lib/axes/display';
 
   const draft = drawState.support;
-  const LABEL: Record<Dof3D, string> = { tx: 'Fx', ty: 'Fy', tz: 'Fz', rx: 'Mx', ry: 'My', rz: 'Mz' };
   const TITLE: Record<Dof3D, string> = {
     tx: 'float.supportRestrainTx', ty: 'float.supportRestrainTy', tz: 'float.supportRestrainTz',
     rx: 'float.supportRestrainRx', ry: 'float.supportRestrainRy', rz: 'float.supportRestrainRz',
   };
+
+  const ORDER = $derived([0, 1, 2, 3, 4, 5].map((i) => {
+    const m = (i < 3 ? 0 : 3) + modelIndexOfUser(i % 3);
+    const [d, k] = DOF_SPRING[m]!;
+    const a = 'xyz'[i % 3]!;
+    return { d, k, label: `${i < 3 ? 'F' : 'M'}${a}`, title: TITLE[DOF_SPRING[i]![0]], spring: `k${i < 3 ? '' : 'r'}${a}` };
+  }));
 
   function preset(kind: 'fixed' | 'pinned') {
     for (const [d] of DOF_SPRING) draft.dofs[d] = kind === 'fixed' || d.startsWith('t');
@@ -25,8 +32,8 @@
 <span class="sd" data-testid="support-dofs">
   <span class="sd-group">
     <span class="sd-name">{t('support.restrains')}</span>
-    {#each DOF_SPRING as [d] (d)}
-      <label class="sd-chk" title={t(TITLE[d])}><input type="checkbox" bind:checked={draft.dofs[d]} data-testid="sup-dof-{d}" /> {LABEL[d]}</label>
+    {#each ORDER as o (o.d)}
+      <label class="sd-chk" title={t(o.title)}><input type="checkbox" bind:checked={draft.dofs[o.d]} data-testid="sup-dof-{o.d}" /> {o.label}</label>
     {/each}
   </span>
   <span class="sd-group">
@@ -36,8 +43,8 @@
   </span>
   {#if draft.elastic}
     <span class="sd-group" data-testid="sup-springs">
-      {#each DOF_SPRING.filter(([d]) => draft.dofs[d]) as [d, k] (k)}
-        <label class="sd-k">{k}
+      {#each ORDER.filter((o) => draft.dofs[o.d]) as { d, k, spring } (k)}
+        <label class="sd-k">{spring}
           <!-- Empty is rigid; 0 is not a spring, and is not shown as one. -->
           <QuantityInput nullable above={0} value={draft.springs[k] ?? null} quantity={d.startsWith('t') ? 'springK' : 'springKr'}
             placeholder={t('support.rigid')} cls="sd-num"

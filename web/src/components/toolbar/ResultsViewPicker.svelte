@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown, combinationNameShown } from '../../lib/axes/case-names';
   /**
    * Which result the drawing shows (the loads together, a case, a combination, the envelope) and
    * which to compare it with. In the results panel, and in Basic's options bar under the ribbon
@@ -56,7 +57,7 @@
       {/each}
       {#each comboKeys as comboId}
         {@const combo = modelStore.model.combinations.find(c => c.id === comboId)}
-        <option value={`combo_${comboId}`}>{combo?.name ?? `${t('results.comboFallback')} ${comboId}`}</option>
+        <option value={`combo_${comboId}`}>{(combo ? combinationNameShown(combo) : undefined) ?? `${t('results.comboFallback')} ${comboId}`}</option>
       {/each}
       <option value="envelope">{t('results.envelope')}</option>
     </select>
@@ -83,7 +84,7 @@
         } else if (val.startsWith('case_')) {
           const id = Number(val.replace('case_', ''));
           const lc = modelStore.model.loadCases.find(c => c.id === id);
-          const label = lc?.name ?? `${t('results.caseFallback')} ${id}`;
+          const label = (lc ? caseNameShown(lc) : undefined) ?? `${t('results.caseFallback')} ${id}`;
           if (is3D) {
             const r3d = resultsStore.perCase3D.get(id);
             if (r3d) resultsStore.setOverlay3D(r3d, label);
@@ -94,7 +95,7 @@
         } else if (val.startsWith('combo_')) {
           const id = Number(val.replace('combo_', ''));
           const combo = modelStore.model.combinations.find(c => c.id === id);
-          const label = combo?.name ?? `${t('results.comboFallback')} ${id}`;
+          const label = (combo ? combinationNameShown(combo) : undefined) ?? `${t('results.comboFallback')} ${id}`;
           if (is3D) {
             const r3d = resultsStore.perCombo3D.get(id);
             if (r3d) resultsStore.setOverlay3D(r3d, label);
@@ -111,7 +112,7 @@
         {/each}
         {#each comboKeys as comboId}
           {@const combo = modelStore.model.combinations.find(c => c.id === comboId)}
-          <option value={`combo_${comboId}`}>{combo?.name ?? `${t('results.comboFallback')} ${comboId}`}</option>
+          <option value={`combo_${comboId}`}>{(combo ? combinationNameShown(combo) : undefined) ?? `${t('results.comboFallback')} ${comboId}`}</option>
         {/each}
         {#if hasEnvelope}
           <option value="envelope">{t('results.envelope')}</option>

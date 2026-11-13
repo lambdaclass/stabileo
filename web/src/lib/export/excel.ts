@@ -42,13 +42,18 @@ import { t } from '../i18n';
 import {
   TWO_D_DISPLACEMENT_LABELS,
   TWO_D_REACTION_LABELS,
-  TWO_D_VERTICAL_AXIS_LABEL,
   get2DDisplayDisplacementVertical,
   get2DDisplayMoment,
   get2DDisplayReactionVertical,
   get2DDisplayRotation,
   get2DDisplayedVertical,
 } from '../geometry/coordinate-system';
+import { coordLabels, shownCoords, twoD, userRot, userVec } from '../axes/display';
+import { nodeShown3D, standingPlane } from '../axes/node-coords';
+import { axesStore } from '../axes/axes.svelte';
+import { axesStatement } from '../axes/statement';
+import { combinationNameShown } from '../axes/case-names';
+import { supportNameShown, supportTypeShown } from '../axes/user-names';
 
 interface ExcelExportOptions {
   filename?: string;
@@ -142,6 +147,7 @@ function createSummarySheet(): Xlsx.WorkSheet {
   data.push([`${t('excel.structuralAnalysis')} ${is3D ? '3D' : '2D'} - ${t('excel.summary')}`]);
   // The re-check status first (STALE or current); the full record is the Provenance sheet.
   if (status) data.push([status[0], status[1]]);
+  if (!axesStore.frame.identity) data.push([axesStatement(t, axesStore.choice)]);
   data.push([]);
 
   if (solveError) {
@@ -184,8 +190,9 @@ function createSummarySheet(): Xlsx.WorkSheet {
 
     let sumFx = 0, sumFy = 0, sumFz = 0, sumMx2 = 0, sumMy2 = 0, sumMz2 = 0;
     for (const r of r3d.reactions) {
-      sumFx += r.fx; sumFy += r.fy; sumFz += r.fz;
-      sumMx2 += r.mx; sumMy2 += r.my; sumMz2 += r.mz;
+      const [fx, fy, fz] = userVec(r.fx, r.fy, r.fz), [mx, my, mz] = userRot(r.mx, r.my, r.mz);
+      sumFx += fx; sumFy += fy; sumFz += fz;
+      sumMx2 += mx; sumMy2 += my; sumMz2 += mz;
     }
     data.push([t('excel.equilibriumCheck')]);
     data.push(['ΣFx', sumFx.toFixed(4), 'kN']);
@@ -209,14 +216,14 @@ function createSummarySheet(): Xlsx.WorkSheet {
 
     let sumRx = 0, sumRz = 0, sumMy = 0;
     for (const r of r2d.reactions) {
-      sumRx += r.rx;
-      sumRz += get2DDisplayReactionVertical(r);
-      sumMy += get2DDisplayMoment(r);
+      sumRx += twoD.x(r.rx);
+      sumRz += twoD.z(get2DDisplayReactionVertical(r));
+      sumMy += twoD.rot(get2DDisplayMoment(r));
     }
     data.push([t('excel.equilibriumCheck')]);
-    data.push(['ΣRx', sumRx.toFixed(4), 'kN']);
-    data.push(['ΣRz', sumRz.toFixed(4), 'kN']);
-    data.push(['ΣMy', sumMy.toFixed(4), 'kN·m']);
+    data.push([`Σ${TWO_D_REACTION_LABELS.horizontal}`, sumRx.toFixed(4), 'kN']);
+    data.push([`Σ${TWO_D_REACTION_LABELS.vertical}`, sumRz.toFixed(4), 'kN']);
+    data.push([`Σ${TWO_D_REACTION_LABELS.moment}`, sumMy.toFixed(4), 'kN·m']);
   }
 
   const ws = XLSX.utils.aoa_to_sheet(data);
@@ -329,33 +336,28 @@ function createNodesSheet(): Xlsx.WorkSheet {
   const r2d = resultsStore.results;
   const hasResults = is3D ? !!r3d : !!r2d;
 
-  const headers = is3D ? ['ID', 'X (m)', 'Y (m)', 'Z (m)'] : ['ID', 'X (m)', `${TWO_D_VERTICAL_AXIS_LABEL} (m)`];
+  const headers = ['ID', ...coordLabels(is3D).map((l) => `${l} (m)`)];
   if (hasResults) {
     if (is3D) {
       headers.push('ux (mm)', 'uy (mm)', 'uz (mm)', 'θx (mrad)', 'θy (mrad)', 'θz (mrad)');
     } else {
-      headers.push('ux (mm)', `${TWO_D_DISPLACEMENT_LABELS.vertical} (mm)`, `${TWO_D_DISPLACEMENT_LABELS.rotation} (mrad)`);
+      headers.push(`${TWO_D_DISPLACEMENT_LABELS.horizontal} (mm)`, `${TWO_D_DISPLACEMENT_LABELS.vertical} (mm)`, `${TWO_D_DISPLACEMENT_LABELS.rotation} (mrad)`);
     }
   }
 
   const data: (string | number)[][] = [headers];
 
+  const upright = is3D && standingPlane();
   for (const node of modelStore.nodes.values()) {
     const row: (string | number)[] = [
       node.id,
-      Number(node.x.toFixed(4)),
-      Number((is3D ? node.y : get2DDisplayedVertical(node)).toFixed(4)),
+      ...(is3D ? nodeShown3D(node, upright) : shownCoords({ x: node.x, y: get2DDisplayedVertical(node) }, false)).map((c) => Number(c.toFixed(4))),
     ];
-    if (is3D) row.push(Number((node.z ?? 0).toFixed(4)));
 
     if (hasResults && is3D && r3d) {
       const d = r3d.displacements.find(d => d.nodeId === node.id);
       if (d) {
-        row.push(
-          Number((d.ux * 1000).toFixed(4)), Number((d.uy * 1000).toFixed(4)),
-          Number((d.uz * 1000).toFixed(4)), Number((d.rx * 1000).toFixed(4)),
-          Number((d.ry * 1000).toFixed(4)), Number((d.rz * 1000).toFixed(4)),
-        );
+        row.push(...[...userVec(d.ux, d.uy, d.uz), ...userRot(d.rx, d.ry, d.rz)].map((v) => Number((v * 1000).toFixed(4))));
       } else {
         row.push('-', '-', '-', '-', '-', '-');
       }
@@ -363,9 +365,9 @@ function createNodesSheet(): Xlsx.WorkSheet {
       const disp = r2d.displacements.find(d => d.nodeId === node.id);
       if (disp) {
         row.push(
-          Number((disp.ux * 1000).toFixed(4)),
-          Number((get2DDisplayDisplacementVertical(disp) * 1000).toFixed(4)),
-          Number((get2DDisplayRotation(disp) * 1000).toFixed(4)),
+          Number((twoD.x(disp.ux) * 1000).toFixed(4)),
+          Number((twoD.z(get2DDisplayDisplacementVertical(disp)) * 1000).toFixed(4)),
+          Number((twoD.rot(get2DDisplayRotation(disp)) * 1000).toFixed(4)),
         );
       } else {
         row.push('-', '-', '-');
@@ -394,16 +396,21 @@ function createReactionsSheet(): Xlsx.WorkSheet {
     const headers = [t('excel.node'), t('excel.type'), 'Fx (kN)', 'Fy (kN)', 'Fz (kN)', 'Mx (kN·m)', 'My (kN·m)', 'Mz (kN·m)'];
     const data: (string | number)[][] = [headers];
 
-    for (const r of r3d.reactions) {
+    const shown = r3d.reactions.map((r) => {
+      const [fx, fy, fz] = userVec(r.fx, r.fy, r.fz);
+      const [mx, my, mz] = userRot(r.mx, r.my, r.mz);
+      return { nodeId: r.nodeId, fx, fy, fz, mx, my, mz };
+    });
+    for (const r of shown) {
       const sup = [...modelStore.supports.values()].find(s => s.nodeId === r.nodeId);
       data.push([
-        r.nodeId, sup?.type ?? '-',
+        r.nodeId, sup ? supportTypeShown(sup.type) : '-',
         Number(r.fx.toFixed(4)), Number(r.fy.toFixed(4)), Number(r.fz.toFixed(4)),
         Number(r.mx.toFixed(4)), Number(r.my.toFixed(4)), Number(r.mz.toFixed(4)),
       ]);
     }
 
-    const totals = r3d.reactions.reduce(
+    const totals = shown.reduce(
       (a, r) => ({ fx: a.fx + r.fx, fy: a.fy + r.fy, fz: a.fz + r.fz, mx: a.mx + r.mx, my: a.my + r.my, mz: a.mz + r.mz }),
       { fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 }
     );
@@ -432,15 +439,16 @@ function createReactionsSheet(): Xlsx.WorkSheet {
       rollerXY: t('selEntity.supRollerXY'), rollerXZ: t('selEntity.supRollerXZ'), rollerYZ: t('selEntity.supRollerYZ'),
       spring3d: t('excel.spring'), custom3d: t('selEntity.supCustom3d'),
     } as Record<string, string>)[sup.type] ?? sup.type : '-';
+    const supShown = sup ? supportNameShown(sup.type, supType) : supType;
 
     data.push([
-      r.nodeId, supType,
-      Number(r.rx.toFixed(4)), Number(get2DDisplayReactionVertical(r).toFixed(4)), Number(get2DDisplayMoment(r).toFixed(4)),
+      r.nodeId, supShown,
+      Number(twoD.x(r.rx).toFixed(4)), Number(twoD.z(get2DDisplayReactionVertical(r)).toFixed(4)), Number(twoD.rot(get2DDisplayMoment(r)).toFixed(4)),
     ]);
   }
 
   const totals = r2d!.reactions.reduce(
-    (acc, r) => ({ rx: acc.rx + r.rx, rz: acc.rz + get2DDisplayReactionVertical(r), my: acc.my + get2DDisplayMoment(r) }),
+    (acc, r) => ({ rx: acc.rx + twoD.x(r.rx), rz: acc.rz + twoD.z(get2DDisplayReactionVertical(r)), my: acc.my + twoD.rot(get2DDisplayMoment(r)) }),
     { rx: 0, rz: 0, my: 0 }
   );
   data.push([]);
@@ -585,7 +593,7 @@ export function combinationPeakRows(): Array<[string, number, number, number, nu
   } else {
     rows = [...resultsStore.perCombo].map(([id, r]) => [id, peaks2D(r)]);
   }
-  const comboName = new Map(modelStore.model.combinations.map((c) => [c.id, c.name]));
+  const comboName = new Map(modelStore.model.combinations.map((c) => [c.id, combinationNameShown(c)]));
   for (const [id, p] of rows) {
     data.push([
       comboName.get(id) ?? String(id),

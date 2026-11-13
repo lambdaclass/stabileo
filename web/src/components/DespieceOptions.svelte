@@ -6,6 +6,7 @@
    */
   import { t } from '../lib/i18n';
   import { uiStore, resultsStore } from '../lib/store';
+  import { relabelComponents } from '../lib/axes/user-names';
 
   type Seg<T extends string> = Array<{ id: T; key: string; hint?: string }>;
   const PIECES: Seg<'members' | 'nodes' | 'all'> = [
@@ -44,7 +45,7 @@
       <div class="dp-seg" role="group" aria-label={t('despiece.components')}>
         {#each BASES as o (o.id)}
           <button type="button" class:on={uiStore.despieceBasis === o.id} aria-pressed={uiStore.despieceBasis === o.id}
-            title={o.hint ? t(o.hint) : undefined} onclick={() => (uiStore.despieceBasis = o.id)}>{t(o.key)}</button>
+            title={o.hint ? relabelComponents(t(o.hint)) : undefined} onclick={() => (uiStore.despieceBasis = o.id)}>{relabelComponents(t(o.key))}</button>
         {/each}
       </div>
     </div>

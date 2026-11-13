@@ -2,6 +2,7 @@
  * The influence-line tool: what a click on the structure computes, moving the section, changing
  * the quantity or the unit load's direction with a line on screen.
  */
+import { relabelComponents } from '../axes/user-names';
 import { modelStore, resultsStore, uiStore } from '../store';
 import type { InfluenceDirection, InfluenceLineResult, InfluenceQuantity } from '../store/model.svelte';
 import { influenceTool } from '../store/influence-tool.svelte';
@@ -77,7 +78,7 @@ export function pickInfluenceTarget(world: { x: number; y: number }, nodeId: num
   else if (family === 'displacement' && elemId !== undefined) runInfluence(q, undefined, elemId, sectionOn(elemId));
   else if (nodeId !== undefined) runInfluence(reactionAt(nodeId), nodeId, undefined, 0.5);
   else if (elemId !== undefined) runInfluence('M', undefined, elemId, sectionOn(elemId));
-  else uiStore.toast(t('viewport.ilClickHint'), 'info');
+  else uiStore.toast(relabelComponents(t('viewport.ilClickHint')), 'info');
 }
 
 function reactionAt(nodeId: number): 'Rz' | 'Rx' | 'My' {
@@ -108,7 +109,7 @@ export function setInfluenceQuantity(q: InfluenceQuantity): void {
   if (family === 'reaction' && il.targetNodeId !== undefined) runInfluence(q, il.targetNodeId, undefined, 0.5, true);
   else if (family !== 'reaction' && il.targetElementId !== undefined) runInfluence(q, undefined, il.targetElementId, il.targetPosition ?? 0.5, true);
   else if (family === 'displacement' && il.targetNodeId !== undefined) runInfluence(q, il.targetNodeId, undefined, 0.5, true);
-  else { resultsStore.setInfluenceLine(null); uiStore.toast(t('viewport.ilClickHint'), 'info'); }
+  else { resultsStore.setInfluenceLine(null); uiStore.toast(relabelComponents(t('viewport.ilClickHint')), 'info'); }
 }
 
 /**

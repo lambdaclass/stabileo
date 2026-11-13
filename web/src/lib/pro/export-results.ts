@@ -8,12 +8,17 @@
  * An export that needs results solves first, with PRO's own solve (`runGlobalSolve`), the one
  * Calcular runs, so floor loads kept as definitions are rewritten as they are for the screen.
  */
+import { axesStore } from '../axes/axes.svelte';
+import { caseNameIn, caseNameShown, combinationNameIn, combinationNameShown } from '../axes/case-names';
+import type { AxesFrame } from '../axes/frame';
 import { modelStore, resultsStore } from '../store';
 import { t } from '../i18n';
 import { runGlobalSolve } from '../engine/live-calc';
 import { resultSetName } from '../export/figure';
 import { magnitudeLabel } from '../engine/result-scopes';
 import type { AnalysisResults3D } from '../engine/types-3d';
+
+const named = <T>(c: T | undefined, name: (c: T) => string): string | undefined => (c ? name(c) : undefined);
 
 /** A result set an export can be made of: `screen`, `case:3`, `combo:2` or `envelope`. */
 export type ResultSetKey = string;
@@ -35,29 +40,29 @@ const tagged = (label: string, r: AnalysisResults3D | null | undefined) => { con
 export function resultSetChoices(): ResultSetChoice[] {
   const out: ResultSetChoice[] = [{ key: 'screen', label: tagged(`${t('proExport.resultsScreen')} (${resultSetName()})`, resultsStore.results3D) }];
   for (const c of modelStore.model.loadCases) {
-    if (resultsStore.perCase3D.has(c.id)) out.push({ key: `case:${c.id}`, label: `${t('proExport.resultsCase')} ${c.name}` });
+    if (resultsStore.perCase3D.has(c.id)) out.push({ key: `case:${c.id}`, label: `${t('proExport.resultsCase')} ${caseNameShown(c)}` });
   }
   for (const c of modelStore.combinations) {
-    if (resultsStore.perCombo3D.has(c.id)) out.push({ key: `combo:${c.id}`, label: tagged(`${t('proExport.resultsCombo')} ${c.name}`, resultsStore.perCombo3D.get(c.id)) });
+    if (resultsStore.perCombo3D.has(c.id)) out.push({ key: `combo:${c.id}`, label: tagged(`${t('proExport.resultsCombo')} ${combinationNameShown(c)}`, resultsStore.perCombo3D.get(c.id)) });
   }
   if (resultsStore.envelope3D) out.push({ key: 'envelope', label: t('tables.mode.envelope') });
   return out;
 }
 
 /** The results of a set and the name a heading gives them; the screen's when the set is gone. */
-export function resultSet(key: ResultSetKey): { results: AnalysisResults3D | null; name: string } {
+export function resultSet(key: ResultSetKey, f: AxesFrame = axesStore.frame): { results: AnalysisResults3D | null; name: string } {
   const [kind, id] = key.split(':');
   const n = Number(id);
   if (kind === 'case' && resultsStore.perCase3D.has(n)) {
-    return { results: resultsStore.perCase3D.get(n)!, name: modelStore.model.loadCases.find((c) => c.id === n)?.name ?? `${t('pro.caseN')}${n}` };
+    return { results: resultsStore.perCase3D.get(n)!, name: named(modelStore.model.loadCases.find((c) => c.id === n), (c) => caseNameIn(f, c)) ?? `${t('pro.caseN')}${n}` };
   }
   if (kind === 'combo' && resultsStore.perCombo3D.has(n)) {
-    return { results: resultsStore.perCombo3D.get(n)!, name: modelStore.combinations.find((c) => c.id === n)?.name ?? `${t('pro.comboN')}${n}` };
+    return { results: resultsStore.perCombo3D.get(n)!, name: named(modelStore.combinations.find((c) => c.id === n), (c) => combinationNameIn(f, c)) ?? `${t('pro.comboN')}${n}` };
   }
   if (kind === 'envelope' && resultsStore.envelope3D) {
     return { results: resultsStore.envelope3D.maxAbsResults3D, name: t('tables.mode.envelope') };
   }
-  return { results: resultsStore.results3D, name: resultSetName() };
+  return { results: resultsStore.results3D, name: resultSetName(f) };
 }
 
 export function hasResultSet(key: ResultSetKey): boolean {

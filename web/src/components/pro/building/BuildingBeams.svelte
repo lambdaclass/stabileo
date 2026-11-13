@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { planNamesIn } from '../../../lib/axes/typed-frame';
   /**
    * Beams, in one place: their typology (drawn), a section along X and one along Y, how they sit
    * (aligned to a face of the axis, an eccentricity), and the two ways to place them: along the
@@ -81,12 +82,12 @@
 <section class="pk-card" data-testid="building-beams">
   <TypologyPicker kind="beam" bind:value={typology} testid="building-beam-typology" />
   <div class="bk-row">
-    <label class="bk-check"><input type="checkbox" bind:checked={wantX} /> {t('grid.beamsX')}</label>
+    <label class="bk-check"><input type="checkbox" bind:checked={wantX} /> {planNamesIn(t('grid.beamsX'))}</label>
     <select bind:value={sectionX} disabled={!wantX} data-testid="building-beam-section-x">{#each fitting as s (s.id)}<option value={s.id}>{s.name}</option>{/each}</select>
     <NewSectionButton disabled={!wantX} onAdded={(id) => (sectionX = id)} />
   </div>
   <div class="bk-row">
-    <label class="bk-check"><input type="checkbox" bind:checked={wantY} /> {t('grid.beamsY')}</label>
+    <label class="bk-check"><input type="checkbox" bind:checked={wantY} /> {planNamesIn(t('grid.beamsY'))}</label>
     <select bind:value={sectionY} disabled={!wantY} data-testid="building-beam-section-y">{#each fitting as s (s.id)}<option value={s.id}>{s.name}</option>{/each}</select>
     <NewSectionButton disabled={!wantY} onAdded={(id) => (sectionY = id)} />
   </div>

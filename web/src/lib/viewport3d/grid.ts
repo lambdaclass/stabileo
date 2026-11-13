@@ -5,6 +5,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { disposeObject } from '../three/selection-helpers';
 import { setPlaneOffset, type WorkingPlane3D } from '../geometry/coordinate-system';
+import { along } from '../axes/display';
 
 /**
  * How the grid is laid out for a given zoom: its pitches, size and where it sits.
@@ -173,12 +174,15 @@ export function updateGrid(
 /**
  * Create a group with fat XYZ axis lines (red, green, blue).
  */
+const userAxisKey = (k: 0 | 1 | 2) => along(k).name.toLowerCase() as 'x' | 'y' | 'z';
+const LABEL_COLORS = { x: '#ff4444', y: '#44ff44', z: '#4488ff' } as const;
+
 export function createFatAxes(fatLineResolution: THREE.Vector2): THREE.Group {
   const group = new THREE.Group();
   const axes = [
-    { positions: [0, 0, 0, 3, 0, 0], color: AXIS_COLORS.x }, // X = red
-    { positions: [0, 0, 0, 0, 3, 0], color: AXIS_COLORS.y }, // Y = green
-    { positions: [0, 0, 0, 0, 0, 3], color: AXIS_COLORS.z }, // Z = blue
+    { positions: [0, 0, 0, 3, 0, 0], color: AXIS_COLORS[userAxisKey(0)] },
+    { positions: [0, 0, 0, 0, 3, 0], color: AXIS_COLORS[userAxisKey(1)] },
+    { positions: [0, 0, 0, 0, 0, 3], color: AXIS_COLORS[userAxisKey(2)] },
   ];
   for (const a of axes) {
     const geo = new LineGeometry();
@@ -205,10 +209,14 @@ export function createFatAxes(fatLineResolution: THREE.Vector2): THREE.Group {
  */
 export function addAxisLabels(scene: THREE.Scene): THREE.Sprite[] {
   const sprites: THREE.Sprite[] = [];
+  const label = (k: 0 | 1 | 2, pos: THREE.Vector3) => {
+    const a = along(k);
+    return { text: `${a.sign < 0 ? '−' : ''}${a.name}`, color: LABEL_COLORS[userAxisKey(k)], pos };
+  };
   const labels = [
-    { text: 'X', color: '#ff4444', pos: new THREE.Vector3(3.4, 0, 0) },
-    { text: 'Y', color: '#44ff44', pos: new THREE.Vector3(0, 3.4, 0) },
-    { text: 'Z', color: '#4488ff', pos: new THREE.Vector3(0, 0, 3.4) },
+    label(0, new THREE.Vector3(3.4, 0, 0)),
+    label(1, new THREE.Vector3(0, 3.4, 0)),
+    label(2, new THREE.Vector3(0, 0, 3.4)),
   ];
   for (const { text, color, pos } of labels) {
     const canvas = document.createElement('canvas');
@@ -216,7 +224,7 @@ export function addAxisLabels(scene: THREE.Scene): THREE.Sprite[] {
     canvas.height = 64;
     const ctx = canvas.getContext('2d')!;
     ctx.fillStyle = color;
-    ctx.font = 'bold 48px sans-serif';
+    ctx.font = text.length > 1 ? 'bold 36px sans-serif' : 'bold 48px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, 32, 32);

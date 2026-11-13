@@ -135,7 +135,6 @@ web/src/components/research/pastrana2026/FormPage.svelte: <p>{s.formPositionErro
 web/src/components/research/pastrana2026/FormPage.svelte: {s.formForceError}: <Sci value={Math.max(...validation.checks.filter(c => c.metric.startsWith('jax_fdm tension')).map(c => c.observed))} /> kN.</p>
 web/src/lib/cad/draft.ts: if (/replicated across all/i.test(line)) return true;
 web/src/lib/engine/model-sanity.ts: if (typeof v === 'number' && /node/i.test(key)) out.push(v);
-web/src/lib/excel-import/parse.ts: return ['si', 'sí', 'yes', 'y', 'true', 'verdadero', 'x', '1'].includes(v.trim().toLowerCase());
 web/src/lib/excel-import/parse.ts: const wantsNode = type.startsWith('nodal');
 web/src/lib/export/containment.ts: return [...html.matchAll(WARNING_SECTION)].flatMap(([section]) => [...section.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)].map(m => unescape(m[1]!)));
 web/src/lib/export/containment.ts: const body = /<body\b[^>]*>/i.exec(html);

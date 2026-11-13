@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { along, axisName, twoD } from './lib/axes/display';
   import { provideEditorActivity } from './lib/utils/editor-activity';
   // First: every dictionary entry, before anything here renders (the store starts with the public
   // pages' entries only; Root.svelte loads this component on the first app route).
@@ -325,6 +326,7 @@
   import StressPickHint from './components/stress/StressPickHint.svelte';
   import ColourScaleLegend from './components/ColourScaleLegend.svelte';
   import SwitchTo2DDialog from './components/SwitchTo2DDialog.svelte';
+  import AxesPicker from './components/axes/AxesPicker.svelte';
   import RecheckNotice from './components/RecheckNotice.svelte';
   import WorkspaceSaveNotice from './components/WorkspaceSaveNotice.svelte';
   import { prepareExportProvenance, pngWithProvenance } from './lib/export/provenance-attach';
@@ -773,12 +775,17 @@
   }
 
 
+  const pasteAxes = $derived(uiStore.is3DWorkspace ? [axisName(0), axisName(1)] : [twoD.horizontal, twoD.vertical]);
+  function pastedPoint(a: number, b: number): [number, number] {
+    return uiStore.is3DWorkspace ? [along(0).sign * a + 0, along(1).sign * b + 0] : [twoD.fromX(a) + 0, twoD.fromZ(b) + 0];
+  }
+
   function handleImportCoordinates() {
     const lines = importText.trim().split('\n').filter(l => l.trim());
     const points: Array<[number, number]> = [];
     for (const line of lines) {
       const parts = line.trim().split(/[,;\t\s]+/).map(Number);
-      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) points.push([parts[0], parts[1]]);
+      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) points.push(pastedPoint(parts[0], parts[1]));
     }
     // One undo step for the whole import — none when every point is a node already there — and
     // each point welds to a node already at its coordinates: a wireframe listing repeats shared
@@ -2350,6 +2357,7 @@
   viewport-scoped act.
 -->
 <SwitchTo2DDialog bind:open={uiStore.switchTo2DPrompt} />
+<AxesPicker />
 
 <!--
   The re-check notice for a project last solved with an older version, and the banner that keeps
@@ -2409,7 +2417,7 @@
         <button class="help-close" onclick={() => showImportDialog = false}>✕</button>
       </div>
       <p style="font-size: 0.85rem; color: #aaa; margin: 0.5rem 0">
-        {t('app.importCoordDesc')}
+        {t('app.importCoordDesc').replace('X,Y', pasteAxes.join(','))}
       </p>
       <textarea
         class="import-textarea"

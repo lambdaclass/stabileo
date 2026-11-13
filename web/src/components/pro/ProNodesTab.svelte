@@ -7,7 +7,8 @@
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import { drawState } from '../../lib/store/draw-state.svelte';
-  import { TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
+  import { axesKey } from '../../lib/axes/display';
+  import { nodeMoveArgs3D, nodeShown3D, standingPlane } from '../../lib/axes/node-coords';
   import { findCoincidentNode } from '../../lib/engine/mesh-weld';
   import { addNodeRow } from '../../lib/actions/node-rows';
   import { mergeNodesInto } from '../../lib/model/edit/cleanup';
@@ -46,17 +47,15 @@
   $effect(() => {
     const storeNodes = [...modelStore.nodes.values()];
     const unsavedRows = rows.filter(r => r.id === null);
-    const signature = uiStore.unitSystem + '#' + storeNodes.map(n => `${n.id}:${n.x}:${n.y}:${n.z ?? 0}:${n.name ?? ''}`).join('|');
+    const plane = standingPlane();
+    const signature = uiStore.unitSystem + '#' + axesKey() + '#' + plane + '#' + storeNodes.map(n => `${n.id}:${n.x}:${n.y}:${n.z ?? 0}:${n.name ?? ''}`).join('|');
     if (signature !== synced) {
       synced = signature;
       rows = [
-        ...storeNodes.map(n => ({
-          id: n.id,
-          x: shown(n.x),
-          y: shown(n.y),
-          z: shown(n.z ?? 0),
-          name: n.name ?? '',
-        })),
+        ...storeNodes.map(n => {
+          const [ux, uy, uz] = nodeShown3D(n, plane);
+          return { id: n.id, x: shown(ux), y: shown(uy), z: shown(uz), name: n.name ?? '' };
+        }),
         ...unsavedRows,
       ];
     }
@@ -71,10 +70,11 @@
   function commitRow(idx: number) {
     const row = rows[idx];
     if (!row) return;
-    const x = parseNumber(row.x);
-    const y = parseNumber(row.y);
-    const z = row.z.trim() === '' ? 0 : parseNumber(row.z);
-    if (x === null || y === null || z === null) return;
+    const ux = parseNumber(row.x);
+    const uy = parseNumber(row.y);
+    const uz = row.z.trim() === '' ? 0 : parseNumber(row.z);
+    if (ux === null || uy === null || uz === null) return;
+    const [x, y, z] = nodeMoveArgs3D([ux, uy, uz]);
 
     if (row.id === null) {
       // New node — or the one already at these coordinates, whose name stays (`addNodeRow`).
@@ -85,7 +85,8 @@
       // cells show it, so a value that only went through the unit conversion is not a move.
       const id = row.id;
       const n = modelStore.nodes.get(id);
-      if (n && row.x === shown(n.x) && row.y === shown(n.y) && row.z === shown(n.z ?? 0)) return;
+      const was = n ? nodeShown3D(n) : null;
+      if (was && row.x === shown(was[0]) && row.y === shown(was[1]) && row.z === shown(was[2])) return;
       if (n && n.x === x && n.y === y && (n.z ?? 0) === z) return;
       // `updateNode` pushes no undo of its own — its callers are expected to — so without the
       // batch this edit could not be undone. Moved onto another node, it becomes that node: left
@@ -160,7 +161,7 @@
         pasteError = t('pro.pasteInvalidNum').replace('{n}', String(i + 1));
         return;
       }
-      points.push([x, y, z]);
+      points.push(nodeMoveArgs3D([x, y, z]));
     }
 
     // The effect reads the canonical coordinates of reused nodes, once per id. One undo step,
@@ -217,7 +218,8 @@
     wError = null;
     // Welded, as the table's rows and the paste are: the coordinates of an existing node
     // select it rather than stacking a twin that looks joined and analyses as a cut.
-    const id = modelStore.addNodeWelded(wX ?? 0, wY ?? 0, wZ ?? 0);
+    const [x, y, z] = nodeMoveArgs3D([wX ?? 0, wY ?? 0, wZ ?? 0]);
+    const id = modelStore.addNodeWelded(x, y, z);
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreated').replace('{id}', String(id)), 'success');
     wX = null; wY = null; wZ = null;
@@ -266,7 +268,7 @@
           <th class="col-id">ID</th>
           <th class="col-name">{t('pro.thName')}</th>
           <th class="col-coord">X ({unitQ('length')})</th>
-          <th class="col-coord">{uiStore.is3DWorkspace ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} ({unitQ('length')})</th>
+          <th class="col-coord">Y ({unitQ('length')})</th>
           <th class="col-coord">Z ({unitQ('length')})</th>
           <th class="col-actions"></th>
         </tr>

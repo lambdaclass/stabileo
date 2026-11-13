@@ -13,6 +13,9 @@ import { currentRevision } from '../model/project-info';
 import { modelSheets, type WorkbookModel } from './workbook-model';
 import { resultSheetParts, type ResultSheetsInput } from './workbook-results';
 import { materialize, safeText, type WorkbookPart, type WorkbookSheet } from './workbook-cells';
+import type { AxesChoice } from '../axes/frame';
+import { axesStatement } from '../axes/statement';
+import { workbookFrame } from './workbook-frame';
 
 export interface ProjectWorkbookInput {
   model: WorkbookModel;
@@ -32,6 +35,8 @@ export interface ProjectWorkbookInput {
   include?: { model?: boolean; results?: boolean; sheets?: ReadonlySet<string> };
   /** Further sheets, appended as they are (a report's verification, its story drift). */
   extra?: readonly WorkbookSheet[];
+  /** The user's axes: global coordinates, loads, supports and results are written in them, and an Axes sheet says which. */
+  axes?: AxesChoice | null;
 }
 
 function coverSheet(input: ProjectWorkbookInput): WorkbookSheet {
@@ -72,8 +77,10 @@ const CONVENTIONS = [
   'stresses', 'shells', 'shellFaces', 'shellNodes', 'envelope', 'maxima', 'statics', 'secondOrder', 'oneWay', 'cables', 'model', 'specifications', 'text', 'precision',
 ] as const;
 
-function conventionsSheet(tr: (key: string) => string): WorkbookSheet {
-  return { name: 'Conventions', rows: [['topic', 'convention'], ...CONVENTIONS.map((k) => [k, safeText(tr(`wb.conv.${k}`))])] };
+function conventionsSheet(tr: (key: string) => string, axes?: AxesChoice | null): WorkbookSheet {
+  const user = workbookFrame(axes);
+  const text = (k: string) => (k === 'axes' && user ? axesStatement(tr, user.choice) : tr(`wb.conv.${k}`));
+  return { name: 'Conventions', rows: [['topic', 'convention'], ...CONVENTIONS.map((k) => [k, safeText(text(k))])] };
 }
 
 /** Every sheet of the workbook, in order, the large result sheets streamed (`StreamedSheet`). */
@@ -82,10 +89,10 @@ export function projectWorkbookParts(input: ProjectWorkbookInput): WorkbookPart[
   const only = input.include?.sheets;
   const want = (name: string) => !only || only.has(name);
   return [
-    coverSheet(input), conventionsSheet(input.tr),
+    coverSheet(input), conventionsSheet(input.tr, input.axes),
     ...(warnings.length ? [{ name: 'Warnings', rows: warnings.map(message => [safeText(message)]) }] : []),
-    ...(input.include?.model === false ? [] : modelSheets(input.model, input.solved, want)),
-    ...(input.include?.results === false ? [] : resultSheetParts(input.results, want)),
+    ...(input.include?.model === false ? [] : modelSheets(input.model, input.solved, want, input.axes)),
+    ...(input.include?.results === false ? [] : resultSheetParts({ ...input.results, axes: input.results.axes ?? input.axes }, want)),
     ...(input.extra ?? []).filter((s) => want(s.name)),
   ];
 }

@@ -22,7 +22,8 @@ export function staticClassificationBlocks(input: SolverInput): Block[] {
 }
 
 /** The structure with every degree of freedom drawn and numbered as the wizard numbers them. */
-export function dofSketch(input: SolverInput, dofs: Array<{ nodeId: number; localDof: number; globalIndex: number; isFree: boolean }>, dofsPerNode: number): Sketch {
+/** `signs`: where each DOF's positive sense points, against the default frame's (the user's axes). */
+export function dofSketch(input: SolverInput, dofs: Array<{ nodeId: number; localDof: number; globalIndex: number; isFree: boolean }>, dofsPerNode: number, signs: readonly number[] = [1, 1, 1]): Sketch {
   const pm = planeModel(input);
   const s = sketchOf(pm);
   s.dofs = dofs.map((d) => ({
@@ -30,6 +31,7 @@ export function dofSketch(input: SolverInput, dofs: Array<{ nodeId: number; loca
     kind: (dofsPerNode === 2 ? ['ux', 'uz'][d.localDof] : ['ux', 'uz', 'ry'][d.localDof]) as 'ux' | 'uz' | 'ry',
     label: String(d.globalIndex + 1),
     color: d.isFree ? 'dof' : 'muted',
+    ...(signs[d.localDof] === -1 ? { sign: -1 as const } : {}),
   }));
   return s;
 }

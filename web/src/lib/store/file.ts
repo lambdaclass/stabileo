@@ -29,7 +29,12 @@ import {
   get2DDisplayMoment,
   get2DDisplayReactionVertical,
   get2DDisplayRotation,
+  TWO_D_DISPLACEMENT_LABELS,
+  TWO_D_REACTION_LABELS,
 } from '../geometry/coordinate-system';
+import { twoD, userRot, userVec } from '../axes/display';
+import { axesStore } from '../axes/axes.svelte';
+import { axesStatement } from '../axes/statement';
 
 // ─── File Format ────────────────────────────────────────────────
 
@@ -754,6 +759,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
   // Which build produced these numbers from which model and settings (`provenance/result-provenance.ts`).
   // The status row comes first and says STALE when the results predate registered changes.
   for (const [k, v] of provenanceTextLines(record ?? currentResultProvenance(), provenanceLabels())) lines.push(`# ${k}: ${v}`);
+  if (!axesStore.frame.identity) lines.push(`# ${axesStatement(t, axesStore.choice)}`);
   lines.push('');
   if (!r3d && !r2d) {
     lines.push(`# ${t('excel.solveFailed')}`);
@@ -767,7 +773,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
     lines.push(`# ${t('file.displacements')}`);
     lines.push(`${t('file.node')},ux (m),uy (m),uz (m),rx (rad),ry (rad),rz (rad)`);
     for (const d of r3d.displacements) {
-      lines.push(`${d.nodeId},${d.ux},${d.uy},${d.uz},${d.rx},${d.ry},${d.rz}`);
+      lines.push([d.nodeId, ...userVec(d.ux, d.uy, d.uz), ...userRot(d.rx, d.ry, d.rz)].join(','));
     }
     lines.push('');
 
@@ -775,7 +781,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
     lines.push(`# ${t('file.reactions')}`);
     lines.push(`${t('file.node')},Fx (kN),Fy (kN),Fz (kN),Mx (kN·m),My (kN·m),Mz (kN·m)`);
     for (const r of r3d.reactions) {
-      lines.push(`${r.nodeId},${r.fx},${r.fy},${r.fz},${r.mx},${r.my},${r.mz}`);
+      lines.push([r.nodeId, ...userVec(r.fx, r.fy, r.fz), ...userRot(r.mx, r.my, r.mz)].join(','));
     }
     lines.push('');
 
@@ -788,17 +794,17 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
   } else if (r2d) {
     // 2D Displacements
     lines.push(`# ${t('file.displacements')}`);
-    lines.push(`${t('file.node')},ux (m),uz (m),ry (rad)`);
+    lines.push(`${t('file.node')},${TWO_D_DISPLACEMENT_LABELS.horizontal} (m),${TWO_D_DISPLACEMENT_LABELS.vertical} (m),r${twoD.normal.toLowerCase()} (rad)`);
     for (const d of r2d.displacements) {
-      lines.push(`${d.nodeId},${d.ux},${get2DDisplayDisplacementVertical(d)},${get2DDisplayRotation(d)}`);
+      lines.push(`${d.nodeId},${twoD.x(d.ux)},${twoD.z(get2DDisplayDisplacementVertical(d))},${twoD.rot(get2DDisplayRotation(d))}`);
     }
     lines.push('');
 
     // 2D Reactions
     lines.push(`# ${t('file.reactions')}`);
-    lines.push(`${t('file.node')},Rx (kN),Rz (kN),My (kN·m)`);
+    lines.push(`${t('file.node')},${TWO_D_REACTION_LABELS.horizontal} (kN),${TWO_D_REACTION_LABELS.vertical} (kN),${TWO_D_REACTION_LABELS.moment} (kN·m)`);
     for (const r of r2d.reactions) {
-      lines.push(`${r.nodeId},${r.rx},${get2DDisplayReactionVertical(r)},${get2DDisplayMoment(r)}`);
+      lines.push(`${r.nodeId},${twoD.x(r.rx)},${twoD.z(get2DDisplayReactionVertical(r))},${twoD.rot(get2DDisplayMoment(r))}`);
     }
     lines.push('');
 
