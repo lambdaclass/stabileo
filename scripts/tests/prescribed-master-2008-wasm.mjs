@@ -63,13 +63,33 @@ for (const dim of [2,3]) for (const rotation of [false,true]) for (const motion 
       else assert.throws(() => engine[`${entry}_${dim}d`](JSON.stringify(wrapper)),/prescribed support displacements/);
     } catch (e) { failures.push(`time ${dim} ${motion}: ${e}`); }
   }
-  c.model.elements[3]={...c.model.elements[2],id:3,type:'cable'};
-  try {
-    const wrapper={solver:c.model,densities:{},maxIter:50,tolerance:1e-10};
-    if (motion === 0) JSON.parse(engine[`solve_cable_${dim}d`](JSON.stringify(wrapper),50,1e-10));
-    else assert.throws(() => engine[`solve_cable_${dim}d`](JSON.stringify(wrapper),50,1e-10),/prescribed support displacements/);
-  } catch (e) { failures.push(`cable ${dim} ${motion}: ${e}`); }
+}
+let cableRefusals = 0;
+let cableZeroControls = 0;
+for (const dim of [2,3]) for (const rotation of [false,true]) {
+  const fields = dim === 2 ? ['dx','dz','dry'] : ['dx','dy','dz','drx','dry','drz'];
+  const model = structuredClone(cases.find(c => c.dim===dim && c.rotation===rotation && c.fillers===1).model);
+  for (const support of Object.values(model.supports)) for (const field of fields) delete support[field];
+  model.elements[3]={...model.elements[2],id:3,type:'cable'};
+  model.loads[0].data.fx = 1;
+  const run = solver => JSON.parse(engine[`solve_cable_${dim}d`](JSON.stringify({solver,densities:{},maxIter:50,tolerance:1e-10}),50,1e-10));
+  const absent = run(model);
+  if (dim === 3) assert.equal(absent.converged,true);
+  assert.ok((absent.results ?? absent).displacements.some(d => d.ux !== 0));
+  for (const field of fields) for (const motion of [-0.0013,-1e-16,-Number.MIN_VALUE,-0,0,Number.MIN_VALUE,1e-16,0.0013]) {
+    const solver = structuredClone(model);
+    solver.supports[2][field] = motion;
+    try {
+      if (motion === 0) {
+        assert.deepEqual(run(solver),absent);
+        cableZeroControls++;
+      } else {
+        assert.throws(() => run(solver),/prescribed support displacements/);
+        cableRefusals++;
+      }
+    } catch (e) { failures.push(`cable ${dim}D ${field} motion=${motion} rotation=${rotation}: ${e}`); }
+  }
 }
 if (process.env.REPLAY_2008) writeFileSync(`${process.env.REPLAY_2008}/wasm.json`,JSON.stringify({replay,failures}));
 assert.deepEqual(failures,[]);
-console.log(`Prescribed master motion: ${replay.length} WASM results checked`);
+console.log(`Prescribed master motion: ${replay.length} WASM results, ${cableRefusals} cable refusals and ${cableZeroControls} cable zero controls checked`);

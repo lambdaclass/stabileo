@@ -260,30 +260,12 @@ fn unsupported_motion_is_refused() {
                     else if !result.as_ref().is_err_and(|e| e.contains("prescribed support displacements")) { failures.push(format!("time history {entry} {method} {dim}D motion {motion}: {result:?}")); }
                 }
             }
-            case["model"]["elements"]["3"] = case["model"]["elements"]["2"].clone();
-            case["model"]["elements"]["3"]["id"] = json!(3);
-            case["model"]["elements"]["3"]["type"] = json!("cable");
-            case["model"]["loads"][0]["data"]["fx"] = json!(1.0);
-            for pretensioned in [false,true] {
-                let result = if dim == 2 {
-                    let input: SolverInput = serde_json::from_value(case["model"].clone()).unwrap();
-                    if pretensioned { solver::cable::solve_cable_2d_pretensioned(&input,&Default::default(),&Default::default(),50,1e-10) }
-                    else { solver::cable::solve_cable_2d(&input,&Default::default(),50,1e-10) }.map(|r| r.converged)
-                } else {
-                    let input: SolverInput3D = serde_json::from_value(case["model"].clone()).unwrap();
-                    if pretensioned { solver::cable::solve_cable_3d_pretensioned(&input,&Default::default(),&Default::default(),50,1e-10) }
-                    else { solver::cable::solve_cable_3d(&input,&Default::default(),50,1e-10) }.map(|r| r.converged)
-                };
-                if motion == 0.0 { assert_eq!(result,Ok(true)); }
-                else if !result.as_ref().is_err_and(|e| e.contains("prescribed support displacements")) { failures.push(format!("cable {dim}D motion {motion}: {result:?}")); }
-            }
         }
     }
     assert!(failures.is_empty(),"{}",failures.join("\n"));
 }
 
 #[test]
-#[ignore = "known wrong result: #2009"]
 fn cable_refuses_each_support_dof() {
     let mut failures = Vec::new();
     for dim in [2,3] {
