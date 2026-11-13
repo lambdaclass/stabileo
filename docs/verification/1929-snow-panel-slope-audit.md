@@ -84,14 +84,15 @@ no tolerance or assertion has been relaxed to hide it.
 ## Unconservative main case: pitched lower roof at a low step
 
 The subsequent drift audit **does find a silently unconservative result on origin/main**.
-`web/src/lib/engine/loads/__tests__/snow-drift-audit.test.ts` is the retained, ignored reproducer.
+`web/src/lib/engine/loads/__tests__/snow-drift-audit.test.ts` is the retained reproducer, now active after the #2082 correction.
 The full main source snapshot at `b6f13f250` returns `READY`, with no blocked keys, and generates
-1.000000 kN/m² on the lower roof in every generated case. The integration generates
-0.769231 kN/m². Both claim that no drift is required at the modeled higher roof.
+1.000000 kN/m² on the lower roof in every generated case. Before #2082, the integration generated
+0.769231 kN/m². Both versions claimed that no drift is required at the modeled higher roof.
 The independent CIRSOC 104 §7.1 local balanced-plus-drift peak is **1.181700 kN/m²**.
 This supersedes any interpretation that the simple balanced-load comparisons establish safety.
-No advisory number or advisory file has been assigned here; integration work stops for the
-coordinator's advisory decision and review of the required drift repair.
+The coordinator subsequently assigned [SA-2026-065](../advisories/SA-2026-065-snow-drift-roof-step.md).
+The [#2082 correction](../results-changes/2026-11-snow-roof-step.md) on integration #2081
+uses each receiving roof's snow depth and local step geometry; review and release remain pending.
 
 The lower roof is a 6 m by 2 m smooth gable at 20°, with eaves at +3 m and a ridge at
 3 + tan(20°) m. A modeled flat 6 m by 2 m higher roof lies beside its x = 0 edge at
@@ -109,7 +110,7 @@ min(4 hd²/hc, 8 hc). The local peak is ps + γ hc = γ × 0.45 = 1.1817 kN/m².
 The quoted Figure 9 ordinate is the repository's recorded vector-path reading, not a new
 independent digitization; the peak only needs hd to exceed hc.
 
-The generator instead always gives the drift routine the **flat** reference 1.0:
+The old generator instead always gave the drift routine the **flat** reference 1.0:
 hb = 1/2.626, hc/hb = 0.1817 < 0.2, so it emits `snow.derivation.noDrift` and no surcharge.
 Main's 1.0 is below 1.1817; c003f0ae7 lowers the panel's balanced part without correcting
 this drift reference. The only main planner warning is `snow.note.notCoveredPanels`, whose
@@ -117,10 +118,10 @@ text excludes ice dams and drifts at projections **not** modeled as higher roofs
 not cover this explicitly modeled roof step. The derivation incorrectly tells the reader
 that §7.1 requires no drift. This is not an ASCE/Eurocode limitation or an unmerged-only defect.
 
-The live test fails on both the full main snapshot and the integration because it requires
-`snow.derivation.drift` rather than `snow.derivation.noDrift`. It is committed with Vitest's
-`it.skip` and the exact `known wrong result: #1929` marker pending the coordinator's decision.
-The fix has intentionally not been attempted at this advisory gate.
+The active test fails on the full main snapshot and the pre-fix integration because it requires
+`snow.derivation.drift` rather than `snow.derivation.noDrift`. The #2082 correction removes
+the ignore and checks the hand-derived peak through generated loads. It also covers the
+thresholds, mixed roofs, local height, rotation, several steps and sliding receivers.
 
 ### Unbalanced snow, valleys and drift are separate requirements
 
@@ -161,4 +162,4 @@ Run `make test.web.unit FILE=src/lib/engine/loads/__tests__/snow-slope-audit.tes
 Against main's snow generator, the actual-slope CIRSOC assertions fail; against
 c003f0ae7's parent, the same CIRSOC assertions fail while the uniform-slope other-code
 comparisons pass. The integration handoff records commands, counts and limitations.
-No new advisory is assigned by this write-up.
+The later SA-2026-065 records the coordinator-assigned advisory and source/tag boundary.

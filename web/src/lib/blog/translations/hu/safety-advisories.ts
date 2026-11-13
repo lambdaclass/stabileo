@@ -28,6 +28,8 @@ const body: PostBody = {
       "k": "note",
       "t": "SA-2026-063 – Javítva a #2009-es PR-ben, kiadásra vár."
     },
+    {"k": "note", "t": "SA-2026-065 — Helyi javítás a #2081-ben, felülvizsgálatra és kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-065-snow-drift-roof-step.md", "label": "SA-2026-065", "t": "Teljes biztonsági tájékoztató és ellenőrzési utasítások"},
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -427,7 +429,8 @@ const body: PostBody = {
           "A kényszeres fázisos és nemlineáris vizsgálatok elhagyták az előírt mestercsomópont-mozgást; a kábeles és időtörténeti vizsgálat most elutasítja a nem támogatott támaszmozgást. A korábbi általános dinamikai figyelmeztetések ezt a kihagyást külön nem jelezték.",
           "Magas",
           "Javítva a #2009-es PR-ben, kiadásra vár"
-        ]
+        ],
+        ["SA-2026-065", "A CIRSOC 104 kihagyhatta az előírt hótorlaszt a ferde alsó tető feletti szintlépcsőnél; a lecsúszó hó terhe hiányozhatott a ferde fogadó tetőről", "Magas", "Helyi javítás a #2081-ben, felülvizsgálatra és kiadásra vár"]
       ]
     },
     {

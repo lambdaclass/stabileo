@@ -37,13 +37,13 @@ a generated dead load, an unrelated pitched roof, a flat roof or members loaded 
 does not select this notice. Its tests also check that a new solve with stale generated
 loads keeps the regeneration notice until the loads themselves are regenerated.
 
-## Open drift defect: coordinator review required
+## Subsequent drift correction: SA-2026-065
 
-The subsequent audit reproduced an unconservative modeled roof-step case on the full main
-snapshot: generated lower-roof snow is 1.000000 kN/m², versus the independently required
-CIRSOC §7.1 local balanced-plus-drift peak of 1.181700 kN/m². This branch lowers the balanced
-part to 0.769231 kN/m² but still omits the drift, because the drift calculation keeps a flat
-snow-depth reference. Regeneration alone does not repair this defect. See the audit's
-unconservative-case section and retained ignored reproducer. Independently check drift at
-height steps before using these generated loads. No advisory has been created or numbered;
-work stops for coordinator review. This branch is not release-ready.
+The subsequent audit reproduced an unconservative modeled roof-step case on main:
+generated lower-roof snow was 1.000000 kN/m², versus a required local peak of
+1.181700 kN/m². The slope change alone lowered the balanced part to 0.769231 kN/m²
+but retained the flat snow-depth reference and still omitted drift. The separate
+[#2082 correction](2026-11-snow-roof-step.md) on integration #2081 supplies local
+roof geometry and snow depth. [SA-2026-065](../advisories/SA-2026-065-snow-drift-roof-step.md)
+records the affected releases and re-check instructions. Use the corrected version
+and regenerate snow before solving; the slope change alone is insufficient.

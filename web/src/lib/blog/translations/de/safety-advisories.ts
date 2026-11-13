@@ -28,6 +28,8 @@ const body: PostBody = {
       "k": "note",
       "t": "SA-2026-063 — In PR #2009 behoben, Veröffentlichung ausstehend."
     },
+    {"k": "note", "t": "SA-2026-065 — Lokale Korrektur in #2081, Prüfung und Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-065-snow-drift-roof-step.md", "label": "SA-2026-065", "t": "Vollständiger Sicherheitshinweis und Prüfanweisungen"},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -401,6 +403,7 @@ const body: PostBody = {
         ["SA-2026-060", "Die Bauphasenanalyse konnte reale Drehungen nach Einheitenwechseln oder an freigegebenen Enden mit Auflagerfedern ohne Warnung versteifen; Bauphasenmodelle mit Freigaben erneut prüfen", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         ["SA-2026-062", "Die rohe plastische 3D-Analyse konnte beim Scheitern des elastischen Anfangszustands ohne Warnung null melden; ältere zertifizierte Versionen behielten diesen Faktor. Main liefert bereits eine positive zertifizierte Schranke mit Warnung; PR #1943 gibt die anfängliche Ablehnung weiter", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         ["SA-2026-063", "Bauphasen- und nichtlineare Analysen mit Zwangsbedingungen verloren vorgegebene Masterbewegungen; Seil- und Zeitverlaufsanalysen lehnen nicht unterstützte Auflagerbewegungen nun ab. Bestehende allgemeine Dynamikwarnungen benannten diese Auslassung nicht", "Hoch", "In PR #2009 behoben, Veröffentlichung ausstehend"],
+        ["SA-2026-065", "CIRSOC 104 konnte erforderliche Verwehungen an Höhensprüngen über einem geneigten unteren Dach auslassen; abrutschender Schnee konnte das geneigte aufnehmende Dach verfehlen", "Hoch", "Lokale Korrektur in #2081, Prüfung und Veröffentlichung ausstehend"],
       ]
     },
     {

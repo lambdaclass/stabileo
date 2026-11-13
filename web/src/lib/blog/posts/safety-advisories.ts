@@ -35,6 +35,8 @@ export const safetyAdvisories: Post = {
         { k: 'note', t: 'SA-2026-058 — Corregido en PR #1922, pendiente de publicación.' },
         { k: 'note', t: "SA-2026-061 — Corregido en PR #1952, pendiente de publicación." },
         { k: 'note', t: "SA-2026-063 — Corregido en PR #2009, pendiente de publicación." },
+        { k: 'note', t: "SA-2026-065 — Corrección local en #2081, pendiente de revisión y publicación." },
+        { k: 'ext', href: "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-065-snow-drift-roof-step.md", label: "SA-2026-065", t: "Aviso completo e instrucciones de revisión" },
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -106,6 +108,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-060", "El análisis por etapas podía rigidizar giros reales sin aviso al cambiar unidades o en extremos articulados con resortes de apoyo; revisá los modelos por etapas con liberaciones", "Alta", "Borrador: corrección local pendiente de revisión y publicación"],
             ["SA-2026-062", "El colapso plástico 3D directo podía informar cero sin aviso al fallar el estado elástico inicial; las versiones certificadas antiguas conservaban ese factor. Main ya devuelve una cota certificada positiva con aviso; PR #1943 propaga el rechazo inicial", "Alta", "Borrador: corrección local pendiente de revisión y publicación"],
             ["SA-2026-063", "Los análisis por etapas y no lineales con restricciones perdían el movimiento impuesto del maestro; cables e historias de tiempo ahora rechazan movimientos de apoyo no admitidos. Los avisos dinámicos generales existentes no identificaban esta omisión", "Alta", "Corregido en PR #2009, pendiente de publicación"],
+            ["SA-2026-065", "CIRSOC 104 podía omitir acumulaciones exigidas junto a un desnivel sobre una cubierta inferior inclinada; la nieve deslizada podía no alcanzar la cubierta receptora inclinada", "Alta", "Corrección local en #2081, pendiente de revisión y publicación"],
           ],
         },
         {
@@ -296,6 +299,8 @@ export const safetyAdvisories: Post = {
         { k: 'note', t: 'SA-2026-058 — Fixed in PR #1922, pending release.' },
         { k: 'note', t: "SA-2026-061 — Fixed in PR #1952, pending release." },
         { k: 'note', t: "SA-2026-063 — Fixed in PR #2009, pending release." },
+        { k: 'note', t: "SA-2026-065 — Local correction in #2081, pending review and release." },
+        { k: 'ext', href: "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-065-snow-drift-roof-step.md", label: "SA-2026-065", t: "Full advisory and re-check instructions" },
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -367,6 +372,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-060", "Staged analysis could silently stiffen real rotations after unit changes or at released ends with support springs; re-check staged models with member releases", "High", "Draft: local fix awaiting review and release"],
             ["SA-2026-062", "Raw 3D plastic analysis could silently report zero when the initial elastic state failed; older certified builds retained that factor. Main already returns a positive certified bound with a warning; PR #1943 propagates the initial refusal", "High", "Draft: local fix awaiting review and release"],
             ["SA-2026-063", "Constrained staged and nonlinear analyses dropped prescribed master motion; cable and time history now refuse unsupported support motion. Existing general dynamic warnings remain distinct from this omission", "High", "Fixed in PR #2009, pending release"],
+            ["SA-2026-065", "CIRSOC 104 could omit required drift at a step over a pitched lower roof; sliding snow could miss a pitched receiving roof", "High", "Local correction in #2081, pending review and release"],
           ],
         },
         {
@@ -557,6 +563,8 @@ export const safetyAdvisories: Post = {
         { k: 'note', t: 'SA-2026-058 — Corrigido no PR #1922, aguardando publicação.' },
         { k: 'note', t: "SA-2026-061 — Corrigido no PR #1952, aguardando publicação." },
         { k: 'note', t: "SA-2026-063 — Corrigido no PR #2009, aguardando lançamento." },
+        { k: 'note', t: "SA-2026-065 — Correção local em #2081, aguardando revisão e lançamento." },
+        { k: 'ext', href: "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-065-snow-drift-roof-step.md", label: "SA-2026-065", t: "Aviso completo e instruções de revisão" },
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -628,6 +636,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-060", "A análise por etapas podia enrijecer rotações reais sem aviso após mudanças de unidades ou em extremidades articuladas com molas de apoio; revise os modelos por etapas com liberações", "Alta", "Rascunho: correção local aguardando revisão e lançamento"],
             ["SA-2026-062", "O colapso plástico 3D direto podia informar zero sem aviso ao falhar o estado elástico inicial; versões certificadas antigas mantinham esse fator. Main já retorna um limite certificado positivo com aviso; o PR #1943 propaga a recusa inicial", "Alta", "Rascunho: correção local aguardando revisão e lançamento"],
             ["SA-2026-063", "Análises por etapas e não lineares com restrições perdiam o movimento prescrito do mestre; cabos e históricos no tempo agora recusam movimentos de apoio não implementados. Os avisos dinâmicos gerais existentes não identificavam esta omissão", "Alta", "Corrigido no PR #2009, aguardando lançamento"],
+            ["SA-2026-065", "CIRSOC 104 podia omitir acumulações exigidas junto a um desnível sobre uma cobertura inferior inclinada; a neve deslizada podia não atingir a cobertura receptora inclinada", "Alta", "Correção local em #2081, aguardando revisão e lançamento"],
           ],
         },
         {
