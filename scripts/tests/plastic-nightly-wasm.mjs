@@ -16,22 +16,18 @@ rekeyedPlane.elements = Object.fromEntries(Object.values(plane.elements).map(ele
 const forces = (result) => result.elementForces.toSorted((a, b) => a.elementId - b.elementId);
 const cases = {
   fuzz() {
-    const output = JSON.parse(solve_plastic_3d(JSON.stringify(input)));
-    assert.ok(Number.isFinite(output.collapseFactor));
-    assert.ok(output.collapseFactor > 0);
-    assert.equal(output.isMechanism, true);
-    assert.ok(output.warnings.some(warning => warning.includes('biaxial')));
+    const refusal = value => {
+      let error;
+      try { solve_plastic_3d(JSON.stringify(value)); } catch (caught) { error = String(caught); }
+      assert.match(error, /certificate unavailable.*local axes are not rational/);
+      return error;
+    };
+    assert.equal(refusal(input), refusal(canonical));
     const original = readFileSync(new URL('../../engine/tests/fixtures/plastic-1953-nightly.bin', import.meta.url));
-    const originalOutput = JSON.parse(solve_plastic_3d(original.subarray(2).toString('utf8')));
-    assert.ok(Number.isFinite(originalOutput.collapseFactor));
-    assert.ok(originalOutput.collapseFactor > 0);
-    assert.equal(originalOutput.isMechanism, true);
     const originalInput = JSON.parse(original.subarray(2));
-    originalInput.solver.elements = Object.fromEntries(Object.values(originalInput.solver.elements).map(element => [String(element.id), element]));
-    const originalReference = JSON.parse(solve_plastic_3d(JSON.stringify(originalInput)));
-    assert.equal(originalOutput.collapseFactor, originalReference.collapseFactor);
-    const reference = JSON.parse(solve_plastic_3d(JSON.stringify(canonical)));
-    assert.equal(output.collapseFactor, reference.collapseFactor);
+    const rekeyed = structuredClone(originalInput);
+    rekeyed.solver.elements = Object.fromEntries(Object.values(rekeyed.solver.elements).map(element => [String(element.id), element]));
+    assert.equal(refusal(originalInput), refusal(rekeyed));
   },
   linear2d() { assert.deepEqual(forces(solve_2d(rekeyedPlane)), forces(solve_2d(plane))); },
   linear3d() { assert.deepEqual(forces(solve_3d(input.solver)), forces(solve_3d(canonical.solver))); },

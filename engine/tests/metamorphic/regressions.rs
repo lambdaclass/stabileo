@@ -503,12 +503,34 @@ fn plastic_3d_collapse_factor_does_not_depend_on_numbering() {
         ("building-1", None),
         ("pdelta3d-3", None),
     ];
+    if let Ok(selected) = std::env::var("PLASTIC_RENUMBER_CASE") { assert!(cases.iter().any(|(name,_)| *name == selected)); }
+    let selected_seed: Option<u64> = std::env::var("PLASTIC_RENUMBER_SEED").ok().map(|seed|seed.parse().unwrap());
+    if let Some(seed) = selected_seed { assert!(seed < 16); }
     for (name, certified) in cases {
+        if std::env::var("PLASTIC_RENUMBER_CASE").is_ok_and(|selected| selected != name) { continue; }
         let c = corpus_3d(name);
-        let base = plastic::solve_plastic_3d(&plastic_3d_input(&c)).unwrap();
+        let input = certifiable(&plastic_3d_input(&c));
+        let base = plastic::solve_plastic_3d(&input);
+        if let Err(error) = &base {
+            assert!(certified.is_none(), "{name}: certified control refused: {error}");
+            assert!(error.contains("certificate unavailable") || error.contains("plastic collapse interval"), "{name}: {error}");
+            for seed in 0..16 {
+                if selected_seed.is_some_and(|selected| selected != seed) { continue; }
+                let rl = Relabel::random_3d(&c.s, seed);
+                let transformed = certifiable(&plastic_3d_input(&c.relabel(&rl, seed)));
+                let error = plastic::solve_plastic_3d(&transformed).unwrap_err();
+                assert!(error.contains("certificate unavailable") || error.contains("plastic collapse interval"), "{name} {seed}: {error}");
+            }
+            continue;
+        }
+        let base = base.unwrap();
+        let bounds = dedaliano_engine::certify::plastic_3d::certify_collapse_3d(&input, None);
+        assert!(bounds.certified);
+        assert!(base.collapse_factor >= bounds.lambda_lower.unwrap() && base.collapse_factor <= bounds.lambda_upper.unwrap());
         for seed in 0..16 {
+            if selected_seed.is_some_and(|selected| selected != seed) { continue; }
             let rl = Relabel::random_3d(&c.s, seed);
-            let r = plastic::solve_plastic_3d(&plastic_3d_input(&c.relabel(&rl, seed))).unwrap();
+            let r = plastic::solve_plastic_3d(&certifiable(&plastic_3d_input(&c.relabel(&rl, seed)))).unwrap_or_else(|error| panic!("{name} relabel seed {seed}: {error}"));
             close(r.collapse_factor, base.collapse_factor, 1e-7, &format!("{name} renumbered (seed {seed})"));
             assert_eq!(r.is_mechanism, base.is_mechanism, "{name} seed {seed}");
         }
@@ -521,11 +543,6 @@ fn plastic_3d_collapse_factor_does_not_depend_on_numbering() {
     }
 }
 
-/// frame3d-2 against its certificate: the solver stops where no consistent
-/// set of active hinges exists (λ = 73.71), says so, and that is a lower
-/// bound of the certified collapse factor 176.47 (static theorem; the
-/// field there is admissible). It used to go on to 75.87 with a moment field
-/// 1.40 times the yield surface, or, numbered otherwise, to 241.1.
 #[test]
 fn plastic_3d_frame3d_2_is_a_lower_bound_of_its_certificate() {
     let c = corpus_3d("frame3d-2");
@@ -536,12 +553,11 @@ fn plastic_3d_frame3d_2_is_a_lower_bound_of_its_certificate() {
     assert!((lo - 176.467325809).abs() < 1e-6 && (up - lo) / up < 1e-9, "[{lo}, {up}]");
     // the transformed model is the same structure for the solver too
     let same = plastic::solve_plastic_3d(&certifiable(&inp)).unwrap();
-    assert!(same.collapse_factor <= lo, "{}", same.collapse_factor);
-    let r = plastic::solve_plastic_3d(&inp).unwrap();
-    close(r.collapse_factor, 73.707122, 1e-6, "frame3d-2");
-    assert!(r.collapse_factor <= lo && !r.is_mechanism, "{} vs [{lo}, {up}]", r.collapse_factor);
-    assert!(r.warnings.iter().any(|w| w.contains("no consistent set of active hinges") && w.contains("lower bound")), "{:?}", r.warnings);
-    assert!(!r.warnings.iter().any(|w| w.contains("exceeds the yield surface")), "{:?}", r.warnings);
+    assert!(same.collapse_factor >= lo && same.collapse_factor <= up, "{}", same.collapse_factor);
+    let checked = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&certifiable(&inp)).unwrap();
+    let r = checked.results;
+    assert!(r.collapse_factor >= lo && r.collapse_factor <= up, "{} vs [{lo}, {up}]", r.collapse_factor);
+    assert!(plastic::solve_plastic_3d(&inp).unwrap_err().contains("certificate unavailable"));
 }
 
 /// Nightly findings that were harness defects (docs/verification/CONTAINMENT.md): each model,

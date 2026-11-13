@@ -281,7 +281,7 @@ fn export_plastic_bundles() {
     let input = plastic_cantilever_3d();
     let b = export_plastic_bundle_3d(&input).unwrap();
     let results = dedaliano_engine::solver::plastic::solve_plastic_3d(&input).unwrap();
-    let diagnostics: Vec<_> = results.structured_diagnostics.iter().map(|d| serde_json::to_value(d).unwrap()).collect();
+    let diagnostics: Vec<_> = results.structured_diagnostics.iter().filter(|diagnostic| diagnostic.phase.as_deref() != Some("PL-3D-CERTIFICATE-MISMATCH")).map(|d| serde_json::to_value(d).unwrap()).collect();
     assert!(!diagnostics.is_empty(), "the solved increments carry diagnostics");
     assert_eq!(b.structured_diagnostics, diagnostics);
 

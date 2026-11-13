@@ -112,6 +112,7 @@ fn evaluate(data: &[u8], gate: bool, report: bool) -> String {
             if gate && input.solver.elements.len() > 40 {
                 return Err("skipped: solver budget".into());
             }
+            if gate { certificate_budget_3d(input)?; }
             plastic::solve_plastic_3d(input)
         }),
         2 => call(json, gate, report, |input: &PlasticInput| {
@@ -135,20 +136,28 @@ mod tests {
 
     fn assert_certified_lower(raw: &[u8]) {
         let input: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
+        let independent = cplastic3::certify_collapse_3d(&input, None);
+        assert!(independent.certified);
+        let (lo, hi) = (independent.lambda_lower.unwrap(), independent.lambda_upper.unwrap());
+        if (hi - lo) / lo > 5e-8 {
+            assert!(plastic::solve_plastic_3d(&input).unwrap_err().contains("plastic collapse interval"));
+            assert!(cplastic3::certify_plastic_3d(&input).unwrap_err().contains("plastic collapse interval"));
+            return;
+        }
         let raw_result = plastic::solve_plastic_3d(&input).unwrap();
         let out = cplastic3::certify_plastic_3d(&input).unwrap();
         let certificate = &out.certificate;
         assert!(certificate.certified);
         let lower = certificate.lambda_lower.unwrap();
-        assert!(raw_result.collapse_factor < lower);
+        assert!(certificate.solver_collapse_factor.unwrap() < lower);
         assert_eq!(
-            certificate.solver_collapse_factor,
-            Some(raw_result.collapse_factor)
+            raw_result.collapse_factor,
+            lower
         );
         assert_eq!(certificate.solver_within_bounds, Some(false));
         assert!(certificate.solver_deviation.unwrap() > 0.0);
         assert_eq!(out.results.collapse_factor.to_bits(), lower.to_bits());
-        assert!(out.results.warnings.starts_with(&raw_result.warnings));
+        assert_eq!(out.results.warnings, raw_result.warnings);
         assert!(out
             .results
             .warnings
@@ -160,7 +169,7 @@ mod tests {
             .warnings
             .iter()
             .any(|warning| warning.contains("PL-3D-CERTIFICATE-MISMATCH")
-                && warning.contains(&raw_result.collapse_factor.to_string())));
+                && warning.contains(&certificate.solver_collapse_factor.unwrap().to_string())));
         assert!(out
             .results
             .structured_diagnostics
@@ -391,8 +400,8 @@ mod tests {
             d.phase.as_deref() == Some("PL-3D-CERTIFICATE-MISMATCH")));
         assert!(!out.results.warnings.iter().any(|w| w.contains("PL-3D-CERTIFICATE-MISMATCH")));
         assert_eq!(
-            out.certificate.solver_collapse_factor,
-            Some(raw_result.collapse_factor)
+            out.results.collapse_factor,
+            raw_result.collapse_factor
         );
         assert_eq!(
             Some(out.results.collapse_factor),
@@ -473,8 +482,8 @@ mod tests {
             .next()
             .unwrap()
             .roll_angle = Some(1.0);
-        let raw_result = plastic::solve_plastic_3d(&input).unwrap();
-        let certificate = cplastic3::certify_collapse_3d(&input, Some(&raw_result));
+        let certificate = cplastic3::certify_collapse_3d(&input, None);
+        assert!(plastic::solve_plastic_3d(&input).unwrap_err().contains(certificate.reason.as_ref().unwrap()));
         assert!(!certificate.certified);
         let error = cplastic3::certify_plastic_3d(&input).unwrap_err();
         assert!(
@@ -489,10 +498,11 @@ mod tests {
             include_bytes!("../corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin");
         let input: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
         let raw_result = plastic::solve_plastic_3d(&input).unwrap();
-        let certificate = cplastic3::certify_collapse_3d(&input, Some(&raw_result));
+        let certificate = cplastic3::certify_plastic_3d(&input).unwrap().certificate;
+        let raw_factor = certificate.solver_collapse_factor.unwrap();
         assert!(certificate.certified);
-        assert!(raw_result.collapse_factor > certificate.lambda_upper.unwrap());
-        assert_eq!(raw_result.collapse_factor, 100.00000000000001);
+        assert!(raw_factor > certificate.lambda_upper.unwrap());
+        assert_eq!(raw_factor, 100.00000000000001);
         assert_eq!(certificate.lambda_lower, Some(99.99999999999999));
         assert_eq!(certificate.lambda_upper, Some(100.0));
         assert_eq!(certificate.solver_within_bounds, Some(false));
@@ -502,10 +512,10 @@ mod tests {
         assert_eq!(out.results.collapse_factor.to_bits(), lower.to_bits());
         assert_eq!(
             out.certificate.solver_collapse_factor,
-            Some(raw_result.collapse_factor)
+            Some(raw_factor)
         );
         assert_eq!(out.certificate.solver_within_bounds, Some(false));
-        assert!(out.results.warnings.starts_with(&raw_result.warnings));
+        assert_eq!(out.results.warnings, raw_result.warnings);
         let warning = out
             .results
             .structured_diagnostics
@@ -516,7 +526,7 @@ mod tests {
         assert!(warning.message.contains("outside the certified interval"));
         assert!(warning
             .message
-            .contains(&raw_result.collapse_factor.to_string()));
+            .contains(&raw_factor.to_string()));
         assert!(warning.message.contains(&format!("[{lower}, {upper}]")));
         assert!(out.results.warnings.contains(&warning.message));
         assert_eq!(

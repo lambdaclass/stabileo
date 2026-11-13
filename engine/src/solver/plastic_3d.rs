@@ -699,35 +699,11 @@ fn mechanism(input: &SolverInput3D) -> Result<bool, String> {
     Ok(carry(input, CarryState::Hinged)?.is_none())
 }
 
-/// Solve 3D plastic analysis (event-to-event incremental method).
-///
-/// Elastic–perfectly plastic frame members with the biaxial bending yield
-/// condition `(My/Mp_y)² + (Mz/Mp_z)² ≤ 1` (local axes; axial force, shear
-/// and torsion unlimited) at every section, proportional loading λ·P. Each
-/// event finds the smallest load increment that brings any section to the
-/// yield surface — at member ends and **inside spans** (the moment diagrams of
-/// a loaded member are exact between sections; interior extrema of the
-/// increment are located by sampling and golden-section refinement, and a
-/// hinge inside a span splits the member there). A hinge releases both
-/// bending rotations (`release_my`, `release_mz`; torsion stays continuous)
-/// and holds the moment vector it formed with. Results are reported on the
-/// members of the model as given; `PlasticHinge3D::position` says where along
-/// the member a hinge is.
-///
-/// Before each increment the state is made consistent: a hinge whose plastic
-/// rotation would do negative work against its moment (`M·θ < 0`) closes
-/// (`unloaded_at`), and a closed one still on the yield surface that would be
-/// loaded outward reopens. When the structure is a mechanism, a hinge that
-/// would unload under the mechanism's motion closes and loading continues.
-/// Every choice among hinges goes by rate (the one reaching the yield surface
-/// first, turning backwards or loaded outward the most), never by element
-/// number, so the result does not depend on the numbering (#511). When no
-/// consistent set of active hinges exists (a biaxial hinge holds the moment
-/// vector it formed with, so closing one hinge can drive another out of the
-/// yield surface and back), the analysis stops at the last consistent state:
-/// `is_mechanism` is false and the factor is a lower bound.
-/// `warnings` lists what keeps the result from being the collapse load.
 pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, String> {
+    crate::certify::plastic_3d::certify_plastic_3d(input).map(|checked| checked.results)
+}
+
+pub(crate) fn solve_plastic_3d_incremental(input: &PlasticInput3D) -> Result<PlasticResult3D, String> {
     merge_known_issues(solve_plastic_3d_contained(input)?, &input.solver)
 }
 
@@ -1414,6 +1390,30 @@ fn compute_plastic_moments_3d(sec: &PlasticSectionData3D, fy: f64) -> (f64, f64)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn issue_1040_preserves_511_history_without_publishing_its_factor() {
+        let solver: SolverInput3D = serde_json::from_str(include_str!(
+            "../../tests/metamorphic_corpus/differential/frame3d-2.json"
+        )).unwrap();
+        let sections = solver.sections.values().map(|section| {
+            let (b,h) = ((12.0 * section.iy / section.a).sqrt(), (12.0 * section.iz / section.a).sqrt());
+            let material_id = solver.elements.values().find(|element| element.section_id == section.id).map_or(1, |element| element.material_id);
+            (section.id.to_string(), PlasticSectionData3D {
+                a:section.a, iy:section.iy, iz:section.iz, material_id, b:Some(b), h:Some(h), d:Some(b),
+            })
+        }).collect();
+        let materials = solver.materials.values().map(|material| (material.id.to_string(), PlasticMaterialData {fy:Some(250.0)})).collect();
+        let input = PlasticInput3D {solver, sections, materials, max_hinges:None, mp_overrides:None};
+        let result = solve_plastic_3d_contained(&input).unwrap();
+        let expected: f64 = 73.707122;
+        assert!((result.collapse_factor - expected).abs() <= 1e-6 * expected.abs().max(result.collapse_factor.abs()));
+        assert!(!result.is_mechanism);
+        assert!(result.warnings.iter().any(|warning| warning.contains("no consistent set of active hinges") && warning.contains("lower bound")));
+        assert!(!result.warnings.iter().any(|warning| warning.contains("exceeds the yield surface")));
+        let error = solve_plastic_3d(&input).unwrap_err();
+        assert!(error.contains("certificate unavailable"), "{error}");
+    }
 
     #[test]
     fn staged_final_initial_conditioning_and_rank_boundaries() {

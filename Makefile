@@ -826,7 +826,7 @@ build.engine.plastic-budget:
 	$(NIX_RUN) cargo build --locked --release --manifest-path engine/fuzz/Cargo.toml --example plastic_replay --target-dir engine/fuzz/target -j 2
 
 test.engine.plastic-budget:
-	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --lib plastic::tests -- --test-threads=1 $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --lib $(or $(FILTER),plastic::tests) -- --test-threads=1 $(if $(IGNORED),--ignored)
 
 replay.engine.plastic-budget: build.engine.plastic-budget
 	$(NIX_RUN) python3 -I scripts/replay-plastic-budget.py $(FILE) --mode $(or $(MODE),gate) $(if $(SECONDS),--seconds $(SECONDS)) $(if $(REPEATS),--repeats $(REPEATS))
@@ -863,7 +863,7 @@ test.engine.plastic-costs:
 .PHONY: test.engine.plastic-wasm
 test.engine.plastic-wasm: wasm
 	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/over-budget-grid.bin 'dense storage bytes'
-	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin certified-lower
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin 'plastic collapse interval'
 	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin certified-lower-above
 
 .PHONY: check.engine.plastic-workflow
@@ -1163,7 +1163,8 @@ test.engine.constraint-rounding-2013-wasm: wasm
 .PHONY: test.engine.plastic-1040 test.engine.plastic-1040-wasm
 
 test.engine.plastic-1040:
-	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1040_ -- --nocapture --test-threads=1 $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration --release issue_1040_ -- --nocapture --test-threads=1 $(if $(IGNORED),--ignored)
 
 test.engine.plastic-1040-wasm: wasm
-	$(NIX_RUN) node scripts/tests/plastic-1040-wasm.mjs
+	PLASTIC_1040_CASES=$(CURDIR)/.1040-wasm-cases $(MAKE) test.engine.plastic-1040
+	$(NIX_RUN) node scripts/tests/plastic-1040-wasm.mjs $(CURDIR)/.1040-wasm-cases

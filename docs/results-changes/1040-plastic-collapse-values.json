@@ -1,0 +1,576 @@
+{
+  "parentCommit": "b6f13f250",
+  "parentWasmSha256": "fd36fa4f71f2b1da9c13ef79788bba2179d8232f1adafd65bcbc7245e72d8b6e",
+  "cases": [
+    {
+      "name": "arbitrary-rotation-control",
+      "before": 8.00000000000007,
+      "independentLower": 8,
+      "independentUpper": 8.000000000000002,
+      "reference": "independent rational static/mechanism interval",
+      "after": 8,
+      "beforeWarningPhases": [
+        "solve",
+        "solve",
+        "self_check:static_residual",
+        "self_check:static_balance"
+      ],
+      "beforeLegacyWarnings": [
+        "hinges under biaxial bending hold the moment vector they formed with (no flow along the yield surface): the collapse factor is a lower bound for the biaxial yield condition and may be conservative"
+      ]
+    },
+    {
+      "name": "base",
+      "before": 1.5648939943807853e-05,
+      "independentLower": 0.020350445200427728,
+      "independentUpper": 0.020350445200595306,
+      "reference": "independent rational static/mechanism interval",
+      "after": 0.02035044520042775,
+      "beforeWarningPhases": [
+        "solve",
+        "solve",
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "self_check:static_residual",
+        "self_check:static_balance",
+        "solve",
+        "solve",
+        "NUM-INVARIANCE",
+        "LIN-SECOND-ORDER-UNBOUNDED",
+        "self_check:static_residual"
+      ],
+      "beforeLegacyWarnings": []
+    },
+    {
+      "name": "inverse-load-scaling",
+      "before": 4.229443228162165e-06,
+      "independentLower": 0.005500120324377089,
+      "independentUpper": 0.005500120324485218,
+      "reference": "independent rational static/mechanism interval",
+      "after": 0.005500120324377106,
+      "beforeWarningPhases": [
+        "solve",
+        "solve",
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "self_check:static_residual",
+        "self_check:static_balance",
+        "solve",
+        "solve",
+        "NUM-INVARIANCE",
+        "LIN-SECOND-ORDER-UNBOUNDED",
+        "self_check:static_residual",
+        "self_check:static_balance"
+      ],
+      "beforeLegacyWarnings": []
+    },
+    {
+      "name": "large-units",
+      "before": 1.5648710445290776e-05,
+      "independentLower": 0.020350445200195143,
+      "independentUpper": 0.020350445200595306,
+      "reference": "independent rational static/mechanism interval",
+      "after": 0.020350445200195216,
+      "beforeWarningPhases": [
+        "solve",
+        "solve",
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "self_check:static_residual",
+        "self_check:static_balance",
+        "solve",
+        "NUM-INVARIANCE",
+        "LIN-SECOND-ORDER-UNBOUNDED",
+        "self_check:static_residual",
+        "self_check:static_balance"
+      ],
+      "beforeLegacyWarnings": []
+    },
+    {
+      "name": "mirror",
+      "before": 1.5648939943807853e-05,
+      "independentLower": 0.02035044520042779,
+      "independentUpper": 0.02035044520059531,
+      "reference": "independent rational static/mechanism interval",
+      "after": 0.02035044520042779,
+      "beforeWarningPhases": [
+        "solve",
+        "solve",
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "self_check:static_residual",
+        "self_check:static_balance",
+        "solve",
+        "solve",
+        "NUM-INVARIANCE",
+        "LIN-SECOND-ORDER-UNBOUNDED",
+        "self_check:static_residual"
+      ],
+      "beforeLegacyWarnings": []
+    },
+    {
+      "name": "point-rational-control",
+      "before": 5.484548156077901e-05,
+      "independentLower": 5.484547881850507e-05,
+      "independentUpper": 5.484548156077902e-05,
+      "reference": "exact hand calculation with existing public accuracy requirement",
+      "after": 5.4845481560735896e-05,
+      "beforeWarningPhases": [
+        "solve",
+        "self_check:static_residual",
+        "self_check:static_balance",
+        "conditioning",
+        "solve",
+        "NUM-INVARIANCE",
+        "LIN-SMALL-DISPLACEMENT"
+      ],
+      "beforeLegacyWarnings": [
+        "hinges under biaxial bending hold the moment vector they formed with (no flow along the yield surface): the collapse factor is a lower bound for the biaxial yield condition and may be conservative"
+      ]
+    },
+    {
+      "name": "point-reversal-refusal",
+      "before": 4.2202596572767735e-05,
+      "independentLower": 5.3791156417260634e-05,
+      "independentUpper": 5.379115641726064e-05,
+      "reference": "exact hand-calculation enclosure",
+      "after": "3D plastic collapse certificate unavailable: point load on element 1: its local axes are not rational (length or axis norms irrational), not representable exactly",
+      "beforeWarningPhases": [
+        "solve",
+        "solve",
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "self_check:static_residual",
+        "self_check:static_balance",
+        "LIN-SECOND-ORDER-UNBOUNDED"
+      ],
+      "beforeLegacyWarnings": [
+        "hinges under biaxial bending hold the moment vector they formed with (no flow along the yield surface): the collapse factor is a lower bound for the biaxial yield condition and may be conservative"
+      ]
+    },
+    {
+      "name": "relabel",
+      "before": 1.5648939943807853e-05,
+      "independentLower": 0.020350445200427728,
+      "independentUpper": 0.020350445200595306,
+      "reference": "independent rational static/mechanism interval",
+      "after": 0.02035044520042775,
+      "beforeWarningPhases": [
+        "solve",
+        "solve",
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "self_check:static_residual",
+        "self_check:static_balance",
+        "solve",
+        "solve",
+        "NUM-INVARIANCE",
+        "LIN-SECOND-ORDER-UNBOUNDED",
+        "self_check:static_residual"
+      ],
+      "beforeLegacyWarnings": []
+    },
+    {
+      "name": "reversal",
+      "before": 1.5648939943764027e-05,
+      "independentLower": 0.020350445200427784,
+      "independentUpper": 0.02035044520059531,
+      "reference": "independent rational static/mechanism interval",
+      "after": 0.020350445200427784,
+      "beforeWarningPhases": [
+        "solve",
+        "solve",
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "self_check:static_residual",
+        "self_check:static_balance",
+        "solve",
+        "solve",
+        "NUM-INVARIANCE",
+        "LIN-SECOND-ORDER-UNBOUNDED",
+        "self_check:static_residual"
+      ],
+      "beforeLegacyWarnings": []
+    },
+    {
+      "name": "rotation",
+      "before": 1.5648939943807853e-05,
+      "independentLower": 0.02035044520042777,
+      "independentUpper": 0.02035044520059531,
+      "reference": "independent rational static/mechanism interval",
+      "after": 0.02035044520042777,
+      "beforeWarningPhases": [
+        "solve",
+        "solve",
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "self_check:static_residual",
+        "self_check:static_balance",
+        "solve",
+        "solve",
+        "NUM-INVARIANCE",
+        "LIN-SECOND-ORDER-UNBOUNDED",
+        "self_check:static_residual"
+      ],
+      "beforeLegacyWarnings": []
+    },
+    {
+      "name": "small-units",
+      "before": 1.564890843167287e-05,
+      "independentLower": 0.020350445200427707,
+      "independentUpper": 0.020350445200595306,
+      "reference": "independent rational static/mechanism interval",
+      "after": 0.02035044520042771,
+      "beforeWarningPhases": [
+        "solve",
+        "solve",
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "self_check:static_residual",
+        "self_check:static_balance",
+        "solve",
+        "solve",
+        "NUM-INVARIANCE",
+        "LIN-SECOND-ORDER-UNBOUNDED",
+        "self_check:static_residual",
+        "self_check:static_balance"
+      ],
+      "beforeLegacyWarnings": []
+    },
+    {
+      "name": "above-interval-roundoff-control",
+      "before": 100.00000000000001,
+      "independentLower": 99.99999999999999,
+      "independentUpper": 100,
+      "after": 99.99999999999999,
+      "rawHistoryAfter": 100.00000000000001,
+      "beforeStructuredDiagnostics": [
+        {
+          "code": "dense_lu",
+          "severity": "info",
+          "message": "Dense solver (6 free DOFs)",
+          "phase": "solve"
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "Dense solver residual 8.33e-16 (6 free DOFs)",
+          "phase": "solve",
+          "value": 8.326672684688674e-16,
+          "threshold": 1e-06
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check static_residual: 8.327e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:static_residual",
+          "value": 8.326672684688673e-16,
+          "threshold": 1e-06
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check static_balance: 8.327e-17 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:static_balance",
+          "value": 8.326672684688674e-17,
+          "threshold": 1e-06
+        }
+      ],
+      "beforeLegacyWarnings": []
+    }
+  ],
+  "exactSwayMechanism": {
+    "lambdaSquaredNumerator": "106202653920699220564884914858618884530552747073778654440892222204102859316551154431053879435759342349098192371956037039395317302558070968994231347823556736436767578125",
+    "lambdaSquaredDenominator": "256441046415531937020470897492305999077044389490860927715111211293138238978234940684536836339275598400758991226969305270330268092025170335319592071858393753400949430288384",
+    "lambdaDecimal75": "0.0203504452005953054221466468243911404011562880265661135944786936982473535459"
+  },
+  "roundoffControlExact": {
+    "lambdaNumerator": "360287970189639680",
+    "lambdaDenominator": "3602879701896397",
+    "lambdaDecimal75": "99.9999999999999944488848768742176060306327615036178207623262235371852234374",
+    "rawExcessDecimal75": "1.97619698383277861113918525900588821792376737764628147765625500751998768444E-14"
+  },
+  "nightlyComments": [
+    {
+      "index": 0,
+      "date": "2026-11-01",
+      "dimension": 3,
+      "before": 0.0006213160660267378,
+      "beforeWarningPhases": [
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "LIN-SECOND-ORDER-UNBOUNDED",
+        "solve",
+        "solve",
+        "NUM-INVARIANCE",
+        "self_check:static_balance"
+      ],
+      "beforeLegacyWarnings": [
+        "at \u03bb = 0.000360: the moment peak moves along a member past a hinge already formed there; hinges are fixed in place, so the collapse factor is approximate",
+        "at \u03bb = 0.000400: the moment peak moves along a member past a hinge already formed there; hinges are fixed in place, so the collapse factor is approximate",
+        "hinges under biaxial bending hold the moment vector they formed with (no flow along the yield surface): the collapse factor is a lower bound for the biaxial yield condition and may be conservative",
+        "the final moment field exceeds the yield surface by a factor 1.036032: the collapse factor is not guaranteed"
+      ],
+      "after": "3D plastic collapse certificate unavailable: distributed load on element 1: its local axes are not rational (length or axis norms irrational), not representable exactly"
+    },
+    {
+      "index": 1,
+      "date": "2026-11-02T13:04:26Z",
+      "dimension": 2,
+      "before": "{\"message\":\"Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)\",\"structuredDiagnostics\":[{\"code\":\"known_issue\",\"message\":\"An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability (known issue #458, CERT-MECHANISM)\",\"phase\":\"CERT-MECHANISM\",\"severity\":\"warning\",\"value\":458.0},{\"code\":\"known_issue\",\"message\":\"Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)\",\"phase\":\"PL-2D-INVARIANCE\",\"severity\":\"error\",\"value\":758.0}]}",
+      "beforeWarningPhases": [],
+      "beforeLegacyWarnings": [],
+      "after": "{\"message\":\"Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)\",\"structuredDiagnostics\":[{\"code\":\"known_issue\",\"message\":\"An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability (known issue #458, CERT-MECHANISM)\",\"phase\":\"CERT-MECHANISM\",\"severity\":\"warning\",\"value\":458.0},{\"code\":\"known_issue\",\"message\":\"Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)\",\"phase\":\"PL-2D-INVARIANCE\",\"severity\":\"error\",\"value\":758.0}]}"
+    },
+    {
+      "index": 2,
+      "date": "2026-11-03T08:22:28Z",
+      "dimension": 3,
+      "before": 6.25972371588483e-07,
+      "beforeWarningPhases": [
+        "LIN-SMALL-DISPLACEMENT"
+      ],
+      "beforeLegacyWarnings": [
+        "hinges under biaxial bending hold the moment vector they formed with (no flow along the yield surface): the collapse factor is a lower bound for the biaxial yield condition and may be conservative"
+      ],
+      "after": "3D plastic collapse certificate unavailable: point load on element 1: its local axes are not rational (length or axis norms irrational), not representable exactly"
+    },
+    {
+      "index": 3,
+      "date": "2026-11-04T08:28:07Z",
+      "dimension": 3,
+      "before": 3.1078545202818916e-09,
+      "beforeWarningPhases": [
+        "LIN-SMALL-DISPLACEMENT"
+      ],
+      "beforeLegacyWarnings": [],
+      "after": "3D plastic collapse certificate unavailable: distributed load on element 1: its local axes are not rational (length or axis norms irrational), not representable exactly"
+    },
+    {
+      "index": 4,
+      "date": "2026-11-05T06:24:11Z",
+      "dimension": 2,
+      "before": "{\"message\":\"Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)\",\"structuredDiagnostics\":[{\"code\":\"known_issue\",\"message\":\"An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability (known issue #458, CERT-MECHANISM)\",\"phase\":\"CERT-MECHANISM\",\"severity\":\"warning\",\"value\":458.0},{\"code\":\"known_issue\",\"message\":\"Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)\",\"phase\":\"PL-2D-INVARIANCE\",\"severity\":\"error\",\"value\":758.0}]}",
+      "beforeWarningPhases": [],
+      "beforeLegacyWarnings": [],
+      "after": "{\"message\":\"Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)\",\"structuredDiagnostics\":[{\"code\":\"known_issue\",\"message\":\"An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability (known issue #458, CERT-MECHANISM)\",\"phase\":\"CERT-MECHANISM\",\"severity\":\"warning\",\"value\":458.0},{\"code\":\"known_issue\",\"message\":\"Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)\",\"phase\":\"PL-2D-INVARIANCE\",\"severity\":\"error\",\"value\":758.0}]}"
+    },
+    {
+      "index": 5,
+      "date": "2026-11-06T00:53:56Z",
+      "dimension": 3,
+      "before": 0.008978525351273896,
+      "beforeWarningPhases": [
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER-UNBOUNDED",
+        "solve",
+        "solve",
+        "NUM-INVARIANCE"
+      ],
+      "beforeLegacyWarnings": [
+        "hinges under biaxial bending hold the moment vector they formed with (no flow along the yield surface): the collapse factor is a lower bound for the biaxial yield condition and may be conservative"
+      ],
+      "after": "3D plastic collapse certificate unavailable: point load on element 2: its local axes are not rational (length or axis norms irrational), not representable exactly"
+    },
+    {
+      "index": 6,
+      "date": "2026-11-07T03:56:33Z",
+      "dimension": 3,
+      "before": 1.5648939943807853e-05,
+      "beforeWarningPhases": [
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "solve",
+        "solve",
+        "NUM-INVARIANCE",
+        "LIN-SECOND-ORDER-UNBOUNDED",
+        "self_check:static_residual"
+      ],
+      "beforeLegacyWarnings": [],
+      "after": 0.02035044520042775,
+      "lower": 0.02035044520042775,
+      "upper": 0.020350445200595306,
+      "potentialSilentWrong": false
+    },
+    {
+      "index": 7,
+      "date": "2026-11-08T11:15:29Z",
+      "dimension": 3,
+      "before": 1.3283706002013807e-06,
+      "beforeWarningPhases": [
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "LIN-SECOND-ORDER-UNBOUNDED"
+      ],
+      "beforeLegacyWarnings": [],
+      "after": 3.0373761304044937e-06,
+      "lower": 3.0373761304044937e-06,
+      "upper": 3.0373761304628505e-06,
+      "potentialSilentWrong": false
+    },
+    {
+      "index": 8,
+      "date": "2026-11-09T02:36:22Z",
+      "dimension": 3,
+      "before": 0.004968185099843473,
+      "beforeWarningPhases": [
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER-UNBOUNDED"
+      ],
+      "beforeLegacyWarnings": [
+        "hinges under biaxial bending hold the moment vector they formed with (no flow along the yield surface): the collapse factor is a lower bound for the biaxial yield condition and may be conservative"
+      ],
+      "after": "3D plastic collapse certificate unavailable: point load on element 1: its local axes are not rational (length or axis norms irrational), not representable exactly"
+    },
+    {
+      "index": 9,
+      "date": "2026-11-10T06:31:00Z",
+      "dimension": 3,
+      "before": 0.0017571700444024116,
+      "beforeWarningPhases": [
+        "LIN-SMALL-DISPLACEMENT",
+        "solve",
+        "solve",
+        "NUM-INVARIANCE",
+        "LIN-SECOND-ORDER-UNBOUNDED"
+      ],
+      "beforeLegacyWarnings": [
+        "at \u03bb = 0.001184: the moment peak moves along a member past a hinge already formed there; hinges are fixed in place, so the collapse factor is approximate",
+        "hinges under biaxial bending hold the moment vector they formed with (no flow along the yield surface): the collapse factor is a lower bound for the biaxial yield condition and may be conservative",
+        "the final moment field exceeds the yield surface by a factor 1.041528: the collapse factor is not guaranteed"
+      ],
+      "after": "3D plastic collapse certificate unavailable: distributed load on element 1: its local axes are not rational (length or axis norms irrational), not representable exactly"
+    },
+    {
+      "index": 10,
+      "date": "2026-11-12T01:48:44Z",
+      "dimension": 3,
+      "before": 0.0479647545766685,
+      "beforeWarningPhases": [
+        "LIN-SMALL-DISPLACEMENT"
+      ],
+      "beforeLegacyWarnings": [
+        "hinges under biaxial bending hold the moment vector they formed with (no flow along the yield surface): the collapse factor is a lower bound for the biaxial yield condition and may be conservative"
+      ],
+      "after": "3D plastic collapse certificate unavailable: point load on element 1: its local axes are not rational (length or axis norms irrational), not representable exactly"
+    },
+    {
+      "index": 11,
+      "date": "2026-11-13T01:49:21Z",
+      "dimension": 3,
+      "before": 4.2202596572767735e-05,
+      "beforeWarningPhases": [
+        "LIN-SMALL-DISPLACEMENT",
+        "LIN-SECOND-ORDER",
+        "LIN-SECOND-ORDER-UNBOUNDED"
+      ],
+      "beforeLegacyWarnings": [
+        "hinges under biaxial bending hold the moment vector they formed with (no flow along the yield surface): the collapse factor is a lower bound for the biaxial yield condition and may be conservative"
+      ],
+      "after": "3D plastic collapse certificate unavailable: point load on element 1: its local axes are not rational (length or axis norms irrational), not representable exactly"
+    }
+  ],
+  "pointLoadMechanism": {
+    "fixture": "engine/tests/fixtures/plastic-1040-point-reversal.json",
+    "expression": "2 L / (a (L-a) sqrt((Pz/My)^2+(Py/Mz)^2))",
+    "lambdaDecimal90": "0.0000537911564172606376576351042832751866923616666678501255045145588497347466031534744050635350",
+    "nightlyGot": 5.363051719e-05,
+    "nightlyExpected": 5.3547353383e-05,
+    "bothNightlyValuesBelowTrueFactor": true
+  },
+  "findingsRead": {
+    "issue": 1040,
+    "initialFindings": 88,
+    "initialRelationHits": {
+      "mirror": 4,
+      "relabel": 22,
+      "reversal": 9,
+      "rotation": 16,
+      "superposition": 10,
+      "units": 27
+    },
+    "nightlyCommentsRead": 11,
+    "november13Findings": 40,
+    "november13RelationHits": {
+      "relabel": 8,
+      "reversal": 8,
+      "rotation": 8,
+      "superposition": 3,
+      "units": 13
+    }
+  },
+  "initialSmallestByRelation": [
+    {
+      "relation": "mirror",
+      "seed": 2026110102172,
+      "dimension": 2,
+      "nodes": 5,
+      "elements": 3,
+      "originalModelHash": "a34de9683f66ebfa12108dfdfe9f67257485d5c299b5f03539f4c7a81ed6c48a",
+      "reportedDifference": [
+        "replay: scalar collapse_factor[0]: got 3.0392062575e-4, expected 3.0380615484e-4, |diff| 1.145e-7 > tol 3.233e-10 (scale 3.038e-4, rel 1.06e-6)"
+      ],
+      "coverage": "existing PL-2D-INVARIANCE refusal retained"
+    },
+    {
+      "relation": "relabel",
+      "seed": 20758,
+      "dimension": 2,
+      "nodes": 3,
+      "elements": 2,
+      "originalModelHash": "df1e8ad9c743cd486123c6ba6785ac441a5d87c26d15726e6ed37fcb6db116da",
+      "reportedDifference": [
+        "fuzz_rich_2d/21303: scalar collapse_factor[0]: got 3.7309679248e1, expected 5.4104254026e0, |diff| 3.190e1 > tol 5.411e-6 (scale 5.410e0, rel 1.00e-6)"
+      ],
+      "coverage": "existing PL-2D-INVARIANCE refusal retained"
+    },
+    {
+      "relation": "reversal",
+      "seed": 2026110102333,
+      "dimension": 3,
+      "nodes": 4,
+      "elements": 5,
+      "originalModelHash": "a596120be81cb69edb3e9517f850a602dc65d4d61a885e8e48ac96aa12e1e1be",
+      "reportedDifference": [
+        "replay: scalar collapse_factor[0]: got 2.6141393066e-3, expected 2.6141171997e-3, |diff| 2.211e-8 > tol 6.220e-9 (scale 2.614e-3, rel 2.38e-6)"
+      ],
+      "coverage": "minimal equivalent exact-mechanism reversal regressions, plus the saved November 13 point-load reversal and its explicit irrational-frame refusal"
+    },
+    {
+      "relation": "rotation",
+      "seed": 2026110100569,
+      "dimension": 3,
+      "nodes": 3,
+      "elements": 3,
+      "originalModelHash": "d4a5398b0724636552c221b8349b298f19bc0dc54efb95679f43f0bc4be8aa19",
+      "reportedDifference": [
+        "replay: scalar collapse_factor[0]: got 2.3494079800e-5, expected 2.3493637416e-5, |diff| 4.424e-10 > tol 3.297e-10 (scale 2.349e-5, rel 1.40e-5)"
+      ],
+      "coverage": "minimal equivalent one-member exact-mechanism regressions; original irrational member-load models may now be refused"
+    },
+    {
+      "relation": "superposition",
+      "seed": 2026110102211,
+      "dimension": 3,
+      "nodes": 2,
+      "elements": 1,
+      "originalModelHash": "9504bf2bf7560a72c550a325246d9c5b29dde39393b1fdb4a8c599116b9b909b",
+      "reportedDifference": [
+        "replay: scalar collapse_factor[0]: got 2.8839593871e-5, expected 2.8840178836e-5, |diff| 5.850e-10 > tol 2.884e-11 (scale 2.884e-5, rel 1.00e-6)"
+      ],
+      "coverage": "minimal equivalent one-member exact-mechanism regressions; original irrational member-load models may now be refused"
+    },
+    {
+      "relation": "units",
+      "seed": 2026110102211,
+      "dimension": 3,
+      "nodes": 2,
+      "elements": 1,
+      "originalModelHash": "9504bf2bf7560a72c550a325246d9c5b29dde39393b1fdb4a8c599116b9b909b",
+      "reportedDifference": [
+        "replay: scalar collapse_factor[0]: got 1.0670823552e-4, expected 1.0670866169e-4, |diff| 4.262e-10 > tol 1.067e-10 (scale 1.067e-4, rel 1.00e-6)"
+      ],
+      "coverage": "minimal equivalent one-member exact-mechanism regressions; original irrational member-load models may now be refused"
+    }
+  ]
+}

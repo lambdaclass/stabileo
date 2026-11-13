@@ -6,16 +6,22 @@ import { initSync, solve_plastic_3d, certify_plastic_3d, solve_plastic_2d, certi
 initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 const root = resolve(process.argv[2] ?? '.1040-wasm-cases');
 const cases = readdirSync(root).filter(name => name.endsWith('.json'));
-assert.ok(cases.length >= 6);
+for (const name of ['base', 'mirror', 'relabel', 'reversal', 'rotation', 'small-units', 'large-units', 'inverse-load-scaling', 'arbitrary-rotation-control', 'point-reversal-refusal', 'point-rational-control']) {
+  assert.ok(cases.includes(`${name}.json`), `missing native case ${name}`);
+}
 const failures = [];
 const run = (name, check) => {
   try { check(); console.log(`${name}: passed`); }
   catch (error) { failures.push(`${name}: ${error}`); }
 };
 for (const name of cases) {
-  const { input, lower, upper } = JSON.parse(readFileSync(resolve(root, name), 'utf8'));
+  const { input, lower, upper, refusal } = JSON.parse(readFileSync(resolve(root, name), 'utf8'));
   for (const [entry, solve] of [['solve_plastic_3d', solve_plastic_3d], ['certify_plastic_3d', certify_plastic_3d]]) {
     run(`${name}/${entry}`, () => {
+      if (refusal) {
+        assert.throws(() => solve(JSON.stringify(input)), new RegExp(refusal));
+        return;
+      }
       const output = JSON.parse(solve(JSON.stringify(input)));
       const result = output.results ?? output;
       console.log(JSON.stringify({ name, entry, factor: result.collapseFactor, lower, upper }));

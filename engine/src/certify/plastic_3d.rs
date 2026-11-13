@@ -30,7 +30,7 @@ use crate::solver::support::{support_dofs_3d};
 use super::exact::*;
 use super::plastic_bundle::{sparse_rows, CubicF, LimitProblem, LinF, YieldComp, YieldMember, YieldPiece};
 use super::plastic::{approx_mp, least_squares, lm_end, lm_pieces, push_breakpoints, simplex_min_sum, ElemLoad, Piece};
-use crate::solver::plastic::{solve_plastic_3d, PlasticResult3D};
+use crate::solver::plastic::{solve_plastic_3d_incremental, PlasticResult3D};
 use crate::types::*;
 use num_traits::{One, Signed, Zero};
 use serde::{Deserialize, Serialize};
@@ -74,13 +74,21 @@ pub fn sqrt_up(x: &Q) -> Q {
     if let Some(r) = sqrt_exact(x) {
         return r;
     }
-    let mut f = to_f64(x).sqrt();
-    loop {
-        let r = q(f).unwrap_or_else(|| x.clone() + Q::one());
-        if &(&r * &r) >= x {
-            return r;
-        }
-        f = f.next_up();
+    let exponent = (x.numer().bits() as i64 - x.denom().bits() as i64).div_euclid(2);
+    let (numerator,denominator) = if exponent >= 0 {
+        (x.numer().clone(), x.denom() << (2 * exponent) as usize)
+    } else {
+        (x.numer() << (-2 * exponent) as usize, x.denom().clone())
+    };
+    let precision = f64::MANTISSA_DIGITS as usize;
+    let numerator = numerator << (2 * precision);
+    let mut root = (&numerator / &denominator).sqrt();
+    if &root * &root * &denominator < numerator { root += 1; }
+    let shift = exponent - precision as i64;
+    if shift >= 0 {
+        Q::from_integer(root << shift as usize)
+    } else {
+        Q::new(root, num_bigint::BigInt::one() << (-shift) as usize)
     }
 }
 
@@ -1477,6 +1485,57 @@ fn solver_state_field(model: &PlasticModel3, input: &PlasticInput3D, res: &Plast
     (res.collapse_factor > 0.0).then_some((res.collapse_factor, x))
 }
 
+fn mechanism_layout(model: &PlasticModel3, end_hinge: &[[bool;2]], interior: &[Vec<Q>]) -> (Vec<usize>,Vec<usize>) {
+    let nn = model.node_ids.len();
+    let mut positions: Vec<Option<V3>> = vec![None;nn];
+    for root in 0..nn {
+        if positions[root].is_some() { continue; }
+        positions[root] = Some(v0());
+        let mut component = vec![root];
+        let mut cursor = 0;
+        while cursor < component.len() {
+            let current = component[cursor];
+            let position = positions[current].as_ref().unwrap().clone();
+            for element in &model.elems {
+                let next = if element.ni == current { Some((element.nj,add(&position,&element.d))) }
+                    else if element.nj == current { Some((element.ni,sub(&position,&element.d))) } else { None };
+                if let Some((node,position)) = next {
+                    if positions[node].is_none() {
+                        positions[node] = Some(position);
+                        component.push(node);
+                    }
+                }
+            }
+            cursor += 1;
+        }
+        let origin: V3 = std::array::from_fn(|k| component.iter().map(|&node|positions[node].as_ref().unwrap()[k].clone()).min().unwrap());
+        for node in component { positions[node] = Some(sub(positions[node].as_ref().unwrap(),&origin)); }
+    }
+    let positions: Vec<V3> = positions.into_iter().map(Option::unwrap).collect();
+    let keys: Vec<_> = model.elems.iter().map(|element| (
+        positions[element.ni].clone(), positions[element.nj].clone(), element.mp.clone(), element.rel,
+        element.uy.clone(),element.uz.clone(),
+        element.pieces_y.iter().map(|piece|(piece.a.clone(),piece.b.clone(),piece.c.clone())).collect::<Vec<_>>(),
+        element.pieces_z.iter().map(|piece|(piece.a.clone(),piece.b.clone(),piece.c.clone())).collect::<Vec<_>>(),
+        element.loads_x.iter().map(|load|(load.ta.clone(),load.tb.clone(),load.qi.clone(),load.qj.clone())).collect::<Vec<_>>(),
+        element.frame.clone()
+    )).collect();
+    let mut incident = vec![Vec::new();nn];
+    for (i,element) in model.elems.iter().enumerate() {
+        incident[element.ni].push((false,keys[i].clone(),interior[i].clone(),end_hinge[i]));
+        incident[element.nj].push((true,keys[i].clone(),interior[i].clone(),end_hinge[i]));
+    }
+    for members in &mut incident { members.sort(); }
+    let mut nodes: Vec<usize> = (0..nn).collect();
+    nodes.sort_by(|&i,&j|positions[i].cmp(&positions[j])
+        .then_with(||model.restrained[i].cmp(&model.restrained[j]))
+        .then_with(||model.nodal[i].cmp(&model.nodal[j]))
+        .then_with(||incident[i].cmp(&incident[j])));
+    let mut elements: Vec<usize> = (0..model.elems.len()).collect();
+    elements.sort_by(|&i,&j|keys[i].cmp(&keys[j]).then_with(||interior[i].cmp(&interior[j])).then_with(||end_hinge[i].cmp(&end_hinge[j])));
+    (nodes,elements)
+}
+
 /// Exact compatibility null space for hinges at the given locations, then the
 /// best (smallest exact λ_up) of its basis vectors and of a least-squares fit
 /// to the LP hinge rotations.
@@ -1487,9 +1546,10 @@ fn best_mechanism(
     target: &[(usize, Q, [f64; 2])],
 ) -> Result<Option<(Mechanism3, MechanismCheck3)>, String> {
     let nn = model.node_ids.len();
+    let (node_order,element_order) = mechanism_layout(model,end_hinge,interior);
     let mut col = vec![[usize::MAX; 6]; nn];
     let mut n = 0;
-    for i in 0..nn {
+    for i in node_order {
         for k in 0..6 {
             if !model.restrained[i][k] {
                 col[i][k] = n;
@@ -1497,10 +1557,10 @@ fn best_mechanism(
             }
         }
     }
-    let mut ocol = Vec::with_capacity(model.elems.len());
-    for h in interior {
-        ocol.push(n);
-        n += 3 * (h.len() + 1);
+    let mut ocol = vec![0;model.elems.len()];
+    for i in element_order {
+        ocol[i] = n;
+        n += 3 * (interior[i].len() + 1);
     }
     let mut rows: Vec<Vec<Q>> = Vec::new();
     for (ei, e) in model.elems.iter().enumerate() {
@@ -1653,7 +1713,7 @@ fn irls_mechanism(
 ) -> Option<Vec<Q>> {
     let m = basis.len();
     let mechs: Vec<Mechanism3> = basis.iter().map(|v| to_mech(v)).collect();
-    let w: Vec<f64> = mechs.iter().map(|mm| mechanism_terms(model, mm).map(|t| to_f64(&t.0)).unwrap_or(0.0)).collect();
+    let mut w: Vec<f64> = mechs.iter().map(|mm| mechanism_terms(model, mm).map(|t| to_f64(&t.0)).unwrap_or(0.0)).collect();
     if w.iter().all(|x| *x == 0.0) {
         return None;
     }
@@ -1693,6 +1753,15 @@ fn irls_mechanism(
             rows.push(r);
         }
     }
+    let physical_column_norms: Vec<f64> = (0..m).map(|j| rows.iter().fold(0.0f64, |norm,r| norm.hypot(r[0][j]).hypot(r[1][j]))).collect();
+    if physical_column_norms.iter().any(|norm| !norm.is_finite()) { return None; }
+    let physical_column_norms: Vec<f64> = physical_column_norms.into_iter().map(|norm| if norm > 0.0 { norm } else { 1.0 }).collect();
+    for row in &mut rows {
+        for component in row {
+            for (value,norm) in component.iter_mut().zip(&physical_column_norms) { *value /= norm; }
+        }
+    }
+    for (value,norm) in w.iter_mut().zip(&physical_column_norms) { *value /= norm; }
     let solve = |h: &Vec<Vec<f64>>| -> Option<Vec<f64>> {
         // c = H⁻¹ w / (wᵀ H⁻¹ w)
         let mut a: Vec<Vec<f64>> = h.iter().zip(&w).map(|(row, wi)| row.iter().copied().chain([*wi]).collect()).collect();
@@ -1759,13 +1828,9 @@ fn irls_mechanism(
         weights = rows.iter().map(|r| 1.0 / (norm(r, &c).powi(2) + eps * eps).sqrt()).collect();
     }
     let (_, c) = best?;
-    let cmax = c.iter().fold(0.0f64, |a, x| a.max(x.abs()));
     let mut v = vec![Q::zero(); basis[0].len()];
-    for (cj, bj) in c.iter().zip(basis) {
-        if cj.abs() <= 1e-14 * cmax {
-            continue;
-        }
-        let cq = q(*cj)?;
+    for ((cj,bj),norm) in c.iter().zip(basis).zip(&physical_column_norms) {
+        let cq = q(*cj / norm)?;
         for (vi, bi) in v.iter_mut().zip(bj) {
             if !bi.is_zero() {
                 *vi += &cq * bi;
@@ -1907,12 +1972,7 @@ pub fn plastic_candidates_3d(
                 h.sort();
                 h.dedup();
             }
-            let cand = best_mechanism(model, &end_hinge, &interior, &target)?;
-            let found = cand.is_some();
-            keep(cand, &mut best_mech);
-            if found {
-                break;
-            }
+            keep(best_mechanism(model, &end_hinge, &interior, &target)?, &mut best_mech);
         }
     }
     // polish: the hinges that turn in the best mechanism found, alone
@@ -2124,16 +2184,24 @@ fn collapse_3d(input: &PlasticInput3D, solver: Option<&PlasticResult3D>) -> Plas
 /// Run the incremental 3D plastic solver and certify its collapse load factor.
 pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, String> {
     super::finite::check_input(input)?;
-    if let Ok(model) = build_model_3d(input) {
+    crate::known_issues::refuse(&crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Plastic))?;
+    {
+        let model = build_model_3d(input).map_err(|reason| format!("3D plastic collapse certificate unavailable: {reason}"))?;
         lp_work(&model).initial().check_engine_budget()?;
     }
-    let mut results = solve_plastic_3d(input)?;
+    let mut results = solve_plastic_3d_incremental(input)?;
     super::finite::check_results(&results)?;
     let certificate = certify_collapse_3d(input, Some(&results));
     let (lower, upper) = match (certificate.certified, certificate.lambda_lower, certificate.lambda_upper) {
         (true, Some(lower), Some(upper)) if lower.is_finite() && upper.is_finite() && lower <= upper => (lower, upper),
         _ => return Err(format!("3D plastic collapse certificate unavailable: {}", certificate.reason.as_deref().unwrap_or("no sound finite ordered interval"))),
     };
+    let lower_q = q(lower).ok_or("non-finite plastic collapse interval")?;
+    let upper_q = q(upper).ok_or("non-finite plastic collapse interval")?;
+    let width_limit = q(5e-8).unwrap();
+    if !lower_q.is_positive() || &upper_q - &lower_q > &width_limit * &lower_q {
+        return Err(format!("3D plastic collapse interval [{lower}, {upper}] is not positive or exceeds relative width 5e-8; no collapse factor is reported"));
+    }
     let raw = results.collapse_factor;
     let outside = raw < lower || raw > upper;
     let comparison = if outside {
@@ -2141,7 +2209,7 @@ pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, 
     } else {
         format!("Raw incremental factor {raw} lies within the certified interval [{lower}, {upper}]")
     };
-    let warning = format!("collapseFactor is the certified lower bound {lower}. {comparison}. Incremental steps and hinges retain raw solver values and are not certified by this interval.");
+    let warning = format!("collapseFactor is the certified lower bound {lower}. {comparison}. Incremental steps, hinges and the mechanism flag retain raw solver values and are not certified by this interval.");
     if outside {
         let mut diagnostic = crate::known_issues::diagnostic("PL-3D-CERTIFICATE-MISMATCH");
         diagnostic.severity = Severity::Warning;
