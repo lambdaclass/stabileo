@@ -14,6 +14,24 @@ export interface AdminAccount extends Account {
   is_admin: boolean;
   consents?: Consents;
   project_count?: number;
+  signup_source?: SignupSource | null;
+  milestones?: Partial<Record<'first_analysis' | 'first_save' | 'first_export', string>>;
+}
+
+export interface SignupSource {
+  channel: string;
+  paid: boolean | null;
+  placement: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_content: string | null;
+  utm_term: string | null;
+  referrer: string | null;
+  landing_path: string | null;
+  trigger: string | null;
+  first_seen_at: string | null;
+  inserted_at: string;
 }
 
 export type AdminSession = Session;
@@ -29,6 +47,7 @@ export interface ListUsersParams {
   sort_dir?: SortDir;
   status?: StatusFilter;
   search?: string;
+  channel?: string;
 }
 
 export type AllowedEmailSortBy = 'email' | 'inserted_at';
@@ -174,12 +193,12 @@ export interface ForceLogoutResult {
 
 export const ADMIN_BASE = '/api/v1/admin';
 
-const PARAM_ORDER: (keyof ListUsersParams)[] = ['search', 'status', 'sort_by', 'sort_dir', 'limit', 'offset'];
+const PARAM_ORDER: (keyof ListUsersParams)[] = ['search', 'status', 'channel', 'sort_by', 'sort_dir', 'limit', 'offset'];
 
 export function usersQueryString(params: ListUsersParams | ListAllowedEmailsParams = {}): string {
   const qs = new URLSearchParams();
   for (const key of PARAM_ORDER) {
-    const value = params[key];
+    const value = (params as ListUsersParams)[key];
     if (value === undefined || value === null) continue;
     const text = typeof value === 'string' ? value.trim() : String(value);
     if (text === '') continue;

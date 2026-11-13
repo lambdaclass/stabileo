@@ -10,7 +10,22 @@
   const account = $derived(authStore.account);
   const loading = $derived(authStore.status === 'loading' && !account);
 
+  let placement = $state('account_button');
+
+  // `/app?signup=1` (a link or an ad) opens the dialog, ready for Google, once the session is known.
+  $effect(() => {
+    if (authStore.status === 'loading' || account || !authStore.userLoginEnabled) return;
+    const params = new URLSearchParams(location.search);
+    if (params.get('signup') !== '1') return;
+    params.delete('signup');
+    const query = params.toString();
+    history.replaceState(history.state, '', location.pathname + (query ? `?${query}` : '') + location.hash);
+    placement = 'link';
+    authOpen = true;
+  });
+
   function onClick() {
+    placement = 'account_button';
     if (account) profileOpen = true;
     else authOpen = true;
   }
@@ -48,7 +63,7 @@
   </button>
 {/if}
 
-<AuthDialog bind:open={authOpen} />
+<AuthDialog bind:open={authOpen} {placement} />
 <ProfileDialog bind:open={profileOpen} />
 
 <style>

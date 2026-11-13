@@ -13,7 +13,7 @@ import { movedRoute } from './legacy-routes';
  */
 const SHARED_MODEL = /^#(data=|embed=|code=)/;
 
-export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'game' | 'landing';
+export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'game' | 'register' | 'landing';
 
 /** `/app` and everything under it: the application's own addresses. */
 export function isAppPath(pathname: string): boolean {
@@ -35,6 +35,10 @@ export function isGamePath(path: string): boolean {
   return path === '/diagram-game' || path === '/diagram-game/';
 }
 
+export function isRegisterPath(path: string): boolean {
+  return path === '/register' || path === '/register/';
+}
+
 /** `/demo`: the application, on its demo model. */
 export function isDemoPath(pathname: string): boolean {
   return pathname === '/demo' || pathname === '/demo/';
@@ -54,6 +58,7 @@ export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = 
   if (isGamePath(path)) return { kind: 'game', path };
   if (isResearchPath(path)) return { kind: 'research', path };
   if (isPaperPath(path)) return { kind: 'paper', path };
+  if (isRegisterPath(path)) return { kind: 'register', path };
   return { kind: 'landing', path };
 }
 

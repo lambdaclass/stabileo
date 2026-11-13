@@ -78,6 +78,7 @@ defmodule StabileoAuth.Controllers.Admin.UserController do
     consents = Consents.current_for(ids)
     projects = Admin.project_counts(ids)
     active = StabileoAuth.Sessions.last_active(ids)
+    extended = Admin.extend(ids)
 
     Enum.map(rows, fn {account, active_sessions} ->
       account
@@ -91,6 +92,7 @@ defmodule StabileoAuth.Controllers.Admin.UserController do
         consents: AccountJSON.consents_json(Map.fetch!(consents, account.id)),
         project_count: Map.get(projects, account.id, 0)
       })
+      |> Map.merge(Map.get(extended, account.id, %{}))
     end)
   end
 end

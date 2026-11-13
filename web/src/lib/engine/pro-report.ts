@@ -329,4 +329,502 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`<div style="font-size:11px;color:#888;margin-top:16px">${coverFooterParts.join(' &mdash; ')}</div>`);
   }
   // Informational only (not a global-axis switch): state the canonical solver frame.
+  html.push(`<div style="font-size:10px;color:#aaa;margin-top:8px">${escHtml(tr('report.solverCoordsNote'))}${frame.identity ? '' : ` ${escHtml(axesStatement(tr, axes))}`}</div>`);
   html.push(`<div class="disclaimer" style="font-size:10px;color:#777;margin:16px auto 0;max-width:520px">${escHtml(tr('disclaimer.report'))}</div>`);
+  html.push(`<div class="logo">${escHtml(tr('report.coverFooter'))}</div>`);
+  html.push(`</div>`);
+
+  const showSection = (key: keyof NonNullable<ReportConfig['sections']>) => !cfg?.sections || !!cfg.sections[key];
+  const showPart = (key: ReportPart) => cfg?.sections?.parts?.[key] !== false;
+  const modeOf = (key: ReportResult): ResultMode => cfg?.resultModes?.[key] ?? 'both';
+  const showTable = (key: ReportResult) => modeOf(key) !== 'figure';
+  const rf = data.resultFigures ?? {};
+  // Figures are numbered in the order they appear, wherever they are.
+  let figureNo = 0;
+  const figureHtml = (f: ReportFigure) => `<figure style="margin:12px 0;page-break-inside:avoid"><img class="screenshot" src="${f.dataUrl}" alt="${escHtml(f.caption)}" /><figcaption style="font-size:11px;color:#444">${escHtml(tr('report.figure'))} ${++figureNo}. ${escHtml(f.caption)}</figcaption></figure>`;
+  const figuresOf = (key: ReportResult) => (modeOf(key) === 'table' ? [] : (rf[key] ?? [])).map(figureHtml);
+
+  const adv = data.advancedResults;
+  const wants = (key: string): boolean => {
+    const picked = cfg?.advancedPicked;
+    return !picked || picked[key] !== false;
+  };
+  const anyAdvanced = !!adv && (
+    (!!adv.pdelta && wants('pdelta')) || (!!adv.modal && wants('modal'))
+    || (!!adv.buckling && wants('buckling')) || (!!adv.spectral && wants('spectral'))
+  );
+
+  const parts: { anchor: string; label: string; on: boolean }[] = [
+    { anchor: 'sec-model-data', label: tr('report.modelData'), on: showSection('modelData') },
+    { anchor: 'sec-results', label: tr('report.results'), on: showSection('results') },
+    { anchor: 'sec-figures', label: tr('report.figures'), on: showSection('figures') && !!cfg?.figures?.length },
+    { anchor: 'sec-quantities', label: tr('report.quantities') || 'Quantities', on: showSection('quantities') && !!quantities },
+    { anchor: 'sec-advanced', label: tr('report.advancedAnalysis') || 'Advanced Analysis', on: showSection('advancedAnalysis') && anyAdvanced },
+    { anchor: 'sec-drift', label: tr('report.storyDrift') || 'Story Drift', on: showSection('storyDrift') && !!data.storyDrifts?.length },
+    { anchor: 'sec-diagnostics', label: tr('report.diagnostics') || 'Diagnostics', on: showSection('diagnostics') && !!data.diagnostics?.length },
+  ];
+  const major = new Map<string, number>();
+  for (const p of parts) if (p.on) major.set(p.anchor, major.size + 1);
+  // Some titles carry their own number («1. Model Data»): it is dropped and written again in order.
+  const numbered = (anchor: string, title: string) => `${major.get(anchor)}. ${title.replace(/^\d+\.\s*/, '')}`;
+  const subCount = new Map<string, number>();
+  const subNo = (anchor: string) => { const n = (subCount.get(anchor) ?? 0) + 1; subCount.set(anchor, n); return `${major.get(anchor)}.${n}`; };
+
+  // ─── Table of Contents ──────────────────────────────────
+  html.push(`<div class="page-break"></div>`);
+  html.push(`<div class="toc"><h2>${escHtml(tr('report.toc') || 'Table of Contents')}</h2>`);
+  const dispositions = [knownIssueResultDisposition([data.results, data.resultSets, ...Object.values(data.advancedResults ?? {})]), data.containment, ...Object.values(data.advancedResults ?? {}).map(value => (value as { disposition?: ReturnType<typeof knownIssueDisposition> }).disposition)].filter(Boolean);
+  if (dispositions.some(d => d?.refused)) throw new ContainmentExportError(dispositions.flatMap(d => d?.messages ?? []).join('\n'));
+  const reportWarnings = [...new Set(dispositions.flatMap(d => d?.messages ?? []))];
+  if (reportWarnings.length) html.push(`<section id="stabileo-warnings">${reportWarnings.map(message => `<p role="alert">${escHtml(message)}</p>`).join('')}</section>`);
+  for (const p of parts) {
+    if (p.on) html.push(`<div class="toc-entry"><a href="#${p.anchor}">${escHtml(numbered(p.anchor, p.label))}</a><span class="toc-dots"></span></div>`);
+  }
+  html.push(`</div>`);
+
+  // ─── CAD draft provenance: source + the assumptions baked into the model ───
+  if (data.provenance) {
+    html.push(`<h2>${escHtml(tr('report.cadAssumptionsTitle'))}</h2>`);
+    html.push(`<p style="font-size:11px;color:#666">${escHtml(data.provenance.fileName)} — ${escHtml(data.provenance.importedAtIso.slice(0, 10))}</p>`);
+    html.push('<ul style="font-size:12px">');
+    for (const a of data.provenance.assumptions) {
+      html.push(`<li>${escHtml(a)}</li>`);
+    }
+    html.push('</ul>');
+  }
+
+  // ─── Model Data ─────────────────────────────────────────
+  if (showSection('modelData')) {
+  html.push(`<div class="page-break"></div>`);
+  html.push(`<h1 id="sec-model-data">${escHtml(numbered('sec-model-data', tr('report.modelData')))}</h1>`);
+
+  if (rf.model || screenshot) {
+    html.push(`<h2>${escHtml(tr('report.view3d'))}</h2>`);
+    // The model with its node and member numbers, as Figure 1: drawn from the model, or captured.
+    html.push(figureHtml(rf.model ?? { dataUrl: screenshot!, caption: tr('report.modelFigureCaption') }));
+  }
+
+  // Nodes table
+  if (showPart('nodes')) {
+  html.push(`<h2>${subNo('sec-model-data')} ${escHtml(tr('report.nodes'))} (${nodes.length})</h2>`);
+    // The name column only when some node has one.
+    const named = nodes.some((n) => n.name);
+    html.push(`<table><thead><tr><th>ID</th>${named ? `<th>${escHtml(tr('pro.thName'))}</th>` : ''}<th>${km('X')} (m)</th><th>${km('Y')} (m)</th><th>${km('Z')} (m)</th></tr></thead><tbody>`);
+    const upright = data.config?.uprightPlane ?? standingPlane();
+    for (const n of nodes) {
+      const [x, y, z] = upright ? vec(n.x, 0, n.y) : vec(n.x, n.y, n.z ?? 0);
+      html.push(`<tr><td>${n.id}</td>${named ? `<td>${escHtml(n.name ?? '')}</td>` : ''}<td class="num">${fmtNum(x!, 3)}</td><td class="num">${fmtNum(y!, 3)}</td><td class="num">${fmtNum(z!, 3)}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+  }
+
+  // Materials table
+  if (showPart('materials')) {
+  html.push(`<h2>${subNo('sec-model-data')} ${escHtml(tr('report.materials'))} (${materials.length})</h2>`);
+  html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.name'))}</th><th>${km('E')} (MPa)</th><th>${km('\\nu')}</th><th>${km('\\gamma')} (kN/m³)</th><th>${km("f'_c / f_y")} (MPa)</th></tr></thead><tbody>`);
+  for (const m of materials) {
+    html.push(`<tr><td>${m.id}</td><td>${escHtml(m.name)}</td><td class="num">${plainNumber(m.e, 0)}</td><td class="num">${m.nu}</td><td class="num">${m.rho}</td><td class="num">${m.fy ?? '—'}</td></tr>`);
+  }
+  html.push(`</tbody></table>`);
+  }
+
+  // Sections table
+  if (showPart('sections')) {
+  html.push(`<h2>${subNo('sec-model-data')} ${escHtml(tr('report.sections'))} (${sections.length})</h2>`);
+  html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.name'))}</th><th>${km('A')} (m²)</th><th>${km('I_y')} (m⁴)</th><th>${km('I_z')} (m⁴)</th><th>${km('J')} (m⁴)</th><th>${km('A_{s,y}')} / ${km('A_{s,z}')}</th><th>${km('b')} (m)</th><th>${km('h')} (m)</th></tr></thead><tbody>`);
+  for (const s of sections) {
+    const sa = (s as { shearAreas?: { basis: string; asY?: number; asZ?: number } }).shearAreas;
+    const shear = !sa ? '—' : sa.basis === 'declared' ? `${fmtNum(sa.asY ?? 0, 6)} / ${fmtNum(sa.asZ ?? 0, 6)}` : escHtml(tr('report.shearFromGeometry'));
+    html.push(`<tr><td>${s.id}</td><td>${escHtml(s.name)}</td><td class="num">${fmtNum(s.a, 6)}</td><td class="num">${s.iy !== undefined ? fmtNum(s.iy, 8) : '—'}</td><td class="num">${fmtNum(s.iz, 8)}</td><td class="num">${s.j !== undefined ? fmtNum(s.j, 8) : '—'}</td><td class="num">${shear}</td><td class="num">${s.b ? fmtNum(s.b, 3) : '—'}</td><td class="num">${s.h ? fmtNum(s.h, 3) : '—'}</td></tr>`);
+  }
+  html.push(`</tbody></table>`);
+  }
+
+  // Elements table
+  if (showPart('members')) {
+  html.push(`<h2>${subNo('sec-model-data')} ${escHtml(tr('report.elements'))} (${elements.length})</h2>`);
+    const named = elements.some((e) => e.name);
+    html.push(`<table><thead><tr><th>ID</th>${named ? `<th>${escHtml(tr('pro.thName'))}</th>` : ''}<th>${escHtml(tr('report.nodeI'))}</th><th>${escHtml(tr('report.nodeJ'))}</th><th>${escHtml(tr('report.material'))}</th><th>${escHtml(tr('report.sections'))}</th></tr></thead><tbody>`);
+    for (const e of elements) {
+      const matName = materials.find(m => m.id === e.materialId)?.name ?? String(e.materialId);
+      const secName = memberSectionLabel(sections, e as never);
+      html.push(`<tr><td>${e.id}</td>${named ? `<td>${escHtml(e.name ?? '')}</td>` : ''}<td>${e.nodeI}</td><td>${e.nodeJ}</td><td>${escHtml(matName)}</td><td>${escHtml(secName)}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+  }
+
+  // Supports
+  if (showPart('supports')) {
+  html.push(`<h2>${subNo('sec-model-data')} ${escHtml(tr('report.supports'))} (${supports.length})</h2>`);
+  html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.nodes'))}</th><th>${escHtml(tr('report.type'))}</th></tr></thead><tbody>`);
+  for (const s of supports) {
+    html.push(`<tr><td>${s.id}</td><td>${s.nodeId}</td><td>${escHtml(supportTypeIn(frame, s.type))}</td></tr>`);
+  }
+  html.push(`</tbody></table>`);
+  }
+
+  html.push(`<p>${escHtml(interp(tr('report.loadsCount'), { n: loadCount }))}</p>`);
+
+  // Loads detail table
+  if (showSection('loads') && data.loads && data.loads.length > 0) {
+    html.push(`<h2>${subNo('sec-model-data')} ${escHtml(tr('report.loadsDetail'))} (${data.loads.length})</h2>`);
+    html.push(`<table><thead><tr><th>#</th><th>${escHtml(tr('report.type'))}</th><th>${escHtml(tr('report.target'))}</th><th>${escHtml(tr('report.values'))}</th></tr></thead><tbody>`);
+    for (let i = 0; i < data.loads.length; i++) {
+      const ld = data.loads[i];
+      html.push(`<tr><td>${i + 1}</td><td>${escHtml(ld.type)}</td><td>${escHtml(ld.target)}</td><td>${escHtml(ld.values)}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+    for (const f of rf.loads ?? []) html.push(figureHtml(f));
+    if (rf.loadsOmitted) html.push(`<p class="note">${escHtml(interp(tr('report.loadFiguresOmitted'), { n: rf.loadsOmitted }))}</p>`);
+  }
+
+  // Quads (losas y tabiques)
+  if (showPart('shells') && data.quads && data.quads.length > 0) {
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    const matMap = new Map(materials.map(m => [m.id, m]));
+
+    // Classify quads: compute normal vector, if mostly vertical → tabique, else losa
+    interface QuadInfo {
+      quad: typeof data.quads extends (infer T)[] | undefined ? NonNullable<T> : never;
+      type: 'losa' | 'tabique';
+      area: number;
+      matName: string;
+    }
+
+    const quadInfos: QuadInfo[] = [];
+    for (const q of data.quads) {
+      const ns = q.nodes.map(nid => nodeMap.get(nid));
+      if (ns.some(n => !n)) continue;
+      const [p0, p1, , p3] = ns as NonNullable<typeof ns[number]>[];
+      // Two edge vectors
+      const ax = p1.x - p0.x, ay = p1.y - p0.y, az = (p1.z ?? 0) - (p0.z ?? 0);
+      const bx = p3.x - p0.x, by = p3.y - p0.y, bz = (p3.z ?? 0) - (p0.z ?? 0);
+      // Normal = cross product
+      const nx = ay * bz - az * by;
+      const ny = az * bx - ax * bz;
+      const nz = ax * by - ay * bx;
+      const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      const area = nLen / 2; // approximate (2 triangles)
+      // If normal is mostly horizontal (Y component dominates) → losa; else tabique
+      const yFrac = nLen > 1e-10 ? Math.abs(ny) / nLen : 0;
+      const type = yFrac > 0.7 ? 'losa' : 'tabique';
+      const matName = matMap.get(q.materialId)?.name ?? String(q.materialId);
+      quadInfos.push({ quad: q, type, area, matName });
+    }
+
+    // Group by type + thickness + material
+    interface QuadGroup {
+      type: 'losa' | 'tabique';
+      thickness: number;
+      matName: string;
+      ids: number[];
+      totalArea: number;
+    }
+
+    const quadGroupMap = new Map<string, QuadGroup>();
+    for (const qi of quadInfos) {
+      const key = `${qi.type}_${qi.quad.thickness}_${qi.matName}`;
+      let g = quadGroupMap.get(key);
+      if (!g) {
+        g = { type: qi.type, thickness: qi.quad.thickness, matName: qi.matName, ids: [], totalArea: 0 };
+        quadGroupMap.set(key, g);
+      }
+      g.ids.push(qi.quad.id);
+      g.totalArea += qi.area;
+    }
+
+    const losas = [...quadGroupMap.values()].filter(g => g.type === 'losa');
+    const tabiques = [...quadGroupMap.values()].filter(g => g.type === 'tabique');
+
+    html.push(`<h2>${subNo('sec-model-data')} ${escHtml(tr('report.slabsAndWalls'))} (${data.quads.length} ${escHtml(tr('report.shellElements'))})</h2>`);
+
+    if (losas.length > 0) {
+      html.push(`<h3>${escHtml(tr('report.slabs'))}</h3>`);
+      html.push(`<table><thead><tr><th>IDs</th><th>${escHtml(tr('report.count'))}</th><th>${escHtml(tr('report.thickness'))}</th><th>${escHtml(tr('report.material'))}</th><th>${escHtml(tr('report.totalAreaM2'))}</th></tr></thead><tbody>`);
+      for (const g of losas) {
+        const idList = g.ids.length <= 10 ? g.ids.join(', ') : `${g.ids.slice(0, 8).join(', ')}… (${g.ids.length})`;
+        html.push(`<tr><td>${idList}</td><td>${g.ids.length}</td><td class="num">${g.thickness.toFixed(2)}</td><td>${escHtml(g.matName)}</td><td class="num">${g.totalArea.toFixed(1)}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
+    }
+
+    if (tabiques.length > 0) {
+      html.push(`<h3>${escHtml(tr('report.walls'))}</h3>`);
+      html.push(`<table><thead><tr><th>IDs</th><th>${escHtml(tr('report.count'))}</th><th>${escHtml(tr('report.thickness'))}</th><th>${escHtml(tr('report.material'))}</th><th>${escHtml(tr('report.totalAreaM2'))}</th></tr></thead><tbody>`);
+      for (const g of tabiques) {
+        const idList = g.ids.length <= 10 ? g.ids.join(', ') : `${g.ids.slice(0, 8).join(', ')}… (${g.ids.length})`;
+        html.push(`<tr><td>${idList}</td><td>${g.ids.length}</td><td class="num">${g.thickness.toFixed(2)}</td><td>${escHtml(g.matName)}</td><td class="num">${g.totalArea.toFixed(1)}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
+    }
+
+    // Summary
+    const totalLosaArea = losas.reduce((s, g) => s + g.totalArea, 0);
+    const totalTabArea = tabiques.reduce((s, g) => s + g.totalArea, 0);
+    const totalLosaVol = losas.reduce((s, g) => s + g.totalArea * g.thickness, 0);
+    const totalTabVol = tabiques.reduce((s, g) => s + g.totalArea * g.thickness, 0);
+    html.push(`<p>${escHtml(interp(tr('report.slabTotalArea'), { area: totalLosaArea.toFixed(1), vol: totalLosaVol.toFixed(2) }))}</p>`);
+    html.push(`<p>${escHtml(interp(tr('report.wallTotalArea'), { area: totalTabArea.toFixed(1), vol: totalTabVol.toFixed(2) }))}</p>`);
+  }
+  // Load combinations reference table (inside modelData section)
+  if (showSection('modelData') && showPart('combinations') && data.combinations && data.combinations.length > 0) {
+    html.push(`<h2>${subNo('sec-model-data')} ${escHtml(tr('report.loadCombinations') || 'Load Combinations')} (${data.combinations.length})</h2>`);
+    html.push(`<table><thead><tr><th>#</th><th>${escHtml(tr('report.name') || 'Name')}</th><th>${escHtml(tr('report.factors') || 'Factors')}</th></tr></thead><tbody>`);
+    for (const c of data.combinations) {
+      const factorStr = c.factors
+        .filter(f => f.factor !== 0)
+        .map(f => `${f.factor !== 1 ? `${+f.factor.toFixed(4)} ` : ''}${f.caseName}`)
+        .join(' + ') || '—';
+      html.push(`<tr><td>${c.id}</td><td>${escHtml(c.name)}</td><td>${escHtml(factorStr)}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+  }
+
+  } // end showSection('modelData')
+
+  // ─── Results ────────────────────────────────────────────
+  if (showSection('results')) {
+  html.push(`<div class="page-break"></div>`);
+  html.push(`<h1 id="sec-results">${escHtml(numbered('sec-results', tr('report.results')))}</h1>`);
+
+  // Model size — nodes, elements, and free (unconstrained) DOF count.
+  // nFree comes from the solver timings/meta; omitted gracefully if absent.
+  {
+    const nFree = results.timings?.nFree;
+    const dofLine = nFree !== undefined ? `, ${nFree} ${escHtml(tr('report.freeDof') || 'free DOF')}` : '';
+    html.push(`<p class="model-size">${nodes.length} ${escHtml(tr('report.nodes'))}, ${elements.length} ${escHtml(tr('report.elements'))}${dofLine}.</p>`);
+    if (data.resultSetName) html.push(`<p class="note">${escHtml(interp(tr('report.resultSetShown'), { name: data.resultSetName }))}</p>`);
+  }
+
+  // Reactions
+  html.push(`<h2>${subNo('sec-results')} ${escHtml(tr('report.reactions'))}</h2>`);
+  if (showTable('reactions')) {
+  html.push(`<table data-printed="reactions"><thead><tr><th>${escHtml(tr('pro.nodeLabel'))}</th><th>${km('F_x')} (kN)</th><th>${km('F_y')} (kN)</th><th>${km('F_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
+  for (const r of results.reactions) {
+    const v = [...vec(r.fx, r.fy, r.fz), ...rot(r.mx, r.my, r.mz)];
+    html.push(`<tr><td>${r.nodeId}</td>${v.map((x) => `<td class="num">${fmtNum(x)}</td>`).join('')}</tr>`);
+  }
+  html.push(`</tbody></table>`);
+  }
+  html.push(...figuresOf('reactions'));
+
+  // Element forces
+  html.push(`<h2>${subNo('sec-results')} ${escHtml(tr('report.forces'))}</h2>`);
+  if (showTable('forces')) {
+    html.push(`<table data-printed="forces"><thead><tr><th>${escHtml(tr('pro.elemLabel'))}</th><th>${escHtml(tr('report.ext'))}</th><th>${km('N')} (kN)</th><th>${km('V_y')} (kN)</th><th>${km('V_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
+    for (const ef of results.elementForces) {
+      html.push(`<tr><td rowspan="2">${ef.elementId}</td><td>i</td><td class="num">${fmtNum(ef.nStart)}</td><td class="num">${fmtNum(ef.vyStart)}</td><td class="num">${fmtNum(ef.vzStart)}</td><td class="num">${fmtNum(ef.mxStart)}</td><td class="num">${fmtNum(ef.myStart)}</td><td class="num">${fmtNum(ef.mzStart)}</td></tr>`);
+      html.push(`<tr><td>j</td><td class="num">${fmtNum(ef.nEnd)}</td><td class="num">${fmtNum(ef.vyEnd)}</td><td class="num">${fmtNum(ef.vzEnd)}</td><td class="num">${fmtNum(ef.mxEnd)}</td><td class="num">${fmtNum(ef.myEnd)}</td><td class="num">${fmtNum(ef.mzEnd)}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+  }
+  html.push(...figuresOf('forces'));
+
+  // Displacements
+  html.push(`<h2>${subNo('sec-results')} ${escHtml(tr('report.displacements'))}</h2>`);
+  if (showTable('displacements')) {
+    html.push(`<table data-printed="displacements"><thead><tr><th>${escHtml(tr('pro.nodeLabel'))}</th><th>${km('u_x')} (m)</th><th>${km('u_y')} (m)</th><th>${km('u_z')} (m)</th><th>${km('\\theta_x')} (rad)</th><th>${km('\\theta_y')} (rad)</th><th>${km('\\theta_z')} (rad)</th></tr></thead><tbody>`);
+    for (const d of results.displacements) {
+      const v = [...vec(d.ux, d.uy, d.uz), ...rot(d.rx, d.ry, d.rz)];
+      html.push(`<tr><td>${d.nodeId}</td>${v.map((x) => `<td class="num">${fmtNum(x, 6)}</td>`).join('')}</tr>`);
+    }
+    html.push(`</tbody></table>`);
+  }
+  html.push(...figuresOf('displacements'));
+
+  {
+    const psList = results.plateStresses ?? [];
+    const qsList = results.quadStresses ?? [];
+    if (psList.length || qsList.length) {
+      html.push(`<h2>${subNo('sec-results')} ${escHtml(tr('report.shellResults'))} (${psList.length + qsList.length})</h2>`);
+      html.push(...figuresOf('shells'));
+      html.push(`<p class="assumption">${escHtml(tr('report.shellResultsAssumptions'))}</p>`);
+
+      interface ShellRow {
+        kind: string; id: number;
+        sxx: number; syy: number; txy: number;
+        s1: number; s2: number; mx: number; my: number; mxy: number; vm: number;
+      }
+      const rows: ShellRow[] = [];
+      const addRow = (kind: string, s: { elementId: number; sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number; vonMises: number; envelope?: ShellEnvelope }) => {
+        const pr = membranePrincipals(s);
+        rows.push({ kind, id: s.elementId, sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy, s1: pr.sigma1, s2: pr.sigma2, mx: s.mx, my: s.my, mxy: s.mxy, vm: s.vonMises });
+      };
+      for (const s of psList) addRow(tr('shellFaces.plate'), s);
+      for (const s of qsList) addRow(tr('shellFaces.quad'), s);
+
+      // Governing values (provenance for the engineer)
+      const gv = rows.reduce((a, b) => (b.vm > a.vm ? b : a), rows[0]);
+      const g1 = rows.reduce((a, b) => (Math.abs(b.s1) > Math.abs(a.s1) ? b : a), rows[0]);
+      html.push(`<p>${escHtml(interp(tr('report.shellGoverning'), {
+        vm: fmtNum(gv.vm), vmEl: `${gv.kind} ${gv.id}`,
+        s1: fmtNum(g1.s1), s1El: `${g1.kind} ${g1.id}`,
+      }))}</p>`);
+
+      const shown = showTable('shells') ? rows : [];
+
+      if (shown.length) html.push(`<table data-printed="shells"><thead><tr><th>${escHtml(tr('pro.elemLabel'))}</th>`
+        + `<th>${km('\\sigma_{xx}')}</th><th>${km('\\sigma_{yy}')}</th><th>${km('\\tau_{xy}')}</th>`
+        + `<th>${km('\\sigma_{1}')}</th><th>${km('\\sigma_{2}')}</th>`
+        + `<th>${km('m_x')}</th><th>${km('m_y')}</th><th>${km('m_{xy}')}</th>`
+        + `<th>${km('\\sigma_{vM}')}</th></tr></thead><tbody>`);
+      for (const r of shown) {
+        html.push(`<tr><td>${escHtml(r.kind)} ${r.id}</td>`
+          + `<td class="num">${fmtNum(r.sxx)}</td><td class="num">${fmtNum(r.syy)}</td><td class="num">${fmtNum(r.txy)}</td>`
+          + `<td class="num">${fmtNum(r.s1)}</td><td class="num">${fmtNum(r.s2)}</td>`
+          + `<td class="num">${fmtNum(r.mx)}</td><td class="num">${fmtNum(r.my)}</td><td class="num">${fmtNum(r.mxy)}</td>`
+          + `<td class="num">${fmtNum(r.vm)}</td></tr>`);
+      }
+      if (shown.length) html.push(`</tbody></table>`);
+      html.push(`<p class="note">${escHtml(tr('report.shellUnitsNote'))}</p>`);
+    }
+  }
+
+  if (showSection('envelope') && data.resultSets?.length) html.push(...envelopeSectionHtml(data.resultSets, tr, `${subNo('sec-results')} ${tr('report.env.title')}`, axes));
+  if (showSection('statics') && data.statics) html.push(...staticsSectionHtml(data.statics, tr, `${subNo('sec-results')} ${tr('pro.statics.title')}`, axes));
+  if (showSection('deflections') && data.deflections?.length) html.push(...deflectionSectionHtml(data.deflections, tr, `${subNo('sec-results')} ${tr('defl.title')}`));
+
+  } // end showSection('results')
+
+  // ─── Figures ────────────────────────────────────────────
+  if (showSection('figures') && cfg?.figures?.length) html.push(...figuresSectionHtml(cfg.figures, tr, numbered('sec-figures', tr('report.figures')), figureNo + 1));
+
+  // ─── Quantities ─────────────────────────────────────────
+  if (showSection('quantities') && quantities) {
+    html.push(...quantitiesSectionHtml(quantities, tr, numbered('sec-quantities', tr('report.quantities'))));
+  }
+
+  // ─── Advanced Analysis Summary ──────────────────────────
+  if (showSection('advancedAnalysis') && adv && anyAdvanced) {
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<h1 id="sec-advanced">${escHtml(numbered('sec-advanced', tr('report.advancedAnalysis')))}</h1>`);
+
+    if (adv.pdelta && wants('pdelta')) {
+      html.push(`<h3>${escHtml(tr('report.pdeltaTitle'))}</h3>`);
+      if (adv.pdelta.isStable !== undefined) {
+        html.push(`<p>${escHtml(tr(adv.pdelta.isStable ? 'advanced.stable' : 'advanced.unstable'))}</p>`);
+      }
+      html.push(`<table><tbody>`);
+      html.push(`<tr><td>${escHtml(tr('report.convergence'))}</td><td class="num">${adv.pdelta.converged ? escHtml(tr('report.yes')) : escHtml(tr('report.no'))}</td></tr>`);
+      html.push(`<tr><td>${escHtml(tr('report.iterations'))}</td><td class="num">${adv.pdelta.iterations}</td></tr>`);
+      if (adv.pdelta.b2Factor !== undefined) {
+        html.push(`<tr><td>${escHtml(tr('report.b2Factor'))}</td><td class="num">${formatPDeltaFactor(adv.pdelta.b2Factor)}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
+    }
+
+    if (adv.modal && wants('modal') && adv.modal.modes.length > 0) {
+      html.push(`<h3>${escHtml(tr('report.modalTitle'))}</h3>`);
+      for (const d of adv.modal.structuredDiagnostics ?? []) {
+        if (d.severity !== 'info' && d.code !== 'known_issue') html.push(`<p role="alert">${escHtml(selfCheckWarningText(d, tr))}</p>`);
+      }
+      if (adv.modal.totalMass != null) {
+        // The engine reports mass in tonnes (kN·s²/m). The label said kg.
+        html.push(`<p>${escHtml(tr('report.totalMass'))}: ${fmtNum(adv.modal.totalMass, 1)} t</p>`);
+      }
+      const finiteWarning = finiteSpectrumWarning(adv.modal, tr);
+      if (finiteWarning) html.push(`<p role="status">${escHtml(finiteWarning)}</p>`);
+      if (adv.modal.ratiosWithheld) html.push(`<p>${escHtml(tr('pro.modalConstrained'))}</p>`);
+      html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM ${alongName(0)}</th><th>ΣM ${alongName(1)}</th></tr></thead><tbody>`);
+      let cx = 0, cy = 0;
+      const pct = (v?: number) => (v != null ? `${(v * 100).toFixed(1)} %` : '—');
+      for (let i = 0; i < adv.modal.modes.length; i++) {
+        const m = adv.modal.modes[i];
+        cx += m.massRatioX ?? 0; cy += m.massRatioY ?? 0;
+        const has = m.massRatioX != null;
+        const model = [m.participationX, m.participationY, m.participationZ];
+        const part = frame.rows.map((row) => { const k = row.findIndex((c) => c !== 0); const v = model[k]; return v != null ? row[k]! * v + 0 : null; });
+        html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(m.frequency, 3)}</td><td class="num">${fmtNum(m.period, 3)}</td>${part.map((v) => `<td class="num">${v != null ? fmtNum(v, 3) : '—'}</td>`).join('')}<td class="num">${has ? pct(cx) : '—'}</td><td class="num">${has ? pct(cy) : '—'}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
+    }
+
+    if (adv.buckling && wants('buckling') && adv.buckling.factors.length > 0) {
+      html.push(`<h3>${escHtml(tr('report.bucklingTitle'))}</h3>`);
+      html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>${escHtml(tr('report.criticalFactor'))}</th></tr></thead><tbody>`);
+      for (let i = 0; i < adv.buckling.factors.length; i++) {
+        html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(adv.buckling.factors[i], 3)}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
+    }
+
+    if (adv.spectral && wants('spectral')) {
+      html.push(`<h3>${escHtml(tr('report.spectralTitle'))}</h3>`);
+      html.push(`<table><tbody>`);
+      if (adv.spectral.baseShearX != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} ${alongName(0)}</td><td class="num">${fmtNum(adv.spectral.baseShearX)} kN</td></tr>`);
+      if (adv.spectral.baseShearY != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} ${alongName(1)}</td><td class="num">${fmtNum(adv.spectral.baseShearY)} kN</td></tr>`);
+      if (adv.spectral.baseShearZ != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} ${alongName(2)}</td><td class="num">${fmtNum(adv.spectral.baseShearZ)} kN</td></tr>`);
+      html.push(`</tbody></table>`);
+    }
+  }
+
+  // ─── Story Drift ──────────────────────────────────────
+  if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) {
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<h1 id="sec-drift">${escHtml(numbered('sec-drift', tr('report.driftTitle')))}</h1>`);
+    const b = data.storyDriftBasis;
+    html.push(`<p>${escHtml(b
+      ? (tr('report.driftBasis') || '')
+          .replace('{cd}', String(b.cd)).replace('{group}', b.group)
+          .replace('{limit}', (b.limit * 100).toFixed(2)).replace('{cases}', b.cases.join(', '))
+      : tr('report.driftLimit'))}</p>`);
+    html.push(`<table data-printed="drift"><thead><tr><th>${escHtml(tr('report.level'))} (m)</th><th>h (m)</th><th>Δ${alongName(0).toLowerCase()} (mm)</th><th>Δ${alongName(1).toLowerCase()} (mm)</th><th>Δ${alongName(0).toLowerCase()}/h</th><th>Δ${alongName(1).toLowerCase()}/h</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+    for (const d of data.storyDrifts) {
+      const statusStr = d.status === 'ok' ? '✓ OK' : d.status === 'fail' ? `✗ ${tr('report.fail')}` : `⚠ ${tr('report.attention')}`;
+      const cls = d.status === 'fail' ? ' style="color:#e94560;font-weight:bold"' : d.status === 'warn' ? ' style="color:#f0a500"' : '';
+      html.push(`<tr${cls}><td class="num">${d.level.toFixed(2)}</td><td class="num">${d.height.toFixed(2)}</td><td class="num">${(d.driftX * 1000).toFixed(2)}</td><td class="num">${(d.driftY * 1000).toFixed(2)}</td><td class="num">${d.ratioX.toFixed(4)}</td><td class="num">${d.ratioY.toFixed(4)}</td><td>${statusStr}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+  }
+
+  // ─── Diagnostics ──────────────────────────────────────
+  if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) {
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<h1 id="sec-diagnostics">${escHtml(numbered('sec-diagnostics', tr('report.diagnostics')))}</h1>`);
+    const errors = data.diagnostics.filter(d => d.severity === 'error');
+    const warnings = data.diagnostics.filter(d => d.severity === 'warning');
+    const infos = data.diagnostics.filter(d => d.severity === 'info');
+
+    if (errors.length > 0) {
+      html.push(`<h3 class="diag-error">${escHtml(tr('report.errors'))} (${errors.length})</h3><ul>`);
+      for (const d of errors) {
+        html.push(`<li><strong>[${escHtml(d.code)}]</strong> ${escHtml(d.message)}${d.elementIds ? ` — ${escHtml(tr('report.elementsLabel'))}: ${d.elementIds.join(', ')}` : ''}</li>`);
+      }
+      html.push(`</ul>`);
+    }
+    if (warnings.length > 0) {
+      html.push(`<h3 class="diag-warn">${escHtml(tr('report.warnings'))} (${warnings.length})</h3><ul>`);
+      for (const d of warnings) {
+        html.push(`<li><strong>[${escHtml(d.code)}]</strong> ${escHtml(d.message)}${d.elementIds ? ` — ${escHtml(tr('report.elementsLabel'))}: ${d.elementIds.join(', ')}` : ''}</li>`);
+      }
+      html.push(`</ul>`);
+    }
+    if (infos.length > 0) {
+      html.push(`<h3 class="diag-info">${escHtml(tr('report.info'))} (${infos.length})</h3><ul>`);
+      for (const d of infos) {
+        html.push(`<li><strong>[${escHtml(d.code)}]</strong> ${escHtml(d.message)}</li>`);
+      }
+      html.push(`</ul>`);
+    }
+  }
+
+  if (data.resultProvenance) {
+    const record = data.config ? withPrintedManifest(data.resultProvenance.record, printedManifest(data.config, data.locale ?? null, printedTables(html.join('\n')))) : data.resultProvenance.record;
+    html.push(provenanceBlockHtml(record, data.resultProvenance.labels));
+  }
+  html.push(reportConfigScript(data.config, data.locale));
+  html.push(`</body></html>`);
+  return html.join('\n');
+}
+
+/** Open the report in a new window for printing.
+ *  Uses a Blob URL instead of document.write() to avoid all browser-specific
+ *  document lifecycle timing issues that caused first-run blank reports. */
+export function openReport(data: ReportData): void {
+  const htmlContent = generateReportHtml(data);
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if (win) setTimeout(() => URL.revokeObjectURL(url), 120_000);
+  else URL.revokeObjectURL(url);
+}
