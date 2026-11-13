@@ -181,11 +181,12 @@ describe('time history', () => {
     expect(isValidHhtAlpha(0.01)).toBe(false);
   });
 
-  it('reads the base shear from the reactions the engine returns', () => {
+  it('keeps unavailable time-history base reactions unavailable', () => {
     const { input, densities } = sdofFrame();
     const { res } = freeVibration(densities, input);
-    expect(res.peakReactions.length).toBe(2);
-    expect(peakBaseShear(res.peakReactions)).toBeGreaterThan(0);
+    expect(res.peakReactions).toEqual([]);
+    expect(res.structuredDiagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'result_quantity_unavailable', phase: 'peakReactions', severity: 'warning' })]));
+    expect(res.peakDisplacements.some(d => Math.abs(d.ux) + Math.abs(d.uy) + Math.abs(d.uz) > 0)).toBe(true);
     expect(peakBaseShear([{ fx: 3, fy: 0 }, { fx: 1, fy: 3 }])).toBeCloseTo(5, 9);
   });
 });

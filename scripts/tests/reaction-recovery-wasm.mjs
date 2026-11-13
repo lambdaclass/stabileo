@@ -69,8 +69,10 @@ function equilibrium(kind, dim, m) {
   }
   assert.ok(Number.isFinite(factor) && factor > 0);
   if (kind === 'pdelta' && (r.equilibrium?.equilibriumOk === false || r.equilibrium?.residualOk === false)) {
-    assert.ok(r.structuredDiagnostics.some(d=>d.code === 'result_quantity_unavailable' && d.phase === 'reactions' && d.severity === 'warning'));
-    assert.deepEqual(r.reactions, []);
+    const physicalFailure = r.equilibrium.residualOk === false;
+    assert.equal(r.reactions.length, Object.keys(m.supports).length);
+    assert.ok(r.reactions.every(r => (r[dim === 2 ? 'rz' : 'fz'] === null) === physicalFailure));
+    assert.ok(r.structuredDiagnostics.some(d=>d.code === (physicalFailure ? 'result_quantity_unavailable' : 'equilibrium_violation') && d.severity === 'warning'));
     for (let i = 0; i < dim; i++) assert.ok(Math.abs(r.equilibrium.appliedForceSum[i] + r.equilibrium.reactionForceSum[i]) < 1e-6);
     return;
   }
@@ -131,7 +133,7 @@ for (const dim of [2,3]) {
         }
         const r = JSON.parse(engine[`solve_time_history_${dim}d`](JSON.stringify({solver:m,densities:{1:7850},timeStep:0.01,nSteps:3,method,alpha:method === 'hht' ? -0.1 : null})));
         assert.equal(r.timeSteps.length, 4);
-        assert.equal(r.peakReactions.length, 1);
+        assert.deepEqual(r.peakReactions, []);
         assert.ok(r.structuredDiagnostics.some(d=>d.code === 'result_quantity_unavailable' && d.phase === 'peakReactions' && d.severity === 'warning'));
         console.log(`PASS dynamic ${dim}D ${method} springsOnly=${springsOnly}: explicit unavailable total reactions`);
       } catch (error) { failed = true; console.error(`FAIL dynamic ${dim}D ${method} springsOnly=${springsOnly}: ${error}`); }
@@ -388,7 +390,8 @@ for (const dim of [2, 3]) {
         if (kind === 'time') {
           const out = JSON.parse(engine[`solve_time_history_${dim}d`](JSON.stringify({solver:m,densities:{'1':7850},timeStep:0.01,nSteps:3})));
           assert.ok(out.structuredDiagnostics.some(d => d.code === 'result_quantity_unavailable'));
-          r = {reactions:out.peakReactions};
+          assert.deepEqual(out.peakReactions, []);
+          continue;
         } else [r] = run(kind, dim, m);
       }
       catch (e) {

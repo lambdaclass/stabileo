@@ -471,7 +471,6 @@ fn span_force_response_is_invariant_under_reversal_and_load_splitting() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn trapezoidal_and_partial_axial_span_loads_match_independent_ritz() {
     for partial in [false, true] {
         let want = ritz(|t| {

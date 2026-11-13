@@ -1078,3 +1078,9 @@ test.engine.containment-r17-wasm: wasm
 	STABILEO_R17_CASES=$(CURDIR)/.1952-r17-cases $(MAKE) test.engine.containment-r17
 	$(NIX_RUN) node scripts/tests/containment-r17-wasm.mjs $(CURDIR)/.1952-r17-cases
 	rm -f $(CURDIR)/.1952-r17-cases-*.json
+
+.PHONY: test.engine.containment-r18-wasm
+test.engine.containment-r18-wasm: wasm
+	STABILEO_R18_CASES=$(CURDIR)/.1952-r18-cases $(MAKE) test.engine.targeted TEST=validation FILTER=issue_1952_r18
+	$(NIX_RUN) node scripts/tests/containment-r18-wasm.mjs $(CURDIR)/.1952-r18-cases
+	rm -f $(CURDIR)/.1952-r18-cases-*.json

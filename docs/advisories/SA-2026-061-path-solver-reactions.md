@@ -31,7 +31,7 @@ The sweep accompanying #1952 also repairs or explicitly contains these fields:
 | Corotational 2D/3D, including native 2D continuation | Reactions omit master shares; constraint forces use tangent times displacement instead of actual nonlinear internal force | Recover both from the actual final internal-minus-applied residual |
 | Material nonlinear 2D/3D | Reactions omit master shares; constraint forces can use initial elastic stiffness after yielding | Recover both from the final secant state; existing constitutive/convergence warnings remain |
 | Contact, dedicated cable and Winkler 2D/3D | Reactions omit restrained-master shares; cable recovery must retain actual chord tension | Common full-residual recovery with the solver's actual internal force |
-| Time history 2D/3D, Newmark/HHT and traced native wrappers | `peakReactions` is an elastic-only displacement-peak estimate, omitting inertia, damping and time-dependent support loading; spring-only entries can be empty | Retain entries and explicitly diagnose unavailable total dynamic reactions/member forces; no total reaction history or reaction envelope is supplied |
+| Time history 2D/3D, Newmark/HHT and traced native wrappers | `peakReactions` is an elastic-only displacement-peak estimate, omitting inertia, damping and time-dependent support loading; spring-only entries can be empty | Withhold `peakReactions` as an empty collection and explicitly diagnose unavailable total dynamic reactions/member forces; no total reaction history or reaction envelope is supplied |
 
 Linear 2D/3D, prepared/repeated linear solves, load cases/combinations and SSI
 already included restrained-master transfer; they are controls for this defect.

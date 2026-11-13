@@ -218,9 +218,19 @@ function runModel(cs: ModelCase, log: SweepLog): void {
 
   // ── P-Δ ──
   const pd = attempt(() => solvePDelta3D(input));
-  if (!pd.ok) { if (!isClearMessage(pd.msg) || res) log.pdelta.push(`${tag}: threw ${pd.msg.slice(0, 100)}`); }
+  if (!pd.ok) {
+    if (['spring-frame#5', 'spring-frame#16'].includes(tag)) {
+      const refusal = JSON.parse(pd.msg);
+      expect(refusal.structuredDiagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'non_finite_result', severity: 'error', phase: 'results.reactions[0].fx' })]));
+    } else if (!isClearMessage(pd.msg) || res) log.pdelta.push(`${tag}: threw ${pd.msg.slice(0, 100)}`);
+  }
   else {
     const p = pd.value;
+    if (p.results.equilibrium?.residualOk && p.results.equilibrium.equilibriumOk === false) {
+      expect(p.results.reactions.length).toBeGreaterThan(0);
+      expect(p.results.structuredDiagnostics.some(d => d.code === 'equilibrium_violation' && d.severity === 'warning')).toBe(true);
+      expect(p.results.structuredDiagnostics.some(d => d.code === 'result_quantity_unavailable')).toBe(false);
+    }
     if (p.converged && p.isStable) {
       // Tension stiffens: B2 < 1 is right when members pull. Only a model with no tension must have B2 ≥ 1.
       const anyTension = (res ?? p.linearResults).elementForces.some((f: { nStart: number; nEnd: number }) => Math.max(f.nStart, f.nEnd) > 1e-6);

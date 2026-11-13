@@ -255,8 +255,10 @@ fn assert_equilibrium(kind: &str, dim: usize, m: &Value, r: &Value, factor: f64)
     }
     assert!(factor.is_finite() && factor > 0.0);
     if kind == "pdelta" && (r["equilibrium"]["equilibriumOk"] == false || r["equilibrium"]["residualOk"] == false) {
-        assert!(r["reactions"].as_array().unwrap().is_empty());
-        assert!(r["structuredDiagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == "reactions" && d["severity"] == "warning"));
+        assert_eq!(r["reactions"].as_array().unwrap().len(), m["supports"].as_object().unwrap().len());
+        let physical_failure = r["equilibrium"]["residualOk"] == false;
+        assert!(r["reactions"].as_array().unwrap().iter().all(|row| row[if dim == 2 {"rz"} else {"fz"}].is_null() == physical_failure));
+        assert!(r["structuredDiagnostics"].as_array().unwrap().iter().any(|d| d["code"] == if physical_failure {"result_quantity_unavailable"} else {"equilibrium_violation"} && d["severity"] == "warning"));
         for i in 0..dim {
             let a = r["equilibrium"]["appliedForceSum"][i].as_f64().unwrap();
             let b = r["equilibrium"]["reactionForceSum"][i].as_f64().unwrap();
@@ -547,7 +549,7 @@ fn dynamic_availability(dim: usize) {
                 .unwrap()
             };
             assert_eq!(r["timeSteps"].as_array().unwrap().len(), 4);
-            assert_eq!(r["peakReactions"].as_array().unwrap().len(), 1);
+            assert!(r["peakReactions"].as_array().unwrap().is_empty());
             assert!(r["structuredDiagnostics"]
                 .as_array()
                 .unwrap()
@@ -1583,6 +1585,11 @@ fn r8_released_slave(kind: &str, dim: usize) {
             };
             match result {
                 Ok(r) => {
+                    if kind == "time" {
+                        assert!(r["reactions"].as_array().unwrap().is_empty());
+                        assert!(r["structuredDiagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == "peakReactions"));
+                        continue;
+                    }
                     let master = r["reactions"]
                         .as_array()
                         .unwrap()
@@ -2254,18 +2261,31 @@ fn issue_1952_r17_pdelta_3d() { r17_public(3,"pdelta"); }
 fn r18_dynamic_withholding(dim: usize) {
     let mut replay = Vec::new();
     for method in ["newmark", "hht"] {
+        for excitation in ["static", "support-history", "ground"] {
         for sign in [-1.0, 0.0, 1.0] {
             let mut m = model(dim, false);
-            m["loads"][0]["data"]["fz"] = json!(sign * 10.0);
-            let o = json!({"solver":m,"densities":{"1":7850.0},"timeStep":0.01,"nSteps":3,"method":method,"alpha":if method == "hht" {Some(-0.1)} else {None}});
+            for key in ["fx", "fy", "fz", "mx", "my", "mz"] {
+                if let Some(value) = m["loads"][0]["data"][key].as_f64() { m["loads"][0]["data"][key] = json!(sign * value); }
+            }
+            let mut o = json!({"solver":m,"densities":{"1":7850.0},"timeStep":0.01,"nSteps":3,"method":method,"alpha":if method == "hht" {Some(-0.1)} else {None}});
+            o["dampingXi"] = json!(0.02);
+            if excitation == "support-history" {
+                let tip = m["loads"][0]["data"].clone();
+                let mut root = tip.clone(); root["nodeId"] = json!(0);
+                let mut zero = tip.clone(); zero["fz"] = json!(0.0);
+                o["forceHistory"] = json!([{"time":0.0,"loads":[tip,root]},{"time":0.02,"loads":[zero]}]);
+            } else if excitation == "ground" {
+                o[if dim == 2 {"groundAccel"} else {"groundAccelZ"}] = json!([0.0,sign,0.0,0.0]);
+                if dim == 2 { o["groundDirection"] = json!("Y"); }
+            }
             let outputs = if dim == 2 {
                 let input = serde_json::from_value(o.clone()).unwrap();
-                vec![json!(dedaliano_engine::solver::time_integration::solve_time_history_2d(&input).unwrap()), json!(dedaliano_engine::solver::time_integration::solve_time_history_2d_traced(&input).unwrap().0)]
+                vec![json!(dedaliano_engine::solver::time_integration::solve_time_history_2d(&input).unwrap()), json!(dedaliano_engine::solver::time_integration::solve_time_history_2d_traced(&input).unwrap().0), json!(dedaliano_engine::certify::dynamics::certify_time_history_2d(&input).unwrap().results)]
             } else {
                 let input = serde_json::from_value(o.clone()).unwrap();
-                vec![json!(dedaliano_engine::solver::time_integration::solve_time_history_3d(&input).unwrap()), json!(dedaliano_engine::solver::time_integration::solve_time_history_3d_traced(&input).unwrap().0)]
+                vec![json!(dedaliano_engine::solver::time_integration::solve_time_history_3d(&input).unwrap()), json!(dedaliano_engine::solver::time_integration::solve_time_history_3d_traced(&input).unwrap().0), json!(dedaliano_engine::certify::dynamics::certify_time_history_3d(&input).unwrap().results)]
             };
-            assert_eq!(outputs[0], outputs[1]);
+            assert!(outputs.iter().all(|r| r == &outputs[0]));
             for r in &outputs {
                 assert_eq!(r["timeSteps"].as_array().unwrap().len(), 4);
                 assert_eq!(r["peakDisplacements"].as_array().unwrap().len(), 2);
@@ -2273,8 +2293,12 @@ fn r18_dynamic_withholding(dim: usize) {
                 assert!(r["structuredDiagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == "peakReactions"));
                 assert!(r["nodeHistories"].as_array().unwrap().iter().all(|h| h["uz"].as_array().unwrap().iter().all(|v| v.as_f64().unwrap().is_finite())));
             }
+            let tip = outputs[0]["nodeHistories"].as_array().unwrap().iter().find(|h| h["nodeId"] == 1).unwrap();
+            let max = tip["uz"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap().abs()).fold(0.0_f64, f64::max);
+            assert_eq!(max == 0.0, sign == 0.0);
             replay.push(json!({"model":o,"output":outputs[0]}));
         }
+    }
     }
     if let Ok(prefix) = std::env::var("STABILEO_R18_CASES") {
         std::fs::write(format!("{prefix}-time-{dim}.json"), serde_json::to_vec(&replay).unwrap()).unwrap();
@@ -2282,11 +2306,9 @@ fn r18_dynamic_withholding(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r18_dynamic_withholding_2d() { r18_dynamic_withholding(2); }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r18_dynamic_withholding_3d() { r18_dynamic_withholding(3); }
 
 fn r18_pdelta_withholding(dim: usize) {
@@ -2307,11 +2329,30 @@ fn r18_pdelta_withholding(dim: usize) {
                     let output = solve(tolerance).unwrap();
                     let r = &output["results"];
                     let failed = relative > tolerance;
+                    let certified = if dim == 2 {
+                        dedaliano_engine::certify::pdelta::certify_pdelta_2d(&serde_json::from_value(m.clone()).unwrap(), iterations, tolerance).map(|r| json!(r.results))
+                    } else {
+                        dedaliano_engine::certify::pdelta::certify_pdelta_3d(&serde_json::from_value(m.clone()).unwrap(), iterations, tolerance).map(|r| json!(r.results))
+                    };
+                    if failed { assert!(certified.as_ref().unwrap_err().contains("non-finite")); }
+                    else { assert_eq!(certified.unwrap(), output); }
+                    let linear = run("linear", dim, &m).0;
+                    assert_eq!(output["linearResults"], linear);
                     println!("r18 public {dim}D tied={tied} sign={sign} iterations={iterations} tolerance={tolerance}: {}", r["equilibrium"]);
                     for (field, key) in [("reactions", if dim == 2 {"rz"} else {"fz"}), ("elementForces", "nStart"), ("constraintForces", "force")] {
                         let rows: Vec<_> = r[field].as_array().into_iter().flatten().collect();
                         if field != "constraintForces" || tied { assert!(!rows.is_empty(), "{field}: {r}"); }
-                        for row in rows { assert_eq!(row[key].is_null(), failed, "{field}: {r}"); }
+                        for row in rows {
+                            assert_eq!(row[key].is_null(), failed, "{field}: {r}");
+                            let keys: &[&str] = match (field, dim) {
+                                ("reactions", 2) => &["rx", "rz", "my"],
+                                ("reactions", _) => &["fx", "fy", "fz", "mx", "my", "mz"],
+                                ("elementForces", 2) => &["nStart", "nEnd", "vStart", "vEnd", "mStart", "mEnd"],
+                                ("elementForces", _) => &["nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd", "mxStart", "mxEnd", "myStart", "myEnd", "mzStart", "mzEnd"],
+                                _ => &["force"],
+                            };
+                            for key in keys { assert_eq!(row[key].is_null(), failed, "{field}.{key}: {r}"); }
+                        }
                         let warned = r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == field);
                         assert_eq!(warned, failed, "{field}: {r}");
                     }
@@ -2331,9 +2372,85 @@ fn r18_pdelta_withholding(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r18_pdelta_withholding_2d() { r18_pdelta_withholding(2); }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r18_pdelta_withholding_3d() { r18_pdelta_withholding(3); }
+
+#[test]
+fn issue_1952_r18_spatial_stresses() {
+    let mut m = model(3, true);
+    m["loads"][0]["data"]["fx"] = json!(3.0);
+    for (id, x, y) in [(10, 0.0, 0.0), (11, 1.0, 0.0), (12, 1.0, 1.0), (13, 0.0, 1.0)] {
+        m["nodes"][id.to_string()] = json!({"id":id,"x":x,"y":y,"z":1.0});
+        let mut support = m["supports"]["0"].clone();
+        support["nodeId"] = json!(id);
+        m["supports"][id.to_string()] = support;
+    }
+    m["plates"] = json!({"10":{"id":10,"nodes":[10,11,12],"materialId":1,"thickness":0.1}});
+    m["quads"] = json!({"20":{"id":20,"nodes":[10,11,12,13],"materialId":1,"thickness":0.1}});
+    let mut replay = Vec::new();
+    for iterations in [0, 40] {
+        let r = pdelta::solve_pdelta_3d(&serde_json::from_value(m.clone()).unwrap(), iterations, 1e-9).unwrap();
+        assert_eq!(r.results.equilibrium.as_ref().unwrap().residual_ok, iterations != 0);
+        let output = json!(r);
+        for field in ["plateStresses", "quadStresses"] {
+            let rows = output["results"][field].as_array().unwrap();
+            assert_eq!(rows.len(), 1);
+            for row in rows {
+                for key in ["sigmaXx", "sigmaYy", "tauXy", "mx", "my", "mxy", "vonMises"] {
+                    assert_eq!(row[key].is_null(), iterations == 0, "{field}.{key}: {output}");
+                    if iterations != 0 { assert_eq!(row[key].as_f64().unwrap(), 0.0); }
+                }
+            }
+        }
+        replay.push(json!({"model":m,"iterations":iterations,"tolerance":1e-9,"output":output}));
+    }
+    if let Ok(prefix) = std::env::var("STABILEO_R18_CASES") {
+        std::fs::write(format!("{prefix}-shells-3.json"), serde_json::to_vec(&replay).unwrap()).unwrap();
+    }
+}
+
+fn r18_mpc_accounting(dim: usize) {
+    let mut replay = Vec::new();
+    for coefficient in [0.5, 1.0, 2.0] {
+        for axial in [-3.0, 0.0, 3.0] {
+            let mut m = model(dim, false);
+            m["nodes"]["2"] = m["nodes"]["1"].clone();
+            m["nodes"]["2"]["id"] = json!(2);
+            m["elements"]["2"] = m["elements"]["1"].clone();
+            m["elements"]["2"]["id"] = json!(2);
+            m["elements"]["2"]["nodeJ"] = json!(2);
+            let dof = if dim == 2 {1} else {2};
+            m["constraints"] = json!([{"type":"linearMPC","terms":[{"nodeId":2,"dof":dof,"coefficient":1.0},{"nodeId":1,"dof":dof,"coefficient":-coefficient}]}]);
+            m["loads"][0]["data"]["fx"] = json!(axial);
+            let output = if dim == 2 {
+                json!(pdelta::solve_pdelta_2d(&serde_json::from_value(m.clone()).unwrap(),40,1e-9).unwrap())
+            } else {
+                json!(pdelta::solve_pdelta_3d(&serde_json::from_value(m.clone()).unwrap(),40,1e-9).unwrap())
+            };
+            let r = &output["results"];
+            assert_eq!(r["equilibrium"]["residualOk"], true);
+            assert_eq!(r["reactions"].as_array().unwrap().len(), 1);
+            assert_eq!(r["elementForces"].as_array().unwrap().len(), 2);
+            assert!(!r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable"));
+            let record = r["constraintForces"].as_array().unwrap().iter().find(|f| f["dof"] == "uz").unwrap();
+            let force = record["force"].as_f64().unwrap() / if record["nodeId"] == 2 {1.0} else {-coefficient};
+            let k = if dim == 2 {1} else {2};
+            let imbalance = r["equilibrium"]["appliedForceSum"][k].as_f64().unwrap() + r["equilibrium"]["reactionForceSum"][k].as_f64().unwrap();
+            assert!((imbalance + (1.0-coefficient)*force).abs() < 1e-9, "{dim}D: {r}");
+            println!("r18 {dim}D MPC coefficient={coefficient} axial={axial}: support-only error={imbalance}, dependent force={force}");
+            for f in r["elementForces"].as_array().unwrap() { assert!(f["nStart"].as_f64().unwrap().is_finite()); }
+            replay.push(json!({"model":m,"iterations":40,"tolerance":1e-9,"output":output}));
+        }
+    }
+    if let Ok(prefix) = std::env::var("STABILEO_R18_CASES") {
+        std::fs::write(format!("{prefix}-mpc-{dim}.json"),serde_json::to_vec(&replay).unwrap()).unwrap();
+    }
+}
+
+#[test]
+fn issue_1952_r18_mpc_accounting_2d() { r18_mpc_accounting(2); }
+
+#[test]
+fn issue_1952_r18_mpc_accounting_3d() { r18_mpc_accounting(3); }

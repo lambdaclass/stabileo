@@ -364,15 +364,16 @@ fn pdelta_constraint_forces_see_the_settlement() {
 }
 
 #[test]
-fn pdelta_withholds_unavailable_reactions_and_keeps_balance_evidence() {
+fn pdelta_retains_small_displacement_reactions_and_warns_about_displaced_balance() {
     // Horizontal equilibrium does not change with the deformed geometry: the
     // base shears still add up to the lateral load. K·u alone leaves out the
     // P·Δ/h shear K_G carries at each column base.
     let input = make_portal_frame(4.0, 6.0, E, A, IZ, 20.0, -300.0);
     let pd = pdelta::solve_pdelta_2d(&input, 50, 1e-10).unwrap();
     assert!(pd.converged && pd.is_stable);
-    assert!(pd.results.reactions.is_empty());
-    assert!(pd.results.structured_diagnostics.iter().any(|d| d.code == dedaliano_engine::types::DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("reactions")));
+    assert!(!pd.results.reactions.is_empty());
+    assert!(pd.results.equilibrium.as_ref().unwrap().residual_ok);
+    assert!(pd.results.structured_diagnostics.iter().any(|d| d.code == dedaliano_engine::types::DiagnosticCode::EquilibriumViolation));
     let equilibrium = pd.results.equilibrium.as_ref().unwrap();
     let rx = equilibrium.reaction_force_sum[0];
     let rz = equilibrium.reaction_force_sum[1];
@@ -406,8 +407,9 @@ fn pdelta_3d_inclined_roller_matches_linear_without_axial_load() {
         }
     }
     let sum = |rs: &[Reaction3D]| rs.iter().fold([0.0; 3], |t, r| [t[0] + r.fx, t[1] + r.fy, t[2] + r.fz]);
-    assert!(pd.results.reactions.is_empty());
-    assert!(pd.results.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("reactions")));
+    assert!(!pd.results.reactions.is_empty());
+    assert!(pd.results.equilibrium.as_ref().unwrap().residual_ok);
+    assert!(pd.results.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::EquilibriumViolation));
     let (p, l) = (&pd.results.equilibrium.as_ref().unwrap().reaction_force_sum, sum(&lin.reactions));
     for i in 0..3 { assert!((p[i] - l[i]).abs() < 1e-3, "ΣR[{i}] P-Δ {:.4} vs linear {:.4}", p[i], l[i]); }
 }

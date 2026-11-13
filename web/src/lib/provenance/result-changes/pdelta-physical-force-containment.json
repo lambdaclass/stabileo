@@ -1,0 +1,51 @@
+{
+  "id": "pdelta-physical-force-containment",
+  "date": "2026-11-13",
+  "prs": [
+    1952
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "springs",
+        "constraints"
+      ],
+      [
+        "analysis:pdelta"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "reactions",
+    "elementForces",
+    "constraintForces",
+    "plateStresses",
+    "quadStresses",
+    "quadNodalStresses",
+    "structuredDiagnostics"
+  ],
+  "title": {
+    "en": "P-Delta separates physical failure from displaced moment imbalance",
+    "es": "P-Delta separa la falla física del desequilibrio de momentos desplazados",
+    "pt": "P-Delta separa falha física de desequilíbrio de momentos deslocados",
+    "de": "P-Delta trennt physikalisches Versagen von Momentenfehlern der verformten Geometrie",
+    "fr": "P-Delta distingue échec physique et déséquilibre des moments déplacés",
+    "tr": "P-Delta fiziksel hatayı yer değiştirmiş geometri moment dengesizliğinden ayırır"
+  },
+  "explanation": {
+    "en": "Recheck saved P-Delta forces. A failed physical residual withholds all equilibrium force and stress quantities while retaining record identities. A passing residual retains small-displacement answers and explicitly warns about displaced-geometry moment imbalance (#1952). WASM and certified exports refuse states with failed physical residuals.",
+    "es": "Revisá los esfuerzos P-Delta guardados. Un residuo físico fallido retira las cantidades de fuerzas y tensiones de equilibrio conservando los registros. Si pasa, se conserva la respuesta de pequeños desplazamientos y se advierte el desequilibrio de momentos en la geometría desplazada (#1952).",
+    "pt": "Reveja forças P-Delta salvas. Uma falha do resíduo físico retira forças e tensões de equilíbrio, mantendo os registros. Quando passa, mantém a resposta de pequenos deslocamentos e avisa sobre o desequilíbrio de momentos na geometria deslocada (#1952).",
+    "de": "Prüfen Sie gespeicherte P-Delta-Kräfte. Bei fehlerhaftem physikalischem Residuum werden Gleichgewichtskräfte und Spannungen zurückgehalten, Datensätze bleiben erhalten. Andernfalls bleiben Ergebnisse für kleine Verschiebungen mit einer Warnung zum Momentengleichgewicht an verformter Geometrie verfügbar (#1952).",
+    "fr": "Revérifiez les efforts P-Delta enregistrés. Un résidu physique en échec retire forces et contraintes d’équilibre en conservant les enregistrements. Sinon les réponses aux petits déplacements restent disponibles avec un avertissement sur les moments dans la géométrie déplacée (#1952).",
+    "tr": "Kayıtlı P-Delta kuvvetlerini yeniden denetleyin. Fiziksel artık başarısızsa kayıt kimlikleri korunarak denge kuvvetleri ve gerilmeler kullanılamaz kılınır. Başarılıysa küçük yer değiştirme sonuçları korunur ve yer değiştirmiş geometrideki moment dengesizliği açıkça bildirilir (#1952)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-pdelta-physical-containment.md",
+    "heading": "Physical P-Delta containment and withheld dynamic estimates (2026-11-13)"
+  }
+}

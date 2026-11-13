@@ -9,7 +9,7 @@ for (const dim of [2, 3]) {
     const cases = JSON.parse(readFileSync(`${process.argv[2]}-${kind}-${dim}.json`));
     for (const c of cases) {
       const width = dim === 2 ? 3 : 6;
-      for (const padding of [0, Math.floor(64 / width) - 2, Math.floor(64 / width) - 1]) {
+      for (const padding of [0, Math.floor(64 / width) - 1, Math.floor(64 / width)]) {
         for (const iterations of kind === 'pdelta' ? [0, 40] : [40]) {
           const model = structuredClone(c.model);
           for (let i = 0; i < padding; i++) {
@@ -21,6 +21,8 @@ for (const dim of [2, 3]) {
           const solve = () => engine[`solve_${kind}_${dim}d`](JSON.stringify(model), ...(kind === 'pdelta' ? [iterations, 1e-9] : []));
           if (c.error) {
             assert.throws(solve, /Nodal moment|free rotation/);
+          } else if (kind === 'pdelta' && iterations === 0 && c.model.loads[0].data.fx !== 0) {
+            assert.throws(solve, /non_finite_result/);
           } else {
             const output = JSON.parse(solve());
             const results = kind === 'staged' ? [...output.stages.map(s => s.results), output.finalResults] : [output.results];
@@ -28,7 +30,14 @@ for (const dim of [2, 3]) {
               const diagnostics = (r.structuredDiagnostics ?? []).filter(d => d.code === 'result_quantity_unavailable');
               for (const d of diagnostics) {
                 const fields = d.phase === 'stageResults' ? ['reactions', 'elementForces', 'constraintForces', 'plateStresses', 'quadStresses', 'quadNodalStresses'] : [d.phase];
-                for (const field of fields) assert.deepEqual(r[field] ?? [], [], `${kind} ${dim}D ${field}`);
+                for (const field of fields) {
+                  if (kind === 'pdelta') {
+                    for (const row of r[field] ?? []) {
+                      const keys = field === 'reactions' ? (dim === 2 ? ['rx', 'rz', 'my'] : ['fx', 'fy', 'fz', 'mx', 'my', 'mz']) : field === 'elementForces' ? ['nStart', 'nEnd'] : ['force'];
+                      for (const key of keys) assert.equal(row[key], null);
+                    }
+                  } else assert.deepEqual(r[field] ?? [], [], `${kind} ${dim}D ${field}`);
+                }
               }
               if (!diagnostics.length) {
                 assert.ok(r.reactions.length > 0);

@@ -128,7 +128,7 @@ impl RecoveredForces {
     }
 }
 
-pub(crate) fn unavailable(phase: &str, message: &str) -> StructuredDiagnostic {
+fn unavailable(phase: &str, message: &str) -> StructuredDiagnostic {
     let mut d = StructuredDiagnostic::global(
         DiagnosticCode::ResultQuantityUnavailable,
         Severity::Warning,
@@ -140,37 +140,87 @@ pub(crate) fn unavailable(phase: &str, message: &str) -> StructuredDiagnostic {
 
 #[derive(Clone, Copy)]
 pub(super) enum UnavailableQuantity {
-    Reactions,
+    PhysicalEquilibrium,
     StageEquilibrium,
+    PeakReactions,
 }
 
 pub(super) trait WithholdForces {
+    fn diagnostics_mut(&mut self) -> &mut Vec<StructuredDiagnostic>;
     fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]);
 }
 
-impl<D, R, F> WithholdForces for AnalysisResults<D, R, F> {
+impl<D> WithholdForces for AnalysisResults<D> {
+    fn diagnostics_mut(&mut self) -> &mut Vec<StructuredDiagnostic> { &mut self.structured_diagnostics }
     fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]) {
-        self.reactions.clear();
         self.result_summary = None;
         let phases: &[_] = match quantity {
-            UnavailableQuantity::Reactions => &["reactions"],
+            UnavailableQuantity::PhysicalEquilibrium => {
+                for r in &mut self.reactions { r.rx = f64::NAN; r.rz = f64::NAN; r.my = f64::NAN; }
+                for f in &mut self.element_forces {
+                    f.n_start = f64::NAN; f.n_end = f64::NAN;
+                    f.v_start = f64::NAN; f.v_end = f64::NAN;
+                    f.m_start = f64::NAN; f.m_end = f64::NAN;
+                }
+                for f in &mut self.constraint_forces { f.force = f64::NAN; }
+                &["reactions", "elementForces", "constraintForces"]
+            }
             UnavailableQuantity::StageEquilibrium => {
+                self.reactions.clear();
                 self.element_forces.clear();
                 self.constraint_forces.clear();
                 &["stageResults", "reactions", "elementForces", "constraintForces"]
             }
+            UnavailableQuantity::PeakReactions => unreachable!(),
         };
         (&mut self.structured_diagnostics, phases)
     }
 }
 
-impl<D, R, F> WithholdForces for AnalysisResults3D<D, R, F> {
+impl<D> WithholdForces for AnalysisResults3D<D> {
+    fn diagnostics_mut(&mut self) -> &mut Vec<StructuredDiagnostic> { &mut self.structured_diagnostics }
     fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]) {
-        self.reactions.clear();
         self.result_summary = None;
         let phases: &[_] = match quantity {
-            UnavailableQuantity::Reactions => &["reactions"],
+            UnavailableQuantity::PhysicalEquilibrium => {
+                for r in &mut self.reactions {
+                    r.fx = f64::NAN; r.fy = f64::NAN; r.fz = f64::NAN;
+                    r.mx = f64::NAN; r.my = f64::NAN; r.mz = f64::NAN;
+                    if let Some(b) = &mut r.bimoment { *b = f64::NAN; }
+                }
+                for f in &mut self.element_forces {
+                    f.n_start = f64::NAN; f.n_end = f64::NAN;
+                    f.vy_start = f64::NAN; f.vy_end = f64::NAN;
+                    f.vz_start = f64::NAN; f.vz_end = f64::NAN;
+                    f.mx_start = f64::NAN; f.mx_end = f64::NAN;
+                    f.my_start = f64::NAN; f.my_end = f64::NAN;
+                    f.mz_start = f64::NAN; f.mz_end = f64::NAN;
+                    f.bimoment_start = f.bimoment_start.map(|_| f64::NAN);
+                    f.bimoment_end = f.bimoment_end.map(|_| f64::NAN);
+                }
+                for f in &mut self.constraint_forces { f.force = f64::NAN; }
+                for f in &mut self.plate_stresses {
+                    f.sigma_xx = f64::NAN; f.sigma_yy = f64::NAN; f.tau_xy = f64::NAN;
+                    f.mx = f64::NAN; f.my = f64::NAN; f.mxy = f64::NAN;
+                    f.sigma_1 = f64::NAN; f.sigma_2 = f64::NAN; f.von_mises = f64::NAN;
+                    f.nodal_von_mises.fill(f64::NAN);
+                    f.qx = f.qx.map(|_| f64::NAN); f.qy = f.qy.map(|_| f64::NAN);
+                }
+                for f in &mut self.quad_stresses {
+                    f.sigma_xx = f64::NAN; f.sigma_yy = f64::NAN; f.tau_xy = f64::NAN;
+                    f.mx = f64::NAN; f.my = f64::NAN; f.mxy = f64::NAN; f.von_mises = f64::NAN;
+                    f.nodal_von_mises.fill(f64::NAN);
+                    f.qx = f.qx.map(|_| f64::NAN); f.qy = f.qy.map(|_| f64::NAN);
+                }
+                for f in &mut self.quad_nodal_stresses {
+                    f.sigma_xx = f64::NAN; f.sigma_yy = f64::NAN; f.tau_xy = f64::NAN;
+                    f.mx = f64::NAN; f.my = f64::NAN; f.mxy = f64::NAN; f.von_mises = f64::NAN;
+                    f.qx = f.qx.map(|_| f64::NAN); f.qy = f.qy.map(|_| f64::NAN);
+                }
+                &["reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"]
+            }
             UnavailableQuantity::StageEquilibrium => {
+                self.reactions.clear();
                 self.element_forces.clear();
                 self.constraint_forces.clear();
                 self.plate_stresses.clear();
@@ -178,8 +228,37 @@ impl<D, R, F> WithholdForces for AnalysisResults3D<D, R, F> {
                 self.quad_nodal_stresses.clear();
                 &["stageResults", "reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"]
             }
+            UnavailableQuantity::PeakReactions => unreachable!(),
         };
         (&mut self.structured_diagnostics, phases)
+    }
+}
+
+impl WithholdForces for TimeHistoryResult {
+    fn diagnostics_mut(&mut self) -> &mut Vec<StructuredDiagnostic> { &mut self.structured_diagnostics }
+    fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]) {
+        assert!(matches!(quantity, UnavailableQuantity::PeakReactions));
+        self.peak_reactions.clear();
+        (&mut self.structured_diagnostics, &["peakReactions"])
+    }
+}
+
+impl WithholdForces for TimeHistoryResult3D {
+    fn diagnostics_mut(&mut self) -> &mut Vec<StructuredDiagnostic> { &mut self.structured_diagnostics }
+    fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]) {
+        assert!(matches!(quantity, UnavailableQuantity::PeakReactions));
+        self.peak_reactions.clear();
+        (&mut self.structured_diagnostics, &["peakReactions"])
+    }
+}
+
+pub(super) fn contain_pdelta(results: &mut impl WithholdForces, equilibrium: &EquilibriumSummary) {
+    if !equilibrium.residual_ok {
+        withhold(results, UnavailableQuantity::PhysicalEquilibrium, "P-Delta equilibrium forces are unavailable: the physical free-DOF residual after constraint projection fails the requested tolerance. Reaction, member, constraint force and stress records retain their identities with explicitly unavailable force and stress quantities.");
+    } else if !equilibrium.equilibrium_ok {
+        let diagnostic = StructuredDiagnostic::global(DiagnosticCode::EquilibriumViolation, Severity::Warning, "P-Delta satisfies its physical small-displacement equations, but its support-only force and moment balance on the displaced geometry fails the requested tolerance. General MPC actions are reported separately as constraint forces and need not have zero resultant. Small-strain P-Delta also does not enforce finite-displacement moment balance; use corotational analysis for finite-displacement reactions.".to_string());
+        let diagnostics = results.diagnostics_mut();
+        crate::known_issues::attach(diagnostics, vec![diagnostic]);
     }
 }
 
