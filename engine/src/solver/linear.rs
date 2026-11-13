@@ -4187,52 +4187,40 @@ fn refuse_loads_on_orphan_dofs_with_certificate_3d(
         return Ok(());
     }
     use NodalLoadComponent3D::*;
+    let check = |node, component: NodalLoadComponent3D, nonzero: bool| {
+        if !nonzero || certificate.is_some_and(|c| c.permits(node, component)) {
+            return Ok(());
+        }
+        if let Some(d) = dof_num.global_dof(node, component as usize) {
+            if orphan.contains(&d) {
+                if matches!(component, Fx | Fy | Fz) {
+                    return Err(format!("Nodal force at node {node} is not supported: nothing in the model gives that translation stiffness, so the force would not reach the structure"));
+                }
+                return Err(moment_lost_3d(
+                    node,
+                    "nothing in the model gives that rotation (or warping) of the node stiffness — every member is released there, or only solid shells and trusses reach it",
+                ));
+            }
+        }
+        Ok(())
+    };
+    for (node, nonzero) in super::load_work::nonzero_nodal_moments(loads.iter().filter_map(|load| match load {
+        SolverLoad3D::Nodal(n) => Some((n.node_id, [n.mx, n.my, n.mz])),
+        _ => None,
+    })) {
+        for (component, nonzero) in [Mx, My, Mz].into_iter().zip(nonzero) {
+            check(node, component, nonzero)?;
+        }
+    }
     for load in loads {
-        let (node, comps) = match load {
-            SolverLoad3D::Nodal(l) => (
-                l.node_id,
-                [
-                    (Fx, l.fx),
-                    (Fy, l.fy),
-                    (Fz, l.fz),
-                    (Mx, l.mx),
-                    (My, l.my),
-                    (Mz, l.mz),
-                    (Bw, l.bw.unwrap_or(0.0)),
-                ],
-            ),
-            SolverLoad3D::Bimoment(l) => (
-                l.node_id,
-                [
-                    (Bw, l.bimoment),
-                    (Bw, 0.0),
-                    (Bw, 0.0),
-                    (Bw, 0.0),
-                    (Bw, 0.0),
-                    (Bw, 0.0),
-                    (Bw, 0.0),
-                ],
-            ),
-            _ => continue,
-        };
-        for (component, v) in comps {
-            if v == 0.0 {
-                continue;
-            }
-            if certificate.is_some_and(|c| c.permits(node, component)) {
-                continue;
-            }
-            if let Some(d) = dof_num.global_dof(node, component as usize) {
-                if orphan.contains(&d) {
-                    if matches!(component, Fx | Fy | Fz) {
-                        return Err(format!("Nodal force at node {node} is not supported: nothing in the model gives that translation stiffness, so the force would not reach the structure"));
-                    }
-                    return Err(moment_lost_3d(
-                        node,
-                        "nothing in the model gives that rotation (or warping) of the node stiffness — every member is released there, or only solid shells and trusses reach it",
-                    ));
+        match load {
+            SolverLoad3D::Nodal(l) => {
+                for (component, value) in [(Fx,l.fx),(Fy,l.fy),(Fz,l.fz),(Bw,l.bw.unwrap_or(0.0))] {
+                    check(l.node_id, component, value != 0.0)?;
                 }
             }
+            SolverLoad3D::Bimoment(l) => check(l.node_id, Bw, l.bimoment != 0.0)?,
+            _ => {}
         }
     }
     Ok(())
@@ -5590,7 +5578,6 @@ mod released_orphan_2074_tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2074"]
     fn orphan_backstops_sum_moments_exactly_by_node_and_axis() {
         let s = model();
         let dof = DofNumbering::build_3d(&s);

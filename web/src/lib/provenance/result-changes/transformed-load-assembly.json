@@ -4,12 +4,20 @@
   "prs": [],
   "area": "analysis",
   "when": {
-    "any": [
-      "members",
-      "shells",
-      "connectors",
-      "springs",
-      "constraints"
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "connectors",
+        "springs",
+        "constraints"
+      ],
+      [
+        "hinges",
+        "nodalMoments",
+        "trussMemberLoads",
+        "inclinedSupports"
+      ]
     ]
   },
   "quantities": [

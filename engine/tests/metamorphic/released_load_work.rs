@@ -1154,13 +1154,11 @@ fn check_mixed_orphan_cancellation_2074(dim: u64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2074"]
 fn mixed_orphan_moment_cancellation_2d() {
     check_mixed_orphan_cancellation_2074(2);
 }
 
 #[test]
-#[ignore = "known wrong result: #2074"]
 fn mixed_orphan_moment_cancellation_3d() {
     check_mixed_orphan_cancellation_2074(3);
 }
@@ -1187,7 +1185,6 @@ fn mixed_dynamic_inputs_2074(terms: &[f64]) -> (Value,Value) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2074"]
 fn mixed_orphan_dynamic_moments_cancel_within_each_record_only() {
     use dedaliano_engine::solver::{harmonic,time_integration};
     let (h,t) = mixed_dynamic_inputs_2074(&[]);

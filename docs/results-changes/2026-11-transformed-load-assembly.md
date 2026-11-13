@@ -51,7 +51,8 @@ Staged analyses retain their explicit inclined-support feature refusal.
 
 Re-run affected models. This corrects regressions introduced on the unmerged
 released-load branch; no advisory is assigned here. Existing warnings and
-explicit nonlinear numerical refusals remain applicable. The registry covers
-members, shells, connectors, springs and constraints because admission uses
-the common load assembly throughout static structural models. That assembly
-also fixes the order of member and shell contributions across solver paths.
+explicit nonlinear numerical refusals remain applicable. The registry requires structural content plus member releases, nonzero nodal
+moments, member loads applied to trusses or cables, or inclined supports.
+Ordinary unreleased frames with force loads, unloaded shells and unloaded
+connectors do not acquire this notice solely because they use common assembly.
+The same load-compatibility bounds remain shared across solver paths.

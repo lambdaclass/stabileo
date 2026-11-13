@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { check as checkPhysics, snapshot } from './released-load-work-physics.mjs';
-import { allowsUnresolved } from './released-load-work-outcome.mjs';
+import { allowsUnresolved, assertExpectedUnresolved } from './released-load-work-outcome.mjs';
 import {readFileSync} from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 engine.initSync({module:readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm',import.meta.url))});
-const {cases,exact:exactCases,orphanTranslations,cancellations,assemblyCases,trussCases}=JSON.parse(readFileSync(process.argv[2],'utf8'));
+const {cases,exact:exactCases,orphanTranslations,cancellations,assemblyCases,trussCases,mixedOrphans,mixedDynamics}=JSON.parse(readFileSync(process.argv[2],'utf8'));
 assert.equal(cases.length,234);
 const parse=x=>typeof x==='string'?JSON.parse(x):x;
 function stage(model,dim,two) {
@@ -98,13 +98,14 @@ assert.throws(()=>check(missing,oracleModel,cases[0].references.linear));
 let solves=0,refusals=0,unresolved=0;
 const failures=[];
 const admitted=new Map();
+const unresolvedCases=[];
 const paths=['linear','session','certified','constrained','staged','staged-two','corotational','material','cable','contact','ssi','winkler','pdelta'];
 for(const [i,c] of cases.entries()) {
   for(const path of paths) {
-    const mayRefuse=c.dim===3&&['corotational','material','ssi'].includes(path);
+    const unresolvedKey=`cases/${i}/${path}`;
     try {
       const result=run(path,c.dim,c.model);
-      if(allowsUnresolved(c.references[path],result,undefined,mayRefuse)) unresolved++;
+      if(allowsUnresolved(c.references[path],result,undefined,unresolvedKey)) {unresolved++;unresolvedCases.push(unresolvedKey);}
       else {
         if(path==='pdelta') {
           check(result.linearResults,c.model,{ok:c.references[path].ok?.linearResults},c.gauges);
@@ -116,7 +117,7 @@ for(const [i,c] of cases.entries()) {
         admitted.set(key,(admitted.get(key)??0)+1);
       }
     } catch(e) {
-      if(allowsUnresolved(c.references[path],undefined,e,mayRefuse)) unresolved++;
+      if(allowsUnresolved(c.references[path],undefined,e,unresolvedKey)) {unresolved++;unresolvedCases.push(unresolvedKey);}
       else failures.push(`${path}/${i}: ${e}`);
     }
     for(const factor of [1,Number.EPSILON*28/(1-Number.EPSILON*28)]) {
@@ -216,17 +217,17 @@ assert.equal(trussRefusals,4*paths.length*8);
 console.log(`Released-load work: ${cancellationSolves} loaded exact cancellations, ${cancellationRoundoffSolves} roundoff-order cancellations, ${cancellationRoundoffRefusals} roundoff-order residual refusals, ${trussSolves} oblique truss admissions, ${trussRefusals} truss moment refusals`);
 
 let assemblySolves=0,assemblyUnresolved=0,assemblyRefusals=0,featureRefusals=0;
-for(const c of assemblyCases) for(const path of paths) {
+for(const [i,c] of assemblyCases.entries()) for(const path of paths) {
   if(['staged','staged-two'].includes(path)) {
     assert.match(c.references[path].error,/^Inclined supports are not yet supported in staged construction analysis/);
     assert.throws(()=>run(path,c.dim,c.model),/^Inclined supports are not yet supported in staged construction analysis/);
     featureRefusals++;
     continue;
   }
-  const mayRefuse=c.dim===3&&['corotational','material','ssi'].includes(path);
+  const unresolvedKey=`assemblyCases/${i}/${path}`;
   try {
     const result=run(path,c.dim,c.model);
-    if(allowsUnresolved(c.references[path],result,undefined,mayRefuse)) assemblyUnresolved++;
+    if(allowsUnresolved(c.references[path],result,undefined,unresolvedKey)) {assemblyUnresolved++;unresolvedCases.push(unresolvedKey);}
     else {
       if(path==='pdelta') {
         check(result.linearResults,c.model,{ok:c.references[path].ok?.linearResults},c.gauges);
@@ -236,7 +237,7 @@ for(const c of assemblyCases) for(const path of paths) {
       assemblySolves++;
     }
   } catch(e) {
-    if(allowsUnresolved(c.references[path],undefined,e,mayRefuse)) assemblyUnresolved++;
+    if(allowsUnresolved(c.references[path],undefined,e,unresolvedKey)) {assemblyUnresolved++;unresolvedCases.push(unresolvedKey);}
     else failures.push(`inclined ${c.dim}/${c.end}/${path}: ${e}`);
   }
   for(const magnitude of [-1,-Math.sqrt(Number.EPSILON),Math.sqrt(Number.EPSILON),1]) {
@@ -255,3 +256,45 @@ assert.deepEqual(failures,[]);
 assert.equal(solves+unresolved,cases.length*paths.length);
 for(const dim of [2,3]) for(const path of paths) assert.ok((admitted.get(`${dim}:${path}`)??0)>0,`no completed control ${dim}:${path}`);
 assert.equal(assemblySolves+assemblyUnresolved+featureRefusals,4*paths.length);
+
+
+let mixedSolves=0,mixedRefusals=0;
+for(const [i,c] of mixedOrphans.entries()) for(const path of paths) {
+  if(c.refuses) {
+    assert.throws(()=>run(path,c.dim,c.model),/moment|rotation/i,`mixed ${c.dim}/${c.axis}/${c.terms}/${path}`);
+    mixedRefusals++;
+  } else if(c.dim===3&&path==='corotational') {
+    const key=`mixedOrphans/${i}/${path}`;
+    assert.throws(()=>run(path,c.dim,c.model),error=>allowsUnresolved(c.references[path],undefined,error,key));
+    unresolvedCases.push(key);
+  } else {
+    const result=run(path,c.dim,c.model);
+    if(path==='pdelta') {
+      check(result.linearResults,c.model,{ok:c.references[path].ok.linearResults},[]);
+      assert.equal(result.converged,true);
+    }
+    check(result,c.model,c.references[path],[]);
+    mixedSolves++;
+  }
+}
+assert.equal(mixedSolves,12*paths.length-9);
+assert.equal(mixedRefusals,16*paths.length);
+const dynamicRun=(name,input)=>parse(engine[name](JSON.stringify(input)));
+const baselineDynamic=mixedDynamics[0];
+const harmonicBaseline=dynamicRun('solve_harmonic_3d',baselineDynamic.harmonic);
+const historyBaseline=dynamicRun('solve_time_history_3d',baselineDynamic.history);
+assert.ok(harmonicBaseline.responsePoints.some(p=>p.amplitude>0));
+assert.ok(historyBaseline.nodeHistories.some(n=>n.ux.some(x=>x!==0)));
+for(const c of mixedDynamics) {
+  for(const [name,key,field,baseline] of [
+    ['solve_harmonic_3d','harmonic','responsePoints',harmonicBaseline],
+    ['solve_time_history_3d','history','nodeHistories',historyBaseline],
+  ]) {
+    if(!c[key]) continue;
+    if(c.refuses) assert.throws(()=>dynamicRun(name,c[key]),/moment|rotation/i);
+    else assert.deepEqual(dynamicRun(name,c[key])[field],baseline[field]);
+  }
+}
+console.log(`Released-load work: ${mixedSolves} mixed frame/truss cancellations and controls, ${mixedRefusals} mixed-resultant refusals; harmonic and per-record time-history controls passed`);
+
+assertExpectedUnresolved(unresolvedCases);

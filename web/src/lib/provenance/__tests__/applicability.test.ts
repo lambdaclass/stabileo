@@ -769,12 +769,40 @@ it('known wrong result: #818: a buckling notice cannot excuse linear result chan
   }
 });
 
-(process.env.RUN_KNOWN_WRONG ? it : it.skip)('known wrong result: #2074: plain unreleased frames and unloaded connectors need no released-load notice', () => {
+it('#2074: plain unreleased frames and unloaded connectors need no released-load notice', () => {
   for (const analysisMode of ['2d', 'pro']) {
     for (const snapshot of [
       model({ analysisMode, elements: [member(1, 1, 'frame')] }),
       model({ analysisMode, connectors: [[1, { id: 1 }]] }),
+      model({ analysisMode, quads: [[1, { id: 1 }]] }),
+      model({ analysisMode, elements: [member(1, 1, 'frame'), member(2, 1, 'truss')], loads: [{ type: 'distributed3d', data: { elementId: 1, qYI: 1, qYJ: 1 } }] }),
     ]) {
+      for (const id of ['released-load-work', 'transformed-load-assembly']) expect(ids(snapshot)).not.toContain(id);
+    }
+  }
+});
+
+it('#2074: retains released-load notices for every affected assembly feature', () => {
+  for (const analysisMode of ['2d', 'pro']) {
+    const frame = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+    for (const snapshot of [
+      model({ ...frame, elements: [member(1, 1, 'frame', { releaseI: { mz: true } })] }),
+      model({ ...frame, elements: [member(1, 1, 'truss')], loads: [{ type: 'distributed', data: { elementId: 1, qI: 1, qJ: 1 } }] }),
+      ...['mx', 'my', 'mz'].map((key) => model({ ...frame, loads: [{ type: 'nodal3d', data: { nodeId: 1, [key]: 1 } }] })),
+      model({ analysisMode, quads: [[1, { id: 1 }]], loads: [{ type: 'nodal3d', data: { nodeId: 1, mz: 1 } }] }),
+      model({ ...frame, supports: [[1, { nodeId: 1, type: 'inclinedRoller', angle: 30, isInclined: true }]] }),
+      model({ analysisMode, connectors: [[1, { id: 1 }]], loads: [{ type: 'nodal3d', data: { nodeId: 1, mx: 1 } }] }),
+    ]) {
+      for (const id of ['released-load-work', 'transformed-load-assembly']) {
+        const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+        const before = { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - 1 };
+        expect(ids(snapshot, before)).toContain(id);
+        expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(id);
+      }
+    }
+    for (const value of [0, -0]) {
+      const snapshot = model({ ...frame, loads: [{ type: 'nodal3d', data: { nodeId: 1, fx: 1, mx: value, my: value, mz: value } }] });
+      expect(modelFeatures(snapshot)).not.toContain('nodalMoments');
       for (const id of ['released-load-work', 'transformed-load-assembly']) expect(ids(snapshot)).not.toContain(id);
     }
   }

@@ -1106,7 +1106,7 @@ test.engine.released-assembly-2074:
 	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib solver::load_work::tests -- --nocapture $(if $(IGNORED),--include-ignored)
 	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='released_load_work:: --release $(if $(IGNORED),-- --include-ignored)'
 
-test.released-load-work-outcomes: scripts/tests/released-load-work-outcome.mjs
+test.released-load-work-outcomes: scripts/tests/released-load-work-outcome.mjs scripts/tests/released-load-work-unresolved.json
 	$(NIX_RUN) node --test scripts/tests/released-load-work-outcome.test.mjs
 
 .PHONY: test.released-load-work-physics

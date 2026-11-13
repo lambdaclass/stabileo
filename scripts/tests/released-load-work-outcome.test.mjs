@@ -1,23 +1,42 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { allowsUnresolved } from './released-load-work-outcome.mjs';
+import { readFileSync } from 'node:fs';
+import { allowsUnresolved, assertExpectedUnresolved } from './released-load-work-outcome.mjs';
 
 for(const outcome of [{result:{converged:false}},{error:'Singular tangent stiffness matrix'}]) {
   test(`native success requires WASM completion: ${JSON.stringify(outcome)}`,()=>{
-    assert.equal(allowsUnresolved({ok:{converged:true}},outcome.result,outcome.error,true),false);
-    assert.equal(allowsUnresolved({ok:{}},outcome.result,outcome.error,true),false);
+    assert.equal(allowsUnresolved({ok:{converged:true}},outcome.result,outcome.error,'cases/9/corotational'),false);
+    assert.equal(allowsUnresolved({ok:{}},outcome.result,outcome.error,'cases/9/corotational'),false);
   });
 }
 test('only explicit expected numerical outcomes can remain unresolved',()=>{
-  assert.equal(allowsUnresolved({ok:{converged:false}},{converged:false},undefined,true),true);
-  assert.equal(allowsUnresolved({error:'Singular stiffness matrix'},undefined,'Singular tangent stiffness matrix',true),true);
-  assert.equal(allowsUnresolved({ok:{converged:false}},{converged:false},undefined,false),false);
-  assert.equal(allowsUnresolved({error:'Singular stiffness matrix'},undefined,new Error('wrong answer'),true),false);
+  assert.equal(allowsUnresolved({ok:{converged:false}},{converged:false},undefined,'cases/9/corotational'),true);
+  assert.equal(allowsUnresolved({error:'Singular stiffness matrix'},undefined,'Singular tangent stiffness matrix','cases/9/corotational'),true);
+  assert.equal(allowsUnresolved({ok:{converged:false}},{converged:false},undefined,'cases/0/material'),false);
+  assert.equal(allowsUnresolved({error:'Singular stiffness matrix'},undefined,new Error('wrong answer'),'cases/9/corotational'),false);
 });
 
-test('known wrong result: #2074: a newly unresolved native and WASM case fails outside the pinned set', {skip:!process.env.RUN_KNOWN_WRONG},()=>{
+test('#2074: a newly unresolved native and WASM case fails outside the pinned set',()=>{
   for(const reference of [{ok:{converged:false}},{error:'Singular tangent stiffness matrix'}]) {
     assert.equal(allowsUnresolved(reference,{converged:false},undefined,'cases/0/material'),false);
     assert.equal(allowsUnresolved(reference,undefined,'Singular tangent stiffness matrix','cases/0/material'),false);
   }
+});
+
+test('the observed unresolved set must exactly equal the pinned set',()=>{
+  assert.throws(()=>assertExpectedUnresolved([]));
+  assert.throws(()=>assertExpectedUnresolved(['cases/0/material']));
+  assert.throws(()=>assertExpectedUnresolved(['cases/9/corotational','cases/9/corotational']));
+});
+
+test('a same-count substitution cannot change the pinned unresolved cases',()=>{
+  const pinned=JSON.parse(readFileSync(new URL('./released-load-work-unresolved.json',import.meta.url),'utf8'));
+  const exact=Object.entries(pinned).flatMap(([groupPath,indices])=>{
+    const [group,path]=groupPath.split('/');
+    return indices.map(i=>`${group}/${i}/${path}`);
+  });
+  assertExpectedUnresolved(exact);
+  const replaced=[...exact];
+  replaced[0]='cases/0/material';
+  assert.throws(()=>assertExpectedUnresolved(replaced));
 });

@@ -38,7 +38,7 @@ export const FEATURE_IDS = [
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear',
-  'stagedConstruction', 'generatedStructures', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
+  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -235,13 +235,18 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (connectors.length) f.add('connectors');
   if (connectors.some((c) => positive(c.kShear) || positive(c.kShearZ))) f.add('connectorsWithShear');
 
+  const axialMembers = new Set(elements.filter((e) => e.type === 'truss' || e.type === 'cable').map((e) => e.id));
   const cases = Array.isArray(s.loadCases) ? s.loadCases : [];
   if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
-    if (/^(distributed|pointOnElement|thermal)/.test(t)) f.add('memberLoads');
+    if (/^nodal/.test(t) && ['mx', 'my', 'mz'].some((key) => typeof d[key] === 'number' && d[key] !== 0)) f.add('nodalMoments');
+    if (/^(distributed|pointOnElement|thermal)/.test(t)) {
+      f.add('memberLoads');
+      if (axialMembers.has(d.elementId as number)) f.add('trussMemberLoads');
+    }
     if (t.startsWith('pointOnElement') || (t.startsWith('distributed') && (positive(d.a) || d.b !== undefined))) f.add('pointOrPartialMemberLoads');
     if (t === 'thermal') f.add('memberThermalLoads');
     if (t === 'displacement3d' && SETTLEMENT_KEYS.some((k) => !!d[k])) f.add('caseDisplacements');
