@@ -220,24 +220,17 @@ fn round4_reaction_check(prestress_only: bool) {
                 }
                 let stage = stage(profile, force);
                 let dof = DofNumbering::build_2d(&input);
-                let sparse = assemble_staged_2d_triplets(&input, &dof, &stage);
                 let dense = assemble_staged_2d(&input, &dof, &stage);
-                let k_full =
-                    CscMatrix::from_triplets(dof.n_total, &sparse.rows, &sparse.cols, &sparse.vals);
                 let free: Vec<_> = (0..dof.n_free).collect();
                 let mut kff = extract_submatrix(&dense.k, dof.n_total, &free, &free);
                 let uf = cholesky_solve(&mut kff, &dense.f[..dof.n_free], dof.n_free).unwrap();
                 let mut u = vec![0.0; dof.n_total];
                 u[..dof.n_free].copy_from_slice(&uf);
-                let r = sparse.cumulative_reactions(&k_full, &input, &stage, &dof, &u);
-                let expected = compute_stage_reactions_vec(
-                    &dense,
-                    dof.n_total,
-                    dof.n_free,
-                    dof.n_total - dof.n_free,
-                    &u,
-                    &vec![0.0; dof.n_total - dof.n_free],
-                );
+                let r = physical_recovery::recover(
+                    physical_recovery::StageModel::Plane(&input, &stage), &dof, &u,
+                ).as_slice().to_vec();
+                let expected: Vec<_> = mat_vec(&dense.k, &u, dof.n_total).iter().zip(&dense.f)
+                    .map(|(ku, f)| ku - f).collect();
                 close(&r, &expected);
                 let independent = equivalent(&input, &stage);
                 let asm = super::super::assembly::without_artificial_stiffness(|| {
@@ -247,6 +240,7 @@ fn round4_reaction_check(prestress_only: bool) {
                 for (r, f) in full_r.iter_mut().zip(&dense.f) {
                     *r -= f;
                 }
+                let r = &r[dof.n_free..];
                 full_r[dof.n_free..].copy_from_slice(&r);
                 for it in &asm.inclined_transforms_2d {
                     super::super::assembly::reverse_inclined_transform_2d(
@@ -486,9 +480,16 @@ fn staged_round7_inclined_disconnected_tangent_load() {
                     assert!(error.contains("translation") || error.contains("mechanism"), "{error}");
                 } else {
                     let result = result.unwrap();
-                    let r = result.final_results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-                    round7_close(r.rx, 0.0);
-                    round7_close(r.rz, -fz);
+                    if pads == 0 {
+                        assert!(result.final_results.reactions.is_empty());
+                        assert!(result.final_results.element_forces.is_empty());
+                        assert!(result.final_results.constraint_forces.is_empty());
+                        assert!(result.final_results.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("stageResults")));
+                    } else {
+                        let r = result.final_results.reactions.iter().find(|r| r.node_id == 2).unwrap();
+                        round7_close(r.rx, 0.0);
+                        round7_close(r.rz, -fz);
+                    }
                 }
             }
         }

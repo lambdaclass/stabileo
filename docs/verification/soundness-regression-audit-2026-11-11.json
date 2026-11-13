@@ -335858,13 +335858,13 @@
       "model": "solve_arc_length-0015ab84c3baa36f.json",
       "issue": "https://github.com/lambdaclass/stabileo/issues/1949",
       "path": "nonlinear.results.reactions",
-      "status": "excluded from frozen inputs and outputs: #1949; PR #1952 restores corrected outputs"
+      "status": "historical empty reactions: #1949; PR #1952 restores corrected inputs and outputs to the live frozen set"
     },
     {
       "model": "solve_arc_length-022317310499426d.json",
       "issue": "https://github.com/lambdaclass/stabileo/issues/1949",
       "path": "nonlinear.results.reactions",
-      "status": "excluded from frozen inputs and outputs: #1949; PR #1952 restores corrected outputs"
+      "status": "historical empty reactions: #1949; PR #1952 restores corrected inputs and outputs to the live frozen set"
     },
     {
       "model": "solve_arc_length-0006e86e35791232.json",

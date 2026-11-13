@@ -13,7 +13,8 @@
 /// of staged vs instantaneous solutions.
 
 use crate::common::*;
-use dedaliano_engine::solver::staged::solve_staged_2d;
+use dedaliano_engine::solver::{linear::solve_2d, staged::solve_staged_2d};
+use super::staged_construction::{assert_support_refusal, reference_input};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -68,6 +69,90 @@ fn make_supports(sups: &[(usize, usize, &str)]) -> HashMap<String, SolverSupport
     map
 }
 
+fn assert_stage_displacements(actual: &AnalysisResults, increments: &[&AnalysisResults], expected_nodes: &[usize]) {
+    let actual_nodes: std::collections::BTreeSet<_> = actual.displacements.iter().map(|d| d.node_id).collect();
+    let expected_nodes: std::collections::BTreeSet<_> = expected_nodes.iter().copied().collect();
+    assert_eq!(actual_nodes, expected_nodes);
+    assert_eq!(actual.displacements.len(), expected_nodes.len());
+    for d in &actual.displacements {
+        let expected = increments
+            .iter()
+            .filter_map(|r| r.displacements.iter().find(|v| v.node_id == d.node_id))
+            .fold([0.0; 3], |a, v| [a[0] + v.ux, a[1] + v.uz, a[2] + v.ry]);
+        for (value, expected) in [d.ux, d.uz, d.ry].into_iter().zip(expected) {
+            assert!(
+                (value - expected).abs() < 1e-10,
+                "node {}: {value} != {expected}",
+                d.node_id
+            );
+        }
+    }
+}
+
+fn assert_history_unavailable(r: &AnalysisResults) {
+    for phase in ["stageResults", "reactions", "elementForces", "constraintForces"] {
+        assert!(r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some(phase) && d.severity == Severity::Warning));
+    }
+    assert!(r.reactions.is_empty());
+    assert!(r.element_forces.is_empty());
+    assert!(r.constraint_forces.is_empty());
+}
+
+fn assert_horizontal_stage_forces(
+    input: &StagedInput,
+    actual: &AnalysisResults,
+    loads: &[usize],
+) {
+    let at = |id| {
+        let d = actual.displacements.iter().find(|d| d.node_id == id).unwrap();
+        [d.ux, d.uz, d.ry]
+    };
+    for f in &actual.element_forces {
+        let e = input
+            .elements
+            .values()
+            .find(|e| e.id == f.element_id)
+            .unwrap();
+        let ni = input.nodes.values().find(|n| n.id == e.node_i).unwrap();
+        let nj = input.nodes.values().find(|n| n.id == e.node_j).unwrap();
+        assert_eq!(ni.z, nj.z);
+        let l = nj.x - ni.x;
+        let i = at(e.node_i);
+        let j = at(e.node_j);
+        let ei = E * 1000.0 * IZ;
+        let q: f64 = loads
+            .iter()
+            .filter_map(|&k| match &input.loads[k] {
+                SolverLoad::Distributed(d) if d.element_id == e.id => {
+                    assert_eq!(d.q_i, d.q_j);
+                    Some(d.q_i)
+                }
+                _ => None,
+            })
+            .sum();
+        let shear = 12.0 * ei / l.powi(3) * (i[1] - j[1]) + 6.0 * ei / l.powi(2) * (i[2] + j[2]);
+        let mi = 6.0 * ei / l.powi(2) * (i[1] - j[1]) + ei / l * (4.0 * i[2] + 2.0 * j[2]);
+        let mj = 6.0 * ei / l.powi(2) * (i[1] - j[1]) + ei / l * (2.0 * i[2] + 4.0 * j[2]);
+        let axial = E * 1000.0 * A / l * (j[0] - i[0]);
+        for (value, expected) in [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end]
+            .into_iter()
+            .zip([
+                axial,
+                axial,
+                shear - q * l / 2.0,
+                shear + q * l / 2.0,
+                mi - q * l * l / 12.0,
+                -mj - q * l * l / 12.0,
+            ])
+        {
+            assert!(
+                (value - expected).abs() < 1e-8,
+                "element {}: {value} != {expected}",
+                e.id
+            );
+        }
+    }
+}
 // ================================================================
 // 1. Two-Phase Beam: cantilever first, then add second span
 // ================================================================
@@ -104,7 +189,6 @@ fn validation_staged_ext_1_two_phase_beam() {
         }),
     ];
 
-    // --- Staged solve: build left span as cantilever, then add right span ---
     let staged_input = StagedInput {
         nodes: nodes.clone(),
         materials: materials.clone(),
@@ -132,46 +216,25 @@ fn validation_staged_ext_1_two_phase_beam() {
         ],
         constraints: vec![],
     };
-    let staged_results = solve_staged_2d(&staged_input).unwrap();
+    assert_support_refusal(&staged_input, &[3]);
+    let first = solve_2d(&reference_input(&staged_input, &[1, 2], &[1], &[1], &[0])).unwrap();
+    let increment = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2], &[1])).unwrap();
+    let mut supported = staged_input.clone();
+    supported.stages[0].supports_added = vec![1, 2];
+    supported.stages[1].supports_added.clear();
+    let actual = solve_staged_2d(&supported).unwrap();
+    assert_eq!(actual.stages.len(), 2);
+    assert_stage_displacements(&actual.stages[0].results, &[&first], &[1,2,3]);
+    assert_stage_displacements(&actual.stages[1].results, &[&first, &increment], &[1,2,3]);
+    assert_stage_displacements(&actual.final_results, &[&first, &increment], &[1,2,3]);
+    assert_eq!(actual.stages[0].results.element_forces.len(), 1);
+    assert_horizontal_stage_forces(&supported, &actual.stages[0].results, &[0]);
+    assert_history_unavailable(&actual.stages[1].results);
+    assert_history_unavailable(&actual.final_results);
+    let expected = q * l.powi(4) / (8.0 * E * 1000.0 * IZ);
+    let tip = actual.stages[0].results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    assert!((tip.uz - expected).abs() < 1e-10);
 
-    // --- Single-stage solve (all at once) ---
-    let single_input = StagedInput {
-        nodes, materials, sections, elements, supports,
-        loads,
-        stages: vec![ConstructionStage {
-            name: "All at once".into(),
-            elements_added: vec![1, 2],
-            elements_removed: vec![],
-            load_indices: vec![0, 1],
-            supports_added: vec![1, 2],
-            supports_removed: vec![],
-            prestress_loads: vec![], }],
-        constraints: vec![],
-    };
-    let single_results = solve_staged_2d(&single_input).unwrap();
-
-    // The staged and single-stage solutions must differ at node 2,
-    // because in staged construction the stage 1 cantilever deflection is locked in.
-    let staged_uy2 = staged_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uz;
-    let single_uy2 = single_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uz;
-
-    let diff = (staged_uy2 - single_uy2).abs();
-    assert!(
-        diff > 1e-6,
-        "Staged and single-stage should differ at node 2: staged={:.8}, single={:.8}",
-        staged_uy2, single_uy2
-    );
-
-    // Stage 1: cantilever tip deflection = q*L^4/(8*E*I)
-    let e_kn = E * 1000.0;
-    let cant_deflection = q * l.powi(4) / (8.0 * e_kn * IZ);
-    let stage1_uy2 = staged_results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uz;
-
-    assert_close(stage1_uy2, cant_deflection, 0.02,
-        "Stage 1 cantilever tip deflection");
 }
 
 // ================================================================
@@ -216,8 +279,7 @@ fn validation_staged_ext_2_support_addition() {
         }),
     ];
 
-    // --- Staged: build 2 elements, then extend ---
-    let staged_input = StagedInput {
+    let mut staged_input = StagedInput {
         nodes: nodes.clone(),
         materials: materials.clone(),
         sections: sections.clone(),
@@ -244,9 +306,13 @@ fn validation_staged_ext_2_support_addition() {
         ],
         constraints: vec![],
     };
+    assert_support_refusal(&staged_input, &[4]);
+    let original_reference = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2], &[0])).unwrap();
+    staged_input.stages[0].supports_added.push(3);
+    staged_input.stages[1].supports_added.clear();
     let staged_results = solve_staged_2d(&staged_input).unwrap();
+    assert_eq!(staged_results.stages.len(), 2);
 
-    // --- Single-stage solve with all at once ---
     let single_input = StagedInput {
         nodes, materials, sections, elements, supports,
         loads: vec![
@@ -266,9 +332,6 @@ fn validation_staged_ext_2_support_addition() {
     };
     let single_results = solve_staged_2d(&single_input).unwrap();
 
-    // The staged and single-stage solutions must differ because
-    // in the staged case, stage 1 load acts on a 2-element structure
-    // while in single-stage, both loads act on the 3-element structure.
     let staged_uy2 = staged_results.final_results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     let single_uy2 = single_results.final_results.displacements.iter()
@@ -281,7 +344,6 @@ fn validation_staged_ext_2_support_addition() {
         staged_uy2, single_uy2
     );
 
-    // Stage 1: node 2 should deflect downward
     let s1_uy2 = staged_results.stages[0].results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     assert!(
@@ -289,11 +351,11 @@ fn validation_staged_ext_2_support_addition() {
         "Stage 1: node 2 should deflect downward: uy={}", s1_uy2
     );
 
-    // Final reactions: sum(Ry) should balance 2*P
-    let sum_ry: f64 = staged_results.final_results.reactions.iter()
-        .map(|r| r.rz).sum();
-    assert_close(sum_ry, -2.0 * p, 0.05,
-        "Final vertical equilibrium");
+    let reference_uz = original_reference.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    assert_close(s1_uy2, reference_uz, 1e-10, "Initially isolated far support leaves the loaded beam unchanged");
+
+    assert_history_unavailable(&staged_results.stages[1].results);
+    assert_history_unavailable(&staged_results.final_results);
 }
 
 // ================================================================
@@ -541,10 +603,9 @@ fn validation_staged_ext_4_sequential_loading() {
 // The stage 3 incremental deflection (cantilever) should be larger
 // than the stage 1 deflection (two-span beam) for the same load.
 
-#[test]
-fn validation_staged_ext_5_prop_removal() {
+fn prop_removal_input() -> StagedInput {
     let l = 5.0;
-    let p = -100.0; // kN at node 2
+    let p = -100.0;
 
     let nodes = make_nodes(&[
         (1, 0.0, 0.0),
@@ -560,11 +621,9 @@ fn validation_staged_ext_5_prop_removal() {
     ]);
 
     let loads = vec![
-        // Stage 1 load
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
-        // Stage 3 load (same magnitude, on cantilever)
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
@@ -602,53 +661,34 @@ fn validation_staged_ext_5_prop_removal() {
         constraints: vec![],
     };
 
-    let results = solve_staged_2d(&staged_input).unwrap();
-    assert_eq!(results.stages.len(), 3);
+    staged_input
+}
 
-    // Stage 1: two-span beam. Node 2 deflects.
-    let s1_uy2 = results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uz;
-    assert!(
-        s1_uy2 < 0.0,
-        "Stage 1: node 2 should deflect downward: uy={}", s1_uy2
-    );
+#[test]
+fn validation_staged_ext_5_prop_removal() {
+    let staged_input = prop_removal_input();
+    let error = solve_staged_2d(&staged_input).unwrap_err();
+    assert!(error.contains("#1996"), "{error}");
+    let first = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2], &[0])).unwrap();
+    let mut supported = staged_input.clone();
+    supported.stages[1].supports_removed.clear();
+    let error = solve_staged_2d(&supported).unwrap_err();
+    assert!(error.contains("#1996"), "{error}");
+    supported.stages.truncate(1);
+    let actual = solve_staged_2d(&supported).unwrap();
+    assert_eq!(actual.stages.len(), 1);
+    assert_stage_displacements(&actual.stages[0].results, &[&first], &[1,2,3]);
+    assert_horizontal_stage_forces(&supported, &actual.stages[0].results, &[0]);
+    assert_eq!(actual.stages[0].results.element_forces.len(), 2);
 
-    // Stage 1: both elements should have forces
-    let s1_ef1 = results.stages[0].results.element_forces.iter()
-        .find(|ef| ef.element_id == 1).unwrap();
-    let s1_ef2 = results.stages[0].results.element_forces.iter()
-        .find(|ef| ef.element_id == 2).unwrap();
-    assert!(s1_ef1.v_start.abs() > 1.0, "Stage 1: element 1 should have shear");
-    assert!(s1_ef2.v_start.abs() > 1.0, "Stage 1: element 2 should have shear");
+}
 
-    // Stage 2: element 2 removed, no new load. Only element 1 in forces.
-    let s2_forces = &results.stages[1].results.element_forces;
-    assert!(
-        s2_forces.iter().all(|ef| ef.element_id != 2),
-        "Stage 2: element 2 should not appear"
-    );
-
-    // Stage 3: load on cantilever. Node 2 deflects further.
-    let s3_uy2 = results.stages[2].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uz;
-    assert!(
-        s3_uy2 < s1_uy2,
-        "Stage 3: cantilever tip should deflect more: s3={:.6}, s1={:.6}",
-        s3_uy2, s1_uy2
-    );
-
-    // Incremental deflection from stage 3 (cantilever) should be larger
-    // in magnitude than stage 1 (two-span beam) for the same load.
-    let s2_uy2 = results.stages[1].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uz;
-    let incr_stage3 = (s3_uy2 - s2_uy2).abs();
-    let incr_stage1 = s1_uy2.abs();
-
-    assert!(
-        incr_stage3 > incr_stage1,
-        "Cantilever is more flexible: incr_cant={:.6}, incr_beam={:.6}",
-        incr_stage3, incr_stage1
-    );
+#[test]
+fn issue_1996_loaded_member_removal_refuses_unredistributed_results() {
+    let mut supported = prop_removal_input();
+    supported.stages[1].supports_removed.clear();
+    let error = solve_staged_2d(&supported).unwrap_err();
+    assert!(error.contains("#1996"), "{error}");
 }
 
 // ================================================================
@@ -748,13 +788,8 @@ fn validation_staged_ext_6_frame_erection() {
         "Stage 1: column should have no bending: m_start={}", s1_ef1.m_start
     );
 
-    // After stage 2: portal frame with lateral load should develop moments.
-    let final_ef1 = staged_results.final_results.element_forces.iter()
-        .find(|ef| ef.element_id == 1).unwrap();
-    assert!(
-        final_ef1.m_start.abs() > 1.0,
-        "Final: column should have bending from lateral load: m_start={}", final_ef1.m_start
-    );
+    assert_history_unavailable(&staged_results.stages[1].results);
+    assert_history_unavailable(&staged_results.final_results);
 
     // Final lateral displacement at node 2 should be non-zero.
     let final_ux2 = staged_results.final_results.displacements.iter()
@@ -999,5 +1034,89 @@ fn validation_staged_ext_8_staged_vs_instantaneous() {
             &format!("Node {} ry", sr.node_id));
         assert_close(sr.my, er.my, 0.01,
             &format!("Node {} mz", sr.node_id));
+    }
+}
+
+#[test]
+fn issue_1952_r8_stage_displacement_assertion_rejects_missing_nodes() {
+    let reference: AnalysisResults = serde_json::from_value(serde_json::json!({"displacements":[{"nodeId":1,"ux":0.0,"uz":0.0,"ry":0.0},{"nodeId":2,"ux":0.0,"uz":0.0,"ry":0.0}],"reactions":[],"elementForces":[]})).unwrap();
+    for count in [0,1] {
+        let mut incomplete = reference.clone();
+        incomplete.displacements.truncate(count);
+        assert!(std::panic::catch_unwind(|| assert_stage_displacements(&incomplete, &[&reference], &[1,2])).is_err());
+    }
+}
+
+fn check_r20_removal_cases(dim: i64, refused: bool) {
+    use dedaliano_engine::solver::staged::{parse_staged_2d, parse_staged_3d, solve_staged_3d};
+    let cases: serde_json::Value = serde_json::from_str(include_str!("../../../fixtures/staged-removal-r20.json")).unwrap();
+    for case in cases.as_array().unwrap().iter().filter(|c| c["dim"] == dim && c["refused"] == refused) {
+        let model = case["model"].to_string();
+        let result = if case["dim"] == 2 {
+            solve_staged_2d(&parse_staged_2d(&model).unwrap()).map(|r| serde_json::to_value(r).unwrap())
+        } else {
+            solve_staged_3d(&parse_staged_3d(&model).unwrap()).map(|r| serde_json::to_value(r).unwrap())
+        };
+        if case["refused"] == true {
+            let error = result.expect_err(&case["name"].to_string());
+            assert!(error.contains("#1996"), "{case}: {error}");
+        } else {
+            let result = result.unwrap_or_else(|e| panic!("{case}: {e}"));
+            let load = case["load"].as_f64().unwrap();
+            for stage in result["stages"].as_array().unwrap().iter().skip(1) {
+                let r = &stage["results"];
+                assert!(!r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable"), "{case}: {r}");
+                let u = r["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 1).unwrap()["ux"].as_f64().unwrap();
+                let expected = load * 5.0 / (200000.0 * 1000.0 * 0.01);
+                assert!((u - expected).abs() <= 1e-12 * expected.abs().max(1e-30), "{case}: {u} != {expected}");
+                let key = if case["dim"] == 2 { "rx" } else { "fx" };
+                let reaction = r["reactions"].as_array().unwrap().iter().find(|r| r["nodeId"] == 0).unwrap()[key].as_f64().unwrap();
+                assert!((reaction + load).abs() <= 1e-12 * load.abs().max(1e-30), "{case}: {reaction}");
+                assert_eq!(r["elementForces"].as_array().unwrap().len(), 1);
+            }
+            assert_eq!(result["finalResults"], result["stages"][2]["results"]);
+        }
+    }
+}
+
+#[test]
+fn issue_1996_r20_2d_loaded_removal() { check_r20_removal_cases(2, true); }
+
+#[test]
+fn issue_1996_r20_2d_unloaded_removal() { check_r20_removal_cases(2, false); }
+
+#[test]
+fn issue_1996_r20_3d_loaded_removal() { check_r20_removal_cases(3, true); }
+
+#[test]
+fn issue_1996_r20_3d_unloaded_removal() { check_r20_removal_cases(3, false); }
+
+#[test]
+fn issue_1952_r20_public_springs_preserve_global_components_and_inclined_refusal() {
+    use dedaliano_engine::solver::staged::{parse_staged_2d, parse_staged_3d, solve_staged_3d};
+    let cases: serde_json::Value = serde_json::from_str(include_str!("../../../fixtures/staged-global-springs-r20.json")).unwrap();
+    for case in cases.as_array().unwrap() {
+        let model = case["model"].to_string();
+        let result = if case["dim"] == 2 {
+            solve_staged_2d(&parse_staged_2d(&model).unwrap()).map(|r| serde_json::to_value(r).unwrap())
+        } else {
+            solve_staged_3d(&parse_staged_3d(&model).unwrap()).map(|r| serde_json::to_value(r).unwrap())
+        };
+        if case["refused"] == true {
+            assert!(result.unwrap_err().contains("Inclined supports"));
+            continue;
+        }
+        let result = result.unwrap();
+        let r = &result["finalResults"];
+        let (displacements, reactions): (&[&str], &[&str]) = if case["dim"] == 2 { (&["ux","uz"], &["rx","rz"]) } else { (&["ux","uy","uz"], &["fx","fy","fz"]) };
+        assert_eq!(r["displacements"].as_array().unwrap().len(), 1);
+        assert_eq!(r["reactions"].as_array().unwrap().len(), 1);
+        for (keys, group, expected) in [(displacements, "displacements", "u"), (reactions, "reactions", "r")] {
+            for (i, key) in keys.iter().enumerate() {
+                let value = r[group][0][key].as_f64().unwrap();
+                let expected = case[expected][i].as_f64().unwrap();
+                assert!((value - expected).abs() < 1e-12, "{case}: {value} != {expected}");
+            }
+        }
     }
 }

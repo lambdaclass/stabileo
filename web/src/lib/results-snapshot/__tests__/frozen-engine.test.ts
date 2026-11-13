@@ -105,7 +105,7 @@ for (const c of inputs) {
     expect(result.results.displacements.length).toBeGreaterThan(0);
     expect(result.results.reactions.length).toBeGreaterThan(0);
     const prefix = arc ? 'nonlinear' : 'ssi';
-    check(c.model.replace(/\.json$/, ''), [three ? 'space3D' : 'plane2D', 'members', `analysis:${prefix}`], result, prefix);
+    check(c.model.replace(/\.json$/, ''), [three ? 'space3D' : 'plane2D', 'members', `analysis:${prefix}`, ...(arc ? ['pathAnalysis'] : [])], result, prefix);
   });
 }
 

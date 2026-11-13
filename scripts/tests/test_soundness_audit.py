@@ -114,15 +114,23 @@ class References(unittest.TestCase):
                     else:
                         self.assertEqual(row['category'], 'engineering_reference')
 
-    def test_empty_arch_reactions_are_excluded_from_live_references(self):
+    def test_arch_reaction_evidence_tracks_excluded_and_restored_live_references(self):
         report = json.loads(AUDIT.with_suffix('.json').read_text())
         exclusions = json.loads((ROOT / report['frozen_exclusions']).read_text())
         inputs = json.loads((ROOT / 'web/src/lib/results-snapshot/frozen-inputs.json').read_text())
         evidence = json.loads((AUDIT / 'arc-bisection.json').read_text())
         self.assertEqual(set(exclusions), {'1949'})
-        self.assertEqual(len(exclusions['1949']), 3)
-        self.assertEqual(set(exclusions['1949']), {row['model'] for row in evidence})
-        self.assertEqual({row['model'] for row in report['known_wrong_frozen_outputs']}, set(exclusions['1949']))
+        self.assertEqual(exclusions['1949'], ['solve_arc_length-0006e86e35791232.json'])
+        self.assertEqual({row['model'] for row in report['known_wrong_frozen_outputs']}, {row['model'] for row in evidence})
+        restored = {row['model'] for row in evidence} - set(exclusions['1949'])
+        self.assertEqual(restored, {'solve_arc_length-0015ab84c3baa36f.json', 'solve_arc_length-022317310499426d.json'})
+        for name in restored:
+            with self.subTest(restored=name):
+                self.assertIn(name, {row['model'] for row in inputs})
+                output = json.loads((ROOT / 'web/results-frozen' / name).read_text())
+                self.assertGreater(output['values']['nonlinear.results.reactions.length'], 0)
+                disclosure = next(row for row in report['known_wrong_frozen_outputs'] if row['model'] == name)
+                self.assertIn('restores corrected inputs and outputs to the live frozen set', disclosure['status'])
         for name in exclusions['1949']:
             with self.subTest(model=name):
                 entries = [entry for entry in report['known_wrong_frozen_outputs'] if entry['model'] == name]
@@ -133,7 +141,8 @@ class References(unittest.TestCase):
                 self.assertIn('PR #1952 restores corrected outputs', entries[0]['status'])
                 self.assertFalse((ROOT / 'web/results-frozen' / name).exists())
                 self.assertNotIn(name, {row['model'] for row in inputs})
-                archived = next(row for row in evidence if row['model'] == name)
+        for archived in evidence:
+            with self.subTest(archived=archived['model']):
                 for endpoint in ['before', 'after']:
                     self.assertTrue(archived[endpoint]['Ok']['converged'])
                     self.assertEqual(archived[endpoint]['Ok']['results']['reactions'], [])

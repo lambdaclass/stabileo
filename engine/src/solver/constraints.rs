@@ -1686,15 +1686,7 @@ fn solve_constrained_2d_dense_validated(
     // the restrained-independent columns of C — this keeps ΣReactions in
     // equilibrium with the applied load both for pure settlement (prescribed
     // u_r) and for a loaded slave tied to a fixed (u_r = 0) master.
-    for &(i, g_i) in &raw_forces {
-        for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
-            let (j, coeff) = (ct.c.col_idx[p], ct.c.vals[p]);
-            let d = ct.independent_dofs[j];
-            if d >= nf {
-                reactions_vec[d - nf] += coeff * g_i;
-            }
-        }
-    }
+    fcs.add_restrained_master_forces(&raw_forces, &mut reactions_vec);
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_2d so the constrained path reports reactions and
@@ -1706,7 +1698,7 @@ fn solve_constrained_2d_dense_validated(
 
     let displacements = linear::build_displacements_2d(&dof_num, &u_full);
     let mut reactions = linear::build_reactions_2d_inclined(
-        &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms_2d,
+        &super::reaction_recovery::ExpandedReactionModel2D::from_assembly(&input.solver), &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms_2d,
     );
     reactions.sort_by_key(|r| r.node_id);
     let mut element_forces = linear::compute_internal_forces_2d(
@@ -1906,15 +1898,7 @@ pub(super) fn solve_constrained_2d_sparse(
     let constraint_forces = fcs.constraint_forces(&raw_forces, dof_num);
 
     // A constraint force carried into a RESTRAINED master joins its reaction.
-    for &(i, g_i) in &raw_forces {
-        for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
-            let (j, coeff) = (ct.c.col_idx[p], ct.c.vals[p]);
-            let d = ct.independent_dofs[j];
-            if d >= nf {
-                reactions_vec[d - nf] += coeff * g_i;
-            }
-        }
-    }
+    fcs.add_restrained_master_forces(&raw_forces, &mut reactions_vec);
 
     // Displacements back to global axes; reactions_vec/f_r stay rotated.
     for it in &stiff.inclined_transforms_2d {
@@ -1923,7 +1907,7 @@ pub(super) fn solve_constrained_2d_sparse(
 
     let displacements = linear::build_displacements_2d(dof_num, &u_full);
     let mut reactions = linear::build_reactions_2d_inclined(
-        &input.solver, dof_num, &reactions_vec, &f_r, nf, &u_full, &stiff.inclined_transforms_2d,
+        &super::reaction_recovery::ExpandedReactionModel2D::from_assembly(&input.solver), dof_num, &reactions_vec, &f_r, nf, &u_full, &stiff.inclined_transforms_2d,
     );
     reactions.sort_by_key(|r| r.node_id);
     let mut element_forces = linear::compute_internal_forces_2d(&input.solver, dof_num, &u_full);
@@ -2147,15 +2131,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     // the restrained-independent columns of C — this keeps ΣReactions in
     // equilibrium with the applied load both for pure settlement (prescribed
     // u_r) and for a loaded slave tied to a fixed (u_r = 0) master.
-    for &(i, g_i) in &raw_forces {
-        for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
-            let (j, coeff) = (ct.c.col_idx[p], ct.c.vals[p]);
-            let d = ct.independent_dofs[j];
-            if d >= nf {
-                reactions_vec[d - nf] += coeff * g_i;
-            }
-        }
-    }
+    fcs.add_restrained_master_forces(&raw_forces, &mut reactions_vec);
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_3d so the constrained path reports reactions and
@@ -2170,7 +2146,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
 
     // Build reactions for output
     let mut reactions = linear::build_reactions_3d_inclined(
-        &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &sasm.inclined_transforms,
+        &super::reaction_recovery::ExpandedReactionModel3D::from_assembly(&input.solver), &dof_num, &reactions_vec, &f_r, nf, &u_full, &sasm.inclined_transforms,
     );
     reactions.sort_by_key(|r| r.node_id);
 

@@ -1,0 +1,39 @@
+{
+  "id": "staged-loaded-member-removal",
+  "date": "2026-11-13",
+  "prs": [
+    1952
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "stagedConstruction",
+      "members"
+    ]
+  },
+  "quantities": [
+    "stages",
+    "finalResults",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Loaded member removal refuses the staged history",
+    "es": "La eliminación de un miembro cargado rechaza la secuencia de etapas",
+    "pt": "A remoção de uma barra carregada recusa a sequência de etapas",
+    "de": "Das Entfernen belasteter Stäbe lehnt die Bauphasenfolge ab",
+    "fr": "Le retrait d’un élément chargé refuse la séquence de phases",
+    "tr": "Yüklü elemanın kaldırılması aşama geçmişini reddeder"
+  },
+  "explanation": {
+    "en": "Removing a member carrying nonzero internal force now refuses the staged history with an explicit #1996 diagnostic. Earlier displacements did not redistribute the released forces. Unloaded members and removal before loading retain their answers. Re-run saved staged member-removal histories.",
+    "es": "Eliminar un miembro con esfuerzo interno no nulo ahora rechaza la secuencia con un diagnóstico explícito #1996. Los desplazamientos anteriores no redistribuían los esfuerzos liberados. Los miembros descargados y la eliminación antes de cargar conservan sus resultados. Volvé a calcular las secuencias guardadas con eliminación de miembros.",
+    "pt": "Remover uma barra com esforço interno não nulo agora recusa a sequência com diagnóstico explícito #1996. Os deslocamentos anteriores não redistribuíam os esforços liberados. Barras descarregadas e remoção antes das cargas mantêm os resultados. Recalcule as sequências salvas com remoção de barras.",
+    "de": "Das Entfernen eines Stabs mit inneren Kräften ungleich null lehnt die Bauphasenfolge nun mit Diagnose #1996 ab. Frühere Verschiebungen verteilten die freigesetzten Kräfte nicht um. Unbelastete Stäbe und Entfernen vor Belastung behalten ihre Ergebnisse. Berechnen Sie gespeicherte Folgen mit Stabentfernung neu.",
+    "fr": "Le retrait d’un élément avec des efforts internes non nuls refuse désormais la séquence avec le diagnostic explicite #1996. Les déplacements précédents ne redistribuaient pas les efforts libérés. Les éléments déchargés et le retrait avant chargement conservent leurs résultats. Recalculez les séquences enregistrées avec retrait d’éléments.",
+    "tr": "Sıfır olmayan iç kuvvet taşıyan elemanın kaldırılması artık aşama geçmişini açık #1996 tanısıyla reddeder. Önceki yer değiştirmeler serbest kalan kuvvetleri yeniden dağıtmıyordu. Yüksüz elemanlar ve yüklemeden önce kaldırma sonuçlarını korur. Kayıtlı eleman kaldırma geçmişlerini yeniden çözün."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-staged-loaded-member-removal.md",
+    "heading": "Refuse removal of loaded staged members (2026-11-13)"
+  }
+}

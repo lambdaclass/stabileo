@@ -234,7 +234,7 @@ fn time_history_2d_static_loads_settle_to_linear_solution() {
     // the linear static solution (dense/linear sparse path) in global axes.
     let input = model(false, &LOADS);
     let lin = linear::solve_2d(&input).expect("linear");
-    let th = time_integration::solve_time_history_2d(&th_input(input, None, None, 1.0, 4000)).expect("time history");
+    let th = time_integration::solve_time_history_2d(&th_input(input.clone(), None, None, 1.0, 4000)).expect("time history");
     let scale = lin.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()));
     for d in &lin.displacements {
         let h = th.node_histories.iter().find(|h| h.node_id == d.node_id).unwrap();
@@ -245,16 +245,27 @@ fn time_history_2d_static_loads_settle_to_linear_solution() {
             assert_close(&format!("node {} ry", d.node_id), h.ry[last], d.ry, scale, 1e-5);
         }
     }
-    // Peak reactions (at the largest displacement, which a damped step
-    // response reaches as it settles) match the static reactions, the angled
-    // spring's and the inclined roller's included.
+    assert!(th.peak_reactions.is_empty());
+    assert!(th.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("peakReactions")));
+    let dofs = dedaliano_engine::solver::dof::DofNumbering::build_2d(&input);
+    let mut member_model = input.clone();
+    member_model.supports.clear();
+    let elastic = dedaliano_engine::solver::assembly::assemble_2d(&member_model, &dofs);
+    let mut u = vec![0.0; dofs.n_total];
+    for h in &th.node_histories {
+        for (k, v) in [h.ux.last().unwrap(), h.uz.last().unwrap(), h.ry.last().unwrap()].into_iter().enumerate() {
+            u[dofs.global_dof(h.node_id, k).unwrap()] = *v;
+        }
+    }
     let r_scale = lin.reactions.iter().fold(0.0f64, |m, r| m.max(r.rx.abs()).max(r.rz.abs()).max(r.my.abs()));
-    assert_eq!(th.peak_reactions.len(), lin.reactions.len());
     for r in &lin.reactions {
-        let p = th.peak_reactions.iter().find(|p| p.node_id == r.node_id).unwrap();
-        assert_close(&format!("node {} rx", r.node_id), p.rx, r.rx, r_scale, 1e-3);
-        assert_close(&format!("node {} rz", r.node_id), p.rz, r.rz, r_scale, 1e-3);
-        assert_close(&format!("node {} my", r.node_id), p.my, r.my, r_scale, 1e-3);
+        let p: Vec<f64> = (0..3).map(|k| {
+            let i = dofs.global_dof(r.node_id, k).unwrap();
+            elastic.k[i*dofs.n_total..(i+1)*dofs.n_total].iter().zip(&u).map(|(k, u)| k*u).sum::<f64>() - elastic.f[i]
+        }).collect();
+        assert_close(&format!("node {} rx", r.node_id), p[0], r.rx, r_scale, 1e-3);
+        assert_close(&format!("node {} rz", r.node_id), p[1], r.rz, r_scale, 1e-3);
+        assert_close(&format!("node {} my", r.node_id), p[2], r.my, r_scale, 1e-3);
     }
 }
 

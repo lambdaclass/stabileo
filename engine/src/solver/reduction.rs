@@ -386,13 +386,7 @@ fn guyan_reduce_2d_sparse(input: &GuyanInput, dof_num: &DofNumbering) -> Result<
 
     // Reactions (u_r = 0): R[i] = (K_full·u)[i] − F[i] for restrained DOFs,
     // computed in the rotated frame before reversing inclined transforms.
-    let nr = n - nf;
-    let ku = stiff.k_full.sym_mat_vec(&u_full);
-    let f_r: Vec<f64> = f_global[nf..].to_vec();
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = ku[nf + i] - f_r[i];
-    }
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::linear_2d(&input.solver, dof_num, &u_full), &f_global, dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_2d so Guyan reduction reports reactions and
@@ -404,9 +398,7 @@ fn guyan_reduce_2d_sparse(input: &GuyanInput, dof_num: &DofNumbering) -> Result<
     // Build results
     let displacements = super::linear::build_displacements_2d(dof_num, &u_full);
     let element_forces = super::linear::compute_internal_forces_2d(&input.solver, dof_num, &u_full);
-    let reactions = super::linear::build_reactions_2d_inclined(
-        &input.solver, dof_num, &reactions_vec, &f_r, nf, &u_full, &stiff.inclined_transforms_2d,
-    );
+    let reactions = recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_full), &stiff.inclined_transforms_2d)?;
 
     Ok(GuyanResult {
         structured_diagnostics: crate::known_issues::sparse_stiffness_conditioning(k_sp).or_else(|| crate::known_issues::sparse_conditioning(&stiff.k_ff)).into_iter().collect(),
@@ -556,19 +548,7 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
     for i in 0..nf { u_full[i] = u_f[i]; }
 
     // Compute reactions: R = K_rf * u_f + K_rr * u_r - F_r
-    let nr = n - nf;
-    let free_idx2: Vec<usize> = (0..nf).collect();
-    let rest_idx: Vec<usize> = (nf..n).collect();
-    let u_r = vec![0.0; nr]; // no prescribed displacements in reduction
-    let k_rf = extract_submatrix(&asm.k, n, &rest_idx, &free_idx2);
-    let k_rr = extract_submatrix(&asm.k, n, &rest_idx, &rest_idx);
-    let f_r = extract_subvec(&asm.f, &rest_idx);
-    let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
-    let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = k_rf_uf[i] + k_rr_ur[i] - f_r[i];
-    }
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::linear_2d(&input.solver, dof_num, &u_full), &asm.f, dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_2d so Guyan reduction reports reactions and
@@ -580,9 +560,7 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
     // Build results
     let displacements = super::linear::build_displacements_2d(dof_num, &u_full);
     let element_forces = super::linear::compute_internal_forces_2d(&input.solver, dof_num, &u_full);
-    let reactions = super::linear::build_reactions_2d_inclined(
-        &input.solver, dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms_2d,
-    );
+    let reactions = recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_full), &asm.inclined_transforms_2d)?;
 
     Ok(GuyanResult {
         structured_diagnostics: crate::known_issues::dense_stiffness_conditioning(&k_ff, ns).or(assembled_conditioning).into_iter().collect(),
@@ -1270,16 +1248,7 @@ fn guyan_reduce_3d_contained(input: &GuyanInput3D) -> Result<GuyanResult3D, Stri
     // Compute reactions: R[i] = (K_full·u)[i] − F[i] for restrained DOFs,
     // via sparse sym_mat_vec instead of a dense nr×nf K_rf extraction.
     let sasm_full = assembly::assemble_sparse_3d(&input.solver, &dof_num, true);
-    let nr = n - nf;
-
-    // matvec in the rotated frame, before reversing inclined transforms below.
-    let ku_full = if nr > 0 {
-        // `build_k_full = true` was passed above, so `k_full` is guaranteed
-        // `Some` here; the `map` is a defensive fallback, not a real path.
-        sasm_full.k_full.as_ref().map(|k| k.sym_mat_vec(&u_full))
-    } else {
-        None
-    };
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::linear_3d(&input.solver, &dof_num, &u_full), &sasm_full.f, &dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_3d. Reversing is a no-op when the vec is empty —
@@ -1289,20 +1258,7 @@ fn guyan_reduce_3d_contained(input: &GuyanInput3D) -> Result<GuyanResult3D, Stri
         assembly::reverse_inclined_transform(&mut u_full, &it.dofs, &it.r);
     }
 
-    let reactions = if let Some(ku) = ku_full {
-        let rest_idx: Vec<usize> = (nf..n).collect();
-        let f_r = extract_subvec(&sasm_full.f, &rest_idx);
-        let mut reactions_vec = vec![0.0; nr];
-        for i in 0..nr {
-            reactions_vec[i] = ku[nf + i] - f_r[i];
-        }
-
-        super::linear::build_reactions_3d_inclined(
-            &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &sasm_full.inclined_transforms,
-        )
-    } else {
-        vec![]
-    };
+    let reactions = recovered.reactions_3d(&dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_full), &sasm_full.inclined_transforms)?;
 
     // Build 3D results
     let displacements = super::linear::build_displacements_3d(&dof_num, &u_full);
@@ -1317,7 +1273,7 @@ fn guyan_reduce_3d_contained(input: &GuyanInput3D) -> Result<GuyanResult3D, Stri
         boundary_dofs,
         displacements,
         reactions,
-        element_forces: vec![],
+        element_forces: super::linear::compute_internal_forces_3d(&input.solver, &dof_num, &u_full),
     })
 }
 

@@ -1,5 +1,229 @@
 [
   {
+    "model": "solve_arc_length-0015ab84c3baa36f.json",
+    "analysis": "solve_arc_length",
+    "input": [
+      {
+        "initialDs": 25.0,
+        "maxDs": 25.0,
+        "maxIter": 30,
+        "maxSteps": 109,
+        "minDs": 1e-06,
+        "solver": {
+          "connectors": {},
+          "constraints": [],
+          "elements": {
+            "1": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 1,
+              "materialId": 1,
+              "nodeI": 1,
+              "nodeJ": 2,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "2": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 2,
+              "materialId": 1,
+              "nodeI": 2,
+              "nodeJ": 3,
+              "sectionId": 1,
+              "type": "frame"
+            }
+          },
+          "loads": [
+            {
+              "data": {
+                "fx": 0.0,
+                "fz": -1000.0,
+                "my": 0.0,
+                "nodeId": 2
+              },
+              "type": "nodal"
+            }
+          ],
+          "materials": {
+            "1": {
+              "e": 200000.0,
+              "id": 1,
+              "nu": 0.3
+            }
+          },
+          "nodes": {
+            "1": {
+              "id": 1,
+              "x": 0.0,
+              "z": 0.0
+            },
+            "2": {
+              "id": 2,
+              "x": 3.0,
+              "z": 2.0
+            },
+            "3": {
+              "id": 3,
+              "x": 6.0,
+              "z": 0.0
+            }
+          },
+          "sections": {
+            "1": {
+              "a": 0.001,
+              "asY": null,
+              "id": 1,
+              "iz": 1e-08
+            }
+          },
+          "solverOptions": null,
+          "supports": {
+            "1": {
+              "angle": null,
+              "dry": null,
+              "dx": null,
+              "dz": null,
+              "id": 1,
+              "kx": null,
+              "ky": null,
+              "kz": null,
+              "nodeId": 1,
+              "type": "pinned"
+            },
+            "2": {
+              "angle": null,
+              "dry": null,
+              "dx": null,
+              "dz": null,
+              "id": 2,
+              "kx": null,
+              "ky": null,
+              "kz": null,
+              "nodeId": 3,
+              "type": "pinned"
+            }
+          }
+        },
+        "targetIter": 5,
+        "tolerance": 1e-08
+      }
+    ],
+    "test": "research_benchmarks::riks_von_mises_truss"
+  },
+  {
+    "model": "solve_arc_length-022317310499426d.json",
+    "analysis": "solve_arc_length",
+    "input": [
+      {
+        "initialDs": 25.0,
+        "maxDs": 25.0,
+        "maxIter": 30,
+        "maxSteps": 121,
+        "minDs": 1e-08,
+        "solver": {
+          "connectors": {},
+          "constraints": [],
+          "elements": {
+            "1": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 1,
+              "materialId": 1,
+              "nodeI": 1,
+              "nodeJ": 3,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "2": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 2,
+              "materialId": 1,
+              "nodeI": 3,
+              "nodeJ": 2,
+              "sectionId": 1,
+              "type": "frame"
+            }
+          },
+          "loads": [
+            {
+              "data": {
+                "fx": 0.0,
+                "fz": -50.0,
+                "my": 0.0,
+                "nodeId": 3
+              },
+              "type": "nodal"
+            }
+          ],
+          "materials": {
+            "1": {
+              "e": 200000.0,
+              "id": 1,
+              "nu": 0.3
+            }
+          },
+          "nodes": {
+            "1": {
+              "id": 1,
+              "x": 0.0,
+              "z": 0.0
+            },
+            "2": {
+              "id": 2,
+              "x": 4.0,
+              "z": 0.0
+            },
+            "3": {
+              "id": 3,
+              "x": 2.0,
+              "z": 0.1
+            }
+          },
+          "sections": {
+            "1": {
+              "a": 0.01,
+              "asY": null,
+              "id": 1,
+              "iz": 0.0001
+            }
+          },
+          "solverOptions": null,
+          "supports": {
+            "1": {
+              "angle": null,
+              "dry": null,
+              "dx": null,
+              "dz": null,
+              "id": 1,
+              "kx": null,
+              "ky": null,
+              "kz": null,
+              "nodeId": 1,
+              "type": "pinned"
+            },
+            "2": {
+              "angle": null,
+              "dry": null,
+              "dx": null,
+              "dz": null,
+              "id": 2,
+              "kx": null,
+              "ky": null,
+              "kz": null,
+              "nodeId": 2,
+              "type": "pinned"
+            }
+          }
+        },
+        "targetIter": 5,
+        "tolerance": 1e-10
+      }
+    ],
+    "test": "research_benchmarks::riks_shallow_frame_energy_reference"
+  },
+  {
     "model": "solve_ssi_2d-c703b27bda5f4eb8.json",
     "analysis": "solve_ssi_2d",
     "input": [

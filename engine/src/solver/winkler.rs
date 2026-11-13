@@ -3,8 +3,8 @@ use crate::types::*;
 use crate::solver::dof::DofNumbering;
 use crate::solver::assembly::*;
 use crate::solver::linear::{build_displacements_2d, compute_internal_forces_2d,
-                             build_reactions_2d_inclined, build_displacements_3d,
-                             compute_internal_forces_3d, build_reactions_3d_inclined,
+                             build_displacements_3d,
+                             compute_internal_forces_3d,
                              compute_plate_stresses, compute_quad_stresses};
 use crate::linalg::*;
 use serde::{Deserialize, Serialize};
@@ -129,24 +129,7 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
     for i in 0..nf { u_full[i] = u_f[i]; }
     for i in 0..nr { u_full[nf + i] = u_r[i]; }
 
-    let k_rf = extract_submatrix(&asm.k, n, &rest_idx, &free_idx);
-    let k_rr = extract_submatrix(&asm.k, n, &rest_idx, &rest_idx);
-    let f_r = extract_subvec(&asm.f, &rest_idx);
-    let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
-    let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr { reactions_vec[i] = k_rf_uf[i] + k_rr_ur[i] - f_r[i]; }
-
-    // Compute constraint forces if constraints are active. Uses the
-    // pre-reversal u_full/asm.f (rotated-frame convention) — u_full is
-    // reversed below, before building the reported displacements/reactions.
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::winkler_2d(input, &dof_num, &u_full)?, &asm.f, &dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_2d so Winkler-foundation analysis reports
@@ -156,10 +139,8 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
     }
 
     let displacements = build_displacements_2d(&dof_num, &u_full);
-    let mut reactions = build_reactions_2d_inclined(
-        &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms_2d,
-    );
-    reactions.sort_by_key(|r| r.node_id);
+    let reactions = recovered.reactions_2d(&dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_full), &asm.inclined_transforms_2d)?;
+    let constraint_forces = recovered.constraint_forces;
     let mut element_forces = compute_internal_forces_2d(&input.solver, &dof_num, &u_full);
     add_foundation_forces_2d(&mut element_forces, input, &node_by_id, &elem_by_id, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
@@ -250,23 +231,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     for i in 0..nf { u_full[i] = u_f[i]; }
     for i in 0..nr { u_full[nf + i] = u_r[i]; }
 
-    let k_rf = extract_submatrix(&asm.k, n, &rest_idx, &free_idx);
-    let k_rr = extract_submatrix(&asm.k, n, &rest_idx, &rest_idx);
-    let f_r = extract_subvec(&asm.f, &rest_idx);
-    let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
-    let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr { reactions_vec[i] = k_rf_uf[i] + k_rr_ur[i] - f_r[i]; }
-
-    // Compute constraint forces if constraints are active. Uses the
-    // pre-reversal u_full/asm.f — see the 2D solver for why.
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::winkler_3d(input, input_solver, &dof_num, &u_full)?, &asm.f, &dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_3d.
@@ -275,10 +240,8 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     }
 
     let displacements = build_displacements_3d(&dof_num, &u_full);
-    let mut reactions = build_reactions_3d_inclined(
-        input_solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms,
-    );
-    reactions.sort_by_key(|r| r.node_id);
+    let reactions = recovered.reactions_3d(&dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_full), &asm.inclined_transforms)?;
+    let constraint_forces = recovered.constraint_forces;
     let mut element_forces = compute_internal_forces_3d(input_solver, &dof_num, &u_full);
     add_foundation_forces_3d(&mut element_forces, input, input_solver, &node_by_id, &elem_by_id, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
@@ -302,7 +265,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
 
 // ==================== Foundation Matrix Helpers ====================
 
-fn add_foundation_2d(
+pub(super) fn add_foundation_2d(
     k_global: &mut [f64], n: usize,
     spring: &FoundationSpring,
     node_by_id: &HashMap<usize, &SolverNode>,
@@ -348,7 +311,7 @@ fn add_foundation_2d(
     Ok(())
 }
 
-fn add_foundation_3d(
+pub(super) fn add_foundation_3d(
     k_global: &mut [f64], n: usize,
     spring: &FoundationSpring3D, input: &SolverInput3D,
     node_by_id: &HashMap<usize, &SolverNode3D>,

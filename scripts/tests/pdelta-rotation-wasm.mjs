@@ -28,6 +28,11 @@ function check(result, expected) {
 }
 let checked = 0;
 for (const fixture of cases) {
+  if (fixture.expected.refused) {
+    assert.throws(() => engine[fixture.api](JSON.stringify(fixture.input), fixture.maxIter, 1e-12), fixture.api.startsWith('certify_') ? /non-finite/ : /non_finite_result/);
+    checked++;
+    continue;
+  }
   let result;
   if (/^solve_[23]d$/.test(fixture.api)) {
     result = { converged: true, results: engine[fixture.api](fixture.input) };
