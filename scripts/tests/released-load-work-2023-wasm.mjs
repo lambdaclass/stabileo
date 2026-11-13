@@ -3,7 +3,7 @@ import { allowsUnresolved } from './released-load-work-outcome.mjs';
 import {readFileSync} from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 engine.initSync({module:readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm',import.meta.url))});
-const {cases,exact:exactCases,orphanTranslations}=JSON.parse(readFileSync(process.argv[2],'utf8'));
+const {cases,exact:exactCases,orphanTranslations,cancellations,assemblyCases}=JSON.parse(readFileSync(process.argv[2],'utf8'));
 assert.equal(cases.length,234);
 const parse=x=>typeof x==='string'?JSON.parse(x):x;
 function stage(model,dim,two) {
@@ -170,3 +170,48 @@ for(const c of orphanTranslations) for(const path of paths) {
 }
 assert.equal(orphanRefusals,5*paths.length);
 console.log(`Released-load work: ${orphanRefusals} public WASM unsupported-translation refusals`);
+
+let cancellationRefusals=0;
+for(const c of cancellations) if(c.residual!==0) for(const path of paths) {
+  assert.throws(()=>run(path,c.dim,c.model),/moment|rotation|Singular/i,`${c.dim}/${c.end}/${c.residual}/${path}`);
+  cancellationRefusals++;
+}
+assert.equal(cancellationRefusals,8*paths.length);
+console.log(`Released-load work: ${cancellationRefusals} exact residual refusals`);
+
+let assemblySolves=0,assemblyUnresolved=0,assemblyRefusals=0,featureRefusals=0;
+for(const c of assemblyCases) for(const path of paths) {
+  if(['staged','staged-two'].includes(path)) {
+    assert.match(c.references[path].error,/^Inclined supports are not yet supported in staged construction analysis/);
+    assert.throws(()=>run(path,c.dim,c.model),/^Inclined supports are not yet supported in staged construction analysis/);
+    featureRefusals++;
+    continue;
+  }
+  const mayRefuse=c.dim===3&&['corotational','material','ssi'].includes(path);
+  try {
+    const result=run(path,c.dim,c.model);
+    if(allowsUnresolved(c.references[path],result,undefined,mayRefuse)) assemblyUnresolved++;
+    else {
+      if(path==='pdelta') {
+        check(result.linearResults,c.model,{ok:c.references[path].ok?.linearResults},c.gauges);
+        assert.equal(result.converged,c.references[path].ok.converged);
+        if(result.converged) check(result,c.model,c.references[path],c.gauges);
+      } else check(result,c.model,c.references[path],c.gauges);
+      assemblySolves++;
+    }
+  } catch(e) {
+    if(allowsUnresolved(c.references[path],undefined,e,mayRefuse)) assemblyUnresolved++;
+    else throw new Error(`inclined ${c.dim}/${c.end}/${path}: ${e}`);
+  }
+  for(const magnitude of [-1,-Math.sqrt(Number.EPSILON),Math.sqrt(Number.EPSILON),1]) {
+    const bad=structuredClone(c.model);
+    const moment=c.dim===2?{my:magnitude}:{mx:magnitude*c.direction[0],my:magnitude*c.direction[1],mz:magnitude*c.direction[2]};
+    bad.loads.push({type:'nodal',data:{nodeId:c.node,fx:0,fz:0,...(c.dim===3?{fy:0}:{}),...moment}});
+    assert.throws(()=>run(path,c.dim,bad),/moment|rotation/i,`inclined ${c.dim}/${c.end}/${path}/${magnitude}`);
+    assemblyRefusals++;
+  }
+}
+assert.equal(assemblySolves+assemblyUnresolved+featureRefusals,4*paths.length);
+assert.equal(featureRefusals,8);
+assert.equal(assemblyRefusals,4*(paths.length-2)*4);
+console.log(`Released-load work: ${assemblySolves} inclined-support admissions, ${assemblyUnresolved} expected numerical refusals, ${assemblyRefusals} genuine moment refusals, ${featureRefusals} existing staged feature refusals`);

@@ -174,46 +174,31 @@ pub(crate) fn product_rounding(a: f64, b: f64, product: f64) -> f64 {
 
 pub(crate) struct AssemblyRoundoff {
     error: Vec<f64>,
-    magnitude: Vec<f64>,
-    terms: Vec<usize>,
 }
 
 impl AssemblyRoundoff {
     pub fn new(n: usize) -> Self {
-        Self {
-            error: vec![0.0; n],
-            magnitude: vec![0.0; n],
-            terms: vec![0; n],
-        }
+        Self { error: vec![0.0; n] }
     }
 
-    pub fn accumulate(&mut self, i: usize, value: f64, error: f64) {
-        self.error[i] = add_up(self.error[i], error);
-        self.magnitude[i] = add_up(self.magnitude[i], value.abs());
-        if value != 0.0 {
-            self.terms[i] += 1;
-        }
+    pub fn accumulate(&mut self, i: usize, value: f64, error: f64, previous: f64) {
+        self.error[i] = add_up(self.error[i], add_up(error, sum_rounding(previous, value)));
     }
 
-    pub fn finish(self) -> Vec<f64> {
-        self.error
-            .into_iter()
-            .zip(self.magnitude)
-            .zip(self.terms)
-            .map(|((error, magnitude), terms)| {
-                add_up(error, mul_up(gamma(terms.saturating_sub(1)), magnitude))
-            })
-            .collect()
-    }
+    pub fn get(&self, i: usize) -> f64 { self.error[i] }
+
+    pub fn set(&mut self, i: usize, error: f64) { self.error[i] = error; }
+
+    pub fn finish(self) -> Vec<f64> { self.error }
 }
 
 pub(crate) fn assembly_rounding_3d(
     input: &SolverInput3D,
     loads: &[SolverLoad3D],
     dof: &DofNumbering,
-    _inclined: &[InclinedTransformData],
+    inclined: &[InclinedTransformData],
 ) -> Vec<f64> {
-    super::assembly::frame_load_rounding_3d(input, loads, dof)
+    super::assembly::assemble_load_vector_3d_with_rounding(input, loads, dof, inclined, true).1
 }
 
 pub(crate) fn assembly_rounding_2d(
@@ -222,27 +207,7 @@ pub(crate) fn assembly_rounding_2d(
     dof: &DofNumbering,
     inclined: &[super::assembly::InclinedTransformData2D],
 ) -> Vec<f64> {
-    let mut magnitude = vec![0.0; dof.n_total];
-    let mut counts = vec![0usize; dof.n_total];
-    for load in loads {
-        let values = super::assembly::assemble_load_vector_2d(
-            input,
-            std::slice::from_ref(load),
-            dof,
-            inclined,
-        );
-        for (i, x) in values.iter().enumerate() {
-            magnitude[i] = add_up(magnitude[i], x.abs());
-            if *x != 0.0 {
-                counts[i] += 1;
-            }
-        }
-    }
-    magnitude
-        .iter()
-        .zip(counts)
-        .map(|(&m, n)| if n > 1 { mul_up(gamma(n), m) } else { 0.0 })
-        .collect()
+    super::assembly::assemble_load_vector_2d_with_rounding(input, loads, dof, inclined, true).1
 }
 
 #[cfg(test)]
@@ -256,7 +221,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2074"]
     fn nonlinear_released_moments_reduce_only_free_constraint_rows() {
         use serde_json::json;
         for constrained in [false,true] {
@@ -278,7 +242,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2074"]
     fn inclined_3d_single_nodal_load_rounding_encloses_transformed_assembly() {
         use super::super::assembly::*;
         use serde_json::json;
@@ -303,7 +266,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2074"]
     fn single_2d_fef_rounding_encloses_member_transform() {
         use super::super::assembly::*;
         use serde_json::json;
@@ -440,13 +402,13 @@ mod tests {
             let mut sum = 0.0;
             let mut rounding = AssemblyRoundoff::new(1);
             for i in order {
+                rounding.accumulate(0, values[i], 0.0, sum);
                 sum += values[i];
-                rounding.accumulate(0, values[i], 0.0);
             }
             assert!((exact(sum) - &physical).abs() <= exact(rounding.finish()[0]));
         }
         let mut single = AssemblyRoundoff::new(1);
-        single.accumulate(0, f64::from_bits(1), 0.0);
+        single.accumulate(0, f64::from_bits(1), 0.0, 0.0);
         assert_eq!(single.finish(), vec![0.0]);
         assert_eq!(gamma(0), 0.0);
     }

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { allowsUnresolved } from './released-load-work-outcome.mjs';
 
 for(const outcome of [{result:{converged:false}},{error:'Singular tangent stiffness matrix'}]) {
-  test(`native success requires WASM completion: ${JSON.stringify(outcome)}`, {skip:process.env.RUN_KNOWN_WRONG ? false : 'known wrong result: #2074'},()=>{
+  test(`native success requires WASM completion: ${JSON.stringify(outcome)}`,()=>{
     assert.equal(allowsUnresolved({ok:{converged:true}},outcome.result,outcome.error,true),false);
     assert.equal(allowsUnresolved({ok:{}},outcome.result,outcome.error,true),false);
   });

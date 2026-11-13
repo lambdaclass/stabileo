@@ -495,10 +495,36 @@ pub(crate) fn compensated_dot<const D: usize>(a: &[f64; D], b: &[f64; D]) -> f64
 }
 
 fn rotate_inclined_vector<const D: usize>(f: &mut [f64], dofs: &[usize; D], r: &[[f64; D]; D]) {
+    rotate_inclined_vector_with_rounding(f, dofs, r, &mut None);
+}
+
+fn rotate_inclined_vector_with_rounding<const D: usize>(f: &mut [f64], dofs: &[usize; D], r: &[[f64; D]; D], rounding: &mut Option<super::load_work::AssemblyRoundoff>) {
     let values = std::array::from_fn(|i| f[dofs[i]]);
+    let errors: [f64; D] = std::array::from_fn(|i| rounding.as_ref().map_or(0.0, |r| r.get(dofs[i])));
+    let mut axes = [[0.0; 3]; 3];
+    axes[2][2] = 1.0;
+    for i in 0..D { for j in 0..D { axes[i][j] = r[i][j]; } }
+    let frame_error = if rounding.is_some() { super::load_work::frame_rounding(&axes) } else { [[0.0;3];3] };
     for (i, row) in r.iter().enumerate() {
-        f[dofs[i]] = compensated_dot(row, &values);
+        let value = compensated_dot(row, &values);
+        if let Some(rounding) = rounding.as_mut() {
+            let mut work = super::load_work::Work::default();
+            for j in 0..D { work.product(row[j],frame_error[i][j],values[j],errors[j]); }
+            let difference = super::load_work::add_up((value-work.value).abs(),super::load_work::sum_rounding(value,-work.value));
+            rounding.set(dofs[i],super::load_work::add_up(work.bound(),difference));
+        }
+        f[dofs[i]] = value;
     }
+}
+
+fn accumulate_load(global: &mut [f64], rounding: &mut Option<super::load_work::AssemblyRoundoff>, dof: usize, value: f64, error: f64) {
+    if let Some(rounding) = rounding.as_mut() { rounding.accumulate(dof,value,error,global[dof]); }
+    global[dof] += value;
+}
+
+fn accumulate_product(global: &mut [f64], rounding: &mut Option<super::load_work::AssemblyRoundoff>, dof: usize, a: f64, b: f64) {
+    let value = a*b;
+    accumulate_load(global,rounding,dof,value,super::load_work::product_rounding(a,b,value));
 }
 
 /// Rotate force vector at the given DOFs: F[dofs] = R * F[dofs_orig] (2D inclined support).
@@ -813,18 +839,26 @@ pub(crate) fn assemble_truss_loads_2d(
     loads: &[&SolverLoad], elem_id: usize, l: f64, cos: f64, sin: f64, e: f64, area: f64,
     truss_dofs: &[usize; 4], f_global: &mut [f64],
 ) {
+    assemble_truss_loads_2d_with_rounding(loads,elem_id,l,cos,sin,e,area,truss_dofs,f_global,&mut None);
+}
+
+fn assemble_truss_loads_2d_with_rounding(
+    loads: &[&SolverLoad], elem_id: usize, l: f64, cos: f64, sin: f64, e: f64, area: f64,
+    truss_dofs: &[usize; 4], f_global: &mut [f64],
+    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
+) {
     for load in loads {
         match load {
             SolverLoad::Thermal(tl) if tl.element_id == elem_id => {
                 // Convention matches fef_thermal_2d: node I gets -fx, node J gets +fx (local axial).
                 let alpha = tl.alpha();
                 let fx = e * area * alpha * tl.dt_uniform;
-                f_global[truss_dofs[0]] += -fx * cos;
-                f_global[truss_dofs[1]] += -fx * sin;
-                f_global[truss_dofs[2]] += fx * cos;
-                f_global[truss_dofs[3]] += fx * sin;
+                accumulate_product(f_global, rounding, truss_dofs[0], -fx, cos);
+                accumulate_product(f_global, rounding, truss_dofs[1], -fx, sin);
+                accumulate_product(f_global, rounding, truss_dofs[2], fx, cos);
+                accumulate_product(f_global, rounding, truss_dofs[3], fx, sin);
             }
-            _ => truss_member_load_2d(load, elem_id, l, cos, sin, truss_dofs, f_global),
+            _ => truss_member_load_2d(load, elem_id, l, cos, sin, truss_dofs, f_global, rounding),
         }
     }
 }
@@ -832,15 +866,16 @@ pub(crate) fn assemble_truss_loads_2d(
 fn truss_member_load_2d(
     load: &SolverLoad, elem_id: usize, l: f64, cos: f64, sin: f64,
     truss_dofs: &[usize; 4], f_global: &mut [f64],
+    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
 ) {
     match load {
         SolverLoad::Distributed(dl) if dl.element_id == elem_id => {
             let [[ri, _], [rj, _]] = super::member_actions::TransverseMemberActions::from_2d(load, l).0;
             // Local transverse y = (−sin, cos)
-            f_global[truss_dofs[0]] += -sin * ri;
-            f_global[truss_dofs[1]] += cos * ri;
-            f_global[truss_dofs[2]] += -sin * rj;
-            f_global[truss_dofs[3]] += cos * rj;
+            accumulate_product(f_global, rounding, truss_dofs[0], -sin, ri);
+            accumulate_product(f_global, rounding, truss_dofs[1], cos, ri);
+            accumulate_product(f_global, rounding, truss_dofs[2], -sin, rj);
+            accumulate_product(f_global, rounding, truss_dofs[3], cos, rj);
         }
         SolverLoad::PointOnElement(pl) if pl.element_id == elem_id => {
             let a = pl.a;
@@ -848,24 +883,24 @@ fn truss_member_load_2d(
             // Transverse: the point load by the lever rule, the moment
             // (CCW positive) as a couple ±mz/L.
             let [[ri, _], [rj, _]] = super::member_actions::TransverseMemberActions::from_2d(load, l).0;
-            f_global[truss_dofs[0]] += -sin * ri;
-            f_global[truss_dofs[1]] += cos * ri;
-            f_global[truss_dofs[2]] += -sin * rj;
-            f_global[truss_dofs[3]] += cos * rj;
+            accumulate_product(f_global, rounding, truss_dofs[0], -sin, ri);
+            accumulate_product(f_global, rounding, truss_dofs[1], cos, ri);
+            accumulate_product(f_global, rounding, truss_dofs[2], -sin, rj);
+            accumulate_product(f_global, rounding, truss_dofs[3], cos, rj);
             // Axial: the lever rule along the bar.
             let ni = px * (1.0 - a / l);
             let nj = px * a / l;
-            f_global[truss_dofs[0]] += cos * ni;
-            f_global[truss_dofs[1]] += sin * ni;
-            f_global[truss_dofs[2]] += cos * nj;
-            f_global[truss_dofs[3]] += sin * nj;
+            accumulate_product(f_global, rounding, truss_dofs[0], cos, ni);
+            accumulate_product(f_global, rounding, truss_dofs[1], sin, ni);
+            accumulate_product(f_global, rounding, truss_dofs[2], cos, nj);
+            accumulate_product(f_global, rounding, truss_dofs[3], sin, nj);
         }
         SolverLoad::AxialDistributed(al) if al.element_id == elem_id => {
             let [ni, nj] = crate::element::axial_distributed_fef(al.q_i, al.q_j, al.a.unwrap_or(0.0), al.b.unwrap_or(l), l);
-            f_global[truss_dofs[0]] += cos * ni;
-            f_global[truss_dofs[1]] += sin * ni;
-            f_global[truss_dofs[2]] += cos * nj;
-            f_global[truss_dofs[3]] += sin * nj;
+            accumulate_product(f_global, rounding, truss_dofs[0], cos, ni);
+            accumulate_product(f_global, rounding, truss_dofs[1], sin, ni);
+            accumulate_product(f_global, rounding, truss_dofs[2], cos, nj);
+            accumulate_product(f_global, rounding, truss_dofs[3], sin, nj);
         }
         _ => {}
     }
@@ -880,8 +915,19 @@ pub fn assemble_load_vector_2d(
     dof_num: &DofNumbering,
     inclined_transforms_2d: &[InclinedTransformData2D],
 ) -> Vec<f64> {
+    assemble_load_vector_2d_with_rounding(input,loads,dof_num,inclined_transforms_2d,false).0
+}
+
+pub(crate) fn assemble_load_vector_2d_with_rounding(
+    input: &SolverInput,
+    loads: &[SolverLoad],
+    dof_num: &DofNumbering,
+    inclined_transforms_2d: &[InclinedTransformData2D],
+    track_rounding: bool,
+) -> (Vec<f64>, Vec<f64>) {
     let n = dof_num.n_total;
     let mut f_global = vec![0.0; n];
+    let mut rounding = track_rounding.then(|| super::load_work::AssemblyRoundoff::new(n));
 
     // Pre-build O(1) lookup maps
     let node_map: std::collections::HashMap<usize, &SolverNode> =
@@ -933,11 +979,11 @@ pub fn assemble_load_vector_2d(
                 dof_num.global_dof(elem.node_j, 0).unwrap(),
                 dof_num.global_dof(elem.node_j, 1).unwrap(),
             ];
-            assemble_truss_loads_2d(elem_loads, elem.id, l, cos, sin, e, sec.a, &truss_dofs, &mut f_global);
+            assemble_truss_loads_2d_with_rounding(elem_loads, elem.id, l, cos, sin, e, sec.a, &truss_dofs, &mut f_global, &mut rounding);
         } else {
             let t = frame_transform_2d(cos, sin);
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
-            assemble_element_loads_2d(elem_loads, elem, &t, l, e, mat.nu, sec, &elem_dofs, &mut f_global);
+            assemble_element_loads_2d_with_rounding(elem_loads, elem, &t, l, e, mat.nu, sec, &elem_dofs, &mut f_global, &mut rounding);
         }
     }
 
@@ -945,14 +991,14 @@ pub fn assemble_load_vector_2d(
     for load in loads {
         if let SolverLoad::Nodal(nl) = load {
             if let Some(&d) = dof_num.map.get(&(nl.node_id, 0)) {
-                f_global[d] += nl.fx;
+                accumulate_load(&mut f_global, &mut rounding, d, nl.fx, 0.0);
             }
             if let Some(&d) = dof_num.map.get(&(nl.node_id, 1)) {
-                f_global[d] += nl.fz;
+                accumulate_load(&mut f_global, &mut rounding, d, nl.fz, 0.0);
             }
             if dof_num.dofs_per_node >= 3 {
                 if let Some(&d) = dof_num.map.get(&(nl.node_id, 2)) {
-                    f_global[d] += nl.my;
+                    accumulate_load(&mut f_global, &mut rounding, d, nl.my, 0.0);
                 }
             }
         }
@@ -960,10 +1006,10 @@ pub fn assemble_load_vector_2d(
 
     // Apply 2D inclined support rotations to the force vector
     for it in inclined_transforms_2d {
-        rotate_inclined_f_2d(&mut f_global, &it.dofs, &it.r);
+        rotate_inclined_vector_with_rounding(&mut f_global, &it.dofs, &it.r, &mut rounding);
     }
 
-    f_global
+    (f_global, rounding.map_or_else(Vec::new, |r| r.finish()))
 }
 
 /// Assemble global stiffness matrix and force vector for 2D.
@@ -991,6 +1037,21 @@ pub fn assemble_element_loads_2d(
     sec: &SolverSection,
     elem_dofs: &[usize],
     f_global: &mut [f64],
+) {
+    assemble_element_loads_2d_with_rounding(loads,elem,t,l,e,nu,sec,elem_dofs,f_global,&mut None);
+}
+
+fn assemble_element_loads_2d_with_rounding(
+    loads: &[&SolverLoad],
+    elem: &SolverElement,
+    t: &[f64],
+    l: f64,
+    e: f64,
+    nu: f64,
+    sec: &SolverSection,
+    elem_dofs: &[usize],
+    f_global: &mut [f64],
+    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
 ) {
     // Timoshenko shear parameter, matching the one used for the stiffness
     // matrix in assemble_stiffness_2d. The hinge FEF condensation uses the same
@@ -1021,10 +1082,7 @@ pub fn assemble_element_loads_2d(
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 // Transform to global and add
-                let fef_global = transform_force(&fef, t, 6);
-                for (i, &dof) in elem_dofs.iter().enumerate() {
-                    f_global[dof] += fef_global[i];
-                }
+                accumulate_frame_load(&fef,t,6,elem_dofs,None,f_global,rounding);
             }
             SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
                 let px = pl.px.unwrap_or(0.0);
@@ -1033,10 +1091,7 @@ pub fn assemble_element_loads_2d(
 
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
-                let fef_global = transform_force(&fef, t, 6);
-                for (i, &dof) in elem_dofs.iter().enumerate() {
-                    f_global[dof] += fef_global[i];
-                }
+                accumulate_frame_load(&fef,t,6,elem_dofs,None,f_global,rounding);
             }
             SolverLoad::Thermal(tl) if tl.element_id == elem.id => {
                 let alpha = tl.alpha();
@@ -1048,17 +1103,11 @@ pub fn assemble_element_loads_2d(
 
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
-                let fef_global = transform_force(&fef, t, 6);
-                for (i, &dof) in elem_dofs.iter().enumerate() {
-                    f_global[dof] += fef_global[i];
-                }
+                accumulate_frame_load(&fef,t,6,elem_dofs,None,f_global,rounding);
             }
             SolverLoad::AxialDistributed(al) if al.element_id == elem.id => {
                 let fef = crate::element::fef_axial_distributed_2d(al.q_i, al.q_j, al.a.unwrap_or(0.0), al.b.unwrap_or(l), l);
-                let fef_global = transform_force(&fef, t, 6);
-                for (i, &dof) in elem_dofs.iter().enumerate() {
-                    f_global[dof] += fef_global[i];
-                }
+                accumulate_frame_load(&fef,t,6,elem_dofs,None,f_global,rounding);
             }
             _ => {}
         }
@@ -1531,12 +1580,29 @@ pub(crate) fn truss_member_load_3d(
     dof_num: &DofNumbering,
     f_global: &mut [f64],
 ) {
+    truss_member_load_3d_with_rounding(load,elem,node_i,node_j,l,dir,e,area,left_hand,dof_num,f_global,&mut None);
+}
+
+fn truss_member_load_3d_with_rounding(
+    load: &SolverLoad3D,
+    elem: &SolverElement3D,
+    node_i: &SolverNode3D,
+    node_j: &SolverNode3D,
+    l: f64,
+    dir: &[f64; 3],
+    e: f64,
+    area: f64,
+    left_hand: bool,
+    dof_num: &DofNumbering,
+    f_global: &mut [f64],
+    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
+) {
     match load {
         SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
             let f = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
             for k in 0..3 {
-                if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += f[0] * dir[k]; }
-                if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += f[1] * dir[k]; }
+                if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { accumulate_product(f_global, rounding, d, f[0], dir[k]); }
+                if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { accumulate_product(f_global, rounding, d, f[1], dir[k]); }
             }
             // The transverse parts reach the nodes by the lever rule
             // (the bar's simply-supported reactions), as in 2D: a truss
@@ -1550,8 +1616,8 @@ pub(crate) fn truss_member_load_3d(
                 for k in 0..3 {
                     let comp_i = ryi * ey[k] + rzi * ez[k];
                     let comp_j = ryj * ey[k] + rzj * ez[k];
-                    if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += comp_i; }
-                    if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += comp_j; }
+                    if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { accumulate_load(f_global, rounding, d, comp_i, 0.0); }
+                    if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { accumulate_load(f_global, rounding, d, comp_j, 0.0); }
                 }
             }
         }
@@ -1566,8 +1632,8 @@ pub(crate) fn truss_member_load_3d(
             for k in 0..3 {
                 let comp_i = pl.px * f_i * ex[k] + ryi * ey[k] + rzi * ez[k];
                 let comp_j = pl.px * f_j * ex[k] + ryj * ey[k] + rzj * ez[k];
-                if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += comp_i; }
-                if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += comp_j; }
+                if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { accumulate_load(f_global, rounding, d, comp_i, 0.0); }
+                if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { accumulate_load(f_global, rounding, d, comp_j, 0.0); }
             }
         }
         SolverLoad3D::Thermal(tl) if tl.element_id == elem.id => {
@@ -1576,10 +1642,10 @@ pub(crate) fn truss_member_load_3d(
             // Equivalent nodal loads: node I ← -fx along axis, node J ← +fx along axis
             for k in 0..3 {
                 if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) {
-                    f_global[d] += -fx * dir[k];
+                    accumulate_product(f_global, rounding, d, -fx, dir[k]);
                 }
                 if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) {
-                    f_global[d] += fx * dir[k];
+                    accumulate_product(f_global, rounding, d, fx, dir[k]);
                 }
             }
         }
@@ -1640,7 +1706,7 @@ fn assemble_frame_loads_3d(
         if kinematics == MemberKinematics3D::Axial {
             let dir = [dx / l, dy / l, dz / l];
             for load in loads {
-                truss_member_load_3d(load, elem, node_i, node_j, l, &dir, e, sec.a, left_hand, dof_num, f_global);
+                truss_member_load_3d_with_rounding(load, elem, node_i, node_j, l, &dir, e, sec.a, left_hand, dof_num, f_global, rounding);
             }
         } else {
             let (ex, ey, ez) = compute_local_axes_3d(
@@ -1686,8 +1752,19 @@ pub fn assemble_load_vector_3d_dense(
     dof_num: &DofNumbering,
     inclined_transforms: &[InclinedTransformData],
 ) -> Vec<f64> {
+    assemble_load_vector_3d_with_rounding(input,loads,dof_num,inclined_transforms,false).0
+}
+
+pub(crate) fn assemble_load_vector_3d_with_rounding(
+    input: &SolverInput3D,
+    loads: &[SolverLoad3D],
+    dof_num: &DofNumbering,
+    inclined_transforms: &[InclinedTransformData],
+    track_rounding: bool,
+) -> (Vec<f64>, Vec<f64>) {
     let n = dof_num.n_total;
     let mut f_global = vec![0.0; n];
+    let mut rounding = track_rounding.then(|| super::load_work::AssemblyRoundoff::new(n));
 
     // Pre-build O(1) lookup maps
     let node_map: std::collections::HashMap<usize, &SolverNode3D> =
@@ -1700,7 +1777,7 @@ pub fn assemble_load_vector_3d_dense(
         crate::ordered::values(&input.quads).map(|q| (q.id, q)).collect();
 
     // Frame/truss element loads (FEF + thermal)
-    assemble_frame_loads_3d(input, loads, dof_num, &mut f_global, &mut None);
+    assemble_frame_loads_3d(input, loads, dof_num, &mut f_global, &mut rounding);
 
     // Assemble 3D nodal loads
     for load in loads {
@@ -1709,7 +1786,7 @@ pub fn assemble_load_vector_3d_dense(
             for (i, &f) in forces.iter().enumerate() {
                 if i < dof_num.dofs_per_node {
                     if let Some(&d) = dof_num.map.get(&(nl.node_id, i)) {
-                        f_global[d] += f;
+                        accumulate_load(&mut f_global, &mut rounding, d, f, 0.0);
                     }
                 }
             }
@@ -1717,7 +1794,7 @@ pub fn assemble_load_vector_3d_dense(
             if let Some(bw) = nl.bw {
                 if bw.abs() > 1e-15 {
                     if let Some(&d) = dof_num.map.get(&(nl.node_id, 6)) {
-                        f_global[d] += bw;
+                        accumulate_load(&mut f_global, &mut rounding, d, bw, 0.0);
                     }
                 }
             }
@@ -1726,7 +1803,7 @@ pub fn assemble_load_vector_3d_dense(
         if let SolverLoad3D::Bimoment(bl) = load {
             if bl.bimoment.abs() > 1e-15 {
                 if let Some(&d) = dof_num.map.get(&(bl.node_id, 6)) {
-                    f_global[d] += bl.bimoment;
+                    accumulate_load(&mut f_global, &mut rounding, d, bl.bimoment, 0.0);
                 }
             }
         }
@@ -1745,7 +1822,7 @@ pub fn assemble_load_vector_3d_dense(
                 let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
                 for (i, &dof) in plate_dofs.iter().enumerate() {
                     if i < f_press.len() {
-                        f_global[dof] += f_press[i];
+                        accumulate_load(&mut f_global, &mut rounding, dof, f_press[i], 0.0);
                     }
                 }
             }
@@ -1772,7 +1849,7 @@ pub fn assemble_load_vector_3d_dense(
                 let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
                 for (i, &dof) in plate_dofs.iter().enumerate() {
                     if i < f_th.len() {
-                        f_global[dof] += f_th[i];
+                        accumulate_load(&mut f_global, &mut rounding, dof, f_th[i], 0.0);
                     }
                 }
             }
@@ -1794,7 +1871,7 @@ pub fn assemble_load_vector_3d_dense(
                 let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
                 for (i, &dof) in quad_dofs.iter().enumerate() {
                     if i < f_press.len() {
-                        f_global[dof] += f_press[i];
+                        accumulate_load(&mut f_global, &mut rounding, dof, f_press[i], 0.0);
                     }
                 }
             }
@@ -1823,7 +1900,7 @@ pub fn assemble_load_vector_3d_dense(
                 let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
                 for (i, &dof) in quad_dofs.iter().enumerate() {
                     if i < f_th.len() {
-                        f_global[dof] += f_th[i];
+                        accumulate_load(&mut f_global, &mut rounding, dof, f_th[i], 0.0);
                     }
                 }
             }
@@ -1849,7 +1926,7 @@ pub fn assemble_load_vector_3d_dense(
                 let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
                 for (i, &dof) in quad_dofs.iter().enumerate() {
                     if i < f_sw.len() {
-                        f_global[dof] += f_sw[i];
+                        accumulate_load(&mut f_global, &mut rounding, dof, f_sw[i], 0.0);
                     }
                 }
             }
@@ -1871,7 +1948,7 @@ pub fn assemble_load_vector_3d_dense(
                 let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
                 for (i, &dof) in quad_dofs.iter().enumerate() {
                     if i < f_edge.len() {
-                        f_global[dof] += f_edge[i];
+                        accumulate_load(&mut f_global, &mut rounding, dof, f_edge[i], 0.0);
                     }
                 }
             }
@@ -1888,7 +1965,7 @@ pub fn assemble_load_vector_3d_dense(
                 let f_p = crate::element::quad9::quad9_pressure_load(&coords, pl.pressure);
                 let dofs = dof_num.quad9_element_dofs(&q9.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_p.len() { f_global[dof] += f_p[i]; }
+                    if i < f_p.len() { accumulate_load(&mut f_global, &mut rounding, dof, f_p[i], 0.0); }
                 }
             }
         }
@@ -1904,7 +1981,7 @@ pub fn assemble_load_vector_3d_dense(
                 );
                 let dofs = dof_num.quad9_element_dofs(&q9.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_th.len() { f_global[dof] += f_th[i]; }
+                    if i < f_th.len() { accumulate_load(&mut f_global, &mut rounding, dof, f_th[i], 0.0); }
                 }
             }
         }
@@ -1918,7 +1995,7 @@ pub fn assemble_load_vector_3d_dense(
                 let f_sw = crate::linalg::transform_force(&f_sw_local, &t_q9, 54);
                 let dofs = dof_num.quad9_element_dofs(&q9.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
+                    if i < f_sw.len() { accumulate_load(&mut f_global, &mut rounding, dof, f_sw[i], 0.0); }
                 }
             }
         }
@@ -1928,7 +2005,7 @@ pub fn assemble_load_vector_3d_dense(
                 let f_edge = crate::element::quad9::quad9_edge_load(&coords, el.edge, el.qn, el.qt);
                 let dofs = dof_num.quad9_element_dofs(&q9.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_edge.len() { f_global[dof] += f_edge[i]; }
+                    if i < f_edge.len() { accumulate_load(&mut f_global, &mut rounding, dof, f_edge[i], 0.0); }
                 }
             }
         }
@@ -1944,7 +2021,7 @@ pub fn assemble_load_vector_3d_dense(
                 let f_p = crate::element::solid_shell::solid_shell_pressure_load(&coords, pl.pressure);
                 let dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_p.len() { f_global[dof] += f_p[i]; }
+                    if i < f_p.len() { accumulate_load(&mut f_global, &mut rounding, dof, f_p[i], 0.0); }
                 }
             }
         }
@@ -1956,7 +2033,7 @@ pub fn assemble_load_vector_3d_dense(
                 );
                 let dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
+                    if i < f_sw.len() { accumulate_load(&mut f_global, &mut rounding, dof, f_sw[i], 0.0); }
                 }
             }
         }
@@ -1973,7 +2050,7 @@ pub fn assemble_load_vector_3d_dense(
                 let f_p = crate::element::curved_shell::curved_shell_pressure_load(&coords, &dirs, cs.thickness, pl.pressure);
                 let dofs = dof_num.quad_element_dofs(&cs.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_p.len() { f_global[dof] += f_p[i]; }
+                    if i < f_p.len() { accumulate_load(&mut f_global, &mut rounding, dof, f_p[i], 0.0); }
                 }
             }
         }
@@ -1990,7 +2067,7 @@ pub fn assemble_load_vector_3d_dense(
                 );
                 let dofs = dof_num.quad_element_dofs(&cs.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_th.len() { f_global[dof] += f_th[i]; }
+                    if i < f_th.len() { accumulate_load(&mut f_global, &mut rounding, dof, f_th[i], 0.0); }
                 }
             }
         }
@@ -2003,7 +2080,7 @@ pub fn assemble_load_vector_3d_dense(
                 );
                 let dofs = dof_num.quad_element_dofs(&cs.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
+                    if i < f_sw.len() { accumulate_load(&mut f_global, &mut rounding, dof, f_sw[i], 0.0); }
                 }
             }
         }
@@ -2016,7 +2093,7 @@ pub fn assemble_load_vector_3d_dense(
                 );
                 let dofs = dof_num.quad_element_dofs(&cs.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_e.len() { f_global[dof] += f_e[i]; }
+                    if i < f_e.len() { accumulate_load(&mut f_global, &mut rounding, dof, f_e[i], 0.0); }
                 }
             }
         }
@@ -2024,10 +2101,10 @@ pub fn assemble_load_vector_3d_dense(
 
     // Apply inclined support rotations to the force vector
     for it in inclined_transforms {
-        rotate_inclined_f_3d(&mut f_global, &it.dofs, &it.r);
+        rotate_inclined_vector_with_rounding(&mut f_global, &it.dofs, &it.r, &mut rounding);
     }
 
-    f_global
+    (f_global, rounding.map_or_else(Vec::new, |r| r.finish()))
 }
 
 /// Assemble global stiffness matrix and force vector for 3D.
@@ -2045,27 +2122,11 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
     }
 }
 
-pub(crate) fn frame_load_rounding_3d(input: &SolverInput3D, loads: &[SolverLoad3D], dof: &DofNumbering) -> Vec<f64> {
-    let mut values = vec![0.0; dof.n_total];
-    let mut rounding = Some(super::load_work::AssemblyRoundoff::new(dof.n_total));
-    assemble_frame_loads_3d(input,loads,dof,&mut values,&mut rounding);
-    let mut rounding = rounding.unwrap();
-    for load in loads {
-        if let SolverLoad3D::Nodal(load) = load {
-            for (j, value) in [load.fx,load.fy,load.fz,load.mx,load.my,load.mz].into_iter().enumerate() {
-                if let Some(i) = dof.global_dof(load.node_id,j) {
-                    rounding.accumulate(i,value,0.0);
-                    values[i] += value;
-                }
-            }
-        }
-    }
-    rounding.finish()
-}
+
 
 fn accumulate_frame_load(local: &[f64], t: &[f64], n: usize, dofs: &[usize], mapping: Option<&[usize;12]>, global: &mut [f64], rounding: &mut Option<super::load_work::AssemblyRoundoff>) {
     let force = transform_force(local,t,n);
-    let axes = [[t[0],t[1],t[2]],[t[n],t[n+1],t[n+2]],[t[2*n],t[2*n+1],t[2*n+2]]];
+    let axes = if n == 6 { [[t[0],t[1],0.0],[t[n],t[n+1],0.0],[0.0,0.0,1.0]] } else { [[t[0],t[1],t[2]],[t[n],t[n+1],t[n+2]],[t[2*n],t[2*n+1],t[2*n+2]]] };
     let frame_rounding = if rounding.is_none() {[[0.0;3];3]} else {super::load_work::frame_rounding(&axes)};
     for (i, &value) in force.iter().enumerate() {
         let dof = dofs[mapping.map_or(i, |map| map[i])];
@@ -2080,13 +2141,15 @@ fn accumulate_frame_load(local: &[f64], t: &[f64], n: usize, dofs: &[usize], map
             }
             let start = if n == 14 && i >= 7 {7} else if n == 12 && i >= 6 {6} else {0};
             let component = i - start;
-            if component < 6 {
+            if n == 6 {
+                if i%3 < 2 { for j in 0..2 { error = super::load_work::add_up(error,super::load_work::mul_up(frame_rounding[j][i%3],local[i/3*3+j].abs())); } }
+            } else if component < 6 {
                 let offset = start + if component < 3 {0} else {3};
                 for j in 0..3 {
                     error = super::load_work::add_up(error,super::load_work::mul_up(frame_rounding[j][component%3],local[offset+j].abs()));
                 }
             }
-            rounding.accumulate(dof,value,error);
+            rounding.accumulate(dof,value,error,global[dof]);
         }
         global[dof] += value;
     }
@@ -3004,267 +3067,7 @@ pub fn assemble_load_vector_3d_sparse(
     dof_num: &DofNumbering,
     inclined_transforms: &[InclinedTransformData],
 ) -> Vec<f64> {
-    let n = dof_num.n_total;
-    let mut f_global = vec![0.0; n];
-
-    // Pre-build O(1) lookup maps
-    let node_map: std::collections::HashMap<usize, &SolverNode3D> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
-    let mat_map: std::collections::HashMap<usize, &SolverMaterial> =
-        crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
-    let plate_map: std::collections::HashMap<usize, &SolverPlateElement> =
-        crate::ordered::values(&input.plates).map(|p| (p.id, p)).collect();
-    let quad_map: std::collections::HashMap<usize, &SolverQuadElement> =
-        crate::ordered::values(&input.quads).map(|q| (q.id, q)).collect();
-    let quad9_map: std::collections::HashMap<usize, &crate::types::SolverQuad9Element> =
-        crate::ordered::values(&input.quad9s).map(|q| (q.id, q)).collect();
-    let solid_shell_map: std::collections::HashMap<usize, &crate::types::SolverSolidShellElement> =
-        crate::ordered::values(&input.solid_shells).map(|s| (s.id, s)).collect();
-    let curved_shell_map: std::collections::HashMap<usize, &crate::types::SolverCurvedShellElement> =
-        crate::ordered::values(&input.curved_shells).map(|s| (s.id, s)).collect();
-
-    // Frame/truss element loads (FEF + thermal)
-    assemble_frame_loads_3d(input, loads, dof_num, &mut f_global, &mut None);
-
-    // All loads (nodal, bimoment, plate pressure/thermal, quad pressure/thermal/self-weight/edge)
-    for load in loads {
-        if let SolverLoad3D::Nodal(nl) = load {
-            let forces = [nl.fx, nl.fy, nl.fz, nl.mx, nl.my, nl.mz];
-            for (i, &f) in forces.iter().enumerate() {
-                if i < dof_num.dofs_per_node {
-                    if let Some(&d) = dof_num.map.get(&(nl.node_id, i)) { f_global[d] += f; }
-                }
-            }
-            if let Some(bw) = nl.bw {
-                if bw.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(nl.node_id, 6)) { f_global[d] += bw; }
-                }
-            }
-        }
-        if let SolverLoad3D::Bimoment(bl) = load {
-            if bl.bimoment.abs() > 1e-15 {
-                if let Some(&d) = dof_num.map.get(&(bl.node_id, 6)) { f_global[d] += bl.bimoment; }
-            }
-        }
-        if let SolverLoad3D::Pressure(pl) = load {
-            if let Some(&plate) = plate_map.get(&pl.element_id) {
-                let n0 = node_map[&plate.nodes[0]];
-                let n1 = node_map[&plate.nodes[1]];
-                let n2 = node_map[&plate.nodes[2]];
-                let coords = [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z]];
-                let f_press = crate::element::plate_pressure_load(&coords, pl.pressure);
-                let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
-                for (i, &dof) in plate_dofs.iter().enumerate() {
-                    if i < f_press.len() { f_global[dof] += f_press[i]; }
-                }
-            }
-        }
-        if let SolverLoad3D::PlateThermal(tl) = load {
-            if let Some(&plate) = plate_map.get(&tl.element_id) {
-                let n0 = node_map[&plate.nodes[0]];
-                let n1 = node_map[&plate.nodes[1]];
-                let n2 = node_map[&plate.nodes[2]];
-                let coords = [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z]];
-                let mat = mat_map[&plate.material_id];
-                let e = mat.e * 1000.0;
-                let nu = mat.nu;
-                let alpha = tl.alpha.unwrap_or(12e-6);
-                let f_th = crate::element::plate_thermal_load(
-                    &coords, e, nu, plate.thickness, alpha, tl.dt_uniform, tl.dt_gradient,
-                );
-                let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
-                for (i, &dof) in plate_dofs.iter().enumerate() {
-                    if i < f_th.len() { f_global[dof] += f_th[i]; }
-                }
-            }
-        }
-        if let SolverLoad3D::QuadPressure(pl) = load {
-            if let Some(&quad) = quad_map.get(&pl.element_id) {
-                let coords = quad_coords(&node_map, quad);
-                let f_press = crate::element::quad::quad_pressure_load(&coords, pl.pressure);
-                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
-                for (i, &dof) in quad_dofs.iter().enumerate() {
-                    if i < f_press.len() { f_global[dof] += f_press[i]; }
-                }
-            }
-        }
-        if let SolverLoad3D::QuadThermal(tl) = load {
-            if let Some(&quad) = quad_map.get(&tl.element_id) {
-                let mat = mat_map[&quad.material_id];
-                let e = mat.e * 1000.0;
-                let nu = mat.nu;
-                let alpha = tl.alpha.unwrap_or(1.2e-5);
-                let coords = quad_coords(&node_map, quad);
-                let f_th = crate::element::quad::quad_thermal_load(
-                    &coords, e, nu, quad.thickness, alpha, tl.dt_uniform, tl.dt_gradient,
-                );
-                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
-                for (i, &dof) in quad_dofs.iter().enumerate() {
-                    if i < f_th.len() { f_global[dof] += f_th[i]; }
-                }
-            }
-        }
-        if let SolverLoad3D::QuadSelfWeight(sw) = load {
-            if let Some(&quad) = quad_map.get(&sw.element_id) {
-                let coords = quad_coords(&node_map, quad);
-                let f_sw_local = crate::element::quad::quad_self_weight_load(
-                    &coords, sw.density, quad.thickness, sw.gx, sw.gy, sw.gz,
-                );
-                let t_quad = crate::element::quad::quad_transform_3d(&coords);
-                let f_sw = crate::linalg::transform_force(&f_sw_local, &t_quad, 24);
-                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
-                for (i, &dof) in quad_dofs.iter().enumerate() {
-                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
-                }
-            }
-        }
-        if let SolverLoad3D::QuadEdge(el) = load {
-            if let Some(&quad) = quad_map.get(&el.element_id) {
-                let coords = quad_coords(&node_map, quad);
-                let f_edge = crate::element::quad::quad_edge_load(&coords, el.edge, el.qn, el.qt);
-                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
-                for (i, &dof) in quad_dofs.iter().enumerate() {
-                    if i < f_edge.len() { f_global[dof] += f_edge[i]; }
-                }
-            }
-        }
-        // Quad9 (MITC9) load dispatch — sparse path
-        if let SolverLoad3D::Quad9Pressure(pl) = load {
-            if let Some(q9) = quad9_map.get(&pl.element_id) {
-                let coords = quad9_coords(&node_map, q9);
-                let f_p = crate::element::quad9::quad9_pressure_load(&coords, pl.pressure);
-                let dofs = dof_num.quad9_element_dofs(&q9.nodes);
-                for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_p.len() { f_global[dof] += f_p[i]; }
-                }
-            }
-        }
-        if let SolverLoad3D::Quad9Thermal(tl) = load {
-            if let Some(q9) = quad9_map.get(&tl.element_id) {
-                let mat = mat_map[&q9.material_id];
-                let e = mat.e * 1000.0;
-                let nu = mat.nu;
-                let alpha = tl.alpha.unwrap_or(1.2e-5);
-                let coords = quad9_coords(&node_map, q9);
-                let f_th = crate::element::quad9::quad9_thermal_load(
-                    &coords, e, nu, q9.thickness, alpha, tl.dt_uniform, tl.dt_gradient,
-                );
-                let dofs = dof_num.quad9_element_dofs(&q9.nodes);
-                for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_th.len() { f_global[dof] += f_th[i]; }
-                }
-            }
-        }
-        if let SolverLoad3D::Quad9SelfWeight(sw) = load {
-            if let Some(q9) = quad9_map.get(&sw.element_id) {
-                let coords = quad9_coords(&node_map, q9);
-                let f_sw_local = crate::element::quad9::quad9_self_weight_load(
-                    &coords, sw.density, q9.thickness, sw.gx, sw.gy, sw.gz,
-                );
-                let t_q9 = crate::element::quad9::quad9_transform_3d(&coords);
-                let f_sw = crate::linalg::transform_force(&f_sw_local, &t_q9, 54);
-                let dofs = dof_num.quad9_element_dofs(&q9.nodes);
-                for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
-                }
-            }
-        }
-        if let SolverLoad3D::Quad9Edge(el) = load {
-            if let Some(q9) = quad9_map.get(&el.element_id) {
-                let coords = quad9_coords(&node_map, q9);
-                let f_edge = crate::element::quad9::quad9_edge_load(&coords, el.edge, el.qn, el.qt);
-                let dofs = dof_num.quad9_element_dofs(&q9.nodes);
-                for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_edge.len() { f_global[dof] += f_edge[i]; }
-                }
-            }
-        }
-        // Solid-shell load dispatch — sparse path
-        if let SolverLoad3D::SolidShellPressure(pl) = load {
-            if let Some(ss) = solid_shell_map.get(&pl.element_id) {
-                let coords = solid_shell_coords(&node_map, ss);
-                let f_p = crate::element::solid_shell::solid_shell_pressure_load(&coords, pl.pressure);
-                let dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
-                for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_p.len() { f_global[dof] += f_p[i]; }
-                }
-            }
-        }
-        if let SolverLoad3D::SolidShellSelfWeight(sw) = load {
-            if let Some(ss) = solid_shell_map.get(&sw.element_id) {
-                let coords = solid_shell_coords(&node_map, ss);
-                let f_sw = crate::element::solid_shell::solid_shell_self_weight_load(
-                    &coords, sw.density, sw.gx, sw.gy, sw.gz,
-                );
-                let dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
-                for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
-                }
-            }
-        }
-        // Curved shell loads (sparse path)
-        if let SolverLoad3D::CurvedShellPressure(pl) = load {
-            if let Some(cs) = curved_shell_map.get(&pl.element_id) {
-                let coords = curved_shell_coords(&node_map, cs);
-                let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
-                let f_p = crate::element::curved_shell::curved_shell_pressure_load(&coords, &dirs, cs.thickness, pl.pressure);
-                let dofs = dof_num.quad_element_dofs(&cs.nodes);
-                for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_p.len() { f_global[dof] += f_p[i]; }
-                }
-            }
-        }
-        if let SolverLoad3D::CurvedShellThermal(tl) = load {
-            if let Some(cs) = curved_shell_map.get(&tl.element_id) {
-                let mat = mat_map[&cs.material_id];
-                let e = mat.e * 1000.0;
-                let nu = mat.nu;
-                let alpha = tl.alpha.unwrap_or(1.2e-5);
-                let coords = curved_shell_coords(&node_map, cs);
-                let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
-                let f_th = crate::element::curved_shell::curved_shell_thermal_load(
-                    &coords, &dirs, e, nu, cs.thickness, alpha, tl.dt_uniform, tl.dt_gradient,
-                );
-                let dofs = dof_num.quad_element_dofs(&cs.nodes);
-                for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_th.len() { f_global[dof] += f_th[i]; }
-                }
-            }
-        }
-        if let SolverLoad3D::CurvedShellSelfWeight(sw) = load {
-            if let Some(cs) = curved_shell_map.get(&sw.element_id) {
-                let coords = curved_shell_coords(&node_map, cs);
-                let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
-                let f_sw = crate::element::curved_shell::curved_shell_self_weight_load(
-                    &coords, &dirs, sw.density, cs.thickness, sw.gx, sw.gy, sw.gz,
-                );
-                let dofs = dof_num.quad_element_dofs(&cs.nodes);
-                for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
-                }
-            }
-        }
-        if let SolverLoad3D::CurvedShellEdge(el) = load {
-            if let Some(cs) = curved_shell_map.get(&el.element_id) {
-                let coords = curved_shell_coords(&node_map, cs);
-                let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
-                let f_e = crate::element::curved_shell::curved_shell_edge_load(
-                    &coords, &dirs, cs.thickness, el.edge, el.qn, el.qt,
-                );
-                let dofs = dof_num.quad_element_dofs(&cs.nodes);
-                for (i, &dof) in dofs.iter().enumerate() {
-                    if i < f_e.len() { f_global[dof] += f_e[i]; }
-                }
-            }
-        }
-    }
-
-    // Apply inclined support rotations to the force vector
-    for it in inclined_transforms {
-        rotate_inclined_f_triplets(&mut f_global, &it.dofs, &it.r);
-    }
-
-    f_global
+    assemble_load_vector_3d_dense(input, loads, dof_num, inclined_transforms)
 }
 
 /// Assemble sparse K and force vector for 3D. Returns CSC of Kff (always) and

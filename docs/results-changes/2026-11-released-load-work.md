@@ -39,19 +39,22 @@ Any retained local load amplitudes, including the computed fixed-end forces,
 remain compatible in that orthogonal frame; their values need not be exact
 to establish zero work on a condensed release. Explicit transform and
 assembly residuals account for additional error in the stored global vector.
-Nonfinite work or bounds refuse. Accumulation also carries an order-independent
-gamma bound on the sum of absolute contributions, covering different assembly
-groupings. No existing conditioning limit or response comparison tolerance
+Nonfinite work or bounds refuse. Accumulation carries the residual of each actual addition. Dense, sparse and
+parallel-feature load vectors use the same ordered contribution path, so a
+blanket allowance for alternate groupings is unnecessary. Exact nodal
+cancellation has zero assembly uncertainty. No existing conditioning limit or response comparison tolerance
 is increased.
 
 A no-foundation Winkler analysis previously followed a separate direct solve.
 Its unsupported-moment control returned a warned NUM-INVARIANCE response on
 origin/main. Both dimensions now delegate that empty-foundation case to the
-ordinary solver, so they share admission, constraints, recovery and diagnostics.
-Contact analyses without contact features likewise use the ordinary solver
+ordinary solver when members have end releases, so those models share
+admission, constraints, recovery and diagnostics. Contact analyses with end
+releases and without contact features likewise use the ordinary solver
 when their iteration budget is positive; zero-budget outcomes retain their
-unconverged status. The foundation-bearing and contact-state algorithms are
-unchanged.
+unconverged status. Models without end releases retain their existing foundation and contact
+paths, including numerical warnings. The foundation-bearing and contact-state
+algorithms are unchanged.
 
 Corotational and material-nonlinear 3D entries, and 3D SSI without soil
 springs, check initial external nodal moments on explicitly released axes

@@ -5545,7 +5545,7 @@ pub(crate) fn refuse_initial_free_rotation_loads_3d(input: &SolverInput3D) -> Re
 
 fn checked_initial_released_loads_3d(input: &SolverInput3D) -> Result<ReleasedLoadCertificate3D,String> {
     if !input.loads.iter().any(|load| matches!(load,SolverLoad3D::Nodal(n) if n.mx != 0.0 || n.my != 0.0 || n.mz != 0.0)) { return Ok(ReleasedLoadCertificate3D::default()); }
-    if !input.elements.values().any(|e| e.release_my_start || e.release_my_end || e.release_mz_start || e.release_mz_end || e.release_t_start || e.release_t_end) { return Ok(ReleasedLoadCertificate3D::default()); }
+    if !super::stability::has_member_releases_3d(input) { return Ok(ReleasedLoadCertificate3D::default()); }
     let input = &expand_curved_beams_3d(input);
     let dof = DofNumbering::build_3d(input);
     let assembled = super::assembly::without_artificial_stiffness(|| super::assembly::assemble_stiffness_sparse_3d(input,&dof,false));
@@ -5566,7 +5566,7 @@ fn checked_initial_released_loads_3d(input: &SolverInput3D) -> Result<ReleasedLo
     let loads = super::assembly::assemble_load_vector_3d_dense(input,&input.loads,&dof,&assembled.inclined_transforms);
     let rounding = super::load_work::assembly_rounding_3d(input,&input.loads,&dof,&assembled.inclined_transforms);
     let rounding = constraints.as_ref().map_or_else(|| rounding.clone(),|c| c.reduce_load_rounding(&loads,&rounding));
-    let loads = match constraints.as_ref() {Some(c)=>c.reduce_vector(&loads),None=>loads};
+    let loads = match constraints.as_ref() {Some(c)=>c.reduce_vector(&loads[..dof.n_free]),None=>loads};
     match stability.load_on_free_rotation_with_rounding(&loads,&rounding) {
         Some(node)=>Err(moment_lost_3d(node,"a free rotation would carry load")),
         None=>Ok(certificate),

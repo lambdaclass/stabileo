@@ -5,6 +5,14 @@ use crate::types::*;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
+pub(crate) fn has_member_releases_2d(input: &SolverInput) -> bool {
+    input.elements.values().any(|e| e.hinge_start || e.hinge_end)
+}
+
+pub(crate) fn has_member_releases_3d(input: &SolverInput3D) -> bool {
+    input.elements.values().any(|e| e.release_my_start || e.release_my_end || e.release_mz_start || e.release_mz_end || e.release_t_start || e.release_t_end)
+}
+
 pub const LOCAL_FREE: f64 = 1e-12;
 pub const DENSE_SPECTRUM: usize = 240;
 pub const FULL_SPECTRUM: usize = 64;
