@@ -3,9 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft; fix prepared locally, pending merge and deployment |
+| Status | Published 2026-11-13 |
 | Issues | [#762](https://github.com/lambdaclass/stabileo/issues/762), [#1496](https://github.com/lambdaclass/stabileo/issues/1496); stability review of PR #1753 |
-| Fix | PR [#1753](https://github.com/lambdaclass/stabileo/pull/1753); not yet merged or deployed |
+| Fix | PR [#1753](https://github.com/lambdaclass/stabileo/pull/1753), included in 0.6.0 |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | Builds of main before #1753, including the main merged into this branch; first affected deployment not yet bisected |
 | Re-check registry | results-change entry `linear-stability-refusals` |
 
@@ -122,8 +123,7 @@ changes.
 
 ## Fixed in
 
-Prepared for the first deployment containing PR #1753, after 0.5.0. This local branch has not
-been pushed, merged or deployed. Re-run only in a build that includes the fix.
+0.6.0, containing merged PR #1753. Re-run in this version or a later build that includes the fix.
 
 The linear solve checks the physical stiffness before factorization, without artificial
 springs. It refuses mechanisms, unresolved condition bounds and non-positive-definite systems;

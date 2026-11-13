@@ -3,9 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-12; local fix awaiting review and release |
+| Status | Published 2026-11-13 (drafted 2026-11-12) |
 | Issue | Found in final review of PR #1943 |
-| Fix | PR [#1943](https://github.com/lambdaclass/stabileo/pull/1943); propagate the initial regular elastic solve before any hinge fallback; pending review and release |
+| Fix | PR [#1943](https://github.com/lambdaclass/stabileo/pull/1943), included in 0.6.0 |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | Source-confirmed in v0.2.0, v0.3.0, v0.4.0, v0.5.0 and desktop-v0.1.0-alpha.1 through alpha.3; silent raw result replayed on main `c11af4e36316a0c1251a7175cb4fe16660090778` |
 | Re-check registry | [`initial-plastic-refusals-and-stage-cancellation`](../../web/src/lib/provenance/result-changes/initial-plastic-refusals-and-stage-cancellation.json) |
 
@@ -102,7 +103,7 @@ Targeted regression tests cover the retained model, coordinate permutations,
 dense and sparse paths, raw and combined certified exports, conditioning and
 rank boundaries, and a valid plastic-collapse control. The
 [results-change write-up](../results-changes/2026-11-initial-plastic-refusals-and-stage-cancellation.md)
-describes the correction. No released fix or deployed build is claimed by this draft.
+describes the correction. The correction is included in 0.6.0 through merged PR #1943.
 
 ## How to tell if a saved result is affected
 

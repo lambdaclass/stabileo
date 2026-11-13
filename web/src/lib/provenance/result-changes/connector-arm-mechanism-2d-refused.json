@@ -22,7 +22,7 @@
     "tr": "Yalnızca kafes çubuklarının ulaştığı ve kesme rijitliği olan ama dönme rijitliği olmayan sonlu uzunlukta bir bağlayıcıyla birleştirilmiş iki düğüm, enerji harcamadan zıt yönlerde dönebilir: bağlayıcının rijit kolları bir mekanizma oluşturur ve düğüm dönmeleri belirsiz kalır. Çözücü tekil rijitliği ayrıştırıyor ve bu dönmeleri yuvarlama hatasından, yalnızca bir uyarıyla döndürüyordu; bu yüzden yük ölçeğiyle değişiyorlardı (#1099). Böyle bir model artık, bağlayıcılar yalnızca kendilerinin ulaştığı dönmeleri rijitliksiz bıraktığında, bağlayıcıyı ve düğümleri adlandırarak reddediliyor; ret artık yuvarlamaya bağlı değil. Mekanizma üzerinde iş yapmayan yüklerde (bu düğümlerde düğüm momenti yoksa) yer değiştirmeler ve çubuk kuvvetleri etkilenmiyordu; orada bir düğüm momenti önceki çözümün tüm sonuçlarını güvenilmez kılıyordu. Bağlayıcıya bir dönme rijitliği verin ya da dönmelerinden birini bir mesnet veya mafsalsız bir çubukla tutun."
   },
   "changelog": {
-    "file": "changelog.d/1099-connector-arm-mechanism.md",
+    "file": "CHANGELOG.md",
     "heading": "2D: rotations that only connectors hold, left free by them, are refused (2026-11-08)"
   }
 }

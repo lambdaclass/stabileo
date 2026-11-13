@@ -6,6 +6,7 @@
 | Status | Published 2026-11-09 (fixed after 0.5.0; live on stabileo.com since 2026-11-09) |
 | Issue | [#1782](https://github.com/lambdaclass/stabileo/issues/1782), additional finding during review |
 | Fix | PR [#1783](https://github.com/lambdaclass/stabileo/pull/1783) (merged 2026-11-09 09:27:10 UTC) |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | Engine builds with 2D moving-load axial patch envelopes before this fix, including the station search in `c6e7dd88d` (2026-10-19); the shared 3D path in `d674665d4` is affected too. No released-version boundary is claimed here |
 | Re-check registry | results-change entry `moving-axial-patch-boundaries` |
 

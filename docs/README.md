@@ -2,6 +2,9 @@
 
 ## Release notes · Notas de la versión
 
+**0.6.0 (2026-11-13): corrected results, explicit refusals and support motion (SA-2026-048…063; SA-2026-056 remains unfixed) / resultados corregidos, rechazos explícitos y movimiento de apoyos (SA-2026-056 sigue sin corregirse).**
+[English](releases/v0.6.0.md) · [Español](releases/v0.6.0.es.md) · [Português](releases/v0.6.0.pt.md) · [Deutsch](releases/v0.6.0.de.md) · [Français](releases/v0.6.0.fr.md) · [Türkçe](releases/v0.6.0.tr.md)
+
 **0.5.0 (2026-11-07): wrong results fixed in design, the solver and dynamics, every open wrong-result defect contained (SA-2026-025…047) /
 resultados incorrectos corregidos en diseño, solver y dinámica, cada error de resultado abierto contenido.**
 [English](releases/v0.5.0.md) · [Español](releases/v0.5.0.es.md) · [Português](releases/v0.5.0.pt.md)

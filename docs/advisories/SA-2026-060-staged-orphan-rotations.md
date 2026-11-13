@@ -3,9 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-11; local fix awaiting review and release |
+| Status | Published 2026-11-13 (drafted 2026-11-11) |
 | Issue | [#1846](https://github.com/lambdaclass/stabileo/issues/1846) |
-| Fix | Shared regular linear assembly and orphan-rotation classification; pending review and release |
+| Fix | PR [#1943](https://github.com/lambdaclass/stabileo/pull/1943), included in 0.6.0 |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | Source-confirmed in v0.2.0, v0.3.0, v0.4.0, v0.5.0 and desktop-v0.1.0-alpha.1 through alpha.3; silent numerical failure verified on main `85c002b3a378a076fe118d75fcb665b5099dba46` |
 | Re-check registry | [`staged-orphan-rotations`](../../web/src/lib/provenance/result-changes/staged-orphan-rotations.json) |
 
@@ -105,8 +106,7 @@ reactions never contain inactive artificial springs. A genuinely free, unloaded 
 nodal moments remain refused. No existing tolerance or assertion is relaxed.
 
 The [results-change write-up](../results-changes/2026-11-staged-orphan-rotations.md)
-describes the correction and targeted tests. No released fix or deployed build is
-claimed by this draft.
+describes the correction and targeted tests. The correction is included in 0.6.0 through merged PR #1943.
 
 ## What to do with previous results
 

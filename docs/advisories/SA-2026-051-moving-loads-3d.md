@@ -6,6 +6,7 @@
 | Status | Published 2026-11-09 (fixed after 0.5.0; live on stabileo.com since 2026-11-09) |
 | Issue | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) |
 | Fix | PR [#1783](https://github.com/lambdaclass/stabileo/pull/1783) (merged 2026-11-09 09:27:10 UTC) |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | 0.2.0, 0.3.0, 0.4.0 and 0.5.0, and desktop-v0.1.0-alpha.1 through alpha.3. Builds containing 3D moving loads from commit `4c4d86155` (2026-03-07) until this fix |
 | Re-check registry | results-change entry `moving-loads-3d` |
 

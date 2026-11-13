@@ -3,9 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-10; fixed in PR #1922, pending release |
+| Status | Published 2026-11-13 (drafted 2026-11-10) |
 | Issue | [#1434](https://github.com/lambdaclass/stabileo/issues/1434) |
-| Fix | PR [#1922](https://github.com/lambdaclass/stabileo/pull/1922); not yet merged or released |
+| Fix | PR [#1922](https://github.com/lambdaclass/stabileo/pull/1922), included in 0.6.0 |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | 0.5.0 (released 2026-11-07), and subsequent main builds before PR #1922; see release boundary below |
 | Re-check registry | results-change entry `harmonic-omitted-modes` |
 
@@ -114,8 +115,7 @@ conditions for every saved sweep.
 
 ## Fixed in
 
-Fixed in PR #1922, pending release; no deployment or fixed release number is
-claimed. Every frequency outside the existing truncation range receives a
+0.6.0, containing merged PR #1922. Every frequency outside the existing truncation range receives a
 full solve regardless of model size. Dense block LU remains below the ceiling;
 above it, sparse Gaussian elimination with partial row pivoting solves the
 same full harmonic system. Excessive sparse storage or fill, a singular

@@ -6,6 +6,7 @@
 | Status | Published 2026-11-08 (fixed after 0.5.0; live on stabileo.com since 2026-11-08) |
 | Issue | — (found in review of PR #1718) |
 | Fix | PR [#1718](https://github.com/lambdaclass/stabileo/pull/1718) (merged 2026-11-08) |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | 0.2.0, 0.3.0, 0.4.0 and 0.5.0, and desktop-v0.1.0-alpha.1 to alpha.3. stabileo.com and builds of `main` from #214 (merged 2026-09-28 19:52 UTC, commit da5bcf309) until #1718 (merged 2026-11-08 08:00 UTC) |
 | Re-check registry | results-change entry `cb-segment-ends` |
 
