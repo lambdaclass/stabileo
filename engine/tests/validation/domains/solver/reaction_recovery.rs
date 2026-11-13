@@ -254,6 +254,16 @@ fn assert_equilibrium(kind: &str, dim: usize, m: &Value, r: &Value, factor: f64)
         unloaded_member_equilibrium(m, r);
     }
     assert!(factor.is_finite() && factor > 0.0);
+    if kind == "pdelta" && (r["equilibrium"]["equilibriumOk"] == false || r["equilibrium"]["residualOk"] == false) {
+        assert!(r["reactions"].as_array().unwrap().is_empty());
+        assert!(r["structuredDiagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == "reactions" && d["severity"] == "warning"));
+        for i in 0..dim {
+            let a = r["equilibrium"]["appliedForceSum"][i].as_f64().unwrap();
+            let b = r["equilibrium"]["reactionForceSum"][i].as_f64().unwrap();
+            assert!((a + b).abs() < 1e-6);
+        }
+        return;
+    }
     assert_eq!(
         r["reactions"].as_array().unwrap().len(),
         m["supports"].as_object().unwrap().len(),
@@ -318,18 +328,6 @@ fn assert_equilibrium(kind: &str, dim: usize, m: &Value, r: &Value, factor: f64)
     }
     for v in &balance[..3] {
         assert!(v.abs() < 1e-6, "{kind} {dim}D force balance: {balance:?}");
-    }
-    if kind == "pdelta"
-        && (r["equilibrium"]["equilibriumOk"] == false || r["equilibrium"]["residualOk"] == false)
-    {
-        assert!(r["structuredDiagnostics"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|d| d["code"] == "result_quantity_unavailable"
-                && d["phase"] == "reactions"
-                && d["severity"] == "warning"));
-        return;
     }
     for (i, v) in balance.iter().enumerate() {
         assert!(
@@ -898,7 +896,9 @@ fn staged_constraints_only(dim: usize) {
             .unwrap()
         };
         let r = &r["finalResults"];
-        assert_equilibrium("staged", dim, &m, r, 1.0);
+        for field in ["reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"] {
+            assert!(r[field].as_array().is_none_or(Vec::is_empty), "{r}");
+        }
         assert!(r["structuredDiagnostics"].as_array().is_some_and(|ds| ds
             .iter()
             .any(|d| d["code"] == "result_quantity_unavailable")));
@@ -2181,12 +2181,17 @@ fn r17_public(dim: usize, kind: &str) {
     let mut replay = Vec::new();
     for sign in [-1.0, 0.0, 1.0] {
         for released in [false, true] {
+          for empty_first in if kind == "staged" { vec![false, true] } else { vec![false] } {
             let mut m = model(dim, false);
             m["elements"]["1"][if dim == 2 {"hingeEnd"} else {"releaseMyEnd"}] = json!(released);
             m["loads"][0]["data"]["my"] = json!(sign * 2.0);
             if kind == "pdelta" { m["loads"][0]["data"]["fx"] = json!(sign * 3.0); }
             if kind == "staged" {
                 m["stages"] = json!([{"name":"first stage","elementsAdded":[1],"supportsAdded":[0],"loadIndices":[0]}]);
+            }
+            if empty_first {
+                m["constraints"] = json!([{"type":"equalDOF","masterNode":0,"slaveNode":1,"dofs":(0..if dim == 2 {3} else {6}).collect::<Vec<_>>()}]);
+                m["stages"] = json!([{"name":"no physical stiffness","supportsAdded":[0]},{"name":"member activated","elementsAdded":[1],"loadIndices":[0]}]);
             }
             let outcome = if dim == 2 {
                 let input: SolverInput = serde_json::from_value(m.clone()).unwrap();
@@ -2229,6 +2234,7 @@ fn r17_public(dim: usize, kind: &str) {
                 }
             }
             replay.push(json!({"dim":dim,"kind":kind,"model":m,"output":outcome.as_ref().ok(),"error":outcome.as_ref().err()}));
+          }
         }
     }
     if let Ok(prefix) = std::env::var("STABILEO_R17_CASES") {
@@ -2241,8 +2247,6 @@ fn issue_1952_r17_staged_2d() { r17_public(2,"staged"); }
 #[test]
 fn issue_1952_r17_staged_3d() { r17_public(3,"staged"); }
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r17_pdelta_2d() { r17_public(2,"pdelta"); }
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r17_pdelta_3d() { r17_public(3,"pdelta"); }

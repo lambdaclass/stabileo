@@ -1,0 +1,44 @@
+{
+  "id": "withheld-pdelta-equilibrium-forces",
+  "date": "2026-11-13",
+  "prs": [
+    1952
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "springs",
+        "constraints"
+      ],
+      [
+        "analysis:pdelta"
+      ]
+    ]
+  },
+  "quantities": [
+    "reactions"
+  ],
+  "title": {
+    "en": "Unavailable P-Delta reactions are withheld",
+    "es": "Se omiten las reacciones P-Delta no disponibles",
+    "pt": "Reações P-Delta indisponíveis são omitidas",
+    "de": "Nicht verfügbare P-Delta-Reaktionen werden zurückgehalten",
+    "fr": "Les réactions P-Delta indisponibles sont retirées",
+    "tr": "Kullanılamayan P-Delta tepkileri döndürülmez"
+  },
+  "explanation": {
+    "en": "P-Delta reactions are now returned as an empty collection when the existing equilibrium or residual check diagnoses them unavailable. Recheck saved P-Delta reactions (#1952).",
+    "es": "Las reacciones P-Delta se devuelven vacías cuando la comprobación existente de equilibrio o residuo las declara no disponibles. Revisá las reacciones P-Delta guardadas (#1952).",
+    "pt": "Reações P-Delta são retornadas vazias quando a verificação existente de equilíbrio ou resíduo as declara indisponíveis. Reveja as reações P-Delta salvas (#1952).",
+    "de": "P-Delta-Reaktionen werden leer zurückgegeben, wenn die vorhandene Gleichgewichts- oder Residuenprüfung sie als nicht verfügbar meldet. Prüfen Sie gespeicherte P-Delta-Reaktionen (#1952).",
+    "fr": "Les réactions P-Delta sont renvoyées vides lorsque le contrôle existant d’équilibre ou de résidu les déclare indisponibles. Revérifiez les réactions P-Delta enregistrées (#1952).",
+    "tr": "Mevcut denge veya artık denetimi P-Delta tepkilerini kullanılamaz olarak bildirirse tepkiler boş döndürülür. Kayıtlı P-Delta tepkilerini yeniden denetleyin (#1952)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-unavailable-equilibrium-forces.md",
+    "heading": "Withhold unavailable equilibrium forces (2026-11-13)"
+  }
+}

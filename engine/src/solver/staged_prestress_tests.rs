@@ -480,9 +480,16 @@ fn staged_round7_inclined_disconnected_tangent_load() {
                     assert!(error.contains("translation") || error.contains("mechanism"), "{error}");
                 } else {
                     let result = result.unwrap();
-                    let r = result.final_results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-                    round7_close(r.rx, 0.0);
-                    round7_close(r.rz, -fz);
+                    if pads == 0 {
+                        assert!(result.final_results.reactions.is_empty());
+                        assert!(result.final_results.element_forces.is_empty());
+                        assert!(result.final_results.constraint_forces.is_empty());
+                        assert!(result.final_results.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("stageResults")));
+                    } else {
+                        let r = result.final_results.reactions.iter().find(|r| r.node_id == 2).unwrap();
+                        round7_close(r.rx, 0.0);
+                        round7_close(r.rz, -fz);
+                    }
                 }
             }
         }

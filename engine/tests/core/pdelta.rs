@@ -364,15 +364,18 @@ fn pdelta_constraint_forces_see_the_settlement() {
 }
 
 #[test]
-fn pdelta_reactions_balance_the_loads_once_the_frame_sways() {
+fn pdelta_withholds_unavailable_reactions_and_keeps_balance_evidence() {
     // Horizontal equilibrium does not change with the deformed geometry: the
     // base shears still add up to the lateral load. K·u alone leaves out the
     // P·Δ/h shear K_G carries at each column base.
     let input = make_portal_frame(4.0, 6.0, E, A, IZ, 20.0, -300.0);
     let pd = pdelta::solve_pdelta_2d(&input, 50, 1e-10).unwrap();
     assert!(pd.converged && pd.is_stable);
-    let rx: f64 = pd.results.reactions.iter().map(|r| r.rx).sum();
-    let rz: f64 = pd.results.reactions.iter().map(|r| r.rz).sum();
+    assert!(pd.results.reactions.is_empty());
+    assert!(pd.results.structured_diagnostics.iter().any(|d| d.code == dedaliano_engine::types::DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("reactions")));
+    let equilibrium = pd.results.equilibrium.as_ref().unwrap();
+    let rx = equilibrium.reaction_force_sum[0];
+    let rz = equilibrium.reaction_force_sum[1];
     assert!((rx + 20.0).abs() < 1e-6, "ΣRx = {rx:.6}, lateral load 20");
     assert!((rz - 600.0).abs() < 1e-6, "ΣRz = {rz:.6}, gravity 600");
 }
@@ -403,7 +406,9 @@ fn pdelta_3d_inclined_roller_matches_linear_without_axial_load() {
         }
     }
     let sum = |rs: &[Reaction3D]| rs.iter().fold([0.0; 3], |t, r| [t[0] + r.fx, t[1] + r.fy, t[2] + r.fz]);
-    let (p, l) = (sum(&pd.results.reactions), sum(&lin.reactions));
+    assert!(pd.results.reactions.is_empty());
+    assert!(pd.results.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("reactions")));
+    let (p, l) = (&pd.results.equilibrium.as_ref().unwrap().reaction_force_sum, sum(&lin.reactions));
     for i in 0..3 { assert!((p[i] - l[i]).abs() < 1e-3, "ΣR[{i}] P-Δ {:.4} vs linear {:.4}", p[i], l[i]); }
 }
 

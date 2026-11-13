@@ -57,7 +57,12 @@ for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [f
           const forceFields = dim === 2 ? ['nStart', 'nEnd', 'vStart', 'vEnd', 'mStart', 'mEnd'] : ['nStart', 'nEnd', 'vyStart', 'vyEnd', 'vzStart', 'vzEnd', 'mxStart', 'mxEnd', 'myStart', 'myEnd', 'mzStart', 'mzEnd'];
           const reactionFields = dim === 2 ? ['rx', 'rz', 'my'] : ['fx', 'fy', 'fz', 'mx', 'my', 'mz'];
           assert.deepEqual(out.finalResults.elementForces.map(e => e.elementId).sort((a, b) => a - b), Object.values(input.elements).filter(e => e.id !== 1).map(e => e.id).sort((a, b) => a - b));
-          assertZeroReactions(out.finalResults.reactions, Object.values(input.supports).map(s => s.nodeId), reactionFields);
+          if (Object.values(input.elements).every(e => e.id === 1)) {
+            assert.deepEqual(out.finalResults.reactions, []);
+            assert.ok((out.finalResults.structuredDiagnostics ?? []).some(d => d.code === 'result_quantity_unavailable' && d.phase === 'stageResults'));
+          } else {
+            assertZeroReactions(out.finalResults.reactions, Object.values(input.supports).map(s => s.nodeId), reactionFields);
+          }
           for (const [group, fields] of [['elementForces', forceFields]]) {
             for (const item of out.finalResults[group]) for (const field of fields) assert.ok(Number.isFinite(item[field]) && item[field] === 0, `${group} ${field}: ${item[field]}`);
           }

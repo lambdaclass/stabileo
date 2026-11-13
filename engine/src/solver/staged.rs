@@ -298,6 +298,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, conditioning.into_iter().collect());
         crate::known_issues::attach(&mut cumulative_diagnostics, stage_results.last().unwrap().results.structured_diagnostics.clone());
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, cumulative_diagnostics.clone());
+        withhold_inherited_stage_results(&mut stage_results.last_mut().unwrap().results, &cumulative_diagnostics);
     }
 
     let final_results = stage_results.last()
@@ -670,13 +671,36 @@ impl StageRecoveryHistory {
     }
 }
 
-impl StageForceRecovery {
-    fn diagnostics(self, phases: &[&str]) -> Vec<StructuredDiagnostic> {
-        if self == Self::CumulativeElastic { return vec![]; }
-        phases.iter().map(|phase| super::reaction_recovery::unavailable(
-            phase,
-            "Stage equilibrium results are unavailable: the active stiffness changed after earlier loading or displacement. Recovery does not track member or support-spring deformation since activation or redistribute forces released by removal. Reactions and member forces are withheld; retained cumulative displacements are incremental history only, not a certified equilibrium solution. Later stages remain unavailable.",
-        )).collect()
+const UNAVAILABLE_HISTORY: &str = "Stage equilibrium results are unavailable: the active stiffness changed after earlier loading or displacement. Recovery does not track member or support-spring deformation since activation or redistribute forces released by removal. Reactions and member forces are withheld; retained cumulative displacements are incremental history only, not a certified equilibrium solution. Later stages remain unavailable.";
+const UNAVAILABLE_STIFFNESS: &str = "This stage has no active physical stiffness. Its equilibrium forces are withheld; retained cumulative displacements are incremental history only, not a certified equilibrium solution.";
+const UNAVAILABLE_RESIDUAL: &str = "Stage equilibrium results are unavailable: the physical free-DOF residual after constraint projection exceeds the residual criterion. Artificial stabilization cannot establish physical equilibrium. Forces are withheld; retained cumulative displacements are incremental history only, not a certified equilibrium solution.";
+
+fn withhold_inherited_stage_results(
+    results: &mut impl super::reaction_recovery::WithholdForces,
+    diagnostics: &[StructuredDiagnostic],
+) {
+    if let Some(diagnostic) = diagnostics.iter().find(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("stageResults")) {
+        super::reaction_recovery::withhold(results, super::reaction_recovery::UnavailableQuantity::StageEquilibrium, &diagnostic.message);
+    }
+}
+
+fn contain_stage_results(
+    results: &mut impl super::reaction_recovery::WithholdForces,
+    recovery: StageForceRecovery,
+    no_stiffness: bool,
+    equilibrium_ok: bool,
+) {
+    let message = if recovery == StageForceRecovery::UnavailableHistory {
+        Some(UNAVAILABLE_HISTORY)
+    } else if no_stiffness {
+        Some(UNAVAILABLE_STIFFNESS)
+    } else if !equilibrium_ok {
+        Some(UNAVAILABLE_RESIDUAL)
+    } else {
+        None
+    };
+    if let Some(message) = message {
+        super::reaction_recovery::withhold(results, super::reaction_recovery::UnavailableQuantity::StageEquilibrium, message);
     }
 }
 
@@ -694,6 +718,7 @@ fn build_results_from_u(
     recovery: StageForceRecovery,
     inclined_transforms: &[super::assembly::InclinedTransformData2D],
 ) -> Result<AnalysisResults, String> {
+    let solver_u = u;
     let mut global_u = u.to_vec();
     for it in inclined_transforms {
         super::assembly::reverse_inclined_transform_2d(&mut global_u, &it.dofs, &it.r);
@@ -703,16 +728,16 @@ fn build_results_from_u(
     let mut element_forces = compute_internal_forces_2d(input, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
     let recovered = super::reaction_recovery::RecoveredForces::from_stage(reactions_vec, dof_num, cs);
-    let reactions_vec = recovered.checked_restrained_2d(input, dof_num)?;
+    let restrained = recovered.checked_restrained_2d(input, dof_num)?;
     let nf = dof_num.n_free;
-    let mut reactions = build_reactions_2d_inclined(input, dof_num, reactions_vec, &[], nf, u, inclined_transforms);
+    let mut reactions = build_reactions_2d_inclined(input, dof_num, restrained, &[], nf, u, inclined_transforms);
     reactions.sort_by_key(|r| r.node_id);
 
     let prescribed = super::linear::prescribed_displacements_2d(input, dof_num);
     let determined = state_is_directly_prescribed(u, dof_num.n_free, &prescribed);
-    let structured_diagnostics = if !determined && input.elements.is_empty() && super::assembly::support_spring_entries_2d(input, dof_num).is_empty() {
-        vec![super::reaction_recovery::unavailable("stageResults", "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.")]
-    } else { vec![] };
+    let no_stiffness = !determined && input.elements.is_empty() && super::assembly::support_spring_entries_2d(input, dof_num).is_empty();
+    let metric = super::convergence::EquilibriumMetric::for_2d(input, dof_num, cs)?;
+    let equilibrium_ok = reactions_vec.equilibrium_ok(&metric, dof_num, solver_u, cs);
 
     let mut results = AnalysisResults {
         displacements,
@@ -721,16 +746,11 @@ fn build_results_from_u(
         constraint_forces: recovered.constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
-        structured_diagnostics,
+        structured_diagnostics: vec![],
         equilibrium: None,
         result_summary: None, solver_run_meta: None,
     };
-    if recovery == StageForceRecovery::UnavailableHistory {
-        results.reactions.clear();
-        results.element_forces.clear();
-        results.constraint_forces.clear();
-        results.structured_diagnostics.extend(recovery.diagnostics(&["stageResults", "reactions", "elementForces", "constraintForces"]));
-    }
+    contain_stage_results(&mut results, recovery, no_stiffness, equilibrium_ok);
     Ok(results)
 }
 
@@ -990,6 +1010,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, conditioning.into_iter().collect());
         crate::known_issues::attach(&mut cumulative_diagnostics, stage_results.last().unwrap().results.structured_diagnostics.clone());
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, cumulative_diagnostics.clone());
+        withhold_inherited_stage_results(&mut stage_results.last_mut().unwrap().results, &cumulative_diagnostics);
     }
 
     let final_results = stage_results.last()
@@ -1174,9 +1195,9 @@ fn build_results_from_u_3d(
 
     let prescribed = super::linear::prescribed_displacements_3d(cum_input, dof_num);
     let determined = state_is_directly_prescribed(u, dof_num.n_free, &prescribed);
-    let structured_diagnostics = if !determined && cum_input.elements.is_empty() && super::assembly::support_spring_entries_3d(cum_input, dof_num).is_empty() && cum_input.plates.is_empty() && cum_input.quads.is_empty() && cum_input.quad9s.is_empty() {
-        vec![super::reaction_recovery::unavailable("stageResults", "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.")]
-    } else { vec![] };
+    let no_stiffness = !determined && cum_input.elements.is_empty() && super::assembly::support_spring_entries_3d(cum_input, dof_num).is_empty() && cum_input.plates.is_empty() && cum_input.quads.is_empty() && cum_input.quad9s.is_empty();
+    let metric = super::convergence::EquilibriumMetric::for_3d(cum_input, dof_num, cs)?;
+    let equilibrium_ok = reactions_vec.equilibrium_ok(&metric, dof_num, u, cs);
 
     let mut results = AnalysisResults3D {
         displacements,
@@ -1188,20 +1209,12 @@ fn build_results_from_u_3d(
         constraint_forces: recovered.constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
-        structured_diagnostics,
+        structured_diagnostics: vec![],
         equilibrium: None,
         timings: None,
         result_summary: None, solver_run_meta: None,
     };
-    if recovery == StageForceRecovery::UnavailableHistory {
-        results.reactions.clear();
-        results.element_forces.clear();
-        results.constraint_forces.clear();
-        results.plate_stresses.clear();
-        results.quad_stresses.clear();
-        results.quad_nodal_stresses.clear();
-        results.structured_diagnostics.extend(recovery.diagnostics(&["stageResults", "reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"]));
-    }
+    contain_stage_results(&mut results, recovery, no_stiffness, equilibrium_ok);
     Ok(results)
 }
 

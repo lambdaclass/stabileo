@@ -68,6 +68,12 @@ function equilibrium(kind, dim, m) {
     }
   }
   assert.ok(Number.isFinite(factor) && factor > 0);
+  if (kind === 'pdelta' && (r.equilibrium?.equilibriumOk === false || r.equilibrium?.residualOk === false)) {
+    assert.ok(r.structuredDiagnostics.some(d=>d.code === 'result_quantity_unavailable' && d.phase === 'reactions' && d.severity === 'warning'));
+    assert.deepEqual(r.reactions, []);
+    for (let i = 0; i < dim; i++) assert.ok(Math.abs(r.equilibrium.appliedForceSum[i] + r.equilibrium.reactionForceSum[i]) < 1e-6);
+    return;
+  }
   assert.equal(r.reactions.length, Object.keys(m.supports).length);
   const balance = Array(6).fill(0);
   const large = ['arc', 'displacement', 'corotational', 'pdelta'].includes(kind);
@@ -84,10 +90,6 @@ function equilibrium(kind, dim, m) {
   for (const a of r.reactions) add(a.nodeId, dim === 2 ? [a.rx, 0, a.rz] : [a.fx, a.fy, a.fz], dim === 2 ? [0, -a.my, 0] : [a.mx, a.my, a.mz]);
   for (const v of balance.slice(0,3)) assert.ok(Math.abs(v) < 1e-6, `${kind} ${dim}D force balance: ${balance}`);
   if (kind === 'pdelta' && !m.constraints.length) assert.ok(!(r.structuredDiagnostics ?? []).some(d=>d.code === 'result_quantity_unavailable'));
-  if (kind === 'pdelta' && (r.equilibrium?.equilibriumOk === false || r.equilibrium?.residualOk === false)) {
-    assert.ok(r.structuredDiagnostics.some(d=>d.code === 'result_quantity_unavailable' && d.phase === 'reactions' && d.severity === 'warning'));
-    return;
-  }
   for (const [i, value] of balance.entries()) assert.ok(Math.abs(value) < 1e-6, `${kind} ${dim}D component ${i}: ${value}`);
 }
 
@@ -240,10 +242,7 @@ for (const dim of [2,3]) {
       m.constraints = [{type:'rigidLink',masterNode:0,slaveNode:1,dofs:Array.from({length:dofs},(_, i)=>i)}];
       m.stages = [{name:'rigid link only',supportsAdded:[0],loadIndices:[0]}];
       const r = JSON.parse(engine[`solve_staged_${dim}d`](JSON.stringify(m))).finalResults;
-      const a = r.reactions[0];
-      assert.ok(Math.abs((dim === 2 ? a.rx : a.fx) + m.loads[0].data.fx) < 1e-6);
-      assert.ok(Math.abs((dim === 2 ? a.rz : a.fz) + m.loads[0].data.fz) < 1e-6);
-      assert.ok(Math.abs((dim === 2 ? a.my : -a.my) + 3 * m.loads[0].data.fz) < 1e-6);
+      for (const field of ['reactions', 'elementForces', 'constraintForces', 'plateStresses', 'quadStresses', 'quadNodalStresses']) assert.deepEqual(r[field] ?? [], []);
       assert.ok((r.structuredDiagnostics ?? []).some(d=>d.code === 'result_quantity_unavailable' && d.phase === 'stageResults'));
       console.log(`PASS staged ${dim}D constrained ${memberType} without elastic stiffness`);
     } catch (error) { failed=true; console.error(`FAIL staged ${dim}D constrained ${memberType}: ${error}`); }

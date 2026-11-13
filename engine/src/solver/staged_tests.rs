@@ -276,16 +276,12 @@ fn r17_recovery(dim: usize, empty: bool) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn r17_loaded_released_rotation_recovery_2d() { r17_recovery(2, false); }
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn r17_loaded_released_rotation_recovery_3d() { r17_recovery(3, false); }
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn r17_stiffness_free_quantities_2d() { r17_recovery(2, true); }
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn r17_stiffness_free_quantities_3d() { r17_recovery(3, true); }
 
 fn r17_residual_boundary(dim: usize) {
@@ -325,8 +321,6 @@ fn r17_residual_boundary(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn r17_residual_boundary_2d() { r17_residual_boundary(2); }
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn r17_residual_boundary_3d() { r17_residual_boundary(3); }

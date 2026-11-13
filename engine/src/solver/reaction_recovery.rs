@@ -138,6 +138,56 @@ pub(crate) fn unavailable(phase: &str, message: &str) -> StructuredDiagnostic {
     d
 }
 
+#[derive(Clone, Copy)]
+pub(super) enum UnavailableQuantity {
+    Reactions,
+    StageEquilibrium,
+}
+
+pub(super) trait WithholdForces {
+    fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]);
+}
+
+impl<D, R, F> WithholdForces for AnalysisResults<D, R, F> {
+    fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]) {
+        self.reactions.clear();
+        self.result_summary = None;
+        let phases: &[_] = match quantity {
+            UnavailableQuantity::Reactions => &["reactions"],
+            UnavailableQuantity::StageEquilibrium => {
+                self.element_forces.clear();
+                self.constraint_forces.clear();
+                &["stageResults", "reactions", "elementForces", "constraintForces"]
+            }
+        };
+        (&mut self.structured_diagnostics, phases)
+    }
+}
+
+impl<D, R, F> WithholdForces for AnalysisResults3D<D, R, F> {
+    fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]) {
+        self.reactions.clear();
+        self.result_summary = None;
+        let phases: &[_] = match quantity {
+            UnavailableQuantity::Reactions => &["reactions"],
+            UnavailableQuantity::StageEquilibrium => {
+                self.element_forces.clear();
+                self.constraint_forces.clear();
+                self.plate_stresses.clear();
+                self.quad_stresses.clear();
+                self.quad_nodal_stresses.clear();
+                &["stageResults", "reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"]
+            }
+        };
+        (&mut self.structured_diagnostics, phases)
+    }
+}
+
+pub(super) fn withhold(results: &mut impl WithholdForces, quantity: UnavailableQuantity, message: &str) {
+    let (diagnostics, phases) = results.clear_unavailable(quantity);
+    crate::known_issues::attach(diagnostics, phases.iter().map(|phase| unavailable(phase, message)).collect());
+}
+
 pub(crate) fn balance_2d(
     input: &SolverInput,
     dofs: &DofNumbering,

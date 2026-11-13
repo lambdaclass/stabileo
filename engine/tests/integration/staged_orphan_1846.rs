@@ -1976,7 +1976,12 @@ fn issue_1846_round5_persistent_moment_after_member_removal() {
                         let mut actual: Vec<_> = out["finalResults"]["elementForces"].as_array().unwrap().iter().map(|e| e["elementId"].as_u64().unwrap()).collect();
                         actual.sort_unstable();
                         assert_eq!(actual, expected);
-                        round7_zero_reactions(&out["finalResults"]["reactions"], &supports, reaction_fields);
+                        if expected.is_empty() {
+                            assert!(out["finalResults"]["reactions"].as_array().unwrap().is_empty());
+                            assert!(out["finalResults"]["structuredDiagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == "stageResults"));
+                        } else {
+                            round7_zero_reactions(&out["finalResults"]["reactions"], &supports, reaction_fields);
+                        }
                         for (group, fields) in [("elementForces", force_fields)] {
                             for item in out["finalResults"][group].as_array().unwrap() {
                                 for &field in fields {

@@ -325,27 +325,24 @@ pub fn solve_pdelta_2d_on(
     let mut equilibrium = super::reaction_recovery::balance_2d(input, dof_num, &u_global, f, &reactions, its, tolerance);
     equilibrium.relative_residual = relative_residual;
     equilibrium.residual_ok = relative_residual.is_finite() && relative_residual <= tolerance;
-    let mut recovered_diagnostics = Vec::new();
-    if !equilibrium.equilibrium_ok || !equilibrium.residual_ok {
-        recovered_diagnostics.push(super::reaction_recovery::unavailable("reactions", "Finite-displacement support reactions are unavailable at this P-Delta state: its small-strain second-order reactions do not satisfy global force and moment equilibrium within the requested tolerance. Use corotational analysis for finite-displacement reactions."));
+    let unavailable = !equilibrium.equilibrium_ok || !equilibrium.residual_ok;
+    let mut results = AnalysisResults {
+        displacements: build_displacements_2d(dof_num, &u_global),
+        reactions,
+        element_forces: second_order_forces_2d(input, dof_num, &u_global),
+        constraint_forces,
+        diagnostics: linear_results.diagnostics.clone(),
+        solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
+        structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
+        equilibrium: Some(equilibrium),
+        result_summary: None, solver_run_meta: None,
+    };
+    if unavailable {
+        super::reaction_recovery::withhold(&mut results, super::reaction_recovery::UnavailableQuantity::Reactions, "Finite-displacement support reactions are unavailable at this P-Delta state: its small-strain second-order reactions do not satisfy global force and moment equilibrium within the requested tolerance. Use corotational analysis for finite-displacement reactions.");
     }
 
     Ok(PDeltaResult {
-        results: AnalysisResults {
-            displacements: build_displacements_2d(dof_num, &u_global),
-            reactions,
-            element_forces: second_order_forces_2d(input, dof_num, &u_global),
-            constraint_forces,
-            // The model's diagnostics belong to the model, not to the path that
-            // analysed it: the linear pass above already ran the pre-solve gates
-            // and the conditioning checks on this same structure. Only the
-            // model's, though: see `model_structured_diagnostics`.
-            diagnostics: linear_results.diagnostics.clone(),
-            solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
-            structured_diagnostics: { let mut d = model_structured_diagnostics(&linear_results.structured_diagnostics); d.extend(recovered_diagnostics); d },
-            equilibrium: Some(equilibrium),
-            result_summary: None, solver_run_meta: None,
-        },
+        results,
         iterations: state.iterations,
         converged: state.converged,
         is_stable: state.converged && max_ratio < 100.0,
@@ -615,22 +612,23 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     let mut equilibrium = super::reaction_recovery::balance_3d(input, dof_num, &u_global, f, &reactions, its, tolerance);
     equilibrium.relative_residual = relative_residual;
     equilibrium.residual_ok = relative_residual.is_finite() && relative_residual <= tolerance;
-    let mut recovered_diagnostics = Vec::new();
-    if !equilibrium.equilibrium_ok || !equilibrium.residual_ok {
-        recovered_diagnostics.push(super::reaction_recovery::unavailable("reactions", "Finite-displacement support reactions are unavailable at this P-Delta state: its small-strain second-order reactions do not satisfy global force and moment equilibrium within the requested tolerance. Use corotational analysis for finite-displacement reactions."));
+    let unavailable = !equilibrium.equilibrium_ok || !equilibrium.residual_ok;
+    let mut results = AnalysisResults3D {
+        displacements: build_displacements_3d(dof_num, &u_global), reactions,
+        element_forces: second_order_forces_3d(input, dof_num, &u_global),
+        plate_stresses: compute_plate_stresses(input, dof_num, &u_global, None),
+        quad_stresses: compute_quad_stresses(input, dof_num, &u_global, None), quad_nodal_stresses: vec![], constraint_forces,
+        diagnostics: linear_results.diagnostics.clone(),
+        solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
+        structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
+        equilibrium: Some(equilibrium), timings: None, result_summary: None, solver_run_meta: None,
+    };
+    if unavailable {
+        super::reaction_recovery::withhold(&mut results, super::reaction_recovery::UnavailableQuantity::Reactions, "Finite-displacement support reactions are unavailable at this P-Delta state: its small-strain second-order reactions do not satisfy global force and moment equilibrium within the requested tolerance. Use corotational analysis for finite-displacement reactions.");
     }
 
     Ok(PDeltaResult3D {
-        results: AnalysisResults3D {
-            displacements: build_displacements_3d(dof_num, &u_global), reactions,
-            element_forces: second_order_forces_3d(input, dof_num, &u_global),
-            plate_stresses: compute_plate_stresses(input, dof_num, &u_global, None),
-            quad_stresses: compute_quad_stresses(input, dof_num, &u_global, None), quad_nodal_stresses: vec![], constraint_forces,
-            diagnostics: linear_results.diagnostics.clone(),
-            solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
-            structured_diagnostics: { let mut d = model_structured_diagnostics(&linear_results.structured_diagnostics); d.extend(recovered_diagnostics); d },
-            equilibrium: Some(equilibrium), timings: None, result_summary: None, solver_run_meta: None,
-        },
+        results,
         iterations: state.iterations, converged: state.converged,
         is_stable: state.converged && b2 < 100.0, b2_factor: b2, linear_results,
     })
@@ -640,6 +638,45 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    fn r17_withheld_pdelta(dim: usize) {
+        for sparse in [false, true] {
+            for iterations in [0, 40] {
+                for axial in [-3.0, 0.0, 3.0] {
+                    let mut m: serde_json::Value = serde_json::from_str(if dim == 2 {
+                        include_str!("../../tests/fixtures/reaction-recovery-2d.json")
+                    } else {
+                        include_str!("../../tests/fixtures/reaction-recovery-3d.json")
+                    }).unwrap();
+                    m["loads"][0]["data"]["fx"] = serde_json::json!(axial);
+                    let r = if dim == 2 {
+                        let input: SolverInput = serde_json::from_value(m).unwrap();
+                        let dofs = DofNumbering::build_2d(&input);
+                        let cs = FreeConstraintSystem::build_2d(&input, &dofs).unwrap();
+                        serde_json::to_value(solve_pdelta_2d_on(&input, &dofs, cs, sparse, iterations, 1e-9).unwrap().results).unwrap()
+                    } else {
+                        let input: SolverInput3D = serde_json::from_value(m).unwrap();
+                        let dofs = DofNumbering::build_3d(&input);
+                        let cs = FreeConstraintSystem::build_3d(&input, &dofs).unwrap();
+                        serde_json::to_value(solve_pdelta_3d_on(&input, &dofs, cs, sparse, iterations, 1e-9).unwrap().results).unwrap()
+                    };
+                    let unavailable = axial != 0.0;
+                    let warned = r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == "reactions");
+                    assert_eq!(warned, unavailable, "{dim}D sparse={sparse} iterations={iterations}: {r}");
+                    assert_eq!(r["reactions"].as_array().unwrap().is_empty(), unavailable, "{r}");
+                    assert!(!r["elementForces"].as_array().unwrap().is_empty());
+                    if axial != 0.0 {
+                        assert_eq!(r["equilibrium"]["residualOk"], iterations != 0, "{r}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn r17_withheld_pdelta_2d() { r17_withheld_pdelta(2); }
+    #[test]
+    fn r17_withheld_pdelta_3d() { r17_withheld_pdelta(3); }
 
     fn r11_physical_residual(dim: usize) {
         let cases: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-r11.json")).unwrap();
@@ -830,7 +867,11 @@ mod tests {
         assert_same(&d, &s);
         assert!((s.results.displacements.iter().find(|d| d.node_id == 1).unwrap().uz + 0.002).abs() < 1e-12);
         let fx: f64 = input.loads.iter().filter_map(|l| match l { SolverLoad3D::Nodal(l) => Some(l.fx), _ => None }).sum();
-        let rx: f64 = s.results.reactions.iter().map(|r| r.fx).sum();
+        for result in [&d.results, &s.results] {
+            assert!(result.reactions.is_empty());
+            assert!(result.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("reactions")));
+        }
+        let rx = s.results.equilibrium.as_ref().unwrap().reaction_force_sum[0];
         assert!((rx + fx).abs() < 1e-7 * fx, "reactions balance second-order forces: {rx} vs {fx}");
         let cd = &d.results.constraint_forces;
         let cs = &s.results.constraint_forces;

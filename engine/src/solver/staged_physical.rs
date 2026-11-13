@@ -9,11 +9,26 @@ pub(super) enum StageModel<'a> {
 
 struct PhysicalStageStiffness(CscMatrix);
 
-pub(in crate::solver) struct PhysicalStageResidual(Vec<f64>);
+pub(in crate::solver) struct PhysicalStageResidual {
+    residual: Vec<f64>,
+    applied: Vec<f64>,
+}
 
 impl PhysicalStageResidual {
+    pub(super) fn equilibrium_ok(
+        &self,
+        metric: &super::super::convergence::EquilibriumMetric,
+        dof: &DofNumbering,
+        u: &[f64],
+        cs: Option<&super::super::constraints::FreeConstraintSystem>,
+    ) -> bool {
+        let support_driven = u[dof.n_free..].iter().any(|v| *v != 0.0);
+        let relative = metric.relative_residual(&self.residual, &self.applied, support_driven.then_some(1.0), cs);
+        relative.is_finite() && relative < 1e-6
+    }
+
     pub(in crate::solver) fn as_slice(&self) -> &[f64] {
-        &self.0
+        &self.residual
     }
 }
 
@@ -57,14 +72,15 @@ impl PhysicalStageStiffness {
     fn residual(self, applied: &[f64], u: &[f64]) -> PhysicalStageResidual {
         assert_eq!(applied.len(), self.0.n);
         assert_eq!(u.len(), self.0.n);
-        PhysicalStageResidual(
-            self.0
+        PhysicalStageResidual {
+            residual: self.0
                 .sym_mat_vec(u)
                 .iter()
                 .zip(applied)
                 .map(|(ku, f)| ku - f)
                 .collect(),
-        )
+            applied: applied.to_vec(),
+        }
     }
 }
 
