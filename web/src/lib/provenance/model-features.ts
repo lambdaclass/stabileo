@@ -17,6 +17,8 @@
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
+import { gravityLayout } from '../engine/loads/plan-gravity';
+import { snowSlopes } from '../engine/loads/snow-loads';
 import { DEFAULT_PLATE_MESH } from '../model/physical/plate';
 
 export const ANALYSIS_KINDS = [
@@ -40,7 +42,7 @@ export const FEATURE_IDS = [
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
-  'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'generatedPitchedSnowPanels', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -86,7 +88,7 @@ export interface FeatureSnapshot {
   combinationRules?: unknown[];
   solidShells?: Entries<unknown>;
   plates?: Entries<{ id?: number; offset?: Offset3 }>;
-  quads?: Entries<{ id?: number; curved?: boolean; offset?: Offset3 }>;
+  quads?: Entries<{ id?: number; nodes?: number[]; curved?: boolean; offset?: Offset3 }>;
   constraints?: Array<Record<string, unknown>>;
   connectors?: Entries<{ kShear?: number; kShearZ?: number }>;
   footings?: Entries<unknown>;
@@ -96,6 +98,22 @@ export interface FeatureSnapshot {
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
   designData?: { loadBasis?: { resultsVersion?: unknown }; site?: { phases?: unknown[] } };
+}
+
+
+function generatedPitchedSnowPanels(s: FeatureSnapshot): boolean {
+  const snowCases = new Set((s.loadCases ?? []).filter(c => c.type === 'S').map(c => c.id));
+  const carriers = new Set((s.loads ?? []).filter(l => fromLoadPlan(l.data?.generatedBy) && snowCases.has(l.data?.caseId as number))
+    .flatMap(l => [l.data?.elementId, l.data?.carrier]).filter((id): id is number => typeof id === 'number'));
+  if (!carriers.size) return false;
+  const nodes = new Map((s.nodes ?? []).flatMap(([id, n]) => typeof n.x === 'number' && typeof n.y === 'number'
+    ? [[id, { id, x: n.x, y: n.y, z: n.z }] as const] : []));
+  const elements = new Map(values(s.elements).map(e => [e.id, { id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ }]));
+  const quads = new Map(values(s.quads).flatMap((q, id) => q.nodes ? [[q.id ?? id, { id: q.id ?? id, nodes: q.nodes }] as const] : []));
+  const model = { nodes, elements, quads };
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  const slopes = snowSlopes(model, layout);
+  return [...layout.pieces, ...layout.points].some(p => carriers.has(p.elementId) && slopes.panel(p.panel) > 0);
 }
 
 export interface FeatureContext {
@@ -273,6 +291,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const types = new Set(cases.map((c) => c.type));
   if (types.has('E') || cases.some((c) => c.spectral) || s.massSource) f.add('seismic');
   if (types.has('S')) f.add('snow');
+  if (generatedPitchedSnowPanels(s)) f.add('generatedPitchedSnowPanels');
   if (types.has('W')) f.add('wind');
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (combos) {

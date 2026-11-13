@@ -1,0 +1,39 @@
+{
+  "id": "snow-panel-roof-slope",
+  "date": "2026-11-13",
+  "prs": [
+    1929
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedLoads",
+      "generatedPitchedSnowPanels"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Generated snow panels use the pitch of the roof above them",
+    "es": "Los paneles de nieve generada usan la pendiente de la cubierta superior",
+    "pt": "Os painéis de neve gerada usam a inclinação da cobertura acima",
+    "de": "Erzeugte Schneelasten auf Feldern verwenden die Dachneigung darüber",
+    "fr": "Les panneaux de neige générée utilisent la pente du toit au-dessus",
+    "tr": "Üretilen kar panelleri üstlerindeki çatının eğimini kullanır",
+    "hu": "A generált hóterhek paneljei a felettük levő tető hajlását használják"
+  },
+  "explanation": {
+    "en": "Regenerate snow loads on pitched roof panels, then solve again. The snow codes now share the slope of the roof above each beam-enclosed panel. Some generated intensities, seismic snow weights and dependent results can change. Flat panels and hand-entered loads are unaffected. Existing warnings about omitted drift, unbalanced snow and multi-span cases still apply.",
+    "es": "Regenerá las cargas de nieve de los paneles de cubierta inclinada y volvé a calcular. Los códigos de nieve ahora comparten la pendiente de la cubierta sobre cada panel cerrado por vigas. Pueden cambiar intensidades generadas, pesos sísmicos de nieve y resultados dependientes. Los paneles planos y las cargas manuales no cambian. Siguen vigentes las advertencias sobre acumulaciones, nieve no balanceada y cubiertas múltiples no generadas.",
+    "pt": "Regenere as cargas de neve dos painéis de cobertura inclinada e calcule novamente. Os códigos de neve agora compartilham a inclinação da cobertura sobre cada painel fechado por vigas. Algumas intensidades geradas, pesos sísmicos de neve e resultados dependentes podem mudar. Painéis planos e cargas manuais permanecem iguais. Continuam os avisos sobre acumulações, neve desequilibrada e coberturas múltiplas não geradas.",
+    "de": "Erzeugen Sie die Schneelasten auf geneigten Dachfeldern neu und berechnen Sie erneut. Die Schneenormen verwenden nun gemeinsam die Dachneigung über jedem von Trägern begrenzten Feld. Erzeugte Lastintensitäten, seismische Schneegewichte und abhängige Ergebnisse können sich ändern. Ebene Felder und manuelle Lasten bleiben unverändert. Hinweise auf nicht erzeugte Verwehungs-, unsymmetrische und Mehrfelddachlasten gelten weiter.",
+    "fr": "Régénérez les charges de neige des panneaux de toit inclinés, puis relancez le calcul. Les normes de neige partagent désormais la pente du toit au-dessus de chaque panneau délimité par des poutres. Certaines intensités générées, masses sismiques de neige et résultats dépendants peuvent changer. Les panneaux plats et charges manuelles restent inchangés. Les avertissements sur les accumulations, charges dissymétriques et toits à plusieurs travées non générés restent applicables.",
+    "tr": "Eğimli çatı panellerindeki kar yüklerini yeniden üretip tekrar hesaplayın. Kar yönetmelikleri artık kirişlerle çevrili her panelin üstündeki çatının eğimini ortak olarak kullanır. Üretilen yük şiddetleri, deprem kar ağırlıkları ve bağlı sonuçlar değişebilir. Düz paneller ve elle girilen yükler değişmez. Üretilmeyen kar birikmesi, dengesiz kar ve çok açıklıklı çatı durumlarına ilişkin uyarılar geçerlidir.",
+    "hu": "Generálja újra a ferde tetőpanelek hóterheit, majd számoljon újra. A hószabványok most közösen használják a gerendákkal határolt panel feletti tető hajlását. Egyes generált teherintenzitások, szeizmikus hósúlyok és kapcsolódó eredmények változhatnak. A sík panelek és kézi terhek változatlanok. A nem generált hótorlaszokra, aszimmetrikus hóra és többnyílású tetőkre vonatkozó figyelmeztetések továbbra is érvényesek."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-snow-panel-slope.md",
+    "heading": "Roof panels use the slope of the roof above them (2026-11-13)"
+  }
+}
