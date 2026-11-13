@@ -302,6 +302,24 @@ fn soil_in_its_linear_range_uses_elastic_equilibrium() {
     let mut failures = Vec::new();
     let mut cases = Vec::new();
     for solver in [witness("2011"), witness("transformed-2011")] {
+        let mut compliance_model = solver.clone();
+        compliance_model.loads = vec![dedaliano_engine::types::SolverLoad::Nodal(
+            dedaliano_engine::types::SolverNodalLoad {
+                node_id: 2,
+                fx: 1.0,
+                fz: 0.0,
+                my: 0.0,
+            },
+        )];
+        let compliance = linear::solve_2d(&compliance_model).unwrap();
+        let stiffness = 1.0
+            / compliance
+                .displacements
+                .iter()
+                .find(|d| d.node_id == 2)
+                .unwrap()
+                .ux;
+        assert!(stiffness.is_finite() && stiffness > 0.0);
         let reference = linear::solve_2d(&solver).unwrap();
         let tip = reference
             .displacements
@@ -314,7 +332,7 @@ fn soil_in_its_linear_range_uses_elastic_equilibrium() {
             direction: 0,
             tributary_length: 1.0,
             curve: dedaliano_engine::solver::soil_curves::SoilCurve::Custom {
-                points: vec![[0.0, 0.0], [end, end * f64::EPSILON]],
+                points: vec![[0.0, 0.0], [end, end * stiffness]],
             },
         };
         let input = SSIInput {
@@ -331,16 +349,25 @@ fn soil_in_its_linear_range_uses_elastic_equilibrium() {
         let mut equivalent = solver.clone();
         equivalent.supports.insert(
             "2".into(),
-            serde_json::from_value(json!({"id":2,"nodeId":2,"type":"spring","kx":f64::EPSILON}))
+            serde_json::from_value(json!({"id":2,"nodeId":2,"type":"spring","kx":stiffness}))
                 .unwrap(),
         );
         let c = conditioning::of_2d(&equivalent).unwrap();
+        assert!(c.rel() < conditioning::INCONCLUSIVE);
+        let expected = linear::solve_2d(&equivalent).unwrap();
+        assert!(
+            compare::compare(
+                &compare::flat_2d(&reference, Parts::DISPLACEMENTS),
+                &compare::flat_2d(&expected, Parts::DISPLACEMENTS),
+                c.lchar,
+                c.rel(),
+            )
+            .is_err(),
+            "dropping the 2D spring must change the answer"
+        );
         compare::compare(
             &compare::flat_2d(&r.results, Parts::DISPLACEMENTS),
-            &compare::flat_2d(
-                &linear::solve_2d(&equivalent).unwrap(),
-                Parts::DISPLACEMENTS,
-            ),
+            &compare::flat_2d(&expected, Parts::DISPLACEMENTS),
             c.lchar,
             c.rel(),
         )
@@ -365,14 +392,26 @@ fn soil_in_its_linear_range_uses_elastic_equilibrium() {
         }
         assert!(r.spring_results[0].reaction != 0.0);
         let mut equivalent = input.solver.clone();
-        equivalent.supports.insert("2".into(), serde_json::from_value(json!({"nodeId":2,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":f64::EPSILON})).unwrap());
+        equivalent.supports.insert("2".into(), serde_json::from_value(json!({"nodeId":2,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":stiffness})).unwrap());
         let c = conditioning::of_3d(&equivalent).unwrap();
+        assert!(c.rel() < conditioning::INCONCLUSIVE);
+        let expected = linear::solve_3d(&equivalent).unwrap();
+        assert!(
+            compare::compare(
+                &compare::flat_3d(
+                    &linear::solve_3d(&input.solver).unwrap(),
+                    Parts::DISPLACEMENTS
+                ),
+                &compare::flat_3d(&expected, Parts::DISPLACEMENTS),
+                c.lchar,
+                c.rel(),
+            )
+            .is_err(),
+            "dropping the 3D spring must change the answer"
+        );
         compare::compare(
             &compare::flat_3d(&r.results, Parts::DISPLACEMENTS),
-            &compare::flat_3d(
-                &linear::solve_3d(&equivalent).unwrap(),
-                Parts::DISPLACEMENTS,
-            ),
+            &compare::flat_3d(&expected, Parts::DISPLACEMENTS),
             c.lchar,
             c.rel(),
         )
