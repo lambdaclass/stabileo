@@ -74,3 +74,12 @@ describe('the sheet set', () => {
     await expect(sheetSvg(set[1]!)).toMatchFileSnapshot('./__goldens__/beam-sheet-a3.svg');
   });
 });
+
+it.skip.each([0, 1, 41, 42, 83])('known wrong result: #1929: PDF provenance retains every line and keeps %s rows on the page', async count => {
+  const { sheetSetPdf } = await import('../sheet-set');
+  const lines = Array.from({ length: count }, (_, i) => ['source', `marker-${i}`] as [string, string]);
+  const pdf = new TextDecoder().decode(sheetSetPdf([], 'Notes', undefined, { title: 'Provenance', lines, dxf: d => d, svg: s => s }));
+  const expectedPages = Math.max(1, Math.ceil(count / 41));
+  expect(pdf.match(/\/Type \/Page\b/g)).toHaveLength(expectedPages);
+  for (const [, marker] of lines) expect(pdf).toContain(marker);
+});
