@@ -167,6 +167,16 @@ fn verify_2019_rigid_translation(out: &dedaliano_engine::certify::CertifiedResul
     else {
         panic!("{:?}", out.certificate)
     };
+    assert_node_ids(
+        out.results.displacements.iter().map(|d| d.node_id),
+        &[1, 2, 3],
+        "displacements",
+    );
+    assert_node_ids(
+        out.results.reactions.iter().map(|r| r.node_id),
+        &[1, 3],
+        "reactions",
+    );
     for d in &out.results.displacements {
         assert!((d.ux + 0.001).abs() <= abs_bound);
         for v in [d.uy, d.uz, d.rx, d.ry, d.rz] {
@@ -193,13 +203,21 @@ fn verify_2019_rigid_translation(out: &dedaliano_engine::certify::CertifiedResul
     }
 }
 
+fn assert_node_ids(ids: impl Iterator<Item = usize>, expected: &[usize], field: &str) {
+    let mut actual: Vec<_> = ids.collect();
+    actual.sort_unstable();
+    assert_eq!(
+        actual, expected,
+        "{field} must contain each expected node once"
+    );
+}
+
 fn certified_2019() -> dedaliano_engine::certify::CertifiedResults3D {
     let input = serde_json::from_value(witness("decoded-2019")).unwrap();
     dedaliano_engine::certify::certify_linear_3d_full(&input).unwrap()
 }
 
 #[test]
-#[ignore = "known wrong result: #2070"]
 fn issue_2070_rejects_empty_displacements() {
     let mut out = certified_2019();
     out.results.displacements.clear();
@@ -210,7 +228,6 @@ fn issue_2070_rejects_empty_displacements() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2070"]
 fn issue_2070_rejects_missing_displacements() {
     let mut out = certified_2019();
     out.results.displacements.pop().unwrap();
@@ -221,10 +238,11 @@ fn issue_2070_rejects_missing_displacements() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2070"]
 fn issue_2070_rejects_duplicate_displacements() {
     let mut out = certified_2019();
-    out.results.displacements.push(out.results.displacements[0].clone());
+    out.results
+        .displacements
+        .push(out.results.displacements[0].clone());
     assert!(
         std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err(),
         "accepted duplicate displacements"
@@ -232,7 +250,6 @@ fn issue_2070_rejects_duplicate_displacements() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2070"]
 fn issue_2070_rejects_unexpected_displacements() {
     let mut out = certified_2019();
     out.results.displacements[0].node_id = usize::MAX;
@@ -243,7 +260,6 @@ fn issue_2070_rejects_unexpected_displacements() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2070"]
 fn issue_2070_rejects_empty_reactions() {
     let mut out = certified_2019();
     out.results.reactions.clear();
@@ -254,7 +270,6 @@ fn issue_2070_rejects_empty_reactions() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2070"]
 fn issue_2070_rejects_missing_reactions() {
     let mut out = certified_2019();
     out.results.reactions.pop().unwrap();
@@ -265,7 +280,6 @@ fn issue_2070_rejects_missing_reactions() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2070"]
 fn issue_2070_rejects_duplicate_reactions() {
     let mut out = certified_2019();
     out.results.reactions.push(out.results.reactions[0].clone());
@@ -286,10 +300,58 @@ fn issue_2070_rejects_unexpected_reactions() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2070"]
 fn issue_2070_rejects_empty_result_arrays() {
     let mut out = certified_2019();
     out.results.displacements.clear();
     out.results.reactions.clear();
     assert!(std::panic::catch_unwind(|| verify_2019_rigid_translation(&out)).is_err());
+}
+
+#[test]
+fn issue_2070_accepts_complete_result_arrays_in_any_order() {
+    let mut out = certified_2019();
+    out.results.displacements.reverse();
+    out.results.reactions.reverse();
+    verify_2019_rigid_translation(&out);
+}
+
+#[test]
+fn issue_2012_archived_pair_preserves_source_and_scaled_physics() {
+    use dedaliano_engine::metamorphic::units::{scale_2d, Units};
+    use dedaliano_engine::types::SolverInput;
+
+    let archive: Value = serde_json::from_str(
+        &std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../docs/verification/triage/2026-11-13.json"
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    let issue = archive["issues"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|issue| issue["issue"] == 2012)
+        .unwrap();
+    let source: Value = serde_json::from_str(
+        issue["source"]["body"]
+            .as_str()
+            .unwrap()
+            .split_once("```json\n")
+            .unwrap()
+            .1
+            .split_once("\n```")
+            .unwrap()
+            .0,
+    )
+    .unwrap();
+    assert_eq!(source, witness("2012"));
+    assert_eq!(source["elements"]["9"]["materialId"], 2);
+    let input: SolverInput = serde_json::from_value(source).unwrap();
+    let transformed: SolverInput = serde_json::from_value(witness("transformed-2012")).unwrap();
+    assert_eq!(
+        serde_json::to_value(transformed).unwrap(),
+        serde_json::to_value(scale_2d(&input, &Units::froude(0.001, 1000.0))).unwrap()
+    );
 }

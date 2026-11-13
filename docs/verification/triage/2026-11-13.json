@@ -57794,5 +57794,64 @@
     "previous_no_usable_invariant": 42,
     "current_no_usable_invariant": 45,
     "runner_alarm_excerpt": "2026-11-13T00:40:49.4483172Z ALARM: working on the last Unit for 77 seconds\n2026-11-13T00:40:49.4483779Z        and the timeout value is 60 (use -timeout=N to change)\n2026-11-13T00:40:49.4484422Z MS: 1 ChangeBit-; base unit: 2282c63d9dbb2fa121f2281852a79b64d792d03d\n2026-11-13T00:40:49.4492488Z artifact_prefix='/home/runner/work/stabileo/stabileo/engine/fuzz/artifacts/json_plastic/'; Test unit written to /home/runner/work/stabileo/stabileo/engine/fuzz/artifacts/json_plastic/timeout-3957745a20893089a074a84b02717bd079fa07a7\n2026-11-13T00:40:49.4494677Z ==7041== ERROR: libFuzzer: timeout after 77 seconds\n2026-11-13T00:40:49.4495996Z     #0 0x5648f3e0bcb1  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x1888cb1) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4497444Z     #1 0x5648f6de1bbd  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x485ebbd) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4498857Z     #2 0x5648f6dc9c34  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x4846c34) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4499961Z     #3 0x7fce5e24532f  (/lib/x86_64-linux-gnu/libc.so.6+0x4532f) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)\n2026-11-13T00:40:49.4501059Z     #4 0x5648f6dde86e  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x485b86e) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4502731Z     #5 0x5648f6d39f5b  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x47b6f5b) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4504110Z     #6 0x5648f6c2538a  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x46a238a) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4505725Z     #7 0x5648f5cf3941  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x3770941) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4507100Z     #8 0x5648f6bb2fb5  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x462ffb5) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4508473Z     #9 0x5648f66c354f  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x414054f) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4509850Z     #10 0x5648f5910046  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x338d046) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4511240Z     #11 0x5648f66e5501  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x4162501) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4512877Z     #12 0x5648f66d9a09  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x4156a09) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4514259Z     #13 0x5648f66d695f  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x415395f) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4515631Z     #14 0x5648f40568fd  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x1ad38fd) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4517013Z     #15 0x5648f4064776  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x1ae1776) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4518463Z     #16 0x5648f3e348dc  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x18b18dc) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4519844Z     #17 0x5648f6dc1f54  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x483ef54) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4521214Z     #18 0x5648f6dc2a38  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x483fa38) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4522967Z     #19 0x5648f6dc188d  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x483e88d) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4524350Z     #20 0x5648f6dc9f28  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x4846f28) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4525733Z     #21 0x5648f6dd1449  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x484e449) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4527092Z     #22 0x5648f6dd248a  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x484f48a) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4528467Z     #23 0x5648f6dd3357  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x4850357) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4529832Z     #24 0x5648f6df9687  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x4876687) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4531191Z     #25 0x5648f3d6c2c6  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x17e92c6) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4532483Z     #26 0x7fce5e22a1c9  (/lib/x86_64-linux-gnu/libc.so.6+0x2a1c9) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)\n2026-11-13T00:40:49.4533314Z     #27 0x7fce5e22a28a  (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)\n2026-11-13T00:40:49.4534401Z     #28 0x5648f3d6c494  (/home/runner/work/stabileo/stabileo/engine/fuzz/target/x86_64-unknown-linux-gnu/release/json_plastic+0x17e9494) (BuildId: eb91371f6d7b6f7036576e817ac5984de80fd485)\n2026-11-13T00:40:49.4535149Z \n2026-11-13T00:40:49.4535261Z SUMMARY: libFuzzer: timeout\n2026-11-13T00:40:49.4535600Z stat::number_of_executed_units: 251637\n2026-11-13T00:40:49.4535931Z stat::average_exec_per_sec:     279"
+  },
+  "review_2070": {
+    "material_provenance": {
+      "issue": 2012,
+      "source": "issues[issue=2012].source.body JSON block",
+      "original_fixture": "2012",
+      "transformed_fixture": "transformed-2012",
+      "source_equals_original_fixture": true,
+      "element_9_material_ids": {
+        "source": 2,
+        "original_fixture": 2,
+        "transformed_fixture": 2
+      },
+      "material_ids_remapped": false,
+      "unit_scales": {
+        "length": 0.001,
+        "force": 1000
+      },
+      "equivalence_check": "issue_2012_archived_pair_preserves_source_and_scaled_physics: complete typed transformed input equals scale_2d(original, Units::froude(0.001, 1000.0))",
+      "conclusion": "Physically equivalent pair; no material swap or witness edit; angle-winding classification retained."
+    },
+    "oracle_coverage": {
+      "issue": 2019,
+      "expected_displacement_node_ids": [
+        1,
+        2,
+        3
+      ],
+      "expected_reaction_node_ids": [
+        1,
+        3
+      ],
+      "duplicates_permitted": false,
+      "regression_issue": 2070,
+      "before": "Eight malformed-result regressions fail on reproducer commit; unexpected reaction IDs already rejected by the bound lookup.",
+      "engine_results_changed": false,
+      "validation": {
+        "parent_commit": "2f5b4c4af",
+        "parent_command": "make test.engine.targeted TEST=metamorphic FILTER='nightly_1113::issue_2070 -- --ignored'",
+        "parent_result": "FAILED. 0 passed; 8 failed; 0 ignored",
+        "failed_on_parent": [
+          "duplicate_displacements",
+          "duplicate_reactions",
+          "empty_displacements",
+          "empty_reactions",
+          "empty_result_arrays",
+          "missing_displacements",
+          "missing_reactions",
+          "unexpected_displacements"
+        ],
+        "after_command": "make test.engine.targeted TEST=metamorphic FILTER='nightly_1113::issue_2070'",
+        "after_result": "ok. 10 passed; 0 failed; 0 ignored",
+        "other_targeted_results": {
+          "issue_2012_archived_pair": "1 passed; 0 failed",
+          "issue_2019": "1 passed; 0 failed",
+          "check.changelog": "passed"
+        }
+      }
+    }
   }
 }
