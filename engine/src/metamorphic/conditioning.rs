@@ -249,7 +249,9 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Conditioning, String> {
         Some(build_constraint_transform(&input.constraints, &dof, None, Some(&input.nodes), &inclined_dofs_3d(input, &dof))?)
     };
     let (kmax, kmax_r) = (stiffest(&asm.k, &dof, 0..3), stiffest(&asm.k, &dof, 3..6));
-    let (kr, n) = reduced(&asm.k, &dof, ct);
+    let (mut kr, n) = reduced(&asm.k, &dof, ct);
+    let stability = crate::solver::stability::of_3d(input)?;
+    if stability.is_stable() { stability.pin_dense(&mut kr,n); }
     let kappa = scaled_condition(&kr, n)?;
     let pts: Vec<[f64; 3]> = crate::ordered::values(&input.nodes).map(|p| [p.x, p.y, p.z]).collect();
     let pos = |id: usize| input.nodes.get(&id.to_string()).map(|p| [p.x, p.y, p.z]);

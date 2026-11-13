@@ -749,6 +749,9 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
     if !input.uplift_supports.is_empty() {
         return solve_uplift_2d(input);
     }
+    if super::stability::has_member_releases_2d(&input.solver) && input.gap_elements.is_empty() && input.element_behaviors.is_empty() && input.node_to_surface_pairs.is_empty() && input.max_iter != Some(0) {
+        return Ok(ContactResult {results:linear::solve_2d(&input.solver)?,iterations:1,converged:true,element_status:Vec::new(),gap_status:Vec::new(),diagnostics:Vec::new(),node_to_surface_status:Vec::new(),al_iterations:1});
+    }
     let max_iter = input.max_iter.unwrap_or(30);
     let max_flips = input.max_flips.unwrap_or(4);
     let al_factor = input.augmented_lagrangian.unwrap_or(0.0);
@@ -1278,6 +1281,9 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
         ));
     }
 
+    if super::stability::has_member_releases_3d(&input.solver) && input.gap_elements.is_empty() && input.element_behaviors.is_empty() && input.max_iter != Some(0) {
+        return Ok(ContactResult3D {results:linear::solve_3d(&input.solver)?,iterations:1,converged:true,element_status:Vec::new(),gap_status:Vec::new(),diagnostics:Vec::new(),al_iterations:1});
+    }
     let max_iter = input.max_iter.unwrap_or(30);
     let max_flips = input.max_flips.unwrap_or(4);
     let al_factor = input.augmented_lagrangian.unwrap_or(0.0);
