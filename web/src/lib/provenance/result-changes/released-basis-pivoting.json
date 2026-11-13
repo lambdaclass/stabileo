@@ -1,0 +1,37 @@
+{
+  "id": "released-basis-pivoting",
+  "date": "2026-11-13",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "frameMembers",
+      "hinges"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Released rotation basis selection",
+    "es": "Selección de la base de giros liberados",
+    "pt": "Seleção da base de rotações liberadas",
+    "de": "Basiswahl für freigegebene Drehungen",
+    "fr": "Choix de base des rotations libérées",
+    "tr": "Serbest dönmeler için baz seçimi"
+  },
+  "explanation": {
+    "en": "Nearly parallel release candidates could amplify direction uncertainty. Shared checks now choose independent directions by pivoting and retain the normalization uncertainty. Re-run spatial frames with multiple end releases at a node; genuine unsupported moments remain refused (#2074).",
+    "es": "Las direcciones liberadas casi paralelas podían amplificar la incertidumbre. Las verificaciones compartidas seleccionan direcciones independientes mediante pivoteo y conservan la incertidumbre de normalización. Recalculá los pórticos espaciales con varias liberaciones en un nodo; los momentos incompatibles siguen rechazándose (#2074).",
+    "pt": "Direções liberadas quase paralelas podiam amplificar a incerteza. As verificações compartilhadas selecionam direções independentes por pivoteamento e conservam a incerteza da normalização. Recalcule pórticos espaciais com várias liberações num nó; momentos incompatíveis continuam recusados (#2074).",
+    "de": "Nahezu parallele Freigaberichtungen konnten die Richtungsunsicherheit verstärken. Gemeinsame Prüfungen wählen unabhängige Richtungen durch Pivotierung und erhalten die Normierungsunsicherheit. Räumliche Rahmen mit mehreren Endfreigaben an einem Knoten neu berechnen; unverträgliche Momente werden weiterhin abgelehnt (#2074).",
+    "fr": "Des directions libérées presque parallèles pouvaient amplifier l’incertitude. Les vérifications communes choisissent des directions indépendantes par pivotage et conservent l’incertitude de normalisation. Recalculer les portiques spatiaux avec plusieurs libérations à un nœud ; les moments incompatibles restent refusés (#2074).",
+    "tr": "Neredeyse paralel serbest dönme yönleri belirsizliği büyütebiliyordu. Ortak denetimler bağımsız yönleri pivotlama ile seçer ve normalleştirme belirsizliğini korur. Bir düğümde birden çok uç serbestliği olan uzay çerçevelerini yeniden çözün; uyumsuz momentler reddedilmeye devam eder (#2074)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-released-basis-pivoting.md",
+    "heading": "Released rotation basis selection (2026-11-13)"
+  }
+}

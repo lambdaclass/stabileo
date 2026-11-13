@@ -1,0 +1,47 @@
+{
+  "id": "transformed-load-assembly",
+  "date": "2026-11-13",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "connectors",
+        "springs",
+        "constraints"
+      ],
+      [
+        "hinges",
+        "nodalMoments",
+        "trussMemberLoads",
+        "inclinedSupports"
+      ]
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Exact residual moments and transformed load assembly",
+    "es": "Momentos residuales exactos y ensamblaje de cargas transformadas",
+    "pt": "Momentos residuais exatos e montagem de cargas transformadas",
+    "de": "Exakte Restmomente und transformierte Lastassemblierung",
+    "fr": "Moments résiduels exacts et assemblage des charges transformées",
+    "tr": "Kesin artık momentler ve dönüştürülmüş yük birleştirmesi"
+  },
+  "explanation": {
+    "en": "Released-load checks now track the actual assembly operations, including inclined supports and single 2D member loads. An exactly assembled nonzero residual moment is refused; exact cancellation remains admissible in staged history. Initial nonlinear moment checks use only free constraint rows. Models without member releases retain their existing Winkler and contact behavior. Re-run affected models; existing warnings still apply (#2074).",
+    "es": "Las verificaciones de cargas en giros liberados siguen ahora las operaciones reales de ensamblaje, incluidos los apoyos inclinados y una sola carga de barra 2D. Se rechaza un momento residual no nulo ensamblado exactamente; la cancelación exacta sigue admitida en el historial por etapas. Las verificaciones iniciales no lineales usan solo las filas libres de las restricciones. Los modelos sin liberaciones conservan el comportamiento de Winkler y contacto. Recalculá los modelos afectados; siguen vigentes las advertencias (#2074).",
+    "pt": "As verificações de cargas em rotações liberadas seguem agora as operações reais de montagem, incluindo apoios inclinados e uma única carga de barra 2D. Um momento residual não nulo montado exatamente é recusado; o cancelamento exato continua admitido no histórico por etapas. As verificações iniciais não lineares usam apenas as linhas livres das restrições. Modelos sem liberações mantêm o comportamento de Winkler e contato. Recalcule os modelos afetados; os avisos continuam válidos (#2074).",
+    "de": "Lastprüfungen an freigegebenen Drehungen folgen jetzt den tatsächlichen Assemblierungsoperationen, einschließlich geneigter Auflager und einer einzelnen 2D-Stablast. Ein exakt assemblierter Restmoment ungleich null wird abgelehnt; exakte Aufhebung bleibt im Bauphasenverlauf zulässig. Anfängliche nichtlineare Momentprüfungen verwenden nur freie Zwangsbedingungszeilen. Modelle ohne Stabendfreigaben behalten ihr Winkler- und Kontaktverhalten. Betroffene Modelle neu berechnen; bestehende Warnungen gelten weiter (#2074).",
+    "fr": "Les vérifications des charges sur les rotations libérées suivent désormais les opérations réelles d’assemblage, y compris les appuis inclinés et une seule charge de barre 2D. Un moment résiduel non nul assemblé exactement est refusé ; l’annulation exacte reste admise dans l’historique des phases. Les vérifications initiales non linéaires utilisent uniquement les lignes libres des contraintes. Les modèles sans libérations conservent le comportement Winkler et contact. Recalculer les modèles concernés ; les avertissements restent applicables (#2074).",
+    "tr": "Serbest dönmelerdeki yük denetimleri artık eğik mesnetler ve tek bir 2B çubuk yükü dahil gerçek birleştirme işlemlerini izler. Tam olarak birleştirilmiş sıfır olmayan artık moment reddedilir; aşamalı yük geçmişinde tam iptal kabul edilir. Başlangıçtaki doğrusal olmayan moment denetimleri yalnızca serbest kısıt satırlarını kullanır. Uç serbestliği olmayan modeller mevcut Winkler ve temas davranışını korur. Etkilenen modelleri yeniden çözün; mevcut uyarılar geçerlidir (#2074)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-transformed-load-assembly.md",
+    "heading": "Transformed load assembly and exact residual moments (2026-11-13)"
+  }
+}
