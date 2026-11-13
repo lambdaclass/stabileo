@@ -2,7 +2,8 @@ use crate::tally::Tally;
 use serde_json::Value;
 
 fn witness(issue: &str) -> Value {
-    let all: Value = serde_json::from_str(include_str!("../fixtures/nightly-2026-11-13.json")).unwrap();
+    let all: Value =
+        serde_json::from_str(include_str!("../fixtures/nightly-2026-11-13.json")).unwrap();
     all[issue].clone()
 }
 
@@ -17,18 +18,40 @@ fn relation(issue: &str, analysis: &str, invariant: &str, seed: u64) {
             if let Some(dens) = value.get("_nightly_dens") {
                 case.dens = serde_json::from_value(dens.clone()).unwrap();
             }
-            let adapter = crate::ana2::rows().into_iter().find(|a| a.name == analysis).unwrap();
+            let adapter = crate::ana2::rows()
+                .into_iter()
+                .find(|a| a.name == analysis)
+                .unwrap();
             let end = crate::INV_2D.iter().position(|r| *r == invariant).unwrap() + 1;
-            crate::checks2::check_case(&crate::checks2::Ctx { tally: &tally, rng_seed: seed }, &case, &[adapter], &crate::INV_2D[..end]);
+            crate::checks2::check_case(
+                &crate::checks2::Ctx {
+                    tally: &tally,
+                    rng_seed: seed,
+                },
+                &case,
+                &[adapter],
+                &crate::INV_2D[..end],
+            );
         }
         crate::corpus::Model::D3(s) => {
             let mut case = crate::case::Case3::new(name, s);
             if let Some(dens) = value.get("_nightly_dens") {
                 case.dens = serde_json::from_value(dens.clone()).unwrap();
             }
-            let adapter = crate::ana3::rows().into_iter().find(|a| a.name == analysis).unwrap();
+            let adapter = crate::ana3::rows()
+                .into_iter()
+                .find(|a| a.name == analysis)
+                .unwrap();
             let end = crate::INV_3D.iter().position(|r| *r == invariant).unwrap() + 1;
-            crate::checks3::check_case(&crate::checks3::Ctx { tally: &tally, rng_seed: seed }, &case, &[adapter], &crate::INV_3D[..end]);
+            crate::checks3::check_case(
+                &crate::checks3::Ctx {
+                    tally: &tally,
+                    rng_seed: seed,
+                },
+                &case,
+                &[adapter],
+                &crate::INV_3D[..end],
+            );
         }
     }
     let cells = tally.cells.lock().unwrap();
@@ -82,7 +105,12 @@ fn issue_2018_constrained_release() {
 #[test]
 #[ignore = "known wrong result: #2023"]
 fn issue_2023_released_rotation_load() {
-    relation("2023", "staged (loads in two stages)", "rotation", 2026111301655);
+    relation(
+        "2023",
+        "staged (loads in two stages)",
+        "rotation",
+        2026111301655,
+    );
 }
 
 #[test]
@@ -131,14 +159,31 @@ fn issue_2067_released_rotation_load() {
 fn issue_2019_rigid_translation_matches_the_independent_zero_strain_solution() {
     let input = serde_json::from_value(witness("decoded-2019")).unwrap();
     let out = dedaliano_engine::certify::certify_linear_3d_full(&input).unwrap();
-    let dedaliano_engine::certify::Certificate::Certified { abs_bound, .. } = out.certificate else { panic!("{:?}", out.certificate) };
+    let dedaliano_engine::certify::Certificate::Certified { abs_bound, .. } = out.certificate
+    else {
+        panic!("{:?}", out.certificate)
+    };
     for d in &out.results.displacements {
         assert!((d.ux + 0.001).abs() <= abs_bound);
-        for v in [d.uy, d.uz, d.rx, d.ry, d.rz] { assert!(v.abs() <= abs_bound); }
+        for v in [d.uy, d.uz, d.rx, d.ry, d.rz] {
+            assert!(v.abs() <= abs_bound);
+        }
     }
     for reaction in &out.results.reactions {
-        let bound = out.shown.reaction_bounds.iter().find(|b| b.node_id == reaction.node_id).unwrap();
-        for (v,b) in [(reaction.fx,bound.fx),(reaction.fy,bound.fy),(reaction.fz,bound.fz),(reaction.mx,bound.mx),(reaction.my,bound.my),(reaction.mz,bound.mz)] {
+        let bound = out
+            .shown
+            .reaction_bounds
+            .iter()
+            .find(|b| b.node_id == reaction.node_id)
+            .unwrap();
+        for (v, b) in [
+            (reaction.fx, bound.fx),
+            (reaction.fy, bound.fy),
+            (reaction.fz, bound.fz),
+            (reaction.mx, bound.mx),
+            (reaction.my, bound.my),
+            (reaction.mz, bound.mz),
+        ] {
             assert!(v.abs() <= b, "{reaction:?} outside {bound:?}");
         }
     }
