@@ -11,7 +11,7 @@
    */
   import { modelStore, uiStore, historyStore, resultsStore } from '../lib/store';
   import { t } from '../lib/i18n';
-  import { TWO_D_HORIZONTAL_AXIS_LABEL, TWO_D_VERTICAL_AXIS_LABEL } from '../lib/geometry/coordinate-system';
+  import { twoD } from '../lib/axes/display';
   import EditorCard from './EditorCard.svelte';
   import { unitQ } from '../lib/store/display-units.svelte';
   import { toDisplay, fromDisplay } from '../lib/utils/units';
@@ -37,8 +37,8 @@
 
   $effect(() => {
     if (node) {
-      localX = shownX = show(node.x);
-      localY = shownY = show(node.y);
+      localX = shownX = show(twoD.x(node.x));
+      localY = shownY = show(twoD.z(node.y));
       setTimeout(() => inputX?.select(), 0);
     }
   });
@@ -52,8 +52,8 @@
 
   function confirm() {
     if (!node || nodeId === null) return;
-    const x = metres(localX, shownX, node.x);
-    const y = metres(localY, shownY, node.y);
+    const x = twoD.fromX(metres(localX, shownX, twoD.x(node.x)));
+    const y = twoD.fromZ(metres(localY, shownY, twoD.z(node.y)));
     if (isNaN(x) || isNaN(y)) return;
     if (x !== node.x || y !== node.y) {
       historyStore.pushState();
@@ -84,7 +84,7 @@
     testid="node-editor"
   >
     <label class="ne-field">
-      <span>{TWO_D_HORIZONTAL_AXIS_LABEL} ({unitQ('length')})</span>
+      <span>{twoD.horizontal} ({unitQ('length')})</span>
       <input
         bind:this={inputX}
         type="number"
@@ -95,7 +95,7 @@
     </label>
 
     <label class="ne-field">
-      <span>{TWO_D_VERTICAL_AXIS_LABEL} ({unitQ('length')})</span>
+      <span>{twoD.vertical} ({unitQ('length')})</span>
       <input type="number" step="0.001" bind:value={localY} data-testid="node-editor-y" />
     </label>
 

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { caseNameShown } from '../../lib/axes/case-names';
+  import { axisName } from '../../lib/axes/display';
   import Hint from './Hint.svelte';
   import PickKind from './PickKind.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
@@ -158,7 +160,7 @@
     <QuantityInput bind:value={q} quantity="areaLoad" testid="fl-q" wrap="fl-unit" />
     <label for="fl-case">{t('floorLoad.case')}</label>
     <select id="fl-case" bind:value={caseId} data-testid="fl-case">
-      {#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+      {#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}
     </select>
     <label for="fl-dist">{t('floorLoad.distribution')}</label>
     <select id="fl-dist" bind:value={distribution} data-testid="fl-distribution">
@@ -169,8 +171,8 @@
     {#if distribution === 'oneWay'}
       <label for="fl-span">{t('floorLoad.span')}</label>
       <select id="fl-span" bind:value={spanAxis} data-testid="fl-span">
-        <option value="x">X</option>
-        <option value="y">Y</option>
+        <option value="x">{axisName(0)}</option>
+        <option value="y">{axisName(1)}</option>
       </select>
     {/if}
     <label for="fl-name">{t('floorLoad.name')}</label>

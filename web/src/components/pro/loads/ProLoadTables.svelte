@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../../../lib/axes/case-names';
   /**
    * The loads, as tables: the active case's or every case's, one table per kind, each cell edited in
    * place, the totals each case applies before anything is solved, and the operations on the loads
@@ -23,6 +24,8 @@
   import { editSelfWeightRule, type GlobalAxis, type SelfWeightLoad } from '../../../lib/engine/analysis-settings';
   import { shellText, surfaceValueText, surfaceHowText } from '../../../lib/model/loads/surface-load-text';
   import { definitionName, type DefinitionModel } from '../../../lib/model/loads/floor-definitions';
+  import { along, modelAxisOf, userRot, userVec } from '../../../lib/axes/display';
+  import { userSlot } from '../../../lib/axes/typed-frame';
 
   let scope = $state<'case' | 'all'>('case');
   let wrap = $state<HTMLDivElement | null>(null);
@@ -132,11 +135,23 @@
     modelStore.setAnalysis({ selfWeight: rules });
     if (merged) uiStore.toast(t('selfWeight.merged'), 'info');
   }
-  function swFactor(el: HTMLInputElement, i: number, prev: number) {
+  const swSign = (w: SelfWeightLoad) => along((['X', 'Y', 'Z'] as const).indexOf(w.direction) as 0 | 1 | 2).sign;
+  const swShownDir = (w: SelfWeightLoad) => along((['X', 'Y', 'Z'] as const).indexOf(w.direction) as 0 | 1 | 2).name;
+  function swDirection(i: number, w: SelfWeightLoad, user: GlobalAxis) {
+    const m = modelAxisOf(user);
+    swChange(i, { direction: (['X', 'Y', 'Z'] as const)[m.index], factor: m.sign * swSign(w) * w.factor });
+  }
+  function swFactor(el: HTMLInputElement, i: number, w: SelfWeightLoad) {
+    const sg = swSign(w), prev = sg * w.factor;
     const v = decimalOrKeep(el.value, prev);
     el.value = plainNumber(v, 6);
-    if (v !== prev && v !== 0) swChange(i, { factor: v });
+    if (v !== prev && v !== 0) swChange(i, { factor: sg * v });
     else el.value = plainNumber(prev, 6);
+  }
+  function slotKey(keys: readonly string[], i: number, global: boolean, moment = false) {
+    if (!global) return { key: keys[i]!, sign: 1 };
+    const s = userSlot(i, moment);
+    return { key: keys[s.k]!, sign: s.sign };
   }
   const swReach = (w: SelfWeightLoad) => (w.groupId !== undefined
     ? tp('loadTables.swGroup', { name: modelStore.model.groups.get(w.groupId)?.name ?? String(w.groupId) })
@@ -182,7 +197,7 @@
   <div class="lt-ops" data-testid="lt-ops">
     <span class="lt-ops-n">{tp('loadTables.selected', { n: selected.length })}</span>
     <select value={destination} onchange={(e) => (toCase = Number(e.currentTarget.value))} data-testid="lt-ops-case" aria-label={t('loadTables.toCase')}>
-      {#each cases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+      {#each cases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}
     </select>
     <label>× <input type="text" class="lt-k" bind:value={factorText} data-testid="lt-ops-factor" /></label>
     <button type="button" class="pk-btn" disabled={factor === null} onclick={() => copyLoadsToCase(selected, destination, factor ?? 1)} data-testid="lt-ops-copy">{t('loadTables.copy')}</button>
@@ -209,6 +224,12 @@
   {:else}{#key redraw}<td class="col-num"><QuantityInput value={v ?? 0} quantity={q} cls="inp-cell" showUnit={false} onchange={(si) => setSI(id, key, v, si)} /></td>{/key}{/if}
 {/snippet}
 
+{#snippet scell(id: number, s: { key: string; sign: number }, row: object, q: Quantity)}
+  {@const v = (row as Record<string, number | undefined>)[s.key]}
+  {#if defOf(id) !== undefined}<td class="col-num">{fmtQ(s.sign * (v ?? 0), q)}</td>
+  {:else}{#key redraw}<td class="col-num"><QuantityInput value={s.sign * (v ?? 0)} quantity={q} cls="inp-cell" showUnit={false} onchange={(si) => setSI(id, s.key, v, s.sign * si)} /></td>{/key}{/if}
+{/snippet}
+
 <div class="pro-loads-table-wrap" bind:this={wrap} data-testid="load-tables">
   {#if swShown.length}
     <div class="pro-load-section-title">{t('selfWeight.title')}</div>
@@ -216,12 +237,12 @@
       {#each swShown as { w, i } (i)}
         <tr data-testid="sw-row">
           <td><select class="inp-cell" value={String(w.caseId)} onchange={(e) => swChange(i, { caseId: Number(e.currentTarget.value) })} data-testid="sw-case">
-            {#each cases as c (c.id)}<option value={String(c.id)}>{c.name}</option>{/each}
+            {#each cases as c (c.id)}<option value={String(c.id)}>{caseNameShown(c)}</option>{/each}
           </select></td>
-          <td><select class="inp-cell" value={w.direction} onchange={(e) => swChange(i, { direction: e.currentTarget.value as GlobalAxis })} data-testid="sw-dir">
+          <td><select class="inp-cell" value={swShownDir(w)} onchange={(e) => swDirection(i, w, e.currentTarget.value as GlobalAxis)} data-testid="sw-dir">
             <option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option>
           </select></td>
-          <td class="col-num"><input class="inp-cell" value={plainNumber(w.factor, 6)} onchange={(e) => swFactor(e.currentTarget, i, w.factor)} data-testid="sw-factor" /></td>
+          <td class="col-num"><input class="inp-cell" value={plainNumber(swSign(w) * w.factor, 6)} onchange={(e) => swFactor(e.currentTarget, i, w)} data-testid="sw-factor" /></td>
           <td>{swReach(w)}</td>
           <td><button class="pro-delete-btn" onclick={() => modelStore.setAnalysis({ selfWeight: swAll.filter((_, k) => k !== i) })} aria-label={t('selfWeight.remove')} title={t('selfWeight.remove')} data-testid="sw-remove">×</button></td>
         </tr>
@@ -235,8 +256,8 @@
       {#each budget.slice(nodal, 0) as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.nodeId}</td>
-          {#each ['fx', 'fy', 'fz'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'fx'], 'force')}{/each}
-          {#each ['mx', 'my', 'mz'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'mx'], 'moment')}{/each}
+          {#each [0, 1, 2] as i (i)}{@render scell(l.data.id, slotKey(['fx', 'fy', 'fz'], i, true), l.data, 'force')}{/each}
+          {#each [0, 1, 2] as i (i)}{@render scell(l.data.id, slotKey(['mx', 'my', 'mz'], i, true, true), l.data, 'moment')}{/each}
           {@render x(l.data.id)}
         </tr>
       {/each}
@@ -249,8 +270,8 @@
       {#each budget.slice(disp, before(1)) as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.nodeId}</td>
-          {#each ['dx', 'dy', 'dz'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'dx'], 'displacement')}{/each}
-          {#each ['drx', 'dry', 'drz'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'drx'], 'rotation')}{/each}
+          {#each [0, 1, 2] as i (i)}{@render scell(l.data.id, slotKey(['dx', 'dy', 'dz'], i, true), l.data, 'displacement')}{/each}
+          {#each [0, 1, 2] as i (i)}{@render scell(l.data.id, slotKey(['drx', 'dry', 'drz'], i, true, true), l.data, 'rotation')}{/each}
           {@render x(l.data.id)}
         </tr>
       {/each}
@@ -266,14 +287,14 @@
           {#if defOf(l.data.id) !== undefined}
             <!-- Read-only, as its values: a definition's load is changed through the definition. -->
             <td>{t(`loads.frame.${l.data.frame ?? 'local'}`)}</td>
-            {#each ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'qYI'], 'distributedLoad')}{/each}
+            {#each [0, 1, 2] as i (i)}{#each ['I', 'J'] as e (e)}{@render scell(l.data.id, slotKey([`qX${e}`, `qY${e}`, `qZ${e}`], i, (l.data.frame ?? 'local') !== 'local'), l.data, 'distributedLoad')}{/each}{/each}
             <td class="col-num">{l.data.a !== undefined ? fmtQ(l.data.a, 'length') : ''}</td>
             <td class="col-num">{l.data.b !== undefined ? fmtQ(l.data.b, 'length') : ''}</td>
           {:else}
           <td><LazySelect class="inp-cell" stopClick value={l.data.frame ?? 'local'} label={t(`loads.frame.${l.data.frame ?? 'local'}`)}
             options={() => (['local', 'global', 'projected'] as const).map((v) => ({ value: v, label: t(`loads.frame.${v}`) }))}
             onchange={(v) => modelStore.updateLoad(l.data.id, { frame: v })} /></td>
-          {#each ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'qYI'], 'distributedLoad')}{/each}
+          {#each [0, 1, 2] as i (i)}{#each ['I', 'J'] as e (e)}{@render scell(l.data.id, slotKey([`qX${e}`, `qY${e}`, `qZ${e}`], i, (l.data.frame ?? 'local') !== 'local'), l.data, 'distributedLoad')}{/each}{/each}
           {#key redraw}<td class="col-num"><QuantityInput value={l.data.a ?? null} nullable quantity="length" cls="inp-cell" showUnit={false} placeholder="0" onchange={(si) => setEnd(l.data.id, 'a', l.data.elementId, si)} testid="lt-dist-a" /></td>
           <td class="col-num"><QuantityInput value={l.data.b ?? null} nullable quantity="length" cls="inp-cell" showUnit={false} placeholder="L" onchange={(si) => setEnd(l.data.id, 'b', l.data.elementId, si)} testid="lt-dist-b" /></td>{/key}
           {/if}
@@ -293,8 +314,8 @@
             options={() => (['local', 'global'] as const).map((v) => ({ value: v, label: t(`loads.frame.${v}`) }))}
             onchange={(v) => modelStore.updateLoad(l.data.id, { frame: v })} /></td>
           {@render cell(l.data.id, 'a', l.data.a, 'length')}
-          {#each ['px', 'py', 'pz'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'py'], 'force')}{/each}
-          {#each ['mx', 'my', 'mz'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'my'], 'moment')}{/each}
+          {#each [0, 1, 2] as i (i)}{@render scell(l.data.id, slotKey(['px', 'py', 'pz'], i, l.data.frame === 'global'), l.data, 'force')}{/each}
+          {#each [0, 1, 2] as i (i)}{@render scell(l.data.id, slotKey(['mx', 'my', 'mz'], i, l.data.frame === 'global', true), l.data, 'moment')}{/each}
           {@render x(l.data.id)}
         </tr>
       {/each}
@@ -337,7 +358,7 @@
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{shellText(d)}</td>
           {#if d.qNodes || d.vary}<td class="col-num">{surfaceValueText(d)}</td>{:else}{@render cell(l.data.id, 'q', l.data.q, 'areaLoad')}{/if}
-          <td class="col-how">{surfaceHowText(d, defName)}</td>{@render x(l.data.id)}
+          <td class="col-how">{surfaceHowText(d, defName, (v) => userVec(v[0], v[1], v[2]))}</td>{@render x(l.data.id)}
         </tr>
       {/each}
     </tbody></table>
@@ -363,8 +384,8 @@
     {#each totals as r (r.id)}
       <div class="lt-total-row" data-testid="lt-total-{r.id}">
         <span class="lt-total-case">{caseName(r.id)}</span>
-        <span>ΣFx {F(r.applied.fx)}</span><span>ΣFy {F(r.applied.fy)}</span><span>ΣFz {F(r.applied.fz)}</span>
-        <span>ΣMx {M(r.applied.mx)}</span><span>ΣMy {M(r.applied.my)}</span><span>ΣMz {M(r.applied.mz)}</span>
+        {#each userVec(r.applied.fx, r.applied.fy, r.applied.fz) as c, i (i)}<span>ΣF{'xyz'[i]} {F(c)}</span>{/each}
+        {#each userRot(r.applied.mx, r.applied.my, r.applied.mz) as c, i (i)}<span>ΣM{'xyz'[i]} {M(c)}</span>{/each}
         {#if r.selfWeightIncluded}<span class="lt-note">{t('loadTables.withSelfWeight')}</span>{/if}
         {#if r.uncovered.length}<span class="lt-warn">{tp('loadTables.uncovered', { list: r.uncovered.join(', ') })}</span>{/if}
       </div>

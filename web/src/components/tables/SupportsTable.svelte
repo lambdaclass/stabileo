@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { planeLettersShown } from '../../lib/axes/user-names';
+  import { modelIndexOfUser, twoD, XYZ } from '../../lib/axes/display';
   import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
@@ -67,33 +69,26 @@
         {#if uiStore.is3DWorkspace}
           <!-- 3D: per-DOF checkboxes -->
           {@const dofs = sup.dofRestraints ?? defaultDofs(sup.type)}
+          {@const ix = (i: number) => (sup.dofFrame === 'local' ? XYZ[i] : XYZ[modelIndexOfUser(i)])}
           <td class="load-values">
-            <label class="dof-chk" title={t('table.translationX')}><input type="checkbox" checked={dofs.tx} onchange={() => toggleDofRestraint(sup.id, sup, 'tx')} />Fx</label>
-            <label class="dof-chk" title={t('table.translationY')}><input type="checkbox" checked={dofs.ty} onchange={() => toggleDofRestraint(sup.id, sup, 'ty')} />Fy</label>
-            <label class="dof-chk" title={t('table.translationZ')}><input type="checkbox" checked={dofs.tz} onchange={() => toggleDofRestraint(sup.id, sup, 'tz')} />Fz</label>
-            <label class="dof-chk" title={t('table.rotationX')}><input type="checkbox" checked={dofs.rx} onchange={() => toggleDofRestraint(sup.id, sup, 'rx')} />Mx</label>
-            <label class="dof-chk" title={t('table.rotationY')}><input type="checkbox" checked={dofs.ry} onchange={() => toggleDofRestraint(sup.id, sup, 'ry')} />My</label>
-            <label class="dof-chk" title={t('table.rotationZ')}><input type="checkbox" checked={dofs.rz} onchange={() => toggleDofRestraint(sup.id, sup, 'rz')} />Mz</label>
+            {#each XYZ as a, i}
+              <label class="dof-chk" title={t(`table.translation${a.toUpperCase()}`)}><input type="checkbox" checked={dofs[`t${ix(i)}`]} onchange={() => toggleDofRestraint(sup.id, sup, `t${ix(i)}`)} />F{a}</label>
+            {/each}
+            {#each XYZ as a, i}
+              <label class="dof-chk" title={t(`table.rotation${a.toUpperCase()}`)}><input type="checkbox" checked={dofs[`r${ix(i)}`]} onchange={() => toggleDofRestraint(sup.id, sup, `r${ix(i)}`)} />M{a}</label>
+            {/each}
           </td>
           <td class="load-values">
-            {#if !dofs.tx}
-              <span class="load-field">kx<UnitInput value={sup.kx ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'kx', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
-            {/if}
-            {#if !dofs.ty}
-              <span class="load-field">ky<UnitInput value={sup.ky ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'ky', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
-            {/if}
-            {#if !dofs.tz}
-              <span class="load-field">kz<UnitInput value={sup.kz ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'kz', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
-            {/if}
-            {#if !dofs.rx}
-              <span class="load-field">krx<UnitInput value={sup.krx ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'krx', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
-            {/if}
-            {#if !dofs.ry}
-              <span class="load-field">kry<UnitInput value={sup.kry ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'kry', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
-            {/if}
-            {#if !dofs.rz}
-              <span class="load-field">krz<UnitInput value={sup.krz ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'krz', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
-            {/if}
+            {#each XYZ as a, i}
+              {#if !dofs[`t${ix(i)}`]}
+                <span class="load-field">k{a}<UnitInput value={sup[`k${ix(i)}`] ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, `k${ix(i)}`, String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
+              {/if}
+            {/each}
+            {#each XYZ as a, i}
+              {#if !dofs[`r${ix(i)}`]}
+                <span class="load-field">kr{a}<UnitInput value={sup[`kr${ix(i)}`] ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, `kr${ix(i)}`, String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
+              {/if}
+            {/each}
           </td>
         {:else}
           <!-- 2D: type dropdown -->
@@ -101,8 +96,8 @@
             <select value={sup.type} onchange={(e) => changeSupportType(sup.id, e.currentTarget.value)}>
               <option value="fixed">{t('table.fixed')}</option>
               <option value="pinned">{t('table.pinned')}</option>
-              <option value="rollerX">{t('table.rollerX')}</option>
-              <option value="rollerZ">{t('table.rollerY')}</option>
+              <option value="rollerX">{planeLettersShown(t('table.rollerX'))}</option>
+              <option value="rollerZ">{planeLettersShown(t('table.rollerY'))}</option>
               <option value="spring">{t('table.spring')}</option>
             </select>
           </td>
@@ -112,9 +107,9 @@
               <span class="load-field">ky<UnitInput value={sup.ky ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'ky', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
               <span class="load-field">kz<UnitInput value={sup.kz ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'kz', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
             {:else}
-              <span class="load-field">dx<UnitInput value={sup.dx ?? 0} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dx', String(v))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>
-              <span class="load-field">dz<UnitInput value={sup.dz ?? sup.dy ?? 0} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dz', String(v))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>
-              <span class="load-field">d&theta;y<UnitInput value={sup.dry ?? sup.drz ?? 0} qty="rotation" onchange={(v) => updateSupportSpring(sup.id, 'dry', String(v))} unit={false} /><span class="lf-unit">{unitQ('rotation')}</span></span>
+              <span class="load-field">d{twoD.horizontal.toLowerCase()}<UnitInput value={twoD.x(sup.dx ?? 0)} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dx', String(twoD.fromX(v)))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>
+              <span class="load-field">d{twoD.vertical.toLowerCase()}<UnitInput value={twoD.z(sup.dz ?? sup.dy ?? 0)} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dz', String(twoD.fromZ(v)))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>
+              <span class="load-field">d&theta;{twoD.normal.toLowerCase()}<UnitInput value={twoD.rot(sup.dry ?? sup.drz ?? 0)} qty="rotation" onchange={(v) => updateSupportSpring(sup.id, 'dry', String(twoD.fromRot(v)))} unit={false} /><span class="lf-unit">{unitQ('rotation')}</span></span>
             {/if}
           </td>
         {/if}

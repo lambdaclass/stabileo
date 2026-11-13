@@ -47,6 +47,8 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'autoLoad.special.surcharge',
   'autoLoad.wind.structureTitle',
   'autoLoad.windDirections',
+  'axes.configLabel',
+  'axes.title',
   'behaviour.linear',
   'blog.eyebrow',
   'blog.tag.cirsoc',

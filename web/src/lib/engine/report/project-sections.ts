@@ -9,6 +9,7 @@ import type { StaticsRows } from '../../store/statics-rows';
 import { staticsVerdict } from '../statics-check';
 import type { ProjectInfo } from '../../model/project-info';
 import { currentRevision } from '../../model/project-info';
+import { DEFAULT_AXES, makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const num = (v: number, d = 3) => (Number.isFinite(v) ? (Math.abs(v) < 1e-9 ? '0' : Math.abs(v) >= 1e5 || Math.abs(v) < 1e-3 ? v.toExponential(3) : v.toFixed(d)) : '—');
@@ -43,16 +44,16 @@ export function projectCoverHtml(info: ProjectInfo | undefined, tr: Tr): string[
  * Across the result sets: for each table, the extreme of every column with where and under
  * which set, then the envelope of every node or member end. Complete, however many members.
  */
-export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading: string): string[] {
+export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading: string, axes: AxesChoice = DEFAULT_AXES): string[] {
   if (sources.length === 0) return [];
   const out: string[] = [`<h2 id="sec-envelope">${esc(heading)}</h2>`];
   out.push(`<p class="note">${esc(tr('report.env.basis').replace('{n}', String(sources.length)))}: ${sources.map((s) => esc(s.name)).join(', ')}</p>`);
   const kinds: Array<[TableKind, string]> = [['reactions', tr('report.reactions')], ['forces', tr('report.forces')], ['displacements', tr('report.displacements')]];
   for (const [kind, title] of kinds) {
-    const cols = columnsOf(kind, { resultant: true });
+    const cols = columnsOf(kind, { resultant: true, axes });
     // The extremes along the members, at 13 stations: at the ends alone a simply supported
     // beam's largest moment read 0. The envelope table below stays per member end.
-    const summ = summaryRows(kind, sources, { resultant: true, ...(kind === 'forces' ? { stations: 13 } : {}) });
+    const summ = summaryRows(kind, sources, { resultant: true, axes, ...(kind === 'forces' ? { stations: 13 } : {}) });
     out.push(`<h3>${esc(title)}: ${esc(tr('report.env.summary'))}</h3>`);
     out.push(`<table data-printed="summary"><thead><tr><th></th><th>${esc(tr('tables.max'))}</th><th>${esc(tr('report.env.where'))}</th><th>${esc(tr('tables.source'))}</th><th>${esc(tr('tables.min'))}</th><th>${esc(tr('report.env.where'))}</th><th>${esc(tr('tables.source'))}</th></tr></thead><tbody>`);
     for (const s of summ) {
@@ -62,7 +63,7 @@ export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading:
         + `</tr>`);
     }
     out.push(`</tbody></table>`);
-    const env = envelopeRows(kind, sources, { resultant: true });
+    const env = envelopeRows(kind, sources, { resultant: true, axes });
     out.push(`<h3>${esc(title)}: ${esc(tr('report.env.envelope'))} (${env.length})</h3>`);
     out.push(`<table class="env" data-printed="envelope-${kind}"><thead><tr><th>${kind === 'forces' ? esc(tr('report.env.memberEnd')) : esc(tr('report.nodes'))}</th><th></th>${cols.map((c) => `<th>${esc(c.label)} (${esc(c.unit)})</th>`).join('')}</tr></thead><tbody>`);
     for (const r of env) {
@@ -75,8 +76,15 @@ export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading:
 }
 
 /** ΣF and ΣM of the loads against the reactions, per case and per combination. */
-export function staticsSectionHtml(rows: StaticsRows | null, tr: Tr, heading: string): string[] {
+export function staticsSectionHtml(rows: StaticsRows | null, tr: Tr, heading: string, axes: AxesChoice = DEFAULT_AXES): string[] {
   if (!rows) return [];
+  const f = makeFrame(axes);
+  const shown = (v: Record<'fx' | 'fy' | 'fz' | 'mx' | 'my' | 'mz', number>) => {
+    if (f.identity) return v;
+    const [fx, fy, fz] = toUser(f, [v.fx, v.fy, v.fz]).map((x) => x + 0);
+    const [mx, my, mz] = pseudoToUser(f, [v.mx, v.my, v.mz]).map((x) => x + 0);
+    return { fx: fx!, fy: fy!, fz: fz!, mx: mx!, my: my!, mz: mz! };
+  };
   const out = [`<h2 id="sec-statics">${esc(heading)}</h2>`];
   out.push(`<table data-printed="statics"><thead><tr><th>${esc(tr('pro.statics.case'))}</th><th>ΣFx</th><th>ΣFy</th><th>ΣFz</th><th>ΣMx</th><th>ΣMy</th><th>ΣMz</th><th>${esc(tr('pro.statics.relative'))}</th></tr></thead><tbody>`);
   const K = ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const;
@@ -84,8 +92,8 @@ export function staticsSectionHtml(rows: StaticsRows | null, tr: Tr, heading: st
     const verdict = staticsVerdict(r);
     const state = verdict === 'balances' ? '✓' : verdict === 'partial' ? `⚠ ${esc(tr('pro.statics.partial'))}` : Number.isFinite(r.worstRelative) ? (r.worstRelative * 100).toFixed(2) + ' %' : esc(tr('pro.statics.notComputable'));
     const left = r.uncovered.length ? `<br><small>${esc(tr('pro.statics.uncovered').replace('{kinds}', r.uncovered.join(', ')))}</small>` : '';
-    out.push(`<tr><td rowspan="2">${esc(r.caseName || tr('pro.statics.singleSolve'))}${left}</td>${K.map((k) => `<td class="num">${num(r.applied[k], 2)}</td>`).join('')}<td rowspan="2" class="num">${state}</td></tr>`);
-    out.push(`<tr>${K.map((k) => `<td class="num">${num(r.reactions[k], 2)}</td>`).join('')}</tr>`);
+    out.push(`<tr><td rowspan="2">${esc(r.caseName || tr('pro.statics.singleSolve'))}${left}</td>${K.map((k) => `<td class="num">${num(shown(r.applied)[k], 2)}</td>`).join('')}<td rowspan="2" class="num">${state}</td></tr>`);
+    out.push(`<tr>${K.map((k) => `<td class="num">${num(shown(r.reactions)[k], 2)}</td>`).join('')}</tr>`);
   }
   out.push(`</tbody></table><p class="note">${esc(tr('report.statics.note'))}</p>`);
   return out;

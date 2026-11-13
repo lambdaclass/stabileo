@@ -4,6 +4,7 @@
 // exported figures; `viewport3d/free-body-3d.ts` turns these end actions into what it draws.
 // Its equilibrium on real solves is checked in despiece-3d-equilibrium.test.ts.
 
+import { userVecParts } from '../axes/user-names';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import type { ElementForces3D } from '../engine/types-3d';
 
@@ -80,7 +81,7 @@ function end3DComponents(
   if (basis === 'global') {
     // The same end action the arrows draw (memberEndAction3D).
     const f = memberEndAction3D(ex, ey, ez, axialOut, n, vy, vz, mx, my, mz).force;
-    return [{ label: 'Fx', value: f[0] }, { label: 'Fy', value: f[1] }, { label: 'Fz', value: f[2] }, { label: 'My', value: my }, { label: 'Mz', value: mz }, { label: 'T', value: mx }];
+    return [...userVecParts('F', f).map((c) => ({ label: c.name, value: c.value })), { label: 'My', value: my }, { label: 'Mz', value: mz }, { label: 'T', value: mx }];
   }
   return [{ label: 'N', value: n }, { label: 'Vy', value: vy }, { label: 'Vz', value: vz }, { label: 'My', value: my }, { label: 'Mz', value: mz }, { label: 'T', value: mx }];
 }

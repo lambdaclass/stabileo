@@ -1,5 +1,7 @@
 import type * as THREE from 'three';
-import { GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../geometry/coordinate-system';
+import { Vector3 } from 'three';
+import { axesStore } from '../axes/axes.svelte';
+import { AXIS_NAMES } from '../axes/frame';
 
 /** The X/Y/Z triad in the viewport's corner, drawn from the camera's current orientation. */
 export function drawAxisGizmoOn(canvas: HTMLCanvasElement, camera: THREE.Camera): void {
@@ -9,11 +11,8 @@ export function drawAxisGizmoOn(canvas: HTMLCanvasElement, camera: THREE.Camera)
   gc.clearRect(0, 0, s, s);
   camera.updateMatrixWorld();
   const viewMat = camera.matrixWorldInverse;
-  const axes = [
-    { label: 'X', color: '#ff4444', dir: GLOBAL_X.clone() },
-    { label: 'Y', color: '#44ff44', dir: GLOBAL_Y.clone() },
-    { label: 'Z', color: '#4488ff', dir: GLOBAL_Z.clone() },
-  ];
+  const colors = ['#ff4444', '#44ff44', '#4488ff'];
+  const axes = axesStore.frame.rows.map((r, i) => ({ label: AXIS_NAMES[i], color: colors[i], dir: new Vector3(r[0], r[1], r[2]) }));
   const cx = s / 2, cy = s / 2, len = s * 0.35;
   const projected = axes
     .map((a) => {

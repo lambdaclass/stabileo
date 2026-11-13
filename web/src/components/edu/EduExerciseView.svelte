@@ -3,7 +3,7 @@
   import type { EduExercise, DiagramShape } from './exercises';
   import { t } from '../../lib/i18n';
   import { eduStore } from './edu-store.svelte';
-  import { readSupportReaction, type ReactionDof } from './edu-reactions';
+  import { reactionDofLabel, readSupportReaction, type ReactionDof } from './edu-reactions';
   import type { SolveTimings } from '../../lib/engine/types';
   import {
     toSubmissionFile, toSubmissionCode,
@@ -231,7 +231,7 @@
     exercise.supports.forEach((sup, i) => {
       for (const dof of sup.dofs) {
         out.push({
-          label: `${sup.label} — ${dof}`,
+          label: `${sup.label} — ${reactionDofLabel(dof)}`,
           answer: reactionAnswers[i][dof] ?? '',
           unit: dof === 'M' ? 'kN·m' : 'kN',
           outcome: reactionVerif[i][dof],
@@ -355,7 +355,7 @@
     const tol = abs > 0.01 ? abs * TOLERANCE : 0.1;
     if (Math.abs(student - correct) <= tol) return null;
 
-    const prefix = dof ? `${label}, ${dof}` : label;
+    const prefix = dof ? `${label}, ${reactionDofLabel(dof)}` : label;
     if (Math.abs(Math.abs(student) - Math.abs(correct)) < tol && Math.sign(student) !== Math.sign(correct)) {
       return `${prefix}: ${t('edu.hintSign')}`;
     } else if (Math.abs(Math.abs(student) - Math.abs(correct)) / (abs || 1) > 0.5) {
@@ -429,7 +429,7 @@
     newVerif[supIdx][dof] = 'correct';
     reactionVerif = newVerif;
 
-    hints = hints.filter(h => !h.startsWith(`${exercise.supports[supIdx].label}, ${dof}`));
+    hints = hints.filter(h => !h.startsWith(`${exercise.supports[supIdx].label}, ${reactionDofLabel(dof)}`));
   }
 
   // ─── Diagram question verification ─────────────────────────
@@ -609,7 +609,7 @@
           {#each sup.dofs as dof}
             <div class="input-group {verifClass(reactionVerif[i][dof])}">
               <label class="dof-input">
-                <span class="dof-name">{dof} =</span>
+                <span class="dof-name">{reactionDofLabel(dof)} =</span>
                 <input
                   type="text"
                   inputmode="decimal"

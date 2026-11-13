@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { axisName } from '../../lib/axes/display';
   import { untrack } from 'svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp, capitalized } from '../../lib/i18n';
@@ -46,7 +47,9 @@
     modelStore.removeSupport(id);
   }
 
-  const DOF_NAME: Record<string, string> = { tx: 'Fx', ty: 'Fy', tz: 'Fz', rx: 'Mx', ry: 'My', rz: 'Mz' };
+  const IDX: Record<string, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
+  const DOF_NAME = (d: string) => `${d[0] === 't' ? 'F' : 'M'}${axisName(IDX[d[1]!]!).toLowerCase()}`;
+  const SPRING_NAME = (k: string) => `${k.slice(0, -1)}${axisName(IDX[k.slice(-1)]!).toLowerCase()}`;
   /**
    * Fixed and pinned by name; any other support by what it holds (`Fx Fy · Mz`) and what it
    * holds elastically (`kz`), the same reading its symbol in the model gives.
@@ -55,8 +58,9 @@
     if (s.type === 'fixed3d' || s.type === 'pinned3d' || !s.dofRestraints && s.type !== 'spring3d') {
       return supportTypes.find((st) => st.value === s.type)?.label ?? s.type;
     }
-    const held = DOF_SPRING.filter(([d]) => s.dofRestraints?.[d]).map(([d]) => DOF_NAME[d]);
-    const springs = DOF_SPRING.filter(([, k]) => (s[k] ?? 0) > 0).map(([, k]) => k);
+    const global = (s as { dofFrame?: string }).dofFrame !== 'local' && (s as { dofLocalElementId?: number }).dofLocalElementId === undefined;
+    const held = DOF_SPRING.filter(([d]) => s.dofRestraints?.[d]).map(([d]) => (global ? DOF_NAME(d) : `${d[0] === 't' ? 'F' : 'M'}${d[1]}`));
+    const springs = DOF_SPRING.filter(([, k]) => (s[k] ?? 0) > 0).map(([, k]) => (global ? SPRING_NAME(k) : k));
     return [held.join(' '), springs.join(' ')].filter(Boolean).join(' · ') || t('pro.supportFree');
   }
 

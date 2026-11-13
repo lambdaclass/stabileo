@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { modelVec, userVec } from '../../../lib/axes/display';
   import Hint from '../Hint.svelte';
   /**
    * Specifications › Surfaces: whether the selected quads are curved shells, and the offset of
@@ -50,6 +51,10 @@
     });
   }
 
+  function shellOffsetOf() {
+    const [x, y, z] = offFrame === 'global' ? modelVec(offX, offY, offZ).map((v) => (v === 0 ? 0 : v)) : [offX, offY, offZ];
+    return { frame: offFrame, x, y, z };
+  }
   // ─── Shell offset editor (operates on the selected shells) ───
   let offFrame = $state<'global' | 'local'>('local');
   let offX = $state(0);
@@ -72,7 +77,7 @@
   });
   $effect(() => {
     const c = current;
-    if (c.off) { offFrame = c.off.frame; offX = c.off.x; offY = c.off.y; offZ = c.off.z; }
+    if (c.off) { offFrame = c.off.frame; [offX, offY, offZ] = c.off.frame === 'global' ? userVec(c.off.x, c.off.y, c.off.z) : [c.off.x, c.off.y, c.off.z]; }
     else if (!c.mixed) { offX = 0; offY = 0; offZ = 0; }
   });
 
@@ -83,7 +88,7 @@
   }
   // One undo step for the whole selection.
   function applyShellOffset() {
-    modelStore.batch(() => eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, { frame: offFrame, x: offX, y: offY, z: offZ })));
+    modelStore.batch(() => eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, shellOffsetOf())));
   }
   function clearShellOffset() {
     modelStore.batch(() => eachSelectedShell((kind, id) => modelStore.setShellOffset(kind, id, undefined)));

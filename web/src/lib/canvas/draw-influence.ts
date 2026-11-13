@@ -1,5 +1,6 @@
 // Draw influence line diagram on Canvas 2D
 
+import { ilShown } from '../axes/user-names';
 import type { InfluenceLineResult } from '../store/model.svelte';
 import { t, tp } from '../i18n';
 import { canvasTheme } from './theme';
@@ -29,6 +30,8 @@ export function drawInfluenceLine(
 ): void {
   const { ctx } = dc;
   if (il.points.length === 0) return;
+  const shownSign = ilShown(il.quantity).sign;
+  if (shownSign !== 1) il = { ...il, points: il.points.map((p) => ({ ...p, value: shownSign * p.value })) };
   const env = influenceTool.envelope;
   if (env) {
     drawIlEnvelope(env, dc);
@@ -297,7 +300,8 @@ function drawTitle(ctx: CanvasRenderingContext2D, il: InfluenceLineResult, dc: D
 }
 
 export function influenceTitle(il: InfluenceLineResult, dc: Pick<DrawContext, 'getNode' | 'getElement'>): string {
-  const q = plainSymbol(il.quantity);
+  const shown = ilShown(il.quantity).symbol;
+  const q = shown === il.quantity ? plainSymbol(il.quantity) : shown;
   if (il.targetElementId === undefined) return tp('course.influence.titleNode', { q, n: il.targetNodeId ?? '' });
   const e = dc.getElement(il.targetElementId);
   const ni = e && dc.getNode(e.nodeI), nj = e && dc.getNode(e.nodeJ);

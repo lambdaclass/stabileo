@@ -13,6 +13,8 @@ import { DXF_CONTENTS, DXF_NEEDS_RESULTS, writeDxf, type DxfContents, type DxfPr
 import type { DxfUnit } from '../dxf/types';
 import { resultSet, type ResultSetKey } from './export-results';
 import { envelopeOf } from '../export/figure-3d';
+import { axesStore } from '../axes/axes.svelte';
+import { caseNameShown } from '../axes/case-names';
 
 export interface ProDxfRequest {
   contents: DxfContents;
@@ -40,6 +42,8 @@ export function proDxf(req: ProDxfRequest): string {
     diagramSize: 0.08 * req.diagramFactor,
     leftHand: uiStore.axisConvention3D === 'leftHand',
     towardLocalAxes: resultsStore.drawPositiveTowardLocalAxes,
+    axes: axesStore.choice,
+    caseNames: new Map(modelStore.model.loadCases.map((c) => [c.id, caseNameShown(c)])),
   }, t);
 }
 
