@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const SRC = join(__dirname, '..', '..', '..');
@@ -42,6 +42,11 @@ describe('PRO screens that name global axes go through the display layer', () =>
       /dir\.toUpperCase\(\)\}/,
     ];
     for (const f of SEAM) for (const re of forbidden) expect(read(f), `${f} ${re}`).not.toMatch(re);
+  });
+
+  it('the unified plate workflow replaces the removed mesher with the frame-aware plate dialog', () => {
+    expect(existsSync(join(SRC, 'components/pro/ProMesher.svelte'))).toBe(false);
+    expect(read('components/pro/plates/PlateMeshDialog.svelte')).toContain('planNamesIn');
   });
 
   it('the Add load card and the shell form hand the user frame to the builders', () => {

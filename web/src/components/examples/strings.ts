@@ -952,6 +952,7 @@ const hu: Record<Key, string> = {
   'refuse.needsCrossties': 'egy középső betonacélt nem fog meg kengyelsarok (oldalanként egynél több ilyen van, vagy 150 mm-nél nagyobb a szabad távolsága a sarokvastól), ezért keresztkengyel kellene hozzá, amelyet ez a példa nem modellez. Használjon oldalanként kevesebb betonacélt vagy keskenyebb keresztmetszetet.',
   'refuse.noLoad': 'nincs teher. Adjon meg nullánál nagyobb terhet.',
   'refuse.nonFinite': 'a megoldás nem véges.',
+  'pane.structure': 'Szerkezet és terhek',
   'pane.moment': 'Hajlítónyomaték',
   'pane.shear': 'Nyíróerő',
   'pane.deflection': 'Lehajlás',
