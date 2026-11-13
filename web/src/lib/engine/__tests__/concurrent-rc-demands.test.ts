@@ -1,14 +1,15 @@
 import { verifyElement as verifyConcurrent } from '../codes/argentina/cirsoc201';
+import { checkTorsion } from '../codes/argentina/cirsoc201';
 import { describe, expect, it } from 'vitest';
 import { autoVerifyFromResults, type AutoVerifyModelData } from '../auto-verify';
-import { extractGoverningDemands, computeColumnLayout, computeColumnCapacity, type ElementStationResult, type StationForces } from '../station-design-forces';
+import { extractGoverningDemands, computeColumnLayout, computeColumnCapacity, computeBiaxialCapacity, type ElementStationResult, type StationForces } from '../station-design-forces';
 import { normalizeCirsoc201 } from '../design-check-results';
-import { verifyElement, REBAR_DB } from '../codes/argentina/cirsoc201';
+import { REBAR_DB } from '../codes/argentina/cirsoc201';
+import { verifyElement } from './helpers/verify-element';
 import { runUnifiedVerification, runCirsocDesign, steelDemandOf } from '../verification-service';
 import { maskDemands } from '../design/behaviour-demands';
 import type { AnalysisResults3D } from '../types-3d';
 
-const knownWrong = it.skipIf(process.env.RUN_KNOWN_WRONG_1316 !== '1');
 const force = (n: number, my: number, mz = 0, t = 0): StationForces => ({ n, my, mz, vy: 5, vz: 10, torsion: 0, t, x: 0.4 * t });
 const stations = (pairs: StationForces[][]): ElementStationResult => ({
   elementId: 1, length: 0.4, stationTs: [0, 1],
@@ -61,7 +62,7 @@ function handMomentAtAxial(n: number, count: number, diameter: number, edition: 
 }
 
 describe('concurrent design demands #1316', () => {
-  knownWrong('known wrong result: #1316 — issue e2 equivalent keeps wind N with wind M and its name; hand equilibrium', () => {
+  it('#1316 — issue e2 equivalent keeps wind N with wind M and its name; hand equilibrium', () => {
     const esr = stations([[force(-257.36, 86.53234137)], [force(-210.8416155, 88.8908859)]]);
     const v = run(esr);
     const c = v.column!;
@@ -77,7 +78,7 @@ describe('concurrent design demands #1316', () => {
 
   for (const edition of ['2005', '2025'] as const) {
     for (const n of [100, 0, -100, 1200, 2200]) {
-      knownWrong(`known wrong result: #1316 — ${edition}, signed N=${n}, every station and combination including non-extrema`, () => {
+      it(`#1316 — ${edition}, signed N=${n}, every station and combination including non-extrema`, () => {
         const esr = stations([[force(-300, 20), force(-300, 20, 0, 1)], [force(-n, 65), force(-n, 65, 0, 1)], [force(-200, 55, 0, 0.5)]]);
         const v = run(esr, edition);
         const c = v.column!;
@@ -98,7 +99,7 @@ describe('concurrent design demands #1316', () => {
   }
 
   for (const beam of [false, true]) {
-    knownWrong(`known wrong result: #1316 — ${beam ? 'beam axial-flexure and V–T' : 'column N–My–Mz'} sweeps complete tuples`, () => {
+    it(`#1316 — ${beam ? 'beam axial-flexure and V–T' : 'column N–My–Mz'} sweeps complete tuples`, () => {
       const a = { ...force(-200, 30, 55), torsion: 12, vz: 8 };
       const b = { ...force(-100, 65, 5), torsion: 2, vz: 90 };
       const esr = stations([[a], [b]]);
@@ -107,10 +108,20 @@ describe('concurrent design demands #1316', () => {
       expect((v as any).concurrentChecks.map((x: any) => [x.demand.comboName, x.demand.forces.n, x.demand.forces.my, x.demand.forces.mz, x.demand.forces.torsion]))
         .toEqual([['gravity', -200, 30, 55, 12], ['wind', -100, 65, 5, 2]]);
       expect(normalizeCirsoc201([v], new Map())[0]!.checks.every(c => !c.comboName?.startsWith('N '))).toBe(true);
+      const own = (esr.comboResults).map(cr => cr.stations[0]!);
+      const params = { b: v.b, h: v.h, fc: v.fc, fy: v.fy, cover: v.cover, stirrupDia: 8 };
+      const expectedTorsion = own.map(s => checkTorsion(params, extractGoverningDemands(stations([[s]])).concurrent![0]!.section(v.flexureAxis!), '2025').ratio);
+      expect(v.torsion!.ratio).toBe(Math.max(...expectedTorsion));
+      if (!beam) {
+        const c = v.column!, layout = computeColumnLayout(c.barCount, c.barDia, v.b, v.h, v.cover, 8);
+        const expected = own.map(s => computeBiaxialCapacity(layout.totalArea, v.b, v.h, v.fc, v.fy, v.cover, 8,
+          -s.n, Math.abs(s.mz), Math.abs(s.my), layout.bars, '2025'));
+        expect(v.biaxial!.ratio).toBe(Math.max(...expected.map(x => 1 / x.ratio)));
+      }
     });
   }
 
-  knownWrong('known wrong result: #1316 — demand extraction retains intermediate stations, steel reads the same tuples, masking preserves concurrency', () => {
+  it('#1316 — demand extraction retains intermediate stations, steel reads the same tuples, masking preserves concurrency', () => {
     const esr = stations([[force(-300, 50)], [force(-100, 70)], [force(10, 60, 0, 0.5)]]);
     const d = extractGoverningDemands(esr);
     expect((d as any).concurrent).toHaveLength(3);
@@ -120,7 +131,7 @@ describe('concurrent design demands #1316', () => {
     expect((masked as any).concurrent.map((x: any) => x.forces.n)).toEqual([-300, -100, 0]);
   });
 
-  knownWrong('known wrong result: #1316 — all RC orchestration entry points keep the same concurrent governing pair', () => {
+  it('#1316 — all RC orchestration entry points keep the same concurrent governing pair', () => {
     const esr = stations([[force(-300, 20)], [force(-100, 65)]]);
     const r = results(esr.comboResults[0]!.stations[0]!);
     const d = new Map([[1, extractGoverningDemands(esr)]]);
@@ -131,14 +142,14 @@ describe('concurrent design demands #1316', () => {
     expect(design.normalized[0]!.checks.find(c => c.name === 'Axial + Moment')!.comboName).toBe('wind');
   });
 
-  knownWrong('known wrong result: #1316 — an envelope with provenance and no concurrent data is refused, a real single result is answered', () => {
+  it('#1316 — an envelope with provenance and no concurrent data is refused, a real single result is answered', () => {
     const r = results(force(-300, 50));
     expect(() => autoVerifyFromResults(r, model(), new Map([[1, {} as never]]))).toThrow(/concurrent/i);
     expect(autoVerifyFromResults(r, model(), null).concrete[0]!.column!.ratio).toBeGreaterThan(0);
   });
 });
 
-knownWrong('known wrong result: #1316 — explicit wall verification projects only the concurrent N–M packet, with hand equilibrium', () => {
+it('#1316 — explicit wall verification projects only the concurrent N–M packet, with hand equilibrium', () => {
   const esr = stations([[force(-257.36, 86.53234137)], [force(-210.8416155, 88.8908859)]]);
   const d = extractGoverningDemands(esr) as any;
   const v = verifyConcurrent({ elementId: 1, elementType: 'wall', b: 0.4, h: 0.4, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8,

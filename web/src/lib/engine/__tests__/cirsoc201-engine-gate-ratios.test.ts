@@ -5,7 +5,8 @@
  * cirsoc201-engine-gate.ts (docs/verification/TS_ENGINE_LOGIC.md, step 5).
  */
 import { describe, it, expect } from 'vitest';
-import { verifyElement, REBAR_DB, type VerificationInput } from '../codes/argentina/cirsoc201';
+import { REBAR_DB, type VerificationInput } from '../codes/argentina/cirsoc201';
+import { verifyElement } from './helpers/verify-element';
 import { engineRecheckElement } from '../codes/argentina/cirsoc201-engine-gate';
 import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
 import { registerColumnCapacityKernel } from '../column-capacity-kernel';

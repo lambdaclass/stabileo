@@ -1,3 +1,4 @@
+import type { ConcurrentSectionDemand, ConcurrentDemand } from '../../concurrent-demand';
 // CIRSOC 201 — Reinforced Concrete Verification Engine
 // Implements design checks for flexure, shear, and flexo-compression per Argentine code CIRSOC
 // 201 (based on ACI 318). Flexure, shear, columns and biaxial bending are sized against the
@@ -176,6 +177,8 @@ export interface SlenderResult {
   steps: string[];
 }
 
+export interface DemandLocation { comboId: number; comboName: string; stationT: number; stationX: number }
+
 export interface ElementVerification {
   elementId: number;
   elementType: 'beam' | 'column' | 'wall';
@@ -206,7 +209,10 @@ export interface ElementVerification {
   overallStatus: VerifStatus;
   diagnostics?: SolverDiagnostic[];
   /** Governing combination per force component (from combo-driven verification). */
+  concurrentChecks?: Array<{ demand: ConcurrentDemand; verification: ElementVerification }>;
   governingCombos?: {
+    column?: DemandLocation;
+    biaxial?: DemandLocation;
     flexure?: { comboId: number; comboName: string };
     shear?: { comboId: number; comboName: string };
     axial?: { comboId: number; comboName: string };
@@ -602,14 +608,16 @@ export function checkShear(
 // member in tension was checked as if compressed.
 
 export function checkColumn(
-  params: ConcreteDesignParams, Nu: number, Mu: number,
-  opts: { edition?: RegulationEdition; axialLoads?: number[] } = {},
+  params: ConcreteDesignParams, demands: readonly ConcurrentSectionDemand[],
+  opts: { edition?: RegulationEdition; fixed?: { barCount: number; barDia: number } } = {},
 ): ColumnResult {
   const { fc, fy, cover, b, h, stirrupDia } = params;
   const edition = opts.edition ?? '2025';
   const steps: string[] = [];
-  const MuAbs = Math.abs(Mu);
-  const loads = [...new Set([Nu, ...(opts.axialLoads ?? [])].filter(Number.isFinite))];
+  if (!demands.length) throw new Error('Concurrent column demands are required');
+  const cases = demands;
+  const loads = demands.map(d => d.Nu);
+  const MuAbs = Math.max(...demands.map(d => d.Mu));
   steps.push(`Nu = ${loads.map((n) => `${n.toFixed(2)}`).join(' / ')} kN (+ compresión, − tracción)`);
   steps.push(`Mu = ${MuAbs.toFixed(2)} kN·m`);
 
@@ -617,21 +625,20 @@ export function checkColumn(
   const AsMin = COLUMN_STEEL_RATIO.min * Ag * 1e4;
   const AsMax = COLUMN_STEEL_RATIO.max * Ag * 1e4;
 
-  type Candidate = { count: number; dia: number; area: number; worst: number; phiMn: number; phiPn: number; layout: ReturnType<typeof computeColumnLayout> };
+  type Candidate = { count: number; dia: number; area: number; worst: number; phiMn: number; phiPn: number; Nu: number; Mu: number; layout: ReturnType<typeof computeColumnLayout> };
   const evaluate = (count: number, dia: number): Candidate | null => {
     const layout = computeColumnLayout(count, dia, b, h, cover, stirrupDia);
     if (layout.bars.length < 4) return null;
     let worst = 0;
     let phiMn = Infinity;
     let phiPn = 0;
-    for (const load of loads) {
-      const cap = computeColumnCapacity(layout.totalArea, b, h, fc, fy, cover, stirrupDia, load, MuAbs, layout.bars, 'z', edition);
+    let governing = cases[0]!;
+    for (const demand of cases) {
+      const cap = computeColumnCapacity(layout.totalArea, b, h, fc, fy, cover, stirrupDia, demand.Nu, demand.Mu, layout.bars, 'z', edition);
       const u = cap.strainCompatible && cap.ratio > 0 ? 1 / cap.ratio : Infinity;
-      worst = Math.max(worst, u);
-      phiMn = Math.min(phiMn, cap.phiMn);
-      phiPn = cap.phiPn;
+      if (u > worst || phiMn === Infinity) { worst = u; governing = demand; phiMn = cap.phiMn; phiPn = cap.phiPn; }
     }
-    return { count, dia, area: layout.totalArea, worst, phiMn, phiPn, layout };
+    return { count, dia, area: layout.totalArea, worst, phiMn, phiPn, Nu: governing.Nu, Mu: governing.Mu, layout };
   };
 
   // Every standard arrangement within 1 %–8 % of Ag, least steel first.
@@ -646,7 +653,7 @@ export function checkColumn(
   options.sort((p, q) => p.area - q.area || p.count - q.count);
   let chosen: Candidate | null = null;
   let heaviest: Candidate | null = null;
-  for (const o of options) {
+  for (const o of opts.fixed ? [{ count: opts.fixed.barCount, dia: opts.fixed.barDia }] : options) {
     const c = evaluate(o.count, o.dia);
     if (!c) continue;
     if (!c.layout.constructible) continue;
@@ -674,7 +681,7 @@ export function checkColumn(
   else if (pick.worst > 0.85) status = 'warn';
 
   return {
-    Nu, Mu: MuAbs,
+    Nu: pick.Nu, Mu: pick.Mu,
     AsTotal: pick.area,
     AsProv: pick.area,
     bars: `${pick.count} ${barSpec.label}`,
@@ -695,7 +702,8 @@ export function checkColumn(
  * `edition` '2025' applies §22.7.2: √f'c ≤ 8,3 MPa in Tcr (22.7.2.1) and in Vc (22.5.3.1), fy and
  * fyt ≤ 420 MPa in the torsion steel (22.7.2.2 → 20.2.1.3). The default '2005' is unchanged.
  */
-export function checkTorsion(params: ConcreteDesignParams, Tu: number, Vu: number = 0, edition: Cirsoc201EditionLike = '2005'): TorsionResult {
+export function checkTorsion(params: ConcreteDesignParams, demand: ConcurrentSectionDemand, edition: Cirsoc201EditionLike = '2005'): TorsionResult {
+  const Tu = demand.Tu, Vu = demand.Vu;
   const { fc, b, h, cover, stirrupDia } = params;
   const lim = editionCode(edition) === 2025;
   const fy = lim ? shearFy(params.fy) : params.fy;
@@ -792,15 +800,14 @@ export function checkTorsion(params: ConcreteDesignParams, Tu: number, Vu: numbe
 
 export function checkBiaxial(
   params: ConcreteDesignParams,
-  Nu: number, Muy: number, Muz: number,
+  demand: ConcurrentSectionDemand,
   AsProvided: number, // cm² — total As already designed
   opts: { edition?: RegulationEdition; barCount?: number; barDia?: number } = {},
 ): BiaxialResult {
   const { fc, fy, b, h, cover, stirrupDia } = params;
   const edition = opts.edition ?? '2025';
   const steps: string[] = [];
-  const MuyAbs = Math.abs(Muy);
-  const MuzAbs = Math.abs(Muz);
+  const Nu = demand.Nu, MuyAbs = demand.Muy, MuzAbs = demand.Mu;
   steps.push(`Nu = ${Nu.toFixed(1)} kN, Muy = ${MuyAbs.toFixed(2)} kN·m, Muz = ${MuzAbs.toFixed(2)} kN·m`);
 
   // The bars: the stated arrangement, or the least standard one that gives the stated area.
@@ -1211,7 +1218,44 @@ function computeDetailingRules(fc: number, fy: number, cover: number, stirrupDia
   return { bars, minClearSpacing: Math.round(minClearSpacing * 1000) / 1000, stirrupHook, cover };
 }
 
-export function verifyElement(input: VerificationInput): ElementVerification {
+export type ConcurrentVerificationInput = Omit<VerificationInput, 'Mu' | 'Vu' | 'Nu' | 'NuShear' | 'axialLoads' | 'Muy' | 'VuSecondary' | 'Tu'> & { demand: ConcurrentSectionDemand };
+
+export function verificationCase(input: ConcurrentVerificationInput): VerificationInput {
+  const d = input.demand;
+  const pair = (ends: readonly [number, number]) => {
+    const [a, b] = ends;
+    const [big, small] = Math.abs(a) >= Math.abs(b) ? [a, b] : [b, a];
+    return { M1: Math.sign(a) === Math.sign(b) ? Math.abs(small) : -Math.abs(small), M2: Math.abs(big) };
+  };
+  const primary = pair(d.axis === 'My' ? d.source.ends.my : d.source.ends.mz);
+  const secondary = pair(d.axis === 'My' ? d.source.ends.mz : d.source.ends.my);
+  return { ...input, Mu: d.Mu, Vu: d.Vu, Nu: d.Nu, NuShear: d.Nu,
+    Muy: input.elementType !== 'beam' ? d.Muy : undefined, VuSecondary: input.elementType !== 'beam' && !(d.VuSecondary <= 0.01) ? d.VuSecondary : undefined, Tu: d.Tu,
+    M1: input.M1 ?? primary.M1, M2: input.M2 ?? primary.M2,
+    M1Secondary: input.M1Secondary ?? secondary.M1, M2Secondary: input.M2Secondary ?? secondary.M2 };
+}
+
+export function amplifiedDemand(input: ConcurrentVerificationInput): ConcurrentSectionDemand {
+  const v = verifySlenderness(verificationCase(input));
+  return input.demand.amplified(v.designMu, v.designMuy ?? 0);
+}
+
+function verifySlenderness(input: VerificationInput) {
+  const params = { fc: input.fc, fy: input.fy, cover: input.cover, b: input.b, h: input.h, stirrupDia: input.stirrupDia };
+  const isVertical = input.elementType !== 'beam';
+  let slender: SlenderResult | undefined;
+  let slenderSecondary: SlenderResult | undefined;
+  if (isVertical && input.Lu && input.Lu > 0) {
+    slender = checkSlender(params, Math.max(0, input.Nu), input.Mu, input.Lu, input);
+    if (input.Muy !== undefined) slenderSecondary = checkSlender({ ...params, b: params.h, h: params.b }, Math.max(0, input.Nu), input.Muy, input.Lu,
+      { M1: input.M1Secondary, M2: input.M2Secondary, PuD: input.PuD, PuL: input.PuL });
+  }
+  return { slender, slenderSecondary, designMu: slender?.isSlender ? slender.Mc : input.Mu,
+    designMuy: slenderSecondary?.isSlender ? slenderSecondary.Mc : input.Muy };
+}
+
+export function verifyElement(concurrent: ConcurrentVerificationInput, fixed?: { column?: { barCount: number; barDia: number }; flexure?: FlexureResult; shear?: { spacing: number; legs: number } }): ElementVerification {
+  const input = verificationCase(concurrent);
   const params: ConcreteDesignParams = {
     fc: input.fc,
     fy: input.fy,
@@ -1224,33 +1268,7 @@ export function verifyElement(input: VerificationInput): ElementVerification {
   // Walls and columns share the same structural checks (flexo-compression)
   const isVertical = input.elementType === 'column' || input.elementType === 'wall';
 
-  // For slender columns/walls, amplify moment before flexure/column check
-  let slender: SlenderResult | undefined;
-  let designMu = input.Mu;
-  if (isVertical && input.Lu && input.Lu > 0) {
-    slender = checkSlender(params, input.Nu, input.Mu, input.Lu, {
-      M1: input.M1,
-      M2: input.M2,
-      psiA: input.psiA,
-      psiB: input.psiB,
-      PuD: input.PuD,
-      PuL: input.PuL,
-    });
-    if (slender.isSlender) {
-      designMu = slender.Mc; // use amplified moment
-    }
-  }
-  let slenderSecondary: SlenderResult | undefined;
-  let designMuy = input.Muy;
-  if (isVertical && input.Lu && input.Lu > 0 && input.Muy !== undefined) {
-    slenderSecondary = checkSlender({ ...params, b: params.h, h: params.b }, input.Nu, input.Muy, input.Lu, {
-      M1: input.M1Secondary,
-      M2: input.M2Secondary,
-      PuD: input.PuD,
-      PuL: input.PuL,
-    });
-    if (slenderSecondary.isSlender) designMuy = slenderSecondary.Mc;
-  }
+  const { slender, slenderSecondary, designMu, designMuy } = verifySlenderness(input);
 
   const edition = input.edition ?? '2025';
   /*
@@ -1259,10 +1277,25 @@ export function verifyElement(input: VerificationInput): ElementVerification {
    * flexural steel is the column check's business; its beam-style flexure stays axial-free.
    */
   const flexureNu = isVertical ? 0 : (input.NuShear ?? 0);
-  const flexure = checkFlexure(params, designMu, flexureNu, { edition });
-  let shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv });
+  let flexure = checkFlexure(params, designMu, flexureNu, { edition });
+  if (fixed?.flexure) {
+    const f = fixed.flexure;
+    const r = evaluateBeamSection({ edition, fc: params.fc * 1e6, fy: params.fy * 1e6, b: params.b, h: params.h,
+      d: f.d, As: f.AsProv * 1e-4, AsComp: (f.AsComp ?? 0) * 1e-4,
+      dPrime: f.barDiaComp ? params.cover + params.stirrupDia / 1000 + f.barDiaComp / 2000 : 0,
+      Ag: params.b * params.h, NuCompression: flexureNu * 1e3 });
+    const phiMn = r?.flexureValid ? r.phiMn / 1e3 : 0;
+    const ratio = phiMn > 0 ? Math.abs(designMu) / phiMn : Infinity;
+    const ductile = input.elementType !== 'beam' || !r || Math.abs(designMu) === 0
+      || flexureNu >= 0.1 * params.fc * 1000 * params.b * params.h || r.epsilonT >= r.epsilonTMin;
+    flexure = { ...flexure, AsProv: f.AsProv, barDia: f.barDia, barCount: f.barCount, bars: f.bars, d: f.d,
+      AsComp: f.AsComp, barDiaComp: f.barDiaComp, barCountComp: f.barCountComp, barsComp: f.barsComp,
+      isDoublyReinforced: f.isDoublyReinforced, phiMn, ratio, a: r?.a ?? 0, epsilonT: r?.epsilonT ?? 0,
+      status: !ductile || !(ratio <= 1) ? 'fail' : ratio > 0.85 ? 'warn' : 'ok' };
+  }
+  let shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv, ...fixed?.shear });
   let shearSecondary = isVertical && input.VuSecondary !== undefined
-    ? checkShear({ ...params, b: params.h, h: params.b }, input.VuSecondary, input.NuShear ?? input.Nu, { edition })
+    ? checkShear({ ...params, b: params.h, h: params.b }, input.VuSecondary, input.NuShear ?? input.Nu, { edition, ...fixed?.shear })
     : undefined;
   if (shearSecondary && (shearSecondary.spacing !== shear.spacing || shearSecondary.stirrupLegs !== shear.stirrupLegs)) {
     const cage = { spacing: Math.min(shear.spacing, shearSecondary.spacing), legs: Math.max(shear.stirrupLegs, shearSecondary.stirrupLegs) };
@@ -1274,24 +1307,16 @@ export function verifyElement(input: VerificationInput): ElementVerification {
   let torsionResult: TorsionResult | undefined;
 
   if (isVertical) {
-    const loads = input.axialLoads && input.axialLoads.length > 0 ? input.axialLoads : [input.Nu];
-    column = checkColumn(params, loads[0], designMu, { edition, axialLoads: loads.slice(1) });
-
-    // Biaxial check if Muy is provided, under every axial force the member sees
+    const demand = concurrent.demand.amplified(designMu, designMuy ?? 0);
+    column = checkColumn(params, [demand], { edition, fixed: fixed?.column });
     if (designMuy !== undefined && !(Math.abs(designMuy) <= 0.01)) {
-      let worst: BiaxialResult | undefined;
-      for (const load of loads) {
-        const r = checkBiaxial(params, load, designMuy, designMu, column.AsProv,
-          { edition, barCount: column.barCount, barDia: column.barDia });
-        if (!worst || !(r.ratio <= worst.ratio)) worst = r;
-      }
-      biaxial = worst;
+      biaxial = checkBiaxial(params, demand, column.AsProv, { edition, barCount: column.barCount, barDia: column.barDia });
     }
   }
 
   // Torsion check if Tu is provided
   if (input.Tu && Math.abs(input.Tu) > 0.001) {
-    torsionResult = checkTorsion(params, input.Tu, input.Vu, edition);
+    torsionResult = checkTorsion(params, concurrent.demand, edition);
   }
 
   // Overall status

@@ -21,7 +21,8 @@
 import { describe, it, expect } from 'vitest';
 import { computeShearCapacity } from '../../station-design-forces';
 import { checkTorsion2025 } from '../../../codes/cirsoc201/torsion';
-import { checkShear, checkTorsion } from '../../codes/argentina/cirsoc201';
+import { checkShear } from '../../codes/argentina/cirsoc201';
+import { checkTorsion } from '../../__tests__/helpers/manual-interactions';
 
 describe('CIRSOC 201-2025 shear limits in the verifier', () => {
   it('Vs reads fyt ≤ 420 MPa (22.5.3.3 → 20.2.1.3): an ADN 500 stirrup is credited 420', () => {

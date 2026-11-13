@@ -17,11 +17,12 @@ import { CONCRETE_E_BAND_MPA } from '../model/material-family';
 import type { AnalysisResults3D } from './types-3d';
 import type { GoverningPerElement3D } from './governing-case';
 import type { ElementDesignDemands } from './station-design-forces';
-import { verifyElement, classifyElement, computeJointPsiFromModel } from './codes/argentina/cirsoc201';
-import type { ElementVerification, VerificationInput } from './codes/argentina/cirsoc201';
+import { classifyElement, computeJointPsiFromModel } from './codes/argentina/cirsoc201';
+import type { ElementVerification } from './codes/argentina/cirsoc201';
 import { isDesignedMember } from './design/behaviour-demands';
 import { primaryAxis } from './design/design-axes';
-import { engineRecheckElement } from './codes/argentina/cirsoc201-engine-gate';
+import { verifyConcurrentElement } from './concurrent-verification';
+import { ConcurrentDemand } from './concurrent-demand';
 import { CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 import type { RegulationEdition } from '../codes/regulation';
 
@@ -146,213 +147,39 @@ export function autoVerifyFromResults(
   options?: AutoVerifyOptions,
   stationDemands?: Map<number, ElementDesignDemands>,
 ): AutoVerifyResult {
-  const rebarFy = options?.rebarFy ?? 420;
-  const cover = options?.cover ?? 0.025;
-  const stirrupDia = options?.stirrupDia ?? 8;
-  const edition = options?.edition ?? CIRSOC201_DESIGN_EDITION;
-  const verifs: ElementVerification[] = [];
-
+  const concrete: ElementVerification[] = [];
   for (const ef of results.elementForces) {
     const elem = model.elements.get(ef.elementId);
-    if (!elem) continue;
-    const nodeI = model.nodes.get(elem.nodeI);
-    const nodeJ = model.nodes.get(elem.nodeJ);
+    if (!elem || rcCheckability(elem, model) !== 'checkable' || !isDesignedMember(elem as never, model.sections as never)) continue;
+    const nodeI = model.nodes.get(elem.nodeI), nodeJ = model.nodes.get(elem.nodeJ);
     if (!nodeI || !nodeJ) continue;
-    // One predicate, shared with the command layer that has to explain the silence.
-    if (rcCheckability(elem, model) !== 'checkable') continue;
-    // Design's own rule (`design/behaviour-demands.ts`): a member of variable section is left out,
-    // not checked at end I's b and h with its end forces, which design no longer gives it.
-    if (!isDesignedMember(elem as never, model.sections as never)) continue;
-    /**
-     * Re-read after the guard, with the guarantees it just established made local.
-     *
-     * `rcCheckability` has proved b, h and f'c are all present, but it proved it behind a
-     * function call and the compiler cannot follow that. Narrowing once here — rather than
-     * scattering `!` over the twenty-odd uses below — keeps the assertion in one place, next
-     * to the check that earns it.
-     */
-    const section = model.sections.get(elem.sectionId) as
-      { id: number; name: string; b: number; h: number };
-    const material = model.materials.get(elem.materialId) as
-      { id: number; name: string; fy: number; fc?: number };
-    const fc = concreteFc(material)!;
-
-    const dx = nodeJ.x - nodeI.x, dy = nodeJ.y - nodeI.y, dz = (nodeJ.z ?? 0) - (nodeI.z ?? 0);
-    const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    const elemType = classifyElement(nodeI.x, nodeI.y, nodeI.z ?? 0, nodeJ.x, nodeJ.y, nodeJ.z ?? 0, section.b, section.h);
-    const isVertical = elemType === 'column' || elemType === 'wall';
-
-    // ─── Force extraction: station-based (preferred) or endpoint fallback ───
-    let MzMax: number, MyMax: number, VyAbs: number;
-    let NuMax: number, VzMax: number, TuMax: number;
-    // Axial force for shear, + = compression. See where it is set.
-    let NuShear: number;
-    // The signed axial forces the member sees, + = compression: the column is checked under
-    // each (a member in tension is not checked as if compressed).
-    let axialLoads: number[];
-    let stationGovCombos: ElementVerification['governingCombos'] | undefined;
-
+    const section = model.sections.get(elem.sectionId)!;
+    const material = model.materials.get(elem.materialId)!;
+    const b = section.b!, h = section.h!;
+    const elementType = classifyElement(nodeI.x, nodeI.y, nodeI.z ?? 0, nodeJ.x, nodeJ.y, nodeJ.z ?? 0, b, h);
     const demands = stationDemands?.get(ef.elementId);
-    if (demands && demands.demands.length > 0) {
-      // ── Station-based extraction: sign-aware, interior stations, per-combo ──
-      const demandMap = new Map(demands.demands.map(d => [d.category, d]));
-
-      // Moment: take the larger of Mz+/Mz- (both are real interior maxima)
-      const mzPos = demandMap.get('Mz+');
-      const mzNeg = demandMap.get('Mz-');
-      const myPos = demandMap.get('My+');
-      const myNeg = demandMap.get('My-');
-      MzMax = Math.max(mzPos?.absValue ?? 0, mzNeg?.absValue ?? 0);
-      MyMax = Math.max(myPos?.absValue ?? 0, myNeg?.absValue ?? 0);
-
-      // Shear: station-based absolute max (includes interior points)
-      const vyDemand = demandMap.get('Vy');
-      const vzDemand = demandMap.get('Vz');
-      VyAbs = vyDemand?.absValue ?? 0;
-      VzMax = vzDemand?.absValue ?? 0;
-
-      // Axial: max of compression and tension absolute values
-      const nComp = demandMap.get('N_compression');
-      const nTens = demandMap.get('N_tension');
-      NuMax = Math.max(nComp?.absValue ?? 0, nTens?.absValue ?? 0);
-      axialLoads = [
-        ...((nComp?.absValue ?? 0) > 0 ? [nComp!.absValue] : []),
-        ...(demands.leastCompression !== undefined ? [demands.leastCompression] : []),
-        ...((nTens?.absValue ?? 0) > 0 ? [-nTens!.absValue] : []),
-      ];
-      if (axialLoads.length === 0) axialLoads = [0];
-      /*
-       * The shear check reads its axial force as + = compression, and compression raises Vc.
-       * `NuMax` is a magnitude: a member in tension was given the compression credit. A member
-       * with any tension demand is checked under that tension (the term that lowers Vc); one
-       * that is only ever compressed takes the compression acting WITH the shear demands,
-       * not the largest compression of some other combination. Solver sign: n < 0 compression.
-       */
-      if ((nTens?.absValue ?? 0) > 0) NuShear = -(nTens!.absValue);
-      else {
-        // Either shear may be the one checked (the axis is picked below): the smaller of the
-        // two compressions, which is right for both.
-        const withShear = [demandMap.get('Vy'), demandMap.get('Vz')].filter((v) => v !== undefined);
-        NuShear = withShear.length > 0 ? Math.max(0, Math.min(...withShear.map((v) => -v!.forces.n))) : 0;
-      }
-
-      // Torsion
-      const tDemand = demandMap.get('Torsion');
-      TuMax = tDemand?.absValue ?? 0;
-
-      // Build station-aware governing combo refs from the actual demand data
-      const govMz = (mzPos?.absValue ?? 0) >= (mzNeg?.absValue ?? 0) ? mzPos : mzNeg;
-      const govMy = (myPos?.absValue ?? 0) >= (myNeg?.absValue ?? 0) ? myPos : myNeg;
-      stationGovCombos = {};
-      if (govMz) stationGovCombos.flexure = { comboId: govMz.comboId, comboName: govMz.comboName };
-      if (vyDemand) stationGovCombos.shear = { comboId: vyDemand.comboId, comboName: vyDemand.comboName };
-      if (nComp || nTens) {
-        const govN = (nComp?.absValue ?? 0) >= (nTens?.absValue ?? 0) ? nComp : nTens;
-        if (govN) stationGovCombos.axial = { comboId: govN.comboId, comboName: govN.comboName };
-      }
-      if (govMy) stationGovCombos.momentY = { comboId: govMy.comboId, comboName: govMy.comboName };
-      if (vzDemand) stationGovCombos.shearZ = { comboId: vzDemand.comboId, comboName: vzDemand.comboName };
-      if (tDemand) stationGovCombos.torsion = { comboId: tDemand.comboId, comboName: tDemand.comboName };
-    } else {
-      // ── Legacy endpoint-only fallback ──
-      MzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
-      MyMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
-      VyAbs = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
-      VzMax = Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
-      NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-      axialLoads = [...new Set([-ef.nStart, -ef.nEnd])];
-      // Same rule from the two ends: any tension governs; otherwise the smaller compression.
-      const tension = Math.max(ef.nStart, ef.nEnd, 0);
-      NuShear = tension > 0 ? -tension : Math.min(-ef.nStart, -ef.nEnd);
-      TuMax = Math.max(Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
+    if ((demands || governing?.has(ef.elementId)) && !demands?.concurrent?.length) {
+      throw new Error(`Concurrent demands are required for element ${ef.elementId}; an envelope cannot be verified`);
     }
-
-    const flexureAxis = primaryAxis(elemType, section, MyMax, MzMax);
-    const onMy = flexureAxis === 'My';
-    const MuMax = onMy ? MyMax : MzMax;
-    const VuMax = onMy ? VzMax : VyAbs;
-    const MuySecondary = onMy ? MzMax : MyMax;
-    const VuSecondary = onMy ? VyAbs : VzMax;
-    const bFlex = onMy ? section.b : section.h;
-    const hFlex = onMy ? section.h : section.b;
-    if (stationGovCombos) {
-      const shearY = stationGovCombos.shear;
-      if (onMy) {
-        if (stationGovCombos.momentY) stationGovCombos.flexure = stationGovCombos.momentY;
-        if (stationGovCombos.shearZ) stationGovCombos.shear = stationGovCombos.shearZ;
-      }
-      const secondary = onMy ? shearY : stationGovCombos.shearZ;
-      if (isVertical && secondary) stationGovCombos.shearSecondary = secondary;
-    }
-
-    const endMoments = (mStart: number, mEnd: number) => {
-      const [big, small] = Math.abs(mStart) >= Math.abs(mEnd) ? [mStart, mEnd] : [mEnd, mStart];
-      return { M2: Math.abs(big), M1: Math.sign(mStart) === Math.sign(mEnd) ? Math.abs(small) : -Math.abs(small) };
-    };
-    let M1: number | undefined, M2: number | undefined, M1Secondary: number | undefined, M2Secondary: number | undefined;
-    if (isVertical) {
-      const my = endMoments(ef.myStart, ef.myEnd), mz = endMoments(ef.mzStart, ef.mzEnd);
-      ({ M1, M2 } = onMy ? my : mz);
-      ({ M1: M1Secondary, M2: M2Secondary } = onMy ? mz : my);
-    }
-
-    let psiA: number | undefined, psiB: number | undefined;
-    if (isVertical) {
-      const psi = computeJointPsiFromModel(
-        ef.elementId,
-        model.nodes as any, model.elements as any,
-        model.sections as any, model.materials as any,
-        model.supports as any,
-      );
-      psiA = psi.psiA;
-      psiB = psi.psiB;
-    }
-
-    const input: VerificationInput = {
-      elementId: ef.elementId, elementType: elemType,
-      Mu: MuMax, Vu: VuMax, Nu: NuMax, NuShear, axialLoads, edition,
-      b: bFlex, h: hFlex, fc, fy: rebarFy, cover: isVertical ? options?.columnCover ?? cover : cover, stirrupDia,
-      Muy: isVertical ? MuySecondary : undefined,
-      VuSecondary: isVertical && !(VuSecondary <= 0.01) ? VuSecondary : undefined,
-      Tu: TuMax > 0.001 ? TuMax : undefined,
-      Lu: isVertical ? L : undefined, M1, M2, M1Secondary, M2Secondary, psiA, psiB,
-    };
-
-    // The TypeScript designs and checks; the engine re-checks what it settled on, and a pass the
-    // engine does not confirm is a failure (cirsoc201-engine-gate.ts). The re-check reads the
-    // edition the designer sized with (`edition` above), never another one: a gate in
-    // 2025 over a 2005 design, or the other way round, would confirm or refuse a different design.
-    const v: ElementVerification = engineRecheckElement(verifyElement(input), {
-      edition, stirrupDia, NuShear, axialLoads,
-    });
-    v.flexureAxis = flexureAxis;
-
-    // Attach governing combo metadata — prefer station-based (richer) over legacy
-    if (stationGovCombos) {
-      v.governingCombos = stationGovCombos;
-    } else {
-      const gov = governing?.get(ef.elementId);
-      if (gov) {
-        v.governingCombos = {};
-        const flex = onMy ? gov.momentY : gov.momentZ, shear = onMy ? gov.shearZ : gov.shearY;
-        if (flex) v.governingCombos.flexure = { comboId: flex.comboId, comboName: flex.comboName };
-        if (shear) v.governingCombos.shear = { comboId: shear.comboId, comboName: shear.comboName };
-        if (gov.axial) v.governingCombos.axial = { comboId: gov.axial.comboId, comboName: gov.axial.comboName };
-        if (gov.momentY) v.governingCombos.momentY = { comboId: gov.momentY.comboId, comboName: gov.momentY.comboName };
-        if (gov.shearZ) v.governingCombos.shearZ = { comboId: gov.shearZ.comboId, comboName: gov.shearZ.comboName };
-        const secondary = onMy ? gov.shearY : gov.shearZ;
-        if (isVertical && secondary) v.governingCombos.shearSecondary = { comboId: secondary.comboId, comboName: secondary.comboName };
-        if (gov.torsion) v.governingCombos.torsion = { comboId: gov.torsion.comboId, comboName: gov.torsion.comboName };
-      }
-    }
-
-    // Attach station-based demand summary for downstream consumers
-    if (demands) {
-      v.stationDemands = demands;
-    }
-
-    verifs.push(v);
+    const tuples = demands?.concurrent ?? ConcurrentDemand.endpoints(ef);
+    const my = Math.max(...tuples.map(d => Math.abs(d.forces.my))), mz = Math.max(...tuples.map(d => Math.abs(d.forces.mz)));
+    const axis = primaryAxis(elementType, { b, h }, my, mz);
+    const isVertical = elementType !== 'beam';
+    const L = Math.hypot(nodeJ.x - nodeI.x, nodeJ.y - nodeI.y, (nodeJ.z ?? 0) - (nodeI.z ?? 0));
+    const psi = isVertical ? computeJointPsiFromModel(ef.elementId, model.nodes as never, model.elements as never,
+      model.sections as never, model.materials as never, model.supports as never) : undefined;
+    const inputs = tuples.map(d => ({
+      elementId: ef.elementId, elementType, demand: d.section(axis),
+      b: axis === 'My' ? b : h, h: axis === 'My' ? h : b,
+      fc: concreteFc(material)!, fy: options?.rebarFy ?? 420,
+      cover: isVertical ? options?.columnCover ?? options?.cover ?? 0.025 : options?.cover ?? 0.025,
+      stirrupDia: options?.stirrupDia ?? 8, edition: options?.edition ?? CIRSOC201_DESIGN_EDITION,
+      Lu: isVertical ? L : undefined, psiA: psi?.psiA, psiB: psi?.psiB,
+    }));
+    const v = verifyConcurrentElement(inputs);
+    v.flexureAxis = axis;
+    if (demands) v.stationDemands = demands;
+    concrete.push(v);
   }
-
-  return { concrete: verifs };
+  return { concrete };
 }

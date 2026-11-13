@@ -14,7 +14,7 @@ import {
 import { concreteCheckRows, elementOutcome } from '../check-rows';
 import type { DesignAxes } from '../design-axes';
 import type { ProvidedReinforcement } from '../../../store/model.svelte';
-import { checkTorsion } from '../../codes/argentina/cirsoc201';
+import { checkTorsion } from '../../__tests__/helpers/manual-interactions';
 import { checkTorsion2025 } from '../../../codes/cirsoc201/torsion';
 
 const st = (t: number, over: Partial<StationForces> = {}): StationForces => ({

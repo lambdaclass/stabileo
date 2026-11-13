@@ -30,7 +30,7 @@
 import { describe, it, expect } from 'vitest';
 import { checkFlexure } from '../cirsoc201';
 import { checkFlexureFlanged } from '../cirsoc201-flanged';
-import { checkColumn } from '../cirsoc201';
+import { checkColumn } from '../../../__tests__/helpers/manual-interactions';
 import { designCircular, checkColumnCircular } from '../cirsoc201-circular';
 import { COLUMN_STEEL_RATIO } from '../cirsoc201-basis';
 import { designRectColumn } from '../cirsoc201-capacity';

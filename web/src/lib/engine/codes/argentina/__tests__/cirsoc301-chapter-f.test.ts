@@ -9,7 +9,8 @@
  * repository and its inputs could not be read from the source.
  */
 import { describe, it, expect } from 'vitest';
-import { checkSteelFlexure, verifySteelElement, type SteelDesignParams } from '../cirsoc301';
+import { checkSteelFlexure, type SteelDesignParams } from '../cirsoc301';
+import { verifySteelElement } from '../../../__tests__/helpers/manual-interactions';
 import { steelRatio } from '../cirsoc301-verdict';
 
 /** FL = min(Fyf − Fr, Fyw), MPa, Fr = 69 rolled and 114 welded (F.2.7): the hand value. */

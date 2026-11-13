@@ -1,3 +1,4 @@
+import { ConcurrentDemand } from './concurrent-demand';
 import { getColumnCapacityKernel, columnCapacityKernelRegistered } from './column-capacity-kernel';
 import { evaluateBeamSection, evaluateBeamSections } from './codes/argentina/cirsoc201-beam-kernel';
 import { beta1, axialCap } from './codes/argentina/cirsoc201-basis';
@@ -101,6 +102,7 @@ export interface ElementDesignDemands {
   elementId: number;
   length: number;
   demands: GoverningDemand[];
+  concurrent?: readonly ConcurrentDemand[];
   /**
    * The least compression (kN) at any station of any combination, when none is in tension.
    * Below the balance point a column's moment capacity falls with its compression, so the
@@ -322,6 +324,7 @@ export function extractGoverningDemands(esr: ElementStationResult): ElementDesig
   return {
     elementId: esr.elementId,
     length: esr.length,
+    concurrent: ConcurrentDemand.fromStations(esr),
     demands: Array.from(best.values()).sort((a, b) => b.absValue - a.absValue),
     ...(leastCompression >= 0 && Number.isFinite(leastCompression) ? { leastCompression } : {}),
   };
@@ -1990,19 +1993,8 @@ export function verifyProvidedReinforcement(
   };
 
   // Collect ALL force tuples from station × combo results for sweeping
-  type Tuple = { n: number; vy: number; vz: number; my: number; mz: number; tq: number; comboName: string; comboId: number; stationX: number; stationT: number };
-  const allTuples: Tuple[] = [];
-  if (stationResult) {
-    for (const cr of stationResult.comboResults) {
-      for (const s of cr.stations) {
-        allTuples.push({
-          n: s.n, vy: s.vy, vz: s.vz, my: s.my, mz: s.mz, tq: s.torsion ?? 0,
-          comboName: cr.comboName, comboId: cr.comboId,
-          stationX: s.x, stationT: s.t,
-        });
-      }
-    }
-  }
+  type Tuple = ConcurrentDemand;
+  const allTuples = stationResult ? ConcurrentDemand.fromStations(stationResult) : [];
   const hasTuples = allTuples.length > 0;
   const M = (t: Tuple) => tupleMoment(t, axes.flexure);
 
@@ -2141,10 +2133,7 @@ export function verifyProvidedReinforcement(
         const hi = sorted.findIndex((x) => x.stationT >= t - 1e-9);
         if (hi < 0) continue;
         const b = sorted[hi]!, a = sorted[Math.max(0, hi - 1)]!;
-        const w = b.stationT - a.stationT > 1e-9 ? (t - a.stationT) / (b.stationT - a.stationT) : 0;
-        const lerp = (k: 'n' | 'vy' | 'vz' | 'my' | 'mz' | 'tq') => a[k] + (b[k] - a[k]) * w;
-        out.push({ n: lerp('n'), vy: lerp('vy'), vz: lerp('vz'), my: lerp('my'), mz: lerp('mz'), tq: lerp('tq'),
-          comboName: b.comboName, comboId: b.comboId, stationX: a.stationX + (b.stationX - a.stationX) * w, stationT: t });
+        out.push(a.interpolate(b, t));
       }
       return out;
     };

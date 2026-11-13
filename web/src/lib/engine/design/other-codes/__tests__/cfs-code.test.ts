@@ -1,3 +1,4 @@
+import { ConcurrentDemand } from '../../../concurrent-demand';
 /**
  * AISI S100 on lipped channels: the effective section of Appendix 1 and the member check through
  * the engine, against the code's own expressions (1.1, 1.3, F2.1).
@@ -112,7 +113,7 @@ describe('AISI S100 member check', () => {
     if ('skip' in m) throw new Error(m.skip);
     const eff = cfsEffective({ H: 0.15, B: 0.06, C: 0.02, t: 0.002 }, FY, E)!;
     const raw = { ...m.data, j: ctx.section.j!, cw: eff.cw };
-    const fr = AISI_S100.forces(ctx, ctx.demands.find((x) => x.category === 'My+')!, raw);
+    const fr = AISI_S100.forces(ctx, ConcurrentDemand.fromTuples([ctx.demands.find((x) => x.category === 'My+')!])[0]!, raw);
     const res = checkCfsMembers({ members: [raw], forces: [fr] })![0] as Record<string, number>;
     const d = raw as Record<string, number>;
     const G = E / 2.6, X = (Math.PI ** 2 * E * eff.cw) / (G * d.j * d.lb ** 2);

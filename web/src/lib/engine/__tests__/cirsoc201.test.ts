@@ -1,19 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import {
-  checkFlexure,
-  checkShear,
-  checkColumn,
-  checkTorsion,
-  checkBiaxial,
-  checkSlender,
-  computeK,
-  computePsi,
-  computeJointPsiFromModel,
-  isElongatedSection,
-  verifyElement,
-  classifyElement,
-  REBAR_DB,
-} from '../codes/argentina/cirsoc201';
+import { checkFlexure, checkShear, checkSlender, computeK, computePsi, computeJointPsiFromModel, isElongatedSection, classifyElement, REBAR_DB } from '../codes/argentina/cirsoc201';
+import { checkColumn, checkTorsion, checkBiaxial } from './helpers/manual-interactions';
+import { verifyElement } from './helpers/verify-element';
 import type { ConcreteDesignParams, VerificationInput } from '../codes/argentina/cirsoc201';
 import {
   designSlab,

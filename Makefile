@@ -259,6 +259,10 @@ check.engine.acceptance-models:
 # The result walkers' keys are generated from the engine's result types; a hand edit fails test.engine.gates.
 gen.result-sites:
 	cd engine && STABILEO_WRITE_RESULT_SITES=1 $(NIX_RUN) cargo nextest run --profile ci --test gates -E 'test(=result_sites::generated_result_sites_are_current)'
+	$(SUBMAKE) gen.result-sites.web
+
+.PHONY: gen.result-sites.web
+gen.result-sites.web:
 	$(NIX_RUN) bash -c "cd web && node scripts/gen-result-sites.mjs --write"
 
 # nextest does not execute the compile-fail doctests protecting unit boundaries.
@@ -366,7 +370,7 @@ test.web.results:
 ## Regenerate web/results-snapshots/ after a DELIBERATE result change, then register it:
 ## an entry in web/src/lib/provenance/result-changes/ and a "BREAKING (results)" fragment.
 snapshots-update:
-	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results"
+	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results $(FILE) $(if $(FILTER),-t '$(FILTER)')"
 
 # A pull request that changes a committed snapshot must register the change. BASE=<rev>, the
 # commit the pull request is compared with (CI: the merge's first parent, or the queue's base).

@@ -52,7 +52,8 @@ export function maskDemands(d: ElementDesignDemands, behaviour: Behaviour): Elem
   const { leastCompression, ...rest } = d;
   const slack = d.demands.some((x) => x.category === 'N_tension') ? 0 : undefined;
   const least = drop === 'N_tension' ? leastCompression ?? slack : undefined;
-  return { ...rest, demands: d.demands.filter((x) => x.category !== drop), ...(least !== undefined ? { leastCompression: least } : {}) };
+  const concurrent = d.concurrent?.map(x => x.withAxial(noCompression(behaviour) ? Math.max(0, x.forces.n) : Math.min(0, x.forces.n)));
+  return { ...rest, ...(concurrent ? { concurrent } : {}), demands: d.demands.filter((x) => x.category !== drop), ...(least !== undefined ? { leastCompression: least } : {}) };
 }
 
 /** Every member's demands as design reads them: inactive members out, the rest masked. */

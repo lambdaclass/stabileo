@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import { requiredLd, favourableRowHolds, continuingGroupsInto } from '../station-design-forces';
 import { concreteBelowTopBars } from '../../codes/cirsoc201/anchorage';
-import { verifyElement } from '../codes/argentina/cirsoc201';
+import { verifyElement } from './helpers/verify-element';
 import { cirsoc201Adapter } from '../design/adapters/cirsoc201-adapter';
 
 describe('development length of a top bar', () => {

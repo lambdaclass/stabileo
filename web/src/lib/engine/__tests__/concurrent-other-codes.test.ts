@@ -4,7 +4,7 @@ import type { MemberContext, OtherCode, OtherCodeId } from '../design/other-code
 
 for (const id of ['aci318', 'ec2', 'aisc360', 'ec3', 'aisiS100'] as OtherCodeId[]) {
   for (const kind of ['beam', 'column', 'wall'] as const) {
-    it.skipIf(process.env.RUN_KNOWN_WRONG_1316 !== '1')(`known wrong result: #1316 — ${id} ${kind} dispatcher includes the governing non-extreme concurrent tuple by default`, () => {
+    it(`#1316 — ${id} ${kind} dispatcher includes the governing non-extreme concurrent tuple by default`, () => {
       const station = (comboId: number, n: number, my: number) => ({ comboId, comboName: `case ${comboId}`, stationT: 0.5, stationX: 1.5,
         forces: { t: 0.5, x: 1.5, n, my, mz: 0, vy: 0, vz: 0, torsion: 0 } });
       const peak = station(1, -100, 10), middle = station(2, -90, 90);

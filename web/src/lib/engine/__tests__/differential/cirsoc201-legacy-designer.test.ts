@@ -1,3 +1,4 @@
+import { checkColumn } from '../helpers/manual-interactions';
 /**
  * Differential test: the concrete modules that moved into the engine, against the TypeScript
  * they replaced (`oracle/`), on thousands of random valid sections. Each disagreement is
@@ -114,7 +115,7 @@ describe('the legacy column check', () => {
     const P = { fc: 25, fy: 420, cover: 0.03, b: 0.3, h: 0.3, stirrupDia: 8 };
     const o = old.checkColumn(P, -300, 60);
     expect(o.Nu).toBe(300); // the sign was dropped: the check ran as if compressed
-    const a = eng.checkColumn(P, -300, 60);
+    const a = checkColumn(P, -300, 60);
     expect(a.Nu).toBe(-300);
     expect(a.status).not.toBe('fail');
     const la = computeColumnLayout(a.barCount, a.barDia, 0.3, 0.3, 0.03, 8);
@@ -126,7 +127,7 @@ describe('the legacy column check', () => {
     const P = { fc: 25, fy: 420, cover: 0.03, b: 0.3, h: 0.3, stirrupDia: 8 };
     let oldLight = 0;
     for (const { Pu, Mu } of fc.sample(g, { numRuns: 300, seed: 5 })) {
-      const a = eng.checkColumn(P, Pu, Mu);
+      const a = checkColumn(P, Pu, Mu);
       if (a.status !== 'fail') expect(a.ratio).toBeLessThanOrEqual(1);
       const o = old.checkColumn(P, Pu, Mu);
       if (o.status !== 'fail') {

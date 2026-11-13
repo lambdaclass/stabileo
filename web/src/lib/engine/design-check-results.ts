@@ -78,7 +78,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
 
     checks.push({
       name: 'Flexure',
-      demand: Math.abs(v.Mu),
+      demand: Math.abs(v.flexure.Mu),
       capacity: v.flexure.phiMn,
       ratio: v.flexure.ratio,
       unit: 'kN·m',
@@ -88,7 +88,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
 
     checks.push({
       name: 'Shear',
-      demand: Math.abs(v.Vu),
+      demand: Math.abs(v.shear.Vu),
       capacity: v.shear.phiVn,
       ratio: v.shear.ratio,
       unit: 'kN',
@@ -110,19 +110,19 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
 
     const { axial, flexure, momentY } = v.governingCombos ?? {};
     const sources = [axial, flexure, momentY].filter(c => !!c);
-    const mixed = new Set(sources.map(c => c!.comboId)).size > 1;
+    const mixed = !v.concurrentChecks && new Set(sources.map(c => c!.comboId)).size > 1;
     const moments = [...new Set([flexure, momentY].filter(c => !!c).map(c => c!.comboName))].join(', ');
     const pairedName = mixed ? `N ${axial?.comboName ?? '—'} · M ${moments}` : axial?.comboName ?? flexure?.comboName;
     if (v.column) {
       const status = v.column.status as CheckStatus;
       checks.push({
         name: 'Axial + Moment',
-        demand: Math.abs(v.Nu),
+        demand: Math.abs(v.column.Nu),
         capacity: v.column.phiPn,
         ratio: v.column.ratio,
         unit: 'kN',
         status: mixed && status === 'ok' ? 'warn' : status,
-        comboName: pairedName,
+        comboName: v.governingCombos?.column?.comboName ?? pairedName,
         ...(mixed ? { notice: 'RC-NM-PAIRING' as const } : {}),
       });
     }
@@ -147,7 +147,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
         ratio: v.biaxial.ratio,
         unit: 'kN·m',
         status: mixed && v.biaxial.status === 'ok' ? 'warn' : v.biaxial.status as CheckStatus,
-        comboName: pairedName,
+        comboName: v.governingCombos?.biaxial?.comboName ?? pairedName,
         ...(mixed ? { notice: 'RC-NM-PAIRING' as const } : {}),
       });
     }
