@@ -28,7 +28,7 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
-  it.skip('known wrong result: #2072: excludes unrelated legacy frames and shells from elastic SSI notices', () => {
+  it('known wrong result: #2072: excludes unrelated legacy frames and shells from elastic SSI notices', () => {
     for (const analysisMode of ['2d', 'pro']) {
       for (const snapshot of [
         model({ analysisMode, elements: [member(1, 1, 'frame')] }),
