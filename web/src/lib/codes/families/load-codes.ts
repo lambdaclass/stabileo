@@ -45,8 +45,9 @@ export interface CodeModule {
 
 export interface CombinationCode extends CodeModule {
   role: 'basis';
-  strength(ci: CombinationInputs): { combinations: LoadCombinationSpec[]; refs: ClauseRef[]; notes: EngineMessage[] };
-  service(ci: CombinationInputs): LoadCombinationSpec[];
+  /** `input`: the whole plan input, for what a code's combinations read beyond the actions present (an occupancy's category, the site's altitude). */
+  strength(ci: CombinationInputs, input?: LoadPlanInput): { combinations: LoadCombinationSpec[]; refs: ClauseRef[]; notes: EngineMessage[] };
+  service(ci: CombinationInputs, input?: LoadPlanInput): LoadCombinationSpec[];
   /** The action category of a symbol the code combines. */
   categoryOf(symbol: LoadSymbol | string): ActionCategory;
 }
@@ -54,10 +55,32 @@ export interface CombinationCode extends CodeModule {
 export interface ImposedLoadCode extends CodeModule {
   role: 'loads';
   occupancy(key: string): OccupancyEntry | undefined;
+  /** The occupancy a project of this code starts from. Absent: CIRSOC 101's dwellings. */
+  defaultOccupancy?: string;
+  /** The code's table of occupancies, as the dialog lists them. Absent: CIRSOC 101 Table 4.1. */
+  occupancies?(): readonly OccupancyEntry[];
   reduce(o: {
     loKNm2: number; tributaryAreaM2: number; elementKind: ElementKind; floorsSupported: number;
     passengerGarage: boolean; publicAssembly: boolean; noReduction: boolean;
+    /** The occupancy the load is of, where the code reduces by use. */
+    occupancyKey?: string;
   }): { lKNm2: number; refs: ClauseRef[]; reason: EngineMessage };
+  /** The rows a roof with an occupancy may take. Absent: CIRSOC 101 §4.8.2's, from Table 4.1. */
+  roofOccupancies?(): readonly OccupancyEntry[];
+  /**
+   * The part of the imposed action an occupancy's load is, where the code combines the parts at
+   * their own factors (EN 1990 ψ by category of use): a roof of another part than the floors' gets
+   * cases of its own (`load-plan.ts`). Absent: the imposed load is one action at one set of factors.
+   */
+  imposedGroup?(occupancyKey: string): string | undefined;
+  /** What the plan says beside the reduction it applied, where the code limits its use. */
+  reductionNotes?(o: { elementKind: ElementKind; floorsSupported: number }): EngineMessage[];
+  /** The partition allowance, by the code's own rule (`partitions.ts`). Absent: CIRSOC 101 §4.3.2. */
+  partition?(loKNm2: number, requestedKNm2: number): import('../cirsoc101/live-loads').PartitionLiveAllowance;
+  /** What the dialog offers for the allowance. Absent: CIRSOC 101's minimum of 0,75 kN/m². */
+  partitionInput?: import('./partitions').PartitionInput;
+  /** The roof's imposed load for maintenance, where the code has its own; such a code has no heavy and light roofs. Absent: CIRSOC 101 §4.8.1. */
+  roofLive?(i: import('../cirsoc101/roof-live').RoofLiveInputs): import('../cirsoc101/roof-live').RoofLiveResult;
 }
 
 export interface WindCode extends CodeModule {
@@ -83,6 +106,12 @@ export interface SeismicCode extends CodeModule {
   liveInMass(occupancy: string): number | undefined;
   /** The combinations with the vertical component, when the code asks for it. */
   vertical?(combinations: LoadCombinationSpec[], detail: SeismicPlanDetail | undefined, sink: PlanSink): LoadCombinationSpec[];
+  /**
+   * The code decides itself whether the vertical component enters (TBDY always, ASCE 7 by SDS,
+   * EN 1998-1 by avg and its own input): `vertical` runs whatever the dialog's CIRSOC toggle says.
+   * Absent: the project's toggle decides (INPRES-CIRSOC 103 §3.5.2).
+   */
+  verticalByCode?: boolean;
   /** The dialog's starting values. */
   defaults: { zone: number; site: string; group: string };
 }

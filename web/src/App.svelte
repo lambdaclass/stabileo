@@ -7,6 +7,8 @@
   import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
   import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
   import MeshProgressCard from './components/pro/plates/MeshProgressCard.svelte';
+  import RcSheetsProgressCard from './components/pro/rc-sheets/RcSheetsProgressCard.svelte';
+  import { sheetsProgress } from './lib/store/rc-sheets-progress.svelte';
   import { meshProgress } from './lib/store/mesh-progress.svelte';
   import { is3DWorkspace } from './lib/utils/workspace';
   import { captureFigure } from './lib/export/figure';
@@ -2321,9 +2323,10 @@
 <RebarWorkspace />
 {#if !deskDocked}<DesignDesk />{/if}
 
-{#if uiStore.toasts.length > 0 || meshProgress.now}
+{#if uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
     <MeshProgressCard />
+    <RcSheetsProgressCard />
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>

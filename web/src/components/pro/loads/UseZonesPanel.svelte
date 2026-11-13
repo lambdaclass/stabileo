@@ -11,7 +11,8 @@
    */
   import { modelStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
-  import { OCCUPANCY_TABLE_2025, findOccupancy } from '../../../lib/codes/cirsoc101/live-loads';
+  import { findAnyOccupancy as findOccupancy, occupancyTableFor } from '../../../lib/codes/families/occupancy-tables';
+  import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import { confirmZoneUse, copyZonesToLevels, deleteUseZones, finishPackages, liveCaseId, setZoneUse, useZones } from '../../../lib/store/use-zones';
   import FinishPackages from './FinishPackages.svelte';
   import { zoneLiveLoad, zoneStatus, zoneUnsupported, zoneOverlap, zoneUseOf, type ZoneStatus } from '../../../lib/model/use-zones';
@@ -69,6 +70,8 @@
     const r = copyZonesToLevels([...selected], copyTo);
     message = tp('useZones.copied', { n: r.copied, skipped: r.skipped });
   }
+  /** The table of the project's loads code: a zone's use is one of its rows, never another family's. */
+  const table = $derived(occupancyTableFor(regulationsStore.binding('loads')?.adapterId));
   const label = (key: string) => { const row = findOccupancy(key); return row ? `${t(row.labelKey)}${row.uniformKNm2 !== null ? ` · ${row.uniformKNm2}` : ` · ${t('useZones.seeArticle')}`}` : key; };
   const statusLabel = (s: ZoneStatus) => t(`useZones.status.${s}`);
   const fmt = (v: number | null, d = 2) => (v === null ? '—' : v.toFixed(d));
@@ -116,7 +119,7 @@
         <span>{tp('useZones.selectedN', { n: selected.size })}</span>
         <select bind:value={bulkUse} data-testid="use-zones-bulk-use">
           <option value="">{t('useZones.chooseUse')}</option>
-          {#each OCCUPANCY_TABLE_2025 as o (o.key)}<option value={o.key}>{label(o.key)}</option>{/each}
+          {#each table as o (o.key)}<option value={o.key}>{label(o.key)}</option>{/each}
           <option value="__none">{t('useZones.none')}</option>
         </select>
         <button class="pk-btn" disabled={!bulkUse} onclick={() => assign([...selected], bulkUse)} data-testid="use-zones-bulk-assign">{t('useZones.assign')}</button>
@@ -150,10 +153,10 @@
               <td>
                 <select value={r.use?.none ? '__none' : Number.isFinite(r.use?.manualQ) ? '__manual' : (r.use?.occupancy ?? '')} onchange={(e) => assign([r.id], e.currentTarget.value)} data-testid="use-zone-use-{r.name}">
                   <option value="">—</option>
-                  {#if r.use?.candidates?.length}
-                    <optgroup label={t('useZones.suggested')}>{#each r.use.candidates as k (k)}<option value={k}>{label(k)}</option>{/each}</optgroup>
+                  {#if r.use?.candidates?.some((k) => table.some((o) => o.key === k))}
+                    <optgroup label={t('useZones.suggested')}>{#each r.use.candidates.filter((k) => table.some((o) => o.key === k)) as k (k)}<option value={k}>{label(k)}</option>{/each}</optgroup>
                   {/if}
-                  <optgroup label={t('useZones.table')}>{#each OCCUPANCY_TABLE_2025 as o (o.key)}<option value={o.key}>{label(o.key)}</option>{/each}</optgroup>
+                  <optgroup label={t('useZones.table')}>{#each table as o (o.key)}<option value={o.key}>{label(o.key)}</option>{/each}</optgroup>
                   <option value="__manual">{t('useZones.manual')}…</option>
                   <option value="__none">{t('useZones.none')}</option>
                 </select>
