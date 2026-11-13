@@ -41,7 +41,6 @@ fn transforms(s: &SolverInput3D) -> Vec<SolverInput3D> {
 }
 
 #[test]
-#[ignore = "known wrong result: #2023"]
 fn compatible_3d_release_axes_ends_rotations_and_units() {
     for axis in ["My", "Mz", "T"] {
         for end in ["Start", "End"] {
@@ -62,7 +61,6 @@ fn compatible_3d_release_axes_ends_rotations_and_units() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2023"]
 fn compatible_3d_units_boundary_guard() {
     let s: SolverInput3D = serde_json::from_value(fixture()).unwrap();
     for length in [0.001, 1.0, 1000.0] {
@@ -145,7 +143,6 @@ fn entry_names() -> [&'static str; 17] {
 }
 
 #[test]
-#[ignore = "known wrong result: #2023"]
 fn compatible_3d_load_reaches_every_static_entry_point() {
     let models = transforms(&member("Mz", "Start", true));
     let mut failures = Vec::new();
@@ -363,7 +360,6 @@ fn native_and_wasm_share_released_load_models() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2023"]
 fn pdelta_admits_compatible_released_work_to_its_iterations() {
     for s in transforms(&member("Mz", "Start", true)) {
         let result = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&s, 100, 1e-12).unwrap();
@@ -387,7 +383,6 @@ fn fiber_nonlinear_keeps_its_explicit_release_refusal() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2023"]
 fn contact_without_features_keeps_zero_and_one_iteration_limits() {
     for dimension in [2, 3] {
         for max_iter in [0, 1] {
@@ -412,7 +407,6 @@ fn contact_without_features_keeps_zero_and_one_iteration_limits() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2023"]
 fn compatible_released_work_uses_mapped_and_warping_load_assembly() {
     for mut model in transforms(&member("Mz", "Start", true)) {
         let mut node = model.nodes["2"].clone();
@@ -453,7 +447,6 @@ fn compatible_released_work_uses_mapped_and_warping_load_assembly() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2023"]
 fn compatible_released_work_survives_nonempty_constraint_reduction() {
     let mut input: SolverInput3D = serde_json::from_value(fixture()).unwrap();
     input.supports.get_mut("2").unwrap().rx = true;
@@ -605,7 +598,6 @@ fn an_independent_large_torque_cannot_hide_a_released_bending_moment() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2023"]
 fn material_nonlinear_retained_moments_use_the_physical_release_check() {
     use dedaliano_engine::solver::material_nonlinear;
     let mut completed = 0;

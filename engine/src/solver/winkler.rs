@@ -48,6 +48,7 @@ pub struct WinklerInput3D {
 // ==================== 2D Winkler Solver ====================
 
 pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String> {
+    if input.foundation_springs.is_empty() { return super::linear::solve_2d(&input.solver); }
     // Assembly resolves ids by direct map indexing: an element naming a
     // node that does not exist panicked there, which in WASM ends the
     // module rather than the call.
@@ -170,6 +171,7 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
 // ==================== 3D Winkler Solver ====================
 
 pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, String> {
+    if input.foundation_springs.is_empty() { return super::linear::solve_3d(&input.solver); }
     super::linear::validate_input_3d(&input.solver)?;
     let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input.solver);
     super::pre_solve_gates::refuse_broken_elements(&pre_solve_diags)?;

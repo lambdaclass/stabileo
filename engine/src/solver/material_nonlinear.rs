@@ -1006,7 +1006,7 @@ fn solve_nonlinear_material_3d_inner(
     let asm = super::assembly::assemble_3d(solver, &dof_num);
     let f_total = asm.f.clone();
     let art = assembly::artificial_stiffness_entries(&asm);
-    super::linear::refuse_loads_on_orphan_dofs_3d(&dof_num, &asm.artificial_dofs.iter().copied().collect(), &solver.loads)?;
+    super::linear::refuse_material_loads_on_orphan_dofs_3d(solver, &dof_num, &asm.artificial_dofs.iter().copied().collect())?;
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&solver, &dof_num)?;

@@ -876,7 +876,10 @@ impl PreparedStatic2D<'_> {
         let dof_num = &self.dof_num;
         let (n, nf, nr) = (self.n, self.nf, self.nr);
         let f = assemble_load_vector_2d(input, loads, dof_num, &self.inclined_transforms_2d);
-        if let Some(node) = self.stability.load_on_free_rotation(&f[..nf]) {
+        let load_rounding = if self.stability.free_rotations().next().is_some() {
+            super::load_work::assembly_rounding_2d(input,loads,dof_num,&self.inclined_transforms_2d)
+        } else { Vec::new() };
+        if let Some(node) = self.stability.load_on_free_rotation_with_rounding(&f[..nf], &load_rounding) {
             return Err(moment_lost_2d(node, "no member, support or spring stiffens that rotation"));
         }
 
@@ -968,7 +971,7 @@ impl PreparedStatic2D<'_> {
                 if has_nan_inf {
                     return Err("Singular stiffness matrix — structure is a mechanism".to_string());
                 }
-                self.stability.check_pins(&u_f, &f[..nf], &k_fr_ur)?;
+                self.stability.check_pins_with_rounding(&u_f, &f[..nf], &k_fr_ur, &load_rounding)?;
 
                 // Compute reactions: R = K_rf · u_f + K_rr · u_r − F_r
                 let f_r: Vec<f64> = f[nf..].to_vec();
@@ -1126,7 +1129,7 @@ impl PreparedStatic2D<'_> {
                 if has_nan_inf {
                     return Err("Singular stiffness matrix — structure is a mechanism".to_string());
                 }
-                self.stability.check_pins(&u_f, &f[..nf], &p.kfr_ur)?;
+                self.stability.check_pins_with_rounding(&u_f, &f[..nf], &p.kfr_ur, &load_rounding)?;
 
                 // Build full displacement vector
                 let mut u_full = vec![0.0; n];
@@ -1283,7 +1286,7 @@ impl PreparedStatic2D<'_> {
                 if has_nan_inf {
                     return Err("Singular stiffness matrix — structure is a mechanism".to_string());
                 }
-                self.stability.check_pins(&u_f, &f[..nf], &p.kfr_ur)?;
+                self.stability.check_pins_with_rounding(&u_f, &f[..nf], &p.kfr_ur, &load_rounding)?;
 
                 // Build full displacement vector
                 let mut u_full = vec![0.0; n];
@@ -2007,7 +2010,8 @@ impl PreparedStatic3D {
     fn refuse_loads_on_free_rotations(&self, loads: &[SolverLoad3D]) -> Result<(), String> {
         if self.stability.free_rotations().next().is_none() { return Ok(()); }
         let f = super::sparse_assembly::assemble_load_vector_sparse_3d(&self.input, loads, &self.dof_num, self.inclined_transforms());
-        refuse_loaded_free_rotation_3d(&self.stability, &self.dof_num, &f[..self.nf])
+        let rounding = super::load_work::assembly_rounding_3d(&self.input,loads,&self.dof_num,self.inclined_transforms());
+        refuse_loaded_free_rotation_3d(&self.stability, &self.dof_num, &f[..self.nf], &rounding)
     }
 
     fn solve_loads_fully_restrained(
@@ -2081,6 +2085,7 @@ impl PreparedStatic3D {
         let (n, nf, nr) = (self.n, self.nf, self.nr);
 
         let f = assemble_load_vector_3d_dense(input, loads, dof_num, &p.inclined_transforms);
+        let load_rounding = if self.stability.free_rotations().next().is_some() { super::load_work::assembly_rounding_3d(input,loads,dof_num,&p.inclined_transforms) } else { Vec::new() };
 
         // F_f_modified = F_f − K_fr · u_r
         let mut f_f: Vec<f64> = f[..nf].to_vec();
@@ -2097,7 +2102,7 @@ impl PreparedStatic3D {
         // guards solver INPUT, and `postprocess::combinations` has no finiteness handling,
         // so a NaN here would silently poison a combination or an envelope.
         assert_finite_3d(&u_f)?;
-        self.stability.check_pins(&u_f, &f[..nf], &p.k_fr_ur)?;
+        self.stability.check_pins_with_rounding(&u_f, &f[..nf], &p.k_fr_ur, &load_rounding)?;
 
         let mut solver_diags = p.conditioning_warnings.clone();
         solver_diags.push(SolverDiagnostic {
@@ -2259,6 +2264,7 @@ impl PreparedStatic3D {
 
         // Rebuild only the load vector for this case
         let f = super::sparse_assembly::assemble_load_vector_sparse_3d(input, loads, dof_num, &p.inclined_transforms);
+        let load_rounding = if self.stability.free_rotations().next().is_some() { super::load_work::assembly_rounding_3d(input,loads,dof_num,&p.inclined_transforms) } else { Vec::new() };
 
         let mut solver_diags = p.solver_diags_base.clone();
         let mut dense_fb_us: u64 = 0;
@@ -2313,7 +2319,7 @@ impl PreparedStatic3D {
         // both the sparse Cholesky result and the dense LU fallback.
         let u_f = conditional_sparse_refinement(&self.stability, &p.k_ff, &f_f, u_f, |rhs| sparse_cholesky_solve(&p.num, rhs))?;
         assert_finite_3d(&u_f)?;
-        self.stability.check_pins(&u_f, &f[..nf], &p.kfr_ur)?;
+        self.stability.check_pins_with_rounding(&u_f, &f[..nf], &p.kfr_ur, &load_rounding)?;
 
         // Build full displacement vector
         let mut u_full = vec![0.0; n];
@@ -2520,6 +2526,7 @@ impl PreparedStatic3D {
 
         // Rebuild only the load vector for this case
         let f = super::sparse_assembly::assemble_load_vector_sparse_3d(input, loads, dof_num, &p.inclined_transforms);
+        let load_rounding = if self.stability.free_rotations().next().is_some() { super::load_work::assembly_rounding_3d(input,loads,dof_num,&p.inclined_transforms) } else { Vec::new() };
 
         let mut solver_diags = p.solver_diags_base.clone();
         let mut dense_fb_us: u64 = 0;
@@ -2621,7 +2628,7 @@ impl PreparedStatic3D {
         // both direct fallbacks.
         let u_f = conditional_sparse_refinement(&self.stability, &p.k_ff, &f_f, u_f, |rhs| sparse_cholesky_solve(num, rhs))?;
         assert_finite_3d(&u_f)?;
-        self.stability.check_pins(&u_f, &f[..nf], &p.kfr_ur)?;
+        self.stability.check_pins_with_rounding(&u_f, &f[..nf], &p.kfr_ur, &load_rounding)?;
 
         // Build full displacement vector
         let mut u_full = vec![0.0; n];
@@ -4158,6 +4165,24 @@ pub(crate) fn refuse_loads_on_orphan_dofs_3d(
     orphan: &std::collections::HashSet<usize>,
     loads: &[SolverLoad3D],
 ) -> Result<(), String> {
+    refuse_loads_on_orphan_dofs_with_certificate_3d(dof_num,orphan,loads,None)
+}
+
+pub(crate) fn refuse_material_loads_on_orphan_dofs_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    orphan: &std::collections::HashSet<usize>,
+) -> Result<(), String> {
+    let certificate=checked_initial_released_loads_3d(input)?;
+    refuse_loads_on_orphan_dofs_with_certificate_3d(dof_num,orphan,&input.loads,Some(&certificate))
+}
+
+fn refuse_loads_on_orphan_dofs_with_certificate_3d(
+    dof_num: &DofNumbering,
+    orphan: &std::collections::HashSet<usize>,
+    loads: &[SolverLoad3D],
+    certificate: Option<&ReleasedLoadCertificate3D>,
+) -> Result<(), String> {
     if orphan.is_empty() {
         return Ok(());
     }
@@ -4169,6 +4194,7 @@ pub(crate) fn refuse_loads_on_orphan_dofs_3d(
         };
         for (local, v) in comps {
             if v == 0.0 { continue; }
+            if local < 6 && certificate.is_some_and(|c| c.nodes.contains(&node)) { continue; }
             if let Some(d) = dof_num.global_dof(node, local) {
                 if orphan.contains(&d) {
                     return Err(moment_lost_3d(
@@ -4182,8 +4208,8 @@ pub(crate) fn refuse_loads_on_orphan_dofs_3d(
     Ok(())
 }
 
-fn refuse_loaded_free_rotation_3d(stability: &super::stability::Stability, dof: &DofNumbering, f: &[f64]) -> Result<(), String> {
-    let Some(node) = stability.load_on_free_rotation(f) else { return Ok(()); };
+fn refuse_loaded_free_rotation_3d(stability: &super::stability::Stability, dof: &DofNumbering, f: &[f64], rounding: &[f64]) -> Result<(), String> {
+    let Some(node) = stability.load_on_free_rotation_with_rounding(f,rounding) else { return Ok(()); };
     let directions: Vec<_> = stability.free_rotations().filter(|d| d.node == node).map(|d| {
         d.dofs.iter().zip(&d.direction).map(|(&index, value)| {
             let local = dof.entries_by_dof().into_iter().find(|(_, i)| *i == index).unwrap().0.1;
@@ -5448,5 +5474,44 @@ mod r3_summary_tests {
                 assert_eq!(r.applied_force_sum[0],1000.0);
             }
         }
+    }
+}
+
+#[derive(Default)]
+struct ReleasedLoadCertificate3D {
+    nodes: std::collections::BTreeSet<usize>,
+}
+
+pub(crate) fn refuse_initial_free_rotation_loads_3d(input: &SolverInput3D) -> Result<(),String> {
+    checked_initial_released_loads_3d(input).map(|_|())
+}
+
+fn checked_initial_released_loads_3d(input: &SolverInput3D) -> Result<ReleasedLoadCertificate3D,String> {
+    if !input.loads.iter().any(|load| matches!(load,SolverLoad3D::Nodal(n) if n.mx != 0.0 || n.my != 0.0 || n.mz != 0.0)) { return Ok(ReleasedLoadCertificate3D::default()); }
+    if !input.elements.values().any(|e| e.release_my_start || e.release_my_end || e.release_mz_start || e.release_mz_end || e.release_t_start || e.release_t_end) { return Ok(ReleasedLoadCertificate3D::default()); }
+    let input = &expand_curved_beams_3d(input);
+    let dof = DofNumbering::build_3d(input);
+    let assembled = super::assembly::without_artificial_stiffness(|| super::assembly::assemble_stiffness_sparse_3d(input,&dof,false));
+    let constraints = super::constraints::FreeConstraintSystem::build_3d(input,&dof)?;
+    let releases = super::stability::released_rotations_3d(input,&dof);
+    let (_,mut stability) = super::stability::analyze_free_stiffness(&assembled.k_ff,&dof,false,constraints.as_ref(),&super::stability::coupling_3d(input,&dof),&releases);
+    let projected_releases = constraints.as_ref().map(|c| releases.project(&c.c_ff));
+    let releases = projected_releases.as_ref().unwrap_or(&releases);
+    let mut certificate=ReleasedLoadCertificate3D::default();
+    if stability.is_stable() {
+        for direction in stability.free_rotations() {
+            if stability.free_rotations().filter(|d|d.node==direction.node).all(|d| d.kind==super::stability::DofKind::Rotation && releases.permits(d.node,&d.dofs,&d.direction)) {
+                certificate.nodes.insert(direction.node);
+            }
+        }
+    }
+    stability.free.retain(|d| releases.permits(d.node,&d.dofs,&d.direction));
+    let loads = super::assembly::assemble_load_vector_3d_dense(input,&input.loads,&dof,&assembled.inclined_transforms);
+    let rounding = super::load_work::assembly_rounding_3d(input,&input.loads,&dof,&assembled.inclined_transforms);
+    let rounding = constraints.as_ref().map_or_else(|| rounding.clone(),|c| c.reduce_load_rounding(&loads,&rounding));
+    let loads = match constraints.as_ref() {Some(c)=>c.reduce_vector(&loads),None=>loads};
+    match stability.load_on_free_rotation_with_rounding(&loads,&rounding) {
+        Some(node)=>Err(moment_lost_3d(node,"a free rotation would carry load")),
+        None=>Ok(certificate),
     }
 }

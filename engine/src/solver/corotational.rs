@@ -1410,6 +1410,7 @@ pub fn solve_corotational_3d(
 
     // Input validation and pre-solve gates
     super::linear::validate_input_3d(input)?;
+    super::linear::refuse_initial_free_rotation_loads_3d(input)?;
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(input);
 
     // Corotational 3D only handles frame elements — reject models with shells

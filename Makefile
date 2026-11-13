@@ -1061,3 +1061,22 @@ test.engine.arc-corrector-2009-wasm: wasm
 	ARC_CORRECTOR_2009_CASES=$(CURDIR)/.arc-corrector-2009.json $(MAKE) test.engine.targeted TEST=integration FILTER=prescribed_master_2008::arc_corrector_preserves_motion_and_free_equilibrium
 	$(NIX_RUN) node scripts/tests/arc-corrector-2009-wasm.mjs $(CURDIR)/.arc-corrector-2009.json
 	rm -f $(CURDIR)/.arc-corrector-2009.json
+
+.PHONY: test.engine.released-load-work-2023-wasm
+
+test.engine.released-load-work-2023-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.released-load-work.XXXXXX"); trap '\''rm -f -- "$$cases"'\'' EXIT; RELEASED_LOAD_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER="released_load_work::native_and_wasm_share_released_load_models --release"; node scripts/tests/released-load-work-2023-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.released-load-work-2023
+
+test.engine.released-load-work-2023:
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='released_load_work:: --release'
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='released_rotation_load --release'
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib solver::load_work::tests -- --nocapture
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib solver::stability::tests -- --nocapture
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib staged_round8 -- --nocapture
+
+.PHONY: test.engine.released-load-work-2023-parallel
+
+test.engine.released-load-work-2023-parallel:
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --features parallel --test metamorphic released_load_work:: -- --nocapture

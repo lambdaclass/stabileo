@@ -1,0 +1,39 @@
+{
+  "id": "released-load-work",
+  "date": "2026-11-13",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "members",
+      "shells",
+      "connectors",
+      "springs",
+      "constraints"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Compatible loads on released rotations",
+    "es": "Cargas compatibles en giros liberados",
+    "pt": "Cargas compatíveis em rotações liberadas",
+    "de": "Verträgliche Lasten an freigegebenen Drehungen",
+    "fr": "Charges compatibles avec les rotations libérées",
+    "tr": "Serbest bırakılan dönmelerde uyumlu yükler"
+  },
+  "explanation": {
+    "en": "Rotations and unit changes could falsely reject a load whose virtual work on a released rotation is zero. Shared checks now include direction and load-assembly uncertainty. Unsupported moments above the derived rounding bound still refuse. Winkler analyses without foundation springs and contact analyses without contact features use the ordinary solver and its checks. Initial nonlinear nodal-moment checks share the bounded-work calculation. Re-run affected models; existing conditioning and response warnings remain applicable (#2023).",
+    "es": "Una rotación o conversión de unidades podía rechazar una carga cuyo trabajo virtual sobre un giro liberado es cero. Las verificaciones compartidas incluyen ahora la incertidumbre de la dirección y del ensamblaje de cargas. Los momentos incompatibles por encima de la cota de redondeo siguen rechazándose. Winkler sin resortes de fundación y contacto sin funciones de contacto usan el cálculo ordinario y sus verificaciones. Recalculá los modelos afectados; siguen vigentes las advertencias de condicionamiento y respuesta (#2023).",
+    "pt": "Rotações e mudanças de unidades podiam recusar uma carga com trabalho virtual nulo numa rotação liberada. As verificações compartilhadas incluem a incerteza da direção e da montagem das cargas. Momentos incompatíveis acima do limite de arredondamento continuam recusados. Winkler sem molas de fundação e contato sem recursos de contato usam o cálculo comum e suas verificações. Recalcule os modelos afetados; os avisos de condicionamento e resposta continuam válidos (#2023).",
+    "de": "Drehungen und Einheitenwechsel konnten eine Last mit verschwindender virtueller Arbeit an einer freigegebenen Drehung fälschlich ablehnen. Gemeinsame Prüfungen berücksichtigen jetzt Richtungs- und Lastassemblierungsfehler. Unverträgliche Momente oberhalb der hergeleiteten Rundungsgrenze werden weiterhin abgelehnt. Winkler ohne Bettungsfedern und Kontaktanalysen ohne Kontaktbedingungen verwenden den gewöhnlichen Löser mit dessen Prüfungen. Betroffene Modelle neu berechnen; bestehende Konditions- und Antwortwarnungen gelten weiter (#2023).",
+    "fr": "Une rotation ou un changement d’unités pouvait refuser une charge dont le travail virtuel sur une rotation libérée est nul. Les vérifications communes incluent désormais les incertitudes de direction et d’assemblage des charges. Les moments incompatibles au-delà de la borne d’arrondi restent refusés. Winkler sans ressorts de fondation et le contact sans conditions de contact utilisent le calcul ordinaire et ses vérifications. Recalculer les modèles concernés ; les avertissements existants restent applicables (#2023).",
+    "tr": "Döndürme ve birim değişiklikleri, serbest bırakılan dönmede sanal işi sıfır olan bir yükü yanlışlıkla reddedebiliyordu. Ortak denetimler artık yön ve yük birleştirme belirsizliğini içerir. Türetilen yuvarlama sınırını aşan uyumsuz momentler reddedilmeye devam eder. Temel yayı olmayan Winkler analizleri ve temas koşulu olmayan temas analizleri normal çözücüyü ve denetimlerini kullanır. Etkilenen modelleri yeniden çözün; mevcut koşullandırma ve tepki uyarıları geçerlidir (#2023)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-released-load-work.md",
+    "heading": "Released-rotation virtual work across frames and units (2026-11-13)"
+  }
+}

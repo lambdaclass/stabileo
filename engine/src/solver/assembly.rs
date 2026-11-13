@@ -1595,6 +1595,7 @@ fn assemble_frame_loads_3d(
     loads: &[SolverLoad3D],
     dof_num: &DofNumbering,
     f_global: &mut [f64],
+    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
 ) {
     // Index elements carrying element-bound loads so unloaded elements are skipped
     let mut loaded_elems: std::collections::HashSet<usize> = std::collections::HashSet::new();
@@ -1664,13 +1665,13 @@ fn assemble_frame_loads_3d(
 
             if kinematics.uses_warping_formulation() && dof_num.dofs_per_node >= 7 {
                 let t = frame_transform_3d_warping(&ex, &ey, &ez);
-                assemble_element_loads_3d_warping(loads, elem, &t, l, e, sec, &elem_dofs, f_global, phi_y, phi_z);
+                assemble_element_loads_3d_warping(loads, elem, &t, l, e, sec, &elem_dofs, f_global, rounding, phi_y, phi_z);
             } else if dof_num.dofs_per_node >= 7 {
                 let t = frame_transform_3d(&ex, &ey, &ez);
-                assemble_element_loads_3d_mapped(loads, elem, &t, l, e, sec, &elem_dofs, f_global, phi_y, phi_z);
+                assemble_element_loads_3d_mapped(loads, elem, &t, l, e, sec, &elem_dofs, f_global, rounding, phi_y, phi_z);
             } else {
                 let t = frame_transform_3d(&ex, &ey, &ez);
-                assemble_element_loads_3d(loads, elem, &t, l, e, sec, &elem_dofs, f_global, phi_y, phi_z);
+                assemble_element_loads_3d(loads, elem, &t, l, e, sec, &elem_dofs, f_global, rounding, phi_y, phi_z);
             }
         }
     }
@@ -1699,7 +1700,7 @@ pub fn assemble_load_vector_3d_dense(
         crate::ordered::values(&input.quads).map(|q| (q.id, q)).collect();
 
     // Frame/truss element loads (FEF + thermal)
-    assemble_frame_loads_3d(input, loads, dof_num, &mut f_global);
+    assemble_frame_loads_3d(input, loads, dof_num, &mut f_global, &mut None);
 
     // Assemble 3D nodal loads
     for load in loads {
@@ -2044,6 +2045,53 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
     }
 }
 
+pub(crate) fn frame_load_rounding_3d(input: &SolverInput3D, loads: &[SolverLoad3D], dof: &DofNumbering) -> Vec<f64> {
+    let mut values = vec![0.0; dof.n_total];
+    let mut rounding = Some(super::load_work::AssemblyRoundoff::new(dof.n_total));
+    assemble_frame_loads_3d(input,loads,dof,&mut values,&mut rounding);
+    let mut rounding = rounding.unwrap();
+    for load in loads {
+        if let SolverLoad3D::Nodal(load) = load {
+            for (j, value) in [load.fx,load.fy,load.fz,load.mx,load.my,load.mz].into_iter().enumerate() {
+                if let Some(i) = dof.global_dof(load.node_id,j) {
+                    rounding.accumulate(i,value,0.0);
+                    values[i] += value;
+                }
+            }
+        }
+    }
+    rounding.finish()
+}
+
+fn accumulate_frame_load(local: &[f64], t: &[f64], n: usize, dofs: &[usize], mapping: Option<&[usize;12]>, global: &mut [f64], rounding: &mut Option<super::load_work::AssemblyRoundoff>) {
+    let force = transform_force(local,t,n);
+    let axes = [[t[0],t[1],t[2]],[t[n],t[n+1],t[n+2]],[t[2*n],t[2*n+1],t[2*n+2]]];
+    let frame_rounding = if rounding.is_none() {[[0.0;3];3]} else {super::load_work::frame_rounding(&axes)};
+    for (i, &value) in force.iter().enumerate() {
+        let dof = dofs[mapping.map_or(i, |map| map[i])];
+        if let Some(rounding) = rounding.as_mut() {
+            let mut sum = 0.0;
+            let mut error = 0.0;
+            for j in 0..n {
+                let product = t[j*n+i] * local[j];
+                error = super::load_work::add_up(error,super::load_work::product_rounding(t[j*n+i],local[j],product));
+                error = super::load_work::add_up(error,super::load_work::sum_rounding(sum,product));
+                sum += product;
+            }
+            let start = if n == 14 && i >= 7 {7} else if n == 12 && i >= 6 {6} else {0};
+            let component = i - start;
+            if component < 6 {
+                let offset = start + if component < 3 {0} else {3};
+                for j in 0..3 {
+                    error = super::load_work::add_up(error,super::load_work::mul_up(frame_rounding[j][component%3],local[offset+j].abs()));
+                }
+            }
+            rounding.accumulate(dof,value,error);
+        }
+        global[dof] += value;
+    }
+}
+
 fn assemble_element_loads_3d(
     loads: &[SolverLoad3D],
     elem: &SolverElement3D,
@@ -2053,6 +2101,7 @@ fn assemble_element_loads_3d(
     sec: &SolverSection3D,
     elem_dofs: &[usize],
     f_global: &mut [f64],
+    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
     phi_y: f64,
     phi_z: f64,
 ) {
@@ -2072,19 +2121,13 @@ fn assemble_element_loads_3d(
                 fef[0] = axial[0];
                 fef[6] = axial[1];
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                let fef_global = transform_force(&fef, t, 12);
-                for (i, &dof) in elem_dofs.iter().enumerate() {
-                    f_global[dof] += fef_global[i];
-                }
+                accumulate_frame_load(&fef, t, 12, elem_dofs, None, f_global, rounding);
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
                 let mut fef = fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
 
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                let fef_global = transform_force(&fef, t, 12);
-                for (i, &dof) in elem_dofs.iter().enumerate() {
-                    f_global[dof] += fef_global[i];
-                }
+                accumulate_frame_load(&fef, t, 12, elem_dofs, None, f_global, rounding);
             }
             SolverLoad3D::Thermal(tl) if tl.element_id == elem.id => {
                 let alpha = tl.alpha();
@@ -2096,10 +2139,7 @@ fn assemble_element_loads_3d(
                     alpha, hy, hz,
                 );
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                let fef_global = transform_force(&fef, t, 12);
-                for (i, &dof) in elem_dofs.iter().enumerate() {
-                    f_global[dof] += fef_global[i];
-                }
+                accumulate_frame_load(&fef, t, 12, elem_dofs, None, f_global, rounding);
             }
             _ => {}
         }
@@ -2116,6 +2156,7 @@ fn assemble_element_loads_3d_warping(
     sec: &SolverSection3D,
     elem_dofs: &[usize],
     f_global: &mut [f64],
+    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
     phi_y: f64,
     phi_z: f64,
 ) {
@@ -2136,19 +2177,13 @@ fn assemble_element_loads_3d_warping(
                 fef12[6] = axial[1];
                 adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
-                let fef_global = transform_force(&fef14, t14, 14);
-                for (i, &dof) in elem_dofs.iter().enumerate() {
-                    f_global[dof] += fef_global[i];
-                }
+                accumulate_frame_load(&fef14, t14, 14, elem_dofs, None, f_global, rounding);
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
                 let mut fef12 = fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
-                let fef_global = transform_force(&fef14, t14, 14);
-                for (i, &dof) in elem_dofs.iter().enumerate() {
-                    f_global[dof] += fef_global[i];
-                }
+                accumulate_frame_load(&fef14, t14, 14, elem_dofs, None, f_global, rounding);
             }
             SolverLoad3D::Thermal(tl) if tl.element_id == elem.id => {
                 let alpha = tl.alpha();
@@ -2161,10 +2196,7 @@ fn assemble_element_loads_3d_warping(
                 );
                 adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
-                let fef_global = transform_force(&fef14, t14, 14);
-                for (i, &dof) in elem_dofs.iter().enumerate() {
-                    f_global[dof] += fef_global[i];
-                }
+                accumulate_frame_load(&fef14, t14, 14, elem_dofs, None, f_global, rounding);
             }
             _ => {}
         }
@@ -2181,6 +2213,7 @@ fn assemble_element_loads_3d_mapped(
     sec: &SolverSection3D,
     elem_dofs: &[usize],
     f_global: &mut [f64],
+    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
     phi_y: f64,
     phi_z: f64,
 ) {
@@ -2200,18 +2233,12 @@ fn assemble_element_loads_3d_mapped(
                 fef[0] = axial[0];
                 fef[6] = axial[1];
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                let fef_global = transform_force(&fef, t12, 12);
-                for i in 0..12 {
-                    f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i];
-                }
+                accumulate_frame_load(&fef, t12, 12, elem_dofs, Some(&DOF_MAP_12_TO_14), f_global, rounding);
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
                 let mut fef = fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                let fef_global = transform_force(&fef, t12, 12);
-                for i in 0..12 {
-                    f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i];
-                }
+                accumulate_frame_load(&fef, t12, 12, elem_dofs, Some(&DOF_MAP_12_TO_14), f_global, rounding);
             }
             SolverLoad3D::Thermal(tl) if tl.element_id == elem.id => {
                 let alpha = tl.alpha();
@@ -2223,10 +2250,7 @@ fn assemble_element_loads_3d_mapped(
                     alpha, hy, hz,
                 );
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
-                let fef_global = transform_force(&fef, t12, 12);
-                for i in 0..12 {
-                    f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i];
-                }
+                accumulate_frame_load(&fef, t12, 12, elem_dofs, Some(&DOF_MAP_12_TO_14), f_global, rounding);
             }
             _ => {}
         }
@@ -3000,7 +3024,7 @@ pub fn assemble_load_vector_3d_sparse(
         crate::ordered::values(&input.curved_shells).map(|s| (s.id, s)).collect();
 
     // Frame/truss element loads (FEF + thermal)
-    assemble_frame_loads_3d(input, loads, dof_num, &mut f_global);
+    assemble_frame_loads_3d(input, loads, dof_num, &mut f_global, &mut None);
 
     // All loads (nodal, bimoment, plate pressure/thermal, quad pressure/thermal/self-weight/edge)
     for load in loads {

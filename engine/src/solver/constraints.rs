@@ -1623,9 +1623,11 @@ fn solve_constrained_2d_dense_validated(
     // K_reduced = C_ff^T * K_ff * C_ff
     // F_reduced = C_ff^T * F_f
     let k_reduced = fcs.reduce_matrix(&k_ff);
+    let load_rounding = super::load_work::assembly_rounding_2d(&input.solver,&input.solver.loads,dof_num,&asm.inclined_transforms_2d);
+    let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
     let stability = fcs.stability(&crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num, &CscMatrix::from_dense_symmetric(&k_ff, nf), &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default());
-    refuse_unstable(&stability, &f_reduced)?;
+    refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let u_indep = {
         let mut k_work = k_reduced.clone();
         stability.pin_dense(&mut k_work, n_free_indep);
@@ -1636,7 +1638,7 @@ fn solve_constrained_2d_dense_validated(
         linear::conditional_dense_refinement(&stability, &k_pinned, &f_reduced, u,
             |rhs| back_solve(&k_work, &forward_solve(&k_work, rhs, n_free_indep), n_free_indep))?
     };
-    stability.check_pins(&u_indep, &f_reduced, &[])?;
+    stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
     // Recover free DOF displacements: u_f = C_ff * u_indep
     let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
@@ -1847,14 +1849,16 @@ pub(super) fn solve_constrained_2d_sparse(
 
     // K_reduced = C_ff^T * K_ff * C_ff as a sparse triple product.
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
+    let load_rounding = super::load_work::assembly_rounding_2d(&input.solver,&input.solver.loads,dof_num,&stiff.inclined_transforms_2d);
+    let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
     let stability = fcs.stability(&k_reduced, dof_num, k_ff, &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default());
-    refuse_unstable(&stability, &f_reduced)?;
+    refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
     let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
     let u_indep = sparse_cholesky_solve(&num, &f_reduced);
     let u_indep = linear::conditional_sparse_refinement(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
-    stability.check_pins(&u_indep, &f_reduced, &[])?;
+    stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
     let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
 
@@ -2091,16 +2095,18 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     // K_reduced = C_ff^T * K_ff * C_ff, computed as a sparse triple product
     // over the triplets of K (near-linear in nnz(K) for MPC transforms).
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
+    let load_rounding = super::load_work::assembly_rounding_3d(&input.solver,&input.solver.loads,&dof_num,&sasm.inclined_transforms);
+    let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
     let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff)
         .or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
     let stability = fcs.stability(&k_reduced, &dof_num, k_ff, &super::stability::coupling_3d(&input.solver, &dof_num), &super::stability::released_rotations_3d(&input.solver, &dof_num));
-    refuse_unstable(&stability, &f_reduced)?;
+    refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
     let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
     let u_indep = sparse_cholesky_solve(&num, &f_reduced);
     let u_indep = linear::conditional_sparse_refinement(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
-    stability.check_pins(&u_indep, &f_reduced, &[])?;
+    stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
     let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
 
@@ -2244,9 +2250,9 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
 
 // ==================== Helper functions ====================
 
-fn refuse_unstable(stability: &super::stability::Stability, f_reduced: &[f64]) -> Result<(), String> {
+fn refuse_unstable(stability: &super::stability::Stability, f_reduced: &[f64], rounding: &[f64]) -> Result<(), String> {
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
-    if let Some(node) = stability.load_on_free_rotation(f_reduced) {
+    if let Some(node) = stability.load_on_free_rotation_with_rounding(f_reduced,rounding) {
         return Err(format!("Nodal moment at node {node} is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell"));
     }
     Ok(())
@@ -2467,6 +2473,24 @@ impl FreeConstraintSystem {
         for v in &mut magnitude_k.values { *v = v.abs(); }
         let rounding = magnitude_c.reduce_sparse(&magnitude_k);
         super::stability::analyze_excluding(k_reduced, &reduced_tags, &moves, &coupling, Some(&rounding), &releases.project(c), inactive)
+    }
+
+    pub(crate) fn reduce_load_rounding(&self, values: &[f64], rounding: &[f64]) -> Vec<f64> {
+        let c = &self.c_ff;
+        (0..self.n_free_indep).map(|j| {
+            let mut sum = 0.0;
+            let mut bound = 0.0;
+            for p in c.col_ptr[j]..c.col_ptr[j+1] {
+                let i = c.row_idx[p];
+                let a = c.csc_vals[p];
+                let product = a * values[i];
+                bound = super::load_work::add_up(bound,super::load_work::mul_up(a.abs(),rounding.get(i).copied().unwrap_or(0.0)));
+                bound = super::load_work::add_up(bound,super::load_work::product_rounding(a,values[i],product));
+                bound = super::load_work::add_up(bound,super::load_work::sum_rounding(sum,product));
+                sum += product;
+            }
+            bound
+        }).collect()
     }
 
     /// Reduce a dense symmetric matrix: K_reduced = C_ff^T * K_ff * C_ff

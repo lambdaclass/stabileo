@@ -246,13 +246,15 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         let applied = super::assembly::assemble_load_vector_2d(
             &cumulative_solver_input, &cumulative_stage_loads, &dof_num, inclined_transforms,
         );
+        let cumulative_rounding = super::load_work::assembly_rounding_2d(&cumulative_solver_input,&cumulative_stage_loads,&dof_num,inclined_transforms);
+        let incremental_rounding = super::load_work::assembly_rounding_2d(&stage_solver_input,&stage_loads_2d(&stage_solver_input,stage),&dof_num,inclined_transforms);
         let mut conditioning = None;
         let u_s_inc = solve_stage_free(
             &k_physical, &dof_num, cs.as_ref(), true, &connected_nodes_2d(&stage_solver_input),
             &super::stability::coupling_2d(&stage_solver_input, &dof_num),
             &super::stability::ReleasedRotations::default(), &f_f,
             &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f, |t| &t.f)[..nf],
-            &applied[..nf], use_sparse,
+            &applied[..nf], &cumulative_rounding, &incremental_rounding, use_sparse,
             &mut sparse_sym_cache, &mut conditioning,
         )?;
 
@@ -384,10 +386,14 @@ fn solve_stage_free(
     f: &[f64],
     incremental_applied: &[f64],
     cumulative_applied: &[f64],
+    cumulative_rounding: &[f64],
+    incremental_rounding: &[f64],
     sparse: bool,
     cache: &mut Option<SparseSymbolicCache>,
     conditioning: &mut Option<StructuredDiagnostic>,
 ) -> Result<Vec<f64>, String> {
+    let cumulative_rounding = constraints.map_or_else(|| cumulative_rounding.to_vec(), |c| c.reduce_load_rounding(cumulative_applied,cumulative_rounding));
+    let incremental_rounding = constraints.map_or_else(|| incremental_rounding.to_vec(), |c| c.reduce_load_rounding(incremental_applied,incremental_rounding));
     let mut f = constraints.map_or_else(|| f.to_vec(), |c| c.reduce_vector(f));
     let incremental_applied = constraints.map_or_else(|| incremental_applied.to_vec(), |c| c.reduce_vector(incremental_applied));
     let cumulative_applied = constraints.map_or_else(|| cumulative_applied.to_vec(), |c| c.reduce_vector(cumulative_applied));
@@ -397,7 +403,7 @@ fn solve_stage_free(
     for &j in &inactive { f[j] = 0.0; }
     let (reduced, stability) = super::stability::analyze_free_stiffness_excluding(k, dof, two_d, constraints, coupling, releases, &inactive);
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
-    if let Some(node) = stability.load_on_free_rotation(&cumulative_applied) {
+    if let Some(node) = stability.load_on_free_rotation_with_rounding(&cumulative_applied,&cumulative_rounding) {
         return Err(format!("Nodal moment at node {node} is not supported: a free rotation would carry load"));
     }
     let projected_releases = constraints.map(|c| releases.project(&c.c_ff));
@@ -432,7 +438,7 @@ fn solve_stage_free(
         super::linear::conditional_dense_refinement(&stability, &dense, &f, u, |rhs| back_solve(&factor, &forward_solve(&factor, rhs, pinned.n), pinned.n))?
     };
     if u.iter().any(|v| !v.is_finite()) { return Err(super::linear::not_positive_definite()); }
-    stability.check_pins(&u, &f, &[])?;
+    stability.check_pins_with_rounding(&u, &f, &[], &incremental_rounding)?;
     Ok(u)
 }
 
@@ -878,13 +884,15 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         let applied = super::sparse_assembly::assemble_load_vector_sparse_3d(
             &cum_input, &cum_input.loads, &dof_num, &[],
         );
+        let cumulative_rounding = super::load_work::assembly_rounding_3d(&cum_input,&cum_input.loads,&dof_num,&[]);
+        let incremental_rounding = super::load_work::assembly_rounding_3d(&stage_input,&stage_input.loads,&dof_num,&[]);
         let mut conditioning = None;
         let u_s_inc = solve_stage_free(
             &k_physical, &dof_num, cs.as_ref(), false, &connected_nodes_3d(&stage_input),
             &super::stability::coupling_3d(&stage_input, &dof_num),
             &super::stability::released_rotations_3d(&stage_input, &dof_num), &f_f,
             &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f, |t| &t.f)[..nf],
-            &applied[..nf], use_sparse,
+            &applied[..nf], &cumulative_rounding, &incremental_rounding, use_sparse,
             &mut sparse_sym_cache, &mut conditioning,
         )?;
 

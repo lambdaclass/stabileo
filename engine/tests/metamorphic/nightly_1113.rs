@@ -103,7 +103,6 @@ fn issue_2018_constrained_release() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2023"]
 fn issue_2023_released_rotation_load() {
     relation(
         "2023",
@@ -114,43 +113,36 @@ fn issue_2023_released_rotation_load() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2035"]
 fn issue_2035_released_rotation_load() {
     relation("2035", "certified linear", "units", 2026111301655);
 }
 
 #[test]
-#[ignore = "known wrong result: #2036"]
 fn issue_2036_released_rotation_load() {
     relation("2036", "linear (PCG)", "units", 2026111301655);
 }
 
 #[test]
-#[ignore = "known wrong result: #2039"]
 fn issue_2039_released_rotation_load() {
     relation("2039", "staged (one stage)", "units", 2026111301655);
 }
 
 #[test]
-#[ignore = "known wrong result: #2058"]
 fn issue_2058_released_rotation_load() {
     relation("2058", "plastic collapse", "units", 2026111301655);
 }
 
 #[test]
-#[ignore = "known wrong result: #2064"]
 fn issue_2064_released_rotation_load() {
     relation("2064", "linear (load session)", "units", 2026111301655);
 }
 
 #[test]
-#[ignore = "known wrong result: #2066"]
 fn issue_2066_released_rotation_load() {
     relation("2066", "cable solver", "units", 2026111301655);
 }
 
 #[test]
-#[ignore = "known wrong result: #2067"]
 fn issue_2067_released_rotation_load() {
     relation("2067", "linear (sparse path)", "units", 2026111301655);
 }
