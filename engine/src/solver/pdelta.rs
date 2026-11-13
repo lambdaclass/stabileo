@@ -678,6 +678,57 @@ mod tests {
     #[test]
     fn r17_withheld_pdelta_3d() { r17_withheld_pdelta(3); }
 
+    fn r18_physical_and_geometric_balance(dim: usize) {
+        for sparse in [false, true] {
+            for iterations in [0, 40] {
+                for axial in [-3.0, 0.0, 3.0] {
+                    let mut m: serde_json::Value = serde_json::from_str(if dim == 2 {
+                        include_str!("../../tests/fixtures/reaction-recovery-2d.json")
+                    } else {
+                        include_str!("../../tests/fixtures/reaction-recovery-3d.json")
+                    }).unwrap();
+                    m["loads"][0]["data"]["fx"] = serde_json::json!(axial);
+                    let r = if dim == 2 {
+                        let input: SolverInput = serde_json::from_value(m).unwrap();
+                        let dofs = DofNumbering::build_2d(&input);
+                        let cs = FreeConstraintSystem::build_2d(&input, &dofs).unwrap();
+                        serde_json::to_value(solve_pdelta_2d_on(&input, &dofs, cs, sparse, iterations, 1e-9).unwrap().results).unwrap()
+                    } else {
+                        let input: SolverInput3D = serde_json::from_value(m).unwrap();
+                        let dofs = DofNumbering::build_3d(&input);
+                        let cs = FreeConstraintSystem::build_3d(&input, &dofs).unwrap();
+                        serde_json::to_value(solve_pdelta_3d_on(&input, &dofs, cs, sparse, iterations, 1e-9).unwrap().results).unwrap()
+                    };
+                    println!("r18 {dim}D sparse={sparse} iterations={iterations} axial={axial}: {}", r["equilibrium"]);
+                    let failed = iterations == 0 && axial != 0.0;
+                    assert_eq!(r["equilibrium"]["residualOk"], !failed);
+                    for (field, id) in [("reactions", "nodeId"), ("elementForces", "elementId")] {
+                        let rows = r[field].as_array().unwrap();
+                        assert_eq!(rows.len(), 1, "{field}: {r}");
+                        for row in rows {
+                            let values = row.as_object().unwrap();
+                            assert!(values[id].is_number());
+                            let key = if field == "reactions" { if dim == 2 { "rz" } else { "fz" } } else { "nStart" };
+                            assert_eq!(values[key].is_null(), failed, "{field}: {r}");
+                        }
+                    }
+                    for phase in ["reactions", "elementForces", "constraintForces"] {
+                        let warned = r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == phase);
+                        assert_eq!(warned, failed, "{phase}: {r}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn r18_physical_and_geometric_balance_2d() { r18_physical_and_geometric_balance(2); }
+
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn r18_physical_and_geometric_balance_3d() { r18_physical_and_geometric_balance(3); }
+
     fn r11_physical_residual(dim: usize) {
         let cases: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-r11.json")).unwrap();
         let model = cases.as_array().unwrap().iter().find(|c| c["kind"] == "pdelta" && c["dim"] == dim).unwrap()["model"].clone();
