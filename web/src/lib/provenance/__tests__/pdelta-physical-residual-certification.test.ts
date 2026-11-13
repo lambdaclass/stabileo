@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import entry from '../result-changes/pdelta-physical-residual-certification.json';
 
-it.skip.each([
+it.each([
   ['en', 'Opposite lost moments cannot cancel in a global balance and certify a nonzero physical free residual.'],
   ['es', 'Los momentos opuestos perdidos no pueden cancelarse en el balance global y certificar un residuo libre físico distinto de cero.'],
   ['pt', 'Momentos opostos perdidos não podem se anular no balanço global e certificar um resíduo livre físico não nulo.'],

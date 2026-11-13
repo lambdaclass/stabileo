@@ -41,7 +41,8 @@ new claim about released results is made here.
 [Every changed value](1952-main-merge-values.json) records its artifact, record,
 full field path, exact old and new serialized value, and explanation. The audit
 also records the merged main revision and WASM hash. It covers 144 frozen scalars
-and 83 replay scalars. No unlisted replay record changes. Existing web results
+and 83 replay scalars (12 + 22 + 6 + 10 + 7 + 8 + 11 + 7 = 83).
+No unlisted replay record changes. Existing web results
 snapshots were compared against the merged engine and did not need regeneration.
 
 The new `merged-path-convergence-state` registry entry covers the changed path

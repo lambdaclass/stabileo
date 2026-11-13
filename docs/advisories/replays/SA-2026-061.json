@@ -7,7 +7,7 @@
     "main": "make wasm with origin/main production sources temporarily substituted in this worktree; STABILEO_GIT_COMMIT set to originMain; sources and original WASM restored in finally",
     "mainWasmSha256": "33fef82618cd15294a5dfc133d99c3f3b1df97662a0bd421ba322f0217d9499b",
     "fixed": "make wasm from the engine sources identified by fixedSource; re-run every recorded exact argument using scripts/helpers/arc-evidence-equilibrium.mjs --update. Original before results are unchanged.",
-    "fixedWasmSha256": "df3fd753392fc63ef5782c42baeaa9c86f634909c003a0236c5a568f8697e8e3"
+    "fixedWasmSha256": "40a7bb29297fa1e75f38b9d1eebc4a69c88245bc988c102ae2cc0f1c6992da7b"
   },
   "scope": [
     "WASM records contain exact positional arguments and selected returned fields. All warning/diagnostic fields throughout each response are retained in notices, including empty arrays. Unlisted output fields are not claimed equal.",
@@ -2465,7 +2465,7 @@
           {
             "nodeId": 0,
             "rx": -3,
-            "rz": 20.000000000000004,
+            "rz": 20,
             "my": 28.00000000000001
           }
         ],
@@ -2525,7 +2525,7 @@
           }
         ],
         "equilibrium": {
-          "relativeResidual": 3.552713678800501e-16,
+          "relativeResidual": 8.25635855979574e-17,
           "residualOk": true,
           "appliedForceSum": [
             3,
@@ -2534,10 +2534,10 @@
           ],
           "reactionForceSum": [
             -3,
-            20.000000000000004,
-            -1.9932499999999962
+            20,
+            -1.993249999999989
           ],
-          "maxImbalance": 3.552713678800501e-15,
+          "maxImbalance": 3.552709682004357e-15,
           "equilibriumOk": true
         },
         "notices": [
@@ -3658,14 +3658,7 @@
         ]
       },
       "after": {
-        "reactions": [
-          {
-            "nodeId": 0,
-            "rx": 0,
-            "rz": 24.227979072594813,
-            "my": 63.472156782000674
-          }
-        ],
+        "reactions": [],
         "notices": [
           {
             "path": "$.structuredDiagnostics",
@@ -3687,7 +3680,7 @@
               {
                 "code": "result_quantity_unavailable",
                 "severity": "warning",
-                "message": "Total dynamic support reactions are unavailable. peakReactions is a legacy elastic-only estimate, not total reactions or a reaction envelope; inertia, damping and time-dependent support loads are omitted. Member forces are not recovered by time history.",
+                "message": "Total dynamic support reactions are unavailable. peakReactions is withheld because the legacy elastic-only displacement-peak estimate omits inertia, damping and time-dependent support loads. No total reaction history or reaction envelope is supplied. Member forces are not recovered by time history.",
                 "phase": "peakReactions"
               }
             ]
@@ -3734,14 +3727,7 @@
         ]
       },
       "after": {
-        "reactions": [
-          {
-            "nodeId": 0,
-            "rx": 0,
-            "rz": 22.745736887361744,
-            "my": 61.34912084617282
-          }
-        ],
+        "reactions": [],
         "notices": [
           {
             "path": "$.structuredDiagnostics",
@@ -3763,7 +3749,7 @@
               {
                 "code": "result_quantity_unavailable",
                 "severity": "warning",
-                "message": "Total dynamic support reactions are unavailable. peakReactions is a legacy elastic-only estimate, not total reactions or a reaction envelope; inertia, damping and time-dependent support loads are omitted. Member forces are not recovered by time history.",
+                "message": "Total dynamic support reactions are unavailable. peakReactions is withheld because the legacy elastic-only displacement-peak estimate omits inertia, damping and time-dependent support loads. No total reaction history or reaction envelope is supplied. Member forces are not recovered by time history.",
                 "phase": "peakReactions"
               }
             ]
@@ -3796,14 +3782,7 @@
         ]
       },
       "after": {
-        "reactions": [
-          {
-            "nodeId": 1,
-            "rx": 0,
-            "rz": 4.109342580635799,
-            "my": 0
-          }
-        ],
+        "reactions": [],
         "notices": [
           {
             "path": "$.structuredDiagnostics",
@@ -3818,7 +3797,7 @@
               {
                 "code": "result_quantity_unavailable",
                 "severity": "warning",
-                "message": "Total dynamic support reactions are unavailable. peakReactions is a legacy elastic-only estimate, not total reactions or a reaction envelope; inertia, damping and time-dependent support loads are omitted. Member forces are not recovered by time history.",
+                "message": "Total dynamic support reactions are unavailable. peakReactions is withheld because the legacy elastic-only displacement-peak estimate omits inertia, damping and time-dependent support loads. No total reaction history or reaction envelope is supplied. Member forces are not recovered by time history.",
                 "phase": "peakReactions"
               }
             ]
@@ -3851,14 +3830,7 @@
         ]
       },
       "after": {
-        "reactions": [
-          {
-            "nodeId": 1,
-            "rx": 0,
-            "rz": 4.097389278118709,
-            "my": 0
-          }
-        ],
+        "reactions": [],
         "notices": [
           {
             "path": "$.structuredDiagnostics",
@@ -3873,7 +3845,7 @@
               {
                 "code": "result_quantity_unavailable",
                 "severity": "warning",
-                "message": "Total dynamic support reactions are unavailable. peakReactions is a legacy elastic-only estimate, not total reactions or a reaction envelope; inertia, damping and time-dependent support loads are omitted. Member forces are not recovered by time history.",
+                "message": "Total dynamic support reactions are unavailable. peakReactions is withheld because the legacy elastic-only displacement-peak estimate omits inertia, damping and time-dependent support loads. No total reaction history or reaction envelope is supplied. Member forces are not recovered by time history.",
                 "phase": "peakReactions"
               }
             ]
@@ -3915,53 +3887,8 @@
         "notices": []
       },
       "after": {
-        "reactions": [
-          {
-            "nodeId": 0,
-            "rx": 0,
-            "rz": 0,
-            "my": 0
-          }
-        ],
-        "elementForces": [],
-        "displacements": [
-          {
-            "nodeId": 0,
-            "ux": 0,
-            "uz": 0,
-            "ry": 0
-          },
-          {
-            "nodeId": 1,
-            "ux": 0,
-            "uz": -10000000,
-            "ry": 0
-          }
-        ],
-        "notices": [
-          {
-            "path": "$.stages.0.results.structuredDiagnostics",
-            "value": [
-              {
-                "code": "result_quantity_unavailable",
-                "severity": "warning",
-                "message": "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.",
-                "phase": "stageResults"
-              }
-            ]
-          },
-          {
-            "path": "$.finalResults.structuredDiagnostics",
-            "value": [
-              {
-                "code": "result_quantity_unavailable",
-                "severity": "warning",
-                "message": "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.",
-                "phase": "stageResults"
-              }
-            ]
-          }
-        ]
+        "refused": "the structure is a mechanism at nodes [1]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases",
+        "notices": []
       },
       "reportedReactionField": "finalResults.reactions"
     },
@@ -4028,30 +3955,7 @@
             "ry": 0
           }
         ],
-        "notices": [
-          {
-            "path": "$.stages.0.results.structuredDiagnostics",
-            "value": [
-              {
-                "code": "result_quantity_unavailable",
-                "severity": "warning",
-                "message": "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.",
-                "phase": "stageResults"
-              }
-            ]
-          },
-          {
-            "path": "$.finalResults.structuredDiagnostics",
-            "value": [
-              {
-                "code": "result_quantity_unavailable",
-                "severity": "warning",
-                "message": "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.",
-                "phase": "stageResults"
-              }
-            ]
-          }
-        ]
+        "notices": []
       },
       "reportedReactionField": "finalResults.reactions"
     },
@@ -5242,7 +5146,7 @@
             "nodeId": 0,
             "fx": -3,
             "fy": 0,
-            "fz": 20.000000000000004,
+            "fz": 20,
             "mx": 0,
             "my": -32.000000000000014,
             "mz": 0
@@ -5327,7 +5231,7 @@
           }
         ],
         "equilibrium": {
-          "relativeResidual": 3.552713678800501e-16,
+          "relativeResidual": 8.25635855979574e-17,
           "residualOk": true,
           "appliedForceSum": [
             3,
@@ -5340,12 +5244,12 @@
           "reactionForceSum": [
             -3,
             0,
-            20.000000000000004,
+            20,
             0,
-            -2.0067500000000074,
+            -2.0067500000000145,
             0
           ],
-          "maxImbalance": 3.552713678800501e-15,
+          "maxImbalance": 4.736946242672476e-15,
           "equilibriumOk": true
         },
         "notices": [
@@ -6475,17 +6379,7 @@
         ]
       },
       "after": {
-        "reactions": [
-          {
-            "nodeId": 0,
-            "fx": 0,
-            "fy": 0,
-            "fz": 24.227979072594813,
-            "mx": 0,
-            "my": -63.472156782000674,
-            "mz": 0
-          }
-        ],
+        "reactions": [],
         "notices": [
           {
             "path": "$.structuredDiagnostics",
@@ -6507,7 +6401,7 @@
               {
                 "code": "result_quantity_unavailable",
                 "severity": "warning",
-                "message": "Total dynamic support reactions are unavailable. peakReactions is a legacy elastic-only estimate, not total reactions or a reaction envelope; inertia, damping and time-dependent support loads are omitted. Member forces are not recovered by time history.",
+                "message": "Total dynamic support reactions are unavailable. peakReactions is withheld because the legacy elastic-only displacement-peak estimate omits inertia, damping and time-dependent support loads. No total reaction history or reaction envelope is supplied. Member forces are not recovered by time history.",
                 "phase": "peakReactions"
               }
             ]
@@ -6557,17 +6451,7 @@
         ]
       },
       "after": {
-        "reactions": [
-          {
-            "nodeId": 0,
-            "fx": 0,
-            "fy": 0,
-            "fz": 22.745736887361744,
-            "mx": 0,
-            "my": -61.34912084617282,
-            "mz": 0
-          }
-        ],
+        "reactions": [],
         "notices": [
           {
             "path": "$.structuredDiagnostics",
@@ -6589,7 +6473,7 @@
               {
                 "code": "result_quantity_unavailable",
                 "severity": "warning",
-                "message": "Total dynamic support reactions are unavailable. peakReactions is a legacy elastic-only estimate, not total reactions or a reaction envelope; inertia, damping and time-dependent support loads are omitted. Member forces are not recovered by time history.",
+                "message": "Total dynamic support reactions are unavailable. peakReactions is withheld because the legacy elastic-only displacement-peak estimate omits inertia, damping and time-dependent support loads. No total reaction history or reaction envelope is supplied. Member forces are not recovered by time history.",
                 "phase": "peakReactions"
               }
             ]
@@ -6622,17 +6506,7 @@
         ]
       },
       "after": {
-        "reactions": [
-          {
-            "nodeId": 1,
-            "fx": 0,
-            "fy": 0,
-            "fz": 4.109342580635799,
-            "mx": 0,
-            "my": 0,
-            "mz": 0
-          }
-        ],
+        "reactions": [],
         "notices": [
           {
             "path": "$.structuredDiagnostics",
@@ -6647,7 +6521,7 @@
               {
                 "code": "result_quantity_unavailable",
                 "severity": "warning",
-                "message": "Total dynamic support reactions are unavailable. peakReactions is a legacy elastic-only estimate, not total reactions or a reaction envelope; inertia, damping and time-dependent support loads are omitted. Member forces are not recovered by time history.",
+                "message": "Total dynamic support reactions are unavailable. peakReactions is withheld because the legacy elastic-only displacement-peak estimate omits inertia, damping and time-dependent support loads. No total reaction history or reaction envelope is supplied. Member forces are not recovered by time history.",
                 "phase": "peakReactions"
               }
             ]
@@ -6680,17 +6554,7 @@
         ]
       },
       "after": {
-        "reactions": [
-          {
-            "nodeId": 1,
-            "fx": 0,
-            "fy": 0,
-            "fz": 4.097389278118709,
-            "mx": 0,
-            "my": 0,
-            "mz": 0
-          }
-        ],
+        "reactions": [],
         "notices": [
           {
             "path": "$.structuredDiagnostics",
@@ -6705,7 +6569,7 @@
               {
                 "code": "result_quantity_unavailable",
                 "severity": "warning",
-                "message": "Total dynamic support reactions are unavailable. peakReactions is a legacy elastic-only estimate, not total reactions or a reaction envelope; inertia, damping and time-dependent support loads are omitted. Member forces are not recovered by time history.",
+                "message": "Total dynamic support reactions are unavailable. peakReactions is withheld because the legacy elastic-only displacement-peak estimate omits inertia, damping and time-dependent support loads. No total reaction history or reaction envelope is supplied. Member forces are not recovered by time history.",
                 "phase": "peakReactions"
               }
             ]
@@ -6725,7 +6589,7 @@
         "notices": []
       },
       "after": {
-        "refused": "Singular stiffness at stage 'no stiffness' — structure is a mechanism",
+        "refused": "the structure is a mechanism at nodes [1]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases",
         "notices": []
       },
       "reportedReactionField": "finalResults.reactions"

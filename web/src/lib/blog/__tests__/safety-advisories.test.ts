@@ -8,14 +8,14 @@ const advisoryUrl = new URL('../../../../../docs/advisories/SA-2026-061-path-sol
 const replayUrl = new URL('../../../../../docs/advisories/replays/SA-2026-061.json', import.meta.url);
 
 describe('safety-advisories SA-2026-061', () => {
-  it.skip('known wrong result: #1952 — distinguishes the advisory draft date from the post revision', () => {
+  it('known wrong result: #1952 — distinguishes the advisory draft date from the post revision', () => {
     const text = readFileSync(advisoryUrl, 'utf8');
     const draftDate = text.match(/\| Status \| Draft (\d{4}-\d{2}-\d{2});/)?.[1];
     expect(draftDate).toBe('2026-11-12');
     expect(findPost('safety-advisories')!.updated).toBe('2026-11-13');
   });
 
-  it.skip.each<[PublicLocale, string, string]>([
+  it.each<[PublicLocale, string, string]>([
     ['en', 'High', 'Fixed in PR #1952, pending release'],
     ['es', 'Alta', 'Corregido en PR #1952, pendiente de publicación'],
     ['pt', 'Alta', 'Corrigido no PR #1952, aguardando publicação'],
@@ -35,7 +35,7 @@ describe('safety-advisories SA-2026-061', () => {
     expect(post.updated).toBe('2026-11-13');
   });
 
-  it.skip.each([2, 3])('known wrong result: #1952 — %iD determined replay retains answers without withholding notices', dim => {
+  it.each([2, 3])('known wrong result: #1952 — %iD determined replay retains answers without withholding notices', dim => {
     const replay = JSON.parse(readFileSync(replayUrl, 'utf8'));
     const record = replay.records.find((r: { id: string }) => r.id === `staged-${dim}d-determined`);
     expect(record.after.reactions).toHaveLength(1);
@@ -44,7 +44,7 @@ describe('safety-advisories SA-2026-061', () => {
     expect(record.after.notices).toEqual([]);
   });
 
-  it.skip('known wrong result: #1952 — documents the replay scalar count from the value audit', () => {
+  it('known wrong result: #1952 — documents the replay scalar count from the value audit', () => {
     const artifacts = mergedValueAudit.artifacts
       .filter(a => a.file === 'docs/advisories/replays/SA-2026-061.json');
     for (const artifact of artifacts) {
