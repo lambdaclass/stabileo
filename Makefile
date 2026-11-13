@@ -504,7 +504,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
+test.ci-scripts: test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -1108,3 +1108,8 @@ test.engine.released-assembly-2074:
 
 test.released-load-work-outcomes: scripts/tests/released-load-work-outcome.mjs
 	$(NIX_RUN) node --test scripts/tests/released-load-work-outcome.test.mjs
+
+.PHONY: test.released-load-work-physics
+
+test.released-load-work-physics: scripts/tests/released-load-work-physics.mjs
+	$(NIX_RUN) node --test scripts/tests/released-load-work-physics.test.mjs

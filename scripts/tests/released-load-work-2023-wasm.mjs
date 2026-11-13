@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { check as checkPhysics, snapshot } from './released-load-work-physics.mjs';
 import { allowsUnresolved } from './released-load-work-outcome.mjs';
 import {readFileSync} from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
@@ -25,67 +26,20 @@ function run(path,dim,model) {
   const name={material:'solve_nonlinear_material',contact:'solve_contact',ssi:'solve_ssi',winkler:'solve_winkler',cable:'solve_cable'}[path];
   return parse(engine[`${name}_${dim}d`](JSON.stringify(wrapper),100,1e-10));
 }
-function snapshot(result) {
-  assert.notEqual(result.converged,false);
-  return result.results??result;
+const modelGauges=new Map([...cases,...exactCases,...cancellations,...assemblyCases,...trussCases].map(c=>[c.model,c.gauges]));
+const condensedCache=new WeakMap();
+function condensedLoads(model) {
+  if(!condensedCache.has(model)) {
+    const dim=Object.values(model.nodes).some(n=>Object.hasOwn(n,'y'))?3:2;
+    const probe=structuredClone(model);
+    probe.supports=Object.fromEntries(Object.values(model.nodes).map(n=>[n.id,dim===2?{id:n.id,nodeId:n.id,type:'fixed'}:{nodeId:n.id,rx:true,ry:true,rz:true,rrx:true,rry:true,rrz:true}]));
+    const rows=engine[`solve_${dim}d`](probe).reactions.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>[key,key==='nodeId'?value:-value])));
+    condensedCache.set(model,rows);
+  }
+  return condensedCache.get(model);
 }
-function check(result,model,reference,gauges=[]) {
-  assert.ok(reference && Object.hasOwn(reference,'ok'),`missing native answer: ${JSON.stringify(reference)}`);
-  const expected=snapshot(reference.ok);
-  const r=snapshot(result);
-  assert.deepEqual(r.displacements.map(d=>d.nodeId).sort(),Object.values(model.nodes).map(n=>n.id).sort());
-  assert.deepEqual(r.elementForces.map(e=>e.elementId).sort(),Object.values(model.elements).map(e=>e.id).sort());
-  const values=r.elementForces.flatMap(f=>Object.entries(f).filter(([k,v])=>typeof v==='number'&&/(Start|End)$/.test(k)).map(([,v])=>v));
-  assert.ok(values.every(Number.isFinite));
-  assert.ok(values.some(v=>v!==0));
-  for(const d of r.displacements) for(const value of Object.values(d)) if(typeof value==='number') assert.ok(Number.isFinite(value));
-  const fields={
-    displacements:{id:'nodeId',family:key=>key.startsWith('u')?'t':'r'},
-    reactions:{id:'nodeId',family:key=>key.startsWith('m')?'m':'f'},
-    elementForces:{id:'elementId',family:key=>/^(m|t)/i.test(key)?'m':'f',include:key=>/(Start|End)$/.test(key)}
-  };
-  const scale={t:0,r:0,f:0,m:0};
-  for(const [collection,{id,family,include}] of Object.entries(fields)) {
-    assert.deepEqual(r[collection].map(row=>row[id]).sort(),expected[collection].map(row=>row[id]).sort(),collection);
-    for(const row of expected[collection]) for(const [key,value] of Object.entries(row)) {
-      if(key===id||typeof value!=='number'||(include&&!include(key))) continue;
-      assert.ok(Number.isFinite(value));
-      scale[family(key)]=Math.max(scale[family(key)],Math.abs(value));
-    }
-  }
-  const length=Math.max(...expected.elementForces.map(f=>f.length));
-  assert.ok(Number.isFinite(length)&&length>0);
-  const bound={t:Math.max(scale.t,scale.r*length),r:Math.max(scale.r,scale.t/length),f:Math.max(scale.f,scale.m/length),m:Math.max(scale.m,scale.f*length)};
-  const rotations=new Map();
-  for(const {node,rotation} of gauges) {
-    const basis=rotations.get(node)??[];
-    const v=[...rotation];
-    for(const q of basis) {
-      const dot=v.reduce((sum,x,i)=>sum+x*q[i],0);
-      for(let i=0;i<3;i++) v[i]-=dot*q[i];
-    }
-    const norm=Math.hypot(...v);
-    assert.ok(norm>0&&Number.isFinite(norm));
-    basis.push(v.map(x=>x/norm));
-    rotations.set(node,basis);
-  }
-  for(const [label,response] of [['WASM',r],['native',expected]]) {
-    for(const row of response.displacements) for(const q of rotations.get(row.nodeId)??[]) {
-      const spin=['rx','ry','rz'].reduce((sum,key,i)=>sum+(row[key]??0)*q[i],0);
-      assert.ok(Math.abs(spin)<=2.5e-10*bound.r,`${label}/${row.nodeId}/released spin: ${spin} != zero`);
-    }
-  }
-  const comparable=r,native=expected;
-  for(const [collection,{id,family,include}] of Object.entries(fields)) {
-    for(const row of native[collection]) {
-      const actual=comparable[collection].find(a=>a[id]===row[id]);
-      for(const [key,value] of Object.entries(row)) {
-        if(key===id||typeof value!=='number'||(include&&!include(key))) continue;
-        assert.ok(Number.isFinite(actual[key]),`${collection}/${row[id]}/${key}`);
-        assert.ok(Math.abs(actual[key]-value)<=2.5e-10*bound[family(key)],`${collection}/${row[id]}/${key}: ${actual[key]} != native ${value}`);
-      }
-    }
-  }
+function check(result,model,reference,gauges=modelGauges.get(model)) {
+  checkPhysics({...snapshot(result),condensedLoads:condensedLoads(model)},model,reference,gauges);
 }
 const oracleModel=cases[0].model;
 const mutationFailures=[];
@@ -105,17 +59,34 @@ for(const collection of ['displacements','reactions','elementForces']) for(const
   assert.throws(()=>check(wrong,oracle3.model,oracle3.references.linear,oracle3.gauges),`${collection} corruption ${factor} passed`);
 }
 {
-  const gaugeCase=cases.find(c=>c.dim===3&&c.gauges.length>0);
-  assert.ok(gaugeCase);
-  for(const side of ['wasm','native','both']) {
-    const wrong=structuredClone(run('linear',3,gaugeCase.model));
+  for(const dim of [2,3]) {
+    const gaugeCase=cases.find(c=>c.dim===dim&&c.gauges.length>0);
+    assert.ok(gaugeCase);
+    for(const side of ['wasm','native','both']) for(const quantity of ['released moment','released load']) {
+      const wrong={...snapshot(structuredClone(run('linear',dim,gaugeCase.model))),condensedLoads:structuredClone(condensedLoads(gaugeCase.model))};
+      const reference=structuredClone(gaugeCase.references.linear);
+      const {node,rotation}=gaugeCase.gauges[0];
+      const e=Object.values(gaugeCase.model.elements)[0];
+      const end=e.nodeI===node?'Start':'End';
+      const key=dim===2?`m${end}`:['My','Mz','T'].filter(axis=>e[`release${axis}${end}`]).map(axis=>`${axis==='T'?'mx':axis.toLowerCase()}${end}`)[0];
+      assert.ok(key);
+      for(const result of side==='both'?[wrong,reference.ok]:[side==='wasm'?wrong:reference.ok]) {
+        if(quantity==='released moment') result.elementForces[0][key]+=1;
+        else {
+          const row=result.condensedLoads.find(d=>d.nodeId===node);
+          for(const [i,key] of ['mx','my','mz'].entries()) row[key]=(row[key]??0)+rotation[i];
+        }
+      }
+      assert.throws(()=>checkPhysics(wrong,gaugeCase.model,reference,gaugeCase.gauges),new RegExp(`released ${quantity==='released moment'?'moment':'load'}`),`${side} ${quantity} corruption passed`);
+    }
+    const wrong=structuredClone(run('linear',dim,gaugeCase.model));
     const reference=structuredClone(gaugeCase.references.linear);
     const {node,rotation}=gaugeCase.gauges[0];
-    for(const result of side==='both'?[wrong,reference.ok]:[side==='wasm'?wrong:reference.ok]) {
+    for(const [result,spin] of [[wrong,1],[reference.ok,-2]]) {
       const row=result.displacements.find(d=>d.nodeId===node);
-      for(const [i,key] of ['rx','ry','rz'].entries()) row[key]+=rotation[i];
+      for(const [i,key] of ['rx','ry','rz'].entries()) if(Object.hasOwn(row,key)) row[key]+=spin*rotation[i];
     }
-    assert.throws(()=>check(wrong,gaugeCase.model,reference,gaugeCase.gauges),`${side} released rotation corruption passed`);
+    check(wrong,gaugeCase.model,reference,gaugeCase.gauges);
   }
 }
 const corrupted=structuredClone(run('linear',2,oracleModel));
@@ -207,10 +178,7 @@ for(const c of cancellations) for(const path of paths) {
       roundoff.loads.push(term);
     }
     const roundedResult=run(path,c.dim,roundoff);
-    check(roundedResult,roundoff,c.references[path]);
-    for(const row of snapshot(roundedResult).displacements) for(const component of ['rx','ry','rz']) {
-      if(Object.hasOwn(row,component)) assert.equal(row[component],0,`rounded cancellation/${path}/${component}`);
-    }
+    check(roundedResult,roundoff,c.references[path],c.gauges);
     cancellationRoundoffSolves++;
     for(const residual of [-Number.EPSILON,Number.EPSILON]) {
       const bad=structuredClone(roundoff);

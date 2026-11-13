@@ -361,7 +361,7 @@ fn native_and_wasm_share_released_load_models() {
         let exact: Value =
             serde_json::from_str(include_str!("../fixtures/released-load-work-2023.json")).unwrap();
         let exact: Vec<_> = exact.as_object().unwrap().iter().map(|(name, model)| json!({"name":name,"model":model,"references":native_references(3, model),"gauges":released_gauges(3, model)})).collect();
-        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact,"orphanTranslations":orphan_translation_models(),"cancellations":cancellation_models_2074().into_iter().map(|mut c| { c["references"] = native_references(c["dim"].as_u64().unwrap(), &c["model"]); c }).collect::<Vec<_>>(),"trussCases":truss_models_2074(),"assemblyCases":assembly_models_2074()})).unwrap()).unwrap();
+        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact,"orphanTranslations":orphan_translation_models(),"cancellations":cancellation_models_2074().into_iter().map(|mut c| { c["references"] = native_references(c["dim"].as_u64().unwrap(), &c["model"]); c["gauges"] = released_gauges(c["dim"].as_u64().unwrap(), &c["model"]); c }).collect::<Vec<_>>(),"trussCases":truss_models_2074(),"assemblyCases":assembly_models_2074()})).unwrap()).unwrap();
     }
     assert_eq!(cases.len(), 234);
 }
@@ -672,7 +672,7 @@ fn native_references(dim: u64, model: &Value) -> Value {
             Value::Object(refs)
         }};
     }
-    if dim == 2 {
+    let mut refs = if dim == 2 {
         references!(
             SolverInput,
             linear::solve_2d,
@@ -706,6 +706,32 @@ fn native_references(dim: u64, model: &Value) -> Value {
             crate::ana3::staged_3d,
             crate::ana3::stage_all
         )
+    };
+    let loads = condensed_loads(dim, model);
+    fn attach_loads(result: &mut Value, loads: &Value) {
+        if result.get("displacements").is_some() { result["condensedLoads"] = loads.clone(); }
+        for key in ["results","linearResults"] {
+            if let Some(child) = result.get_mut(key) { attach_loads(child, loads); }
+        }
+    }
+    for reference in refs.as_object_mut().unwrap().values_mut() {
+        if let Some(ok) = reference.get_mut("ok") { attach_loads(ok, &loads); }
+    }
+    refs
+}
+
+fn condensed_loads(dim: u64, model: &Value) -> Value {
+    use dedaliano_engine::solver::{assembly, dof::DofNumbering};
+    if dim == 2 {
+        let model: SolverInput = serde_json::from_value(model.clone()).unwrap();
+        let dof = DofNumbering::build_2d(&model);
+        let f = assembly::assemble_load_vector_2d(&model, &model.loads, &dof, &[]);
+        json!(model.nodes.values().map(|n| json!({"nodeId":n.id,"my":dof.global_dof(n.id,2).map_or(0.0,|d| f[d])})).collect::<Vec<_>>())
+    } else {
+        let model: SolverInput3D = serde_json::from_value(model.clone()).unwrap();
+        let dof = DofNumbering::build_3d(&model);
+        let f = assembly::assemble_load_vector_3d_dense(&model, &model.loads, &dof, &[]);
+        json!(model.nodes.values().map(|n| json!({"nodeId":n.id,"mx":dof.global_dof(n.id,3).map_or(0.0,|d| f[d]),"my":dof.global_dof(n.id,4).map_or(0.0,|d| f[d]),"mz":dof.global_dof(n.id,5).map_or(0.0,|d| f[d])})).collect::<Vec<_>>())
     }
 }
 
@@ -986,9 +1012,18 @@ fn zero_residual_controls_keep_the_cancelling_loads() {
                 assert!(reference["ok"].is_object(),"rounded cancellation/{path}: {reference}");
                 assert_ne!(reference["ok"]["converged"],json!(false),"{path}: {reference}");
                 let result = reference["ok"].get("results").unwrap_or(&reference["ok"]);
-                for row in result["displacements"].as_array().unwrap() {
-                    for component in ["rx","ry","rz"] {
-                        if let Some(value) = row.get(component) { assert_eq!(value,&json!(0.0),"rounded cancellation/{path}/{component}"); }
+                let gauges = released_gauges(c["dim"].as_u64().unwrap(), &roundoff);
+                for gauge in gauges.as_array().unwrap() {
+                    let load = result["condensedLoads"].as_array().unwrap().iter().find(|load| load["nodeId"] == gauge["node"]).unwrap();
+                    let work: f64 = ["mx","my","mz"].iter().enumerate().map(|(i,key)| load.get(key).and_then(Value::as_f64).unwrap_or(0.0)*gauge["rotation"][i].as_f64().unwrap()).sum();
+                    assert_eq!(work,0.0,"rounded cancellation/{path}/released load");
+                }
+                for element in roundoff["elements"].as_object().unwrap().values() {
+                    let force = result["elementForces"].as_array().unwrap().iter().find(|force| force["elementId"] == element["id"]).unwrap();
+                    for end in ["Start","End"] {
+                        for (release,moment) in [(format!("hinge{end}"),format!("m{end}")),(format!("releaseMy{end}"),format!("my{end}")),(format!("releaseMz{end}"),format!("mz{end}")),(format!("releaseT{end}"),format!("mx{end}"))] {
+                            if element[&release] == json!(true) { assert_eq!(force[&moment],json!(0.0),"rounded cancellation/{path}/{moment}"); }
+                        }
                     }
                 }
             }
@@ -1044,6 +1079,22 @@ fn oblique_truss_loads_solve_and_genuine_moments_refuse_across_static_entries() 
                 for (path,reference) in native_references(dim,&bad).as_object().unwrap() {
                     assert!(reference["error"].is_string(),"{dim}/{node}/{magnitude}/{path}: {reference}");
                 }
+            }
+        }
+    }
+}
+
+#[test]
+fn released_gauges_require_absent_rotational_stiffness() {
+    for end in ["Start", "End"] {
+        let node = if end == "Start" {"1"} else {"2"};
+        for dim in [2,3] {
+            let mut model = if dim == 2 {serde_json::to_value(member_2d(end)).unwrap()} else {serde_json::to_value(member("Mz",end,true)).unwrap()};
+            assert_eq!(released_gauges(dim,&model).as_array().unwrap().len(),1);
+            for stiffness in [0.0,1.0] {
+                if dim == 2 { model["supports"][node]["kz"] = json!(stiffness); }
+                else { for key in ["krx","kry","krz"] { model["supports"][node][key] = json!(stiffness); } }
+                assert_eq!(released_gauges(dim,&model).as_array().unwrap().len(),if stiffness == 0.0 {1} else {0},"{dim}/{end}/{stiffness}");
             }
         }
     }
