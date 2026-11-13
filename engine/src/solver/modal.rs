@@ -133,17 +133,18 @@ pub fn solve_modal_2d(
         _ => None,
     };
     crate::known_issues::attach(&mut structured_diagnostics, assembled_conditioning.into_iter().collect());
+    let (modal_mass, mass_range) = assemble_modal_mass_2d(input, &dof_num, densities, &its, cs.as_ref())?;
     let (result, ns, m_solve) = if let Some(k_ff) = k_sparse {
         // Assembled once: the branch below differs in whether the matrices are
         // reduced, not in how they are built.
-        let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse_inclined(input, &dof_num, densities, &its);
+        let m_csc = modal_mass;
         m_r_x = ground_influence(&dof_num, 0, &its, &m_csc, m_full_sparse);
         m_r_y = ground_influence(&dof_num, 1, &its, &m_csc, m_full_sparse);
         if let Some(ref cs) = cs {
             let k_solve = cs.reduce_matrix_sparse(&k_ff);
             let m_solve = cs.reduce_matrix_sparse(&m_csc);
             let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_solve, |observe| {
-                crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(&k_solve, &m_solve, num_modes, 0.0, observe)
+                mass_range.solve_sparse(&k_solve, &m_solve, num_modes, observe)
             });
             crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
             let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
@@ -152,7 +153,7 @@ pub fn solve_modal_2d(
             (result, cs.n_free_indep, Vec::new())
         } else {
             let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_ff, |observe| {
-                crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(&k_ff, &m_csc, num_modes, 0.0, observe)
+                mass_range.solve_sparse(&k_ff, &m_csc, num_modes, observe)
             });
             crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
             let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_ff.n))?;
@@ -186,7 +187,7 @@ pub fn solve_modal_2d(
         } else {
             (k_ff.clone(), m_ff.clone(), nf)
         };
-        let result = crate::linalg::lanczos::lanczos_generalized_eigen(&k_solve, &m_solve, ns, num_modes, 0.0)
+        let result = mass_range.solve_dense(&k_solve, &m_solve, num_modes)
             .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ns))?;
         crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::dense_stiffness_conditioning(&k_solve, ns).into_iter().collect());
         k_check_dense = k_solve;
@@ -220,8 +221,8 @@ pub fn solve_modal_2d(
         let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi, MasterMotion::Homogeneous))[..nf].to_vec();
         let shape = |phi: &[f64]| to_global(&free(phi), n, &its);
         let eigen = |k: usize| match (&k_check_sparse, &m_csc_opt) {
-            (Some(kk), Some(mm)) => lanczos_generalized_eigen_sparse(kk, mm, k, 0.0),
-            _ => lanczos_generalized_eigen(&k_check_dense, &m_solve, ns, k, 0.0),
+            (Some(kk), Some(mm)) => mass_range.solve_sparse(kk, mm, k, &mut |_| {}),
+            _ => mass_range.solve_dense(&k_check_dense, &m_solve, k),
         };
         let classify = |r: &EigenResult| null_modes_or_mechanism(r, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &[&m_r_x, &m_r_y], &free, &shape, &dof_num, &["ux", "uz", "ry"], &k_abs);
         with_replacements(&result, num_modes, ns, &classify, &eigen)?
@@ -572,7 +573,7 @@ pub fn solve_modal_3d(
     // reduce as sparse triple products, no dense n² allocation anywhere.
     // In the inclined-support frames K was assembled in.
     let its = &sasm.inclined_transforms;
-    let m_sparse_ff = assemble_mass_matrix_3d_sparse_inclined(input, &dof_num, densities, its);
+    let (m_sparse_ff, mass_range) = assemble_modal_mass_3d(input, &dof_num, densities, its, cs.as_ref())?;
 
     // Reduced-space matrices owned here so both branches can borrow them.
     let k_red;
@@ -588,7 +589,7 @@ pub fn solve_modal_3d(
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
     let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
-        crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(k_solve, m_solve, num_modes, 0.0, observe)
+        mass_range.solve_sparse(k_solve, m_solve, num_modes, observe)
     });
     crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
     let result = result.ok_or_else(|| crate::refusal::eigen_decomposition_failed(&crate::linalg::lanczos::eigen_failure_message(k_solve.n)))?;
@@ -616,7 +617,7 @@ pub fn solve_modal_3d(
         let m_mul = |x: &[f64]| m_solve.sym_mat_vec(x);
         let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi, MasterMotion::Homogeneous))[..nf].to_vec();
         let shape = |phi: &[f64]| to_global(&free(phi), n, its);
-        let eigen = |k: usize| lanczos_generalized_eigen_sparse(k_solve, m_solve, k, 0.0);
+        let eigen = |k: usize| mass_range.solve_sparse(k_solve, m_solve, k, &mut |_| {});
         let classify = |r: &EigenResult| null_modes_or_mechanism(r, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &[&rigid[0], &rigid[1], &rigid[2]], &free, &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"], &k_abs);
         with_replacements(&result, num_modes, ns, &classify, &eigen)?
     };
