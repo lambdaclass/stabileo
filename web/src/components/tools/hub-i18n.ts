@@ -318,7 +318,7 @@ export const hubTranslations: Record<string, Record<string, string>> = {
     "tools.beam-frame": "Gerenda- és keretkísérletek",
     "tools.beam-frame.subtitle": "Acélgerenda vagy kapukeret támaszai, támaszköze és terhei, élő hajlítónyomaték-, nyíróerő- és lehajlásábrával.",
     "tools.slab-on-columns": "Oszlopokra támaszkodó lemez",
-    "tools.slab-on-columns.subtitle": "Oszlopraszterre támaszkodó sík betonlemez MITC4 héjhálóval és élő lehajlásmezővel.",
+    "tools.slab-on-columns.subtitle": "Oszlopraszterre vagy falakra támaszkodó sík betonlemez MITC4 héjelemekből álló hálóval és a lehajlás élő megjelenítésével.",
     "tools.earthquake-frame": "Keret földrengési időtörténete",
     "tools.earthquake-frame.subtitle": "Alapmozgással gerjesztett vasbeton keret, lépésenként integrálva a Newmark-féle átlagos gyorsulási módszerrel.",
     "tools.rc-column": "Vasbeton oszlop",
