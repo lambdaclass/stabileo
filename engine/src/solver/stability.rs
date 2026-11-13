@@ -320,13 +320,25 @@ fn sym_eigen_small_impl(a: &[f64], n: usize, vectors: bool) -> (Vec<f64>, Vec<f6
     let mut v = if vectors { vec![0.0; n * n] } else { Vec::new() };
     if vectors { for i in 0..n { v[i * n + i] = 1.0; } }
     for _ in 0..64 {
+        #[cfg(test)]
+        if n >= 10 { tests::SWEEPS.with(|count| count.set(count.get() + 1)); }
         let off: f64 = (0..n).flat_map(|i| (0..n).filter(move |&j| j != i).map(move |j| (i, j))).map(|(i, j)| m[i * n + j] * m[i * n + j]).sum();
         let diag: f64 = (0..n).map(|i| m[i * n + i] * m[i * n + i]).sum();
         if off <= (f64::EPSILON * f64::EPSILON) * diag * 1e-4 || off == 0.0 { break; }
+        // An entry within the rounding of its own row and column, |a_pq| ≤ n·ε·√(|a_pp|·|a_qq|), is
+        // noise the sweeps themselves make (a rotation touches each entry of its rows and columns
+        // and leaves a few ε of their size behind): the relative stopping rule of Jacobi (Demmel
+        // and Veselić, 1992), which keeps the small eigenvalues to high relative accuracy. Rotating
+        // it moves nothing but that noise, and a sweep that rotates nothing has converged. Before
+        // this rule the global criterion above was out of reach of double precision and every
+        // spectrum ran all 64 sweeps; the verdict it serves was 94 % of a small model's solve.
+        let noise = n as f64 * f64::EPSILON;
+        let mut rotated = false;
         for p in 0..n {
             for q in (p + 1)..n {
                 let apq = m[p * n + q];
-                if apq == 0.0 { continue; }
+                if apq == 0.0 || apq.abs() <= noise * (m[p * n + p].abs() * m[q * n + q].abs()).sqrt() { continue; }
+                rotated = true;
                 let theta = (m[q * n + q] - m[p * n + p]) / (2.0 * apq);
                 let t = theta.signum() / (theta.abs() + theta.hypot(1.0));
                 let t = if theta == 0.0 { 1.0 } else { t };
@@ -356,6 +368,7 @@ fn sym_eigen_small_impl(a: &[f64], n: usize, vectors: bool) -> (Vec<f64>, Vec<f6
                 }
             }
         }
+        if !rotated { break; }
     }
     let mut order: Vec<usize> = (0..n).collect();
     order.sort_by(|&a, &b| m[a * n + a].total_cmp(&m[b * n + b]));
@@ -1219,8 +1232,68 @@ mod tests {
         pub(super) static LANCZOS_RUNS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static IDENTITY_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static EIGENVECTOR_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+        pub(super) static SWEEPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     }
     use super::*;
+
+    /// A 5-storey, 3-bay plane frame of 200 GPa steel on fixed bases, as `engine/benches/workflow_bench.rs`
+    /// builds it: 24 nodes, 60 free DOFs, below the sparse threshold, so its verdict is the dense spectrum.
+    fn five_storey_frame() -> SolverInput {
+        use std::collections::HashMap;
+        let (stories, bays, h, w) = (5usize, 3usize, 3.0, 6.0);
+        let mut nodes = HashMap::new();
+        for j in 0..=stories {
+            for i in 0..=bays {
+                let id = j * (bays + 1) + i + 1;
+                nodes.insert(id.to_string(), SolverNode { id, x: i as f64 * w, z: j as f64 * h });
+            }
+        }
+        let mut elements = HashMap::new();
+        let mut member = |id: usize, node_i: usize, node_j: usize| {
+            elements.insert(id.to_string(), SolverElement { id, elem_type: "frame".into(), node_i, node_j, material_id: 1, section_id: 1, hinge_start: false, hinge_end: false });
+        };
+        let mut eid = 1;
+        for j in 0..stories {
+            for i in 0..=bays {
+                member(eid, j * (bays + 1) + i + 1, (j + 1) * (bays + 1) + i + 1);
+                eid += 1;
+            }
+            for i in 0..bays {
+                member(eid, (j + 1) * (bays + 1) + i + 1, (j + 1) * (bays + 1) + i + 2);
+                eid += 1;
+            }
+        }
+        let supports = (1..=bays + 1).map(|i| (i.to_string(), SolverSupport { id: i, node_id: i, support_type: "fixed".into(), kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None })).collect();
+        SolverInput {
+            nodes,
+            materials: [("1".to_string(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 })].into_iter().collect(),
+            sections: [("1".to_string(), SolverSection { id: 1, a: 0.01, iz: 1e-4, as_y: None })].into_iter().collect(),
+            elements,
+            supports,
+            loads: vec![],
+            constraints: vec![],
+            connectors: HashMap::new(),
+            solver_options: None,
+            masses: Default::default(),
+        }
+    }
+
+    #[test]
+    fn a_frame_spectrum_converges_in_a_few_jacobi_sweeps() {
+        // The off-diagonal criterion alone is out of reach of double precision, so the sweeps ran
+        // to their limit of 64 on every stiffness; the relative rule stops when a sweep rotates
+        // nothing above its rows' and columns' rounding, here after about ten.
+        let input = five_storey_frame();
+        let dof = DofNumbering::build_2d(&input);
+        let assembled = crate::solver::assembly::assemble_sparse_2d(&input, &dof);
+        let tags = tags(&dof, true);
+        assert_eq!(dof.n_free, 60);
+        SWEEPS.with(|count| count.set(0));
+        let verdict = analyze(&assembled.k_ff, &tags[..dof.n_free]);
+        let sweeps = SWEEPS.with(|count| count.get());
+        assert_eq!(verdict.verdict, Verdict::Stable, "{:?}", verdict.reason);
+        assert!(sweeps <= 16, "the spectrum of the 60-DOF frame took {sweeps} Jacobi sweeps");
+    }
 
     #[test]
     fn translational_rank_requires_stiffness_above_eigenvalue_rounding() {
@@ -1476,7 +1549,7 @@ mod tests {
     fn issue_1753_fast_accepted_spectrum_avoids_unused_eigenvector_rotations() {
         let matrix = CscMatrix::from_dense_symmetric(&[2.0, 1.0, 0.0, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0], 3);
         let tags: Vec<_> = (0..3).map(|node| DofTag { node, kind: DofKind::Translation }).collect();
-        EIGENVECTOR_ROTATIONS.with(|count| count.set(0));
+            EIGENVECTOR_ROTATIONS.with(|count| count.set(0));
         let result = analyze(&matrix, &tags);
         assert_eq!(result.verdict, Verdict::Stable);
         assert!(!result.needs_accuracy_check());
@@ -1611,7 +1684,7 @@ mod tests {
             node: if i < 2 { 0 } else { i },
             kind: if i < 2 { DofKind::Rotation } else { DofKind::Translation },
         }).collect();
-        LANCZOS_RUNS.with(|count| count.set(0));
+            LANCZOS_RUNS.with(|count| count.set(0));
         let result = analyze_with_coupling(&matrix, &tags, &[(0, 1)], &ReleasedRotations::default());
         assert_eq!(result.verdict, Verdict::Stable);
         assert!(result.free.iter().any(|direction| !direction.coupling.is_empty()));

@@ -450,10 +450,15 @@ function splitAtBridges(face: number[], elementOf: (p: number, q: number) => num
 }
 
 function nearSegment(p: P2, a: P2, b: P2, tol: number): boolean {
+  // A point outside the segment's box widened by `tol` is farther than `tol` from it; the
+  // distance is compared squared. The same test as `plan-gravity.ts`'s.
+  if (p[0] < Math.min(a[0], b[0]) - tol || p[0] > Math.max(a[0], b[0]) + tol
+    || p[1] < Math.min(a[1], b[1]) - tol || p[1] > Math.max(a[1], b[1]) + tol) return false;
   const dx = b[0] - a[0], dy = b[1] - a[1];
   const L2 = dx * dx + dy * dy;
   const t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2)) : 0;
-  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy)) <= tol;
+  const ex = p[0] - (a[0] + t * dx), ey = p[1] - (a[1] + t * dy);
+  return ex * ex + ey * ey <= tol * tol;
 }
 
 // ─── Geometry ─────────────────────────────────────────────────────
