@@ -1,0 +1,44 @@
+{
+  "id": "gallery-slab-peak-marker",
+  "date": "2026-11-13",
+  "prs": [
+    2081
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "gallery:slab-on-columns:columns",
+        "gallery:slab-on-columns:walls"
+      ],
+      [
+        "analysis:linear"
+      ]
+    ]
+  },
+  "quantities": [
+    "views"
+  ],
+  "title": {
+    "en": "The public slab gallery marks its peak deflection",
+    "es": "La galería pública de losas señala la flecha máxima",
+    "pt": "A galeria pública de lajes marca a flecha máxima",
+    "de": "Die öffentliche Plattengalerie markiert die größte Durchbiegung",
+    "fr": "La galerie publique de dalles indique la flèche maximale",
+    "tr": "Herkese açık döşeme galerisi en büyük sehimi işaretler",
+    "hu": "A nyilvános lemezgaléria jelöli a legnagyobb lehajlást"
+  },
+  "explanation": {
+    "en": "The public slab gallery now supplies the peak deflection and its node coordinates to the shared viewer, for both column and wall supports. These fields identify the maximum already present in the deflection array. Model inputs, solver results and saved projects are unchanged.",
+    "es": "La galería pública de losas entrega al visor compartido la flecha máxima y las coordenadas de su nodo, tanto sobre columnas como sobre muros. Estos campos identifican el máximo que ya figura en la matriz de flechas. No cambian los datos del modelo, los resultados del motor ni los proyectos guardados.",
+    "pt": "A galeria pública de lajes fornece ao visualizador compartilhado a flecha máxima e as coordenadas do nó, tanto sobre pilares como sobre paredes. Os campos identificam o máximo já presente no vetor de flechas. Dados do modelo, resultados do motor e projetos salvos permanecem iguais.",
+    "de": "Die öffentliche Plattengalerie liefert dem gemeinsamen Betrachter die größte Durchbiegung und ihre Knotenkoordinaten, bei Stützen und Wänden. Diese Felder kennzeichnen das bereits im Durchbiegungsfeld enthaltene Maximum. Modelleingaben, Solverergebnisse und gespeicherte Projekte bleiben unverändert.",
+    "fr": "La galerie publique de dalles transmet au visualiseur partagé la flèche maximale et les coordonnées de son nœud, sur poteaux comme sur murs. Ces champs indiquent le maximum déjà présent dans le tableau des flèches. Les données du modèle, les résultats du solveur et les projets enregistrés restent inchangés.",
+    "tr": "Herkese açık döşeme galerisi, kolon ve duvar mesnetleri için ortak görüntüleyiciye en büyük sehimi ve düğüm koordinatlarını iletir. Bu alanlar sehim dizisinde zaten bulunan en büyük değeri belirtir. Model girdileri, çözücü sonuçları ve kayıtlı projeler değişmez.",
+    "hu": "A nyilvános lemezgaléria átadja a közös megjelenítőnek a legnagyobb lehajlást és csomópontjának koordinátáit, oszlop- és faltámaszok esetén is. Ezek a mezők a lehajlási tömbben már szereplő maximumot jelölik. A modell bemenetei, a megoldó eredményei és a mentett projektek változatlanok."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gallery-slab-peak-marker.md",
+    "heading": "The public slab gallery marks its peak deflection"
+  }
+}
