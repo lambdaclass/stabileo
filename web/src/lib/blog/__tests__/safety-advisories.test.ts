@@ -45,12 +45,16 @@ describe('safety-advisories SA-2026-061', () => {
   });
 
   it.skip('known wrong result: #1952 — documents the replay scalar count from the value audit', () => {
-    const count = mergedValueAudit.artifacts
-      .filter(a => a.file === 'docs/advisories/replays/SA-2026-061.json')
-      .reduce((sum, a) => sum + a.changes.length, 0);
-    expect(count).toBe(82);
+    const artifacts = mergedValueAudit.artifacts
+      .filter(a => a.file === 'docs/advisories/replays/SA-2026-061.json');
+    for (const artifact of artifacts) {
+      expect(new Set(artifact.changes.map(c => c.path)).size).toBe(artifact.changes.length);
+      for (const change of artifact.changes) expect(change.before).not.toBe(change.after);
+    }
+    const counts = artifacts.map(a => a.changes.length);
+    const count = counts.reduce((sum, n) => sum + n, 0);
     const text = readFileSync(new URL('../../../../../docs/results-changes/2026-11-merged-nonlinear-recovery.md', import.meta.url), 'utf8');
-    expect(text).toContain(`and ${count} replay scalars.`);
+    expect(text).toContain(`and ${count} replay scalars (${counts.join(' + ')} = ${count}).`);
   });
 
   it('retains silent main path omissions and a correct linear control in the replay', () => {
