@@ -114,7 +114,6 @@ fn issue_1533_static_refuses_a_spring_on_a_rigid_translation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2009"]
 fn issue_1463_time_history_refuses_a_spring_on_a_rigid_translation() {
     let solver: SolverInput3D = serde_json::from_value(input("1463")).unwrap();
     for analysis in ["time history", "time history (ground motion)"] {

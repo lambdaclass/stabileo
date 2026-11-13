@@ -141,7 +141,6 @@ fn assert_prescribed_motion_refusal(error: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2009"]
 fn time_history_reciprocity() {
     let mut c = corpus::cases_2d(Tier::Nightly, 20754)
         .into_iter()
@@ -188,7 +187,6 @@ fn issue_760_seed_20827_time_history_is_reciprocal() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2009"]
 fn issue_760_seed_20780_refuses_combined_singular_mass() {
     let a = ana3::rows().into_iter().find(|a| a.name == "time history").unwrap();
     let mut c = corpus::cases_3d(Tier::Nightly, 20754).into_iter()

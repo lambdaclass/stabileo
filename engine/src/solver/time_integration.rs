@@ -75,7 +75,7 @@ fn solve_time_history_2d_inner(
     mut trace: Option<&mut Option<DynamicTrace>>,
 ) -> Result<TimeHistoryResult, String> {
     super::linear::validate_input_2d(&input.solver)?;
-    super::feature_gates::refuse_2d(&input.solver, "Time history analysis", &[super::feature_gates::Feature::PrescribedDisplacements])?;
+    super::feature_gates::refuse_2d_structured(&input.solver, "Time history analysis", &[super::feature_gates::Feature::PrescribedDisplacements])?;
     super::dynamic_validation::validate_mass_2d(&input.solver, &input.densities)?;
     super::dynamic_validation::validate_time_params(input.time_step, input.n_steps)?;
     validate_integration_params(input.beta, input.gamma, input.alpha, input.damping_xi)?;
@@ -1229,8 +1229,8 @@ fn solve_time_history_3d_inner(
     input: &TimeHistoryInput3D,
     mut trace: Option<&mut Option<DynamicTrace>>,
 ) -> Result<TimeHistoryResult3D, String> {
-    super::feature_gates::refuse_3d(&input.solver, "Time history analysis", &[super::feature_gates::Feature::PrescribedDisplacements])?;
     super::linear::validate_input_3d_for_analysis(&input.solver, crate::known_issues::Analysis::TimeHistory)?;
+    super::feature_gates::refuse_3d_structured(&input.solver, "Time history analysis", &[super::feature_gates::Feature::PrescribedDisplacements])?;
     super::dynamic_validation::validate_mass_3d(&input.solver, &input.densities)?;
     super::dynamic_validation::validate_time_params(input.time_step, input.n_steps)?;
     validate_integration_params(input.beta, input.gamma, input.alpha, input.damping_xi)?;

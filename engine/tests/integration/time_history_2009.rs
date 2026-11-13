@@ -33,7 +33,6 @@ fn wrapper(model: Value, method: &str) -> Value {
 }
 
 #[test]
-#[ignore = "known wrong result: #2009"]
 fn nonzero_motion_is_a_structured_refusal_at_every_entry() {
     let mut failures = Vec::new();
     let mut replay = Vec::new();

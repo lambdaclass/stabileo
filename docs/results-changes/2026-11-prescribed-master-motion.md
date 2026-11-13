@@ -44,3 +44,14 @@ the coordinator.
 The separate reaction and member-force recovery defects tracked by #1949 and
 PR #1952 still require their own correction. In particular, transferring slave
 forces into restrained-master support reactions is outside this kinematic fix.
+
+The follow-up for #2009 preserves time-history input-error precedence: a support
+spring conflicting with a rigid restraint still receives its structured input
+error before the prescribed-motion feature check. Unsupported nonzero motion
+now uses the same JSON diagnostic envelope, with `unsupported_feature`, error
+severity and input phase, across native, traced, certified and WASM entries.
+Accepted responses are unchanged: absent and explicitly zero prescribed motion
+produce identical loaded histories in both dimensions and integration methods.
+Origin/main replay returned identical complete responses for nonzero and absent
+prescribed motion, confirming the need for containment. Its existing general
+dynamic warnings did not identify the omitted support motion.

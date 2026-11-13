@@ -506,7 +506,6 @@ fn advanced_conditioning_uses_actual_matrices() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2009"]
 fn reported_seeds_advanced_modal_and_time_history_are_contained() {
     use dedaliano_engine::solver::{modal::*, time_integration::*};
     for seed in [20800, 20833, 20865, 20795, 20756, 20824, 20840] {
