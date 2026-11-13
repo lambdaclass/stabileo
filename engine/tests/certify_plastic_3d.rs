@@ -839,3 +839,68 @@ fn nightly_space_case_two_has_provable_bounds() {
     }
     eprintln!("space: raw {}, bounds [{lower}, {upper}]", raw.collapse_factor);
 }
+
+#[test]
+#[ignore = "known wrong result: #2084"]
+fn issue_2084_capacity_identity_survives_exact_admission() {
+    let input = column_1_on_section_2(portal_sample(), None, None);
+    for error in [
+        solve_plastic_3d(&input).unwrap_err(),
+        certify_plastic_3d(&input).unwrap_err(),
+        dedaliano_engine::certify::plastic_bundle::export_plastic_bundle_3d(&input).unwrap_err(),
+    ] {
+        refusal_names_member(&error, 1, 2);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2084"]
+fn issue_2084_model_refusal_precedes_exact_scope() {
+    let mut input: PlasticInput3D = serde_json::from_value(portal_sample()).unwrap();
+    input.solver.left_hand = Some(true);
+    input.solver.quads.insert("91".into(), SolverQuadElement {
+        id: 91, nodes: [1, 2, 3, 4], material_id: 1, thickness: 0.1,
+    });
+    for error in [
+        solve_plastic_3d(&input).unwrap_err(),
+        certify_plastic_3d(&input).unwrap_err(),
+    ] {
+        assert!(error.contains("leftHand: true is not supported"), "{error}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2084"]
+fn issue_2084_distorted_shell_refusal_identity() {
+    let mut value = portal_sample();
+    let solver = &mut value["solver"];
+    for key in ["nodes", "elements", "supports", "quads"] { solver[key] = serde_json::json!({}); }
+    solver["loads"] = serde_json::json!([]);
+    solver["materials"]["1"]["e"] = 10000.into();
+    for i in 0..=6 {
+        for j in 0..2 {
+            let shift = if i == 0 || i == 6 { 0.0 } else { (if i % 2 == 1 { 0.1 } else { -0.1 }) * (if j == 0 { -1.0 } else { 1.0 }) };
+            let id = 1 + 2 * i + j;
+            solver["nodes"][id.to_string()] = serde_json::json!({"id":id, "x":i as f64 + shift, "y":0.2 * j as f64, "z":0});
+        }
+    }
+    for i in 0..6 {
+        let id = i + 1;
+        solver["quads"][id.to_string()] = serde_json::json!({"id":id, "nodes":[2*i+1,2*i+3,2*i+4,2*i+2], "materialId":1, "thickness":0.1});
+    }
+    for id in [1,2] { solver["supports"][id.to_string()] = serde_json::json!({"nodeId":id,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}); }
+    for id in [13,14] { solver["loads"].as_array_mut().unwrap().push(serde_json::json!({"type":"nodal", "data":{"nodeId":id,"fx":0,"fy":0.5,"fz":0,"mx":0,"my":0,"mz":0}})); }
+    let input: PlasticInput3D = serde_json::from_value(value).unwrap();
+    for error in [
+        solve_plastic_3d(&input).unwrap_err(),
+        certify_plastic_3d(&input).unwrap_err(),
+        dedaliano_engine::certify::plastic_bundle::export_plastic_bundle_3d(&input).unwrap_err(),
+    ] {
+        let refusal: serde_json::Value = serde_json::from_str(&error).unwrap_or_else(|_| panic!("{error}"));
+        let diagnostic = refusal["structuredDiagnostics"].as_array().unwrap().iter().find(|d| d["phase"] == "SH-MITC4-DISTORTION").unwrap();
+        assert_eq!(diagnostic["code"], "known_issue");
+        assert_eq!(diagnostic["severity"], "error");
+        assert_eq!(diagnostic["value"], 798);
+        assert_eq!(diagnostic["elementIds"], serde_json::json!([1,2,3,4,5,6]));
+    }
+}

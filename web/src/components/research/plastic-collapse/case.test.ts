@@ -164,3 +164,9 @@ describe('page text', () => {
     }
   });
 });
+
+it.skip('known wrong result: #2084: verifies the portal despite the explicit certified-factor history disclosure', () => {
+  const result = { ...replay, warnings: [`collapseFactor is the certified lower bound ${replay.collapseFactor}. Raw incremental factor ${replay.collapseFactor} lies within the certified interval [${replay.collapseFactor}, ${replay.collapseFactor}]. Incremental steps, hinges and the mechanism flag retain raw solver values and are not certified by this interval.`] };
+  expect(checks(result).every(c => c.passed)).toBe(true);
+  expect(checks({ ...result, warnings: [...result.warnings, 'unexpected solver warning'] }).find(c => c.id === 'mechanism')!.passed).toBe(false);
+});

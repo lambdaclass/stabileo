@@ -481,6 +481,27 @@ describe('which registered changes concern a model', () => {
     expect(ids(model())).not.toContain(change);
   });
 
+  it.skip('known wrong result: #2084: plastic proof notices require structural elements and preserve version boundaries', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'plastic-collapse-shared-proof')!;
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      const empty = model({ analysisMode, supports: [], loadCases: [] });
+      expect(ids(empty)).not.toContain(entry.id);
+      for (const snapshot of [
+        model({ analysisMode, elements: [member(1, 1, 'frame')] }),
+        model({ analysisMode, elements: [member(1, 1, 'truss')] }),
+        model({ analysisMode, quads: [[1, { id: 1 }]] }),
+      ]) {
+        const before = { ...stampSolve('plastic', null), resultsVersion: entry.resultsVersion - 1 };
+        if (analysisMode !== '2d') {
+          expect(ids(snapshot, before)).toContain(entry.id);
+          expect(ids(snapshot)).toContain(entry.id);
+        } else expect(ids(snapshot, before)).not.toContain(entry.id);
+        expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
+        expect(ids(snapshot, { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - 1 })).not.toContain(entry.id);
+      }
+    }
+  });
+
   it('unknown analysis history without stiffness elements has no linear result to re-check', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });
