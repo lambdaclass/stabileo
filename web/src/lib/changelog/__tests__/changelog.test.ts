@@ -59,7 +59,7 @@ describe('the changelog', () => {
     }
   });
 
-  it.skip.each(LOCALES)('known wrong result: #2081 keeps November 13 notices in their reference areas and order in %s', (locale) => {
+  it.each(LOCALES)('known wrong result: #2081 keeps November 13 notices in their reference areas and order in %s', (locale) => {
     const entry = CHANGELOG.find((e) => e.date === '2026-11-13')!;
     const groups = itemsByArea(entry, locale);
     expect(groups.map((group) => [group.area, group.items.length])).toEqual([['engine', 21], ['pro', 1], ['app', 1]]);
@@ -69,7 +69,7 @@ describe('the changelog', () => {
     expect(items[21]).toContain('CIRSOC 301');
   });
 
-  it.skip.each([
+  it.each([
     [13, ['rácsrudak', 'csomóponti', '2D', '3D']],
     [14, ['modális', 'tömeg', 'véges']],
     [15, ['Winkler', 'korotációs', 'SA-2026-063']],
