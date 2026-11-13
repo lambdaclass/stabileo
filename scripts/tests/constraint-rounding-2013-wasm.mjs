@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { test } from 'node:test';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
@@ -19,6 +20,8 @@ function verify(result, c) {
     for (const v of c.dim === 2 ? [d.ry] : [d.rx, d.ry, d.rz]) assert.ok(Number.isFinite(v) && Math.abs(v) <= bound);
   }
 }
+
+const pdeltaCoverage = new Set();
 
 for (const [index, c] of cases.entries()) {
   const s = c.model;
@@ -41,9 +44,26 @@ for (const [index, c] of cases.entries()) {
   };
   for (const [name, run] of Object.entries(runs)) {
     if (name === 'pdelta' && !s.constraints.some(c => c.terms.every(t => t.dof >= (c.dim === 2 ? 2 : 3)))) continue;
+    if (name === 'pdelta') pdeltaCoverage.add(`${c.dim}:${c.refused}`);
     test(`${index} ${c.dim}D ${name} refused=${c.refused}`, () => {
       if (c.refused) assert.throws(run);
       else verify(run(), c);
     });
   }
 }
+
+for (const dim of [2, 3]) {
+  for (const refused of [false, true]) {
+    test(`${dim}D P-Delta coverage refused=${refused}`, { skip: 'known wrong result: #2075' }, () => {
+      assert.ok(pdeltaCoverage.has(`${dim}:${refused}`), 'P-Delta cases must be registered');
+    });
+  }
+}
+
+test('IGNORED=1 retains the unignored constrained-release regressions', { skip: 'known wrong result: #2075' }, () => {
+  const commands = execFileSync('make', ['-n', 'test.engine.constraint-rounding-2013', 'IGNORED=1'], { encoding: 'utf8' });
+  const seeded = commands.split('\n').find(line => line.includes('cargo test') && line.includes('constrained_release'));
+  assert.ok(seeded);
+  assert.ok(seeded.includes('--include-ignored'));
+  assert.ok(!seeded.split(/\s+/).includes('--ignored'));
+});

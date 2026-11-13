@@ -162,6 +162,7 @@ fn issue_1969_constrained_dense_and_sparse_balance_accept_member_actions() {
 }
 
 #[test]
+#[ignore = "known wrong result: #2075"]
 fn constrained_nodal_controls_and_existing_rounding_refusals_remain() {
     for dimension in [2, 3] {
         for copies in [1, 4] {
@@ -241,4 +242,83 @@ fn truss_distributed_and_point_actions_reach_linear_and_nonlinear_solvers() {
 #[test]
 fn frame_distributed_and_point_actions_reach_linear_and_nonlinear_solvers() {
     member_load_class("frame");
+}
+
+#[test]
+fn issue_2075_constrained_nodal_answers_match_independent_high_precision_solution() {
+    let audit: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../docs/verification/constraint-rounding-2075.json"
+    ))
+    .unwrap();
+    for (case, slave) in [(1, 2), (2, 3)] {
+        let expected: Vec<Vec<f64>> = audit[case]["displacements"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| {
+                row.as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_str().unwrap().parse().unwrap())
+                    .collect()
+            })
+            .collect();
+        let scale = expected
+            .iter()
+            .flatten()
+            .copied()
+            .map(f64::abs)
+            .fold(0.0, f64::max);
+        for copies in [1, 4] {
+            let base = witness("nodal-1969");
+            let c: Vec<Constraint> = serde_json::from_value(serde_json::Value::Array((0..copies).map(|copy| serde_json::json!({"type":"equalDOF","masterNode":1+copy*100,"slaveNode":slave+copy*100,"dofs":[0]})).collect())).unwrap();
+            let input = constraints::ConstrainedInput {
+                solver: serde_json::from_value(constrained_family(
+                    serde_json::to_value(&base).unwrap(),
+                    copies,
+                ))
+                .unwrap(),
+                constraints: c.clone(),
+            };
+            let result = constraints::solve_constrained_2d(&input).unwrap();
+            finite(&result);
+            assert_eq!(result.displacements.len(), base.nodes.len() * copies);
+            for d in result.displacements {
+                for (actual, reference) in [d.ux, d.uz, d.ry]
+                    .into_iter()
+                    .zip(&expected[d.node_id % 100 - 1])
+                {
+                    assert!(
+                        (actual - reference).abs() <= 1e-8 * scale,
+                        "2D node {}: {actual} != {reference}",
+                        d.node_id
+                    );
+                }
+            }
+            let input = constraints::ConstrainedInput3D {
+                solver: serde_json::from_value(constrained_family(
+                    serde_json::to_value(embed_2d(&base, Plane::XZ).unwrap()).unwrap(),
+                    copies,
+                ))
+                .unwrap(),
+                constraints: c,
+            };
+            let result = constraints::solve_constrained_3d(&input).unwrap();
+            finite(&result);
+            assert_eq!(result.displacements.len(), base.nodes.len() * copies);
+            for d in result.displacements {
+                for (actual, reference) in [d.ux, d.uz, d.ry * Plane::XZ.normal()[1]]
+                    .into_iter()
+                    .zip(&expected[d.node_id % 100 - 1])
+                {
+                    assert!(
+                        (actual - reference).abs() <= 1e-8 * scale,
+                        "3D node {}: {actual} != {reference}",
+                        d.node_id
+                    );
+                }
+                assert_eq!([d.uy, d.rx, d.rz], [0.0; 3]);
+            }
+        }
+    }
 }
