@@ -20,7 +20,8 @@
     "pt": "Arredondamento da direção de cargas em treliças",
     "de": "Rundung der Lastrichtung an Fachwerkstäben",
     "fr": "Arrondi de direction des charges de treillis",
-    "tr": "Kafes çubuk yük yönü yuvarlaması"
+    "tr": "Kafes çubuk yük yönü yuvarlaması",
+    "hu": "A rácsrúdterhek irányának kerekítése"
   },
   "explanation": {
     "en": "Truss and cable member loads now include direction-rounding uncertainty in 2D and 3D. Compatible loads retain their response; residual loads beyond the calculated bound remain refused. Re-run models with loads applied to these members (#2074).",
@@ -28,7 +29,8 @@
     "pt": "As cargas em treliças e cabos incluem agora a incerteza de arredondamento da direção em 2D e 3D. Cargas compatíveis mantêm sua resposta; resíduos além do limite calculado continuam recusados. Recalcule os modelos com cargas nessas barras (#2074).",
     "de": "Lasten an Fachwerkstäben und Seilen berücksichtigen jetzt die Rundungsunsicherheit der Richtung in 2D und 3D. Kompatible Lasten behalten ihre Antwort; Restlasten über der berechneten Grenze werden weiterhin abgelehnt. Modelle mit Lasten an diesen Stäben neu berechnen (#2074).",
     "fr": "Les charges de treillis et de câbles incluent désormais l’incertitude d’arrondi de direction en 2D et 3D. Les charges compatibles conservent leur réponse ; les charges résiduelles dépassant la limite calculée restent refusées. Recalculer les modèles chargés sur ces barres (#2074).",
-    "tr": "Kafes çubuk ve kablo yükleri artık 2B ve 3B yön yuvarlama belirsizliğini içerir. Uyumlu yükler yanıtlarını korur; hesaplanan sınırın üzerindeki artık yükler reddedilmeye devam eder. Bu çubuklara yük uygulanan modelleri yeniden çözün (#2074)."
+    "tr": "Kafes çubuk ve kablo yükleri artık 2B ve 3B yön yuvarlama belirsizliğini içerir. Uyumlu yükler yanıtlarını korur; hesaplanan sınırın üzerindeki artık yükler reddedilmeye devam eder. Bu çubuklara yük uygulanan modelleri yeniden çözün (#2074).",
+    "hu": "A rácsrudak és kábelek terhei most 2D-ben és 3D-ben is tartalmazzák az irány kerekítésének bizonytalanságát. Az összeférő terhek szerkezeti válasza megmarad; a számított korlátot meghaladó maradó terhek elutasítása továbbra is érvényes. Futtassa újra azokat a modelleket, amelyekben ilyen rudakra működnek terhek (#2074)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-truss-load-direction-rounding.md",

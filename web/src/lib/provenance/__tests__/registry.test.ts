@@ -36,7 +36,7 @@ describe('result-change registry', () => {
     ['source', source],
     ['packed', () => RESULT_CHANGES],
   ] as const)('%s Hungarian result-change notices', (_name, registry) => {
-    it.skip.each([
+    it.each([
       'released-basis-pivoting',
       'released-load-work',
       'transformed-load-assembly',
