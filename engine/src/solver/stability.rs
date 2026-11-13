@@ -496,6 +496,8 @@ impl ReleasedRotations {
         let directions = self.directions.iter().filter_map(|(node,direction)| {
             let mut projected:BTreeMap<usize,(f64,f64)>=BTreeMap::new();
             for i in 0..c.n_rows {
+                #[cfg(test)]
+                tests::PROJECT_ROWS.with(|count| count.set(count.get() + 1));
                 let (value,error)=direction.iter().find(|(d,_,_)|*d==i).map_or((0.0,0.0),|(_,x,e)|(*x,*e));
                 let span=c.row_ptr[i]..c.row_ptr[i+1];
                 if span.is_empty() {
@@ -1327,11 +1329,32 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
 #[cfg(test)]
 mod tests {
     thread_local! {
+        pub(super) static PROJECT_ROWS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static LANCZOS_RUNS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static IDENTITY_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static EIGENVECTOR_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     }
     use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #2074"]
+    fn sparse_release_projection_visits_only_touched_columns() {
+        let n = 512;
+        let c = crate::solver::constraints::SparseTransform::from_rows(n, n, (0..n).map(|i| vec![(i, 1.0)]).collect());
+        for count in [0, 1, 64] {
+            let directions: Vec<_> = (0..count).map(|node| (node, vec![(3*node, 0.6, f64::EPSILON), (3*node+1, 0.8, f64::EPSILON), (3*node+2, 0.0, 0.0)])).collect();
+            let releases = ReleasedRotations { rows: vec![], nodes: (0..count).collect(), directions: directions.clone() };
+            PROJECT_ROWS.with(|visits| visits.set(0));
+            let result = releases.project(&c);
+            for (actual, expected) in result.directions.iter().zip(&directions) {
+                assert_eq!(actual.0, expected.0);
+                assert_eq!(actual.1, expected.1[..2]);
+            }
+            assert_eq!(result.directions.len(), count);
+            let visits = PROJECT_ROWS.with(|visits| visits.get());
+            assert!(visits <= n + 3*count, "{count} sparse directions visited {visits} rows");
+        }
+    }
 
     #[test]
     fn near_parallel_released_candidates_do_not_hide_genuine_work() {
