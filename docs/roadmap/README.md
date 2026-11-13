@@ -68,8 +68,7 @@ physical-residual failure keeping displacements and clearing result summaries; a
 undetermined released-rotation gauge values in nonlinear solvers.
 
 Decided: [#1996](https://github.com/lambdaclass/stabileo/issues/1996) keeps refusing staged removal of a loaded member; redistribution is a future feature.
-Loaded-member removal now refuses in both dimensions. Decide whether to redistribute the removed
-member’s force or keep refusing; redistribution is not implemented. Review follow-ups
+Loaded-member removal now refuses in both dimensions. Review follow-ups
 [#1997](https://github.com/lambdaclass/stabileo/issues/1997),
 [#1998](https://github.com/lambdaclass/stabileo/issues/1998),
 [#1999](https://github.com/lambdaclass/stabileo/issues/1999),
