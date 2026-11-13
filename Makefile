@@ -1052,6 +1052,11 @@ test.engine.pdelta-rotation-wasm: wasm
 .PHONY: test.engine.staged-springs-r12-wasm
 test.engine.staged-springs-r12-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-springs-r12.mjs
+
+.PHONY: test.engine.modal-mass-range-wasm
+test.engine.modal-mass-range-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-mass-range.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MODAL_MASS_RANGE_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER="modal_mass_range:: --release"; node scripts/tests/modal-mass-range-wasm.mjs "$$cases"'
+
 .PHONY: audit.1088
 audit.1088:
 	$(NIX_RUN) python3 -I docs/verification/issue-1088-rank.py

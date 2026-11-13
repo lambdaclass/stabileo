@@ -1032,6 +1032,13 @@ fn curved_shell_stiffness_impl(
     k
 }
 
+pub(crate) fn mass_quadrature(coords: &[[f64;3];4], dirs: &[[f64;3];4], h: f64) -> Vec<([f64;4],f64)> {
+    gauss_2x2().iter().map(|&((xi,eta),w_g)| {
+        let (_,_,_,det_j) = covariant_basis(coords,dirs,h,xi,eta,0.0);
+        (shape_functions(xi,eta),det_j.abs()*w_g*2.0)
+    }).collect()
+}
+
 // ==================== Consistent Mass ====================
 
 /// Compute 24×24 consistent mass matrix for the curved shell element.
@@ -1047,13 +1054,7 @@ pub fn curved_shell_consistent_mass(
     let ndof = 24;
     let mut m = vec![0.0; ndof * ndof];
 
-    let gauss_ip = gauss_2x2();
-
-    for &((xi, eta), w_g) in &gauss_ip {
-        let (_, _, _, det_j) = covariant_basis(coords, dirs, h, xi, eta, 0.0);
-        let n_shape = shape_functions(xi, eta);
-        // det_j already contains h/2 from g₃ = (h/2)·d, so ∫dζ from -1 to 1 = 2
-        let dv = det_j.abs() * w_g * 2.0;
+    for (n_shape,dv) in mass_quadrature(coords,dirs,h) {
 
         // Translational mass: m_ij = ρ·h·∫ N_i·N_j dA · I_3
         for i in 0..4 {

@@ -10,6 +10,7 @@ pub mod geometric_stiffness;
 pub mod mass_matrix;
 pub mod buckling;
 pub mod modal;
+mod modal_mass;
 pub mod spectral;
 pub mod plastic;
 pub mod plastic_limit;

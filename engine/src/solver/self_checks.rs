@@ -362,6 +362,19 @@ mod tests {
         assert!(c.check(&[1.0,0.1], 2.0, &[2.0,0.3], &[1.0,0.1], &[1.0,0.1]).unwrap_err().contains("modal_residual"));
         assert!(c.check(&[1.0,0.0], 2.0, &[2.0,0.0], &[1.0,0.0], &[1.0,0.0]).unwrap_err().contains("modal_orthogonality"));
         c.check(&[0.0,2.0], 3.0, &[0.0,6.0], &[0.0,2.0], &[0.0,2.0]).unwrap();
+        for n in [2,3] {
+            for scale in [1e-6,1.0,1e6] {
+                let mut first = vec![0.0;n]; first[0] = scale;
+                let mut second = vec![0.0;n]; second[1] = 1.0/scale;
+                let absolute: Vec<_> = first.iter().map(|x| f64::abs(*x)).collect();
+                let mut checks = ModalChecks::default();
+                checks.check(&first,1.0,&first,&first,&absolute).unwrap();
+                let dependent: Vec<_> = first.iter().map(|x| -3.0*x).collect();
+                let abs_dependent: Vec<_> = dependent.iter().map(|x| x.abs()).collect();
+                assert!(checks.check(&dependent,1.0,&dependent,&dependent,&abs_dependent).unwrap_err().contains("modal_orthogonality"));
+                checks.check(&second,1.0,&second,&second,&second).unwrap();
+            }
+        }
     }
 
     #[test]
