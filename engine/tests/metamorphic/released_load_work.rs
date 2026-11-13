@@ -361,7 +361,7 @@ fn native_and_wasm_share_released_load_models() {
         let exact: Value =
             serde_json::from_str(include_str!("../fixtures/released-load-work-2023.json")).unwrap();
         let exact: Vec<_> = exact.as_object().unwrap().iter().map(|(name, model)| json!({"name":name,"model":model,"references":native_references(3, model),"gauges":released_gauges(3, model)})).collect();
-        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact,"orphanTranslations":orphan_translation_models(),"cancellations":cancellation_models_2074().into_iter().map(|mut c| { c["references"] = native_references(c["dim"].as_u64().unwrap(), &c["model"]); c["gauges"] = released_gauges(c["dim"].as_u64().unwrap(), &c["model"]); c }).collect::<Vec<_>>(),"trussCases":truss_models_2074(),"assemblyCases":assembly_models_2074()})).unwrap()).unwrap();
+        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact,"orphanTranslations":orphan_translation_models(),"cancellations":cancellation_models_2074().into_iter().map(|mut c| { c["references"] = native_references(c["dim"].as_u64().unwrap(), &c["model"]); c["gauges"] = released_gauges(c["dim"].as_u64().unwrap(), &c["model"]); c }).collect::<Vec<_>>(),"trussCases":truss_models_2074(),"assemblyCases":assembly_models_2074(),"mixedOrphans":mixed_orphan_cases_2074(),"mixedDynamics":mixed_dynamic_cases_2074()})).unwrap()).unwrap();
     }
     assert_eq!(cases.len(), 234);
 }
@@ -1098,4 +1098,152 @@ fn released_gauges_require_absent_rotational_stiffness() {
             }
         }
     }
+}
+
+fn mixed_orphan_model_2074(dim: u64, axis: &str, terms: &[f64]) -> Value {
+    let mut model = if dim == 2 { serde_json::to_value(member_2d("Start")).unwrap() } else { serde_json::to_value(member("Mz", "Start", false)).unwrap() };
+    model["nodes"] = if dim == 2 { json!({"1":{"id":1,"x":0.0,"z":0.0},"2":{"id":2,"x":3.0,"z":0.0},"3":{"id":3,"x":6.0,"z":0.0}}) } else { json!({"1":{"id":1,"x":0.0,"y":0.0,"z":0.0},"2":{"id":2,"x":3.0,"y":0.0,"z":0.0},"3":{"id":3,"x":6.0,"y":0.0,"z":0.0}}) };
+    let mut frame = model["elements"]["1"].clone();
+    for key in ["hingeStart","hingeEnd","releaseMyStart","releaseMyEnd","releaseMzStart","releaseMzEnd","releaseTStart","releaseTEnd"] { if let Some(value) = frame.get_mut(key) { *value = json!(false); } }
+    let mut truss = frame.clone();
+    truss["id"] = json!(2);
+    truss["type"] = json!("truss");
+    truss["nodeI"] = json!(2);
+    truss["nodeJ"] = json!(3);
+    model["elements"] = json!({"1":frame,"2":truss});
+    model["supports"] = if dim == 2 { json!({"1":{"id":1,"nodeId":1,"type":"fixed"},"3":{"id":3,"nodeId":3,"type":"rollerX"}}) } else { json!({"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true},"3":{"nodeId":3,"rx":false,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false}}) };
+    let data = if dim == 2 { json!({"nodeId":3,"fx":1.0,"fz":0.0,"my":0.0}) } else { json!({"nodeId":3,"fx":1.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":0.0}) };
+    model["loads"] = json!([{"type":"nodal","data":data}]);
+    for term in terms {
+        let mut data = data.clone();
+        data["fx"] = json!(0.0);
+        data[axis] = json!(term);
+        model["loads"].as_array_mut().unwrap().push(json!({"type":"nodal","data":data}));
+    }
+    model
+}
+
+fn check_mixed_orphan_cancellation_2074(dim: u64) {
+    let mut failures = Vec::new();
+    for axis in if dim == 2 { vec!["my"] } else { vec!["mx","my","mz"] } {
+        let baseline = native_references(dim, &mixed_orphan_model_2074(dim,axis,&[]));
+        for terms in [vec![1.0,-1.0],vec![1e20,1.0,-1e20,-1.0]] {
+            let model = mixed_orphan_model_2074(dim,axis,&terms);
+            for (path,reference) in native_references(dim,&model).as_object().unwrap() {
+                if dim == 3 && path == "corotational" {
+                    assert_eq!(baseline[path]["error"],json!("Singular tangent stiffness — structure may be a mechanism or load increment too large"));
+                    assert_eq!(reference["error"],baseline[path]["error"]);
+                    continue;
+                }
+                assert!(baseline[path]["ok"].is_object(),"{dim}/{axis}/{path}: missing control answer");
+                assert_ne!(baseline[path]["ok"]["converged"],json!(false));
+                assert_ne!(reference["ok"]["converged"],json!(false));
+                if physical_static_2074(&reference["ok"]) != physical_static_2074(&baseline[path]["ok"]) || !reference["ok"].is_object() {
+                    failures.push(format!("{dim}/{axis}/{terms:?}/{path}: {}",reference.get("error").unwrap_or(&json!("physical response differs"))));
+                }
+            }
+        }
+        for residual in [-1.0,-f64::EPSILON,f64::EPSILON,1.0] {
+            let model = mixed_orphan_model_2074(dim,axis,&[1.0,-1.0,residual]);
+            for (path,reference) in native_references(dim,&model).as_object().unwrap() {
+                assert!(reference["error"].is_string(),"{dim}/{axis}/{residual}/{path}: {reference}");
+            }
+        }
+    }
+    assert!(failures.is_empty(),"{}",failures.join("\n"));
+}
+
+#[test]
+#[ignore = "known wrong result: #2074"]
+fn mixed_orphan_moment_cancellation_2d() {
+    check_mixed_orphan_cancellation_2074(2);
+}
+
+#[test]
+#[ignore = "known wrong result: #2074"]
+fn mixed_orphan_moment_cancellation_3d() {
+    check_mixed_orphan_cancellation_2074(3);
+}
+
+fn physical_static_2074(result: &Value) -> Value {
+    let result = result.get("results").unwrap_or(result);
+    let mut physical = json!({});
+    for (collection,id) in [("displacements","nodeId"),("reactions","nodeId"),("elementForces","elementId")] {
+        if let Some(rows) = result[collection].as_array() {
+            let mut rows = rows.clone();
+            rows.sort_by_key(|row| row[id].as_u64());
+            physical[collection] = json!(rows);
+        }
+    }
+    physical
+}
+
+fn mixed_dynamic_inputs_2074(terms: &[f64]) -> (Value,Value) {
+    let model = mixed_orphan_model_2074(3,"mz",terms);
+    let loads = model["loads"].as_array().unwrap().iter().map(|load| load["data"].clone()).collect::<Vec<_>>();
+    let harmonic = json!({"solver":model,"densities":{"1":1.0},"frequencies":[0.0,1.0],"dampingRatio":0.05,"responseNodeId":3,"responseDof":"x"});
+    let history = json!({"solver":model,"densities":{"1":1.0},"timeStep":0.01,"nSteps":2,"method":"newmark","beta":0.25,"gamma":0.5,"dampingXi":0.05,"forceHistory":[{"time":0.0,"loads":loads},{"time":1.0,"loads":loads}]});
+    (harmonic,history)
+}
+
+#[test]
+#[ignore = "known wrong result: #2074"]
+fn mixed_orphan_dynamic_moments_cancel_within_each_record_only() {
+    use dedaliano_engine::solver::{harmonic,time_integration};
+    let (h,t) = mixed_dynamic_inputs_2074(&[]);
+    let baseline_h = serde_json::to_value(harmonic::solve_harmonic_3d(&serde_json::from_value(h).unwrap()).unwrap()).unwrap();
+    let baseline_t = serde_json::to_value(time_integration::solve_time_history_3d(&serde_json::from_value(t).unwrap()).unwrap()).unwrap();
+    assert!(baseline_h["peakAmplitude"].as_f64().unwrap() > 0.0);
+    assert!(baseline_t["nodeHistories"].as_array().unwrap().iter().any(|n| n["ux"].as_array().unwrap().iter().any(|x| x.as_f64().unwrap() != 0.0)));
+    for terms in [vec![1.0,-1.0],vec![1e20,1.0,-1e20,-1.0]] {
+        let (h,t) = mixed_dynamic_inputs_2074(&terms);
+        let result_h = serde_json::to_value(harmonic::solve_harmonic_3d(&serde_json::from_value(h).unwrap()).unwrap()).unwrap();
+        let result_t = serde_json::to_value(time_integration::solve_time_history_3d(&serde_json::from_value(t).unwrap()).unwrap()).unwrap();
+        assert!(result_h["responsePoints"].is_array());
+        assert_eq!(result_h["responsePoints"],baseline_h["responsePoints"]);
+        assert_eq!(result_t["nodeHistories"],baseline_t["nodeHistories"]);
+        assert!(result_t["nodeHistories"].is_array());
+    }
+    for residual in [-1.0,-f64::EPSILON,f64::EPSILON,1.0] {
+        let (h,t) = mixed_dynamic_inputs_2074(&[1.0,-1.0,residual]);
+        assert!(harmonic::solve_harmonic_3d(&serde_json::from_value(h).unwrap()).is_err());
+        assert!(time_integration::solve_time_history_3d(&serde_json::from_value(t).unwrap()).is_err());
+    }
+    let (_,mut t) = mixed_dynamic_inputs_2074(&[]);
+    t["forceHistory"][0]["loads"].as_array_mut().unwrap().push(json!({"nodeId":3,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":1.0}));
+    t["forceHistory"][1]["loads"].as_array_mut().unwrap().push(json!({"nodeId":3,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":-1.0}));
+    assert!(time_integration::solve_time_history_3d(&serde_json::from_value(t).unwrap()).is_err());
+}
+
+fn mixed_orphan_cases_2074() -> Vec<Value> {
+    let mut cases = Vec::new();
+    for dim in [2,3] {
+        for axis in if dim == 2 { vec!["my"] } else { vec!["mx","my","mz"] } {
+            let baseline = native_references(dim,&mixed_orphan_model_2074(dim,axis,&[]));
+            for terms in [vec![],vec![1.0,-1.0],vec![1e20,1.0,-1e20,-1.0],vec![1.0,-1.0,-1.0],vec![1.0,-1.0,-f64::EPSILON],vec![1.0,-1.0,f64::EPSILON],vec![1.0,-1.0,1.0]] {
+                let model = mixed_orphan_model_2074(dim,axis,&terms);
+                let refuses = terms.len() == 3;
+                cases.push(json!({"dim":dim,"axis":axis,"terms":terms,"model":model,"references":baseline,"refuses":refuses}));
+            }
+        }
+    }
+    cases
+}
+
+fn mixed_dynamic_cases_2074() -> Vec<Value> {
+    use dedaliano_engine::solver::{harmonic,time_integration};
+    let (h,t) = mixed_dynamic_inputs_2074(&[]);
+    let reference_h = harmonic::solve_harmonic_3d(&serde_json::from_value(h).unwrap()).unwrap();
+    let reference_t = time_integration::solve_time_history_3d(&serde_json::from_value(t).unwrap()).unwrap();
+    let mut cases = Vec::new();
+    for terms in [vec![],vec![1.0,-1.0],vec![1e20,1.0,-1e20,-1.0],vec![1.0,-1.0,-f64::EPSILON],vec![1.0,-1.0,f64::EPSILON]] {
+        let (h,t) = mixed_dynamic_inputs_2074(&terms);
+        cases.push(json!({"harmonic":h,"history":t,"referenceHarmonic":reference_h,"referenceHistory":reference_t,"refuses":terms.len()==3}));
+    }
+    let (_,mut history) = mixed_dynamic_inputs_2074(&[]);
+    for (i,mz) in [(0,1.0),(1,-1.0)] {
+        history["forceHistory"][i]["loads"].as_array_mut().unwrap().push(json!({"nodeId":3,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":mz}));
+    }
+    cases.push(json!({"history":history,"refuses":true}));
+    cases
 }

@@ -5589,6 +5589,34 @@ mod released_orphan_2074_tests {
         serde_json::from_value(v.clone()).unwrap()
     }
 
+    #[test]
+    #[ignore = "known wrong result: #2074"]
+    fn orphan_backstops_sum_moments_exactly_by_node_and_axis() {
+        let s = model();
+        let dof = DofNumbering::build_3d(&s);
+        for axis in 0..3 {
+            let orphan = [dof.global_dof(1, axis + 3).unwrap()].into_iter().collect();
+            let loads = |terms: &[f64]| terms.iter().map(|&value| {
+                let mut n = SolverNodalLoad3D { node_id: 1, fx: 0.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None };
+                match axis { 0 => n.mx = value, 1 => n.my = value, _ => n.mz = value };
+                SolverLoad3D::Nodal(n)
+            }).collect::<Vec<_>>();
+            for terms in [vec![1.0,-1.0],vec![1e20,1.0,-1e20,-1.0]] {
+                refuse_loads_on_orphan_dofs_3d(&dof,&orphan,&loads(&terms)).unwrap();
+            }
+            for residual in [-1.0,-f64::from_bits(1),f64::from_bits(1),1.0] {
+                assert!(refuse_loads_on_orphan_dofs_3d(&dof,&orphan,&loads(&[1.0,-1.0,residual])).is_err());
+            }
+            for invalid in [f64::NAN,f64::INFINITY,f64::NEG_INFINITY] {
+                assert!(refuse_loads_on_orphan_dofs_3d(&dof,&orphan,&loads(&[invalid,-invalid])).is_err());
+            }
+            let mut different_nodes = loads(&[1.0,-1.0]);
+            let SolverLoad3D::Nodal(n) = &mut different_nodes[1] else { unreachable!() };
+            n.node_id = 2;
+            assert!(refuse_loads_on_orphan_dofs_3d(&dof,&orphan,&different_nodes).is_err());
+        }
+    }
+
     fn check_translations(material: bool) {
         for local in 0..3 {
             for force in [-1.0, -f64::from_bits(1), f64::from_bits(1), 1.0] {

@@ -768,3 +768,14 @@ it('known wrong result: #818: a buckling notice cannot excuse linear result chan
     expect(declaresMove({ quantities: undefined, ...bucklingChange }, path), path).toBe(false);
   }
 });
+
+(process.env.RUN_KNOWN_WRONG ? it : it.skip)('known wrong result: #2074: plain unreleased frames and unloaded connectors need no released-load notice', () => {
+  for (const analysisMode of ['2d', 'pro']) {
+    for (const snapshot of [
+      model({ analysisMode, elements: [member(1, 1, 'frame')] }),
+      model({ analysisMode, connectors: [[1, { id: 1 }]] }),
+    ]) {
+      for (const id of ['released-load-work', 'transformed-load-assembly']) expect(ids(snapshot)).not.toContain(id);
+    }
+  }
+});
