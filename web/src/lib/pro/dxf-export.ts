@@ -3,6 +3,7 @@
  * (`pro/export-results.ts`), written by `dxf/writer.ts`. An envelope's set (chosen, or on screen)
  * is handed with its envelope, whose station curves the diagrams are, as the figures draw them.
  */
+import { trackUsage } from '../telemetry/usage';
 import { zipSync } from 'fflate';
 import { downloadResultText, dxfWithProvenance, prepareExportProvenance } from '../export/provenance-attach';
 import { downloadBlob } from '../store/file';
@@ -46,6 +47,7 @@ export function proDxf(req: ProDxfRequest): string {
 const safeName = () => modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultStructure');
 
 export function downloadProDxf(req: ProDxfRequest): Promise<boolean> {
+  trackUsage('export', { format: 'dxf' });
   // The DXF carries its provenance as 999 comments (export/provenance-attach.ts).
   return downloadResultText(proDxf(req), `${safeName()}.dxf`, 'application/dxf');
 }
@@ -59,6 +61,7 @@ const SLUG: Partial<Record<keyof DxfContents, string>> = { deformed: 'deformada'
 export async function downloadProDxfFiles(req: ProDxfRequest): Promise<boolean> {
   const results = DXF_CONTENTS.filter((k) => DXF_NEEDS_RESULTS.has(k) && req.contents[k]);
   if (results.length === 0) return downloadProDxf(req);
+  trackUsage('export', { format: 'dxf' });
   const p = await prepareExportProvenance();
   if (!p) return false;
   const base = Object.fromEntries(DXF_CONTENTS.map((k) => [k, !DXF_NEEDS_RESULTS.has(k) && req.contents[k]])) as unknown as DxfContents;

@@ -789,28 +789,6 @@ const ru: Translations = {
   'float.vShear': 'V поп. сила',
   'float.ilHint': 'Кликните по узлу (реакции) или стержню (внутренние M/V)',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': 'Сообщить / Предложить',
-  'feedback.close': 'Закрыть',
-  'feedback.reportCreated': 'Отчёт #{n} создан',
-  'feedback.bugError': 'Ошибка / Баг',
-  'feedback.suggestion': 'Предложение',
-  'feedback.other': 'Другое',
-  'feedback.namePlaceholder': 'Ваше имя или псевдоним (необязательно)',
-  'feedback.textPlaceholder': 'Опишите проблему или предложение...',
-  'feedback.linkAttached': 'Ссылка на вашу конструкцию будет прикреплена',
-  'feedback.copy': 'Копировать',
-  'feedback.sending': 'Отправка...',
-  'feedback.submitReport': 'Отправить отчёт',
-  'feedback.toastCreated': 'Отчёт #{n} создан — спасибо!',
-  'feedback.toastError': 'Не удалось отправить отчёт',
-  'feedback.toastConnectionError': 'Ошибка соединения — попробуйте снова',
-  'feedback.toastEmptyText': 'Напишите описание проблемы или предложения',
-  'feedback.toastSecurityWait': 'Ожидание проверки безопасности...',
-  'feedback.toastLinkCopied': 'Ссылка скопирована',
-  'feedback.reportBug': 'Сообщить об ошибке / Предложение',
-  'feedback.communityTelegram': 'Сообщество Telegram',
-  'feedback.buyCoffee': 'Угостите меня кофе',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': 'Сечение {id}',

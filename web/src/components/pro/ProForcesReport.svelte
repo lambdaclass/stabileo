@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { accountGate } from '../../lib/store/account-gate.svelte';
+  import { saveFile } from '../../lib/export/save-file';
   import { exportMessages } from "../../lib/export/containment";
   import { downloadReport } from '../../lib/export/report-download';
   import type { DocBlock } from '../../lib/export/docx';
@@ -95,15 +97,11 @@
   }
 
   function downloadBlob(name: string, type: string, content: string) {
-    const url = URL.createObjectURL(new Blob([content], { type }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(url);
+    saveFile(name, new Blob([content], { type }));
   }
 
   async function generate() {
+    if (accountGate.defer('export', generate)) return;
     if (exportMessages() === null) return;
     lastError = null;
     const results = resultsStore.results3D;

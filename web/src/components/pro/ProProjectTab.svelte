@@ -1,4 +1,7 @@
 <script lang="ts">
+  import CloudProjectsDialog from '../account/CloudProjectsDialog.svelte';
+  import { authStore } from '../../lib/store/auth.svelte';
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import ProVideos from './ProVideos.svelte';
   import ProProjectInfo from './ProProjectInfo.svelte';
   import ProExampleGallery from './ProExampleGallery.svelte';
@@ -243,6 +246,7 @@
     }
     input.value = '';
   }
+  let cloudOpen = $state(false);
 </script>
 
 <div class="pp" data-testid="pro-project-tab">
@@ -345,10 +349,13 @@
         <button class="pp-btn" onclick={() => fileInput?.click()}
                 data-testid="pp-open">{t('project.open')}</button>
       </HelpTip>
+      {#if authStore.isAuthenticated && authStore.cloudProjectsEnabled}
+        <button class="pp-btn" onclick={() => (cloudOpen = true)} data-testid="cloud-projects-open">{t('account.myProjects')}</button>
+      {/if}
       <HelpTip text={linkTooLong ? tp('project.linkTooLong', { n: proLink?.length ?? 0 }) : t('project.copyLinkTooltip')}>
         <button
           class="pp-btn"
-          onclick={copyShareLink}
+          onclick={() => accountGate.guard('share', copyShareLink)}
           disabled={!hasModel || linkTooLong}
           data-testid="pp-share"
         >{t('project.shareLink')}</button>
@@ -588,6 +595,8 @@
   style="display:none"
   onchange={handleLoad}
 />
+
+<CloudProjectsDialog bind:open={cloudOpen} />
 
 <style>
   .pg-overlay { position: fixed; inset: 0; z-index: 900; display: flex; align-items: center; justify-content: center; }

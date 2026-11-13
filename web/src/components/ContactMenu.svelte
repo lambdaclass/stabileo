@@ -20,6 +20,16 @@
    */
   import { t } from '../lib/i18n';
   import { contactChannels } from '../lib/contact/channels';
+  import { authStore } from '../lib/store/auth.svelte';
+  import { accountGate } from '../lib/store/account-gate.svelte';
+  import { feedbackDialog } from '../lib/store/feedback-dialog.svelte';
+
+  const canSendFeedback = $derived(authStore.isAuthenticated || authStore.userLoginEnabled);
+
+  function openFeedback() {
+    open = false;
+    accountGate.requireSignIn('feedback', () => (feedbackDialog.open = true));
+  }
 
   let open = $state(false);
   let root: HTMLDivElement | undefined = $state();
@@ -85,6 +95,11 @@
 
   {#if open}
     <div class="contact-menu" id="contact-menu" role="group" aria-label={t('contact.linksLabel')} data-testid="contact-menu">
+      {#if canSendFeedback}
+        <button type="button" class="contact-feedback" onclick={openFeedback} data-testid="contact-feedback">
+          {t('feedbackForm.open')}
+        </button>
+      {/if}
       <p class="contact-title">{t('contact.linksTitle')}</p>
       <ul>
         {#each CHANNELS as c (c.id)}
@@ -102,6 +117,21 @@
 </div>
 
 <style>
+  .contact-feedback {
+    display: block;
+    width: 100%;
+    margin-bottom: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    background: color-mix(in srgb, var(--st-accent) 14%, var(--st-surface-2));
+    border: 1px solid color-mix(in srgb, var(--st-accent) 50%, transparent);
+    border-radius: var(--st-radius);
+    color: var(--st-text);
+    font: inherit;
+    font-size: 0.78rem;
+    text-align: left;
+    cursor: pointer;
+  }
+  .contact-feedback:hover { background: color-mix(in srgb, var(--st-accent) 24%, var(--st-surface-2)); }
   .contact-anchor { position: relative; display: inline-flex; }
 
   /* Sized and bordered like `.btn-help` beside it: the header's controls are
