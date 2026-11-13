@@ -99,7 +99,7 @@ describe('designing the sheets on asking', () => {
   });
 });
 
-it.skip.each([
+it.each([
   ['SH-MITC4-DISTORTION', 798],
   ['SH-WARPED-MITC4', 1057],
   ['SH-WARPED-MITC9', 1057],
@@ -110,22 +110,34 @@ it.skip.each([
   const { knownIssueMessage } = await import('../../engine/known-issue-message');
   solvedFrame();
   const result = resultsStore.results3D!;
-  for (const severity of ['warning', 'error'] as const) {
-    const diagnostic = { code: 'known_issue', severity, phase, value: issue, message: 'ENGINE' };
-    resultsStore.setResults3D({ ...result, structuredDiagnostics: [diagnostic] });
-    const expected = knownIssueMessage(diagnostic).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-    const panel = render(Panel).body;
-    expect(panel).toContain('role="alert"');
-    expect(panel).toContain(expected);
-    if (severity === 'error') expect(panel).not.toContain('data-testid="rc-design"');
-    for (const family of ['slab', 'wall'] as const) {
-      const html = render(Workspace, { props: { family, onclose() {} } }).body;
-      expect(html).toContain('role="alert"');
-      expect(html).toContain(expected);
-      if (severity === 'error') expect(html).not.toContain('data-testid="rc-row"');
+  const cases = new Map(resultsStore.perCase3D), combinations = new Map(resultsStore.perCombo3D), envelope = resultsStore.envelope3D!;
+  for (const source of ['single', 'case', 'combination'] as const) {
+    for (const severity of ['warning', 'error'] as const) {
+      const diagnostic = { code: 'known_issue', severity, phase, value: issue, message: 'ENGINE' };
+      const payload = { ...result, structuredDiagnostics: [diagnostic] };
+      resultsStore.setResults3D(source === 'single' ? payload : result);
+      if (source !== 'single') resultsStore.setCombinationResults3D(
+        source === 'case' ? new Map([[1, payload]]) : cases,
+        source === 'combination' ? new Map([[1, payload]]) : combinations, envelope);
+  
+      const expected = knownIssueMessage(diagnostic).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+      const panel = render(Panel).body;
+      expect(panel).toContain('role="alert"');
+      expect(panel).toContain(expected);
+      if (severity === 'error') expect(panel).not.toContain('data-testid="rc-design"');
+      for (const family of ['slab', 'wall'] as const) {
+        const html = render(Workspace, { props: { family, onclose() {} } }).body;
+        expect(html).toContain('role="alert"');
+        expect(html).toContain(expected);
+        if (severity === 'error') expect(html).not.toContain('data-testid="rc-row"');
+      }
     }
   }
   resultsStore.setResults3D({ ...result, structuredDiagnostics: [] });
+  resultsStore.setCombinationResults3D(
+    new Map([...cases].map(([id, r]) => [id, { ...r, structuredDiagnostics: [] }])),
+    new Map([...combinations].map(([id, r]) => [id, { ...r, structuredDiagnostics: [] }])),
+    { ...envelope, maxAbsResults3D: { ...envelope.maxAbsResults3D, structuredDiagnostics: [] } });
   expect(buildSheetRows().beam.length).toBeGreaterThan(0);
   for (const family of ['slab', 'wall'] as const) {
     expect(render(Workspace, { props: { family, onclose() {} } }).body).not.toContain('data-testid="rc-result-warnings"');

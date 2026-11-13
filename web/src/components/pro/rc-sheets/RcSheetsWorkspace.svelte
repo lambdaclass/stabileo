@@ -3,6 +3,7 @@
   import { adoptAll, downloadRcSheets, type SheetRow, type SheetRows } from '../../../lib/store/rc-sheets.svelte';
   import { designSheets, followSheetEdits, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
+  import RcResultWarnings from './RcResultWarnings.svelte';
   import { uiStore } from '../../../lib/store';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { groupsArea, groupsLabel, meshArea, meshLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
@@ -26,7 +27,7 @@
   import RcResize from './RcResize.svelte';
   import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { designData } from '../../../lib/store/design-data';
-  import { modelStore } from '../../../lib/store';
+  import { modelStore, resultsStore } from '../../../lib/store';
 
   let { onclose, family = $bindable<SheetFamily>('beam') }: { onclose: () => void; family?: SheetFamily } = $props();
 
@@ -71,7 +72,7 @@
     <strong class="rcw-name">{t('rcSheets.title')}</strong>
     <span class="rcw-code" data-testid="rc-code"><RcCodePicker compact /></span>
     <span class="rcw-dim rcw-basis">{basisText}</span>
-    {#if stale && !sheetsRun.progress}<span class="rcw-dim rcw-stale" data-testid="rc-stale">{t('rcSheets.staleShort')}</span><button type="button" class="rcs-btn" onclick={designSheets} data-testid="rc-redesign">{t('rcSheets.redesign')}</button>{/if}
+    {#if stale && !sheetsRun.progress && !resultsStore.knownIssues3D.refused}<span class="rcw-dim rcw-stale" data-testid="rc-stale">{t('rcSheets.staleShort')}</span><button type="button" class="rcs-btn" onclick={designSheets} data-testid="rc-redesign">{t('rcSheets.redesign')}</button>{/if}
     <div class="rcw-tabs" role="tablist">
       {#each SHEET_FAMILIES as f (f)}
         <button type="button" role="tab" aria-selected={family === f} class:on={family === f} data-testid={`rc-tab-${f}`} onclick={() => { family = f; level = ''; openKey = null; }}>
@@ -87,14 +88,16 @@
         </select>
       </label>
       <label class="rcw-ctl" title={t('rcSheets.onlyFailing')}><input type="checkbox" bind:checked={failingOnly} aria-label={t('rcSheets.onlyFailing')} /> <span class="wide">{t('rcSheets.onlyFailing')}</span><span class="narrow">✗</span></label>
-      <button type="button" class="rcs-btn" title={t('rcSheets.adoptAll')} onclick={() => adoptAll(shown.filter((r): r is Exclude<ListRow, { family: 'punching' }> => r.family !== 'punching'))} disabled={!shown.length}><span class="wide">{t('rcSheets.adoptAll')}</span><span class="narrow">{t('rcSheets.adoptAllShort')}</span></button>
-      <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} disabled={!rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">{t('rcSheets.exportShort')}</span></button>
+      <button type="button" class="rcs-btn" title={t('rcSheets.adoptAll')} onclick={() => adoptAll(shown.filter((r): r is Exclude<ListRow, { family: 'punching' }> => r.family !== 'punching'))} disabled={resultsStore.knownIssues3D.refused || !shown.length}><span class="wide">{t('rcSheets.adoptAll')}</span><span class="narrow">{t('rcSheets.adoptAllShort')}</span></button>
+      <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} disabled={resultsStore.knownIssues3D.refused || !rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">{t('rcSheets.exportShort')}</span></button>
     </div>
     <button type="button" class="rcs-btn rcw-close" onclick={onclose} aria-label={t('rcSheets.close')} data-testid="rc-close">✕</button>
   </header>
 
   <div class="rcw-body">
-    {#if sheetsRun.progress}
+    <RcResultWarnings />
+    {#if resultsStore.knownIssues3D.refused}
+    {:else if sheetsRun.progress}
       <div class="rcw-empty"><RcSheetsProgress progress={sheetsRun.progress} /></div>
     {:else if !sheetsRun.rows}
       <p class="rcw-empty" data-testid="rc-not-designed">{t('rcSheets.designHint')}</p>
