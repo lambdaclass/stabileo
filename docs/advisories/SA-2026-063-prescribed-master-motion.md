@@ -226,8 +226,5 @@ describes the implementation and remaining limits. Retained native regressions
 are in `engine/tests/integration/prescribed_master_2008.rs` and
 `engine/tests/integration/time_history_2009.rs`; targeted WASM checks are
 `make test.engine.prescribed-master-2008-wasm` and
-`make test.engine.time-history-2009-wasm`.
-
-The later #2009 corrector review did not reproduce a new arc-length bug: the existing prescribed expansion is required through repeated corrector
-iterations. It retained a passing regression, not another numerical fix. This
-advisory documents the original main-source defect and changes no engine result.
+`make test.engine.time-history-2009-wasm`. This advisory documents the original
+main-source defect and changes no engine result.
