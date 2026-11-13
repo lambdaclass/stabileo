@@ -25,7 +25,9 @@
  *
  * Pure.
  */
-import { findOccupancy, type OccupancyEntry } from '../codes/cirsoc101/live-loads';
+import type { OccupancyEntry } from '../codes/cirsoc101/live-loads';
+// A zone's row in whichever family's table the project's loads code uses (`occupancy-tables.ts`).
+import { findAnyOccupancy as findOccupancy } from '../codes/families/occupancy-tables';
 import { zoneArea, zoneOutline, type DefinitionModel, type FloorLoadDef, type ZoneData } from './loads/floor-definitions';
 import { shellLoadForces } from '../engine/shell-load-integration';
 import type { ModelGroup } from '../store/model.svelte';
@@ -52,7 +54,6 @@ export interface ZoneUse {
 export type UseData = ZoneData & { use?: ZoneUse };
 export type ZoneStatus = 'unassigned' | 'pending' | 'assigned' | 'none' | 'unsupported';
 
-export const TABLE_REF = 'CIRSOC 101-2025, Tabla 4.1';
 
 export function zoneUseOf(g: Pick<ModelGroup, 'kind' | 'data'> | undefined): ZoneUse | undefined {
   return g?.kind === 'loadZone' ? (g.data as UseData | undefined)?.use : undefined;

@@ -77,6 +77,7 @@
   import { resetProjectProvenance } from '../../lib/store/project-provenance';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
+  import ProRcSheetsTab from './rc-sheets/ProRcSheetsTab.svelte';
   /*
    * The metallic tab renders the WORKFLOW, and the workflow renders `SteelPanel` as its last
    * stage — so the inventory is still there, one disclosure in, rather than replaced or duplicated.
@@ -91,7 +92,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'specifications' | 'supports' | 'loads' | 'advanced' | 'results' | 'design' | 'desk' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'grid' | 'transform' | 'edit' | 'groups' | 'physical' | 'building' | 'foundations' | 'designData' | 'code' | 'view' | 'otherCodes';
+  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'specifications' | 'supports' | 'loads' | 'advanced' | 'results' | 'design' | 'desk' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'grid' | 'transform' | 'edit' | 'groups' | 'physical' | 'building' | 'foundations' | 'designData' | 'code' | 'view' | 'otherCodes' | 'rcSheets';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -246,6 +247,7 @@
     // on the panel it opens, which is two names for one place.
     connections: 'proRibbon.cmdSteelJoints', diagnostics: 'pro.tabDiagnostics',
     otherCodes: 'proRibbon.groupOtherCodes',
+    rcSheets: 'rcSheets.cmd',
     // Same rule for the two metallic destinations: the heading repeats the ribbon command
     // (`proRibbon.cmdGenerators` / `proRibbon.cmdSteelProfiles`), not the fallback
     // "Nodes" the map used to produce for both.
@@ -392,6 +394,8 @@
       <AiDrawer docked />
     {:else if activeTab === 'diagnostics'}
           <ProDiagnosticsTab />
+        {:else if activeTab === 'rcSheets'}
+          <ProRcSheetsTab />
         {/if}
       </svelte:boundary>
     {/if}

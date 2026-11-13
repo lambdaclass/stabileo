@@ -33,8 +33,15 @@
      * entered with the live load; here it only counts toward what §3.1.4 asks for.
      */
     liveAllowance?: number;
+    /**
+     * CIRSOC 101's Tabla 3.1 to build from, with its §3.1.4 partition check. Off under another
+     * family's loads code: its rows are typed, and the table and the check are CIRSOC's.
+     */
+    catalogue?: boolean;
+    /** What to say in place of the table, under another family. */
+    codeHint?: string | null;
   }
-  let { rows = $bindable(), liveLo, liveAllowance = 0 }: Props = $props();
+  let { rows = $bindable(), liveLo, liveAllowance = 0, catalogue = true, codeHint = null }: Props = $props();
 
   const GROUPS: DeadGroup[] = ['ceiling', 'roof', 'concrete', 'floor', 'partition', 'glazing'];
 
@@ -106,10 +113,12 @@
           <span class="dl-value" data-testid="dead-value">{toQ(r.q, 'areaLoad').toFixed(3)} {unitQ('areaLoad')}</span>
         </span>
       {/if}
-      <label class="dl-inline dl-part">
-        <input type="checkbox" bind:checked={rows[i].isPartition} data-testid="dead-is-partition" />
-        {t('autoLoad.isPartition')}
-      </label>
+      {#if catalogue}
+        <label class="dl-inline dl-part">
+          <input type="checkbox" bind:checked={rows[i].isPartition} data-testid="dead-is-partition" />
+          {t('autoLoad.isPartition')}
+        </label>
+      {:else}<span></span>{/if}
       <button class="dl-del" onclick={() => remove(i)} title={t('loads.dead.remove')}
               aria-label={t('loads.dead.remove')}>&#10005;</button>
     </div>
@@ -127,7 +136,9 @@
     {/if}
   {/each}
 
+  {#if codeHint}<div class="dl-note" data-testid="dead-code-hint">{codeHint}</div>{/if}
   <div class="dl-add">
+    {#if catalogue}
     <select bind:value={addKey} class="dl-select" data-testid="dead-picker">
       <option value="">{t('loads.dead.title')}…</option>
       {#each GROUPS as g (g)}
@@ -143,11 +154,12 @@
     </select>
     <button class="al-btn-sm" onclick={addFromTable} disabled={!addKey}
             data-testid="dead-add-table">{t('loads.dead.addFromTable')}</button>
+    {/if}
     <button class="al-btn-sm" onclick={addCustom}
             data-testid="dead-add-custom">{t('loads.dead.addCustom')}</button>
   </div>
 
-  {#if anyAssumed}
+  {#if anyAssumed && catalogue}
     <div class="dl-note" data-testid="dead-assumed">{t('loads.dead.assumedWarning')}</div>
   {/if}
 
@@ -157,9 +169,11 @@
     as nothing at all, which is why it is checked rather than looked for. The §4.3.2
     partition live load, set in the live pane, counts toward it.
   -->
-  <div class="dl-part-check" class:warn={partition.missing} data-testid="dead-partition-check">
-    {te(partition.message)}
-  </div>
+  {#if catalogue}
+    <div class="dl-part-check" class:warn={partition.missing} data-testid="dead-partition-check">
+      {te(partition.message)}
+    </div>
+  {/if}
 </div>
 
 <style>

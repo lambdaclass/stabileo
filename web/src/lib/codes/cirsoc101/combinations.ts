@@ -64,6 +64,12 @@ export type LoadSymbol = 'D' | 'L' | 'Lr' | 'S' | 'R' | 'W' | 'Wa' | 'E' | 'F' |
 export interface CombinationTerm {
   symbol: LoadSymbol;
   factor: number;
+  /**
+   * One part of the action, where a code combines the parts of one action at their own factors
+   * (EN 1990 ψ per category of imposed load, EN 1991-1-1 §3.3.1(2)P): the term takes the cases of
+   * the symbol planned with this group, and a term of the symbol with none takes the rest.
+   */
+  group?: string;
 }
 
 export interface LoadCombinationSpec {
@@ -143,7 +149,7 @@ export function combinationLabel(terms: readonly CombinationTerm[]): string {
   if (t.length === 0) return '—';
   return t.map((x, i) => {
     const sign = x.factor < 0 ? (i === 0 ? '−' : ' − ') : i === 0 ? '' : ' + ';
-    return `${sign}${factorText(Math.abs(x.factor))} ${x.symbol}`;
+    return `${sign}${factorText(Math.abs(x.factor))} ${x.symbol}${x.group ? `(${x.group})` : ''}`;
   }).join('');
 }
 

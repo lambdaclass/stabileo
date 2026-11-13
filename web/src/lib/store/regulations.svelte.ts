@@ -211,6 +211,34 @@ function createRegulationsStore() {
       return { kind: 'applied', consequence: this.applyPending('designRegulation') };
     },
 
+    /**
+     * Stage several roles at once, as a family of codes is chosen (a role mapped to null is
+     * unbound): roles of one family only validate together. Refused whole when the stack would
+     * not be valid; otherwise the loads have to be reviewed, as for one role.
+     */
+    requestStack(bindings: Partial<Record<RegulationRole, string | null>>): ChangeRequest {
+      const archive = { ...(stored().settingsByCode ?? {}) };
+      const next: ProjectRegulations = { ...currentRoles() };
+      for (const [r, adapterId] of Object.entries(bindings) as Array<[RegulationRole, string | null]>) {
+        const previous = currentRoles()[r];
+        if (previous.adapterId === adapterId) continue;
+        if (previous.adapterId && previous.settings && Object.keys(previous.settings).length) archive[previous.adapterId] = previous.settings;
+        if (displaced[r] === undefined) displaced = { ...displaced, [r]: previous };
+        if (adapterId === null) { next[r] = { ...previous, state: 'pending', adapterId: null, nameKey: '', edition: '' }; continue; }
+        const opt = findOption(adapterId);
+        if (!opt || opt.role !== r) {
+          return { kind: 'refused', problems: [{ severity: 'error', roles: [r], key: 'regulations.problem.unknownAdapter', params: { adapter: adapterId } }] };
+        }
+        next[r] = { ...bindRole(r, adapterId, { jurisdiction: previous.jurisdiction, adoption: previous.adoption, settings: archive[adapterId] ?? {} }), state: 'pending' };
+      }
+      const v = validateStack(next);
+      const blocking = v.problems.filter((p) => p.severity === 'error');
+      if (blocking.length > 0) return { kind: 'refused', problems: blocking };
+      writeRoles(next, archive);
+      reviewRequested = 'basis';
+      return { kind: 'needsLoadReview', role: 'basis', navigateTo: 'loads' };
+    },
+
     /** What applying the staged change would cost. */
     pendingConsequence(): ChangeKind | null {
       const p = pendingRoles(currentRoles());
