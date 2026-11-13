@@ -324,3 +324,56 @@ fn r17_residual_boundary(dim: usize) {
 fn r17_residual_boundary_2d() { r17_residual_boundary(2); }
 #[test]
 fn r17_residual_boundary_3d() { r17_residual_boundary(3); }
+
+#[test]
+fn staged_r20_inclined_spring_uses_global_displacements() {
+    use serde_json::json;
+    for sign in [-1.0, 1.0] {
+        for scale in [0.0, 1.0] {
+            let model: SolverInput = serde_json::from_value(json!({
+                "nodes":{"1":{"id":1,"x":0.0,"z":0.0}},
+                "materials":{},"sections":{},"elements":{},
+                "supports":{"1":{"id":1,"nodeId":1,"type":"inclinedRoller","angle":sign*std::f64::consts::FRAC_PI_4,"kx":2.0,"ky":6.0}},
+                "loads":[{"type":"nodal","data":{"nodeId":1,"fx":2.0*scale,"fz":-sign*2.0*scale,"my":0.0}}]
+            })).unwrap();
+            let dofs = DofNumbering::build_2d(&model);
+            let asm = super::super::assembly::without_artificial_stiffness(|| assemble_2d(&model, &dofs));
+            let mut u = vec![0.0; dofs.n_total];
+            let it = &asm.inclined_transforms_2d[0];
+            u[it.dofs[0]] = (it.r[0][0] * 0.5 + it.r[0][1] * -sign * 0.5) * scale;
+            u[it.dofs[1]] = (it.r[1][0] * 0.5 + it.r[1][1] * -sign * 0.5) * scale;
+            let stage: ConstructionStage = serde_json::from_value(json!({"name":"inclined","supportsAdded":[1],"loadIndices":[0]})).unwrap();
+            let residual = physical_recovery::recover(physical_recovery::StageModel::Plane(&model, &stage), &dofs, &u);
+            let result = build_results_from_u(&u, &dofs, &model, &residual, None, StageForceRecovery::CumulativeElastic, &asm.inclined_transforms_2d).unwrap();
+            assert!(!result.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable), "{:?}", result);
+            assert_eq!(result.reactions.len(), 1);
+            assert!((result.reactions[0].rx + 2.0 * scale).abs() < 1e-12);
+            assert!((result.reactions[0].rz - sign * 2.0 * scale).abs() < 1e-12);
+            assert!((result.displacements[0].ux - 0.5 * scale).abs() < 1e-12);
+            assert!((result.displacements[0].uz + sign * 0.5 * scale).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn staged_r20_spatial_springs_keep_global_components() {
+    use serde_json::json;
+    for scale in [-1.0, 0.0, 1.0] {
+        let model: SolverInput3D = serde_json::from_value(json!({
+            "nodes":{"1":{"id":1,"x":0.0,"y":0.0,"z":0.0}},
+            "materials":{},"sections":{},"elements":{},
+            "supports":{"1":{"nodeId":1,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":2.0,"ky":4.0,"kz":6.0}},
+            "loads":[{"type":"nodal","data":{"nodeId":1,"fx":scale,"fy":4.0*scale,"fz":9.0*scale,"mx":0.0,"my":0.0,"mz":0.0}}]
+        })).unwrap();
+        let dofs = DofNumbering::build_3d(&model);
+        let mut u = vec![0.0; dofs.n_total];
+        for (i, value) in [0.5, 1.0, 1.5].into_iter().enumerate() { u[dofs.map[&(1,i)]] = value * scale; }
+        let residual = physical_recovery::recover(physical_recovery::StageModel::Space(&model), &dofs, &u);
+        let result = build_results_from_u_3d(&u, &dofs, &model, &residual, None, StageForceRecovery::CumulativeElastic).unwrap();
+        assert!(!result.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable), "{:?}", result);
+        assert_eq!(result.reactions.len(), 1);
+        assert!((result.reactions[0].fx + scale).abs() < 1e-12);
+        assert!((result.reactions[0].fy + 4.0 * scale).abs() < 1e-12);
+        assert!((result.reactions[0].fz + 9.0 * scale).abs() < 1e-12);
+    }
+}

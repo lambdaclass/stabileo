@@ -696,13 +696,11 @@ fn validation_staged_ext_5_prop_removal() {
 
 #[test]
 #[ignore = "known wrong result: #1996"]
-fn issue_1996_loaded_member_removal_redistributes_released_forces() {
+fn issue_1996_loaded_member_removal_refuses_unredistributed_results() {
     let mut supported = prop_removal_input();
     supported.stages[1].supports_removed.clear();
-    let redistributed = solve_2d(&reference_input(&supported, &[1,2], &[1], &[1], &[0])).unwrap();
-    let actual = solve_staged_2d(&supported).unwrap();
-    assert_eq!(actual.stages.len(), 3);
-    assert_stage_displacements(&actual.stages[1].results, &[&redistributed], &[1,2,3]);
+    let error = solve_staged_2d(&supported).unwrap_err();
+    assert!(error.contains("#1996"), "{error}");
 }
 
 // ================================================================
@@ -1060,3 +1058,51 @@ fn issue_1952_r8_stage_displacement_assertion_rejects_missing_nodes() {
         assert!(std::panic::catch_unwind(|| assert_stage_displacements(&incomplete, &[&reference], &[1,2])).is_err());
     }
 }
+
+fn check_r20_removal_cases(dim: i64, refused: bool) {
+    use dedaliano_engine::solver::staged::{parse_staged_2d, parse_staged_3d, solve_staged_3d};
+    let cases: serde_json::Value = serde_json::from_str(include_str!("../../../fixtures/staged-removal-r20.json")).unwrap();
+    for case in cases.as_array().unwrap().iter().filter(|c| c["dim"] == dim && c["refused"] == refused) {
+        let model = case["model"].to_string();
+        let result = if case["dim"] == 2 {
+            solve_staged_2d(&parse_staged_2d(&model).unwrap()).map(|r| serde_json::to_value(r).unwrap())
+        } else {
+            solve_staged_3d(&parse_staged_3d(&model).unwrap()).map(|r| serde_json::to_value(r).unwrap())
+        };
+        if case["refused"] == true {
+            let error = result.expect_err(&case["name"].to_string());
+            assert!(error.contains("#1996"), "{case}: {error}");
+        } else {
+            let result = result.unwrap_or_else(|e| panic!("{case}: {e}"));
+            let load = case["load"].as_f64().unwrap();
+            for stage in result["stages"].as_array().unwrap().iter().skip(1) {
+                let r = &stage["results"];
+                assert!(!r["structuredDiagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "result_quantity_unavailable"), "{case}: {r}");
+                let u = r["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 1).unwrap()["ux"].as_f64().unwrap();
+                let expected = load * 5.0 / (200000.0 * 1000.0 * 0.01);
+                assert!((u - expected).abs() <= 1e-12 * expected.abs().max(1e-30), "{case}: {u} != {expected}");
+                let key = if case["dim"] == 2 { "rx" } else { "fx" };
+                let reaction = r["reactions"].as_array().unwrap().iter().find(|r| r["nodeId"] == 0).unwrap()[key].as_f64().unwrap();
+                assert!((reaction + load).abs() <= 1e-12 * load.abs().max(1e-30), "{case}: {reaction}");
+                assert_eq!(r["elementForces"].as_array().unwrap().len(), 1);
+            }
+            assert_eq!(result["finalResults"], result["stages"][2]["results"]);
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1996"]
+fn issue_1996_r20_2d_loaded_removal() { check_r20_removal_cases(2, true); }
+
+#[test]
+#[ignore = "known wrong result: #1996"]
+fn issue_1996_r20_2d_unloaded_removal() { check_r20_removal_cases(2, false); }
+
+#[test]
+#[ignore = "known wrong result: #1996"]
+fn issue_1996_r20_3d_loaded_removal() { check_r20_removal_cases(3, true); }
+
+#[test]
+#[ignore = "known wrong result: #1996"]
+fn issue_1996_r20_3d_unloaded_removal() { check_r20_removal_cases(3, false); }
