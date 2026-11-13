@@ -361,7 +361,7 @@ fn native_and_wasm_share_released_load_models() {
         let exact: Value =
             serde_json::from_str(include_str!("../fixtures/released-load-work-2023.json")).unwrap();
         let exact: Vec<_> = exact.as_object().unwrap().iter().map(|(name, model)| json!({"name":name,"model":model,"references":native_references(3, model),"gauges":released_gauges(3, model)})).collect();
-        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact,"orphanTranslations":orphan_translation_models(),"cancellations":cancellation_models_2074(),"trussCases":truss_models_2074(),"assemblyCases":assembly_models_2074()})).unwrap()).unwrap();
+        std::fs::write(path, serde_json::to_vec(&json!({"cases":cases,"exact":exact,"orphanTranslations":orphan_translation_models(),"cancellations":cancellation_models_2074().into_iter().map(|mut c| { c["references"] = native_references(c["dim"].as_u64().unwrap(), &c["model"]); c }).collect::<Vec<_>>(),"trussCases":truss_models_2074(),"assemblyCases":assembly_models_2074()})).unwrap()).unwrap();
     }
     assert_eq!(cases.len(), 234);
 }
@@ -780,7 +780,13 @@ fn released_nodes_do_not_hide_unsupported_translational_forces() {
 
 fn released_gauges(dim: u64, model: &Value) -> Value {
     if dim == 2 {
-        return json!([]);
+        let model: SolverInput = serde_json::from_value(model.clone()).unwrap();
+        let dof = dedaliano_engine::solver::dof::DofNumbering::build_2d(&model);
+        let stability = stability::of_2d(&model).unwrap();
+        return json!(stability.free_rotations().map(|direction| {
+            let value = direction.dofs.iter().zip(&direction.direction).find_map(|(d,v)| (dof.global_dof(direction.node,2) == Some(*d)).then_some(*v)).unwrap();
+            json!({"node":direction.node,"rotation":[0.0,value,0.0]})
+        }).collect::<Vec<_>>());
     }
     let model: SolverInput3D = serde_json::from_value(model.clone()).unwrap();
     let dof = dedaliano_engine::solver::dof::DofNumbering::build_3d(&model);
@@ -809,11 +815,11 @@ fn cancellation_models_2074() -> Vec<Value> {
             for residual in [-f64::EPSILON, 0.0, f64::EPSILON] {
                 let mut model = if dim == 2 { serde_json::to_value(member_2d(end)).unwrap() } else { serde_json::to_value(member("Mz",end,false)).unwrap() };
                 let node = if end == "Start" {1} else {2};
+                if dim == 3 { model["loads"][0]["data"]["pz"] = json!(0.0); }
                 let mut load = if dim == 2 {json!({"type":"nodal","data":{"nodeId":node,"fx":0.0,"fz":0.0,"my":1.0}})} else {json!({"type":"nodal","data":{"nodeId":node,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":1.0}})};
                 model["loads"].as_array_mut().unwrap().push(load.clone());
                 load["data"][if dim == 2 {"my"} else {"mz"}] = json!(-1.0+residual);
                 model["loads"].as_array_mut().unwrap().push(load);
-                if residual == 0.0 { model["loads"].as_array_mut().unwrap().clear(); }
                 cases.push(json!({"dim":dim,"end":end,"residual":residual,"model":model}));
             }
         }
@@ -921,16 +927,79 @@ fn inclined_supports_keep_single_fef_zero_work_and_refuse_real_moments() {
     }
 }
 
+fn assert_static_adapters_complete(dim: u64, model: &Value) {
+    for name in entry_names().into_iter().chain(["linear (WASM typed path)","linear (dense reference)"]) {
+        if name == "plastic collapse" || (dim == 3 && ["linear (WASM typed path)","linear (dense reference)"].contains(&name)) { continue; }
+        if name == "staged (loads in two stages)" {
+            let reference = native_references(dim,model);
+            assert!(reference["staged-two"]["ok"].is_object(),"{dim}/{name}: {}",reference["staged-two"]);
+            continue;
+        }
+        if name == "load combinations" {
+            use dedaliano_engine::solver::load_cases::*;
+            let combinations = vec![CombinationDef {name:"C".into(),factors:[("A".into(),1.0)].into()}];
+            if dim == 2 {
+                let mut solver: SolverInput = serde_json::from_value(model.clone()).unwrap();
+                let loads = std::mem::take(&mut solver.loads);
+                let result = solve_multi_case_2d(&MultiCaseInput {solver,load_cases:vec![LoadCase {name:"A".into(),loads}],combinations}).unwrap();
+                assert!(!result.combination_results[0].results.element_forces.is_empty());
+            } else {
+                let mut solver: SolverInput3D = serde_json::from_value(model.clone()).unwrap();
+                let loads = std::mem::take(&mut solver.loads);
+                let result = solve_multi_case_3d(&MultiCaseInput3D {solver,load_cases:vec![LoadCase3D {name:"A".into(),loads}],combinations}).unwrap();
+                assert!(!result.combination_results[0].results.element_forces.is_empty());
+            }
+            continue;
+        }
+        if dim == 2 {
+            let adapter = crate::ana2::rows().into_iter().find(|a| a.name == name).unwrap();
+            let result = (adapter.run)(&crate::case::Case2::new("loaded zero work",serde_json::from_value(model.clone()).unwrap()));
+            assert!(!result.unwrap_or_else(|e| panic!("{dim}/{name}: {e}")).0.is_empty(),"{dim}/{name}");
+        } else {
+            let adapter = crate::ana3::rows().into_iter().find(|a| a.name == name).unwrap();
+            let result = (adapter.run)(&crate::case::Case3::new("loaded zero work",serde_json::from_value(model.clone()).unwrap()));
+            assert!(!result.unwrap_or_else(|e| panic!("{dim}/{name}: {e}")).0.is_empty(),"{dim}/{name}");
+        }
+    }
+}
+
 #[test]
-#[ignore = "known wrong result: #2074"]
 fn zero_residual_controls_keep_the_cancelling_loads() {
     for c in cancellation_models_2074() {
         if c["residual"].as_f64().unwrap() == 0.0 {
             assert_eq!(c["model"]["loads"].as_array().unwrap().len(),3);
+            assert_static_adapters_complete(c["dim"].as_u64().unwrap(),&c["model"]);
             for (path,reference) in native_references(c["dim"].as_u64().unwrap(),&c["model"]).as_object().unwrap() {
                 assert!(reference["ok"].is_object(),"{path}: {reference}");
                 assert_ne!(reference["ok"]["converged"],json!(false),"{path}: {reference}");
             }
+            let mut roundoff = c["model"].clone();
+            let load = roundoff["loads"][1].clone();
+            let key = if c["dim"] == json!(2) {"my"} else {"mz"};
+            roundoff["loads"].as_array_mut().unwrap().truncate(1);
+            for magnitude in [1e20,1.0,-1e20,-1.0] {
+                let mut term = load.clone();
+                term["data"][key] = json!(magnitude);
+                roundoff["loads"].as_array_mut().unwrap().push(term);
+            }
+            for (path,reference) in native_references(c["dim"].as_u64().unwrap(),&roundoff).as_object().unwrap() {
+                assert!(reference["ok"].is_object(),"rounded cancellation/{path}: {reference}");
+                assert_ne!(reference["ok"]["converged"],json!(false),"{path}: {reference}");
+                let result = reference["ok"].get("results").unwrap_or(&reference["ok"]);
+                for row in result["displacements"].as_array().unwrap() {
+                    for component in ["rx","ry","rz"] {
+                        if let Some(value) = row.get(component) { assert_eq!(value,&json!(0.0),"rounded cancellation/{path}/{component}"); }
+                    }
+                }
+            }
+            for residual in [-f64::EPSILON,f64::EPSILON] {
+                let mut bad = roundoff.clone();
+                bad["loads"][4]["data"][key] = json!(-1.0+residual);
+                for (path,reference) in native_references(c["dim"].as_u64().unwrap(),&bad).as_object().unwrap() {
+                    assert!(reference["error"].is_string(),"rounded residual/{residual}/{path}: {reference}");
+                }
+            }
+
         }
     }
 }
@@ -942,10 +1011,10 @@ fn truss_models_2074() -> Vec<Value> {
             let mut model = if dim == 2 {serde_json::to_value(member_2d("Start")).unwrap()} else {serde_json::to_value(member("Mz","Start",true)).unwrap()};
             model["elements"]["1"]["type"] = json!("truss");
             if dim == 2 {
-                model["supports"]["2"]["type"] = json!("pinned");
+                model["supports"]["2"]["type"] = json!("rollerX");
                 if !point { model["loads"] = json!([{"type":"distributed","data":{"elementId":1,"qI":0.3,"qJ":0.7}}]); }
             } else {
-                for key in ["rrx","rry","rrz"] { model["supports"]["2"][key] = json!(false); }
+                for key in ["rx","rrx","rry","rrz"] { model["supports"]["2"][key] = json!(false); }
                 model["loads"] = if point {json!([{"type":"pointOnElement","data":{"elementId":1,"a":0.7,"px":0.3,"py":0.7,"pz":1.1}}])} else {json!([{"type":"distributed","data":{"elementId":1,"qXI":0.0,"qXJ":0.0,"qYI":0.3,"qYJ":0.7,"qZI":1.1,"qZJ":-0.3}}])};
             }
             let references = native_references(dim,&model);
@@ -960,6 +1029,7 @@ fn truss_models_2074() -> Vec<Value> {
 fn oblique_truss_loads_solve_and_genuine_moments_refuse_across_static_entries() {
     for c in truss_models_2074() {
         let dim = c["dim"].as_u64().unwrap();
+        assert_static_adapters_complete(dim,&c["model"]);
         for (path,reference) in c["references"].as_object().unwrap() {
             assert!(reference["ok"].is_object(),"{dim}/{}/{path}: {reference}",c["point"]);
             assert_ne!(reference["ok"]["converged"],json!(false),"{dim}/{path}: {reference}");

@@ -996,11 +996,17 @@ pub(crate) fn assemble_load_vector_2d_with_rounding(
             if let Some(&d) = dof_num.map.get(&(nl.node_id, 1)) {
                 accumulate_load(&mut f_global, &mut rounding, d, nl.fz, 0.0);
             }
-            if dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(nl.node_id, 2)) {
-                    accumulate_load(&mut f_global, &mut rounding, d, nl.my, 0.0);
-                }
-            }
+
+        }
+    }
+
+    let moments = super::load_work::NodalMoments::new(loads.iter().filter_map(|load| match load {
+        SolverLoad::Nodal(n) => Some((n.node_id, [n.my])),
+        _ => None,
+    }));
+    for (node, [(value, error)]) in moments.assembled() {
+        if let Some(&d) = dof_num.map.get(&(node, 2)) {
+            accumulate_load(&mut f_global, &mut rounding, d, value, error);
         }
     }
 
@@ -1583,6 +1589,29 @@ pub(crate) fn truss_member_load_3d(
     truss_member_load_3d_with_rounding(load,elem,node_i,node_j,l,dir,e,area,left_hand,dof_num,f_global,&mut None);
 }
 
+fn accumulate_truss_components_3d(
+    local: [[f64; 3]; 2],
+    local_error: [[f64; 3]; 2],
+    axes: [[f64; 3]; 3],
+    elem: &SolverElement3D,
+    dof_num: &DofNumbering,
+    global: &mut [f64],
+    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
+) {
+    let frame_error = if rounding.is_some() { super::load_work::frame_rounding(&axes) } else { [[0.0; 3]; 3] };
+    for (end, node) in [elem.node_i, elem.node_j].into_iter().enumerate() {
+        for k in 0..3 {
+            if let Some(&d) = dof_num.map.get(&(node, k)) {
+                let mut work = super::load_work::Work::default();
+                for j in 0..3 {
+                    work.product(local[end][j], local_error[end][j], axes[j][k], frame_error[j][k]);
+                }
+                accumulate_load(global, rounding, d, work.value, work.bound());
+            }
+        }
+    }
+}
+
 fn truss_member_load_3d_with_rounding(
     load: &SolverLoad3D,
     elem: &SolverElement3D,
@@ -1609,16 +1638,11 @@ fn truss_member_load_3d_with_rounding(
             // carries nothing transverse, and they used to be dropped.
             let actions = super::member_actions::TransverseMemberActions::from_3d(load, l);
             if actions.0.iter().flatten().any(|v| *v != 0.0) {
-                let (_ex, ey, ez) = compute_local_axes_3d(
+                let (ex, ey, ez) = compute_local_axes_3d(
                     node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
                     elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, left_hand);
                 let [[ryi, rzi], [ryj, rzj]] = actions.0;
-                for k in 0..3 {
-                    let comp_i = ryi * ey[k] + rzi * ez[k];
-                    let comp_j = ryj * ey[k] + rzj * ez[k];
-                    if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { accumulate_load(f_global, rounding, d, comp_i, 0.0); }
-                    if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { accumulate_load(f_global, rounding, d, comp_j, 0.0); }
-                }
+                accumulate_truss_components_3d([[0.0, ryi, rzi], [0.0, ryj, rzj]], [[0.0; 3]; 2], [ex, ey, ez], elem, dof_num, f_global, rounding);
             }
         }
         SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id && (pl.px != 0.0 || pl.py != 0.0 || pl.pz != 0.0) => {
@@ -1629,12 +1653,13 @@ fn truss_member_load_3d_with_rounding(
             let f_i = 1.0 - pl.a / l;
             let f_j = pl.a / l;
             let [[ryi, rzi], [ryj, rzj]] = super::member_actions::TransverseMemberActions::from_3d(load, l).0;
-            for k in 0..3 {
-                let comp_i = pl.px * f_i * ex[k] + ryi * ey[k] + rzi * ez[k];
-                let comp_j = pl.px * f_j * ex[k] + ryj * ey[k] + rzj * ez[k];
-                if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { accumulate_load(f_global, rounding, d, comp_i, 0.0); }
-                if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { accumulate_load(f_global, rounding, d, comp_j, 0.0); }
-            }
+            let axial = [pl.px * f_i, pl.px * f_j];
+            let axial_error = [f_i, f_j].map(|factor| super::load_work::product_rounding(pl.px, factor, pl.px * factor));
+            accumulate_truss_components_3d(
+                [[axial[0], ryi, rzi], [axial[1], ryj, rzj]],
+                [[axial_error[0], 0.0, 0.0], [axial_error[1], 0.0, 0.0]],
+                [ex, ey, ez], elem, dof_num, f_global, rounding,
+            );
         }
         SolverLoad3D::Thermal(tl) if tl.element_id == elem.id => {
             let alpha = tl.alpha();
@@ -1782,7 +1807,7 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
     // Assemble 3D nodal loads
     for load in loads {
         if let SolverLoad3D::Nodal(nl) = load {
-            let forces = [nl.fx, nl.fy, nl.fz, nl.mx, nl.my, nl.mz];
+            let forces = [nl.fx, nl.fy, nl.fz];
             for (i, &f) in forces.iter().enumerate() {
                 if i < dof_num.dofs_per_node {
                     if let Some(&d) = dof_num.map.get(&(nl.node_id, i)) {
@@ -2095,6 +2120,18 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
                 for (i, &dof) in dofs.iter().enumerate() {
                     if i < f_e.len() { accumulate_load(&mut f_global, &mut rounding, dof, f_e[i], 0.0); }
                 }
+            }
+        }
+    }
+
+    let moments = super::load_work::NodalMoments::new(loads.iter().filter_map(|load| match load {
+        SolverLoad3D::Nodal(n) => Some((n.node_id, [n.mx, n.my, n.mz])),
+        _ => None,
+    }));
+    for (node, values) in moments.assembled() {
+        for (i, (value, error)) in values.into_iter().enumerate() {
+            if let Some(&d) = dof_num.map.get(&(node, i+3)) {
+                accumulate_load(&mut f_global, &mut rounding, d, value, error);
             }
         }
     }

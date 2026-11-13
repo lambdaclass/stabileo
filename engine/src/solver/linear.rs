@@ -3580,19 +3580,16 @@ pub(crate) fn validate_loads_2d(input: &SolverInput, loads: &[SolverLoad]) -> Re
 /// exceeded 100 rad, so a moment below about 1e-8 of the stiffest diagonal
 /// (3 kN·m on a 10 m² bar) vanished without a warning.
 pub(crate) fn refuse_moments_without_rotation_2d(input: &SolverInput, loads: &[SolverLoad]) -> Result<(), String> {
-    let moments: Vec<&SolverNodalLoad> = loads
-        .iter()
-        .filter_map(|l| match l {
-            SolverLoad::Nodal(n) if n.my != 0.0 => Some(n),
-            _ => None,
-        })
-        .collect();
+    let moments = super::load_work::nonzero_nodal_moments(loads.iter().filter_map(|load| match load {
+        SolverLoad::Nodal(n) => Some((n.node_id, [n.my])),
+        _ => None,
+    }));
     if moments.is_empty() {
         return Ok(());
     }
     if DofNumbering::dofs_per_node_2d(input) < 3 {
         return Err(moment_lost_2d(
-            moments[0].node_id,
+            moments[0].0,
             "the model has no rotational degrees of freedom (trusses carry translations only)",
         ));
     }
@@ -3633,10 +3630,10 @@ pub(crate) fn refuse_moments_without_rotation_2d(input: &SolverInput, loads: &[S
             carried.insert(s.node_id);
         }
     }
-    for m in moments {
-        if !carried.contains(&m.node_id) {
+    for (node, _) in moments {
+        if !carried.contains(&node) {
             return Err(moment_lost_2d(
-                m.node_id,
+                node,
                 "no unhinged frame end, rotational support, rotational connector or constraint gives that node rotational stiffness (every frame is hinged there, or only trusses reach it)",
             ));
         }
@@ -4100,19 +4097,16 @@ pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -
 /// produced a meaningless rotation and never reached the structure). Refused,
 /// by node, instead of answering for a model without the load.
 pub(crate) fn refuse_moments_without_rotation_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Result<(), String> {
-    let moments: Vec<&SolverNodalLoad3D> = loads
-        .iter()
-        .filter_map(|l| match l {
-            SolverLoad3D::Nodal(n) if n.mx != 0.0 || n.my != 0.0 || n.mz != 0.0 => Some(n),
-            _ => None,
-        })
-        .collect();
+    let moments = super::load_work::nonzero_nodal_moments(loads.iter().filter_map(|load| match load {
+        SolverLoad3D::Nodal(n) => Some((n.node_id, [n.mx, n.my, n.mz])),
+        _ => None,
+    }));
     if moments.is_empty() {
         return Ok(());
     }
     if DofNumbering::dofs_per_node_3d(input) < 6 {
         return Err(moment_lost_3d(
-            moments[0].node_id,
+            moments[0].0,
             "the model has no rotational degrees of freedom (solid shells, trusses and cables carry translations only)",
         ));
     }
@@ -4150,11 +4144,11 @@ pub(crate) fn refuse_moments_without_rotation_3d(input: &SolverInput3D, loads: &
             c[i] |= r || k[i].unwrap_or(0.0) > 0.0;
         }
     }
-    for m in moments {
-        let c = carried.get(&m.node_id).copied().unwrap_or([false; 3]);
-        if [m.mx, m.my, m.mz].iter().zip(c).any(|(v, ok)| *v != 0.0 && !ok) {
+    for (node, nonzero) in moments {
+        let c = carried.get(&node).copied().unwrap_or([false; 3]);
+        if nonzero.into_iter().zip(c).any(|(nonzero, ok)| nonzero && !ok) {
             return Err(moment_lost_3d(
-                m.node_id,
+                node,
                 "no frame, shell, rotational support or constraint gives that node rotational stiffness (solid shells, trusses and cables carry translations only)",
             ));
         }

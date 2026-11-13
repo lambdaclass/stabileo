@@ -504,7 +504,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
+test.ci-scripts: test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -1106,5 +1106,5 @@ test.engine.released-assembly-2074:
 	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib solver::load_work::tests -- --nocapture $(if $(IGNORED),--include-ignored)
 	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='released_load_work:: --release $(if $(IGNORED),-- --include-ignored)'
 
-test.released-load-work-outcomes:
-	$(NIX_RUN) env $(if $(IGNORED),RUN_KNOWN_WRONG=1) node --test scripts/tests/released-load-work-outcome.test.mjs
+test.released-load-work-outcomes: scripts/tests/released-load-work-outcome.mjs
+	$(NIX_RUN) node --test scripts/tests/released-load-work-outcome.test.mjs

@@ -36,6 +36,57 @@ pub(crate) fn gamma(n: usize) -> f64 {
     (nu / (1.0 - nu).next_down()).next_up()
 }
 
+pub(crate) struct NodalMoments<const N: usize>(
+    std::collections::BTreeMap<usize, [Option<num_rational::BigRational>; N]>,
+);
+
+impl<const N: usize> NodalMoments<N> {
+    pub fn new(loads: impl Iterator<Item = (usize, [f64; N])>) -> Self {
+        use num_rational::BigRational;
+        use num_traits::Zero;
+        let mut sums = std::collections::BTreeMap::<usize, [Option<BigRational>; N]>::new();
+        for (node, values) in loads {
+            let sum = sums.entry(node).or_insert_with(|| std::array::from_fn(|_| Some(BigRational::zero())));
+            for i in 0..N {
+                sum[i] = sum[i].take().and_then(|previous| BigRational::from_float(values[i]).map(|value| previous + value));
+            }
+        }
+        Self(sums)
+    }
+
+    pub fn nonzero(self) -> Vec<(usize, [bool; N])> {
+        use num_traits::Zero;
+        self.0.into_iter().filter_map(|(node, sum)| {
+            let nonzero = sum.map(|value| value.is_none_or(|v| !v.is_zero()));
+            nonzero.iter().any(|v| *v).then_some((node, nonzero))
+        }).collect()
+    }
+
+    pub fn assembled(self) -> Vec<(usize, [(f64, f64); N])> {
+        use num_rational::BigRational;
+        use num_traits::{Signed, ToPrimitive, Zero};
+        self.0.into_iter().map(|(node, sum)| {
+            let values = sum.map(|sum| {
+                let Some(sum) = sum else { return (f64::NAN, f64::INFINITY); };
+                let value = sum.to_f64().unwrap_or(f64::INFINITY);
+                let Some(rounded) = BigRational::from_float(value) else { return (value, f64::INFINITY); };
+                let difference = (sum - rounded).abs();
+                if difference.is_zero() { return (value, 0.0); }
+                let error = difference.to_f64().map_or(f64::INFINITY, f64::next_up);
+                let certified = BigRational::from_float(error).is_some_and(|bound| bound >= difference);
+                (value, if certified {error} else {f64::INFINITY})
+            });
+            (node, values)
+        }).collect()
+    }
+}
+
+pub(crate) fn nonzero_nodal_moments<const N: usize>(
+    loads: impl Iterator<Item = (usize, [f64; N])>,
+) -> Vec<(usize, [bool; N])> {
+    NodalMoments::new(loads).nonzero()
+}
+
 #[derive(Default)]
 pub(crate) struct Work {
     pub value: f64,
@@ -221,6 +272,30 @@ mod tests {
     }
 
     #[test]
+    fn nodal_moment_checks_share_exact_cancellation_in_both_dimensions() {
+        for values in [vec![1.0,-1.0],vec![1e20,1.0,-1e20,-1.0]] {
+            assert!(nonzero_nodal_moments(values.iter().map(|v| (1,[*v]))).is_empty());
+            assert!(nonzero_nodal_moments(values.iter().map(|v| (1,[*v,-*v,0.0]))).is_empty());
+        }
+        for residual in [-f64::EPSILON,f64::EPSILON] {
+            assert_eq!(nonzero_nodal_moments([1.0,-1.0+residual].into_iter().map(|v| (1,[v]))),vec![(1,[true])]);
+        }
+        assert_eq!(nonzero_nodal_moments([1e20,1.0,-1e20].into_iter().map(|v| (1,[v]))),vec![(1,[true])]);
+        assert_eq!(nonzero_nodal_moments([(1,[1.0]),(2,[-1.0])].into_iter()),vec![(1,[true]),(2,[true])]);
+        for value in [f64::INFINITY,f64::NAN,f64::from_bits(1)] {
+            assert_eq!(nonzero_nodal_moments([(1,[value])].into_iter()),vec![(1,[true])]);
+        }
+        for values in [vec![0.3,0.7],vec![1e20,1.0,-1e20],vec![1e20,1.0,-1e20,-1.0+f64::EPSILON],vec![1e20,1.0,-1e20,-1.0]] {
+            let expected = values.iter().fold(BigRational::zero(),|sum,v| sum+exact(*v));
+            let assembled = NodalMoments::new(values.iter().map(|v| (1,[*v]))).assembled();
+            let (value,error) = assembled[0].1[0];
+            assert!((exact(value)-&expected).abs() <= exact(error));
+            if expected.is_zero() { assert_eq!((value,error),(0.0,0.0)); }
+            else { assert_ne!(value,0.0); }
+        }
+    }
+
+    #[test]
     fn nonlinear_released_moments_reduce_only_free_constraint_rows() {
         use serde_json::json;
         for constrained in [false,true] {
@@ -310,13 +385,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2074"]
     fn oblique_truss_transverse_load_encloses_transform_error() {
         oblique_truss_transform_enclosure(false);
     }
 
     #[test]
-    #[ignore = "known wrong result: #2074"]
     fn oblique_truss_point_load_encloses_transform_error() {
         oblique_truss_transform_enclosure(true);
     }

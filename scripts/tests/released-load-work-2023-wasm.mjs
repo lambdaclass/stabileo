@@ -3,7 +3,7 @@ import { allowsUnresolved } from './released-load-work-outcome.mjs';
 import {readFileSync} from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 engine.initSync({module:readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm',import.meta.url))});
-const {cases,exact:exactCases,orphanTranslations,cancellations,assemblyCases}=JSON.parse(readFileSync(process.argv[2],'utf8'));
+const {cases,exact:exactCases,orphanTranslations,cancellations,assemblyCases,trussCases}=JSON.parse(readFileSync(process.argv[2],'utf8'));
 assert.equal(cases.length,234);
 const parse=x=>typeof x==='string'?JSON.parse(x):x;
 function stage(model,dim,two) {
@@ -69,13 +69,13 @@ function check(result,model,reference,gauges=[]) {
     basis.push(v.map(x=>x/norm));
     rotations.set(node,basis);
   }
-  const comparable=structuredClone(r),native=structuredClone(expected);
-  for(const response of [comparable,native]) for(const row of response.displacements) {
-    for(const q of rotations.get(row.nodeId)??[]) {
-      const dot=['rx','ry','rz'].reduce((sum,key,i)=>sum+row[key]*q[i],0);
-      for(const [i,key] of ['rx','ry','rz'].entries()) row[key]-=dot*q[i];
+  for(const [label,response] of [['WASM',r],['native',expected]]) {
+    for(const row of response.displacements) for(const q of rotations.get(row.nodeId)??[]) {
+      const spin=['rx','ry','rz'].reduce((sum,key,i)=>sum+(row[key]??0)*q[i],0);
+      assert.ok(Math.abs(spin)<=2.5e-10*bound.r,`${label}/${row.nodeId}/released spin: ${spin} != zero`);
     }
   }
+  const comparable=r,native=expected;
   for(const [collection,{id,family,include}] of Object.entries(fields)) {
     for(const row of native[collection]) {
       const actual=comparable[collection].find(a=>a[id]===row[id]);
@@ -104,8 +104,7 @@ for(const collection of ['displacements','reactions','elementForces']) for(const
   }
   assert.throws(()=>check(wrong,oracle3.model,oracle3.references.linear,oracle3.gauges),`${collection} corruption ${factor} passed`);
 }
-if(!process.env.RUN_KNOWN_WRONG) console.log('SKIP known wrong result: #2074 released rotation corruption');
-else {
+{
   const gaugeCase=cases.find(c=>c.dim===3&&c.gauges.length>0);
   assert.ok(gaugeCase);
   for(const side of ['wasm','native','both']) {
@@ -161,9 +160,6 @@ for(const [i,c] of cases.entries()) {
     }
   }
 }
-assert.deepEqual(failures,[]);
-for(const dim of [2,3]) for(const path of paths) assert.ok((admitted.get(`${dim}:${path}`)??0)>0,`no completed control ${dim}:${path}`);
-assert.equal(solves+unresolved,cases.length*paths.length);
 assert.equal(refusals,cases.length*paths.length*2);
 console.log(`Released-load work: ${solves} public WASM admissions, ${unresolved} explicit nonlinear numerical refusals, ${refusals} unsupported-moment refusals`);
 
@@ -187,12 +183,69 @@ assert.equal(orphanRefusals,5*paths.length);
 console.log(`Released-load work: ${orphanRefusals} public WASM unsupported-translation refusals`);
 
 let cancellationRefusals=0;
-for(const c of cancellations) if(c.residual!==0) for(const path of paths) {
-  assert.throws(()=>run(path,c.dim,c.model),/moment|rotation|Singular/i,`${c.dim}/${c.end}/${c.residual}/${path}`);
-  cancellationRefusals++;
+let cancellationSolves=0,cancellationRoundoffSolves=0,cancellationRoundoffRefusals=0;
+for(const c of cancellations) for(const path of paths) {
+  if(c.residual!==0) {
+    assert.throws(()=>run(path,c.dim,c.model),/moment|rotation|Singular/i,`${c.dim}/${c.end}/${c.residual}/${path}`);
+    cancellationRefusals++;
+  } else {
+    assert.equal(c.model.loads.length,3);
+    const result=run(path,c.dim,c.model);
+    if(path==='pdelta') {
+      check(result.linearResults,c.model,{ok:c.references[path].ok.linearResults});
+      assert.equal(result.converged,true);
+    }
+    check(result,c.model,c.references[path]);
+    cancellationSolves++;
+    const roundoff=structuredClone(c.model);
+    const load=roundoff.loads[1];
+    const key=c.dim===2?'my':'mz';
+    roundoff.loads=roundoff.loads.slice(0,1);
+    for(const magnitude of [1e20,1,-1e20,-1]) {
+      const term=structuredClone(load);
+      term.data[key]=magnitude;
+      roundoff.loads.push(term);
+    }
+    const roundedResult=run(path,c.dim,roundoff);
+    check(roundedResult,roundoff,c.references[path]);
+    for(const row of snapshot(roundedResult).displacements) for(const component of ['rx','ry','rz']) {
+      if(Object.hasOwn(row,component)) assert.equal(row[component],0,`rounded cancellation/${path}/${component}`);
+    }
+    cancellationRoundoffSolves++;
+    for(const residual of [-Number.EPSILON,Number.EPSILON]) {
+      const bad=structuredClone(roundoff);
+      bad.loads[4].data[key]=-1+residual;
+      assert.throws(()=>run(path,c.dim,bad),/moment|rotation|Singular/i,`rounded residual/${c.dim}/${path}/${residual}`);
+      cancellationRoundoffRefusals++;
+    }
+  }
 }
+assert.equal(cancellationSolves,4*paths.length);
+assert.equal(cancellationRoundoffSolves,4*paths.length);
+assert.equal(cancellationRoundoffRefusals,8*paths.length);
 assert.equal(cancellationRefusals,8*paths.length);
 console.log(`Released-load work: ${cancellationRefusals} exact residual refusals`);
+
+let trussSolves=0,trussRefusals=0;
+for(const c of trussCases) for(const path of paths) {
+  const result=run(path,c.dim,c.model);
+  if(path==='pdelta') {
+    check(result.linearResults,c.model,{ok:c.references[path].ok.linearResults},c.gauges);
+    assert.equal(result.converged,true);
+  }
+  check(result,c.model,c.references[path],c.gauges);
+  trussSolves++;
+  for(const nodeId of [1,2]) for(const magnitude of [-1,-Number.EPSILON,Number.EPSILON,1]) {
+    const bad=structuredClone(c.model);
+    const moment=c.dim===2?{my:magnitude}:{mx:magnitude,my:0,mz:0,fy:0};
+    bad.loads.push({type:'nodal',data:{nodeId,fx:0,fz:0,...moment}});
+    assert.throws(()=>run(path,c.dim,bad),/moment|rotation/i,`truss ${c.dim}/${c.point}/${nodeId}/${magnitude}/${path}`);
+    trussRefusals++;
+  }
+}
+assert.equal(trussSolves,4*paths.length);
+assert.equal(trussRefusals,4*paths.length*8);
+console.log(`Released-load work: ${cancellationSolves} loaded exact cancellations, ${cancellationRoundoffSolves} roundoff-order cancellations, ${cancellationRoundoffRefusals} roundoff-order residual refusals, ${trussSolves} oblique truss admissions, ${trussRefusals} truss moment refusals`);
 
 let assemblySolves=0,assemblyUnresolved=0,assemblyRefusals=0,featureRefusals=0;
 for(const c of assemblyCases) for(const path of paths) {
@@ -216,7 +269,7 @@ for(const c of assemblyCases) for(const path of paths) {
     }
   } catch(e) {
     if(allowsUnresolved(c.references[path],undefined,e,mayRefuse)) assemblyUnresolved++;
-    else throw new Error(`inclined ${c.dim}/${c.end}/${path}: ${e}`);
+    else failures.push(`inclined ${c.dim}/${c.end}/${path}: ${e}`);
   }
   for(const magnitude of [-1,-Math.sqrt(Number.EPSILON),Math.sqrt(Number.EPSILON),1]) {
     const bad=structuredClone(c.model);
@@ -226,7 +279,11 @@ for(const c of assemblyCases) for(const path of paths) {
     assemblyRefusals++;
   }
 }
-assert.equal(assemblySolves+assemblyUnresolved+featureRefusals,4*paths.length);
 assert.equal(featureRefusals,8);
 assert.equal(assemblyRefusals,4*(paths.length-2)*4);
 console.log(`Released-load work: ${assemblySolves} inclined-support admissions, ${assemblyUnresolved} expected numerical refusals, ${assemblyRefusals} genuine moment refusals, ${featureRefusals} existing staged feature refusals`);
+
+assert.deepEqual(failures,[]);
+assert.equal(solves+unresolved,cases.length*paths.length);
+for(const dim of [2,3]) for(const path of paths) assert.ok((admitted.get(`${dim}:${path}`)??0)>0,`no completed control ${dim}:${path}`);
+assert.equal(assemblySolves+assemblyUnresolved+featureRefusals,4*paths.length);

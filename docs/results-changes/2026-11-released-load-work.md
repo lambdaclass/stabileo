@@ -114,3 +114,35 @@ current production assembly only creates rotational and warping artificial
 DOFs, so those tests establish a defensive invariant rather than a newly
 observed silent result on main. Detached-translation models exercise the
 public nonlinear callers in both dimensions and remain refused.
+
+Round-four review (#2074) closes two remaining assembly and admission gaps.
+The oblique 3D truss transverse and point-load transforms now share a component
+accumulator based on the same bounded work arithmetic. It carries the
+orthogonal-frame uncertainty, product residuals, sum residuals, and the axial
+point-load amplitude multiplication residual into the assembly certificate.
+Computed transverse lever-rule reactions remain the local amplitudes, as with
+computed frame fixed-end forces. No response tolerance or certification limit
+is increased.
+
+The early nodal-moment checks and load assembly in both dimensions now
+share exact rational per-node summation. Assembly converts each component
+total once and certifies its conversion bound against the exact rational
+difference. Nonfinite or uncertifiable conversion bounds cannot certify
+released work. Opposite moments at the same node cancel before deciding
+whether rotational stiffness is needed. A nonzero exact residual, including
+one lost by floating-point summation, still requires stiffness. Moments on
+different nodes do not cancel. Nonfinite terms cannot establish cancellation.
+The controls retain the member load and both cancelling nodal loads, and
+include a four-term order whose floating-point sum would create a false
+residual. Signed genuine residuals in that same order remain refused. The 3D
+control uses only the transverse component on the released bending axis, so
+its zero-residual state needs no nonlinear tangent inversion of the free spin.
+This changes false refusals into admitted answers; no silent wrong response
+on origin/main or a release has been established by these reproducers.
+
+The WASM test now compares every reported rotational displacement directly
+with its native reference and checks the released spin independently against
+zero. Corruption on the
+WASM side, native side, or both must fail. The strict raw comparison exposes
+additional existing corotational native/WASM gauge differences; these require
+resolution before the strengthened WASM gate can pass.
