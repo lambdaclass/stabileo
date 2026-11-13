@@ -1252,10 +1252,12 @@ fn solve_time_history_3d_inner(
     // A force-history moment on a node without rotational stiffness would be
     // lost, as in a static load case (`validate_loads_3d` checks `loads` only).
     if let Some(fh) = &input.force_history {
-        let loads: Vec<SolverLoad3D> = fh.iter().flat_map(|r| r.loads.iter().cloned().map(SolverLoad3D::Nodal)).collect();
-        super::linear::refuse_moments_without_rotation_3d(input_solver, &loads)?;
         let orphan: std::collections::HashSet<usize> = sasm.artificial_dofs.iter().copied().collect();
-        super::linear::refuse_loads_on_orphan_dofs_3d(&dof_num, &orphan, &loads)?;
+        for record in fh {
+            let loads: Vec<_> = record.loads.iter().cloned().map(SolverLoad3D::Nodal).collect();
+            super::linear::refuse_moments_without_rotation_3d(input_solver, &loads)?;
+            super::linear::refuse_loads_on_orphan_dofs_3d(&dof_num, &orphan, &loads)?;
+        }
     }
 
     // 2. Assemble mass matrix M (sparse CSC, free block)
@@ -1658,7 +1660,7 @@ fn assemble_force_record_3d(
     scale: f64,
 ) {
     for load in &record.loads {
-        let forces = [load.fx, load.fy, load.fz, load.mx, load.my, load.mz];
+        let forces = [load.fx, load.fy, load.fz];
         for (local_dof, &force) in forces.iter().enumerate() {
             if local_dof >= dpn { break; }
             if let Some(&d) = dof_num.map.get(&(load.node_id, local_dof)) {
@@ -1675,6 +1677,14 @@ fn assemble_force_record_3d(
                         f[d] += bw * scale;
                     }
                 }
+            }
+        }
+    }
+    for (node, moments) in super::load_work::NodalMoments::new(record.loads.iter().map(|load| (load.node_id,[load.mx,load.my,load.mz]))).assembled() {
+        for (axis, (value, _)) in moments.into_iter().enumerate() {
+            if axis + 3 >= dpn { break; }
+            if let Some(d) = dof_num.global_dof(node,axis + 3) {
+                if d < nf { f[d] += value * scale; }
             }
         }
     }
