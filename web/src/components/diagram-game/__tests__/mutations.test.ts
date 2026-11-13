@@ -1,3 +1,4 @@
+import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
 import { describe, it, expect } from 'vitest';
 import { defaultVariant, rng } from '../../edu/exercise-params';
 import { resolveGameModel, solveGame, type Solved } from '../game-model';
@@ -205,7 +206,7 @@ describe('strings', () => {
       expect(Object.keys(table).sort(), locale).toEqual(keys);
       for (const [k, v] of Object.entries(table)) expect(v.trim(), `${locale} ${k}`).not.toBe('');
     }
-    expect(Object.keys(gameStrings).sort()).toEqual(['de', 'en', 'es', 'fr', 'pt', 'tr']);
+    expect(Object.keys(gameStrings).sort()).toEqual([...PUBLIC_LOCALES].sort());
   });
 
   it('every question about one diagram marks its name exactly once, and nothing else is bracketed', () => {

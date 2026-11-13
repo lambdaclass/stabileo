@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
+  "landing.navGame": "Ábrajáték",
+  "landing.footAdCookies": "Hirdetési sütik",
+  "landing.footPrivacy": "Adatvédelem",
+  "landing.footTerms": "Felhasználási feltételek",
+
   "loadPlan.derivation.roofLivePart": "A tető használati kategóriája {roof}, a födémeké {floor}: a tető hasznos terhe az esetleges hatás külön esetekkel rendelkező része, a {roof} kategória ψ tényezőjével kombinálva (EN 1990 A1.1 táblázat); a két rész együtt vezető és kísérő hatás (EN 1991-1-1 §3.3.1(2)P).",
   "loads.asce7.case.seismicOrth": "Földrengés {dir} 100 % + {other} 30 %",
   "loads.asce7.case.seismicOrthEcc": "Földrengés {dir} 100 % + {other} 30 % ({sign}{e} % külpontosság)",
