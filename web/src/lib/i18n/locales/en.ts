@@ -518,6 +518,7 @@ const en: Record<string, string> = {
   'despiece.inspectEmpty': 'No forces here (solve first?)',
   'despiece.colMember': 'Member·End',
   'advanced.sectionAnalysis': 'Section analysis',
+  'advanced.mohr': "Mohr circle / stress state",
   'advanced.pdelta': 'P-\u0394 (2nd order)',
   'advanced.group.buckling': 'Buckling',
   'advanced.group.structure': 'Structure and sections',
@@ -698,6 +699,8 @@ const en: Record<string, string> = {
   'advHelp.kinematic.text': 'Step-by-step analysis of the kinematic stability of the structure. Shows the degree of static indeterminacy (detailed formula with each support and hinge), numerically checks the rank of Kff for hidden mechanisms, and suggests corrections if the structure is unstable. Works without solving: it is computed when opened and, with Live calculation on, updates as the model is modified.',
   'advHelp.stress.label': 'Stress — section analysis',
   'advHelp.stress.text': 'Complete stress analysis of cross-sections. Click a member to see: normal stress \u03C3 (Navier: \u03C3 = N/A + M\u00B7y/I), shear stress \u03C4 (Jourawski: \u03C4 = V\u00B7Q/(I\u00B7b)), Von Mises equivalent stress (\u03C3_vm = \u221A(\u03C3\u00B2 + 3\u03C4\u00B2)), Mohr\'s circle with principal stresses, shear flow diagram for thin-walled profiles, and utilization ratio vs fy. Includes a slider to traverse section fibers (0=bottom, 1=top) and navigation to critical sections (max moment, supports, load points). Supports rectangular, I, U, L, box (RHS), and tubular (CHS) sections.',
+  'advHelp.mohr.label': "Mohr circle — stress state at a point",
+  'advHelp.mohr.text': "Mohr's circle for a plane stress state and Mohr's three circles for a 3D state. Enter the stress components or bring them from a fiber of the section analysis: it gives the principal stresses and directions, the maximum shear, the stress on any rotated plane and the von Mises stress. It does not need a solved model. The same tool is among Stabileo's public tools, and each one opens the other with the same values.",
   'advHelp.whatif.label': 'Explore (What if\u2026?)',
   'advHelp.whatif.text': 'Interactive parametric sensitivity analysis panel. Adjust load magnitudes, material elastic modulus E, and section properties (area A and inertia Iz) in real time using sliders. The structure recalculates instantly with each change (~60ms) showing how diagrams, deformed shapes, and reactions vary. Ideal for understanding structural behavior, optimizing sections, and answering questions like "what if I double the load?" or "what if I use a stiffer profile?". Changes are temporary \u2014 the original model is restored when the panel is closed.',
 
@@ -3209,6 +3212,7 @@ const en: Record<string, string> = {
 
   // ─── Stress analysis (P3) ───
   'stress.mohrCircle': "Mohr's Circle",
+  'stress.openMohr': "Open in Mohr circle",
   'stress.mohrCircleHelp': "Graphical representation of the stress state in all planes.\n\nThe circle shows how σ and τ vary when rotating the analysis plane.\nThe red dot is the current state (σ, τ).\nThe points where the circle touches the σ axis are the principal stresses (σ1, σ2) where τ=0.\nThe circle radius is τmax (Tresca).",
   'teach.centroidTitle': "Centroid",
   'teach.centroidHelp': "Where the AREA balances. It follows from a first moment and nothing else, so any section has one and finding it needs no notion of load.\n\nThe section is split into rectangles; each contributes its area times its lever arm, and the total divided by the total area is the answer.",

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { checkTranslations, formatFailures, segments } from '../translation-gate';
+import { checkTranslations, formatFailures, isMovedPage, segments } from '../translation-gate';
 
 const ORIGIN = 'https://stabileo.com';
 const LOCALES = ['en', 'es'] as const;
@@ -160,5 +160,24 @@ describe('translation gate', () => {
 
   it('segments block text of four words or more, leaving out code and markup', () => {
     expect(segments('<div id="prerender"><p>One <strong>two</strong> three four</p><p>too short here</p><pre>let a = b + c + d</pre><li>a b c d e</li></div><div id="app">')).toEqual(['One two three four']);
+  });
+});
+
+describe('pages left at a moved address', () => {
+  it('are not built pages: no hreflang, no sitemap entry and no English twin are asked of them', async () => {
+    const { redirectPage } = await import('../redirect-page');
+    const d = site({ '/en/': EN, '/es/': ES });
+    for (const locale of ['en', 'es'] as const) {
+      const file = join(d, locale, 'examples', 'beam-frame', 'index.html');
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, redirectPage(ORIGIN, locale, '/examples/beam-frame'));
+      expect(isMovedPage(readFileSync(file, 'utf8'))).toBe(true);
+    }
+    expect(gate(d)).toEqual([]);
+  });
+
+  it('only a noindex page with an immediate refresh counts as moved', () => {
+    expect(isMovedPage(html(EN, '/'))).toBe(false);
+    expect(isMovedPage('<html><head><meta name="robots" content="noindex"><title>x</title></head></html>')).toBe(false);
   });
 });

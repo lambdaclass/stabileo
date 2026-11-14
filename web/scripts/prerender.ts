@@ -50,6 +50,9 @@ import { buildStarCount, serveStarCount } from './build-stars';
 import { paperStructuredData } from './paper-structured-data';
 import { withResearchCard } from './research-card';
 import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from './public-paths';
+import { redirectPage } from './redirect-page';
+import { MOVED_PAGES } from '../src/lib/legacy-routes';
+import { findTool } from '../src/components/tools/registry';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
 import { isResearchRoute } from '../src/lib/i18n/research-routes';
 
@@ -236,7 +239,8 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
-  if (/^\/tools\/[^/]+$/.test(path)) await page.waitForSelector('head script[data-prerendered-result]', { state: 'attached', timeout: 60_000 });
+  const tool = findTool(path);
+  if (tool?.kind === 'calculator' || tool?.kind === 'batch') await page.waitForSelector('head script[data-prerendered-result]', { state: 'attached', timeout: 60_000 });
   // Network idle is not rendered: a page whose next chunk is requested only after a long main-thread task looks idle in between.
   await waitForRenderedApp(page);
   const { head, body } = await page.evaluate(() => {
@@ -415,6 +419,14 @@ async function main() {
       `User-agent: *\nAllow: /\nDisallow: /app/\n\nSitemap: ${ORIGIN}/sitemap.xml\n`,
     );
 
+    for (const locale of LOCALES) {
+      for (const from of MOVED_PAGES) {
+        const out = join(DIST, locale, from.slice(1), 'index.html');
+        await mkdir(dirname(out), { recursive: true });
+        await writeFile(out, redirectPage(ORIGIN, locale, from));
+      }
+    }
+
     await writeFile(join(DIST, '404.html'), notFoundPage(DEFAULT_LOCALE, LOCALES));
     for (const locale of LOCALES) {
       await writeFile(join(DIST, locale, '404.html'), notFoundPage(locale, LOCALES));
@@ -422,7 +434,7 @@ async function main() {
 
     console.log(`✅ prerendered ${written.length} pages`);
     for (const href of written) console.log(`   · ${href}`);
-    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards, ${LOCALES.length + 1} 404 pages`);
+    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards, ${LOCALES.length + 1} 404 pages, ${LOCALES.length * MOVED_PAGES.length} moved-page redirects`);
   } finally {
     await browser.close();
     await stop();

@@ -92,6 +92,7 @@
   import { collapseVerdict } from '../advanced/plastic/user-compare';
   import InfluencePanel from '../advanced/InfluencePanel.svelte';
   import LoadStatesPanel from '../advanced/LoadStatesPanel.svelte';
+  import { mohrPanel, openMohr, closeMohr } from '../../lib/mohr/panel.svelte';
 
   let showAdvanced = $state(false);
   let showTrainPanel = $state(false);
@@ -168,6 +169,10 @@
     'stress': {
       labelKey: 'advHelp.stress.label',
       textKey: 'advHelp.stress.text',
+    },
+    'mohr': {
+      labelKey: 'advHelp.mohr.label',
+      textKey: 'advHelp.mohr.text',
     },
     'despiece': {
       labelKey: 'advHelp.despiece.label',
@@ -251,6 +256,9 @@
     { key: 'stress', labelKey: 'advanced.sectionAnalysis',
       isActive: () => uiStore.currentTool === 'select' && uiStore.selectMode === 'stress',
       close: () => { uiStore.selectMode = 'elements'; resultsStore.stressQuery = null; } },
+    { key: 'mohr', labelKey: 'advanced.mohr',
+      isActive: () => mohrPanel.open,
+      close: () => closeMohr() },
     { key: 'pdelta', labelKey: 'advanced.pdelta',
       isActive: () => !!(is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult),
       close: () => (is3D ? resultsStore.clearPDelta3D() : resultsStore.clearPDelta()) },
@@ -668,7 +676,7 @@
 
   {#if courseReady}
   <div class="advanced-grid">
-    {#if !(flat && active) && (shown('kinematic') || shown('despiece') || shown('stress'))}
+    {#if !(flat && active) && (shown('kinematic') || shown('despiece') || shown('stress') || shown('mohr'))}
     <!-- How the structure holds together, member by member, and what a section carries. -->
     <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-structure">{t('advanced.group.structure')}</div>
     {/if}
@@ -738,6 +746,18 @@
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('stress', e)} class:active={advHelpKey === 'stress'}>?</button>
     </div>
     {@render helpPanel('stress')}
+      {/if}
+    {/if}
+    {#if shown('mohr')}
+      {#if !flat || active?.key !== 'mohr'}
+    <div class="adv-btn-wrap" style="grid-column: span 2">
+      <button class="adv-btn" style="flex:1" class:active={mohrPanel.open} data-testid="adv-mohr"
+        onclick={() => { if (mohrPanel.open) closeEntry('mohr'); else openMohr({ kind: is3D ? 'space' : 'plane' }); }}>
+        {t('advanced.mohr')}
+      </button>
+      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('mohr', e)} class:active={advHelpKey === 'mohr'}>?</button>
+    </div>
+    {@render helpPanel('mohr')}
       {/if}
     {/if}
     {#if !(flat && active) && (shown('pdelta') || shown('buckling'))}

@@ -505,6 +505,7 @@ const fr: Translations = {
   'despiece.inspectEmpty': 'Aucun effort ici (calculer d\'abord ?)',
   'despiece.colMember': 'Barre·Extrémité',
   'advanced.sectionAnalysis': 'Analyse de section',
+  'advanced.mohr': "Cercle de Mohr / état de contrainte",
   'advanced.pdelta': 'P-Δ (2nd ordre)',
   'advanced.group.buckling': 'Flambement',
   'advanced.group.structure': 'Structure et sections',
@@ -683,6 +684,8 @@ const fr: Translations = {
   'advHelp.kinematic.text': 'Analyse pas à pas de la stabilité cinématique de la structure. Affiche le degré d\'hyperstaticité (formule détaillée avec chaque appui et chaque rotule), vérifie numériquement par le rang de Kff s\'il existe des mécanismes cachés et propose des corrections si la structure est instable. Fonctionne sans calcul : elle est évaluée à l\'ouverture et, avec le calcul en direct activé, se met à jour à chaque modification du modèle.',
   'advHelp.stress.label': 'Contraintes — analyse de section',
   'advHelp.stress.text': 'Analyse complète des contraintes des sections. Cliquez sur une barre pour voir : la contrainte normale σ (Navier : σ = N/A + M·y/I), la contrainte de cisaillement τ (Jourawski : τ = V·Q/(I·b)), la contrainte équivalente de Von Mises (σ_vm = √(σ² + 3τ²)), le cercle de Mohr avec les contraintes principales, le diagramme de flux de cisaillement pour les profilés à parois minces, et le taux de travail par rapport à fy. Comprend un curseur pour parcourir les fibres de la section (0=bas, 1=haut) et une navigation vers les sections critiques (moment maximal, appuis, points de charge). Prend en charge les sections rectangulaires, en I, en U, en L, en caisson (RHS) et tubulaires (CHS).',
+  'advHelp.mohr.label': "Cercle de Mohr — état de contrainte en un point",
+  'advHelp.mohr.text': "Cercle de Mohr pour un état plan et les trois cercles de Mohr pour un état 3D. Saisissez les composantes de contrainte ou reprenez-les d’une fibre de l’analyse de section : vous obtenez les contraintes et directions principales, le cisaillement maximal, la contrainte sur tout plan tourné et la contrainte de von Mises. Aucun modèle calculé n’est nécessaire. Le même outil figure parmi les outils publics de Stabileo, et chacun ouvre l’autre avec les mêmes valeurs.",
   'advHelp.whatif.label': 'Explorer (Et si… ?)',
   'advHelp.whatif.text': 'Panneau interactif d\'analyse de sensibilité paramétrique. Ajustez en temps réel l\'intensité des charges, le module d\'élasticité E du matériau et les caractéristiques de section (aire A et inertie Iz) à l\'aide de curseurs. La structure se recalcule instantanément à chaque modification (~60ms) et montre comment varient les diagrammes, les déformées et les réactions. Idéal pour comprendre le comportement structural, optimiser les sections et répondre à des questions comme « et si je double la charge ? » ou « et si j\'utilise un profilé plus rigide ? ». Les modifications sont temporaires — le modèle d\'origine est restauré à la fermeture du panneau.',
 
@@ -3176,6 +3179,7 @@ const fr: Translations = {
 
   // ─── Stress analysis (P3) ───
   'stress.mohrCircle': 'Cercle de Mohr',
+  'stress.openMohr': "Ouvrir dans Cercle de Mohr",
   'stress.mohrCircleHelp': 'Représentation graphique de l\'état de contrainte dans tous les plans.\n\nLe cercle montre comment σ et τ varient quand on fait tourner le plan d\'analyse.\nLe point rouge est l\'état actuel (σ, τ).\nLes points où le cercle coupe l\'axe σ sont les contraintes principales (σ1, σ2), où τ=0.\nLe rayon du cercle est τmax (Tresca).',
   'teach.centroidTitle': 'Centre de gravité',
   'teach.centroidHelp': 'Le point où l\'AIRE s\'équilibre. Il découle d\'un moment statique et de rien d\'autre : toute section en possède un, et le trouver ne demande aucune notion de charge.\n\nLa section est découpée en rectangles ; chacun apporte son aire multipliée par son bras de levier, et le total divisé par l\'aire totale donne le résultat.',

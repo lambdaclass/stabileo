@@ -1,5 +1,5 @@
 {
-  "measured": "2026-11-04 on the safety integration #1409: landing 1,471,433 B, app 32,354,085 B (#1406 adds about 47 KB to the app); the ceilings leave about 8 % headroom; on #1065 (2026-11-05): landing 1,429,408 B, app 31,615,569 B, /en/research/ 2,048,491 B, /en/tools/ 1,736,028 B, simply-supported-beam 2,443,552 B, continuous-beam 2,467,712 B",
+  "measured": "2026-11-04 on the safety integration #1409: landing 1,471,433 B, app 32,354,085 B (#1406 adds about 47 KB to the app); the ceilings leave about 8 % headroom; on #1065 (2026-11-05): landing 1,429,408 B, app 31,615,569 B, /en/research/ 2,048,491 B, /en/tools/ 1,736,028 B, simply-supported-beam 2,443,552 B, continuous-beam 2,467,712 B; on the tools merge (2026-11-11): /en/tools/ 1,545,922 B, simply-supported-beam 1,780,534 B, continuous-beam 1,792,138 B, beam-frame 1,891,765 B (a model tool's solver worker is lazy, like the solver, and is not counted); on 2026-11-11: /en/tools/mohr-2d/ 1,834,644 B (the Mohr tools, no engine)",
   "routes": {
     "/en/": 1600000,
     "/es/": 1600000,
@@ -10,6 +10,8 @@
     "/en/research/": 2200000,
     "/en/tools/": 1900000,
     "/en/tools/simply-supported-beam/": 2650000,
-    "/en/tools/continuous-beam/": 2650000
+    "/en/tools/continuous-beam/": 2650000,
+    "/en/tools/beam-frame/": 2650000,
+    "/en/tools/mohr-2d/": 2000000
   }
 }

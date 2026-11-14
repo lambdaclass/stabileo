@@ -18,7 +18,7 @@ const PAGES: Array<[string, string | null]> = [
   ['/en/paper/', 'research'],
   ['/en/research/', 'research'],
   ['/en/tools/', 'tools'],
-  ['/en/examples/', 'examples'],
+  ['/en/tools/beam-frame/', 'tools'],
   ...EXPERIMENTS.map(({ path }): [string, string] => [`/en${path}/`, 'research']),
 ];
 

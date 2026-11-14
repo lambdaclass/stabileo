@@ -329,6 +329,8 @@
   import WorkspaceSaveNotice from './components/WorkspaceSaveNotice.svelte';
   import { prepareExportProvenance, pngWithProvenance } from './lib/export/provenance-attach';
   import ReproduceDialog from './components/ReproduceDialog.svelte';
+  import { mohrPanel, openMohr } from './lib/mohr/panel.svelte';
+  import { readAppLink, APP_LINK_KEYS } from './lib/mohr/state';
   import TabBar from './components/TabBar.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import KeyboardShortcuts from './components/KeyboardShortcuts.svelte';
@@ -397,6 +399,7 @@
   import LandingPage from './components/LandingPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
+  import { restoreMovedRoute } from './lib/legacy-routes';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
   import { publicI18n, ensurePublicLocale } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
@@ -563,6 +566,16 @@
     uiStore.proActiveTab = tab;
   }
 
+  /** `?mohr=plane|space&…` opens the Mohr circle function with the state the public tool encoded. */
+  function openMohrFromUrl(params: URLSearchParams) {
+    const link = readAppLink(params);
+    if (!link) return;
+    openMohr(link.kind === 'plane' ? { kind: 'plane', plane: link.state } : { kind: 'space', space: link.state });
+    const url = new URL(location.href);
+    for (const key of APP_LINK_KEYS) url.searchParams.delete(key);
+    history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
   function findTabBySlug(tabSlug: string | null) {
     if (!tabSlug) return null;
     return tabManager.tabs.find(tab => slugifyTabName(tab.name) === tabSlug) ?? null;
@@ -576,7 +589,7 @@
   const initialPublicRoute = routeKind();
   const initialShell = publicShell();
   let showLanding = $state(initialShell.kind === 'landing');
-  let showExperiment = $state(['research', 'tools', 'examples'].includes(initialPublicRoute.kind));
+  let showExperiment = $state(['research', 'tools'].includes(initialPublicRoute.kind));
   let showPaper = $state(initialPublicRoute.kind === 'paper');
   let publicPage = $state<import('svelte').Component<{ path: string }> | null>(null);
   let publicRevision = 0;
@@ -615,6 +628,7 @@
 
   async function syncRouteState() {
     const token = ++publicRevision;
+    restoreMovedRoute();
     const next = routeKind();
     const shell = publicShell();
     const hash = next.kind === 'app' ? '' : location.hash;
@@ -627,7 +641,7 @@
       if (token === publicRevision) location.reload();
       return;
     }
-    showExperiment = next.kind === 'research' || next.kind === 'tools' || next.kind === 'examples';
+    showExperiment = next.kind === 'research' || next.kind === 'tools';
     showPaper = next.kind === 'paper';
     adoptLocaleFromPath();
     showBlog = shell.kind === 'blog';
@@ -981,6 +995,7 @@
     if (hashMode === 'embed' || queryParams.has('embed')) {
       uiStore.embedMode = true;
     }
+    openMohrFromUrl(queryParams);
 
     // Landing demo iframe uses ?example=<id> to pre-load a sample structure
     const exampleId = queryParams.get('example');
@@ -2358,6 +2373,9 @@
 <RecheckNotice />
 <WorkspaceSaveNotice />
 <ReproduceDialog />
+{#if mohrPanel.open}
+  {#await import('./components/mohr/MohrDialog.svelte') then { default: MohrDialog }}<MohrDialog />{/await}
+{/if}
 
 <DxfImportDialog
   open={showDxfImport}

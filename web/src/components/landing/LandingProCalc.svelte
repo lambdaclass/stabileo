@@ -41,7 +41,7 @@
       <figcaption>{t('landing.proCalcShots')}</figcaption>
     </figure>
     <p class="link-row">
-      <PublicLink to="/examples" class="link-arrow">{t('landing.navExamples')}</PublicLink>
+      <PublicLink to="/tools" class="link-arrow">{t('landing.navTools')}</PublicLink>
     </p>
   </div>
 </section>

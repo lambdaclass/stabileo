@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import toolReviews from '../../../../../research/tools/batches/VALIDATION.json';
-import { BATCH_IDS } from '../../../components/tools/batch';
+import { TOOLS, findTool, toolLastmod } from '../../../components/tools/registry';
 import { EXPERIMENTS } from '../../../components/research/experiments';
 import { webpSize } from '../../../../scripts/research-card';
 
@@ -243,14 +243,13 @@ export function searchMetadataSuite(dist: string) {
       expect(problems, report(problems)).toEqual([]);
     });
 
-    it('dates the blog index by its newest post and each calculator by its latest review, not by the build', () => {
+    it('dates the blog index by its newest post and each tool by its latest review or stated change, not by the build', () => {
       const lastmod = new Map(
         [...readFileSync(join(dist, 'sitemap.xml'), 'utf8').matchAll(/<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)].map(([, url, day]) => [url, day]),
       );
-      const latest = (batch: string) => toolReviews.batches.find((b) => b.id === batch)!.reviews.map((r) => r.date).sort().at(-1);
       const reviewed = (path: string) => path === '/tools'
-        ? toolReviews.batches.flatMap((b) => b.reviews.map((r) => r.date)).sort().at(-1)
-        : latest((BATCH_IDS as readonly string[]).includes(path.slice('/tools/'.length)) ? 'tools-batch-2' : 'tools-batch-1');
+        ? TOOLS.map((tool) => toolLastmod(tool, toolReviews.batches)).sort().at(-1)
+        : toolLastmod(findTool(path)!, toolReviews.batches);
       const problems = ownPages().flatMap((p) => {
         const day = lastmod.get(p.url);
         if (p.path === '/blog') {

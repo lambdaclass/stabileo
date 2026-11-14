@@ -223,12 +223,12 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('.app-container.hidden-behind-landing')).toHaveCount(0);
   });
 
-  test('the hero offers the editor and the live examples, and no dead link', async ({ page }) => {
+  test('the hero offers the editor and the live tools, and no dead link', async ({ page }) => {
     await bootLanding(page);
 
     await expect(page.locator('.landing .hero-ctas .btn')).toHaveCount(2);
     await expect(page.locator('.landing .hero-ctas .btn-primary')).toHaveCount(1);
-    await expect(page.locator('.landing .hero-ctas a.btn')).toHaveAttribute('href', /\/examples\/$/);
+    await expect(page.locator('.landing .hero-ctas a.btn')).toHaveAttribute('href', /\/tools\/$/);
     await expect(page.locator('.landing a[href="/demo"]')).toHaveCount(0);
     await expect(page.locator('.landing .hero-blog')).toBeVisible();
 
