@@ -35,7 +35,7 @@ test.describe('@slow model fluidity with design', () => {
     test.setTimeout(600_000);
     await loadModel(page, 'pro-edificio-7p');
     await designAll(page);
-    await designPlace(page, 'detailing');
+    await designPlace(page, 'list');
     await page.getByTestId('cmd-generate-detailing').click();
     await expect.poll(async () => page.evaluate(() =>
       (window.__stabileo as unknown as { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 120_000 }).toBeGreaterThan(0);

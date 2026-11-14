@@ -993,7 +993,7 @@ call.
 | `design/section-advice.ts` | 218 | c | - | medium | Preliminary closed-form section size recommendation and iteration guards |
 | `design/slenderness.ts` | 40 | c | - | high | Column slenderness magnifier delta_ns per combination via TS checkSlender |
 | `detailing/assembly.ts` | 718 | d | - | low | Persisted detailing assembly types |
-| `detailing/bar-shape-diagram.ts` | 350 | d | - | low | Bending schedule shape diagrams with leg lengths |
+| `rc-sheets/schedule/bar-shape-diagram.ts` | 350 | d | - | low | Bending schedule shape diagrams with leg lengths |
 | `detailing/beam-top-steel.ts` | 324 | c | - | medium | Hanger/minimum top steel for beams per CIRSOC 201-2025 clauses |
 | `detailing/candidates.ts` | 547 | c | - | medium | Legal bar layout candidates with clear-spacing rules |
 | `detailing/classify.ts` | 410 | c | - | medium | Bar pair classification and applicable §25.2 clearance rule |

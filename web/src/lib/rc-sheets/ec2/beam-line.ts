@@ -4,7 +4,7 @@ import { beamLine, type LineAdopted, type LineCode, type LineLayout } from '../b
 import type { BeamContext, BeamRow } from '../beam-row';
 import type { Fmt } from '../format';
 import { check, type StepGroup } from '../types';
-import { designAnchorage, hookAlpha, lapLength, mandrel, matOf, minSteel, shearCapacity, ALPHA6, type Ec2Set } from './basis';
+import { EC2_BENDS, designAnchorage, hookAlpha, lapLength, mandrel, matOf, minSteel, shearCapacity, ALPHA6, type Ec2Set } from './basis';
 import { beamCapacity } from './beam-section';
 
 const goodBond = (top: boolean, h: number) => !top || h <= 0.25 + 1e-9;
@@ -14,6 +14,8 @@ export function ec2LineCode(set: Ec2Set): LineCode {
   return {
     development: (c, dia, top, h) => designAnchorage(mat(c), dia, goodBond(top, h)),
     hooked: (c, dia) => designAnchorage(mat(c), dia, true, hookAlpha(c.cover + c.stirrupDia / 1000, dia)),
+    mandrel: (dia) => mandrel(dia) / 1000,
+    hookExtension: (dia) => EC2_BENDS.extension(dia, 90, 'longitudinal'),
     lap: (c, dia, top, h) => lapLength(mat(c), dia, goodBond(top, h)),
     minBottom: (c, b, d) => minSteel(mat(c), set.p, b, d) * 1e4,
     moments: (c, qs) => { const m = mat(c); return qs.map((q) => beamCapacity(q.demand, c.cover, q.sd, q.tension, q.compression, q.sagging, 0, m, set.p).mrd); },

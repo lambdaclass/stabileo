@@ -15,7 +15,6 @@ import { onProjectOpened } from '../../store/file';
 
 const ctx = {
   solved: true, canSolve: true, canReport: true, onSolve: () => {}, onReport: () => {},
-  onRebar3D: () => {}, canRebar3D: () => true, rebar3DMissingSteps: () => [],
 };
 
 describe('normative design behind PRO settings', () => {

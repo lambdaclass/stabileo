@@ -14,9 +14,7 @@
  *
  *  2. **Every command's DISABLED state was untested.** Each spec that drives a command waits for
  *     it to be enabled first, so the suite proved the commands work and never that they refuse —
- *     and refusing with a reason is most of what this bar does. `detailing-prerequisites`, the
- *     visible sentence naming which members are in the way and how many, was referenced by
- *     nothing at all.
+ *     and refusing with a reason is most of what this bar does.
  *
  *  3. **The 1280×720 layout invariant was guarded by a comment.** `.rc-workflow` used to be
  *     `overflow: hidden`, and with the disclosures open the *Generar detallado* button sat at
@@ -35,11 +33,11 @@ type Page = import('@playwright/test').Page;
 
 /**
  * The design commands, in the order the pipeline runs them, with the place each is pressed in
- * (interface A): the member list holds the demands, the required steel, its «Size…» and the 3-D
- * view; the top of the stage holds «Size…» while sizing and «Generate detailing» while detailing.
+ * (interface A): the member list holds the demands, the required steel and its «Size…»; the top
+ * of the stage holds «Size…» while sizing and «Generate detailing» while detailing.
  */
 const COMMANDS = [
-  'cmd-compute-demands', 'cmd-code-check', 'cmd-autodesign', 'desk-design', 'cmd-open-3d',
+  'cmd-compute-demands', 'cmd-code-check', 'cmd-autodesign', 'desk-design',
 ] as const;
 const DETAIL_COMMANDS = ['cmd-generate-detailing'] as const;
 
@@ -60,7 +58,6 @@ test.describe('@smoke a command that cannot run says so', () => {
       for (const id of COMMANDS) {
         await expect(page.getByTestId(id), `${id} is disabled with nothing solved`).toBeDisabled();
       }
-      await designPlace(page, 'detailing');
       for (const id of DETAIL_COMMANDS) {
         await expect(page.getByTestId(id), `${id} is disabled with nothing solved`).toBeDisabled();
       }
@@ -80,50 +77,20 @@ test.describe('@smoke a command that cannot run says so', () => {
       // Computing demands is now the one command that is available, which is what makes the
       // placeholder's instruction followable.
       await expect(page.getByTestId('cmd-compute-demands')).toBeEnabled();
-      await designPlace(page, 'detailing');
       await expect(page.getByTestId('cmd-generate-detailing')).toBeDisabled();
     });
 
-  test('the detailing command names the members in its way, on screen and in its tooltip',
+  test('the detailing command names the members in its way, in its tooltip',
     async ({ pro: page }) => {
       await loadModel(page, 'rc-design-qa-8');
       await solveModel(page);
-      await designPlace(page, 'detailing');
+      await designPlace(page, 'list');
 
       const generate = page.getByTestId('cmd-generate-detailing');
       await expect(generate).toBeDisabled();
 
-      /**
-       * The reason is VISIBLE, not only a tooltip.
-       *
-       * A `title` is announced by a screen reader and reachable by a mouse, and by nothing else:
-       * a keyboard-only user hovering nothing would be left with a dead button. So the same
-       * sentence is rendered as text, and this asserts that the two agree rather than that either
-       * one exists.
-       */
-      const blockers = page.getByTestId('detailing-prerequisites');
-      await expect(blockers).toBeVisible();
-      // Whitespace collapsed on both sides: `innerText` normalises the markup's indentation and
-      // the attribute does not, and the claim here is about the SENTENCE, not about its spacing.
-      const flat = (s: string) => s.replace(/\s+/g, ' ').trim();
-      const said = flat(await blockers.innerText());
+      const said = (await generate.getAttribute('title') ?? '').replace(/\s+/g, ' ').trim();
       expect(said.length, 'the prerequisites are stated in words').toBeGreaterThan(10);
-      expect(flat(await generate.getAttribute('title') ?? ''),
-        'the tooltip and the visible sentence are the same sentence').toBe(said);
-    });
-
-  test('the 3-D command refuses with a reason until a document exists',
-    async ({ pro: page }) => {
-      await loadModel(page, 'rc-design-qa-8');
-      await designPlace(page, 'list');
-      const open3d = page.getByTestId('cmd-open-3d');
-      await expect(open3d).toBeDisabled();
-      // Disabled, not hidden — a command that vanishes teaches nobody what it needs.
-      await expect(open3d).toBeVisible();
-      expect((await open3d.getAttribute('title') ?? '').trim().length,
-        'the blocked 3-D command states why').toBeGreaterThan(0);
-      // The assembly count only appears when there is something to count.
-      await expect(page.getByTestId('cmd-open-3d-count')).toHaveCount(0);
     });
 });
 
@@ -181,9 +148,7 @@ test.describe('@slow at 1280×720 no enabled command is out of reach', () => {
           checked.push(id);
         }
       };
-      await sweep([...COMMANDS, 'floor-design-run', 'batch-open', 'next-failing', 'review-changes']);
-      await designPlace(page, 'detailing');
-      await sweep(DETAIL_COMMANDS);
+      await sweep([...COMMANDS, ...DETAIL_COMMANDS, 'floor-design-run', 'batch-open', 'next-failing', 'review-changes']);
 
       // A loop that checked nothing would pass. Name what it actually reached.
       // eslint-disable-next-line no-console

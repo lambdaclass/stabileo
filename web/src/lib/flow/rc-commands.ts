@@ -31,7 +31,6 @@
 import { designRunStore } from '../store/design-run.svelte';
 import { detailingStore } from '../store/detailing.svelte';
 import { diagnosticsWarning } from '../store/diagnostics-warning.svelte';
-import { openRebar3D, type OpenRebar3DResult } from '../store/rebar-open';
 import { designEverything, designMembers, undesignedMembers, type DeskReport } from '../store/design-desk';
 import type { RunScope } from '../store/design-desk-ui.svelte';
 import { designWithResizing, type ResizeHooks } from '../store/design-resize';
@@ -120,20 +119,4 @@ export function rcGenerateDetailing(): void {
  */
 export function rcCancelRun(): void {
   designRunStore.cancel();
-}
-
-/**
- * Open the 3-D rebar workspace.
- *
- * A thin pass-through, and that is the point: `openRebar3D` in `lib/store/rebar-open.ts` is
- * already the single implementation behind four entry points — DesignOverview, DesignToolbar,
- * DocumentsSection and ProRibbon. The tree says why in its own words: three ways in, one thing
- * that happens, and a fourth viewer is exactly what this must not be.
- *
- * Re-exposed here so a stage that gains a fifth door reaches the same function rather than
- * importing the store directly and drifting. `at` comes from the CALLER — this module never
- * reads a clock, the same rule the detailing store states about itself.
- */
-export function rcOpenRebar3D(author: string, at: string): OpenRebar3DResult {
-  return openRebar3D({ author, at });
 }

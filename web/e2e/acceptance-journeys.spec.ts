@@ -12,7 +12,7 @@
  * and where it breaks. With `AUDIT_OUT` the record is written as JSON; with `AUDIT_SHOTS` each step
  * leaves a screenshot. It is an audit instrument: its assertions are the record.
  */
-import { test, expect, solveModel, setAppLanguage, openDeskStage, ribbonCmd, leaveDesign, designPlace, generateDetailing, placeFrameFromGrid, placeSlabsFromGrid } from './fixtures';
+import { test, expect, solveModel, setAppLanguage, openDeskStage, ribbonCmd, leaveDesign, designPlace, generateDetailing, placeFrameFromGrid, placeSlabsFromGrid, openSteelDocuments } from './fixtures';
 import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 
@@ -39,9 +39,9 @@ async function step(page: Page, journey: string, name: string, fn: () => Promise
   }
 }
 
-/** The design desk, on its documents. */
+/** The design desk, on the documents of its steel workflow (the memoria, the sheets, the exchange). */
 async function deskDocs(page: Page): Promise<void> {
-  await designPlace(page, 'documents');
+  await openSteelDocuments(page);
 }
 
 const census = (page: Page) => page.evaluate(() => window.__stabileo.modelCensus());
@@ -146,9 +146,7 @@ async function designAndDocument(page: Page, j: string): Promise<void> {
     return { total: views.length };
   });
   await step(page, j, 'detailing', async () => {
-    // Detail what was designed, then read it in the documents (the old «Detail» did both).
     await generateDetailing(page);
-    await designPlace(page, 'documents');
     await expect.poll(() => detailingTotals(page).then((x) => x.assemblies), { timeout: 60_000 }).toBeGreaterThan(0);
     const coverage = await page.evaluate(() => {
       const a = (window.__stabileo as unknown as { detailingAssemblies(): Array<{ elementIds: number[] }> }).detailingAssemblies();
@@ -161,7 +159,6 @@ async function designAndDocument(page: Page, j: string): Promise<void> {
     return { ...(await detailingTotals(page)), ...coverage };
   });
   await step(page, j, 'sheets with bending schedule', async () => {
-    await expect(page.getByTestId('desk-step-document')).toHaveAttribute('data-open', 'true');
     await designPlace(page, 'sheets');
     const desk = page.getByTestId('design-desk');
     await desk.getByTestId('sheets-build').click();
@@ -174,7 +171,7 @@ async function designAndDocument(page: Page, j: string): Promise<void> {
     return { sheets: await desk.getByTestId('sheets-count').innerText(), pdf: bytes.subarray(0, 5).toString(), list: text.split('\n').slice(0, 60) };
   });
   await step(page, j, 'memoria', async () => {
-    await designPlace(page, 'documents');
+    await deskDocs(page);
     await page.getByTestId('design-desk').getByTestId('memoria-open').first().click();
     const count = await page.getByTestId('memoria-count').innerText();
     await page.getByTestId('memoria-close').click();
@@ -187,26 +184,16 @@ async function designAndDocument(page: Page, j: string): Promise<void> {
     const [xlsx] = await Promise.all([page.waitForEvent('download'), panel.getByTestId('exchange-xlsx').click()]);
     return { ifcColumns: (text.match(/IFCCOLUMN\(/g) ?? []).length, ifcBeams: (text.match(/IFCBEAM\(/g) ?? []).length, ifcSlabs: (text.match(/IFCSLAB\(/g) ?? []).length, outdatedBars: (text.match(/OUTDATED/g) ?? []).length, xlsx: xlsx.suggestedFilename() };
   });
-  // What this PR added, reachable on both journeys: slab sheets by layer, the listings in their
-  // formats, the bar schedule for bending machines and the sheets as DXF 2004.
-  await step(page, j, 'slab sheets, listings, BVBS and DXF 2004', async () => {
+  // Slab sheets by layer and the sheets as DXF 2004, reachable on both journeys.
+  await step(page, j, 'slab sheets and DXF 2004', async () => {
     const desk = page.getByTestId('design-desk');
     await designPlace(page, 'sheets');
     await expect(desk.getByTestId('sheets-list')).toBeVisible({ timeout: 120_000 });
     const list = await desk.getByTestId('sheets-list').innerText();
     expect(list, 'slab reinforcement by layer').toMatch(/Losas por capa|Slabs by layer|Lajes por camada/);
-    await designPlace(page, 'listings');
-    const listings = desk.getByTestId('listings-panel');
-    await listings.scrollIntoViewIfNeeded();
-    const [html] = await Promise.all([page.waitForEvent('download'), listings.getByTestId('listing-checks-html').click()]);
-    const checks = readFileSync(await html.path(), 'utf8');
-    expect((checks.match(/<tr>/g) ?? []).length, 'checks listed').toBeGreaterThan(5);
-    const [bvbs] = await Promise.all([page.waitForEvent('download'), listings.getByTestId('listings-bvbs').click()]);
-    expect(readFileSync(await bvbs.path(), 'latin1')).toMatch(/^BF2D@/);
-    await designPlace(page, 'sheets');
     await expect(desk.getByTestId('sheets-dxf')).toBeVisible({ timeout: 120_000 });
     const [dxf] = await Promise.all([page.waitForEvent('download'), desk.getByTestId('sheets-dxf').click()]);
-    return { slabSheets: (list.match(/Losas por capa|Slabs by layer|Lajes por camada/g) ?? []).length, checkRows: (checks.match(/<tr>/g) ?? []).length - 1, dxf: dxf.suggestedFilename() };
+    return { slabSheets: (list.match(/Losas por capa|Slabs by layer|Lajes por camada/g) ?? []).length, dxf: dxf.suggestedFilename() };
   });
   await step(page, j, 'leave desk', async () => { await leaveDesign(page); });
 }
@@ -227,14 +214,10 @@ test.describe('@slow acceptance of the two journeys', () => {
       if (sid == null) throw new Error('beam section not found');
       const before = await detailingTotals(page);
       await page.evaluate((id) => window.__stabileoActions.updateSection(id, { name: 'R 20x60', b: 0.2, h: 0.6, a: 0.12, iz: 0.2 * 0.6 ** 3 / 12, iy: 0.6 * 0.2 ** 3 / 12 }), sid);
-      await deskDocs(page);
       const desk = page.getByTestId('design-desk');
-      // The bars stay (they are the person's), and every output built from them says it is out of date.
-      await expect(desk.getByTestId('documents-outdated')).toBeVisible();
+      // The bars stay (they are the person's), and the drawings built from them say they are out of date.
       await designPlace(page, 'sheets');
       await expect(desk.getByTestId('sheets-detailing-outdated')).toBeVisible();
-      await designPlace(page, 'listings');
-      await expect(desk.getByTestId('listings-detailing-outdated')).toBeVisible();
       return { detailingBefore: before, detailingAfter: await detailingTotals(page), deskSaysSolve: /solve|calcul/i.test(await desk.innerText()) };
     });
     await step(page, j, 'after the change: solve, design and detail again', async () => {
@@ -247,8 +230,6 @@ test.describe('@slow acceptance of the two journeys', () => {
       await expect(page.getByTestId('desk-report')).toBeVisible({ timeout: 180_000 });
       const report = await page.getByTestId('desk-report').innerText();
       await generateDetailing(page);
-      await designPlace(page, 'documents');
-      await expect(page.getByTestId('design-desk').getByTestId('documents-outdated')).toHaveCount(0);
       const counts = await page.evaluate(() => window.__stabileo.runCounts());
       await leaveDesign(page);
       return { report: report.slice(0, 500), counts, detailing: await detailingTotals(page) };

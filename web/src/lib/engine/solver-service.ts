@@ -46,6 +46,7 @@ import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointW
 import { prestressToSolver } from './prestress';
 import { hasCaseDisplacements, imposedOf, imposedUnsupported, supportsWithImposed, casesWithDisplacements } from './case-displacements';
 import { constraintsTo2D } from './constraint-2d-remap';
+import { solveStep } from './solve-steps';
 import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError } from './solver-pool';
 import { i18n, t, tp } from '../i18n';
 // Counts app-side structural-solve dispatches so browser tests can assert that a
@@ -3011,12 +3012,14 @@ async function solveCombinations3DParallelCore(
 
     // Collect results (already plain objects — no JSON.parse) and build per-case map
     const perCase = new Map<number, AnalysisResults3D>();
+    let shellsDone = 0;
     for (const ci of caseInputs) {
       const result: AnalysisResults3D | undefined = caseResults.get(ci.caseId);
       if (!result) continue;
       const mech = excitedMechanism3D(result);
       if (mech) return t('svc.errorInCase3d').replace('{n}', loadCases.find((c) => c.id === ci.caseId)?.name ?? String(ci.caseId)).replace('{err}', mech);
       if (hasShells) {
+        await solveStep('shells', shellsDone++, caseInputs.length);
         postProcessShellStresses(result, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       }
       perCase.set(ci.caseId, result);
@@ -3032,7 +3035,9 @@ async function solveCombinations3DParallelCore(
     // Needs an engine-side batch export (e.g. combine_multi_3d) first.
     const t1 = performance.now();
     const perCombo = new Map<number, AnalysisResults3D>();
+    let combosDone = 0;
     for (const combo of combinations) {
+      await solveStep('combine', combosDone++, combinations.length);
       const factors = combo.factors.map(f => ({
         caseId: f.caseId,
         factor: f.factor,
@@ -3048,6 +3053,7 @@ async function solveCombinations3DParallelCore(
 
     // Compute envelope from all combo results
     const allComboResults = Array.from(perCombo.values());
+    await solveStep('envelope');
     const envelope = computeEnvelope3D(allComboResults);
     if (!envelope) return t('svc.envelopeError3d');
     if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations, model.plates ?? new Map());
@@ -3073,6 +3079,7 @@ async function solveCombinations3DParallelCore(
     const tPost = performance.now() - t1;
     console.log(`[solveCombinations3D parallel] Solve: ${tSolve.toFixed(0)} ms | Combine+envelope: ${tPost.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size} | Workers: ${Math.min(caseInputs.length, navigator.hardwareConcurrency ?? 4)}`);
 
+    await solveStep('checks');
     return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
   } catch (err: any) {
     // Fallback to synchronous solving if workers fail

@@ -1,5 +1,5 @@
 /**
- * The four steps at the top of the Design stage, from the readings the concrete pipeline resolves
+ * The three steps at the top of the Design stage, from the readings the concrete pipeline resolves
  * and the desk's list: each step's state, what it waits on, and the count it shows.
  */
 import { describe, it, expect } from 'vitest';
@@ -21,7 +21,6 @@ describe('the design steps', () => {
     expect(state(s, 'prepare').state).toBe('current');
     expect(state(s, 'prepare').todoKey).toBe('design.stage.needModel');
     expect(state(s, 'size').state).toBe('blocked');
-    expect(state(s, 'detail').state).toBe('blocked');
     expect(state(s, 'document').state).toBe('optional');
   });
 
@@ -39,23 +38,9 @@ describe('the design steps', () => {
     expect(state(s, 'size').count).toBe(3);
   });
 
-  it('every member verifying finishes sizing; open conflicts keep detailing unfinished', () => {
+  it('every member verifying finishes sizing', () => {
     const base = { hasModel: true, solved: true, codeChosen: true, hasDemands: true, designApplicable: 4, designProposed: 4, designVerified: 4 };
-    const s = designSteps(r({ ...base, detailed: true, detailingConflicts: 2 }), size({ total: 4 }));
+    const s = designSteps(r({ ...base, detailed: true }), size({ total: 4 }));
     expect(state(s, 'size').state).toBe('complete');
-    expect(state(s, 'detail').state).toBe('current');
-    expect(state(s, 'detail').todoKey).toBe('desk.step.todo.conflicts');
-    expect(state(s, 'detail').count).toBe(2);
-  });
-
-  it('a solved concrete frame without demands yet has detailing ahead of it, not optional', () => {
-    const s = designSteps(r({ hasModel: true, solved: true, codeChosen: true }), size(), { hasConcrete: true });
-    expect(state(s, 'detail').state).toBe('pending');
-  });
-
-  it('a model with no concrete to design has nothing to detail: the step is not one it has to take', () => {
-    const s = designSteps(r({ hasModel: true, solved: true, codeChosen: true, hasDemands: true }), size({ total: 8 }), { hasConcrete: false });
-    expect(state(s, 'size').state).toBe('complete');
-    expect(state(s, 'detail').state).toBe('optional');
   });
 });

@@ -38,40 +38,11 @@ const STORE_LAYER = [
 ];
 
 function storeLayer() { return STORE_LAYER.map(read).join('\n'); }
-/**
- * The UI these assertions are about is now TWO components.
- *
- * The report, the drawings, the schedule and the 3-D view moved out of the detailing panel and
- * into `DocumentsSection.svelte`, a stage of its own. The claim being tested never was "this file
- * contains that call" — it is "the production UI reaches the renderer" — so it reads both and
- * survives the next move as well.
- */
-const UI_FILES = [
-  'components/pro/design/DetailingWorkflow.svelte',
-  'components/pro/design/DocumentsSection.svelte',
-  // The one resolution of the document the documents, the drawings and the listings places share:
-  // the UI's call to the store moved there when the drawings and the listings got places of their own.
-  'lib/store/current-document.ts',
-];
+/** The one resolution of the document the drawings share. */
+const UI_FILES = ['lib/store/current-document.ts'];
 const EXCEL = 'lib/export/excel.ts';
 
 function ui() { return UI_FILES.map(read).join('\n'); }
-
-/**
- * The EXPORT LAYER: the controls, plus the module that writes the files.
- *
- * Third repointing of the same claim, and the note on `STORE_LAYER` states the rule it follows:
- * "the claim being tested never was 'this file contains that call'". Here the claim is *a visible
- * control reaches the real renderer*, and F4 put one module between the two — `DocumentsSection`
- * crossed its 600-line ceiling when the scope selector and the previews landed, so the three
- * writers left for `document-exports.ts` the way `rebar-open.ts` left before them.
- *
- * The markup assertions below still read `ui()` alone: a button lives in a component, and a gate
- * that looked for `data-testid` in a `.ts` file would have stopped measuring anything.
- */
-const EXPORT_LAYER = [...UI_FILES, 'lib/store/document-exports.ts'];
-
-function exportLayer() { return EXPORT_LAYER.map(read).join('\n'); }
 
 describe('the DocumentModel has a production caller', () => {
   it('the store builds it', () => {
@@ -108,32 +79,6 @@ describe('the DocumentModel has a production caller', () => {
   });
 });
 
-describe('each renderer is reached from a visible control', () => {
-  const paths: Array<[string, string]> = [
-    ['renderReportHtml', 'doc-report'],
-    ['renderDrawings', 'doc-dxf'],
-    ['renderSchedule', 'doc-xlsx'],
-  ];
-
-  for (const [fn, testid] of paths) {
-    it(`${fn} is imported and bound to ${testid}`, () => {
-      expect(exportLayer(), `${fn} is not imported`).toContain(fn);
-      expect(ui(), `no button carries ${testid}`).toContain(`data-testid="${testid}"`);
-    });
-  }
-
-  it('the buttons have onclick handlers, not just markup', () => {
-    const u = ui();
-    for (const [, id] of paths) {
-      const idx = u.indexOf(`data-testid="${id}"`);
-      expect(idx, id).toBeGreaterThan(-1);
-      // The handler is on the same element.
-      const tag = u.slice(idx, idx + 200);
-      expect(tag, `${id} has no onclick`).toMatch(/onclick=\{/);
-    }
-  });
-});
-
 describe('the underlying drawing and schedule primitives are still used', () => {
   const render = read('lib/engine/detailing/document-render.ts');
 
@@ -143,14 +88,6 @@ describe('the underlying drawing and schedule primitives are still used', () => 
     });
   }
 
-  it('exportToExcel is the XLSX writer — no second one was introduced', () => {
-    const u = exportLayer();
-    expect(u).toContain('exportToExcel');
-    // A duplicate writer would import the XLSX library directly.
-    expect(u).not.toContain('from \'xlsx\'');
-    expect(read('lib/engine/detailing/document-render.ts')).not.toContain('from \'xlsx\'');
-  });
-
   it('exportToExcel accepts the document sheets instead of rebuilding them', () => {
     expect(read(EXCEL)).toContain('extraSheets');
     expect(read(EXCEL)).toContain('onlyExtras');
@@ -159,49 +96,11 @@ describe('the underlying drawing and schedule primitives are still used', () => 
 
 describe('the visible path does not go through a test hook', () => {
   it('no __stabileoActions anywhere in the document flow', () => {
-    for (const f of [STORE, ...EXPORT_LAYER, 'lib/engine/detailing/document-render.ts']) {
+    for (const f of [STORE, ...UI_FILES, 'lib/engine/detailing/document-render.ts']) {
       expect(read(f), f).not.toContain('__stabileoActions');
     }
   });
 
-  it('the UI reads the store’s document, so state is real and persisted', () => {
-    const u = ui();
-    expect(u).toContain('detailingStore.document');
-    expect(u).toContain('detailingStore.supersededDocuments');
-  });
-});
-
-describe('all three exports consume one model instance', () => {
-  /*
-   * ── Why this is measured differently now ──────────────────────────
-   *
-   * It counted `currentDoc()` call sites and wanted three or more, one per handler. F4 gave the
-   * three buttons a single route — `runExport`, which builds once and hands the document to a
-   * writer — so the old count fell to one while the property it was protecting got STRONGER: the
-   * builder is now reachable from exactly one place, and the writers cannot build at all.
-   *
-   * So the property is asserted where it now lives: one builder in the layer, three handlers
-   * through the one route, and a writer module that never touches `buildDocument`. Counting a
-   * call that a refactor consolidated would have been a gate measuring the old shape.
-   */
-  it('one builder, and every handler routes through it', () => {
-    const u = exportLayer();
-    const builders = u.match(/detailingStore\.buildDocument/g) ?? [];
-    expect(builders, 'building per button would let a report and a drawing disagree')
-      .toHaveLength(1);
-    const routed = u.match(/runExport\(/g) ?? [];
-    expect(routed.length, 'the three exports, plus the definition').toBeGreaterThanOrEqual(4);
-  });
-
-  it('the writers are handed a document and cannot build one', () => {
-    const w = read('lib/store/document-exports.ts');
-    expect(w).not.toContain('buildDocument');
-    expect(w).not.toContain('buildDocumentModel');
-    // Each takes the instance as its first argument, so all three describe the same revision.
-    for (const fn of ['exportDetailingReport', 'exportDetailingDxf', 'exportDetailingXlsx']) {
-      expect(w).toMatch(new RegExp(`function ${fn}\\(doc: DocumentModel`));
-    }
-  });
 });
 
 describe('supersession has a production caller', () => {
@@ -228,7 +127,4 @@ describe('the legacy reinforcement may not stand in for coordinated detailing', 
     expect(body).toMatch(/assemblies\.length === 0\)\s*return null/);
   });
 
-  it('the UI says so instead of showing something else', () => {
-    expect(ui()).toContain('detailing.doc.noCoordinated');
-  });
 });

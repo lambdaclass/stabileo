@@ -17,9 +17,7 @@
   import RcRegenerationWarning from '../design/RcRegenerationWarning.svelte';
   import StaleLinesNotice from './frame/StaleLinesNotice.svelte';
   import { t, tp } from '../../../lib/i18n';
-  import { modelStore, resultsStore } from '../../../lib/store';
-  import { materialFamilyOf } from '../../../lib/engine/steel/material-family';
-  import { catalogueGradeFamily } from '../../../lib/engine/steel/grade-family';
+  import { resultsStore } from '../../../lib/store';
   import { deskUi, stepOf, type DeskStep, type DeskTab } from '../../../lib/store/design-desk-ui.svelte';
   import { designRunStore } from '../../../lib/store/design-run.svelte';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
@@ -45,13 +43,6 @@
   } = $props();
 
   const solved = $derived(!!resultsStore.results3D);
-  /** Whether the model holds a concrete member: detailing is a step only for concrete. */
-  function hasConcrete(): boolean {
-    for (const e of modelStore.elements.values()) {
-      if (materialFamilyOf(modelStore.materials.get(e.materialId) as never, catalogueGradeFamily).family === 'concrete') return true;
-    }
-    return false;
-  }
   const step = $derived(stepOf(place));
   const steps = $derived.by(() => {
     void verificationStore.providedRevision; void detailingStore.assemblies; void detailingStore.document;
@@ -61,10 +52,10 @@
       else if (r.status === 'stale') size.stale++;
       else if (r.status === 'unavailable') size.unchecked++;
     }
-    return designSteps(currentRcReadings(), size, { hasConcrete: hasConcrete() });
+    return designSteps(currentRcReadings(), size);
   });
   /** Where each step lands: the place it was last on, else its first. */
-  const HOME: Record<DeskStep, DeskTab> = { prepare: 'prepare', size: 'plan', detail: 'detailing', document: 'sheets' };
+  const HOME: Record<DeskStep, DeskTab> = { prepare: 'prepare', size: 'plan', document: 'sheets' };
   const lastOf = $state<Partial<Record<DeskStep, DeskTab>>>({});
   $effect(() => { const s = stepOf(deskUi.tab); if (s) lastOf[s] = deskUi.tab; });
 
@@ -121,13 +112,8 @@
       <label class="dp-tol" title={t('desk.frameTolHint')}>{t('desk.frameTol')}<input type="number" min="0" max="500" step="5" value={frameTolerance()} onchange={(e) => patchOwnDesignData({ frameToleranceMm: Math.max(0, Math.min(500, Number(e.currentTarget.value) || 0)) })} data-testid="desk-frame-tol" /> mm</label>
       {#if framesNote}<span class="dp-note" role="status" data-testid="desk-frames-note">{tp('desk.framesEqualized', framesNote)}</span>{/if}
     {/if}
-    <!--
-      Detailing follows sizing and precedes the documents, so its command stands in all three: the
-      next thing to do after a design, the thing itself while detailing, and what brings the
-      documents up to date. One button, the same action wherever it shows.
-    -->
-    {#if step === 'size' || step === 'detail' || step === 'document'}
-      <button class:dp-primary={step === 'detail'} data-testid="cmd-generate-detailing" onclick={rcGenerateDetailing}
+    {#if step === 'size' || step === 'document'}
+      <button data-testid="cmd-generate-detailing" onclick={rcGenerateDetailing}
         disabled={!detailReady.ready || detailingStore.generating || designRunStore.running}
         title={detailReady.ready ? '' : detailBlockers}
       >{detailingStore.generating ? t('detailing.cmd.generating') : hasDetailing ? t('detailing.cmd.regenerate') : t('detailing.cmd.generate')}</button>

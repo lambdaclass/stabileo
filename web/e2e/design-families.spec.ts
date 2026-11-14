@@ -150,15 +150,4 @@ test.describe('the family selector drives the whole run', () => {
       await expect(page.getByTestId('design-result-beam'),
         'beam exists, was not ticked, and is reported').toContainText(/omitida|skipped/);
     });
-
-  test('the 3-D view is one click from the result', async ({ pro: page }) => {
-    test.setTimeout(240_000);
-    await ready(page, 'rc-qa-diagnostic');
-    await runSize(page);
-    const view = page.getByTestId('design-result-view-3d');
-    await expect(view).toBeVisible();
-    await view.click();
-    // No second panel, no hunting: the workspace opens from where the numbers are.
-    await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-  });
 });

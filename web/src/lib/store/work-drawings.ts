@@ -20,7 +20,7 @@ import { columnShapeOf } from '../engine/design/shaped-column';
 import { columnStacks } from '../engine/design/column-stacks';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
-import { rcShapeForMark } from '../engine/detailing/bar-shape-diagram';
+import { rcShapeForMark } from '../rc-sheets/schedule/bar-shape-diagram';
 import { teAt } from '../i18n/engine-text';
 import type { DocumentModel } from '../engine/detailing/document-model';
 import type { DrawingInput } from '../sheets/compose';

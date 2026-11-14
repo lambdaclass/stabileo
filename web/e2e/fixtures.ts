@@ -57,34 +57,6 @@ export async function alSection(page: import('@playwright/test').Page, id: 'regu
   await page.getByTestId(`al-nav-${id}`).click();
 }
 
-/**
- * The bar and concrete families the 3-D scene batches by.
- *
- * Restated here rather than imported: `e2e/` is compiled by Playwright, not by the app's Vite
- * pipeline, and reaching into `src/lib/three` from a spec would drag Three.js into the test
- * process to read seven strings. `rebar-toggles.spec.ts` asserts that this list matches the
- * renderer's own, so a family added on one side cannot go unnoticed on the other.
- */
-export const SOLID_FAMILIES = [
-  'column', 'beam', 'joint', 'slab', 'wall', 'footing', 'pedestal',
-] as const;
-
-export type SolidFamily = typeof SOLID_FAMILIES[number];
-
-/** What the renderer is drawing right now, per family. See `rebarSceneCensus`. */
-export interface RebarSceneCensus {
-  /** Bars drawn, per family — plus `unknown` for steel no family could claim. */
-  bars: Record<SolidFamily | 'unknown', number>;
-  /** Concrete solids drawn, per family. */
-  solids: Record<SolidFamily, number>;
-  /** Conflict markers on screen. */
-  markers: number;
-  /** Triangles drawn, bars and concrete together. */
-  triangles: number;
-  /** Meshes a raycast would consider — what is selectable. */
-  pickable: number;
-}
-
 export interface TestHooks {
   version: number;
   solverReady(): boolean;
@@ -130,19 +102,6 @@ export interface TestHooks {
   orientationSuspectCount(): number;
   undoCount(): number;
   canvasInkRatio(): number;
-  /** How many times the 3-D viewport has built its tube geometry. */
-  rebarSceneBuilds(): number;
-  /**
-   * What the open 3-D workspace is DRAWING, per family. Null when none is open.
-   *
-   * Read off the meshes, not off the filter. The on-screen tally is the filter's own account of
-   * itself and was updating perfectly while every layer switch reached nothing.
-   */
-  rebarSceneCensus(): RebarSceneCensus | null;
-  /** Canvases in the page, of any kind. A layer switch must not add one. */
-  canvasCount(): number;
-  /** Scene-projection cache hits and misses. */
-  sceneCacheStats(): { hits: number; misses: number };
   /** Every autosave revision currently stored in IndexedDB, newest first. */
   autosaveRevisions(): Promise<Array<{ revision: number; timestamp: string; status: string }>>;
   /** The project as File → Save writes it, as JSON text. */
@@ -285,7 +244,6 @@ export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: '
   page: async ({ page, recheckNotice }, use) => {
     if (recheckNotice === 'acknowledge') {
       await page.addLocatorHandler(page.getByTestId('recheck-notice'), async () => {
-        await page.getByTestId('recheck-ack').check();
         await page.getByTestId('recheck-later').click();
       });
     }
@@ -618,22 +576,6 @@ export async function openBasicProjectPanel(page: Page): Promise<void> {
 export { expect };
 
 /**
- * Make sure the Documents stage is open before reaching a control inside it.
- *
- * ── Why this exists, and why it is a helper and not a UI change ────
- *
- * PR20 moved the report, the drawings, the schedule, the 3-D view and the professional review out
- * of the coordinated-detailing panel and into a stage of their own, collapsed by default like
- * every other stage. Fourteen specs reach `doc-3d`, `doc-report`, `doc-dxf`, `doc-xlsx` or the
- * review controls, and a collapsed `<details>` keeps its children in the DOM — so a locator
- * RESOLVES, reports the right element, and then waits forever for it to become visible. That is
- * the failure signature every one of them showed.
- *
- * The assertions are unchanged. What changed is which container holds the controls, and this is
- * the one line that says so. Opening the stage by default would have hidden the problem instead
- * of describing it, and would undo the point of making Documents a stage.
- */
-/**
  * The drawings place of design, its set laid out on arrival; `setup` also opens the set's
  * configuration (format, kinds, entries, display, title block, details), which folds below the
  * sheets there.
@@ -647,9 +589,11 @@ export async function openSheetsPlace(page: Page, opts: { setup?: boolean } = {}
   }
 }
 
-export async function openDocumentsStage(page: Page): Promise<void> {
-  if (await page.getByTestId('documents-stage').isVisible()) return;
-  await designPlace(page, 'documents');
+/** The steel workflow's documents stage, which holds the memoria, the sheets and the exchange. */
+export async function openSteelDocuments(page: Page): Promise<void> {
+  await designPlace(page, 'steel');
+  const stage = page.getByTestId('steel-stage-documents');
+  if (await stage.getAttribute('open') === null) await stage.locator('> summary').click();
 }
 
 /**
@@ -714,10 +658,7 @@ const PLACE: Record<string, { step: string; rail: string }> = {
   steel: { step: 'size', rail: 'desk-rail-steel' },
   connections: { step: 'size', rail: 'desk-rail-connections' },
   codes: { step: 'size', rail: 'desk-rail-codes' },
-  detailing: { step: 'detail', rail: 'desk-rail-detailing' },
-  documents: { step: 'document', rail: 'desk-rail-documents' },
   sheets: { step: 'document', rail: 'desk-rail-sheets' },
-  listings: { step: 'document', rail: 'desk-rail-listings' },
 };
 export type DesignPlace = keyof typeof PLACE | 'otherCodes' | 'foreignCodes';
 
@@ -757,21 +698,10 @@ export async function sizeAll(page: Page, o: { resize?: boolean } = {}): Promise
   await page.getByTestId('desk-run').click();
 }
 
-/** Generate the coordinated detailing, from the Detail step at the top of the Design stage. */
+/** Generate the coordinated detailing, from the Size step at the top of the Design stage. */
 export async function generateDetailing(page: Page): Promise<void> {
-  await designPlace(page, 'detailing');
+  await designPlace(page, 'list');
   await page.getByTestId('cmd-generate-detailing').click();
-}
-
-/**
- * Open the 3-D reinforcement view from where design is: the member list's toolbar holds
- * `cmd-open-3d`, the Detail step's rail `desk-rail-3d`; both are `openRebar3DView`.
- */
-export async function open3D(page: Page): Promise<void> {
-  const list = page.getByTestId('cmd-open-3d');
-  if (await list.isVisible()) { await list.click(); return; }
-  await designPlace(page, 'detailing');
-  await page.getByTestId('desk-rail-3d').click();
 }
 
 /** The floor pass (slabs, walls, foundations), a sub-step under the member list, opened. */
@@ -820,7 +750,6 @@ const DESK_MENU: Record<string, string> = {
 const PROJECT_SURFACES = ['budget', 'collab', 'arch', 'site'];
 export async function deskTab(page: Page, tab: string): Promise<void> {
   if (tab === 'codes') { await designPlace(page, 'foreignCodes'); return; }
-  if (tab === 'documents') { await designPlace(page, 'documents'); return; }
   if (PLACE[tab]) { await designPlace(page, tab as DesignPlace); return; }
   const target = page.getByTestId(`desk-tab-${tab}`);
   if (await target.isVisible()) { await target.click(); return; }
@@ -850,7 +779,7 @@ export const MORE_TOOLS = ['building', 'foundations', 'physical', 'generators'] 
  */
 const DESIGN_CMD: Record<string, DesignPlace> = {
   design: 'list', designList: 'list', designData: 'designData', designPrepare: 'prepare', steel: 'steel',
-  connections: 'connections', otherCodes: 'otherCodes', detailing: 'detailing', documents: 'documents',
+  connections: 'connections', otherCodes: 'otherCodes', sheets: 'sheets',
 };
 export async function ribbonCmd(page: Page, id: string): Promise<void> {
   if (DESIGN_CMD[id] && !(await page.getByTestId(`pr-cmd-${id}`).isVisible())) { await designPlace(page, DESIGN_CMD[id]!); return; }

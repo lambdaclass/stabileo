@@ -8,6 +8,8 @@ import { SLAB_FACES, type SlabRow } from './slab-row';
 import { wallLabel, type WallRow } from './wall-row';
 import type { CheckLine } from './types';
 import type { PunchingRow } from './punching-row';
+import type { BendingSchedule } from './schedule/schedule';
+import { scheduleSheet } from './schedule/exports';
 
 type Tr = (key: string) => string;
 const r2 = (v: number) => Math.round(v * 100) / 100;
@@ -15,7 +17,7 @@ const r3 = (v: number) => (Number.isFinite(v) ? Math.round(v * 1000) / 1000 : 'â
 const cm = (v: number) => Math.round(v * 100);
 const worst = (v: CheckLine[]) => Math.max(0, ...v.map((x) => x.ratio ?? 0));
 
-export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; punching?: PunchingRow[]; code: string }, tr: Tr): WorkbookSheet[] {
+export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; punching?: PunchingRow[]; code: string }, tr: Tr, bending?: BendingSchedule): WorkbookSheet[] {
   const head = [`${tr('rcSheets.code')}: ${rows.code}`];
   const state = (s: string) => tr(`rcSheets.status.${s}`);
   const name = tr('rcSheets.col.name'), level = tr('rcSheets.col.level'), status = tr('rcSheets.col.status'), ratio = tr('rcSheets.col.ratio'), req = tr('rcSheets.req');
@@ -72,5 +74,6 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     { name: tr('rcSheets.family.slab'), rows: slabs },
     { name: tr('rcSheets.family.wall'), rows: walls },
     ...((rows.punching ?? []).length ? [{ name: tr('rcSheets.family.punching'), rows: punch }] : []),
+    ...(bending?.rows.length ? [scheduleSheet(bending, tr, rows.code)] : []),
   ];
 }

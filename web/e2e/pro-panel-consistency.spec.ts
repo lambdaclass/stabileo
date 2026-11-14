@@ -28,7 +28,7 @@ import type { Page } from '@playwright/test';
  * the canvas under the viewer. The sweep walks each of them, on the same fresh project the column
  * was swept on, and reads the canvas (`.dd-canvas-body`) where it read the column (`.rc-workflow`).
  */
-const PLACES: DesignPlace[] = ['prepare', 'designData', 'list', 'detailing', 'documents'];
+const PLACES: DesignPlace[] = ['prepare', 'designData', 'list'];
 const ROOT = '.dd-canvas-body';
 
 /** Open every place in turn and run `fn` on each; the floor pass is opened in the list. */

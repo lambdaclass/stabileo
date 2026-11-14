@@ -264,9 +264,6 @@ describe('call-graph: no advertised capability is unreachable', () => {
       'lib/store/design-run.svelte.ts',
       'lib/engine/detailing/run-detailing.ts',
       'components/pro/design/DesignToolbar.svelte',
-      'components/pro/design/DetailingWorkflow.svelte',
-      // The exports and the review moved into a stage of their own.
-      'components/pro/design/DocumentsSection.svelte',
       'components/pro/design/DesignOverview.svelte',
       // The pipeline's actions, and the top of the Design stage where the step's command is pressed.
       'lib/flow/rc-commands.ts',
@@ -315,15 +312,5 @@ describe('call-graph: no advertised capability is unreachable', () => {
   it('a successful design run triggers detailing unless the project opted out', () => {
     const run = readFileSync(`${SRC}/lib/store/design-run.svelte.ts`, 'utf8');
     expect(run).toMatch(/autoGenerate[\s\S]{0,60}detailingStore\.generate\(\)/);
-  });
-
-  it('the empty state offers the command instead of describing one', () => {
-    // The detailing panel plus the Documents stage extracted from it.
-    const wf = [
-      readFileSync(`${SRC}/components/pro/design/DetailingWorkflow.svelte`, 'utf8'),
-      readFileSync(`${SRC}/components/pro/design/DocumentsSection.svelte`, 'utf8'),
-    ].join('\n');
-    expect(wf).toContain('detailing-empty-generate');
-    expect(wf).toContain('detailingStore.generate');
   });
 });

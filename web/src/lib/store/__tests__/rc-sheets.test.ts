@@ -12,6 +12,8 @@ import { ensurePhysicalModel } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 const modelEntryShells = (id: number) => modelStore.model.groups.get(id)!.members.quads?.length ?? 0;
 import { buildSheetRows, redesignerOf, setSheetCode, rcSheetsData, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
+import { barActsAt } from '../../rc-sheets/beam-line';
+import { bendAngles } from '../../rc-sheets/shape';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
 import { goToRow, resizeHints, lineResizeHint } from '../rc-sheets-resize';
 
@@ -174,7 +176,13 @@ describe('reinforcement sheets from a solved model', () => {
     expect(ln.status).toBe('ok');
     expect(ln.utilization).toBeLessThanOrEqual(1);
     const cont = ln.bars.filter((b) => b.kind === 'continuous');
-    expect(cont.map((b) => [b.from, b.to])).toEqual([[0, 10], [0, 10]]);
+    expect(ln.ends.start?.kind).toBe('column');
+    expect(ln.ends.end?.kind).toBe('column');
+    expect(ln.ends.from).toBeLessThan(-0.1);
+    expect(ln.ends.from).toBeGreaterThan(-0.2);
+    expect(ln.ends.to).toBeCloseTo(10 - ln.ends.from, 6);
+    expect(cont.map((b) => [b.from, b.to])).toEqual([[ln.ends.from, ln.ends.to], [ln.ends.from, ln.ends.to]]);
+    expect(ln.verifications.find((v) => v.label === 'rcSheets.v.lineEndAnchor')?.ok).toBe(true);
     const mid = ln.bars.find((b) => b.kind === 'support' && b.from < 5 && b.to > 5)!;
     expect(mid).toBeDefined();
     expect(mid.to - 5).toBeGreaterThan(0.6);
@@ -189,6 +197,71 @@ describe('reinforcement sheets from a solved model', () => {
     expect(cuts.map((x) => x.x).sort((p, q) => p - q)).toEqual([mid.from, mid.to]);
     expect(cuts.every((x) => x.legality !== 'illegal')).toBe(true);
     expect(ln.steps[0]!.steps.filter((x) => x.label === 'rcSheets.s.lineCutoff')).toHaveLength(ln.cutoffs.length);
+  });
+
+  it('stops the end bars inside the end columns, short of their outer bars, and hooks them there', () => {
+    frame(); solve();
+    const ln = buildSheetRows().line[0]!;
+    const half = ln.ends.start!.half;
+    expect(half).toBeCloseTo(0.2, 6);
+    const outer = half - ln.cover;
+    expect(-ln.ends.from).toBeLessThan(outer);
+    const topEnd = ln.bars.find((b) => b.face === 'top' && b.kind === 'continuous')!;
+    expect(topEnd.hooks).toEqual([true, true]);
+    expect(topEnd.length).toBeGreaterThan(ln.ends.to - ln.ends.from);
+  });
+
+  it('fails the end anchorage when the hook does not fit in a thin end column', () => {
+    frame();
+    const thin = modelStore.addSection({ name: '15×40', a: 0.06, iy: 0.4 * 0.15 ** 3 / 12, iz: 0.15 * 0.4 ** 3 / 12, j: 0.0003, b: 0.4, h: 0.15, shape: 'rect' } as never);
+    for (const e of modelStore.elements.values()) if (e.nodeI !== e.nodeJ && Math.abs((modelStore.nodes.get(e.nodeJ)!.z ?? 0) - (modelStore.nodes.get(e.nodeI)!.z ?? 0)) > 1) modelStore.updateElementSection(e.id, thin);
+    solve();
+    const ln = buildSheetRows().line[0]!;
+    const v = ln.verifications.find((x) => x.label === 'rcSheets.v.lineEndAnchor')!;
+    expect(ln.ends.start!.half).toBeLessThan(0.1);
+    expect(v.ok).toBe(false);
+    expect(v.ratio!).toBeGreaterThan(1);
+  });
+
+  it('lays out the exact reinforcement: span bars bent up over the supports carry the hogging moment and the line still verifies everywhere', () => {
+    frame();
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    const wide = modelStore.addSection({ name: '60×60', a: 0.36, iy: 0.6 ** 4 / 12, iz: 0.6 ** 4 / 12, j: 0.1406 * 0.6 ** 4, b: 0.6, h: 0.6, shape: 'rect' } as never);
+    for (const e of modelStore.elements.values()) {
+      const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
+      if (Math.abs((a.z ?? 0) - (b.z ?? 0)) < 1e-6) modelStore.addDistributedLoad3D(e.id, 0, 0, -60, -60, undefined, undefined, D);
+      else modelStore.updateElementSection(e.id, wide);
+    }
+    solve();
+    const straight = buildSheetRows().line[0]!;
+    setRcOption('bentBars', true);
+    const ln = buildSheetRows().line[0]!;
+    const bent = ln.bars.filter((b) => b.kind === 'bent');
+    expect(bent.length).toBeGreaterThan(0);
+    expect(ln.status).toBe('ok');
+    expect(ln.envelope.every((e) => e.pos <= e.phiPos + 1e-6 && e.neg <= e.phiNeg + 1e-6)).toBe(true);
+    for (const b of bent) {
+      expect(b.runs.map((r) => r.face)).toEqual(['top', 'bottom', 'top']);
+      const mid = (b.runs[1]!.from + b.runs[1]!.to) / 2;
+      expect(barActsAt(b, 'bottom', mid)).toBe(true);
+      expect(barActsAt(b, 'top', mid)).toBe(false);
+      expect(barActsAt(b, 'bottom', b.runs[0]!.to + 0.01)).toBe(false);
+      expect(bendAngles(b.shape).slice(-4, -2).every((t) => Math.abs(t - Math.PI / 4) < 1e-9 || Math.abs(t - Math.PI / 2) < 1e-9)).toBe(true);
+      expect(b.length).toBeGreaterThan(b.to - b.from);
+    }
+    const midTop = (l: typeof ln) => l.bars.filter((b) => b.kind === 'support' && b.from < 5 && b.to > 5).reduce((n, b) => n + b.bars.count, 0);
+    expect(midTop(ln)).toBeLessThan(midTop(straight));
+    expect(ln.adopted.bent?.some((g) => g.count > 0)).toBe(true);
+    expect(ln.steps[0]!.steps.some((x) => x.label === 'rcSheets.s.lineBent')).toBe(true);
+  });
+
+  it('gives the line its shear envelope against the stirrups of each zone', () => {
+    frame(); solve();
+    const ln = buildSheetRows().line[0]!;
+    expect(ln.shear.length).toBe(ln.envelope.length);
+    expect(ln.shear.every((s) => s.phiVn > 0)).toBe(true);
+    expect(Math.max(...ln.shear.map((s) => s.v))).toBeGreaterThan(50);
+    expect(ln.shear.every((s) => s.v <= s.phiVn + 1e-6)).toBe(true);
   });
 
   it('cuts a column per storey, with its clear height and the fixed foot\'s restraint', () => {
@@ -206,11 +279,29 @@ describe('reinforcement sheets from a solved model', () => {
     const rows = buildSheetRows();
     expect(rows.slab).toHaveLength(1);
     const s = rows.slab[0]!;
-    console.log('DBG', JSON.stringify(s.verifications.map((v) => [v.label, v.ok, v.demand, v.capacity])), rows.punching.length, rows.punching[0]?.status);
     expect(s.demand.m.bottomX.value).toBeGreaterThan(6);
     expect(s.demand.m.bottomX.value).toBeCloseTo(s.demand.m.bottomY.value, 6);
     expect(s.demand.m.topX.value).toBeGreaterThan(0);
     expect(s.demand.m.bottomX.value).toBeLessThan(0.0479 * 14 * 16 * 1.15);
+  });
+
+  it('lays out the slab of a level as one plan: bars that stop at the supported edges, and every other span bar bent up when asked', () => {
+    slab(); solve();
+    const plan = buildSheetRows().slabPlan;
+    expect(plan).toHaveLength(1);
+    const p = plan[0]!;
+    expect(p.panels).toHaveLength(1);
+    expect(p.panels[0]!.rect).toEqual({ x0: 0, x1: 4, y0: 0, y1: 4 });
+    expect(p.supports.filter((s) => s.kind === 'wall')).toHaveLength(4);
+    expect(p.packages.filter((pk) => pk.layer === 'bottom').map((pk) => [pk.dir, pk.kind])).toEqual([['x', 'span'], ['y', 'span']]);
+    expect(p.checks.every((c) => c.provided >= c.required - 1e-6)).toBe(true);
+    expect(p.bent).toBe(false);
+    setRcOption('slabBentBars', true);
+    expect(rcSheetsData().slabBentBars).toBe(true);
+    const bent = buildSheetRows().slabPlan[0]!;
+    expect(bent.bent).toBe(true);
+    expect(bent.packages.filter((pk) => pk.kind === 'bent').map((pk) => pk.dir).sort()).toEqual(['x', 'y']);
+    expect(bent.checks.every((c) => c.provided >= c.required - 1e-6)).toBe(true);
   });
 
   it('keeps the adopted bars of a continuous beam in the project and reads them back after a reload', () => {

@@ -87,9 +87,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'desk.tab.plan',
   'despiece.basisGlobal',
   'despiece.basisGlobalShort',
-  'detailing.revision',
   'detailing.schedule.diameter',
-  'detailing.shape.hookPair',
   'diag.source.model',
   'direct.dir.+X',
   'direct.dir.+Y',
@@ -386,4 +384,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'xls.col.supportType',
   'rcSheets.slabFig.plan',
   'rcSheets.exportShort',
+  'rcSheets.bbs.csv',
+  'rcSheets.bbs.bvbs',
 ];

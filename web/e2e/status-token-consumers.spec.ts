@@ -20,7 +20,7 @@
  * and the rule now come from one hue instead of two.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
+import { test, expect, designAll, loadModel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 720 } });
@@ -239,77 +239,3 @@ test.describe('@slow the toolbar banners and counts', () => {
     });
   });
 });
-
-/**
- * The provisional banner, on the model that raises it.
- *
- * `rc-qa-diagnostic` shows it — `rebar-toggles.spec.ts` depends on the same fact for its
- * worst-case rail test. Three languages because the banner is a full-width sentence whose length
- * changes per locale, and a band that wraps must not push the panel past 1280.
- */
-for (const locale of ['en', 'es', 'pt'] as const) {
-  test.describe(`@slow the provisional banner in ${locale}`, () => {
-    test.slow();
-    test.use({ appLocale: locale, viewport: { width: 1280, height: 720 } });
-
-    test('it paints from the three provisional tokens and holds its width',
-      async ({ pro: page }) => {
-        await loadModel(page, 'rc-qa-diagnostic');
-        await designAll(page);
-        await designPlace(page, 'detailing');
-        const generate = page.getByTestId('cmd-generate-detailing');
-        await expect(generate).toBeEnabled();
-        await generate.click();
-        await expect
-          .poll(() => page.evaluate(() =>
-            (window.__stabileo as unknown as { detailingAssemblies(): unknown[] })
-              .detailingAssemblies().length), { timeout: 60_000 })
-          .toBeGreaterThan(0);
-
-        /*
-         * Into the workspace. `ProvisionalBanner` renders inside `RebarWorkspace`, not in the
-         * design panel — generating the detailing is necessary and not sufficient, and the first
-         * version of this waited a minute for an element that was never going to be mounted.
-         * Waited on the BUILD COUNTER: the overlay paints before its geometry exists.
-         */
-        const before = await page.evaluate(() =>
-          (window.__stabileo as unknown as { rebarSceneBuilds(): number }).rebarSceneBuilds());
-        await openDocumentsStage(page);
-        await page.getByTestId('doc-3d').click();
-        await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-        await expect
-          .poll(() => page.evaluate(() =>
-            (window.__stabileo as unknown as { rebarSceneBuilds(): number }).rebarSceneBuilds()),
-            { timeout: 120_000 })
-          .toBeGreaterThan(before);
-
-        const banner = page.getByTestId('rebar-provisional-banner');
-        await expect(banner, 'this model must raise the provisional banner')
-          .toBeVisible({ timeout: 60_000 });
-
-        const [bg, border, text, provText] = await Promise.all([
-          tokenOn(banner, page, '--st-provisional-bg'),
-          tokenOn(banner, page, '--st-provisional'),
-          tokenOn(banner, page, '--st-text'),
-          tokenOn(banner, page, '--st-provisional-text'),
-        ]);
-        expect(await bgOf(banner)).toBe(bg);
-        expect(await banner.evaluate((el) => getComputedStyle(el).borderBottomColor)).toBe(border);
-        // The sentence at full contrast, the emphasis carrying the state.
-        expect(await banner.evaluate((el) => getComputedStyle(el).color)).toBe(text);
-        const strong = banner.locator('strong').first();
-        if (await strong.count()) {
-          expect(await strong.evaluate((el) => getComputedStyle(el).color)).toBe(provText);
-        }
-        // `#e2d3f5` was the body colour. Nearly white, and nearly `--st-text`.
-        expect(await banner.evaluate((el) => getComputedStyle(el).color))
-          .not.toBe(await resolve(page, '#e2d3f5'));
-
-        // A longer sentence must wrap, not widen.
-        const box = await banner.evaluate(
-          (el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
-        expect(box.scroll, `the banner fits at 1280 in ${locale}`)
-          .toBeLessThanOrEqual(box.client + 1);
-      });
-  });
-}

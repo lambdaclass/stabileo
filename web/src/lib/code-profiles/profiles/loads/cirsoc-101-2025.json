@@ -1,0 +1,83 @@
+{
+  "meta": {
+    "schema": 1,
+    "id": "cirsoc-101-2025",
+    "role": "loads",
+    "title": "CIRSOC 101-2025",
+    "edition": "2025",
+    "revision": 1,
+    "country": "AR",
+    "maturity": "provisional",
+    "maintainers": [],
+    "sources": [
+      {"id": "cirsoc-101", "title": "CIRSOC 101-2025, cargas y sobrecargas gravitatorias", "edition": "2025"}
+    ],
+    "notes": ["Tabla 4.1 transcribed cell by cell from the normative column (Julio 2025, pp. 78-95). Rows that only refer to another article carry \"see\" and no value; specialised occupancies are left out, and the user types their value."]
+  },
+  "imposed": {
+    "occupancies": {
+      "units": {"q": "kN/m2", "Q": "kN"},
+      "cite": [
+        {"clause": "Tabla 4.1", "label": "sobrecargas mínimas uniformemente distribuidas y concentradas"}
+      ],
+      "labelPrefix": "loads.occupancy.",
+      "rows": [
+        {"key": "archivos", "kind": "office", "q": 7},
+        {"key": "reunion_asientos_fijos", "kind": "assembly", "q": 3, "assembly": "publicAssembly"},
+        {"key": "reunion_vestibulos", "kind": "assembly", "q": 5, "assembly": "publicAssembly"},
+        {"key": "reunion_asientos_moviles", "kind": "assembly", "q": 5, "assembly": "publicAssembly"},
+        {"key": "reunion_plataformas", "kind": "assembly", "q": 5, "assembly": "publicAssembly"},
+        {"key": "reunion_escenarios", "kind": "assembly", "q": 7, "assembly": "publicAssembly"},
+        {"key": "reunion_proyeccion", "kind": "assembly", "q": 5, "assembly": "publicAssembly"},
+        {"key": "reunion_otras", "kind": "assembly", "q": 5, "assembly": "publicAssembly"},
+        {"key": "azotea_publica", "kind": "roof", "q": 5, "assembly": "publicAssembly"},
+        {"key": "azotea_privada", "kind": "roof", "q": 3},
+        {"key": "azotea_inaccesible", "kind": "roof", "q": 1},
+        {"key": "balcon_vivienda", "kind": "residential", "q": 5},
+        {"key": "balcon_casa_pequena", "kind": "residential", "q": 3},
+        {"key": "balcon_otros", "kind": "residential", "q": null, "see": "4.11"},
+        {"key": "bano_vivienda", "kind": "residential", "q": 2},
+        {"key": "bano_otros", "kind": "other", "q": 3},
+        {"key": "biblioteca_lectura", "kind": "education", "q": 3, "Q": 4.5},
+        {"key": "biblioteca_deposito", "kind": "education", "q": 7, "Q": 4.5, "noReduction": true},
+        {"key": "biblioteca_pasillos_sup", "kind": "circulation", "q": 4, "Q": 4.5},
+        {"key": "biblioteca_pasillos_pb", "kind": "circulation", "q": 5, "Q": 4.5},
+        {"key": "cielorraso_liviano", "kind": "storage", "q": 1},
+        {"key": "cielorraso_ocasional", "kind": "storage", "q": 0.5},
+        {"key": "cielorraso_mantenimiento", "kind": "other", "q": null, "Q": 1},
+        {"key": "cocina_vivienda", "kind": "residential", "q": 2},
+        {"key": "cocina_otros", "kind": "other", "q": 4},
+        {"key": "comercio_minorista_pb", "kind": "commercial", "q": 5, "Q": 4.5},
+        {"key": "comercio_minorista_sup", "kind": "commercial", "q": 4, "Q": 4.5},
+        {"key": "comercio_mayorista", "kind": "commercial", "q": 6, "Q": 4.5, "noReduction": true},
+        {"key": "cuarto_maquinas", "kind": "industrial", "q": 7.5},
+        {"key": "cubierta_usual", "kind": "roof", "q": 1},
+        {"key": "cubierta_jardin", "kind": "roof", "q": 5},
+        {"key": "cubierta_toldos", "kind": "roof", "q": 0.25, "noReduction": true, "see": "no reducible"},
+        {"key": "cubierta_cerramiento", "kind": "roof", "q": 0.25, "Q": 1, "noReduction": true, "see": "no reducible"},
+        {"key": "cubierta_otras", "kind": "roof", "q": 1},
+        {"key": "deposito_liviano", "kind": "storage", "q": 6, "noReduction": true},
+        {"key": "deposito_pesado", "kind": "storage", "q": 12, "noReduction": true, "see": "4.13"},
+        {"key": "escalera_privada", "kind": "circulation", "q": 2},
+        {"key": "escalera_otros", "kind": "circulation", "q": 5},
+        {"key": "escotillas", "kind": "other", "q": null, "Q": 1},
+        {"key": "escuela_aulas", "kind": "education", "q": 3, "Q": 4.5},
+        {"key": "escuela_pasillos_sup", "kind": "circulation", "q": 4, "Q": 4.5},
+        {"key": "escuela_pasillos_pb", "kind": "circulation", "q": 5, "Q": 4.5},
+        {"key": "entrepiso_liviano", "kind": "other", "q": null, "Q": 1},
+        {"key": "garaje_autos", "kind": "parking", "q": 2, "assembly": "passengerGarage", "note": "Tabla 4.1 prints 2 kN/m2 and art. 4.10.1 repeats it; 2.5 is the 2005 edition's value."},
+        {"key": "garaje_camiones", "kind": "parking", "q": null, "assembly": "truckGarage", "see": "4.10.3"},
+        {"key": "hospital_habitaciones", "kind": "health", "q": 2, "Q": 4.5},
+        {"key": "hospital_quirofanos", "kind": "health", "q": 3, "Q": 4.5},
+        {"key": "hospital_corredores", "kind": "circulation", "q": 4, "Q": 4.5},
+        {"key": "oficina", "kind": "office", "q": 2.5, "Q": 9},
+        {"key": "oficina_corredores_sup", "kind": "circulation", "q": 4, "Q": 9},
+        {"key": "oficina_corredores_pb", "kind": "circulation", "q": 5, "Q": 9},
+        {"key": "vivienda", "kind": "residential", "q": 2},
+        {"key": "vivienda_dormitorio", "kind": "residential", "q": 2},
+        {"key": "fabrica_liviana", "kind": "industrial", "q": 6, "Q": 9, "noReduction": true, "see": "4.12.1"},
+        {"key": "fabrica_pesada", "kind": "industrial", "q": 12, "Q": 14, "noReduction": true, "see": "4.12.1"}
+      ]
+    }
+  }
+}

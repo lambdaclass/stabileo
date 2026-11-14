@@ -99,20 +99,7 @@ describe('the two that do not arm, and why', () => {
   });
 });
 
-describe('the viewer keeps one implementation', () => {
-  /*
-   * `openRebar3D` is already the single function behind four entry points. This module
-   * re-exposes it rather than re-implementing it, and the check is on the source because the
-   * failure mode is a second implementation being written, not a call that fails today.
-   */
-  it('passes through to rebar-open and builds no viewer of its own', () => {
-    const here = dirname(fileURLToPath(import.meta.url));
-    const src = readFileSync(resolve(here, '../rc-commands.ts'), 'utf8');
-    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    expect(code).toMatch(/from '\.\.\/store\/rebar-open'/);
-    expect(code, 'no scene or workspace is built here')
-      .not.toMatch(/rebarWorkspace|RebarScene|buildScene/);
-  });
+describe('the commands module', () => {
 
   /* The clock comes from the caller, the rule the detailing store states about itself. */
   it('never reads a clock', () => {

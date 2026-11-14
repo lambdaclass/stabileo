@@ -323,7 +323,7 @@ it.each(['quota', 'overwrite guard'])('downloads and restores all unsaved projec
   expect(saveWorkspaceToLocalStorage()).toBe(false);
   const html = render(RecheckNotice).body;
   expect(html).toContain('data-testid="recheck-backup"');
-  expect(html).toMatch(/<input[^>]*disabled[^>]*data-testid="recheck-ack"/);
+  expect(html).toMatch(/<button[^>]*disabled[^>]*data-testid="recheck-later"/);
   let blob!: Blob;
   const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(b => { blob = b as Blob; return 'blob:backup'; });
   const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});

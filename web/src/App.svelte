@@ -6,6 +6,8 @@
   import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
   import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
   import MeshProgressCard from './components/pro/plates/MeshProgressCard.svelte';
+  import SolveProgressCard from './components/SolveProgressCard.svelte';
+  import { solveProgress } from './lib/store/solve-progress.svelte';
   import RcSheetsProgressCard from './components/pro/rc-sheets/RcSheetsProgressCard.svelte';
   import { sheetsProgress } from './lib/store/rc-sheets-progress.svelte';
   import { meshProgress } from './lib/store/mesh-progress.svelte';
@@ -339,12 +341,10 @@
   import { OPEN_PANEL_EVENT } from './lib/tool-keys';
   import Icon from './components/ribbon/Icon.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
-  import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
   import DesignDesk from './components/pro/desk/DesignDesk.svelte';
   import { deskUi, deskLayout } from './lib/store/design-desk-ui.svelte';
   import { isDesignTab, syncDeskWithTab, syncTabWithDesk } from './lib/pro/design-navigation';
   import { askDesignForLink, enableDesignForLink, announceDesignOn } from './lib/store/design-presence';
-  import { rebarWorkspace } from './lib/store/rebar-workspace.svelte';
   /** Design docks beside the viewer on a desktop PRO screen; elsewhere it is a full-screen sheet. */
   const deskDocked = $derived(uiStore.appMode === 'pro' && !uiStore.isMobile);
   /*
@@ -360,15 +360,14 @@
     untrack(() => { if (uiStore.appMode === 'pro') syncTabWithDesk(open); });
   });
   /*
-   * Design switched off in PRO's settings (or restored off from storage): its desk, its 3-D
-   * reinforcement workspace and its verification colouring go, and a design view goes back to the
+   * Design switched off in PRO's settings (or restored off from storage): its desk and its
+   * verification colouring go, and a design view goes back to the
    * model. What the project holds of design stays as it was.
    */
   $effect(() => {
     if (uiStore.designInPro) return;
     untrack(() => {
       if (deskUi.open) deskUi.open = false;
-      if (rebarWorkspace.open) rebarWorkspace.close();
       if (uiStore.appMode === 'pro') syncDeskWithTab(uiStore.proActiveTab);
     });
   });
@@ -1348,8 +1347,7 @@
     const root = document.documentElement;
     const el = mainAreaEl;
     const docked = deskDocked && deskUi.open;
-    // The 3-D reinforcement view covers the viewer: the toasts go back to the window's corner.
-    if (uiStore.appMode !== 'pro' || !el || rebarWorkspace.open) {
+    if (uiStore.appMode !== 'pro' || !el) {
       root.style.removeProperty('--st-toast-right');
       root.style.removeProperty('--st-toast-bottom');
       return;
@@ -2287,23 +2285,15 @@
 <MaterialEditor />
 <SectionEditor />
 
-<!--
-  The 3-D reinforcement workspace.
-
-  Mounted HERE, at the root, and not inside the PRO sidebar where its launcher lives. The
-  sidebar is `aside.pro-sidebar` with a fixed pixel width, so anything nested in it is capped
-  by that width no matter what it asks for — which is the entire reason the viewer was a few
-  hundred pixels wide. An overlay at this level is bounded by the window instead.
-
-  It renders nothing at all until opened, and its state lives in `rebarWorkspace`, so opening
-  and closing costs the model nothing.
--->
-<RebarWorkspace />
 {#if !deskDocked}<DesignDesk />{/if}
+
+{#if solveProgress.now}
+  <div class="solve-progress-dock" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}><SolveProgressCard /></div>
+{/if}
 
 {#if uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
-    <MeshProgressCard />
+    {#if !(solveProgress.now && solveProgress.now.phase === 'mesh')}<MeshProgressCard />{/if}
     <RcSheetsProgressCard />
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
@@ -3286,6 +3276,16 @@
     flex: 1 1 0;
     min-height: 44px;
     min-width: 0;
+  }
+
+  /* The solve's own place, apart from the toasts: stacked with them it pushed them up over the panels' buttons. */
+  .solve-progress-dock {
+    position: fixed;
+    bottom: var(--st-toast-bottom, 46px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1100;
+    pointer-events: none;
   }
 
   .toast-container {

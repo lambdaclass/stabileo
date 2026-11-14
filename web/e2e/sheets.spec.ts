@@ -4,7 +4,7 @@
  * language switched, and both downloads recorded in the export log. The composition, the formats
  * and the three writers are pinned in `lib/sheets/__tests__/sheets.test.ts`.
  */
-import { test, expect, designAll, loadModel, openDocumentsStage, solveModel, designPlace, openSheetsPlace } from './fixtures';
+import { test, expect, designAll, loadModel, solveModel, designPlace, openSheetsPlace } from './fixtures';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -13,8 +13,7 @@ test.describe('@slow sheets', () => {
   test('the drawings on numbered sheets, revised, in another language, downloaded', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    await designPlace(page, 'detailing');
-    const d = page.getByTestId('desk-detailing');
+    await designPlace(page, 'list');
     await page.getByTestId('cmd-generate-detailing').click();
     await expect.poll(async () => page.evaluate(() =>
       (window.__stabileo as unknown as { detailingAssemblies(): unknown[] })

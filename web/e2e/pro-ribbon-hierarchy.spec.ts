@@ -97,10 +97,10 @@ test.describe('@smoke Model — Organize, Draw, the tools on demand, and Code on
 /*
  * ── Design: the ribbon draws no groups; the desk's rail holds the places ──
  *
- * Interface A: the Design stage is one workspace, and its top row is the desk's four steps
+ * Interface A: the Design stage is one workspace, and its top row is the desk's three steps
  * (`DeskProcessBar`), not seven commands. The placement claims these blocks made of the ribbon's
  * Design groups are claims about the rail now: concrete and steel are two sub-sections of sizing,
- * concrete first, each place once, and the 3-D view says what it waits on.
+ * concrete first, each place once.
  */
 const railSection = (page: Page, testid: string) =>
   page.getByTestId(testid).evaluate((el) => {
@@ -141,37 +141,6 @@ test.describe('@smoke Design — Concrete and Steel are two sub-sections of sizi
   });
 });
 
-test.describe('@smoke Design — the 3-D reinforcement is gated, and says what is missing', () => {
-  test('is disabled on a fresh model', async ({ pro: page }) => {
-    await designPlace(page, 'detailing');
-    await expect(page.getByTestId('desk-rail-3d')).toBeDisabled();
-  });
-
-  test('names the steps, in text a screen reader reaches', async ({ pro: page }) => {
-    await designPlace(page, 'detailing');
-    const btn = page.getByTestId('desk-rail-3d');
-    expect(await btn.getAttribute('aria-describedby')).toBeTruthy();
-    const why = page.getByTestId('desk-rail-3d-why');
-    await expect(why).toContainText(/missing/i);
-    await expect(why).toContainText(/solve the model/i);
-    await expect(why).toContainText(/design the reinforcement/i);
-    await expect(why).toContainText(/generate the detailing/i);
-  });
-
-  test('the tooltip carries the same reason, so neither can go stale', async ({ pro: page }) => {
-    await designPlace(page, 'detailing');
-    const title = await page.getByTestId('desk-rail-3d').getAttribute('title');
-    expect(title).toMatch(/missing/i);
-    expect(title).toMatch(/generate the detailing/i);
-  });
-
-  test('refuses rather than running the design by itself', async ({ pro: page }) => {
-    await designPlace(page, 'detailing');
-    await expect(page.getByTestId('desk-rail-3d')).toBeDisabled();
-    await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
-  });
-});
-
 /**
  * The names, in the languages the picker offers.
  *
@@ -180,8 +149,8 @@ test.describe('@smoke Design — the 3-D reinforcement is gated, and says what i
  * Portuguese is a section a Portuguese user cannot navigate.
  */
 for (const [locale, words] of [
-  ['es', { generators: /^dibujar$/i, more: /^m.s herramientas$/i, button: /^generadores$/i, concrete: /hormig/i, steel: /^acero$/i, list: /^lista$/i, detail: /^armaduras 3d$/i, profiles: /^perfiles$/i, joints: /^uniones met.licas$/i }],
-  ['pt', { generators: /^desenhar$/i, more: /^mais ferramentas$/i, button: /^geradores$/i, concrete: /concreto/i, steel: /^a.o$/i, list: /^lista$/i, detail: /^armaduras 3d$/i, profiles: /^perfis$/i, joints: /^liga..es met.licas$/i }],
+  ['es', { generators: /^dibujar$/i, more: /^m.s herramientas$/i, button: /^generadores$/i, concrete: /hormig/i, steel: /^acero$/i, list: /^lista$/i, profiles: /^perfiles$/i, joints: /^uniones met.licas$/i }],
+  ['pt', { generators: /^desenhar$/i, more: /^mais ferramentas$/i, button: /^geradores$/i, concrete: /concreto/i, steel: /^a.o$/i, list: /^lista$/i, profiles: /^perfis$/i, joints: /^liga..es met.licas$/i }],
 ] as const) {
   test.describe(`the hierarchy keeps its names in ${locale}`, () => {
     test.use({ appLocale: locale });
@@ -201,8 +170,6 @@ for (const [locale, words] of [
       await expect(page.getByTestId('desk-rail-list')).toHaveText(words.list);
       await expect(page.getByTestId('desk-rail-steel')).toHaveText(words.profiles);
       await expect(page.getByTestId('desk-rail-connections')).toHaveText(words.joints);
-      await page.getByTestId('desk-step-detail').click();
-      await expect(page.getByTestId('desk-rail-3d')).toHaveText(words.detail);
     });
   });
 }

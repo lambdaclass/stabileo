@@ -1,5 +1,8 @@
 import { EC2_RECOMMENDED, EC2_UK, ec2Material, type Ec2Material, type Ec2Params } from '../../engine/design/eurocode/ec2-params';
 import { ec2Shear } from '../../engine/design/eurocode/ec2-beam';
+import { ec2SheetExtrasOf } from '../../code-profiles/adapters/ec2';
+import { rcProfile } from '../../code-profiles/registry';
+import type { BendRules } from '../shape';
 
 export interface Ec2Set {
   p: Ec2Params;
@@ -8,8 +11,8 @@ export interface Ec2Set {
   colBarMin: number;
 }
 
-export const EC2_SET: Ec2Set = { p: EC2_RECOMMENDED, uk: false, punchingMaxCoeff: 0.4, colBarMin: 8 };
-export const UK_SET: Ec2Set = { p: EC2_UK, uk: true, punchingMaxCoeff: 0.5, colBarMin: 12 };
+export const EC2_SET: Ec2Set = { p: EC2_RECOMMENDED, uk: false, ...ec2SheetExtrasOf(rcProfile(EC2_RECOMMENDED.code)) };
+export const UK_SET: Ec2Set = { p: EC2_UK, uk: true, ...ec2SheetExtrasOf(rcProfile(EC2_UK.code)) };
 
 export interface Mat extends Ec2Material { fck: number; fyk: number; ec2: number; es: number; fctd: number }
 
@@ -128,6 +131,14 @@ export const lapLength = (m: Mat, dia: number, good: boolean) => {
 export const hookAlpha = (cd: number, dia: number) => (cd > (3 * dia) / 1000 ? 0.7 : 1);
 
 export const mandrel = (dia: number) => (dia <= 16 ? 4 : 7) * dia;
+
+/** 8.3(2) Table 8.1N for every bar; past a bend 5φ (Figure 8.1); links 5φ ≥ 50 mm past a 135° hook, 10φ ≥ 70 mm past a 90° bend (Figure 8.5). */
+export const EC2_BENDS: BendRules = {
+  mandrel: (dia) => mandrel(dia) / 1000,
+  extension: (dia, angle, use) => (use === 'transverse' ? (angle === 135 ? Math.max(5 * dia, 50) : Math.max(10 * dia, 70)) : 5 * dia) / 1000,
+  crossTieHooks: [135, 135],
+  clause: '8.3, 8.4.1, 8.5',
+};
 
 const T72: ReadonlyArray<[number, number]> = [[160, 32], [200, 25], [240, 16], [280, 12], [320, 10], [360, 8], [400, 6], [450, 5]];
 const T73: ReadonlyArray<[number, number]> = [[160, 300], [200, 250], [240, 200], [280, 150], [320, 100], [360, 50]];

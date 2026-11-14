@@ -1,5 +1,5 @@
 /**
- * Interface A of the Design stage: one workspace, its four steps at the top and its places in the
+ * Interface A of the Design stage: one workspace, its three steps at the top and its places in the
  * rail, with the viewer on screen.
  *
  * Each test walks one entry the way a person does (press, see what it opens) and states what
@@ -27,12 +27,12 @@ async function steelPortal(page: Page): Promise<void> {
 const box = (page: Page, testid: string) => page.getByTestId(testid).boundingBox();
 
 test.describe('@smoke design is one workspace', () => {
-  test('entering Design shows the desk with its four steps, and no classic view or ribbon groups', async ({ pro: page }) => {
+  test('entering Design shows the desk with its three steps, and no classic view or ribbon groups', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
     await page.getByTestId('pr-stage-model').click();
     await openDeskStage(page);
-    for (const s of ['prepare', 'size', 'detail', 'document']) {
+    for (const s of ['prepare', 'size', 'document']) {
       await expect(page.getByTestId(`desk-step-${s}`)).toBeVisible();
       await expect(page.getByTestId(`desk-step-${s}`)).toHaveAttribute('data-state', /complete|current|pending|blocked|optional/);
     }
@@ -51,7 +51,7 @@ test.describe('@smoke design is one workspace', () => {
     const places: Array<[Parameters<typeof designPlace>[1], string]> = [
       ['prepare', 'desk-prepare'], ['designData', 'design-data-panel'], ['plan', 'desk-plan'],
       ['list', 'pro-design-tab'], ['steel', 'pro-steel-workflow'], ['connections', 'conn-experimental-banner'],
-      ['codes', 'desk-other-codes'], ['detailing', 'desk-detailing'], ['documents', 'desk-canvas'],
+      ['codes', 'desk-other-codes'], ['sheets', 'sheets-panel'],
     ];
     for (const [place, testid] of places) {
       await designPlace(page, place);
@@ -71,10 +71,10 @@ test.describe('@smoke design is one workspace', () => {
     const actions = page.getByTestId('desk-step-actions');
     await expect(actions).toHaveAttribute('data-step', 'size');
     await expect(actions.getByTestId('desk-design')).toBeVisible();
-    // The next step's command is there too, once: detailing follows sizing.
+    // The detailing command is there too, once.
     await expect(actions.getByTestId('cmd-generate-detailing')).toHaveCount(1);
-    await page.getByTestId('desk-step-detail').click();
-    await expect(actions).toHaveAttribute('data-step', 'detail');
+    await page.getByTestId('desk-step-document').click();
+    await expect(actions).toHaveAttribute('data-step', 'document');
     await expect(actions.getByTestId('cmd-generate-detailing')).toBeVisible();
     await expect(actions.getByTestId('desk-design')).toHaveCount(0);
   });
@@ -145,32 +145,6 @@ test.describe('@smoke one «Size…»', () => {
     expect(await page.evaluate((e) => JSON.stringify(window.__stabileo.reinforcement(e)), id)).toBe(before);
     await page.getByTestId('desk-run-cancel').click();
     await expect(page.getByTestId('desk-run-options')).toBeHidden();
-  });
-});
-
-test.describe('@smoke one 3-D reinforcement view', () => {
-  test('the rail, the piece sheet and the list toolbar open the same view, under the same name', async ({ pro: page }) => {
-    await loadModel(page, 'rc-design-qa-8');
-    await designAll(page);
-    await designPlace(page, 'detailing');
-    const gen = page.getByTestId('cmd-generate-detailing');
-    await expect(gen).toBeEnabled({ timeout: 45_000 });
-    await gen.click();
-    await expect.poll(() => page.evaluate(() => (window.__stabileo as unknown as { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 45_000 }).toBeGreaterThan(0);
-    const name = (await page.getByTestId('desk-rail-3d').innerText()).trim();
-    for (const open of [
-      async () => { await page.getByTestId('desk-step-detail').click(); await page.getByTestId('desk-rail-3d').click(); },
-      async () => { await page.locator('[data-testid^="desk-row-"]').first().click(); await page.getByTestId('desk-open-3d').click(); },
-      async () => { await designPlace(page, 'list'); await page.getByTestId('cmd-open-3d').click(); },
-    ]) {
-      await open();
-      await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(page.getByTestId('rebar-workspace')).toBeHidden();
-      await expect(page.getByTestId('design-desk')).toBeVisible();
-    }
-    await expect(page.getByTestId('desk-open-3d')).toHaveText(name);
-    await expect(page.getByTestId('cmd-open-3d')).toContainText(name);
   });
 });
 

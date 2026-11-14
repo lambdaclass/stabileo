@@ -26,7 +26,7 @@
   const rows = $derived(solved && hasPhysical ? sheetsRun.rows : null);
   const stale = $derived(sheetsStale());
   const torsion = $derived.by(() => { void modelStore.designData; return rcSheetsData().torsion; });
-  const options = $derived.by(() => { void modelStore.designData; const d = rcSheetsData(); return { faces: d.faces === true, flange: d.flange === true, seismic: d.seismic === true, endZones: designData().columnEndZones === true }; });
+  const options = $derived.by(() => { void modelStore.designData; const d = rcSheetsData(); return { faces: d.faces === true, flange: d.flange === true, seismic: d.seismic === true, bentBars: d.bentBars === true, slabBentBars: d.slabBentBars === true, endZones: designData().columnEndZones === true }; });
   const stat = (list: SheetRow[]) => ({ n: list.length, ok: list.filter((r) => r.status !== 'fail').length, fail: list.filter((r) => r.status === 'fail').length });
 
   function openAt(f: SheetFamily) { family = f; open = true; }
@@ -94,6 +94,8 @@
     </label>
     <label class="rcp-chk"><input type="checkbox" checked={options.faces} onchange={(e) => setRcOption('faces', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-faces" /> <span>{t('rcSheets.opt.faces')}</span></label>
     <label class="rcp-chk"><input type="checkbox" checked={options.flange} onchange={(e) => setRcOption('flange', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-flange" /> <span>{t('rcSheets.opt.flange')}</span></label>
+    <label class="rcp-chk"><input type="checkbox" checked={options.bentBars} onchange={(e) => setRcOption('bentBars', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-bent-bars" /> <span>{t('rcSheets.opt.bentBars')}</span></label>
+    <label class="rcp-chk"><input type="checkbox" checked={options.slabBentBars} onchange={(e) => setRcOption('slabBentBars', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-slab-bent-bars" /> <span>{t('rcSheets.opt.slabBentBars')}</span></label>
     <label class="rcp-chk"><input type="checkbox" checked={options.endZones} onchange={(e) => setColumnEndZones((e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-end-zones" /> <span>{t('rcSheets.opt.endZones')}</span></label>
     {#if rulesFor(code).seismic}<label class="rcp-chk"><input type="checkbox" checked={options.seismic} onchange={(e) => setRcOption('seismic', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-seismic" /> <span>{t('rcSheets.opt.seismic')}</span></label>{/if}
     <div class="rcp-actions">

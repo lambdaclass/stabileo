@@ -14,7 +14,7 @@
  * the project is read as it prints, and a held member reading an approval anywhere is a violation:
  *
  *   desk rows · display status (table, overview chips, viewport) · the labels' three-way status ·
- *   the viewport's colour and label · the rebar workspace's state · the overview counts and the
+ *   the viewport's colour and label · the overview counts and the
  *   DISEÑAR stage · the desk's level report · memoria summary row (and another code's entry) ·
  *   workbook element state · IFC DesignState · document readiness, banner, report certificate
  *   table · the project's verdict in the memoria, the workbook and the IFC.
@@ -39,8 +39,6 @@ import { projectIfcInput } from '../ifc-export';
 import { deflectionChecks } from '../serviceability';
 import { seismicState, runSeismicChecks } from '../seismic-design.svelte';
 import { setForeignCodes } from '../foreign-design';
-import { buildOutcomeSummaries } from '../element-status-join';
-import { statusOf } from '../../engine/detailing/element-status';
 import { readinessBanner, renderReportHtml } from '../../engine/detailing/document-render';
 import { familySummary } from '../../report/memoria/render';
 import { renderMemoriaHtml } from '../../report/memoria/render';
@@ -125,7 +123,6 @@ function readSurfaces(doc: DocumentModel): Reading {
 
   // ── The UI's readers.
   const desk = new Map(deskMembers().map((m) => [m.id, m.status]));
-  const summaries = buildOutcomeSummaries();
   for (const [id] of held) {
     if (APPROVAL.has(String(desk.get(id)))) bad('desk', id, desk.get(id));
     const ds = verificationStore.getDisplayStatus(id);
@@ -135,8 +132,6 @@ function readSurfaces(doc: DocumentModel): Reading {
     const o = overlayOf(id);
     if (PASS_COLOURS.has(o.color)) bad('viewportColour', id, o.color.toString(16));
     if (o.label !== null && !/[✗⊘⌛]/.test(o.label)) bad('viewportLabel', id, o.label);
-    const rs = statusOf(true, summaries.get(id));
-    if (rs === 'MODELLED' || rs === 'DESIGNED_NOT_MODELLED') bad('rebarWorkspace', id, rs);
   }
   const counts = verificationStore.providedSummary;
   const free = [...verificationStore.contexts.keys()].filter((id) => !held.has(id)).length;

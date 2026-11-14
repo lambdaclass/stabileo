@@ -52,7 +52,11 @@ export interface BeamDemand {
   env?: Array<{ x: number; pos: number; neg: number; v: number }>;
   /** Half the support's extent along the beam at each end, m. */
   supportHalf?: { start: number; end: number };
+  /** What holds each end of the span: a column or wall, a support alone, a beam it frames into, or nothing (a cantilever's tip). */
+  ends?: { start: BeamEnd; end: BeamEnd };
 }
+
+export interface BeamEnd { kind: 'column' | 'support' | 'beam' | 'free'; /** Half the holding member's extent along the beam, m. */ half: number }
 
 export interface BeamContext {
   mat: Materials;
@@ -64,6 +68,8 @@ export interface BeamContext {
   torsion: TorsionMode;
   /** Special moment frame provisions (chapter 18), with the project's λo. */
   seismic?: Seismic;
+  /** Span bars bent up over the supports, where a continuous beam's run is laid out. */
+  bentBars?: boolean;
 }
 
 export interface FlexureCheck { section: SectionName; sign: 'pos' | 'neg'; phiMn: number; mu: number; epsT: number; epsTMin: number; d: number; ok: boolean; ductile: boolean }

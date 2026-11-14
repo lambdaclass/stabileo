@@ -19,36 +19,49 @@
   const MARKS_KEY = 'stabileo-rc-marks';
   let showMarks = $state((() => { try { return localStorage.getItem(MARKS_KEY) !== '0'; } catch { return true; } })());
   function setMarks(on: boolean) { showMarks = on; try { localStorage.setItem(MARKS_KEY, on ? '1' : '0'); } catch { /* lasts the session */ } }
+  const ENV_KEY = 'stabileo-rc-envelope';
+  let showEnvelope = $state((() => { try { return localStorage.getItem(ENV_KEY) !== '0'; } catch { return true; } })());
+  function setEnvelope(on: boolean) { showEnvelope = on; try { localStorage.setItem(ENV_KEY, on ? '1' : '0'); } catch { /* lasts the session */ } }
+  const CUTS_KEY = 'stabileo-rc-cuts';
+  let showCuts = $state((() => { try { return localStorage.getItem(CUTS_KEY) !== '0'; } catch { return true; } })());
+  function setCuts(on: boolean) { showCuts = on; try { localStorage.setItem(CUTS_KEY, on ? '1' : '0'); } catch { /* lasts the session */ } }
   /** The marks of the bars a face has at x along the line. */
   const marksAt = (face: 'top' | 'bottom', x: number) => line.bars.filter((b) => b.face === face && b.from <= x + 1e-6 && b.to >= x - 1e-6).map((b) => b.mark);
   const kind = (k: string) => t(`rcSheets.line.kind.${k}`);
   /** The sections of every span, the identical ones drawn once with every place they stand. */
   const sections = $derived.by(() => {
-    const out: Array<{ key: string; drawing: ReturnType<typeof beamSection>; notes: string[]; tags: string[]; title: string; marks: { top: string[]; bottom: string[] } }> = [];
+    const out: Array<{ key: string; drawing: ReturnType<typeof beamSection>; notes: string[]; tags: string[]; title: string; marks: { top: string[]; bottom: string[] }; label: string; at: number[] }> = [];
     line.spanAdopted.forEach((sa, k) => {
       const sp = line.spans[k]!;
       const xStar = spans[k]?.demand.span.x ?? (sp.x1 - sp.x0) / 2;
-      const places: Array<['start' | 'span' | 'end', string, number]> = [['start', 'i', sp.x0 + 1e-3], ['span', `x* = ${fmt(xStar)} m`, sp.x0 + xStar], ['end', 'j', sp.x1 - 1e-3]];
-      for (const [sec, tag, x] of places) {
+      const d = spans[k]?.demand;
+      const places: Array<['start' | 'span' | 'end', string, number, number]> = [
+        ['start', 'i', sp.x0 + 1e-3, sp.x0 + (d?.start.x ?? 0)], ['span', `x* = ${fmt(xStar)} m`, sp.x0 + xStar, sp.x0 + xStar], ['end', 'j', sp.x1 - 1e-3, sp.x0 + (d?.end.x ?? sp.x1 - sp.x0)],
+      ];
+      for (const [sec, tag, x, cutAt] of places) {
         const g = sa.at?.[sec] ?? { top: sa.top, bottom: sa.bottom };
         const notes = [`↑ ${groupsLabel(g.top)}`, `↓ ${groupsLabel(g.bottom)}`, stirrupsLabel(sa.stirrups)];
         const marks = { top: marksAt('top', x), bottom: marksAt('bottom', x) };
         // With the marks shown, the same bars by other marks are another section.
         const key = `${sp.b}×${sp.h}|${notes.join('|')}|${sa.stirrups.legs}${showMarks ? `|${marks.top.join()}|${marks.bottom.join()}` : ''}`;
         const same = out.find((q) => q.key === key);
-        if (same) same.tags.push(`${sp.name} · ${tag}`);
-        else out.push({ key, drawing: beamSection(sp.b, sp.h, line.cover, g.top, g.bottom, sa.stirrups), notes, tags: [`${sp.name} · ${tag}`], title: '', marks });
+        if (same) { same.tags.push(`${sp.name} · ${tag}`); same.at.push(cutAt); }
+        else out.push({ key, drawing: beamSection(sp.b, sp.h, line.cover, g.top, g.bottom, sa.stirrups), notes, tags: [`${sp.name} · ${tag}`], title: '', marks, label: String(out.length + 1), at: [cutAt] });
       }
     });
-    for (const x of out) x.title = x.tags.length <= 2 ? x.tags.join(', ') : `${x.tags[0]} … ${x.tags[x.tags.length - 1]} (${x.tags.length})`;
+    for (const x of out) x.title = `${x.label}–${x.label} · ${x.tags.length <= 2 ? x.tags.join(', ') : `${x.tags[0]} … ${x.tags[x.tags.length - 1]} (${x.tags.length})`}`;
     return out;
   });
 </script>
 
 <RcResize row={line} {spans} {onleave} />
 <RcLineEditor {line} />
-<label class="rcd-marks"><input type="checkbox" checked={showMarks} onchange={(e) => setMarks(e.currentTarget.checked)} data-testid="rc-marks-toggle" /> {t('rcSheets.line.showMarks')}</label>
-<RcLineSvg {line} marks={showMarks} />
+<div class="rcd-toggles">
+  <label class="rcd-marks"><input type="checkbox" checked={showMarks} onchange={(e) => setMarks(e.currentTarget.checked)} data-testid="rc-marks-toggle" /> {t('rcSheets.line.showMarks')}</label>
+  <label class="rcd-marks"><input type="checkbox" checked={showEnvelope} onchange={(e) => setEnvelope(e.currentTarget.checked)} data-testid="rc-envelope-toggle" /> {t('rcSheets.line.showEnvelope')}</label>
+  <label class="rcd-marks"><input type="checkbox" checked={showCuts} onchange={(e) => setCuts(e.currentTarget.checked)} data-testid="rc-cuts-toggle" /> {t('rcSheets.line.showCuts')}</label>
+</div>
+<RcLineSvg {line} marks={showMarks} envelope={showEnvelope} cuts={showCuts ? sections.flatMap((g) => g.at.map((x) => ({ x, label: g.label }))) : []} />
 <h5 class="rcd-h">{t('rcSheets.sections')}</h5>
 <div class="rcd-secs">
   {#each sections as g (g.key)}
@@ -103,5 +116,6 @@
   .st-warn .rcd-toggle span { color: var(--st-warn); }
   .st-fail .rcd-toggle span { color: var(--st-danger); }
   .rcd-secs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .rcd-toggles { display: flex; flex-wrap: wrap; gap: 4px 14px; }
   .rcd-marks { display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--st-text-2); margin: 2px 0 4px; cursor: pointer; }
 </style>

@@ -64,7 +64,6 @@ test.describe('@smoke re-check prompt for old projects', () => {
       expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
       await expect(page.getByTestId('recheck-notice')).toBeVisible();
       await expect.poll(() => requested).toBe(true);
-      await expect(page.getByTestId('recheck-ack')).toBeDisabled();
       await expect(page.getByTestId('recheck-later')).toBeDisabled();
       await expect(page.getByTestId('recheck-rerun')).toBeDisabled();
       expect((await recheck(page)).stale).toBe(true);
@@ -72,8 +71,7 @@ test.describe('@smoke re-check prompt for old projects', () => {
       release();
     }
     await expect(page.locator('[data-change-id="cirsoc301-tension-needs-connection"]')).toBeVisible();
-    await expect(page.getByTestId('recheck-ack')).toBeEnabled();
-    await page.getByTestId('recheck-ack').check();
+    await expect(page.getByTestId('recheck-later')).toBeEnabled();
     await page.getByTestId('recheck-later').click();
     await expect(page.getByTestId('recheck-notice')).toBeHidden();
     expect((await recheck(page)).stale).toBe(true);
@@ -86,7 +84,7 @@ test.describe('@smoke re-check prompt for old projects', () => {
     project.snapshot.nodes[2][1] = { id: 3, x: 2.75, y: 0, z: 2 };
     expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), project)).toBe(true);
     await expect(page.getByTestId('recheck-reload')).toBeVisible();
-    await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+    await expect(page.getByTestId('recheck-later')).toBeDisabled();
     const before = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
     const stale = await recheck(page);
     expect(stale.stale).toBe(true);
@@ -95,11 +93,10 @@ test.describe('@smoke re-check prompt for old projects', () => {
     for (const id of stale.changes) {
       await expect(page.locator(`[data-change-id="${id}"]`)).toBeVisible();
     }
-    await expect(page.getByTestId('recheck-ack')).toBeEnabled();
+    await expect(page.getByTestId('recheck-later')).toBeEnabled();
     const after = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
     expect(after).toEqual(before);
     expect((await recheck(page)).stale).toBe(true);
-    await page.getByTestId('recheck-ack').check();
     await page.getByTestId('recheck-later').click();
     await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
   });
@@ -117,7 +114,7 @@ test.describe('@smoke re-check prompt for old projects', () => {
     await expect(page.getByTestId('recheck-notice').getByRole('alert')).toBeVisible();
     expect(await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot)).toEqual(before);
     expect((await recheck(page)).stale).toBe(true);
-    await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+    await expect(page.getByTestId('recheck-later')).toBeDisabled();
   });
 
   test('a steel project lists the CIRSOC 301 tension change; the notice holds until acknowledged', async ({ pro: page }) => {
@@ -127,13 +124,12 @@ test.describe('@smoke re-check prompt for old projects', () => {
     await expect(notice.locator('[data-change-id="cirsoc301-tension-needs-connection"]')).toBeVisible();
     await expect(notice.locator('[data-change-id="cirsoc201-strain-compatibility"]')).toHaveCount(0);
 
-    // Escape does not dismiss it, and neither button works before the box is ticked.
+    // Escape does not dismiss it; either button reads it, at once.
     await page.keyboard.press('Escape');
     await expect(notice).toBeVisible();
-    await expect(page.getByTestId('recheck-later')).toBeDisabled();
-    await expect(page.getByTestId('recheck-rerun')).toBeDisabled();
+    await expect(page.getByTestId('recheck-later')).toBeEnabled();
+    await expect(page.getByTestId('recheck-rerun')).toBeEnabled();
 
-    await page.getByTestId('recheck-ack').check();
     await page.getByTestId('recheck-later').click();
     await expect(notice).toBeHidden();
     // Acknowledged, not re-run: still stale, and the banner says so.
@@ -155,7 +151,6 @@ test.describe('@smoke re-check prompt for old projects', () => {
     await expect(notice.locator('[data-change-id="cirsoc201-strain-compatibility"]')).toBeVisible();
     await expect(notice.locator('[data-change-id="cirsoc301-tension-needs-connection"]')).toHaveCount(0);
     // Re-run from the notice itself.
-    await page.getByTestId('recheck-ack').check();
     await page.getByTestId('recheck-rerun').click();
     await expect(notice).toBeHidden();
     await expect.poll(async () => (await recheck(page)).stale, { timeout: 45_000 }).toBe(false);
@@ -254,29 +249,30 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 820, height: 1180
         const r = await recheck(page);
         expect(r.pending).toBe(true);
         expect(r.stale).toBe(true);
-        for (const id of ['recheck-ack', 'recheck-later', 'recheck-rerun']) await expect(page.getByTestId(id)).toBeDisabled();
+        for (const id of ['recheck-later', 'recheck-rerun']) await expect(page.getByTestId(id)).toBeDisabled();
         await expect(page.getByTestId('recheck-stale-banner')).toHaveCount(0);
       } finally {
         release();
       }
       await expect(page.locator(`[data-change-id="${STEEL_CHANGE}"]`)).toBeVisible();
       await expect(page.locator('#rc-title')).toHaveText(CHANGED);
-      await expect(page.getByTestId('recheck-ack')).toBeEnabled();
+      await expect(page.getByTestId('recheck-later')).toBeEnabled();
       expect(new Set(await titlesSeen(page))).toEqual(new Set([CHECKING, CHANGED]));
     });
 
-    test('a change applies: it holds until acknowledged, stays stale, and reopening the file shows it again', async ({ pro: page }) => {
+    test('a change applies: it holds until acknowledged, stays stale, and reopening the file in this browser does not ask again', async ({ pro: page }) => {
       await page.setViewportSize(viewport);
       const f = oldProject(1, 'frame');
+      const fresh = JSON.parse(await page.evaluate(() => window.__stabileo.serializeProject())).snapshot.solvedWith;
+      (f.snapshot as Record<string, unknown>).solvedWith = { ...fresh, id: `older-solve-${viewport.width}`, resultsVersion: 0, analyses: ['linear'] };
       expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
       const notice = page.getByTestId('recheck-notice');
       await expect(notice.locator(`[data-change-id="${STEEL_CHANGE}"]`)).toBeVisible();
       expect((await assessed(page)).noticeOpen).toBe(true);
       await page.keyboard.press('Escape');
       await expect(notice).toBeVisible();
-      await expect(page.getByTestId('recheck-later')).toBeDisabled();
-      await expect(page.getByTestId('recheck-rerun')).toBeDisabled();
-      await page.getByTestId('recheck-ack').check();
+      await expect(page.getByTestId('recheck-later')).toBeEnabled();
+      await expect(page.getByTestId('recheck-rerun')).toBeEnabled();
       await page.getByTestId('recheck-later').click();
       await expect(notice).toBeHidden();
       await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
@@ -285,10 +281,15 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 820, height: 1180
       expect(acknowledged.stale).toBe(true);
 
       expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
-      await expect(notice.locator(`[data-change-id="${STEEL_CHANGE}"]`)).toBeVisible();
-      await expect(page.getByTestId('recheck-ack')).not.toBeChecked();
-      await expect(page.getByTestId('recheck-later')).toBeDisabled();
-      expect((await recheck(page)).noticeOpen).toBe(true);
+      await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
+      await expect(notice).toBeHidden();
+      expect((await recheck(page)).noticeOpen).toBe(false);
+      expect((await recheck(page)).stale).toBe(true);
+      await page.reload();
+      await page.waitForFunction(() => !!window.__stabileoActions);
+      expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
+      await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
+      await expect(notice).toBeHidden();
     });
 
     test('the change list fails to load: it says so at once, Retry keeps it open, and reloading brings the changes', async ({ page }) => {
@@ -298,17 +299,16 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 820, height: 1180
       expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), oldProject(1, 'frame'))).toBe(true);
       await expect(page.getByTestId('recheck-retry')).toBeVisible();
       await expect(page.locator('#rc-title')).toHaveText(CHECKING);
-      await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+      await expect(page.getByTestId('recheck-later')).toBeDisabled();
       expect((await recheck(page)).stale).toBe(true);
       await page.getByTestId('recheck-retry').click();
       await expect(page.getByTestId('recheck-retry')).toBeVisible();
-      await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+      await expect(page.getByTestId('recheck-later')).toBeDisabled();
       expect((await recheck(page)).noticeOpen).toBe(true);
       await page.unroute(NOTICE_CHUNK);
       await Promise.all([page.waitForEvent('load'), page.getByTestId('recheck-reload').click()]);
       await expect(page.locator(`[data-change-id="${STEEL_CHANGE}"]`)).toBeVisible();
       await expect(page.locator('#rc-title')).toHaveText(CHANGED);
-      await page.getByTestId('recheck-ack').check();
       await page.getByTestId('recheck-later').click();
       await expect(page.getByTestId('recheck-notice')).toBeHidden();
       await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
@@ -375,7 +375,7 @@ for (const width of [390, 810]) {
 
       test('keeps controls visible above a scrolling history and sizes touch targets', async ({ pro: page }) => {
         expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
-        await expect(page.getByTestId('recheck-ack')).toBeEnabled();
+        await expect(page.getByTestId('recheck-later')).toBeEnabled();
         const notice = page.getByTestId('recheck-notice');
         // bootPro opens the design desk. The notice must own the modal top layer
         // even if another navigation request opens that workspace while it is pending.
@@ -384,7 +384,7 @@ for (const width of [390, 810]) {
         expect(await page.getByTestId('recheck-overlay').evaluate(el => el.matches(':modal'))).toBe(true);
         await page.keyboard.press('Escape');
         await expect(notice).toBeVisible();
-        expect(await page.getByTestId('recheck-ack').evaluate(el => {
+        expect(await page.getByTestId('recheck-later').evaluate(el => {
           const r = el.getBoundingClientRect();
           return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === el;
         })).toBe(true);
@@ -397,16 +397,15 @@ for (const width of [390, 810]) {
         await list.evaluate(el => { el.scrollTop = el.scrollHeight; });
         expect(await footer.boundingBox()).toEqual(before);
         expect(await notice.evaluate(el => el.scrollHeight <= el.clientHeight)).toBe(true);
-        for (const selector of ['.rc-item-text', '.rc-area', '.rc-link', '.rc-stale', '.rc-ack', '.rc-btn']) {
+        for (const selector of ['.rc-item-text', '.rc-area', '.rc-link', '.rc-stale', '.rc-btn']) {
           expect(await notice.locator(selector).first().evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
         }
-        for (const selector of ['.rc-link', '.rc-ack', '.rc-btn']) {
+        for (const selector of ['.rc-link', '.rc-btn']) {
           for (const target of await notice.locator(selector).all()) {
             expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
           }
         }
         expect(await notice.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-        await page.getByTestId('recheck-ack').check();
         await page.getByTestId('recheck-later').click();
         const banner = page.getByTestId('recheck-stale-banner');
         await expect(banner).toBeInViewport({ ratio: 1 });
@@ -441,13 +440,13 @@ for (const viewport of [{ width: 390, height: 667 }, { width: 844, height: 390 }
 
       test('shows the change list and reaches the acknowledgement and actions inside the notice', async ({ pro: page }) => {
         expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
-        await expect(page.getByTestId('recheck-ack')).toBeEnabled();
+        await expect(page.getByTestId('recheck-later')).toBeEnabled();
         const notice = page.getByTestId('recheck-notice');
         await expect(notice).toBeInViewport({ ratio: 1 });
         expect(await notice.evaluate(el => getComputedStyle(el).overflowY)).toBe('auto');
         expect(await page.getByTestId('recheck-changes').evaluate(el => el.clientHeight)).toBeGreaterThanOrEqual(64);
         expect(await notice.evaluate(el => [el, el.querySelector('.rc-list')!].filter(s => s.scrollHeight > s.clientHeight && getComputedStyle(s).overflowY === 'auto').length)).toBeLessThanOrEqual(1);
-        for (const target of [page.getByTestId('recheck-ack'), page.getByTestId('recheck-later'), page.getByTestId('recheck-rerun')]) {
+        for (const target of [page.getByTestId('recheck-later'), page.getByTestId('recheck-rerun')]) {
           const placement = () => target.evaluate(el => {
             const r = el.getBoundingClientRect();
             const container = el.closest<HTMLElement>('.rc')!;
@@ -466,7 +465,6 @@ for (const viewport of [{ width: 390, height: 667 }, { width: 844, height: 390 }
           })).toBe(true);
         }
         expect(await notice.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-        await page.getByTestId('recheck-ack').check();
         await expect(page.getByTestId('recheck-later')).toBeEnabled();
       });
     });
@@ -557,7 +555,7 @@ for (const viewport of [{ width: 390, height: 667 }, { width: 810, height: 390 }
       }
       expect(await notice.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+      await expect(page.getByTestId('recheck-later')).toBeDisabled();
     });
   }
 }
@@ -596,7 +594,7 @@ for (const width of [390, 810]) {
     const active = session.tabs.find((tab: { id: string }) => tab.id === session.activeTabId);
     expect(active.modelSnapshot).toEqual(before);
     expect(active.modelSnapshot.pendingRecheckNotice.stamp.resultsVersion).toBe(0);
-    await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+    await expect(page.getByTestId('recheck-later')).toBeDisabled();
     await expect(page.getByTestId('recheck-notice')).toBeVisible();
   });
 }

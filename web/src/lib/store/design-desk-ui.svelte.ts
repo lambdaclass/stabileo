@@ -24,14 +24,14 @@ import { sortedLevels } from '../model/grid';
 import { designDrafts } from './design-drafts.svelte';
 import { tp } from '../i18n';
 
-export type DeskTab = 'prepare' | 'designData' | 'plan' | 'frame' | 'column' | 'wall' | 'slab' | 'joist' | 'footing' | 'seismic' | 'joint' | 'levels' | 'list' | 'steel' | 'connections' | 'report' | 'geometry' | 'materials' | 'special' | 'stairs' | 'pt' | 'elements' | 'fire' | 'codes' | 'detailing' | 'budget' | 'collab' | 'arch' | 'site' | 'sheets' | 'listings' | 'documents';
+export type DeskTab = 'prepare' | 'designData' | 'plan' | 'frame' | 'column' | 'wall' | 'slab' | 'joist' | 'footing' | 'seismic' | 'joint' | 'levels' | 'list' | 'steel' | 'connections' | 'report' | 'geometry' | 'materials' | 'special' | 'stairs' | 'pt' | 'elements' | 'fire' | 'codes' | 'budget' | 'collab' | 'arch' | 'site' | 'sheets';
 
 /**
  * How the desk's views are grouped. Preparing the model comes first: what it still lacks and the
  * project's design data. Then the ways of working on the design: by floor (the plan and the
  * levels), by the piece selected (its editor), as the member list with its filters and inline
  * editors, by steel (the profiles and the connections) and by what is pending (the report and the
- * geometry). Coordinating the bars (detailing) and the output of the work (documents) follow.
+ * geometry). The output of the work (the drawings) follows.
  * Specialties that act on the whole building and the project's own surfaces (budget,
  * coordination, architecture, works) are menus: they do not depend on what is selected.
  */
@@ -43,25 +43,24 @@ export const DESK_GROUPS = {
   steel: ['steel', 'connections'],
   codes: ['codes'],
   pending: ['report', 'geometry'],
-  detailing: ['detailing'],
-  documents: ['sheets', 'listings', 'documents'],
+  documents: ['sheets'],
   specialties: ['seismic', 'fire', 'materials'],
   project: ['budget', 'collab', 'arch', 'site'],
 } as const satisfies Record<string, readonly DeskTab[]>;
 export type DeskGroup = keyof typeof DESK_GROUPS;
+const isDeskTab = (t: unknown): t is DeskTab => Object.values(DESK_GROUPS).some((g) => (g as readonly unknown[]).includes(t));
 export const groupOf = (t: DeskTab): DeskGroup => (Object.keys(DESK_GROUPS) as DeskGroup[]).find((g) => (DESK_GROUPS[g] as readonly DeskTab[]).includes(t)) ?? 'floor';
 
 /**
- * The four steps of design, as the top of the Design stage names them: prepare the model, size
- * (design, check and edit the members), detail (coordinate the bars) and document. Every place of
- * the desk belongs to one, except the project's own surfaces, which belong to none.
+ * The three steps of design, as the top of the Design stage names them: prepare the model, size
+ * (design, check and edit the members) and document. Every place of the desk belongs to one, except
+ * the project's own surfaces, which belong to none.
  */
-export type DeskStep = 'prepare' | 'size' | 'detail' | 'document';
-export const DESK_STEPS: readonly DeskStep[] = ['prepare', 'size', 'detail', 'document'];
+export type DeskStep = 'prepare' | 'size' | 'document';
+export const DESK_STEPS: readonly DeskStep[] = ['prepare', 'size', 'document'];
 export function stepOf(t: DeskTab): DeskStep | null {
   const g = groupOf(t);
   if (g === 'prepare') return 'prepare';
-  if (g === 'detailing') return 'detail';
   if (g === 'documents') return 'document';
   if (g === 'project') return null;
   return 'size';
@@ -171,7 +170,7 @@ function createDesk() {
     /** Take a tab's design state back. `reopen` false keeps design closed (a session restored at boot). */
     restore(s: DeskViewState | undefined, reopen = true) {
       if (!s) { this.reset(); return; }
-      levelZ = s.levelZ; focus = s.focus; tab = s.tab; filter = s.filter;
+      levelZ = s.levelZ; focus = s.focus; tab = isDeskTab(s.tab) ? s.tab : 'plan'; filter = s.filter;
       modelLevelSeen = s.modelLevelSeen;
       codesMode = s.codesMode ?? 'verify';
       report = null; ask = null;

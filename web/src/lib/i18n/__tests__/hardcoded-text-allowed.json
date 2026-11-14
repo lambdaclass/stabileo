@@ -20,7 +20,6 @@
   "components/pro/ProResultsTab.svelte": 2,
   "components/pro/ProShellFacesTable.svelte": 1,
   "components/pro/ProWindCladding.svelte": 2,
-  "components/pro/design/ProQuantitiesCard.svelte": 1,
   "components/pro/design/RebarEditorBeam.svelte": 1,
   "components/pro/design/VerificationDetail.svelte": 1,
   "components/pro/desk/budget/BudgetEditor.svelte": 1,

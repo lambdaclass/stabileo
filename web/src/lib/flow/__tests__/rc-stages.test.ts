@@ -50,11 +50,11 @@ describe('one stage, one destination', () => {
    * same element, so the strip could not tell the user where they had just been sent.
    */
   it('no two stages own the same place', () => {
-    expect(new Set(RC_STAGE_PLACES).size).toBe(RC_STAGES.length);
+    expect(new Set(RC_STAGE_PLACES).size).toBe(RC_STAGE_PLACES.length);
   });
 
   it('every stage id resolves to its own place, and nothing else does', () => {
-    for (const s of RC_STAGES) expect(rcStagePlace(s.id)).toBe(s.place);
+    for (const s of RC_STAGES) expect(rcStagePlace(s.id)).toBe(s.place ?? null);
     // The ids the OLD strip drew with no destination of their own. They must not resolve.
     for (const orphan of ['demands', 'check', 'floors']) {
       expect(rcStagePlace(orphan), `${orphan} is not a stage`).toBeNull();

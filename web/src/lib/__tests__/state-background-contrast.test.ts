@@ -46,7 +46,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const SRC = new URL('../..', import.meta.url).pathname;
@@ -229,7 +229,7 @@ describe('the proposed backgrounds, measured on both surfaces', () => {
 });
 
 describe('the provisional split, and why one token is not enough', () => {
-  const AUTHORITY = '#a066d3';        // three/rebar-scene.ts owns 0xa066d3
+  const AUTHORITY = '#a066d3';
   const PROVISIONAL_TEXT = '#d8b4ff'; // what OutcomeBadge already uses as the label colour
   const bg = over(AUTHORITY, 0.16, SURFACE);
 
@@ -276,76 +276,10 @@ describe('the provisional split, and why one token is not enough', () => {
 });
 
 describe('the one violet, as it is guarded today', () => {
-  it('is the same value in the 3-D authority and in every panel that names it', () => {
-    /*
-     * The agreement that a naive tokenisation would break. Three tests assert "this file contains
-     * the literal" — see §3.3 of the proposal — and the replacement has to be "both resolve to the
-     * same value" BEFORE any consumer moves to `var()`, or there is a window where nothing checks
-     * that the viewport and the panels agree.
-     *
-     * Asserted here from the steel side too, because M1's surfaces do not use the violet and this
-     * is the only place on this branch that would notice it drifting.
-     */
-    const scene = read('lib/three/rebar-scene.ts');
-    expect(scene).toContain('0xa066d3');
-    /*
-     * Asserted over the files that DO name it, rather than over a fixed list of four.
-     *
-     * `DesignToolbar` stopped naming the violet when `main` was merged in, and a hand-kept list
-     * turns that into a failure about a file that simply no longer participates. What the rule is
-     * actually about is that the value does not DRIFT between the places that use it, so the list
-     * is derived and the count is guarded so the check cannot quietly become vacuous.
-     */
-    /*
-     * The candidate list was four filenames kept by hand, and H1 moved the ground under it:
-     * `FloorFamilyStateCard` is new and names the violet, `OutcomeBadge` and `ProvisionalBanner`
-     * moved to `var(--st-provisional)` and stopped, and the count guard then failed over WHO was
-     * on a list rather than over anything drifting.
-     *
-     * So the list is read off the directory. The comment above already said the point is that
-     * the value does not drift between the places that use it — that is a question about the
-     * files that exist, not about a list someone remembered to update.
-     */
-    const designDir = join(SRC, 'components/pro/design');
-    const naming = readdirSync(designDir)
-      .filter((f) => f.endsWith('.svelte'))
-      .map((f) => `components/pro/design/${f}`)
-      .filter((f) => {
-        const src = read(f);
-        return /#a066d3/i.test(src) || /rgba\(160,\s*102,\s*211/.test(src);
-      });
-    expect(naming.length, 'nothing names the provisional violet any more').toBeGreaterThanOrEqual(3);
-    for (const f of naming) {
-      const src = read(f);
-      // One value, spelled one way, wherever it appears.
-      const others = src.match(/#[0-9a-f]{6}/gi)?.filter((h) => /^#a0/i.test(h)) ?? [];
-      for (const hex of others) expect(hex.toLowerCase(), `${f} spells the violet differently`).toBe('#a066d3');
-    }
-  });
-
-  it('is reached through the token now, and §3.3 kept its ordering', () => {
-    /*
-     * This asserted that NOTHING referenced the token yet, and said that if it failed, §3.3's
-     * ordering had to be checked: the token, then the equivalence test, then the consumers.
-     * It failed because H1 landed all three, so here is that check, asserted rather than taken
-     * on trust.
-     *
-     * The ordering matters more than it looks. A consumer that moves to `var()` before the
-     * token exists renders with no colour at all, and a token that lands without the
-     * equivalence test above leaves the viewport free to drift away from the panels — which is
-     * the pair this whole describe block is holding together.
-     */
+  it('is the token value, and the panels reach it through the token', () => {
     const css = read('styles/tokens.css');
     expect(css, 'the token itself, first').toMatch(/--st-provisional:\s*#a066d3/);
-
-    const consumers = ['OutcomeBadge', 'ProvisionalBanner']
-      .map((c) => `components/pro/design/${c}.svelte`)
-      .filter((f) => read(f).includes('var(--st-provisional'));
-    expect(consumers.length, 'no consumer reaches the violet through the token').toBeGreaterThan(0);
-
-    // And the 3-D side still carries the literal, because a Three.js material cannot read a
-    // custom property. That is the exception H1 documented, not an unmigrated consumer.
-    expect(read('lib/three/rebar-scene.ts')).toContain('0xa066d3');
+    expect(read('components/pro/design/OutcomeBadge.svelte')).toContain('var(--st-provisional');
   });
 });
 

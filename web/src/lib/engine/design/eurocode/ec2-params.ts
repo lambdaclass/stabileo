@@ -2,11 +2,12 @@
  * EN 1992-1-1:2004 (Eurocode 2): the Nationally Determined Parameters a design reads, as a set the
  * project can state, and the material values the code derives from fck.
  *
- * Two sets come with the app: the values the code recommends (`EC2_RECOMMENDED`, rows coded
- * `en-1992-1-1`) and those of the UK National Annex to BS EN 1992-1-1 (`EC2_UK`, rows coded
- * `bs-en-1992-1-1`). Neither text is in the repository: the values are the code's own, each with
- * its clause, and a person can change any of them. Units: MPa, m.
+ * Two sets come with the app, each read from its code profile (`lib/code-profiles/profiles/rc/`):
+ * the values the code recommends (`EC2_RECOMMENDED`, rows coded `en-1992-1-1`) and those of the UK
+ * National Annex to BS EN 1992-1-1 (`EC2_UK`, rows coded `bs-en-1992-1-1`). Units: MPa, m.
  */
+import { ec2ParamsOf } from '../../../code-profiles/adapters/ec2';
+import { rcProfile } from '../../../code-profiles/registry';
 
 export interface Ec2Params {
   /** Row code: `en-1992-1-1` or `bs-en-1992-1-1`. */
@@ -39,31 +40,8 @@ export interface Ec2Params {
   es: number;
 }
 
-export const EC2_RECOMMENDED: Ec2Params = {
-  code: 'en-1992-1-1',
-  gammaC: 1.5, gammaS: 1.15,
-  alphaCC: 1.0, alphaCCShear: 1.0, alphaCT: 1.0,
-  crdc: 0.18 / 1.5, k1: 0.15, vminCoeff: 0.035,
-  cotThetaMin: 1, cotThetaMax: 2.5,
-  nu1Factor: 1,
-  xuLimitLow: 0.45, xuLimitHigh: 0.35,
-  beamMinFctm: 0.26, beamMinAbs: 0.0013, beamMaxRatio: 0.04,
-  linkMinCoeff: 0.08, linkMaxSpacing: 0.75,
-  colMinN: 0.1, colMinAbs: 0.002, colMaxRatio: 0.04,
-  lambdaLimCoeff: 20,
-  es: 200000,
-};
-
-/**
- * UK National Annex to BS EN 1992-1-1:
- *   · αcc = 0,85 for flexure and axial load (NA to 3.1.6(1)P); 1,0 for the other phenomena, here shear;
- *   · γc = 1,5 and γs = 1,15 (NA to 2.4.2.4(1)), as recommended;
- *   · CRd,c = 0,18/γc, k1 = 0,15, vmin = 0,035·k^1,5·fck^0,5 (NA to 6.2.2(1)), as recommended;
- *   · 1 ≤ cotθ ≤ 2,5 (NA to 6.2.3(2)), as recommended;
- *   · ν1 = ν (NA to 6.2.3(3) for fywd ≤ 0,8·fyk), as recommended;
- *   · minimum and maximum steel of 9.2.1.1 and 9.5.2, ρw,min and the link spacing of 9.2.2 as recommended.
- */
-export const EC2_UK: Ec2Params = { ...EC2_RECOMMENDED, code: 'bs-en-1992-1-1', alphaCC: 0.85, alphaCCShear: 1.0 };
+export const EC2_RECOMMENDED: Ec2Params = ec2ParamsOf(rcProfile('en-1992-1-1'));
+export const EC2_UK: Ec2Params = ec2ParamsOf(rcProfile('bs-en-1992-1-1'));
 
 export interface Ec2Material {
   fcd: number; fcdShear: number; fctm: number; fcm: number; ecm: number;
