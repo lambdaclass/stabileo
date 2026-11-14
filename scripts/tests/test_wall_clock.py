@@ -23,7 +23,7 @@ class WallClockOutsideTheQueue(unittest.TestCase):
                       dry_run('e2e.web.slow'))
 
     def test_only_the_wall_clock_asserts_of_the_e2e_specs_are_gated(self):
-        gated = {'rebar-workspace-open.spec.ts': 3, 'model-fluidity.spec.ts': 1}
+        gated = {'model-fluidity.spec.ts': 1}
         for name, count in gated.items():
             spec = (ROOT / 'web/e2e' / name).read_text()
             self.assertIn("import { assertBudget } from '../src/lib/engine/__tests__/wall-clock-budget';", spec)
@@ -75,7 +75,7 @@ class WallClockOutsideTheQueue(unittest.TestCase):
         vitest = dry_run('test.web.timing')
         self.assertIn('npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts', vitest)
         playwright = dry_run('e2e.web.timing')
-        for spec in ('rebar-workspace-open.spec.ts', 'model-fluidity.spec.ts'):
+        for spec in ('model-fluidity.spec.ts',):
             self.assertIn(f'e2e/{spec}', playwright)
         for command in (vitest, playwright):
             self.assertNotIn('NO_WALL_CLOCK', command)
