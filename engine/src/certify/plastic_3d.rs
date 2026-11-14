@@ -1855,6 +1855,18 @@ fn irls_mechanism(
     Ok(Some(v))
 }
 
+fn newton_direction(columns: &[Vec<f64>], gradient: &[f64]) -> Option<Vec<f64>> {
+    let n = gradient.len();
+    let newton = OrthonormalSpan::new(columns);
+    if newton.coefficients.len() != n { return None; }
+    let mut direction = vec![0.0; gradient.len()];
+    for column in &newton.coefficients {
+        let projection: f64 = column.iter().zip(gradient).map(|(a, b)| a * b).sum();
+        for (value, coefficient) in direction.iter_mut().zip(column) { *value -= coefficient * projection; }
+    }
+    Some(direction)
+}
+
 fn smooth_static_candidates(model: &PlasticModel3, samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Result<Vec<(f64, Vec<f64>)>, String> {
     lp_work(model).check_candidate(eq.null.len(), samples.len().saturating_mul(2))?;
     let mut columns = vec![Vec::new(); eq.null.len() + 1];
@@ -1908,13 +1920,7 @@ fn smooth_static_candidates(model: &PlasticModel3, samples: &[Sample], ef: &[Ele
                     newton_columns[j].extend([weight * span.vectors[j][2 * i], weight * span.vectors[j][2 * i + 1], 2.0 * normal[j] / slack]);
                 }
             }
-            let newton = OrthonormalSpan::new(&newton_columns);
-            if newton.coefficients.len() != n { break; }
-            let mut direction = vec![0.0; n];
-            for column in &newton.coefficients {
-                let projection: f64 = column.iter().zip(&gradient).map(|(a, b)| a * b).sum();
-                for (value, coefficient) in direction.iter_mut().zip(column) { *value -= coefficient * projection; }
-            }
+            let Some(direction) = newton_direction(&newton_columns, &gradient) else { break };
             let slope: f64 = gradient.iter().zip(&direction).map(|(a, b)| a * b).sum();
             if !slope.is_finite() || slope >= -1e-12 { break; }
             let before = value(&u, parameter);
@@ -2372,6 +2378,44 @@ pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #2084"]
+    fn issue_2084_newton_direction_solves_the_gram_system_without_an_explicit_inverse() {
+        let columns = vec![
+            vec![2.0, 2.0, 0.0, 0.0, 0.0],
+            vec![8.0, 2.0, -1.0, -6.0, -3.0],
+            vec![9.999977111816406, 4.0000152587890625, -0.9999771118164062, -5.999969482421875, -2.9999732971191406],
+        ];
+        let gradient = [27.999984741210938, 133.99956130981445, 161.99909210497572];
+        for (column, value) in columns.iter().zip(gradient) {
+            let exact: Q = column.iter().zip(&columns[2]).map(|(a, b)| q(*a).unwrap() * q(*b).unwrap()).sum();
+            assert_eq!(q(value).unwrap(), exact);
+        }
+        for scale in [2.0f64.powi(-20), 1.0, 2.0f64.powi(20)] {
+            let scaled: Vec<Vec<f64>> = columns.iter().map(|column| column.iter().map(|v| v * scale).collect()).collect();
+            let gradient: Vec<f64> = gradient.iter().map(|v| v * scale * scale).collect();
+            let direction = newton_direction(&scaled, &gradient).unwrap();
+            for (actual, expected) in direction.iter().zip([0.0, 0.0, -1.0]) {
+                assert!((actual - expected).abs() < 1e-10, "scale {scale}: {direction:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn issue_2084_newton_direction_keeps_full_rank_controls_and_refuses_rank_loss() {
+        for (columns, gradient, expected) in [
+            (vec![vec![2.0, 0.0], vec![0.0, 3.0]], vec![4.0, 9.0], vec![-1.0, -1.0]),
+            (vec![vec![2.0]], vec![4.0], vec![-1.0]),
+        ] {
+            assert_eq!(newton_direction(&columns, &gradient), Some(expected));
+        }
+        assert!(newton_direction(&[vec![1.0, 0.0], vec![2.0, 0.0]], &[1.0, 2.0]).is_none());
+        assert!(newton_direction(&[vec![0.0]], &[1.0]).is_none());
+        for (diagonal, admitted) in [(1e-10, false), (1e-10f64.next_up(), true)] {
+            assert_eq!(newton_direction(&[vec![1.0, 0.0], vec![0.0, diagonal]], &[1.0, 0.0]).is_some(), admitted);
+        }
+    }
 
     #[test]
     fn issue_2084_public_interval_enforces_both_sides_of_every_admission_boundary() {

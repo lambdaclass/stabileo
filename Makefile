@@ -1212,3 +1212,11 @@ test.engine.plastic-1040-wasm: wasm
 
 test.web.containment:
 	$(NIX_RUN) node --test $(if $(FILTER),--test-name-pattern='$(FILTER)') web/determinism/containment.test.mjs
+
+.PHONY: test.engine.plastic-newton test.engine.plastic-fixtures
+
+test.engine.plastic-newton:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(or $(FILTER),issue_2084_newton_direction) -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.plastic-fixtures:
+	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --lib $(or $(FILTER),returns_certified_lower) -- --nocapture --test-threads=1 $(if $(IGNORED),--include-ignored)
