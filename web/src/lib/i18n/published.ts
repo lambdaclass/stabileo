@@ -22,7 +22,7 @@ export function publishedLocales(path: string): readonly Locale[] {
   const route = path.split('#')[0].replace(/\/+$/, '') || '/';
   if (isResearchRoute(route)) return PUBLIC_LOCALES.filter((l) => researchLocales(route).includes(l));
   if (route === '/paper') return PUBLIC_LOCALES.filter((l) => PAPER_PUBLISHED.includes(l));
-  if (route === '/' || route === '/blog' || route === '/tools' || route.startsWith('/tools/') || route === '/examples' || route.startsWith('/examples/')) return PUBLIC_LOCALES;
+  if (route === '/' || route === '/blog' || route === '/tools' || route.startsWith('/tools/')) return PUBLIC_LOCALES;
   const id = route.startsWith('/blog/') ? route.slice('/blog/'.length) : `page-${route.slice(1)}`;
   return PUBLIC_LOCALES.filter((l) => BASE_LOCALES.includes(l) || translated(`${l}/${id}`));
 }

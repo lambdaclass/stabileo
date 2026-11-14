@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as engine from '../../../lib/engine/wasm-solver';
 import { codeToModel } from '../../../lib/model/code/format';
 import { EXAMPLES } from '../catalog';
-import { EXAMPLE_IDS } from '../ids';
+import { TOOLS } from '../../tools/registry';
 import { defaults, readValues, writeValues, mergeQuery, clampValue, referenceGap, refusedOutcome, type Outcome, type Values } from '../define';
 import { exampleStrings } from '../strings';
 import { proCode } from '../editor';
@@ -25,7 +25,7 @@ const readout = (out: Extract<Outcome, { status: 'ok' }>, key: string) => out.re
 
 describe('catalog and contract', () => {
   it('lists the ids the routes and the prerender use', () => {
-    expect(EXAMPLES.map(e => e.id)).toEqual([...EXAMPLE_IDS]);
+    expect(EXAMPLES.map(e => e.id).sort()).toEqual(TOOLS.filter(tool => tool.kind === 'model').map(tool => tool.id).sort());
   });
   it('compares against a zero reference by absolute difference', () => {
     expect(referenceGap(81, 80)).toEqual({ value: expect.closeTo(1.25, 12), relative: true });
@@ -54,7 +54,7 @@ describe('catalog and contract', () => {
     for (const locale of ['es', 'pt', 'de', 'fr', 'tr']) expect(Object.keys(exampleStrings[locale]).sort()).toEqual(keys);
     for (const e of EXAMPLES) {
       if (e.benchmark) expect(BENCHMARK_ROUTES).toContain(e.benchmark.path);
-      for (const key of ['title', 'subtitle', 'about', ...(e.benchmark ? ['benchmark'] : [])]) expect(keys).toContain(`${e.id}.${key}`);
+      for (const key of ['about', ...(e.benchmark ? ['benchmark'] : [])]) expect(keys).toContain(`${e.id}.${key}`);
       for (const p of e.params) {
         expect(keys).toContain(`${e.id}.p.${p.key}`);
         for (const o of p.options ?? []) expect(keys).toContain(`${e.id}.o.${o}`);
@@ -118,6 +118,15 @@ describe('beam and frame playground', () => {
 });
 
 describe('slab on columns', () => {
+  it('marks the largest deflection at the node that has it, on columns and on walls', () => {
+    for (const extra of [{}, { supports: 1 }, { bays: 3, spacing: 9, thickness: 0.15 }] as Values[]) {
+      const view = run(slab, extra).views.deflection;
+      const top = view.values.reduce((best, v, k) => (v > view.values[best] ? k : best), 0);
+      expect(view.peak!.value).toBe(view.values[top]);
+      expect(view.peak!.at).toEqual([view.xy[2 * top], view.xy[2 * top + 1]]);
+      expect(view.peak!.at.every(Number.isFinite)).toBe(true);
+    }
+  });
   it('agrees with the Navier series with its shear term for a plate on walls', () => {
     const out = run(slab, { supports: 1, bays: 1, spacing: 8, thickness: 0.2, load: 10 });
     const reference = mindlinCentre(8, 0.2, 10) * 1000;

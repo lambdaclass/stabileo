@@ -1,23 +1,28 @@
 <script lang="ts">
+ import { onDestroy, untrack } from 'svelte';
  import PublicLink from '../landing/PublicLink.svelte';
  import ParamRow from '../research/shell/ParamRow.svelte';
  import Sci from '../research/shell/Sci.svelte';
- import BatchViewer from './BatchViewer.svelte';
+ import FigureBoard from './figures/FigureBoard.svelte';
+ import { batchFigures } from './figures/batch-figures';
  import { tBatch as t } from './batch-i18n';
  import { publicI18n } from '../../lib/i18n/store.svelte';
  import { type Warning } from './validity';
  import { solverMessages } from './solver-messages';
+ import { liveSolver, SOLVE_DELAY } from './live-solve';
+ import { widen, type Span } from './slider';
  import { DEFAULT_BATCH, validateBatch, type BatchId, type BatchParameters } from './batch';
  import type { BatchResult } from './batch-solve';
  import { prerenderedResult, recordPrerenderedResult } from './prerendered-result';
+ type Field = keyof Pick<BatchParameters,'e'|'i'|'area'|'length'|'height'|'horizontal'|'load'|'mass'|'position'>;
  let {id}:{id:BatchId}=$props();
  let p=$state<BatchParameters>({...DEFAULT_BATCH});
- let result=$state<BatchResult|null>(null), error=$state(''),busy=$state(false),href=$state('');
- let revision=0;
+ let result=$state.raw<BatchResult|null>(null), error=$state(''), stale=$state(false), href=$state('');
  const warmSolver=()=>{void import('../../lib/engine/wasm-solver').then(m=>m.initSolver()).catch(()=>{});};
  const number=(n:number,digits=6)=>new Intl.NumberFormat(publicI18n.locale,{maximumSignificantDigits:digits}).format(n);
  const warning=(w:Warning)=>Object.entries(w.values??{}).reduce((text,[k,v])=>text.replace(`{${k}}`,typeof v==='number'?new Intl.NumberFormat(publicI18n.locale,{maximumSignificantDigits:3,notation:v>=1e5?'scientific':'standard'}).format(v):v),t(w.key));
  const largest=(r:BatchResult)=>Math.max(...r.comparisons.map(c=>Math.abs(c.engine-c.reference)));
+ let sliders=$state<Partial<Record<Field,Span>>>({length:[1,30,.1],height:[1,15,.1],horizontal:[0,100,1],load:[0,100,1],mass:[10,2000,10]});
  const fields=$derived(([
   ['e','tools.modulus','MPa',1,1e6],['i','tools.inertia','m⁴',1e-10,10],['area','tools.batch.area','m²',1e-6,10],
   ...(id!=='continuous-beam'&&id!=='truss-2d'?[['length','tools.length','m',.1,100]]:[]),
@@ -25,32 +30,35 @@
   ...(id==='portal-frame'||id==='influence-line'?[['load','tools.load',id==='portal-frame'?'kN/m':'kN',0,1e6]]:[]),
   ...(id==='beam-natural-frequency'?[['mass','tools.batch.mass','kg/m',.001,1e6]]:[]),
   ...(id==='influence-line'?[['position','tools.batch.section','m',.000001,p.length*p.count-.000001]]:[])
- ] as [keyof Pick<BatchParameters,'e'|'i'|'area'|'length'|'height'|'horizontal'|'load'|'mass'|'position'>,string,string,number,number][]).filter(([key])=>id!=='truss-2d'||key!=='i'));
+ ] as [Field,string,string,number,number][]).filter(([key])=>id!=='truss-2d'||key!=='i'));
+ const slider=(key:Field):Span|undefined=>key==='position'?[p.length*p.count/100,p.length*p.count*.99,p.length*p.count/100]:sliders[key];
+ const solver=liveSolver(
+  async(values:BatchParameters)=>{validateBatch(id,values);const {calculateBatch}=await import('./batch-solve');return calculateBatch(id,values);},
+  (outcome,values,superseded)=>{
+   stale=superseded;
+   if(!outcome.ok){const e=outcome.error;error=t(e instanceof Error&&e.message.startsWith('tools.')?e.message:'tools.failed');stale=true;return;}
+   error='';result=outcome.value;recordPrerenderedResult(id,values,outcome.value);void link(outcome.value,values);
+  },
+  {delay:()=>id==='influence-line'||id==='beam-natural-frequency'?SOLVE_DELAY:0});
+ onDestroy(()=>solver.stop());
+ async function link(answer:BatchResult,values:BatchParameters){const {editorUrl}=await import('./share');if(result===answer)href=editorUrl(answer.model,t(`tools.${id}`),id==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);}
  $effect(()=>{
-  const tool=id,values={...p}; revision++;
-  const ready=prerenderedResult<BatchResult>(tool,values);
-  if(ready) {
-   const token=revision; result=ready;href='';error='';busy=false;
-   void import('./share').then(({editorUrl})=>{if(token===revision)href=editorUrl(ready.model,t(`tools.${tool}`),tool==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);});
-   return ()=>{revision++;};
-  }
-  result=null;href='';error='';busy=true;
-  const timer=setTimeout(()=>void run(tool,values),250);
-  return ()=>{clearTimeout(timer);revision++;};
+  const values={...p};
+  untrack(()=>{
+   sliders=Object.fromEntries(Object.entries(sliders).map(([key,span])=>[key,widen(span,values[key as Field])]));
+   const ready=result?null:prerenderedResult<BatchResult>(id,values);
+   if(ready){result=ready;void link(ready,values);return;}
+   stale=true;solver.request(values);
+  });
  });
- async function run(tool:BatchId,values:BatchParameters) {
-  const token=++revision;
-  try {validateBatch(tool,values); const [{calculateBatch},{editorUrl}]=await Promise.all([import('./batch-solve'),import('./share')]);const answer=await calculateBatch(tool,values);if(token!==revision)return; recordPrerenderedResult(tool,values,answer); result=answer;href=editorUrl(answer.model,t(`tools.${tool}`),tool==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);}
-  catch(e) {if(token===revision)error=t(e instanceof Error&&e.message.startsWith('tools.')?e.message:'tools.failed');}
-  finally {if(token===revision)busy=false;}
- }
+ const figures=$derived(result?batchFigures(id,result,t,result.comparisons[0]?.unit==='kN·m'?'m':'1'):[]);
  const formula=$derived(id==='portal-frame'?'δpinned = Hh²(L + 2h)/(12EI); δfixed = Hh³(4L + 6h)/[24EI(L + 6h)]':id==='beam-natural-frequency'?'fn = βn²/(2πL²) √(EI/μ); βsimple = nπ; βcantilever = 1.875104, 4.694091, 7.854757; βfixed = 4.730041, 7.853205, 10.995608':t(id==='continuous-beam'?'tools.batch.continuousMethod':id==='truss-2d'?'tools.batch.trussMethod':'tools.batch.influenceMethod'));
 </script>
 <div class="tool-layout">
- <header class="tool-intro"><p class="crumb"><PublicLink to="/tools">{t('tools.index')}</PublicLink></p><h1>{t(`tools.${id}`)}</h1><p class="lead">{t(`tools.${id}.subtitle`)}</p></header>
- <aside class="tool-viewer" aria-label={t(`tools.${id}`)}><BatchViewer {id} {result}/></aside>
- <section class="tool-inputs"><form onsubmit={event=>event.preventDefault()} onfocusin={warmSolver} onpointerdown={warmSolver}>
-  {#each fields as [key,label,unit,min,max]}<ParamRow id={key} name={t(label)} {unit}><input id={key} data-testid={key} type="number" bind:value={p[key]} {min} {max} step="any" required/></ParamRow>{/each}
+ <div class="tool-side">
+  <header class="tool-intro"><p class="crumb"><PublicLink to="/tools">{t('tools.index')}</PublicLink></p><h1>{t(`tools.${id}`)}</h1><p class="lead">{t(`tools.${id}.subtitle`)}</p></header>
+  <section class="tool-inputs" aria-labelledby="tool-parameters"><h2 id="tool-parameters">{t('tools.parameters')}</h2><form onsubmit={event=>event.preventDefault()} onfocusin={warmSolver} onpointerdown={warmSolver}>
+  {#each fields as [key,label,unit,min,max] (key)}{@const range=slider(key)}<ParamRow id={key} name={t(label)} {unit}><input id={key} data-testid={key} type="number" bind:value={p[key]} {min} {max} step="any" required/></ParamRow>{#if range}{#key range.join()}<input type="range" data-testid={`slider-${key}`} aria-label={t(label)} min={range[0]} max={range[1]} step={range[2]} bind:value={p[key]}/>{/key}{/if}{/each}
   {#if id==='continuous-beam'}
    <p>{t('tools.batch.listNote')}</p><label for="spans">{t('tools.batch.spans')} (m; 0.1–100)</label><input id="spans" bind:value={p.spans} />
    <label for="loads">{t('tools.batch.loads')} (kN/m; 0–10⁶)</label><input id="loads" bind:value={p.loads}/>
@@ -66,10 +74,13 @@
    <ParamRow id="count" name={t('tools.batch.count')}><select id="count" bind:value={p.count}><option value={1}>1</option><option value={2}>2</option></select></ParamRow>
    <ParamRow id="quantity" name={t('tools.batch.quantity')}><select id="quantity" bind:value={p.quantity}><option value="reaction">{t('tools.batch.reaction')}</option><option value="moment">{t('tools.moment')}</option><option value="shear">{t('tools.shear')}</option></select></ParamRow>
   {/if}
- </form>{#if busy}<p role="status">{t('tools.loading')}</p>{/if}{#if error}<p role="alert">{error}</p>{/if}</section>
- <article class="tool-results rs-prose">
+ </form><p class="status" role="status">{#if stale&&!error}{t('tools.loading')}{/if}</p>{#if error}<p class="warning" role="alert">{error}</p>{/if}</section>
+ </div>
+ <div class="tool-main">
+  {#if figures.length}<FigureBoard {figures} stale={stale||!!error} label={t('tools.figures')}/>{/if}
+  <article class="tool-results rs-prose" class:stale aria-busy={stale} data-testid="tool-results">
   <div aria-live="polite">
-  {#if result}
+  {#if result && !error}
    {#each result.warnings as w}<p class="warning" role="alert" data-testid="validity-warning">{warning(w)}</p>{/each}
    <div class="results">
     {#if id==='continuous-beam'||id==='portal-frame'||id==='truss-2d'}
@@ -96,11 +107,8 @@
   <h2>{t('tools.references')}</h2><p>{t('tools.batch.references')}</p>
   <details><summary>{t('tools.technical')}</summary><p>{t('tools.solverNote')}</p>{#if id!=='truss-2d'&&id!=='portal-frame'}<p>{t('tools.batch.sampling')}</p>{/if}{#if result}<p>{t('tools.dofs')}: {result.model.nodes.size*3}</p>{/if}</details>
  </article>
+ </div>
 </div>
 <style>
- .crumb :global(a) {display:inline-flex;align-items:center;min-height:44px;min-width:44px;} .warning {border-left:3px solid var(--st-warn,#e5482a);padding-left:.75rem;color:var(--fg);} .tool-layout {display:grid;gap:1.5rem;} .tool-layout>* {min-width:0;} h1 {font:600 clamp(2rem,4.5vw,3rem)/1.1 var(--lp-display);margin:.75rem 0;overflow-wrap:anywhere;hyphens:auto;} .lead {font-size:1.05rem;color:var(--fg);margin-bottom:0;} .crumb {font-size:.95rem;color:var(--fg-2);margin-bottom:1rem;}
- form {border-top:1px solid var(--hair);padding-top:1rem;} input,select,textarea {min-height:44px;min-width:0;max-width:100%;background:var(--card);color:var(--fg);border:1px solid var(--hair);border-radius:3px;padding:.4rem;font:.875rem var(--lp-mono);} textarea,form>input {width:100%;box-sizing:border-box;} textarea {resize:vertical;} form>label {display:block;margin-top:1rem;margin-bottom:.5rem;} .tool-inputs :global(.rs-param) {grid-template-columns:minmax(0,1fr) minmax(6rem,10rem) 3.5rem;} .tool-viewer {border:1px solid var(--card-hair);border-radius:6px;background:var(--card);overflow:hidden;}
- .results {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem;padding:1.25rem 0;border-block:1px solid var(--hair);} .result {display:grid;gap:.25rem;font-size:.875rem;color:var(--fg-2);} .result:first-child {grid-column:1/-1;} .result strong {font:500 clamp(1.75rem,3vw,2.5rem) var(--lp-display);color:var(--fg);overflow-wrap:anywhere;} .result small {font:.875rem var(--lp-mono);} .verification {font-size:.875rem;color:var(--fg-2);overflow-wrap:anywhere;} .formula {font:.875rem/1.8 var(--lp-mono);overflow-wrap:anywhere;} details {border-top:1px solid var(--hair);margin-top:2rem;padding-top:1rem;font-size:.875rem;} summary {min-height:44px;cursor:pointer;display:flex;align-items:center;} .table-scroll {overflow-x:auto;} table {width:100%;font:.8125rem var(--lp-mono);} th,td {padding:.5rem;text-align:left;} .force-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.5rem;font:.875rem var(--lp-mono);} .tension {color:#f4a582;} .compression {color:#92c5de;} .open-editor {min-height:44px;}
- @media(max-height: 450px) and (max-width: 69.99rem) { .crumb {margin:0 0 .25rem;} h1 {margin:.5rem 0;font-size:1.75rem;} .lead {font-size:.95rem;} .lead {margin-top:.5rem;} .tool-layout {gap:1rem;} }
- @media(min-width:70rem) {.tool-layout {grid-template-columns:minmax(25rem,38rem) minmax(0,1fr);column-gap:3rem;align-items:start;} .tool-intro {grid-column:1;grid-row:1;} .tool-inputs {grid-column:1;grid-row:2;} .tool-results {grid-column:1;grid-row:3;} .tool-viewer {grid-column:2;grid-row:1/4;position:sticky;top:calc(var(--lp-nav-h,3.6rem) + .75rem);}}
+ .force-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.5rem;font:.875rem var(--lp-mono);} .tension {color:#f4a582;} .compression {color:#92c5de;}
 </style>
