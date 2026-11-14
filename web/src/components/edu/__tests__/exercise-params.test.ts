@@ -89,3 +89,15 @@ describe('exercise params', () => {
     expect(lintParams({ nodes: [[0, 0], ['1e-3*L', 0]], elements: [[0, 1]], supports: [] }, { values: { L: { min: 1, max: 2, step: 1 } } })).toEqual([]);
   });
 });
+
+it.skip('known wrong result: #1926 T37 — offset ranges preserve authored precision and bounds', () => {
+  for (const [r, expected] of [
+    [{ min: 1.25, max: 2.25, step: 0.5 }, [1.25, 1.75, 2.25]],
+    [{ min: 0.06, max: 0.16, step: 0.1 }, [0.06, 0.16]],
+    [{ min: 1, max: 2, step: 0.5 }, [1, 1.5, 2]],
+    [{ min: 1.25, max: 1.25, step: 0.5 }, [1.25]],
+    [{ min: 0, max: 1e-11, step: 1e-11 }, [0, 1e-11]],
+  ] as const) expect(rangeValues(r)).toEqual(expected);
+  expect(rangeValues({ min: 0, max: 10000, step: 1 })).toHaveLength(10001);
+  expect(rangeValues({ min: 0, max: 10001, step: 1 })).toEqual([]);
+});

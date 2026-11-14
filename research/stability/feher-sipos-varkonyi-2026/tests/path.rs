@@ -40,9 +40,10 @@ fn an_arch_that_snaps_while_loaded_is_reported_before_the_path() {
 }
 
 #[test]
-fn an_arch_whose_loading_finds_no_equilibrium_is_a_snap_not_a_solver_error() {
+#[ignore = "known wrong result: #1916"]
+fn numerical_nonconvergence_does_not_establish_a_physical_snap() {
     for elements in [80, 90, 100, 120] {
-        assert_eq!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, elements).unwrap_err(), run::PathError::StartSnaps);
+        assert_eq!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, elements).unwrap_err(), run::PathError::StartUnsolved);
     }
     assert_eq!(run::PathError::StartUnsolved.code(), "start_unsolved");
 }

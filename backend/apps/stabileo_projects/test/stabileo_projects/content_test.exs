@@ -31,4 +31,13 @@ defmodule StabileoProjects.ContentTest do
   test "rejects a compressed upload over its own limit" do
     assert {:error, :too_large} = Content.decode(pack(~s({"a":1})), 5, 1_000)
   end
+  @tag skip: "known wrong result: #765"
+  test "known wrong result: #765 T4 — balanced malformed JSON is refused" do
+    for json <- ["{not json}", "{}{}", "{}{},}"] do
+      assert {:error, :invalid} = Content.decode(pack(json), 1000, 1000)
+    end
+    assert {:ok, _, 2} = Content.decode(pack("{}"), 1000, 2)
+    assert {:error, :too_large} = Content.decode(pack("{}"), 1000, 1)
+  end
+
 end
