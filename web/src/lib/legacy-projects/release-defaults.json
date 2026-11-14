@@ -1,0 +1,81 @@
+{
+  "v0.2.0": {
+    "commit": "5b1482c78c0c462f72cf2ea99fc7e7d2e80e9e35",
+    "modelSourceBlob": "36a5381d14784a4bfcb7dd6622c9c6709d2dd696",
+    "fixtureLoaderBlob": "557f8f5f2d7cbfcac10f9b4d81883ca697ad9552",
+    "material": {
+      "id": 1,
+      "name": "Acero A36",
+      "e": 200000,
+      "nu": 0.3,
+      "rho": 78.5,
+      "fy": 250
+    },
+    "section": {
+      "id": 1,
+      "name": "IPN 300",
+      "a": 0.0069,
+      "iy": 9.8e-05,
+      "iz": 4.51e-06,
+      "j": 4.666e-07,
+      "b": 0.125,
+      "h": 0.3,
+      "shape": "I",
+      "tw": 0.0108,
+      "tf": 0.0162
+    }
+  },
+  "v0.3.0": {
+    "commit": "cc1c88dc62db44c6cf223500d5b014f99159c8bc",
+    "modelSourceBlob": "bd1671197411dcf5ff3a93d688e67cb94dc4a47b",
+    "fixtureLoaderBlob": "557f8f5f2d7cbfcac10f9b4d81883ca697ad9552",
+    "material": {
+      "id": 1,
+      "name": "Acero A36",
+      "e": 200000,
+      "nu": 0.3,
+      "rho": 78.5,
+      "fy": 250
+    },
+    "section": {
+      "id": 1,
+      "name": "IPN 300",
+      "a": 0.0069,
+      "iy": 9.8e-05,
+      "iz": 4.51e-06,
+      "j": 4.666e-07,
+      "b": 0.125,
+      "h": 0.3,
+      "shape": "I",
+      "tw": 0.0108,
+      "tf": 0.0162
+    }
+  },
+  "v0.4.0": {
+    "commit": "9aad844d596f318f574bf59909e1f4cadaab34b2",
+    "modelSourceBlob": "a92467ecb40a6b032882c8f6eb0b24dd3fcde180",
+    "fixtureLoaderBlob": "557f8f5f2d7cbfcac10f9b4d81883ca697ad9552",
+    "material": {
+      "id": 1,
+      "name": "Acero A36",
+      "e": 200000,
+      "nu": 0.3,
+      "rho": 78.5,
+      "fy": 250,
+      "fu": 400
+    },
+    "section": {
+      "id": 1,
+      "name": "IPN 300",
+      "a": 0.0069,
+      "iy": 9.8e-05,
+      "iz": 4.51e-06,
+      "j": 4.666e-07,
+      "b": 0.125,
+      "h": 0.3,
+      "shape": "I",
+      "tw": 0.0108,
+      "tf": 0.0162
+    }
+  }
+}
