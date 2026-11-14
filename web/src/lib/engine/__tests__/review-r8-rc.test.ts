@@ -37,8 +37,14 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
         expect(v.slender!.Cm).toBe(1);
         expect(v.slenderSecondary!.Cm).toBe(1);
       }
-      const equivalent = { ...inputs[1]!, M1: 60, M2: 60, M1Secondary: 60, M2Secondary: 60 };
-      expect(amplifiedDemand(inputs[1]!).Mu).toBe(amplifiedDemand(equivalent).Mu);
+      const Ec = 4700 * Math.sqrt(geometry.fc);
+      const Ig = geometry.b * geometry.h ** 3 / 12;
+      const EI = 0.4 * Ec * 1000 * Ig / (1 + 0.6);
+      const Pc = Math.PI ** 2 * EI / Lu ** 2;
+      const delta = Math.max(1, 1 / (1 - 300 / (0.75 * Pc)));
+      const unityCmMoment = delta * Math.max(60, 300 * (0.015 + 0.03 * geometry.h));
+      expect(amplifiedDemand(inputs[1]!).Mu).toBeCloseTo(unityCmMoment, 12);
+      expect(amplifiedDemand(inputs[1]!).Muy).toBeCloseTo(unityCmMoment, 12);
     });
   }
 }
