@@ -3,8 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { blogTranslations } from '../../../../scripts/blog-translations';
 import { writtenIn } from '../../../../scripts/public-paths';
 import { STANDING_PAGES } from '../../blog/pages';
-import { addTranslations, inLocale, type Localized } from '../../blog/types';
-import { PUBLIC_LOCALES } from '../offered';
+import { addTranslations, inLocale, writtenIn as writtenInContent, type Localized } from '../../blog/types';
 import { publishedLocale, publishedLocales } from '../published';
 import { alternateUrls, publicHref } from '../public-routes';
 
@@ -13,12 +12,14 @@ const additionalLocales = ['de', 'fr', 'tr', 'hu'] as const;
 const item = () => ({ slug: 'a-post', i18n: { en: { title: 'en' }, es: { title: 'es' }, pt: { title: 'pt' } } as Localized<{ title: string }> });
 
 describe('blog publication sources', () => {
-  it.skip.each(['/terms', '/privacy', '/usage-data'])('known wrong result: #2081 publishes the existing Hungarian body of %s', (path) => {
+  it.each(['/terms', '/privacy', '/usage-data'])('known wrong result: #2081 publishes the existing Hungarian body of %s', (path) => {
     const page = STANDING_PAGES.find((page) => page.path === path)!;
     expect(page.i18n.hu).toBeDefined();
     expect(blogTranslations(webRoot)).toContain(`hu/page-${path.slice(1)}`);
-    expect(writtenIn(path)).toEqual([...PUBLIC_LOCALES]);
-    expect(publishedLocales(path)).toEqual([...PUBLIC_LOCALES]);
+    const languages = writtenInContent(page.i18n);
+    expect(languages).toContain('hu');
+    expect(writtenIn(path)).toEqual(languages);
+    expect(publishedLocales(path)).toEqual(languages);
     expect(publishedLocale(path, 'hu')).toBe('hu');
     expect(publicHref(path, publishedLocale(path, 'hu'))).toBe(`/hu${path}/`);
     expect(alternateUrls(path, publishedLocales(path))).toContainEqual({ hreflang: 'hu', href: `https://stabileo.com/hu${path}/` });
@@ -26,7 +27,7 @@ describe('blog publication sources', () => {
     expect(inLocale(page.i18n, 'hu')).not.toBe(page.i18n.en);
   });
 
-  it.skip.each(additionalLocales)('known wrong result: #2081 refuses an inline %s body invisible to the publication manifest', (locale) => {
+  it.each(additionalLocales)('known wrong result: #2081 refuses an inline %s body invisible to the publication manifest', (locale) => {
     const post = item();
     post.i18n[locale] = { title: locale };
     expect(() => addTranslations([post], (post) => post.slug, {})).toThrow(`inline blog translation must be a file: ${locale}/a-post`);
@@ -39,6 +40,8 @@ describe('blog publication sources', () => {
     addTranslations([post], (post) => post.slug, { [`./translations/${locale}/a-post.ts`]: translated });
     expect(inLocale(post.i18n, locale)).toBe(translated);
     expect(inLocale(post.i18n, 'en')).toBe(english);
+    addTranslations([post], (post) => post.slug, { [`./translations/${locale}/a-post.ts`]: translated });
+    expect(inLocale(post.i18n, locale)).toBe(translated);
   });
 
   it('keeps English fallback for a page with no Hungarian source', () => {

@@ -1,4 +1,5 @@
 import { PUBLIC_LOCALES, type Locale } from './offered';
+import { BASE_LOCALES } from '../blog/base-locales';
 import { isResearchRoute, researchLocales } from './research-routes';
 
 declare const __BLOG_TRANSLATIONS__: readonly string[];
@@ -15,7 +16,7 @@ function translated(entry: string): boolean {
 export const PAPER_PUBLISHED: readonly Locale[] = ['en', 'es', 'pt'];
 
 /** The languages a post or standing page is written in without a translation file. */
-export const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
+export { BASE_LOCALES };
 
 /** The languages a public page is published in: it is prerendered, listed and linked in these and no others. */
 export function publishedLocales(path: string): readonly Locale[] {
@@ -24,7 +25,7 @@ export function publishedLocales(path: string): readonly Locale[] {
   if (route === '/paper') return PUBLIC_LOCALES.filter((l) => PAPER_PUBLISHED.includes(l));
   if (route === '/' || route === '/blog' || route === '/tools' || route.startsWith('/tools/') || route === '/diagram-game') return PUBLIC_LOCALES;
   const id = route.startsWith('/blog/') ? route.slice('/blog/'.length) : `page-${route.slice(1)}`;
-  return PUBLIC_LOCALES.filter((l) => BASE_LOCALES.includes(l) || translated(`${l}/${id}`));
+  return PUBLIC_LOCALES.filter((l) => BASE_LOCALES.some((base) => base === l) || translated(`${l}/${id}`));
 }
 
 /** The language a link to `path` opens in for a reader of `locale`: theirs when the page is published in it, else English. */

@@ -17,6 +17,7 @@
  * here, with a renderer and a test, not a reason to reach for raw HTML.
  */
 import { PUBLIC_LOCALES, type PublicLocale } from '../i18n/store.svelte';
+import { BASE_LOCALES } from './base-locales';
 
 export type Block =
   | { k: 'h'; t: string }
@@ -56,7 +57,7 @@ export type Block =
   /** `base` must exist under /screenshots as -800/-1600 .avif and .webp; `w`/`h` are the 1600 file's pixels. */
   | { k: 'img'; base: string; w: number; h: number; alt: string; caption: string };
 
-export type Localized<T> = Record<'en' | 'es' | 'pt', T> & Partial<Record<PublicLocale, T>>;
+export type Localized<T> = Record<(typeof BASE_LOCALES)[number], T> & Partial<Record<PublicLocale, T>>;
 
 export function inLocale<T>(texts: Localized<T>, locale: PublicLocale): T {
   return texts[locale] ?? texts.en;
@@ -72,11 +73,21 @@ export function addTranslations<T extends { i18n: Localized<unknown> }>(
   id: (item: T) => string,
   modules: Record<string, unknown>,
 ): void {
-  for (const [path, body] of Object.entries(modules)) {
+  const translations = Object.entries(modules).map(([path, body]) => {
     const m = /translations\/([a-z]{2})\/(.+)\.ts$/.exec(path);
     const item = m && items.find((i) => id(i) === m[2]);
     if (!m || !item) throw new Error(`blog translation without a match: ${path}`);
-    (item.i18n as Record<string, unknown>)[m[1]] = body;
+    return { item, locale: m[1], body };
+  });
+  for (const item of items) {
+    for (const locale of Object.keys(item.i18n)) {
+      if (!BASE_LOCALES.some((base) => base === locale) && !translations.some((translation) => translation.item === item && translation.locale === locale)) {
+        throw new Error(`inline blog translation must be a file: ${locale}/${id(item)}`);
+      }
+    }
+  }
+  for (const { item, locale, body } of translations) {
+    (item.i18n as Record<string, unknown>)[locale] = body;
   }
 }
 
