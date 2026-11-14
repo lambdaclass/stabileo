@@ -798,4 +798,5 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'rcSheets.bbs.sum',
   'rcSheets.bbs.csv',
   'rcSheets.bbs.bvbs',
+  'rcSheets.col.slabKind',
 ];

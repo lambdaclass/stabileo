@@ -264,21 +264,27 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
     for (const p of panels) {
       const mesh = p.row.adopted[face(d, 'bottom')];
       if (!(mesh.dia > 0 && mesh.spacing > 0)) continue;
-      const ends = (['lo', 'hi'] as const).map((end) => {
+      const endsHooked = (['lo', 'hi'] as const).map((end) => {
         const at = end === 'lo' ? lo(p.rect, d) : hi(p.rect, d), sign = end === 'lo' ? -1 : 1;
         const e = edgeSupports(p, d, end).filter((s) => s.kind !== 'free');
-        if (!e.length) return at - sign * c.cover;
+        if (!e.length) return { x: at - sign * c.cover, leg: true };
         const half = Math.max(...e.map((s) => s.half));
-        if (half > 0) return at + sign * (-half + Math.min(code.bottomEmbed(mesh.dia), 2 * half - c.cover));
-        if (e.some((s) => s.below && s.above)) return at + sign * up(lap(mesh.dia, false, p.h) / 2);
-        return at - sign * c.cover;
+        if (half > 0) return { x: at + sign * (-half + Math.max(Math.min(code.bottomEmbed(mesh.dia), 2 * half - c.cover), 2 * half - c.cover)), leg: true };
+        if (e.some((s) => s.below && s.above)) return { x: at + sign * up(lap(mesh.dia, false, p.h) / 2), leg: false };
+        return { x: at - sign * c.cover, leg: true };
       });
+      const ends = endsHooked.map((e) => e.x);
       const inner = linesOf(p, d).filter((s) => s.below === s.above).map((s) => s.at);
       const band = { from: lo(p.rect, a), to: hi(p.rect, a) };
       const y = yBottom(p, d, mesh.dia);
+      const upLeg = legDown(p.h, mesh.dia);
       const straight = (bars: MeshBars, kind: PackageKind) => add({
         layer: 'bottom', dir: d, kind, bars, from: ends[0]!, to: ends[1]!, band,
-        shape: { pts: [[0, y], [ends[1]! - ends[0]!, y]], mandrel: mandrel(bars.dia), dia: bars.dia },
+        shape: { pts: [
+          ...(endsHooked[0]!.leg ? [[0, y + upLeg] as [number, number]] : []),
+          [0, y], [ends[1]! - ends[0]!, y],
+          ...(endsHooked[1]!.leg ? [[ends[1]! - ends[0]!, y + upLeg] as [number, number]] : []),
+        ], mandrel: mandrel(bars.dia), dia: bars.dia },
         runs: [{ face: 'bottom', from: ends[0]!, to: ends[1]! }], panels: [p.key], reach: [],
       });
       if (!bendable(p, d) || inner.length) { straight(mesh, 'span'); continue; }
@@ -438,7 +444,7 @@ export function planDrawing(plan: LevelPlan, show: { bottom: boolean; top: boole
     const base = pk.layer === 'top' ? Math.max(...ys) : Math.min(...ys);
     const toPlan = ([u, v]: [number, number]): [number, number] => {
       const along = pk.from + u, off = across + (v - base) * fold;
-      return pk.dir === 'x' ? [along, off] : [off, along];
+      return pk.dir === 'x' ? [along, off] : [across - (v - base) * fold, along];
     };
     const pts = pk.shape.pts.map(toPlan);
     const lens = legLengths(pk.shape);
@@ -451,6 +457,14 @@ export function planDrawing(plan: LevelPlan, show: { bottom: boolean; top: boole
     const at: [number, number] = pk.dir === 'x' ? [mid, across] : [across, mid];
     return { id: pk.id, mark: pk.mark, layer: pk.layer, dir: pk.dir, kind: pk.kind, pts, band, label: packageLabel(pk, fmt), at, legs };
   });
+}
+
+export type SlabSpanKind = 'oneWay' | 'twoWay' | 'cantilever';
+
+/** How a panel spans: a cantilever where its level's plan finds one, one-way past a 2:1 aspect, two-way otherwise. */
+export function slabSpanKind(row: { name: string; level?: string; oneWay: boolean }, plans: readonly Pick<LevelPlan, 'level' | 'cantilevers'>[]): SlabSpanKind {
+  if (plans.some((p) => p.level === (row.level ?? '') && p.cantilevers.some((c) => c.panel === row.name))) return 'cantilever';
+  return row.oneWay ? 'oneWay' : 'twoWay';
 }
 
 /** The area of one bar over the package's spacing, cm²/m. */

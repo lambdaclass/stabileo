@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { makeFmt } from '../format';
 import type { SlabDemand } from '../slab-row';
-import { planDrawing, slabPlan, type LevelGeometry, type PlanBeam, type SlabPackage } from '../slab-plan';
+import { planDrawing, slabPlan, slabSpanKind, type LevelGeometry, type PlanBeam, type SlabPackage } from '../slab-plan';
 import { rulesFor } from '../codes';
 import { CIRSOC_LINE } from '../beam-line';
 import { meshArea } from '../bars';
@@ -54,17 +54,33 @@ describe('level plan of slab bars', () => {
     expect(pk.count).toBe(Math.floor((5 - 2 * Math.min(0.05, pk.bars.spacing / 2)) / pk.bars.spacing + 1e-9) + 1);
   });
 
-  it('stops each bottom package inside the beams it rests on, and edge top bars hook inside the edge beam', () => {
+  it('runs each bottom package into the beams it rests on, to the far face less the cover, with its ends turned up; edge top bars hook inside the edge beam', () => {
     const { rows, geom } = twoPanels();
     const p = slabPlan('N1', rows, geom, plan);
     const bx = p.packages.filter((pk) => pk.layer === 'bottom' && pk.dir === 'x');
     expect(bx).toHaveLength(2);
     const a = bx.find((pk) => pk.panels[0] === 'A')!;
-    expect(a.from).toBeCloseTo(0.1 - Math.min(0.15, 0.2 - 0.02), 9);
-    expect(a.to).toBeCloseTo(3.9 + 0.15, 9);
+    expect(a.from).toBeCloseTo(-0.1 + 0.02, 9);
+    expect(a.to).toBeCloseTo(4.1 - 0.02, 9);
+    const ys = a.shape.pts.map((q) => q[1]);
+    expect(a.shape.pts).toHaveLength(4);
+    expect(ys[0]).toBeGreaterThan(ys[1]!);
+    expect(ys[3]).toBeGreaterThan(ys[2]!);
+    expect(a.length).toBeGreaterThan(a.to - a.from);
     const edge = p.packages.find((pk) => pk.kind === 'edge' && pk.dir === 'x' && pk.from < 0.5)!;
     expect(edge.from).toBeCloseTo(-0.1 + 0.02, 9);
     expect(edge.anchor?.available).toBeCloseTo(0.18, 9);
+  });
+
+  it('folds the bars of each direction as the plan is turned: X legs drawn down from the bar, Y legs to its right, for a top bar', () => {
+    const { rows, geom } = twoPanels();
+    const p = slabPlan('N1', rows, geom, plan);
+    const draw = planDrawing(p, { bottom: true, top: true }, makeFmt('.'));
+    const top = (d: 'x' | 'y') => draw.find((b) => b.layer === 'top' && b.dir === d && b.pts.length >= 4);
+    const tx = top('x'), ty = top('y');
+    if (tx) expect(tx.pts[0]![1]).toBeLessThan(tx.pts[1]![1]);
+    if (ty) expect(ty.pts[0]![0]).toBeGreaterThan(ty.pts[1]![0]);
+    expect(tx ?? ty).toBeDefined();
   });
 
   it('provides at least the area each panel row requires, in every strip', () => {
@@ -168,5 +184,12 @@ describe('level plan of slab bars', () => {
     expect(cs.band.to).toBeCloseTo(1.5, 9);
     expect(6 - cs.from).toBeGreaterThan(6 - ms.from);
     expect(p.checks.every((c) => c.provided >= c.required - 1e-6)).toBe(true);
+  });
+
+  it('names how a panel spans: a cantilever its plan finds, one-way past 2:1, two-way otherwise', () => {
+    const plans = [{ level: 'N1', cantilevers: [{ panel: 'L4', dir: 'x' as const, length: 1.85 }] }];
+    expect(slabSpanKind({ name: 'L4', level: 'N1', oneWay: true }, plans)).toBe('cantilever');
+    expect(slabSpanKind({ name: 'L4', level: 'N2', oneWay: true }, plans)).toBe('oneWay');
+    expect(slabSpanKind({ name: 'L1', level: 'N1', oneWay: false }, plans)).toBe('twoWay');
   });
 });

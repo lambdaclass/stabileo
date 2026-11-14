@@ -22,6 +22,7 @@
   import RcColumnElevation from './RcColumnElevation.svelte';
   import RcSlabLayers from './RcSlabLayers.svelte';
   import RcSlabPlan from './RcSlabPlan.svelte';
+  import { slabSpanKind } from '../../../lib/rc-sheets/slab-plan';
   import RcWallDetail from './RcWallDetail.svelte';
   import RcPunchingSvg from './RcPunchingSvg.svelte';
   import RcResize from './RcResize.svelte';
@@ -133,7 +134,7 @@
             <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>lw × t</th><th>Pu</th><th>Mu</th><th>Vu</th>
               <th>ρl · ρt {t('rcSheets.req')}</th><th>{t('rcSheets.col.bars')}</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else}
-            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>h</th><th>Lx × Ly</th>
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.col.slabKind')}</th><th>h</th><th>Lx × Ly</th>
               {#each SLAB_FACES as f (f)}<th>{t(`rcSheets.face.${f}`)}</th>{/each}<th>{t('rcSheets.col.status')}</th></tr>
           {/if}
         </thead>
@@ -183,6 +184,8 @@
                 <td>{wallLabel(r.adopted)}</td>
                 <td class="n">{fmt(r.utilization, 2)}</td>
               {:else}
+                {@const kind = slabSpanKind(r, rows.slabPlan)}
+                <td title={t(`rcSheets.slabKind.${kind}.long`)} data-testid="rc-slab-kind" data-kind={kind}>{t(`rcSheets.slabKind.${kind}`)}</td>
                 <td>{fmt(r.h * 100, 0)}</td>
                 <td>{f2(r.lx)} × {f2(r.ly)}</td>
                 {#each SLAB_FACES as f (f)}
