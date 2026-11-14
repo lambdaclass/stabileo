@@ -12,9 +12,9 @@ const model = {
   supports: new Map([[1, { nodeId: 1, type: 'fixed' }]]),
 } as ContextModelData;
 const force = { t: 0, x: 0, n: 0, my: 0, mz: 20, vy: 0, vz: 0, torsion: 0 };
-const demands = new Map([[1, { elementId: 1, demands: [{ category: 'Mz+' as const, value: 20, absValue: 20, station: 0, comboId: 1, comboName: 'C1' }] }]]);
+const demands = new Map([[1, { elementId: 1, length: 0.4, demands: [{ category: 'Mz+' as const, value: 20, absValue: 20, stationT: 0, stationX: 0, comboId: 1, comboName: 'C1', forces: force }] }]]);
 for (const adapter of [cirsoc201Adapter, cirsoc201Adapter2005]) for (const groups of [[false], [true, false], [false, true]]) {
-  for (const manualContext of [false, true]) it.skipIf(!process.env.RUN_KNOWN_WRONG)(`known wrong result: #2080 ${adapter.version} design refuses incomplete station groups ${groups} manualContext=${manualContext}`, () => {
+  for (const manualContext of [false, true]) it(`#2080 ${adapter.version} design refuses incomplete station groups ${groups} manualContext=${manualContext}`, () => {
     const stations: ElementStationResult = { elementId: 1, length: 0.4, stationTs: [0], comboResults: groups.map((populated, i) => ({
       comboId: i + 1, comboName: `C${i + 1}`, stations: populated ? [force] : [],
     })) };

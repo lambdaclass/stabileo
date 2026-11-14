@@ -21,6 +21,7 @@ function referenceChecks(inputs: readonly ConcurrentVerificationInput[]) {
   const column = first.elementType !== 'beam' ? checkColumn(first, inputs.map(amplifiedDemand), { edition: first.edition }) : undefined;
   const fixedColumn = column ? { barCount: column.barCount, barDia: column.barDia } : undefined;
   const preliminary = inputs.map(i => verifyElement(i, { column: fixedColumn }));
+  expect(preliminary.every(v => !v.torsion || v.torsion.neglect)).toBe(true);
   const maxFlexure = preliminary.reduce((a, b) => b.flexure.AsProv > a.flexure.AsProv ? b : a).flexure;
   const maxCompression = preliminary.reduce((a, b) => (b.flexure.AsComp ?? 0) > (a.flexure.AsComp ?? 0) ? b : a).flexure;
   const flexure = { ...maxFlexure, AsComp: maxCompression.AsComp, barCountComp: maxCompression.barCountComp,
@@ -28,7 +29,7 @@ function referenceChecks(inputs: readonly ConcurrentVerificationInput[]) {
   const shear = { spacing: Math.min(...preliminary.flatMap(v => [v.shear.spacing, v.shearSecondary?.spacing ?? Infinity])),
     legs: Math.max(...preliminary.flatMap(v => [v.shear.stirrupLegs, v.shearSecondary?.stirrupLegs ?? 0])) };
   return inputs.map(i => ({ demand: i.demand.source,
-    verification: engineRecheckElement(verifyElement(i, { column: fixedColumn, flexure, shear }),
+    verification: engineRecheckElement(verifyElement(i, { column: fixedColumn, flexure, shear, torsion: { AlProv: 0 } }),
       { edition: i.edition, stirrupDia: i.stirrupDia, NuShear: verificationCase(i).Nu }),
   }));
 }

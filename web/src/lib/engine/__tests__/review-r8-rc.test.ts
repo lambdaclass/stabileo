@@ -43,8 +43,8 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       const Pc = Math.PI ** 2 * EI / Lu ** 2;
       const delta = Math.max(1, 1 / (1 - 300 / (0.75 * Pc)));
       const unityCmMoment = delta * Math.max(60, 300 * (0.015 + 0.03 * geometry.h));
-      expect(amplifiedDemand(inputs[1]!).Mu).toBeCloseTo(unityCmMoment, 12);
-      expect(amplifiedDemand(inputs[1]!).Muy).toBeCloseTo(unityCmMoment, 12);
+      expect(amplifiedDemand(inputs[1]!).Mu).toBe(unityCmMoment);
+      expect(amplifiedDemand(inputs[1]!).Muy).toBe(unityCmMoment);
     });
   }
 }

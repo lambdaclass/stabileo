@@ -1,3 +1,4 @@
+import { hasCompleteConcurrentDemand } from '../../concurrent-demand';
 /**
  * CIRSOC 201 design-code adapter.
  *
@@ -106,7 +107,8 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
   validateInputs(ctx: MemberContext): InputValidation {
     const blocking: LimitingConstraint[] = [];
     const reasons: DesignReason[] = [];
-    for (const b of ctx.blocking) {
+    const missingStations = !hasCompleteConcurrentDemand(ctx.stations?.comboResults.map(c => c.stations) ?? []);
+    for (const b of new Set([...ctx.blocking, ...(missingStations ? ['missingDemand' as const] : [])])) {
       blocking.push(b);
       switch (b) {
         case 'missingCombinations':

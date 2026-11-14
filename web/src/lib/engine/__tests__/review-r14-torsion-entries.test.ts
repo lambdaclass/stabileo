@@ -4,7 +4,9 @@ import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
 import { computeStationDemands, setCompactStationTransfer, runUnifiedVerification, runCirsocDesign } from '../verification-service';
 import { autoVerifyFromResults, type AutoVerifyModelData } from '../auto-verify';
-import { checkTorsion } from '../codes/argentina/cirsoc201';
+import { ConcurrentDemand } from '../concurrent-demand';
+import { verifyConcurrentElement } from '../concurrent-verification';
+import { checkTorsion, verifyElement, prepareElementVerification } from '../codes/argentina/cirsoc201';
 
 const params = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const model = {
@@ -18,7 +20,7 @@ const model = {
 afterEach(() => setCompactStationTransfer(true));
 
 for (const nonlinear of [false, true]) for (const compact of [false, true]) for (const entry of ['auto', 'unified', 'design'] as const) {
-  it.skipIf(!process.env.RUN_KNOWN_WRONG)(`known wrong result: #2080 ${entry} 3D nonlinear=${nonlinear} compact=${compact} retains the maximum torsion steel`, () => {
+  it(`#2080 ${entry} 3D nonlinear=${nonlinear} compact=${compact} retains the maximum torsion steel`, () => {
     const combos = [[300, 5], [0, 30]].map(([v, t], i) => {
       const solver: SolverInput3D = { ...model,
         elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, type: 'frame' as const, releaseMyStart: false, releaseMyEnd: false,
@@ -47,5 +49,15 @@ for (const nonlinear of [false, true]) it(`2D WASM nonlinear=${nonlinear} remain
     elements: new Map([[1, { ...model.elements.get(1)!, type: 'frame', hingeStart: false, hingeEnd: false }]]), supports: model.supports,
     loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: 20 } }] };
   const raw = nonlinear ? solvePDelta(solver).results : solve(solver);
-  expect(Math.abs(raw.elementForces[0]!.mStart)).toBeCloseTo(20, 10);
+  const ef = raw.elementForces[0]!;
+  expect(Math.abs(ef.mStart)).toBeCloseTo(20, 10);
+  const inputs = ConcurrentDemand.fromTuples(([0, 1] as const).map(t => ({ comboId: 1, comboName: '2D moment', forces: {
+    t, x: t * ef.length, n: t ? ef.nEnd : ef.nStart, my: t ? ef.mEnd : ef.mStart, mz: 0,
+    vy: 0, vz: t ? ef.vEnd : ef.vStart, torsion: 0,
+  } }))).map(d => ({ ...params, elementId: 1, elementType: 'beam' as const, demand: d.section('My') }));
+  for (const v of [verifyElement(inputs[0]!), prepareElementVerification(inputs[0]!)(), verifyConcurrentElement(inputs)]) {
+    expect(v.torsion).toBeUndefined();
+    expect(v.flexure.Mu).toBeCloseTo(20, 10);
+    expect(v.overallStatus).not.toBe('fail');
+  }
 });
