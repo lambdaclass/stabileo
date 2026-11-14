@@ -285,6 +285,25 @@ describe('reinforcement sheets from a solved model', () => {
     expect(s.demand.m.bottomX.value).toBeLessThan(0.0479 * 14 * 16 * 1.15);
   });
 
+  it('lays out the slab of a level as one plan: bars that stop at the supported edges, and every other span bar bent up when asked', () => {
+    slab(); solve();
+    const plan = buildSheetRows().slabPlan;
+    expect(plan).toHaveLength(1);
+    const p = plan[0]!;
+    expect(p.panels).toHaveLength(1);
+    expect(p.panels[0]!.rect).toEqual({ x0: 0, x1: 4, y0: 0, y1: 4 });
+    expect(p.supports.filter((s) => s.kind === 'wall')).toHaveLength(4);
+    expect(p.packages.filter((pk) => pk.layer === 'bottom').map((pk) => [pk.dir, pk.kind])).toEqual([['x', 'span'], ['y', 'span']]);
+    expect(p.checks.every((c) => c.provided >= c.required - 1e-6)).toBe(true);
+    expect(p.bent).toBe(false);
+    setRcOption('slabBentBars', true);
+    expect(rcSheetsData().slabBentBars).toBe(true);
+    const bent = buildSheetRows().slabPlan[0]!;
+    expect(bent.bent).toBe(true);
+    expect(bent.packages.filter((pk) => pk.kind === 'bent').map((pk) => pk.dir).sort()).toEqual(['x', 'y']);
+    expect(bent.checks.every((c) => c.provided >= c.required - 1e-6)).toBe(true);
+  });
+
   it('keeps the adopted bars of a continuous beam in the project and reads them back after a reload', () => {
     frame(); solve();
     const ln = buildSheetRows().line[0]!;

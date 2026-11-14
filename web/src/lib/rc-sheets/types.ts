@@ -62,6 +62,8 @@ export interface RcSheetsData {
   seismic?: boolean;
   /** Beams whose span bars rise over the supports to carry the hogging moment there. */
   bentBars?: boolean;
+  /** Slabs whose span bars, every other one, rise over both supports in the level plan. */
+  slabBentBars?: boolean;
   /** Adopted bars by row key. */
   adopted: Record<string, Adopted>;
 }
