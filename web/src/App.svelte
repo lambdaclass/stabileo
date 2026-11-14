@@ -351,6 +351,8 @@
   import Icon from './components/ribbon/Icon.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
   import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
+  import RcSheetsWorkspace from './components/pro/rc-sheets/RcSheetsWorkspace.svelte';
+  import { closeSheets, sheetsWorkspace } from './lib/store/rc-sheets-view.svelte';
   import DesignDesk from './components/pro/desk/DesignDesk.svelte';
   import { deskUi, deskLayout } from './lib/store/design-desk-ui.svelte';
   import { isDesignTab, syncDeskWithTab, syncTabWithDesk } from './lib/pro/design-navigation';
@@ -380,6 +382,7 @@
     untrack(() => {
       if (deskUi.open) deskUi.open = false;
       if (rebarWorkspace.open) rebarWorkspace.close();
+      closeSheets();
       if (uiStore.appMode === 'pro') syncDeskWithTab(uiStore.proActiveTab);
     });
   });
@@ -2338,6 +2341,9 @@
   and closing costs the model nothing.
 -->
 <RebarWorkspace />
+{#if sheetsWorkspace.open}
+  <RcSheetsWorkspace bind:family={sheetsWorkspace.family} onclose={closeSheets} />
+{/if}
 {#if !deskDocked}<DesignDesk />{/if}
 
 {#if uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now}

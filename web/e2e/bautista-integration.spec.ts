@@ -55,7 +55,10 @@ for (const width of [375, 768]) {
       await page.screenshot({ path: info.outputPath(`reinforcement-${family}-${width}.png`) });
     }
     await close.click();
-    await page.getByTestId('axes-open-3d').click();
+    const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
+    const canvas = page.locator('.viewport3d-wrapper > canvas[data-engine]');
+    const origin = (await canvas.boundingBox())!;
+    await canvas.click({ position: { x: triad.x + triad.width / 2 - origin.x, y: triad.y + triad.height / 2 - origin.y } });
     const picker = page.getByTestId('axes-picker');
     await expect(picker).toBeVisible();
     const box = (await picker.boundingBox())!;
@@ -67,7 +70,7 @@ for (const width of [375, 768]) {
   });
 }
 
-test.skip('@smoke known wrong result: #2081 reinforcement sheets survive responsive layout changes with usable controls', async ({ pro: page }) => {
+test('@smoke known wrong result: #2081 reinforcement sheets survive responsive layout changes with usable controls', async ({ pro: page }) => {
   await loadModel(page, 'rc-qa-diagnostic');
   await page.evaluate(() => window.__stabileoActions.setMeshBeforeAnalysis(false));
   await solveModel(page);

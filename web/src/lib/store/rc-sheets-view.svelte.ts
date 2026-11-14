@@ -16,6 +16,12 @@ import { designData } from './design-data';
 import { activeResultSet3D } from './active-results';
 import { decimalFor, makeFmt } from '../rc-sheets/format';
 import { sheetsProgress } from './rc-sheets-progress.svelte';
+import type { SheetFamily } from '../rc-sheets/types';
+
+export const sheetsWorkspace = $state<{ open: boolean; family: SheetFamily }>({ open: false, family: 'beam' });
+
+export function openSheets(family: SheetFamily = sheetsWorkspace.family): void { sheetsWorkspace.family = family; sheetsWorkspace.open = true; }
+export function closeSheets(): void { sheetsWorkspace.open = false; }
 
 /** What the rows were designed from: what makes them out of date when it changes. */
 interface Stamp {
@@ -83,6 +89,7 @@ export async function designSheets(): Promise<void> {
 
 /** Forget the rows (a new project): the sheets ask to be designed again. */
 export function clearSheets(): void {
+  closeSheets();
   runId++;
   sheetsRun.rows = null; sheetsRun.stamp = null; setProgress(null);
 }

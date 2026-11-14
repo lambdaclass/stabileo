@@ -67,7 +67,6 @@
 <svelte:window onkeydown={onkey} />
 
 <div class="rcw" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile} use:portal role="dialog" aria-modal="true" aria-label={t('rcSheets.title')} data-testid="rc-sheets-workspace">
-  <!-- One row at any width: what matters least gives way first (the container queries below). -->
   <header class="rcw-head" title={basisText}>
     <strong class="rcw-name">{t('rcSheets.title')}</strong>
     <span class="rcw-code" data-testid="rc-code"><RcCodePicker compact /></span>
@@ -220,18 +219,17 @@
 </div>
 
 <style>
-  .rcw { position: fixed; inset: 0; z-index: 1000; background: var(--st-surface); color: var(--st-text); display: flex; flex-direction: column; }
-  .rcw-head { container-type: inline-size; display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--st-hair); }
+  .rcw { container-type: inline-size; position: fixed; inset: 0; z-index: 1000; background: var(--st-surface); color: var(--st-text); display: flex; flex-direction: column; }
+  .rcw-head { flex: none; display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--st-hair); }
   .rcw-name { flex: none; white-space: nowrap; }
   .rcw-code { flex: none; }
   .rcw-basis { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rcw-tools { flex: none; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-  .rcw-close { flex: none; min-width: 30px; min-height: 28px; font-size: 0.85rem; }
+  .rcw-close { flex: none; min-width: 44px; min-height: 44px; font-size: 0.85rem; }
   .narrow { display: none; }
   @container (max-width: 1500px) { .rcw-basis { display: none; } .rcw-tabs { margin-left: auto; } }
   @container (max-width: 1320px) { .rcw-code :global(.rcc > span) { display: none; } .rcw-tools .wide { display: none; } .rcw-tools .narrow { display: inline; } }
   @container (max-width: 1120px) { .rcw-tabs small { display: none; } .rcw-name { display: none; } }
-  @container (max-width: 940px) { .rcw-tabs { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin; } }
   .rcw-head strong { font-family: var(--st-display); font-size: 0.9rem; }
   .rcw-dim { font-size: 0.72rem; color: var(--st-text-3); }
   .rcw-stale { color: var(--st-warn); }
@@ -268,5 +266,16 @@
   tr.detail td { white-space: normal; padding: 8px; background: var(--st-surface); }
   tr.detail :global(.rce) { margin-bottom: 8px; }
   .rcw-note { font-size: 0.7rem; color: var(--st-text-3); margin-top: 8px; max-width: 90ch; }
+  @container (max-width: 940px) {
+    .rcw-head { display: grid; grid-template-columns: minmax(0, 1fr) 44px; }
+    .rcw-code { grid-column: 1; grid-row: 1; min-width: 0; }
+    .rcw-code :global(.rcc) { min-width: 0; }
+    .rcw-code :global(select) { min-width: 0; max-width: 100%; width: 100%; }
+    .rcw-close { grid-column: 2; grid-row: 1; }
+    .rcw-tabs { grid-column: 1 / -1; grid-row: 2; min-width: 0; margin-left: 0; padding-inline: 2px; scroll-padding-inline: 2px; overflow-x: auto; scrollbar-width: thin; }
+    .rcw-tools { grid-column: 1 / -1; grid-row: 3; flex-wrap: wrap; white-space: normal; }
+    .rcw-stale, .rcw-head > .rcs-btn:not(.rcw-close) { grid-column: 1 / -1; }
+    .rcw-tabs button, .rcw-head .rcs-btn, .rcw-ctl, .rcw-head :global(select) { min-height: 44px; min-width: 44px; }
+  }
   .rcw-secs { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin: 6px 0 8px; }
 </style>
