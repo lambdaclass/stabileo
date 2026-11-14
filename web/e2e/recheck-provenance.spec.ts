@@ -286,7 +286,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 820, height: 1180
       expect((await recheck(page)).noticeOpen).toBe(false);
       expect((await recheck(page)).stale).toBe(true);
       await page.reload();
-      await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+      await page.waitForFunction(() => !!window.__stabileoActions);
       expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
       await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
       await expect(notice).toBeHidden();

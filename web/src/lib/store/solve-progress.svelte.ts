@@ -3,7 +3,7 @@
  * how many, and once it ends, whether it worked and what it left to read. Live calc does not report
  * here: it runs on every edit and would flash a card at each one.
  */
-export type SolvePhase = 'prepare' | 'mesh' | 'single' | 'cases' | 'combine' | 'done' | 'failed';
+export type SolvePhase = 'prepare' | 'mesh' | 'single' | 'cases' | 'shells' | 'combine' | 'envelope' | 'checks' | 'publish' | 'done' | 'failed';
 
 export interface SolveProgress {
   phase: SolvePhase;

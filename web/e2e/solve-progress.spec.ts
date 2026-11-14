@@ -8,7 +8,7 @@ import { test, expect } from './fixtures';
 test.describe('@smoke solve progress', () => {
   test('a PRO solve with combinations goes through its steps and ends with Done', async ({ pro: page }) => {
     await page.evaluate(() => window.__stabileoActions.loadExample('rc-design-qa-8'));
-    await page.waitForFunction(() => window.__stabileo.solverReady(), null, { timeout: 60_000 });
+    await page.waitForFunction(() => window.__stabileo.solverReady());
     await page.evaluate(() => {
       const w = window as unknown as { phases: string[] };
       w.phases = [];
@@ -31,7 +31,7 @@ test.describe('@smoke solve progress', () => {
     await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
     await page.goto('/app/basic?e2e=1');
     await page.evaluate(() => window.__stabileoActions.loadExample('hidden-mechanism'));
-    await page.waitForFunction(() => window.__stabileo.solverReady(), null, { timeout: 60_000 });
+    await page.waitForFunction(() => window.__stabileo.solverReady());
     await page.evaluate(() => window.__stabileoActions.solve());
     const card = page.getByTestId('solve-progress');
     await expect(card).toHaveAttribute('data-phase', 'failed');

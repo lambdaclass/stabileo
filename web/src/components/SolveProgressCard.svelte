@@ -8,6 +8,7 @@
   const AUTO_CLOSE_MS = 6000;
   const p = $derived(solveProgress.now);
   let tick = $state(performance.now());
+  $effect.pre(() => { void p; tick = performance.now(); });
   $effect(() => {
     if (!p || p.phase === 'done' || p.phase === 'failed') return;
     const id = setInterval(() => { tick = performance.now(); }, 250);
@@ -36,6 +37,9 @@
       {#if p.phase === 'mesh' && meshProgress.now}
         <progress max={meshProgress.now.total} value={meshProgress.now.done}></progress>
         <span class="spc-sub">{tp('solveProgress.meshing', { done: meshProgress.now.done, total: meshProgress.now.total })}</span>
+      {:else if (p.phase === 'shells' || p.phase === 'combine') && p.total > 0}
+        <progress max={p.total} value={p.done}></progress>
+        <span class="spc-sub">{tp(p.phase === 'shells' ? 'solveProgress.cases' : 'solveProgress.combos', { done: p.done, total: p.total })}</span>
       {:else if p.phase === 'cases' && p.total > 0}
         <progress max={p.total} value={p.done} data-testid="solve-progress-cases"></progress>
         <span class="spc-sub">{tp('solveProgress.cases', { done: p.done, total: p.total })}{#if left !== null} · {tp('solveProgress.left', { s: secs(left * 1000) })}{/if}</span>

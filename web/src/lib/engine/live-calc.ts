@@ -39,6 +39,7 @@ import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
 import { solveProgress } from '../store/solve-progress.svelte';
 import { onCaseSolved } from './solver-pool';
+import { onSolveStep, solveStep } from './solve-steps';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -272,6 +273,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   solvedInput = null;
   solveProgress.begin();
   onCaseSolved((done, total) => solveProgress.step('cases', done, total));
+  onSolveStep((step, done, total) => solveProgress.step(step, done, total));
   let outcome: GlobalSolveOutcome | undefined;
   try {
     outcome = await globalSolve(options);
@@ -281,6 +283,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     throw e;
   } finally {
     onCaseSolved(null);
+    onSolveStep(null);
     const warnings = uiStore.is3DWorkspace
       ? resultsStore.diagnostics3D.length + resultsStore.solverDiagnostics3D.length + resultsStore.structuredDiagnostics3D.length
       : resultsStore.diagnostics.length + resultsStore.solverDiagnostics.length + resultsStore.structuredDiagnostics.length;
@@ -455,7 +458,6 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     solveProgress.step('cases', 0, modelStore.model.loadCases.length);
     const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined);
     if (isStale()) return stale;
-    solveProgress.step('combine');
     if (typeof comboResult === 'string') return comboResult;
     if (!comboResult) return t('results.emptyModelError');
     if (modelStore.modelVersion !== solveEpoch) return stale;
@@ -489,6 +491,8 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
       if (firstCaseResult) markAllLoads(firstCaseResult, comboResult.perCase, factors);
     }
     if (!firstCaseResult) return t('results.emptyModelError');
+    await solveStep('publish');
+    if (isStale() || modelStore.modelVersion !== solveEpoch) return stale;
     // The same check the single solve makes, on everything this path would publish: the base and
     // every case and combination. A NaN here goes back as the combinations' failure, and the
     // single-solve fallback refuses a NaN base by itself.
