@@ -184,3 +184,28 @@ pub fn nightly_property<T: serde::Serialize>(base: &T, body: impl FnOnce() -> Re
     }
     result
 }
+
+pub fn nodal_resultants<const N: usize>(loads: impl Iterator<Item = (usize, [f64; N])>) -> std::collections::HashMap<usize, [f64; N]> {
+    let mut result = std::collections::HashMap::new();
+    for (node, values) in loads {
+        let sum = result.entry(node).or_insert([0.0; N]);
+        for (sum, value) in sum.iter_mut().zip(values) { *sum += value; }
+    }
+    result
+}
+
+#[test]
+#[ignore = "known wrong result: #2084"]
+fn issue_2084_fixed_node_moment_oracle_rounds_the_resultant_once() {
+    use dedaliano_engine::certify::exact::{q, to_f64_down, to_f64_up};
+    let values = [2.7012955808349637, -39.612551592246064, 32.9374070777866];
+    let exact = values.iter().fold(q(0.0).unwrap(), |sum, value| sum + q(*value).unwrap());
+    let expected = to_f64_down(&exact).unwrap();
+    assert_eq!(Some(expected), to_f64_up(&exact));
+    for order in [[0,1,2], [0,2,1], [1,0,2], [1,2,0], [2,0,1], [2,1,0]] {
+        let plane = nodal_resultants(order.iter().map(|i| (1, [0.0, 0.0, values[*i]])));
+        let space = nodal_resultants(order.iter().map(|i| (1, [0.0, 0.0, 0.0, 0.0, 0.0, values[*i]])));
+        assert_eq!(plane[&1][2], expected, "plane {order:?}");
+        assert_eq!(space[&1][5], expected, "space {order:?}");
+    }
+}

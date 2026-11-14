@@ -990,13 +990,10 @@ proptest! {
                 }
             }
             // Σ_members (force on member at node) = applied nodal load + reaction.
-            let mut rhs: HashMap<usize, [f64; 3]> = HashMap::new();
-            for l in &inp.loads {
-                if let SolverLoad::Nodal(nl) = l {
-                    let a = rhs.entry(nl.node_id).or_default();
-                    a[0] += nl.fx; a[1] += nl.fz; a[2] += nl.my;
-                }
-            }
+            let mut rhs = properties_common::nodal_resultants(inp.loads.iter().filter_map(|load| match load {
+                SolverLoad::Nodal(n) => Some((n.node_id, [n.fx, n.fz, n.my])),
+                _ => None,
+            }));
             for r in &res.reactions {
                 let a = rhs.entry(r.node_id).or_default();
                 a[0] += r.rx; a[1] += r.rz; a[2] += r.my;
