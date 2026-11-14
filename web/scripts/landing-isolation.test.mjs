@@ -4,12 +4,13 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { build } from 'vite';
 
-async function landingBuild(accounts, research = '0', envDir) {
+async function landingBuild(accounts, research = '0', envDir, defaults = false) {
   const keys = ['VITE_ACCOUNTS', 'VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME', 'VITE_E2E', 'VITE_APP_TYPE', 'GITHUB_SHA'];
   const previous = keys.map(key => process.env[key]);
   Object.assign(process.env, { VITE_ACCOUNTS: accounts, VITE_RESEARCH: research, VITE_TOOLS: '0', VITE_DIAGRAM_GAME: '0', VITE_E2E: '0', VITE_APP_TYPE: '', GITHUB_SHA: '000000000000' });
   if (accounts === undefined) delete process.env.VITE_ACCOUNTS;
   if (research === null) delete process.env.VITE_RESEARCH;
+  if (defaults) for (const key of keys.filter(key => key.startsWith('VITE_'))) delete process.env[key];
   try {
     const result = await build({
       root: resolve(import.meta.dirname, '..'),
@@ -101,4 +102,13 @@ test('Vite environment files gate the locale dictionaries and compiled public ma
   } finally {
     rmSync(envDir, { recursive: true, force: true });
   }
+});
+
+const knownWrong2099 = process.env.IGNORED ? false : 'known wrong result: #2099';
+
+test('CI default build excludes optional public policy and registration', { skip: knownWrong2099 }, async () => {
+  const { manifest, modules, emittedModules } = await landingBuild(undefined, undefined, undefined, true);
+  assert.deepEqual(modules.filter(id => /\/lib\/(legacy-routes|public-feature-policy)\.ts$/.test(id)), []);
+  assert.equal(manifest['src/components/register/RegisterPage.svelte'], undefined);
+  assert.deepEqual(emittedModules.filter(id => id === '\0virtual:public-i18n/hu'), []);
 });
