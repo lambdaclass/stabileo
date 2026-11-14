@@ -7,6 +7,7 @@
   import { t, tp, i18n } from '../lib/i18n';
   import { legalHref, TERMS_PATH, PRIVACY_PATH, USAGE_DATA_PATH } from '../lib/legal/legal';
   import type { AdminFlag } from '../lib/api/admin';
+  import MarketingSettings from './MarketingSettings.svelte';
 
   const ACCOUNT_FEATURES: { key: AdminFlag; label: string; help: string; testid: string }[] = [
     { key: 'cloud_projects_enabled', label: 'admin.settings.cloudProjects', help: 'admin.settings.cloudProjectsHelp', testid: 'admin-settings-projects' },
@@ -106,6 +107,8 @@
         <p class="adm-done" role="status" data-testid="admin-settings-saved">{t('admin.settings.saved')}</p>
       {/if}
     </div>
+
+    <MarketingSettings />
   {/if}
 </section>
 

@@ -6,6 +6,8 @@
   import { metricLabel } from './metric-labels';
   import { t, tp, i18n } from '../lib/i18n';
   import type { Count, UsageBreakdown } from '../lib/api/admin';
+  import { acquisition } from './admin-marketing.svelte';
+  import AcquisitionPanel from './ads/AcquisitionPanel.svelte';
 
   const PERIODS = [7, 30, 90];
   const USE_PANELS: UsageBreakdown[] = ['modes', 'diagrams', 'tools', 'advanced', 'step_methods', 'examples', 'exports'];
@@ -13,7 +15,13 @@
 
   onMount(() => {
     void adminMetrics.load();
+    void acquisition.load(adminMetrics.days);
   });
+
+  function period(d: number) {
+    void adminMetrics.load(d);
+    void acquisition.load(d);
+  }
 
   const s = $derived(adminMetrics.summary);
 
@@ -47,7 +55,7 @@
     <h1 id="ins-metrics-title" class="ins-h1">{t('admin.metrics.title')}</h1>
     <div class="ins-toolbar">
       {#each PERIODS as d (d)}
-        <button type="button" class="ins-btn" class:on={adminMetrics.days === d} onclick={() => adminMetrics.load(d)} data-testid={`admin-metrics-days-${d}`}>
+        <button type="button" class="ins-btn" class:on={adminMetrics.days === d} onclick={() => period(d)} data-testid={`admin-metrics-days-${d}`}>
           {tp('admin.metrics.days', { n: d })}
         </button>
       {/each}
@@ -111,6 +119,8 @@
       {@render card(s.accounts.consents.usage_analytics, t('admin.metrics.consentUsage'), t('admin.metrics.consentUsageHelp'), 'metric-consent-usage')}
       {@render card(s.accounts.consents.model_research, t('admin.metrics.consentResearch'), t('admin.metrics.consentResearchHelp'), 'metric-consent-research')}
     </div>
+
+    {#if acquisition.data}<AcquisitionPanel data={acquisition.data} />{/if}
 
     <div class="ins-grid">
       <div class="ins-panel" data-testid="metric-gate">

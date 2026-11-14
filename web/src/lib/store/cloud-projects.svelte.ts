@@ -7,6 +7,7 @@ import { modelStore, uiStore, tabManager } from '.';
 import { serializeProject, loadProject } from './file';
 import { authStore } from './auth.svelte';
 import { cloudLink } from './cloud-link.svelte';
+import { milestone } from '../tracking/activity.svelte';
 
 let items = $state<CloudProject[]>([]);
 let total = $state(0);
@@ -95,6 +96,7 @@ export const cloudProjects = {
       cloudLink.set(at.tab, { id: saved.id, account: at.account, revision: saved.revision }, at.generation);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(linked) });
       remember(saved);
+      milestone('first_save');
       if (!linked) {
         total += 1;
         used += 1;
@@ -115,6 +117,7 @@ export const cloudProjects = {
       cloudLink.set(at.tab, { id: saved.id, account: at.account, revision: saved.revision }, at.generation);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
       remember(saved);
+      milestone('first_save');
       return saved;
     } finally {
       saving = false;

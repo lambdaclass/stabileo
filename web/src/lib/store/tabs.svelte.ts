@@ -1,5 +1,6 @@
 // Tab management store — swap-and-save pattern for singleton stores
 
+import { skipNextAnalysis } from '../tracking/activity.svelte';
 import { adoptLoadCases } from './load-cases-mode';
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
@@ -326,6 +327,7 @@ function createTabManager() {
       // Defer solve to let the model restore propagate
       setTimeout(() => {
         if (signal.aborted || typeof window === 'undefined') return;
+        skipNextAnalysis();
         window.dispatchEvent(new Event('stabileo-solve'));
         // After solve, restore diagram type
         setTimeout(() => {

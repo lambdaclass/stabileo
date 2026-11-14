@@ -13,6 +13,7 @@ vi.mock('../lib/public-route', () => ({ routeKind: () => ({ kind: mocks.route })
 vi.mock('../lib/i18n/store.svelte', () => ({ i18n: { locale: 'en' }, ensureLocale: async () => {}, ensurePublicLocale: mocks.publicLocale, PUBLIC_LOCALES: ['en', 'es', 'pt', 'de', 'fr', 'tr'] }));
 vi.mock('../load-app', () => ({ loadApplication: mocks.load }));
 vi.mock('../lib/utils/e2e-hooks', () => ({ installE2EHooks: mocks.hooks }));
+vi.mock('../lib/tracking/tracking', () => ({ startTracking: async () => null }));
 
 beforeEach(() => {
   vi.resetModules();

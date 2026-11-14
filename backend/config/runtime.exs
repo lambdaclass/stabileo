@@ -23,6 +23,12 @@ if config_env() == :prod do
       "You can generate one by running: mix phx.gen.secret"
     )
 
+  config :stabileo_marketing,
+    meta_pixel_id: StabileoUtils.fetch_env("META_PIXEL_ID"),
+    meta_capi_access_token: StabileoUtils.fetch_env("META_CAPI_ACCESS_TOKEN"),
+    meta_capi_test_event_code: StabileoUtils.fetch_env("META_CAPI_TEST_EVENT_CODE"),
+    gtm_container_id: StabileoUtils.fetch_env("GTM_CONTAINER_ID")
+
   host = StabileoUtils.fetch_env!("PHX_HOST")
   app_url = StabileoUtils.fetch_env("APP_URL", "https://#{host}") |> String.trim_trailing("/")
   port = StabileoUtils.fetch_env_integer("PORT", 4100)

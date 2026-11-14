@@ -5,6 +5,7 @@
   import { t, tp } from '../lib/i18n';
   import { adminProjects, adminFeedback } from './admin-insights.svelte';
   import { adminRoute } from './admin-route.svelte';
+  import { channelLabel, triggerLabel } from './ads/ads-format';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -128,6 +129,31 @@
       <dt>{t('admin.detail.usageAnalytics')}</dt><dd>{user.consents?.usage_analytics ? t('admin.yes') : t('admin.no')}</dd>
       <dt>{t('admin.detail.modelResearch')}</dt><dd>{user.consents?.model_research ? t('admin.yes') : t('admin.no')}</dd>
       <dt>{t('admin.col.projects')}</dt><dd class="mono">{user.project_count ?? 0}</dd>
+    </dl>
+
+    <h3 class="adm-sub" data-testid="admin-drawer-origin">{t('admin.detail.origin')}</h3>
+    {#if user.signup_source}
+      {@const src = user.signup_source}
+      <dl class="adm-fields">
+        <dt>{t('admin.detail.channel')}</dt>
+        <dd data-testid="admin-drawer-channel">{channelLabel(src.channel)}{#if src.paid} · {t('admin.users.paid')}{/if}{#if src.placement} · {src.placement}{/if}</dd>
+        {#if src.trigger}<dt>{t('admin.detail.trigger')}</dt><dd>{triggerLabel(src.trigger)}</dd>{/if}
+        {#if src.utm_campaign}<dt>{t('admin.detail.campaign')}</dt><dd class="mono">{src.utm_campaign}</dd>{/if}
+        {#if src.utm_term}<dt>{t('admin.detail.adSet')}</dt><dd class="mono">{src.utm_term}</dd>{/if}
+        {#if src.utm_content}<dt>{t('admin.detail.ad')}</dt><dd class="mono">{src.utm_content}</dd>{/if}
+        {#if src.landing_path}<dt>{t('admin.detail.landing')}</dt><dd class="mono">{src.landing_path}</dd>{/if}
+        {#if src.referrer}<dt>{t('admin.detail.referrer')}</dt><dd class="mono">{src.referrer}</dd>{/if}
+        {#if src.first_seen_at}<dt>{t('admin.detail.firstSeen')}</dt><dd>{formatDateTime(src.first_seen_at)}</dd>{/if}
+      </dl>
+    {:else}
+      <p class="adm-muted">{t('admin.detail.noOrigin')}</p>
+    {/if}
+
+    <h3 class="adm-sub">{t('admin.detail.milestones')}</h3>
+    <dl class="adm-fields" data-testid="admin-drawer-milestones">
+      {#each ['first_analysis', 'first_save', 'first_export'] as const as kind (kind)}
+        <dt>{t(`admin.detail.m.${kind}`)}</dt><dd>{user.milestones?.[kind] ? formatDateTime(user.milestones[kind] ?? null) : '—'}</dd>
+      {/each}
     </dl>
 
     <div class="adm-links">
@@ -325,4 +351,5 @@
     border-color: color-mix(in srgb, var(--st-accent) 55%, transparent);
     color: var(--st-text);
   }
+  .adm-sub { margin: 14px 0 6px; font-size: 0.8rem; font-weight: 600; }
 </style>

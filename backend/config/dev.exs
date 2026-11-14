@@ -73,3 +73,9 @@ config :cors_plug,
     "http://localhost:#{admin_port}",
     "http://localhost:4173"
   ]
+
+config :stabileo_marketing,
+  meta_pixel_id: System.get_env("META_PIXEL_ID"),
+  meta_capi_access_token: System.get_env("META_CAPI_ACCESS_TOKEN"),
+  meta_capi_test_event_code: System.get_env("META_CAPI_TEST_EVENT_CODE"),
+  gtm_container_id: System.get_env("GTM_CONTAINER_ID")
