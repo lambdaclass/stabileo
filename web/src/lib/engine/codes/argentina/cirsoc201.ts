@@ -362,6 +362,17 @@ function flexureEvaluationSteps(check: NonNullable<ReturnType<typeof evaluateBea
   ];
 }
 
+function enforcePracticalFlexureLimit(result: FlexureResult): FlexureResult {
+  if (result.AsReq <= result.AsMax) return result;
+  return {
+    ...result,
+    status: 'fail',
+    steps: [...result.steps,
+      `⚠ As,req = ${result.AsReq.toFixed(1)} cm² supera el máximo práctico ${result.AsMax.toFixed(1)} cm² (4 %·b·h) — sección insuficiente: agrandar la sección`,
+    ],
+  };
+}
+
 export function checkFlexure(
   params: ConcreteDesignParams, Mu: number, Nu: number = 0, opts: FlexureOptions = {},
 ): FlexureResult {
@@ -486,15 +497,9 @@ export function checkFlexure(
     steps.push(`⚠ εt = ${(epsilonTProv * 1000).toFixed(2)} ‰ < εt,mín = ${(check.epsilonTMin * 1000).toFixed(2)} ‰ (${edition === '2005' ? '§10.3.5' : '§9.3.3.1'})`);
   }
   if (rebar.area < AsMin || design.kind === 'impossible' || barsDesign.kind === 'impossible') status = 'fail';
-  if (AsDesign > AsMaxPractical) {
-    status = 'fail';
-    steps.push(
-      `⚠ As,req = ${AsDesign.toFixed(1)} cm² supera el máximo práctico ${AsMaxPractical.toFixed(1)} cm² (4 %·b·h) — sección insuficiente: agrandar la sección`,
-    );
-  }
 
   const etc = tensionControlledStrain(fy, edition);
-  return {
+  return enforcePracticalFlexureLimit({
     Mu: MuAbs, designDepth: d, d: effectiveDepth(h, cover, stirrupDia, rebar.dia), ...providedFlexureState(check),
     aReq: design.a, c: design.c, cMax: (d * 0.003) / (0.003 + etc), epsilonT: design.epsilonT,
     AsReq: AsDesign,
@@ -513,7 +518,7 @@ export function checkFlexure(
     barsComp: rebarComp?.label,
     barCountComp: rebarComp?.count,
     barDiaComp: rebarComp?.dia,
-  };
+  });
 }
 
 // ─── Shear (CIRSOC 201-2025 §22.5, 9.6.3, 9.7.6.2.2) ────────────────
@@ -1319,7 +1324,7 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
       const ductile = input.elementType !== 'beam' || !r || Math.abs(designMu) === 0
         || flexureNu >= 0.1 * params.fc * 1000 * params.b * params.h || r.epsilonT >= r.epsilonTMin;
       const AsMin = minFlexuralSteelCm2(params.fc, params.fy, params.b, d);
-      flexure = { ...flexure, AsMin, AsReq: Math.max(flexure.AsFlexural, AsMin), AsProv: f.AsProv, barDia: f.barDia, barCount: f.barCount, bars: f.bars, d,
+      flexure = enforcePracticalFlexureLimit({ ...flexure, AsMin, AsReq: Math.max(flexure.AsFlexural, AsMin), AsProv: f.AsProv, barDia: f.barDia, barCount: f.barCount, bars: f.bars, d,
         AsComp: f.AsComp, barDiaComp: f.barDiaComp, barCountComp: f.barCountComp, barsComp: f.barsComp,
         isDoublyReinforced: f.isDoublyReinforced, phiMn, ratio, ...providedFlexureState(r),
         status: f.AsProv < AsMin || !ductile || !(ratio <= 1) ? 'fail' : ratio > 0.85 ? 'warn' : 'ok',
@@ -1332,7 +1337,7 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
           ...(r ? flexureEvaluationSteps(r, phiMn) : []),
           `Mu/φMn = ${ratio.toFixed(3)}`,
           ...(!ductile && r ? [`⚠ εt = ${(r.epsilonT * 1000).toFixed(2)} ‰ < εt,mín = ${(r.epsilonTMin * 1000).toFixed(2)} ‰ (${edition === '2005' ? '§10.3.5' : '§9.3.3.1'})`] : []),
-        ] };
+        ] });
     }
     let shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv, ...fixed?.shear });
     let shearSecondary = isVertical && input.VuSecondary !== undefined

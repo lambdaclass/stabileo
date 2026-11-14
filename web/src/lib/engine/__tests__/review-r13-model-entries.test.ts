@@ -15,12 +15,12 @@ const model = {
   sections: new Map([[1, { id: 1, name: 'RC', b: params.b, h: params.h, a: params.b * params.h,
     iy: params.b * params.h ** 3 / 12, iz: params.h * params.b ** 3 / 12, j: 0.001 }]]),
   materials: new Map([[1, { id: 1, name: 'H25', fc: params.fc, fy: params.fc, e: 25000, nu: 0.2 }]]),
-  supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+  supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' as const }]]),
 } satisfies AutoVerifyModelData;
 afterEach(() => setCompactStationTransfer(true));
 
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  for (const entry of ['endpoints', 'auto', 'unified', 'design'] as const) it.skipIf(!process.env.RUN_KNOWN_WRONG)(`known wrong result: #2080 ${entry} ${spatial ? 'spatial' : 'planar'} nonlinear=${nonlinear} compact=${compact} model entries retain the practical failure`, () => {
+  for (const entry of ['endpoints', 'auto', 'unified', 'design'] as const) it(`#2080 ${entry} ${spatial ? 'spatial' : 'planar'} nonlinear=${nonlinear} compact=${compact} model entries retain the practical failure`, () => {
     for (const Mu of [150, 800]) {
       const solver: SolverInput3D = { ...model,
         elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, type: 'frame' as const, releaseMyStart: false, releaseMyEnd: false,
@@ -33,19 +33,17 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
       const complete = computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'end moment', factors: [] }], model);
       const v = { endpoints: () => autoVerifyFromResults(raw, model, null).concrete[0]!, auto: () => autoVerifyFromResults(raw, model, null, undefined, complete.demands).concrete[0]!,
         unified: () => runUnifiedVerification(raw, model, null, complete.demands)[0]!, design: () => runCirsocDesign(raw, model, complete.demands, new Map(), null).concrete[0]! }[entry]();
-      {
-        expect(v.flexure.phiMn).toBeGreaterThan(Mu);
-        expect(v.flexure.status === 'fail').toBe(Mu === 800);
-        expect(v.overallStatus === 'fail').toBe(Mu === 800);
-        expect(v.concurrentChecks!.every(c => c.verification.flexure.status === 'fail')).toBe(Mu === 800);
-        expect(v.flexure.AsReq > v.flexure.AsMax).toBe(Mu === 800);
-      }
+      expect(v.flexure.phiMn).toBeGreaterThan(Mu);
+      expect(v.flexure.status === 'fail').toBe(Mu === 800);
+      expect(v.overallStatus === 'fail').toBe(Mu === 800);
+      expect(v.concurrentChecks!.every(c => c.verification.flexure.status === 'fail')).toBe(Mu === 800);
+      expect(v.flexure.AsReq > v.flexure.AsMax).toBe(Mu === 800);
     }
   });
 }
 
 for (const nonlinear of [false, true]) {
-  for (const entry of ['direct', 'prepared', 'aggregate'] as const) it.skipIf(!process.env.RUN_KNOWN_WRONG)(`known wrong result: #2080 ${entry} native-2D WASM solver nonlinear=${nonlinear} demands retain the practical failure`, () => {
+  for (const entry of ['direct', 'prepared', 'aggregate'] as const) it(`#2080 ${entry} 2D WASM solver nonlinear=${nonlinear} demands retain the practical failure`, () => {
     for (const Mu of [150, 800]) {
       const solver: SolverInput = { nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 4, z: 0 }]]),
         materials: model.materials, sections: new Map([[1, { ...model.sections.get(1)!, iz: model.sections.get(1)!.iy }]]),
@@ -59,11 +57,9 @@ for (const nonlinear of [false, true]) {
       } }))).map(d => ({ ...params, elementId: 1, elementType: 'beam' as const, demand: d.section('My') }));
       const cage = verifyElement(inputs[0]!).flexure;
       const v = { direct: () => verifyElement(inputs[0]!, { flexure: cage }), prepared: () => prepareElementVerification(inputs[0]!)({ flexure: cage }), aggregate: () => verifyConcurrentElement(inputs) }[entry]();
-      {
-        expect(v.flexure.phiMn).toBeGreaterThan(Mu);
-        expect(v.flexure.AsReq > v.flexure.AsMax).toBe(Mu === 800);
-        expect(v.flexure.status === 'fail').toBe(Mu === 800);
-      }
+      expect(v.flexure.phiMn).toBeGreaterThan(Mu);
+      expect(v.flexure.AsReq > v.flexure.AsMax).toBe(Mu === 800);
+      expect(v.flexure.status === 'fail').toBe(Mu === 800);
     }
   });
 }
