@@ -1,10 +1,15 @@
 import type { Materials } from '../types';
+import { ACI_BENDS } from '../bars';
+import type { BendRules } from '../shape';
 
 export const GAMMA_MC = 1.5;
 export const GAMMA_MS = 1.15;
 export const ES = 2e5;
 export const EPS_CU = 0.003;
 export const toConfirm = (label: string): string => `rcSheets.ts500.u.${label.split('.').slice(2).join('.')}`;
+
+/** ACI 318-19's mandrels and hooks (§25.3), assumed until TS 500's own are read. */
+export const TS500_BENDS: BendRules = { ...ACI_BENDS, clause: 'ACI 318-19 §25.3', confirm: 'rcSheets.bbs.confirmTs500' };
 
 export interface Ts500Mat {
   fck: number; fyk: number;

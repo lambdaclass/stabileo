@@ -10,7 +10,7 @@
  *
  * Pure.
  */
-import type { BarPath } from '../codes/cirsoc201/bar-geometry';
+type Point3 = { x: number; y: number; z: number };
 
 export interface BvbsBar {
   mark: string; count: number; diameterMm: number; lengthMm: number; weightKg: number;
@@ -41,7 +41,7 @@ export function bvbsRecord(bar: BvbsBar, head: { project: string; plan: string; 
  * the signed angle to the next in the plane they bend in (BVBS 2D). Very short segments (the
  * points of a sampled bend) are merged into the turn.
  */
-export function legsOf(bar: Pick<BarPath, 'segments'>): Array<{ l: number; w: number }> {
+export function legsOf(bar: { segments: ReadonlyArray<{ start: Point3; end: Point3 }> }): Array<{ l: number; w: number }> {
   const segs = bar.segments.map((s) => ({ d: { x: s.end.x - s.start.x, y: s.end.y - s.start.y, z: s.end.z - s.start.z } }))
     .map((s) => ({ ...s, L: Math.hypot(s.d.x, s.d.y, s.d.z) })).filter((s) => s.L > 1e-6);
   if (!segs.length) return [];
@@ -69,8 +69,8 @@ export function legsOf(bar: Pick<BarPath, 'segments'>): Array<{ l: number; w: nu
   return out;
 }
 
-/** The inside bend diameter a mark is bent on, mm: 4 db for stirrups and ties, 6 db up to Ø25, 8 db above (Tabla 25.3.1, 25.3.2). */
-export const mandrelOf = (diameterMm: number, transverse: boolean) => (transverse && diameterMm <= 16 ? 4 : diameterMm <= 25 ? 6 : 8) * diameterMm;
+/** The inside bend diameter a mark is bent on, mm: 4 db for stirrups and ties up to Ø16, 6 db up to Ø25, 8 db to Ø32, 10 db above (Tabla 25.3.1, 25.3.2). */
+export const mandrelOf = (diameterMm: number, transverse: boolean) => (transverse && diameterMm <= 16 ? 4 : diameterMm <= 25 ? 6 : diameterMm <= 32 ? 8 : 10) * diameterMm;
 
 /** A file of records, one per mark. */
 export function bvbsFile(bars: readonly BvbsBar[], head: { project: string; plan: string; index: string; grade: string }): string {

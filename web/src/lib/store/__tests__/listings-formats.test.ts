@@ -13,7 +13,7 @@ import { detailingStore } from '../detailing.svelte';
 import { placeFrame } from '../../model/building/build-on-grid';
 import { LISTING_IDS, listing, setListingConfig, setWastePct } from '../listings';
 import { bvbsOfDocument, listingBytes } from '../listing-export';
-import { bvbsChecksum } from '../../listings/bvbs';
+import { bvbsChecksum } from '../../rc-sheets/schedule/bvbs';
 import { toAoa, cellText } from '../../listings/listing';
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';

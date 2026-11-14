@@ -51,7 +51,8 @@
 
 import type { BarPath, Point3 } from '../../codes/cirsoc201/bar-geometry';
 import { hookDevelopedLength, samplePath } from '../../codes/cirsoc201/bar-geometry';
-import type { Pt2 } from './drawings';
+
+export interface Pt2 { x: number; y: number }
 
 /**
  * How far out of its own plane a bar may wander and still be drawn flat, m.

@@ -11,7 +11,7 @@ import { listingsWorkbook } from '../listings/listing-xlsx';
 import { toCsv, toDocModel, toHtml, toPdfPages } from '../listings/listing';
 import { docxBytes } from '../export/docx';
 import { sheetsToPdf } from '../sheets/to-pdf';
-import { bvbsFile, legsOf, mandrelOf, type BvbsBar } from '../listings/bvbs';
+import { bvbsFile, legsOf, mandrelOf, type BvbsBar } from '../rc-sheets/schedule/bvbs';
 import { designData } from './design-data';
 import type { DocumentModel } from '../engine/detailing/document-model';
 import { withExportLog } from './export-log';

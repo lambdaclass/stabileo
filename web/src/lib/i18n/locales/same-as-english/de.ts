@@ -583,4 +583,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'xls.tpl.optionalMark',
   'rcSheets.wallFig.horizontal',
   'rcSheets.exportShort',
+  'rcSheets.bbs.csv',
+  'rcSheets.bbs.bvbs',
+  'rcSheets.bbs.kind.horizontal',
 ];

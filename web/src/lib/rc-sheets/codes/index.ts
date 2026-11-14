@@ -13,6 +13,8 @@ import { CIRSOC_SLAB_PLAN, type SlabPlanCode } from '../slab-plan';
 import { ec2Rules, ukRules } from '../ec2';
 import { ts500Rules } from '../ts500';
 import type { SheetCode } from '../types';
+import { ACI_BENDS } from '../bars';
+import type { BendRules } from '../shape';
 
 export interface SheetRules {
   beamRow: typeof beamRow;
@@ -25,9 +27,11 @@ export interface SheetRules {
   slabPlan: SlabPlanCode;
   /** Whether the special moment frame provisions are the code's (chapter 18 of ACI 318 and CIRSOC 201). */
   seismic: boolean;
+  /** Mandrels and hooks of the bars the sheets bend. */
+  bends: BendRules;
 }
 
-const aciFamily: SheetRules = { beamRow, beamLine, columnRow, slabRow, wallRow, punchingRow, slabPlan: CIRSOC_SLAB_PLAN, seismic: true };
+const aciFamily: SheetRules = { beamRow, beamLine, columnRow, slabRow, wallRow, punchingRow, slabPlan: CIRSOC_SLAB_PLAN, seismic: true, bends: ACI_BENDS };
 
 const RULES: Record<SheetCode, SheetRules> = {
   'cirsoc201-2025': aciFamily,

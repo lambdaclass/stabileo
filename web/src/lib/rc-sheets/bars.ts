@@ -1,6 +1,8 @@
 import { rebarGroupArea } from '../engine/station-design-forces';
 import { chooseBars } from '../engine/codes/argentina/cirsoc201-bars';
 import { barsPerRow, layerClearBetween, minClearSpacingInLayer } from '../codes/cirsoc201/spacing';
+import { minMandrelDiameter, standardHook } from '../codes/cirsoc201/bar-geometry';
+import type { BendRules } from './shape';
 import type { BarGroup, MeshBars, Stirrups } from './types';
 
 export const barArea = (dia: number): number => rebarGroupArea({ count: 1, diameter: dia });
@@ -69,3 +71,11 @@ export function proposeMesh(AsCm2: number, sMax: number, diameters: readonly num
   const dia = ds[ds.length - 1] ?? 12;
   return { dia, spacing: roundDown(Math.max(0.05, Math.min(sMax, barArea(dia) / Math.max(AsCm2, 1e-9)))) };
 }
+
+/** CIRSOC 201-2025 and ACI 318-19: Tables 25.3.1 (bars) and 25.3.2 (stirrups and ties); cross ties hooked 135° and 90° (§25.7.1.6). */
+export const ACI_BENDS: BendRules = {
+  mandrel: (dia, use) => minMandrelDiameter(dia, use).value,
+  extension: (dia, angle, use) => standardHook(dia, angle, use).extension,
+  crossTieHooks: [135, 90],
+  clause: '§25.3.1, §25.3.2',
+};
