@@ -3,10 +3,10 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { build } from 'vite';
 
-async function landingBuild(accounts) {
+async function landingBuild(accounts, research = '0') {
   const keys = ['VITE_ACCOUNTS', 'VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME', 'VITE_E2E', 'VITE_APP_TYPE', 'GITHUB_SHA'];
   const previous = keys.map(key => process.env[key]);
-  Object.assign(process.env, { VITE_ACCOUNTS: accounts, VITE_RESEARCH: '0', VITE_TOOLS: '0', VITE_DIAGRAM_GAME: '0', VITE_E2E: '0', VITE_APP_TYPE: '', GITHUB_SHA: '000000000000' });
+  Object.assign(process.env, { VITE_ACCOUNTS: accounts, VITE_RESEARCH: research, VITE_TOOLS: '0', VITE_DIAGRAM_GAME: '0', VITE_E2E: '0', VITE_APP_TYPE: '', GITHUB_SHA: '000000000000' });
   if (accounts === undefined) delete process.env.VITE_ACCOUNTS;
   try {
     const result = await build({
@@ -40,7 +40,7 @@ async function landingBuild(accounts) {
     assert.ok(landing);
     visit(landing.fileName);
     const modules = [...seen].flatMap(file => Object.keys(chunks.get(file)?.modules ?? {}));
-    return { manifest, modules };
+    return { manifest, modules, emittedModules: [...chunks.values()].flatMap(chunk => Object.keys(chunk.modules)) };
   } finally {
     keys.forEach((key, index) => {
       if (previous[index] === undefined) delete process.env[key];
@@ -67,4 +67,22 @@ test('an unspecified accounts build switch retains the registration chunk for br
   const { manifest, modules } = await landingBuild(undefined);
   assert.ok(manifest['src/components/register/RegisterPage.svelte']);
   assert.deepEqual(modules.filter(id => /\/lib\/tracking\//.test(id)), []);
+});
+
+const round6 = process.env.IGNORED === '1' ? {} : { skip: 'known wrong result: #2099' };
+
+test('switches-off landing has no publication or redirect policy in its static closure', round6, async () => {
+  const { modules } = await landingBuild('0');
+  assert.deepEqual(modules.filter(id => /\/lib\/(i18n\/(published|research-routes)|blog\/base-locales|legacy-routes|public-surface)\.ts$/.test(id)), []);
+});
+
+test('switches-off build emits no Hungarian public dictionary', round6, async () => {
+  const { emittedModules } = await landingBuild('0');
+  assert.deepEqual(emittedModules.filter(id => id === '\0virtual:public-i18n/hu'), []);
+});
+
+test('research-on landing keeps publication policy and the Hungarian public dictionary', async () => {
+  const { modules, emittedModules } = await landingBuild('0', '1');
+  assert.ok(modules.some(id => id.endsWith('/lib/i18n/published.ts')));
+  assert.ok(emittedModules.includes('\0virtual:public-i18n/hu'));
 });

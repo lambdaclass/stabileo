@@ -1202,3 +1202,7 @@ test.engine.constraint-rounding-2013-wasm: wasm
 .PHONY: test.web.feher-result-state
 test.web.feher-result-state:
 	nix develop .\#e2e --command node --test web/scripts/tests/feher-result-state.test.mjs
+
+.PHONY: test.web.public-policy-isolation
+test.web.public-policy-isolation:
+	nix develop .\#e2e --command bash -c 'cd web && node --test scripts/landing-isolation.test.mjs scripts/public-link-policy.test.mjs'
