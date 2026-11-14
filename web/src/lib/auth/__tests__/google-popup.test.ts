@@ -79,11 +79,11 @@ describe('the Google sign-in window', () => {
     expect(err.code).toBe('email_not_verified');
   });
 
-  it('an error that names no attempt still ends the wait', async () => {
+  it('an untagged error from the verified popup ends the wait', async () => {
     const w = fakeWindow();
     const pending = openGooglePopup('u', w.win);
     await sentAttempt(w.popup!);
-    w.fire('storage', { key: OAUTH_STORAGE_KEY, newValue: JSON.stringify({ type: OAUTH_CHANNEL, error: 'invalid_state' }) });
+    w.fire('message', { origin: 'https://stabileo.test', source: w.popup, data: { type: OAUTH_CHANNEL, error: 'invalid_state' } });
     expect((await pending.answer.catch((e) => e)).code).toBe('invalid_state');
   });
 
@@ -118,7 +118,7 @@ describe('the Google sign-in window', () => {
   });
 });
 
-it.skip('known wrong result: #765 T85 — shared-channel untagged errors cannot cancel another attempt', async () => {
+it('known wrong result: #765 T85 — shared-channel untagged errors cannot cancel another attempt', async () => {
   const w = fakeWindow();
   const pending = openGooglePopup('u', w.win);
   const attempt = await sentAttempt(w.popup!);

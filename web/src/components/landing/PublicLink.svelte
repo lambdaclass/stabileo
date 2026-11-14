@@ -31,6 +31,7 @@
   import { publicHref } from '../../lib/i18n/public-routes';
   import { prefetchPublicLink } from '../../lib/public-navigation';
   import { goPublic } from './landing-utils';
+  import { publicFeatureEnabled } from '../../lib/features';
   import { movedRoute } from '../../lib/legacy-routes';
 
   type Props = {
@@ -56,4 +57,6 @@
   }
 </script>
 
+{#if publicFeatureEnabled(target)}
 <a use:prefetchPublicLink={target} {href} class={cls} {onclick} {...rest}>{@render children()}</a>
+{/if}

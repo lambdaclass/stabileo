@@ -38,14 +38,12 @@ export async function attemptOf(verifier: string): Promise<string> {
   return base64url(new Uint8Array(digest));
 }
 
-// An error that names no attempt (the backend lost its own record of it) still ends the wait: it
-// can only stop a sign-in, never finish one.
-function parse(data: unknown, attempt: string | null): PopupAnswer | null {
+function parse(data: unknown, attempt: string | null, verifiedPopup = false): PopupAnswer | null {
   if (!attempt || !data || typeof data !== 'object') return null;
   const d = data as Record<string, unknown>;
   if (d.type !== OAUTH_CHANNEL) return null;
   if (typeof d.code === 'string' && d.code) return d.attempt === attempt ? { code: d.code } : null;
-  if (typeof d.error === 'string' && d.error && (d.attempt === attempt || d.attempt === undefined)) return { error: d.error };
+  if (typeof d.error === 'string' && d.error && (d.attempt === attempt || verifiedPopup && d.attempt === undefined)) return { error: d.error };
   return null;
 }
 
@@ -70,7 +68,7 @@ export function openGooglePopup(url: string, win: Window = window): PendingPopup
     finish(a);
   };
   const onMessage = (e: MessageEvent) => {
-    if (e.origin === win.location.origin && e.source === popup) done(parse(e.data, attempt));
+    if (e.origin === win.location.origin && e.source === popup) done(parse(e.data, attempt, true));
   };
   const onStorage = (e: StorageEvent) => {
     if (e.key !== OAUTH_STORAGE_KEY || !e.newValue) return;

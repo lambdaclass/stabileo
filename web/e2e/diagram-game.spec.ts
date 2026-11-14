@@ -84,7 +84,8 @@ async function fitsOneScreen(page: Page, what: string, minDrawing: number) {
       const h = Math.max(...boxes.map((r) => r.bottom)) - Math.min(...boxes.map((r) => r.top));
       return [Math.max(w, h)];
     };
-    const drawn = [0, 1, 2, 3].flatMap((i) => extent(document.querySelector(`[data-testid="dg-option-${i}"] svg`)));
+    const options = [...document.querySelectorAll('[data-testid^="dg-option-"]')];
+    const drawn = options.flatMap(option => extent(option.querySelector('svg')));
     const play = document.querySelector('[data-testid="dg-play"]');
     const tiny = play ? [...play.querySelectorAll('*')].filter((el) => {
       if (el.closest('.over-layer') && !document.querySelector('[data-testid="dg-again"]')) return false;
@@ -94,8 +95,10 @@ async function fitsOneScreen(page: Page, what: string, minDrawing: number) {
       return size > 0 && size < 11.5;
     }).map((el) => `${el.tagName}.${el.getAttribute('class') ?? ''} "${el.textContent!.trim().slice(0, 20)}"`) : [];
     return {
+      options: options.length,
+      drawings: drawn.length,
       smallest: Math.min(...drawn),
-      problem: Math.min(...extent(document.querySelector('[data-testid="dg-problem"] svg')), Infinity),
+      problem: Math.min(...extent(document.querySelector('[data-testid="dg-problem"] svg'))),
       question: parseFloat(getComputedStyle(document.querySelector('[data-testid="dg-question"]')!).fontSize),
       tiny,
       down: scroller.scrollHeight - scroller.clientHeight,
@@ -108,6 +111,10 @@ async function fitsOneScreen(page: Page, what: string, minDrawing: number) {
   expect(m.down, `${what}: vertical scroll`).toBeLessThanOrEqual(0);
   expect(m.side, `${what}: horizontal scroll`).toBeLessThanOrEqual(0);
   expect(m.outside, `${what}: off screen`).toEqual([]);
+  expect(m.options).toBeGreaterThanOrEqual(3);
+  expect(m.drawings).toBe(m.options);
+  expect(Number.isFinite(m.smallest)).toBe(true);
+  expect(Number.isFinite(m.problem)).toBe(true);
   expect(m.smallest, `${what}: the smallest option drawing, in px`).toBeGreaterThanOrEqual(minDrawing);
   if (minDrawing > 0) expect(m.problem, `${what}: the structure itself, in px`).toBeGreaterThanOrEqual(minDrawing);
   expect(m.question, `${what}: the question's type size`).toBeGreaterThanOrEqual(15);

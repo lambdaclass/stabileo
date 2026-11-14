@@ -170,9 +170,11 @@ describe('what the mutations claim', () => {
       const s = solved(id, id === 'ss-point' ? { f: 0.5 } : {});
       const correct = diagramOf(s, kind);
       const ref = Math.max(...correct.traces.flatMap((tr) => [0, 0.25, 0.5, 0.75, 1].map((t) => Math.hypot(...tr.at(t)))));
+      let generated = 0;
       for (let seed = 1; seed <= 6; seed++) {
         const d = mutate('jumpMissing', { solved: s, correct, kind, next: rng(seed) });
         if (!d) continue;
+        generated++;
         d.traces.forEach((tr, e) => {
           const stations = [0, ...correct.traces[e]!.breaks, 1];
           for (const b of stations) {
@@ -183,6 +185,7 @@ describe('what the mutations claim', () => {
           }
         });
       }
+      expect(generated, id).toBeGreaterThan(0);
     }
   });
 
@@ -205,7 +208,7 @@ describe('strings', () => {
       expect(Object.keys(table).sort(), locale).toEqual(keys);
       for (const [k, v] of Object.entries(table)) expect(v.trim(), `${locale} ${k}`).not.toBe('');
     }
-    expect(Object.keys(gameStrings).sort()).toEqual(['de', 'en', 'es', 'fr', 'pt', 'tr']);
+    expect(Object.keys(gameStrings).sort()).toEqual(['de', 'en', 'es', 'fr', 'hu', 'pt', 'tr']);
   });
 
   it('every question about one diagram marks its name exactly once, and nothing else is bracketed', () => {

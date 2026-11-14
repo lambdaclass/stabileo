@@ -1,9 +1,20 @@
 {
   "id": "buckling-round-off-member-kg-omitted",
   "date": "2026-11-08",
-  "prs": [1745],
+  "prs": [
+    1745
+  ],
   "area": "analysis",
-  "when": { "allOf": [["members"], ["analysis:buckling"]] },
+  "when": {
+    "allOf": [
+      [
+        "members"
+      ],
+      [
+        "analysis:buckling"
+      ]
+    ]
+  },
   "title": {
     "en": "Buckling no longer takes geometric stiffness from round-off axial forces",
     "es": "El pandeo ya no toma rigidez geométrica de esfuerzos axiales que son redondeo",

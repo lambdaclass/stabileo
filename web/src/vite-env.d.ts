@@ -54,3 +54,9 @@ declare module 'virtual:result-change-packed' {
   const packed: string;
   export default packed;
 }
+
+interface ImportMetaEnv {
+  readonly VITE_RESEARCH?: string;
+  readonly VITE_TOOLS?: string;
+  readonly VITE_DIAGRAM_GAME?: string;
+}

@@ -93,6 +93,7 @@
   import { collapseVerdict } from '../advanced/plastic/user-compare';
   import InfluencePanel from '../advanced/InfluencePanel.svelte';
   import LoadStatesPanel from '../advanced/LoadStatesPanel.svelte';
+  import { tools } from '../../lib/features';
   import { mohrPanel, openMohr, closeMohr } from '../../lib/mohr/panel.svelte';
 
   let showAdvanced = $state(false);
@@ -756,10 +757,12 @@
     {#if shown('mohr')}
       {#if !flat || active?.key !== 'mohr'}
     <div class="adv-btn-wrap" style="grid-column: span 2">
+      {#if tools()}
       <button class="adv-btn" style="flex:1" class:active={mohrPanel.open} data-testid="adv-mohr"
         onclick={() => { if (mohrPanel.open) closeEntry('mohr'); else openMohr({ kind: is3D ? 'space' : 'plane' }); }}>
         {t('advanced.mohr')}
       </button>
+      {/if}
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('mohr', e)} class:active={advHelpKey === 'mohr'}>?</button>
     </div>
     {@render helpPanel('mohr')}

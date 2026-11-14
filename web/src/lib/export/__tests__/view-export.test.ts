@@ -162,7 +162,7 @@ describe('copy image', () => {
   });
 });
 
-it.skip('known wrong result: #765 T133 — copy wrapper forwards rejection', async () => {
+it('known wrong result: #765 T133 — copy wrapper forwards rejection', async () => {
   vi.stubGlobal('ClipboardItem', class { constructor() { throw new Error('clipboard failed'); } });
   const error = new Error('toast failed');
   const toast = vi.spyOn(uiStore, 'toast').mockImplementation(() => { throw error; });

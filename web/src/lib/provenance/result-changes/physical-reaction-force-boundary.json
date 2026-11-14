@@ -25,7 +25,8 @@
     "pt": "As reações excluem a estabilização artificial",
     "de": "Reaktionsermittlung ohne künstliche Stabilisierung",
     "fr": "Les réactions excluent la stabilisation artificielle",
-    "tr": "Tepki hesabı yapay stabilizasyonu dışlar"
+    "tr": "Tepki hesabı yapay stabilizasyonu dışlar",
+    "hu": "A reakció-helyreállítás kizárja a mesterséges stabilizálást"
   },
   "explanation": {
     "en": "Nonlinear reaction recovery now accepts only physical member and spring forces. Artificial stiffness on a released slave rotation cannot become a constraint moment or a reaction at its restrained master. Re-check saved constrained nonlinear reactions (#1952).",
@@ -33,7 +34,8 @@
     "pt": "A recuperação de reações não lineares aceita apenas forças físicas de membros e molas. A rigidez artificial de uma rotação liberada escrava não pode gerar um momento de restrição ou uma reação no mestre apoiado. Revise as reações não lineares salvas com restrições (#1952).",
     "de": "Die nichtlineare Reaktionsermittlung akzeptiert nur physikalische Stab- und Federkräfte. Künstliche Steifigkeit einer freigegebenen Slave-Rotation kann kein Zwangsmoment oder eine Reaktion am gelagerten Master erzeugen. Prüfen Sie gespeicherte nichtlineare Reaktionen mit Zwangsbedingungen erneut (#1952).",
     "fr": "La récupération des réactions non linéaires accepte uniquement les forces physiques des barres et ressorts. La rigidité artificielle d’une rotation esclave libérée ne peut produire un moment de liaison ou une réaction au maître bloqué. Revérifiez les réactions non linéaires enregistrées avec liaisons (#1952).",
-    "tr": "Doğrusal olmayan tepki hesabı yalnızca fiziksel eleman ve yay kuvvetlerini kabul eder. Serbest bırakılmış bağımlı dönmedeki yapay rijitlik bir kısıt momentine veya mesnetli ana düğüm tepkisine dönüşemez. Kaydedilmiş kısıtlı doğrusal olmayan tepkileri yeniden kontrol edin (#1952)."
+    "tr": "Doğrusal olmayan tepki hesabı yalnızca fiziksel eleman ve yay kuvvetlerini kabul eder. Serbest bırakılmış bağımlı dönmedeki yapay rijitlik bir kısıt momentine veya mesnetli ana düğüm tepkisine dönüşemez. Kaydedilmiş kısıtlı doğrusal olmayan tepkileri yeniden kontrol edin (#1952).",
+    "hu": "A nemlineáris reakció-helyreállítás csak fizikai rúd- és rugóerőket fogad el. Egy kioldott szolga-forgás mesterséges merevsége nem válhat kényszernyomatékká vagy a megtámasztott mestercsomópont reakciójává. Ellenőrizze újra a mentett kényszeres nemlineáris reakciókat (#1952)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-physical-reaction-force-boundary.md",

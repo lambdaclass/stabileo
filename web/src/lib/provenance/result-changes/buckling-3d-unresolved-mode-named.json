@@ -1,9 +1,23 @@
 {
   "id": "buckling-3d-unresolved-mode-named",
   "date": "2026-11-06",
-  "prs": [1555],
+  "prs": [
+    1555
+  ],
   "area": "analysis",
-  "when": { "allOf": [["space3D"], ["members"], ["analysis:buckling"]] },
+  "when": {
+    "allOf": [
+      [
+        "space3D"
+      ],
+      [
+        "members"
+      ],
+      [
+        "analysis:buckling"
+      ]
+    ]
+  },
   "title": {
     "en": "3D buckling names the modes that round-off in the axial forces can move",
     "es": "El pandeo 3D señala los modos que el redondeo de los esfuerzos axiales puede alterar",

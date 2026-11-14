@@ -99,7 +99,7 @@ describe('the pixel cookies', () => {
   });
 });
 
-it.skip('known wrong result: #1251 T260 — withdrawing removes supported GA cookies and keeps preferences', () => {
+it('known wrong result: #1251 T260 — withdrawing removes supported GA cookies and keeps preferences', () => {
   const writes: string[] = [];
   const doc = { get cookie() { return '_gid=x; _ga=x; _ga_ID=x; _gat=x; _gat_ID=x; preference=x'; }, set cookie(v: string) { writes.push(v); } };
   clearAdCookies(doc, 'stabileo.test', false);

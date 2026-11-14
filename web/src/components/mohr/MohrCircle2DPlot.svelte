@@ -153,7 +153,7 @@
       <path class="mh-arc" d={arc.d} /><path class="mh-arc" d={arc.ticks} />
       <text class="mh-arc-label" x={arc.lx} y={arc.ly} text-anchor={arc.anchor}>2θ</text>
     {/if}
-    {#each [{ pt: top, t: thetaS, f: 'tmax' as const }, { pt: bottom, t: thetaS + 90, f: 'tmax' as const }] as m, i (i)}
+    {#each [{ pt: top, t: thetaS + (tauDown ? 90 : 0), f: 'tmax' as const }, { pt: bottom, t: thetaS + (tauDown ? 0 : 90), f: 'tmax' as const }] as m, i (i)}
       <g class="mh-hit" class:mh-on={focus === m.f} role="button" tabindex="0" aria-label={`${tm('mohr.goShear')} (θ = ${fmt1(wrapAngle(m.t))}°)`} {...hover(m.f)} onclick={go(m.t)} onkeydown={goKey(m.t)} data-testid={i === 0 ? 'mohr2d-go-tmax' : undefined}>
         <circle class="mh-hit-area" cx={m.pt.x} cy={m.pt.y} r="16" />
         <circle class="mh-shear-pt" cx={m.pt.x} cy={m.pt.y} r="4.5" />

@@ -9,13 +9,30 @@ export function forceResidual(model: SolverInput, reactions: AnalysisResults['re
   let fx = 0, fz = 0;
   for (const load of model.loads) {
     if (load.type === 'nodal') { fx += load.data.fx; fz += load.data.fz; }
-    if (load.type === 'distributed') {
-      const el = model.elements.get(load.data.elementId)!;
-      const a = model.nodes.get(el.nodeI)!, b = model.nodes.get(el.nodeJ)!;
-      const L = Math.hypot(b.x - a.x, b.z - a.z), w = (load.data.qI + load.data.qJ) / 2 * L;
-      fx += -(b.z - a.z) / L * w;
-      fz += (b.x - a.x) / L * w;
+    if (load.type === 'thermal' || load.type === 'nodal') continue;
+    const el = model.elements.get(load.data.elementId)!;
+    const a = model.nodes.get(el.nodeI)!, b = model.nodes.get(el.nodeJ)!;
+    const L = Math.hypot(b.x - a.x, b.z - a.z);
+    const c = (b.x - a.x) / L, s = (b.z - a.z) / L;
+    let axial = 0, transverse = 0;
+    switch (load.type) {
+      case 'pointOnElement':
+        axial = load.data.px ?? 0;
+        transverse = load.data.p;
+        break;
+      case 'distributed':
+        transverse = (load.data.qI + load.data.qJ) / 2 * ((load.data.b ?? L) - (load.data.a ?? 0));
+        break;
+      case 'axialDistributed':
+        axial = (load.data.qI + load.data.qJ) / 2 * ((load.data.b ?? L) - (load.data.a ?? 0));
+        break;
+      default: {
+        const unsupported: never = load;
+        throw new Error(`Unsupported load: ${unsupported}`);
+      }
     }
+    fx += c * axial - s * transverse;
+    fz += s * axial + c * transverse;
   }
   return Math.hypot(reactions.reduce((sum, r) => sum + r.rx, 0) + fx, reactions.reduce((sum, r) => sum + r.rz, 0) + fz);
 }

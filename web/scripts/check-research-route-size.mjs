@@ -83,7 +83,7 @@ try {
       if (!/\.(?:js|css|html)$/.test(file)) continue;
       for (const match of readFileSync(join(outDir, file), 'utf8').matchAll(/["'(](\/[^"'()\s]+)["')]/g)) {
         const relative = match[1].slice(1).split('?')[0];
-        if (!relative.includes('..') && !/\.worker-[\w-]+\.js$/.test(relative) && existsSync(join(outDir, relative)) && statSync(join(outDir, relative)).isFile()) files.add(relative);
+        if (!relative.includes('..') && !/(?:^|\/)solver-worker-[\w-]+\.js$/.test(relative) && existsSync(join(outDir, relative)) && statSync(join(outDir, relative)).isFile()) files.add(relative);
       }
     }
     const size = (file) => statSync(join(outDir, file)).size;

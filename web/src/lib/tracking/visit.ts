@@ -76,7 +76,7 @@ export function signupSource(trigger: string, consented: boolean, doc: Pick<Docu
   return { ...visit, trigger: trigger.slice(0, 64), page: path.slice(0, 256) };
 }
 
-const AD_COOKIE = /^(stb_visit|_fbp|_fbc|_ga\w*|_gcl_\w+)$/;
+const AD_COOKIE = /^(stb_visit|_fbp|_fbc|_ga\w*|_gid|_gcl_\w+)$/;
 
 export function clearAdCookies(doc: Pick<Document, 'cookie'> = document, host = location.hostname, secure = location.protocol === 'https:'): void {
   const domains = ['', `; domain=${host}`, `; domain=.${host.replace(/^www\./, '')}`];

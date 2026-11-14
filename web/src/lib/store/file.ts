@@ -162,9 +162,7 @@ export function saveTextTo(
   mime: string,
   opts: { chooseLocation?: boolean } = {},
 ): Promise<'saved' | 'downloaded' | 'cancelled'> {
-  return new Promise((resolve) => {
-    accountGate.guard('save', () => writeTextTo(content, filename, mime, opts).then(resolve), () => resolve('cancelled'));
-  });
+  return accountGate.run('save', () => writeTextTo(content, filename, mime, opts), 'cancelled');
 }
 
 async function writeTextTo(

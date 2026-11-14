@@ -1,6 +1,5 @@
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
-if (process.env.BAUTISTA_KNOWN_WRONG !== '1') process.exit(0);
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 768, height: 1024 } });

@@ -18,14 +18,14 @@
   const lines = $derived.by(() => {
     const out: Line[] = [];
     for (const c of campaigns) {
-      const cid = `${c.channel}|${c.campaign}`;
+      const cid = JSON.stringify([c.channel, c.campaign]);
       out.push({ id: cid, depth: 0, title: c.campaign, meta: channelLabel(c.channel), row: c, expandable: c.ad_sets.length > 0 });
       if (!open.has(cid)) continue;
       for (const s of c.ad_sets) {
-        const sid = `${cid}|${s.ad_set ?? ''}`;
+        const sid = JSON.stringify([c.channel, c.campaign, s.ad_set]);
         out.push({ id: sid, depth: 1, title: s.ad_set ?? t('admin.ads.none'), meta: null, row: s, expandable: s.ads.length > 0 });
         if (!open.has(sid)) continue;
-        for (const a of s.ads) out.push({ id: `${sid}|${a.ad ?? ''}`, depth: 2, title: a.ad ?? t('admin.ads.none'), meta: null, row: a, expandable: false });
+        for (const a of s.ads) out.push({ id: JSON.stringify([c.channel, c.campaign, s.ad_set, a.ad]), depth: 2, title: a.ad ?? t('admin.ads.none'), meta: null, row: a, expandable: false });
       }
     }
     return out;

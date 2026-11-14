@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import init, { simulation_run } from '../../public/research-wasm/feher-sipos-varkonyi-2026/shape.js';
+await init({ module_or_path: readFileSync(new URL('../../public/research-wasm/feher-sipos-varkonyi-2026/shape_bg.wasm', import.meta.url)) });
+const run = (theta, delta, q, half, n) => JSON.parse(simulation_run(theta, delta, q, half, n));
+assert.equal(run(1.3, 1.3, 4, true, 120).code, 'start_unsolved');
+for (const n of [80, 90]) assert.equal(run(1.3, 1.3, 4, true, n).code, 'start_snaps');
+assert.equal(run(1.3, 1.3, 4, true, 100).code, 'start_unsolved');
+const good = run(1.3, 1.3, 1.5, false, 30);
+assert.ok(good.frames.length > 0);
+assert.equal(good.lost, null);
+for (const n of [19, 121]) assert.equal(run(1.3, 1.3, 1.5, false, n).code, 'load_or_mesh_out_of_range');
+for (const n of [20, 120]) assert.notEqual(run(1.3, 1.3, 1.5, false, n).code, 'load_or_mesh_out_of_range');
+for (const q of [-Number.EPSILON, 4 + Number.EPSILON * 4]) assert.equal(run(1.3, 1.3, q, false, 30).code, 'load_or_mesh_out_of_range');
+for (const q of [0, 4]) assert.notEqual(run(1.3, 1.3, q, false, 30).code, 'load_or_mesh_out_of_range');
+console.log('research native/WASM classification, valid controls and parameter boundaries pass');

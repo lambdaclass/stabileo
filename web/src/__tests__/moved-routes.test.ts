@@ -1,3 +1,4 @@
+import './enable-public-features';
 import { describe, expect, it } from 'vitest';
 import { MOVED_PAGES, movedAddress, movedRoute } from '../lib/legacy-routes';
 import { routeKind } from '../lib/public-route';

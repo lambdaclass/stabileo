@@ -1,9 +1,20 @@
 {
   "id": "combination-member-chords",
   "date": "2026-11-06",
-  "prs": [1567],
+  "prs": [
+    1567
+  ],
   "area": "analysis",
-  "when": { "allOf": [["members"], ["combinations"]] },
+  "when": {
+    "allOf": [
+      [
+        "members"
+      ],
+      [
+        "combinations"
+      ]
+    ]
+  },
   "title": {
     "en": "A load combination judges its members' relative displacement on its own displacements",
     "es": "Una combinación de cargas evalúa el desplazamiento relativo de sus barras con sus propios desplazamientos",

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as engine from '../../../lib/engine/wasm-solver';
 import { codeToModel } from '../../../lib/model/code/format';
 import { EXAMPLES } from '../catalog';
+import { hubTranslations } from '../../tools/hub-i18n';
 import { TOOLS } from '../../tools/registry';
 import { defaults, readValues, writeValues, mergeQuery, clampValue, referenceGap, refusedOutcome, type Outcome, type Values } from '../define';
 import { exampleStrings } from '../strings';
@@ -53,6 +54,10 @@ describe('catalog and contract', () => {
     const keys = Object.keys(exampleStrings.en).sort();
     for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu']) expect(Object.keys(exampleStrings[locale]).sort()).toEqual(keys);
     for (const e of EXAMPLES) {
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
+        expect(hubTranslations[locale][`tools.${e.id}`], `${locale} ${e.id} title`).toBeTruthy();
+        expect(hubTranslations[locale][`tools.${e.id}.subtitle`], `${locale} ${e.id} subtitle`).toBeTruthy();
+      }
       if (e.benchmark) expect(BENCHMARK_ROUTES).toContain(e.benchmark.path);
       for (const key of ['about', ...(e.benchmark ? ['benchmark'] : [])]) expect(keys).toContain(`${e.id}.${key}`);
       for (const p of e.params) {

@@ -22,10 +22,16 @@ defmodule StabileoAuth.Consents do
       user_agent: metadata[:user_agent]
     }
 
-    %Consent{} |> Consent.changeset(attrs) |> Repo.insert()
+    Repo.transaction(fn ->
+      Repo.one!(from(a in Account, where: a.id == ^account_id, lock: "FOR UPDATE"))
+
+      case %Consent{} |> Consent.changeset(attrs) |> Repo.insert() do
+        {:ok, consent} -> consent
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
   end
 
-  @doc "Both optional consents start granted: only `false` (or the string \"false\") records one refused."
   def record_sign_up(%Account{} = account, optional, metadata) do
     Repo.transaction(fn ->
       with {:ok, _} <- record(account, "terms", true, metadata),
@@ -39,7 +45,12 @@ defmodule StabileoAuth.Consents do
 
   defp record_optional(account, optional, metadata) do
     Enum.reduce_while(@optional, :ok, fn kind, :ok ->
-      record_step(account, kind, Map.get(optional, kind) not in [false, "false"], metadata)
+      granted =
+        if kind == "model_research",
+          do: Map.get(optional, kind) in [true, "true"],
+          else: Map.get(optional, kind) not in [false, "false"]
+
+      record_step(account, kind, granted, metadata)
     end)
   end
 
@@ -59,7 +70,7 @@ defmodule StabileoAuth.Consents do
       from(c in Consent,
         where: c.account_id in ^account_ids,
         distinct: [c.account_id, c.kind],
-        order_by: [asc: c.account_id, asc: c.kind, desc: c.inserted_at, desc: c.id]
+        order_by: [asc: c.account_id, asc: c.kind, desc: c.revision]
       )
       |> Repo.all()
 

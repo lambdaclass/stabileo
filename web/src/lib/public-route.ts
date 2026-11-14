@@ -5,6 +5,7 @@
  */
 import { parsePublicPath, publicHref } from './i18n/public-routes';
 import { isStandingPagePath } from './blog/pages/paths';
+import { publicFeatureEnabled } from './features';
 import { movedRoute } from './legacy-routes';
 
 /**
@@ -54,6 +55,7 @@ export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = 
   // (`loadFromURLHash`): it used to be mounted behind the landing and read the fragment.
   if (SHARED_MODEL.test(loc.hash)) return { kind: 'app', path };
   if (path === '/blog' || path.startsWith('/blog/') || isStandingPagePath(path)) return { kind: 'blog', path };
+  if (!publicFeatureEnabled(path)) return { kind: 'landing', path };
   if (path === '/tools' || path.startsWith('/tools/')) return { kind: 'tools', path };
   if (isGamePath(path)) return { kind: 'game', path };
   if (isResearchPath(path)) return { kind: 'research', path };

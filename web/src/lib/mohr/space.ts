@@ -54,8 +54,7 @@ export interface PlaneTraction {
 export function onPlane(s: Tensor3, n: Vec3): PlaneTraction {
   const t = traction(s, n);
   const sigmaN = t[0] * n[0] + t[1] * n[1] + t[2] * n[2];
-  const tt = t[0] * t[0] + t[1] * t[1] + t[2] * t[2];
-  return { t, sigmaN, tauN: Math.sqrt(Math.max(0, tt - sigmaN * sigmaN)) };
+  return { t, sigmaN, tauN: Math.hypot(t[0] - sigmaN * n[0], t[1] - sigmaN * n[1], t[2] - sigmaN * n[2]) };
 }
 
 /** Two unit vectors that span the plane with normal `n`, so that (e1, e2, n) is right-handed. */

@@ -1,10 +1,26 @@
 {
   "id": "material-nonlinear-3d-orphan-dofs",
   "date": "2026-11-06",
-  "prs": [1581],
+  "prs": [
+    1581
+  ],
   "area": "analysis",
-  "when": { "allOf": [["space3D"], ["members"], ["analysis:nonlinear"]] },
-  "quantities": ["solve.ok"],
+  "when": {
+    "allOf": [
+      [
+        "space3D"
+      ],
+      [
+        "members"
+      ],
+      [
+        "analysis:nonlinear"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
   "title": {
     "en": "3D material-nonlinear analysis solves mixed-warping frames and truss-only nodes",
     "es": "El análisis no lineal de material 3D resuelve barras con y sin alabeo y nudos solo con bielas",

@@ -1,3 +1,6 @@
+import ts from 'typescript';
+import { loadEnv } from 'vite';
+import { publicFeatureEnabled } from '../src/lib/features';
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +29,26 @@ export function writtenIn(path: string): Locale[] {
   return [...publishedLocales(path)];
 }
 
+function metadata(source: string): Record<string, string> {
+  const file = ts.createSourceFile('page.ts', source, ts.ScriptTarget.Latest, true);
+  for (const statement of file.statements) {
+    if (!ts.isVariableStatement(statement) || !statement.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      let value = declaration.initializer;
+      while (value && (ts.isAsExpression(value) || ts.isSatisfiesExpression(value))) value = value.expression;
+      if (!value || !ts.isObjectLiteralExpression(value)) continue;
+      const values: Record<string, string> = {};
+      for (const property of value.properties) {
+        if (ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) && ts.isStringLiteral(property.initializer)) {
+          values[property.name.text] = property.initializer.text;
+        }
+      }
+      if (values.slug || values.path) return values;
+    }
+  }
+  throw new Error('Public page has no static exported route metadata');
+}
+
 /** Every public route, without its language prefix. Posts are read from the bundle. */
 export async function publicPaths(): Promise<string[]> {
   const source = await readFile(join(ROOT, 'src/lib/blog/index.ts'), 'utf8');
@@ -33,11 +56,12 @@ export async function publicPaths(): Promise<string[]> {
   const slugs: string[] = [];
   for (const file of imports) {
     const post = await readFile(join(ROOT, `src/lib/blog/posts/${file}.ts`), 'utf8');
-    const slug = post.match(/slug:\s*'([^']+)'/)?.[1];
+    const fields = metadata(post);
+    const slug = fields.slug;
     if (slug) {
       slugs.push(slug);
-      const published = post.match(/\bdate:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
-      const day = post.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1] ?? published;
+      const published = fields.date;
+      const day = fields.updated ?? published;
       if (day) POST_LASTMOD.set(`/blog/${slug}`, day);
       if (published) POST_DATE.set(`/blog/${slug}`, published);
     }
@@ -52,10 +76,11 @@ export async function publicPaths(): Promise<string[]> {
   const pages: string[] = [];
   for (const file of pageFiles) {
     const src = await readFile(join(ROOT, `src/lib/blog/pages/${file}.ts`), 'utf8');
-    const pagePath = src.match(/\bpath:\s*'(\/[\w-]+)'/)?.[1];
+    const fields = metadata(src);
+    const pagePath = fields.path;
     if (!pagePath) continue;
     pages.push(pagePath);
-    const day = src.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
+    const day = fields.updated;
     if (day) POST_LASTMOD.set(pagePath, day);
   }
   const research = [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS];
@@ -63,6 +88,7 @@ export async function publicPaths(): Promise<string[]> {
     const day = researchLastReview(path);
     if (day) POST_LASTMOD.set(path, day);
   }
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, ...toolPaths(), '/diagram-game'];
+  const environment = { ...loadEnv(process.env.NODE_ENV ?? 'production', ROOT, 'VITE_'), ...process.env };
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, ...toolPaths(), '/diagram-game'].filter(path => publicFeatureEnabled(path, { research: environment.VITE_RESEARCH === '1', tools: environment.VITE_TOOLS === '1', diagramGame: environment.VITE_DIAGRAM_GAME === '1' }));
 }
 

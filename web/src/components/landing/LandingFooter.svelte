@@ -4,6 +4,7 @@
   import { SOCIAL_ICONS as ICONS } from '../../lib/contact/channels';
   import PublicLink from './PublicLink.svelte';
   import BrandMark from './BrandMark.svelte';
+  import { publicFeatureEnabled } from '../../lib/features';
   import { adConsent } from '../../lib/tracking/ad-consent.svelte';
 
   const year = new Date().getFullYear();
@@ -31,7 +32,7 @@
             <p class="footer-head" id="foot-{id}">{t(head)}</p>
             <ul aria-labelledby="foot-{id}">
               {#if id === 'product'}<li><button onclick={() => enterApp()}>{t('landing.footLaunch')}</button></li>{/if}
-              {#each links as [to, key]}<li><PublicLink {to}>{key ? t(key) : 'CIRSOC'}</PublicLink></li>{/each}
+              {#each links.filter(([to]) => publicFeatureEnabled(to)) as [to, key]}<li><PublicLink {to}>{key ? t(key) : 'CIRSOC'}</PublicLink></li>{/each}
               {#if id === 'project'}
                 <li><a href={DOCS_HUB_URL} target="_blank" rel="noreferrer">{t('landing.footDocs')}</a></li>
                 <li><a href={REPO_URL} target="_blank" rel="noreferrer">{t('landing.footRepo')}</a></li>

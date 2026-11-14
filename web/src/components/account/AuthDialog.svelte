@@ -94,7 +94,7 @@
         signup_token: step.token,
         accept_terms: acceptTerms,
         usage_analytics: usage,
-        model_research: true,
+        model_research: false,
         locale: isOfferedLocale(i18n.locale) ? i18n.locale : 'es',
         source: signupSource(placement, adConsent.granted),
         attribution: adAttribution(),

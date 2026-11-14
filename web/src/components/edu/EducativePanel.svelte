@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { diagramGame } from '../../lib/features';
   import { viewportCanvas } from '../../lib/utils/viewport-canvas';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { returnBorrowedModel } from './exercise-session';
@@ -292,11 +293,13 @@
       <h2>{t('edu.title')}</h2>
       <p class="edu-subtitle">{t('edu.subtitle')}</p>
 
+      {#if diagramGame()}
       <a class="edu-game-card" href={publicHref('/diagram-game', publicI18n.locale)} data-testid="edu-open-game"
         onclick={(e) => { e.preventDefault(); goPublic('/diagram-game'); }}>
         <span class="edu-game-title">{t('edu.game.open')}</span>
         <span class="edu-game-hint">{t('edu.game.hint')}</span>
       </a>
+      {/if}
 
       {#each sections as section}
         {#if section.exercises.length > 0}

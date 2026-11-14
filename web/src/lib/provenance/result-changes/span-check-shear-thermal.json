@@ -1,9 +1,15 @@
 {
   "id": "span-check-shear-thermal",
   "date": "2026-11-06",
-  "prs": [1593],
+  "prs": [
+    1593
+  ],
   "area": "analysis",
-  "when": { "any": ["frameMembers"] },
+  "when": {
+    "any": [
+      "frameMembers"
+    ]
+  },
   "title": {
     "en": "The span rotation check includes shear deformation and thermal curvature at a release",
     "es": "La verificación del giro en el tramo incluye la deformación por corte y la curvatura térmica en una liberación",

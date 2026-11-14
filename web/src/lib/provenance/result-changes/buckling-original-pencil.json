@@ -1,12 +1,17 @@
 {
   "id": "buckling-original-pencil",
   "date": "2026-11-11",
-  "prs": [1939],
+  "prs": [
+    1939
+  ],
   "area": "analysis",
   "when": {
     "allOf": [
       [
-        "members", "shells", "curvedShells", "connectors"
+        "members",
+        "shells",
+        "curvedShells",
+        "connectors"
       ],
       [
         "analysis:buckling"

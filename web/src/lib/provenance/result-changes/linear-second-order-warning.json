@@ -1,9 +1,15 @@
 {
   "id": "linear-second-order-warning",
   "date": "2026-11-06",
-  "prs": [1552],
+  "prs": [
+    1552
+  ],
   "area": "analysis",
-  "when": { "any": ["members"] },
+  "when": {
+    "any": [
+      "members"
+    ]
+  },
   "title": {
     "en": "Linear analysis warns when compression may amplify its moments past 10 %, and holds the steel checks",
     "es": "El análisis lineal advierte cuando la compresión puede amplificar sus momentos más de un 10 %, y retiene las verificaciones de acero",

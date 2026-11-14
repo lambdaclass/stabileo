@@ -1,7 +1,9 @@
 {
   "id": "plastic-3d-certified-lower-bound",
   "date": "2026-11-10",
-  "prs": [1888],
+  "prs": [
+    1888
+  ],
   "area": "analysis",
   "when": {
     "allOf": [

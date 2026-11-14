@@ -7,7 +7,7 @@ defmodule StabileoAuth.Controllers.ConsentController do
 
   def create(conn, %{"kind" => kind} = params) do
     account = conn.assigns.current_account
-    granted = if kind == "terms", do: true, else: params["granted"]
+    granted = if kind == "terms", do: Map.get(params, "granted", true), else: params["granted"]
 
     with :ok <- boolean(granted),
          {:ok, _consent} <- Consents.record(account, kind, granted, metadata(conn)) do

@@ -25,7 +25,8 @@
     "pt": "Molas de apoio alteradas por etapas retêm esforços sem recuperação válida",
     "de": "Geänderte Bauphasenfedern halten nicht ermittelbare Kräfte zurück",
     "fr": "Les ressorts modifiés par phases retiennent les efforts non récupérables",
-    "tr": "Aşamalarda değişen mesnet yayları desteklenmeyen kuvvetleri sunmaz"
+    "tr": "Aşamalarda değişen mesnet yayları desteklenmeyen kuvvetleri sunmaz",
+    "hu": "A megváltozott fázisos támaszrugók visszatartják a nem támogatott erőket"
   },
   "explanation": {
     "en": "Adding, removing or changing support spring stiffness after earlier loading or motion now withholds staged reactions and forces with structured unavailability warnings. Later stages remain unavailable; retained incremental displacements do not certify equilibrium. Unchanged springs and changes before loading retain their answers. Re-check saved staged results (#1952).",
@@ -33,7 +34,8 @@
     "pt": "Adicionar, remover ou alterar a rigidez de molas após cargas ou movimentos retém reações e esforços por etapas com avisos estruturados. Etapas posteriores permanecem indisponíveis; deslocamentos incrementais não certificam equilíbrio. Molas inalteradas e alterações antes de carregar mantêm os resultados. Reveja os resultados por etapas (#1952).",
     "de": "Hinzufügen, Entfernen oder Ändern von Federsteifigkeiten nach Belastung oder Bewegung unterdrückt Bauphasenreaktionen und Kräfte mit strukturierten Hinweisen. Spätere Phasen bleiben unverfügbar; inkrementelle Verschiebungen bestätigen kein Gleichgewicht. Unveränderte Federn und Änderungen vor Belastung behalten ihre Ergebnisse. Prüfen Sie gespeicherte Bauphasenergebnisse (#1952).",
     "fr": "Ajouter, retirer ou modifier la rigidité des ressorts après chargement ou mouvement retient les réactions et efforts par phases avec des avertissements structurés. Les phases suivantes restent indisponibles; les déplacements incrémentaux ne certifient pas l’équilibre. Les ressorts inchangés et les changements avant chargement conservent leurs résultats. Revérifiez les résultats par phases (#1952).",
-    "tr": "Önceki yük veya hareketten sonra mesnet yayı eklemek, kaldırmak ya da rijitliğini değiştirmek aşama tepkileri ve kuvvetlerini yapılandırılmış uyarılarla sunmaz. Sonraki aşamalar da kullanılamaz; artımlı yer değiştirmeler dengeyi doğrulamaz. Değişmeyen yaylar ve yükleme öncesi değişiklikler sonuçlarını korur. Kayıtlı aşamalı sonuçları yeniden denetleyin (#1952)."
+    "tr": "Önceki yük veya hareketten sonra mesnet yayı eklemek, kaldırmak ya da rijitliğini değiştirmek aşama tepkileri ve kuvvetlerini yapılandırılmış uyarılarla sunmaz. Sonraki aşamalar da kullanılamaz; artımlı yer değiştirmeler dengeyi doğrulamaz. Değişmeyen yaylar ve yükleme öncesi değişiklikler sonuçlarını korur. Kayıtlı aşamalı sonuçları yeniden denetleyin (#1952).",
+    "hu": "A támaszrugó-merevség korábbi terhelés vagy mozgás utáni hozzáadása, eltávolítása vagy változtatása visszatartja a fázisos reakciókat és erőket, strukturált figyelmeztetéssel. A későbbi fázisok is nem elérhetők maradnak; a megtartott növekményes elmozdulások nem tanúsítják az egyensúlyt. A változatlan rugók és a terhelés előtti módosítások válaszai megmaradnak. Ellenőrizze újra a mentett fázisos eredményeket (#1952)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-staged-support-spring-history.md",

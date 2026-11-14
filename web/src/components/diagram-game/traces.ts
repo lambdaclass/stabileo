@@ -168,7 +168,7 @@ const CLEAR_SHARE = 0.2;
 export function barStates(d: Diagram, m: GameModel): Array<-1 | 0 | 1 | null> {
   const n = d.traces.map((tr, e) => drawnOrdinate(m, e, tr.at(0.5), 'N'));
   const top = Math.max(...n.map(Math.abs));
-  return n.map((v) => (Math.abs(v) < 1e-6 * top ? 0 : Math.abs(v) < CLEAR_SHARE * top ? null : v > 0 ? 1 : -1));
+  return n.map((v) => (v === 0 || Math.abs(v) < 1e-6 * top ? 0 : Math.abs(v) < CLEAR_SHARE * top ? null : v > 0 ? 1 : -1));
 }
 
 /** Bars that read differently in two truss diagrams, under the best overall flip; magnitude alone never counts. */

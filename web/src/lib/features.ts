@@ -39,6 +39,28 @@ export function accounts(): boolean {
   return readFlag('accounts', import.meta.env.DEV || import.meta.env.VITE_ACCOUNTS === '1');
 }
 
+export function research(): boolean {
+  return readFlag('research', import.meta.env?.VITE_RESEARCH === '1');
+}
+
+export function tools(): boolean {
+  return readFlag('tools', import.meta.env?.VITE_TOOLS === '1');
+}
+
+export function diagramGame(): boolean {
+  return readFlag('diagram-game', import.meta.env?.VITE_DIAGRAM_GAME === '1');
+}
+
+export type PublicFeatures = { research: boolean; tools: boolean; diagramGame: boolean };
+
+export function publicFeatureEnabled(path: string, flags: PublicFeatures = { research: research(), tools: tools(), diagramGame: diagramGame() }): boolean {
+  const route = path.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
+  if (route === '/research' || route.startsWith('/research/') || route === '/paper') return flags.research;
+  if (route === '/tools' || route.startsWith('/tools/') || route === '/examples' || route.startsWith('/examples/')) return flags.tools;
+  if (route === '/diagram-game') return flags.diagramGame;
+  return true;
+}
+
 /** Override a flag for the current session (used by tests and support). */
 export function setFeatureFlag(name: string, value: boolean): void {
   try {

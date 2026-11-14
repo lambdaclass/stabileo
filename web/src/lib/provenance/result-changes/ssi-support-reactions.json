@@ -28,7 +28,8 @@
     "pt": "SSI retorna reações de apoio e inclui o solo nas forças de restrição",
     "de": "SSI liefert Auflagerreaktionen und berücksichtigt Bodenfedern in Zwangskräften",
     "fr": "SSI fournit les réactions d’appui et inclut le sol dans les efforts de contrainte",
-    "tr": "SSI mesnet tepkilerini döndürüyor ve zemin yaylarını kısıt kuvvetlerine katıyor"
+    "tr": "SSI mesnet tepkilerini döndürüyor ve zemin yaylarını kısıt kuvvetlerine katıyor",
+    "hu": "Az SSI támaszreakciókat ad, és a kényszererőkbe bevonja a talajrugókat"
   },
   "explanation": {
     "en": "PR #1675 replaced empty SSI support-reaction lists with reactions from assembled equilibrium in 2D and 3D. Constraint forces now include soil springs and transfer forces to restrained masters. Displacements and member forces are unchanged. Newly available reactions are a result change even when no old number was present.",
@@ -36,7 +37,8 @@
     "pt": "A PR #1675 substituiu as listas vazias de reações SSI por reações do equilíbrio montado em 2D e 3D. As forças de restrição agora incluem as molas do solo e transferem forças aos nós mestres restringidos. Deslocamentos e esforços de barra não mudam. Reações antes ausentes constituem uma mudança de resultados.",
     "de": "PR #1675 ersetzt leere SSI-Auflagerreaktionslisten durch Reaktionen aus dem assemblierten Gleichgewicht in 2D und 3D. Zwangskräfte berücksichtigen nun Bodenfedern und werden an festgehaltene Masterknoten übertragen. Verschiebungen und Stabkräfte bleiben unverändert. Neu verfügbare Reaktionen sind auch ohne zuvor vorhandene Zahlen eine Ergebnisänderung.",
     "fr": "La PR #1675 remplace les listes vides de réactions SSI par les réactions de l’équilibre assemblé en 2D et 3D. Les efforts de contrainte incluent désormais les ressorts du sol et transmettent les forces aux nœuds maîtres bloqués. Les déplacements et efforts de barre sont inchangés. Des réactions nouvellement disponibles constituent un changement de résultats.",
-    "tr": "PR #1675, 2B ve 3B SSI çözümlerindeki boş mesnet tepkisi listelerini birleştirilmiş denge sisteminden hesaplanan tepkilerle değiştirdi. Kısıt kuvvetleri artık zemin yaylarını içeriyor ve kuvvetleri tutulu ana düğümlere aktarıyor. Yer değiştirmeler ve çubuk kuvvetleri değişmedi. Önceden sayı bulunmasa da yeni tepkiler bir sonuç değişikliğidir."
+    "tr": "PR #1675, 2B ve 3B SSI çözümlerindeki boş mesnet tepkisi listelerini birleştirilmiş denge sisteminden hesaplanan tepkilerle değiştirdi. Kısıt kuvvetleri artık zemin yaylarını içeriyor ve kuvvetleri tutulu ana düğümlere aktarıyor. Yer değiştirmeler ve çubuk kuvvetleri değişmedi. Önceden sayı bulunmasa da yeni tepkiler bir sonuç değişikliğidir.",
+    "hu": "A PR #1675 a 2D és 3D SSI üres támaszreakció-listáit az összeállított egyensúlyból származó reakciókkal váltotta fel. A kényszererők tartalmazzák a talajrugókat, és átadják az erőket a megtámasztott mestercsomópontoknak. Az elmozdulások és rúderők változatlanok. Az újonnan elérhető reakciók akkor is eredményváltozást jelentenek, ha korábban nem volt számérték."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-ssi-support-reactions.md",

@@ -1,9 +1,23 @@
 {
   "id": "buckling-3d-round-off-compression-refused",
   "date": "2026-11-06",
-  "prs": [1549],
+  "prs": [
+    1549
+  ],
   "area": "analysis",
-  "when": { "allOf": [["space3D"], ["members"], ["analysis:buckling"]] },
+  "when": {
+    "allOf": [
+      [
+        "space3D"
+      ],
+      [
+        "members"
+      ],
+      [
+        "analysis:buckling"
+      ]
+    ]
+  },
   "title": {
     "en": "3D buckling refuses a model whose only compression is round-off",
     "es": "El pandeo 3D rechaza un modelo cuya única compresión es error de redondeo",

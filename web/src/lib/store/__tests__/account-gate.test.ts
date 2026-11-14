@@ -285,7 +285,7 @@ describe('account gate', () => {
 });
 
 
-it.skip('known wrong result: #765 T234 — mixed actions cannot fail open', async () => {
+it('known wrong result: #765 T234 — mixed actions cannot fail open', async () => {
   const { accountGate: gate } = await freshGate();
   auth.saveRequiresAccount = true;
   auth.userLoginEnabled = true;

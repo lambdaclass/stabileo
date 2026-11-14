@@ -1,8 +1,9 @@
 import type { PostBody } from '../../types';
+import { flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
 
 const body: PostBody = {
   "title": "Hajlítási ellenőrzés a CIRSOC 201 szerint, lépésről lépésre",
-  "excerpt": "Szinte mindenki emlékszik a φMn ≥ Mu feltételre. Ez az ellenőrzés utolsó sora, nem maga az ellenőrzés. Az eredmény korábban dől el, és az egyik ilyen lépés 0,9 alá viheti a φ-t.",
+  "excerpt": "A hajlítási ellenőrzéshez a tényleges vasalásból számított hasznos magasság és a minimális húzási alakváltozás is hozzátartozik. A csökkentett φ nem tesz megfelelővé egy nem duktilis gerendát.",
   "blocks": [
     {
       "k": "p",
@@ -14,22 +15,11 @@ const body: PostBody = {
     },
     {
       "k": "ol",
-      "items": [
-        "d = 35,9 cm, d' = 4,1 cm",
-        "Mu = 60,00 kN·m",
-        "As,min = 2,39 cm²",
-        "As,max (csak húzott vasalással) = 11,58 cm²",
-        "As,req (húzott) = 4,73 cm²",
-        "Húzott vasalás: 2 Ø20 (6,28 cm²)",
-        "a = 6,21 cm, c = 7,31 cm",
-        "εt = 11,74‰",
-        "εt ≥ 5‰ → húzás által vezérelt → φ = 0,90",
-        "φMn = 77,90 kN·m"
-      ]
+      "items": flexureExampleSteps("Húzott vasalás: 2 Ø20 (6,28 cm²)")
     },
     {
       "k": "p",
-      "t": "Tíz lépés. A tizedikre mindenki emlékszik. Az eredményt a harmadik és a kilencedik dönti el."
+      "t": "Az ellenőrzés a kiválasztott vasak tényleges helyzetét használja. A hasznos magasság minden átmérőnél újraszámítandó."
     },
     {
       "k": "h",
@@ -77,7 +67,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "A váltópont Mu = 31,5 kN·m-nél van. E nyomaték alatt a teherbírásra méretezés semmit sem ér el: a keresztmetszet így is, úgy is 2,39 cm²-t kap. Érdemes tudni, hogy egy gerenda a váltópont melyik oldalán áll, mielőtt a vasalásáról vitatkozunk."
+      "t": "A váltópont Mu = 31,5 kN·m-nél van. E nyomaték alatt a teherbírásra méretezés semmit sem ér el: a keresztmetszet így is, úgy is 2,39 cm²-t kap. Érdemes tudni, hogy egy gerenda a váltópont melyik oldalán áll, mielőtt a vasalásáról vitatkozunk. A fenti előzetes méretezési táblázat d = 35,9 cm értéket feltételez; a kiválasztott vasalás tényleges d értékével az ellenőrzést meg kell ismételni."
     },
     {
       "k": "h",
@@ -137,52 +127,24 @@ const body: PostBody = {
     },
     {
       "k": "table",
-      "caption": "Ugyanaz a gerenda, minden alkalommal jobban terhelve. εt és φ a 8. és 9. lépésből származik.",
+      "caption": "A tényleges átmérőhöz tartozó d alapján számított értékek. A teherbírás önmagában nem teljes ellenőrzés; εt,min = 5,10‰.",
       "head": [
         "Mu [kN·m]",
         "Vasalás",
         "εt [‰]",
         "φ",
-        "φMn [kN·m]"
+        "φMn [kN·m]",
+        "Duktilitás"
       ],
-      "rows": [
-        [
-          "30",
-          "2 Ø16",
-          "20,03",
-          "0,90",
-          "51,6"
-        ],
-        [
-          "60",
-          "2 Ø20",
-          "11,74",
-          "0,90",
-          "77,9"
-        ],
-        [
-          "90",
-          "2 Ø25",
-          "6,44",
-          "0,90",
-          "115,2"
-        ],
-        [
-          "120",
-          "2 Ø32",
-          "2,76",
-          "0,707",
-          "133,5"
-        ]
-      ]
+      "rows": flexureExampleRows("Megfelel", "Nem felel meg")
     },
     {
       "k": "p",
-      "t": "Az utolsó sorban a keresztmetszet átmeneti tartományba került, és φ 0,707-re esett. A teherbírás nem nőtt úgy, mint az acél: az utolsó két sor között a betonacél-keresztmetszet névlegesen 9,82-ről 16,08 cm²-re nő, φMn viszont csak 115,2-ről 133,5 kN·m-re mozdul. A hozzáadottak jó része elvész a tényezőben."
+      "t": "Az utolsó sorban a 2 Ø32 vasalás nem duktilis: εt = 2,63‰ < 5,10‰. Nem felel meg, akkor sem, ha φMn meghaladja Mu értékét. A gerendát újra kell méretezni."
     },
     {
       "k": "quote",
-      "t": "Egy túlvasalt keresztmetszet nem bukik el az ellenőrzésen. A φ-ben bukik el, és az eredmény mégis azt mondja, hogy megfelel."
+      "t": "A 2 Ø32 vasalású keresztmetszet nem felel meg: a húzási alakváltozás az előírt minimum alatt van. A csökkentett φ nem helyettesíti a duktilitás ellenőrzését. A keresztmetszetet vagy a vasalást újra kell méretezni."
     },
     {
       "k": "h",
@@ -190,7 +152,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "A szokásos válasz: „hogy elférjenek a vasak”. Ez a következmény, nem az ok. Ugyanennél a gerendánál Mu = 200 kN·m esetén a modul εt = 1,51‰ értéket talál, a határ alatt, és nyomott vasalást ad hozzá. Ezzel a semleges tengely feljebb kerül, εt visszatér 7,46‰-re, φ pedig 0,90-re."
+      "t": "A nyomott vasalás már a duktilitási határ elérésekor szükségessé válhat. Másik lehetőség a keresztmetszet növelése vagy a húzott vasalás áttervezése; az új vasalást ismét ellenőrizni kell."
     },
     {
       "k": "p",
@@ -198,7 +160,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "A modul által erre az esetre kiadott lépések ebben a sorrendben mondják ki: „εt = 1,51‰ < 2,1‰ → A's szükséges”, majd „ΔM = 144,50 kN·m, A's,req = 11,40 cm²”, és csak a végén „εt = 7,46‰ → húzás által vezérelt → φ = 0,90”."
+      "t": "A CIRSOC 201-2025 szerinti εt,min határát kell használni. Nem szabad megvárni, amíg a húzott acél alakváltozása a folyási alakváltozás alá esik."
     },
     {
       "k": "h",
@@ -237,7 +199,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Itt minden szám a Stabileo CIRSOC 201 moduljából származik, a megnevezett keresztmetszetekre futtatva, nem táblázatból. Egy figyelmeztetést érdemes továbbadni, mert a bejegyzés első vázlata elrontotta: a kézi számítás D/C = 0,74-et adott, az alkalmazás 0,81-et. A különbség az önsúly volt, 2 kN/m, amelyet az alkalmazás hozzáad az állandó teheresethez. Az alkalmazásnak volt igaza. És egy megjegyzés a fenti szerkesztőhöz, hogy a két szám ne ütközzön: az a 0,81 2 Ø25 vasalást feltételez, amellyel ez a bejegyzés dolgozik; a szerkesztőben látható 0,90 azokkal a vasakkal adódik, amelyeket méretezéskor saját maga választ. Ugyanaz a gerenda, két különböző vasalás. Ha egy itteni szám egyszer nem egyezik a szerkesztővel, a szerkesztőnek higgyen."
+      "t": "A hasznos magasságot minden választott átmérőnél újra kell számítani. A teherbírás önmagában nem teljes ellenőrzés; a kapacitástáblázatot a jelenlegi számítómaggal ellenőrzött teszt védi."
     }
   ]
 };

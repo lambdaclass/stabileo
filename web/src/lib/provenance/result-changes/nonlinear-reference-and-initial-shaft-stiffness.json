@@ -31,7 +31,8 @@
     "pt": "Referências de recalque e rigidez inicial do fuste permanecem contínuas",
     "de": "Setzungsreferenzen und anfängliche Mantelsteifigkeit bleiben stetig",
     "fr": "Les références de tassement et la rigidité initiale du fût restent continues",
-    "tr": "Oturma referansları ve başlangıç kazık gövdesi rijitliği sürekli kalır"
+    "tr": "Oturma referansları ve başlangıç kazık gövdesi rijitliği sürekli kalır",
+    "hu": "A süllyedési referencia és a kezdeti palástmerevség folytonos marad"
   },
   "explanation": {
     "en": "Re-run nonlinear and SSI results: coincident models retain their exact point scale after translation, settlements retain a continuous force reference beside small loads and through unloading, tiny displacement controls solve, and t-z springs use a bounded initial linear segment (#761, PR #1940).",
@@ -39,7 +40,8 @@
     "pt": "Refaça resultados não lineares e SSI: modelos coincidentes conservam sua escala após translação, recalques mantêm referência contínua com cargas pequenas e descarga, controles diminutos são resolvidos e molas t-z usam trecho inicial linear limitado (#761, PR #1940).",
     "de": "Nichtlineare und SSI-Ergebnisse neu berechnen: Punktmodelle behalten ihre Skala bei Verschiebung, Setzungen eine stetige Referenz bei kleinen Lasten und Entlastung; kleine Wegsteuerungen werden gelöst und t-z-Federn nutzen einen begrenzten linearen Anfangsabschnitt (#761, PR #1940).",
     "fr": "Relancer les résultats non linéaires et SSI : les modèles ponctuels gardent leur échelle après translation, les tassements une référence continue sous faibles charges et déchargement ; les petits déplacements imposés sont résolus et les ressorts t-z utilisent un segment initial linéaire borné (#761, PR #1940).",
-    "tr": "Doğrusal olmayan ve SSI sonuçlarını yeniden hesaplayın: çakışık modeller ötelemede ölçeğini, oturmalar küçük yükler ve boşaltmada sürekli referansını korur; küçük yer değiştirme kontrolleri çözülür ve t-z yayları sınırlı doğrusal başlangıç kullanır (#761, PR #1940)."
+    "tr": "Doğrusal olmayan ve SSI sonuçlarını yeniden hesaplayın: çakışık modeller ötelemede ölçeğini, oturmalar küçük yükler ve boşaltmada sürekli referansını korur; küçük yer değiştirme kontrolleri çözülür ve t-z yayları sınırlı doğrusal başlangıç kullanır (#761, PR #1940).",
+    "hu": "Futtassa újra a nemlineáris és SSI eredményeket: az egybeeső modellek eltolás után is megőrzik pontos pontskálájukat; a süllyedések kis terhek mellett és tehermentesítés során is folytonos erőreferenciát tartanak; az apró elmozdulásvezérlések megoldhatók; a t-z rugók korlátos kezdeti lineáris szakaszt használnak (#761, PR #1940)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-continuous-settlement-reference.md",

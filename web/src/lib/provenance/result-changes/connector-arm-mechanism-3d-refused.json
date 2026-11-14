@@ -1,10 +1,23 @@
 {
   "id": "connector-arm-mechanism-3d-refused",
   "date": "2026-11-08",
-  "prs": [1750],
+  "prs": [
+    1750
+  ],
   "area": "analysis",
-  "when": { "allOf": [["space3D"], ["connectors"]] },
-  "quantities": ["solve.ok"],
+  "when": {
+    "allOf": [
+      [
+        "space3D"
+      ],
+      [
+        "connectors"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
   "title": {
     "en": "3D: node rotations a connector couples but leaves free are refused",
     "es": "3D: se rechazan los giros de nudo que un conector acopla pero deja libres",

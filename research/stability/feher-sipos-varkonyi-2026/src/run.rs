@@ -1,4 +1,4 @@
-use crate::{bend, Distribution, Setting, State, NO_EQUILIBRIUM};
+use crate::{bend, Distribution, Setting, State};
 use serde_json::{json, Value};
 
 pub const ELEMENTS: usize = 60;
@@ -86,9 +86,8 @@ pub fn path_with(theta: f64, delta: f64, q: f64, distribution: Distribution, ele
     if !(0.0..=4.0).contains(&q) || !(20..=120).contains(&elements) {
         return Err(PathError::LoadOrMeshOutOfRange);
     }
-    let mut s = bend(elements, Setting { theta: 1.0, delta: 0.0, q }, distribution, 2).map_err(|e| {
-        if e.starts_with(NO_EQUILIBRIUM) { PathError::StartSnaps } else { PathError::StartUnsolved }
-    })?;
+    let mut s = bend(elements, Setting { theta: 1.0, delta: 0.0, q }, distribution, 2)
+        .map_err(|_| PathError::StartUnsolved)?;
     if s.snapshot().y_mid <= 0.0 {
         return Err(PathError::StartSnaps);
     }

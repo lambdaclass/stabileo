@@ -30,7 +30,8 @@
     "pt": "SSI corrige resíduos elásticos estagnados",
     "de": "SSI korrigiert stagnierende elastische Residuen",
     "fr": "SSI corrige les résidus élastiques stagnants",
-    "tr": "SSI elastik artık duraklamalarını düzeltir"
+    "tr": "SSI elastik artık duraklamalarını düzeltir",
+    "hu": "Az SSI javítja a rugalmas maradék platóit"
   },
   "explanation": {
     "en": "SSI systems without soil or with every soil spring in its initial linear range retain their factorization and correct displacement using the physical residual. Elastic models that previously exhausted identical solves can converge without changing the equilibrium tolerance. Settled nonlinear soil keeps its previous results. Re-run affected SSI analyses (#2011).",
@@ -38,7 +39,8 @@
     "pt": "Sistemas SSI sem solo ou com todas as molas do solo na faixa linear inicial preservam a fatoração e corrigem o deslocamento com o resíduo físico. Modelos elásticos antes estagnados podem convergir sem alterar a tolerância de equilíbrio. O solo não linear mantém os resultados anteriores mesmo com a secante estabilizada. Refaça as análises SSI afetadas (#2011).",
     "de": "SSI-Systeme ohne Bodenfedern oder mit allen Bodenfedern im anfänglichen linearen Bereich behalten ihre Faktorisierung und korrigieren die Verschiebung anhand des physikalischen Residuums. Zuvor stagnierende elastische Modelle können bei unveränderter Gleichgewichtstoleranz konvergieren. Nichtlinearer Boden behält auch bei stabilisierter Sekante die bisherigen Ergebnisse. Betroffene SSI-Analysen erneut berechnen (#2011).",
     "fr": "Les systèmes SSI sans ressorts de sol ou avec tous les ressorts dans leur domaine linéaire initial conservent leur factorisation et corrigent le déplacement avec le résidu physique. Les modèles élastiques auparavant stagnants peuvent converger sans modifier la tolérance d’équilibre. Le sol non linéaire conserve ses résultats précédents même lorsque sa sécante se stabilise. Relancer les analyses SSI concernées (#2011).",
-    "tr": "Zemin yayı olmayan veya tüm zemin yayları başlangıçtaki doğrusal aralıkta olan SSI sistemleri çarpanlarına ayırmayı korur ve fiziksel artıkla yer değiştirmeyi düzeltir. Önceden duran elastik modeller denge toleransı değişmeden yakınsayabilir. Sekantı sabitlenen doğrusal olmayan zemin önceki sonuçlarını korur. Etkilenen SSI analizlerini yeniden hesaplayın (#2011)."
+    "tr": "Zemin yayı olmayan veya tüm zemin yayları başlangıçtaki doğrusal aralıkta olan SSI sistemleri çarpanlarına ayırmayı korur ve fiziksel artıkla yer değiştirmeyi düzeltir. Önceden duran elastik modeller denge toleransı değişmeden yakınsayabilir. Sekantı sabitlenen doğrusal olmayan zemin önceki sonuçlarını korur. Etkilenen SSI analizlerini yeniden hesaplayın (#2011).",
+    "hu": "A talaj nélküli, vagy minden talajrugót a kezdeti lineáris tartományban tartó SSI-rendszerek megőrzik a faktorizációt, és a fizikai maradékból korrigálják az elmozdulást. A korábban azonos megoldások ismétlését kimerítő rugalmas modellek az egyensúlyi tűrés módosítása nélkül konvergálhatnak. A beállt nemlineáris talaj korábbi eredményei megmaradnak. Futtassa újra az érintett SSI-vizsgálatokat (#2011)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-ssi-elastic-refinement.md",

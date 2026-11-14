@@ -1,3 +1,4 @@
+import './enable-public-features';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { routeKind } from '../lib/public-route';

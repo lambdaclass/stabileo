@@ -16,7 +16,7 @@ There is no tenancy yet. Every account sees only itself, so there are no organiz
 - Refresh-token rotation, logout
 - Without a Google client in development, `StabileoAuth.DevGoogle` plays Google with a local page (`/google/dev`) that asks for an email and a name; it is selected only by `config/dev.exs` and answers 404 elsewhere
 - Read and edit one's own profile
-- Optional consents (`usage_analytics`, `model_research`) start granted when the account is created: the sign-up asks only for the terms, and only `false` (or the string `"false"`) records one refused. The browser sends `usage_analytics: false` when the person had already declined usage sharing there. Both are turned off from the profile
+- Research consent (`model_research`) requires an explicit opt-in and defaults to refused. Usage analytics starts granted when the account is created: the sign-up asks only for the terms, and only `false` (or the string `"false"`) records one refused. The browser sends `usage_analytics: false` when the person had already declined usage sharing there. Both can be changed from the profile
 
 ## Data Model
 

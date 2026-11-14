@@ -3,13 +3,15 @@
  * `section` items are parts of the landing (scrolled to there, linked to from elsewhere); `page`
  * items are pages of their own.
  */
+import { publicFeatureEnabled } from '../../lib/features';
+
 export type NavPage = 'tools' | 'game' | 'research' | 'blog';
 
 export type NavItem =
   | { kind: 'section'; id: string; key: string }
   | { kind: 'page'; id: NavPage; to: string; key: string };
 
-export const SITE_NAV: NavItem[] = [
+const NAV_ITEMS: NavItem[] = [
   { kind: 'section', id: 'basic', key: 'landing.navProduct' },
   { kind: 'page', id: 'tools', to: '/tools', key: 'landing.navTools' },
   { kind: 'page', id: 'game', to: '/diagram-game', key: 'landing.navGame' },
@@ -18,11 +20,13 @@ export const SITE_NAV: NavItem[] = [
   { kind: 'page', id: 'blog', to: '/blog', key: 'landing.navBlog' },
 ];
 
+export const SITE_NAV = NAV_ITEMS.filter(item => item.kind !== 'page' || publicFeatureEnabled(item.to));
+
 export type NavCurrent = NavPage | null;
 
 const UNDER: Array<[string, NavPage]> = [
   ...SITE_NAV.flatMap((item): Array<[string, NavPage]> => (item.kind === 'page' ? [[item.to, item.id]] : [])),
-  ['/paper', 'research'],
+  ...(publicFeatureEnabled('/paper') ? [['/paper', 'research'] as [string, NavPage]] : []),
   ['/changelog', 'blog'],
 ];
 

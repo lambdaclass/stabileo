@@ -65,11 +65,13 @@ defmodule StabileoAuth.Controllers.ConsentControllerTest do
     token = admin_log_in(admin).access_token
     assert request(:post, "/consents", %{"kind" => "terms"}, token) |> json_body(401)
   end
-  @tag skip: "known wrong result: #765"
+
   test "known wrong result: #765 T3 — explicit terms refusal is never acceptance", %{token: token} do
-    body = request(:post, "/consents", %{"kind" => "terms", "granted" => false}, token) |> json_body(422)
+    body =
+      request(:post, "/consents", %{"kind" => "terms", "granted" => false}, token)
+      |> json_body(422)
+
     assert body["error"] == "validation_error"
     assert Repo.aggregate(Consent, :count) == 0
   end
-
 end

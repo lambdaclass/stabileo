@@ -58,7 +58,7 @@ defmodule StabileoAuth.UserOAuthTest do
       assert payload.account.id == account.id
       assert payload.account.consents.terms_current == true
       assert payload.account.consents.usage_analytics == true
-      assert payload.account.consents.model_research == true
+      assert payload.account.consents.model_research == false
       assert account.google_subject == "g-person"
       assert account.password_hash == nil
       assert account.locale == "en"
@@ -68,19 +68,19 @@ defmodule StabileoAuth.UserOAuthTest do
       assert is_binary(payload.access_token) and is_binary(payload.refresh_token)
     end
 
-    test "the terms alone turn usage and project research on, recorded at sign-up" do
+    test "terms alone never opt into project research" do
       {:ok, payload} = UserOAuth.register(signup_token(), %{"accept_terms" => true})
       account = Repo.get_by!(Account, email: "person@gmail.com")
 
       assert payload.account.consents.usage_analytics == true
-      assert payload.account.consents.model_research == true
+      assert payload.account.consents.model_research == false
 
       kinds =
         from(c in Consent, where: c.account_id == ^account.id, select: {c.kind, c.granted})
         |> Repo.all()
         |> Enum.sort()
 
-      assert kinds == [{"model_research", true}, {"terms", true}, {"usage_analytics", true}]
+      assert kinds == [{"model_research", false}, {"terms", true}, {"usage_analytics", true}]
     end
 
     test "only an explicit false turns an optional consent off at sign-up" do
@@ -386,5 +386,25 @@ defmodule StabileoAuth.UserOAuthTest do
       assert {:error, :invalid_or_expired_code} = UserOAuth.exchange("not-a-token", @verifier)
       assert {:error, :invalid_or_expired_code} = UserOAuth.exchange(nil, @verifier)
     end
+  end
+
+  test "correctly signed expired callback and signup tokens change no account or session" do
+    {:ok, code} = UserOAuth.sign_in(google(), @attempt)
+    signup = signup_token()
+    signer = Joken.Signer.create("HS256", Application.fetch_env!(:stabileo_auth, :jwt_secret))
+
+    expire = fn token ->
+      {:ok, claims} = Joken.peek_claims(token)
+      {:ok, expired, _} = Joken.encode_and_sign(Map.put(claims, "exp", 0), signer)
+      expired
+    end
+
+    before = {Repo.all(Account), Repo.all(Session), Repo.all(Consent)}
+    assert {:error, :invalid_or_expired_code} = UserOAuth.exchange(expire.(code), @verifier)
+
+    assert {:error, :invalid_or_expired_code} =
+             UserOAuth.register(expire.(signup), %{"accept_terms" => true})
+
+    assert {Repo.all(Account), Repo.all(Session), Repo.all(Consent)} == before
   end
 end

@@ -29,7 +29,8 @@
     "pt": "P-Delta usa correções de equilíbrio após rotações",
     "de": "P-Delta verwendet Gleichgewichtskorrekturen bei Drehungen",
     "fr": "P-Delta utilise des corrections d’équilibre après rotation",
-    "tr": "P-Delta dönüş altında denge düzeltmelerini kullanır"
+    "tr": "P-Delta dönüş altında denge düzeltmelerini kullanır",
+    "hu": "A P-Delta forgatás alatt egyensúlyi korrekciókat használ"
   },
   "explanation": {
     "en": "Residual-driven displacement corrections prevent false P-Delta nonconvergence after rotation without changing tolerances. Convergence, displacements, forces and reactions may change. Re-run P-Delta analyses (PR #1940).",
@@ -37,7 +38,8 @@
     "pt": "Correções de deslocamento baseadas no resíduo evitam falsas falhas de convergência P-Delta após rotações sem alterar tolerâncias. Convergência, deslocamentos, esforços e reações podem mudar. Refaça as análises P-Delta (PR #1940).",
     "de": "Verschiebungskorrekturen aus dem Residuum verhindern falsche P-Delta-Konvergenzfehler nach Drehungen ohne geänderte Toleranzen. Konvergenz, Verschiebungen, Kräfte und Reaktionen können sich ändern. P-Delta-Analysen erneut ausführen (PR #1940).",
     "fr": "Les corrections de déplacement fondées sur le résidu évitent les faux défauts de convergence P-Delta après rotation sans modifier les tolérances. Convergence, déplacements, efforts et réactions peuvent changer. Relancer les analyses P-Delta (PR #1940).",
-    "tr": "Artığa dayalı yer değiştirme düzeltmeleri, toleransları değiştirmeden dönüşten sonra hatalı P-Delta yakınsamama durumlarını önler. Yakınsama, yer değiştirmeler, kuvvetler ve tepkiler değişebilir. P-Delta analizlerini yeniden çalıştırın (PR #1940)."
+    "tr": "Artığa dayalı yer değiştirme düzeltmeleri, toleransları değiştirmeden dönüşten sonra hatalı P-Delta yakınsamama durumlarını önler. Yakınsama, yer değiştirmeler, kuvvetler ve tepkiler değişebilir. P-Delta analizlerini yeniden çalıştırın (PR #1940).",
+    "hu": "A maradékból számított elmozduláskorrekciók megakadályozzák a forgatás utáni téves P-Delta konvergenciahibát, a tűrések módosítása nélkül. A konvergencia, elmozdulások, erők és reakciók változhatnak. Futtassa újra a P-Delta vizsgálatokat (PR #1940)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-pdelta-rotation-corrections.md",

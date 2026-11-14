@@ -2,6 +2,7 @@
   import type { MohrCircle } from '../../lib/engine/section-stress';
   import { t } from '../../lib/i18n';
   import { fmt } from './fmt';
+  import { tools } from '../../lib/features';
   import { openMohrFromFibre } from '../../lib/mohr/panel.svelte';
 
   interface Props {
@@ -22,8 +23,8 @@
   <span class="ssp-help ssp-help-inline" title={t('stress.mohrCircleHelp')}>?</span>
 </button>
 {#if mohrData}
-  <button class="ssp-open-mohr" data-testid="stress-open-mohr"
-    onclick={() => openMohrFromFibre(mohrSigma, mohrTau, tauComponents, spaceMode ? 'space' : 'plane')}>{t('stress.openMohr')} ↗</button>
+  {#if tools()}<button class="ssp-open-mohr" data-testid="stress-open-mohr"
+    onclick={() => openMohrFromFibre(mohrSigma, mohrTau, tauComponents, spaceMode ? 'space' : 'plane')}>{t('stress.openMohr')} ↗</button>{/if}
 {/if}
 {#if showMohr && mohrData}
   {@const m = mohrData}

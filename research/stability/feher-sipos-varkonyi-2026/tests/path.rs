@@ -40,11 +40,16 @@ fn an_arch_that_snaps_while_loaded_is_reported_before_the_path() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1916"]
 fn numerical_nonconvergence_does_not_establish_a_physical_snap() {
-    for elements in [80, 90, 100, 120] {
-        assert_eq!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, elements).unwrap_err(), run::PathError::StartUnsolved);
+    let setting = shape_control_feher_2026::Setting { theta: 1.0, delta: 0.0, q: 4.0 };
+    assert!(shape_control_feher_2026::bend(120, setting, Distribution::Asymmetric, 2).is_err());
+    assert_eq!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, 120).unwrap_err(), run::PathError::StartUnsolved);
+    for elements in [80, 90] {
+        let state = shape_control_feher_2026::bend(elements, setting, Distribution::Asymmetric, 2).unwrap();
+        assert!(state.snapshot().y_mid < 0.0);
+        assert_eq!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, elements).unwrap_err(), run::PathError::StartSnaps);
     }
+    assert!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, 100).is_ok());
     assert_eq!(run::PathError::StartUnsolved.code(), "start_unsolved");
 }
 
@@ -53,4 +58,25 @@ fn settings_outside_the_sliders_are_refused() {
     assert!(run::path_with(1.3, 1.3, 4.5, Distribution::Uniform, 60).is_err());
     assert!(run::path_with(1.3, 1.3, 2.5, Distribution::Uniform, 10).is_err());
     assert!(run::path_with(0.9, 1.3, 2.5, Distribution::Uniform, 60).is_err());
+}
+
+#[test]
+fn slider_limits_accept_the_boundary_and_refuse_both_outside_sides() {
+    for q in [0.0, 4.0] {
+        for elements in [20, 120] {
+            assert!(!matches!(run::path_with(1.0, 0.0, q, Distribution::Uniform, elements), Err(run::PathError::LoadOrMeshOutOfRange)));
+        }
+    }
+    for q in [-f64::EPSILON, 4.0 + 4.0 * f64::EPSILON] {
+        assert_eq!(run::path_with(1.0, 0.0, q, Distribution::Uniform, 30).unwrap_err(), run::PathError::LoadOrMeshOutOfRange);
+    }
+    for elements in [19, 121] {
+        assert_eq!(run::path_with(1.0, 0.0, 1.5, Distribution::Uniform, elements).unwrap_err(), run::PathError::LoadOrMeshOutOfRange);
+    }
+    for (theta, delta) in [(1.0, 0.0), (1.6, 1.8)] {
+        assert!(run::path_with(theta, delta, 1.5, Distribution::Uniform, 30).is_ok());
+    }
+    for (theta, delta) in [(1.0 - f64::EPSILON, 0.0), (1.6 + f64::EPSILON, 0.0), (1.0, -f64::EPSILON), (1.0, 1.8 + f64::EPSILON)] {
+        assert_eq!(run::path_with(theta, delta, 1.5, Distribution::Uniform, 30).unwrap_err(), run::PathError::CornerOutOfRange);
+    }
 }

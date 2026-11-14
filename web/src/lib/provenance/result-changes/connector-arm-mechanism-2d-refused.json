@@ -1,10 +1,23 @@
 {
   "id": "connector-arm-mechanism-2d-refused",
   "date": "2026-11-08",
-  "prs": [1746],
+  "prs": [
+    1746
+  ],
   "area": "analysis",
-  "when": { "allOf": [["plane2D"], ["connectors"]] },
-  "quantities": ["solve.ok"],
+  "when": {
+    "allOf": [
+      [
+        "plane2D"
+      ],
+      [
+        "connectors"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
   "title": {
     "en": "2D: rotations that only connectors hold, left free by them, are refused",
     "es": "2D: se rechazan los giros que solo sostienen conectores y que estos dejan libres",

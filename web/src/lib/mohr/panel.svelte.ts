@@ -1,3 +1,4 @@
+import { tools } from '../features';
 import { DEFAULT_2D, DEFAULT_3D, type Mohr2DState, type Mohr3DState, type MohrKind } from './state';
 
 class MohrPanel {
@@ -12,6 +13,7 @@ class MohrPanel {
 export const mohrPanel = new MohrPanel();
 
 export function openMohr(options: { kind?: MohrKind; plane?: Mohr2DState; space?: Mohr3DState; fromModel?: boolean } = {}): void {
+  if (!tools()) return;
   if (options.plane) mohrPanel.plane = { ...options.plane };
   if (options.space) mohrPanel.space = { ...options.space, s: { ...options.space.s } };
   mohrPanel.kind = options.kind ?? mohrPanel.kind;

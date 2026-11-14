@@ -90,7 +90,7 @@ describe('exercise params', () => {
   });
 });
 
-it.skip('known wrong result: #1926 T37 — offset ranges preserve authored precision and bounds', () => {
+it('known wrong result: #1926 T37 — offset ranges preserve authored precision and bounds', () => {
   for (const [r, expected] of [
     [{ min: 1.25, max: 2.25, step: 0.5 }, [1.25, 1.75, 2.25]],
     [{ min: 0.06, max: 0.16, step: 0.1 }, [0.06, 0.16]],
@@ -100,4 +100,17 @@ it.skip('known wrong result: #1926 T37 — offset ranges preserve authored preci
   ] as const) expect(rangeValues(r)).toEqual(expected);
   expect(rangeValues({ min: 0, max: 10000, step: 1 })).toHaveLength(10001);
   expect(rangeValues({ min: 0, max: 10001, step: 1 })).toEqual([]);
+});
+
+it('offset ranges reach authored model dimensions through default and seeded variants', () => {
+  const p = { values: { L: { min: 1.25, max: 2.25, step: 0.5 } } };
+  expect(defaultVariant(p).values.L).toBe(1.75);
+  const seen = new Set<number>();
+  for (let seed = 0; seed < 30; seed++) {
+    const variant = drawVariant(p, seed);
+    seen.add(variant.values.L);
+    const model = resolveModel({ nodes: [[0, 0], ['L', 0]], elements: [[0, 1]], supports: [] }, variant);
+    expect([1.25, 1.75, 2.25]).toContain(model.nodes[1][0]);
+  }
+  expect([...seen].sort()).toEqual([1.25, 1.75, 2.25]);
 });

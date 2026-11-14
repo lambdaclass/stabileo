@@ -126,7 +126,7 @@ export async function exportView(req: ViewExportRequest): Promise<boolean> {
  * document. A PNG: the format every editor accepts from the clipboard.
  */
 export function copyView(req: ViewExportRequest): Promise<boolean> {
-  return new Promise((resolve) => accountGate.guard('export', () => copyNow(req).then(resolve), () => resolve(false)));
+  return accountGate.run('export', () => copyNow(req), false);
 }
 
 async function copyNow(req: ViewExportRequest): Promise<boolean> {

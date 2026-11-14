@@ -1,9 +1,15 @@
 {
   "id": "linear-span-rotation-warning",
   "date": "2026-11-06",
-  "prs": [1568],
+  "prs": [
+    1568
+  ],
   "area": "analysis",
-  "when": { "any": ["members"] },
+  "when": {
+    "any": [
+      "members"
+    ]
+  },
   "title": {
     "en": "Linear analysis warns when a member turns past 0.1 rad inside its span",
     "es": "El análisis lineal advierte cuando una barra gira más de 0,1 rad dentro de su tramo",

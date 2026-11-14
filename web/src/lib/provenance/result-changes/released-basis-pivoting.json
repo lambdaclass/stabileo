@@ -20,7 +20,8 @@
     "pt": "Seleção da base de rotações liberadas",
     "de": "Basiswahl für freigegebene Drehungen",
     "fr": "Choix de base des rotations libérées",
-    "tr": "Serbest dönmeler için baz seçimi"
+    "tr": "Serbest dönmeler için baz seçimi",
+    "hu": "A felszabadított elfordulások bázisának kiválasztása"
   },
   "explanation": {
     "en": "Nearly parallel release candidates could amplify direction uncertainty. Shared checks now choose independent directions by pivoting and retain the normalization uncertainty. Re-run spatial frames with multiple end releases at a node; genuine unsupported moments remain refused (#2074).",
@@ -28,7 +29,8 @@
     "pt": "Direções liberadas quase paralelas podiam amplificar a incerteza. As verificações compartilhadas selecionam direções independentes por pivoteamento e conservam a incerteza da normalização. Recalcule pórticos espaciais com várias liberações num nó; momentos incompatíveis continuam recusados (#2074).",
     "de": "Nahezu parallele Freigaberichtungen konnten die Richtungsunsicherheit verstärken. Gemeinsame Prüfungen wählen unabhängige Richtungen durch Pivotierung und erhalten die Normierungsunsicherheit. Räumliche Rahmen mit mehreren Endfreigaben an einem Knoten neu berechnen; unverträgliche Momente werden weiterhin abgelehnt (#2074).",
     "fr": "Des directions libérées presque parallèles pouvaient amplifier l’incertitude. Les vérifications communes choisissent des directions indépendantes par pivotage et conservent l’incertitude de normalisation. Recalculer les portiques spatiaux avec plusieurs libérations à un nœud ; les moments incompatibles restent refusés (#2074).",
-    "tr": "Neredeyse paralel serbest dönme yönleri belirsizliği büyütebiliyordu. Ortak denetimler bağımsız yönleri pivotlama ile seçer ve normalleştirme belirsizliğini korur. Bir düğümde birden çok uç serbestliği olan uzay çerçevelerini yeniden çözün; uyumsuz momentler reddedilmeye devam eder (#2074)."
+    "tr": "Neredeyse paralel serbest dönme yönleri belirsizliği büyütebiliyordu. Ortak denetimler bağımsız yönleri pivotlama ile seçer ve normalleştirme belirsizliğini korur. Bir düğümde birden çok uç serbestliği olan uzay çerçevelerini yeniden çözün; uyumsuz momentler reddedilmeye devam eder (#2074).",
+    "hu": "A közel párhuzamos, felszabadított elfordulásirányok jelöltjei felerősíthették az irány bizonytalanságát. A közös ellenőrzések most pivotálással választanak független irányokat, és megőrzik a normalizálás bizonytalanságát. Futtassa újra azokat a térbeli kereteket, amelyekben egy csomóponthoz több rúdvégi felszabadítás tartozik; a valóban meg nem támasztott nyomatékok elutasítása megmarad (#2074)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-released-basis-pivoting.md",

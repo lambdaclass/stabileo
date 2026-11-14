@@ -1,3 +1,4 @@
+import '../../../__tests__/enable-public-features';
 import { afterEach, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import { loadToolsPage } from '../load-page';
@@ -70,7 +71,7 @@ for (const locale of PUBLIC_LOCALES) it(`shows no first-version or review-round 
   for (const path of ['/tools', ...TOOLS.map(tool => `/tools/${tool.id}`)]) {
     const ToolsPage = await loadToolsPage(path);
     const { body } = render(ToolsPage, { props: { path } });
-    expect(body).not.toMatch(/First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review round|ronda de revisión|rodada de revisão|Prüfrunde|cycle de revue|inceleme turu/);
+    expect(body).not.toMatch(/First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|Első verzió|első változat|ellenőrzési kör|felülvizsgálati kör|review round|ronda de revisión|rodada de revisão|Prüfrunde|cycle de revue|inceleme turu/);
     expect(body).not.toContain('class="badge"');
   }
 });

@@ -159,9 +159,23 @@
       "id": "buckling-3d-varying-axial-force",
       "resultsVersion": 35,
       "date": "2026-11-05",
-      "prs": [1309],
+      "prs": [
+        1309
+      ],
       "area": "analysis",
-      "when": { "allOf": [["analysis:buckling"], ["memberLoads"], ["space3D"]] },
+      "when": {
+        "allOf": [
+          [
+            "analysis:buckling"
+          ],
+          [
+            "memberLoads"
+          ],
+          [
+            "space3D"
+          ]
+        ]
+      },
       "title": {
         "en": "3D buckling: members whose axial force varies along them",
         "es": "Pandeo 3D: barras cuyo esfuerzo axial varía a lo largo",
@@ -180,7 +194,10 @@
         "tr": "Her çubuğun burkulma rijitliği ortalama eksenel kuvvetini kullanıyordu ve bir çubuğun basınç altında olup olmadığı uç kuvvetlerinin ortalamasına göre belirleniyordu. Çubuk ekseni boyunca yüklerde katsayı fazla yüksek çıkabiliyordu (basıncı uca doğru artan tek çubuklu bir konsolda +%43) ve yalnızca uçları arasında basınç altındaki bir çubuk basınçsız sayılıp reddediliyordu (SA-2026-038). Çubuklar boyunca yük içeren 3B burkulmayı etkiler.",
         "hu": "Minden rúd geometriai merevsége az átlagos normálerőt használta, és azt, hogy a rúd nyomott-e, a végerőinek átlagából ítélte meg. A rúd tengelye mentén működő terheknél a kritikus teherszorzó túl nagyra adódhatott (+43% egy egyrudas konzolnál, amelynek nyomóereje a vége felé nő), a csak a két vége között nyomott rudat pedig nem nyomottként elutasította (SA-2026-038). A rudak mentén működő terhekkel végzett 3D kihajlásvizsgálatot érinti."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-038-buckling-3d-varying-axial-force.md", "heading": "SA-2026-038: 3D buckling overstated the factor of members whose compression grows along them, and refused members compressed only between their ends" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-038-buckling-3d-varying-axial-force.md",
+        "heading": "SA-2026-038: 3D buckling overstated the factor of members whose compression grows along them, and refused members compressed only between their ends"
+      }
     },
     {
       "id": "fail-closed-ratios",
@@ -316,7 +333,13 @@
         807
       ],
       "area": "analysis",
-      "when": { "any": ["members", "shells", "connectors"] },
+      "when": {
+        "any": [
+          "members",
+          "shells",
+          "connectors"
+        ]
+      },
       "title": {
         "en": "Known-issue warnings and refusals",
         "es": "Advertencias y rechazos por problemas conocidos",
@@ -1304,9 +1327,20 @@
       "id": "shell-envelope-per-component",
       "resultsVersion": 11,
       "date": "2026-11-02",
-      "prs": [1237],
+      "prs": [
+        1237
+      ],
       "area": "analysis",
-      "when": { "allOf": [["shells"], ["combinations"]] },
+      "when": {
+        "allOf": [
+          [
+            "shells"
+          ],
+          [
+            "combinations"
+          ]
+        ]
+      },
       "title": {
         "en": "The shell envelope holds each component's own extremes",
         "es": "La envolvente de las cáscaras toma los extremos de cada componente",
@@ -1325,15 +1359,32 @@
         "tr": "Plak ve dörtgen elemanların zarfı (zarf görünümü, konturları, PRO raporu ve çalışma kitabı), her eleman için Von Mises değeri en büyük olan kombinasyonun sonucunun tamamını tutuyordu. Diğer her bileşen (σxx, σyy, τxy, mx, my, mxy, qx, qy) kendi uç değeri değil, o kombinasyonun değeriydi: Von Mises'in her kombinasyonda sıfır olduğu saf eğilme altındaki bir radyede, başka bir kombinasyon 90,93 verirken mx 77,94 kN·m/m okunuyordu (%14 düşük). Artık her bileşen kendi en büyük mutlak değerini, en büyük ve en küçük değerlerle ve her birinin kombinasyonuyla birlikte gösteriyor; asal gerilmeler ve gerekli donatı, kombinasyonlar üzerindeki uç değerlerdir. Döşeme ve perde tasarımı kombinasyonları tek tek okur ve değişmez. Kabuk zarfından okunan her değeri yeniden kontrol edin (SA-2026-027).",
         "hu": "A lemezek és négyszögelemek burkolója (a burkoló nézet, szintvonalai, a PRO jelentés és a munkafüzet) minden elemnél a legnagyobb von Mises-feszültségű kombináció teljes eredményét őrizte meg. Minden más komponens (σxx, σyy, τxy, mx, my, mxy, qx, qy) annak a kombinációnak az értéke volt, nem a saját szélsőértéke: egy tiszta hajlításnak kitett lemezalapban, ahol a von Mises minden kombinációban nulla, az mx 77,94 kN·m/m-t mutatott, miközben egy másik kombináció 90,93-at ad (14%-kal kevesebb). Minden komponens most a saját legnagyobb abszolút értékét mutatja, a legnagyobb és a legkisebb értékkel és mindegyik kombinációjával; a főfeszültségek és a szükséges acélmennyiség a kombinációk feletti szélsőértékek. A födém- és falméretezés a kombinációkat egyenként olvassa, és nem változik. Ellenőrizze újra a héjburkolóból leolvasott értékeket (SA-2026-027)."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-027-shell-envelope-von-mises-record.md", "heading": "SA-2026-027: the shell envelope kept the combination with the largest Von Mises, not each component's extreme" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-027-shell-envelope-von-mises-record.md",
+        "heading": "SA-2026-027: the shell envelope kept the combination with the largest Von Mises, not each component's extreme"
+      }
     },
     {
       "id": "static-modal-runtime-self-checks",
       "resultsVersion": 10,
       "date": "2026-10-29",
-      "prs": [865],
+      "prs": [
+        865
+      ],
       "area": "analysis",
-      "when": { "allOf": [["members", "shells", "connectors"], ["analysis:linear", "analysis:modal"]] },
+      "when": {
+        "allOf": [
+          [
+            "members",
+            "shells",
+            "connectors"
+          ],
+          [
+            "analysis:linear",
+            "analysis:modal"
+          ]
+        ]
+      },
       "title": {
         "en": "Static and modal results check themselves before publication",
         "es": "Los resultados estáticos y modales se verifican antes de mostrarse",
@@ -1361,10 +1412,20 @@
       "id": "modal-repeated-eigenspace-completeness",
       "resultsVersion": 9,
       "date": "2026-10-29",
-      "prs": [827],
+      "prs": [
+        827
+      ],
       "area": "analysis",
       "when": {
-        "allOf": [["members", "shells", "curvedShells", "connectors", "springs"]],
+        "allOf": [
+          [
+            "members",
+            "shells",
+            "curvedShells",
+            "connectors",
+            "springs"
+          ]
+        ],
         "any": [
           "analysis:modal",
           "analysis:spectral",
@@ -1400,9 +1461,15 @@
       "id": "ec2-flexure-strain-compatibility",
       "resultsVersion": 8,
       "date": "2026-11-02",
-      "prs": [1236],
+      "prs": [
+        1236
+      ],
       "area": "design",
-      "when": { "any": ["concreteMembers"] },
+      "when": {
+        "any": [
+          "concreteMembers"
+        ]
+      },
       "title": {
         "en": "EN 1992-1-1 flexure in other codes by strain compatibility",
         "es": "Flexión EN 1992-1-1 en otras normas por compatibilidad de deformaciones",
@@ -1430,9 +1497,22 @@
       "id": "buckling-certificate-rejects-outside-factor",
       "resultsVersion": 6,
       "date": "2026-10-29",
-      "prs": [817],
+      "prs": [
+        817
+      ],
       "area": "analysis",
-      "when": { "allOf": [["members", "shells", "connectors"], ["analysis:buckling"]] },
+      "when": {
+        "allOf": [
+          [
+            "members",
+            "shells",
+            "connectors"
+          ],
+          [
+            "analysis:buckling"
+          ]
+        ]
+      },
       "title": {
         "en": "Buckling factors outside their enclosure are no longer certified",
         "es": "Los factores de pandeo fuera de su intervalo ya no se certifican",
@@ -1469,7 +1549,12 @@
           "shells"
         ]
       },
-      "quantities": ["quadStresses.sigmaXx", "quadStresses.sigmaYy", "quadStresses.tauXy", "quadStresses.vonMises"],
+      "quantities": [
+        "quadStresses.sigmaXx",
+        "quadStresses.sigmaYy",
+        "quadStresses.tauXy",
+        "quadStresses.vonMises"
+      ],
       "title": {
         "en": "Solid-shell stresses use local shell axes",
         "es": "Las tensiones del sólido-lámina usan ejes locales",
@@ -1497,9 +1582,24 @@
       "id": "dynamic-analyses-refuse-eccentricities",
       "resultsVersion": 4,
       "date": "2026-10-25",
-      "prs": [460],
+      "prs": [
+        460
+      ],
       "area": "analysis",
-      "when": { "allOf": [["eccentricities"], ["analysis:modal", "analysis:spectral", "analysis:timeHistory", "seismic", "wind"]] },
+      "when": {
+        "allOf": [
+          [
+            "eccentricities"
+          ],
+          [
+            "analysis:modal",
+            "analysis:spectral",
+            "analysis:timeHistory",
+            "seismic",
+            "wind"
+          ]
+        ]
+      },
       "title": {
         "en": "Dynamic analyses refuse models with insertion offsets or shell offsets",
         "es": "Los análisis dinámicos rechazan modelos con excentricidades de barras o de cáscaras",
@@ -1518,15 +1618,24 @@
         "tr": "Modal, tepki spektrumu ve zaman tanım alanında analizler ile deprem ve rüzgar yük planlarının modal adımı, artık çubuk yerleştirme kaçıklıkları veya kabuk kaçıklıkları olan bir modeli reddediyor ve nedenini belirtiyor. Önceden bunlar, statik analizin dikkate aldığı kaçıklıklar göz ardı edilerek düğüm çizgileri üzerinde çözülüyordu: böyle bir modelin modal ve spektral sonuçları eksantrisitelerini içermiyordu.",
         "hu": "A modális, válaszspektrum- és időtörténeti analízisek, valamint a szeizmikus és szélteher-tervek modális lépése most elutasítják a rúdbeillesztési eltolásokat vagy héjeltolásokat tartalmazó modellt, és megindokolják. Korábban a csomóponti vonalakon számították őket, figyelmen kívül hagyva azokat az eltolásokat, amelyeket a statikus analízis figyelembe vett: az ilyen modell modális és spektrális eredményei nem tartalmazták a külpontosságait."
       },
-      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "Dynamic analyses refuse member insertion offsets and shell offsets" }
+      "changelog": {
+        "file": "docs/results-changes/2026-10-design-chain.md",
+        "heading": "Dynamic analyses refuse member insertion offsets and shell offsets"
+      }
     },
     {
       "id": "cirsoc301-refused-limit-state-holds",
       "resultsVersion": 4,
       "date": "2026-10-25",
-      "prs": [461],
+      "prs": [
+        461
+      ],
       "area": "design",
-      "when": { "any": ["steelCirsoc301"] },
+      "when": {
+        "any": [
+          "steelCirsoc301"
+        ]
+      },
       "title": {
         "en": "Steel: a limit state that cannot be evaluated holds the member instead of failing it",
         "es": "Acero: un estado límite que no se puede evaluar retiene la barra en lugar de hacerla fallar",
@@ -1545,15 +1654,24 @@
         "tr": "Hesap motorunun sınır durumunu reddettiği (kapsamı dışında, eksik veri) bir CIRSOC 301 çubuğu, sonsuz bir oranla başarısız olarak görünüyordu. Artık «değerlendirilmedi» olarak görünüyor: gerekçesiyle bekletilir, kullanım oranı yoktur ve hiçbir zaman geçmiş sayılmaz. Yalnızca bu nedenle başarısız olan bir çubuk artık başarısız olarak bildirilmiyor, ancak doğrulanmış da sayılmıyor.",
         "hu": "Az a CIRSOC 301 rúd, amelynek egy határállapotát a számítómotor elutasította (hatókörén kívül esik, hiányzó adatok), végtelen kihasználtsággal nem megfelelőként jelent meg. Most „nincs kiértékelve” jelölést kap: visszatartva, az okával, kihasználtság nélkül, és sosem számít megfelelőnek. Az a rúd, amely csak emiatt nem felelt meg, már nem szerepel nem megfelelőként, de ellenőrzöttként sem."
       },
-      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "CIRSOC 301: a limit state the engine cannot evaluate holds the member instead of failing it" }
+      "changelog": {
+        "file": "docs/results-changes/2026-10-design-chain.md",
+        "heading": "CIRSOC 301: a limit state the engine cannot evaluate holds the member instead of failing it"
+      }
     },
     {
       "id": "cirsoc301-undeclared-fabrication-and-load-height",
       "resultsVersion": 4,
       "date": "2026-10-25",
-      "prs": [461],
+      "prs": [
+        461
+      ],
       "area": "design",
-      "when": { "any": ["steelCirsoc301"] },
+      "when": {
+        "any": [
+          "steelCirsoc301"
+        ]
+      },
       "title": {
         "en": "Steel: undeclared fabrication and load height are checked both ways",
         "es": "Acero: la fabricación y la altura de carga no declaradas se verifican de las dos maneras",
@@ -1572,15 +1690,24 @@
         "tr": "Haddelenmiş mi kaynaklı mı olduğunu belirtmeyen bir kesit, haddelenmiş bir katalogdan gelmiyorsa kaynaklı kabul ediliyordu; artık her iki yorum da kontrol ediliyor ve sonuçların farklı olduğu yerde çubuk bekletiliyor. Enine yükünün nerede etkidiğini belirtmeyen bir çubuk, yük üst başlıktayken kontrol ediliyor; orada başarısız olursa yük gövdedeyken yeniden kontrol ediliyor: her ikisinde de başarısızsa başarısız oluyor; gövdede geçiyorsa bekletiliyor.",
         "hu": "Az a keresztmetszet, amely nem adja meg, hogy hengerelt vagy hegesztett, hegesztettnek számított, hacsak nem hengerelt katalógusból származott; most mindkét értelmezést ellenőrzi, és ahol eltérnek, a rudat visszatartja. Azt a rudat, amely nem adja meg, hol működik a keresztirányú terhe, a felső övre helyezett teherrel ellenőrzi; az ott fellépő nem megfelelést a gerincre helyezett teherrel is ellenőrzi: ha mindkettőnél nem felel meg, nem megfelelő; ha a gerincen megfelel, visszatartva marad."
       },
-      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "CIRSOC 301: undeclared fabrication and load height are read both ways" }
+      "changelog": {
+        "file": "docs/results-changes/2026-10-design-chain.md",
+        "heading": "CIRSOC 301: undeclared fabrication and load height are read both ways"
+      }
     },
     {
       "id": "cirsoc301-concurrent-forces-and-lengths",
       "resultsVersion": 4,
       "date": "2026-10-25",
-      "prs": [461],
+      "prs": [
+        461
+      ],
       "area": "design",
-      "when": { "any": ["steelCirsoc301"] },
+      "when": {
+        "any": [
+          "steelCirsoc301"
+        ]
+      },
       "title": {
         "en": "Steel: H.1 on forces that act together, lengths per axis and per flange, weak-axis shear",
         "es": "Acero: H.1 con esfuerzos simultáneos, longitudes por eje y por ala, corte en el eje débil",
@@ -1599,15 +1726,24 @@
         "tr": "H.1 etkileşimi, farklı kombinasyonların maksimumları yerine birlikte etkiyen kuvvetlerle, her kombinasyon için her istasyonda değerlendiriliyor; bu yüzden bazı oranlar düşüyor. Desteksiz boylar, çubuğun yanal tutulmalarından eksen başına ve başlık başına okunuyor (hiçbiri beyan edilmemişse, önceden olduğu gibi çubuğun boyu). Zayıf eksen kesmesi (G.6) artık kontrol ediliyor ve bir sonucu yalnızca kötüleştirebilir. 0,95 ile 1,00 arasındaki bir oran uyarı olarak görünüyor, yine de geçer.",
         "hu": "A H.1 interakciót az együttesen működő erőkre értékeli, minden kombinációban minden osztásponton, a különböző kombinációkból származó maximumok helyett, így egyes kihasználtságok csökkennek. A megtámasztatlan hosszakat tengelyenként és övenként olvassa a rúd megtámasztásaiból (ha nincs megadva: a rúd hossza, mint korábban). A gyenge tengely irányú nyírást (G.6) most ellenőrzi, és ez csak ronthat az eredményen. A 0,95 és 1,00 közötti kihasználtság figyelmeztetésként jelenik meg, de továbbra is megfelel."
       },
-      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "CIRSOC 301: H.1 on forces that act together, lengths per axis and per flange, weak-axis shear" }
+      "changelog": {
+        "file": "docs/results-changes/2026-10-design-chain.md",
+        "heading": "CIRSOC 301: H.1 on forces that act together, lengths per axis and per flange, weak-axis shear"
+      }
     },
     {
       "id": "cold-formed-not-checked-by-cirsoc301",
       "resultsVersion": 4,
       "date": "2026-10-25",
-      "prs": [461],
+      "prs": [
+        461
+      ],
       "area": "design",
-      "when": { "any": ["steelMembers"] },
+      "when": {
+        "any": [
+          "steelMembers"
+        ]
+      },
       "title": {
         "en": "Cold-formed sections are no longer checked with CIRSOC 301",
         "es": "Las secciones conformadas en frío ya no se verifican con CIRSOC 301",
@@ -1626,15 +1762,25 @@
         "tr": "Soğuk şekillendirilmiş kesitler, sıcak haddelenmiş gibi CIRSOC 301 ile kontrol ediliyordu. Bu yönetmelik onları henüz uygulanmamış olan CIRSOC 303'e yönlendirir; bu yüzden bu çubuklar artık gerekçesiyle birlikte tasarlanmamış olarak bildiriliyor. Soğuk şekillendirilmiş bir çubuk için daha önce elde edilmiş bir geçme sonucu geçerli bir doğrulama değildir.",
         "hu": "A hidegen alakított szelvényeket a CIRSOC 301 szerint ellenőrizte, mintha melegen hengereltek lennének. Ez a szabvány a CIRSOC 303-ra utalja őket, amely még nincs megvalósítva, így ezek a rudak most nem méretezettként szerepelnek, az okkal együtt. Egy hidegen alakított rúdra korábban kapott megfelelés nem érvényes ellenőrzés."
       },
-      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "Cold-formed sections are no longer checked with CIRSOC 301" }
+      "changelog": {
+        "file": "docs/results-changes/2026-10-design-chain.md",
+        "heading": "Cold-formed sections are no longer checked with CIRSOC 301"
+      }
     },
     {
       "id": "other-materials-not-checked-as-steel",
       "resultsVersion": 4,
       "date": "2026-10-26",
-      "prs": [463],
+      "prs": [
+        463
+      ],
       "area": "design",
-      "when": { "any": ["timberOrAluminiumMembers", "steelMembers"] },
+      "when": {
+        "any": [
+          "timberOrAluminiumMembers",
+          "steelMembers"
+        ]
+      },
       "title": {
         "en": "Aluminium, timber and composite members are no longer checked as steel",
         "es": "Las barras de aluminio, madera y mixtas ya no se verifican como acero",
@@ -1653,15 +1799,24 @@
         "tr": "Alüminyum, ahşap veya kompozit malzemeden bir çubuk CIRSOC 301 çeliği olarak kontrol ediliyordu. Artık kendi kontrol aracıyla kontrol ediliyor ve bu kontrol çalışana kadar hiçbir yerde doğrulanmış olarak gösterilmiyor. EC3 eğilme ve eksenel basınç etkileşimi (6.3.3) hesap motorunun Ek B'siyle okunuyor ve diğer yönetmeliklerin sertifikaları, sertifikalı kontrol aracının okumanın tamamını kapsamadığı yerlerde «kısmi» olarak görünüyor.",
         "hu": "Az alumínium, fa vagy öszvér anyagú rudat CIRSOC 301 acélként ellenőrizte. Most a saját ellenőrzője vizsgálja, és amíg ez az ellenőrzés le nem futott, sehol sem jelenik meg ellenőrzöttként. Az EC3 hajlítás és nyomás interakcióját (6.3.3) a számítómotor B mellékletével olvassa, és más szabványok tanúsítványai „részleges” jelölést kapnak, ahol a tanúsított ellenőrző nem fedi le a teljes értelmezést."
       },
-      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "Aluminium, timber and composite members are no longer checked as steel" }
+      "changelog": {
+        "file": "docs/results-changes/2026-10-design-chain.md",
+        "heading": "Aluminium, timber and composite members are no longer checked as steel"
+      }
     },
     {
       "id": "rc-beams-lateral-role-shear-minimum-torsion",
       "resultsVersion": 4,
       "date": "2026-10-26",
-      "prs": [462],
+      "prs": [
+        462
+      ],
       "area": "design",
-      "when": { "any": ["cirsoc201"] },
+      "when": {
+        "any": [
+          "cirsoc201"
+        ]
+      },
       "title": {
         "en": "Concrete beams: lateral role, minimum shear reinforcement and torsion",
         "es": "Vigas de hormigón: rol lateral, armadura mínima de corte y torsión",
@@ -1680,15 +1835,29 @@
         "tr": "Yanal yük taşıyıcı sistemdeki rolünü beyan etmeyen bir beton kiriş, o sistemin ankraj gereklilikleriyle sistemin bir parçası olarak tasarlanıyor; yalnızca düşey yükler için tasarlamak üzere onu yanal olmayan olarak beyan edin. 250 mm'den yüksek kirişler, CIRSOC 201 §9.6.3.1'in gerektirdiği yerlerde minimum kesme donatısının altında kaldıklarında başarısız oluyor. CIRSOC modellerinde kiriş burulması kontrol ediliyor. Analizi bir döşemeyi bir kolona tek bir düğümde bağlayan bir çubuk bekletilmiş olarak görünüyor.",
         "hu": "Az a betongerenda, amely nem adja meg szerepét a vízszintes teherviselő rendszerben, annak részeként kerül méretezésre, a rendszer lehorgonyzási követelményeivel; adja meg nem vízszintes teherviselőként, ha csak gravitációs terhekre kívánja méretezni. A 250 mm-nél magasabb gerendák nem felelnek meg a minimális nyírási vasalás alatt ott, ahol a CIRSOC 201 §9.6.3.1 megköveteli. A gerendák csavarását a CIRSOC modelleken ellenőrzi. Az a rúd, amelynek analízise egyetlen csomópontban köt össze egy födémet egy oszloppal, visszatartottként jelenik meg."
       },
-      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "Concrete beams: lateral role, minimum shear reinforcement and torsion" }
+      "changelog": {
+        "file": "docs/results-changes/2026-10-design-chain.md",
+        "heading": "Concrete beams: lateral role, minimum shear reinforcement and torsion"
+      }
     },
     {
       "id": "rc-flanged-beams-designed-about-depth",
       "resultsVersion": 4,
       "date": "2026-10-26",
-      "prs": [475],
+      "prs": [
+        475
+      ],
       "area": "design",
-      "when": { "allOf": [["cirsoc201"], ["shells"]] },
+      "when": {
+        "allOf": [
+          [
+            "cirsoc201"
+          ],
+          [
+            "shells"
+          ]
+        ]
+      },
       "title": {
         "en": "Concrete beams with a slab on them are designed about their depth",
         "es": "Las vigas de hormigón con losa encima se diseñan según su altura",
@@ -1707,15 +1876,24 @@
         "tr": "Üzerine döşeme dökülmüş dik konumlu bir kiriş, döşemenin diyafram etkisinin içinde oluşturduğu düzlem içi moment nedeniyle eğik eğilmeli olarak reddediliyordu. Artık yüksekliği doğrultusunda tasarlanıyor ve detayın belirttiği gibi düzlem içi moment diyaframa aittir. Ekseni etrafında döndürülmüş bir kiriş veya döşemesiz bir kiriş eğik eğilme kontrolünü koruyor.",
         "hu": "Az álló gerendát, amelyre födémet betonoztak, a födém tárcsahatása által benne keltett síkbeli nyomaték miatt kéttengelyűként elutasította. Most a magassága irányában méretezi, és a síkbeli nyomaték a tárcsáé, ahogy a részlet is írja. A tengelye körül elforgatott vagy födém nélküli gerenda megtartja a kéttengelyű ellenőrzést."
       },
-      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "Concrete beams with a slab on them are designed about their depth" }
+      "changelog": {
+        "file": "docs/results-changes/2026-10-design-chain.md",
+        "heading": "Concrete beams with a slab on them are designed about their depth"
+      }
     },
     {
       "id": "strip-footings-under-walls-whole-strip",
       "resultsVersion": 4,
       "date": "2026-10-26",
-      "prs": [475],
+      "prs": [
+        475
+      ],
       "area": "design",
-      "when": { "any": ["footings"] },
+      "when": {
+        "any": [
+          "footings"
+        ]
+      },
       "title": {
         "en": "Strip footings under walls are checked along the whole strip",
         "es": "Las zapatas corridas bajo muros se verifican a lo largo de toda la zapata",
@@ -1734,15 +1912,33 @@
         "tr": "Bir perdenin altındaki sürekli temel, perdenin her ayağı altında ayrı ayrı kontrol ediliyordu; bu yüzden şerit boyunca bileşke merkezden çok uzağa düşüyor ve kenar basıncı iki katına çıkıyordu. Perde bu yükü şerit boyunca yayar, tıpkı bir perde temelinin metre başına tasarlanması gibi: ayakları artık şeridin tamamı üzerinde tek bir perde uzunluğu olarak, enine doğrultuda bileşkelerinin konumunda alınıyor. Zeminin kenar basıncı katsayısı, beyan edilmedikçe hiçbir şeyi değiştirmez.",
         "hu": "A fal alatti sávalapot a fal minden egyes talppontja alatt külön ellenőrizte, így a sáv mentén az eredő messze a középponton kívülre esett, és a szélső talajfeszültség megkétszereződött. A fal ezt a terhet a sáv mentén szétosztja, ahogy egy falalapot is folyóméterenként méreteznek: talppontjai most egyetlen falszakaszt alkotnak a teljes sávon, keresztirányban az eredőjükben. A talaj szélső talajfeszültség-tényezője semmit sem változtat, hacsak nincs megadva."
       },
-      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "Strip footings under walls are checked along the whole strip" }
+      "changelog": {
+        "file": "docs/results-changes/2026-10-design-chain.md",
+        "heading": "Strip footings under walls are checked along the whole strip"
+      }
     },
     {
       "id": "design-on-unfactored-results",
       "resultsVersion": 3,
       "date": "2026-10-22",
-      "prs": [588, 649],
+      "prs": [
+        588,
+        649
+      ],
       "area": "design",
-      "when": { "allOf": [["footings", "jointDesigns", "shells", "steelMembers"], ["combinations"]] },
+      "when": {
+        "allOf": [
+          [
+            "footings",
+            "jointDesigns",
+            "shells",
+            "steelMembers"
+          ],
+          [
+            "combinations"
+          ]
+        ]
+      },
       "title": {
         "en": "Footings, joints, slabs, walls and the steel optimiser are not designed for the unfactored loads when the combinations are not solved",
         "es": "Las bases, los nudos, las losas, los muros y el optimizador de acero no diseñan con las cargas sin mayorar cuando las combinaciones no están resueltas",
@@ -1761,15 +1957,24 @@
         "tr": "Kombinasyonlar tanımlıyken ve hiçbiri çözülmemişken (canlı hesaplama açıkken yapılan bir düzenlemeden sonra, kombinasyon çözümü başarısız olup yerine tekli çözüm kullanıldığında veya etkin liste boşken), temeller, birleşimler, döşemeler ve perdeler katsayılı kombinasyonlar yerine her yük 1 katsayısıyla, yani servis yükleri için tasarlanıyor, çelik optimize edici de profilleri bu yüklere göre boyutlandırıyordu (1,2D + 1,6W altındaki bir portalde bir temelin tepkisi %15 düşük; ölü ve hareketli yük için %29 ile %38 arası düşük). Artık kombinasyonlar çözülene kadar reddediyor ve nedenini belirtiyorlar: yeniden çözün ve tasarımlarını yeniden çalıştırın (SA-2026-024).",
         "hu": "Ha voltak teherkombinációk megadva, de egyik sem volt kiszámítva (élő számítás melletti szerkesztés után, amikor a kombinációk számítása meghiúsult és helyette az egyszeri számítás állt, vagy üres aktív listával), az alapokat, csomópontokat, födémeket és falakat, valamint az acél-optimalizáló szelvényválasztását minden teherre 1-es tényezővel, vagyis a használati terhekre végezte a program a tényezős kombinációk helyett (egy keret alapjának támaszereje 1,2D + 1,6W mellett 15%-kal kisebb volt; állandó és hasznos teherre 29–38%-kal). Ma már elutasítják a méretezést és megindokolják, amíg a kombinációk nincsenek kiszámítva: futtassa újra a számítást és a méretezést (SA-2026-024)."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-024-design-on-unfactored-results.md", "heading": "SA-2026-024: footings, joints, slabs, walls and the steel optimiser designed for the unfactored loads when the combinations had not been re-solved" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-024-design-on-unfactored-results.md",
+        "heading": "SA-2026-024: footings, joints, slabs, walls and the steel optimiser designed for the unfactored loads when the combinations had not been re-solved"
+      }
     },
     {
       "id": "column-capacity-both-signs",
       "resultsVersion": 3,
       "date": "2026-10-22",
-      "prs": [590],
+      "prs": [
+        590
+      ],
       "area": "design",
-      "when": { "any": ["cirsoc201"] },
+      "when": {
+        "any": [
+          "cirsoc201"
+        ]
+      },
       "title": {
         "en": "RC columns are checked for both signs of the moment",
         "es": "Las columnas de hormigón armado se verifican con los dos signos del momento",
@@ -1788,15 +1993,24 @@
         "tr": "Donatıları eğilme eksenine göre simetrik olmayan (6, 10, 14… çubuk veya farklı sayıda çubuk bulunan yüzler) bir CIRSOC 201 kolonu, yalnızca bir yüzü basınçta olacak şekilde kontrol ediliyordu; diğer taraf daha zayıftır (30×30, 6 Ø20, Nu 100 kN: 101,57 yerine 78,57 kN·m), bu yüzden kolonlar artık başarısız olabilir veya daha fazla donatı gerektirebilir (SA-2026-023).",
         "hu": "A hajlítás tengelyére nem szimmetrikus vasalású CIRSOC 201 oszlopot (6, 10, 14… betonacél, vagy eltérő darabszámú oldalak) csak az egyik oldal nyomásával ellenőrizte; a másik oldal gyengébb (30×30, 6 Ø20, Nu 100 kN: 101,57 helyett 78,57 kN·m), így az oszlopok most nem felelhetnek meg, vagy több betonacélt igényelhetnek (SA-2026-023)."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-023-column-moment-sign.md", "heading": "SA-2026-023: the RC column check read one sign of the moment, and an uneven bar layout is weaker the other way" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-023-column-moment-sign.md",
+        "heading": "SA-2026-023: the RC column check read one sign of the moment, and an uneven bar layout is weaker the other way"
+      }
     },
     {
       "id": "curved-shell-moments-and-thermal",
       "resultsVersion": 2,
       "date": "2026-10-21",
-      "prs": [522],
+      "prs": [
+        522
+      ],
       "area": "analysis",
-      "when": { "any": ["curvedShells"] },
+      "when": {
+        "any": [
+          "curvedShells"
+        ]
+      },
       "title": {
         "en": "Curved shells report their bending moments and their thermal stresses",
         "es": "Las láminas curvas informan sus momentos flectores y sus tensiones térmicas",
@@ -1815,15 +2029,24 @@
         "tr": "Eğrisel kabuklar (eğrisel olarak işaretlenmiş dörtgenler) sıfır eğilme ve burulma momenti bildiriyordu; bu yüzden konturlar, PRO sonuçları ve raporu ve bunlardan okunan her döşeme tasarımı hiç eğilme görmüyordu; sıcaklık yükü altında gerilmeleri serbest termal şekil değiştirmeyi koruyordu ve eğrisel bir dörtgendeki sıcaklık hiç uygulanmıyordu (SA-2026-013).",
         "hu": "A görbült héjak (görbültként jelölt négyszögelemek) nulla hajlító- és csavarónyomatékot adtak, így a szintvonalas ábrák, a Pro eredmények és jelentés, valamint az ezekből olvasó födémméretezés nem látott hajlítást; hőmérsékleti teher alatt feszültségeikben benne maradt a szabad hőmérsékleti alakváltozás, a görbült négyszögelemre adott hőmérséklet pedig egyáltalán nem hatott (SA-2026-013)."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-013-curved-shell-moments-and-thermal.md", "heading": "SA-2026-013: curved shells reported zero bending moments, and their stresses kept the free thermal strain" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-013-curved-shell-moments-and-thermal.md",
+        "heading": "SA-2026-013: curved shells reported zero bending moments, and their stresses kept the free thermal strain"
+      }
     },
     {
       "id": "arc-member-local-axes",
       "resultsVersion": 2,
       "date": "2026-10-21",
-      "prs": [523],
+      "prs": [
+        523
+      ],
       "area": "analysis",
-      "when": { "any": ["arcMembers"] },
+      "when": {
+        "any": [
+          "arcMembers"
+        ]
+      },
       "title": {
         "en": "Arcs: every member keeps the same section orientation along the curve",
         "es": "Arcos: todas las barras mantienen la misma orientación de la sección a lo largo de la curva",
@@ -1842,15 +2065,29 @@
         "tr": "Yay olarak çizilen çubuklar varsayılan yerel eksenleri alıyordu; bu eksenler, X–Z düzlemi dışındaki kemerlerde üzengi noktalarındaki neredeyse düşey çubukların kesit eksenlerini 90° döndürerek orada Iy ile Iz'yi yer değiştiriyordu (40 parçalı bir yarım daire: tepe noktası sehimi %15 düşük). Artık daha önce kaydedilmiş projelerde de yayın kendi yönelimini alıyorlar; eğik düzlemlerdeki yaylar biraz değişiyor (SA-2026-016).",
         "hu": "Az ívként rajzolt rudak az alapértelmezett helyi tengelyeket kapták, amelyek az X–Z síkon kívüli ívben a vállaknál lévő, közel függőleges rudak keresztmetszeti tengelyeit 90°-kal elforgatják, ott felcserélve Iy-t és Iz-t (egy 40 szakaszos félkörív tetőpontjának lehajlása 15%-kal kisebb volt). Ma már az ív saját tájolását kapják, a korábban mentett projektekben is; a ferde síkú ívek kissé változnak (SA-2026-016)."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-016-curved-member-axes.md", "heading": "SA-2026-016: curved members: section axes turned by 90° on near-vertical segments of arches" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-016-curved-member-axes.md",
+        "heading": "SA-2026-016: curved members: section axes turned by 90° on near-vertical segments of arches"
+      }
     },
     {
       "id": "plastic-3d-element-order",
       "resultsVersion": 2,
       "date": "2026-10-21",
-      "prs": [524],
+      "prs": [
+        524
+      ],
       "area": "analysis",
-      "when": { "allOf": [["members"], ["analysis:plastic"]] },
+      "when": {
+        "allOf": [
+          [
+            "members"
+          ],
+          [
+            "analysis:plastic"
+          ]
+        ]
+      },
       "title": {
         "en": "3D plastic collapse no longer depends on element numbering",
         "es": "El colapso plástico 3D ya no depende de la numeración de las barras",
@@ -1869,15 +2106,24 @@
         "tr": "Eğik eğilme altında mafsal dönüş yönü değişimi kontrolleri döngüye girdiğinde, çözücü eleman sırasına göre seçilen bir durumdan devam ediyor ve göçme yükünün 2,4 katına kadarını bildirebiliyordu. Artık son tutarlı durumda duruyor ve o katsayıyı, her numaralandırma için aynı olan bir alt sınır olarak bildiriyor (SA-2026-014).",
         "hu": "Amikor kétirányú hajlításnál a csuklók visszaterhelődésének ellenőrzése ciklusba került, a megoldó az elemek sorrendje által kiválasztott állapotból folytatta, és a tönkremeneteli teher akár 2,4-szeresét is megadhatta. Ma már az utolsó konzisztens állapotnál megáll, és azt a tényezőt alsó korlátként adja meg, bármilyen számozás mellett ugyanazt (SA-2026-014)."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-014-plastic-3d-element-order.md", "heading": "SA-2026-014: 3D plastic collapse factor depended on element numbering (up to 2.4× the collapse load)" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-014-plastic-3d-element-order.md",
+        "heading": "SA-2026-014: 3D plastic collapse factor depended on element numbering (up to 2.4× the collapse load)"
+      }
     },
     {
       "id": "cable-tension-chord-law",
       "resultsVersion": 2,
       "date": "2026-10-21",
-      "prs": [525],
+      "prs": [
+        525
+      ],
       "area": "analysis",
-      "when": { "any": ["members"] },
+      "when": {
+        "any": [
+          "members"
+        ]
+      },
       "title": {
         "en": "Cables with self-weight carry the tension of their sag",
         "es": "Los cables con peso propio llevan la tracción de su flecha",
@@ -1896,15 +2142,29 @@
         "tr": "Malzemesinin yoğunluğu olan kablo davranışlı çubuklar, yükü diğer çubuklarla paylaştıkları yerlerde çok az çekme kuvveti alıyordu (gergili bir direk: 5,18 kN yerine 4,34 kN), komşu çubuklar ise çok fazla; yineleme de yakınsamayabiliyordu (SA-2026-015). Kablo çubuklu 3B modelleri etkiler.",
         "hu": "A kábel viselkedésű, sűrűséggel rendelkező anyagú rudak túl kis húzóerőt kaptak ott, ahol a terhet más rudakkal megosztva viselik (egy kikötött árbocnál 5,18 kN helyett 4,34 kN), a szomszédos rudak pedig túl nagyot; az iteráció konvergálása is elmaradhatott (SA-2026-015). Ez a kábelrudakat tartalmazó 3D modelleket érinti."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-015-cable-tension-chord-law.md", "heading": "SA-2026-015: cable analysis gave cables with self-weight too little tension in statically indeterminate structures" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-015-cable-tension-chord-law.md",
+        "heading": "SA-2026-015: cable analysis gave cables with self-weight too little tension in statically indeterminate structures"
+      }
     },
     {
       "id": "soil-curves-references",
       "resultsVersion": 2,
       "date": "2026-10-21",
-      "prs": [526],
+      "prs": [
+        526
+      ],
       "area": "analysis",
-      "when": { "allOf": [["members"], ["analysis:ssi"]] },
+      "when": {
+        "allOf": [
+          [
+            "members"
+          ],
+          [
+            "analysis:ssi"
+          ]
+        ]
+      },
       "title": {
         "en": "Soil-structure interaction: p-y curves follow their references",
         "es": "Interacción suelo-estructura: las curvas p-y siguen sus referencias",
@@ -1923,15 +2183,24 @@
         "tr": "Yumuşak kil eğrisi Matlock'un J terimini atlıyordu (nihai zemin direnci yüzeye yakın yerlerde üçte bir ile yarı arası düşük), kum her zaman çevrimsel A = 0,9 katsayısını ve basamaklı bir k tablosunu kullanıyordu, sert kil eğrisi ise y50'de direncin yarısından tamamına sıçrıyor ve ötesinde %70'e düşüyordu (SA-2026-017). PRO Gelişmiş'te zemin yaylarıyla çözülmüş modelleri etkiler; bunları yeniden çalıştırın.",
         "hu": "A puha agyag görbéjéből hiányzott Matlock J tagja (a talaj határellenállása a felszín közelében harmadával–felével kisebb volt), a homok mindig az A = 0,9 ciklikus tényezőt és egy lépcsős k táblázatot használta, a merev agyag görbéje pedig y50-nél a fél ellenállásról a teljesre ugrott, azon túl 70%-ra esett (SA-2026-017). Ez a PRO Haladó módban talajrugókkal számított modelleket érinti; futtassa újra őket."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-017-soil-curves.md", "heading": "SA-2026-017: Soil-structure interaction p-y, t-z and q-z curves departed from their references" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-017-soil-curves.md",
+        "heading": "SA-2026-017: Soil-structure interaction p-y, t-z and q-z curves departed from their references"
+      }
     },
     {
       "id": "frame-thermal-alpha-depth",
       "resultsVersion": 2,
       "date": "2026-10-21",
-      "prs": [531],
+      "prs": [
+        531
+      ],
       "area": "loads",
-      "when": { "any": ["memberThermalLoads"] },
+      "when": {
+        "any": [
+          "memberThermalLoads"
+        ]
+      },
       "title": {
         "en": "Member temperature loads take the material's α and the section's depth",
         "es": "Las cargas de temperatura en barras toman el α del material y la altura de la sección",
@@ -1950,15 +2219,30 @@
         "tr": "2026-10-07'den önce çözülmüş projeler her malzeme için çeliğin α'sını ve kesitin eşdeğer dolu dikdörtgeninin yüksekliğini alıyordu (bir I kesitin gradyan momenti yaklaşık %30 düşük, alüminyumun termal kuvveti yaklaşık yarısı). Uygulama o zamandan beri bunu telafi ediyor, bu yüzden çoğu sonuç değişmiyor; düz bir modelde, kesiti kendi düzleminde çeyrek veya yarım tur döndürülmüş bir çubuktaki gradyan artık eşdeğer dikdörtgen yerine b veya h boyunca etkiyor (SA-2026-019).",
         "hu": "A 2026. október 7. előtt számított projektek minden anyagra az acél α-ját és a keresztmetszet egyenértékű tömör téglalapjának magasságát vették (egy I-szelvény gradiensből adódó nyomatéka kb. 30%-kal kisebb, az alumínium hőmérsékleti ereje kb. a fele volt). A program azóta kompenzál, így a legtöbb eredmény nem mozdul; a sík modell olyan rúdján, amelynek keresztmetszete saját síkjában negyed vagy fél fordulattal el van forgatva, a gradiens most b vagy h mentén hat az egyenértékű téglalap helyett (SA-2026-019)."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-019-frame-thermal-alpha-depth.md", "heading": "SA-2026-019: frame and truss temperature loads assumed steel's α and a solid rectangle's depth" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-019-frame-thermal-alpha-depth.md",
+        "heading": "SA-2026-019: frame and truss temperature loads assumed steel's α and a solid rectangle's depth"
+      }
     },
     {
       "id": "spectral-cqc-and-participation",
       "resultsVersion": 1,
       "date": "2026-10-21",
-      "prs": [434],
+      "prs": [
+        434
+      ],
       "area": "analysis",
-      "when": { "allOf": [["members", "shells"], ["analysis:spectral"]] },
+      "when": {
+        "allOf": [
+          [
+            "members",
+            "shells"
+          ],
+          [
+            "analysis:spectral"
+          ]
+        ]
+      },
       "title": {
         "en": "Response spectrum: CQC base shear and full modal participation",
         "es": "Espectro de respuesta: corte basal CQC y participación modal completa",
@@ -1977,15 +2261,30 @@
         "tr": "CQC ile bildirilen taban kesme kuvveti hâlâ SRSS ile birleştiriliyordu (birbirine yakın iki modla %19 düşük) ve modal katılım, tutarlı kütle matrisinin mesnetlere bağladığı kütleyi dışarıda bırakıyordu (SA-2026-008).",
         "hu": "CQC esetén a megadott talpnyíróerőt továbbra is SRSS szerint kombinálta (két közeli rezgésalakkal 19%-kal kisebb volt), a modális részvételből pedig kimaradt az a tömeg, amelyet a konzisztens tömegmátrix a támaszokhoz kapcsol (SA-2026-008)."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-008-spectral-combination.md", "heading": "SA-2026-008: Response spectrum: base shear always SRSS under CQC; modal participation omitted support-coupled mass" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-008-spectral-combination.md",
+        "heading": "SA-2026-008: Response spectrum: base shear always SRSS under CQC; modal participation omitted support-coupled mass"
+      }
     },
     {
       "id": "torsional-buckling-3d",
       "resultsVersion": 1,
       "date": "2026-10-21",
-      "prs": [434],
+      "prs": [
+        434
+      ],
       "area": "analysis",
-      "when": { "allOf": [["members"], ["analysis:buckling", "analysis:pdelta"]] },
+      "when": {
+        "allOf": [
+          [
+            "members"
+          ],
+          [
+            "analysis:buckling",
+            "analysis:pdelta"
+          ]
+        ]
+      },
       "title": {
         "en": "3D buckling includes torsional and flexural-torsional modes",
         "es": "El pandeo 3D incluye los modos torsionales y flexotorsionales",
@@ -2004,15 +2303,24 @@
         "tr": "3B geometrik rijitlik yalnızca eğilme terimlerini içeriyordu, bu yüzden burulmalı ve eğilmeli-burulmalı burkulma hiç ortaya çıkmıyordu; açık ince cidarlı kesitlerde (artı, korniyer, T, U kesitler) burkulma yükü %96'ya kadar yüksek olabiliyordu (SA-2026-007).",
         "hu": "A 3D geometriai merevség csak a hajlítási tagokat tartalmazta, így csavarási és hajlítási-csavarási kihajlás sosem jelent meg; nyitott vékonyfalú keresztmetszeteknél (kereszt-, szög-, T- és U-szelvények) a kritikus teher akár 96%-kal nagyobb lehetett (SA-2026-007)."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-007-torsional-buckling.md", "heading": "SA-2026-007: 3D buckling missed torsional and flexural-torsional buckling (up to 96 % too high)" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-007-torsional-buckling.md",
+        "heading": "SA-2026-007: 3D buckling missed torsional and flexural-torsional buckling (up to 96 % too high)"
+      }
     },
     {
       "id": "mirrored-moments-2d-in-3d",
       "resultsVersion": 1,
       "date": "2026-10-21",
-      "prs": [436],
+      "prs": [
+        436
+      ],
       "area": "analysis",
-      "when": { "any": ["members"] },
+      "when": {
+        "any": [
+          "members"
+        ]
+      },
       "title": {
         "en": "Flat models solved in 3D: nodal moments act the right way",
         "es": "Modelos planos resueltos en 3D: los momentos nodales actúan en el sentido correcto",
@@ -2031,15 +2339,24 @@
         "tr": "3B çözücüyle çözülen düz bir model, düğüm momentlerini ve zorlanmış mesnet dönmelerini aynalanmış olarak uyguluyordu; kuvvetlerle birleştiğinde birbirini götürmek yerine toplanabiliyorlardı (SA-2026-006). Düğüm momentleri veya zorlanmış dönmeleri olan ve 3B modda çözülen düz modelleri etkiler.",
         "hu": "A 3D megoldóval számított sík modell csomóponti nyomatékait és előírt támaszelfordulásait tükrözve alkalmazta; erőkkel kombinálva ezek összeadódhattak ahelyett, hogy kioltották volna egymást (SA-2026-006). Ez a csomóponti nyomatékokat vagy előírt elfordulásokat tartalmazó, 3D módban számított sík modelleket érinti."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-006-mirrored-moments-2d-in-3d.md", "heading": "SA-2026-006: Flat 2D model solved in 3D: nodal moments and prescribed rotations acted mirrored" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-006-mirrored-moments-2d-in-3d.md",
+        "heading": "SA-2026-006: Flat 2D model solved in 3D: nodal moments and prescribed rotations acted mirrored"
+      }
     },
     {
       "id": "inclined-member-loads",
       "resultsVersion": 1,
       "date": "2026-10-21",
-      "prs": [437],
+      "prs": [
+        437
+      ],
       "area": "analysis",
-      "when": { "any": ["members"] },
+      "when": {
+        "any": [
+          "members"
+        ]
+      },
       "title": {
         "en": "Axial force of inclined members includes the load along them",
         "es": "El axil de las barras inclinadas incluye la carga a lo largo de la barra",
@@ -2058,15 +2375,24 @@
         "tr": "2B'de, bir çubuk yükünün eğik çubuk boyunca olan kısmı doğrudan uç düğümlerine gidiyordu; bu yüzden çubuğun eksenel kuvveti boyunca değişmek yerine ortalaması oluyordu (bir merteğin alt ucundaki eksenel kuvvet %26 düşüktü). Düz bir model 3B'de çözüldüğünde çubuklara uygulanan kuvvet çiftleri atılıyordu (SA-2026-005).",
         "hu": "2D-ben a ferde rúdra ható rúdteher rúdirányú része közvetlenül a végcsomópontokra került, így a rúd normálereje az átlagértéke volt, ahelyett hogy a rúd mentén változott volna (egy szarufa tövénél a normálerő 26%-kal kisebb volt). A rudakra működő erőpárok elvesztek, amikor a sík modellt 3D-ben számította (SA-2026-005)."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-005-inclined-member-loads.md", "heading": "SA-2026-005: 2D inclined members missed the along-member part of their loads; member couples dropped in the 3D solve" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-005-inclined-member-loads.md",
+        "heading": "SA-2026-005: 2D inclined members missed the along-member part of their loads; member couples dropped in the 3D solve"
+      }
     },
     {
       "id": "springs-on-fixed-supports",
       "resultsVersion": 1,
       "date": "2026-10-20",
-      "prs": [491],
+      "prs": [
+        491
+      ],
       "area": "analysis",
-      "when": { "any": ["springs"] },
+      "when": {
+        "any": [
+          "springs"
+        ]
+      },
       "title": {
         "en": "Supports switched from spring to rigid are solved as rigid",
         "es": "Los apoyos cambiados de resorte a rígido se calculan como rígidos",
@@ -2085,16 +2411,27 @@
         "tr": "Türü yaydan ankastre, sabit mafsallı veya kayıcı mesnede değiştirilmiş bir 3B mesnet, yay sabitlerini koruyor ve yay olarak çözülüyordu. Tutulmuş her serbestlik derecesi artık tutulmuş olarak çözülüyor (SA-2026-011).",
         "hu": "Az a 3D támasz, amelynek típusát rugósról befogottra, csuklósra vagy görgősre változtatták, megtartotta rugóállandóit, és rugóként számította. Ma már minden megfogott szabadságfokot megfogottként számít (SA-2026-011)."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-011-springs-on-fixed-supports.md", "heading": "SA-2026-011: 3D support switched from spring to fixed (or pinned) was solved as elastic" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-011-springs-on-fixed-supports.md",
+        "heading": "SA-2026-011: 3D support switched from spring to fixed (or pinned) was solved as elastic"
+      }
     },
     {
       "id": "shb8-thickness-locking",
       "resultsVersion": 1,
       "date": "2026-10-19",
-      "prs": [401],
+      "prs": [
+        401
+      ],
       "area": "analysis",
-      "when": { "any": ["shells"] },
-      "quantities": ["*"],
+      "when": {
+        "any": [
+          "shells"
+        ]
+      },
+      "quantities": [
+        "*"
+      ],
       "title": {
         "en": "Solid shell (SHB8) no longer too stiff in thin plates",
         "es": "El sólido-lámina (SHB8) ya no es demasiado rígido en placas delgadas",
@@ -2113,15 +2450,24 @@
         "tr": "SHB8 katı kabuğu ince plak eğilmesinde yaklaşık %22 fazla rijitti (sehimler yaklaşık %18 düşük). MITC4, MITC9, DKT ve eğrisel kabuk etkilenmedi (SA-2026-009).",
         "hu": "Az SHB8 tömör héjelem vékony lemez hajlításában kb. 22%-kal túl merev volt (a lehajlások kb. 18%-kal kisebbek). Az MITC4, MITC9, DKT és a görbült héj nem volt érintett (SA-2026-009)."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-009-shb8-thickness-locking.md", "heading": "SA-2026-009: Solid shell (SHB8-ANS) about 22 % too stiff in thin-plate bending (deflections about 18 % low)" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-009-shb8-thickness-locking.md",
+        "heading": "SA-2026-009: Solid shell (SHB8-ANS) about 22 % too stiff in thin-plate bending (deflections about 18 % low)"
+      }
     },
     {
       "id": "diaphragm-rigid-rotation",
       "resultsVersion": 1,
       "date": "2026-10-18",
-      "prs": [342],
+      "prs": [
+        342
+      ],
       "area": "analysis",
-      "when": { "any": ["constraints"] },
+      "when": {
+        "any": [
+          "constraints"
+        ]
+      },
       "title": {
         "en": "Rigid diaphragms rotate as one body",
         "es": "Los diafragmas rígidos giran como un solo cuerpo",
@@ -2140,15 +2486,24 @@
         "tr": "Rijit bir diyaframın her düğümü artık ana düğümüyle birlikte düzlem içinde dönüyor; önceden bağımlı düğümlerin düzlem içi dönmesi serbestti, bu yüzden katlar burulmada fazla esnekti ve kolon uç burulma momentleri sıfır çıkıyordu. 3B XZ diyaframlarında ayrıca dönmenin işareti tersti.",
         "hu": "A merev tárcsa minden csomópontja ma már a fő csomóponttal együtt fordul el a síkjában; korábban a függő csomópontok síkbeli elfordulása szabad volt, így a szintek csavarásra túl lágyak voltak, az oszlopvégek csavarónyomatéka pedig nullára jött ki. A 3D XZ tárcsáknál az elfordulás előjele is fordított volt."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Rigid diaphragm rotates as one body (2026-10-18)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Rigid diaphragm rotates as one body (2026-10-18)"
+      }
     },
     {
       "id": "dead-load-default-2.52",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [292],
+      "prs": [
+        292
+      ],
       "area": "loads",
-      "when": { "any": ["areaDeadLoads"] },
+      "when": {
+        "any": [
+          "areaDeadLoads"
+        ]
+      },
       "title": {
         "en": "Default dead-load build-up: 2.32 → 2.52 kN/m²",
         "es": "Carga permanente por defecto: 2,32 → 2,52 kN/m²",
@@ -2167,15 +2522,25 @@
         "tr": "Varsayılan bölme duvarı payı artık CIRSOC 101-2025 §4.3.2 minimumu olan döşemede 0,75 kN/m²'dir ve bunun altındaki paylar reddediliyor. Eski varsayılanla üretilmiş döşeme yükleri 2,32 kN/m² taşıyordu; yeni değeri uygulamak için bunları yeniden üretin.",
         "hu": "A válaszfalak alapértelmezett tehertöbblete ma már a CIRSOC 101-2025 §4.3.2 szerinti minimum, 0,75 kN/m² födémfelület, és az ennél kisebb értékeket elutasítja. A régi alapértelmezéssel generált födémterhek 2,32 kN/m²-t tartalmaztak; generálja újra őket az új érték alkalmazásához."
       },
-      "changelog": { "file": "docs/MERGE_PLAN_SAFETY_WAVE.md", "heading": "Defaults and inputs users will notice" }
+      "changelog": {
+        "file": "docs/MERGE_PLAN_SAFETY_WAVE.md",
+        "heading": "Defaults and inputs users will notice"
+      }
     },
     {
       "id": "cirsoc301-tension-needs-connection",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [295, 303],
+      "prs": [
+        295,
+        303
+      ],
       "area": "design",
-      "when": { "any": ["steelTensionWithoutConnection"] },
+      "when": {
+        "any": [
+          "steelTensionWithoutConnection"
+        ]
+      },
       "title": {
         "en": "CIRSOC 301 tension is not evaluated without connection data",
         "es": "La tracción CIRSOC 301 no se evalúa sin datos de la unión",
@@ -2194,15 +2559,24 @@
         "tr": "Çekmede kopma artık her çubuk ucunun birleşiminden (bulonlu veya kaynaklı) Ae = An·U kullanıyor. Uç birleşim verisi olmayan çelik çubuklar çekmeyi DEĞERLENDİRİLMEDİ olarak gösteriyor; Ae = Ag hiçbir zaman varsayılmıyor. Önceki sürümler bu çubukları brüt alan üzerinden geçirebiliyordu.",
         "hu": "A húzási szakadás ma már az Ae = An·U értéket használja minden rúdvég kapcsolatából (csavarozott vagy hegesztett). A végkapcsolati adatok nélküli acélrudaknál a húzás NEM ÉRTÉKELT; Ae = Ag-t sosem feltételez. Korábbi verziókban ezek a rudak a bruttó keresztmetszettel megfelelhettek."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Tension members: end connections in the model (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Tension members: end connections in the model (2026-10-17)"
+      }
     },
     {
       "id": "cirsoc301-ltb-top-flange",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [293],
+      "prs": [
+        293
+      ],
       "area": "design",
-      "when": { "any": ["steelCirsoc301"] },
+      "when": {
+        "any": [
+          "steelCirsoc301"
+        ]
+      },
       "title": {
         "en": "CIRSOC 301 lateral-torsional buckling: top-flange load by default",
         "es": "Pandeo lateral-torsional CIRSOC 301: carga en el ala superior por defecto",
@@ -2221,15 +2595,24 @@
         "tr": "Belirtilmiş bir yük konumu yoksa CIRSOC 301 yanal burulmalı burkulma kontrolü artık yükün üst başlıkta etkidiğini varsayıyor (daha elverişsiz durum). Yanal olarak tutulmamış kirişlerin eğilme dayanımları düşebilir.",
         "hu": "Megadott teherhelyzet nélkül a CIRSOC 301 kifordulási ellenőrzés ma már azt feltételezi, hogy a teher a felső övön hat (a kedvezőtlenebb eset). Az oldalirányban meg nem támasztott gerendák hajlítási teherbírása csökkenhet."
       },
-      "changelog": { "file": "docs/MERGE_PLAN_SAFETY_WAVE.md", "heading": "Defaults and inputs users will notice" }
+      "changelog": {
+        "file": "docs/MERGE_PLAN_SAFETY_WAVE.md",
+        "heading": "Defaults and inputs users will notice"
+      }
     },
     {
       "id": "cirsoc301-biaxial-h11b",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [308],
+      "prs": [
+        308
+      ],
       "area": "design",
-      "when": { "any": ["steelCirsoc301"] },
+      "when": {
+        "any": [
+          "steelCirsoc301"
+        ]
+      },
       "title": {
         "en": "CIRSOC 301: biaxial bending without axial force checked by H.1.1b",
         "es": "CIRSOC 301: flexión biaxial sin esfuerzo axial verificada por H.1.1b",
@@ -2248,15 +2631,26 @@
         "tr": "Eksenel kuvvet olmadan her iki eksen etrafında eğilen çelik çubuklar H.1.1b ile kontrol edilmiyordu (güvensiz tarafta). CIRSOC 301 kontrolü artık hesap motorunda çalışıyor ve her geçme sonucu sertifikalı bir kontrolle doğrulanıyor.",
         "hu": "A mindkét tengely körül hajlított, normálerő nélküli acélrudakat nem ellenőrizte H.1.1b szerint (a biztonság kárára). A CIRSOC 301 ellenőrzés ma már a megoldóban fut, és minden megfelelést tanúsított ellenőrzés erősít meg."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "CIRSOC 301 steel checks in the engine, re-checked and certified (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "CIRSOC 301 steel checks in the engine, re-checked and certified (2026-10-17)"
+      }
     },
     {
       "id": "cirsoc301-member-checks",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [286, 293, 295],
+      "prs": [
+        286,
+        293,
+        295
+      ],
       "area": "design",
-      "when": { "any": ["steelCirsoc301"] },
+      "when": {
+        "any": [
+          "steelCirsoc301"
+        ]
+      },
       "title": {
         "en": "CIRSOC 301 web shear, slender elements and flexure clauses corrected",
         "es": "CIRSOC 301: corte del alma, elementos esbeltos y flexión corregidos",
@@ -2275,15 +2669,25 @@
         "tr": "Gövde kesmesi §G.2.1'i izliyor (bir örnek %60 güvensiz taraftaydı), narin kolonlar §E.7 Q'yu, eğilme §F.3–F.6'yı ve yanal burulmalı burkulma yönetmeliğin biçimini kullanıyor. J/Cw olmadan burulmalı burkulma ve sınıflandırmanın tanımlayamadığı şekiller DEĞERLENDİRİLMEDİ. Kesitler, haddelenmiş bir katalog ailesinden seçilmedikçe kaynaklı kabul ediliyor.",
         "hu": "A gerinc nyírása a §G.2.1-et követi (egy példa 60%-kal a biztonság kárára tért el), a karcsú oszlopok a §E.7 Q tényezőjét, a hajlítás a §F.3–F.6-ot, a kifordulás pedig a szabvány szerinti alakot használja. A J/Cw nélküli csavarási kihajlás és az osztályozással le nem írható szelvények NEM ÉRTÉKELTEK. A keresztmetszeteket hegesztettnek tekinti, hacsak nem hengerelt katalóguscsaládból választották."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Unsafe design-check disagreements closed (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Unsafe design-check disagreements closed (2026-10-17)"
+      }
     },
     {
       "id": "steel-ratio-above-one-fails",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [298],
+      "prs": [
+        298
+      ],
       "area": "design",
-      "when": { "any": ["steelMembers", "concreteMembers"] },
+      "when": {
+        "any": [
+          "steelMembers",
+          "concreteMembers"
+        ]
+      },
       "title": {
         "en": "A utilisation ratio above 1.0 now fails",
         "es": "Una relación de aprovechamiento mayor que 1,0 ahora no verifica",
@@ -2302,15 +2706,25 @@
         "tr": "1,0 ile 1,05 (CIRSOC 301) veya 1,1 (WASM normalleştirici) arasındaki oranlar eskiden uyarı olarak görünüyordu; artık başarısız sayılıyor. Sıfır veya sonlu olmayan dayanımlar “değerlendirilmemiş” sayılıyor ve geçmek yerine başarısız oluyor.",
         "hu": "Az 1,0 és 1,05 (CIRSOC 301) vagy 1,1 (WASM normalizáló) közötti kihasználtságok korábban figyelmeztetésként jelentek meg; ma már nem felelnek meg. A nulla vagy nem véges teherbírás „nem értékelt”, és megfelelés helyett nem felel meg."
       },
-      "changelog": { "file": "docs/MERGE_PLAN_SAFETY_WAVE.md", "heading": "Defaults and inputs users will notice" }
+      "changelog": {
+        "file": "docs/MERGE_PLAN_SAFETY_WAVE.md",
+        "heading": "Defaults and inputs users will notice"
+      }
     },
     {
       "id": "ec3-aisc-ltb-and-slender",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [286, 295],
+      "prs": [
+        286,
+        295
+      ],
       "area": "design",
-      "when": { "any": ["steelMembers"] },
+      "when": {
+        "any": [
+          "steelMembers"
+        ]
+      },
       "title": {
         "en": "EC3 / AISC checks: top-flange LTB, Class 4 and slender elements",
         "es": "Verificaciones EC3 / AISC: pandeo lateral con carga en ala superior, Clase 4 y elementos esbeltos",
@@ -2329,15 +2743,26 @@
         "tr": "EC3 Mcr yükü üst başlıkta alıyor (kesit yüksekliği olmadan reddediliyor); AISC üst başlık yükü için Cb/1,4 kullanıyor. EC3 Sınıf 4 etkin kesit özellikleri gerektiriyor, Lb = 0 için χLT = 1 (önceden NaN), 6.3.3 etkileşimi Ek B'yi kullanıyor, [0,4; 1] aralığı dışındaki Cm reddediliyor. AISC, F3/F6.2 başlık yerel burkulmasını ekliyor ve E7 narin elemanlarını verileri olmadan reddediyor.",
         "hu": "Az EC3 Mcr a terhet a felső övre veszi (a keresztmetszet magassága nélkül elutasítva); az AISC felső övön ható teherre Cb/1,4-et használ. Az EC3 4. osztályhoz hatékony keresztmetszeti jellemzők kellenek, Lb = 0 esetén χLT = 1 (korábban NaN), a 6.3.3 szerinti interakció a B mellékletet használja, a [0,4; 1] tartományon kívüli Cm-et elutasítja. Az AISC kiegészül az F3/F6.2 szerinti övhorpadással, és elutasítja az E7 szerinti karcsú elemeket adataik nélkül."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Further unsafe design-check gaps closed (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Further unsafe design-check gaps closed (2026-10-17)"
+      }
     },
     {
       "id": "weld-groups-end-loaded",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [291, 293, 295],
+      "prs": [
+        291,
+        293,
+        295
+      ],
       "area": "design",
-      "when": { "any": ["jointDesigns"] },
+      "when": {
+        "any": [
+          "jointDesigns"
+        ]
+      },
       "title": {
         "en": "Fillet welds default to end-loaded; bolt bearing uses s − dh",
         "es": "Soldaduras de filete cargadas en el extremo por defecto; aplastamiento de bulones con s − dh",
@@ -2356,15 +2781,25 @@
         "tr": "Uzun köşe kaynakları artık varsayılan olarak β = 1,2 − 0,002 l/w alıyor (300w'nin ötesinde etkin uzunluk 180w'ye sabitlenmiş); bundan çıkmak için “Uçtan yüklenmediği beyan edildi” seçeneğini seçin. Bulon ezilmesi s − dh net mesafesini kullanıyor. Birleşim dayanımları düşebilir.",
         "hu": "A hosszú sarokvarratok ma már alapértelmezésben β = 1,2 − 0,002 l/w tényezőt kapnak (a hatékony hossz 300w felett 180w-n rögzített); ennek elkerüléséhez válassza az „egyéb” terhelést. A csavarok palástnyomása az s − dh szabad távolságot használja. A kapcsolatok teherbírása csökkenhet."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Further unsafe design-check gaps closed (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Further unsafe design-check gaps closed (2026-10-17)"
+      }
     },
     {
       "id": "cirsoc201-strain-compatibility",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [298, 301],
+      "prs": [
+        298,
+        301
+      ],
       "area": "design",
-      "when": { "any": ["cirsoc201"] },
+      "when": {
+        "any": [
+          "cirsoc201"
+        ]
+      },
       "title": {
         "en": "CIRSOC 201: strain compatibility, φ limits, shear caps; default edition 2025",
         "es": "CIRSOC 201: compatibilidad de deformaciones, límites de φ, topes de corte; edición por defecto 2025",
@@ -2383,15 +2818,24 @@
         "tr": "Eğilme, çekme ve basınç donatısı için şekil değiştirme uygunluğunu kullanıyor (önceden φMn %18'e kadar fazlaydı); φ, εty = fy/Es'de basınç kontrollü ve 0,005'te (2005) veya εty + 0,003'te (2025) çekme kontrollü; kesmede √f'c ≤ 8,3 MPa; etriye fyt ≤ 420 MPa; süneklik kontrolü 9.3.3.1; çatlak genişliği 6,9 kat fazla geniş çıkıyordu. Varsayılan baskı 2025 ve her geçme sonucu hesap motoru tarafından yeniden kontrol ediliyor.",
         "hu": "A hajlítás a húzott és nyomott acélra alakváltozási kompatibilitást használ (korábban akár 18%-kal túl nagy φMn); φ nyomás által meghatározott εty = fy/Es-nél, és húzás által meghatározott 0,005-nél (2005) vagy εty + 0,003-nál (2025); nyírásban √f'c ≤ 8,3 MPa; kengyel fyt ≤ 420 MPa; 9.3.3.1 duktilitási ellenőrzés; a repedéstágasság 6,9×-esen túl nagy volt. Az alapértelmezett kiadás 2025, és minden megfelelést a megoldó újraellenőriz."
       },
-      "changelog": { "file": "docs/MERGE_PLAN_SAFETY_WAVE.md", "heading": "Design checks" }
+      "changelog": {
+        "file": "docs/MERGE_PLAN_SAFETY_WAVE.md",
+        "heading": "Design checks"
+      }
     },
     {
       "id": "aci318-strain-and-axial",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [301],
+      "prs": [
+        301
+      ],
       "area": "design",
-      "when": { "any": ["aci318"] },
+      "when": {
+        "any": [
+          "aci318"
+        ]
+      },
       "title": {
         "en": "ACI 318: strain compatibility and a new axial check",
         "es": "ACI 318: compatibilidad de deformaciones y nueva verificación axial",
@@ -2410,15 +2854,24 @@
         "tr": "Çift donatılı eğilme şekil değiştirme uygunluğunu kullanıyor (Mn %14,5 yüksekti). Yeni bir axialRatio kontrolü, eskiden geçen, eksenel olarak aşırı yüklenmiş kolonları başarısız sayıyor; Pu diyagramın dışında kaldığında eğilme işaretleniyor ve eksenel kuvvetli bir T kiriş eksik olarak işaretleniyor.",
         "hu": "A kettős vasalású hajlítás alakváltozási kompatibilitást használ (Mn 14,5%-kal nagyobb volt). Egy új axialRatio ellenőrzés nem engedi megfelelni a normálerőre túlterhelt oszlopokat, amelyek korábban megfeleltek; a hajlítást megjelöli, ha Pu kívül esik a diagramon, a normálerővel terhelt T-gerendát pedig hiányosként jelöli."
       },
-      "changelog": { "file": "docs/MERGE_PLAN_SAFETY_WAVE.md", "heading": "Design checks" }
+      "changelog": {
+        "file": "docs/MERGE_PLAN_SAFETY_WAVE.md",
+        "heading": "Design checks"
+      }
     },
     {
       "id": "footing-shear-lambda-s",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [298],
+      "prs": [
+        298
+      ],
       "area": "design",
-      "when": { "any": ["footings"] },
+      "when": {
+        "any": [
+          "footings"
+        ]
+      },
       "title": {
         "en": "Footing shear: size effect λs",
         "es": "Corte en bases: efecto de tamaño λs",
@@ -2437,15 +2890,25 @@
         "tr": "Temellerde tek doğrultulu kesme ve zımbalama kesmesi boyut etkisi katsayısı λs'yi içeriyor ve (a) satırı etriye olmadan kullanılmıyor. Temel kesme dayanımları düşebilir.",
         "hu": "Az alapok egyirányú nyírása és átszúródása tartalmazza a λs mérethatás-tényezőt, és kengyelek nélkül az (a) sort nem használja. Az alapok nyírási teherbírása csökkenhet."
       },
-      "changelog": { "file": "docs/MERGE_PLAN_SAFETY_WAVE.md", "heading": "Design checks" }
+      "changelog": {
+        "file": "docs/MERGE_PLAN_SAFETY_WAVE.md",
+        "heading": "Design checks"
+      }
     },
     {
       "id": "constraints-on-supported-slaves",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [296, 302],
+      "prs": [
+        296,
+        302
+      ],
       "area": "analysis",
-      "when": { "any": ["constraintOnSupportedNode"] },
+      "when": {
+        "any": [
+          "constraintOnSupportedNode"
+        ]
+      },
       "title": {
         "en": "Constraints on supported slave nodes are enforced",
         "es": "Se respetan las restricciones sobre nodos esclavos apoyados",
@@ -2464,15 +2927,25 @@
         "tr": "Bağımlı düğümünde aynı zamanda bir mesnet bulunan bir rijit bağlantı, diyafram veya eşit SD bağı denklemini kaybediyordu (mesnet baskın geliyordu, yalnızca bir OverConstrainedDof uyarısıyla). Bağ artık uygulanıyor, bu yüzden mesnet ana düğümü de tutuyor. Çelişkili bağ kümeleri reddediliyor.",
         "hu": "Az a merev kapcsolat, tárcsa vagy egyenlő szabadságfok, amelynek függő csomópontján támasz is volt, korábban elvesztette egyenletét (a támasz nyert, csak egy OverConstrainedDof figyelmeztetéssel). A kényszert ma már érvényesíti, így a támasz a fő csomópontot is megfogja. Az egymásnak ellentmondó kényszerkészleteket elutasítja."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Assembly-path fixes found by the cross-path oracle (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Assembly-path fixes found by the cross-path oracle (2026-10-17)"
+      }
     },
     {
       "id": "constraints-at-inclined-supports",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [302],
+      "prs": [
+        302
+      ],
       "area": "analysis",
-      "when": { "all": ["constraints", "inclinedSupports"] },
+      "when": {
+        "all": [
+          "constraints",
+          "inclinedSupports"
+        ]
+      },
       "title": {
         "en": "Constraints at inclined-support nodes built in the support frames",
         "es": "Restricciones en nodos con apoyo inclinado construidas en el sistema del apoyo",
@@ -2491,15 +2964,24 @@
         "tr": "Eğik mesnetli bir düğüme dokunan bağlar artık her analizde o mesnedin döndürülmüş eksen takımında yazılıyor. İkisini birlikte içeren modeller farklı çözülüyor.",
         "hu": "A ferde támaszú csomópontot érintő kényszereket ma már minden analízisben a támasz elforgatott koordináta-rendszerében írja fel. A kettőt kombináló modellek eredménye eltér."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Constraints on inclined-support nodes are built in the support frames (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Constraints on inclined-support nodes are built in the support frames (2026-10-17)"
+      }
     },
     {
       "id": "multiple-supports-one-node",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [288],
+      "prs": [
+        288
+      ],
       "area": "analysis",
-      "when": { "any": ["multipleSupportsOnNode"] },
+      "when": {
+        "any": [
+          "multipleSupportsOnNode"
+        ]
+      },
       "title": {
         "en": "Several supports on one node: merged or refused",
         "es": "Varios apoyos en un nodo: se combinan o se rechazan",
@@ -2518,17 +3000,33 @@
         "tr": "Aynı düğümdeki basit tutulmalar artık birleşiyor (VEYA). Ortak bir düğümdeki yaylar, mesnet çökmeleri veya eğik mesnet verileri reddediliyor; eskiden mesnet tepkisini iki kez sayıyor ya da sessizce birini seçiyorlardı.",
         "hu": "Az ugyanazon csomóponton lévő egyszerű megfogásokat ma már összevonja (VAGY). A közös csomóponton lévő rugókat, süllyedéseket vagy ferde támaszadatokat elutasítja; korábban kétszer számították a támaszerőt, vagy szó nélkül az egyiket választották."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Fixes found by fuzzing the WASM entry points (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Fixes found by fuzzing the WASM entry points (2026-10-17)"
+      }
     },
     {
       "id": "inclined-supports-every-analysis",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [279, 287],
+      "prs": [
+        279,
+        287
+      ],
       "area": "analysis",
       "when": {
-        "all": ["inclinedSupports"],
-        "any": ["analysis:modal", "analysis:buckling", "analysis:timeHistory", "analysis:spectral", "analysis:nonlinear", "analysis:harmonic", "analysis:pdelta"]
+        "all": [
+          "inclinedSupports"
+        ],
+        "any": [
+          "analysis:modal",
+          "analysis:buckling",
+          "analysis:timeHistory",
+          "analysis:spectral",
+          "analysis:nonlinear",
+          "analysis:harmonic",
+          "analysis:pdelta"
+        ]
       },
       "title": {
         "en": "Inclined supports handled in every analysis",
@@ -2548,16 +3046,34 @@
         "tr": "Modal, harmonik, spektral, burkulma, zaman tanım alanında, SSI, lifli (fiber), yay uzunluğu ve temas analizleri artık eğik mesnetlerde kütleyi, geometrik rijitliği, yükleri ve sonuçları K ile birlikte döndürüyor. Oradaki en büyük yay tepkileri artık 0 olarak bildirilmiyor.",
         "hu": "A modális, harmonikus, spektrális, kihajlási, időtörténeti, talaj–szerkezet kölcsönhatási, szálmodelles, ívhossz- és kontaktanalízis ma már a ferde támaszoknál K-val együtt elforgatja a tömeget, a geometriai merevséget, a terheket és az eredményeket. Az ottani rugók csúcs-támaszerejét már nem adja meg 0-ként."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Every analysis works in the inclined-support frames with K (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Every analysis works in the inclined-support frames with K (2026-10-17)"
+      }
     },
     {
       "id": "buckling-2d-linear-stiffness",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [279],
+      "prs": [
+        279
+      ],
       "area": "analysis",
       "when": {
-        "allOf": [["plane2D"], ["inclinedSupports", "springs", "trussMembers"], ["analysis:buckling", "analysis:timeHistory"]]
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "inclinedSupports",
+            "springs",
+            "trussMembers"
+          ],
+          [
+            "analysis:buckling",
+            "analysis:timeHistory"
+          ]
+        ]
       },
       "title": {
         "en": "2D buckling and time history use the linear path's stiffness",
@@ -2577,15 +3093,34 @@
         "tr": "Açılı yaylar, eğik kayıcı mesnetler, tutulmuş serbestlik derecelerindeki yaylar ve yalnızca kafes çubuklarına bağlı düğümler artık 2B burkulma ve zaman tanım alanında analizde doğrusal çözümdekiyle tam olarak aynı şekilde birleştiriliyor.",
         "hu": "A ferde rugókat, ferde görgős támaszokat, megfogott szabadságfokokon lévő rugókat és a csak rácsrudakhoz kapcsolódó csomópontokat ma már a 2D kihajlásban és időtörténeti analízisben pontosan úgy állítja össze, mint a lineáris számításban."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "2D buckling and time integration use the linear path's stiffness (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "2D buckling and time integration use the linear path's stiffness (2026-10-17)"
+      }
     },
     {
       "id": "buckling-axial-from-elongation",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [281, 283, 284, 290],
+      "prs": [
+        281,
+        283,
+        284,
+        290
+      ],
       "area": "analysis",
-      "when": { "allOf": [["members", "shells"], ["analysis:buckling", "analysis:pdelta"]] },
+      "when": {
+        "allOf": [
+          [
+            "members",
+            "shells"
+          ],
+          [
+            "analysis:buckling",
+            "analysis:pdelta"
+          ]
+        ]
+      },
       "title": {
         "en": "Buckling and P-Delta: axial force from elongation, hinges condensed",
         "es": "Pandeo y P-Delta: axial a partir del alargamiento, rótulas condensadas",
@@ -2604,15 +3139,30 @@
         "tr": "Burkulma N'yi uç ortalaması yerine EA·δ/L'den alıyor (eksenel tekil veya kısmi yüklerle λ 3 katına kadar değişiyordu); 2B geometrik rijitlik mafsallarda kondanse ediliyor (uçları mafsallı bir çerçeve λ ≈ 5e-6 veriyordu); P-Delta çubuk uç kuvvetleri Kg·u'yu ve 3B'de kabuk Kg'sini içeriyor. Kabuk burkulma katsayıları düzeltildi (eğrisel kabuklarda 200 kat fazla yüksekti).",
         "hu": "A kihajlás N-et az EA·δ/L-ből veszi a rúdvégek átlaga helyett (λ rúdirányú koncentrált vagy részleges terheknél akár 3×-osára változott); a 2D geometriai merevséget a csuklóknál kondenzálja (egy csuklós végű rudakból álló keret λ ≈ 5e-6 értéket adott); a P-Delta rúdvégi erők tartalmazzák a Kg·u-t, 3D-ben pedig a héjak Kg-jét. A héjak kritikusteher-tényezői javítva (a görbült héjaké 200×-osan túl nagy volt)."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Solver fixes found by extending the OpenSees comparison to buckling, modal, P-Delta and time history (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Solver fixes found by extending the OpenSees comparison to buckling, modal, P-Delta and time history (2026-10-17)"
+      }
     },
     {
       "id": "ground-motion-coupled-mass",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [283],
+      "prs": [
+        283
+      ],
       "area": "analysis",
-      "when": { "allOf": [["members", "shells"], ["analysis:timeHistory"]] },
+      "when": {
+        "allOf": [
+          [
+            "members",
+            "shells"
+          ],
+          [
+            "analysis:timeHistory"
+          ]
+        ]
+      },
       "title": {
         "en": "Ground motion includes the mass coupled to the supports",
         "es": "El movimiento del suelo incluye la masa acoplada a los apoyos",
@@ -2631,15 +3181,28 @@
         "tr": "Bağıl hareket yükü artık M_fr·r_r'yi içeriyor; yükün yaklaşık %50'sine kadarı atlanıyordu. Kütlesiz serbestlik dereceleri olan zaman tanım alanında analizler artık sahte bir başlangıç ivmesi almıyor.",
         "hu": "A relatív mozgásból adódó teher ma már tartalmazza az M_fr·r_r tagot; korábban a teher akár kb. 50%-a elveszett. A tömeg nélküli szabadságfokokat tartalmazó időtörténeti analízisek már nem kapnak hamis kezdeti gyorsulást."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Solver fixes found by extending the OpenSees comparison to buckling, modal, P-Delta and time history (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Solver fixes found by extending the OpenSees comparison to buckling, modal, P-Delta and time history (2026-10-17)"
+      }
     },
     {
       "id": "modal-massless-and-pivot",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [283, 287, 294, 296],
+      "prs": [
+        283,
+        287,
+        294,
+        296
+      ],
       "area": "analysis",
-      "when": { "any": ["members", "shells"] },
+      "when": {
+        "any": [
+          "members",
+          "shells"
+        ]
+      },
       "title": {
         "en": "Stricter singularity threshold; modal solves with massless DOFs",
         "es": "Umbral de singularidad más estricto; el modal resuelve con GDL sin masa",
@@ -2658,15 +3221,25 @@
         "tr": "Tekil pivot eşiği 64ε'dan 1e-10'a değişti: eskiden sessizce çözülen mekanizmalar (örneğin sarkan mafsallı bir çubuk) artık işaretleniyor ve yeni bir uyarı pozitif tanımlı olmayan bir rijitliği bildiriyor. Mafsallı çubukları veya yalnızca kafes çubuklarına bağlı düğümleri olan modellerin modal analizleri başarısız olmak yerine çözülüyor.",
         "hu": "A szinguláris pivot küszöbe 64ε-ról 1e-10-re változott: a korábban szó nélkül kiszámított mechanizmusokat (például egy szabadon lógó, csuklós rudat) ma már jelzi, és egy új figyelmeztetés jelzi a nem pozitív definit merevséget. A csuklós rudakat vagy csak rácsrudakhoz kapcsolódó csomópontokat tartalmazó modellek modális analízise hiba helyett lefut."
       },
-      "changelog": { "file": "docs/MERGE_PLAN_SAFETY_WAVE.md", "heading": "Analysis results (BREAKING)" }
+      "changelog": {
+        "file": "docs/MERGE_PLAN_SAFETY_WAVE.md",
+        "heading": "Analysis results (BREAKING)"
+      }
     },
     {
       "id": "connectors-shear-and-dofs",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [278, 297],
+      "prs": [
+        278,
+        297
+      ],
       "area": "analysis",
-      "when": { "any": ["connectors"] },
+      "when": {
+        "any": [
+          "connectors"
+        ]
+      },
       "title": {
         "en": "Connectors: shear–moment coupling and the model's own DOFs",
         "es": "Conectores: acoplamiento corte–momento y los GDL del propio modelo",
@@ -2685,15 +3258,30 @@
         "tr": "Kesme rijitliği olan sonlu uzunluklu bağlayıcılar artık V·L momentini taşıyor ve bağlayıcılar modelin kendi serbestlik derecelerinde birleştiriliyor (tamamı kafes olan modeller, çarpılma). Eksik düğümler, sonlu olmayan rijitlik ve dönme serbestlik dereceleri olmadan sonlu kesme yayları reddediliyor.",
         "hu": "A nyírási merevségű, véges hosszúságú összekötők ma már viselik a V·L nyomatékot, és az összekötőket a modell saját szabadságfokain állítja össze (csak rácsrudas modellek, öblösödés). A hiányzó csomópontokat, a nem véges merevséget és az elfordulási szabadságfok nélküli véges nyírási rugókat elutasítja."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Connectors: shear–moment coupling and the model's own DOFs (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Connectors: shear–moment coupling and the model's own DOFs (2026-10-17)"
+      }
     },
     {
       "id": "plastic-collapse-corrected",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [275, 290],
+      "prs": [
+        275,
+        290
+      ],
       "area": "analysis",
-      "when": { "allOf": [["members"], ["analysis:plastic"]] },
+      "when": {
+        "allOf": [
+          [
+            "members"
+          ],
+          [
+            "analysis:plastic"
+          ]
+        ]
+      },
       "title": {
         "en": "Plastic collapse corrected (was unsafe)",
         "es": "Colapso plástico corregido (era inseguro)",
@@ -2712,15 +3300,30 @@
         "tr": "2B plastik analiz göçmeyi fazla tahmin ediyor ve yükü boşalan mafsalları göz ardı ediyordu; 3B yalnızca çubuk uçlarında mafsal oluşturuyordu (2,3 kat güvensiz). 2B artık dönme yayları, bağlar veya bağlayıcılar olan düğümlerde mafsal oluşturuyor (bir örnek 150 → 83,3); 3B plastik analiz bağları, bağlayıcıları ve yayları reddediyor.",
         "hu": "A 2D képlékeny analízis túlbecsülte a tönkremenetelt, és figyelmen kívül hagyta a tehermentesülő csuklókat; a 3D csak a rúdvégeken képzett csuklókat (2,3×-osan a biztonság kárára). A 2D ma már csuklót képez az elfordulási rugós, kényszeres vagy összekötős csomópontokban (egy példában 150 → 83,3); a 3D képlékeny analízis elutasítja a kényszereket, összekötőket és rugókat."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Every analysis supports a model feature or refuses it by name (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Every analysis supports a model feature or refuses it by name (2026-10-17)"
+      }
     },
     {
       "id": "nonlinear-solvers-as-given",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [297],
+      "prs": [
+        297
+      ],
       "area": "analysis",
-      "when": { "allOf": [["members", "shells"], ["analysis:nonlinear"]] },
+      "when": {
+        "allOf": [
+          [
+            "members",
+            "shells"
+          ],
+          [
+            "analysis:nonlinear"
+          ]
+        ]
+      },
       "title": {
         "en": "Co-rotational and contact solvers answer for the model as given",
         "es": "Los solvers corrotacional y de contacto responden por el modelo tal como está",
@@ -2739,16 +3342,28 @@
         "tr": "3B korotasyonel çözüm tam rijit dönmeye sahip ve çubuk kuvvetleri ankastrelik uç kuvvetlerini içeriyor (qL²/12 kadar eksikti); yakınsamayan bir çözüm son yakınsamış artımı ve onun yük katsayısını döndürüyor. Temas, yakınsamış temas durumunu bildiriyor (2B doğrusal çözümü bildiriyordu), boşluklar kapandıkları andan itibaren etkiyor, Coulomb kayması modelleniyor ve sönüm artık zemine bağlı bir yay değil.",
         "hu": "A 3D korotációs megoldó merevtest-forgatása pontos, és a rúderők tartalmazzák a befogási erőket (korábban qL²/12-vel kevesebbek voltak); a nem konvergált számítás az utolsó konvergált lépést és annak tehertényezőjét adja vissza. A kontakt a konvergált kontaktállapotot adja meg (a 2D a lineáris megoldást adta), a hézagok a záródástól hatnak, a Coulomb-féle csúszás modellezett, a csillapítás pedig már nem egy talajhoz kötött rugó."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Nonlinear and special solvers answer for the model as given (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Nonlinear and special solvers answer for the model as given (2026-10-17)"
+      }
     },
     {
       "id": "solid-shell-and-mitc4-warping",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [289, 307],
+      "prs": [
+        289,
+        307
+      ],
       "area": "analysis",
-      "when": { "any": ["shells"] },
-      "quantities": ["*"],
+      "when": {
+        "any": [
+          "shells"
+        ]
+      },
+      "quantities": [
+        "*"
+      ],
       "title": {
         "en": "Shells: warped MITC4 corrected, solid shells frame-invariant",
         "es": "Cáscaras: MITC4 alabeado corregido, cáscaras sólidas invariantes",
@@ -2767,7 +3382,10 @@
         "tr": "Çarpık MITC4 dörtgenleri bir çarpıklık düzeltmesi alıyor ve katı kabuklar kalınlık boyunca varsayılmış şekil değiştirmeler kullanıyor (Scordelis-Lo 0,39 → 0,95). Seyrek 3B düzenlileştirme artık tüm serbestlik dereceleri üzerindeki en büyük köşegen terimini okuyor. Kabuk modelleri farklı çözülüyor.",
         "hu": "A vetemedett MITC4 négyszögelemek vetemedési korrekciót kapnak, a tömör héjak pedig a vastagság mentén feltételezett alakváltozásokat használnak (Scordelis–Lo 0,39 → 0,95). A ritka 3D regularizáció ma már minden szabadságfok közül a legnagyobb főátlóbeli elemet olvassa. A héjas modellek eredménye eltér."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Solid shell: assumed strains in the thickness direction; MITC4 warping correction (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Solid shell: assumed strains in the thickness direction; MITC4 warping correction (2026-10-17)"
+      }
     },
     {
       "id": "shell-rigid-motions-and-signs",
@@ -2775,8 +3393,14 @@
       "date": "2026-09-24",
       "prs": [],
       "area": "analysis",
-      "when": { "any": ["shells"] },
-      "quantities": ["*"],
+      "when": {
+        "any": [
+          "shells"
+        ]
+      },
+      "quantities": [
+        "*"
+      ],
       "title": {
         "en": "Shell elements: rigid motions, the DKT triangle and three sign conventions",
         "es": "Elementos de cáscara: movimientos rígidos, el triángulo DKT y tres convenciones de signo",
@@ -2795,7 +3419,10 @@
         "tr": "Düzlem içi dönme (drilling) stabilizasyonu artık rijit dönmeye direnç göstermiyor (her kabuk düğümünde zemine bağlı bir yay gibi davranıyordu) ve DKT üçgeni ile üç işaret kuralı düzeltildi. Kabuk elemanlı her model farklı çözülüyor.",
         "hu": "A fúrási (drilling) stabilizálás már nem áll ellen a merevtest-elfordulásnak (minden héjcsomóponton talajhoz kötött rugóként hatott), a DKT háromszöget és három előjel-konvenciót pedig javította. Minden héjelemes modell eredménye eltér."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Shell elements: rigid motions, the DKT triangle, and three sign conventions (2026-09-24)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Shell elements: rigid motions, the DKT triangle, and three sign conventions (2026-09-24)"
+      }
     },
     {
       "id": "shell-edge-load-sign",
@@ -2803,7 +3430,11 @@
       "date": "2026-08-14",
       "prs": [],
       "area": "loads",
-      "when": { "any": ["shellEdgeLoads"] },
+      "when": {
+        "any": [
+          "shellEdgeLoads"
+        ]
+      },
       "title": {
         "en": "Shell edge loads reverse direction",
         "es": "Las cargas de borde de cáscara invierten su sentido",
@@ -2822,15 +3453,35 @@
         "tr": "quadEdge ve quad9Edge yükleri artık belgelenmiş kurallarını izliyor (pozitif qn dışa doğru). Bu yüklerden birini içeren kayıtlı bir model artık ters yönde kuvvetler üretiyor; otomatik bir dönüştürme yok.",
         "hu": "A quadEdge és quad9Edge terhek ma már dokumentált konvenciójukat követik (pozitív qn kifelé). Az ilyen terhet tartalmazó mentett modell most ellentétes irányú erőket ad; automatikus átalakítás nincs."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Shell edge loads: outward normal sign corrected (E6 audit, 2026-08-14)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Shell edge loads: outward normal sign corrected (E6 audit, 2026-08-14)"
+      }
     },
     {
       "id": "certificate-solver-fixes",
       "resultsVersion": 1,
       "date": "2026-10-15",
-      "prs": [275],
+      "prs": [
+        275
+      ],
       "area": "analysis",
-      "when": { "allOf": [["members"], ["pointOrPartialMemberLoads", "springs", "trussMembers", "analysis:spectral", "analysis:harmonic", "analysis:timeHistory", "analysis:plastic"]] },
+      "when": {
+        "allOf": [
+          [
+            "members"
+          ],
+          [
+            "pointOrPartialMemberLoads",
+            "springs",
+            "trussMembers",
+            "analysis:spectral",
+            "analysis:harmonic",
+            "analysis:timeHistory",
+            "analysis:plastic"
+          ]
+        ]
+      },
       "title": {
         "en": "Solver fixes found by result certificates and OpenSees",
         "es": "Correcciones del solver halladas por certificados y OpenSees",
@@ -2849,15 +3500,27 @@
         "tr": "Çubuk yükleri altındaki Timoshenko çubukları, kısmi yayılı yükler, 2B kafes eksenel tekil yükleri, 2B yaylı kayıcı mesnetler, spektral çubuk kuvvetleri, harmonik tepkiler, HHT-α zaman tanım alanında analizleri ve plastik analizler farklı çözülüyor. Sehim çizimleri Timoshenko kesme sehimini içeriyor.",
         "hu": "A rúdterhekkel terhelt Timoshenko-rudak, a részleges megoszló terhek, a 2D rácsrudak rúdirányú koncentrált terhei, a 2D rugós görgők, a spektrális rúderők, a harmonikus válaszok, a HHT-α időtörténeti és a képlékeny analízisek eredménye eltér. A lehajlási ábrák tartalmazzák a Timoshenko-féle nyírási lehajlást."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)"
+      }
     },
     {
       "id": "cirsoc-combinations-and-loads",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [292],
+      "prs": [
+        292
+      ],
       "area": "loads",
-      "when": { "any": ["cirsocCombinations", "seismic", "snow", "wind"] },
+      "when": {
+        "any": [
+          "cirsocCombinations",
+          "seismic",
+          "snow",
+          "wind"
+        ]
+      },
       "title": {
         "en": "CIRSOC combinations, seismic weights and wind roof pressures",
         "es": "Combinaciones CIRSOC, pesos sísmicos y presiones de viento en cubiertas",
@@ -2876,15 +3539,24 @@
         "tr": "Bir veya daha fazla eşlik eden yükün etkimediği kombinasyonlar artık üretiliyor (örnek bir kolon 44 → 62 kN); deprem kombinasyonu kar tutan çatılarda f2 = 0,70 S'yi ve iki yönetmeliğin büyük katsayısını kullanıyor; deprem ağırlığı f2·S'yi içeriyor; çatı rüzgar Cp'si h/L'ye göre enterpolasyon yapıyor; hareketli yük azaltması her çubuğun kendi yük alanını kullanıyor. Hepsi güvensiz taraftaydı. Uygulamak için kombinasyonları ve yükleri yeniden üretin.",
         "hu": "Ma már azokat a kombinációkat is generálja, amelyekben egy vagy több kísérő teher nem hat (egy példa oszlopában 44 → 62 kN); a szeizmikus kombináció a havat megtartó tetőkön f2 = 0,70 S-t és a két szabvány nagyobbik tényezőjét használja; a szeizmikus súly tartalmazza az f2·S-t; a tető szél Cp tényezője h/L szerint interpolál; a hasznos teher csökkentése minden rúd saját terhelési mezőjét használja. Mindegyik a biztonság kárára tért el. Az alkalmazáshoz generálja újra a kombinációkat és a terheket."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Loads and combinations verified clause by clause against the CIRSOC texts (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Loads and combinations verified clause by clause against the CIRSOC texts (2026-10-17)"
+      }
     },
     {
       "id": "section-properties-asymmetric",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [291],
+      "prs": [
+        291
+      ],
       "area": "analysis",
-      "when": { "any": ["members"] },
+      "when": {
+        "any": [
+          "members"
+        ]
+      },
       "title": {
         "en": "Section properties: asymmetric sections, shear centre, thin-wall J",
         "es": "Propiedades de sección: secciones asimétricas, centro de corte, J de pared delgada",
@@ -2903,15 +3575,29 @@
         "tr": "Saat yönünde çizilmiş asimetrik kesitler, kayma merkezi, kesme alanları ve çarpılma sabitleri düzeltildi (Iyz kesme çözümüne giriyor: bir L100×10'un Cw'si 24 kat fazla büyüktü); ince cidarlı J %18–24 artıyor. IRAM F-24/26/36 çelik malzeme ön ayarları E = 200 000 ve G = 77 200 MPa kullanıyor; betonarme birim hacim ağırlığı 25 kN/m³. Projede zaten kayıtlı değerler, kesiti veya malzemeyi yeniden seçene kadar korunuyor.",
         "hu": "Javítva az óramutató járásával megegyező körüljárású aszimmetrikus keresztmetszetek, a nyírási középpont, a nyírási felületek és az öblösödési állandók (Iyz bekerül a nyírási számításba: egy L100×10 Cw értéke 24×-esen túl nagy volt); a vékonyfalú J 18–24%-kal nő. Az IRAM F-24/26/36 acél anyag-előbeállítások E = 200 000 és G = 77 200 MPa értéket használnak; a vasbeton térfogatsúlya 25 kN/m³. A projektben már tárolt értékek megmaradnak, amíg újra ki nem választja a keresztmetszetet vagy az anyagot."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Section properties and connections verified against exact forms and published values (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Section properties and connections verified against exact forms and published values (2026-10-17)"
+      }
     },
     {
       "id": "feature-matrix-refusals",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [290],
+      "prs": [
+        290
+      ],
       "area": "analysis",
-      "when": { "any": ["constraints", "connectors", "springs", "inclinedSupports", "curvedShells", "settlements"] },
+      "when": {
+        "any": [
+          "constraints",
+          "connectors",
+          "springs",
+          "inclinedSupports",
+          "curvedShells",
+          "settlements"
+        ]
+      },
       "title": {
         "en": "Every analysis supports a model feature or refuses it by name",
         "es": "Cada análisis admite una característica del modelo o la rechaza por nombre",
@@ -2930,15 +3616,24 @@
         "tr": "Birçok analiz, uyarı vermeden basitleştirilmiş bir modeli çözüyordu (bağları, bağlayıcıları, yayları, mesnet çökmelerini veya eğrisel kirişleri atarak). Her özellik × analiz kombinasyonu artık ya doğru çözülüyor ya da adı belirtilerek reddediliyor. Eskiden sayı veren bir analiz artık reddedebilir.",
         "hu": "Több analízis szó nélkül egy egyszerűsített modellt számított (elhagyva a kényszereket, összekötőket, rugókat, süllyedéseket vagy görbült gerendákat). Minden jellemző × analízis kombinációt ma már vagy helyesen számít, vagy a nevével elutasít. Egy korábban számokat adó analízis most elutasíthatja a számítást."
       },
-      "changelog": { "file": "CHANGELOG.md", "heading": "Every analysis supports a model feature or refuses it by name (2026-10-17)" }
+      "changelog": {
+        "file": "CHANGELOG.md",
+        "heading": "Every analysis supports a model feature or refuses it by name (2026-10-17)"
+      }
     },
     {
       "id": "aisi-cold-formed",
       "resultsVersion": 1,
       "date": "2026-10-17",
-      "prs": [301],
+      "prs": [
+        301
+      ],
       "area": "design",
-      "when": { "any": ["steelMembers"] },
+      "when": {
+        "any": [
+          "steelMembers"
+        ]
+      },
       "title": {
         "en": "AISI S100 cold-formed checks corrected",
         "es": "Verificaciones AISI S100 de perfiles conformados en frío corregidas",
@@ -2957,15 +3652,24 @@
         "tr": "F2.1 √(1+X) kullanıyor, G2.1 kesmesi düzeltildi (akma dalı %51'e kadar yüksekti), etkileşim doğrusal ve sıfır dayanım değerlendirilmemiş sayılıyor ve başarısız oluyor.",
         "hu": "Az F2.1 √(1+X)-et használ, a G2.1 nyírás javítva (a folyási ág akár 51%-kal nagyobb volt), az interakció lineáris, a nulla teherbírás pedig nem értékelt, és nem felel meg."
       },
-      "changelog": { "file": "docs/MERGE_PLAN_SAFETY_WAVE.md", "heading": "Design checks" }
+      "changelog": {
+        "file": "docs/MERGE_PLAN_SAFETY_WAVE.md",
+        "heading": "Design checks"
+      }
     },
     {
       "id": "free-roof-wind-minimum",
       "resultsVersion": 2,
       "date": "2026-10-22",
-      "prs": [581],
+      "prs": [
+        581
+      ],
       "area": "loads",
-      "when": { "any": ["wind"] },
+      "when": {
+        "any": [
+          "wind"
+        ]
+      },
       "title": {
         "en": "Free roofs get the open-building minimum wind force",
         "es": "Las cubiertas aisladas reciben el viento mínimo de edificio abierto",
@@ -2984,15 +3688,24 @@
         "tr": "Serbest bir çatı, mahya doğrultusunda hiç yatay rüzgar almıyor ve buna dik doğrultuda, düşük ve orta hızlarda CIRSOC 102 §2.1.5'in 0,75 kN/m² × Af değerinden daha azını alıyordu (beşik çatılı bir sundurmada 20 m/s'de bunun %17'si); artık her doğrultunun bir minimum yük durumu var (SA-2026-021). Serbest çatılardaki otomatik rüzgar yüklerini etkiler.",
         "hu": "A szabadon álló tető gerincével párhuzamos irányban nem kapott vízszintes szélterhet, arra merőlegesen pedig kis és közepes szélsebességnél kevesebbet a CIRSOC 102 §2.1.5 szerinti 0,75 kN/m² × Af-nél (egy nyeregtetős színnél 20 m/s mellett annak 17%-át); ma már minden irányhoz tartozik egy minimális tehereset (SA-2026-021). Ez a szabadon álló tetők automatikus szélterheit érinti."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-021-free-roof-wind-minimum.md", "heading": "SA-2026-021: free roofs got no wind along their ridge, and less than the §2.1.5 minimum across it" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-021-free-roof-wind-minimum.md",
+        "heading": "SA-2026-021: free roofs got no wind along their ridge, and less than the §2.1.5 minimum across it"
+      }
     },
     {
       "id": "earth-pressure-dead-load-resisting",
       "resultsVersion": 2,
       "date": "2026-10-22",
-      "prs": [581],
+      "prs": [
+        581
+      ],
       "area": "loads",
-      "when": { "any": ["cirsocCombinations"] },
+      "when": {
+        "any": [
+          "cirsocCombinations"
+        ]
+      },
       "title": {
         "en": "With earth pressure, the combination where the dead load resists it",
         "es": "Con empuje de suelo, la combinación en que el peso propio lo resiste",
@@ -3011,15 +3724,24 @@
         "tr": "H yükleri varken 0,9 D + 1,6 H ve 1,2 D + 1,6 H hiç üretilmiyordu; bu yüzden ölü yükün toprak itkisine karşı koyduğu yerlerde (bir duvarın devrilmesi veya kayması) etki düşük çıkıyordu: D'nin H'nin −0,8'ini verdiği bir örnekte %27 (SA-2026-022). H yükleri ve CIRSOC kombinasyonları olan modelleri etkiler.",
         "hu": "H terhek esetén a 0,9 D + 1,6 H és az 1,2 D + 1,6 H kombinációt sosem generálta, így ahol az állandó teher ellenáll a földnyomásnak (egy fal felborulása vagy elcsúszása), a hatás kisebbre jött ki: 27%-kal egy olyan példában, ahol D a H −0,8-szeresét adja (SA-2026-022). Ez a H terheket és CIRSOC kombinációkat tartalmazó modelleket érinti."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-022-earth-pressure-dead-load-resisting.md", "heading": "SA-2026-022: with earth pressure (H), the combination where the dead load resists it was missing" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-022-earth-pressure-dead-load-resisting.md",
+        "heading": "SA-2026-022: with earth pressure (H), the combination where the dead load resists it was missing"
+      }
     },
     {
       "id": "cirsoc201-column-design-axes",
       "resultsVersion": 7,
       "date": "2026-11-02",
-      "prs": [1233],
+      "prs": [
+        1233
+      ],
       "area": "design",
-      "when": { "any": ["cirsoc201"] },
+      "when": {
+        "any": [
+          "cirsoc201"
+        ]
+      },
       "title": {
         "en": "RC columns are checked about the axis each moment bends them",
         "es": "Las columnas de hormigón se verifican en el eje en que las flexiona cada momento",
@@ -3038,7 +3760,10 @@
         "tr": "CIRSOC 201 kolon kontrolü Mz'yi kolonun momenti olarak alıp kesit yüksekliği h üzerinden kontrol ediyordu; oysa Mz kolonu genişliği b üzerinden eğer. Ağırlıklı olarak Mz ile eğilen dikdörtgen bir kolon gerekenden az donatıyla boyutlandırılıyordu: 20×40 cm'lik bir örnekte %36 daha az çelik (SA-2026-029). Artık büyük olan moment kendi yüksekliği üzerinden belirleyici oluyor ve daha önce hiçbir kolonda kontrol edilmeyen diğer eksenin kesme kuvveti de artık kontrol ediliyor. CIRSOC 201 kolon veya perdesi olan modelleri etkiler: moment için dikdörtgen olanları, kesme için her kesiti.",
         "hu": "A CIRSOC 201 oszlopellenőrzés Mz-t vette az oszlop nyomatékának, és a keresztmetszet h magasságára ellenőrizte, holott Mz a b szélességére hajlítja. A főként Mz körül hajlított téglalap oszlopot túl kevés betonacéllal méretezte: egy 20×40 cm-es példában 36%-kal kevesebb acéllal (SA-2026-029). Ma már a nagyobb nyomaték a saját magassága szerint mértékadó, és a másik tengely nyírását, amelyet egyetlen oszlopnál sem ellenőrzött, szintén ellenőrzi. Ez a CIRSOC 201 oszlopokat vagy falakat tartalmazó modelleket érinti: a nyomaték miatt a téglalap keresztmetszetűeket, a nyírás miatt bármilyen keresztmetszetet."
       },
-      "changelog": { "file": "docs/advisories/SA-2026-029-3d-design-axes.md", "heading": "SA-2026-029: 3D design checks read the lateral moment or shear where the strong-axis one acts" }
+      "changelog": {
+        "file": "docs/advisories/SA-2026-029-3d-design-axes.md",
+        "heading": "SA-2026-029: 3D design checks read the lateral moment or shear where the strong-axis one acts"
+      }
     }
   ]
 }

@@ -41,9 +41,7 @@ export function workerChannel<Q, A>(create: () => Port, failed: (reason: string)
       });
     },
     close() {
-      worker?.terminate();
-      worker = null;
-      pending.clear();
+      drop('closed');
     },
   };
 }

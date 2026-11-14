@@ -5,7 +5,12 @@
     1921
   ],
   "area": "analysis",
-  "when": { "any": ["contactElements", "cableMembers"] },
+  "when": {
+    "any": [
+      "contactElements",
+      "cableMembers"
+    ]
+  },
   "quantities": [
     "solve.ok"
   ],

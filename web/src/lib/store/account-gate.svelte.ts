@@ -26,7 +26,7 @@ function signInRequired(): boolean {
 
 function ask(action: GatedAction, run: () => unknown, cancel?: () => void, failOpen = true): void {
   if (pending && open) {
-    pending = { ...pending, runs: [...pending.runs, run], cancels: cancel ? [...pending.cancels, cancel] : pending.cancels };
+    pending = { ...pending, failOpen: pending.failOpen && failOpen, runs: [...pending.runs, run], cancels: cancel ? [...pending.cancels, cancel] : pending.cancels };
     return;
   }
   pending = { action, runs: [run], cancels: cancel ? [cancel] : [], failOpen };
@@ -62,6 +62,18 @@ export const accountGate = {
   guard(action: GatedAction, run: () => unknown, cancel?: () => void): void {
     if (required()) ask(action, run, cancel);
     else void run();
+  },
+
+  run<T>(action: GatedAction, work: () => T | Promise<T>, cancelled: T): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      accountGate.guard(action, () => {
+        try {
+          Promise.resolve(work()).then(resolve, reject);
+        } catch (error) {
+          reject(error);
+        }
+      }, () => resolve(cancelled));
+    });
   },
 
   /** For what opens its own window in the click: true when the account is missing, and `run` is then called again once the action may go on. */

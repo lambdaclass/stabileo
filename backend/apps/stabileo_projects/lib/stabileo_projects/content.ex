@@ -48,10 +48,9 @@ defmodule StabileoProjects.Content do
   end
 
   defp json_object(json) do
-    trimmed = String.trim(json)
-
-    if String.starts_with?(trimmed, "{") and String.ends_with?(trimmed, "}"),
-      do: :ok,
-      else: {:error, :invalid}
+    case Jason.decode(json) do
+      {:ok, value} when is_map(value) -> :ok
+      _ -> {:error, :invalid}
+    end
   end
 end

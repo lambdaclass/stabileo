@@ -13,6 +13,7 @@ defmodule StabileoRepo.Schemas.Consent do
   @timestamps_opts [type: :utc_datetime_usec, updated_at: false]
 
   schema "consents" do
+    field(:revision, :integer, read_after_writes: true)
     field(:kind, :string)
     field(:version, :string)
     field(:granted, :boolean)

@@ -39,7 +39,14 @@ for (const id of TOOL_IDS) test(`@smoke tools ${id} computes and opens the same 
   for (const [j, value] of literal.entries()) near(Number(await page.getByTestId('worked-example').nth(j).getAttribute('data-value')), Number(value), 1e-11);
   for (const [j, p] of workedExamples(id).entries()) await expect(page.getByTestId('worked-example').nth(j)).toHaveAttribute('data-value', format(formula(id, p).value));
   const before = await page.getByTestId('engine-value').textContent();
-  await page.getByTestId('e').fill('100000');
+  const stale = await page.getByTestId('e').evaluate(async (node: HTMLInputElement) => {
+    node.value = '100000';
+    node.dispatchEvent(new Event('input', { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+    return document.querySelector('[data-testid="tool-results"]')?.getAttribute('aria-busy');
+  });
+  expect(stale).toBe('true');
   await expect(page.getByTestId('engine-value')).not.toHaveText(before!);
   await expect(agreement).toBeVisible();
   const expectedMembers = id === 'column-buckling' ? 32 : id === 'cantilever-beam' ? 1 : 2;
@@ -127,8 +134,8 @@ for (const { id } of TOOLS.filter(tool => tool.kind !== 'page')) test(`@smoke to
     const dot = figure.locator('[data-testid=chart-point], [data-testid=sketch-peak]');
     await expect(dot).toHaveCount(1);
     const [cx, cy] = (await dot.evaluate(el => [Number(el.getAttribute('cx')), Number(el.getAttribute('cy'))]));
-    const svg = (await dot.evaluate(el => { const r = el.ownerSVGElement!.getBoundingClientRect(); return [r.width, r.height]; }));
-    expect(cx >= 0 && cx <= svg[0] && cy >= 0 && cy <= svg[1], `${key} dot at ${cx},${cy} in ${svg}`).toBe(true);
+    const svg = (await dot.evaluate(el => { const r = el.ownerSVGElement!.viewBox.baseVal; return [r.x, r.y, r.width, r.height]; }));
+    expect(cx >= svg[0] && cx <= svg[0] + svg[2] && cy >= svg[1] && cy <= svg[1] + svg[3], `${key} dot at ${cx},${cy} in ${svg}`).toBe(true);
   }
 });
 

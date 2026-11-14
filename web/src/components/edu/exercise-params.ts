@@ -44,14 +44,21 @@ export interface Variant {
   supports: Record<number, SupportType>;
 }
 
+function decimal(value: number): { coefficient: bigint; exponent: number } {
+  const [mantissa, power = '0'] = String(value).toLowerCase().split('e');
+  const [whole, fraction = ''] = mantissa.split('.');
+  return { coefficient: BigInt(whole + fraction), exponent: Number(power) - fraction.length };
+}
+
 export function rangeValues(r: ParamRange): number[] {
-  if (!(r.step > 0) || !(r.max >= r.min) || !Number.isFinite(r.min) || !Number.isFinite(r.max)) return [];
-  const n = Math.floor((r.max - r.min) / r.step + 1e-9);
-  if (n > 10_000) return [];
-  const [mantissa, exponent] = String(r.step).toLowerCase().split('e');
-  const decimals = Math.min(10, Math.max(0, (mantissa!.split('.')[1] ?? '').length - Number(exponent ?? 0)));
-  const out: number[] = [];
-  for (let i = 0; i <= n; i++) out.push(Number((r.min + i * r.step).toFixed(decimals)));
+  if (![r.min, r.max, r.step].every(Number.isFinite) || !(r.step > 0) || r.max < r.min) return [];
+  const parts = [r.min, r.max, r.step].map(decimal);
+  const exponent = Math.min(...parts.map(p => p.exponent));
+  const [min, max, step] = parts.map(p => p.coefficient * 10n ** BigInt(p.exponent - exponent));
+  const count = (max - min) / step;
+  if (count > 10_000n) return [];
+  const out = Array.from({ length: Number(count) + 1 }, (_, i) => Number(`${min + BigInt(i) * step}e${exponent}`));
+  if (out.some((v, i) => v < r.min || v > r.max || i > 0 && v <= out[i - 1])) return [];
   return out;
 }
 

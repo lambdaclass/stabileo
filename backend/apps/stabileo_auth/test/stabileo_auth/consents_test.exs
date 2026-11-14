@@ -73,16 +73,35 @@ defmodule StabileoAuth.ConsentsTest do
     legal = File.read!(Path.expand("../../../../../web/src/lib/legal/legal.ts", __DIR__))
     assert legal =~ ~s(LEGAL_VERSION = '#{Consents.terms_version()}')
   end
-  @tag skip: "known wrong result: #765"
+
   test "known wrong result: #765 T1 — withdrawal wins with identical timestamps" do
     account = Factory.insert(:account)
     {:ok, grant} = Consents.record(account, "model_research", true)
     {:ok, withdrawal} = Consents.record(account, "model_research", false)
-    Repo.query!("UPDATE consents SET inserted_at = $1, id = $2 WHERE id = $3", [grant.inserted_at, Ecto.UUID.dump!("ffffffff-ffff-4fff-8fff-ffffffffffff"), Ecto.UUID.dump!(grant.id)])
-    Repo.query!("UPDATE consents SET inserted_at = $1, id = $2 WHERE id = $3", [grant.inserted_at, Ecto.UUID.dump!("00000000-0000-4000-8000-000000000000"), Ecto.UUID.dump!(withdrawal.id)])
+
+    Repo.query!("UPDATE consents SET inserted_at = $1, id = $2 WHERE id = $3", [
+      grant.inserted_at,
+      Ecto.UUID.dump!("ffffffff-ffff-4fff-8fff-ffffffffffff"),
+      Ecto.UUID.dump!(grant.id)
+    ])
+
+    Repo.query!("UPDATE consents SET inserted_at = $1, id = $2 WHERE id = $3", [
+      grant.inserted_at,
+      Ecto.UUID.dump!("00000000-0000-4000-8000-000000000000"),
+      Ecto.UUID.dump!(withdrawal.id)
+    ])
+
     refute Consents.current(account).model_research
     refute Consents.current_for([account.id])[account.id].model_research
     refute MapSet.member?(Consents.research_granted([account.id]), account.id)
+    {:ok, regrant} = Consents.record(account, "model_research", true)
+    assert regrant.revision > withdrawal.revision
+    assert Consents.current(account).model_research
   end
 
+  test "an explicit research opt-in remains available" do
+    account = Factory.insert(:account)
+    assert {:ok, :ok} = Consents.record_sign_up(account, %{"model_research" => true}, %{})
+    assert Consents.current(account).model_research
+  end
 end
