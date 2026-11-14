@@ -167,7 +167,7 @@ export function snowLoadCases(input: SnowCasesInput): {
     ...input.snow,
     roof: { kind: shapedKind ? 'mono' : kind, slopeDeg, W: geometry.W, slippery: input.snow.slippery },
   });
-  if (input.layout && !driftSurfaces.resolves(input.layout)) result.refused = 'snow.refused.roofPlane';
+  if (!driftSurfaces.resolves(input.layout)) result.refused = 'snow.refused.roofPlane';
   if (result.refused) return { result, geometry, cases: [], derivation: [], refs: [], surfaces: [] };
   const roof = roofMembers(input.model, chosen);
   const all = new Set(roof.map((r) => r.id));

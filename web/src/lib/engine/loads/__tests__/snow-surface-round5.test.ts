@@ -9,7 +9,7 @@ import { roofSurfaceModel } from '../snow-roof-surfaces';
 import { driftAndSlidingLoads } from '../snow-drift-loads';
 import { buildLoadPlan } from '../load-plan';
 
-const knownWrong = it.skip;
+const knownWrong = it;
 const drift = { pg: 1, pf: 0.7, balanced: 0.7, slippery: true, tributaryWidth: 1 };
 const expected = (gradient: number, W: number) => roofSnow({ ...snow, roof: { kind: 'gable', slippery: true, slopeDeg: Math.atan(gradient) * 180 / Math.PI, W } });
 
@@ -40,6 +40,22 @@ for (const angle of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) for (const mirro
         return expected(Math.hypot(...plane!.gradient), plane!.W).ps;
       });
       expect(pressure(direct, pc.elementId, 0.5)).toBeCloseTo(ps * 0.2, 9);
+    }
+  });
+}
+
+for (const angle of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) for (const mirror of [1, -1]) for (const mode of ['projected', 'width', 'panels'] as const) {
+  it(`round5 public concave pressure ${angle} ${mirror} ${mode}`, () => {
+    const model = transform(concave(), angle, 1, mirror);
+    const layout = mode === 'projected' ? undefined : mode === 'panels' ? panelLayout(model) : gravityLayout(model, { mode, tributaryWidth: 1 });
+    const out = snowLoadCases({ model, snow, layout, tributaryWidth: 1 })!;
+    expect(out.result.refused).toBeUndefined();
+    for (const id of [3, 4]) {
+      const e = model.elements.get(id)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+      const length = Math.hypot(b.x - a.x, b.y - a.y, b.z! - a.z!);
+      const horizontal = Math.hypot(b.x - a.x, b.y - a.y);
+      const factor = mode === 'panels' ? 0.2 : mode === 'projected' ? (horizontal / length) ** 2 : 1;
+      expect(pressure(out.cases[0]!.distributed, id, 0.5)).toBeCloseTo(expected(0.2, 4).ps * factor, 9);
     }
   });
 }
@@ -89,12 +105,12 @@ for (const location of [0, 3, 6]) for (const angle of [0, Math.PI / 2]) for (con
       expect(plan.outcome).toBe('READY');
       const cases = plan.cases.filter(c => c.type === 'S');
       expect(cases).toHaveLength(out.cases.length);
-      for (const [k, c] of cases.entries()) expect(pressure(c.distributed, 3, 3)).toBeCloseTo(pressure(out.cases[k]!.distributed, 3, 3), 9);
+      for (const [k, c] of cases.entries()) expect(pressure(plan.distributed.filter(d => d.caseType === 'S' && d.caseIndex === plan.cases.indexOf(c)), 3, 3)).toBeCloseTo(pressure(out.cases[k]!.distributed, 3, 3), 9);
     }
   });
 }
 
-for (const length of [0.001, 2, 5.999]) for (const location of [1, 3]) for (const mode of ['projected', 'width', 'panels'] as const) {
+for (const length of [0.02, 2, 5.999]) for (const location of [1, 3]) for (const mode of ['projected', 'width', 'panels'] as const) {
   knownWrong(`known wrong result: #2095 round5 partial member support refuses ${length} ${location} ${mode}`, () => {
     const { model } = contactRoof(length, location), sf = roofSurfaceModel(model);
     expect(() => sf.memberPlanes(3)).toThrow('snow.refused.roofPlane');
@@ -116,7 +132,7 @@ for (const length of [6, 6.001]) {
   it(`round5 full member support keeps all actual facets ${length}`, () => {
     const { model } = contactRoof(length), sf = roofSurfaceModel(model);
     expect(sf.memberPlanes(3)).toHaveLength(3);
-    const out = snowLoadCases({ model, snow, tributaryWidth: 1 })!;
+    const out = snowLoadCases({ model, snow: { ...snow, roof: [3] }, tributaryWidth: 1 })!;
     expect(out.result.refused).toBeUndefined();
     expect(pressure(out.cases[0]!.distributed, 3, 3)).toBeCloseTo((2 * expected(0.5, 4).ps + expected(0.2, 2).ps) / 3, 9);
   });

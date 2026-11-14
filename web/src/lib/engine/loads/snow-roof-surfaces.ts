@@ -4,6 +4,10 @@ import { beamLike, type GravityLayout } from './plan-gravity';
 type P2 = [number, number];
 type Point = { x: number; y: number; z?: number };
 const Z = (p: Point) => p.z ?? 0;
+
+class SnowRoofPlaneRefusal extends Error {
+  constructor() { super('snow.refused.roofPlane'); }
+}
 const cross = (a: P2, b: P2, c: P2) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 
 export function snowCoordinate(pt: P2, origin: P2, direction: P2, boundaries: number[] = []): number {
@@ -59,7 +63,7 @@ function footprints(edges: Array<{ a: Point; b: Point }>, gradient: P2): P2[][] 
       const row = ordered[b]!, c = row[(row.indexOf(a) + row.length - 1) % row.length]!;
       a = b; b = c;
     }
-    const area = poly.reduce((sum, p, k) => sum + cross(poly[0]!, p, poly[(k + 1) % poly.length]!), 0);
+    const area = signedSnowArea(poly);
     if (area < -1e-8) out.push(poly);
   }
   return out;
@@ -88,15 +92,32 @@ function insideSnowPanel(pt: P2, poly: ReadonlyArray<P2>): boolean {
 }
 
 
+function signedSnowArea(poly: P2[]): number {
+  return poly.reduce((sum, p, k) => sum + cross(poly[0]!, p, poly[(k + 1) % poly.length]!), 0);
+}
+
+function edgeOverlap(a: P2, b: P2, c: P2, d: P2): [number, number] | undefined {
+  const dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy);
+  if (length === 0 || Math.abs(cross(a, b, c)) > 1e-8 * length || Math.abs(cross(a, b, d)) > 1e-8 * length) return undefined;
+  const along = (p: P2) => ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / length;
+  const lo = Math.max(0, Math.min(along(c), along(d))), hi = Math.min(length, Math.max(along(c), along(d)));
+  return hi - lo > 1e-8 ? [lo, hi] : undefined;
+}
+
 function overlaps(a: P2[], b: P2[]): boolean {
-  const centre = (poly: P2[]): P2 => [poly.reduce((s, p) => s + p[0], 0) / poly.length, poly.reduce((s, p) => s + p[1], 0) / poly.length];
-  if (a.some(p => insideSnowPanel(p, b)) || b.some(p => insideSnowPanel(p, a))) return true;
-  if (insideSnowPanel(centre(b), a) || insideSnowPanel(centre(a), a) && insideSnowPanel(centre(a), b)) return true;
+  const interior = (source: P2[], target: P2[]) => source.some((p, k) => {
+    const q = source[(k + 1) % source.length]!, cuts = snowSegmentCuts(p, q, [target]);
+    return cuts.slice(1).some((hi, j) => {
+      const lo = cuts[j]!, t = (lo + hi) / 2;
+      return (hi - lo) * Math.hypot(q[0] - p[0], q[1] - p[1]) > 1e-8
+        && insideSnowPanel([p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])], target);
+    });
+  });
+  if (interior(a, b) || interior(b, a)) return true;
+  const area = signedSnowArea(a) * signedSnowArea(b);
   return a.some((p, i) => b.some((r, j) => {
     const q = a[(i + 1) % a.length]!, s = b[(j + 1) % b.length]!;
-    const opposite = (x: number, y: number, length: number) => x > 1e-8 * length && y < -1e-8 * length || y > 1e-8 * length && x < -1e-8 * length;
-    return opposite(cross(p, q, r), cross(p, q, s), Math.hypot(q[0] - p[0], q[1] - p[1]))
-      && opposite(cross(r, s, p), cross(r, s, q), Math.hypot(s[0] - r[0], s[1] - r[1]));
+    return edgeOverlap(p, q, r, s) && area * ((q[0] - p[0]) * (s[0] - r[0]) + (q[1] - p[1]) * (s[1] - r[1])) > 0;
   }));
 }
 
@@ -119,6 +140,29 @@ export function snowSegmentCuts(a: P2, b: P2, polygons: ReadonlyArray<ReadonlyAr
     }
   }
   return ts.filter(t => t >= 0 && t <= 1).sort((a, b) => a - b).filter((t, k, all) => k === 0 || t > all[k - 1]!);
+}
+
+function memberSupport(a: Point, b: Point, polygon: P2[]) {
+  const start: P2 = [a.x, a.y], end: P2 = [b.x, b.y];
+  const length = Math.hypot(b.x - a.x, b.y - a.y);
+  const cuts = snowSegmentCuts(start, end, [polygon]);
+  const intervals = cuts.slice(1).flatMap((hi, k) => {
+    const lo = cuts[k]!;
+    if ((hi - lo) * length <= 1e-8) return [];
+    const t = (lo + hi) / 2;
+    return [containsSnowPanel([a.x + t * (b.x - a.x), a.y + t * (b.y - a.y)], polygon)];
+  });
+  return { positive: intervals.some(Boolean), complete: intervals.length > 0 && intervals.every(Boolean) };
+}
+
+function inwardSnowPanel(a: Point, b: Point, polygon: P2[]): P2 {
+  const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
+  const edge = polygon.find((c, k) => edgeOverlap([a.x, a.y], [b.x, b.y], c, polygon[(k + 1) % polygon.length]!));
+  const area = signedSnowArea(polygon);
+  if (!edge || area === 0) throw new SnowRoofPlaneRefusal();
+  const next = polygon[(polygon.indexOf(edge) + 1) % polygon.length]!;
+  const sign = Math.sign(area) * Math.sign((next[0] - edge[0]) * dx + (next[1] - edge[1]) * dy);
+  return [-sign * dy / length, sign * dx / length];
 }
 
 function segmentAbovePanel(a: Point, b: Point, polygon: P2[], z: number): boolean {
@@ -183,20 +227,20 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     }
     candidates.sort((a, b) => b.score - a.score || Math.hypot(...a.gradient) - Math.hypot(...b.gradient));
     const unique = candidates.filter((c, k) => !candidates.slice(0, k).some(p => Math.hypot(p.gradient[0] - c.gradient[0], p.gradient[1] - c.gradient[1]) < 1e-8));
-    const bounded = unique.filter(c => footprints(c.supported, c.gradient).some(p => containsSnowPanel([m.mid.x, m.mid.y], p)));
+    const bounded = unique.filter(c => footprints(c.supported, c.gradient).some(p => memberSupport(m.a, m.b, p).positive));
     for (const best of bounded.length ? bounded : [candidates[0]]) {
       const gradient: P2 = best?.gradient ?? [m.dz * m.dx / m.lh ** 2, m.dz * m.dy / m.lh ** 2];
       const supported = best?.supported ?? [m];
       if (!supported.some(r => roofIds.has(r.id))) continue;
       const norm = Math.hypot(...gradient);
       const outlines = best ? footprints(supported, gradient) : [];
-      const polygons = outlines.some(p => containsSnowPanel([m.mid.x, m.mid.y], p)) ? outlines : [[]];
+      const polygons = outlines.some(p => memberSupport(m.a, m.b, p).positive) ? outlines : [[]];
       const section = new Set([m]);
       for (const r of section) for (const q of supported) {
         if ([r.a, r.b].some(a => [q.a, q.b].some(b => samePoint(a, b)))) section.add(q);
       }
       for (const polygon of polygons) {
-        const members = polygon.length ? supported.filter(r => containsSnowPanel([r.mid.x, r.mid.y], polygon)) : [...section];
+        const members = polygon.length ? supported.filter(r => memberSupport(r.a, r.b, polygon).positive) : [...section];
         if (!members.some(r => r.id === m.id)) continue;
         const existing = planes.find(p => p.members.has(m.id) && Math.hypot(p.gradient[0] - gradient[0], p.gradient[1] - gradient[1]) < 1e-8 && Math.abs(p.elevation([m.a.x, m.a.y]) - Z(m.a)) < 1e-8);
         if (existing) { atMember.set(m.id, existing); continue; }
@@ -217,20 +261,29 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     const on = planes.filter(p => p.members.has(m.id));
     if (on.length) atMember.set(m.id, on[0]!);
   }
-  const memberPlanes = (id: number) => {
+  const supportFor = (id: number) => {
     const m = roof.find(r => r.id === id);
-    if (!m) return [];
-    const on = planes.filter(p => p.kind === 'plane' && containsSnowPanel([m.mid.x, m.mid.y], p.polygon)
-      && [m.a, m.b].every(q => Math.abs(p.elevation([q.x, q.y]) - Z(q)) < 1e-8));
-    return on.length ? on : planes.filter(p => p.members.has(id));
+    if (!m) return { planes: [], partial: false };
+    const on = planes.filter(p => p.kind === 'plane'
+      && [m.a, m.b].every(q => Math.abs(p.elevation([q.x, q.y]) - Z(q)) < 1e-8))
+      .map(p => ({ plane: p, support: memberSupport(m.a, m.b, p.polygon) })).filter(p => p.support.positive);
+    return {
+      planes: on.length ? on.map(p => p.plane) : planes.filter(p => p.kind === 'section' && p.members.has(id)),
+      partial: on.some(p => !p.support.complete),
+    };
+  };
+  const memberPlanes = (id: number) => {
+    const support = supportFor(id);
+    if (support.partial) throw new SnowRoofPlaneRefusal();
+    return support.planes;
   };
   for (const m of roof) {
-    const ps = memberPlanes(m.id);
+    const ps = supportFor(m.id).planes;
     if (ps[0]) atMember.set(m.id, ps[0]);
   }
   for (let k = planes.length - 1; k >= 0; k--) {
     const p = planes[k]!;
-    if (p.kind === 'section' && [...p.members].every(id => memberPlanes(id).some(q => q.kind === 'plane'))) planes.splice(k, 1);
+    if (p.kind === 'section' && [...p.members].every(id => supportFor(id).planes.some(q => q.kind === 'plane'))) planes.splice(k, 1);
   }
   const sourceWidth = (source: SnowPlane) => {
     const norm = Math.hypot(...source.gradient), dir: P2 = [source.gradient[0] / norm, source.gradient[1] / norm];
@@ -241,10 +294,8 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
         const b = p.polygon[(k + 1) % p.polygon.length]!, dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
         return q.polygon.some((c, j) => {
           const d = q.polygon[(j + 1) % q.polygon.length]!;
-          if (Math.abs(cross(a, b, c)) > 1e-8 * len || Math.abs(cross(a, b, d)) > 1e-8 * len) return false;
-          const along = (v: P2) => ((v[0] - a[0]) * dx + (v[1] - a[1]) * dy) / len;
-          const lo = Math.max(0, Math.min(along(c), along(d))), hi = Math.min(len, Math.max(along(c), along(d)));
-          return hi - lo > 1e-8 && [lo, hi].every(t => {
+          const overlap = edgeOverlap(a, b, c, d);
+          return overlap !== undefined && overlap.every(t => {
             const pt: P2 = [a[0] + t * dx / len, a[1] + t * dy / len];
             return Math.abs(p.elevation(pt) - q.elevation(pt)) < 1e-8;
           });
@@ -277,18 +328,17 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     if (!byIndex) { byIndex = new Map(); cache.set(layout, byIndex); }
     let value = byIndex.get(index);
     if (!value) { value = readPanel(index, layout); byIndex.set(index, value); }
-    if (!value.resolved) throw new Error('snow.refused.roofPlane');
+    if (!value.resolved) throw new SnowRoofPlaneRefusal();
     return value;
   };
   const pieceLoads = (pc: GravityLayout['pieces'][number], layout: GravityLayout, pressure: (plane: SnowPlane | undefined, pt: P2) => number) => {
     const e = model.elements.get(pc.elementId)!;
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     const L = Math.hypot(b.x - a.x, b.y - a.y, Z(b) - Z(a));
-    const lh = Math.hypot(b.x - a.x, b.y - a.y), dir: P2 = [(b.x - a.x) / L, (b.y - a.y) / L];
+    const dir: P2 = [(b.x - a.x) / L, (b.y - a.y) / L];
     const poly = layout.panels[pc.panel]!.polygon;
-    const centre: P2 = [poly.reduce((s, p) => s + p[0], 0) / poly.length, poly.reduce((s, p) => s + p[1], 0) / poly.length];
-    const sign = cross([a.x, a.y], [b.x, b.y], centre) >= 0 ? 1 : -1;
-    const inward: P2 = [-sign * (b.y - a.y) / lh, sign * (b.x - a.x) / lh];
+    const inward = inwardSnowPanel(a, b, poly);
+    const pitched = memberPlanes(pc.elementId).length > 0;
     const x0 = pc.a ?? 0, x1 = pc.b ?? L;
     const depth = (x: number) => pc.wI + (pc.wJ - pc.wI) * (x - x0) / (x1 - x0);
     const point = (x: number, d: number): P2 => [a.x + dir[0] * x + inward[0] * d, a.y + dir[1] * x + inward[1] * d];
@@ -301,7 +351,9 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
       let q = 0;
       for (let k = 1; k < ts.length; k++) {
         const lo = ts[k - 1]!, hi = ts[k]!, pt = point(x, dep * (lo + hi) / 2);
-        q += dep * (hi - lo) * pressure(sf.planeAt(point(insideX, depth(insideX) * (lo + hi) / 2)), pt);
+        const plane = sf.planeAt(point(insideX, depth(insideX) * (lo + hi) / 2));
+        if (pitched && !plane) throw new SnowRoofPlaneRefusal();
+        q += dep * (hi - lo) * pressure(plane, pt);
       }
       return q;
     };
@@ -349,7 +401,18 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     }
     return out;
   };
-  const resolves = (layout: GravityLayout) => layout.panels.every((p, k) => !p.roof || readPanel(k, layout).resolved);
+  const resolves = (layout?: GravityLayout) => {
+    if (roof.some(m => targetIds.has(m.id) && supportFor(m.id).partial)) return false;
+    if (!layout) return true;
+    if (!layout.panels.every((p, k) => !p.roof || readPanel(k, layout).resolved)) return false;
+    try {
+      for (const pc of layout.pieces) if (targetIds.has(pc.elementId) && (pc.roof || only && !layout.roof.has(pc.elementId))) pieceLoads(pc, layout, () => 0);
+    } catch (error) {
+      if (error instanceof SnowRoofPlaneRefusal) return false;
+      throw error;
+    }
+    return true;
+  };
   return { planes, orientations, edgeRanges, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets: roof.filter(m => targetIds.has(m.id)), panel, resolves };
 }
 
