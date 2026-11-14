@@ -10,7 +10,7 @@ import { setPublicLocale } from '../lib/i18n/store.svelte';
 import ShapePage from '../components/research/feher2026/ShapePage.svelte';
 
 const off = () => {
-  vi.stubGlobal('localStorage', { getItem: () => null });
+  vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
   for (const key of ['VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME']) vi.stubEnv(key, '');
 };
 afterEach(() => { setPublicLocale('en'); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetModules(); });
