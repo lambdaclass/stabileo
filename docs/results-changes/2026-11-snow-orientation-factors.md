@@ -41,9 +41,10 @@ loads, width and panel layouts, public load planning, actual two-sided ridge
 averaging, valid single ridges, planar 2D sections, independent oblique roofs,
 and complete partial/unbalanced load lists under rotation and reflection.
 
-Origin/main fb241aa04936a993a3ecd4a2ec4f9490669c1d34 (also tagged v0.6.0)
-was replayed in this worktree with historical snow generation, drift and span
-modules restored in a finally block. It also silently omits one required
+Origin/main 013485aa2629a05672403919060cc1397f510fd1 was replayed in this
+worktree with historical snow generation, drift and span modules restored in
+a finally block. Those four modules are byte-identical at v0.6.0
+(fb241aa04936a993a3ecd4a2ec4f9490669c1d34). It also silently omits one required
 partial direction in the continuous perpendicular-roof witness. Its unbalanced
 algorithm differs from the branch parent: in the +X case, first-roof crosswind
 eaves receive 0.14032829619713266 rather than their balanced
