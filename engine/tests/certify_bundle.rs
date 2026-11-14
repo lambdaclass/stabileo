@@ -268,11 +268,12 @@ fn export_plastic<T: Serialize>(dir: &Path, name: &str, input: &T, b: PlasticBun
 }
 
 fn incremental_plastic_diagnostics(diagnostics: &[StructuredDiagnostic]) -> Vec<serde_json::Value> {
-    diagnostics.iter().filter(|diagnostic| diagnostic.phase.as_deref() != Some("PL-3D-CERTIFICATE-MISMATCH")).map(|d| serde_json::to_value(d).unwrap()).collect()
+    diagnostics.iter().filter(|diagnostic| {
+        diagnostic.phase.as_deref() != Some("PL-3D-CERTIFICATE-MISMATCH") && diagnostic.code != DiagnosticCode::PlasticHistoryWithinCertificate
+    }).map(|d| serde_json::to_value(d).unwrap()).collect()
 }
 
 #[test]
-#[ignore = "known wrong result: #2084"]
 fn issue_2084_bundle_diagnostics_match_within_certificate_history() {
     let case: serde_json::Value = serde_json::from_str(include_str!("benchmarks/plastic_collapse.json")).unwrap();
     let input: PlasticInput3D = serde_json::from_value(case["input"].clone()).unwrap();

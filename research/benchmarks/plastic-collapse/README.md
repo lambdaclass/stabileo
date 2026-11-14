@@ -119,8 +119,11 @@ The stage is `first-version`; catalogue status remains `proposed`.
 
 ## Recorded result
 
-Native production λ = 85.71428571427153; combined hand λ = 85.71428571428571;
-signed difference = -1.41824330057716e-11. Mechanism: true; warnings: none.
+Recorded incremental λ = 85.71428571427153; combined hand λ = 85.71428571428571;
+signed difference = -1.41824330057716e-11. Mechanism: true. Current public results
+include the `plastic_history_within_certificate` informational diagnostic and its
+matching legacy warning: the reported factor is the certified lower bound, while
+incremental steps, hinges and the mechanism flag retain uncertified raw values.
 
 The #2084 compatibility check keeps the certified lower bound and raw history
 separate. The public factor is checked against the combined hand calculation;
