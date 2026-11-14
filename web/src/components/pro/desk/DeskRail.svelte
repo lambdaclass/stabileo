@@ -12,7 +12,6 @@
   import { t, tp } from '../../../lib/i18n';
   import { deskUi, DESK_GROUPS, groupOf, stepOf, type DeskTab } from '../../../lib/store/design-desk-ui.svelte';
   import { openDeskAt } from '../../../lib/pro/design-navigation';
-  import { canOpenRebar3D, openRebar3DView, rebar3DMissingSteps } from '../../../lib/store/rebar-open';
   import { verificationStore } from '../../../lib/store/verification.svelte';
   import { untrack } from 'svelte';
 
@@ -20,10 +19,7 @@
 
   const step = $derived(stepOf(place) ?? 'size');
   const group = $derived(groupOf(deskUi.tab));
-  const can3d = $derived(deskUi.open && canOpenRebar3D());
-  const why3d = $derived.by(() => { const m = rebar3DMissingSteps().map((k) => t(k)); return m.length ? `${t('proRibbon.blockedIntro')}: ${m.join(' · ')}` : t('detailing.doc.noCoordinated'); });
   let menu = $state<'specialties' | 'project' | null>(null);
-  let note = $state<string | null>(null);
 
   /** The editor for a member: a beam's frame, a column's stack. */
   const pieceTabOf = (id: number | null): DeskTab | null => {
@@ -32,14 +28,8 @@
   };
   let lastPiece = $state<DeskTab>('frame');
   $effect(() => { if (group === 'piece') untrack(() => { lastPiece = deskUi.tab; }); });
-  const go = (k: DeskTab) => { menu = null; note = null; openDeskAt(k); };
+  const go = (k: DeskTab) => { menu = null; openDeskAt(k); };
   function openPiece() { go(pieceTabOf(deskUi.selected) ?? lastPiece); }
-  /** The 3-D reinforcement view, on top of design, on the member design is on. */
-  function open3d() {
-    note = null;
-    const r = openRebar3DView();
-    if (!r.ok) note = t('detailing.doc.noCoordinated');
-  }
   const on = (k: DeskTab) => place === k;
 </script>
 
@@ -72,9 +62,6 @@
     {/if}
   {:else if step === 'detail'}
     <button class:on={on('detailing')} onclick={() => go('detailing')} data-testid="desk-rail-detailing">{t('desk.rail.detailing')}</button>
-    <!-- Disabled for want of something, it names what, in text a screen reader reaches (as the ribbon's did). -->
-    <button disabled={!can3d} onclick={open3d} title={can3d ? t('desk.rail.rebar3dHint') : why3d} aria-describedby={can3d ? undefined : 'desk-rail-3d-why'} data-testid="desk-rail-3d">{t('desk.rebar3d')}</button>
-    {#if !can3d}<span class="sr-only" id="desk-rail-3d-why" data-testid="desk-rail-3d-why">{why3d}</span>{/if}
   {:else}
     <!-- The output of the work, each where it is looked at: the drawings, the listings, the memo and the exports. -->
     <button class:on={on('sheets')} onclick={() => go('sheets')} title={t('desk.tab.sheetsHint')} data-testid="desk-rail-sheets">{t('desk.tab.sheets')}</button>
@@ -94,7 +81,6 @@
       </div>
     {/each}
   </div>
-  {#if note}<p class="dr-note" role="status">{note}</p>{/if}
 </nav>
 
 <style>
@@ -112,18 +98,16 @@
   .dr-sec:empty { margin: 3px 0 0; border-top: 1px solid var(--st-hair); }
   .dr-menus { display: flex; gap: 4px; margin-top: 6px; }
   .dr-menus .dr-menu > button { border-color: var(--st-hair-strong); }
-  .dr-note { margin: 4px 0 0; font-size: 0.68rem; color: var(--st-text-2); border-left: 2px solid var(--st-accent); padding-left: 6px; }
   .dr-menu { position: relative; }
   .dr-menu-list { position: absolute; left: 0; top: calc(100% + 2px); z-index: 5; display: flex; flex-direction: column; gap: 2px; padding: 4px; min-width: 12rem; background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-radius: 4px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
   .dr-menu-list button { text-align: left; }
-  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
   /*
    * A short window (≤ 600 px): the places in two columns, the headings across both, so the member
    * list under them keeps its height instead of being squeezed into what is left of the strip.
    */
   @media (max-height: 600px) and (min-width: 768px) {
     .dr { display: grid; grid-template-columns: 1fr 1fr; align-content: start; column-gap: 4px; max-height: none; padding: 4px 8px; }
-    .dr-step, .dr-sec, .dr-sub, .dr-menus, .dr-note { grid-column: 1 / -1; }
+    .dr-step, .dr-sec, .dr-sub, .dr-menus { grid-column: 1 / -1; }
     .dr button { overflow: hidden; text-overflow: ellipsis; }
   }
   /* A phone: the places in one row, scrolled sideways, over the canvas. */

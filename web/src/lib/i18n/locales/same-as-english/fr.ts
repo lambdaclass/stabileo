@@ -159,8 +159,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'despiece.basisLocal',
   'detailing.doc.title',
   'detailing.floorRun.position',
-  'detailing.scene.tally.long',
-  'detailing.scene.tally.trans',
   'detailing.schedule.diameter',
   'detailing.schedule.role',
   'detailing.schedule.total',

@@ -31,7 +31,7 @@ test('@smoke the view menu turns the physical geometry on and back to the lines'
 });
 
 test.describe('@slow the joints of a designed frame', () => {
-  test('the workspace draws each joint once, with its own switch; the IFC takes the column top from the project', async ({ pro: page }) => {
+  test('the IFC takes the column top from the project, with the joints in the members\' bodies', async ({ pro: page }) => {
     test.setTimeout(600_000);
     await load(page);
     await designAll(page);
@@ -50,15 +50,5 @@ test.describe('@slow the joints of a designed frame', () => {
     // Six columns and ten beams; the eight joints as vertical prisms inside their owners' bodies.
     expect((text.match(/IFCCOLUMN\(/g) ?? []).length).toBe(6);
     expect((text.match(/IFCARBITRARYCLOSEDPROFILEDEF\(/g) ?? []).length).toBeGreaterThanOrEqual(8);
-
-    // The workspace: a joint per beam-column node and per column-less corner, behind their switch.
-    await page.getByTestId('doc-3d').click();
-    await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-    type Census = { solids: Record<string, number> };
-    const joints = () => page.evaluate(() => (window.__stabileo as unknown as { rebarSceneCensus(): Census | null }).rebarSceneCensus()?.solids.joint ?? -1);
-    await expect.poll(joints, { timeout: 60_000 }).toBeGreaterThanOrEqual(8);
-    await expect(page.getByTestId('rebar-layer-joint')).toBeVisible();
-    await page.getByTestId('rebar-layer-joint').uncheck();
-    await expect.poll(joints, { timeout: 60_000 }).toBe(0);
   });
 });

@@ -258,26 +258,13 @@ const COMMAND_ROW: Array<[string, string]> = [
   ['desk-design', 'desk.size'],
 ];
 
-/** Rail switches: a checkbox whose text sits on the surrounding <label>. */
-const VIEWER_SWITCHES: Array<[string, string]> = [
-  ['rebar-layer-bars', 'detailing.scene.showBars'],
-  ['rebar-layer-concrete', 'detailing.scene.showConcrete'],
-  ['rebar-layer-conflicts', 'detailing.scene.showConflicts'],
-];
-
-/** Header buttons: their own text. */
-const VIEWER_BUTTONS: Array<[string, string]> = [
-  ['rebar-fit-view', 'detailing.scene.reset'],
-  ['rebar-workspace-close', 'detailing.scene.workspace.close'],
-];
-
 for (const locale of OFFERED_LOCALES) {
   const D = DICTS[locale];
 
   test.describe(`@slow the PRO workflow in ${locale}`, () => {
     test.use({ appLocale: locale });
 
-    test('design, detail, view in 3-D, and export — all in one language', async (
+    test('design, detail and export — all in one language', async (
       { pro: page }, testInfo,
     ) => {
       test.setTimeout(300_000);
@@ -291,9 +278,6 @@ for (const locale of OFFERED_LOCALES) {
       for (const [id, key] of COMMAND_ROW) {
         await expect(page.getByTestId(id)).toHaveText(D[key]);
       }
-      // A disabled command states its reason in the same language.
-      expect(await page.getByTestId('cmd-open-3d').getAttribute('title'))
-        .toBe(D['detailing.scene.openBlocked']);
 
       // ── B. The design flow ─────────────────────────────────────
       await designAll(page);
@@ -331,37 +315,6 @@ for (const locale of OFFERED_LOCALES) {
       await expect(page.getByTestId('doc-report')).toHaveText(D['detailing.doc.report']);
       await expect(page.getByTestId('doc-dxf')).toHaveText(D['detailing.doc.dxf']);
       await expect(page.getByTestId('doc-xlsx')).toHaveText(D['detailing.doc.xlsx']);
-
-      // ── C. The 3-D viewer ──────────────────────────────────────
-      const before = await page.evaluate(() => window.__stabileo.rebarSceneBuilds());
-      await designPlace(page, 'list');
-      await page.getByTestId('cmd-open-3d').click();
-      await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 });
-      await expect
-        .poll(() => page.evaluate(() => window.__stabileo.rebarSceneBuilds()), { timeout: 180_000 })
-        .toBeGreaterThan(before);
-
-      for (const [id, key] of VIEWER_SWITCHES) {
-        // The switches are checkboxes; the text sits on the label around the input.
-        await expect(page.getByTestId(id).locator('xpath=ancestor::label[1]'))
-          .toContainText(D[key]);
-      }
-      for (const [id, key] of VIEWER_BUTTONS) {
-        await expect(page.getByTestId(id)).toContainText(D[key]);
-      }
-      await expect(page.getByTestId('rebar-tally'))
-        .toContainText(D['detailing.scene.tally.title']);
-      // Family names in the tally — the enumerated ones a template literal builds.
-      await expect(page.getByTestId('rebar-tally-column'))
-        .toContainText(D['detailing.scene.kind.column']);
-      await expect(page.getByTestId('rebar-tally-beam'))
-        .toContainText(D['detailing.scene.kind.beam']);
-      // And a STATE name, which is what used to read PROVISIONAL in English everywhere.
-      await expect(page.getByTestId('rebar-status-panel'))
-        .toContainText(D['detailing.scene.status.title']);
-
-      await page.getByTestId('rebar-workspace-close').click();
-      await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
 
       // ── A. Project, Settings and Diagnostics ───────────────────
       await page.getByTestId('pr-project').click();

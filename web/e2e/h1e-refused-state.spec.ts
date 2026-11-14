@@ -6,7 +6,7 @@
  * None of the three RC examples reached `REFUSED` when this was written. Measured then:
  * `rc-design-qa-8` designed to `VERIFIED` ×8, `rc-qa-diagnostic` to `VERIFIED` ×22 +
  * `PROVISIONAL_BIAXIAL` ×8, and `pro-edificio-7p` to `VERIFIED` ×198 + `PROVISIONAL_BIAXIAL` ×10.
- * So the state, its filter and the unreinforced block had never been exercised in a browser.
+ * So the state had never been exercised in a browser.
  * Since the design reads the anchorage and the members' role in the lateral system, all three
  * refuse members of their own (`h1e-conflict-states.spec.ts`); this fixture is still the one
  * whose refusal is a starved section, with the remedy that goes with it.
@@ -45,11 +45,10 @@
  * search enumerates a far larger envelope when nothing fits at all.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
+import { test, expect, designAll, loadModel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Hooks = {
-  __stabileo: { detailingAssemblies(): unknown[]; rebarSceneBuilds(): number };
   __stabileoActions: { updateSection(id: number, data: unknown): void };
 };
 
@@ -110,109 +109,6 @@ test.describe('@slow the design refuses, and the app says so', () => {
     // be a broken model, not a refused member.
     expect(after.VERIFIED ?? 0, 'the members on other sections still verify').toBeGreaterThan(0);
   });
-
-  test('the rail says REFUSED, and gives the remedy the refusal calls for',
-    async ({ pro: page }) => {
-      await withRefusedMembers(page);
-      await designPlace(page, 'detailing');
-      const generate = page.getByTestId('cmd-generate-detailing');
-      await expect(generate).toBeEnabled();
-      await generate.click();
-      await expect
-        .poll(() => page.evaluate(() =>
-          (window as unknown as Hooks).__stabileo.detailingAssemblies().length),
-          { timeout: 120_000 })
-        .toBeGreaterThan(0);
-      await openDocumentsStage(page);
-      const builds = await page.evaluate(() =>
-        (window as unknown as Hooks).__stabileo.rebarSceneBuilds());
-      await page.getByTestId('doc-3d').click();
-      await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-      await expect
-        .poll(() => page.evaluate(() =>
-          (window as unknown as Hooks).__stabileo.rebarSceneBuilds()), { timeout: 240_000 })
-        .toBeGreaterThan(builds);
-
-      /**
-       * What this fixture was built to reach, and could not until the classifier was corrected.
-       *
-       * `FAILED` used to preempt every refusal, because a refused member also fails verification.
-       * It now preempts only when the outcome does not already name the reason. The two states
-       * mean different remedies — change the section, versus change the reinforcement — so the
-       * rail was sending the reader to a fix that could not work.
-       */
-      const refused = page.locator('.st-refused');
-      expect(await refused.count(), 'the refusal is reported as one').toBeGreaterThan(0);
-
-      const row = refused.first();
-      const text = (await row.locator('.st, .label').first().innerText()).trim();
-      expect(text.length, 'the state is a word, not only a colour').toBeGreaterThan(1);
-      expect(text.toLowerCase(), 'and it does not claim success')
-        .not.toMatch(/verified|verificado|modelled|modelado/);
-
-      /*
-       * The glyph, by value against the scene: `unreinforced: 0xd4762a`. A refused member carries
-       * no steel, so this is the colour the viewport paints its concrete with, and the rail must
-       * agree — the mirror `shared-status-tokens.test.ts` asserts in both directions, here on a
-       * member that actually has the state.
-       */
-      const painted = await row.locator('.dot').first()
-        .evaluate((el) => getComputedStyle(el).backgroundColor);
-      const scene = await page.evaluate(() => {
-        const el = document.createElement('span');
-        el.style.color = '#d4762a'; document.body.appendChild(el);
-        const out = getComputedStyle(el).color; el.remove(); return out;
-      });
-      expect(painted, 'the refused dot is the unreinforced orange, not the conflicted red')
-        .toBe(scene);
-    });
-
-  test('the member loses its steel, and the unreinforced block names it',
-    async ({ pro: page }) => {
-      await withRefusedMembers(page);
-      await designPlace(page, 'detailing');
-      const generate = page.getByTestId('cmd-generate-detailing');
-      await expect(generate).toBeEnabled();
-      await generate.click();
-      await expect
-        .poll(() => page.evaluate(() =>
-          (window as unknown as Hooks).__stabileo.detailingAssemblies().length),
-          { timeout: 120_000 })
-        .toBeGreaterThan(0);
-      await openDocumentsStage(page);
-      const builds = await page.evaluate(() =>
-        (window as unknown as Hooks).__stabileo.rebarSceneBuilds());
-      await page.getByTestId('doc-3d').click();
-      await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-      await expect
-        .poll(() => page.evaluate(() =>
-          (window as unknown as Hooks).__stabileo.rebarSceneBuilds()), { timeout: 240_000 })
-        .toBeGreaterThan(builds);
-
-      /*
-       * The measurable consequence of a refusal, and the one that matters on screen: the refused
-       * members keep their concrete and lose their steel. The starved members are the beams now
-       * (see the header: starved columns refuse the beams framing into them too): 0 beam bars,
-       * with their four solids still drawn.
-       */
-      const c = await page.evaluate(() => (window as unknown as {
-        __stabileo: { rebarSceneCensus(): { bars: Record<string, number>;
-          solids: Record<string, number> } };
-      }).__stabileo.rebarSceneCensus());
-      expect(c.bars.beam, 'a refused beam carries no steel').toBe(0);
-      expect(c.solids.beam, 'and still shows its concrete').toBeGreaterThan(0);
-
-      /*
-       * `RebarScenePanel`'s `.unreinforced` block. H1-D asserted it ABSENT with the premise
-       * `refused === 0`; this is the other side of that assertion, and the reason it was written
-       * as a premise rather than an annotation. It lives in the WORKSPACE — checking for it in
-       * the design panel, as a first version did, finds nothing and proves nothing.
-       */
-      const block = page.locator('.unreinforced');
-      expect(await block.count(), 'the block that names them').toBeGreaterThan(0);
-      expect((await block.first().innerText()).trim().length,
-        'and it explains rather than listing ids').toBeGreaterThan(20);
-    });
 });
 
 test.describe('@slow a refusal is never dressed as a result', () => {

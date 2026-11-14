@@ -4,16 +4,14 @@
  * ── They are not one state ─────────────────────────────────────────
  *
  *   ABSENCE OF ELEMENTS      nothing was detailed, so there is nothing to document
- *                            → `documents-empty` in the stage, `rebar-empty-families` in the rail
+ *                            → `documents-empty` in the stage
  *   NOTHING BUILT YET        detailing exists, no document has been produced from it
  *                            → `doc-none`
- *   A REFUSAL PER ELEMENT    the design ran and could not find a passing arrangement
- *                            → `REFUSED` in the rail
  *   A PASS ERROR             `buildDocument` returned null
  *                            → `doc-error`
  *
  * Conflating any two of them is how a panel comes to tell an engineer their building has no
- * slabs. The first three are exercised here. The fourth is not reachable, and §the last describe
+ * slabs. The first two are exercised here. The third is not reachable, and §the last describe
  * says why rather than leaving a hole.
  */
 
@@ -21,7 +19,7 @@ import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } f
 import type { Page } from '@playwright/test';
 
 type Hooks = {
-  __stabileo: { detailingAssemblies(): unknown[]; rebarSceneBuilds(): number };
+  __stabileo: { detailingAssemblies(): unknown[] };
   __stabileoActions: { seedDetailing(a: unknown): void };
 };
 
@@ -64,7 +62,7 @@ for (const locale of ['en', 'es', 'pt'] as const) {
          */
         const text = (await page.getByTestId('documents-empty').innerText()).trim();
         expect(text.length, 'it explains rather than showing a blank').toBeGreaterThan(20);
-        for (const id of ['doc-xlsx', 'doc-dxf', 'doc-report', 'doc-3d']) {
+        for (const id of ['doc-xlsx', 'doc-dxf', 'doc-report']) {
           await expect(page.getByTestId(id), `${id} is not offered`).toHaveCount(0);
         }
         // And not one figure: an absence is not a zero.
@@ -97,30 +95,6 @@ for (const locale of ['en', 'es', 'pt'] as const) {
     });
   });
 }
-
-test.describe('@slow the rail names the families that have nothing', () => {
-  test.slow();
-  test.use({ viewport: { width: 1280, height: 720 } });
-
-  test('an empty viewer says which families, not that the workspace is empty',
-    async ({ pro: page }) => {
-      await loadModel(page, 'rc-design-qa-8');
-      await designAll(page);
-      await openDocumentsStage(page);
-      await page.getByTestId('doc-3d').click();
-      await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-
-      await expect(page.getByTestId('rebar-empty-families')).toBeVisible();
-      const text = (await page.getByTestId('rebar-empty-families').innerText()).trim();
-      expect(text.length).toBeGreaterThan(5);
-      /*
-       * `rebar-workspace-empty` means the workspace has nothing at all;
-       * `rebar-empty-families` means these particular families do. Only one of them is true
-       * here, and showing the other would overstate the absence.
-       */
-      await expect(page.getByTestId('rebar-workspace-empty')).toHaveCount(0);
-    });
-});
 
 test.describe('@slow no absence is ever dressed as a verified result', () => {
   test.slow();

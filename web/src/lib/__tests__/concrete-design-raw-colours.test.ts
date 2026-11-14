@@ -56,28 +56,14 @@ function rawColours(source: string): number {
  *   concrete-only   H1 can tokenise these whenever it likes
  *   shared PRO      `OutcomeBadge` is referenced by the metallic status badge and
  *                   `DesignToolbar` is the PRO command row — both need coordination
- *   3-D viewer      `RebarWorkspace` / `RebarViewport3D` — the viewer is out of scope here
  */
 const CEILING: Record<string, number> = {
   // ── concrete-only ──
   'BatchEditDialog.svelte': 3,
-  // 5 left: two `--text-muted` and one `--st-border` fallback the overlay contract requires,
-  // plus `#e0444a` and its 0.14 fill — `conflicted: 0xe0444a` in `three/rebar-scene.ts`.
-  'ConflictInspector.svelte': 5,
-  // 11 left: three `--text-muted` fallbacks that are LIVE — this panel also mounts in
-  // `DocumentsSection`, outside `.workspace`, where the alias does not exist — and eight values
-  // the 3-D scene owns (six state dots, the conflicted count, the unreinforced rule).
-  'RebarScenePanel.svelte': 11,
-  // 9 left, all of them the state palette: four mirrored by value in
-  // `three/rebar-scene.ts` and three with no token to go to. See
-  // `concrete-status-tokens.test.ts`, which asserts the contract in both directions.
-  'RebarStatusPanel.svelte': 9,
   // Both are `rgba(0,0,0,0.6)`: a modal scrim and a drop shadow. `tokens.css` has no
   //    `--st-scrim` and no shadow token, and three other dialogs write the same value — so this
   //    is a shared gap, reported rather than papered over with a near-match.
   'SectionAdviceDialog.svelte': 2,
-  // 5 left, all of them required fallbacks: four `--text-muted` and one `--st-border`.
-  'SelectionDetails.svelte': 5,
   // 1 left: `rgba(34,204,102,0.10)` on `.cert-ok`. There is no `--st-ok-bg`, and inventing a
   //    fourth status surface is not this commit's call — see the proposal document.
   'VerificationDetail.svelte': 1,
@@ -88,17 +74,15 @@ const CEILING: Record<string, number> = {
   // 8 left: two greens (no --st-ok-bg exists), a blue, a grey, the SEARCH_EXHAUSTED violet
   //    that is NOT provisional, a slate flag fill, and the two-tone stale hatch.
   'OutcomeBadge.svelte': 8,
-  // ── 3-D viewer: out of scope for this branch ──
-  'RebarViewport3D.svelte': 4,
-  'RebarWorkspace.svelte': 6,
 };
 
 // 132 at the start of this work. −20 FootingMatPhysicalPanel, −10 RebarStatusPanel,
 // −2 RebarScenePanel, −5 ConflictInspector, −4 SelectionDetails, −4 TorsionBanner,
 // then the shared contract: −6 OutcomeBadge, −4 ProvisionalBanner, −2 DesignToolbar,
 // then the rest of bucket 1: −3 FootingCadHandoffPanel, −3 FootingMatPanel,
-// −2 DesignFamilyPanel, −2 VerificationDetail, −1 FloorFamiliesPanel.
-const TOTAL_CEILING = 64;
+// −2 DesignFamilyPanel, −2 VerificationDetail, −1 FloorFamiliesPanel,
+// then −40 with the 3-D reinforcement viewer deleted.
+const TOTAL_CEILING = 24;
 
 const files = () => readdirSync(DIR).filter((f) => f.endsWith('.svelte'));
 
@@ -140,8 +124,8 @@ describe('the raw-colour debt does not grow', () => {
  */
 describe('the files already at zero stay there', () => {
   const AT_ZERO = [
-    'DetailingWorkflow.svelte', 'FootingMatPhysicalPanel.svelte', 'TorsionBanner.svelte',
-    'ProvisionalBanner.svelte', 'FootingCadHandoffPanel.svelte', 'FootingMatPanel.svelte',
+    'DetailingWorkflow.svelte', 'FootingMatPhysicalPanel.svelte',
+    'FootingCadHandoffPanel.svelte', 'FootingMatPanel.svelte',
     'DesignFamilyPanel.svelte', 'FloorFamiliesPanel.svelte',
   ];
 

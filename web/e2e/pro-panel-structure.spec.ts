@@ -66,29 +66,6 @@ test.describe('@smoke one scroller', () => {
   });
 });
 
-test.describe('@smoke the 3-D reinforcement is reachable from the top', () => {
-  test('S7 — it is offered with the status, disabled, and says what is missing in TEXT', async ({ pro: page }) => {
-    await loadModel(page, 'rc-design-qa-8');
-    await designPlace(page, 'prepare');
-    const btn = page.getByTestId('overview-open-3d');
-    await expect(btn).toBeVisible();
-    await expect(btn).toBeDisabled();
-    const need = page.getByTestId('overview-open-3d-need');
-    await expect(need).toBeVisible();
-    expect((await need.innerText()).trim().length, 'the requirement is stated').toBeGreaterThan(0);
-  });
-
-  test('S8 — the status access and the contextual command are the same operation, under one name', async ({ pro: page }) => {
-    await loadModel(page, 'rc-design-qa-8');
-    await designPlace(page, 'prepare');
-    await expect(page.getByTestId('overview-open-3d')).toBeDisabled();
-    const name = (await page.getByTestId('overview-open-3d').innerText()).trim();
-    await designPlace(page, 'list');
-    await expect(page.getByTestId('cmd-open-3d')).toBeDisabled();
-    await expect(page.getByTestId('cmd-open-3d')).toContainText(name);
-  });
-});
-
 test.describe('the status section speaks the three languages', () => {
   for (const [locale, title] of [
     ['en', 'Project status'],

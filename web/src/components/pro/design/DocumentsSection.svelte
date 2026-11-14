@@ -37,8 +37,6 @@
   import { reviewRank } from '../../../lib/engine/detailing/assembly';
   import type { DesignFamily } from '../../../lib/engine/design/design-families';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
-  import RebarScenePanel from './RebarScenePanel.svelte';
-  import { openRebar3D } from '../../../lib/store/rebar-open';
   import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
   import RcExportLog from './RcExportLog.svelte';
   import RcDocumentScope from './RcDocumentScope.svelte';
@@ -48,15 +46,13 @@
   import ExchangePanel from './ExchangePanel.svelte';
   import ProQuantitiesCard from './ProQuantitiesCard.svelte';
   import {
-    downloadBlob, exportDetailingDxf, exportDetailingReport, exportDetailingXlsx,
+    exportDetailingDxf, exportDetailingReport, exportDetailingXlsx,
   } from '../../../lib/store/document-exports';
   import { currentDocument, currentScope, documentProjectName } from '../../../lib/store/current-document';
   import { openDeskAt } from '../../../lib/pro/design-navigation';
   import { documentableMembers } from '../../../lib/store/detailing-project-inputs';
-  import { documentScopeBlocker } from '../../../lib/flow/rc-document-scope';
 
   let docError = $state<string | null>(null);
-  let show3d = $state(false);
   let notes = $state('');
   let acknowledged = $state<string[]>([]);
 
@@ -105,29 +101,6 @@
   }
 
   const exportCtx = () => ({ projectName: projectName(), at: new Date().toISOString() });
-
-  /**
-   * Open the 3-D view on a FRESHLY built document, narrowed like the other three.
-   *
-   * Not on `detailingStore.document`, which may be a revision built before the last edit. And
-   * with the SAME scope: this button is the fourth projection of the document being issued, so a
-   * viewer showing the whole cage beside three narrowed files would be the fourth answer to "what
-   * does this cover". The viewer on the Diseñar row passes no scope, deliberately — see
-   * `openRebar3D`.
-   */
-  function open3d() {
-    docError = null;
-    const scope = scopeNow();
-    const blocked = documentScopeBlocker(scope);
-    if (blocked) { docError = t(`detailing.doc.select.${blocked}`); return; }
-    const r = openRebar3D({
-      author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
-      at: new Date().toISOString(),
-      scope: scope.whole ? null : { elements: scope.elements, families: scope.families },
-    });
-    if (!r.ok) { docError = t('detailing.doc.noCoordinated'); return; }
-    show3d = true;
-  }
 
   function toggleAck(key: string) {
     acknowledged = acknowledged.includes(key)
@@ -314,7 +287,6 @@
               onclick={() => runExport((d) => exportDetailingXlsx(d, exportCtx()))}>
         {t('detailing.doc.xlsx')}
       </button>
-      <button data-testid="doc-3d" onclick={open3d}>{t('desk.rebar3d')}</button>
       <MemoriaButton />
     </div>
 
@@ -342,13 +314,6 @@
       See `RcExportLog.svelte`.
     -->
     <RcExportLog />
-
-    <!-- ── The fourth projection ────────────────────────────────
-         Same document instance as the three exports above, so what is orbited, what is
-         dimensioned and what is ordered cannot come apart. -->
-    {#if show3d}
-      <RebarScenePanel doc={detailingStore.document} ondownload={downloadBlob} />
-    {/if}
 
     {#if detailingStore.supersededDocuments.length > 0}
       <details class="superseded-docs" data-testid="superseded-docs">

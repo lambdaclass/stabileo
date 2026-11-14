@@ -10,7 +10,6 @@
   import FamilyBatch from '../FamilyBatch.svelte';
   import { modelStore } from '../../../../lib/store';
   import { detailingStore } from '../../../../lib/store/detailing.svelte';
-  import { openRebar3DView } from '../../../../lib/store/rebar-open';
   import { footingDesignInput, sizeModelFootings, modelFootingOverlaps, resolveFootingOverlaps } from '../../../../lib/store/footing-sizing';
   import { designGeneralFooting, type MatLayer } from '../../../../lib/engine/foundation/general-footing';
   import type { SizingMode } from '../../../../lib/engine/foundation/sizing';
@@ -181,9 +180,7 @@
 
             <section class="fe-card fe-views">
               <div><h6>{t('fdnEd.pressureMap')}</h6><FootingPressureMap footing={f} design={ok} /></div>
-              <div><h6>{t('fdnEd.drawing')}</h6><FootingDrawing footing={f} design={ok} {sizes} />
-                <button disabled={detailingStore.assemblies.length === 0} title={detailingStore.assemblies.length === 0 ? t('fdnEd.need3d') : ''}
-                  onclick={() => openRebar3DView({ elements: ok.bars.flatMap((b) => b.ownerElementIds), families: ['footing'] })} data-testid="fdn-open-3d">{t('desk.rebar3d')}</button></div>
+              <div><h6>{t('fdnEd.drawing')}</h6><FootingDrawing footing={f} design={ok} {sizes} /></div>
             </section>
           {/if}
         </div>

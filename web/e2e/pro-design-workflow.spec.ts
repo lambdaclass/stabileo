@@ -187,7 +187,7 @@ test.describe('@slow the detailing panel fits, and the sheet can be read', () =>
     // And every command in it stays inside the canvas it is shown in.
     await designPlace(page, 'documents');
     const panel = await page.getByTestId('desk-canvas').boundingBox();
-    for (const id of ['doc-report', 'doc-dxf', 'doc-xlsx', 'doc-3d']) {
+    for (const id of ['doc-report', 'doc-dxf', 'doc-xlsx']) {
       const box = await page.getByTestId(id).boundingBox();
       if (!box) continue;
       expect(box.x + box.width, `${id} stays inside the panel`)

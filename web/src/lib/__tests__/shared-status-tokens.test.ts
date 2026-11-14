@@ -12,12 +12,11 @@
  * H1 owns the physical implementation; M1 supplied the measured starting values. This file is the
  * gate that makes the contract checkable rather than agreed.
  *
- * ── The four rules ─────────────────────────────────────────────────
+ * ── The three rules ────────────────────────────────────────────────
  *
  *   1. text on a status surface ≥ 4.5:1, over EVERY ground the surface can sit on
  *   2. a hue used as a dot, rule or border ≥ 3:1 (WCAG 2.1 §1.4.11)
- *   3. `--st-provisional` equals the value Three.js paints, compared as a resolved colour
- *   4. no component writes a tinted background in a hue that now has a token, unless the
+ *   3. no component writes a tinted background in a hue that now has a token, unless the
  *      exemption is declared here with its reason
  *
  * Rule 1 is measured on the COMPOSITE. A `rgba(…, 0.14)` fill has no colour of its own — it is
@@ -111,8 +110,8 @@ describe('the five tokens exist and resolve to literals', () => {
   });
 
   it('and provisional-bg keeps the alpha the two correct surfaces already shipped', () => {
-    // 0.16, not 0.14: `ProvisionalBanner` and `OutcomeBadge`'s `.badge-provisional` were already
-    // right, and matching them means adopting the token changes no pixel there.
+    // 0.16, not 0.14: `OutcomeBadge`'s `.badge-provisional` was already right, and matching it
+    // means adopting the token changes no pixel there.
     expect(alphaOf(resolveToken('--st-provisional-bg'))).toBe(0.16);
     expect(rgb(resolveToken('--st-provisional-bg'))).toEqual(rgb(resolveToken('--st-provisional')));
   });
@@ -219,39 +218,8 @@ describe('rule 2 — a hue used as a dot, rule or border clears 3:1', () => {
   });
 });
 
-describe('rule 3 — provisional equals what Three.js paints', () => {
-  const scene = () => readFileSync(
-    new URL('../three/rebar-scene.ts', import.meta.url).pathname, 'utf8');
-
-  it('the token and the material agree, compared as a colour', () => {
-    /**
-     * By VALUE, not by literal text. `0xa066d3`, `0xA066D3` and `#a066d3` are one colour written
-     * three ways, and a test that string-matched would fail on a case change and pass on
-     * `#a166d3`. So both sides are parsed to a triplet.
-     */
-    const m = scene().match(/provisional:\s*0x([0-9a-fA-F]{6})/);
-    expect(m, 'rebar-scene.ts must declare a provisional colour').not.toBeNull();
-    expect(rgb(resolveToken('--st-provisional')), 'token === scene')
-      .toEqual(rgb(`#${m![1]}`));
-  });
-
-  it('and the dot stays literal, because a var() and an 0x can drift in silence', () => {
-    // The token exists and the panel still writes the hex. Deliberate: the mirror is only safe
-    // while something compares the two, and that something is the test above.
-    expect(read('RebarStatusPanel.svelte')).toContain('#a066d3');
-    /*
-     * `RebarScenePanel` is NOT checked here, and the reason is worth writing down: it lists six
-     * states, not seven — failed, unsupported, refused, designed-not-modelled, not-evaluated,
-     * modelled — and provisional is not one of them. Asserting the violet there would have
-     * demanded a dot that does not exist.
-     */
-    expect(read('RebarScenePanel.svelte'), 'six dots, and provisional is not among them')
-      .not.toContain('.dot.provisional');
-  });
-});
-
 /**
- * Rule 4 — nobody re-mixes a surface that now has a token.
+ * Rule 3 — nobody re-mixes a surface that now has a token.
  *
  * ── Why hue, and not colour distance ───────────────────────────────
  *
@@ -265,7 +233,7 @@ describe('rule 3 — provisional equals what Three.js paints', () => {
  * slate wells — are excluded by saturation before hue is even considered, because the hue of a
  * grey is noise.
  */
-describe('rule 4 — no component re-mixes a tinted status surface', () => {
+describe('rule 3 — no component re-mixes a tinted status surface', () => {
   const TOKEN_HUES = [
     ['--st-danger-bg', 6], ['--st-warn-bg', 43], ['--st-provisional-bg', 272],
   ] as const;
@@ -275,18 +243,10 @@ describe('rule 4 — no component re-mixes a tinted status surface', () => {
   /**
    * The declared exemptions.
    *
-   * Two kinds, and the difference matters. A CONTRACT exemption is permanent: the value belongs
-   * to `three/rebar-scene.ts` and a token would let the picture and the words drift. A PENDING
-   * one is debt with an owner — it stays until the file's own migration, and the list shrinking
-   * is the record of that happening.
+   * A PENDING one is debt with an owner — it stays until the file's own migration, and the list
+   * shrinking is the record of that happening.
    */
   const EXEMPT: Record<string, string> = {
-    // ── contract: the 3-D scene owns these values ──
-    'RebarStatusPanel.svelte|rgba(255,212,0,0.16)':
-      'contract — `selected: 0xffd400`. The list and the viewport must agree on which member is selected.',
-    'ConflictInspector.svelte|rgba(224,68,74,0.14)':
-      'contract — the 0.14 fill of `conflicted: 0xe0444a`, which its own border also names.',
-
     // ── pending: has a token, not yet migrated (commit 3) ──
     //    Seven entries left this list when commit 2 migrated `OutcomeBadge`,
     //    `ProvisionalBanner` and `DesignToolbar`. The stale-exemption assertion below is what
@@ -350,16 +310,6 @@ describe('rule 4 — no component re-mixes a tinted status surface', () => {
     const present = new Set(tints().map((t) => `${t.file}|${t.literal}`));
     const stale = Object.keys(EXEMPT).filter((k) => !present.has(k));
     expect(stale, 'exemptions for literals no longer in the source').toEqual([]);
-  });
-
-  it('the contract exemptions are the two the scene owns, and no more', () => {
-    // A `pending` entry is debt. A `contract` entry is permanent, so the set of them is worth
-    // pinning: adding a third means someone decided a new value belongs to Three.js.
-    const contract = Object.entries(EXEMPT)
-      .filter(([, why]) => why.startsWith('contract'))
-      .map(([k]) => k.split('|')[0])
-      .sort();
-    expect(contract).toEqual(['ConflictInspector.svelte', 'RebarStatusPanel.svelte']);
   });
 
   it('the hue gap the rule depends on is real, not assumed', () => {

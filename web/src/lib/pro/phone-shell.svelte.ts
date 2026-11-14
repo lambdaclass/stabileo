@@ -31,7 +31,6 @@
  */
 
 import { resultsStore, uiStore, tabManager } from '../store';
-import { canOpenRebar3D, openRebar3DView, rebar3DMissingSteps } from '../store/rebar-open';
 import { buildProStages, PRO_TAB_STAGE, type ProCmd } from './stages';
 
 void tabManager;
@@ -64,14 +63,6 @@ export function createPhoneShell(deps: PhoneShellDeps) {
     canReport: true,
     onSolve: deps.onSolve,
     onReport: deps.onReport,
-    /*
-     * The 3-D reinforcement workspace is opened from the panel that owns it, so the phone
-     * grid's Rebar-3D command lands on the same operation the ribbon's does — three ways in,
-     * one thing that happens.
-     */
-    onRebar3D: () => { openRebar3DView(); },
-    canRebar3D: () => canOpenRebar3D(),
-    rebar3DMissingSteps,
   }));
 
   /*

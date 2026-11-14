@@ -9,26 +9,13 @@
  * quietly asserted away. See the last describe.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
+import { test, expect, designAll, loadModel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 async function design(page: Page, model = 'rc-design-qa-8') {
   await loadModel(page, model);
   await designAll(page);
   await designPlace(page, 'list');
-}
-
-async function generateDetailing(page: Page) {
-  await designPlace(page, 'detailing');
-  const d = page.getByTestId('desk-detailing');
-  const generate = page.getByTestId('cmd-generate-detailing');
-  await expect(generate).toBeEnabled();
-  await generate.click();
-  await expect
-    .poll(() => page.evaluate(() =>
-      (window.__stabileo as unknown as { detailingAssemblies(): unknown[] })
-        .detailingAssemblies().length), { timeout: 60_000 })
-    .toBeGreaterThan(0);
 }
 
 /** The heading levels inside a subtree, in document order. */
@@ -71,65 +58,12 @@ for (const locale of ['en', 'es', 'pt'] as const) {
       expect(jumps(h!), `no level is skipped in ${place}`).toEqual([]);
       }
     });
-
-    test('the workspace rail skips no level', async ({ pro: page }) => {
-      await design(page);
-      await generateDetailing(page);
-      await openDocumentsStage(page);
-      const before = await page.evaluate(() =>
-        (window.__stabileo as unknown as { rebarSceneBuilds(): number }).rebarSceneBuilds());
-      await page.getByTestId('doc-3d').click();
-      await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-      await expect
-        .poll(() => page.evaluate(() =>
-          (window.__stabileo as unknown as { rebarSceneBuilds(): number }).rebarSceneBuilds()),
-          { timeout: 120_000 })
-        .toBeGreaterThan(before);
-
-      const h = await headings(page, '[data-testid="rebar-workspace"]');
-      // `h2 → h4` at "Layers": the overlay's title is the h2, so a rail panel is its child.
-      expect(jumps(h!), 'no level is skipped').toEqual([]);
-      expect(h![0].level, 'the overlay still opens at h2').toBe(2);
-    });
   });
 }
 
 test.describe('@slow focus and Escape', () => {
   test.slow();
   test.use({ viewport: { width: 1280, height: 720 } });
-
-  test('the overlay takes focus on open and gives it back on Escape',
-    async ({ pro: page }) => {
-      await design(page);
-      await generateDetailing(page);
-      await openDocumentsStage(page);
-
-      /*
-       * This already worked, and nothing was checking it. `RebarWorkspace` uses `captureFocus`
-       * from `lib/utils/dialog-focus.ts` and its comment explains why: the opener is a button
-       * this overlay COVERS, so without the restore, Escape returned the user to `<body>`.
-       * Pinned here so a future refactor of the overlay cannot lose it silently.
-       */
-      const opener = page.getByTestId('doc-3d');
-      await opener.focus();
-      await opener.click();
-      await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-      await expect
-        .poll(() => page.evaluate(() =>
-          (window.__stabileo as unknown as { rebarSceneBuilds(): number }).rebarSceneBuilds()),
-          { timeout: 120_000 })
-        .toBeGreaterThan(0);
-
-      expect(await page.evaluate(() =>
-        document.querySelector('[data-testid="rebar-workspace"]')!
-          .contains(document.activeElement)),
-        'focus lands inside the overlay').toBe(true);
-
-      await page.keyboard.press('Escape');
-      await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
-      expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid')),
-        'and returns to the control the user left').toBe('doc-3d');
-    });
 
   test('entering Design leaves focus on the stage; pressing a step moves it into its places',
     async ({ pro: page }) => {

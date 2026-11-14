@@ -30,7 +30,7 @@ const STEPS = ['prepare', 'size', 'detail', 'document'] as const;
 const PLACES: Record<(typeof STEPS)[number], readonly string[]> = {
   prepare: ['desk-rail-prepare', 'desk-rail-designData'],
   size: ['desk-tab-plan', 'desk-tab-levels', 'desk-mode-piece', 'desk-rail-list', 'desk-rail-steel', 'desk-rail-connections', 'desk-rail-codes', 'desk-mode-pending'],
-  detail: ['desk-rail-detailing', 'desk-rail-3d'],
+  detail: ['desk-rail-detailing'],
   document: ['desk-rail-documents'],
 };
 

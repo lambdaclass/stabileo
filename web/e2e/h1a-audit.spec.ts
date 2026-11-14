@@ -201,19 +201,6 @@ async function toDocuments(page: Page) {
   await openDocumentsStage(page);
 }
 
-async function toWorkspace(page: Page) {
-  await toDocuments(page);
-  const before = await page.evaluate(() =>
-    (window.__stabileo as unknown as { rebarSceneBuilds(): number }).rebarSceneBuilds());
-  await page.getByTestId('doc-3d').click();
-  await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-  await expect
-    .poll(() => page.evaluate(() =>
-      (window.__stabileo as unknown as { rebarSceneBuilds(): number }).rebarSceneBuilds()),
-      { timeout: 120_000 })
-    .toBeGreaterThan(before);
-}
-
 const SCREENS = [
   { id: 'design', sel: '[data-testid="pro-panel"], .pro-panel', go: toDesignStage },
   { id: 'detailing', sel: '[data-testid="detailing-workflow"]', go: toDetailing },
@@ -221,7 +208,6 @@ const SCREENS = [
   // and fell through to `.documents`, which is ONE card inside the stage — 8 nodes measured
   // against the stage's real tree, so that screen was reported clean without being looked at.
   { id: 'documents', sel: '[data-testid="documents-stage"]', go: toDocuments },
-  { id: 'workspace', sel: '[data-testid="rebar-workspace"]', go: toWorkspace },
 ] as const;
 
 function save(name: string, data: unknown) {

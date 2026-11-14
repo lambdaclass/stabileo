@@ -57,34 +57,6 @@ export async function alSection(page: import('@playwright/test').Page, id: 'regu
   await page.getByTestId(`al-nav-${id}`).click();
 }
 
-/**
- * The bar and concrete families the 3-D scene batches by.
- *
- * Restated here rather than imported: `e2e/` is compiled by Playwright, not by the app's Vite
- * pipeline, and reaching into `src/lib/three` from a spec would drag Three.js into the test
- * process to read seven strings. `rebar-toggles.spec.ts` asserts that this list matches the
- * renderer's own, so a family added on one side cannot go unnoticed on the other.
- */
-export const SOLID_FAMILIES = [
-  'column', 'beam', 'joint', 'slab', 'wall', 'footing', 'pedestal',
-] as const;
-
-export type SolidFamily = typeof SOLID_FAMILIES[number];
-
-/** What the renderer is drawing right now, per family. See `rebarSceneCensus`. */
-export interface RebarSceneCensus {
-  /** Bars drawn, per family — plus `unknown` for steel no family could claim. */
-  bars: Record<SolidFamily | 'unknown', number>;
-  /** Concrete solids drawn, per family. */
-  solids: Record<SolidFamily, number>;
-  /** Conflict markers on screen. */
-  markers: number;
-  /** Triangles drawn, bars and concrete together. */
-  triangles: number;
-  /** Meshes a raycast would consider — what is selectable. */
-  pickable: number;
-}
-
 export interface TestHooks {
   version: number;
   solverReady(): boolean;
@@ -130,19 +102,6 @@ export interface TestHooks {
   orientationSuspectCount(): number;
   undoCount(): number;
   canvasInkRatio(): number;
-  /** How many times the 3-D viewport has built its tube geometry. */
-  rebarSceneBuilds(): number;
-  /**
-   * What the open 3-D workspace is DRAWING, per family. Null when none is open.
-   *
-   * Read off the meshes, not off the filter. The on-screen tally is the filter's own account of
-   * itself and was updating perfectly while every layer switch reached nothing.
-   */
-  rebarSceneCensus(): RebarSceneCensus | null;
-  /** Canvases in the page, of any kind. A layer switch must not add one. */
-  canvasCount(): number;
-  /** Scene-projection cache hits and misses. */
-  sceneCacheStats(): { hits: number; misses: number };
   /** Every autosave revision currently stored in IndexedDB, newest first. */
   autosaveRevisions(): Promise<Array<{ revision: number; timestamp: string; status: string }>>;
   /** The project as File → Save writes it, as JSON text. */
@@ -624,7 +583,7 @@ export { expect };
  *
  * PR20 moved the report, the drawings, the schedule, the 3-D view and the professional review out
  * of the coordinated-detailing panel and into a stage of their own, collapsed by default like
- * every other stage. Fourteen specs reach `doc-3d`, `doc-report`, `doc-dxf`, `doc-xlsx` or the
+ * every other stage. Specs reach `doc-report`, `doc-dxf`, `doc-xlsx` or the
  * review controls, and a collapsed `<details>` keeps its children in the DOM — so a locator
  * RESOLVES, reports the right element, and then waits forever for it to become visible. That is
  * the failure signature every one of them showed.
@@ -761,17 +720,6 @@ export async function sizeAll(page: Page, o: { resize?: boolean } = {}): Promise
 export async function generateDetailing(page: Page): Promise<void> {
   await designPlace(page, 'detailing');
   await page.getByTestId('cmd-generate-detailing').click();
-}
-
-/**
- * Open the 3-D reinforcement view from where design is: the member list's toolbar holds
- * `cmd-open-3d`, the Detail step's rail `desk-rail-3d`; both are `openRebar3DView`.
- */
-export async function open3D(page: Page): Promise<void> {
-  const list = page.getByTestId('cmd-open-3d');
-  if (await list.isVisible()) { await list.click(); return; }
-  await designPlace(page, 'detailing');
-  await page.getByTestId('desk-rail-3d').click();
 }
 
 /** The floor pass (slabs, walls, foundations), a sub-step under the member list, opened. */

@@ -148,32 +148,6 @@ test.describe('@smoke one «Size…»', () => {
   });
 });
 
-test.describe('@smoke one 3-D reinforcement view', () => {
-  test('the rail, the piece sheet and the list toolbar open the same view, under the same name', async ({ pro: page }) => {
-    await loadModel(page, 'rc-design-qa-8');
-    await designAll(page);
-    await designPlace(page, 'detailing');
-    const gen = page.getByTestId('cmd-generate-detailing');
-    await expect(gen).toBeEnabled({ timeout: 45_000 });
-    await gen.click();
-    await expect.poll(() => page.evaluate(() => (window.__stabileo as unknown as { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 45_000 }).toBeGreaterThan(0);
-    const name = (await page.getByTestId('desk-rail-3d').innerText()).trim();
-    for (const open of [
-      async () => { await page.getByTestId('desk-step-detail').click(); await page.getByTestId('desk-rail-3d').click(); },
-      async () => { await page.locator('[data-testid^="desk-row-"]').first().click(); await page.getByTestId('desk-open-3d').click(); },
-      async () => { await designPlace(page, 'list'); await page.getByTestId('cmd-open-3d').click(); },
-    ]) {
-      await open();
-      await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(page.getByTestId('rebar-workspace')).toBeHidden();
-      await expect(page.getByTestId('design-desk')).toBeVisible();
-    }
-    await expect(page.getByTestId('desk-open-3d')).toHaveText(name);
-    await expect(page.getByTestId('cmd-open-3d')).toContainText(name);
-  });
-});
-
 test.describe('@smoke steel inside sizing, and one «Other code»', () => {
   test('profiles and connections are places of the Size step, with their tools', async ({ pro: page }) => {
     await steelPortal(page);

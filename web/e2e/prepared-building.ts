@@ -63,19 +63,11 @@
  */
 
 import {
-  test as proTest, expect, designAll, loadModel, bootPro, SOLID_FAMILIES, turnRolledBeams,
-  type RebarSceneCensus, designPlace } from './fixtures';
+  test as proTest, expect, designAll, loadModel, bootPro, turnRolledBeams, designPlace } from './fixtures';
 import type { BrowserContext, Page } from '@playwright/test';
 
 /** The example every heavy spec in this suite sets up. */
 export const BUILDING = 'pro-edificio-7p';
-
-/** One row of the on-screen family tally: concrete solids, longitudinals, transverse. */
-export interface FamilyTally {
-  solids: number;
-  longitudinal: number;
-  transverse: number;
-}
 
 /** What the preparation produced, and the context holding it. */
 export interface PreparedProject {
@@ -87,20 +79,6 @@ export interface PreparedProject {
   assemblies: number;
   /** Members carrying reinforcement when it was saved. */
   reinforced: number;
-  /** The family tally the workspace showed on the live page. */
-  tally: Record<string, FamilyTally>;
-  /** Piece kinds the workspace counted apart, and how many of each. */
-  pieces: Record<string, number>;
-  /** What the renderer was actually drawing, read off the meshes. */
-  census: RebarSceneCensus;
-  /**
-   * Whether the workspace showed the "not for issue" banner for provisional members.
-   *
-   * Captured on the LIVE page, like the tally and the census, so a restore can be asserted to
-   * reproduce it. It is read off the DOCUMENT (`scene.provisionalMembers`) rather than off the
-   * design run, which is what makes it a fair thing to expect from a restored project at all.
-   */
-  provisionalBanner: boolean;
 }
 
 /** Coordinated assemblies currently in the model. */
@@ -113,105 +91,6 @@ export function assemblyCount(page: Page): Promise<number> {
 function reinforcedCount(page: Page): Promise<number> {
   return page.evaluate(() => window.__stabileo.elementIds()
     .filter((id) => !!window.__stabileo.reinforcement(id)).length);
-}
-
-/**
- * The family tally, read off the table beside the canvas.
- *
- * Cells rather than a split of the row's text: the second and third carry a unit word after the
- * number. A family with no row is absent from the result, which is the same distinction the
- * empty-family notice makes.
- */
-export async function readTally(page: Page): Promise<Record<string, FamilyTally>> {
-  const out: Record<string, FamilyTally> = {};
-  for (const family of SOLID_FAMILIES) {
-    const row = page.getByTestId(`rebar-tally-${family}`);
-    if (await row.count() === 0) continue;
-    const cells = await row.locator('td').allTextContents();
-    const n = (i: number) => parseInt((cells[i] ?? '0').trim(), 10) || 0;
-    out[family] = { solids: n(0), longitudinal: n(1), transverse: n(2) };
-  }
-  return out;
-}
-
-/** The piece kinds counted apart — a hoop and a single-leg crosstie are different pieces. */
-export async function readPieces(page: Page): Promise<Record<string, number>> {
-  const table = page.getByTestId('rebar-pieces');
-  if (await table.count() === 0) return {};
-  const out: Record<string, number> = {};
-  for (const row of await table.locator('tr').all()) {
-    const id = await row.getAttribute('data-testid');
-    if (!id?.startsWith('rebar-piece-')) continue;
-    const cell = (await row.locator('td').first().textContent()) ?? '0';
-    out[id.slice('rebar-piece-'.length)] = parseInt(cell.trim(), 10) || 0;
-  }
-  return out;
-}
-
-/**
- * Open the 3-D workspace and wait for its GEOMETRY, not for the overlay.
- *
- * The workspace paints BEFORE it builds — that is what stops the click looking dead on a model
- * whose floors have been designed — so `toBeVisible` returns while the build is still to come.
- * Waited on the build COUNTER rather than on the "building" status: on a small model the build
- * takes two frames and that status may never be painted at all, so `toBeHidden` would pass on an
- * element that was never there.
- *
- * `cmd-open-3d` is the command-row button PR20 promoted out of the detailing disclosure. It is
- * the same operation as `doc-3d` — both call `openRebar3D` on the same document instance — and it
- * does not require opening a disclosure first. The disclosure's own button keeps its coverage in
- * `rebar-3d.spec.ts`, which still walks the full journey.
- */
-export async function openWorkspaceFromCommandRow(page: Page): Promise<void> {
-  const before = await page.evaluate(() => window.__stabileo.rebarSceneBuilds());
-  // Interface A: the list's command row holds `cmd-open-3d`; the Detail step's rail holds the
-  // same operation. From the detailing, where the setup leaves design, the rail's is the one.
-  const open = await page.getByTestId('desk-rail-3d').isVisible()
-    ? page.getByTestId('desk-rail-3d') : page.getByTestId('cmd-open-3d');
-  await expect(open, 'the 3-D command is enabled once a document exists').toBeEnabled();
-  await open.click();
-  await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 });
-  await expect
-    .poll(() => page.evaluate(() => window.__stabileo.rebarSceneBuilds()), { timeout: 180_000 })
-    .toBeGreaterThan(before);
-  await expect
-    .poll(() => page.evaluate(() => window.__stabileo.rebarSceneCensus() !== null),
-      { timeout: 60_000 })
-    .toBe(true);
-}
-
-/**
- * Open the workspace on a restored building, and check it is the building that was prepared.
- *
- * The counts are asserted rather than trusted: a restore that silently dropped the floor design
- * would otherwise leave every observer measuring a smaller building and reporting success.
- */
-export async function openPreparedWorkspace(
-  page: Page, prepared: PreparedProject,
-): Promise<void> {
-  expect(await assemblyCount(page), 'the restored project carries its detailing')
-    .toBe(prepared.assemblies);
-  expect(await reinforcedCount(page), 'the restored project carries the design')
-    .toBe(prepared.reinforced);
-
-  /**
-   * The detailing disclosure is opened for PARITY, not because this path needs it.
-   *
-   * The setup this replaces reached the viewer through that disclosure, so it left the panel
-   * open — and a test that closes the workspace and REOPENS it from `doc-3d` finds that button
-   * inside a shut `<details>` if nobody opened it. Playwright then waits for an element that
-   * exists, is enabled, and will never be visible: the reopen loop in
-   * `rebar-viewport-cost.spec.ts` spent its whole fifteen-minute budget on exactly that, which
-   * is how this was found rather than reasoned about.
-   *
-   * So the prepared setup leaves the page in the same shape the old one did, and the test bodies
-   * stay untouched.
-   */
-  await designPlace(page, 'detailing');
-  const disclosure = page.getByTestId('desk-detailing');
-  await expect(disclosure, 'the detailing is on screen, as the setup it replaces left it').toBeVisible();
-
-  await openWorkspaceFromCommandRow(page);
 }
 
 /**
@@ -286,22 +165,6 @@ async function prepare(page: Page, building: string): Promise<Omit<PreparedProje
   const assemblies = await assemblyCount(page);
   const reinforced = await reinforcedCount(page);
 
-  // The scene as the design produced it, recorded so an observer can assert that the restore
-  // reproduces it rather than assume so.
-  const { tally, pieces, census, provisionalBanner } = await stage('scene census', async () => {
-    await designPlace(page, 'detailing');
-    await openWorkspaceFromCommandRow(page);
-    await expect(page.getByTestId('rebar-tally')).toBeVisible();
-    const t = await readTally(page);
-    const p = await readPieces(page);
-    const c = (await page.evaluate(() => window.__stabileo.rebarSceneCensus()))!;
-    expect(c, 'the prepared scene is drawing something').not.toBeNull();
-    const banner = await page.getByTestId('rebar-provisional-banner').count() > 0;
-    await page.getByTestId('rebar-workspace-close').click();
-    await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
-    return { tally: t, pieces: p, census: c, provisionalBanner: banner };
-  });
-
   /**
    * The same save the 30 s timer and every post-design hook ask for.
    *
@@ -315,7 +178,7 @@ async function prepare(page: Page, building: string): Promise<Omit<PreparedProje
   expect(stored.fingerprint.elements, 'and the save holds the model').toBe(elements);
   expect(stored.fingerprint.reinforced, 'and the design in it').toBe(reinforced);
 
-  return { elements, assemblies, reinforced, tally, pieces, census, provisionalBanner };
+  return { elements, assemblies, reinforced };
 }
 
 /**
@@ -377,7 +240,7 @@ export const test = proTest.extend<
 
     // eslint-disable-next-line no-console
     console.log(`\nprepared ${preparedBuilding}: ${facts.elements} members, ${facts.assemblies} assemblies, `
-      + `${facts.reinforced} reinforced, ${facts.census.triangles} triangles drawn\n`);
+      + `${facts.reinforced} reinforced\n`);
 
     await use({ context, ...facts });
     await context.close();

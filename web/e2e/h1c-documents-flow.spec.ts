@@ -73,7 +73,7 @@ test.describe('@slow the export builds the document, and says so', () => {
       await expect(page.getByTestId('doc-none')).toBeVisible();
       await expect(page.getByTestId('doc-readiness')).toHaveCount(0);
       // The exports are enabled on purpose: the first one is what builds the model.
-      for (const id of ['doc-report', 'doc-dxf', 'doc-xlsx', 'doc-3d']) {
+      for (const id of ['doc-report', 'doc-dxf', 'doc-xlsx']) {
         await expect(page.getByTestId(id), `${id} is offered`).toBeEnabled();
       }
     });

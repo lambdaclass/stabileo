@@ -165,7 +165,7 @@ test.describe('narrowing changes what leaves, and says so', () => {
     await page.getByTestId('doc-scope-none').click();
     await expect(page.getByTestId('doc-scope-statement')).toContainText('nothing to export');
 
-    for (const id of ['doc-report', 'doc-dxf', 'doc-xlsx', 'doc-3d']) {
+    for (const id of ['doc-report', 'doc-dxf', 'doc-xlsx']) {
       await page.getByTestId(id).click();
       const err = page.getByTestId('doc-error');
       await expect(err, `${id} refuses`).toBeVisible();

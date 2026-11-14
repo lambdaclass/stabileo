@@ -11,8 +11,8 @@
  *
  * The tests are written against what is OBSERVABLE — the model selection, the camera, the design's
  * current member, the topmost surface on screen — and not against today's layout. Everything that
- * depends on WHERE a surface lives today (how design is entered and left, how the 3-D view is
- * opened, which ribbon command shows a panel) is in the small helpers right below this comment. A
+ * depends on WHERE a surface lives today (how design is entered and left, which ribbon command
+ * shows a panel) is in the small helpers right below this comment. A
  * reorganisation of the interface rewrites those helpers and keeps the tests.
  *
  * ── Expected failures ──────────────────────────────────────────────
@@ -98,29 +98,6 @@ async function showCurrentInModel(page: Page): Promise<void> {
   await page.getByTestId('desk-show-in-model').click();
 }
 
-/** From design, open the 3-D reinforcement view on the current member. */
-async function openDesign3D(page: Page): Promise<void> {
-  await page.getByTestId('desk-open-3d').click();
-}
-
-/** The 3-D reinforcement view. */
-function view3D(page: Page): Locator {
-  return page.getByTestId('rebar-workspace');
-}
-
-/** Open the 3-D reinforcement view from the coordinated detailing (the Detail step's rail). */
-async function open3DFromDetailing(page: Page): Promise<void> {
-  await designPlace(page, 'detailing');
-  await page.getByTestId('desk-rail-3d').click();
-  await expect(view3D(page)).toBeVisible();
-}
-
-/** Close the 3-D view by its close control. */
-async function close3D(page: Page): Promise<void> {
-  await page.getByTestId('rebar-workspace-close').click();
-  await expect(view3D(page)).toBeHidden();
-}
-
 /** The model's selected members. */
 function modelSelection(page: Page): Promise<number[]> {
   return page.evaluate(() => window.__stabileo.selection());
@@ -146,9 +123,6 @@ function expectSameCamera(after: Cam, before: Cam): void {
   }
   expect(after!.polarDeg).toBeCloseTo(before!.polarDeg, 6);
 }
-function rebarSelection(page: Page): Promise<number[]> {
-  return page.evaluate(() => (window.__stabileo as unknown as { rebarSelection(): number[] }).rebarSelection());
-}
 
 /** Count the framing requests the model view receives, by kind. */
 async function countFraming(page: Page): Promise<void> {
@@ -171,7 +145,7 @@ async function viewerShown(page: Page): Promise<boolean> {
     const r = c.getBoundingClientRect();
     if (r.width < 50 || r.height < 50) return false;
     const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    return !!hit && !hit.closest('[data-testid="design-desk"], [data-testid="rebar-workspace"]');
+    return !!hit && !hit.closest('[data-testid="design-desk"]');
   });
 }
 
@@ -207,15 +181,6 @@ async function frameDraft(page: Page): Promise<{ id: number; stored: string }> {
   await count.press('Enter');
   await expect(page.getByTestId('frame-state')).toHaveText(/Unsaved|Sin guardar/);
   return { id, stored };
-}
-
-/** The surface that would receive a click at the centre of the window. */
-async function topmostAtCentre(page: Page): Promise<string | null> {
-  return page.evaluate(() => {
-    const el = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-    const owner = el?.closest('[data-testid="rebar-workspace"], [data-testid="design-desk"]');
-    return owner?.getAttribute('data-testid') ?? (el ? 'model' : null);
-  });
 }
 
 /** qa-8 solved and designed, design not open. */
@@ -311,30 +276,6 @@ test.describe('interaction contracts', () => {
     await expect.poll(async () => (await framing(page)).sel).toBeGreaterThan(0);
   });
 
-  test('@smoke C4 — opening 3-D reinforcement from design shows that member, as the topmost surface', async ({ pro: page }) => {
-    await detailedFrame(page);
-    await enterDesign(page);
-    const id = await verifiedRow(page);
-    await pickDesignMember(page, id);
-    await openDesign3D(page);
-    await expect(view3D(page)).toBeVisible();
-    expect(await topmostAtCentre(page)).toBe('rebar-workspace');
-    expect(await rebarSelection(page)).toEqual([id]);
-  });
-
-  test('@smoke C5 — Escape in the 3-D view returns to design without closing design', async ({ pro: page }) => {
-    await detailedFrame(page);
-    await enterDesign(page);
-    const id = await verifiedRow(page);
-    await pickDesignMember(page, id);
-    await openDesign3D(page);
-    await expect(view3D(page)).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(view3D(page)).toBeHidden();
-    await expect(designSurface(page)).toBeVisible();
-    expect(await designCurrentMember(page)).toBe(id);
-  });
-
   test('@smoke C6 — opening and closing design leaves the model camera where it was', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
@@ -342,15 +283,6 @@ test.describe('interaction contracts', () => {
     const before = await camera(page);
     await enterDesign(page);
     await leaveDesignByClose(page);
-    expectSameCamera(await camera(page), before);
-  });
-
-  test('@smoke C6b — opening and closing the 3-D view leaves the model camera where it was', async ({ pro: page }) => {
-    await detailedFrame(page);
-    await expect.poll(() => camera(page)).not.toBeNull();
-    const before = await camera(page);
-    await open3DFromDetailing(page);
-    await close3D(page);
     expectSameCamera(await camera(page), before);
   });
 
@@ -559,49 +491,12 @@ test.describe('interaction contracts', () => {
     await expect.poll(() => designCurrentMember(page), { timeout: 30_000 }).not.toBe(id);
   });
 
-  test('@slow C17 — the 3-D view drops a selected member that no longer exists after re-detailing', async ({ pro: page }) => {
-    test.setTimeout(240_000);
-    await detailedFrame(page);
-    await open3DFromDetailing(page);
-    // A beam (the last member), so the frame stays stable without it.
-    const rows = page.locator('[data-testid="rebar-element-list"] button[data-testid^="rebar-element-"]');
-    const victim = Number((await rows.last().getAttribute('data-testid'))!.replace('rebar-element-', ''));
-    await rows.last().click();
-    expect(await rebarSelection(page)).toEqual([victim]);
-    await close3D(page);
-    await leaveDesignForModel(page);
-    await selectInModel(page, [victim]);
-    await page.locator('body').press('Delete');
-    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds())).not.toContain(victim);
-    // Redesign every member that is left. C25 pins that «Design all» does the same now; it re-ran
-    // only 2 of the 7 here before (runCounts().total 2) and the detailing refused the rest.
-    await solveModel(page);
-    await page.evaluate(async () => { await (window.__stabileoActions as unknown as { autoDesign(ids: number[]): unknown }).autoDesign(window.__stabileo.elementIds()); });
-    await openDetailing(page);
-    const generate = page.getByTestId('cmd-generate-detailing');
-    await expect(generate).toBeEnabled({ timeout: 180_000 });
-    await generate.click();
-    await expect.poll(() => page.evaluate((v) => (window.__stabileo as unknown as { detailingAssemblies(): Array<{ elementIds: number[] }> })
-      .detailingAssemblies().some((a) => a.elementIds.includes(v)), victim), { timeout: 60_000 }).toBe(false);
-    expect(await rebarSelection(page)).not.toContain(victim);
-  });
-
   test('@smoke C18 — Delete while design is open never deletes model members', async ({ pro: page }) => {
     const ids = await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
     await selectInModel(page, [ids[4]!]);
     await enterDesign(page);
     await page.getByTestId('desk-inspector').click({ position: { x: 5, y: 5 } });
-    await page.keyboard.press('Delete');
-    await page.keyboard.press('Backspace');
-    expect(await page.evaluate(() => window.__stabileo.elementIds())).toEqual(ids);
-  });
-
-  test('@smoke C18b — Delete while the 3-D view is open never deletes model members', async ({ pro: page }) => {
-    await detailedFrame(page);
-    const ids = await page.evaluate(() => window.__stabileo.elementIds());
-    await selectInModel(page, [ids[4]!]);
-    await open3DFromDetailing(page);
     await page.keyboard.press('Delete');
     await page.keyboard.press('Backspace');
     expect(await page.evaluate(() => window.__stabileo.elementIds())).toEqual(ids);
@@ -682,21 +577,17 @@ test.describe('interaction contracts', () => {
     await expect(page.getByTestId('desk-drafts')).toBeVisible();
   });
 
-  test('@slow C23 — a member deleted in the model leaves design, the model and the 3-D view selections', async ({ pro: page }) => {
+  test('@slow C23 — a member deleted in the model leaves the design and the model selections', async ({ pro: page }) => {
     test.setTimeout(240_000);
     await detailedFrame(page);
     await enterDesign(page);
     const id = await verifiedRow(page);
     await pickDesignMember(page, id);
-    await openDesign3D(page);
-    expect(await rebarSelection(page)).toEqual([id]);
-    await page.keyboard.press('Escape');
     await leaveDesignForModel(page);
     expect(await modelSelection(page)).toEqual([id]);
     await page.locator('body').press('Delete');
     await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds())).not.toContain(id);
     expect(await modelSelection(page)).toEqual([]);
-    expect(await rebarSelection(page)).toEqual([]);
     await enterDesign(page);
     expect(await designCurrentMember(page)).toBeNull();
     await expect(page.getByTestId(`desk-row-${id}`)).toHaveCount(0);

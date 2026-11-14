@@ -120,10 +120,10 @@ test.describe('@smoke Documents is a stage of the panel', () => {
     expect(review, 'and the issue is last').toBeLessThan(issue);
   });
 
-  test('E4 — all four projections are offered, in one group', async ({ pro: page }) => {
+  test('E4 — all three projections are offered, in one group', async ({ pro: page }) => {
     await seed(page, [assembly()]);
     await openDocuments(page);
-    for (const id of ['doc-report', 'doc-dxf', 'doc-xlsx', 'doc-3d']) {
+    for (const id of ['doc-report', 'doc-dxf', 'doc-xlsx']) {
       await expect(page.getByTestId(id), `${id} is offered`).toBeVisible();
     }
   });

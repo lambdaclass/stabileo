@@ -35,11 +35,11 @@ type Page = import('@playwright/test').Page;
 
 /**
  * The design commands, in the order the pipeline runs them, with the place each is pressed in
- * (interface A): the member list holds the demands, the required steel, its «Size…» and the 3-D
- * view; the top of the stage holds «Size…» while sizing and «Generate detailing» while detailing.
+ * (interface A): the member list holds the demands, the required steel and its «Size…»; the top
+ * of the stage holds «Size…» while sizing and «Generate detailing» while detailing.
  */
 const COMMANDS = [
-  'cmd-compute-demands', 'cmd-code-check', 'cmd-autodesign', 'desk-design', 'cmd-open-3d',
+  'cmd-compute-demands', 'cmd-code-check', 'cmd-autodesign', 'desk-design',
 ] as const;
 const DETAIL_COMMANDS = ['cmd-generate-detailing'] as const;
 
@@ -110,20 +110,6 @@ test.describe('@smoke a command that cannot run says so', () => {
       expect(said.length, 'the prerequisites are stated in words').toBeGreaterThan(10);
       expect(flat(await generate.getAttribute('title') ?? ''),
         'the tooltip and the visible sentence are the same sentence').toBe(said);
-    });
-
-  test('the 3-D command refuses with a reason until a document exists',
-    async ({ pro: page }) => {
-      await loadModel(page, 'rc-design-qa-8');
-      await designPlace(page, 'list');
-      const open3d = page.getByTestId('cmd-open-3d');
-      await expect(open3d).toBeDisabled();
-      // Disabled, not hidden — a command that vanishes teaches nobody what it needs.
-      await expect(open3d).toBeVisible();
-      expect((await open3d.getAttribute('title') ?? '').trim().length,
-        'the blocked 3-D command states why').toBeGreaterThan(0);
-      // The assembly count only appears when there is something to count.
-      await expect(page.getByTestId('cmd-open-3d-count')).toHaveCount(0);
     });
 });
 

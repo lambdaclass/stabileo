@@ -14,7 +14,6 @@
   import { sortedLevels } from '../../../lib/model/grid';
   import { deskUi } from '../../../lib/store/design-desk-ui.svelte';
   import { designTableUi } from '../design/design-table-ui.svelte';
-  import { openRebar3DView } from '../../../lib/store/rebar-open';
   import VerificationDetail from '../design/VerificationDetail.svelte';
   // One way to copy a frame: the repeats are copied by the same planner the copy panel uses.
   import { applyFrameCopy, equalizeFrames, framesOf, previewFrameCopy } from '../../../lib/store/frame-equalize';
@@ -136,7 +135,6 @@
         <button disabled={decision !== 'edited'} onclick={() => revertToProposal([row.id])} data-testid="desk-revert">{t('desk.revert')}</button>
         <button disabled={decision === 'locked'} onclick={redesign} data-testid="desk-redesign">{t('desk.redesign')}</button>
         <button disabled={decision === 'none' || sameSection.length === 0} onclick={() => { note = tp('desk.equalized', { n: equalizeFrom(row.id, sameSection).length }); }} data-testid="desk-equalize">{tp('desk.equalize', { n: sameSection.length })}</button>
-        <button onclick={() => { uiStore.selectElement(row.id, false); const r = openRebar3DView(); if (!r.ok) note = t('detailing.doc.noCoordinated'); }} data-testid="desk-open-3d">{t('desk.rebar3d')}</button>
       {/if}
     </div>
     {#if row.material === 'concrete'}

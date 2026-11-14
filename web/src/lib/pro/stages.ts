@@ -124,11 +124,6 @@ export type ProStageContext = {
   canReport: boolean;
   onSolve: () => void;
   onReport: () => void;
-  /** Opens the 3-D reinforcement workspace. */
-  onRebar3D: () => void;
-  canRebar3D: () => boolean;
-  /** Which steps that workspace is still waiting on, as i18n keys. */
-  rebar3DMissingSteps: () => string[];
   /** Whether the Design stage is offered (`uiStore.designInPro`); absent, the setting decides. */
   design?: boolean;
 };
@@ -140,10 +135,7 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
 }
 
 function allProStages(ctx: ProStageContext): ProStage[] {
-  const {
-    solved, canSolve, canReport, onSolve, onReport,
-    onRebar3D, canRebar3D, rebar3DMissingSteps,
-  } = ctx;
+  const { solved, canSolve, canReport, onSolve, onReport } = ctx;
   return [
     {
       id: 'model',
@@ -403,19 +395,6 @@ function allProStages(ctx: ProStageContext): ProStage[] {
           labelKey: 'desk.step.detail',
           cmds: [
             { id: 'detailing', labelKey: 'desk.rail.detailing', icon: 'view3d', action: () => openDeskAt('detailing'), activeWhen: () => deskOn('detailing') },
-            {
-              /*
-               * A view of the design work, on the member design is on: `openRebar3DView`, the one
-               * path every entry to the 3-D reinforcement takes.
-               */
-              id: 'rebar3d',
-              labelKey: 'desk.rebar3d',
-              descKey: 'proRibbon.cmdRebar3DDesc',
-              icon: 'view3d',
-              action: onRebar3D,
-              enabled: canRebar3D,
-              blockedKeys: rebar3DMissingSteps,
-            },
           ],
         },
         {
