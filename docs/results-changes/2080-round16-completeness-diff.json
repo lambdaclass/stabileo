@@ -1,0 +1,145 @@
+{
+  "parent": "523cd9416e",
+  "reproducer_commit": "57e99221e",
+  "main": "013485aa2629a05672403919060cc1397f510fd1",
+  "main_source_sha256": {
+    "web/src/lib/engine/verification-service.ts": "61fc199cd3b461fc15c7e25ccb94a7878bcdb9996cd45949ab30c1e1ddcf584d",
+    "web/src/lib/engine/auto-verify.ts": "014670c0b02bd0d3621366e47c845b940a0c5ed20b3f49b771168d8f249c8435",
+    "web/src/lib/engine/codes/argentina/cirsoc201.ts": "52fa26ce7f5938703a950b6d90c13cdc9acc5f4ffbe243432290503e4a0906ec"
+  },
+  "completeness_replay": {
+    "test": "web/src/lib/engine/__tests__/review-r16-completeness.test.ts",
+    "parent": {
+      "fail": 96,
+      "pass": 57
+    },
+    "corrected": {
+      "fail": 0,
+      "pass": 153
+    },
+    "missing_active_results": "refused",
+    "partial_concurrent_tuples": "refused",
+    "missing_supplied_element_entry": "refused",
+    "complete_control": "answered"
+  },
+  "main_partial_result_witness": {
+    "model": {
+      "section": {
+        "b": 0.3,
+        "h": 0.6,
+        "a": 0.18,
+        "iy": "b*h^3/12",
+        "iz": "h*b^3/12",
+        "j": 0.001
+      },
+      "material": {
+        "fc": 25,
+        "fy": 25,
+        "e": 25000,
+        "nu": 0.2
+      },
+      "nodes": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0.4,
+          0,
+          0
+        ]
+      ],
+      "support": "node 1 fixed",
+      "active_combinations": [
+        1,
+        2
+      ],
+      "nodal_my_at_node_2": [
+        20,
+        2000
+      ],
+      "missing_result": 2
+    },
+    "outputs": [
+      {
+        "compact": false,
+        "partial": {
+          "Mu": 19.99999999999997,
+          "overall": "ok",
+          "stationComboIds": [
+            1
+          ]
+        },
+        "complete": {
+          "Mu": 1999.9999999999973,
+          "overall": "fail",
+          "diagnostics": [
+            {
+              "severity": "error",
+              "code": "VERIF_FAIL_FLEXURE",
+              "message": "diag.verifFailFlexure",
+              "source": "verification",
+              "elementIds": [
+                1
+              ],
+              "details": {
+                "ratio": 0.9432701575303842,
+                "phiMn": 2120.2833398612784,
+                "Mu": 1999.9999999999973
+              }
+            }
+          ]
+        }
+      },
+      {
+        "compact": true,
+        "partial": {
+          "Mu": 19.99999999999997,
+          "overall": "ok",
+          "stationComboIds": [
+            1
+          ]
+        },
+        "complete": {
+          "Mu": 1999.9999999999973,
+          "overall": "fail",
+          "diagnostics": [
+            {
+              "severity": "error",
+              "code": "VERIF_FAIL_FLEXURE",
+              "message": "diag.verifFailFlexure",
+              "source": "verification",
+              "elementIds": [
+                1
+              ],
+              "details": {
+                "ratio": 0.9432701575303842,
+                "phiMn": 2120.2833398612784,
+                "Mu": 1999.9999999999973
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "scope": "Exact main verification-service, auto-verify and cirsoc201 modules, with imports redirected only to those historical copies. Initialized current WASM and other current supporting modules. No historical release or full UI replay."
+  },
+  "issue_2141": {
+    "test": "web/src/lib/engine/__tests__/issue-2141-torsion.test.ts",
+    "main_fail": 2,
+    "pre_round15_parent": "bc350f029",
+    "pre_round15_fail": 2,
+    "corrected_pass": 2,
+    "numerical_witness": "2080-round15-main-witness.json"
+  },
+  "minimum_steel": {
+    "production_changed": false,
+    "source": "CIRSOC 201-2025 sections 2 and 9.6.1.2",
+    "designDepth": 0.554,
+    "providedDepth": 0.552,
+    "wrong_oracle": 3.693333333333333,
+    "actual_minimum_cm2": 3.68,
+    "tolerance_unchanged": 6
+  }
+}

@@ -22,7 +22,7 @@ import type { ElementVerification } from './codes/argentina/cirsoc201';
 import { isDesignedMember } from './design/behaviour-demands';
 import { primaryAxis } from './design/design-axes';
 import { verifyConcurrentElement } from './concurrent-verification';
-import { ConcurrentDemand } from './concurrent-demand';
+import { ConcurrentDemand, requireCompleteConcurrentDemand } from './concurrent-demand';
 import { CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 import type { RegulationEdition } from '../codes/regulation';
 
@@ -158,8 +158,11 @@ export function autoVerifyFromResults(
     const b = section.b!, h = section.h!;
     const elementType = classifyElement(nodeI.x, nodeI.y, nodeI.z ?? 0, nodeJ.x, nodeJ.y, nodeJ.z ?? 0, b, h);
     const demands = stationDemands?.get(ef.elementId);
-    if ((demands || governing?.has(ef.elementId)) && !demands?.concurrent?.length) {
-      throw new Error(`Concurrent demands are required for element ${ef.elementId}; an envelope cannot be verified`);
+    if (stationDemands !== undefined || governing?.has(ef.elementId)) {
+      const expected = [...(demands?.expectedCombinationIds ?? []), ...(demands?.demands.map(d => d.comboId) ?? []),
+        ...(demands?.concurrent?.map(d => d.comboId) ?? [])];
+      requireCompleteConcurrentDemand(expected, id => demands?.concurrent?.filter(d => d.comboId === id),
+        `every combination requires concurrent tuples for element ${ef.elementId}`);
     }
     const tuples = demands?.concurrent ?? ConcurrentDemand.endpoints(ef);
     const my = Math.max(...tuples.map(d => Math.abs(d.forces.my))), mz = Math.max(...tuples.map(d => Math.abs(d.forces.mz)));

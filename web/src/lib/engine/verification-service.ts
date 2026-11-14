@@ -1,4 +1,4 @@
-import { ConcurrentDemand } from './concurrent-demand';
+import { ConcurrentDemand, requireCompleteConcurrentDemand } from './concurrent-demand';
 /**
  * Shared verification service — centralized station-based demand computation
  * and verification orchestration for PRO mode.
@@ -87,7 +87,9 @@ export function computeStationDemands(
   const demands = new Map<number, ElementDesignDemands>();
   const stations = new Map<number, ElementStationResult>();
 
-  if (perCombo3D.size === 0) return { demands, stations };
+  if (perCombo3D.size === 0 && combinations.length === 0) return { demands, stations };
+  requireCompleteConcurrentDemand(combinations.map(c => c.id), id => perCombo3D.has(id) ? [perCombo3D.get(id)] : undefined,
+    'every active combination requires analysis results');
 
   if (!model || !isSolverReady()) throw new EngineUnavailableError('the station design forces');
   return computeStationDemandsWasm(perCombo3D, combinations, model);
@@ -104,7 +106,7 @@ function computeStationDemandsWasm(
 ): StationDemandData {
   const loading = new Map([...perCombo3D].map(([id, r]) => [id, new Map(r.elementForces.map(ef => [ef.elementId, ConcurrentDemand.loadingOf(ef)]))]));
   const withLoading = (esr: ElementStationResult): ElementStationResult => ({ ...esr,
-    comboResults: [...perCombo3D.keys()].map(comboId => {
+    comboResults: combinations.map(({ id: comboId }) => {
       const c = esr.comboResults.find(c => c.comboId === comboId);
       const transverseLoading = loading.get(comboId)?.get(esr.elementId);
       return { comboId, comboName: c?.comboName ?? combinations.find(c => c.id === comboId)?.name ?? `Combo ${comboId}`,
@@ -121,6 +123,14 @@ function computeStationDemandsWasm(
     if (L <= 0) continue;
     members.push({ elementId: id, sectionId: elem.sectionId, materialId: elem.materialId, length: L });
   }
+
+  const complete = (data: StationDemandData): StationDemandData => {
+    if (members.length > 0) {
+      requireCompleteConcurrentDemand(members.map(m => m.elementId), id => data.demands.has(id) ? [data.demands.get(id)] : undefined,
+        'every element requires station demands');
+    }
+    return data;
+  };
 
   // Build labeled combinations from per-combo results
   const comboNameMap = new Map<number, string>();
@@ -139,7 +149,7 @@ function computeStationDemandsWasm(
         stations.set(esr.elementId, esr);
         demands.set(esr.elementId, extractGoverningDemands(esr));
       }
-      return { demands, stations };
+      return complete({ demands, stations });
     }
   }
 
@@ -164,7 +174,7 @@ function computeStationDemandsWasm(
     demands.set(member.memberId, extractGoverningDemands(esr));
   }
 
-  return { demands, stations: stationMap };
+  return complete({ demands, stations: stationMap });
 }
 
 /** Adapt one WASM MemberStationGroup3D → app-side ElementStationResult. */

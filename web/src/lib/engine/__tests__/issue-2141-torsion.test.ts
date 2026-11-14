@@ -5,7 +5,7 @@ import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
 
 const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 for (const edition of ['2005', '2025'] as const) {
-  it.fails(`known wrong result: #2141 shear-designed stirrups cannot pass torsion ${edition}`, () => {
+  it(`known wrong result: #2141 shear-designed stirrups cannot pass torsion ${edition}`, () => {
     const demand = ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'torsion', forces: {
       t: 0, x: 0, n: 0, my: 20, mz: 0, vy: 0, vz: 0, torsion: 30,
     } }])[0]!.section('My');

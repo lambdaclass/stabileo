@@ -6,6 +6,16 @@ export function hasCompleteConcurrentDemand(groups: readonly (readonly unknown[]
   return groups.length > 0 && groups.every(stations => stations !== undefined && stations.length > 0);
 }
 
+export function requireCompleteConcurrentDemand(
+  expected: Iterable<number>,
+  group: (id: number) => readonly unknown[] | undefined,
+  context: string,
+): void {
+  if (!hasCompleteConcurrentDemand([...new Set(expected)].map(group))) {
+    throw new Error(`Incomplete concurrent demand: ${context}`);
+  }
+}
+
 export class ConcurrentDemand {
   readonly #concurrent = true;
   private constructor(

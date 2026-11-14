@@ -57,8 +57,14 @@ it('preserves complete governing demands and station reports through the product
     model.nodes.set(m.elementId * 2, { id: m.elementId * 2, x: 0, y: 0, z: 0 });
     model.nodes.set(m.elementId * 2 + 1, { id: m.elementId * 2 + 1, x: m.length, y: 0, z: 0 });
   }
-  const perCombo = new Map(combinations.map(c => [c.comboId, c.results]));
-  const names = [{ id: 8, name: 'Compression', factors: [] }, { id: 15, name: '', factors: [] }];
+  const partial = new Map(combinations.map(c => [c.comboId, c.results]));
+  const names = combinations.map(c => ({ id: c.comboId, name: c.comboName ?? `Combo ${c.comboId}`, factors: [] }));
+  for (const compact of [false, true]) {
+    setCompactStationTransfer(compact);
+    expect(() => computeStationDemands(partial, names, model)).toThrow(/complete|combination/i);
+  }
+  const perCombo = new Map(combinations.map((c, i) => [c.comboId, results(members.map(m =>
+    c.results.elementForces.find(e => e.elementId === m.elementId) ?? force(m.elementId, i)))]));
   setCompactStationTransfer(false);
   const reference = computeStationDemands(perCombo, names, model);
   setCompactStationTransfer(true);
@@ -84,14 +90,15 @@ it('falls back only when the compact export is unavailable, and propagates real 
     nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 6, y: 0, z: 0 }]]),
   } as AutoVerifyModelData;
   const perCombo = new Map([[8, results([force(1)])]]);
+  const active = [{ id: 8, name: 'Compression', factors: [] }];
   setCompactStationTransfer(false);
-  const reference = computeStationDemands(perCombo, [], model);
+  const reference = computeStationDemands(perCombo, active, model);
   setCompactStationTransfer(true);
   const compact = vi.spyOn(wasmSolver, 'extractBeamStationBuffer3D').mockReturnValue(null);
   const grouped = vi.spyOn(wasmSolver, 'extractBeamStationsGrouped3D');
-  expect(computeStationDemands(perCombo, [], model)).toEqual(reference);
+  expect(computeStationDemands(perCombo, active, model)).toEqual(reference);
   expect(grouped).toHaveBeenCalledTimes(1);
   compact.mockImplementation(() => { throw new Error('station extraction failed'); });
-  expect(() => computeStationDemands(perCombo, [], model)).toThrow('station extraction failed');
+  expect(() => computeStationDemands(perCombo, active, model)).toThrow('station extraction failed');
   expect(grouped).toHaveBeenCalledTimes(1);
 });

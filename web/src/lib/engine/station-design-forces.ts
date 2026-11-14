@@ -104,6 +104,7 @@ export interface ElementDesignDemands {
   length: number;
   demands: GoverningDemand[];
   concurrent?: readonly ConcurrentDemand[];
+  readonly expectedCombinationIds?: readonly number[];
   /**
    * The least compression (kN) at any station of any combination, when none is in tension.
    * Below the balance point a column's moment capacity falls with its compression, so the
@@ -326,6 +327,7 @@ export function extractGoverningDemands(esr: ElementStationResult): ElementDesig
     elementId: esr.elementId,
     length: esr.length,
     concurrent: ConcurrentDemand.fromStations(esr),
+    expectedCombinationIds: Object.freeze(esr.comboResults.map(c => c.comboId)),
     demands: Array.from(best.values()).sort((a, b) => b.absValue - a.absValue),
     ...(leastCompression >= 0 && Number.isFinite(leastCompression) ? { leastCompression } : {}),
   };
