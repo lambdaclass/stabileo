@@ -1,0 +1,37 @@
+{
+  "id": "concurrent-secondary-slenderness",
+  "date": "2026-11-14",
+  "prs": [
+    2080
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "title": {
+    "en": "Concrete checks retain secondary slenderness",
+    "es": "El hormigón conserva la esbeltez secundaria",
+    "pt": "O concreto preserva a esbeltez secundária",
+    "de": "Betonnachweise behalten die Nebenschlankheit",
+    "fr": "Le béton conserve l’élancement secondaire",
+    "tr": "Beton kontrolleri ikincil narinliği korur"
+  },
+  "explanation": {
+    "en": "Concrete columns and walls retain their governing secondary-axis slenderness and calculation memo even when no biaxial check is needed. Selection follows slenderness and amplification independently of biaxial utilization. Re-run saved concrete designs and review the secondary-axis memo (#1316, PR #2080).",
+    "es": "Las columnas y los muros de hormigón conservan la esbeltez determinante del eje secundario y su memoria aun cuando no se requiere verificación biaxial. La selección sigue la esbeltez y la amplificación independientemente de la utilización biaxial. Repita los diseños guardados y revise la memoria del eje secundario (#1316, PR #2080).",
+    "pt": "Pilares e paredes de concreto preservam a esbeltez determinante do eixo secundário e sua memória mesmo sem verificação biaxial. A seleção segue a esbeltez e a amplificação, independentemente da utilização biaxial. Refaça os projetos salvos e revise a memória do eixo secundário (#1316, PR #2080).",
+    "de": "Betonstützen und Wände behalten die maßgebende Schlankheit der Nebenachse und ihren Rechengang auch ohne zweiachsigen Nachweis. Die Auswahl folgt Schlankheit und Momentenvergrößerung unabhängig von der zweiachsigen Ausnutzung. Gespeicherte Betonbemessungen erneut ausführen und den Rechengang der Nebenachse prüfen (#1316, PR #2080).",
+    "fr": "Les poteaux et voiles en béton conservent l’élancement déterminant de l’axe secondaire et sa note de calcul même sans vérification biaxiale. La sélection suit l’élancement et l’amplification indépendamment du taux biaxial. Relancer les projets enregistrés et examiner la note de l’axe secondaire (#1316, PR #2080).",
+    "tr": "Beton kolonlar ve perdeler, iki eksenli kontrol gerekmese de ikincil eksenin belirleyici narinliğini ve hesap dökümünü korur. Seçim, iki eksenli kullanım oranından bağımsız olarak narinlik ve büyütmeye dayanır. Kayıtlı beton tasarımlarını yeniden çalıştırıp ikincil eksen hesaplarını inceleyin (#1316, PR #2080)."
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-concurrent-secondary-slenderness.md",
+    "heading": "Concrete checks retain secondary slenderness (2026-11-14)"
+  }
+}

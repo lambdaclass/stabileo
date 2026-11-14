@@ -22,8 +22,7 @@ for (const elementType of ['column', 'wall'] as const) {
   for (const axis of ['My', 'Mz'] as const) {
     for (const edition of ['2005', '2025'] as const) {
       for (const secondary of [0, 0.009, 0.01, 0.011]) {
-        const test = secondary <= 0.01 ? it.fails : it;
-        test(`#1316 — ${elementType}, ${axis}, ${edition}, secondary moment ${secondary} retains its own slenderness and memo`, () => {
+        it(`#1316 — ${elementType}, ${axis}, ${edition}, secondary moment ${secondary} retains its own slenderness and memo`, () => {
           const i = { ...input(elementType, axis, secondary), edition };
           const single = verifyElement(i);
           const expected = checkSlender({ ...params, b: params.h, h: params.b }, 0, secondary, i.Lu!, {
@@ -40,7 +39,7 @@ for (const elementType of ['column', 'wall'] as const) {
     }
   }
   for (const reverse of [false, true]) {
-    it.fails(`#1316 — ${elementType} selects secondary amplification independently of biaxial utilization, reverse=${reverse}`, () => {
+    it(`#1316 — ${elementType} selects secondary amplification independently of biaxial utilization, reverse=${reverse}`, () => {
       const a = input(elementType, 'My', 12, 100, 1);
       const b = input(elementType, 'My', 0, 500, 2);
       const v = verifyConcurrentElement(reverse ? [b, a] : [a, b]);
@@ -53,8 +52,7 @@ for (const elementType of ['column', 'wall'] as const) {
     });
   }
   for (const Lu of [0, 1, 0.3 * params.b * 22, 0.3 * params.b * 22 + 0.001]) {
-    const test = Lu > 0 ? it.fails : it;
-    test(`#1316 — ${elementType} retains secondary slenderness at length ${Lu}`, () => {
+    it(`#1316 — ${elementType} retains secondary slenderness at length ${Lu}`, () => {
       const i = { ...input(elementType, 'My', 0), Lu };
       const single = verifyElement(i);
       expect(single.slenderSecondary?.isSlender ?? false).toBe(Lu > 0.3 * params.b * 22);
@@ -64,7 +62,7 @@ for (const elementType of ['column', 'wall'] as const) {
 }
 
 for (const reverse of [false, true]) {
-  it.fails(`#1316 — slender secondary result governs a short result with equal amplification, reverse=${reverse}`, () => {
+  it(`#1316 — slender secondary result governs a short result with equal amplification, reverse=${reverse}`, () => {
     const a = { ...input('column', 'My', 0.011, 0, 1), M1Secondary: -0.011, M2Secondary: 0.011 };
     const b = input('column', 'My', 0, 0, 2);
     const v = verifyConcurrentElement(reverse ? [b, a] : [a, b]);
@@ -89,19 +87,24 @@ for (const nonlinear of [false, true]) {
   for (const spatial of [false, true]) {
     for (const stations of [false, true]) {
       for (const entry of ['auto', 'unified', 'design'] as const) {
-        it.fails(`#1316 — ${spatial ? 'spatial' : 'planar'} ${nonlinear ? 'P-Delta' : 'linear'} column, ${stations ? 'stations' : 'endpoints'}, ${entry} retains the secondary check`, () => {
-          const model: AutoVerifyModelData = {
-            elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]),
+        it(`#1316 — ${spatial ? 'spatial' : 'planar'} ${nonlinear ? 'P-Delta' : 'linear'} column, ${stations ? 'stations' : 'endpoints'}, ${entry} retains the secondary check`, () => {
+          const model = {
+            elements: new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]),
             nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: 4 }]]),
             sections: new Map([[1, { id: 1, name: 'RC', ...params, a: params.b * params.h,
               iy: params.b * params.h ** 3 / 12, iz: params.h * params.b ** 3 / 12, j: 0.001 }]]),
             materials: new Map([[1, { id: 1, name: 'H30', fc: 30, fy: 30, e: 25000, nu: 0.2 }]]),
-            supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
-          };
-          const solver: SolverInput3D = { ...model, supports: new Map([[1, { nodeId: 1,
+            supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' as const }]]),
+          } satisfies AutoVerifyModelData;
+          const solver: SolverInput3D = { ...model,
+            elements: new Map([...model.elements].map(([id, e]) => [id, { ...e,
+              releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+              releaseTStart: false, releaseTEnd: false,
+            }])),
+            supports: new Map([[1, { nodeId: 1,
             rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
             loads: [{ type: 'nodal', data: { nodeId: 2, fx: 5, fy: spatial ? 0.009 / 4 : 0, fz: 0, mx: 0, my: 0, mz: 0 } }],
-          } as SolverInput3D;
+          };
           const results = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
           const demands = stations ? new Map([[1, extractGoverningDemands({ elementId: 1, length: 4, stationTs: [0, 1],
             comboResults: [{ comboId: 1, comboName: 'load', stations: ConcurrentDemand.endpoints(results.elementForces[0]!).map(d => ({ ...d.forces })) }],

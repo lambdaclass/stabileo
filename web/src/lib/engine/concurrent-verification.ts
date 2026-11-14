@@ -29,11 +29,22 @@ export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationI
       || rank(b.verification[key]!.status) === rank(a.verification[key]!.status)
         && (!Number.isFinite(b.verification[key]!.ratio) || b.verification[key]!.ratio > a.verification[key]!.ratio) ? b : a, undefined);
   const f = worst('flexure')!, s = worst('shear')!, ss = worst('shearSecondary'), c = worst('column'), b = worst('biaxial'), t = worst('torsion');
+  const secondarySlender = checks.reduce<typeof checks[number] | undefined>((a, b) => {
+    const x = a?.verification.slenderSecondary, y = b.verification.slenderSecondary;
+    if (!y) return a;
+    if (!x) return b;
+    const before = [Number(x.isSlender), x.delta_ns, x.klu_r / x.lambda_lim, x.Mc];
+    const after = [Number(y.isSlender), y.delta_ns, y.klu_r / y.lambda_lim, y.Mc];
+    for (let i = 0; i < before.length; i++) {
+      if (after[i] !== before[i]) return after[i]! > before[i]! ? b : a;
+    }
+    return a;
+  }, undefined);
   const at = (x: typeof checks[number]): DemandLocation => ({ comboId: x.demand.comboId, comboName: x.demand.comboName, stationT: x.demand.stationT, stationX: x.demand.stationX });
   const out: ElementVerification = { ...f.verification, flexure: f.verification.flexure, shear: s.verification.shear,
     shearSecondary: ss?.verification.shearSecondary, column: c?.verification.column, biaxial: b?.verification.biaxial, torsion: t?.verification.torsion,
     Nu: c?.verification.column?.Nu ?? f.verification.Nu, Mu: c?.verification.Mu ?? f.verification.Mu, Vu: s.verification.Vu,
-    slender: c?.verification.slender ?? f.verification.slender, slenderSecondary: b?.verification.slenderSecondary,
+    slender: c?.verification.slender ?? f.verification.slender, slenderSecondary: secondarySlender?.verification.slenderSecondary,
     concurrentChecks: checks,
     governingCombos: { flexure: at(f), shear: at(s), ...(ss ? { shearSecondary: at(ss) } : {}),
       ...(c ? { column: at(c), axial: at(c) } : {}), ...(b ? { biaxial: at(b) } : {}), ...(t ? { torsion: at(t) } : {}) },
