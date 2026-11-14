@@ -14734,6 +14734,7 @@ const es: Record<string, string> = {
 
   // Reinforcement sheets (rc-sheets/)
   "rcSheets.opt.seismic": "Pórticos especiales sismorresistentes (capítulo 18): corte por capacidad, confinamiento, columna fuerte y viga débil, nudos",
+  "rcSheets.opt.bentBars": "Armado exacto en vigas: parte de las barras de tramo se levantan sobre los apoyos y cubren el momento negativo (a 45°, no suman al corte)",
   "rcSheets.scopeNote": "Armaduras principales con anclajes, empalmes, puntos de corte y despiece de vigas continuas. Se puede usar, pero buena parte sigue en desarrollo: revisá los resultados.",
   "rcSheets.scopeNoteSeismic": "Con disposiciones de pórticos especiales (capítulo 18). Verificá que el edificio califique como tal y que el análisis sea el que corresponde.",
   "rcSheets.g.seismic": "Sismo (capítulo 18)",
@@ -14779,6 +14780,7 @@ const es: Record<string, string> = {
   "rcSheets.line.kind.continuous": "Corrida",
   "rcSheets.line.kind.support": "Refuerzo de apoyo",
   "rcSheets.line.kind.span": "Refuerzo de tramo",
+  "rcSheets.line.kind.bent": "Levantada",
   "rcSheets.line.from": "Desde (m)",
   "rcSheets.line.to": "Hasta (m)",
   "rcSheets.line.length": "Largo (m)",
@@ -14796,6 +14798,7 @@ const es: Record<string, string> = {
   "rcSheets.s.lineRun": "Barras corridas",
   "rcSheets.s.lineCut": "Punto de corte de los refuerzos",
   "rcSheets.s.lineCutoff": "Corte en zona traccionada",
+  "rcSheets.s.lineBent": "Levantada: baja y sube",
   "rcSheets.s.lineThird": "Un tercio del negativo más allá del punto de inflexión",
   "rcSheets.s.lineDev": "Barras no ancladas: se cuentan en proporción a su anclaje",
   "rcSheets.s.ldRow": "Longitudes",

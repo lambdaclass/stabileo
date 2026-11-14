@@ -14585,6 +14585,7 @@ const tr: Translations = {
 
   // Reinforcement sheets (rc-sheets/)
   "rcSheets.opt.seismic": "Özel moment çerçeveleri (bölüm 18): kapasite kesmesi, sargı, güçlü kolon–zayıf kiriş, birleşimler",
+  "rcSheets.opt.bentBars": "Kirişlerde tam donatı: açıklık donatısının bir kısmı mesnetlerde pilye olarak kaldırılır ve negatif momenti karşılar (45°, kesmeye katılmaz)",
   "rcSheets.scopeNote": "Kenetlenme, bindirme, kesim noktaları ve sürekli kiriş donatı listesiyle ana donatı. Kullanılabilir, ancak büyük kısmı hâlâ geliştirme aşamasında: sonuçları kontrol edin.",
   "rcSheets.scopeNoteSeismic": "Özel moment çerçevesi kurallarıyla (bölüm 18). Binanın buna uygun olduğunu ve analizin doğru olduğunu kontrol edin.",
   "rcSheets.g.seismic": "Deprem (bölüm 18)",
@@ -14630,6 +14631,7 @@ const tr: Translations = {
   "rcSheets.line.kind.continuous": "Sürekli",
   "rcSheets.line.kind.support": "Mesnet ilavesi",
   "rcSheets.line.kind.span": "Açıklık ilavesi",
+  "rcSheets.line.kind.bent": "Pilye",
   "rcSheets.line.from": "Başlangıç (m)",
   "rcSheets.line.to": "Bitiş (m)",
   "rcSheets.line.length": "Boy (m)",
@@ -14647,6 +14649,7 @@ const tr: Translations = {
   "rcSheets.s.lineRun": "Sürekli çubuklar",
   "rcSheets.s.lineCut": "İlave çubukların kesim noktası",
   "rcSheets.s.lineCutoff": "Çekme bölgesinde kesim",
+  "rcSheets.s.lineBent": "Pilye: iner ve çıkar",
   "rcSheets.s.lineThird": "Negatif donatının üçte biri dönüm noktasının ötesine",
   "rcSheets.s.lineDev": "Kenetlenmemiş çubuklar kenetlenme oranında sayılır",
   "rcSheets.s.ldRow": "Boylar",

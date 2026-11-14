@@ -61,6 +61,18 @@
       </label>
     {/each}
   </fieldset>
+  {#if line.adopted.bent}
+    <fieldset data-testid="rc-line-bent">
+      <legend>{t('rcSheets.line.kind.bent')}</legend>
+      {#each line.adopted.bent as g, k (k)}
+        <label>
+          <span>{line.spans[k]?.name}</span>
+          <input type="number" min="0" max="12" value={g.count} aria-label={t('rcSheets.ed.count')} onchange={(e) => patch((a) => setGroup(a.bent![k]!, 'count', num(e)))} />
+          <select value={g.dia} aria-label={t('rcSheets.ed.dia')} onchange={(e) => patch((a) => setGroup(a.bent![k]!, 'dia', num(e)))}>{#each LONG as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
+        </label>
+      {/each}
+    </fieldset>
+  {/if}
   <div class="rle-actions">
     {#if line.isAdopted}
       <button type="button" class="rcs-btn" onclick={() => setAdopted(line.key, null)}>{t('rcSheets.useProposal')}</button>

@@ -92,7 +92,7 @@ export function setColumnEndZones(on: boolean): void {
   setDesignData(d);
 }
 
-export function setRcOption(option: 'faces' | 'flange' | 'seismic', on: boolean): void {
+export function setRcOption(option: 'faces' | 'flange' | 'seismic' | 'bentBars', on: boolean): void {
   const d = { ...rcSheetsData() };
   if (on) d[option] = true; else delete d[option];
   save(d);
@@ -291,7 +291,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const fy = dd.rebarFy;
   const dec = fmt(1.5, 1);
   const seismic = data.seismic && rules.seismic ? { overstrength: seismicSettings().overstrength } : undefined;
-  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion, seismic });
+  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion, seismic, ...(data.bentBars ? { bentBars: true } : {}) });
   const proposals: BeamRow[] = [];
   for (const d of D.beams) {
     const ctx = beamCtx(d);

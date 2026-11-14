@@ -14386,6 +14386,7 @@ const pt: Translations = {
 
   // Reinforcement sheets (rc-sheets/)
   "rcSheets.opt.seismic": "Pórticos especiais sismorresistentes (capítulo 18): cortante por capacidade, confinamento, pilar forte e viga fraca, nós",
+  "rcSheets.opt.bentBars": "Armação exata em vigas: parte das barras do vão é dobrada sobre os apoios e cobre o momento negativo (a 45°, não somam ao cortante)",
   "rcSheets.scopeNote": "Armaduras principais com ancoragens, emendas, pontos de corte e detalhamento de vigas contínuas. Pode ser usado, mas boa parte ainda está em desenvolvimento: confira os resultados.",
   "rcSheets.scopeNoteSeismic": "Com disposições de pórticos especiais (capítulo 18). Verifique se o edifício se qualifica e se a análise é a correspondente.",
   "rcSheets.g.seismic": "Sismo (capítulo 18)",
@@ -14431,6 +14432,7 @@ const pt: Translations = {
   "rcSheets.line.kind.continuous": "Corrida",
   "rcSheets.line.kind.support": "Reforço de apoio",
   "rcSheets.line.kind.span": "Reforço de vão",
+  "rcSheets.line.kind.bent": "Barra dobrada",
   "rcSheets.line.from": "De (m)",
   "rcSheets.line.to": "Até (m)",
   "rcSheets.line.length": "Comprimento (m)",
@@ -14448,6 +14450,7 @@ const pt: Translations = {
   "rcSheets.s.lineRun": "Barras corridas",
   "rcSheets.s.lineCut": "Ponto de corte dos reforços",
   "rcSheets.s.lineCutoff": "Corte em zona tracionada",
+  "rcSheets.s.lineBent": "Barra dobrada: desce e sobe",
   "rcSheets.s.lineThird": "Um terço do negativo além do ponto de inflexão",
   "rcSheets.s.lineDev": "Barras não ancoradas contam na proporção da ancoragem",
   "rcSheets.s.ldRow": "Comprimentos",

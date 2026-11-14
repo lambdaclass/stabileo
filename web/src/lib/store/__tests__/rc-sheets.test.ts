@@ -12,6 +12,8 @@ import { ensurePhysicalModel } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 const modelEntryShells = (id: number) => modelStore.model.groups.get(id)!.members.quads?.length ?? 0;
 import { buildSheetRows, redesignerOf, setSheetCode, rcSheetsData, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
+import { barActsAt } from '../../rc-sheets/beam-line';
+import { bendAngles } from '../../rc-sheets/shape';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
 import { goToRow, resizeHints, lineResizeHint } from '../rc-sheets-resize';
 
@@ -221,6 +223,38 @@ describe('reinforcement sheets from a solved model', () => {
     expect(v.ratio!).toBeGreaterThan(1);
   });
 
+  it('lays out the exact reinforcement: span bars bent up over the supports carry the hogging moment and the line still verifies everywhere', () => {
+    frame();
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    const wide = modelStore.addSection({ name: '60×60', a: 0.36, iy: 0.6 ** 4 / 12, iz: 0.6 ** 4 / 12, j: 0.1406 * 0.6 ** 4, b: 0.6, h: 0.6, shape: 'rect' } as never);
+    for (const e of modelStore.elements.values()) {
+      const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
+      if (Math.abs((a.z ?? 0) - (b.z ?? 0)) < 1e-6) modelStore.addDistributedLoad3D(e.id, 0, 0, -60, -60, undefined, undefined, D);
+      else modelStore.updateElementSection(e.id, wide);
+    }
+    solve();
+    const straight = buildSheetRows().line[0]!;
+    setRcOption('bentBars', true);
+    const ln = buildSheetRows().line[0]!;
+    const bent = ln.bars.filter((b) => b.kind === 'bent');
+    expect(bent.length).toBeGreaterThan(0);
+    expect(ln.status).toBe('ok');
+    expect(ln.envelope.every((e) => e.pos <= e.phiPos + 1e-6 && e.neg <= e.phiNeg + 1e-6)).toBe(true);
+    for (const b of bent) {
+      expect(b.runs.map((r) => r.face)).toEqual(['top', 'bottom', 'top']);
+      const mid = (b.runs[1]!.from + b.runs[1]!.to) / 2;
+      expect(barActsAt(b, 'bottom', mid)).toBe(true);
+      expect(barActsAt(b, 'top', mid)).toBe(false);
+      expect(barActsAt(b, 'bottom', b.runs[0]!.to + 0.01)).toBe(false);
+      expect(bendAngles(b.shape).slice(-4, -2).every((t) => Math.abs(t - Math.PI / 4) < 1e-9 || Math.abs(t - Math.PI / 2) < 1e-9)).toBe(true);
+      expect(b.length).toBeGreaterThan(b.to - b.from);
+    }
+    const midTop = (l: typeof ln) => l.bars.filter((b) => b.kind === 'support' && b.from < 5 && b.to > 5).reduce((n, b) => n + b.bars.count, 0);
+    expect(midTop(ln)).toBeLessThan(midTop(straight));
+    expect(ln.adopted.bent?.some((g) => g.count > 0)).toBe(true);
+    expect(ln.steps[0]!.steps.some((x) => x.label === 'rcSheets.s.lineBent')).toBe(true);
+  });
+
   it('gives the line its shear envelope against the stirrups of each zone', () => {
     frame(); solve();
     const ln = buildSheetRows().line[0]!;
@@ -245,7 +279,6 @@ describe('reinforcement sheets from a solved model', () => {
     const rows = buildSheetRows();
     expect(rows.slab).toHaveLength(1);
     const s = rows.slab[0]!;
-    console.log('DBG', JSON.stringify(s.verifications.map((v) => [v.label, v.ok, v.demand, v.capacity])), rows.punching.length, rows.punching[0]?.status);
     expect(s.demand.m.bottomX.value).toBeGreaterThan(6);
     expect(s.demand.m.bottomX.value).toBeCloseTo(s.demand.m.bottomY.value, 6);
     expect(s.demand.m.topX.value).toBeGreaterThan(0);

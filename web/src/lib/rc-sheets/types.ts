@@ -60,6 +60,8 @@ export interface RcSheetsData {
   flange?: boolean;
   /** Special moment frame provisions (chapter 18). */
   seismic?: boolean;
+  /** Beams whose span bars rise over the supports to carry the hogging moment there. */
+  bentBars?: boolean;
   /** Adopted bars by row key. */
   adopted: Record<string, Adopted>;
 }

@@ -20,6 +20,10 @@
 
   /** A bar's trace inside the beam, span by span (the depth may change between spans); the end spans reach into the end supports. */
   function trace(bar: LineBar): Array<{ x1: number; x2: number; y: number }> {
+    if (bar.kind === 'bent') {
+      const r = bar.runs.find((x) => x.face === 'bottom') ?? bar.runs[0]!;
+      return [{ x1: X(r.from), x2: X(r.to), y: TOP + (hMax - (bar.shape.pts.find((p) => p[0] >= r.from - 1e-9)?.[1] ?? 0)) * sy }];
+    }
     const inner = bar.kind === 'continuous' ? 0 : 6;
     const last = line.spans.length - 1;
     return line.spans.flatMap((s, k) => {
@@ -72,7 +76,8 @@
   const phiV = $derived(path(line.shear.map((e) => [X(e.x), vY(Math.min(finite(e.phiVn), vMax))])));
   const yDim = $derived(envelope && line.envelope.length ? yV + 30 : yBeamBottom + BELOW + 36);
   const ySchedule = $derived(yDim + 34);
-  const H = $derived(ySchedule + line.bars.length * ROW + 8);
+  const rowTop = $derived(line.bars.reduce<number[]>((acc, b, i) => { acc.push(i ? acc[i - 1]! + (line.bars[i - 1]!.kind === 'bent' ? 2 * ROW : ROW) : 0); return acc; }, []));
+  const H = $derived(ySchedule + line.bars.reduce((acc, b) => acc + (b.kind === 'bent' ? 2 * ROW : ROW), 0) + 8);
 </script>
 
 <svg class="rcl" viewBox="0 0 {W} {H}" role="img" aria-label={line.name} data-testid="rc-line-svg">
@@ -87,7 +92,10 @@
   {#each ticks as tk, i (i)}
     <line x1={tk.x} y1={tk.y1} x2={tk.x} y2={tk.y2} class="stirrup" />
   {/each}
-  {#each line.bars as bar (bar.mark)}
+  {#each line.bars.filter((b) => b.kind === 'bent') as bar (bar.mark)}
+    <polyline points={bar.shape.pts.map((p) => `${X(p[0]).toFixed(1)},${(TOP + (hMax - p[1]) * sy).toFixed(1)}`).join(' ')} class="bar bent" data-testid="rc-bent-bar" />
+  {/each}
+  {#each line.bars.filter((b) => b.kind !== 'bent') as bar (bar.mark)}
     {@const segs = trace(bar)}
     {#each segs as sg, i (i)}
       <line x1={sg.x1} y1={sg.y} x2={sg.x2} y2={sg.y} class="bar {bar.kind}" />
@@ -148,13 +156,18 @@
   {/each}
 
   {#each line.bars as bar, n (bar.mark)}
-    {@const y = ySchedule + n * ROW + 16}
+    {@const y = ySchedule + rowTop[n]! + (bar.kind === 'bent' ? ROW : 0) + 16}
     {@const so = setOut(bar)}
     <circle cx={M - 26} cy={y} r="9" class="mark {bar.kind}" />
     <text x={M - 26} y={y + 3.5} class="markt">{bar.mark}</text>
-    <line x1={X(bar.from)} y1={y} x2={X(bar.to)} y2={y} class="bar {bar.kind}" />
-    {#if bar.hooks[0]}<line x1={X(bar.from)} y1={y} x2={X(bar.from)} y2={bar.face === 'top' ? y + 8 : y - 8} class="bar {bar.kind}" />{/if}
-    {#if bar.hooks[1]}<line x1={X(bar.to)} y1={y} x2={X(bar.to)} y2={bar.face === 'top' ? y + 8 : y - 8} class="bar {bar.kind}" />{/if}
+    {#if bar.kind === 'bent'}
+      {@const base = Math.min(...bar.shape.pts.map((p) => p[1]))}
+      <polyline points={bar.shape.pts.map((p) => `${X(p[0]).toFixed(1)},${(y + 8 - (p[1] - base) * Math.min(sy, 60) * 0.35).toFixed(1)}`).join(' ')} class="bar bent" />
+    {:else}
+      <line x1={X(bar.from)} y1={y} x2={X(bar.to)} y2={y} class="bar {bar.kind}" />
+      {#if bar.hooks[0]}<line x1={X(bar.from)} y1={y} x2={X(bar.from)} y2={bar.face === 'top' ? y + 8 : y - 8} class="bar {bar.kind}" />{/if}
+      {#if bar.hooks[1]}<line x1={X(bar.to)} y1={y} x2={X(bar.to)} y2={bar.face === 'top' ? y + 8 : y - 8} class="bar {bar.kind}" />{/if}
+    {/if}
     <text x={X((bar.from + bar.to) / 2)} y={y - 5} class="lab">{bar.bars.count} Ø{bar.bars.dia} · L = {fmt(bar.length)} m</text>
     {#if so}
       <text x={X(bar.from) + 3} y={y + 12} class="small start">{so[0]}</text>
@@ -173,6 +186,8 @@
   .bar.continuous { stroke: var(--st-text); }
   .bar.support { stroke: var(--st-danger); }
   .bar.span { stroke: var(--st-ok); }
+  .bar.bent { stroke: #b48cf2; }
+  .mark.bent { stroke: #b48cf2; }
   .splice { stroke: var(--st-warn); stroke-width: 4; opacity: 0.6; }
   .dimline { stroke: var(--st-text-3); stroke-width: 0.8; }
   .dim { font-size: 11px; fill: var(--st-text-2); text-anchor: middle; font-family: var(--st-mono); }

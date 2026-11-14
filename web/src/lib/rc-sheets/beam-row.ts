@@ -68,6 +68,8 @@ export interface BeamContext {
   torsion: TorsionMode;
   /** Special moment frame provisions (chapter 18), with the project's λo. */
   seismic?: Seismic;
+  /** Span bars bent up over the supports, where a continuous beam's run is laid out. */
+  bentBars?: boolean;
 }
 
 export interface FlexureCheck { section: SectionName; sign: 'pos' | 'neg'; phiMn: number; mu: number; epsT: number; epsTMin: number; d: number; ok: boolean; ductile: boolean }

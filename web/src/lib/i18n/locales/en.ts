@@ -14745,6 +14745,7 @@ const en: Record<string, string> = {
 
   // Reinforcement sheets (rc-sheets/)
   "rcSheets.opt.seismic": "Special moment frames (chapter 18): capacity shear, confinement, strong column–weak beam, joints",
+  "rcSheets.opt.bentBars": "Exact reinforcement in beams: some span bars bend up over the supports to carry the hogging moment (at 45°, not counted for shear)",
   "rcSheets.scopeNote": "Main reinforcement with development, splices, cut-off points and the bar schedule of continuous beams. Usable, but mostly still in development: check the results.",
   "rcSheets.scopeNoteSeismic": "With special moment frame provisions (chapter 18). Check that the building qualifies and that the analysis is the right one.",
   "rcSheets.g.seismic": "Seismic (chapter 18)",
@@ -14790,6 +14791,7 @@ const en: Record<string, string> = {
   "rcSheets.line.kind.continuous": "Continuous",
   "rcSheets.line.kind.support": "Support extra",
   "rcSheets.line.kind.span": "Span extra",
+  "rcSheets.line.kind.bent": "Bent-up bar",
   "rcSheets.line.from": "From (m)",
   "rcSheets.line.to": "To (m)",
   "rcSheets.line.length": "Length (m)",
@@ -14807,6 +14809,7 @@ const en: Record<string, string> = {
   "rcSheets.s.lineRun": "Continuous bars",
   "rcSheets.s.lineCut": "Cut-off of the extra bars",
   "rcSheets.s.lineCutoff": "Cut-off in a tension zone",
+  "rcSheets.s.lineBent": "Bent-up bar: down and up",
   "rcSheets.s.lineThird": "A third of the hogging steel past the inflection point",
   "rcSheets.s.lineDev": "Undeveloped bars count in proportion to their development",
   "rcSheets.s.ldRow": "Lengths",

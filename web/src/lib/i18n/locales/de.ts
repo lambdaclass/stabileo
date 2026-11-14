@@ -14585,6 +14585,7 @@ const de: Translations = {
 
   // Reinforcement sheets (rc-sheets/)
   "rcSheets.opt.seismic": "Duktile Rahmen (Kapitel 18): Kapazitätsquerkraft, Umschnürung, starke Stütze–schwacher Balken, Knoten",
+  "rcSheets.opt.bentBars": "Exakte Bewehrung in Balken: ein Teil der Feldstäbe wird über den Auflagern aufgebogen und deckt das Stützmoment (unter 45°, ohne Anrechnung auf die Querkraft)",
   "rcSheets.scopeNote": "Hauptbewehrung mit Verankerung, Stößen, Abschnittpunkten und Biegeliste der Durchlaufträger. Nutzbar, aber großenteils noch in Entwicklung: Prüfen Sie die Ergebnisse.",
   "rcSheets.scopeNoteSeismic": "Mit Regeln für duktile Rahmen (Kapitel 18). Prüfen Sie, ob das Gebäude dafür in Frage kommt und die Berechnung passt.",
   "rcSheets.g.seismic": "Erdbeben (Kapitel 18)",
@@ -14630,6 +14631,7 @@ const de: Translations = {
   "rcSheets.line.kind.continuous": "Durchlaufend",
   "rcSheets.line.kind.support": "Stützenzulage",
   "rcSheets.line.kind.span": "Feldzulage",
+  "rcSheets.line.kind.bent": "Aufgebogener Stab",
   "rcSheets.line.from": "Von (m)",
   "rcSheets.line.to": "Bis (m)",
   "rcSheets.line.length": "Länge (m)",
@@ -14647,6 +14649,7 @@ const de: Translations = {
   "rcSheets.s.lineRun": "Durchlaufende Stäbe",
   "rcSheets.s.lineCut": "Abschnittpunkt der Zulagen",
   "rcSheets.s.lineCutoff": "Abschnitt in der Zugzone",
+  "rcSheets.s.lineBent": "Aufgebogener Stab: ab und auf",
   "rcSheets.s.lineThird": "Ein Drittel der Stützbewehrung über den Wendepunkt",
   "rcSheets.s.lineDev": "Nicht verankerte Stäbe zählen anteilig",
   "rcSheets.s.ldRow": "Längen",

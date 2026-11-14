@@ -14585,6 +14585,7 @@ const fr: Translations = {
 
   // Reinforcement sheets (rc-sheets/)
   "rcSheets.opt.seismic": "Portiques spéciaux parasismiques (chapitre 18) : effort tranchant de capacité, confinement, poteau fort–poutre faible, nœuds",
+  "rcSheets.opt.bentBars": "Ferraillage exact des poutres : une partie des barres de travée est relevée sur les appuis et reprend le moment négatif (à 45°, non comptée à l'effort tranchant)",
   "rcSheets.scopeNote": "Armatures principales avec ancrages, recouvrements, arrêts de barres et nomenclature des poutres continues. Utilisable, mais encore en grande partie en développement : vérifiez les résultats.",
   "rcSheets.scopeNoteSeismic": "Avec les dispositions des portiques spéciaux (chapitre 18). Vérifiez que le bâtiment s'y prête et que l'analyse est adaptée.",
   "rcSheets.g.seismic": "Séisme (chapitre 18)",
@@ -14630,6 +14631,7 @@ const fr: Translations = {
   "rcSheets.line.kind.continuous": "Filante",
   "rcSheets.line.kind.support": "Renfort d'appui",
   "rcSheets.line.kind.span": "Renfort de travée",
+  "rcSheets.line.kind.bent": "Barre relevée",
   "rcSheets.line.from": "De (m)",
   "rcSheets.line.to": "À (m)",
   "rcSheets.line.length": "Longueur (m)",
@@ -14647,6 +14649,7 @@ const fr: Translations = {
   "rcSheets.s.lineRun": "Barres filantes",
   "rcSheets.s.lineCut": "Arrêt des renforts",
   "rcSheets.s.lineCutoff": "Arrêt en zone tendue",
+  "rcSheets.s.lineBent": "Barre relevée : descend et remonte",
   "rcSheets.s.lineThird": "Un tiers des aciers négatifs au-delà du point d'inflexion",
   "rcSheets.s.lineDev": "Barres non ancrées comptées au prorata de leur ancrage",
   "rcSheets.s.ldRow": "Longueurs",
