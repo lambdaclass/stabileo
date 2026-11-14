@@ -11,10 +11,10 @@ import type { SolverInput3D } from '../types-3d';
 const params = { b: 0.4, h: 0.6, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 };
 
 function input(elementType: 'column' | 'wall' | 'beam', axis: 'My' | 'Mz', secondary: number, n = 0, comboId = 1): ConcurrentVerificationInput {
-  const demand = ConcurrentDemand.fromTuples([{ comboId, comboName: `comb ${comboId}`, forces: {
+  const demand = ConcurrentDemand.fromStations({ elementId: 1, length: 4, stationTs: [0.5], comboResults: [{ comboId, comboName: `comb ${comboId}`, transverseLoading: { My: false, Mz: false }, stations: [{
     n: -n, my: axis === 'My' ? 20 : secondary, mz: axis === 'Mz' ? 20 : secondary,
     vy: 5, vz: 5, torsion: 0, t: 0.5, x: 2,
-  } }])[0]!.section(axis);
+  }] }] })[0]!.section(axis);
   return { ...params, elementId: 1, elementType, demand, Lu: 4 };
 }
 

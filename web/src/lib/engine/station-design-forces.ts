@@ -74,6 +74,7 @@ export interface ComboStationResult {
   comboId: number;
   comboName: string;
   stations: StationForces[];
+  transverseLoading?: Readonly<{ My?: boolean; Mz?: boolean }>;
 }
 
 /** Full station-based results for one element across all combos. */

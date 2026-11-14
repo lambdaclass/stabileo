@@ -8,6 +8,7 @@ export class ConcurrentDemand {
     readonly comboId: number,
     readonly comboName: string,
     readonly forces: Readonly<StationForces>,
+    readonly transverseLoading: Readonly<{ My?: boolean; Mz?: boolean }>,
     readonly ends: Readonly<{ my: readonly [number, number]; mz: readonly [number, number] }>,
   ) { Object.freeze(this); }
 
@@ -26,7 +27,7 @@ export class ConcurrentDemand {
       const ordered = [...c.stations].sort((a, b) => a.t - b.t);
       const first = ordered[0]!, last = ordered[ordered.length - 1]!;
       const ends = Object.freeze({ my: Object.freeze([first.my, last.my] as [number, number]), mz: Object.freeze([first.mz, last.mz] as [number, number]) });
-      return c.stations.map(s => new ConcurrentDemand(c.comboId, c.comboName, Object.freeze({ ...s }), ends));
+      return c.stations.map(s => new ConcurrentDemand(c.comboId, c.comboName, Object.freeze({ ...s }), Object.freeze({ ...c.transverseLoading }), ends));
     });
   }
 
@@ -38,12 +39,25 @@ export class ConcurrentDemand {
       c.stations.push({ ...t.forces });
     }
     const ends = new Map(ConcurrentDemand.fromStations({ elementId: 0, length: 0, stationTs: [], comboResults: [...combos.values()] }).map(d => [d.comboId, d.ends]));
-    return tuples.map(t => new ConcurrentDemand(t.comboId, t.comboName, Object.freeze({ ...t.forces }), ends.get(t.comboId)!));
+    return tuples.map(t => new ConcurrentDemand(t.comboId, t.comboName, Object.freeze({ ...t.forces }), Object.freeze({}), ends.get(t.comboId)!));
+  }
+
+  static loadingOf(ef: AnalysisResults3D['elementForces'][number] | undefined): Readonly<{ My?: boolean; Mz?: boolean }> {
+    const axis = (direction: 'Y' | 'Z'): boolean | undefined => {
+      if (!ef) return undefined;
+      const qi = direction === 'Y' ? ef.qYI : ef.qZI, qj = direction === 'Y' ? ef.qYJ : ef.qZJ;
+      const distributed = direction === 'Y' ? ef.distributedLoadsY : ef.distributedLoadsZ;
+      const points = direction === 'Y' ? ef.pointLoadsY : ef.pointLoadsZ;
+      if (qi !== undefined && qi !== 0 || qj !== undefined && qj !== 0
+        || distributed?.some(q => q.qI !== 0 || q.qJ !== 0) || points?.some(p => p.a > 0 && p.a < ef.length && p.p !== 0)) return true;
+      return qi === 0 && qj === 0 && distributed && points ? false : undefined;
+    };
+    return Object.freeze({ My: axis('Z'), Mz: axis('Y') });
   }
 
   static endpoints(ef: AnalysisResults3D['elementForces'][number]): ConcurrentDemand[] {
     return ConcurrentDemand.fromStations({ elementId: ef.elementId, length: ef.length, stationTs: [0, 1], comboResults: [{
-      comboId: 0, comboName: '', stations: ([0, 1] as const).map(t => ({
+      comboId: 0, comboName: '', transverseLoading: ConcurrentDemand.loadingOf(ef), stations: ([0, 1] as const).map(t => ({
         t, x: t * ef.length, n: t ? ef.nEnd : ef.nStart,
         my: t ? ef.myEnd : ef.myStart, mz: t ? ef.mzEnd : ef.mzStart,
         vy: t ? ef.vyEnd : ef.vyStart, vz: t ? ef.vzEnd : ef.vzStart,
@@ -58,12 +72,12 @@ export class ConcurrentDemand {
     const w = span > 1e-9 ? (t - this.stationT) / span : 0;
     const lerp = (key: 'n' | 'my' | 'mz' | 'vy' | 'vz' | 'torsion' | 'x') => this.forces[key] + (other.forces[key] - this.forces[key]) * w;
     return new ConcurrentDemand(this.comboId, this.comboName, Object.freeze({ t, x: lerp('x'), n: lerp('n'),
-      my: lerp('my'), mz: lerp('mz'), vy: lerp('vy'), vz: lerp('vz'), torsion: lerp('torsion') }), this.ends);
+      my: lerp('my'), mz: lerp('mz'), vy: lerp('vy'), vz: lerp('vz'), torsion: lerp('torsion') }), this.transverseLoading, this.ends);
   }
 
   withAxial(n: number): ConcurrentDemand {
     if (!this.#concurrent) throw new Error('Concurrent demand required');
-    return new ConcurrentDemand(this.comboId, this.comboName, Object.freeze({ ...this.forces, n }), this.ends);
+    return new ConcurrentDemand(this.comboId, this.comboName, Object.freeze({ ...this.forces, n }), this.transverseLoading, this.ends);
   }
 
   section(axis: 'My' | 'Mz'): ConcurrentSectionDemand {

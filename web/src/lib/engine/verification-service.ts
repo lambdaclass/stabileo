@@ -102,6 +102,9 @@ function computeStationDemandsWasm(
   combinations: LoadCombination[],
   model: AutoVerifyModelData,
 ): StationDemandData {
+  const loading = new Map([...perCombo3D].map(([id, r]) => [id, new Map(r.elementForces.map(ef => [ef.elementId, ConcurrentDemand.loadingOf(ef)]))]));
+  const withLoading = (esr: ElementStationResult): ElementStationResult => ({ ...esr,
+    comboResults: esr.comboResults.map(c => ({ ...c, transverseLoading: loading.get(c.comboId)?.get(esr.elementId) })) });
   // Build member list from model
   const members: Array<{ elementId: number; sectionId: number; materialId: number; length: number }> = [];
   for (const [id, elem] of model.elements) {
@@ -126,7 +129,8 @@ function computeStationDemandsWasm(
     if (buffer) {
       const stations = new Map<number, ElementStationResult>();
       const demands = new Map<number, ElementDesignDemands>();
-      for (const esr of decodeStationBuffer(buffer, comboNameMap)) {
+      for (const decoded of decodeStationBuffer(buffer, comboNameMap)) {
+        const esr = withLoading(decoded);
         stations.set(esr.elementId, esr);
         demands.set(esr.elementId, extractGoverningDemands(esr));
       }
@@ -150,7 +154,7 @@ function computeStationDemandsWasm(
   const stationMap = new Map<number, ElementStationResult>();
 
   for (const member of grouped.members) {
-    const esr = wasmMemberToStationResult(member, comboNameMap);
+    const esr = withLoading(wasmMemberToStationResult(member, comboNameMap));
     stationMap.set(member.memberId, esr);
     demands.set(member.memberId, extractGoverningDemands(esr));
   }
@@ -623,10 +627,8 @@ export interface SteelSegmentDiagram {
 
 function steelMomentWindow(Lb: number, extent: { length: number; center: number }): { tStart: number; tEnd: number } | undefined {
   if (!(Lb > 0) || !(Lb <= extent.length)) return undefined;
-  if (Lb >= extent.length - 1e-9) return { tStart: 0, tEnd: 1 };
-  const w = Lb / extent.length;
-  const tStart = Math.max(0, Math.min(extent.center - w / 2, 1 - w));
-  return { tStart, tEnd: tStart + w };
+  if (Lb === extent.length) return { tStart: 0, tEnd: 1 };
+  return undefined;
 }
 
 export function steelSegmentDiagram(
@@ -788,6 +790,7 @@ export function steelMemberLengths(
   const br = e.bracing;
   return {
     ...base,
+    bracing: br,
     ...(e.kStrong !== undefined ? { Kx: e.kStrong } : {}), ...(e.kWeak !== undefined ? { Ky: e.kWeak } : {}),
     ...(br?.top?.length ? { Lb: flangeUnbracedLength(base.L, br.top) } : {}),
     ...(br?.bottom?.length ? { LbNeg: flangeUnbracedLength(base.L, br.bottom) } : br?.top?.length ? { LbNeg: base.L } : {}),
@@ -821,6 +824,7 @@ export function checkSteelMember(
     angle?: AngleCompressionInput;
     /** Lb of the bottom flange (negative moments), and the per-axis buckling lengths, m. */
     LbNeg?: number; Lx?: number; Ly?: number;
+    bracing?: SteelBracing;
     /** Where the transverse load acts (F.2.2), as the member declares it (`Element.steelLoadHeight`). */
     loadPosition?: 'web' | 'topFlange';
   },
@@ -888,16 +892,25 @@ export function checkSteelMember(
     const { Cb: _old, ...rest } = p;
     void _old;
     const own = steelParamsForDemand(rest, d.section('My'));
-    const key = `${d.comboId}|${own.Lb}`;
+    const diagramLength = segment?.extent?.length ?? demand.diagramLength ?? L;
+    const points = d.my < 0 ? lengths.bracing?.bottom : lengths.bracing?.top;
+    const windows = !segment && points?.length ? (() => {
+      const xs = [0, ...points.filter(x => x > 0 && x < diagramLength), diagramLength].sort((a, b) => a - b);
+      return xs.slice(1).flatMap((end, i) => d.stationX >= xs[i]! && d.stationX <= end
+        ? [{ tStart: xs[i]! / diagramLength, tEnd: end / diagramLength }] : []);
+    })() : (() => {
+      const window = segment?.extent ? steelMomentWindow(own.Lb, segment.extent)
+        : segment ? own.Lb === diagramLength && segment.tStart === 0 && segment.tEnd === 1
+          ? { tStart: 0, tEnd: 1 } : undefined
+        : steelMomentWindow(own.Lb, { length: diagramLength, center: 0.5 });
+      return window ? [window] : [];
+    })();
+    const key = `${d.comboId}|${own.Lb}|${windows.map(w => `${w.tStart}:${w.tEnd}`).join(',')}`;
     if (!cb.has(key)) {
-      const window = segment
-        ? segment.extent ? steelMomentWindow(own.Lb, segment.extent)
-          : own.Lb === lengths.Lb ? { tStart: segment.tStart, tEnd: segment.tEnd } : undefined
-        : steelMomentWindow(own.Lb, { length: demand.diagramLength ?? L, center: 0.5 });
-      const stations = !window ? [] : segment ? segment.byCombo?.get(d.comboId) ?? [] : demand.diagrams?.get(d.comboId) ?? [];
-      const grad = cirsoc301InputsAvailable() ? momentGradient({ stations, ...window,
-        shape: section.shape, cantileverFreeEnd: lengths.freeEnd === true }) : undefined;
-      cb.set(key, grad?.basis === 'computed' ? grad.cb : undefined);
+      const stations = segment ? segment.byCombo?.get(d.comboId) ?? [] : demand.diagrams?.get(d.comboId) ?? [];
+      const factors = windows.map(window => cirsoc301InputsAvailable() ? momentGradient({ stations, ...window,
+        shape: section.shape, cantileverFreeEnd: lengths.freeEnd === true }) : undefined);
+      cb.set(key, factors.length && factors.every(g => g?.basis === 'computed') ? Math.min(...factors.map(g => g!.cb)) : undefined);
     }
     const factor = cb.get(key);
     return factor === undefined ? own : { ...own, Cb: factor };

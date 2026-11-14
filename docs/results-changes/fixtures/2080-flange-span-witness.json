@@ -32,9 +32,9 @@
       },
       {
         "t": 0.25,
-        "x": 2.0,
+        "x": 2,
         "n": 0,
-        "my": -5.0,
+        "my": -5,
         "mz": 0,
         "vy": 0,
         "vz": 0,
@@ -42,9 +42,9 @@
       },
       {
         "t": 0.5,
-        "x": 4.0,
+        "x": 4,
         "n": 0,
-        "my": -10.0,
+        "my": -10,
         "mz": 0,
         "vy": 0,
         "vz": 0,
@@ -52,9 +52,9 @@
       },
       {
         "t": 0.75,
-        "x": 6.0,
+        "x": 6,
         "n": 0,
-        "my": -15.0,
+        "my": -15,
         "mz": 0,
         "vy": 0,
         "vz": 0,
@@ -263,110 +263,112 @@
       "small": {
         "d": 0.359,
         "AsProv": 6.284,
-        "bars": "2 \u00d820",
+        "bars": "2 Ø20",
         "phiMn": 81.72691981835293,
         "ratio": 0.24471740822304575,
         "steps": [
           "d = 35.9 cm, d' = 4.1 cm",
-          "Mu = 20.00 kN\u00b7m",
-          "As,m\u00edn = 4.79 cm\u00b2",
-          "As,req (motor, CIRSOC 201-2025) = 1.49 cm\u00b2: \u03c6Mn = 20.00 kN\u00b7m, \u03b5t = 144.05 \u2030 \u2265 \u03b5t,m\u00edn = 5.10 \u2030",
-          "As,req (tracci\u00f3n) = 4.79 cm\u00b2",
-          "Armadura tracci\u00f3n: 2 \u00d820 (6.28 cm\u00b2)",
+          "Mu = 20.00 kN·m",
+          "As,mín = 4.79 cm²",
+          "As,req (motor, CIRSOC 201-2025) = 1.49 cm²: φMn = 20.00 kN·m, εt = 144.05 ‰ ≥ εt,mín = 5.10 ‰",
+          "As,req (tracción) = 4.79 cm²",
+          "Armadura tracción: 2 Ø20 (6.28 cm²)",
           "a = 2.59 cm, c = 3.10 cm",
-          "\u03b5t = 31.59\u2030 \u2192 \u03c6 = 0.900",
-          "\u03c6Mn = 81.73 kN\u00b7m"
+          "εt = 31.59‰ → φ = 0.900",
+          "φMn = 81.73 kN·m"
         ]
       },
       "large": {
         "d": 0.359,
         "AsProv": 9.818,
-        "bars": "2 \u00d825",
+        "bars": "2 Ø25",
         "phiMn": 124.06052867929414,
         "ratio": 0.8060581481037178,
         "steps": [
           "d = 35.9 cm, d' = 4.1 cm",
-          "Mu = 100.00 kN\u00b7m",
-          "As,m\u00edn = 4.79 cm\u00b2",
-          "As,req (motor, CIRSOC 201-2025) = 7.71 cm\u00b2: \u03c6Mn = 100.00 kN\u00b7m, \u03b5t = 25.35 \u2030 \u2265 \u03b5t,m\u00edn = 5.10 \u2030",
-          "As,req (tracci\u00f3n) = 7.71 cm\u00b2",
-          "Armadura tracci\u00f3n: 2 \u00d825 (9.82 cm\u00b2)",
+          "Mu = 100.00 kN·m",
+          "As,mín = 4.79 cm²",
+          "As,req (motor, CIRSOC 201-2025) = 7.71 cm²: φMn = 100.00 kN·m, εt = 25.35 ‰ ≥ εt,mín = 5.10 ‰",
+          "As,req (tracción) = 7.71 cm²",
+          "Armadura tracción: 2 Ø25 (9.82 cm²)",
           "a = 4.04 cm, c = 4.84 cm",
-          "\u03b5t = 18.98\u2030 \u2192 \u03c6 = 0.900",
-          "\u03c6Mn = 124.06 kN\u00b7m"
+          "εt = 18.98‰ → φ = 0.900",
+          "φMn = 124.06 kN·m"
         ]
       },
       "shared": {
         "d": 0.359,
         "AsProv": 9.818,
-        "bars": "2 \u00d825",
+        "bars": "2 Ø25",
         "phiMn": 125.73057047929413,
         "ratio": 0.15907030345729395,
         "steps": [
           "d = 35.9 cm, d' = 4.1 cm",
-          "Mu = 20.00 kN\u00b7m",
-          "As,m\u00edn = 4.79 cm\u00b2",
-          "As,req (motor, CIRSOC 201-2025) = 1.49 cm\u00b2: \u03c6Mn = 20.00 kN\u00b7m, \u03b5t = 144.05 \u2030 \u2265 \u03b5t,m\u00edn = 5.10 \u2030",
-          "As,req (tracci\u00f3n) = 4.79 cm\u00b2",
-          "Armadura tracci\u00f3n: 2 \u00d820 (6.28 cm\u00b2)",
+          "Mu = 20.00 kN·m",
+          "As,mín = 4.79 cm²",
+          "As,req (motor, CIRSOC 201-2025) = 1.49 cm²: φMn = 20.00 kN·m, εt = 144.05 ‰ ≥ εt,mín = 5.10 ‰",
+          "As,req (tracción) = 4.79 cm²",
+          "Armadura tracción: 2 Ø20 (6.28 cm²)",
           "a = 2.59 cm, c = 3.10 cm",
-          "\u03b5t = 31.59\u2030 \u2192 \u03c6 = 0.900",
-          "\u03c6Mn = 81.73 kN\u00b7m"
+          "εt = 31.59‰ → φ = 0.900",
+          "φMn = 81.73 kN·m"
         ]
       }
     },
     "fixed": {
       "small": {
-        "d": 0.359,
+        "d": 0.357,
         "AsProv": 6.284,
-        "bars": "2 \u00d820",
+        "bars": "2 Ø20",
         "phiMn": 81.72691981835293,
         "ratio": 0.24471740822304575,
         "steps": [
-          "d = 35.9 cm, d' = 4.1 cm",
-          "Mu = 20.00 kN\u00b7m",
-          "As,m\u00edn = 4.79 cm\u00b2",
-          "As,req (motor, CIRSOC 201-2025) = 1.49 cm\u00b2: \u03c6Mn = 20.00 kN\u00b7m, \u03b5t = 144.05 \u2030 \u2265 \u03b5t,m\u00edn = 5.10 \u2030",
-          "As,req (tracci\u00f3n) = 4.79 cm\u00b2",
-          "Armadura tracci\u00f3n: 2 \u00d820 (6.28 cm\u00b2)",
+          "d (dimensionamiento) = 35.9 cm, d' = 4.1 cm",
+          "Mu = 20.00 kN·m",
+          "As,mín = 4.79 cm²",
+          "As,req (motor, CIRSOC 201-2025) = 1.49 cm²: φMn = 20.00 kN·m, εt = 144.05 ‰ ≥ εt,mín = 5.10 ‰",
+          "As,req (tracción) = 4.79 cm²",
+          "d (armadura provista) = 35.70 cm",
+          "Armadura tracción: 2 Ø20 (6.28 cm²)",
           "a = 2.59 cm, c = 3.10 cm",
-          "\u03b5t = 31.59\u2030 \u2192 \u03c6 = 0.900",
-          "\u03c6Mn = 81.73 kN\u00b7m"
+          "εt = 31.59‰ → φ = 0.900",
+          "φMn = 81.73 kN·m"
         ]
       },
       "large": {
-        "d": 0.359,
+        "d": 0.3545,
         "AsProv": 9.818,
-        "bars": "2 \u00d825",
+        "bars": "2 Ø25",
         "phiMn": 124.06052867929414,
         "ratio": 0.8060581481037178,
         "steps": [
-          "d = 35.9 cm, d' = 4.1 cm",
-          "Mu = 100.00 kN\u00b7m",
-          "As,m\u00edn = 4.79 cm\u00b2",
-          "As,req (motor, CIRSOC 201-2025) = 7.71 cm\u00b2: \u03c6Mn = 100.00 kN\u00b7m, \u03b5t = 25.35 \u2030 \u2265 \u03b5t,m\u00edn = 5.10 \u2030",
-          "As,req (tracci\u00f3n) = 7.71 cm\u00b2",
-          "Armadura tracci\u00f3n: 2 \u00d825 (9.82 cm\u00b2)",
+          "d (dimensionamiento) = 35.9 cm, d' = 4.1 cm",
+          "Mu = 100.00 kN·m",
+          "As,mín = 4.79 cm²",
+          "As,req (motor, CIRSOC 201-2025) = 7.71 cm²: φMn = 100.00 kN·m, εt = 25.35 ‰ ≥ εt,mín = 5.10 ‰",
+          "As,req (tracción) = 7.71 cm²",
+          "d (armadura provista) = 35.45 cm",
+          "Armadura tracción: 2 Ø25 (9.82 cm²)",
           "a = 4.04 cm, c = 4.84 cm",
-          "\u03b5t = 18.98\u2030 \u2192 \u03c6 = 0.900",
-          "\u03c6Mn = 124.06 kN\u00b7m"
+          "εt = 18.98‰ → φ = 0.900",
+          "φMn = 124.06 kN·m"
         ]
       },
       "shared": {
-        "d": 0.359,
+        "d": 0.3545,
         "AsProv": 9.818,
-        "bars": "2 \u00d825",
-        "phiMn": 125.73057047929413,
-        "ratio": 0.15907030345729395,
+        "bars": "2 Ø25",
+        "phiMn": 124.06052867929414,
+        "ratio": 0.16121162962074356,
         "steps": [
-          "d = 35.9 cm",
-          "Mu = 20.00 kN\u00b7m",
-          "As,req (tracci\u00f3n) = 4.79 cm\u00b2",
-          "Armadura tracci\u00f3n: 2 \u00d825 (9.82 cm\u00b2)",
+          "d = 35.4 cm",
+          "Mu = 20.00 kN·m",
+          "As,req (tracción) = 4.79 cm²",
+          "Armadura tracción: 2 Ø25 (9.82 cm²)",
           "a = 4.04 cm, c = 4.84 cm",
-          "\u03b5t = 19.26\u2030 \u2192 \u03c6 = 0.900",
-          "\u03c6Mn = 125.73 kN\u00b7m",
-          "Mu/\u03c6Mn = 0.159"
+          "εt = 18.98‰ → φ = 0.900",
+          "φMn = 124.06 kN·m",
+          "Mu/φMn = 0.161"
         ]
       }
     }

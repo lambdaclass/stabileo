@@ -1,0 +1,39 @@
+{
+  "id": "concurrent-depth-and-load-context",
+  "date": "2026-11-14",
+  "prs": [
+    2080
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers",
+      "steelMembers"
+    ]
+  },
+  "title": {
+    "en": "Design uses selected bars and known span loading",
+    "es": "El diseño usa las barras elegidas y las cargas del tramo",
+    "pt": "O projeto usa as barras escolhidas e as cargas do trecho",
+    "de": "Bemessung verwendet gewählte Bewehrung und bekannte Querlasten",
+    "fr": "Le calcul utilise les barres choisies et les charges de la portée",
+    "tr": "Tasarım seçilen donatıyı ve açıklık yüklerini kullanır"
+  },
+  "explanation": {
+    "en": "Shared concrete cages use the depth of their selected bars. Concrete columns with transverse or unknown loading receive no end-gradient reduction. Steel Cb uses the brace interval containing each demand; unknown intervals receive unity. Re-run saved designs and review utilization, governing cases and certificates (PR #2080).",
+    "es": "Las armaduras compartidas usan la altura útil de las barras elegidas. Las columnas con carga transversal o desconocida no reducen el momento por gradiente de extremos. Cb usa el intervalo arriostrado de cada demanda; sin ubicación conocida vale uno. Repetí los diseños guardados y revisá utilización, casos determinantes y certificados (PR #2080).",
+    "pt": "Armaduras compartilhadas usam a altura útil das barras escolhidas. Colunas com carga transversal ou desconhecida não recebem redução pelo gradiente dos momentos de extremidade. Cb usa o intervalo de travamento de cada esforço; intervalos desconhecidos usam um. Refaça os projetos salvos e revise utilização, casos críticos e certificados (PR #2080).",
+    "de": "Gemeinsame Betonbewehrung verwendet die wirksame Höhe der gewählten Stäbe. Bei Querlasten oder unbekannten Lasten entfällt die Endmomentenreduktion. Cb verwendet den Aussteifungsabschnitt des jeweiligen Nachweises; bei unbekannter Lage gilt eins. Gespeicherte Bemessungen erneut ausführen und Ausnutzung, maßgebende Fälle und Zertifikate prüfen (PR #2080).",
+    "fr": "Les cages communes utilisent la hauteur utile des barres choisies. Les poteaux avec charge transversale ou inconnue ne bénéficient pas de la réduction par gradient des moments aux extrémités. Cb utilise la portée contreventée de chaque effort ; sa valeur est un si la position est inconnue. Relancer les calculs enregistrés et vérifier taux, cas déterminants et certificats (PR #2080).",
+    "tr": "Ortak betonarme donatısı seçilen çubukların faydalı yüksekliğini kullanır. Enine yükü olan veya yük bilgisi bilinmeyen kolonlarda uç momenti azaltımı uygulanmaz. Cb her talebin bulunduğu destek aralığını kullanır; aralık bilinmiyorsa bir alınır. Kayıtlı tasarımları yeniden çalıştırıp oranları, belirleyici durumları ve sertifikaları inceleyin (PR #2080)."
+  },
+  "quantities": [
+    "member",
+    "rc",
+    "steel"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-concurrent-depth-and-load-context.md",
+    "heading": "Selected reinforcement and load context govern design (2026-11-14)"
+  }
+}

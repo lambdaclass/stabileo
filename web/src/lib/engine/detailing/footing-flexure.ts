@@ -982,9 +982,9 @@ function designDirection(
   );
   // The two must agree by construction. If a future edit to either expression breaks that, this
   // throws in development instead of silently designing at a depth nobody reported.
-  if (Math.abs(flex.d - d) > 1e-9) {
+  if (Math.abs(flex.designDepth - d) > 1e-9) {
     throw new Error(
-      `footing mat: designed depth ${flex.d} disagrees with reported depth ${d}`);
+      `footing mat: designed depth ${flex.designDepth} disagrees with reported depth ${d}`);
   }
   const asFlexural = Math.max(0, flex.AsFlexural) * 1e-4;   // cm² → m²
 

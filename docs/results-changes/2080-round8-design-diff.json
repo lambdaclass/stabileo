@@ -1,0 +1,885 @@
+{
+  "base": "73e43d54c",
+  "cases": [
+    {
+      "file": "web/results-snapshots/design-footing-rc-footing-cad-poc.json",
+      "changes": [
+        {
+          "field": "design.member[e5].ratio",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.member[e6].ratio",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.member[e7].ratio",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.member[e8].ratio",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.rc[e1].checks[0].capacity",
+          "before": 125.7305705,
+          "after": 124.0605287
+        },
+        {
+          "field": "design.rc[e1].checks[0].ratio",
+          "before": 0.68823629,
+          "after": 0.6975009884
+        },
+        {
+          "field": "design.rc[e2].checks[0].capacity",
+          "before": 125.7305705,
+          "after": 124.0605287
+        },
+        {
+          "field": "design.rc[e2].checks[0].ratio",
+          "before": 0.7069950097,
+          "after": 0.7165122287
+        },
+        {
+          "field": "design.rc[e3].checks[0].capacity",
+          "before": 125.7305705,
+          "after": 124.0605287
+        },
+        {
+          "field": "design.rc[e3].checks[0].ratio",
+          "before": 0.68823629,
+          "after": 0.6975009884
+        },
+        {
+          "field": "design.rc[e4].checks[0].capacity",
+          "before": 125.7305705,
+          "after": 124.0605287
+        },
+        {
+          "field": "design.rc[e4].checks[0].ratio",
+          "before": 0.7069950097,
+          "after": 0.7165122287
+        },
+        {
+          "field": "design.rc[e5].utilization",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.rc[e5].checks[0].capacity",
+          "before": 125.4603614,
+          "after": 124.985291
+        },
+        {
+          "field": "design.rc[e5].checks[0].ratio",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.rc[e6].utilization",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.rc[e6].checks[0].capacity",
+          "before": 125.4603614,
+          "after": 124.985291
+        },
+        {
+          "field": "design.rc[e6].checks[0].ratio",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.rc[e7].utilization",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.rc[e7].checks[0].capacity",
+          "before": 122.4582535,
+          "after": 121.9831831
+        },
+        {
+          "field": "design.rc[e7].checks[0].ratio",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.rc[e8].utilization",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.rc[e8].checks[0].capacity",
+          "before": 122.4582535,
+          "after": 121.9831831
+        },
+        {
+          "field": "design.rc[e8].checks[0].ratio",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        }
+      ]
+    },
+    {
+      "file": "web/results-snapshots/design-rc-beam-flexure.json",
+      "changes": [
+        {
+          "field": "design.rc[e1].checks[0].capacity",
+          "before": 115.2282561,
+          "after": 113.5582143
+        },
+        {
+          "field": "design.rc[e1].checks[0].ratio",
+          "before": 0.8027544903,
+          "after": 0.8145601845
+        },
+        {
+          "field": "design.rc[e2].checks[0].capacity",
+          "before": 115.2282561,
+          "after": 113.5582143
+        },
+        {
+          "field": "design.rc[e2].checks[0].ratio",
+          "before": 0.8027544903,
+          "after": 0.8145601845
+        }
+      ]
+    },
+    {
+      "file": "web/results-snapshots/design-rc-design-qa-8.json",
+      "changes": [
+        {
+          "field": "design.member[e5].ratio",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.member[e6].ratio",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.member[e7].ratio",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.member[e8].ratio",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.rc[e1].checks[0].capacity",
+          "before": 125.7305705,
+          "after": 124.0605287
+        },
+        {
+          "field": "design.rc[e1].checks[0].ratio",
+          "before": 0.68823629,
+          "after": 0.6975009884
+        },
+        {
+          "field": "design.rc[e2].checks[0].capacity",
+          "before": 125.7305705,
+          "after": 124.0605287
+        },
+        {
+          "field": "design.rc[e2].checks[0].ratio",
+          "before": 0.7069950097,
+          "after": 0.7165122287
+        },
+        {
+          "field": "design.rc[e3].checks[0].capacity",
+          "before": 125.7305705,
+          "after": 124.0605287
+        },
+        {
+          "field": "design.rc[e3].checks[0].ratio",
+          "before": 0.68823629,
+          "after": 0.6975009884
+        },
+        {
+          "field": "design.rc[e4].checks[0].capacity",
+          "before": 125.7305705,
+          "after": 124.0605287
+        },
+        {
+          "field": "design.rc[e4].checks[0].ratio",
+          "before": 0.7069950097,
+          "after": 0.7165122287
+        },
+        {
+          "field": "design.rc[e5].utilization",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.rc[e5].checks[0].capacity",
+          "before": 125.4603614,
+          "after": 124.985291
+        },
+        {
+          "field": "design.rc[e5].checks[0].ratio",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.rc[e6].utilization",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.rc[e6].checks[0].capacity",
+          "before": 125.4603614,
+          "after": 124.985291
+        },
+        {
+          "field": "design.rc[e6].checks[0].ratio",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.rc[e7].utilization",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.rc[e7].checks[0].capacity",
+          "before": 122.4582535,
+          "after": 121.9831831
+        },
+        {
+          "field": "design.rc[e7].checks[0].ratio",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.rc[e8].utilization",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.rc[e8].checks[0].capacity",
+          "before": 122.4582535,
+          "after": 121.9831831
+        },
+        {
+          "field": "design.rc[e8].checks[0].ratio",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        }
+      ]
+    },
+    {
+      "file": "web/results-snapshots/design-rc-design-qa-row2.json",
+      "changes": [
+        {
+          "field": "design.member[e1].ratio",
+          "before": 0.9722259395,
+          "after": 0.9822070609
+        },
+        {
+          "field": "design.member[e2].ratio",
+          "before": 0.9722259395,
+          "after": 0.9822070609
+        },
+        {
+          "field": "design.member[e3].ratio",
+          "before": 0.9722259395,
+          "after": 0.9822070609
+        },
+        {
+          "field": "design.member[e4].ratio",
+          "before": 0.9722259395,
+          "after": 0.9822070609
+        },
+        {
+          "field": "design.member[e5].ratio",
+          "before": 0.9476772171,
+          "after": 0.955931419
+        },
+        {
+          "field": "design.member[e6].ratio",
+          "before": 0.9476772171,
+          "after": 0.955931419
+        },
+        {
+          "field": "design.member[e7].ratio",
+          "before": 0.9476772171,
+          "after": 0.955931419
+        },
+        {
+          "field": "design.member[e8].ratio",
+          "before": 0.9476772171,
+          "after": 0.955931419
+        },
+        {
+          "field": "design.rc[e1].utilization",
+          "before": 0.9722259395,
+          "after": 0.9822070609
+        },
+        {
+          "field": "design.rc[e1].checks[0].capacity",
+          "before": 164.3429411,
+          "after": 162.6728993
+        },
+        {
+          "field": "design.rc[e1].checks[0].ratio",
+          "before": 0.9722259395,
+          "after": 0.9822070609
+        },
+        {
+          "field": "design.rc[e2].utilization",
+          "before": 0.9722259395,
+          "after": 0.9822070609
+        },
+        {
+          "field": "design.rc[e2].checks[0].capacity",
+          "before": 164.3429411,
+          "after": 162.6728993
+        },
+        {
+          "field": "design.rc[e2].checks[0].ratio",
+          "before": 0.9722259395,
+          "after": 0.9822070609
+        },
+        {
+          "field": "design.rc[e3].utilization",
+          "before": 0.9722259395,
+          "after": 0.9822070609
+        },
+        {
+          "field": "design.rc[e3].checks[0].capacity",
+          "before": 164.3429411,
+          "after": 162.6728993
+        },
+        {
+          "field": "design.rc[e3].checks[0].ratio",
+          "before": 0.9722259395,
+          "after": 0.9822070609
+        },
+        {
+          "field": "design.rc[e4].utilization",
+          "before": 0.9722259395,
+          "after": 0.9822070609
+        },
+        {
+          "field": "design.rc[e4].checks[0].capacity",
+          "before": 164.3429411,
+          "after": 162.6728993
+        },
+        {
+          "field": "design.rc[e4].checks[0].ratio",
+          "before": 0.9722259395,
+          "after": 0.9822070609
+        },
+        {
+          "field": "design.rc[e5].utilization",
+          "before": 0.9476772171,
+          "after": 0.955931419
+        },
+        {
+          "field": "design.rc[e5].checks[0].capacity",
+          "before": 193.4100307,
+          "after": 191.7399889
+        },
+        {
+          "field": "design.rc[e5].checks[0].ratio",
+          "before": 0.9476772171,
+          "after": 0.955931419
+        },
+        {
+          "field": "design.rc[e6].utilization",
+          "before": 0.9476772171,
+          "after": 0.955931419
+        },
+        {
+          "field": "design.rc[e6].checks[0].capacity",
+          "before": 193.4100307,
+          "after": 191.7399889
+        },
+        {
+          "field": "design.rc[e6].checks[0].ratio",
+          "before": 0.9476772171,
+          "after": 0.955931419
+        },
+        {
+          "field": "design.rc[e7].utilization",
+          "before": 0.9476772171,
+          "after": 0.955931419
+        },
+        {
+          "field": "design.rc[e7].checks[0].capacity",
+          "before": 193.4100307,
+          "after": 191.7399889
+        },
+        {
+          "field": "design.rc[e7].checks[0].ratio",
+          "before": 0.9476772171,
+          "after": 0.955931419
+        },
+        {
+          "field": "design.rc[e8].utilization",
+          "before": 0.9476772171,
+          "after": 0.955931419
+        },
+        {
+          "field": "design.rc[e8].checks[0].capacity",
+          "before": 193.4100307,
+          "after": 191.7399889
+        },
+        {
+          "field": "design.rc[e8].checks[0].ratio",
+          "before": 0.9476772171,
+          "after": 0.955931419
+        }
+      ]
+    },
+    {
+      "file": "web/results-snapshots/design-rc-design-qa-seismic.json",
+      "changes": [
+        {
+          "field": "design.member[e5].ratio",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.member[e6].ratio",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.member[e7].ratio",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.member[e8].ratio",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.rc[e1].checks[0].capacity",
+          "before": 125.7305705,
+          "after": 124.0605287
+        },
+        {
+          "field": "design.rc[e1].checks[0].ratio",
+          "before": 0.68823629,
+          "after": 0.6975009884
+        },
+        {
+          "field": "design.rc[e2].checks[0].capacity",
+          "before": 125.7305705,
+          "after": 124.0605287
+        },
+        {
+          "field": "design.rc[e2].checks[0].ratio",
+          "before": 0.68823629,
+          "after": 0.6975009884
+        },
+        {
+          "field": "design.rc[e3].checks[0].capacity",
+          "before": 125.7305705,
+          "after": 124.0605287
+        },
+        {
+          "field": "design.rc[e3].checks[0].ratio",
+          "before": 0.68823629,
+          "after": 0.6975009884
+        },
+        {
+          "field": "design.rc[e4].checks[0].capacity",
+          "before": 125.7305705,
+          "after": 124.0605287
+        },
+        {
+          "field": "design.rc[e4].checks[0].ratio",
+          "before": 0.68823629,
+          "after": 0.6975009884
+        },
+        {
+          "field": "design.rc[e5].utilization",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.rc[e5].checks[0].capacity",
+          "before": 125.4603614,
+          "after": 124.985291
+        },
+        {
+          "field": "design.rc[e5].checks[0].ratio",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.rc[e6].utilization",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.rc[e6].checks[0].capacity",
+          "before": 125.4603614,
+          "after": 124.985291
+        },
+        {
+          "field": "design.rc[e6].checks[0].ratio",
+          "before": 0.8884691336,
+          "after": 0.8918462141
+        },
+        {
+          "field": "design.rc[e7].utilization",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.rc[e7].checks[0].capacity",
+          "before": 122.4582535,
+          "after": 121.9831831
+        },
+        {
+          "field": "design.rc[e7].checks[0].ratio",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.rc[e8].utilization",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        },
+        {
+          "field": "design.rc[e8].checks[0].capacity",
+          "before": 122.4582535,
+          "after": 121.9831831
+        },
+        {
+          "field": "design.rc[e8].checks[0].ratio",
+          "before": 0.6634348148,
+          "after": 0.6660185992
+        }
+      ]
+    },
+    {
+      "file": "web/results-snapshots/design-rc-qa-diagnostic.json",
+      "changes": [
+        {
+          "field": "design.member[e10].ratio",
+          "before": 0.8698444912,
+          "after": 0.8749391244
+        },
+        {
+          "field": "design.member[e11].ratio",
+          "before": 0.3945085518,
+          "after": 0.3968191676
+        },
+        {
+          "field": "design.member[e12].ratio",
+          "before": 0.6824877288,
+          "after": 0.69178751
+        },
+        {
+          "field": "design.member[e1].ratio",
+          "before": 0.5115943176,
+          "after": 0.5145906985
+        },
+        {
+          "field": "design.member[e2].ratio",
+          "before": 0.432057981,
+          "after": 0.4345885218
+        },
+        {
+          "field": "design.member[e3].ratio",
+          "before": 0.6250042169,
+          "after": 0.6286648336
+        },
+        {
+          "field": "design.member[e4].ratio",
+          "before": 0.8710953214,
+          "after": 0.8761972806
+        },
+        {
+          "field": "design.member[e5].ratio",
+          "before": 0.5314940991,
+          "after": 0.5346070319
+        },
+        {
+          "field": "design.member[e7].ratio",
+          "before": 0.5137418576,
+          "after": 0.5167508165
+        },
+        {
+          "field": "design.member[e8].ratio",
+          "before": 0.3672609231,
+          "after": 0.3694119509
+        },
+        {
+          "field": "design.member[e9].ratio",
+          "before": 0.6202173877,
+          "after": 0.6238499682
+        },
+        {
+          "field": "design.rc[e10].utilization",
+          "before": 0.8698444912,
+          "after": 0.8749391244
+        },
+        {
+          "field": "design.rc[e10].checks[0].capacity",
+          "before": 81.5873609,
+          "after": 81.1122905
+        },
+        {
+          "field": "design.rc[e10].checks[0].ratio",
+          "before": 0.8698444912,
+          "after": 0.8749391244
+        },
+        {
+          "field": "design.rc[e11].utilization",
+          "before": 0.3945085518,
+          "after": 0.3968191676
+        },
+        {
+          "field": "design.rc[e11].checks[0].capacity",
+          "before": 81.5873609,
+          "after": 81.1122905
+        },
+        {
+          "field": "design.rc[e11].checks[0].ratio",
+          "before": 0.3945085518,
+          "after": 0.3968191676
+        },
+        {
+          "field": "design.rc[e12].utilization",
+          "before": 0.6824877288,
+          "after": 0.69178751
+        },
+        {
+          "field": "design.rc[e12].checks[0].capacity",
+          "before": 124.2302399,
+          "after": 122.5601981
+        },
+        {
+          "field": "design.rc[e12].checks[0].ratio",
+          "before": 0.6824877288,
+          "after": 0.69178751
+        },
+        {
+          "field": "design.rc[e13].checks[0].capacity",
+          "before": 152.3647158,
+          "after": 150.694674
+        },
+        {
+          "field": "design.rc[e13].checks[0].ratio",
+          "before": 0.8590152396,
+          "after": 0.868535094
+        },
+        {
+          "field": "design.rc[e14].checks[0].capacity",
+          "before": 189.6193029,
+          "after": 187.9492611
+        },
+        {
+          "field": "design.rc[e14].checks[0].ratio",
+          "before": 0.8199834116,
+          "after": 0.8272694555
+        },
+        {
+          "field": "design.rc[e15].checks[0].capacity",
+          "before": 160.9235664,
+          "after": 159.2535246
+        },
+        {
+          "field": "design.rc[e15].checks[0].ratio",
+          "before": 0.8842457808,
+          "after": 0.8935185892
+        },
+        {
+          "field": "design.rc[e16].checks[0].capacity",
+          "before": 203.6478635,
+          "after": 201.9778217
+        },
+        {
+          "field": "design.rc[e16].checks[0].ratio",
+          "before": 0.7579124544,
+          "after": 0.7641792092
+        },
+        {
+          "field": "design.rc[e17].checks[0].capacity",
+          "before": 152.6920372,
+          "after": 151.0219954
+        },
+        {
+          "field": "design.rc[e17].checks[0].ratio",
+          "before": 0.8573433385,
+          "after": 0.8668240715
+        },
+        {
+          "field": "design.rc[e18].checks[0].capacity",
+          "before": 190.0142178,
+          "after": 188.344176
+        },
+        {
+          "field": "design.rc[e18].checks[0].ratio",
+          "before": 0.8219201289,
+          "after": 0.8292080684
+        },
+        {
+          "field": "design.rc[e19].checks[0].capacity",
+          "before": 161.8456885,
+          "after": 160.1756467
+        },
+        {
+          "field": "design.rc[e19].checks[0].ratio",
+          "before": 0.8804055033,
+          "after": 0.8895848887
+        },
+        {
+          "field": "design.rc[e1].utilization",
+          "before": 0.5115943176,
+          "after": 0.5145906985
+        },
+        {
+          "field": "design.rc[e1].checks[0].capacity",
+          "before": 81.5873609,
+          "after": 81.1122905
+        },
+        {
+          "field": "design.rc[e1].checks[0].ratio",
+          "before": 0.5115943176,
+          "after": 0.5145906985
+        },
+        {
+          "field": "design.rc[e20].checks[0].capacity",
+          "before": 204.8370103,
+          "after": 203.1669685
+        },
+        {
+          "field": "design.rc[e20].checks[0].ratio",
+          "before": 0.7561012636,
+          "after": 0.7623164507
+        },
+        {
+          "field": "design.rc[e2].utilization",
+          "before": 0.432057981,
+          "after": 0.4345885218
+        },
+        {
+          "field": "design.rc[e2].checks[0].capacity",
+          "before": 81.5873609,
+          "after": 81.1122905
+        },
+        {
+          "field": "design.rc[e2].checks[0].ratio",
+          "before": 0.432057981,
+          "after": 0.4345885218
+        },
+        {
+          "field": "design.rc[e3].utilization",
+          "before": 0.6250042169,
+          "after": 0.6286648336
+        },
+        {
+          "field": "design.rc[e3].checks[0].capacity",
+          "before": 81.5873609,
+          "after": 81.1122905
+        },
+        {
+          "field": "design.rc[e3].checks[0].ratio",
+          "before": 0.6250042169,
+          "after": 0.6286648336
+        },
+        {
+          "field": "design.rc[e4].utilization",
+          "before": 0.8710953214,
+          "after": 0.8761972806
+        },
+        {
+          "field": "design.rc[e4].checks[0].capacity",
+          "before": 81.5873609,
+          "after": 81.1122905
+        },
+        {
+          "field": "design.rc[e4].checks[0].ratio",
+          "before": 0.8710953214,
+          "after": 0.8761972806
+        },
+        {
+          "field": "design.rc[e5].utilization",
+          "before": 0.5314940991,
+          "after": 0.5346070319
+        },
+        {
+          "field": "design.rc[e5].checks[0].capacity",
+          "before": 81.5873609,
+          "after": 81.1122905
+        },
+        {
+          "field": "design.rc[e5].checks[0].ratio",
+          "before": 0.5314940991,
+          "after": 0.5346070319
+        },
+        {
+          "field": "design.rc[e6].checks[0].capacity",
+          "before": 124.2302399,
+          "after": 122.5601981
+        },
+        {
+          "field": "design.rc[e6].checks[0].ratio",
+          "before": 0.6864348801,
+          "after": 0.6957884464
+        },
+        {
+          "field": "design.rc[e7].utilization",
+          "before": 0.5137418576,
+          "after": 0.5167508165
+        },
+        {
+          "field": "design.rc[e7].checks[0].capacity",
+          "before": 81.5873609,
+          "after": 81.1122905
+        },
+        {
+          "field": "design.rc[e7].checks[0].ratio",
+          "before": 0.5137418576,
+          "after": 0.5167508165
+        },
+        {
+          "field": "design.rc[e8].utilization",
+          "before": 0.3672609231,
+          "after": 0.3694119509
+        },
+        {
+          "field": "design.rc[e8].checks[0].capacity",
+          "before": 81.5873609,
+          "after": 81.1122905
+        },
+        {
+          "field": "design.rc[e8].checks[0].ratio",
+          "before": 0.3672609231,
+          "after": 0.3694119509
+        },
+        {
+          "field": "design.rc[e9].utilization",
+          "before": 0.6202173877,
+          "after": 0.6238499682
+        },
+        {
+          "field": "design.rc[e9].checks[0].capacity",
+          "before": 81.5873609,
+          "after": 81.1122905
+        },
+        {
+          "field": "design.rc[e9].checks[0].ratio",
+          "before": 0.6202173877,
+          "after": 0.6238499682
+        }
+      ]
+    }
+  ]
+}

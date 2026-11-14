@@ -3,7 +3,7 @@ import { ConcurrentDemand } from '../../concurrent-demand';
 import { verifyConcurrentElement } from '../../concurrent-verification';
 
 export function verifyElement(input: VerificationInput) {
-  const loads = input.axialLoads?.length ? input.axialLoads : [input.NuShear ?? input.Nu];
+  const loads = [...new Set([input.Nu, ...(input.NuShear !== undefined ? [input.NuShear] : []), ...(input.axialLoads ?? [])])];
   const demands = ConcurrentDemand.fromStations({ elementId: input.elementId, length: input.Lu ?? 1, stationTs: [0],
     comboResults: loads.map((n, k) => ({ comboId: k, comboName: `manual ${k}`, stations: [{
       t: 0, x: 0, n: -n, mz: input.Mu, my: input.Muy ?? 0, vy: input.Vu,

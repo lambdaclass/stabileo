@@ -1,5 +1,7 @@
 # Flange spans and behaviour apply to every design demand (2026-11-14)
 
+Round 8 supersedes the centred-window interpretation and shared-cage capacity reported below. See [selected reinforcement and load context](2026-11-concurrent-depth-and-load-context.md) for the numerical correction and regenerated witness.
+
 PR #2080 round 7 reproduced three findings on head `46a91640c2`. Unrestricted members already returned unchanged from `maskDemands`; that fourth claim is refuted by enabled tension controls.
 
 Retained moment and shear governing records carried the original axial force while concurrent station packets had the excluded sign masked. Other-code dispatch gives retained records priority at a combination/station, so deduplication restored the excluded force. A single signed axial projection now serves governing records, concurrent packets and legacy axial tuples. Filtering categories and projecting their concurrent axial force happen at the same boundary. Analysis results are unchanged.

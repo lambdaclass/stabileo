@@ -56,6 +56,7 @@ export type VerifStatus = 'ok' | 'fail' | 'warn';
 export interface FlexureResult {
   Mu: number;          // design moment (kN·m)
   d: number;           // effective depth (m)
+  designDepth: number;
   a: number;           // stress block depth for the PROVIDED bars (m)
   /**
    * The same four quantities at the REQUIRED steel, which is what a worked
@@ -445,7 +446,7 @@ export function checkFlexure(
   ({ d, design, AsMin, AsDesign } = first!);
   // "Needs compression steel" also when no singly-reinforced steel works at all (a footing reports it).
   const isDoubly = barsDesign.kind !== 'singly' || rebarComp !== undefined;
-  steps.push(`d = ${(d * 100).toFixed(1)} cm, d' = ${(dPrimeAssumed * 100).toFixed(1)} cm`);
+  steps.push(`d (dimensionamiento) = ${(d * 100).toFixed(1)} cm, d' = ${(dPrimeAssumed * 100).toFixed(1)} cm`);
   steps.push(`Mu = ${MuAbs.toFixed(2)} kN·m${Nu !== 0 ? `, Nu = ${Nu.toFixed(2)} kN (+ compresión)` : ''}`);
   steps.push(`As,mín = ${AsMin.toFixed(2)} cm²`);
   if (design.kind === 'impossible') {
@@ -461,6 +462,7 @@ export function checkFlexure(
     }
   }
   steps.push(`As,req (tracción) = ${AsDesign.toFixed(2)} cm²`);
+  steps.push(`d (armadura provista) = ${(effectiveDepth(h, cover, stirrupDia, rebar.dia) * 100).toFixed(2)} cm`);
   steps.push(`Armadura tracción: ${rebar.label} (${rebar.area.toFixed(2)} cm²)`);
 
   const phiMn = check.flexureValid && Number.isFinite(check.phiMn) ? check.phiMn / 1e3 : 0;
@@ -486,7 +488,7 @@ export function checkFlexure(
 
   const etc = tensionControlledStrain(fy, edition);
   return {
-    Mu: MuAbs, d, a: check.a,
+    Mu: MuAbs, designDepth: d, d: effectiveDepth(h, cover, stirrupDia, rebar.dia), a: check.a,
     aReq: design.a, c: design.c, cMax: (d * 0.003) / (0.003 + etc), epsilonT: design.epsilonT,
     AsReq: AsDesign,
     AsFlexural: design.kind === 'impossible' ? 0.10 * Ag * 1e4 : design.As,
@@ -1238,8 +1240,10 @@ export function verificationCase(input: ConcurrentVerificationInput): Verificati
   const secondary = pair(d.axis === 'My' ? d.source.ends.mz : d.source.ends.my);
   return { ...input, Mu: d.Mu, Vu: d.Vu, Nu: d.Nu, NuShear: d.Nu,
     Muy: input.elementType !== 'beam' ? d.Muy : undefined, VuSecondary: input.elementType !== 'beam' && !(d.VuSecondary <= 0.01) ? d.VuSecondary : undefined, Tu: d.Tu,
-    M1: input.M1 ?? primary.M1, M2: input.M2 ?? primary.M2,
-    M1Secondary: input.M1Secondary ?? secondary.M1, M2Secondary: input.M2Secondary ?? secondary.M2 };
+    M1: d.source.transverseLoading[d.axis] === false ? input.M1 ?? primary.M1 : undefined,
+    M2: d.source.transverseLoading[d.axis] === false ? input.M2 ?? primary.M2 : undefined,
+    M1Secondary: d.source.transverseLoading[d.axis === 'My' ? 'Mz' : 'My'] === false ? input.M1Secondary ?? secondary.M1 : undefined,
+    M2Secondary: d.source.transverseLoading[d.axis === 'My' ? 'Mz' : 'My'] === false ? input.M2Secondary ?? secondary.M2 : undefined };
 }
 
 export function amplifiedDemand(input: ConcurrentVerificationInput): ConcurrentSectionDemand {
@@ -1261,7 +1265,7 @@ function verifySlenderness(input: VerificationInput) {
     designMuy: slenderSecondary?.isSlender ? slenderSecondary.Mc : input.Muy };
 }
 
-type FixedVerificationReinforcement = { column?: { barCount: number; barDia: number }; flexure?: FlexureResult; shear?: { spacing: number; legs: number } };
+type FixedVerificationReinforcement = { column?: { barCount: number; barDia: number }; flexure?: Pick<FlexureResult, 'AsProv' | 'barDia' | 'barCount' | 'bars' | 'AsComp' | 'barDiaComp' | 'barCountComp' | 'barsComp' | 'isDoublyReinforced'>; shear?: { spacing: number; legs: number } };
 
 export function verifyElement(concurrent: ConcurrentVerificationInput, fixed?: FixedVerificationReinforcement): ElementVerification {
   return prepareElementVerification(concurrent)(fixed);
@@ -1298,20 +1302,21 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
     let flexure = { ...requiredFlexure, steps: [...requiredFlexure.steps] };
     if (fixed?.flexure) {
       const f = fixed.flexure;
+      const d = effectiveDepth(params.h, params.cover, params.stirrupDia, f.barDia);
       const r = evaluateBeamSection({ edition, fc: params.fc * 1e6, fy: params.fy * 1e6, b: params.b, h: params.h,
-        d: f.d, As: f.AsProv * 1e-4, AsComp: (f.AsComp ?? 0) * 1e-4,
+        d, As: f.AsProv * 1e-4, AsComp: (f.AsComp ?? 0) * 1e-4,
         dPrime: f.barDiaComp ? params.cover + params.stirrupDia / 1000 + f.barDiaComp / 2000 : 0,
         Ag: params.b * params.h, NuCompression: flexureNu * 1e3 });
       const phiMn = r?.flexureValid ? r.phiMn / 1e3 : 0;
       const ratio = phiMn > 0 ? Math.abs(designMu) / phiMn : Infinity;
       const ductile = input.elementType !== 'beam' || !r || Math.abs(designMu) === 0
         || flexureNu >= 0.1 * params.fc * 1000 * params.b * params.h || r.epsilonT >= r.epsilonTMin;
-      flexure = { ...flexure, AsProv: f.AsProv, barDia: f.barDia, barCount: f.barCount, bars: f.bars, d: f.d,
+      flexure = { ...flexure, AsProv: f.AsProv, barDia: f.barDia, barCount: f.barCount, bars: f.bars, d,
         AsComp: f.AsComp, barDiaComp: f.barDiaComp, barCountComp: f.barCountComp, barsComp: f.barsComp,
         isDoublyReinforced: f.isDoublyReinforced, phiMn, ratio, a: r?.a ?? 0, epsilonT: r?.epsilonT ?? 0,
         status: !ductile || !(ratio <= 1) ? 'fail' : ratio > 0.85 ? 'warn' : 'ok',
         steps: [
-          `d = ${(f.d * 100).toFixed(1)} cm`,
+          `d = ${(d * 100).toFixed(1)} cm`,
           `Mu = ${Math.abs(designMu).toFixed(2)} kN·m${flexureNu !== 0 ? `, Nu = ${flexureNu.toFixed(2)} kN (+ compresión)` : ''}`,
           `As,req (tracción) = ${requiredFlexure.AsReq.toFixed(2)} cm²`,
           `Armadura tracción: ${f.bars} (${f.AsProv.toFixed(2)} cm²)`,

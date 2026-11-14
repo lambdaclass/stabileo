@@ -20,8 +20,7 @@ for (const screen of [false, true]) {
     it(`#2080 selected bottom span ${bottom} determines flexure and interaction Cb screen=${screen}`, () => {
       const actual = checkSteelMember(1, demand(), section, steel, { L: 16, Lb: 4, LbNeg: bottom, loadPosition: 'web' }, undefined, { screen })!;
       const own = checkSteelMember(1, demand(), section, steel, { L: 16, Lb: bottom, loadPosition: 'web' }, undefined, { screen })!;
-      const span = bottom / 16;
-      const cb = bottom > 16 ? 1 : momentGradient({ stations: diagram, tStart: (1 - span) / 2, tEnd: (1 + span) / 2, shape: 'I' }).cb;
+      const cb = bottom === 16 ? momentGradient({ stations: diagram, tStart: 0, tEnd: 1, shape: 'I' }).cb : 1;
       const fixed = { ...demand(), diagrams: undefined };
       const unity = checkSteelMember(1, fixed, section, steel, { L: 16, Lb: bottom, loadPosition: 'web' }, undefined, { screen })!;
       expect(actual.flexureZ.phiMn).toBeCloseTo(unity.flexureZ.phiMn * cb, 8);
@@ -71,7 +70,7 @@ for (const reverse of [false, true]) {
     const d = steelDemandOf(ef, extractGoverningDemands(s), s);
     if (reverse) d.concurrent = [...d.concurrent!].reverse();
     const actual = checkSteelMember(1, d, section, steel, { L: 16, Lb: 16, LbNeg: 8, loadPosition: 'web' })!;
-    const cb = momentGradient({ stations: d.diagrams!.get(1)!, tStart: 0.25, tEnd: 0.75, shape: 'I' }).cb;
+    const cb = 1;
     const unity = checkSteelMember(1, { ...d, diagrams: undefined }, section, steel, { L: 16, Lb: 16, LbNeg: 8, loadPosition: 'web' })!;
     expect(actual.flexureZ.phiMn).toBeCloseTo(unity.flexureZ.phiMn * cb, 8);
   });
@@ -84,7 +83,6 @@ it('#2080 the model verification entry point uses the bottom flange window', () 
   const raw = { elementForces: [ef], displacements: [], reactions: [] } as unknown as AnalysisResults3D;
   const sd = new Map([[1, extractGoverningDemands(stations)]]);
   const actual = runSteelVerification(raw, model as never, sd, new Map([[1, stations]]))[0]!;
-  const own = checkSteelMember(1, demand(), section, steel, { L: 16, Lb: 8 },
-    { stations: diagram, byCombo: new Map([[1, diagram]]), tStart: 0.25, tEnd: 0.75 })!;
+  const own = checkSteelMember(1, demand(), section, steel, { L: 16, Lb: 16, LbNeg: 8, bracing: { bottom: [8] } })!;
   expect(actual.flexureZ.phiMn).toBe(own.flexureZ.phiMn);
 });
