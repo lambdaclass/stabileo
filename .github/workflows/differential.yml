@@ -53,7 +53,7 @@ jobs:
         with:
           toolchain: 1.99.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: Fortran and CMake (Mystran)
@@ -61,7 +61,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gfortran cmake
       # CalculiX is built by nix (calculix/setup.sh) with 17-digit output:
       # distribution builds print 7 digits, a ~5e-7 floor at the tolerance.
-      - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+      - uses: cachix/install-nix-action@91f6a0f59e94dfb2cfed0f4000f36a68ead1d20c # v31.11.4
         if: matrix.program == 'calculix'
       - name: Compare
         run: tools/differential/ci.sh ${{ matrix.program }} ${{ github.event.inputs.seed }}
