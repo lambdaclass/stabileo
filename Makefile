@@ -504,7 +504,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
+test.ci-scripts: test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -1110,6 +1110,24 @@ test.engine.arc-corrector-2009-wasm: wasm
 	$(NIX_RUN) node scripts/tests/arc-corrector-2009-wasm.mjs $(CURDIR)/.arc-corrector-2009.json
 	rm -f $(CURDIR)/.arc-corrector-2009.json
 
+.PHONY: test.engine.released-load-work-2023-wasm
+
+test.engine.released-load-work-2023-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.released-load-work.XXXXXX"); trap '\''rm -f -- "$$cases"'\'' EXIT; RELEASED_LOAD_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER="released_load_work::native_and_wasm_share_released_load_models --release"; node scripts/tests/released-load-work-2023-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.released-load-work-2023
+
+test.engine.released-load-work-2023:
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='released_load_work:: --release'
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='released_rotation_load --release'
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib solver::load_work::tests -- --nocapture
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib solver::stability::tests -- --nocapture
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib staged_round8 -- --nocapture
+
+.PHONY: test.engine.released-load-work-2023-parallel
+
+test.engine.released-load-work-2023-parallel:
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --features parallel --test metamorphic released_load_work:: -- --nocapture
 .PHONY: test.engine.containment-r19 test.engine.containment-r19-wasm
 test.engine.containment-r19:
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib r19_ -- --nocapture $(if $(IGNORED),--ignored)
@@ -1148,6 +1166,26 @@ test.engine.ssi-elastic-2011-wasm: wasm
 	$(NIX_RUN) node scripts/tests/ssi-elastic-2011-wasm.mjs $(CURDIR)/.2011-cases.2.json $(CURDIR)/.2011-cases.3.json $(CURDIR)/.2011-cases.4.json $(CURDIR)/.2011-cases.5.json $(CURDIR)/.2011-cases.6.json $(CURDIR)/.2011-cases.7.json $(CURDIR)/.2011-cases.8.json $(CURDIR)/.2011-cases.9.json
 	rm -f $(CURDIR)/.2011-cases.*.json
 
+.PHONY: test.engine.released-orphan-2074
+
+test.engine.released-orphan-2074:
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib released_orphan_2074_tests -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.released-load-work-2023: test.engine.released-orphan-2074
+
+.PHONY: test.engine.released-assembly-2074 test.released-load-work-outcomes
+
+test.engine.released-assembly-2074:
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib solver::load_work::tests -- --nocapture $(if $(IGNORED),--include-ignored)
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='released_load_work:: --release $(if $(IGNORED),-- --include-ignored)'
+
+test.released-load-work-outcomes: scripts/tests/released-load-work-outcome.mjs scripts/tests/released-load-work-unresolved.json scripts/tests/released-load-work-pdelta-outcomes.json
+	$(NIX_RUN) node --test scripts/tests/released-load-work-outcome.test.mjs
+
+.PHONY: test.released-load-work-physics
+
+test.released-load-work-physics: scripts/tests/released-load-work-physics.mjs
+	$(NIX_RUN) node --test scripts/tests/released-load-work-physics.test.mjs
 .PHONY: test.engine.constraint-rounding-2013 test.engine.constraint-rounding-2013-wasm
 
 test.engine.constraint-rounding-2013:
