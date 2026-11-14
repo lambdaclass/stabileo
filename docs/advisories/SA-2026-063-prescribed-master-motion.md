@@ -3,9 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-13; fixed in PR #2009, pending release |
+| Status | Published 2026-11-13 (drafted 2026-11-13) |
 | Issue | [#2008](https://github.com/lambdaclass/stabileo/issues/2008) and the PR #2009 prescribed-motion sweep |
-| Fix | PR [#2009](https://github.com/lambdaclass/stabileo/pull/2009); pending release |
+| Fix | PR [#2009](https://github.com/lambdaclass/stabileo/pull/2009), included in 0.6.0 |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | Source-confirmed older paths in 0.2.0–0.5.0 and desktop-v0.1.0-alpha.1–alpha.3; planar corotational and arc-length support-motion paths only in later main builds; wrong results replayed on main `60753cb06` |
 | Re-check registry | [`prescribed-master-motion`](../../web/src/lib/provenance/result-changes/prescribed-master-motion.json) |
 
@@ -183,7 +184,7 @@ that a saved result is unaffected; inspect the original input and analysis recor
 
 ## Fixed in
 
-Fixed in PR #2009, pending release. Every constraint expansion must now explicitly
+0.6.0, containing merged PR #2009. Every constraint expansion must now explicitly
 choose `MasterMotion::Prescribed` or `MasterMotion::Homogeneous`. The prescribed
 case uses one shared particular-motion calculation, also used by affine RHS
 corrections and nonlinear state imposition. Linear solvers no longer maintain

@@ -32,11 +32,21 @@ describe("what's-new notice", () => {
   });
 
   it('links notes that exist in the repository, in each offered language', () => {
-    for (const [locale, file] of [['en', ''], ['es', '.es'], ['pt', '.pt'], ['de', ''], ['fr', ''], ['tr', ''], ['hu', ''], ['it', '']] as const) {
+    for (const [locale, file] of [['en', ''], ['es', '.es'], ['pt', '.pt'], ['de', '.de'], ['fr', '.fr'], ['tr', '.tr'], ['hu', ''], ['it', '']] as const) {
       const url = releaseNotesUrl(locale);
       expect(url).toBe(`https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v${RESULTS_CHANGED_IN}${file}.md`);
       expect(existsSync(resolve(repo, `docs/releases/v${RESULTS_CHANGED_IN}${file}.md`))).toBe(true);
     }
+  });
+
+  it('preserves the English fallback for older releases', () => {
+    for (const locale of ['de', 'fr', 'tr']) {
+      for (const version of ['0.2.0', '0.3.0', '0.4.0', '0.5.0']) {
+        expect(releaseNotesUrl(locale, version)).toBe(`https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v${version}.md`);
+      }
+    }
+    expect(RESULTS_CHANGED_IN).toBe('0.6.0');
+    expect(shouldShowWhatsNew(memoryStore({ [WHATS_NEW_STORAGE_KEY]: '0.5.0' }))).toBe(true);
   });
 
   it('the app version is package.json\'s, and the notice is not for a future release', () => {

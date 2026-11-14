@@ -6,6 +6,7 @@
 | Status | Published 2026-11-09 (fixed after 0.5.0; live on stabileo.com since 2026-11-09) |
 | Issues | [#1636](https://github.com/lambdaclass/stabileo/issues/1636) through [#1646](https://github.com/lambdaclass/stabileo/issues/1646) |
 | Fix | PR [#1780](https://github.com/lambdaclass/stabileo/pull/1780) (merged 2026-11-09 07:41:41 UTC) |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | Engine code in v0.2.0, v0.3.0, v0.4.0 and v0.5.0 retains spring precedence in 3D; also confirmed on the nightly commit 4d1797daa and this worktree's starting commit eab3eda06. Introduction before v0.2.0 has not been bisected. |
 | Re-check registry | `support-spring-conflicts-refused` |
 

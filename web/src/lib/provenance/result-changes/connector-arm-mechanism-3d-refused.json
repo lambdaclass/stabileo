@@ -24,7 +24,7 @@
     "tr": "Kesme yaylı sonlu uzunlukta bir bağlayıcının rijit kolları, uçlarının ekseni boyunca enine ortalama dönmesini tutar. Düğümlerinin dönmelerini başka hiçbir şey tutmadığında (yalnızca kafes çubukları ulaşıyorsa ya da oradaki çubuk eğilmeyi serbest bırakıyorsa), eksene enine zıt dönmeleri ve eksen etrafındaki ortak burulmaları enerji gerektirmez ve dönmeler belirsiz kalır. Çözücü bu modelleri rijitliğin köşegenini kaydırarak ya da LU ile, yalnızca bir uyarıyla ve yükün belirlemediği dönmelerle yanıtlıyordu (#1748). Her 3B analiz artık bağlayıcıların bağladığı dönmeleri, çubuk serbestlikleri ve dönme mesnetleri dahil, birleştirilmiş rijitlik üzerinde denetliyor ve modeli bağlayıcıları ve düğümleri adlandırarak reddediyor. Hiçbir şeyin ulaşmadığı, global bir eksen boyunca bir dönmeyi yapay rijitlik önceden olduğu gibi tutmaya devam ediyor. Bir düğümün dönmelerini serbest bırakılmamış bir çubuk ucu, bir kabuk ya da bir dönme mesnediyle tutun ve bağlayıcıya diğer düğümün ihtiyaç duyduğu dönme yaylarını verin."
   },
   "changelog": {
-    "file": "changelog.d/1748-connector-arm-mechanism-3d.md",
+    "file": "CHANGELOG.md",
     "heading": "3D: node rotations a connector couples but leaves free are refused (2026-11-08)"
   }
 }

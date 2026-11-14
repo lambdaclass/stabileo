@@ -6,6 +6,7 @@
 | Status | Published 2026-11-09 (fixed after 0.5.0; live on stabileo.com since 2026-11-09) |
 | Issue | [#1759](https://github.com/lambdaclass/stabileo/issues/1759), [#1761](https://github.com/lambdaclass/stabileo/issues/1761) |
 | Fix | PR [#1784](https://github.com/lambdaclass/stabileo/pull/1784) (merged 2026-11-09 01:53:37 UTC) |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | Current main before this change (engine version 0.5.0); the first affected version has not been bisected |
 | Re-check registry | results-change entry `non-finite-analysis-results` |
 

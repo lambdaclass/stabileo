@@ -3,10 +3,12 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-12; fixed in PR #1952, pending release |
-| Revision | 2026-11-13: clarify P-Delta containment, unavailable dynamic forces and determined staged results; original draft date retained |
+| Status | Draft 2026-11-12; fixed in PR #1952, pending release at draft time; published 2026-11-13 |
+| Publication | 2026-11-13; included in 0.6.0 |
+| Revision | 2026-11-13: publish for 0.6.0 and clarify P-Delta containment, unavailable dynamic forces and determined staged results; original draft date retained |
 | Issue | [#1949](https://github.com/lambdaclass/stabileo/issues/1949) and the PR #1952 result-field sweep |
-| Fix | PR [#1952](https://github.com/lambdaclass/stabileo/pull/1952); not yet merged or released |
+| Fix | PR [#1952](https://github.com/lambdaclass/stabileo/pull/1952), included in 0.6.0 |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | 0.2.0–0.5.0, desktop-v0.1.0-alpha.1–alpha.3, and subsequent affected main builds through verified `c11af4e36`; continuation has a separate boundary below |
 | Re-check registry | [`arc-length-reactions`](../../web/src/lib/provenance/result-changes/arc-length-reactions.json) |
 
@@ -245,7 +247,7 @@ outside this advisory. Check exported/API results and analysis records directly.
 
 ## Fixed in
 
-Fixed in PR #1952, pending release. Path solvers use the shared corotational
+0.6.0, containing merged PR #1952. Path solvers use the shared corotational
 final-result builder with actual final applied loading. Common full-residual
 recovery computes reactions and constraint forces together, transfers
 restrained-master shares and uses the established spring/inclined-support
