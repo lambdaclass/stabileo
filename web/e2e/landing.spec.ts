@@ -397,6 +397,51 @@ test.describe('@landing landing page', () => {
     await expect.poll(() => cut.getAttribute('x1'), { message: 'hovering the buttons must not hold the animation', timeout: 3000 }).not.toBe(first);
   });
 
+  test('a touch on the drawing does not freeze the rotation', async ({ page }) => {
+    await bootLanding(page);
+    const stack = page.locator('.landing .hero-fig-stack');
+    await stack.dispatchEvent('pointerenter', { pointerType: 'touch' });
+    await stack.dispatchEvent('mouseenter');
+    const bar = page.locator('.landing .hero-fig-switch button.on .hero-fig-progress span');
+    const width = () => bar.evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a);
+    const before = await width();
+    await expect.poll(width, { message: 'a touch is not a hover', timeout: 5000 }).toBeGreaterThan(before);
+  });
+
+  test('a figure that finishes loading late does not replace the one chosen after it', async ({ page }) => {
+    await page.route('**/ShedFigure-*.js', async (route) => {
+      await new Promise((r) => setTimeout(r, 2500));
+      await route.continue();
+    });
+    await bootLanding(page);
+    await page.locator('.landing [data-figure="shed"]').click();
+    await page.locator('.landing [data-figure="building"]').click();
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(4000); // slow-ok: the delayed chunk lands 2.5 s after the click and must change nothing
+    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
+  });
+
+  test('a figure that fails to load is skipped, not requested every frame', async ({ page }) => {
+    let requests = 0;
+    await page.route('**/ShedFigure-*.js', (route) => { requests++; return route.abort(); });
+    await bootLanding(page);
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(19_000); // slow-ok: the rotation reaches the failing figure only after the building's 17 s loop
+    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
+    expect(requests, 'one attempt per switch, not one per frame').toBeLessThan(5);
+  });
+
+  test('turning on reduced motion after the page loads stops the hero', async ({ page }) => {
+    await bootLanding(page);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForTimeout(300);
+    const state = () => page.locator('.landing .hero-figure .hf-row').innerText();
+    const bar = () => page.locator('.landing .hero-fig-switch button.on .hero-fig-progress span').evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a);
+    const a = [await state(), await bar()];
+    await page.waitForTimeout(1500);
+    expect([await state(), await bar()]).toEqual(a);
+  });
+
   test('choosing a figure keeps it on screen instead of rotating on', async ({ page }) => {
     await bootLanding(page);
     await page.locator('.landing [data-figure="section"]').click();

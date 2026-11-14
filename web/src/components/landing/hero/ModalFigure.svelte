@@ -1,14 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { tPublic as t, tpPublic as tp, i18n } from '../../../lib/i18n/store.svelte';
-  import { HeroLoop } from './loop.svelte';
+  import { mouseOnly, HeroLoop } from './loop.svelte';
 
   type Props = { prefersReducedMotion?: boolean; paused?: boolean };
   let { prefersReducedMotion = false, paused = false }: Props = $props();
 
   const PERIOD = 18, STORIES = 6, BAYS = 3, SHOWN = 3;
-  const loop = new HeroLoop(PERIOD, prefersReducedMotion, 0.06);
+  const loop = new HeroLoop(PERIOD, () => prefersReducedMotion, 0.06);
   onMount(() => loop.start());
+  const hover = mouseOnly((on) => (loop.hovered = on));
   $effect(() => { loop.paused = paused; });
 
   const omega = (j: number) => Math.sin(((2 * j - 1) * Math.PI) / (2 * (2 * STORIES + 1)));
@@ -50,8 +51,8 @@
     viewBox="0 0 560 270"
     role="img"
     aria-labelledby="md-title md-desc"
-    onmouseenter={() => (loop.hovered = true)}
-    onmouseleave={() => (loop.hovered = false)}
+    onpointerenter={hover.enter}
+    onpointerleave={hover.leave}
   >
     <title id="md-title">{t('landing.modTitle')}</title>
     <desc id="md-desc">{t('landing.modDesc')}</desc>

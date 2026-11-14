@@ -3,7 +3,6 @@
   import { enterApp } from './landing-utils';
   import PublicLink from './PublicLink.svelte';
   import Eyebrow from './Eyebrow.svelte';
-  import TrussFigure from './TrussFigure.svelte';
   import BuildingFigure from './hero/BuildingFigure.svelte';
   import { onMount, type Component } from 'svelte';
   import { fade } from 'svelte/transition';
@@ -16,7 +15,7 @@
   const FIGURES: Figure[] = [
     { id: 'building', label: 'landing.heroFigBuilding', period: 18, seconds: 16.9 },
     { id: 'shed', label: 'landing.heroFigShed', period: 18, seconds: 17, load: () => import('./hero/ShedFigure.svelte') },
-    { id: 'truss', label: 'landing.heroFigTruss', period: 18, seconds: 18 },
+    { id: 'truss', label: 'landing.heroFigTruss', period: 18, seconds: 18, load: () => import('./TrussFigure.svelte') },
     { id: 'section', label: 'landing.heroFigSection', period: 16, seconds: 16, load: () => import('./hero/SectionFigure.svelte') },
     { id: 'mohr', label: 'landing.heroFigMohr', period: 16, seconds: 16, load: () => import('./hero/MohrFigure.svelte') },
     { id: 'modal', label: 'landing.heroFigModal', period: 18, seconds: 18, load: () => import('./hero/ModalFigure.svelte') },
@@ -36,10 +35,28 @@
     loaded = { ...loaded, [f.id]: mod.default };
   }
 
-  async function show(i: number) {
-    try { await prepare(i); } catch { return; }
+  let request = 0;
+  const unavailable = new Set<number>();
+
+  async function show(i: number): Promise<void> {
+    const id = ++request;
+    try {
+      await prepare(i);
+    } catch {
+      unavailable.add(i);
+      return;
+    }
+    if (id !== request) return;
     shown = i;
     elapsed = 0;
+  }
+
+  function nextAvailable(from: number): number {
+    for (let k = 1; k <= FIGURES.length; k++) {
+      const i = (from + k) % FIGURES.length;
+      if (!unavailable.has(i)) return i;
+    }
+    return from;
   }
 
   function preloadAll() {
@@ -49,33 +66,46 @@
   }
 
   onMount(() => {
-    const idle = window.requestIdleCallback ?? ((fn: () => void) => window.setTimeout(fn, 600));
-    idle(() => preloadAll());
-    if (prefersReducedMotion) return;
+    const idleHandle = window.requestIdleCallback ? window.requestIdleCallback(preloadAll) : window.setTimeout(preloadAll, 600);
     let raf = 0;
     let last = performance.now();
     let switching = false;
     const tick = (now: number) => {
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      if (!hovered && !document.hidden && !switching) {
+      if (!prefersReducedMotion && !hovered && !document.hidden && !switching) {
         elapsed += dt;
         if (!chosen && elapsed >= FIGURES[shown].seconds) {
           switching = true;
-          void show((shown + 1) % FIGURES.length).finally(() => { switching = false; });
+          void show(nextAvailable(shown)).finally(() => {
+            switching = false;
+            if (elapsed >= FIGURES[shown].seconds) elapsed = 0;
+          });
         }
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (window.cancelIdleCallback && window.requestIdleCallback) window.cancelIdleCallback(idleHandle);
+      else window.clearTimeout(idleHandle);
+    };
   });
 
   function pick(i: number) {
     chosen = true;
-    if (i === shown) return;
+    if (i === shown) {
+      request++;
+      return;
+    }
     void show(i);
   }
+
+  const hoverStack = {
+    enter: (e: PointerEvent) => { if (e.pointerType === 'mouse') hovered = true; },
+    leave: () => { hovered = false; },
+  };
 </script>
 
 <section class="sec sec--ink hero" data-section="hero" id="top" aria-labelledby="hero-title">
@@ -121,12 +151,10 @@
     </div>
 
     <div class="hero-figure">
-      <div class="hero-fig-stack" role="group" onmouseenter={() => (hovered = true)} onmouseleave={() => (hovered = false)}>
+      <div class="hero-fig-stack" role="group" onpointerenter={hoverStack.enter} onpointerleave={hoverStack.leave}>
         {#key shown}
           <div class="hero-fig-slot" in:fade={{ duration: prefersReducedMotion ? 0 : 260 }} out:fade={{ duration: prefersReducedMotion ? 0 : 160 }}>
-            {#if FIGURES[shown].id === 'truss'}
-              <TrussFigure mode="animate" {prefersReducedMotion} paused={hovered} />
-            {:else if FIGURES[shown].id === 'building'}
+            {#if FIGURES[shown].id === 'building'}
               <BuildingFigure {prefersReducedMotion} paused={hovered} />
             {:else if loaded[FIGURES[shown].id]}
               {@const Shown = loaded[FIGURES[shown].id]}

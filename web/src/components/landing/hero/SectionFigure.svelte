@@ -1,14 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { tPublic as t, i18n } from '../../../lib/i18n/store.svelte';
-  import { HeroLoop, smooth } from './loop.svelte';
+  import { mouseOnly, HeroLoop, smooth } from './loop.svelte';
 
   type Props = { prefersReducedMotion?: boolean; paused?: boolean };
   let { prefersReducedMotion = false, paused = false }: Props = $props();
 
   const PERIOD = 16;
-  const loop = new HeroLoop(PERIOD, prefersReducedMotion, 0.25);
+  const loop = new HeroLoop(PERIOD, () => prefersReducedMotion, 0.25);
   onMount(() => loop.start());
+  const hover = mouseOnly((on) => (loop.hovered = on));
   $effect(() => { loop.paused = paused; });
 
   const B = 0.2, H = 0.5, N = -13.3;
@@ -56,8 +57,8 @@
     viewBox="0 -45 560 270"
     role="img"
     aria-labelledby="sa-title sa-desc"
-    onmouseenter={() => (loop.hovered = true)}
-    onmouseleave={() => (loop.hovered = false)}
+    onpointerenter={hover.enter}
+    onpointerleave={hover.leave}
   >
     <title id="sa-title">{t('landing.secTitle')}</title>
     <desc id="sa-desc">{t('landing.secDesc')}</desc>

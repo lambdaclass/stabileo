@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { tPublic as t, i18n } from '../../../lib/i18n/store.svelte';
+  import { mouseOnly } from './loop.svelte';
 
   type V3 = [number, number, number];
   type Props = { prefersReducedMotion?: boolean; paused?: boolean };
@@ -17,16 +18,17 @@
   let u = $state(prefersReducedMotion ? STILL_AT : 0);
   let hovered = $state(false);
   let focused = $state(false);
+  const hover = mouseOnly((on) => (hovered = on));
   const running = $derived(!prefersReducedMotion && !paused && !hovered && !focused);
 
   onMount(() => {
-    if (prefersReducedMotion) return;
     let raf = 0;
     let last = performance.now();
     const tick = (now: number) => {
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      if (running) u = (u + dt / PERIOD) % 1;
+      if (prefersReducedMotion) u = STILL_AT;
+      else if (running) u = (u + dt / PERIOD) % 1;
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -141,8 +143,8 @@
     viewBox="0 -45 560 270"
     role="img"
     aria-labelledby="mf-title mf-desc"
-    onmouseenter={() => (hovered = true)}
-    onmouseleave={() => (hovered = false)}
+    onpointerenter={hover.enter}
+    onpointerleave={hover.leave}
     onfocusin={() => (focused = true)}
     onfocusout={() => (focused = false)}
   >

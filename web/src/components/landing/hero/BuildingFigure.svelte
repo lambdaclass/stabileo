@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { tPublic as t, i18n } from '../../../lib/i18n/store.svelte';
   import { NODES, PIECES, AXIAL, MOMENT, COMBINATION } from './building-data';
-  import { HeroLoop, clamp01, smooth } from './loop.svelte';
+  import { mouseOnly, HeroLoop, clamp01, smooth } from './loop.svelte';
 
   type Props = { prefersReducedMotion?: boolean; paused?: boolean };
   let { prefersReducedMotion = false, paused = false }: Props = $props();
@@ -14,8 +14,9 @@
   const BLEND = 0.6;
   const FADE = 1.1;
   const PIECE = 0.35;
-  const loop = new HeroLoop(PERIOD, prefersReducedMotion, (MOMENT_AT + 2) / PERIOD);
+  const loop = new HeroLoop(PERIOD, () => prefersReducedMotion, (MOMENT_AT + 2) / PERIOD);
   onMount(() => loop.start());
+  const hover = mouseOnly((on) => (loop.hovered = on));
   $effect(() => { loop.paused = paused; });
 
   const COLUMN = 0, BEAM = 1, WALL = 2, SLAB = 3;
@@ -130,8 +131,8 @@
     viewBox="0 0 560 270"
     role="img"
     aria-labelledby="bld-title bld-desc"
-    onmouseenter={() => (loop.hovered = true)}
-    onmouseleave={() => (loop.hovered = false)}
+    onpointerenter={hover.enter}
+    onpointerleave={hover.leave}
   >
     <title id="bld-title">{t('landing.bldTitle')}</title>
     <desc id="bld-desc">{t('landing.bldDesc')}</desc>

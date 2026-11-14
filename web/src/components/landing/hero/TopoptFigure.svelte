@@ -2,15 +2,16 @@
   import { onMount } from 'svelte';
   import { tPublic as t, tpPublic as tp, i18n } from '../../../lib/i18n/store.svelte';
   import { NELX, NELY, ITERATIONS, FRAMES, FRAME_ITERATION, FRAME_COMPLIANCE } from './topopt-data';
-  import { HeroLoop, clamp01, smooth } from './loop.svelte';
+  import { mouseOnly, HeroLoop, clamp01, smooth } from './loop.svelte';
 
   type Props = { prefersReducedMotion?: boolean; paused?: boolean };
   let { prefersReducedMotion = false, paused = false }: Props = $props();
 
   const PERIOD = 16, RUN = 10, FADE_AT = 14.4;
   const CITATION = 'Andreassen et al. (2011)';
-  const loop = new HeroLoop(PERIOD, prefersReducedMotion, 12 / PERIOD);
+  const loop = new HeroLoop(PERIOD, () => prefersReducedMotion, 12 / PERIOD);
   onMount(() => loop.start());
+  const hover = mouseOnly((on) => (loop.hovered = on));
   $effect(() => { loop.paused = paused; });
 
   const DENSITY = FRAMES.map((b64) => {
@@ -25,7 +26,7 @@
 
   const time = $derived(loop.seconds);
   const position = $derived(smooth(time / RUN) * 0.35 + clamp01(time / RUN) * 0.65);
-  const frame = $derived(position * (FRAMES.length - 1));
+  const frame = $derived(Math.round(position * (FRAMES.length - 1) * 8) / 8);
   const fade = $derived(Math.min(loop.laps > 0 ? smooth(time / 0.6) : 1, 1 - smooth((time - FADE_AT) / (PERIOD - FADE_AT))));
 
   const layers = $derived.by(() => {
@@ -75,8 +76,8 @@
     viewBox="0 -45 560 270"
     role="img"
     aria-labelledby="to-title to-desc"
-    onmouseenter={() => (loop.hovered = true)}
-    onmouseleave={() => (loop.hovered = false)}
+    onpointerenter={hover.enter}
+    onpointerleave={hover.leave}
   >
     <title id="to-title">{t('landing.topTitle')}</title>
     <desc id="to-desc">{t('landing.topDesc')}</desc>

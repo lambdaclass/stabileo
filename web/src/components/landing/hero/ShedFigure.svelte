@@ -2,14 +2,15 @@
   import { onMount } from 'svelte';
   import { tPublic as t } from '../../../lib/i18n/store.svelte';
   import { NODES, MEMBERS, FY } from './shed-data';
-  import { HeroLoop, smooth } from './loop.svelte';
+  import { mouseOnly, HeroLoop, smooth } from './loop.svelte';
 
   type Props = { prefersReducedMotion?: boolean; paused?: boolean };
   let { prefersReducedMotion = false, paused = false }: Props = $props();
 
   const PERIOD = 18, SCAN = 5, FADE_AT = 17;
-  const loop = new HeroLoop(PERIOD, prefersReducedMotion, 0.5);
+  const loop = new HeroLoop(PERIOD, () => prefersReducedMotion, 0.5);
   onMount(() => loop.start());
+  const hover = mouseOnly((on) => (loop.hovered = on));
   $effect(() => { loop.paused = paused; });
 
   const RAMP = ['#3b5368', '#3f6f8f', '#3f8fa6', '#52a99b', '#8cbf6f', '#d2c84f', '#eda23a', '#e9692e', '#e5482a'];
@@ -48,8 +49,8 @@
     viewBox="0 0 560 270"
     role="img"
     aria-labelledby="shed-title shed-desc"
-    onmouseenter={() => (loop.hovered = true)}
-    onmouseleave={() => (loop.hovered = false)}
+    onpointerenter={hover.enter}
+    onpointerleave={hover.leave}
   >
     <title id="shed-title">{t('landing.shedTitle')}</title>
     <desc id="shed-desc">{t('landing.shedDesc')}</desc>

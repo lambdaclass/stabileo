@@ -55,7 +55,8 @@
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
-      if (running) {
+      if (prefersReducedMotion) s = REPRESENTATIVE;
+      else if (running) {
         s += (direction * dt * (SWEEP_MAX - SWEEP_MIN)) / SECONDS_PER_SWEEP;
         if (s >= SWEEP_MAX) { s = SWEEP_MAX; direction = -1; }
         else if (s <= SWEEP_MIN) { s = SWEEP_MIN; direction = 1; }
@@ -131,8 +132,8 @@
     viewBox={compact ? '24 8 512 150' : '0 -48 560 270'}
     role="img"
     aria-labelledby="{titleId} {descId}"
-    onmouseenter={() => (hovered = true)}
-    onmouseleave={() => (hovered = false)}
+    onpointerenter={(e) => { if (e.pointerType === 'mouse') hovered = true; }}
+    onpointerleave={() => (hovered = false)}
     onfocusin={() => (focused = true)}
     onfocusout={() => (focused = false)}
   >
