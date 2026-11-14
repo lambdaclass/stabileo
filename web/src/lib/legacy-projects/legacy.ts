@@ -19,6 +19,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { modelStore } from '../store/model.svelte';
+import { resultPropertyFingerprint } from '../model/result-properties';
 import { historyStore } from '../store/history.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { resultsStore } from '../store/results.svelte';
@@ -281,10 +282,10 @@ export function modelFingerprint(): Values {
     out[`node[${n.id}].z`] = n.z ?? 0;
   }
   for (const m of modelStore.materials.values()) {
-    for (const f of ['e', 'nu', 'rho'] as const) out[`material[${m.id}].${f}`] = m[f];
+    Object.assign(out, resultPropertyFingerprint('material', m));
   }
   for (const sec of modelStore.sections.values()) {
-    for (const f of ['a', 'iz', 'iy', 'j', 'rotation'] as const) if (sec[f] !== undefined) out[`section[${sec.id}].${f}`] = sec[f]!;
+    Object.assign(out, resultPropertyFingerprint('section', sec));
   }
   for (const [kind, shells] of [['quad', modelStore.quads], ['plate', modelStore.plates]] as const) {
     for (const q of shells.values()) {

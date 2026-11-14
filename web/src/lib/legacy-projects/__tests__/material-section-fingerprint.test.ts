@@ -1,18 +1,19 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { initSolver } from '../../engine/wasm-solver';
 import { modelStore, type Material, type Section } from '../../store/model.svelte';
+import { RESULT_PROPERTY_POLICY, resultPropertyFingerprint } from '../../model/result-properties';
 import { uiStore } from '../../store/ui.svelte';
 import {
-  againstExample, fingerprintDifference, modelFingerprint, openAndSolve, readCorpusText, readManifest, reset,
+  againstExample, corpusVersions, fingerprintDifference, modelFingerprint, openAndSolve, readCorpusText, readManifest, reset, openSession,
 } from '../legacy';
 
-const material: Material = {
+const material: Required<Material> = {
   id: 1, name: 'test material', e: 101, nu: 0.21, rho: 12, fy: 31, fu: 47, fc: 23,
   alpha: 0.001, gradeId: 'test-grade', maxAggregateSizeMm: 11, spacingMarginMm: 2,
   shotcrete: false,
   timber: { fb: 1, ft: 2, fc: 3, fcPerp: 4, fv: 5, e: 6, emin: 7, kind: 'sawn', cf: { b: 1, t: 2, c: 3 } },
 };
-const section: Section = {
+const section: Required<Omit<Section, 'built'>> = {
   id: 1, name: 'test section', a: 1, iz: 2, iy: 3, j: 4, b: 5, h: 6,
   shape: 'I', tw: 7, tf: 8, t: 9, tl: 10, rotation: 11,
   shearAreas: { basis: 'declared', asY: 1, asZ: 2 }, declared: false,
@@ -69,15 +70,15 @@ function missedMutations(kind: 'material' | 'section'): string[] {
 describe('material and section migration fingerprint #1318', () => {
   beforeAll(async () => { await initSolver(); });
 
-  it.fails('#1318: detects deletion and changes of every material result property', () => {
+  it('#1318: detects deletion and changes of every material result property', () => {
     expect(missedMutations('material')).toEqual([]);
   });
 
-  it.fails('#1318: detects deletion and changes of every section result property', () => {
+  it('#1318: detects deletion and changes of every section result property', () => {
     expect(missedMutations('section')).toEqual([]);
   });
 
-  it.fails('#1318: rejects migrated steel Fy loss and changes through project open', async () => {
+  it('#1318: rejects migrated steel Fy loss and changes through project open', async () => {
     const entry = readManifest('v0.4.0').examples.find(e => e.example === 'truss')!;
     for (const action of ['delete', 'increase', 'decrease']) {
       const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`), {
@@ -94,7 +95,7 @@ describe('material and section migration fingerprint #1318', () => {
     }
   });
 
-  it.fails("#1318: rejects migrated concrete f'c loss and changes through project open", async () => {
+  it("#1318: rejects migrated concrete f'c loss and changes through project open", async () => {
     const entry = readManifest('v0.4.0').examples.find(e => e.example === 'rc-beam-flexure')!;
     for (const action of ['delete', 'increase', 'decrease']) {
       const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`), {
@@ -110,6 +111,76 @@ describe('material and section migration fingerprint #1318', () => {
       expect((await againstExample('concrete', 'v0.4.0', entry, opened, false)).failure).toContain('material[2].fy');
     }
   });
+
+  it('#1318: session tabs detect strength loss and changes in every workspace', async () => {
+    const manifest = readManifest('v0.4.0');
+    const text = readCorpusText(`v0.4.0/${manifest.session.file}`);
+    const reference = await openSession(text);
+    const broken = await openSession(text, {
+      beforeOpen: file => {
+        const tabs = file.tabs as Array<{ modelSnapshot: { materials: Array<[number, Material]> } }>;
+        for (const [index, tab] of tabs.entries()) {
+          const m = tab.modelSnapshot.materials.find(([, m]) => m.fy !== undefined)![1];
+          if (index === 0) delete m.fy;
+          else m.fy! *= index === 1 ? 2 : 0.5;
+        }
+      },
+    });
+    expect(broken.tabs.map(t => t.analysisMode)).toEqual(['2d', '3d', 'pro']);
+    for (const [index, tab] of broken.tabs.entries()) {
+      expect(fingerprintDifference('session migration', reference.tabs[index].fingerprint, tab.fingerprint)).toMatch(/material\[\d+\]\.fy/);
+    }
+  });
+
+  it('#1318: absent, undefined, null, zero and adjacent numbers retain their meaning', () => {
+    reset('2d');
+    const fingerprints = [undefined, null, 0, Number.MIN_VALUE, -Number.MIN_VALUE, 1, 1 + Number.EPSILON].map(value => {
+      modelStore.materials.set(1, { ...material, maxAggregateSizeMm: value });
+      return modelFingerprint();
+    });
+    for (const [i, a] of fingerprints.entries()) {
+      expect(fingerprintDifference('same', a, a)).toBeNull();
+      for (const b of fingerprints.slice(i + 1)) expect(fingerprintDifference('changed', a, b)).not.toBeNull();
+    }
+    const absent: Material = { ...material };
+    delete absent.maxAggregateSizeMm;
+    modelStore.materials.set(1, absent);
+    expect(modelFingerprint()).toEqual(fingerprints[0]);
+  });
+
+  it('#1318: only explicitly classified non-result metadata can be ignored', () => {
+    for (const [kind, source] of [['material', material], ['section', section]] as const) {
+      const fingerprint = (value: unknown) => kind === 'material'
+        ? resultPropertyFingerprint(kind, value as Material) : resultPropertyFingerprint(kind, value as Section);
+      const reference = fingerprint(source);
+      const policy = RESULT_PROPERTY_POLICY[kind];
+      for (const [key, entry] of Object.entries(policy)) {
+        if (entry === true) continue;
+        expect(entry.nonResult.length).toBeGreaterThan(0);
+        expect(fingerprint({ ...source, [key]: 'different metadata' })).toEqual(reference);
+      }
+      expect(fingerprint({ ...source, futureStrength: 1 })).not.toEqual(reference);
+      expect(fingerprint({ ...source, futureStrength: 2 })).not.toEqual(fingerprint({ ...source, futureStrength: 1 }));
+      expect(fingerprint(Object.fromEntries(Object.entries(source).reverse()))).toEqual(reference);
+    }
+  });
+
+  it('#1318: every real corpus migration preserves its saved material properties', async () => {
+    let projects = 0;
+    for (const tag of corpusVersions()) {
+      const manifest = readManifest(tag);
+      for (const entry of manifest.examples) {
+        const text = readCorpusText(`${tag}/${entry.file}`);
+        const saved = JSON.parse(text) as { snapshot: { materials: Array<[number, Material]> } };
+        const reference = Object.assign({}, ...saved.snapshot.materials.map(([, m]) => resultPropertyFingerprint('material', m)));
+        const opened = await openAndSolve(text, { solve: false });
+        const migrated = Object.fromEntries(Object.entries(opened.fingerprint).filter(([key]) => key.startsWith('material[')));
+        expect(fingerprintDifference(`${tag}/${entry.example} material migration`, reference, migrated)).toBeNull();
+        projects++;
+      }
+    }
+    expect(projects).toBe(187);
+  }, 120_000);
 
   it('unchanged steel and concrete projects still match their saved examples #1318', async () => {
     for (const example of ['truss', 'rc-beam-flexure', '3d-portal-frame']) {
