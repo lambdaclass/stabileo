@@ -1,14 +1,14 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { initSolver } from '../../engine/wasm-solver';
 import { modelStore, type Material } from '../../store/model.svelte';
-import { againstExample, openAndSolve, readCorpusText, readManifest } from '../legacy';
+import { againstExample, openAndSolve, openExample, readCorpusText, readManifest, savedFixture } from '../legacy';
 
 beforeAll(async () => { await initSolver(); });
 
 describe('release example semantics #2091', () => {
   for (const version of ['v0.2.0', 'v0.3.0']) {
     for (const example of ['truss', '3d-portal-frame', 'torre-irregular-con-retiros']) {
-      it.fails(`#2091: ${version}/${example} keeps the release's absent strengths`, async () => {
+      it(`#2091: ${version}/${example} keeps the release's absent strengths`, async () => {
         const entry = readManifest(version).examples.find(e => e.example === example)!;
         const opened = await openAndSolve(readCorpusText(`${version}/${entry.file}`), { solve: false });
         expect(opened.fingerprint['material[1].fu']).toBeUndefined();
@@ -17,7 +17,7 @@ describe('release example semantics #2091', () => {
     }
   }
 
-  it.fails('#2091: later default fields cannot enter a release reference', async () => {
+  it('#2091: later default fields cannot enter a release reference', async () => {
     const version = 'v0.4.0';
     const entry = readManifest(version).examples.find(e => e.example === 'truss')!;
     const opened = await openAndSolve(readCorpusText(`${version}/${entry.file}`), { solve: false });
@@ -34,6 +34,17 @@ describe('release example semantics #2091', () => {
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it('refuses a reference without recorded release defaults, below and above the recorded releases', async () => {
+    const entry = readManifest('v0.4.0').examples.find(e => e.example === 'truss')!;
+    const { fixture } = savedFixture(entry.example, entry.fixtureBlob);
+    for (const version of ['v0.1.0', 'v0.5.0']) {
+      await expect(openExample('truss', '2d', { solve: false, release: version, fixture }))
+        .rejects.toThrow('no verified example defaults recorded');
+    }
+    const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`), { solve: false });
+    expect(await againstExample('recorded release', 'v0.4.0', entry, opened, false)).toMatchObject({ failure: null });
   });
 
   it('#1318: saved Fu remains required and exact on both sides of its recorded value', async () => {

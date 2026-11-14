@@ -18,7 +18,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
-import { modelStore } from '../store/model.svelte';
+import { modelStore, type Section } from '../store/model.svelte';
+import { resolveDefaultSection } from '../store/canonical-sections';
+import releaseDefaults from './release-defaults.json';
 import { resultPropertyFingerprint } from '../model/result-properties';
 import { historyStore } from '../store/history.svelte';
 import { uiStore } from '../store/ui.svelte';
@@ -115,16 +117,16 @@ export function currentFixtureBlob(id: string): string | null {
  * against the blob id). An example edited since with no recorded fixture fails: without it
  * nothing tells a fixture edit from a migration that reads the old file as another model.
  */
-export function savedFixture(id: string, blob: string): { fixture?: () => Promise<unknown>; edited: boolean } {
-  if (blob === currentFixtureBlob(id)) return { edited: false };
-  const f = new URL(`${id}@${blob}.json`, EDITED_FIXTURE_DIR);
+export function savedFixture(id: string, blob: string): { fixture: () => Promise<unknown>; edited: boolean } {
+  const edited = blob !== currentFixtureBlob(id);
+  const f = edited ? new URL(`${id}@${blob}.json`, EDITED_FIXTURE_DIR) : new URL(`${id}.json`, FIXTURE_DIR);
   if (!existsSync(f)) {
     throw new Error(`${id}: the fixture the version saved (blob ${blob}) is not today's, and legacy-projects/fixtures/${id}@${blob}.json does not record it. Regenerate the corpus (generate.mjs writes it) so the file is compared with the example it was saved from.`);
   }
   const bytes = readFileSync(f);
   if (gitBlob(bytes) !== blob) throw new Error(`legacy-projects/fixtures/${id}@${blob}.json is not that blob (${gitBlob(bytes)}): it was edited.`);
   const json = JSON.parse(bytes.toString('utf8')) as unknown;
-  return { fixture: async () => json, edited: true };
+  return { fixture: async () => structuredClone(json), edited };
 }
 
 /** Every store an open writes to, back to a fresh session's state (the snapshot gate's reset). */
@@ -237,11 +239,20 @@ export async function captureExample(
   return (await openExample(id, workspace, opts)).values;
 }
 
+type ExampleOptions = { solve?: boolean; keepCombinations?: boolean } & (
+  { release?: never; fixture?: () => Promise<unknown> } | { release: string; fixture: () => Promise<unknown> }
+);
+
 export async function openExample(
-  id: string, workspace: Workspace, opts: { solve?: boolean; fixture?: () => Promise<unknown>; keepCombinations?: boolean } = {},
+  id: string, workspace: Workspace, opts: ExampleOptions = {},
 ): Promise<{ values: Values; fingerprint: Values }> {
+  const defaults = opts.release === undefined ? undefined : defaultsForRelease(opts.release);
   reset(workspace);
   await modelStore.loadExample(id, opts.fixture, { keepCombinations: opts.keepCombinations });
+  if (defaults) {
+    modelStore.materials.set(1, structuredClone(defaults.material));
+    modelStore.sections.set(1, resolveDefaultSection(structuredClone(defaults.section) as Section));
+  }
   const values = modelCounts();
   const fingerprint = modelFingerprint();
   if (opts.solve !== false) await solveAndRecord(values);
@@ -325,27 +336,27 @@ export function modelFingerprint(): Values {
   return out;
 }
 
-/**
- * A legacy file as the current code opened it (and solved it, when `solved`), against the example
- * it was saved from opened by the current code (an edited example's combinations loaded as its
- * release did, `KEPT_COMBINATIONS`): the same model (`modelFingerprint`) and, when
- * solved, the same results under the snapshot gate's tolerance. Both sides ran the current code,
- * so no registered result change can excuse a difference. The solved reference is the results
- * snapshot gate's committed snapshot (#716) when there is one for today's fixture, else solved here.
- */
+function defaultsForRelease(version: string) {
+  const defaults = releaseDefaults[version as keyof typeof releaseDefaults];
+  if (!defaults || readManifest(version).commit !== defaults.commit) {
+    throw new Error(`${version}: no verified example defaults recorded for this release`);
+  }
+  return defaults;
+}
+
 export async function againstExample(
   name: string, version: string, entry: Pick<ManifestEntry, 'example' | 'workspace' | 'fixtureBlob'>,
   opened: Pick<Opened, 'values' | 'fingerprint'>, solved: boolean,
 ): Promise<{ failure: string | null; verdict: Verdict | null; reference: string }> {
-  const { fixture, edited } = savedFixture(entry.example, entry.fixtureBlob);
-  const snap = solved && !edited ? committedSnapshot(entry.example, entry.workspace) : null;
-  const keepCombinations = edited && KEPT_COMBINATIONS.has(version);
-  const ref = await openExample(entry.example, entry.workspace, { solve: solved && !snap, fixture, keepCombinations });
-  const reference = snap ? snap.name : edited ? `${entry.example} as ${version} saved it (${entry.fixtureBlob.slice(0, 9)})` : `today's ${entry.example}`;
+  const { fixture } = savedFixture(entry.example, entry.fixtureBlob);
+  const ref = await openExample(entry.example, entry.workspace, {
+    solve: solved, fixture, release: version, keepCombinations: KEPT_COMBINATIONS.has(version),
+  });
+  const reference = `${entry.example} as ${version} defined it (${entry.fixtureBlob.slice(0, 9)})`;
   const model = fingerprintDifference(`${name} against ${reference}: the model`, ref.fingerprint, opened.fingerprint);
   if (model) return { failure: model, verdict: null, reference };
   if (!solved) return { failure: null, verdict: null, reference };
-  const verdict = judge(`${name} against ${reference}`, snap?.values ?? ref.values, opened.values, []);
+  const verdict = judge(`${name} against ${reference}`, ref.values, opened.values, []);
   return { failure: verdict.kind === 'same' ? null : migrationMessage(verdict, version), verdict, reference };
 }
 
