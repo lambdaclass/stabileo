@@ -11,6 +11,7 @@ import type { WallComboForces, WallDemand } from './wall-row';
 import type { PunchingDemand } from './punching-row';
 import type { SlabJointForce } from '../engine/detailing/slab-punching';
 import type { Signed } from './types';
+import type { LevelGeometry, PlanBeam, PlanColumn } from './slab-plan';
 
 type Pt = { id: number; x: number; y: number; z?: number };
 type El = { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: string; rollAngle?: number };
@@ -418,9 +419,10 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
       combos.push(c);
     }
     const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+    const bounds = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), z: pts.reduce((a, p) => a + zOf(p), 0) / pts.length };
     out.push({
       key: `slab:${g.id}`, name: g.name, level: g.level,
-      lx: Math.max(...xs) - Math.min(...xs), ly: Math.max(...ys) - Math.min(...ys), h, m: best, q, combos,
+      lx: bounds.x1 - bounds.x0, ly: bounds.y1 - bounds.y0, bounds, h, m: best, q, combos,
     });
   }
   return out;
@@ -430,6 +432,55 @@ type V3 = [number, number, number];
 const dot3 = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const tensorAlong = (t: { xx: number; yy: number; zz: number; xy: number; yz: number; zx: number }, a: V3, b: V3) =>
   dot3(a, [t.xx * b[0] + t.xy * b[1] + t.zx * b[2], t.xy * b[0] + t.yy * b[1] + t.yz * b[2], t.zx * b[0] + t.yz * b[1] + t.zz * b[2]]);
+
+/** The beams, walls and columns a level's slabs rest on, in plan at elevation `z`. */
+export function levelGeometry(m: DemandInput, level: string, z: number): LevelGeometry {
+  const at = (p: Pt | undefined) => !!p && Math.abs(zOf(p) - z) < 0.05;
+  const beams: PlanBeam[] = [];
+  const columns: PlanColumn[] = [];
+  for (const e of m.elements.values()) {
+    if (e.type === 'truss') continue;
+    const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ);
+    const sec = m.sections.get(e.sectionId);
+    if (isVertical(m, e)) {
+      const top = at(a) ? a : at(b) ? b : undefined;
+      if (top && !columns.some((k) => Math.hypot(k.x - top.x, k.y - top.y) < 0.05)) columns.push({ x: top.x, y: top.y, b: sec?.b ?? 0.3, h: sec?.h ?? 0.3 });
+    } else if (at(a) && at(b)) beams.push({ x1: a!.x, y1: a!.y, x2: b!.x, y2: b!.y, b: sec?.b ?? 0.2, kind: 'beam' });
+  }
+  const held = [...m.supportNodes].map((n) => m.nodes.get(n)).filter((p): p is Pt => at(p));
+  const inLine = new Set<Pt>();
+  for (const axis of ['x', 'y'] as const) {
+    const along = axis === 'x' ? 'y' : 'x';
+    const rows = new Map<number, Pt[]>();
+    for (const p of held) { const k = Math.round(p[axis] * 100); rows.set(k, [...(rows.get(k) ?? []), p]); }
+    for (const row of rows.values()) {
+      const sorted = row.sort((p, q) => p[along] - q[along]);
+      let start = 0;
+      for (let i = 1; i <= sorted.length; i++) {
+        if (i < sorted.length && sorted[i]![along] - sorted[i - 1]![along] <= 1.5) continue;
+        if (i - start >= 2) {
+          const a = sorted[start]!, b = sorted[i - 1]!;
+          beams.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, b: 0, kind: 'wall' });
+          for (let k = start; k < i; k++) inLine.add(sorted[k]!);
+        }
+        start = i;
+      }
+    }
+  }
+  for (const p of held) if (!inLine.has(p) && !columns.some((k) => Math.hypot(k.x - p.x, k.y - p.y) < 0.05)) columns.push({ x: p.x, y: p.y, b: 0, h: 0 });
+  for (const g of m.groups) {
+    if (g.kind !== 'wall') continue;
+    const shells = [...g.quads.map((id) => m.shells.quads?.get(id)), ...g.plates.map((id) => m.shells.plates?.get(id))].filter((x): x is NonNullable<typeof x> => !!x);
+    const pts = shells.flatMap((x) => x.nodes.map((n) => m.nodes.get(n))).filter((p): p is Pt => at(p));
+    if (pts.length < 2) continue;
+    const dx = Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x)), dy = Math.max(...pts.map((p) => p.y)) - Math.min(...pts.map((p) => p.y));
+    const key = (p: Pt) => (dx >= dy ? p.x : p.y);
+    const sorted = [...pts].sort((p, q) => key(p) - key(q));
+    const w: PlanBeam = { x1: sorted[0]!.x, y1: sorted[0]!.y, x2: sorted[sorted.length - 1]!.x, y2: sorted[sorted.length - 1]!.y, b: shells[0]!.thickness, kind: 'wall' };
+    if (!beams.some((o) => o.kind === 'wall' && Math.hypot(o.x1 - w.x1, o.y1 - w.y1) + Math.hypot(o.x2 - w.x2, o.y2 - w.y2) < 0.05)) beams.push(w);
+  }
+  return { level, beams, columns };
+}
 
 export function wallDemands(m: DemandInput): WallDemand[] {
   const out: WallDemand[] = [];
