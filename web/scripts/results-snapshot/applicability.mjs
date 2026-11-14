@@ -6,8 +6,10 @@ export function conditionHolds(w, features) {
   return conditionGroups(w).every((g) => g.some((f) => features.has(f)));
 }
 
+const resultFamily = (path) => path.split(/\.|\[/)[0];
+
 function resultAnalysis(path) {
-  const family = path.split('.')[0];
+  const family = resultFamily(path);
   return /^(pdelta|modal|spectral|buckling|nonlinear|ssi)$/.test(family) ? family : 'linear';
 }
 
@@ -18,7 +20,7 @@ export function conditionAllowsResult(w, path) {
 
 export function fieldCovered(entry, path, features) {
   if (!Array.isArray(features) || !entry.when || typeof entry.when !== 'object' || Array.isArray(entry.when) || !Array.isArray(entry.quantities)) return false;
-  const family = path.split('.')[0];
+  const family = resultFamily(path);
   const loadResult = ['generatedLoads', 'snowDerivation', 'snowResult'].includes(family);
   const analysis = loadResult ? null : resultAnalysis(path);
   if (loadResult && (entry.area !== 'loads' || !features.includes('generatedLoads'))) return false;

@@ -84,3 +84,12 @@ unrelated solver suite. Roof-skin persistence and solver refactors remain outsid
 this correction; the existing resolved-surface model supplies the needed local
 geometry. Engineering rules are taken from the repository's CIRSOC 104-2005
 chapter 5 and existing roofSnow implementation, not from recalled values.
+
+The stronger committed snapshot gate against the reproducer commit exposed a
+classifier defect: it recognized `snowDerivation.item0` but treated the actual
+`snowDerivation[0]` family as a linear solver result. A separate reproducer/fix
+pair covers changed, removed and added bracketed derivation fields. One shared
+family parser now recognizes both property and array boundaries for analysis
+and field applicability. Generated-load context, snow conditions, loads area,
+quantity coverage and the prohibition on a fictitious linear solve remain
+mandatory. This gate correction does not change engine results.

@@ -377,7 +377,7 @@ for (const path of ['generatedLoads.item7.distributed.item0.q', 'snowResult.ps',
   });
 }
 
-const knownWrongArrayPath = it.skip;
+const knownWrongArrayPath = it;
 
 for (const path of ['snowDerivation[0].key', 'snowDerivation[0].params.n', 'snowDerivation[1].params.axis']) for (const change of ['changed', 'removed', 'added']) {
   knownWrongArrayPath(`known wrong result: #2095 bracketed snow derivation applicability ${path} ${change}`, () => {
