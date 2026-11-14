@@ -927,3 +927,19 @@ fn issue_2084_portal_history_disclosure_has_structured_bounds() {
         assert_eq!(result.warnings.last().unwrap(), disclosure["message"].as_str().unwrap());
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2084"]
+fn issue_2084_biaxial_portal_closes_its_certificate_gap() {
+    let bytes = include_bytes!("../fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin");
+    let input: PlasticInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
+    let certificate = dedaliano_engine::certify::plastic_3d::certify_collapse_3d(&input, None);
+    assert!(certificate.certified, "{certificate:?}");
+    let lower = certificate.lambda_lower.unwrap();
+    let upper = certificate.lambda_upper.unwrap();
+    assert!(lower > 0.0 && upper - lower <= 5e-8 * lower, "[{lower}, {upper}]");
+    let scalar = dedaliano_engine::solver::plastic::solve_plastic_3d(&input).unwrap();
+    let checked = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&input).unwrap();
+    assert_eq!(scalar.collapse_factor, checked.results.collapse_factor);
+    assert_eq!(checked.results.collapse_factor, checked.certificate.lambda_lower.unwrap());
+}
