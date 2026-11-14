@@ -23,7 +23,7 @@
     "pt": "O equilíbrio plástico usa os IDs do modelo resolvido e o certificado limita cada candidato",
     "de": "Plastisches Gleichgewicht nutzt Modell-IDs und Zertifikate begrenzen einzelne Kandidaten",
     "fr": "L’équilibre plastique utilise les identifiants du modèle résolu et le certificat limite chaque candidat",
-    "tr": "Plastik denge çözülen modelin kimliklerini kullanır; sertifikalar her adayın belleğini sınırlar"
+    "tr": "Plastik denge çözülen modelin kimliklerini kullanır; sertifikalar gerçek adaylar için kaynak bütçesi uygular"
   },
   "explanation": {
     "en": "Recovered-force accuracy checks now resolve member and node IDs from the solved model, independently of JSON map keys. Missing recovered members return a coded refusal. Exact plastic certification checks initial storage and each actual LP candidate against the existing byte limits; it retains proven bounds if further refinement cannot fit. Previously refused random frames can now certify. Numerical tolerances are unchanged.",

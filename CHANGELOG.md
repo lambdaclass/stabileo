@@ -121,6 +121,14 @@ Plastic interval displays compare against the exact certificate endpoints. Resou
 
 CIRSOC 301 reads the moment at both ends of a declared unbraced segment for curvature and Mmax. Previously, end moments could be omitted from Mmax for any section; channels and tees in double curvature could also miss a sign change. Re-check all CIRSOC 301 members with a declared Lb shorter than the member, including steel checks and optimiser proposals. See [SA-2026-048](docs/advisories/SA-2026-048-cb-segment-ends.md).
 
+### Security
+
+#### Dependency vulnerability fixes and trusted Revert Check
+
+- Update quinn-udp from 0.5.14 to 0.5.16 for RUSTSEC-2026-0538, fixing a receive loop that can spin after a truncated datagram.
+- Update rustix from 1.1.4 to 1.1.6 for RUSTSEC-2026-0486, fixing unsound zero-length buffers in extended-attribute functions.
+- Revert Check (trusted) uses the base branch workflow and checker; pull request commits are fetched only as data and never checked out or run. Labels are read live; an unreadable `reverts-ok` label never counts.
+
 ### Added
 
 #### Interactive bent-strip shape control

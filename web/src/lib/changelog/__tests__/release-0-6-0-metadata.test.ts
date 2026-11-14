@@ -14,7 +14,7 @@ const locales = [
   { locale: 'tr', file: 'docs/releases/v0.6.0.tr.md', security: 'Güvenlik', trusted: /taban dal.*commit.*veri.*asla.*çalıştırılmaz/i },
 ];
 
-it.skip.each([{ file: 'CHANGELOG.md', security: 'Security', trusted: locales[0].trusted }, ...locales])(
+it.each([{ file: 'CHANGELOG.md', security: 'Security', trusted: locales[0].trusted }, ...locales])(
   'known wrong result: #2086 $file retains dependency fixes and trusted Revert Check security',
   ({ file, security, trusted }) => {
     const text = file === 'CHANGELOG.md'
@@ -33,10 +33,10 @@ it.skip.each([{ file: 'CHANGELOG.md', security: 'Security', trusted: locales[0].
 const notices = [
   { id: 'plastic-nightly-model-and-candidate-budgets', file: '2026-11-plastic-nightly-model-and-candidate-budgets.md', tr: 'Plastik denge çözülen modelin kimliklerini kullanır; sertifikalar gerçek adaylar için kaynak bütçesi uygular' },
   { id: 'nonlinear-reference-and-initial-shaft-stiffness', file: '2026-11-continuous-settlement-reference.md', tr: 'Oturma referansları ve başlangıç kazık gövdesi rijitliği sürekli kalır' },
-  { id: 'planar-corotational-member-equilibrium', file: '2026-11-physical-stage-and-member-equilibrium.md', tr: 'Düzlemsel eleman kesmesi son uç noktaları birleştiren doğru parçasını (kordu) kullanır' },
+  { id: 'planar-corotational-member-equilibrium', file: '2026-11-physical-stage-and-member-equilibrium.md', tr: 'Düzlemsel eleman kesmesi son konumdaki uç noktalarını birleştiren kordu kullanır' },
 ];
 
-it.skip.each(notices)('known wrong result: #2086 $id preserves engineering meaning in Turkish and shares titles across release locales', ({ id, file, tr }) => {
+it.each(notices)('known wrong result: #2086 $id preserves engineering meaning in Turkish and shares titles across release locales', ({ id, file, tr }) => {
   const entry = JSON.parse(read(`web/src/lib/provenance/result-changes/${id}.json`));
   expect(entry.title.tr).toBe(tr);
   for (const { locale, file: release } of locales) {
@@ -46,7 +46,7 @@ it.skip.each(notices)('known wrong result: #2086 $id preserves engineering meani
   }
 });
 
-it.skip('known wrong result: #2086 separates the advisory draft history, publication and revision dates', () => {
+it('known wrong result: #2086 separates the advisory draft history, publication and revision dates', () => {
   const text = read('docs/advisories/SA-2026-061-path-solver-reactions.md');
   expect(text).toMatch(/\| Status \| Draft 2026-11-12; fixed in PR #1952, pending release/);
   expect(text).toContain('| Publication | 2026-11-13; included in 0.6.0 |');

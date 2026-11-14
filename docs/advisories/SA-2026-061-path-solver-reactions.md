@@ -3,8 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Published 2026-11-13 (drafted 2026-11-12) |
-| Revision | 2026-11-13: clarify P-Delta containment, unavailable dynamic forces and determined staged results; original draft date retained |
+| Status | Draft 2026-11-12; fixed in PR #1952, pending release at draft time; published 2026-11-13 |
+| Publication | 2026-11-13; included in 0.6.0 |
+| Revision | 2026-11-13: publish for 0.6.0 and clarify P-Delta containment, unavailable dynamic forces and determined staged results; original draft date retained |
 | Issue | [#1949](https://github.com/lambdaclass/stabileo/issues/1949) and the PR #1952 result-field sweep |
 | Fix | PR [#1952](https://github.com/lambdaclass/stabileo/pull/1952), included in 0.6.0 |
 | Fixed release | 0.6.0 (2026-11-13) |
