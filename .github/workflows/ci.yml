@@ -130,7 +130,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         if: github.event_name == 'pull_request'
         with:
@@ -309,10 +309,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -330,10 +330,10 @@ jobs:
           clean: true
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -360,10 +360,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -403,10 +403,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -445,10 +445,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -492,10 +492,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -545,10 +545,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -583,10 +583,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -628,10 +628,10 @@ jobs:
       - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: steps.plan.outputs.any == 'true' && runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -664,10 +664,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -700,10 +700,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -746,10 +746,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -867,10 +867,10 @@ jobs:
       - if: runner.environment == 'github-hosted' && (steps.new.outputs.any == 'true')
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted' && steps.new.outputs.any == 'true'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request' && (steps.new.outputs.any == 'true')
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -919,10 +919,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -978,10 +978,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -1256,10 +1256,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -1351,10 +1351,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -1404,10 +1404,10 @@ jobs:
           fetch-depth: 0
           filter: blob:none
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -1455,10 +1455,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -1566,10 +1566,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -1627,10 +1627,10 @@ jobs:
           filter: blob:none
       - uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -1702,10 +1702,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -1912,10 +1912,10 @@ jobs:
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -2017,9 +2017,9 @@ jobs:
           fetch-depth: 0
           filter: blob:none
       - uses: ./.github/actions/free-disk
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
       - if: github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -2035,14 +2035,14 @@ jobs:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
       - name: WASM engine (from the wasm job)
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: wasm
           path: web/src/lib/wasm
       - name: Install dependencies
         run: .github/scripts/retry-infra.sh make web.deps
       - name: E2E site (from the site-e2e job)
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: site-e2e
           path: web/dist
@@ -2091,7 +2091,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: .github/scripts
       - name: Open, update or close the Timing Budgets issue
-        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           SCALE_OUTCOME: ${{ needs.timing-budgets.outputs.scale }}
           E2E_OUTCOME: ${{ needs.timing-budgets.outputs.e2e }}
@@ -2215,7 +2215,7 @@ jobs:
       - name: Open, update or close the @slow E2E issue
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && (needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true')
         continue-on-error: true
-        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           E2E_TOTAL: ${{ needs.changes.outputs.e2e_total }}
         with:
