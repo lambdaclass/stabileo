@@ -20,7 +20,22 @@ const body: PostBody = {
       "k": "note",
       "t": "SA-2026-058 – Javítva a #1922-es PR-ben, kiadásra vár."
     },
-    {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO egy vasbeton kerettel, amelyet még az eredmények verziózása előtt mentettek. Alul egy sáv jelzi, hogy az eredmények elavultak, mert a projektet legutóbb egy régebbi verzióval számították, és 19 nyilvántartott változás érinti; mellette a változások megtekintésére és az újraszámításra szolgáló gombok.", "caption": "Így jut el egy javítás egy mentett projekthez: amíg újra nem számítják, az eredményei elavultként vannak jelölve, és az őt érintő változások egy kattintásnyira vannak."},
+    {
+      "k": "note",
+      "t": "SA-2026-061 — Javítva a #1952 PR-ben, közzétételre vár."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-063 — Javítva a #2009 PR-ben, közzétételre vár."
+    },
+    {
+      "k": "img",
+      "base": "blog/recheck-stale",
+      "w": 1600,
+      "h": 1000,
+      "alt": "Stabileo PRO egy vasbeton kerettel, amelyet még az eredmények verziózása előtt mentettek. Alul egy sáv jelzi, hogy az eredmények elavultak, mert a projektet legutóbb egy régebbi verzióval számították, és 19 nyilvántartott változás érinti; mellette a változások megtekintésére és az újraszámításra szolgáló gombok.",
+      "caption": "Így jut el egy javítás egy mentett projekthez: amíg újra nem számítják, az eredményei elavultként vannak jelölve, és az őt érintő változások egy kattintásnyira vannak."
+    },
     {
       "k": "h",
       "t": "Összefoglaló"
@@ -388,6 +403,30 @@ const body: PostBody = {
           "A generált kombinációk és terhek (CIRSOC 101, 102, 103) a biztonság kárára tévedtek",
           "Magas",
           "Javítva: 0.2.0"
+        ],
+        [
+          "SA-2026-061",
+          "Az ívhossz- és elmozdulásvezérlés kihagyta a reakciókat, és skálázatlan rúdterheket használt; a 2D/3D kényszeres, Guyan-, fázisos és időtörténeti eredmények hiányai is felülvizsgálatot igényelnek. Futtassa újra az érintett eredményeket, vagy ellenőrizze őket függetlenül; a 0.2.0–0.5.0 és az azt követő érintett main-verziók.",
+          "Magas",
+          "Javítva a #1952 PR-ben, közzétételre vár"
+        ],
+        [
+          "SA-2026-060",
+          "A fázisos analízis egységváltás után vagy támaszrugós, kioldott rúdvégeknél észrevétlenül merevíthette a valós forgásokat; ellenőrizze újra a rúdkioldásokat tartalmazó fázisos modelleket.",
+          "Magas",
+          "Tervezet: a helyi javítás felülvizsgálatra és közzétételre vár"
+        ],
+        [
+          "SA-2026-062",
+          "A nyers 3D képlékeny analízis észrevétlenül nullát adhatott, ha a kezdeti rugalmas állapot számítása sikertelen volt; a korábbi tanúsított verziók megtartották ezt a tényezőt. A main már pozitív tanúsított korlátot ad figyelmeztetéssel; a #1943 PR továbbítja a kezdeti elutasítást.",
+          "Magas",
+          "Tervezet: a helyi javítás felülvizsgálatra és közzétételre vár"
+        ],
+        [
+          "SA-2026-063",
+          "A kényszeres fázisos és nemlineáris analízisek elveszítették a mestercsomópont előírt mozgását; a kábel- és időtörténeti analízis most elutasítja a nem támogatott támaszmozgást. A meglévő általános dinamikai figyelmeztetések ettől a hiánytól különállók.",
+          "Magas",
+          "Javítva a #2009 PR-ben, közzétételre vár"
         ]
       ]
     },

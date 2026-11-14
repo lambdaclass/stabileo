@@ -22,8 +22,8 @@
     "pt": "A galeria pública de lajes usa apoios simples rígidos nas paredes",
     "de": "Das öffentliche Plattenbeispiel verwendet harte einfache Randlager auf Wänden",
     "fr": "La galerie publique de dalles utilise des appuis simples durs sur murs",
-    "tr": "Herkese açık döşeme galerisi duvarlarda sert basit mesnetler kullanıyor",
-    "hu": "A nyilvános lemezgaléria merev egyszerű támaszokat használ a falakon"
+    "hu": "A nyilvános lemezgaléria merev egyszerű támaszokat használ a falakon",
+    "tr": "Herkese açık döşeme galerisi duvarlarda sert basit mesnetler kullanıyor"
   },
   "explanation": {
     "en": "PR #1627 changed the wall-supported slab demo inputs: edge-tangential rotations are restrained as well as vertical motion, and the reference now includes Reissner–Mindlin shear deformation. Its deflection and displayed reference therefore change together. This entry applies only to the public slab-on-columns gallery with walls selected; column supports and saved projects are unaffected by this demo-input correction.",
@@ -31,8 +31,8 @@
     "pt": "A PR #1627 alterou os dados da laje de demonstração sobre paredes: restringe rotações tangenciais da borda além do movimento vertical, e a referência inclui deformação por cisalhamento de Reissner–Mindlin. A flecha e a referência exibida mudam juntas. Aplica-se apenas à galeria pública slab-on-columns com paredes selecionadas; o caso sobre pilares e projetos salvos não são afetados.",
     "de": "PR #1627 ändert die Eingaben des Plattenbeispiels auf Wänden: Neben der vertikalen Bewegung werden die randtangentialen Rotationen festgehalten; die Referenz enthält nun Reissner–Mindlin-Schubverformung. Durchbiegung und angezeigte Referenz ändern sich gemeinsam. Der Eintrag gilt nur für slab-on-columns in der öffentlichen Galerie mit ausgewählten Wänden; Stützenlager und gespeicherte Projekte sind von dieser Beispieleingabekorrektur nicht betroffen.",
     "fr": "La PR #1627 modifie les données de la dalle de démonstration sur murs : les rotations tangentielles du bord sont bloquées en plus du déplacement vertical, et la référence inclut la déformation de cisaillement de Reissner–Mindlin. La flèche et la référence affichée changent ensemble. Cette entrée concerne uniquement slab-on-columns dans la galerie publique avec murs sélectionnés ; les appuis sur poteaux et les projets enregistrés ne sont pas concernés.",
-    "tr": "PR #1627, duvarlarla mesnetlenmiş döşeme örneğinin girdilerini değiştirdi: düşey harekete ek olarak kenara teğet dönmeler tutuluyor ve referans artık Reissner–Mindlin kayma deformasyonunu içeriyor. Sehim ve gösterilen referans birlikte değişiyor. Bu kayıt yalnızca herkese açık slab-on-columns galerisinde duvarlar seçiliyken geçerlidir; kolonlu örnek ve kayıtlı projeler bu örnek girdisi düzeltmesinden etkilenmez.",
-    "hu": "A PR #1627 módosította a falakra támaszkodó lemezbemutató bemeneteit: a függőleges mozgás mellett az él érintőirányú forgásai is kötöttek, a referencia pedig Reissner–Mindlin nyírási alakváltozást is tartalmaz. A lehajlás és a közölt referencia együtt változik. Ez csak a nyilvános slab-on-columns galéria falas változatát érinti; az oszloptámaszok és a mentett projektek változatlanok."
+    "hu": "A PR #1627 módosította a falakra támaszkodó lemezbemutató bemeneteit: a függőleges mozgás mellett az él érintőirányú forgásai is kötöttek, a referencia pedig Reissner–Mindlin nyírási alakváltozást is tartalmaz. A lehajlás és a közölt referencia együtt változik. Ez csak a nyilvános slab-on-columns galéria falas változatát érinti; az oszloptámaszok és a mentett projektek változatlanok.",
+    "tr": "PR #1627, duvarlarla mesnetlenmiş döşeme örneğinin girdilerini değiştirdi: düşey harekete ek olarak kenara teğet dönmeler tutuluyor ve referans artık Reissner–Mindlin kayma deformasyonunu içeriyor. Sehim ve gösterilen referans birlikte değişiyor. Bu kayıt yalnızca herkese açık slab-on-columns galerisinde duvarlar seçiliyken geçerlidir; kolonlu örnek ve kayıtlı projeler bu örnek girdisi düzeltmesinden etkilenmez."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-gallery-slab-hard-walls.md",

@@ -15,7 +15,7 @@ import { routeKind, restoreRedirectedRoute } from './lib/public-route';
 import { restoreMovedRoute, restoreUnpublishedResearchRoute } from './lib/legacy-routes';
 import { i18n, ensureLocale, ensurePublicLocale } from './lib/i18n/store.svelte';
 import { parsePublicPath } from './lib/i18n/public-routes';
-import { startTracking } from './lib/tracking/tracking';
+import { accounts } from './lib/features';
 
 // Browser-test hooks — BUILD-TIME GATED.
 //
@@ -47,7 +47,7 @@ async function bootstrap() {
   restoreRedirectedRoute();
   restoreMovedRoute();
   restoreUnpublishedResearchRoute();
-  void startTracking();
+  if (accounts()) void import('./lib/tracking/tracking').then(m => m.startTracking());
   const target = document.getElementById('app')!;
   if (routeKind().kind === 'app') {
     document.getElementById('prerender')?.remove();

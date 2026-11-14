@@ -29,8 +29,8 @@
     "pt": "Apoios inclinados preservam cargas livres resolvíveis",
     "de": "Geneigte Auflager erhalten auflösbare freie Lasten",
     "fr": "Les appuis inclinés conservent les charges libres résolubles",
-    "tr": "Eğik mesnetler çözülebilir serbest yükleri korur",
-    "hu": "A ferde támaszok megőrzik a felbontott szabad terheket"
+    "hu": "A ferde támaszok megőrzik a felbontott szabad terheket",
+    "tr": "Eğik mesnetler çözülebilir serbest yükleri korur"
   },
   "explanation": {
     "en": "Applied loads at inclined supports now use compensated projection in linear and nonlinear analyses. A small representable tangential load beside a large restrained load must retain its nonzero response. Nonlinear convergence no longer discards free residuals using the restrained load magnitude; fiber corrections project applied and internal forces before subtracting them. Re-run affected inclined-support analyses (#761, PR #1940).",
@@ -38,8 +38,8 @@
     "pt": "Cargas em apoios inclinados usam projeção compensada nas análises lineares e não lineares. Uma pequena carga tangencial representável ao lado de uma grande carga restrita preserva sua resposta não nula. A convergência não linear deixa de descartar resíduos livres pela magnitude da carga restrita; as correções de fibras projetam as forças antes da subtração. Refaça as análises afetadas (#761, PR #1940).",
     "de": "Lasten an geneigten Auflagern werden in linearen und nichtlinearen Analysen kompensiert projiziert. Eine kleine darstellbare Tangentiallast neben einer großen gehaltenen Last behält ihre Antwort ungleich null. Die nichtlineare Konvergenz verwirft freie Residuen nicht mehr anhand der gehaltenen Last; Faserkorrekturen projizieren Kräfte vor der Subtraktion. Betroffene Analysen erneut ausführen (#761, PR #1940).",
     "fr": "Les charges aux appuis inclinés utilisent une projection compensée en analyse linéaire et non linéaire. Une petite charge tangentielle représentable voisine d’une grande charge retenue conserve sa réponse non nulle. La convergence ne supprime plus les résidus libres selon la charge retenue ; les corrections de fibres projettent les forces avant soustraction. Relancer les analyses concernées (#761, PR #1940).",
-    "tr": "Eğik mesnetlerdeki yükler doğrusal ve doğrusal olmayan analizlerde telafili izdüşüm kullanır. Büyük bir kısıtlı yükün yanındaki küçük, gösterilebilir teğetsel yük sıfır olmayan yanıtını korur. Yakınsama, kısıtlı yük büyüklüğüne göre serbest artıkları silmez; lif düzeltmeleri kuvvetleri çıkarmadan önce izdüşürür. Etkilenen analizleri yeniden çalıştırın (#761, PR #1940).",
-    "hu": "A ferde támaszokra ható terhek a lineáris és nemlineáris vizsgálatokban kompenzált vetítést használnak. Egy nagy megtámasztott teher melletti kicsi, ábrázolható érintőirányú tehernek meg kell őriznie nem nulla válaszát. A nemlineáris konvergencia többé nem dobja el a szabad maradékot a megtámasztott teher nagysága miatt; a szálerős korrekciók kivonás előtt vetítik az alkalmazott és belső erőket. Futtassa újra az érintett ferde támaszos vizsgálatokat (#761, PR #1940)."
+    "hu": "A ferde támaszokra ható terhek a lineáris és nemlineáris vizsgálatokban kompenzált vetítést használnak. Egy nagy megtámasztott teher melletti kicsi, ábrázolható érintőirányú tehernek meg kell őriznie nem nulla válaszát. A nemlineáris konvergencia többé nem dobja el a szabad maradékot a megtámasztott teher nagysága miatt; a szálerős korrekciók kivonás előtt vetítik az alkalmazott és belső erőket. Futtassa újra az érintett ferde támaszos vizsgálatokat (#761, PR #1940).",
+    "tr": "Eğik mesnetlerdeki yükler doğrusal ve doğrusal olmayan analizlerde telafili izdüşüm kullanır. Büyük bir kısıtlı yükün yanındaki küçük, gösterilebilir teğetsel yük sıfır olmayan yanıtını korur. Yakınsama, kısıtlı yük büyüklüğüne göre serbest artıkları silmez; lif düzeltmeleri kuvvetleri çıkarmadan önce izdüşürür. Etkilenen analizleri yeniden çalıştırın (#761, PR #1940)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-inclined-load-projection.md",
