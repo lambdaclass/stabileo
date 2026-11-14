@@ -119,3 +119,30 @@ describe('the 2θ arc', () => {
     expect(arcPath(0, 0, 10, 0, 1)).toContain(' 0 0 1 ');
   });
 });
+
+it.skip('known wrong result: #2099 preserves the small principal root and its sign through every plane entry', () => {
+  for (const sign of [-1, 1]) for (const shear of [-1, 1]) {
+    const sx = sign * 1e9;
+    const expectedSmall = -sign / 1e9;
+    for (const p of [computeMohrCircle(sx, shear), fromSectionStress(sx, shear), principalPlane({ sx, sy: 0, txy: shear }), principalPlane({ sx: 0, sy: sx, txy: shear })]) {
+      const small = sign > 0 ? p.sigma2 : p.sigma1;
+      expect(Math.sign(small)).toBe(-sign);
+      expect(small / expectedSmall).toBeCloseTo(1, 14);
+      expect(p.sigma1 * p.sigma2).toBeCloseTo(-1, 14);
+    }
+  }
+});
+
+it.skip('known wrong result: #2099 keeps both sides of the zero determinant and exact zero roots', () => {
+  for (const sy of [0, 1e-9, 2e-9]) {
+    const p = principalPlane({ sx: 1e9, sy, txy: 1 });
+    const determinant = 1e9 * sy - 1;
+    expect(Math.sign(p.sigma2)).toBe(Math.sign(determinant));
+    expect(p.sigma1 * p.sigma2).toBeCloseTo(determinant, 14);
+  }
+  for (const sx of [-100, 0, 100]) {
+    const p = computeMohrCircle(sx, 0);
+    expect(p.sigma1).toBe(Math.max(0, sx));
+    expect(p.sigma2).toBe(Math.min(0, sx));
+  }
+});
