@@ -389,18 +389,27 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     const out: Array<{ from: number; to: number; point: P2 }> = [];
     for (let k = 1; k < cuts.length; k++) {
       const lo = cuts[k - 1]!, hi = cuts[k]!;
-      const t0 = lo + (hi - lo) / 4, t1 = lo + 3 * (hi - lo) / 4;
-      const m0 = margins(point(t0)), m1 = margins(point(t1));
+      const m0 = margins(point(lo + (hi - lo) / 4)), mm = margins(point((lo + hi) / 2)), m1 = margins(point(lo + 3 * (hi - lo) / 4));
       const roots = m0.flatMap((v, j) => {
-        const slope = (m1[j]! - v) / (t1 - t0);
-        const root = t0 - v / slope;
-        return slope !== 0 && root > lo && root < hi ? [root] : [];
-      });
-      const ts = [lo, ...roots.sort((a, b) => a - b).filter((v, j, all) => j === 0 || v > all[j - 1]!), hi];
+        let a = 8 * (v - 2 * mm[j]! + m1[j]!);
+        const error = 128 * Number.EPSILON * Math.max(Math.abs(v), Math.abs(mm[j]!), Math.abs(m1[j]!));
+        if (Math.abs(a) <= error) a = 0;
+        const b = 2 * (m1[j]! - v) - a, c = mm[j]! - a / 4 - b / 2;
+        if (a === 0) return b === 0 ? [] : [-c / b];
+        const det = b * b - 4 * a * c;
+        if (det < 0) return [];
+        const q = -(b + (b < 0 ? -1 : 1) * Math.sqrt(det)) / 2;
+        return q === 0 ? [-b / (2 * a)] : [q / a, c / q];
+      }).filter(t => t > 0 && t < 1).map(t => lo + (hi - lo) * t);
+      const ts = [lo, ...roots.sort((a, b) => a - b).filter((v, j, all) => j === 0 || v - all[j - 1]! > 128 * Number.EPSILON), hi];
       for (let j = 1; j < ts.length; j++) out.push({ from: ts[j - 1]!, to: ts[j]!, point: point((ts[j - 1]! + ts[j]!) / 2) });
     }
     return out;
   };
+  const edgeHeights = (a: P2, b: P2, layout: GravityLayout, left: number, right: number) => edgeRanges(a, b, layout, () => []).flatMap(r => [r.from, (r.from + r.to) / 2, r.to]).map(t => {
+    const pt: P2 = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+    return panel(left, layout).elevation(pt) - panel(right, layout).elevation(pt);
+  });
   const resolves = (layout?: GravityLayout) => {
     if (roof.some(m => targetIds.has(m.id) && supportFor(m.id).partial)) return false;
     if (!layout) return true;
@@ -413,7 +422,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     }
     return true;
   };
-  return { planes, orientations, edgeRanges, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets: roof.filter(m => targetIds.has(m.id)), panel, resolves };
+  return { planes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets: roof.filter(m => targetIds.has(m.id)), panel, resolves };
 }
 
 export function snowRoofSurfaces(model: WindModel, layout?: GravityLayout, surfaces = roofSurfaceModel(model)) {

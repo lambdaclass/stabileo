@@ -1,6 +1,6 @@
 import { snowCoordinate, snowRoofSteps, snowRoofSurfaces, roofSurfaceModel } from './snow-roof-surfaces';
 import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
-import { stepDriftMargins, stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
+import { driftShapeMargins, stepDriftMargins, stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
 import { msg, round, type EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
 
@@ -10,10 +10,12 @@ export interface SnowSurchargeLoad {
   elementId: number; q: number; qJ?: number; a?: number; b?: number; frame: 'projected';
 }
 
-interface Band { distanceBreaks?: number[]; p0: P2; u: P2; len: number; n: P2; on: number[]; p: (d: number, t: number) => number }
+interface Band { margins: (d: number, t: number) => number[]; distanceBreaks?: number[]; p0: P2; u: P2; len: number; n: P2; on: number[]; p: (d: number, t: number) => number }
 
 const dot = (a: P2, b: P2) => a[0] * b[0] + a[1] * b[1];
 const sub = (a: P2, b: P2): P2 => [a[0] - b[0], a[1] - b[1]];
+const descends = (gradient: P2, normal: P2) => dot(gradient, normal) < -16 * Number.EPSILON * Math.hypot(...gradient);
+
 const centroid = (poly: P2[]): P2 => [poly.reduce((s, p) => s + p[0], 0) / poly.length, poly.reduce((s, p) => s + p[1], 0) / poly.length];
 
 function nearSeg(p: P2, a: P2, b: P2, tol: number): boolean {
@@ -89,11 +91,27 @@ export function snowDriftRefusal(model: GravityModel, layout?: GravityLayout, su
   const coverageResolved = coverage === layout || surfaceModel.resolves(coverage);
   const surfaces = snowRoofSurfaces(model, coverage, surfaceModel);
   for (const [k, panel] of coverage.panels.entries()) {
+    if (!panel.roof || !coverageResolved) continue;
+    for (const other of coverage.panels.map((p, j) => ({ ...p, j })).filter(p => p.roof && p.j > k)) {
+      for (const [e, a] of panel.polygon.entries()) {
+        const b = panel.polygon[(e + 1) % panel.polygon.length]!, line = lineInto(a, b, panel.polygon);
+        for (const [f, c] of other.polygon.entries()) {
+          const interval = edgeInterval(a, b, c, other.polygon[(f + 1) % other.polygon.length]!);
+          if (!interval) continue;
+          const lo: P2 = [a[0] + interval[0] * line.u[0], a[1] + interval[0] * line.u[1]];
+          const hi: P2 = [a[0] + interval[1] * line.u[0], a[1] + interval[1] * line.u[1]];
+          const heights = surfaceModel.edgeHeights(lo, hi, coverage, k, other.j);
+          if (heights.some(h => h > 1e-8) && heights.some(h => h < -1e-8)) return 'snow.refused.roofPlane';
+        }
+      }
+    }
+  }
+  for (const [k, panel] of coverage.panels.entries()) {
     if (!panel.roof) continue;
     for (const [e, a] of panel.polygon.entries()) {
       const b = panel.polygon[(e + 1) % panel.polygon.length]!, line = lineInto(a, b, panel.polygon);
       for (const source of surfaceModel.planes) {
-        if (dot(source.gradient, line.n) >= 0) continue;
+        if (!descends(source.gradient, line.n)) continue;
         const intervals: Array<[number, number]> = [];
         for (const [f, c] of source.polygon.entries()) {
           const d = source.polygon[(f + 1) % source.polygon.length]!, interval = edgeInterval(a, b, c, d);
@@ -153,12 +171,11 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     const reach = (group: typeof roofs, sign: number) => Math.max(0, ...group.flatMap((p) => p.polygon.map((v) => sign * dot(sub(v, a), line.n))));
     const atStep = (t: number): P2 => [a[0] + line.u[0] * (t0 + t), a[1] + line.u[1] * (t0 + t)];
     const luUpper = reach(roofOf(U.k), -1), luLower = reach(lower, 1);
-    const local = (t: number): StepDrift => {
+    const inputs = (t: number) => {
       const pt = atStep(t);
-      const stepHeight = surfaces(U.k).elevation(pt) - surfaces(L.k).elevation(pt);
-      return stepDrift({ pg: i.pg, balanced: balanced(L.k, pt), stepHeight,
-        luUpper, luLower });
+      return { pg: i.pg, balanced: balanced(L.k, pt), stepHeight: surfaces(U.k).elevation(pt) - surfaces(L.k).elevation(pt), luUpper, luLower };
     };
+    const local = (t: number): StepDrift => stepDrift(inputs(t));
     const samples = [0, (t1 - t0) / 2, t1 - t0].map(t => ({ t, dr: local(t) }));
 
     for (const { t, dr } of samples) derivation.push(msg(dr.applies ? 'snow.derivation.drift' : 'snow.derivation.noDrift', {
@@ -166,7 +183,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       lee: round(dr.hdLeeward, 3), wind: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
     }));
     if (refs.length === 0) refs.push(REF_DRIFT, REF_FIG9);
-    bands.push({ p0: atStep(0), u: line.u, len: t1 - t0, n: line.n,
+    bands.push({ margins: (d, t) => [...stepDriftMargins(inputs(t)), ...driftShapeMargins(local(t), inputs(t).stepHeight - local(t).hb, d)], p0: atStep(0), u: line.u, len: t1 - t0, n: line.n,
       on: lower.map(p => p.k), p: (d, t) => {
         const dr = local(t);
         return dr.applies && d <= dr.w ? dr.pd * (1 - d / dr.w) : 0;
@@ -183,58 +200,63 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
   if (i.parapet || i.adjacent?.length) {
     for (const L of roofs) {
       for (let e = 0; e < L.polygon.length; e++) {
-        const a = L.polygon[e]!, b = L.polygon[(e + 1) % L.polygon.length]!;
-        const line = lineInto(a, b, L.polygon);
-        if (line.len < 0.1) continue;
-        const mid: P2 = [a[0] + line.u[0] * line.len / 2 - line.n[0] * 0.05, a[1] + line.u[1] * line.len / 2 - line.n[1] * 0.05];
-        if (roofs.some((p) => p.k !== L.k && p.z >= L.z - 0.05 && inside(mid, p.polygon))) continue;
-        const lower = roofOf(L.k);
-        const lu = Math.max(0, ...lower.flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
-        const point = (t: number): P2 => [a[0] + t * line.u[0], a[1] + t * line.u[1]];
-        const reportBand = (local: (pt: P2) => StepDrift, margins: (pt: P2) => number[], report: (dr: StepDrift, pt: P2, from: number, to: number) => void) => {
-          const ranges = surfaceModel.edgeRanges(a, b, layout, margins);
-          let applies = false;
-          for (const range of ranges) {
-            const dr = local(range.point);
-            applies ||= dr.applies;
-            report(dr, range.point, range.from * line.len, range.to * line.len);
+        const start = L.polygon[e]!, end = L.polygon[(e + 1) % L.polygon.length]!;
+        if (Math.hypot(end[0] - start[0], end[1] - start[1]) < 0.1) continue;
+        for (const range of surfaceModel.edgeRanges(start, end, layout, () => [])) {
+          const atEdge = (t: number): P2 => [start[0] + t * (end[0] - start[0]), start[1] + t * (end[1] - start[1])];
+          const a = atEdge(range.from), b = atEdge(range.to), edgeStart = range.from * Math.hypot(end[0] - start[0], end[1] - start[1]);
+          const line = lineInto(a, b, L.polygon);
+          if (line.len < 1e-9) continue;
+          const mid: P2 = [a[0] + line.u[0] * line.len / 2 - line.n[0] * 0.05, a[1] + line.u[1] * line.len / 2 - line.n[1] * 0.05];
+          if (roofs.some(p => p.k !== L.k && inside(mid, p.polygon) && surfaceModel.edgeHeights(a, b, layout, p.k, L.k).every(h => h >= -0.05))) continue;
+          const lower = roofOf(L.k);
+          const lu = Math.max(0, ...lower.flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
+          const point = (t: number): P2 => [a[0] + t * line.u[0], a[1] + t * line.u[1]];
+          const reportBand = (local: (pt: P2) => StepDrift, margins: (pt: P2) => number[], clearHeight: (pt: P2) => number, report: (dr: StepDrift, pt: P2, from: number, to: number) => void) => {
+            const ranges = surfaceModel.edgeRanges(a, b, layout, margins);
+            let applies = false;
+            for (const range of ranges) {
+              const dr = local(range.point);
+              applies ||= dr.applies;
+              report(dr, range.point, edgeStart + range.from * line.len, edgeStart + range.to * line.len);
+            }
+            bands.push({ margins: (d, t) => [...margins(point(t)), ...driftShapeMargins(local(point(t)), clearHeight(point(t)), d)], p0: a, u: line.u, len: line.len, n: line.n, on: lower.map(p => p.k), p: (d, t) => {
+              const dr = local(point(t));
+              return dr.applies && d <= dr.w ? dr.pd * (1 - d / dr.w) : 0;
+            } });
+            return applies;
+          };
+          if (i.parapet && i.parapet.height > 0) {
+            const local = (pt: P2) => parapetDrift({ pg: i.pg, balanced: balanced(L.k, pt), parapetHeight: i.parapet!.height, lu });
+            const applies = reportBand(local, pt => stepDriftMargins({ pg: i.pg, balanced: balanced(L.k, pt), stepHeight: i.parapet!.height }), pt => i.parapet!.height - local(pt).hb, (dr, pt, from, to) => {
+              derivation.push(msg('snow.derivation.edgeInterval', { from: round(from, 3), to: round(to, 3), at: round((from + to) / 2, 3) }));
+              derivation.push(msg(dr.applies ? 'snow.derivation.parapet' : 'snow.derivation.noParapet', {
+                z: round(surfaces(L.k).elevation(pt), 2), hp: round(i.parapet!.height, 2), lu: round(lu, 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
+                hd: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3), from: round(from, 3), to: round(to, 3),
+              }));
+            });
+            if (applies && !refs.includes(REF_PARAPET)) refs.push(REF_PARAPET, REF_FIG9);
           }
-          bands.push({ p0: a, u: line.u, len: line.len, n: line.n, on: lower.map(p => p.k), p: (d, t) => {
-            const dr = local(point(t));
-            return dr.applies && d <= dr.w ? dr.pd * (1 - d / dr.w) : 0;
-          } });
-          return applies;
-        };
-        if (i.parapet && i.parapet.height > 0) {
-          const local = (pt: P2) => parapetDrift({ pg: i.pg, balanced: balanced(L.k, pt), parapetHeight: i.parapet!.height, lu });
-          const applies = reportBand(local, pt => stepDriftMargins({ pg: i.pg, balanced: balanced(L.k, pt), stepHeight: i.parapet!.height }), (dr, pt, from, to) => {
-            derivation.push(msg('snow.derivation.edgeInterval', { from: round(from, 3), to: round(to, 3), at: round((from + to) / 2, 3) }));
-            derivation.push(msg(dr.applies ? 'snow.derivation.parapet' : 'snow.derivation.noParapet', {
-              z: round(surfaces(L.k).elevation(pt), 2), hp: round(i.parapet!.height, 2), lu: round(lu, 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
-              hd: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3), from: round(from, 3), to: round(to, 3),
-            }));
-          });
-          if (applies && !refs.includes(REF_PARAPET)) refs.push(REF_PARAPET, REF_FIG9);
-        }
-        for (const adj of i.adjacent ?? []) {
-          const out: P2 = [-line.n[0], -line.n[1]];
-          const want: P2 = adj.side === '+x' ? [1, 0] : adj.side === '-x' ? [-1, 0] : adj.side === '+y' ? [0, 1] : [0, -1];
-          if (dot(out, want) < 0.95) continue;
-          const beyond = layout.panels.some((p) => {
-            const t = p.polygon.map((v) => dot(sub(v, a), line.u)), o = p.polygon.map((v) => dot(sub(v, a), out));
-            return Math.max(...o) > 0.05 && Math.max(...t) > 0.05 && Math.min(...t) < line.len - 0.05;
-          });
-          if (beyond) continue;
-          const inputs = (pt: P2) => ({ pg: i.pg, balanced: balanced(L.k, pt), stepHeight: adj.topZ - surfaces(L.k).elevation(pt), luUpper: adj.length, luLower: lu, separation: adj.separation });
-          const local = (pt: P2) => stepDrift(inputs(pt));
-          const applies = reportBand(local, pt => stepDriftMargins(inputs(pt)), (dr, pt, from, to) => {
-            derivation.push(msg('snow.derivation.edgeInterval', { from: round(from, 3), to: round(to, 3), at: round((from + to) / 2, 3) }));
-            derivation.push(msg(dr.applies ? 'snow.derivation.adjacent' : 'snow.derivation.noAdjacent', {
-              z: round(surfaces(L.k).elevation(pt), 2), side: adj.side.toUpperCase(), top: round(adj.topZ, 2), s: round(adj.separation, 2),
-              hb: round(dr.hb, 3), hc: round(dr.hc, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3), from: round(from, 3), to: round(to, 3),
-            }));
-          });
-          if (applies && !refs.includes(REF_DRIFT_ADJACENT)) refs.push(REF_DRIFT_ADJACENT, REF_FIG9);
+          for (const adj of i.adjacent ?? []) {
+            const out: P2 = [-line.n[0], -line.n[1]];
+            const want: P2 = adj.side === '+x' ? [1, 0] : adj.side === '-x' ? [-1, 0] : adj.side === '+y' ? [0, 1] : [0, -1];
+            if (dot(out, want) < 0.95) continue;
+            const beyond = layout.panels.some((p) => {
+              const t = p.polygon.map((v) => dot(sub(v, a), line.u)), o = p.polygon.map((v) => dot(sub(v, a), out));
+              return Math.max(...o) > 0.05 && Math.max(...t) > 0.05 && Math.min(...t) < line.len - 0.05;
+            });
+            if (beyond) continue;
+            const inputs = (pt: P2) => ({ pg: i.pg, balanced: balanced(L.k, pt), stepHeight: adj.topZ - surfaces(L.k).elevation(pt), luUpper: adj.length, luLower: lu, separation: adj.separation });
+            const local = (pt: P2) => stepDrift(inputs(pt));
+            const applies = reportBand(local, pt => stepDriftMargins(inputs(pt)), pt => inputs(pt).stepHeight - local(pt).hb, (dr, pt, from, to) => {
+              derivation.push(msg('snow.derivation.edgeInterval', { from: round(from, 3), to: round(to, 3), at: round((from + to) / 2, 3) }));
+              derivation.push(msg(dr.applies ? 'snow.derivation.adjacent' : 'snow.derivation.noAdjacent', {
+                z: round(surfaces(L.k).elevation(pt), 2), side: adj.side.toUpperCase(), top: round(adj.topZ, 2), s: round(adj.separation, 2),
+                hb: round(dr.hb, 3), hc: round(dr.hc, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3), from: round(from, 3), to: round(to, 3),
+              }));
+            });
+            if (applies && !refs.includes(REF_DRIFT_ADJACENT)) refs.push(REF_DRIFT_ADJACENT, REF_FIG9);
+          }
         }
       }
     }
@@ -244,7 +266,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       const a = L.polygon[e]!, b = L.polygon[(e + 1) % L.polygon.length]!;
       const line = lineInto(a, b, L.polygon);
       for (const source of surfaceModel.planes) {
-        if (dot(source.gradient, line.n) >= 0) continue;
+        if (!descends(source.gradient, line.n)) continue;
         const eave = surfaceModel.roof.filter(m => source.members.has(m.id)).flatMap(m => {
           const low = (m.a.z ?? 0) <= (m.b.z ?? 0) ? m.a : m.b;
           const pt: P2 = [low.x, low.y];
@@ -260,7 +282,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         }));
         if (!sl.applies) continue;
         if (!refs.includes(REF_SLIDING)) refs.push(REF_SLIDING);
-        bands.push({ distanceBreaks: [4.5], p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: t1 - t0, n: line.n,
+        bands.push({ margins: (d, t) => [4.5 - d, source.elevation([a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]]) - surfaces(L.k).elevation([a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]]) - 1e-8], distanceBreaks: [4.5], p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: t1 - t0, n: line.n,
           on: roofOf(L.k).map(p => p.k), p: (d, t) => {
             const pt: P2 = [a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]];
             return d <= 4.5 && source.elevation(pt) > surfaces(L.k).elevation(pt) + 1e-8 ? sl.intensity : 0;
@@ -269,6 +291,14 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     }
   }
   if (bands.length === 0) return { distributed: [], derivation, refs };
+  const ranges = (a: P2, b: P2) => surfaceModel.edgeRanges(a, b, layout, pt => bands.flatMap(band => {
+    const t = snowCoordinate(pt, band.p0, band.u, [0, band.len]), d = snowCoordinate(pt, band.p0, band.n, [0, ...(band.distanceBreaks ?? [])]);
+    return [t, band.len - t, d, ...band.margins(d, t)];
+  }));
+  const stations = (a: P2, b: P2) => ranges(a, b).flatMap(r => [r.from, r.to]);
+  const stationError = 128 * Number.EPSILON * [...model.nodes.values()].reduce((scale, p) => Math.max(scale, Math.abs(p.x), Math.abs(p.y)), 1);
+  const insideLimit = (x: number, toward: number) => x + Math.sign(toward - x) * Math.min(Math.abs(toward - x) / 2, stationError);
+  const sortedCuts = (xs: number[]) => xs.sort((a, b) => a - b).filter((v, k, all) => k === 0 || v - all[k - 1]! > stationError);
   const out: SnowSurchargeLoad[] = [];
   const at = (id: number) => {
     const el = model.elements.get(id)!;
@@ -288,15 +318,29 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       const dep = p.wI + ((p.wJ - p.wI) * (x - x0)) / Math.max(x1 - x0, 1e-9);
       const s = m.pt(x);
       let sum = 0;
-      for (let k = 0; k <= 8; k++) {
-        const f = (dep * k) / 8;
-        sum += (k === 0 || k === 8 ? 1 : k % 2 ? 4 : 2) * surcharge(bands, [s[0] + inward[0] * f, s[1] + inward[1] * f], panel => panel === p.panel && within([s[0] + inward[0] * f, s[1] + inward[1] * f], layout.panels[panel]!.polygon));
+      const point = (f: number): P2 => [s[0] + inward[0] * f, s[1] + inward[1] * f];
+      for (const range of ranges(point(0), point(dep))) {
+        const lo = dep * range.from, hi = dep * range.to, mid = (lo + hi) / 2;
+        const value = (f: number) => surcharge(bands, point(f), panel => panel === p.panel && within(point(f), layout.panels[panel]!.polygon));
+        let integral = 0;
+        for (let k = 0; k <= 8; k++) {
+          const f = k === 0 ? insideLimit(lo, mid) : k === 8 ? insideLimit(hi, mid) : lo + (hi - lo) * k / 8;
+          integral += (k === 0 || k === 8 ? 1 : k % 2 ? 4 : 2) * value(f);
+        }
+        sum += (hi - lo) * integral / 24;
       }
-      return (sum / 24) * dep;
+      return sum;
     };
-    for (let k = 0; k < 4; k++) {
-      const xa = x0 + ((x1 - x0) * k) / 4, xb = x0 + ((x1 - x0) * (k + 1)) / 4;
-      const qa = q(xa), qb = q(xb);
+    const cuts = sortedCuts([x0, x1, ...[1, 2, 3].map(k => x0 + (x1 - x0) * k / 4), ...[0, 1].flatMap(f => {
+      const point = (x: number): P2 => {
+        const pt = m.pt(x), dep = p.wI + (p.wJ - p.wI) * (x - x0) / (x1 - x0);
+        return [pt[0] + inward[0] * dep * f, pt[1] + inward[1] * dep * f];
+      };
+      return stations(point(x0), point(x1)).map(t => x0 + (x1 - x0) * t);
+    })]);
+    for (let k = 1; k < cuts.length; k++) {
+      const xa = cuts[k - 1]!, xb = cuts[k]!, mid = (xa + xb) / 2;
+      const qa = q(insideLimit(xa, mid)), qb = q(insideLimit(xb, mid));
       if (qa < 1e-6 && qb < 1e-6) continue;
       out.push({ elementId: p.elementId, q: -qa, qJ: -qb, a: xa, b: xb, frame: 'projected' });
     }
@@ -305,10 +349,11 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     if (!layout.roof.has(w.elementId)) continue;
     const m = at(w.elementId);
     for (const s of widthSpans(w, i.tributaryWidth)) {
-      const cuts = [s.t0, ...[1, 2, 3].map((k) => k / 4).filter((t) => t > s.t0 && t < s.t1), s.t1];
+      const cuts = sortedCuts([s.t0, ...[1, 2, 3].map(k => k / 4).filter(t => t > s.t0 && t < s.t1), ...stations(m.pt(m.L * s.t0), m.pt(m.L * s.t1)).map(t => s.t0 + (s.t1 - s.t0) * t), s.t1]);
       for (let k = 0; k + 1 < cuts.length; k++) {
-        const xa = m.L * cuts[k]!, xb = m.L * cuts[k + 1]!;
-        const qa = surcharge(bands, m.pt(xa), panel => within(m.pt(xa), layout.panels[panel]!.polygon) && Math.abs(surfaces(panel).elevation(m.pt(xa)) - m.zAt(xa)) <= 0.05) * s.width, qb = surcharge(bands, m.pt(xb), panel => within(m.pt(xb), layout.panels[panel]!.polygon) && Math.abs(surfaces(panel).elevation(m.pt(xb)) - m.zAt(xb)) <= 0.05) * s.width;
+        const xa = m.L * cuts[k]!, xb = m.L * cuts[k + 1]!, mid = (xa + xb) / 2;
+        const value = (x: number) => surcharge(bands, m.pt(x), panel => within(m.pt(x), layout.panels[panel]!.polygon) && Math.abs(surfaces(panel).elevation(m.pt(x)) - m.zAt(x)) <= 0.05) * s.width;
+        const qa = value(insideLimit(xa, mid)), qb = value(insideLimit(xb, mid));
         if (qa < 1e-6 && qb < 1e-6) continue;
         out.push({ elementId: w.elementId, q: -qa, qJ: -qb, a: xa, b: xb, frame: 'projected' });
       }

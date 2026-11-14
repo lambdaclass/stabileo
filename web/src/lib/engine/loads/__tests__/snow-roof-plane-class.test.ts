@@ -52,7 +52,7 @@ for (const angle of [0, 0.37, -0.8, 1.1, Math.PI / 2, Math.PI]) for (const mirro
 for (const heightRatio of [1.199, 1.201]) for (const angle of [0, 0.37]) {
   it(`receiving snow depth bounds the low-step exemption: ${heightRatio}, rotation ${angle}`, () => {
     const ps = (70 - 20) / 65, hb = ps / (0.426 + 2.2), height = heightRatio * hb;
-    const out = run(stepRoof(20, 0, height, angle));
+    const out = run(stepRoof(20, 20, height, angle));
     expect(pressure(out.cases[0]!.distributed, 500)).toBeCloseTo(required(ps, height), 9);
     expect(out.derivation.some(d => d.key === 'snow.derivation.drift')).toBe(heightRatio > 1.2);
   });
@@ -155,7 +155,7 @@ for (const angle of [0, 0.37, 1.1]) {
 
 for (const height of [0.099, 0.101]) {
   it(`a physical low step is not discarded by a geometric height cutoff: ${height}`, () => {
-    const model = stepRoof(20, 0, height);
+    const model = stepRoof(20, 20, height);
     const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
     const out = snowLoadCases({ model, snow: { ...snow, pg: 0.1 }, layout, tributaryWidth: 1 })!;
     const ps = 0.1 * (70 - 20) / 65, gamma = 0.426 * 0.1 + 2.2, hc = height - ps / gamma;
@@ -180,6 +180,12 @@ for (const unrelated of [false, true]) for (const height of [0.2, 0.6]) {
     if (unrelated) source(-30, 8);
     const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
     const input = { pg: 1, balanced: (70 - 20) / 65, pf: 1, tributaryWidth: 1 };
+    if (height === 0.2) {
+      expect(() => driftAndSlidingLoads(model, layout, { ...input, slippery: true })).toThrow('snow.refused.roofPlane');
+      expect(run(model).result.refused).toBe('snow.refused.roofPlane');
+      expect(run(model).cases).toEqual([]);
+      return;
+    }
     const sliding = driftAndSlidingLoads(model, layout, { ...input, slippery: true });
     const retained = driftAndSlidingLoads(model, layout, { ...input, slippery: false });
     expect(sliding.derivation.some(d => d.key === 'snow.derivation.sliding')).toBe(true);

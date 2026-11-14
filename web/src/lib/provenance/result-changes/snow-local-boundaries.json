@@ -1,0 +1,37 @@
+{
+  "id": "snow-local-boundaries",
+  "date": "2026-11-14",
+  "prs": [
+    2095
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "snow",
+      "generatedLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Snow loads respect local positions and drift boundaries",
+    "es": "Las cargas de nieve respetan las posiciones y límites locales",
+    "pt": "As cargas de neve respeitam posições e limites locais",
+    "de": "Schneelasten berücksichtigen lokale Positionen und Grenzen",
+    "fr": "Les charges de neige respectent les positions et limites locales",
+    "tr": "Kar yükleri yerel konumları ve sınırları izliyor"
+  },
+  "explanation": {
+    "en": "Nodal snow uses its tributary node. Drift and sliding loads split at applicability and band boundaries. Exterior edges use actual surface elevations; crossing roof order refuses consistently under rotation. Regenerate snow loads and rerun analyses, combinations and design checks (#2095). This correction is not released.",
+    "es": "La nieve nodal usa el nodo tributario. Las cargas de acumulación y deslizamiento se dividen en los límites de aplicación. Los bordes usan las cotas reales; se rechazan cubiertas que se cruzan de forma coherente al girarlas. Regenere las cargas y recalcule análisis, combinaciones y verificaciones (#2095). Corrección aún no publicada.",
+    "pt": "A neve nodal usa o nó tributário. Cargas de acumulação e deslizamento são divididas nos limites de aplicação. As bordas usam cotas reais; coberturas que se cruzam são recusadas em qualquer rotação. Gere novamente as cargas e recalcule análises, combinações e verificações (#2095). Correção ainda não publicada.",
+    "de": "Knotenschneelasten verwenden den zugehörigen Knoten. Verwehungs- und Gleitlasten werden an Anwendungs- und Streifengrenzen geteilt. Dachkanten verwenden tatsächliche Höhen; sich kreuzende Dächer werden bei jeder Drehung abgelehnt. Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2095). Noch nicht veröffentlicht.",
+    "fr": "La neige nodale utilise son nœud tributaire. Les congères et charges de glissement sont divisées aux limites applicables. Les bords utilisent les altitudes réelles ; les toits qui se croisent sont refusés pour toute rotation. Régénérez les charges et relancez analyses, combinaisons et vérifications (#2095). Correction non publiée.",
+    "tr": "Düğüm kar yükleri ilgili düğümü kullanır. Birikme ve kayma yükleri uygulama ve şerit sınırlarında bölünür. Kenarlarda gerçek kotlar kullanılır; kesişen çatılar her dönüşte reddedilir. Kar yüklerini yeniden üretip analizleri, birleşimleri ve tasarım kontrollerini çalıştırın (#2095). Düzeltme henüz yayımlanmadı."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-snow-local-boundaries.md",
+    "heading": "Snow loads respect local positions and drift boundaries"
+  }
+}

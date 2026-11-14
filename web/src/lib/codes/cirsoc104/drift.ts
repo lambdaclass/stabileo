@@ -113,8 +113,16 @@ export interface StepDrift {
 }
 
 /** The triangle of §7.1 for a drift height h_d under a clear height h_c (see the header). */
+const DRIFT_WIDTH_FACTOR = 4;
+const CLEAR_HEIGHT_WIDTH_CAP = 8;
+
 function driftShape(hd: number, hc: number): { height: number; w: number } {
-  return { height: hd <= hc ? hd : hc, w: Math.min(hd <= hc ? 4 * hd : (4 * hd * hd) / hc, 8 * hc) };
+  return { height: hd <= hc ? hd : hc, w: Math.min(hd <= hc ? DRIFT_WIDTH_FACTOR * hd : (DRIFT_WIDTH_FACTOR * hd * hd) / hc, CLEAR_HEIGHT_WIDTH_CAP * hc) };
+}
+
+export function driftShapeMargins(dr: StepDrift, clearHeight: number, distance: number): number[] {
+  const hd = Math.max(dr.hdLeeward, dr.hdWindward);
+  return [clearHeight - hd, CLEAR_HEIGHT_WIDTH_CAP * clearHeight - distance, DRIFT_WIDTH_FACTOR * hd - distance, DRIFT_WIDTH_FACTOR * hd * hd - distance * clearHeight];
 }
 
 const MIN_CLEAR_RATIO = 0.2;
