@@ -31,7 +31,7 @@ keeps a curated defect list. Ergodic Group backs and publishes Stabileo.
 Wrong-result bugs first (P0, then P1), then other bugs, then features. Finish and verify the
 soundness work below before expanding the design workflow. The remaining silent-result and
 missing-reaction defects come first; a conservative refusal is tracked separately from a wrong
-answer. Release 0.5.0 is the release baseline; merged work below is on main and does not imply a
+answer. Release 0.6.0 is the release baseline; merged work below is on main and does not imply a
 new release or deployment.
 
 ### Priority now
@@ -40,71 +40,99 @@ Ordered by expected harm: how likely a user meets the defect, how large the erro
 it errs on the unsafe side. Defects already warned or refused on main (section 4) rank below
 uncontained ones.
 
-1. **Design output that can be unconservative:** [#1316](https://github.com/lambdaclass/stabileo/issues/1316).
-   RC column checks must take N and M from the same combination and station. Make that concurrency
-   a type, so enveloped values can never reach an interaction check. Audit every design code and
-   member type, and verify what [#1321](https://github.com/lambdaclass/stabileo/pull/1321) already
-   covers. In progress.
-2. **Live wrong-result candidates from nightly:**
-   - [#1040](https://github.com/lambdaclass/stabileo/issues/1040): the plastic collapse factor
-     changes under metamorphic relations, with 40 findings in the 2026-11-13 run.
-   - [#972](https://github.com/lambdaclass/stabileo/issues/972): rotation invariance.
+Most of the silent wrong results found since v0.6.0 came from the design and load layer, the code
+that turns analysis results into code checks and generated loads. The solver has nightly fuzzing,
+metamorphic and differential tests; this layer has had almost none. The order below follows that.
 
-   A collapse factor that is too high is unconservative. Diagnose the model, the solver and the
-   oracle before deciding which is wrong.
-3. **Silent staleness:** [#1318](https://github.com/lambdaclass/stabileo/issues/1318). The
-   legacy-project migration fingerprint omits material strength (fy, f'c), so a saved result can
-   survive a strength change without a notice. Nothing contains it on main today.
-4. **Shell results feeding design:** MITC4 distortion is warned (#798) and warped MITC4 and MITC9
-   meshes are refused (#1057) on main. Every design output built on shell results must carry those
-   warnings, including the slab and wall reinforcement sheets. Retriage
-   [#810](https://github.com/lambdaclass/stabileo/issues/810), which is probably a test-model error.
-   The formulation fixes stay in section 5.
-5. **Seismic input:** [#759](https://github.com/lambdaclass/stabileo/issues/759), 3D modes that are
-   not mass-orthogonal. Retriage with our own reproducer: either the check drops warping DOFs or a
-   mode is really duplicated. Fix whichever it is, without reusing the closed external PR.
-6. **Safety-net and invariance audits:**
+1. **Land the open wrong-result fixes, then release 0.6.1.**
+   - [#1316](https://github.com/lambdaclass/stabileo/issues/1316),
+     [#2088](https://github.com/lambdaclass/stabileo/issues/2088) and
+     [#2089](https://github.com/lambdaclass/stabileo/issues/2089) in
+     [#2080](https://github.com/lambdaclass/stabileo/pull/2080): RC and steel checks use concurrent
+     demands; steel Cb comes from the unbraced span that contains each checked point; CIRSOC 201
+     slenderness takes Cm = 1 when there is load between supports.
+   - [#2082](https://github.com/lambdaclass/stabileo/issues/2082) and
+     [#2093](https://github.com/lambdaclass/stabileo/issues/2093) in
+     [#2095](https://github.com/lambdaclass/stabileo/pull/2095): snow loads from roof planes, with
+     roof-step drift and widths that do not change when the building is rotated.
+   - [#1318](https://github.com/lambdaclass/stabileo/issues/1318) in
+     [#2091](https://github.com/lambdaclass/stabileo/pull/2091): the legacy-project fingerprint
+     covers every material and section property a check reads.
+
+   0.6.1 ships as soon as these land; it carries SA-2026-064 to SA-2026-067.
+2. **Audit the design and load layer.** CIRSOC 201, 301 and 104, the EC3 and other-code
+   dispatcher, and every load generator (snow, wind, live, seismic). Each check gets an independent
+   worked example from a published source, both sides of every limit, and a negative case.
+3. **Invariance tests for design and loads, run nightly.** Transforming a model into a physically
+   equivalent one must give equivalent answers: relabelling nodes, members or combinations and
+   reordering combinations leave every design ratio and generated load unchanged; a change of units
+   converts them exactly; rotating, translating or mirroring the whole model together with its
+   load-defining directions (wind, seismic, gravity) transforms load components accordingly and
+   leaves design ratios unchanged. Gravity-type loads such as snow do not depend on the building's
+   plan orientation. The solver already runs these relations; the design layer must too.
+4. **Refuse incomplete design inputs.** A check that receives missing or partial demands must
+   refuse, through one shared completeness check, never pass on the subset it has. Confirm whether
+   the app can reach [#2096](https://github.com/lambdaclass/stabileo/issues/2096) and classify it.
+5. **Triage the nightly candidates.** 81 open wrong-result candidates come from nightly runs;
+   earlier batches collapsed to a few root causes. Each one closes with a fix, a refusal, a
+   duplicate link, or evidence that the oracle was wrong.
+6. **Remaining engine audits:**
    - [#458](https://github.com/lambdaclass/stabileo/issues/458) and
      [#762](https://github.com/lambdaclass/stabileo/issues/762): replay against the linear
      stability gate ([#1753](https://github.com/lambdaclass/stabileo/pull/1753)).
-   - [#1453](https://github.com/lambdaclass/stabileo/issues/1453): conservative.
-   - [#742](https://github.com/lambdaclass/stabileo/issues/742): retriage the oracle's scale.
-   - [#818](https://github.com/lambdaclass/stabileo/issues/818): 0.05 %, partly merged.
-   - [#1503](https://github.com/lambdaclass/stabileo/issues/1503): decide whether the showcase
-     model or the analysis is wrong.
-7. **In flight:** [#2023](https://github.com/lambdaclass/stabileo/issues/2023) in
-   [#2074](https://github.com/lambdaclass/stabileo/pull/2074). Zero-work released loads are kept
-   across rotations and unit changes, and genuinely unsupported moments are still refused.
-8. **Follow-ups from [#1952](https://github.com/lambdaclass/stabileo/pull/1952):**
-   - [#2077](https://github.com/lambdaclass/stabileo/issues/2077): P-Delta displacements after a
-     physical-residual failure.
-   - [#2078](https://github.com/lambdaclass/stabileo/issues/2078): one convention for undetermined
-     released rotations in nonlinear solvers. Forces and reactions are unaffected.
-   - [#2073](https://github.com/lambdaclass/stabileo/issues/2073): test strength.
-
-   Also the regression-audit replay of [#1946](https://github.com/lambdaclass/stabileo/pull/1946)
-   and the deferred reviews [#1997](https://github.com/lambdaclass/stabileo/issues/1997) to
+   - [#759](https://github.com/lambdaclass/stabileo/issues/759): 3D modes that are not
+     mass-orthogonal; retriage with our own reproducer.
+   - [#818](https://github.com/lambdaclass/stabileo/issues/818),
+     [#1453](https://github.com/lambdaclass/stabileo/issues/1453),
+     [#742](https://github.com/lambdaclass/stabileo/issues/742),
+     [#1503](https://github.com/lambdaclass/stabileo/issues/1503) and
+     [#1510](https://github.com/lambdaclass/stabileo/issues/1510) (3D thermal sign convention).
+   - Shell results feeding design: every design output built on shell results carries the MITC4
+     warnings ([#798](https://github.com/lambdaclass/stabileo/issues/798),
+     [#1057](https://github.com/lambdaclass/stabileo/issues/1057)); retriage
+     [#810](https://github.com/lambdaclass/stabileo/issues/810).
+7. **Follow-ups:** [#2077](https://github.com/lambdaclass/stabileo/issues/2077),
+   [#2078](https://github.com/lambdaclass/stabileo/issues/2078),
+   [#2073](https://github.com/lambdaclass/stabileo/issues/2073) and
+   [#2085](https://github.com/lambdaclass/stabileo/issues/2085). Also the regression-audit replay
+   of [#1946](https://github.com/lambdaclass/stabileo/pull/1946) and the deferred reviews
+   [#1997](https://github.com/lambdaclass/stabileo/issues/1997) to
    [#2002](https://github.com/lambdaclass/stabileo/issues/2002). A candidate closes only with a
    correct answer or a justified refusal; a warning alone does not establish correctness.
-9. **Conservative false refusals,** kept visible behind the wrong results above:
+8. **Conservative false refusals,** kept visible behind the wrong results above:
    [#1951](https://github.com/lambdaclass/stabileo/issues/1951) and
    [#1956](https://github.com/lambdaclass/stabileo/issues/1956).
    [#1996](https://github.com/lambdaclass/stabileo/issues/1996) is decided: staged removal of a
-   loaded member keeps refusing, and redistributing its force is a future feature.
+   loaded member keeps refusing.
+9. **Plastic collapse invariance:** [#1040](https://github.com/lambdaclass/stabileo/issues/1040)
+   and [#972](https://github.com/lambdaclass/stabileo/issues/972). The reported factors were
+   slightly conservative, not unsafe. The exact-bounds approach in
+   [#2084](https://github.com/lambdaclass/stabileo/pull/2084) is parked because it made the check
+   about three times slower and refused PRO examples that solve today; it needs a new approach.
 10. **Remove whole classes of defects:**
-    - one shared bounded-arithmetic layer for every rounding certificate and admission check
-      (#2013, #2023 and #2074 each dropped a term on one path);
+    - one shared bounded-arithmetic layer for every rounding certificate and admission check;
     - required test helpers, plus a lint against vacuous checks: assert counts before values, and
       outcomes before diagnostics;
     - every result notice tested on a real saved project, with no feature overrides;
     - nightly bug finding on a dedicated machine that alerts when a night is missed;
     - a release after each advisory.
-11. **Then unify 2D and 3D.** The design inventory and projection plan are in
+11. **How changes land:**
+    - every pull request, from any author, gets both reviews when it opens, not only inside a
+      later integration;
+    - a pull request that changes shared model paths (meshing, supports, loads, design dispatch) is
+      not used as the base for other work until it is reviewed;
+    - a soundness pull request changes one root cause; when reviews keep finding new defects, the
+      proven part ships and the rest splits off.
+12. **Then unify 2D and 3D.** The design inventory and projection plan are in
     [#1781](https://github.com/lambdaclass/stabileo/pull/1781). Don't merge a broad kernel change
     ahead of the bug fixes and their regression evidence.
 
 ### Done on main since November 7
 
+- Zero-work released loads are kept across rotations and unit changes, and genuinely unsupported
+  moments are still refused ([#2074](https://github.com/lambdaclass/stabileo/pull/2074),
+  [#2023](https://github.com/lambdaclass/stabileo/issues/2023) done); review follow-ups in
+  [#2085](https://github.com/lambdaclass/stabileo/issues/2085).
 - Final-state path reactions and member forces are recovered in
   [#1952](https://github.com/lambdaclass/stabileo/pull/1952)
   ([#1949](https://github.com/lambdaclass/stabileo/issues/1949) done), including restrained-master
