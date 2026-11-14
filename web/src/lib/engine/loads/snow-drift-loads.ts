@@ -1,4 +1,4 @@
-import { snowRoofSteps, snowRoofSurfaces, roofSurfaceModel } from './snow-roof-surfaces';
+import { snowCoordinate, snowRoofSteps, snowRoofSurfaces, roofSurfaceModel } from './snow-roof-surfaces';
 import { widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
 import { msg, round, type EngineMessage } from '../../codes/message';
@@ -10,7 +10,7 @@ export interface SnowSurchargeLoad {
   elementId: number; q: number; qJ?: number; a?: number; b?: number; frame: 'projected';
 }
 
-interface Band { p0: P2; u: P2; len: number; n: P2; on: number[]; p: (d: number, t: number) => number }
+interface Band { distanceBreaks?: number[]; p0: P2; u: P2; len: number; n: P2; on: number[]; p: (d: number, t: number) => number }
 
 const dot = (a: P2, b: P2) => a[0] * b[0] + a[1] * b[1];
 const sub = (a: P2, b: P2): P2 => [a[0] - b[0], a[1] - b[1]];
@@ -59,7 +59,7 @@ function joined(A: P2[], B: P2[]): boolean {
 function surcharge(bands: Band[], pt: P2, on: (panel: number) => boolean): number {
   let s = 0;
   for (const b of bands) {
-    const r = sub(pt, b.p0), t = dot(r, b.u), d = dot(r, b.n);
+    const t = snowCoordinate(pt, b.p0, b.u, [0, b.len]), d = snowCoordinate(pt, b.p0, b.n, b.distanceBreaks);
     if (t < -1e-6 || t > b.len + 1e-6 || d < -1e-6) continue;
     if (!b.on.some(on)) continue;
     s += b.p(d, t);
@@ -81,6 +81,7 @@ export interface DriftInputs {
 export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout, i: DriftInputs, surfaceModel = roofSurfaceModel(model)): {
   distributed: SnowSurchargeLoad[]; derivation: EngineMessage[]; refs: ClauseRef[];
 } {
+  if (!surfaceModel.resolves(layout)) throw new Error('snow.refused.roofPlane');
   const surfaces = snowRoofSurfaces(model, layout, surfaceModel);
   const balanced = (panel: number, pt: P2) => typeof i.balanced === 'number' ? i.balanced : i.balanced(panel, pt);
   const bands: Band[] = [];
@@ -195,13 +196,14 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         if (!eave.length) continue;
         const t0 = Math.max(0, Math.min(...eave)), t1 = Math.min(line.len, Math.max(...eave));
         if (t1 - t0 <= 1e-9) continue;
-        const sl = slidingSnow({ pf: i.pfFor?.(source.slope, source.W) ?? i.pf, slopePercent: Math.hypot(...source.gradient) * 100, slippery: i.slippery, W: source.W });
+        const W = surfaceModel.sourceWidth(source);
+        const sl = slidingSnow({ pf: i.pfFor?.(source.slope, W) ?? i.pf, slopePercent: Math.hypot(...source.gradient) * 100, slippery: i.slippery, W });
         derivation.push(msg(sl.applies ? 'snow.derivation.sliding' : 'snow.derivation.noSliding', {
-          z: round(L.z, 2), W: round(source.W, 2), slope: round(Math.hypot(...source.gradient) * 100, 1), perMetre: round(sl.perMetre, 3), p: round(sl.intensity, 3),
+          z: round(L.z, 2), W: round(W, 2), slope: round(Math.hypot(...source.gradient) * 100, 1), perMetre: round(sl.perMetre, 3), p: round(sl.intensity, 3),
         }));
         if (!sl.applies) continue;
         if (!refs.includes(REF_SLIDING)) refs.push(REF_SLIDING);
-        bands.push({ p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: t1 - t0, n: line.n,
+        bands.push({ distanceBreaks: [4.5], p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: t1 - t0, n: line.n,
           on: roofOf(L.k).map(p => p.k), p: (d, t) => {
             const pt: P2 = [a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]];
             return d <= 4.5 && source.elevation(pt) > surfaces(L.k).elevation(pt) + 1e-8 ? sl.intensity : 0;

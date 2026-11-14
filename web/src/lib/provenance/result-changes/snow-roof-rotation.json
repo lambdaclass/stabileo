@@ -34,5 +34,8 @@
   "changelog": {
     "file": "docs/results-changes/2026-11-snow-roof-rotation.md",
     "heading": "Snow loads use roof axes under plan rotation"
-  }
+  },
+  "prs": [
+    2095
+  ]
 }

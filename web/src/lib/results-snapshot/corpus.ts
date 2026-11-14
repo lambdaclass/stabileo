@@ -20,7 +20,7 @@ export interface SnapshotCase {
   /** File name in `web/results-snapshots/`, without `.json`. */
   name: string;
   /** A bundled example (`templates/fixture-index.ts`) or a committed `.ded` (path from `web/`). */
-  source: { example: string } | { ded: string } | { snowRoof: 'step' | 'rotated-step' | 'skew' };
+  source: { example: string } | { ded: string } | { snowRoof: 'step' | 'rotated-step' | 'skew' | 'asymmetric' | 'concave' | 'disjoint' | 'two-pitch' };
   /** The workspace it is opened and solved in. */
   workspace: Workspace;
   /** PRO's «Design» setting on: the CIRSOC 201 code check, the CIRSOC 301 steel check, footings. */
@@ -39,6 +39,10 @@ export const CORPUS: SnapshotCase[] = [
   { name: 'snow-roof-step', source: { snowRoof: 'step' }, workspace: '3d', group: 'loads', covers: 'CIRSOC 104 low-step drift on the pitched receiving roof' },
   { name: 'snow-roof-rotation', source: { snowRoof: 'rotated-step' }, workspace: '3d', group: 'loads', covers: 'CIRSOC 104 rotated step: balanced, drift and partial patterns' },
   { name: 'snow-skew-plane', source: { snowRoof: 'skew' }, workspace: '3d', group: 'loads', covers: 'Roof pitch from a plane with a diagonal rafter' },
+  { name: 'snow-asymmetric', source: { snowRoof: 'asymmetric' }, workspace: '3d', group: 'loads', covers: 'Per-region pitch, width, unbalanced snow and ridge sharing' },
+  { name: 'snow-concave', source: { snowRoof: 'concave' }, workspace: '3d', group: 'loads', covers: 'Member-bounded non-convex roof footprint' },
+  { name: 'snow-disjoint', source: { snowRoof: 'disjoint' }, workspace: '3d', group: 'loads', covers: 'Disconnected roof sections retain separate widths' },
+  { name: 'snow-two-pitch', source: { snowRoof: 'two-pitch' }, workspace: '3d', group: 'loads', covers: 'Sliding source follows connected pitch changes to the ridge' },
   // ── Basic, 2D: the DSM chain, combinations, the special supports and loads ──
   { name: '2d-simply-supported', source: ex('simply-supported'), workspace: '2d', group: 'basic', covers: '2D beam, distributed load' },
   { name: '2d-cantilever-point', source: ex('cantilever-point'), workspace: '2d', group: 'basic', covers: '2D cantilever, point load' },

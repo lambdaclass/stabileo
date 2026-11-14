@@ -50,3 +50,7 @@ export function transform(m: ReturnType<typeof mesh>, angle: number, shift = 1, 
   }
   return m;
 }
+
+export function separateRoofs() {
+  return mesh([[[0, 0, 3], [2, 0, 3], [2, 2, 3.2], [0, 2, 3.2]], [[10, 10, 4], [12, 10, 4], [12, 12, 4.2], [10, 12, 4.2]]]);
+}
