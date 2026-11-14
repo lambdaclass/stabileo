@@ -10,6 +10,7 @@ import type { LineBar, LineLayout } from '../beam-line';
 import type { ColumnRow } from '../column-row';
 import { columnTieLayout } from '../column-ties';
 import { SLAB_FACES, type SlabRow } from '../slab-row';
+import type { LevelPlan } from '../slab-plan';
 import { wallDetail } from '../wall-detail';
 import type { WallRow } from '../wall-row';
 import { rulesFor } from '../codes';
@@ -29,7 +30,7 @@ export interface Piece {
 
 export interface ScheduleElement { key: string; name: string; level?: string; family: SheetFamily; pieces: Piece[] }
 
-export interface PieceRows { line: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[] }
+export interface PieceRows { line: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; slabPlan?: readonly LevelPlan[] }
 
 export interface PieceOptions {
   code: SheetCode;
@@ -189,13 +190,21 @@ function wallPieces(rows: readonly WallRow[], r: WallRow, o: PieceOptions, R: Be
   return { key: r.key, name: r.name, level: r.level, family: 'wall', pieces };
 }
 
-/** Every element's pieces, beams, columns, slabs and walls in that order, each family in the rows' order. */
+/** A level's slab bars as its plan lays them, packages crossing panels and lapped over supports. */
+function levelPieces(plan: LevelPlan): ScheduleElement {
+  const pieces = plan.packages.map((p) => ({ kind: p.layer === 'top' ? 'slabTop' as const : 'slabBottom' as const, count: p.count, shape: p.shape, elevation: p.mark }));
+  return { key: `slabplan:${plan.level}`, name: plan.level, level: plan.level, family: 'slab', pieces };
+}
+
+/** Every element's pieces, beams, columns, slabs and walls in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */
 export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElement[] {
   const R = rulesFor(o.code).bends;
+  const planned = new Set((rows.slabPlan ?? []).filter((p) => p.packages.length).map((p) => p.level));
   return [
     ...rows.line.map((l) => linePieces(l, R)),
     ...rows.column.map((r) => columnPieces(rows.column, r, o, R)),
-    ...rows.slab.map((r) => slabPieces(r, o, R)),
+    ...(rows.slabPlan ?? []).filter((p) => planned.has(p.level)).map(levelPieces),
+    ...rows.slab.filter((r) => !r.level || !planned.has(r.level)).map((r) => slabPieces(r, o, R)),
     ...rows.wall.map((r) => wallPieces(rows.wall, r, o, R)),
   ].map((e) => ({ ...e, pieces: e.pieces.filter((p) => p.count > 0) }));
 }

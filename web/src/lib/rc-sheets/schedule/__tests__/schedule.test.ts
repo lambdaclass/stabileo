@@ -153,6 +153,17 @@ describe('pieces of each family', () => {
     expect(tx.shape.pts[0]).toEqual([0, expect.closeTo(-(0.15 - 0.04), 9)]);
   });
 
+  it('a level with a slab plan schedules its packages, which cross panels, instead of the panels\' layers', () => {
+    const m = (v: number) => ({ bottomX: { value: v }, bottomY: { value: v }, topX: { value: v }, topY: { value: v } });
+    const r = slabRow({ key: 'slab:1', name: 'L1', level: 'N1', lx: 5, ly: 4, h: 0.15, m: m(8) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
+    const other = slabRow({ key: 'slab:2', name: 'L2', level: 'N2', lx: 5, ly: 4, h: 0.15, m: m(8) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
+    const crossing = hookedStraight(0, 9.4, 0.12, 10, 0.06, [true, true], -1, 0.11);
+    const plan = { level: 'N1', packages: [{ mark: '7', layer: 'top', count: 23, shape: crossing }] } as never;
+    const els = scheduleElements({ line: [], column: [], slab: [r, other], wall: [], slabPlan: [plan] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    expect(els.map((e) => e.key)).toEqual(['slabplan:N1', 'slab:2']);
+    expect(els[0]!.pieces).toEqual([{ kind: 'slabTop', count: 23, shape: crossing, elevation: '7' }]);
+  });
+
   it('a wall: verticals and boundary bars, horizontals, edge U-bars of the lap, by the storey', () => {
     const wall: WallDemand = { key: 'wall:1:0', name: 'M1', length: 4, height: 3, thickness: 0.2, combos: [{ combo: 'U', pu: 1200, mu: 5000, vu: 450, muV: 4, muH: 2 }] };
     const r = wallRow(wall, { mat: { fc: 30, fy: 420 }, cover: 0.025, barDia: 12, diameters: [10, 12, 16, 20, 25] }, undefined, f);
