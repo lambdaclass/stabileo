@@ -1,4 +1,5 @@
 import data from '../../../../../engine/tests/benchmarks/plastic_collapse.json';
+import type { StructuredDiagnostic } from '../../../lib/engine/types';
 export const portal = data;
 export const DEFORM_SCALE = 10;
 export type Displacement = { nodeId: number; ux: number; uz: number };
@@ -10,7 +11,7 @@ export type Step = {
   hingesFormed?: Hinge[];
   results: { displacements: Displacement[]; reactions?: Reaction[]; elementForces?: Forces[] };
 };
-export type Result = { collapseFactor: number; isMechanism: boolean; warnings?: string[]; steps: Step[] };
+export type Result = { collapseFactor: number; isMechanism: boolean; warnings?: string[]; structuredDiagnostics?: StructuredDiagnostic[]; steps: Step[] };
 export type Place = 'leftBase' | 'leftCorner' | 'midspan' | 'rightCorner' | 'rightBase';
 export type CheckId = 'collapse' | 'mechanism' | 'hinges' | 'yield' | 'equilibrium' | 'corner';
 
@@ -82,6 +83,20 @@ export function residual(result: Result) {
 
 export const cornerMoment = (lambda: number) => 3 * portal.mp - lambda * portal.horizontal * portal.height;
 
+export function historyWarnings(result: Result): string[] {
+  const raw = result.steps.at(-1)?.loadFactor;
+  const disclosures = (result.structuredDiagnostics ?? []).filter(d =>
+    d.code === 'plastic_history_within_certificate' && d.severity === 'info'
+    && Number.isFinite(d.value) && Number.isFinite(d.threshold) && Number.isFinite(raw)
+    && d.value === result.collapseFactor && d.value! <= raw! && raw! <= d.threshold!);
+  return (result.warnings ?? []).filter(warning => {
+    const index = disclosures.findIndex(d => d.message === warning);
+    if (index < 0) return true;
+    disclosures.splice(index, 1);
+    return false;
+  });
+}
+
 export function checks(result: Result): { id: CheckId; passed: boolean }[] {
   const { mp, vertical: v, span: l, tolerance, yieldTolerance, equilibriumTolerance } = portal;
   const lambda = result.collapseFactor;
@@ -119,7 +134,7 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
   const r = reactionsAtSupports ? residual(result) : { fx: NaN, fz: NaN, my: NaN };
   return [
     { id: 'collapse', passed: Math.abs(lambda - mechanisms().combined) < tolerance },
-    { id: 'mechanism', passed: result.isMechanism && !(result.warnings ?? []).length },
+    { id: 'mechanism', passed: result.isMechanism && !historyWarnings(result).length },
     { id: 'hinges', passed: hingeNodes.join() === '1,3,4,5' && hingesMatch && hingesCarryForces },
     { id: 'yield', passed: completeEvents && ends.length === 2 * elements.length && ends.every(m => Math.abs(m) <= mp * (1 + yieldTolerance)) && !yieldedOnTheWay },
     { id: 'equilibrium', passed: reactionsAtSupports && [r.fx, r.fz, r.my].every(x => Math.abs(x) < equilibriumTolerance) },

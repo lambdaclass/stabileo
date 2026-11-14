@@ -8,6 +8,7 @@ import { modelStore } from '../../store/model.svelte';
 import { buildSolverInput3D } from '../solver-service';
 import * as wasmSolver from '../wasm-solver';
 import { solvePlastic3D, solve3D } from '../wasm-solver';
+import type { StructuredDiagnostic } from '../types';
 import { capacityCurve, defaultControl, hingesThrough, pushoverFrames, hingePoints, stoppedAtJoint } from '../pushover-curve';
 
 beforeAll(async () => {
@@ -63,7 +64,10 @@ describe('pushover curve', () => {
     const exact = (4 * MP) / (H * h);
     expect(Math.abs(res.collapseFactor - exact)).toBeLessThan(1e-9 * exact);
     expect(res.isMechanism).toBe(true);
-    expect(res.warnings ?? []).toEqual([]);
+    const disclosures = (res.structuredDiagnostics ?? []).filter((d: StructuredDiagnostic) => d.phase === 'PL-3D-CERTIFICATE-MISMATCH');
+    expect(disclosures).toHaveLength(1);
+    expect(disclosures[0]).toMatchObject({ code: 'known_issue', severity: 'warning', phase: 'PL-3D-CERTIFICATE-MISMATCH', value: 1760 });
+    expect(res.warnings ?? []).toEqual([disclosures[0]!.message]);
   });
 
   it('no longer stops at a joint where every end yielded at once', () => {

@@ -55,7 +55,8 @@ The moment field is therefore admissible and in equilibrium, so λ = 600/7 is ex
 The native test (`engine/tests/benchmarks/plastic_collapse.rs`) and the page check:
 
 1. Collapse factor equals 600/7 within 1e-6 absolute.
-2. Mechanism reported, no solver warnings.
+2. Mechanism reported, no solver warnings apart from the verified disclosure that
+   the collapse factor is certified and the incremental history is not.
 3. Hinges, in order: element 4 end (right roof corner, My < 0), element 4 start
    (midspan, My > 0), element 3 start (right base), element 1 start (left base); each
    event's λ matches the recorded value within 1e-6; |My| = Mp at each hinge; node 2
@@ -118,5 +119,14 @@ The stage is `first-version`; catalogue status remains `proposed`.
 
 ## Recorded result
 
-Native production λ = 85.71428571427153; combined hand λ = 85.71428571428571;
-signed difference = -1.41824330057716e-11. Mechanism: true; warnings: none.
+Recorded incremental λ = 85.71428571427153; combined hand λ = 85.71428571428571;
+signed difference = -1.41824330057716e-11. Mechanism: true. Current public results
+include the `plastic_history_within_certificate` informational diagnostic and its
+matching legacy warning: the reported factor is the certified lower bound, while
+incremental steps, hinges and the mechanism flag retain uncertified raw values.
+
+The #2084 compatibility check keeps the certified lower bound and raw history
+separate. The public factor is checked against the combined hand calculation;
+the historical events, end moments and reactions retain their original tests
+against the raw incremental factor. The public result and page retain the
+certificate disclosure. No benchmark tolerance or event baseline is changed.

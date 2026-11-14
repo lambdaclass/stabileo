@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, it } from 'vitest';
-import { certify_plastic_3d } from '../../wasm/dedaliano_engine.js';
+import { certify_plastic_3d, solve_plastic_3d } from '../../wasm/dedaliano_engine.js';
 import { plasticReading } from '../certificate-read';
 import { knownIssueResultDisposition } from '../known-issues';
 import { dictFor } from '../../i18n/store.svelte';
@@ -11,6 +11,9 @@ it.each(['issue-1760.bin', 'unconservative-cantilever.bin'])('reads the certifie
   setLocale('en');
   const artifact = readFileSync(resolve(__dirname, '../../../../../engine/fuzz/corpus-regressions/plastic-lp-budget', file));
   const output = JSON.parse(certify_plastic_3d(artifact.subarray(2).toString('utf8')));
+  const scalar = JSON.parse(solve_plastic_3d(artifact.subarray(2).toString('utf8')));
+  expect(scalar.collapseFactor).toBe(output.results.collapseFactor);
+  expect(output.certificate.lambdaUpper - output.certificate.lambdaLower).toBeLessThanOrEqual(5e-8 * output.certificate.lambdaLower);
   expect(output.results.collapseFactor).toBe(output.certificate.lambdaLower);
   expect(output.certificate.certified).toBe(true);
   expect(output.certificate.solverWithinBounds).toBe(false);

@@ -103,6 +103,21 @@ pub(crate) fn stage_all(s: &SolverInput3D, loads: Vec<usize>) -> serde_json::Val
     })
 }
 
+pub(crate) fn plastic_input(c: &Case3) -> PlasticInput3D {
+    let sections = c
+        .s
+        .sections
+        .values()
+        .map(|x| {
+            let (b, h) = rect3(x);
+            let mat = crate::ana2::section_material(&c.s.materials, c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| e.material_id)).map_or(1, |m| m.id);
+            (x.id.to_string(), PlasticSectionData3D { a: x.a, iy: x.iy, iz: x.iz, material_id: mat, b: Some(b), h: Some(h), d: Some(b) })
+        })
+        .collect();
+    let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
+    PlasticInput3D { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None }
+}
+
 pub fn rows() -> Vec<Ana3> {
     vec![
         Ana3 { name: "linear", law: Law::Linear, motion: Motion::Any, iter_tol: 0.0, full_static: true, run: |c| Ok(static_3d(&linear::solve_3d(&c.s)?)) },
@@ -511,24 +526,10 @@ pub fn rows() -> Vec<Ana3> {
             iter_tol: 5e-8 /* event resolution TIE = 1e-6 (solver/plastic.rs) / 20 */,
             full_static: false,
             run: |c| {
-                let sections = c
-                    .s
-                    .sections
-                    .values()
-                    .map(|x| {
-                        let (b, h) = rect3(x);
-                        let mat = crate::ana2::section_material(&c.s.materials, c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| e.material_id)).map_or(1, |m| m.id);
-                        (x.id.to_string(), PlasticSectionData3D { a: x.a, iy: x.iy, iz: x.iz, material_id: mat, b: Some(b), h: Some(h), d: Some(b) })
-                    })
-                    .collect();
-                let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
-                let r = plastic::solve_plastic_3d(&PlasticInput3D { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None })?;
+                let r = plastic::solve_plastic_3d(&plastic_input(c))?;
                 let mut o = Resp::default();
                 o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 o.scalar("collapse_factor", Dim::NONE, r.collapse_factor);
-                if !r.is_mechanism {
-                    o.scalar(crate::response::LOWER_BOUND, Dim::NONE, 1.0);
-                }
                 Ok(o)
             },
         },

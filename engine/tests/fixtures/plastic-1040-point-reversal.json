@@ -1,0 +1,186 @@
+{
+  "solver": {
+    "nodes": {
+      "1": {
+        "id": 1,
+        "x": -27.923398371519404,
+        "y": 43.52659919740849,
+        "z": 26.176785531190717
+      },
+      "2": {
+        "id": 2,
+        "x": 14.561403992583905,
+        "y": 0.2878181369905235,
+        "z": 2.614998440046733
+      }
+    },
+    "materials": {
+      "1": {
+        "id": 1,
+        "e": 85838.20939987803,
+        "nu": 0.38340502806682564
+      },
+      "2": {
+        "id": 2,
+        "e": 11410436.48832482,
+        "nu": 0.2249033276216325
+      }
+    },
+    "sections": {
+      "2": {
+        "id": 2,
+        "name": null,
+        "a": 0.7585217732164256,
+        "iy": 1.1465830872707993e-06,
+        "iz": 1.912732695129601e-06,
+        "j": 4.6047167862572404e-07,
+        "cw": null,
+        "asY": null,
+        "asZ": null,
+        "shearCenterY": null,
+        "shearCenterZ": null
+      },
+      "1": {
+        "id": 1,
+        "name": null,
+        "a": 0.07695235355170622,
+        "iy": 0.0029795280266504544,
+        "iz": 1.3731737425178809e-05,
+        "j": 5.569043258044762e-08,
+        "cw": null,
+        "asY": null,
+        "asZ": null,
+        "shearCenterY": null,
+        "shearCenterZ": null
+      }
+    },
+    "elements": {
+      "1": {
+        "id": 1,
+        "type": "frame",
+        "nodeI": 2,
+        "nodeJ": 1,
+        "materialId": 2,
+        "sectionId": 2,
+        "releaseMyStart": false,
+        "releaseMyEnd": false,
+        "releaseMzStart": false,
+        "releaseMzEnd": false,
+        "releaseTStart": false,
+        "releaseTEnd": false,
+        "localYx": null,
+        "localYy": null,
+        "localYz": null,
+        "rollAngle": null
+      }
+    },
+    "supports": {
+      "1": {
+        "nodeId": 1,
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true,
+        "kx": null,
+        "ky": null,
+        "kz": null,
+        "krx": null,
+        "kry": null,
+        "krz": null,
+        "dx": null,
+        "dy": null,
+        "dz": null,
+        "drx": null,
+        "dry": null,
+        "drz": null,
+        "rw": null,
+        "kw": null,
+        "normalX": null,
+        "normalY": null,
+        "normalZ": null,
+        "isInclined": null
+      },
+      "2": {
+        "nodeId": 2,
+        "rx": false,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": false,
+        "kx": null,
+        "ky": null,
+        "kz": null,
+        "krx": null,
+        "kry": null,
+        "krz": null,
+        "dx": null,
+        "dy": null,
+        "dz": null,
+        "drx": null,
+        "dry": null,
+        "drz": null,
+        "rw": null,
+        "kw": null,
+        "normalX": null,
+        "normalY": null,
+        "normalZ": null,
+        "isInclined": null
+      }
+    },
+    "loads": [
+      {
+        "type": "pointOnElement",
+        "data": {
+          "elementId": 1,
+          "a": 0.40539318504345767,
+          "px": 0.0,
+          "py": 348.31437113881543,
+          "pz": -463.67572520053034
+        }
+      }
+    ],
+    "constraints": [],
+    "leftHand": null,
+    "plates": {},
+    "quads": {},
+    "quad9s": {},
+    "solidShells": {},
+    "curvedShells": {},
+    "curvedBeams": [],
+    "connectors": {},
+    "solverOptions": null
+  },
+  "sections": {
+    "2": {
+      "a": 0.7585217732164256,
+      "iy": 1.1465830872707993e-06,
+      "iz": 1.912732695129601e-06,
+      "materialId": 2,
+      "b": 0.004259016895357075,
+      "h": 0.005500899846832463,
+      "d": 0.004259016895357075
+    },
+    "1": {
+      "a": 0.07695235355170622,
+      "iy": 0.0029795280266504544,
+      "iz": 1.3731737425178809e-05,
+      "materialId": 1,
+      "b": 0.6816373932925129,
+      "h": 0.04627457243478734,
+      "d": 0.6816373932925129
+    }
+  },
+  "materials": {
+    "1": {
+      "fy": 250.0
+    },
+    "2": {
+      "fy": 250.0
+    }
+  },
+  "maxHinges": null,
+  "mpOverrides": null
+}

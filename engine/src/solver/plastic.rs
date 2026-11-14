@@ -1199,3 +1199,4 @@ fn compute_plastic_moment(sec: &PlasticSectionData, fy: f64) -> f64 {
 #[path = "plastic_3d.rs"]
 mod three_d;
 pub use three_d::solve_plastic_3d;
+pub(crate) use three_d::solve_plastic_3d_incremental;

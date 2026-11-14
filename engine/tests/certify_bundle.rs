@@ -267,6 +267,39 @@ fn export_plastic<T: Serialize>(dir: &Path, name: &str, input: &T, b: PlasticBun
     write_tampered_plastic(dir, name, &b);
 }
 
+fn incremental_plastic_diagnostics(diagnostics: &[StructuredDiagnostic]) -> Vec<serde_json::Value> {
+    diagnostics.iter().filter(|diagnostic| {
+        diagnostic.phase.as_deref() != Some("PL-3D-CERTIFICATE-MISMATCH") && diagnostic.code != DiagnosticCode::PlasticHistoryWithinCertificate
+    }).map(|d| serde_json::to_value(d).unwrap()).collect()
+}
+
+#[test]
+fn issue_2084_bundle_diagnostics_match_within_certificate_history() {
+    let case: serde_json::Value = serde_json::from_str(include_str!("benchmarks/plastic_collapse.json")).unwrap();
+    let input: PlasticInput3D = serde_json::from_value(case["input"].clone()).unwrap();
+    let bundle = export_plastic_bundle_3d(&input).unwrap();
+    let checked = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&input).unwrap();
+    let scalar = dedaliano_engine::solver::plastic::solve_plastic_3d(&input).unwrap();
+    for result in [checked.results, scalar] {
+        assert_eq!(result.structured_diagnostics.iter().filter(|d| d.code == DiagnosticCode::PlasticHistoryWithinCertificate).count(), 1);
+        let diagnostics = incremental_plastic_diagnostics(&result.structured_diagnostics);
+        assert!(!diagnostics.is_empty(), "the solved increments carry diagnostics");
+        assert_eq!(bundle.structured_diagnostics, diagnostics);
+    }
+}
+
+#[test]
+fn issue_2084_bundle_comparison_preserves_unrelated_diagnostics() {
+    let diagnostics = vec![
+        StructuredDiagnostic::global(DiagnosticCode::ResidualOk, Severity::Info, "collapseFactor is the certified lower bound"),
+        StructuredDiagnostic::global(DiagnosticCode::KnownIssue, Severity::Warning, "incremental warning").with_phase("PL-3D-INVARIANCE"),
+        StructuredDiagnostic::global(DiagnosticCode::KnownIssue, Severity::Info, "other information"),
+    ];
+    let expected: Vec<_> = diagnostics.iter().map(|d| serde_json::to_value(d).unwrap()).collect();
+    assert_eq!(incremental_plastic_diagnostics(&diagnostics), expected);
+    assert!(incremental_plastic_diagnostics(&[]).is_empty());
+}
+
 #[test]
 fn export_plastic_bundles() {
     let dir = out_dir();
@@ -281,7 +314,7 @@ fn export_plastic_bundles() {
     let input = plastic_cantilever_3d();
     let b = export_plastic_bundle_3d(&input).unwrap();
     let results = dedaliano_engine::solver::plastic::solve_plastic_3d(&input).unwrap();
-    let diagnostics: Vec<_> = results.structured_diagnostics.iter().map(|d| serde_json::to_value(d).unwrap()).collect();
+    let diagnostics = incremental_plastic_diagnostics(&results.structured_diagnostics);
     assert!(!diagnostics.is_empty(), "the solved increments carry diagnostics");
     assert_eq!(b.structured_diagnostics, diagnostics);
 

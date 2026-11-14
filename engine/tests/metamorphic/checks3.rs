@@ -110,6 +110,15 @@ fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditionin
     same_with_assembly(a, tc, expected, cond, false)
 }
 
+fn same_geometry(a: &Ana3, source: &Case3, transformed: &Case3, expected: Result<Resp, String>, cond: &Conditioning) -> Verdict {
+    if a.name == "plastic collapse" {
+        if let Err(error) = crate::plastic_exact_geometry::preserves_affine_relations(&source.s, &transformed.s) {
+            return Verdict::Unrepresentable(error);
+        }
+    }
+    same(a, transformed, expected, cond)
+}
+
 fn same_with_assembly(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditioning, assembly: bool) -> Verdict {
     let expected = match expected {
         Ok(e) => e,
@@ -120,6 +129,16 @@ fn same_with_assembly(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond
         Err(_) => *cond,
     };
     let rel = rel_for(a.name, a.iter_tol, &c2);
+    if a.name == "plastic collapse" {
+        if let Err(scope) = dedaliano_engine::certify::plastic_3d::build_model_3d(&crate::ana3::plastic_input(tc)) {
+            if scope.contains("its local axes are not rational") {
+                return match run(a, tc) {
+                    Err(error) if error == scope => Verdict::Unrepresentable(scope),
+                    result => Verdict::Fail(format!("exact load-frame scope refusal changed: {result:?}")),
+                };
+            }
+        }
+    }
     match run(a, tc) {
         Ok(mut got) => {
             if assembly {
@@ -275,7 +294,7 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                 "rotation" => {
                     let iso = rotation_for(a, &mut rng);
                     let first = match c.iso(&iso) {
-                        Ok(tc) => same(a, &tc, base.iso3(&iso), &cond),
+                        Ok(tc) => same_geometry(a, c, &tc, base.iso3(&iso), &cond),
                         Err(e) => Verdict::Unrepresentable(e),
                     };
                     // An axis permutation (about Z for gravity-bound
@@ -286,7 +305,7 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                     }
                     .translated([rng.range(-40.0, 40.0), rng.range(-40.0, 40.0), rng.range(-40.0, 40.0)]);
                     settle(first, || match c.iso(&q) {
-                        Ok(tc) => same(a, &tc, base.iso3(&q), &cond),
+                        Ok(tc) => same_geometry(a, c, &tc, base.iso3(&q), &cond),
                         Err(e) => Verdict::Unrepresentable(e),
                     })
                 }
@@ -326,7 +345,7 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                 "units" => {
                     let (l, f) = [(1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)][rng.below(3)];
                     let u = Units::froude(l, f);
-                    same(a, &c.units(&u), Ok(base.units(&u)), &cond)
+                    same_geometry(a, c, &c.units(&u), Ok(base.units(&u)), &cond)
                 }
                 "load order" => {
                     let mut loads = c.s.loads.clone();
@@ -678,4 +697,16 @@ fn energy(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut Rng) -> Verdict {
     } else {
         Verdict::Fail(format!("ΣP·u = {w:.10e} but Σ f_e·u_e + springs = {e2:.10e}, |diff| {:.3e} > tol {tol:.3e}", (w - e2).abs()))
     }
+}
+
+#[test]
+fn exact_plastic_geometry_guard_preserves_numeric_failure_checks() {
+    let input: PlasticInput3D = serde_json::from_slice(&include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-cantilever.bin")[2..]).unwrap();
+    let case = Case3::new("exact-geometry-numeric-control", input.solver);
+    let adapter = crate::ana3::rows().into_iter().find(|a| a.name == "plastic collapse").unwrap();
+    assert!((adapter.run)(&case).is_ok());
+    let cond = conditioning::of_3d(&case.s).unwrap();
+    let mut wrong = Resp::default();
+    wrong.scalar("collapse_factor", crate::response::Dim::NONE, 0.0);
+    assert!(matches!(same_geometry(&adapter, &case, &case, Ok(wrong), &cond), Verdict::Fail(_)));
 }

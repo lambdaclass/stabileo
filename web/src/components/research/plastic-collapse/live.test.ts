@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
-import { run, portal, checks, cumulativeStep, viewer, type Result } from './case';
+import { certify_plastic_3d } from '../../../lib/wasm/dedaliano_engine.js';
+import { run, portal, checks, cumulativeStep, viewer, historyWarnings, type Result } from './case';
 import replayFile from '../../../../../research/benchmarks/plastic-collapse/results/stabileo_results.json';
 
 const replay = replayFile.result as Result;
@@ -8,7 +9,19 @@ const METRES = 1e-9;
 it('recomputes the replay with the production WASM wrapper', async () => {
   const result = await run();
   expect(result.isMechanism).toBe(true);
-  expect(result.warnings ?? []).toEqual([]);
+  expect(result.warnings).toHaveLength(1);
+  expect(result.warnings![0]).toContain('not certified by this interval');
+  const checked = JSON.parse(certify_plastic_3d(JSON.stringify(portal.input)));
+  for (const answer of [result, checked.results as Result]) {
+    const disclosures = answer.structuredDiagnostics?.filter(d => d.code === 'plastic_history_within_certificate');
+    expect(disclosures).toHaveLength(1);
+    expect(disclosures![0]).toMatchObject({ severity: 'info', value: answer.collapseFactor, threshold: checked.certificate.lambdaUpper });
+    expect(disclosures![0].message).toBe(answer.warnings!.at(-1));
+    expect(answer.collapseFactor).toBe(checked.certificate.lambdaLower);
+    expect(answer.steps.at(-1)!.loadFactor).toBe(checked.certificate.solverCollapseFactor);
+    expect(historyWarnings(answer)).toEqual([]);
+    expect(checks(answer).every(c => c.passed)).toBe(true);
+  }
   expect(Math.abs(result.collapseFactor - portal.reference.combined)).toBeLessThan(portal.tolerance);
   expect(Math.abs(result.collapseFactor - replay.collapseFactor)).toBeLessThan(portal.tolerance);
   expect(checks(result).every(c => c.passed)).toBe(true);

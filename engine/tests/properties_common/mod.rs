@@ -184,3 +184,56 @@ pub fn nightly_property<T: serde::Serialize>(base: &T, body: impl FnOnce() -> Re
     }
     result
 }
+
+pub fn nodal_resultants<const N: usize, const FORCE: usize>(loads: impl Iterator<Item = (usize, [f64; N])>) -> std::collections::HashMap<usize, [f64; N]> {
+    use dedaliano_engine::certify::exact::{q, to_f64_down, to_f64_up, Q};
+    assert!(FORCE <= N);
+    let mut result = std::collections::HashMap::<usize, ([f64; N], [Q; N])>::new();
+    for (node, values) in loads {
+        let (forces, moments) = result.entry(node).or_insert_with(|| ([0.0; N], std::array::from_fn(|_| q(0.0).unwrap())));
+        for k in 0..N {
+            if k < FORCE { forces[k] += values[k]; }
+            else { moments[k] += q(values[k]).expect("finite property load"); }
+        }
+    }
+    result.into_iter().map(|(node, (mut forces, moments))| {
+        for k in FORCE..N {
+            let exact = &moments[k];
+            let lower = to_f64_down(exact).expect("finite property resultant");
+            let upper = to_f64_up(exact).expect("finite property resultant");
+            let lower_distance = exact - q(lower).unwrap();
+            let upper_distance = q(upper).unwrap() - exact;
+            forces[k] = if lower_distance < upper_distance || (lower_distance == upper_distance && lower.to_bits() & 1 == 0) { lower } else { upper };
+        }
+        (node, forces)
+    }).collect()
+}
+
+#[test]
+fn issue_2084_fixed_node_moment_oracle_rounds_the_resultant_once() {
+    use dedaliano_engine::certify::exact::{q, to_f64_down, to_f64_up};
+    let values = [2.7012955808349637, -39.612551592246064, 32.9374070777866];
+    let exact = values.iter().fold(q(0.0).unwrap(), |sum, value| sum + q(*value).unwrap());
+    let expected = to_f64_down(&exact).unwrap();
+    assert_eq!(Some(expected), to_f64_up(&exact));
+    for order in [[0,1,2], [0,2,1], [1,0,2], [1,2,0], [2,0,1], [2,1,0]] {
+        let plane = nodal_resultants::<3, 2>(order.iter().map(|i| (1, [0.0, 0.0, values[*i]])));
+        let space = nodal_resultants::<6, 3>(order.iter().map(|i| (1, [0.0, 0.0, 0.0, 0.0, 0.0, values[*i]])));
+        assert_eq!(plane[&1][2], expected, "plane {order:?}");
+        assert_eq!(space[&1][5], expected, "space {order:?}");
+    }
+}
+
+#[test]
+fn nodal_resultant_oracle_keeps_nodes_components_and_rounding_ties_distinct() {
+    for base in [1.0f64, 1.0f64.next_up(), -1.0, -1.0f64.next_up()] {
+        let half_ulp = f64::EPSILON / 2.0 * base.signum();
+        let result = nodal_resultants::<2, 0>([(1, [base, 0.0]), (1, [half_ulp, 0.0]), (2, [0.0, base])].into_iter());
+        let adjacent = if base > 0.0 { base.next_up() } else { base.next_down() };
+        let expected = if base.to_bits() & 1 == 0 { base } else { adjacent };
+        assert_eq!(result[&1], [expected, 0.0]);
+        assert_eq!(result[&2], [0.0, base]);
+    }
+    assert!(nodal_resultants::<6, 3>(std::iter::empty()).is_empty());
+    assert_eq!(nodal_resultants::<1, 0>([(1, [f64::from_bits(1)]), (1, [-f64::from_bits(1)])].into_iter())[&1], [0.0]);
+}

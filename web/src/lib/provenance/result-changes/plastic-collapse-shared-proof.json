@@ -1,0 +1,37 @@
+{
+  "id": "plastic-collapse-shared-proof",
+  "date": "2026-11-13",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "analysis:plastic"
+    ],
+    "any": ["members", "shells", "curvedShells", "springs", "constraints", "connectors"]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Public 3D plastic factors share the exact proof path",
+    "es": "Los factores plásticos 3D públicos comparten la verificación exacta",
+    "pt": "Os fatores plásticos 3D públicos compartilham a verificação exata",
+    "de": "Öffentliche plastische 3D-Faktoren werden gemeinsam exakt geprüft",
+    "fr": "Les facteurs plastiques 3D publics partagent la vérification exacte",
+    "tr": "Genel 3B plastik katsayılar aynı kesin doğrulamayı kullanıyor"
+  },
+  "explanation": {
+    "en": "Both public 3D plastic APIs return the certified lower bound only when positive finite static and mechanism bounds agree within the existing plastic accuracy requirement. Missing or broad bounds are refused. Inputs outside the exact checker’s scope, including some previously accepted raw analyses, are refused. Incremental steps, hinges and the mechanism flag retain their raw values and are explicitly uncertified. Exact mechanism work validation errors propagate as refusals instead of zero work coefficients. Within-certificate history disclosures carry the plastic_history_within_certificate diagnostic code and numeric lower/upper bounds; factors and incremental history are unchanged by this metadata addition. Smooth static candidates and their dual mechanism candidates now refine previously broad biaxial proofs, improving bounds and restoring answers only when the unchanged exact accuracy requirement is met.",
+    "es": "Ambas API plásticas 3D públicas devuelven la cota inferior certificada solo cuando las cotas estática y cinemática positivas y finitas concuerdan con la precisión plástica existente. Se rechazan las cotas ausentes o amplias y las entradas fuera del alcance de la verificación exacta, incluidos algunos análisis antes aceptados. Los pasos, las rótulas y el indicador de mecanismo conservan sus valores originales sin certificar. Los errores de validación exacta del trabajo del mecanismo se propagan como rechazos en lugar de coeficientes de trabajo nulos. Las notificaciones de historial dentro del intervalo certificado incluyen el código de diagnóstico plastic_history_within_certificate y las cotas numéricas inferior y superior; esta adición de metadatos no cambia los factores ni el historial incremental. Los candidatos estáticos obtenidos mediante una búsqueda suave y sus candidatos cinemáticos duales refinan ahora las verificaciones biaxiales antes amplias, mejorando las cotas y recuperando respuestas solo si se cumple el requisito de precisión exacta sin cambios.",
+    "pt": "As duas APIs plásticas 3D públicas retornam o limite inferior certificado somente quando os limites estático e cinemático positivos e finitos concordam com a precisão plástica existente. Limites ausentes ou amplos e entradas fora do escopo da verificação exata são recusados, incluindo algumas análises antes aceitas. Etapas, rótulas e o indicador de mecanismo preservam seus valores brutos sem certificação. Erros de validação exata do trabalho do mecanismo são propagados como recusas em vez de coeficientes de trabalho nulos. Os avisos de histórico dentro do intervalo certificado incluem o código de diagnóstico plastic_history_within_certificate e os limites numéricos inferior e superior; esta adição de metadados não altera os fatores nem o histórico incremental. Candidatos estáticos obtidos por uma busca suave e seus candidatos cinemáticos duais agora refinam provas biaxiais antes amplas, melhorando os limites e recuperando respostas apenas quando o requisito inalterado de precisão exata é atendido.",
+    "de": "Beide öffentlichen plastischen 3D-APIs liefern die zertifizierte Untergrenze nur, wenn positive endliche statische und kinematische Grenzen innerhalb der bestehenden plastischen Genauigkeit übereinstimmen. Fehlende oder breite Grenzen und Eingaben außerhalb der exakten Prüfung werden abgelehnt, auch einige zuvor akzeptierte Analysen. Schritte, Gelenke und Mechanismuskennzeichen behalten ihre unzertifizierten Rohwerte. Fehler bei der exakten Prüfung der Mechanismusarbeit werden als Ablehnung weitergegeben statt als Arbeitskoeffizient null. Hinweise auf einen Verlauf innerhalb des zertifizierten Intervalls enthalten den Diagnosecode plastic_history_within_certificate und numerische Unter- und Obergrenzen; diese zusätzlichen Metadaten ändern weder Faktoren noch den inkrementellen Verlauf. Statische Kandidaten aus einer glatten Optimierung und ihre dualen Mechanismuskandidaten verfeinern bisher breite zweiachsige Nachweise. Sie verbessern Grenzen und ermöglichen Antworten nur bei Einhaltung der unveränderten exakten Genauigkeitsanforderung.",
+    "fr": "Les deux API plastiques 3D publiques renvoient la borne inférieure certifiée uniquement si les bornes statique et cinématique positives et finies respectent la précision plastique existante. Les bornes absentes ou trop larges et les entrées hors du périmètre exact sont refusées, y compris certaines analyses précédemment acceptées. Les étapes, rotules et indicateurs de mécanisme conservent leurs valeurs brutes non certifiées. Les erreurs de validation exacte du travail du mécanisme sont transmises comme des refus au lieu de coefficients de travail nuls. Les notifications d’historique situé dans l’intervalle certifié portent le code de diagnostic plastic_history_within_certificate et les bornes numériques inférieure et supérieure ; cet ajout de métadonnées ne modifie ni les facteurs ni l’historique incrémental. Les candidats statiques issus d’une optimisation lisse et leurs candidats cinématiques duaux affinent désormais les preuves biaxiales auparavant trop larges, améliorant les bornes et rétablissant les réponses uniquement si l’exigence de précision exacte inchangée est respectée.",
+    "tr": "Her iki genel 3B plastik API, yalnızca pozitif ve sonlu statik ve mekanizma sınırları mevcut plastik doğruluk koşulunu sağladığında sertifikalı alt sınırı döndürür. Eksik veya geniş sınırlar ve kesin denetimin kapsamı dışındaki girdiler, önceden kabul edilen bazı analizler dahil reddedilir. Adımlar, mafsallar ve mekanizma göstergesi sertifikasız ham değerlerini korur. Mekanizma işinin kesin doğrulama hataları sıfır iş katsayıları yerine ret olarak iletilir. Sertifikalı aralık içindeki geçmiş bildirimleri plastic_history_within_certificate tanı kodunu ve sayısal alt ve üst sınırları taşır; bu meta veri eklemesi katsayıları veya artımlı geçmişi değiştirmez. Düzgün optimizasyonla elde edilen statik adaylar ve bunların dual mekanizma adayları, daha önce geniş olan iki eksenli kanıtları artık daraltır; sınırlar iyileştirilir ve yalnızca değişmeyen kesin doğruluk koşulu sağlandığında sonuçlar yeniden sunulur."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plastic-collapse-shared-proof.md",
+    "heading": "Public 3D plastic factors share the exact proof path (2026-11-13)"
+  }
+}

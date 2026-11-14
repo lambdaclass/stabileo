@@ -1103,13 +1103,10 @@ proptest! {
                     *node_abs.entry(nid).or_default() += norm(&gf) + norm(&gm) / len;
                 }
             }
-            let mut rhs: HashMap<usize, [f64; 6]> = HashMap::new();
-            for l in &inp.loads {
-                if let SolverLoad3D::Nodal(n) = l {
-                    let a = rhs.entry(n.node_id).or_default();
-                    for (k, v) in [n.fx, n.fy, n.fz, n.mx, n.my, n.mz].into_iter().enumerate() { a[k] += v; }
-                }
-            }
+            let mut rhs = properties_common::nodal_resultants::<6, 3>(inp.loads.iter().filter_map(|load| match load {
+                SolverLoad3D::Nodal(n) => Some((n.node_id, [n.fx, n.fy, n.fz, n.mx, n.my, n.mz])),
+                _ => None,
+            }));
             for r in &res.reactions {
                 let a = rhs.entry(r.node_id).or_default();
                 for (k, v) in [r.fx, r.fy, r.fz, r.mx, r.my, r.mz].into_iter().enumerate() { a[k] += v; }

@@ -93,7 +93,6 @@ engine/src/certify/plastic.rs: (0..r).map(|i| if a[i][i].abs() > 1e-300 { a[i][r
 engine/src/certify/plastic.rs: (Some(l), Some(u), Some(s)) => Some(((l - s).max(s - u).max(0.0)) / u.abs().max(f64::MIN_POSITIVE)),
 engine/src/certify/plastic_3d.rs: let y: Vec<f64> = yhat.iter().zip(&scales).map(|(y, s)| if *s > 0.0 { y / s } else { 0.0 }).collect();
 engine/src/certify/plastic_3d.rs: let mu = samples.iter().map(|s| (0..s.dirs.len()).map(|_| it.next().unwrap_or(0.0)).collect()).collect();
-engine/src/certify/plastic_3d.rs: let w: Vec<f64> = mechs.iter().map(|mm| mechanism_terms(model, mm).map(|t| to_f64(&t.0)).unwrap_or(0.0)).collect();
 engine/src/certify/plastic_3d.rs: (Some(l), Some(u), Some(s)) => (Some(l <= s && s <= u), Some(((l - s).max(s - u).max(0.0)) / u.abs().max(f64::MIN_POSITIVE))),
 
 ## Segment index of a station within [0, L]; the first segment when t is at the start.
