@@ -415,19 +415,7 @@ fn shell_rotary_inertia_follows_the_shell() {
 /// The plastic-collapse input of a 3D case, as the "plastic collapse" analysis
 /// of the harness builds it (rectangles from A, I_y, I_z; f_y of the case).
 fn plastic_3d_input(c: &crate::case::Case3) -> PlasticInput3D {
-    let rect3 = |s: &SolverSection3D| ((12.0 * s.iy / s.a).sqrt(), (12.0 * s.iz / s.a).sqrt());
-    let sections = c
-        .s
-        .sections
-        .values()
-        .map(|x| {
-            let (b, h) = rect3(x);
-            let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
-            (x.id.to_string(), PlasticSectionData3D { a: x.a, iy: x.iy, iz: x.iz, material_id: mat, b: Some(b), h: Some(h), d: Some(b) })
-        })
-        .collect();
-    let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
-    PlasticInput3D { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None }
+    crate::ana3::plastic_input(c)
 }
 
 fn corpus_3d(name: &str) -> crate::case::Case3 {
@@ -493,33 +481,33 @@ fn certifiable(inp: &PlasticInput3D) -> PlasticInput3D {
 #[test]
 fn plastic_3d_collapse_factor_does_not_depend_on_numbering() {
     use dedaliano_engine::metamorphic::relabel::Relabel;
-    // the certified collapse factor of each model (`certify_plastic_3d` on
-    // `certifiable`), where the certificate applies
-    let cases: [(&str, Option<f64>); 6] = [
-        ("frame3d-2", Some(176.467325809)),
-        ("frame3d-0", None),
-        ("frame3d-4", None),
-        ("pdelta3d-1", Some(15.7479054153)),
-        ("building-1", None),
-        ("pdelta3d-3", None),
+    let cases: [(&str, Option<f64>, bool); 6] = [
+        ("frame3d-2", Some(176.467325809), false),
+        ("frame3d-0", None, true),
+        ("frame3d-4", None, true),
+        ("pdelta3d-1", Some(15.7479054153), false),
+        ("building-1", None, false),
+        ("pdelta3d-3", None, false),
     ];
-    if let Ok(selected) = std::env::var("PLASTIC_RENUMBER_CASE") { assert!(cases.iter().any(|(name,_)| *name == selected)); }
+    if let Ok(selected) = std::env::var("PLASTIC_RENUMBER_CASE") { assert!(cases.iter().any(|(name,_,_)| *name == selected)); }
     let selected_seed: Option<u64> = std::env::var("PLASTIC_RENUMBER_SEED").ok().map(|seed|seed.parse().unwrap());
     if let Some(seed) = selected_seed { assert!(seed < 16); }
-    for (name, certified) in cases {
+    for (name, certified, rational_scope_refusal) in cases {
         if std::env::var("PLASTIC_RENUMBER_CASE").is_ok_and(|selected| selected != name) { continue; }
         let c = corpus_3d(name);
         let input = certifiable(&plastic_3d_input(&c));
         let base = plastic::solve_plastic_3d(&input);
-        if let Err(error) = &base {
-            assert!(certified.is_none(), "{name}: certified control refused: {error}");
-            assert!(error.contains("certificate unavailable") || error.contains("plastic collapse interval"), "{name}: {error}");
+        if rational_scope_refusal {
+            let expected = dedaliano_engine::certify::plastic_3d::build_model_3d(&input).unwrap_err();
+            assert!(expected.contains("its local axes are not rational"), "{name}: {expected}");
+            assert_eq!(base.unwrap_err(), expected, "{name}");
             for seed in 0..16 {
                 if selected_seed.is_some_and(|selected| selected != seed) { continue; }
                 let rl = Relabel::random_3d(&c.s, seed);
                 let transformed = certifiable(&plastic_3d_input(&c.relabel(&rl, seed)));
-                let error = plastic::solve_plastic_3d(&transformed).unwrap_err();
-                assert!(error.contains("certificate unavailable") || error.contains("plastic collapse interval"), "{name} {seed}: {error}");
+                let expected = dedaliano_engine::certify::plastic_3d::build_model_3d(&transformed).unwrap_err();
+                assert!(expected.contains("its local axes are not rational"), "{name} {seed}: {expected}");
+                assert_eq!(plastic::solve_plastic_3d(&transformed).unwrap_err(), expected, "{name} {seed}");
             }
             continue;
         }

@@ -651,21 +651,22 @@ fn issue_1040_inverse_load_scaling() {
 }
 
 #[test]
-fn issue_1040_wide_interval_is_refused_and_tight_control_returns() {
-    let control: PlasticInput3D = serde_json::from_slice(&include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-cantilever.bin")[2..]).unwrap();
-    let wide: PlasticInput3D = serde_json::from_slice(&include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/issue-1459.bin")[2..]).unwrap();
-    let control_bounds = issue_1040_bounds(&control);
-    assert!((control_bounds.1 - control_bounds.0) / control_bounds.0 < 5e-8);
-    assert!(solve_plastic_3d(&control).is_ok());
-    for checked in [false, true] {
-        let result = if checked { dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&wide).map(|_|()) } else { solve_plastic_3d(&wide).map(|_|()) };
-        let error = result.expect_err("a wide bound is not a collapse factor");
-        assert!(error.contains("plastic collapse interval"), "{error}");
+fn issue_1040_previously_wide_interval_returns_only_after_its_exact_bounds_close() {
+    for artifact in [
+        &include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-cantilever.bin")[..],
+        &include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/issue-1459.bin")[..],
+    ] {
+        let input: PlasticInput3D = serde_json::from_slice(&artifact[2..]).unwrap();
+        let independent = dedaliano_engine::certify::plastic_3d::certify_collapse_3d(&input, None);
+        assert!(independent.certified);
+        let (lower, upper) = (independent.lambda_lower.unwrap(), independent.lambda_upper.unwrap());
+        assert!(lower > 0.0 && upper - lower < 5e-8 * lower, "[{lower}, {upper}]");
+        let scalar = solve_plastic_3d(&input).unwrap();
+        let checked = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&input).unwrap();
+        for factor in [scalar.collapse_factor, checked.results.collapse_factor] {
+            assert!(factor >= lower && factor <= upper, "{factor} vs [{lower}, {upper}]");
+        }
     }
-    let independent = dedaliano_engine::certify::plastic_3d::certify_collapse_3d(&wide, None);
-    assert!(independent.certified);
-    let (lower,upper) = (independent.lambda_lower.unwrap(), independent.lambda_upper.unwrap());
-    assert!((upper-lower)/lower > 5e-8);
 }
 
 #[test]

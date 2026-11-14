@@ -290,3 +290,79 @@ factor directly against the hand calculation at the original case-file tolerance
 in addition to the retained raw-history checks. The signed reproducer commit's
 native and browser tests fail against the preceding implementation because the
 structured disclosure is absent and a reworded disclosure is rejected.
+
+### Biaxial proof refinement after merging #2074 (#2084 round 5)
+
+The recorded `engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin`
+portal exposed a candidate-search limitation. Polygon constraints and nearby
+interior hinge samples could leave a broad interval even though a narrow exact
+proof exists. The public APIs correctly refused that broad interval; the web
+regression still required the older checked API's broad conservative answer.
+The regression's original successful-answer and mismatch assertions are retained.
+
+When the polygon candidates leave a broad interval, a smooth ellipse-constrained
+search now supplies additional static fields and dual hinge-rotation targets.
+Each search stage is only a numerical candidate. Static fields are reconstructed
+in the exact equilibrium subspace and passed through `check_static_3d`;
+mechanisms pass through `check_mechanism_3d`. The common candidate selection keeps
+only improved checked bounds. The search refines continuous member-load peaks
+using its latest trial field, including trials whose exact yield check requires
+scaling down, rather than stopping on an earlier strictly feasible field.
+The existing orthonormal-span construction is shared by the polygon search and
+the smooth search's Newton steps. This avoids forming ill-conditioned normal
+equations in the new search.
+
+The saved main certificate was
+`[11.574200298860632, 11.574759378201835]`; the measured refined certificate is
+`[11.574652454285257, 11.57465256730578]`. The signed ignored reproducer fails
+on the merged parent at its unchanged width assertion. The fixed native and
+WASM APIs return the checked lower bound and retain the raw-history mismatch
+warning. The acceptance limit remains the exact rational comparison against
+`5e-8 * lower`; missing, unordered, nonpositive or broad bounds remain errors.
+Candidate workspace and rational-arithmetic checks are unchanged. No raw smooth
+search objective can become a published factor.
+
+General rotations still run for supported inputs in the metamorphic harness.
+A transformed member load whose exact local axes are irrational is explicitly
+unrepresentable: the harness requires the scalar API to return the same scope
+error as the exact builder. An unrelated refusal or a result in that scope fails
+the test. The #2058 saved input is checked through both APIs, in all three unit
+scalings used by the harness, for this exact scope refusal. Numbering controls
+independently require four saved models to solve and two to refuse their
+irrational load frames; a baseline refusal cannot select the test's expectation.
+The raw incremental mechanism flag no longer determines whether the harness
+considers the published certified factor complete.
+
+The force-gate failure was a test-oracle error. Three applied moments at a fixed
+node were summed sequentially in floating point, creating a residual against the
+solver's correctly aggregated reaction. Both 2D and 3D properties now use one
+exact nodal-moment accumulator and round once to nearest, including ties to
+even, before adding reactions. The force-component aggregation and their equilibrium assertions and tolerances
+are unchanged. This changes no engine result.
+
+Direct scope refusals remain unwrapped in the native history regression and the
+nightly WASM fixture check. All five non-English notices now describe the
+within-certificate diagnostic code, numeric bounds and unchanged history
+metadata. No advisory is added by this follow-up.
+
+For the saved rotation witnesses, exact rational arithmetic establishes that the
+planar grid's affine rank changes from two to three and the straight beam's rank
+changes from one to two after rounded rotation and translation. These are not
+exact affine images of the originals. With unbounded axial and torsional
+resistance in the bending-only plastic idealization, changing those relations
+can change the mechanism space rather than merely perturb a numerical answer.
+The plastic invariant harness now verifies every original affine relation before
+comparing isometric or unit-transformed results. An inconsistent relation is
+unrepresentable, and the existing exact axis-permutation retry must still solve.
+No floating-point threshold is introduced. Controls cover all signed axis
+permutations, the first nonzero coordinate perturbation, and a deliberately wrong
+numerical answer on unchanged geometry; that answer still fails comparison.
+
+The former wide-interval fixture `issue-1459.bin` also gains a narrow certificate:
+the measured WASM bounds are `[12.500358194191696, 12.50035819433643]`.
+Its native and WASM checks now require this proven successful result. Positivity,
+ordering, finiteness, missing bounds, and both adjacent floating-point values
+around the exact width cutoff are checked directly through the shared
+`PublishablePlasticInterval` constructor. The constructor is the only route from
+certificate bounds to the public factor, independently of candidate-search
+availability.

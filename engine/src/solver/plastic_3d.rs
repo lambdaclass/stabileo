@@ -1412,7 +1412,7 @@ mod tests {
         assert!(result.warnings.iter().any(|warning| warning.contains("no consistent set of active hinges") && warning.contains("lower bound")));
         assert!(!result.warnings.iter().any(|warning| warning.contains("exceeds the yield surface")));
         let error = solve_plastic_3d(&input).unwrap_err();
-        assert!(error.contains("certificate unavailable"), "{error}");
+        assert_eq!(error, "prescribed support displacements are not supported");
     }
 
     #[test]

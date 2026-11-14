@@ -929,7 +929,6 @@ fn issue_2084_portal_history_disclosure_has_structured_bounds() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2084"]
 fn issue_2084_biaxial_portal_closes_its_certificate_gap() {
     let bytes = include_bytes!("../fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin");
     let input: PlasticInput3D = serde_json::from_slice(&bytes[2..]).unwrap();

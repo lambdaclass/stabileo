@@ -990,7 +990,7 @@ proptest! {
                 }
             }
             // Σ_members (force on member at node) = applied nodal load + reaction.
-            let mut rhs = properties_common::nodal_resultants(inp.loads.iter().filter_map(|load| match load {
+            let mut rhs = properties_common::nodal_resultants::<3, 2>(inp.loads.iter().filter_map(|load| match load {
                 SolverLoad::Nodal(n) => Some((n.node_id, [n.fx, n.fz, n.my])),
                 _ => None,
             }));

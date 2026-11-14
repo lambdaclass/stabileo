@@ -37,8 +37,13 @@ for (const solve of [solve_plastic_3d, certify_plastic_3d]) {
     const output = JSON.parse(solve(text));
     assert.equal((output.results ?? output).collapseFactor, checked.certificate.lambdaLower);
   });
-  run(`${solve.name}/wide-interval`, () => {
-    assert.throws(() => solve(binary('issue-1459')), /plastic collapse interval/);
+  run(`${solve.name}/recovered-interval`, () => {
+    const text = binary('issue-1459');
+    const checked = JSON.parse(certify_plastic_3d(text));
+    const { lambdaLower: lower, lambdaUpper: upper } = checked.certificate;
+    assert.ok(lower > 0 && upper - lower <= 5e-8 * lower);
+    const output = JSON.parse(solve(text));
+    assert.equal((output.results ?? output).collapseFactor, lower);
   });
 }
 const planar = readFileSync(new URL('../../verify/samples/plastic-2d-portal.input.json', import.meta.url), 'utf8');

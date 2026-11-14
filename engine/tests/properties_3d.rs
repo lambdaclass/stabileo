@@ -1103,7 +1103,7 @@ proptest! {
                     *node_abs.entry(nid).or_default() += norm(&gf) + norm(&gm) / len;
                 }
             }
-            let mut rhs = properties_common::nodal_resultants(inp.loads.iter().filter_map(|load| match load {
+            let mut rhs = properties_common::nodal_resultants::<6, 3>(inp.loads.iter().filter_map(|load| match load {
                 SolverLoad3D::Nodal(n) => Some((n.node_id, [n.fx, n.fy, n.fz, n.mx, n.my, n.mz])),
                 _ => None,
             }));

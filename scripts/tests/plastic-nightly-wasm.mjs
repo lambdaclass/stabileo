@@ -19,7 +19,7 @@ const cases = {
     const refusal = value => {
       let error;
       try { solve_plastic_3d(JSON.stringify(value)); } catch (caught) { error = String(caught); }
-      assert.match(error, /certificate unavailable.*local axes are not rational/);
+      assert.match(error, /^(?:point|distributed) load on element \d+: its local axes are not rational \(length or axis norms irrational\), not representable exactly$/);
       return error;
     };
     assert.equal(refusal(input), refusal(canonical));
