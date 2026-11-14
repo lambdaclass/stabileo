@@ -25,7 +25,7 @@ import { saveFile } from '../export/save-file';
 export type ListingFormat = 'pdf' | 'html' | 'docx' | 'xlsx' | 'csv';
 
 function save(name: string, type: string, data: BlobPart) {
-  saveFile(name, new Blob([data], { type }));
+  saveFile(name, () => new Blob([data], { type }));
 }
 
 const projectName = () => modelStore.model.projectInfo?.job ?? '';

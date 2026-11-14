@@ -259,14 +259,14 @@ describe('account gate', () => {
     });
     try {
       auth.saveRequiresAccount = true;
-      saveFile('a.csv', new Blob(['x']));
+      saveFile('a.csv', () => new Blob(['x']));
       expect(made).toEqual([]);
       accountGate.open = false;
       vi.advanceTimersByTime(20_000);
       expect(made).toEqual([]);
       expect(clicks).toEqual([]);
 
-      saveFile('b.csv', new Blob(['y']));
+      saveFile('b.csv', () => new Blob(['y']));
       vi.advanceTimersByTime(30_000);
       auth.isAuthenticated = true;
       accountGate.open = false;

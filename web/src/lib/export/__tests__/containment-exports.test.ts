@@ -5,7 +5,7 @@ vi.mock('../../store/file', async orig => ({ ...(await orig<typeof import('../..
   downloadBlob: (blob: Blob) => output.blobs.push(blob),
 }));
 // The browser download behind the account gate: the tests read what reached the object URL.
-vi.mock('../save-file', () => ({ saveFile: (name: string, data: Blob) => { output.saved.push(name); URL.createObjectURL(data); } }));
+vi.mock('../save-file', async original => ({ ...(await original<typeof import('../save-file')>()), saveFile: (name: string, build: () => Blob) => { output.saved.push(name); URL.createObjectURL(build()); } }));
 const workbooksSaved = () => output.saved.filter(n => n.endsWith('.xlsx')).length;
 vi.mock('xlsx', async orig => ({ ...(await orig<typeof import('xlsx')>()), writeFile: vi.fn() }));
 import * as XLSX from 'xlsx';

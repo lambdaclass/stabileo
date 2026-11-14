@@ -20,7 +20,7 @@
   const base = () => (projectName || 'stabileo').replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || 'stabileo';
 
   function save(name: string, type: string, text: string) {
-    saveFile(name, new Blob([text], { type }));
+    saveFile(name, () => new Blob([text], { type }));
   }
 
   /*

@@ -97,7 +97,7 @@
   }
 
   function downloadBlob(name: string, type: string, content: string) {
-    saveFile(name, new Blob([content], { type }));
+    saveFile(name, () => new Blob([content], { type }));
   }
 
   async function generate() {

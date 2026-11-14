@@ -33,7 +33,7 @@ import { saveFile } from '../export/save-file';
 /** Hand a blob to the browser under a name. The browser then loses sight of it — see
  * `EXPORT_CANNOT_ASSERT`. */
 export function downloadBlob(name: string, type: string, content: string): void {
-  saveFile(name, new Blob([content], { type }));
+  saveFile(name, () => new Blob([content], { type }));
 }
 
 /** What every export is headed with, and what every filename carries. */

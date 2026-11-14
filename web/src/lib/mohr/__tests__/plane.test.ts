@@ -120,7 +120,7 @@ describe('the 2θ arc', () => {
   });
 });
 
-it.skip('known wrong result: #2099 preserves the small principal root and its sign through every plane entry', () => {
+it('known wrong result: #2099 preserves the small principal root and its sign through every plane entry', () => {
   for (const sign of [-1, 1]) for (const shear of [-1, 1]) {
     const sx = sign * 1e9;
     const expectedSmall = -sign / 1e9;
@@ -133,7 +133,7 @@ it.skip('known wrong result: #2099 preserves the small principal root and its si
   }
 });
 
-it.skip('known wrong result: #2099 keeps both sides of the zero determinant and exact zero roots', () => {
+it('known wrong result: #2099 keeps both sides of the zero determinant and exact zero roots', () => {
   for (const sy of [0, 1e-9, 2e-9]) {
     const p = principalPlane({ sx: 1e9, sy, txy: 1 });
     const determinant = 1e9 * sy - 1;

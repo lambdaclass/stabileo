@@ -674,6 +674,6 @@ export function openCalcReport(data: CalcReportData, win?: Window | null): 'tab'
   else tab = window.open(url, '_blank');
   setTimeout(() => URL.revokeObjectURL(url), 120_000);
   if (tab) return 'tab';
-  saveFile(`${(data.config.projectName || 'stabileo').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'stabileo'}.html`, blob);
+  saveFile(`${(data.config.projectName || 'stabileo').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'stabileo'}.html`, () => blob);
   return 'download';
 }

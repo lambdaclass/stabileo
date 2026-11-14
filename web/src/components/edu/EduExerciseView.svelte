@@ -308,7 +308,7 @@
   function downloadSubmission() {
     const sub = buildSubmission();
     const who = sub.student ? sub.student.replace(/[^\w\-]+/g, '-').toLowerCase() : 'entrega';
-    saveFile(`${who}-${sub.exerciseId}.stabileo-entrega.json`, new Blob([toSubmissionFile(sub)], { type: 'application/json' }));
+    saveFile(`${who}-${sub.exerciseId}.stabileo-entrega.json`, () => new Blob([toSubmissionFile(sub)], { type: 'application/json' }));
     handinNote = t('edu.handin.downloaded');
   }
 

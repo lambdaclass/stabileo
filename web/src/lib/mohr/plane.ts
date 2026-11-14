@@ -12,11 +12,14 @@ export interface MohrCircle {
 export function computeMohrCircle(sigma: number, tau: number, sigmaY = 0): MohrCircle {
   const center = (sigma + sigmaY) / 2;
   const radius = Math.hypot((sigma - sigmaY) / 2, tau);
+  const large = center >= 0 ? center + radius : center - radius;
+  const diagonalProduct = Math.abs(sigma) >= Math.abs(sigmaY) ? (sigma / large) * sigmaY : (sigmaY / large) * sigma;
+  const small = large === 0 ? 0 : diagonalProduct - (tau / large) * tau;
   return {
     center,
     radius,
-    sigma1: center + radius,
-    sigma2: center - radius,
+    sigma1: center >= 0 ? large : small,
+    sigma2: center >= 0 ? small : large,
     thetaP: 0.5 * Math.atan2(2 * tau, sigma - sigmaY),
     tauMax: radius,
   };

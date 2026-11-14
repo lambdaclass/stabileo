@@ -124,7 +124,7 @@ export interface DedalSessionFile {
 // ─── Download Helpers ───────────────────────────────────────────
 
 export function downloadBlob(blob: Blob, filename: string): void {
-  saveFile(filename, blob);
+  saveFile(filename, () => blob);
 }
 
 export function downloadText(content: string, filename: string, mime: string): void {
@@ -665,7 +665,7 @@ function validateAxisSafety(data: DedalFile): void {
 
 export function saveProject(): void {
   const { content, filename } = projectPayload();
-  saveFile(filename, new Blob([content], { type: 'application/json' }), 'save');
+  saveFile(filename, () => new Blob([content], { type: 'application/json' }), 'save');
 }
 
 export async function loadProject(file: File): Promise<void> {
@@ -684,7 +684,7 @@ export async function loadProject(file: File): Promise<void> {
 
 export function saveSession(): void {
   const { content, filename } = sessionPayload();
-  saveFile(filename, new Blob([content], { type: 'application/json' }), 'save');
+  saveFile(filename, () => new Blob([content], { type: 'application/json' }), 'save');
 }
 
 function isSessionFile(data: unknown): data is DedalSessionFile {

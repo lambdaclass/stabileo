@@ -13,7 +13,7 @@ vi.mock('xlsx', async (importOriginal) => {
   };
 });
 
-vi.mock('../save-file', () => ({ saveFile: vi.fn() }));
+vi.mock('../save-file', async original => ({ ...(await original<typeof import('../save-file')>()), saveFile: vi.fn() }));
 
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';

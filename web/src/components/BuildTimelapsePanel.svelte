@@ -114,7 +114,7 @@
         buildTimelapse.recording = false;
         if (!keep || chunks.length === 0) return;
         const file = fileName(type.ext);
-        saveFile(file, new Blob(chunks, { type: type.mime }));
+        saveFile(file, () => new Blob(chunks, { type: type.mime }));
         uiStore.toast(tp('timelapse.saved', { file }), 'success');
       },
     });

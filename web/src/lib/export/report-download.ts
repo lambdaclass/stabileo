@@ -11,16 +11,15 @@ import { rasterizeForPrint } from './rasterize';
 import { APP_VERSION } from '../build-info';
 import { t, tp } from '../i18n';
 import type { DocBlock } from './docx';
-import { accountGate } from '../store/account-gate.svelte';
-import { saveFile } from './save-file';
+import { saveFile, runFileExport } from './save-file';
 
 function save(name: string, type: string, data: BlobPart) {
-  saveFile(name, new Blob([data], { type }));
+  saveFile(name, () => new Blob([data], { type }));
 }
 
 /** Print a report's HTML (the PDF), or download it when the window is blocked. */
 export function printHtml(html: string, stem: string): void {
-  accountGate.guard('export', () => printNow(html, stem));
+  void runFileExport(() => printNow(html, stem), undefined);
 }
 
 function printNow(html: string, stem: string): void {
@@ -42,22 +41,24 @@ export function docxLayout(title: string, date = new Date().toISOString().slice(
 }
 
 export async function downloadReport(format: ReportFormat, r: { title: string; html: string; stem: string; blocks?: DocBlock[]; provenance?: ReportProvenance; docx?: DocxOptions }): Promise<string | null> {
-  trackUsage('export', { format: `report-${format}` });
-  const current = exportMessages(); if (current === null) return null;
-  const warnings = [...new Set([...current, ...carriedWarnings(r.html)])];
-  r = {
-    ...r,
-    html: warningHtml(r.html, warnings),
-    ...(r.blocks ? { blocks: [...warnings.map(text => ({ kind: 'paragraph' as const, text })), ...r.blocks] } : {}),
-    // CSV exports only tables, so their mandatory warnings also belong in its comment header.
-    ...(warnings.length ? { provenance: {
-      title: r.provenance?.title ?? t('knownIssue.exportHeading'),
-      lines: [...warnings.map(w => ['⚠', w] as const), ...(r.provenance?.lines ?? [])],
-    } } : {}),
-  };
-  if (format === 'pdf') { printHtml(r.html, r.stem); return `${r.stem}.pdf`; }
-  const f = await reportFile(format, { ...r, docx: r.docx ?? docxLayout(r.title), loadXlsx: loadXlsxModule });
-  if (!f) return null;
-  save(f.filename, f.mime, f.bytes as BlobPart);
-  return f.filename;
+  return runFileExport(async check => {
+    trackUsage('export', { format: `report-${format}` });
+    const current = exportMessages(); if (current === null) return null;
+    const warnings = [...new Set([...current, ...carriedWarnings(r.html)])];
+    r = {
+      ...r,
+      html: warningHtml(r.html, warnings),
+      ...(r.blocks ? { blocks: [...warnings.map(text => ({ kind: 'paragraph' as const, text })), ...r.blocks] } : {}),
+      // CSV exports only tables, so their mandatory warnings also belong in its comment header.
+      ...(warnings.length ? { provenance: {
+        title: r.provenance?.title ?? t('knownIssue.exportHeading'),
+        lines: [...warnings.map(w => ['⚠', w] as const), ...(r.provenance?.lines ?? [])],
+      } } : {}),
+    };
+    if (format === 'pdf') { if (!check()) return null; printNow(r.html, r.stem); return `${r.stem}.pdf`; }
+    const f = await reportFile(format, { ...r, docx: r.docx ?? docxLayout(r.title), loadXlsx: loadXlsxModule });
+    if (!f || !check()) return null;
+    save(f.filename, f.mime, f.bytes as BlobPart);
+    return f.filename;
+  }, null);
 }

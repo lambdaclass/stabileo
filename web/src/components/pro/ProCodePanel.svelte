@@ -63,7 +63,7 @@
   }
 
   function download() {
-    saveFile(`${(modelStore.model.name || 'model').replace(/[^\w.-]+/g, '_')}.stabileo.txt`, new Blob([text], { type: 'text/plain;charset=utf-8' }));
+    saveFile(`${(modelStore.model.name || 'model').replace(/[^\w.-]+/g, '_')}.stabileo.txt`, () => new Blob([text], { type: 'text/plain;charset=utf-8' }));
   }
 
   async function openFile(e: Event) {

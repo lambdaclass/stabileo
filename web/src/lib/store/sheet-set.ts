@@ -192,7 +192,7 @@ export function applySetTemplate(t: SheetSetTemplate): void {
 }
 
 function save(name: string, type: string, bytes: Uint8Array) {
-  saveFile(name, new Blob([bytes as BlobPart], { type }));
+  saveFile(name, () => new Blob([bytes as BlobPart], { type }));
 }
 
 /** The set as one zip with a DXF per sheet, recorded in the export log like the other files. */

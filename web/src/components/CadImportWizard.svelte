@@ -573,7 +573,7 @@
   }
 
   function downloadTemplate(): void {
-    saveFile('stabileo-template.dxf', new Blob([buildStabileoTemplateDxf()], { type: 'application/dxf' }));
+    saveFile('stabileo-template.dxf', () => new Blob([buildStabileoTemplateDxf()], { type: 'application/dxf' }));
   }
 
   /** Pre-fill floors/heights once from an STB_LEVEL_SCHEDULE, if present. */

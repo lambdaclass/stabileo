@@ -306,7 +306,7 @@
 
   function download() {
     if (!draft) return;
-    saveFile(`${draft.id}.stabileo-ej.json`, new Blob([toFile(draft)], { type: 'application/json' }));
+    saveFile(`${draft.id}.stabileo-ej.json`, () => new Blob([toFile(draft)], { type: 'application/json' }));
   }
 
   function share() {
