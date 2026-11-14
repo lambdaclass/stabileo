@@ -31,7 +31,7 @@
     "pt": "Referências de recalque e rigidez inicial do fuste permanecem contínuas",
     "de": "Setzungsreferenzen und anfängliche Mantelsteifigkeit bleiben stetig",
     "fr": "Les références de tassement et la rigidité initiale du fût restent continues",
-    "tr": "Oturma referansları ve başlangıç çevre rijitliği sürekli kalır"
+    "tr": "Oturma referansları ve başlangıç kazık gövdesi rijitliği sürekli kalır"
   },
   "explanation": {
     "en": "Re-run nonlinear and SSI results: coincident models retain their exact point scale after translation, settlements retain a continuous force reference beside small loads and through unloading, tiny displacement controls solve, and t-z springs use a bounded initial linear segment (#761, PR #1940).",

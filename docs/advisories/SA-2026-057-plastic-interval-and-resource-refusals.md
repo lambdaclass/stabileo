@@ -3,9 +3,10 @@
 | | |
 |---|---|
 | Severity | Medium |
-| Status | Draft 2026-11-10; fix proposed in PR #1888 |
+| Status | Published 2026-11-13 (drafted 2026-11-10) |
 | Issue | Found in review of PR #1888 |
-| Fix | PR [#1888](https://github.com/lambdaclass/stabileo/pull/1888) (not yet merged) |
+| Fix | PR [#1888](https://github.com/lambdaclass/stabileo/pull/1888), included in 0.6.0 |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | Builds containing the former `plasticReading` comparison slack; mechanism resource refusals affect pre-fix PR #1888 builds introducing exact elimination budgets |
 | Re-check registry | results-change entry `plastic-mechanism-refusal-propagation` |
 
@@ -39,7 +40,7 @@ a released production defect.
 
 ## Fixed in
 
-Proposed in PR #1888. Both mechanism builders propagate the elimination error,
+0.6.0, containing merged PR #1888. Both mechanism builders propagate the elimination error,
 and the app uses inclusive endpoint comparisons without a widening tolerance.
 Regressions cover both mechanism builders, the actual WASM above-interval
 artifact, and direct endpoint comparisons. No resource ceiling is increased.
