@@ -19,6 +19,7 @@
     "pt": "A exceção para cabos por etapas foi retirada",
     "de": "Die Ausnahme für Bauphasenseile entfällt",
     "fr": "L’exception pour les câbles par phases est retirée",
+    "hu": "Az építési fázisos kábelkivétel visszavonva",
     "tr": "Aşamalı kablo istisnası kaldırılmıştır"
   },
   "explanation": {
@@ -27,6 +28,7 @@
     "pt": "Os dois solvers por etapas recusam todos os cabos com cable_analysis_required, inclusive tracionados e sem carga. Forças positivas nas extremidades e convergência de Ernst não comprovam equilíbrio com flecha. A paridade de cabos exige recusas estruturadas idênticas; a paridade numérica usa treliças explícitas. Use a análise dedicada de cabos (#417; PR #1921).",
     "de": "Beide Bauphasenlöser lehnen alle Seile mit cable_analysis_required ab, auch unter Zug und ohne Last. Positive Endkräfte und Konvergenz der Ernst-Iteration belegen kein Gleichgewicht mit Durchhang. Seilparität verlangt identische strukturierte Ablehnungen; numerische Bauphasenparität nutzt explizite Fachwerkstäbe. Verwenden Sie die Seilanalyse (#417; PR #1921).",
     "fr": "Les deux solveurs par phases refusent tous les câbles avec cable_analysis_required, même en traction ou sans charge. Des efforts positifs aux extrémités et la convergence d’Ernst ne prouvent pas l’équilibre avec flèche. La parité des câbles exige des refus structurés identiques ; la parité numérique utilise des barres explicites. Utilisez l’analyse dédiée aux câbles (#417 ; PR #1921).",
+    "hu": "Mindkét építési fázisos megoldó minden kábelt elutasít cable_analysis_required kóddal, a húzott és a terheletlen bemeneteket is. A pozitív rúdvégi erők és egy Ernst-féle merevségi iteráció konvergenciája nem bizonyítja a kábel egyensúlyát, ha a belógás számít. A kábelek egyezőségéhez most azonos strukturált elutasítások kellenek; a numerikus fázisos egyezőség kifejezett rácsrudakat használ. Használjon külön kábelanalízist (#417; #1921-es PR).",
     "tr": "Her iki aşamalı çözücü, çekmedeki ve yüksüz girdiler dahil tüm kabloları cable_analysis_required ile reddeder. Pozitif uç kuvvetleri ve Ernst iterasyonunun yakınsaması sehimli dengeyi kanıtlamaz. Kablo karşılaştırması aynı yapılandırılmış retleri gerektirir; sayısal karşılaştırma açıkça tanımlanmış kafes çubukları kullanır. Özel kablo analizini kullanın (#417; PR #1921)."
   },
   "changelog": {

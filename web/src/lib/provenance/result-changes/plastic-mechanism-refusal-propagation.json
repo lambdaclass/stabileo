@@ -24,6 +24,7 @@
     "pt": "As recusas de recursos do mecanismo plástico são propagadas e a leitura usa os limites exatos",
     "de": "Ressourcenfehler plastischer Mechanismen werden weitergegeben und Intervalle exakt gelesen",
     "fr": "Les refus de ressources des mécanismes plastiques sont propagés et les bornes sont lues exactement",
+    "hu": "A képlékeny mechanizmusok erőforrás miatti elutasításai továbbjutnak, az intervallumok leolvasása pontos végpontokkal történik",
     "tr": "Plastik mekanizma kaynak retleri iletilir ve aralıklar kesin uç noktalarla okunur"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "pt": "Execute novamente os certificados plásticos. A eliminação exata preserva as recusas de recursos em vez de as tratar como mecanismos ausentes. A aplicação marca como externo qualquer fator fora do intervalo, incluindo pequenos desvios. Os limites do intervalo e de recursos não mudam.",
     "de": "Berechnen Sie plastische Zertifikate erneut. Exakte Mechanismuselimination gibt Ressourcenfehler weiter, statt sie als fehlende Mechanismen zu behandeln. Die App kennzeichnet jeden Faktor außerhalb des zertifizierten Intervalls als außerhalb, auch bei kleinen Abweichungen. Intervallgrenzen und Ressourcenlimits bleiben gleich.",
     "fr": "Relancez les certificats plastiques. L’élimination exacte conserve les refus de ressources au lieu de les traiter comme des mécanismes absents. L’application signale tout facteur hors de l’intervalle certifié, même pour un faible écart. Les bornes et limites de ressources restent identiques.",
+    "hu": "Futtassa újra a képlékeny tanúsítványokat. A pontos mechanizmus-elimináció mostantól megőrzi az erőforrás miatti elutasításokat, ahelyett hogy hiányzó mechanizmusként kezelné őket. Az alkalmazás a tanúsított intervallumon kívül eső minden tényezőt kívül esőként jelöl, a kis eltéréseket is. A tanúsítvány végpontjai és az erőforráskorlátok nem változnak.",
     "tr": "Plastik sertifikaları yeniden çalıştırın. Kesin mekanizma eliminasyonu kaynak retlerini eksik mekanizma olarak değerlendirmek yerine korur. Uygulama küçük sapmalar dahil sertifikalı aralığın dışındaki her faktörü dışarıda olarak gösterir. Aralık uçları ve kaynak sınırları değişmez."
   },
   "changelog": {

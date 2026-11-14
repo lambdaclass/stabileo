@@ -789,28 +789,6 @@ const zh: Translations = {
   'float.vShear': 'V 剪力',
   'float.ilHint': '点击节点（反力）或杆件（内力 M/V）',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': '报告 / 建议',
-  'feedback.close': '关闭',
-  'feedback.reportCreated': '报告 #{n} 已创建',
-  'feedback.bugError': 'Bug / 错误',
-  'feedback.suggestion': '建议',
-  'feedback.other': '其他',
-  'feedback.namePlaceholder': '您的姓名或昵称（可选）',
-  'feedback.textPlaceholder': '描述问题或建议...',
-  'feedback.linkAttached': '将附带您结构的链接',
-  'feedback.copy': '复制',
-  'feedback.sending': '发送中...',
-  'feedback.submitReport': '提交报告',
-  'feedback.toastCreated': '报告 #{n} 已创建 — 谢谢！',
-  'feedback.toastError': '无法发送报告',
-  'feedback.toastConnectionError': '连接错误 — 请重试',
-  'feedback.toastEmptyText': '请输入问题或建议的描述',
-  'feedback.toastSecurityWait': '正在等待安全验证...',
-  'feedback.toastLinkCopied': '链接已复制',
-  'feedback.reportBug': '报告 Bug / 建议',
-  'feedback.communityTelegram': 'Telegram 社区',
-  'feedback.buyCoffee': '请我喝杯咖啡',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': '截面 {id}',
@@ -2214,6 +2192,7 @@ const zh: Translations = {
   'lang.fr': 'Français',
   'lang.it': 'Italiano',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.hi': 'हिन्दी',
   'lang.zh': '中文',
   'lang.ja': '日本語',
@@ -2751,10 +2730,8 @@ const zh: Translations = {
   'pro.unknown': '未知',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} 块板，{quads} 个四边形',
   'pro.plateTriDKT': '三角形板 (DKT)',
   'pro.quadMITC4': '四边形 MITC4',
-  'pro.meshGenerator': '网格生成器',
   'pro.meshHint': '定义 4 个角节点（逆时针方向）和 NxM 细分。自动创建中间节点和四边形。',
   'pro.corners': '角节点',
   'pro.subdivisions': '细分',

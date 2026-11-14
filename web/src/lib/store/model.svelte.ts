@@ -1,4 +1,5 @@
 import { migrateDesignData } from '../model/design-data';
+import { trackUsage } from '../telemetry/usage';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
 import {
@@ -799,6 +800,8 @@ export interface LoadCase {
   reduction?: { ratio: number; tributaryAreaM2: number; elementKind: string; floorsSupported: number; occupancyKey?: string };
   /** A response spectrum as this case's result (`engine/spectral-case.ts`): no loads of its own. */
   spectral?: import('../engine/spectral-case').SpectralCaseDef;
+  /** Named by Stabileo with model axis letters ("Viento +X"): shown in the user's (`axes/case-names.ts`) until renamed. */
+  axisNamed?: boolean;
 }
 
 export interface LoadCombination {
@@ -812,6 +815,8 @@ export interface LoadCombination {
   method?: 'linear' | 'srss' | 'abs';
   /** The code, edition, rule and purpose of a generated combination: what design reads to know it is its own. */
   origin?: import('../codes/families/origin').CombinationOrigin;
+  /** Renamed by the user: a generated combination's name is otherwise shown in the user's axes (`axes/case-names.ts`). */
+  nameTyped?: boolean;
 }
 
 /**
@@ -2861,6 +2866,19 @@ function createModelStore() {
       return id;
     },
 
+    /**
+     * Many loads at once, each under a new id, in one write of the list. One at a time, every
+     * write copied the whole list: a building's thousands of slab loads took a minute.
+     */
+    addLoadEntries(loads: readonly Load[]): number[] {
+      if (!loads.length) return [];
+      if (!_undoBatching) _pushUndo?.();
+      const entries = loads.map((load) => ({ type: load.type, data: { ...JSON.parse(JSON.stringify(load.data)), id: nextId.load++ } }) as Load);
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(...entries);
+      else model.loads = [...model.loads, ...entries];
+      return entries.map((e) => (e.data as { id: number }).id);
+    },
+
     /** Add a quad or a plate with every field it carries. For the edit layer. */
     addShellEntry(kind: 'quad' | 'plate', fields: Omit<Quad, 'id'> | Omit<Plate, 'id'>): number {
       if (!_undoBatching) _pushUndo?.();
@@ -3648,6 +3666,16 @@ function createModelStore() {
       return true;
     },
 
+    /** Remove several loads in one pass, under the same rule as `removeLoad`. How many went. */
+    removeLoads(loadIds: Iterable<number>): number {
+      const ids = new Set(loadIds);
+      const gone = model.loads.filter(l => ids.has(l.data.id) && !isDefinedLoadData(l)).length;
+      if (!gone) return 0;
+      if (!_undoBatching) _pushUndo?.();
+      model.loads = model.loads.filter(l => !ids.has(l.data.id) || isDefinedLoadData(l));
+      return gone;
+    },
+
     removeSupport(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.supports.delete(id);
@@ -4179,10 +4207,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category']; generated?: boolean } = {}): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category']; generated?: boolean; axisNamed?: boolean } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}), ...(opts.generated ? { generated: true } : {}) });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}), ...(opts.generated ? { generated: true } : {}), ...(opts.axisNamed && /(?<![A-Za-z])[XYZ](?![A-Za-z])/.test(name) ? { axisNamed: true } : {}) });
       return id;
     },
 
@@ -4370,12 +4398,12 @@ function createModelStore() {
      * `reduced`: the loads come reduced already (the generator's live load), and a case reduced by
      * hand (`LoadCase.reduction`) is never the one they go into, whatever its name.
      */
-    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; reduced?: boolean; category?: LoadCase['category'] } = {}): number {
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; reduced?: boolean; category?: LoadCase['category']; axisNamed?: boolean } = {}): number {
       const found = findPlannedCase(model.loadCases, name, type, opts);
       if (!found) {
         let fresh = name;
         for (let k = 2; opts.own && model.loadCases.some((c) => c.type === type && c.name === fresh); k++) fresh = `${name} (${k})`;
-        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category });
+        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category, axisNamed: opts.axisNamed });
       }
       if (opts.category && found.category !== opts.category) {
         if (!_undoBatching) _pushUndo?.();
@@ -4395,7 +4423,7 @@ function createModelStore() {
     updateLoadCase(id: number, name: string): void {
       if (!_undoBatching) _pushUndo?.();
       const lc = model.loadCases.find(c => c.id === id);
-      if (lc) lc.name = name;
+      if (lc && lc.name !== name) { lc.name = name; delete lc.axisNamed; }
     },
 
     updateLoadCaseType(id: number, type: LoadCaseType): void {
@@ -4425,7 +4453,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const combo = model.combinations.find(c => c.id === id);
       if (!combo) return;
-      if (data.name !== undefined) combo.name = data.name;
+      if (data.name !== undefined && data.name !== combo.name) { combo.name = data.name; if (combo.origin) combo.nameTyped = true; }
       if (data.factors !== undefined) {
         // Factors edited by hand make the combination the user's: "replace generated loads" takes
         // back only what a code wrote, and deleted the edit with it. It keeps its purpose, so a
@@ -4688,6 +4716,7 @@ function createModelStore() {
     },
 
     async loadExample(name: string, fixture?: () => Promise<unknown>, opts: { keepCombinations?: boolean } = {}): Promise<void> {
+      trackUsage('example.open', { example: name });
       const loader = fixture ?? getFixture(name);
       if (!loader) return;
 

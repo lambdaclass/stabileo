@@ -29,6 +29,7 @@ import { exportMessages } from '../export/containment';
 import { ContainmentExportError, isContainmentRefusal } from '../engine/containment-error';
 import { viewportCanvas } from '../utils/viewport-canvas';
 import { uiStore } from '../store/ui.svelte';
+import { accountGate } from '../store/account-gate.svelte';
 import { viewState } from '../store/view-state.svelte';
 import { buildProReportData } from '../engine/pro-report-inputs';
 import { generateReportHtml, openReport } from '../engine/pro-report';
@@ -40,6 +41,8 @@ import type { ShellContourComponent } from '../engine/shell-stress';
 import { t as tr } from '../i18n';
 import { modelStore, resultsStore } from '../store';
 import { resultSet, hasResultSet } from './export-results';
+import { axesStore } from '../axes/axes.svelte';
+import { standingPlane } from '../axes/node-coords';
 
 export interface ReportExportInputs {
   config: ReportConfig;
@@ -113,7 +116,7 @@ async function exportReportWithEngine(input: ReportExportInputs, token: ReturnTy
   // The model's figure is drawn; a capture of the screen only when it cannot be.
   const capture = input.config.sections?.modelData !== false && !figures.model;
   const data = buildProReportData({
-    config: input.config,
+    config: withPresentation(input.config),
     advancedResults: Object.keys(input.advancedResults).length > 0
       ? input.advancedResults as ReportData['advancedResults']
       : undefined,
@@ -128,9 +131,14 @@ async function exportReportWithEngine(input: ReportExportInputs, token: ReturnTy
     if (e instanceof ExportChangedError) { uiStore.toast(e.message, 'error'); return; }
     throw e;
   }
-  if (!input.format || input.format === 'pdf') { openReport(data); return; }
+  if (!input.format || input.format === 'pdf') { accountGate.guard('export', () => openReport(data)); return; }
   const { downloadReport } = await import('../export/report-download');
   await downloadReport(input.format, { title: data.projectName || input.t('proReport.title'), html: generateReportHtml(data), stem: `report-${(data.projectName || 'model').replace(/[^\w.-]+/g, '-')}`, ...(data.resultProvenance ? { provenance: reportProvenanceLines(data.resultProvenance.record) } : {}) });
+}
+
+export function withPresentation(config: ReportConfig): ReportConfig {
+  const shown = { ...config, uprightPlane: config.uprightPlane ?? standingPlane() };
+  return axesStore.frame.identity ? shown : { ...shown, axes: { ...axesStore.choice } };
 }
 
 /** Load cases drawn as figures, one each; the tables list them all. */

@@ -16,17 +16,16 @@ import { designData } from './design-data';
 import type { DocumentModel } from '../engine/detailing/document-model';
 import { withExportLog } from './export-log';
 import { csvWithProvenance, htmlWithProvenance, prepareExportProvenance, reportProvenanceLines } from '../export/provenance-attach';
-import { provenancePdfPage } from '../sheets/sheet-set';
+import { provenancePdfPages } from '../sheets/sheet-set';
 import { uiStore } from './ui.svelte';
 import { t } from '../i18n';
 import type { ResultProvenance } from '../provenance/result-provenance';
+import { saveFile } from '../export/save-file';
 
 export type ListingFormat = 'pdf' | 'html' | 'docx' | 'xlsx' | 'csv';
 
 function save(name: string, type: string, data: BlobPart) {
-  const url = URL.createObjectURL(new Blob([data], { type }));
-  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  saveFile(name, new Blob([data], { type }));
 }
 
 const projectName = () => modelStore.model.projectInfo?.job ?? '';
@@ -43,7 +42,7 @@ export async function listingBytes(id: ListingId, format: ListingFormat, locale 
       const m = toDocModel(l, locale, projectName());
       return docxBytes(p ? { ...m, blocks: [...m.blocks, { kind: 'heading', text: p.title, level: 2 }, { kind: 'table', head: [p.lines[0]?.[0] ?? '', p.lines[0]?.[1] ?? ''], rows: p.lines.slice(1).map(([k, v]) => [k, v]) }] } as never : m);
     }
-    case 'pdf': return sheetsToPdf([...toPdfPages(l, locale, projectName()), ...(p ? [provenancePdfPage(p)] : [])], l.title);
+    case 'pdf': return sheetsToPdf([...toPdfPages(l, locale, projectName()), ...(p ? provenancePdfPages(p) : [])], l.title);
     case 'xlsx': { const X = await loadXlsxModule(); return X ? listingsWorkbook(X, [l], locale, p) : null; }
   }
 }

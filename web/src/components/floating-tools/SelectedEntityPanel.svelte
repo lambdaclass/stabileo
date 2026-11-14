@@ -1,8 +1,11 @@
 <script lang="ts">
+  import { planeLettersShown, relabelAxes, supportNameShown, supportTypeShown } from '../../lib/axes/user-names';
+  import { caseNameShown } from '../../lib/axes/case-names';
   import { uiStore, resultsStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D } from '../../lib/store/model.svelte.ts';
-  import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
+  import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical, TWO_D_NODAL_LOAD_LABELS } from '../../lib/geometry/coordinate-system';
+  import { along, modelIndexOfUser, modelRot, modelVec, planeGlobalAngle, planeGlobalValue, twoD, userRot, userVec, XYZ } from '../../lib/axes/display';
   import { memberLoadPerpComponent } from '../../lib/engine/model-diagnostics';
   import { isDefinedLoad } from '../../lib/model/loads/floor-definitions';
 
@@ -33,13 +36,17 @@
    * its member, is refused and said (`editLoad`); the results stay, since nothing changed.
    */
   function updateLoadField(loadId: number, field: string, val: string | boolean) {
-    if (definedLoad(loadId)) return;
     let value: number | boolean = val as boolean;
     if (typeof val !== 'boolean') {
       value = parseFloat(val);
       if (isNaN(value)) return;
     }
-    const outcome = editLoad(loadId, { [field]: value });
+    updateLoadFields(loadId, { [field]: value });
+  }
+
+  function updateLoadFields(loadId: number, updates: Record<string, number | boolean>) {
+    if (definedLoad(loadId)) return;
+    const outcome = editLoad(loadId, updates);
     if (outcome === 'zero') { uiStore.toast(t('editLoad.zero'), 'info'); return; }
     if (outcome === 'place') { uiStore.toast(t('editLoad.offMember'), 'info'); return; }
     if (outcome !== 'done') return;
@@ -113,6 +120,33 @@
     resultsStore.clear();
   }
 
+  type Dof3D = 'tx' | 'ty' | 'tz' | 'rx' | 'ry' | 'rz';
+
+  function toggleDof3D(sup: { id: number; dofRestraints?: Record<Dof3D, boolean> }, dof: Dof3D) {
+    const r = sup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
+    const u = { ...r, [dof]: !r[dof] };
+    const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
+    const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
+    const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
+    modelStore.updateSupport(sup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+    resultsStore.clear(); resultsStore.clear3D();
+  }
+
+  function userTriple(moment: boolean, m: [number, number, number]): [number, number, number] {
+    return moment ? userRot(m[0], m[1], m[2]) : userVec(m[0], m[1], m[2]);
+  }
+
+  function modelTriple(moment: boolean, u: [number, number, number]): [number, number, number] {
+    return moment ? modelRot(u[0], u[1], u[2]) : modelVec(u[0], u[1], u[2]);
+  }
+
+  function updateUserComponent(loadId: number, keys: readonly [string, string, string], moment: boolean, current: [number, number, number], i: number, v: number) {
+    const u = userTriple(moment, current);
+    u[i] = v;
+    const m = modelTriple(moment, u);
+    updateLoadFields(loadId, { [keys[0]]: m[0], [keys[1]]: m[1], [keys[2]]: m[2] });
+  }
+
   const supTypeLabelKeys: Record<string, string> = {
     fixed: 'selEntity.supFixed',
     pinned: 'selEntity.supPinned',
@@ -161,7 +195,7 @@
 
 {#snippet frameToggle(id: number, global: boolean)}
   <!-- The axes the values are along: switching re-reads the same numbers in the other axes. -->
-  <button class="ft-opt-btn ft-coord-btn" class:active={global} onclick={() => setLoadFrame(id, 'global')} title={t('float.loadFrameGlobalTip')}>{t('float.frameGlobal')}</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={global} onclick={() => setLoadFrame(id, 'global')} title={relabelAxes(t('float.loadFrameGlobalTip'))}>{t('float.frameGlobal')}</button>
   <button class="ft-opt-btn ft-coord-btn" class:active={!global} onclick={() => setLoadFrame(id, 'local')} title={t('float.loadFrameLocalTip')}>{t('float.frameLocal')}</button>
 {/snippet}
 
@@ -175,7 +209,7 @@
       onchange={(e) => { updateLoadField(selectedLoad.data.id, 'caseId', e.currentTarget.value); }}
       title={t('selEntity.loadCase')}>
       {#each modelStore.loadCases as lc}
-        <option value={String(lc.id)}>{lc.type || lc.name}</option>
+        <option value={String(lc.id)}>{lc.type || caseNameShown(lc)}</option>
       {/each}
     </select>
     <span class="ft-sep">|</span>
@@ -183,18 +217,18 @@
     {#if selectedLoad.type === 'nodal'}
       {@const nl = selectedLoad.data as NodalLoad}
       <label class="ft-input-group">
-        <span>Fx:</span>
-        <UnitInput value={nl.fx} qty="force" onchange={(v) => updateLoadField(nl.id, 'fx', String(v))} unit={false} />
+        <span>{TWO_D_NODAL_LOAD_LABELS.horizontal}:</span>
+        <UnitInput value={twoD.x(nl.fx)} qty="force" onchange={(v) => updateLoadField(nl.id, 'fx', String(twoD.fromX(v)))} unit={false} />
         <span class="ft-unit">{unitQ('force')}</span>
       </label>
       <label class="ft-input-group">
-        <span>Fz:</span>
-        <UnitInput value={get2DDisplayNodalLoadVertical(nl)} qty="force" onchange={(v) => updateLoadField(nl.id, 'fz', String(v))} unit={false} />
+        <span>{TWO_D_NODAL_LOAD_LABELS.vertical}:</span>
+        <UnitInput value={twoD.z(get2DDisplayNodalLoadVertical(nl))} qty="force" onchange={(v) => updateLoadField(nl.id, 'fz', String(twoD.fromZ(v)))} unit={false} />
         <span class="ft-unit">{unitQ('force')}</span>
       </label>
       <label class="ft-input-group">
-        <span>My:</span>
-        <UnitInput value={get2DDisplayNodalLoadMoment(nl)} qty="moment" onchange={(v) => updateLoadField(nl.id, 'my', String(v))} unit={false} />
+        <span>{TWO_D_NODAL_LOAD_LABELS.moment}:</span>
+        <UnitInput value={twoD.rot(get2DDisplayNodalLoadMoment(nl))} qty="moment" onchange={(v) => updateLoadField(nl.id, 'my', String(twoD.fromRot(v)))} unit={false} />
         <span class="ft-unit">{unitQ('moment')}</span>
       </label>
     {:else if selectedLoad.type === 'distributed'}
@@ -202,12 +236,12 @@
       {@const elemLen = modelStore.getElementLength(dl.elementId)}
       <label class="ft-input-group">
         <span>qI:</span>
-        <UnitInput value={dl.qI} qty="distributedLoad" onchange={(v) => updateLoadField(dl.id, 'qI', String(v))} unit={false} />
+        <UnitInput value={dl.isGlobal ? planeGlobalValue(dl.qI) : dl.qI} qty="distributedLoad" onchange={(v) => updateLoadField(dl.id, 'qI', String(dl.isGlobal ? planeGlobalValue(v) : v))} unit={false} />
         <span class="ft-unit">{unitQ('distributedLoad')}</span>
       </label>
       <label class="ft-input-group">
         <span>qJ:</span>
-        <UnitInput value={dl.qJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl.id, 'qJ', String(v))} unit={false} />
+        <UnitInput value={dl.isGlobal ? planeGlobalValue(dl.qJ) : dl.qJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl.id, 'qJ', String(dl.isGlobal ? planeGlobalValue(v) : v))} unit={false} />
         <span class="ft-unit">{unitQ('distributedLoad')}</span>
       </label>
       <label class="ft-input-group">
@@ -221,11 +255,11 @@
         <span class="ft-unit">{unitQ('length')}</span>
       </label>
       <span class="ft-sep">|</span>
-      <button class="ft-opt-btn ft-coord-btn" class:active={dl.isGlobal === true} onclick={() => updateLoadField(dl.id, 'isGlobal', true)} title={t('float.loadGlobalYDir')}>Z</button>
+      <button class="ft-opt-btn ft-coord-btn" class:active={dl.isGlobal === true} onclick={() => updateLoadField(dl.id, 'isGlobal', true)} title={planeLettersShown(t('float.loadGlobalYDir'))}>{twoD.vertical}</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={!dl.isGlobal} onclick={() => updateLoadField(dl.id, 'isGlobal', false)} title={t('float.loadPerpDir')}>⊥</button>
       <label class="ft-input-group">
         <span>α:</span>
-        <input type="number" step="5" value={dl.angle ?? 0} onchange={(e) => updateLoadField(dl.id, 'angle', e.currentTarget.value)} />
+        <input type="number" step="5" value={dl.isGlobal ? planeGlobalAngle(dl.angle ?? 0) + 0 : dl.angle ?? 0} onchange={(e) => updateLoadField(dl.id, 'angle', String(dl.isGlobal ? planeGlobalAngle(parseFloat(e.currentTarget.value)) : e.currentTarget.value))} />
         <span class="ft-unit">°</span>
       </label>
     {:else if selectedLoad.type === 'pointOnElement'}
@@ -237,8 +271,8 @@
         <span class="ft-unit">{unitQ('length')}</span>
       </label>
       <label class="ft-input-group">
-        <span>{pl.isGlobal ? 'Fz' : 'Fj'}:</span>
-        <UnitInput value={pl.p} qty="force" onchange={(v) => updateLoadField(pl.id, 'p', String(v))} unit={false} />
+        <span>{pl.isGlobal ? `F${twoD.vertical.toLowerCase()}` : 'Fj'}:</span>
+        <UnitInput value={pl.isGlobal ? planeGlobalValue(pl.p) : pl.p} qty="force" onchange={(v) => updateLoadField(pl.id, 'p', String(pl.isGlobal ? planeGlobalValue(v) : v))} unit={false} />
         <span class="ft-unit">{unitQ('force')}</span>
       </label>
       <label class="ft-input-group">
@@ -247,16 +281,16 @@
         <span class="ft-unit">{unitQ('force')}</span>
       </label>
       <label class="ft-input-group">
-        <span>My:</span>
-        <UnitInput value={get2DDisplayNodalLoadMoment(pl)} qty="moment" onchange={(v) => updateLoadField(pl.id, 'my', String(v))} unit={false} />
+        <span>{TWO_D_NODAL_LOAD_LABELS.moment}:</span>
+        <UnitInput value={twoD.rot(get2DDisplayNodalLoadMoment(pl))} qty="moment" onchange={(v) => updateLoadField(pl.id, 'my', String(twoD.fromRot(v)))} unit={false} />
         <span class="ft-unit">{unitQ('moment')}</span>
       </label>
       <span class="ft-sep">|</span>
-      <button class="ft-opt-btn ft-coord-btn" class:active={pl.isGlobal === true} onclick={() => updateLoadField(pl.id, 'isGlobal', true)} title={t('float.loadGlobalYDir')}>Z</button>
+      <button class="ft-opt-btn ft-coord-btn" class:active={pl.isGlobal === true} onclick={() => updateLoadField(pl.id, 'isGlobal', true)} title={planeLettersShown(t('float.loadGlobalYDir'))}>{twoD.vertical}</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={!pl.isGlobal} onclick={() => updateLoadField(pl.id, 'isGlobal', false)} title={t('float.loadPerpDir')}>⊥</button>
       <label class="ft-input-group">
         <span>α:</span>
-        <input type="number" step="5" value={pl.angle ?? 0} onchange={(e) => updateLoadField(pl.id, 'angle', e.currentTarget.value)} />
+        <input type="number" step="5" value={pl.isGlobal ? planeGlobalAngle(pl.angle ?? 0) + 0 : pl.angle ?? 0} onchange={(e) => updateLoadField(pl.id, 'angle', String(pl.isGlobal ? planeGlobalAngle(parseFloat(e.currentTarget.value)) : e.currentTarget.value))} />
         <span class="ft-unit">°</span>
       </label>
     {:else if selectedLoad.type === 'thermal'}
@@ -273,22 +307,25 @@
       </label>
     {:else if selectedLoad.type === 'nodal3d'}
       {@const nl3 = selectedLoad.data as NodalLoad3D}
-      <label class="ft-input-group"><span>Fx:</span><UnitInput value={nl3.fx} qty="force" onchange={(v) => updateLoadField(nl3.id, 'fx', String(v))} unit={false} /><span class="ft-unit">{unitQ('force')}</span></label>
-      <label class="ft-input-group"><span>Fy:</span><UnitInput value={nl3.fy} qty="force" onchange={(v) => updateLoadField(nl3.id, 'fy', String(v))} unit={false} /><span class="ft-unit">{unitQ('force')}</span></label>
-      <label class="ft-input-group"><span>Fz:</span><UnitInput value={nl3.fz} qty="force" onchange={(v) => updateLoadField(nl3.id, 'fz', String(v))} unit={false} /><span class="ft-unit">{unitQ('force')}</span></label>
-      <label class="ft-input-group"><span>Mx:</span><UnitInput value={nl3.mx} qty="moment" onchange={(v) => updateLoadField(nl3.id, 'mx', String(v))} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
-      <label class="ft-input-group"><span>My:</span><UnitInput value={nl3.my} qty="moment" onchange={(v) => updateLoadField(nl3.id, 'my', String(v))} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
-      <label class="ft-input-group"><span>Mz:</span><UnitInput value={nl3.mz} qty="moment" onchange={(v) => updateLoadField(nl3.id, 'mz', String(v))} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
+      {@const f3 = userVec(nl3.fx, nl3.fy, nl3.fz)}
+      {@const m3 = userRot(nl3.mx, nl3.my, nl3.mz)}
+      {#each XYZ as a, i (a)}
+        <label class="ft-input-group"><span>F{a}:</span><UnitInput value={f3[i]} qty="force" onchange={(v) => updateUserComponent(nl3.id, ['fx', 'fy', 'fz'], false, [nl3.fx, nl3.fy, nl3.fz], i, v)} unit={false} /><span class="ft-unit">{unitQ('force')}</span></label>
+      {/each}
+      {#each XYZ as a, i (a)}
+        <label class="ft-input-group"><span>M{a}:</span><UnitInput value={m3[i]} qty="moment" onchange={(v) => updateUserComponent(nl3.id, ['mx', 'my', 'mz'], true, [nl3.mx, nl3.my, nl3.mz], i, v)} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
+      {/each}
     {:else if selectedLoad.type === 'distributed3d'}
       {@const dl3 = selectedLoad.data as DistributedLoad3D}
-      <label class="ft-input-group"><span>qYI:</span><UnitInput value={dl3.qYI} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qYI', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
-      <label class="ft-input-group"><span>qYJ:</span><UnitInput value={dl3.qYJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qYJ', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
-      <label class="ft-input-group"><span>qZI:</span><UnitInput value={dl3.qZI} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qZI', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
-      <label class="ft-input-group"><span>qZJ:</span><UnitInput value={dl3.qZJ} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qZJ', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+      {@const qa = (k: 0 | 1 | 2) => (dl3.frame === 'global' || dl3.frame === 'projected' ? along(k) : { name: 'XYZ'[k], sign: 1 })}
+      {#each [[1, 'qYI', dl3.qYI], [1, 'qYJ', dl3.qYJ], [2, 'qZI', dl3.qZI], [2, 'qZJ', dl3.qZJ]] as const as [k, f, q] (f)}
+        <label class="ft-input-group"><span>q{qa(k).name}{f[2]}:</span><UnitInput value={qa(k).sign * q} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, f, String(qa(k).sign * v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+      {/each}
       <!-- Along X in Global; in Local, along the member: shown whenever it loads the member. -->
-      {#if dl3.frame === 'global' || dl3.qXI || dl3.qXJ}
-        <label class="ft-input-group"><span>qXI:</span><UnitInput value={dl3.qXI ?? 0} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qXI', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
-        <label class="ft-input-group"><span>qXJ:</span><UnitInput value={dl3.qXJ ?? 0} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, 'qXJ', String(v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+      {#if dl3.frame === 'global' || dl3.frame === 'projected' || dl3.qXI || dl3.qXJ}
+        {#each [['qXI', dl3.qXI ?? 0], ['qXJ', dl3.qXJ ?? 0]] as const as [f, q] (f)}
+          <label class="ft-input-group"><span>q{qa(0).name}{f[2]}:</span><UnitInput value={qa(0).sign * q} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, f, String(qa(0).sign * v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+        {/each}
       {/if}
       {@render frameToggle(dl3.id, dl3.frame === 'global')}
       {@const len3 = modelStore.getElementLength(dl3.elementId)}
@@ -298,12 +335,25 @@
       <!-- A point on a member: where, and its force and moment along the member's axes or the global ones. -->
       {@const pl3 = selectedLoad.data as PointLoadOnElement3D}
       <label class="ft-input-group"><span>a:</span><UnitInput value={pl3.a} qty="length" onchange={(v) => updateLoadField(pl3.id, 'a', String(v))} unit={false} /><span class="ft-unit">{unitQ('length')}</span></label>
-      {#each [['px', pl3.px ?? 0], ['py', pl3.py], ['pz', pl3.pz]] as [k, v] (k)}
-        <label class="ft-input-group"><span>{String(k).toUpperCase()[0]}{String(k)[1]}:</span><UnitInput value={Number(v)} qty="force" onchange={(x) => updateLoadField(pl3.id, String(k), String(x))} unit={false} /><span class="ft-unit">{unitQ('force')}</span></label>
-      {/each}
-      {#each [['mx', pl3.mx ?? 0], ['my', pl3.my ?? 0], ['mz', pl3.mz ?? 0]] as [k, v] (k)}
-        <label class="ft-input-group"><span>{String(k).toUpperCase()[0]}{String(k)[1]}:</span><UnitInput value={Number(v)} qty="moment" onchange={(x) => updateLoadField(pl3.id, String(k), String(x))} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
-      {/each}
+      {#if pl3.frame === 'global'}
+        {@const p = [pl3.px ?? 0, pl3.py, pl3.pz] as [number, number, number]}
+        {@const m = [pl3.mx ?? 0, pl3.my ?? 0, pl3.mz ?? 0] as [number, number, number]}
+        {@const pu = userVec(p[0], p[1], p[2])}
+        {@const mu = userRot(m[0], m[1], m[2])}
+        {#each XYZ as a, i (a)}
+          <label class="ft-input-group"><span>P{a}:</span><UnitInput value={pu[i]} qty="force" onchange={(x) => updateUserComponent(pl3.id, ['px', 'py', 'pz'], false, p, i, x)} unit={false} /><span class="ft-unit">{unitQ('force')}</span></label>
+        {/each}
+        {#each XYZ as a, i (a)}
+          <label class="ft-input-group"><span>M{a}:</span><UnitInput value={mu[i]} qty="moment" onchange={(x) => updateUserComponent(pl3.id, ['mx', 'my', 'mz'], true, m, i, x)} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
+        {/each}
+      {:else}
+        {#each [['px', pl3.px ?? 0], ['py', pl3.py], ['pz', pl3.pz]] as [k, v] (k)}
+          <label class="ft-input-group"><span>{String(k).toUpperCase()[0]}{String(k)[1]}:</span><UnitInput value={Number(v)} qty="force" onchange={(x) => updateLoadField(pl3.id, String(k), String(x))} unit={false} /><span class="ft-unit">{unitQ('force')}</span></label>
+        {/each}
+        {#each [['mx', pl3.mx ?? 0], ['my', pl3.my ?? 0], ['mz', pl3.mz ?? 0]] as [k, v] (k)}
+          <label class="ft-input-group"><span>{String(k).toUpperCase()[0]}{String(k)[1]}:</span><UnitInput value={Number(v)} qty="moment" onchange={(x) => updateLoadField(pl3.id, String(k), String(x))} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
+        {/each}
+      {/if}
       {@render frameToggle(pl3.id, pl3.frame === 'global')}
     {/if}
     <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteLoad')} aria-label={t('selEntity.deleteLoad')} data-testid="edit-delete"><Icon name="trash" size={14} /></button>
@@ -319,84 +369,29 @@
 
 {#if selectedSup}
   <div class="ft-load-edit" class:in-bar={inBar}>
-    <span class="ft-load-tag">{t('selEntity.support')} {t(supTypeLabelKeys[selectedSup.type] ?? '') || selectedSup.type}</span>
+    <span class="ft-load-tag">{t('selEntity.support')} {supportNameShown(selectedSup.type, t(supTypeLabelKeys[selectedSup.type] ?? '')) || supportTypeShown(selectedSup.type)}</span>
     <span class="ft-sep">|</span>
     {#if is3DSupport(selectedSup.type)}
       <!-- 3D per-DOF editing for selected support -->
       {@const dofs = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true }}
-      <label class="ft-chk"><input type="checkbox" checked={dofs.tx} onchange={() => {
-        const r = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
-        const u = { ...r, tx: !r.tx };
-        const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
-        const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
-        const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
-        resultsStore.clear(); resultsStore.clear3D();
-      }} /> <span>Fx</span></label>
-      <label class="ft-chk"><input type="checkbox" checked={dofs.ty} onchange={() => {
-        const r = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
-        const u = { ...r, ty: !r.ty };
-        const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
-        const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
-        const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
-        resultsStore.clear(); resultsStore.clear3D();
-      }} /> <span>Fy</span></label>
-      <label class="ft-chk"><input type="checkbox" checked={dofs.tz} onchange={() => {
-        const r = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
-        const u = { ...r, tz: !r.tz };
-        const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
-        const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
-        const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
-        resultsStore.clear(); resultsStore.clear3D();
-      }} /> <span>Fz</span></label>
-      <label class="ft-chk"><input type="checkbox" checked={dofs.rx} onchange={() => {
-        const r = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
-        const u = { ...r, rx: !r.rx };
-        const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
-        const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
-        const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
-        resultsStore.clear(); resultsStore.clear3D();
-      }} /> <span>Mx</span></label>
-      <label class="ft-chk"><input type="checkbox" checked={dofs.ry} onchange={() => {
-        const r = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
-        const u = { ...r, ry: !r.ry };
-        const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
-        const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
-        const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
-        resultsStore.clear(); resultsStore.clear3D();
-      }} /> <span>My</span></label>
-      <label class="ft-chk"><input type="checkbox" checked={dofs.rz} onchange={() => {
-        const r = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
-        const u = { ...r, rz: !r.rz };
-        const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
-        const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
-        const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
-        resultsStore.clear(); resultsStore.clear3D();
-      }} /> <span>Mz</span></label>
+      {@const ix = (i: number) => (selectedSup.dofFrame === 'local' ? XYZ[i] : XYZ[modelIndexOfUser(i)])}
+      {#each XYZ as a, i (a)}
+        <label class="ft-chk"><input type="checkbox" checked={dofs[`t${ix(i)}`]} onchange={() => toggleDof3D(selectedSup, `t${ix(i)}`)} /> <span>F{a}</span></label>
+      {/each}
+      {#each XYZ as a, i (a)}
+        <label class="ft-chk"><input type="checkbox" checked={dofs[`r${ix(i)}`]} onchange={() => toggleDof3D(selectedSup, `r${ix(i)}`)} /> <span>M{a}</span></label>
+      {/each}
       <!-- Spring stiffnesses for unchecked DOFs -->
-      {#if !dofs.tx}
-        <label class="ft-input-group"><span>kx:</span><UnitInput value={selectedSup.kx ?? 0} qty="springK" onchange={(v) => updateSupportField(selectedSup.id, 'kx', String(v))} unit={false} /><span class="ft-unit">{unitQ('springK')}</span></label>
-      {/if}
-      {#if !dofs.ty}
-        <label class="ft-input-group"><span>ky:</span><UnitInput value={selectedSup.ky ?? 0} qty="springK" onchange={(v) => updateSupportField(selectedSup.id, 'ky', String(v))} unit={false} /><span class="ft-unit">{unitQ('springK')}</span></label>
-      {/if}
-      {#if !dofs.tz}
-        <label class="ft-input-group"><span>kz:</span><UnitInput value={selectedSup.kz ?? 0} qty="springK" onchange={(v) => updateSupportField(selectedSup.id, 'kz', String(v))} unit={false} /><span class="ft-unit">{unitQ('springK')}</span></label>
-      {/if}
-      {#if !dofs.rx}
-        <label class="ft-input-group"><span>krx:</span><UnitInput value={selectedSup.krx ?? 0} qty="springKr" onchange={(v) => updateSupportField(selectedSup.id, 'krx', String(v))} unit={false} /><span class="ft-unit">{unitQ('springKr')}</span></label>
-      {/if}
-      {#if !dofs.ry}
-        <label class="ft-input-group"><span>kry:</span><UnitInput value={selectedSup.kry ?? 0} qty="springKr" onchange={(v) => updateSupportField(selectedSup.id, 'kry', String(v))} unit={false} /><span class="ft-unit">{unitQ('springKr')}</span></label>
-      {/if}
-      {#if !dofs.rz}
-        <label class="ft-input-group"><span>krz:</span><UnitInput value={selectedSup.krz ?? 0} qty="springKr" onchange={(v) => updateSupportField(selectedSup.id, 'krz', String(v))} unit={false} /><span class="ft-unit">{unitQ('springKr')}</span></label>
-      {/if}
+      {#each XYZ as a, i (a)}
+        {#if !dofs[`t${ix(i)}`]}
+          <label class="ft-input-group"><span>k{a}:</span><UnitInput value={selectedSup[`k${ix(i)}`] ?? 0} qty="springK" onchange={(v) => updateSupportField(selectedSup.id, `k${ix(i)}`, String(v))} unit={false} /><span class="ft-unit">{unitQ('springK')}</span></label>
+        {/if}
+      {/each}
+      {#each XYZ as a, i (a)}
+        {#if !dofs[`r${ix(i)}`]}
+          <label class="ft-input-group"><span>kr{a}:</span><UnitInput value={selectedSup[`kr${ix(i)}`] ?? 0} qty="springKr" onchange={(v) => updateSupportField(selectedSup.id, `kr${ix(i)}`, String(v))} unit={false} /><span class="ft-unit">{unitQ('springKr')}</span></label>
+        {/if}
+      {/each}
     {:else}
     <!-- 2D support type buttons -->
     {#each supportTypes as st}
@@ -422,15 +417,15 @@
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-dir-btn" class:active={selectedSup.type === 'rollerX'}
         onclick={() => changeSupportType(selectedSup.id, 'rollerX')}
-        title={selectedSup.isGlobal !== false ? t('float.rollerRestrictsYGlobal') : t('float.rollerRestrictsJLocal')}
-      >{selectedSup.isGlobal !== false ? 'X' : 'i'}</button>
+        title={selectedSup.isGlobal !== false ? planeLettersShown(t('float.rollerRestrictsYGlobal')) : t('float.rollerRestrictsJLocal')}
+      >{selectedSup.isGlobal !== false ? twoD.horizontal : 'i'}</button>
       <button class="ft-opt-btn ft-dir-btn" class:active={selectedSup.type === 'rollerY' || selectedSup.type === 'rollerZ'}
         onclick={() => changeSupportType(selectedSup.id, 'rollerZ')}
-        title={selectedSup.isGlobal !== false ? t('float.rollerRestrictsXGlobal') : t('float.rollerRestrictsILocal')}
-      >{selectedSup.isGlobal !== false ? 'Z' : 'j'}</button>
+        title={selectedSup.isGlobal !== false ? planeLettersShown(t('float.rollerRestrictsXGlobal')) : t('float.rollerRestrictsILocal')}
+      >{selectedSup.isGlobal !== false ? twoD.vertical : 'j'}</button>
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal !== false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', true)}
-        title={t('float.rollerGlobalLabel')}>Gl</button>
+        title={planeLettersShown(t('float.rollerGlobalLabel'))}>Gl</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal === false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', false)}
         title={t('float.rollerLocalLabel')}>{t('prop.localAxesShort')}</button>
       <label class="ft-input-group" title={t('float.prescribedRollerDisp')}>
@@ -440,7 +435,7 @@
       </label>
       <label class="ft-input-group" title={t('float.supportAngle')}>
         <span>α:</span>
-        <input type="number" step="5" value={selectedSup.angle ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', e.currentTarget.value)} />
+        <input type="number" step="5" value={selectedSup.isGlobal === false ? selectedSup.angle ?? 0 : planeGlobalAngle(selectedSup.angle ?? 0) + 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', selectedSup.isGlobal === false ? e.currentTarget.value : String(planeGlobalAngle(parseFloat(e.currentTarget.value))))} />
         <span class="ft-unit">°</span>
       </label>
     {:else if selectedSup.type === 'spring'}
@@ -459,36 +454,35 @@
       </label>
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal !== false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', true)}
-        title={t('float.supportGlobalAxes')}>Gl</button>
+        title={planeLettersShown(t('float.supportGlobalAxes'))}>Gl</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal === false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', false)}
         title={t('float.supportLocalAxes')}>{t('prop.localAxesShort')}</button>
       <label class="ft-input-group" title={t('float.supportAngle')}>
         <span>α:</span>
-        <input type="number" step="5" value={selectedSup.angle ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', e.currentTarget.value)} />
+        <input type="number" step="5" value={selectedSup.isGlobal === false ? selectedSup.angle ?? 0 : planeGlobalAngle(selectedSup.angle ?? 0) + 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', selectedSup.isGlobal === false ? e.currentTarget.value : String(planeGlobalAngle(parseFloat(e.currentTarget.value))))} />
         <span class="ft-unit">°</span>
       </label>
     {:else if selectedSup.type === 'fixed' || selectedSup.type === 'pinned'}
       <span class="ft-sep">|</span>
       {#if selectedSup.type === 'fixed' || selectedSup.type === 'pinned'}
         <label class="ft-input-group" title={t('float.prescribedDx')}>
-          <span>dx:</span>
-          <UnitInput value={selectedSup.dx ?? 0} qty="displacement" onchange={(v) => updateSupportField(selectedSup.id, 'dx', String(v))} unit={false} /><span class="ft-unit">{unitQ('displacement')}</span>
+          <span>d{twoD.horizontal.toLowerCase()}:</span>
+          <UnitInput value={twoD.x(selectedSup.dx ?? 0)} qty="displacement" onchange={(v) => updateSupportField(selectedSup.id, 'dx', String(twoD.fromX(v)))} unit={false} /><span class="ft-unit">{unitQ('displacement')}</span>
         </label>
         <label class="ft-input-group" title={t('float.prescribedDy')}>
-          <!-- The plane is XZ: named as SupportDetails names them, and written to the store's own fields. -->
-          <span>dz:</span>
-          <UnitInput value={selectedSup.dz ?? selectedSup.dy ?? 0} qty="displacement" onchange={(v) => updateSupportField(selectedSup.id, 'dz', String(v))} unit={false} /><span class="ft-unit">{unitQ('displacement')}</span>
+          <span>d{twoD.vertical.toLowerCase()}:</span>
+          <UnitInput value={twoD.z(selectedSup.dz ?? selectedSup.dy ?? 0)} qty="displacement" onchange={(v) => updateSupportField(selectedSup.id, 'dz', String(twoD.fromZ(v)))} unit={false} /><span class="ft-unit">{unitQ('displacement')}</span>
         </label>
       {/if}
       {#if selectedSup.type === 'fixed'}
         <label class="ft-input-group" title={t('float.prescribedDrz')}>
-          <span>dθy:</span>
-          <UnitInput value={selectedSup.dry ?? selectedSup.drz ?? 0} qty="rotation" onchange={(v) => updateSupportField(selectedSup.id, 'dry', String(v))} unit={false} /><span class="ft-unit">{unitQ('rotation')}</span>
+          <span>dθ{twoD.normal.toLowerCase()}:</span>
+          <UnitInput value={twoD.rot(selectedSup.dry ?? selectedSup.drz ?? 0)} qty="rotation" onchange={(v) => updateSupportField(selectedSup.id, 'dry', String(twoD.fromRot(v)))} unit={false} /><span class="ft-unit">{unitQ('rotation')}</span>
         </label>
       {/if}
       <label class="ft-input-group" title={t('float.supportAngleVisual')}>
         <span>α:</span>
-        <input type="number" step="5" value={selectedSup.angle ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', e.currentTarget.value)} />
+        <input type="number" step="5" value={selectedSup.isGlobal === false ? selectedSup.angle ?? 0 : planeGlobalAngle(selectedSup.angle ?? 0) + 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', selectedSup.isGlobal === false ? e.currentTarget.value : String(planeGlobalAngle(parseFloat(e.currentTarget.value))))} />
         <span class="ft-unit">°</span>
       </label>
     {/if}

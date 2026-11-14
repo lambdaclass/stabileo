@@ -818,28 +818,6 @@ const hi: Translations = {
   'float.vShear': 'V अपरूपण',
   'float.ilHint': 'नोड (प्रतिक्रियाएँ) या सदस्य (आंतरिक M/V) पर क्लिक करें',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': 'रिपोर्ट / सुझाव',
-  'feedback.close': 'बंद करें',
-  'feedback.reportCreated': 'रिपोर्ट #{n} बनाई गई',
-  'feedback.bugError': 'बग / त्रुटि',
-  'feedback.suggestion': 'सुझाव',
-  'feedback.other': 'अन्य',
-  'feedback.namePlaceholder': 'आपका नाम या उपनाम (वैकल्पिक)',
-  'feedback.textPlaceholder': 'समस्या या सुझाव का वर्णन करें...',
-  'feedback.linkAttached': 'आपकी संरचना का एक लिंक संलग्न किया जाएगा',
-  'feedback.copy': 'कॉपी',
-  'feedback.sending': 'भेज रहा है...',
-  'feedback.submitReport': 'रिपोर्ट सबमिट करें',
-  'feedback.toastCreated': 'रिपोर्ट #{n} बनाई गई — धन्यवाद!',
-  'feedback.toastError': 'रिपोर्ट सबमिट नहीं हो सकी',
-  'feedback.toastConnectionError': 'कनेक्शन त्रुटि — पुनः प्रयास करें',
-  'feedback.toastEmptyText': 'कृपया समस्या या सुझाव का विवरण लिखें',
-  'feedback.toastSecurityWait': 'सुरक्षा सत्यापन की प्रतीक्षा...',
-  'feedback.toastLinkCopied': 'लिंक कॉपी किया गया',
-  'feedback.reportBug': 'बग / सुझाव रिपोर्ट करें',
-  'feedback.communityTelegram': 'टेलीग्राम समुदाय',
-  'feedback.buyCoffee': 'मुझे एक कॉफ़ी खरीदें',
 
   // ─── Toast messages ───
   // Toolbar.svelte / ToolbarResults.svelte solve toasts
@@ -2219,6 +2197,7 @@ const hi: Translations = {
   'lang.fr': 'Français',
   'lang.it': 'Italiano',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.hi': 'हिन्दी',
   'lang.zh': '中文',
   'lang.ja': '日本語',
@@ -2712,10 +2691,8 @@ const hi: Translations = {
   'pro.unknown': 'अज्ञात',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} प्लेट, {quads} क्वाड',
   'pro.plateTriDKT': 'त्रिभुज प्लेट (DKT)',
   'pro.quadMITC4': 'क्वाड MITC4',
-  'pro.meshGenerator': 'जाल जनरेटर',
   'pro.meshHint': '4 कोने नोड (वामावर्त) और NxM उपविभाजन परिभाषित करें। मध्यवर्ती नोड और क्वाड स्वतः बनते हैं।',
   'pro.corners': 'कोने',
   'pro.subdivisions': 'उपविभाजन',

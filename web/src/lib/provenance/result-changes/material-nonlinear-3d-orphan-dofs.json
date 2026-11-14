@@ -11,6 +11,7 @@
     "pt": "A análise não linear de material 3D resolve barras com e sem empenamento e nós só com treliças",
     "de": "Die materialnichtlineare 3D-Berechnung löst Stäbe mit und ohne Wölbung und Knoten nur mit Fachwerkstäben",
     "fr": "L’analyse non linéaire matérielle 3D résout des barres avec et sans gauchissement et des nœuds reliés seulement par des barres articulées",
+    "hu": "A 3D anyagi nemlineáris számítás megoldja a vegyes öblösödésű kereteket és a csak rácsrudas csomópontokat",
     "tr": "3B malzeme doğrusal olmayan analizi, çarpılmalı ve çarpılmasız çubukları ve yalnızca kafes çubuklu düğümleri çözüyor"
   },
   "explanation": {
@@ -19,6 +20,7 @@
     "pt": "A análise não linear de material 3D falhava quando uma seção tinha constante de empenamento e a de outra barra não (#1578), e recusava como singular um modelo com um grau de liberdade que nenhuma barra sustenta, como a rotação de um nó ao qual só chegam treliças. Ambos os casos agora são resolvidos, com os deslocamentos do solver linear no regime elástico. Modelos que já eram resolvidos dão os mesmos números.",
     "de": "Die materialnichtlineare 3D-Berechnung stürzte ab, wenn ein Querschnitt eine Wölbkonstante hatte und der eines anderen Stabes nicht (#1578), und lehnte ein Modell mit einem Freiheitsgrad, den kein Stab hält, etwa die Drehung eines nur von Fachwerkstäben erreichten Knotens, als singulär ab. Beides wird jetzt gelöst, im elastischen Bereich mit den Verschiebungen der linearen Berechnung. Modelle, die schon gelöst wurden, liefern dieselben Zahlen.",
     "fr": "L’analyse non linéaire matérielle 3D plantait quand une section avait une constante de gauchissement et celle d’une autre barre non (#1578), et refusait comme singulier un modèle avec un degré de liberté qu’aucune barre ne retient, comme la rotation d’un nœud atteint seulement par des barres articulées. Les deux cas sont maintenant résolus, avec les déplacements du solveur linéaire dans le domaine élastique. Les modèles déjà résolus donnent les mêmes nombres.",
+    "hu": "A 3D anyagi nemlineáris számítás összeomlott, ha az egyik keresztmetszetnek volt öblösödési állandója, egy másik keretrúd keresztmetszetének pedig nem (#1578), és szingulárisként utasította el azt a modellt, amelyben egy szabadságfokot egyetlen rúd sem tart meg, például egy csak rácsrudakkal elért csomópont elfordulását. Most mindkettő megoldható, és rugalmas tartományban a lineáris megoldó elmozdulásait adja. A korábban megoldott modellek ugyanazokat a számokat adják.",
     "tr": "3B malzeme doğrusal olmayan analizi, bir kesitin çarpılma sabiti varken başka bir çubuğun kesitinde yokken çöküyordu (#1578) ve hiçbir çubuğun tutmadığı bir serbestlik derecesi olan modeli, örneğin yalnızca kafes çubuklarının ulaştığı bir düğümün dönmesini, tekil diye reddediyordu. İkisi de artık çözülüyor ve elastik bölgede doğrusal çözücünün yerdeğiştirmelerini veriyor. Daha önce çözülen modeller aynı sayıları veriyor."
   },
   "changelog": {

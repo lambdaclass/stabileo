@@ -1,7 +1,8 @@
 defmodule StabileoRepo.Schemas.Account do
   @moduledoc """
   A person's identity: one email, one account. Holds credentials and the
-  profile.
+  profile. `google_subject` is Google's stable id for the person (the `sub`
+  claim); an account opened with Google has no password.
   """
 
   use StabileoRepo.Schema
@@ -9,13 +10,14 @@ defmodule StabileoRepo.Schemas.Account do
 
   @type t :: %__MODULE__{}
 
-  @locales ~w(es en pt de fr tr)
+  @locales ~w(es en pt de fr tr hu)
   @profile_fields [:name, :company, :job_title, :country, :locale]
 
   schema "accounts" do
     field(:email, :string)
     field(:password, :string, virtual: true, redact: true)
     field(:password_hash, :string, redact: true)
+    field(:google_subject, :string)
     field(:name, :string)
     field(:company, :string)
     field(:job_title, :string)
@@ -39,6 +41,16 @@ defmodule StabileoRepo.Schemas.Account do
     |> validate_profile()
     |> validate_password()
     |> hash_password()
+  end
+
+  def google_changeset(attrs) do
+    %__MODULE__{}
+    |> cast(attrs, [:email, :name, :locale, :google_subject])
+    |> validate_required([:email, :name, :google_subject])
+    |> validate_email()
+    |> validate_profile()
+    |> unique_constraint(:google_subject)
+    |> put_change(:email_verified_at, DateTime.utc_now() |> DateTime.truncate(:second))
   end
 
   @doc "Profile edits. Never touches email, credentials or status."

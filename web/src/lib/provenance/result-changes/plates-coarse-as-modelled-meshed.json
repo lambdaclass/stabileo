@@ -1,0 +1,38 @@
+{
+  "id": "plates-coarse-as-modelled-meshed",
+  "date": "2026-11-10",
+  "prs": [
+    1928
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "coarseShellsPro"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Plates that came with the model as one shell per bay are meshed before the analysis",
+    "es": "Las placas que vinieron con el modelo como una lámina por paño se mallan antes del cálculo",
+    "pt": "As placas que vieram com o modelo como uma casca por painel são malhadas antes do cálculo",
+    "de": "Platten, die mit dem Modell als eine Schale je Feld kamen, werden vor der Berechnung vernetzt",
+    "fr": "Les plaques venues avec le modèle à raison d’une coque par panneau sont maillées avant le calcul",
+    "tr": "Modelle panel başına tek kabuk olarak gelen plaklar hesaptan önce ağlanıyor",
+    "hu": "Az eredetileg mezőnként egy héjjal megadott lemezek hálózása a számítás előtt"
+  },
+  "explanation": {
+    "en": "A plate whose shells came with the model and are coarser than its mesh size (a shell side longer than 1.5 times it, such as one shell for a whole bay) was taken as meshed, and \"Mesh before analysis\" left it alone. With that option on, it is now meshed at its mesh size before the analysis, like a plate with no mesh; a finer mesh that came with the model is kept. Displacements, reactions, member forces and shell stresses of such models move.",
+    "es": "Una placa cuyas láminas vinieron con el modelo y son más gruesas que su tamaño de malla (un lado de lámina mayor que 1,5 veces ese tamaño, como una lámina para todo un paño) se tomaba como mallada, y «Mallar antes de calcular» no la tocaba. Con esa opción activa, ahora se malla a su tamaño antes del cálculo, como una placa sin malla; una malla más fina que vino con el modelo se conserva. Cambian los desplazamientos, las reacciones, los esfuerzos en barras y las tensiones en láminas de esos modelos.",
+    "pt": "Uma placa cujas cascas vieram com o modelo e são mais grossas que o seu tamanho de malha (um lado de casca maior que 1,5 vez esse tamanho, como uma casca para todo um painel) era tomada como malhada, e «Malhar antes do cálculo» não a tocava. Com essa opção ligada, agora ela é malhada no seu tamanho antes do cálculo, como uma placa sem malha; uma malha mais fina que veio com o modelo é mantida. Mudam os deslocamentos, as reações, os esforços nas barras e as tensões nas cascas desses modelos.",
+    "de": "Eine Platte, deren Schalen mit dem Modell kamen und gröber als ihre Netzgröße sind (eine Schalenseite länger als das 1,5-Fache davon, etwa eine Schale für ein ganzes Feld), galt als vernetzt, und „Vor der Berechnung vernetzen“ ließ sie unberührt. Mit dieser Option wird sie jetzt vor der Berechnung in ihrer Netzgröße vernetzt, wie eine Platte ohne Netz; ein feineres Netz, das mit dem Modell kam, bleibt erhalten. Verschiebungen, Auflagerkräfte, Stabschnittgrößen und Schalenspannungen solcher Modelle ändern sich.",
+    "fr": "Une plaque dont les coques venaient avec le modèle et sont plus grossières que sa taille de maille (un côté de coque plus long que 1,5 fois cette taille, comme une coque pour tout un panneau) était prise pour maillée, et « Mailler avant le calcul » n’y touchait pas. Avec cette option, elle est désormais maillée à sa taille avant le calcul, comme une plaque sans maillage ; un maillage plus fin venu avec le modèle est conservé. Les déplacements, réactions, efforts dans les barres et contraintes dans les coques de ces modèles changent.",
+    "tr": "Kabukları modelle gelen ve ağ boyutundan kaba olan bir plak (kabuk kenarı bu boyutun 1,5 katından uzun, örneğin bütün bir panel için tek kabuk) ağlanmış sayılıyordu ve «Hesaptan önce ağla» ona dokunmuyordu. Bu seçenek açıkken artık hesaptan önce kendi ağ boyutunda, ağsız bir plak gibi ağlanıyor; modelle gelen daha ince bir ağ korunuyor. Bu modellerin yer değiştirmeleri, mesnet tepkileri, çubuk kuvvetleri ve kabuk gerilmeleri değişir.",
+    "hu": "A modellel érkező, a hálóméretnél durvább lemez (a héj egyik oldala a hálóméret 1,5-szeresénél hosszabb, például egy egész mezőt egy héj fed) korábban hálózottnak számított, így a számítás előtti hálózás változatlanul hagyta. Bekapcsolt opciónál most a megadott hálómérettel újrahálózza, mint a háló nélküli lemezt; a modellel érkező finomabb háló megmarad. Az ilyen modellek elmozdulásai, támaszreakciói, rúderői és héjfeszültségei változnak."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plates-mesh-before-analysis.md",
+    "heading": "Plates that came with the model as one shell per bay are meshed before the analysis (2026-11-10)"
+  }
+}

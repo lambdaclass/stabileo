@@ -1,54 +1,116 @@
 <script lang="ts">
   import { authStore } from '../../lib/store/auth.svelte';
   import { errorText, fieldErrors } from '../../lib/api/error-text';
-  import { t, i18n, isOfferedLocale } from '../../lib/i18n';
+  import { t, tp, i18n, isOfferedLocale } from '../../lib/i18n';
+  import { legalHref, TERMS_PATH, PRIVACY_PATH } from '../../lib/legal/legal';
+  import { untrack } from 'svelte';
+  import { usageConsent } from '../../lib/telemetry/consent.svelte';
+  import { GoogleSignInError } from '../../lib/auth/google-popup';
+  import { ApiError } from '../../lib/api/client';
+  import { tracking } from '../../lib/tracking/tracking';
+  import { signupSource } from '../../lib/tracking/visit';
+  import { adAttribution } from '../../lib/tracking/attribution';
+  import { adConsent } from '../../lib/tracking/ad-consent.svelte';
 
-  let { open = $bindable(false) }: { open?: boolean } = $props();
+  let {
+    open = $bindable(false),
+    reason = null,
+    placement = 'account_button',
+    onunavailable,
+  }: {
+    open?: boolean;
+    reason?: { title: string; lede: string } | null;
+    placement?: string;
+    /** Sign-in failed for a reason other than the person cancelling; true when the caller took over and the dialog should just go. */
+    onunavailable?: () => boolean;
+  } = $props();
 
-  type Mode = 'login' | 'register';
-
-  let mode = $state<Mode>('login');
-  let email = $state('');
-  let password = $state('');
-  let name = $state('');
+  let acceptTerms = $state(false);
   let busy = $state(false);
   let error = $state<string | null>(null);
   let fields = $state<Record<string, string>>({});
 
-  function switchMode(next: Mode) {
-    mode = next;
-    error = null;
-    fields = {};
-  }
+  type GoogleStep = { kind: 'start' } | { kind: 'waiting'; cancel: () => void } | { kind: 'terms'; token: string; email: string };
+  let step = $state<GoogleStep>({ kind: 'start' });
+
+  $effect(() => {
+    if (open) untrack(() => {
+      step = { kind: 'start' };
+      acceptTerms = false;
+      error = null;
+      fields = {};
+    });
+  });
 
   function close() {
+    if (step.kind === 'waiting') step.cancel();
+    step = { kind: 'start' };
     open = false;
-    password = '';
     error = null;
     fields = {};
   }
 
-  async function submit(e: SubmitEvent) {
-    e.preventDefault();
+  function googleErrorText(err: unknown): string {
+    if (err instanceof GoogleSignInError) {
+      const known = new Set(['popup_blocked', 'provider_error', 'email_not_verified', 'email_in_use', 'invalid_state', 'oauth_unavailable', 'account_disabled', 'user_login_disabled']);
+      return known.has(err.code) ? t(`account.google.err.${err.code}`) : t('account.google.err.callback_failed');
+    }
+    return errorText(err);
+  }
+
+  async function google() {
     if (busy) return;
+    error = null;
+    const attempt = authStore.signInWithGoogle();
+    tracking.registrationStart(placement);
+    step = { kind: 'waiting', cancel: attempt.cancel };
+    try {
+      const outcome = await attempt.result;
+      if (outcome.kind === 'signedIn') {
+        tracking.login();
+        close();
+      } else {
+        tracking.signUpClick(placement);
+        step = { kind: 'terms', token: outcome.token, email: outcome.email };
+        tracking.registrationStep('terms');
+      }
+    } catch (err) {
+      step = { kind: 'start' };
+      if (err instanceof GoogleSignInError && err.code === 'cancelled') return;
+      if (onunavailable?.()) return;
+      error = googleErrorText(err);
+    }
+  }
+
+  async function completeSignup(e: SubmitEvent) {
+    e.preventDefault();
+    if (busy || step.kind !== 'terms') return;
     busy = true;
     error = null;
     fields = {};
+    const usage = usageConsent.choice !== 'denied';
     try {
-      if (mode === 'login') {
-        await authStore.login({ email: email.trim(), password });
-      } else {
-        await authStore.register({
-          email: email.trim(),
-          password,
-          name: name.trim(),
-          locale: isOfferedLocale(i18n.locale) ? i18n.locale : 'es',
-        });
-      }
+      const account = await authStore.completeGoogleSignup({
+        signup_token: step.token,
+        accept_terms: acceptTerms,
+        usage_analytics: usage,
+        model_research: true,
+        locale: isOfferedLocale(i18n.locale) ? i18n.locale : 'es',
+        source: signupSource(placement, adConsent.granted),
+        attribution: adAttribution(),
+      });
+      await tracking.completeRegistration(account.id);
+      if (usage) usageConsent.set('granted');
       close();
     } catch (err) {
       fields = fieldErrors(err);
+      const expired = err instanceof ApiError && err.code === 'invalid_or_expired_code';
+      if (!expired && !Object.keys(fields).length && onunavailable?.()) return;
       error = Object.keys(fields).length ? t('account.err.validation_error') : errorText(err);
+      if (expired) {
+        step = { kind: 'start' };
+        error = t('account.google.err.expired');
+      }
     } finally {
       busy = false;
     }
@@ -68,58 +130,62 @@
       aria-labelledby="acc-auth-title"
       data-testid="auth-dialog"
     >
-      <h3 class="acc-title" id="acc-auth-title">
-        {mode === 'login' ? t('account.signInTitle') : t('account.registerTitle')}
-      </h3>
-      <p class="acc-lede">{mode === 'login' ? t('account.signInLede') : t('account.registerLede')}</p>
-
-      <div class="acc-modes" role="tablist">
-        <button
-          type="button" role="tab" class="acc-mode" class:on={mode === 'login'}
-          aria-selected={mode === 'login'} onclick={() => switchMode('login')}
-          data-testid="auth-mode-login"
-        >{t('account.signIn')}</button>
-        <button
-          type="button" role="tab" class="acc-mode" class:on={mode === 'register'}
-          aria-selected={mode === 'register'} onclick={() => switchMode('register')}
-          data-testid="auth-mode-register"
-        >{t('account.register')}</button>
-      </div>
-
-      <form class="acc-form" onsubmit={submit} novalidate>
-        {#if mode === 'register'}
-          <label class="acc-field">
-            <span class="acc-label">{t('account.name')}</span>
-            <input
-              type="text" bind:value={name} autocomplete="name" required
-              class:bad={fields.name} aria-invalid={!!fields.name} data-testid="auth-name"
-            />
-            {#if fields.name}<span class="acc-field-err">{fields.name}</span>{/if}
+      {#if step.kind === 'terms'}
+        <h3 class="acc-title" id="acc-auth-title">{t('account.registerTitle')}</h3>
+        <p class="acc-lede" data-testid="auth-google-email">{tp('account.google.signupLede', { email: step.email })}</p>
+        <form class="acc-form" onsubmit={completeSignup} novalidate>
+          <label class="acc-check" class:bad={fields.accept_terms}>
+            <input type="checkbox" bind:checked={acceptTerms} data-testid="auth-accept-terms" />
+            <span>
+              {t('legal.acceptTerms')}
+              <span class="acc-legal-links">
+                <a href={legalHref(TERMS_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.termsLink')}</a> ·
+                <a href={legalHref(PRIVACY_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.privacyLink')}</a>
+              </span>
+            </span>
           </label>
+          {#if fields.accept_terms}<span class="acc-field-err">{fields.accept_terms}</span>{/if}
+          <p class="acc-hint acc-usage" data-testid="auth-usage-note">{t('legal.usageIncluded')}</p>
+
+          {#if error}
+            <p class="acc-error" role="alert" data-testid="auth-error">{error}</p>
+          {/if}
+
+          <div class="acc-footer">
+            <button type="button" class="acc-btn" onclick={close}>{t('account.cancel')}</button>
+            <button type="submit" class="acc-btn acc-primary" disabled={busy || !acceptTerms} data-testid="auth-submit">
+              {busy ? t('account.working') : t('account.register')}
+            </button>
+          </div>
+        </form>
+      {:else}
+        {#if reason}
+          <h3 class="acc-title" id="acc-auth-title">{reason.title}</h3>
+          <p class="acc-lede" data-testid="auth-reason">{reason.lede}</p>
+        {:else}
+          <h3 class="acc-title" id="acc-auth-title">{t('account.signInTitle')}</h3>
+          <p class="acc-lede">{t('account.google.lede')}</p>
         {/if}
 
-        <label class="acc-field">
-          <span class="acc-label">{t('account.email')}</span>
-          <input
-            type="email" bind:value={email} autocomplete="email" required
-            class:bad={fields.email} aria-invalid={!!fields.email} data-testid="auth-email"
-          />
-          {#if fields.email}<span class="acc-field-err">{fields.email}</span>{/if}
-        </label>
-
-        <label class="acc-field">
-          <span class="acc-label">{t('account.password')}</span>
-          <input
-            type="password" bind:value={password} required
-            autocomplete={mode === 'login' ? 'current-password' : 'new-password'}
-            class:bad={fields.password} aria-invalid={!!fields.password} data-testid="auth-password"
-          />
-          {#if fields.password}
-            <span class="acc-field-err">{fields.password}</span>
-          {:else if mode === 'register'}
-            <span class="acc-hint">{t('account.passwordHint')}</span>
+        {#if step.kind === 'waiting'}
+          <p class="acc-waiting" role="status" data-testid="auth-google-waiting">{t('account.google.waiting')}</p>
+        {:else}
+          <button
+            type="button" class="acc-google" onclick={google}
+            disabled={!authStore.googleLogin} data-testid="auth-google"
+          >
+            <span class="acc-google-mark" aria-hidden="true"><svg viewBox="0 0 18 18" width="13" height="13">
+              <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
+              <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/>
+              <path fill="#FBBC05" d="M3.97 10.72A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.05l3.01-2.33z"/>
+              <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/>
+            </svg></span>
+            {t('account.google.continue')}
+          </button>
+          {#if !authStore.googleLogin}
+            <p class="acc-hint" data-testid="auth-google-unavailable">{t('account.google.err.oauth_unavailable')}</p>
           {/if}
-        </label>
+        {/if}
 
         {#if error}
           <p class="acc-error" role="alert" data-testid="auth-error">{error}</p>
@@ -127,11 +193,8 @@
 
         <div class="acc-footer">
           <button type="button" class="acc-btn" onclick={close}>{t('account.cancel')}</button>
-          <button type="submit" class="acc-btn acc-primary" disabled={busy} data-testid="auth-submit">
-            {busy ? t('account.working') : mode === 'login' ? t('account.signIn') : t('account.register')}
-          </button>
         </div>
-      </form>
+      {/if}
     </div>
   </div>
 {/if}
@@ -144,7 +207,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 200;
+    z-index: 10001;
   }
 
   .acc {
@@ -161,50 +224,49 @@
   .acc-title { margin: 0 0 4px; font-size: 0.95rem; font-weight: 600; color: var(--st-text); }
   .acc-lede { margin: 0 0 14px; font-size: 0.72rem; line-height: 1.5; color: var(--st-text-3); }
 
-  .acc-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 14px; }
-
-  .acc-mode {
-    padding: 6px 10px;
-    background: var(--st-surface-2);
-    border: 1px solid var(--st-hair);
-    border-left: 2px solid transparent;
+  .acc-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--st-accent);
+    border: 1px solid var(--st-accent);
     border-radius: var(--st-radius);
-    color: var(--st-text-2);
-    font-size: 0.74rem;
+    color: var(--st-text-on-accent);
+    font: inherit;
+    font-size: 0.76rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    transition: background 0.12s, border-color 0.12s;
   }
 
-  .acc-mode:hover { background: var(--st-surface-3); color: var(--st-text); }
-  .acc-mode.on { border-left-color: var(--st-accent); background: var(--st-surface-3); color: var(--st-text); }
+  .acc-google:hover:not(:disabled) { background: var(--st-accent-hover); border-color: var(--st-accent-hover); }
+  .acc-google:focus-visible { outline: 2px solid var(--st-accent); outline-offset: 2px; }
+  .acc-google:disabled { opacity: 0.45; cursor: default; }
+
+  .acc-google-mark {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border-radius: calc(var(--st-radius) - 1px);
+    flex: none;
+  }
+
+  .acc-waiting { margin: 4px 0; font-size: 0.74rem; color: var(--st-text-2); }
 
   .acc-form { display: flex; flex-direction: column; gap: 10px; }
 
-  .acc-field { display: flex; flex-direction: column; gap: 4px; }
-
-  .acc-label {
-    font-size: 0.66rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--st-text-2);
-  }
-
-  .acc-field input {
-    padding: 6px 8px;
-    background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius);
-    color: var(--st-text);
-    font: inherit;
-    font-size: 0.78rem;
-  }
-
-  .acc-field input:focus { outline: none; border-color: var(--st-accent); }
-  .acc-field input.bad { border-color: var(--st-bad, #e06c75); }
-
   .acc-hint { font-size: 0.62rem; color: var(--st-text-3); }
+  .acc-usage { margin: -4px 0 0 21px; line-height: 1.4; }
+  .acc-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.72rem; line-height: 1.4; color: var(--st-text-2); }
+  .acc-check input { margin-top: 2px; }
+  .acc-check.bad { color: var(--st-bad, #e06c75); }
+  .acc-legal-links { display: block; margin-top: 2px; font-size: 0.66rem; }
+  .acc-legal-links a { color: var(--st-interactive, var(--st-accent)); }
   .acc-field-err { font-size: 0.64rem; color: var(--st-bad, #e06c75); }
   .acc-error { margin: 0; font-size: 0.7rem; color: var(--st-bad, #e06c75); }
 

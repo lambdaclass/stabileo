@@ -10,8 +10,11 @@
    * structural editor, and building a second, worse one inside a sidebar would
    * be the wrong instinct. This reads the canvas.
    */
+  import { reactionDofLabel } from './edu-reactions';
   import { modelStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { accountGate } from '../../lib/store/account-gate.svelte';
+  import { saveFile } from '../../lib/export/save-file';
   import { captureModel, toFile, fromFile, type CaptureWarning } from './exercise-capture';
   import {
     lintExercise, evaluateAnswer,
@@ -304,12 +307,7 @@
 
   function download() {
     if (!draft) return;
-    const blob = new Blob([toFile(draft)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${draft.id}.stabileo-ej.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    saveFile(`${draft.id}.stabileo-ej.json`, new Blob([toFile(draft)], { type: 'application/json' }));
   }
 
   function share() {
@@ -516,7 +514,7 @@
                       ? [...r.dofs, dof as never]
                       : r.dofs.filter((d) => d !== dof);
                     askReactions = [...askReactions];
-                  }} />{dof}
+                  }} />{reactionDofLabel(dof)}
               </label>
             {/each}
             <button class="btn-del" onclick={() => (askReactions = askReactions.filter((_, k) => k !== i))} aria-label="✕">✕</button>
@@ -742,7 +740,7 @@
           data-testid="edu-preview-student"
         >{t('edu.author.previewAsStudent')}</button>
         <button class="btn-ghost" onclick={download} disabled={problems.length > 0}>{t('edu.author.download')}</button>
-        <button class="btn-ghost" onclick={share} disabled={problems.length > 0}>{t('edu.author.share')}</button>
+        <button class="btn-ghost" onclick={() => accountGate.guard('exercise', share)} disabled={problems.length > 0}>{t('edu.author.share')}</button>
       </div>
       {#if saveMsg}<p class="ok">{saveMsg}</p>{/if}
       {#if shareLink}

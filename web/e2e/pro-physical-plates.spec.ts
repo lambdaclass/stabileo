@@ -65,8 +65,8 @@ test('@smoke a plate drawn on an outline has no mesh, meshes from its panel, and
   const n1 = await quads(page);
   expect(n1).toBeGreaterThan(4);
 
-  // Drawn as the piece (outline only); a click on it still selects the plate whole.
-  await page.getByTestId('plates-show-mesh').uncheck();
+  // With no results yet it is drawn as the piece (outline only); a click on it still selects the plate whole.
+  await expect(page.getByTestId('plates-show-mesh')).not.toBeChecked();
 
   // A click on the mesh selects the plate whole; picking elements, one element.
   await page.getByTestId('pr-select').click();
@@ -114,7 +114,7 @@ test('@smoke an analysis meshes the plate first, and stops when told not to', as
   await page.getByTestId('draw-stop').click();
 
   await page.getByTestId('pr-stage-analyse').click();
-  await expect(page.getByTestId('analysis-mesh-state')).toContainText('1');
+  await expect(page.getByTestId('analysis-mesh-state')).toHaveAttribute('data-pending', '1');
   await page.getByTestId('analysis-mesh-auto').uncheck();
   await page.getByTestId('pr-cmd-solve').click();
   await expect.poll(async () => (await plates(page))[0]!.status).toBe('unmeshed');
@@ -123,7 +123,7 @@ test('@smoke an analysis meshes the plate first, and stops when told not to', as
   await page.getByTestId('analysis-mesh-auto').check();
   await page.getByTestId('pr-cmd-solve').click();
   await expect.poll(async () => (await plates(page))[0]!.status, { timeout: 20_000 }).toBe('current');
-  await expect(page.getByTestId('analysis-mesh-state')).not.toContainText('1');
+  await expect(page.getByTestId('analysis-mesh-state')).toHaveAttribute('data-pending', '0');
   await expect.poll(() => page.evaluate(() => window.__stabileo.solveCount())).toBeGreaterThan(0);
 });
 
@@ -183,4 +183,30 @@ test('@smoke Diagnostics opens from the Analyse row and lists a plate with no me
   await page.getByTestId('pr-cmd-diagnostics').click();
   await expect(page.getByTestId('pr-cmd-diagnostics')).toHaveClass(/\bactive\b/);
   await expect(page.locator('.diag-item').filter({ hasText: /no mesh|sin malla|sem malha/ })).toHaveCount(1);
+});
+
+test('@smoke an example\'s slabs and walls are plates as loaded, keep their mesh, and two picked are meshed from the card the selection shows', async ({ pro: page }) => {
+  await loadModel(page, 'pro-edificio-7p');
+  await page.getByTestId('pr-stage-model').click();
+  await expect.poll(async () => (await plates(page)).length).toBeGreaterThan(10);
+  const made = await plates(page);
+  const before = await quads(page);
+  expect(made.every((p) => p.status === 'current')).toBe(true);
+  expect(made.reduce((s, p) => s + p.shells, 0)).toBe(before);
+  await expect(page.getByTestId('plates-loose')).toHaveCount(0);
+
+  await page.getByTestId('pr-cmd-shells').click();
+  const [a, b] = made;
+  await page.getByTestId(`plate-row-${a!.id}`).click();
+  await page.getByTestId(`plate-row-${b!.id}`).click({ modifiers: ['Shift'] });
+  expect((await sel(page)).plates).toEqual([a!.id, b!.id].sort((x, y) => x - y));
+  await expect(page.getByTestId('plate-selection-card')).toBeVisible();
+  await page.getByTestId('plate-selection-mesh').click();
+  await page.getByTestId('plate-mesh-size').fill('0.25');
+  await page.getByTestId('plate-mesh-size').press('Tab');
+  await expect(page.getByTestId('plate-mesh-apply')).toBeEnabled();
+  await page.getByTestId('plate-mesh-apply').click();
+  await expect.poll(async () => (await plates(page)).find((p) => p.id === a!.id)!.shells, { timeout: 30_000 }).toBeGreaterThan(a!.shells);
+  expect((await plates(page)).every((p) => p.status === 'current')).toBe(true);
+  expect(await page.evaluate(() => window.__stabileo.quadIds().length)).toBeGreaterThan(before);
 });

@@ -5,8 +5,7 @@ import type { Locale } from '../src/lib/i18n/offered';
 import { publishedLocales } from '../src/lib/i18n/published';
 import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, researchLastReview } from '../src/components/research/locales';
 import { blogTranslations } from './blog-translations';
-import { TOOL_IDS } from '../src/components/tools/calculators';
-import { BATCH_IDS } from '../src/components/tools/batch';
+import { TOOLS, toolLastmod, toolPaths } from '../src/components/tools/registry';
 import toolReviews from '../../research/tools/batches/VALIDATION.json';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -45,10 +44,8 @@ export async function publicPaths(): Promise<string[]> {
   }
   if (slugs.length === 0) throw new Error('prerender: found no blog posts — the scan is broken');
   POST_LASTMOD.set('/blog', [...POST_LASTMOD.values()].sort().at(-1)!);
-  const reviewed = (batch: string) => toolReviews.batches.find((b) => b.id === batch)!.reviews.map((r) => r.date).sort().at(-1)!;
-  for (const id of TOOL_IDS) POST_LASTMOD.set(`/tools/${id}`, reviewed('tools-batch-1'));
-  for (const id of BATCH_IDS) POST_LASTMOD.set(`/tools/${id}`, reviewed('tools-batch-2'));
-  POST_LASTMOD.set('/tools', [reviewed('tools-batch-1'), reviewed('tools-batch-2')].sort().at(-1)!);
+  for (const tool of TOOLS) POST_LASTMOD.set(`/tools/${tool.id}`, toolLastmod(tool, toolReviews.batches));
+  POST_LASTMOD.set('/tools', TOOLS.map((tool) => toolLastmod(tool, toolReviews.batches)).sort().at(-1)!);
   // Standing pages, read from their own files, with their last edit for the sitemap.
   const pageIndex = await readFile(join(ROOT, 'src/lib/blog/pages/index.ts'), 'utf8');
   const pageFiles = [...pageIndex.matchAll(/from '\.\/([\w-]+)'/g)].map((m) => m[1]);
@@ -66,6 +63,6 @@ export async function publicPaths(): Promise<string[]> {
     const day = researchLastReview(path);
     if (day) POST_LASTMOD.set(path, day);
   }
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling', '/tools/continuous-beam', '/tools/portal-frame', '/tools/truss-2d', '/tools/influence-line', '/tools/beam-natural-frequency', '/examples', '/examples/beam-frame', '/examples/slab-on-columns', '/examples/earthquake-frame', '/examples/rc-column', '/examples/outrigger', '/examples/tower'];
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, ...toolPaths(), '/diagram-game'];
 }
 

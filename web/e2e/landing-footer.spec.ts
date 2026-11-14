@@ -1,9 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 
 const GROUPS = [
-  { head: 'Product', links: [['Open the editor', null], ['Examples', '/en/examples/'], ['Tools', '/en/tools/'], ['Pricing', '/en/#pricing']] },
+  { head: 'Product', links: [['Open the editor', null], ['Tools', '/en/tools/'], ['Pricing', '/en/#pricing']] },
   { head: 'Verification', links: [['Reliability', '/en/reliability/'], ['Research', '/en/research/'], ['Paper', '/en/paper/'], ['CIRSOC', '/en/cirsoc/'], ['SAP2000 alternative', '/en/sap2000-alternative/'], ['ETABS alternative', '/en/etabs-alternative/']] },
-  { head: 'Project', links: [['Blog', '/en/blog/'], ['Changelog', '/en/changelog/'], ['Documentation', /^https:\/\//], ['GitHub', 'https://github.com/lambdaclass/stabileo']] },
+  { head: 'Project', links: [['Blog', '/en/blog/'], ['Changelog', '/en/changelog/'], ['Terms', '/en/terms/'], ['Privacy', '/en/privacy/'], ['Documentation', /^https:\/\//], ['GitHub', 'https://github.com/lambdaclass/stabileo']] },
 ] as const;
 
 function footerGroups(page: Page) {
@@ -61,7 +61,8 @@ test.describe('@smoke landing footer sitemap', () => {
     await page.goto('/en/');
     const link = (section: string, href: string) => page.locator(`section[data-section="${section}"] a[href="${href}"]`);
     await expect(link('basic', '/en/tools/')).toHaveText('Tools');
-    await expect(link('pro-calc', '/en/examples/')).toHaveText('Examples');
+    await expect(link('pro-calc', '/en/tools/')).toHaveText('Tools');
+    await expect(page.locator('.landing a[href*="/examples"]')).toHaveCount(0);
     await expect(link('verification', '/en/reliability/')).toHaveText('Reliability');
     await expect(link('verification', '/en/research/')).toHaveText('Research');
     await link('verification', '/en/research/').click();
@@ -77,7 +78,7 @@ test.describe('@smoke landing footer sitemap', () => {
         const box = el.getBoundingClientRect();
         return { text: el.textContent?.trim(), height: box.height, width: box.width, right: box.right, font: parseFloat(getComputedStyle(el).fontSize) };
       }));
-      expect(links.length).toBe(14 + 2 + 1 + 1 + 4);
+      expect(links.length).toBe(15 + 2 + 1 + 1 + 4);
       for (const l of links) {
         expect(l.height, `${l.text} height`).toBeGreaterThanOrEqual(44);
         expect(l.width, `${l.text} width`).toBeGreaterThanOrEqual(44);

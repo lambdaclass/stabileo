@@ -64,8 +64,20 @@ export interface PlateSurface {
    * so the plate keeps its curved side whatever its mesh does with it (`arcSampler`).
    */
   arcMids?: number[];
+  /** Its mesh's quads are solved as curved shells, whatever the mesh. */
+  curved?: boolean;
+  /** The mid-surface offset every element of its mesh is given, whatever the mesh. */
+  offset?: import('../element-3d-metadata').ShellOffset;
+  /** Foundation springs k = ks · A at the nodes of its mesh, made again with every mesh. */
+  springs?: { ks: number; uplift: boolean; holdHorizontal: boolean };
   /** Set when the current mesh was made: what it was made from, and what it is. */
-  meshed?: { signature: string; cells: number; quality: MeshQuality };
+  meshed?: {
+    signature: string; cells: number; quality: MeshQuality;
+    /** Mesh nodes given the plain support both ends of their outline side carry, taken away with the mesh. */
+    supported?: number[];
+    /** The shells the plate came with, as the model had them: no mesher made them. */
+    original?: boolean;
+  };
 }
 
 export interface MeshQuality {
@@ -293,15 +305,8 @@ export function plateKindOf(geo: PlateGeometry): 'slab' | 'wall' {
   return Math.abs(geo.frame.n[2]) >= Math.cos((30 * Math.PI) / 180) ? 'slab' : 'wall';
 }
 
-/**
- * The members the mesh has to meet, as their whole extents: a member the current mesh cut is put
- * back together through the nodes the mesh created, so the answer does not change once a mesh is
- * in. Members in the plate's plane come back as segments the mesh follows; members crossing the
- * plane inside the plate come back as the point where they cross; nodes of other things on the
- * plate as points. `owned` are the nodes the plate's own mesh created, which do not count.
- */
-export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: ReadonlySet<number>, loopNodes: ReadonlySet<number>, opts: { mine?: ReadonlySet<number>; neighbours?: ReadonlySet<number> } = {}): { points: Vec3[]; segments: Array<[Vec3, Vec3]> } {
-  // Members by node, to walk through the mesh's own nodes.
+/** Every member as its whole extent, end node to end node, walked through the `owned` nodes a mesh created along it. */
+export function memberChains(m: PlateModel, owned: ReadonlySet<number>): Array<[number, number]> {
   const at = new Map<number, number[]>();
   for (const e of m.elements.values()) {
     if (!m.nodes.has(e.nodeI) || !m.nodes.has(e.nodeJ)) continue;
@@ -330,6 +335,19 @@ export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: Reado
     const a = walk(e.nodeJ, e.nodeI), b = walk(e.nodeI, e.nodeJ);
     chains.push(a < b ? [a, b] : [b, a]);
   }
+  return chains;
+}
+
+/**
+ * The members the mesh has to meet, as their whole extents: a member the current mesh cut is put
+ * back together through the nodes the mesh created, so the answer does not change once a mesh is
+ * in. Members in the plate's plane come back as segments the mesh follows; members crossing the
+ * plane inside the plate come back as the point where they cross; nodes of other things on the
+ * plate as points. `owned` are the nodes the plate's own mesh created, which do not count.
+ */
+export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: ReadonlySet<number>, loopNodes: ReadonlySet<number>, opts: { mine?: ReadonlySet<number>; neighbours?: ReadonlySet<number>; chains?: ReadonlyArray<readonly [number, number]> } = {}): { points: Vec3[]; segments: Array<[Vec3, Vec3]> } {
+  const chains = opts.chains ?? memberChains(m, owned);
+  const pos = (id: number) => v3(m.nodes.get(id)!);
   const points: Vec3[] = [];
   const segments: Array<[Vec3, Vec3]> = [];
   const inPlane = (p: Vec3) => offPlane(geo.frame, p) <= PLANE_TOL;

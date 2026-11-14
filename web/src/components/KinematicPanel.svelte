@@ -13,6 +13,8 @@
    * form is kept for mobile, which has no right panel to dock into.
    */
   let { docked = false }: { docked?: boolean } = $props();
+  import { kinDofSymbol } from '../lib/engine/kinematic-report';
+  import { relabelAxes } from '../lib/axes/user-names';
   import { modelStore, uiStore } from '../lib/store';
   import type { KinematicReport } from '../lib/engine/kinematic-report';
   import { kinematicReportOfModel } from '../lib/engine/kinematic-model';
@@ -237,7 +239,7 @@
                 <div class="kp-detail">{slide.explanation}</div>
               {/each}
               {#if report.slideDetails.length > 0}
-                <div class="kp-detail kp-muted">{t('kinematic.slideAxisNote')}</div>
+                <div class="kp-detail kp-muted">{relabelAxes(t('kinematic.slideAxisNote'))}</div>
               {/if}
             {:else if !report.isPureTruss}
               <div class="kp-detail kp-muted">{t('kinematic.noHinges')}</div>
@@ -349,7 +351,7 @@
                         <div class="kp-elem-body">
                           {#each ea.dofBreakdown.lines as line}
                             <div class="kp-dof-line" class:kp-dof-free={line.sources.length === 0}>
-                              <span class="kp-dof-label">{line.dof}</span>
+                              <span class="kp-dof-label">{kinDofSymbol(line.dof)}</span>
                               {#if line.sources.length === 0}
                                 <span class="kp-dof-none">{t('kinematic.noRestriction')}</span>
                               {:else}

@@ -17,6 +17,10 @@
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
+import { gravityLayout } from '../engine/loads/plan-gravity';
+import { containsSnowPanel, snowRoofSteps, snowRoofSurfaces } from '../engine/loads/snow-roof-surfaces';
+import { snowSlopes } from '../engine/loads/snow-loads';
+import { DEFAULT_PLATE_MESH } from '../model/physical/plate';
 
 export const ANALYSIS_KINDS = [
   'linear', 'pdelta', 'modal', 'buckling', 'spectral', 'timeHistory', 'plastic', 'nonlinear', 'harmonic', 'ssi',
@@ -32,14 +36,16 @@ export const LEGACY_RECORDED_ANALYSES: readonly AnalysisKind[] = ['linear', 'pde
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls',
+  'gallery:slab-on-columns:columns',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
-  'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
+  'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities', 'coarseShellsPro',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'generatedPitchedSnowPanels', 'generatedSnowRoofSteps',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -70,6 +76,7 @@ interface Sup {
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
 export interface FeatureSnapshot {
   analysisMode?: string;
+  nodes?: Entries<{ x?: number; y?: number; z?: number }>;
   gapElements?: unknown[];
   nodeToSurfacePairs?: unknown[];
   upliftSupports?: unknown[];
@@ -84,7 +91,7 @@ export interface FeatureSnapshot {
   combinationRules?: unknown[];
   solidShells?: Entries<unknown>;
   plates?: Entries<{ id?: number; offset?: Offset3 }>;
-  quads?: Entries<{ id?: number; curved?: boolean; offset?: Offset3 }>;
+  quads?: Entries<{ id?: number; nodes?: number[]; curved?: boolean; offset?: Offset3 }>;
   constraints?: Array<Record<string, unknown>>;
   connectors?: Entries<{ kShear?: number; kShearZ?: number }>;
   footings?: Entries<unknown>;
@@ -94,6 +101,47 @@ export interface FeatureSnapshot {
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
   designData?: { loadBasis?: { resultsVersion?: unknown }; site?: { phases?: unknown[] } };
+}
+
+
+function generatedSnowContext(s: FeatureSnapshot) {
+  const snowCases = new Set((s.loadCases ?? []).filter(c => c.type === 'S').map(c => c.id));
+  const carriers = new Set((s.loads ?? []).filter(l => fromLoadPlan(l.data?.generatedBy) && snowCases.has(l.data?.caseId as number))
+    .flatMap(l => [l.data?.elementId, l.data?.carrier]).filter((id): id is number => typeof id === 'number'));
+  if (!carriers.size) return null;
+  const nodes = new Map((s.nodes ?? []).flatMap(([id, n]) => typeof n.x === 'number' && typeof n.y === 'number'
+    ? [[id, { id, x: n.x, y: n.y, z: n.z }] as const] : []));
+  const elements = new Map(values(s.elements).map(e => [e.id, { id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ }]));
+  const quads = new Map(values(s.quads).flatMap((q, id) => q.nodes ? [[q.id ?? id, { id: q.id ?? id, nodes: q.nodes }] as const] : []));
+  const model = { nodes, elements, quads };
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  return { model, layout, carriers };
+}
+
+function generatedPitchedSnowPanels(s: FeatureSnapshot): boolean {
+  const ctx = generatedSnowContext(s);
+  if (!ctx) return false;
+  const { model, layout, carriers } = ctx;
+  const slopes = snowSlopes(model, layout);
+  return [...layout.pieces, ...layout.points].some(p => carriers.has(p.elementId) && slopes.panel(p.panel) > 0);
+}
+
+function generatedSnowRoofSteps(s: FeatureSnapshot): boolean {
+  const ctx = generatedSnowContext(s);
+  if (!ctx) return false;
+  const { model, layout, carriers } = ctx;
+  const lower = new Set(snowRoofSteps(model, layout).map(step => step.lower));
+  if ([...layout.pieces, ...layout.points].some(p => carriers.has(p.elementId) && lower.has(p.panel))) return true;
+  const surfaces = snowRoofSurfaces(model, layout);
+  return layout.widthMembers.some(w => {
+    if (!carriers.has(w.elementId) || !layout.roof.has(w.elementId)) return false;
+    const e = model.elements.get(w.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    const pt: [number, number] = [(a.x + b.x) / 2, (a.y + b.y) / 2];
+    return [...lower].some(k => {
+      return containsSnowPanel(pt, layout.panels[k]!.polygon)
+        && Math.abs(surfaces(k).elevation(pt) - ((a.z ?? 0) + (b.z ?? 0)) / 2) <= 0.05;
+    });
+  });
 }
 
 export interface FeatureContext {
@@ -214,6 +262,15 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const quads = values(s.quads);
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
+  // PRO meshes before the analysis a plate whose shells came coarser than its mesh size (`coarseAsModelled`): a side over 1.5 times the default size stands for it.
+  if (mode === 'pro') {
+    const at = new Map((Array.isArray(s.nodes) ? s.nodes : []).map((e) => [e?.[0], e?.[1]] as const));
+    const long = (ns: number[] | undefined) => (ns ?? []).some((a, k) => {
+      const p = at.get(a), q = at.get(ns![(k + 1) % ns!.length]!);
+      return !!p && !!q && Math.hypot((q.x ?? 0) - (p.x ?? 0), (q.y ?? 0) - (p.y ?? 0), (q.z ?? 0) - (p.z ?? 0)) > 1.5 * DEFAULT_PLATE_MESH.size;
+    });
+    if ([...quads, ...values(s.plates)].some((q) => long((q as { nodes?: number[] } | undefined)?.nodes))) f.add('coarseShellsPro');
+  }
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 
   const supports = values(s.supports);
@@ -267,6 +324,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const types = new Set(cases.map((c) => c.type));
   if (types.has('E') || cases.some((c) => c.spectral) || s.massSource) f.add('seismic');
   if (types.has('S')) f.add('snow');
+  if (generatedPitchedSnowPanels(s)) f.add('generatedPitchedSnowPanels');
+  if (generatedSnowRoofSteps(s)) f.add('generatedSnowRoofSteps');
   if (types.has('W')) f.add('wind');
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (combos) {

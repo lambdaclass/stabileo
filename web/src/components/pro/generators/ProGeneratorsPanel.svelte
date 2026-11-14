@@ -68,6 +68,7 @@
   import GeneratorGallery from './GeneratorGallery.svelte';
   import GenRow from './GenRow.svelte';
   import GenSection from './GenSection.svelte';
+  import ProSurfaces from '../ProSurfaces.svelte';
   import { genHelp, clearGenHelp, foldAllSections } from './gen-help.svelte';
   import type { GeneratorEntry } from '../../../lib/pro/generator-catalog';
   import {
@@ -507,6 +508,9 @@
   <div class="gen-scroll" bind:this={scrollEl} data-testid="gen-scroll">
   {#if view === 'gallery'}
     <GeneratorGallery onPick={pick} />
+    <GenSection id="surfaces" title={t('surface.title')} summary={t('surface.summaryFolded')}>
+      <ProSurfaces />
+    </GenSection>
     {#if groups.length > 0}
       <h4>{t('generator.out.groupsTitle')}</h4>
       <ul class="gen-groups" data-testid="gen-groups">

@@ -11,8 +11,8 @@
  *
  * p_s = C_s p_f is read for the slope of the surface each member carries (`surfaceSlopes`): a
  * sloped member its own slope, a level one on a sloped roof (a purlin, a ridge, an eave between
- * rafters) the slope of the rafters it joins, and any other level member, or a panel the beams
- * close, a flat roof. It used to be one p_s, from the mean slope of the sloped members, on every
+ * rafters) the slope of the rafters it joins, any other level member a flat roof, and a panel the
+ * beams close the slope of the roof members over it (`snowSlopes`), flat when there are none. It used to be one p_s, from the mean slope of the sloped members, on every
  * roof member: a flat lower roof beside a 25° smooth roof took the 25° roof's C_s of 0,69. The
  * drifts read h_b from the lower roof's own p_s, and the partial loads arrange the per-surface
  * values. A slope the reader gives (`roofSlopeDeg`) is still the one slope of the whole roof.
@@ -38,6 +38,7 @@
  *
  * Pure: no store.
  */
+import { snowRoofSurfaces } from './snow-roof-surfaces';
 import { roofMembers, type WindModel } from './wind-cases';
 import type { GravityLayout, GravityModel } from './plan-gravity';
 import { driftAndSlidingLoads } from './snow-drift-loads';
@@ -128,6 +129,32 @@ export function surfaceSlopes(model: WindModel): Map<number, number> {
     out.set(m.id, on.length ? on.reduce((s, r) => s + deg(r), 0) / on.length : 0);
   }
   return out;
+}
+
+/**
+ * The geometric slope, degrees, of the roof surface each part of a roof carries snow from, the one
+ * every snow code reads (CIRSOC 104 C_s, EN 1991-1-3 μ1, ASCE 7 C_s, TS 498 m): a member the slope
+ * of `surfaceSlopes` (or its own, where it is no roof member), and a panel the beams close the
+ * slope of the sloped roof members over it in plan (a roof's fringe the eaves carry), weighted by
+ * their length in plan; a panel with none over it is a flat roof. Panels used to be read flat on
+ * every roof.
+ */
+export function snowSlopes(model: WindModel, layout?: GravityLayout): {
+  member: (id: number) => number; panel: (index: number) => number;
+  /** A piece or point of the layout: its panel's slope; a member loaded by width, its own. */
+  of: (elementId: number, panel?: number) => number;
+} {
+  const surfaces = surfaceSlopes(model);
+  const own = (id: number) => {
+    const e = model.elements.get(id);
+    const a = e && model.nodes.get(e.nodeI), b = e && model.nodes.get(e.nodeJ);
+    if (!a || !b) return 0;
+    return (Math.atan(Math.abs(Z(b) - Z(a)) / Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1e-9)) * 180) / Math.PI;
+  };
+  const member = (id: number) => surfaces.get(id) ?? own(id);
+  const surfacesByPanel = snowRoofSurfaces(model, layout);
+  const panel = (index: number) => surfacesByPanel(index).slope;
+  return { member, panel, of: (elementId, p) => (p === undefined ? member(elementId) : panel(p)) };
 }
 
 /** An intensity on a member, kN/m² of horizontal projection: one value, or one at each end. */
@@ -293,10 +320,11 @@ export function snowLoadCases(input: SnowCasesInput): {
     }
     return r;
   };
-  // A panel the beams close is level: a flat roof.
+  // A panel the beams close takes the slope of the roof over it (`snowSlopes`): flat when none.
+  const geometric = slopes ? snowSlopes(input.model, layout) : null;
   const psOf = (id: number, unit?: Unit): number => {
-    if (!slopes) return result.ps;
-    const deg = unit && 'panel' in unit ? 0 : slopes.get(id) ?? slopeDeg;
+    if (!slopes || !geometric) return result.ps;
+    const deg = unit && 'panel' in unit ? geometric.panel(unit.panel) : slopes.get(id) ?? slopeDeg;
     used.add(round(deg, 2));
     return surfaceAt(deg).ps;
   };
@@ -308,9 +336,8 @@ export function snowLoadCases(input: SnowCasesInput): {
     ...on((id, u) => balancedOf(id, u)),
   }];
   if (layout) {
-    // The drifts and the sliding snow land on panels, which are level: h_b reads the flat roof's p_s.
     const extra = driftAndSlidingLoads(input.model as GravityModel, layout, {
-      pg: input.snow.pg, balanced: shaped || !slopes ? result.ps : surfaceAt(0).ps, pf: result.pf, slippery: input.snow.slippery,
+      pg: input.snow.pg, balanced: (panel, pt) => shaped ? shaped.balanced({ x: pt[0], y: pt[1], z: layout.panels[panel]!.z }) + result.rainOnSnow : psOf(0, { panel }), pf: result.pf, slippery: input.snow.slippery,
       tributaryWidth: input.tributaryWidth, parapet: input.snow.parapet, adjacent: input.snow.adjacent,
     });
     cases[0]!.distributed.push(...extra.distributed);

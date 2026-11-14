@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ITEMS = [['basic', 'Product', '/en/#basic'], ['examples', 'Examples', '/en/examples/'], ['tools', 'Tools', '/en/tools/'], ['research', 'Research', '/en/research/'], ['pricing', 'Pricing', '/en/#pricing'], ['blog', 'Blog', '/en/blog/']];
+const ITEMS = [['basic', 'Product', '/en/#basic'], ['tools', 'Tools', '/en/tools/'], ['game', 'Game', '/en/diagram-game/'], ['research', 'Research', '/en/research/'], ['pricing', 'Pricing', '/en/#pricing'], ['blog', 'Blog', '/en/blog/']];
 
 test.describe('@smoke landing nav', () => {
   test('six items and the editor button on a wide screen', async ({ page }) => {

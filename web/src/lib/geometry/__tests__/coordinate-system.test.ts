@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import {
   TWO_D_DISPLACEMENT_LABELS,
   TWO_D_REACTION_LABELS,
-  TWO_D_VERTICAL_AXIS_LABEL,
+  twoDVerticalAxisLabel,
   get2DDisplayDisplacementVertical,
   get2DDisplayNodalLoadMoment,
   get2DDisplayNodalLoadVertical,
@@ -49,7 +49,7 @@ describe('coordinate-system contract', () => {
   });
 
   it('treats 2D presentation as the XZ plane', () => {
-    expect(TWO_D_VERTICAL_AXIS_LABEL).toBe('Z');
+    expect(twoDVerticalAxisLabel()).toBe('Z');
     expect(TWO_D_DISPLACEMENT_LABELS.vertical).toBe('uz');
     expect(TWO_D_REACTION_LABELS.vertical).toBe('Rz');
     expect(get2DDisplayedVertical({ y: 6 })).toBe(6);

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { upLabel } from '../../lib/axes/frame';
   import { uiStore, resultsStore } from '../../lib/store';
   import LocaleSelect from '../LocaleSelect.svelte';
 
@@ -11,6 +13,9 @@
    * twenty thousand line segments.
    */
   const GRID_EXTENTS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+  import { authStore } from '../../lib/store/auth.svelte';
+  import { usageConsent } from '../../lib/telemetry/consent.svelte';
+  import { legalHref, USAGE_DATA_PATH } from '../../lib/legal/legal';
   import { t } from '../../lib/i18n';
   import { setLocale, OFFERED_LOCALES, i18n } from '../../lib/i18n/store.svelte';
   import { LOCALE_NAMES } from '../../lib/i18n/offered';
@@ -59,6 +64,15 @@
       window.removeEventListener('stabileo-close-config', closeConfig);
     };
   });
+  const axesSummary = $derived(t('axes.configSummary')
+    .replace('{up}', upLabel(axesStore.frame).replace('+', ''))
+    .replace('{hand}', t(axesStore.choice.hand === 'right' ? 'axes.right' : 'axes.left'))
+    .replace('{local}', t(uiStore.axisConvention3D === 'leftHand' ? 'axes.left' : 'axes.right')));
+
+  function setUsageSharing(granted: boolean) {
+    usageConsent.set(granted ? 'granted' : 'denied');
+    if (authStore.isAuthenticated) void authStore.recordConsent('usage_analytics', granted).catch(() => {});
+  }
 </script>
 
 <div class="toolbar-section" data-tour="config-section">
@@ -351,13 +365,9 @@
           </select>
         </div>
         <div class="input-group">
-          <HelpTip text={t('config.tip.axisConvention')}><label>{t('config.localAxes')}:</label></HelpTip>
-          <select bind:value={uiStore.axisConvention3D}>
-            <option value="rightHand">{t('config.rightHand')}</option>
-            <option value="leftHand">{t('config.leftHand')}</option>
-          </select>
-          <span class="help-hint"
-            title={t('config.axisConventionHelp')}>?</span>
+          <HelpTip text={t('axes.configTip')}><label>{t('axes.configLabel')}:</label></HelpTip>
+          <span class="axes-summary" data-testid="cfg-axes-summary">{axesSummary}</span>
+          <button type="button" class="axes-open-btn" data-testid="cfg-axes-open" onclick={() => { axesStore.pickerOpen = true; }}>{t('axes.configOpen')}</button>
         </div>
         {#if is3Dm}
           <div class="input-group">
@@ -527,6 +537,22 @@
       </div>
     {/if}
 
+    {#if authStore.usageTelemetryEnabled}
+      <div class="cfg-privacy" data-testid="cfg-privacy">
+        <h4 class="cfg-privacy-heading">{t('usage.settingsHeading')}</h4>
+        <label class="cfg-check">
+          <input
+            type="checkbox"
+            checked={usageConsent.granted}
+            onchange={(e) => setUsageSharing(e.currentTarget.checked)}
+            data-testid="cfg-usage-sharing"
+          />
+          <span>{t('usage.share')}</span>
+        </label>
+        <p class="cfg-privacy-hint">{t('usage.settingsHint')} <a href={legalHref(USAGE_DATA_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('usage.whatIsSent')}</a></p>
+      </div>
+    {/if}
+
     {#if !inline}
     <button class="config-action-btn live-calc-btn" class:live-calc-active={uiStore.liveCalc}
       onclick={() => uiStore.liveCalc = !uiStore.liveCalc}
@@ -539,6 +565,10 @@
 </div>
 
 <style>
+  .cfg-privacy { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.4rem 0 0.6rem; }
+  .cfg-privacy-hint { margin: 0; font-size: 0.68rem; line-height: 1.45; color: var(--st-text-3); }
+  .cfg-privacy-hint a { color: var(--st-interactive, var(--st-accent)); }
+  .cfg-privacy-heading { margin: 0.6rem 0 0.3rem; font-family: var(--st-mono); font-size: 0.66rem; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; color: var(--st-text-3); }
   .cfg-check {
     display: flex;
     align-items: center;
@@ -769,5 +799,11 @@
   .live-calc-active:hover {
     background: var(--st-surface-3);
     color: white;
+  }
+  .axes-summary { font-size: 0.75rem; color: var(--st-text-2); flex: 1; min-width: 0; }
+  .axes-open-btn {
+    font: inherit; font-size: 0.75rem; padding: 3px 10px; cursor: pointer;
+    color: var(--st-interactive); background: var(--st-surface-3);
+    border: 1px solid var(--st-border); border-radius: var(--st-radius);
   }
 </style>

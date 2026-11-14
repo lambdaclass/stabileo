@@ -27,6 +27,8 @@
 //
 // Reactions/constraint forces keep using create-load-arrow.ts (few per model).
 
+import { along } from '../axes/display';
+import { axesStore } from '../axes/axes.svelte';
 import * as THREE from 'three';
 import { COLORS, createTextSpriteCached } from './selection-helpers';
 import {
@@ -251,9 +253,9 @@ export class LoadArrowsBatched {
     const labelHex = '#' + new THREE.Color(forceColor).getHexString();
 
     const forces = [
-      { val: fx, dir: GLOBAL_X.clone() },
-      { val: fy, dir: GLOBAL_Y.clone() },
-      { val: fz, dir: GLOBAL_Z.clone() },
+      { val: fx, dir: GLOBAL_X.clone(), k: 0 as const },
+      { val: fy, dir: GLOBAL_Y.clone(), k: 1 as const },
+      { val: fz, dir: GLOBAL_Z.clone(), k: 2 as const },
     ];
     for (const f of forces) {
       if (Math.abs(f.val) < 1e-10) continue;
@@ -262,14 +264,14 @@ export class LoadArrowsBatched {
       const len = this.len(f.val, maxForce);
       const farEnd = origin.clone().addScaledVector(dir, -len);
       this.arrow(dir, farEnd, len, forceColor, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH);
-      this.label(this.format.force(f.val), labelHex, 28,
+      this.label(this.format.force(along(f.k).sign * f.val), labelHex, 28,
         farEnd.clone().addScaledVector(dir, -0.15));
     }
 
     const moments = [
-      { val: mx, axis: GLOBAL_X.clone() },
-      { val: my, axis: GLOBAL_Y.clone() },
-      { val: mz, axis: GLOBAL_Z.clone() },
+      { val: mx, axis: GLOBAL_X.clone(), k: 0 as const },
+      { val: my, axis: GLOBAL_Y.clone(), k: 1 as const },
+      { val: mz, axis: GLOBAL_Z.clone(), k: 2 as const },
     ];
     for (const m of moments) {
       if (Math.abs(m.val) < 1e-10) continue;
@@ -278,7 +280,7 @@ export class LoadArrowsBatched {
       } else {
         this.curvedMomentArrow(origin, m.axis, m.val, COLORS.moment);
       }
-      this.label(this.format.moment(m.val), '#ffaa44', 24,
+      this.label(this.format.moment(axesStore.frame.det * along(m.k).sign * m.val), '#ffaa44', 24,
         origin.clone().addScaledVector(m.axis, 0.35));
     }
   }
@@ -403,6 +405,61 @@ export class LoadArrowsBatched {
     const labelHex = '#' + new THREE.Color(arrowColor).getHexString();
     this.label(this.format.pressure(q), labelHex, 26,
       center.addScaledVector(loadDir, -(offset + 0.2)));
+  }
+
+  /**
+   * A uniform area load over a whole plate of any outline, holes cut out: arrows at points spread
+   * inside it, a fill and its border at the arrows' tails, one label. `dir` is the way a positive
+   * value acts (down for a floor, normal to a wall).
+   */
+  addPlateLoad(
+    outer: Array<{ x: number; y: number; z: number }>,
+    holes: Array<Array<{ x: number; y: number; z: number }>>,
+    q: number, maxQ: number, dir: THREE.Vector3, caseColor?: number,
+  ): void {
+    if (Math.abs(q) < 1e-10 || outer.length < 3) return;
+    const V = (p: { x: number; y: number; z: number }) => new THREE.Vector3(p.x, p.y, p.z);
+    const o = V(outer[0]!);
+    const n = new THREE.Vector3();
+    for (let i = 0; i < outer.length; i++) { const a = outer[i]!, b = outer[(i + 1) % outer.length]!; n.x += (a.y - b.y) * (a.z + b.z); n.y += (a.z - b.z) * (a.x + b.x); n.z += (a.x - b.x) * (a.y + b.y); }
+    if (n.lengthSq() < 1e-18) return;
+    n.normalize();
+    const u = V(outer[1]!).sub(o);
+    u.addScaledVector(n, -u.dot(n)).normalize();
+    const v = new THREE.Vector3().crossVectors(n, u);
+    const to2 = (p: { x: number; y: number; z: number }) => { const d = V(p).sub(o); return new THREE.Vector2(d.dot(u), d.dot(v)); };
+    const to3 = (q2: THREE.Vector2) => o.clone().addScaledVector(u, q2.x).addScaledVector(v, q2.y);
+    const ring = outer.map(to2), rings = holes.map((h) => h.map(to2));
+    const inside = (q2: THREE.Vector2, l: THREE.Vector2[]) => {
+      let c = false;
+      for (let i = 0, j = l.length - 1; i < l.length; j = i++) { const a = l[i]!, b = l[j]!; if ((a.y > q2.y) !== (b.y > q2.y) && q2.x < ((b.x - a.x) * (q2.y - a.y)) / (b.y - a.y) + a.x) c = !c; }
+      return c;
+    };
+    const xs = ring.map((p) => p.x), ys = ring.map((p) => p.y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const loadDir = (q > 0 ? dir.clone() : dir.clone().negate()).normalize();
+    const arrowColor = caseColor ?? COLORS.load;
+    const len = this.len(q, maxQ) * 0.5;
+    const N = 4;
+    const at: THREE.Vector2[] = [];
+    for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
+      const q2 = new THREE.Vector2(x0 + ((x1 - x0) * (i + 0.5)) / (N + 1), y0 + ((y1 - y0) * (j + 0.5)) / (N + 1));
+      if (inside(q2, ring) && !rings.some((h) => inside(q2, h))) at.push(q2);
+    }
+    for (const q2 of at) {
+      const pos = to3(q2);
+      this.arrow(loadDir, pos.clone().addScaledVector(loadDir, -len), len, arrowColor, ARROW_HEAD_LENGTH * 0.7, ARROW_HEAD_WIDTH * 0.7);
+    }
+    const lift = (q2: THREE.Vector2) => to3(q2).addScaledVector(loadDir, -len);
+    const c = new THREE.Color(this.paint(arrowColor));
+    for (const tri of THREE.ShapeUtils.triangulateShape(ring, rings)) {
+      const all = [...ring, ...rings.flat()];
+      for (const k of tri) { const p = lift(all[k]!); this.fillPos.push(p.x, p.y, p.z); this.fillCol.push(c.r, c.g, c.b); }
+    }
+    for (const l of [ring, ...rings]) for (let k = 0; k < l.length; k++) this.envelope(lift(l[k]!), lift(l[(k + 1) % l.length]!), arrowColor);
+    const mid = new THREE.Vector2((x0 + x1) / 2, (y0 + y1) / 2);
+    const labelAt = at.length ? at.reduce((b, p) => (p.distanceTo(mid) < b.distanceTo(mid) ? p : b)) : mid;
+    this.label(this.format.pressure(q), '#' + new THREE.Color(arrowColor).getHexString(), 26, lift(labelAt).addScaledVector(loadDir, -0.2));
   }
 
   /**

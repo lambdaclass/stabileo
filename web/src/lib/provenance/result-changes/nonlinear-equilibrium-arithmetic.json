@@ -30,6 +30,7 @@
     "pt": "P-Delta e SSI preservam o equilíbrio nas cancelações",
     "de": "P-Delta und SSI erhalten das Gleichgewicht bei Auslöschung",
     "fr": "P-Delta et SSI préservent l’équilibre malgré les annulations",
+    "hu": "A P-Delta és SSI kivonási veszteség mellett is megőrzi az egyensúlyt",
     "tr": "P-Delta ve SSI birbirini götüren terimlerde dengeyi korur"
   },
   "explanation": {
@@ -38,6 +39,7 @@
     "pt": "Resíduos compensados, refinamento limitado e redução separada das rigidezes do solo e da estrutura preservam o equilíbrio sem alterar tolerâncias. Convergência, deslocamentos, esforços e reações podem mudar. Refaça as análises P-Delta e SSI (#761; PR #1940).",
     "de": "Kompensierte Residuen, begrenzte Nachiteration und getrennte Reduktion der Boden- und Struktursteifigkeit erhalten das Gleichgewicht ohne geänderte Toleranzen. Konvergenz, Verschiebungen, Kräfte und Reaktionen können sich ändern. P-Delta- und SSI-Analysen erneut ausführen (#761; PR #1940).",
     "fr": "Les résidus compensés, le raffinement limité et la réduction séparée des raideurs du sol et de la structure préservent l’équilibre sans modifier les tolérances. Convergence, déplacements, efforts et réactions peuvent changer. Relancer les analyses P-Delta et SSI (#761 ; PR #1940).",
+    "hu": "A kompenzált maradékok, a korlátos finomítás és a talaj-, illetve szerkezeti merevség külön kényszerredukciója a konvergenciatűrések módosítása nélkül tartja fenn a szigorú egyensúlyt. A konvergencia, elmozdulások, erők és reakciók változhatnak. Futtassa újra a P-Delta és SSI vizsgálatokat (#761; PR #1940).",
     "tr": "Dengelenmiş artıklar, sınırlı iyileştirme ve zemin ile yapı rijitliklerinin ayrı indirgenmesi toleransları değiştirmeden dengeyi korur. Yakınsama, yer değiştirmeler, kuvvetler ve tepkiler değişebilir. P-Delta ve SSI analizlerini yeniden çalıştırın (#761; PR #1940)."
   },
   "changelog": {

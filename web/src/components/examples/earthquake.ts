@@ -134,10 +134,13 @@ export const earthquake = defineExample<Model>({
       const ua = histories.get(a.id), ub = histories.get(b.id);
       s.line(a.x + (ua?.ux[step] ?? 0) * scale, a.z + (ua?.uz[step] ?? 0) * scale, b.x + (ub?.ux[step] ?? 0) * scale, b.z + (ub?.uz[step] ?? 0) * scale);
     }
+    const [peakNode, peakHistory] = [...histories].reduce((best, entry) => Math.abs(entry[1].ux[step]) > Math.abs(best[1].ux[step]) ? entry : best);
+    const swayed = model.nodes.get(peakNode)!;
+    const largest = { value: Math.abs(peakHistory.ux[step]) * 1000, at: [swayed.x + peakHistory.ux[step] * scale, swayed.z + peakHistory.uz[step] * scale] as [number, number] };
     const ground = config.groundAccelX.map((a, k) => [k * DT, a / G] as [number, number]);
     return {
       status: 'ok', readouts, certificate, notes: ['chord', 'editorFrameOnly', 'elasticShear'],
-      views: { deformed: { ...s.view('deformed', 'mm', boundsOf(s.xy, 0.1)), legend: { shape: 'deformed', scale } } },
+      views: { deformed: { ...s.view('deformed', 'mm', boundsOf(s.xy, 0.1)), legend: { shape: 'deformed', scale }, peak: largest } },
       charts: [
         { key: 'roof', xUnit: 's', yUnit: 'mm', points: roofPoints, marker: peakTime },
         { key: 'ground', xUnit: 's', yUnit: 'g', points: ground },

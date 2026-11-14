@@ -1,6 +1,7 @@
 <script lang="ts">
   /** One run of the paper's text: prose, italics, bold, KaTeX math and citations linked to the references. */
   import katex from 'katex';
+  import 'katex/dist/katex.min.css';
   import { segments } from '../../lib/paper/inline';
 
   let { t }: { t: string } = $props();

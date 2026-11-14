@@ -5,7 +5,7 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
 
   import Ecto.Query
 
-  @keys ~w(active_sessions company country email email_verified_at id inserted_at is_active is_admin job_title last_sign_in_at locale name)
+  @keys ~w(active_sessions company consents country email email_verified_at id inserted_at is_active is_admin job_title last_active_at last_sign_in_at locale milestones name project_count sign_in_method signup_source)
 
   setup do
     admin = Factory.insert(:admin)
@@ -27,6 +27,57 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
       assert row["is_active"] == true
       assert row["is_admin"] == false
       assert is_binary(row["last_sign_in_at"])
+      session = Repo.get_by!(StabileoRepo.Schemas.Session, account_id: user.id)
+      assert row["last_active_at"] == DateTime.to_iso8601(session.inserted_at)
+      assert row["project_count"] == 0
+      assert row["consents"]["terms"] == nil
+      assert row["consents"]["terms_current"] == false
+    end
+
+    test "carries where each account came from and its milestones, and filters by channel", %{
+      token: token
+    } do
+      from_ad = Factory.insert(:account, email: "src-ad@example.com")
+      Factory.insert(:account, email: "src-none@example.com")
+
+      Repo.insert!(%StabileoRepo.Schemas.SignupSource{
+        account_id: from_ad.id,
+        channel: "meta",
+        paid: true,
+        utm_campaign: "c1",
+        utm_content: "a1",
+        trigger: "gate.save"
+      })
+
+      Repo.insert!(%StabileoRepo.Schemas.AccountMilestone{
+        account_id: from_ad.id,
+        kind: "first_save",
+        occurred_at: ~U[2026-11-02 12:00:00Z]
+      })
+
+      body =
+        admin_request(:get, "/users", %{"search" => "src-", "channel" => "meta"}, token)
+        |> json_body(200)
+
+      assert [row] = body["data"]
+      assert row["id"] == from_ad.id
+
+      assert %{
+               "channel" => "meta",
+               "paid" => true,
+               "utm_campaign" => "c1",
+               "utm_content" => "a1",
+               "trigger" => "gate.save"
+             } = row["signup_source"]
+
+      assert row["milestones"] == %{"first_save" => "2026-11-02T12:00:00Z"}
+
+      body =
+        admin_request(:get, "/users", %{"search" => "src-", "channel" => "unknown"}, token)
+        |> json_body(200)
+
+      assert [%{"email" => "src-none@example.com", "signup_source" => nil, "milestones" => %{}}] =
+               body["data"]
     end
 
     test "filters, sorts and pages", %{token: token} do
@@ -92,9 +143,7 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
       assert request(:post, "/refresh", %{"refresh_token" => product.refresh_token})
              |> json_body(401)
 
-      assert request(:post, "/login", %{"email" => user.email, "password" => Factory.password()})
-             |> json_body(403)
-             |> Map.get("error") == "account_disabled"
+      assert {:error, :account_disabled} = google_sign_in(user)
     end
 
     test "422 cannot_disable_self", %{admin: admin, token: token} do
@@ -109,8 +158,7 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
       body = admin_request(:post, "/users/#{user.id}/enable", %{}, token) |> json_body(200)
       assert body["data"]["is_active"] == true
 
-      assert request(:post, "/login", %{"email" => user.email, "password" => Factory.password()})
-             |> json_body(200)
+      assert {:ok, _code} = google_sign_in(user)
     end
 
     test "force-logout revokes every session and reports how many", %{token: token} do
@@ -147,5 +195,15 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
                |> json_body(404)
       end
     end
+  end
+
+  defp google_sign_in(user) do
+    {:ok, _} = StabileoRepo.Features.set_user_login_enabled(true)
+    user |> Ecto.Changeset.change(google_subject: "g-#{user.id}") |> Repo.update!()
+
+    StabileoAuth.UserOAuth.sign_in(
+      %{"email" => user.email, "email_verified" => true, "sub" => "g-#{user.id}", "name" => "G"},
+      StabileoAuth.UserOAuth.challenge("a-browser-attempt-secret-0123456789abcdef")
+    )
   end
 end

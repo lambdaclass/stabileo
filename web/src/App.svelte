@@ -1,10 +1,16 @@
 <script lang="ts">
+  import { along, axisName, twoD } from './lib/axes/display';
+  import { accountGate } from './lib/store/account-gate.svelte';
   import { provideEditorActivity } from './lib/utils/editor-activity';
   // First: every dictionary entry, before anything here renders (the store starts with the public
   // pages' entries only; Root.svelte loads this component on the first app route).
   import './lib/i18n/full-dictionaries';
   import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
   import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
+  import MeshProgressCard from './components/pro/plates/MeshProgressCard.svelte';
+  import RcSheetsProgressCard from './components/pro/rc-sheets/RcSheetsProgressCard.svelte';
+  import { sheetsProgress } from './lib/store/rc-sheets-progress.svelte';
+  import { meshProgress } from './lib/store/mesh-progress.svelte';
   import { is3DWorkspace } from './lib/utils/workspace';
   import { captureFigure } from './lib/export/figure';
   import { viewportCanvas } from './lib/utils/viewport-canvas';
@@ -23,6 +29,12 @@
   import { placementStore } from './lib/store/placement.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import WhatsNewNotice from './components/WhatsNewNotice.svelte';
+  import ResultsDisclaimer from './components/legal/ResultsDisclaimer.svelte';
+  import UsageNotice from './components/legal/UsageNotice.svelte';
+  import TermsUpdateDialog from './components/legal/TermsUpdateDialog.svelte';
+  import AccountGateDialog from './components/account/AccountGateDialog.svelte';
+  import FeedbackDialog from './components/account/FeedbackDialog.svelte';
+  import { installUsageTracking } from './lib/telemetry/instrument.svelte';
   import NodeEditor from './components/NodeEditor.svelte';
   import ElementEditor from './components/ElementEditor.svelte';
   import DespieceInspector from './components/DespieceInspector.svelte';
@@ -325,10 +337,13 @@
   import StressPickHint from './components/stress/StressPickHint.svelte';
   import ColourScaleLegend from './components/ColourScaleLegend.svelte';
   import SwitchTo2DDialog from './components/SwitchTo2DDialog.svelte';
+  import AxesPicker from './components/axes/AxesPicker.svelte';
   import RecheckNotice from './components/RecheckNotice.svelte';
   import WorkspaceSaveNotice from './components/WorkspaceSaveNotice.svelte';
   import { prepareExportProvenance, pngWithProvenance } from './lib/export/provenance-attach';
   import ReproduceDialog from './components/ReproduceDialog.svelte';
+  import { mohrPanel, openMohr } from './lib/mohr/panel.svelte';
+  import { readAppLink, APP_LINK_KEYS } from './lib/mohr/state';
   import TabBar from './components/TabBar.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import KeyboardShortcuts from './components/KeyboardShortcuts.svelte';
@@ -336,6 +351,8 @@
   import Icon from './components/ribbon/Icon.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
   import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
+  import RcSheetsWorkspace from './components/pro/rc-sheets/RcSheetsWorkspace.svelte';
+  import { closeSheets, sheetsWorkspace } from './lib/store/rc-sheets-view.svelte';
   import DesignDesk from './components/pro/desk/DesignDesk.svelte';
   import { deskUi, deskLayout } from './lib/store/design-desk-ui.svelte';
   import { isDesignTab, syncDeskWithTab, syncTabWithDesk } from './lib/pro/design-navigation';
@@ -365,6 +382,7 @@
     untrack(() => {
       if (deskUi.open) deskUi.open = false;
       if (rebarWorkspace.open) rebarWorkspace.close();
+      closeSheets();
       if (uiStore.appMode === 'pro') syncDeskWithTab(uiStore.proActiveTab);
     });
   });
@@ -396,7 +414,9 @@
   import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
   import LandingPage from './components/LandingPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
-  import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
+  import { skipNextAnalysis } from './lib/tracking/activity.svelte';
+  import { routeKind, isAppPath, isDemoPath, isRegisterPath } from './lib/public-route';
+  import { restoreMovedRoute } from './lib/legacy-routes';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
   import { publicI18n, ensurePublicLocale } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
@@ -563,6 +583,16 @@
     uiStore.proActiveTab = tab;
   }
 
+  /** `?mohr=plane|space&…` opens the Mohr circle function with the state the public tool encoded. */
+  function openMohrFromUrl(params: URLSearchParams) {
+    const link = readAppLink(params);
+    if (!link) return;
+    openMohr(link.kind === 'plane' ? { kind: 'plane', plane: link.state } : { kind: 'space', space: link.state });
+    const url = new URL(location.href);
+    for (const key of APP_LINK_KEYS) url.searchParams.delete(key);
+    history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
   function findTabBySlug(tabSlug: string | null) {
     if (!tabSlug) return null;
     return tabManager.tabs.find(tab => slugifyTabName(tab.name) === tabSlug) ?? null;
@@ -576,7 +606,7 @@
   const initialPublicRoute = routeKind();
   const initialShell = publicShell();
   let showLanding = $state(initialShell.kind === 'landing');
-  let showExperiment = $state(['research', 'tools', 'examples'].includes(initialPublicRoute.kind));
+  let showExperiment = $state(['research', 'tools', 'game', 'register'].includes(initialPublicRoute.kind));
   let showPaper = $state(initialPublicRoute.kind === 'paper');
   let publicPage = $state<import('svelte').Component<{ path: string }> | null>(null);
   let publicRevision = 0;
@@ -615,6 +645,7 @@
 
   async function syncRouteState() {
     const token = ++publicRevision;
+    restoreMovedRoute();
     const next = routeKind();
     const shell = publicShell();
     const hash = next.kind === 'app' ? '' : location.hash;
@@ -627,7 +658,7 @@
       if (token === publicRevision) location.reload();
       return;
     }
-    showExperiment = next.kind === 'research' || next.kind === 'tools' || next.kind === 'examples';
+    showExperiment = next.kind === 'research' || next.kind === 'tools' || next.kind === 'game' || next.kind === 'register';
     showPaper = next.kind === 'paper';
     adoptLocaleFromPath();
     showBlog = shell.kind === 'blog';
@@ -773,12 +804,17 @@
   }
 
 
+  const pasteAxes = $derived(uiStore.is3DWorkspace ? [axisName(0), axisName(1)] : [twoD.horizontal, twoD.vertical]);
+  function pastedPoint(a: number, b: number): [number, number] {
+    return uiStore.is3DWorkspace ? [along(0).sign * a + 0, along(1).sign * b + 0] : [twoD.fromX(a) + 0, twoD.fromZ(b) + 0];
+  }
+
   function handleImportCoordinates() {
     const lines = importText.trim().split('\n').filter(l => l.trim());
     const points: Array<[number, number]> = [];
     for (const line of lines) {
       const parts = line.trim().split(/[,;\t\s]+/).map(Number);
-      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) points.push([parts[0], parts[1]]);
+      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) points.push(pastedPoint(parts[0], parts[1]));
     }
     // One undo step for the whole import — none when every point is a node already there — and
     // each point welds to a node already at its coordinates: a wireframe listing repeats shared
@@ -918,6 +954,7 @@
 
   onMount(() => {
     if (accountsEnabled) void authStore.init();
+    const stopUsageTracking = installUsageTracking();
     currentAppMode = pathToMode(location.pathname);
     if (currentAppMode === 'educativo') {
       uiStore.analysisMode = 'edu';
@@ -981,6 +1018,7 @@
     if (hashMode === 'embed' || queryParams.has('embed')) {
       uiStore.embedMode = true;
     }
+    openMohrFromUrl(queryParams);
 
     // Landing demo iframe uses ?example=<id> to pre-load a sample structure
     const exampleId = queryParams.get('example');
@@ -989,6 +1027,7 @@
         modelStore.loadExample(exampleId).then(() => {
           resultsStore.clear();
           resultsStore.clear3D();
+          skipNextAnalysis();
           window.dispatchEvent(new Event('stabileo-solve'));
           // Fire zoom-to-fit repeatedly until the canvas has non-zero size:
           // inside an iframe the canvas is 0×0 during first paint, so a single
@@ -1114,13 +1153,15 @@
     window.addEventListener('stabileo-import-dxf', handleDxfImportEvent);
     const handleDxfDropEvent = (e: Event) => {
       const ce = e as CustomEvent<File>;
-      if (dxfGoesToCadWizard()) {
-        cadWizardFile = ce.detail;
-        showCadWizard = true;
-      } else {
-        dxfImportFile = ce.detail;
-        showDxfImport = true;
-      }
+      accountGate.guard('import', () => {
+        if (dxfGoesToCadWizard()) {
+          cadWizardFile = ce.detail;
+          showCadWizard = true;
+        } else {
+          dxfImportFile = ce.detail;
+          showDxfImport = true;
+        }
+      });
     };
     window.addEventListener('stabileo-dxf-drop', handleDxfDropEvent);
     const handleIfcImportEvent = () => { ifcFileInput?.click(); };
@@ -1153,6 +1194,7 @@
     window.addEventListener('stabileo-open-panel', handleOpenPanelEvent);
 
     return () => {
+      stopUsageTracking();
       if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
@@ -1421,7 +1463,7 @@
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
 {#if publicActive}
-  <SiteHeader path={blogPath} />
+  {#if !isRegisterPath(blogPath)}<SiteHeader path={blogPath} />{/if}
   {#if showLanding}
     <LandingPage />
   {:else if publicPage}
@@ -2175,7 +2217,11 @@
 
   {#if !uiStore.embedMode && !publicActive}
     <WhatsNewNotice />
+    <ResultsDisclaimer />
+    <UsageNotice />
+    <TermsUpdateDialog />
   {/if}
+  {#if accountsEnabled}<AccountGateDialog /><FeedbackDialog />{/if}
 
   <!--
     Mobile drawers (overlay on top of canvas) — PRO and Education only.
@@ -2295,10 +2341,15 @@
   and closing costs the model nothing.
 -->
 <RebarWorkspace />
+{#if sheetsWorkspace.open}
+  <RcSheetsWorkspace bind:family={sheetsWorkspace.family} onclose={closeSheets} />
+{/if}
 {#if !deskDocked}<DesignDesk />{/if}
 
-{#if uiStore.toasts.length > 0}
+{#if uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
+    <MeshProgressCard />
+    <RcSheetsProgressCard />
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>
@@ -2350,6 +2401,7 @@
   viewport-scoped act.
 -->
 <SwitchTo2DDialog bind:open={uiStore.switchTo2DPrompt} />
+<AxesPicker />
 
 <!--
   The re-check notice for a project last solved with an older version, and the banner that keeps
@@ -2358,6 +2410,9 @@
 <RecheckNotice />
 <WorkspaceSaveNotice />
 <ReproduceDialog />
+{#if mohrPanel.open}
+  {#await import('./components/mohr/MohrDialog.svelte') then { default: MohrDialog }}<MohrDialog />{/await}
+{/if}
 
 <DxfImportDialog
   open={showDxfImport}
@@ -2409,7 +2464,7 @@
         <button class="help-close" onclick={() => showImportDialog = false}>✕</button>
       </div>
       <p style="font-size: 0.85rem; color: #aaa; margin: 0.5rem 0">
-        {t('app.importCoordDesc')}
+        {t('app.importCoordDesc').replace('X,Y', pasteAxes.join(','))}
       </p>
       <textarea
         class="import-textarea"
@@ -2418,7 +2473,7 @@
         rows="10"
       ></textarea>
       <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
-        <button class="btn btn-primary" onclick={handleImportCoordinates}>{t('app.import')}</button>
+        <button class="btn btn-primary" onclick={() => accountGate.guard('import', handleImportCoordinates)}>{t('app.import')}</button>
         <button class="btn btn-secondary" onclick={() => showImportDialog = false}>{t('app.cancel')}</button>
       </div>
     </div>
@@ -2426,8 +2481,6 @@
 {/if}
 
 {#if !uiStore.embedMode}
-  <!-- FeedbackWidget disabled — will be reimplemented professionally -->
-  <!-- <FeedbackWidget /> -->
 {/if}
 
 <!--

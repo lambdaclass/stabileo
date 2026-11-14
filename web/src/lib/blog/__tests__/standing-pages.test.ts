@@ -36,7 +36,7 @@ describe('the CIRSOC page', () => {
   });
 
   it('keeps steel labelled experimental and names the CIRSOC 201 editions, in every language', () => {
-    const experimental: Record<string, RegExp> = { de: /experimentell/i, fr: /expérimental/i, tr: /deneysel/i };
+    const experimental: Record<string, RegExp> = { de: /experimentell/i, fr: /expérimental/i, tr: /deneysel/i, hu: /kísérleti/i };
     for (const l of LOCALES) {
       const text = JSON.stringify(cirsocPage.i18n[l]);
       expect(text).toMatch(experimental[l] ?? /experimental/);

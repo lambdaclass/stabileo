@@ -193,7 +193,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     const caseIdByType = new Map<string, number[]>();
     for (const pc of p.cases) {
       const name = opts.nameOf(pc.nameKey, pc.nameParams);
-      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own, reduced: pc.reduced });
+      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own, reduced: pc.reduced, axisNamed: true });
       caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];
       list.push(id);
@@ -248,9 +248,11 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
 
     // One combination per wind or seismic case, never two directions in one. Wind from −X and
     // −Y is generated as cases of its own (`wind-cases.ts`); earthquake is reversed by the sign.
+    // The part of its action a planned case holds (a roof's live load of another category, `PlannedCase.group`).
+    const groupOf = new Map(p.cases.flatMap((pc, i) => (pc.group ? [[caseIds[i]!, pc.group] as const] : [])));
     const planned = [...caseIdByType].flatMap(([type, ids]) => ids.map((id) => {
       const lc = modelStore.model.loadCases.find((c) => c.id === id);
-      return { id, type, name: lc?.name ?? type, ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}), ...(lc?.pattern ? { pattern: true } : {}) };
+      return { id, type, name: lc?.name ?? type, ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}), ...(lc?.pattern ? { pattern: true } : {}), ...(groupOf.has(id) ? { group: groupOf.get(id) } : {}) };
     }));
     addGeneratedCombinations(expandCombinations(p.combinations, planned, { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions }));
 

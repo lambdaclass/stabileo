@@ -1,4 +1,13 @@
-import { request } from './client';
+import { API_URL, request } from './client';
+
+export interface Consents {
+  terms: { version: string; accepted_at: string } | null;
+  terms_current: boolean;
+  usage_analytics: boolean;
+  model_research: boolean;
+}
+
+export type ConsentKind = 'terms' | 'usage_analytics' | 'model_research';
 
 export interface Account {
   id: string;
@@ -10,6 +19,8 @@ export interface Account {
   locale: string;
   email_verified_at: string | null;
   inserted_at: string;
+  sign_in_method?: 'google' | 'password';
+  consents?: Consents;
 }
 
 export interface Session {
@@ -19,20 +30,30 @@ export interface Session {
   account: Account;
 }
 
-export interface RegisterInput {
-  email: string;
-  password: string;
-  name: string;
-  locale?: string;
-}
-
-export interface LoginInput {
-  email: string;
-  password: string;
-}
-
 export interface AuthConfig {
   user_login_enabled: boolean;
+  terms_version?: string;
+  usage_telemetry_enabled?: boolean;
+  cloud_projects_enabled?: boolean;
+  save_requires_account?: boolean;
+  google_login?: boolean;
+}
+
+export interface GoogleSignup {
+  signup_required: true;
+  signup_token: string;
+  email: string;
+  name: string;
+}
+
+export interface GoogleRegisterInput {
+  signup_token: string;
+  accept_terms: boolean;
+  usage_analytics?: boolean;
+  model_research?: boolean;
+  locale?: string;
+  source?: Record<string, string>;
+  attribution?: { consent?: boolean; fbp?: string; fbc?: string };
 }
 
 export type ProfileUpdate = Partial<{
@@ -50,12 +71,16 @@ export const authApi = {
     return request<AuthConfig>('GET', `${BASE}/config`);
   },
 
-  register(input: RegisterInput): Promise<Session> {
-    return request<Session>('POST', `${BASE}/register`, { body: input });
+  googleStartUrl(): string {
+    return `${API_URL}${BASE}/google`;
   },
 
-  login(input: LoginInput): Promise<Session> {
-    return request<Session>('POST', `${BASE}/login`, { body: input });
+  googleExchange(code: string, verifier: string): Promise<Session | GoogleSignup> {
+    return request<Session | GoogleSignup>('POST', `${BASE}/google/exchange`, { body: { code, verifier } });
+  },
+
+  googleRegister(input: GoogleRegisterInput): Promise<Session> {
+    return request<Session>('POST', `${BASE}/google/register`, { body: input });
   },
 
   refresh(refreshToken: string): Promise<Session> {
@@ -74,10 +99,7 @@ export const authApi = {
     return (await request<{ data: Account }>('PUT', `${BASE}/me`, { body: patch, auth: true })).data;
   },
 
-  async changePassword(currentPassword: string, password: string): Promise<void> {
-    await request<unknown>('PUT', `${BASE}/password`, {
-      body: { current_password: currentPassword, password },
-      auth: true,
-    });
+  async recordConsent(kind: ConsentKind, granted: boolean): Promise<Account> {
+    return (await request<{ data: Account }>('POST', `${BASE}/consents`, { body: { kind, granted }, auth: true })).data;
   },
 };

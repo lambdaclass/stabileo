@@ -3,7 +3,8 @@
   import { adminUsers } from './admin-users.svelte';
   import { adminErrorText } from './error-text';
   import { formatDateTime } from './format';
-  import { PAGE_SIZE, pageCount, parseQuery, toSearch, toggleSort, type ListQuery } from './list-query';
+  import { CHANNELS, PAGE_SIZE, pageCount, parseQuery, toSearch, toggleSort, type ListQuery } from './list-query';
+  import { channelLabel } from './ads/ads-format';
   import type { SortBy, StatusFilter } from '../lib/api/admin';
   import { t, tp } from '../lib/i18n';
   import UserDrawer from './UserDrawer.svelte';
@@ -15,7 +16,7 @@
   let searchInput = $state(initial.search);
   let debounce: ReturnType<typeof setTimeout> | undefined;
 
-  const listKey = $derived(JSON.stringify([query.search, query.status, query.sortBy, query.sortDir, query.page]));
+  const listKey = $derived(JSON.stringify([query.search, query.status, query.channel, query.sortBy, query.sortDir, query.page]));
   const userId = $derived(query.user);
   const pages = $derived(pageCount(adminUsers.total));
   const from = $derived(adminUsers.total === 0 ? 0 : (query.page - 1) * PAGE_SIZE + 1);
@@ -26,8 +27,11 @@
     { key: 'email', label: 'admin.col.email' },
     { key: null, label: 'admin.col.status' },
     { key: 'inserted_at', label: 'admin.col.created' },
-    { key: 'last_sign_in_at', label: 'admin.col.lastSignIn' },
+    { key: null, label: 'admin.col.lastActive' },
     { key: null, label: 'admin.col.sessions', numeric: true },
+    { key: null, label: 'admin.col.terms' },
+    { key: null, label: 'admin.col.projects', numeric: true },
+    { key: null, label: 'admin.col.origin' },
   ];
 
   function setQuery(next: ListQuery, replace = false) {
@@ -107,6 +111,7 @@
     <h1 id="adm-users-title" class="adm-h1">{t('admin.users.title')}</h1>
     <span class="adm-count" data-testid="admin-users-total">{tp('admin.users.total', { count: adminUsers.total })}</span>
   </div>
+  <p class="adm-users-lede">{t('admin.users.what')}</p>
 
   <div class="adm-toolbar">
     <input
@@ -131,6 +136,12 @@
         >{t(`admin.status.${status}`)}</button>
       {/each}
     </div>
+    <label class="adm-channel">
+      <span>{t('admin.col.origin')}</span>
+      <select value={query.channel} onchange={(e) => setQuery({ ...query, channel: e.currentTarget.value, page: 1 })} data-testid="admin-users-channel">
+        {#each CHANNELS as c (c)}<option value={c}>{c === 'all' ? t('admin.ads.channel.all') : channelLabel(c)}</option>{/each}
+      </select>
+    </label>
   </div>
 
   {#if adminUsers.listError}
@@ -186,8 +197,15 @@
               </span>
             </td>
             <td class="adm-date">{formatDateTime(user.inserted_at)}</td>
-            <td class="adm-date">{formatDateTime(user.last_sign_in_at)}</td>
+            <td class="adm-date" data-testid="admin-user-last-active">{formatDateTime(user.last_active_at ?? user.last_sign_in_at)}</td>
             <td class="num">{user.active_sessions}</td>
+            <td><span class="adm-badge" class:off={!user.consents?.terms_current} data-testid="admin-user-terms">{user.consents?.terms ? user.consents.terms.version : t('admin.users.termsMissing')}</span></td>
+            <td class="num" data-testid="admin-user-projects">{user.project_count ?? 0}</td>
+            <td data-testid="admin-user-origin">
+              {#if user.signup_source}
+                {channelLabel(user.signup_source.channel)}{#if user.signup_source.paid}<span class="adm-badge">{t('admin.users.paid')}</span>{/if}
+              {:else}<span class="adm-muted">—</span>{/if}
+            </td>
           </tr>
         {:else}
           <tr>
@@ -221,6 +239,7 @@
 {/if}
 
 <style>
+  .adm-users-lede { margin: 0 0 12px; font-size: 0.8rem; line-height: 1.5; color: var(--st-text-2); max-width: 90ch; }
   .adm-users { display: flex; flex-direction: column; gap: 12px; }
 
   .adm-users-head { display: flex; align-items: baseline; gap: 10px; }

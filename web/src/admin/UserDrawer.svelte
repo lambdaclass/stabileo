@@ -3,6 +3,9 @@
   import { adminErrorText } from './error-text';
   import { formatDateTime } from './format';
   import { t, tp } from '../lib/i18n';
+  import { adminProjects, adminFeedback } from './admin-insights.svelte';
+  import { adminRoute } from './admin-route.svelte';
+  import { channelLabel, triggerLabel } from './ads/ads-format';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -57,6 +60,20 @@
     }
   }
 
+  function showProjects() {
+    if (!user) return;
+    void adminProjects.load({ account_id: user.id, owner_label: user.email, offset: 0 });
+    onclose();
+    adminRoute.navigate('projects');
+  }
+
+  function showFeedback() {
+    if (!user) return;
+    void adminFeedback.load({ account_id: user.id, owner_label: user.email, status: '', offset: 0 });
+    onclose();
+    adminRoute.navigate('feedback');
+  }
+
   function onKey(e: KeyboardEvent) {
     if (e.key !== 'Escape') return;
     if (pending && !busy) pending = null;
@@ -101,11 +118,50 @@
       <dt>{t('admin.detail.locale')}</dt><dd>{user.locale}</dd>
       <dt>{t('admin.detail.emailVerified')}</dt>
       <dd>{user.email_verified_at ? formatDateTime(user.email_verified_at) : t('admin.detail.notVerified')}</dd>
+      <dt>{t('admin.detail.signIn')}</dt><dd data-testid="admin-drawer-sign-in">{user.sign_in_method === 'google' ? t('admin.signIn.google') : t('admin.signIn.password')}</dd>
       <dt>{t('admin.col.created')}</dt><dd>{formatDateTime(user.inserted_at)}</dd>
+      <dt>{t('admin.col.lastActive')}</dt><dd data-testid="admin-drawer-last-active">{formatDateTime(user.last_active_at ?? user.last_sign_in_at)}</dd>
       <dt>{t('admin.col.lastSignIn')}</dt><dd>{formatDateTime(user.last_sign_in_at)}</dd>
       <dt>{t('admin.col.sessions')}</dt><dd class="mono" data-testid="admin-drawer-sessions">{user.active_sessions}</dd>
       <dt>{t('admin.detail.adminAccess')}</dt><dd>{user.is_admin ? t('admin.yes') : t('admin.no')}</dd>
+      <dt>{t('admin.col.terms')}</dt>
+      <dd data-testid="admin-drawer-terms">{user.consents?.terms ? `${user.consents.terms.version} · ${formatDateTime(user.consents.terms.accepted_at)}` : t('admin.users.termsMissing')}</dd>
+      <dt>{t('admin.detail.usageAnalytics')}</dt><dd>{user.consents?.usage_analytics ? t('admin.yes') : t('admin.no')}</dd>
+      <dt>{t('admin.detail.modelResearch')}</dt><dd>{user.consents?.model_research ? t('admin.yes') : t('admin.no')}</dd>
+      <dt>{t('admin.col.projects')}</dt><dd class="mono">{user.project_count ?? 0}</dd>
     </dl>
+
+    <h3 class="adm-sub" data-testid="admin-drawer-origin">{t('admin.detail.origin')}</h3>
+    {#if user.signup_source}
+      {@const src = user.signup_source}
+      <dl class="adm-fields">
+        <dt>{t('admin.detail.channel')}</dt>
+        <dd data-testid="admin-drawer-channel">{channelLabel(src.channel)}{#if src.paid} · {t('admin.users.paid')}{/if}{#if src.placement} · {src.placement}{/if}</dd>
+        {#if src.trigger}<dt>{t('admin.detail.trigger')}</dt><dd>{triggerLabel(src.trigger)}</dd>{/if}
+        {#if src.utm_campaign}<dt>{t('admin.detail.campaign')}</dt><dd class="mono">{src.utm_campaign}</dd>{/if}
+        {#if src.utm_term}<dt>{t('admin.detail.adSet')}</dt><dd class="mono">{src.utm_term}</dd>{/if}
+        {#if src.utm_content}<dt>{t('admin.detail.ad')}</dt><dd class="mono">{src.utm_content}</dd>{/if}
+        {#if src.landing_path}<dt>{t('admin.detail.landing')}</dt><dd class="mono">{src.landing_path}</dd>{/if}
+        {#if src.referrer}<dt>{t('admin.detail.referrer')}</dt><dd class="mono">{src.referrer}</dd>{/if}
+        {#if src.first_seen_at}<dt>{t('admin.detail.firstSeen')}</dt><dd>{formatDateTime(src.first_seen_at)}</dd>{/if}
+      </dl>
+    {:else}
+      <p class="adm-muted">{t('admin.detail.noOrigin')}</p>
+    {/if}
+
+    <h3 class="adm-sub">{t('admin.detail.milestones')}</h3>
+    <dl class="adm-fields" data-testid="admin-drawer-milestones">
+      {#each ['first_analysis', 'first_save', 'first_export'] as const as kind (kind)}
+        <dt>{t(`admin.detail.m.${kind}`)}</dt><dd>{user.milestones?.[kind] ? formatDateTime(user.milestones[kind] ?? null) : '—'}</dd>
+      {/each}
+    </dl>
+
+    <div class="adm-links">
+      <button type="button" class="adm-linkbtn" onclick={showProjects} data-testid="admin-drawer-projects">{tp('admin.detail.seeProjects', { n: user.project_count ?? 0 })}</button>
+      <button type="button" class="adm-linkbtn" onclick={showFeedback} data-testid="admin-drawer-feedback">{t('admin.detail.seeFeedback')}</button>
+    </div>
+
+    <p class="adm-actions-help">{t('admin.detail.actionsHelp')}</p>
 
     {#if done}
       <p class="adm-done" role="status" data-testid="admin-drawer-done">{done}</p>
@@ -150,6 +206,9 @@
 </div>
 
 <style>
+  .adm-links { display: flex; gap: 14px; flex-wrap: wrap; margin: 4px 0 10px; }
+  .adm-linkbtn { padding: 0; background: none; border: none; color: var(--st-interactive, var(--st-accent)); font: inherit; font-size: 0.78rem; cursor: pointer; text-decoration: underline; }
+  .adm-actions-help { margin: 0 0 8px; font-size: 0.74rem; line-height: 1.5; color: var(--st-text-2); }
   .adm-scrim {
     position: fixed;
     inset: 0;
@@ -292,4 +351,5 @@
     border-color: color-mix(in srgb, var(--st-accent) 55%, transparent);
     color: var(--st-text);
   }
+  .adm-sub { margin: 14px 0 6px; font-size: 0.8rem; font-weight: 600; }
 </style>

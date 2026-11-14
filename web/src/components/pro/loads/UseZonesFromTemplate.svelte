@@ -8,7 +8,7 @@
   import { modelStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { createUseZone, suggestUse, templateOutlines } from '../../../lib/store/use-zones';
-  import { findOccupancy } from '../../../lib/codes/cirsoc101/live-loads';
+  import { findAnyOccupancy as findOccupancy } from '../../../lib/codes/families/occupancy-tables';
 
   let { onclose }: { onclose: () => void } = $props();
   const templates = $derived(modelStore.underlays.filter((u) => u.shapes?.some((s) => s.k === 'p' && s.closed)));

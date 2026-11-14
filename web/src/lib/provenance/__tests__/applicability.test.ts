@@ -313,7 +313,7 @@ describe('which registered changes concern a model', () => {
     }
     expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain(change);
     const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
       expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
       expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
     }
@@ -342,7 +342,7 @@ describe('which registered changes concern a model', () => {
     expect(ids(plane, v20)).not.toContain('basic-influence-line-moment-sign-withdrawn');
     expect(ids(plane, v20)).toContain('safety-containment-diagnostics');
     const entry = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom') as unknown as { title: Record<string, string>; explanation: Record<string, string> };
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
       expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
       expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
     }
@@ -355,7 +355,7 @@ describe('which registered changes concern a model', () => {
     expect(ids(shell, { resultsVersion: 21, analyses: ['linear'] } as SolveStamp)).not.toContain(fig);
     expect(ids(model({ elements: [member(1, 1, 'frame')] }), { resultsVersion: 20, analyses: ['linear'] } as SolveStamp)).not.toContain(fig);
     const entry = RESULT_CHANGES.changes.find((c) => c.id === fig) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
       expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
       expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
     }
@@ -405,7 +405,7 @@ describe('which registered changes concern a model', () => {
     const ec3 = model({ elements: [member(1, 1, 'frame')], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } });
     expect(ids(ec3)).not.toContain(change);
     const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
       expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
       expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
     }
@@ -424,7 +424,7 @@ describe('which registered changes concern a model', () => {
     expect(ids(frame, { resultsVersion: 13, analyses: ['modal'] } as SolveStamp)).not.toContain('modal-mechanism-refused');
     for (const change of ['time-history-massless-start', 'modal-mechanism-refused']) {
       const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
-      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
         expect(entry.title[locale]?.trim(), `${change} title.${locale}`).toBeTruthy();
         expect(entry.explanation[locale]?.trim(), `${change} explanation.${locale}`).toBeTruthy();
       }

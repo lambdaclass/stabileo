@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import { tPublic as t, publicI18n, PUBLIC_LOCALES } from '../../lib/i18n/store.svelte';
   import LocaleSelect from '../LocaleSelect.svelte';
   import { LOCALE_NAMES } from '../../lib/i18n/offered';
@@ -7,7 +8,7 @@
   import { SITE_NAV, currentNav } from './site-nav';
   import './site-header.css';
 
-  let { path = '/' }: { path?: string } = $props();
+  let { path = '/', actions }: { path?: string; actions?: Snippet } = $props();
   const current = $derived(currentNav(path));
   import BrandMark from '../landing/BrandMark.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
@@ -18,6 +19,7 @@
 
 
   $effect(() => {
+    if (actions) return;
     fetchGithubStars().then((n) => { stars = n; });
   });
 
@@ -57,6 +59,7 @@
       <span class="nav-name">Stabileo</span>
     </a>
 
+    {#if !actions}
     <div class="nav-links" id="nav-links" class:open>
       {#each SITE_NAV as item (item.id)}
         {#if item.kind === 'section'}
@@ -67,14 +70,17 @@
       {/each}
       <button class="btn btn-primary nav-menu-cta" onclick={() => { open = false; enterApp(); }}>{t('landing.navOpenEditor')}</button>
     </div>
+    {/if}
 
-    <div class="nav-actions">
+    <div class="nav-actions" style:margin-left={actions ? 'auto' : null}>
+      {#if !actions}
       <a class="nav-gh" href={REPO_URL} target="_blank" rel="noreferrer" aria-label={t('landing.navGithubRepo')}>
         <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true" focusable="false">
           <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7 0-.7 0-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17 4.7 18 5 18 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/>
         </svg>
         <span>{stars != null ? fmtStars(stars) : 'GitHub'}</span>
       </a>
+      {/if}
 
       <!--
         A drawn list rather than a native `<select>`: the platform decides
@@ -90,6 +96,9 @@
         testid="nav-lang"
       />
 
+      {#if actions}
+        {@render actions()}
+      {:else}
       <button class="btn btn-primary btn-sm" onclick={() => enterApp()}>{t('landing.navOpenEditor')}</button>
 
       <button
@@ -102,6 +111,7 @@
         <span aria-hidden="true"></span>
         <span aria-hidden="true"></span>
       </button>
+      {/if}
     </div>
   </div>
 </nav>

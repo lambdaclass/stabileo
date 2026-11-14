@@ -5,22 +5,42 @@
    */
   import { modelStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
-  import { meshBeforeAnalysis, physicalPlates, platesNeedingMesh } from '../../../lib/store/physical-plates';
+  import { coarseAsModelled, meshBeforeAnalysis, physicalPlates, platesNeedingMesh } from '../../../lib/store/physical-plates';
   import PlateMeshDialog from './PlateMeshDialog.svelte';
+  import MeshProgressBar from './MeshProgressBar.svelte';
+  import { meshProgress } from '../../../lib/store/mesh-progress.svelte';
 
+  // What the next analysis does with the plates: meshes `pending` (or, turned off, stops on them), and leaves the rest as they are.
   const info = $derived.by(() => {
     void modelStore.modelVersion; void modelStore.model.groups;
+    const on = meshBeforeAnalysis.value;
     const all = physicalPlates();
-    return { total: all.length, pending: platesNeedingMesh(), ids: all.map((p) => p.id) };
+    const pending = platesNeedingMesh({ coarse: on });
+    const asCame = on ? 0 : all.filter((p) => coarseAsModelled(p)).length;
+    return { on, total: all.length, pending, asCame, kept: all.length - pending.length - asCame, ids: all.map((p) => p.id) };
   });
+  // One short line in the ribbon, so the ribbon keeps its height; the whole sentence in its tooltip.
+  const stateText = $derived(
+    info.pending.length
+      ? (info.on ? (info.kept ? tp('plates.meshShort.willMeshKept', { n: info.pending.length, kept: info.kept }) : tp('plates.meshShort.willMesh', { n: info.pending.length })) : tp('plates.meshShort.missing', { n: info.pending.length }))
+      : info.asCame ? tp('plates.meshShort.asCame', { n: info.asCame }) : tp('plates.meshShort.ready', { n: info.total }),
+  );
+  const stateLong = $derived(
+    (info.pending.length
+      ? tp(info.on ? 'plates.meshStateWillMesh' : 'plates.meshStateMissing', { n: info.pending.length, total: info.total })
+      : info.asCame ? tp('plates.meshStateAsCame', { n: info.asCame, total: info.total }) : tp('plates.meshStateReady', { n: info.total }))
+    + (info.on && info.pending.length && info.kept ? ` · ${tp('plates.meshStateKept', { n: info.kept })}` : ''),
+  );
   let open = $state(false);
 </script>
 
 {#if info.total > 0}
   <div class="amc" data-testid="analysis-mesh-control">
-    <span class="amc-state" class:warn={info.pending.length > 0} data-testid="analysis-mesh-state">
-      {info.pending.length ? tp('plates.pendingShort', { n: info.pending.length }) : t('plates.allCurrent')}
-    </span>
+    {#if meshProgress.now}
+      <MeshProgressBar phase={meshProgress.now.phase} done={meshProgress.now.done} total={meshProgress.now.total} />
+    {:else}
+      <span class="amc-state" class:warn={info.pending.length > 0 && !info.on} title={stateLong} data-testid="analysis-mesh-state" data-pending={info.pending.length} data-kept={info.kept}>{stateText}</span>
+    {/if}
     <label class="amc-check" title={t('plates.meshBeforeAnalysisHint')}>
       <input type="checkbox" checked={meshBeforeAnalysis.value} onchange={(e) => (meshBeforeAnalysis.value = e.currentTarget.checked)} data-testid="analysis-mesh-auto" />
       {t('plates.meshBeforeAnalysis')}
@@ -31,8 +51,8 @@
 {/if}
 
 <style>
-  .amc { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 0 6px; font-size: 0.66rem; color: var(--st-text-3); max-width: 150px; }
-  .amc-state { color: var(--st-text-2); }
+  .amc { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 0 6px; font-size: 0.66rem; color: var(--st-text-3); max-width: 170px; }
+  .amc-state { color: var(--st-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .amc-state.warn { color: var(--st-warn, #d9a441); }
   .amc-check { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
   .amc-btn { align-self: flex-start; padding: 0 6px; background: none; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); color: var(--st-text-2); font: inherit; cursor: pointer; }

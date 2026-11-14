@@ -12,10 +12,17 @@ import type { AnalysisResults, FullEnvelope } from './types';
 import type { AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import { releaseLabel } from '../export/excel';
 import { t, tp, i18n } from '../i18n';
+import { coordLabels, shownCoords, twoD, userRot, userVec } from '../axes/display';
+import { nodeShown3D, standingPlane } from '../axes/node-coords';
+import { TWO_D_DISPLACEMENT_LABELS, TWO_D_REACTION_LABELS } from '../geometry/coordinate-system';
 import { modelFigureSvg } from './report/model-figure';
 import { formatValue, toDisplay, unitLabel, type Quantity, type UnitSystem } from '../utils/units';
 import { extraDecimals, smallDisplacement } from '../utils/unit-format';
 import type { KinematicReport } from './kinematic-report';
+import { supportTypeShown } from '../axes/user-names';
+import { axesStore } from '../axes/axes.svelte';
+import { axesStatement } from '../axes/statement';
+import { saveFile } from '../export/save-file';
 import {
   EXTRA_CSS, figureCounter, forceTable2D, forceTable3D, kinematicsSectionHtml, solveErrorHtml,
   type CalcReportContent, type ReportFigure,
@@ -243,6 +250,7 @@ function buildCover(cfg: CalcReportConfig, modeLabel: AnalysisModeLabel, nodeCou
   if (cfg.engineerName) h.push(`<div>${t('calcReport.engineerName')}: ${esc(cfg.engineerName)}</div>`);
   h.push(`<div>${t('file.csvDate')}: ${esc(cfg.date)}</div>`);
   h.push('</div>');
+  h.push(`<div class="disclaimer" style="margin-top:24px;font-size:8pt;color:#777">${esc(t('disclaimer.report'))}</div>`);
   h.push(`<div class="footer">${esc(t('calcReport.generatedBy'))}</div>`);
   h.push('</div><div class="page-break"></div>');
   return h.join('\n');
@@ -286,19 +294,13 @@ function buildModelSection(data: CalcReportData, num = '1', fig?: ReturnType<typ
   const condensed = nodeCount > 50;
   h.push(`<h2>${num}.3 ${t('report.nodes')} (${nodeCount})</h2>`);
   const ul = U.u('length');
-  if (data.is3D) {
-    h.push(`<table><tr><th>ID</th><th>X (${ul})</th><th>Y (${ul})</th><th>Z (${ul})</th></tr>`);
-  } else {
-    h.push(`<table><tr><th>ID</th><th>X (${ul})</th><th>Y (${ul})</th></tr>`);
-  }
+  h.push(`<table><tr><th>ID</th>${coordLabels(data.is3D).map((l) => `<th>${l} (${ul})</th>`).join('')}</tr>`);
   const showNodes = condensed ? [...data.nodes.slice(0, 20), null, ...data.nodes.slice(-5)] : data.nodes;
+  const upright = data.is3D && (data.project2DToXZ ?? standingPlane());
   for (const n of showNodes) {
     if (!n) { h.push(`<tr><td colspan="${data.is3D ? 4 : 3}" style="text-align:center;color:#888">${esc(tp('calcReport.moreNodes', { n: nodeCount - 25 }))}</td></tr>`); continue; }
-    if (data.is3D) {
-      h.push(`<tr><td>${n.id}</td><td class="num">${U.q(n.x, 'length', 3)}</td><td class="num">${U.q(n.y, 'length', 3)}</td><td class="num">${U.q(n.z ?? 0, 'length', 3)}</td></tr>`);
-    } else {
-      h.push(`<tr><td>${n.id}</td><td class="num">${U.q(n.x, 'length', 3)}</td><td class="num">${U.q(n.y, 'length', 3)}</td></tr>`);
-    }
+    const c = data.is3D ? nodeShown3D(n, upright) : shownCoords(n, false);
+    h.push(`<tr><td>${n.id}</td>${c.map((v) => `<td class="num">${U.q(v + 0, 'length', 3)}</td>`).join('')}</tr>`);
   }
   h.push('</table>');
   if (condensed) h.push(`<p class="table-note">${esc(tp('calcReport.showingNodes', { n: nodeCount }))}</p>`);
@@ -323,7 +325,7 @@ function buildModelSection(data: CalcReportData, num = '1', fig?: ReturnType<typ
   h.push(`<h2>${num}.5 ${t('report.supports')} (${data.supports.length})</h2>`);
   h.push(`<table><tr><th>ID</th><th>${t('table.nodeLabel')}</th><th>${t('report.type')}</th></tr>`);
   for (const s of data.supports) {
-    h.push(`<tr><td>${s.id}</td><td>${s.nodeId}</td><td>${esc(s.type)}</td></tr>`);
+    h.push(`<tr><td>${s.id}</td><td>${s.nodeId}</td><td>${esc(supportTypeShown(s.type))}</td></tr>`);
   }
   h.push('</table>');
 
@@ -399,19 +401,21 @@ function buildReactionsSection(data: CalcReportData, num = '3', figureHtml = '',
     h.push(`<table><tr><th>${t('table.nodeLabel')}</th><th>Fx (${uf})</th><th>Fy (${uf})</th><th>Fz (${uf})</th><th>Mx (${um})</th><th>My (${um})</th><th>Mz (${um})</th></tr>`);
     let sumFx = 0, sumFy = 0, sumFz = 0;
     for (const r of reactions) {
-      h.push(`<tr><td>${r.nodeId}</td><td class="num">${F(r.fx)}</td><td class="num">${F(r.fy)}</td><td class="num">${F(r.fz)}</td><td class="num">${M(r.mx)}</td><td class="num">${M(r.my)}</td><td class="num">${M(r.mz)}</td></tr>`);
-      sumFx += r.fx; sumFy += r.fy; sumFz += r.fz;
+      const [fx, fy, fz] = userVec(r.fx, r.fy, r.fz), [mx, my, mz] = userRot(r.mx, r.my, r.mz);
+      h.push(`<tr><td>${r.nodeId}</td><td class="num">${F(fx)}</td><td class="num">${F(fy)}</td><td class="num">${F(fz)}</td><td class="num">${M(mx)}</td><td class="num">${M(my)}</td><td class="num">${M(mz)}</td></tr>`);
+      sumFx += fx; sumFy += fy; sumFz += fz;
     }
     h.push(`<tr style="font-weight:700;border-top:2px solid #333"><td>ΣF</td><td class="num">${F(sumFx)}</td><td class="num">${F(sumFy)}</td><td class="num">${F(sumFz)}</td><td colspan="3"></td></tr>`);
     h.push('</table>');
     h.push(buildReactionSumNote(data));
   } else if (data.results2D) {
     const reactions = data.results2D.reactions;
-    h.push(`<table><tr><th>${t('table.nodeLabel')}</th><th>Rx (${uf})</th><th>Rz (${uf})</th><th>My (${um})</th></tr>`);
+    h.push(`<table><tr><th>${t('table.nodeLabel')}</th><th>${TWO_D_REACTION_LABELS.horizontal} (${uf})</th><th>${TWO_D_REACTION_LABELS.vertical} (${uf})</th><th>${TWO_D_REACTION_LABELS.moment} (${um})</th></tr>`);
     let sumRx = 0, sumRz = 0;
     for (const r of reactions) {
-      h.push(`<tr><td>${r.nodeId}</td><td class="num">${F(r.rx)}</td><td class="num">${F(r.rz)}</td><td class="num">${M(r.my)}</td></tr>`);
-      sumRx += r.rx; sumRz += r.rz;
+      const rx = twoD.x(r.rx), rz = twoD.z(r.rz);
+      h.push(`<tr><td>${r.nodeId}</td><td class="num">${F(rx)}</td><td class="num">${F(rz)}</td><td class="num">${M(twoD.rot(r.my))}</td></tr>`);
+      sumRx += rx; sumRz += rz;
     }
     h.push(`<tr style="font-weight:700;border-top:2px solid #333"><td>ΣR</td><td class="num">${F(sumRx)}</td><td class="num">${F(sumRz)}</td><td></td></tr>`);
     h.push('</table>');
@@ -465,7 +469,8 @@ function buildDisplacementsSection(data: CalcReportData, num = '4', figureHtml =
     for (const d of show) {
       const mag = Math.sqrt(d.ux ** 2 + d.uy ** 2 + d.uz ** 2);
       const isMax = d.nodeId === maxNodeId;
-      h.push(`<tr${isMax ? ' class="governing"' : ''}><td>${d.nodeId}</td><td class="num">${U.d(d.ux)}</td><td class="num">${U.d(d.uy)}</td><td class="num">${U.d(d.uz)}</td><td class="num">${U.d(mag)}</td></tr>`);
+      const [ux, uy, uz] = userVec(d.ux, d.uy, d.uz);
+      h.push(`<tr${isMax ? ' class="governing"' : ''}><td>${d.nodeId}</td><td class="num">${U.d(ux)}</td><td class="num">${U.d(uy)}</td><td class="num">${U.d(uz)}</td><td class="num">${U.d(mag)}</td></tr>`);
     }
     h.push('</table>');
     if (condensed) h.push(`<p class="table-note">${esc(tp('calcReport.showingTopDisp', { n: disps.length }))}</p>`);
@@ -478,12 +483,12 @@ function buildDisplacementsSection(data: CalcReportData, num = '4', figureHtml =
     }
     h.push(`<div class="summary-box"><div class="label">${t('excel.maxDisplacement')}</div><div class="value">${U.d(maxMag)} ${du}</div><div class="label">${esc(tp('calcReport.atNode', { n: maxNodeId }))}</div></div>`);
 
-    h.push(`<table><tr><th>${t('table.nodeLabel')}</th><th>ux (${du})</th><th>uz (${du})</th><th>θy (rad)</th><th>|u| (${du})</th></tr>`);
+    h.push(`<table><tr><th>${t('table.nodeLabel')}</th><th>${TWO_D_DISPLACEMENT_LABELS.horizontal} (${du})</th><th>${TWO_D_DISPLACEMENT_LABELS.vertical} (${du})</th><th>${TWO_D_DISPLACEMENT_LABELS.rotation} (rad)</th><th>|u| (${du})</th></tr>`);
     for (const d of disps) {
       const uz = d.uz ?? 0;
       const mag = Math.sqrt(d.ux ** 2 + uz ** 2);
       const isMax = d.nodeId === maxNodeId;
-      h.push(`<tr${isMax ? ' class="governing"' : ''}><td>${d.nodeId}</td><td class="num">${U.d(d.ux)}</td><td class="num">${U.d(uz)}</td><td class="num">${fmt(d.ry ?? 0, 6)}</td><td class="num">${U.d(mag)}</td></tr>`);
+      h.push(`<tr${isMax ? ' class="governing"' : ''}><td>${d.nodeId}</td><td class="num">${U.d(twoD.x(d.ux))}</td><td class="num">${U.d(twoD.z(uz))}</td><td class="num">${fmt(twoD.rot(d.ry ?? 0), 6)}</td><td class="num">${U.d(mag)}</td></tr>`);
     }
     h.push('</table>');
   }
@@ -620,6 +625,7 @@ export function generateCalcReportHtml(data: CalcReportData): string {
   html.push(buildTOC(sections));
   html.push('<div class="page">');
   html.push(buildReportMetadata(data));
+  if (!axesStore.frame.identity) html.push(`<p style="font-size:10px;color:#666">${esc(axesStatement(t, axesStore.choice))}</p>`);
   if (data.resultProvenance) html.push(provenanceBlockHtml(data.resultProvenance.record, data.resultProvenance.labels));
   html.push('</div>');
   parts.forEach((p, i) => html.push(p.html(String(i + 1))));
@@ -672,11 +678,6 @@ export function openCalcReport(data: CalcReportData, win?: Window | null): 'tab'
   else tab = window.open(url, '_blank');
   setTimeout(() => URL.revokeObjectURL(url), 120_000);
   if (tab) return 'tab';
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${(data.config.projectName || 'stabileo').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'stabileo'}.html`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  saveFile(`${(data.config.projectName || 'stabileo').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'stabileo'}.html`, blob);
   return 'download';
 }

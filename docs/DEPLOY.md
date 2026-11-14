@@ -90,8 +90,15 @@ database `stabileo` and `DEPLOY_ENV=prod`.
 | `TRUSTED_PROXIES` | variable | `127.0.0.1` (Caddy's `X-Forwarded-For` is believed) |
 | `DEPLOY_ENV` | variable | `staging` or `prod` |
 | `VITE_ACCOUNTS` | variable | `1` compiles the account UI in; login itself is switched on from the admin site's Settings |
-| `GOOGLE_CLIENT_ID` | variable | OAuth client with redirect URI `https://admin.staging.stabileo.com/api/v1/admin/auth/google/callback` |
+| `GOOGLE_CLIENT_ID` | variable | The admin site's OAuth client (Web application), redirect URI `https://admin.staging.stabileo.com/api/v1/admin/auth/google/callback` |
 | `GOOGLE_CLIENT_SECRET` | secret | |
+| `GOOGLE_APP_CLIENT_ID` | variable | The product's OAuth client (Web application), its own, for users who sign in only with Google. Redirect URI `https://staging.stabileo.com/api/v1/auth/google/callback`; the consent screen open to any Google account (External, published). Unset, the product's sign-in with Google is unavailable |
+| `GOOGLE_APP_CLIENT_SECRET` | secret | The product client's secret |
+| `APP_URL` | variable | optional; the product's URL, `https://PHX_HOST` when unset. Google returns users to `APP_URL/api/v1/auth/google/callback` |
+| `META_PIXEL_ID` | variable | optional; the Meta pixel. Unset, the browser loads no Meta tracker and the Conversions API sends nothing |
+| `META_CAPI_ACCESS_TOKEN` | secret | optional; the Conversions API token (Events Manager → the pixel → Settings) |
+| `META_CAPI_TEST_EVENT_CODE` | variable | optional, staging only; Conversions API events show under Test events and do not count toward campaigns |
+| `GTM_CONTAINER_ID` | variable | optional; `GTM-XXXXXXX`. Unset, the browser loads no Google Tag Manager |
 | `PORT`, `BIND_ADDRESS`, `POOL_SIZE`, `DATABASE_SSL`, `CORS_ALLOWED_ORIGINS`, `ADMIN_DOMAINS`, `*_TTL` | variable | optional; `backend/config/runtime.exs` is the reference |
 
 Without the Google pair the admin site shows no sign-in button; add them and redeploy.

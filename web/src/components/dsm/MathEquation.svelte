@@ -1,5 +1,6 @@
 <script lang="ts">
   import katex from 'katex';
+  import 'katex/dist/katex.min.css';
 
   let { equation = '', displayMode = false }: { equation: string; displayMode?: boolean } = $props();
 

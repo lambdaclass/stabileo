@@ -8,12 +8,13 @@ import './styles/tokens.css';
 import './styles/touch-density.css';
 import './styles/pro-kit.css';
 import './styles/panel-scrollbars.css';
-import 'katex/dist/katex.min.css';
 import Root from './Root.svelte';
 import { mount } from 'svelte';
 import { routeKind, restoreRedirectedRoute } from './lib/public-route';
+import { restoreMovedRoute } from './lib/legacy-routes';
 import { i18n, ensureLocale, ensurePublicLocale } from './lib/i18n/store.svelte';
 import { parsePublicPath } from './lib/i18n/public-routes';
+import { startTracking } from './lib/tracking/tracking';
 
 // Browser-test hooks — BUILD-TIME GATED.
 //
@@ -43,6 +44,8 @@ function installTestHooks() {
 // this entry and make App import it; top-level await would then deadlock App.
 async function bootstrap() {
   restoreRedirectedRoute();
+  restoreMovedRoute();
+  void startTracking();
   const target = document.getElementById('app')!;
   if (routeKind().kind === 'app') {
     document.getElementById('prerender')?.remove();

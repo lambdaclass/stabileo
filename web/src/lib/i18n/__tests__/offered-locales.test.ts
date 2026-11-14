@@ -66,9 +66,9 @@ afterEach(() => { vi.unstubAllGlobals(); });
 describe('the languages the app offers', () => {
   beforeEach(() => { vi.resetModules(); });
 
-  it('is English, Español and Português, plus Deutsch, Français and Türkçe each once it is complete', async () => {
+  it('is English, Español and Português, plus Deutsch, Français, Türkçe and Magyar each once it is complete', async () => {
     const { store } = await boot(['en']);
-    const expected = ['en', 'es', 'pt', ...['de', 'fr', 'tr'].filter(isComplete)];
+    const expected = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu'].filter(isComplete)];
     expect([...store.OFFERED_LOCALES].sort()).toEqual(expected.sort());
   });
 
@@ -76,7 +76,7 @@ describe('the languages the app offers', () => {
     async () => {
       const { store } = await boot(['en']);
       const { LOCALE_NAMES } = await import('../offered');
-      expect(LOCALE_NAMES).toEqual({ en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe' });
+      expect(LOCALE_NAMES).toEqual({ en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar' });
       for (const code of [...store.OFFERED_LOCALES, ...store.PUBLIC_LOCALES]) expect(store.tAt(`lang.${code}`, 'en')).toBe(LOCALE_NAMES[code]);
     });
 
@@ -110,6 +110,7 @@ describe('detecting the browser language', () => {
     ['de', reach('de')], ['de-DE', reach('de')], ['de-AT', reach('de')], ['de-CH', reach('de')],
     ['fr', reach('fr')], ['fr-FR', reach('fr')], ['fr-CA', reach('fr')], ['fr-BE', reach('fr')],
     ['tr', reach('tr')], ['tr-TR', reach('tr')],
+    ['hu', reach('hu')], ['hu-HU', reach('hu')],
   ] as const) {
     it(`a browser set to ${lang} opens in ${expected}`, async () => {
       const { store } = await boot([lang]);
@@ -193,7 +194,7 @@ describe('the choice a user makes', () => {
     expect(storage._dump()['stabileo-lang-manual']).toBeUndefined();
   });
 
-  for (const code of ['de', 'fr', 'tr'].filter((c) => !isComplete(c))) {
+  for (const code of ['de', 'fr', 'tr', 'hu'].filter((c) => !isComplete(c))) {
     it(`a stored ${code}, still being translated, falls through to detection`, async () => {
       const { store } = await boot(['pt-BR'], { 'stabileo-lang': code, 'stabileo-lang-manual': '1' });
       expect(store.i18n.locale).toBe('pt');

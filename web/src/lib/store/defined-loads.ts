@@ -67,7 +67,7 @@ export function syncDefinedLoads(): number | null {
       delete data.fromDef;
       return [{ ...l, data } as unknown as Load];
     }));
-    for (const l of fresh) modelStore.addLoadEntry(l as Load);
+    modelStore.addLoadEntries(fresh as Load[]);
   });
   return fresh.length;
 }

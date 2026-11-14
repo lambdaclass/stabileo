@@ -139,12 +139,26 @@ export const sheetDxf = (s: SetSheet, display?: SheetDisplay) => sheetToDxf(disp
  * `key: value` lines, the status line first.
  */
 /** The results' provenance as a closing A4 page (mm) of a PDF: its title, then the `key: value` lines. */
-export function provenancePdfPage(p: { title: string; lines: ReadonlyArray<readonly [string, string]> }) {
-  const text = (y: number, s: string, height: number) => ({ kind: 'text' as const, layer: 'RC-TITLE', at: { x: 20, y }, text: s, height });
-  return { width: 210, height: 297, primitives: [
-    text(277, p.title, 4),
-    ...p.lines.map(([k, v], i) => text(265 - i * 6, `${k}: ${v}`.slice(0, 120), 2.4)),
-  ] as never };
+export function provenancePdfPages(p: { title: string; lines: ReadonlyArray<readonly [string, string]> }) {
+  const rows = p.lines.flatMap(([key, value]) => `${key}: ${value}`.split(/\r?\n/).flatMap(line => {
+    const out: string[] = [];
+    let rest = line;
+    while (rest.length > 64) {
+      const space = rest.lastIndexOf(' ', 64);
+      const at = space > 0 ? space : 64;
+      out.push(rest.slice(0, at));
+      rest = rest.slice(at + (space > 0 ? 1 : 0));
+    }
+    out.push(rest);
+    return out;
+  }));
+  const text = (y: number, value: string, height: number): Primitive => ({ kind: 'text', layer: 'RC-TITLE', at: { x: 20, y }, text: value, height });
+  return Array.from({ length: Math.max(1, Math.ceil(rows.length / 41)) }, (_, page) => ({
+    width: 210, height: 297, primitives: [
+      text(277, p.title, 4),
+      ...rows.slice(page * 41, (page + 1) * 41).map((row, i) => text(265 - i * 6, row, 2.4)),
+    ],
+  }));
 }
 
 export interface SetProvenance {
@@ -170,6 +184,6 @@ export function sheetSetSvgZip(sheets: readonly SetSheet[], display?: SheetDispl
 
 export function sheetSetPdf(sheets: readonly SetSheet[], title: string, display?: SheetDisplay, provenance?: SetProvenance): Uint8Array {
   const pages = sheets.map((s) => ({ width: s.width, height: s.height, primitives: displayPrimitives(s.primitives, display, 'plan') }));
-  if (provenance) pages.push(provenancePdfPage(provenance));
+  if (provenance) pages.push(...provenancePdfPages(provenance));
   return sheetsToPdf(pages, title, displayStyle(display));
 }

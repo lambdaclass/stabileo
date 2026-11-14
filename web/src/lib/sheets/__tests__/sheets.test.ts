@@ -74,3 +74,24 @@ describe('the sheet set', () => {
     await expect(sheetSvg(set[1]!)).toMatchFileSnapshot('./__goldens__/beam-sheet-a3.svg');
   });
 });
+
+it.each([0, 1, 41, 42, 83])('known wrong result: #1929: PDF provenance retains every line and keeps %s rows on the page', async count => {
+  const { sheetSetPdf } = await import('../sheet-set');
+  const lines = Array.from({ length: count }, (_, i) => ['source', `marker-${i}`] as [string, string]);
+  const pdf = new TextDecoder().decode(sheetSetPdf([], 'Notes', undefined, { title: 'Provenance', lines, dxf: d => d, svg: s => s }));
+  const expectedPages = Math.max(1, Math.ceil(count / 41));
+  expect(pdf.match(/\/Type \/Page\b/g)).toHaveLength(expectedPages);
+  for (const [, marker] of lines) expect(pdf).toContain(marker);
+});
+
+it.each([63, 64, 65, 200])('PDF provenance wraps a %s character token without dropping content', async length => {
+  const { provenancePdfPages } = await import('../sheet-set');
+  const token = 'x'.repeat(length);
+  const pages = provenancePdfPages({ title: 'Provenance', lines: [['key', token]] });
+  const rows = pages.flatMap(p => p.primitives.filter(p => p.kind === 'text' && p.at.y < 277));
+  expect(rows.map(p => p.kind === 'text' ? p.text : '').join('').replaceAll(' ', '')).toBe(`key:${token}`);
+  for (const row of rows) {
+    expect(row.kind === 'text' && row.text.length).toBeLessThanOrEqual(64);
+    expect(row.kind === 'text' && row.at.y).toBeGreaterThanOrEqual(25);
+  }
+});

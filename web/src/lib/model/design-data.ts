@@ -9,6 +9,7 @@
  * CIRSOC 201-2025 Table 20.5.1.3.1 is known for it: a cover under it is said, and a click sets
  * every cover to it.
  */
+import { SHEET_CODE_LIST, type SheetCode } from '../rc-sheets/types';
 import { migrateSeismicDesign } from './seismic-design';
 import { migrateLateralSystem } from './lateral-system';
 import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
@@ -117,6 +118,8 @@ export interface ProjectDesignData {
    * physical element, by member, and the default for the beams. Absent: nothing declared.
    */
   lateralSystem?: import('./lateral-system').LateralSystemData;
+  /** The bars adopted in the reinforcement sheets and how they treat torsion (`rc-sheets/`). */
+  rcSheets?: import('../rc-sheets/types').RcSheetsData;
   /** A predetermined slab base mat, deducted before bands are added (absent: the minimum). */
   slabBase?: Partial<Record<'topX' | 'topY' | 'bottomX' | 'bottomY', { diameter: number; spacing: number }>>;
 }
@@ -193,6 +196,7 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
     ...(Array.isArray(e.joistTypes) ? { joistTypes: (e.joistTypes as Array<{ id?: unknown; name?: unknown }>).filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string') as never } : {}),
     ...(e.slabBase && typeof e.slabBase === 'object' ? { slabBase: e.slabBase as ProjectDesignData['slabBase'] } : {}),
+    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), torsion: (e.rcSheets as { torsion?: unknown }).torsion === 'compatibility' ? 'compatibility' as const : 'equilibrium' as const, ...((e.rcSheets as { faces?: unknown }).faces === true ? { faces: true } : {}), ...((e.rcSheets as { flange?: unknown }).flange === true ? { flange: true } : {}), ...((e.rcSheets as { seismic?: unknown }).seismic === true ? { seismic: true } : {}), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
     // The seismic roles fixed by hand are the lateral-system declaration under its older name:
     // they move there (`migrateLateralSystem`), and the seismic settings keep none of their own.
     ...(e.seismic && typeof e.seismic === 'object' ? { seismic: { ...migrateSeismicDesign(e.seismic), roles: {} } } : {}),

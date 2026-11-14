@@ -13,8 +13,10 @@ import { knownIssueRefusal } from './known-issues';
  * stays thin.
  */
 
+import { noteSolve } from '../telemetry/instrument.svelte';
 import { meshDeferredSlabs, representFootprints } from '../model/building/deferred-slabs';
-import { platesNeedingMesh, preparePlatesForAnalysis } from '../store/physical-plates';
+import { ensurePhysicalModel } from '../store/plates-from-shells';
+import { physicalPlates, platesNeedingMesh, preparePlatesForAnalysisAsync } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
 import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
 import { spectralOrSay } from '../actions/solve';
@@ -115,7 +117,7 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
   if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
   // Floor loads kept as definitions, current before the guard is taken: the edit that started this
   // solve may not have been rewritten yet (`store/defined-loads.ts`).
-  if (is3DWorkspace(analysisMode)) syncDefinedLoadsForAnalysis();
+  if (is3DWorkspace(analysisMode)) { ensurePhysicalModel(); syncDefinedLoadsForAnalysis(); }
   const isStale = nextSolveGuard();
   try {
     if (is3DWorkspace(analysisMode)) {
@@ -163,7 +165,7 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
   const isPro = uiStore.analysisMode === 'pro';
   // A plate with no mesh, or one out of date, is not in the model the solve reads: results now would
   // leave it out. Live calc does not mesh behind an edit; the manual analysis does.
-  const unmeshed = platesNeedingMesh();
+  const unmeshed = platesNeedingMesh({ coarse: false });
   if (unmeshed.length > 0) {
     uiStore.liveCalcError = tp('plates.liveNeedsMesh', { n: unmeshed.length });
     return;
@@ -259,29 +261,35 @@ export function registerLiveCalcCanceller(cancel: (() => void) | null): void {
 }
 
 export async function runGlobalSolve(options: { directBase?: boolean } = {}): Promise<GlobalSolveOutcome> {
+  const startedAt = performance.now();
   cancelPendingLiveCalc?.();
   // A solve that was asked for the combinations and did not get them must not end the stale state
   // (`store/recheck.svelte.ts`): its single-solve publish stamps the project, so the stamp before it
   // is put back below. Every entry point, not only the re-check's re-run.
   const stampBefore = recheckStore.capture();
-  // Slabs placed to be meshed at the analysis get their mesh first, so what follows (the floor
-  // loads, the solve, the results, the slab design) reads the mesh (`deferred-slabs.ts`).
   if (uiStore.is3DWorkspace) {
-    // A slab meshed before its columns' sections were represented is meshed again with them
-    // (`column-footprints.ts`): held at one node, its load split is the mesh's, not the building's.
-    const f = representFootprints();
-    if (f.slabs > 0) uiStore.toast(tp('building.slabs.footprintsAtSolve', { n: f.slabs }), 'info');
-    const m = meshDeferredSlabs();
-    if (m.slabs > 0) uiStore.toast(tp('building.slabs.meshedAtSolve', { n: m.slabs, shells: m.shells }), 'info');
+    ensurePhysicalModel();
+    // Basic 3D has no plates: a slab waiting for the analysis is meshed in place (`deferred-slabs.ts`).
+    if (uiStore.analysisMode !== 'pro') {
+      // A slab meshed before its columns' sections were represented is meshed again with them
+      // (`column-footprints.ts`): held at one node, its load split is the mesh's, not the building's.
+      const f = representFootprints();
+      if (f.slabs > 0) uiStore.toast(tp('building.slabs.footprintsAtSolve', { n: f.slabs }), 'info');
+      const m = meshDeferredSlabs();
+      if (m.slabs > 0) uiStore.toast(tp('building.slabs.meshedAtSolve', { n: m.slabs, shells: m.shells }), 'info');
+    }
     // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
-    const p = preparePlatesForAnalysis();
+    const p = await preparePlatesForAnalysisAsync();
     if (!p.ok) {
       const error = tp(p.reason === 'needsMesh' ? 'plates.analysisNeedsMesh' : p.reason === 'localLoads' ? 'plates.analysisLocalLoads' : 'plates.analysisMeshRefused', { names: p.plates.join(', ') });
       uiStore.toast(error, 'error');
       return { ok: false, error };
     }
-    if (p.meshed > 0) uiStore.toast(tp('plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells }), 'info');
+    if (p.meshed > 0) {
+      const kept = physicalPlates().length - p.meshed;
+      uiStore.toast(tp(kept > 0 ? 'plates.meshedAtAnalysisKept' : 'plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells, kept }), 'info');
+    }
   }
   // Floor loads kept as definitions are rewritten first when the model moved under them, so the
   // guard below starts from the model that is solved (`store/defined-loads.ts`).
@@ -325,6 +333,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   // A solve is minutes of computed state produced by one click. Waiting for the 30 s timer
   // to notice is how a run gets lost to a closed tab.
   void requestAutosave('solve');
+  noteSolve(outcome.ok, startedAt);
   return outcome;
 }
 

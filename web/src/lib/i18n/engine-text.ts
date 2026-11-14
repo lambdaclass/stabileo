@@ -13,6 +13,8 @@
 import { isMessage, type EngineMessage } from '../codes/message';
 import type { StructuredDiagnostic } from '../engine/types';
 import { i18n, tAt } from './store.svelte';
+import { axesStore } from '../axes/axes.svelte';
+import { axisTokensIn } from '../axes/case-names';
 
 /**
  * Locale-aware number formatting for message parameters.
@@ -48,16 +50,21 @@ export function teAll(messages: readonly EngineMessage[]): string[] {
  * while reading an English UI. They pass the locale in rather than reading the store.
  */
 export function teAt(m: EngineMessage, locale: string): string {
-  const raw = tAt(m.key, locale);
+  const raw = AXES_IN_TEXT.has(m.key) ? axisTokensIn(axesStore.frame, tAt(m.key, locale)) : tAt(m.key, locale);
   if (!m.params) return raw;
   return raw.replace(/\{(\w+)\}/g, (whole, name: string) => {
     const v = m.params![name];
     if (v === undefined || v === null) return whole;
     // Nested messages resolve inside-out, so a sentence can quote a regulation label.
     if (isMessage(v)) return teAt(v, locale);
-    return typeof v === 'number' ? formatNumber(v, locale) : String(v);
+    if (typeof v === 'number') return formatNumber(v, locale);
+    return AXIS_PARAMS.has(name) ? axisTokensIn(axesStore.frame, String(v)) : String(v);
   });
 }
+
+/** Parameters the load generators fill with a model axis ("X", "+Y"): read in the user's axes. */
+const AXIS_PARAMS = new Set(['dir', 'dirX', 'dirY', 'axis']);
+const AXES_IN_TEXT = new Set(['loadPlan.derivation.adjacentSpans']);
 
 /** Translate a list at an explicit locale. */
 export function teAllAt(messages: readonly EngineMessage[], locale: string): string[] {

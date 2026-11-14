@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { signedModelName } from '../../../lib/axes/display';
   import { plainNumber } from '../../../lib/utils/units';
   /**
    * A pushover's capacity curve and its hinge sequence: base shear against the control node's
@@ -89,7 +90,7 @@
     </label>
     <label>{t('pro.po.direction')}
       <select value={control.dir} onchange={(e) => (dirChoice = e.currentTarget.value as PushDir)} data-testid="po-dir">
-        <option value="x">X</option><option value="y">Y</option><option value="z">Z</option>
+        <option value="x">{signedModelName(0, 1)}</option><option value="y">{signedModelName(1, 1)}</option><option value="z">{signedModelName(2, 1)}</option>
       </select>
     </label>
     <label class="po-check"><input type="checkbox" bind:checked={shown} disabled={stale} data-testid="po-show" /> {t('pro.po.showOnModel')}</label>

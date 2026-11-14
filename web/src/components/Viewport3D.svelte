@@ -4,6 +4,7 @@
   import { is3DWorkspace } from '../lib/utils/workspace';
   import { displayUnits, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
+  import PlateSelectionCard from './viewport/PlateSelectionCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
   import { focusNodeIds } from '../lib/model/select-like';
@@ -17,6 +18,11 @@
   import * as THREE from 'three';
   import '../styles/viewer-chrome.css';
   import { drawAxisGizmoOn } from '../lib/viewport3d/axis-gizmo';
+  import { axesStore } from '../lib/axes/axes.svelte';
+  import { forgetGizmoPress, pressOnGizmo, releaseOnGizmo } from '../lib/axes/gizmo-press';
+  import { XYZ, along, modelAxisOf, modelLoad3D, planeDistributedLoad, planeGlobalAngle, twoD } from '../lib/axes/display';
+  import { nodeMoveArgs3D, nodeShown3D } from '../lib/axes/node-coords';
+  import { relabelComponents, supportTypeShown } from '../lib/axes/user-names';
   import { createViewerScene, createViewerPerspectiveCamera, createViewerOrthographicCamera, createViewerRenderer, createViewerControls, applyDefaultNavigation, addViewerLights } from '../lib/viewport3d/scene-setup';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
@@ -294,6 +300,7 @@
   let coordX = $state('0');
   let coordY = $state('0');
   let coordZ = $state('0');
+  const clipSign = $derived(along(XYZ.indexOf(uiStore.clippingAxis) as 0 | 1 | 2).sign);
 
   function openCoordDialog() {
     coordX = '0'; coordY = '0'; coordZ = '0';
@@ -310,7 +317,7 @@
     // Welded: typing the coordinates of an existing node selects it rather than
     // stacking a twin on it.
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-    const id = modelStore.addNodeWelded(x, y, z);
+    const id = modelStore.addNodeWelded(...nodeMoveArgs3D([x, y, z]));
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreatedAt').replace('{id}', String(id)).replace('{x}', String(coordX)).replace('{y}', String(coordY)).replace('{z}', String(coordZ)), 'success');
     showCoordDialog = false;
@@ -1498,8 +1505,8 @@
 
   // Meshed plates as pieces or with their mesh: only the drawing changes.
   $effect(() => {
-    void uiStore.platesShowMesh;
-    syncShells();
+    void uiStore.platesShowMesh; void resultsStore.results3D;
+    untrack(() => { syncShells(); syncNodes(); syncLoads(); syncLabels3D(); });
     invalidate();
   });
 
@@ -2004,6 +2011,21 @@
     if (gizmoCanvas) gizmoCanvas.style.display = show ? 'block' : 'none';
     invalidate();
   });
+  $effect(() => {
+    void axesStore.frame;
+    if (axesHelper) {
+      const visible = axesHelper.visible;
+      scene.remove(axesHelper);
+      disposeObject(axesHelper);
+      for (const s of axisLabelSprites) { scene.remove(s); s.material.map?.dispose(); s.material.dispose(); }
+      axesHelper = createFatAxes();
+      axesHelper.visible = visible;
+      scene.add(axesHelper);
+      addAxisLabels();
+      for (const s of axisLabelSprites) s.visible = visible;
+    }
+    invalidate();
+  });
 
   // Reactive clipping plane: invalidate when clipping settings change
   $effect(() => {
@@ -2171,6 +2193,7 @@
   }
 
   function handleMouseDown(e: MouseEvent) {
+    if (uiStore.showAxes3D && pressOnGizmo(e, axesHit3D)) return;
     // Placing: the model is view-only; a click (not a drag, which orbits) places.
     if (placementStore.active) { if (e.button === 0) mouseDownPos = { x: e.clientX, y: e.clientY }; return; }
     if (e.button === 0) {
@@ -2465,7 +2488,7 @@
     updateMouseNDC(e);
     if (!camera) return;
     const mask = uiStore.jointDof3d;
-    if (!mask.some(Boolean)) { uiStore.toast(t('float.jointPickDof'), 'info'); return; }
+    if (!mask.some(Boolean)) { uiStore.toast(relabelComponents(t('float.jointPickDof')), 'info'); return; }
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
     const elemHits = raycaster.intersectObjects(elementsParent.children, true);
@@ -2578,11 +2601,13 @@
         springs = { kx: uiStore.springKx, ky: uiStore.springKy, kz: uiStore.springKz };
       }
       const opts: { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; drz?: number } = {};
-      opts.angle = uiStore.supportAngle;
+      opts.angle = uiStore.supportIsGlobal ? planeGlobalAngle(uiStore.supportAngle) + 0 : uiStore.supportAngle;
       opts.isGlobal = uiStore.supportIsGlobal;
-      if (uiStore.supportDx !== 0) opts.dx = uiStore.supportDx;
-      if (uiStore.supportDy !== 0) opts.dy = uiStore.supportDy;
-      if (uiStore.supportDrz !== 0) opts.drz = uiStore.supportDrz;
+      // A roller's dx is along the direction it restrains, not a global axis; the rest are global.
+      const roller = type === 'rollerX' || type === 'rollerZ' || type === 'rollerY';
+      if (uiStore.supportDx !== 0) opts.dx = roller ? uiStore.supportDx : twoD.fromX(uiStore.supportDx);
+      if (uiStore.supportDy !== 0) opts.dy = twoD.fromZ(uiStore.supportDy);
+      if (uiStore.supportDrz !== 0) opts.drz = twoD.fromRot(uiStore.supportDrz);
       const supId = modelStore.addSupport(nodeId, type as any, springs, opts);
       if (uiStore.appMode === 'pro') uiStore.selectSupport(supId, false);
       uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');
@@ -2618,11 +2643,8 @@
     const a = stationOnRay({ I: a0, J: b0, L: a0.distanceTo(b0) }, raycaster.ray);
     modelStore.batch(() => {
       const id = modelStore.addPointLoadOnElement3D(elemId, a, 0, 0, uiStore.activeLoadCaseId);
-      modelStore.updateLoad(id, {
-        frame: 'global',
-        px: dir === 'fx' ? val : 0, py: dir === 'fy' ? val : 0, pz: dir === 'fz' ? val : 0,
-        mx: dir === 'mx' ? val : 0, my: dir === 'my' ? val : 0, mz: dir === 'mz' ? val : 0,
-      });
+      const m = modelLoad3D(dir, val);
+      modelStore.updateLoad(id, { frame: 'global', px: m.fx, py: m.fy, pz: m.fz, mx: m.mx, my: m.my, mz: m.mz });
     });
     uiStore.toast(t('viewport3d.pointLoadOnMemberApplied').replace('{id}', String(elemId)), 'success');
     return true;
@@ -2651,20 +2673,15 @@
         const dir = uiStore.nodalLoadDir3D;
         const val = uiStore.loadValue;
         if (val === 0) { uiStore.toast(t('drawBar.loadIsZero'), 'info'); return; }
-        const fx = dir === 'fx' ? val : 0;
-        const fy = dir === 'fy' ? val : 0;
-        const fz = dir === 'fz' ? val : 0;
-        const mx = dir === 'mx' ? val : 0;
-        const my = dir === 'my' ? val : 0;
-        const mz = dir === 'mz' ? val : 0;
+        const { fx, fy, fz, mx, my, mz } = modelLoad3D(dir, val);
         modelStore.addNodalLoad3D(nodeId, fx, fy, fz, mx, my, mz, uiStore.activeLoadCaseId);
       } else {
         // 2D nodal load
         const dir = uiStore.nodalLoadDir;
         const val = uiStore.loadValue;
-        const fx = dir === 'fx' ? val : 0;
-        const fz = dir === 'fz' ? val : 0;
-        const my = dir === 'my' ? val : 0;
+        const fx = dir === 'fx' ? twoD.fromX(val) : 0;
+        const fz = dir === 'fz' ? twoD.fromZ(val) : 0;
+        const my = dir === 'my' ? twoD.fromRot(val) : 0;
         modelStore.addNodalLoad(nodeId, fx, fz, my, uiStore.activeLoadCaseId);
       }
       uiStore.toast(t('viewport3d.pointLoadApplied').replace('{id}', String(nodeId)), 'success');
@@ -2683,12 +2700,14 @@
         const L = loadedLength(modelStore.model as never, elemId);
         const st = toolStretch(uiStore.distLoadPartial, uiStore.distLoadFrom, uiStore.distLoadTo, L);
         if (!st.ok) { uiStore.toast(t('float.distStretchRefused').replace('{id}', String(elemId)).replace('{L}', fixedQuantity(L, 'length', 2, uiStore.unitSystem)), 'error'); return; }
-        modelStore.addDistributedLoad3D(elemId, uiStore.loadValueY3D, uiStore.loadValueYJ3D, uiStore.loadValueZ, uiStore.loadValueZJ, st.a, st.b, uiStore.activeLoadCaseId, frame);
+        const sy = uiStore.distLoadFrame3D === 'global' ? along(1).sign : 1, sz = uiStore.distLoadFrame3D === 'global' ? along(2).sign : 1;
+        modelStore.addDistributedLoad3D(elemId, sy * uiStore.loadValueY3D, sy * uiStore.loadValueYJ3D, sz * uiStore.loadValueZ, sz * uiStore.loadValueZJ, st.a, st.b, uiStore.activeLoadCaseId, frame);
       } else {
         const L = modelStore.getElementLength(elemId);
         const st = toolStretch(uiStore.distLoadPartial, uiStore.distLoadFrom, uiStore.distLoadTo, L);
         if (!st.ok) { uiStore.toast(t('float.distStretchRefused').replace('{id}', String(elemId)).replace('{L}', fixedQuantity(L, 'length', 2, uiStore.unitSystem)), 'error'); return; }
-        modelStore.addDistributedLoad(elemId, uiStore.loadValue, uiStore.loadValueJ, undefined, undefined, uiStore.activeLoadCaseId, st.a, st.b);
+        const d = planeDistributedLoad(uiStore.loadValue, uiStore.loadValueJ, uiStore.loadAngle, uiStore.loadIsGlobal);
+        modelStore.addDistributedLoad(elemId, d.qI, d.qJ, d.angle, d.isGlobal, uiStore.activeLoadCaseId, st.a, st.b);
       }
       uiStore.toast(t('viewport3d.distLoadApplied').replace('{id}', String(elemId)), 'success');
     } else if (uiStore.loadType === 'thermal') {
@@ -2868,6 +2887,9 @@
   // ─── Main mouse up handler ─────────────────────────────────
   function handleMouseUp(e: MouseEvent) {
     if (e.button !== 0) return;
+    const onGizmo = releaseOnGizmo(e, axesHit3D);
+    if (onGizmo === 'click') { axesStore.pickerOpen = true; return; }
+    if (onGizmo === 'drag') return;
 
     if (placementStore.active) {
       const moved = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
@@ -3738,14 +3760,15 @@
         const n = modelStore.nodes.get(newHover.id);
         // In the chosen units, as the status bar shows the cursor: the hover read metres beside feet.
         // To the millimetre (`fmtCoord`): automatic precision read x = 150.25 m as «150.3».
-        if (n) tooltipText = t('viewport3d.nodeTooltip').replace('{id}', String(n.id))
-          .replace('{x}', `${fmtCoord(n.x)}`).replace('{y}', `${fmtCoord(n.y)}`).replace('{z}', `${fmtCoord(n.z ?? 0)} ${unitQ('length')}`);
+        const shown = n ? nodeShown3D(n) : null;
+        if (n && shown) tooltipText = t('viewport3d.nodeTooltip').replace('{id}', String(n.id))
+          .replace('{x}', `${fmtCoord(shown[0])}`).replace('{y}', `${fmtCoord(shown[1])}`).replace('{z}', `${fmtCoord(shown[2])} ${unitQ('length')}`);
       } else if (newHover.type === 'element') {
         const el = modelStore.elements.get(newHover.id);
         if (el) tooltipText = `Elem ${el.id} [${el.type}] ${el.nodeI}→${el.nodeJ}`;
       } else if (newHover.type === 'support') {
         const s = modelStore.supports.get(newHover.id);
-        if (s) tooltipText = t('viewport3d.supportTooltip').replace('{id}', String(s.id)).replace('{type}', s.type);
+        if (s) tooltipText = t('viewport3d.supportTooltip').replace('{id}', String(s.id)).replace('{type}', supportTypeShown(s.type));
       } else if (newHover.type === 'plate' || newHover.type === 'quad') {
         const sh = newHover.type === 'plate' ? modelStore.plates.get(newHover.id) : modelStore.quads.get(newHover.id);
         if (sh) tooltipText = `${newHover.type === 'plate' ? 'Plate' : 'Quad'} ${newHover.id} · t=${sh.thickness}m`;
@@ -3825,6 +3848,7 @@
   }
 
   function handleMouseLeave() {
+    forgetGizmoPress(axesHit3D);
     drawFeedback.setTarget(null);
     nodeHint = null;
     stretchHint = null;
@@ -4095,6 +4119,7 @@
 
   // ─── 3D Axis gizmo (bottom-left corner) ────────────────────
   let gizmoCanvas: HTMLCanvasElement | null = null;
+  let axesHit3D: HTMLButtonElement | undefined = $state();
 
   /*
    * A second window on a saved view, in the lower-right corner of the same canvas.
@@ -4530,11 +4555,12 @@
   {#if uiStore.clippingEnabled}
     <div class="clip-controls" style="top: {uiStore.floatingToolsTopOffset}px; left: {uiStore.showFloatingTools ? 12 : 48}px">
       <div class="clip-axis-btns">
-        {#each ['x', 'y', 'z'] as ax}
+        {#each ['X', 'Y', 'Z'] as const as ax}
+          {@const k = modelAxisOf(ax)}
           <button
-            class:active-ax={uiStore.clippingAxis === ax}
-            onclick={() => { uiStore.clippingAxis = ax as 'x' | 'y' | 'z'; }}
-          >{ax.toUpperCase()}</button>
+            class:active-ax={uiStore.clippingAxis === XYZ[k.index]}
+            onclick={() => { uiStore.clippingAxis = XYZ[k.index]; }}
+          >{ax}</button>
         {/each}
       </div>
       <input
@@ -4542,11 +4568,11 @@
         min="-30"
         max="30"
         step="0.1"
-        value={uiStore.clippingPosition}
-        oninput={(e) => { uiStore.clippingPosition = +e.currentTarget.value; }}
+        value={clipSign * uiStore.clippingPosition}
+        oninput={(e) => { uiStore.clippingPosition = clipSign * +e.currentTarget.value; }}
         class="clip-slider"
       />
-      <span class="clip-val">{uiStore.clippingPosition.toFixed(1)}</span>
+      <span class="clip-val">{(clipSign * uiStore.clippingPosition).toFixed(1)}</span>
     </div>
   {/if}
 
@@ -4692,10 +4718,14 @@
     width="80"
     height="80"
   ></canvas>
+  {#if uiStore.showAxes3D}
+    <button type="button" class="axis-gizmo-hit" bind:this={axesHit3D} title={t('axes.open')} aria-label={t('axes.open')} data-testid="axes-open-3d" onclick={() => { axesStore.pickerOpen = true; }}></button>
+  {/if}
 
   <!-- Shell contour legend (visible only while a shell contour map is active) -->
   <ShellContourLegend />
   <QuickInfoCard />
+  <PlateSelectionCard />
 </div>
 {#if splitOn && scene}
   <SplitView3D bind:this={splitView} {scene} parents={() => ({ elements: elementsParent, nodes: nodesParent })} />
@@ -5000,4 +5030,18 @@
     flex: none;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
   }
+  .axis-gizmo-hit {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    width: 80px;
+    height: 80px;
+    z-index: 11;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--st-radius);
+    background: transparent;
+    pointer-events: none;
+  }
+  .axis-gizmo-hit:hover, .axis-gizmo-hit:focus-visible { border-color: var(--st-interactive); }
 </style>

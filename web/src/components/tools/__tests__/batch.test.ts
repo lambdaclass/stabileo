@@ -2,7 +2,7 @@ import { it, expect } from 'vitest';
 import { BATCH_IDS, DEFAULT_BATCH as P, batchModel, continuousReactions, continuousInfluence, frequencies, jointForces, parseTruss, portalSway, simpleInfluence, validateBatch } from '../batch';
 import { calculateBatch } from '../batch-solve';
 import { batchTranslations } from '../batch-i18n';
-import { readFileSync } from 'node:fs';
+import { toolPaths } from '../registry';
 for(const id of BATCH_IDS) it(`${id}: default engine/reference agreement`,async()=>{
  const r=await calculateBatch(id,{...P});
  console.info(id, JSON.stringify({comparisons:r.comparisons,deflection:r.maxDeflection,sagging:r.sagging,hogging:r.hogging}));
@@ -40,13 +40,13 @@ it('influence curves agree with statics and compatibility, including shear disco
 it('three bending modes match all boundary conditions',async()=>{
  for(const boundary of ['simple','cantilever','fixed'] as const) {const r=await calculateBatch('beam-natural-frequency',{...P,boundary});expect(r.modes).toHaveLength(3);expect(r.difference).toBeLessThan(2e-5);}
 });
-it('covers every key and every tool SEO title and description in six locales',()=>{
+it('covers every key and every tool SEO title and description in seven locales',()=>{
  const keys=Object.keys(batchTranslations.en).sort();
- for(const locale of ['en','es','pt','de','fr','tr']) {
+ for(const locale of ['en','es','pt','de','fr','tr','hu']) {
   expect(Object.keys(batchTranslations[locale]).sort()).toEqual(keys);
   for(const id of BATCH_IDS) for(const suffix of ['', '.subtitle']) expect(batchTranslations[locale][`tools.${id}${suffix}`].length).toBeGreaterThan(5);
  }
- const script=readFileSync(new URL('../../../../scripts/public-paths.ts',import.meta.url),'utf8');for(const id of BATCH_IDS) expect(script).toContain(`/tools/${id}`);
+ for(const id of BATCH_IDS) expect(toolPaths()).toContain(`/tools/${id}`);
 });
 
 it('distinguishes mechanisms from statically indeterminate stable trusses', async () => {

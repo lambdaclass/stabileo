@@ -4,21 +4,26 @@ import { carriedWarnings, exportMessages, warningHtml } from './containment';
  * the PDF is printed by the browser from the report's HTML (a blocked window falls back to the
  * HTML as a file, a real deliverable and not a silent failure); the other four are downloaded.
  */
+import { trackUsage } from '../telemetry/usage';
 import { loadXlsxModule } from './excel';
 import { reportFile, type DocxOptions, type ReportFormat, type ReportProvenance } from './report-formats';
 import { rasterizeForPrint } from './rasterize';
 import { APP_VERSION } from '../build-info';
 import { t, tp } from '../i18n';
 import type { DocBlock } from './docx';
+import { accountGate } from '../store/account-gate.svelte';
+import { saveFile } from './save-file';
 
 function save(name: string, type: string, data: BlobPart) {
-  const url = URL.createObjectURL(new Blob([data], { type }));
-  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  saveFile(name, new Blob([data], { type }));
 }
 
 /** Print a report's HTML (the PDF), or download it when the window is blocked. */
 export function printHtml(html: string, stem: string): void {
+  accountGate.guard('export', () => printNow(html, stem));
+}
+
+function printNow(html: string, stem: string): void {
   const warnings = exportMessages(); if (warnings === null) return;
   html = warningHtml(html, warnings);
   const w = window.open('', '_blank');
@@ -37,6 +42,7 @@ export function docxLayout(title: string, date = new Date().toISOString().slice(
 }
 
 export async function downloadReport(format: ReportFormat, r: { title: string; html: string; stem: string; blocks?: DocBlock[]; provenance?: ReportProvenance; docx?: DocxOptions }): Promise<string | null> {
+  trackUsage('export', { format: `report-${format}` });
   const current = exportMessages(); if (current === null) return null;
   const warnings = [...new Set([...current, ...carriedWarnings(r.html)])];
   r = {

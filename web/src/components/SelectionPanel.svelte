@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../lib/axes/case-names';
   /**
    * What a selection picks up.
    *
@@ -14,6 +15,7 @@
    * strip to key off, and two controls for one setting is how they end up
    * disagreeing.
    */
+  import { planeName } from '../lib/axes/user-names';
   import { uiStore, modelStore } from '../lib/store';
   import { selectAll, invertSelection, loadedInCase, parallelToGlobal, seedMembersOf, membersAsKinds, type GlobalDirection } from '../lib/model/select-ops';
   import { likeSelection, likeSeedCount, likeMembers, shellsParallelToGlobal, allOfKind, selectShownByIds, LIKE_OPS, ALL_LIKE_OPS, type LikeOp, type SelKind } from '../lib/model/select-like';
@@ -390,14 +392,14 @@
     <div class="sel-byid-row">
       <span class="sel-like-label">{t('selection.loadedIn')}</span>
       <select value={loadCase ?? cases[0]?.id} onchange={(e) => (loadCase = Number(e.currentTarget.value))} data-testid="sel-loaded-case" aria-label={t('selection.loadedIn')}>
-        {#each cases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+        {#each cases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}
       </select>
       <button class="sel-op" disabled={cases.length === 0 || !loadedApplies} onclick={selectLoaded} data-testid="sel-loaded-go">{t('selection.go')}</button>
     </div>
     <div class="sel-byid-row">
       <span class="sel-like-label">{t('selection.parallelTo')}</span>
       <select bind:value={globalDir} data-testid="sel-parallel-dir" aria-label={t('selection.parallelTo')}>
-        {#each ['X', 'Y', 'Z', 'XY', 'XZ', 'YZ'] as d (d)}<option value={d}>{d.length === 1 ? tp('selection.axis', { d }) : tp('selection.plane', { d })}</option>{/each}
+        {#each ['X', 'Y', 'Z', 'XY', 'XZ', 'YZ'] as d (d)}<option value={d}>{d.length === 1 ? tp('selection.axis', { d: planeName(d) }) : tp('selection.plane', { d: planeName(d) })}</option>{/each}
       </select>
       <button class="sel-op" disabled={!parallelApplies} onclick={selectParallel} data-testid="sel-parallel-go">{t('selection.go')}</button>
     </div>

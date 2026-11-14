@@ -1,0 +1,128 @@
+{
+  "advisory": "SA-2026-065",
+  "issue": 2082,
+  "integrationPr": 2081,
+  "mainObservation": {
+    "commit": "b6f13f2500d700adecc48a974d7298f527e3388b",
+    "planOutcome": "READY",
+    "blockedKeys": [],
+    "unsupportedKeys": [
+      "snow.note.notCoveredPanels"
+    ],
+    "balancedPressure": 1,
+    "driftDecision": "snow.derivation.noDrift",
+    "maximumGeneratedPressure": 1
+  },
+  "handExpressions": {
+    "gamma": "0.426 * 1 + 2.2",
+    "balanced": "1 * (70 - 20) / 65",
+    "hb": "balanced / gamma",
+    "hc": "0.45 - hb",
+    "hd": 0.381,
+    "peak": "balanced + gamma * min(hd, hc)"
+  },
+  "requiredPeak": 1.1817,
+  "integrationBefore": {
+    "balancedPressure": 0.7692307692307693,
+    "driftDecision": "snow.derivation.noDrift"
+  },
+  "corrected": {
+    "localPeak": 1.1817,
+    "interiorProbeDistance": 0.1,
+    "interiorProbePressure": 1.148875
+  },
+  "evidenceLimits": [
+    "Main source replay, not historical release binaries.",
+    "Figure 9 uses the existing vector-path reading; the peak needs only hd > hc."
+  ],
+  "sourceTags": [
+    {
+      "ref": "v0.2.0",
+      "commit": "5b1482c78c0c462f72cf2ea99fc7e7d2e80e9e35",
+      "flatBalancedReference": true,
+      "levelStepHeight": true,
+      "meanElevationBandFilter": true,
+      "sha256": {
+        "web/src/lib/engine/loads/snow-loads.ts": "f84703b248c05e82f37f2f8f392e095e5b204f2bdf3607f5ca506b3a3689176f",
+        "web/src/lib/engine/loads/snow-drift-loads.ts": "d05802188f7c661eced4f9494211868622e0afb52edbd9521691fe91456e04a0"
+      }
+    },
+    {
+      "ref": "v0.3.0",
+      "commit": "cc1c88dc62db44c6cf223500d5b014f99159c8bc",
+      "flatBalancedReference": true,
+      "levelStepHeight": true,
+      "meanElevationBandFilter": true,
+      "sha256": {
+        "web/src/lib/engine/loads/snow-loads.ts": "f84703b248c05e82f37f2f8f392e095e5b204f2bdf3607f5ca506b3a3689176f",
+        "web/src/lib/engine/loads/snow-drift-loads.ts": "d05802188f7c661eced4f9494211868622e0afb52edbd9521691fe91456e04a0"
+      }
+    },
+    {
+      "ref": "v0.4.0",
+      "commit": "9aad844d596f318f574bf59909e1f4cadaab34b2",
+      "flatBalancedReference": true,
+      "levelStepHeight": true,
+      "meanElevationBandFilter": true,
+      "sha256": {
+        "web/src/lib/engine/loads/snow-loads.ts": "f84703b248c05e82f37f2f8f392e095e5b204f2bdf3607f5ca506b3a3689176f",
+        "web/src/lib/engine/loads/snow-drift-loads.ts": "d05802188f7c661eced4f9494211868622e0afb52edbd9521691fe91456e04a0"
+      }
+    },
+    {
+      "ref": "v0.5.0",
+      "commit": "5b940bef711b3e701ae3bf35b015affc69dd082c",
+      "flatBalancedReference": true,
+      "levelStepHeight": true,
+      "meanElevationBandFilter": true,
+      "sha256": {
+        "web/src/lib/engine/loads/snow-loads.ts": "a539389d2703677b9207583e31971a9d922480f6d84d1900a7b88a3c8d25499f",
+        "web/src/lib/engine/loads/snow-drift-loads.ts": "0b21b93893d60d947466981814781944ea4f49c6a8ea3bdbec58b1dba5d85ac0"
+      }
+    },
+    {
+      "ref": "desktop-v0.1.0-alpha.1",
+      "commit": "6e6655ba6431f1c39637536f4a797030771f5eb6",
+      "flatBalancedReference": true,
+      "levelStepHeight": true,
+      "meanElevationBandFilter": true,
+      "sha256": {
+        "web/src/lib/engine/loads/snow-loads.ts": "f84703b248c05e82f37f2f8f392e095e5b204f2bdf3607f5ca506b3a3689176f",
+        "web/src/lib/engine/loads/snow-drift-loads.ts": "d05802188f7c661eced4f9494211868622e0afb52edbd9521691fe91456e04a0"
+      }
+    },
+    {
+      "ref": "desktop-v0.1.0-alpha.2",
+      "commit": "2002004557fc129b8a128701b2685056270341d9",
+      "flatBalancedReference": true,
+      "levelStepHeight": true,
+      "meanElevationBandFilter": true,
+      "sha256": {
+        "web/src/lib/engine/loads/snow-loads.ts": "f84703b248c05e82f37f2f8f392e095e5b204f2bdf3607f5ca506b3a3689176f",
+        "web/src/lib/engine/loads/snow-drift-loads.ts": "d05802188f7c661eced4f9494211868622e0afb52edbd9521691fe91456e04a0"
+      }
+    },
+    {
+      "ref": "desktop-v0.1.0-alpha.3",
+      "commit": "7182159a9689851678ba8319fc6d116764b88ea3",
+      "flatBalancedReference": true,
+      "levelStepHeight": true,
+      "meanElevationBandFilter": true,
+      "sha256": {
+        "web/src/lib/engine/loads/snow-loads.ts": "f84703b248c05e82f37f2f8f392e095e5b204f2bdf3607f5ca506b3a3689176f",
+        "web/src/lib/engine/loads/snow-drift-loads.ts": "d05802188f7c661eced4f9494211868622e0afb52edbd9521691fe91456e04a0"
+      }
+    },
+    {
+      "ref": "origin/main",
+      "commit": "b6f13f2500d700adecc48a974d7298f527e3388b",
+      "flatBalancedReference": true,
+      "levelStepHeight": true,
+      "meanElevationBandFilter": true,
+      "sha256": {
+        "web/src/lib/engine/loads/snow-loads.ts": "a539389d2703677b9207583e31971a9d922480f6d84d1900a7b88a3c8d25499f",
+        "web/src/lib/engine/loads/snow-drift-loads.ts": "0b21b93893d60d947466981814781944ea4f49c6a8ea3bdbec58b1dba5d85ac0"
+      }
+    }
+  ]
+}

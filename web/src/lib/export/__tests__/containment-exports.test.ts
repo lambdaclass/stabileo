@@ -1,9 +1,12 @@
 import { beforeAll, beforeEach, afterEach, expect, it, vi } from 'vitest';
-const output = vi.hoisted(() => ({ texts: [] as string[], blobs: [] as Blob[] }));
+const output = vi.hoisted(() => ({ texts: [] as string[], blobs: [] as Blob[], saved: [] as string[] }));
 vi.mock('../../store/file', async orig => ({ ...(await orig<typeof import('../../store/file')>()),
   downloadText: (content: string) => output.texts.push(content),
   downloadBlob: (blob: Blob) => output.blobs.push(blob),
 }));
+// The browser download behind the account gate: the tests read what reached the object URL.
+vi.mock('../save-file', () => ({ saveFile: (name: string, data: Blob) => { output.saved.push(name); URL.createObjectURL(data); } }));
+const workbooksSaved = () => output.saved.filter(n => n.endsWith('.xlsx')).length;
 vi.mock('xlsx', async orig => ({ ...(await orig<typeof import('xlsx')>()), writeFile: vi.fn() }));
 import * as XLSX from 'xlsx';
 import { unzipSync, strFromU8 } from 'fflate';
@@ -19,7 +22,7 @@ import { copyView } from '../view-export';
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
   modelStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-  output.texts.length = 0; output.blobs.length = 0; vi.clearAllMocks(); setLocale('es');
+  output.texts.length = 0; output.blobs.length = 0; output.saved.length = 0; vi.clearAllMocks(); setLocale('es');
 });
 afterEach(() => { vi.restoreAllMocks(); resultsStore.clear(); setLocale('en'); });
 function publish(severity: 'warning' | 'error') {
@@ -38,6 +41,7 @@ it('CSV and XLSX refuse unsafe payloads with localized feedback, including extra
   expect(await exportToExcel({ onlyExtras: true, extraSheets: [{ name: 'Table', rows: [['987654']] }] })).toBe(false);
   expect(output.texts).toEqual([]);
   expect(XLSX.writeFile).not.toHaveBeenCalled();
+  expect(workbooksSaved()).toBe(0);
   expect(toast.mock.calls).toHaveLength(2);
   const spanish = t('knownIssue.BU-BOUND');
   expect(spanish).toMatch(/Resultados bloqueados/);
@@ -51,6 +55,7 @@ it('both project workbook download formats refuse without an unhandled rejection
   await expect(downloadProjectWorkbook(2)).resolves.toBeUndefined();
   expect(output.blobs).toEqual([]);
   expect(XLSX.writeFile).not.toHaveBeenCalled();
+  expect(workbooksSaved()).toBe(0);
   expect(toast.mock.calls.length).toBeGreaterThanOrEqual(2);
   for (const [message] of toast.mock.calls) { expect(message).toContain('#741'); expect(message).toContain(t('knownIssue.BU-BOUND')); }
 });
@@ -79,8 +84,9 @@ it('warning-only CSV, XLSX and zipped workbooks preserve numbers and mandatory w
   expect(wb!.SheetNames).toContain('Warnings');
   expect(XLSX.utils.sheet_to_csv(wb!.Sheets.Warnings!)).toContain('#741');
   expect(XLSX.utils.sheet_to_csv(wb!.Sheets.Table!)).toContain('987654');
+  output.saved.length = 0;
   await downloadProjectWorkbook(2);
-  expect(XLSX.writeFile).toHaveBeenCalledTimes(1);
+  expect(workbooksSaved()).toBe(1);
   const sheets = currentWorkbookSheets(2);
   expect(sheets.find(s => s.name === 'Warnings')!.rows.flat().join(' ')).toContain('#741');
   await downloadProjectCsv(2);
@@ -254,12 +260,12 @@ it.each(['csv', 'docx'] as const)('a generated report re-exported as %s from a c
 it('a model-only project workbook exports from a refused workspace; one with results does not', async () => {
   publish('error');
   const toast = vi.spyOn(uiStore, 'toast');
-  vi.mocked(XLSX.writeFile).mockClear();
+  output.saved.length = 0;
   await downloadProjectWorkbook(2, { results: false, design: false });
-  expect(XLSX.writeFile).toHaveBeenCalledTimes(1);
+  expect(workbooksSaved()).toBe(1);
   expect(toast.mock.calls.filter(([, kind]) => kind === 'error')).toEqual([]);
   await downloadProjectWorkbook(2);
-  expect(XLSX.writeFile).toHaveBeenCalledTimes(1);
+  expect(workbooksSaved()).toBe(1);
   expect(toast.mock.calls.at(-1)![0]).toContain('#741');
 });
 
@@ -321,4 +327,61 @@ it('a warned SVG with a tiny coordinate system is enlarged so its warnings stay 
   expect(Number(nested[2])).toBe(w);
   expect(Number(nested[3])).toBe(w);
   expect(Number(nested[1]) + Number(nested[3])).toBeCloseTo(h, 6);
+});
+
+it.each([
+  ['SH-MITC4-DISTORTION', 798],
+  ['SH-WARPED-MITC4', 1057],
+  ['SH-WARPED-MITC9', 1057],
+] as const)('known wrong result: #1929: slab and wall sheets carry the complete %s warning through every export', async (phase, issue) => {
+  const { exportSheetsDxf, exportSheetsPdf, exportSheetsSvg } = await import('../../store/sheet-set');
+  const { knownIssueMessage } = await import('../../engine/known-issue-message');
+  const { tAt } = await import('../../i18n/store.svelte');
+  setLocale('en');
+  publish('warning');
+  const result = { ...resultsStore.results3D! };
+  const diagnostic = { code: 'known_issue', severity: 'warning' as const, phase, value: issue, message: 'ENGINE' };
+  result.structuredDiagnostics = [diagnostic];
+  resultsStore.setResults3D(result);
+  const message = knownIssueMessage(diagnostic);
+  expect(message).toContain(`#${issue}`);
+  expect(message).toContain(tAt(`knownIssue.${phase}.warning`, 'en'));
+  const sheets = ['slab', 'wall'].map((kind, i) => ({
+    number: `${kind}-${i}`, title: `${kind} reinforcement`, format: 'A3' as const,
+    width: 420, height: 297, drawings: [kind],
+    primitives: [{ kind: 'text' as const, layer: 'RC-TEXT', at: { x: 20, y: 30 }, text: `${kind} reinforcement`, height: 3 }],
+  }));
+  const blobs: Blob[] = [];
+  vi.spyOn(URL, 'createObjectURL').mockImplementation(b => { blobs.push(b as Blob); return 'blob:test'; });
+  await exportSheetsDxf(null, sheets, '', '2004');
+  await exportSheetsDxf(null, sheets, '', 'r12');
+  await exportSheetsSvg(null, sheets, '');
+  await exportSheetsPdf(null, sheets, '', 'Reinforcement');
+  expect(blobs).toHaveLength(4);
+  for (const blob of blobs.slice(0, 3)) {
+    const files = Object.values(unzipSync(new Uint8Array(await blob.arrayBuffer()))).map(b => strFromU8(b));
+    expect(files).toHaveLength(2);
+    for (const text of files) {
+      expect(text).toContain(`#${issue}`);
+      expect(text).toContain('reinforcement');
+      expect(text).toContain(blob === blobs[2] ? 'fill="#742d00"' : 'STABILEO_WARNINGS');
+    }
+  }
+  const pdf = new TextDecoder('latin1').decode(await blobs[3]!.arrayBuffer());
+  const text = [...pdf.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map(m => m[1]!.replace(/\\([\\()])/g, '$1')).join(' ');
+  expect(text).toContain('slab reinforcement');
+  expect(text).toContain('wall reinforcement');
+  expect(text).toContain(message);
+  const { listingBytes } = await import('../../store/listing-export');
+  const { currentResultProvenance } = await import('../../store/result-provenance');
+  const listing = await listingBytes('slabs', 'pdf', 'en', currentResultProvenance());
+  const listingPdf = new TextDecoder('latin1').decode(listing as Uint8Array);
+  const listingText = [...listingPdf.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map(m => m[1]!.replace(/\\([\\()])/g, '$1')).join(' ');
+  expect(listingText).toContain(message);
+  resultsStore.setResults3D({ ...result, structuredDiagnostics: [{ ...diagnostic, severity: 'error' }] });
+  blobs.length = 0;
+  await exportSheetsDxf(null, sheets, '');
+  await exportSheetsSvg(null, sheets, '');
+  await exportSheetsPdf(null, sheets, '', 'Reinforcement');
+  expect(blobs).toEqual([]);
 });

@@ -14,5 +14,11 @@ defmodule StabileoWeb.Router do
   end
 
   forward("/api/v1/auth", StabileoAuth.Router)
+  forward("/api/v1/projects", StabileoProjects.Router)
+  forward("/api/v1/insights", StabileoInsights.Router)
+  forward("/api/v1/marketing", StabileoMarketing.Router)
+  forward("/api/v1/admin/projects", StabileoProjects.AdminRouter)
+  forward("/api/v1/admin/insights", StabileoInsights.AdminRouter)
+  forward("/api/v1/admin/marketing", StabileoMarketing.AdminRouter)
   forward("/api/v1/admin", StabileoAuth.AdminRouter)
 end

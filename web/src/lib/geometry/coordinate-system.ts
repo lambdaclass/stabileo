@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { is3DWorkspace } from '../utils/workspace';
+import { twoD } from '../axes/display';
 
 export type AnalysisAxis = 'x' | 'y' | 'z';
 export type VerticalAxis = 'z';
@@ -33,23 +34,23 @@ export const TOP_VIEW_UP_VECTOR: Readonly<THREE.Vector3> = GLOBAL_Y;
  * with GLOBAL_Y (which is the app's Y axis, not "up").
  */
 export const THREEJS_CYLINDER_AXIS: Readonly<THREE.Vector3> = GLOBAL_Y;
-export const TWO_D_HORIZONTAL_AXIS_LABEL = 'X';
-export const TWO_D_VERTICAL_AXIS_LABEL = 'Z';
+export const twoDHorizontalAxisLabel = (): string => twoD.horizontal;
+export const twoDVerticalAxisLabel = (): string => twoD.vertical;
 export const TWO_D_DISPLACEMENT_LABELS = {
-  horizontal: 'ux',
-  vertical: 'uz',
-  rotation: 'θy',
-} as const;
+  get horizontal() { return `u${twoD.horizontal.toLowerCase()}`; },
+  get vertical() { return `u${twoD.vertical.toLowerCase()}`; },
+  get rotation() { return `θ${twoD.normal.toLowerCase()}`; },
+};
 export const TWO_D_REACTION_LABELS = {
-  horizontal: 'Rx',
-  vertical: 'Rz',
-  moment: 'My',
-} as const;
+  get horizontal() { return `R${twoD.horizontal.toLowerCase()}`; },
+  get vertical() { return `R${twoD.vertical.toLowerCase()}`; },
+  get moment() { return `M${twoD.normal.toLowerCase()}`; },
+};
 export const TWO_D_NODAL_LOAD_LABELS = {
-  horizontal: 'Fx',
-  vertical: 'Fz',
-  moment: 'My',
-} as const;
+  get horizontal() { return `F${twoD.horizontal.toLowerCase()}`; },
+  get vertical() { return `F${twoD.vertical.toLowerCase()}`; },
+  get moment() { return `M${twoD.normal.toLowerCase()}`; },
+};
 
 /**
  * What a 2D element's internal forces are called.

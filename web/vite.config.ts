@@ -3,6 +3,8 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
 import { resolve } from 'path';
+import { deflateRawSync } from 'node:zlib';
+import { runInNewContext } from 'node:vm';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
 import { loadedPreloads } from './scripts/loaded-preloads';
 import { isComplete } from './src/lib/i18n/offered';
@@ -56,20 +58,26 @@ function publicI18nPlugin(): Plugin {
   return {
     name: 'public-i18n',
     resolveId(s) {
-      return [id, app].some((v) => s === v || s.startsWith(`${v}/`)) ? '\0' + s : null;
+      return [id, app].some((v) => s === v || s.startsWith(`${v}/`)) ? { id: '\0' + s, moduleSideEffects: false } : null;
     },
     load(resolved) {
       const watch = (f: string) => this.addWatchFile(f);
       if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), true, watch)};\n`;
-      if (resolved === `\0${app}` || resolved.startsWith(`\0${app}/`)) {
+      if (resolved === `\0${app}`) {
+        return ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']
+          .map((loc) => `export { ${loc} } from ${JSON.stringify(`${app}/${loc}`)};\n`).join('');
+      }
+      if (resolved.startsWith(`\0${app}/`)) {
         const locale = resolved.slice(app.length + 2);
-        return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr'])
-          .map((loc) => `export const ${loc} = ${isComplete(loc) ? entries(loc, false, watch) : '{}'};\n`).join('');
+        if (!isComplete(locale)) return `export const ${locale} = {};\n`;
+        const dictionary = runInNewContext(`(${entries(locale, false, watch)})`);
+        const packed = deflateRawSync(JSON.stringify(dictionary), { level: 9 }).toString('base64');
+        return `import { inflateSync, strFromU8 } from 'fflate';\nexport const ${locale} = JSON.parse(strFromU8(inflateSync(Uint8Array.from(atob(${JSON.stringify(packed)}), c => c.charCodeAt(0)))));\n`;
       }
       if (resolved !== '\0' + id) return null;
       let out = '';
       const lazy: string[] = [];
-      for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
         if (!isComplete(loc) || (!eager && loc !== 'en')) {
           out += `export const ${loc} = {};\n`;
           if (isComplete(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);
@@ -177,7 +185,7 @@ function instance(): number {
 const INST = instance();
 const DEV_API_URL = process.env.VITE_API_URL || `http://localhost:${4100 + INST * 10}`;
 
-const ADMIN_CLIENT_ROUTES = ['/', '/settings', '/allowlist', '/oauth/callback'];
+const ADMIN_CLIENT_ROUTES = ['/', '/metrics', '/projects', '/feedback', '/audit-log', '/settings', '/allowlist', '/oauth/callback'];
 
 function adminRootPlugin(): Plugin {
   const rewrite = (req: { url?: string }) => {

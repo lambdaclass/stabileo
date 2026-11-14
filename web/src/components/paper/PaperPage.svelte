@@ -12,6 +12,7 @@
   import { ps } from './i18n';
   import { PAPER_LOCALES } from './locales';
   import katex from 'katex';
+  import 'katex/dist/katex.min.css';
   import '../landing/landing.css';
   import './paper.css';
 

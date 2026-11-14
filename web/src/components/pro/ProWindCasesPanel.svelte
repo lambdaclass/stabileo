@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { signedAxisText } from '../../lib/axes/typed-frame';
   import Hint from './Hint.svelte';
   /**
    * The wind block's second half: which directions and which cases of Fig. 2.4-8 to generate,
@@ -72,7 +73,7 @@
       {#each WIND_DIRECTIONS as d (d)}
         <label class="al-check"><input type="checkbox" checked={directions.includes(d)}
           onchange={(e) => { directions = e.currentTarget.checked ? WIND_DIRECTIONS.filter((x) => x === d || directions.includes(x)) : directions.filter((x) => x !== d); }}
-          data-testid="al-wind-dir-{d}" /> {d.replace('-', '−').toUpperCase()}</label>
+          data-testid="al-wind-dir-{d}" /> {signedAxisText(d.toUpperCase())}</label>
       {/each}
     </div>
     {#if directions.length === 0}<p class="al-warn" data-testid="al-wind-no-direction">{t('autoLoad.windNoDirection')}</p>

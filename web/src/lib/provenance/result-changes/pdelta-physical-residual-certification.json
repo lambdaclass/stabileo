@@ -28,6 +28,7 @@
     "pt": "P-Delta verifica o resíduo livre físico",
     "de": "P-Delta prüft das physikalische freie Residuum",
     "fr": "P-Delta vérifie le résidu libre physique",
+    "hu": "A P-Delta ellenőrzi a fizikai szabad maradékot",
     "tr": "P-Delta fiziksel serbest artığı denetler"
   },
   "explanation": {
@@ -36,6 +37,7 @@
     "pt": "Os diagnósticos de equilíbrio P-Delta usam as mesmas forças físicas das reações, sem rigidez artificial. Momentos opostos perdidos não podem se anular no balanço global e certificar um resíduo livre físico não nulo. Reveja os diagnósticos P-Delta salvos (#1952).",
     "de": "P-Delta-Gleichgewichtsdiagnosen verwenden dieselben physikalischen Kräfte wie die Reaktionen, ohne künstliche Steifigkeit. Entgegengesetzte verlorene Momente können sich nicht in der globalen Bilanz aufheben und ein von null verschiedenes physikalisches freies Residuum bestätigen. Prüfen Sie gespeicherte P-Delta-Diagnosen (#1952).",
     "fr": "Les diagnostics P-Delta utilisent les mêmes forces physiques que les réactions, sans rigidité artificielle. Des moments opposés perdus ne peuvent pas se compenser dans le bilan global et certifier un résidu libre physique non nul. Revérifiez les diagnostics P-Delta enregistrés (#1952).",
+    "hu": "A P-Delta egyensúlyi diagnosztikája a reakciókkal azonos fizikai erőket használja, mesterséges merevség nélkül. Az ellentétes elveszett nyomatékok nem olthatják ki egymást a globális egyensúlyban, tanúsítva egy nem nulla fizikai szabad maradékot. Ellenőrizze újra a mentett P-Delta egyensúlyi diagnosztikát (#1952).",
     "tr": "P-Delta denge tanıları tepkilerle aynı fiziksel kuvvetleri kullanır, yapay rijitliği dışlar. Kaybolan zıt momentler global dengede birbirini götürerek sıfır olmayan fiziksel serbest artığı doğrulayamaz. Kayıtlı P-Delta tanılarını yeniden denetleyin (#1952)."
   },
   "changelog": {

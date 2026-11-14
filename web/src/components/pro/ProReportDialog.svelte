@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { relabelAxes } from '../../lib/axes/user-names';
   import Hint from './Hint.svelte';
   /**
    * The calculation report, as PDF, Word or HTML (the results as data are the Results export): who
@@ -172,7 +173,7 @@
   });
   const figuresSummary = $derived([
     t(STYLES.find((s) => s.id === figs.style)?.key ?? 'viewExport.styleColor'),
-    t(VIEWS.find((v) => v.id === figs.view)!.key),
+    relabelAxes(t(VIEWS.find((v) => v.id === figs.view)!.key)),
     figs.values ? t('viewExport.optValues') : null,
     reportFigures.list.length ? tp('proReport.addedN', { n: reportFigures.list.length }) : null,
   ].filter(Boolean).join(' · '));
@@ -218,7 +219,7 @@
         <button type="button" class="rpt-link" onclick={() => { companyLogo = null; persist(); }}>{t('report.removeLogo')}</button>
       {:else}
         <label class="rpt-file-btn">{t('report.chooseLogo')}
-          <input type="file" accept="image/png,image/jpeg,image/svg+xml" onchange={handleLogoUpload} class="rpt-file-input" data-testid="rpt-logo-file" />
+          <input type="file" accept="image/png,image/jpeg,image/svg+xml" onchange={handleLogoUpload} class="rpt-file-input" data-testid="rpt-logo-file" data-account-free />
         </label>
         {#if logoError}<span class="rpt-error" role="alert" data-testid="rpt-logo-error">{logoError}</span>{/if}
       {/if}
@@ -298,7 +299,7 @@
     <label class="xs-field">
       <span>{t('proExport.view')}</span>
       <select bind:value={figs.view} onchange={persist} data-testid="rpt-view">
-        {#each VIEWS as v (v.id)}<option value={v.id}>{t(v.key)}</option>{/each}
+        {#each VIEWS as v (v.id)}<option value={v.id}>{relabelAxes(t(v.key))}</option>{/each}
       </select>
     </label>
     <label class="xs-check"><input type="checkbox" bind:checked={figs.values} onchange={persist} />{t('viewExport.optValuesLong')}</label>

@@ -97,9 +97,10 @@ export const slab = defineExample<Model>({
       { key: 'spanRatio', value: span / (max / 1000), unit: 'L/δ' },
       { key: 'totalLoad', value: model.loads.reduce((s, l) => s - (l.type === 'nodal' ? l.data.fz : 0), 0), unit: 'kN' },
     ];
+    const top = values.indexOf(max);
     return {
       status: 'ok', readouts, certificate, charts: [], notes: [],
-      views: { deflection: { xy, cells, cellSize: 4, values, perCell: false, range: { min: 0, max: Math.max(max, 1e-9) }, field: 'deflection', unit: 'mm', geometryOnly: false, bounds: boundsOf(xy, 0.05) } },
+      views: { deflection: { xy, cells, cellSize: 4, values, perCell: false, range: { min: 0, max: Math.max(max, 1e-9) }, field: 'deflection', unit: 'mm', geometryOnly: false, bounds: boundsOf(xy, 0.05), peak: { value: max, at: [xy[2 * top], xy[2 * top + 1]] } } },
     };
   },
 });

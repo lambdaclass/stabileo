@@ -20,15 +20,15 @@ it('publishes every paper page, in English at least and never in a language with
   for (const path of ['/research', ...RESEARCH_PAPER_PATHS]) {
     const locales = researchLocales(path);
     expect(locales).toContain('en');
-    for (const locale of ['de', 'fr', 'tr'] as PublicLocale[]) {
+    for (const locale of ['de', 'fr', 'tr', 'hu'] as PublicLocale[]) {
       const published = locales.includes(locale) && PUBLIC_LOCALES.includes(locale);
       expect(publishedLocales(path).includes(locale)).toBe(published);
       expect(publishedLocale(path, locale)).toBe(published ? locale : 'en');
     }
   }
   expect(researchLocales('/research/benchmarks/shell-obstacle-course')).toEqual(['en']);
-  expect(researchLocales('/research/stability/ferrari-sigmund-2025')).toEqual(['en', 'es', 'pt']);
-  expect(researchLocales('/research/benchmarks/lee-frame-1968')).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr']);
+  expect(researchLocales('/research/stability/ferrari-sigmund-2025')).toEqual(['en', 'es', 'pt', 'hu']);
+  expect(researchLocales('/research/benchmarks/lee-frame-1968')).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']);
   expect(publishedLocale('/research/benchmarks/shell-obstacle-course', 'es')).toBe('en');
   expect(publishedLocale('/research/stability/ferrari-sigmund-2025', 'de')).toBe('en');
   expect(publishedLocale('/research/benchmarks/lee-frame-1968#edit', 'es')).toBe('es');

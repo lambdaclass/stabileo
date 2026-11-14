@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown, combinationNameShown } from '../lib/axes/case-names';
   import { modelStore, resultsStore, uiStore, verificationStore } from '../lib/store';
   import {
     openCalcReport, generateCalcReportHtml, DEFAULT_REPORT_CONTENT, RESULT_ROWS,
@@ -18,6 +19,7 @@
   import { captureProvenanceToken, provenanceForExport, provenanceLabels, ensureEngineHashes } from '../lib/store/result-provenance';
   import { reportProvenanceLines } from '../lib/export/provenance-attach';
   import type { ReportFormat } from '../lib/export/report-formats';
+  import { accountGate } from '../lib/store/account-gate.svelte';
 
   const FORMATS: ReportFormat[] = ['pdf', 'docx', 'html'];
   let format = $state<ReportFormat>('pdf');
@@ -101,7 +103,7 @@
       const combo = comboId !== null
         ? modelStore.model.combinations.find(c => c.id === comboId)
         : undefined;
-      return { kind: 'combo', comboName: combo?.name ?? `${t('results.comboFallback')} ${comboId}` };
+      return { kind: 'combo', comboName: (combo ? combinationNameShown(combo) : undefined) ?? `${t('results.comboFallback')} ${comboId}` };
     }
     const caseId = resultsStore.activeCaseId;
     const caseName = caseId !== null ? modelStore.getLoadCaseName(caseId) : undefined;
@@ -110,6 +112,7 @@
 
   async function generateReport() {
     if (busy) return;
+    if (accountGate.defer('export', generateReport)) return;
     // The tab is opened now, inside the click: one opened after the solve and the figures is
     // one the pop-up blocker refuses.
     const win = format === 'pdf' ? window.open('', '_blank') : null;
@@ -187,7 +190,7 @@
     // Build combination info
     const combinations = (uiStore.showLoadCasePicker ? modelStore.model.combinations : []).map(c => ({
       id: c.id,
-      name: c.name,
+      name: combinationNameShown(c),
       factors: c.factors.map(f => ({
         caseName: modelStore.getLoadCaseName(f.caseId) || `${t('results.caseFallback')} ${f.caseId}`,
         factor: f.factor,
@@ -218,7 +221,7 @@
       sections: [...modelStore.sections.values()],
       supports: [...modelStore.supports.values()],
       loads,
-      loadCases: modelStore.model.loadCases ?? [],
+      loadCases: (modelStore.model.loadCases ?? []).map((c) => ({ ...c, name: caseNameShown(c) })),
       combinations,
       results2D: !is3D ? (resultsStore.results ?? undefined) : undefined,
       results3D: is3D ? (resultsStore.results3D ?? undefined) : undefined,

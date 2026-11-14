@@ -4,6 +4,7 @@
 </script>
 
 <script lang="ts">
+  import { planNamesIn } from '../../lib/axes/typed-frame';
   /**
    * What the wind blows on: a closed building (Cap. 2), or one of the other structures of §2.4.3
    * and Cap. 4 (`engine/loads/wind-other.ts`), with what each one needs. The components and
@@ -33,10 +34,10 @@
       <label class="al-check"><input type="checkbox" bind:checked={config.blocked} data-testid="al-wind-blocked" /> {t('wind.other.blocked')}</label>
     </div>
     <div class="al-row">
-      <label class="al-field al-field-narrow"><span class="al-label">{t('wind.other.areaX')}</span>
+      <label class="al-field al-field-narrow"><span class="al-label">{planNamesIn(t('wind.other.areaX'))}</span>
         <QuantityInput bind:value={config.areaX} quantity="planArea" min={0} placeholder={t('wind.other.envelope')} testid="al-wind-area-x" wrap="al-unit-field" />
       </label>
-      <label class="al-field al-field-narrow"><span class="al-label">{t('wind.other.areaY')}</span>
+      <label class="al-field al-field-narrow"><span class="al-label">{planNamesIn(t('wind.other.areaY'))}</span>
         <QuantityInput bind:value={config.areaY} quantity="planArea" min={0} placeholder={t('wind.other.envelope')} testid="al-wind-area-y" wrap="al-unit-field" />
       </label>
     </div>

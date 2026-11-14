@@ -21,6 +21,7 @@
     "pt": "Momentos cancelados por etapas em subespaços de rotação livre",
     "de": "Aufgehobene Bauphasenmomente in freien Drehräumen",
     "fr": "Moments annulés par phases dans les sous-espaces de rotation libre",
+    "hu": "Kioltott fázisnyomatékok a szabad forgási alterekben",
     "tr": "Serbest dönme alt uzaylarında iptal edilen aşamalı momentler"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "pt": "O cancelamento de momentos por etapas contempla rotações livres oblíquas após remover membros, preserva incrementos com apoio e recusa momentos restantes sem apoio. Recalcule os históricos afetados (PR #1943).",
     "de": "Die Momentenaufhebung in Bauphasen berücksichtigt schräge freie Drehungen nach Stabentfernung, erhält gestützte Lastzuwächse und lehnt verbleibende ungestützte Momente ab. Betroffene Verläufe neu berechnen (PR #1943).",
     "fr": "L’annulation des moments par phases traite les rotations libres obliques après retrait de barres, préserve les incréments avec appui et refuse les moments restants sans appui. Recalculer les historiques concernés (PR #1943).",
+    "hu": "A fázisnyomatékok kioltásának vizsgálata elemeltávolítás után kezeli a ferde szabad forgásokat, megőrzi a megtámasztott növekményeket, és elutasítja a fennmaradó, megtámasztatlan nyomatékokat. Futtassa újra az érintett fázistörténeteket (PR #1943).",
     "tr": "Aşamalı moment iptali eleman kaldırıldıktan sonraki eğik serbest dönmeleri işler, desteklenen artımları korur ve kalan desteksiz momentleri reddeder. Etkilenen aşama geçmişlerini yeniden çözün (PR #1943)."
   },
   "changelog": {

@@ -36,6 +36,7 @@
  *
  * Pure: no store.
  */
+import { snowRoofSteps, snowRoofSurfaces } from './snow-roof-surfaces';
 import { widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
 import { msg, round, type EngineMessage } from '../../codes/message';
@@ -51,7 +52,7 @@ export interface SnowSurchargeLoad {
  * A surcharge band along a line, into the lower roof: `p(d)` at distance d from the line, only
  * on the lower roof's panels `on`.
  */
-interface Band { p0: P2; u: P2; len: number; n: P2; z: number; on: P2[][]; p: (d: number) => number }
+interface Band { p0: P2; u: P2; len: number; n: P2; on: number[]; p: (d: number, t: number) => number }
 
 const dot = (a: P2, b: P2) => a[0] * b[0] + a[1] * b[1];
 const sub = (a: P2, b: P2): P2 => [a[0] - b[0], a[1] - b[1]];
@@ -101,22 +102,20 @@ function joined(A: P2[], B: P2[]): boolean {
 }
 
 /** The value of the bands at a plan point of level z. */
-function surcharge(bands: Band[], pt: P2, z: number): number {
+function surcharge(bands: Band[], pt: P2, on: (panel: number) => boolean): number {
   let s = 0;
   for (const b of bands) {
-    if (Math.abs(b.z - z) > 0.05) continue;
     const r = sub(pt, b.p0), t = dot(r, b.u), d = dot(r, b.n);
     if (t < -1e-6 || t > b.len + 1e-6 || d < -1e-6) continue;
-    if (!b.on.some((poly) => within(pt, poly))) continue;
-    s += b.p(d);
+    if (!b.on.some(on)) continue;
+    s += b.p(d, t);
   }
   return s;
 }
 
 export interface DriftInputs {
   pg: number;
-  /** Balanced snow on the roofs (p_s), kN/m², and the flat-roof load p_f. */
-  balanced: number;
+  balanced: (panel: number, point: P2) => number;
   pf: number;
   slippery: boolean;
   tributaryWidth: number;
@@ -132,6 +131,7 @@ export interface DriftInputs {
 export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout, i: DriftInputs): {
   distributed: SnowSurchargeLoad[]; derivation: EngineMessage[]; refs: ClauseRef[];
 } {
+  const surfaces = snowRoofSurfaces(model, layout);
   const bands: Band[] = [];
   const derivation: EngineMessage[] = [];
   const refs: ClauseRef[] = [];
@@ -151,35 +151,33 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
   };
 
   // ── Steps (Cap. 7.1) ──
-  for (const L of roofs) for (const U of roofs) {
-    if (U.z <= L.z + 0.1) continue;
-    for (let e = 0; e < L.polygon.length; e++) {
-      const a = L.polygon[e]!, b = L.polygon[(e + 1) % L.polygon.length]!;
-      const line = lineInto(a, b, L.polygon);
-      // The part of this side that a side of U runs along.
-      let t0 = Infinity, t1 = -Infinity;
-      for (let f = 0; f < U.polygon.length; f++) {
-        const c = U.polygon[f]!, d = U.polygon[(f + 1) % U.polygon.length]!;
-        if (Math.abs(dot(sub(c, a), line.n)) > 0.01 || Math.abs(dot(sub(d, a), line.n)) > 0.01) continue;
-        const tc = dot(sub(c, a), line.u), td = dot(sub(d, a), line.u);
-        const lo = Math.max(0, Math.min(tc, td)), hi = Math.min(line.len, Math.max(tc, td));
-        if (hi - lo > 0.1) { t0 = Math.min(t0, lo); t1 = Math.max(t1, hi); }
-      }
-      if (!(t1 > t0)) continue;
-      const lower = roofOf(L.k);
-      const reach = (group: typeof roofs, sign: number) => Math.max(0, ...group.flatMap((p) => p.polygon.map((v) => sign * dot(sub(v, a), line.n))));
-      const dr: StepDrift = stepDrift({
-        pg: i.pg, balanced: i.balanced, stepHeight: U.z - L.z, luUpper: reach(roofOf(U.k), -1), luLower: reach(lower, 1),
-      });
-      derivation.push(msg(dr.applies ? 'snow.derivation.drift' : 'snow.derivation.noDrift', {
-        z: round(L.z, 2), up: round(U.z, 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
-        lee: round(dr.hdLeeward, 3), wind: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
-      }));
-      if (!dr.applies) continue;
-      if (refs.length === 0) refs.push(REF_DRIFT, REF_FIG9);
-      bands.push({ p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: t1 - t0, n: line.n, z: L.z,
-        on: lower.map((p) => p.polygon), p: (d) => (d <= dr.w ? dr.pd * (1 - d / dr.w) : 0) });
-    }
+  for (const step of snowRoofSteps(model, layout)) {
+    const L = roofs.find(p => p.k === step.lower)!, U = roofs.find(p => p.k === step.upper)!;
+    const { a, b } = step;
+    const line = lineInto(a, b, L.polygon);
+    const t0 = 0, t1 = line.len;
+    const lower = roofOf(L.k);
+    const reach = (group: typeof roofs, sign: number) => Math.max(0, ...group.flatMap((p) => p.polygon.map((v) => sign * dot(sub(v, a), line.n))));
+    const atStep = (t: number): P2 => [a[0] + line.u[0] * (t0 + t), a[1] + line.u[1] * (t0 + t)];
+    const luUpper = reach(roofOf(U.k), -1), luLower = reach(lower, 1);
+    const local = (t: number): StepDrift => {
+      const pt = atStep(t);
+      const stepHeight = surfaces(U.k).elevation(pt) - surfaces(L.k).elevation(pt);
+      return stepDrift({ pg: i.pg, balanced: i.balanced(L.k, pt), stepHeight,
+        luUpper, luLower });
+    };
+    const samples = [0, (t1 - t0) / 2, t1 - t0].map(t => ({ t, dr: local(t) }));
+
+    for (const { t, dr } of samples) derivation.push(msg(dr.applies ? 'snow.derivation.drift' : 'snow.derivation.noDrift', {
+      z: round(surfaces(L.k).elevation(atStep(t)), 2), up: round(surfaces(U.k).elevation(atStep(t)), 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
+      lee: round(dr.hdLeeward, 3), wind: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
+    }));
+    if (refs.length === 0) refs.push(REF_DRIFT, REF_FIG9);
+    bands.push({ p0: atStep(0), u: line.u, len: t1 - t0, n: line.n,
+      on: lower.map(p => p.k), p: (d, t) => {
+        const dr = local(t);
+        return dr.applies && d <= dr.w ? dr.pd * (1 - d / dr.w) : 0;
+      } });
   }
 
   // ── Exterior edges: parapets (Cap. 8) and separate structures (§7.2) ──
@@ -203,14 +201,20 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         // The roof's length from this edge into it, for l_u.
         const lower = roofOf(L.k);
         const lu = Math.max(0, ...lower.flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
-        const band = (dr: StepDrift) => bands.push({ p0: a, u: line.u, len: line.len, n: line.n, z: L.z, on: lower.map((p) => p.polygon), p: (d) => (d <= dr.w ? dr.pd * (1 - d / dr.w) : 0) });
+        const point = (t: number): P2 => [a[0] + t * line.u[0], a[1] + t * line.u[1]];
+        const band = (local: (pt: P2) => StepDrift) => bands.push({ p0: a, u: line.u, len: line.len, n: line.n, on: lower.map((p) => p.k), p: (d, t) => {
+          const dr = local(point(t));
+          return dr.applies && d <= dr.w ? dr.pd * (1 - d / dr.w) : 0;
+        } });
         if (i.parapet && i.parapet.height > 0) {
-          const dr = parapetDrift({ pg: i.pg, balanced: i.balanced, parapetHeight: i.parapet.height, lu });
+          const local = (pt: P2) => parapetDrift({ pg: i.pg, balanced: i.balanced(L.k, pt), parapetHeight: i.parapet!.height, lu });
+          const dr = local(a);
           derivation.push(msg(dr.applies ? 'snow.derivation.parapet' : 'snow.derivation.noParapet', {
             z: round(L.z, 2), hp: round(i.parapet.height, 2), lu: round(lu, 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
             hd: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
           }));
-          if (dr.applies) { band(dr); if (!refs.includes(REF_PARAPET)) refs.push(REF_PARAPET, REF_FIG9); }
+          band(local);
+          if (dr.applies && !refs.includes(REF_PARAPET)) refs.push(REF_PARAPET, REF_FIG9);
         }
         for (const adj of i.adjacent ?? []) {
           // The edge faces the side the structure stands on, and nothing of the model is beyond it.
@@ -222,12 +226,14 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
             return Math.max(...o) > 0.05 && Math.max(...t) > 0.05 && Math.min(...t) < line.len - 0.05;
           });
           if (beyond || adj.topZ <= L.z + 0.1) continue;
-          const dr = stepDrift({ pg: i.pg, balanced: i.balanced, stepHeight: adj.topZ - L.z, luUpper: adj.length, luLower: lu, separation: adj.separation });
+          const local = (pt: P2) => stepDrift({ pg: i.pg, balanced: i.balanced(L.k, pt), stepHeight: adj.topZ - surfaces(L.k).elevation(pt), luUpper: adj.length, luLower: lu, separation: adj.separation });
+          const dr = local(a);
           derivation.push(msg(dr.applies ? 'snow.derivation.adjacent' : 'snow.derivation.noAdjacent', {
             z: round(L.z, 2), side: adj.side.toUpperCase(), top: round(adj.topZ, 2), s: round(adj.separation, 2),
             hb: round(dr.hb, 3), hc: round(dr.hc, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
           }));
-          if (dr.applies) { band(dr); if (!refs.includes(REF_DRIFT_ADJACENT)) refs.push(REF_DRIFT_ADJACENT, REF_FIG9); }
+          band(local);
+          if (dr.applies && !refs.includes(REF_DRIFT_ADJACENT)) refs.push(REF_DRIFT_ADJACENT, REF_FIG9);
         }
       }
     }
@@ -240,21 +246,34 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       const a = L.polygon[e]!, b = L.polygon[(e + 1) % L.polygon.length]!;
       const line = lineInto(a, b, L.polygon);
       const eave: number[] = [];
+      const eaveLevels: Array<{ t: number; z: number; id: number }> = [];
       let slopeSum = 0;
       for (const m of sloped) {
         const el = model.elements.get(m.elementId)!;
         const nI = model.nodes.get(el.nodeI)!, nJ = model.nodes.get(el.nodeJ)!;
         const [low, high] = (nI.z ?? 0) <= (nJ.z ?? 0) ? [nI, nJ] : [nJ, nI];
-        if ((low.z ?? 0) <= L.z + 0.1 || !nearSeg([low.x, low.y], a, b, 0.01)) continue;
+        if ((low.z ?? 0) <= surfaces(L.k).elevation([low.x, low.y]) + 0.1 || !nearSeg([low.x, low.y], a, b, 0.01)) continue;
         // The member climbs away from the lower roof.
         if (dot(sub([high.x, high.y], [low.x, low.y]), line.n) >= 0) continue;
         eave.push(dot(sub([low.x, low.y], a), line.u));
+        eaveLevels.push({ t: eave[eave.length - 1]!, z: low.z ?? 0, id: m.elementId });
         slopeSum += (((high.z ?? 0) - (low.z ?? 0)) / Math.max(m.horizontalLength, 1e-9)) * 100;
       }
       if (eave.length === 0) continue;
       const t0 = Math.max(0, Math.min(...eave)), t1 = Math.min(line.len, Math.max(...eave));
       // W: from the eave to the highest nodes of the sloped roof behind it, within the eave's reach.
-      const behind = sloped.flatMap((m) => {
+      const connected = new Set(eaveLevels.map(e => e.id));
+      const nodes = new Set([...connected].flatMap(id => { const el = model.elements.get(id)!; return [el.nodeI, el.nodeJ]; }));
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const m of sloped) {
+          const el = model.elements.get(m.elementId)!;
+          if (connected.has(m.elementId) || (!nodes.has(el.nodeI) && !nodes.has(el.nodeJ))) continue;
+          connected.add(m.elementId); nodes.add(el.nodeI); nodes.add(el.nodeJ); changed = true;
+        }
+      }
+      const behind = sloped.filter(m => connected.has(m.elementId)).flatMap((m) => {
         const el = model.elements.get(m.elementId)!;
         return [model.nodes.get(el.nodeI)!, model.nodes.get(el.nodeJ)!];
       }).filter((n) => { const t = dot(sub([n.x, n.y], a), line.u); return t >= t0 - 0.5 && t <= t1 + 0.5 && dot(sub([n.x, n.y], a), line.n) <= 0; });
@@ -266,9 +285,17 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         z: round(L.z, 2), W: round(W, 2), slope: round(slopeSum / eave.length, 1), perMetre: round(sl.perMetre, 3), p: round(sl.intensity, 3),
       }));
       if (!sl.applies) continue;
+      const sorted = [...eaveLevels].sort((a, b) => a.t - b.t);
       if (!refs.includes(REF_SLIDING)) refs.push(REF_SLIDING);
-      bands.push({ p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: Math.max(t1 - t0, 0.01), n: line.n, z: L.z,
-        on: roofOf(L.k).map((p) => p.polygon), p: (d) => (d <= 4.5 ? sl.intensity : 0) });
+      bands.push({ p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: Math.max(t1 - t0, 0.01), n: line.n,
+        on: roofOf(L.k).map((p) => p.k), p: (d, t) => {
+          const along = t + t0;
+          const left = sorted.filter(e => e.t <= along).at(-1) ?? sorted[0]!;
+          const right = sorted.find(e => e.t >= along) ?? sorted[sorted.length - 1]!;
+          const z = left.z + (right.z - left.z) * (right.t > left.t ? (along - left.t) / (right.t - left.t) : 0);
+          const pt: P2 = [a[0] + along * line.u[0], a[1] + along * line.u[1]];
+          return d <= 4.5 && z > surfaces(L.k).elevation(pt) + 0.1 ? sl.intensity : 0;
+        } });
     }
   }
   if (bands.length === 0) return { distributed: [], derivation, refs };
@@ -279,7 +306,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     const el = model.elements.get(id)!;
     const a = model.nodes.get(el.nodeI)!, b = model.nodes.get(el.nodeJ)!;
     const L = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
-    return { a, b, L, z: ((a.z ?? 0) + (b.z ?? 0)) / 2, pt: (x: number): P2 => [a.x + ((b.x - a.x) * x) / L, a.y + ((b.y - a.y) * x) / L] };
+    return { a, b, L, zAt: (x: number) => (a.z ?? 0) + ((b.z ?? 0) - (a.z ?? 0)) * x / L, pt: (x: number): P2 => [a.x + ((b.x - a.x) * x) / L, a.y + ((b.y - a.y) * x) / L] };
   };
   for (const p of layout.pieces) {
     if (!p.roof) continue;
@@ -297,7 +324,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       let sum = 0;
       for (let k = 0; k <= 8; k++) {
         const f = (dep * k) / 8;
-        sum += (k === 0 || k === 8 ? 1 : k % 2 ? 4 : 2) * surcharge(bands, [s[0] + inward[0] * f, s[1] + inward[1] * f], m.z);
+        sum += (k === 0 || k === 8 ? 1 : k % 2 ? 4 : 2) * surcharge(bands, [s[0] + inward[0] * f, s[1] + inward[1] * f], panel => panel === p.panel && within([s[0] + inward[0] * f, s[1] + inward[1] * f], layout.panels[panel]!.polygon));
       }
       return (sum / 24) * dep;
     };
@@ -315,7 +342,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       const cuts = [s.t0, ...[1, 2, 3].map((k) => k / 4).filter((t) => t > s.t0 && t < s.t1), s.t1];
       for (let k = 0; k + 1 < cuts.length; k++) {
         const xa = m.L * cuts[k]!, xb = m.L * cuts[k + 1]!;
-        const qa = surcharge(bands, m.pt(xa), m.z) * s.width, qb = surcharge(bands, m.pt(xb), m.z) * s.width;
+        const qa = surcharge(bands, m.pt(xa), panel => within(m.pt(xa), layout.panels[panel]!.polygon) && Math.abs(surfaces(panel).elevation(m.pt(xa)) - m.zAt(xa)) <= 0.05) * s.width, qb = surcharge(bands, m.pt(xb), panel => within(m.pt(xb), layout.panels[panel]!.polygon) && Math.abs(surfaces(panel).elevation(m.pt(xb)) - m.zAt(xb)) <= 0.05) * s.width;
         if (qa < 1e-6 && qb < 1e-6) continue;
         out.push({ elementId: w.elementId, q: -qa, qJ: -qb, a: xa, b: xb, frame: 'projected' });
       }

@@ -12,6 +12,9 @@
   import type { Underlay } from '../../../lib/model/underlay';
   import type { Level } from '../../../lib/model/grid';
   import UnderlayConvertDialog from './UnderlayConvertDialog.svelte';
+  import { along, axisName } from '../../../lib/axes/display';
+  import { axesStore } from '../../../lib/axes/axes.svelte';
+  import { planNamesIn } from '../../../lib/axes/typed-frame';
 
   let { u, levels }: { u: Underlay; levels: Level[] } = $props();
   let open = $state(false);
@@ -22,10 +25,13 @@
   const edit = (patch: Partial<Underlay>) => { if (!editUnderlay(u.id, patch)) message = t('underlay.lockedRefused'); };
   const atLevel = (id: string) => { const lv = levels.find((l) => l.id === id); if (lv) edit({ levelId: lv.id, z: lv.z }); };
   const num = (s: string) => Number(s.trim().replace(',', '.'));
+  const s0 = $derived(along(0).sign), s1 = $derived(along(1).sign);
+  const turn = $derived(axesStore.frame.det * along(2).sign);
+  const h0 = $derived(axisName(0).toLowerCase()), h1 = $derived(axisName(1).toLowerCase());
   function align() {
     // The pairs filled in, in drawing metres → model metres.
     const used = pairs.filter((p) => [p.fx, p.fy, p.tx, p.ty].every((v) => v.trim() !== '' && Number.isFinite(num(v))))
-      .map((p) => ({ from: { x: num(p.fx), y: num(p.fy) }, to: { x: num(p.tx), y: num(p.ty) } }));
+      .map((p) => ({ from: { x: num(p.fx), y: num(p.fy) }, to: { x: s0 * num(p.tx), y: s1 * num(p.ty) } }));
     if (!used.length) return;
     const r = alignByPoints(u, used);
     edit({ dx: r.dx, dy: r.dy, rotationDeg: r.rotationDeg });
@@ -48,7 +54,7 @@
   <td><button class="ul-link" onclick={() => (open = !open)} aria-expanded={open} data-testid="underlay-open-{u.name}">{open ? '▾' : '▸'} {u.name}</button></td>
   <td>
     <select value={u.levelId ?? ''} disabled={u.locked} onchange={(e) => atLevel(e.currentTarget.value)}>
-      {#if !u.levelId}<option value="">z = {u.z}</option>{/if}
+      {#if !u.levelId}<option value="">{axisName(2).toLowerCase()} = {along(2).sign * u.z}</option>{/if}
       {#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
     </select>
   </td>
@@ -61,13 +67,13 @@
     <p class="pk-hint" data-testid="underlay-summary-{u.name}">{tp('underlay.summary', {
       file: u.source ?? u.name, unit: u.unit ?? 'm',
       region: u.region ? `x ${f2(u.region.minX)}–${f2(u.region.maxX)}, y ${f2(u.region.minY)}–${f2(u.region.maxY)} m` : t('underlay.wholeDrawing'),
-      ref: u.ref ? `(${f2(u.ref.x)}; ${f2(u.ref.y)})` : '(0; 0)', dx: f2(u.dx), dy: f2(u.dy), rot: u.rotationDeg.toFixed(1),
+      ref: u.ref ? `(${f2(u.ref.x)}; ${f2(u.ref.y)})` : '(0; 0)', dx: f2(s0 * u.dx), dy: f2(s1 * u.dy), rot: (turn * u.rotationDeg).toFixed(1),
     })}</p>
     {#if u.leftOut}<p class="pk-hint">{tp('underlay.leftOut', { list: Object.entries(u.leftOut).map(([k, n]) => `${k} ${n}`).join(', ') })}</p>{/if}
     <div class="pk-row">
-      <label class="ul-inline">dx <input class="ul-num" type="number" step="0.01" value={u.dx} disabled={u.locked} onchange={(e) => edit({ dx: Number(e.currentTarget.value) || 0 })} /></label>
-      <label class="ul-inline">dy <input class="ul-num" type="number" step="0.01" value={u.dy} disabled={u.locked} onchange={(e) => edit({ dy: Number(e.currentTarget.value) || 0 })} /></label>
-      <label class="ul-inline">° <input class="ul-num" type="number" step="1" value={u.rotationDeg} disabled={u.locked} onchange={(e) => edit({ rotationDeg: Number(e.currentTarget.value) || 0 })} /></label>
+      <label class="ul-inline">d{h0} <input class="ul-num" type="number" step="0.01" value={s0 * u.dx} disabled={u.locked} onchange={(e) => edit({ dx: s0 * (Number(e.currentTarget.value) || 0) })} /></label>
+      <label class="ul-inline">d{h1} <input class="ul-num" type="number" step="0.01" value={s1 * u.dy} disabled={u.locked} onchange={(e) => edit({ dy: s1 * (Number(e.currentTarget.value) || 0) })} /></label>
+      <label class="ul-inline">° <input class="ul-num" type="number" step="1" value={turn * u.rotationDeg} disabled={u.locked} onchange={(e) => edit({ rotationDeg: turn * (Number(e.currentTarget.value) || 0) })} /></label>
     </div>
     <details class="ul-align">
       <summary>{t('underlay.alignTitle')}</summary>
@@ -78,8 +84,8 @@
           <input class="ul-num" placeholder="x" bind:value={pairs[k]!.fx} aria-label={t('underlay.drawingX')} />
           <input class="ul-num" placeholder="y" bind:value={pairs[k]!.fy} aria-label={t('underlay.drawingY')} />
           <span>→</span>
-          <input class="ul-num" placeholder="X" bind:value={pairs[k]!.tx} aria-label={t('underlay.modelX')} />
-          <input class="ul-num" placeholder="Y" bind:value={pairs[k]!.ty} aria-label={t('underlay.modelY')} />
+          <input class="ul-num" placeholder={axisName(0)} bind:value={pairs[k]!.tx} aria-label={planNamesIn(t('underlay.modelX'))} />
+          <input class="ul-num" placeholder={axisName(1)} bind:value={pairs[k]!.ty} aria-label={planNamesIn(t('underlay.modelY'))} />
         </div>
       {/each}
       <button class="pk-btn" disabled={u.locked} onclick={align} data-testid="underlay-align-{u.name}">{t('underlay.align')}</button>
@@ -103,7 +109,7 @@
     <div class="pk-row">
       <label class="pk-btn ul-file" class:disabled={u.locked}>
         {t('underlay.replace')}
-        <input type="file" accept=".dxf" disabled={u.locked} onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) void replace(f); e.currentTarget.value = ''; }} />
+        <input type="file" accept=".dxf" disabled={u.locked} onchange={(e) => { const input = e.currentTarget as HTMLInputElement; const f = input.files?.[0]; if (f) void replace(f); input.value = ''; }} />
       </label>
       <button class="pk-btn" disabled={!u.shapes?.length} onclick={() => (convertOpen = true)} data-testid="underlay-convert-{u.name}">{t('underlay.convert')}…</button>
     </div>

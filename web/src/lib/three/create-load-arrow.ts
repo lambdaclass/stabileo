@@ -8,10 +8,19 @@ import {
   GRAVITY_VECTOR_3D, UP_VECTOR,
   THREEJS_CYLINDER_AXIS,
 } from '../geometry/coordinate-system';
+import { along, userRot, userVec } from '../axes/display';
 
 const ARROW_SCALE_MAX = 2.5;
 const ARROW_HEAD_LENGTH = 0.12;
 const ARROW_HEAD_WIDTH = 0.05;
+
+function shownComponent(k: 0 | 1 | 2, val: number, moment: boolean): { name: string; val: number } {
+  const m: [number, number, number] = [0, 0, 0];
+  m[k] = val;
+  const u = moment ? userRot(m[0], m[1], m[2]) : userVec(m[0], m[1], m[2]);
+  const name = along(k).name;
+  return { name, val: u['XYZ'.indexOf(name)] };
+}
 
 /** Arrow length linearly proportional to magnitude: 3kN is 3/10 of max, 5kN is 5/10 */
 function arrowLength(magnitude: number, maxMag: number): number {
@@ -88,9 +97,9 @@ export function createNodalLoadArrow(
 
   // Force arrows — directions match global axes (Z-up)
   const forces = [
-    { val: fx, dir: GLOBAL_X.clone(), label: 'Fx' },
-    { val: fy, dir: GLOBAL_Y.clone(), label: 'Fy' },
-    { val: fz, dir: GLOBAL_Z.clone(), label: 'Fz' },
+    { val: fx, dir: GLOBAL_X.clone(), k: 0 as const },
+    { val: fy, dir: GLOBAL_Y.clone(), k: 1 as const },
+    { val: fz, dir: GLOBAL_Z.clone(), k: 2 as const },
   ];
 
   for (const f of forces) {
@@ -108,16 +117,16 @@ export function createNodalLoadArrow(
     group.add(arrow);
 
     // Label at the far end of the arrow (away from node)
-    const label = createTextSprite(fixedQuantity(f.val, 'force', 1, canvasUnitSystem()), labelHex, 28);
+    const label = createTextSprite(fixedQuantity(shownComponent(f.k, f.val, false).val, 'force', 1, canvasUnitSystem()), labelHex, 28);
     label.position.copy(farEnd).sub(dir.clone().multiplyScalar(0.15));
     group.add(label);
   }
 
   // Moment indicators — axes match global axes (Z-up)
   const moments = [
-    { val: mx, axis: GLOBAL_X.clone(), label: 'Mx' },
-    { val: my, axis: GLOBAL_Y.clone(), label: 'My' },
-    { val: mz, axis: GLOBAL_Z.clone(), label: 'Mz' },
+    { val: mx, axis: GLOBAL_X.clone(), k: 0 as const },
+    { val: my, axis: GLOBAL_Y.clone(), k: 1 as const },
+    { val: mz, axis: GLOBAL_Z.clone(), k: 2 as const },
   ];
 
   for (const m of moments) {
@@ -179,7 +188,7 @@ export function createNodalLoadArrow(
       group.add(coneMesh);
     }
 
-    const label = createTextSprite(fixedQuantity(m.val, 'moment', 1, canvasUnitSystem()), '#ffaa44', 24);
+    const label = createTextSprite(fixedQuantity(shownComponent(m.k, m.val, true).val, 'moment', 1, canvasUnitSystem()), '#ffaa44', 24);
     label.position.copy(origin).add(m.axis.clone().multiplyScalar(0.35));
     group.add(label);
   }
@@ -384,9 +393,9 @@ export function createReactionArrow(
   const origin = new THREE.Vector3(pos.x, pos.y, pos.z);
 
   const forces = [
-    { val: fx, dir: GLOBAL_X.clone() },
-    { val: fy, dir: GLOBAL_Y.clone() },
-    { val: fz, dir: GLOBAL_Z.clone() },
+    { val: fx, dir: GLOBAL_X.clone(), k: 0 as const },
+    { val: fy, dir: GLOBAL_Y.clone(), k: 1 as const },
+    { val: fz, dir: GLOBAL_Z.clone(), k: 2 as const },
   ];
 
   for (const f of forces) {
@@ -405,21 +414,22 @@ export function createReactionArrow(
     group.add(arrow);
 
     // Label at the far end of the arrow (away from node)
-    const label = createTextSprite(fixedQuantity(f.val, 'force', 2, canvasUnitSystem()), '#44ff88', 24);
+    const label = createTextSprite(fixedQuantity(shownComponent(f.k, f.val, false).val, 'force', 2, canvasUnitSystem()), '#44ff88', 24);
     label.position.copy(farEnd).sub(dir.clone().multiplyScalar(0.2));
     group.add(label);
   }
 
   // Moment reactions (simplified labels)
   const moments = [
-    { val: mx, axis: GLOBAL_X.clone(), name: 'Mx' },
-    { val: my, axis: GLOBAL_Y.clone(), name: 'My' },
-    { val: mz, axis: GLOBAL_Z.clone(), name: 'Mz' },
+    { val: mx, axis: GLOBAL_X.clone(), k: 0 as const },
+    { val: my, axis: GLOBAL_Y.clone(), k: 1 as const },
+    { val: mz, axis: GLOBAL_Z.clone(), k: 2 as const },
   ];
 
   for (const m of moments) {
     if (Math.abs(m.val) < 1e-10) continue;
-    const label = createTextSprite(`${m.name}=${fixedQuantity(m.val, 'moment', 2, canvasUnitSystem())}`, '#ffaa44', 22);
+    const shown = shownComponent(m.k, m.val, true);
+    const label = createTextSprite(`M${shown.name.toLowerCase()}=${fixedQuantity(shown.val, 'moment', 2, canvasUnitSystem())}`, '#ffaa44', 22);
     label.position.copy(origin).add(m.axis.clone().multiplyScalar(0.5));
     group.add(label);
   }
@@ -454,8 +464,8 @@ export function createConstraintForceArrow(
 
   if (isRotational) {
     // Moment-type constraint force — show as label only (like reaction moments)
-    const axisName = dof.toUpperCase().replace('R', 'M'); // rx -> MX, my -> MY
-    const label = createTextSprite(`${axisName}=${fixedQuantity(force, 'moment', 2, canvasUnitSystem())}`, '#f0a500', 22);
+    const shown = shownComponent('xyz'.indexOf(dof[1]) as 0 | 1 | 2, force, true);
+    const label = createTextSprite(`M${shown.name}=${fixedQuantity(shown.val, 'moment', 2, canvasUnitSystem())}`, '#f0a500', 22);
     label.position.copy(origin).add(baseDir.clone().multiplyScalar(0.5));
     group.add(label);
   } else {
@@ -473,7 +483,7 @@ export function createConstraintForceArrow(
     group.add(arrow);
 
     // Label at the far end of the arrow
-    const label = createTextSprite(fixedQuantity(force, 'force', 2, canvasUnitSystem()), '#f0a500', 24);
+    const label = createTextSprite(fixedQuantity(shownComponent('xyz'.indexOf(dof[1]) as 0 | 1 | 2, force, false).val, 'force', 2, canvasUnitSystem()), '#f0a500', 24);
     label.position.copy(farEnd).sub(dir.clone().multiplyScalar(0.2));
     group.add(label);
   }

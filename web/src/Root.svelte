@@ -19,6 +19,7 @@
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { publicI18n, setLocale, ensureLocale, ensurePublicLocale, i18n } from './lib/i18n/store.svelte';
   import { routeKind } from './lib/public-route';
+  import { restoreMovedRoute } from './lib/legacy-routes';
   import { modeToPath } from './lib/app-mode';
 
   function adoptLocaleFromPath() {
@@ -34,7 +35,7 @@
   let app = $state<typeof import('./App.svelte').default | null>(null);
   let loading: Promise<void> | null = null;
 
-  let pages = $state<Partial<Record<'research' | 'tools' | 'examples' | 'paper' | 'blog' | 'landing', import('svelte').Component<{ path: string }>>>>({});
+  let pages = $state<Partial<Record<'research' | 'tools' | 'game' | 'paper' | 'blog' | 'register' | 'landing', import('svelte').Component<{ path: string }>>>>({});
   let revision = 0;
   let failed = $state(false);
   $effect(() => { if (current.kind !== 'landing') return idlePrefetchPublicPages(); });
@@ -54,6 +55,7 @@
 
   async function sync() {
     const token = ++revision;
+    restoreMovedRoute();
     const next = routeKind();
     const hash = location.hash;
     try {
@@ -61,7 +63,7 @@
       const [page] = await Promise.all([loadPublicPage(location.href), ensurePublicLocale(parsePublicPath(location.pathname).locale ?? publicI18n.locale).catch((err) => { if (token > 1) throw err; })]);
       if (token !== revision) return;
       failed = false;
-      if (page && (next.kind === 'research' || next.kind === 'tools' || next.kind === 'examples' || next.kind === 'paper' || next.kind === 'blog' || next.kind === 'landing')) pages[next.kind] = page;
+      if (page && next.kind !== 'app') pages[next.kind] = page;
       adoptLocaleFromPath();
       current = next;
       await tick();
@@ -112,14 +114,14 @@
   });
 </script>
 
-{#if !app && current.kind !== 'app'}
+{#if !app && current.kind !== 'app' && current.kind !== 'register'}
   <SiteHeader path={current.path} />
 {/if}
 
 {#if app}
   {@const App = app}
   <App />
-{:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'examples' || current.kind === 'paper' || current.kind === 'blog'}
+{:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'game' || current.kind === 'paper' || current.kind === 'blog' || current.kind === 'register'}
   {@const Page = pages[current.kind]}
   {#if Page}<Page path={current.path} />{:else}<PublicPending kind={current.kind} {failed} />{/if}
 {:else if current.kind === 'landing' && pages.landing}

@@ -79,7 +79,11 @@ export function physicalSection(g: { members: { elements?: number[] } }): number
 }
 
 /** The thickness all of an element's shells share, or null. */
-export function physicalThickness(g: { members: { quads?: number[]; plates?: number[] } }): number | null {
+export function physicalThickness(g: { id?: number; members: { quads?: number[]; plates?: number[] }; data?: unknown }): number | null {
+  // A plate keeps its own thickness, which its shells carry and an unmeshed plate has no shells for.
+  const live = g.id !== undefined ? modelStore.model.groups.get(g.id) ?? g : g;
+  const own = (live.data as { surface?: { thickness?: number } } | undefined)?.surface?.thickness;
+  if (own !== undefined) return own;
   const ts = new Set([
     ...(g.members.quads ?? []).map((id) => modelStore.quads.get(id)?.thickness),
     ...(g.members.plates ?? []).map((id) => modelStore.plates.get(id)?.thickness),

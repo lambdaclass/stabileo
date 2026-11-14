@@ -322,6 +322,8 @@ for (const mode of ['basic', 'pro']) test(`@smoke research navigation preserves 
     const position = app.__stabileo.nodePos(id)!;
     app.__stabileoActions.moveNode(id, position.x + 0.25, position.y, position.z);
     app.__stabileoActions.selectNodes([id]);
+    // PRO reads the physical model off each edit in an effect: the snapshot is the settled one.
+    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
     return { snapshot: JSON.parse(app.__stabileo.serializeProject()).snapshot, id, position, edited: app.__stabileo.nodePos(id), undo: app.__stabileo.undoCount(), timeOrigin: performance.timeOrigin };
   });
   await page.keyboard.press('ControlOrMeta+c');

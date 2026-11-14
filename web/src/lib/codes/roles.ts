@@ -85,7 +85,7 @@ export interface RoleOption {
    */
   nameKey: string;
   /** Regulation family, for the compatibility rules. */
-  family: 'cirsoc' | 'eurocode' | 'aci-aisc' | 'other';
+  family: 'cirsoc' | 'eurocode' | 'aci-aisc' | 'turkey' | 'other';
   maturity: Maturity;
   /**
    * Whether this option can be applied to a project at all.
@@ -168,8 +168,7 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
   {
     adapterId: 'en1990', role: 'basis', edition: 'EN 1990:2002',
     nameKey: 'regulations.name.en1990', family: 'eurocode',
-    maturity: 'UNSUPPORTED', requiresConfig: false,
-    noteKey: 'regulations.note.notImplemented',
+    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: false,
   },
   // ── imposed / permanent loads ──
   {
@@ -188,8 +187,7 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
   {
     adapterId: 'en1991-1-1', role: 'loads', edition: 'EN 1991-1-1',
     nameKey: 'regulations.name.en1991_1_1', family: 'eurocode',
-    maturity: 'UNSUPPORTED', requiresConfig: false,
-    noteKey: 'regulations.note.notImplemented',
+    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
   },
   // ── wind ──
   {
@@ -208,8 +206,7 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
   {
     adapterId: 'en1991-1-4', role: 'wind', edition: 'EN 1991-1-4',
     nameKey: 'regulations.name.en1991_1_4', family: 'eurocode',
-    maturity: 'UNSUPPORTED', requiresConfig: false,
-    noteKey: 'regulations.note.notImplemented',
+    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
   },
   // ── snow ──
   {
@@ -233,9 +230,28 @@ export const ROLE_CATALOG: readonly RoleOption[] = Object.freeze([
   {
     adapterId: 'en1998-1', role: 'seismic', edition: 'EN 1998-1',
     nameKey: 'regulations.name.en1998_1', family: 'eurocode',
-    maturity: 'UNSUPPORTED', requiresConfig: false,
-    noteKey: 'regulations.note.notImplemented',
+    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
   },
+  // ── the load families beside CIRSOC: Eurocode (recommended values), the UK National Annexes, ASCE 7, Türkiye ──
+  {
+    adapterId: 'en1991-1-3', role: 'snow', edition: 'EN 1991-1-3',
+    nameKey: 'regulations.name.en1991_1_3', family: 'eurocode',
+    maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true,
+  },
+  { adapterId: 'en1990-uk', role: 'basis', edition: 'BS EN 1990 + UK NA', nameKey: 'regulations.name.en1990Uk', family: 'eurocode', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: false },
+  { adapterId: 'en1991-1-1-uk', role: 'loads', edition: 'BS EN 1991-1-1 + UK NA', nameKey: 'regulations.name.en1991_1_1Uk', family: 'eurocode', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true },
+  { adapterId: 'en1991-1-4-uk', role: 'wind', edition: 'BS EN 1991-1-4 + UK NA', nameKey: 'regulations.name.en1991_1_4Uk', family: 'eurocode', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true },
+  { adapterId: 'en1991-1-3-uk', role: 'snow', edition: 'BS EN 1991-1-3 + UK NA', nameKey: 'regulations.name.en1991_1_3Uk', family: 'eurocode', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true },
+  { adapterId: 'asce7-22-basis', role: 'basis', edition: 'ASCE/SEI 7-22', nameKey: 'regulations.name.asce7', family: 'aci-aisc', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: false },
+  { adapterId: 'asce7-22-loads', role: 'loads', edition: 'ASCE/SEI 7-22', nameKey: 'regulations.name.asce7', family: 'aci-aisc', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true },
+  { adapterId: 'asce7-22-wind', role: 'wind', edition: 'ASCE/SEI 7-22', nameKey: 'regulations.name.asce7Wind', family: 'aci-aisc', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true },
+  { adapterId: 'asce7-22-snow', role: 'snow', edition: 'ASCE/SEI 7-22', nameKey: 'regulations.name.asce7Snow', family: 'aci-aisc', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true },
+  { adapterId: 'asce7-22-seismic', role: 'seismic', edition: 'ASCE/SEI 7-22', nameKey: 'regulations.name.asce7Seismic', family: 'aci-aisc', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true },
+  { adapterId: 'ts500-2000-basis', role: 'basis', edition: 'TS 500:2000 + TBDY 2018', nameKey: 'regulations.name.trBasis', family: 'turkey', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: false },
+  { adapterId: 'ts498-1997-loads', role: 'loads', edition: 'TS 498:1997', nameKey: 'regulations.name.ts498', family: 'turkey', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true },
+  { adapterId: 'ts498-1997-wind', role: 'wind', edition: 'TS 498:1997', nameKey: 'regulations.name.ts498Wind', family: 'turkey', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true },
+  { adapterId: 'ts498-1997-snow', role: 'snow', edition: 'TS 498:1997', nameKey: 'regulations.name.ts498Snow', family: 'turkey', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true },
+  { adapterId: 'tbdy2018', role: 'seismic', edition: 'TBDY 2018', nameKey: 'regulations.name.tbdy2018', family: 'turkey', maturity: 'IMPLEMENTED_PROVISIONAL', requiresConfig: true },
   // ── reinforced concrete: the two editions are now DISTINCT ──
   {
     adapterId: 'cirsoc', role: 'concrete', regulation: 'cirsoc-201',

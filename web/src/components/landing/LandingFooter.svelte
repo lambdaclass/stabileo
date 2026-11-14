@@ -4,12 +4,13 @@
   import { SOCIAL_ICONS as ICONS } from '../../lib/contact/channels';
   import PublicLink from './PublicLink.svelte';
   import BrandMark from './BrandMark.svelte';
+  import { adConsent } from '../../lib/tracking/ad-consent.svelte';
 
   const year = new Date().getFullYear();
   const GROUPS: [string, string, [string, string][]][] = [
-    ['product', 'landing.navProduct', [['/examples', 'landing.navExamples'], ['/tools', 'landing.navTools'], ['/#pricing', 'landing.navPricing']]],
+    ['product', 'landing.navProduct', [['/tools', 'landing.navTools'], ['/#pricing', 'landing.navPricing']]],
     ['verification', 'landing.footVerification', [['/reliability', 'landing.footReliability'], ['/research', 'landing.navResearch'], ['/paper', 'landing.navPaper'], ['/cirsoc', ''], ['/sap2000-alternative', 'landing.footSap2000'], ['/etabs-alternative', 'landing.footEtabs']]],
-    ['project', 'landing.footProject', [['/blog', 'landing.footBlog'], ['/changelog', 'landing.footChangelog']]],
+    ['project', 'landing.footProject', [['/blog', 'landing.footBlog'], ['/changelog', 'landing.footChangelog'], ['/terms', 'landing.footTerms'], ['/privacy', 'landing.footPrivacy']]],
   ];
 </script>
 
@@ -34,6 +35,7 @@
               {#if id === 'project'}
                 <li><a href={DOCS_HUB_URL} target="_blank" rel="noreferrer">{t('landing.footDocs')}</a></li>
                 <li><a href={REPO_URL} target="_blank" rel="noreferrer">{t('landing.footRepo')}</a></li>
+                {#if adConsent.available}<li><button onclick={() => adConsent.reopen()} data-testid="footer-ad-cookies">{t('landing.footAdCookies')}</button></li>{/if}
               {/if}
             </ul>
           </div>

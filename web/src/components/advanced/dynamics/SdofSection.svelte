@@ -5,6 +5,7 @@
    * answers and their charts update as the values change, and the explained
    * document is one click away.
    */
+  import { relabelAxes } from '../../../lib/axes/user-names';
   import CourseSection from './CourseSection.svelte';
   import NumField from './NumField.svelte';
   import StepPlot from '../../steps/StepPlot.svelte';
@@ -49,8 +50,8 @@
       <label class="cf-field">
         <span>{t('course.dynamics.ui.sdof.dir')}</span>
         <select value={s.dir} onchange={(e) => courseDynamics.set({ sdof: { dir: e.currentTarget.value as 'ux' | 'uz' } })} data-testid="dyn-sdof-dir">
-          <option value="ux">{t('course.dynamics.ui.sdof.dirX')}</option>
-          <option value="uz">{t('course.dynamics.ui.sdof.dirZ')}</option>
+          <option value="ux">{relabelAxes(t('course.dynamics.ui.sdof.dirX'))}</option>
+          <option value="uz">{relabelAxes(t('course.dynamics.ui.sdof.dirZ'))}</option>
         </select>
       </label>
     </div>

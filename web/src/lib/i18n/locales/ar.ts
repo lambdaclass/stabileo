@@ -795,28 +795,6 @@ const ar: Translations = {
   'float.vShear': 'V قص',
   'float.ilHint': 'انقر على عقدة (ردود فعل) أو على عنصر (M/V داخلية)',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': 'إبلاغ / اقتراح',
-  'feedback.close': 'إغلاق',
-  'feedback.reportCreated': 'تم إنشاء التقرير #{n}',
-  'feedback.bugError': 'خلل / خطأ',
-  'feedback.suggestion': 'اقتراح',
-  'feedback.other': 'أخرى',
-  'feedback.namePlaceholder': 'اسمك أو لقبك (اختياري)',
-  'feedback.textPlaceholder': 'صف المشكلة أو الاقتراح...',
-  'feedback.linkAttached': 'سيتم إرفاق رابط لمنشأك',
-  'feedback.copy': 'نسخ',
-  'feedback.sending': 'جارٍ الإرسال...',
-  'feedback.submitReport': 'إرسال التقرير',
-  'feedback.toastCreated': 'تم إنشاء التقرير #{n} — شكراً!',
-  'feedback.toastError': 'تعذّر إرسال التقرير',
-  'feedback.toastConnectionError': 'خطأ في الاتصال — حاول مجدداً',
-  'feedback.toastEmptyText': 'اكتب وصفاً للمشكلة أو الاقتراح',
-  'feedback.toastSecurityWait': 'في انتظار التحقق الأمني...',
-  'feedback.toastLinkCopied': 'تم نسخ الرابط',
-  'feedback.reportBug': 'إبلاغ عن خلل / اقتراح',
-  'feedback.communityTelegram': 'مجتمع تيليغرام',
-  'feedback.buyCoffee': 'اشترِ لي قهوة',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': 'المقطع {id}',
@@ -2220,6 +2198,7 @@ const ar: Translations = {
   'lang.fr': 'Français',
   'lang.it': 'Italiano',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.hi': 'हिन्दी',
   'lang.zh': '中文',
   'lang.ja': '日本語',
@@ -2611,10 +2590,8 @@ const ar: Translations = {
   'pro.unknown': 'غير معروف',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} لوحة، {quads} رباعي',
   'pro.plateTriDKT': 'لوحة مثلثية (DKT)',
   'pro.quadMITC4': 'رباعي MITC4',
-  'pro.meshGenerator': 'مولد الشبكة',
   'pro.meshHint': 'حدد 4 عقد زاوية (عكس عقارب الساعة) وتقسيمات N×M. العقد الوسيطة والعناصر الرباعية تُنشأ تلقائياً.',
   'pro.corners': 'الزوايا',
   'pro.subdivisions': 'التقسيمات',

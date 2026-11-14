@@ -59,6 +59,7 @@ export function localiseExampleNames(nameKey: string): void {
   for (const c of modelStore.model.loadCases) {
     const v = CASE(c.name);
     if (v !== null && v !== c.name) modelStore.updateLoadCase(c.id, v);
+    if (v !== null && /(?<![A-Za-z])[XYZ](?![A-Za-z])/.test(v)) c.axisNamed = true;
   }
   for (const m of modelStore.materials.values()) {
     const v = MATERIAL(m.name);

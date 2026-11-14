@@ -30,6 +30,7 @@
     "pt": "A convergência não linear segue o equilíbrio físico",
     "de": "Nichtlineare Konvergenz folgt dem physikalischen Gleichgewicht",
     "fr": "La convergence non linéaire suit l’équilibre physique",
+    "hu": "A nemlineáris konvergencia a fizikai egyensúlyt követi",
     "tr": "Doğrusal olmayan yakınsama fiziksel dengeyi izler"
   },
   "explanation": {
@@ -38,6 +39,7 @@
     "pt": "P-Delta, fibras, corrotacional, material não linear e corretores de trajetória compartilham uma métrica residual invariante com unidades coerentes de força e momento. Cargas apenas nos apoios deixam de causar recusas falsas após rotação ou reflexão (#761). A convergência, a carga atingida e a resposta final podem mudar. Refaça as análises afetadas.",
     "de": "P-Delta, Faser-, korotationale und nichtlineare Materialanalyse sowie Pfadkorrektoren nutzen dieselbe rahmeninvariante Residualmetrik mit konsistenten Kraft- und Momenteinheiten. Reine Auflagerlasten verursachen nach Drehung oder Spiegelung keine falsche Ablehnung mehr (#761). Konvergenz, erreichte Last und Endantwort können sich ändern. Betroffene Analysen erneut ausführen.",
     "fr": "P-Delta, fibres, corotation, matériau non linéaire et correcteurs de trajectoire partagent une métrique résiduelle invariante avec des unités de force et de moment cohérentes. Les charges uniquement aux appuis ne provoquent plus de refus erronés après rotation ou réflexion (#761). La convergence, la charge atteinte et la réponse finale peuvent changer. Relancer les analyses concernées.",
+    "hu": "A P-Delta, szálas, korotációs, anyagilag nemlineáris és út-korrektorok közös, koordinátarendszertől független maradékmértéket használnak, következetes erő- és nyomatékegységekkel. A csak támaszra ható terhek forgatás vagy tükrözés után többé nem okoznak téves elutasítást (#761). A konvergencia állapota, a viselt teher és az elfogadott végső válasz változhat. Futtassa újra az érintett nemlineáris vizsgálatokat.",
     "tr": "P-Delta, lif, eşdönel, doğrusal olmayan malzeme ve yol düzelticileri tutarlı kuvvet ve moment birimleriyle aynı koordinat sisteminden bağımsız artık ölçütünü kullanır. Yalnız mesnet yönlerindeki yükler dönüş veya yansıma sonrasında hatalı ret oluşturmaz (#761). Yakınsama, ulaşılan yük ve son yanıt değişebilir. Etkilenen analizleri yeniden çalıştırın."
   },
   "changelog": {

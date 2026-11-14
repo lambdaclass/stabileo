@@ -27,9 +27,31 @@ describe('result-change registry', () => {
     expect(RESULT_CHANGES).toEqual({ ...registry, changes: registry.changes.map(({ quantities: _, ...c }) => c) });
   });
 
-  it('is well formed: ids, versions, six languages, known features, quantities', () => {
+  it('is well formed: ids, versions, seven languages, known features, quantities', () => {
     expect(validateRegistry(RESULT_CHANGES, new Set(FEATURE_IDS))).toEqual([]);
     expect(validateRegistry(source(), new Set(FEATURE_IDS))).toEqual([]);
+  });
+
+  describe.each([
+    ['source', source],
+    ['packed', () => RESULT_CHANGES],
+  ] as const)('%s Hungarian result-change notices', (_name, registry) => {
+    it.each([
+      'released-basis-pivoting',
+      'released-load-work',
+      'transformed-load-assembly',
+      'truss-load-direction-rounding',
+    ])('known wrong result: #2081 translates %s', (id) => {
+      const entry = registry().changes.find((change) => change.id === id)!;
+      expect(entry, id).toBeDefined();
+      for (const field of ['title', 'explanation'] as const) {
+        const text = entry[field].hu;
+        expect(text, `${id} ${field}.hu`).toBeTypeOf('string');
+        expect(text.trim(), `${id} ${field}.hu`).not.toBe('');
+        expect(text, `${id} ${field}.hu`).not.toBe(entry[field].en);
+        expect(text.match(/#\d+/g) ?? []).toEqual(entry[field].en.match(/#\d+/g) ?? []);
+      }
+    });
   });
 
   it('links every entry to a heading that exists in the named file', () => {
@@ -61,7 +83,7 @@ describe('result-change registry', () => {
     expect(problems.some((p) => p.includes('resultsVersion 99'))).toBe(true);
   });
 
-  it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)('refuses an entry without its %s title or explanation', (locale) => {
+  it.each(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'] as const)('refuses an entry without its %s title or explanation', (locale) => {
     const entry = RESULT_CHANGES.changes[0];
     const title = { ...entry.title, [locale]: ' ' };
     const explanation: Partial<typeof entry.explanation> = { ...entry.explanation };
