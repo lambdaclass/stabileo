@@ -63,9 +63,13 @@ metamorphic and differential tests; this layer has had almost none. The order be
 2. **Audit the design and load layer.** CIRSOC 201, 301 and 104, the EC3 and other-code
    dispatcher, and every load generator (snow, wind, live, seismic). Each check gets an independent
    worked example from a published source, both sides of every limit, and a negative case.
-3. **Invariance tests for design and loads, run nightly.** Rotating, translating, mirroring or
-   relabelling a model, changing units, or reordering combinations must not change any design ratio
-   or generated load. The solver already runs these relations; the design layer must too.
+3. **Invariance tests for design and loads, run nightly.** Transforming a model into a physically
+   equivalent one must give equivalent answers: relabelling nodes, members or combinations and
+   reordering combinations leave every design ratio and generated load unchanged; a change of units
+   converts them exactly; rotating, translating or mirroring the whole model together with its
+   load-defining directions (wind, seismic, gravity) transforms load components accordingly and
+   leaves design ratios unchanged. Gravity-type loads such as snow do not depend on the building's
+   plan orientation. The solver already runs these relations; the design layer must too.
 4. **Refuse incomplete design inputs.** A check that receives missing or partial demands must
    refuse, through one shared completeness check, never pass on the subset it has. Confirm whether
    the app can reach [#2096](https://github.com/lambdaclass/stabileo/issues/2096) and classify it.
