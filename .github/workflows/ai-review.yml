@@ -18,7 +18,7 @@ jobs:
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
       (startsWith(github.event.comment.body, '/claude') || startsWith(github.event.comment.body, '/review')))
-    uses: lambdaclass/actions/.github/workflows/ai-review-claude.yml@ad22254d36dc2038b846f82045d6b9d9fd7605aa
+    uses: lambdaclass/actions/.github/workflows/ai-review-claude.yml@d905aa25322fe65abef60e8c8b5cece2cf0f0aad
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
@@ -29,7 +29,7 @@ jobs:
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
       (startsWith(github.event.comment.body, '/kimi') || startsWith(github.event.comment.body, '/review')))
-    uses: lambdaclass/actions/.github/workflows/ai-review-kimi.yml@ad22254d36dc2038b846f82045d6b9d9fd7605aa
+    uses: lambdaclass/actions/.github/workflows/ai-review-kimi.yml@d905aa25322fe65abef60e8c8b5cece2cf0f0aad
     secrets:
       KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
 
@@ -40,7 +40,7 @@ jobs:
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
       (startsWith(github.event.comment.body, '/codex') || startsWith(github.event.comment.body, '/review')))
-    uses: lambdaclass/actions/.github/workflows/ai-review-codex.yml@ad22254d36dc2038b846f82045d6b9d9fd7605aa
+    uses: lambdaclass/actions/.github/workflows/ai-review-codex.yml@d905aa25322fe65abef60e8c8b5cece2cf0f0aad
     secrets:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
@@ -51,7 +51,7 @@ jobs:
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
       (startsWith(github.event.comment.body, '/deepseek') || startsWith(github.event.comment.body, '/review')))
-    uses: lambdaclass/actions/.github/workflows/ai-review-deepseek.yml@ad22254d36dc2038b846f82045d6b9d9fd7605aa
+    uses: lambdaclass/actions/.github/workflows/ai-review-deepseek.yml@d905aa25322fe65abef60e8c8b5cece2cf0f0aad
     secrets:
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
 
@@ -62,7 +62,7 @@ jobs:
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
       (startsWith(github.event.comment.body, '/gemini') || startsWith(github.event.comment.body, '/review')))
-    uses: lambdaclass/actions/.github/workflows/ai-review-gemini.yml@ad22254d36dc2038b846f82045d6b9d9fd7605aa
+    uses: lambdaclass/actions/.github/workflows/ai-review-gemini.yml@d905aa25322fe65abef60e8c8b5cece2cf0f0aad
     secrets:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
@@ -73,6 +73,6 @@ jobs:
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
       (startsWith(github.event.comment.body, '/grok') || startsWith(github.event.comment.body, '/review')))
-    uses: lambdaclass/actions/.github/workflows/ai-review-grok.yml@ad22254d36dc2038b846f82045d6b9d9fd7605aa
+    uses: lambdaclass/actions/.github/workflows/ai-review-grok.yml@d905aa25322fe65abef60e8c8b5cece2cf0f0aad
     secrets:
       XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
