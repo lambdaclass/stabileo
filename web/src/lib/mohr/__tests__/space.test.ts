@@ -207,3 +207,30 @@ describe('the cutting plane on the element', () => {
     expect(tauN).toBeCloseTo(invariants3(PRESETS.general).tauMax, 8);
   });
 });
+
+const resolvedDiagonal = process.env.IGNORED ? describe : describe.skip;
+resolvedDiagonal('known wrong result: #2099 — resolved principal stresses survive magnitude separation', () => {
+  const permutations = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+  for (const dominant of [1e9, -1e9]) for (const small of [0, 5e-4, 1e-3, 2e-3]) for (const factor of [1e-9, 1, 1e9]) {
+    it(`preserves diagonal signs and values: ${dominant}, ±${small}, scale ${factor}`, () => {
+      const diagonal = [dominant, small, -small].map(v => v * factor);
+      const expected = [...diagonal].sort((a, b) => b - a);
+      for (const order of permutations) {
+        const tensor = { xx: diagonal[order[0]], yy: diagonal[order[1]], zz: diagonal[order[2]], xy: 0, xz: 0, yz: 0 };
+        const result = principal3(tensor);
+        result.values.forEach((value, i) => {
+          if (expected[i] === 0) expect(value === 0).toBe(true);
+          else {
+            expect(Math.sign(value)).toBe(Math.sign(expected[i]));
+            expect(value / expected[i]).toBeCloseTo(1, 14);
+          }
+          tractionOnDiagonal(tensor, result.directions[i]).forEach((component, j) => expect(component === result.directions[i][j] * expected[i]).toBe(true));
+        });
+      }
+    });
+  }
+});
+
+function tractionOnDiagonal(s: Tensor3, n: Vec3): number[] {
+  return [s.xx * n[0], s.yy * n[1], s.zz * n[2]];
+}
