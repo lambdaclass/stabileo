@@ -1,53 +1,18 @@
-import type { ElementKind, OccupancyCategory, OccupancyEntry } from '../cirsoc101/live-loads';
+import type { ElementKind, OccupancyEntry } from '../cirsoc101/live-loads';
 import { msg, round, type EngineMessage } from '../message';
 import type { ClauseRef } from '../regulation';
 import type { MassUse } from './inputs';
 import { TS498 } from './refs';
-
-const T7 = TS498('Çizelge 7', 'düzgün yayılı düşey hareketli yük hesap değerleri');
+import { loadsProfile } from '../../code-profiles/registry';
+import { occupancyRows } from '../../code-profiles/adapters/occupancies';
 
 export interface TrOccupancy extends OccupancyEntry {
   use: MassUse;
 }
 
-const e = (key: string, category: OccupancyCategory, q: number, use: MassUse, reducible = false): TrOccupancy => ({
-  key, labelKey: `loads.tr.occ.${key}`, category, uniformKNm2: q, concentratedKN: null, refs: [T7], use,
-  ...(reducible ? {} : { noReduction: true }),
-});
-
-export const TS498_OCCUPANCIES: readonly TrOccupancy[] = Object.freeze([
-  e('tr_attic_rooms', 'residential', 1.5, 'residential', true),
-  e('tr_roof_occasional', 'roof', 2.0, 'residential'),
-  e('tr_residential', 'residential', 2.0, 'residential', true),
-  e('tr_office', 'office', 2.0, 'residential', true),
-  e('tr_shop_small', 'commercial', 2.0, 'residential', true),
-  e('tr_hospital_rooms', 'health', 2.0, 'residential'),
-  e('tr_roof_terrace_garden', 'roof', 3.5, 'residential'),
-  e('tr_hospital_kitchen_exam', 'health', 3.5, 'residential'),
-  e('tr_classroom', 'education', 3.5, 'assembly'),
-  e('tr_dormitory', 'residential', 3.5, 'assembly'),
-  e('tr_amphitheatre', 'education', 3.5, 'assembly'),
-  e('tr_stairs_residential', 'circulation', 3.5, 'residential'),
-  e('tr_mosque', 'assembly', 5.0, 'assembly'),
-  e('tr_theatre_cinema', 'assembly', 5.0, 'assembly'),
-  e('tr_sport_dance_exhibition', 'assembly', 5.0, 'assembly'),
-  e('tr_stand_fixed', 'assembly', 5.0, 'assembly'),
-  e('tr_meeting_waiting', 'assembly', 5.0, 'assembly'),
-  e('tr_store', 'commercial', 5.0, 'assembly', true),
-  e('tr_restaurant', 'commercial', 5.0, 'assembly'),
-  e('tr_library', 'education', 5.0, 'assembly'),
-  e('tr_archive', 'storage', 5.0, 'storage'),
-  e('tr_workshop_light', 'industrial', 5.0, 'residential', true),
-  e('tr_kitchen_canteen', 'commercial', 5.0, 'assembly'),
-  e('tr_slaughterhouse', 'industrial', 5.0, 'residential'),
-  e('tr_bakery', 'industrial', 5.0, 'residential'),
-  e('tr_barn', 'other', 5.0, 'residential'),
-  e('tr_balcony_10', 'residential', 5.0, 'residential'),
-  e('tr_corridor_public', 'circulation', 5.0, 'assembly'),
-  e('tr_stairs_public', 'circulation', 5.0, 'assembly'),
-  e('tr_stand_unfixed', 'assembly', 7.5, 'assembly'),
-  e('tr_garage_2_5t', 'parking', 5.0, 'residential'),
-]);
+export const TS498_OCCUPANCIES: readonly TrOccupancy[] = Object.freeze(
+  occupancyRows(loadsProfile('ts498-1997')).map(({ row, entry }) => ({ ...entry, use: row.tags!.use as MassUse })),
+);
 
 export const findTrOccupancy = (key: string) => TS498_OCCUPANCIES.find((o) => o.key === key);
 

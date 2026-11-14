@@ -2,30 +2,38 @@ import { combinationLabel, type CombinationInputs, type CombinationTerm, type Lo
 import type { ClauseRef } from '../regulation';
 import { msg, type EngineMessage } from '../message';
 import type { ActionCategory } from '../families/origin';
-import { EN1990, EN1991_1_1, UK_NA_1990, type EcFamily } from './refs';
+import { EN1990, EN1991_1_1, type EcFamily } from './refs';
+import { loadsProfile } from '../../code-profiles/registry';
+import { generatedCombinationsOf, symbolsOf, type GeneratedCombinations } from '../../code-profiles/adapters/combinations';
 import { roofPartOf, type EcPlanContext, type ImposedCategory } from './context';
 
 export type Psi = readonly [number, number, number];
 
-const IMPOSED_EN: Readonly<Record<ImposedCategory, Psi>> = {
-  A: [0.7, 0.5, 0.3], B: [0.7, 0.5, 0.3], C: [0.7, 0.7, 0.6], D: [0.7, 0.7, 0.6],
-  E: [1.0, 0.9, 0.8], F: [0.7, 0.7, 0.6], G: [0.7, 0.5, 0.3], H: [0, 0, 0],
+const PROFILE: Readonly<Record<EcFamily, string>> = { eurocode: 'en-1990-1991', uk: 'en-1990-1991-uk' };
+const DATA: Readonly<Record<EcFamily, GeneratedCombinations>> = {
+  eurocode: generatedCombinationsOf(loadsProfile(PROFILE.eurocode)),
+  uk: generatedCombinationsOf(loadsProfile(PROFILE.uk)),
 };
+
+const IMPOSED_CATEGORIES: readonly ImposedCategory[] = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+function psiOf(family: EcFamily) {
+  const t = DATA[family].psi;
+  return {
+    imposed: Object.fromEntries(IMPOSED_CATEGORIES.map((c) => [c, t[c]!])) as Record<ImposedCategory, Psi>,
+    snowLow: t.snowLow!, snowHigh: t.snowHigh!, wind: t.wind!, thermal: t.thermal!,
+  };
+}
 
 export const PSI: Readonly<Record<EcFamily, {
   imposed: Readonly<Record<ImposedCategory, Psi>>; snowLow: Psi; snowHigh: Psi; wind: Psi; thermal: Psi;
-}>> = {
-  eurocode: { imposed: IMPOSED_EN, snowLow: [0.5, 0.2, 0], snowHigh: [0.7, 0.5, 0.2], wind: [0.6, 0.2, 0], thermal: [0.6, 0.5, 0] },
-  uk: { imposed: { ...IMPOSED_EN, H: [0.7, 0, 0] }, snowLow: [0.5, 0.2, 0], snowHigh: [0.5, 0.2, 0], wind: [0.5, 0.2, 0], thermal: [0.6, 0.5, 0] },
-};
+}>> = { eurocode: psiOf('eurocode'), uk: psiOf('uk') };
 
-export const GAMMA = { gSup: 1.35, gInf: 1.0, q: 1.5 } as const;
-export const XI: Readonly<Record<EcFamily, number>> = { eurocode: 0.85, uk: 0.925 };
+export const GAMMA: Readonly<Record<EcFamily, GeneratedCombinations['gamma']>> = { eurocode: DATA.eurocode.gamma, uk: DATA.uk.gamma };
+export const XI: Readonly<Record<EcFamily, number>> = { eurocode: DATA.eurocode.xi, uk: DATA.uk.xi };
 export const SNOW_ALTITUDE_LIMIT_M = 1000;
 
-export const EC_CATEGORY: Readonly<Record<string, ActionCategory>> = Object.freeze({
-  D: 'permanent', L: 'imposed', Lr: 'roofImposed', S: 'snow', W: 'wind', E: 'seismic', T: 'thermal', H: 'earthPressure', F: 'fluid',
-});
+export const EC_CATEGORY: Readonly<Record<string, ActionCategory>> = Object.freeze(symbolsOf(loadsProfile(PROFILE.eurocode)));
 
 type Variable = 'L' | 'Lr' | 'S' | 'W' | 'T';
 const VARIABLES: readonly Variable[] = ['L', 'Lr', 'S', 'W', 'T'];
@@ -45,14 +53,15 @@ export function psiSet(family: EcFamily, categories: ReadonlySet<ImposedCategory
   return { L, Lr: p.imposed.H, S: (snowAltitudeM ?? 0) > SNOW_ALTITUDE_LIMIT_M ? p.snowHigh : p.snowLow, W: p.wind, T: p.thermal };
 }
 
-const compatible = (s: readonly Variable[]) => !(s.includes('Lr') && (s.includes('S') || s.includes('W')));
+const compatibleIn = (family: EcFamily) => (s: readonly Variable[]) =>
+  !DATA[family].exclusive.some((pair) => pair.every((v) => s.includes(v as Variable)));
 
 function subsets<T>(xs: readonly T[]): T[][] {
   return xs.reduce<T[][]>((acc, x) => [...acc, ...acc.map((s) => [...s, x])], [[]]);
 }
 
-function companionSets(all: readonly Variable[], notActing: boolean): Variable[][] {
-  const ok = subsets(all).filter(compatible);
+function companionSets(family: EcFamily, all: readonly Variable[], notActing: boolean): Variable[][] {
+  const ok = subsets(all).filter(compatibleIn(family));
   if (notActing) return ok;
   return ok.filter((s) => !ok.some((o) => o.length > s.length && s.every((x) => o.includes(x))));
 }
@@ -96,30 +105,28 @@ function contextFor(family: EcFamily, ctx?: EcPlanContext) {
 
 export function strengthCombinations(family: EcFamily, ci: CombinationInputs, ctx?: EcPlanContext): { combinations: LoadCombinationSpec[]; refs: ClauseRef[]; notes: EngineMessage[] } {
   const { known, terms, has, roof } = contextFor(family, ctx);
-  const xi = XI[family];
-  const tableRefs = family === 'uk'
-    ? [UK_NA_1990('Table NA.A1.2(B)', 'STR set B'), UK_NA_1990('Table NA.A1.1', 'psi')]
-    : [EN1990('Table A1.2(B)', 'STR set B'), EN1990('Table A1.1', 'psi')];
-  const notActing = ci.notActing ?? true;
+  const xi = XI[family], gamma = GAMMA[family], compatible = compatibleIn(family);
+  const tableRefs = [DATA[family].refs.factors, DATA[family].refs.psi];
+  const notActing = ci.notActing ?? DATA[family].notActing;
   const vars = presentVariables(ci);
   const b: Builder = { out: [], seen: new Set(), refs: [EN1990('6.4.3.2', 'eq. 6.10a and 6.10b'), ...tableRefs] };
   const withPsi0 = (vs: readonly Variable[]) => vs.filter((v) => has(v, 0));
 
-  companionSets(withPsi0(vars), notActing).forEach((set, k) => {
-    push(b, `6.10a-${k + 1}`, [...permanent(ci, GAMMA.gSup), ...set.flatMap((v) => terms(v, 0, GAMMA.q))], 'strength');
+  companionSets(family, withPsi0(vars), notActing).forEach((set, k) => {
+    push(b, `6.10a-${k + 1}`, [...permanent(ci, gamma.gSup), ...set.flatMap((v) => terms(v, 0, gamma.q))], 'strength');
   });
   for (const lead of vars) {
     const others = withPsi0(vars.filter((v) => v !== lead && compatible([lead, v])));
-    companionSets(others, notActing).forEach((set, k) => {
-      const q: CombinationTerm[] = [...terms(lead, 'lead', GAMMA.q), ...set.flatMap((v) => terms(v, 0, GAMMA.q))];
-      push(b, `6.10b-${lead}-${k + 1}`, [...permanent(ci, xi * GAMMA.gSup), ...q], 'strength');
-      push(b, `6.10b-${lead}-${k + 1}-inf`, [...permanent(ci, GAMMA.gInf), ...q], 'strength');
+    companionSets(family, others, notActing).forEach((set, k) => {
+      const q: CombinationTerm[] = [...terms(lead, 'lead', gamma.q), ...set.flatMap((v) => terms(v, 0, gamma.q))];
+      push(b, `6.10b-${lead}-${k + 1}`, [...permanent(ci, xi * gamma.gSup), ...q], 'strength');
+      push(b, `6.10b-${lead}-${k + 1}-inf`, [...permanent(ci, gamma.gInf), ...q], 'strength');
     });
   }
   if (ci.present.E) {
     b.refs = [EN1990('6.4.3.4', 'eq. 6.12b'), ...tableRefs];
     const comp = vars.filter((v) => v !== 'W' && has(v, 2));
-    companionSets(comp, notActing).forEach((set, k) => {
+    companionSets(family, comp, notActing).forEach((set, k) => {
       push(b, `6.12b-${k + 1}`, [...permanent(ci, 1), { symbol: 'E', factor: 1 }, ...set.flatMap((v) => terms(v, 2))], 'strength');
     });
   }
@@ -134,21 +141,22 @@ export function strengthCombinations(family: EcFamily, ci: CombinationInputs, ct
 
 export function serviceCombinations(family: EcFamily, ci: CombinationInputs, ctx?: EcPlanContext): LoadCombinationSpec[] {
   const { terms, has } = contextFor(family, ctx);
+  const compatible = compatibleIn(family);
   const vars = presentVariables(ci);
-  const notActing = ci.notActing ?? true;
+  const notActing = ci.notActing ?? DATA[family].notActing;
   const b: Builder = { out: [], seen: new Set(), refs: [EN1990('6.5.3', 'SLS combinations')] };
   for (const lead of vars) {
     const others = vars.filter((v) => v !== lead && compatible([lead, v]));
-    companionSets(others.filter((v) => has(v, 0)), notActing).forEach((set, k) => {
+    companionSets(family, others.filter((v) => has(v, 0)), notActing).forEach((set, k) => {
       push(b, `6.14b-${lead}-${k + 1}`, [...permanent(ci, 1), ...terms(lead, 'lead'), ...set.flatMap((v) => terms(v, 0))], 'service');
     });
     if (has(lead, 1)) {
-      companionSets(others.filter((v) => has(v, 2)), notActing).forEach((set, k) => {
+      companionSets(family, others.filter((v) => has(v, 2)), notActing).forEach((set, k) => {
         push(b, `6.15b-${lead}-${k + 1}`, [...permanent(ci, 1), ...terms(lead, 1), ...set.flatMap((v) => terms(v, 2))], 'service');
       });
     }
   }
-  companionSets(vars.filter((v) => has(v, 2)), false).forEach((set, k) => {
+  companionSets(family, vars.filter((v) => has(v, 2)), false).forEach((set, k) => {
     push(b, `6.16b-${k + 1}`, [...permanent(ci, 1), ...set.flatMap((v) => terms(v, 2))], 'service');
   });
   return b.out;

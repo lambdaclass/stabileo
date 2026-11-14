@@ -1,5 +1,7 @@
 import { EC2_RECOMMENDED, EC2_UK, ec2Material, type Ec2Material, type Ec2Params } from '../../engine/design/eurocode/ec2-params';
 import { ec2Shear } from '../../engine/design/eurocode/ec2-beam';
+import { ec2SheetExtrasOf } from '../../code-profiles/adapters/ec2';
+import { rcProfile } from '../../code-profiles/registry';
 
 export interface Ec2Set {
   p: Ec2Params;
@@ -8,8 +10,8 @@ export interface Ec2Set {
   colBarMin: number;
 }
 
-export const EC2_SET: Ec2Set = { p: EC2_RECOMMENDED, uk: false, punchingMaxCoeff: 0.4, colBarMin: 8 };
-export const UK_SET: Ec2Set = { p: EC2_UK, uk: true, punchingMaxCoeff: 0.5, colBarMin: 12 };
+export const EC2_SET: Ec2Set = { p: EC2_RECOMMENDED, uk: false, ...ec2SheetExtrasOf(rcProfile(EC2_RECOMMENDED.code)) };
+export const UK_SET: Ec2Set = { p: EC2_UK, uk: true, ...ec2SheetExtrasOf(rcProfile(EC2_UK.code)) };
 
 export interface Mat extends Ec2Material { fck: number; fyk: number; ec2: number; es: number; fctd: number }
 
