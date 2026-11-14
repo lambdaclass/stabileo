@@ -9,12 +9,23 @@ let loads = $state<IlLoads>({ g: 10, q: 5, P: 0 });
 let placement = $state<LivePlacement>('zones');
 let envelope = $state.raw<AlongEnvelope | null>(null);
 let envelopeOn = '';
+const DOWN_KEY = 'stabileo.influence.positiveDown';
+let positiveDown = $state(readDown());
+
+function readDown(): boolean {
+  try { return globalThis.localStorage?.getItem(DOWN_KEY) === '1'; } catch { return false; }
+}
 
 export const influenceTool = {
   get loads(): IlLoads { return loads; },
   setLoads(next: Partial<IlLoads>): void {
     loads = { ...loads, ...next };
     envelope = null;
+  },
+  get positiveDown() { return positiveDown; },
+  set positiveDown(v: boolean) {
+    positiveDown = v;
+    try { globalThis.localStorage?.setItem(DOWN_KEY, v ? '1' : '0'); } catch { return; }
   },
   get placement() { return placement; },
   set placement(v: LivePlacement) { placement = v; envelope = null; },

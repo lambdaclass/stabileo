@@ -46,6 +46,7 @@ export function drawInfluenceLine(
   // Target: 60px screen height for max value
   const targetPx = 60;
   const scale = targetPx / maxAbs;
+  const side = influenceTool.positiveDown ? -1 : 1;
 
   // Compute cumulative length for global progress (animation support)
   // Build element order and cumulative lengths
@@ -146,7 +147,7 @@ export function drawInfluenceLine(
       baseline.push(s);
 
       // Offset along perpendicular by value * scale (screen pixels)
-      const off = p.value * scale;
+      const off = side * p.value * scale;
       const sx = s.x + perpX * off;
       const sy = s.y - perpY * off;
       offset.push({ x: sx, y: sy });
@@ -279,7 +280,7 @@ export function drawInfluenceLine(
     const snx = spLen > 0 ? spx / spLen : 0;
     const sny = spLen > 0 ? spy / spLen : -1;
     // Position label on the side of the value
-    const sign = pt.value > 0 ? 1 : -1;
+    const sign = side * (pt.value > 0 ? 1 : -1);
     const offset = 18;
     const label = numText(pt.value, 3);
     ctx.fillText(label, s.x + snx * offset * sign, s.y + sny * offset * sign);

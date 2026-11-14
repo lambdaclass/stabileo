@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { influenceTool } from '../../lib/store/influence-tool.svelte';
   /**
    * The influence line's own controls, under its entry in Advanced: what is being read and where,
    * the section's position (typed, or 0, L/2, L), what the line says, how to load it, and the
@@ -92,6 +93,13 @@
     <div class="ilp-what" data-testid="il-what">
       <strong>{t(`course.influence.name.${q}`)}</strong>
       <span>{il.targetElementId !== undefined ? tp('course.influence.panel.onMember', { e: il.targetElementId }) : tp('course.influence.panel.onNode', { n: il.targetNodeId ?? '' })}</span>
+    </div>
+    <div class="ilp-row">
+      <span class="ilp-label">{t('course.influence.panel.plotSide')}</span>
+      <div class="ilp-snaps" role="radiogroup" aria-label={t('course.influence.panel.plotSide')}>
+        <button role="radio" aria-checked={!influenceTool.positiveDown} class:on={!influenceTool.positiveDown} onclick={() => (influenceTool.positiveDown = false)} data-testid="il-plot-up">{t('course.influence.panel.plotUp')}</button>
+        <button role="radio" aria-checked={influenceTool.positiveDown} class:on={influenceTool.positiveDown} onclick={() => (influenceTool.positiveDown = true)} data-testid="il-plot-down">{t('course.influence.panel.plotDown')}</button>
+      </div>
     </div>
 
     {#if elem}

@@ -41,6 +41,25 @@ test.describe('@smoke Basic panel tweaks', () => {
     expect(look.color).toBe('rgb(255, 255, 255)');
   });
 
+  test('influence-line ordinates can be drawn with positive values down, and the choice is kept', async ({ page }) => {
+    await page.evaluate(() => window.__stabileoActions.loadExample('continuous-beam'));
+    await page.getByTestId('rb-cmd-advanced').click();
+    await page.locator('button.adv-btn', { hasText: /^Influence line$/ }).click();
+    await page.getByTestId('il-q-M').click();
+    const mid = await page.evaluate(() => {
+      const h = window.__stabileo as unknown as { elementEnds(id: number): { i: number; j: number } | null; nodeScreenPos(id: number): { x: number; y: number } | null };
+      const e = h.elementEnds(1)!;
+      const a = h.nodeScreenPos(e.i)!, b = h.nodeScreenPos(e.j)!;
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    });
+    await page.mouse.click(mid.x, mid.y);
+    await expect(page.getByTestId('il-what')).toBeVisible();
+    await expect(page.getByTestId('il-plot-up')).toHaveAttribute('aria-checked', 'true');
+    await page.getByTestId('il-plot-down').click();
+    await expect(page.getByTestId('il-plot-down')).toHaveAttribute('aria-checked', 'true');
+    expect(await page.evaluate(() => localStorage.getItem('stabileo.influence.positiveDown'))).toBe('1');
+  });
+
   test('the deformed slider stops where the largest movement reaches a quarter of the structure', async ({ page }) => {
     const heavy = { ...gerber, loads: gerber.loads.map((l) => ({ ...l, data: { ...l.data, qI: -2000, qJ: -2000 } })) };
     await page.evaluate((m) => window.__stabileoActions.loadModelData(m), heavy as unknown as Record<string, unknown>);

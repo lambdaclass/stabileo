@@ -284,7 +284,7 @@
     uiStore.despieceInspect;
     invalidate();
   });
-  $effect(() => { resultsStore.influenceLine; influenceTool.envelope; invalidate(); });
+  $effect(() => { resultsStore.influenceLine; influenceTool.envelope; influenceTool.positiveDown; invalidate(); });
   $effect(() => { resultsStore.overlayResults; resultsStore.overlayLabel; invalidate(); });
   $effect(() => { resultsStore.movingLoadEnvelope; resultsStore.activeMovingLoadPosition; resultsStore.movingLoadShowEnvelope; invalidate(); });
   $effect(() => { resultsStore.modalResult; resultsStore.activeModeIndex; invalidate(); });
