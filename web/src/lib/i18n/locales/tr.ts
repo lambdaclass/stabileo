@@ -11161,6 +11161,7 @@ const tr: Translations = {
   'snow.derivation.rain': 'Kar üzerine yağmur: {add} kN/m² eklendi (Bölüm 10).',
   'snow.derivation.unbalanced': 'Dengesiz yük (§6.1): rüzgaraltında {leeward} kN/m² ve rüzgarüstünde {windward} kN/m², her rüzgar yönü için bir durum.',
   'snow.note.noRoof': 'Karın uygulanacağı çatı çubuğu bulunamadı.',
+  'snow.refused.roofPlane': "Kar yükü üretimi bir çatı düzlemi gerektirir. Aynı doğru üzerinde olmayan noktalarla çatı geometrisi ekleyin; tek bir mertek bu plan üzerinde bir yüzey belirleyemez.",
   'snow.note.ponding': 'Çatı eğimi 1,2°\'nin altında: su birikmesi kararsızlığı kontrol edilmelidir (Bölüm 11); bu kontrol burada hesaplanmaz.',
   'snow.note.notCovered': 'Yük genişliğiyle kısmi yükler (Bölüm 5), kar yığılmaları (Bölüm 7 ve 8) ve kayan kar (Bölüm 9) oluşturulmaz: bunlar panellerden okunur. Buz setleri (§4.5) de oluşturulmaz.',
   'wind.other.kind': 'Yapı',

@@ -118,3 +118,5 @@ Every advisory has these sections; the [template](#template) lists them.
 
 The list of advisories, with status and severity, is [advisories/README.md](advisories/README.md).
 The dashboard counts published advisories ([verification/DASHBOARD.md](verification/DASHBOARD.md)).
+
+Coordinator-assigned snow advisories: [SA-2026-065](advisories/SA-2026-065-snow-roof-step.md) and [SA-2026-067](advisories/SA-2026-067-snow-roof-rotation.md). Both reproduce silent wrong loads on main/v0.6.0; the local correction awaits review and release. Regenerate snow loads before re-solving affected projects.

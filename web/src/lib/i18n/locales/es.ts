@@ -11344,6 +11344,7 @@ const es: Record<string, string> = {
   'snow.derivation.rain': 'Lluvia sobre nieve: se suman {add} kN/m² (Capítulo 10).',
   'snow.derivation.unbalanced': 'Carga no balanceada (art. 6.1): {leeward} kN/m² a sotavento y {windward} kN/m² a barlovento, en un caso por cada sentido del viento.',
   'snow.note.noRoof': 'No se encontraron barras de cubierta para aplicar la nieve.',
+  'snow.refused.roofPlane': "La generación de nieve necesita un plano de cubierta. Añada geometría con puntos no colineales; una barra aislada no define una superficie sobre esta planta.",
   'snow.note.ponding': 'Cubierta con pendiente menor que 1,2°: hay que verificar la inestabilidad por acumulación de agua (Capítulo 11), que no se calcula acá.',
   'snow.note.notCovered': "Con el ancho tributario no se generan las cargas parciales (Cap. 5), las acumulaciones (Cap. 7 y 8) ni la nieve deslizada (Cap. 9): se leen de los paños. Tampoco los diques de hielo (§4.5).",
   'wind.other.kind': "Estructura",

@@ -44,7 +44,7 @@ import {
   type FreeRoofKind, type LatticeMembers, type ChimneySection, type LoadCaseAB,
 } from '../../codes/cirsoc102/other-structures';
 import { roofMembers, levelLoads, type WindModel, type WindDirection } from './wind-cases';
-import { roofGeometry } from './snow-loads';
+import { windRoofGeometry } from './wind-roof-geometry';
 import { msg, round, type EngineMessage } from '../../codes/message';
 
 export type OtherStructure =
@@ -92,7 +92,7 @@ export function otherStructureWind(i: {
 
   if (s.kind === 'freeRoof') {
     const roof = roofMembers(model);
-    const geo = roofGeometry(model);
+    const geo = windRoofGeometry(model);
     if (!geo || roof.length === 0) { notes.push(msg('wind.other.noRoof')); return { cases, derivation, notes }; }
     const theta = geo.slopeDeg;
     const coordAcross = (p: { x: number; y: number }) => (geo.axis === 'x' ? p.x : p.y);

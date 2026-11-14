@@ -10715,6 +10715,7 @@ const pt: Translations = {
   'snow.derivation.rain': 'Chuva sobre neve: somam-se {add} kN/m² (Capítulo 10).',
   'snow.derivation.unbalanced': 'Carga não balanceada (art. 6.1): {leeward} kN/m² a sotavento e {windward} kN/m² a barlavento, um caso por sentido do vento.',
   'snow.note.noRoof': 'Não foram encontradas barras de cobertura para aplicar a neve.',
+  'snow.refused.roofPlane': "A geração de neve precisa de um plano de cobertura. Adicione geometria com pontos não colineares; uma barra isolada não define uma superfície sobre esta planta.",
   'snow.note.ponding': 'Cobertura com inclinação menor que 1,2°: é preciso verificar a instabilidade por acúmulo de água (Capítulo 11), que não é calculada aqui.',
   'snow.note.notCovered': "Com a largura tributária não se geram as cargas parciais (Cap. 5), os acúmulos (Cap. 7 e 8) nem a neve deslizada (Cap. 9): são lidos dos painéis. Tampouco os diques de gelo (§4.5).",
   'wind.other.kind': "Estrutura",

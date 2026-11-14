@@ -11355,6 +11355,7 @@ const en: Record<string, string> = {
   'snow.derivation.rain': 'Rain on snow: {add} kN/m² added (Chapter 10).',
   'snow.derivation.unbalanced': 'Unbalanced load (§6.1): {leeward} kN/m² leeward and {windward} kN/m² windward, one case per wind direction.',
   'snow.note.noRoof': 'No roof members were found to apply the snow on.',
+  'snow.refused.roofPlane': "Snow generation needs a roof plane. Add roof geometry with non-collinear points; an isolated rafter cannot determine a surface over this footprint.",
   'snow.note.ponding': 'Roof slope below 1.2°: ponding instability must be checked (Chapter 11), which is not computed here.',
   'snow.note.notCovered': "With the tributary width, partial loads (Ch. 5), drifts (Ch. 7 and 8) and sliding snow (Ch. 9) are not generated: they are read off the panels. Nor are ice dams (§4.5).",
   'wind.other.kind': "Structure",
