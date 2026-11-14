@@ -11,6 +11,7 @@ import ShapePage from '../components/research/feher2026/ShapePage.svelte';
 
 const off = () => {
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
+  vi.stubEnv('DEV', false);
   for (const key of ['VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME']) vi.stubEnv(key, '');
 };
 afterEach(() => { setPublicLocale('en'); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetModules(); });
@@ -19,7 +20,7 @@ it.skip('known wrong result: #1950 — switches off preserve main public routes,
   off();
   const prerender = (await publicPaths()).sort();
   expect(prerender).toEqual(main.routes);
-  const candidates = [...main.routes, '/tools/mohr-2d', '/tools/mohr-3d', '/tools/beam-frame', '/tools/tower', '/tools/earthquake-frame', '/tools/rc-column', '/tools/slab-on-columns', '/tools/outrigger', '/diagram-game'];
+  const candidates = [...main.routes, '/tools/mohr-2d', '/tools/mohr-3d', '/tools/beam-frame', '/tools/tower', '/tools/earthquake-frame', '/tools/rc-column', '/tools/slab-on-columns', '/tools/outrigger', '/diagram-game', '/register', '/terms', '/privacy', '/usage-data'];
   const routes = candidates.filter(path => path === '/' || routeKind(new URL(`https://stabileo.test/en${path === '/' ? '' : path}/`)).kind !== 'landing').sort();
   expect(routes).toEqual(main.routes);
   const { SITE_NAV } = await import('../components/site/site-nav');
@@ -61,4 +62,33 @@ it.skip('known wrong result: #1950 — switches on publish added routes and cons
   expect(SITE_NAV.map(item => item.id)).toEqual(['basic', 'tools', 'game', 'research', 'pricing', 'blog']);
   const loader = readFileSync(new URL('../components/tools/load-page.ts', import.meta.url), 'utf8');
   expect(loader).toContain('loadToolDetail');
+});
+
+it.skip.each(Array.from({ length: 8 }, (_, mask) => mask))('known wrong result: #1950 — publication uses build flags consistently for combination %i', async mask => {
+  off();
+  const flags = { research: !!(mask & 1), tools: !!(mask & 2), diagramGame: !!(mask & 4), accounts: false };
+  for (const [key, enabled] of Object.entries(flags)) vi.stubEnv(`VITE_${key === 'diagramGame' ? 'DIAGRAM_GAME' : key.toUpperCase()}`, enabled ? '1' : '0');
+  const paths = await publicPaths();
+  const models = ['beam-frame', 'slab-on-columns', 'earthquake-frame', 'rc-column', 'outrigger', 'tower'].map(id => `/tools/${id}`);
+  const expected = [...main.routes.filter(path => !flags.tools || !path.startsWith('/examples')), ...(flags.tools ? [...models, '/tools/mohr-2d', '/tools/mohr-3d'] : []), ...(flags.diagramGame ? ['/diagram-game'] : [])].sort();
+  expect(paths.sort()).toEqual(expected);
+  for (const path of main.research) {
+    expect(writtenIn(path).includes('hu'), path).toBe(flags.research && path !== '/research/benchmarks/shell-obstacle-course');
+    expect(publishedLocales(path, flags)).toEqual(writtenIn(path));
+  }
+  const { movedPages } = await import('../lib/legacy-routes');
+  expect([...movedPages(flags)].sort()).toEqual(flags.tools ? main.routes.filter(path => path.startsWith('/examples')).sort() : []);
+});
+
+it.skip('known wrong result: #1916 — unpublished Hungarian research addresses fall back to English while retaining query and fragment', async () => {
+  off();
+  const { unpublishedResearchAddress } = await import('../lib/legacy-routes');
+  for (const path of main.research) {
+    const location = { pathname: `/hu${path}/`, search: '?round=2', hash: '#checks' };
+    expect(unpublishedResearchAddress(location)).toBe(`/en${path}/?round=2#checks`);
+    vi.stubEnv('VITE_RESEARCH', '1');
+    expect(unpublishedResearchAddress(location)).toBeNull();
+    vi.stubEnv('VITE_RESEARCH', '0');
+  }
+  for (const path of ['/hu/', '/hu/tools/', '/en/research/', '/hu/researching/']) expect(unpublishedResearchAddress({ pathname: path, search: '', hash: '' })).toBeNull();
 });
