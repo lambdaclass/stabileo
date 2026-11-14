@@ -29,6 +29,7 @@ const body: PostBody = {
       "t": "SA-2026-063 — Corrigé dans PR #2009, en attente de publication."
     },
     {"k": "note", "t": "SA-2026-064 — Corrigé dans PR #2080, publication en attente."},
+    {"k": "note", "t": "SA-2026-066 — Brouillon : corrigé dans PR #2080, fusion et publication en attente."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -403,6 +404,7 @@ const body: PostBody = {
         ["SA-2026-062", "Le calcul plastique 3D brut pouvait annoncer zéro sans avertissement en cas d’échec de l’état élastique initial ; les anciennes versions certifiées conservaient ce facteur. Main renvoie déjà une borne certifiée positive avec avertissement ; la PR #1943 transmet le refus initial", "Haute", "Brouillon : correction locale en attente de revue et de publication"],
         ["SA-2026-063", "Les analyses par phases et non linéaires avec contraintes perdaient le mouvement imposé du maître ; les analyses de câbles et les historiques temporels refusent désormais les mouvements d’appui non pris en charge. Les avertissements dynamiques généraux existants ne signalaient pas cette omission", "Haute", "Corrigé dans PR #2009, en attente de publication"],
         ["SA-2026-064", "Les interactions entre effort normal et flexion de l’acier pouvaient sous-estimer le taux sans avertissement en utilisant Cb du diagramme d’une autre combinaison. Relancer les vérifications de l’acier après la mise à jour.", "Élevée", "Corrigé dans PR #2080, publication en attente"],
+        ["SA-2026-066", "Les poteaux et voiles CIRSOC 201 soumis à des charges transversales pouvaient recevoir une réduction de Cm fondée sur les moments aux extrémités et sous-estimer le moment amplifié. Relancer les calculs béton concernés.", "Élevée", "Brouillon : corrigé dans PR #2080, fusion et publication en attente"],
       ]
     },
     {

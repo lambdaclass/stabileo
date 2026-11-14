@@ -36,6 +36,7 @@ export const safetyAdvisories: Post = {
         { k: 'note', t: "SA-2026-061 — Corregido en PR #1952, pendiente de publicación." },
         { k: 'note', t: "SA-2026-063 — Corregido en PR #2009, pendiente de publicación." },
         { k: 'note', t: "SA-2026-064 — Corregido en PR #2080, pendiente de publicación." },
+        { k: 'note', t: "SA-2026-066 — Borrador: corregido en PR #2080, pendiente de integración y publicación." },
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -108,6 +109,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-062", "El colapso plástico 3D directo podía informar cero sin aviso al fallar el estado elástico inicial; las versiones certificadas antiguas conservaban ese factor. Main ya devuelve una cota certificada positiva con aviso; PR #1943 propaga el rechazo inicial", "Alta", "Borrador: corrección local pendiente de revisión y publicación"],
             ["SA-2026-063", "Los análisis por etapas y no lineales con restricciones perdían el movimiento impuesto del maestro; cables e historias de tiempo ahora rechazan movimientos de apoyo no admitidos. Los avisos dinámicos generales existentes no identificaban esta omisión", "Alta", "Corregido en PR #2009, pendiente de publicación"],
             ["SA-2026-064", "Las interacciones de axil y flexión del acero podían subestimar la utilización sin aviso al usar Cb del diagrama de otra combinación. Volvé a verificar el acero después de actualizar.", "Alta", "Corregido en PR #2080, pendiente de publicación"],
+            ["SA-2026-066", "Las columnas y los muros CIRSOC 201 con carga transversal podían recibir una reducción de Cm basada en los momentos extremos y subestimar el momento amplificado. Volvé a verificar los diseños de hormigón afectados.", "Alta", "Borrador: corregido en PR #2080, pendiente de integración y publicación"],
           ],
         },
         {
@@ -299,6 +301,7 @@ export const safetyAdvisories: Post = {
         { k: 'note', t: "SA-2026-061 — Fixed in PR #1952, pending release." },
         { k: 'note', t: "SA-2026-063 — Fixed in PR #2009, pending release." },
         { k: 'note', t: "SA-2026-064 — Fixed in PR #2080, pending release." },
+        { k: 'note', t: "SA-2026-066 — Draft: fixed in PR #2080, pending merge and release." },
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -371,6 +374,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-062", "Raw 3D plastic analysis could silently report zero when the initial elastic state failed; older certified builds retained that factor. Main already returns a positive certified bound with a warning; PR #1943 propagates the initial refusal", "High", "Draft: local fix awaiting review and release"],
             ["SA-2026-063", "Constrained staged and nonlinear analyses dropped prescribed master motion; cable and time history now refuse unsupported support motion. Existing general dynamic warnings remain distinct from this omission", "High", "Fixed in PR #2009, pending release"],
             ["SA-2026-064", "Steel axial and bending interaction checks could silently understate utilization by using Cb from another combination’s moment diagram. Re-run steel design checks after upgrading.", "High", "Fixed in PR #2080, pending release"],
+            ["SA-2026-066", "CIRSOC 201 columns and walls with transverse loads could receive end-moment Cm credit and understate the magnified design moment. Re-run affected concrete designs.", "High", "Draft: fixed in PR #2080, pending merge and release"],
           ],
         },
         {
@@ -562,6 +566,7 @@ export const safetyAdvisories: Post = {
         { k: 'note', t: "SA-2026-061 — Corrigido no PR #1952, aguardando publicação." },
         { k: 'note', t: "SA-2026-063 — Corrigido no PR #2009, aguardando lançamento." },
         { k: 'note', t: "SA-2026-064 — Corrigido no PR #2080, aguardando lançamento." },
+        { k: 'note', t: "SA-2026-066 — Rascunho: corrigido no PR #2080, aguardando integração e lançamento." },
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -634,6 +639,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-062", "O colapso plástico 3D direto podia informar zero sem aviso ao falhar o estado elástico inicial; versões certificadas antigas mantinham esse fator. Main já retorna um limite certificado positivo com aviso; o PR #1943 propaga a recusa inicial", "Alta", "Rascunho: correção local aguardando revisão e lançamento"],
             ["SA-2026-063", "Análises por etapas e não lineares com restrições perdiam o movimento prescrito do mestre; cabos e históricos no tempo agora recusam movimentos de apoio não implementados. Os avisos dinâmicos gerais existentes não identificavam esta omissão", "Alta", "Corrigido no PR #2009, aguardando lançamento"],
             ["SA-2026-064", "As interações de esforço normal e flexão do aço podiam subestimar a utilização sem aviso ao usar Cb do diagrama de outra combinação. Refaça as verificações de aço após atualizar.", "Alta", "Corrigido no PR #2080, aguardando lançamento"],
+            ["SA-2026-066", "Pilares e paredes CIRSOC 201 com cargas transversais podiam receber redução de Cm baseada nos momentos extremos e subestimar o momento amplificado. Refaça os projetos de concreto afetados.", "Alta", "Rascunho: corrigido no PR #2080, aguardando integração e lançamento"],
           ],
         },
         {

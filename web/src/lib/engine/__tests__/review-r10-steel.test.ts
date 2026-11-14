@@ -1,23 +1,26 @@
 import { expect, it, vi } from 'vitest';
 import * as steelChecks from '../codes/argentina/cirsoc301';
 import { ConcurrentDemand } from '../concurrent-demand';
-import { checkSteelMember, steelDemandOf, steelMemberLengths, runSteelVerification } from '../verification-service';
+import { checkSteelMember, steelDemandOf, steelMemberLengths, runSteelVerification, type SteelMemberDemand } from '../verification-service';
 import { extractGoverningDemands, type ElementStationResult } from '../station-design-forces';
 import { profileByName, profileToSectionFull } from '../../data/steel-profiles';
+import { steelSectionConstants } from '../steel/section-constants';
+import { verdictFor } from '../steel/profile-optimise';
+import { solve3D, solvePDelta3D } from '../wasm-solver';
+import type { SolverInput3D } from '../types-3d';
 import { momentGradient } from '../steel/moment-gradient';
 import { checkSteelInteraction as manualInteraction, verifySteelElement as manualElement } from './helpers/manual-interactions';
 import type { AnalysisResults3D } from '../types-3d';
 
 const section = { ...profileToSectionFull(profileByName('IPE 300')!), fabrication: 'rolled' as const };
 const steel = { fy: 250, fu: 400, e: 200000 };
-const regression = process.env.RUN_KNOWN_WRONG ? it : it.skip;
 const ef = { elementId: 1, length: 10, nStart: -100, nEnd: -100, myStart: 80, myEnd: 40,
   mzStart: 0, mzEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0, mxStart: 0, mxEnd: 0,
 } as AnalysisResults3D['elementForces'][number];
 const ts = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.8, 0.875, 1];
 
 for (const screen of [false, true]) for (const sign of [1, -1]) for (const t of [0, 0.499999, 0.5, 0.500001, 0.8, 1]) {
-  regression(`#[ignore = "known wrong result: #2080"] tuple Cb uses metres screen=${screen} sign=${sign} t=${t}`, () => {
+  it(`#2080 tuple Cb uses metres screen=${screen} sign=${sign} t=${t}`, () => {
     const stations: ElementStationResult = { elementId: 1, length: 10, stationTs: ts, comboResults: [{ comboId: 1, comboName: 'C',
       stations: ts.map(t => ({ t, x: 10 * t, n: -100, my: sign * (t < 0.5 ? 80 - 80 * t : 40), mz: 0, vy: 0, vz: 0, torsion: 0 })) }] };
     const d = steelDemandOf(ef, extractGoverningDemands(stations), stations);
@@ -29,17 +32,25 @@ for (const screen of [false, true]) for (const sign of [1, -1]) for (const t of 
     const tuple = checkSteelMember(1, { ...selected, concurrent: undefined }, section, steel, lengths, undefined, { screen })!;
     const unity = checkSteelMember(1, { ...selected, diagrams: undefined }, section, steel, lengths, undefined, { screen })!;
     const cb = t >= 0.5 ? 1 : momentGradient({ stations: d.diagrams!.get(1)!, tStart: 0, tEnd: 0.5, shape: 'I' }).cb;
-    expect(physical.flexureZ.phiMn).toBeCloseTo(Math.min(physical.flexureZ.Mp * 0.9, unity.flexureZ.phiMn * cb), 8);
+    expect(physical.flexureZ.phiMn).toBeCloseTo(unity.flexureZ.phiMn * cb, 8);
     expect(tuple.flexureZ.phiMn).toBe(physical.flexureZ.phiMn);
     expect(tuple.interaction!.ratio).toBe(physical.interaction!.ratio);
     expect(tuple.engineRecheck).toEqual(physical.engineRecheck);
-    const unknown = checkSteelMember(1, { ...selected, concurrent: undefined, diagramLength: undefined }, section, steel, lengths, undefined, { screen })!;
-    expect(unknown.flexureZ.phiMn).toBe(unity.flexureZ.phiMn);
+    if (t === 0.8) {
+      const candidate = (demand: SteelMemberDemand) => verdictFor(profileByName('IPE 300')!,
+        [{ elementId: 1, demand, lengths }], steel, {}, screen);
+      expect(candidate({ ...selected, concurrent: undefined })).toEqual(candidate(selected));
+    }
+    for (const diagramLength of [undefined, 0, -1, NaN, Infinity]) {
+      const unknown = checkSteelMember(1, { ...selected, concurrent: undefined, diagramLength }, section, steel, lengths, undefined, { screen })!;
+      expect(unknown.flexureZ.phiMn).toBe(unity.flexureZ.phiMn);
+      expect(unknown.interaction!.ratio).toBe(unity.interaction!.ratio);
+    }
   });
 }
 
 for (const screen of [false, true]) for (const weakGoverns of [false, true]) for (const reverse of [false, true]) {
-  regression(`#[ignore = "known wrong result: #2080"] shear demand and combination stay together screen=${screen} weak=${weakGoverns} reverse=${reverse}`, () => {
+  it(`#2080 shear demand and combination stay together screen=${screen} weak=${weakGoverns} reverse=${reverse}`, () => {
     const strong = 0.796728424, weak = 1.138370238;
     const stations: ElementStationResult = { elementId: 1, length: 10, stationTs: [0, 1], comboResults: [
       { comboId: 2, comboName: 'weak', stations: [0, 1].map(t => ({ t, x: t * 10, n: -100, my: 0, mz: 0, vy: weakGoverns ? weak : strong, vz: 0, torsion: 0 })) },
@@ -67,9 +78,9 @@ for (const screen of [false, true]) for (const weakGoverns of [false, true]) for
   });
 }
 
-regression('#[ignore = "known wrong result: #2080"] legacy interaction helper maps strong moments to my', () => {
+it('#2080 legacy interaction helper maps strong moments to my', () => {
   const params = { Fy: steel.fy, Fu: steel.fu, E: steel.e, A: section.a, Iz: section.iy, Iy: section.iz,
-    h: section.h, b: section.b, tw: section.tw, tf: section.tf, L: 10, Lb: 10, shape: 'I', builtUp: false, loadPosition: 'web' as const };
+    h: section.h, b: section.b, tw: section.tw!, tf: section.tf!, L: 10, Lb: 10, shape: 'I', builtUp: false, loadPosition: 'web' as const };
   for (const [strong, weak] of [[40, 0], [0, 40], [40, 5], [-40, 5]]) {
     const expected = manualElement({ elementId: 1, params, Nu: 100, Muz: strong!, Muy: weak!, Vu: 0 });
     const capture = vi.spyOn(steelChecks, 'checkSteelInteraction');
@@ -82,4 +93,27 @@ regression('#[ignore = "known wrong result: #2080"] legacy interaction helper ma
       expect(actual.ratio).toBe(expected.interaction!.ratio);
     } finally { capture.mockRestore(); }
   }
+});
+
+for (const nonlinear of [false, true]) for (const spatial of [false, true]) it(`solved steel shears retain their axes nonlinear=${nonlinear} spatial=${spatial}`, () => {
+  const input: SolverInput3D = {
+    nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 10, y: 0, z: 0 }]]),
+    elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, type: 'frame', sectionId: 1, materialId: 1,
+      releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+    sections: new Map([[1, { ...section, id: 1, j: steelSectionConstants(section).J }]]), materials: new Map([[1, { ...steel, id: 1, nu: 0.3 }]]),
+    supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: spatial ? 2 : 0, fz: 1, mx: 0, my: 0, mz: 0 } }],
+  };
+  const raw = nonlinear ? solvePDelta3D(input).results : solve3D(input);
+  const force = raw.elementForces[0]!;
+  const d = steelDemandOf(force);
+  const lengths = { L: 10, Lb: 10, loadPosition: 'web' as const };
+  const v = checkSteelMember(1, d, section, steel, lengths)!;
+  expect(v.shear.Vu).toBe(Math.max(Math.abs(force.vzStart), Math.abs(force.vzEnd)));
+  expect(v.Vu).toBe(v.shear.Vu);
+  expect(v.shear.ratio).toBe(v.shear.Vu / v.shear.phiVn);
+  if (spatial) {
+    expect(v.shearWeak!.Vu).toBe(Math.max(Math.abs(force.vyStart), Math.abs(force.vyEnd)));
+    expect(v.shearWeak!.ratio).toBe(v.shearWeak!.Vu / v.shearWeak!.phiVn);
+  } else expect(v.shearWeak).toBeUndefined();
 });

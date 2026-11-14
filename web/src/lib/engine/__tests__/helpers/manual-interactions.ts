@@ -11,7 +11,8 @@ export const checkColumn = (params: ConcreteDesignParams, Nu: number, Mu: number
 export const checkBiaxial = (params: ConcreteDesignParams, Nu: number, Muy: number, Muz: number, As: number, opts: { edition?: RegulationEdition; barCount?: number; barDia?: number } = {}) =>
   biaxial(params, manual(Nu, Muz, Muy), As, opts);
 export const checkTorsion = (params: ConcreteDesignParams, Tu: number, Vu = 0, edition: RegulationEdition = '2005') => torsion(params, manual(0, 0, 0, Vu, Tu), edition);
-export const checkSteelInteraction = (params: SteelDesignParams, Nu: number, Mu: number, Muy: number) => steelInteraction(params, manual(Nu, Mu, Muy));
+export const checkSteelInteraction = (params: SteelDesignParams, Nu: number, Mu: number, Muy: number) => steelInteraction(params, ConcurrentDemand.fromTuples([{ comboId: 0, comboName: 'manual',
+  forces: { n: -Nu, my: Mu, mz: Muy, vy: 0, vz: 0, torsion: 0, t: 0, x: 0 } }])[0]!.section('My'));
 
 export function manualSteelDemand<T extends import('../../verification-service').SteelMemberDemand>(d: T): T {
   const ns = [...(d.Nc > 0 || d.Nt === 0 ? [d.Nc] : []), ...(d.Nt > 0 ? [-d.Nt] : [])];

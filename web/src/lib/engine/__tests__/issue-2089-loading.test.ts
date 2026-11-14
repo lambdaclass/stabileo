@@ -46,7 +46,19 @@ for (const axis of ['My', 'Mz'] as const) for (const kind of ['uniform', 'partia
         const s = c.verification;
         const selected = c.demand.section(axis).axis;
         expect(selected).toBe(axis);
-        if (kind !== 'unloaded') expect([s.slender!.Cm, s.slenderSecondary!.Cm]).toContain(1);
+        const loaded = v.flexureAxis === axis ? s.slender! : s.slenderSecondary!;
+        const unloaded = v.flexureAxis === axis ? s.slenderSecondary! : s.slender!;
+        const [la, lb] = c.demand.ends[axis === 'My' ? 'my' : 'mz'];
+        const [lbig, lsmall] = Math.abs(la) >= Math.abs(lb) ? [la, lb] : [lb, la];
+        const ownCm = kind !== 'unloaded' ? 1 : checkSlender(params, 300, c.demand.section(axis).Mu, 8,
+          { M1: Math.sign(la) === Math.sign(lb) ? Math.abs(lsmall) : -Math.abs(lsmall), M2: Math.abs(lbig) }).Cm;
+        expect(loaded.Cm).toBe(ownCm);
+        const other = axis === 'My' ? 'Mz' : 'My';
+        const [a, b] = c.demand.ends[other === 'My' ? 'my' : 'mz'];
+        const [big, small] = Math.abs(a) >= Math.abs(b) ? [a, b] : [b, a];
+        const cm = checkSlender(params, 300, c.demand.section(other).Mu, 8,
+          { M1: Math.sign(a) === Math.sign(b) ? Math.abs(small) : -Math.abs(small), M2: Math.abs(big) }).Cm;
+        expect(unloaded.Cm).toBe(cm);
       }
     }
   });

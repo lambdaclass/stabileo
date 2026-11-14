@@ -892,6 +892,7 @@ export function checkSteelMember(
     const { Cb: _old, ...rest } = p;
     void _old;
     const own = steelParamsForDemand(rest, d.section('My'));
+    if (!Number.isFinite(d.stationX)) return own;
     const diagramLength = segment?.extent?.length ?? demand.diagramLength ?? L;
     const points = d.my < 0 ? lengths.bracing?.bottom : lengths.bracing?.top;
     const windows = !segment && points?.length ? (() => {
@@ -1041,9 +1042,10 @@ export function checkSteelMember(
       if (found) governingCombos[labels[key]] = location(index);
       return found as SteelVerification[K];
     };
+    const shear = pick('shear');
     const combined = { ...base, tension: pick('tension'), compression: pick('compression'), flexureZ: pick('flexureZ'),
-      flexureY: pick('flexureY'), shear: pick('shear'), shearWeak: pick('shearWeak'), governingCombos,
-      Muz: demand.MuStrong, Muy: demand.MuWeak, Vu: demand.Vu };
+      flexureY: pick('flexureY'), shear, shearWeak: pick('shearWeak'), governingCombos,
+      Muz: demand.MuStrong, Muy: demand.MuWeak, Vu: shear.Vu };
     return withConcurrentInteraction(combined, concurrent, d => paramsAt(p, d));
   };
   const v = withUndeclaredData(sdp, checkAs);
@@ -1060,25 +1062,20 @@ export function checkSteelMember(
    */
   // Every reading the verdict rests on (each value of an undeclared datum that was read).
   const inputs = v.inputs?.length ? v.inputs : [sdp];
-  const tuples = concurrentTuples(demand);
-  const cases = inputs.flatMap(q => tuples.map((x, k) => ({ params: paramsAt({ ...q, Lb: sdp.Lb, LbNeg: sdp.LbNeg }, concurrent[k]!), demands: [{
-    Nu: x.N, Muz: x.MStrong, Muy: x.MWeak,
-    Vu: flanged ? Math.abs(x.VStrong) : Math.max(Math.abs(x.VStrong), Math.abs(x.VWeak)),
+  const cases = inputs.flatMap(q => concurrent.map(d => ({ params: paramsAt({ ...q, Lb: sdp.Lb, LbNeg: sdp.LbNeg }, d), demands: [{
+    Nu: 0 - d.n, Muz: d.my, Muy: d.mz,
+    Vu: flanged ? Math.abs(d.vz) : Math.max(Math.abs(d.vz), Math.abs(d.vy)),
   }] })));
   return engineGateSteelCases(v, cases);
 }
 
 function steelConcurrentDemands(demand: SteelMemberDemand): readonly ConcurrentDemand[] {
-  const raw = demand.concurrent ?? (demand.tuples?.length ? ConcurrentDemand.fromStations({ elementId: 0, length: 1, stationTs: [],
-    comboResults: demand.tuples.map(t => ({ comboId: t.comboId, comboName: t.comboName, stations: [{
-      n: -t.N, my: t.MStrong, mz: t.MWeak, vy: t.VWeak, vz: t.VStrong, torsion: 0, t: t.t, x: t.t,
-    }] })) }) : []);
-  return raw;
-}
-
-function concurrentTuples(demand: SteelMemberDemand): NonNullable<SteelMemberDemand['tuples']> {
-  return steelConcurrentDemands(demand).map(d => ({ N: 0 - d.forces.n, MStrong: d.forces.my, MWeak: d.forces.mz,
-    VStrong: d.forces.vz, VWeak: d.forces.vy, comboId: d.comboId, comboName: d.comboName, t: d.stationT }));
+  if (demand.concurrent) return demand.concurrent;
+  const length = demand.diagramLength;
+  const physicalLength = length !== undefined && Number.isFinite(length) && length > 0 ? length : NaN;
+  return ConcurrentDemand.fromTuples((demand.tuples ?? []).map(t => ({ comboId: t.comboId, comboName: t.comboName, forces: {
+    n: -t.N, my: t.MStrong, mz: t.MWeak, vy: t.VWeak, vz: t.VStrong, torsion: 0, t: t.t, x: t.t * physicalLength,
+  } })));
 }
 
 /**
