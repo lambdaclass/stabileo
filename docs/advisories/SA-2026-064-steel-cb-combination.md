@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-13; extended 2026-11-14; fixed in PR #2080, pending merge and release |
+| Status | Draft 2026-11-13; fixed in PR #2080, pending release |
 | Issues | [#1316](https://github.com/lambdaclass/stabileo/issues/1316), [#2088](https://github.com/lambdaclass/stabileo/issues/2088) |
 | Fix | PR [#2080](https://github.com/lambdaclass/stabileo/pull/2080); pending release |
 | Affected versions | Source-confirmed in 0.2.0–0.5.0 and desktop-v0.1.0-alpha.1–alpha.3; subsequent main builds before the fix, including the 0.6.0 main source; the unlocated-span witness is confirmed on main `2e8a4f65f` and unchanged in `08fa96822` |
