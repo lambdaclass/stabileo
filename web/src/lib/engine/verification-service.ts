@@ -88,7 +88,7 @@ export function computeStationDemands(
   const stations = new Map<number, ElementStationResult>();
 
   if (perCombo3D.size === 0 && combinations.length === 0) return { demands, stations };
-  requireCompleteConcurrentDemand(combinations.map(c => c.id), id => perCombo3D.has(id) ? [perCombo3D.get(id)] : undefined,
+  requireCompleteConcurrentDemand(combinations.map(c => c.id), perCombo3D.keys(),
     'every active combination requires analysis results');
 
   if (!model || !isSolverReady()) throw new EngineUnavailableError('the station design forces');
@@ -105,13 +105,16 @@ function computeStationDemandsWasm(
   model: AutoVerifyModelData,
 ): StationDemandData {
   const loading = new Map([...perCombo3D].map(([id, r]) => [id, new Map(r.elementForces.map(ef => [ef.elementId, ConcurrentDemand.loadingOf(ef)]))]));
-  const withLoading = (esr: ElementStationResult): ElementStationResult => ({ ...esr,
-    comboResults: combinations.map(({ id: comboId }) => {
-      const c = esr.comboResults.find(c => c.comboId === comboId);
+  const withLoading = (esr: ElementStationResult): ElementStationResult => {
+    const byCombo = new Map<number, ElementStationResult['comboResults'][number]>();
+    for (const c of esr.comboResults) if (!byCombo.has(c.comboId)) byCombo.set(c.comboId, c);
+    return { ...esr, comboResults: combinations.map(({ id: comboId, name }) => {
+      const c = byCombo.get(comboId);
       const transverseLoading = loading.get(comboId)?.get(esr.elementId);
-      return { comboId, comboName: c?.comboName ?? combinations.find(c => c.id === comboId)?.name ?? `Combo ${comboId}`,
+      return { comboId, comboName: c?.comboName ?? name ?? `Combo ${comboId}`,
         stations: transverseLoading ? c?.stations ?? [] : [], transverseLoading };
-    }) });
+    }) };
+  };
   // Build member list from model
   const members: Array<{ elementId: number; sectionId: number; materialId: number; length: number }> = [];
   for (const [id, elem] of model.elements) {
@@ -126,7 +129,7 @@ function computeStationDemandsWasm(
 
   const complete = (data: StationDemandData): StationDemandData => {
     if (members.length > 0) {
-      requireCompleteConcurrentDemand(members.map(m => m.elementId), id => data.demands.has(id) ? [data.demands.get(id)] : undefined,
+      requireCompleteConcurrentDemand(members.map(m => m.elementId), data.demands.keys(),
         'every element requires station demands');
     }
     return data;
@@ -531,7 +534,6 @@ export interface SteelMemberDemand {
    * The forces that act TOGETHER, one per combination and station: the interaction (H.1) is
    * rated on these. Rated on the maxima above it took the largest axial, the largest strong and
    * the largest weak moment as if they acted at once, from different combinations and stations.
-   * Axial + compression, moments with their sign. Empty: the maxima are all there is.
    */
   concurrent?: readonly ConcurrentDemand[];
   tuples?: Array<{ N: number; MStrong: number; MWeak: number; VStrong: number; VWeak: number; comboId: number; comboName: string; t: number }>;

@@ -161,7 +161,7 @@ export function autoVerifyFromResults(
     if (stationDemands !== undefined || governing?.has(ef.elementId)) {
       const expected = [...(demands?.expectedCombinationIds ?? []), ...(demands?.demands.map(d => d.comboId) ?? []),
         ...(demands?.concurrent?.map(d => d.comboId) ?? [])];
-      requireCompleteConcurrentDemand(expected, id => demands?.concurrent?.filter(d => d.comboId === id),
+      requireCompleteConcurrentDemand(expected, demands?.concurrent?.map(d => d.comboId) ?? [],
         `every combination requires concurrent tuples for element ${ef.elementId}`);
     }
     const tuples = demands?.concurrent ?? ConcurrentDemand.endpoints(ef);

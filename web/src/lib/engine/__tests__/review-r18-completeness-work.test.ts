@@ -22,7 +22,7 @@ const active = (count: number) => Array.from({ length: count }, (_, i) => ({ id:
 afterEach(() => { vi.restoreAllMocks(); setCompactStationTransfer(true); });
 
 for (const count of [32, 64]) {
-  it.fails(`known wrong result: #2080 tuple coverage reads ${count} combination IDs linearly`, () => {
+  it(`known wrong result: #2080 tuple coverage reads ${count} combination IDs linearly`, () => {
     let reads = 0;
     const tuples = active(count).map(c => ({ get comboId() { reads++; return c.id; } }));
     const required = active(count).map(c => ({ comboId: c.id }));
@@ -30,7 +30,7 @@ for (const count of [32, 64]) {
     expect(reads).toBeLessThanOrEqual(4 * count);
   });
 
-  it.fails(`known wrong result: #2080 auto coverage refuses a missing combination after linear work for ${count} tuples`, () => {
+  it(`known wrong result: #2080 auto coverage refuses a missing combination after linear work for ${count} tuples`, () => {
     const combinations = active(count);
     const data = computeStationDemands(new Map(combinations.map(c => [c.id, raw])), combinations, model).demands;
     const demand = data.get(1)!;
@@ -43,7 +43,7 @@ for (const count of [32, 64]) {
     expect(reads).toBeLessThanOrEqual(4 * concurrent.length);
   });
 
-  it.fails(`known wrong result: #2080 station transfer indexes ${count} combinations once per member`, () => {
+  it(`known wrong result: #2080 station transfer indexes ${count} combinations once per member`, () => {
     const decode = stationBuffer.decodeStationBuffer;
     let reads = 0;
     vi.spyOn(stationBuffer, 'decodeStationBuffer').mockImplementation((buffer, names) => decode(buffer, names).map(esr => ({ ...esr,
@@ -58,6 +58,7 @@ for (const count of [32, 64]) {
 }
 
 it('tuple coverage retains empty, missing, duplicate, extra and complete combination decisions', () => {
+  expect(ConcurrentDemand.hasCompleteTuples([{ comboId: NaN }], [{ comboId: NaN }])).toBe(false);
   expect(ConcurrentDemand.hasCompleteTuples(undefined, [])).toBe(false);
   expect(ConcurrentDemand.hasCompleteTuples([], [])).toBe(false);
   expect(ConcurrentDemand.hasCompleteTuples([], [{ comboId: 1 }])).toBe(false);

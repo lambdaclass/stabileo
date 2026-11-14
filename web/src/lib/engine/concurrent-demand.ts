@@ -6,12 +6,22 @@ export function hasCompleteConcurrentDemand(groups: readonly (readonly unknown[]
   return groups.length > 0 && groups.every(stations => stations !== undefined && stations.length > 0);
 }
 
+function hasCompleteConcurrentIds(expected: Iterable<number>, available: Iterable<number>): boolean {
+  const ids = new Set(available);
+  let any = false;
+  for (const id of expected) {
+    any = true;
+    if (Number.isNaN(id) || !ids.has(id)) return false;
+  }
+  return any;
+}
+
 export function requireCompleteConcurrentDemand(
   expected: Iterable<number>,
-  group: (id: number) => readonly unknown[] | undefined,
+  available: Iterable<number>,
   context: string,
 ): void {
-  if (!hasCompleteConcurrentDemand([...new Set(expected)].map(group))) {
+  if (!hasCompleteConcurrentIds(expected, available)) {
     throw new Error(`Incomplete concurrent demand: ${context}`);
   }
 }
@@ -48,8 +58,8 @@ export class ConcurrentDemand {
   }
 
   static hasCompleteTuples(tuples: readonly { comboId: number }[] | undefined, required: readonly { comboId: number }[]): boolean {
-    const ids = new Set([...required, ...(tuples ?? [])].map(d => d.comboId));
-    return hasCompleteConcurrentDemand([tuples, ...[...ids].map(id => tuples?.filter(d => d.comboId === id))]);
+    const ids = (tuples ?? []).map(d => d.comboId);
+    return hasCompleteConcurrentIds([...required.map(d => d.comboId), ...ids], ids);
   }
 
   static fromTuples(tuples: readonly { comboId: number; comboName: string; forces: Readonly<StationForces> }[]): ConcurrentDemand[] {
