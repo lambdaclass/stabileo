@@ -15195,6 +15195,7 @@ const tr: Translations = {
   "rcSheets.opt.slabBentBars": "Döşemelerde pilye: kat planında her iki açıklık çubuğundan biri iki mesnet üzerinde kaldırılır (ln/5 noktasında, 45°)",
   "rcSheets.line.showMarks": "İşaretler",
   "rcSheets.line.showEnvelope": "Moment ve kesme zarfları",
+  "rcSheets.line.showCuts": "Kesit kesimleri",
   "rcSheets.wallFig.n.special": "Her uçtan {l} cm boyunca özel uç bölgeleri (σ = {sigma} MPa ≥ 0,2·f'c): kalınlık boyunca {legs} kollu Ø{tdia}/{ts} kapalı etriye",
   "rcSheets.wallFig.n.edgeTies": "Her uçtan {l} cm boyunca uç etriyeleri Ø{tdia}/{ts}: uç donatı oranı 2,8/fy'yi aşıyor",
   "rcSheets.wallFig.n.ordinary": "Normal perde (bölüm 11): uç bölgesi yok. Deprem kurallarıyla (bölüm 18) σ ≥ 0,2·f'c ve uç etriyeleri kontrol edilir.",

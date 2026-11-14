@@ -4,7 +4,7 @@
   import { stirrupsLabel } from '../../../lib/rc-sheets/bars';
   import type { LineBar, LineLayout } from '../../../lib/rc-sheets/beam-line';
 
-  let { line, marks = false, envelope = false }: { line: LineLayout; marks?: boolean; envelope?: boolean } = $props();
+  let { line, marks = false, envelope = false, cuts = [] }: { line: LineLayout; marks?: boolean; envelope?: boolean; cuts?: Array<{ x: number; label: string }> } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const W = 1200, M = 56, TOP = 40, STUB = 22, BELOW = 12, ROW = 30;
   const x0 = $derived(Math.min(0, line.ends.from)), x1 = $derived(Math.max(line.length, line.ends.to));
@@ -120,6 +120,17 @@
       {/each}
     </g>
   {/if}
+  {#if cuts.length}
+    <g data-testid="rc-line-cuts">
+      {#each cuts as cut, i (i)}
+        <line x1={X(cut.x)} y1={TOP - STUB - 2} x2={X(cut.x)} y2={yBeamBottom + BELOW - 2} class="cut" />
+        <rect x={X(cut.x) - 8} y={TOP - STUB - 16} width="16" height="13" rx="2" class="cutbox" />
+        <text x={X(cut.x)} y={TOP - STUB - 6} class="cutt" data-testid="rc-line-cut">{cut.label}</text>
+        <rect x={X(cut.x) - 8} y={yBeamBottom + BELOW - 2} width="16" height="13" rx="2" class="cutbox" />
+        <text x={X(cut.x)} y={yBeamBottom + BELOW + 8} class="cutt">{cut.label}</text>
+      {/each}
+    </g>
+  {/if}
   {#each line.splices as sp, i (i)}
     {@const sg = line.spans.find((x) => sp.x >= x.x0 - 1e-9 && sp.x <= x.x1 + 1e-9) ?? line.spans[0]!}
     {@const y = sp.face === 'top' ? TOP + coverPx : bottomOf(sg.h) - coverPx}
@@ -206,6 +217,9 @@
   .markt { font-size: 10px; font-weight: 700; fill: var(--st-text); text-anchor: middle; font-family: var(--st-mono); }
   .mark.onbeam { fill: var(--st-surface-2); }
   .small-mark { font-size: 9px; }
+  .cut { stroke: #f0b84a; stroke-width: 1; stroke-dasharray: 4 2; }
+  .cutbox { fill: var(--st-surface-2); stroke: #f0b84a; stroke-width: 1; }
+  .cutt { font-size: 9.5px; font-weight: 700; fill: #f0b84a; text-anchor: middle; font-family: var(--st-mono); }
   .envaxis { stroke: var(--st-text-3); stroke-width: 0.7; }
   .mu { stroke: none; }
   .mu.pos { fill: rgba(78, 205, 196, 0.22); }

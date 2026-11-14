@@ -15195,6 +15195,7 @@ const fr: Translations = {
   "rcSheets.opt.slabBentBars": "Barres relevées dans les dalles : dans le plan du niveau, une barre de travée sur deux est relevée sur les deux appuis (à ln/5, à 45°)",
   "rcSheets.line.showMarks": "Repères",
   "rcSheets.line.showEnvelope": "Enveloppes de moment et d'effort tranchant",
+  "rcSheets.line.showCuts": "Coupes des sections",
   "rcSheets.wallFig.n.special": "Éléments de rive spéciaux sur {l} cm depuis chaque extrémité (σ = {sigma} MPa ≥ 0,2·f'c) : cadres fermés Ø{tdia} e = {ts} à {legs} brins dans l'épaisseur",
   "rcSheets.wallFig.n.edgeTies": "Cadres de rive Ø{tdia} e = {ts} sur {l} cm depuis chaque extrémité : le taux de rive dépasse 2,8/fy",
   "rcSheets.wallFig.n.ordinary": "Voile ordinaire (chapitre 11) : pas d'éléments de rive. Avec les dispositions sismiques (chapitre 18), σ ≥ 0,2·f'c et les cadres de rive sont vérifiés.",

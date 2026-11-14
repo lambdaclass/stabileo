@@ -15355,6 +15355,7 @@ const en: Record<string, string> = {
   "rcSheets.opt.slabBentBars": "Bent bars in slabs: in the level plan every other span bar rises over both supports (at ln/5, at 45°)",
   "rcSheets.line.showMarks": "Marks",
   "rcSheets.line.showEnvelope": "Moment and shear envelopes",
+  "rcSheets.line.showCuts": "Section cuts",
   "rcSheets.wallFig.n.special": "Special boundary elements over {l} cm from each end (σ = {sigma} MPa ≥ 0.2·f'c): closed hoops Ø{tdia} @ {ts} with {legs} legs across the thickness",
   "rcSheets.wallFig.n.edgeTies": "Edge ties Ø{tdia} @ {ts} over {l} cm from each end: the edge ratio exceeds 2.8/fy",
   "rcSheets.wallFig.n.ordinary": "Ordinary wall (chapter 11): no boundary elements. With the seismic provisions (chapter 18), σ ≥ 0.2·f'c and the edge ties are checked.",

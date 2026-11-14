@@ -15344,6 +15344,7 @@ const es: Record<string, string> = {
   "rcSheets.opt.slabBentBars": "Barras dobladas en losas: en la planta del nivel una de cada dos barras de tramo se levanta sobre ambos apoyos (a ln/5, a 45°)",
   "rcSheets.line.showMarks": "Marcas",
   "rcSheets.line.showEnvelope": "Envolventes de momento y corte",
+  "rcSheets.line.showCuts": "Cortes de las secciones",
   "rcSheets.wallFig.n.special": "Elementos de borde especiales en {l} cm desde cada extremo (σ = {sigma} MPa ≥ 0,2·f'c): estribos cerrados Ø{tdia} c/{ts} con {legs} ramas a través del espesor",
   "rcSheets.wallFig.n.edgeTies": "Estribos de borde Ø{tdia} c/{ts} en {l} cm desde cada extremo: la cuantía de borde supera 2,8/fy",
   "rcSheets.wallFig.n.ordinary": "Tabique ordinario (capítulo 11): no lleva elementos de borde. Con las disposiciones sísmicas (capítulo 18) se verifican σ ≥ 0,2·f'c y los estribos de borde.",

@@ -15195,6 +15195,7 @@ const de: Translations = {
   "rcSheets.opt.slabBentBars": "Aufgebogene Stäbe in Platten: im Geschossgrundriss wird jeder zweite Feldstab über beiden Auflagern aufgebogen (bei ln/5, unter 45°)",
   "rcSheets.line.showMarks": "Positionen",
   "rcSheets.line.showEnvelope": "Momenten- und Querkraftumhüllende",
+  "rcSheets.line.showCuts": "Schnitte der Querschnitte",
   "rcSheets.wallFig.n.special": "Besondere Randglieder über {l} cm ab jedem Ende (σ = {sigma} MPa ≥ 0,2·f'c): geschlossene Bügel Ø{tdia}/{ts} mit {legs} Schenkeln durch die Dicke",
   "rcSheets.wallFig.n.edgeTies": "Randbügel Ø{tdia}/{ts} über {l} cm ab jedem Ende: der Randbewehrungsgrad liegt über 2,8/fy",
   "rcSheets.wallFig.n.ordinary": "Gewöhnliche Wand (Kapitel 11): keine Randglieder. Mit den Erdbebenregeln (Kapitel 18) werden σ ≥ 0,2·f'c und die Randbügel geprüft.",

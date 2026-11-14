@@ -14996,6 +14996,7 @@ const pt: Translations = {
   "rcSheets.opt.slabBentBars": "Barras dobradas nas lajes: na planta do pavimento uma de cada duas barras do vão sobe sobre os dois apoios (a ln/5, a 45°)",
   "rcSheets.line.showMarks": "Marcas",
   "rcSheets.line.showEnvelope": "Envoltórias de momento e cortante",
+  "rcSheets.line.showCuts": "Cortes das seções",
   "rcSheets.wallFig.n.special": "Elementos de borda especiais em {l} cm a partir de cada extremidade (σ = {sigma} MPa ≥ 0,2·f'c): estribos fechados Ø{tdia} c/{ts} com {legs} ramos na espessura",
   "rcSheets.wallFig.n.edgeTies": "Estribos de borda Ø{tdia} c/{ts} em {l} cm a partir de cada extremidade: a taxa de borda passa de 2,8/fy",
   "rcSheets.wallFig.n.ordinary": "Parede comum (capítulo 11): sem elementos de borda. Com as disposições sísmicas (capítulo 18) verificam-se σ ≥ 0,2·f'c e os estribos de borda.",
