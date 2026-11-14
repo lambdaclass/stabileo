@@ -24,4 +24,6 @@ export const endAngles = (f: Pick<ShapeFrame, 'theta' | 'delta'>): [number, numb
 
 export type ShapeSettings = { theta: number; delta: number; q: number; half: boolean; elements: number };
 export const PAPER: ShapeSettings = { theta: 1.3, delta: 1.3, q: 2.5, half: false, elements: 60 };
-export const isPaper = (v: ShapeSettings) => (Object.keys(PAPER) as (keyof ShapeSettings)[]).every(k => v[k] === PAPER[k]);
+export const sameSettings = (a: ShapeSettings, b: ShapeSettings) => (Object.keys(PAPER) as (keyof ShapeSettings)[]).every(k => a[k] === b[k]);
+export const isPaper = (v: ShapeSettings) => sameSettings(v, PAPER);
+export const settingsOf = (run: ShapeRun): ShapeSettings => ({ theta: run.corner[0], delta: run.corner[1], q: run.load, half: run.distribution === 'asymmetric', elements: run.elements });

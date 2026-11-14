@@ -4,7 +4,7 @@ import { setPublicLocale } from '../../../lib/i18n/store.svelte';
 
 afterEach(() => { setPublicLocale('en'); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-(process.env.IGNORED ? it : it.skip)('known wrong result: #2099 — Hungarian baseline copy explains the open checks without a hidden next section', () => {
+it('known wrong result: #2099 — Hungarian baseline copy explains the open checks without a hidden next section', () => {
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
   vi.stubEnv('DEV', false);
   vi.stubEnv('VITE_RESEARCH', '0');

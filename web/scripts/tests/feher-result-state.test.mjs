@@ -4,7 +4,6 @@ import { chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
 const replay = JSON.parse(readFileSync(new URL('../../../research/stability/feher-sipos-varkonyi-2026/reference-results/replay.json', import.meta.url)));
-const knownWrong = { skip: process.env.IGNORED ? false : 'known wrong result: #2099' };
 let browser;
 before(async () => { browser = await chromium.launch({ headless: true }); });
 after(async () => { await browser?.close(); });
@@ -42,6 +41,7 @@ async function change(page, id, value, complete = false) {
 async function stale(page, expected) {
   const notice = page.locator('.result-stale');
   assert.equal(await notice.isVisible(), expected);
+  if (expected) assert.match(await notice.innerText(), /Previous results.*current settings/);
   assert.equal(await page.locator('.shape-app').getAttribute('data-stale'), String(expected));
 }
 
@@ -49,10 +49,11 @@ async function caption(page, text) {
   assert.match(await page.locator('.result-settings').innerText(), text);
 }
 
-test('known wrong result: #2099 — completed q=1.5 remains named after q=2 is cancelled', knownWrong, async () => {
+test('known wrong result: #2099 — completed q=1.5 remains named after q=2 is cancelled', async () => {
   const page = await open();
   try {
-    await change(page, 'q', 1.5, true);
+    await page.getByRole('button', { name: 'Try q = 1.5', exact: true }).click();
+    await page.evaluate(() => window.requests.at(-1).complete());
     await stale(page, false);
     await change(page, 'q', 2);
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
@@ -65,11 +66,16 @@ test('known wrong result: #2099 — completed q=1.5 remains named after q=2 is c
     await page.evaluate(() => window.requests.at(-1).complete());
     await stale(page, true);
     await caption(page, /q = 1\.5/);
+    await page.locator('#shape-q').evaluate(el => {
+      el.value = '1.5';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await stale(page, false);
   } finally { await page.close(); }
 });
 
 for (const [parameter, value] of [['members', 30], ['theta', 1.4], ['delta', 1.4], ['distribution', true]]) {
-  test(`known wrong result: #2099 — ${parameter} mismatch stays visible in both result tabs after cancellation or error`, knownWrong, async () => {
+  test(`known wrong result: #2099 — ${parameter} mismatch stays visible in both result tabs after cancellation or error`, async () => {
     const page = await open();
     try {
       if (parameter === 'distribution') await page.getByRole('radio').nth(1).click();
@@ -90,7 +96,7 @@ for (const [parameter, value] of [['members', 30], ['theta', 1.4], ['delta', 1.4
   });
 }
 
-test('known wrong result: #2099 — input during computation, start refusal, paper reset and replay selection track the actual result', knownWrong, async () => {
+test('known wrong result: #2099 — input during computation, start refusal, paper reset and replay selection track the actual result', async () => {
   const page = await open();
   try {
     await change(page, 'q', 1.5);
@@ -109,13 +115,13 @@ test('known wrong result: #2099 — input during computation, start refusal, pap
     await caption(page, /q = 2\.5/);
     await change(page, 'q', 1.5, true);
     await stale(page, false);
-    await page.getByRole('link', { name: 'Shape 1', exact: true }).first().click();
+    await page.getByRole('button', { name: 'Shape 1', exact: true }).first().click();
     await stale(page, true);
     await caption(page, /q = 2\.5/);
   } finally { await page.close(); }
 });
 
-test('known wrong result: #2099 — baseline corner controls also mark a cancelled result stale', knownWrong, async () => {
+test('known wrong result: #2099 — baseline corner controls also mark a cancelled result stale', async () => {
   const page = await open(false);
   try {
     await stale(page, false);

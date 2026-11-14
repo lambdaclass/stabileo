@@ -10,5 +10,9 @@
   "pt": {
     "openNote": "As linhas com ✗ ficam em aberto. A forma 4 está logo depois da cúspide, onde a altura muda rápido com os ângulos das garras: nosso caminho alcança a altura do artigo cerca de 0,08 mais abaixo em Δ. Com a carga em meio vão nossas cargas limite saem de 5 a 7 % mais baixas, e a curva de bifurcação onde o artigo encontra seu ótimo fica nas nossas execuções cerca de 0,2 mais abaixo em Δ, o que também coloca o ponto (0,64, 1,16) da tabela 1 exatamente sobre ela. Com a carga em meio vão em (0,96, 0) o salto cai em um estado estável de curvatura 14,1, não no 7,6 do artigo. A forma invertida no fim do caminho, que coincide com a figura, tem curvatura máxima de cerca de 10,6, acima do limiar de 6 que o artigo fixa para o caminho. Ficam como perguntas para os autores.",
     "runNote": "Mova o canto distante do retângulo e recalcule. Abaixo da cúspide a lâmina volta como arco; depois da dobra o caminho para."
+  },
+  "hu": {
+    "openNote": "A ✗-gel jelölt sorok nyitottak. A 4. alak éppen a csúcsponton túl helyezkedik el, ahol a magasság gyorsan változik a befogási szögekkel: az általunk számított út az ábrán közölt magasságot körülbelül 0,08-cal kisebb Δ-nál éri el. Fél fesztávon ható teher esetén a határterheink 5–7%-kal kisebbek, és az a bifurkációs görbe, ahol a cikk az optimumot találja, a futtatásainkban körülbelül 0,2-del kisebb Δ-nál helyezkedik el, így az 1. táblázat (0,64; 1,16) pontja is éppen erre esik. A (0,96; 0) pontbeli, fél fesztávon ható tehernél az átpattanás egy 14,1 görbületű stabil állapotba vezet, szemben a cikk 7,6 értékével. Az út végén kialakuló, az ábrával egyező fordított alak legnagyobb görbülete körülbelül 10,6, meghaladva a cikkben az útra előírt 6-os küszöböt. Ezek a szerzők számára nyitott kérdések.",
+    "runNote": "Mozgassa a téglalap távoli sarkát, majd számítsa újra. A csúcspont alatt a csík ívként tér vissza; a redőn túl az út megszakad."
   }
 }

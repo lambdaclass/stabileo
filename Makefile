@@ -1201,4 +1201,4 @@ test.engine.constraint-rounding-2013-wasm: wasm
 
 .PHONY: test.web.feher-result-state
 test.web.feher-result-state:
-	IGNORED=$(IGNORED) nix develop .\#e2e --command node --test web/scripts/tests/feher-result-state.test.mjs
+	nix develop .\#e2e --command node --test web/scripts/tests/feher-result-state.test.mjs

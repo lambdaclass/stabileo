@@ -11,7 +11,7 @@
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import { research } from '../../../lib/features';
   import { shapeStrings } from './strings';
-  import { decodeRun, endAngles, isPaper, PAPER, type ShapeRun, type ShapeSettings } from './protocol';
+  import { decodeRun, endAngles, isPaper, sameSettings, settingsOf, PAPER, type ShapeRun, type ShapeSettings } from './protocol';
   import replay from '../../../../../research/stability/feher-sipos-varkonyi-2026/reference-results/replay.json';
   import validation from '../../../../../research/stability/feher-sipos-varkonyi-2026/VALIDATION.json';
 
@@ -47,7 +47,10 @@
   const cells = $derived(Array.from({ length: run.elements }, (_, i) => [i, i + 1]).flat());
   const displacement = $derived(frame.ux.flatMap((u, i) => [u, frame.uz[i]]));
   const heightSeries = $derived([{ name: s.height, color: 'var(--rs-plot-ours)', points: run.frames.map((f, i) => [i, f.y_mid] as [number, number]) }]);
-  const atPaper = $derived(isPaper(settings));
+  const requested = $derived(extended ? settings : { ...PAPER, theta: settings.theta, delta: settings.delta });
+  const computed = $derived(settingsOf(run));
+  const stale = $derived(startLost || !sameSettings(computed, requested));
+  const atPaper = $derived(isPaper(requested));
   const changes = $derived.by(() => {
     const list: string[] = [];
     if (settings.q !== PAPER.q) list.push(`q = ${num(settings.q, { dp: 1 })}`);
@@ -140,7 +143,7 @@
       active.terminate(); worker = null; busy = false;
     };
     active.onerror = () => { if (worker === active) { failed = true; stop(); } };
-    active.postMessage($state.snapshot(extended ? settings : { ...PAPER, theta: settings.theta, delta: settings.delta }));
+    active.postMessage($state.snapshot(requested));
   }
   function restart() { stop(); playback.seek(0); playback.play(); }
   function backToPaper() {
@@ -232,12 +235,14 @@
   {#snippet app()}
     <div lang={publicI18n.locale} class="shape-app" bind:this={host} data-source={source} data-step={playback.shown} data-tab={tab}
       data-theta={frame.theta} data-delta={frame.delta} data-ymid={frame.y_mid} data-stable={frame.stable}
-      data-load={run.load} data-distribution={run.distribution} data-elements={run.elements} data-paper={atPaper && source === 'replay'} data-stale={startLost}
+      data-load={run.load} data-distribution={run.distribution} data-elements={run.elements} data-paper={atPaper && source === 'replay'} data-stale={stale}
       onpointerdowncapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} role="group" aria-label={s.title}>
       <PaneTabs label={s.caseLabel} tabs={[{ id: 'strip', label: s.tabs.strip }, { id: 'path', label: s.tabs.path }]}
         bind:active={() => tab, setTab} oninteract={() => playback.interact()} />
       <p class="source">{source === 'replay' ? shared.replaySource : shared.liveSource}</p>
-      <div id="rs-panel-strip" role="tabpanel" aria-labelledby="rs-tab-strip" hidden={tab !== 'strip'} class:stale={startLost}>
+      <p class="caption result-settings">q = {num(computed.q, { dp: 1 })}; {s.distribution}: {computed.half ? s.halfShort : s.uniformShort}; {s.members}: {computed.elements}; {s.computedCorner} Θ = {num(computed.theta, { dp: 2 })}, Δ = {num(computed.delta, { dp: 2 })}.</p>
+      {#if stale}<p class="result-stale" role="status">{s.staleResult}</p>{/if}
+      <div id="rs-panel-strip" role="tabpanel" aria-labelledby="rs-tab-strip" hidden={tab !== 'strip'} class:stale={stale}>
         <StabileoViewer editorButton={false} {xy} {cells} cellSize={2} values={frame.curvature} {displacement} deformScale={1}
           range={{ min: -10, max: 10 }} colourMap="diverging" title={s.curvature} height="max(240px, min(20rem, 38svh))" view={[-0.12, -0.27, 1.08, 0.3]} lineWidth={5} showAxes={false} />
         <p class="caption">{s.coordinates}</p>
@@ -249,7 +254,7 @@
           <dt>{s.stability}</dt><dd class:bad={!frame.stable}>{frame.stable ? s.stable : s.unstable}</dd>
         </dl>
       </div>
-      <div id="rs-panel-path" role="tabpanel" aria-labelledby="rs-tab-path" hidden={tab !== 'path'} class:stale={startLost}>
+      <div id="rs-panel-path" role="tabpanel" aria-labelledby="rs-tab-path" hidden={tab !== 'path'} class:stale={stale}>
         {#if tab === 'path'}
           <svg class="plane" viewBox="0 0 300 218" role="img" aria-label={s.plane}>
             <title>{s.plane}</title>
@@ -302,7 +307,7 @@
           <label>{s.cornerDelta} <strong>{num(settings.delta, { dp: 2 })}</strong><input id="shape-delta" type="range" min="0.2" max="1.8" step="0.1" bind:value={settings.delta} onchange={compute} /></label>
         </div>
       {/if}
-      <p class="caption">{s.runNote} {s.computedCorner} Θ = {num(run.corner[0], { dp: 2 })}, Δ = {num(run.corner[1], { dp: 2 })}.</p>
+      <p class="caption">{s.runNote}</p>
       <div class="buttons">
         <button onclick={compute} disabled={busy}>{s.run}</button><button onclick={stop}>{s.stop}</button><button onclick={restart}>{s.restart}</button>
       </div>
@@ -319,6 +324,7 @@
   p { font-size: 0.85rem; margin: 0; }
   .source, .caption { color: var(--fg-2); font-size: 0.8rem; }
   .stale { opacity: 0.45; }
+  .result-stale { border: 1px solid var(--fg-2); padding: 0.5rem; }
   .outcome { font-size: 0.85rem; }
   label { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
   input[type='range'] { width: 100%; min-height: 44px; margin: 0; }

@@ -135,10 +135,9 @@ export function principal3(s: Tensor3): Principal3 {
   const unit = matrixOf(s).map((row) => row.map((v) => v / scale));
   const { values, vectors } = symmetricEigen(unit);
   const order = [0, 1, 2].sort((a, b) => values[b] - values[a]);
-  const snap = (v: number) => (Math.abs(v) < 1e-12 ? 0 : v) * scale;
   const column = (j: number): Vec3 => [vectors[0][j], vectors[1][j], vectors[2][j]];
   return {
-    values: order.map((j) => snap(values[j])) as [number, number, number],
+    values: order.map((j) => values[j] * scale) as [number, number, number],
     directions: order.map((j) => oriented(column(j))) as [Vec3, Vec3, Vec3],
   };
 }

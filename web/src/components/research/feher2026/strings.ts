@@ -100,6 +100,7 @@ const en = {
   inverted: 'The strip ended inverted, without a jump.',
   jumped: 'The strip jumped near Θ = {t}, Δ = {d}: this path crosses the fold, so the shape changes by a snap.',
   computedCorner: 'Computed with the far corner at',
+  staleResult: 'Previous results are shown. Recompute to obtain results for the current settings.',
 };
 type Strings = typeof en;
 
@@ -200,6 +201,7 @@ const es: Strings = {
   inverted: 'La lámina terminó invertida, sin saltar.',
   jumped: 'La lámina saltó cerca de Θ = {t}, Δ = {d}: este camino cruza el pliegue, así que la forma cambia por un salto.',
   computedCorner: 'Calculado con la esquina lejana en',
+  staleResult: 'Se muestran resultados anteriores. Recalculá para obtener resultados con los ajustes actuales.',
 };
 
 const pt: Strings = {
@@ -299,6 +301,7 @@ const pt: Strings = {
   inverted: 'A lâmina terminou invertida, sem salto.',
   jumped: 'A lâmina saltou perto de Θ = {t}, Δ = {d}: este caminho cruza a dobra, então a forma muda por um salto.',
   computedCorner: 'Calculado com o canto distante em',
+  staleResult: 'São mostrados resultados anteriores. Recalcule para obter resultados com os ajustes atuais.',
 };
 
 const hu: Strings = {
@@ -398,6 +401,7 @@ const hu: Strings = {
   inverted: 'A csík átfordult alakban, ugrás nélkül ért célba.',
   jumped: 'A csík Θ = {t}, Δ = {d} közelében átpattant: ez az út átlépi a redőt, így az alak ugrással változik meg.',
   computedCorner: 'Számítva a távoli sarokkal:',
+  staleResult: 'Korábbi eredmények láthatók. Számítsa újra az aktuális beállítások eredményeit.',
 };
 
 export const translations: Record<string, Strings> = { en, es, pt, hu };

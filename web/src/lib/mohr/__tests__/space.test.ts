@@ -208,8 +208,7 @@ describe('the cutting plane on the element', () => {
   });
 });
 
-const resolvedDiagonal = process.env.IGNORED ? describe : describe.skip;
-resolvedDiagonal('known wrong result: #2099 — resolved principal stresses survive magnitude separation', () => {
+describe('known wrong result: #2099 — resolved principal stresses survive magnitude separation', () => {
   const permutations = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
   for (const dominant of [1e9, -1e9]) for (const small of [0, 5e-4, 1e-3, 2e-3]) for (const factor of [1e-9, 1, 1e9]) {
     it(`preserves diagonal signs and values: ${dominant}, ±${small}, scale ${factor}`, () => {
