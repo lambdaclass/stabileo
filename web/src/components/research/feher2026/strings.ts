@@ -1,4 +1,6 @@
 import { shapeCard } from './card';
+import { research } from '../../../lib/features';
+import mainCopy from './main-copy.json';
 import { publicI18n } from '../../../lib/i18n/store.svelte';
 
 const en = {
@@ -399,4 +401,8 @@ const hu: Strings = {
 };
 
 export const translations: Record<string, Strings> = { en, es, pt, hu };
-export const shapeStrings = (): Strings => translations[publicI18n.locale] ?? en;
+export const shapeStrings = (): Strings => {
+  const locale = publicI18n.locale;
+  const strings = translations[locale] ?? en;
+  return research() ? strings : { ...strings, ...(mainCopy[locale as keyof typeof mainCopy] ?? mainCopy.en) };
+};

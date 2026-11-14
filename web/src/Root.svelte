@@ -19,7 +19,7 @@
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { publicI18n, setLocale, ensureLocale, ensurePublicLocale, i18n } from './lib/i18n/store.svelte';
   import { routeKind } from './lib/public-route';
-  import { restoreMovedRoute } from './lib/legacy-routes';
+  import { restoreMovedRoute, restoreUnpublishedResearchRoute } from './lib/legacy-routes';
   import { modeToPath } from './lib/app-mode';
 
   function adoptLocaleFromPath() {
@@ -35,7 +35,7 @@
   let app = $state<typeof import('./App.svelte').default | null>(null);
   let loading: Promise<void> | null = null;
 
-  let pages = $state<Partial<Record<'research' | 'tools' | 'game' | 'paper' | 'blog' | 'register' | 'landing', import('svelte').Component<{ path: string }>>>>({});
+  let pages = $state<Partial<Record<'research' | 'tools' | 'examples' | 'game' | 'paper' | 'blog' | 'register' | 'landing', import('svelte').Component<{ path: string }>>>>({});
   let revision = 0;
   let failed = $state(false);
   $effect(() => { if (current.kind !== 'landing') return idlePrefetchPublicPages(); });
@@ -56,6 +56,7 @@
   async function sync() {
     const token = ++revision;
     restoreMovedRoute();
+    restoreUnpublishedResearchRoute();
     const next = routeKind();
     const hash = location.hash;
     try {
@@ -121,7 +122,7 @@
 {#if app}
   {@const App = app}
   <App />
-{:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'game' || current.kind === 'paper' || current.kind === 'blog' || current.kind === 'register'}
+{:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'examples' || current.kind === 'game' || current.kind === 'paper' || current.kind === 'blog' || current.kind === 'register'}
   {@const Page = pages[current.kind]}
   {#if Page}<Page path={current.path} />{:else}<PublicPending kind={current.kind} {failed} />{/if}
 {:else if current.kind === 'landing' && pages.landing}

@@ -1,12 +1,17 @@
+import { publicLocaleEnabled, publicFeatures, type PublicFeatures } from './features';
+import { EXAMPLE_PATHS } from './public-surface';
 import { PUBLIC_LOCALES } from './i18n/offered';
 
 /** Routes that moved, old prefix to new: `/examples/<id>` became the tool with the same id. */
 export const MOVED_ROUTES: readonly (readonly [string, string])[] = [['/examples', '/tools']];
 
 /** Every address the site published before it moved, which keeps a page that sends its reader on. */
-export const MOVED_PAGES: readonly string[] = ['/examples', ...['beam-frame', 'slab-on-columns', 'earthquake-frame', 'rc-column', 'outrigger', 'tower'].map(id => `/examples/${id}`)];
+export const MOVED_PAGES: readonly string[] = EXAMPLE_PATHS;
 
-export function movedRoute(path: string): string | null {
+export const movedPages = (flags: PublicFeatures = publicFeatures()): readonly string[] => flags.tools ? MOVED_PAGES : [];
+
+export function movedRoute(path: string, flags: PublicFeatures = publicFeatures()): string | null {
+  if (!flags.tools) return null;
   const route = path.replace(/\/+$/, '') || '/';
   for (const [from, to] of MOVED_ROUTES) {
     if (route === from) return to;
@@ -30,4 +35,15 @@ export function restoreMovedRoute(): boolean {
   if (next === null) return false;
   history.replaceState(history.state, '', next);
   return true;
+}
+
+export function unpublishedResearchAddress(loc: Pick<Location, 'pathname' | 'search' | 'hash'>): string | null {
+  const match = loc.pathname.match(/^\/([a-z]{2})(\/research(?:\/.*)?)$/);
+  if (!match || publicLocaleEnabled(match[2], match[1])) return null;
+  return `/en${match[2]}${loc.search}${loc.hash}`;
+}
+
+export function restoreUnpublishedResearchRoute(): void {
+  const next = unpublishedResearchAddress(location);
+  if (next) history.replaceState(history.state, '', next);
 }

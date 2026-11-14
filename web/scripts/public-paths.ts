@@ -1,4 +1,5 @@
 import ts from 'typescript';
+import { EXAMPLE_PATHS } from '../src/lib/public-surface';
 import { loadEnv } from 'vite';
 import { publicFeatureEnabled } from '../src/lib/features';
 import { readFile } from 'node:fs/promises';
@@ -12,6 +13,12 @@ import { TOOLS, toolLastmod, toolPaths } from '../src/components/tools/registry'
 import toolReviews from '../../research/tools/batches/VALIDATION.json';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const buildEnvironment = loadEnv(process.env.NODE_ENV ?? 'production', ROOT, 'VITE_');
+
+export function buildPublicFeatures() {
+  const environment = { ...buildEnvironment, ...process.env };
+  return { research: environment.VITE_RESEARCH === '1', tools: environment.VITE_TOOLS === '1', diagramGame: environment.VITE_DIAGRAM_GAME === '1', accounts: environment.VITE_ACCOUNTS === '1' };
+}
 
 /**
  * A post's last change, for its sitemap entry: `updated` when the post states one, else its
@@ -26,7 +33,7 @@ export const POST_DATE = new Map<string, string>();
 
 /** The languages a public path is written in, which are the only ones it is built, listed and linked in. */
 export function writtenIn(path: string): Locale[] {
-  return [...publishedLocales(path)];
+  return [...publishedLocales(path, buildPublicFeatures())];
 }
 
 function metadata(source: string): Record<string, string> {
@@ -51,6 +58,7 @@ function metadata(source: string): Record<string, string> {
 
 /** Every public route, without its language prefix. Posts are read from the bundle. */
 export async function publicPaths(): Promise<string[]> {
+  const flags = buildPublicFeatures();
   const source = await readFile(join(ROOT, 'src/lib/blog/index.ts'), 'utf8');
   const imports = [...source.matchAll(/from '\.\/posts\/([\w-]+)'/g)].map((m) => m[1]);
   const slugs: string[] = [];
@@ -68,8 +76,9 @@ export async function publicPaths(): Promise<string[]> {
   }
   if (slugs.length === 0) throw new Error('prerender: found no blog posts — the scan is broken');
   POST_LASTMOD.set('/blog', [...POST_LASTMOD.values()].sort().at(-1)!);
-  for (const tool of TOOLS) POST_LASTMOD.set(`/tools/${tool.id}`, toolLastmod(tool, toolReviews.batches));
-  POST_LASTMOD.set('/tools', TOOLS.map((tool) => toolLastmod(tool, toolReviews.batches)).sort().at(-1)!);
+  const publishedTools = TOOLS.filter(tool => publicFeatureEnabled(`/tools/${tool.id}`, flags));
+  for (const tool of publishedTools) POST_LASTMOD.set(`/tools/${tool.id}`, toolLastmod(tool, toolReviews.batches));
+  POST_LASTMOD.set('/tools', publishedTools.map((tool) => toolLastmod(tool, toolReviews.batches)).sort().at(-1)!);
   // Standing pages, read from their own files, with their last edit for the sitemap.
   const pageIndex = await readFile(join(ROOT, 'src/lib/blog/pages/index.ts'), 'utf8');
   const pageFiles = [...pageIndex.matchAll(/from '\.\/([\w-]+)'/g)].map((m) => m[1]);
@@ -88,7 +97,6 @@ export async function publicPaths(): Promise<string[]> {
     const day = researchLastReview(path);
     if (day) POST_LASTMOD.set(path, day);
   }
-  const environment = { ...loadEnv(process.env.NODE_ENV ?? 'production', ROOT, 'VITE_'), ...process.env };
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, ...toolPaths(), '/diagram-game'].filter(path => publicFeatureEnabled(path, { research: environment.VITE_RESEARCH === '1', tools: environment.VITE_TOOLS === '1', diagramGame: environment.VITE_DIAGRAM_GAME === '1' }));
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, ...toolPaths(), ...(flags.tools ? [] : EXAMPLE_PATHS), '/diagram-game'].filter(path => publicFeatureEnabled(path, flags));
 }
 

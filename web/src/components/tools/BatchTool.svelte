@@ -11,7 +11,7 @@
  import { solverMessages } from './solver-messages';
  import { liveSolver, SOLVE_DELAY } from './live-solve';
  import { widen, type Span } from './slider';
- import { DEFAULT_BATCH, validateBatch, type BatchId, type BatchParameters } from './batch';
+ import { BatchToolError, DEFAULT_BATCH, validateBatch, type BatchId, type BatchParameters } from './batch';
  import type { BatchResult } from './batch-solve';
  import { prerenderedResult, recordPrerenderedResult } from './prerendered-result';
  type Field = keyof Pick<BatchParameters,'e'|'i'|'area'|'length'|'height'|'horizontal'|'load'|'mass'|'position'>;
@@ -36,7 +36,7 @@
   async(values:BatchParameters)=>{validateBatch(id,values);const {calculateBatch}=await import('./batch-solve');return calculateBatch(id,values);},
   (outcome,values,superseded)=>{
    stale=superseded;
-   if(!outcome.ok){const e=outcome.error;error=t(e instanceof Error&&e.message.startsWith('tools.')?e.message:'tools.failed');stale=true;return;}
+   if(!outcome.ok){const e=outcome.error;error=t(e instanceof BatchToolError?e.key:'tools.failed');stale=true;return;}
    error='';result=outcome.value;recordPrerenderedResult(id,values,outcome.value);void link(outcome.value,values);
   },
   {delay:()=>id==='influence-line'||id==='beam-natural-frequency'?SOLVE_DELAY:0});

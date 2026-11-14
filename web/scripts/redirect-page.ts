@@ -1,3 +1,4 @@
+import { publicFeatures, type PublicFeatures } from '../src/lib/features';
 import type { Locale } from '../src/lib/i18n/offered';
 import { movedRoute } from '../src/lib/legacy-routes';
 
@@ -7,8 +8,8 @@ const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').r
  * The file left at a moved address. The script runs first so the query (a shared tool's settings)
  * and the fragment come along; the refresh is for a reader without scripts.
  */
-export function redirectPage(origin: string, locale: Locale, from: string): string {
-  const to = movedRoute(from);
+export function redirectPage(origin: string, locale: Locale, from: string, flags: PublicFeatures = publicFeatures()): string {
+  const to = movedRoute(from, flags);
   if (to === null) throw new Error(`redirect-page: ${from} did not move`);
   const href = `/${locale}${to}/`;
   const json = JSON.stringify(href).replace(/</g, '\\u003c');

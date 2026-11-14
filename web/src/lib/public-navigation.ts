@@ -12,6 +12,8 @@ export function loadPublicPage(path: string): Promise<Page | null> {
   if (!pending.has(key)) {
     const loading = route.kind === 'research'
       ? import('../components/research/load-page').then(m => m.loadResearchPage(key))
+      : route.kind === 'examples'
+        ? import('../components/examples/load-page').then(m => m.loadExamplesPage())
       : route.kind === 'tools'
         ? import('../components/tools/load-page').then(m => m.loadToolsPage(key))
         : route.kind === 'game'

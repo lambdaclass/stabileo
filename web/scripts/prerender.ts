@@ -49,9 +49,9 @@ import { notFoundPage } from './not-found-page';
 import { buildStarCount, serveStarCount } from './build-stars';
 import { paperStructuredData } from './paper-structured-data';
 import { withResearchCard } from './research-card';
-import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from './public-paths';
+import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn, buildPublicFeatures } from './public-paths';
 import { redirectPage } from './redirect-page';
-import { MOVED_PAGES } from '../src/lib/legacy-routes';
+import { movedPages } from '../src/lib/legacy-routes';
 import { findTool } from '../src/components/tools/registry';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
 import { isResearchRoute } from '../src/lib/i18n/research-routes';
@@ -420,10 +420,10 @@ async function main() {
     );
 
     for (const locale of LOCALES) {
-      for (const from of MOVED_PAGES) {
+      for (const from of movedPages(buildPublicFeatures())) {
         const out = join(DIST, locale, from.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
-        await writeFile(out, redirectPage(ORIGIN, locale, from));
+        await writeFile(out, redirectPage(ORIGIN, locale, from, buildPublicFeatures()));
       }
     }
 
@@ -434,7 +434,7 @@ async function main() {
 
     console.log(`✅ prerendered ${written.length} pages`);
     for (const href of written) console.log(`   · ${href}`);
-    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards, ${LOCALES.length + 1} 404 pages, ${LOCALES.length * MOVED_PAGES.length} moved-page redirects`);
+    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards, ${LOCALES.length + 1} 404 pages, ${LOCALES.length * movedPages(buildPublicFeatures()).length} moved-page redirects`);
   } finally {
     await browser.close();
     await stop();

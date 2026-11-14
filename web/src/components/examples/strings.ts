@@ -1,3 +1,4 @@
+import mainCopy from './main-copy.json';
 import { publicI18n } from '../../lib/i18n/store.svelte';
 
 const en = {
@@ -1076,5 +1077,6 @@ const hu: Record<Key, string> = {
 export const exampleStrings: Record<string, Record<Key, string>> = { en, es, pt, de, fr, tr, hu };
 
 export function te(key: string): string {
-  return (exampleStrings[publicI18n.locale] as Record<string, string> | undefined)?.[key] ?? (en as Record<string, string>)[key] ?? key;
+  const legacy = mainCopy[publicI18n.locale as keyof typeof mainCopy] as Record<string, string> | undefined;
+  return (exampleStrings[publicI18n.locale] as Record<string, string> | undefined)?.[key] ?? legacy?.[key] ?? (en as Record<string, string>)[key] ?? key;
 }

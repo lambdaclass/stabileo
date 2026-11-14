@@ -16,7 +16,7 @@ const off = () => {
 };
 afterEach(() => { setPublicLocale('en'); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetModules(); });
 
-it.skip('known wrong result: #1950 — switches off preserve main public routes, nav and prerender pages exactly', async () => {
+it('known wrong result: #1950 — switches off preserve main public routes, nav and prerender pages exactly', async () => {
   off();
   const prerender = (await publicPaths()).sort();
   expect(prerender).toEqual(main.routes);
@@ -32,11 +32,10 @@ it.skip('known wrong result: #1950 — switches off preserve main public routes,
   expect(routeKind(new URL('https://stabileo.test/en/examples/beam-frame/'))).toEqual({ kind: 'examples', path: '/examples/beam-frame' });
 });
 
-it.skip('known wrong result: #1916 — keeps Fehér main controls and hides only added sliders, explanations and Hungarian research', () => {
+it('known wrong result: #1916 — keeps Fehér main controls and hides only added sliders, explanations and Hungarian research', () => {
   off();
   for (const path of main.research) {
-    expect(publishedLocales(path), path).toContain('en');
-    expect(publishedLocales(path), path).not.toContain('hu');
+    expect(publishedLocales(path), path).toEqual(main.researchLocales[path as keyof typeof main.researchLocales]);
   }
   const body = render(ShapePage).body;
   for (const id of ['shape-theta', 'shape-delta']) expect(body).toContain(`id="${id}"`);
@@ -47,7 +46,7 @@ it.skip('known wrong result: #1916 — keeps Fehér main controls and hides only
   for (const id of ['shape-q', 'shape-members', 'why']) expect(enabled).toContain(`id="${id}"`);
 });
 
-it.skip('known wrong result: #1950 — switches on publish added routes and consolidation without changing calculator corrections', async () => {
+it('known wrong result: #1950 — switches on publish added routes and consolidation without changing calculator corrections', async () => {
   off();
   vi.stubEnv('VITE_TOOLS', '1');
   vi.stubEnv('VITE_RESEARCH', '1');
@@ -64,7 +63,7 @@ it.skip('known wrong result: #1950 — switches on publish added routes and cons
   expect(loader).toContain('loadToolDetail');
 });
 
-it.skip.each(Array.from({ length: 8 }, (_, mask) => mask))('known wrong result: #1950 — publication uses build flags consistently for combination %i', async mask => {
+it.each(Array.from({ length: 8 }, (_, mask) => mask))('known wrong result: #1950 — publication uses build flags consistently for combination %i', async mask => {
   off();
   const flags = { research: !!(mask & 1), tools: !!(mask & 2), diagramGame: !!(mask & 4), accounts: false };
   for (const [key, enabled] of Object.entries(flags)) vi.stubEnv(`VITE_${key === 'diagramGame' ? 'DIAGRAM_GAME' : key.toUpperCase()}`, enabled ? '1' : '0');
@@ -80,7 +79,7 @@ it.skip.each(Array.from({ length: 8 }, (_, mask) => mask))('known wrong result: 
   expect([...movedPages(flags)].sort()).toEqual(flags.tools ? main.routes.filter(path => path.startsWith('/examples')).sort() : []);
 });
 
-it.skip('known wrong result: #1916 — unpublished Hungarian research addresses fall back to English while retaining query and fragment', async () => {
+it('known wrong result: #1916 — unpublished Hungarian research addresses fall back to English while retaining query and fragment', async () => {
   off();
   const { unpublishedResearchAddress } = await import('../lib/legacy-routes');
   for (const path of main.research) {
@@ -91,4 +90,32 @@ it.skip('known wrong result: #1916 — unpublished Hungarian research addresses 
     vi.stubEnv('VITE_RESEARCH', '0');
   }
   for (const path of ['/hu/', '/hu/tools/', '/en/research/', '/hu/researching/']) expect(unpublishedResearchAddress({ pathname: path, search: '', hash: '' })).toBeNull();
+});
+
+it('keeps the original calculator and example headings translated with integration switches off', async () => {
+  off();
+  const { render: renderPage } = await import('svelte/server');
+  const { setPublicLocale: setViewLocale } = await import('../lib/i18n/store.svelte');
+  const { loadToolsPage } = await import('../components/tools/load-page');
+  const { loadExamplesPage } = await import('../components/examples/load-page');
+  const { PUBLIC_LOCALES } = await import('../lib/i18n/offered');
+  const examples = (await import('../components/examples/main-copy.json')).default;
+  const { exampleStrings } = await import('../components/examples/strings');
+  const calculators = (await import('../components/tools/main-copy.json')).default;
+  const { toolTranslations } = await import('../components/tools/translations');
+  const ToolsPage = await loadToolsPage('/tools');
+  const ExamplesPage = await loadExamplesPage();
+  for (const locale of PUBLIC_LOCALES) {
+    setViewLocale(locale);
+    const toolCopy = calculators[locale as keyof typeof calculators] ?? toolTranslations[locale];
+    expect(renderPage(ToolsPage, { props: { path: '/tools' } }).body).toContain(toolCopy['tools.index']);
+    const exampleCopy: Record<string, string> = { ...examples[locale as keyof typeof examples], ...exampleStrings[locale] };
+    expect(renderPage(ExamplesPage, { props: { path: '/examples' } }).body).toContain(exampleCopy['index.title']);
+    for (const id of ['beam-frame', 'slab-on-columns', 'earthquake-frame', 'rc-column', 'outrigger', 'tower']) {
+      const title = exampleCopy[`${id}.title`];
+      expect(title).toBeTruthy();
+      expect(renderPage(ExamplesPage, { props: { path: `/examples/${id}` } }).body, `${locale} ${id}`).toContain(title);
+    }
+  }
+  setViewLocale('en');
 });

@@ -1,5 +1,5 @@
 import { BASE_LOCALES } from '../blog/base-locales';
-import { publicFeatureEnabled } from '../features';
+import { publicFeatureEnabled, publicFeatures, type PublicFeatures } from '../features';
 import { PUBLIC_LOCALES, type Locale } from './offered';
 import { isResearchRoute, researchLocales } from './research-routes';
 
@@ -20,12 +20,12 @@ export const PAPER_PUBLISHED: readonly Locale[] = ['en', 'es', 'pt'];
 export { BASE_LOCALES } from '../blog/base-locales';
 
 /** The languages a public page is published in: it is prerendered, listed and linked in these and no others. */
-export function publishedLocales(path: string): readonly Locale[] {
+export function publishedLocales(path: string, flags: PublicFeatures = publicFeatures()): readonly Locale[] {
   const route = path.split('#')[0].replace(/\/+$/, '') || '/';
-  if (!publicFeatureEnabled(route)) return [];
-  if (isResearchRoute(route)) return PUBLIC_LOCALES.filter((l) => researchLocales(route).includes(l));
+  if (!publicFeatureEnabled(route, flags)) return [];
+  if (isResearchRoute(route)) return PUBLIC_LOCALES.filter((l) => researchLocales(route, flags).includes(l));
   if (route === '/paper') return PUBLIC_LOCALES.filter((l) => PAPER_PUBLISHED.includes(l));
-  if (route === '/' || route === '/blog' || route === '/tools' || route.startsWith('/tools/') || route === '/diagram-game') return PUBLIC_LOCALES;
+  if (route === '/' || route === '/blog' || route === '/examples' || route.startsWith('/examples/') || route === '/tools' || route.startsWith('/tools/') || route === '/diagram-game') return PUBLIC_LOCALES;
   const id = route.startsWith('/blog/') ? route.slice('/blog/'.length) : `page-${route.slice(1)}`;
   return PUBLIC_LOCALES.filter((l) => BASE_LOCALES.some(base => base === l) || translated(`${l}/${id}`));
 }

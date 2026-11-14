@@ -9,6 +9,7 @@
   import { num } from '../shell/format';
   import { rs } from '../i18n';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
+  import { research } from '../../../lib/features';
   import { shapeStrings } from './strings';
   import { decodeRun, endAngles, isPaper, PAPER, type ShapeRun, type ShapeSettings } from './protocol';
   import replay from '../../../../../research/stability/feher-sipos-varkonyi-2026/reference-results/replay.json';
@@ -22,6 +23,7 @@
   const shared = $derived(rs());
   const fill = (template: string, values: Record<string, string>) => Object.entries(values).reduce((t, [k, v]) => t.replaceAll(`{${k}}`, v), template);
   const playback = new Playback(90);
+  const extended = $derived(research());
   const replayRun = decodeRun(replay);
   let run = $state.raw<ShapeRun>(replayRun);
   let tab = $state<'strip' | 'path'>('strip');
@@ -138,7 +140,7 @@
       active.terminate(); worker = null; busy = false;
     };
     active.onerror = () => { if (worker === active) { failed = true; stop(); } };
-    active.postMessage($state.snapshot(settings));
+    active.postMessage($state.snapshot(extended ? settings : { ...PAPER, theta: settings.theta, delta: settings.delta }));
   }
   function restart() { stop(); playback.seek(0); playback.play(); }
   function backToPaper() {
@@ -155,8 +157,8 @@
   }
   function setParams(params: Record<string, number | string | boolean>) {
     const next: ShapeSettings = { ...PAPER };
-    for (const key of ['theta', 'delta', 'q', 'elements'] as const) if (typeof params[key] === 'number') next[key] = params[key] as number;
-    if (typeof params.half === 'boolean') next.half = params.half;
+    for (const key of ['theta', 'delta', 'q', 'elements'] as const) if ((extended || key === 'theta' || key === 'delta') && (typeof params[key] === 'number')) next[key] = params[key] as number;
+    if (extended && typeof params.half === 'boolean') next.half = params.half;
     settings = next; setTab('strip');
     if (isPaper(next)) backToPaper(); else compute();
   }
@@ -189,8 +191,10 @@
     <p>{fill(s.runText, { start: num(replayRun.frames[0].y_mid, { dp: 3 }), end: num(replayRun.frames[replayRun.frames.length - 1].y_mid, { dp: 3 }) })}</p>
     <p>{s.cusp}</p>
     <p><ExperimentLink params={{ theta: 1.3, delta: 0.6 }}>{s.tryBelow}</ExperimentLink> · <ExperimentLink params={{ theta: 1.05, delta: 1.3 }}>{s.tryFold}</ExperimentLink></p>
-    <p>{s.interactive}</p>
-    <p><ExperimentLink params={{ q: 1.5 }}>{s.tryLight}</ExperimentLink> · <ExperimentLink params={{ q: 4 }}>{s.tryHeavy}</ExperimentLink></p>
+    {#if extended}
+      <p>{s.interactive}</p>
+      <p><ExperimentLink params={{ q: 1.5 }}>{s.tryLight}</ExperimentLink> · <ExperimentLink params={{ q: 4 }}>{s.tryHeavy}</ExperimentLink></p>
+    {/if}
     <h2>{s.limitsHeading}</h2>
     <p>{s.limits}</p>
     <h2 id="checks">{s.checksHeading}</h2>
@@ -214,6 +218,7 @@
       </table>
     </div>
     <p>{s.openNote}</p>
+    {#if extended}
     <h2 id="why">{s.why.heading}</h2>
     <p>{s.why.intro}</p>
     <div class="why">
@@ -221,6 +226,7 @@
         <details><summary>{item.title}</summary><p>{item.body}</p></details>
       {/each}
     </div>
+    {/if}
     <p><a href="https://arxiv.org/abs/2509.12916v1">{s.paper}</a> · <a href="https://doi.org/10.1016/j.euromechsol.2025.106000">{s.journal}</a></p>
   {/snippet}
   {#snippet app()}
@@ -269,6 +275,7 @@
       {#if source === 'replay'}
         <div class="buttons">{#each Object.entries(matches) as [label, m]}<button onclick={() => goToStep(m.step)}>{s.shape} {label}</button>{/each}</div>
       {/if}
+      {#if extended}
       <fieldset class="params-box">
         <legend>{s.paramsHeading}</legend>
         <p class="status" class:changed={!atPaper}>{atPaper ? s.atPaper : fill(s.changed, { list: changes })}</p>
@@ -289,6 +296,12 @@
           <button class="primary" onclick={backToPaper} disabled={atPaper && source === 'replay'}>{s.backToPaper}</button>
         </div>
       </fieldset>
+      {:else}
+        <div class="params">
+          <label>{s.cornerTheta} <strong>{num(settings.theta, { dp: 2 })}</strong><input id="shape-theta" type="range" min="1.05" max="1.6" step="0.05" bind:value={settings.theta} onchange={compute} /></label>
+          <label>{s.cornerDelta} <strong>{num(settings.delta, { dp: 2 })}</strong><input id="shape-delta" type="range" min="0.2" max="1.8" step="0.1" bind:value={settings.delta} onchange={compute} /></label>
+        </div>
+      {/if}
       <p class="caption">{s.runNote} {s.computedCorner} Θ = {num(run.corner[0], { dp: 2 })}, Δ = {num(run.corner[1], { dp: 2 })}.</p>
       <div class="buttons">
         <button onclick={compute} disabled={busy}>{s.run}</button><button onclick={stop}>{s.stop}</button><button onclick={restart}>{s.restart}</button>

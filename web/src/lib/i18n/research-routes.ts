@@ -1,3 +1,5 @@
+import { publicLocaleEnabled, publicFeatures, type PublicFeatures } from '../features';
+
 export const RESEARCH_GALLERY = '/research';
 
 const ALL = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'] as const;
@@ -32,7 +34,7 @@ export function isResearchRoute(path: string): boolean {
 }
 
 /** The languages a research route is published in: the sitemap, the prerender and the hreflang set all read this. */
-export function researchLocales(path: string): readonly string[] {
+export function researchLocales(path: string, flags: PublicFeatures = publicFeatures()): readonly string[] {
   const route = path.replace(/\/+$/, '') || '/';
-  return PUBLISHED[route] ?? ['en'];
+  return (PUBLISHED[route] ?? ['en']).filter(locale => publicLocaleEnabled(route, locale, flags));
 }

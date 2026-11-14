@@ -14,7 +14,7 @@ import { movedRoute } from './legacy-routes';
  */
 const SHARED_MODEL = /^#(data=|embed=|code=)/;
 
-export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'game' | 'register' | 'landing';
+export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'examples' | 'game' | 'register' | 'landing';
 
 /** `/app` and everything under it: the application's own addresses. */
 export function isAppPath(pathname: string): boolean {
@@ -47,15 +47,16 @@ export function isDemoPath(pathname: string): boolean {
 
 export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = location): { kind: RouteKind; path: string } {
   const parsed = parsePublicPath(loc.pathname).path;
-  const path = movedRoute(parsed) ?? parsed;
+  const path = movedRoute(parsed) ?? (parsed.replace(/\/+$/, '') || '/');
   const params = new URLSearchParams(loc.search);
   const p = loc.pathname;
   if (params.has('embed') || isAppPath(p) || isDemoPath(p)) return { kind: 'app', path };
   // A shared model (`/#data=…`, `#embed=…`, `#code=…`) is the application's to restore
   // (`loadFromURLHash`): it used to be mounted behind the landing and read the fragment.
   if (SHARED_MODEL.test(loc.hash)) return { kind: 'app', path };
-  if (path === '/blog' || path.startsWith('/blog/') || isStandingPagePath(path)) return { kind: 'blog', path };
   if (!publicFeatureEnabled(path)) return { kind: 'landing', path };
+  if (path === '/blog' || path.startsWith('/blog/') || isStandingPagePath(path)) return { kind: 'blog', path };
+  if (path === '/examples' || path.startsWith('/examples/')) return { kind: 'examples', path };
   if (path === '/tools' || path.startsWith('/tools/')) return { kind: 'tools', path };
   if (isGamePath(path)) return { kind: 'game', path };
   if (isResearchPath(path)) return { kind: 'research', path };

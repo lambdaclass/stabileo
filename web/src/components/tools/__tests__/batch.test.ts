@@ -1,5 +1,5 @@
 import { it, expect } from 'vitest';
-import { BATCH_IDS, DEFAULT_BATCH as P, batchModel, continuousReactions, continuousInfluence, frequencies, jointForces, parseTruss, portalSway, simpleInfluence, validateBatch } from '../batch';
+import { BatchToolError, BATCH_IDS, DEFAULT_BATCH as P, batchModel, continuousReactions, continuousInfluence, frequencies, jointForces, parseTruss, portalSway, simpleInfluence, validateBatch } from '../batch';
 import { calculateBatch } from '../batch-solve';
 import { batchTranslations } from '../batch-i18n';
 import { toolPaths } from '../registry';
@@ -50,7 +50,9 @@ it('covers every key and every tool SEO title and description in seven locales',
 });
 
 it('distinguishes mechanisms from statically indeterminate stable trusses', async () => {
- await expect(calculateBatch('truss-2d', {...P, supports:'1, rollerX\n5, rollerX'})).rejects.toThrow();
+ const mechanism = calculateBatch('truss-2d', {...P, supports:'1, rollerX\n5, rollerX'});
+ await expect(mechanism).rejects.toThrow(BatchToolError);
+ await expect(mechanism).rejects.toMatchObject({ key: 'tools.batch.unstable' });
  const r = await calculateBatch('truss-2d', {...P, members:P.members+'\n2, 7'});
  expect(r.difference).toBeNull();
  expect(r.maxDeflection).toBeGreaterThan(0);
@@ -63,4 +65,12 @@ it('continuous beam sign convention is sagging positive and hogging negative', a
  const r = await calculateBatch('continuous-beam', P);
  expect(r.sagging).toBeCloseTo(25.3125, 8);
  expect(r.hogging).toBeCloseTo(-45, 8);
+});
+
+it('batch validation carries its translation key independently of error wording', () => {
+  expect(() => validateBatch('continuous-beam', P)).not.toThrow();
+  let failure: unknown;
+  try { validateBatch('continuous-beam', { ...P, e: NaN }); } catch (error) { failure = error; }
+  expect(failure).toBeInstanceOf(BatchToolError);
+  expect(failure).toMatchObject({ key: 'tools.batch.invalid' });
 });

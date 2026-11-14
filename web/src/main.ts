@@ -12,7 +12,7 @@ import 'katex/dist/katex.min.css';
 import Root from './Root.svelte';
 import { mount } from 'svelte';
 import { routeKind, restoreRedirectedRoute } from './lib/public-route';
-import { restoreMovedRoute } from './lib/legacy-routes';
+import { restoreMovedRoute, restoreUnpublishedResearchRoute } from './lib/legacy-routes';
 import { i18n, ensureLocale, ensurePublicLocale } from './lib/i18n/store.svelte';
 import { parsePublicPath } from './lib/i18n/public-routes';
 import { startTracking } from './lib/tracking/tracking';
@@ -46,6 +46,7 @@ function installTestHooks() {
 async function bootstrap() {
   restoreRedirectedRoute();
   restoreMovedRoute();
+  restoreUnpublishedResearchRoute();
   void startTracking();
   const target = document.getElementById('app')!;
   if (routeKind().kind === 'app') {

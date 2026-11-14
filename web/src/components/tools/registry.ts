@@ -1,4 +1,5 @@
 import type { Component } from 'svelte';
+import { publicFeatureEnabled } from '../../lib/features';
 
 export const TOPICS = ['beams', 'stability', 'stresses', 'models'] as const;
 export type Topic = typeof TOPICS[number];
@@ -46,8 +47,10 @@ export function findTool(path: string): ToolEntry | undefined {
   return TOOLS.find(tool => route === `${TOOL_ROUTE}/${tool.id}`);
 }
 
+export const availableTools = (): readonly ToolEntry[] => TOOLS.filter(tool => publicFeatureEnabled(`/tools/${tool.id}`));
+
 export function toolsIn(topic: Topic): ToolEntry[] {
-  return TOOLS.filter(tool => tool.topic === topic);
+  return availableTools().filter(tool => tool.topic === topic);
 }
 
 export function toolPaths(): string[] {

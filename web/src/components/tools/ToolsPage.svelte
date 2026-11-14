@@ -9,7 +9,7 @@
   import { applyPageMeta, restorePageMeta, stabileoSoftware, stabileoCalculator, breadcrumbs, WEBSITE_ID } from '../../lib/page-meta';
   import { publicUrl } from '../../lib/i18n/public-routes';
   import { tBatch as t } from './batch-i18n';
-  import { TOOLS, TOPICS, findTool, toolsIn } from './registry';
+  import { availableTools, TOPICS, findTool, toolsIn } from './registry';
   import '../landing/landing.css';
   import '../blog/blog.css';
   import '../research/research.css';
@@ -19,7 +19,8 @@
   const tool = $derived(findTool(path));
   const Detail = $derived(tool ? details.get(detailKey(tool)) : undefined);
   const title = $derived(t(tool ? `tools.${tool.id}` : 'tools.index'));
-  const others = $derived(TOOLS.filter(other => other.id !== tool?.id));
+  const entries = $derived(availableTools());
+  const others = $derived(entries.filter(other => other.id !== tool?.id));
   const has = (key: string) => t(key) !== key;
   $effect(() => {
     const locale = publicI18n.locale;
@@ -39,7 +40,7 @@
       applyPageMeta({ title: `${t('tools.index.metaTitle')} — Stabileo`, description, locale, path: '/tools',
         graph: [
           { '@type': 'CollectionPage', '@id': url, url, name: title, description, inLanguage: locale, isPartOf: { '@id': WEBSITE_ID }, mainEntity: { '@id': `${url}#calculators` } },
-          { '@type': 'ItemList', '@id': `${url}#calculators`, itemListElement: TOOLS.map((entry, i) => ({ '@type': 'ListItem', position: i + 1, name: t(`tools.${entry.id}`), url: publicUrl(`/tools/${entry.id}`, locale) })) },
+          { '@type': 'ItemList', '@id': `${url}#calculators`, itemListElement: entries.map((entry, i) => ({ '@type': 'ListItem', position: i + 1, name: t(`tools.${entry.id}`), url: publicUrl(`/tools/${entry.id}`, locale) })) },
           breadcrumbs(locale, [['Stabileo', '/'], [title, '/tools']]),
         ] });
     }

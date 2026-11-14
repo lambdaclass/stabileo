@@ -85,7 +85,7 @@ describe('merged public routes', () => {
     const loader = source('../lib/public-navigation.ts');
     expect(loader).toContain("import('../components/research/load-page')");
     expect(loader).toContain("import('../components/tools/load-page')");
-    expect(loader).not.toContain('components/examples');
+    expect(loader).toContain("import('../components/examples/load-page')");
     expect(loader).toContain("import('../components/diagram-game/load-page')");
     expect(loader).toContain("import('../components/paper/PaperPage.svelte')");
     expect(root).toContain("import('./load-app')");

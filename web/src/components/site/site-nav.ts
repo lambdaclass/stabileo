@@ -3,9 +3,9 @@
  * `section` items are parts of the landing (scrolled to there, linked to from elsewhere); `page`
  * items are pages of their own.
  */
-import { publicFeatureEnabled } from '../../lib/features';
+import { tools, publicFeatureEnabled } from '../../lib/features';
 
-export type NavPage = 'tools' | 'game' | 'research' | 'blog';
+export type NavPage = 'examples' | 'tools' | 'game' | 'research' | 'blog';
 
 export type NavItem =
   | { kind: 'section'; id: string; key: string }
@@ -13,6 +13,7 @@ export type NavItem =
 
 const NAV_ITEMS: NavItem[] = [
   { kind: 'section', id: 'basic', key: 'landing.navProduct' },
+  ...(!tools() ? [{ kind: 'page', id: 'examples', to: '/examples', key: 'landing.navExamples' } as const] : []),
   { kind: 'page', id: 'tools', to: '/tools', key: 'landing.navTools' },
   { kind: 'page', id: 'game', to: '/diagram-game', key: 'landing.navGame' },
   { kind: 'page', id: 'research', to: '/research', key: 'landing.navResearch' },

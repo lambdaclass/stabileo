@@ -9,7 +9,8 @@ try {
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(`${base}/hu/`);
     await page.locator('h1').waitFor();
-    assert.equal(await page.locator('a[href*="/tools"], a[href*="/research"], a[href*="/diagram-game"], a[href*="/paper"]').count(), 0);
+    assert.equal(await page.locator('a[href*="/tools/mohr-"], a[href*="/diagram-game"]').count(), 0);
+    for (const section of ['tools', 'research', 'examples']) assert.ok(await page.locator(`a[href$="/${section}/"]`).count() > 0);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.screenshot({ path: `.bautista-${name}-landing.png` });
     await page.goto(`${base}/hu/blog/verificacion-flexion-cirsoc-201/`);

@@ -1,13 +1,14 @@
 ### Changed
 #### Research, Tools and the diagram game are separate opt-in integrations (2026-11-14)
 
-The research and paper routes, Tools (including the editor's Mohr entry points), and the diagram
-game each have a separate switch, disabled by default in development and production:
-`VITE_RESEARCH=1`, `VITE_TOOLS=1` and `VITE_DIAGRAM_GAME=1`. Browser overrides use the existing
-`stabileo-feature-` settings. Disabled sections have no public routes, prerendered pages,
-navigation links or embedded entry points. Account and advertising rollout gates retain their
-production-off defaults. Hungarian dictionaries, public copy, legal pages, release guidance and
-result-change notices follow the integrated routes without importing the held integrations.
+The Research additions, consolidated Tools and new Mohr entry points, and diagram game each
+have a separate switch, disabled by default in development and production: `VITE_RESEARCH=1`,
+`VITE_TOOLS=1` and `VITE_DIAGRAM_GAME=1`. Browser overrides use the existing `stabileo-feature-`
+settings. Existing Research, paper, calculator and Examples pages remain public when these switches
+are off. The Research switch gates only new Fehér controls and explanations and Hungarian Research.
+Account and advertising rollout gates retain their production-off defaults. Hungarian dictionaries,
+public copy, release guidance and result-change notices follow the integrated routes without
+importing the held integrations. Account legal pages follow the existing accounts switch.
 
 Mohr plots select the shear point appropriate to the displayed convention and retain small
 nonzero shear in 3D. Tool force residuals count every supported force load, including point

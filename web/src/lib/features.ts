@@ -6,6 +6,8 @@
  * scope; one that is cheap can be read on every access.
  */
 
+import { MAIN_TOOL_IDS } from './public-surface';
+
 const PREFIX = 'stabileo-feature-';
 
 function readFlag(name: string, defaultValue: boolean): boolean {
@@ -36,7 +38,7 @@ export function canonicalSections(): boolean {
 }
 
 export function accounts(): boolean {
-  return readFlag('accounts', import.meta.env.DEV || import.meta.env.VITE_ACCOUNTS === '1');
+  return readFlag('accounts', import.meta.env?.DEV || import.meta.env?.VITE_ACCOUNTS === '1');
 }
 
 export function research(): boolean {
@@ -51,12 +53,14 @@ export function diagramGame(): boolean {
   return readFlag('diagram-game', import.meta.env?.VITE_DIAGRAM_GAME === '1');
 }
 
-export type PublicFeatures = { research: boolean; tools: boolean; diagramGame: boolean };
+export type PublicFeatures = { research: boolean; tools: boolean; diagramGame: boolean; accounts?: boolean };
 
-export function publicFeatureEnabled(path: string, flags: PublicFeatures = { research: research(), tools: tools(), diagramGame: diagramGame() }): boolean {
+export const publicFeatures = (): PublicFeatures => ({ research: research(), tools: tools(), diagramGame: diagramGame(), accounts: accounts() });
+
+export function publicFeatureEnabled(path: string, flags: PublicFeatures = publicFeatures()): boolean {
   const route = path.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
-  if (route === '/research' || route.startsWith('/research/') || route === '/paper') return flags.research;
-  if (route === '/tools' || route.startsWith('/tools/') || route === '/examples' || route.startsWith('/examples/')) return flags.tools;
+  if (['/register', '/terms', '/privacy', '/usage-data'].includes(route)) return flags.accounts ?? accounts();
+  if (route.startsWith('/tools/')) return flags.tools || MAIN_TOOL_IDS.some(id => route === `/tools/${id}`);
   if (route === '/diagram-game') return flags.diagramGame;
   return true;
 }
@@ -68,4 +72,9 @@ export function setFeatureFlag(name: string, value: boolean): void {
   } catch {
     // private mode — ignore
   }
+}
+
+export function publicLocaleEnabled(path: string, locale: string, flags: PublicFeatures = publicFeatures()): boolean {
+  const route = path.split(/[?#]/)[0].replace(/\/+$/, '');
+  return locale !== 'hu' || !(route === '/research' || route.startsWith('/research/')) || flags.research;
 }
