@@ -177,9 +177,9 @@ export function snowLoadCases(input: SnowCasesInput): {
     ? { distributed: panelLoads(input.model, layout, pOf, input.tributaryWidth, only, surfaceModel), nodal: pointLoads(layout, pOf, only) }
     : projectionLoads(input.model, all, (id) => pOf(id), input.tributaryWidth));
   const derivation: EngineMessage[] = [], refs: ClauseRef[] = [];
-  const axisVector = (axis: Axis): [number, number] => axis === 'x' ? geometry.direction : geometry.transverse;
-  const axisLabel = (axis: Axis) => {
-    const [x, y] = axisVector(axis);
+  const axisVector = (axis: Axis, frame = geometry): [number, number] => axis === 'x' ? frame.direction : frame.transverse;
+  const axisLabel = (axis: Axis, frame = geometry) => {
+    const [x, y] = axisVector(axis, frame);
     return Math.abs(x) > 1 - 1e-9 ? 'X' : Math.abs(y) > 1 - 1e-9 ? 'Y' : `(${round(x, 4)}, ${round(y, 4)})`;
   };
   const directionLabel = (dir: string) => {
@@ -233,8 +233,11 @@ export function snowLoadCases(input: SnowCasesInput): {
     const ps = localSurfaces(id, unit);
     return ps.reduce((sum, p) => sum + localResult(p).ps, 0) / ps.length;
   };
-  const exempt = (id: number, unit?: SnowUnit) => kind === 'gable' && (unit && 'panel' in unit && !unit.region ? surfaceModel.panel(unit.panel, layout).planes : localSurfaces(id, unit)).every(p =>
-    (input.snow.roofSlopeDeg ?? p?.slope ?? 0) > 21 / Math.max(p?.W ?? geometry.W, 1e-9) + 0.5);
+  const exempt = (p: SnowPlane | undefined, direction: [number, number]) => {
+    const gradient = p?.gradient ?? geometry.direction;
+    const aligned = Math.abs(gradient[0] * direction[1] - gradient[1] * direction[0]) <= 1e-9 * Math.hypot(...gradient);
+    return kind === 'gable' && aligned && (input.snow.roofSlopeDeg ?? p?.slope ?? 0) > 21 / Math.max(p?.W ?? geometry.W, 1e-9) + 0.5;
+  };
   const balancedOf: (id: number, unit?: SnowUnit) => Intensity = shaped
     ? atEnds((pt) => shaped.balanced(pt) + result.rainOnSnow)
     : psOf;
@@ -252,18 +255,43 @@ export function snowLoadCases(input: SnowCasesInput): {
     refs.push(...extra.refs);
     if (input.snow.partial !== false) {
       const units = layoutUnits(layout, (u) => ('panel' in u ? !!layout.panels[u.panel]?.roof : layout.roof.has(u.member)));
-      const steep = units.every(u => 'member' in u ? exempt(u.member, u) : layout.pieces.filter(p => p.panel === u.panel).every(p => exempt(p.elementId, u)));
-      const patterns = partialSnowPatterns(roofSpans(input.model as GravityModel, layout, geometry), units, steep ? 'x' : undefined);
-      for (const pt of patterns) {
-        cases.push({
-          nameKey: pt.snowCase === 3 ? 'snow.case.partialPair' : 'snow.case.partial', pattern: true,
-          nameParams: { axis: axisLabel(pt.axis), c: pt.snowCase!, at: +(pt.at ?? 0).toFixed(2) },
-          ...on((id, u) => { const f = u && !(pt.axis === 'x' && exempt(id, u)) ? pt.factor(u) : 1; const [a, b] = ends(balancedOf(id, u)); return [a * f, b * f]; }),
-        });
+      const directions: Array<[number, number]> = [];
+      let count = 0;
+      const exemptions: EngineMessage[] = [];
+      const seen = new Set<string>([JSON.stringify({ distributed: cases[0]!.distributed, nodal: cases[0]!.nodal })]);
+      for (const direction of surfaceModel.orientations.length ? surfaceModel.orientations : [geometry.direction]) {
+        const frame = { ...geometry, direction, transverse: surfaceModel.transverse(direction) };
+        const patterns = partialSnowPatterns(roofSpans(input.model as GravityModel, layout, frame), units);
+        for (const axis of ['x', 'y'] as const) {
+          const vector = axisVector(axis, frame);
+          if (directions.some(d => Math.abs(d[0] * vector[1] - d[1] * vector[0]) <= 1e-9)) continue;
+          directions.push(vector);
+          for (const pt of patterns.filter(p => p.axis === axis)) {
+            const loads = on((id, u) => {
+              const factor = u ? pt.factor(u) : 1;
+              if (shaped) { const [a, b] = ends(balancedOf(id, u)); return [a * factor, b * factor]; }
+              const ps = localSurfaces(id, u);
+              return ps.reduce((sum, p) => sum + localResult(p).ps * (exempt(p, vector) ? 1 : factor), 0) / ps.length;
+            });
+            const key = JSON.stringify(loads);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            count++;
+            cases.push({
+              nameKey: pt.snowCase === 3 ? 'snow.case.partialPair' : 'snow.case.partial', pattern: true,
+              nameParams: { axis: axisLabel(axis, frame), c: pt.snowCase!, at: +(pt.at ?? 0).toFixed(2) },
+              ...loads,
+            });
+          }
+          if (units.every(u => {
+            const ps = 'panel' in u ? surfaceModel.panel(u.panel, layout).planes : localSurfaces(u.member, u);
+            return ps.length > 0 && ps.every(p => exempt(p, vector));
+          })) exemptions.push(msg('snow.derivation.partialExempt', { axis: axisLabel(axis, frame), slope: round(slopeDeg, 1), limit: round(21 / Math.max(geometry.W, 1e-9) + 0.5, 1) }));
+        }
       }
-      derivation.push(msg(patterns.length > 0 ? 'snow.derivation.partial' : 'snow.derivation.noPartial', { n: patterns.length }));
-      if (steep) derivation.push(msg('snow.derivation.partialExempt', { axis: axisLabel('x'), slope: round(slopeDeg, 1), limit: round(21 / Math.max(geometry.W, 1e-9) + 0.5, 1) }));
-      if (patterns.length > 0) refs.push(REF_PARTIAL);
+      derivation.push(msg(count > 0 ? 'snow.derivation.partial' : 'snow.derivation.noPartial', { n: count }));
+      derivation.push(...exemptions);
+      if (count > 0) refs.push(REF_PARTIAL);
     }
   }
   if (shaped) {
@@ -278,7 +306,7 @@ export function snowLoadCases(input: SnowCasesInput): {
           const r = localResult(p), u = r.unbalanced;
           if (!u) return sum + r.ps;
           const side = p ? -(p.gradient[0] * direction[0] + p.gradient[1] * direction[1]) : 0;
-          return sum + (Math.abs(side) <= 1e-9 ? (u.leeward + u.windward) / 2 : side * sense > 0 ? u.leeward : u.windward);
+          return sum + (Math.abs(side) <= 1e-9 ? r.ps : side * sense > 0 ? u.leeward : u.windward);
         }, 0) / ps.length;
       };
       const [x, y] = direction.map(v => sense * v);

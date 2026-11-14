@@ -12,7 +12,6 @@ const body: PostBody = {
       "k": "p",
       "t": "Fast alle dieser Fehler hat unser eigenes Verifikationsprogramm gefunden: Vergleich mit sieben anderen Finite-Elemente-Programmen, veröffentlichte Rechenbeispiele, Tests physikalischer Invarianten und eine Durchsicht der Herleitung jedes Elements. Sie zu veröffentlichen gehört zu dieser Arbeit: Ein Fehler, der nicht gemeldet wird, bleibt in den bereits abgegebenen Berechnungen."
     },
-    {"k": "note", "t": "Beitragsrevision vom 2026-11-14: Entwürfe SA-2026-065 und SA-2026-067 ergänzt. Entwurfsdatum und Revision von SA-2026-061 bleiben erhalten."},
     {
       "k": "note",
       "t": "Stand 12. November 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 und SA-2026-025 bis 047 in Version 0.5.0 (SA-2026-040 eingedämmt: Die Prüfung ist als unvollständig gekennzeichnet), außer SA-2026-044: Der plastische Kollaps in 2D bleibt abgelehnt, bis #758 geschlossen ist. SA-2026-048 wurde nach Version 0.5.0 behoben und ist seit dem 8. November 2026 auf stabileo.com online. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 und SA-2026-053 wurden nach Version 0.5.0 behoben und sind seit dem 9. November 2026 auf stabileo.com online. Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben. SA-2026-054 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-055 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-056 — Entwurf: ungelöst; keine Korrektur integriert oder veröffentlicht. SA-2026-057 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-059 — In PR #1921 behoben, Veröffentlichung ausstehend. SA-2026-060 — Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung. SA-2026-062 — Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung."
@@ -28,10 +27,6 @@ const body: PostBody = {
     {
       "k": "note",
       "t": "SA-2026-063 — In PR #2009 behoben, Veröffentlichung ausstehend."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-065 / SA-2026-067 — Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung."
     },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
@@ -406,8 +401,6 @@ const body: PostBody = {
         ["SA-2026-060", "Die Bauphasenanalyse konnte reale Drehungen nach Einheitenwechseln oder an freigegebenen Enden mit Auflagerfedern ohne Warnung versteifen; Bauphasenmodelle mit Freigaben erneut prüfen", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         ["SA-2026-062", "Die rohe plastische 3D-Analyse konnte beim Scheitern des elastischen Anfangszustands ohne Warnung null melden; ältere zertifizierte Versionen behielten diesen Faktor. Main liefert bereits eine positive zertifizierte Schranke mit Warnung; PR #1943 gibt die anfängliche Ablehnung weiter", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         ["SA-2026-063", "Bauphasen- und nichtlineare Analysen mit Zwangsbedingungen verloren vorgegebene Masterbewegungen; Seil- und Zeitverlaufsanalysen lehnen nicht unterstützte Auflagerbewegungen nun ab. Bestehende allgemeine Dynamikwarnungen benannten diese Auslassung nicht", "Hoch", "In PR #2009 behoben, Veröffentlichung ausstehend"],
-        ["SA-2026-065", "Schneeverwehungen an Dachstufen konnten auf geneigten aufnehmenden Dachflächen fehlen; Schneelasten neu erzeugen und betroffene Ergebnisse neu berechnen", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
-        ["SA-2026-067", "Eine reine Grundrissdrehung verringerte die ausgeglichene Schneelinienlast im gespeicherten Beispiel um 30%; Lasten neu erzeugen und neu berechnen", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
       ]
     },
     {

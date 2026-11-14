@@ -1,6 +1,6 @@
 # CIRSOC 104 roof-step drift uses the receiving roof plane
 
-Issues #2082; advisory [SA-2026-065](../advisories/SA-2026-065-snow-roof-step.md).
+Issues #2082; advisory [SA-2026-065](../advisories/drafts/SA-2026-065-snow-roof-step.md).
 This correction is local and unmerged. The advisory records the numerical
 before/after witnesses on origin/main, also tagged v0.6.0.
 

@@ -70,10 +70,9 @@ loads-area entry, matching conditions and declared quantities. They do not
 claim that a linear solve ran. Missing corpus context still fails. All other existing snow snapshots remain unchanged. No comparison tolerance or
 baseline assertion was relaxed.
 
-The advisory CI failure was in the post's shared updated field. SA-2026-061's
-original draft remains 2026-11-12, and its publication revision remains
-2026-11-13 as the existing test requires. Separate localized notes record the
-2026-11-14 additions to the post. No advisory date or content was rewritten.
+The initial blog revision-note change is superseded by
+[round 4](2026-11-snow-orientation-factors.md), which restores every locale to
+origin/main and keeps the coordinator's snow drafts in docs/advisories/drafts/.
 
 Validation covers projected-width, width-layout, panel-layout, surface-query,
 drift/sliding and load-planner interfaces, with perpendicular and L-shaped

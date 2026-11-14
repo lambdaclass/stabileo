@@ -12,7 +12,6 @@ const body: PostBody = {
       "k": "p",
       "t": "Bu kusurların neredeyse tamamını kendi doğrulama programımız buldu: diğer yedi sonlu eleman programıyla karşılaştırma, yayımlanmış çözümlü örnekler, fiziksel değişmez testleri ve her elemanın türetilişinin incelenmesi. Bunları yayımlamak bu çalışmanın bir parçasıdır: bildirilmeyen bir kusur, daha önce teslim edilmiş hesaplarda kalmaya devam eder."
     },
-    {"k": "note", "t": "2026-11-14 yazı güncellemesi: SA-2026-065 ve SA-2026-067 taslakları eklendi. SA-2026-061 taslak tarihi ve güncelleme tarihi korunmuştur."},
     {
       "k": "note",
       "t": "12 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde ve SA-2026-025 ile 047 arası 0.5.0 sürümünde düzeltildi (SA-2026-040 için önlem alındı: kontrol eksik olarak işaretlenir); SA-2026-044 hariç: #758 kapanana kadar 2D plastik göçme hesabı reddedilmeye devam eder. SA-2026-048, 0.5.0 sürümünden sonra düzeltildi ve 8 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 ve SA-2026-053, 0.5.0 sürümünden sonra düzeltildi ve 9 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin. SA-2026-054 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-055 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-056 — Taslak: çözülmedi; hiçbir düzeltme birleştirilmedi veya yayımlanmadı. SA-2026-057 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-059 — PR #1921 ile düzeltildi, sürüm yayını bekleniyor. SA-2026-060 — Taslak: yerel düzeltme inceleme ve yayın bekliyor. SA-2026-062 — Taslak: yerel düzeltme inceleme ve yayın bekliyor."
@@ -28,10 +27,6 @@ const body: PostBody = {
     {
       "k": "note",
       "t": "SA-2026-063 — PR #2009 ile düzeltildi, sürüm yayını bekleniyor."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-065 / SA-2026-067 — Taslak: yerel düzeltme inceleme ve yayını bekliyor."
     },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
@@ -406,8 +401,6 @@ const body: PostBody = {
         ["SA-2026-060", "Aşamalı analiz, birim değişiminden sonra veya mesnet yaylı mafsallı uçlarda gerçek dönmeleri uyarı vermeden sertleştirebiliyordu; serbestlik içeren aşamalı modelleri yeniden kontrol edin", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
         ["SA-2026-062", "Ham 3D plastik analiz, başlangıç elastik durumu çözülemediğinde uyarısız sıfır bildirebiliyordu; eski sertifikalı sürümler bu katsayıyı koruyordu. Main artık uyarıyla pozitif sertifikalı sınır döndürüyor; PR #1943 başlangıç reddini iletiyor", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
         ["SA-2026-063", "Kısıtlı aşamalı ve doğrusal olmayan analizler tanımlı ana düğüm hareketini kaybediyordu; kablo ve zaman tanım alanı analizleri artık desteklenmeyen mesnet hareketlerini reddediyor. Mevcut genel dinamik uyarıları bu eksikliği belirtmiyordu", "Yüksek", "PR #2009 ile düzeltildi, sürüm yayını bekleniyor"],
-        ["SA-2026-065", "Çatı kot farkındaki kar birikimi eğimli alıcı çatılarda atlanabiliyordu; kar yüklerini yeniden üretip etkilenen sonuçları yeniden hesaplayın", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayını bekliyor"],
-        ["SA-2026-067", "Yalnızca plandaki dönme, saklanan örnekte dengeli kar çizgisel yükünü %30 azaltıyordu; yükleri yeniden üretip yeniden hesaplayın", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayını bekliyor"],
       ]
     },
     {

@@ -92,8 +92,8 @@ merged 2026-11-09 09:27:10 UTC). Their re-check registry entries are
 | [SA-2026-061](SA-2026-061-path-solver-reactions.md) | Path solvers omitted reactions and used unscaled member loads; constrained, Guyan, staged and dynamic result omissions | High | [#1949](https://github.com/lambdaclass/stabileo/issues/1949) | [#1952](https://github.com/lambdaclass/stabileo/pull/1952) | 0.6.0 | Published 2026-11-13 |
 | [SA-2026-062](SA-2026-062-plastic-conditioning-zero-collapse.md) | Initial elastic refusals could become silent zero raw plastic collapse factors; release certified results retained the raw factor | High | Final review of #1943 | [#1943](https://github.com/lambdaclass/stabileo/pull/1943) | 0.6.0 | Published 2026-11-13 |
 | [SA-2026-063](SA-2026-063-prescribed-master-motion.md) | Constrained analyses dropped prescribed restrained-master motion; cable and time history now refuse unsupported support motion | High | [#2008](https://github.com/lambdaclass/stabileo/issues/2008) | [#2009](https://github.com/lambdaclass/stabileo/pull/2009) | 0.6.0 | Published 2026-11-13 |
-| [SA-2026-065](SA-2026-065-snow-roof-step.md) | CIRSOC 104 roof-step drift uses the receiving roof plane | High | [#2082](https://github.com/lambdaclass/stabileo/issues/2082) | Local fix, unmerged | Pending | Drafted 2026-11-14 |
-| [SA-2026-067](SA-2026-067-snow-roof-rotation.md) | Snow loads use roof axes under plan rotation | High | [#2093](https://github.com/lambdaclass/stabileo/issues/2093) | Local fix, unmerged | Pending | Drafted 2026-11-14 |
+| [SA-2026-065](drafts/SA-2026-065-snow-roof-step.md) | CIRSOC 104 roof-step drift uses the receiving roof plane | High | [#2082](https://github.com/lambdaclass/stabileo/issues/2082) | Local fix, unmerged | Pending | Drafted 2026-11-14 |
+| [SA-2026-067](drafts/SA-2026-067-snow-roof-rotation.md) | Snow loads use roof axes under plan rotation | High | [#2093](https://github.com/lambdaclass/stabileo/issues/2093) | Local fix, unmerged | Pending | Drafted 2026-11-14 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the
@@ -102,3 +102,6 @@ or a recorded "no advisory needed" when they are triaged; the list is on the
 SA-2026-056 records an additional, unfixed dynamic result found during the analysis-error-model investigation:
 [constrained shell dynamic invariance](SA-2026-056-constrained-shell-dynamic-invariance.md).
 It has no result-version entry because this change does not fix or alter engine results.
+
+The coordinator-assigned snow drafts remain in `drafts/` until the coordinator
+updates the public advisory post. They are not part of its top-level catalog.

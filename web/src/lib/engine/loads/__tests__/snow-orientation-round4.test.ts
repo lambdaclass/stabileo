@@ -8,7 +8,7 @@ import { gravityLayout } from '../plan-gravity';
 import { buildLoadPlan } from '../load-plan';
 import { roofSnow } from '../../../codes/cirsoc104/snow';
 
-const knownWrong = it.skip;
+const knownWrong = it;
 
 function continuousRoofs() {
   const rings: number[][][] = [];
@@ -122,4 +122,87 @@ knownWrong('known wrong result: #2095 round4 load planner retains partial cases 
   const plan = buildLoadPlan({ regulations: regulations(), dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, model, gravity: { mode: 'panels' }, tributaryWidth: 1, snow: { ...snow, partial: true, enabled: true, source: 'site' } });
   expect(plan.outcome).toBe('READY');
   for (const axis of ['X', 'Y']) expect(plan.cases.filter(c => c.type === 'S' && c.pattern && c.nameParams?.axis === axis).length).toBeGreaterThan(0);
+});
+
+for (const mode of ['projected', 'width', 'panels'] as const) {
+  it(`round4 a single ridge retains the real two-surface average ${mode}`, () => {
+    const model = ridgeRoofs('single'), sf = roofSurfaceModel(model);
+    const out = snowLoadCases({ model, snow, layout: mode === 'projected' ? undefined : gravityLayout(model, { mode, tributaryWidth: 1 }), tributaryWidth: 1 })!;
+    expect(out.result.refused).toBeUndefined();
+    const unbalanced = out.cases.filter(c => c.nameKey === 'snow.case.unbalanced');
+    expect(unbalanced).toHaveLength(2);
+    for (const e of model.elements.values()) {
+      const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+      if (a.z !== b.z) continue;
+      const plane = sf.memberPlanes(e.id)[0]!;
+      const r = roofSnow({ ...snow, roof: { kind: 'gable', slippery: true, slopeDeg: plane.slope, W: plane.W } });
+      const ratios = unbalanced.map(c => pressure(c.distributed, e.id, 3) / pressure(out.cases[0]!.distributed, e.id, 3));
+      const expected = a.z === 5 ? (r.unbalanced!.leeward + r.unbalanced!.windward) / 2 : r.unbalanced!.leeward;
+      expect(Math.max(...ratios)).toBeCloseTo(expected / r.ps, 9);
+    }
+  });
+}
+
+for (const mode of ['projected', 'width'] as const) {
+  it(`round4 planar section keeps both physical slope pressures ${mode}`, () => {
+    const model = mesh([[[0, 0, 3], [4, 0, 5]], [[4, 0, 5], [8, 0, 3]]]);
+    const out = snowLoadCases({ model, snow, layout: mode === 'projected' ? undefined : gravityLayout(model, { mode, tributaryWidth: 1 }), tributaryWidth: 1 })!;
+    expect(out.result.refused).toBeUndefined();
+    const r = roofSnow({ ...snow, roof: { kind: 'gable', slippery: true, slopeDeg: Math.atan(0.5) * 180 / Math.PI, W: 4 } });
+    expect(out.cases).toHaveLength(3);
+    for (const e of model.elements.values()) {
+      const balanced = pressure(out.cases[0]!.distributed, e.id, 1);
+      expect(balanced).toBeGreaterThan(0);
+      expect(Math.max(...out.cases.slice(1).map(c => pressure(c.distributed, e.id, 1))) / balanced).toBeCloseTo(r.unbalanced!.leeward / r.ps, 9);
+    }
+  });
+}
+
+for (const mode of ['width', 'panels'] as const) {
+  it(`round4 independent oblique ridges get their own partial axes ${mode}`, () => {
+    const model = continuousRoofs();
+    for (const n of model.nodes.values()) if (n.x >= 20) {
+      const x = n.x - 20, y = n.y - 20, angle = 0.4;
+      n.x = 20 + x * Math.cos(angle) - y * Math.sin(angle);
+      n.y = 20 + x * Math.sin(angle) + y * Math.cos(angle);
+    }
+    const out = snowLoadCases({ model, snow: { ...snow, partial: true }, layout: gravityLayout(model, { mode, tributaryWidth: 1 }), tributaryWidth: 1 })!;
+    expect(out.result.refused).toBeUndefined();
+    const patterns = out.cases.filter(c => c.pattern);
+    expect(patterns.some(c => c.nameParams.axis === 'X')).toBe(true);
+    expect(patterns.some(c => c.nameParams.axis === 'Y')).toBe(true);
+    expect(new Set(patterns.map(c => c.nameParams.axis)).size).toBe(4);
+  });
+}
+
+for (const mode of ['width', 'panels'] as const) {
+  it(`round4 flat tributaries retain partial loading along both axes ${mode}`, () => {
+    const rings: number[][][] = [];
+    for (const x of [0, 2, 4]) for (const y of [0, 2, 4]) rings.push([[x, y, 3], [x + 2, y, 3], [x + 2, y + 2, 3], [x, y + 2, 3]]);
+    const model = mesh(rings);
+    const out = snowLoadCases({ model, snow: { ...snow, partial: true }, layout: gravityLayout(model, { mode, tributaryWidth: 1 }), tributaryWidth: 1 })!;
+    expect(out.result.refused).toBeUndefined();
+    for (const axis of ['X', 'Y']) {
+      const patterns = out.cases.filter(c => c.pattern && c.nameParams.axis === axis);
+      expect(patterns.length).toBeGreaterThan(0);
+      expect(patterns.some(c => c.distributed.some(d => pressure(c.distributed, d.elementId, 1) < pressure(out.cases[0]!.distributed, d.elementId, 1)))).toBe(true);
+    }
+  });
+}
+
+it('round4 a hip member shares full exempt pressure and partial nonexempt pressure', () => {
+  const model = ridgeRoofs('hip'), sf = roofSurfaceModel(model);
+  const out = snowLoadCases({ model, snow: { ...snow, partial: true }, layout: gravityLayout(model, { mode: 'width', tributaryWidth: 1 }), tributaryWidth: 1 })!;
+  expect(out.result.refused).toBeUndefined();
+  const patterns = out.cases.filter(c => c.pattern);
+  expect(patterns.length).toBeGreaterThan(0);
+  const shared = [...model.elements.values()].filter(e => sf.memberPlanes(e.id).length === 2 && model.nodes.get(e.nodeI)!.z !== model.nodes.get(e.nodeJ)!.z);
+  expect(shared).toHaveLength(4);
+  const ratios = shared.flatMap(e => {
+    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    const station = Math.hypot(b.x - a.x, b.y - a.y, b.z! - a.z!) / 2;
+    return patterns.map(c => pressure(c.distributed, e.id, station) / pressure(out.cases[0]!.distributed, e.id, station));
+  });
+  expect(Math.min(...ratios)).toBeCloseTo((1 + 0.5) / 2, 9);
+  expect(Math.max(...ratios)).toBeCloseTo(1, 9);
 });

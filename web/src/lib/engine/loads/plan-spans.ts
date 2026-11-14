@@ -152,15 +152,10 @@ export function adjacentSpanPatterns(spans: Spans, units: Unit[]): SpanPattern[]
   return out;
 }
 
-/**
- * CIRSOC 104 §5.1, the partial snow loads of a continuous system (see the header), as factors of
- * the balanced snow. `skip` names an axis whose spans are exempt.
- */
-export function partialSnowPatterns(spans: Spans, units: Unit[], skip?: Axis): SpanPattern[] {
+export function partialSnowPatterns(spans: Spans, units: Unit[]): SpanPattern[] {
   const out: SpanPattern[] = [];
-  const seen = new Set<string>([keyOf(units, () => 1), keyOf(units, () => 0.5)]);
   for (const axis of ['x', 'y'] as const) {
-    if (axis === skip) continue;
+    const seen = new Set<string>([keyOf(units, () => 1), keyOf(units, () => 0.5)]);
     const S = usedSpans(spans, units, axis);
     const n = S.length;
     if (n < 3) continue;

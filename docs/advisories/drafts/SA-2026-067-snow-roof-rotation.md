@@ -8,7 +8,7 @@
 | Fix | Prepared on fix/2082-snow-roof-plane; not merged or deployed |
 | Fixed release | None yet |
 | Affected versions | Reproduced on origin/main fb241aa04936a993a3ecd4a2ec4f9490669c1d34, also the v0.6.0 tag; older releases not assessed here |
-| Re-check registry | [snow-roof-rotation](../../web/src/lib/provenance/result-changes/snow-roof-rotation.json) |
+| Re-check registry | [snow-roof-rotation](../../../web/src/lib/provenance/result-changes/snow-roof-rotation.json) |
 
 ## Affected features
 
@@ -77,8 +77,8 @@ Re-solving with previously saved wrong loads alone does not repair them.
 
 The coordinator assigned this advisory number. Main-source replay and the
 retained tests are documented in
-[snow-roof-plane.test.ts](../../web/src/lib/engine/loads/__tests__/snow-roof-plane.test.ts)
+[snow-roof-plane.test.ts](../../../web/src/lib/engine/loads/__tests__/snow-roof-plane.test.ts)
 and the accompanying class tests. See the
-[results-change write-up](../results-changes/2026-11-snow-roof-rotation.md).
+[results-change write-up](../../results-changes/2026-11-snow-roof-rotation.md).
 Code provisions were read from the repository's
-[CIRSOC 104-2005 extraction](../codes/CIRSOC/markdown/cirsoc-104-2005/).
+[CIRSOC 104-2005 extraction](../../codes/CIRSOC/markdown/cirsoc-104-2005/).

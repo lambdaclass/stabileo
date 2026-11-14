@@ -1,6 +1,6 @@
 # Snow loads use roof axes under plan rotation
 
-Issues #2093; advisory [SA-2026-067](../advisories/SA-2026-067-snow-roof-rotation.md).
+Issues #2093; advisory [SA-2026-067](../advisories/drafts/SA-2026-067-snow-roof-rotation.md).
 This correction is local and unmerged. The advisory records the numerical
 before/after witnesses on origin/main, also tagged v0.6.0.
 
