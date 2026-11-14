@@ -6,6 +6,13 @@ import fullDe from '../src/lib/i18n/locales/full/de';
 import fullFr from '../src/lib/i18n/locales/full/fr';
 import fullTr from '../src/lib/i18n/locales/full/tr';
 
+async function showHeroTruss(page: Page) {
+  await page.locator('.landing [data-figure="truss"]').click();
+  await page.mouse.move(0, 0);
+  await expect(page.locator('.landing .hero-figure .truss-fig')).toHaveCount(1);
+  await expect(page.locator('.landing .hero-fig-slot')).toHaveCount(1);
+}
+
 const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe' };
 const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR' };
 /** The Open Graph alternates a public page in `locale` declares: every other public language. */
@@ -368,8 +375,85 @@ test.describe('@landing landing page', () => {
 
 
 
+  test('the hero opens on the building and rotates through every figure on its own', async ({ page }) => {
+    await bootLanding(page);
+    const chips = page.locator('.landing .hero-fig-switch button');
+    await expect(chips).toHaveCount(7);
+    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
+    await expect(page.locator('.landing .hero-figure .bld-fig')).toHaveCount(1);
+    const bar = page.locator('.landing .hero-fig-switch button.on .hero-fig-progress span');
+    const width = () => bar.evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a);
+    const before = await width();
+    await expect.poll(width, { message: 'the active figure shows how far through its loop it is', timeout: 15000 }).toBeGreaterThan(before);
+    await expect.poll(() => page.locator('.landing .hero-fig-switch button.on').getAttribute('data-figure'), { timeout: 30000 }).not.toBe('building'); // slow-ok: the first figure holds for its 18 s loop before the hero moves on
+  });
+
+  test('a figure chosen from the row starts moving with the pointer still on its button', async ({ page }) => {
+    await bootLanding(page);
+    await page.locator('.landing [data-figure="section"]').click();
+    const cut = page.locator('.landing .hero-figure .sa-cut');
+    await expect(cut).toHaveCount(1);
+    const first = await cut.getAttribute('x1');
+    await expect.poll(() => cut.getAttribute('x1'), { message: 'hovering the buttons must not hold the animation', timeout: 3000 }).not.toBe(first);
+  });
+
+  test('a touch on the drawing does not freeze the rotation', async ({ page }) => {
+    await bootLanding(page);
+    const stack = page.locator('.landing .hero-fig-stack');
+    await stack.dispatchEvent('pointerenter', { pointerType: 'touch' });
+    await stack.dispatchEvent('mouseenter');
+    const bar = page.locator('.landing .hero-fig-switch button.on .hero-fig-progress span');
+    const width = () => bar.evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a);
+    const before = await width();
+    await expect.poll(width, { message: 'a touch is not a hover', timeout: 5000 }).toBeGreaterThan(before);
+  });
+
+  test('a figure that finishes loading late does not replace the one chosen after it', async ({ page }) => {
+    await page.route('**/ShedFigure-*.js', async (route) => {
+      await new Promise((r) => setTimeout(r, 2500));
+      await route.continue();
+    });
+    await bootLanding(page);
+    await page.locator('.landing [data-figure="shed"]').click();
+    await page.locator('.landing [data-figure="building"]').click();
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(4000); // slow-ok: the delayed chunk lands 2.5 s after the click and must change nothing
+    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
+  });
+
+  test('a figure that fails to load is skipped, not requested every frame', async ({ page }) => {
+    let requests = 0;
+    await page.route('**/ShedFigure-*.js', (route) => { requests++; return route.abort(); });
+    await bootLanding(page);
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(19_000); // slow-ok: the rotation reaches the failing figure only after the building's 17 s loop
+    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
+    expect(requests, 'one attempt per switch, not one per frame').toBeLessThan(5);
+  });
+
+  test('turning on reduced motion after the page loads stops the hero', async ({ page }) => {
+    await bootLanding(page);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForTimeout(300);
+    const state = () => page.locator('.landing .hero-figure .hf-row').innerText();
+    const bar = () => page.locator('.landing .hero-fig-switch button.on .hero-fig-progress span').evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a);
+    const a = [await state(), await bar()];
+    await page.waitForTimeout(1500);
+    expect([await state(), await bar()]).toEqual(a);
+  });
+
+  test('choosing a figure keeps it on screen instead of rotating on', async ({ page }) => {
+    await bootLanding(page);
+    await page.locator('.landing [data-figure="section"]').click();
+    await page.mouse.move(0, 0);
+    await expect(page.locator('.landing .hero-figure .sa-fig')).toHaveCount(1);
+    await page.waitForTimeout(17_500); // slow-ok: one full 16 s loop of the chosen figure must pass without the hero moving on
+    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'section');
+  });
+
   test('the hero truss animates, and it is the only truss figure on the page', async ({ page }) => {
     await bootLanding(page);
+    await showHeroTruss(page);
 
     // Hero: one figure, one moving load.
     const hero = page.locator('.landing .hero-figure .truss-fig');
@@ -411,6 +495,7 @@ test.describe('@landing landing page', () => {
       const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
       const page = await ctx.newPage();
       await bootLanding(page, { locale });
+      await showHeroTruss(page);
 
       await page.locator('.landing .hero-figure').scrollIntoViewIfNeeded();
       await page.waitForTimeout(400);
@@ -428,16 +513,17 @@ test.describe('@landing landing page', () => {
       expect(desc.toLowerCase()).toMatch(locale === 'en' ? /unit load/ : /carga unitaria/);
       expect(desc.toLowerCase()).toMatch(locale === 'en' ? /downward/ : /descendente/);
 
-      // The legend and the comparison captions are untouched.
-      const legend = await page.locator('.landing .hero-figure .tf-legend').innerText();
-      expect(legend).toContain('+');
-      expect(legend).toContain('\u2212');
+      // The caption under the truss still names both signs.
+      const legend = (await page.locator('.landing .hero-figure .truss-fig .hf-row').textContent()) ?? '';
+      expect(legend).toMatch(locale === 'en' ? /Tension/ : /Tracción/);
+      expect(legend).toMatch(locale === 'en' ? /Compression/ : /Compresión/);
       await ctx.close();
     }
   });
 
   test('the hero animation pauses on hover', async ({ page }) => {
     await bootLanding(page);
+    await showHeroTruss(page);
     const svg = page.locator('.landing .hero-figure svg');
     await svg.hover();
     await page.waitForTimeout(400);
@@ -451,6 +537,7 @@ test.describe('@landing landing page', () => {
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
     const page = await ctx.newPage();
     await bootLanding(page);
+    await showHeroTruss(page);
     const load = page.locator('.landing .hero-figure .tf-load');
     const a = await load.getAttribute('transform');
     await page.waitForTimeout(1500);
@@ -464,6 +551,7 @@ test.describe('@landing landing page', () => {
 
   test('the truss figure is an accessibly named image with a description', async ({ page }) => {
     await bootLanding(page);
+    await showHeroTruss(page);
     const svg = page.locator('.landing .hero-figure svg');
     await expect(svg).toHaveAttribute('role', 'img');
     const labelled = await svg.getAttribute('aria-labelledby');
@@ -471,11 +559,10 @@ test.describe('@landing landing page', () => {
     for (const id of labelled!.split(/\s+/)) {
       await expect(page.locator(`.landing #${id}`)).not.toBeEmpty();
     }
-    // The legend must not depend on colour alone.
-    const legend = await page.locator('.landing .hero-figure .tf-legend').innerText();
-    expect(legend).toContain('+');
-    expect(legend).toContain('\u2212');
-    expect(legend.toLowerCase()).toContain('zero');
+    // The colour key must not depend on colour alone.
+    const legend = (await page.locator('.landing .hero-figure .truss-fig .hf-row').textContent()) ?? '';
+    expect(legend).toContain('Tension');
+    expect(legend).toContain('Compression');
   });
 
 

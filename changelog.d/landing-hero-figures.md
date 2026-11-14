@@ -1,0 +1,4 @@
+### Added
+#### The landing hero rotates through seven live figures of what Stabileo does (2026-11-14)
+
+The hero used to show only the moving-load truss. It now cycles through buildings (the PRO seven-storey building assembling, drawn without the roof balcony the example still repeats, then its axial forces and beam moment diagrams for U2), industrial sheds (Von Mises stress per member over all combinations), trusses, section analysis, stress analysis (Mohr), vibration modes and a research model (the Andreassen et al. 2011 MBB beam, from the Stabileo Research optimizer). Every value is a solved result, stored as data so the landing does not load the engine; each figure loads only when it is about to show. A row underneath picks a figure, shows how far through its loop it is, and stops the rotation once someone chooses.
