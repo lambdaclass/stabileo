@@ -21,7 +21,6 @@
   import { verificationStore } from '../../../lib/store';
   import { modelStore } from '../../../lib/store/model.svelte';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
-  import { openRebar3DView } from '../../../lib/store/rebar-open';
   import {
     DESIGN_FAMILIES, availableDesignFamilies, totalsOf,
     type DesignFamily, type DesignRunReport,
@@ -339,19 +338,6 @@
         </p>
       {/if}
 
-      <!-- The ways out, beside the numbers rather than hunted for in another panel. -->
-      <div class="actions">
-        <button
-          type="button"
-          class="primary"
-          data-testid="design-result-view-3d"
-          disabled={detailingStore.assemblies.length === 0
-            && (detailingStore.document?.assemblies.length ?? 0) === 0}
-          onclick={() => openRebar3DView()}
-        >
-          {t('desk.rebar3d')}
-        </button>
-      </div>
     </div>
   {/if}
 </section>
@@ -452,17 +438,8 @@
   tr.failed td.state { color: var(--st-danger); }
   .err td { text-align: left; color: var(--st-danger); font-size: 0.72rem; }
   .totals { margin: 0.2rem 0 0; font-size: 0.76rem; font-variant-numeric: tabular-nums; }
-  .actions { margin-top: 0.4rem; }
-  .actions .primary {
-    font-size: 0.74rem; font-weight: 600; padding: 0.25rem 0.7rem; cursor: pointer;
-    background: var(--st-surface-3); color: var(--st-text);
-    border: 1px solid var(--st-interactive); border-radius: 4px;
-  }
-  .actions .primary:hover:not(:disabled) { background: var(--st-hair-strong); }
-  .actions .primary:disabled { opacity: 0.6; cursor: not-allowed; border-color: var(--st-hair-strong); }
-
   /* One focus ring for every control in this section. There was none. */
-  .bulk button:focus-visible, .run:focus-visible, .actions .primary:focus-visible {
+  .bulk button:focus-visible, .run:focus-visible {
     outline: 2px solid var(--st-value);
     outline-offset: 1px;
   }

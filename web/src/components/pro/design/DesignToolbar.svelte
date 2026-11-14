@@ -14,13 +14,10 @@
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import { te } from '../../../lib/i18n/engine-text';
   import { bindingLabel } from '../../../lib/codes/roles';
-  import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { diagnosticsWarning } from '../../../lib/store/diagnostics-warning.svelte';
-  import { canOpenRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
   import OutcomeBadge from './OutcomeBadge.svelte';
   import { rcCancelRun } from '../../../lib/flow/rc-commands';
   import { deskUi } from '../../../lib/store/design-desk-ui.svelte';
-  import { openRebar3DView } from '../../../lib/store/rebar-open';
 
   interface Props {
     selectedCount: number;
@@ -57,48 +54,6 @@
       families: scope.map((f) => t(`design.families.${f}`)).join(', '),
     }));
 
-
-  // ─── Ver modelo 3D ──────────────────────────────────────────────
-  let opening3d = $state(false);
-  let open3dError = $state<string | null>(null);
-  const canOpen3d = $derived(canOpenRebar3D());
-  const assemblyCount = $derived(rebar3DAssemblyCount());
-
-  /**
-   * Build the document and open the workspace.
-   *
-   * `opening3d` is held across a frame on purpose. The build is synchronous and can take a
-   * noticeable moment on a large model, so without yielding first the browser never paints the
-   * pending state and the button looks like it did nothing — the exact complaint that put this
-   * command on the main row in the first place.
-   *
-   * ── Why the pending state does not DISABLE this button ─────────────
-   *
-   * It did, and that is what made Escape drop the user at `<body>` instead of returning them
-   * here. Chromium blurs a focused control when it becomes disabled, and `opening3d` is set
-   * before the yield above — so by the time the overlay mounted, `document.activeElement` was
-   * already `<body>` and `captureFocus` recorded THAT as the opener. `<body>` is connected, so
-   * the `isConnected` guard passed and the restore focused it, which `dialog-focus.ts` names as
-   * the one outcome it exists to prevent. Measured in the focus trace: `out← cmd-open-3d`, then
-   * `focus(BODY)`, and no `focus(cmd-open-3d)` at all.
-   *
-   * The control now stays focusable, says `aria-busy` while it works, and refuses re-entry here
-   * rather than by removing itself from the tab order. `SelectionDetails` documents the same
-   * defect in its unmounting form; this was its disabled form.
-   */
-  async function open3d() {
-    if (opening3d) return;
-    open3dError = null;
-    opening3d = true;
-    await new Promise((r) => requestAnimationFrame(() => r(null)));
-    try {
-      const res = openRebar3DView();
-      if (!res.ok) open3dError = t('detailing.doc.noCoordinated');
-    } finally {
-      opening3d = false;
-    }
-  }
-
   /**
    * The concrete design code in force, and why it might not be.
    *
@@ -123,12 +78,6 @@
   const canDesign = $derived(hasResults && hasCombinations && !busy && concreteReady);
   const orientCount = $derived(verificationStore.orientationSuspectCount);
   const provisionalCount = $derived(designRunStore.provisionalIds.size);
-
-  // ── Detailing ──
-  // The command itself, its prerequisites and the auto-detailing preference moved to the DETALLE
-  // strip — see `RcStageTimeline.svelte`. What stays here is the one fact `Ver modelo 3D` needs:
-  // a generating run must not be interrupted by opening the viewer on a half-written document.
-  const detailingBusy = $derived(detailingStore.generating);
 
   /** Columns longer than three times their width: designed with the column rules, and said so. */
   const elongatedColumns = $derived([...verificationStore.contexts.values()]
@@ -183,38 +132,6 @@
           nothing here draws them.
         -->
 
-    <!--
-      `Ver modelo 3D` — the RESULT of everything the pipeline produced, and until PR20 it was
-      reachable only from inside the detailing disclosure, two levels below the commands that
-      produce it.
-
-      It is the same operation as the other three ways in — `overview-open-3d`, `doc-3d` and the
-      ribbon's `pr-cmd-rebar3d`: all of them call `openRebar3D`, so the cage on screen is a
-      projection of the same document instance the report, the schedule and the drawings render.
-      It is disabled — not hidden — while there is nothing to draw, and says so, because a command
-      that vanishes teaches nobody what it needs.
-
-      IT STAYS HERE, and that was decided rather than left alone. F3 step 5 audited whether it
-      should follow the pipeline commands into `RcStageTimeline`: it should not. Four deliberate
-      entry points against the strip's one-and-only-one rule, one of them in the ribbon that also
-      serves the metallic flow — which has no RC strip at all — and no stage it advances. The
-      reasoning lives with the operation, in `lib/store/rebar-open.ts`; this is the entry point on
-      the row whose work it shows.
-    -->
-    <button
-      class="cmd cmd-3d"
-      data-testid="cmd-open-3d"
-      onclick={open3d}
-      disabled={!canOpen3d || detailingBusy}
-      aria-busy={opening3d ? 'true' : undefined}
-      title={canOpen3d ? '' : t('detailing.scene.openBlocked')}
-    >
-      <span aria-hidden="true">◫</span>
-      {opening3d ? t('detailing.scene.opening') : t('desk.rebar3d')}
-      {#if canOpen3d}
-        <span class="cmd-3d-count" data-testid="cmd-open-3d-count">{assemblyCount}</span>
-      {/if}
-    </button>
 
       </div>
     </div>
@@ -242,10 +159,6 @@
       </button>
     {/if}
   </div>
-
-  {#if open3dError}
-    <p class="open3d-error" role="alert" data-testid="cmd-open-3d-error">{open3dError}</p>
-  {/if}
 
   {#if busy && designRunStore.progress}
     {@const p = designRunStore.progress}
@@ -359,24 +272,6 @@
   .progress-text { font-size: 0.7rem; color: var(--st-text-2); font-family: monospace; }
 
   /*
-     `Ver modelo 3D` reads as the end of the row, because it is: everything to its left
-     produces the thing it shows. Interactive blue rather than the accent — the accent is the
-     brand and the destructive edge, and this is neither.
-  */
-  .cmd-3d {
-    display: inline-flex; align-items: center; gap: 5px;
-    background: var(--st-surface-3);
-    border-color: var(--st-interactive);
-    color: var(--st-text);
-  }
-  .cmd-3d:hover:not(:disabled) { background: var(--st-hair-strong); }
-  .cmd-3d-count {
-    font-family: var(--st-mono); font-size: 0.66rem; font-weight: 600;
-    padding: 0 4px; border-radius: 2px;
-    background: var(--st-hair); color: var(--st-text-2);
-  }
-
-  /*
      The diagnostics chip. `margin-left: auto` sends it to the right of the row and nothing
      else in the row is allowed to grow, so it stays a chip on one line instead of the column
      down the panel it used to be.
@@ -396,11 +291,6 @@
   .cmd-diag:hover { background: rgba(217, 164, 65, 0.22); }
   .cmd-diag:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 1px; }
 
-  .open3d-error {
-    margin: 0.3rem 0 0;
-    font-size: 0.72rem;
-    color: var(--st-warn);
-  }
   /*
     MERGED (H1 → H2). Two deletions meet here, and both stand.
 

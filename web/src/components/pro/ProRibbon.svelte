@@ -15,7 +15,6 @@
    */
   import { uiStore, modelStore, resultsStore, historyStore, verificationStore } from '../../lib/store';
   import { saveProject } from '../../lib/store/file';
-  import { canOpenRebar3D, openRebar3DView, rebar3DMissingSteps } from '../../lib/store/rebar-open';
   import Icon from '../ribbon/Icon.svelte';
   import { buildProStages, PRO_TAB_STAGE, type ProStage, type ProCmd } from '../../lib/pro/stages';
   import { TWO_D_INTERNAL_FORCE_LABELS as F2D } from '../../lib/geometry/coordinate-system';
@@ -99,8 +98,6 @@
   );
 
 
-  function openRebar3DFromRibbon(): void { openRebar3DView(); }
-
   /*
    * The command tree lives in `lib/pro/stages.ts`, not here.
    *
@@ -116,9 +113,6 @@
     canReport,
     onSolve,
     onReport,
-    onRebar3D: openRebar3DFromRibbon,
-    canRebar3D: () => canOpenRebar3D(),
-    rebar3DMissingSteps,
   }));
 
   /** Which stage owns the panel view — shared with the phone grid. */

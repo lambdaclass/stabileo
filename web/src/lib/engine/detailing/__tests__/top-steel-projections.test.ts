@@ -35,7 +35,7 @@ describe('top assembly reinforcement, across every projection', { timeout: 60_00
   let doc: DocumentModel;
   /** Members whose top steel is the §25.7.1.2 pair, from the scene. */
   let hangers: number[];
-  /** The design outcomes exactly as `RebarWorkspace` derives them. */
+  /** The design outcomes, as `workspaceScene` derives them. */
   let outcomes: Map<number, DesignOutcomeSummary>;
 
   beforeAll(async () => {

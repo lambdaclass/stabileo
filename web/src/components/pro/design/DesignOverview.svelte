@@ -28,9 +28,6 @@
   import { t, tp } from '../../../lib/i18n';
   import { verificationStore } from '../../../lib/store';
   import ActiveConcreteCode from './ActiveConcreteCode.svelte';
-  import { detailingStore } from '../../../lib/store/detailing.svelte';
-  import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
-  import { canOpenRebar3D, openRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
   import { projectVerdict, projectVerdictLines } from '../../../lib/store/member-verdict';
 
   interface Props {
@@ -43,72 +40,6 @@
   const project = $derived.by(() => { void counts; return projectVerdict(); });
   const projectLines = $derived(projectVerdictLines(project, tp));
   const run = $derived(verificationStore.runSummary);
-
-
-  // ─── View 3-D model ─────────────────────────────────────────────
-  //
-  // The SAME operation as the command that stays in the command row and the one inside the
-  // detailing section. All three call `openRebar3D`, so the cage on screen is a projection of the
-  // one document instance the report, the schedule and the drawings render. Three places to reach
-  // it, one thing that happens — which is the opposite of a duplicated button.
-  let opening3d = $state(false);
-  let open3dError = $state<string | null>(null);
-  const canOpen3d = $derived(canOpenRebar3D());
-  const assemblyCount = $derived(rebar3DAssemblyCount());
-
-  /**
-   * Why it cannot be opened yet, in words, on the page.
-   *
-   * A `title` is not an explanation: it is invisible to a keyboard user, invisible on a touch
-   * screen, and gone the moment the pointer moves. The requirement is rendered next to the
-   * disabled button as well, which is why this returns a list and not a tooltip string.
-   */
-  const blockers = $derived.by(() => {
-    if (canOpen3d) return [];
-    const out: string[] = [];
-    if (verificationStore.providedSummary.total === 0) out.push(t('design.overview.need.design'));
-    else if (detailingStore.assemblies.length === 0) out.push(t('design.overview.need.detailing'));
-    else out.push(t('design.overview.need.coordinated'));
-    return out;
-  });
-
-  /**
-   * Build the document and open the workspace.
-   *
-   * ── Why the pending state does not DISABLE this button ─────────────
-   *
-   * It did, and that is what made Escape drop the user at the top of the document.
-   *
-   * Chromium blurs a focused control the moment it becomes disabled. `opening3d` is set before
-   * this handler yields a frame, so the sequence was: click → the button disables → the browser
-   * blurs it → `document.activeElement` is `<body>` → the overlay mounts and `captureFocus`
-   * records `<body>` as the opener. `<body>` is connected, so the `isConnected` guard passes and
-   * the restore focuses it — which `dialog-focus.ts` names as "the outcome this whole module
-   * exists to prevent". Measured: `out← cmd-open-3d`, then `focus(BODY)`, with no
-   * `focus(cmd-open-3d)` anywhere in the trace.
-   *
-   * So the control stays focusable and reports its pending state with `aria-busy` instead, and
-   * re-entry is refused here rather than by taking the button away. The same defect one
-   * component over is what `SelectionDetails` already documents about a button that unmounts
-   * under the user's focus; this is the disabled form of it.
-   */
-  async function open3d() {
-    if (opening3d) return;
-    open3dError = null;
-    opening3d = true;
-    // Held across a frame so the pending state actually paints: the build is synchronous and can
-    // take a noticeable moment on a large model.
-    await new Promise((r) => requestAnimationFrame(() => r(null)));
-    try {
-      const res = openRebar3D({
-        author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
-        at: new Date().toISOString(),
-      });
-      if (!res.ok) open3dError = t('detailing.doc.noCoordinated');
-    } finally {
-      opening3d = false;
-    }
-  }
 
   /**
    * The counts, ranked and grouped.
@@ -233,34 +164,6 @@
       {/if}
     {/if}
   </div>
-
-  <!-- ── The one command: the result of everything else ───────────── -->
-  <div class="open3d">
-    <button
-      type="button"
-      class="open3d-btn"
-      data-testid="overview-open-3d"
-      onclick={open3d}
-      disabled={!canOpen3d}
-      aria-busy={opening3d ? 'true' : undefined}
-    >
-      <span aria-hidden="true">◫</span>
-      {opening3d ? t('detailing.scene.opening') : t('desk.rebar3d')}
-      {#if canOpen3d}
-        <span class="n3d" data-testid="overview-open-3d-count">{assemblyCount}</span>
-      {/if}
-    </button>
-    <!--
-      The requirement is TEXT, beside the button, not only a tooltip. A disabled control that
-      explains itself only on hover explains itself to nobody using a keyboard.
-    -->
-    {#if blockers.length > 0}
-      <p class="need" data-testid="overview-open-3d-need">{blockers.join(' ')}</p>
-    {/if}
-    {#if open3dError}
-      <p class="err" role="alert" data-testid="overview-open-3d-error">{open3dError}</p>
-    {/if}
-  </div>
 </div>
 
 <style>
@@ -319,27 +222,4 @@
   */
   .tone-prov .glyph, .tone-prov .n { color: var(--st-provisional); }
 
-  .open3d { display: flex; flex-direction: column; gap: 0.2rem; }
-  .open3d-btn {
-    align-self: flex-start;
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    padding: 0.25rem 0.7rem;
-    border: 1px solid var(--st-interactive);
-    border-radius: 4px;
-    background: var(--st-surface-3);
-    color: var(--st-text);
-    font-size: 0.75rem; font-weight: 600;
-    cursor: pointer;
-  }
-  .open3d-btn:hover:not(:disabled) { background: var(--st-hair-strong); }
-  .open3d-btn:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
-  /* Disabled is dimmer and still legible — it has to be readable to be an instruction. */
-  .open3d-btn:disabled { opacity: 0.6; cursor: not-allowed; border-color: var(--st-hair-strong); }
-  .n3d {
-    font-size: 0.66rem; font-weight: 700;
-    padding: 0 0.3rem; border-radius: 3px;
-    background: var(--st-surface); color: var(--st-text-2);
-  }
-  .need { margin: 0; font-size: 0.66rem; color: var(--st-text-2); }
-  .err { margin: 0; font-size: 0.66rem; color: var(--st-danger); }
 </style>

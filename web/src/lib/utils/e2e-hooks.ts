@@ -39,22 +39,13 @@ import { modelStore, verificationStore, uiStore, historyStore, resultsStore } fr
 import { readCamera } from '../viewport3d/camera-probe';
 import { verificationVisual } from '../three/selection-helpers';
 import { detailingStore } from '../store/detailing.svelte';
-import { detailingSheet } from '../store/detailing-sheet.svelte';
 import { exportRecordStore } from '../store/export-record.svelte';
-import { retouchedIn } from '../store/export-log';
-import { renderDrawings } from '../engine/detailing/document-render';
-import { rebarWorkspace } from '../store/rebar-workspace.svelte';
 import { jointDesignStore } from '../store/joint-design.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { isSolverReady } from '../engine/wasm-solver';
 import { getStructuralSolveCount } from './solve-counter';
 import { runGlobalSolve } from '../engine/live-calc';
 import { tourStore } from '../store/tour.svelte';
-import {
-  liveRebarSceneCensus, liveRebarSceneConflictAt, rebarSceneBuilds, type RebarSceneCensus,
-} from '../three/rebar-scene';
-import { sceneCacheStats } from '../engine/detailing/scene-cache';
-import { openTimeline, type OpenPhase } from './open-timeline';
 import { autosaveRevisions as storedAutosaveRevisions } from '../store/autosave-db';
 import { autosaveFingerprint, clearAutosave, deserializeProject, loadAutosave, serializeProject, type DedalFile } from '../store/file';
 import { lastAutosaveOutcome, requestAutosave } from '../store/autosave-service';
@@ -134,16 +125,6 @@ export interface StabileoTestHooks {
     reasonKeys: string[];
   } | null;
   selection(): number[];
-  /**
-   * What the REBAR WORKSPACE has selected, which is a different channel from `selection()`.
-   *
-   * `selection()` reads `uiStore.selectedElements` — the app's element selection, driven by the
-   * 2-D viewport and the design table. This reads `rebarWorkspace.selection`, the single channel
-   * the detailing list and the 3-D viewer share. Exposed so a test can assert that clicking a row
-   * writes THAT channel and no parallel one: comparing this against the rows' `aria-selected` is
-   * how "two independent representations of the same element" becomes checkable.
-   */
-  rebarSelection(): number[];
   /**
    * The selected NODE ids, sorted.
    *
@@ -363,66 +344,8 @@ export interface StabileoTestHooks {
   detailingAssemblies(): unknown;
   /** Bar-schedule totals for the selected assembly. */
   detailingSchedule(): unknown;
-  /**
-   * The current sheet as the drawing engine built it, before any renderer touched it.
-   *
-   * An OBSERVATION hook. The alternative is to assert on the SVG string, and a `<path d="M…">`
-   * cannot answer which LAYER a polyline is on — which is the whole question for a sheet whose
-   * concrete, steel and cover line are three layers with three meanings.
-   */
-  detailingSheet(): unknown;
-  /**
-   * The project's rótulo as PERSISTED, not as the panel renders it.
-   *
-   * An OBSERVATION hook, and the distinction is the point: the field is a project decision that
-   * has to survive being reopened, and reading it back off the input that wrote it would assert
-   * only that the DOM kept a value.
-   */
-  detailingTitleBlock(): unknown;
   /** The emission records as PERSISTED. An OBSERVATION hook. */
   exportRecords(): unknown;
-  /**
-   * The drawing set's DXF, rendered from the current document.
-   *
-   * An OBSERVATION hook, and the only route a test has to what the sheet actually carries: the
-   * export hands a blob to the browser and loses sight of it — which is the first entry in
-   * `EXPORT_CANNOT_ASSERT`. Returns null when there is nothing coordinated to draw.
-   */
-  detailingDxf(): string | null;
-  /**
-   * How many times the 3-D viewport has BUILT its tube geometry.
-   *
-   * The property the viewport benchmark asserts, rather than infers from a stopwatch: a layer
-   * switch, a selection, an isolate or an opacity change must not move this number. A timing can
-   * always be explained away as a busy runner; a counter that went up cannot.
-   */
-  rebarSceneBuilds(): number;
-  /**
-   * What the 3-D workspace is actually DRAWING, per family. Null when none is open.
-   *
-   * The counterpart of the on-screen tally, and deliberately a different observable. The tally
-   * is derived in Svelte from the filter; this is read off the meshes. Every layer switch in the
-   * rail once stopped reaching the meshes at all — the store changed, the filter recomputed, the
-   * tally updated, the scene did not — and the whole suite stayed green because nothing could
-   * see this side of the line.
-   */
-  rebarSceneCensus(): RebarSceneCensus | null;
-  /**
-   * Canvases in the page, of any kind. A layer switch must not add one.
-   *
-   * Every canvas, not only the WebGL ones: the 2-D viewport has one too, and a hook that
-   * counted a subset would report "nothing added" about the half it was not looking at.
-   */
-  canvasCount(): number;
-  /** Scene-projection cache hits and misses. A toggle must not produce a miss. */
-  sceneCacheStats(): { hits: number; misses: number };
-  /**
-   * Milliseconds from the "3-D" click to the end of each phase of the last open.
-   *
-   * The benchmark reports this as a table. Attributing an open from the outside guessed wrong
-   * twice — see `open-timeline.ts`.
-   */
-  openTimeline(): Partial<Record<OpenPhase, number>>;
   /**
    * Every autosave revision currently stored, newest first.
    *
@@ -495,18 +418,6 @@ export interface StabileoTestActions {
   openDesignTab(): void;
   seedDetailing(assemblies: unknown): void;
   selectAssembly(id: string): void;
-  reviewAssembly(record: unknown): boolean;
-  /**
-   * Select the conflict drawn in a marker slot, as clicking that marker would.
-   *
-   * A TEST MUTATOR, and the only route to `ConflictInspector` that a test has: the panel renders
-   * from `selection.conflict`, which is set by clicking a marker in the WebGL scene — raycast
-   * against the canvas, at a screen position no test can compute reliably.
-   *
-   * Returns false when the slot draws nothing, so a caller can tell "no conflict there" from
-   * "selected one".
-   */
-  selectConflict(slot?: number): boolean;
   /**
    * Resize a section, as the sections table would.
    *
@@ -670,8 +581,6 @@ export function installE2EHooks(): void {
       };
     },
     selection: () => [...uiStore.selectedElements].sort((a, b) => a - b),
-    rebarSelection: () =>
-      [...(rebarWorkspace.selection?.elementIds ?? [])].sort((a, b) => a - b),
     selectedNodeIds: () => [...uiStore.selectedNodes].sort((a, b) => a - b),
     /*
      * Published by `Viewport3D` when it resizes the markers. Null rather than a default, so a
@@ -857,22 +766,7 @@ export function installE2EHooks(): void {
     detailingAssemblies: () =>
       JSON.parse(JSON.stringify(modelStore.model.detailing?.assemblies ?? [])),
     detailingSchedule: () => JSON.parse(JSON.stringify(detailingStore.schedule ?? null)),
-    detailingSheet: () => JSON.parse(JSON.stringify(detailingSheet.sheet ?? null)),
-    detailingTitleBlock: () =>
-      JSON.parse(JSON.stringify(modelStore.model.detailing?.titleBlock ?? null)),
     exportRecords: () => JSON.parse(JSON.stringify(exportRecordStore.exports)),
-    detailingDxf: () => {
-      const doc = detailingStore.buildDocument({ author: 'e2e', at: new Date().toISOString() });
-      if (!doc) return null;
-      return renderDrawings(doc, {
-        locale: 'es', projectName: 'e2e', retouched: retouchedIn(doc),
-      }).dxf;
-    },
-    rebarSceneBuilds,
-    rebarSceneCensus: liveRebarSceneCensus,
-    canvasCount: () => document.querySelectorAll('canvas').length,
-    sceneCacheStats,
-    openTimeline,
     serializeProject: () => serializeProject(),
     autosaveRevisions: async () => (await storedAutosaveRevisions())
       .map(({ revision, timestamp, status }) => ({ revision, timestamp, status })),
@@ -926,14 +820,6 @@ export function installE2EHooks(): void {
       };
     },
     selectAssembly: (id: string) => { detailingStore.select(id); },
-    reviewAssembly: (record: unknown) =>
-      detailingStore.review(record as never),
-    selectConflict: (slot = 0) => {
-      const conflict = liveRebarSceneConflictAt(slot);
-      if (!conflict) return false;
-      rebarWorkspace.selectConflict(conflict);
-      return true;
-    },
     updateSection: (id: number, data: unknown) => {
       modelStore.updateSection(id, data as never);
     },

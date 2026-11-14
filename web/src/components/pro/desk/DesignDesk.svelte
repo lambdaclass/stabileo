@@ -35,9 +35,7 @@
   import { rebarWorkspace } from '../../../lib/store/rebar-workspace.svelte';
   import { jointChecks } from '../../../lib/store/joint-checks';
   import SheetsPanel from '../design/SheetsPanel.svelte';
-  import ListingsPanel from '../design/ListingsPanel.svelte';
   import { currentDocument, documentProjectName } from '../../../lib/store/current-document';
-  import DocumentsSection from '../design/DocumentsSection.svelte';
   import ProDesignCompleteness from '../design/ProDesignCompleteness.svelte';
   import ProSteelWorkflowTab from '../ProSteelWorkflowTab.svelte';
   import ProConnectionsTab from '../ProConnectionsTab.svelte';
@@ -56,7 +54,6 @@
   import DeskGeometry from './DeskGeometry.svelte';
   import DeskDesignData from './DeskDesignData.svelte';
   import DeskList from './DeskList.svelte';
-  import DeskDetailing from './DeskDetailing.svelte';
   import DeskOtherCodes from './DeskOtherCodes.svelte';
   import FrameEditor from './frame/FrameEditor.svelte';
   import ColumnEditor from './column/ColumnEditor.svelte';
@@ -224,7 +221,6 @@
         {:else if deskUi.tab === 'steel'}<div class="dd-classic"><ProDesignCompleteness /><ProSteelWorkflowTab /></div>
         {:else if deskUi.tab === 'connections'}<div class="dd-classic"><ProConnectionsTab /></div>
         {:else if deskUi.tab === 'codes'}<DeskOtherCodes />
-        {:else if deskUi.tab === 'detailing'}<DeskDetailing />
         {:else if deskUi.tab === 'column'}<ColumnEditor memberId={deskUi.selected} />
         {:else if deskUi.tab === 'wall'}<WallEditor />
         {:else if deskUi.tab === 'slab'}<SlabEditor />
@@ -245,9 +241,7 @@
         {:else if deskUi.tab === 'frame'}{#if deskUi.selected !== null}<FrameEditor memberId={deskUi.selected} />{:else}<p class="dd-hint">{t('frameEd.pick')}</p>{/if}
         {:else if deskUi.tab === 'levels'}<DeskLevels {centres} />
         {:else if deskUi.tab === 'report'}<DeskReportView {levels} />
-        {:else if deskUi.tab === 'documents'}<div class="dd-docs"><DocumentsSection recheck={false} /></div>
         {:else if deskUi.tab === 'sheets'}<div class="dd-docs"><SheetsPanel resolve={() => currentDocument().doc} projectName={documentProjectName()} autoBuild /></div>
-        {:else if deskUi.tab === 'listings'}<div class="dd-docs"><ListingsPanel resolve={() => currentDocument().doc} /></div>
         {:else}<DeskGeometry />{/if}
       </div>
     </main>

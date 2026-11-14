@@ -41,14 +41,11 @@
  * ── Nothing here is a timing ───────────────────────────────────────
  *
  * The forbidden strings are watched on the console and on every toast for the whole run, so a
- * failure is attributed to the step that caused it. The viewport assertions are counters —
- * canvases, WebGL contexts, scene builds — because a browser drops the oldest context without
- * warning past about sixteen, and a leak per open is a viewport that silently stops rendering
- * after a dozen visits.
+ * failure is attributed to the step that caused it.
  */
 
 import { test, expect } from '@playwright/test';
-import { turnRolledBeams, declareBeamsNotLateral, designPlace, openFloorPass } from './fixtures';
+import { declareBeamsNotLateral, designPlace, openFloorPass } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -278,76 +275,6 @@ async function calculate(page: Page) {
     .toContain('Análisis 3D exitoso');
 }
 
-/** The counters a viewport open must not move by more than one. */
-async function counters(page: Page) {
-  return page.evaluate(() => ({
-    builds: window.__stabileo.rebarSceneBuilds(),
-    canvases: document.querySelectorAll('canvas').length,
-    contexts: [...document.querySelectorAll('canvas')].filter((c) =>
-      !!(c as HTMLCanvasElement).getContext('webgl2')
-      || !!(c as HTMLCanvasElement).getContext('webgl')).length,
-  }));
-}
-
-/** What the workspace says is in the scene, read off its own tally. */
-async function tally(page: Page) {
-  const families: Record<string, { solids: number; longitudinal: number; transverse: number }> = {};
-  for (const family of ['column', 'beam', 'slab', 'wall', 'footing', 'pedestal']) {
-    const row = page.getByTestId(`rebar-tally-${family}`);
-    if (await row.count() === 0) continue;
-    const cells = await row.locator('td').allTextContents();
-    families[family] = {
-      solids: parseInt(cells[0] ?? '0', 10),
-      longitudinal: parseInt(cells[1] ?? '0', 10),
-      transverse: parseInt(cells[2] ?? '0', 10),
-    };
-  }
-  return families;
-}
-
-/**
- * Open the 3-D workspace and wait for the SCENE, not for the overlay.
- *
- * The workspace paints before it builds — that is what stops the click looking dead on a model
- * whose floors have been designed — so "visible" is not "ready". The build counter is the
- * signal that the geometry exists, and it moves exactly once per build whatever the model's
- * size, unlike the transient "building" status which a small model may never paint.
- */
-async function openViewer(page: Page, step: string) {
-  const before = await counters(page);
-  /**
-   * `doc-3d` moved into the Documents stage, which is collapsed like every other stage.
-   *
-   * Inlined rather than imported: this file deliberately uses Playwright's own `test` and not the
-   * `pro` fixture, so pulling in a fixtures helper here would give it a dependency it does not
-   * otherwise have. Two lines are cheaper than that.
-   */
-  await designPlace(page, 'documents');
-  const docs = page.getByTestId('desk-canvas');
-  if (await docs.count() > 0 && await docs.getAttribute('open') === null) {
-  }
-  await page.getByTestId('doc-3d').click();
-  await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 }); // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
-  await expect
-    .poll(() => page.evaluate(() => window.__stabileo.rebarSceneBuilds()), { timeout: 180_000 }) // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
-    .toBeGreaterThan(before.builds);
-  // A scene that built but drew nothing is an empty viewport, and it looks like a working one.
-  await expect
-    .poll(() => page.evaluate(() => window.__stabileo.canvasInkRatio()), { timeout: 120_000 }) // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
-    .toBeGreaterThan(0);
-
-  const after = await counters(page);
-  expect(after.builds - before.builds, `${step}: one geometry build per open`).toBe(1);
-  expect(after.canvases - before.canvases, `${step}: no duplicate canvas`).toBe(1);
-  expect(after.contexts - before.contexts, `${step}: no extra WebGL context`).toBe(1);
-  return after;
-}
-
-async function closeViewer(page: Page) {
-  await page.getByTestId('rebar-workspace-close').click();
-  await expect(page.getByTestId('rebar-workspace')).toBeHidden();
-}
-
 /** The app must still answer while and after all of this. */
 async function assertResponsive(page: Page, step: string) {
   const t0 = Date.now();
@@ -408,7 +335,7 @@ test('@smoke the toast recorder catches inserted, recycled and late-filled toast
   await expect.poll(() => toastsSeen(page)).toContain('late message');
 });
 
-test('@slow restore, design, view in 3-D — then reload and do it again', async ({ page }) => {
+test('@slow restore, design, detail — then reload and do it again', async ({ page }) => {
   test.setTimeout(900_000);
   const w = watchPage(page);
   // Installed once, before the first navigation — not inside `boot`, which runs three
@@ -418,22 +345,15 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
   // ── 1. Open the example ──────────────────────────────────────────
   await boot(page);
   // Nothing carried over from an earlier run of this file: the database survives a reload by
-  // design, which is the point, and a stale revision would make step 11 assert on the wrong
-  // vintage of the project.
+  // design, which is the point, and a stale revision would make the second restore assert on the
+  // wrong vintage of the project.
   await page.evaluate(() => window.__stabileoActions.autosaveDiscard());
   await page.evaluate(() => window.__stabileoActions.openDesignTab());
   await page.evaluate((name) => window.__stabileoActions.loadExample(name), EXAMPLE);
   await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length))
     .toBeGreaterThan(0);
-  // Five beams turned, so the design carries the provisional state step 10 asserts on.
-  await turnRolledBeams(page);
-  /*
-   * And the beams declared not part of the lateral system, saved with the project. Undeclared,
-   * since 292b87f68 they are designed as part of it (fy developed at the column face) and all
-   * 119 refuse on that anchorage, the five turned ones with them: step 10 found no PROVISIONAL
-   * row, because a refused beam proposes nothing. The declaration travels through the autosave
-   * and the restore with the rest of the design data.
-   */
+  // The beams declared not part of the lateral system: undeclared, all 119 refuse on the anchorage
+  // at the column face. The declaration travels through the autosave and the restore.
   await declareBeamsNotLateral(page);
 
   // The autosave is written by the app's own 30 s timer. Waited for rather than faked: the
@@ -467,7 +387,7 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
   expect(runCounts.verified, 'members were verified').toBeGreaterThan(0);
   await assertClean(page, w, 'design all');
 
-  await designPlace(page, 'detailing');
+  await designPlace(page, 'list');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
@@ -484,59 +404,7 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
   await assertClean(page, w, 'detailing and floor design');
   await assertResponsive(page, 'after the floor design');
 
-  // ── 8–9. Open the viewer and check the scene is COMPLETE ─────────
-  await openViewer(page, 'first open');
-  await assertClean(page, w, 'open 3-D');
-
-  const families = await tally(page);
-  console.log('scene tally after floor design:', JSON.stringify(families));
-  for (const family of ['column', 'beam', 'slab', 'wall'] as const) {
-    expect(families[family], `${family} is present in the tally`).toBeTruthy();
-    expect(families[family].solids, `${family} has concrete in the scene`).toBeGreaterThan(0);
-  }
-  // The families the DOCUMENT produced steel for must have steel HERE. Slabs and walls are the
-  // ones the floor design adds, and the ones a projection bug would drop.
-  for (const family of ['column', 'slab', 'wall'] as const) {
-    const bars = families[family].longitudinal + families[family].transverse;
-    expect(bars, `${family} carries its steel into the scene`).toBeGreaterThan(0);
-  }
-  // …and none of them may be reported as an empty family while the document holds them.
-  const emptyFamilies = await page.getByTestId('rebar-empty-families').textContent()
-    .catch(() => null);
-  for (const family of ['Losa', 'Tabique', 'Columna', 'Viga']) {
-    if (emptyFamilies) expect(emptyFamilies).not.toContain(family);
-  }
-
-  // Beam states. Since self-weight became a member load the building has no biaxial proposal of
-  // its own, so step 1 turns five beams 20° (`ROLLED_BEAMS`), which bend biaxially for a real
-  // reason. Their proposals are reported, not hidden, their cause is stated once rather than
-  // once per member, and the sheet-level consequence is on screen.
-  // The other members' local checks pass, and none of them is MODELLED: the building's slab mesh
-  // sends its load straight into the columns, so the analysis of all 203 is not validated
-  // (`analysis-validity.ts`) and their verdict holds them (`member-verdict.ts`). They read HELD,
-  // never as finished work.
-  await expect(page.getByTestId('rebar-status-HELD'), 'the other members are held by their analysis').toBeVisible();
-  await expect(page.getByTestId('rebar-status-MODELLED'), 'and none reads as modelled while held').toHaveCount(0);
-  const provisional = page.getByTestId('rebar-status-PROVISIONAL');
-  await expect(provisional, 'provisional members keep their own row').toBeVisible();
-  const cause = page.getByTestId('rebar-status-cause-PROVISIONAL');
-  await expect(cause, 'the shared cause is stated').toBeVisible();
-  await expect(cause).toHaveAttribute('data-reason-key', 'design.reason.provisionalBiaxial');
-  // A proposal that looks like a design is the one failure this state exists to prevent.
-  await expect(page.getByTestId('rebar-provisional-banner'), 'and it says it is not for issue')
-    .toContainText(/NO APTO PARA|NOT VALID FOR/i);
-
-  // Selection: a member picked from the list becomes the selection.
-  const firstMember = page.getByTestId('rebar-element-list').locator('button.element').first();
-  await firstMember.click();
-  await expect(page.getByTestId('rebar-element-list').locator('button.selected'))
-    .toHaveCount(1);
-
-  // ── 10. Close ────────────────────────────────────────────────────
-  await closeViewer(page);
-  await assertClean(page, w, 'close 3-D');
-
-  // ── 11–13. Reload, restore again, calculate again, open again ────
+  // ── 8–10. Reload, restore again, calculate again ─────────────────
   /**
    * The stored project now CONTAINS the design. This is the assertion the whole file was
    * written for and could not make.
@@ -580,14 +448,13 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
   await calculate(page);
   await assertClean(page, w, 'calculate after the second restore');
 
-  // The detailing has to be regenerated after a restore — the document is not persisted — so
-  // the viewer is opened on the same path a user would take.
+  // The detailing has to be regenerated after a restore: the document is not persisted.
   await page.evaluate(() => window.__stabileoActions.computeDemands());
   await page.evaluate(() => window.__stabileoActions.codeCheck());
   await page.evaluate(() => window.__stabileoActions.designAll());
   await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0),
     { timeout: 180_000 }).toBeGreaterThan(0);
-  await designPlace(page, 'detailing');
+  await designPlace(page, 'list');
   const regenerate = page.getByTestId('cmd-generate-detailing');
   await expect(regenerate).toBeEnabled();
   await regenerate.click();
@@ -596,13 +463,5 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
       { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 180_000 })
     .toBeGreaterThan(0);
 
-  await openViewer(page, 'second open, after a second restore');
-  await assertClean(page, w, 'open 3-D after the second restore');
-  const familiesAgain = await tally(page);
-  console.log('scene tally after the second restore:', JSON.stringify(familiesAgain));
-  for (const family of ['column', 'beam'] as const) {
-    expect(familiesAgain[family].solids, `${family} survives the second restore`)
-      .toBeGreaterThan(0);
-  }
   await assertResponsive(page, 'end of journey');
 });

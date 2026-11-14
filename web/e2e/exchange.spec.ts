@@ -1,10 +1,10 @@
 /**
- * The designed building for other programs, from the Documents stage: the qa-8 frame designed and
- * detailed, exported as IFC with its bars and read back by the app's own importer; the forces of
- * each physical member as CSV; the project workbook. The file itself is pinned in
+ * The designed building for other programs, from the steel workflow's documents: the qa-8 frame
+ * designed and detailed, exported as IFC with its bars and read back by the app's own importer;
+ * the forces of each physical member as CSV; the project workbook. The file itself is pinned in
  * `lib/ifc/__tests__/ifc-writer.test.ts`.
  */
-import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
+import { test, expect, designAll, loadModel, openSteelDocuments, designPlace } from './fixtures';
 import { readFileSync } from 'node:fs';
 
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -13,11 +13,11 @@ test.describe('@slow exchange', () => {
   test('IFC with bars, read back; forces by physical member; the workbook', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    await designPlace(page, 'detailing');
+    await designPlace(page, 'list');
     await page.getByTestId('cmd-generate-detailing').click();
     await expect.poll(async () => page.evaluate(() =>
       (window.__stabileo as unknown as { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 30_000 }).toBeGreaterThan(0);
-    await openDocumentsStage(page);
+    await openSteelDocuments(page);
     const panel = page.getByTestId('exchange-panel').first();
     await panel.scrollIntoViewIfNeeded();
 

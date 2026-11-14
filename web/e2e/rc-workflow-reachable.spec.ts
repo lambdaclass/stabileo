@@ -57,7 +57,7 @@ async function maxRevision(page: Page): Promise<number> {
 /**
  * Fill design's canvas with everything it can hold at once: the member list with the floor pass
  * open under it (interface A has no column of five disclosures any more; each is a place of the
- * desk, and the canvas under the viewer is the one that scrolls), then the coordinated detailing.
+ * desk, and the canvas under the viewer is the one that scrolls).
  */
 async function openEveryDisclosure(page: Page): Promise<string[]> {
   const opened: string[] = [];
@@ -66,9 +66,6 @@ async function openEveryDisclosure(page: Page): Promise<string[]> {
   if (await floors.evaluate((el) => !(el as HTMLDetailsElement).open)) await floors.locator('> summary').click();
   await expect(floors).toHaveJSProperty('open', true);
   opened.push('desk-list', 'floor-families-disclosure');
-  await designPlace(page, 'detailing');
-  await expect(page.getByTestId('desk-detailing')).toBeVisible();
-  opened.push('desk-detailing');
   return opened;
 }
 
@@ -79,9 +76,8 @@ test.describe('@smoke the RC command surface stays reachable', () => {
       await designAll(page);
 
       const opened = await openEveryDisclosure(page);
-      // At least the three PR18 disclosures; four once seismic is present. Two open already
-      // exceed the viewport, which is the condition under test.
-      expect(opened.length, `opened: ${opened.join(', ')}`).toBeGreaterThanOrEqual(3);
+      // Two open already exceed the viewport, which is the condition under test.
+      expect(opened.length, `opened: ${opened.join(', ')}`).toBeGreaterThanOrEqual(2);
 
       const button = page.getByTestId('cmd-generate-detailing');
       await expect(button).toBeVisible();
