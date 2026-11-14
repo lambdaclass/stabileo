@@ -264,7 +264,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 820, height: 1180
       await page.setViewportSize(viewport);
       const f = oldProject(1, 'frame');
       const fresh = JSON.parse(await page.evaluate(() => window.__stabileo.serializeProject())).snapshot.solvedWith;
-      (f.snapshot as Record<string, unknown>).solvedWith = { ...fresh, id: `older-solve-${viewport.width}`, resultsVersion: 1, analyses: ['linear'] };
+      (f.snapshot as Record<string, unknown>).solvedWith = { ...fresh, id: `older-solve-${viewport.width}`, resultsVersion: 0, analyses: ['linear'] };
       expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
       const notice = page.getByTestId('recheck-notice');
       await expect(notice.locator(`[data-change-id="${STEEL_CHANGE}"]`)).toBeVisible();

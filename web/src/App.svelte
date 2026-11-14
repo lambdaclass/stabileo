@@ -2287,9 +2287,12 @@
 
 {#if !deskDocked}<DesignDesk />{/if}
 
-{#if uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now || solveProgress.now}
+{#if solveProgress.now}
+  <div class="solve-progress-dock" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}><SolveProgressCard /></div>
+{/if}
+
+{#if uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
-    <SolveProgressCard />
     {#if !(solveProgress.now && solveProgress.now.phase === 'mesh')}<MeshProgressCard />{/if}
     <RcSheetsProgressCard />
     {#each uiStore.toasts as toast}
@@ -3273,6 +3276,16 @@
     flex: 1 1 0;
     min-height: 44px;
     min-width: 0;
+  }
+
+  /* The solve's own place, apart from the toasts: stacked with them it pushed them up over the panels' buttons. */
+  .solve-progress-dock {
+    position: fixed;
+    bottom: var(--st-toast-bottom, 46px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1100;
+    pointer-events: none;
   }
 
   .toast-container {
