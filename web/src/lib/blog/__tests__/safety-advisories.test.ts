@@ -15,6 +15,12 @@ describe('safety-advisories SA-2026-061', () => {
     expect(findPost('safety-advisories')!.updated).toBe('2026-11-13');
   });
 
+  it.each<PublicLocale>(['en', 'es', 'pt', 'de', 'fr', 'tr'])('records subsequent post additions separately in %s', locale => {
+    const post = findPost('safety-advisories')!;
+    expect(post.updated).toBe('2026-11-13');
+    expect(post.i18n[locale]!.blocks.some(b => b.k === 'note' && b.t.includes('SA-2026-061') && (b.t.includes('2026-11-14') || b.t.includes('14 de noviembre de 2026') || b.t.includes('14 de novembro de 2026')))).toBe(true);
+  });
+
   it.each<[PublicLocale, string, string]>([
     ['en', 'High', 'Fixed in PR #1952, pending release'],
     ['es', 'Alta', 'Corregido en PR #1952, pendiente de publicación'],

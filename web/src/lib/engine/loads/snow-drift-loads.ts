@@ -1,6 +1,6 @@
 import { snowCoordinate, snowRoofSteps, snowRoofSurfaces, roofSurfaceModel } from './snow-roof-surfaces';
 import { widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
-import { stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
+import { stepDriftMargins, stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
 import { msg, round, type EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
 
@@ -147,19 +147,30 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         const lower = roofOf(L.k);
         const lu = Math.max(0, ...lower.flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
         const point = (t: number): P2 => [a[0] + t * line.u[0], a[1] + t * line.u[1]];
-        const band = (local: (pt: P2) => StepDrift) => bands.push({ p0: a, u: line.u, len: line.len, n: line.n, on: lower.map((p) => p.k), p: (d, t) => {
-          const dr = local(point(t));
-          return dr.applies && d <= dr.w ? dr.pd * (1 - d / dr.w) : 0;
-        } });
+        const reportBand = (local: (pt: P2) => StepDrift, margins: (pt: P2) => number[], report: (dr: StepDrift, pt: P2, from: number, to: number) => void) => {
+          const ranges = surfaceModel.edgeRanges(a, b, layout, margins);
+          let applies = false;
+          for (const range of ranges) {
+            const dr = local(range.point);
+            applies ||= dr.applies;
+            report(dr, range.point, range.from * line.len, range.to * line.len);
+          }
+          bands.push({ p0: a, u: line.u, len: line.len, n: line.n, on: lower.map(p => p.k), p: (d, t) => {
+            const dr = local(point(t));
+            return dr.applies && d <= dr.w ? dr.pd * (1 - d / dr.w) : 0;
+          } });
+          return applies;
+        };
         if (i.parapet && i.parapet.height > 0) {
           const local = (pt: P2) => parapetDrift({ pg: i.pg, balanced: balanced(L.k, pt), parapetHeight: i.parapet!.height, lu });
-          const dr = local(a);
-          derivation.push(msg(dr.applies ? 'snow.derivation.parapet' : 'snow.derivation.noParapet', {
-            z: round(L.z, 2), hp: round(i.parapet.height, 2), lu: round(lu, 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
-            hd: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
-          }));
-          band(local);
-          if (dr.applies && !refs.includes(REF_PARAPET)) refs.push(REF_PARAPET, REF_FIG9);
+          const applies = reportBand(local, pt => stepDriftMargins({ pg: i.pg, balanced: balanced(L.k, pt), stepHeight: i.parapet!.height }), (dr, pt, from, to) => {
+            derivation.push(msg('snow.derivation.edgeInterval', { from: round(from, 3), to: round(to, 3), at: round((from + to) / 2, 3) }));
+            derivation.push(msg(dr.applies ? 'snow.derivation.parapet' : 'snow.derivation.noParapet', {
+              z: round(surfaces(L.k).elevation(pt), 2), hp: round(i.parapet!.height, 2), lu: round(lu, 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
+              hd: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3), from: round(from, 3), to: round(to, 3),
+            }));
+          });
+          if (applies && !refs.includes(REF_PARAPET)) refs.push(REF_PARAPET, REF_FIG9);
         }
         for (const adj of i.adjacent ?? []) {
           const out: P2 = [-line.n[0], -line.n[1]];
@@ -169,15 +180,17 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
             const t = p.polygon.map((v) => dot(sub(v, a), line.u)), o = p.polygon.map((v) => dot(sub(v, a), out));
             return Math.max(...o) > 0.05 && Math.max(...t) > 0.05 && Math.min(...t) < line.len - 0.05;
           });
-          if (beyond || adj.topZ <= L.z + 1e-8) continue;
-          const local = (pt: P2) => stepDrift({ pg: i.pg, balanced: balanced(L.k, pt), stepHeight: adj.topZ - surfaces(L.k).elevation(pt), luUpper: adj.length, luLower: lu, separation: adj.separation });
-          const dr = local(a);
-          derivation.push(msg(dr.applies ? 'snow.derivation.adjacent' : 'snow.derivation.noAdjacent', {
-            z: round(L.z, 2), side: adj.side.toUpperCase(), top: round(adj.topZ, 2), s: round(adj.separation, 2),
-            hb: round(dr.hb, 3), hc: round(dr.hc, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
-          }));
-          band(local);
-          if (dr.applies && !refs.includes(REF_DRIFT_ADJACENT)) refs.push(REF_DRIFT_ADJACENT, REF_FIG9);
+          if (beyond) continue;
+          const inputs = (pt: P2) => ({ pg: i.pg, balanced: balanced(L.k, pt), stepHeight: adj.topZ - surfaces(L.k).elevation(pt), luUpper: adj.length, luLower: lu, separation: adj.separation });
+          const local = (pt: P2) => stepDrift(inputs(pt));
+          const applies = reportBand(local, pt => stepDriftMargins(inputs(pt)), (dr, pt, from, to) => {
+            derivation.push(msg('snow.derivation.edgeInterval', { from: round(from, 3), to: round(to, 3), at: round((from + to) / 2, 3) }));
+            derivation.push(msg(dr.applies ? 'snow.derivation.adjacent' : 'snow.derivation.noAdjacent', {
+              z: round(surfaces(L.k).elevation(pt), 2), side: adj.side.toUpperCase(), top: round(adj.topZ, 2), s: round(adj.separation, 2),
+              hb: round(dr.hb, 3), hc: round(dr.hc, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3), from: round(from, 3), to: round(to, 3),
+            }));
+          });
+          if (applies && !refs.includes(REF_DRIFT_ADJACENT)) refs.push(REF_DRIFT_ADJACENT, REF_FIG9);
         }
       }
     }

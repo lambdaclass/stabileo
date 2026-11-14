@@ -4,7 +4,7 @@ import { RESULT_CHANGES } from '../full-registry';
 import { stampSolve } from '../solve-stamp';
 import type { FeatureSnapshot } from '../model-features';
 
-const ids = ['snow-roof-step', 'snow-roof-rotation', 'snow-surface-regions'];
+const ids = ['snow-roof-step', 'snow-roof-rotation', 'snow-surface-regions', 'snow-ridge-orientations'];
 
 function snapshot(type = 'S', generatedBy: string | undefined = 'load-plan'): FeatureSnapshot {
   return { loadCases: [{ id: 1, type }], loads: [{ type: 'distributed', data: { caseId: 1, elementId: 1, q: -1, generatedBy } }] };

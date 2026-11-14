@@ -10800,6 +10800,7 @@ const pt: Translations = {
   'snow.curved.caseAbutting': "caso {case} da Figura 3, encostada no terreno ou em outra cobertura: a carga do ponto de 30° mantida até o beiral (beiral a {eave}°, linha beiral–cumeeira a {line}°)",
   'snow.derivation.dome': "Cúpula de {r} m de raio (§4.3 e §6.4): Cs pela inclinação em cada ponto; não balanceada sobre o setor de 90° a sotavento, {unbalanced}.",
   'snow.derivation.curved': "Cobertura curva (§4.3): Cs pela inclinação em cada ponto, sem neve onde passa de 70°. Não balanceada (§6.2, Figura 3): com o vento para +, {plus}; para −, {minus}.",
+  'snow.derivation.edgeInterval': 'Intervalo da borda {from}–{to} m desde o primeiro vértice da borda; valores a {at} m.',
   'snow.derivation.noAdjacent': "Estrutura separada em {side}, a {s} m da cobertura de +{z} m: a 6 m ou mais, ou com hc/hb < 0,2, não há acúmulo (§7.2).",
   'snow.derivation.adjacent': "Estrutura separada em {side}, com cobertura a +{top} m e a {s} m (§7.2), junto à cobertura de +{z} m: hb = {hb} m, hc = {hc} m; triângulo de {h} m de altura (reduzido por (6 − s)/6) e {w} m de largura, pd = {pd} kN/m², somado à neve balanceada.",
   'snow.derivation.noParapet': "Platibanda de {hp} m em uma borda da cobertura de +{z} m: hc/hb = {hc}/{hb} < 0,2, não há acúmulo (Cap. 8).",

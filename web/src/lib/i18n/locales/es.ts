@@ -11429,6 +11429,7 @@ const es: Record<string, string> = {
   'snow.curved.caseAbutting': "caso {case} de la Figura 3, lindante con el terreno u otra cubierta: la carga del punto de 30° se mantiene hasta el alero (alero a {eave}°, línea alero–cumbrera a {line}°)",
   'snow.derivation.dome': "Cúpula de {r} m de radio (§4.3 y §6.4): Cs según la pendiente en cada punto; no balanceada sobre el sector de 90° a sotavento, {unbalanced}.",
   'snow.derivation.curved': "Cubierta curva (§4.3): Cs según la pendiente en cada punto, sin nieve donde pasa de 70°. No balanceada (§6.2, Figura 3): con viento hacia +, {plus}; hacia −, {minus}.",
+  'snow.derivation.edgeInterval': 'Intervalo del borde {from}–{to} m desde el primer vértice del borde; valores a {at} m.',
   'snow.derivation.noAdjacent': "Estructura separada en {side}, a {s} m de la cubierta de +{z} m: a 6 m o más, o con hc/hb < 0,2, no hay acumulación (§7.2).",
   'snow.derivation.adjacent': "Estructura separada en {side}, con cubierta a +{top} m y a {s} m (§7.2), junto a la cubierta de +{z} m: hb = {hb} m, hc = {hc} m; triángulo de {h} m de alto (reducido por (6 − s)/6) y {w} m de ancho, pd = {pd} kN/m², sumado a la nieve balanceada.",
   'snow.derivation.noParapet': "Parapeto de {hp} m en un borde de la cubierta de +{z} m: hc/hb = {hc}/{hb} < 0,2, no hay acumulación (Cap. 8).",

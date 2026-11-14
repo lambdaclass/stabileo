@@ -11237,6 +11237,7 @@ const de: Translations = {
   'snow.curved.caseAbutting': 'Fall {case} nach Abbildung 3, an Gelände oder ein anderes Dach angrenzend: Die Last des 30°-Punkts wird bis zur Traufe beibehalten (Traufe bei {eave}°, Linie Traufe–Scheitel bei {line}°)',
   'snow.derivation.dome': 'Eine Kuppel mit {r} m Radius (§4.3 und §6.4): Cs nach der Neigung an jedem Punkt; ungleichmäßig über den 90°-Sektor auf der Leeseite, {unbalanced}.',
   'snow.derivation.curved': 'Gekrümmtes Dach (§4.3): Cs nach der Neigung an jedem Punkt, kein Schnee über 70°. Ungleichmäßig (§6.2, Abbildung 3): bei Wind in Richtung +, {plus}; in Richtung −, {minus}.',
+  'snow.derivation.edgeInterval': 'Randabschnitt {from}–{to} m ab dem ersten Randpunkt; Werte bei {at} m.',
   'snow.derivation.noAdjacent': 'Ein getrenntes Bauwerk auf der Seite {side}, {s} m vom Dach auf +{z} m entfernt: ab 6 m oder bei hc/hb < 0,2 gibt es keine Verwehung (§7.2).',
   'snow.derivation.adjacent': 'Ein getrenntes Bauwerk auf der Seite {side}, sein Dach auf +{top} m und {s} m entfernt (§7.2), neben dem Dach auf +{z} m: hb = {hb} m, hc = {hc} m; ein Dreieck mit {h} m Höhe (abgemindert mit (6 − s)/6) und {w} m Breite, pd = {pd} kN/m², zur gleichmäßigen Schneelast addiert.',
   'snow.derivation.noParapet': 'Eine {hp} m hohe Attika an einem Rand des Dachs auf +{z} m: hc/hb = {hc}/{hb} < 0,2, keine Verwehung (Kap. 8).',

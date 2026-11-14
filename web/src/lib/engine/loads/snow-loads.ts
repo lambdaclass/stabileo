@@ -271,17 +271,19 @@ export function snowLoadCases(input: SnowCasesInput): {
       cases.push({ nameKey: u.dir ? 'snow.case.unbalanced' : 'snow.case.unbalancedValleys', nameParams: { dir: directionLabel(u.dir) }, ...on(atEnds(u.at)) });
     }
   } else if (surfaceModel.planes.length ? surfaceModel.planes.some(p => localResult(p).unbalanced) : result.unbalanced) {
-    for (const sense of [1, -1] as const) {
+    for (const direction of surfaceModel.orientations.length ? surfaceModel.orientations : [geometry.direction]) for (const sense of [1, -1] as const) {
       const at = (id: number, unit?: SnowUnit) => {
         const ps = localSurfaces(id, unit);
         return ps.reduce((sum, p) => {
           const r = localResult(p), u = r.unbalanced;
           if (!u) return sum + r.ps;
-          const side = p ? -(p.gradient[0] * geometry.direction[0] + p.gradient[1] * geometry.direction[1]) : 0;
+          const side = p ? -(p.gradient[0] * direction[0] + p.gradient[1] * direction[1]) : 0;
           return sum + (Math.abs(side) <= 1e-9 ? (u.leeward + u.windward) / 2 : side * sense > 0 ? u.leeward : u.windward);
         }, 0) / ps.length;
       };
-      cases.push({ nameKey: 'snow.case.unbalanced', nameParams: { dir: directionLabel(`${sense > 0 ? '+' : '−'}X`) }, ...on(at) });
+      const [x, y] = direction.map(v => sense * v);
+      const dir = Math.abs(x!) > 1 - 1e-9 ? `${x! > 0 ? '+' : '−'}X` : Math.abs(y!) > 1 - 1e-9 ? `${y! > 0 ? '+' : '−'}Y` : `(${round(x!, 4)}, ${round(y!, 4)})`;
+      cases.push({ nameKey: 'snow.case.unbalanced', nameParams: { dir }, ...on(at) });
     }
   }
   const surfaces = [...bySlope.entries()].filter(([key, value]) => used.has(key) && Math.abs(value.result.ps - result.ps) > 1e-9)

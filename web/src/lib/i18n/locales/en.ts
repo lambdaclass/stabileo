@@ -11440,6 +11440,7 @@ const en: Record<string, string> = {
   'snow.curved.caseAbutting': "case {case} of Figure 3, abutting the ground or another roof: the 30° point's load kept out to the eave (eave at {eave}°, eave-to-crown line at {line}°)",
   'snow.derivation.dome': "A dome of {r} m radius (§4.3 and §6.4): Cs by the slope at each point; unbalanced over the 90° sector downwind, {unbalanced}.",
   'snow.derivation.curved': "Curved roof (§4.3): Cs by the slope at each point, no snow past 70°. Unbalanced (§6.2, Figure 3): with the wind toward +, {plus}; toward −, {minus}.",
+  'snow.derivation.edgeInterval': 'Edge interval {from}–{to} m from the first edge vertex; values at {at} m.',
   'snow.derivation.noAdjacent': "A separate structure on {side}, {s} m from the roof at +{z} m: at 6 m or more, or with hc/hb < 0.2, there is no drift (§7.2).",
   'snow.derivation.adjacent': "A separate structure on {side}, its roof at +{top} m and {s} m away (§7.2), beside the roof at +{z} m: hb = {hb} m, hc = {hc} m; a triangle {h} m high (reduced by (6 − s)/6) and {w} m wide, pd = {pd} kN/m², added to the balanced snow.",
   'snow.derivation.noParapet': "A {hp} m parapet on an edge of the roof at +{z} m: hc/hb = {hc}/{hb} < 0.2, no drift (Ch. 8).",

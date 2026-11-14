@@ -2,13 +2,14 @@ import type { SnapshotCase } from './corpus';
 import { stepRoof } from '../engine/loads/__tests__/snow-step-fixture';
 import { snow, skewRoof } from '../engine/loads/__tests__/snow-roof-plane-fixture';
 import { asymmetric, concave, disjoint, twoPitch } from '../engine/loads/__tests__/snow-surface-round2-fixture';
+import { ridgeRoofs } from '../engine/loads/__tests__/snow-surface-round3-fixture';
 import { snowLoadCases } from '../engine/loads/snow-loads';
 import { gravityLayout } from '../engine/loads/plan-gravity';
 import { flatten, FORMAT } from '../../../scripts/results-snapshot/compare.mjs';
 
 export function captureSnow(c: SnapshotCase) {
   if (!('snowRoof' in c.source)) throw new Error('Expected a snow-roof snapshot');
-  const extra = { asymmetric, concave, disjoint, 'two-pitch': twoPitch };
+  const extra = { perpendicular: () => ridgeRoofs('perpendicular'), hip: () => ridgeRoofs('hip'), asymmetric, concave, disjoint, 'two-pitch': twoPitch };
   const selected = c.source.snowRoof in extra ? extra[c.source.snowRoof as keyof typeof extra]() : undefined;
   const model = selected ?? (c.source.snowRoof === 'skew' ? skewRoof() : stepRoof(20, 0, 0.45, c.source.snowRoof === 'rotated-step' ? 0.37 : 0));
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });

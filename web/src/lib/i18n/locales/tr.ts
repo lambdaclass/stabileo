@@ -11246,6 +11246,7 @@ const tr: Translations = {
   'snow.curved.caseAbutting': 'Şekil 3\'teki durum {case}, zemine veya başka bir çatıya bitişik: 30° noktasındaki yük saçağa kadar sürdürülür (saçak {eave}°, saçak-tepe çizgisi {line}°)',
   'snow.derivation.dome': '{r} m yarıçaplı kubbe (§4.3 ve §6.4): Cs her noktadaki eğime göre; rüzgaraltındaki 90°\'lik dilimde dengesiz, {unbalanced}.',
   'snow.derivation.curved': 'Eğrisel çatı (§4.3): Cs her noktadaki eğime göre, 70°\'den sonra kar yok. Dengesiz (§6.2, Şekil 3): rüzgar + yönüne doğru iken {plus}; − yönüne doğru iken {minus}.',
+  'snow.derivation.edgeInterval': 'Kenarın ilk köşesinden {from}–{to} m aralığı; {at} m konumundaki değerler.',
   'snow.derivation.noAdjacent': '{side} tarafında, +{z} m kotundaki çatıdan {s} m uzakta ayrı bir yapı: 6 m veya daha fazla uzaklıkta ya da hc/hb < 0,2 olduğunda kar yığılması yoktur (§7.2).',
   'snow.derivation.adjacent': '{side} tarafında, çatısı +{top} m kotunda ve {s} m uzakta ayrı bir yapı (§7.2), +{z} m kotundaki çatının yanında: hb = {hb} m, hc = {hc} m; {h} m yüksekliğinde ((6 − s)/6 ile azaltılmış) ve {w} m genişliğinde bir üçgen, pd = {pd} kN/m², dengeli kara eklenir.',
   'snow.derivation.noParapet': '+{z} m kotundaki çatının bir kenarında {hp} m parapet: hc/hb = {hc}/{hb} < 0,2, kar yığılması yok (Bölüm 8).',

@@ -20,7 +20,7 @@ export interface SnapshotCase {
   /** File name in `web/results-snapshots/`, without `.json`. */
   name: string;
   /** A bundled example (`templates/fixture-index.ts`) or a committed `.ded` (path from `web/`). */
-  source: { example: string } | { ded: string } | { snowRoof: 'step' | 'rotated-step' | 'skew' | 'asymmetric' | 'concave' | 'disjoint' | 'two-pitch' };
+  source: { example: string } | { ded: string } | { snowRoof: 'step' | 'rotated-step' | 'skew' | 'asymmetric' | 'concave' | 'disjoint' | 'two-pitch' | 'perpendicular' | 'hip' };
   /** The workspace it is opened and solved in. */
   workspace: Workspace;
   /** PRO's «Design» setting on: the CIRSOC 201 code check, the CIRSOC 301 steel check, footings. */
@@ -36,6 +36,8 @@ export interface SnapshotCase {
 const ex = (example: string) => ({ example });
 
 export const CORPUS: SnapshotCase[] = [
+  { name: 'snow-perpendicular-ridges', source: { snowRoof: 'perpendicular' }, workspace: '3d', group: 'loads', covers: 'Distinct unbalanced orientations for perpendicular gables' },
+  { name: 'snow-hip-facets', source: { snowRoof: 'hip' }, workspace: '3d', group: 'loads', covers: 'Bounded hip facets and their governing snow directions' },
   { name: 'snow-roof-step', source: { snowRoof: 'step' }, workspace: '3d', group: 'loads', covers: 'CIRSOC 104 low-step drift on the pitched receiving roof' },
   { name: 'snow-roof-rotation', source: { snowRoof: 'rotated-step' }, workspace: '3d', group: 'loads', covers: 'CIRSOC 104 rotated step: balanced, drift and partial patterns' },
   { name: 'snow-skew-plane', source: { snowRoof: 'skew' }, workspace: '3d', group: 'loads', covers: 'Roof pitch from a plane with a diagonal rafter' },
