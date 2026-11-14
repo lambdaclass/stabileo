@@ -45,6 +45,8 @@ export interface WallRow {
   /** Clear cover to the horizontal bars, m, and the tension lap of a horizontal bar, m: what the end U-bars overlap it by. */
   cover: number;
   hLap: number;
+  /** The tension lap of each vertical bar diameter, m: what the bars of the storey above overlap them by. */
+  vLaps?: Array<{ dia: number; lap: number }>;
   /** Chapter 18, where the sheets apply it. */
   seismic?: WallSeismic;
 }
@@ -194,6 +196,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     cover: c.cover,
     hLap: tensionLap(c.mat, ad.horizontal.diameter),
+    vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: tensionLap(c.mat, dia) })),
     ...(seis ? { seismic: seis } : {}),
   };
 }

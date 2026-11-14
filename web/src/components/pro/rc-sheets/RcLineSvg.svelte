@@ -32,9 +32,13 @@
       return b - a > 1e-6 ? [{ x1: X(a), x2: X(b), y: bar.face === 'top' ? TOP + coverPx + inner : bottomOf(s.h) - coverPx - inner }] : [];
     });
   }
-  /** A 90° hook's leg, 12 bar diameters at the drawing's vertical scale, kept inside the beam. */
+  /** A 90° hook's leg as its shape bends it, at the drawing's vertical scale, kept inside the beam. */
+  const hookLeg = (bar: LineBar) => {
+    const p = bar.shape.pts, [a, b] = bar.hooks[0] ? [p[0]!, p[1]!] : [p[p.length - 1]!, p[p.length - 2]!];
+    return Math.abs(a[1] - b[1]);
+  };
   const hookTo = (bar: LineBar, y: number) => {
-    const leg = Math.max(8, Math.min(hMax * sy - 2 * coverPx, (12 * bar.bars.dia / 1000) * sy));
+    const leg = Math.max(8, Math.min(hMax * sy - 2 * coverPx, hookLeg(bar) * sy));
     return bar.face === 'top' ? y + leg : y - leg;
   };
 

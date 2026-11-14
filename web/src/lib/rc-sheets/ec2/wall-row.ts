@@ -181,6 +181,7 @@ export function makeWallRow(set: Ec2Set) {
       utilization: Math.max(0, ...ev.pm, ...ev.shear, ...outU),
       status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
       cover: c.cover, hLap: lapLength(m, ad.horizontal.diameter, true),
+      vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: lapLength(m, dia, true) })),
     };
   };
 }

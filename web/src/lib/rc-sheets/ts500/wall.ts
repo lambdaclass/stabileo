@@ -141,6 +141,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     proposed, adopted: ad, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, verifications, combos,
     utilization: Math.max(0, ...ev.pm, ...ev.shear, ...ev.out),
     cover: c.cover, hLap: lapOf(t, ad.horizontal.diameter, false, 1),
+    vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: lapOf(t, dia, false, 1) })),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
   };
 }

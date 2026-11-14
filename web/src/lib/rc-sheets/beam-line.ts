@@ -36,6 +36,8 @@ export interface LineCode {
   stirrupMax(c: BeamContext, b: number, d: number, stirrupDia: number): number;
   /** Inside diameter a longitudinal bar is bent on, m; 6 bar diameters when the code gives none here. */
   mandrel?(dia: number): number;
+  /** Straight leg past a 90° hook's bend, m; 12 bar diameters (Table 25.3.1) when the code gives none here. */
+  hookExtension?(dia: number): number;
   text: {
     cutoff: Record<CutoffLegality, string>;
     clause: { envelope: string; bottomRun: string; fit: string; hooks: string; splices: string };
@@ -163,6 +165,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
   const xFrom = -reachInto(endStart), xTo = total + reachInto(endEnd);
   const hMax = Math.max(...spans.map((s) => s.h));
   const mandrelOf = (dia: number) => code.mandrel?.(dia) ?? 6 * dia / 1000;
+  const extensionOf = (dia: number) => code.hookExtension?.(dia) ?? HOOK_EXTENSION(dia);
   const line = supports.map((_, j) => Math.max(spans[j - 1]?.row.demand.supportHalf?.end ?? 0, spans[j]?.row.demand.supportHalf?.start ?? 0));
   const reqAt = (r: BeamRow, sign: 'pos' | 'neg', sec: 'start' | 'span' | 'end') =>
     Math.max(0, ...r.req.bySection.filter((x) => x.sign === sign && x.section === sec).map((x) => x.req));
@@ -209,7 +212,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     const add = (face: 'top' | 'bottom', kind: LineBar['kind'], g: BarGroup, from: number, to: number, hooks: [boolean, boolean], bent?: { shape: BarShape; runs: LineBar['runs'] }) => {
       if (g.count <= 0 || to - from < 1e-6) return;
       const inner = c.cover + sdOf(0) / 1000 + g.dia / 2000;
-      const shape = bent?.shape ?? hookedStraight(from, to, face === 'top' ? hMax - inner : inner, g.dia, mandrelOf(g.dia), hooks, face === 'top' ? -1 : 1, HOOK_EXTENSION(g.dia));
+      const shape = bent?.shape ?? hookedStraight(from, to, face === 'top' ? hMax - inner : inner, g.dia, mandrelOf(g.dia), hooks, face === 'top' ? -1 : 1, extensionOf(g.dia));
       const length = developedLength(shape);
       bars.push({ mark: next(), face, kind, bars: g, from, to, hooks, length, weight: shapeWeight(shape, g.count), shape, runs: bent?.runs ?? [{ face, from, to }] });
     };
@@ -294,7 +297,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
       const reachOver = (j: number) => step(ldTop + (line[j] ?? 0));
       const from = k === 0 ? xFrom : s.x0 - reachOver(k), to = k === spans.length - 1 ? xTo : s.x0 + s.L + reachOver(k + 1);
       const hooks: [boolean, boolean] = [k === 0, k === spans.length - 1];
-      const leg = (mandrelOf(g.dia) + g.dia / 1000) / 2 + HOOK_EXTENSION(g.dia);
+      const leg = (mandrelOf(g.dia) + g.dia / 1000) / 2 + extensionOf(g.dia);
       const pts: Array<[number, number]> = [
         ...(hooks[0] ? [[from, yHigh - leg] as [number, number]] : []),
         [from, yHigh], [xl, yHigh], [xl + run, yLow], [xr - run, yLow], [xr, yHigh], [to, yHigh],
