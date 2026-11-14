@@ -467,37 +467,9 @@
   stroke-width: 1.6;
 }
 
-.landing .tf-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1.15rem;
-  margin-top: 1.15rem;
-  font-family: var(--lp-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.12em;
-  color: var(--fg-2);
-}
 
-.landing .tf-key {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  white-space: nowrap;
-}
 
-.landing .tf-key::before {
-  content: '';
-  width: 14px;
-  height: 3px;
-  flex: none;
-}
 
-.landing .tf-key-t::before { background: var(--tf-tension); }
-.landing .tf-key-c::before { background: var(--tf-compression); }
-.landing .tf-key-z::before { background: var(--tf-zero); opacity: 0.5; height: 1px; }
-.landing .tf-key-g::before { background: var(--fg-2); opacity: 0.24; height: 1px; }
-.landing .tf-key-n::before { display: none; }
-.landing .tf-key-n { max-width: 100%; white-space: normal; }
 
 /* compact still frames used by the real-time comparison */
 .landing .truss-fig.compact .tf-caption {
@@ -1064,7 +1036,6 @@
 }
 
 @media (max-width: 420px) {
-  .landing .tf-legend { gap: 0.3rem 0.8rem; }
 }
 
 /* ─── FOCUS VISIBILITY ───────────────────────────────────────────────────── */
@@ -1461,3 +1432,51 @@
 }
 
 .landing .links-panel a:hover .links-langs { color: var(--lp-slate-2); }
+
+.landing .hf-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 1.4rem;
+  margin: 0.7rem 0 0;
+  min-height: 2.9rem;
+  align-content: flex-start;
+  font-family: var(--lp-sans);
+  font-size: 0.9rem;
+  color: var(--fg-2);
+}
+
+.landing .hf-row .hf-tag {
+  flex-basis: 100%;
+  font-family: var(--lp-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lp-accent);
+}
+
+.landing .hf-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+.landing .hf-item b {
+  font-family: var(--lp-mono);
+  font-weight: 500;
+  color: var(--fg);
+}
+
+.landing .hf-sw {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  align-self: center;
+}
+
+.landing .hf-axis {
+  font-family: var(--lp-mono);
+  font-size: 10px;
+  fill: var(--fg-2);
+}
