@@ -26,7 +26,7 @@ it('#2080 the recorded shared cage is regenerated from the selected bars', () =>
   expect(fixture.sharedCage.fixed).toEqual(fixed);
 });
 
-it('#2080 main solved transverse column receives the unity control moment', () => {
+it('#2089 main solved transverse column receives the unity control moment', () => {
   const fixture = JSON.parse(readFileSync('../docs/results-changes/fixtures/2080-round8-main-witness.json', 'utf8'));
   const solved = fixture.solved;
   const model = Object.fromEntries(Object.entries(solved.model).map(([key, entries]) => [key, new Map(entries as never)])) as never;

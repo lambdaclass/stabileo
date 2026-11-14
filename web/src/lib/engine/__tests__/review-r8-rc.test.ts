@@ -26,7 +26,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
     });
   }
   for (const Lu of [4, 6]) for (const loading of [true, undefined]) for (const elementType of ['column', 'wall'] as const) {
-    it(`#2080 transverse or unknown load forbids end gradient ${edition} ${axis} ${elementType} ${loading} Lu=${Lu}`,  () => {
+    it(`#2089 transverse or unknown load forbids end gradient ${edition} ${axis} ${elementType} ${loading} Lu=${Lu}`,  () => {
       const demands = ConcurrentDemand.fromStations({ elementId: 1, length: 4, stationTs: [0, 0.5, 1], comboResults: [{
         comboId: 1, comboName: 'loaded', transverseLoading: { My: loading, Mz: loading },
         stations: [station(0, -20), station(0.5, 60), station(1, 20)],
