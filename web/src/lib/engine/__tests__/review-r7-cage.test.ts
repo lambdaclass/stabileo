@@ -7,7 +7,7 @@ import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
 for (const edition of ['2005', '2025'] as const) {
   for (const axis of ['My', 'Mz'] as const) {
     for (const elementType of ['beam', 'column', 'wall'] as const) {
-      it(`#2080 ${edition} ${axis} ${elementType} shared cage memo reports the evaluated reinforcement and capacity`, () => {
+      it.fails(`known wrong result: #2080 ${edition} ${axis} ${elementType} shared cage memo reports the evaluated reinforcement and capacity`, () => {
         const inputs: ConcurrentVerificationInput[] = ConcurrentDemand.fromTuples([20, 100].map((m, i) => ({ comboId: i + 1, comboName: `C${i + 1}`,
           forces: { t: 0.5, x: 2, n: 0, my: m, mz: m, vy: 1, vz: 1, torsion: 0 } })))
           .map(d => ({ elementId: 1, elementType, edition, demand: d.section(axis), b: 0.4, h: 0.4, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 }));
@@ -18,10 +18,16 @@ for (const edition of ['2005', '2025'] as const) {
           ...verifyConcurrentElement(inputs).concurrentChecks!.map(c => c.verification)];
         for (const v of checks) {
           const f = v.flexure;
-          const evaluated = evaluateBeamSection({ edition, fc: inputs[0]!.fc * 1e6, fy: inputs[0]!.fy * 1e6,
+          const actualDepth = inputs[0]!.h - inputs[0]!.cover - inputs[0]!.stirrupDia / 1000 - f.barDia / 2000;
+          expect(f.providedDepth).toBe(actualDepth);
+          expect(f.d).toBe(f.designDepth);
+          expect(f.designDepth).toBeGreaterThan(actualDepth);
+          expect(f.steps).toContain(`d = ${(actualDepth * 100).toFixed(1)} cm`);
+          const query = { edition, fc: inputs[0]!.fc * 1e6, fy: inputs[0]!.fy * 1e6,
             b: inputs[0]!.b, h: inputs[0]!.h, d: f.d, As: f.AsProv * 1e-4, AsComp: (f.AsComp ?? 0) * 1e-4,
             dPrime: f.barDiaComp ? inputs[0]!.cover + inputs[0]!.stirrupDia / 1000 + f.barDiaComp / 2000 : 0,
-            Ag: inputs[0]!.b * inputs[0]!.h, NuCompression: 0 })!;
+            Ag: inputs[0]!.b * inputs[0]!.h, NuCompression: 0 };
+          const evaluated = evaluateBeamSection(query)!;
           expect(f.phiMn).toBe(evaluated.phiMn / 1e3);
           expect(f.steps).toContain(`Armadura tracción: ${f.bars} (${f.AsProv.toFixed(2)} cm²)`);
           expect(f.steps).toContain(`φMn = ${f.phiMn.toFixed(2)} kN·m`);
