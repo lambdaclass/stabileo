@@ -36,6 +36,42 @@ describe('release example semantics #2091', () => {
     }
   });
 
+  for (const version of ['v0.2.0', 'v0.3.0', 'v0.4.0']) {
+    for (const example of ['truss', '3d-portal-frame', 'torre-irregular-con-retiros']) {
+      for (const drift of ['name', 'e', 'both']) {
+        it.skip(`known wrong result: #2091: ${version}/${example} resolves materials with release defaults despite ${drift} drift`, async () => {
+          const entry = readManifest(version).examples.find(e => e.example === example)!;
+          const opened = await openAndSolve(readCorpusText(`${version}/${entry.file}`), { solve: false });
+          const historical = structuredClone(modelStore.materials.get(1)!);
+          const clear = modelStore.clear.bind(modelStore);
+          const fixtureApi = modelStore.fixtureApi.bind(modelStore);
+          const atResolution: Material[] = [];
+          const clearSpy = vi.spyOn(modelStore, 'clear').mockImplementation(() => {
+            clear();
+            const material = modelStore.materials.get(1)!;
+            modelStore.materials.set(1, {
+              ...material,
+              name: drift === 'e' ? material.name : `${material.name} future`,
+              e: drift === 'name' ? material.e : material.e * 2,
+            });
+          });
+          const apiSpy = vi.spyOn(modelStore, 'fixtureApi').mockImplementation(() => {
+            atResolution.push(structuredClone(modelStore.materials.get(1)!));
+            return fixtureApi();
+          });
+          try {
+            const result = await againstExample('future material identity', version, entry, opened, false);
+            expect(atResolution).toEqual([historical]);
+            expect(result.failure).toBeNull();
+          } finally {
+            apiSpy.mockRestore();
+            clearSpy.mockRestore();
+          }
+        });
+      }
+    }
+  }
+
   it('refuses a reference without recorded release defaults, below and above the recorded releases', async () => {
     const entry = readManifest('v0.4.0').examples.find(e => e.example === 'truss')!;
     const { fixture } = savedFixture(entry.example, entry.fixtureBlob);
