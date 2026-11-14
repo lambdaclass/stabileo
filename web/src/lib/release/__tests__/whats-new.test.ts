@@ -32,7 +32,7 @@ describe("what's-new notice", () => {
   });
 
   it('links notes that exist in the repository, in each offered language', () => {
-    for (const [locale, file] of [['en', ''], ['es', '.es'], ['pt', '.pt'], ['de', '.de'], ['fr', '.fr'], ['tr', '.tr'], ['hu', '.hu'], ['it', '']] as const) {
+    for (const [locale, file] of [['en', ''], ['es', '.es'], ['pt', '.pt'], ['de', '.de'], ['fr', '.fr'], ['tr', '.tr'], ['it', '']] as const) {
       const url = releaseNotesUrl(locale);
       expect(url).toBe(`https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v${RESULTS_CHANGED_IN}${file}.md`);
       expect(existsSync(resolve(repo, `docs/releases/v${RESULTS_CHANGED_IN}${file}.md`))).toBe(true);
@@ -55,4 +55,10 @@ describe("what's-new notice", () => {
     const cmp = (a: string, b: string) => a.split('.').map(Number).reduce((r, x, i) => r || x - Number(b.split('.')[i]), 0);
     expect(cmp(RESULTS_CHANGED_IN, pkg.version)).toBeLessThanOrEqual(0);
   });
+});
+
+
+it('links Hungarian release notes that exist in the repository', () => {
+  expect(releaseNotesUrl('hu')).toBe(`https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v${RESULTS_CHANGED_IN}.hu.md`);
+  expect(existsSync(resolve(repo, `docs/releases/v${RESULTS_CHANGED_IN}.hu.md`))).toBe(true);
 });
