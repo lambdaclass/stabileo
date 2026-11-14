@@ -79,3 +79,16 @@ test.describe('@smoke landing footer sitemap', () => {
         return { text: el.textContent?.trim(), height: box.height, width: box.width, right: box.right, font: parseFloat(getComputedStyle(el).fontSize) };
       }));
       expect(links.length).toBe(15 + 2 + 1 + 1 + 4);
+      for (const l of links) {
+        expect(l.height, `${l.text} height`).toBeGreaterThanOrEqual(44);
+        expect(l.width, `${l.text} width`).toBeGreaterThanOrEqual(44);
+        expect(l.font, `${l.text} font size`).toBeGreaterThanOrEqual(12);
+        expect(l.right, `${l.text} overflows`).toBeLessThanOrEqual(viewport.width);
+      }
+      expect(await page.evaluate(() => {
+        const el = document.querySelector<HTMLElement>('.landing')!;
+        return el.scrollWidth <= window.innerWidth && document.documentElement.scrollWidth <= window.innerWidth;
+      })).toBe(true);
+    });
+  }
+});

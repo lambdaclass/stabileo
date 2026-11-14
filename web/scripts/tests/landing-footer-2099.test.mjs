@@ -4,9 +4,7 @@ import { test } from 'node:test';
 
 const root = new URL('../../', import.meta.url);
 
-test('landing footer keeps its executable navigation and viewport cases (#2099)', {
-  skip: process.env.IGNORED !== '1' && 'known wrong result: #2099',
-}, () => {
+test('landing footer keeps its executable navigation and viewport cases (#2099)', () => {
   const result = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', 'e2e/landing-footer.spec.ts', '--list', '--reporter=line'], {
     cwd: root,
     env: { ...process.env, CI: '', E2E_PREBUILT: '0' },

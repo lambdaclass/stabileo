@@ -5,6 +5,7 @@
   import Sci from '../research/shell/Sci.svelte';
   import FigureBoard from './figures/FigureBoard.svelte';
   import { peakOf, type Figure } from './figures/figure';
+  import { modelSketch } from './figures/model-sketch';
   import { publicI18n, tPublic as t } from '../../lib/i18n/store.svelte';
   import { publicUrl } from '../../lib/i18n/public-routes';
   import { findExample } from '../examples/catalog';
@@ -70,7 +71,8 @@
   const figures = $derived.by((): Figure[] => {
     if (outcome?.status !== 'ok') return [];
     const charted = new Set(outcome.charts.map(c => c.key));
-    const drawn = Object.entries(outcome.views).filter(([key]) => !charted.has(key)).map(([key, view]): Figure => {
+    const drawn = Object.entries(outcome.views).filter(([key]) => !charted.has(key)).map(([key, source]): Figure => {
+      const view = modelSketch(id, key, source);
       const label = view.peak?.label ?? 'max';
       const unit = view.peak?.unit ?? view.unit;
       return { key, title: te(`pane.${key}`), unit: label === 'max' && view.peak ? unit : '', sketch: view, peak: view.peak && { value: view.peak.value, unit, label } };
