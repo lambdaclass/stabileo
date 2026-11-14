@@ -366,3 +366,54 @@ around the exact width cutoff are checked directly through the shared
 `PublishablePlasticInterval` constructor. The constructor is the only route from
 certificate bounds to the public factor, independently of candidate-search
 availability.
+
+## Newton factor solves and pinned fixture outcomes (#2084, round 8)
+
+The smooth 3D static search now represents its full-rank Gram factor explicitly
+and solves the transposed triangular system followed by the triangular system
+for each Newton direction. It no longer constructs or multiplies an explicit
+inverse transformation for those directions. The old orthonormal span stores
+inverse-transform columns: its multiplication was algebraically an inverse
+Gram operation, not multiplication by the Hessian. In finite precision that
+explicit inverse lost accuracy on correlated columns. A regression with an
+exact rational Gram-system solution exposes that loss without a wall-clock
+assertion.
+
+This affects the candidate search used by the independent certificate and both
+public 3D plastic APIs, including their WASM exports. Every candidate still
+passes the unchanged exact static or mechanism checks, and publication still
+requires the unchanged positive finite narrow interval. Search rank thresholds,
+iteration limits, resource budgets, and timeouts are unchanged. The 2D plastic
+path and linear/nonlinear elastic solvers do not call this search.
+
+Historical issue fixtures each require successful public answers and narrow
+certificates. Widening a certificate can no longer select a passing refusal
+branch in the test oracle. A deliberate widening of a valid cantilever
+certificate must fail that oracle; the untouched certificate remains a passing
+control. Existing unsupported-input tests retain their fixed refusal contracts.
+
+The shared simplex pricing loop now traverses contiguous tableau rows. Each
+column retains the original product and summation order, including signed zero;
+bit-for-bit tests cover both phase cost patterns and cancellation. This improves
+the pre-Newton cost without changing the LP's reduced costs or pivot decisions.
+
+The recorded comparison below uses the pinned toolchain and the thirteen issue
+fixtures. Nine intervals are identical. Four change as shown. These are exact
+checked intervals, but three are not nested within their previous intervals;
+this round therefore does **not** establish that every change is a tightening.
+All thirteen still meet the unchanged public width requirement and keep their
+successful-answer contracts.
+
+| Fixture | Previous interval | Triangular-solve interval | Relation |
+| --- | --- | --- | --- |
+| #991 | [9.373556581075535, 9.373556581130075] | [9.373556581075531, 9.373556581130075] | Not nested |
+| #1349 | [14143.435925623471, 14143.43626914654] | [14143.435925631306, 14143.43626914648] | Tighter |
+| #1459 | [12.500358194190278, 12.500358194336437] | [12.500358194190373, 12.500358194336476] | Not nested |
+| #1760 | [11.574652454285255, 11.57465256730578] | [11.574652454270868, 11.574652567306158] | Not nested |
+
+The original five-example web success test remains unresolved under the shared
+proof contract. The recorded `space-frame` payload has 388 members and is
+refused by the existing 120-member exact-check scope. `3d-tower` exceeds the
+existing exact-workspace budget, and `tower-3d-2` has an unrepresentable exact
+local load frame. These are explicit refusals. No success assertion, scope
+limit, timeout or memory budget is relaxed to hide them.

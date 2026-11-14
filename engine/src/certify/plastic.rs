@@ -997,6 +997,15 @@ impl SimplexPhase {
     }
 }
 
+fn simplex_basis_projection(tableau: &[Vec<f64>], costs: &[f64], projection: &mut [f64]) {
+    projection.fill(-0.0);
+    for (cost, row) in costs.iter().zip(tableau) {
+        for (value, entry) in projection.iter_mut().zip(row) {
+            *value += cost * entry;
+        }
+    }
+}
+
 /// Dense tableau simplex: min Σ μ s.t. A μ = b (b ≥ 0), μ ≥ 0. Returns the
 /// basic solution μ and the dual y (Aᵀ y ≤ 1, maximizing bᵀ y). Heuristic
 /// (f64): the tableau is rebuilt from the original data every few pivots and
@@ -1054,6 +1063,7 @@ pub(crate) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Ve
         let max_iter = super::plastic_budget::SIMPLEX_PIVOTS_PER_COLUMN * (n + p);
         let mut degenerate = 0;
         let mut since = 0;
+        let mut projection = vec![-0.0; n + p];
         for _ in 0..max_iter {
             if since >= 25 {
                 match reinvert(basis) {
@@ -1062,12 +1072,13 @@ pub(crate) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Ve
                 }
                 since = 0;
             }
+            simplex_basis_projection(tab, &basis_costs, &mut projection);
             let mut best: Option<(usize, f64)> = None;
             for j in 0..n + p {
                 if !allowed[j] || basic[j] {
                     continue;
                 }
-                let rc = f64::from(costs[j]) - basis_costs.iter().zip(tab.iter()).map(|(&cost, row)| cost * row[j]).sum::<f64>();
+                let rc = f64::from(costs[j]) - projection[j];
                 if rc < -1e-10 {
                     let better = match best {
                         None => true,
@@ -1815,6 +1826,21 @@ mod tests {
         println!("phase costs: {calls} evaluations, {width} phase columns");
         assert!(width > 0);
         assert!(calls <= width, "phase costs evaluated {calls} times for {width} phase columns");
+    }
+
+    #[test]
+    fn simplex_basis_projection_preserves_every_column_sum_bit_for_bit() {
+        for width in [1, 2, 17, 1024] {
+            let tableau: Vec<Vec<f64>> = [1e16, 1.0, -1e16, -0.0, 3.0].into_iter().enumerate().map(|(i, value)| (0..width).map(|j| if (i + j) % 2 == 0 { value } else { -value }).collect()).collect();
+            for costs in [vec![1.0; 5], vec![0.0, 1.0, 0.0, 1.0, 0.0]] {
+                let mut projection = vec![f64::NAN; width];
+                simplex_basis_projection(&tableau, &costs, &mut projection);
+                for (j, actual) in projection.iter().enumerate() {
+                    let expected: f64 = costs.iter().zip(&tableau).map(|(cost, row)| cost * row[j]).sum();
+                    assert_eq!(actual.to_bits(), expected.to_bits());
+                }
+            }
+        }
     }
 
     #[test]

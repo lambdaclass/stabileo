@@ -1855,16 +1855,55 @@ fn irls_mechanism(
     Ok(Some(v))
 }
 
-fn newton_direction(columns: &[Vec<f64>], gradient: &[f64]) -> Option<Vec<f64>> {
-    let n = gradient.len();
-    let newton = OrthonormalSpan::new(columns);
-    if newton.coefficients.len() != n { return None; }
-    let mut direction = vec![0.0; gradient.len()];
-    for column in &newton.coefficients {
-        let projection: f64 = column.iter().zip(gradient).map(|(a, b)| a * b).sum();
-        for (value, coefficient) in direction.iter_mut().zip(column) { *value -= coefficient * projection; }
+struct FullRankGramFactor {
+    triangular_columns: Vec<Vec<f64>>,
+}
+
+impl FullRankGramFactor {
+    fn new(columns: &[Vec<f64>]) -> Option<Self> {
+        let rows = columns.first()?.len();
+        let n = columns.len();
+        if rows < n || columns.iter().any(|column| column.len() != rows || column.iter().any(|v| !v.is_finite())) { return None; }
+        let max_norm = columns.iter().map(|column| column.iter().map(|v| v * v).sum::<f64>().sqrt()).fold(0.0, f64::max);
+        let mut orthogonal: Vec<Vec<f64>> = Vec::with_capacity(n);
+        let mut triangular_columns = Vec::with_capacity(n);
+        for (j, column) in columns.iter().enumerate() {
+            let mut remaining = column.clone();
+            let mut triangular = vec![0.0; n];
+            for _ in 0..2 {
+                for (i, basis) in orthogonal.iter().enumerate() {
+                    let projection: f64 = basis.iter().zip(&remaining).map(|(a, b)| a * b).sum();
+                    triangular[i] += projection;
+                    for (value, basis_value) in remaining.iter_mut().zip(basis) { *value -= projection * basis_value; }
+                }
+            }
+            let norm = remaining.iter().map(|v| v * v).sum::<f64>().sqrt();
+            if !norm.is_finite() || norm <= 1e-10 * max_norm.max(1e-300) { return None; }
+            triangular[j] = norm;
+            orthogonal.push(remaining.iter().map(|v| v / norm).collect());
+            triangular_columns.push(triangular);
+        }
+        Some(Self { triangular_columns })
     }
-    Some(direction)
+
+    fn solve(&self, rhs: &[f64]) -> Option<Vec<f64>> {
+        let n = self.triangular_columns.len();
+        if rhs.len() != n || rhs.iter().any(|v| !v.is_finite()) { return None; }
+        let mut solution = vec![0.0; n];
+        for i in 0..n {
+            let column = &self.triangular_columns[i];
+            solution[i] = (rhs[i] - column[..i].iter().zip(&solution[..i]).map(|(a, b)| a * b).sum::<f64>()) / column[i];
+        }
+        for i in (0..n).rev() {
+            let sum: f64 = self.triangular_columns[i + 1..].iter().zip(&solution[i + 1..]).map(|(column, value)| column[i] * value).sum();
+            solution[i] = (solution[i] - sum) / self.triangular_columns[i][i];
+        }
+        solution.iter().all(|v| v.is_finite()).then_some(solution)
+    }
+}
+
+fn newton_direction(columns: &[Vec<f64>], gradient: &[f64]) -> Option<Vec<f64>> {
+    FullRankGramFactor::new(columns)?.solve(&gradient.iter().map(|v| -v).collect::<Vec<_>>())
 }
 
 fn smooth_static_candidates(model: &PlasticModel3, samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Result<Vec<(f64, Vec<f64>)>, String> {
@@ -2380,7 +2419,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2084"]
     fn issue_2084_newton_direction_solves_the_gram_system_without_an_explicit_inverse() {
         let columns = vec![
             vec![2.0, 2.0, 0.0, 0.0, 0.0],
@@ -2412,6 +2450,12 @@ mod tests {
         }
         assert!(newton_direction(&[vec![1.0, 0.0], vec![2.0, 0.0]], &[1.0, 2.0]).is_none());
         assert!(newton_direction(&[vec![0.0]], &[1.0]).is_none());
+        assert!(newton_direction(&[], &[]).is_none());
+        assert!(newton_direction(&[vec![1.0]], &[]).is_none());
+        assert!(newton_direction(&[vec![1.0]], &[f64::NAN]).is_none());
+        assert!(newton_direction(&[vec![f64::INFINITY]], &[1.0]).is_none());
+        assert!(newton_direction(&[vec![f64::NAN]], &[1.0]).is_none());
+        assert!(newton_direction(&[vec![1.0], vec![0.0, 1.0]], &[1.0, 1.0]).is_none());
         for (diagonal, admitted) in [(1e-10, false), (1e-10f64.next_up(), true)] {
             assert_eq!(newton_direction(&[vec![1.0, 0.0], vec![0.0, diagonal]], &[1.0, 0.0]).is_some(), admitted);
         }

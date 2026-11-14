@@ -136,10 +136,12 @@ mod tests {
 
     fn assert_fixture_certificate(certificate: &cplastic3::PlasticCertificate3D) {
         assert!(certificate.certified);
+        let (lower, upper) = (certificate.lambda_lower.unwrap(), certificate.lambda_upper.unwrap());
+        assert!(lower.is_finite() && upper.is_finite() && lower > 0.0 && upper >= lower);
+        assert!((upper - lower) / lower <= 5e-8, "[{lower}, {upper}]");
     }
 
     #[test]
-    #[ignore = "known wrong result: #2084"]
     fn issue_2084_a_tight_fixture_cannot_choose_refusal_after_its_bounds_widen() {
         let raw = include_bytes!("../corpus-regressions/plastic-lp-budget/good-cantilever.bin");
         let input = serde_json::from_slice(&raw[2..]).unwrap();
@@ -153,16 +155,10 @@ mod tests {
         let input: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
         let independent = cplastic3::certify_collapse_3d(&input, None);
         assert_fixture_certificate(&independent);
-        let (lo, hi) = (independent.lambda_lower.unwrap(), independent.lambda_upper.unwrap());
-        if (hi - lo) / lo > 5e-8 {
-            assert!(plastic::solve_plastic_3d(&input).unwrap_err().contains("plastic collapse interval"));
-            assert!(cplastic3::certify_plastic_3d(&input).unwrap_err().contains("plastic collapse interval"));
-            return;
-        }
         let raw_result = plastic::solve_plastic_3d(&input).unwrap();
         let out = cplastic3::certify_plastic_3d(&input).unwrap();
         let certificate = &out.certificate;
-        assert!(certificate.certified);
+        assert_fixture_certificate(certificate);
         let lower = certificate.lambda_lower.unwrap();
         assert!(certificate.solver_collapse_factor.unwrap() < lower);
         assert_eq!(
