@@ -14,7 +14,8 @@ import { computeBeamCriticalSections } from '../engine/station-design-forces';
 import { beamFlangeSides } from '../engine/design/beam-flange';
 import { jointChecks } from '../rc-sheets/joints';
 import { concreteFc } from '../model/design-data';
-import { beamDemands, columnDemands, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
+import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
+import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { LineAdopted, LineLayout } from '../rc-sheets/beam-line';
@@ -33,6 +34,8 @@ export interface SheetRows {
   line: LineLayout[];
   column: ColumnRow[];
   slab: SlabRow[];
+  /** Each level's slab bars laid out across its panels. */
+  slabPlan: LevelPlan[];
   wall: WallRow[];
   punching: PunchingRow[];
   /** The regulation the rows are computed with. */
@@ -92,7 +95,7 @@ export function setColumnEndZones(on: boolean): void {
   setDesignData(d);
 }
 
-export function setRcOption(option: 'faces' | 'flange' | 'seismic' | 'bentBars', on: boolean): void {
+export function setRcOption(option: 'faces' | 'flange' | 'seismic' | 'bentBars' | 'slabBentBars', on: boolean): void {
   const d = { ...rcSheetsData() };
   if (on) d[option] = true; else delete d[option];
   save(d);
@@ -171,7 +174,7 @@ function fcOfShells(quads: number[], plates: number[]): number {
   return concreteFc(m as never) ?? DEFAULT_FC;
 }
 
-const demandCache = new WeakMap<object, { beams: ReturnType<typeof beamDemands>; columns: ReturnType<typeof columnDemands>; slabs: ReturnType<typeof slabDemands>; walls: ReturnType<typeof wallDemands>; punching: ReturnType<typeof punchingDemands>; groupsRev: unknown; opts: string }>();
+const demandCache = new WeakMap<object, { beams: ReturnType<typeof beamDemands>; columns: ReturnType<typeof columnDemands>; slabs: ReturnType<typeof slabDemands>; levels: LevelGeometry[]; walls: ReturnType<typeof wallDemands>; punching: ReturnType<typeof punchingDemands>; groupsRev: unknown; opts: string }>();
 
 const rowCache = new WeakMap<object, Map<string, SheetRow>>();
 const lineCache = new WeakMap<object, { k: string; v: LineLayout }>();
@@ -258,7 +261,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const code = sheetCode();
   const rules = rulesFor(code);
   const codeName = SHEET_CODES[code].name;
-  if (!sets.length) return { beam: [], line: [], column: [], slab: [], wall: [], punching: [], code: codeName, basis, combos: 0 };
+  if (!sets.length) return { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], code: codeName, basis, combos: 0 };
   const dd = designData();
   const data = rcSheetsData();
   const key = basis === 'combinations' ? resultsStore.perCombo3D : sets[0]!.result;
@@ -279,7 +282,11 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const walls = wallDemands(input);
     yield { phase: 'demands', done: 4, total: 5 };
     const punching = punchingDemands(input);
-    dem = { beams, columns, slabs, walls, punching, groupsRev, opts: optsKey };
+    const levels = [...new Set(slabs.map((d) => d.level ?? ''))].map((name) => {
+      const zs = slabs.filter((d) => (d.level ?? '') === name && d.bounds).map((d) => d.bounds!.z);
+      return levelGeometry(input, name, zs.length ? zs.reduce((a, z) => a + z, 0) / zs.length : 0);
+    });
+    dem = { beams, columns, slabs, levels, walls, punching, groupsRev, opts: optsKey };
     demandCache.set(key, dem);
   }
   const D = dem;
@@ -357,6 +364,12 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     slab.push(cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt)));
     yield step();
   }
+  const slabPlans = D.levels.map((g) => {
+    const rows = slab.filter((r) => (r.level ?? '') === g.level);
+    const first = groupOf(rows[0]?.key ?? '');
+    const ctx = { mat: { fc: fcOfShells(first?.members.quads ?? [], first?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: [6, 8, 10, 12, 16], bent: data.slabBentBars === true };
+    return slabPlan(g.level, rows, g, ctx, rules.slabPlan);
+  }).filter((p) => p.panels.length);
   const wall: WallRow[] = [];
   for (const d of D.walls) {
     const g = groupOf(d.key);
@@ -375,7 +388,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   }
   const columnsFinal = seismic ? jointChecks(column, beam, modelStore.nodes, fmt, { fc: (r) => fcOfElement(groupOf(r.key)?.members.elements?.[0]), beamFc: (b) => fcOfElement(groupOf(b.key)?.members.elements?.[0]), fy, cover: dd.covers.column, beamCover: dd.covers.beam, settings: seismicSettings() }) : column;
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
-  return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), wall: sort(wall), punching: sort(punching), code: codeName, basis, combos: sets.length };
+  return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), code: codeName, basis, combos: sets.length };
 }
 
 export const familyRows = (rows: SheetRows, f: SheetFamily): SheetRow[] => rows[f];

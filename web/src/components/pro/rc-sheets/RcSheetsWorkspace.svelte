@@ -21,6 +21,7 @@
   import { columnSection } from '../../../lib/rc-sheets/drawing';
   import RcColumnElevation from './RcColumnElevation.svelte';
   import RcSlabLayers from './RcSlabLayers.svelte';
+  import RcSlabPlan from './RcSlabPlan.svelte';
   import RcWallDetail from './RcWallDetail.svelte';
   import RcPunchingSvg from './RcPunchingSvg.svelte';
   import RcResize from './RcResize.svelte';
@@ -33,9 +34,10 @@
   let level = $state('');
   let failingOnly = $state(false);
   let openKey = $state<string | null>(null);
+  let slabView = $state<'panels' | 'plan'>('panels');
 
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
-  const EMPTY: SheetRows = { beam: [], line: [], column: [], slab: [], wall: [], punching: [], code: '', basis: 'combinations', combos: 0 };
+  const EMPTY: SheetRows = { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], code: '', basis: 'combinations', combos: 0 };
   followSheetEdits();
   const stale = $derived(sheetsStale());
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
@@ -53,6 +55,7 @@
     const list = (f === 'beam' ? rows.line.map((l) => ({ status: lineStatus(l) })) : rows[f]) as Array<{ status: string }>;
     return [f, { n: list.length, fail: list.filter((r) => r.status === 'fail').length }];
   })) as Record<SheetFamily, { n: number; fail: number }>);
+  const levelPlan = $derived(rows.slabPlan.find((p) => p.level === level) ?? rows.slabPlan[0]);
   const f1 = (v: number) => fmt(v, 1);
   const f2 = (v: number) => fmt(v, 2);
 
@@ -102,6 +105,15 @@
     {:else if !all.length}
       <p class="rcw-empty" data-testid="rc-empty">{t(rows.basis === 'none' ? 'rcSheets.solveFirst' : `rcSheets.empty.${family}`)}</p>
     {:else}
+      {#if family === 'slab'}
+        <div class="rcw-views" role="tablist" aria-label={t('rcSheets.slabView.label')}>
+          <button type="button" role="tab" aria-selected={slabView === 'panels'} class:on={slabView === 'panels'} onclick={() => (slabView = 'panels')} data-testid="rc-slab-view-panels">{t('rcSheets.slabView.panels')}</button>
+          <button type="button" role="tab" aria-selected={slabView === 'plan'} class:on={slabView === 'plan'} onclick={() => { slabView = 'plan'; if (!level && levelPlan) level = levelPlan.level; }} disabled={!rows.slabPlan.length} data-testid="rc-slab-view-plan">{t('rcSheets.slabView.plan')}</button>
+        </div>
+      {/if}
+      {#if family === 'slab' && slabView === 'plan'}
+        {#if levelPlan}{#key levelPlan.level}<RcSlabPlan plan={levelPlan} />{/key}{/if}
+      {:else}
       <table class="rcw-table" data-testid={`rc-table-${family}`}>
         <thead>
           {#if family === 'beam'}
@@ -211,6 +223,7 @@
           {/each}
         </tbody>
       </table>
+      {/if}
       <p class="rcw-note">{t('rcSheets.scopeNote')}</p>
     {/if}
   </div>
@@ -265,5 +278,9 @@
   tr.detail td { white-space: normal; padding: 8px; background: var(--st-surface); }
   tr.detail :global(.rce) { margin-bottom: 8px; }
   .rcw-note { font-size: 0.7rem; color: var(--st-text-3); margin-top: 8px; max-width: 90ch; }
+  .rcw-views { display: flex; gap: 2px; margin-bottom: 6px; }
+  .rcw-views button { border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text-2); border-radius: 4px; padding: 3px 10px; font-size: 0.74rem; cursor: pointer; }
+  .rcw-views button.on { background: var(--st-accent, var(--st-surface-3)); color: var(--st-on-accent, var(--st-text)); }
+  .rcw-views button:disabled { opacity: 0.5; cursor: default; }
   .rcw-secs { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin: 6px 0 8px; }
 </style>
