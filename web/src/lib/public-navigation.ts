@@ -17,7 +17,7 @@ export function loadPublicPage(path: string): Promise<Page | null> {
         ? import('../components/examples/load-page').then(m => m.loadExamplesPage())
       : route.kind === 'tools'
         ? import('../components/tools/load-page').then(m => m.loadToolsPage(key))
-        : route.kind === 'game'
+        : import.meta.env.VITE_DIAGRAM_GAME !== '0' && route.kind === 'game'
           ? import('../components/diagram-game/load-page').then(m => m.loadDiagramGamePage())
         : route.kind === 'blog'
           ? import('../components/blog/BlogPage.svelte').then(m => m.default)

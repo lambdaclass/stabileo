@@ -1450,7 +1450,7 @@
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
 {#if publicActive}
-  {#if !isRegisterPath(blogPath)}<SiteHeader path={blogPath} />{/if}
+  {#if import.meta.env.VITE_ACCOUNTS === '0' || !isRegisterPath(blogPath)}<SiteHeader path={blogPath} />{/if}
   {#if showLanding}
     <LandingPage />
   {:else if publicPage}

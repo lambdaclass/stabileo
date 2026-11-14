@@ -3,7 +3,7 @@
  * `section` items are parts of the landing (scrolled to there, linked to from elsewhere); `page`
  * items are pages of their own.
  */
-import { tools, publicFeatureEnabled } from '../../lib/features';
+import { tools, publicFeatureEnabled, PUBLIC_POLICY_AVAILABLE } from '../../lib/features';
 
 export type NavPage = 'examples' | 'tools' | 'game' | 'research' | 'blog';
 
@@ -13,21 +13,23 @@ export type NavItem =
 
 const NAV_ITEMS: NavItem[] = [
   { kind: 'section', id: 'basic', key: 'landing.navProduct' },
-  ...(!tools() ? [{ kind: 'page', id: 'examples', to: '/examples', key: 'landing.navExamples' } as const] : []),
+  { kind: 'page', id: 'examples', to: '/examples', key: 'landing.navExamples' },
   { kind: 'page', id: 'tools', to: '/tools', key: 'landing.navTools' },
-  { kind: 'page', id: 'game', to: '/diagram-game', key: 'landing.navGame' },
   { kind: 'page', id: 'research', to: '/research', key: 'landing.navResearch' },
   { kind: 'section', id: 'pricing', key: 'landing.navPricing' },
   { kind: 'page', id: 'blog', to: '/blog', key: 'landing.navBlog' },
 ];
 
-export const SITE_NAV = NAV_ITEMS.filter(item => item.kind !== 'page' || publicFeatureEnabled(item.to));
+export const SITE_NAV = PUBLIC_POLICY_AVAILABLE ? NAV_ITEMS.flatMap(item => {
+  if (item.id === 'examples' && import.meta.env.VITE_TOOLS !== '0' && tools()) return [];
+  return item.id === 'tools' && import.meta.env.VITE_DIAGRAM_GAME !== '0' ? [item, { kind: 'page', id: 'game', to: '/diagram-game', key: 'landing.navGame' } as const] : [item];
+}).filter(item => item.kind !== 'page' || publicFeatureEnabled(item.to)) : NAV_ITEMS;
 
 export type NavCurrent = NavPage | null;
 
 const UNDER: Array<[string, NavPage]> = [
   ...SITE_NAV.flatMap((item): Array<[string, NavPage]> => (item.kind === 'page' ? [[item.to, item.id]] : [])),
-  ...(publicFeatureEnabled('/paper') ? [['/paper', 'research'] as [string, NavPage]] : []),
+  ['/paper', 'research'],
   ['/changelog', 'blog'],
 ];
 

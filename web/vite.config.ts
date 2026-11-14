@@ -5,8 +5,9 @@ import { execSync, execFileSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
 import { loadedPreloads } from './scripts/loaded-preloads';
-import { isComplete } from './src/lib/i18n/offered';
+import { buildPublicLocales } from './src/lib/i18n/offered-research';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
+import { prunePublicBuildBranches } from './scripts/prune-public-build-branches.mjs';
 import { blogTranslations } from './scripts/blog-translations';
 
 /**
@@ -40,16 +41,32 @@ function wasmStubPlugin(): Plugin {
  * bundled. The entries are copied line by line, which `union-merge-safe.test.ts` keeps possible:
  * one entry per line.
  */
+const publicBuildEnvironment: { value: Record<string, string | undefined> } = { value: process.env };
+
+function publicBuildSwitchesPlugin(): Plugin {
+  return {
+    name: 'public-build-switches',
+    configResolved(config) {
+      publicBuildEnvironment.value = config.env;
+    },
+  };
+}
+
 function publicI18nPlugin(): Plugin {
   const id = 'virtual:public-i18n';
   const app = 'virtual:app-i18n';
   const eager = !!process.env.VITEST;
+  const offered = (code: string) => buildPublicLocales(publicBuildEnvironment.value.VITE_RESEARCH === '1').some(locale => locale === code);
   const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void) => {
     const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
     watch(file);
     const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
       const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
-      return !!m && PUBLIC_KEY_PREFIXES.some((p) => m[2].startsWith(p)) === publicOnly;
+      if (!m) return false;
+      const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => m[2].startsWith(prefix))
+        && (!/^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2]) || publicBuildEnvironment.value.VITE_ACCOUNTS !== '0')
+        && (m[2] !== 'landing.navGame' || publicBuildEnvironment.value.VITE_DIAGRAM_GAME !== '0');
+      return publicEntry === publicOnly;
     });
     return `{\n${lines.join('\n')}\n}`;
   };
@@ -64,15 +81,15 @@ function publicI18nPlugin(): Plugin {
       if (resolved === `\0${app}` || resolved.startsWith(`\0${app}/`)) {
         const locale = resolved.slice(app.length + 2);
         return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'])
-          .map((loc) => `export const ${loc} = ${isComplete(loc) ? entries(loc, false, watch) : '{}'};\n`).join('');
+          .map((loc) => `export const ${loc} = ${offered(loc) ? entries(loc, false, watch) : '{}'};\n`).join('');
       }
       if (resolved !== '\0' + id) return null;
       let out = '';
       const lazy: string[] = [];
       for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
-        if (!isComplete(loc) || (!eager && loc !== 'en')) {
+        if (!offered(loc) || (!eager && loc !== 'en')) {
           out += `export const ${loc} = {};\n`;
-          if (isComplete(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);
+          if (offered(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);
           continue;
         }
         out += `export const ${loc} = ${entries(loc, true, watch)};\n`;
@@ -230,7 +247,7 @@ if (researchBuildId !== 'unavailable') {
 const preloads = loadedPreloads();
 
 export default defineConfig({
-  plugins: [preloads.plugin, wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
+  plugins: [publicBuildSwitchesPlugin(), preloads.plugin, wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte({ preprocess: { markup: ({ content }) => process.env.VITEST ? { code: content } : prunePublicBuildBranches(content, publicBuildEnvironment.value) } }), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: {
     "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),

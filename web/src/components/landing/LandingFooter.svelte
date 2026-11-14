@@ -4,7 +4,7 @@
   import { SOCIAL_ICONS as ICONS } from '../../lib/contact/channels';
   import PublicLink from './PublicLink.svelte';
   import BrandMark from './BrandMark.svelte';
-  import { accounts, ACCOUNT_ROUTES_AVAILABLE, publicFeatureEnabled } from '../../lib/features';
+  import { accounts, ACCOUNT_ROUTES_AVAILABLE, publicFeatureEnabled, PUBLIC_POLICY_AVAILABLE } from '../../lib/features';
   import { onMount } from 'svelte';
 
   let adConsent = $state<typeof import('../../lib/tracking/ad-consent.svelte').adConsent | null>(null);
@@ -22,7 +22,7 @@
   const GROUPS: [string, string, [string, string][]][] = [
     ['product', 'landing.navProduct', [['/tools', 'landing.navTools'], ['/#pricing', 'landing.navPricing']]],
     ['verification', 'landing.footVerification', [['/reliability', 'landing.footReliability'], ['/research', 'landing.navResearch'], ['/paper', 'landing.navPaper'], ['/cirsoc', ''], ['/sap2000-alternative', 'landing.footSap2000'], ['/etabs-alternative', 'landing.footEtabs']]],
-    ['project', 'landing.footProject', [['/blog', 'landing.footBlog'], ['/changelog', 'landing.footChangelog'], ['/terms', 'landing.footTerms'], ['/privacy', 'landing.footPrivacy']]],
+    ['project', 'landing.footProject', [['/blog', 'landing.footBlog'], ['/changelog', 'landing.footChangelog'], ...(import.meta.env.VITE_ACCOUNTS !== '0' ? [['/terms', 'landing.footTerms'], ['/privacy', 'landing.footPrivacy']] as [string, string][] : [])]],
   ];
 </script>
 
@@ -43,7 +43,7 @@
             <p class="footer-head" id="foot-{id}">{t(head)}</p>
             <ul aria-labelledby="foot-{id}">
               {#if id === 'product'}<li><button onclick={() => enterApp()}>{t('landing.footLaunch')}</button></li>{/if}
-              {#each links.filter(([to]) => publicFeatureEnabled(to)) as [to, key]}<li><PublicLink {to}>{key ? t(key) : 'CIRSOC'}</PublicLink></li>{/each}
+              {#each (PUBLIC_POLICY_AVAILABLE ? links.filter(([to]) => publicFeatureEnabled(to)) : links) as [to, key]}<li><PublicLink {to}>{key ? t(key) : 'CIRSOC'}</PublicLink></li>{/each}
               {#if id === 'project'}
                 <li><a href={DOCS_HUB_URL} target="_blank" rel="noreferrer">{t('landing.footDocs')}</a></li>
                 <li><a href={REPO_URL} target="_blank" rel="noreferrer">{t('landing.footRepo')}</a></li>

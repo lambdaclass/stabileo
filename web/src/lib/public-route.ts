@@ -5,7 +5,8 @@
  */
 import { parsePublicPath, publicHref } from './i18n/public-routes';
 import { isStandingPagePath } from './blog/pages/paths';
-import { publicFeatureEnabled } from './features';
+import { publicFeatureEnabled, PUBLIC_POLICY_AVAILABLE } from './features';
+import { isMainToolPath } from './main-tool-routes';
 import { movedRoute } from './legacy-routes';
 
 /**
@@ -47,21 +48,20 @@ export function isDemoPath(pathname: string): boolean {
 
 export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = location): { kind: RouteKind; path: string } {
   const parsed = parsePublicPath(loc.pathname).path;
-  const path = movedRoute(parsed) ?? (parsed.replace(/\/+$/, '') || '/');
+  const path = PUBLIC_POLICY_AVAILABLE ? (import.meta.env.VITE_TOOLS !== '0' ? movedRoute(parsed) : null) ?? (parsed.replace(/\/+$/, '') || '/') : parsed;
   const params = new URLSearchParams(loc.search);
   const p = loc.pathname;
-  if (params.has('embed') || isAppPath(p) || isDemoPath(p)) return { kind: 'app', path };
+  if (params.has('embed') || isAppPath(p) || isDemoPath(p) || SHARED_MODEL.test(loc.hash)) return { kind: 'app', path };
   // A shared model (`/#data=…`, `#embed=…`, `#code=…`) is the application's to restore
   // (`loadFromURLHash`): it used to be mounted behind the landing and read the fragment.
-  if (SHARED_MODEL.test(loc.hash)) return { kind: 'app', path };
-  if (!publicFeatureEnabled(path)) return { kind: 'landing', path };
+  if (PUBLIC_POLICY_AVAILABLE && !publicFeatureEnabled(path)) return { kind: 'landing', path };
   if (path === '/blog' || path.startsWith('/blog/') || isStandingPagePath(path)) return { kind: 'blog', path };
-  if (path === '/examples' || path.startsWith('/examples/')) return { kind: 'examples', path };
-  if (path === '/tools' || path.startsWith('/tools/')) return { kind: 'tools', path };
-  if (isGamePath(path)) return { kind: 'game', path };
+  const top = path.split('/')[1];
+  if (top === 'tools' || top === 'examples') return { kind: top === 'tools' && !PUBLIC_POLICY_AVAILABLE && !/^\/tools\/?$/.test(path) && !isMainToolPath(path) ? 'landing' : top, path };
+  if (import.meta.env.VITE_DIAGRAM_GAME !== '0' && isGamePath(path)) return { kind: 'game', path };
   if (isResearchPath(path)) return { kind: 'research', path };
   if (isPaperPath(path)) return { kind: 'paper', path };
-  if (isRegisterPath(path)) return { kind: 'register', path };
+  if (import.meta.env.VITE_ACCOUNTS !== '0' && isRegisterPath(path)) return { kind: 'register', path };
   return { kind: 'landing', path };
 }
 

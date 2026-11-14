@@ -1,6 +1,7 @@
 import { BASE_LOCALES } from '../blog/base-locales';
 import { publicFeatureEnabled, publicFeatures, type PublicFeatures } from '../features';
 import { PUBLIC_LOCALES, type Locale } from './offered';
+import { buildPublicLocales } from './offered-research';
 import { isResearchRoute, researchLocales } from './research-routes';
 
 declare const __BLOG_TRANSLATIONS__: readonly string[];
@@ -21,13 +22,14 @@ export { BASE_LOCALES } from '../blog/base-locales';
 
 /** The languages a public page is published in: it is prerendered, listed and linked in these and no others. */
 export function publishedLocales(path: string, flags: PublicFeatures = publicFeatures()): readonly Locale[] {
+  const locales = import.meta.env?.MODE !== undefined ? PUBLIC_LOCALES : buildPublicLocales(flags.research);
   const route = path.split('#')[0].replace(/\/+$/, '') || '/';
   if (!publicFeatureEnabled(route, flags)) return [];
-  if (isResearchRoute(route)) return PUBLIC_LOCALES.filter((l) => researchLocales(route, flags).includes(l));
-  if (route === '/paper') return PUBLIC_LOCALES.filter((l) => PAPER_PUBLISHED.includes(l));
-  if (route === '/' || route === '/blog' || route === '/examples' || route.startsWith('/examples/') || route === '/tools' || route.startsWith('/tools/') || route === '/diagram-game') return PUBLIC_LOCALES;
+  if (isResearchRoute(route)) return locales.filter((l) => researchLocales(route, flags).includes(l));
+  if (route === '/paper') return locales.filter((l) => PAPER_PUBLISHED.includes(l));
+  if (route === '/' || route === '/blog' || route === '/examples' || route.startsWith('/examples/') || route === '/tools' || route.startsWith('/tools/') || route === '/diagram-game') return locales;
   const id = route.startsWith('/blog/') ? route.slice('/blog/'.length) : `page-${route.slice(1)}`;
-  return PUBLIC_LOCALES.filter((l) => BASE_LOCALES.some(base => base === l) || translated(`${l}/${id}`));
+  return locales.filter((l) => BASE_LOCALES.some(base => base === l) || translated(`${l}/${id}`));
 }
 
 /** The language a link to `path` opens in for a reader of `locale`: theirs when the page is published in it, else English. */

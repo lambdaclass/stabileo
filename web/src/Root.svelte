@@ -55,8 +55,8 @@
 
   async function sync() {
     const token = ++revision;
-    restoreMovedRoute();
-    restoreUnpublishedResearchRoute();
+    if (import.meta.env.VITE_TOOLS !== '0') restoreMovedRoute();
+    if (import.meta.env.VITE_RESEARCH === '1') restoreUnpublishedResearchRoute();
     const next = routeKind();
     const hash = location.hash;
     try {
@@ -115,14 +115,14 @@
   });
 </script>
 
-{#if !app && current.kind !== 'app' && current.kind !== 'register'}
+{#if !app && current.kind !== 'app' && !(import.meta.env.VITE_ACCOUNTS !== '0' && current.kind === 'register')}
   <SiteHeader path={current.path} />
 {/if}
 
 {#if app}
   {@const App = app}
   <App />
-{:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'examples' || current.kind === 'game' || current.kind === 'paper' || current.kind === 'blog' || current.kind === 'register'}
+{:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'examples' || (import.meta.env.VITE_DIAGRAM_GAME !== '0' && current.kind === 'game') || current.kind === 'paper' || current.kind === 'blog' || (import.meta.env.VITE_ACCOUNTS !== '0' && current.kind === 'register')}
   {@const Page = pages[current.kind]}
   {#if Page}<Page path={current.path} />{:else}<PublicPending kind={current.kind} {failed} />{/if}
 {:else if current.kind === 'landing' && pages.landing}

@@ -6,7 +6,8 @@
  * scope; one that is cheap can be read on every access.
  */
 
-import { MAIN_TOOL_IDS } from './public-surface';
+import { publicFeatureEnabledWithFlags, type PublicFeatures } from './public-feature-policy';
+export type { PublicFeatures } from './public-feature-policy';
 
 const PREFIX = 'stabileo-feature-';
 
@@ -37,6 +38,8 @@ export function canonicalSections(): boolean {
   return readFlag('canonical-sections', true);
 }
 
+export const PUBLIC_POLICY_AVAILABLE = import.meta.env?.VITE_RESEARCH === '1' || import.meta.env?.VITE_TOOLS !== '0' || import.meta.env?.VITE_DIAGRAM_GAME !== '0' || import.meta.env?.VITE_ACCOUNTS !== '0';
+
 export const ACCOUNT_ROUTES_AVAILABLE = import.meta.env?.VITE_ACCOUNTS !== '0';
 
 export function accounts(): boolean {
@@ -55,16 +58,10 @@ export function diagramGame(): boolean {
   return readFlag('diagram-game', import.meta.env?.VITE_DIAGRAM_GAME === '1');
 }
 
-export type PublicFeatures = { research: boolean; tools: boolean; diagramGame: boolean; accounts?: boolean };
-
 export const publicFeatures = (): PublicFeatures => ({ research: research(), tools: tools(), diagramGame: diagramGame(), accounts: accounts() });
 
 export function publicFeatureEnabled(path: string, flags: PublicFeatures = publicFeatures()): boolean {
-  const route = path.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
-  if (['/register', '/terms', '/privacy', '/usage-data'].includes(route)) return flags.accounts ?? accounts();
-  if (route.startsWith('/tools/')) return flags.tools || MAIN_TOOL_IDS.some(id => route === `/tools/${id}`);
-  if (route === '/diagram-game') return flags.diagramGame;
-  return true;
+  return publicFeatureEnabledWithFlags(path, { ...flags, accounts: flags.accounts ?? accounts() });
 }
 
 /** Override a flag for the current session (used by tests and support). */

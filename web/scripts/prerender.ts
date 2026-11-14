@@ -53,7 +53,8 @@ import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn, buildPublicFeatures } 
 import { redirectPage } from './redirect-page';
 import { movedPages } from '../src/lib/legacy-routes';
 import { findTool } from '../src/components/tools/registry';
-import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
+import type { Locale } from '../src/lib/i18n/offered';
+import { buildPublicLocales } from '../src/lib/i18n/offered-research';
 import { isResearchRoute } from '../src/lib/i18n/research-routes';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -71,7 +72,7 @@ const DIST = process.env.PRERENDER_OUT
   ? resolve(process.env.PRERENDER_OUT)
   : join(ROOT, 'dist');
 const ORIGIN = 'https://stabileo.com';
-const LOCALES = PUBLIC_LOCALES;
+const LOCALES = buildPublicLocales(buildPublicFeatures().research);
 /**
  * The language a browser we do not speak is sent to, and the one the root
  * serves. Kept beside LOCALES because `ROOT_REDIRECT` is built from both.

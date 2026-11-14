@@ -8,11 +8,10 @@ import { test } from 'node:test';
 import { chromium } from 'playwright';
 import { build } from 'vite';
 
-const round6 = process.env.IGNORED === '1' ? {} : { skip: 'known wrong result: #2099' };
 const root = resolve(import.meta.dirname, '..');
 
 for (const research of ['0', '1']) {
-  test(`public locale consumers agree with VITE_RESEARCH=${research}`, research === '0' ? round6 : {}, async () => {
+  test(`public locale consumers agree with VITE_RESEARCH=${research}`, async () => {
     const source = `
       import { OFFERED_LOCALES, PUBLIC_LOCALES, isComplete } from './src/lib/i18n/offered.ts';
       import { writtenIn } from './scripts/public-paths.ts';
@@ -37,7 +36,7 @@ for (const research of ['0', '1']) {
     assert.equal(result.complete, research === '1');
   });
 
-  test(`PublicLink uses the build policy with VITE_RESEARCH=${research}`, research === '0' ? round6 : {}, async () => {
+  test(`PublicLink uses the build policy with VITE_RESEARCH=${research}`, async () => {
     const keys = ['VITE_ACCOUNTS', 'VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME', 'GITHUB_SHA'];
     const previous = keys.map(key => process.env[key]);
     Object.assign(process.env, { VITE_ACCOUNTS: research, VITE_RESEARCH: research, VITE_TOOLS: research, VITE_DIAGRAM_GAME: research, GITHUB_SHA: '000000000000' });
@@ -60,8 +59,13 @@ for (const research of ['0', '1']) {
             return `
               import { mount, createRawSnippet } from 'svelte';
               import Link from ${JSON.stringify(resolve(root, 'src/components/landing/PublicLink.svelte'))};
+              import Header from ${JSON.stringify(resolve(root, 'src/components/site/SiteHeader.svelte'))};
+              import { setLocale, publicI18n } from ${JSON.stringify(resolve(root, 'src/lib/i18n/store.svelte.ts'))};
               import { PUBLIC_LOCALES, OFFERED_LOCALES } from ${JSON.stringify(resolve(root, 'src/lib/i18n/offered.ts'))};
               import { parsePublicPath, preferredPublicLocale } from ${JSON.stringify(resolve(root, 'src/lib/i18n/public-routes.ts'))};
+              window.chooseLocale = setLocale;
+              window.activeLocale = () => publicI18n.locale;
+              mount(Header, { target: document.body, props: { actions: createRawSnippet(() => ({ render: () => '<button data-testid="policy-account-action">Account</button>' })) } });
               window.policy = { public: PUBLIC_LOCALES, offered: OFFERED_LOCALES, parsed: parsePublicPath('/hu/blog/'), preferred: preferredPublicLocale(['hu-HU', 'es']) };
               for (const to of ['/', '/blog/untranslated-policy-fixture', '/examples/beam-frame', '/research', '/register']) {
                 mount(Link, { target: document.body, props: { to, 'data-nav': to, children: createRawSnippet(() => ({ render: () => '<span>Open</span>' })) } });
@@ -99,6 +103,10 @@ for (const research of ['0', '1']) {
       assert.equal(policy.offered.includes('hu'), research === '1');
       assert.deepEqual(policy.parsed, research === '1' ? { locale: 'hu', path: '/blog' } : { locale: null, path: '/hu/blog/' });
       assert.equal(policy.preferred, research === '1' ? 'hu' : 'es');
+      assert.equal(await page.getByTestId('policy-account-action').count(), research === '1' ? 1 : 0);
+      assert.equal(await page.locator('.nav-links').count(), research === '1' ? 0 : 1);
+      await page.evaluate(() => window.chooseLocale('hu'));
+      assert.equal(await page.evaluate(() => window.activeLocale()), research === '1' ? 'hu' : 'fr');
     } finally {
       await browser?.close();
       keys.forEach((key, index) => {
