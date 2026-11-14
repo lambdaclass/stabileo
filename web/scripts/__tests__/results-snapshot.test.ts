@@ -351,7 +351,7 @@ describe('the base checkout reuses this build\'s engine', () => {
 });
 
 
-it.skip('known wrong result: #2095 snow corpus context reaches the applicability gate', () => {
+it('known wrong result: #2095 snow corpus context reaches the applicability gate', () => {
   const source = "  { name: 'snow-two-pitch', source: { snowRoof: 'two-pitch' }, workspace: '3d', group: 'loads', covers: 'connected sliding' },";
   expect(corpusCases(source)['web/results-snapshots/snow-two-pitch.json']).toMatchObject({ workspace: '3d', source: { snowRoof: 'two-pitch' } });
   expect(corpusCases(source.replace("workspace: '3d'", "workspace: 'unknown'"))).toEqual({});

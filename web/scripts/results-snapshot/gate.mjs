@@ -284,9 +284,10 @@ export function corpusCases(text) {
     const workspace = /workspace: '(2d|3d|pro)'/.exec(line)?.[1];
     const example = /source: ex\('([^']+)'\)/.exec(line)?.[1];
     const ded = /source: \{ ded: '([^']+)' \}/.exec(line)?.[1];
-    if (!name || !workspace || (!example && !ded)) continue;
+    const snowRoof = /source: \{ snowRoof: '([^']+)' \}/.exec(line)?.[1];
+    if (!name || !workspace || (!example && !ded && !snowRoof)) continue;
     const advanced = /advanced: \[([^\]]*)\]/.exec(line)?.[1];
-    cases[`${SNAPSHOT_DIR}/${name}.json`] = { name, workspace, source: example ? { example } : { ded }, design: /design: true/.test(line), advanced: advanced ? [...advanced.matchAll(/'([^']+)'/g)].map((m) => m[1]) : [], group: 'basic', covers: '' };
+    cases[`${SNAPSHOT_DIR}/${name}.json`] = { name, workspace, source: example ? { example } : ded ? { ded } : { snowRoof }, design: /design: true/.test(line), advanced: advanced ? [...advanced.matchAll(/'([^']+)'/g)].map((m) => m[1]) : [], group: 'basic', covers: '' };
   }
   return cases;
 }
@@ -303,6 +304,7 @@ export async function readCaseFeatures(files, base, at, root) {
     const cases = files.map((file) => {
       const c = headCases[file] ?? baseCases[file];
       if (!c) throw new Error(`No corpus model context for ${file}`);
+      if (c.source.snowRoof) return { file, case: c };
       const path = c.source.example ? `${FIXTURE_DIR}/${c.source.example}.json` : `web/${c.source.ded}`;
       const fixture = at(headCases[file] ? 'HEAD' : base, path);
       if (fixture === null) throw new Error(`No opened fixture for ${file}: ${path}`);

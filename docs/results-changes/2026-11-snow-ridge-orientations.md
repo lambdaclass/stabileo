@@ -62,7 +62,10 @@ The new regeneration notice requires snow AND generated loads. Manual snow and
 non-snow controls do not receive it. New perpendicular-gable and hip snapshots
 retain complete generated cases. The existing two-pitch snapshot gains the
 additional orientation's cases without changing or deleting its old values.
-All other existing snow snapshots remain unchanged. No comparison tolerance or
+The snapshot applicability gate now parses snowRoof corpus sources and routes
+them through the same openedFeatures path used by the snapshot harness, without
+requiring a bundled example or saved project. Missing corpus context still
+fails. All other existing snow snapshots remain unchanged. No comparison tolerance or
 baseline assertion was relaxed.
 
 The advisory CI failure was in the post's shared updated field. SA-2026-061's
