@@ -376,3 +376,25 @@ for (const path of ['generatedLoads.item7.distributed.item0.q', 'snowResult.ps',
     expect(check({ ...entry, when: { all: ['snow', 'generatedLoads', 'analysis:linear'] } })).toBe(false);
   });
 }
+
+const knownWrongArrayPath = it.skip;
+
+for (const path of ['snowDerivation[0].key', 'snowDerivation[0].params.n', 'snowDerivation[1].params.axis']) for (const change of ['changed', 'removed', 'added']) {
+  knownWrongArrayPath(`known wrong result: #2095 bracketed snow derivation applicability ${path} ${change}`, () => {
+    const entry = { id: 'snow', area: 'loads', when: { all: ['snow', 'generatedLoads'] }, quantities: ['*'] };
+    const features = ['snow', 'members', 'space3D', 'generatedLoads'];
+    const check = (notice = entry, opened = features) => decide({
+      snapshots: [{ file: 'web/results-snapshots/snow.json', base: { values: change === 'added' ? {} : { [path]: 'before' } }, head: { values: change === 'removed' ? {} : { [path]: 'after' } } }],
+      baseRegistry: { schema: 1, numbered: [], unnumbered: [] },
+      headRegistry: { schema: 1, numbered: [], unnumbered: [notice] },
+      fragments: [{ file: 'changelog.d/snow.md', text: '### BREAKING (results)\n#### Snow\n' }],
+      caseFeatures: { 'web/results-snapshots/snow.json': opened },
+    }).ok;
+    expect(check()).toBe(true);
+    expect(check(entry, features.filter(f => f !== 'generatedLoads'))).toBe(false);
+    expect(check(entry, features.filter(f => f !== 'snow'))).toBe(false);
+    expect(check({ ...entry, area: 'analysis' })).toBe(false);
+    expect(check({ ...entry, quantities: [] })).toBe(false);
+    expect(check({ ...entry, when: { all: ['snow', 'generatedLoads', 'analysis:linear'] } })).toBe(false);
+  });
+}
