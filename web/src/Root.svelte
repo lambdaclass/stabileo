@@ -35,7 +35,7 @@
   let app = $state<typeof import('./App.svelte').default | null>(null);
   let loading: Promise<void> | null = null;
 
-  let pages = $state<Partial<Record<'research' | 'tools' | 'paper' | 'blog' | 'landing', import('svelte').Component<{ path: string }>>>>({});
+  let pages = $state<Partial<Record<'research' | 'tools' | 'game' | 'paper' | 'blog' | 'landing', import('svelte').Component<{ path: string }>>>>({});
   let revision = 0;
   let failed = $state(false);
   $effect(() => { if (current.kind !== 'landing') return idlePrefetchPublicPages(); });
@@ -63,7 +63,7 @@
       const [page] = await Promise.all([loadPublicPage(location.href), ensurePublicLocale(parsePublicPath(location.pathname).locale ?? publicI18n.locale).catch((err) => { if (token > 1) throw err; })]);
       if (token !== revision) return;
       failed = false;
-      if (page && (next.kind === 'research' || next.kind === 'tools' || next.kind === 'paper' || next.kind === 'blog' || next.kind === 'landing')) pages[next.kind] = page;
+      if (page && (next.kind === 'research' || next.kind === 'tools' || next.kind === 'game' || next.kind === 'paper' || next.kind === 'blog' || next.kind === 'landing')) pages[next.kind] = page;
       adoptLocaleFromPath();
       current = next;
       await tick();
@@ -121,7 +121,7 @@
 {#if app}
   {@const App = app}
   <App />
-{:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'paper' || current.kind === 'blog'}
+{:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'game' || current.kind === 'paper' || current.kind === 'blog'}
   {@const Page = pages[current.kind]}
   {#if Page}<Page path={current.path} />{:else}<PublicPending kind={current.kind} {failed} />{/if}
 {:else if current.kind === 'landing' && pages.landing}

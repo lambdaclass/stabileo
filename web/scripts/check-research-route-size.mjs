@@ -44,7 +44,7 @@ try {
     }, generateBundle(_options, bundle) {
       for (const output of Object.values(bundle)) {
         if (output.type === 'chunk' && isBlogPostsChunk(Object.keys(output.modules))) blogPostsChunks.add(output.fileName);
-        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/') || id.includes('/components/examples/'))) toolsChunks.add(output.fileName);
+        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/') || id.includes('/components/examples/') || id.includes('/components/diagram-game/'))) toolsChunks.add(output.fileName);
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.startsWith('\0virtual:public-i18n/'))) publicLocaleChunks.add(output.fileName);
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/research/') || /\/research\/.*\.json$/.test(id))) {
           researchChunks.add(output.fileName);
@@ -62,7 +62,7 @@ try {
     if (!feature && manifest['src/components/LandingPage.svelte']) roots.push(['src/components/LandingPage.svelte', false]);
     if (app) roots.push([appEntry, true], ...(loader ? [[loader, true]] : []));
     const files = routeChunkFiles(manifest, roots, (key, chunk) => {
-      if (toolsChunks.has(chunk.file)) throw new Error(`product statically imports tools or examples: ${key}`);
+      if (toolsChunks.has(chunk.file)) throw new Error(`product statically imports tools, examples or the diagram game: ${key}`);
       if (researchChunks.has(chunk.file)) throw new Error(`product statically imports research: ${key}`);
     }, (key) => isLazyRouteBoundary(key) || blogPostsChunks.has(manifest[key]?.file));
     if (feature) {
