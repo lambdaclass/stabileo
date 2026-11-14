@@ -10,7 +10,9 @@ Elixir, Phoenix, Ecto, PostgreSQL, Joken (JWT), Argon2 (password hashing).
 backend/apps/
 ├── stabileo_repo      # Shared Ecto Repo, ALL schemas, ALL migrations, seeds
 ├── stabileo_utils     # Controller macro, FallbackController, env helpers, shared plugs
-├── stabileo_auth      # Accounts, sessions, tokens, profile
+├── stabileo_auth      # Accounts, sessions, tokens, profile, consents, admin audit log
+├── stabileo_projects  # Cloud projects
+├── stabileo_insights  # Anonymous usage, feedback, admin metrics
 └── stabileo_web       # Endpoint and main router that forwards to domain routers
 ```
 
@@ -36,7 +38,9 @@ Schemas are centralized in `stabileo_repo`. Domain apps contain context modules 
 | Domain | App | Handles | Prefix |
 |--------|-----|---------|--------|
 | Authentication | `stabileo_auth` | Accounts, sessions, profile | `/api/v1/auth` |
-| Admin | `stabileo_auth` (`StabileoAuth.AdminRouter`) | Admin sign-in, account management | `/api/v1/admin` |
+| Admin | `stabileo_auth` (`StabileoAuth.AdminRouter`) | Admin sign-in, account management, settings, audit log | `/api/v1/admin` |
+| Projects | `stabileo_projects` | Cloud projects; admin listing | `/api/v1/projects`, `/api/v1/admin/projects` |
+| Insights | `stabileo_insights` | Usage events, feedback; admin metrics and inbox | `/api/v1/insights`, `/api/v1/admin/insights` |
 | Web | `stabileo_web` | Endpoint, health | `/api/v1/health` |
 | Utilities | `stabileo_utils` | Shared plugs and helpers | — |
 

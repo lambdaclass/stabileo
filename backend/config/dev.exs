@@ -10,6 +10,7 @@ db_name =
 backend_port = 4100 + instance * 10
 web_port = 4000 + instance * 10
 admin_port = 4001 + instance * 10
+app_url = System.get_env("APP_URL", "http://localhost:#{web_port}")
 
 config :stabileo_repo, StabileoRepo.Repo,
   username: System.get_env("PGUSER", "postgres"),
@@ -39,12 +40,26 @@ config :stabileo_auth,
   admin_refresh_token_ttl: 14_400,
   admin_domains: ["lambdaclass.com", "ergodicgroup.com", "stabileo.com"],
   admin_password_login: true,
-  admin_frontend_url: "http://localhost:#{admin_port}"
+  admin_frontend_url: "http://localhost:#{admin_port}",
+  app_frontend_url: app_url
+
+app_google_client_id = System.get_env("GOOGLE_APP_CLIENT_ID", "")
+
+if app_google_client_id == "" do
+  config :stabileo_auth, app_google_strategy: StabileoAuth.DevGoogle, dev_google: true
+end
 
 config :stabileo_auth, :google_oauth,
   client_id: System.get_env("GOOGLE_CLIENT_ID", ""),
   client_secret: System.get_env("GOOGLE_CLIENT_SECRET", ""),
-  redirect_uri: "http://localhost:#{backend_port}/api/v1/admin/auth/google/callback"
+  redirect_uri: "http://localhost:#{backend_port}/api/v1/admin/auth/google/callback",
+  app_client_id: if(app_google_client_id == "", do: "dev", else: app_google_client_id),
+  app_client_secret:
+    if(app_google_client_id == "",
+      do: "dev",
+      else: System.get_env("GOOGLE_APP_CLIENT_SECRET", "")
+    ),
+  app_redirect_uri: "#{app_url}/api/v1/auth/google/callback"
 
 config :logger, :console, format: "[$level] $message\n"
 

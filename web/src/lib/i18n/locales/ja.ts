@@ -795,28 +795,6 @@ const ja: Translations = {
   'float.vShear': 'V せん断力',
   'float.ilHint': '節点（反力）または部材（内部M/V）をクリック',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': 'バグ報告 / 提案',
-  'feedback.close': '閉じる',
-  'feedback.reportCreated': 'レポート #{n} 作成',
-  'feedback.bugError': 'バグ / エラー',
-  'feedback.suggestion': '提案',
-  'feedback.other': 'その他',
-  'feedback.namePlaceholder': '名前またはニックネーム（任意）',
-  'feedback.textPlaceholder': '問題点または提案を記述してください...',
-  'feedback.linkAttached': '構造へのリンクが自動添付されます',
-  'feedback.copy': 'コピー',
-  'feedback.sending': '送信中...',
-  'feedback.submitReport': 'レポートを送信',
-  'feedback.toastCreated': 'レポート #{n} 作成 — ありがとうございます！',
-  'feedback.toastError': 'レポートを送信できませんでした',
-  'feedback.toastConnectionError': '接続エラー — もう一度お試しください',
-  'feedback.toastEmptyText': '問題点または提案の説明を入力してください',
-  'feedback.toastSecurityWait': 'セキュリティ検証を待っています...',
-  'feedback.toastLinkCopied': 'リンクをコピーしました',
-  'feedback.reportBug': 'バグ / 提案を報告',
-  'feedback.communityTelegram': 'Telegramコミュニティ',
-  'feedback.buyCoffee': 'コーヒーをおごってください',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': '断面 {id}',

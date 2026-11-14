@@ -29,6 +29,7 @@ import type { PlacedDrawing } from '../sheets/compose';
 import { drawDetails, placeDetails, type DetailChoice } from '../sheets/details/catalog';
 import { chosenDetails, projectDetailValues } from './detail-catalog';
 import { memberNames } from './member-names';
+import { saveFile } from '../export/save-file';
 
 export const sheetSettings = () => ({ ...DEFAULT_SHEET_SETTINGS, ...designData().sheets });
 export const patchSheetSettings = (p: Partial<ReturnType<typeof sheetSettings>>) => patchDesignData({ sheets: { ...sheetSettings(), ...p } });
@@ -191,9 +192,7 @@ export function applySetTemplate(t: SheetSetTemplate): void {
 }
 
 function save(name: string, type: string, bytes: Uint8Array) {
-  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
-  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  saveFile(name, new Blob([bytes as BlobPart], { type }));
 }
 
 /** The set as one zip with a DXF per sheet, recorded in the export log like the other files. */

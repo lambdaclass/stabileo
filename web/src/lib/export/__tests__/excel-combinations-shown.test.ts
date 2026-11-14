@@ -9,10 +9,11 @@ vi.mock('xlsx', async (importOriginal) => {
   const real = await importOriginal<typeof import('xlsx')>();
   return {
     ...real,
-    writeFile: vi.fn(),
     utils: { ...real.utils, book_append_sheet: vi.fn((wb: unknown, ws: unknown, name: string) => { appended.push(name); return real.utils.book_append_sheet(wb as never, ws as never, name); }) },
   };
 });
+
+vi.mock('../save-file', () => ({ saveFile: vi.fn() }));
 
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';

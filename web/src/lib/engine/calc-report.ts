@@ -16,6 +16,7 @@ import { modelFigureSvg } from './report/model-figure';
 import { formatValue, toDisplay, unitLabel, type Quantity, type UnitSystem } from '../utils/units';
 import { extraDecimals, smallDisplacement } from '../utils/unit-format';
 import type { KinematicReport } from './kinematic-report';
+import { saveFile } from '../export/save-file';
 import {
   EXTRA_CSS, figureCounter, forceTable2D, forceTable3D, kinematicsSectionHtml, solveErrorHtml,
   type CalcReportContent, type ReportFigure,
@@ -243,6 +244,7 @@ function buildCover(cfg: CalcReportConfig, modeLabel: AnalysisModeLabel, nodeCou
   if (cfg.engineerName) h.push(`<div>${t('calcReport.engineerName')}: ${esc(cfg.engineerName)}</div>`);
   h.push(`<div>${t('file.csvDate')}: ${esc(cfg.date)}</div>`);
   h.push('</div>');
+  h.push(`<div class="disclaimer" style="margin-top:24px;font-size:8pt;color:#777">${esc(t('disclaimer.report'))}</div>`);
   h.push(`<div class="footer">${esc(t('calcReport.generatedBy'))}</div>`);
   h.push('</div><div class="page-break"></div>');
   return h.join('\n');
@@ -672,11 +674,6 @@ export function openCalcReport(data: CalcReportData, win?: Window | null): 'tab'
   else tab = window.open(url, '_blank');
   setTimeout(() => URL.revokeObjectURL(url), 120_000);
   if (tab) return 'tab';
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${(data.config.projectName || 'stabileo').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'stabileo'}.html`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  saveFile(`${(data.config.projectName || 'stabileo').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'stabileo'}.html`, blob);
   return 'download';
 }
