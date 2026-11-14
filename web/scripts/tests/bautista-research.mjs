@@ -13,4 +13,6 @@ for (const n of [19, 121]) assert.equal(run(1.3, 1.3, 1.5, false, n).code, 'load
 for (const n of [20, 120]) assert.notEqual(run(1.3, 1.3, 1.5, false, n).code, 'load_or_mesh_out_of_range');
 for (const q of [-Number.EPSILON, 4 + Number.EPSILON * 4]) assert.equal(run(1.3, 1.3, q, false, 30).code, 'load_or_mesh_out_of_range');
 for (const q of [0, 4]) assert.notEqual(run(1.3, 1.3, q, false, 30).code, 'load_or_mesh_out_of_range');
+for (const [theta, delta] of [[1, 0], [1.6, 1.8]]) assert.ok(run(theta, delta, 1.5, false, 30).frames.length > 0);
+for (const [theta, delta] of [[1 - Number.EPSILON, 0], [1.6 + Number.EPSILON, 0], [1, -Number.EPSILON], [1, 1.8 + Number.EPSILON]]) assert.equal(run(theta, delta, 1.5, false, 30).code, 'corner_out_of_range');
 console.log('research native/WASM classification, valid controls and parameter boundaries pass');
