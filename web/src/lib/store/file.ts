@@ -123,13 +123,12 @@ export interface DedalSessionFile {
 
 // ─── Download Helpers ───────────────────────────────────────────
 
-export function downloadBlob(blob: Blob, filename: string): void {
-  saveFile(filename, () => blob);
+export function downloadBlob(blob: Blob, filename: string, sources?: unknown): void {
+  saveFile(filename, () => blob, 'export', sources);
 }
 
-export function downloadText(content: string, filename: string, mime: string): void {
-  const blob = new Blob([content], { type: mime });
-  downloadBlob(blob, filename);
+export function downloadText(content: string, filename: string, mime: string, sources?: unknown): void {
+  saveFile(filename, () => new Blob([content], { type: mime }), 'export', sources);
 }
 
 /**
