@@ -1206,3 +1206,7 @@ test.web.feher-result-state:
 .PHONY: test.web.public-policy-isolation
 test.web.public-policy-isolation:
 	nix develop .\#e2e --command bash -c 'cd web && node --test scripts/landing-isolation.test.mjs scripts/public-link-policy.test.mjs scripts/prune-public-build-branches.test.mjs'
+
+.PHONY: test.web.landing-footer-2099
+test.web.landing-footer-2099:
+	$(NIX_RUN) node --test web/scripts/tests/landing-footer-2099.test.mjs
