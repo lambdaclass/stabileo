@@ -20,7 +20,7 @@ const model = {
 afterEach(() => setCompactStationTransfer(true));
 
 for (const nonlinear of [false, true]) for (const compact of [false, true]) for (const entry of ['auto', 'unified', 'design'] as const) {
-  it.skipIf(!process.env.RUN_KNOWN_WRONG)(`known wrong result: #2080 ${entry} validates 3D stirrups and nonlinear=${nonlinear} compact=${compact} retains the maximum torsion steel`, () => {
+  it(`known wrong result: #2080 ${entry} validates 3D stirrups and nonlinear=${nonlinear} compact=${compact} retains the maximum torsion steel`, () => {
     const combos = [[300, 5], [0, 30]].map(([v, t], i) => {
       const solver: SolverInput3D = { ...model,
         elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, type: 'frame' as const, releaseMyStart: false, releaseMyEnd: false,
@@ -43,10 +43,14 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) for 
       const i = { ...params, edition: '2025' as const, elementId: 1, elementType: 'beam' as const, demand: d.section('My') };
       for (const v of [verifyElement(i, { shear: { spacing: 0.275, legs: 2 } }),
         prepareElementVerification(i)({ shear: { spacing: 0.275, legs: 2 } })]) {
+        expect(v.flexure.d).toBe(v.flexure.designDepth);
+        expect(v.flexure).toHaveProperty('providedDepth', params.h - params.cover - params.stirrupDia / 1000 - v.flexure.barDia / 2000);
         expect(v.torsion!.status).toBe('fail');
         expect(v.torsion!.reinforcementRatio).toBeGreaterThan(1);
       }
     }
+    expect(out.flexure.d).toBe(out.flexure.designDepth);
+    expect(out.flexure).toHaveProperty('providedDepth', params.h - params.cover - params.stirrupDia / 1000 - out.flexure.barDia / 2000);
     expect(out.torsion!.AtOverS).toBe(Math.max(...requirements.map(t => t.AtOverS)));
     expect(out.torsion!.AlReq).toBe(Math.max(...requirements.map(t => t.AlReq)));
     expect(out.governingCombos).toMatchObject({ torsionReinforcement: { comboId: 2, comboName: 'C2' } });
@@ -66,6 +70,8 @@ for (const nonlinear of [false, true]) it(`2D WASM nonlinear=${nonlinear} remain
     vy: 0, vz: t ? ef.vEnd : ef.vStart, torsion: 0,
   } }))).map(d => ({ ...params, elementId: 1, elementType: 'beam' as const, demand: d.section('My') }));
   for (const v of [verifyElement(inputs[0]!), prepareElementVerification(inputs[0]!)(), verifyConcurrentElement(inputs)]) {
+    expect(v.flexure.d).toBe(v.flexure.designDepth);
+    expect(v.flexure).toHaveProperty('providedDepth', params.h - params.cover - params.stirrupDia / 1000 - v.flexure.barDia / 2000);
     expect(v.torsion).toBeUndefined();
     expect(v.flexure.Mu).toBeCloseTo(20, 10);
     expect(v.overallStatus).not.toBe('fail');

@@ -11,7 +11,7 @@ for (const edition of ['2005', '2025'] as const) {
       const p = { fc: 25, fy: 420, cover: 0.03, b: 0.2, h: 0.6, stirrupDia: 8 };
       const f = flange ? checkFlexureFlanged(p, { bf: 1.2, hf: 0.1, bw: p.b }, Mu, edition) : checkFlexure(p, Mu, 0, { edition });
       const rhoMin = Math.max(0.25 * Math.sqrt(p.fc) / p.fy, 1.4 / p.fy);
-      expect(f.AsMin).toBeCloseTo(rhoMin * p.b * f.d * 1e4, 6);
+      expect(f.AsMin).toBeCloseTo(rhoMin * p.b * f.providedDepth * 1e4, 6);
       expect(f.AsReq).toBe(Math.max(f.AsFlexural, f.AsMin));
       expect(f.AsProv).toBeGreaterThanOrEqual(f.AsMin);
     });
@@ -29,7 +29,7 @@ for (const edition of ['2005', '2025'] as const) {
         for (const v of [verifyElement(i, { flexure: required[1]! }), prepareElementVerification(i)({ flexure: required[1]! }), shared[k]!]) {
           const f = v.flexure, req = required[k]!;
           expect([f.designDepth, f.c, f.aReq, f.epsilonT]).toEqual([req.designDepth, req.c, req.aReq, req.epsilonT]);
-          const evaluated = evaluateBeamSection({ edition, fc: i.fc * 1e6, fy: i.fy * 1e6, b: i.b, h: i.h, d: f.d, As: f.AsProv * 1e-4 })!;
+          const evaluated = evaluateBeamSection({ edition, fc: i.fc * 1e6, fy: i.fy * 1e6, b: i.b, h: i.h, d: f.providedDepth, As: f.AsProv * 1e-4 })!;
           expect((f as unknown as { epsilonTProv: number }).epsilonTProv).toBe(evaluated.epsilonT);
           if (k === 0) expect(evaluated.epsilonT).not.toBe(req.epsilonT);
         }

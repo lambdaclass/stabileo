@@ -57,6 +57,7 @@ export interface FlexureResult {
   Mu: number;          // design moment (kN·m)
   d: number;           // effective depth (m)
   designDepth: number;
+  providedDepth: number;
   a: number;           // stress block depth for the PROVIDED bars (m)
   /**
    * The same four quantities at the REQUIRED steel, which is what a worked
@@ -354,8 +355,8 @@ function engineFlexureDesign(
   };
 }
 
-function providedFlexureState(check: ReturnType<typeof evaluateBeamSection>): Pick<FlexureResult, 'a' | 'epsilonTProv'> {
-  return { a: check?.a ?? 0, epsilonTProv: check?.flexureValid ? check.epsilonT : 0 };
+function providedFlexureState(check: ReturnType<typeof evaluateBeamSection>, providedDepth: number): Pick<FlexureResult, 'providedDepth' | 'a' | 'epsilonTProv'> {
+  return { providedDepth, a: check?.a ?? 0, epsilonTProv: check?.flexureValid ? check.epsilonT : 0 };
 }
 
 function flexureEvaluationSteps(check: NonNullable<ReturnType<typeof evaluateBeamSection>>, phiMn: number): string[] {
@@ -405,6 +406,7 @@ export function checkFlexure(
   let rebar!: { count: number; dia: number; area: number; label: string };
   let rebarComp: { count: number; dia: number; area: number; label: string } | undefined;
   let check!: NonNullable<ReturnType<typeof evaluateBeamSection>>;
+  let providedDepth = 0;
   let first: { d: number; design: EngineFlexureDesign } | undefined;
   for (let pass = 0; pass < 5; pass++) {
     d = effectiveDepth(h, cover, stirrupDia, barDia);
@@ -418,6 +420,7 @@ export function checkFlexure(
     rebarComp = design.kind === 'doubly' ? selectRebar(Math.max(design.AsComp, AsMin * 0.5)) : undefined;
     // The verdict: the engine's check of the bars chosen, at the depths those bars give.
     const dReal = effectiveDepth(h, cover, stirrupDia, rebar.dia);
+    providedDepth = dReal;
     const dPrimeReal = rebarComp ? cover + stirrupDia / 1000 + rebarComp.dia / 2000 : 0;
     const r = evaluateBeamSection({
       edition, fc: fc * 1e6, fy: fy * 1e6, b, h, d: dReal,
@@ -505,7 +508,7 @@ export function checkFlexure(
 
   const etc = tensionControlledStrain(fy, edition);
   return enforcePracticalFlexureLimit({
-    Mu: MuAbs, designDepth: d, d: effectiveDepth(h, cover, stirrupDia, rebar.dia), ...providedFlexureState(check),
+    Mu: MuAbs, designDepth: d, d, ...providedFlexureState(check, providedDepth),
     aReq: design.a, c: design.c, cMax: (d * 0.003) / (0.003 + etc), epsilonT: design.epsilonT,
     AsReq: AsDesign,
     AsFlexural: design.kind === 'impossible' ? 0.10 * Ag * 1e4 : design.As,
@@ -1371,9 +1374,9 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
       const ductile = input.elementType !== 'beam' || !r || Math.abs(designMu) === 0
         || flexureNu >= 0.1 * params.fc * 1000 * params.b * params.h || r.epsilonT >= r.epsilonTMin;
       const AsMin = minFlexuralSteelCm2(params.fc, params.fy, params.b, d);
-      flexure = enforcePracticalFlexureLimit({ ...flexure, AsMin, AsReq: Math.max(flexure.AsFlexural, AsMin), AsProv: f.AsProv, barDia: f.barDia, barCount: f.barCount, bars: f.bars, d,
+      flexure = enforcePracticalFlexureLimit({ ...flexure, AsMin, AsReq: Math.max(flexure.AsFlexural, AsMin), AsProv: f.AsProv, barDia: f.barDia, barCount: f.barCount, bars: f.bars,
         AsComp: f.AsComp, barDiaComp: f.barDiaComp, barCountComp: f.barCountComp, barsComp: f.barsComp,
-        isDoublyReinforced: f.isDoublyReinforced, phiMn, ratio, ...providedFlexureState(r),
+        isDoublyReinforced: f.isDoublyReinforced, phiMn, ratio, ...providedFlexureState(r, d),
         status: f.AsProv < AsMin || !ductile || !(ratio <= 1) ? 'fail' : ratio > 0.85 ? 'warn' : 'ok',
         steps: [
           `d = ${(d * 100).toFixed(1)} cm`,
@@ -1410,8 +1413,8 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
     // Torsion check if Tu is provided
     if (input.Tu && Math.abs(input.Tu) > 0.001) {
       torsionResult = checkTorsion(params, concurrent.demand, edition);
-      if (fixed?.torsion) torsionResult = checkProvidedTorsion(params, torsionResult,
-        [shear, ...(shearSecondary ? [shearSecondary] : [])], fixed.torsion.AlProv);
+      torsionResult = checkProvidedTorsion(params, torsionResult,
+        [shear, ...(shearSecondary ? [shearSecondary] : [])], fixed?.torsion?.AlProv ?? torsionResult.AlReq);
     }
 
     // Overall status

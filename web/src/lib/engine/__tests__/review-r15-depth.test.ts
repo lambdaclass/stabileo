@@ -19,15 +19,15 @@ function check(f: ReturnType<typeof checkFlexure>, edition: '2005' | '2025', fla
   expect(f.epsilonTProv).toBe(r.epsilonT);
 }
 for (const edition of ['2005', '2025'] as const) {
-  for (const Mu of [0, 52, 70]) it.skipIf(!process.env.RUN_KNOWN_WRONG)(`known wrong result: #2080 sizing depth stays with required steel ${edition} ${Mu}`, () => {
+  for (const Mu of [0, 52, 70]) it(`known wrong result: #2080 sizing depth stays with required steel ${edition} ${Mu}`, () => {
     check(checkFlexure(p, Mu, 0, { edition }), edition);
   });
-  it.skipIf(!process.env.RUN_KNOWN_WRONG)(`known wrong result: #2080 flanged sizing depth ${edition}`, () => {
+  it(`known wrong result: #2080 flanged sizing depth ${edition}`, () => {
     const flange = { bf: 1.37, hf: 0.10 };
     check(checkFlexureFlanged(p, { ...flange, bw: p.b }, 52, edition), edition, flange);
   });
   for (const axis of ['My', 'Mz'] as const) for (const elementType of ['beam', 'column', 'wall'] as const) {
-    it.skipIf(!process.env.RUN_KNOWN_WRONG)(`known wrong result: #2080 all verification entries separate depths ${edition} ${axis} ${elementType}`, () => {
+    it(`known wrong result: #2080 all verification entries separate depths ${edition} ${axis} ${elementType}`, () => {
       const inputs = ConcurrentDemand.fromTuples([20, 52].map((m, k) => ({ comboId: k + 1, comboName: 'depth', forces: {
         t: k, x: k, n: 0, my: m, mz: m, vy: 0, vz: 0, torsion: 0,
       } }))).map(d => ({ ...p, edition, elementType, elementId: 1, demand: d.section(axis) }));

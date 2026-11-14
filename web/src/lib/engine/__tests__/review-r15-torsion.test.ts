@@ -11,7 +11,7 @@ function input(edition: '2005' | '2025', axis: 'My' | 'Mz', elementType: 'beam' 
 }
 for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) for (const elementType of ['beam', 'column', 'wall'] as const) {
   for (const entry of ['direct', 'prepared'] as const) for (const fixedShear of [false, true]) for (const fixedTorsion of [false, true]) {
-    it.skipIf(!process.env.RUN_KNOWN_WRONG)(`known wrong result: #2080 checks every stirrup cage ${edition} ${axis} ${elementType} ${entry} shear=${fixedShear} torsion=${fixedTorsion}`, () => {
+    it(`known wrong result: #2080 checks every stirrup cage ${edition} ${axis} ${elementType} ${entry} shear=${fixedShear} torsion=${fixedTorsion}`, () => {
       const i = input(edition, axis, elementType, 30);
       const need = checkTorsion(p, i.demand, edition);
       const fixed = { ...(fixedShear ? { shear: { spacing: 0.275, legs: 2 } } : {}), ...(fixedTorsion ? { torsion: { AlProv: need.AlReq } } : {}) };
@@ -24,18 +24,30 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
     });
   }
   for (const entry of ['direct', 'prepared'] as const) for (const fixedTorsion of [false, true]) for (const factor of [1 - 1e-8, 1, 1 + 1e-8]) {
-    it.skipIf(!process.env.RUN_KNOWN_WRONG)(`known wrong result: #2080 torsion spacing boundary ${edition} ${axis} ${elementType} ${entry} torsion=${fixedTorsion} ${factor}`, () => {
+    it(`known wrong result: #2080 torsion spacing boundary ${edition} ${axis} ${elementType} ${entry} torsion=${fixedTorsion} ${factor}`, () => {
       const i = input(edition, axis, elementType, 6);
       const need = checkTorsion(p, i.demand, edition);
       const fixed = { shear: { spacing: need.spacingMax! * factor, legs: 2 }, ...(fixedTorsion ? { torsion: { AlProv: need.AlReq } } : {}) };
       const v = entry === 'direct' ? verifyElement(i, fixed) : prepareElementVerification(i)(fixed);
       expect(v.torsion!.status === 'fail').toBe(factor > 1);
       expect(v.torsion!.AtOverSProv).toBeGreaterThanOrEqual(need.AtOverS);
-      expect(v.torsion!.reinforcementRatio).toBeCloseTo(factor, 12);
+      expect(v.torsion!.reinforcementRatio).toBeCloseTo(Math.max(1, factor), 12);
+    });
+  }
+  for (const entry of ['direct', 'prepared'] as const) for (const factor of [1 - 1e-8, 1 + 1e-8]) {
+    it(`known wrong result: #2080 transverse capacity boundary ${edition} ${axis} ${elementType} ${entry} ${factor}`, () => {
+      const i = input(edition, axis, elementType, 30);
+      const need = checkTorsion(p, i.demand, edition);
+      const area = Math.PI * (p.stirrupDia / 1000) ** 2 / 4 * 1e4;
+      const fixed = { shear: { spacing: area / need.AtOverS * factor, legs: 2 } };
+      expect(fixed.shear.spacing).toBeLessThan(need.spacingMax!);
+      const v = entry === 'direct' ? verifyElement(i, fixed) : prepareElementVerification(i)(fixed);
+      expect(v.torsion!.AtOverSProv).toBeCloseTo(need.AtOverS / factor, 12);
+      expect(v.torsion!.status === 'fail').toBe(factor > 1);
     });
   }
   for (const factor of [1 - 1e-8, 1, 1 + 1e-8]) {
-    it.skipIf(!process.env.RUN_KNOWN_WRONG)(`known wrong result: #2080 no longitudinal override at neglect boundary ${edition} ${axis} ${elementType} ${factor}`, () => {
+    it(`known wrong result: #2080 no longitudinal override at neglect boundary ${edition} ${axis} ${elementType} ${factor}`, () => {
       const base = input(edition, axis, elementType, 30);
       const threshold = 0.75 * checkTorsion(p, base.demand, edition).Tcr / 4;
       const v = verifyElement(input(edition, axis, elementType, threshold * factor), { shear: { spacing: 0.275, legs: 2 } });

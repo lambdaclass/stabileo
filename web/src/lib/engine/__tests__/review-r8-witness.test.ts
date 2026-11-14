@@ -14,7 +14,7 @@ it('#2080 the recorded shared cage is regenerated from the selected bars', () =>
     demand: ConcurrentDemand.fromTuples([{ comboId: i + 1, comboName: `C${i + 1}`, forces: {
       t: 0.5, x: 2, n: 0, my: m, mz: m, vy: 1, vz: 1, torsion: 0,
     } }])[0]!.section('My') }));
-  const record = (f: ReturnType<typeof verifyElement>['flexure']) => ({ d: f.d, AsProv: f.AsProv, bars: f.bars, phiMn: f.phiMn, ratio: f.ratio, steps: f.steps });
+  const record = (f: ReturnType<typeof verifyElement>['flexure']) => ({ d: f.providedDepth, AsProv: f.AsProv, bars: f.bars, phiMn: f.phiMn, ratio: f.ratio, steps: f.steps });
   const fixed = { small: record(verifyElement(inputs[0]!).flexure), large: record(verifyElement(inputs[1]!).flexure),
     shared: record(verifyConcurrentElement(inputs).concurrentChecks![0]!.verification.flexure) };
   expect(fixed.shared.d).toBe(geometry.h - geometry.cover - geometry.stirrupDia / 1000 - verifyElement(inputs[1]!).flexure.barDia / 2000);

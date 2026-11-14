@@ -20,7 +20,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       for (const v of [verifyElement(inputs[1]!), verifyElement(inputs[0]!, { flexure: large }),
         prepareElementVerification(inputs[0]!)({ flexure: staleDepth }),
         ...verifyConcurrentElement(inputs).concurrentChecks!.map(c => c.verification)]) {
-        expect(v.flexure.d).toBe(depth);
+        expect(v.flexure.providedDepth).toBe(depth);
         expect(v.flexure.phiMn).toBe(oracle.phiMn / 1000);
       }
     });
@@ -93,7 +93,7 @@ for (const stirrupDia of [8, 12]) it(`#2080 a fixed cage derives depth from the 
   const demand = ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'fixed', forces: { ...station(0.5, 20), n: 0 } }])[0]!;
   const v = verifyElement({ ...section, elementId: 1, elementType: 'beam', demand: demand.section('My') }, { flexure: cage });
   const d = section.h - section.cover - stirrupDia / 1000 - cage.barDia / 2000;
-  expect(v.flexure.d).toBe(d);
+  expect(v.flexure.providedDepth).toBe(d);
   expect(v.flexure.phiMn).toBe(evaluateBeamSection({ edition: '2025', fc: section.fc * 1e6, fy: section.fy * 1e6, b: section.b, h: section.h,
     d, As: cage.AsProv * 1e-4, AsComp: 0, dPrime: 0, Ag: section.b * section.h, NuCompression: 0 })!.phiMn / 1000);
 });
