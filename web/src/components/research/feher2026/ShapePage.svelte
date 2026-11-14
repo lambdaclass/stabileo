@@ -10,7 +10,7 @@
   import { rs } from '../i18n';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import { shapeStrings } from './strings';
-  import { decodeRun, endAngles, type ShapeRun } from './protocol';
+  import { decodeRun, endAngles, isPaper, PAPER, type ShapeRun, type ShapeSettings } from './protocol';
   import replay from '../../../../../research/stability/feher-sipos-varkonyi-2026/reference-results/replay.json';
   import validation from '../../../../../research/stability/feher-sipos-varkonyi-2026/VALIDATION.json';
 
@@ -25,11 +25,11 @@
   const replayRun = decodeRun(replay);
   let run = $state.raw<ShapeRun>(replayRun);
   let tab = $state<'strip' | 'path'>('strip');
-  let cornerTheta = $state(1.3);
-  let cornerDelta = $state(1.3);
+  let settings = $state<ShapeSettings>({ ...PAPER });
   let source = $state<'replay' | 'live'>('replay');
   let busy = $state(false);
   let failed = $state(false);
+  let startLost = $state(false);
   let host: HTMLDivElement;
   let worker: Worker | null = null;
 
@@ -45,7 +45,17 @@
   const cells = $derived(Array.from({ length: run.elements }, (_, i) => [i, i + 1]).flat());
   const displacement = $derived(frame.ux.flatMap((u, i) => [u, frame.uz[i]]));
   const heightSeries = $derived([{ name: s.height, color: 'var(--rs-plot-ours)', points: run.frames.map((f, i) => [i, f.y_mid] as [number, number]) }]);
+  const atPaper = $derived(isPaper(settings));
+  const changes = $derived.by(() => {
+    const list: string[] = [];
+    if (settings.q !== PAPER.q) list.push(`q = ${num(settings.q, { dp: 1 })}`);
+    if (settings.half !== PAPER.half) list.push(s.half);
+    if (settings.elements !== PAPER.elements) list.push(`${settings.elements} ${s.members.toLocaleLowerCase(publicI18n.locale)}`);
+    if (settings.theta !== PAPER.theta || settings.delta !== PAPER.delta) list.push(`${s.cornerShort} (${num(settings.theta, { dp: 2 })}; ${num(settings.delta, { dp: 2 })})`);
+    return list.join(', ');
+  });
   const ending = $derived.by(() => {
+    if (startLost) return s.startLost;
     if (run.lost) return fill(s.lost, { t: num(run.lost.theta, { dp: 2 }), d: num(run.lost.delta, { dp: 2 }) });
     if (run.snaps.length) {
       const f = run.frames[run.snaps[0]];
@@ -115,21 +125,26 @@
 
   function stop() { playback.interact(); worker?.terminate(); worker = null; busy = false; }
   function compute() {
-    stop(); busy = true; failed = false;
+    stop(); busy = true; failed = false; startLost = false;
     const active = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
     worker = active;
     active.onmessage = event => {
       if (worker !== active) return;
       try {
+        if (event.data.error === 'start') { startLost = true; active.terminate(); worker = null; busy = false; return; }
         if (event.data.error) throw new Error();
         run = decodeRun(event.data.result); source = 'live'; playback.setCount(run.frames.length); playback.seek(0); playback.play();
       } catch { failed = true; }
       active.terminate(); worker = null; busy = false;
     };
     active.onerror = () => { if (worker === active) { failed = true; stop(); } };
-    active.postMessage({ theta: cornerTheta, delta: cornerDelta });
+    active.postMessage($state.snapshot(settings));
   }
   function restart() { stop(); playback.seek(0); playback.play(); }
+  function backToPaper() {
+    stop(); settings = { ...PAPER }; failed = false; startLost = false;
+    run = replayRun; source = 'replay'; playback.setCount(run.frames.length); playback.seek(0); playback.play();
+  }
   function setTab(next: string) {
     if (next === 'strip' || next === 'path') tab = next;
   }
@@ -139,8 +154,11 @@
     playback.seek(step);
   }
   function setParams(params: Record<string, number | string | boolean>) {
-    if (typeof params.theta !== 'number' || typeof params.delta !== 'number') return;
-    cornerTheta = params.theta; cornerDelta = params.delta; setTab('strip'); compute();
+    const next: ShapeSettings = { ...PAPER };
+    for (const key of ['theta', 'delta', 'q', 'elements'] as const) if (typeof params[key] === 'number') next[key] = params[key] as number;
+    if (typeof params.half === 'boolean') next.half = params.half;
+    settings = next; setTab('strip');
+    if (isPaper(next)) backToPaper(); else compute();
   }
 
   onMount(() => {
@@ -171,6 +189,8 @@
     <p>{fill(s.runText, { start: num(replayRun.frames[0].y_mid, { dp: 3 }), end: num(replayRun.frames[replayRun.frames.length - 1].y_mid, { dp: 3 }) })}</p>
     <p>{s.cusp}</p>
     <p><ExperimentLink params={{ theta: 1.3, delta: 0.6 }}>{s.tryBelow}</ExperimentLink> · <ExperimentLink params={{ theta: 1.05, delta: 1.3 }}>{s.tryFold}</ExperimentLink></p>
+    <p>{s.interactive}</p>
+    <p><ExperimentLink params={{ q: 1.5 }}>{s.tryLight}</ExperimentLink> · <ExperimentLink params={{ q: 4 }}>{s.tryHeavy}</ExperimentLink></p>
     <h2>{s.limitsHeading}</h2>
     <p>{s.limits}</p>
     <h2 id="checks">{s.checksHeading}</h2>
@@ -194,16 +214,24 @@
       </table>
     </div>
     <p>{s.openNote}</p>
+    <h2 id="why">{s.why.heading}</h2>
+    <p>{s.why.intro}</p>
+    <div class="why">
+      {#each s.why.items as item}
+        <details><summary>{item.title}</summary><p>{item.body}</p></details>
+      {/each}
+    </div>
     <p><a href="https://arxiv.org/abs/2509.12916v1">{s.paper}</a> · <a href="https://doi.org/10.1016/j.euromechsol.2025.106000">{s.journal}</a></p>
   {/snippet}
   {#snippet app()}
     <div lang={publicI18n.locale} class="shape-app" bind:this={host} data-source={source} data-step={playback.shown} data-tab={tab}
       data-theta={frame.theta} data-delta={frame.delta} data-ymid={frame.y_mid} data-stable={frame.stable}
+      data-load={run.load} data-distribution={run.distribution} data-elements={run.elements} data-paper={atPaper && source === 'replay'} data-stale={startLost}
       onpointerdowncapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} role="group" aria-label={s.title}>
       <PaneTabs label={s.caseLabel} tabs={[{ id: 'strip', label: s.tabs.strip }, { id: 'path', label: s.tabs.path }]}
         bind:active={() => tab, setTab} oninteract={() => playback.interact()} />
       <p class="source">{source === 'replay' ? shared.replaySource : shared.liveSource}</p>
-      <div id="rs-panel-strip" role="tabpanel" aria-labelledby="rs-tab-strip" hidden={tab !== 'strip'}>
+      <div id="rs-panel-strip" role="tabpanel" aria-labelledby="rs-tab-strip" hidden={tab !== 'strip'} class:stale={startLost}>
         <StabileoViewer editorButton={false} {xy} {cells} cellSize={2} values={frame.curvature} {displacement} deformScale={1}
           range={{ min: -10, max: 10 }} colourMap="diverging" title={s.curvature} height="max(240px, min(20rem, 38svh))" view={[-0.12, -0.27, 1.08, 0.3]} lineWidth={5} showAxes={false} />
         <p class="caption">{s.coordinates}</p>
@@ -215,7 +243,7 @@
           <dt>{s.stability}</dt><dd class:bad={!frame.stable}>{frame.stable ? s.stable : s.unstable}</dd>
         </dl>
       </div>
-      <div id="rs-panel-path" role="tabpanel" aria-labelledby="rs-tab-path" hidden={tab !== 'path'}>
+      <div id="rs-panel-path" role="tabpanel" aria-labelledby="rs-tab-path" hidden={tab !== 'path'} class:stale={startLost}>
         {#if tab === 'path'}
           <svg class="plane" viewBox="0 0 300 218" role="img" aria-label={s.plane}>
             <title>{s.plane}</title>
@@ -241,10 +269,26 @@
       {#if source === 'replay'}
         <div class="buttons">{#each Object.entries(matches) as [label, m]}<button onclick={() => goToStep(m.step)}>{s.shape} {label}</button>{/each}</div>
       {/if}
-      <div class="params">
-        <label>{s.cornerTheta} <strong>{num(cornerTheta, { dp: 2 })}</strong><input id="shape-theta" type="range" min="1.05" max="1.6" step="0.05" bind:value={cornerTheta} onchange={compute} /></label>
-        <label>{s.cornerDelta} <strong>{num(cornerDelta, { dp: 2 })}</strong><input id="shape-delta" type="range" min="0.2" max="1.8" step="0.1" bind:value={cornerDelta} onchange={compute} /></label>
-      </div>
+      <fieldset class="params-box">
+        <legend>{s.paramsHeading}</legend>
+        <p class="status" class:changed={!atPaper}>{atPaper ? s.atPaper : fill(s.changed, { list: changes })}</p>
+        <div class="params">
+          <label>{s.load} <strong>{num(settings.q, { dp: 1 })}</strong><input id="shape-q" type="range" min="0" max="4" step="0.1" bind:value={settings.q} onchange={compute} /></label>
+          <div class="choice" role="radiogroup" aria-label={s.distribution}>
+            <span>{s.distribution}</span>
+            <div class="buttons">
+              <button role="radio" aria-checked={!settings.half} onclick={() => { if (settings.half) { settings.half = false; compute(); } }}>{s.uniformShort}</button>
+              <button role="radio" aria-checked={settings.half} onclick={() => { if (!settings.half) { settings.half = true; compute(); } }}>{s.halfShort}</button>
+            </div>
+          </div>
+          <label>{s.cornerTheta} <strong>{num(settings.theta, { dp: 2 })}</strong><input id="shape-theta" type="range" min="1.05" max="1.6" step="0.05" bind:value={settings.theta} onchange={compute} /></label>
+          <label>{s.cornerDelta} <strong>{num(settings.delta, { dp: 2 })}</strong><input id="shape-delta" type="range" min="0.2" max="1.8" step="0.1" bind:value={settings.delta} onchange={compute} /></label>
+          <label>{s.members} <strong>{settings.elements}</strong><input id="shape-members" type="range" min="20" max="120" step="10" bind:value={settings.elements} onchange={compute} /></label>
+        </div>
+        <div class="buttons">
+          <button class="primary" onclick={backToPaper} disabled={atPaper && source === 'replay'}>{s.backToPaper}</button>
+        </div>
+      </fieldset>
       <p class="caption">{s.runNote} {s.computedCorner} Θ = {num(run.corner[0], { dp: 2 })}, Δ = {num(run.corner[1], { dp: 2 })}.</p>
       <div class="buttons">
         <button onclick={compute} disabled={busy}>{s.run}</button><button onclick={stop}>{s.stop}</button><button onclick={restart}>{s.restart}</button>
@@ -261,6 +305,7 @@
   [role='tabpanel'][hidden] { display: none; }
   p { font-size: 0.85rem; margin: 0; }
   .source, .caption { color: var(--fg-2); font-size: 0.8rem; }
+  .stale { opacity: 0.45; }
   .outcome { font-size: 0.85rem; }
   label { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
   input[type='range'] { width: 100%; min-height: 44px; margin: 0; }
@@ -280,6 +325,18 @@
   .plane .marker-label { fill: var(--fg); }
   .plane .now { fill: var(--rs-plot-ours); }
   .plane .now.bad { fill: #e5484d; }
+  .params-box { border: 1px solid var(--hair); border-radius: 6px; padding: 0.5rem 0.75rem 0.75rem; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+  .params-box legend { font-size: 0.85rem; font-weight: 600; padding: 0 0.3rem; }
+  .status { color: var(--fg-2); }
+  .status.changed { color: var(--fg); }
+  .choice { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
+  button[aria-checked='true'] { border-color: var(--rs-plot-ours); box-shadow: inset 0 0 0 1px var(--rs-plot-ours); }
+  button.primary:not(:disabled) { border-color: var(--rs-plot-ours); }
+  .why { display: flex; flex-direction: column; gap: 0.4rem; }
+  .why details { border: 1px solid var(--hair); border-radius: 6px; padding: 0.55rem 0.75rem; }
+  .why summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; line-height: 1.35; }
+  .why details[open] summary { margin-bottom: 0.5rem; }
+  .why details p { font-size: 0.9rem; line-height: 1.5; }
   .table-scroll { overflow-x: auto; }
   .checks { width: 100%; border-collapse: collapse; font-size: 0.85rem; line-height: 1.35; }
   .checks th, .checks td { text-align: left; vertical-align: top; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--hair); }

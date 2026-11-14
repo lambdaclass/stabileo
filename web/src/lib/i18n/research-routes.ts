@@ -1,7 +1,7 @@
 export const RESEARCH_GALLERY = '/research';
 
-const ALL = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
-const BASE = ['en', 'es', 'pt'] as const;
+const ALL = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'] as const;
+const BASE = ['en', 'es', 'pt', 'hu'] as const;
 
 /** The languages each research page is written in; `research-locales.test.ts` holds this to every page's own dictionaries. */
 const PUBLISHED: Record<string, readonly string[]> = {

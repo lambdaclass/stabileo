@@ -63,13 +63,13 @@ function publicI18nPlugin(): Plugin {
       if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), true, watch)};\n`;
       if (resolved === `\0${app}` || resolved.startsWith(`\0${app}/`)) {
         const locale = resolved.slice(app.length + 2);
-        return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr'])
+        return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'])
           .map((loc) => `export const ${loc} = ${isComplete(loc) ? entries(loc, false, watch) : '{}'};\n`).join('');
       }
       if (resolved !== '\0' + id) return null;
       let out = '';
       const lazy: string[] = [];
-      for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
         if (!isComplete(loc) || (!eager && loc !== 'en')) {
           out += `export const ${loc} = {};\n`;
           if (isComplete(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);

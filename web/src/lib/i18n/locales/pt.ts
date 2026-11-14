@@ -3951,6 +3951,7 @@ const pt: Translations = {
   'lang.pt': 'Português',
   'lang.ru': 'Русский',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.zh': '中文',
   'loadPlan.blocked.seismicNoR': 'A Tabela 5.1 não dá fator de redução R para "{system}". A linha 1 imprime uma expressão sobre a disposição das paredes em vez de um valor; qualquer outra linha ausente é um sistema não identificado. Não há por que dividir o espectro.',
   'loadPlan.assumption.liveParticipation': 'A fração de sobrecarga incluída no peso sísmico foi adotada como {fraction}. Depende do uso da construção e o projeto não a indica.',

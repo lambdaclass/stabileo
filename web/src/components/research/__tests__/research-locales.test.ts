@@ -22,7 +22,7 @@ import { shauerLocales } from '../shauer2025/locales';
 import { strings as shell } from '../shell1985/i18n';
 import { translations as shellArticle } from '../shell1985/article';
 
-const ALL = ['en', 'es', 'pt', 'de', 'fr', 'tr'];
+const ALL = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'];
 const defined = (...dictionaries: object[]) => ALL.filter((l) => dictionaries.every((d) => l in d));
 const either = (base: object, extra: object) => {
   if (ALL.some((l) => l in base && l in extra)) throw new Error('a page dictionary and its extra languages overlap');

@@ -80,6 +80,12 @@ defmodule StabileoRepo.Schemas.AccountTest do
       assert %{password: ["should be at most 72 character(s)"]} = errors_on(changeset)
     end
 
+    test "accepts Hungarian, the seventh offered locale" do
+      changeset = @valid |> Map.put(:locale, "hu") |> Account.registration_changeset()
+      assert changeset.valid?
+      assert Ecto.Changeset.get_change(changeset, :locale) == "hu"
+    end
+
     test "rejects an unknown locale" do
       changeset = @valid |> Map.put(:locale, "xx") |> Account.registration_changeset()
       assert %{locale: ["is invalid"]} = errors_on(changeset)

@@ -144,7 +144,7 @@ describe('page text', () => {
       const flat = JSON.stringify(locale);
       expect(flat).not.toMatch(/"\s*"/);
     }
-    expect(Object.keys(strings).sort()).toEqual(['de', 'en', 'es', 'fr', 'pt', 'tr']);
+    expect(Object.keys(strings).sort()).toEqual(['de', 'en', 'es', 'fr', 'hu', 'pt', 'tr']);
   });
   it('builds the model description from the solved parameters', () => {
     for (const locale of Object.values(strings)) {

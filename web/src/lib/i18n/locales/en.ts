@@ -3937,6 +3937,7 @@ const en: Record<string, string> = {
   'lang.fr': 'Fran\u00E7ais',
   'lang.it': 'Italiano',
   'lang.tr': 'T\u00FCrk\u00E7e',
+  'lang.hu': 'Magyar',
   'lang.hi': '\u0939\u093F\u0928\u094D\u0926\u0940',
   'lang.zh': '中文',
   'lang.ja': '日本語',
