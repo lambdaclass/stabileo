@@ -64,8 +64,10 @@ retain complete generated cases. The existing two-pitch snapshot gains the
 additional orientation's cases without changing or deleting its old values.
 The snapshot applicability gate now parses snowRoof corpus sources and routes
 them through the same openedFeatures path used by the snapshot harness, without
-requiring a bundled example or saved project. Missing corpus context still
-fails. All other existing snow snapshots remain unchanged. No comparison tolerance or
+requiring a bundled example or saved project. Generated-load, snow-result and snow-derivation fields are checked as
+load generation before a solve: they require generated-load model context, a
+loads-area entry, matching conditions and declared quantities. They do not
+claim that a linear solve ran. Missing corpus context still fails. All other existing snow snapshots remain unchanged. No comparison tolerance or
 baseline assertion was relaxed.
 
 The advisory CI failure was in the post's shared updated field. SA-2026-061's

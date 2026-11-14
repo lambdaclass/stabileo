@@ -358,7 +358,7 @@ it('known wrong result: #2095 snow corpus context reaches the applicability gate
 });
 
 for (const path of ['generatedLoads.item7.distributed.item0.q', 'snowResult.ps', 'snowDerivation.item0.params.hb']) {
-  it.skip(`known wrong result: #2095 generated snow fields have pre-solve applicability ${path}`, () => {
+  it(`known wrong result: #2095 generated snow fields have pre-solve applicability ${path}`, () => {
     const entry = { id: 'snow', area: 'loads', when: { all: ['snow', 'generatedLoads'] }, quantities: ['*'] };
     const features = ['snow', 'members', 'space3D', 'generatedLoads'];
     const check = (notice = entry, opened = features) => decide({
