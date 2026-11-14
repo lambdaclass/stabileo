@@ -4,9 +4,10 @@ import { test } from 'node:test';
 import { build } from 'vite';
 
 async function landingBuild(accounts) {
-  const keys = ['VITE_ACCOUNTS', 'VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME', 'GITHUB_SHA'];
+  const keys = ['VITE_ACCOUNTS', 'VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME', 'VITE_E2E', 'VITE_APP_TYPE', 'GITHUB_SHA'];
   const previous = keys.map(key => process.env[key]);
-  Object.assign(process.env, { VITE_ACCOUNTS: accounts, VITE_RESEARCH: '0', VITE_TOOLS: '0', VITE_DIAGRAM_GAME: '0', GITHUB_SHA: '000000000000' });
+  Object.assign(process.env, { VITE_ACCOUNTS: accounts, VITE_RESEARCH: '0', VITE_TOOLS: '0', VITE_DIAGRAM_GAME: '0', VITE_E2E: '0', VITE_APP_TYPE: '', GITHUB_SHA: '000000000000' });
+  if (accounts === undefined) delete process.env.VITE_ACCOUNTS;
   try {
     const result = await build({
       root: resolve(import.meta.dirname, '..'),
@@ -48,7 +49,7 @@ async function landingBuild(accounts) {
   }
 }
 
-test.skip('known wrong result: #2099: accounts-off landing excludes account modules and retains its shared page chunk', async () => {
+test('accounts-off landing excludes account modules and retains its shared page chunk', async () => {
   const { manifest, modules } = await landingBuild('0');
   assert.deepEqual(modules.filter(id => /\/lib\/tracking\//.test(id)), []);
   assert.equal(manifest['src/components/register/RegisterPage.svelte'], undefined);
@@ -56,8 +57,14 @@ test.skip('known wrong result: #2099: accounts-off landing excludes account modu
   assert.ok(Object.entries(manifest).some(([key, item]) => key.startsWith('_LandingPage-') && item.name === 'LandingPage'));
 });
 
-test.skip('known wrong result: #2099: accounts-on build keeps registration available and consent outside the static landing closure', async () => {
+test('accounts-on build keeps registration available and consent outside the static landing closure', async () => {
   const { manifest, modules } = await landingBuild('1');
+  assert.ok(manifest['src/components/register/RegisterPage.svelte']);
+  assert.deepEqual(modules.filter(id => /\/lib\/tracking\//.test(id)), []);
+});
+
+test('an unspecified accounts build switch retains the registration chunk for browser overrides', async () => {
+  const { manifest, modules } = await landingBuild(undefined);
   assert.ok(manifest['src/components/register/RegisterPage.svelte']);
   assert.deepEqual(modules.filter(id => /\/lib\/tracking\//.test(id)), []);
 });

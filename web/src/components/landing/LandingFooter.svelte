@@ -4,8 +4,19 @@
   import { SOCIAL_ICONS as ICONS } from '../../lib/contact/channels';
   import PublicLink from './PublicLink.svelte';
   import BrandMark from './BrandMark.svelte';
-  import { publicFeatureEnabled } from '../../lib/features';
-  import { adConsent } from '../../lib/tracking/ad-consent.svelte';
+  import { accounts, ACCOUNT_ROUTES_AVAILABLE, publicFeatureEnabled } from '../../lib/features';
+  import { onMount } from 'svelte';
+
+  let adConsent = $state<typeof import('../../lib/tracking/ad-consent.svelte').adConsent | null>(null);
+
+  onMount(() => {
+    if (ACCOUNT_ROUTES_AVAILABLE && accounts()) {
+      void import('../../lib/tracking/ad-consent.svelte').then(
+        module => { adConsent = module.adConsent; },
+        error => console.warn('landing: advertising preferences did not load', error),
+      );
+    }
+  });
 
   const year = new Date().getFullYear();
   const GROUPS: [string, string, [string, string][]][] = [
@@ -36,7 +47,7 @@
               {#if id === 'project'}
                 <li><a href={DOCS_HUB_URL} target="_blank" rel="noreferrer">{t('landing.footDocs')}</a></li>
                 <li><a href={REPO_URL} target="_blank" rel="noreferrer">{t('landing.footRepo')}</a></li>
-                {#if adConsent.available}<li><button onclick={() => adConsent.reopen()} data-testid="footer-ad-cookies">{t('landing.footAdCookies')}</button></li>{/if}
+                {#if adConsent?.available}<li><button onclick={() => adConsent?.reopen()} data-testid="footer-ad-cookies">{t('landing.footAdCookies')}</button></li>{/if}
               {/if}
             </ul>
           </div>

@@ -37,8 +37,10 @@ export function canonicalSections(): boolean {
   return readFlag('canonical-sections', true);
 }
 
+export const ACCOUNT_ROUTES_AVAILABLE = import.meta.env?.VITE_ACCOUNTS !== '0';
+
 export function accounts(): boolean {
-  return readFlag('accounts', import.meta.env?.DEV || import.meta.env?.VITE_ACCOUNTS === '1');
+  return ACCOUNT_ROUTES_AVAILABLE && readFlag('accounts', import.meta.env?.DEV || import.meta.env?.VITE_ACCOUNTS === '1');
 }
 
 export function research(): boolean {

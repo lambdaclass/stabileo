@@ -1,5 +1,6 @@
 import type { Component } from 'svelte';
 import { routeKind } from './public-route';
+import { ACCOUNT_ROUTES_AVAILABLE } from './features';
 
 type Page = Component<{ path: string }>;
 const pending = new Map<string, Promise<Page | null>>();
@@ -22,7 +23,7 @@ export function loadPublicPage(path: string): Promise<Page | null> {
           ? import('../components/blog/BlogPage.svelte').then(m => m.default)
         : route.kind === 'paper'
           ? import('../components/paper/PaperPage.svelte').then(m => m.default)
-        : route.kind === 'register'
+        : ACCOUNT_ROUTES_AVAILABLE && route.kind === 'register'
           ? import('../components/register/RegisterPage.svelte').then(m => m.default as unknown as Page)
         : route.kind === 'landing'
           ? import('../components/LandingPage.svelte').then(m => m.default as unknown as Page)
