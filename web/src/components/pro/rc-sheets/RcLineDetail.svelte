@@ -19,6 +19,9 @@
   const MARKS_KEY = 'stabileo-rc-marks';
   let showMarks = $state((() => { try { return localStorage.getItem(MARKS_KEY) !== '0'; } catch { return true; } })());
   function setMarks(on: boolean) { showMarks = on; try { localStorage.setItem(MARKS_KEY, on ? '1' : '0'); } catch { /* lasts the session */ } }
+  const ENV_KEY = 'stabileo-rc-envelope';
+  let showEnvelope = $state((() => { try { return localStorage.getItem(ENV_KEY) !== '0'; } catch { return true; } })());
+  function setEnvelope(on: boolean) { showEnvelope = on; try { localStorage.setItem(ENV_KEY, on ? '1' : '0'); } catch { /* lasts the session */ } }
   /** The marks of the bars a face has at x along the line. */
   const marksAt = (face: 'top' | 'bottom', x: number) => line.bars.filter((b) => b.face === face && b.from <= x + 1e-6 && b.to >= x - 1e-6).map((b) => b.mark);
   const kind = (k: string) => t(`rcSheets.line.kind.${k}`);
@@ -47,8 +50,11 @@
 
 <RcResize row={line} {spans} {onleave} />
 <RcLineEditor {line} />
-<label class="rcd-marks"><input type="checkbox" checked={showMarks} onchange={(e) => setMarks(e.currentTarget.checked)} data-testid="rc-marks-toggle" /> {t('rcSheets.line.showMarks')}</label>
-<RcLineSvg {line} marks={showMarks} />
+<div class="rcd-toggles">
+  <label class="rcd-marks"><input type="checkbox" checked={showMarks} onchange={(e) => setMarks(e.currentTarget.checked)} data-testid="rc-marks-toggle" /> {t('rcSheets.line.showMarks')}</label>
+  <label class="rcd-marks"><input type="checkbox" checked={showEnvelope} onchange={(e) => setEnvelope(e.currentTarget.checked)} data-testid="rc-envelope-toggle" /> {t('rcSheets.line.showEnvelope')}</label>
+</div>
+<RcLineSvg {line} marks={showMarks} envelope={showEnvelope} />
 <h5 class="rcd-h">{t('rcSheets.sections')}</h5>
 <div class="rcd-secs">
   {#each sections as g (g.key)}
@@ -103,5 +109,6 @@
   .st-warn .rcd-toggle span { color: var(--st-warn); }
   .st-fail .rcd-toggle span { color: var(--st-danger); }
   .rcd-secs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .rcd-toggles { display: flex; flex-wrap: wrap; gap: 4px 14px; }
   .rcd-marks { display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--st-text-2); margin: 2px 0 4px; cursor: pointer; }
 </style>

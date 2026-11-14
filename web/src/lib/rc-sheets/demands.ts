@@ -4,7 +4,7 @@ import { woodArmer } from '../engine/wood-armer';
 import { effectiveFlange, type FlangeSide } from '../codes/cirsoc201/effective-flange';
 import { wallBaseResultants } from '../engine/detailing/wall-design';
 import type { AnalysisResults3D, ElementForces3D } from '../engine/types-3d';
-import type { BeamComboForces, BeamDemand, SectionEnv } from './beam-row';
+import type { BeamComboForces, BeamDemand, BeamEnd, SectionEnv } from './beam-row';
 import type { ColumnCase, ColumnDemand } from './column-row';
 import type { SlabComboForces, SlabDemand, SlabFace } from './slab-row';
 import type { WallComboForces, WallDemand } from './wall-row';
@@ -171,6 +171,15 @@ function flangeOf(m: DemandInput, span: Array<{ e: El; forward: boolean }>, bw: 
   return f && f.bf > bw + 1e-6 ? { bf: f.bf, hf: f.hf } : null;
 }
 
+function endOf(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>, node: number, half: number): BeamEnd {
+  const others = (inc.get(node) ?? []).filter((o) => !mine.has(o.id));
+  if (others.some((o) => isVertical(m, o))) return { kind: 'column', half };
+  if (m.supportNodes.has(node)) return { kind: 'support', half };
+  const beam = others.find((o) => o.type !== 'truss');
+  if (beam) return { kind: 'beam', half: (m.sections.get(beam.sectionId)?.b ?? 0) / 2 };
+  return { kind: 'free', half: 0 };
+}
+
 export function beamDemands(m: DemandInput): BeamDemand[] {
   const inc = incidence(m);
   const out: BeamDemand[] = [];
@@ -238,6 +247,10 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         faces: m.faces ? { start: faceI, end: faceJ, shearAt: dv } : undefined,
         ...(m.faceOffset ? { supportHalf: { start: m.faceOffset(first.id, span[0]!.forward ? 'i' : 'j'), end: m.faceOffset(lastEl.e.id, lastEl.forward ? 'j' : 'i') } } : {}),
         line: { group: g.id, index: k, spans: spans.length, startNode: span[0]!.forward ? first.nodeI : first.nodeJ, endNode: lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI, lineName: g.name },
+        ends: {
+          start: endOf(m, inc, mine, span[0]!.forward ? first.nodeI : first.nodeJ, m.faceOffset?.(first.id, span[0]!.forward ? 'i' : 'j') ?? 0),
+          end: endOf(m, inc, mine, lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI, m.faceOffset?.(lastEl.e.id, lastEl.forward ? 'j' : 'i') ?? 0),
+        },
         env,
         ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, span, sec.b, x1 - x0) : null),
       });

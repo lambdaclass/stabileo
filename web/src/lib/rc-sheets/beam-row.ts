@@ -52,7 +52,11 @@ export interface BeamDemand {
   env?: Array<{ x: number; pos: number; neg: number; v: number }>;
   /** Half the support's extent along the beam at each end, m. */
   supportHalf?: { start: number; end: number };
+  /** What holds each end of the span: a column or wall, a support alone, a beam it frames into, or nothing (a cantilever's tip). */
+  ends?: { start: BeamEnd; end: BeamEnd };
 }
+
+export interface BeamEnd { kind: 'column' | 'support' | 'beam' | 'free'; /** Half the holding member's extent along the beam, m. */ half: number }
 
 export interface BeamContext {
   mat: Materials;

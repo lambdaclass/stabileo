@@ -77,6 +77,11 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(ws.getByTestId('rc-line-marks')).toHaveCount(0);
   await expect(ws.getByTestId('rc-section-marks')).toHaveCount(0);
   await ws.getByTestId('rc-marks-toggle').check();
+  await expect(ws.getByTestId('rc-line-envelope')).toBeVisible();
+  await expect(ws.getByTestId('rc-env-phivn')).toBeVisible();
+  await ws.getByTestId('rc-envelope-toggle').uncheck();
+  await expect(ws.getByTestId('rc-line-envelope')).toHaveCount(0);
+  await ws.getByTestId('rc-envelope-toggle').check();
   await expect(ws.getByTestId('rc-schedule')).toBeVisible();
   await expect(ws.getByTestId('rc-section').first()).toContainText('V1-1 · i');
   await expect(ws.getByTestId('rc-section').first().locator('circle').first()).toBeVisible();

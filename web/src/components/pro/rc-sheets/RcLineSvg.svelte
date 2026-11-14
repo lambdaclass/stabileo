@@ -4,28 +4,35 @@
   import { stirrupsLabel } from '../../../lib/rc-sheets/bars';
   import type { LineBar, LineLayout } from '../../../lib/rc-sheets/beam-line';
 
-  let { line, marks = false }: { line: LineLayout; marks?: boolean } = $props();
+  let { line, marks = false, envelope = false }: { line: LineLayout; marks?: boolean; envelope?: boolean } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const W = 1200, M = 56, TOP = 40, STUB = 22, BELOW = 12, ROW = 30;
-  const sx = $derived((W - 2 * M) / Math.max(line.length, 1e-6));
+  const x0 = $derived(Math.min(0, line.ends.from)), x1 = $derived(Math.max(line.length, line.ends.to));
+  const sx = $derived((W - 2 * M) / Math.max(x1 - x0, 1e-6));
   const hMax = $derived(Math.max(...line.spans.map((s) => s.h), 0.1));
   const sy = $derived(84 / hMax);
-  const X = (x: number) => M + x * sx;
+  const X = (x: number) => M + (x - x0) * sx;
   const supports = $derived([0, ...line.spans.map((s) => s.x1)]);
   const bottomOf = (h: number) => TOP + h * sy;
   const yBeamBottom = $derived(bottomOf(hMax));
   const coverPx = $derived(Math.max(9, (line.cover + 0.012) * sy));
   const spanAt = (x: number) => line.spans.find((s) => x >= s.x0 - 1e-9 && x <= s.x1 + 1e-9) ?? line.spans[0]!;
 
-  /** A bar's trace inside the beam, span by span (the depth may change between spans). */
+  /** A bar's trace inside the beam, span by span (the depth may change between spans); the end spans reach into the end supports. */
   function trace(bar: LineBar): Array<{ x1: number; x2: number; y: number }> {
     const inner = bar.kind === 'continuous' ? 0 : 6;
-    return line.spans.filter((s) => s.x1 > bar.from + 1e-6 && s.x0 < bar.to - 1e-6).map((s) => ({
-      x1: X(Math.max(s.x0, bar.from)), x2: X(Math.min(s.x1, bar.to)),
-      y: bar.face === 'top' ? TOP + coverPx + inner : bottomOf(s.h) - coverPx - inner,
-    }));
+    const last = line.spans.length - 1;
+    return line.spans.flatMap((s, k) => {
+      const lo = k === 0 ? -Infinity : s.x0, hi = k === last ? Infinity : s.x1;
+      const a = Math.max(lo, bar.from), b = Math.min(hi, bar.to);
+      return b - a > 1e-6 ? [{ x1: X(a), x2: X(b), y: bar.face === 'top' ? TOP + coverPx + inner : bottomOf(s.h) - coverPx - inner }] : [];
+    });
   }
-  const hookTo = (bar: LineBar, y: number) => (bar.face === 'top' ? y + 10 : y - 10);
+  /** A 90° hook's leg, 12 bar diameters at the drawing's vertical scale, kept inside the beam. */
+  const hookTo = (bar: LineBar, y: number) => {
+    const leg = Math.max(8, Math.min(hMax * sy - 2 * coverPx, (12 * bar.bars.dia / 1000) * sy));
+    return bar.face === 'top' ? y + leg : y - leg;
+  };
 
   const ticks = $derived(line.zones.flatMap((z) => {
     const s = spanAt((z.from + z.to) / 2), step = Math.max(z.stirrups.spacing, 5 / sx), out: number[] = [];
@@ -43,7 +50,27 @@
     const s = spanAt((bar.from + bar.to) / 2);
     return [fmt(bar.from - s.x0), fmt(s.x1 - bar.to)];
   }
-  const yDim = $derived(yBeamBottom + BELOW + 36);
+  const ENV_M = 96, ENV_V = 64, ENV_GAP = 18;
+  const yEnv = $derived(yBeamBottom + BELOW + 30);
+  const finite = (v: number) => (Number.isFinite(v) ? v : 0);
+  const muTop = $derived(Math.max(1e-6, ...line.envelope.flatMap((e) => [e.pos, e.neg])));
+  const vuTop = $derived(Math.max(1e-6, ...line.shear.map((e) => e.v)));
+  const mMax = $derived(1.5 * muTop), vMax = $derived(1.5 * vuTop);
+  const phiMTop = $derived(Math.max(0, ...line.envelope.flatMap((e) => [finite(e.phiPos), finite(e.phiNeg)])));
+  const phiVTop = $derived(Math.max(0, ...line.shear.map((e) => finite(e.phiVn))));
+  const yM = $derived(yEnv + ENV_M / 2);
+  const yV = $derived(yEnv + ENV_M + ENV_GAP + ENV_V);
+  const mY = (m: number) => yM + (m / mMax) * (ENV_M / 2 - 4);
+  const vY = (v: number) => yV - (v / vMax) * (ENV_V - 4);
+  const path = (pts: Array<[number, number]>) => pts.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`).join(' ');
+  /** Mu below the axis where it sags and above where it hogs, as it is drawn on the tension side. */
+  const muPos = $derived(path([[X(line.envelope[0]?.x ?? 0), yM], ...line.envelope.map((e) => [X(e.x), mY(e.pos)] as [number, number]), [X(line.envelope[line.envelope.length - 1]?.x ?? 0), yM]]) + ' Z');
+  const muNeg = $derived(path([[X(line.envelope[0]?.x ?? 0), yM], ...line.envelope.map((e) => [X(e.x), mY(-e.neg)] as [number, number]), [X(line.envelope[line.envelope.length - 1]?.x ?? 0), yM]]) + ' Z');
+  const phiPos = $derived(path(line.envelope.map((e) => [X(e.x), mY(Math.min(finite(e.phiPos), mMax))])));
+  const phiNeg = $derived(path(line.envelope.map((e) => [X(e.x), mY(-Math.min(finite(e.phiNeg), mMax))])));
+  const vu = $derived(path([[X(line.shear[0]?.x ?? 0), yV], ...line.shear.map((e) => [X(e.x), vY(e.v)] as [number, number]), [X(line.shear[line.shear.length - 1]?.x ?? 0), yV]]) + ' Z');
+  const phiV = $derived(path(line.shear.map((e) => [X(e.x), vY(Math.min(finite(e.phiVn), vMax))])));
+  const yDim = $derived(envelope && line.envelope.length ? yV + 30 : yBeamBottom + BELOW + 36);
   const ySchedule = $derived(yDim + 34);
   const H = $derived(ySchedule + line.bars.length * ROW + 8);
 </script>
@@ -90,6 +117,28 @@
   {#each line.zones as z, i (i)}
     <text x={X((z.from + z.to) / 2)} y={yBeamBottom + BELOW + 12} class="small">{stirrupsLabel(z.stirrups)}</text>
   {/each}
+
+  {#if envelope && line.envelope.length}
+    <g data-testid="rc-line-envelope">
+      <line x1={X(0)} y1={yM} x2={X(line.length)} y2={yM} class="envaxis" />
+      <path d={muPos} class="mu pos" />
+      <path d={muNeg} class="mu neg" />
+      <path d={phiPos} class="phim" data-testid="rc-env-phimn-pos" />
+      <path d={phiNeg} class="phim" />
+      <text x={M - 6} y={yM - ENV_M / 2 + 10} class="small end">Mu⁻</text>
+      <text x={M - 6} y={yM + ENV_M / 2 - 2} class="small end">Mu⁺</text>
+      <text x={W - M + 4} y={yM - ENV_M / 2 + 10} class="small start">φMn</text>
+      <line x1={X(0)} y1={yV} x2={X(line.length)} y2={yV} class="envaxis" />
+      <path d={vu} class="vu" />
+      <path d={phiV} class="phiv" data-testid="rc-env-phivn" />
+      <text x={M - 6} y={yV - ENV_V + 10} class="small end">|Vu|</text>
+      <text x={W - M + 4} y={yV - ENV_V + 10} class="small start">φVn</text>
+      <text x={W - M + 4} y={yM + 4} class="small start">{fmt(muTop, 0)}</text>
+      <text x={W - M + 4} y={yV - 2} class="small start">{fmt(vuTop, 0)}</text>
+      {#if phiMTop > mMax}<text x={W - M + 4} y={yM + ENV_M / 2 - 2} class="small start" data-testid="rc-env-phimn-off">↧ {fmt(phiMTop, 0)}</text>{/if}
+      {#if phiVTop > vMax}<text x={W - M + 4} y={yV - ENV_V + 22} class="small start">↥ {fmt(phiVTop, 0)}</text>{/if}
+    </g>
+  {/if}
 
   <line x1={X(0)} y1={yDim} x2={X(line.length)} y2={yDim} class="dimline" />
   {#each supports as xs, j (j)}<line x1={X(xs) - 4} y1={yDim + 4} x2={X(xs) + 4} y2={yDim - 4} class="dimline" />{/each}
@@ -138,4 +187,11 @@
   .markt { font-size: 10px; font-weight: 700; fill: var(--st-text); text-anchor: middle; font-family: var(--st-mono); }
   .mark.onbeam { fill: var(--st-surface-2); }
   .small-mark { font-size: 9px; }
+  .envaxis { stroke: var(--st-text-3); stroke-width: 0.7; }
+  .mu { stroke: none; }
+  .mu.pos { fill: rgba(78, 205, 196, 0.22); }
+  .mu.neg { fill: rgba(232, 93, 74, 0.22); }
+  .phim { fill: none; stroke: var(--st-text); stroke-width: 1.3; stroke-dasharray: 5 3; }
+  .vu { fill: rgba(224, 160, 60, 0.25); stroke: none; }
+  .phiv { fill: none; stroke: var(--st-text); stroke-width: 1.3; stroke-dasharray: 5 3; }
 </style>

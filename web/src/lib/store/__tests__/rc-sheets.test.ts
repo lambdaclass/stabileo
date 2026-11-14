@@ -174,7 +174,13 @@ describe('reinforcement sheets from a solved model', () => {
     expect(ln.status).toBe('ok');
     expect(ln.utilization).toBeLessThanOrEqual(1);
     const cont = ln.bars.filter((b) => b.kind === 'continuous');
-    expect(cont.map((b) => [b.from, b.to])).toEqual([[0, 10], [0, 10]]);
+    expect(ln.ends.start?.kind).toBe('column');
+    expect(ln.ends.end?.kind).toBe('column');
+    expect(ln.ends.from).toBeLessThan(-0.1);
+    expect(ln.ends.from).toBeGreaterThan(-0.2);
+    expect(ln.ends.to).toBeCloseTo(10 - ln.ends.from, 6);
+    expect(cont.map((b) => [b.from, b.to])).toEqual([[ln.ends.from, ln.ends.to], [ln.ends.from, ln.ends.to]]);
+    expect(ln.verifications.find((v) => v.label === 'rcSheets.v.lineEndAnchor')?.ok).toBe(true);
     const mid = ln.bars.find((b) => b.kind === 'support' && b.from < 5 && b.to > 5)!;
     expect(mid).toBeDefined();
     expect(mid.to - 5).toBeGreaterThan(0.6);
@@ -189,6 +195,39 @@ describe('reinforcement sheets from a solved model', () => {
     expect(cuts.map((x) => x.x).sort((p, q) => p - q)).toEqual([mid.from, mid.to]);
     expect(cuts.every((x) => x.legality !== 'illegal')).toBe(true);
     expect(ln.steps[0]!.steps.filter((x) => x.label === 'rcSheets.s.lineCutoff')).toHaveLength(ln.cutoffs.length);
+  });
+
+  it('stops the end bars inside the end columns, short of their outer bars, and hooks them there', () => {
+    frame(); solve();
+    const ln = buildSheetRows().line[0]!;
+    const half = ln.ends.start!.half;
+    expect(half).toBeCloseTo(0.2, 6);
+    const outer = half - ln.cover;
+    expect(-ln.ends.from).toBeLessThan(outer);
+    const topEnd = ln.bars.find((b) => b.face === 'top' && b.kind === 'continuous')!;
+    expect(topEnd.hooks).toEqual([true, true]);
+    expect(topEnd.length).toBeGreaterThan(ln.ends.to - ln.ends.from);
+  });
+
+  it('fails the end anchorage when the hook does not fit in a thin end column', () => {
+    frame();
+    const thin = modelStore.addSection({ name: '15×40', a: 0.06, iy: 0.4 * 0.15 ** 3 / 12, iz: 0.15 * 0.4 ** 3 / 12, j: 0.0003, b: 0.4, h: 0.15, shape: 'rect' } as never);
+    for (const e of modelStore.elements.values()) if (e.nodeI !== e.nodeJ && Math.abs((modelStore.nodes.get(e.nodeJ)!.z ?? 0) - (modelStore.nodes.get(e.nodeI)!.z ?? 0)) > 1) modelStore.updateElementSection(e.id, thin);
+    solve();
+    const ln = buildSheetRows().line[0]!;
+    const v = ln.verifications.find((x) => x.label === 'rcSheets.v.lineEndAnchor')!;
+    expect(ln.ends.start!.half).toBeLessThan(0.1);
+    expect(v.ok).toBe(false);
+    expect(v.ratio!).toBeGreaterThan(1);
+  });
+
+  it('gives the line its shear envelope against the stirrups of each zone', () => {
+    frame(); solve();
+    const ln = buildSheetRows().line[0]!;
+    expect(ln.shear.length).toBe(ln.envelope.length);
+    expect(ln.shear.every((s) => s.phiVn > 0)).toBe(true);
+    expect(Math.max(...ln.shear.map((s) => s.v))).toBeGreaterThan(50);
+    expect(ln.shear.every((s) => s.v <= s.phiVn + 1e-6)).toBe(true);
   });
 
   it('cuts a column per storey, with its clear height and the fixed foot\'s restraint', () => {

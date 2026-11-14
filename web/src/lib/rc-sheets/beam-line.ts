@@ -5,12 +5,14 @@ import { evaluateCutoff, type CutoffLegality } from '../engine/detailing/generat
 import { evaluateBeamSections } from '../engine/codes/argentina/cirsoc201-beam-kernel';
 import { minFlexuralSteelCm2 } from '../engine/codes/argentina/cirsoc201-basis';
 import { barArea, faceLayout, groupsArea, groupsLabel, roundDown } from './bars';
-import { phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamRow } from './beam-row';
+import { phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamEnd, type BeamRow } from './beam-row';
 import type { Fmt } from './format';
 import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type RowStatus, type StepGroup, type Stirrups } from './types';
 
 const EDITION = '2025' as const;
 const STOCK_LENGTH = 12;
+/** A column's longitudinal bar the beam's bars stop inside of, m. */
+const COLUMN_BAR = 0.016;
 const step = (x: number) => Math.ceil(x / 0.05 - 1e-9) * 0.05;
 
 /** One section of a span the line asks a capacity of: the bars in tension and in compression, and whether it sags (the flange then counts). */
@@ -101,6 +103,10 @@ export interface LineLayout {
   cutoffs: Array<{ mark: string; face: 'top' | 'bottom'; x: number; legality: CutoffLegality }>;
   anchorage: Array<{ dia: number; ld: number; ldTop: number; ldh: number; lap: number }>;
   envelope: Array<{ x: number; pos: number; neg: number; phiPos: number; phiNeg: number }>;
+  /** Shear along the line over all combinations, and the design capacity of the stirrups there, kN. */
+  shear: Array<{ x: number; v: number; phiVn: number }>;
+  /** Where the bars that reach each end of the line stop, m along it (negative before the first axis), and what holds that end. */
+  ends: { from: number; to: number; start?: BeamEnd; end?: BeamEnd };
   spanAdopted: BeamAdopted[];
   verifications: CheckLine[];
   utilization: number;
@@ -135,6 +141,10 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
   const spans: Span[] = sorted.map((row) => { const s = { row, x0: x, L: row.length, b: row.b, h: row.h, d: row.h - c.cover - c.stirrupDia / 1000 - 0.01 }; x += row.length; return s; });
   const total = x;
   const supports = [0, ...spans.map((s) => s.x0 + s.L)];
+  const endStart = sorted[0]?.demand.ends?.start, endEnd = sorted[sorted.length - 1]?.demand.ends?.end;
+  const inset = c.cover + c.stirrupDia / 1000 + COLUMN_BAR;
+  const reachInto = (e: BeamEnd | undefined) => (!e ? 0 : e.kind === 'free' ? -c.cover : Math.max(0, e.half - inset));
+  const xFrom = -reachInto(endStart), xTo = total + reachInto(endEnd);
   const reqAt = (r: BeamRow, sign: 'pos' | 'neg', sec: 'start' | 'span' | 'end') =>
     Math.max(0, ...r.req.bySection.filter((x) => x.sign === sign && x.section === sec).map((x) => x.req));
   const botDia = commonDia(sorted.map((r) => r.proposed.bottom), 16), topDia = commonDia(sorted.map((r) => r.proposed.top), 16);
@@ -171,8 +181,8 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
       const length = to - from + (hooks[0] ? hookLength(g.dia) : 0) + (hooks[1] ? hookLength(g.dia) : 0);
       bars.push({ mark: next(), face, kind, bars: g, from, to, hooks, length, weight: weightOf(g, length) });
     };
-    add('bottom', 'continuous', a.bottom, 0, total, [true, true]);
-    add('top', 'continuous', a.top, 0, total, [true, true]);
+    add('bottom', 'continuous', a.bottom, xFrom, xTo, [true, true]);
+    add('top', 'continuous', a.top, xFrom, xTo, [true, true]);
     const contCap = (sign: 'pos' | 'neg') => spans.map((s, k) => capQueries((s.row.demand.env ?? []).map(() => (sign === 'pos' ? query(s, [a.bottom], [a.top], sdOf(k), true) : query(s, [a.top], [a.bottom], sdOf(k), false)))));
     const capPos = contCap('pos'), capNeg = contCap('neg');
     const stOf = (k: number) => a.stirrups?.[k] ?? spans[k]!.row.proposed.stirrups;
@@ -211,7 +221,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
         cuts.push({ face: 'top', x: s.x0 + x, legality: l.legality, bar: bars.length });
         return dist;
       };
-      const left = j > 0 ? reach(j - 1, false) : 0, right = j < spans.length ? reach(j, true) : 0;
+      const left = j > 0 ? reach(j - 1, false) : -xFrom, right = j < spans.length ? reach(j, true) : xTo - total;
       add('top', 'support', g, xs - left, xs + right, [j === 0, j === spans.length]);
     });
     spans.forEach((s, k) => {
@@ -297,6 +307,18 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     ];
   });
 
+  const zoneVn = zones.map((z) => code.shear(c, query(spans[z.span]!, [a.bottom], [a.top], z.stirrups.dia, false), z.stirrups).design);
+  const shear = spans.flatMap((s, k) => (s.row.demand.env ?? []).map((e) => {
+    const xl = s.x0 + e.x;
+    const zi = zones.findIndex((z) => z.span === k && xl >= z.from - 1e-9 && xl <= z.to + 1e-9);
+    return { x: xl, v: e.v, phiVn: zoneVn[zi >= 0 ? zi : zones.findIndex((z) => z.span === k)] ?? 0 };
+  }));
+  const endAnchors = ([[endStart, xFrom, true], [endEnd, xTo, false]] as const).flatMap(([e, xe, first]) => {
+    if (!e || e.kind !== 'column' || e.half <= 0) return [];
+    const room = 2 * e.half - inset;
+    const reaching = [...new Set(bars.filter((b) => (first ? b.from <= xe + 1e-6 : b.to >= xe - 1e-6)).map((b) => b.bars.dia))];
+    return reaching.map((dia) => ({ dia, ldh: code.hooked(c, dia), room }));
+  });
   const dias = [...new Set(bars.map((b) => b.bars.dia))].sort((p, q) => p - q);
   const hMax = Math.max(...spans.map((s) => s.h));
   const anchorage = dias.map((dia) => {
@@ -337,6 +359,9 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     check('rcSheets.v.lineBottomRun', contRatio >= 0.25 - 1e-6, { clause: code.text.clause.bottomRun, demand: '≥ 1/4', capacity: fmt(contRatio, 2) }),
     check('rcSheets.v.lineFit', fitOk, { clause: code.text.clause.fit }),
     check('rcSheets.v.lineHooks', hookOk, { clause: code.text.clause.hooks, capacity: anchorage.map((x) => `Ø${x.dia}: ldh ${fmt(x.ldh * 100, 0)} cm`).join(' · ') }),
+    ...(endAnchors.length ? [((worstEnd) => check('rcSheets.v.lineEndAnchor', endAnchors.every((x) => x.ldh <= x.room + 1e-6), {
+      clause: code.text.clause.hooks, demand: `ldh Ø${worstEnd.dia} = ${fmt(worstEnd.ldh * 100, 0)} cm`, capacity: `${fmt(worstEnd.room * 100, 0)} cm`, ratio: worstEnd.ldh / Math.max(1e-6, worstEnd.room),
+    }))(endAnchors.reduce((w, x) => (x.ldh / x.room > w.ldh / w.room ? x : w)))] : []),
     ...(total > STOCK_LENGTH ? [check('rcSheets.v.lineSplices', true, { clause: code.text.clause.splices, capacity: splices.map((sp) => `${sp.face === 'top' ? '↑' : '↓'} x = ${fmt(sp.x)} m, ${fmt(sp.length * 100, 0)} cm`).join(' · ') })] : []),
   ];
   const ok = verifications.every((v) => v.ok);
@@ -364,7 +389,8 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     cover: c.cover,
     supportWidths: supports.map((_, j) => 2 * Math.max(spans[j - 1]?.row.demand.supportHalf?.end ?? 0, spans[j]?.row.demand.supportHalf?.start ?? 0)),
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, bars, zones, splices, cutoffs: lastCuts, anchorage,
-    envelope: env.map((e) => ({ x: e.xl, pos: e.pos, neg: e.neg, phiPos: e.phiPos, phiNeg: e.phiNeg })),
+    envelope: env.map((e) => ({ x: e.xl, pos: e.pos, neg: e.neg, phiPos: e.phiPos, phiNeg: e.phiNeg })), shear,
+    ends: { from: xFrom, to: xTo, ...(endStart ? { start: endStart } : {}), ...(endEnd ? { end: endEnd } : {}) },
     spanAdopted, verifications, utilization: worst, status: ok ? 'ok' : 'fail', steps,
   };
 }
