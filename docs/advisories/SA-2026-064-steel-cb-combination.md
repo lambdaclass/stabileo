@@ -1,22 +1,22 @@
-# SA-2026-064: Steel interaction checks used Cb from another combination
+# SA-2026-064: Steel checks used Cb from another combination or an unlocated span
 
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-13; fixed in PR #2080, pending release |
-| Issue | [#1316](https://github.com/lambdaclass/stabileo/issues/1316) |
+| Status | Draft 2026-11-13; extended 2026-11-14; fixed in PR #2080, pending merge and release |
+| Issues | [#1316](https://github.com/lambdaclass/stabileo/issues/1316), [#2088](https://github.com/lambdaclass/stabileo/issues/2088) |
 | Fix | PR [#2080](https://github.com/lambdaclass/stabileo/pull/2080); pending release |
-| Affected versions | Source-confirmed in 0.2.0–0.5.0 and desktop-v0.1.0-alpha.1–alpha.3; subsequent main builds before the fix |
-| Re-check registry | [`steel-cb-combination`](../../web/src/lib/provenance/result-changes/steel-cb-combination.json) |
+| Affected versions | Source-confirmed in 0.2.0–0.5.0 and desktop-v0.1.0-alpha.1–alpha.3; subsequent main builds before the fix, including the 0.6.0 main source; the unlocated-span witness is confirmed on main `2e8a4f65f` and unchanged in `08fa96822` |
+| Re-check registry | [`steel-cb-combination`](../../web/src/lib/provenance/result-changes/steel-cb-combination.json), [`concurrent-depth-and-load-context`](../../web/src/lib/provenance/result-changes/concurrent-depth-and-load-context.json) |
 
 ## Affected features
 
-Steel members in CIRSOC 301 combined axial and bending checks, where the
+Steel members in CIRSOC 301 flexure and combined axial and bending checks, where the
 moment-gradient factor Cb comes from an envelope containing a different load
-combination's moment diagram. The defect is in the application's design
-orchestration over the WASM capacity checker. It also affects calls to that
-shared verification service; a direct native capacity check with correctly
-supplied inputs is not this defect.
+combination's moment diagram, or where a declared unbraced length is shorter
+than the member but its brace positions are unknown. These defects affect
+the shared design verification path. A capacity check supplied with the correct
+Cb is unaffected.
 
 An unbraced member or chain can have different moment shapes in different
 combinations. A combination with compression and nearly uniform bending could
@@ -63,9 +63,35 @@ complete before/after verification outputs, certificates, diagnostics and
 single-combination controls. Both combinations checked separately retain their
 correct interaction answers before and after the fix. The error arises when
 their diagrams are combined. These are synthetic witnesses, not bounds on the
-error in other structures. The replay was generated with
-`make replay.advisory.steel-cb` through the project's targeted test runner and
-WASM checker.
+error in other structures.
+
+### Unlocated short unbraced span (#2088)
+
+A second defect in the same Cb path centred a short unbraced interval on the
+member without knowing where its braces were. That interval's gradient was
+then reused for demands elsewhere on the member. A declared length alone
+cannot establish which part of the moment diagram belongs to the unbraced span.
+
+The [retained main witness](../results-changes/fixtures/2080-round8-main-witness.json)
+records a 16 m IPE 300 with an 8 m unlocated unbraced interval. At the recorded
+20 kN·m demand, main `2e8a4f65f743b23949b995e9ddc9727ad008e225` gives:
+
+| Quantity | Main, assumed centred interval | Correct, Cb = 1 control |
+|---|---|---|
+| Flexural capacity φMn (kN·m) | 66.83770698770057 | 49.01431845764709 |
+| Utilization | 0.2992322882004373 | 0.4080440293642326 |
+| Status | ok | ok |
+
+The wrong result has no verification diagnostic and reports `certifiedOk = true`.
+The fixture retains both checks and their certificates. Its recorded source
+hashes also match the 0.6.0 main source `08fa96822`; the release merge did not
+correct this path. The magnitude is a witness, not an error bound for other
+members. A successful certificate cannot establish unknown brace locations.
+
+The fix uses a known brace interval containing the demand station. At a brace,
+the smaller Cb of the adjacent intervals governs. Short spans without known
+positions, or unavailable diagrams, receive Cb = 1. Whole-member and whole-chain
+spans retain the credit supported by their complete diagrams.
 
 ### Release boundary
 
@@ -104,7 +130,10 @@ diagrams. Compare the diagram used for Cb with the combination named by each
 interaction check, over the same complete unbraced segment. A combination label,
 `ok` status or successful engine recheck does not establish that the factor came
 from that combination. A single-combination diagram is a control for this
-cross-combination defect.
+cross-combination defect. Also review members with a declared unbraced length
+shorter than the member or chain: confirm the brace positions and the interval
+containing each checked station. A single combination can still be affected by
+the unlocated-span defect.
 
 ## Fixed in
 
@@ -113,19 +142,24 @@ unbraced chains. The shared steel check obtains both its forces and its Cb
 capacity input using the concurrent demand's combination identity. The engine
 recheck receives those same combination-specific inputs. Missing or incomplete
 combination diagrams do not borrow an envelope's gradient credit. Numerical
-tolerances and acceptance limits are unchanged.
+tolerances and acceptance limits are unchanged. The same preparation requires
+a known containing brace interval before granting short-span gradient credit
+(#2088); an unknown interval receives Cb = 1. This correction is included in
+commit `823da327c`.
 
 ## Workaround
 
 Until using a build containing PR #2080, verify affected steel interactions
 independently with the forces and moment diagram from the same combination.
-Do not accept an old interaction solely because its status or certificate says
-it passes.
+For an unlocated short span, use Cb = 1 until brace positions and the
+corresponding diagram interval are established. Do not accept an old interaction
+solely because its status or certificate says it passes.
 
 ## What to do with results you already have
 
 After upgrading to a build containing the fix, **re-run steel design checks**
-for affected saved projects and review interaction utilization, governing
+for affected saved projects, including short unbraced spans with unknown brace
+positions, and review flexural capacity, interaction utilization, governing
 combinations and statuses. Revisit calculations and deliverables that used the
 old steel interaction results. The `steel-cb-combination` saved-project notice
 selects CIRSOC 301 steel models conservatively; it cannot prove which historical
@@ -138,4 +172,7 @@ PR [#2080](https://github.com/lambdaclass/stabileo/pull/2080) fixes the defect
 found while addressing [#1316](https://github.com/lambdaclass/stabileo/issues/1316).
 The [results-change write-up](../results-changes/2026-11-concurrent-design-demands.md)
 describes the combination and station correction. Retained regressions are in
-`web/src/lib/engine/__tests__/concurrent-steel-boundaries.test.ts`.
+`web/src/lib/engine/__tests__/concurrent-steel-boundaries.test.ts` and
+`web/src/lib/engine/__tests__/issue-2088-cb.test.ts`. The
+[span and loading write-up](../results-changes/2026-11-concurrent-depth-and-load-context.md)
+records the #2088 correction and its saved-project notice.

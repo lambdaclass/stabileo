@@ -16,7 +16,7 @@ const ef = { elementId: 1, length: 16, nStart: -100, nEnd: -100, myStart: 0, myE
   releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false } satisfies AnalysisResults3D['elementForces'][number];
 const demand = () => steelDemandOf(ef, extractGoverningDemands(esr), esr);
 for (const screen of [false, true]) for (const sign of [1, -1]) for (const t of [0, 0.25, 0.5, 0.75, 1]) {
-  it.fails(`#2088 unknown short span receives unity ${screen} ${sign} ${t}`, () => {
+  it(`#2088 unknown short span receives unity ${screen} ${sign} ${t}`, () => {
     const d = demand();
     d.concurrent = d.concurrent!.filter(x => x.stationT === t);
     if (sign < 0) {

@@ -66,7 +66,7 @@ for (const axis of ['My', 'Mz'] as const) it(`missing ${axis} load information r
 });
 
 for (const nonlinear of [false, true]) for (const spatial of [false, true]) {
-  it.fails(`#2089 solved ${spatial ? 'spatial' : 'planar'} transverse column retains Cm unity nonlinear=${nonlinear}`, () => {
+  it(`#2089 solved ${spatial ? 'spatial' : 'planar'} transverse column retains Cm unity nonlinear=${nonlinear}`, () => {
     const fixed = { ...model, supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' as const }]]) };
     const solver: SolverInput3D = { ...fixed,
       elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, type: 'frame' as const,

@@ -28,6 +28,6 @@
   },
   "changelog": {
     "file": "docs/advisories/SA-2026-064-steel-cb-combination.md",
-    "heading": "SA-2026-064: Steel interaction checks used Cb from another combination"
+    "heading": "SA-2026-064: Steel checks used Cb from another combination or an unlocated span"
   }
 }
