@@ -17,7 +17,6 @@ const RULES = /from\s+'[^']*codes\/cirsoc201\//;
 
 /** Files outside the rules and the adapters that import them, relative to `src/`. */
 const COUPLED = [
-  'components/pro/design/RcBarList.svelte',
   'components/pro/desk/column/ColumnLaps.svelte',
   'lib/engine/codes/argentina/cirsoc201.ts',
   'lib/engine/design/beam-flange.ts',

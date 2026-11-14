@@ -387,7 +387,7 @@ test('@slow restore, design, detail — then reload and do it again', async ({ p
   expect(runCounts.verified, 'members were verified').toBeGreaterThan(0);
   await assertClean(page, w, 'design all');
 
-  await designPlace(page, 'detailing');
+  await designPlace(page, 'list');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
@@ -454,7 +454,7 @@ test('@slow restore, design, detail — then reload and do it again', async ({ p
   await page.evaluate(() => window.__stabileoActions.designAll());
   await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0),
     { timeout: 180_000 }).toBeGreaterThan(0);
-  await designPlace(page, 'detailing');
+  await designPlace(page, 'list');
   const regenerate = page.getByTestId('cmd-generate-detailing');
   await expect(regenerate).toBeEnabled();
   await regenerate.click();

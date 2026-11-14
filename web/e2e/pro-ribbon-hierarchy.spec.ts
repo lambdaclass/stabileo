@@ -97,10 +97,10 @@ test.describe('@smoke Model — Organize, Draw, the tools on demand, and Code on
 /*
  * ── Design: the ribbon draws no groups; the desk's rail holds the places ──
  *
- * Interface A: the Design stage is one workspace, and its top row is the desk's four steps
+ * Interface A: the Design stage is one workspace, and its top row is the desk's three steps
  * (`DeskProcessBar`), not seven commands. The placement claims these blocks made of the ribbon's
  * Design groups are claims about the rail now: concrete and steel are two sub-sections of sizing,
- * concrete first, each place once, and the 3-D view says what it waits on.
+ * concrete first, each place once.
  */
 const railSection = (page: Page, testid: string) =>
   page.getByTestId(testid).evaluate((el) => {

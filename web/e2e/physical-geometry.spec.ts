@@ -1,14 +1,13 @@
 /**
- * The concrete as built, through the interface: the model viewer's «Physical geometry» mode, the
- * reinforcement workspace's beam-column joints with their own switch, and the IFC's column top as a
- * project setting. The geometry itself is pinned in `engine/physical/__tests__/physical-frame.test.ts`
+ * The concrete as built, through the interface: the model viewer's «Physical geometry» mode and the
+ * IFC's column top as a project setting. The geometry itself is pinned in `engine/physical/__tests__/physical-frame.test.ts`
  * and its four readers in `store/__tests__/physical-frame-consumers.test.ts`.
  *
  * The frame (`physical-joints-frame.json`) has every joint the node-to-node solids got wrong: beams
  * wider than the columns, two corners with no column, an eccentric column, and every joint at the roof.
  */
 import { readFileSync } from 'node:fs';
-import { test, expect, designAll, designPlace, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, designPlace, openSteelDocuments } from './fixtures';
 
 const FRAME = JSON.parse(readFileSync('src/lib/engine/physical/__tests__/fixtures/physical-joints-frame.json', 'utf8'));
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -35,10 +34,10 @@ test.describe('@slow the joints of a designed frame', () => {
     test.setTimeout(600_000);
     await load(page);
     await designAll(page);
-    await designPlace(page, 'detailing');
+    await designPlace(page, 'list');
     await page.getByTestId('cmd-generate-detailing').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.detailingAssemblies().length), { timeout: 120_000 }).toBeGreaterThan(0);
-    await openDocumentsStage(page);
+    await openSteelDocuments(page);
 
     // The IFC: columns up to the slab's soffit, kept in the project; the joints in the members' bodies.
     const panel = page.getByTestId('exchange-panel').first();

@@ -189,9 +189,9 @@ async function designedFrame(page: Page): Promise<void> {
   await designAll(page);
 }
 
-/** The coordinated detailing: design's Detail step. */
+/** Where the coordinated detailing is generated: design's member list. */
 async function openDetailing(page: Page): Promise<void> {
-  await designPlace(page, 'detailing');
+  await designPlace(page, 'list');
 }
 
 /** qa-8 designed and detailed. */
@@ -414,15 +414,6 @@ test.describe('interaction contracts', () => {
     await expect(page.getByTestId(`desk-row-${id}`)).toBeVisible();
   });
 
-  test('@smoke C12d — a model change marks the documents out of date', async ({ pro: page }) => {
-    await detailedFrame(page);
-    const id = (await page.evaluate(() => window.__stabileo.elementIds()))[0]!;
-    await changeSectionOf(page, id);
-    await enterDesign(page);
-    await deskTab(page, 'documents');
-    await expect(designSurface(page).getByTestId('documents-outdated')).toBeVisible();
-  });
-
   test('@smoke C12b — design states that its results are out of date because the model changed', async ({ pro: page }) => {
     await designedFrame(page);
     const id = (await page.evaluate(() => window.__stabileo.elementIds()))[0]!;
@@ -502,27 +493,6 @@ test.describe('interaction contracts', () => {
     expect(await page.evaluate(() => window.__stabileo.elementIds())).toEqual(ids);
   });
 
-  test('@smoke C19 — a detailing-conflict row selects and frames its member', async ({ pro: page }) => {
-    const ids = await loadModel(page, 'rc-design-qa-8');
-    const target = ids[5]!;
-    await page.evaluate((t) => {
-      (window.__stabileoActions as unknown as { seedDetailing(x: unknown): void }).seedDetailing([{
-        id: 'ASM-1', kind: 'beamLine', label: 'L1', elementIds: [t],
-        bars: [], marks: [], joints: [], unsupported: [],
-        conflicts: [{
-          severity: 'clearance', barA: 'a', barB: 'b', at: { x: 0, y: 0, z: 3 },
-          clearance: 0.011, required: 0.025, shortfall: 0.014, elementIds: [t],
-        }],
-        detailingRevision: 1, demandRevision: 5, state: 'CONSTRUCTIBLE', maturity: 'IMPLEMENTED_PROVISIONAL',
-        provenance: { edition: '2025', verifierId: 'cirsoc201.provided.v2.2025', trace: [], assumptions: [] },
-      }]);
-    }, target);
-    await countFraming(page);
-    await openDetailing(page);
-    await page.getByTestId(`conflict-member-${target}`).click();
-    await expect.poll(() => modelSelection(page)).toEqual([target]);
-    await expect.poll(async () => (await framing(page)).sel).toBeGreaterThan(0);
-  });
   test('@smoke C20 — design is entered with the model viewer on screen, and a pick in either is the other\'s', async ({ pro: page }) => {
     await designedFrame(page);
     const ids = await page.evaluate(() => window.__stabileo.elementIds());

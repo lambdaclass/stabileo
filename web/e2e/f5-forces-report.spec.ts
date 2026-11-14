@@ -13,7 +13,7 @@
  *   · it produces a file and says which one.
  */
 
-import { test, expect, bootPro, loadModel, solveModel, openClassicDesign, designPlace } from './fixtures';
+import { test, expect, bootPro, loadModel, solveModel, openClassicDesign } from './fixtures';
 
 /** Small on purpose: 18 nodes and 26 members solve in seconds. */
 const MODEL = 'rc-qa-diagnostic';
@@ -33,7 +33,7 @@ async function openForcesReport(page: import('@playwright/test').Page) {
 }
 
 test.describe('@smoke F5 — the raw forces report', () => {
-  test('FR1 — it lives on Results, and not in Documentos', async ({ pro: page }) => {
+  test('FR1 — it lives on Results', async ({ pro: page }) => {
     await loadModel(page, MODEL);
     await solveModel(page);
     await openForcesReport(page);
@@ -41,10 +41,6 @@ test.describe('@smoke F5 — the raw forces report', () => {
     // Never disabled by a row count. The other sections of the strip are tables and grey out
     // when they are empty; this one is a configuration, and it explains itself in words.
     await expect(page.getByTestId('res-tab-report')).toBeEnabled();
-
-    // And it is NOT among the Documentos actions, which are the detailing document's.
-    await designPlace(page, 'documents');
-    await expect(page.getByTestId('forces-report')).toHaveCount(0);
   });
 
   test('FR2 — with nothing solved the tab says so, without a second copy of the message',

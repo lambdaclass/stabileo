@@ -391,19 +391,10 @@ function allProStages(ctx: ProStageContext): ProStage[] {
           ],
         },
         {
-          id: 'designDetail',
-          labelKey: 'desk.step.detail',
-          cmds: [
-            { id: 'detailing', labelKey: 'desk.rail.detailing', icon: 'view3d', action: () => openDeskAt('detailing'), activeWhen: () => deskOn('detailing') },
-          ],
-        },
-        {
           id: 'designDocument',
           labelKey: 'desk.step.document',
           cmds: [
             { id: 'sheets', labelKey: 'desk.tab.sheets', icon: 'section', action: () => openDeskAt('sheets'), activeWhen: () => deskOn('sheets') },
-            { id: 'listings', labelKey: 'desk.tab.listings', icon: 'data', action: () => openDeskAt('listings'), activeWhen: () => deskOn('listings') },
-            { id: 'documents', labelKey: 'desk.tab.documents', icon: 'project', action: () => openDeskAt('documents'), activeWhen: () => deskOn('documents') },
           ],
         },
       ],

@@ -3,10 +3,10 @@
  *
  * This file pinned the concrete flow's own stage strip, five stages over five disclosures of the
  * classic screen. The strip and the disclosures are gone: the Design stage is one workspace, and
- * the top of it draws the four steps of design (prepare, size, detail, document) over the
+ * the top of it draws the three steps of design (prepare, size, document) over the
  * places of the desk. The assertions are the same claims, carried to the steps:
  *
- *   1. FOUR steps, in the order the work happens, numbered 1–4. Preparing is the model and the
+ *   1. THREE steps, in the order the work happens, numbered 1–3. Preparing is the model and the
  *      code together (the strip's MODELADO and REGLAMENTOS); they gate one thing.
  *   2. No verification step before sizing. A completed verification shown before anything has
  *      been designed says the reinforcement was verified.
@@ -20,8 +20,8 @@
 import { test, expect, loadModel, solveModel, designPlace, openDeskStage } from './fixtures';
 import type { Page } from '@playwright/test';
 
-/** The four steps, in the order the work happens. */
-const STEPS = ['prepare', 'size', 'detail', 'document'] as const;
+/** The three steps, in the order the work happens. */
+const STEPS = ['prepare', 'size', 'document'] as const;
 
 /**
  * The places each step opens. Duplicated from `stepOf` on purpose: a spec that imported the map
@@ -30,8 +30,7 @@ const STEPS = ['prepare', 'size', 'detail', 'document'] as const;
 const PLACES: Record<(typeof STEPS)[number], readonly string[]> = {
   prepare: ['desk-rail-prepare', 'desk-rail-designData'],
   size: ['desk-tab-plan', 'desk-tab-levels', 'desk-mode-piece', 'desk-rail-list', 'desk-rail-steel', 'desk-rail-connections', 'desk-rail-codes', 'desk-mode-pending'],
-  detail: ['desk-rail-detailing'],
-  document: ['desk-rail-documents'],
+  document: ['desk-rail-sheets'],
 };
 
 const bar = (page: Page) => page.getByTestId('desk-process');
@@ -40,15 +39,15 @@ const step = (page: Page, id: string) => page.getByTestId(`desk-step-${id}`);
 test.describe('the steps are one vocabulary', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
-  test('draws exactly four steps, in the order the work happens', async ({ pro: page }) => {
+  test('draws exactly three steps, in the order the work happens', async ({ pro: page }) => {
     const items = bar(page).locator('[data-testid^="desk-step-"][data-state]');
-    await expect(items).toHaveCount(4);
+    await expect(items).toHaveCount(3);
     for (const [i, id] of STEPS.entries()) {
       await expect(items.nth(i), `position ${i} is ${id}`).toHaveAttribute('data-testid', `desk-step-${id}`);
     }
   });
 
-  test('numbers the steps 1 to 4', async ({ pro: page }) => {
+  test('numbers the steps 1 to 3', async ({ pro: page }) => {
     for (const [i, id] of STEPS.entries()) {
       // A finished step shows a tick instead of its number; on a fresh project none is.
       expect((await step(page, id).locator('.dp-mark').innerText()).trim(), `${id} shows its position`).toBe(String(i + 1));
@@ -126,13 +125,13 @@ test.describe('navigation goes both ways, and there is one state', () => {
 
   /* Focus, not just the eye: the next Tab continues in the step's places, not on the bar. */
   test('pressing a step moves the keyboard into its places', async ({ pro: page }) => {
-    await step(page, 'detail').click();
+    await step(page, 'document').click();
     await expect(page.getByTestId('desk-rail').locator('button').first()).toBeFocused();
   });
 
   test('and the bar marks what is being read', async ({ pro: page }) => {
-    await step(page, 'detail').click();
-    await expect(step(page, 'detail')).toHaveAttribute('data-open', 'true');
+    await step(page, 'document').click();
+    await expect(step(page, 'document')).toHaveAttribute('data-open', 'true');
     await expect(step(page, 'prepare')).not.toHaveAttribute('data-open', 'true');
   });
 
@@ -140,7 +139,7 @@ test.describe('navigation goes both ways, and there is one state', () => {
     await loadModel(page, 'rc-design-qa-8');
     await designPlace(page, 'designData');
     await expect(step(page, 'prepare')).toHaveAttribute('data-open', 'true');
-    await designPlace(page, 'documents');
+    await designPlace(page, 'sheets');
     await expect(step(page, 'document')).toHaveAttribute('data-open', 'true');
     await expect(step(page, 'prepare')).not.toHaveAttribute('data-open', 'true');
   });
@@ -208,12 +207,6 @@ test.describe('the steps say what they are waiting for', () => {
     await expect(step(page, 'prepare')).toHaveAttribute('data-state', 'current');
     await expect(step(page, 'size')).toHaveAttribute('data-state', 'blocked');
     await expect(step(page, 'document')).toHaveAttribute('data-state', 'optional');
-  });
-
-  test('a project under way is pending rather than blocked', async ({ pro: page }) => {
-    await loadModel(page, 'rc-design-qa-8');
-    await solveModel(page);
-    await expect(step(page, 'detail')).toHaveAttribute('data-state', 'pending');
   });
 
   /*

@@ -142,7 +142,7 @@ async function prepare(page: Page, building: string): Promise<Omit<PreparedProje
   // both — that is the app's real shape, and a preparation that ran only the first would hand
   // every observer a building with no floors in it.
   await stage('detailing', async () => {
-    await designPlace(page, 'detailing');
+    await designPlace(page, 'list');
     const generate = page.getByTestId('cmd-generate-detailing');
     await expect(generate).toBeEnabled();
     await generate.click();

@@ -25,7 +25,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { test, expect, designAll, loadModel, PRO_URL, openDocumentsStage, setAppLanguage, appLanguage, designPlace, openFloorPass } from './fixtures';
+import { test, expect, designAll, loadModel, PRO_URL, setAppLanguage, appLanguage, designPlace, openFloorPass } from './fixtures';
 import en from '../src/lib/i18n/locales/en';
 import es from '../src/lib/i18n/locales/es';
 import pt from '../src/lib/i18n/locales/pt';
@@ -236,8 +236,7 @@ test.describe('changing language keeps the work', () => {
  * Surfaces asserted per language, as `testid → key`.
  *
  * Chosen to cover the enumerated audit surfaces rather than to be exhaustive: the command row,
- * the empty states, the detailing panel, the floor families, the 3-D rail and its tally, the
- * conflict and provisional wording, and the document exports.
+ * the empty states, the detailing command and the floor families.
  */
 /**
  * The pipeline's commands, each with the key that LABELS it.
@@ -264,7 +263,7 @@ for (const locale of OFFERED_LOCALES) {
   test.describe(`@slow the PRO workflow in ${locale}`, () => {
     test.use({ appLocale: locale });
 
-    test('design, detail and export — all in one language', async (
+    test('design and detail — all in one language', async (
       { pro: page }, testInfo,
     ) => {
       test.setTimeout(300_000);
@@ -287,7 +286,7 @@ for (const locale of OFFERED_LOCALES) {
       await expect(page.getByTestId('summary-count-provisional'))
         .toContainText(D['design.counts.provisional']);
 
-      await designPlace(page, 'detailing');
+      await designPlace(page, 'list');
       const generate = page.getByTestId('cmd-generate-detailing');
       /**
        * Generate OR Regenerate, in this language.
@@ -309,12 +308,6 @@ for (const locale of OFFERED_LOCALES) {
       await openFloorPass(page);
       await expect(page.getByTestId('floor-design-run'))
         .toHaveText(D['detailing.floorRun.designAndDetail']);
-
-      // ── D. The exports, named in this language ─────────────────
-      await openDocumentsStage(page);
-      await expect(page.getByTestId('doc-report')).toHaveText(D['detailing.doc.report']);
-      await expect(page.getByTestId('doc-dxf')).toHaveText(D['detailing.doc.dxf']);
-      await expect(page.getByTestId('doc-xlsx')).toHaveText(D['detailing.doc.xlsx']);
 
       // ── A. Project, Settings and Diagnostics ───────────────────
       await page.getByTestId('pr-project').click();

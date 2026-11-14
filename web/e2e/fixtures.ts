@@ -577,22 +577,6 @@ export async function openBasicProjectPanel(page: Page): Promise<void> {
 export { expect };
 
 /**
- * Make sure the Documents stage is open before reaching a control inside it.
- *
- * ── Why this exists, and why it is a helper and not a UI change ────
- *
- * PR20 moved the report, the drawings, the schedule, the 3-D view and the professional review out
- * of the coordinated-detailing panel and into a stage of their own, collapsed by default like
- * every other stage. Specs reach `doc-report`, `doc-dxf`, `doc-xlsx` or the
- * review controls, and a collapsed `<details>` keeps its children in the DOM — so a locator
- * RESOLVES, reports the right element, and then waits forever for it to become visible. That is
- * the failure signature every one of them showed.
- *
- * The assertions are unchanged. What changed is which container holds the controls, and this is
- * the one line that says so. Opening the stage by default would have hidden the problem instead
- * of describing it, and would undo the point of making Documents a stage.
- */
-/**
  * The drawings place of design, its set laid out on arrival; `setup` also opens the set's
  * configuration (format, kinds, entries, display, title block, details), which folds below the
  * sheets there.
@@ -606,9 +590,11 @@ export async function openSheetsPlace(page: Page, opts: { setup?: boolean } = {}
   }
 }
 
-export async function openDocumentsStage(page: Page): Promise<void> {
-  if (await page.getByTestId('documents-stage').isVisible()) return;
-  await designPlace(page, 'documents');
+/** The steel workflow's documents stage, which holds the memoria, the sheets and the exchange. */
+export async function openSteelDocuments(page: Page): Promise<void> {
+  await designPlace(page, 'steel');
+  const stage = page.getByTestId('steel-stage-documents');
+  if (await stage.getAttribute('open') === null) await stage.locator('> summary').click();
 }
 
 /**
@@ -673,10 +659,7 @@ const PLACE: Record<string, { step: string; rail: string }> = {
   steel: { step: 'size', rail: 'desk-rail-steel' },
   connections: { step: 'size', rail: 'desk-rail-connections' },
   codes: { step: 'size', rail: 'desk-rail-codes' },
-  detailing: { step: 'detail', rail: 'desk-rail-detailing' },
-  documents: { step: 'document', rail: 'desk-rail-documents' },
   sheets: { step: 'document', rail: 'desk-rail-sheets' },
-  listings: { step: 'document', rail: 'desk-rail-listings' },
 };
 export type DesignPlace = keyof typeof PLACE | 'otherCodes' | 'foreignCodes';
 
@@ -716,9 +699,9 @@ export async function sizeAll(page: Page, o: { resize?: boolean } = {}): Promise
   await page.getByTestId('desk-run').click();
 }
 
-/** Generate the coordinated detailing, from the Detail step at the top of the Design stage. */
+/** Generate the coordinated detailing, from the Size step at the top of the Design stage. */
 export async function generateDetailing(page: Page): Promise<void> {
-  await designPlace(page, 'detailing');
+  await designPlace(page, 'list');
   await page.getByTestId('cmd-generate-detailing').click();
 }
 
@@ -768,7 +751,6 @@ const DESK_MENU: Record<string, string> = {
 const PROJECT_SURFACES = ['budget', 'collab', 'arch', 'site'];
 export async function deskTab(page: Page, tab: string): Promise<void> {
   if (tab === 'codes') { await designPlace(page, 'foreignCodes'); return; }
-  if (tab === 'documents') { await designPlace(page, 'documents'); return; }
   if (PLACE[tab]) { await designPlace(page, tab as DesignPlace); return; }
   const target = page.getByTestId(`desk-tab-${tab}`);
   if (await target.isVisible()) { await target.click(); return; }
@@ -798,7 +780,7 @@ export const MORE_TOOLS = ['building', 'foundations', 'physical', 'generators'] 
  */
 const DESIGN_CMD: Record<string, DesignPlace> = {
   design: 'list', designList: 'list', designData: 'designData', designPrepare: 'prepare', steel: 'steel',
-  connections: 'connections', otherCodes: 'otherCodes', detailing: 'detailing', documents: 'documents',
+  connections: 'connections', otherCodes: 'otherCodes', sheets: 'sheets',
 };
 export async function ribbonCmd(page: Page, id: string): Promise<void> {
   if (DESIGN_CMD[id] && !(await page.getByTestId(`pr-cmd-${id}`).isVisible())) { await designPlace(page, DESIGN_CMD[id]!); return; }

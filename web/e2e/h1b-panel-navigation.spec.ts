@@ -45,16 +45,10 @@ for (const locale of ['en', 'es', 'pt'] as const) {
     test('the design places skip no level', async ({ pro: page }) => {
       await design(page);
       // Each place of design in turn, the way the classic column held them (interface A).
-      for (const place of ['list', 'detailing', 'documents'] as const) {
+      for (const place of ['list', 'sheets'] as const) {
       await designPlace(page, place);
       const h = await headings(page, '.dd-canvas-body');
       expect(h, 'the place must be on screen').not.toBeNull();
-      /*
-       * `h3 → h5` at "Engineer review" was the jump H1-A found, in all three languages. Both
-       * headings live in `DocumentsSection`, so the fix was internal to one file: a reader
-       * navigating by heading could not tell whether the review was a sibling of the documents
-       * or a part of them.
-       */
       expect(jumps(h!), `no level is skipped in ${place}`).toEqual([]);
       }
     });
@@ -83,7 +77,7 @@ test.describe('@slow focus and Escape', () => {
         .toBe('pr-stage-design');
 
       // A step is a navigation within design: the keyboard follows it into the step's places.
-      await page.getByTestId('desk-step-detail').click();
+      await page.getByTestId('desk-step-document').click();
       expect(await page.evaluate(() => document.activeElement?.closest('[data-testid="desk-rail"]') !== null),
         'pressing a step focuses its places').toBe(true);
     });
@@ -93,7 +87,7 @@ test.describe('@slow focus and Escape', () => {
       await design(page);
       await page.getByTestId('pr-stage-model').click();
       await page.getByTestId('pr-stage-design').click();
-      await designPlace(page, 'detailing');
+      await designPlace(page, 'list');
 
       await page.keyboard.press('Escape');
       /*

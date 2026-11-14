@@ -188,9 +188,9 @@ export interface RcStageDef {
    * the design data with the regulations, the member list, the coordinated detailing, the
    * documents. It was the `<details>` of the classic concrete screen that owned the stage; those
    * screens are places of the desk now (`DesignDesk.svelte`). One stage, one place, and no two
-   * stages share one: `RC_STAGE_PLACES` below asserts it holds.
+   * stages share one: `RC_STAGE_PLACES` below asserts it holds. The detailing has none.
    */
-  place: string;
+  place?: string;
 }
 
 /** A stage with the project's progress against it resolved. */
@@ -237,19 +237,18 @@ export const RC_STAGES: readonly RcStageDef[] = [
     id: 'detailing',
     labelKey: 'design.stage.detailing',
     todoKey: 'design.stage.needDesign',
-    place: 'detailing',
   },
   {
     id: 'documents',
     labelKey: 'design.stage.documents',
     todoKey: 'design.stage.needDetailing',
     optional: true,
-    place: 'documents',
+    place: 'sheets',
   },
 ] as const;
 
 /** Every place a stage is worked in. Exported so the bijection is assertable. */
-export const RC_STAGE_PLACES: readonly string[] = RC_STAGES.map((s) => s.place);
+export const RC_STAGE_PLACES: readonly string[] = RC_STAGES.flatMap((s) => (s.place ? [s.place] : []));
 
 /**
  * Which model readiness a set of readings describes.

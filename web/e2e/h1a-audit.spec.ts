@@ -11,7 +11,7 @@
  * finds becomes assertions in H1-B..E, in the files those phases touch.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
+import { test, expect, designAll, loadModel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
@@ -171,7 +171,7 @@ const PROBE = `(rootSel) => {
 const probe = (page: Page, sel: string) =>
   page.evaluate(new Function('return ' + PROBE)() as never, sel);
 
-/* ── the four routes ─────────────────────────────────────────────── */
+/* ── the route ─────────────────────────────────────────────── */
 
 async function toDesignStage(page: Page) {
   await loadModel(page, 'rc-design-qa-8');
@@ -179,35 +179,8 @@ async function toDesignStage(page: Page) {
   await designPlace(page, 'list');
 }
 
-async function toDetailing(page: Page) {
-  await toDesignStage(page);
-  await designPlace(page, 'detailing');
-  const d = page.getByTestId('desk-detailing');
-  if (await d.count() && await d.getAttribute('open') === null) {
-  }
-  const generate = page.getByTestId('cmd-generate-detailing');
-  if (await generate.count() && await generate.isEnabled()) {
-    await generate.click();
-    await expect
-      .poll(() => page.evaluate(() =>
-        (window.__stabileo as unknown as { detailingAssemblies(): unknown[] })
-          .detailingAssemblies().length), { timeout: 60_000 })
-      .toBeGreaterThan(0);
-  }
-}
-
-async function toDocuments(page: Page) {
-  await toDetailing(page);
-  await openDocumentsStage(page);
-}
-
 const SCREENS = [
   { id: 'design', sel: '[data-testid="pro-panel"], .pro-panel', go: toDesignStage },
-  { id: 'detailing', sel: '[data-testid="detailing-workflow"]', go: toDetailing },
-  // `documents-stage`, not `.documents`. The first version named a testid that does not exist
-  // and fell through to `.documents`, which is ONE card inside the stage — 8 nodes measured
-  // against the stage's real tree, so that screen was reported clean without being looked at.
-  { id: 'documents', sel: '[data-testid="documents-stage"]', go: toDocuments },
 ] as const;
 
 function save(name: string, data: unknown) {

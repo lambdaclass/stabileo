@@ -60,13 +60,8 @@
         {#each DESK_GROUPS.pending as k (k)}<button class:on={on(k)} onclick={() => go(k)} data-testid="desk-tab-{k}">{t(`desk.tab.${k}`)}</button>{/each}
       </div>
     {/if}
-  {:else if step === 'detail'}
-    <button class:on={on('detailing')} onclick={() => go('detailing')} data-testid="desk-rail-detailing">{t('desk.rail.detailing')}</button>
   {:else}
-    <!-- The output of the work, each where it is looked at: the drawings, the listings, the memo and the exports. -->
     <button class:on={on('sheets')} onclick={() => go('sheets')} title={t('desk.tab.sheetsHint')} data-testid="desk-rail-sheets">{t('desk.tab.sheets')}</button>
-    <button class:on={on('listings')} onclick={() => go('listings')} title={t('desk.tab.listingsHint')} data-testid="desk-rail-listings">{t('desk.tab.listings')}</button>
-    <button class:on={on('documents')} onclick={() => go('documents')} title={t('desk.tab.documentsHint')} data-testid="desk-rail-documents">{t('desk.tab.documents')}</button>
   {/if}
   <div class="dr-menus">
     {#each (step === 'size' ? ['specialties', 'project'] : ['project']) as g (g)}

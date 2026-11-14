@@ -1,11 +1,11 @@
 /**
- * The construction detail catalogue on the Documents stage: every family with its details, each
+ * The construction detail catalogue on the drawings place: every family with its details, each
  * previewed with the project's values and its note; a seismic joint chosen and sent to the
  * column sheet lands there, and the choice reaches the built set. The catalogue itself and the
  * placement are pinned in `lib/sheets/details/__tests__/catalog.test.ts` and
  * `lib/store/__tests__/detail-catalog.test.ts`.
  */
-import { test, expect, designAll, loadModel, openDocumentsStage, designPlace, openSheetsPlace } from './fixtures';
+import { test, expect, designAll, loadModel, designPlace, openSheetsPlace } from './fixtures';
 
 test.use({ viewport: { width: 1400, height: 900 } });
 
@@ -13,7 +13,7 @@ test.describe('@slow detail catalogue', () => {
   test('families, previews, a detail chosen onto the column sheet', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    await designPlace(page, 'detailing');
+    await designPlace(page, 'list');
     await page.getByTestId('cmd-generate-detailing').click();
     await expect.poll(async () => page.evaluate(() =>
       (window.__stabileo as unknown as { detailingAssemblies(): unknown[] })
