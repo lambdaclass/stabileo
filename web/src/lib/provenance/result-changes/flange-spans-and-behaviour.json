@@ -1,0 +1,39 @@
+{
+  "id": "flange-spans-and-behaviour",
+  "date": "2026-11-14",
+  "prs": [
+    2080
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers",
+      "steelMembers"
+    ]
+  },
+  "title": {
+    "en": "Design demands respect behaviour and flange spans",
+    "es": "Las demandas de diseño respetan el comportamiento y los tramos de las alas",
+    "pt": "Os esforços de projeto respeitam o comportamento e os trechos das mesas",
+    "de": "Bemessung berücksichtigt Stabverhalten und Flanschlängen",
+    "fr": "Les efforts de calcul respectent le comportement et les portées des semelles",
+    "tr": "Tasarım talepleri davranış ve başlık açıklıklarını izler"
+  },
+  "explanation": {
+    "en": "Excluded axial force is masked in every governing record. Steel Cb uses the selected flange span and receives no diagram credit when that span is unavailable. Concrete shared-cage reports describe the evaluated reinforcement. Re-run saved designs and review utilization, combinations, certificates and reports (PR #2080).",
+    "es": "El esfuerzo axial excluido se elimina en todos los registros determinantes. Cb usa el tramo del ala seleccionada y no recibe crédito del diagrama si ese tramo no está disponible. Los informes de hormigón describen la armadura compartida evaluada. Repetí los diseños guardados y revisá utilización, combinaciones, certificados e informes (PR #2080).",
+    "pt": "O esforço normal excluído é removido de todos os registros determinantes. Cb usa o trecho da mesa selecionada, sem benefício do diagrama quando esse trecho não está disponível. Os relatórios de concreto descrevem a armadura compartilhada avaliada. Refaça os projetos salvos e revise utilização, combinações, certificados e relatórios (PR #2080).",
+    "de": "Ausgeschlossene Normalkräfte werden in allen maßgebenden Datensätzen entfernt. Cb verwendet die gewählte Flanschlänge; fehlt das zugehörige Diagramm, entfällt dessen günstiger Einfluss. Betonberichte beschreiben die geprüfte gemeinsame Bewehrung. Gespeicherte Bemessungen erneut ausführen und Ausnutzung, Kombinationen, Zertifikate und Berichte prüfen (PR #2080).",
+    "fr": "L’effort normal exclu est retiré de chaque enregistrement déterminant. Cb utilise la portée de la semelle sélectionnée, sans bénéfice du diagramme si cette portée est indisponible. Les rapports béton décrivent l’armature commune évaluée. Relancer les calculs enregistrés et vérifier taux, combinaisons, certificats et rapports (PR #2080).",
+    "tr": "Dışlanan eksenel kuvvet tüm belirleyici kayıtlardan kaldırılır. Cb seçilen başlık açıklığını kullanır; bu açıklığın diyagramı yoksa diyagram avantajı verilmez. Beton raporları değerlendirilen ortak donatıyı açıklar. Kayıtlı tasarımları yeniden çalıştırıp oranları, kombinasyonları, sertifikaları ve raporları inceleyin (PR #2080)."
+  },
+  "quantities": [
+    "member",
+    "rc",
+    "steel"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-flange-spans-and-behaviour.md",
+    "heading": "Flange spans and behaviour apply to every design demand (2026-11-14)"
+  }
+}

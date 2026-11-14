@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { NO_RELEASE } from '../../store/model.svelte';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { extractGoverningDemands } from '../station-design-forces';
 import { designDemands, maskAxialDemand, maskDemands } from '../design/behaviour-demands';
@@ -14,8 +15,9 @@ function demands(n: number) {
   }] });
 }
 function context(d: ReturnType<typeof demands>): MemberContext {
-  return { elementId: 1, element: { id: 1, type: 'frame' }, section, material: { fy: 250, fu: 400, e: 200000 },
-    kind: 'beam', L: 4, Lb: 4, demands: d.demands, tuples: [...d.concurrent!] } as MemberContext;
+  return { elementId: 1, element: { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, releaseI: NO_RELEASE, releaseJ: NO_RELEASE },
+    section: { ...section, id: 1, name: 'IPE 300' }, material: { id: 1, name: 'S', fy: 250, fu: 400, e: 200000, nu: 0.3, rho: 78.5 },
+    kind: 'beam', L: 4, Lb: 4, demands: d.demands, tuples: [...d.concurrent!] };
 }
 
 it.each([undefined, 'both'])('#2080 unrestricted %s preserves concurrent tension through both masks', behaviour => {
@@ -31,8 +33,7 @@ for (const behaviour of ['tensionOnly', 'cable', 'compressionOnly']) {
   const excludedSign = behaviour === 'compressionOnly' ? 1 : -1;
   for (const n of [-100, 0, 100]) {
     const excluded = n * excludedSign > 0;
-    const test = excluded ? it.fails : it;
-    test(`#2080 ${behaviour} masks governing and concurrent axial at n=${n}`, () => {
+    it(`#2080 ${behaviour} masks governing and concurrent axial at n=${n}`, () => {
       const raw = demands(n);
       const masked = maskDemands(raw, behaviour);
       const expected = excluded ? 0 : n;
@@ -47,7 +48,7 @@ for (const behaviour of ['tensionOnly', 'cable', 'compressionOnly']) {
     });
   }
   for (const id of ['aci318', 'ec2', 'aisc360', 'ec3', 'aisiS100'] as OtherCodeId[]) {
-    it.fails(`#2080 ${id} dispatch cannot restore excluded ${behaviour} axial through deduplication`, () => {
+    it(`#2080 ${id} dispatch cannot restore excluded ${behaviour} axial through deduplication`, () => {
       const d = maskDemands(demands(100 * excludedSign), behaviour);
       const code: OtherCode = { id, family: 'steel', labelKey: '', coverageKey: '', member: () => ({ data: {} }),
         forces: (_, demand) => ({ n: demand.n, my: demand.my }),
@@ -57,7 +58,7 @@ for (const behaviour of ['tensionOnly', 'cable', 'compressionOnly']) {
     });
   }
   for (const code of [AISC360, EC3]) {
-    it.fails(`#2080 ${code.id} ${behaviour} checks the same utilization as zero excluded axial`, () => {
+    it(`#2080 ${code.id} ${behaviour} checks the same utilization as zero excluded axial`, () => {
       const actual = runOtherCode(code, [context(maskDemands(demands(100 * excludedSign), behaviour))]).rows[0]!;
       const expected = runOtherCode(code, [context(demands(0))]).rows[0]!;
       expect(actual.status).toBe('checked');
@@ -76,10 +77,11 @@ it('inactive members are excluded and an empty map stays empty', () => {
 });
 
 for (const behaviour of ['tensionOnly', 'cable', 'compressionOnly']) {
-  it.fails(`#2080 memberContexts ${behaviour} applies the behaviour before a code sees governing forces`, () => {
+  it(`#2080 memberContexts ${behaviour} applies the behaviour before a code sees governing forces`, () => {
     const n = behaviour === 'compressionOnly' ? 100 : -100;
     const ef = { elementId: 1, length: 4, nStart: n, nEnd: n, myStart: 20, myEnd: 20,
-      mzStart: 5, mzEnd: 5, vyStart: 2, vyEnd: 2, vzStart: 3, vzEnd: 3, mxStart: 0, mxEnd: 0 };
+      mzStart: 5, mzEnd: 5, vyStart: 2, vyEnd: 2, vzStart: 3, vzEnd: 3, mxStart: 0, mxEnd: 0, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, distributedLoadsY: [], distributedLoadsZ: [], pointLoadsY: [], pointLoadsZ: [],
+      releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false };
     const model = { nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 4, y: 0, z: 0 }]]),
       elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, type: 'frame', sectionId: 1, materialId: 1, behaviour }]]),
       sections: new Map([[1, { ...section, id: 1 }]]), materials: new Map([[1, { id: 1, fy: 250, fu: 400, e: 200000 }]]), supports: new Map() };

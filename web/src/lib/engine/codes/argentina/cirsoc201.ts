@@ -347,6 +347,15 @@ function engineFlexureDesign(
   };
 }
 
+function flexureEvaluationSteps(check: NonNullable<ReturnType<typeof evaluateBeamSection>>, phiMn: number): string[] {
+  const epsilonT = check.flexureValid ? check.epsilonT : 0;
+  return [
+    `a = ${(check.a * 100).toFixed(2)} cm, c = ${(check.c * 100).toFixed(2)} cm`,
+    `εt = ${(epsilonT * 1000).toFixed(2)}‰ → φ = ${check.phi.toFixed(3)}`,
+    `φMn = ${phiMn.toFixed(2)} kN·m`,
+  ];
+}
+
 export function checkFlexure(
   params: ConcreteDesignParams, Mu: number, Nu: number = 0, opts: FlexureOptions = {},
 ): FlexureResult {
@@ -457,9 +466,7 @@ export function checkFlexure(
   const phiMn = check.flexureValid && Number.isFinite(check.phiMn) ? check.phiMn / 1e3 : 0;
   const epsilonTProv = check.flexureValid ? check.epsilonT : 0;
   const notDuctile = ductilityApplies && check.flexureValid && epsilonTProv < check.epsilonTMin;
-  steps.push(`a = ${(check.a * 100).toFixed(2)} cm, c = ${(check.c * 100).toFixed(2)} cm`);
-  steps.push(`εt = ${(epsilonTProv * 1000).toFixed(2)}‰ → φ = ${check.phi.toFixed(3)}`);
-  steps.push(`φMn = ${phiMn.toFixed(2)} kN·m`);
+  steps.push(...flexureEvaluationSteps(check, phiMn));
 
   const ratio = phiMn > 0 ? MuAbs / phiMn : Infinity;
   let status: VerifStatus = 'ok';
@@ -1302,7 +1309,17 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
       flexure = { ...flexure, AsProv: f.AsProv, barDia: f.barDia, barCount: f.barCount, bars: f.bars, d: f.d,
         AsComp: f.AsComp, barDiaComp: f.barDiaComp, barCountComp: f.barCountComp, barsComp: f.barsComp,
         isDoublyReinforced: f.isDoublyReinforced, phiMn, ratio, a: r?.a ?? 0, epsilonT: r?.epsilonT ?? 0,
-        status: !ductile || !(ratio <= 1) ? 'fail' : ratio > 0.85 ? 'warn' : 'ok' };
+        status: !ductile || !(ratio <= 1) ? 'fail' : ratio > 0.85 ? 'warn' : 'ok',
+        steps: [
+          `d = ${(f.d * 100).toFixed(1)} cm`,
+          `Mu = ${Math.abs(designMu).toFixed(2)} kN·m${flexureNu !== 0 ? `, Nu = ${flexureNu.toFixed(2)} kN (+ compresión)` : ''}`,
+          `As,req (tracción) = ${requiredFlexure.AsReq.toFixed(2)} cm²`,
+          `Armadura tracción: ${f.bars} (${f.AsProv.toFixed(2)} cm²)`,
+          ...(f.AsComp ? [`Armadura compresión: ${f.barsComp} (${f.AsComp.toFixed(2)} cm²)`] : []),
+          ...(r ? flexureEvaluationSteps(r, phiMn) : []),
+          `Mu/φMn = ${ratio.toFixed(3)}`,
+          ...(!ductile && r ? [`⚠ εt = ${(r.epsilonT * 1000).toFixed(2)} ‰ < εt,mín = ${(r.epsilonTMin * 1000).toFixed(2)} ‰ (${edition === '2005' ? '§10.3.5' : '§9.3.3.1'})`] : []),
+        ] };
     }
     let shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv, ...fixed?.shear });
     let shearSecondary = isVertical && input.VuSecondary !== undefined

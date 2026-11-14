@@ -507,6 +507,7 @@ export interface SteelMemberDemand {
   /** Strong-axis |M| envelope per station, for F.1.1. Empty: Cb = 1. */
   diagram: StationMoment[];
   diagrams?: ReadonlyMap<number, StationMoment[]>;
+  diagramLength?: number;
   /**
    * The forces that act TOGETHER, one per combination and station: the interaction (H.1) is
    * rated on these. Rated on the maxima above it took the largest axial, the largest strong and
@@ -568,7 +569,7 @@ export function steelDemandOf(
     ? { VuStrong: sd.demands.find((d) => d.category === 'Vz')?.absValue ?? 0, VuWeak: sd.demands.find((d) => d.category === 'Vy')?.absValue ?? 0,
       MuStrongPos: sd.demands.find((d) => d.category === 'My+')?.absValue ?? 0, MuStrongNeg: sd.demands.find((d) => d.category === 'My-')?.absValue ?? 0 }
     : { VuStrong: Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd)), VuWeak: Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd)) };
-  return { Nc, Nt, MuStrong, MuWeak, Vu, ...byAxis, diagram, diagrams, concurrent, ...(tuples ? { tuples } : {}), ...(governing ? { governing } : {}) };
+  return { Nc, Nt, MuStrong, MuWeak, Vu, ...byAxis, diagram, diagrams, diagramLength: stations?.length ?? ef.length, concurrent, ...(tuples ? { tuples } : {}), ...(governing ? { governing } : {}) };
 }
 
 function stationMomentEnvelope(stations: ElementStationResult): StationMoment[] {
@@ -617,6 +618,15 @@ export interface SteelSegmentDiagram {
   stations: StationMoment[];
   tStart: number;
   tEnd: number;
+  extent?: { length: number; center: number };
+}
+
+function steelMomentWindow(Lb: number, extent: { length: number; center: number }): { tStart: number; tEnd: number } | undefined {
+  if (!(Lb > 0) || !(Lb <= extent.length)) return undefined;
+  if (Lb >= extent.length - 1e-9) return { tStart: 0, tEnd: 1 };
+  const w = Lb / extent.length;
+  const tStart = Math.max(0, Math.min(extent.center - w / 2, 1 - w));
+  return { tStart, tEnd: tStart + w };
 }
 
 export function steelSegmentDiagram(
@@ -680,15 +690,10 @@ export function steelSegmentDiagram(
     prefix += e.L;
   }
 
-  let tStart = 0, tEnd = 1;
-  if (lengths.Lb > 0 && lengths.Lb < total - 1e-9) {
-    const w = lengths.Lb / total;
-    const mid = (selfStart + selfLen / 2) / total;
-    tStart = Math.max(0, Math.min(mid - w / 2, 1 - w));
-    tEnd = tStart + w;
-  }
+  const extent = { length: total, center: (selfStart + selfLen / 2) / total };
+  const window = steelMomentWindow(lengths.Lb, extent) ?? { tStart: 0, tEnd: 1 };
   for (const [id, count] of counts) if (count !== elems.length) byCombo.delete(id);
-  return { stations, tStart, tEnd, byCombo };
+  return { stations, ...window, byCombo, extent };
 }
 
 /** The largest utilisation of a steel verification, over every limit state it ran. */
@@ -878,18 +883,23 @@ export function checkSteelMember(
 
   const concurrent = steelConcurrentDemands(demand);
   if (!concurrent.length) throw new Error('Concurrent steel demands are required; an envelope cannot be verified');
-  const cb = new Map<number, number | undefined>();
+  const cb = new Map<string, number | undefined>();
   const paramsAt = (p: SteelDesignParams, d: ConcurrentDemand): SteelDesignParams => {
-    if (!cb.has(d.comboId)) {
-      const own = segment ? segment.byCombo?.get(d.comboId) ?? [] : demand.diagrams?.get(d.comboId) ?? [];
-      const grad = cirsoc301InputsAvailable() ? momentGradient({ stations: own, tStart: segment?.tStart, tEnd: segment?.tEnd,
-        shape: section.shape, cantileverFreeEnd: lengths.freeEnd === true }) : undefined;
-      cb.set(d.comboId, grad?.basis === 'computed' ? grad.cb : undefined);
-    }
     const { Cb: _old, ...rest } = p;
     void _old;
-    const factor = cb.get(d.comboId);
     const own = steelParamsForDemand(rest, d.section('My'));
+    const key = `${d.comboId}|${own.Lb}`;
+    if (!cb.has(key)) {
+      const window = segment
+        ? segment.extent ? steelMomentWindow(own.Lb, segment.extent)
+          : own.Lb === lengths.Lb ? { tStart: segment.tStart, tEnd: segment.tEnd } : undefined
+        : steelMomentWindow(own.Lb, { length: demand.diagramLength ?? L, center: 0.5 });
+      const stations = !window ? [] : segment ? segment.byCombo?.get(d.comboId) ?? [] : demand.diagrams?.get(d.comboId) ?? [];
+      const grad = cirsoc301InputsAvailable() ? momentGradient({ stations, ...window,
+        shape: section.shape, cantileverFreeEnd: lengths.freeEnd === true }) : undefined;
+      cb.set(key, grad?.basis === 'computed' ? grad.cb : undefined);
+    }
+    const factor = cb.get(key);
     return factor === undefined ? own : { ...own, Cb: factor };
   };
 
