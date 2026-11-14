@@ -172,7 +172,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
 
   // ── Buildings ──
   entry({ id: 'pro-rc-frame-area-loads', source: 'code', group: 'buildings', tags: ['pro.tagRC', 'pro.tagFloorLoads'], stats: { nodes: 59, members: 113 }, selfWeight: 'all', combinations: 'regulation' }),
-  entry({ id: 'pro-edificio-7p', source: 'fixture', group: 'buildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 138, members: 203, shells: 75 }, selfWeight: 'all', combinations: 'regulationAsSigned' }),
+  entry({ id: 'pro-edificio-7p', source: 'fixture', group: 'buildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 141, members: 203, shells: 77 }, selfWeight: 'all', combinations: 'regulationAsSigned' }),
   entry({ id: 'rc-design-frame', source: 'fixture', group: 'buildings', tags: ['pro.tagRC', 'pro.tagDesign'], stats: { nodes: 180, members: 408 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'pro-steel-building-slabs', source: 'code', group: 'buildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 836, members: 447, shells: 756 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'torre-irregular-con-retiros', source: 'fixture', group: 'buildings', tags: ['pro.tagSteel', 'pro.tagDrift'], stats: { nodes: 556, members: 1420 }, selfWeight: 'all', combinations: 'regulation' }),

@@ -721,192 +721,210 @@
     },
     {
       "id": 107,
-      "x": 0,
-      "y": 5,
+      "x": 18,
+      "y": 0,
       "z": 21.5
     },
     {
       "id": 108,
-      "x": 6,
+      "x": 0,
       "y": 5,
       "z": 21.5
     },
     {
       "id": 109,
-      "x": 11,
+      "x": 6,
       "y": 5,
       "z": 21.5
     },
     {
       "id": 110,
-      "x": 16,
+      "x": 11,
       "y": 5,
       "z": 21.5
     },
     {
       "id": 111,
-      "x": 0,
-      "y": 10,
+      "x": 16,
+      "y": 5,
       "z": 21.5
     },
     {
       "id": 112,
-      "x": 6,
-      "y": 10,
+      "x": 18,
+      "y": 5,
       "z": 21.5
     },
     {
       "id": 113,
-      "x": 11,
+      "x": 0,
       "y": 10,
       "z": 21.5
     },
     {
       "id": 114,
-      "x": 16,
+      "x": 6,
       "y": 10,
       "z": 21.5
     },
     {
       "id": 115,
-      "x": 2.5,
-      "y": 0,
-      "z": 0
+      "x": 11,
+      "y": 10,
+      "z": 21.5
     },
     {
       "id": 116,
-      "x": 2.5,
-      "y": 2.5,
-      "z": 0
+      "x": 16,
+      "y": 10,
+      "z": 21.5
     },
     {
       "id": 117,
-      "x": 0,
-      "y": 2.5,
-      "z": 0
+      "x": 18,
+      "y": 10,
+      "z": 21.5
     },
     {
       "id": 118,
       "x": 2.5,
       "y": 0,
-      "z": 3.5
+      "z": 0
     },
     {
       "id": 119,
       "x": 2.5,
       "y": 2.5,
-      "z": 3.5
+      "z": 0
     },
     {
       "id": 120,
       "x": 0,
       "y": 2.5,
-      "z": 3.5
+      "z": 0
     },
     {
       "id": 121,
       "x": 2.5,
       "y": 0,
-      "z": 6.5
+      "z": 3.5
     },
     {
       "id": 122,
       "x": 2.5,
       "y": 2.5,
-      "z": 6.5
+      "z": 3.5
     },
     {
       "id": 123,
       "x": 0,
       "y": 2.5,
-      "z": 6.5
+      "z": 3.5
     },
     {
       "id": 124,
       "x": 2.5,
       "y": 0,
-      "z": 9.5
+      "z": 6.5
     },
     {
       "id": 125,
       "x": 2.5,
       "y": 2.5,
-      "z": 9.5
+      "z": 6.5
     },
     {
       "id": 126,
       "x": 0,
       "y": 2.5,
-      "z": 9.5
+      "z": 6.5
     },
     {
       "id": 127,
       "x": 2.5,
       "y": 0,
-      "z": 12.5
+      "z": 9.5
     },
     {
       "id": 128,
       "x": 2.5,
       "y": 2.5,
-      "z": 12.5
+      "z": 9.5
     },
     {
       "id": 129,
       "x": 0,
       "y": 2.5,
-      "z": 12.5
+      "z": 9.5
     },
     {
       "id": 130,
       "x": 2.5,
       "y": 0,
-      "z": 15.5
+      "z": 12.5
     },
     {
       "id": 131,
       "x": 2.5,
       "y": 2.5,
-      "z": 15.5
+      "z": 12.5
     },
     {
       "id": 132,
       "x": 0,
       "y": 2.5,
-      "z": 15.5
+      "z": 12.5
     },
     {
       "id": 133,
       "x": 2.5,
       "y": 0,
-      "z": 18.5
+      "z": 15.5
     },
     {
       "id": 134,
       "x": 2.5,
       "y": 2.5,
-      "z": 18.5
+      "z": 15.5
     },
     {
       "id": 135,
       "x": 0,
       "y": 2.5,
-      "z": 18.5
+      "z": 15.5
     },
     {
       "id": 136,
       "x": 2.5,
       "y": 0,
-      "z": 21.5
+      "z": 18.5
     },
     {
       "id": 137,
       "x": 2.5,
       "y": 2.5,
-      "z": 21.5
+      "z": 18.5
     },
     {
       "id": 138,
+      "x": 0,
+      "y": 2.5,
+      "z": 18.5
+    },
+    {
+      "id": 139,
+      "x": 2.5,
+      "y": 0,
+      "z": 21.5
+    },
+    {
+      "id": 140,
+      "x": 2.5,
+      "y": 2.5,
+      "z": 21.5
+    },
+    {
+      "id": 141,
       "x": 0,
       "y": 2.5,
       "z": 21.5
@@ -1677,7 +1695,7 @@
       "id": 77,
       "type": "frame",
       "nodeI": 93,
-      "nodeJ": 107,
+      "nodeJ": 108,
       "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
@@ -1687,7 +1705,7 @@
       "id": 78,
       "type": "frame",
       "nodeI": 94,
-      "nodeJ": 108,
+      "nodeJ": 109,
       "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
@@ -1697,7 +1715,7 @@
       "id": 79,
       "type": "frame",
       "nodeI": 95,
-      "nodeJ": 109,
+      "nodeJ": 110,
       "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
@@ -1707,7 +1725,7 @@
       "id": 80,
       "type": "frame",
       "nodeI": 96,
-      "nodeJ": 110,
+      "nodeJ": 111,
       "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
@@ -1717,7 +1735,7 @@
       "id": 81,
       "type": "frame",
       "nodeI": 98,
-      "nodeJ": 111,
+      "nodeJ": 113,
       "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
@@ -1727,7 +1745,7 @@
       "id": 82,
       "type": "frame",
       "nodeI": 99,
-      "nodeJ": 112,
+      "nodeJ": 114,
       "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
@@ -1737,7 +1755,7 @@
       "id": 83,
       "type": "frame",
       "nodeI": 100,
-      "nodeJ": 113,
+      "nodeJ": 115,
       "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
@@ -1747,7 +1765,7 @@
       "id": 84,
       "type": "frame",
       "nodeI": 101,
-      "nodeJ": 114,
+      "nodeJ": 116,
       "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
@@ -2326,16 +2344,6 @@
     {
       "id": 142,
       "type": "frame",
-      "nodeI": 107,
-      "nodeJ": 108,
-      "materialId": 2,
-      "sectionId": 4,
-      "hingeStart": false,
-      "hingeEnd": false
-    },
-    {
-      "id": 143,
-      "type": "frame",
       "nodeI": 108,
       "nodeJ": 109,
       "materialId": 2,
@@ -2344,7 +2352,7 @@
       "hingeEnd": false
     },
     {
-      "id": 144,
+      "id": 143,
       "type": "frame",
       "nodeI": 109,
       "nodeJ": 110,
@@ -2354,10 +2362,20 @@
       "hingeEnd": false
     },
     {
+      "id": 144,
+      "type": "frame",
+      "nodeI": 110,
+      "nodeJ": 111,
+      "materialId": 2,
+      "sectionId": 4,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
       "id": 145,
       "type": "frame",
-      "nodeI": 111,
-      "nodeJ": 112,
+      "nodeI": 113,
+      "nodeJ": 114,
       "materialId": 2,
       "sectionId": 4,
       "hingeStart": false,
@@ -2366,8 +2384,8 @@
     {
       "id": 146,
       "type": "frame",
-      "nodeI": 112,
-      "nodeJ": 113,
+      "nodeI": 114,
+      "nodeJ": 115,
       "materialId": 2,
       "sectionId": 4,
       "hingeStart": false,
@@ -2376,8 +2394,8 @@
     {
       "id": 147,
       "type": "frame",
-      "nodeI": 113,
-      "nodeJ": 114,
+      "nodeI": 115,
+      "nodeJ": 116,
       "materialId": 2,
       "sectionId": 4,
       "hingeStart": false,
@@ -2867,7 +2885,7 @@
       "id": 196,
       "type": "frame",
       "nodeI": 103,
-      "nodeJ": 107,
+      "nodeJ": 108,
       "materialId": 2,
       "sectionId": 5,
       "hingeStart": false,
@@ -2876,8 +2894,8 @@
     {
       "id": 197,
       "type": "frame",
-      "nodeI": 107,
-      "nodeJ": 111,
+      "nodeI": 108,
+      "nodeJ": 113,
       "materialId": 2,
       "sectionId": 5,
       "hingeStart": false,
@@ -2887,7 +2905,7 @@
       "id": 198,
       "type": "frame",
       "nodeI": 104,
-      "nodeJ": 108,
+      "nodeJ": 109,
       "materialId": 2,
       "sectionId": 5,
       "hingeStart": false,
@@ -2896,8 +2914,8 @@
     {
       "id": 199,
       "type": "frame",
-      "nodeI": 108,
-      "nodeJ": 112,
+      "nodeI": 109,
+      "nodeJ": 114,
       "materialId": 2,
       "sectionId": 5,
       "hingeStart": false,
@@ -2907,7 +2925,7 @@
       "id": 200,
       "type": "frame",
       "nodeI": 105,
-      "nodeJ": 109,
+      "nodeJ": 110,
       "materialId": 2,
       "sectionId": 5,
       "hingeStart": false,
@@ -2916,8 +2934,8 @@
     {
       "id": 201,
       "type": "frame",
-      "nodeI": 109,
-      "nodeJ": 113,
+      "nodeI": 110,
+      "nodeJ": 115,
       "materialId": 2,
       "sectionId": 5,
       "hingeStart": false,
@@ -2927,7 +2945,7 @@
       "id": 202,
       "type": "frame",
       "nodeI": 106,
-      "nodeJ": 110,
+      "nodeJ": 111,
       "materialId": 2,
       "sectionId": 5,
       "hingeStart": false,
@@ -2936,8 +2954,8 @@
     {
       "id": 203,
       "type": "frame",
-      "nodeI": 110,
-      "nodeJ": 114,
+      "nodeI": 111,
+      "nodeJ": 116,
       "materialId": 2,
       "sectionId": 5,
       "hingeStart": false,
@@ -3928,6 +3946,24 @@
     {
       "type": "surface3d",
       "data": {
+        "id": 103,
+        "quadId": 52,
+        "q": 1.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 104,
+        "quadId": 52,
+        "q": 3,
+        "caseId": 4
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
         "id": 105,
         "quadId": 53,
         "q": 1.5,
@@ -3977,6 +4013,24 @@
         "quadId": 55,
         "q": 1,
         "caseId": 5
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 111,
+        "quadId": 56,
+        "q": 1.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 112,
+        "quadId": 56,
+        "q": 3,
+        "caseId": 4
       }
     },
     {
@@ -5047,7 +5101,7 @@
       "type": "nodal3d",
       "data": {
         "id": 189,
-        "nodeId": 107,
+        "nodeId": 108,
         "fx": 5.887604475000001,
         "fy": 0,
         "fz": 0,
@@ -5061,7 +5115,7 @@
       "type": "nodal3d",
       "data": {
         "id": 190,
-        "nodeId": 110,
+        "nodeId": 111,
         "fx": 3.6797527968750003,
         "fy": 0,
         "fz": 0,
@@ -5075,7 +5129,7 @@
       "type": "nodal3d",
       "data": {
         "id": 191,
-        "nodeId": 110,
+        "nodeId": 111,
         "fx": -5.887604475000001,
         "fy": 0,
         "fz": 0,
@@ -5089,7 +5143,7 @@
       "type": "nodal3d",
       "data": {
         "id": 192,
-        "nodeId": 107,
+        "nodeId": 108,
         "fx": -3.6797527968750003,
         "fy": 0,
         "fz": 0,
@@ -5103,7 +5157,7 @@
       "type": "nodal3d",
       "data": {
         "id": 193,
-        "nodeId": 111,
+        "nodeId": 113,
         "fx": 2.9438022375000004,
         "fy": 0,
         "fz": 0,
@@ -5117,7 +5171,7 @@
       "type": "nodal3d",
       "data": {
         "id": 194,
-        "nodeId": 114,
+        "nodeId": 116,
         "fx": 1.8398763984375002,
         "fy": 0,
         "fz": 0,
@@ -5131,7 +5185,7 @@
       "type": "nodal3d",
       "data": {
         "id": 195,
-        "nodeId": 114,
+        "nodeId": 116,
         "fx": -2.9438022375000004,
         "fy": 0,
         "fz": 0,
@@ -5145,7 +5199,7 @@
       "type": "nodal3d",
       "data": {
         "id": 196,
-        "nodeId": 111,
+        "nodeId": 113,
         "fx": -1.8398763984375002,
         "fy": 0,
         "fz": 0,
@@ -5691,8 +5745,8 @@
       "nodes": [
         103,
         104,
-        108,
-        107
+        109,
+        108
       ],
       "materialId": 2,
       "thickness": 0.15
@@ -5702,8 +5756,8 @@
       "nodes": [
         104,
         105,
-        109,
-        108
+        110,
+        109
       ],
       "materialId": 2,
       "thickness": 0.15
@@ -5713,17 +5767,17 @@
       "nodes": [
         105,
         106,
-        110,
-        109
+        111,
+        110
       ],
       "materialId": 2,
       "thickness": 0.15
     },
     {
-      "id": 53,
+      "id": 52,
       "nodes": [
+        106,
         107,
-        108,
         112,
         111
       ],
@@ -5731,12 +5785,23 @@
       "thickness": 0.15
     },
     {
-      "id": 54,
+      "id": 53,
       "nodes": [
         108,
         109,
-        113,
-        112
+        114,
+        113
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 54,
+      "nodes": [
+        109,
+        110,
+        115,
+        114
       ],
       "materialId": 2,
       "thickness": 0.15
@@ -5744,10 +5809,21 @@
     {
       "id": 55,
       "nodes": [
-        109,
         110,
-        114,
-        113
+        111,
+        116,
+        115
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 56,
+      "nodes": [
+        111,
+        112,
+        117,
+        116
       ],
       "materialId": 2,
       "thickness": 0.15
@@ -5756,8 +5832,8 @@
       "id": 57,
       "nodes": [
         1,
-        117,
         120,
+        123,
         13
       ],
       "materialId": 2,
@@ -5767,8 +5843,8 @@
       "id": 58,
       "nodes": [
         1,
-        115,
         118,
+        121,
         13
       ],
       "materialId": 2,
@@ -5776,39 +5852,6 @@
     },
     {
       "id": 59,
-      "nodes": [
-        116,
-        117,
-        120,
-        119
-      ],
-      "materialId": 2,
-      "thickness": 0.2
-    },
-    {
-      "id": 60,
-      "nodes": [
-        13,
-        120,
-        123,
-        28
-      ],
-      "materialId": 2,
-      "thickness": 0.2
-    },
-    {
-      "id": 61,
-      "nodes": [
-        13,
-        118,
-        121,
-        28
-      ],
-      "materialId": 2,
-      "thickness": 0.2
-    },
-    {
-      "id": 62,
       "nodes": [
         119,
         120,
@@ -5819,29 +5862,29 @@
       "thickness": 0.2
     },
     {
-      "id": 63,
+      "id": 60,
       "nodes": [
-        28,
+        13,
         123,
         126,
-        43
+        28
       ],
       "materialId": 2,
       "thickness": 0.2
     },
     {
-      "id": 64,
+      "id": 61,
       "nodes": [
-        28,
+        13,
         121,
         124,
-        43
+        28
       ],
       "materialId": 2,
       "thickness": 0.2
     },
     {
-      "id": 65,
+      "id": 62,
       "nodes": [
         122,
         123,
@@ -5852,29 +5895,29 @@
       "thickness": 0.2
     },
     {
-      "id": 66,
+      "id": 63,
       "nodes": [
-        43,
+        28,
         126,
         129,
-        58
+        43
       ],
       "materialId": 2,
       "thickness": 0.2
     },
     {
-      "id": 67,
+      "id": 64,
       "nodes": [
-        43,
+        28,
         124,
         127,
-        58
+        43
       ],
       "materialId": 2,
       "thickness": 0.2
     },
     {
-      "id": 68,
+      "id": 65,
       "nodes": [
         125,
         126,
@@ -5885,29 +5928,29 @@
       "thickness": 0.2
     },
     {
-      "id": 69,
+      "id": 66,
       "nodes": [
-        58,
+        43,
         129,
         132,
-        73
+        58
       ],
       "materialId": 2,
       "thickness": 0.2
     },
     {
-      "id": 70,
+      "id": 67,
       "nodes": [
-        58,
+        43,
         127,
         130,
-        73
+        58
       ],
       "materialId": 2,
       "thickness": 0.2
     },
     {
-      "id": 71,
+      "id": 68,
       "nodes": [
         128,
         129,
@@ -5918,29 +5961,29 @@
       "thickness": 0.2
     },
     {
-      "id": 72,
+      "id": 69,
       "nodes": [
-        73,
+        58,
         132,
         135,
-        88
+        73
       ],
       "materialId": 2,
       "thickness": 0.2
     },
     {
-      "id": 73,
+      "id": 70,
       "nodes": [
-        73,
+        58,
         130,
         133,
-        88
+        73
       ],
       "materialId": 2,
       "thickness": 0.2
     },
     {
-      "id": 74,
+      "id": 71,
       "nodes": [
         131,
         132,
@@ -5951,11 +5994,44 @@
       "thickness": 0.2
     },
     {
+      "id": 72,
+      "nodes": [
+        73,
+        135,
+        138,
+        88
+      ],
+      "materialId": 2,
+      "thickness": 0.2
+    },
+    {
+      "id": 73,
+      "nodes": [
+        73,
+        133,
+        136,
+        88
+      ],
+      "materialId": 2,
+      "thickness": 0.2
+    },
+    {
+      "id": 74,
+      "nodes": [
+        134,
+        135,
+        138,
+        137
+      ],
+      "materialId": 2,
+      "thickness": 0.2
+    },
+    {
       "id": 75,
       "nodes": [
         88,
-        135,
         138,
+        141,
         103
       ],
       "materialId": 2,
@@ -5965,8 +6041,8 @@
       "id": 76,
       "nodes": [
         88,
-        133,
         136,
+        139,
         103
       ],
       "materialId": 2,
@@ -5975,10 +6051,10 @@
     {
       "id": 77,
       "nodes": [
-        134,
-        135,
+        137,
         138,
-        137
+        141,
+        140
       ],
       "materialId": 2,
       "thickness": 0.2
@@ -5988,107 +6064,107 @@
     {
       "type": "rigidLink",
       "masterNode": 13,
-      "slaveNode": 118
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 13,
-      "slaveNode": 119
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 13,
-      "slaveNode": 120
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 28,
       "slaveNode": 121
     },
     {
       "type": "rigidLink",
-      "masterNode": 28,
+      "masterNode": 13,
       "slaveNode": 122
     },
     {
       "type": "rigidLink",
-      "masterNode": 28,
+      "masterNode": 13,
       "slaveNode": 123
     },
     {
       "type": "rigidLink",
-      "masterNode": 43,
+      "masterNode": 28,
       "slaveNode": 124
     },
     {
       "type": "rigidLink",
-      "masterNode": 43,
+      "masterNode": 28,
       "slaveNode": 125
     },
     {
       "type": "rigidLink",
-      "masterNode": 43,
+      "masterNode": 28,
       "slaveNode": 126
     },
     {
       "type": "rigidLink",
-      "masterNode": 58,
+      "masterNode": 43,
       "slaveNode": 127
     },
     {
       "type": "rigidLink",
-      "masterNode": 58,
+      "masterNode": 43,
       "slaveNode": 128
     },
     {
       "type": "rigidLink",
-      "masterNode": 58,
+      "masterNode": 43,
       "slaveNode": 129
     },
     {
       "type": "rigidLink",
-      "masterNode": 73,
+      "masterNode": 58,
       "slaveNode": 130
     },
     {
       "type": "rigidLink",
-      "masterNode": 73,
+      "masterNode": 58,
       "slaveNode": 131
     },
     {
       "type": "rigidLink",
-      "masterNode": 73,
+      "masterNode": 58,
       "slaveNode": 132
     },
     {
       "type": "rigidLink",
-      "masterNode": 88,
+      "masterNode": 73,
       "slaveNode": 133
     },
     {
       "type": "rigidLink",
-      "masterNode": 88,
+      "masterNode": 73,
       "slaveNode": 134
     },
     {
       "type": "rigidLink",
-      "masterNode": 88,
+      "masterNode": 73,
       "slaveNode": 135
     },
     {
       "type": "rigidLink",
-      "masterNode": 103,
+      "masterNode": 88,
       "slaveNode": 136
     },
     {
       "type": "rigidLink",
-      "masterNode": 103,
+      "masterNode": 88,
       "slaveNode": 137
     },
     {
       "type": "rigidLink",
-      "masterNode": 103,
+      "masterNode": 88,
       "slaveNode": 138
+    },
+    {
+      "type": "rigidLink",
+      "masterNode": 103,
+      "slaveNode": 139
+    },
+    {
+      "type": "rigidLink",
+      "masterNode": 103,
+      "slaveNode": 140
+    },
+    {
+      "type": "rigidLink",
+      "masterNode": 103,
+      "slaveNode": 141
     },
     {
       "type": "diaphragm",
@@ -6108,9 +6184,9 @@
         25,
         26,
         27,
-        118,
-        119,
-        120
+        121,
+        122,
+        123
       ],
       "plane": "XY"
     },
@@ -6132,9 +6208,9 @@
         40,
         41,
         42,
-        121,
-        122,
-        123
+        124,
+        125,
+        126
       ],
       "plane": "XY"
     },
@@ -6156,9 +6232,9 @@
         55,
         56,
         57,
-        124,
-        125,
-        126
+        127,
+        128,
+        129
       ],
       "plane": "XY"
     },
@@ -6180,9 +6256,9 @@
         70,
         71,
         72,
-        127,
-        128,
-        129
+        130,
+        131,
+        132
       ],
       "plane": "XY"
     },
@@ -6204,9 +6280,9 @@
         85,
         86,
         87,
-        130,
-        131,
-        132
+        133,
+        134,
+        135
       ],
       "plane": "XY"
     },
@@ -6228,9 +6304,9 @@
         100,
         101,
         102,
-        133,
-        134,
-        135
+        136,
+        137,
+        138
       ],
       "plane": "XY"
     },
@@ -6249,9 +6325,12 @@
         112,
         113,
         114,
-        136,
-        137,
-        138
+        115,
+        116,
+        117,
+        139,
+        140,
+        141
       ],
       "plane": "XY"
     }

@@ -186,11 +186,11 @@ describe('the 7-storey building specifically', () => {
     expect(slabBars.length).toBeGreaterThan(1000);
     const lengthOfMark = new Map<string, number>();
     for (const a of b.doc.assemblies) {
-      for (const m of a.source.marks) lengthOfMark.set(`${a.id}|${m.mark}`, m.cuttingLength);
+      for (const m of a.source.marks) lengthOfMark.set(m.mark, m.cuttingLength);
     }
     for (const bar of slabBars.slice(0, 300)) {
       if (!bar.mark) continue;
-      expect(Math.abs(bar.cuttingLength - lengthOfMark.get(`${bar.assemblyId}|${bar.mark}`)!), bar.barId)
+      expect(Math.abs(bar.cuttingLength - lengthOfMark.get(bar.mark)!), bar.barId)
         .toBeLessThanOrEqual(0.005 + 1e-9);
     }
     // And the allowance is declared, so the extra length on the order has a stated reason.

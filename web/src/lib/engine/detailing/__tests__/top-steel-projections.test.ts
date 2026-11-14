@@ -64,7 +64,7 @@ describe('top assembly reinforcement, across every projection', { timeout: 60_00
     // 41 the design refuses since it reads the column cages (no layout of their bars passes the
     // 35 cm columns' 16 bars, or the ones that do need a second top row the columns cannot
     // develop). Before: none bare, all 119 designed; after: these 41, refused, nothing drawn.
-    expect(bare).toEqual([112, 114, 115, 117, 118, 119, 120, 121, 123, 124, 126, 127, 128, 129, 130, 132, 133, 135, 136, 137, 138, 139, 141, 142, 144, 145, 146, 147, 172, 175, 176, 177, 178, 179, 180, 185, 187, 188, 193, 195, 196]);
+    expect(bare).toEqual([112, 113, 114, 115, 117, 118, 119, 120, 121, 123, 124, 126, 127, 128, 129, 130, 132, 133, 135, 136, 137, 138, 139, 141, 142, 144, 145, 146, 147, 172, 175, 176, 177, 178, 179, 180, 185, 187, 188, 193, 196]);
     for (const id of bare) {
       expect(verificationStore.outcomeFor(id)?.outcome, `member ${id}`).not.toBe('VERIFIED');
       expect(scene.bars.some((b) => b.elementIds.includes(id) && b.role === 'transverse' && b.piece !== 'jointTie' && b.piece !== 'jointCrosstie'), `member ${id} has no cage either`).toBe(false);
@@ -192,10 +192,10 @@ describe('top assembly reinforcement, across every projection', { timeout: 60_00
     // Twenty-seven since the design reads the column cages: the 41 beams it refuses carry no
     // steel, so a pair beside one has no hogging row to line up with and stays a hanger — every
     // one of the 27 shares a joint with a refused beam (measured). Before: the twelve below;
-    // after: those twelve except 195, and 113, 116, 122, 125, 131, 134, 140, 143, 173, 174, 181,
-    // 184, 186, 189, 192 and 197.
+    // after: those twelve and 116, 122, 125, 131, 134, 140, 143, 173, 174, 181, 184, 186, 189, 192
+    // and 197.
     expect(report.hangerTopMembers, 'hanger top steel reaches the audited members').toEqual(
-      [113, 116, 122, 125, 131, 134, 140, 143, 173, 174, 181, 182, 183, 184, 186, 189, 190, 191, 192, 194, 197, 198, 199, 200, 201, 202, 203],
+      [116, 122, 125, 131, 134, 140, 143, 173, 174, 181, 182, 183, 184, 186, 189, 190, 191, 192, 194, 195, 197, 198, 199, 200, 201, 202, 203],
     );
     // None of them is PROVISIONAL any more. This assertion used to require the opposite —
     // over 50 proposals — because the fixture's transposed section inertias inflated
