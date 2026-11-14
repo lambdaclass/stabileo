@@ -117,3 +117,20 @@ describe('the Google sign-in window', () => {
     expect(popup.location.href).toBe('');
   });
 });
+
+it.skip('known wrong result: #765 T85 — shared-channel untagged errors cannot cancel another attempt', async () => {
+  const w = fakeWindow();
+  const pending = openGooglePopup('u', w.win);
+  const attempt = await sentAttempt(w.popup!);
+  const settled = vi.fn();
+  void pending.answer.then(settled, settled);
+  const data = { type: OAUTH_CHANNEL, error: 'invalid_state' };
+  w.fire('storage', { key: OAUTH_STORAGE_KEY, newValue: JSON.stringify(data) });
+  const channel = new BroadcastChannel(OAUTH_CHANNEL);
+  channel.postMessage(data);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  expect(settled).not.toHaveBeenCalled();
+  w.fire('storage', { key: OAUTH_STORAGE_KEY, newValue: JSON.stringify({ type: OAUTH_CHANNEL, code: 'ok', attempt }) });
+  expect((await pending.answer).code).toBe('ok');
+  channel.close();
+});

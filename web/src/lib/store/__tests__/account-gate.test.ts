@@ -284,3 +284,19 @@ describe('account gate', () => {
   });
 });
 
+
+it.skip('known wrong result: #765 T234 — mixed actions cannot fail open', async () => {
+  const { accountGate: gate } = await freshGate();
+  auth.saveRequiresAccount = true;
+  auth.userLoginEnabled = true;
+  const save = vi.fn(), signedInOnly = vi.fn();
+  gate.guard('save', save);
+  gate.requireSignIn('feedback', signedInOnly);
+  expect(gate.proceedWithoutAccount()).toBe(false);
+  expect(save).not.toHaveBeenCalled();
+  expect(signedInOnly).not.toHaveBeenCalled();
+  auth.isAuthenticated = true;
+  gate.open = false;
+  expect(save).toHaveBeenCalledOnce();
+  expect(signedInOnly).toHaveBeenCalledOnce();
+});
