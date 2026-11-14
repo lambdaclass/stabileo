@@ -29,7 +29,7 @@ function disclosure(file: string, kind: 'cb' | 'buckling'): string {
   return row!;
 }
 
-it.skip.each(cases)('known wrong result: #2086 $file rechecks every affected CIRSOC member', ({ file, allMembers, shorter, doubleCurvature }) => {
+it.each(cases)('known wrong result: #2086 $file rechecks every affected CIRSOC member', ({ file, allMembers, shorter, doubleCurvature }) => {
   const text = disclosure(file, 'cb');
   expect(text).toMatch(allMembers);
   expect(text).toMatch(shorter);
@@ -37,7 +37,7 @@ it.skip.each(cases)('known wrong result: #2086 $file rechecks every affected CIR
   expect(text).toMatch(doubleCurvature);
 });
 
-it.skip.each(cases)('known wrong result: #2086 $file distinguishes omitted round-off from the critical-factor refusal', ({ file, omitted, refusal }) => {
+it.each(cases)('known wrong result: #2086 $file distinguishes omitted round-off from the critical-factor refusal', ({ file, omitted, refusal }) => {
   const text = disclosure(file, 'buckling');
   expect(text).toMatch(omitted);
   expect(text).toMatch(refusal);

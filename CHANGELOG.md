@@ -95,7 +95,7 @@ Nonlinear convergence checks physical equilibrium in the admissible free directi
 
 #### Buckling factors use the original stiffness pencil (#818, 2026-11-11)
 
-Buckling factors use the original stiffness system, preserve resolved high factors and refuse compression that cannot be distinguished from round-off. Uncertainty follows actual member and constraint coupling, including shared warping. Re-run buckling analyses and P-Delta stability checks.
+Buckling factors use the original stiffness system and preserve resolved high factors. In 2D and 3D, members whose axial forces cannot be distinguished from round-off contribute no geometric stiffness. The analysis is refused if their possible compression could lower the critical factor by more than 1 %. Uncertainty follows actual member and constraint coupling, including shared warping. Re-run buckling analyses and P-Delta stability checks.
 
 #### Concrete fibre load control refines its stopping interval (2026-11-10)
 
@@ -103,7 +103,7 @@ Concrete fibre load control refines its stopping interval. Re-run affected load-
 
 #### The linear solvers refuse a mechanism or an unresolvable stiffness instead of solving it behind a spring, a shift or LU (2026-11-08)
 
-Linear analysis checks physical stiffness and each loaded response before returning an answer. Mechanisms, unresolved numerical accuracy and unsupported moments are refused. Independent soft springs and compatible unloaded releases retain their physical response. Prepared models are invalidated after structural edits. Re-run saved linear analyses; a refusal supplies no replacement result. See [SA-2026-054](docs/advisories/SA-2026-054-unresolved-linear-stiffness.md).
+Linear analysis checks physical stiffness and each loaded response before returning an answer. Mechanisms, unresolved numerical accuracy and unsupported moments are refused. Independent soft springs and compatible unloaded releases retain their physical response. Prepared models are invalidated after structural edits. Other stable responses can change: PCG now returns corrected components that an aggregate residual previously missed, and sparse direct residual refinement improves displacement accuracy. Re-run saved linear analyses; a refusal supplies no replacement result. See [SA-2026-054](docs/advisories/SA-2026-054-unresolved-linear-stiffness.md).
 
 #### Ae takes every staggered chain, and a bolted all-elements end needs web bolts (2026-11-08)
 
@@ -119,7 +119,7 @@ Plastic interval displays compare against the exact certificate endpoints. Resou
 
 #### Cb reads the moment at both ends of the unbraced segment (2026-11-08)
 
-CIRSOC 301 reads the moment at both ends of a declared unbraced segment. Re-run steel checks and optimiser proposals for channels and tees with unbraced segments shorter than the member chain. See [SA-2026-048](docs/advisories/SA-2026-048-cb-segment-ends.md).
+CIRSOC 301 reads the moment at both ends of a declared unbraced segment for curvature and Mmax. Previously, end moments could be omitted from Mmax for any section; channels and tees in double curvature could also miss a sign change. Re-check all CIRSOC 301 members with a declared Lb shorter than the member, including steel checks and optimiser proposals. See [SA-2026-048](docs/advisories/SA-2026-048-cb-segment-ends.md).
 
 ### Added
 

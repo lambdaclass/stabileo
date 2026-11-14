@@ -70,8 +70,9 @@ it('the #1496 tables distinguish independent and coupled directions', () => {
   }
 });
 
-it.skip('known wrong result: #2086 the changelog discloses corrected stable PCG responses and refinement', () => {
-  const text = repoText('changelog.d/linear-solvers-refuse-unstable-stiffness.md');
+it('the changelog discloses corrected stable PCG responses and refinement', () => {
+  const text = repoText('CHANGELOG.md').split(/^## /m).find((section) => section.startsWith('0.6.0 ('));
+  expect(text).toBeDefined();
   expect(text).not.toContain('Models that solved before and are stable give the same displacements');
   expect(text).toMatch(/PCG[\s\S]*corrected components/);
   expect(text).toContain('residual refinement');
