@@ -27,7 +27,7 @@ describe('BVBS', () => {
     expect(bvbsRecord({ mark: 'P@1', count: 1, diameterMm: 8, lengthMm: 1000, weightKg: 0.4, legs: [{ l: 1000, w: 0 }], mandrelMm: 32 }, { project: 'Ñandú', plan: 'x', index: '', grade: 'ADN' })).toMatch(/^BF2D@HjNandu@rx@i@pP1@/);
   });
 
-  it('mandrels: 4 db for ties up to Ø16, 6 db up to Ø25, 8 db above', () => {
-    expect([mandrelOf(8, true), mandrelOf(16, false), mandrelOf(32, false)]).toEqual([32, 96, 256]);
+  it('mandrels: 4 db for ties up to Ø16, 6 db up to Ø25, 8 db to Ø32, 10 db above', () => {
+    expect([mandrelOf(8, true), mandrelOf(16, false), mandrelOf(32, false), mandrelOf(40, false)]).toEqual([32, 96, 256, 400]);
   });
 });

@@ -30,7 +30,8 @@
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import {
     rcShapeForMark, type RcShapeResult,
-  } from '../../../lib/engine/detailing/bar-shape-diagram';
+  } from '../../../lib/rc-sheets/schedule/bar-shape-diagram';
+  import { fitSketch } from '../../../lib/rc-sheets/schedule/sketch';
 
   const selected = $derived(detailingStore.selected);
   const schedule = $derived(detailingStore.schedule);
@@ -83,48 +84,7 @@
   const BOX = { w: 108, h: 66, pad: 11 };
 
   function fitted(r: RcShapeResult) {
-    if (!r.ok) return null;
-    const { min, max } = r.diagram.extent;
-    const w = Math.max(max.x - min.x, 1e-9);
-    const h = Math.max(max.y - min.y, 1e-9);
-    const s = Math.min((BOX.w - 2 * BOX.pad) / w, (BOX.h - 2 * BOX.pad) / h);
-    const ox = (BOX.w - w * s) / 2 - min.x * s;
-    // SVG y runs down; the diagram's runs up.
-    const oy = (BOX.h + h * s) / 2 + min.y * s;
-    const at = (p: { x: number; y: number }) => ({ x: ox + p.x * s, y: oy - p.y * s });
-    return {
-      d: r.diagram.points.map((p, i) => {
-        const q = at(p);
-        return `${i === 0 ? 'M' : 'L'}${q.x.toFixed(2)} ${q.y.toFixed(2)}`;
-      }).join(' '),
-      legs: labelled(r).map((l) => ({ ...l, pos: at(l.at) })),
-    };
-  }
-
-  /**
-   * Which legs get a dimension written on them.
-   *
-   * ── Why not all of them ────────────────────────────────────────────
-   *
-   * A closed tie has four legs and two dimensions. Labelling each leg put `302` on screen four
-   * times inside a 96 × 44 box, and the four collided into an unreadable smudge on exactly the
-   * shapes this column exists for. The three that carried no information were the ones making
-   * the one that did unreadable.
-   *
-   * One label per distinct (length, orientation), which is what a hand-drawn schedule writes: a
-   * 302 × 302 tie reads `302` across and `302` up, and a 452 × 202 one reads both of its
-   * dimensions. Rounded to the millimetre first, because two legs of a tie differ in the last
-   * float bit and would otherwise count as two dimensions.
-   */
-  function labelled(r: RcShapeResult) {
-    if (!r.ok) return [];
-    const seen = new Set<string>();
-    return r.diagram.legs.filter((l) => {
-      const key = `${mm(l.lengthM)}|${l.horizontal}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    return r.ok ? fitSketch(r.diagram, BOX) : null;
   }
 
   /**
