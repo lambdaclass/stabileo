@@ -39,7 +39,7 @@ describe('release example semantics #2091', () => {
   for (const version of ['v0.2.0', 'v0.3.0', 'v0.4.0']) {
     for (const example of ['truss', '3d-portal-frame', 'torre-irregular-con-retiros']) {
       for (const drift of ['name', 'e', 'both']) {
-        it.skip(`known wrong result: #2091: ${version}/${example} resolves materials with release defaults despite ${drift} drift`, async () => {
+        it(`#2091: ${version}/${example} resolves materials with release defaults despite ${drift} drift`, async () => {
           const entry = readManifest(version).examples.find(e => e.example === example)!;
           const opened = await openAndSolve(readCorpusText(`${version}/${entry.file}`), { solve: false });
           const historical = structuredClone(modelStore.materials.get(1)!);

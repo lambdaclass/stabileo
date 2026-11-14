@@ -135,7 +135,7 @@ describe('material and section migration fingerprint #1318', () => {
   it('#1318: absent, undefined, null, zero and adjacent numbers retain their meaning', () => {
     reset('2d');
     const fingerprints = [undefined, null, 0, Number.MIN_VALUE, -Number.MIN_VALUE, 1, 1 + Number.EPSILON].map(value => {
-      modelStore.materials.set(1, { ...material, maxAggregateSizeMm: value });
+      modelStore.materials.set(1, { ...material, maxAggregateSizeMm: value } as unknown as Material);
       return modelFingerprint();
     });
     for (const [i, a] of fingerprints.entries()) {

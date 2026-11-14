@@ -19,7 +19,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { modelStore, type Section } from '../store/model.svelte';
-import { resolveDefaultSection } from '../store/canonical-sections';
 import releaseDefaults from './release-defaults.json';
 import { resultPropertyFingerprint } from '../model/result-properties';
 import { historyStore } from '../store/history.svelte';
@@ -248,11 +247,10 @@ export async function openExample(
 ): Promise<{ values: Values; fingerprint: Values }> {
   const defaults = opts.release === undefined ? undefined : defaultsForRelease(opts.release);
   reset(workspace);
-  await modelStore.loadExample(id, opts.fixture, { keepCombinations: opts.keepCombinations });
-  if (defaults) {
-    modelStore.materials.set(1, structuredClone(defaults.material));
-    modelStore.sections.set(1, resolveDefaultSection(structuredClone(defaults.section) as Section));
-  }
+  await modelStore.loadExample(id, opts.fixture, {
+    keepCombinations: opts.keepCombinations,
+    defaults: defaults ? { material: defaults.material, section: defaults.section as Section } : undefined,
+  });
   const values = modelCounts();
   const fingerprint = modelFingerprint();
   if (opts.solve !== false) await solveAndRecord(values);
