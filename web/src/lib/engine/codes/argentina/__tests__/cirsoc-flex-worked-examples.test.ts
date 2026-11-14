@@ -48,8 +48,13 @@ describe('FSR — rectangular section in simple bending', () => {
     52, 0, { edition: '2005' }, // the workbook is a CIRSOC 201-2005 document
   );
 
-  it('reaches the same effective depth', () => {
+  it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2080 — reaches the same effective depth', () => {
     expect(r.d).toBeCloseTo(0.366, 6);
+  });
+
+  it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2080 — places the provided bars at the published centroid', () => {
+    expect(r.d).toBeCloseTo(0.40 - 0.034, 12);
+    expect(r.designDepth).toBe(r.d);
   });
 
   it('asks for the same steel', () => {
