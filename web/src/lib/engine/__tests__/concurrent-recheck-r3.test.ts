@@ -13,12 +13,12 @@ for (const missing of [false, true]) {
   it(`#2080 — aggregate RC certification includes a later ${missing ? 'missing' : 'refused'} certificate`, () => {
     let k = 0;
     vi.spyOn(gate, 'engineRecheckElement').mockImplementation(v => ({ ...v, engineRecheck: {
-      edition: '2025', unavailable: false, disagreements: k === 0 ? [] : ['shear'], notRechecked: [],
+      edition: '2025', unavailable: false, disagreements: [], notRechecked: [],
       certified: k++ === 0 ? { ok: true, lower: 0.1, upper: 0.2 } : missing ? undefined : { ok: false, lower: 0.4, upper: 1.1, reason: 'later refusal' },
     } }));
     const v = verifyConcurrentElement(inputs);
     expect(v.engineRecheck!.certified!.ok).toBe(false);
-    expect(v.engineRecheck!.disagreements).toEqual(['shear']);
+    expect(v.engineRecheck!.disagreements).toEqual([]);
     if (!missing) expect(v.engineRecheck!.certified).toMatchObject({ lower: 0.4, upper: 1.1, reason: 'later refusal' });
   });
 }
@@ -28,4 +28,15 @@ it('#2080 — aggregate RC certification preserves an all-certified pass', () =>
     edition: '2025', unavailable: false, disagreements: [], notRechecked: [], certified: { ok: true, lower: 0.1, upper: 0.2 },
   } }));
   expect(verifyConcurrentElement(inputs).engineRecheck!.certified).toEqual({ ok: true, lower: 0.1, upper: 0.2 });
+});
+
+it('#2080 — a later shear disagreement invalidates otherwise accepted certificates', () => {
+  let k = 0;
+  vi.spyOn(gate, 'engineRecheckElement').mockImplementation(v => ({ ...v, engineRecheck: {
+    edition: '2025', unavailable: false, disagreements: k++ === 0 ? [] : ['shear'], notRechecked: [],
+    certified: { ok: true, lower: 0.1, upper: 0.2 },
+  } }));
+  const v = verifyConcurrentElement(inputs);
+  expect(v.engineRecheck!.certified!.ok).toBe(false);
+  expect(v.engineRecheck!.disagreements).toEqual(['shear']);
 });
