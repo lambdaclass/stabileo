@@ -149,7 +149,7 @@ describe('blog posts', () => {
         });
       }
 
-      it.skipIf(post.slug === 'stabileo-0-6-0')('known wrong result: #2087 — has the same structure in every language', () => {
+      it('has the same structure in every language', () => {
         const shape = (l: PublicLocale, expectedLocale?: PublicLocale) =>
           post.i18n[l]!.blocks.map((b) =>
             b.k === 'ul' || b.k === 'ol'

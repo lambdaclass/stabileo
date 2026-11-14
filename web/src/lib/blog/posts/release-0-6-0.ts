@@ -1,8 +1,8 @@
 import type { Post } from '../types';
 
 export const release060: Post = {
-  "slug": "stabileo-0-6-0",
-  "date": "2026-11-14",
+  slug: 'stabileo-0-6-0',
+  date: '2026-11-14',
   "order": 17,
   "authors": [
     "Federico Carrone"
@@ -510,7 +510,7 @@ export const release060: Post = {
         },
         {
           "k": "ext",
-          "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.0.md",
+          "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.0.es.md",
           "label": "Notas completas de la versión 0.6.0",
           "t": "Todos los avisos de cambios de resultados, con enlaces a su alcance y evidencia:"
         },
@@ -794,7 +794,7 @@ export const release060: Post = {
         },
         {
           "k": "ext",
-          "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.0.md",
+          "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.0.pt.md",
           "label": "Notas completas da versão 0.6.0",
           "t": "Todos os avisos de mudanças de resultados, com links para seu alcance e evidências:"
         },

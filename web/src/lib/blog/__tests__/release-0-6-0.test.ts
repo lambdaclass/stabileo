@@ -44,7 +44,7 @@ describe('0.6.0 release article', () => {
     expect(body!.blocks[1].k === 'note' && body!.blocks[1].t).toContain('SA-2026-056');
   });
 
-  it.skip.each(locales)('known wrong result: #2087 — %s separates selected new numerical changes from the two later notices for 0.5.0', (locale) => {
+  it.each(locales)('known wrong result: #2087 — %s separates selected new numerical changes from the two later notices for 0.5.0', (locale) => {
     const body = findPost('stabileo-0-6-0')?.i18n[locale];
     expect(body).toBeDefined();
     const release = notes(locale);

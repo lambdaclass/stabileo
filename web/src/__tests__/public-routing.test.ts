@@ -47,7 +47,7 @@ describe('merged public routes', () => {
     expect(['/examples', '/examples/beam-frame', '/tools', '/tools/truss-2d', '/research', '/research/benchmarks/navier-plate', '/paper', '/blog', '/blog/safety-advisories', '/changelog'].map(currentNav))
       .toEqual(['examples', 'examples', 'tools', 'tools', 'research', 'research', 'research', 'blog', 'blog', 'blog']);
   });
-  it.skip('known wrong result: #2087 — prerenders paper, research, tools, every standing page and every post, each once', async () => {
+  it('known wrong result: #2087 — prerenders paper, research, tools, every standing page and every post, each once', async () => {
     const paths = await publicPaths();
     expect(new Set(paths).size).toBe(paths.length);
     expect(RESEARCH_GALLERY).toBe('/research');
@@ -55,7 +55,7 @@ describe('merged public routes', () => {
       expect(paths, path).toContain(path);
     }
   });
-  it.skip('known wrong result: #2087 — preserves every post’s publication and last-change dates for feeds and sitemaps', async () => {
+  it('known wrong result: #2087 — preserves every post’s publication and last-change dates for feeds and sitemaps', async () => {
     await publicPaths();
     for (const post of POSTS) {
       const path = `/blog/${post.slug}`;

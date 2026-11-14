@@ -213,7 +213,7 @@ const body: PostBody = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.0.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.0.de.md",
       "label": "Vollständige Versionshinweise zu 0.6.0",
       "t": "Alle Hinweise zu Ergebnisänderungen mit Links zu Geltungsbereich und Nachweisen:"
     },
