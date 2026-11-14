@@ -120,6 +120,7 @@ export function runOtherCode(code: OtherCode, contexts: MemberContext[], opts: R
     const m = code.member(ctx);
     if ('skip' in m) { rows.set(ctx.elementId, { elementId: ctx.elementId, status: 'skipped', reasonKey: m.skip }); continue; }
     if (ctx.demands.length === 0) { rows.set(ctx.elementId, { elementId: ctx.elementId, status: 'skipped', reasonKey: 'otherCodes.skip.noDemand' }); continue; }
+    if (!ConcurrentDemand.hasCompleteTuples(ctx.tuples, ctx.demands)) { rows.set(ctx.elementId, { elementId: ctx.elementId, status: 'skipped', reasonKey: 'otherCodes.skip.incompleteDemand' }); continue; }
     // The governing demands first, then every other combination and station, each pair once.
     const seen = new Set(ctx.demands.map((d) => `${d.comboId}|${d.stationT}`));
     const rest = (ctx.tuples ?? []).filter((t) => { const k = `${t.comboId}|${t.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
@@ -234,6 +235,7 @@ export async function certifyOtherCode(
   for (const ctx of contexts) {
     const m = code.member(ctx);
     if ('skip' in m || ctx.demands.length === 0) continue;
+    if (!ConcurrentDemand.hasCompleteTuples(ctx.tuples, ctx.demands)) { refuse(ctx.elementId, 'otherCodes.skip.incompleteDemand'); continue; }
     if ((m.unevaluated ?? []).length > 0) { refuse(ctx.elementId, 'otherCodes.cert.partial'); continue; }
     ready.push({ ctx, data: m.data, all: ConcurrentDemand.fromTuples([...ctx.demands, ...(ctx.tuples ?? [])]) });
   }

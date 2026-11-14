@@ -10452,6 +10452,7 @@ const pt: Translations = {
   'otherCodes.check.cfsFlexuralTorsional': 'flambagem por flexo-torção na compressão (E2)',
   'otherCodes.check.cfsWeakAxis': 'flexão em torno do eixo fraco',
   'otherCodes.check.cfsWebShear': 'cisalhamento da alma fora do regime de escoamento (G2.1)',
+  'otherCodes.skip.incompleteDemand': 'esforços por estação incompletos para as combinações ativas',
   'otherCodes.skip.noDemand': 'sem esforços nas combinações ativas',
   'otherCodes.skip.notSteel': 'o material não é aço',
   'otherCodes.skip.noFy': 'o material não tem fy',

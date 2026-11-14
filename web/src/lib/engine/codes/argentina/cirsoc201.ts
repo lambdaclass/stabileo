@@ -67,6 +67,7 @@ export interface FlexureResult {
   c: number;           // neutral axis depth at AsFlexural (m)
   cMax: number;        // c at εt = 5 ‰ — the tension-controlled limit (m)
   epsilonT: number;    // net tensile strain at AsFlexural
+  epsilonTProv: number;
   AsReq: number;       // required steel area (cm²) — already max(AsFlexural, AsMin)
   /**
    * Steel required by FLEXURAL STRENGTH alone, cm² — before any minimum is applied.
@@ -348,6 +349,10 @@ function engineFlexureDesign(
   };
 }
 
+function providedFlexureState(check: ReturnType<typeof evaluateBeamSection>): Pick<FlexureResult, 'a' | 'epsilonTProv'> {
+  return { a: check?.a ?? 0, epsilonTProv: check?.flexureValid ? check.epsilonT : 0 };
+}
+
 function flexureEvaluationSteps(check: NonNullable<ReturnType<typeof evaluateBeamSection>>, phiMn: number): string[] {
   const epsilonT = check.flexureValid ? check.epsilonT : 0;
   return [
@@ -384,7 +389,7 @@ export function checkFlexure(
   let rebar!: { count: number; dia: number; area: number; label: string };
   let rebarComp: { count: number; dia: number; area: number; label: string } | undefined;
   let check!: NonNullable<ReturnType<typeof evaluateBeamSection>>;
-  let first: { d: number; design: EngineFlexureDesign; AsMin: number; AsDesign: number } | undefined;
+  let first: { d: number; design: EngineFlexureDesign } | undefined;
   for (let pass = 0; pass < 5; pass++) {
     d = effectiveDepth(h, cover, stirrupDia, barDia);
     design = engineFlexureDesign(edition, fc, fy, b, h, d, dPrimeAssumed, MuAbs, Nu, flange);
@@ -392,7 +397,7 @@ export function checkFlexure(
     // No steel within the engine's search (tension steel up to 10 % of Ag) works: report that
     // bound, which is above every feasible requirement, so the answer never falls as Mu rises.
     AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, AsMin);
-    first ??= { d, design, AsMin, AsDesign };
+    first ??= { d, design };
     rebar = selectRebar(AsDesign);
     rebarComp = design.kind === 'doubly' ? selectRebar(Math.max(design.AsComp, AsMin * 0.5)) : undefined;
     // The verdict: the engine's check of the bars chosen, at the depths those bars give.
@@ -433,7 +438,7 @@ export function checkFlexure(
         if (q) check = q;
       }
     }
-    const passes = check.flexureValid && check.phiMn / 1e3 >= MuAbs && !(ductilityApplies && check.epsilonT < check.epsilonTMin);
+    const passes = rebar.area >= minFlexuralSteelCm2(fc, fy, b, dReal) && check.flexureValid && check.phiMn / 1e3 >= MuAbs && !(ductilityApplies && check.epsilonT < check.epsilonTMin);
     if (passes || design.kind === 'impossible' || rebar.dia === barDia) break;
     barDia = rebar.dia;
   }
@@ -443,7 +448,9 @@ export function checkFlexure(
    * are those of the last pass, at the depth the chosen bars give.
    */
   const barsDesign = design;
-  ({ d, design, AsMin, AsDesign } = first!);
+  ({ d, design } = first!);
+  AsMin = minFlexuralSteelCm2(fc, fy, b, effectiveDepth(h, cover, stirrupDia, rebar.dia));
+  AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, AsMin);
   // "Needs compression steel" also when no singly-reinforced steel works at all (a footing reports it).
   const isDoubly = barsDesign.kind !== 'singly' || rebarComp !== undefined;
   steps.push(`d (dimensionamiento) = ${(d * 100).toFixed(1)} cm, d' = ${(dPrimeAssumed * 100).toFixed(1)} cm`);
@@ -478,7 +485,7 @@ export function checkFlexure(
     status = 'fail';
     steps.push(`⚠ εt = ${(epsilonTProv * 1000).toFixed(2)} ‰ < εt,mín = ${(check.epsilonTMin * 1000).toFixed(2)} ‰ (${edition === '2005' ? '§10.3.5' : '§9.3.3.1'})`);
   }
-  if (design.kind === 'impossible' || barsDesign.kind === 'impossible') status = 'fail';
+  if (rebar.area < AsMin || design.kind === 'impossible' || barsDesign.kind === 'impossible') status = 'fail';
   if (AsDesign > AsMaxPractical) {
     status = 'fail';
     steps.push(
@@ -488,7 +495,7 @@ export function checkFlexure(
 
   const etc = tensionControlledStrain(fy, edition);
   return {
-    Mu: MuAbs, designDepth: d, d: effectiveDepth(h, cover, stirrupDia, rebar.dia), a: check.a,
+    Mu: MuAbs, designDepth: d, d: effectiveDepth(h, cover, stirrupDia, rebar.dia), ...providedFlexureState(check),
     aReq: design.a, c: design.c, cMax: (d * 0.003) / (0.003 + etc), epsilonT: design.epsilonT,
     AsReq: AsDesign,
     AsFlexural: design.kind === 'impossible' ? 0.10 * Ag * 1e4 : design.As,
@@ -1311,10 +1318,11 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
       const ratio = phiMn > 0 ? Math.abs(designMu) / phiMn : Infinity;
       const ductile = input.elementType !== 'beam' || !r || Math.abs(designMu) === 0
         || flexureNu >= 0.1 * params.fc * 1000 * params.b * params.h || r.epsilonT >= r.epsilonTMin;
-      flexure = { ...flexure, AsProv: f.AsProv, barDia: f.barDia, barCount: f.barCount, bars: f.bars, d,
+      const AsMin = minFlexuralSteelCm2(params.fc, params.fy, params.b, d);
+      flexure = { ...flexure, AsMin, AsReq: Math.max(flexure.AsFlexural, AsMin), AsProv: f.AsProv, barDia: f.barDia, barCount: f.barCount, bars: f.bars, d,
         AsComp: f.AsComp, barDiaComp: f.barDiaComp, barCountComp: f.barCountComp, barsComp: f.barsComp,
-        isDoublyReinforced: f.isDoublyReinforced, phiMn, ratio, a: r?.a ?? 0, epsilonT: r?.epsilonT ?? 0,
-        status: !ductile || !(ratio <= 1) ? 'fail' : ratio > 0.85 ? 'warn' : 'ok',
+        isDoublyReinforced: f.isDoublyReinforced, phiMn, ratio, ...providedFlexureState(r),
+        status: f.AsProv < AsMin || !ductile || !(ratio <= 1) ? 'fail' : ratio > 0.85 ? 'warn' : 'ok',
         steps: [
           `d = ${(d * 100).toFixed(1)} cm`,
           `Mu = ${Math.abs(designMu).toFixed(2)} kN·m${flexureNu !== 0 ? `, Nu = ${flexureNu.toFixed(2)} kN (+ compresión)` : ''}`,

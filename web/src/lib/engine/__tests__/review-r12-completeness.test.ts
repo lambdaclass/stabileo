@@ -5,14 +5,13 @@ import { extractGoverningDemands, type ElementStationResult } from '../station-d
 import { runOtherCode, certifyOtherCode } from '../design/other-codes/run';
 import type { MemberContext, OtherCode, OtherCodeId } from '../design/other-codes/types';
 
-const knownWrong = it.skipIf(!process.env.RUN_KNOWN_WRONG);
 const station = { t: 0, x: 0, n: 0, my: 20, mz: 5, vy: 0, vz: 0, torsion: 0 };
 const combo = (comboId: number, populated: boolean) => ({ comboId, comboName: `C${comboId}`, stations: populated ? [station] : [] });
 const result = (groups: boolean[]): ElementStationResult => ({ elementId: 1, length: 4, stationTs: [0], comboResults: groups.map((p, i) => combo(i + 1, p)) });
 
 for (const groups of [[true, false], [false, true], [false], []]) {
   for (const axis of ['My', 'Mz'] as const) {
-    knownWrong(`known wrong result: #2080 incomplete station combinations ${groups} refuse before ${axis} verification`, () => {
+    it(`#2080 incomplete station combinations ${groups} refuse before ${axis} verification`, () => {
       const data = result(groups);
       expect(() => ConcurrentDemand.fromStations(data)).toThrow(/complete|combination/i);
       expect(() => extractGoverningDemands(data)).toThrow(/complete|combination/i);
@@ -31,7 +30,9 @@ it.each([[[true]], [[true, true]]])('complete station groups %s keep every combi
   expect(ds[0]!.my).toBe(0);
 });
 
-const demands = extractGoverningDemands(result([true, true]));
+const completeResult = result([true, true]);
+completeResult.comboResults[1]!.stations[0] = { ...station, mz: 30 };
+const demands = extractGoverningDemands(completeResult);
 const ctx = { elementId: 1, demands: demands.demands, tuples: demands.concurrent } as unknown as MemberContext;
 function code(id: OtherCodeId): OtherCode {
   return { id, family: 'steel', labelKey: '', coverageKey: '', member: () => ({ data: { elementId: 1 } }),
@@ -41,13 +42,13 @@ function code(id: OtherCodeId): OtherCode {
 }
 for (const id of ['aisc360', 'ec3', 'aci318', 'ec2', 'aisiS100'] as const) {
   for (const tuples of [undefined, [], ctx.tuples!.filter(t => t.comboId === 1)]) {
-    knownWrong(`known wrong result: #2080 ${id} refuses missing or incomplete tuples length=${tuples?.length}`, async () => {
+    it(`#2080 ${id} refuses missing or incomplete tuples length=${tuples?.length}`, async () => {
       const c = code(id), input = { ...ctx, tuples };
       const run = vi.spyOn(c, 'run');
       expect(runOtherCode(c, [input]).rows[0]!.status).toBe('skipped');
       expect(run).not.toHaveBeenCalled();
     });
-    knownWrong(`known wrong result: #2080 ${id} cannot certify missing or incomplete tuples length=${tuples?.length}`, async () => {
+    it(`#2080 ${id} cannot certify missing or incomplete tuples length=${tuples?.length}`, async () => {
       const c = code(id), input = { ...ctx, tuples };
       const call = vi.fn(async () => [{ elementId: 1, certified: true, utilizationLower: 0.5, utilizationUpper: 0.5 }]);
       expect((await certifyOtherCode(c, [input], () => ({} as never), call)).get(1)?.status).toBe('uncertified');

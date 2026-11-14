@@ -10889,6 +10889,7 @@ const de: Translations = {
   'otherCodes.check.cfsFlexuralTorsional': 'Biegedrillknicken unter Druck (E2)',
   'otherCodes.check.cfsWeakAxis': 'Biegung um die schwache Achse',
   'otherCodes.check.cfsWebShear': 'Schub im Steg außerhalb des Fließbereichs (G2.1)',
+  'otherCodes.skip.incompleteDemand': 'unvollständige Stationsschnittgrößen für die aktiven Kombinationen',
   'otherCodes.skip.noDemand': 'keine Schnittgrößen unter den aktiven Kombinationen',
   'otherCodes.skip.notSteel': 'der Werkstoff ist kein Stahl',
   'otherCodes.skip.noFy': 'der Werkstoff hat kein fy',

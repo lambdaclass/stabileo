@@ -10898,6 +10898,7 @@ const tr: Translations = {
   'otherCodes.check.cfsFlexuralTorsional': 'basınçta eğilmeli-burulmalı burkulma (E2)',
   'otherCodes.check.cfsWeakAxis': 'zayıf eksen eğilmesi',
   'otherCodes.check.cfsWebShear': 'akma bölgesi dışında gövde kesmesi (G2.1)',
+  'otherCodes.skip.incompleteDemand': 'etkin birleşimler için eksik istasyon kuvvetleri',
   'otherCodes.skip.noDemand': 'aktif kombinasyonlarda iç kuvvet yok',
   'otherCodes.skip.notSteel': 'malzeme çelik değil',
   'otherCodes.skip.noFy': 'malzemenin fy değeri yok',

@@ -104,7 +104,12 @@ function computeStationDemandsWasm(
 ): StationDemandData {
   const loading = new Map([...perCombo3D].map(([id, r]) => [id, new Map(r.elementForces.map(ef => [ef.elementId, ConcurrentDemand.loadingOf(ef)]))]));
   const withLoading = (esr: ElementStationResult): ElementStationResult => ({ ...esr,
-    comboResults: esr.comboResults.map(c => ({ ...c, transverseLoading: loading.get(c.comboId)?.get(esr.elementId) })) });
+    comboResults: [...perCombo3D.keys()].map(comboId => {
+      const c = esr.comboResults.find(c => c.comboId === comboId);
+      const transverseLoading = loading.get(comboId)?.get(esr.elementId);
+      return { comboId, comboName: c?.comboName ?? combinations.find(c => c.id === comboId)?.name ?? `Combo ${comboId}`,
+        stations: transverseLoading ? c?.stations ?? [] : [], transverseLoading };
+    }) });
   // Build member list from model
   const members: Array<{ elementId: number; sectionId: number; materialId: number; length: number }> = [];
   for (const [id, elem] of model.elements) {

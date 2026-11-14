@@ -53,7 +53,7 @@ describe('a T beam whose block stays in the flange', () => {
     expect(t.AsFlange).toBe(0);
   });
 
-  it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2080 takes its minimum steel from the web, not the flange', () => {
+  it('#2080 takes its minimum steel from the web, not the flange', () => {
     /*
      * §9.6.1.2 is written on bw. With bf six times bw, using the flange would
      * demand roughly six times the minimum — a real over-reinforcement, and

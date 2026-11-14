@@ -5,10 +5,9 @@ import { checkFlexure, prepareElementVerification, verifyElement, type Concurren
 import { checkFlexureFlanged } from '../codes/argentina/cirsoc201-flanged';
 import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
 
-const knownWrong = it.skipIf(!process.env.RUN_KNOWN_WRONG);
 for (const edition of ['2005', '2025'] as const) {
   for (const flange of [false, true]) for (const Mu of [0, 120, 400]) {
-    knownWrong(`known wrong result: #2080 ${edition} flange=${flange} Mu=${Mu} minimum uses the provided depth`, () => {
+    it(`#2080 ${edition} flange=${flange} Mu=${Mu} minimum uses the provided depth`, () => {
       const p = { fc: 25, fy: 420, cover: 0.03, b: 0.2, h: 0.6, stirrupDia: 8 };
       const f = flange ? checkFlexureFlanged(p, { bf: 1.2, hf: 0.1, bw: p.b }, Mu, edition) : checkFlexure(p, Mu, 0, { edition });
       const rhoMin = Math.max(0.25 * Math.sqrt(p.fc) / p.fy, 1.4 / p.fy);
@@ -18,7 +17,7 @@ for (const edition of ['2005', '2025'] as const) {
     });
   }
   for (const axis of ['My', 'Mz'] as const) for (const elementType of ['beam', 'column', 'wall'] as const) {
-    knownWrong(`known wrong result: #2080 ${edition} ${axis} ${elementType} keeps required and provided strains distinct`, () => {
+    it(`#2080 ${edition} ${axis} ${elementType} keeps required and provided strains distinct`, () => {
       const inputs: ConcurrentVerificationInput[] = ConcurrentDemand.fromTuples([20, 100].map((m, i) => ({ comboId: i + 1, comboName: `C${i + 1}`,
         forces: { t: 0.5, x: 2, n: 0, my: m, mz: m, vy: 1, vz: 1, torsion: 0 } })))
         .map(d => ({ elementId: 1, elementType, edition, demand: d.section(axis), b: 0.4, h: 0.4, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 }));
@@ -37,4 +36,17 @@ for (const edition of ['2005', '2025'] as const) {
       }
     });
   }
+}
+
+for (const edition of ['2005', '2025'] as const) for (const delta of [-1e-8, 0, 1e-8]) {
+  it(`#2080 ${edition} shared minimum boundary ${delta}`, () => {
+    const demand = ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'zero', forces: { t: 0, x: 0, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: 0 } }])[0]!;
+    const i: ConcurrentVerificationInput = { elementId: 1, elementType: 'beam', edition, demand: demand.section('My'), b: 0.4, h: 0.4, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 };
+    const f = verifyElement(i).flexure;
+    const fixed = { ...f, AsProv: f.AsMin + delta };
+    for (const v of [verifyElement(i, { flexure: fixed }), prepareElementVerification(i)({ flexure: fixed })]) {
+      expect(v.flexure.status).toBe(delta < 0 ? 'fail' : 'ok');
+      expect(v.flexure.ratio).toBe(0);
+    }
+  });
 }

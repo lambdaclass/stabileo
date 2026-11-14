@@ -11092,6 +11092,7 @@ const en: Record<string, string> = {
   'otherCodes.check.cfsFlexuralTorsional': 'flexural-torsional buckling in compression (E2)',
   'otherCodes.check.cfsWeakAxis': 'weak-axis bending',
   'otherCodes.check.cfsWebShear': 'web shear outside the yielding range (G2.1)',
+  'otherCodes.skip.incompleteDemand': 'incomplete station forces under the active combinations',
   'otherCodes.skip.noDemand': 'no forces under the active combinations',
   'otherCodes.skip.notSteel': 'the material is not steel',
   'otherCodes.skip.noFy': 'the material has no fy',

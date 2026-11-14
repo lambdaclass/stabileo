@@ -2,6 +2,10 @@ import type { ElementStationResult } from './station-design-forces';
 import type { StationForces } from './station-forces';
 import type { AnalysisResults3D } from './types-3d';
 
+export function hasCompleteConcurrentDemand(groups: readonly (readonly unknown[] | undefined)[]): boolean {
+  return groups.length > 0 && groups.every(stations => stations !== undefined && stations.length > 0);
+}
+
 export class ConcurrentDemand {
   readonly #concurrent = true;
   private constructor(
@@ -22,8 +26,10 @@ export class ConcurrentDemand {
   get stationX(): number { return this.forces.x; }
 
   static fromStations(result: ElementStationResult): ConcurrentDemand[] {
+    if (!hasCompleteConcurrentDemand(result.comboResults.map(c => c.stations))) {
+      throw new Error('Incomplete concurrent demand: every combination requires station results');
+    }
     return result.comboResults.flatMap(c => {
-      if (!c.stations.length) return [];
       const ordered = [...c.stations].sort((a, b) => a.t - b.t);
       const first = ordered[0]!, last = ordered[ordered.length - 1]!;
       const ends = Object.freeze({ my: Object.freeze([first.my, last.my] as [number, number]), mz: Object.freeze([first.mz, last.mz] as [number, number]) });
@@ -31,7 +37,13 @@ export class ConcurrentDemand {
     });
   }
 
+  static hasCompleteTuples(tuples: readonly { comboId: number }[] | undefined, required: readonly { comboId: number }[]): boolean {
+    const ids = new Set([...required, ...(tuples ?? [])].map(d => d.comboId));
+    return hasCompleteConcurrentDemand([tuples, ...[...ids].map(id => tuples?.filter(d => d.comboId === id))]);
+  }
+
   static fromTuples(tuples: readonly { comboId: number; comboName: string; forces: Readonly<StationForces> }[]): ConcurrentDemand[] {
+    if (tuples.length === 0) return [];
     const combos = new Map<number, { comboId: number; comboName: string; stations: StationForces[] }>();
     for (const t of tuples) {
       let c = combos.get(t.comboId);
