@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import spanAxial from '../../src/lib/provenance/result-changes/pdelta-span-axial.json';
 import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { decide, isBreakingResultsFragment, newlyRecorded, corpusExamples, modelInputs, proveEquivalence, headEngineServesBase } from '../results-snapshot/gate.mjs';
+import { decide, isBreakingResultsFragment, newlyRecorded, corpusExamples, modelInputs, proveEquivalence, headEngineServesBase, corpusCases } from '../results-snapshot/gate.mjs';
 
 describe('the tolerance', () => {
   const ref = { 'r.m[e1].my': 100, 'r.m[e2].my': -40, 'r.m[e3].my': 0, 'r.d[n1].ux': 0.0123 };
@@ -348,4 +348,11 @@ describe('the base checkout reuses this build\'s engine', () => {
     expect(headEngineServesBase(['.github/workflows/ci.yml'])).toBe(false);
     expect(headEngineServesBase(['research/topopt/src/lib.rs'])).toBe(false);
   });
+});
+
+
+it.skip('known wrong result: #2095 snow corpus context reaches the applicability gate', () => {
+  const source = "  { name: 'snow-two-pitch', source: { snowRoof: 'two-pitch' }, workspace: '3d', group: 'loads', covers: 'connected sliding' },";
+  expect(corpusCases(source)['web/results-snapshots/snow-two-pitch.json']).toMatchObject({ workspace: '3d', source: { snowRoof: 'two-pitch' } });
+  expect(corpusCases(source.replace("workspace: '3d'", "workspace: 'unknown'"))).toEqual({});
 });
