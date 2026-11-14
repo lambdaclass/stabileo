@@ -67,10 +67,14 @@ fn frame(nodes: Vec<(usize, f64, f64, f64)>, elems: Vec<(usize, usize, usize)>, 
     )
 }
 
-fn certify(input: &PlasticInput3D) -> (PlasticCertificate3D, PlasticResult3DRef) {
-    let res = solve_plastic_3d(input).unwrap();
-    let c = certify_collapse_3d(input, Some(&res));
-    (c, res)
+fn certify_with_history(input: &PlasticInput3D) -> (PlasticCertificate3D, PlasticResult3DRef) {
+    let checked = certify_plastic_3d(input).unwrap();
+    let mut history = checked.results;
+    assert_eq!(Some(history.collapse_factor), checked.certificate.lambda_lower);
+    history.collapse_factor = checked.certificate.solver_collapse_factor.unwrap();
+    let disclosure = history.warnings.pop().unwrap();
+    assert!(disclosure.starts_with("collapseFactor is the certified lower bound ") && disclosure.contains("not certified by this interval"));
+    (checked.certificate, history)
 }
 type PlasticResult3DRef = dedaliano_engine::solver::plastic::PlasticResult3D;
 
@@ -104,7 +108,7 @@ fn fixed_beam_udl_in_each_plane() {
             let loads = (1..=n).map(|e| udl(e, qy, qz)).collect();
             let s = make_3d_beam(n, l, E, 0.3, A, IY, IZ, J, FIXED.to_vec(), Some(FIXED.to_vec()), loads);
             let inp = plastic(s, MPY, MPZ);
-            let (c, res) = certify(&inp);
+            let (c, res) = certify_with_history(&inp);
             let exact = 16.0 * mp / (qv * l * l);
             assert_encloses(&format!("fixed beam n={n} qy={qy} qz={qz}"), &c, exact, 1e-9);
             assert!(res.is_mechanism && res.warnings.is_empty(), "{:?}", res.warnings);
@@ -133,16 +137,19 @@ fn inclined_members_with_rational_axes() {
             vec![(1, FIXED), (2, FIXED)],
             vec![udl(1, 0.0, -qv)],
         );
-        let (c, _) = certify(&plastic(s, MPY, MPZ));
+        let (c, _) = certify_with_history(&plastic(s, MPY, MPZ));
         assert_encloses(&format!("beam along ({dx},{dy},0)"), &c, 16.0 * MPY / (qv * 25.0), 1e-9);
     }
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 1.0, 1.0)], vec![(1, 1, 2)], vec![(1, FIXED), (2, FIXED)], vec![udl(1, 0.0, -qv)]);
-    let (c, _) = certify(&plastic(s, MPY, MPZ));
+    let input = plastic(s, MPY, MPZ);
+    let c = certify_collapse_3d(&input, None);
     assert!(!c.certified && c.reason.unwrap().contains("not rational"));
+    assert!(solve_plastic_3d(&input).unwrap_err().contains("not rational"));
+    assert!(certify_plastic_3d(&input).unwrap_err().contains("not rational"));
     // a cantilever along (1, 1, 1) with a tip force: base moment |F| L, the
     // circle Mp_y = Mp_z makes the axes irrelevant: λ_c = Mp/(|F| L) = Mp/(√2·√3)
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 1.0, 1.0)], vec![(1, 1, 2)], vec![(1, FIXED)], vec![nodal(2, [1.0, -1.0, 0.0, 0.0, 0.0, 0.0])]);
-    let (c, _) = certify(&plastic(s, MPY, MPY));
+    let (c, _) = certify_with_history(&plastic(s, MPY, MPY));
     assert_encloses("diagonal cantilever", &c, MPY / 6f64.sqrt(), 1e-9);
 }
 
@@ -154,7 +161,7 @@ fn point_loads_on_members() {
     let roller = [false, true, true, false, false, false];
     let pl = SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 1, a: 2.0, py: -1.0, pz: 0.0 });
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 6.0, 0.0, 0.0)], vec![(1, 1, 2)], vec![(1, pinned), (2, roller)], vec![pl]);
-    let (c, res) = certify(&plastic(s, MPY, MPZ));
+    let (c, res) = certify_with_history(&plastic(s, MPY, MPZ));
     assert_encloses("SS point load y", &c, MPZ * 6.0 / 8.0, 1e-12);
     assert!((res.hinges[0].position - 1.0 / 3.0).abs() < 1e-12);
     // same in local z with a UDL on top: fixed-fixed, central P and q:
@@ -162,7 +169,7 @@ fn point_loads_on_members() {
     // D = 4 Mp θ, W = λ (P θL/2 + q θL²/4) ⇒ λ = 16 Mp / (2 P L + q L²)
     let pl = SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 1, a: 3.0, py: 0.0, pz: -2.0 });
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 6.0, 0.0, 0.0)], vec![(1, 1, 2)], vec![(1, FIXED), (2, FIXED)], vec![pl, udl(1, 0.0, -1.0)]);
-    let (c, _) = certify(&plastic(s, MPY, MPZ));
+    let (c, _) = certify_with_history(&plastic(s, MPY, MPZ));
     assert_encloses("fixed beam P + q in z", &c, 16.0 * MPY / (2.0 * 2.0 * 6.0 + 36.0), 1e-9);
 }
 
@@ -171,7 +178,7 @@ fn biaxial_cantilever() {
     // tip force (0, −1, −1) at L = 3: base moments 3λ about both axes,
     // (3λ/30)² + (3λ/40)² = 1 ⇒ λ_c = 8 (one hinge, statically determinate)
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 3.0, 0.0, 0.0)], vec![(1, 1, 2)], vec![(1, FIXED)], vec![nodal(2, [0.0, -1.0, -1.0, 0.0, 0.0, 0.0])]);
-    let (c, res) = certify(&plastic(s, 30.0, 40.0));
+    let (c, res) = certify_with_history(&plastic(s, 30.0, 40.0));
     assert_encloses("biaxial cantilever", &c, 8.0, 1e-9);
     assert!((res.hinges[0].interaction_ratio - 1.0).abs() < 1e-12);
 }
@@ -193,17 +200,17 @@ fn space_portal_sway() {
     // (the beam twists rigidly), two base hinges about X (Mp_z of the
     // columns): λ_c = 2 Mp_z / (H h). The old solver read 133.325 and 77.04
     // (the latter far above the collapse load).
-    let (c, res) = certify(&plastic(portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ));
+    let (c, res) = certify_with_history(&plastic(portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ));
     assert_encloses("portal in-plane sway", &c, 4.0 * MPY / 3.0, 1e-9);
     assert!(res.is_mechanism && res.warnings.is_empty(), "{:?}", res.warnings);
-    let (c, res) = certify(&plastic(portal([0.0, 1.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ));
+    let (c, res) = certify_with_history(&plastic(portal([0.0, 1.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ));
     assert_encloses("portal out-of-plane sway", &c, 2.0 * MPZ / 3.0, 1e-9);
     assert!(res.is_mechanism && res.warnings.is_empty(), "{:?}", res.warnings);
     // In-plane sway plus a vertical load at midspan of the beam (a point load
     // on the member): combined mechanism 6 Mp_y / (H h + V a), a = 2.
     let mut s = portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
     s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 2, a: 2.0, py: 0.0, pz: -1.0 }));
-    let (c, _) = certify(&plastic(s, MPY, MPZ));
+    let (c, _) = certify_with_history(&plastic(s, MPY, MPZ));
     let exact = [4.0 * MPY / 3.0, 4.0 * MPY / 2.0, 6.0 * MPY / (3.0 + 2.0)].into_iter().fold(f64::INFINITY, f64::min);
     assert_encloses("portal sway + beam load", &c, exact, 1e-9);
 }
@@ -215,7 +222,7 @@ fn space_portal_biaxial_sway_is_a_safe_lower_bound() {
     // can be carried at the knees with My = 0 at the bases. The solver's base
     // hinges form under biaxial moments and hold them, so it stops lower
     // (32.03), says so, and stays below the certified enclosure, never above.
-    let (c, res) = certify(&plastic(portal([1.0, 1.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ));
+    let (c, res) = certify_with_history(&plastic(portal([1.0, 1.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ));
     assert!(c.certified, "{c:?}");
     let (lo, up) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
     let exact = 2.0 * MPZ / 3.0;
@@ -281,19 +288,19 @@ fn moment_sign_conventions_match_solver() {
     // to it at the base (M_y = −3 fz + ... ): base |My| = 3 + 1 ⇒ Mp_y / 4
     let tip = nodal(2, [0.0, 0.0, 1.0, 0.0, -1.0, 0.0]);
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 3.0, 0.0, 0.0)], vec![(1, 1, 2)], vec![(1, FIXED)], vec![tip]);
-    let (c, _) = certify(&plastic(s, MPY, MPZ));
+    let (c, _) = certify_with_history(&plastic(s, MPY, MPZ));
     assert_encloses("tip force + couple", &c, MPY / 4.0, 1e-12);
     // member UDL along local z adds to a tip force along +Z: q L²/2 + F L
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)], vec![(1, 1, 2)], vec![(1, FIXED)], vec![nodal(2, [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]), udl(1, 0.0, 1.0)]);
-    let (c, _) = certify(&plastic(s, MPY, MPZ));
+    let (c, _) = certify_with_history(&plastic(s, MPY, MPZ));
     assert_encloses("tip force + UDL z", &c, MPY / (8.0 + 4.0), 1e-12);
     // and along local y with a tip force along +Y
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)], vec![(1, 1, 2)], vec![(1, FIXED)], vec![nodal(2, [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]), udl(1, 1.0, 0.0)]);
-    let (c, _) = certify(&plastic(s, MPY, MPZ));
+    let (c, _) = certify_with_history(&plastic(s, MPY, MPZ));
     assert_encloses("tip force + UDL y", &c, MPZ / (8.0 + 4.0), 1e-12);
     // a torque at the tip of the cantilever does nothing to bending
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)], vec![(1, 1, 2)], vec![(1, FIXED)], vec![nodal(2, [0.0, 1.0, 0.0, 7.0, 0.0, 0.0])]);
-    let (c, _) = certify(&plastic(s, MPY, MPZ));
+    let (c, _) = certify_with_history(&plastic(s, MPY, MPZ));
     assert_encloses("tip force + torque", &c, MPZ / 4.0, 1e-12);
 }
 
@@ -305,7 +312,7 @@ fn releases_and_trusses() {
     // under the load).
     let mut s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 3.0, 0.0, 0.0), (3, 6.0, 0.0, 0.0)], vec![(1, 1, 2), (2, 2, 3)], vec![(1, FIXED), (3, FIXED)], vec![nodal(2, [0.0, 0.0, -1.0, 0.0, 0.0, 0.0])]);
     s.elements.get_mut("2").unwrap().release_my_end = true;
-    let (c, _) = certify(&plastic(s, MPY, MPZ));
+    let (c, _) = certify_with_history(&plastic(s, MPY, MPZ));
     assert_encloses("released end", &c, 6.0 * MPY / 6.0, 1e-12);
     // a cantilever propped by a truss tie at the tip: hinge at the base and
     // the tie never yields: unbounded? no — the tie carries the load: the
@@ -322,7 +329,7 @@ fn releases_and_trusses() {
         vec![(1, FIXED.to_vec()), (3, FIXED.to_vec())],
         vec![udl(1, 0.0, -1.0)],
     );
-    let (c, _) = certify(&plastic(s.clone(), MPY, MPZ));
+    let (c, _) = certify_with_history(&plastic(s.clone(), MPY, MPZ));
     // propped cantilever (prop = tie in the vertical plane): (6 + 4√2) Mp / (q L²)
     let exact = (6.0 + 4.0 * 2f64.sqrt()) * MPY / 16.0;
     assert!(c.certified, "{c:?}");
@@ -331,8 +338,11 @@ fn releases_and_trusses() {
     assert!(c.solver_deviation.unwrap() < 1e-9, "{c:?}");
     // a transverse load on the truss member is refused
     s.loads.push(udl(2, 0.0, -1.0));
-    let (c, _) = certify(&plastic(s, MPY, MPZ));
+    let input = plastic(s, MPY, MPZ);
+    let c = certify_collapse_3d(&input, None);
     assert!(!c.certified);
+    assert!(solve_plastic_3d(&input).is_err());
+    assert!(certify_plastic_3d(&input).is_err());
 }
 
 #[test]
@@ -406,6 +416,8 @@ fn unsupported_models_are_refused() {
         let inp = plastic(s, MPY, MPZ);
         let c = certify_collapse_3d(&inp, None);
         assert!(!c.certified);
+        assert!(solve_plastic_3d(&inp).is_err());
+        assert!(certify_plastic_3d(&inp).is_err());
         c.reason.unwrap()
     };
     let mut s = base();
@@ -435,7 +447,7 @@ fn unsupported_models_are_refused() {
         e.roll_angle = Some(90.0);
     }
     let inp = plastic(s, MPY, MPZ);
-    let (c, _) = certify(&inp);
+    let (c, _) = certify_with_history(&inp);
     assert!(c.certified, "{c:?}");
     assert!(c.solver_deviation.unwrap() < 1e-9, "{c:?}");
 }
@@ -444,21 +456,26 @@ fn unsupported_models_are_refused() {
 fn issue_1760_portal_above_certificate_returns_certified_lower() {
     let input = plastic(portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ);
     let results = solve_plastic_3d(&input).unwrap();
-    let certificate = certify_collapse_3d(&input, Some(&results));
+    let certificate = certify_plastic_3d(&input).unwrap().certificate;
+    let raw_factor = certificate.solver_collapse_factor.unwrap();
+    assert_eq!(Some(results.collapse_factor), certificate.lambda_lower);
     assert_eq!(certificate.solver_within_bounds, Some(false));
-    assert!(results.collapse_factor > certificate.lambda_upper.unwrap());
+    assert!(raw_factor > certificate.lambda_upper.unwrap());
     let out = certify_plastic_3d(&input).unwrap();
     assert!(out.certificate.certified);
     let lower = certificate.lambda_lower.unwrap();
     let upper = certificate.lambda_upper.unwrap();
     assert_eq!(out.results.collapse_factor.to_bits(), lower.to_bits());
-    assert_eq!(out.certificate.solver_collapse_factor, Some(results.collapse_factor));
+    assert_eq!(out.certificate.solver_collapse_factor, Some(raw_factor));
     assert_eq!(out.certificate.solver_within_bounds, Some(false));
     let warning = out.results.structured_diagnostics.iter().find(|d|
         d.phase.as_deref() == Some("PL-3D-CERTIFICATE-MISMATCH")).unwrap();
     assert_eq!(warning.severity, Severity::Warning);
+    for answer in [&results, &out.results] {
+        assert!(!answer.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::PlasticHistoryWithinCertificate));
+    }
     assert!(warning.message.contains("outside the certified interval"));
-    assert!(warning.message.contains(&results.collapse_factor.to_string()));
+    assert!(warning.message.contains(&raw_factor.to_string()));
     assert!(warning.message.contains(&format!("[{lower}, {upper}]")));
     assert!(out.results.warnings.contains(&warning.message));
     assert!(!out.certificate.mechanism.is_empty());
@@ -706,12 +723,12 @@ fn refusal_names_member(e: &str, member: usize, section: usize) {
 #[test]
 fn the_portal_sample_collapses_with_hinges_on_both_columns_1525() {
     let base: PlasticInput3D = serde_json::from_value(portal_sample()).unwrap();
-    let r = solve_plastic_3d(&base).unwrap();
+    let (_, r) = certify_with_history(&base);
     assert!((r.collapse_factor - 31.865).abs() < 5e-4, "{}", r.collapse_factor);
     assert!(r.is_mechanism);
     assert_eq!(hinged_members(&r), vec![1, 3]);
     let same = column_1_on_section_2(portal_sample(), Some(serde_json::json!({"a": 0.001, "iy": 8e-6, "iz": 4e-6, "materialId": 1})), Some([100.0, 50.0]));
-    let s = solve_plastic_3d(&same).unwrap();
+    let (_, s) = certify_with_history(&same);
     assert_eq!(s.collapse_factor.to_bits(), r.collapse_factor.to_bits());
     assert_eq!(hinged_members(&s), vec![1, 3]);
     let checked = certify_plastic_3d(&same).unwrap();
@@ -720,8 +737,7 @@ fn the_portal_sample_collapses_with_hinges_on_both_columns_1525() {
     assert!(checked.certificate.certified);
     assert_eq!(checked.certificate.solver_within_bounds, Some(false));
     assert!(checked.results.collapse_factor <= checked.certificate.lambda_upper.unwrap());
-    let raw = solve_plastic_3d(&same).unwrap();
-    let independent = certify_collapse_3d(&same, Some(&raw));
+    let independent = certify_collapse_3d(&same, Some(&s));
     assert!(independent.certified);
     assert_eq!(checked.certificate.lambda_lower, independent.lambda_lower);
     assert_eq!(checked.certificate.lambda_upper, independent.lambda_upper);
@@ -824,4 +840,105 @@ fn nightly_space_case_two_has_provable_bounds() {
         assert!(raw.warnings.iter().any(|warning| warning.contains("biaxial")));
     }
     eprintln!("space: raw {}, bounds [{lower}, {upper}]", raw.collapse_factor);
+}
+
+#[test]
+fn issue_2084_capacity_identity_survives_exact_admission() {
+    let input = column_1_on_section_2(portal_sample(), None, None);
+    for error in [
+        solve_plastic_3d(&input).unwrap_err(),
+        certify_plastic_3d(&input).unwrap_err(),
+        dedaliano_engine::certify::plastic_bundle::export_plastic_bundle_3d(&input).unwrap_err(),
+    ] {
+        refusal_names_member(&error, 1, 2);
+    }
+}
+
+#[test]
+fn issue_2084_model_refusal_precedes_exact_scope() {
+    let mut input: PlasticInput3D = serde_json::from_value(portal_sample()).unwrap();
+    input.solver.left_hand = Some(true);
+    input.solver.quads.insert("91".into(), SolverQuadElement {
+        id: 91, nodes: [1, 2, 3, 4], material_id: 1, thickness: 0.1,
+    });
+    for error in [
+        solve_plastic_3d(&input).unwrap_err(),
+        certify_plastic_3d(&input).unwrap_err(),
+    ] {
+        assert!(error.contains("leftHand: true is not supported"), "{error}");
+    }
+}
+
+#[test]
+fn issue_2084_distorted_shell_refusal_identity() {
+    let mut value = portal_sample();
+    let solver = &mut value["solver"];
+    for key in ["nodes", "elements", "supports", "quads"] { solver[key] = serde_json::json!({}); }
+    solver["loads"] = serde_json::json!([]);
+    solver["materials"]["1"]["e"] = 10000.into();
+    for i in 0..=6 {
+        for j in 0..2 {
+            let shift = if i == 0 || i == 6 { 0.0 } else { (if i % 2 == 1 { 0.1 } else { -0.1 }) * (if j == 0 { -1.0 } else { 1.0 }) };
+            let id = 1 + 2 * i + j;
+            solver["nodes"][id.to_string()] = serde_json::json!({"id":id, "x":i as f64 + shift, "y":0.2 * j as f64, "z":0});
+        }
+    }
+    for i in 0..6 {
+        let id = i + 1;
+        solver["quads"][id.to_string()] = serde_json::json!({"id":id, "nodes":[2*i+1,2*i+3,2*i+4,2*i+2], "materialId":1, "thickness":0.1});
+    }
+    for id in [1,2] { solver["supports"][id.to_string()] = serde_json::json!({"nodeId":id,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}); }
+    for id in [13,14] { solver["loads"].as_array_mut().unwrap().push(serde_json::json!({"type":"nodal", "data":{"nodeId":id,"fx":0,"fy":0.5,"fz":0,"mx":0,"my":0,"mz":0}})); }
+    let input: PlasticInput3D = serde_json::from_value(value).unwrap();
+    for error in [
+        solve_plastic_3d(&input).unwrap_err(),
+        certify_plastic_3d(&input).unwrap_err(),
+        dedaliano_engine::certify::plastic_bundle::export_plastic_bundle_3d(&input).unwrap_err(),
+    ] {
+        let refusal: serde_json::Value = serde_json::from_str(&error).unwrap_or_else(|_| panic!("{error}"));
+        let diagnostic = refusal["structuredDiagnostics"].as_array().unwrap().iter().find(|d| d["phase"] == "SH-MITC4-DISTORTION").unwrap();
+        assert_eq!(diagnostic["code"], "known_issue");
+        assert_eq!(diagnostic["severity"], "error");
+        assert_eq!(diagnostic["value"].as_f64(), Some(798.0));
+        assert_eq!(diagnostic["elementIds"], serde_json::json!([1,2,3,4,5,6]));
+    }
+}
+
+#[test]
+fn issue_2084_portal_history_disclosure_has_structured_bounds() {
+    let case: serde_json::Value = serde_json::from_str(include_str!("benchmarks/plastic_collapse.json")).unwrap();
+    let input: PlasticInput3D = serde_json::from_value(case["input"].clone()).unwrap();
+    let checked = certify_plastic_3d(&input).unwrap();
+    let raw = checked.certificate.solver_collapse_factor.unwrap();
+    let lower = checked.certificate.lambda_lower.unwrap();
+    let upper = checked.certificate.lambda_upper.unwrap();
+    for result in [checked.results, solve_plastic_3d(&input).unwrap()] {
+        let json = serde_json::to_value(&result).unwrap();
+        let disclosures: Vec<_> = json["structuredDiagnostics"].as_array().unwrap().iter()
+            .filter(|d| d["code"] == "plastic_history_within_certificate").collect();
+        assert_eq!(disclosures.len(), 1);
+        let disclosure = disclosures[0];
+        assert_eq!(disclosure["severity"], "info");
+        assert_eq!(disclosure["value"].as_f64(), Some(lower));
+        assert_eq!(disclosure["threshold"].as_f64(), Some(upper));
+        assert_eq!(result.collapse_factor, lower);
+        assert_eq!(result.steps.last().unwrap().load_factor, raw);
+        assert!(lower <= raw && raw <= upper);
+        assert_eq!(result.warnings.last().unwrap(), disclosure["message"].as_str().unwrap());
+    }
+}
+
+#[test]
+fn issue_2084_biaxial_portal_closes_its_certificate_gap() {
+    let bytes = include_bytes!("../fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin");
+    let input: PlasticInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
+    let certificate = dedaliano_engine::certify::plastic_3d::certify_collapse_3d(&input, None);
+    assert!(certificate.certified, "{certificate:?}");
+    let lower = certificate.lambda_lower.unwrap();
+    let upper = certificate.lambda_upper.unwrap();
+    assert!(lower > 0.0 && upper - lower <= 5e-8 * lower, "[{lower}, {upper}]");
+    let scalar = dedaliano_engine::solver::plastic::solve_plastic_3d(&input).unwrap();
+    let checked = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&input).unwrap();
+    assert_eq!(scalar.collapse_factor, checked.results.collapse_factor);
+    assert_eq!(checked.results.collapse_factor, checked.certificate.lambda_lower.unwrap());
 }

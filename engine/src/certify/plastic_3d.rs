@@ -30,7 +30,7 @@ use crate::solver::support::{support_dofs_3d};
 use super::exact::*;
 use super::plastic_bundle::{sparse_rows, CubicF, LimitProblem, LinF, YieldComp, YieldMember, YieldPiece};
 use super::plastic::{approx_mp, least_squares, lm_end, lm_pieces, push_breakpoints, simplex_min_sum, ElemLoad, Piece};
-use crate::solver::plastic::{solve_plastic_3d, PlasticResult3D};
+use crate::solver::plastic::{solve_plastic_3d_incremental, PlasticResult3D};
 use crate::types::*;
 use num_traits::{One, Signed, Zero};
 use serde::{Deserialize, Serialize};
@@ -74,13 +74,21 @@ pub fn sqrt_up(x: &Q) -> Q {
     if let Some(r) = sqrt_exact(x) {
         return r;
     }
-    let mut f = to_f64(x).sqrt();
-    loop {
-        let r = q(f).unwrap_or_else(|| x.clone() + Q::one());
-        if &(&r * &r) >= x {
-            return r;
-        }
-        f = f.next_up();
+    let exponent = (x.numer().bits() as i64 - x.denom().bits() as i64).div_euclid(2);
+    let (numerator,denominator) = if exponent >= 0 {
+        (x.numer().clone(), x.denom() << (2 * exponent) as usize)
+    } else {
+        (x.numer() << (-2 * exponent) as usize, x.denom().clone())
+    };
+    let precision = f64::MANTISSA_DIGITS as usize;
+    let numerator = numerator << (2 * precision);
+    let mut root = (&numerator / &denominator).sqrt();
+    if &root * &root * &denominator < numerator { root += 1; }
+    let shift = exponent - precision as i64;
+    if shift >= 0 {
+        Q::from_integer(root << shift as usize)
+    } else {
+        Q::new(root, num_bigint::BigInt::one() << (-shift) as usize)
     }
 }
 
@@ -268,7 +276,8 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
     // inside this range; outside it the certificate is refused, not slow.
     super::finite::check_magnitudes(input, super::plastic::EXACT_MIN_ABS, super::plastic::EXACT_MAX_ABS)?;
     let s = &input.solver;
-    crate::solver::support::validate_supports_3d(s)?;
+    crate::solver::linear::validate_input_3d_for_analysis(s, crate::known_issues::Analysis::Plastic)?;
+    crate::known_issues::refuse_distorted(&crate::known_issues::for_3d(s, crate::known_issues::Analysis::Plastic))?;
     if !s.constraints.is_empty() {
         return Err("constraints are not supported by the plastic certificate".into());
     }
@@ -384,7 +393,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
             frame,
             rel,
             mp: if frame_elem {
-                Some(mp_by_sec.get(&el.section_id).cloned().ok_or_else(|| crate::solver::plastic::no_plastic_capacity_message(el.id, el.section_id))?)
+                Some(mp_by_sec.get(&el.section_id).cloned().ok_or_else(|| crate::solver::plastic::no_plastic_capacity(el.id, el.section_id))?)
             } else {
                 None
             },
@@ -1114,6 +1123,7 @@ fn lm_at(f: &ElemF, t: f64) -> (f64, f64) {
 const DIRS0: usize = 8;
 const INITIAL_INTERVALS: usize = 16;
 const REFINEMENT_PASSES: usize = 60;
+const PUBLIC_RELATIVE_WIDTH: f64 = 5e-8;
 const REFINEMENT_INTERVALS: usize = 64;
 
 pub fn lp_work(model: &PlasticModel3) -> super::plastic_budget::PlasticLpWork {
@@ -1206,6 +1216,42 @@ fn solve_lp(model: &PlasticModel3, samples: &[Sample], ef: &[ElemF], eq: &EqF) -
     Ok(solve_lp_unchecked(samples, ef, eq))
 }
 
+struct OrthonormalSpan {
+    vectors: Vec<Vec<f64>>,
+    coefficients: Vec<Vec<f64>>,
+}
+
+impl OrthonormalSpan {
+    fn new(h: &[Vec<f64>]) -> Self {
+        let r = h.len();
+        let mut qrows: Vec<Vec<f64>> = Vec::new();
+        let mut trows: Vec<Vec<f64>> = Vec::new();
+        let hmax = h.iter().map(|v| v.iter().map(|x| x * x).sum::<f64>().sqrt()).fold(0.0, f64::max);
+        for j in 0..r {
+            let mut v = h[j].clone();
+            let mut t = vec![0.0; r];
+            t[j] = 1.0;
+            for _ in 0..2 {
+                for (qv, tv) in qrows.iter().zip(&trows) {
+                    let d: f64 = qv.iter().zip(&v).map(|(a, b)| a * b).sum();
+                    for (vi, qi) in v.iter_mut().zip(qv) {
+                        *vi -= d * qi;
+                    }
+                    for (ti, tvi) in t.iter_mut().zip(tv) {
+                        *ti -= d * tvi;
+                    }
+                }
+            }
+            let nrm = v.iter().map(|x| x * x).sum::<f64>().sqrt();
+            if nrm > 1e-10 * hmax.max(1e-300) {
+                qrows.push(v.iter().map(|x| x / nrm).collect());
+                trows.push(t.iter().map(|x| x / nrm).collect());
+            }
+        }
+        Self { vectors: qrows, coefficients: trows }
+    }
+}
+
 fn solve_lp_unchecked(samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Option<LpSolution> {
     let r = eq.null.len();
     let mut g = Vec::new();
@@ -1226,31 +1272,8 @@ fn solve_lp_unchecked(samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Option<LpSo
     if k == 0 {
         return None;
     }
-    // orthonormalize the rows of h (modified Gram–Schmidt), tracking T
-    let mut qrows: Vec<Vec<f64>> = Vec::new();
-    let mut trows: Vec<Vec<f64>> = Vec::new();
-    let hmax = h.iter().map(|v| v.iter().map(|x| x * x).sum::<f64>().sqrt()).fold(0.0, f64::max);
-    for j in 0..r {
-        let mut v = h[j].clone();
-        let mut t = vec![0.0; r];
-        t[j] = 1.0;
-        for _ in 0..2 {
-            for (qv, tv) in qrows.iter().zip(&trows) {
-                let d: f64 = qv.iter().zip(&v).map(|(a, b)| a * b).sum();
-                for (vi, qi) in v.iter_mut().zip(qv) {
-                    *vi -= d * qi;
-                }
-                for (ti, tvi) in t.iter_mut().zip(tv) {
-                    *ti -= d * tvi;
-                }
-            }
-        }
-        let nrm = v.iter().map(|x| x * x).sum::<f64>().sqrt();
-        if nrm > 1e-10 * hmax.max(1e-300) {
-            qrows.push(v.iter().map(|x| x / nrm).collect());
-            trows.push(t.iter().map(|x| x / nrm).collect());
-        }
-    }
+    let span = OrthonormalSpan::new(&h);
+    let (qrows, trows) = (span.vectors, span.coefficients);
     let mut a: Vec<Vec<f64>> = Vec::with_capacity(qrows.len() + 1);
     a.push(g);
     a.extend(qrows);
@@ -1477,6 +1500,57 @@ fn solver_state_field(model: &PlasticModel3, input: &PlasticInput3D, res: &Plast
     (res.collapse_factor > 0.0).then_some((res.collapse_factor, x))
 }
 
+fn mechanism_layout(model: &PlasticModel3, end_hinge: &[[bool;2]], interior: &[Vec<Q>]) -> (Vec<usize>,Vec<usize>) {
+    let nn = model.node_ids.len();
+    let mut positions: Vec<Option<V3>> = vec![None;nn];
+    for root in 0..nn {
+        if positions[root].is_some() { continue; }
+        positions[root] = Some(v0());
+        let mut component = vec![root];
+        let mut cursor = 0;
+        while cursor < component.len() {
+            let current = component[cursor];
+            let position = positions[current].as_ref().unwrap().clone();
+            for element in &model.elems {
+                let next = if element.ni == current { Some((element.nj,add(&position,&element.d))) }
+                    else if element.nj == current { Some((element.ni,sub(&position,&element.d))) } else { None };
+                if let Some((node,position)) = next {
+                    if positions[node].is_none() {
+                        positions[node] = Some(position);
+                        component.push(node);
+                    }
+                }
+            }
+            cursor += 1;
+        }
+        let origin: V3 = std::array::from_fn(|k| component.iter().map(|&node|positions[node].as_ref().unwrap()[k].clone()).min().unwrap());
+        for node in component { positions[node] = Some(sub(positions[node].as_ref().unwrap(),&origin)); }
+    }
+    let positions: Vec<V3> = positions.into_iter().map(Option::unwrap).collect();
+    let keys: Vec<_> = model.elems.iter().map(|element| (
+        positions[element.ni].clone(), positions[element.nj].clone(), element.mp.clone(), element.rel,
+        element.uy.clone(),element.uz.clone(),
+        element.pieces_y.iter().map(|piece|(piece.a.clone(),piece.b.clone(),piece.c.clone())).collect::<Vec<_>>(),
+        element.pieces_z.iter().map(|piece|(piece.a.clone(),piece.b.clone(),piece.c.clone())).collect::<Vec<_>>(),
+        element.loads_x.iter().map(|load|(load.ta.clone(),load.tb.clone(),load.qi.clone(),load.qj.clone())).collect::<Vec<_>>(),
+        element.frame.clone()
+    )).collect();
+    let mut incident = vec![Vec::new();nn];
+    for (i,element) in model.elems.iter().enumerate() {
+        incident[element.ni].push((false,keys[i].clone(),interior[i].clone(),end_hinge[i]));
+        incident[element.nj].push((true,keys[i].clone(),interior[i].clone(),end_hinge[i]));
+    }
+    for members in &mut incident { members.sort(); }
+    let mut nodes: Vec<usize> = (0..nn).collect();
+    nodes.sort_by(|&i,&j|positions[i].cmp(&positions[j])
+        .then_with(||model.restrained[i].cmp(&model.restrained[j]))
+        .then_with(||model.nodal[i].cmp(&model.nodal[j]))
+        .then_with(||incident[i].cmp(&incident[j])));
+    let mut elements: Vec<usize> = (0..model.elems.len()).collect();
+    elements.sort_by(|&i,&j|keys[i].cmp(&keys[j]).then_with(||interior[i].cmp(&interior[j])).then_with(||end_hinge[i].cmp(&end_hinge[j])));
+    (nodes,elements)
+}
+
 /// Exact compatibility null space for hinges at the given locations, then the
 /// best (smallest exact λ_up) of its basis vectors and of a least-squares fit
 /// to the LP hinge rotations.
@@ -1487,9 +1561,10 @@ fn best_mechanism(
     target: &[(usize, Q, [f64; 2])],
 ) -> Result<Option<(Mechanism3, MechanismCheck3)>, String> {
     let nn = model.node_ids.len();
+    let (node_order,element_order) = mechanism_layout(model,end_hinge,interior);
     let mut col = vec![[usize::MAX; 6]; nn];
     let mut n = 0;
-    for i in 0..nn {
+    for i in node_order {
         for k in 0..6 {
             if !model.restrained[i][k] {
                 col[i][k] = n;
@@ -1497,10 +1572,10 @@ fn best_mechanism(
             }
         }
     }
-    let mut ocol = Vec::with_capacity(model.elems.len());
-    for h in interior {
-        ocol.push(n);
-        n += 3 * (h.len() + 1);
+    let mut ocol = vec![0;model.elems.len()];
+    for i in element_order {
+        ocol[i] = n;
+        n += 3 * (interior[i].len() + 1);
     }
     let mut rows: Vec<Vec<Q>> = Vec::new();
     for (ei, e) in model.elems.iter().enumerate() {
@@ -1622,7 +1697,7 @@ fn best_mechanism(
         }
         cands.push(v);
     }
-    if let Some(v) = irls_mechanism(model, &basis, &to_mech, end_hinge, interior) {
+    if let Some(v) = irls_mechanism(model, &basis, &to_mech, end_hinge, interior)? {
         cands.push(v);
     }
     let mut best: Option<(Mechanism3, MechanismCheck3)> = None;
@@ -1650,12 +1725,12 @@ fn irls_mechanism(
     to_mech: &dyn Fn(&[Q]) -> Mechanism3,
     end_hinge: &[[bool; 2]],
     interior: &[Vec<Q>],
-) -> Option<Vec<Q>> {
+) -> Result<Option<Vec<Q>>, String> {
     let m = basis.len();
     let mechs: Vec<Mechanism3> = basis.iter().map(|v| to_mech(v)).collect();
-    let w: Vec<f64> = mechs.iter().map(|mm| mechanism_terms(model, mm).map(|t| to_f64(&t.0)).unwrap_or(0.0)).collect();
+    let mut w: Vec<f64> = mechs.iter().map(|mm| mechanism_terms(model, mm).map(|t| to_f64(&t.0))).collect::<Result<_, _>>()?;
     if w.iter().all(|x| *x == 0.0) {
-        return None;
+        return Ok(None);
     }
     // dissipation rows: per hinge, the scaled rotation components per basis vector
     let mut rows: Vec<[Vec<f64>; 2]> = Vec::new();
@@ -1693,6 +1768,15 @@ fn irls_mechanism(
             rows.push(r);
         }
     }
+    let physical_column_norms: Vec<f64> = (0..m).map(|j| rows.iter().fold(0.0f64, |norm,r| norm.hypot(r[0][j]).hypot(r[1][j]))).collect();
+    if physical_column_norms.iter().any(|norm| !norm.is_finite()) { return Ok(None); }
+    let physical_column_norms: Vec<f64> = physical_column_norms.into_iter().map(|norm| if norm > 0.0 { norm } else { 1.0 }).collect();
+    for row in &mut rows {
+        for component in row {
+            for (value,norm) in component.iter_mut().zip(&physical_column_norms) { *value /= norm; }
+        }
+    }
+    for (value,norm) in w.iter_mut().zip(&physical_column_norms) { *value /= norm; }
     let solve = |h: &Vec<Vec<f64>>| -> Option<Vec<f64>> {
         // c = H⁻¹ w / (wᵀ H⁻¹ w)
         let mut a: Vec<Vec<f64>> = h.iter().zip(&w).map(|(row, wi)| row.iter().copied().chain([*wi]).collect()).collect();
@@ -1758,21 +1842,101 @@ fn irls_mechanism(
         let eps = eps_rel * d.max(1e-300) / rows.len().max(1) as f64;
         weights = rows.iter().map(|r| 1.0 / (norm(r, &c).powi(2) + eps * eps).sqrt()).collect();
     }
-    let (_, c) = best?;
-    let cmax = c.iter().fold(0.0f64, |a, x| a.max(x.abs()));
+    let Some((_, c)) = best else { return Ok(None) };
     let mut v = vec![Q::zero(); basis[0].len()];
-    for (cj, bj) in c.iter().zip(basis) {
-        if cj.abs() <= 1e-14 * cmax {
-            continue;
-        }
-        let cq = q(*cj)?;
+    for ((cj,bj),norm) in c.iter().zip(basis).zip(&physical_column_norms) {
+        let Some(cq) = q(*cj / norm) else { return Ok(None) };
         for (vi, bi) in v.iter_mut().zip(bj) {
             if !bi.is_zero() {
                 *vi += &cq * bi;
             }
         }
     }
-    Some(v)
+    Ok(Some(v))
+}
+
+fn smooth_static_candidates(model: &PlasticModel3, samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Result<Vec<(f64, Vec<f64>)>, String> {
+    lp_work(model).check_candidate(eq.null.len(), samples.len().saturating_mul(2))?;
+    let mut columns = vec![Vec::new(); eq.null.len() + 1];
+    for sample in samples {
+        let (my, mz) = sample_m(sample, &ef[sample.e], &eq.xp, 1.0);
+        columns[0].extend([my, mz]);
+        for (column, basis) in columns[1..].iter_mut().zip(&eq.null) {
+            let (my, mz) = sample_m(sample, &ef[sample.e], basis, 0.0);
+            column.extend([my, mz]);
+        }
+    }
+    let scales: Vec<f64> = columns.iter().map(|column| column.iter().fold(0.0f64, |norm, value| norm.hypot(*value)).max(f64::MIN_POSITIVE)).collect();
+    for (column, scale) in columns.iter_mut().zip(&scales) {
+        for value in column { *value /= scale; }
+    }
+    let span = OrthonormalSpan::new(&columns);
+    let n = span.vectors.len();
+    if n == 0 { return Ok(Vec::new()); }
+    let mut objective: Vec<f64> = span.coefficients.iter().map(|column| column[0] / scales[0]).collect();
+    let norm = objective.iter().fold(0.0f64, |norm, value| norm.hypot(*value));
+    if !norm.is_finite() || norm == 0.0 { return Ok(Vec::new()); }
+    for value in &mut objective { *value /= norm; }
+    let moments = |u: &[f64], sample: usize| -> [f64; 2] {
+        std::array::from_fn(|k| span.vectors.iter().zip(u).map(|(column, value)| column[2 * sample + k] * value).sum())
+    };
+    let value = |u: &[f64], parameter: f64| -> f64 {
+        let mut value = -parameter * objective.iter().zip(u).map(|(a, b)| a * b).sum::<f64>();
+        for i in 0..samples.len() {
+            let [my, mz] = moments(u, i);
+            let slack = 1.0 - my * my - mz * mz;
+            if slack <= 0.0 { return f64::INFINITY; }
+            value -= slack.ln();
+        }
+        value
+    };
+    let mut u = vec![0.0; n];
+    let mut candidates = Vec::new();
+    for stage in 0..14 {
+        let parameter = 10f64.powi(stage);
+        for _ in 0..60 {
+            let mut gradient: Vec<f64> = objective.iter().map(|value| -parameter * value).collect();
+            let mut newton_columns = vec![Vec::with_capacity(3 * samples.len()); n];
+            for i in 0..samples.len() {
+                let [my, mz] = moments(&u, i);
+                let slack = 1.0 - my * my - mz * mz;
+                if slack <= 0.0 { return Ok(candidates); }
+                let normal: Vec<f64> = span.vectors.iter().map(|column| my * column[2 * i] + mz * column[2 * i + 1]).collect();
+                for j in 0..n {
+                    gradient[j] += 2.0 * normal[j] / slack;
+                    let weight = (2.0 / slack).sqrt();
+                    newton_columns[j].extend([weight * span.vectors[j][2 * i], weight * span.vectors[j][2 * i + 1], 2.0 * normal[j] / slack]);
+                }
+            }
+            let newton = OrthonormalSpan::new(&newton_columns);
+            if newton.coefficients.len() != n { break; }
+            let mut direction = vec![0.0; n];
+            for column in &newton.coefficients {
+                let projection: f64 = column.iter().zip(&gradient).map(|(a, b)| a * b).sum();
+                for (value, coefficient) in direction.iter_mut().zip(column) { *value -= coefficient * projection; }
+            }
+            let slope: f64 = gradient.iter().zip(&direction).map(|(a, b)| a * b).sum();
+            if !slope.is_finite() || slope >= -1e-12 { break; }
+            let before = value(&u, parameter);
+            let mut step = 1.0;
+            let mut accepted = false;
+            for _ in 0..60 {
+                let next: Vec<f64> = u.iter().zip(&direction).map(|(u, d)| u + step * d).collect();
+                if value(&next, parameter) <= before + 0.01 * step * slope {
+                    u = next;
+                    accepted = true;
+                    break;
+                }
+                step *= 0.5;
+            }
+            if !accepted { break; }
+        }
+        let solution: Vec<f64> = (0..columns.len()).map(|j| span.coefficients.iter().zip(&u).map(|(column, value)| column[j] * value).sum::<f64>() / scales[j]).collect();
+        if solution.iter().all(|value| value.is_finite()) && solution[0] > 0.0 {
+            candidates.push((solution[0], solution[1..].to_vec()));
+        }
+    }
+    Ok(candidates)
 }
 
 fn refine_lp(
@@ -1907,12 +2071,7 @@ pub fn plastic_candidates_3d(
                 h.sort();
                 h.dedup();
             }
-            let cand = best_mechanism(model, &end_hinge, &interior, &target)?;
-            let found = cand.is_some();
-            keep(cand, &mut best_mech);
-            if found {
-                break;
-            }
+            keep(best_mechanism(model, &end_hinge, &interior, &target)?, &mut best_mech);
         }
     }
     // polish: the hinges that turn in the best mechanism found, alone
@@ -1978,6 +2137,40 @@ pub fn plastic_candidates_3d(
                 }
             }
         }
+    }
+    for _ in 0..REFINEMENT_PASSES {
+        let (Some((_, lower, _)), Some((_, upper))) = (&best_static, &best_mech) else { break };
+        if &upper.lambda_upper - &lower.lambda_lower <= q(PUBLIC_RELATIVE_WIDTH).unwrap() * &lower.lambda_lower { break; }
+        let candidates = smooth_static_candidates(model, &samples, &ef, &eqf)?;
+        let Some((lambda, z)) = candidates.last().cloned() else { break };
+        for (lambda, z) in candidates {
+            let lam = q(lambda).ok_or("non-finite smooth plastic factor")?;
+            let zq: Vec<Q> = z.iter().map(|value| q(*value).ok_or("non-finite smooth plastic field")).collect::<Result<_, _>>()?;
+            consider(to_static(exact_field(&eq, &lam, &zq), lam), "smooth limit-analysis candidate", &mut best_static);
+        }
+        let x = field_f64(&eqf, lambda, &z);
+        let mut ends = vec![[false; 2]; ne];
+        let mut interior = vec![Vec::new(); ne];
+        let mut target = Vec::new();
+        for sample in &samples {
+            let (my, mz) = sample_m(sample, &ef[sample.e], &x, lambda);
+            let norm = my.hypot(mz);
+            if norm < 1.0 - 1e-7 { continue; }
+            match sample.loc {
+                Loc::EndI => ends[sample.e][0] = true,
+                Loc::EndJ => ends[sample.e][1] = true,
+                Loc::Interior => interior[sample.e].push(sample.t.clone()),
+            }
+            let weight = 1.0 / (1.0 - my * my - mz * mz).max(f64::EPSILON);
+            let e = &model.elems[sample.e];
+            let f = &ef[sample.e];
+            target.push((sample.e, sample.t.clone(), [weight * my * to_f64(&e.ny) / f.sy, weight * mz * to_f64(&e.nz) / f.sz]));
+        }
+        for positions in &mut interior { positions.sort(); positions.dedup(); }
+        keep(best_mechanism(model, &ends, &interior, &target)?, &mut best_mech);
+        let before = samples.len();
+        refine(model, &ef, &x, lambda, &mut samples);
+        if samples.len() == before { break; }
     }
     let (static_field, static_check, lower_source) = match best_static {
         Some((f, c, s)) => (Some(f), Some(c), Some(s)),
@@ -2121,19 +2314,38 @@ fn collapse_3d(input: &PlasticInput3D, solver: Option<&PlasticResult3D>) -> Plas
     }
 }
 
+struct PublishablePlasticInterval {
+    lower: f64,
+    upper: f64,
+}
+
+impl PublishablePlasticInterval {
+    fn new(certificate: &PlasticCertificate3D) -> Result<Self, String> {
+        let (lower, upper) = match (certificate.certified, certificate.lambda_lower, certificate.lambda_upper) {
+            (true, Some(lower), Some(upper)) if lower.is_finite() && upper.is_finite() && lower <= upper => (lower, upper),
+            _ => return Err(format!("3D plastic collapse certificate unavailable: {}", certificate.reason.as_deref().unwrap_or("no sound finite ordered interval"))),
+        };
+        let lower_q = q(lower).ok_or("non-finite plastic collapse interval")?;
+        let upper_q = q(upper).ok_or("non-finite plastic collapse interval")?;
+        let width_limit = q(PUBLIC_RELATIVE_WIDTH).unwrap();
+        if !lower_q.is_positive() || &upper_q - &lower_q > &width_limit * &lower_q {
+            return Err(format!("3D plastic collapse interval [{lower}, {upper}] is not positive or exceeds relative width 5e-8; no collapse factor is reported"));
+        }
+        Ok(Self { lower, upper })
+    }
+}
+
 /// Run the incremental 3D plastic solver and certify its collapse load factor.
 pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, String> {
     super::finite::check_input(input)?;
-    if let Ok(model) = build_model_3d(input) {
+    {
+        let model = build_model_3d(input)?;
         lp_work(&model).initial().check_engine_budget()?;
     }
-    let mut results = solve_plastic_3d(input)?;
+    let mut results = solve_plastic_3d_incremental(input)?;
     super::finite::check_results(&results)?;
     let certificate = certify_collapse_3d(input, Some(&results));
-    let (lower, upper) = match (certificate.certified, certificate.lambda_lower, certificate.lambda_upper) {
-        (true, Some(lower), Some(upper)) if lower.is_finite() && upper.is_finite() && lower <= upper => (lower, upper),
-        _ => return Err(format!("3D plastic collapse certificate unavailable: {}", certificate.reason.as_deref().unwrap_or("no sound finite ordered interval"))),
-    };
+    let PublishablePlasticInterval { lower, upper } = PublishablePlasticInterval::new(&certificate)?;
     let raw = results.collapse_factor;
     let outside = raw < lower || raw > upper;
     let comparison = if outside {
@@ -2141,12 +2353,16 @@ pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, 
     } else {
         format!("Raw incremental factor {raw} lies within the certified interval [{lower}, {upper}]")
     };
-    let warning = format!("collapseFactor is the certified lower bound {lower}. {comparison}. Incremental steps and hinges retain raw solver values and are not certified by this interval.");
+    let warning = format!("collapseFactor is the certified lower bound {lower}. {comparison}. Incremental steps, hinges and the mechanism flag retain raw solver values and are not certified by this interval.");
     if outside {
         let mut diagnostic = crate::known_issues::diagnostic("PL-3D-CERTIFICATE-MISMATCH");
         diagnostic.severity = Severity::Warning;
         diagnostic.message = warning.clone();
         results.structured_diagnostics.push(diagnostic);
+    } else {
+        results.structured_diagnostics.push(
+            StructuredDiagnostic::global(DiagnosticCode::PlasticHistoryWithinCertificate, Severity::Info, warning.clone()).with_value(lower, upper),
+        );
     }
     results.warnings.push(warning);
     results.collapse_factor = lower;
@@ -2156,6 +2372,42 @@ pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn issue_2084_public_interval_enforces_both_sides_of_every_admission_boundary() {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-cantilever.bin");
+        let input = serde_json::from_slice(&bytes[2..]).unwrap();
+        let base = certify_collapse_3d(&input, None);
+        assert!(base.certified);
+        let last = to_f64_down(&(Q::one() + q(5e-8).unwrap())).unwrap();
+        assert!(q(last).unwrap() - Q::one() <= q(5e-8).unwrap());
+        assert!(q(last.next_up()).unwrap() - Q::one() > q(5e-8).unwrap());
+        for (lower, upper, accepted) in [
+            (1.0, 1.0, true),
+            (1.0, last, true),
+            (1.0, last.next_up(), false),
+            (f64::from_bits(1), f64::from_bits(1), true),
+            (0.0, 0.0, false),
+            (-1.0, -1.0, false),
+            (1.0, 0.0, false),
+            (f64::NAN, 1.0, false),
+            (1.0, f64::NAN, false),
+            (1.0, f64::INFINITY, false),
+            (f64::NEG_INFINITY, 1.0, false),
+        ] {
+            let mut certificate = base.clone();
+            certificate.lambda_lower = Some(lower);
+            certificate.lambda_upper = Some(upper);
+            assert_eq!(PublishablePlasticInterval::new(&certificate).is_ok(), accepted, "[{lower}, {upper}]");
+        }
+        for (certified, lower, upper) in [(false, Some(1.0), Some(1.0)), (true, None, Some(1.0)), (true, Some(1.0), None)] {
+            let mut certificate = base.clone();
+            certificate.certified = certified;
+            certificate.lambda_lower = lower;
+            certificate.lambda_upper = upper;
+            assert!(PublishablePlasticInterval::new(&certificate).is_err());
+        }
+    }
 
     struct RefinementFixture {
         model: PlasticModel3,
@@ -2329,6 +2581,54 @@ mod tests {
         refine_lp(&model, &ef, &eq, &mut samples, &mut lp, 0, |_| panic!("zero passes must not solve"));
         assert_samples_equal(&samples, &original);
         assert_lp_equal(&lp, &expected);
+    }
+
+    fn mechanism_work_fixture() -> PlasticModel3 {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
+        let input = serde_json::from_slice(&bytes[2..]).unwrap();
+        build_model_3d(&input).unwrap()
+    }
+
+    #[test]
+    fn issue_1040_mechanism_work_failure_is_refused() {
+        let model = mechanism_work_fixture();
+        let ends = vec![[true; 2]; model.elems.len()];
+        for positions in [
+            vec![qr(-1, 16)],
+            vec![Q::zero()],
+            vec![Q::one()],
+            vec![qr(17, 16)],
+            vec![qr(1, 2), qr(1, 2)],
+            vec![qr(3, 4), qr(1, 4)],
+        ] {
+            let result = best_mechanism(&model, &ends, &[positions], &[]);
+            let actual = format!("{result:?}");
+            assert!(actual.starts_with("Err("), "{actual}");
+            assert!(actual.contains("hinge positions must increase strictly inside (0, 1)"), "{actual}");
+        }
+        let mut model = model;
+        model.elems[0].mp = None;
+        let result = best_mechanism(&model, &ends, &[vec![qr(1, 4), qr(1, 2), qr(3, 4)]], &[]);
+        let actual = format!("{result:?}");
+        assert!(actual.starts_with("Err("), "{actual}");
+        assert!(actual.contains("hinge where no plastic hinge can form"), "{actual}");
+    }
+
+    #[test]
+    fn mechanism_work_valid_boundaries_and_zero_work_are_preserved() {
+        let mut model = mechanism_work_fixture();
+        let ends = vec![[true; 2]; model.elems.len()];
+        for position in [qr(1, 16), qr(1, 2), qr(15, 16)] {
+            let (mech, checked) = best_mechanism(&model, &ends, &[vec![position]], &[]).unwrap().unwrap();
+            assert!(checked.work.is_positive());
+            assert!(checked.lambda_upper.is_positive());
+            assert_eq!(check_mechanism_3d(&model, &mech).unwrap().lambda_upper, checked.lambda_upper);
+        }
+        model.elems[0].loads_x.clear();
+        model.elems[0].loads_y.clear();
+        model.elems[0].loads_z.clear();
+        assert!(model.nodal.iter().flatten().all(Zero::is_zero));
+        assert!(best_mechanism(&model, &ends, &[vec![qr(1, 2)]], &[]).unwrap().is_none());
     }
 
     #[test]

@@ -17,7 +17,7 @@ const en = {
   checksHeading: 'Checks',
   checks: {
     collapse: 'The collapse factor equals the combined bound 6Mp / (Hh + VL/2) within 1 × 10⁻⁶.',
-    mechanism: 'The solver reports a complete mechanism and no warnings.',
+    mechanism: 'The incremental solver reports a mechanism; the collapse factor is verified separately.',
     hinges: 'Hinges form at both bases, at midspan and at the right roof corner; the left roof corner never yields.',
     yield: 'At collapse |My| ≤ Mp at every member end.',
     equilibrium: 'The reactions balance the applied loads: ΣFx, ΣFz and ΣMy within 1 × 10⁻⁹.',
@@ -58,7 +58,7 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', PlasticStr
     checksHeading: 'Comprobaciones',
     checks: {
       collapse: 'El factor de colapso coincide con la cota combinada 6Mp / (Hh + VL/2) dentro de 1 × 10⁻⁶.',
-      mechanism: 'El solver informa un mecanismo completo y ninguna advertencia.',
+      mechanism: 'El solver incremental informa un mecanismo; el factor de colapso se verifica por separado.',
       hinges: 'Se forman rótulas en ambas bases, en el centro de la viga y en la esquina superior derecha; la esquina superior izquierda nunca plastifica.',
       yield: 'En el colapso |My| ≤ Mp en todos los extremos de barra.',
       equilibrium: 'Las reacciones equilibran las cargas aplicadas: ΣFx, ΣFz y ΣMy dentro de 1 × 10⁻⁹.',
@@ -95,7 +95,7 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', PlasticStr
     checksHeading: 'Verificações',
     checks: {
       collapse: 'O fator de colapso coincide com o limite combinado 6Mp / (Hh + VL/2) dentro de 1 × 10⁻⁶.',
-      mechanism: 'O solver informa um mecanismo completo e nenhum aviso.',
+      mechanism: 'O solver incremental informa um mecanismo; o fator de colapso é verificado separadamente.',
       hinges: 'Formam-se rótulas nas duas bases, no meio da viga e no canto superior direito; o canto superior esquerdo nunca plastifica.',
       yield: 'No colapso |My| ≤ Mp em todas as extremidades de barra.',
       equilibrium: 'As reações equilibram as cargas aplicadas: ΣFx, ΣFz e ΣMy dentro de 1 × 10⁻⁹.',
@@ -132,7 +132,7 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', PlasticStr
     checksHeading: 'Prüfungen',
     checks: {
       collapse: 'Der Kollapsfaktor stimmt mit der kombinierten Schranke 6Mp / (Hh + VL/2) auf 1 × 10⁻⁶ überein.',
-      mechanism: 'Der Löser meldet einen vollständigen Mechanismus und keine Warnungen.',
+      mechanism: 'Der inkrementelle Löser meldet einen Mechanismus; der Kollapsfaktor wird separat geprüft.',
       hinges: 'Gelenke bilden sich an beiden Fußpunkten, in Feldmitte und an der rechten Rahmenecke; die linke Rahmenecke fließt nie.',
       yield: 'Beim Kollaps gilt |My| ≤ Mp an jedem Stabende.',
       equilibrium: 'Die Auflagerkräfte halten den Lasten das Gleichgewicht: ΣFx, ΣFz und ΣMy unter 1 × 10⁻⁹.',
@@ -169,7 +169,7 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', PlasticStr
     checksHeading: 'Vérifications',
     checks: {
       collapse: 'Le facteur d’effondrement égale la borne combinée 6Mp / (Hh + VL/2) à 1 × 10⁻⁶ près.',
-      mechanism: 'Le solveur signale un mécanisme complet et aucun avertissement.',
+      mechanism: 'Le solveur incrémental signale un mécanisme ; le facteur de ruine est vérifié séparément.',
       hinges: 'Des rotules se forment aux deux pieds, à mi-portée et à l’angle droit ; l’angle gauche ne plastifie jamais.',
       yield: 'À l’effondrement, |My| ≤ Mp à chaque extrémité de barre.',
       equilibrium: 'Les réactions équilibrent les charges appliquées : ΣFx, ΣFz et ΣMy à moins de 1 × 10⁻⁹.',
@@ -206,7 +206,7 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', PlasticStr
     checksHeading: 'Kontroller',
     checks: {
       collapse: 'Göçme katsayısı birleşik sınır 6Mp / (Hh + VL/2) ile 1 × 10⁻⁶ içinde eşittir.',
-      mechanism: 'Çözücü tam bir mekanizma bildirir ve uyarı vermez.',
+      mechanism: 'Artımlı çözücü bir mekanizma bildirir; göçme katsayısı ayrıca doğrulanır.',
       hinges: 'Mafsallar iki tabanda, açıklık ortasında ve sağ köşede oluşur; sol köşe hiç akmaz.',
       yield: 'Göçmede her eleman ucunda |My| ≤ Mp.',
       equilibrium: 'Mesnet tepkileri uygulanan yükleri dengeler: ΣFx, ΣFz ve ΣMy 1 × 10⁻⁹ içinde.',

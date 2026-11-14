@@ -558,14 +558,17 @@ mod tests {
             let expected = super::super::linear::solve_3d(&canonical).unwrap();
             let actual = super::super::linear::solve_3d(&input.solver).unwrap();
             assert_eq!(serde_json::to_value(&actual.element_forces).unwrap(), serde_json::to_value(&expected.element_forces).unwrap());
-            let result = super::super::plastic::solve_plastic_3d(&input).unwrap();
+            let result = super::super::plastic::solve_plastic_3d_incremental(&input).unwrap();
             assert!(result.collapse_factor > 0.0);
             assert!(result.is_mechanism);
             assert!(result.warnings.iter().any(|w| w.contains("biaxial")));
             let mut canonical_input = input.clone();
             canonical_input.solver = canonical;
-            let reference = super::super::plastic::solve_plastic_3d(&canonical_input).unwrap();
+            let reference = super::super::plastic::solve_plastic_3d_incremental(&canonical_input).unwrap();
             assert_eq!(result.collapse_factor, reference.collapse_factor);
+            let error = super::super::plastic::solve_plastic_3d(&input).unwrap_err();
+            assert!(error.contains("local axes are not rational"), "{error}");
+            assert_eq!(error, super::super::plastic::solve_plastic_3d(&canonical_input).unwrap_err());
         }
     }
 

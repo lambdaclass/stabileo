@@ -258,6 +258,7 @@ pub enum DiagnosticCode {
     /// unstressed length (#527): `value` the largest share, `threshold` the quarter.
     CableSelfWeightTension,
     PlasticCapacityMissing,
+    PlasticHistoryWithinCertificate,
     CableAnalysisRequired,
     ContactStateInvalid,
     ContactToleranceInvalid,
@@ -400,6 +401,7 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::PlasticCapacityMissing | DiagnosticCode::CableAnalysisRequired | DiagnosticCode::ContactStateInvalid | DiagnosticCode::ContactToleranceInvalid | DiagnosticCode::UnsupportedFeature => "model_quality",
             DiagnosticCode::NonFiniteResult => "non_finite_result",
             DiagnosticCode::ResultQuantityUnavailable => "result_quantity_unavailable",
+            DiagnosticCode::PlasticHistoryWithinCertificate => "certificate",
         };
         let severity = match sd.severity {
             Severity::Info => "info",

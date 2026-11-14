@@ -39,6 +39,7 @@ mod nightly_tolerances;
 mod dynamic_accuracy;
 mod quick;
 mod regressions;
+mod plastic_exact_geometry;
 mod harmonic_linearity;
 mod linear_identities;
 mod completeness;

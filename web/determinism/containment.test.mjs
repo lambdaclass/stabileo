@@ -99,8 +99,8 @@ const solidEntries = {
   solve_staged_3d: s => wasm.solve_staged_3d(stringify({ ...s, stages: [{ name: 'all', elementsAdded: [7], supportsAdded: [1,4,5,8], loadIndices: [0,1,2,3] }] })),
 };
 const unsupportedSolidShell = {
-  solve_plastic_3d: /no section reaches its plastic moment/,
-  certify_plastic_3d: /no section reaches its plastic moment/,
+  solve_plastic_3d: /shell elements are not part of the plastic certificate/,
+  certify_plastic_3d: /shell elements are not part of the plastic certificate/,
   export_plastic_bundle_3d: /shell elements are not part of the plastic certificate/,
   solve_staged_3d: /does not support solid shell elements/,
 };
@@ -164,3 +164,20 @@ test('model-less envelope of several warning-only distorted MITC4 results refuse
   assert.deepEqual(single.displacements, result.displacements);
   assert.ok(single.structuredDiagnostics.some((d) => d.phase === 'SH-MITC4-DISTORTION' && d.severity === 'warning'));
 });
+
+for (const name of ['solve_plastic_3d', 'certify_plastic_3d', 'export_plastic_bundle_3d']) {
+  test(`${name} preserves the missing-capacity refusal identity #2084`, () => {
+    const input = JSON.parse(readFileSync(new URL('../../verify/samples/plastic-3d-portal.input.json', import.meta.url)));
+    input.solver.sections['2'] = { ...input.solver.sections['1'], id: 2 };
+    input.solver.elements['1'].sectionId = 2;
+    assert.throws(() => wasm[name](JSON.stringify(input)), error => {
+      const refusal = JSON.parse(String(error));
+      const diagnostic = refusal.structuredDiagnostics.find(d => d.code === 'plastic_capacity_missing');
+      assert.equal(diagnostic.severity, 'error');
+      assert.deepEqual(diagnostic.elementIds, [1]);
+      assert.equal(diagnostic.elementKind, 'frame');
+      assert.equal(diagnostic.value, 2);
+      return true;
+    });
+  });
+}

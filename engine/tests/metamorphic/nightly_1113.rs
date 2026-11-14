@@ -122,7 +122,18 @@ fn issue_2039_released_rotation_load() {
 
 #[test]
 fn issue_2058_released_rotation_load() {
-    relation("2058", "plastic collapse", "units", 2026111301655);
+    use dedaliano_engine::certify::plastic_3d::{build_model_3d, certify_plastic_3d};
+    use dedaliano_engine::metamorphic::units::Units;
+    use dedaliano_engine::solver::plastic::solve_plastic_3d;
+    let input = serde_json::from_value(witness("2058")).unwrap();
+    let case = crate::case::Case3::new("2058", input);
+    for case in [case.clone(), case.units(&Units::froude(1e-3, 1e3)), case.units(&Units::froude(25.0, 1e-2)), case.units(&Units::froude(0.3048, 4.448))] {
+        let input = crate::ana3::plastic_input(&case);
+        let expected = build_model_3d(&input).unwrap_err();
+        assert!(expected.contains("point load on element 2: its local axes are not rational"), "{expected}");
+        assert_eq!(solve_plastic_3d(&input).unwrap_err(), expected);
+        assert_eq!(certify_plastic_3d(&input).unwrap_err(), expected);
+    }
 }
 
 #[test]

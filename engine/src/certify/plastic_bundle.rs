@@ -28,7 +28,7 @@ use super::exact::*;
 use super::plastic::{build_model, check_mechanism, limit_problem_2d, plastic_candidates};
 use super::plastic_3d::{build_model_3d, limit_problem_3d, mechanism_rotations_3d, plastic_candidates_3d, sqrt_up};
 use super::provenance::Provenance;
-use crate::solver::plastic::{solve_plastic_2d, solve_plastic_3d};
+use crate::solver::plastic::{solve_plastic_2d, solve_plastic_3d_incremental};
 use crate::types::{PlasticInput, PlasticInput3D};
 
 pub const PLASTIC_BUNDLE_FORMAT: &str = "stabileo.plastic-certificate.v1";
@@ -549,7 +549,7 @@ pub fn export_plastic_bundle_2d(input: &PlasticInput) -> Result<PlasticBundle, S
 /// Run the 3D plastic solver, certify the collapse factor and export the bundle.
 pub fn export_plastic_bundle_3d(input: &PlasticInput3D) -> Result<PlasticBundle, String> {
     super::finite::check_input(input)?;
-    let solver = crate::known_issues::optional_solve(solve_plastic_3d(input))?.filter(|r| super::finite::check_results(r).is_ok());
+    let solver = crate::known_issues::optional_solve(solve_plastic_3d_incremental(input))?.filter(|r| super::finite::check_results(r).is_ok());
     let diagnostics = bundle_diagnostics_3d(input, solver.as_ref())?;
     let model = build_model_3d(input)?;
     let c = plastic_candidates_3d(&model, solver.as_ref().map(|r| (input, r)))?;
