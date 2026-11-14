@@ -6,7 +6,7 @@ import { releaseNotesUrl } from '../whats-new';
 const read = (file: string) => readFileSync(new URL(`../../../../../${file}`, import.meta.url), 'utf8');
 const hungarian = () => read('docs/releases/v0.6.0.hu.md');
 
-it.skip('known wrong result: #2081 links current Hungarian release notes and retains older-release fallbacks', () => {
+it('known wrong result: #2081 links current Hungarian release notes and retains older-release fallbacks', () => {
   expect(releaseNotesUrl('hu')).toBe('https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.0.hu.md');
   expect(hungarian()).toContain('2026-11-13');
   for (const version of ['0.2.0', '0.3.0', '0.4.0', '0.5.0']) {
@@ -15,7 +15,7 @@ it.skip('known wrong result: #2081 links current Hungarian release notes and ret
   expect(releaseNotesUrl('it')).toBe('https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.0.md');
 });
 
-it.skip('known wrong result: #2081 retains every released result notice with its registry Hungarian title', () => {
+it('known wrong result: #2081 retains every released result notice with its registry Hungarian title', () => {
   const rows = (text: string) => [...text.matchAll(/^\| (\d+) \| \[([^\]]+)\]\(([^)]+)\)/gm)];
   const english = rows(read('docs/releases/v0.6.0.md'));
   const translated = rows(hungarian());
@@ -30,7 +30,7 @@ it.skip('known wrong result: #2081 retains every released result notice with its
   }
 });
 
-it.skip('known wrong result: #2081 retains all CIRSOC rechecks and the separate buckling refusal condition in Hungarian', () => {
+it('known wrong result: #2081 retains all CIRSOC rechecks and the separate buckling refusal condition in Hungarian', () => {
   const lines = hungarian().split('\n');
   const cb = lines.find((line) => line.startsWith('|') && line.includes('SA-2026-048]('))!;
   expect(cb).toContain('Mmax');
@@ -42,7 +42,7 @@ it.skip('known wrong result: #2081 retains all CIRSOC rechecks and the separate 
   expect(buckling).toMatch(/elutasítja.*lehetséges nyomóerejük.*több mint 1 %-kal csökkenthetné/);
 });
 
-it.skip('known wrong result: #2081 retains security fixes and unresolved limitations in Hungarian', () => {
+it('known wrong result: #2081 retains security fixes and unresolved limitations in Hungarian', () => {
   const text = hungarian();
   const security = text.split(/^## /m).find((section) => section.startsWith('Biztonság\n'))!;
   expect(security).toMatch(/quinn-udp[\s\S]*0\.5\.14[\s\S]*0\.5\.16[\s\S]*RUSTSEC-2026-0538/);
