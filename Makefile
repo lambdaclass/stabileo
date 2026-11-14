@@ -259,6 +259,10 @@ check.engine.acceptance-models:
 # The result walkers' keys are generated from the engine's result types; a hand edit fails test.engine.gates.
 gen.result-sites:
 	cd engine && STABILEO_WRITE_RESULT_SITES=1 $(NIX_RUN) cargo nextest run --profile ci --test gates -E 'test(=result_sites::generated_result_sites_are_current)'
+	$(SUBMAKE) gen.result-sites.web
+
+.PHONY: gen.result-sites.web
+gen.result-sites.web:
 	$(NIX_RUN) bash -c "cd web && node scripts/gen-result-sites.mjs --write"
 
 # nextest does not execute the compile-fail doctests protecting unit boundaries.
@@ -366,7 +370,7 @@ test.web.results:
 ## Regenerate web/results-snapshots/ after a DELIBERATE result change, then register it:
 ## an entry in web/src/lib/provenance/result-changes/ and a "BREAKING (results)" fragment.
 snapshots-update:
-	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results"
+	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results $(FILE) $(if $(FILTER),-t '$(FILTER)')"
 
 # A pull request that changes a committed snapshot must register the change. BASE=<rev>, the
 # commit the pull request is compared with (CI: the merge's first parent, or the queue's base).
@@ -504,7 +508,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
+test.ci-scripts: test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -1197,3 +1201,11 @@ test.engine.constraint-rounding-2013-wasm: wasm
 	CONSTRAINT_2013_CASES=$(CURDIR)/.2013-cases $(MAKE) test.engine.constraint-rounding-2013
 	$(NIX_RUN) node scripts/tests/constraint-rounding-2013-wasm.mjs $(CURDIR)/.2013-cases.2.false.json $(CURDIR)/.2013-cases.2.true.json $(CURDIR)/.2013-cases.3.false.json $(CURDIR)/.2013-cases.3.true.json
 	rm -f $(CURDIR)/.2013-cases.*.json
+
+.PHONY: replay.advisory.steel-cb
+replay.advisory.steel-cb:
+	$(NIX_RUN) python3 -B scripts/replay-steel-cb-advisory.py
+
+.PHONY: test.replay-steel-cb
+test.replay-steel-cb:
+	$(NIX_RUN) python3 -B -I scripts/tests/test_steel_cb_replay.py

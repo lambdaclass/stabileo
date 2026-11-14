@@ -342,7 +342,12 @@ describe('edited projects with older provenance', () => {
         module.assessProject(args[0], args[1], args[2], precedingRegistry, args[4], args[5]),
     }));
     const combined = createRecheckStore();
-    const snapshot = { ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 30 } };
+    const snapshot: import('../../provenance/model-features').FeatureSnapshot & { solvedWith: unknown } = {
+      ...frame(),
+      materials: [[1, { id: 1, name: 'H30', e: 25000, fy: 30 }], [2, { ...STEEL, id: 2 }]],
+      elements: [...frame().elements!, [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 2 }]],
+      solvedWith: { ...oldStamp(), resultsVersion: 30 },
+    };
     store.openProject(snapshot, 'pro');
     combined.openProject(snapshot, 'pro');
     await vi.waitFor(() => expect(store.pending || combined.pending).toBe(false));
@@ -358,9 +363,9 @@ describe('edited projects with older provenance', () => {
     expect(combined.noticeOpen).toBe(true);
     expect(combined.stale).toBe(true);
     if (includeSSI) {
-    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands', 'concurrent-secondary-slenderness', 'fail-closed-ratios', 'flange-spans-and-behaviour', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions', 'steel-cb-combination', 'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
     } else {
-    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands', 'concurrent-secondary-slenderness', 'fail-closed-ratios', 'flange-spans-and-behaviour', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'steel-cb-combination', 'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
     }
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);

@@ -12,7 +12,7 @@ import {
 import { concreteCheckRows } from '../check-rows';
 import type { DesignAxes } from '../design-axes';
 import type { ProvidedReinforcement } from '../../../store/model.svelte';
-import { checkBiaxial, checkTorsion } from '../../codes/argentina/cirsoc201';
+import { checkBiaxial, checkTorsion } from '../../__tests__/helpers/manual-interactions';
 import { deriveCompressionDevelopment } from '../../../codes/cirsoc201/anchorage';
 import { corbelDesign } from '../special/corbel';
 import { couplingBeamDesign } from '../special/coupling-beam';

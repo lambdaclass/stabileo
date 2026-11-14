@@ -1,3 +1,4 @@
+import { manualSteelDemand } from '../../__tests__/helpers/manual-interactions';
 /**
  * The model's end connections reach the CIRSOC 301 tension check, travel with the member
  * (reverse, split, merge), persist through snapshot/restore and undo, and old models load with
@@ -26,7 +27,7 @@ describe('CIRSOC 301 D.2(b) from the model connection', () => {
   const ends = (j?: EndConnection) => [{ elementId: 1, end: 'i' as const, connection: flanges }, { elementId: 1, end: 'j' as const, connection: j }];
 
   it('both ends described: rupture is evaluated on Ae = An·U', () => {
-    const v = checkSteelMember(1, { ...noDemand, Nt: 300 }, IPE200, steel, { L: 3, Lb: 3, tensionEnds: ends(flanges) })!;
+    const v = checkSteelMember(1, manualSteelDemand({ ...noDemand, Nt: 300 }), IPE200, steel, { L: 3, Lb: 3, tensionEnds: ends(flanges) })!;
     expect(v.tension?.notEvaluated).toBeUndefined();
     // Ae = 2170·0,76945 = 1669,7 mm²; φPn = 0,75·360·1669,7/1000 = 450,8 kN < 0,9·235·2850/1000 = 602,8
     expect(v.tension!.phiPn).toBeCloseTo(0.75 * 360 * 1669.7 / 1000, 0);
@@ -38,7 +39,7 @@ describe('CIRSOC 301 D.2(b) from the model connection', () => {
   });
 
   it('an end left undescribed keeps the check NOT EVALUATED, naming the end', () => {
-    const v = checkSteelMember(1, { ...noDemand, Nt: 300 }, IPE200, steel, { L: 3, Lb: 3, tensionEnds: ends(undefined) })!;
+    const v = checkSteelMember(1, manualSteelDemand({ ...noDemand, Nt: 300 }), IPE200, steel, { L: 3, Lb: 3, tensionEnds: ends(undefined) })!;
     expect(v.tension?.notEvaluated).toMatch(/falta la union extrema.*extremo J/);
     // held, not failed: a refused check is never a pass and proves no failure (`cirsoc301-verdict.ts`).
     expect(v.overallStatus).toBe('held');
@@ -51,7 +52,7 @@ describe('CIRSOC 301 D.2(b) from the model connection', () => {
   });
 
   it('the optimiser resolves the connection against each candidate profile', () => {
-    const members = [{ elementId: 1, demand: { ...noDemand, Nt: 120 }, lengths: { L: 3, Lb: 3, tensionEnds: ends(flanges) } }];
+    const members = [{ elementId: 1, demand: manualSteelDemand({ ...noDemand, Nt: 120 }), lengths: { L: 3, Lb: 3, tensionEnds: ends(flanges) } }];
     const small = verdictFor(PROFILE_FAMILIES.IPE[2]!, members, steel);
     const big = verdictFor(PROFILE_FAMILIES.IPE[8]!, members, steel);
     expect(Number.isFinite(small!.ratio)).toBe(true);

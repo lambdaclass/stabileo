@@ -1,0 +1,376 @@
+{
+  "mainRevision": "2e8a4f65f743b23949b995e9ddc9727ad008e225",
+  "mainSourceSha256": {
+    "web/src/lib/engine/design/behaviour-demands.ts": "eef66c68bdc8fb56e38f112d7f89d15a0a575b3ebe1b6cdb1cc473180db471bf",
+    "web/src/lib/engine/design/other-codes/run.ts": "6dae08bdf268f82062aa827a14a319b56a7e4d37f1e0f9dc6e56451ca1b7bb43",
+    "web/src/lib/engine/verification-service.ts": "61fc199cd3b461fc15c7e25ccb94a7878bcdb9996cd45949ab30c1e1ddcf584d"
+  },
+  "input": {
+    "catalogueProfile": "IPE 300",
+    "fabrication": "rolled",
+    "material": {
+      "fy": 250,
+      "fu": 400,
+      "e": 200000
+    },
+    "lengths": {
+      "L": 8,
+      "Lb": 2,
+      "LbNeg": 8.001,
+      "loadPosition": "web"
+    },
+    "stations": [
+      {
+        "t": 0,
+        "x": 0,
+        "n": 0,
+        "my": 0,
+        "mz": 0,
+        "vy": 0,
+        "vz": 0,
+        "torsion": 0
+      },
+      {
+        "t": 0.25,
+        "x": 2,
+        "n": 0,
+        "my": -5,
+        "mz": 0,
+        "vy": 0,
+        "vz": 0,
+        "torsion": 0
+      },
+      {
+        "t": 0.5,
+        "x": 4,
+        "n": 0,
+        "my": -10,
+        "mz": 0,
+        "vy": 0,
+        "vz": 0,
+        "torsion": 0
+      },
+      {
+        "t": 0.75,
+        "x": 6,
+        "n": 0,
+        "my": -15,
+        "mz": 0,
+        "vy": 0,
+        "vz": 0,
+        "torsion": 0
+      },
+      {
+        "t": 1,
+        "x": 8,
+        "n": 0,
+        "my": -20,
+        "mz": 0,
+        "vy": 0,
+        "vz": 0,
+        "torsion": 0
+      }
+    ],
+    "comboId": 1,
+    "comboName": "C"
+  },
+  "oracle": "The selected span exceeds the diagram extent, so Cb = 1. Compare with the same case with its diagram withheld.",
+  "main": {
+    "capacity": 81.67782151675644,
+    "utilization": 0.24486451313955457,
+    "overallStatus": "ok",
+    "diagnostics": [],
+    "notEvaluated": [],
+    "engineRecheck": {
+      "certified": true,
+      "certifiedOk": true,
+      "disagrees": false,
+      "unavailable": false,
+      "utilizationLower": 0.14763183557564247,
+      "utilizationUpper": 0.14763183557564274,
+      "governingCheck": "Flexure-x F"
+    },
+    "cbSteps": [
+      "  Cb = 1.667 (F.1.1, calculado del diagrama)"
+    ],
+    "governingCombos": {
+      "flexure": {
+        "comboId": 1,
+        "comboName": "C"
+      },
+      "shear": {
+        "comboId": 1,
+        "comboName": "C"
+      },
+      "interaction": {
+        "comboId": 1,
+        "comboName": "C",
+        "t": 1
+      }
+    }
+  },
+  "unityControl": {
+    "capacity": 49.006692910053864,
+    "utilization": 0.4081075218992576,
+    "overallStatus": "ok",
+    "diagnostics": [],
+    "notEvaluated": [],
+    "engineRecheck": {
+      "certified": true,
+      "certifiedOk": true,
+      "disagrees": false,
+      "unavailable": false,
+      "utilizationLower": 0.15257028499989275,
+      "utilizationUpper": 0.15257028499989328,
+      "governingCheck": "Flexure-x F"
+    },
+    "cbSteps": [
+      "  Cb = 1,000 (F.1.1 permite adoptarlo conservadoramente)"
+    ],
+    "governingCombos": {
+      "flexure": {
+        "comboId": 1,
+        "comboName": "C"
+      },
+      "shear": {
+        "comboId": 1,
+        "comboName": "C"
+      },
+      "interaction": {
+        "comboId": 1,
+        "comboName": "C",
+        "t": 1
+      }
+    }
+  },
+  "fixed": {
+    "capacity": 49.006692910053864,
+    "utilization": 0.4081075218992576,
+    "overallStatus": "ok",
+    "diagnostics": [],
+    "notEvaluated": [],
+    "engineRecheck": {
+      "certified": true,
+      "certifiedOk": true,
+      "disagrees": false,
+      "unavailable": false,
+      "utilizationLower": 0.40810752189925603,
+      "utilizationUpper": 0.4081075218992593,
+      "governingCheck": "Flexure-x F"
+    },
+    "cbSteps": [
+      "  Cb = 1,000 (F.1.1 permite adoptarlo conservadoramente)"
+    ],
+    "governingCombos": {
+      "flexure": {
+        "comboId": 1,
+        "comboName": "C",
+        "t": 1
+      },
+      "shear": {
+        "comboId": 1,
+        "comboName": "C",
+        "t": 0
+      },
+      "interaction": {
+        "comboId": 1,
+        "comboName": "C",
+        "t": 1
+      }
+    }
+  },
+  "otherCodeMainWitnesses": [
+    {
+      "code": "aisc360",
+      "actual": {
+        "status": "checked",
+        "ratio": 0.5372289374788852,
+        "pass": true,
+        "unevaluated": []
+      },
+      "zero": {
+        "status": "checked",
+        "ratio": 0.4493051780056719,
+        "pass": true,
+        "unevaluated": []
+      }
+    },
+    {
+      "code": "ec3",
+      "actual": {
+        "status": "checked",
+        "ratio": 0.8889504980351653,
+        "pass": true,
+        "unevaluated": []
+      },
+      "zero": {
+        "status": "checked",
+        "ratio": 0.569462176416625,
+        "pass": true,
+        "unevaluated": []
+      }
+    }
+  ],
+  "otherCodeFixedWitnesses": [
+    {
+      "code": "aisc360",
+      "actual": {
+        "status": "checked",
+        "ratio": 0.4493051780056719,
+        "pass": true,
+        "unevaluated": []
+      },
+      "zero": {
+        "status": "checked",
+        "ratio": 0.4493051780056719,
+        "pass": true,
+        "unevaluated": []
+      }
+    },
+    {
+      "code": "ec3",
+      "actual": {
+        "status": "checked",
+        "ratio": 0.569462176416625,
+        "pass": true,
+        "unevaluated": []
+      },
+      "zero": {
+        "status": "checked",
+        "ratio": 0.569462176416625,
+        "pass": true,
+        "unevaluated": []
+      }
+    }
+  ],
+  "sharedCage": {
+    "parentRevision": "46a91640c295c5800eec2751fdd760e28572bda0",
+    "input": {
+      "elementType": "beam",
+      "edition": "2025",
+      "b": 0.4,
+      "h": 0.4,
+      "fc": 30,
+      "fy": 420,
+      "cover": 0.025,
+      "stirrupDia": 8,
+      "momentCases": [
+        20,
+        100
+      ]
+    },
+    "parent": {
+      "small": {
+        "d": 0.359,
+        "AsProv": 6.284,
+        "bars": "2 Ø20",
+        "phiMn": 81.72691981835293,
+        "ratio": 0.24471740822304575,
+        "steps": [
+          "d = 35.9 cm, d' = 4.1 cm",
+          "Mu = 20.00 kN·m",
+          "As,mín = 4.79 cm²",
+          "As,req (motor, CIRSOC 201-2025) = 1.49 cm²: φMn = 20.00 kN·m, εt = 144.05 ‰ ≥ εt,mín = 5.10 ‰",
+          "As,req (tracción) = 4.79 cm²",
+          "Armadura tracción: 2 Ø20 (6.28 cm²)",
+          "a = 2.59 cm, c = 3.10 cm",
+          "εt = 31.59‰ → φ = 0.900",
+          "φMn = 81.73 kN·m"
+        ]
+      },
+      "large": {
+        "d": 0.359,
+        "AsProv": 9.818,
+        "bars": "2 Ø25",
+        "phiMn": 124.06052867929414,
+        "ratio": 0.8060581481037178,
+        "steps": [
+          "d = 35.9 cm, d' = 4.1 cm",
+          "Mu = 100.00 kN·m",
+          "As,mín = 4.79 cm²",
+          "As,req (motor, CIRSOC 201-2025) = 7.71 cm²: φMn = 100.00 kN·m, εt = 25.35 ‰ ≥ εt,mín = 5.10 ‰",
+          "As,req (tracción) = 7.71 cm²",
+          "Armadura tracción: 2 Ø25 (9.82 cm²)",
+          "a = 4.04 cm, c = 4.84 cm",
+          "εt = 18.98‰ → φ = 0.900",
+          "φMn = 124.06 kN·m"
+        ]
+      },
+      "shared": {
+        "d": 0.359,
+        "AsProv": 9.818,
+        "bars": "2 Ø25",
+        "phiMn": 125.73057047929413,
+        "ratio": 0.15907030345729395,
+        "steps": [
+          "d = 35.9 cm, d' = 4.1 cm",
+          "Mu = 20.00 kN·m",
+          "As,mín = 4.79 cm²",
+          "As,req (motor, CIRSOC 201-2025) = 1.49 cm²: φMn = 20.00 kN·m, εt = 144.05 ‰ ≥ εt,mín = 5.10 ‰",
+          "As,req (tracción) = 4.79 cm²",
+          "Armadura tracción: 2 Ø20 (6.28 cm²)",
+          "a = 2.59 cm, c = 3.10 cm",
+          "εt = 31.59‰ → φ = 0.900",
+          "φMn = 81.73 kN·m"
+        ]
+      }
+    },
+    "fixed": {
+      "small": {
+        "d": 0.357,
+        "AsProv": 6.284,
+        "bars": "2 Ø20",
+        "phiMn": 81.72691981835293,
+        "ratio": 0.24471740822304575,
+        "steps": [
+          "d (dimensionamiento) = 35.9 cm, d' = 4.1 cm",
+          "Mu = 20.00 kN·m",
+          "As,mín = 4.79 cm²",
+          "As,req (motor, CIRSOC 201-2025) = 1.49 cm²: φMn = 20.00 kN·m, εt = 144.05 ‰ ≥ εt,mín = 5.10 ‰",
+          "As,req (tracción) = 4.79 cm²",
+          "d (armadura provista) = 35.70 cm",
+          "Armadura tracción: 2 Ø20 (6.28 cm²)",
+          "a = 2.59 cm, c = 3.10 cm",
+          "εt = 31.59‰ → φ = 0.900",
+          "φMn = 81.73 kN·m"
+        ]
+      },
+      "large": {
+        "d": 0.3545,
+        "AsProv": 9.818,
+        "bars": "2 Ø25",
+        "phiMn": 124.06052867929414,
+        "ratio": 0.8060581481037178,
+        "steps": [
+          "d (dimensionamiento) = 35.9 cm, d' = 4.1 cm",
+          "Mu = 100.00 kN·m",
+          "As,mín = 4.79 cm²",
+          "As,req (motor, CIRSOC 201-2025) = 7.71 cm²: φMn = 100.00 kN·m, εt = 25.35 ‰ ≥ εt,mín = 5.10 ‰",
+          "As,req (tracción) = 7.71 cm²",
+          "d (armadura provista) = 35.45 cm",
+          "Armadura tracción: 2 Ø25 (9.82 cm²)",
+          "a = 4.04 cm, c = 4.84 cm",
+          "εt = 18.98‰ → φ = 0.900",
+          "φMn = 124.06 kN·m"
+        ]
+      },
+      "shared": {
+        "d": 0.3545,
+        "AsProv": 9.818,
+        "bars": "2 Ø25",
+        "phiMn": 124.06052867929414,
+        "ratio": 0.16121162962074356,
+        "steps": [
+          "d = 35.4 cm",
+          "Mu = 20.00 kN·m",
+          "As,req (tracción) = 4.79 cm²",
+          "Armadura tracción: 2 Ø25 (9.82 cm²)",
+          "a = 4.04 cm, c = 4.84 cm",
+          "εt = 18.98‰ → φ = 0.900",
+          "φMn = 124.06 kN·m",
+          "Mu/φMn = 0.161"
+        ]
+      }
+    }
+  }
+}

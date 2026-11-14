@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { verifySteelElement, type SteelDesignParams } from '../cirsoc301';
+import { type SteelDesignParams } from '../cirsoc301';
+import { verifySteelElement } from '../../../__tests__/helpers/manual-interactions';
 
 const ISSUE_467_BOX: SteelDesignParams = {
   Fy: 235, Fu: 352.5, E: 200_000, A: 0.004154258317613479, Iz: 0.00018670605799131143, Iy: 0.00018670373863284803,

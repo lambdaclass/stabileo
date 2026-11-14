@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'vitest';
 import { deriveDevelopment, deriveHookedDevelopment, deriveLap } from '../anchorage';
 import { requiredLdh } from '../../../engine/station-design-forces';
-import { verifyElement } from '../../../engine/codes/argentina/cirsoc201';
+import { verifyElement } from '../../../engine/__tests__/helpers/verify-element';
 
 const base = { diameterMm: 20, fy: 420, fc: 80, edition: '2025' as const };
 

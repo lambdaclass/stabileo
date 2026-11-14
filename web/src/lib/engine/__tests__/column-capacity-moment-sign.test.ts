@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { computeColumnCapacity, computeColumnLayout, type BarInstance } from '../station-design-forces';
 import { prepareSection } from '../codes/argentina/cirsoc201-section';
-import { checkColumn, REBAR_DB } from '../codes/argentina/cirsoc201';
+import { REBAR_DB } from '../codes/argentina/cirsoc201';
+import { checkColumn } from './helpers/manual-interactions';
 
 /*
  * Station moments reach the column check as magnitudes, so the uniaxial capacity is the weaker of

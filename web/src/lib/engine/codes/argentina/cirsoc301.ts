@@ -1,3 +1,4 @@
+import type { ConcurrentSectionDemand } from '../../concurrent-demand';
 /**
  * Verificacion de elementos de acero segun CIRSOC 301-2018 — the app's boundary to the engine.
  *
@@ -394,6 +395,10 @@ export interface SteelVerification {
    */
   engine: { available: boolean; pass: boolean; unityRatio: number; governingCheck: string; unevaluated: string[] };
   governingCombos?: {
+    tension?: { comboId: number; comboName: string; t: number };
+    compression?: { comboId: number; comboName: string; t: number };
+    flexureY?: { comboId: number; comboName: string; t: number };
+    shearWeak?: { comboId: number; comboName: string; t: number };
     flexure?: { comboId: number; comboName: string };
     shear?: { comboId: number; comboName: string };
     axial?: { comboId: number; comboName: string };
@@ -639,10 +644,14 @@ function interactionOf(c: EngineCheck): SteelInteractionResult {
   return { equation, value: c.ratio, ...common(c) };
 }
 
+export function steelParamsForDemand(params: SteelDesignParams, demand: ConcurrentSectionDemand): SteelDesignParams {
+  return params.LbNeg === undefined ? params : { ...params, Lb: demand.signedMu < 0 ? params.LbNeg : params.Lb, LbNeg: undefined };
+}
+
 /** H.1 for the given demand (Pu + compression). */
-export function checkSteelInteraction(params: SteelDesignParams, Pu: number, Mux: number, Muy: number): SteelInteractionResult {
-  // A Lb per flange: the sign of the strong-axis moment says which flange it compresses.
-  const p = params.LbNeg !== undefined ? { ...params, Lb: Mux < 0 ? params.LbNeg : params.Lb, LbNeg: undefined } : params;
+export function checkSteelInteraction(params: SteelDesignParams, demand: ConcurrentSectionDemand): SteelInteractionResult {
+  const Pu = demand.Nu, Mux = demand.Mu, Muy = demand.Muy;
+  const p = steelParamsForDemand(params, demand);
   const r = run(p, { Nu: Pu, Muz: Mux, Muy, Vu: 0 });
   if (!r) return { equation: 'H1-1b', value: Infinity, ...unavailable() };
   if (r.interaction) return interactionOf(r.interaction);
@@ -657,19 +666,19 @@ export function checkSteelInteraction(params: SteelDesignParams, Pu: number, Mux
  * check the engine did not evaluate). Null when the engine is not available. For a search over
  * the combinations and stations of a member; the governing one is then read with its steps.
  */
-export function interactionRatios(cases: ReadonlyArray<{ params: SteelDesignParams; Pu: number; Mux: number; Muy: number }>): number[] | null {
+export function interactionRatios(cases: ReadonlyArray<{ params: SteelDesignParams; demand: ConcurrentSectionDemand }>): number[] | null {
   if (cases.length === 0) return [];
   const members = cases.map((c, k) => {
-    const p = c.params.LbNeg !== undefined ? { ...c.params, Lb: c.Mux < 0 ? c.params.LbNeg : c.params.Lb, LbNeg: undefined } : c.params;
+    const p = steelParamsForDemand(c.params, c.demand);
     return engineMember(k + 1, p);
   });
-  const out = engineCheckMembers(members, cases.map((c, k) => ({ elementId: k + 1, Nu: c.Pu, Muz: c.Mux, Muy: c.Muy, Vu: 0 })), { steps: false });
+  const out = engineCheckMembers(members, cases.map((c, k) => ({ elementId: k + 1, Nu: c.demand.Nu, Muz: c.demand.Mu, Muy: c.demand.Muy, Vu: 0 })), { steps: false });
   if (!out) return null;
   const byId = new Map(out.map((r) => [r.elementId, r]));
   return cases.map((c, k) => {
     const r = byId.get(k + 1);
     if (!r) return Infinity;
-    const x = r.interaction ?? (r.flexureWeak && Math.abs(c.Muy) > 0 ? r.flexureWeak : r.flexureStrong);
+    const x = r.interaction ?? (r.flexureWeak && Math.abs(c.demand.Muy) > 0 ? r.flexureWeak : r.flexureStrong);
     return x.notEvaluated ? Infinity : x.ratio;
   });
 }
@@ -713,25 +722,27 @@ export function withUndeclaredData(params: SteelDesignParams, each: (p: SteelDes
  * is a whole check of the member under that moment, so its interaction reads the flexural
  * capacity of the flange that moment compresses.
  */
-export function verifySteelElement(input: SteelVerificationInput, opts: { trace?: boolean } = {}): SteelVerification {
+export type ConcurrentSteelVerificationInput = Pick<SteelVerificationInput, 'elementId' | 'params'> & { demand: ConcurrentSectionDemand; combinedShear?: boolean };
+
+export function verifySteelElement(input: ConcurrentSteelVerificationInput, opts: { trace?: boolean } = {}): SteelVerification {
   return withUndeclaredData(input.params, (params) => verifyByFlange({ ...input, params }, opts));
 }
 
 /** The member with every datum stated: once, or once per flange with its own Lb. */
-export function verifyByFlange(input: SteelVerificationInput, opts: { trace?: boolean } = {}): SteelVerification {
+export function verifyByFlange(concurrent: ConcurrentSteelVerificationInput, opts: { trace?: boolean } = {}): SteelVerification {
+  const d = concurrent.demand;
+  const input: SteelVerificationInput = { elementId: concurrent.elementId, params: concurrent.params,
+    Nu: d.Nu, Muz: d.signedMu,
+    Muy: d.axis === 'My' ? d.source.forces.mz : d.source.forces.my,
+    Vu: concurrent.combinedShear ? Math.max(d.Vu, d.VuSecondary) : d.Vu, VuWeak: d.VuSecondary };
   const p = input.params;
-  if (p.LbNeg === undefined || (input.MuzPos === undefined && input.MuzNeg === undefined)) {
-    // Without the moment by sign, the longer of the two flange lengths serves both signs.
-    const Lb = p.LbNeg !== undefined ? Math.max(p.Lb, p.LbNeg) : p.Lb;
-    return verifyOnce(input, { ...p, Lb, LbNeg: undefined }, opts);
-  }
-  const flange = (sign: 'positive' | 'negative', Lb: number): EngineMessage => ({
-    key: 'c301.flangeLb',
-    params: { sign: { key: `c301.word.${sign}` }, flange: { key: `c301.word.${sign === 'positive' ? 'top' : 'bottom'}` }, Lb: fmtNum(Lb) },
-  });
-  const pos = verifyOnce({ ...input, Muz: input.MuzPos ?? 0 }, { ...p, LbNeg: undefined }, opts, flange('positive', p.Lb));
-  const neg = verifyOnce({ ...input, Muz: input.MuzNeg ?? 0 }, { ...p, Lb: p.LbNeg, LbNeg: undefined }, opts, flange('negative', p.LbNeg));
-  return { ...worseSteelVerification(pos, neg), Muz: input.Muz, inputs: [{ ...p, LbNeg: undefined }] };
+  const selected = steelParamsForDemand(p, d);
+  const Lb = selected.Lb;
+  const sign = input.Muz < 0 ? 'negative' : 'positive';
+  const note: EngineMessage | undefined = p.LbNeg === undefined ? undefined : { key: 'c301.flangeLb', params: {
+    sign: { key: `c301.word.${sign}` }, flange: { key: `c301.word.${sign === 'positive' ? 'top' : 'bottom'}` }, Lb: fmtNum(Lb),
+  } };
+  return verifyOnce(input, selected, opts, note);
 }
 
 function verifyOnce(input: SteelVerificationInput, params: SteelDesignParams, opts: { trace?: boolean }, note?: EngineMessage): SteelVerification {

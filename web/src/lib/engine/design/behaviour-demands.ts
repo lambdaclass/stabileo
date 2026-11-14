@@ -12,6 +12,7 @@
  *
  * Pure.
  */
+import type { ConcurrentDemand } from '../concurrent-demand';
 import type { ElementDesignDemands } from '../station-design-forces';
 import type { Section } from '../../store/model.svelte';
 import { isVariableMember } from '../../section/variable';
@@ -37,9 +38,14 @@ export const isDesignedMember = (
 
 const noCompression = (b: Behaviour) => b === 'tensionOnly' || b === 'cable';
 const noTension = (b: Behaviour) => b === 'compressionOnly';
+const axialForBehaviour = (n: number, b: Behaviour) => noCompression(b) ? Math.max(0, n) : noTension(b) ? Math.min(0, n) : n;
 
 /** A member's axial demand as its behaviour allows. In place, returned. */
-export function maskAxialDemand<T extends { Nc: number; Nt: number }>(demand: T, behaviour: Behaviour): T {
+export function maskAxialDemand<T extends { Nc: number; Nt: number; concurrent?: readonly ConcurrentDemand[]; tuples?: Array<{ N: number }> }>(demand: T, behaviour: Behaviour): T {
+  if (!noCompression(behaviour) && !noTension(behaviour)) return demand;
+  const axial = (n: number) => axialForBehaviour(n, behaviour);
+  if (demand.concurrent) demand.concurrent = demand.concurrent.map(d => d.withAxial(axial(d.forces.n)));
+  if (demand.tuples) demand.tuples = demand.tuples.map(d => ({ ...d, N: 0 - axial(0 - d.N) }));
   if (noCompression(behaviour)) demand.Nc = 0;
   if (noTension(behaviour)) demand.Nt = 0;
   return demand;
@@ -52,7 +58,8 @@ export function maskDemands(d: ElementDesignDemands, behaviour: Behaviour): Elem
   const { leastCompression, ...rest } = d;
   const slack = d.demands.some((x) => x.category === 'N_tension') ? 0 : undefined;
   const least = drop === 'N_tension' ? leastCompression ?? slack : undefined;
-  return { ...rest, demands: d.demands.filter((x) => x.category !== drop), ...(least !== undefined ? { leastCompression: least } : {}) };
+  const concurrent = d.concurrent?.map(x => x.withAxial(axialForBehaviour(x.forces.n, behaviour)));
+  return { ...rest, ...(concurrent ? { concurrent } : {}), demands: d.demands.filter((x) => x.category !== drop).map(x => ({ ...x, forces: { ...x.forces, n: axialForBehaviour(x.forces.n, behaviour) } })), ...(least !== undefined ? { leastCompression: least } : {}) };
 }
 
 /** Every member's demands as design reads them: inactive members out, the rest masked. */

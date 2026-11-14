@@ -1,3 +1,4 @@
+import { ConcurrentDemand } from './concurrent-demand';
 /**
  * Shared verification service — centralized station-based demand computation
  * and verification orchestration for PRO mode.
@@ -36,12 +37,12 @@ import { extractBeamStationBuffer3D, extractBeamStationsGrouped3D, isSolverReady
 import { autoVerifyFromResults, type AutoVerifyModelData, type AutoVerifyOptions } from './auto-verify';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
 import {
-  checkSteelInteraction, interactionRatios, steelShapeOf, verifyByFlange, withUndeclaredData, worseSteelVerification,
+  checkSteelInteraction, interactionRatios, steelShapeOf, verifyByFlange, withUndeclaredData, worseSteelVerification, steelParamsForDemand,
   type SteelVerification, type SteelDesignParams, type TensionConnection,
 } from './codes/argentina/cirsoc301';
 import { steelNotEvaluated, steelRatio, steelResultLine, steelVerdict, worseSteel } from './codes/argentina/cirsoc301-verdict';
 import { angleSection, type AngleCompressionInput } from './steel/angle-section';
-import { engineGateSteelCases, type SteelDemandSet, type SteelEngineRecheck } from './codes/argentina/cirsoc301-engine-gate';
+import { engineGateSteelCases, type SteelEngineRecheck } from './codes/argentina/cirsoc301-engine-gate';
 import { flangeUnbracedLength, type SteelBracing } from './steel/unbraced-length';
 import { steelCheckerFor } from './steel/member-checkers';
 import { cirsoc301InputsAvailable, momentGradient, type StationMoment } from './steel/moment-gradient';
@@ -101,6 +102,9 @@ function computeStationDemandsWasm(
   combinations: LoadCombination[],
   model: AutoVerifyModelData,
 ): StationDemandData {
+  const loading = new Map([...perCombo3D].map(([id, r]) => [id, new Map(r.elementForces.map(ef => [ef.elementId, ConcurrentDemand.loadingOf(ef)]))]));
+  const withLoading = (esr: ElementStationResult): ElementStationResult => ({ ...esr,
+    comboResults: esr.comboResults.map(c => ({ ...c, transverseLoading: loading.get(c.comboId)?.get(esr.elementId) })) });
   // Build member list from model
   const members: Array<{ elementId: number; sectionId: number; materialId: number; length: number }> = [];
   for (const [id, elem] of model.elements) {
@@ -125,7 +129,8 @@ function computeStationDemandsWasm(
     if (buffer) {
       const stations = new Map<number, ElementStationResult>();
       const demands = new Map<number, ElementDesignDemands>();
-      for (const esr of decodeStationBuffer(buffer, comboNameMap)) {
+      for (const decoded of decodeStationBuffer(buffer, comboNameMap)) {
+        const esr = withLoading(decoded);
         stations.set(esr.elementId, esr);
         demands.set(esr.elementId, extractGoverningDemands(esr));
       }
@@ -149,7 +154,7 @@ function computeStationDemandsWasm(
   const stationMap = new Map<number, ElementStationResult>();
 
   for (const member of grouped.members) {
-    const esr = wasmMemberToStationResult(member, comboNameMap);
+    const esr = withLoading(wasmMemberToStationResult(member, comboNameMap));
     stationMap.set(member.memberId, esr);
     demands.set(member.memberId, extractGoverningDemands(esr));
   }
@@ -505,12 +510,15 @@ export interface SteelMemberDemand {
   VuStrong?: number; VuWeak?: number; MuStrongPos?: number; MuStrongNeg?: number;
   /** Strong-axis |M| envelope per station, for F.1.1. Empty: Cb = 1. */
   diagram: StationMoment[];
+  diagrams?: ReadonlyMap<number, StationMoment[]>;
+  diagramLength?: number;
   /**
    * The forces that act TOGETHER, one per combination and station: the interaction (H.1) is
    * rated on these. Rated on the maxima above it took the largest axial, the largest strong and
    * the largest weak moment as if they acted at once, from different combinations and stations.
    * Axial + compression, moments with their sign. Empty: the maxima are all there is.
    */
+  concurrent?: readonly ConcurrentDemand[];
   tuples?: Array<{ N: number; MStrong: number; MWeak: number; VStrong: number; VWeak: number; comboId: number; comboName: string; t: number }>;
   /** Where each maximum came from, for the record. */
   governing?: { axial?: { comboId: number; comboName: string }; flexure?: { comboId: number; comboName: string }; shear?: { comboId: number; comboName: string } };
@@ -542,11 +550,10 @@ export function steelDemandOf(
   }
   const diagram: StationMoment[] = stations ? stationMomentEnvelope(stations) : [];
   // Solver axial is + tension; the checker's is + compression. `my` is the strong axis.
-  const tuples = stations
-    ? stations.comboResults.flatMap((c) => c.stations.map((s) => ({
-      N: -s.n, MStrong: s.my, MWeak: s.mz, VStrong: s.vz, VWeak: s.vy, comboId: c.comboId, comboName: c.comboName, t: s.t,
-    })))
-    : undefined;
+  if (sd && !sd.concurrent?.length && !stations) throw new Error('Concurrent steel demands are required; an envelope cannot be verified');
+  const concurrent = stations ? ConcurrentDemand.fromStations(stations) : sd?.concurrent ?? ConcurrentDemand.endpoints(ef);
+  const tuples = concurrent.map(d => ({ N: 0 - d.forces.n, MStrong: d.forces.my, MWeak: d.forces.mz,
+    VStrong: d.forces.vz, VWeak: d.forces.vy, comboId: d.comboId, comboName: d.comboName, t: d.stationT, concurrent: d }));
   const from = (cats: string[]) => {
     const d = sd?.demands.filter((x) => cats.includes(x.category)).sort((a, b) => b.absValue - a.absValue)[0];
     return d ? { comboId: d.comboId, comboName: d.comboName } : undefined;
@@ -556,20 +563,19 @@ export function steelDemandOf(
     flexure: from(['My+', 'My-', 'Mz+', 'Mz-']),
     shear: from(['Vy', 'Vz']),
   } : undefined;
+  const diagrams = stations || sd?.concurrent ? new Map<number, StationMoment[]>() : undefined;
+  if (diagrams) for (const d of concurrent) {
+    const list = diagrams.get(d.comboId) ?? [];
+    list.push({ t: d.stationT, m: d.forces.my });
+    diagrams.set(d.comboId, list);
+  }
   const byAxis = sd
     ? { VuStrong: sd.demands.find((d) => d.category === 'Vz')?.absValue ?? 0, VuWeak: sd.demands.find((d) => d.category === 'Vy')?.absValue ?? 0,
       MuStrongPos: sd.demands.find((d) => d.category === 'My+')?.absValue ?? 0, MuStrongNeg: sd.demands.find((d) => d.category === 'My-')?.absValue ?? 0 }
     : { VuStrong: Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd)), VuWeak: Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd)) };
-  return { Nc, Nt, MuStrong, MuWeak, Vu, ...byAxis, diagram, ...(tuples ? { tuples } : {}), ...(governing ? { governing } : {}) };
+  return { Nc, Nt, MuStrong, MuWeak, Vu, ...byAxis, diagram, diagrams, diagramLength: stations?.length ?? ef.length, concurrent, ...(tuples ? { tuples } : {}), ...(governing ? { governing } : {}) };
 }
 
-/**
- * The signed strong-axis envelope of one element's stations: per station, the `my` with the
- * largest |my| across every combo, sign kept. This is the diagram Cb reads (`my` is the strong
- * axis — see the demand mapping in `checkSteelMember`). The envelope rather than one combo,
- * because `Lb` spans the whole unbraced length and the governing diagram is the one that
- * produced `MuStrongMax`.
- */
 function stationMomentEnvelope(stations: ElementStationResult): StationMoment[] {
   const byT = new Map<number, number>();
   for (const combo of stations.comboResults) {
@@ -612,9 +618,17 @@ function stationMomentEnvelope(stations: ElementStationResult): StationMoment[] 
  * falls back to the element-local diagram, which is the segment itself in that case.
  */
 export interface SteelSegmentDiagram {
+  byCombo?: ReadonlyMap<number, StationMoment[]>;
   stations: StationMoment[];
   tStart: number;
   tEnd: number;
+  extent?: { length: number; center: number };
+}
+
+function steelMomentWindow(Lb: number, extent: { length: number; center: number }): { tStart: number; tEnd: number } | undefined {
+  if (!(Lb > 0) || !(Lb <= extent.length)) return undefined;
+  if (Lb === extent.length) return { tStart: 0, tEnd: 1 };
+  return undefined;
 }
 
 export function steelSegmentDiagram(
@@ -646,6 +660,8 @@ export function steelSegmentDiagram(
     (a.nodeI === b.nodeI || a.nodeI === b.nodeJ) ? a.nodeI : a.nodeJ;
 
   const stations: StationMoment[] = [];
+  const byCombo = new Map<number, StationMoment[]>();
+  const counts = new Map<number, number>();
   let prefix = 0;
   let selfStart = 0;
   let selfLen = 0;
@@ -666,18 +682,20 @@ export function steelSegmentDiagram(
         });
       }
     }
+    for (const c of env?.comboResults ?? []) {
+      const list = byCombo.get(c.comboId) ?? [];
+      list.push(...c.stations.map(s => ({ t: (prefix + (reversed ? 1 - s.t : s.t) * e.L) / total, m: reversed ? -s.my : s.my })));
+      byCombo.set(c.comboId, list);
+      counts.set(c.comboId, (counts.get(c.comboId) ?? 0) + 1);
+    }
     if (e.id === elementId) { selfStart = prefix; selfLen = e.L; }
     prefix += e.L;
   }
 
-  let tStart = 0, tEnd = 1;
-  if (lengths.Lb > 0 && lengths.Lb < total - 1e-9) {
-    const w = lengths.Lb / total;
-    const mid = (selfStart + selfLen / 2) / total;
-    tStart = Math.max(0, Math.min(mid - w / 2, 1 - w));
-    tEnd = tStart + w;
-  }
-  return { stations, tStart, tEnd };
+  const extent = { length: total, center: (selfStart + selfLen / 2) / total };
+  const window = steelMomentWindow(lengths.Lb, extent) ?? { tStart: 0, tEnd: 1 };
+  for (const [id, count] of counts) if (count !== elems.length) byCombo.delete(id);
+  return { stations, ...window, byCombo, extent };
 }
 
 /** The largest utilisation of a steel verification, over every limit state it ran. */
@@ -744,6 +762,7 @@ export function checkVariableSteelMember(
       Vu: Math.max(...at.map((x) => Math.max(Math.abs(x.vy), Math.abs(x.vz)))),
       VuStrong: Math.max(...at.map((x) => Math.abs(x.vz))), VuWeak: Math.max(...at.map((x) => Math.abs(x.vy))),
       diagram: [],
+      concurrent: ConcurrentDemand.fromStations({ ...stations, comboResults: stations.comboResults.map(c => ({ ...c, stations: c.stations.filter(s => Math.abs(s.t - t) < 1e-9) })) }),
     }, elem.behaviour as never);
     const sec = memberSectionAt(sections, elem as never, t);
     if (!sec) continue;
@@ -771,6 +790,7 @@ export function steelMemberLengths(
   const br = e.bracing;
   return {
     ...base,
+    bracing: br,
     ...(e.kStrong !== undefined ? { Kx: e.kStrong } : {}), ...(e.kWeak !== undefined ? { Ky: e.kWeak } : {}),
     ...(br?.top?.length ? { Lb: flangeUnbracedLength(base.L, br.top) } : {}),
     ...(br?.bottom?.length ? { LbNeg: flangeUnbracedLength(base.L, br.bottom) } : br?.top?.length ? { LbNeg: base.L } : {}),
@@ -804,6 +824,7 @@ export function checkSteelMember(
     angle?: AngleCompressionInput;
     /** Lb of the bottom flange (negative moments), and the per-axis buckling lengths, m. */
     LbNeg?: number; Lx?: number; Ly?: number;
+    bracing?: SteelBracing;
     /** Where the transverse load acts (F.2.2), as the member declares it (`Element.steelLoadHeight`). */
     loadPosition?: 'web' | 'topFlange';
   },
@@ -819,7 +840,6 @@ export function checkSteelMember(
    */
   opts: { screen?: boolean } = {},
 ): (SteelVerification & { engineRecheck: SteelEngineRecheck }) | null {
-  const { MuStrong: MuStrongMax, MuWeak: MuWeakMax, Vu: VuMax, diagram } = demand;
   const { L, Lb } = lengths;
   /*
    * ── The DEMAND side of the axis mapping, which crosses the same way ──
@@ -865,14 +885,37 @@ export function checkSteelMember(
   const gaps = missingSteelInputs(section as SteelSectionData, material as SteelMaterialData);
   if (gaps.length > 0) return null;
 
-  // Cb is read over the whole unbraced segment (`segment`), never one element of a chain: an end element's steeper local gradient overstates it.
-  const grad = cirsoc301InputsAvailable() ? momentGradient({
-    stations: segment?.stations ?? diagram,
-    tStart: segment?.tStart,
-    tEnd: segment?.tEnd,
-    shape: (section as { shape?: string }).shape,
-    cantileverFreeEnd: lengths.freeEnd === true,
-  }) : undefined;
+  const concurrent = steelConcurrentDemands(demand);
+  if (!concurrent.length) throw new Error('Concurrent steel demands are required; an envelope cannot be verified');
+  const cb = new Map<string, number | undefined>();
+  const paramsAt = (p: SteelDesignParams, d: ConcurrentDemand): SteelDesignParams => {
+    const { Cb: _old, ...rest } = p;
+    void _old;
+    const own = steelParamsForDemand(rest, d.section('My'));
+    if (!Number.isFinite(d.stationX)) return own;
+    const diagramLength = segment?.extent?.length ?? demand.diagramLength ?? L;
+    const points = d.my < 0 ? lengths.bracing?.bottom : lengths.bracing?.top;
+    const windows = !segment && points?.length ? (() => {
+      const xs = [0, ...points.filter(x => x > 0 && x < diagramLength), diagramLength].sort((a, b) => a - b);
+      return xs.slice(1).flatMap((end, i) => d.stationX >= xs[i]! && d.stationX <= end
+        ? [{ tStart: xs[i]! / diagramLength, tEnd: end / diagramLength }] : []);
+    })() : (() => {
+      const window = segment?.extent ? steelMomentWindow(own.Lb, segment.extent)
+        : segment ? own.Lb === diagramLength && segment.tStart === 0 && segment.tEnd === 1
+          ? { tStart: 0, tEnd: 1 } : undefined
+        : steelMomentWindow(own.Lb, { length: diagramLength, center: 0.5 });
+      return window ? [window] : [];
+    })();
+    const key = `${d.comboId}|${own.Lb}|${windows.map(w => `${w.tStart}:${w.tEnd}`).join(',')}`;
+    if (!cb.has(key)) {
+      const stations = segment ? segment.byCombo?.get(d.comboId) ?? [] : demand.diagrams?.get(d.comboId) ?? [];
+      const factors = windows.map(window => cirsoc301InputsAvailable() ? momentGradient({ stations, ...window,
+        shape: section.shape, cantileverFreeEnd: lengths.freeEnd === true }) : undefined);
+      cb.set(key, factors.length && factors.every(g => g?.basis === 'computed') ? Math.min(...factors.map(g => g!.cb)) : undefined);
+    }
+    const factor = cb.get(key);
+    return factor === undefined ? own : { ...own, Cb: factor };
+  };
 
   const sdp: SteelDesignParams = {
     Fy: material.fy!,
@@ -913,7 +956,6 @@ export function checkSteelMember(
     L, Lb,
     // Only when F.1.1 was actually evaluated. Every other basis means «use the permitted 1,0»,
     // and passing 1,0 explicitly would make the steps claim a computation that did not happen.
-    ...(grad?.basis === 'computed' ? { Cb: grad.cb } : {}),
     // J, Cw, Zx and Zy from the section's own data or geometry (`steel/section-constants.ts`):
     // the catalogue's rolled shapes carry no J, which dropped F.2-4's torsional term, and the
     // checker's own Z formula is an I-shape's applied to every shape.
@@ -965,26 +1007,46 @@ export function checkSteelMember(
   // An I or a channel takes each shear on its own elements (G.2 web, G.6 flanges); any other
   // shape keeps the envelope of both on the web, as before.
   const flanged = steelShapeOf(sdp.shape) === 'I' || steelShapeOf(sdp.shape) === 'U';
-  const VuWeb = flanged ? demand.VuStrong ?? VuMax : VuMax;
   // Muz/Muy are the CHECKER's names (strong/weak); the values come from the solver's
   // my/mz channels — the same cross the inertias take above. The checker's axial sign is
   // + compression.
-  const sets: SteelDemandSet[] = [];
-  if (demand.Nc > 0 || demand.Nt === 0) sets.push({ Nu: demand.Nc, Muz: MuStrongMax, Muy: MuWeakMax, Vu: VuWeb });
-  if (demand.Nt > 0) sets.push({ Nu: -demand.Nt, Muz: MuStrongMax, Muy: MuWeakMax, Vu: VuWeb });
-  const byFlange = sdp.LbNeg !== undefined && demand.MuStrongPos !== undefined;
   /*
    * The member with every datum stated: compression and tension apart, the worse by verdict first
    * (a run left unevaluated must not hide behind a higher ratio), then H.1 on the forces that act
    * together. Read once per value of a datum the member does not state (`withUndeclaredData`).
    */
   const checkAs = (p: SteelDesignParams): SteelVerification => {
-    const runs = sets.map((f) => verifyByFlange({
-      elementId, ...f, params: p,
-      ...(flanged ? { VuWeak: demand.VuWeak ?? 0 } : {}),
-      ...(byFlange ? { MuzPos: demand.MuStrongPos, MuzNeg: demand.MuStrongNeg ?? 0 } : {}),
+    const runs = concurrent.map(d => verifyByFlange({
+      elementId, demand: d.section('My'), combinedShear: !flanged, params: paramsAt(p, d),
     }, { trace: !opts.screen }));
-    return withConcurrentInteraction(runs.reduce(worseSteelVerification), demand, p);
+    const base = runs.reduce(worseSteelVerification);
+    const location = (k: number) => ({ comboId: concurrent[k]!.comboId, comboName: concurrent[k]!.comboName, t: concurrent[k]!.stationT });
+    const governingCombos: NonNullable<SteelVerification['governingCombos']> = {};
+    const pick = <K extends 'tension' | 'compression' | 'flexureZ' | 'flexureY' | 'shear' | 'shearWeak'>(key: K): SteelVerification[K] => {
+      let found: SteelVerification[K] | undefined;
+      let index = 0;
+      const magnitude = (x: NonNullable<SteelVerification[K]>) => 'Pu' in x ? x.Pu : 'Mu' in x ? x.Mu : x.Vu;
+      const rank = (x: { status: string }) => x.status === 'fail' ? 3 : x.status === 'held' ? 2 : x.status === 'warn' ? 1 : 0;
+      for (const [k, r] of runs.entries()) {
+        const x = r[key];
+        if (!x) continue;
+        const ratio = Number.isNaN(x.ratio) ? Infinity : x.ratio;
+        const previous = found && (Number.isNaN(found.ratio) ? Infinity : found.ratio);
+        if (!found || rank(x) > rank(found) || rank(x) === rank(found)
+          && (ratio > previous! || ratio === previous && magnitude(x) > magnitude(found))) {
+          found = x;
+          index = k;
+        }
+      }
+      const labels = { tension: 'tension', compression: 'compression', flexureZ: 'flexure', flexureY: 'flexureY', shear: 'shear', shearWeak: 'shearWeak' } as const;
+      if (found) governingCombos[labels[key]] = location(index);
+      return found as SteelVerification[K];
+    };
+    const shear = pick('shear');
+    const combined = { ...base, tension: pick('tension'), compression: pick('compression'), flexureZ: pick('flexureZ'),
+      flexureY: pick('flexureY'), shear, shearWeak: pick('shearWeak'), governingCombos,
+      Muz: demand.MuStrong, Muy: demand.MuWeak, Vu: shear.Vu };
+    return withConcurrentInteraction(combined, concurrent, d => paramsAt(p, d));
   };
   const v = withUndeclaredData(sdp, checkAs);
   if (opts.screen) {
@@ -1000,21 +1062,20 @@ export function checkSteelMember(
    */
   // Every reading the verdict rests on (each value of an undeclared datum that was read).
   const inputs = v.inputs?.length ? v.inputs : [sdp];
-  const withLb = (q: SteelDesignParams, Muz: number): SteelDesignParams => (q.LbNeg === undefined ? q
-    : { ...q, Lb: byFlange ? (Muz < 0 ? q.LbNeg : q.Lb) : Math.max(q.Lb, q.LbNeg), LbNeg: undefined });
-  const tuples = concurrentTuples(demand);
-  const cases = inputs.flatMap((q) => (tuples.length > 0
-    ? tuples.map((x) => ({ params: withLb(q, x.MStrong), demands: [{ Nu: x.N, Muz: x.MStrong, Muy: x.MWeak, Vu: flanged ? Math.abs(x.VStrong) : Math.max(Math.abs(x.VStrong), Math.abs(x.VWeak)) }] }))
-    : byFlange
-      ? [{ params: withLb(q, 1), demands: sets.map((f) => ({ ...f, Muz: demand.MuStrongPos ?? 0 })) },
-        { params: withLb(q, -1), demands: sets.map((f) => ({ ...f, Muz: demand.MuStrongNeg ?? 0 })) }]
-      : [{ params: withLb(q, 1), demands: sets }]));
+  const cases = inputs.flatMap(q => concurrent.map(d => ({ params: paramsAt({ ...q, Lb: sdp.Lb, LbNeg: sdp.LbNeg }, d), demands: [{
+    Nu: 0 - d.n, Muz: d.my, Muy: d.mz,
+    Vu: flanged ? Math.abs(d.vz) : Math.max(Math.abs(d.vz), Math.abs(d.vy)),
+  }] })));
   return engineGateSteelCases(v, cases);
 }
 
-/** The force tuples of a member that carry anything (each combination at each station). */
-function concurrentTuples(demand: SteelMemberDemand): NonNullable<SteelMemberDemand['tuples']> {
-  return (demand.tuples ?? []).filter((x) => Math.abs(x.N) > 1e-6 || Math.abs(x.MStrong) > 1e-6 || Math.abs(x.MWeak) > 1e-6);
+function steelConcurrentDemands(demand: SteelMemberDemand): readonly ConcurrentDemand[] {
+  if (demand.concurrent) return demand.concurrent;
+  const length = demand.diagramLength;
+  const physicalLength = length !== undefined && Number.isFinite(length) && length > 0 ? length : NaN;
+  return ConcurrentDemand.fromTuples((demand.tuples ?? []).map(t => ({ comboId: t.comboId, comboName: t.comboName, forces: {
+    n: -t.N, my: t.MStrong, mz: t.MWeak, vy: t.VWeak, vz: t.VStrong, torsion: 0, t: t.t, x: t.t * physicalLength,
+  } })));
 }
 
 /**
@@ -1026,21 +1087,18 @@ function concurrentTuples(demand: SteelMemberDemand): NonNullable<SteelMemberDem
  * concurrent tuple replaces the interaction built from the maxima, and the combination and
  * station that govern it are recorded with the others.
  */
-function withConcurrentInteraction(v: SteelVerification, demand: SteelMemberDemand, sdp: SteelDesignParams): SteelVerification {
-  const governingCombos = {
-    ...(demand.governing?.axial ? { axial: demand.governing.axial } : {}),
-    ...(demand.governing?.flexure ? { flexure: demand.governing.flexure } : {}),
-    ...(demand.governing?.shear ? { shear: demand.governing.shear } : {}),
-  };
-  const tuples = concurrentTuples(demand);
+function withConcurrentInteraction(v: SteelVerification, demands: readonly ConcurrentDemand[], paramsAt: (d: ConcurrentDemand) => SteelDesignParams): SteelVerification {
+  const governingCombos = v.governingCombos ?? {};
+  const tuples = demands.map(d => ({ N: 0 - d.forces.n, MStrong: d.forces.my, MWeak: d.forces.mz,
+    comboId: d.comboId, comboName: d.comboName, t: d.stationT }));
   if (tuples.length === 0 || !v.engine.available) return { ...v, governingCombos };
   // Every tuple's H.1 in one engine call; the governing one is then read with its calculation.
-  const ratios = interactionRatios(tuples.map((x) => ({ params: sdp, Pu: x.N, Mux: x.MStrong, Muy: x.MWeak })));
+  const ratios = interactionRatios(demands.map(d => ({ params: paramsAt(d), demand: d.section('My') })));
   if (!ratios) return { ...v, governingCombos };
   let k = 0;
   for (let i = 1; i < ratios.length; i++) if (ratios[i]! > ratios[k]!) k = i;
   const x = tuples[k]!;
-  const r = checkSteelInteraction(sdp, x.N, x.MStrong, x.MWeak);
+  const r = checkSteelInteraction(paramsAt(demands[k]!), demands[k]!.section('My'));
   const interaction = { ...r, steps: [...r.steps, `  Combinación ${x.comboName}, estación t = ${x.t.toFixed(3)}`] };
   // The verdict again with this interaction in place of the one from the maxima.
   const parts = { ...v, interaction };

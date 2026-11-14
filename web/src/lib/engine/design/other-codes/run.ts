@@ -1,3 +1,4 @@
+import { ConcurrentDemand } from '../../concurrent-demand';
 /**
  * Run a code's checker over the members, one force tuple at a time.
  *
@@ -47,7 +48,7 @@ export function memberContexts(
     designData?: { cover: { beam: number; column: number }; rebarFy: number };
   } = {},
 ): MemberContext[] {
-  const { demands, stations } = computeStationDemands(perCombo, combinations, model as never);
+  const { demands } = computeStationDemands(perCombo, combinations, model as never);
   const lengths = memberLengths(model as never);
   const want = ids ? new Set(ids) : null;
   const out: MemberContext[] = [];
@@ -64,12 +65,7 @@ export function memberContexts(
     // Design follows the member's behaviour, as the CIRSOC check does.
     const d = maskDemands(raw, behaviour);
     // The axial force the behaviour excludes, as `maskDemands` reads it, left out of the tuples too.
-    const kept = new Set(d.demands.map((x) => x.category));
-    const dropC = raw.demands.some((x) => x.category === 'N_compression') && !kept.has('N_compression');
-    const dropT = raw.demands.some((x) => x.category === 'N_tension') && !kept.has('N_tension');
-    const tuples: StationTuple[] = (stations.get(id)?.comboResults ?? []).flatMap((cr) => cr.stations
-      .filter((s) => !(dropC && s.n < 0) && !(dropT && s.n > 0))
-      .map((s) => ({ comboId: cr.comboId, comboName: cr.comboName, stationT: s.t, stationX: s.x, forces: s })));
+    const tuples: StationTuple[] = [...(d.concurrent ?? [])];
     const len = lengths.get(id);
     const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
     const kind = a && b
@@ -119,15 +115,15 @@ const CHUNK = 48;
  */
 export function runOtherCode(code: OtherCode, contexts: MemberContext[], opts: RunOptions = {}): OtherCodeRun {
   const rows = new Map<number, OtherCodeRow>();
-  const ready: Array<{ ctx: MemberContext; data: Record<string, unknown>; flags: string[]; list: StationTuple[] }> = [];
+  const ready: Array<{ ctx: MemberContext; data: Record<string, unknown>; flags: string[]; list: ConcurrentDemand[] }> = [];
   for (const ctx of contexts) {
     const m = code.member(ctx);
     if ('skip' in m) { rows.set(ctx.elementId, { elementId: ctx.elementId, status: 'skipped', reasonKey: m.skip }); continue; }
     if (ctx.demands.length === 0) { rows.set(ctx.elementId, { elementId: ctx.elementId, status: 'skipped', reasonKey: 'otherCodes.skip.noDemand' }); continue; }
     // The governing demands first, then every other combination and station, each pair once.
     const seen = new Set(ctx.demands.map((d) => `${d.comboId}|${d.stationT}`));
-    const rest = opts.tuples ? (ctx.tuples ?? []).filter((t) => { const k = `${t.comboId}|${t.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; }) : [];
-    ready.push({ ctx, data: m.data, flags: m.unevaluated ?? [], list: [...ctx.demands, ...rest] });
+    const rest = (ctx.tuples ?? []).filter((t) => { const k = `${t.comboId}|${t.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    ready.push({ ctx, data: m.data, flags: m.unevaluated ?? [], list: ConcurrentDemand.fromTuples([...ctx.demands, ...rest]) });
   }
   /*
    * The member's reading is its worst ratio, and it carries every check the engine left out at
@@ -161,7 +157,7 @@ export function runOtherCode(code: OtherCode, contexts: MemberContext[], opts: R
   };
   const phases = ready.reduce((n, r) => Math.max(n, 1 + Math.ceil((r.list.length - r.ctx.demands.length) / CHUNK)), 0);
   for (let phase = 0; phase < phases; phase++) {
-    const pairs: Array<{ r: (typeof ready)[number]; d: StationTuple; data: Record<string, unknown>; base: Record<string, unknown>; extra: string[] }> = [];
+    const pairs: Array<{ r: (typeof ready)[number]; d: ConcurrentDemand; data: Record<string, unknown>; base: Record<string, unknown>; extra: string[] }> = [];
     for (const r of ready) {
       if (past(r.ctx.elementId)) continue;
       const g = r.ctx.demands.length;
@@ -234,20 +230,20 @@ export async function certifyOtherCode(
   const refuse = (id: number, reason: string, combo?: string) => {
     if (out.get(id)?.status !== 'uncertified') out.set(id, { status: 'uncertified', reason, ...(combo !== undefined ? { combo } : {}) });
   };
-  const ready: Array<{ ctx: MemberContext; data: Record<string, unknown> }> = [];
+  const ready: Array<{ ctx: MemberContext; data: Record<string, unknown>; all: ConcurrentDemand[] }> = [];
   for (const ctx of contexts) {
     const m = code.member(ctx);
     if ('skip' in m || ctx.demands.length === 0) continue;
     if ((m.unevaluated ?? []).length > 0) { refuse(ctx.elementId, 'otherCodes.cert.partial'); continue; }
-    ready.push({ ctx, data: m.data });
+    ready.push({ ctx, data: m.data, all: ConcurrentDemand.fromTuples([...ctx.demands, ...(ctx.tuples ?? [])]) });
   }
-  const rounds = ready.reduce((n, r) => Math.max(n, r.ctx.demands.length), 0);
+  const rounds = ready.reduce((n, r) => Math.max(n, r.all.length), 0);
   for (let k = 0; k < rounds; k++) {
     const members: Record<string, unknown>[] = [];
     const demands: Array<{ forces: Record<string, unknown>; bound: DemandBound }> = [];
     for (const r of ready) {
       const id = r.ctx.elementId;
-      const d = r.ctx.demands[k];
+      const d = r.all[k];
       if (!d || out.has(id)) continue;
       let data = r.data;
       if (code.at) {

@@ -28,6 +28,8 @@ const body: PostBody = {
       "k": "note",
       "t": "SA-2026-063 — PR #2009 ile düzeltildi, sürüm yayını bekleniyor."
     },
+    {"k": "note", "t": "SA-2026-064 — PR #2080 içinde düzeltildi, yayın bekleniyor."},
+    {"k": "note", "t": "SA-2026-066 — Taslak: PR #2080 içinde düzeltildi, birleştirme ve yayın bekleniyor."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -401,6 +403,8 @@ const body: PostBody = {
         ["SA-2026-060", "Aşamalı analiz, birim değişiminden sonra veya mesnet yaylı mafsallı uçlarda gerçek dönmeleri uyarı vermeden sertleştirebiliyordu; serbestlik içeren aşamalı modelleri yeniden kontrol edin", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
         ["SA-2026-062", "Ham 3D plastik analiz, başlangıç elastik durumu çözülemediğinde uyarısız sıfır bildirebiliyordu; eski sertifikalı sürümler bu katsayıyı koruyordu. Main artık uyarıyla pozitif sertifikalı sınır döndürüyor; PR #1943 başlangıç reddini iletiyor", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
         ["SA-2026-063", "Kısıtlı aşamalı ve doğrusal olmayan analizler tanımlı ana düğüm hareketini kaybediyordu; kablo ve zaman tanım alanı analizleri artık desteklenmeyen mesnet hareketlerini reddediyor. Mevcut genel dinamik uyarıları bu eksikliği belirtmiyordu", "Yüksek", "PR #2009 ile düzeltildi, sürüm yayını bekleniyor"],
+        ["SA-2026-064", "Çelik eksenel kuvvet ve eğilme etkileşim kontrolleri, başka bir kombinasyonun moment diyagramından Cb alarak kullanım oranını uyarı vermeden düşük hesaplayabiliyordu. Güncellemeden sonra çelik tasarım kontrollerini yeniden çalıştırın.", "Yüksek", "PR #2080 içinde düzeltildi, yayın bekleniyor"],
+        ["SA-2026-066", "Enine yüklü CIRSOC 201 kolon ve perdeleri, uç momentlerine dayalı Cm azaltması nedeniyle büyütülmüş tasarım momentini düşük hesaplayabiliyordu. Etkilenen beton tasarımlarını yeniden kontrol edin.", "Yüksek", "Taslak: PR #2080 içinde düzeltildi, birleştirme ve yayın bekleniyor"],
       ]
     },
     {

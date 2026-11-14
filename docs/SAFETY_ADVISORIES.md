@@ -118,3 +118,9 @@ Every advisory has these sections; the [template](#template) lists them.
 
 The list of advisories, with status and severity, is [advisories/README.md](advisories/README.md).
 The dashboard counts published advisories ([verification/DASHBOARD.md](verification/DASHBOARD.md)).
+
+Pending design corrections: [SA-2026-064](advisories/SA-2026-064-steel-cb-combination.md)
+covers steel Cb from another combination or an unlocated short span (#1316, #2088);
+[SA-2026-066](advisories/SA-2026-066-cirsoc201-transverse-cm.md) covers CIRSOC 201
+Cm credit with transverse load (#2089). Both fixes are in PR #2080, pending merge
+and release.

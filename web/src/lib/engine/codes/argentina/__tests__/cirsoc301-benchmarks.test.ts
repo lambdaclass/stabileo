@@ -21,10 +21,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  checkSteelTension, checkSteelCompression, checkSteelFlexure, checkSteelShear,
-  checkSteelInteraction, verifySteelElement, type SteelDesignParams,
-} from '../cirsoc301';
+import { checkSteelTension, checkSteelCompression, checkSteelFlexure, checkSteelShear, type SteelDesignParams } from '../cirsoc301';
+import { verifySteelElement } from '../../../__tests__/helpers/manual-interactions';
+import { checkSteelInteraction } from '../../../__tests__/helpers/manual-interactions';
 
 /**
  * IPE 200 in the units `SteelDesignParams` wants (m, m², m⁴) and in the CHECKER's axis naming:

@@ -1,9 +1,11 @@
+import { manualSteelDemand } from './helpers/manual-interactions';
 /**
  * The CIRSOC 301 engine gate: a steel pass stands only when the engine's certified check
  * confirms it on the exact input (`codes/argentina/cirsoc301-engine-gate.ts`).
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { verifySteelElement, type SteelDesignParams } from '../codes/argentina/cirsoc301';
+import { type SteelDesignParams } from '../codes/argentina/cirsoc301';
+import { verifySteelElement } from './helpers/manual-interactions';
 import { engineGateSteel } from '../codes/argentina/cirsoc301-engine-gate';
 import { registerCirsoc301Kernel } from '../codes/argentina/cirsoc301-kernel';
 import { checkSteelMember } from '../verification-service';
@@ -66,7 +68,7 @@ describe('CIRSOC 301 engine gate', () => {
   it('checkSteelMember — the path of the verifier, the optimiser and the tables — is gated', () => {
     const r = checkSteelMember(
       1,
-      { Nc: 0, Nt: 0, MuStrong: 10, MuWeak: 0, Vu: 20, diagram: [] },
+      manualSteelDemand({ Nc: 0, Nt: 0, MuStrong: 10, MuWeak: 0, Vu: 20, diagram: [] }),
       { a: 27.9e-4, iy: 1450e-8, iz: 81.3e-8, h: 0.18, b: 0.082, tw: 0.0069, tf: 0.0104, j: 7.89e-8, shape: 'I' },
       { fy: 235, fu: 370, e: 200_000 },
       { L: 2, Lb: 0.5 },

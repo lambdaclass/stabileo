@@ -1,3 +1,4 @@
+import { manualSteelDemand } from '../../__tests__/helpers/manual-interactions';
 import { describe, it, expect } from 'vitest';
 import { checkSteelMember, type SteelMemberDemand } from '../../verification-service';
 import { profileToSectionFull, PROFILE_FAMILIES } from '../../../data/steel-profiles';
@@ -14,7 +15,7 @@ describe('steel interaction on forces that act together', () => {
   ];
 
   it('does not add an axial and a moment that never act at once', () => {
-    const maxima = checkSteelMember(1, base, sec, steel, { L: 4, Lb: 4 })!;
+    const maxima = checkSteelMember(1, manualSteelDemand(base), sec, steel, { L: 4, Lb: 4 })!;
     const together = checkSteelMember(1, { ...base, tuples }, sec, steel, { L: 4, Lb: 4 })!;
     // From the maxima, H.1 summed 300 kN and 60 kN·m; neither combination carries both.
     expect(together.interaction!.ratio).toBeLessThan(maxima.interaction!.ratio);
