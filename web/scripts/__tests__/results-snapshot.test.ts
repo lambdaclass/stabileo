@@ -356,3 +356,23 @@ it('known wrong result: #2095 snow corpus context reaches the applicability gate
   expect(corpusCases(source)['web/results-snapshots/snow-two-pitch.json']).toMatchObject({ workspace: '3d', source: { snowRoof: 'two-pitch' } });
   expect(corpusCases(source.replace("workspace: '3d'", "workspace: 'unknown'"))).toEqual({});
 });
+
+for (const path of ['generatedLoads.item7.distributed.item0.q', 'snowResult.ps', 'snowDerivation.item0.params.hb']) {
+  it.skip(`known wrong result: #2095 generated snow fields have pre-solve applicability ${path}`, () => {
+    const entry = { id: 'snow', area: 'loads', when: { all: ['snow', 'generatedLoads'] }, quantities: ['*'] };
+    const features = ['snow', 'members', 'space3D', 'generatedLoads'];
+    const check = (notice = entry, opened = features) => decide({
+      snapshots: [{ file: 'web/results-snapshots/snow.json', base: { values: { [path]: 1 } }, head: { values: { [path]: 2 } } }],
+      baseRegistry: { schema: 1, numbered: [], unnumbered: [] },
+      headRegistry: { schema: 1, numbered: [], unnumbered: [notice] },
+      fragments: [{ file: 'changelog.d/snow.md', text: '### BREAKING (results)\n#### Snow\n' }],
+      caseFeatures: { 'web/results-snapshots/snow.json': opened },
+    }).ok;
+    expect(check()).toBe(true);
+    expect(check(entry, features.filter(f => f !== 'generatedLoads'))).toBe(false);
+    expect(check(entry, features.filter(f => f !== 'snow'))).toBe(false);
+    expect(check({ ...entry, area: 'analysis' })).toBe(false);
+    expect(check({ ...entry, quantities: [] })).toBe(false);
+    expect(check({ ...entry, when: { all: ['snow', 'generatedLoads', 'analysis:linear'] } })).toBe(false);
+  });
+}
