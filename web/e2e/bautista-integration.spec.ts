@@ -66,3 +66,53 @@ for (const width of [375, 768]) {
     await picker.getByTestId('axes-done').click();
   });
 }
+
+test.skip('@smoke known wrong result: #2081 reinforcement sheets survive responsive layout changes with usable controls', async ({ pro: page }) => {
+  await loadModel(page, 'rc-qa-diagnostic');
+  await page.evaluate(() => window.__stabileoActions.setMeshBeforeAnalysis(false));
+  await solveModel(page);
+  await page.getByTestId('pr-stage-analyse').click();
+  await page.getByTestId('pr-cmd-rcSheets').click();
+  await page.getByTestId('rc-design').click();
+  await expect(page.getByTestId('rc-open-beam')).toBeEnabled();
+  await page.getByTestId('rc-open-beam').click();
+  const workspace = page.getByTestId('rc-sheets-workspace');
+  await workspace.getByTestId('rc-tab-column').click();
+  for (const width of [1600, 941, 940, 768, 767, 375, 320, 768, 1600]) {
+    await page.setViewportSize({ width, height: 1024 });
+    await expect(workspace).toBeVisible();
+    await expect(workspace.getByTestId('rc-tab-column')).toHaveAttribute('aria-selected', 'true');
+    await fits(page);
+    const close = workspace.getByTestId('rc-close');
+    await expect(close).toBeInViewport({ ratio: 1 });
+    if (width <= 940) {
+      for (const control of await workspace.locator('header button, header select, header label:has(input)').all()) {
+        if (!await control.isVisible()) continue;
+        const box = (await control.boundingBox())!;
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(box.width).toBeGreaterThanOrEqual(44);
+      }
+    }
+    for (const family of ['beam', 'column', 'slab', 'wall', 'punching', 'column']) {
+      const tab = workspace.getByTestId(`rc-tab-${family}`);
+      await tab.scrollIntoViewIfNeeded();
+      await expect(tab).toBeInViewport({ ratio: 1 });
+      await tab.click();
+      await expect(tab).toHaveAttribute('aria-selected', 'true');
+    }
+    for (const control of await workspace.locator('header select, header label:has(input), header button:not([role="tab"])').all()) {
+      if (await control.isVisible()) await expect(control).toBeInViewport({ ratio: 1 });
+    }
+  }
+  await workspace.getByTestId('rc-close').click();
+  await expect(workspace).toHaveCount(0);
+  await page.setViewportSize({ width: 375, height: 1024 });
+  await page.getByTestId('mobile-panel-toggle').click();
+  await page.getByTestId('rc-open').click();
+  await expect(workspace).toBeVisible();
+  await workspace.getByTestId('rc-tab-column').click();
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await expect(workspace.getByTestId('rc-tab-column')).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Escape');
+  await expect(workspace).toHaveCount(0);
+});
