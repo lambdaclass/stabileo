@@ -11153,6 +11153,7 @@ const de: Translations = {
   'snow.derivation.unbalanced': 'Ungleichmäßige Last (§6.1): {leeward} kN/m² leeseitig und {windward} kN/m² luvseitig, ein Lastfall je Windrichtung.',
   'snow.note.noRoof': 'Es wurden keine Dachstäbe gefunden, auf die der Schnee aufgebracht werden kann.',
   'snow.refused.roofPlane': "Die Schneelasterzeugung benötigt eine Dachebene. Ergänzen Sie Dachgeometrie mit nicht kollinearen Punkten; ein einzelner Sparren bestimmt keine Fläche über diesem Grundriss.",
+  'snow.refused.slidingOverlap': "Schneelasten bei teilweise überlappenden oder unterbrochenen Traufen können nicht bestimmt werden. Verwenden Sie durchgehende, vollständig ausgerichtete Quell- und Aufnahmekanten. Es wurden keine Schneelasten erzeugt.",
   'snow.note.ponding': 'Dachneigung unter 1,2°: Die Instabilität durch Wassersackbildung ist nachzuweisen (Kapitel 11), was hier nicht berechnet wird.',
   'snow.note.notCovered': 'Mit der Einzugsbreite werden Teillasten (Kap. 5), Verwehungen (Kap. 7 und 8) und abrutschender Schnee (Kap. 9) nicht erzeugt: Sie werden über die Deckenfelder ermittelt. Ebenso wenig Eisstau (§4.5).',
   'wind.other.kind': 'Tragwerk',

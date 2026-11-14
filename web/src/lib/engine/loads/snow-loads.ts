@@ -1,7 +1,7 @@
 import { roofMembers, type WindModel } from './wind-cases';
 import { roofSurfaceModel, type SnowPlane } from './snow-roof-surfaces';
 import type { GravityLayout, GravityModel } from './plan-gravity';
-import { driftAndSlidingLoads } from './snow-drift-loads';
+import { driftAndSlidingLoads, snowDriftRefusal } from './snow-drift-loads';
 import { layoutSpans, layoutUnits, partialSnowPatterns, type Unit } from './plan-spans';
 import { shapedSnow } from './snow-shapes';
 import { msg, round, type EngineMessage } from '../../codes/message';
@@ -167,7 +167,10 @@ export function snowLoadCases(input: SnowCasesInput): {
     ...input.snow,
     roof: { kind: shapedKind ? 'mono' : kind, slopeDeg, W: geometry.W, slippery: input.snow.slippery },
   });
-  if (!driftSurfaces.resolves(input.layout)) result.refused = 'snow.refused.roofPlane';
+  if (!result.refused) {
+    const refused = snowDriftRefusal(input.model as GravityModel, input.layout, driftSurfaces);
+    if (refused) result.refused = refused;
+  }
   if (result.refused) return { result, geometry, cases: [], derivation: [], refs: [], surfaces: [] };
   const roof = roofMembers(input.model, chosen);
   const all = new Set(roof.map((r) => r.id));

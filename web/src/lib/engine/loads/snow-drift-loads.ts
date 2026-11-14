@@ -1,5 +1,5 @@
 import { snowCoordinate, snowRoofSteps, snowRoofSurfaces, roofSurfaceModel } from './snow-roof-surfaces';
-import { widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
+import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { stepDriftMargins, stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
 import { msg, round, type EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
@@ -40,20 +40,25 @@ function within(pt: P2, poly: P2[]): boolean {
   return c;
 }
 
-function joined(A: P2[], B: P2[]): boolean {
-  for (let e = 0; e < A.length; e++) {
-    const a = A[e]!, b = A[(e + 1) % A.length]!;
-    const d = sub(b, a), len = Math.hypot(d[0], d[1]);
-    if (len < 1e-9) continue;
-    const u: P2 = [d[0] / len, d[1] / len], n: P2 = [-u[1], u[0]];
-    for (let f = 0; f < B.length; f++) {
-      const c = B[f]!, g = B[(f + 1) % B.length]!;
-      if (Math.abs(dot(sub(c, a), n)) > 0.01 || Math.abs(dot(sub(g, a), n)) > 0.01) continue;
-      const tc = dot(sub(c, a), u), tg = dot(sub(g, a), u);
-      if (Math.min(len, Math.max(tc, tg)) - Math.max(0, Math.min(tc, tg)) > 0.1) return true;
-    }
-  }
-  return false;
+function edgeInterval(a: P2, b: P2, c: P2, d: P2): [number, number] | undefined {
+  const delta = sub(b, a), len = Math.hypot(...delta);
+  if (len < 1e-9) return;
+  const u: P2 = [delta[0] / len, delta[1] / len], n: P2 = [-u[1], u[0]];
+  if (Math.abs(dot(sub(c, a), n)) > 0.01 || Math.abs(dot(sub(d, a), n)) > 0.01) return;
+  const tc = dot(sub(c, a), u), td = dot(sub(d, a), u);
+  const lo = Math.max(0, Math.min(tc, td)), hi = Math.min(len, Math.max(tc, td));
+  return hi - lo > 1e-9 ? [lo, hi] : undefined;
+}
+
+function joined(A: P2[], B: P2[], continuous: (pt: P2) => boolean): boolean {
+  return A.some((a, e) => {
+    const b = A[(e + 1) % A.length]!, delta = sub(b, a), len = Math.hypot(...delta);
+    return B.some((c, f) => {
+      const interval = edgeInterval(a, b, c, B[(f + 1) % B.length]!);
+      return interval && interval[1] - interval[0] > 0.1
+        && interval.every(t => continuous([a[0] + t * delta[0] / len, a[1] + t * delta[1] / len]));
+    });
+  });
 }
 
 function surcharge(bands: Band[], pt: P2, on: (panel: number) => boolean): number {
@@ -78,10 +83,48 @@ export interface DriftInputs {
   adjacent?: Array<{ side: '+x' | '-x' | '+y' | '-y'; topZ: number; separation: number; length: number }>;
 }
 
+export function snowDriftRefusal(model: GravityModel, layout?: GravityLayout, surfaceModel = roofSurfaceModel(model)): string | undefined {
+  if (!surfaceModel.resolves(layout)) return 'snow.refused.roofPlane';
+  const coverage = layout?.panels.some(p => p.roof) ? layout : gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  const coverageResolved = coverage === layout || surfaceModel.resolves(coverage);
+  const surfaces = snowRoofSurfaces(model, coverage, surfaceModel);
+  for (const [k, panel] of coverage.panels.entries()) {
+    if (!panel.roof) continue;
+    for (const [e, a] of panel.polygon.entries()) {
+      const b = panel.polygon[(e + 1) % panel.polygon.length]!, line = lineInto(a, b, panel.polygon);
+      for (const source of surfaceModel.planes) {
+        if (dot(source.gradient, line.n) >= 0) continue;
+        const intervals: Array<[number, number]> = [];
+        for (const [f, c] of source.polygon.entries()) {
+          const d = source.polygon[(f + 1) % source.polygon.length]!, interval = edgeInterval(a, b, c, d);
+          if (!interval) continue;
+          if (!coverageResolved) return 'snow.refused.roofPlane';
+          const higher = (t: number) => {
+            const pt: P2 = [a[0] + t * line.u[0], a[1] + t * line.u[1]];
+            return source.elevation(pt) > surfaces(k).elevation(pt) + 1e-8;
+          };
+          if (!interval.some(higher)) continue;
+          if (!nearSeg(c, a, b, 0.01) || !nearSeg(d, a, b, 0.01)) return 'snow.refused.slidingOverlap';
+          intervals.push(interval);
+        }
+        intervals.sort((x, y) => x[0] - y[0]);
+        let end = intervals[0]?.[1] ?? 0;
+        for (const interval of intervals.slice(1)) {
+          if (interval[0] > end) return 'snow.refused.slidingOverlap';
+          end = Math.max(end, interval[1]);
+        }
+        if (intervals.length && (intervals[0]![0] > 1e-9 || line.len - end > 1e-9)) return 'snow.refused.slidingOverlap';
+      }
+    }
+  }
+  return undefined;
+}
+
 export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout, i: DriftInputs, surfaceModel = roofSurfaceModel(model)): {
   distributed: SnowSurchargeLoad[]; derivation: EngineMessage[]; refs: ClauseRef[];
 } {
-  if (!surfaceModel.resolves(layout)) throw new Error('snow.refused.roofPlane');
+  const refused = snowDriftRefusal(model, layout, surfaceModel);
+  if (refused) throw new Error(refused);
   const surfaces = snowRoofSurfaces(model, layout, surfaceModel);
   const balanced = (panel: number, pt: P2) => typeof i.balanced === 'number' ? i.balanced : i.balanced(panel, pt);
   const bands: Band[] = [];
@@ -94,8 +137,9 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     const group = [start];
     for (let i = 0; i < group.length; i++) {
       for (const p of roofs) {
-        if (group.includes(p) || Math.abs(p.z - start.z) > 1e-8) continue;
-        if (joined(group[i]!.polygon, p.polygon)) group.push(p);
+        if (group.includes(p)) continue;
+        const current = group[i]!;
+        if (joined(current.polygon, p.polygon, pt => Math.abs(surfaces(current.k).elevation(pt) - surfaces(p.k).elevation(pt)) <= 1e-8)) group.push(p);
       }
     }
     return group;
@@ -237,7 +281,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     const m = at(p.elementId);
     const c = centroid(layout.panels[p.panel]!.polygon);
     const x0 = p.a ?? 0, x1 = p.b ?? m.L;
-    const dir: P2 = [(m.b.x - m.a.x) / m.L, (m.b.y - m.a.y) / m.L];
+    const dir: P2 = [(m.b.x - m.a.x) / Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y), (m.b.y - m.a.y) / Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y)];
     let inward: P2 = [-dir[1], dir[0]];
     if (dot(sub(c, m.pt(x0)), inward) < 0) inward = [dir[1], -dir[0]];
     const q = (x: number) => {

@@ -11153,6 +11153,7 @@ const fr: Translations = {
   'snow.derivation.unbalanced': 'Charge dissymétrique (§6.1) : {leeward} kN/m² sous le vent et {windward} kN/m² au vent, un cas par direction du vent.',
   'snow.note.noRoof': 'Aucune barre de toiture n\'a été trouvée pour appliquer la neige.',
   'snow.refused.roofPlane': "La génération de neige nécessite un plan de toiture. Ajoutez une géométrie avec des points non colinéaires ; un chevron isolé ne détermine pas une surface sur cette emprise.",
+  'snow.refused.slidingOverlap': "Le glissement depuis des égouts de toit partiellement superposés ou discontinus ne peut pas être déterminé. Utilisez des bords source et récepteur continus et entièrement alignés. Aucune charge de neige n’a été générée.",
   'snow.note.ponding': 'Pente de toiture inférieure à 1,2° : l\'instabilité par accumulation d\'eau doit être vérifiée (chapitre 11), ce qui n\'est pas calculé ici.',
   'snow.note.notCovered': 'Avec la largeur d\'influence, les charges partielles (chap. 5), les accumulations (chap. 7 et 8) et la neige glissante (chap. 9) ne sont pas générées : elles se lisent sur les panneaux. Les barrières de glace (§4.5) non plus.',
   'wind.other.kind': 'Structure',
