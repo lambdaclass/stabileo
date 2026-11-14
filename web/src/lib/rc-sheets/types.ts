@@ -49,6 +49,9 @@ export type Adopted = BeamAdopted | ColumnAdopted | SlabAdopted | WallAdopted | 
 
 export type TorsionMode = 'equilibrium' | 'compatibility';
 
+export type MarkScope = 'element' | 'level' | 'project';
+export const MARK_SCOPES: readonly MarkScope[] = ['element', 'level', 'project'];
+
 export interface RcSheetsData {
   version: 1;
   /** Absent: the project's concrete code. */
@@ -62,6 +65,8 @@ export interface RcSheetsData {
   seismic?: boolean;
   /** Beams whose span bars rise over the supports to carry the hogging moment there. */
   bentBars?: boolean;
+  /** The bending schedule: waste on the order (a fraction, 0.1 when absent) and where equal bars share a mark ('element' when absent). */
+  schedule?: { waste?: number; scope?: MarkScope };
   /** Adopted bars by row key. */
   adopted: Record<string, Adopted>;
 }

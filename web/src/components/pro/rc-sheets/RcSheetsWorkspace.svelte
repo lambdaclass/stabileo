@@ -24,6 +24,7 @@
   import RcWallDetail from './RcWallDetail.svelte';
   import RcPunchingSvg from './RcPunchingSvg.svelte';
   import RcResize from './RcResize.svelte';
+  import RcScheduleView from './RcScheduleView.svelte';
   import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { designData } from '../../../lib/store/design-data';
   import { modelStore } from '../../../lib/store';
@@ -33,6 +34,7 @@
   let level = $state('');
   let failingOnly = $state(false);
   let openKey = $state<string | null>(null);
+  let schedule = $state(false);
 
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const EMPTY: SheetRows = { beam: [], line: [], column: [], slab: [], wall: [], punching: [], code: '', basis: 'combinations', combos: 0 };
@@ -74,10 +76,11 @@
     {#if stale && !sheetsRun.progress}<span class="rcw-dim rcw-stale" data-testid="rc-stale">{t('rcSheets.staleShort')}</span><button type="button" class="rcs-btn" onclick={designSheets} data-testid="rc-redesign">{t('rcSheets.redesign')}</button>{/if}
     <div class="rcw-tabs" role="tablist">
       {#each SHEET_FAMILIES as f (f)}
-        <button type="button" role="tab" aria-selected={family === f} class:on={family === f} data-testid={`rc-tab-${f}`} onclick={() => { family = f; level = ''; openKey = null; }}>
+        <button type="button" role="tab" aria-selected={!schedule && family === f} class:on={!schedule && family === f} data-testid={`rc-tab-${f}`} onclick={() => { family = f; schedule = false; level = ''; openKey = null; }}>
           {t(`rcSheets.family.${f}`)} <small>{counts[f].n}{counts[f].fail ? ` · ${counts[f].fail} ✗` : ''}</small>
         </button>
       {/each}
+      <button type="button" role="tab" aria-selected={schedule} class:on={schedule} data-testid="rc-tab-schedule" onclick={() => { schedule = true; openKey = null; }}>{t('rcSheets.bbs.title')}</button>
     </div>
     <div class="rcw-tools">
       <label class="rcw-ctl" title={t('rcSheets.col.level')}><span class="wide">{t('rcSheets.col.level')}</span>
@@ -99,6 +102,8 @@
     {:else if !sheetsRun.rows}
       <p class="rcw-empty" data-testid="rc-not-designed">{t('rcSheets.designHint')}</p>
       <button type="button" class="rcs-btn primary" onclick={designSheets} data-testid="rc-design">{t('rcSheets.design')}</button>
+    {:else if schedule}
+      <RcScheduleView {rows} />
     {:else if !all.length}
       <p class="rcw-empty" data-testid="rc-empty">{t(rows.basis === 'none' ? 'rcSheets.solveFirst' : `rcSheets.empty.${family}`)}</p>
     {:else}

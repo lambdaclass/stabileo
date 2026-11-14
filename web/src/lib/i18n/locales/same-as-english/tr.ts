@@ -386,4 +386,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'xls.col.supportType',
   'rcSheets.slabFig.plan',
   'rcSheets.exportShort',
+  'rcSheets.bbs.csv',
+  'rcSheets.bbs.bvbs',
 ];

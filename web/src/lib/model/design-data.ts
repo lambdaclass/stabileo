@@ -170,6 +170,16 @@ export function withCirsocCovers(d: ProjectDesignData): ProjectDesignData {
 }
 
 /** Read any stored shape, including none; what it does not state is the default. */
+const SCOPES = ['element', 'level', 'project'] as const;
+function scheduleOf(x: unknown): { schedule?: { waste?: number; scope?: (typeof SCOPES)[number] } } {
+  if (!x || typeof x !== 'object') return {};
+  const { waste, scope } = x as { waste?: unknown; scope?: unknown };
+  const out: { waste?: number; scope?: (typeof SCOPES)[number] } = {};
+  if (typeof waste === 'number' && Number.isFinite(waste) && waste >= 0 && waste <= 0.5) out.waste = waste;
+  if (SCOPES.includes(scope as never)) out.scope = scope as (typeof SCOPES)[number];
+  return Object.keys(out).length ? { schedule: out } : {};
+}
+
 export function migrateDesignData(raw: unknown): ProjectDesignData {
   const def = defaultDesignData();
   if (!raw || typeof raw !== 'object') return def;
@@ -196,7 +206,7 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
     ...(Array.isArray(e.joistTypes) ? { joistTypes: (e.joistTypes as Array<{ id?: unknown; name?: unknown }>).filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string') as never } : {}),
     ...(e.slabBase && typeof e.slabBase === 'object' ? { slabBase: e.slabBase as ProjectDesignData['slabBase'] } : {}),
-    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), torsion: (e.rcSheets as { torsion?: unknown }).torsion === 'compatibility' ? 'compatibility' as const : 'equilibrium' as const, ...((e.rcSheets as { faces?: unknown }).faces === true ? { faces: true } : {}), ...((e.rcSheets as { flange?: unknown }).flange === true ? { flange: true } : {}), ...((e.rcSheets as { seismic?: unknown }).seismic === true ? { seismic: true } : {}), ...((e.rcSheets as { bentBars?: unknown }).bentBars === true ? { bentBars: true } : {}), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
+    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), torsion: (e.rcSheets as { torsion?: unknown }).torsion === 'compatibility' ? 'compatibility' as const : 'equilibrium' as const, ...((e.rcSheets as { faces?: unknown }).faces === true ? { faces: true } : {}), ...((e.rcSheets as { flange?: unknown }).flange === true ? { flange: true } : {}), ...((e.rcSheets as { seismic?: unknown }).seismic === true ? { seismic: true } : {}), ...((e.rcSheets as { bentBars?: unknown }).bentBars === true ? { bentBars: true } : {}), ...scheduleOf((e.rcSheets as { schedule?: unknown }).schedule), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
     // The seismic roles fixed by hand are the lateral-system declaration under its older name:
     // they move there (`migrateLateralSystem`), and the seismic settings keep none of their own.
     ...(e.seismic && typeof e.seismic === 'object' ? { seismic: { ...migrateSeismicDesign(e.seismic), roles: {} } } : {}),

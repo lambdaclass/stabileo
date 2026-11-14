@@ -53,6 +53,8 @@ function save(next: RcSheetsData): void {
   patchOwnDesignData({ rcSheets: next });
 }
 
+export const saveRcSheetsData = save;
+
 export function setAdopted(key: string, value: Adopted | null): void {
   const d = rcSheetsData();
   const adopted = { ...d.adopted };
@@ -383,6 +385,7 @@ export const familyRows = (rows: SheetRows, f: SheetFamily): SheetRow[] => rows[
 export async function downloadRcSheets(rows: SheetRows, tr: (k: string) => string): Promise<void> {
   const { exportToExcel } = await import('../export/excel');
   const { rcSheetsWorkbook } = await import('../rc-sheets/workbook');
+  const { sheetsSchedule } = await import('./rc-sheets-schedule');
   const name = (modelStore.model.name || 'stabileo').replace(/[^\w.-]+/g, '-');
-  await exportToExcel({ filename: `${name}-${tr('rcSheets.fileName')}.xlsx`, onlyExtras: true, extraSheets: rcSheetsWorkbook(rows, tr), provenance: false });
+  await exportToExcel({ filename: `${name}-${tr('rcSheets.fileName')}.xlsx`, onlyExtras: true, extraSheets: rcSheetsWorkbook(rows, tr, sheetsSchedule(rows)), provenance: false });
 }
