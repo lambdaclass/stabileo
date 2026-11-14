@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "schema": 1,
+    "id": "bs-en-1992-1-1",
+    "extends": "en-1992-1-1",
+    "role": "rc",
+    "title": "BS EN 1992-1-1 + UK NA",
+    "edition": "2004 + NA 2005",
+    "revision": 1,
+    "country": "GB",
+    "maturity": "provisional",
+    "maintainers": [],
+    "sources": [
+      {"id": "NA to BS EN 1992-1-1", "title": "UK National Annex to BS EN 1992-1-1", "edition": "2005"}
+    ]
+  },
+  "resistance": {
+    "alphaCC": {"v": 0.85, "cite": {"clause": "NA to 3.1.6(1)P", "source": "NA to BS EN 1992-1-1"}},
+    "alphaCCShear": {"v": 1.0, "cite": {"clause": "NA to 3.1.6(1)P", "source": "NA to BS EN 1992-1-1"}}
+  },
+  "punching": {
+    "vmax": {"f": "punching.vmax", "k": {"c": 0.5}, "cite": {"clause": "NA to 6.4.5(3)", "source": "NA to BS EN 1992-1-1"}}
+  },
+  "columns": {
+    "minBarDia": {"v": 12, "unit": "mm", "cite": {"clause": "NA to 9.5.2(1)", "source": "NA to BS EN 1992-1-1"}}
+  }
+}

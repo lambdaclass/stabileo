@@ -1,0 +1,72 @@
+{
+  "meta": {
+    "schema": 1,
+    "id": "en-1990-1991",
+    "role": "loads",
+    "title": "EN 1990 + EN 1991-1-1",
+    "edition": "2002",
+    "revision": 1,
+    "country": "EU",
+    "maturity": "provisional",
+    "maintainers": [],
+    "sources": [
+      {"id": "EN 1990", "title": "EN 1990, Basis of structural design", "edition": "2002"},
+      {"id": "EN 1991-1-1", "title": "EN 1991-1-1, Densities, self-weight, imposed loads for buildings", "edition": "2002"}
+    ]
+  },
+  "symbols": {"D": "permanent", "L": "imposed", "Lr": "roofImposed", "S": "snow", "W": "wind", "E": "seismic", "T": "thermal", "H": "earthPressure", "F": "fluid"},
+  "combinations": {
+    "form": "generated",
+    "gamma": {
+      "gSup": {"v": 1.35, "cite": {"clause": "Table A1.2(B)", "source": "EN 1990", "label": "STR set B"}},
+      "gInf": {"v": 1.0, "cite": {"clause": "Table A1.2(B)", "source": "EN 1990", "label": "STR set B"}},
+      "q": {"v": 1.5, "cite": {"clause": "Table A1.2(B)", "source": "EN 1990", "label": "STR set B"}}
+    },
+    "xi": {"v": 0.85, "cite": {"clause": "Table A1.2(B)", "source": "EN 1990", "label": "STR set B"}},
+    "psi": {
+      "unit": "-",
+      "cite": {"clause": "Table A1.1", "source": "EN 1990", "label": "psi"},
+      "columns": ["psi0", "psi1", "psi2"],
+      "rows": {
+        "A": [0.7, 0.5, 0.3],
+        "B": [0.7, 0.5, 0.3],
+        "C": [0.7, 0.7, 0.6],
+        "D": [0.7, 0.7, 0.6],
+        "E": [1.0, 0.9, 0.8],
+        "F": [0.7, 0.7, 0.6],
+        "G": [0.7, 0.5, 0.3],
+        "H": [0, 0, 0],
+        "snowLow": [0.5, 0.2, 0],
+        "snowHigh": [0.7, 0.5, 0.2],
+        "wind": [0.6, 0.2, 0],
+        "thermal": [0.6, 0.5, 0]
+      }
+    },
+    "exclusive": [["Lr", "S"], ["Lr", "W"]],
+    "notActing": true
+  },
+  "imposed": {
+    "occupancies": {
+      "units": {"q": "kN/m2", "Q": "kN"},
+      "cite": [
+        {"clause": "Table 6.1", "source": "EN 1991-1-1", "label": "categories of use"}
+      ],
+      "labelPrefix": "loads.ec.occ.",
+      "rows": [
+        {"key": "ec-A-floor", "label": "A_floor", "group": "A", "kind": "residential", "q": 2, "Q": 2, "cite": {"clause": "Table 6.2", "source": "EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "ec-A-stairs", "label": "A_stairs", "group": "A", "kind": "circulation", "q": 2, "Q": 2, "cite": {"clause": "Table 6.2", "source": "EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "ec-A-balcony", "label": "A_balcony", "group": "A", "kind": "residential", "q": 2.5, "Q": 2, "cite": {"clause": "Table 6.2", "source": "EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "ec-B", "label": "B", "group": "B", "kind": "office", "q": 3, "Q": 4.5, "cite": {"clause": "Table 6.2", "source": "EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "ec-C1", "label": "C1", "group": "C", "kind": "assembly", "q": 3, "Q": 4, "cite": {"clause": "Table 6.2", "source": "EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "ec-C2", "label": "C2", "group": "C", "kind": "assembly", "q": 4, "Q": 4, "cite": {"clause": "Table 6.2", "source": "EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "ec-C3", "label": "C3", "group": "C", "kind": "assembly", "q": 5, "Q": 4, "cite": {"clause": "Table 6.2", "source": "EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "ec-C4", "label": "C4", "group": "C", "kind": "assembly", "q": 5, "Q": 7, "cite": {"clause": "Table 6.2", "source": "EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "ec-C5", "label": "C5", "group": "C", "kind": "assembly", "q": 5, "Q": 4.5, "cite": {"clause": "Table 6.2", "source": "EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "ec-D1", "label": "D1", "group": "D", "kind": "commercial", "q": 5, "Q": 4, "cite": {"clause": "Table 6.2", "source": "EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "ec-D2", "label": "D2", "group": "D", "kind": "commercial", "q": 5, "Q": 7, "cite": {"clause": "Table 6.2", "source": "EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "ec-E1", "label": "E1", "group": "E", "kind": "storage", "q": 7.5, "Q": 7, "noReduction": true, "cite": {"clause": "Table 6.4", "source": "EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "ec-H", "label": "H", "group": "H", "kind": "roof", "q": 0.4, "Q": 1, "noReduction": true, "cite": {"clause": "Table 6.10", "source": "EN 1991-1-1", "label": "imposed loads"}}
+      ]
+    }
+  }
+}
