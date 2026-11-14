@@ -94,7 +94,10 @@ metamorphic and differential tests; this layer has had almost none. The order be
 7. **Follow-ups:** [#2077](https://github.com/lambdaclass/stabileo/issues/2077),
    [#2078](https://github.com/lambdaclass/stabileo/issues/2078),
    [#2073](https://github.com/lambdaclass/stabileo/issues/2073) and
-   [#2085](https://github.com/lambdaclass/stabileo/issues/2085). A candidate closes only with a
+   [#2085](https://github.com/lambdaclass/stabileo/issues/2085). Also the regression-audit replay
+   of [#1946](https://github.com/lambdaclass/stabileo/pull/1946) and the deferred reviews
+   [#1997](https://github.com/lambdaclass/stabileo/issues/1997) to
+   [#2002](https://github.com/lambdaclass/stabileo/issues/2002). A candidate closes only with a
    correct answer or a justified refusal; a warning alone does not establish correctness.
 8. **Conservative false refusals,** kept visible behind the wrong results above:
    [#1951](https://github.com/lambdaclass/stabileo/issues/1951) and
@@ -126,6 +129,10 @@ metamorphic and differential tests; this layer has had almost none. The order be
 
 ### Done on main since November 7
 
+- Zero-work released loads are kept across rotations and unit changes, and genuinely unsupported
+  moments are still refused ([#2074](https://github.com/lambdaclass/stabileo/pull/2074),
+  [#2023](https://github.com/lambdaclass/stabileo/issues/2023) done); review follow-ups in
+  [#2085](https://github.com/lambdaclass/stabileo/issues/2085).
 - Final-state path reactions and member forces are recovered in
   [#1952](https://github.com/lambdaclass/stabileo/pull/1952)
   ([#1949](https://github.com/lambdaclass/stabileo/issues/1949) done), including restrained-master
