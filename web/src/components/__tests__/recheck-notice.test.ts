@@ -111,5 +111,5 @@ it('does not claim results changed when the change list could not be loaded', ()
   expect(html).toContain(t('recheck.checkingTitle'));
   expect(html).toContain(t('recheck.loadFailed'));
   expect(html).not.toContain(t('recheck.title'));
-  expect(html).toMatch(/<input[^>]*disabled[^>]*data-testid="recheck-ack"/);
+  expect(html).toMatch(/<button[^>]*disabled[^>]*data-testid="recheck-later"/);
 });

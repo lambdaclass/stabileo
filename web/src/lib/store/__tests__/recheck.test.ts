@@ -139,6 +139,33 @@ describe('what ends the stale state', () => {
   });
 });
 
+describe('remembered acknowledgement', () => {
+  it('a notice read once is not asked again after a reload, while another project stamp still is', async () => {
+    const memory = new Map<string, string>();
+    vi.stubGlobal('localStorage', { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => void memory.set(k, v), removeItem: (k: string) => void memory.delete(k) });
+    try {
+      const stamp = createRecheckStore(undefined, false).capture()!;
+      const project = (id: string) => ({ ...steelTruss() as object, solvedWith: { ...stamp, id, resultsVersion: 0, analyses: ['linear'] } });
+      const first = createRecheckStore();
+      first.openProject(project('read-once'), 'pro');
+      await vi.waitFor(() => expect(first.pending).toBe(false));
+      expect(first.noticeOpen).toBe(true);
+      first.acknowledge();
+      expect(first.noticeOpen).toBe(false);
+      const afterReload = createRecheckStore();
+      afterReload.openProject(project('read-once'), 'pro');
+      await vi.waitFor(() => expect(afterReload.pending).toBe(false));
+      expect(afterReload.noticeOpen).toBe(false);
+      expect(afterReload.stale).toBe(true);
+      afterReload.openProject(project('never-read'), 'pro');
+      await vi.waitFor(() => expect(afterReload.pending).toBe(false));
+      expect(afterReload.noticeOpen).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
 describe('lazy assessment', () => {
   it('uses the latest solve for the newer-build warning despite an old unread notice', async () => {
     const store = createRecheckStore();

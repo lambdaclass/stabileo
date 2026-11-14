@@ -37,6 +37,8 @@ import { singleSolveFactors } from './case-effects';
 import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
+import { solveProgress } from '../store/solve-progress.svelte';
+import { onCaseSolved } from './solver-pool';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -112,6 +114,9 @@ export function lastSolveFailure(): string | null {
  * @param prevDiagram  Diagram type the user was viewing before clear() — restored after solve
  */
 export async function runLiveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): Promise<void> {
+  // A manual solve meshes plates and rewrites floor loads before it solves; the edits that makes would
+  // fire a live calc that supersedes it. Held until the manual solve ends.
+  if (manualSolves > 0) { deferredLive = [analysisMode, axisConvention3D, prevDiagram]; return; }
   // Skip if model is incomplete (e.g., mid-example-load after clear but before fixture applied)
   if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
   // Floor loads kept as definitions, current before the guard is taken: the edit that started this
@@ -254,12 +259,42 @@ async function liveCalc2D(isStale: () => boolean): Promise<void> {
  * model nobody touched, or publish the live calc's single solve in its place.
  */
 let cancelPendingLiveCalc: (() => void) | null = null;
+let manualSolves = 0;
+let deferredLive: [string, string, string | undefined] | null = null;
+let solvedInput: string | null = null;
 
 export function registerLiveCalcCanceller(cancel: (() => void) | null): void {
   cancelPendingLiveCalc = cancel;
 }
 
 export async function runGlobalSolve(options: { directBase?: boolean } = {}): Promise<GlobalSolveOutcome> {
+  manualSolves++;
+  solvedInput = null;
+  solveProgress.begin();
+  onCaseSolved((done, total) => solveProgress.step('cases', done, total));
+  let outcome: GlobalSolveOutcome | undefined;
+  try {
+    outcome = await globalSolve(options);
+    return outcome;
+  } catch (e) {
+    outcome = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    throw e;
+  } finally {
+    onCaseSolved(null);
+    const warnings = uiStore.is3DWorkspace
+      ? resultsStore.diagnostics3D.length + resultsStore.solverDiagnostics3D.length + resultsStore.structuredDiagnostics3D.length
+      : resultsStore.diagnostics.length + resultsStore.solverDiagnostics.length + resultsStore.structuredDiagnostics.length;
+    solveProgress.finish(outcome?.ok ? { ok: true, warnings } : { ok: false, error: outcome && !outcome.ok ? outcome.error : '', warnings });
+    manualSolves--;
+    const held = deferredLive;
+    if (manualSolves === 0 && held) {
+      deferredLive = null;
+      if (solveInputKey() !== solvedInput) void runLiveCalc(...held);
+    }
+  }
+}
+
+async function globalSolve(options: { directBase?: boolean }): Promise<GlobalSolveOutcome> {
   cancelPendingLiveCalc?.();
   // A solve that was asked for the combinations and did not get them must not end the stale state
   // (`store/recheck.svelte.ts`): its single-solve publish stamps the project, so the stamp before it
@@ -278,6 +313,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     }
     // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
+    solveProgress.step('mesh');
     const p = await preparePlatesForAnalysisAsync();
     if (!p.ok) {
       const error = tp(p.reason === 'needsMesh' ? 'plates.analysisNeedsMesh' : p.reason === 'localLoads' ? 'plates.analysisLocalLoads' : 'plates.analysisMeshRefused', { names: p.plates.join(', ') });
@@ -293,8 +329,10 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   // guard below starts from the model that is solved (`store/defined-loads.ts`).
   if (uiStore.is3DWorkspace) syncDefinedLoadsForAnalysis();
   // Supersede any in-flight solve (live calc or an earlier manual solve).
+  cancelPendingLiveCalc?.();
   const isStale = nextSolveGuard();
   const input = solveInputKey();
+  solvedInput = input;
 
   // Pre-solve model hygiene, for the modes that had none. The PRO exclusion
   // is inside `reportModelDiagnostics` itself, so this call site — like the
@@ -377,6 +415,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
   const failed = (error: string): GlobalSolveOutcome => ({ ok: false, error });
 
   const runSingleSolve = async (announceSuccess = true): Promise<GlobalSolveOutcome> => {
+    solveProgress.step('single');
     const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
     if (isStale()) return stale;
     if (typeof r === 'string') {
@@ -413,8 +452,10 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     // edit already cleared. Discard silently instead (no fallback re-solve, no
     // toast): the next live-calc pass / manual solve will pick up the new model.
     const solveEpoch = modelStore.modelVersion;
+    solveProgress.step('cases', 0, modelStore.model.loadCases.length);
     const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined);
     if (isStale()) return stale;
+    solveProgress.step('combine');
     if (typeof comboResult === 'string') return comboResult;
     if (!comboResult) return t('results.emptyModelError');
     if (modelStore.modelVersion !== solveEpoch) return stale;

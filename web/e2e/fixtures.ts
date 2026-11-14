@@ -244,7 +244,6 @@ export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: '
   page: async ({ page, recheckNotice }, use) => {
     if (recheckNotice === 'acknowledge') {
       await page.addLocatorHandler(page.getByTestId('recheck-notice'), async () => {
-        await page.getByTestId('recheck-ack').check();
         await page.getByTestId('recheck-later').click();
       });
     }
