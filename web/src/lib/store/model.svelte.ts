@@ -4687,7 +4687,10 @@ function createModelStore() {
       };
     },
 
-    async loadExample(name: string, fixture?: () => Promise<unknown>, opts: { keepCombinations?: boolean } = {}): Promise<void> {
+    async loadExample(name: string, fixture?: () => Promise<unknown>, opts: {
+      keepCombinations?: boolean;
+      defaults?: { material: Material; section: Section };
+    } = {}): Promise<void> {
       const loader = fixture ?? getFixture(name);
       if (!loader) return;
 
@@ -4700,6 +4703,10 @@ function createModelStore() {
       // [] for the example's own rule: the example solved without its self-weight.
       const json = await loader();
       this.clear();
+      if (opts.defaults) {
+        model.materials.set(1, structuredClone(opts.defaults.material));
+        model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
+      }
       const api = this.fixtureApi();
 
       this.bulkMutate(() => {

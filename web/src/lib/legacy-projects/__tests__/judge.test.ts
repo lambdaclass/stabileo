@@ -8,7 +8,7 @@ import { initSolver, solveSSI3D } from '../../engine/wasm-solver';
 import type { ResultChange } from '../../provenance/registry';
 import { RESULT_CHANGES, RESULT_CHANGES as CURRENT_RESULT_CHANGES } from '../../provenance/full-registry';
 import {
-  againstExample, captureExample, currentFixtureBlob, declaresMove, fingerprintDifference, judge, modelFingerprint, migrationMessage, openAndSolve, openSession,
+  againstExample, captureExample, currentFixtureBlob, declaresMove, fingerprintDifference, judge, modelFingerprint, migrationMessage, openAndSolve, openExample, openSession,
   readCorpusText, readManifest, readResults, resultFingerprint, savedFixture, unexplainedMessage,
 } from '../legacy';
 import type { Values } from '../capture-results';
@@ -464,7 +464,8 @@ describe('against real corpus files', () => {
 
       it('NEGATIVE: loaded by today\'s loader, its rebuilt combinations differ from the file\'s', async () => {
         const opened = await openAndSolve(readCorpusText(`v0.4.0/${shed.file}`));
-        const { failure } = await againstExample('shed', 'v9.9.9', shed, opened, false);
+        const current = await openExample(shed.example, shed.workspace, { solve: false, fixture: savedFixture(shed.example, shed.fixtureBlob).fixture });
+        const failure = fingerprintDifference('shed with current combinations', current.fingerprint, opened.fingerprint);
         expect(failure).toContain('combination[1].factors: "1:1.4" → "1:1.2 2:1.6"');
       }, 120_000);
     });
