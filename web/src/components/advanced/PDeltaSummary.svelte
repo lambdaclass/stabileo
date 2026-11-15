@@ -9,7 +9,7 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import { sigQ, unitQ, fmtQ } from '../../lib/store/display-units.svelte';
-  import { pdeltaConvergence, type ConvergenceRow, type PDeltaInfo } from '../../lib/engine/second-order/run-pdelta';
+  import { pdeltaConvergenceRows, type ConvergenceRow, type PDeltaInfo } from '../../lib/engine/second-order/run-pdelta';
   import { openSecondOrderSteps } from '../../lib/actions/second-order';
 
   let { result, options }: { result: any; options?: Snippet } = $props();
@@ -31,11 +31,25 @@
     if (!input) return;
     busy = true;
     const mine = ++run;
-    setTimeout(() => {
-      if (mine !== run) return;
-      try { conv = pdeltaConvergence(input, full.settings); convError = null; } catch (e) { convError = String((e as Error)?.message ?? e); }
-      busy = false;
-    }, 0);
+    const settings = full.settings;
+    void (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      try {
+        const rows = pdeltaConvergenceRows(input, settings);
+        conv = [];
+        convError = null;
+        for (;;) {
+          if (mine !== run) return;
+          const next = rows.next();
+          if (next.done) break;
+          conv = [...conv, next.value];
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      } catch (e) {
+        if (mine === run) convError = String((e as Error)?.message ?? e);
+      }
+      if (mine === run) busy = false;
+    })();
   }
   const num = (v: number | null | undefined, d = 3) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(d));
   const disp = (v: number | null) => (v === null ? '—' : sigQ(v, 'displacement'));

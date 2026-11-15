@@ -215,7 +215,11 @@ export interface ConvergenceRow {
 
 /** The same P-Δ with 1, 2, 4 and 8 elements per member, and with the stability functions. */
 export function pdeltaConvergence(input: SolverInput, s: SoSettings, counts: readonly number[] = [1, 2, 4, 8]): ConvergenceRow[] {
-  const out: ConvergenceRow[] = [];
+  return [...pdeltaConvergenceRows(input, s, counts)];
+}
+
+/** The convergence table one row at a time, so a caller can let the page breathe between rows; a row that fails is left blank. */
+export function* pdeltaConvergenceRows(input: SolverInput, s: SoSettings, counts: readonly number[] = [1, 2, 4, 8]): Generator<ConvergenceRow> {
   let ref: { node: number } | { member: number } | null = null;
   const pm = planeModel(input);
   const pick = (res: SoPDeltaResult): typeof ref => {
@@ -242,11 +246,12 @@ export function pdeltaConvergence(input: SolverInput, s: SoSettings, counts: rea
     return { u: midspanSag(res.results, id, pm.members.get(id)?.EI ?? 0), m, uAt: ref };
   };
   for (const n of counts) {
-    const got = runPDelta2D(input, { ...s, method: s.method === 'phi' ? 'consistent' : s.method, n });
-    if (!got.ok) { out.push({ label: 'n', n, u: null, m: null, lambda1: null, uAt: ref }); continue; }
-    out.push({ label: 'n', n, ...read(got.result), lambda1: got.result.secondOrder.lambda1 });
+    let got: ReturnType<typeof runPDelta2D> | null = null;
+    try { got = runPDelta2D(input, { ...s, method: s.method === 'phi' ? 'consistent' : s.method, n }); } catch { got = null; }
+    if (!got?.ok) { yield { label: 'n', n, u: null, m: null, lambda1: null, uAt: ref }; continue; }
+    yield { label: 'n', n, ...read(got.result), lambda1: got.result.secondOrder.lambda1 };
   }
-  const phi = runPDelta2D(input, { ...s, method: 'phi', n: 1 });
-  if (phi.ok) out.push({ label: 'phi', n: 1, ...read(phi.result), lambda1: phi.result.secondOrder.lambda1 });
-  return out;
+  let phi: ReturnType<typeof runPDelta2D> | null = null;
+  try { phi = runPDelta2D(input, { ...s, method: 'phi', n: 1 }); } catch { phi = null; }
+  if (phi?.ok) yield { label: 'phi', n: 1, ...read(phi.result), lambda1: phi.result.secondOrder.lambda1 };
 }

@@ -1,14 +1,20 @@
+<script lang="ts" module>
+  const opened = new Set<string>();
+</script>
+
 <script lang="ts">
   /**
    * One collapsible section of the Dynamic panel: closed, a title and a
    * one-line summary of what is set; open, its controls. The ? beside it says
-   * what the section does, without opening it.
+   * what the section does, without opening it. Whether it is open outlives the panel, which the
+   * Dynamic result remounts on every model edit.
    */
   import type { Snippet } from 'svelte';
   import { t } from '../../../lib/i18n';
 
   let { title, summary = '', help = '', testid, children }: { title: string; summary?: string; help?: string; testid: string; children: Snippet } = $props();
-  let open = $state(false);
+  let open = $state(opened.has(testid));
+  $effect(() => { if (open) opened.add(testid); else opened.delete(testid); });
   let showHelp = $state(false);
 </script>
 

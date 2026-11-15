@@ -61,3 +61,15 @@ describe('deformed scale of the model on screen', () => {
     expect(deformedScaleMax()).toBe(1);
   });
 });
+
+describe('deformed scale across solves', () => {
+  const r = { displacements: [], reactions: [], elementForces: [] } as unknown as AnalysisResults;
+  it('a live re-solve keeps the reader’s scale; a fresh solve starts again at 1×', () => {
+    resultsStore.setResults(r);
+    resultsStore.deformedScale = 200;
+    resultsStore.setResults(r, true);
+    expect(resultsStore.deformedScale).toBe(200);
+    resultsStore.setResults(r);
+    expect(resultsStore.deformedScale).toBe(1);
+  });
+});

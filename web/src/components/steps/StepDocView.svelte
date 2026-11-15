@@ -26,33 +26,38 @@
   const say = (x: Txt) => tp(x.key, x.params);
 </script>
 
+{#snippet optionsBlock()}
+{#if method?.options?.length}
+  <!-- The method's assumptions, each switchable, each with what it changes. -->
+  <div class="sd-opts" data-testid="steps-options">
+    {#each method.options as o}
+      <div class="sd-opt">
+        <label>
+          <input type="checkbox" checked={explainedSteps.options[o.id]}
+            onchange={(e) => explainedSteps.setOption(o.id, e.currentTarget.checked)} data-testid={`steps-opt-${o.id}`} />
+          {t(`steps.m.${method.id}.opt.${o.id}.label`)}
+        </label>
+        <button class="sd-opt-help" class:on={optHelp === o.id} onclick={() => (optHelp = optHelp === o.id ? null : o.id)}
+          aria-expanded={optHelp === o.id} title={t('steps.catalog.help')} data-testid={`steps-opt-help-${o.id}`}>?</button>
+      </div>
+      {#if optHelp === o.id}<p class="sd-opt-text"><Prose text={t(`steps.m.${method.id}.opt.${o.id}.help`)} /></p>{/if}
+    {/each}
+  </div>
+{/if}
+{/snippet}
+
 <div class="sd" data-testid="steps-doc">
   <StepsHeader backLabel={explainedSteps.fromTool ? t('adv.back') : t('steps.view.back')} backTitle={explainedSteps.fromTool ? t('adv.backToList') : t('steps.view.backToCatalog')} onBack={() => explainedSteps.back()}
     name={t('steps.catalog.title')} backTestid="steps-back" />
 
   {#if explainedSteps.error}
+    {@render optionsBlock()}
     <p class="sd-error" data-testid="steps-error"><Prose text={say(explainedSteps.error)} /></p>
   {:else if doc}
     <StepFrame title={say(doc.title)} subtitle={doc.subtitle ? say(doc.subtitle) : undefined} {step} first={0} last={doc.steps.length}
       onGo={(k) => (explainedSteps.step = k)} stepTitle={step > 0 ? say(doc.steps[step - 1].title) : undefined} bind:narrow>
       {#snippet top()}
-        {#if method?.options?.length}
-          <!-- The method's assumptions, each switchable, each with what it changes. -->
-          <div class="sd-opts" data-testid="steps-options">
-            {#each method.options as o}
-              <div class="sd-opt">
-                <label>
-                  <input type="checkbox" checked={explainedSteps.options[o.id]}
-                    onchange={(e) => explainedSteps.setOption(o.id, e.currentTarget.checked)} data-testid={`steps-opt-${o.id}`} />
-                  {t(`steps.m.${method.id}.opt.${o.id}.label`)}
-                </label>
-                <button class="sd-opt-help" class:on={optHelp === o.id} onclick={() => (optHelp = optHelp === o.id ? null : o.id)}
-                  aria-expanded={optHelp === o.id} title={t('steps.catalog.help')} data-testid={`steps-opt-help-${o.id}`}>?</button>
-              </div>
-              {#if optHelp === o.id}<p class="sd-opt-text"><Prose text={t(`steps.m.${method.id}.opt.${o.id}.help`)} /></p>{/if}
-            {/each}
-          </div>
-        {/if}
+        {@render optionsBlock()}
         <StepParams />
         {#if explainedSteps.stale}
           <div class="sd-stale">

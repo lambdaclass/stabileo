@@ -965,7 +965,7 @@ function createResultsStore() {
       r = drawn(r);
       results = r;
       singleResults = r; // Save base solve for "Cargas simples" option
-      deformedScale = 1; // reset to default on fresh solve
+      if (!preserveDiagram) deformedScale = 1;
       // Preserve current diagram type during live-calc re-solves
       const validDiagrams: DiagramType[] = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
       if (preserveDiagram) {
@@ -1162,7 +1162,7 @@ function createResultsStore() {
       singleResults3D = r;
       showReactions = false;
       showConstraintForces = false;
-      deformedScale = 1; // reset to default on fresh solve
+      if (!preserveDiagram) deformedScale = 1;
       // Preserve current diagram type during live-calc re-solves
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap'];
       if (preserveDiagram) {
