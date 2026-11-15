@@ -103,7 +103,7 @@ export interface OtherCode {
   run(input: { members: unknown[]; forces: unknown[] }): unknown[];
   read(result: Record<string, unknown>): CheckReading;
   /**
-   * The certified version of the check (docs/verification/CERTIFY.md, "Certified design checks"),
+   * The certified version of the check (testing/docs/CERTIFY.md, "Certified design checks"),
    * when the engine has one: its export, and the bound on each force `forces` sends, in the
    * checker's units, from the combination's certified station bound (kN, kN·m) of the member.
    */

@@ -7,7 +7,7 @@ engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url)));
 const input = read('../../engine/tests/fixtures/candidate-replay.json')['1901-body-0'];
 const embeddings = read('../../engine/tests/fixtures/candidate-1901-embeddings.json');
-const reference = read('../../docs/verification/candidate-1901-reference.json')[1];
+const reference = read('../../testing/docs/audits/candidate-1901-reference.json')[1];
 
 function compare(displacements, expected, axes) {
   assert.equal(displacements.length, expected.length);

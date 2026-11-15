@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * How the harmonic response was computed (method, modes used, the share of the static response
-   * the omitted modes carry, the solver's warnings) and its certificate (docs/verification/
+   * the omitted modes carry, the solver's warnings) and its certificate (testing/docs/
    * CERTIFY.md): the exact peak amplitude enclosed and a bound on every reported value's error,
    * modal truncation included. The certificate in the background, once the result is shown.
    */

@@ -81,7 +81,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/MATURITY.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/MATURITY.md",
       "label": "Olgunluk matrisi",
       "t": "Her parçanın doğrulama düzeyi:"
     }

@@ -167,7 +167,7 @@ The base comparison also records enabled `#[test]` functions and their reachable
 Adding `#[ignore]`, a conditional test attribute, removing the test attribute/function, or
 disconnecting a helper counts as removing benchmark coverage. Conditional attributes are handled
 conservatively because CI platforms may differ. Existing disabled tests are not newly enabled by
-this audit. See [the #1490 measurements and uncertainty records](../verification/benchmark-tolerances-1490.md).
+this audit. See [the #1490 measurements and uncertainty records](../../testing/docs/audits/benchmark-tolerances-1490.md).
 
 Protocol specs keep their own references and tolerance; their registry entry adds
 units and the independence flag. Every quantity says whether its references are

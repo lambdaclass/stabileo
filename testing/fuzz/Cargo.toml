@@ -4,7 +4,7 @@ version = "0.0.0"
 publish = false
 edition = "2021"
 
-# Fuzz targets for the engine's JSON entry points (docs/verification/FUZZ_MUTANTS.md).
+# Fuzz targets for the engine's JSON entry points (testing/docs/FUZZ_MUTANTS.md).
 # Run with `cargo fuzz run <target>` from engine/ with `--fuzz-dir ../testing/fuzz`.
 
 [package.metadata]

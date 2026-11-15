@@ -1,6 +1,6 @@
 /**
  * The discretization (mesh) error of the 3D linear static result on screen
- * (docs/verification/DISCRETIZATION.md). An ESTIMATE, never a certificate: the certificate
+ * (testing/docs/DISCRETIZATION.md). An ESTIMATE, never a certificate: the certificate
  * (`certificate.svelte.ts`) bounds the algebraic error of the assembled system; this estimates how
  * far that system's solution is from the structure the mesh stands for.
  *

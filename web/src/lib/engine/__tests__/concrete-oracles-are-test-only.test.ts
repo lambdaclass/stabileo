@@ -8,7 +8,7 @@
  * implementation, so no file outside `__tests__` may import from there.
  *
  * The clauses that do remain in production TypeScript are listed in
- * docs/verification/TS_ENGINE_LOGIC.md; this guards the ones that left.
+ * testing/docs/TS_ENGINE_LOGIC.md; this guards the ones that left.
  */
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';

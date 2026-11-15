@@ -1,7 +1,7 @@
 # Result changes, one file each
 
 Every change that makes the same saved model give different numbers is registered here, so a
-project solved before it is told on opening ([docs/verification/PROVENANCE.md](../../../../../docs/verification/PROVENANCE.md)).
+project solved before it is told on opening ([testing/docs/PROVENANCE.md](../../../../../testing/docs/PROVENANCE.md)).
 
 - `numbered.json`: the results versions numbered by hand, frozen. Never add to it, renumber it or remove from it.
 - `<id>.json`: one change each, **without a version**.

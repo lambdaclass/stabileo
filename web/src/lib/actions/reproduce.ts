@@ -4,7 +4,7 @@
  *
  * The results on hand are dropped first, so the comparison is against a solve that really ran
  * now and not against numbers kept from before. The CLI counterpart, for the engine alone, is
- * `cargo run --release --example reproduce` (docs/verification/PROVENANCE.md).
+ * `cargo run --release --example reproduce` (testing/docs/PROVENANCE.md).
  */
 import { resultsStore } from '../store';
 import { certificateStore } from '../store/certificate.svelte';

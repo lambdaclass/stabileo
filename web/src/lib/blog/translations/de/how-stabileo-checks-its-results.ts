@@ -115,13 +115,13 @@ const body: PostBody = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/TRUSTED_BASE.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/TRUSTED_BASE.md",
       "label": "Vertrauensbasis der Zertifikate",
       "t": "Was bewiesen, was getestet und was vorausgesetzt wird, Komponente für Komponente:"
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/MATURITY.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/MATURITY.md",
       "label": "Reifegradmatrix der Verifikation",
       "t": "Für jede Berechnung, jedes Element und jede Bemessungsnorm der erreichte Verifikationsgrad und die Belege:"
     }

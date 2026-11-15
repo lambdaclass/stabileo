@@ -2,7 +2,7 @@
  * Differential test: the CIRSOC 101 combinations, engine against the verified TypeScript oracle.
  *
  * `generateCombinations` is an adapter over `engine/src/loads/cirsoc101_combinations.rs`. The
- * TypeScript generator verified clause by clause in #292 (docs/verification/LOADS.md) is kept as
+ * TypeScript generator verified clause by clause in #292 (testing/docs/LOADS.md) is kept as
  * `combinations-oracle.ts`. Every subset of the ten loads, crossed with Exception 1's inputs, the
  * H actions and the seismic companions, must give the same combinations in the same order: ids,
  * terms, labels, clause references and notes.

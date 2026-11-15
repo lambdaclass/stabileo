@@ -59,7 +59,7 @@ def audit(recorded, issues):
 CLOSING = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:(?:lambdaclass/stabileo)?#|https?://github\.com/lambdaclass/stabileo/issues/)(\d+)\b', re.IGNORECASE)
 QUEUED_PR = re.compile(r'^Merge pull request #(\d+) from ', re.MULTILINE)
 REPORT_TITLE = 'Safety containment audit: open safety issues without a decision'
-LEDGER = 'docs/verification/CONTAINMENT.md'
+LEDGER = 'testing/docs/CONTAINMENT.md'
 ASSIGNEES = 'unbalancedparentheses,Batuis'
 
 
@@ -95,7 +95,7 @@ def change_problems(base, head, closes, base_ids=None, head_ids=None):
 
 
 def report_body(problems):
-    lines = ['Open safety issues need a completed decision in docs/verification/CONTAINMENT.md, and an issue with an active (WARN/REFUSE) row must stay open.', '']
+    lines = ['Open safety issues need a completed decision in testing/docs/CONTAINMENT.md, and an issue with an active (WARN/REFUSE) row must stay open.', '']
     return '\n'.join(lines + [f'- {p}' for p in problems]) + '\n'
 
 

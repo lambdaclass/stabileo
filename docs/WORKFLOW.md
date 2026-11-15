@@ -13,10 +13,10 @@ never silently wrong and verification never silently stops working.
   feature-matrix, differential or worked-example check), and a CHANGELOG entry under
   `BREAKING (results)` when any result can change.
 - **Engineering results come from the Rust engine.** TypeScript formats, searches and draws; see
-  [verification/TS_ENGINE_LOGIC.md](verification/TS_ENGINE_LOGIC.md). Do not patch around an
+  [testing/docs/TS_ENGINE_LOGIC.md](../testing/docs/TS_ENGINE_LOGIC.md). Do not patch around an
   engine bug in the app.
 - **Refuse rather than guess.** When an analysis cannot honour a model feature it refuses by name
-  (see [verification/FEATURE_MATRIX.md](verification/FEATURE_MATRIX.md)). Never widen a tolerance
+  (see [testing/docs/FEATURE_MATRIX.md](../testing/docs/FEATURE_MATRIX.md)). Never widen a tolerance
   to make a disagreement go away.
 
 ## Branches and pull requests
@@ -51,7 +51,7 @@ never silently wrong and verification never silently stops working.
 - **Results versions.** A PR that changes results adds one file,
   `web/src/lib/provenance/result-changes/<id>.json`, **without a version number**. Main's merge
   order numbers it ([the registry's README](../web/src/lib/provenance/result-changes/README.md),
-  [verification/PROVENANCE.md](verification/PROVENANCE.md)). Don't pick a number, bump
+  [testing/docs/PROVENANCE.md](../testing/docs/PROVENANCE.md)). Don't pick a number, bump
   `currentResultsVersion`, pin `RELEASED` or restamp a fixture. Results-changing PRs don't
   conflict with each other and can be queued together.
 - **Merge status.** The pinned issue [Merge status (#1391)](https://github.com/lambdaclass/stabileo/issues/1391)
@@ -69,7 +69,7 @@ never silently wrong and verification never silently stops working.
 - **Required checks** must be green (engine, web, e2e, Kani, Lean, symbolic; see
   [#355](https://github.com/lambdaclass/stabileo/issues/355)). A red scheduled verification run
   opens (or updates) one `ci-failure` issue per workflow, closed by the next green run once triaged; each real
-  finding behind it is triaged into its own `bug` issue ([verification/NIGHTLY.md](verification/NIGHTLY.md)).
+  finding behind it is triaged into its own `bug` issue ([testing/docs/NIGHTLY.md](../testing/docs/NIGHTLY.md)).
 - **Infrastructure retry.** A pull request run of CI, Research or Supply chain whose every failed
   job shows infrastructure evidence (a lost runner, a job timeout in a download or research WASM
   build step, or exit 137, a cache, artifact or network error in a download step) has its failed jobs rerun once, automatically
@@ -90,7 +90,7 @@ never silently wrong and verification never silently stops working.
 ## Issues and labels
 
 - `safety`: a released or about-to-be-released result can be wrong or unconservative. These are
-  counted on the [verification dashboard](verification/DASHBOARD.md).
+  counted on the [verification dashboard](../testing/docs/DASHBOARD.md).
 - `safety-advisory`: the public advisory for a `safety` issue that reached a release; see
   [SAFETY_ADVISORIES.md](SAFETY_ADVISORIES.md).
 - `roadmap:multiplier`, `roadmap:verification`, `roadmap:coverage`, `roadmap:solver-proofs`,

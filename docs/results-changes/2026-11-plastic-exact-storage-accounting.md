@@ -27,8 +27,8 @@ The replay watchdog checks every measured call, including call zero and single-c
 runs. Stdout initialization happens before measurement. A first-call-only leak
 negative control, planted hang and repeated leak controls verify fail-closed detection.
 Allocation traffic now counts positive realloc growth. Historical traffic measurements
-remain labeled as such in [the replay evidence](../verification/plastic-lp-budget-replays.json).
-See [the verification report](../verification/PLASTIC_LP_BUDGET.md).
+remain labeled as such in [the replay evidence](../../testing/docs/plastic-lp-budget-replays.json).
+See [the verification report](../../testing/docs/PLASTIC_LP_BUDGET.md).
 
 Round-two review also moved admission ahead of sample construction: counts come
 from the model’s load-piece partition without allocating floating elements or

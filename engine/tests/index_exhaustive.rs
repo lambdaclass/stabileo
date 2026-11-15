@@ -3,7 +3,7 @@
 //! assembly. Each enumerates every configuration of a tiny model, so a pass is
 //! a proof for that bounded space (the Kani harnesses in src/kani_proofs.rs
 //! cover the same properties symbolically where CBMC is fast enough; see
-//! docs/verification/KANI.md).
+//! testing/docs/KANI.md).
 
 use crate::common;
 

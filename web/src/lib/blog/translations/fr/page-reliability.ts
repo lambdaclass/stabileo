@@ -81,7 +81,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/MATURITY.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/MATURITY.md",
       "label": "Matrice de maturité",
       "t": "Le niveau de vérification de chaque partie :"
     }

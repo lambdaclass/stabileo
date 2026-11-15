@@ -591,7 +591,7 @@
           "tolerance": {
             "relative": 0.05,
             "justification": "Reference-error ceiling retained only as an existing one-sided floor. The case file now also requires normalized SHB8 displacements to stay within 1e-5 relative of measured pins for every shape. Trapezoidal and parallelogram in-plane locking are explicit limitations, not accepted accuracy; see the case-file regression justification.",
-            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+            "evidence": "testing/docs/audits/benchmark-tolerances-1490.md"
           },
           "test_tolerances": [
             {
@@ -656,7 +656,7 @@
           "tolerance": {
             "relative": 0.96,
             "justification": "Reference-error ceiling retained only as an existing one-sided floor. The case file now also requires normalized SHB8 displacements to stay within 1e-5 relative of measured pins for every shape. Trapezoidal and parallelogram in-plane locking are explicit limitations, not accepted accuracy; see the case-file regression justification.",
-            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+            "evidence": "testing/docs/audits/benchmark-tolerances-1490.md"
           },
           "test_tolerances": [
             {
@@ -1001,7 +1001,7 @@
           "tolerance": {
             "relative": 0.036,
             "justification": "The former blanket 5% limit is now a 3.6% ceiling over six individually measured case bounds (0.25% to 3.5%). DKT converges to Kirchhoff; soft-support MITC4 includes a boundary-condition/model difference, documented per case.",
-            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+            "evidence": "testing/docs/audits/benchmark-tolerances-1490.md"
           },
           "test_tolerances": [
             {
@@ -1684,7 +1684,7 @@
           "tolerance": {
             "relative": 0.1,
             "justification": "Remaining file ceiling after the #1490 audit; the targeted loose assertions have separate measured bounds. This ceiling is not an accuracy claim for the other unaudited assertions. See the case-file uncertainty and measurements in engine/tests/benchmarks/tolerance_audit_1490.json.",
-            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+            "evidence": "testing/docs/audits/benchmark-tolerances-1490.md"
           },
           "test_tolerances": [
             {
@@ -2014,7 +2014,7 @@
           "tolerance": {
             "relative": 0.1,
             "justification": "Remaining file ceiling after the #1490 audit; the targeted loose assertions have separate measured bounds. This ceiling is not an accuracy claim for the other unaudited assertions. See the case-file uncertainty and measurements in engine/tests/benchmarks/tolerance_audit_1490.json.",
-            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+            "evidence": "testing/docs/audits/benchmark-tolerances-1490.md"
           },
           "test_tolerances": [
             {
@@ -2352,7 +2352,7 @@
           "tolerance": {
             "relative": 0.05,
             "justification": "Remaining file ceiling after the #1490 audit; the targeted loose assertions have separate measured bounds. This ceiling is not an accuracy claim for the other unaudited assertions. See the case-file uncertainty and measurements in engine/tests/benchmarks/tolerance_audit_1490.json.",
-            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+            "evidence": "testing/docs/audits/benchmark-tolerances-1490.md"
           },
           "test_tolerances": [
             {
@@ -2411,7 +2411,7 @@
           "tolerance": {
             "relative": 0.05,
             "justification": "Remaining file ceiling after the #1490 audit; the targeted loose assertions have separate measured bounds. This ceiling is not an accuracy claim for the other unaudited assertions. See the case-file uncertainty and measurements in engine/tests/benchmarks/tolerance_audit_1490.json.",
-            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+            "evidence": "testing/docs/audits/benchmark-tolerances-1490.md"
           },
           "test_tolerances": [
             {

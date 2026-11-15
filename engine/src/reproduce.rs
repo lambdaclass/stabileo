@@ -1,4 +1,4 @@
-//! Reproducing a linear solve from its provenance (docs/verification/PROVENANCE.md).
+//! Reproducing a linear solve from its provenance (testing/docs/PROVENANCE.md).
 //!
 //! The web app records, for the static solve behind a report, the SHA-256 of the
 //! solver input as the engine parsed it and of the engine's result, both as

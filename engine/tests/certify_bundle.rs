@@ -1,4 +1,4 @@
-//! Certificate bundles (docs/verification/CERTIFY.md, "Independent checking:
+//! Certificate bundles (testing/docs/CERTIFY.md, "Independent checking:
 //! certificate bundles"): export linear-static, plastic-collapse and
 //! load-combination bundles for fixture models into `target/cert-bundles/` for
 //! `verify/scripts/check-bundles.sh` (`lake exe certcheck`), each with the canonical

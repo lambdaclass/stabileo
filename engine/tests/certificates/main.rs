@@ -1,4 +1,4 @@
-//! Result certificates (docs/verification/CERTIFY.md) and the certificate property tests.
+//! Result certificates (testing/docs/CERTIFY.md) and the certificate property tests.
 //!
 //! One test binary for several test files, which stay where they were in engine/tests/:
 //! every file used to be its own binary that linked the whole engine, and compiling and

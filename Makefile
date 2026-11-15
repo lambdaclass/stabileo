@@ -251,7 +251,7 @@ lint.engine:
 	python3 -B -I scripts/invariance-gate.py
 	cd engine && $(NIX_RUN) cargo clippy --lib -- -W clippy::all -A clippy::erasing_op
 
-# The acceptance models are generated (docs/verification/ACCEPTANCE.md); a hand edit fails here.
+# The acceptance models are generated (testing/docs/ACCEPTANCE.md); a hand edit fails here.
 check.engine.acceptance-models:
 	$(NIX_RUN) bash -c 'for g in engine/tests/acceptance/generators/*.py; do python3 -I "$$g"; done'
 	git diff --exit-code -- engine/tests/acceptance/models
@@ -362,7 +362,7 @@ check.web.translations:
 check.web.route-size:
 	$(NIX_RUN) bash -c "cd web && node scripts/check-research-route-size.mjs --ceiling scripts/route-size-ceilings.json"
 
-# The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus solved
+# The results snapshot gate (#716, testing/docs/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
 test.web.results:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project results $(FILE) $(if $(FILTER),-t '$(FILTER)')"
@@ -378,7 +378,7 @@ check.results-snapshot-gate:
 	$(NIX_RUN) node web/scripts/results-snapshot/gate.mjs --base $(or $(BASE),origin/main)
 
 # The WASM must give bit-identical results in Node, Chromium, Firefox and WebKit
-# (docs/verification/TRUSTED_BASE.md). Needs make wasm and make web.deps first.
+# (testing/docs/TRUSTED_BASE.md). Needs make wasm and make web.deps first.
 test.web.determinism:
 	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs determinism/containment.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
 
@@ -396,7 +396,7 @@ e2e.web.smoke:
 	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert @flaky $(FILE) $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
 
 e2e.web.slow:
-	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$files)'
+	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$files) $(FILE)'
 
 e2e.web.timing:
 	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "@slow" e2e/rebar-workspace-open.spec.ts e2e/model-fluidity.spec.ts'
@@ -508,7 +508,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
+test.ci-scripts: test.testing-move test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -997,7 +997,7 @@ test.engine.truss-balance-1969-wasm: wasm
 
 test.engine.candidate-1901-wasm: wasm
 	CANDIDATE_1901_AUDIT=$(CURDIR)/.1901-audit.json $(NIX_RUN) node scripts/tests/candidate-1901-wasm.mjs
-	$(NIX_RUN) python3 docs/verification/candidate-1901-audit.py $(CURDIR)/.1901-audit.json
+	$(NIX_RUN) python3 testing/docs/audits/candidate-1901-audit.py $(CURDIR)/.1901-audit.json
 	rm -f $(CURDIR)/.1901-audit.json
 .PHONY: test.engine.staged-settlement-1085-wasm
 
@@ -1063,7 +1063,7 @@ test.engine.modal-mass-range-wasm: wasm
 
 .PHONY: audit.1088
 audit.1088:
-	$(NIX_RUN) python3 -I docs/verification/issue-1088-rank.py
+	$(NIX_RUN) python3 -I testing/docs/audits/issue-1088-rank.py
 
 .PHONY: test.engine.staged-physical-r14-wasm
 
@@ -1217,3 +1217,13 @@ check.testing-map:
 
 test.testing-map:
 	python3 -B -I testing/scripts/tests/test_testing_map.py
+
+.PHONY: check.docs-links
+
+check.docs-links:
+	python3 -B -I scripts/check-docs-links.py
+
+.PHONY: test.testing-move
+
+test.testing-move:
+	python3 -B -I scripts/tests/test_testing_move.py $(FILTER)

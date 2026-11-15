@@ -2,7 +2,7 @@ import { checkColumn } from '../helpers/manual-interactions';
 /**
  * Differential test: the concrete modules that moved into the engine, against the TypeScript
  * they replaced (`oracle/`), on thousands of random valid sections. Each disagreement is
- * resolved against the clause and pinned here (docs/verification/TS_ENGINE_LOGIC.md).
+ * resolved against the clause and pinned here (testing/docs/TS_ENGINE_LOGIC.md).
  *
  *  - capacity (`rectCapacity`, `flangedCapacity`): agree to 1e-8 — the TypeScript fixed point
  *    on fs had already been fixed to strain compatibility;

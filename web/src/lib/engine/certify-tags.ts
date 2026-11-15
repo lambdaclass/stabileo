@@ -1,5 +1,5 @@
 /**
- * Which engine call certifies a result (docs/verification/CERTIFY.md), keyed by the result.
+ * Which engine call certifies a result (testing/docs/CERTIFY.md), keyed by the result.
  *
  * An analysis is solved, shown, and only then certified, in the background: certifying costs a
  * few times the solve and must never hold the result back. So the solve wrapper notes, beside the

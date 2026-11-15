@@ -714,7 +714,7 @@
         "tr": "Dışa aktarılan bir kabuk şekli her elemanı merkez değeriyle, bu değerlerin aralığı üzerinde boyuyordu; ekran ise kontur alanını boyar (seçilen bölgede düğüm ortalamaları, seçilen yüz, girilen bir aralık ve bantlar). Şeklin renkleri, ölçeği ve en büyük değeri ekranla ve göstergesiyle uyuşmayabiliyordu. Şekiller artık ekranın alanını, her yüz boyunca harmanlanmış olarak, aralığı, bantları ve en büyük değeriyle boyar. Ekrandaki kabuk yönleri ve uç değerleri de gizli kabukları dışarıda bırakır. Çözücü sonuçları değişmez; kabuk şekillerini yeniden dışa aktarın."
       },
       "changelog": {
-        "file": "docs/verification/PROVENANCE.md",
+        "file": "testing/docs/PROVENANCE.md",
         "heading": "Shell figures paint the screen's field (PR #1255, review of #1077)"
       }
     },

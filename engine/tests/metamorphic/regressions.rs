@@ -1,6 +1,6 @@
 //! Minimal reproductions of the violations the metamorphic harness found,
 //! one per bug, each stated as the physics it must obey
-//! (docs/verification/METAMORPHIC.md, "Violations found").
+//! (testing/docs/METAMORPHIC.md, "Violations found").
 
 use crate::case::Case2;
 use dedaliano_engine::solver::plastic_limit::limit_analysis_2d_input;
@@ -544,7 +544,7 @@ fn plastic_3d_frame3d_2_is_a_lower_bound_of_its_certificate() {
     assert!(!r.warnings.iter().any(|w| w.contains("exceeds the yield surface")), "{:?}", r.warnings);
 }
 
-/// Nightly findings that were harness defects (docs/verification/CONTAINMENT.md): each model,
+/// Nightly findings that were harness defects (testing/docs/CONTAINMENT.md): each model,
 /// replayed with its reported seed, holds the invariant it was reported to violate.
 #[test]
 fn nightly_harness_findings_hold() {

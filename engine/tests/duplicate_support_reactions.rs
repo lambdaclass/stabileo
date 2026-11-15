@@ -1,5 +1,5 @@
 //! Several supports on one node (found by the `model_certify` fuzz target,
-//! docs/verification/FUZZ_MUTANTS.md). First symptom: the reactions listed one
+//! testing/docs/FUZZ_MUTANTS.md). First symptom: the reactions listed one
 //! entry per support, each carrying the node's full restrained-DOF reaction,
 //! so ΣR double-counted it and a certified result was out of global
 //! equilibrium by the applied load.

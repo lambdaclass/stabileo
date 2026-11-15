@@ -4,9 +4,9 @@
 > "ASAP Hardening Work" and "Wave 1 Trust Hardening" sections predate the October 2026 safety
 > wave and v0.2.0 (certified solver, differential testing against seven programs, fuzzing and
 > mutation testing, feature matrix, certified design checks); read them as history. For the
-> current verification state see [../verification/DASHBOARD.md](../verification/DASHBOARD.md) and
-> [../verification/MATURITY.md](../verification/MATURITY.md); for the open solver backlog with
-> issue links see "Solver and proof depth" in [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md). Entry
+> current verification state see [../../testing/docs/DASHBOARD.md](../../testing/docs/DASHBOARD.md) and
+> [../../testing/docs/MATURITY.md](../../testing/docs/MATURITY.md); for the open solver backlog with
+> issue links see "Solver and proof depth" in [testing/ROADMAP.md](../../testing/ROADMAP.md#solver-and-proof-depth). Entry
 > point: [README.md](README.md).
 
 ## Purpose

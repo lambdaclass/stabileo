@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SCOPE = ROOT / "scripts" / "mutants-safety.json"
-BASELINE = ROOT / "docs" / "verification" / "mutants-baseline.json"
+BASELINE = ROOT / "testing" / "docs" / "mutants-baseline.json"
 AREAS = {"certify": "engine/src/certify/", "solver": "engine/src/solver/", "element": "engine/src/element/"}
 
 

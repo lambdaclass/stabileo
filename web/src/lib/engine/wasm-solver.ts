@@ -183,7 +183,7 @@ let wasmLoadsRequest: ((json: string) => string) | null = null;
 let wasmCheckIsolatedFootings: ((json: string) => string) | null = null;
 let wasmCertifyIsolatedFootings: ((json: string) => string) | null = null;
 
-// Certified results (docs/verification/CERTIFY.md). Absent from older WASM builds.
+// Certified results (testing/docs/CERTIFY.md). Absent from older WASM builds.
 let wasmCertifyLinear2d: ((input: any) => any) | null = null;
 let wasmCertifyLinear3d: ((input: any) => any) | null = null;
 let wasmCertifyBuckling2d: ((json: string, numModes: number) => string) | null = null;
@@ -871,7 +871,7 @@ export function prepareLoadSession3D(input: SolverInput3D) {
     loads => solve3D({ ...input, loads }), (result, loads) => finishSolve3D(result, { ...input, loads }));
 }
 
-// ─── Certified results (docs/verification/CERTIFY.md) ──────────
+// ─── Certified results (testing/docs/CERTIFY.md) ──────────
 
 /**
  * A rigorous a-posteriori bound on the linear static solution, proved in Lean
@@ -920,7 +920,7 @@ export interface DeflectionBound { elementId: number; displacement: number }
 export interface ReactionBound2D { nodeId: number; rx: number; rz: number; my: number }
 export interface ReactionBound3D { nodeId: number; fx: number; fy: number; fz: number; mx: number; my: number; mz: number }
 
-/** The bounds on what the views compute after the solve (docs/verification/CERTIFY.md). */
+/** The bounds on what the views compute after the solve (testing/docs/CERTIFY.md). */
 export interface ShownBounds<S = StationBound2D | StationBound3D, R = ReactionBound2D | ReactionBound3D> {
   stationBounds?: S[];
   deflectionBounds?: DeflectionBound[];
@@ -930,7 +930,7 @@ export interface ShownBounds<S = StationBound2D | StationBound3D, R = ReactionBo
 }
 
 /**
- * The linear result checked against an independent re-assembly of the model (docs/verification/
+ * The linear result checked against an independent re-assembly of the model (testing/docs/
  * CERTIFY.md, "End-to-end certificates"): `certified` bounds ‖u* − ũ‖₂ for the exact solution of the
  * model as written, over every DOF it determines; `failed` means the engine's K, f or displacements
  * disagree with the model; `uncertified` / `outOfScope` / `notChecked` say why there is no such bound.
@@ -1043,7 +1043,7 @@ const CERTIFY_EXPORTS = [
   // (`store/result-provenance.ts` ensureEngineHashes).
   'engine_reproduce_hashes',
   // Not certificates: the discretization-error estimate and convergence check
-  // (docs/verification/DISCRETIZATION.md) ride the same worker path because they re-solve too.
+  // (testing/docs/DISCRETIZATION.md) ride the same worker path because they re-solve too.
   'estimate_discretization_3d', 'convergence_study_3d',
 ] as const;
 export type CertifyExport = (typeof CERTIFY_EXPORTS)[number];

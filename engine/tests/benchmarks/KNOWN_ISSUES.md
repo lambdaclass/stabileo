@@ -50,7 +50,7 @@ error does not shrink with refinement. Ratio to beam theory, load A / load B:
 The error follows the twist curvature times the thickness (κt; 0.042 at 90°), not the warp
 per element: at 90° with the width halved or doubled MITC4 stays at 1.30 to 1.32 (load A),
 while halving t gives 1.08 and doubling it 2.21. The engine now withholds both elements above
-the measured 5 % level and warns above 1.5 % (docs/verification/CONTAINMENT.md, #1057). The
+the measured 5 % level and warns above 1.5 % (testing/docs/CONTAINMENT.md, #1057). The
 formulation fix is open in #1057 and must be checked against both references.
 
 SHB8-ANS on the same model, load B: 4×1 0.8995, 8×1 0.9715.
