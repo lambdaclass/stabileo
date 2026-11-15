@@ -56,7 +56,8 @@ for (const edition of ['2005', '2025'] as const) {
           const input = { ...p, edition, elementId: 1, elementType, demand: demand(primary, secondary, torque, axis) };
           const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed)
             : entry === 'concurrent' ? verifyConcurrentElement([input]) : undefined;
-          const t = v?.torsion ?? checkTorsion(p, input.demand, edition);
+          if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
+          const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition) : v!.torsion!;
           expect(t.phiTn).toBeCloseTo(expected.phiTn, 11);
           expect(t.ratio).toBeCloseTo(expected.ratio, 12);
           if (factor > 1) {
@@ -71,7 +72,8 @@ for (const edition of ['2005', '2025'] as const) {
         const input = { ...p, edition, elementId: 1, elementType, demand: demand(100, 0, 30, axis) };
         const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed)
           : entry === 'concurrent' ? verifyConcurrentElement([input]) : undefined;
-        const t = v?.torsion ?? checkTorsion(p, input.demand, edition);
+        if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
+        const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition) : v!.torsion!;
         const { steps: _steps, status: _status, ...baseline } = main.results[edition].control.torsion;
         expect(t).toMatchObject(baseline);
         expect(t.phiTn).toBeCloseTo(reference(100, 0, 30).phiTn, 11);
