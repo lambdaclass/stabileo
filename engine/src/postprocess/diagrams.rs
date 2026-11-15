@@ -1007,4 +1007,19 @@ mod interior_couples_2143 {
         }
     }
 
+    #[test]
+    #[ignore = "known wrong result: #2143"]
+    fn spatial_recovery_keeps_positive_ei_below_planar_cutoff_2143() {
+        for ei in [5e-7, 1e-6, 1.000001e-6] {
+            let input: MemberRecoveryInput = serde_json::from_value(serde_json::json!({
+                "length": 5.0, "ei": ei, "space": "spatial", "vI": 0.0, "rI": 0.0, "vJ": 0.0, "rJ": 0.0,
+                "hingeStart": false, "hingeEnd": false, "points": [],
+                "dist": [{"qI": -ei * 1e-4, "qJ": -ei * 1e-4, "a": 0.0, "b": 5.0}], "positions": [0.5]
+            })).unwrap();
+            let result = recover_member(&input).unwrap();
+            let expected = -1e-4 * 5.0_f64.powi(4) / 384.0;
+            assert!((result[0].v - expected).abs() <= 1e-12 * expected.abs());
+        }
+    }
+
 }
