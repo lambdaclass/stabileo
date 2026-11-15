@@ -102,7 +102,7 @@ for (const mask of [0, 1, 2, 4, 8, 15]) {
 
 for (const value of [undefined, '0', '1']) {
   for (const prebuilt of [false, true]) {
-    test(`#2099 shape-control coverage follows the served research switch=${value}, prebuilt=${prebuilt}`, { skip: value !== '1' && 'known wrong result: #2099' }, () => {
+    test(`#2099 shape-control coverage follows the served research switch=${value}, prebuilt=${prebuilt}`, () => {
       const directory = mkdtempSync(resolve(root, '.e2e-feature-test-'));
       try {
         const enabled = value === '1';
