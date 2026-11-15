@@ -1,6 +1,6 @@
 # Re-check prompt, provenance and reproducibility
 
-Roadmap: "Trust and verification backlog", items 8 and 9 (`docs/roadmap/PRODUCT_ROADMAP.md`).
+Roadmap: "Trust and verification backlog", items 11 and 12 (`docs/roadmap/PRODUCT_ROADMAP.md`).
 
 ## Registry of result-affecting changes
 

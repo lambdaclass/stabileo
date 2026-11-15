@@ -4,12 +4,12 @@ This is the single entry point for Stabileo's plans. Read this page first; it sa
 answers which question, how current each one is, and where the work is tracked.
 
 **The backlog lives in one place:** the backlog sections of
-[PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) (Multipliers, Trust and verification, Engineering
-coverage, Solver and proof depth, Release safety, Platform and architecture, Growth and
-housekeeping). Every item there links to its GitHub issue;
+[PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md), soundness areas first (Prevention, Soundness multipliers,
+Trust and verification, Solver and proof depth, Release safety, Engineering coverage), then
+Multipliers, CI, performance, platform, growth and housekeeping. Every item there links to its GitHub issue;
 the tracker is [#396](https://github.com/lambdaclass/stabileo/issues/396). What comes first right now is
-the **Overall order** and **Priority now** in the Now section of PRODUCT_ROADMAP: soundness first (wrong-result bugs, the tests
-that catch them, the verification safety net and release safety), then other bugs, then features. Each section has
+the **Overall order** and **Priority now** in the Now section of PRODUCT_ROADMAP: soundness first, ranked from (a) uncontained
+silent wrong results down to (g) growth and SaaS; sections 3 to 6 follow the same ranking. Each section has
 measurable exit criteria, and the metrics behind them are regenerated on the
 [verification dashboard](../verification/DASHBOARD.md).
 
