@@ -146,3 +146,23 @@ it('known wrong result: #2099 keeps both sides of the zero determinant and exact
     expect(p.sigma2).toBe(Math.min(0, sx));
   }
 });
+
+
+describe('plane rotation with separated stress magnitudes (#2099)', () => {
+  it.skipIf(!process.env.IGNORED)('known wrong result: #2099 preserves small signed normal stresses at zero rotation', () => {
+    for (const sign of [-1, 1]) for (const small of [-1e-9, 0, 1e-9]) {
+      for (const state of [{ sx: sign * 1e9, sy: small, txy: 0 }, { sx: small, sy: sign * 1e9, txy: 0 }]) {
+        expect(rotatePlane(state, 0)).toEqual(state);
+      }
+    }
+  });
+
+  it.skipIf(!process.env.IGNORED)('known wrong result: #2099 resolves the small principal normal stress after rotation', () => {
+    for (const shear of [-1, 1]) for (const sy of [0, -1e-9, 2e-9]) {
+      const state = { sx: 1e9, sy, txy: shear };
+      const p = principalPlane(state);
+      const r = rotatePlane(state, p.theta1);
+      expect(Math.abs(r.sy - p.sigma2)).toBeLessThanOrEqual(1e-12 * Math.abs(p.sigma2));
+    }
+  });
+});
