@@ -186,6 +186,26 @@ export interface SnowPlane {
   elevation: (pt: P2) => number;
 }
 
+const sameSnowPoint = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y, Z(a) - Z(b)) <= 1e-8;
+
+type SnowMember = { a: Point; b: Point; dx: number; dy: number; lh: number };
+
+function collinearSnowMembers<M extends SnowMember>(members: M[], m: M, gradient: P2): M[] {
+  return members.filter(r => [r.a, r.b].every(p => {
+    const x = p.x - m.a.x, y = p.y - m.a.y;
+    return Math.abs(m.dx * y - m.dy * x) <= 1e-8 * m.lh
+      && Math.abs(Z(p) - Z(m.a) - gradient[0] * x - gradient[1] * y) <= 1e-8;
+  }));
+}
+
+function connectedSnowMembers<M extends { a: Point; b: Point }>(m: M, supported: M[]): M[] {
+  const connected = new Set([m]);
+  for (const r of connected) for (const q of supported) {
+    if ([r.a, r.b].some(a => [q.a, q.b].some(b => sameSnowPoint(a, b)))) connected.add(q);
+  }
+  return [...connected];
+}
+
 export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
   const exposed = roofMembers(model);
   const targetIds = new Set((only ? roofMembers(model, only) : exposed).map(m => m.id));
@@ -196,11 +216,22 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     const dx = b.x - a.x, dy = b.y - a.y, dz = Z(b) - Z(a);
     return [{ id: e.id, a, b, dx, dy, dz, lh: Math.hypot(dx, dy), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }];
   });
+  const targets = roof.filter(m => targetIds.has(m.id));
+  const remaining = new Set(targets);
+  const runs: Array<{ direction: P2; length: number }> = [];
+  for (const m of targets) {
+    if (!remaining.has(m)) continue;
+    const gradient: P2 = [m.dz * m.dx / m.lh ** 2, m.dz * m.dy / m.lh ** 2];
+    const members = connectedSnowMembers(m, collinearSnowMembers(targets, m, gradient));
+    for (const member of members) remaining.delete(member);
+    const direction: P2 = [m.dx / m.lh, m.dy / m.lh];
+    const coordinates = members.flatMap(r => [r.a, r.b]).map(p => snowCoordinate([p.x, p.y], [m.a.x, m.a.y], direction));
+    runs.push({ direction, length: Math.max(...coordinates) - Math.min(...coordinates) });
+  }
   const parent = roof.map((_, k) => k);
   const root = (k: number): number => parent[k] === k ? k : (parent[k] = root(parent[k]!));
-  const samePoint = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y, Z(a) - Z(b)) <= 1e-8;
   for (let a = 0; a < roof.length; a++) for (let b = a + 1; b < roof.length; b++) {
-    if ([roof[a]!.a, roof[a]!.b].some(p => [roof[b]!.a, roof[b]!.b].some(q => samePoint(p, q)))) parent[root(a)] = root(b);
+    if ([roof[a]!.a, roof[a]!.b].some(p => [roof[b]!.a, roof[b]!.b].some(q => sameSnowPoint(p, q)))) parent[root(a)] = root(b);
   }
   const component = new Map(roof.map((m, k) => [m.id, root(k)]));
   const sloped = roof.filter(m => Math.abs(m.dz) > 1e-8 * m.lh);
@@ -230,21 +261,14 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     const bounded = unique.filter(c => footprints(c.supported, c.gradient).some(p => memberSupport(m.a, m.b, p).positive));
     for (const best of bounded.length ? bounded : [candidates[0]]) {
       const gradient: P2 = best?.gradient ?? [m.dz * m.dx / m.lh ** 2, m.dz * m.dy / m.lh ** 2];
-      const supported = best?.supported ?? connected.filter(r => [r.a, r.b].every(p => {
-        const x = p.x - m.a.x, y = p.y - m.a.y;
-        return Math.abs(m.dx * y - m.dy * x) <= 1e-8 * m.lh
-          && Math.abs(Z(p) - Z(m.a) - gradient[0] * x - gradient[1] * y) <= 1e-8;
-      }));
+      const supported = best?.supported ?? collinearSnowMembers(connected, m, gradient);
       if (!supported.some(r => roofIds.has(r.id))) continue;
       const norm = Math.hypot(...gradient);
       const outlines = best ? footprints(supported, gradient) : [];
       const polygons = outlines.some(p => memberSupport(m.a, m.b, p).positive) ? outlines : [[]];
-      const section = new Set([m]);
-      for (const r of section) for (const q of supported) {
-        if ([r.a, r.b].some(a => [q.a, q.b].some(b => samePoint(a, b)))) section.add(q);
-      }
+      const section = connectedSnowMembers(m, supported);
       for (const polygon of polygons) {
-        const members = polygon.length ? supported.filter(r => memberSupport(r.a, r.b, polygon).positive) : [...section];
+        const members = polygon.length ? supported.filter(r => memberSupport(r.a, r.b, polygon).positive) : section;
         if (!members.some(r => r.id === m.id)) continue;
         const existing = planes.find(p => p.members.has(m.id) && Math.hypot(p.gradient[0] - gradient[0], p.gradient[1] - gradient[1]) < 1e-8 && Math.abs(p.elevation([m.a.x, m.a.y]) - Z(m.a)) < 1e-8);
         if (existing) { atMember.set(m.id, existing); continue; }
@@ -432,7 +456,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     }
     return true;
   };
-  return { planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets: roof.filter(m => targetIds.has(m.id)), panel, resolves };
+  return { planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets, runs, panel, resolves };
 }
 
 export function snowRoofSurfaces(model: WindModel, layout?: GravityLayout, surfaces = roofSurfaceModel(model)) {

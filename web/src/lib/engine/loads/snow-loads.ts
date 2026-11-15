@@ -1,12 +1,12 @@
 import { roofMembers, type WindModel } from './wind-cases';
-import { roofSurfaceModel, type SnowPlane } from './snow-roof-surfaces';
+import { roofSurfaceModel, snowCoordinate, type SnowPlane } from './snow-roof-surfaces';
 import type { GravityLayout, GravityModel } from './plan-gravity';
 import { driftAndSlidingLoads, snowDriftRefusal } from './snow-drift-loads';
 import { layoutSpans, layoutUnits, partialSnowPatterns } from './plan-spans';
 import { shapedSnow } from './snow-shapes';
 import { msg, round, type EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
-import { roofSnow, type SnowInputs, type SnowResult } from '../../codes/cirsoc104/snow';
+import { roofSnow, UNBALANCED_WIDTH_LIMIT, type SnowInputs, type SnowResult } from '../../codes/cirsoc104/snow';
 import { clause } from '../../codes/regulation';
 
 const REF_PARTIAL = clause('cirsoc-104', '2005', '5.1', 'sistemas de vigas continuas');
@@ -45,20 +45,21 @@ export function roofGeometry(model: WindModel, only?: ReadonlySet<number>, surfa
   if (!roof.length) return null;
   const planes = surfaces.targetPlanes;
   const primary = planes[0];
-  const longest = [...roof].sort((a, b) => b.lh - a.lh)[0]!;
-  const norm = primary ? Math.hypot(...primary.gradient) : longest.lh;
-  const direction: [number, number] = primary ? [primary.gradient[0] / norm, primary.gradient[1] / norm] : [-longest.dy / norm, longest.dx / norm];
+  const longest = surfaces.runs.reduce((best, run) => run.length - best.length > 32 * Number.EPSILON * Math.max(run.length, best.length) ? run : best);
+  const norm = primary ? Math.hypot(...primary.gradient) : 1;
+  const direction: [number, number] = primary ? [primary.gradient[0] / norm, primary.gradient[1] / norm] : [-longest.direction[1], longest.direction[0]];
   const origin = roof[0]!.a;
   const coord = (p: { x: number; y: number }) => (p.x - origin.x) * direction[0] + (p.y - origin.y) * direction[1];
   const pts = roof.flatMap(m => [m.a, m.b]);
   const zMax = Math.max(...pts.map(Z));
   const top = pts.filter(p => Z(p) > zMax - 0.05);
   const ridge = top.reduce((s, p) => s + coord(p), 0) / top.length;
-  const lo = Math.min(...pts.map(coord)), hi = Math.max(...pts.map(coord));
+  const low = pts.reduce((a, b) => coord(a) <= coord(b) ? a : b);
+  const width = Math.max(...pts.map(p => snowCoordinate([p.x, p.y], [low.x, low.y], direction, [0, 2 * UNBALANCED_WIDTH_LIMIT]))) / 2;
   const sloped = roof.filter(m => Math.abs(m.dz) > 1e-8 * m.lh);
   const weight = sloped.reduce((s, m) => s + m.lh, 0);
   const slopeDeg = weight ? sloped.reduce((s, m) => s + surfaces.atMember.get(m.id)!.slope * m.lh, 0) / weight : planes.length && only ? planes.reduce((s, p) => s + p.slope, 0) / planes.length : 0;
-  const W = primary ? Math.max(...planes.map(p => p.W)) : (hi - lo) / 2;
+  const W = primary ? Math.max(...planes.map(p => p.W)) : width;
   return { axis: Math.abs(direction[0]) >= Math.abs(direction[1]) ? 'x' : 'y', direction, transverse: surfaces.transverse(direction), origin, ridge, W, slopeDeg };
 }
 
