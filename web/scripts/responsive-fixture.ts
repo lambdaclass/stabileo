@@ -1,9 +1,6 @@
 import { createServer } from 'vite';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { chromium } from 'playwright';
+import { existsSync } from 'node:fs';
 
 export async function createResponsiveFixtureRenderer() {
   const binary = process.env.CHROMIUM_PATH ?? [
@@ -13,17 +10,39 @@ export async function createResponsiveFixtureRenderer() {
   if (!binary) throw new Error('Set CHROMIUM_PATH to a Chromium executable for rendered checks');
   const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
   await server.listen();
-  const url = server.resolvedUrls!.local[0]!;
-  return {
-    async render(fixture: string, width: number): Promise<string> {
-      const profile = mkdtempSync(join(tmpdir(), 'stabileo-layout-'));
-      try {
-        const { stdout } = await promisify(execFile)(binary, ['--headless', '--no-sandbox', '--disable-gpu', '--no-first-run', `--user-data-dir=${profile}`, `--window-size=${Math.max(width, 900)},1100`, '--force-device-scale-factor=1', '--virtual-time-budget=10000', '--dump-dom', `${url}scripts/fixtures/${fixture}.html?width=${width}`], { timeout: 45_000, maxBuffer: 5_000_000 });
-        return stdout;
-      } finally {
-        rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-      }
-    },
-    close: () => server.close(),
-  };
+  try {
+    const browser = await chromium.launch({ executablePath: binary, headless: true });
+    const url = server.resolvedUrls!.local[0]!;
+    return {
+      async render(fixture: string, width: number): Promise<string> {
+        const started = performance.now();
+        const page = await browser.newPage({ viewport: { width: Math.max(width, 900), height: 1100 }, deviceScaleFactor: 1 });
+        const errors: string[] = [];
+        const scriptError = new Promise<never>((_, reject) => {
+          page.on('pageerror', error => { errors.push(error.message); reject(error); });
+        });
+        try {
+          await Promise.race([
+            (async () => {
+              await page.goto(`${url}scripts/fixtures/${fixture}.html?width=${width}`, { timeout: Math.max(1, 45_000 - (performance.now() - started)) });
+              await page.waitForFunction(() => !!document.getElementById('checks')?.textContent?.trim(), undefined, { timeout: Math.max(1, 45_000 - (performance.now() - started)) });
+            })(),
+            scriptError,
+          ]);
+          if (errors.length) throw new Error(errors.join('\n'));
+          return await page.content();
+        } catch (cause) {
+          throw new Error(`Responsive fixture ${fixture} at ${width}px failed: ${errors.join('\n')}\n${await page.content().catch(() => '')}`, { cause });
+        } finally {
+          await page.context().close();
+        }
+      },
+      async close() {
+        try { await browser.close(); } finally { await server.close(); }
+      },
+    };
+  } catch (error) {
+    await server.close();
+    throw error;
+  }
 }

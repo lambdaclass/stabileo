@@ -5,7 +5,7 @@ import { COMPLETE as hu } from './locales/complete/hu';
 
 export type Locale = 'es' | 'en' | 'pt' | 'de' | 'fr' | 'tr' | 'hu';
 
-const research = (import.meta.env?.VITE_RESEARCH ?? process.env.VITE_RESEARCH) === '1';
+const research = (import.meta.env?.VITE_RESEARCH ?? (typeof process === 'undefined' ? undefined : process.env.VITE_RESEARCH)) === '1';
 
 const COMPLETE: Partial<Record<Locale, boolean>> = { de, fr, tr, ...(research ? { hu } : {}) };
 
