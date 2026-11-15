@@ -1,5 +1,6 @@
 import { roofMembers, type WindModel } from './wind-cases';
 import { beamLike, type GravityLayout } from './plan-gravity';
+import { UNBALANCED_WIDTH_LIMIT } from '../../codes/cirsoc104/snow';
 
 type P2 = [number, number];
 type Point = { x: number; y: number; z?: number };
@@ -188,6 +189,18 @@ export interface SnowPlane {
 
 const sameSnowPoint = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y, Z(a) - Z(b)) <= 1e-8;
 
+export interface RoofGeometry {
+  axis: 'x' | 'y';
+  ridge: number;
+  W: number;
+  slopeDeg: number;
+  direction: P2;
+  transverse: P2;
+  origin: { x: number; y: number };
+}
+
+type SnowRun = { direction: P2; length: number; a: Point; b: Point; members: Set<number> };
+
 type SnowMember = { a: Point; b: Point; dx: number; dy: number; lh: number };
 
 function collinearSnowMembers<M extends SnowMember>(members: M[], m: M, gradient: P2): M[] {
@@ -218,15 +231,18 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
   });
   const targets = roof.filter(m => targetIds.has(m.id));
   const remaining = new Set(targets);
-  const runs: Array<{ direction: P2; length: number }> = [];
+  const runs: SnowRun[] = [];
   for (const m of targets) {
     if (!remaining.has(m)) continue;
     const gradient: P2 = [m.dz * m.dx / m.lh ** 2, m.dz * m.dy / m.lh ** 2];
     const members = connectedSnowMembers(m, collinearSnowMembers(targets, m, gradient));
     for (const member of members) remaining.delete(member);
     const direction: P2 = [m.dx / m.lh, m.dy / m.lh];
-    const coordinates = members.flatMap(r => [r.a, r.b]).map(p => snowCoordinate([p.x, p.y], [m.a.x, m.a.y], direction));
-    runs.push({ direction, length: Math.max(...coordinates) - Math.min(...coordinates) });
+    const coordinate = (p: Point) => snowCoordinate([p.x, p.y], [m.a.x, m.a.y], direction);
+    const points = members.flatMap(r => [r.a, r.b]);
+    const a = points.reduce((a, b) => coordinate(a) <= coordinate(b) ? a : b);
+    const b = points.reduce((a, b) => coordinate(a) >= coordinate(b) ? a : b);
+    runs.push({ direction, length: coordinate(b) - coordinate(a), a, b, members: new Set(members.map(r => r.id)) });
   }
   const parent = roof.map((_, k) => k);
   const root = (k: number): number => parent[k] === k ? k : (parent[k] = root(parent[k]!));
@@ -456,7 +472,47 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     }
     return true;
   };
-  return { planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets, runs, panel, resolves };
+  const profilePoints = runs.flatMap(r => [r.a, r.b]).filter((p, k, all) => !all.slice(0, k).some(q => sameSnowPoint(p, q)));
+  const runAtMember = new Map(runs.flatMap(r => [...r.members].map(id => [id, r] as const)));
+  const geometry = (() : RoofGeometry | null => {
+    if (!targets.length) return null;
+    const longest = runs.reduce((best, run) => run.length - best.length > 32 * Number.EPSILON * Math.max(run.length, best.length) ? run : best);
+    const alignment = (p: SnowPlane) => (-longest.direction[1] * p.gradient[0] + longest.direction[0] * p.gradient[1]) / Math.hypot(...p.gradient);
+    const primary = targetPlanes.reduce<SnowPlane | undefined>((best, p) => !best || alignment(p) - alignment(best) > 32 * Number.EPSILON ? p : best, undefined);
+    const norm = primary ? Math.hypot(...primary.gradient) : 1;
+    const direction: P2 = primary ? [primary.gradient[0] / norm, primary.gradient[1] / norm] : [-longest.direction[1], longest.direction[0]];
+    const origin = targets[0]!.a;
+    const coord = (p: Point) => snowCoordinate([p.x, p.y], [origin.x, origin.y], direction);
+    const zMax = Math.max(...profilePoints.map(Z));
+    const top = profilePoints.filter(p => Z(p) === zMax);
+    const ridge = (Math.min(...top.map(coord)) + Math.max(...top.map(coord))) / 2;
+    const low = profilePoints.reduce((a, b) => coord(a) <= coord(b) ? a : b);
+    const width = Math.max(...profilePoints.map(p => snowCoordinate([p.x, p.y], [low.x, low.y], direction, [0, 2 * UNBALANCED_WIDTH_LIMIT]))) / 2;
+    const sloped = runs.filter(r => Math.abs(Z(r.b) - Z(r.a)) > 1e-8 * r.length);
+    const weight = sloped.reduce((s, r) => s + r.length, 0);
+    const slopeDeg = weight ? sloped.reduce((s, r) => s + atMember.get([...r.members][0]!)!.slope * r.length, 0) / weight
+      : targetPlanes.length && only ? targetPlanes.reduce((s, p) => s + p.slope, 0) / targetPlanes.length : 0;
+    const W = primary ? Math.max(...targetPlanes.map(p => p.W)) : width;
+    return { axis: Math.abs(direction[0]) >= Math.abs(direction[1]) ? 'x' : 'y', direction, transverse: transverse(direction), origin, ridge, W, slopeDeg };
+  })();
+  const roofCoordinates = geometry ? profilePoints.map(p => snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.direction)) : [];
+  const transverseCoordinates = geometry ? profilePoints.map(p => snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.transverse)) : [];
+  const roofPoint = (p: Point) => geometry ? {
+    x: snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.direction, roofCoordinates),
+    y: snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.transverse, transverseCoordinates), z: p.z,
+  } : p;
+  const memberSides = new Map(targets.map(m => {
+    const run = runAtMember.get(m.id)!;
+    return [m.id, geometry ? snowCoordinate([(run.a.x + run.b.x) / 2, (run.a.y + run.b.y) / 2], [geometry.origin.x, geometry.origin.y], geometry.direction, [geometry.ridge]) - geometry.ridge : 0];
+  }));
+  const memberValues = (id: number, field: (p: Point) => number, point?: Point): [number, number] => {
+    const run = runAtMember.get(id), m = targets.find(m => m.id === id);
+    if (!run || !m) return [0, 0];
+    const a = field(run.a), b = field(run.b);
+    const at = (p: Point) => a + (b - a) * snowCoordinate([p.x, p.y], [run.a.x, run.a.y], run.direction, [0, run.length]) / run.length;
+    return point ? [at(point), at(point)] : [at(m.a), at(m.b)];
+  };
+  return { geometry, roofPoint, profilePoints, memberSides, memberValues, planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets, runs, panel, resolves };
 }
 
 export function snowRoofSurfaces(model: WindModel, layout?: GravityLayout, surfaces = roofSurfaceModel(model)) {

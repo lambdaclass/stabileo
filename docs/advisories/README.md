@@ -100,6 +100,7 @@ snow loads before re-solving.
 | [SA-2026-066](SA-2026-066-cirsoc201-transverse-cm.md) | CIRSOC 201 Cm gave end-moment credit with transverse load, understating magnified moments in slender concrete columns and walls | High | [#2089](https://github.com/lambdaclass/stabileo/issues/2089) | [#2080](https://github.com/lambdaclass/stabileo/pull/2080) | 0.6.1 | Published 2026-11-15; drafted 2026-11-14 |
 | [SA-2026-067](SA-2026-067-snow-roof-rotation.md) | Snow loads use roof axes under plan rotation | High | [#2093](https://github.com/lambdaclass/stabileo/issues/2093) | [#2095](https://github.com/lambdaclass/stabileo/pull/2095) | 0.6.1 | Published 2026-11-15; drafted 2026-11-14 |
 | [SA-2026-068](SA-2026-068-provided-torsion-stirrups.md) | Concrete torsion accepted inadequate designed stirrups | High | [#2141](https://github.com/lambdaclass/stabileo/issues/2141) | [#2080](https://github.com/lambdaclass/stabileo/pull/2080) | 0.6.1 | Published 2026-11-15 |
+| [SA-2026-072](SA-2026-072-snow-ridge-subdivision.md) | Unequal roof subdivision moved the inferred snow ridge and changed generated loads | High | [#2144](https://github.com/lambdaclass/stabileo/issues/2144) | Fixed in the #2144 pull request | Pending merge and release | Draft 2026-11-15 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

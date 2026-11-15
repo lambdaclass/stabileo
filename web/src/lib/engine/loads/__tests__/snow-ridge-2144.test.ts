@@ -5,19 +5,17 @@ import { assertSnowRemeshInvariant, remeshSnowRoof } from './snow-remesh-invaria
 import { gravityLayout } from '../plan-gravity';
 import { snowLoadCases, type SnowCasesInput } from '../snow-loads';
 import { planSnow } from '../load-plan-snow';
-import { buildLoadPlan, type PlanSink } from '../load-plan';
+import { buildLoadPlan, type PlanSink, type LoadModelData } from '../load-plan';
 
 type Mode = 'projected' | 'width' | 'panels';
-const knownWrong = 'known wrong result: #2144';
-const regression = process.env.RUN_KNOWN_WRONG === '2144' ? it : it.skip;
 
 function flat(W = 2, angle = 0) {
   return transform(mesh([[[0, -W, 3], [16, -W, 3], [16, W, 3], [0, W, 3]]]), angle, 0);
 }
 
-function generator(mode: Mode, config: SnowCasesInput['snow'], polygon?: Array<[number, number]>) {
-  return (model: SnowCasesInput['model']) => {
-    const layout = mode === 'projected' ? undefined : gravityLayout(model, { mode, tributaryWidth: 1 });
+function generator(mode: Mode, config: SnowCasesInput['snow'], polygon?: Array<[number, number]>, loadEveryPanel = false) {
+  return (model: LoadModelData) => {
+    const layout = mode === 'projected' ? undefined : gravityLayout(model, { mode, tributaryWidth: 1, loadEveryPanel });
     if (mode === 'panels' && layout && polygon) {
       layout.panels = [{ polygon, z: 3, roof: true }];
       layout.widthMembers = []; layout.points = [];
@@ -40,7 +38,7 @@ function generator(mode: Mode, config: SnowCasesInput['snow'], polygon?: Array<[
 }
 
 for (const mode of ['projected', 'width', 'panels'] as const) for (const angle of [0, 0.37, Math.PI / 2, 2.1]) {
-  regression(`${knownWrong} asymmetric eave subdivision preserves short-edge load ${mode} ${angle}`, () => {
+  it(`#2144 asymmetric eave subdivision preserves short-edge load ${mode} ${angle}`, () => {
     const model = flat(2, angle), polygon = [...model.nodes.values()].map(n => [n.x, n.y] as [number, number]);
     const generate = generator(mode, { ...snow, roofSlopeDeg: 20 }, polygon);
     const base = generate(model);
@@ -57,7 +55,7 @@ for (const mode of ['projected', 'width', 'panels'] as const) for (const angle o
 }
 
 for (const mode of ['projected', 'width', 'panels'] as const) for (const W of [6 - 1e-12, 6, 6 + 1e-12]) {
-  regression(`${knownWrong} ridge preserves both sides of width limit ${mode} ${W}`, () => {
+  it(`#2144 ridge preserves both sides of width limit ${mode} ${W}`, () => {
     const model = flat(W), polygon = [...model.nodes.values()].map(n => [n.x, n.y] as [number, number]);
     const { out } = assertSnowRemeshInvariant(model, new Map([[1, 8]]), generator(mode, { ...snow, roofSlopeDeg: 20 }, polygon));
     const ps = 0.7 * 50 / 65, windward = W <= 6 ? 0 : 0.3 * ps, leeward = (W <= 6 ? 1.5 : 1.2 * 1.5) * ps;
@@ -76,7 +74,7 @@ for (const mode of ['projected', 'width', 'panels'] as const) {
 }
 
 for (const kind of ['mono', 'gable', 'curved', 'multiple', 'dome'] as const) for (const override of [false, true]) for (const mode of ['projected', 'width', 'panels'] as const) {
-  regression(`${knownWrong} shared geometry and slope ${kind} ${override} ${mode}`, () => {
+  it(`#2144 shared geometry and slope ${kind} ${override} ${mode}`, () => {
     const model = flat(), generate = generator(mode, { ...snow, roofKind: kind, ...(override ? { roofSlopeDeg: 20 } : {}) }, [...model.nodes.values()].map(n => [n.x, n.y]));
     for (const edge of model.elements.keys()) assertSnowRemeshInvariant(model, new Map([[edge, 8]]), generate);
   });
@@ -96,7 +94,7 @@ for (const kind of ['mono', 'gable'] as const) for (const angle of [0, 0.37, Mat
 }
 
 for (const mode of ['width', 'panels'] as const) {
-  regression(`${knownWrong} complete load planner preserves asymmetric ridge ${mode}`, () => {
+  it(`#2144 complete load planner preserves asymmetric ridge ${mode}`, () => {
     const config = { ...snow, roofSlopeDeg: 20, enabled: true, source: 'site' as const };
     const model = remeshSnowRoof(flat(), new Map([[1, 8]])).model;
     const plan = buildLoadPlan({ regulations: regulations(), model, dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, gravity: { mode }, tributaryWidth: 1, snow: config });
@@ -108,16 +106,64 @@ for (const mode of ['width', 'panels'] as const) {
   });
 }
 
-for (const kind of ['curved', 'multiple', 'dome'] as const) for (const angle of [0, 0.37]) {
-  regression(`${knownWrong} geometric shaped roof ${kind} ${angle}`, () => {
+for (const kind of ['curved', 'multiple', 'dome'] as const) for (const angle of [0, 0.37]) for (const mode of ['projected', 'width', 'panels'] as const) for (const override of [false, true]) {
+  it(`#2144 geometric shaped roof ${kind} ${angle} ${mode} ${override}`, () => {
     const profile = kind === 'multiple' ? [[0, 3], [2, 4], [4, 3], [6, 4], [8, 3]] : [[0, 3], [2, 4], [4, 4.5], [6, 4], [8, 3]];
     const rings = profile.slice(1).map(([y, z], k) => [[0, profile[k]![0]!, profile[k]![1]!], [16, profile[k]![0]!, profile[k]![1]!], [16, y!, z!], [0, y!, z!]]);
-    const model = transform(mesh(rings), angle, 0), generate = generator('width', { ...snow, roofKind: kind });
+    const model = transform(mesh(rings), angle, 0), generate = generator(mode, { ...snow, roofKind: kind, ...(override ? { roofSlopeDeg: 20 } : {}) });
     for (const edge of model.elements.keys()) assertSnowRemeshInvariant(model, new Map([[edge, 8]]), generate);
+    assertSnowRemeshInvariant(model, new Map([...model.elements.keys()].map(id => [id, 3])), generate);
+    assertSnowRemeshInvariant(model, new Map([...model.elements.keys()].map(id => [id, 2 + id % 4])), generate);
   });
 }
 
-regression(`${knownWrong} near-top subdivision cannot move a geometric ridge`, () => {
+it(`#2144 near-top subdivision cannot move a geometric ridge`, () => {
   const model = mesh([[[0, 0, 3], [16, 0, 3], [16, 4, 4], [0, 4, 4]]]);
   assertSnowRemeshInvariant(model, new Map([[2, 128]]), generator('width', { ...snow, roofKind: 'mono' }));
+});
+
+function facetedDome(mode: Mode) {
+  const rim = [[0, 0, 3], [8, 0, 3], [8, 8, 3], [0, 8, 3]], crown = [4, 4, 5];
+  const model = mesh(rim.map((p, k) => [p, rim[(k + 1) % rim.length]!, crown]));
+  const generate = generator(mode, { ...snow, roofKind: 'dome' }, undefined, true);
+  const out = generate(model);
+  const slope = Math.atan(2 / Math.hypot(4, 4)) * 180 / Math.PI;
+  expect(pressure(out.cases[0]!.distributed, 1, 1)).toBeCloseTo(0.7 * (70 - slope) / 65, 10);
+  if (mode === 'panels') {
+    const refined = generate(remeshSnowRoof(model, new Map([[2, 8]])).model);
+    expect(pressure(refined.cases[0]!.distributed, 1, 1)).toBeCloseTo(0.7 * (70 - slope) / 65, 10);
+  }
+  for (const edge of model.elements.keys()) assertSnowRemeshInvariant(model, new Map([[edge, 8]]), generate);
+}
+
+for (const mode of ['projected', 'width', 'panels'] as const) {
+  it(`#2144 selected roof uses the same physical ridge ${mode}`, () => {
+    const model = flat(), polygon = [...model.nodes.values()].map(n => [n.x, n.y] as [number, number]);
+    const generate = (m: LoadModelData) => generator(mode, { ...snow, roofSlopeDeg: 20, roof: [...m.elements.keys()] }, polygon)(m);
+    assertSnowRemeshInvariant(model, new Map([[1, 8], [3, 3], [2, 4]]), generate);
+  });
+}
+
+for (const mode of ['projected', 'width'] as const) {
+  it(`#2144 faceted dome retains its geometry-derived pressure ${mode}`, () => facetedDome(mode));
+}
+
+if (process.env.RUN_KNOWN_WRONG === '2172') {
+  it('known wrong result: #2172 faceted dome retains its geometry-derived pressure panels', () => facetedDome('panels'));
+} else {
+  it.skip('known wrong result: #2172 faceted dome retains its geometry-derived pressure panels', () => facetedDome('panels'));
+}
+
+it('#2144 nodal tributaries receive the same ridge-crossing pressure', () => {
+  const model = flat();
+  const generate = (m: LoadModelData) => {
+    const layout = gravityLayout(m, { mode: 'width', tributaryWidth: 1 });
+    layout.widthMembers = []; layout.pieces = [];
+    layout.points = [{ elementId: 2, nodeId: m.elements.get(2)!.nodeI, panel: 0, roof: true, w: 1 }];
+    const out = snowLoadCases({ model: m, layout, snow: { ...snow, roofSlopeDeg: 20 }, tributaryWidth: 1 })!;
+    expect(out.result.refused).toBeUndefined();
+    expect(out.cases[1]!.nodal[0]!.fz).toBeCloseTo(-1.5 * 0.7 * 50 / 65 / 2, 10);
+    return out;
+  };
+  assertSnowRemeshInvariant(model, new Map([[1, 8]]), generate);
 });

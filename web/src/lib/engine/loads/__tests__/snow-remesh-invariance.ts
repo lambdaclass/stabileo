@@ -1,8 +1,9 @@
 import { expect } from 'vitest';
-import type { SnowCasesInput, snowLoadCases } from '../snow-loads';
+import type { snowLoadCases } from '../snow-loads';
+import type { LoadModelData } from '../load-plan';
 import { pressure } from './snow-roof-plane-fixture';
 
-type Model = SnowCasesInput['model'];
+type Model = LoadModelData;
 type Output = NonNullable<ReturnType<typeof snowLoadCases>>;
 
 export function remeshSnowRoof(model: Model, subdivisions: ReadonlyMap<number, number>) {
@@ -32,13 +33,19 @@ export function assertSnowRemeshInvariant(model: Model, subdivisions: ReadonlyMa
   expect(out.geometry.W).toBeCloseTo(base.geometry.W, 10);
   expect(out.geometry.ridge).toBeCloseTo(base.geometry.ridge, 10);
   expect(out.geometry.slopeDeg).toBeCloseTo(base.geometry.slopeDeg, 10);
+  for (const j of [0, 1] as const) {
+    expect(out.geometry.direction[j]).toBeCloseTo(base.geometry.direction[j], 10);
+    expect(out.geometry.transverse[j]).toBeCloseTo(base.geometry.transverse[j], 10);
+  }
   expect(out.cases).toHaveLength(base.cases.length);
   for (const [k, c] of out.cases.entries()) {
     const reference = base.cases[k]!;
     expect(c.nameKey).toBe(reference.nameKey);
     expect(c.nameParams).toEqual(reference.nameParams);
     for (const s of refined.segments) for (const t of [0.125, 0.375, 0.625, 0.875]) {
-      expect(pressure(c.distributed, s.id, t * (s.to - s.from) * s.length)).toBeCloseTo(pressure(reference.distributed, s.source, (s.from + t * (s.to - s.from)) * s.length), 10);
+      const refinedLoads = c.distributed.map(d => ({ ...d, b: d.b ?? (s.to - s.from) * s.length }));
+      const baseLoads = reference.distributed.map(d => ({ ...d, b: d.b ?? s.length }));
+      expect(pressure(refinedLoads, s.id, t * (s.to - s.from) * s.length), `refinement ${JSON.stringify([...subdivisions])}, case ${k}, edge ${s.source}, segment ${s.from}, station ${t}`).toBeCloseTo(pressure(baseLoads, s.source, (s.from + t * (s.to - s.from)) * s.length), 10);
     }
     const resultant = (loads: Output['cases'][number]['nodal'], m: Model) => loads.reduce((sum, n) => {
       const p = m.nodes.get(n.nodeId)!;

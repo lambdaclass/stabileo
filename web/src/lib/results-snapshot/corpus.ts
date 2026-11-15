@@ -20,7 +20,7 @@ export interface SnapshotCase {
   /** File name in `web/results-snapshots/`, without `.json`. */
   name: string;
   /** A bundled example (`templates/fixture-index.ts`) or a committed `.ded` (path from `web/`). */
-  source: { example: string } | { ded: string } | { snowRoof: 'step' | 'rotated-step' | 'skew' | 'asymmetric' | 'concave' | 'disjoint' | 'two-pitch' | 'perpendicular' | 'hip' };
+  source: { example: string } | { ded: string } | { snowRoof: 'step' | 'rotated-step' | 'skew' | 'asymmetric' | 'concave' | 'disjoint' | 'two-pitch' | 'perpendicular' | 'hip' | 'subdivided-override' };
   /** The workspace it is opened and solved in. */
   workspace: Workspace;
   /** PRO's «Design» setting on: the CIRSOC 201 code check, the CIRSOC 301 steel check, footings. */
@@ -36,6 +36,7 @@ export interface SnapshotCase {
 const ex = (example: string) => ({ example });
 
 export const CORPUS: SnapshotCase[] = [
+  { name: 'snow-subdivided-override', source: { snowRoof: 'subdivided-override' }, workspace: '3d', group: 'loads', covers: 'Geometry-derived ridge and override pressures on an asymmetrically subdivided perimeter (#2144)' },
   { name: 'snow-perpendicular-ridges', source: { snowRoof: 'perpendicular' }, workspace: '3d', group: 'loads', covers: 'Distinct unbalanced orientations for perpendicular gables' },
   { name: 'snow-hip-facets', source: { snowRoof: 'hip' }, workspace: '3d', group: 'loads', covers: 'Bounded hip facets and their governing snow directions' },
   { name: 'snow-roof-step', source: { snowRoof: 'step' }, workspace: '3d', group: 'loads', covers: 'CIRSOC 104 low-step drift on the pitched receiving roof' },
