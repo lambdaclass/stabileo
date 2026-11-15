@@ -37,7 +37,7 @@ import { extractBeamStationBuffer3D, extractBeamStationsGrouped3D, isSolverReady
 import { autoVerifyFromResults, type AutoVerifyModelData, type AutoVerifyOptions } from './auto-verify';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
 import {
-  checkSteelInteraction, interactionRatios, steelShapeOf, verifyByFlange, withUndeclaredData, worseSteelVerification, steelParamsForDemand,
+  checkSteelInteraction, steelShapeOf, verifyFlangeCases, withUndeclaredData, worseSteelVerification, steelParamsForDemand,
   type SteelVerification, type SteelDesignParams, type TensionConnection,
 } from './codes/argentina/cirsoc301';
 import { steelNotEvaluated, steelRatio, steelResultLine, steelVerdict, worseSteel } from './codes/argentina/cirsoc301-verdict';
@@ -1033,9 +1033,10 @@ export function checkSteelMember(
    * together. Read once per value of a datum the member does not state (`withUndeclaredData`).
    */
   const checkAs = (p: SteelDesignParams): SteelVerification => {
-    const runs = concurrent.map(d => verifyByFlange({
+    const checked = verifyFlangeCases(concurrent.map(d => ({
       elementId, demand: d.section('My'), combinedShear: !flanged, params: paramsAt(p, d),
-    }, { trace: !opts.screen }));
+    })), { trace: !opts.screen });
+    const runs = checked.map(c => c.verification);
     const base = runs.reduce(worseSteelVerification);
     const location = (k: number) => ({ comboId: concurrent[k]!.comboId, comboName: concurrent[k]!.comboName, t: concurrent[k]!.stationT });
     const governingCombos: NonNullable<SteelVerification['governingCombos']> = {};
@@ -1063,7 +1064,7 @@ export function checkSteelMember(
     const combined = { ...base, tension: pick('tension'), compression: pick('compression'), flexureZ: pick('flexureZ'),
       flexureY: pick('flexureY'), shear, shearWeak: pick('shearWeak'), governingCombos,
       Muz: demand.MuStrong, Muy: demand.MuWeak, Vu: shear.Vu };
-    return withConcurrentInteraction(combined, concurrent, d => paramsAt(p, d));
+    return withConcurrentInteraction(combined, concurrent, d => paramsAt(p, d), checked.map(c => c.interactionRatio));
   };
   const v = withUndeclaredData(sdp, checkAs);
   if (opts.screen) {
@@ -1104,14 +1105,11 @@ function steelConcurrentDemands(demand: SteelMemberDemand): readonly ConcurrentD
  * concurrent tuple replaces the interaction built from the maxima, and the combination and
  * station that govern it are recorded with the others.
  */
-function withConcurrentInteraction(v: SteelVerification, demands: readonly ConcurrentDemand[], paramsAt: (d: ConcurrentDemand) => SteelDesignParams): SteelVerification {
+function withConcurrentInteraction(v: SteelVerification, demands: readonly ConcurrentDemand[], paramsAt: (d: ConcurrentDemand) => SteelDesignParams, ratios: readonly number[]): SteelVerification {
   const governingCombos = v.governingCombos ?? {};
   const tuples = demands.map(d => ({ N: 0 - d.forces.n, MStrong: d.forces.my, MWeak: d.forces.mz,
     comboId: d.comboId, comboName: d.comboName, t: d.stationT }));
   if (tuples.length === 0 || !v.engine.available) return { ...v, governingCombos };
-  // Every tuple's H.1 in one engine call; the governing one is then read with its calculation.
-  const ratios = interactionRatios(demands.map(d => ({ params: paramsAt(d), demand: d.section('My') })));
-  if (!ratios) return { ...v, governingCombos };
   let k = 0;
   for (let i = 1; i < ratios.length; i++) if (ratios[i]! > ratios[k]!) k = i;
   const x = tuples[k]!;

@@ -143,12 +143,12 @@ for (const reverse of [false, true]) {
   });
 }
 
-it.fails('known wrong result: #2080 concurrent steel stations use a batch whole-member check', () => {
+it('known wrong result: #2080 concurrent steel stations use a batch whole-member check', () => {
   const ds = Array.from({ length: 64 }, (_, i) => packet(-i, i + 1, i + 1));
   const calls = vi.spyOn(steelKernel, 'engineCheckMembers');
   try {
     const v = checkSteelMember(1, demand(ds, 63), section, steel, lengths)!;
     expect(v.compression!.Pu).toBe(63);
-    expect(calls.mock.calls.length).toBeLessThan(10);
+    expect(calls).toHaveBeenCalledTimes(2);
   } finally { calls.mockRestore(); }
 });

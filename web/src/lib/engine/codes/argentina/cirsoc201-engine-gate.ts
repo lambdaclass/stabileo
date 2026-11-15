@@ -181,6 +181,10 @@ export function engineRecheckElement(
     }
   }
 
+  if (v.torsion?.longitudinalProvision === 'not-checked' && rc.certified) {
+    rc.certified = { ...rc.certified, ok: false, reason: 'Longitudinal torsion reinforcement not checked' };
+  }
+
   const diags: SolverDiagnostic[] = [...(v.diagnostics ?? [])];
   if (rc.unavailable) {
     for (const k of ['flexure', 'shear', 'column', 'biaxial'] as const) {

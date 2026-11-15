@@ -21,11 +21,12 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
     expect(out.torsion!.reinforcementRatio).toBe(Math.max(...out.concurrentChecks!.map(c => c.verification.torsion!.reinforcementRatio!)));
     expect(out.governingCombos).toMatchObject({ torsionReinforcement: { comboId: 2, comboName: 'C2' } });
     for (const c of out.concurrentChecks!) {
-      expect(c.verification.torsion).toMatchObject({ AlProv: out.torsion!.AlReq });
+      expect(c.verification.torsion!.AlProv).toBe(c.verification.torsion!.neglect ? 0 : undefined);
+      expect(c.verification.torsion).toHaveProperty('longitudinalProvision', c.verification.torsion!.neglect ? 'not-required' : 'not-checked');
       if (!c.verification.torsion!.neglect) {
         expect(c.verification.torsion).toHaveProperty('AtOverSProv');
         expect(c.verification.torsion).toHaveProperty('reinforcementRatio');
-        expect(c.verification.torsion).toMatchObject({ status: 'ok' });
+        expect(c.verification.torsion).toMatchObject({ status: 'warn' });
       }
     }
   });
@@ -58,8 +59,9 @@ for (const edition of ['2005', '2025'] as const) for (const factor of [1 - 1e-8,
     const i = inputs(edition, 'My', 'beam', [[0, threshold * factor]])[0]!;
     const out = verifyConcurrentElement([i]);
     expect(out.torsion!.neglect).toBe(factor < 1);
-    expect(out.torsion).toHaveProperty('AlProv');
-    expect(out.torsion!.status).toBe('ok');
+    expect(out.torsion!.AlProv).toBe(factor < 1 ? 0 : undefined);
+    expect(out.torsion).toHaveProperty('longitudinalProvision', factor < 1 ? 'not-required' : 'not-checked');
+    expect(out.torsion!.status).toBe(factor < 1 ? 'ok' : 'warn');
   });
 }
 it('zero torsion retains the independent answer and has no torsion requirement', () => {

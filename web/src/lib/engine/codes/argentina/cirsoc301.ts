@@ -631,12 +631,12 @@ export function checkSteelShear(params: SteelDesignParams, Vu: number): SteelShe
 }
 
 /** §G.6 on the flanges of an I or a channel, for the weak-axis shear the member carries. */
-function weakShearOf(p: SteelDesignParams, VuWeak: number | undefined): SteelShearResult | undefined {
+function weakShearOf(p: SteelDesignParams, VuWeak: number | undefined, trace = true): SteelShearResult | undefined {
   const shape = steelShapeOf(p.shape);
   if (VuWeak === undefined || Math.abs(VuWeak) <= 1e-6 || (shape !== 'I' && shape !== 'U') || !(p.b > 0 && p.tf > 0)) return undefined;
   const w = weakAxisShear({ Fy: p.Fy, E: p.E, b: p.b, tf: p.tf, shape }, VuWeak);
   const status: VerifStatus = w.ratio <= 1 ? (utilizationStatus(w.ratio) === 'warn' ? 'warn' : 'ok') : 'fail';
-  return { axis: 'weak', Vu: w.Vu, phiVn: w.phiVn, Cv: w.Cv, ratio: w.ratio, status, steps: w.messages.map(renderEs), messages: w.messages, clauseRef: 'G.6' };
+  return { axis: 'weak', Vu: w.Vu, phiVn: w.phiVn, Cv: w.Cv, ratio: w.ratio, status, steps: trace ? w.messages.map(renderEs) : [], messages: trace ? w.messages : [], clauseRef: 'G.6' };
 }
 
 function interactionOf(c: EngineCheck): SteelInteractionResult {
@@ -660,6 +660,11 @@ export function checkSteelInteraction(params: SteelDesignParams, demand: Concurr
   return { equation: 'H1-1b', value: f.ratio, ...common(f) };
 }
 
+function interactionRatioOf(r: EngineMemberResult, demand: ConcurrentSectionDemand): number {
+  const x = r.interaction ?? (r.flexureWeak && Math.abs(demand.Muy) > 0 ? r.flexureWeak : r.flexureStrong);
+  return x.notEvaluated ? Infinity : x.ratio;
+}
+
 /**
  * H.1 for many demands in one engine call and without the calculation: the ratio of each, as
  * `checkSteelInteraction` reads it (the flexure ratio where H.1 does not apply; Infinity for a
@@ -678,8 +683,7 @@ export function interactionRatios(cases: ReadonlyArray<{ params: SteelDesignPara
   return cases.map((c, k) => {
     const r = byId.get(k + 1);
     if (!r) return Infinity;
-    const x = r.interaction ?? (r.flexureWeak && Math.abs(c.demand.Muy) > 0 ? r.flexureWeak : r.flexureStrong);
-    return x.notEvaluated ? Infinity : x.ratio;
+    return interactionRatioOf(r, c.demand);
   });
 }
 
@@ -729,7 +733,7 @@ export function verifySteelElement(input: ConcurrentSteelVerificationInput, opts
 }
 
 /** The member with every datum stated: once, or once per flange with its own Lb. */
-export function verifyByFlange(concurrent: ConcurrentSteelVerificationInput, opts: { trace?: boolean } = {}): SteelVerification {
+function prepareFlange(concurrent: ConcurrentSteelVerificationInput) {
   const d = concurrent.demand;
   const input: SteelVerificationInput = { elementId: concurrent.elementId, params: concurrent.params,
     Nu: d.Nu, Muz: d.signedMu,
@@ -742,19 +746,44 @@ export function verifyByFlange(concurrent: ConcurrentSteelVerificationInput, opt
   const note: EngineMessage | undefined = p.LbNeg === undefined ? undefined : { key: 'c301.flangeLb', params: {
     sign: { key: `c301.word.${sign}` }, flange: { key: `c301.word.${sign === 'positive' ? 'top' : 'bottom'}` }, Lb: fmtNum(Lb),
   } };
-  return verifyOnce(input, selected, opts, note);
+  return { input, selected, note };
 }
 
-function verifyOnce(input: SteelVerificationInput, params: SteelDesignParams, opts: { trace?: boolean }, note?: EngineMessage): SteelVerification {
-  const { elementId, Nu, Muy, Muz, Vu } = input;
-  const r = run(params, { Nu, Muz, Muy, Vu }, elementId, opts.trace ?? true);
+export function verifyFlangeCases(inputs: readonly ConcurrentSteelVerificationInput[], opts: { trace?: boolean } = {}): Array<{ verification: SteelVerification; interactionRatio: number }> {
+  const prepared = inputs.map(prepareFlange);
+  const results: Array<{ verification: SteelVerification; interactionRatio: number }> = [];
+  const chunk = 256;
+  for (let start = 0; start < prepared.length; start += chunk) {
+    const batch = prepared.slice(start, start + chunk);
+    const out = engineCheckMembers(batch.map((q, id) => engineMember(id, q.selected)), batch.map(({ input }, elementId) => ({
+      elementId, Nu: input.Nu, Muz: input.Muz, Muy: input.Muy, Vu: input.Vu,
+    })), { steps: opts.trace ?? true });
+    const complete = out?.length === batch.length && out.every((r, id) => r.elementId === id);
+    results.push(...batch.map((q, id) => ({
+      verification: verifyOnce(q.input, q.selected, opts.trace ?? true, q.note, complete ? out![id]! : null),
+      interactionRatio: complete ? interactionRatioOf(out![id]!, inputs[start + id]!.demand) : Infinity,
+    })));
+  }
+  return results;
+}
 
-  const header = [
+export function verifyByFlanges(inputs: readonly ConcurrentSteelVerificationInput[], opts: { trace?: boolean } = {}): SteelVerification[] {
+  return verifyFlangeCases(inputs, opts).map(c => c.verification);
+}
+
+export function verifyByFlange(concurrent: ConcurrentSteelVerificationInput, opts: { trace?: boolean } = {}): SteelVerification {
+  return verifyByFlanges([concurrent], opts)[0]!;
+}
+
+function verifyOnce(input: SteelVerificationInput, params: SteelDesignParams, trace: boolean, note: EngineMessage | undefined, r: EngineMemberResult | null): SteelVerification {
+  const { elementId, Nu, Muy, Muz, Vu } = input;
+
+  const header = trace ? [
     `=== Verificacion CIRSOC 301 — Elemento ${elementId} ===`,
     `Solicitaciones: Nu=${Nu.toFixed(2)} kN, Muz=${Muz.toFixed(2)} kN·m, Muy=${Muy.toFixed(2)} kN·m, Vu=${Vu.toFixed(2)} kN`,
     ...[...lengthsStep(params), ...(note ? [note] : [])].map(renderEs),
     '',
-  ];
+  ] : [];
 
   if (!r) {
     const u = unavailable();
@@ -782,22 +811,22 @@ function verifyOnce(input: SteelVerificationInput, params: SteelDesignParams, op
   const flexureY = r.flexureWeak && flexureOf(r.flexureWeak);
   const shear: SteelShearResult = { ...shearOf(r.shear), axis: 'strong' };
   const interaction = r.interaction && interactionOf(r.interaction);
-  const shearWeak = weakShearOf(params, input.VuWeak);
+  const shearWeak = weakShearOf(params, input.VuWeak, trace);
 
   const steps = [...header];
   for (const c of [tension, compression, flexureZ, flexureY, shear, shearWeak, interaction]) {
-    if (c) steps.push(...c.steps, '');
+    if (trace && c) steps.push(...c.steps, '');
   }
   // The verdict of the checks (`steelVerdict`): a proven failure, a hold where a check was refused
   // under load, else the passes by band. §G.6 (app-side) can only lower it.
   const parts = { tension, compression, flexureZ, flexureY, shear, shearWeak, interaction };
   const overallStatus = steelVerdict(parts);
   const notEvaluated = steelNotEvaluated(parts);
-  if (notEvaluated.length) {
+  if (trace && notEvaluated.length) {
     const word: Record<string, string> = { tension: 'tracción', compression: 'compresión', flexureZ: 'flexión, eje fuerte', flexureY: 'flexión, eje débil', shear: 'corte', shearWeak: 'corte, eje débil', interaction: 'interacción' };
     steps.push(`Estados límite no evaluados: ${notEvaluated.map((n) => `${n.clause || '—'} (${word[n.check]})`).join(', ')}. El miembro no se da por verificado.`);
   }
-  steps.push(steelResultLine(overallStatus));
+  if (trace) steps.push(steelResultLine(overallStatus));
 
   const diags: SolverDiagnostic[] = [];
   const checks: { name: string; result?: Common }[] = [

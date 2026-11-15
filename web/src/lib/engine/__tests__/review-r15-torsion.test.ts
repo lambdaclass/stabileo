@@ -31,7 +31,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       const v = entry === 'direct' ? verifyElement(i, fixed) : prepareElementVerification(i)(fixed);
       expect(v.torsion!.status === 'fail').toBe(factor > 1);
       expect(v.torsion!.AtOverSProv).toBeGreaterThanOrEqual(need.AtOverS);
-      expect(v.torsion!.reinforcementRatio).toBeCloseTo(Math.max(1, factor), 12);
+      expect(v.torsion!.reinforcementRatio).toBeCloseTo(Math.max(need.AtOverS / v.torsion!.AtOverSProv!, factor, ...(fixedTorsion ? [1] : [])), 12);
     });
   }
   for (const entry of ['direct', 'prepared'] as const) for (const factor of [1 - 1e-8, 1 + 1e-8]) {

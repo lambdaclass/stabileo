@@ -54,7 +54,11 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) for 
     expect(out.torsion!.AtOverS).toBe(Math.max(...requirements.map(t => t.AtOverS)));
     expect(out.torsion!.AlReq).toBe(Math.max(...requirements.map(t => t.AlReq)));
     expect(out.governingCombos).toMatchObject({ torsionReinforcement: { comboId: 2, comboName: 'C2' } });
-    expect(out.concurrentChecks!.every(c => (c.verification.torsion as unknown as { AlProv: number }).AlProv === out.torsion!.AlReq)).toBe(true);
+    for (const c of out.concurrentChecks!) {
+      expect(c.verification.torsion!.AlProv).toBe(c.verification.torsion!.neglect ? 0 : undefined);
+      expect(c.verification.torsion).toHaveProperty('longitudinalProvision', c.verification.torsion!.neglect ? 'not-required' : 'not-checked');
+      if (!c.verification.torsion!.neglect) expect(c.verification.diagnostics).toContainEqual(expect.objectContaining({ code: 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED' }));
+    }
   });
 }
 for (const nonlinear of [false, true]) it(`2D WASM nonlinear=${nonlinear} remains an answered torsion-free control`, () => {

@@ -309,7 +309,7 @@ it('a changed tuple in the same array cannot reuse a previous shared-span check'
 });
 
 for (const edition of ['2005', '2025'] as const) for (const entry of ['auto', 'unified', 'design'] as const) for (const reverse of [false, true]) {
-  it.fails(`known wrong result: #2080 shared tuples retain opposite axes ${edition} ${entry} reverse=${reverse}`, () => {
+  it(`known wrong result: #2080 shared tuples retain opposite axes ${edition} ${entry} reverse=${reverse}`, () => {
     const { model, results } = sharedBeamModel();
     model.sections.set(1, { id: 1, name: 'RC', b: 0.3, h: 0.6 });
     model.sections.set(2, { id: 2, name: 'RC reversed', b: 0.6, h: 0.3 });

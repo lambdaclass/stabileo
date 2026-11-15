@@ -141,6 +141,17 @@ function verificationForElement(value: ElementVerification, elementId: number): 
       verification: verificationForElement(c.verification, elementId) })) } : {}) };
 }
 
+function sameVerificationInput(a: ConcurrentVerificationInput, b: ConcurrentVerificationInput): boolean {
+  const { elementId: _a, demand: ad, ...ap } = a;
+  const { elementId: _b, demand: bd, ...bp } = b;
+  const same = (x: object, y: object) => {
+    const entries = Object.entries(x);
+    return entries.length === Object.keys(y).length
+      && entries.every(([key, value]) => Object.hasOwn(y, key) && Object.is(value, (y as Record<string, unknown>)[key]));
+  };
+  return same(ap, bp) && same(ad, bd);
+}
+
 // ─── Main function ──────────────────────────────────────────
 
 /**
@@ -160,7 +171,7 @@ export function autoVerifyFromResults(
   stationDemands?: Map<number, ElementDesignDemands>,
 ): AutoVerifyResult {
   const concrete: ElementVerification[] = [];
-  const shared = new WeakMap<readonly ConcurrentDemand[], Array<{ input: ConcurrentVerificationInput; tuples: readonly ConcurrentDemand[]; value: ElementVerification }>>();
+  const shared = new WeakMap<readonly ConcurrentDemand[], Array<{ inputs: readonly ConcurrentVerificationInput[]; tuples: readonly ConcurrentDemand[]; value: ElementVerification }>>();
   for (const ef of results.elementForces) {
     const elem = model.elements.get(ef.elementId);
     if (!elem || rcCheckability(elem, model) !== 'checkable' || !isDesignedMember(elem as never, model.sections as never)) continue;
@@ -192,16 +203,14 @@ export function autoVerifyFromResults(
       stirrupDia: options?.stirrupDia ?? 8, edition: options?.edition ?? CIRSOC201_DESIGN_EDITION,
       Lu: isVertical ? L : undefined, psiA: psi?.psiA, psiB: psi?.psiB,
     }));
-    const first = inputs[0]!;
     const previous = elementType === 'beam' ? shared.get(tuples)?.find(entry =>
       entry.tuples.length === tuples.length && entry.tuples.every((d, index) => d === tuples[index])
-      && Object.entries(first).every(([key, value]) => key === 'elementId' || key === 'demand'
-        || Object.is(value, entry.input[key as keyof ConcurrentVerificationInput]))) : undefined;
+      && entry.inputs.length === inputs.length && inputs.every((input, index) => sameVerificationInput(input, entry.inputs[index]!))) : undefined;
     const v = previous ? verificationForElement(previous.value, ef.elementId) : verifyConcurrentElement(inputs);
     if (!previous && elementType === 'beam' && v.engineRecheck?.certified?.ok
       && !v.engineRecheck.unavailable && v.engineRecheck.disagreements.length === 0) {
       const entries = shared.get(tuples) ?? [];
-      entries.push({ input: first, tuples: [...tuples], value: v });
+      entries.push({ inputs, tuples: [...tuples], value: v });
       shared.set(tuples, entries);
     }
     v.flexureAxis = axis;

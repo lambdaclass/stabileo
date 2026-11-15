@@ -144,6 +144,7 @@ export interface TorsionResult {
   AlReq: number;        // required longitudinal steel for torsion (cm²)
   AtOverSProv?: number;
   AlProv?: number;
+  longitudinalProvision?: 'not-checked' | 'checked' | 'not-required';
   reinforcementRatio?: number;
   spacingMax?: number;
   neglect: boolean;     // if Tu < φ·Tcr/4 → torsion can be neglected
@@ -1311,21 +1312,24 @@ export function sharedTorsionReinforcement(params: ConcreteDesignParams, results
       spacing = Math.min(spacing, Math.max(0.05, Math.floor(limit * 40) / 40));
     }
   }
-  return { shear: { spacing, legs }, torsion: { AlProv: requirements.AlReq }, requirements };
+  return { shear: { spacing, legs }, requirements };
 }
 
-function checkProvidedTorsion(params: ConcreteDesignParams, t: TorsionResult, shears: readonly ShearResult[], AlProv: number): TorsionResult {
+function checkProvidedTorsion(params: ConcreteDesignParams, t: TorsionResult, shears: readonly ShearResult[], AlProv: number | undefined): TorsionResult {
   const AtOverSProv = Math.min(...shears.map(s => {
     const provision = torsionStirrupProvision(params, s);
     return Math.max(0, Math.min(provision.outerLegProvided * 1e4,
       (provision.transverseProvided * 1e4 - (s.AvOverSReq ?? s.AvOverS)) / 2));
   }));
   const ratio = (required: number, provided: number) => required === 0 ? 0 : provided > 0 ? required / provided : Infinity;
-  const reinforcementRatio = t.neglect ? 0 : Math.max(ratio(t.AtOverS, AtOverSProv), ratio(t.AlReq, AlProv),
+  const reinforcementRatio = t.neglect ? 0 : Math.max(ratio(t.AtOverS, AtOverSProv), (AlProv === undefined ? 0 : ratio(t.AlReq, AlProv)),
     ...shears.map(s => s.spacing / t.spacingMax!));
-  return { ...t, AtOverSProv, AlProv, reinforcementRatio,
-    status: !(reinforcementRatio <= 1) ? 'fail' : t.status,
-    steps: [...t.steps, `At/s,prov = ${AtOverSProv.toFixed(2)} cm²/m (descontando corte), Al,prov = ${AlProv.toFixed(2)} cm²`,
+  if (t.neglect && AlProv === undefined) AlProv = 0;
+  const longitudinalProvision = t.neglect ? 'not-required' : AlProv === undefined ? 'not-checked' : 'checked';
+  return { ...t, AtOverSProv, AlProv, longitudinalProvision, reinforcementRatio,
+    status: !(reinforcementRatio <= 1) ? 'fail' : longitudinalProvision === 'not-checked' && t.status === 'ok' ? 'warn' : t.status,
+    steps: [...t.steps, `At/s,prov = ${AtOverSProv.toFixed(2)} cm²/m (descontando corte)`,
+      ...(AlProv === undefined ? t.neglect ? [] : ['Armadura longitudinal por torsión no verificada: no se ha declarado Al,prov.'] : [`Al,prov = ${AlProv.toFixed(2)} cm²`]),
       `Armadura de torsión y separación: demanda/provisión = ${reinforcementRatio.toFixed(3)}`] };
 }
 
@@ -1414,7 +1418,7 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
     if (input.Tu && Math.abs(input.Tu) > 0.001) {
       torsionResult = checkTorsion(params, concurrent.demand, edition);
       torsionResult = checkProvidedTorsion(params, torsionResult,
-        [shear, ...(shearSecondary ? [shearSecondary] : [])], fixed?.torsion?.AlProv ?? torsionResult.AlReq);
+        [shear, ...(shearSecondary ? [shearSecondary] : [])], fixed?.torsion?.AlProv);
     }
 
     // Overall status
@@ -1452,6 +1456,11 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
     }
 
     if (torsionResult && !torsionResult.neglect) {
+      if (torsionResult.longitudinalProvision === 'not-checked') {
+        diags.push({ severity: 'warning', code: 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED',
+          message: 'Armadura longitudinal por torsión no verificada: no se ha declarado Al,prov.',
+          source: 'verification', elementIds: [input.elementId] });
+      }
       if (torsionResult.status === 'fail') {
         diags.push({ severity: 'error', code: 'VERIF_FAIL_TORSION', message: 'diag.verifFailTorsion', source: 'verification', elementIds: [input.elementId], details: { ratio: torsionResult.ratio, Tu: torsionResult.Tu } });
       } else if (torsionResult.status === 'warn') {

@@ -129,7 +129,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
 
     if (v.torsion && !v.torsion.neglect) {
       checks.push({
-        name: 'Torsion',
+        name: v.torsion.longitudinalProvision === 'not-checked' ? 'Torsion (longitudinal reinforcement not checked)' : 'Torsion',
         demand: Math.abs(v.torsion.Tu),
         capacity: v.torsion.phiTn,
         ratio: v.torsion.ratio,
@@ -162,7 +162,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
       codeName: 'CIRSOC 201',
       governingCheck: governing.name,
       utilization: governing.ratio,
-      status: v.overallStatus === 'ok' && checks.some(c => c.status === 'warn') ? 'warn' : v.overallStatus as CheckStatus,
+      status: v.overallStatus !== 'fail' && v.torsion?.longitudinalProvision === 'not-checked' ? 'held' as const : v.overallStatus === 'ok' && checks.some(c => c.status === 'warn') ? 'warn' : v.overallStatus as CheckStatus,
       comboName: governing.comboName,
       checks,
     };

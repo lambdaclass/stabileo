@@ -15,9 +15,9 @@ export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationI
   const maxCompression = preliminary.reduce((a, b) => (b.flexure.AsComp ?? 0) > (a.flexure.AsComp ?? 0) ? b : a).flexure;
   const flexure = { ...maxFlexure, AsComp: maxCompression.AsComp, barCountComp: maxCompression.barCountComp,
     barDiaComp: maxCompression.barDiaComp, barsComp: maxCompression.barsComp, isDoublyReinforced: maxCompression.isDoublyReinforced };
-  const { shear, torsion, requirements } = sharedTorsionReinforcement(params, preliminary);
+  const { shear, requirements } = sharedTorsionReinforcement(params, preliminary);
   const checks = inputs.map((i, index) => {
-    const v = prepared[index]!({ column: fixedColumn, flexure, shear, torsion });
+    const v = prepared[index]!({ column: fixedColumn, flexure, shear });
     const d = verificationCase(i);
     return { demand: i.demand.source, verification: engineRecheckElement(v, { edition: i.edition, stirrupDia: i.stirrupDia, NuShear: d.Nu }) };
   });
@@ -43,6 +43,7 @@ export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationI
   const at = (x: typeof checks[number]): DemandLocation => ({ comboId: x.demand.comboId, comboName: x.demand.comboName, stationT: x.demand.stationT, stationX: x.demand.stationX });
   const out: ElementVerification = { ...f.verification, flexure: f.verification.flexure, shear: s.verification.shear,
     shearSecondary: ss?.verification.shearSecondary, column: c?.verification.column, biaxial: b?.verification.biaxial, torsion: t?.verification.torsion && { ...t.verification.torsion,
+      ratio: Math.max(...checks.map(c => c.verification.torsion?.ratio ?? 0)),
       AtOverS: requirements.AtOverS, AlReq: requirements.AlReq, neglect: requirements.index < 0,
       AtOverSProv: torsionSteel?.AtOverSProv ?? t.verification.torsion.AtOverSProv,
       reinforcementRatio: Math.max(...checks.map(c => c.verification.torsion?.reinforcementRatio ?? 0)),

@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { normalizeCirsoc201 } from '../design-check-results';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { checkTorsion, verifyElement, prepareElementVerification } from '../codes/argentina/cirsoc201';
@@ -10,7 +11,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       t: 0, x: 0, n: 0, my: 20, mz: 20, vy: 0, vz: 0, torsion: torque,
     } }])[0]!.section(axis) });
   for (const entry of ['direct', 'prepared', 'concurrent'] as const) {
-    it.fails(`known wrong result: #2080 missing longitudinal provision is not checked ${edition} ${axis} ${elementType} ${entry}`, () => {
+    it(`known wrong result: #2080 missing longitudinal provision is not checked ${edition} ${axis} ${elementType} ${entry}`, () => {
       const i = input(6);
       const fixed = { shear: { spacing: 0.05, legs: 2 } };
       const v = entry === 'direct' ? verifyElement(i, fixed) : entry === 'prepared' ? prepareElementVerification(i)(fixed) : verifyConcurrentElement([i]);
@@ -19,6 +20,8 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       expect(v.torsion).toHaveProperty('longitudinalProvision', 'not-checked');
       expect(v.torsion!.status).toBe('warn');
       expect(v.overallStatus).not.toBe('ok');
+      expect(normalizeCirsoc201([v], new Map())[0]!.status).toBe('held');
+      if (entry === 'concurrent' && elementType === 'beam') expect(v.engineRecheck!.certified!.ok).toBe(false);
       expect(v.torsion!.steps.join(' ')).toContain('longitudinal por torsión no verificada');
       expect(v.diagnostics).toContainEqual(expect.objectContaining({ code: 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED' }));
     });

@@ -35,16 +35,22 @@ beforeAll(async () => {
   expect(wasmSolver.isSolverReady(), 'real WASM solver required').toBe(true);
 });
 
+let comparedFixtureRuns = 0;
 beforeEach(() => {
+  comparedFixtureRuns = 0;
   const original = autoVerification.autoVerifyFromResults;
   vi.spyOn(autoVerification, 'autoVerifyFromResults').mockImplementation((results, model, governing, options, demands) => {
+    comparedFixtureRuns++;
     const cached = original(results, model, governing, options, demands);
     const uncached = results.elementForces.flatMap(ef => original({ ...results, elementForces: [ef] }, model, governing, options, demands).concrete);
     expect(cached.concrete).toEqual(uncached);
     return cached;
   });
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  expect(comparedFixtureRuns).toBeGreaterThan(0);
+});
 
 const grid: StructuralGrid = {
   axes: [
