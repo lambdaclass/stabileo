@@ -5,6 +5,7 @@ import { ConcurrentDemand } from '../concurrent-demand';
 import { normalizeCirsoc201 } from '../design-check-results';
 import { autoVerifyFromResults } from '../auto-verify';
 import * as concurrent from '../concurrent-verification';
+import * as gate from '../codes/argentina/cirsoc201-engine-gate';
 import { extractGoverningDemands } from '../station-design-forces';
 import { solve, solve3D, solvePDelta, solvePDelta3D } from '../wasm-solver';
 import type { ElementForces, SolverInput } from '../types';
@@ -31,7 +32,7 @@ it('known wrong result: #2080 identical complete basis inputs cross WASM once', 
 });
 
 for (const torque of [0, 6]) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const edition of ['2005', '2025'] as const) for (const entry of ['auto', 'unified', 'design'] as const) {
-  it(`known wrong result: #2080 held span checks reuse complete inputs ${spatial} ${nonlinear} ${edition} ${entry} torque=${torque}`, () => {
+  (torque === 0 ? it : it.fails)(`known wrong result: #2080 held span checks reuse complete inputs ${spatial} ${nonlinear} ${edition} ${entry} torque=${torque}`, () => {
     const model = {
       nodes: new Map([1, 2, 3].map(id => [id, { id, x: (id - 1) * 0.4, y: 0, z: 0 }])),
       elements: new Map([1, 2].map(id => [id, { id, nodeI: id, nodeJ: id + 1, type: 'frame' as const, sectionId: 1, materialId: 1 }])),
@@ -73,9 +74,19 @@ for (const torque of [0, 6]) for (const spatial of [false, true]) for (const non
     const run = (elementForces: typeof results.elementForces) => entry === 'auto' ? autoVerifyFromResults({ ...results, elementForces }, model, null, { edition }, demands).concrete
       : entry === 'unified' ? runUnifiedVerification({ ...results, elementForces }, model, null, demands, { edition })
         : runCirsocDesign({ ...results, elementForces }, model, demands, new Map(), null, { edition }).concrete;
+    const originalRecheck = gate.engineRecheckElement;
+    const recheck = vi.spyOn(gate, 'engineRecheckElement').mockImplementation((...args) => {
+      const value = originalRecheck(...args);
+      if (torque !== 0 && value.engineRecheck.certified) value.engineRecheck.certified.reason = 'Unchecked provision display text';
+      return value;
+    });
     const expected = results.elementForces.flatMap(ef => run([ef]));
     expect(expected.every(v => torque === 0 ? v.torsion === undefined : v.torsion?.longitudinalProvision === 'not-checked')).toBe(true);
-    expect(expected.every(v => torque === 0 ? v.engineRecheck?.certified?.ok === true : v.engineRecheck?.certified?.reason === 'Longitudinal torsion reinforcement not checked')).toBe(true);
+    expect(expected.every(v => torque === 0 ? v.engineRecheck?.certified?.ok === true : v.engineRecheck?.certified?.code === 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED')).toBe(true);
+    for (const value of expected) for (const check of value.concurrentChecks ?? []) {
+      expect(check.verification.engineRecheck?.certified?.code).toBe(torque === 0 ? undefined : 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED');
+    }
+    recheck.mockClear();
     let stationCopies = 0;
     const original = concurrent.verifyConcurrentElement;
     const verify = vi.spyOn(concurrent, 'verifyConcurrentElement').mockImplementation(inputs => {
@@ -94,6 +105,7 @@ for (const torque of [0, 6]) for (const spatial of [false, true]) for (const non
     const sections = vi.spyOn(ConcurrentDemand.prototype, 'section');
     const actual = run(results.elementForces);
     expect(verify).toHaveBeenCalledTimes(1);
+    expect(recheck).toHaveBeenCalledTimes(demand.concurrent!.length);
     expect(sections).toHaveBeenCalledTimes(demand.concurrent!.length);
     expect(clone.mock.calls.filter(([v]) => v && typeof v === 'object' && 'flexure' in v)).toHaveLength(0);
     normalizeCirsoc201(actual, new Map());

@@ -58,18 +58,61 @@ it('repeated station checks own their steps before a sibling is read', () => {
   expect(result.concurrentChecks![1]!.verification.flexure.steps).toEqual(expected);
 });
 
-it('refused certificates are retried for repeated station inputs', async () => {
+for (const sameText of [false, true]) (sameText ? it.fails : it)(`known wrong result: #2080 refused certificates retry without a hold code ${sameText}`, async () => {
   const gate = await import('../codes/argentina/cirsoc201-engine-gate');
   const original = gate.engineRecheckElement;
   let calls = 0;
   const check = vi.spyOn(gate, 'engineRecheckElement').mockImplementation((...args) => {
     const value = original(...args);
-    value.engineRecheck.certified = { ok: false, lower: 0, upper: Infinity, reason: `retry ${++calls}` };
+    calls++;
+    value.engineRecheck.certified = { ok: false, lower: 0, upper: Infinity,
+      reason: sameText ? 'Longitudinal torsion reinforcement not checked' : `retry ${calls}` };
     return value;
   });
   const demand = ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'C1', forces: { t: 0, x: 0, n: 0, my: 20, mz: 0, vy: 0, vz: 1, torsion: 0 } }])[0]!.section('My');
   const input: ConcurrentVerificationInput = { elementId: 1, elementType: 'beam', demand, b: 0.4, h: 0.4, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 };
   const result = verifyConcurrentElement([input, input]);
   expect(check).toHaveBeenCalledTimes(2);
-  expect(result.concurrentChecks!.map(c => c.verification.engineRecheck!.certified!.reason)).toEqual(['retry 1', 'retry 2']);
+  expect(result.concurrentChecks!.map(c => c.verification.engineRecheck!.certified!.reason)).toEqual(sameText ? Array(2).fill('Longitudinal torsion reinforcement not checked') : ['retry 1', 'retry 2']);
+  expect(result.engineRecheck!.certified).not.toHaveProperty('code');
+});
+
+for (const other of ['ok', 'hold', 'refused', 'missing'] as const) ((other === 'ok' || other === 'hold') ? it.fails : it)(`known wrong result: #2080 concurrent hold code survives only compatible certificates ${other}`, async () => {
+  const gate = await import('../codes/argentina/cirsoc201-engine-gate');
+  const original = gate.engineRecheckElement;
+  const code = 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED' as const;
+  let calls = 0;
+  const check = vi.spyOn(gate, 'engineRecheckElement').mockImplementation((...args) => {
+    const value = original(...args);
+    calls++;
+    value.engineRecheck.certified = calls === 1 || other === 'hold'
+      ? { ok: false, lower: 0, upper: 0, code, reason: 'Unchecked provision display text' }
+      : other === 'missing' ? undefined
+        : { ok: other === 'ok', lower: 0, upper: 0, ...(other === 'refused' ? { reason: 'Other refusal' } : {}) };
+    return value;
+  });
+  const inputs: ConcurrentVerificationInput[] = ConcurrentDemand.fromTuples([20, 21].map(my => ({ comboId: 1, comboName: 'C1',
+    forces: { t: 0, x: 0, n: 0, my, mz: 0, vy: 0, vz: 1, torsion: 0 } })))
+    .map(d => ({ elementId: 1, elementType: 'beam', demand: d.section('My'), b: 0.4, h: 0.4, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 }));
+  const result = verifyConcurrentElement(inputs);
+  expect(check).toHaveBeenCalledTimes(2);
+  expect(result.engineRecheck!.certified!.ok).toBe(false);
+  expect(result.engineRecheck!.certified!.code).toBe(other === 'ok' || other === 'hold' ? code : undefined);
+});
+
+it.fails('known wrong result: #2080 repeated held stations reuse the code after wording changes', async () => {
+  const gate = await import('../codes/argentina/cirsoc201-engine-gate');
+  const original = gate.engineRecheckElement;
+  const check = vi.spyOn(gate, 'engineRecheckElement').mockImplementation((...args) => {
+    const value = original(...args);
+    value.engineRecheck.certified = { ok: false, lower: 0, upper: 0,
+      code: 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED', reason: 'Unchecked provision display text' };
+    return value;
+  });
+  const demand = ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'C1', forces: { t: 0, x: 0, n: 0, my: 20, mz: 0, vy: 0, vz: 1, torsion: 0 } }])[0]!.section('My');
+  const input: ConcurrentVerificationInput = { elementId: 1, elementType: 'beam', demand, b: 0.4, h: 0.4, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 };
+  const result = verifyConcurrentElement([input, input]);
+  expect(check).toHaveBeenCalledTimes(1);
+  expect(result.concurrentChecks).toHaveLength(2);
+  expect(result.engineRecheck!.certified).toMatchObject({ ok: false, code: 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED' });
 });
