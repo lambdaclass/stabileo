@@ -66,7 +66,7 @@ See also: `../research/solver_safety_and_validation_hardening.md` for the fuller
 **Convention regression gates** (`web/.../convention-regression-gates.test.ts` — 27 tests, contract seams 1/3/4/6):
 - SEAM 1: 2D output bans Y-up fields; 3D output has canonical 3D field names; backend uses fz/my
 - SEAM 2: PRO mode handled as 3D everywhere; no raw `=== '3d'` checks outside isMode3D
-- SEAM 3: My/Mz axis identity preserved in auto-verify, ProVerification, ProPanel, Navier formula, stress heatmap
+- SEAM 3: My/Mz axis identity preserved in auto-verify, ProVerification, ProPanel, Navier formula, stress heatmap. Auto-verify is exercised with both governing axes, rectangular section rotation, paired shear and retained source moments through concurrent verification; vertical-only slenderness remains guarded. The former local-variable source strings were retired with the shared concurrent-demand path in #2080, without weakening the axis contract.
 - SEAM 4: File persistence writes analysisMode/axisConvention3D; share links serialize plates/quads/constraints
 - SEAM 5: Locale wording correct for rotMomentHelp and moments3dHelp in EN/ES
 - SEAM 6: Z-up constants (VERTICAL_AXIS, UP_VECTOR, GRAVITY_VECTOR_3D, projectNodeToScene)

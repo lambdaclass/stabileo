@@ -28,6 +28,8 @@ const body: PostBody = {
       "k": "note",
       "t": "SA-2026-063 — In PR #2009 behoben, Veröffentlichung ausstehend."
     },
+    {"k": "note", "t": "SA-2026-064 — In PR #2080 behoben, Veröffentlichung ausstehend."},
+    {"k": "note", "t": "SA-2026-066 — Entwurf: in PR #2080 behoben, Zusammenführung und Veröffentlichung ausstehend."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -401,6 +403,8 @@ const body: PostBody = {
         ["SA-2026-060", "Die Bauphasenanalyse konnte reale Drehungen nach Einheitenwechseln oder an freigegebenen Enden mit Auflagerfedern ohne Warnung versteifen; Bauphasenmodelle mit Freigaben erneut prüfen", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         ["SA-2026-062", "Die rohe plastische 3D-Analyse konnte beim Scheitern des elastischen Anfangszustands ohne Warnung null melden; ältere zertifizierte Versionen behielten diesen Faktor. Main liefert bereits eine positive zertifizierte Schranke mit Warnung; PR #1943 gibt die anfängliche Ablehnung weiter", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         ["SA-2026-063", "Bauphasen- und nichtlineare Analysen mit Zwangsbedingungen verloren vorgegebene Masterbewegungen; Seil- und Zeitverlaufsanalysen lehnen nicht unterstützte Auflagerbewegungen nun ab. Bestehende allgemeine Dynamikwarnungen benannten diese Auslassung nicht", "Hoch", "In PR #2009 behoben, Veröffentlichung ausstehend"],
+        ["SA-2026-064", "Stahl-Interaktionsnachweise für Normalkraft und Biegung konnten die Ausnutzung durch Cb aus dem Momentendiagramm einer anderen Kombination ohne Warnung unterschätzen. Nach dem Upgrade die Stahlnachweise erneut ausführen.", "Hoch", "In PR #2080 behoben, Veröffentlichung ausstehend"],
+        ["SA-2026-066", "CIRSOC-201-Stützen und -Wände mit Querlasten konnten durch eine Cm-Abminderung aus Endmomenten das vergrößerte Bemessungsmoment unterschätzen. Betroffene Betonbemessungen erneut prüfen.", "Hoch", "Entwurf: in PR #2080 behoben, Zusammenführung und Veröffentlichung ausstehend"],
       ]
     },
     {

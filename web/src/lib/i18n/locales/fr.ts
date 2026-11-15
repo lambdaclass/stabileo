@@ -10889,6 +10889,7 @@ const fr: Translations = {
   'otherCodes.check.cfsFlexuralTorsional': 'flambement par flexion-torsion en compression (E2)',
   'otherCodes.check.cfsWeakAxis': 'flexion selon l\'axe faible',
   'otherCodes.check.cfsWebShear': 'cisaillement de l\'âme hors du domaine de plastification (G2.1)',
+  'otherCodes.skip.incompleteDemand': 'efforts par station incomplets pour les combinaisons actives',
   'otherCodes.skip.noDemand': 'aucun effort sous les combinaisons actives',
   'otherCodes.skip.notSteel': 'le matériau n\'est pas de l\'acier',
   'otherCodes.skip.noFy': 'le matériau n\'a pas de fy',

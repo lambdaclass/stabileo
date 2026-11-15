@@ -13,7 +13,12 @@
  * at any of the 14 spans (`span-fixture.ts`, `design-anchorage-coherence.test.ts`), and what this
  * file reads is how the mesh's pieces become spans, which needs spans that design.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { deepStrictEqual } from 'node:assert';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
+import * as stationVerification from '../../engine/station-design-forces';
+import * as concurrentVerification from '../../engine/concurrent-verification';
+import * as verificationService from '../../engine/verification-service';
+import * as autoVerification from '../../engine/auto-verify';
 import { historyStore, modelStore, resultsStore, uiStore } from '..';
 import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
@@ -88,11 +93,66 @@ const interiorPiece = (ids: number[]) => ids.filter((id) => {
 });
 
 describe('a beam cut by the slab mesh is designed as its span', () => {
+  it.each([
+    { name: 'meshed', mesh: 1, flipped: false },
+    { name: 'reversed piece', mesh: 1, flipped: true },
+    { name: 'single elements', mesh: null, flipped: false },
+  ])('$name cached checks equal every uncached member check', ({ mesh, flipped }) => {
+    building(mesh, flipped ? { flip: interiorPiece } : {});
+    let comparedFixtureRuns = 0;
+    const original = autoVerification.autoVerifyFromResults;
+    const spy = vi.spyOn(autoVerification, 'autoVerifyFromResults').mockImplementation((results, model, governing, options, demands) => {
+      comparedFixtureRuns++;
+      const cached = original(results, model, governing, options, demands);
+      const uncached = results.elementForces.flatMap(ef => original({ ...results, elementForces: [ef] }, model, governing, options, demands).concrete);
+      deepStrictEqual(cached.concrete, uncached);
+      return cached;
+    });
+    try {
+      expect(designRunStore.runCodeCheck()).toEqual({ ok: true });
+      expect(comparedFixtureRuns).toBe(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('concrete reports reuse the current provided reinforcement checks', async () => {
+    building(null);
+    designRunStore.designFamilies(['column', 'beam']);
+    const { memoriaInput } = await import('../memoria-inputs');
+    const before = memoriaInput((k) => k, 'en');
+    const verify = vi.spyOn(stationVerification, 'verifyProvidedReinforcement');
+    try {
+      expect(memoriaInput((k) => k, 'en')).toEqual(before);
+      expect(verify).not.toHaveBeenCalled();
+    } finally {
+      verify.mockRestore();
+    }
+  });
+
   it('the IFC has one beam per span, not one per mesh piece', async () => {
     building(1);
     designRunStore.designFamilies(['column', 'beam']);
-    const { exportProjectIfc } = await import('../ifc-export');
-    const ifc = exportProjectIfc((k) => k, 'en', 'spans');
+    const calls = [
+      vi.spyOn(autoVerification, 'autoVerifyFromResults'),
+      vi.spyOn(concurrentVerification, 'verifyConcurrentElement'),
+      vi.spyOn(stationVerification, 'verifyProvidedReinforcement'),
+      vi.spyOn(verificationService, 'computeStationDemands'),
+      vi.spyOn(wasmSolver, 'solve3D'),
+      vi.spyOn(wasmSolver, 'solveMultiCase3D'),
+    ];
+    let ifc: string;
+    try {
+      const { exportProjectIfc } = await import('../ifc-export');
+      ifc = exportProjectIfc((k) => k, 'en', 'spans');
+      for (const call of calls.filter(call => call !== calls[2])) expect(call).not.toHaveBeenCalled();
+      const checked = calls[2]!.mock.calls.map(args => args[0]);
+      expect(checked).toHaveLength(90);
+      expect(new Set(checked).size).toBe(90);
+
+    } finally {
+      for (const call of calls) call.mockRestore();
+    }
     expect((ifc.match(/IFCBEAM\(/g) ?? []).length).toBe(14);
     expect((ifc.match(/IFCCOLUMN\(/g) ?? []).length).toBe(12);
   });

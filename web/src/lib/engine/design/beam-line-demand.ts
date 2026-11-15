@@ -1,3 +1,4 @@
+import { ConcurrentDemand } from '../concurrent-demand';
 /**
  * What a beam line asks of its bars along it: at each station of each member, the largest sagging
  * and hogging moment of all combinations on the member's governing axis, and the area of bottom
@@ -149,7 +150,7 @@ export function lineTransverseDemand(
         shear = Math.max(shear, v.AvOverSReq ?? v.AvOverS);
         min = Math.max(min, v.AvOverSMin);
         if (Math.abs(s.torsion) > 1e-3) {
-          const tr = checkTorsion(params, s.torsion, Vu, CIRSOC201_DESIGN_EDITION);
+          const tr = checkTorsion(params, ConcurrentDemand.fromTuples([{ comboId: c.comboId, comboName: c.comboName, forces: s }])[0]!.section(ctx.axes.flexure), CIRSOC201_DESIGN_EDITION);
           if (!tr.neglect) torsion = Math.max(torsion, 2 * tr.AtOverS);
         }
       }

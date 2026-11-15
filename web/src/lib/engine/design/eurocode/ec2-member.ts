@@ -1,3 +1,4 @@
+import { ConcurrentDemand } from '../../concurrent-demand';
 /**
  * One rectangular concrete member designed to EN 1992-1-1 from simultaneous forces: every tuple
  * is one combination at one station, its N, Vy, Vz, My, Mz and T as they act together there
@@ -77,7 +78,7 @@ export const BEAM_AXIAL_TENSION_SHARE = 0.01;
 export function ec2MemberDesign(i: Ec2MemberInput): Ec2MemberDesign {
   // One tuple per combination and station: categories that peak at the same place are one demand.
   const seen = new Set<string>();
-  const ds = [...i.demands, ...(i.tuples ?? [])].filter((d) => { const k = `${d.comboId}|${d.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  const ds = ConcurrentDemand.fromTuples([...i.demands, ...(i.tuples ?? [])]).filter((d) => { const k = `${d.comboId}|${d.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
   if (!ds.length || ds.every(idle)) return { skip: 'otherCodes.skip.noDemand' };
   return i.kind === 'beam' ? beam(i, ds) : column(i, ds);
 }
@@ -132,7 +133,7 @@ function torsion(i: Ec2MemberInput, b: number, h: number, cases: TorsionCase[]):
   };
 }
 
-function beam(i: Ec2MemberInput, ds: StationTuple[]): Ec2MemberDesign {
+function beam(i: Ec2MemberInput, ds: ConcurrentDemand[]): Ec2MemberDesign {
   const p = i.params, m = ec2Material(i.fck, i.fyk, p), base = { code: p.code, edition: '2004' };
   // The axis from the peaks of each category, all of them: two categories peaking at one station are one tuple in `ds`.
   const axes = resolveDesignAxes('beam', { b: i.b, h: i.h }, { elementId: 0, length: i.L, demands: [...i.demands] });
@@ -215,7 +216,7 @@ function beam(i: Ec2MemberInput, ds: StationTuple[]): Ec2MemberDesign {
   return { rows, data, axis: axes.flexure };
 }
 
-function column(i: Ec2MemberInput, ds: StationTuple[]): Ec2MemberDesign {
+function column(i: Ec2MemberInput, ds: ConcurrentDemand[]): Ec2MemberDesign {
   const p = i.params, base = { code: p.code, edition: '2004' };
   const yStrong = i.h >= i.b;
   const kMy = (yStrong ? i.kStrong : i.kWeak) ?? 1, kMz = (yStrong ? i.kWeak : i.kStrong) ?? 1;

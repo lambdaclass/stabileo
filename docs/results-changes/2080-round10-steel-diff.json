@@ -1,0 +1,107 @@
+{
+  "base": "8d1f05bfac46d83f4109bf6b7c8d5ac37e0b248b",
+  "snapshots": [
+    {
+      "file": "web/results-snapshots/design-steel-3d-portal-frame.json",
+      "changed": [],
+      "removed": [],
+      "added": [],
+      "differs": false
+    },
+    {
+      "file": "web/results-snapshots/design-steel-3d-tower.json",
+      "changed": [],
+      "removed": [],
+      "added": [],
+      "differs": false
+    },
+    {
+      "file": "web/results-snapshots/design-steel-pipe-rack.json",
+      "changed": [
+        {
+          "path": "design.steel[e15].Vu",
+          "before": 1.138370238,
+          "after": 0.796728424
+        },
+        {
+          "path": "design.steel[e16].Vu",
+          "before": 1.138370238,
+          "after": 0.796728424
+        },
+        {
+          "path": "design.steel[e17].Vu",
+          "before": 1.722924219,
+          "after": 1.202264847
+        },
+        {
+          "path": "design.steel[e18].Vu",
+          "before": 1.722924219,
+          "after": 1.202264847
+        },
+        {
+          "path": "design.steel[e23].Vu",
+          "before": 1.722924219,
+          "after": 1.097631249
+        },
+        {
+          "path": "design.steel[e24].Vu",
+          "before": 1.722924219,
+          "after": 1.097631249
+        },
+        {
+          "path": "design.steel[e27].Vu",
+          "before": 1.138370238,
+          "after": 0.6496403671
+        },
+        {
+          "path": "design.steel[e28].Vu",
+          "before": 1.138370238,
+          "after": 0.6496403671
+        },
+        {
+          "path": "design.steel[e29].Vu",
+          "before": 1.722924219,
+          "after": 1.04415807
+        },
+        {
+          "path": "design.steel[e30].Vu",
+          "before": 1.722924219,
+          "after": 1.04415807
+        },
+        {
+          "path": "design.steel[e35].Vu",
+          "before": 1.722924219,
+          "after": 0.8673690019
+        },
+        {
+          "path": "design.steel[e36].Vu",
+          "before": 1.722924219,
+          "after": 0.8673690019
+        },
+        {
+          "path": "design.steel[e39].Vu",
+          "before": 1.138370238,
+          "after": 0.5187582906
+        },
+        {
+          "path": "design.steel[e40].Vu",
+          "before": 1.138370238,
+          "after": 0.5187582906
+        },
+        {
+          "path": "design.steel[e41].Vu",
+          "before": 1.722924219,
+          "after": 1.452564622
+        },
+        {
+          "path": "design.steel[e42].Vu",
+          "before": 1.722924219,
+          "after": 1.452564622
+        }
+      ],
+      "removed": [],
+      "added": [],
+      "differs": true
+    }
+  ]
+}

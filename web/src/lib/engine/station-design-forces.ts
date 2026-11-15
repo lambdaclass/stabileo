@@ -1,7 +1,8 @@
+import { ConcurrentDemand } from './concurrent-demand';
 import { getColumnCapacityKernel, columnCapacityKernelRegistered } from './column-capacity-kernel';
 import { evaluateBeamSection, evaluateBeamSections } from './codes/argentina/cirsoc201-beam-kernel';
 import { beta1, axialCap } from './codes/argentina/cirsoc201-basis';
-import { Cirsoc201EngineUnavailable } from './codes/argentina/cirsoc201-engine';
+import { cirsoc201Engine, Cirsoc201EngineUnavailable, type SectionKernelConstructor } from './codes/argentina/cirsoc201-engine';
 import { prepareSection, type Bar as SectionBar, type PreparedSection } from './codes/argentina/cirsoc201-section';
 /**
  * Station-based, sign-aware, per-combo force extraction for member design.
@@ -73,6 +74,7 @@ export interface ComboStationResult {
   comboId: number;
   comboName: string;
   stations: StationForces[];
+  transverseLoading?: Readonly<{ My?: boolean; Mz?: boolean }>;
 }
 
 /** Full station-based results for one element across all combos. */
@@ -101,6 +103,8 @@ export interface ElementDesignDemands {
   elementId: number;
   length: number;
   demands: GoverningDemand[];
+  concurrent?: readonly ConcurrentDemand[];
+  readonly expectedCombinationIds?: readonly number[];
   /**
    * The least compression (kN) at any station of any combination, when none is in tension.
    * Below the balance point a column's moment capacity falls with its compression, so the
@@ -322,6 +326,8 @@ export function extractGoverningDemands(esr: ElementStationResult): ElementDesig
   return {
     elementId: esr.elementId,
     length: esr.length,
+    concurrent: ConcurrentDemand.fromStations(esr),
+    expectedCombinationIds: Object.freeze(esr.comboResults.map(c => c.comboId)),
     demands: Array.from(best.values()).sort((a, b) => b.absValue - a.absValue),
     ...(leastCompression >= 0 && Number.isFinite(leastCompression) ? { leastCompression } : {}),
   };
@@ -1703,6 +1709,32 @@ export function computeBiaxialCapacity(
   return biaxialCapacity(AsProv_cm2, b, h, fc, fy, cover, stirrupDia, Nu, Muy, Muz, bars, edition);
 }
 
+type ScopedBiaxialSection = ReturnType<typeof prepareBiaxialSection>;
+let biaxialScope: Map<SectionKernelConstructor, Map<string, ScopedBiaxialSection>> | undefined;
+
+export function withBiaxialCapacityCache<T>(run: () => T): T {
+  const previous = biaxialScope;
+  const scope = new Map<SectionKernelConstructor, Map<string, ScopedBiaxialSection>>();
+  biaxialScope = scope;
+  try { return run(); } finally {
+    biaxialScope = previous;
+    for (const sections of scope.values()) for (const prepared of sections.values()) prepared.section.free();
+  }
+}
+
+function sharedBiaxialSection(b: number, h: number, fc: number, fy: number, bars: readonly BarInstance[], edition: RegulationEdition): ScopedBiaxialSection | undefined {
+  if (!biaxialScope) return undefined;
+  const values = [b, h, fc, fy, ...bars.flatMap(bar => [bar.x, bar.y, bar.diameter])];
+  if (!values.every(Number.isFinite)) return undefined;
+  const kernel = cirsoc201Engine('Section');
+  let sections = biaxialScope.get(kernel);
+  if (!sections) { sections = new Map(); biaxialScope.set(kernel, sections); }
+  const key = JSON.stringify([edition, ...values], (_key, value) => Object.is(value, -0) ? { negativeZero: true } : value);
+  let prepared = sections.get(key);
+  if (!prepared) { prepared = prepareBiaxialSection(b, h, fc, fy, bars, edition); sections.set(key, prepared); }
+  return prepared;
+}
+
 function biaxialCapacity(
   AsProv_cm2: number, b: number, h: number,
   fc: number, fy: number, _cover: number, _stirrupDia: number,
@@ -1724,7 +1756,8 @@ function biaxialCapacity(
     method: 'load-contour' as const, geometryAware: false, strainCompatible: false, status: 'fail' as const };
   if (!bars || bars.length < 4 || ![Nu, Muy, Muz].every(Number.isFinite)) return fail;
 
-  const own = prepared ?? prepareBiaxialSection(b, h, fc, fy, bars, edition);
+  const shared = prepared ? undefined : sharedBiaxialSection(b, h, fc, fy, bars, edition);
+  const own = prepared ?? shared ?? prepareBiaxialSection(b, h, fc, fy, bars, edition);
   let worst = 0;
   try {
     const mz = Math.abs(Muz), my = Math.abs(Muy);
@@ -1735,7 +1768,7 @@ function biaxialCapacity(
       worst = Math.max(worst, Number.isNaN(u) ? Number.POSITIVE_INFINITY : u);
     }
   } finally {
-    if (!prepared) own.section.free();
+    if (!prepared && !shared) own.section.free();
   }
   const Mres = Math.hypot(Muy, Muz);
   const ratio = worst > 1e-9 ? +(1 / worst).toFixed(3) : 999;
@@ -1990,19 +2023,8 @@ export function verifyProvidedReinforcement(
   };
 
   // Collect ALL force tuples from station × combo results for sweeping
-  type Tuple = { n: number; vy: number; vz: number; my: number; mz: number; tq: number; comboName: string; comboId: number; stationX: number; stationT: number };
-  const allTuples: Tuple[] = [];
-  if (stationResult) {
-    for (const cr of stationResult.comboResults) {
-      for (const s of cr.stations) {
-        allTuples.push({
-          n: s.n, vy: s.vy, vz: s.vz, my: s.my, mz: s.mz, tq: s.torsion ?? 0,
-          comboName: cr.comboName, comboId: cr.comboId,
-          stationX: s.x, stationT: s.t,
-        });
-      }
-    }
-  }
+  type Tuple = ConcurrentDemand;
+  const allTuples = stationResult ? ConcurrentDemand.fromStations(stationResult) : [];
   const hasTuples = allTuples.length > 0;
   const M = (t: Tuple) => tupleMoment(t, axes.flexure);
 
@@ -2141,10 +2163,7 @@ export function verifyProvidedReinforcement(
         const hi = sorted.findIndex((x) => x.stationT >= t - 1e-9);
         if (hi < 0) continue;
         const b = sorted[hi]!, a = sorted[Math.max(0, hi - 1)]!;
-        const w = b.stationT - a.stationT > 1e-9 ? (t - a.stationT) / (b.stationT - a.stationT) : 0;
-        const lerp = (k: 'n' | 'vy' | 'vz' | 'my' | 'mz' | 'tq') => a[k] + (b[k] - a[k]) * w;
-        out.push({ n: lerp('n'), vy: lerp('vy'), vz: lerp('vz'), my: lerp('my'), mz: lerp('mz'), tq: lerp('tq'),
-          comboName: b.comboName, comboId: b.comboId, stationX: a.stationX + (b.stationX - a.stationX) * w, stationT: t });
+        out.push(a.interpolate(b, t));
       }
       return out;
     };

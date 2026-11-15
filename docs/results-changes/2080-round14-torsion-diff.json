@@ -1,0 +1,423 @@
+{
+  "params": {
+    "b": 0.3,
+    "h": 0.6,
+    "fc": 25,
+    "fy": 420,
+    "cover": 0.025,
+    "stirrupDia": 8,
+    "elementId": 1,
+    "elementType": "beam"
+  },
+  "entries": [
+    {
+      "edition": "2005",
+      "cases": [
+        {
+          "t": 0,
+          "x": 0,
+          "n": 0,
+          "my": 20,
+          "mz": 0,
+          "vy": 0,
+          "vz": 300,
+          "torsion": 5
+        },
+        {
+          "t": 1,
+          "x": 0.4,
+          "n": 0,
+          "my": 20,
+          "mz": 0,
+          "vy": 0,
+          "vz": 0,
+          "torsion": 30
+        }
+      ],
+      "parent": {
+        "torsion": {
+          "Tu": 5,
+          "Tcr": 29.700000000000006,
+          "phiTn": 5.568750000000001,
+          "AtOverS": 0,
+          "AlReq": 0,
+          "neglect": true,
+          "ratio": 0.897867564534231,
+          "status": "ok"
+        },
+        "shear": {
+          "Vu": 300,
+          "d": 0.5589999999999999,
+          "phiVc": 104.81249999999997,
+          "Vs": 260.25,
+          "AvOverS": 11.084845387170969,
+          "AvOverSReq": 11.084845387170969,
+          "AvOverSMin": 2.357142857142857,
+          "spacing": 0.07500000000000004,
+          "stirrupDia": 8,
+          "stirrupLegs": 2,
+          "phiVn": 341.0011799999998,
+          "ratio": 0.8797623515554995,
+          "status": "ok"
+        },
+        "overallStatus": "ok"
+      },
+      "current": {
+        "torsion": {
+          "Tu": 5,
+          "Tcr": 29.700000000000006,
+          "phiTn": 5.568750000000001,
+          "AtOverS": 4.271172651305651,
+          "AlReq": 6.69719871724726,
+          "neglect": false,
+          "ratio": 0.897867564534231,
+          "status": "ok",
+          "AtOverSProv": 6.702064327658225,
+          "AlProv": 6.69719871724726,
+          "reinforcementRatio": 1
+        },
+        "shear": {
+          "Vu": 300,
+          "d": 0.5589999999999999,
+          "phiVc": 104.81249999999997,
+          "Vs": 260.25,
+          "AvOverS": 11.084845387170969,
+          "AvOverSReq": 11.084845387170969,
+          "AvOverSMin": 2.357142857142857,
+          "spacing": 0.075,
+          "stirrupDia": 8,
+          "stirrupLegs": 2,
+          "phiVn": 341.00118,
+          "ratio": 0.8797623515554991,
+          "status": "ok"
+        },
+        "overallStatus": "ok",
+        "governingCombos": {
+          "flexure": {
+            "comboId": 1,
+            "comboName": "C1",
+            "stationT": 0,
+            "stationX": 0
+          },
+          "shear": {
+            "comboId": 1,
+            "comboName": "C1",
+            "stationT": 0,
+            "stationX": 0
+          },
+          "torsion": {
+            "comboId": 1,
+            "comboName": "C1",
+            "stationT": 0,
+            "stationX": 0
+          },
+          "torsionReinforcement": {
+            "comboId": 2,
+            "comboName": "C2",
+            "stationT": 1,
+            "stationX": 0.4
+          }
+        },
+        "cases": [
+          {
+            "comboId": 1,
+            "torsion": {
+              "Tu": 5,
+              "Tcr": 29.700000000000006,
+              "phiTn": 5.568750000000001,
+              "AtOverS": 0,
+              "AlReq": 0,
+              "neglect": true,
+              "ratio": 0.897867564534231,
+              "status": "ok",
+              "AtOverSProv": 1.1596416340727407,
+              "AlProv": 6.69719871724726,
+              "reinforcementRatio": 0
+            },
+            "shear": {
+              "Vu": 300,
+              "d": 0.5589999999999999,
+              "phiVc": 104.81249999999997,
+              "Vs": 260.25,
+              "AvOverS": 11.084845387170969,
+              "AvOverSReq": 11.084845387170969,
+              "AvOverSMin": 2.357142857142857,
+              "spacing": 0.075,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 341.00118,
+              "ratio": 0.8797623515554991,
+              "status": "ok"
+            }
+          },
+          {
+            "comboId": 2,
+            "torsion": {
+              "Tu": 30,
+              "Tcr": 29.700000000000006,
+              "phiTn": 58.0552538223597,
+              "AtOverS": 4.271172651305651,
+              "AlReq": 6.69719871724726,
+              "neglect": false,
+              "ratio": 0.5167490971927444,
+              "status": "ok",
+              "spacingMax": 0.19599999999999998,
+              "AtOverSProv": 6.702064327658225,
+              "AlProv": 6.69719871724726,
+              "reinforcementRatio": 1
+            },
+            "shear": {
+              "Vu": 0,
+              "d": 0.5589999999999999,
+              "phiVc": 104.81249999999997,
+              "Vs": 0,
+              "AvOverS": 2.357142857142857,
+              "AvOverSReq": 0,
+              "AvOverSMin": 2.357142857142857,
+              "spacing": 0.075,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 341.00118,
+              "ratio": 0,
+              "status": "ok"
+            }
+          }
+        ]
+      },
+      "mainEnvelope": {
+        "torsion": {
+          "Tu": 30,
+          "Tcr": 29.700000000000006,
+          "phiTn": 47.508308812153125,
+          "AtOverS": 4.271172651305651,
+          "AlReq": 6.69719871724726,
+          "neglect": false,
+          "ratio": 0.6314684894092817,
+          "status": "ok"
+        },
+        "overallStatus": "ok"
+      },
+      "zeroTorsionControl": {
+        "overallStatus": "ok"
+      }
+    },
+    {
+      "edition": "2025",
+      "cases": [
+        {
+          "t": 0,
+          "x": 0,
+          "n": 0,
+          "my": 20,
+          "mz": 0,
+          "vy": 0,
+          "vz": 300,
+          "torsion": 5
+        },
+        {
+          "t": 1,
+          "x": 0.4,
+          "n": 0,
+          "my": 20,
+          "mz": 0,
+          "vy": 0,
+          "vz": 0,
+          "torsion": 30
+        }
+      ],
+      "parent": {
+        "torsion": {
+          "Tu": 5,
+          "Tcr": 29.700000000000006,
+          "phiTn": 5.568750000000001,
+          "AtOverS": 0,
+          "AlReq": 0,
+          "neglect": true,
+          "ratio": 0.897867564534231,
+          "status": "ok"
+        },
+        "shear": {
+          "Vu": 300,
+          "d": 0.5589999999999999,
+          "phiVc": 106.90875,
+          "Vs": 257.45500000000004,
+          "AvOverS": 10.965797768123348,
+          "AvOverSReq": 10.965797768123348,
+          "AvOverSMin": 2.5,
+          "spacing": 0.07500000000000004,
+          "stirrupDia": 8,
+          "stirrupLegs": 2,
+          "phiVn": 343.09742999999986,
+          "ratio": 0.874387196663059,
+          "status": "ok"
+        },
+        "overallStatus": "ok"
+      },
+      "current": {
+        "torsion": {
+          "Tu": 5,
+          "Tcr": 29.700000000000006,
+          "phiTn": 5.568750000000001,
+          "AtOverS": 4.271172651305651,
+          "AlReq": 6.69719871724726,
+          "neglect": false,
+          "ratio": 0.897867564534231,
+          "status": "ok",
+          "AtOverSProv": 6.702064327658225,
+          "AlProv": 6.69719871724726,
+          "reinforcementRatio": 1
+        },
+        "shear": {
+          "Vu": 300,
+          "d": 0.5589999999999999,
+          "phiVc": 106.90875,
+          "Vs": 257.45500000000004,
+          "AvOverS": 10.965797768123348,
+          "AvOverSReq": 10.965797768123348,
+          "AvOverSMin": 2.4999999999999996,
+          "spacing": 0.075,
+          "stirrupDia": 8,
+          "stirrupLegs": 2,
+          "phiVn": 343.09743,
+          "ratio": 0.8743871966630588,
+          "status": "ok"
+        },
+        "overallStatus": "ok",
+        "governingCombos": {
+          "flexure": {
+            "comboId": 1,
+            "comboName": "C1",
+            "stationT": 0,
+            "stationX": 0
+          },
+          "shear": {
+            "comboId": 1,
+            "comboName": "C1",
+            "stationT": 0,
+            "stationX": 0
+          },
+          "torsion": {
+            "comboId": 1,
+            "comboName": "C1",
+            "stationT": 0,
+            "stationX": 0
+          },
+          "torsionReinforcement": {
+            "comboId": 2,
+            "comboName": "C2",
+            "stationT": 1,
+            "stationX": 0.4
+          }
+        },
+        "cases": [
+          {
+            "comboId": 1,
+            "torsion": {
+              "Tu": 5,
+              "Tcr": 29.700000000000006,
+              "phiTn": 5.568750000000001,
+              "AtOverS": 0,
+              "AlReq": 0,
+              "neglect": true,
+              "ratio": 0.897867564534231,
+              "status": "ok",
+              "AtOverSProv": 1.2191654435965509,
+              "AlProv": 6.69719871724726,
+              "reinforcementRatio": 0
+            },
+            "shear": {
+              "Vu": 300,
+              "d": 0.5589999999999999,
+              "phiVc": 106.90875,
+              "Vs": 257.45500000000004,
+              "AvOverS": 10.965797768123348,
+              "AvOverSReq": 10.965797768123348,
+              "AvOverSMin": 2.4999999999999996,
+              "spacing": 0.075,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 343.09743,
+              "ratio": 0.8743871966630588,
+              "status": "ok"
+            }
+          },
+          {
+            "comboId": 2,
+            "torsion": {
+              "Tu": 30,
+              "Tcr": 29.700000000000006,
+              "phiTn": 58.0552538223597,
+              "AtOverS": 4.271172651305651,
+              "AlReq": 6.69719871724726,
+              "neglect": false,
+              "ratio": 0.5167490971927444,
+              "status": "ok",
+              "spacingMax": 0.19599999999999998,
+              "AtOverSProv": 6.702064327658225,
+              "AlProv": 6.69719871724726,
+              "reinforcementRatio": 1
+            },
+            "shear": {
+              "Vu": 0,
+              "d": 0.5589999999999999,
+              "phiVc": 106.90875,
+              "Vs": 0,
+              "AvOverS": 2.4999999999999996,
+              "AvOverSReq": 0,
+              "AvOverSMin": 2.4999999999999996,
+              "spacing": 0.075,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 343.09743,
+              "ratio": 0,
+              "status": "ok"
+            }
+          }
+        ]
+      },
+      "mainEnvelope": {
+        "torsion": {
+          "Tu": 30,
+          "Tcr": 29.700000000000006,
+          "phiTn": 47.508308812153125,
+          "AtOverS": 4.271172651305651,
+          "AlReq": 6.69719871724726,
+          "neglect": false,
+          "ratio": 0.6314684894092817,
+          "status": "ok"
+        },
+        "overallStatus": "ok"
+      },
+      "zeroTorsionControl": {
+        "overallStatus": "ok"
+      }
+    }
+  ],
+  "provenance": {
+    "parent": "3ff2a100211b32963de1b4f62d24ec21b5449deb",
+    "reproducerCommit": "08643561a36e90ba72eff54a07eb51b646b0c0c9",
+    "originMain": "fb241aa04936a993a3ecd4a2ec4f9490669c1d34",
+    "sourceHashes": {
+      "web/src/lib/engine/concurrent-verification.ts": {
+        "parent": "a493ab34152fe7200315baaf3b76cfc8a1c8332c31689ff4232f3db26a3e1597",
+        "current": "f38f0b9c30ed58f0bfa284b6009e0eaeddbb4602d036038a247e85d88680fb54",
+        "originMain": "absent"
+      },
+      "web/src/lib/engine/codes/argentina/cirsoc201.ts": {
+        "parent": "e02a5d337431a1d6702928441a9c07847a0249b54082006db513786c94b5174d",
+        "current": "448830e8a8b397ff0e64f9e74823d2f7b1732e4c02b67be6ac5ddfe9613bb689",
+        "originMain": "52fa26ce7f5938703a950b6d90c13cdc9acc5f4ffbe243432290503e4a0906ec"
+      },
+      "web/src/lib/engine/design/adapters/cirsoc201-adapter.ts": {
+        "parent": "0b3042822bdb79769bf93f3397b2cd3b24c31f2e2e91ecdcd10b6adcd785a546",
+        "current": "844dea9c262088d644164759afbb7e2ee3afecb3f88d3a9a942095dfa68ad87f",
+        "originMain": "0b3042822bdb79769bf93f3397b2cd3b24c31f2e2e91ecdcd10b6adcd785a546"
+      }
+    }
+  },
+  "mainReplay": "Exact origin/main designer with scalar Mu=20, Vu=300, Nu=0, Tu=30, matching the maximum-torsion envelope selected by origin/main auto-verify.ts. Current initialized WASM section kernels; not a historical release binary.",
+  "ciRegression": {
+    "introducedBy": "7dcb1176ed47d61b85303d41ee376a82113161bf",
+    "preRound12Replay": "Original steel-excluded-from-rc.test.ts and parent adapter, with exact concurrent-demand.ts from 7dcb1176e^: 10 pass. With round-12 extractor at reviewed parent: 1 throws, 9 pass. Fixed adapter: 10 pass, including explicit demand-unavailable/no-verifier assertions."
+  }
+}

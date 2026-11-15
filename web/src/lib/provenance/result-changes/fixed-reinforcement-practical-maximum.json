@@ -1,0 +1,37 @@
+{
+  "id": "fixed-reinforcement-practical-maximum",
+  "date": "2026-11-14",
+  "prs": [
+    2080
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "title": {
+    "en": "Fixed reinforcement retains the practical maximum check",
+    "es": "La armadura fija conserva la verificación del máximo práctico",
+    "pt": "A armadura fixa mantém a verificação do máximo prático",
+    "de": "Feste Bewehrung behält die Prüfung der praktischen Obergrenze bei",
+    "fr": "Les armatures fixées conservent le contrôle du maximum pratique",
+    "tr": "Sabit donatı pratik üst sınır kontrolünü korur"
+  },
+  "explanation": {
+    "en": "A shared or fixed reinforcement cage could replace a practical-maximum failure with a passing flexure status. All flexure results now enforce the same required-steel limit and show the reason. Re-run saved concrete member designs and review failures (PR #2080).",
+    "es": "Una armadura común o fija podía reemplazar la falla por máximo práctico con un estado de flexión aprobado. Todos los resultados de flexión aplican ahora el mismo límite de armadura requerida y muestran el motivo. Repetí los diseños de hormigón guardados y revisá las fallas (PR #2080).",
+    "pt": "Uma armadura comum ou fixa podia substituir a falha por máximo prático por um estado aprovado de flexão. Todos os resultados de flexão agora aplicam o mesmo limite de armadura necessária e mostram o motivo. Refaça os projetos de concreto salvos e revise as falhas (PR #2080).",
+    "de": "Ein gemeinsamer oder fester Bewehrungskorb konnte eine Überschreitung der praktischen Obergrenze durch einen bestandenen Biegenachweis ersetzen. Alle Biegeergebnisse prüfen nun dieselbe Grenze der erforderlichen Bewehrung und zeigen den Grund. Gespeicherte Betonbemessungen erneut ausführen und Fehler prüfen (PR #2080).",
+    "fr": "Une cage commune ou fixée pouvait remplacer un échec au maximum pratique par une flexion acceptée. Tous les résultats de flexion appliquent désormais la même limite aux armatures requises et en indiquent la raison. Relancer les calculs de béton enregistrés et examiner les échecs (PR #2080).",
+    "tr": "Ortak veya sabit donatı, pratik üst sınır nedeniyle oluşan başarısızlığı başarılı bir eğilme durumuyla değiştirebiliyordu. Tüm eğilme sonuçları artık aynı gerekli donatı sınırını uygular ve nedeni gösterir. Kayıtlı beton eleman tasarımlarını yeniden çalıştırıp başarısızlıkları inceleyin (PR #2080)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-fixed-reinforcement-practical-maximum.md",
+    "heading": "Practical maximum retained for fixed reinforcement (2026-11-14)"
+  }
+}

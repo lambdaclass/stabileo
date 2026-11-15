@@ -6,7 +6,8 @@
  * √(E/Fy) = 29,173.
  */
 import { describe, it, expect } from 'vitest';
-import { checkSteelCompression, verifySteelElement, type SteelDesignParams } from '../cirsoc301';
+import { checkSteelCompression, type SteelDesignParams } from '../cirsoc301';
+import { verifySteelElement, manualSteelDemand } from '../../../__tests__/helpers/manual-interactions';
 import { checkSteelMember } from '../../../verification-service';
 
 const E = 200_000, Fy = 235;
@@ -148,7 +149,7 @@ describe('rolled or welded: evaluated at both when the section does not declare 
       a: A * 1e-6, iy: Ix * 1e-12, iz: Iy * 1e-12, h: 0.4, b: 0.2, tw: 0.008, tf: 0.012, shape: 'I', profileFamily: 'IPE',
     };
     const material = { fy: 235, fu: 360, e: 200_000 };
-    const demand = { Nc: 0, Nt: 0, MuStrong: 198.5, MuWeak: 0, Vu: 0, diagram: [] };
+    const demand = manualSteelDemand({ Nc: 0, Nt: 0, MuStrong: 198.5, MuWeak: 0, Vu: 0, diagram: [] });
     // The load on the web, declared, as in the hand values above (only the fabrication is read both ways).
     const lengths = { L: 5, Lb: 5, loadPosition: 'web' as const };
     // A catalogue family is not a declaration: still checked as both.
