@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-13; fixed in PR #2080, pending release |
+| Status | Draft 2026-11-13; fixed in PR #2080, pending release at draft time; published 2026-11-15 |
 | Publication | 2026-11-15; included in 0.6.1 |
 | Fixed release | 0.6.1 (2026-11-15) |
 | Issues | [#1316](https://github.com/lambdaclass/stabileo/issues/1316), [#2088](https://github.com/lambdaclass/stabileo/issues/2088) |
@@ -83,8 +83,6 @@ records a 16 m IPE 300 with an 8 m unlocated unbraced interval. At the recorded
 | Flexural capacity φMn (kN·m) | 66.83770698770057 | 49.01431845764709 |
 | Utilization | 0.2992322882004373 | 0.4080440293642326 |
 | Status | ok | ok |
-| Publication | 2026-11-15; included in 0.6.1 |
-| Fixed release | 0.6.1 (2026-11-15) |
 
 The wrong result has no verification diagnostic and reports `certifiedOk = true`.
 The fixture retains both checks and their certificates. Its recorded source
