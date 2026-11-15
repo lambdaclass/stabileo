@@ -2621,39 +2621,12 @@ export function verifyProvidedReinforcement(
           limiting: 'shear',
         });
       }
-      if (count === 0) continue;
-      checkedAxes.add(axes.shear);
-      if (!ss.stir) {
-        pushStrength({
-          category: ss.label, demandCategory: axes.shear === 'Vy' ? 'Vy' : 'Vz',
-          demand: +peakVu.toFixed(2), capacity: 0,
-          utilization: Number.POSITIVE_INFINITY,
-          unit: 'kN', method: 'capacity', tuplesChecked: count, regionRange: ss.range,
-          description: `no stirrups provided in this region — Vu=${peakVu.toFixed(1)} kN unresisted`,
-          comboName: peakCombo, stationX: peakX,
-          limiting: 'shear', missingReinforcement: true,
-        });
-        continue;
-      }
-      if (!worst) continue;
-      pushStrength({
-        category: ss.label, demandCategory: axes.shear === 'Vy' ? 'Vy' : 'Vz',
-        demand: +worst.Vu.toFixed(2), capacity: +worst.phiVn.toFixed(2),
-        utilization: worst.ratio,
-        unit: 'kN', method: 'capacity', tuplesChecked: count, regionRange: ss.range,
-        description: `eØ${ss.stir.diameter} ${ss.stir.legs}L c/${(ss.stir.spacing * 100).toFixed(0)} [${ss.range[0].toFixed(2)}–${ss.range[1].toFixed(2)}], ${count} tuples`
-          + (section.fy > shearFy(section.fy) ? `; Vs with fyt = ${shearFy(section.fy)} MPa (§22.5.3.3)` : '')
-          + (Math.sqrt(section.fc) > shearSqrtFc(section.fc) ? `; Vc with √f'c = ${shearSqrtFc(section.fc)} MPa (§22.5.3.1)` : ''),
-        comboName: worst.comboName, stationX: worst.stationX,
-        limiting: 'shear',
-      });
-
       // ── Torsion §22.7, with the shear it acts with, on the stirrups of this region ──
       //
       // A beam only: a column's ties are checked by their own rules. Below φ·Tth it is
       // neglected and says nothing; above it, the cross-section, the closed stirrups and the
       // longitudinal steel torsion adds are checked at the worst tuple of the region.
-      if (elementType === 'beam') {
+      if (elementType === 'beam' && ss.stir) {
         // ── The longitudinal steel torsion adds (§22.7.6.1, §9.5.4.3, §9.6.4.3) ──
         //
         // CIRSOC 201-2025 asks it at every section where torsion is not negligible: §9.5.4.1 and
@@ -2696,7 +2669,7 @@ export function verifyProvidedReinforcement(
         const evaluated: Array<{ r: ReturnType<typeof checkTorsion2025>; t: Tuple }> = [];
         for (const t of ss.tuples) {
           if (Math.abs(t.tq) < 0.01) continue;
-          const r = checkTorsion2025({ b: section.b, h: section.h, d, cover: section.cover, stirrupDiaMm: ss.stir.diameter, fc: section.fc, fy: section.fy, fyt: section.fy, Vu: V(t), Tu: t.tq, stirrup: ss.stir });
+          const r = checkTorsion2025({ b: section.b, h: section.h, d, dSecondary: section.b - section.cover - ss.stir.diameter / 1000 - 0.008, cover: section.cover, stirrupDiaMm: ss.stir.diameter, fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure), stirrup: ss.stir });
           if (!r.neglect) evaluated.push({ r, t });
         }
         let tw: { r: ReturnType<typeof checkTorsion2025>; t: Tuple } | null = null;
@@ -2730,6 +2703,33 @@ export function verifyProvidedReinforcement(
           checkedAxes.add('T');
         }
       }
+
+      if (count === 0) continue;
+      checkedAxes.add(axes.shear);
+      if (!ss.stir) {
+        pushStrength({
+          category: ss.label, demandCategory: axes.shear === 'Vy' ? 'Vy' : 'Vz',
+          demand: +peakVu.toFixed(2), capacity: 0,
+          utilization: Number.POSITIVE_INFINITY,
+          unit: 'kN', method: 'capacity', tuplesChecked: count, regionRange: ss.range,
+          description: `no stirrups provided in this region — Vu=${peakVu.toFixed(1)} kN unresisted`,
+          comboName: peakCombo, stationX: peakX,
+          limiting: 'shear', missingReinforcement: true,
+        });
+        continue;
+      }
+      if (!worst) continue;
+      pushStrength({
+        category: ss.label, demandCategory: axes.shear === 'Vy' ? 'Vy' : 'Vz',
+        demand: +worst.Vu.toFixed(2), capacity: +worst.phiVn.toFixed(2),
+        utilization: worst.ratio,
+        unit: 'kN', method: 'capacity', tuplesChecked: count, regionRange: ss.range,
+        description: `eØ${ss.stir.diameter} ${ss.stir.legs}L c/${(ss.stir.spacing * 100).toFixed(0)} [${ss.range[0].toFixed(2)}–${ss.range[1].toFixed(2)}], ${count} tuples`
+          + (section.fy > shearFy(section.fy) ? `; Vs with fyt = ${shearFy(section.fy)} MPa (§22.5.3.3)` : '')
+          + (Math.sqrt(section.fc) > shearSqrtFc(section.fc) ? `; Vc with √f'c = ${shearSqrtFc(section.fc)} MPa (§22.5.3.1)` : ''),
+        comboName: worst.comboName, stationX: worst.stationX,
+        limiting: 'shear',
+      });
 
       // ── Table 9.7.6.2.2: both columns of the row, along AND across ──
       // (the skin of a deep beam is checked once, after the regions; see below)

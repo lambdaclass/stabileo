@@ -6,7 +6,8 @@ import { verifyConcurrentElement } from '../concurrent-verification';
 import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
 import { verifyProvidedReinforcement } from '../station-design-forces';
 import { solve, solve3D, solvePDelta, solvePDelta3D } from '../wasm-solver';
-import { computeStationDemands, setCompactStationTransfer } from '../verification-service';
+import { autoVerifyFromResults } from '../auto-verify';
+import { computeStationDemands, setCompactStationTransfer, runUnifiedVerification, runCirsocDesign } from '../verification-service';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
 
@@ -14,7 +15,6 @@ const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const clause = 'CIRSOC 201-2025 §22.7.7.1(a), C22.7.7.1, docs/codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-22-resistencia-de-las-secciones-de-los-elementos.md#c22.7.7.1';
 const depth = (h: number) => h - p.cover - p.stirrupDia / 1000 - 16 / 2000;
 const fixed = { shear: { spacing: 0.05, legs: 4 }, torsion: { AlProv: 100 } };
-const knownWrong = it.skipIf(!process.env.REPRO_2142);
 const demand = (primary: number, secondary: number, torque: number, axis: 'My' | 'Mz' = 'My') => ConcurrentDemand.fromTuples([
   { comboId: 1, comboName: 'concurrent', forces: { t: 0, x: 0, n: 0,
     my: axis === 'My' ? 20 : 0, mz: axis === 'Mz' ? 20 : 0,
@@ -34,7 +34,7 @@ function reference(primary: number, secondary: number, torque: number, b = p.b, 
 }
 
 for (const edition of ['2005', '2025'] as const) {
-  knownWrong(`#[ignore = "known wrong result: #2142"] exact column witness ${edition}: ${clause}`, () => {
+  it(`exact column witness ${edition}: ${clause}`, () => {
     const d = demand(0, 100, 57), expected = reference(0, 100, 57);
     expect(expected.sectionRatio).toBeGreaterThan(1);
     expect(expected.ratio).toBeGreaterThan(1);
@@ -48,7 +48,7 @@ for (const edition of ['2005', '2025'] as const) {
   for (const axis of ['My', 'Mz'] as const) for (const elementType of ['beam', 'column', 'wall'] as const) {
     for (const entry of ['torsion', 'direct', 'prepared', 'concurrent'] as const) {
       for (const shearAxis of ['primary', 'secondary', 'both'] as const) for (const factor of [1 - 1e-5, 1 + 1e-5]) {
-        knownWrong(`#[ignore = "known wrong result: #2142"] section boundary ${edition} ${axis} ${elementType} ${entry} ${shearAxis} ${factor}: ${clause}`, () => {
+        it(`section boundary ${edition} ${axis} ${elementType} ${entry} ${shearAxis} ${factor}: ${clause}`, () => {
           const primary = shearAxis === 'secondary' ? 0 : 100;
           const secondary = shearAxis === 'primary' ? 0 : -100;
           const torque = reference(primary, secondary, 0).phiTn * factor;
@@ -83,17 +83,23 @@ for (const edition of ['2005', '2025'] as const) {
 }
 
 for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-5, 1 + 1e-5]) {
-  knownWrong(`#[ignore = "known wrong result: #2142"] provided steel module ${axis} ${factor}: ${clause}`, () => {
+  it(`provided steel module ${axis} ${factor}: ${clause}`, () => {
     const torque = reference(0, 100, 0).phiTn * factor;
     const r = checkTorsion2025({ ...p, d: depth(p.h), dSecondary: depth(p.b), stirrupDiaMm: p.stirrupDia,
-      fyt: p.fy, Vu: 0, Tu: torque, demand: demand(0, 100, torque, axis), stirrup: { diameter: 16, legs: 4, spacing: 0.05 } });
+      fyt: p.fy, demand: demand(0, 100, torque, axis), stirrup: { diameter: 16, legs: 4, spacing: 0.05 } });
     expect(r.sectionRatio).toBeCloseTo(reference(0, 100, torque).sectionRatio, 12);
+    const vc = 0.17 * Math.sqrt(p.fc) * 1000;
+    const vsSecondary = Math.max(0, 100 / 0.75 - vc * p.h * depth(p.b));
+    const requiredShear = vsSecondary / (p.fy * 1000 * depth(p.b));
+    const Aoh = (p.b - 2 * p.cover - p.stirrupDia / 1000) * (p.h - 2 * p.cover - p.stirrupDia / 1000);
+    const requiredTorsion = torque / (0.75 * 2 * 0.85 * Aoh * p.fy * 1000);
+    expect(r.transverseRequired).toBeCloseTo(Math.max(requiredShear + 2 * requiredTorsion, Math.max(0.062 * Math.sqrt(p.fc), 0.35) * p.b / p.fy), 15);
     expect(r.ratio > 1).toBe(factor > 1);
   });
 }
 
 for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-5, 1 + 1e-5]) {
-  knownWrong(`#[ignore = "known wrong result: #2142"] shear alone fills the section ${axis} ${factor}: ${clause}`, () => {
+  it(`shear alone fills the section ${axis} ${factor}: ${clause}`, () => {
     const secondary = p.h * depth(p.b) * 0.75 * (0.17 + 0.66) * Math.sqrt(p.fc) * 1000 * factor;
     const t = checkTorsion(p, demand(0, secondary, 6, axis), '2025');
     const expected = reference(0, secondary, 6);
@@ -103,9 +109,11 @@ for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-5, 1 + 1e
     expect(t.status).toBe('fail');
   });
 }
-for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-5, 1 + 1e-5]) {
-  knownWrong(`#[ignore = "known wrong result: #2142"] provided beam sweep ${axis} ${factor}: ${clause}`, () => {
-    const torque = reference(0, 100, 0).phiTn * factor;
+for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-3, 1 + 1e-3]) {
+  it(`provided beam sweep ${axis} ${factor}: ${clause}`, () => {
+    const shearOnly = reference(0, 100, 0).sectionRatio;
+    const torsionOnly = reference(0, 0, 1).sectionRatio;
+    const torque = Math.sqrt(factor ** 2 - shearOnly ** 2) / torsionOnly;
     const d = demand(0, 100, torque, axis);
     const stations = { elementId: 1, length: 0.4, stationTs: [0, 1], comboResults: [{ comboId: 1, comboName: 'C1',
       stations: [0, 1].map(t => ({ ...d.source.forces, t, x: t * 0.4 })) }] };
@@ -136,7 +144,7 @@ const model = {
 };
 afterEach(() => setCompactStationTransfer(true));
 for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  knownWrong(`#[ignore = "known wrong result: #2142"] 3D WASM concurrent secondary shear nonlinear=${nonlinear} compact=${compact}`, () => {
+  it(`3D WASM concurrent secondary shear nonlinear=${nonlinear} compact=${compact}`, () => {
     const solver: SolverInput3D = { ...model,
       elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
         releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
@@ -161,6 +169,27 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) {
         }
       }
     }
+  });
+}
+for (const nonlinear of [false, true]) for (const compact of [false, true]) for (const entry of ['auto', 'unified', 'design'] as const) {
+  it(`3D WASM ${entry} retains secondary shear nonlinear=${nonlinear} compact=${compact}`, () => {
+    const m = { ...model, nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0.04, y: 0, z: 0 }]]) };
+    const solver: SolverInput3D = { ...m,
+      elements: new Map([[1, { ...m.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
+        releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+      supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 100, fz: 0, mx: 57, my: 20, mz: 0 } }],
+    };
+    const raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+    setCompactStationTransfer(compact);
+    const complete = computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'C1', factors: [] }], m);
+    const v = { auto: () => autoVerifyFromResults(raw, m, null, undefined, complete.demands).concrete[0]!,
+      unified: () => runUnifiedVerification(raw, m, null, complete.demands)[0]!,
+      design: () => runCirsocDesign(raw, m, complete.demands, new Map(), null).concrete[0]! }[entry]();
+    expect(v.flexureAxis).toBe('My');
+    expect(v.torsion!.ratio).toBeCloseTo(reference(0, 100, 57).ratio, 12);
+    expect(v.torsion!.status).toBe('fail');
+    expect(v.overallStatus).toBe('fail');
   });
 }
 for (const nonlinear of [false, true]) it(`2D WASM torsion-free valid control nonlinear=${nonlinear}`, () => {

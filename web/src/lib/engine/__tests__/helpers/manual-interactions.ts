@@ -3,13 +3,14 @@ import { checkColumn as column, checkBiaxial as biaxial, checkTorsion as torsion
 import { checkSteelInteraction as steelInteraction, verifySteelElement as steelElement, worseSteelVerification, type SteelDesignParams, type SteelVerificationInput } from '../../codes/argentina/cirsoc301';
 import type { RegulationEdition } from '../../../codes/regulation';
 
-const manual = (Nu: number, Mu: number, Muy = 0, Vu = 0, Tu = 0) => ConcurrentDemand.fromTuples([{ comboId: 0, comboName: 'manual',
-  forces: { n: -Nu, mz: Mu, my: Muy, vy: Vu, vz: 0, torsion: Tu, t: 0, x: 0 } }])[0]!.section('Mz');
+const manual = (Nu: number, Mu: number, Muy = 0, Vu = 0, Tu = 0, VuSecondary = 0) => ConcurrentDemand.fromTuples([{ comboId: 0, comboName: 'manual',
+  forces: { n: -Nu, mz: Mu, my: Muy, vy: Vu, vz: VuSecondary, torsion: Tu, t: 0, x: 0 } }])[0]!.section('Mz');
 
 export const checkColumn = (params: ConcreteDesignParams, Nu: number, Mu: number, opts: { edition?: RegulationEdition; axialLoads?: number[] } = {}) =>
   column(params, [Nu, ...(opts.axialLoads ?? [])].map(n => manual(n, Mu)), { edition: opts.edition });
 export const checkBiaxial = (params: ConcreteDesignParams, Nu: number, Muy: number, Muz: number, As: number, opts: { edition?: RegulationEdition; barCount?: number; barDia?: number } = {}) =>
   biaxial(params, manual(Nu, Muz, Muy), As, opts);
+export const torsionDemand = (Tu: number, Vu = 0, VuSecondary = 0) => manual(0, 0, 0, Vu, Tu, VuSecondary);
 export const checkTorsion = (params: ConcreteDesignParams, Tu: number, Vu = 0, edition: RegulationEdition = '2005') => torsion(params, manual(0, 0, 0, Vu, Tu), edition);
 export const checkSteelInteraction = (params: SteelDesignParams, Nu: number, Mu: number, Muy: number) => steelInteraction(params, ConcurrentDemand.fromTuples([{ comboId: 0, comboName: 'manual',
   forces: { n: -Nu, my: Mu, mz: Muy, vy: 0, vz: 0, torsion: 0, t: 0, x: 0 } }])[0]!.section('My'));

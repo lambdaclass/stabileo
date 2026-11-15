@@ -1,0 +1,213 @@
+{
+  "mainCommit": "44966b6e75f72ce268ec87798d5cd880a6dba144",
+  "params": {
+    "b": 0.3,
+    "h": 0.6,
+    "fc": 25,
+    "fy": 420,
+    "cover": 0.025,
+    "stirrupDia": 8
+  },
+  "witness": {
+    "Mu": 20,
+    "Nu": 0,
+    "Vu": 0,
+    "VuSecondary": 100,
+    "Tu": 57,
+    "elementType": "column"
+  },
+  "fixedReinforcement": {
+    "spacing": 0.05,
+    "legs": 4,
+    "AlProv": 100
+  },
+  "rows": [
+    {
+      "edition": "2005",
+      "main": {
+        "edition": "2005",
+        "torsion": {
+          "Tu": 57,
+          "Tcr": 29.700000000000006,
+          "phiTn": 58.055253822359695,
+          "AtOverS": 8.115228037480739,
+          "AlReq": 12.724677562769797,
+          "neglect": false,
+          "ratio": 0.9818232846662145,
+          "status": "ok",
+          "steps": [
+            "Tu = 57.000 kN·m",
+            "Tcr = 0.33·√f'c·Acp²/pcp = 29.700 kN·m",
+            "Aoh = 1311.6 cm², ph = 156.8 cm",
+            "At/s,req = 8.12 cm²/m (una rama)",
+            "Al,req = 12.72 cm² (longitudinal por torsión)",
+            "φTn,máx = 58.055 kN·m con Vu = 0.00 kN (§22.7.7.1) → Tu/φTn = 0.982",
+            "At/s,prov = 10.05 cm²/m (descontando corte)",
+            "Al,prov = 100.00 cm²",
+            "Armadura de torsión y separación: demanda/provisión = 0.807"
+          ],
+          "spacingMax": 0.19599999999999998,
+          "AtOverSProv": 10.053096491487336,
+          "AlProv": 100,
+          "longitudinalProvision": "checked",
+          "reinforcementRatio": 0.8072366603018755
+        },
+        "overallStatus": "ok"
+      },
+      "fixed": {
+        "torsion": {
+          "Tu": 57,
+          "Tcr": 29.700000000000006,
+          "phiTn": 56.80093509783761,
+          "AtOverS": 8.115228037480739,
+          "AlReq": 12.724677562769797,
+          "neglect": false,
+          "ratio": 1.0035046060741695,
+          "status": "fail",
+          "steps": [
+            "Tu = 57.000 kN·m",
+            "Tcr = 0.33·√f'c·Acp²/pcp = 29.700 kN·m",
+            "Aoh = 1311.6 cm², ph = 156.8 cm",
+            "At/s,req = 8.12 cm²/m (una rama)",
+            "Al,req = 12.72 cm² (longitudinal por torsión)",
+            "φTn,máx = 56.801 kN·m con Vu = 0.00 kN, Vu,sec = 100.00 kN (§22.7.7.1) → Tu/φTn = 1.004",
+            "⚠ Tensiones combinadas V+T exceden el límite de la sección (§22.7.7.1a)",
+            "At/s,prov = 10.05 cm²/m (descontando corte)",
+            "Al,prov = 100.00 cm²",
+            "Armadura de torsión y separación: demanda/provisión = 0.807"
+          ],
+          "spacingMax": 0.19599999999999998,
+          "AtOverSProv": 10.053096491487336,
+          "AlProv": 100,
+          "longitudinalProvision": "checked",
+          "reinforcementRatio": 0.8072366603018755
+        },
+        "overallStatus": "fail"
+      },
+      "control": {
+        "Tu": 30,
+        "Tcr": 29.700000000000006,
+        "phiTn": 56.97985938247517,
+        "AtOverS": 4.271172651305651,
+        "AlReq": 6.69719871724726,
+        "neglect": false,
+        "ratio": 0.5265018258228074,
+        "status": "ok",
+        "steps": [
+          "Tu = 30.000 kN·m",
+          "Tcr = 0.33·√f'c·Acp²/pcp = 29.700 kN·m",
+          "Aoh = 1311.6 cm², ph = 156.8 cm",
+          "At/s,req = 4.27 cm²/m (una rama)",
+          "Al,req = 6.70 cm² (longitudinal por torsión)",
+          "φTn,máx = 56.980 kN·m con Vu = 100.00 kN (§22.7.7.1) → Tu/φTn = 0.527"
+        ],
+        "spacingMax": 0.19599999999999998
+      }
+    },
+    {
+      "edition": "2025",
+      "main": {
+        "edition": "2025",
+        "torsion": {
+          "Tu": 57,
+          "Tcr": 29.700000000000006,
+          "phiTn": 58.055253822359695,
+          "AtOverS": 8.115228037480739,
+          "AlReq": 12.724677562769797,
+          "neglect": false,
+          "ratio": 0.9818232846662145,
+          "status": "ok",
+          "steps": [
+            "Tu = 57.000 kN·m",
+            "Tcr = 0.33·√f'c·Acp²/pcp = 29.700 kN·m",
+            "Aoh = 1311.6 cm², ph = 156.8 cm",
+            "At/s,req = 8.12 cm²/m (una rama)",
+            "Al,req = 12.72 cm² (longitudinal por torsión)",
+            "φTn,máx = 58.055 kN·m con Vu = 0.00 kN (§22.7.7.1) → Tu/φTn = 0.982",
+            "At/s,prov = 10.05 cm²/m (descontando corte)",
+            "Al,prov = 100.00 cm²",
+            "Armadura de torsión y separación: demanda/provisión = 0.807"
+          ],
+          "spacingMax": 0.19599999999999998,
+          "AtOverSProv": 10.053096491487336,
+          "AlProv": 100,
+          "longitudinalProvision": "checked",
+          "reinforcementRatio": 0.8072366603018755
+        },
+        "overallStatus": "ok"
+      },
+      "fixed": {
+        "torsion": {
+          "Tu": 57,
+          "Tcr": 29.700000000000006,
+          "phiTn": 56.80093509783761,
+          "AtOverS": 8.115228037480739,
+          "AlReq": 12.724677562769797,
+          "neglect": false,
+          "ratio": 1.0035046060741695,
+          "status": "fail",
+          "steps": [
+            "Tu = 57.000 kN·m",
+            "Tcr = 0.33·√f'c·Acp²/pcp = 29.700 kN·m",
+            "Aoh = 1311.6 cm², ph = 156.8 cm",
+            "At/s,req = 8.12 cm²/m (una rama)",
+            "Al,req = 12.72 cm² (longitudinal por torsión)",
+            "φTn,máx = 56.801 kN·m con Vu = 0.00 kN, Vu,sec = 100.00 kN (§22.7.7.1) → Tu/φTn = 1.004",
+            "⚠ Tensiones combinadas V+T exceden el límite de la sección (§22.7.7.1a)",
+            "At/s,prov = 10.05 cm²/m (descontando corte)",
+            "Al,prov = 100.00 cm²",
+            "Armadura de torsión y separación: demanda/provisión = 0.807"
+          ],
+          "spacingMax": 0.19599999999999998,
+          "AtOverSProv": 10.053096491487336,
+          "AlProv": 100,
+          "longitudinalProvision": "checked",
+          "reinforcementRatio": 0.8072366603018755
+        },
+        "overallStatus": "fail"
+      },
+      "control": {
+        "Tu": 30,
+        "Tcr": 29.700000000000006,
+        "phiTn": 56.97985938247517,
+        "AtOverS": 4.271172651305651,
+        "AlReq": 6.69719871724726,
+        "neglect": false,
+        "ratio": 0.5265018258228074,
+        "status": "ok",
+        "steps": [
+          "Tu = 30.000 kN·m",
+          "Tcr = 0.33·√f'c·Acp²/pcp = 29.700 kN·m",
+          "Aoh = 1311.6 cm², ph = 156.8 cm",
+          "At/s,req = 4.27 cm²/m (una rama)",
+          "Al,req = 6.70 cm² (longitudinal por torsión)",
+          "φTn,máx = 56.980 kN·m con Vu = 100.00 kN (§22.7.7.1) → Tu/φTn = 0.527"
+        ],
+        "spacingMax": 0.19599999999999998
+      }
+    }
+  ],
+  "sourceSha256": {
+    "web/src/lib/codes/cirsoc201/torsion.ts": {
+      "main": "b3e6e4e50a794c253be1c2b82448922d2dbe13b3496bd22160d828b0e0ceee99",
+      "fixed": "b440ebfae87d776416bf6f952f9873d1b5721ba55a73ecdc075ab864d2568d18"
+    },
+    "web/src/lib/engine/codes/argentina/cirsoc201.ts": {
+      "main": "80fd2eb43536d9cf11688e5b5407b453a2ab95291ac0992ba7caf81e57d8211f",
+      "fixed": "4c412434afd896d0dac4efc63d58655016dade3676a4d786ba57c2bdcfb9003c"
+    },
+    "web/src/lib/engine/station-design-forces.ts": {
+      "main": "0ce3d33c64c399de514e0678de85694303bc80b8997431f39b42516fce7ac32b",
+      "fixed": "35a192a66f931e4eebc2871a795abc8d4f4447ba4307dd99df50948add8ef211"
+    },
+    "web/src/lib/engine/concurrent-verification.ts": {
+      "main": "b9e115f4645711202a847b95f0b196454c7c79755bae080c879ce99c4aa0a7fd",
+      "fixed": "1571ea12957c55ee230033d26507809c8d49fe4c17eaa3e82b7e3db1e9ed0509"
+    }
+  },
+  "independentClauseReference": {
+    "combinedStressRatio": 1.0033550542199214,
+    "phiTn": 56.800935097837595,
+    "torqueRatio": 1.0035046060741697
+  }
+}
