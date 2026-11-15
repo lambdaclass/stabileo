@@ -103,8 +103,12 @@ metamorphic and differential tests; this layer has had almost none. The order be
    to it. The move is mechanical: same `make` targets and CI job names. Then, in this order, the
    checks borrowed from database testing:
    - **Every test under equivalent transformations:** each corpus model is rotated, relabelled,
-     re-meshed and converted to other units, for design ratios and generated loads as well as
-     solver results (the class of all four findings in item 2).
+     reordered and converted to other units, and split only where the discrete problem stays the
+     same (a frame member split at an unloaded point; generated loads, which depend on the
+     physical geometry and not on the mesh); required to give equivalent design ratios, generated
+     loads and solver results (the class of all four findings in item 2). General re-meshing of
+     shells and plates changes the discrete answer for a correct implementation, so it is tested
+     through convergence rates and error bounds instead.
    - **Pick one, check it is in the answer:** compute one member and station's demands and checks
      independently and require the full run to report exactly that (the
      [#2096](https://github.com/lambdaclass/stabileo/issues/2096) class).
