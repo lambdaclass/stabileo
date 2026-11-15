@@ -38,7 +38,7 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Données concernées et actions requises."},
     {"k": "note", "t": "SA-2026-068 — Corrigé dans 0.6.1."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-072 — Corrigé dans la demande de modification de #2144, fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-072 — Corrigé dans la PR #2175, fusion et publication en attente."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Données concernées et actions requises."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
@@ -418,7 +418,7 @@ const body: PostBody = {
         ["SA-2026-066", "Le Cm du béton pouvait être réduit d’après les moments d’extrémité malgré une charge transversale entre appuis (#2089). Revérifiez poteaux et voiles élancés, moments amplifiés et armatures.", "Élevée", "Corrigé dans 0.6.1"],
         ["SA-2026-067", "Une rotation en plan pouvait modifier les charges de neige générées (#2093). Régénérez les charges avec la géométrie réelle puis relancez analyses et vérifications ; revenir à l’orientation initiale ne répare pas les résultats.", "Élevée", "Corrigé dans 0.6.1"],
         ["SA-2026-068", "La torsion pouvait être validée avec des étriers dimensionnés insuffisants (#2141). Relancez les vérifications béton et examinez résistance transversale réelle, espacement des étriers et échecs en torsion. Des armatures longitudinales non vérifiées ne constituent pas une cage validée.", "Élevée", "Corrigé dans 0.6.1"],
-        ["SA-2026-072", "Une subdivision inégale des bords du toit pouvait déplacer le faîtage et modifier les charges de neige générées (#2144). Régénérez les charges puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la demande de modification de #2144, fusion et publication en attente"],
+        ["SA-2026-072", "Une subdivision inégale des bords du toit pouvait déplacer le faîtage et modifier les charges de neige générées (#2144). Régénérez les charges puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2175, fusion et publication en attente"],
       ]
     },
     {

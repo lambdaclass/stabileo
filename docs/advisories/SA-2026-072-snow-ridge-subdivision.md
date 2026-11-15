@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-15; fixed in the #2144 pull request, pending merge and release |
+| Status | Draft 2026-11-15; fixed in PR #2175, pending merge and release |
 | Issue | [#2144](https://github.com/lambdaclass/stabileo/issues/2144) |
-| Fix | Fixed in the #2144 pull request; pending merge and release |
+| Fix | PR [#2175](https://github.com/lambdaclass/stabileo/pull/2175); pending merge and release |
 | Fixed release | Not released |
 | Affected versions | Confirmed on origin/main `8e5c026b7`; earlier introduction and historical release binaries not assessed |
 | Re-check registry | [`snow-ridge-mesh`](../../web/src/lib/provenance/result-changes/snow-ridge-mesh.json) |
@@ -50,7 +50,7 @@ roof had an incorrect load.
 
 ## Fixed in
 
-Fixed in the #2144 pull request, pending merge and release. One shared
+Fixed in PR #2175, pending merge and release. One shared
 roof-surface model now owns geometry, complete connected collinear runs,
 profile points, side classification and interpolation to member stations.
 The ridge uses the projected extent of the highest physical profile points;
