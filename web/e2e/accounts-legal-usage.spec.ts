@@ -1,8 +1,11 @@
+import { BUILD_FEATURES, ACCOUNTS_SKIP_REASON } from './build-features';
 import { test, expect, CURRENT_STAMP } from './fixtures';
 import type { Page, Route } from '@playwright/test';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { RESULTS_CHANGED_IN, WHATS_NEW_STORAGE_KEY } from '../src/lib/release/whats-new';
+
+test.skip(!BUILD_FEATURES.accounts, ACCOUNTS_SKIP_REASON);
 
 const TERMS_VERSION = '2026-10-27';
 

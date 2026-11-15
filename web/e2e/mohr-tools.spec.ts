@@ -1,4 +1,7 @@
+import { BUILD_FEATURES, TOOLS_SKIP_REASON } from './build-features';
 import { test, expect, loadModel, pickLanguage } from './fixtures';
+
+test.skip(!BUILD_FEATURES.tools, TOOLS_SKIP_REASON);
 
 type Page = import('@playwright/test').Page;
 

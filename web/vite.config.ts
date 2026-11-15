@@ -46,6 +46,7 @@ const publicBuildEnvironment: { value: Record<string, string | undefined> } = { 
 
 function publicBuildSwitchesPlugin(): Plugin {
   let switches: Record<string, string> = {};
+  let e2e = false;
   return {
     name: 'public-build-switches',
     config(config, { mode, command }) {
@@ -59,6 +60,10 @@ function publicBuildSwitchesPlugin(): Plugin {
     },
     configResolved(config) {
       publicBuildEnvironment.value = { ...config.env, ...switches };
+      e2e = config.env.VITE_E2E === '1';
+    },
+    generateBundle() {
+      if (e2e) this.emitFile({ type: 'asset', fileName: 'e2e-features.json', source: JSON.stringify(switches) });
     },
   };
 }

@@ -1,6 +1,8 @@
 import { test as base, expect, type Page } from '@playwright/test';
-import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
+import type { Locale } from '../src/lib/i18n/offered';
 import { bootLanding } from './landing-helpers';
+import { buildPublicLocales } from '../src/lib/i18n/offered-research';
+import { BUILD_FEATURES, RESEARCH_SKIP_REASON } from './build-features';
 import { PRICING, OBSOLETE_PRICING } from './pricing-contract';
 
 // Landing animations have wedged the shared CI browser on subsequent contexts.
@@ -41,7 +43,8 @@ async function expectResponsiveNavigation(page: Page, width: number) {
 
 export function landingPricingTests(locale: Locale) {
   test.describe('@smoke landing pricing and responsive layout', () => {
-    test.skip(!PUBLIC_LOCALES.includes(locale), `${locale} is not published; its landing redirects to English`);
+    test.skip(locale === 'hu' && !BUILD_FEATURES.research, RESEARCH_SKIP_REASON);
+    test.skip(!buildPublicLocales(BUILD_FEATURES.research).includes(locale), `${locale} is not published; its landing redirects to English`);
     for (const width of [360, 390, 810]) {
       test(`pricing for both audiences in ${locale} at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });

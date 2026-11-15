@@ -1,4 +1,7 @@
+import { BUILD_FEATURES, GAME_SKIP_REASON } from './build-features';
 import { test, expect, type Page } from '@playwright/test';
+
+test.skip(!BUILD_FEATURES.diagramGame, GAME_SKIP_REASON);
 
 type Hook = { answer: () => number | null; type: () => string | null; level: (n: number) => void; find: (type: string) => boolean };
 const correctIndex = (page: Page) => page.evaluate(() => (window as unknown as { __diagramGame: Hook }).__diagramGame.answer());

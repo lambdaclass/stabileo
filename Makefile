@@ -383,7 +383,7 @@ e2e.web.setup:
 
 # The site the e2e suites test with E2E_PREBUILT=1: VITE_E2E=1 compiles the read-only test hooks in,
 # and web/playwright.config.ts refuses a prebuilt dist without the marker. Needs make e2e.web.setup.
-e2e.web.build:
+e2e.web.build: test.web.e2e-features
 	$(NIX_RUN) bash -c 'cd web && VITE_E2E=1 npm run build && echo "VITE_E2E=1 build of $${GITHUB_SHA:-$$(git rev-parse HEAD)}" > dist/e2e-build.txt'
 
 # SHARD=i/n picks whole spec files balanced by measured duration (web/scripts/e2e-shard.mjs).
@@ -1221,4 +1221,4 @@ test.web.tool-current-result-2099:
 
 .PHONY: test.web.e2e-features
 test.web.e2e-features:
-	$(NIX_RUN) bash -c 'cd web && node --test scripts/e2e-feature-build.test.mjs'
+	$(NIX_RUN) bash -c 'cd web && node --experimental-strip-types --test scripts/e2e-feature-build.test.mjs'

@@ -1,8 +1,12 @@
+import { BUILD_FEATURES, TOOLS_SKIP_REASON } from './build-features';
+import { buildPublicLocales } from '../src/lib/i18n/offered-research';
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { BATCH_IDS } from '../src/components/tools/batch';
 import { TOOL_IDS, formula, format, workedExamples } from '../src/components/tools/calculators';
 import { PUBLIC_LOCALES, isComplete } from '../src/lib/i18n/offered';
 import { TOOLS, TOPICS } from '../src/components/tools/registry';
+
+test.skip(!BUILD_FEATURES.tools, TOOLS_SKIP_REASON);
 
 const difference = async (agreement: Locator) => {
   const raw = await agreement.getAttribute('data-difference');
@@ -207,7 +211,7 @@ test('@smoke tools a slider moves every diagram live, and the diagrams never bla
   await expect(page.getByTestId('load')).toHaveValue('30');
 });
 
-for (const locale of PUBLIC_LOCALES) test(`@smoke tools localized index ${locale}`, async ({ page }) => {
+for (const locale of buildPublicLocales(BUILD_FEATURES.research)) test(`@smoke tools localized index ${locale}`, async ({ page }) => {
   await page.goto(`/${locale}/tools/`);
   await expect(page.locator('h1')).toBeVisible();
   await expect(page.locator('section.topic')).toHaveCount(TOPICS.length);
@@ -223,7 +227,7 @@ for (const locale of PUBLIC_LOCALES) test(`@smoke tools localized index ${locale
   await expect(page.locator('nav [data-nav="tools"]')).toBeVisible();
   await expect(page.locator('nav [data-nav="examples"]')).toHaveCount(0);
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `https://stabileo.com/${locale}/tools/`);
-  for (const lang of PUBLIC_LOCALES) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveAttribute('href', `https://stabileo.com/${lang}/tools/`);
+  for (const lang of buildPublicLocales(BUILD_FEATURES.research)) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveAttribute('href', `https://stabileo.com/${lang}/tools/`);
   for (const lang of ['de', 'fr', 'tr'].filter((l) => !isComplete(l))) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveCount(0);
 });
 

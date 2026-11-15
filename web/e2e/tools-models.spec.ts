@@ -1,5 +1,8 @@
+import { BUILD_FEATURES, TOOLS_SKIP_REASON } from './build-features';
 import { test, expect, type Page } from '@playwright/test';
 import { TOOLS } from '../src/components/tools/registry';
+
+test.skip(!BUILD_FEATURES.tools, TOOLS_SKIP_REASON);
 
 const MODEL_IDS = TOOLS.filter(tool => tool.kind === 'model').map(tool => tool.id);
 import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';

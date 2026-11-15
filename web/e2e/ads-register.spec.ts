@@ -1,6 +1,9 @@
+import { BUILD_FEATURES, ACCOUNTS_SKIP_REASON } from './build-features';
 import { test, expect } from './fixtures';
 import type { Page, Route } from '@playwright/test';
 import { createHash } from 'node:crypto';
+
+test.skip(!BUILD_FEATURES.accounts, ACCOUNTS_SKIP_REASON);
 
 const ACCOUNT = {
   id: '6f1c2c0e-0000-4000-8000-0000000000ad',

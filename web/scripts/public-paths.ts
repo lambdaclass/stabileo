@@ -1,6 +1,5 @@
 import ts from 'typescript';
 import { EXAMPLE_PATHS } from '../src/lib/public-surface';
-import { loadEnv } from 'vite';
 import { publicFeatureEnabled } from '../src/lib/features';
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
@@ -13,12 +12,8 @@ import { TOOLS, toolLastmod, toolPaths } from '../src/components/tools/registry'
 import toolReviews from '../../research/tools/batches/VALIDATION.json';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const buildEnvironment = loadEnv(process.env.NODE_ENV ?? 'production', ROOT, 'VITE_');
-
-export function buildPublicFeatures() {
-  const environment = { ...buildEnvironment, ...process.env };
-  return { research: environment.VITE_RESEARCH === '1', tools: environment.VITE_TOOLS === '1', diagramGame: environment.VITE_DIAGRAM_GAME === '1', accounts: environment.VITE_ACCOUNTS === '1' };
-}
+export { buildPublicFeatures } from './build-public-features';
+import { buildPublicFeatures } from './build-public-features';
 
 /**
  * A post's last change, for its sitemap entry: `updated` when the post states one, else its
