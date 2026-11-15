@@ -1,7 +1,7 @@
 # Snow loads respect local positions and drift boundaries
 
-Review #2095 round 7 corrects nodal snow pressure, drift load segmentation and
-exterior-edge classification. This correction is unmerged and unreleased.
+PR #2095 corrects nodal snow pressure, drift load segmentation and
+exterior-edge classification. This correction is included in 0.6.1 (PR #2095).
 Regenerate affected snow loads, then rerun analyses, combinations and design
 checks. Re-solving stored generated loads alone does not correct them.
 

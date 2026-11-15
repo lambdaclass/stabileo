@@ -45,8 +45,11 @@ describe("what's-new notice", () => {
         expect(releaseNotesUrl(locale, version)).toBe(`https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v${version}.md`);
       }
     }
-    expect(RESULTS_CHANGED_IN).toBe('0.6.0');
-    expect(shouldShowWhatsNew(memoryStore({ [WHATS_NEW_STORAGE_KEY]: '0.5.0' }))).toBe(true);
+    for (const locale of ['de', 'fr', 'tr']) {
+      expect(releaseNotesUrl(locale, '0.6.0')).toBe(`https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.0.${locale}.md`);
+    }
+    expect(RESULTS_CHANGED_IN).toBe('0.6.1');
+    expect(shouldShowWhatsNew(memoryStore({ [WHATS_NEW_STORAGE_KEY]: '0.6.0' }))).toBe(true);
   });
 
   it('the app version is package.json\'s, and the notice is not for a future release', () => {

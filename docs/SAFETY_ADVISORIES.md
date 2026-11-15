@@ -119,10 +119,10 @@ Every advisory has these sections; the [template](#template) lists them.
 The list of advisories, with status and severity, is [advisories/README.md](advisories/README.md).
 The dashboard counts published advisories ([verification/DASHBOARD.md](verification/DASHBOARD.md)).
 
-Pending design corrections: [SA-2026-064](advisories/SA-2026-064-steel-cb-combination.md)
-covers steel Cb from another combination or an unlocated short span (#1316, #2088);
-[SA-2026-066](advisories/SA-2026-066-cirsoc201-transverse-cm.md) covers CIRSOC 201
-Cm credit with transverse load (#2089). Both fixes are in PR #2080, pending merge
-and release.
-
-Coordinator-assigned snow advisories: [SA-2026-065](advisories/drafts/SA-2026-065-snow-roof-step.md) and [SA-2026-067](advisories/drafts/SA-2026-067-snow-roof-rotation.md). Both reproduce silent wrong loads on main/v0.6.0; the local correction awaits review and release. Regenerate snow loads before re-solving affected projects.
+Published with 0.6.1 (2026-11-15): [SA-2026-064](advisories/SA-2026-064-steel-cb-combination.md)
+(steel Cb), [SA-2026-065](advisories/SA-2026-065-snow-roof-step.md) (roof-step drift),
+[SA-2026-066](advisories/SA-2026-066-cirsoc201-transverse-cm.md) (concrete Cm),
+[SA-2026-067](advisories/SA-2026-067-snow-roof-rotation.md) (snow under plan rotation)
+and [SA-2026-068](advisories/SA-2026-068-provided-torsion-stirrups.md) (torsion stirrups).
+Re-run affected design checks; regenerate snow loads before re-solving.
+See the [release notes](releases/v0.6.1.md) for every results-change notice and known limitations.

@@ -28,8 +28,16 @@ const body: PostBody = {
       "k": "note",
       "t": "SA-2026-063 — Corrigé dans PR #2009, en attente de publication."
     },
-    {"k": "note", "t": "SA-2026-064 — Corrigé dans PR #2080, publication en attente."},
-    {"k": "note", "t": "SA-2026-066 — Brouillon : corrigé dans PR #2080, fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-064 — Corrigé dans 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-064-steel-cb-combination.md", "label": "SA-2026-064", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-065 — Corrigé dans 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-065-snow-roof-step.md", "label": "SA-2026-065", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-066 — Corrigé dans 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-066-cirsoc201-transverse-cm.md", "label": "SA-2026-066", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-067 — Corrigé dans 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-068 — Corrigé dans 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Données concernées et actions requises."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -403,8 +411,11 @@ const body: PostBody = {
         ["SA-2026-060", "Le calcul par phases pouvait raidir sans avertissement des rotations réelles après un changement d’unités ou aux extrémités articulées avec ressorts d’appui ; revérifiez les modèles par phases avec libérations", "Haute", "Brouillon : correction locale en attente de revue et de publication"],
         ["SA-2026-062", "Le calcul plastique 3D brut pouvait annoncer zéro sans avertissement en cas d’échec de l’état élastique initial ; les anciennes versions certifiées conservaient ce facteur. Main renvoie déjà une borne certifiée positive avec avertissement ; la PR #1943 transmet le refus initial", "Haute", "Brouillon : correction locale en attente de revue et de publication"],
         ["SA-2026-063", "Les analyses par phases et non linéaires avec contraintes perdaient le mouvement imposé du maître ; les analyses de câbles et les historiques temporels refusent désormais les mouvements d’appui non pris en charge. Les avertissements dynamiques généraux existants ne signalaient pas cette omission", "Haute", "Corrigé dans PR #2009, en attente de publication"],
-        ["SA-2026-064", "Les interactions entre effort normal et flexion de l’acier pouvaient sous-estimer le taux sans avertissement en utilisant Cb du diagramme d’une autre combinaison. Relancer les vérifications de l’acier après la mise à jour.", "Élevée", "Corrigé dans PR #2080, publication en attente"],
-        ["SA-2026-066", "Les poteaux et voiles CIRSOC 201 soumis à des charges transversales pouvaient recevoir une réduction de Cm fondée sur les moments aux extrémités et sous-estimer le moment amplifié. Relancer les calculs béton concernés.", "Élevée", "Brouillon : corrigé dans PR #2080, fusion et publication en attente"],
+        ["SA-2026-064", "Le Cb de l’acier pouvait provenir d’une autre combinaison ou d’un court tronçon dont les maintiens étaient inconnus (#1316, #2088). Relancez les vérifications CIRSOC 301 et examinez résistance en flexion, taux d’interaction et combinaisons déterminantes.", "Élevée", "Corrigé dans 0.6.1"],
+        ["SA-2026-065", "L’accumulation à un décrochement pouvait être omise sur une toiture réceptrice inclinée (#2082). Régénérez les charges de neige CIRSOC 104 et recalculez les analyses et vérifications concernées.", "Élevée", "Corrigé dans 0.6.1"],
+        ["SA-2026-066", "Le Cm du béton pouvait être réduit d’après les moments d’extrémité malgré une charge transversale entre appuis (#2089). Revérifiez poteaux et voiles élancés, moments amplifiés et armatures.", "Élevée", "Corrigé dans 0.6.1"],
+        ["SA-2026-067", "Une rotation en plan pouvait modifier les charges de neige générées (#2093). Régénérez les charges avec la géométrie réelle puis relancez analyses et vérifications ; revenir à l’orientation initiale ne répare pas les résultats.", "Élevée", "Corrigé dans 0.6.1"],
+        ["SA-2026-068", "La torsion pouvait être validée avec des étriers dimensionnés insuffisants (#2141). Relancez les vérifications béton et examinez résistance transversale réelle, espacement des étriers et échecs en torsion. Des armatures longitudinales non vérifiées ne constituent pas une cage validée.", "Élevée", "Corrigé dans 0.6.1"],
       ]
     },
     {
