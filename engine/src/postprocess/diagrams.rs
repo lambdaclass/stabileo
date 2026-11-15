@@ -814,3 +814,89 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod interior_couples_2143 {
+    use super::*;
+
+    fn expected(x: f64, a: f64, c: f64) -> (f64, f64) {
+        let l = 5.0;
+        let ei = 20_000.0;
+        let b = l - a;
+        let m = c * b * (l - 3.0 * a) / (l * l);
+        let v = 6.0 * c * a * b / (l * l * l);
+        let d = (x - a).max(0.0);
+        ((m * x * x / 2.0 + v * x * x * x / 6.0 - c * d * d / 2.0) / ei,
+         (m * x + v * x * x / 2.0 - c * d) / ei)
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2143"]
+    fn public_shape_keeps_interior_couples() {
+        for a in [0.000005, 1.0, 2.0, 2.5, 4.0, 4.999995] {
+            for c in [-6.0, 6.0] {
+                let input = serde_json::json!({
+                    "nodeIx": 0.0, "nodeIy": 0.0, "nodeJx": 5.0, "nodeJy": 0.0,
+                    "uIx": 0.0, "uIy": 0.0, "rIz": 0.0, "uJx": 0.0, "uJy": 0.0, "rJz": 0.0,
+                    "scale": 1.0, "length": 5.0, "hingeStart": false, "hingeEnd": false,
+                    "ei": 20_000.0, "loadCouples": [[a, c]]
+                });
+                let raw = crate::compute_deformed_shape(&input.to_string()).unwrap();
+                let points: serde_json::Value = serde_json::from_str(&raw).unwrap();
+                for i in 0..21 {
+                    let x = i as f64 / 4.0;
+                    let actual = points[i]["y"].as_f64().unwrap();
+                    assert!((actual - expected(x, a, c).0).abs() < 2e-13, "a={a}, c={c}, x={x}: {actual} vs {:?}", expected(x, a, c));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn section_rotation_and_deflection_already_include_couples() {
+        for a in [0.0, 0.000005, 2.0, 2.5, 4.999995, 5.0] {
+            for c in [-6.0, 6.0] {
+                let plane = SpanRotation::new(5.0, 20_000.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, vec![], vec![], vec![(a, c)], 0.0);
+                for i in 0..21 {
+                    let x = i as f64 / 4.0;
+                    let (v, r) = expected(x, a, c);
+                    assert!((plane.at(x) - r).abs() < 2e-13);
+                    assert!((plane.deflection(x) - v).abs() < 2e-13);
+                }
+            }
+        }
+    }
+    #[test]
+    fn split_nodal_couples_recover_both_3d_planes_linear_and_pdelta() {
+        for (plane, my, mz) in [(0, 0.0, 6.0), (1, -6.0, 0.0)] {
+            for a in [1.0, 2.0, 4.0] {
+                let mut model: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
+                model["nodes"]["1"]["x"] = 5.0.into();
+                model["nodes"]["2"] = serde_json::json!({"id": 2, "x": a, "y": 0.0, "z": 0.0});
+                model["supports"]["1"] = serde_json::json!({"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true});
+                model["elements"]["1"]["nodeJ"] = 2.into();
+                model["elements"]["2"] = serde_json::json!({"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 1, "materialId": 1, "sectionId": 1});
+                model["loads"] = serde_json::json!([{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": my, "mz": mz}}]);
+                let model: SolverInput3D = serde_json::from_value(model).unwrap();
+                let linear = crate::solver::linear::solve_3d(&model).unwrap();
+                let nonlinear = crate::solver::pdelta::solve_pdelta_3d(&model, 20, 1e-10).unwrap();
+                assert!(nonlinear.converged);
+                for r in [linear, nonlinear.results] {
+                    let d = |id| r.displacements.iter().find(|d| d.node_id == id).unwrap();
+                    for (i, j, x0, length) in [(0, 2, 0.0, a), (2, 1, a, 5.0 - a)] {
+                        let end = |id| { let d = d(id); if plane == 0 { (d.uy, d.rz) } else { (d.uz, -d.ry) } };
+                        let ((vi, ri), (vj, rj)) = (end(i), end(j));
+                        let span = SpanRotation::new(length, 20_000.0, 0.0, vi, ri, vj, rj, false, false, vec![], vec![], vec![], 0.0);
+                        for k in 0..21 {
+                            let x = length * k as f64 / 20.0;
+                            let (v, rotation) = expected(x0 + x, a, 6.0);
+                            assert!((span.deflection(x) - v).abs() < 2e-13);
+                            assert!((span.at(x) - rotation).abs() < 2e-13);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+}
