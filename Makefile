@@ -1214,3 +1214,7 @@ test.web.landing-footer-2099:
 .PHONY: test.web.ci-runtime-2099
 test.web.ci-runtime-2099:
 	$(NIX_RUN) node --test web/scripts/research-locale-build.test.mjs web/scripts/site-nav-node-env-2099.test.mjs
+
+.PHONY: test.web.tool-current-result-2099
+test.web.tool-current-result-2099:
+	VITE_RESEARCH=1 VITE_TOOLS=1 nix develop .\#e2e --command node --test web/scripts/tests/tool-current-result-2099.test.mjs
