@@ -7,6 +7,7 @@ import { runOtherCode, certifyOtherCode, memberContexts } from '../design/other-
 import type { MemberContext, OtherCode, OtherCodeId } from '../design/other-codes/types';
 import { ec2MemberDesign } from '../design/eurocode/ec2-member';
 import { verifyElement, prepareElementVerification } from '../codes/argentina/cirsoc201';
+import { completeMemberDemands } from '../member-demand-gate';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { EC2_RECOMMENDED } from '../design/eurocode/ec2-params';
 
@@ -159,3 +160,64 @@ it('known wrong result: #2096 station coverage uses the actual force location', 
     forces: { ...d.forces, t: d.forces.t === 1 ? 0.5 : d.forces.t } }));
   refusal(() => runOtherCode(code('ec3'), [ctx]), { code: 'missing-station', elementId: 1, comboId: 1, stationT: 1 });
 });
+
+function combinationSpecificContext(): MemberContext {
+  const ctx = context();
+  ctx.tuples = ctx.tuples!.filter(d => d.comboId === 1 || d.stationT !== 0.5).map(d => ({
+    comboId: d.comboId, comboName: d.comboName, stationT: d.stationT, stationX: d.stationX, forces: { ...d.forces },
+  }));
+  ctx.demands = ctx.demands.filter(d => d.stationT !== 0.5);
+  return { ...ctx, stationTs: [0, 1] };
+}
+
+it.fails('known wrong result: #2096 round3 sizing accepts independent combination stations and isolated cases', () => {
+  const tuples = [0, 1, 2, 3].map(i => ({ comboId: i + 1, comboName: `C${i + 1}`,
+    forces: { t: i / 3, x: 4 * i / 3, n: 0, my: 20, mz: 0, vy: 0, vz: 1, torsion: 0 },
+  }));
+  const ds = ConcurrentDemand.fromTuples(tuples);
+  expect(ds.map(d => d.forces)).toEqual(tuples.map(d => d.forces));
+  const inputs = ds.map(d => ({ elementId: 1, elementType: 'beam' as const, b: 0.4, h: 0.4, fc: 30, fy: 420,
+    cover: 0.025, stirrupDia: 8, demand: d.section('My') }));
+  expect(verifyConcurrentElement(inputs).concurrentChecks!.map(c => c.demand)).toEqual(ds);
+  expect(verifyConcurrentElement([inputs[0]!]).concurrentChecks).toHaveLength(1);
+});
+
+for (const id of ['aci318', 'ec2', 'aisc360', 'ec3', 'aisiS100'] as const) {
+  it.fails(`known wrong result: #2096 round3 ${id} preserves verified combination-specific extra stations when checking`, () => {
+    const ctx = combinationSpecificContext();
+    expect(completeMemberDemands([ctx]).values).toHaveLength(5);
+    expect(runOtherCode(code(id), [ctx]).rows[0]).toMatchObject({ status: 'checked', reading: { ratio: 0.2, pass: true } });
+  });
+  it.fails(`known wrong result: #2096 round3 ${id} preserves verified combination-specific extra stations when certifying`, async () => {
+    const ctx = combinationSpecificContext();
+    const call = vi.fn(async () => [{ elementId: 1, certified: true, utilizationLower: 0.2, utilizationUpper: 0.2 }]);
+    const cert = await certifyOtherCode(code(id), [ctx], () => ({} as never), call);
+    expect(cert.get(1)?.status).toBe('ok');
+    expect(call).toHaveBeenCalled();
+  });
+}
+
+for (const kind of ['beam', 'column'] as const) {
+  it.fails(`known wrong result: #2096 round3 EC2 ${kind} preserves the verified grid with combination-specific extra stations`, () => {
+    const ctx = combinationSpecificContext();
+    expect(completeMemberDemands([ctx]).values).toHaveLength(5);
+    const input = { kind, b: 0.4, h: 0.4, L: 4, demands: ctx.demands, tuples: ctx.tuples,
+      expectedCombinationIds: [1, 2], stationTs: [0, 1], cover: 0.025, linkDia: 8, barDia: 16, fck: 30, fyk: 420, params: EC2_RECOMMENDED };
+    const expected = ec2MemberDesign({ ...input, tuples: context().tuples });
+    expect(ec2MemberDesign(input)).toEqual(expected);
+  });
+}
+
+for (const entry of ['auto', 'unified', 'design'] as const) for (const supplied of [false, true]) {
+  it.fails(`known wrong result: #2096 round3 ${entry} handles undefined optional governing entries supplied=${supplied}`, () => {
+    const data = new Map([1, 2].map(id => [id, extractGoverningDemands(stations(id))]));
+    const governing = new Map([[1, { momentY: { comboId: 1, comboName: 'C1', value: 20 }, momentZ: undefined }]]);
+    const run = (g: typeof governing | null) => ({
+      auto: () => autoVerifyFromResults(raw(), model, g, undefined, supplied ? data : undefined).concrete,
+      unified: () => runUnifiedVerification(raw(), model, g, supplied ? data : undefined),
+      design: () => runCirsocDesign(raw(), model, supplied ? data : undefined, new Map(), g).concrete,
+    })[entry]();
+    if (supplied) expect(run(governing)).toEqual(run(null));
+    else refusal(() => run(governing), { code: 'missing-combination', comboId: 1 });
+  });
+}

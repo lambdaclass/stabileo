@@ -1,3 +1,4 @@
+import { extractGoverningDemands } from '../station-design-forces';
 import { expect, it, afterEach, vi } from 'vitest';
 import * as wasmSolver from '../wasm-solver';
 import * as stationBuffer from '../station-buffer';
@@ -52,6 +53,25 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
   };
   const combinations = [{ id: 1, name: 'C1', factors: [] }, { id: 2, name: 'C2', factors: [] }];
   const label = `spatial=${spatial} nonlinear=${nonlinear} compact=${compact}`;
+  it.fails(`known wrong result: #2096 round3 dispatch preserves per-combination stations ${label}`, () => {
+    const raw = solveModel();
+    const data = computeStationDemands(new Map([[1, raw], [2, raw]]), combinations, model);
+    const source = data.stations.get(1)!;
+    const extra = source.stationTs.find(t => t > 0 && t < 1)!;
+    const demands = extractGoverningDemands({ ...source, stationTs: [0, 1], comboResults: source.comboResults.map(c => ({ ...c,
+      stations: c.stations.filter(s => s.t === 0 || s.t === 1 || c.comboId === 1 && s.t === extra),
+    })) });
+    const supplied = new Map([[1, demands]]);
+    const governing = new Map([[1, { momentY: { comboId: 1, comboName: 'C1', value: 0 }, momentZ: undefined }]]);
+    const expected = autoVerifyFromResults(raw, model, null, undefined, supplied).concrete;
+    expect(expected).toHaveLength(1);
+    expect(autoVerifyFromResults(raw, model, governing, undefined, supplied).concrete).toEqual(expected);
+    expect(runUnifiedVerification(raw, model, governing, supplied)).toEqual(expected);
+    expect(runCirsocDesign(raw, model, supplied, new Map(), governing).concrete).toEqual(expected);
+    const contexts = memberContexts(model as never, new Map([[1, raw], [2, raw]]), combinations);
+    contexts[0] = { ...contexts[0]!, demands: demands.demands, tuples: [...demands.concurrent!], stationTs: [0, 1] };
+    for (const adapter of [AISC360, EC3, ACI318, EC2, AISI_S100]) expect(runOtherCode(adapter, contexts).rows).toHaveLength(1);
+  });
   for (const entry of ['auto', 'unified', 'design'] as const) it(`known wrong result: #2096 complete grouped span reaches ${entry} ${label}`, () => {
     const spanModel = { ...model,
       sections: new Map([...model.sections].map(([id, s]) => [id, { ...s, rotation: 0 }])),

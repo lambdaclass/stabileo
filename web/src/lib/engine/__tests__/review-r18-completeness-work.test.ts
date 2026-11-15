@@ -71,8 +71,8 @@ it('tuple coverage retains empty, missing, duplicate, extra and complete combina
 });
 
 function hasCompleteTuples(tuples: readonly { comboId: number }[] | undefined, required: readonly { comboId: number }[]): boolean {
-  const rows = (tuples ?? []).map(d => ({ elementId: 0, comboId: d.comboId, stationT: 0 }));
-  const combinations = [...new Set([...required.map(d => d.comboId), ...rows.map(d => d.comboId)])].map(comboId => ({ comboId }));
+  const rows = (tuples ?? []).map(d => ({ elementId: 0, get comboId() { return d.comboId; }, stationT: 0 }));
+  const combinations = [...new Set([...required.map(d => d.comboId), ...(tuples ?? []).map(d => d.comboId)])].map(comboId => ({ comboId }));
   try {
     CompleteDemandSet.require({ combinations, members: [{ elementId: 0, stationTs: [0] }] }, rows);
     return true;
