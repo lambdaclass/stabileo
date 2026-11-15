@@ -10,21 +10,21 @@ import reviews from '../../../research/tools/batches/VALIDATION.json';
 
 afterEach(() => { setPublicLocale('en'); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-it.each([undefined, '0', '1'])('known wrong result: #2099 — footer legal links remain public with accounts=%s', async accounts => {
+it.each([undefined, '0', '1'])('known wrong result: #2099 — footer legal links follow accounts with accounts=%s', async accounts => {
   vi.stubEnv('VITE_ACCOUNTS', accounts);
   vi.stubEnv('DEV', false);
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
   setPublicLocale('en');
   const body = render(Footer).body;
-  expect(body).toContain('href="/en/terms/"');
-  expect(body.replace(/<[^>]*>/g, '')).toContain('Terms');
-  expect(body).toContain('href="/en/privacy/"');
-  expect(body.replace(/<[^>]*>/g, '')).toContain('Privacy');
+  expect(body.includes('href="/en/terms/"')).toBe(accounts === '1');
+  expect(body.replace(/<[^>]*>/g, '').includes('Terms')).toBe(accounts === '1');
+  expect(body.includes('href="/en/privacy/"')).toBe(accounts === '1');
+  expect(body.replace(/<[^>]*>/g, '').includes('Privacy')).toBe(accounts === '1');
   const paths = await publicPaths();
   for (const path of ['/terms', '/privacy']) {
-    expect(publicFeatureEnabled(path), path).toBe(true);
-    expect(paths, path).toContain(path);
-    expect(routeKind(new URL(`https://stabileo.test/en${path}/`)), path).toEqual({ kind: 'blog', path });
+    expect(publicFeatureEnabled(path), path).toBe(accounts === '1');
+    expect(paths.includes(path), path).toBe(accounts === '1');
+    expect(routeKind(new URL(`https://stabileo.test/en${path}/`)), path).toEqual(accounts === '1' ? { kind: 'blog', path } : { kind: 'landing', path });
   }
   expect(publicFeatureEnabled('/register')).toBe(accounts === '1');
   expect(publicFeatureEnabled('/usage-data')).toBe(accounts === '1');
@@ -33,7 +33,7 @@ it.each([undefined, '0', '1'])('known wrong result: #2099 — footer legal links
 it.each([undefined, '0', '1'])('known wrong result: #2099 — tools index keeps the latest registry review with tools=%s', async tools => {
   vi.stubEnv('VITE_TOOLS', tools);
   await publicPaths();
-  expect(POST_LASTMOD.get('/tools')).toBe(TOOLS.map(tool => toolLastmod(tool, reviews.batches)).sort().at(-1));
+  expect(POST_LASTMOD.get('/tools')).toBe(TOOLS.filter(tool => publicFeatureEnabled(`/tools/${tool.id}`)).map(tool => toolLastmod(tool, reviews.batches)).sort().at(-1));
   for (const tool of TOOLS.filter(tool => publicFeatureEnabled(`/tools/${tool.id}`))) {
     expect(POST_LASTMOD.get(`/tools/${tool.id}`), tool.id).toBe(toolLastmod(tool, reviews.batches));
   }

@@ -10,8 +10,6 @@ import { publishedLocales } from '../lib/i18n/published';
 import { setPublicLocale } from '../lib/i18n/store.svelte';
 import ShapePage from '../components/research/feher2026/ShapePage.svelte';
 
-const publicRoutes = [...main.routes, '/terms', '/privacy'].sort();
-
 const off = () => {
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
   vi.stubEnv('DEV', false);
@@ -19,16 +17,16 @@ const off = () => {
 };
 afterEach(() => { setPublicLocale('en'); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetModules(); });
 
-it('known wrong result: #1950 — switches off preserve main public routes and publish the footer legal pages', async () => {
+it('known wrong result: #1950 — switches off preserve main public routes, nav and prerender pages exactly', async () => {
   off();
   const prerender = (await publicPaths()).sort();
-  expect(prerender).toEqual(publicRoutes);
+  expect(prerender).toEqual(main.routes);
   const candidates = [...main.routes, '/tools/mohr-2d', '/tools/mohr-3d', '/tools/beam-frame', '/tools/tower', '/tools/earthquake-frame', '/tools/rc-column', '/tools/slab-on-columns', '/tools/outrigger', '/diagram-game', '/register', '/terms', '/privacy', '/usage-data'];
   const routes = candidates.filter(path => path === '/' || routeKind(new URL(`https://stabileo.test/en${path === '/' ? '' : path}/`)).kind !== 'landing').sort();
-  expect(routes).toEqual(publicRoutes);
+  expect(routes).toEqual(main.routes);
   const { SITE_NAV } = await import('../components/site/site-nav');
   expect(SITE_NAV).toEqual(main.nav);
-  for (const path of publicRoutes) {
+  for (const path of main.routes) {
     expect(publicFeatureEnabled(path), path).toBe(true);
     expect(writtenIn(path), path).toContain('en');
   }
@@ -72,7 +70,7 @@ it.each(Array.from({ length: 8 }, (_, mask) => mask))('known wrong result: #1950
   for (const [key, enabled] of Object.entries(flags)) vi.stubEnv(`VITE_${key === 'diagramGame' ? 'DIAGRAM_GAME' : key.toUpperCase()}`, enabled ? '1' : '0');
   const paths = await publicPaths();
   const models = ['beam-frame', 'slab-on-columns', 'earthquake-frame', 'rc-column', 'outrigger', 'tower'].map(id => `/tools/${id}`);
-  const expected = [...publicRoutes.filter(path => !flags.tools || !path.startsWith('/examples')), ...(flags.tools ? [...models, '/tools/mohr-2d', '/tools/mohr-3d'] : []), ...(flags.diagramGame ? ['/diagram-game'] : [])].sort();
+  const expected = [...main.routes.filter(path => !flags.tools || !path.startsWith('/examples')), ...(flags.tools ? [...models, '/tools/mohr-2d', '/tools/mohr-3d'] : []), ...(flags.diagramGame ? ['/diagram-game'] : [])].sort();
   expect(paths.sort()).toEqual(expected);
   for (const path of main.research) {
     expect(writtenIn(path).includes('hu'), path).toBe(flags.research && PUBLIC_LOCALES.includes('hu') && path !== '/research/benchmarks/shell-obstacle-course');

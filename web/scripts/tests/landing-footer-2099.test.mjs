@@ -14,5 +14,5 @@ test('landing footer keeps its executable navigation and viewport cases (#2099)'
   for (const width of [390, 820, 1440]) assert.match(result.stdout, new RegExp(`footer and section links at ${width}px`));
   assert.match(result.stdout, /the editor entry in the footer opens Basic/);
   assert.match(result.stdout, /the sections link to the pages that extend them/);
-  assert.match(result.stdout, /the footer link \/en\/privacy\/ opens a real page/);
+  assert.match(result.stdout, /the footer link \/en\/examples\/ opens a real page/);
 });

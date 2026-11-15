@@ -5,7 +5,7 @@ import { TOOLS, toolLastmod } from '../../src/components/tools/registry';
 
 afterEach(() => { vi.unstubAllEnvs(); });
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '1').each([undefined, '0', '1'])('known wrong result: #2099 — Tools index dates only the built offering with tools=%s', async tools => {
+it.each([undefined, '0', '1'])('known wrong result: #2099 — Tools index dates only the built offering with tools=%s', async tools => {
   vi.stubEnv('VITE_TOOLS', tools);
   await publicPaths();
   const expected = tools === '1'

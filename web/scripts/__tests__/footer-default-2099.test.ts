@@ -7,10 +7,9 @@ import { publicPaths } from '../public-paths';
 import { publicFeatureEnabled } from '../../src/lib/features';
 import { routeKind } from '../../src/lib/public-route';
 
-const reproduce = it.skipIf(process.env.RUN_KNOWN_WRONG !== '1');
 afterEach(() => { setPublicLocale('en'); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-reproduce.each([undefined, '0', '1'].flatMap(accounts => [undefined, '0', '1'].map(tools => ({ accounts, tools }))))('known wrong result: #2099 — main footer and account publication with %j', async ({ accounts, tools }) => {
+it.each([undefined, '0', '1'].flatMap(accounts => [undefined, '0', '1'].map(tools => ({ accounts, tools }))))('known wrong result: #2099 — main footer and account publication with %j', async ({ accounts, tools }) => {
   vi.stubEnv('VITE_ACCOUNTS', accounts);
   vi.stubEnv('VITE_TOOLS', tools);
   vi.stubEnv('VITE_RESEARCH', '0');
@@ -35,6 +34,6 @@ reproduce.each([undefined, '0', '1'].flatMap(accounts => [undefined, '0', '1'].m
   for (const path of ['/terms', '/privacy', '/usage-data']) {
     expect(publicFeatureEnabled(path), path).toBe(accounts === '1');
     expect(paths.includes(path), path).toBe(accounts === '1');
-    expect(routeKind(new URL(`https://stabileo.test/en${path}/`)), path).toEqual(accounts === '1' ? { kind: 'blog', path } : { kind: 'landing' });
+    expect(routeKind(new URL(`https://stabileo.test/en${path}/`)), path).toEqual(accounts === '1' ? { kind: 'blog', path } : { kind: 'landing', path });
   }
 });

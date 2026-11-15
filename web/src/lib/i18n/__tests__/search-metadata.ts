@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import toolReviews from '../../../../../research/tools/batches/VALIDATION.json';
 import { TOOLS, findTool, toolLastmod } from '../../../components/tools/registry';
+import { buildPublicFeatures } from '../../../../scripts/build-public-features';
+import { isMainToolPath } from '../../../lib/main-tool-routes';
 import { EXPERIMENTS } from '../../../components/research/experiments';
 import { webpSize } from '../../../../scripts/research-card';
 
@@ -248,7 +250,7 @@ export function searchMetadataSuite(dist: string) {
         [...readFileSync(join(dist, 'sitemap.xml'), 'utf8').matchAll(/<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)].map(([, url, day]) => [url, day]),
       );
       const reviewed = (path: string) => path === '/tools'
-        ? TOOLS.map((tool) => toolLastmod(tool, toolReviews.batches)).sort().at(-1)
+        ? TOOLS.filter(tool => buildPublicFeatures().tools || isMainToolPath(`/tools/${tool.id}`)).map((tool) => toolLastmod(tool, toolReviews.batches)).sort().at(-1)
         : toolLastmod(findTool(path)!, toolReviews.batches);
       const problems = ownPages().flatMap((p) => {
         const day = lastmod.get(p.url);

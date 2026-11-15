@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
+  import { tools } from '../../lib/features';
   import Eyebrow from './Eyebrow.svelte';
   import Shot from './Shot.svelte';
   import PublicLink from './PublicLink.svelte';
@@ -41,7 +42,7 @@
       <figcaption>{t('landing.proCalcShots')}</figcaption>
     </figure>
     <p class="link-row">
-      <PublicLink to="/tools" class="link-arrow">{t('landing.navTools')}</PublicLink>
+      <PublicLink to={tools() ? '/tools' : '/examples'} class="link-arrow">{t(tools() ? 'landing.navTools' : 'landing.navExamples')}</PublicLink>
     </p>
   </div>
 </section>

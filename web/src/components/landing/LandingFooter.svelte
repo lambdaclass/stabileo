@@ -4,7 +4,7 @@
   import { SOCIAL_ICONS as ICONS } from '../../lib/contact/channels';
   import PublicLink from './PublicLink.svelte';
   import BrandMark from './BrandMark.svelte';
-  import { accounts, ACCOUNT_ROUTES_AVAILABLE, publicFeatureEnabled, PUBLIC_POLICY_AVAILABLE } from '../../lib/features';
+  import { accounts, ACCOUNT_ROUTES_AVAILABLE, publicFeatureEnabled, PUBLIC_POLICY_AVAILABLE, tools } from '../../lib/features';
   import { onMount } from 'svelte';
 
   let adConsent = $state<typeof import('../../lib/tracking/ad-consent.svelte').adConsent | null>(null);
@@ -20,9 +20,9 @@
 
   const year = new Date().getFullYear();
   const GROUPS: [string, string, [string, string][]][] = [
-    ['product', 'landing.navProduct', [['/tools', 'landing.navTools'], ['/#pricing', 'landing.navPricing']]],
+    ['product', 'landing.navProduct', [...(tools() ? [] : [['/examples', 'landing.navExamples'] as [string, string]]), ['/tools', 'landing.navTools'], ['/#pricing', 'landing.navPricing']]],
     ['verification', 'landing.footVerification', [['/reliability', 'landing.footReliability'], ['/research', 'landing.navResearch'], ['/paper', 'landing.navPaper'], ['/cirsoc', ''], ['/sap2000-alternative', 'landing.footSap2000'], ['/etabs-alternative', 'landing.footEtabs']]],
-    ['project', 'landing.footProject', [['/blog', 'landing.footBlog'], ['/changelog', 'landing.footChangelog'], ['/terms', 'landing.footTerms'], ['/privacy', 'landing.footPrivacy']]],
+    ['project', 'landing.footProject', [['/blog', 'landing.footBlog'], ['/changelog', 'landing.footChangelog'], ...(ACCOUNT_ROUTES_AVAILABLE && accounts() ? [['/terms', 'landing.footTerms'], ['/privacy', 'landing.footPrivacy']] as [string, string][] : [])]],
   ];
 </script>
 
