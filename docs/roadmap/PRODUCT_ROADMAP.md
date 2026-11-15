@@ -816,16 +816,18 @@ Closing the gap between "proven" and "right".
 **Proofs follow the code.** Every proof and property item in this backlog, including
 [#364](https://github.com/lambdaclass/stabileo/issues/364) (Trust item 8), [#375](https://github.com/lambdaclass/stabileo/issues/375) and [#376](https://github.com/lambdaclass/stabileo/issues/376) below, and [#500](https://github.com/lambdaclass/stabileo/issues/500) and
 [#503](https://github.com/lambdaclass/stabileo/issues/503) (Soundness multipliers), follows the rules in item 1: checks live in the engine crate next
-to the Rust they cover, Lean statements are generated from or tied to that Rust, all run as required
-CI checks, and each names the function it covers.
+to the Rust they cover, Lean statements are generated from that Rust or linked to it, all run as
+required CI checks, and each names the function it covers.
 
 1. **Formal checks for the design and load layer** (2026-11-15), each added as the code moves to
     Rust (Priority now item 13):
     - **Tied to the Rust code, so they never go stale:** every property check (Kani harnesses,
       proptest properties, symbolic tests) lives in the engine crate next to the code it checks, not
-      in a separate model; Lean statements are about the Rust code itself, generated from it (for
-      example with Aeneas/Charon) or tied to it by a correspondence test that fails when the Rust
-      function changes, never a hand-written copy that can drift; all of them run as required CI
+      in a separate model; a result is called proved for the Rust code only when the Lean statement is
+      about that code, generated from it (for example with Aeneas/Charon) or linked to it by a
+      machine-checked correspondence proof; correspondence tests that fail when the Rust function
+      changes are supporting evidence, not a proof, and a hand-written Lean copy is never labelled
+      as proving the Rust; all of them run as required CI
       checks, so a change that breaks a property or invalidates a proof fails the pull request; each
       check names the Rust function it covers, and a CI lint fails when a covered function is
       renamed or removed without its check being updated.
@@ -838,9 +840,10 @@ CI checks, and each names the function it covers.
     - **Concurrent demands by construction:** a demand tuple (N, M, V, T) can only be built from a
       single combination and station, enforced by types
       ([#1316](https://github.com/lambdaclass/stabileo/issues/1316) class).
-    - **Load generation invariance:** generated loads depend only on the physical geometry, not on
-      plan orientation, mesh subdivision or labels; proved for snow and wind on the supported roof
-      shapes ([#2093](https://github.com/lambdaclass/stabileo/issues/2093),
+    - **Load generation invariance:** generated loads do not change with mesh subdivision or
+      labels; gravity-type loads such as snow do not change with plan orientation; for wind and
+      seismic, rotating the building together with the load direction rotates the load components
+      accordingly. Proved for snow and wind on the supported roof shapes ([#2093](https://github.com/lambdaclass/stabileo/issues/2093),
       [#2144](https://github.com/lambdaclass/stabileo/issues/2144) class).
     - **Result recovery is exact:** recovered member displacements and forces equal the closed-form
       beam solution for every supported load type, including concentrated couples, checked
@@ -849,10 +852,12 @@ CI checks, and each names the function it covers.
       machine-readable statement of its formula and limits, on both sides of every limit
       ([#2142](https://github.com/lambdaclass/stabileo/issues/2142) class).
     - **Monotonicity** ([#378](https://github.com/lambdaclass/stabileo/issues/378), item 2) proved
-      rather than sampled once the checks are in Rust.
+      rather than sampled once the checks are in Rust, each with its variables, domain and
+      assumptions stated, since not every intuitive monotonicity holds (more axial compression can
+      raise RC moment resistance).
     - **Units in types** ([#359](https://github.com/lambdaclass/stabileo/issues/359); Prevention
       item 3), so mixing units fails to compile.
-2. **Properties of the design checks,** [#378](https://github.com/lambdaclass/stabileo/issues/378) proved or exhaustively tested: more reinforcement or a larger section never lowers capacity, a larger load never lowers the utilization ratio, φ within its code limits.
+2. **Properties of the design checks,** [#378](https://github.com/lambdaclass/stabileo/issues/378) proved or exhaustively tested, each property with its variables, domain and assumptions stated: for example, scaling all demands of one combination proportionally with the section and material fixed never lowers the utilization ratio; more tension reinforcement or a larger section within one failure mode never lowers capacity; φ within its code limits. Not every intuitive monotonicity holds: more axial compression can raise RC moment resistance.
 3. **Documented, peer-reviewed element derivations** [#384](https://github.com/lambdaclass/stabileo/issues/384) (PR [#330](https://github.com/lambdaclass/stabileo/pull/330)) in `docs/SOLVER_REFERENCE.md`: each formulation's derivation and assumptions, reviewable by an independent engineer. The review's findings are issues [#406](https://github.com/lambdaclass/stabileo/issues/406)–[#433](https://github.com/lambdaclass/stabileo/issues/433) (label `derivations`); several are `safety`.
 4. **Nonlinear and dynamic robustness:** [#381](https://github.com/lambdaclass/stabileo/issues/381) convergence criteria audited (force, displacement, energy norms), load-step and time-step sensitivity tests, energy-drift monitoring in time history, path following past limit points.
 5. **Numerical stress tests:** [#382](https://github.com/lambdaclass/stabileo/issues/382) extreme stiffness ratios, ~10⁶-DOF models, near-singular and unit-extreme models; measure where accuracy degrades and refuse beyond it.
