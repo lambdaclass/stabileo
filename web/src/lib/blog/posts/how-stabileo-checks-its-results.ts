@@ -9,7 +9,7 @@
  *    formulas are not formalized; 37 top-level theorems are axiom-checked);
  *  - the acceptance suite: docs/verification/ACCEPTANCE.md (12 cases, 105
  *    published values, mostly frequencies of building frames);
- *  - the seven differential programs: tools/differential, tools/opensees;
+ *  - the seven differential programs: testing/differential, testing/opensees;
  *  - the AI boundary: the-determinism-boundary post and web/src/lib/ai
  *    (the assistant calls a server; the solver does not).
  * If one of those changes, this post changes with it. "Certified" is never

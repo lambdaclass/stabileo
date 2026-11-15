@@ -3,7 +3,7 @@
 Two checks of the test suite itself, beside the certificates (CERTIFY.md) and the Kani
 proofs (KANI.md):
 
-- **Fuzzing** (`engine/fuzz`, cargo-fuzz / libFuzzer) feeds the entry points the WASM
+- **Fuzzing** (`testing/fuzz`, cargo-fuzz / libFuzzer) feeds the entry points the WASM
   layer exposes with inputs nobody wrote by hand and checks properties every result
   must have.
 - **Mutation testing** (cargo-mutants) breaks the safety-critical code one small edit
@@ -32,13 +32,13 @@ settlements and nodal, distributed and point loads, so the solver runs on every 
 instead of on the rare bytes that parse as JSON.
 
 The seed corpora come from the web app's template models (`engine/tests/fixtures`),
-plus the inputs of past findings, kept in git under `engine/fuzz/regressions/<target>/`:
+plus the inputs of past findings, kept in git under `testing/fuzz/regressions/<target>/`:
 
-    cd engine && cargo run --release --example fuzz_seeds   # writes fuzz/corpus/<target>/
+    cd engine && cargo run --release --example fuzz_seeds   # writes ../testing/fuzz/corpus/<target>/
 
 ## Properties
 
-Checked on every input by `engine/fuzz/src/lib.rs`:
+Checked on every input by `testing/fuzz/src/lib.rs`:
 
 1. **No panic.** Bad input returns `Err`; libFuzzer aborts on a panic.
 2. **Bounded work.** Inputs whose work knobs exceed caps (time steps, iterations,
@@ -67,7 +67,7 @@ Checked on every input by `engine/fuzz/src/lib.rs`:
 | `model_certify` | Several supports on one node: each listed the node's full reaction, so ΣR double-counted it and a certified result was out of equilibrium. The root cause: 2D DOF numbering kept only the highest-id support (`fixed` id 1 plus `pinned` id 2 silently gave a pinned end), 3D ORed the flags but took springs and the inclined flag from one support picked in hash order. | One reaction entry per node; plain rigid restraints on one node merge by OR in 2D and 3D; any other combination (springs, settlements, inclined directions) is rejected with an error naming the node (`validate_input_2d/3d`). The web app already keeps one support per node. | `duplicate_support_reactions.rs` |
 | `json_dynamics` | Harmonic certificate with a response DOF the load does not excite: the interval sum of squares had a −5e−324 lower end, its square root was NaN, and a "certified" result carried NaN enclosures. | Clamp the sum of squares at zero before the square root (sound: it is ≥ 0 exactly). | `fuzz_regressions.rs::harmonic_zero_response_is_finite` |
 | `json_dynamics` | Time-history certificate of a structure at rest: relative residuals divided by max‖u‖ = 0 and reported +∞. | Divide by `max(‖u‖, MIN_POSITIVE)`, and report 0 for a zero residual. | `fuzz_regressions.rs::time_history_zero_solution_residuals_are_finite` |
-| `json_dynamics` (#335) | `certify_spectral_3d` returned `Ok` with every displacement and element-force envelope NaN and the certificate `certified` with error bounds 0. A mode with ω < 0 made the CQC ratio ω_j/ω_i negative and r^1.5 NaN; `Enclosure::error_of` used `f64::max`, which drops NaN, so a NaN reported value got error 0 (only `reportedWithin` was false). | The spectral solver refuses ω ≤ 0 (it also silently dropped such a mode, S_d = 0), non-finite modal data, a non-finite or unsorted spectrum, ξ < 0 and non-positive factors, and checks its output. `error_of` is +∞ for a non-finite value; the certificate refuses non-finite reported values. All certificates: `certify::finite` guard (CERTIFY.md, "Non-finite numbers"). Input in `fuzz/regressions/json_dynamics/`. | `fuzz_regressions.rs::spectral_negative_omega_is_refused`, `certify_nonfinite.rs` (every kind) |
+| `json_dynamics` (#335) | `certify_spectral_3d` returned `Ok` with every displacement and element-force envelope NaN and the certificate `certified` with error bounds 0. A mode with ω < 0 made the CQC ratio ω_j/ω_i negative and r^1.5 NaN; `Enclosure::error_of` used `f64::max`, which drops NaN, so a NaN reported value got error 0 (only `reportedWithin` was false). | The spectral solver refuses ω ≤ 0 (it also silently dropped such a mode, S_d = 0), non-finite modal data, a non-finite or unsorted spectrum, ξ < 0 and non-positive factors, and checks its output. `error_of` is +∞ for a non-finite value; the certificate refuses non-finite reported values. All certificates: `certify::finite` guard (CERTIFY.md, "Non-finite numbers"). Input in `testing/fuzz/regressions/json_dynamics/`. | `fuzz_regressions.rs::spectral_negative_omega_is_refused`, `certify_nonfinite.rs` (every kind) |
 | `certify_nonfinite.rs` (#335) | The 3D plastic certificate panicked (`denominator == 0` in `num-rational`) on a member with a coordinate of ±1e300: the f64 direction overflowed to 0, picked a reference axis parallel to the member, and an exact local axis of length 0 was inverted. | Refused: the f64 direction must be a unit vector, and an exact local axis must be non-zero. The same tests found the exact plastic certificates running for minutes on a value of ±1e300 or a subnormal (bignum work grows with bit length): input magnitudes outside [1e-30, 1e30] (zero excepted) are now refused (`plastic::EXACT_MIN_ABS`/`EXACT_MAX_ABS`). | `certify_nonfinite.rs::every_leaf_nan_or_inf_is_refused_or_finite`, `mutated_inputs_are_refused_or_finite` |
 
 Found while triaging surviving mutants (below), each with a regression test:
@@ -106,12 +106,12 @@ Slow but correct (not bugs, recorded so nobody re-triages them):
 Needs a nightly toolchain and `cargo install cargo-fuzz`. From `engine/`:
 
     cargo run --release --example fuzz_seeds
-    cargo +nightly fuzz run model_certify -- -max_total_time=600 -timeout=60 -rss_limit_mb=2048
-    cargo +nightly fuzz run json_static -- -max_total_time=600 -timeout=60 -fork=8
+    cargo +nightly fuzz run --fuzz-dir ../testing/fuzz model_certify -- -max_total_time=600 -timeout=60 -rss_limit_mb=2048
+    cargo +nightly fuzz run --fuzz-dir ../testing/fuzz json_static -- -max_total_time=600 -timeout=60 -fork=8
 
-Use `-fork=N` to use N cores. A failing input lands in `fuzz/artifacts/<target>/`;
-replay it with `cargo +nightly fuzz run <target> fuzz/artifacts/<target>/<file>` and
-shrink it with `cargo +nightly fuzz tmin <target> <file>`. For the JSON targets the
+Use `-fork=N` to use N cores. A failing input lands in `../testing/fuzz/artifacts/<target>/`;
+replay it with `cargo +nightly fuzz run --fuzz-dir ../testing/fuzz <target> ../testing/fuzz/artifacts/<target>/<file>` and
+shrink it with `cargo +nightly fuzz tmin --fuzz-dir ../testing/fuzz <target> <file>`. For the JSON targets the
 input is two bytes then JSON: `tail -c +3 <file> | jq .` shows the model, and the first
 byte modulo the number of entry points in the target's `match` picks the entry point.
 
@@ -126,7 +126,7 @@ artifact.
 
 ## Mutation testing
 
-`scripts/mutants.sh` runs [cargo-mutants](https://mutants.rs) over the code whose bugs
+`testing/scripts/mutants.sh` runs [cargo-mutants](https://mutants.rs) over the code whose bugs
 would put a wrong number in front of an engineer:
 
 | Scope | Files |
@@ -135,9 +135,9 @@ would put a wrong number in front of an engineer:
 | `solver` | `engine/src/solver/{assembly,dof,linear}.rs` (DOF numbering, stiffness and load assembly, reactions, input validation) |
 | `element` | `engine/src/element/**` (element stiffness kernels) |
 
-    scripts/mutants.sh                                  # all scopes
-    MUTANTS_SCOPE=certify scripts/mutants.sh --jobs 4   # one scope
-    scripts/mutants.sh --shard 3/64 --jobs 2            # extra arguments go to cargo-mutants
+    testing/scripts/mutants.sh                                  # all scopes
+    MUTANTS_SCOPE=certify testing/scripts/mutants.sh --jobs 4   # one scope
+    testing/scripts/mutants.sh --shard 3/64 --jobs 2            # extra arguments go to cargo-mutants
     cargo mutants --package dedaliano-engine -f engine/src/certify/interval.rs -- --lib
 
 Each scope runs the library unit tests plus the integration tests that target it (listed
@@ -150,7 +150,7 @@ the ~23,000 mutants into 512 shards and runs 32 of them each night, the ones tha
 without finishing, so every mutant is tested every 16 nights when every shard finishes, and a
 shard that does not finish is retried once ahead of shards with a newer report (docs/verification/NIGHTLY.md). A shard fails on any
 missed mutant, and fails loudly if it does not finish within its time budget;
-`scripts/mutants-summary.py` prints how far it got and the time per mutant. One shard by
+`testing/scripts/mutants-summary.py` prints how far it got and the time per mutant. One shard by
 hand: `gh workflow run nightly.yml -f only=mutants -f mutants_shards='[5]'`.
 
 ### Triaging a surviving mutant
@@ -166,7 +166,7 @@ For each line of `missed.txt`:
    certificate fail, never wrong). Add it to `exclude_re` in `.cargo/mutants.toml` with a
    one-line justification. One class is excluded automatically: an operator inside an
    index made only of integer literals whose mutated index has exactly the same value
-   (`k[0 * 6 + 0]` to `k[0 * 6 - 0]` or `k[0 / 6 + 0]`). `scripts/mutants-equivalent.py`
+   (`k[0 * 6 + 0]` to `k[0 * 6 - 0]` or `k[0 / 6 + 0]`). `testing/scripts/mutants-equivalent.py`
    finds them on every run by evaluating both indices; a mutant that changes the index
    is still tested.
 3. **Dead or diagnostics-only code**: timings, log text, diagnostics that do not gate a
@@ -179,7 +179,7 @@ excluded, with the reason next to the pattern.
 
 ### Safety-critical scope (weekly)
 
-`MUTANTS_SCOPE=safety scripts/mutants.sh` (`make mutants.engine SCOPE=safety`) mutates the code
+`MUTANTS_SCOPE=safety testing/scripts/mutants.sh` (`make mutants.engine SCOPE=safety`) mutates the code
 whose bug would show an engineer a wrong verdict rather than a wrong number, grouped in modules
 by [`scripts/mutants-safety.json`](../../scripts/mutants-safety.json):
 

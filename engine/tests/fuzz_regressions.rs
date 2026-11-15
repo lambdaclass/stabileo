@@ -1,4 +1,4 @@
-//! Regressions found by the cargo-fuzz targets (engine/fuzz,
+//! Regressions found by the cargo-fuzz targets (testing/fuzz,
 //! docs/verification/FUZZ_MUTANTS.md): every number in an `Ok` result of a
 //! WASM entry point is finite unless its field documents +∞.
 
@@ -77,7 +77,7 @@ fn time_history_zero_solution_residuals_are_finite() {
 }
 
 /// json_dynamics (issue #335): the crash input of nightly run 39125781094,
-/// kept as `fuzz/regressions/json_dynamics/crash-28fad1…` (selector byte 11 =
+/// kept as `testing/fuzz/regressions/json_dynamics/crash-28fad1…` (selector byte 11 =
 /// `certify_spectral_3d`, then the parameter byte, then the JSON). Mode 3 has
 /// ω < 0: the CQC ratio ω_j/ω_i was negative, r^1.5 NaN, and every combined
 /// displacement and force NaN; the certificate still said "certified" with
@@ -91,7 +91,7 @@ fn spectral_negative_omega_is_refused() {
     use dedaliano_engine::types::SpectralInput3D;
     let path = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/fuzz/regressions/json_dynamics/crash-28fad1caf98555e982aa0a8f1c1fbf0b1d2aa934"
+        "/../testing/fuzz/regressions/json_dynamics/crash-28fad1caf98555e982aa0a8f1c1fbf0b1d2aa934"
     );
     let bytes = std::fs::read(path).unwrap();
     assert_eq!(bytes[0] % 20, 11, "selector: certify_spectral_3d");
@@ -209,7 +209,7 @@ fn plastic_3d_certificate_of_one_nightly_input() {
 
 #[test]
 fn issue_1760_plastic_input_finishes_in_a_fresh_process() {
-    let fixture = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/fuzz/regressions/json_plastic/oom-1d283e64888730445219207f88a5a98edb5ade90"));
+    let fixture = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../testing/fuzz/regressions/json_plastic/oom-1d283e64888730445219207f88a5a98edb5ade90"));
     assert!(within_limits_test(fixture, std::time::Duration::from_secs(60), 2 << 20, "issue_1760_plastic_input_in_a_fresh_process"));
 }
 
@@ -252,7 +252,7 @@ fn a_fixture_past_its_limits_fails() {
 }
 
 fn buckling_741_input() -> dedaliano_engine::types::SolverInput3D {
-    let bytes = include_bytes!("../fuzz/regressions/json_dynamics/issue-741");
+    let bytes = include_bytes!("../../testing/fuzz/regressions/json_dynamics/issue-741");
     assert_eq!(bytes[0], 0x07);
     assert_eq!(bytes[1], b'R');
     serde_json::from_slice(&bytes[2..]).unwrap()
@@ -550,7 +550,7 @@ fn envelope_3d_overflow_is_refused() {
     use dedaliano_engine::types::AnalysisResults3D;
     let path = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/fuzz/regressions/json_static/crash-03289a314e8188c2f582ec02666b9b972abcbdc0"
+        "/../testing/fuzz/regressions/json_static/crash-03289a314e8188c2f582ec02666b9b972abcbdc0"
     );
     let bytes = std::fs::read(path).unwrap();
     assert_eq!(bytes[0] % 18, 17, "selector: compute_envelope_3d");
@@ -573,7 +573,7 @@ fn envelope_3d_overflow_is_refused() {
 fn issue_1759_buckling_rejects_negative_truss_inertia() {
     use dedaliano_engine::solver::buckling::{solve_buckling_2d, solve_buckling_3d};
     use dedaliano_engine::types::{SolverInput, SolverInput3D};
-    let bytes = include_bytes!("../fuzz/regressions/json_dynamics/crash-828fb1b1282a6154226085839f502cc6703cace8.min");
+    let bytes = include_bytes!("../../testing/fuzz/regressions/json_dynamics/crash-828fb1b1282a6154226085839f502cc6703cace8.min");
     assert_eq!(bytes[0] % 20, 5);
     let input_3d: SolverInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
     let error = solve_buckling_3d(&input_3d, 3).unwrap_err();
@@ -625,7 +625,7 @@ fn issue_1761_multi_case_overflow_is_refused() {
         solve_multi_case_2d, solve_multi_case_3d, MultiCaseInput, MultiCaseInput3D,
     };
     use dedaliano_engine::types::{Constraint, EqualDOFConstraint};
-    let bytes = include_bytes!("../fuzz/regressions/json_static/crash-0e89be15b950870b2e17a3d6d7a842708a882ac7.min");
+    let bytes = include_bytes!("../../testing/fuzz/regressions/json_static/crash-0e89be15b950870b2e17a3d6d7a842708a882ac7.min");
     assert_eq!(bytes[0] % 18, 11);
     let input_3d: MultiCaseInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
     let error = solve_multi_case_3d(&input_3d).unwrap_err();
@@ -834,7 +834,7 @@ fn issue_1870_subprocess_limits_reserve_the_runner() {
 fn opensees_support_tests(class: &str) {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let out = std::process::Command::new("python3")
-        .args(["-B", "-I", "tools/opensees/test_compare.py", class])
+        .args(["-B", "-I", "testing/opensees/test_compare.py", class])
         .current_dir(root)
         .output()
         .expect("run the OpenSees harness self-tests");

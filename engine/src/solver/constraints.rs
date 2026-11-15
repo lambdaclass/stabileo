@@ -335,7 +335,7 @@ pub struct ConstrainedInput3D {
 /// Constraint equations are written in global components. Every analysis
 /// assembles K (and M, Kg, loads) in these rotated frames, so the constraint
 /// transform must be built in them too, or the solve enforces the wrong
-/// equations (found by tools/differential/codeaster, aster3d-16).
+/// equations (found by testing/differential/codeaster, aster3d-16).
 #[derive(Debug, Clone)]
 pub struct InclinedDofs {
     pub node_id: usize,
@@ -619,7 +619,7 @@ pub fn validate_constraints(
 /// |coefficient| among the terms on *free* DOFs. A restrained DOF must not
 /// be the dependent one: the support keeps it at its prescribed value and the
 /// equation would be dropped, so the results silently violated it (found by
-/// tools/differential/codeaster, aster3d-43: u_3y = 1.76 rx_2 with rx_2
+/// testing/differential/codeaster, aster3d-43: u_3y = 1.76 rx_2 with rx_2
 /// restrained gave u_3y != 0). Only when every term is restrained (the
 /// equation then constrains prescribed values, flagged over-constrained)
 /// does it fall back to the largest coefficient overall.

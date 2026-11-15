@@ -259,14 +259,14 @@ class EvidenceRemovalDowngrades(unittest.TestCase):
         self.assertNotIn("Benchmarked", r[LINEAR]["evidence"])
 
     def test_one_harness_removed(self):
-        with hidden("tools/differential/codeaster"):
+        with hidden("testing/differential/codeaster"):
             r = maturity_rows()
         self.assertEqual(r[CONNECTOR]["level"], "Tested")
         self.assertNotIn("Code_Aster", r[LINEAR]["evidence"].get("Differential", ""))
         self.assertIn("OpenSees", r[LINEAR]["evidence"]["Differential"])
 
     def test_all_harnesses_removed(self):
-        with hidden("tools/differential", "tools/opensees"):
+        with hidden("testing/differential", "testing/opensees"):
             r = maturity_rows()
         for row in r.values():
             if "Differential" in row["evidence"]:

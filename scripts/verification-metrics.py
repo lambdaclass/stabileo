@@ -27,7 +27,7 @@ CI: .github/workflows/verification-dashboard.yml (weekly, on release tags, on de
 
 Artifact contracts (a metric appears as soon as CI publishes it):
 
-    differential-<program>   tools/differential/out/ci/*.json (run.py --report)
+    differential-<program>   testing/differential/out/ci/*.json (run.py --report)
     opensees-report          opensees-report.json
     codeaster-report         codeaster-report.json
     mutants-report-<k>       cargo-mutants output dir (caught.txt, missed.txt, ...)
@@ -624,13 +624,13 @@ def coverage(gh: GH, max_runs: int, local: str | None, require_sha: str | None =
 
 DIFF = {
     # harness -> (document, analyses it compares, element/feature families it exercises)
-    "Frame3DD": ("../../tools/differential/frame3dd/README.md", "frame3dd"),
-    "PyNite": ("../../tools/differential/pynite/README.md", "pynite"),
-    "MYSTRAN": ("../../tools/differential/mystran/README.md", "mystran"),
-    "Kratos": ("../../tools/differential/kratos/README.md", "kratos"),
-    "CalculiX": ("../../tools/differential/calculix/README.md", "calculix"),
-    "OpenSees": ("../../tools/opensees/README.md", None),
-    "Code_Aster": ("../../tools/differential/codeaster/README.md", None),
+    "Frame3DD": ("../../testing/differential/frame3dd/README.md", "frame3dd"),
+    "PyNite": ("../../testing/differential/pynite/README.md", "pynite"),
+    "MYSTRAN": ("../../testing/differential/mystran/README.md", "mystran"),
+    "Kratos": ("../../testing/differential/kratos/README.md", "kratos"),
+    "CalculiX": ("../../testing/differential/calculix/README.md", "calculix"),
+    "OpenSees": ("../../testing/opensees/README.md", None),
+    "Code_Aster": ("../../testing/differential/codeaster/README.md", None),
 }
 
 # OpenSees categories from its README table (category column) and Code_Aster's static scope.
@@ -763,10 +763,10 @@ def harness_sources() -> dict:
     """What each differential harness in the repository compares, read from its own files."""
     adapters = {}
     for prog in ("frame3dd", "pynite", "mystran", "kratos", "calculix"):
-        m = re.search(r"^ANALYSES\s*=\s*\(([^)]*)\)", read(f"tools/differential/{prog}/adapter.py"), re.M)
+        m = re.search(r"^ANALYSES\s*=\s*\(([^)]*)\)", read(f"testing/differential/{prog}/adapter.py"), re.M)
         adapters[prog] = set(re.findall(r'"(\w+)"', m.group(1))) if m else set()
-    return {"adapters": adapters, "opensees": read("tools/opensees/README.md"),
-            "codeaster": read("tools/differential/codeaster/README.md"),
+    return {"adapters": adapters, "opensees": read("testing/opensees/README.md"),
+            "codeaster": read("testing/differential/codeaster/README.md"),
             "docs": {h: bool(read(os.path.normpath(os.path.join("docs/verification", d)))) for h, (d, _) in DIFF.items()}}
 
 
@@ -956,7 +956,7 @@ def write_maturity(rows, generated, commit, unmapped=None):
         "|---|---|---|",
         "| **Certified** | The result carries a machine-checked bound (analyses, design checks: an interval certificate, its checker proved in Lean), or the element matrices are checked exactly against a first-principles derivation (elements) | [CERTIFY.md](CERTIFY.md), [SYMBOLIC.md](SYMBOLIC.md) |",
         "| **Benchmarked** | Reproduces published reference values (textbook, benchmark report, published worked example) | [BENCHMARKS.md](../BENCHMARKS.md) capability matrix (rows rated Strong or Good), [DESIGN_EXAMPLES.md](DESIGN_EXAMPLES.md); the acceptance suite (#337) when merged |",
-        "| **Differential** | Agrees with an independent implementation (another FE program, or an independent TypeScript statement of the clause) | [tools/differential](../../tools/differential/README.md), [tools/opensees](../../tools/opensees/README.md), [TS_ENGINE_LOGIC.md](TS_ENGINE_LOGIC.md) §2 |",
+        "| **Differential** | Agrees with an independent implementation (another FE program, or an independent TypeScript statement of the clause) | [testing/differential](../../testing/differential/README.md), [testing/opensees](../../testing/opensees/README.md), [TS_ENGINE_LOGIC.md](TS_ENGINE_LOGIC.md) §2 |",
         "| **Tested** | Covered by tests against an independent reference in the feature matrix, or by unit/integration tests | [FEATURE_MATRIX.md](FEATURE_MATRIX.md), engine and web tests |",
         "| **Unverified** | None of the above | |",
         "",
@@ -1056,7 +1056,7 @@ def write_dashboard(doc):
                          f"{r['mismatch']} | {other} |")
         lines += ["", "*Compared* counts models where both programs produced a comparable answer "
                   "(ok, mismatch, or known); ill-conditioned, unsupported and refused models are reported but "
-                  "not compared ([statuses](../../tools/differential/README.md#statuses)).", ""]
+                  "not compared ([statuses](../../testing/differential/README.md#statuses)).", ""]
     fmc = d.get("feature_matrix")
     if fmc:
         lines += ["### Feature-matrix cells by status", "", "| Status | 2D | 3D |", "|---|---|---|"]

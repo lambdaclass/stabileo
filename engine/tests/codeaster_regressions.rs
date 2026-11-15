@@ -1,5 +1,5 @@
 //! Regressions found by differential testing against Code_Aster
-//! (tools/differential/codeaster/). Each case is a shrunk model the harness
+//! (testing/differential/codeaster/). Each case is a shrunk model the harness
 //! flagged, checked against a property Code_Aster and the closed form agree on.
 
 use dedaliano_engine::solver::linear::solve_3d;
@@ -22,7 +22,7 @@ fn warns_singular(input: &SolverInput3D) -> bool {
 /// The load sits on another member and does not excite the mechanism, so
 /// the solve produced plausible small displacements with no warning:
 /// the mechanism's Cholesky pivot was 1.6e-13 of its diagonal, above the
-/// old 64 eps threshold (found by tools/differential/codeaster, rich3d-33;
+/// old 64 eps threshold (found by testing/differential/codeaster, rich3d-33;
 /// the same threshold change fixes PyNite's rich3d-184 on #294).
 #[test]
 fn unloaded_hinged_cantilever_is_flagged_singular() {
@@ -53,7 +53,7 @@ fn unloaded_hinged_cantilever_is_flagged_singular() {
 /// solver eliminated the term with the largest coefficient, rx_1, so the
 /// support kept rx_1 = 0 and the equation was dropped: the cantilever tip
 /// deflected under its load as if unconstrained (found by
-/// tools/differential/codeaster, aster3d-43; Code_Aster enforces both).
+/// testing/differential/codeaster, aster3d-43; Code_Aster enforces both).
 #[test]
 fn linear_mpc_on_a_restrained_dof_is_enforced() {
     let input: SolverInput3D = serde_json::from_value(json!({
@@ -81,7 +81,7 @@ fn linear_mpc_on_a_restrained_dof_is_enforced() {
 /// works in the support's rotated frame at that node while the link's
 /// equations are global, so the solve returned displacements that broke the
 /// rigid link (u_s - u_m != theta x r) with no warning (found by
-/// tools/differential/codeaster, aster3d-16). The constraint transform is now
+/// testing/differential/codeaster, aster3d-16). The constraint transform is now
 /// built in the support frame: the link and the support both hold (more
 /// cases, and every other analysis, in tests/constraints_inclined_supports.rs).
 #[test]

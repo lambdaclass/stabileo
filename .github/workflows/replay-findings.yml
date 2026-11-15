@@ -210,7 +210,7 @@ jobs:
         with:
           workspaces: |
             . -> target
-            engine/fuzz -> target
+            testing/fuzz -> target
       - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283
         with:
           tool: cargo-fuzz
@@ -218,7 +218,7 @@ jobs:
         run: |
           targets=$(python3 -B -I -c 'import json,sys; sys.path.insert(0,"scripts"); import importlib; rf=importlib.import_module("replay-findings"); print(" ".join(sorted({s["target"] for i in json.load(open("open-issues.json")) for s in [rf.parse_issue(i)] if s["source"]=="fuzz" and s["replayable"]})))')
           for target in $targets; do
-            (cd engine && cargo +nightly-2026-10-15 fuzz build --target "$FUZZ_TARGET_TRIPLE" "$target")
+            (cd engine && cargo +nightly-2026-10-15 fuzz build --fuzz-dir ../testing/fuzz --target "$FUZZ_TARGET_TRIPLE" "$target")
           done
       - name: Replay fuzz findings
         run: |

@@ -12,7 +12,7 @@
 //! - "Bitwise" equalities compare `f64::to_bits`, i.e. exact IEEE-754 equality
 //!   (stronger than `==`, which conflates +0.0/-0.0).
 //! - Harnesses preceded by `// kani: nightly` are skipped on pull requests
-//!   (`KANI_TIER=fast` in scripts/kani-safe.sh) and run on the nightly schedule.
+//!   (`KANI_TIER=fast` in testing/scripts/kani-safe.sh) and run on the nightly schedule.
 //! - Harnesses marked `#[kani::should_panic]` encode a property that does NOT
 //!   hold; they pass only because Kani finds a counterexample. They document
 //!   findings and guard against silently "fixing" them in the docs.

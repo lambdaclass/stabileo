@@ -77,7 +77,7 @@ env:
 
 jobs:
   # Which jobs run, and which mutants shards tonight. The mutants scope
-  # (scripts/mutants.sh: certificate code, linear solver core, element
+  # (testing/scripts/mutants.sh: certificate code, linear solver core, element
   # kernels) has ~23,000 mutants at 20 s to 2 min each: one pass is far more than a
   # night of runners, so it is split into MUTANTS_TOTAL shards and the
   # MUTANTS_SLOTS shards that went longest without finishing run each night
@@ -265,7 +265,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Differential corpus is current
-        run: python3 -I tools/differential/export_corpus.py --check
+        run: python3 -I testing/differential/export_corpus.py --check
       - name: Metamorphic (exhaustive)
         working-directory: engine
         env:
@@ -283,7 +283,7 @@ jobs:
       - name: Reduce and package metamorphic findings
         if: failure()
         timeout-minutes: 15
-        run: python3 scripts/nightly-collect.py --models metamorphic-report/models --check metamorphic --seed "$METAMORPHIC_SEED"
+        run: python3 testing/scripts/nightly-collect.py --models metamorphic-report/models --check metamorphic --seed "$METAMORPHIC_SEED"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -309,9 +309,9 @@ jobs:
   # element-matrix, fixed-end-force, axis-convention and reaction bugs that the
   # certificates cannot (they certify the assembled system, right or wrong).
   # Linear static, buckling, modal, P-Delta, time history, plates and shells
-  # (~10 min on 4 cores; tools/opensees/README.md).
+  # (~10 min on 4 cores; testing/opensees/README.md).
   # Fixed fixture set plus random models from a seed that moves daily; the
-  # seed is printed so a failure reproduces with tools/opensees/run.sh.
+  # seed is printed so a failure reproduces with testing/opensees/run.sh.
   opensees-diff:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' opensees-diff ')
@@ -359,14 +359,14 @@ jobs:
             shells) cases=(--shells $((60 * S))) ;;
             *) echo "unknown part $PART"; exit 2 ;;
           esac
-          python tools/opensees/compare.py "${cases[@]}" \
+          python testing/opensees/compare.py "${cases[@]}" \
             --bin "${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/target}/release/examples/solve_json" \
             --seed-start "$seed" -j "$([ "$PART" = buckling ] && echo 4 || echo 2)" --report opensees-report.json \
             --dump-dir opensees-mismatches
       - name: Reduce and package opensees findings
         if: failure()
         timeout-minutes: 15
-        run: python3 scripts/nightly-collect.py --models opensees-mismatches --check opensees --seed "$DIFF_SEED"
+        run: python3 testing/scripts/nightly-collect.py --models opensees-mismatches --check opensees --seed "$DIFF_SEED"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -387,7 +387,7 @@ jobs:
   # Differential test against Code_Aster 18.1 (EDF's FE code): the 3D linear
   # solver including releases, connectors, constraints, thermal loads and
   # inclined supports, which the OpenSees job does not translate. conda-forge
-  # code-aster, native on Linux. See tools/differential/codeaster/README.md;
+  # code-aster, native on Linux. See testing/differential/codeaster/README.md;
   # the seed is printed so a failure reproduces locally.
   codeaster-diff:
     needs: plan
@@ -402,13 +402,13 @@ jobs:
         with:
           persist-credentials: false
       - name: Reset run-local reports
-        run: rm -rf tools/differential/codeaster/codeaster-mismatches nightly-findings
+        run: rm -rf testing/differential/codeaster/codeaster-mismatches nightly-findings
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: 1.99.1
       - if: runner.environment == 'github-hosted'
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - name: Install Code_Aster (pins as in tools/differential/codeaster/setup.sh)
+      - name: Install Code_Aster (pins as in testing/differential/codeaster/setup.sh)
         uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3
         with:
           environment-name: aster
@@ -420,9 +420,9 @@ jobs:
       - name: Build solver CLI
         run: cargo build --release --example solve_json
       - name: Translator unit tests
-        run: python tools/differential/codeaster/test_to_aster.py
+        run: python testing/differential/codeaster/test_to_aster.py
       - name: Compare with Code_Aster (three times the counts on the monthly night)
-        working-directory: tools/differential/codeaster
+        working-directory: testing/differential/codeaster
         env:
           S: ${{ needs.plan.outputs.scale }}
         run: |
@@ -437,7 +437,7 @@ jobs:
       - name: Reduce and package codeaster findings
         if: failure()
         timeout-minutes: 15
-        run: ASTER_PYTHON="$(which python)" python3 scripts/nightly-collect.py --models tools/differential/codeaster/codeaster-mismatches --check codeaster --seed "$DIFF_SEED"
+        run: ASTER_PYTHON="$(which python)" python3 testing/scripts/nightly-collect.py --models testing/differential/codeaster/codeaster-mismatches --check codeaster --seed "$DIFF_SEED"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -450,12 +450,12 @@ jobs:
         with:
           name: codeaster-report
           path: |
-            tools/differential/codeaster/codeaster-report.json
-            tools/differential/codeaster/codeaster-mismatches/
+            testing/differential/codeaster/codeaster-report.json
+            testing/differential/codeaster/codeaster-mismatches/
           if-no-files-found: ignore
 
   # Coverage-guided fuzzing of the JSON entry points the WASM layer exposes
-  # (engine/fuzz, docs/verification/FUZZ_MUTANTS.md): no panic, no runaway
+  # (testing/fuzz, docs/verification/FUZZ_MUTANTS.md): no panic, no runaway
   # work, finite results, consistent certificates. One target per runner,
   # seeded from the template fixtures; crashing inputs are uploaded.
   fuzz:
@@ -495,13 +495,13 @@ jobs:
         with:
           workspaces: |
             . -> target
-            engine/fuzz -> target
+            testing/fuzz -> target
       - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-fuzz
       - name: Reset run-local reports and record seed
         run: |
-          rm -rf engine/fuzz/artifacts/${{ matrix.target }} nightly-findings
+          rm -rf testing/fuzz/artifacts/${{ matrix.target }} nightly-findings
           mkdir -p nightly-findings
           seed=$(( $(date -u +%s) / 86400 ))
           echo "FUZZ_SEED=$seed" >> "$GITHUB_ENV"
@@ -513,20 +513,20 @@ jobs:
         if: matrix.target == 'json_plastic'
         run: |
           RUSTUP_TOOLCHAIN=nightly-2026-10-15 make test.engine.plastic-budget test.engine.plastic-budget-watchdog test.engine.plastic-replay test.engine.plastic-resource test.engine.plastic-budget-corpus NIX_RUN=
-          mkdir -p engine/fuzz/corpus/json_plastic
-          rm -f engine/fuzz/corpus/json_plastic/engine-grid-slab.bin engine/fuzz/corpus/json_plastic/ex-3d-grid-slab-1 engine/fuzz/corpus/json_plastic/ex-3d-grid-slab-3
-          find engine/fuzz/corpus-regressions/plastic-lp-budget -maxdepth 1 -name '*.bin' ! -name engine-grid-slab.bin -exec cp {} engine/fuzz/corpus/json_plastic/ \;
+          mkdir -p testing/fuzz/corpus/json_plastic
+          rm -f testing/fuzz/corpus/json_plastic/engine-grid-slab.bin testing/fuzz/corpus/json_plastic/ex-3d-grid-slab-1 testing/fuzz/corpus/json_plastic/ex-3d-grid-slab-3
+          find testing/fuzz/corpus-regressions/plastic-lp-budget -maxdepth 1 -name '*.bin' ! -name engine-grid-slab.bin -exec cp {} testing/fuzz/corpus/json_plastic/ \;
       - name: Build target
         working-directory: engine
-        run: cargo +nightly-2026-10-15 fuzz build --target "$FUZZ_TARGET_TRIPLE" ${{ matrix.target }}
+        run: cargo +nightly-2026-10-15 fuzz build --fuzz-dir ../testing/fuzz --target "$FUZZ_TARGET_TRIPLE" ${{ matrix.target }}
       - name: Fuzz (2 hours on own runners, 30 minutes on fallback, 5 hours on the weekly night)
         id: fuzz
         env:
           FUZZ_SECONDS: ${{ needs.plan.outputs.weekly == 'true' && '18000' || (runner.environment == 'self-hosted' && '7200' || '1800') }}
         working-directory: engine
         run: |
-          mkdir -p fuzz/corpus/${{ matrix.target }}
-          cargo +nightly-2026-10-15 fuzz run --target "$FUZZ_TARGET_TRIPLE" ${{ matrix.target }} -- \
+          mkdir -p ../testing/fuzz/corpus/${{ matrix.target }}
+          cargo +nightly-2026-10-15 fuzz run --fuzz-dir ../testing/fuzz --target "$FUZZ_TARGET_TRIPLE" ${{ matrix.target }} -- \
             -seed="$FUZZ_SEED" -max_total_time="$FUZZ_SECONDS" -rss_limit_mb=2048 -timeout=60 \
             -print_final_stats=1
       - name: Retain original fuzz crashes
@@ -534,14 +534,14 @@ jobs:
         if: failure()
         with:
           name: fuzz-crashes-${{ matrix.target }}
-          path: engine/fuzz/artifacts/${{ matrix.target }}/
+          path: testing/fuzz/artifacts/${{ matrix.target }}/
           retention-days: 90
           if-no-files-found: ignore
       - name: Package individual crash findings
         if: failure() && steps.fuzz.outcome == 'failure'
         env:
           FUZZ_TARGET: ${{ matrix.target }}
-        run: python3 scripts/nightly-fuzz-findings.py
+        run: python3 testing/scripts/nightly-fuzz-findings.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -606,8 +606,8 @@ jobs:
           export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-arg=-fuse-ld=mold"
           status=0
           timeout --signal=INT --kill-after=5m "${BUDGET_MIN}m" \
-            ./scripts/mutants.sh --shard "$SHARD" --jobs 2 --test-tool nextest || status=$?
-          python3 scripts/mutants-summary.py mutants.out "$SHARD" | tee -a "$GITHUB_STEP_SUMMARY" || true
+            ./testing/scripts/mutants.sh --shard "$SHARD" --jobs 2 --test-tool nextest || status=$?
+          python3 testing/scripts/mutants-summary.py mutants.out "$SHARD" | tee -a "$GITHUB_STEP_SUMMARY" || true
           if [ -s mutants.out/missed.txt ]; then
             { echo '### Missed mutants'; echo '```'; head -c 60000 mutants.out/missed.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -675,8 +675,8 @@ jobs:
           export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-arg=-fuse-ld=mold"
           status=0
           timeout --signal=INT --kill-after=5m "${BUDGET_MIN}m" \
-            ./scripts/mutants.sh --shard "$SHARD" --jobs 2 --test-tool nextest || status=$?
-          python3 scripts/mutants-summary.py mutants.out "$SHARD" | tee -a "$GITHUB_STEP_SUMMARY" || true
+            ./testing/scripts/mutants.sh --shard "$SHARD" --jobs 2 --test-tool nextest || status=$?
+          python3 testing/scripts/mutants-summary.py mutants.out "$SHARD" | tee -a "$GITHUB_STEP_SUMMARY" || true
           if [ -s mutants.out/missed.txt ]; then
             { echo '### Missed mutants'; echo '```'; head -c 60000 mutants.out/missed.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -870,7 +870,7 @@ jobs:
         run: |
           seed="${SEED:-$(date -u +%Y%m%d)}"
           timeout --signal=TERM --kill-after=30s "$((SECONDS_BUDGET + 300))s" \
-            python3 scripts/nightly-models.py --count "$COUNT" --seed "$seed" --seconds "$SECONDS_BUDGET"
+            python3 testing/scripts/nightly-models.py --count "$COUNT" --seed "$seed" --seconds "$SECONDS_BUDGET"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

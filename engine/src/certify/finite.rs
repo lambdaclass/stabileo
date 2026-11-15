@@ -15,7 +15,7 @@
 //! - `guard`: a certificate claiming success with a non-finite number outside
 //!   `DOCUMENTED_INFINITE` is downgraded to uncertified.
 //!
-//! The fuzz harness (`engine/fuzz/src/lib.rs`) checks the same property with
+//! The fuzz harness (`testing/fuzz/src/lib.rs`) checks the same property with
 //! the same walker and allowlist.
 
 use serde::ser::{self, Serialize};

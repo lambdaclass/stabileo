@@ -6,7 +6,7 @@ const {test} = require('node:test');
 const report = require('../../.github/scripts/nightly-findings.cjs');
 
 const finding = {test: 'opensees/mismatch', seed: 42, model: {loads: [1], elements: {a: {}}},
-  command: 'python3 scripts/nightly-models.py --model model.json', reduction: '1-minimal', details: {status: 'mismatch'}};
+  command: 'python3 testing/scripts/nightly-models.py --model model.json', reduction: '1-minimal', details: {status: 'mismatch'}};
 
 async function fixture(fn) {
   const previous = process.cwd();

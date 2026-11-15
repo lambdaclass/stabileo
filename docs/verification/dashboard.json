@@ -243,7 +243,7 @@
     "evidence": {
      "Certified": "[Certified linear static results](CERTIFY.md#certified-linear-static-results)",
      "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D linear static (Strong); 3D linear static (Strong)",
-     "Differential": "[Frame3DD](../../tools/differential/frame3dd/README.md), [PyNite](../../tools/differential/pynite/README.md), [MYSTRAN](../../tools/differential/mystran/README.md), [Kratos](../../tools/differential/kratos/README.md), [CalculiX](../../tools/differential/calculix/README.md), [OpenSees](../../tools/opensees/README.md), [Code_Aster](../../tools/differential/codeaster/README.md)",
+     "Differential": "[Frame3DD](../../testing/differential/frame3dd/README.md), [PyNite](../../testing/differential/pynite/README.md), [MYSTRAN](../../testing/differential/mystran/README.md), [Kratos](../../testing/differential/kratos/README.md), [CalculiX](../../testing/differential/calculix/README.md), [OpenSees](../../testing/opensees/README.md), [Code_Aster](../../testing/differential/codeaster/README.md)",
      "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
     },
     "issues": [
@@ -259,7 +259,7 @@
     "evidence": {
      "Certified": "[Constraints (multi-point constraints)](CERTIFY.md#constraints-multi-point-constraints)",
      "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Constraint technology (Good)",
-     "Differential": "[Code_Aster](../../tools/differential/codeaster/README.md)",
+     "Differential": "[Code_Aster](../../testing/differential/codeaster/README.md)",
      "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
     },
     "issues": [
@@ -283,7 +283,7 @@
     "evidence": {
      "Certified": "[Member force bounds](CERTIFY.md#member-force-bounds), [Diagrams, extremes, deflections and reactions](CERTIFY.md#diagrams-extremes-deflections-and-reactions)",
      "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Diagrams / section forces / deformed shape (Strong)",
-     "Differential": "[Frame3DD](../../tools/differential/frame3dd/README.md), [PyNite](../../tools/differential/pynite/README.md), [OpenSees](../../tools/opensees/README.md), [Code_Aster](../../tools/differential/codeaster/README.md)"
+     "Differential": "[Frame3DD](../../testing/differential/frame3dd/README.md), [PyNite](../../testing/differential/pynite/README.md), [OpenSees](../../testing/opensees/README.md), [Code_Aster](../../testing/differential/codeaster/README.md)"
     },
     "issues": [
      343
@@ -295,7 +295,7 @@
     "evidence": {
      "Certified": "[P-Delta (second-order) displacements](CERTIFY.md#p-delta-second-order-displacements)",
      "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D P-Delta (Strong); 3D P-Delta (Strong)",
-     "Differential": "[Frame3DD](../../tools/differential/frame3dd/README.md), [OpenSees](../../tools/opensees/README.md)",
+     "Differential": "[Frame3DD](../../testing/differential/frame3dd/README.md), [OpenSees](../../testing/opensees/README.md)",
      "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
     },
     "issues": [
@@ -311,7 +311,7 @@
     "evidence": {
      "Certified": "[Buckling load-factor enclosure](CERTIFY.md#buckling-load-factor-enclosure)",
      "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D buckling (Strong); 3D buckling (Strong)",
-     "Differential": "[OpenSees](../../tools/opensees/README.md)",
+     "Differential": "[OpenSees](../../testing/opensees/README.md)",
      "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
     },
     "issues": [
@@ -325,7 +325,7 @@
     "evidence": {
      "Certified": "[Modal enclosures and completeness](CERTIFY.md#modal-enclosures-and-completeness)",
      "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D modal (Strong); 3D modal (Strong)",
-     "Differential": "[Frame3DD](../../tools/differential/frame3dd/README.md), [MYSTRAN](../../tools/differential/mystran/README.md), [OpenSees](../../tools/opensees/README.md)",
+     "Differential": "[Frame3DD](../../testing/differential/frame3dd/README.md), [MYSTRAN](../../testing/differential/mystran/README.md), [OpenSees](../../testing/opensees/README.md)",
      "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
     },
     "issues": [
@@ -354,7 +354,7 @@
     "evidence": {
      "Certified": "[Time-history integration](CERTIFY.md#time-history-integration)",
      "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D time history (Good); 3D time history (Good)",
-     "Differential": "[OpenSees](../../tools/opensees/README.md)",
+     "Differential": "[OpenSees](../../testing/opensees/README.md)",
      "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
     },
     "issues": [
@@ -557,7 +557,7 @@
     "evidence": {
      "Certified": "[symbolic derivation](SYMBOLIC.md): `frame_local_stiffness_2d`, `frame_local_stiffness_3d`",
      "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D frame / truss elements (Strong); 3D frame / truss elements (Strong)",
-     "Differential": "[Frame3DD](../../tools/differential/frame3dd/README.md), [PyNite](../../tools/differential/pynite/README.md), [MYSTRAN](../../tools/differential/mystran/README.md), [Kratos](../../tools/differential/kratos/README.md), [CalculiX](../../tools/differential/calculix/README.md), [OpenSees](../../tools/opensees/README.md), [Code_Aster](../../tools/differential/codeaster/README.md)",
+     "Differential": "[Frame3DD](../../testing/differential/frame3dd/README.md), [PyNite](../../testing/differential/pynite/README.md), [MYSTRAN](../../testing/differential/mystran/README.md), [Kratos](../../testing/differential/kratos/README.md), [CalculiX](../../testing/differential/calculix/README.md), [OpenSees](../../testing/opensees/README.md), [Code_Aster](../../testing/differential/codeaster/README.md)",
      "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
     },
     "issues": [
@@ -571,7 +571,7 @@
     "evidence": {
      "Certified": "[symbolic derivation](SYMBOLIC.md): `truss_local_stiffness_2d/3d`",
      "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): 2D frame / truss elements (Strong); 3D frame / truss elements (Strong)",
-     "Differential": "[PyNite](../../tools/differential/pynite/README.md), [MYSTRAN](../../tools/differential/mystran/README.md), [Kratos](../../tools/differential/kratos/README.md), [OpenSees](../../tools/opensees/README.md)",
+     "Differential": "[PyNite](../../testing/differential/pynite/README.md), [MYSTRAN](../../testing/differential/mystran/README.md), [Kratos](../../testing/differential/kratos/README.md), [OpenSees](../../testing/opensees/README.md)",
      "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
     },
     "issues": []
@@ -582,7 +582,7 @@
     "evidence": {
      "Certified": "[symbolic derivation](SYMBOLIC.md): `frame_local_stiffness_2d`",
      "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Timoshenko beam / shear deformation (Good)",
-     "Differential": "[MYSTRAN](../../tools/differential/mystran/README.md), [Kratos](../../tools/differential/kratos/README.md), [OpenSees](../../tools/opensees/README.md)",
+     "Differential": "[MYSTRAN](../../testing/differential/mystran/README.md), [Kratos](../../testing/differential/kratos/README.md), [OpenSees](../../testing/opensees/README.md)",
      "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
     },
     "issues": [
@@ -616,7 +616,7 @@
     "name": "Connector (spring element)",
     "level": "Differential",
     "evidence": {
-     "Differential": "[Code_Aster](../../tools/differential/codeaster/README.md)",
+     "Differential": "[Code_Aster](../../testing/differential/codeaster/README.md)",
      "Tested": "[feature matrix](FEATURE_MATRIX.md) [2D](FEATURE_MATRIX.md#2d), [3D](FEATURE_MATRIX.md#3d)"
     },
     "issues": [
@@ -654,7 +654,7 @@
     "level": "Benchmarked",
     "evidence": {
      "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): Plate / shell triangles (Good)",
-     "Differential": "[OpenSees](../../tools/opensees/README.md)",
+     "Differential": "[OpenSees](../../testing/opensees/README.md)",
      "Tested": "[feature matrix](FEATURE_MATRIX.md) [3D](FEATURE_MATRIX.md#3d)"
     },
     "issues": [
@@ -666,7 +666,7 @@
     "level": "Benchmarked",
     "evidence": {
      "Benchmarked": "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): MITC4 quadrilateral shell element (Strong)",
-     "Differential": "[OpenSees](../../tools/opensees/README.md)",
+     "Differential": "[OpenSees](../../testing/opensees/README.md)",
      "Tested": "[feature matrix](FEATURE_MATRIX.md) [3D](FEATURE_MATRIX.md#3d)"
     },
     "issues": [

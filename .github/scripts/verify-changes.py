@@ -9,8 +9,8 @@ import sys
 API_FILE_LIMIT = 3000
 
 VERIFY_PATHS = re.compile(
-    r'^(verify/|engine/src/|engine/Cargo\.toml$|Cargo\.lock$|docs/verification/|tools/symbolic/'
-    r'|engine/tests/symbolic_elements\.rs$|flake\.(nix|lock)$|scripts/kani|\.github/workflows/verify\.yml$'
+    r'^(verify/|engine/src/|engine/Cargo\.toml$|Cargo\.lock$|docs/verification/|testing/symbolic/'
+    r'|engine/tests/symbolic_elements\.rs$|flake\.(nix|lock)$|testing/scripts/kani|\.github/workflows/verify\.yml$'
     r'|\.github/scripts/verify-changes\.py$)')
 
 KANI_MODULES = (
@@ -32,7 +32,7 @@ KANI_MODULES = (
 
 KANI_BUILD = re.compile(
     r'^((engine/)?Cargo\.(toml|lock)|(engine/)?\.cargo/.*|(engine/)?build\.rs|rust-toolchain(\.toml)?|flake\.(nix|lock)'
-    r'|scripts/kani[^/]*|\.github/workflows/verify\.yml|\.github/scripts/verify-changes\.py)$')
+    r'|testing/scripts/kani[^/]*|\.github/workflows/verify\.yml|\.github/scripts/verify-changes\.py)$')
 
 
 def kani_input(path):

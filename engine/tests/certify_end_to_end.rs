@@ -283,7 +283,7 @@ fn stable_one() {
 }
 
 /// Every model file in `E2E_DIR` (e.g. dumped from the differential
-/// generators, `tools/differential`): `E2E_DIR=… cargo test --release --test
+/// generators, `testing/differential`): `E2E_DIR=… cargo test --release --test
 /// certify_end_to_end e2e_dir -- --ignored --nocapture`.
 #[test]
 #[ignore]

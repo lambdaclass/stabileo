@@ -151,6 +151,7 @@ jobs:
             engine:
               - *tooling
               - 'engine/**'
+              - 'testing/fuzz/**'
               - 'scripts/check-fail-closed.py'
               - 'scripts/fail-closed-allow.txt'
               - 'scripts/check-message-matching.py'
@@ -167,6 +168,7 @@ jobs:
               - 'web/**'
               - 'research/**'
               - 'engine/**'
+              - 'testing/fuzz/**'
               - 'ai-backend/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
@@ -184,6 +186,7 @@ jobs:
               # The /research pages import the catalog and reference results and ship its WASM.
               - 'research/**'
               - 'engine/**'
+              - 'testing/fuzz/**'
               # The engine's dependencies (wasm-bindgen, serde) are locked here.
               - 'Cargo.toml'
               - 'Cargo.lock'
@@ -192,6 +195,7 @@ jobs:
               - 'research/**'
               - 'web/**'
               - 'engine/**'
+              - 'testing/fuzz/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - '.github/workflows/research.yml'
@@ -202,6 +206,7 @@ jobs:
               - *tooling
               - 'ai-backend/**'
               - 'engine/**'
+              - 'testing/fuzz/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
             ci_scripts:
@@ -209,6 +214,8 @@ jobs:
               - 'scripts/invariance-gate.py'
               - '.github/workflows/research.yml'
               - 'scripts/nightly-*.py'
+              - 'testing/scripts/nightly-*.py'
+              - 'testing/scripts/tests/**'
               - 'scripts/replay-findings.py'
               - '.github/workflows/nightly.yml'
               - '.github/workflows/supply-chain.yml'
@@ -378,6 +385,8 @@ jobs:
       # in no binary would never run, one in two would run twice.
       - name: Every engine test file is in exactly one test binary
         run: nix develop --command make check.test-targets NIX_RUN=
+      - name: Testing map paths and runners exist
+        run: nix develop --command make check.testing-map NIX_RUN=
       - name: Stop the rest of this run
         if: failure() && github.event_name == 'pull_request'
         continue-on-error: true

@@ -106,7 +106,7 @@ jobs:
         working-directory: verify
         run: nix develop ..#verify -c ./scripts/check-bundles.sh
 
-  # The element matrices derived symbolically (tools/symbolic): regenerating
+  # The element matrices derived symbolically (testing/symbolic): regenerating
   # engine/tests/symbolic_elements.rs must reproduce the committed file. The
   # generated test itself runs in ci.yml's engine suite.
   symbolic:
@@ -120,9 +120,9 @@ jobs:
         with:
           python-version: "3.14"
       - name: Install SymPy
-        run: pip install -r tools/symbolic/requirements.txt
+        run: pip install -r testing/symbolic/requirements.txt
       - name: Generated test is up to date
-        run: python -I tools/symbolic/gen.py --check
+        run: python -I testing/symbolic/gen.py --check
 
   kani-shard:
     name: kani-shard (${{ matrix.shard }}/5)
@@ -142,12 +142,12 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .tools
-          key: kani-${{ runner.os }}-${{ hashFiles('flake.lock', 'scripts/kani-setup.sh') }}
+          key: kani-${{ runner.os }}-${{ hashFiles('flake.lock', 'testing/scripts/kani-setup.sh') }}
       - name: Prepare Nix shell (infrastructure retries)
         run: |
           .github/scripts/retry-infra.sh nix develop .#verify --command true
       - name: Install Kani
-        run: .github/scripts/retry-infra.sh nix develop .#verify -c ./scripts/kani-setup.sh
+        run: .github/scripts/retry-infra.sh nix develop .#verify -c ./testing/scripts/kani-setup.sh
       # One harness at a time under a memory/time watchdog: CBMC can need tens of GB
       # per float-heavy harness, and the runner has 16 GB.
       # Pull requests and the merge queue run the fast tier; the nightly schedule and manual runs
@@ -159,7 +159,7 @@ jobs:
           # The nightly-tier harnesses take up to ~10 min locally, ~2x that on the runner.
           KANI_TIMEOUT_S: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 900 || 2400 }}
           KANI_TIER: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 'fast' || 'all' }}
-        run: nix develop .#verify -c ./scripts/kani-safe.sh
+        run: nix develop .#verify -c ./testing/scripts/kani-safe.sh
       - name: Kani report
         if: always()
         run: column -t target/kani-report.tsv || true
