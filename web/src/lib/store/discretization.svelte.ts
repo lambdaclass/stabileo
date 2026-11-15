@@ -116,6 +116,14 @@ export function approxPercent(x: number | null | undefined): string {
   return 100 * Math.abs(x) < 0.01 ? '< 0.01 %' : `~${percentText(x)} %`;
 }
 
+export function errorMapRange(values: readonly number[], thresholdPct: number): { min: number; max: number; clipped: boolean } {
+  const sorted = [...values].sort((a, b) => a - b);
+  const largest = sorted.at(-1) ?? 0;
+  const p95 = sorted.length ? sorted[Math.ceil(0.95 * sorted.length) - 1]! : 0;
+  const max = Math.max(2 * thresholdPct, p95);
+  return { min: 0, max, clipped: largest > max };
+}
+
 /**
  * Where the legend puts the threshold (% of the bar, whose ends are 0 and `max`), and whether its
  * label fits there without running into the end labels: the mark is drawn either way.
@@ -293,12 +301,14 @@ function createDiscretizationStore() {
       if (gen === generation) study = next;
     },
 
-    /** The scale of the error map (%): 0 to the larger of twice the threshold and the largest value. */
-    mapRange(): { min: number; max: number } {
-      let max = 0;
-      for (const v of this.elementMap().values()) if (v > max) max = v;
+    /**
+     * The scale of the error map (%): 0 to the larger of twice the threshold and the 95th percentile,
+     * so a few singular elements at point supports do not wash every other element out to the
+     * bottom colour. `clipped` says the top colour also stands for larger values.
+     */
+    mapRange(): { min: number; max: number; clipped: boolean } {
       const thr = estimate.status === 'done' ? 100 * estimate.estimate.threshold : 5;
-      return { min: 0, max: Math.max(2 * thr, max) };
+      return errorMapRange([...this.elementMap().values()], thr);
     },
 
     /** Element indicators keyed as the 3D viewport keys shells (`p12`, `q7`). */

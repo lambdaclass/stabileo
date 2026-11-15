@@ -54,8 +54,8 @@ it('deduplicates an active case alias and preserves labels for distinct affected
 it('keeps 100 modal warnings and many cases in closed, bounded details', () => {
   const results = Array.from({ length: 10 }, () => ({ structuredDiagnostics: Array.from({ length: 100 }, () => diagnostic('warning')) }));
   const { body } = render(SelfCheckBanner, { props: { results: [...results, results[0]], labels: results.map((_, i) => `Case ${i}`) } });
-  expect(body).toContain(': 1000');
-  expect(body).toContain('<details>');
+  expect(body).toContain('(1000)');
+  expect(body).toMatch(/<details[^>]*data-kind="selfCheck"/);
   expect(body).not.toMatch(/<details[^>]*open/);
   expect(body).toContain('Case 9');
   expect(body.match(/Self-check mode 1 eigen-equation residual/g)).toHaveLength(1000);

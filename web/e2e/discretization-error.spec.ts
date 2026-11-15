@@ -1,7 +1,8 @@
 /**
  * The discretization-error estimate in the real app (docs/verification/DISCRETIZATION.md): a
  * frame-and-shell model solved in PRO shows "discretization error: estimated ~Y% (… not
- * certified)" next to the certificate, and the convergence check re-solves and fills its table.
+ * certified)" next to the certificate, folded under a calm flag, and the convergence check re-solves
+ * and fills its table.
  *
  * Both run through the worker pool in a real browser: the estimate exports once failed there
  * ("Worker certificate … not available") while every unit test, which runs on the main thread,
@@ -21,9 +22,10 @@ test('a frame-and-shell model shows its estimated discretization error and runs 
   expect(state.applies).toBe(true);
 
   await page.evaluate(() => window.__stabileoActions.openProTab('results'));
-  // Folded under the results, and open by itself: this estimate is over the threshold.
-  await expect(page.getByTestId('result-checks')).toHaveAttribute('open', '');
-  await expect(page.getByTestId('result-checks-toggle')).toContainText(/high discretization error/i);
+  await expect(page.getByTestId('result-checks')).not.toHaveAttribute('open', '');
+  await expect(page.getByTestId('result-checks')).toHaveAttribute('data-flagged', 'true');
+  await expect(page.getByTestId('result-checks-toggle')).toContainText(/mesh may be too coarse/i);
+  await page.getByTestId('result-checks-toggle').click();
   const status = page.getByTestId('discretization-status').first();
   await expect(status).toBeVisible({ timeout: 30_000 });
   const estimate = page.getByTestId('discretization-estimate').first();

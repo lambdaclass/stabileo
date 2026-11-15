@@ -16,6 +16,7 @@
   import { toCsv } from '../../lib/engine/result-tables';
   import { tp } from '../../lib/i18n';
   import { containmentDismissal } from '../../lib/store/containment-dismissal.svelte';
+  import { noticePrefs } from '../../lib/store/notice-prefs.svelte';
 
   // Opening Diagnostics is itself an interaction: the user has come to look, so the chip is
   // allowed to speak from here on even if nothing else has happened yet.
@@ -267,8 +268,11 @@
       {/if}
     {/snippet}
     {@render part('analysis', extraAnalysis)}
-    {#if !notice.refused && containmentDismissal.isDismissed(notice.messages)}
+    {#if !notice.refused && containmentDismissal.any}
       <button class="pk-btn" onclick={() => containmentDismissal.restore()} data-testid="containment-restore">{t('containment.restore')}</button>
+    {/if}
+    {#if noticePrefs.hidden.length}
+      <button class="pk-btn" onclick={() => noticePrefs.showAll()} data-testid="notices-restore-hidden">{t('notices.restoreHidden')}</button>
     {/if}
     {@render part('design', designLines)}
   </section>

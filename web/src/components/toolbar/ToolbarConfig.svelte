@@ -1,4 +1,5 @@
 <script lang="ts">
+  import NoticeSettings from '../notices/NoticeSettings.svelte';
   import { uiStore, resultsStore } from '../../lib/store';
   import LocaleSelect from '../LocaleSelect.svelte';
 
@@ -458,6 +459,7 @@
           <span>{t('config.drawPositiveTowardLocalAxes')}</span>
           </HelpTip>
         </label>
+        <NoticeSettings />
       </div>
     {/if}
 

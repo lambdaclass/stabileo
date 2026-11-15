@@ -34,7 +34,7 @@ import { hasNonlinearBehaviour } from './member-behaviour';
 import { allLoadsResult3D } from './shell-combos';
 import { markAllLoads } from './solver-service';
 import { singleSolveFactors } from './case-effects';
-import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
+import { reportSolverErrors, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
 import { solveProgress } from '../store/solve-progress.svelte';
@@ -386,10 +386,6 @@ async function ensureWasmReady(context: string): Promise<void> {
   }
 }
 
-/** Show solver diagnostic warnings/errors as toasts (max 2 to avoid spam).
- *  Lives in `solve-diagnostics.ts` so Education shares the same reporting. */
-const showSolverWarningToasts = reportSolverDiagnostics;
-
 /**
  * The action a failed solve's message offers. When members pass nodes they are not cut at,
  * which is how a first model usually falls apart, the fix is one command away and the message
@@ -442,7 +438,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
       `${t('results.analysis3dSuccess')}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}`,
       'success',
     );
-    showSolverWarningToasts(r.solverDiagnostics);
+    reportSolverErrors(r.solverDiagnostics);
     return { ok: true, combinationsLeftOut: null };
   };
 
@@ -517,7 +513,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
       `${t('results.analysis3dSuccess')} (${timeStr}) — ${nBars} ${t('results.bars')}, ${nReac} ${t('results.reactions')} + ${comboResult.perCombo.size} ${t('results.combinations')}`,
       'success',
     );
-    showSolverWarningToasts(firstCaseResult.solverDiagnostics);
+    reportSolverErrors(firstCaseResult.solverDiagnostics);
     return { ok: true, combinationsLeftOut: null };
   };
 
@@ -596,6 +592,6 @@ async function globalSolve2D(isStale: () => boolean): Promise<GlobalSolveOutcome
   );
 
   // Show solver warnings/errors as separate toasts
-  showSolverWarningToasts(r.solverDiagnostics);
+  reportSolverErrors(r.solverDiagnostics);
   return { ok: true, combinationsLeftOut };
 }
