@@ -2,11 +2,12 @@ export interface DemandCoverage {
   readonly combinations?: readonly { comboId: number; comboName: string }[];
   readonly combinationIds: readonly number[];
   readonly stationTs: readonly number[];
+  readonly combinationStations?: readonly { readonly comboId: number; readonly stationTs: readonly number[] }[];
 }
 
 export interface DemandScope {
   readonly combinations: readonly { comboId: number; comboName?: string }[];
-  readonly members: readonly { elementId: number; stationTs: readonly number[] }[];
+  readonly members: readonly ({ elementId: number } & Pick<DemandCoverage, 'stationTs' | 'combinationStations'>)[];
 }
 
 export interface ScopedDemand {
@@ -54,8 +55,18 @@ export class CompleteDemandSet<T extends ScopedDemand> {
     }
     if (scope.members.length && !scope.combinations.length) diagnostics.push({ code: 'missing-scope' });
     for (const member of scope.members) {
-      if (!member.stationTs.length || member.stationTs.some(t => !Number.isFinite(t))) diagnostics.push({ code: 'missing-scope', elementId: member.elementId });
+      const stations = [...member.stationTs, ...(member.combinationStations ?? []).flatMap(c => c.stationTs)];
+      if (!stations.length || stations.some(t => !Number.isFinite(t))) diagnostics.push({ code: 'missing-scope', elementId: member.elementId });
     }
+    const requested = new Map(scope.members.map(m => {
+      const byCombo = new Map<number, Set<number>>();
+      for (const c of m.combinationStations ?? []) {
+        const ts = byCombo.get(c.comboId) ?? new Set<number>();
+        for (const t of c.stationTs) ts.add(t);
+        byCombo.set(c.comboId, ts);
+      }
+      return [m, byCombo] as const;
+    }));
     const available = new Set(availableCombinationIds ?? byCombo.keys());
     for (const combo of scope.combinations) {
       const members = byCombo.get(combo.comboId);
@@ -63,7 +74,9 @@ export class CompleteDemandSet<T extends ScopedDemand> {
       for (const member of scope.members) {
         const stations = members?.get(member.elementId);
         if (!stations?.size) { diagnostics.push({ code: 'missing-member', ...combo, elementId: member.elementId }); continue; }
-        for (const stationT of member.stationTs) {
+        const required = [...member.stationTs, ...(requested.get(member)!.get(combo.comboId) ?? [])];
+        if (!required.length) diagnostics.push({ code: 'missing-scope', elementId: member.elementId });
+        for (const stationT of required) {
           if (!stations.has(stationT)) diagnostics.push({ code: 'missing-station', ...combo, elementId: member.elementId, stationT });
         }
       }
@@ -75,20 +88,33 @@ export class CompleteDemandSet<T extends ScopedDemand> {
 
 export function demandCoverage(
   declared: Partial<DemandCoverage>,
-  tuples: readonly { comboId: number; coverage?: DemandCoverage }[] | undefined,
+  tuples: readonly { comboId: number; coverage?: DemandCoverage; forces?: { readonly t: number } }[] | undefined,
 ): DemandCoverage {
   const ids = new Set(declared.combinationIds), stations = new Set(declared.stationTs);
+  const byCombo = new Map<number, Set<number>>();
+  const include = (comboId: number, ts: readonly number[]) => {
+    ids.add(comboId);
+    let requested = byCombo.get(comboId);
+    if (!requested) { requested = new Set(); byCombo.set(comboId, requested); }
+    for (const t of ts) requested.add(t);
+  };
+  for (const c of declared.combinationStations ?? []) include(c.comboId, c.stationTs);
   const seen = new Set<DemandCoverage>();
   const names = new Map(declared.combinations?.map(c => [c.comboId, c.comboName]));
   for (const tuple of tuples ?? []) {
-    ids.add(tuple.comboId);
+    const comboId = tuple.comboId;
+    ids.add(comboId);
     const coverage = tuple.coverage;
     if (coverage && !seen.has(coverage)) {
       seen.add(coverage);
       for (const c of coverage.combinations ?? []) names.set(c.comboId, c.comboName);
       for (const id of coverage.combinationIds) ids.add(id);
-      for (const t of coverage.stationTs) stations.add(t);
+      for (const id of coverage.combinationIds) include(id, coverage.stationTs);
+      for (const c of coverage.combinationStations ?? []) include(c.comboId, c.stationTs);
     }
+    if (declared.stationTs === undefined && tuple.forces) include(comboId, [tuple.forces.t]);
   }
-  return { combinationIds: [...ids], stationTs: [...stations], combinations: [...names].map(([comboId, comboName]) => ({ comboId, comboName })) };
+  return Object.freeze({ combinationIds: Object.freeze([...ids]), stationTs: Object.freeze([...stations]),
+    combinationStations: Object.freeze([...byCombo].map(([comboId, ts]) => Object.freeze({ comboId, stationTs: Object.freeze([...ts]) }))),
+    combinations: Object.freeze([...names].map(([comboId, comboName]) => Object.freeze({ comboId, comboName }))) });
 }

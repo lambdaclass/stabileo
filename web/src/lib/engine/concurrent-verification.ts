@@ -38,7 +38,7 @@ export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationI
   }
   const coverage = [...byMember].map(([elementId, list]) => ({ elementId, ...demandCoverage({}, list.map(i => i.demand.source)) }));
   const complete = CompleteDemandSet.require({ combinations: [...new Set(coverage.flatMap(c => c.combinationIds))].map(comboId => ({ comboId })),
-    members: coverage.map(c => ({ elementId: c.elementId, stationTs: c.stationTs })) }, inputs.map(input => ({
+    members: coverage }, inputs.map(input => ({
       elementId: input.elementId, comboId: input.demand.source.comboId, stationT: input.demand.source.stationT, input,
     })));
   return withBiaxialCapacityCache(() => verifyConcurrentCases(complete));

@@ -878,7 +878,7 @@ export function checkSteelMember(
   const concurrent = steelConcurrentDemands(demand);
   const coverage = demandCoverage({}, concurrent);
   const complete = CompleteDemandSet.require({ combinations: coverage.combinationIds.map(comboId => ({ comboId })),
-    members: [{ elementId, stationTs: coverage.stationTs }] }, concurrent.map(d => ({ elementId, comboId: d.comboId, stationT: d.stationT, demand: d })));
+    members: [{ elementId, ...coverage }] }, concurrent.map(d => ({ elementId, comboId: d.comboId, stationT: d.stationT, demand: d })));
   return checkCompleteSteelMember(complete, [elementId, demand, section, material, lengths, segment, opts]);
 }
 

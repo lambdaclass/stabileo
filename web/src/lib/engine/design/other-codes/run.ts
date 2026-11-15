@@ -122,6 +122,7 @@ export function runOtherCode(code: OtherCode, contexts: MemberContext[], opts: R
 
 function runCompleteOtherCode(code: OtherCode, complete: CompleteMemberContexts, opts: RunOptions): OtherCodeRun {
   const contexts = [...new Set(complete.values.map(r => r.member))];
+  const coverages = new Map(complete.values.map(r => [r.elementId, r.coverage]));
   const rows = new Map<number, OtherCodeRow>();
   const ready: Array<{ ctx: MemberContext; data: Record<string, unknown>; flags: string[]; list: ConcurrentDemand[] }> = [];
   for (const ctx of contexts) {
@@ -131,7 +132,7 @@ function runCompleteOtherCode(code: OtherCode, complete: CompleteMemberContexts,
     // The governing demands first, then every other combination and station, each pair once.
     const seen = new Set(ctx.demands.map((d) => `${d.comboId}|${d.stationT}`));
     const rest = (ctx.tuples ?? []).filter((t) => { const k = `${t.comboId}|${t.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
-    ready.push({ ctx, data: m.data, flags: m.unevaluated ?? [], list: ConcurrentDemand.fromTuples([...ctx.demands, ...rest]) });
+    ready.push({ ctx, data: m.data, flags: m.unevaluated ?? [], list: ConcurrentDemand.fromTuples([...ctx.demands, ...rest], coverages.get(ctx.elementId)) });
   }
   /*
    * The member's reading is its worst ratio, and it carries every check the engine left out at
@@ -241,6 +242,7 @@ async function certifyCompleteOtherCode(
   call: (name: string, args: unknown[]) => Promise<unknown>,
 ): Promise<Map<number, MemberCertificate>> {
   const contexts = [...new Set(complete.values.map(r => r.member))];
+  const coverages = new Map(complete.values.map(r => [r.elementId, r.coverage]));
   const out = new Map<number, MemberCertificate>();
   const cert = code.certify;
   if (!cert) return out;
@@ -253,7 +255,7 @@ async function certifyCompleteOtherCode(
     const m = code.member(ctx);
     if ('skip' in m || ctx.demands.length === 0) continue;
     if ((m.unevaluated ?? []).length > 0) { refuse(ctx.elementId, 'otherCodes.cert.partial'); continue; }
-    ready.push({ ctx, data: m.data, all: ConcurrentDemand.fromTuples([...ctx.demands, ...(ctx.tuples ?? [])]) });
+    ready.push({ ctx, data: m.data, all: ConcurrentDemand.fromTuples([...ctx.demands, ...(ctx.tuples ?? [])], coverages.get(ctx.elementId)) });
   }
   const rounds = ready.reduce((n, r) => Math.max(n, r.all.length), 0);
   for (let k = 0; k < rounds; k++) {

@@ -16,8 +16,8 @@ export function completeMemberDemands<T extends MemberDemandInput>(members: read
   for (const c of coverages) for (const d of c.combinations ?? []) names.set(d.comboId, d.comboName);
   for (const m of members) for (const d of m.demands) names.set(d.comboId, d.comboName);
   const combinations = [...new Set(coverages.flatMap(c => c.combinationIds))].map(comboId => ({ comboId, comboName: names.get(comboId) }));
-  return CompleteDemandSet.require({ combinations, members: members.map((m, i) => ({ elementId: m.elementId, stationTs: coverages[i]!.stationTs })) },
-    members.flatMap(member => (member.tuples ?? []).map(tuple => ({ elementId: member.elementId, comboId: tuple.comboId, stationT: tuple.forces.t, tuple, member }))));
+  return CompleteDemandSet.require({ combinations, members: members.map((m, i) => ({ elementId: m.elementId, ...coverages[i]! })) },
+    members.flatMap((member, i) => (member.tuples ?? []).map(tuple => ({ coverage: coverages[i]!, elementId: member.elementId, comboId: tuple.comboId, stationT: tuple.forces.t, tuple, member }))));
 }
 
 export type CompleteMemberContexts = ReturnType<typeof completeMemberDemands<MemberContext>>;

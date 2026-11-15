@@ -53,7 +53,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
   };
   const combinations = [{ id: 1, name: 'C1', factors: [] }, { id: 2, name: 'C2', factors: [] }];
   const label = `spatial=${spatial} nonlinear=${nonlinear} compact=${compact}`;
-  it.fails(`known wrong result: #2096 round3 dispatch preserves per-combination stations ${label}`, () => {
+  it(`known wrong result: #2096 round3 dispatch preserves per-combination stations ${label}`, () => {
     const raw = solveModel();
     const data = computeStationDemands(new Map([[1, raw], [2, raw]]), combinations, model);
     const source = data.stations.get(1)!;

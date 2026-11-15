@@ -1960,7 +1960,7 @@ export function verifyProvidedReinforcement(
   const coverage = demandCoverage({ combinationIds: [...(demands?.expectedCombinationIds ?? []), ...(demands?.demands.map(d => d.comboId) ?? [])],
     stationTs: demands?.stationTs ?? stationResult?.stationTs }, suppliedTuples);
   const complete = CompleteDemandSet.require({ combinations: coverage.combinationIds.map(comboId => ({ comboId })),
-    members: [{ elementId, stationTs: coverage.stationTs }] },
+    members: [{ elementId, ...coverage }] },
     (suppliedTuples ?? []).map(demand => ({ elementId, comboId: demand.comboId, stationT: demand.stationT, demand })));
 
   const checks: ProvidedRebarCheck[] = [];

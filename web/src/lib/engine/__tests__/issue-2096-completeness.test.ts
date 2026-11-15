@@ -170,7 +170,7 @@ function combinationSpecificContext(): MemberContext {
   return { ...ctx, stationTs: [0, 1] };
 }
 
-it.fails('known wrong result: #2096 round3 sizing accepts independent combination stations and isolated cases', () => {
+it('known wrong result: #2096 round3 sizing accepts independent combination stations and isolated cases', () => {
   const tuples = [0, 1, 2, 3].map(i => ({ comboId: i + 1, comboName: `C${i + 1}`,
     forces: { t: i / 3, x: 4 * i / 3, n: 0, my: 20, mz: 0, vy: 0, vz: 1, torsion: 0 },
   }));
@@ -180,15 +180,23 @@ it.fails('known wrong result: #2096 round3 sizing accepts independent combinatio
     cover: 0.025, stirrupDia: 8, demand: d.section('My') }));
   expect(verifyConcurrentElement(inputs).concurrentChecks!.map(c => c.demand)).toEqual(ds);
   expect(verifyConcurrentElement([inputs[0]!]).concurrentChecks).toHaveLength(1);
+  const separate = [1, 2].flatMap(comboId => ConcurrentDemand.fromStations({ elementId: 1, length: 4,
+    stationTs: comboId === 1 ? [0, 0.5] : [0.5, 1], comboResults: [{ comboId, comboName: `C${comboId}`,
+      stations: (comboId === 1 ? [0, 0.5] : [0.5, 1]).map(t => ({ ...tuples[0]!.forces, t, x: 4 * t })),
+    }] }));
+  const converted = ConcurrentDemand.fromTuples(separate);
+  expect(verifyConcurrentElement(converted.map(d => ({ ...inputs[0]!, demand: d.section('My') }))).concurrentChecks).toHaveLength(4);
+  refusal(() => ConcurrentDemand.fromTuples(converted.filter(d => !(d.comboId === 1 && d.stationT === 0.5))),
+    { code: 'missing-station', comboId: 1, stationT: 0.5 });
 });
 
 for (const id of ['aci318', 'ec2', 'aisc360', 'ec3', 'aisiS100'] as const) {
-  it.fails(`known wrong result: #2096 round3 ${id} preserves verified combination-specific extra stations when checking`, () => {
+  it(`known wrong result: #2096 round3 ${id} preserves verified combination-specific extra stations when checking`, () => {
     const ctx = combinationSpecificContext();
     expect(completeMemberDemands([ctx]).values).toHaveLength(5);
     expect(runOtherCode(code(id), [ctx]).rows[0]).toMatchObject({ status: 'checked', reading: { ratio: 0.2, pass: true } });
   });
-  it.fails(`known wrong result: #2096 round3 ${id} preserves verified combination-specific extra stations when certifying`, async () => {
+  it(`known wrong result: #2096 round3 ${id} preserves verified combination-specific extra stations when certifying`, async () => {
     const ctx = combinationSpecificContext();
     const call = vi.fn(async () => [{ elementId: 1, certified: true, utilizationLower: 0.2, utilizationUpper: 0.2 }]);
     const cert = await certifyOtherCode(code(id), [ctx], () => ({} as never), call);
@@ -198,7 +206,7 @@ for (const id of ['aci318', 'ec2', 'aisc360', 'ec3', 'aisiS100'] as const) {
 }
 
 for (const kind of ['beam', 'column'] as const) {
-  it.fails(`known wrong result: #2096 round3 EC2 ${kind} preserves the verified grid with combination-specific extra stations`, () => {
+  it(`known wrong result: #2096 round3 EC2 ${kind} preserves the verified grid with combination-specific extra stations`, () => {
     const ctx = combinationSpecificContext();
     expect(completeMemberDemands([ctx]).values).toHaveLength(5);
     const input = { kind, b: 0.4, h: 0.4, L: 4, demands: ctx.demands, tuples: ctx.tuples,
@@ -209,7 +217,7 @@ for (const kind of ['beam', 'column'] as const) {
 }
 
 for (const entry of ['auto', 'unified', 'design'] as const) for (const supplied of [false, true]) {
-  it.fails(`known wrong result: #2096 round3 ${entry} handles undefined optional governing entries supplied=${supplied}`, () => {
+  it(`known wrong result: #2096 round3 ${entry} handles undefined optional governing entries supplied=${supplied}`, () => {
     const data = new Map([1, 2].map(id => [id, extractGoverningDemands(stations(id))]));
     const governing = new Map([[1, { momentY: { comboId: 1, comboName: 'C1', value: 20 }, momentZ: undefined }]]);
     const run = (g: typeof governing | null) => ({
