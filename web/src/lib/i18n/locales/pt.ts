@@ -12540,6 +12540,7 @@ const pt: Translations = {
   'viewport.ilSwitchedHorizontal': 'Com a carga unitária vertical, {q} dá zero em toda a estrutura (uma carga ao longo de uma barra vertical não a flexiona). Foi calculada com a carga horizontal.',
   'viewport.ilSwitchedVertical': 'Com a carga unitária horizontal, {q} dá zero em toda a estrutura. Foi calculada com a carga vertical.',
   'viewport.ilAllZero': '{q} dá zero em qualquer posição da carga unitária, vertical ou horizontal: não há linha para desenhar.',
+  'viewport.ilNoSupport': "O nó {n} não tem apoio, então não tem reação: escolha um nó apoiado.",
   'float.ilUnitLoad': 'Carga unitária',
   'float.ilVertical': '↓ Vertical',
   'float.ilHorizontal': '→ Horizontal',

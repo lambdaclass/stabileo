@@ -8,7 +8,7 @@
   import { influenceTool } from '../../lib/store/influence-tool.svelte';
   import UnitInput from '../UnitInput.svelte';
   import { readLine } from '../../lib/engine/influence/analysis';
-  import { ilEnvelopeAlong, type EnvelopeQuantity } from '../../lib/engine/influence/envelope-along';
+  import { ilEnvelopeAlongAsync, type EnvelopeQuantity } from '../../lib/engine/influence/envelope-along';
   import { canonicalQuantity } from '../../lib/engine/influence/quantities';
   import { UNIT_LOAD_DIR } from '../../lib/engine/influence-service';
   import { IlLoadRefusal, type Zone } from '../../lib/engine/influence/areas';
@@ -25,7 +25,9 @@
   const dir = $derived(UNIT_LOAD_DIR[il.direction ?? 'vertical']);
   const loads = $derived(influenceTool.loads);
   const message = (e: unknown) => e instanceof IlLoadRefusal ? t(e.message) : String((e as Error)?.message ?? e);
+  let open = $state(false);
   const attempt = $derived.by(() => {
+    if (!open) return { reading: null, error: null };
     try { return { reading: readLine(unit, il, loads, influenceTool.placement, loadedIds, dir), error: null }; } catch (e) { return { reading: null, error: message(e) }; }
   });
   const reading = $derived(attempt.reading);
@@ -41,31 +43,46 @@
 
   $effect(() => { influenceTool.keepEnvelopeFor(loadedIds); });
 
-  let busy = $state(false);
-  function toggleEnvelope() {
+  let progress = $state<{ done: number; total: number } | null>(null);
+  let running: AbortController | null = null;
+  const busy = $derived(progress !== null);
+
+  $effect(() => {
+    void il; void loads; void influenceTool.placement; void loadedIds;
+    return () => { running?.abort(); running = null; progress = null; };
+  });
+
+  async function toggleEnvelope() {
+    if (running) { running.abort(); running = null; progress = null; return; }
     if (influenceTool.envelope) { influenceTool.envelope = null; return; }
-    busy = true;
-    requestAnimationFrame(() => {
-      try {
-        influenceTool.setEnvelopeFor(ilEnvelopeAlong(unit, q as EnvelopeQuantity, loads, influenceTool.placement, dir, loadedIds), loadedIds);
-      } catch (e) {
-        uiStore.toast(message(e), 'error');
-      } finally { busy = false; }
-    });
+    const job = new AbortController();
+    running = job;
+    progress = { done: 0, total: 0 };
+    try {
+      const env = await ilEnvelopeAlongAsync(unit, q as EnvelopeQuantity, loads, influenceTool.placement, dir, loadedIds, {
+        signal: job.signal,
+        onProgress: (done, total) => { if (running === job) progress = { done, total }; },
+      });
+      if (env && running === job) influenceTool.setEnvelopeFor(env, loadedIds);
+    } catch (e) {
+      if (running === job) uiStore.toast(message(e), 'error');
+    } finally {
+      if (running === job) { running = null; progress = null; }
+    }
   }
 </script>
 
-<details class="ill" data-testid="il-loading">
+<details class="ill" data-testid="il-loading" bind:open>
   <summary>{t('course.influence.load.title')} <span class="ill-sum">g = {fmtQ(loads.g, 'distributedLoad')} · q = {fmtQ(loads.q, 'distributedLoad')} {unitQ('distributedLoad')} · P = {fmtQ(loads.P, 'force')} {unitQ('force')}</span></summary>
   <div class="ill-body">
     <p class="ill-help">{t('course.influence.load.help')}</p>
     <div class="ill-grid">
       <span class="ill-k" title={t('course.influence.load.gTip')}>{t('course.influence.load.gLabel')}</span>
-      <UnitInput value={loads.g} qty="distributedLoad" onchange={(v) => influenceTool.setLoads({ g: v })} testid="il-g" />
+      <span class="ill-in"><UnitInput value={loads.g} qty="distributedLoad" onchange={(v) => influenceTool.setLoads({ g: v })} testid="il-g" /></span>
       <span class="ill-k" title={t('course.influence.load.qTip')}>{t('course.influence.load.qLabel')}</span>
-      <UnitInput value={loads.q} qty="distributedLoad" onchange={(v) => influenceTool.setLoads({ q: v })} testid="il-q" />
+      <span class="ill-in"><UnitInput value={loads.q} qty="distributedLoad" onchange={(v) => influenceTool.setLoads({ q: v })} testid="il-q" /></span>
       <span class="ill-k" title={t('course.influence.load.PTip')}>{t('course.influence.load.PLabel')}</span>
-      <UnitInput value={loads.P} qty="force" onchange={(v) => influenceTool.setLoads({ P: v })} testid="il-P" />
+      <span class="ill-in"><UnitInput value={loads.P} qty="force" onchange={(v) => influenceTool.setLoads({ P: v })} testid="il-P" /></span>
     </div>
     <div class="ill-place" role="radiogroup" aria-label={t('course.influence.load.placement')}>
       <button class:on={influenceTool.placement === 'zones'} onclick={() => (influenceTool.placement = 'zones')} title={t('course.influence.load.zonesTip')} data-testid="il-zones">{t('course.influence.load.zones')}</button>
@@ -87,8 +104,8 @@
     {/if}
 
     {#if canEnvelope}
-      <button class="ill-btn" class:on={!!influenceTool.envelope} disabled={busy} onclick={toggleEnvelope} data-testid="il-envelope">
-        {busy ? t('course.influence.load.drawing') : influenceTool.envelope ? t('course.influence.load.hideEnvelope') : t('course.influence.load.drawEnvelope')}
+      <button class="ill-btn" class:on={!!influenceTool.envelope} onclick={toggleEnvelope} data-testid="il-envelope">
+        {busy ? `${t('course.influence.load.drawing')}${progress && progress.total ? ` ${Math.round((100 * progress.done) / progress.total)} %` : ''}` : influenceTool.envelope ? t('course.influence.load.hideEnvelope') : t('course.influence.load.drawEnvelope')}
       </button>
       {#if influenceTool.envelope}<p class="ill-note">{t('course.influence.load.envelopeNote')}</p>{/if}
     {/if}

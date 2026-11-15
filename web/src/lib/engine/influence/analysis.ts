@@ -32,6 +32,8 @@ export function targetOf(il: InfluenceLineResult): IlTarget {
 }
 
 const GOLDEN = (Math.sqrt(5) - 1) / 2;
+/** Ordinates below this fraction of the line's largest are round-off of an exact zero. */
+const ZERO_FRACTION = 1e-9;
 
 /**
  * The sampled line with its zero crossings and its smooth interior peaks found by solves, so
@@ -39,18 +41,27 @@ const GOLDEN = (Math.sqrt(5) - 1) / 2;
  * at the target is a pair of `side` points at one t, left then right: each branch is refined up to
  * it. A line on a truss bar is straight between its nodes and is left as it is.
  */
-export function refinedPoints(points: IlPoint[], ordinateAt: (id: number, t: number) => number, keep: (id: number) => boolean): IlPoint[] {
+export function refinedPoints(
+  points: IlPoint[], rawOrdinateAt: (id: number, t: number) => number, keep: (id: number) => boolean, { search = true }: { search?: boolean } = {},
+): IlPoint[] {
+  const floor = ZERO_FRACTION * points.reduce((m, p) => Math.max(m, Math.abs(p.value)), 0);
+  const clean = (v: number) => (Math.abs(v) <= floor ? 0 : v);
+  const ordinateAt = (id: number, t: number) => clean(rawOrdinateAt(id, t));
   const out: IlPoint[] = [];
   const groups = new Map<number, IlPoint[]>();
-  for (const p of points) { const g = groups.get(p.elementId) ?? []; g.push(p); groups.set(p.elementId, g); }
+  for (const p of points) {
+    const g = groups.get(p.elementId) ?? [];
+    g.push(p.value === clean(p.value) ? p : { ...p, value: 0 });
+    groups.set(p.elementId, g);
+  }
   for (const [id, pts] of groups) {
-    if (!keep(id)) { out.push(...pts); continue; }
+    if (!keep(id) || pts.every((p) => p.value === 0)) { out.push(...pts); continue; }
     const extra: IlPoint[] = [];
     const at = (a: IlPoint, b: IlPoint, t: number, value: number): IlPoint => {
       const u = (t - a.t) / Math.max(b.t - a.t, 1e-300);
       return { x: a.x + u * (b.x - a.x), y: a.y + u * (b.y - a.y), elementId: id, t, value };
     };
-    for (let k = 1; k + 1 < pts.length; k++) {
+    for (let k = 1; search && k + 1 < pts.length; k++) {
       const a = pts[k - 1], m = pts[k], b = pts[k + 1];
       if (m.side) continue;
       const sg = m.value > a.value && m.value >= b.value ? 1 : m.value < a.value && m.value <= b.value ? -1 : 0;
@@ -65,7 +76,7 @@ export function refinedPoints(points: IlPoint[], ordinateAt: (id: number, t: num
       const [tb, fb] = f1 > f2 ? [x1, f1] : [x2, f2];
       if (fb > sg * m.value) extra.push(at(a, b, tb, sg * fb));
     }
-    for (let k = 0; k + 1 < pts.length; k++) {
+    for (let k = 0; search && k + 1 < pts.length; k++) {
       const a = pts[k], b = pts[k + 1];
       if (!a.side === !b.side || b.t - a.t < 1e-12) continue;
       for (const sg of [1, -1]) {
@@ -101,7 +112,7 @@ export function refinedPoints(points: IlPoint[], ordinateAt: (id: number, t: num
       for (let it = 0; it < 100 && t1 - t0 > 1e-12; it++) {
         t = Math.min(t1, Math.max(t0, t0 + (t1 - t0) * (v0 / (v0 - v1))));
         if (t - t0 < 1e-3 * (t1 - t0) || t1 - t < 1e-3 * (t1 - t0)) t = 0.5 * (t0 + t1);
-        v = ordinateAt(id, t);
+        v = rawOrdinateAt(id, t);
         if (v === 0) break;
         if (v * v0 < 0) { t1 = t; v1 = v; if (kept === -1) v0 /= 2; kept = -1; } else { t0 = t; v0 = v; if (kept === 1) v1 /= 2; kept = 1; }
       }

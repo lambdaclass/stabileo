@@ -12699,6 +12699,7 @@ const fr: Translations = {
   'viewport.ilSwitchedHorizontal': 'Avec une charge unitaire verticale, {q} est nul dans toute la structure (une charge le long d\'une barre verticale ne la fléchit pas). Le calcul a été fait avec une charge horizontale.',
   'viewport.ilSwitchedVertical': 'Avec une charge unitaire horizontale, {q} est nul dans toute la structure. Le calcul a été fait avec une charge verticale.',
   'viewport.ilAllZero': '{q} est nul quelle que soit la position de la charge unitaire, verticale ou horizontale : il n\'y a pas de ligne à dessiner.',
+  'viewport.ilNoSupport': "Le nœud {n} n’a pas d’appui, donc pas de réaction : choisis un nœud appuyé.",
   'float.ilUnitLoad': 'Charge unitaire',
   'float.ilVertical': '↓ Verticale',
   'float.ilHorizontal': '→ Horizontale',

@@ -31,6 +31,35 @@ export function ilEnvelopeAlong(
   unit: SolverInput, quantity: EnvelopeQuantity, loads: IlLoads, placement: LivePlacement, dir: Dir, loadedIds: number[],
   sectionsPerMember = 10,
 ): AlongEnvelope {
+  const steps = envelopeSteps(unit, quantity, loads, placement, dir, loadedIds, sectionsPerMember);
+  for (;;) {
+    const r = steps.next();
+    if (r.done) return r.value;
+  }
+}
+
+/**
+ * The same envelope, one member at a time with the page free in between: `onProgress` hears how
+ * many members are done, and `signal` stops it without a result.
+ */
+export async function ilEnvelopeAlongAsync(
+  unit: SolverInput, quantity: EnvelopeQuantity, loads: IlLoads, placement: LivePlacement, dir: Dir, loadedIds: number[],
+  { onProgress, signal }: { onProgress?: (done: number, total: number) => void; signal?: AbortSignal } = {},
+): Promise<AlongEnvelope | null> {
+  const steps = envelopeSteps(unit, quantity, loads, placement, dir, loadedIds, 10);
+  for (;;) {
+    if (signal?.aborted) return null;
+    const r = steps.next();
+    if (r.done) return r.value;
+    onProgress?.(r.value.done, r.value.total);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+function* envelopeSteps(
+  unit: SolverInput, quantity: EnvelopeQuantity, loads: IlLoads, placement: LivePlacement, dir: Dir, loadedIds: number[],
+  sectionsPerMember: number,
+): Generator<{ done: number; total: number }, AlongEnvelope> {
   const nLoad = 2 * sectionsPerMember;
   const nodeRes = new Map<number, AnalysisResults>();
   const atNode = (nodeId: number) => {
@@ -42,6 +71,9 @@ export function ilEnvelopeAlong(
     return r;
   };
   const positions: Position[] = [];
+  const drawn = [...unit.elements.values()].filter((e) => e.type !== 'truss' || quantity === 'N');
+  const total = unit.elements.size + drawn.length * (sectionsPerMember + 1);
+  let step = 0;
   for (const e of unit.elements.values()) {
     const { ni, nj, L } = memberGeom(unit, e.id);
     for (let k = 0; k <= nLoad; k++) {
@@ -51,6 +83,7 @@ export function ilEnvelopeAlong(
         ? { ...at, truss: { i: e.nodeI, j: e.nodeJ } }
         : { ...at, res: solve({ ...unit, loads: loadOnMember(unit, e.id, t * L, 1, dir) }) });
     }
+    yield { done: ++step, total };
   }
   const loaded = new Set(loadedIds);
   const lengthOf = (id: number) => memberGeom(unit, id).L;
@@ -81,18 +114,18 @@ export function ilEnvelopeAlong(
   };
   const members: AlongEnvelope['members'] = [];
   let globalMax = 0;
-  for (const e of unit.elements.values()) {
-    if (e.type === 'truss' && quantity !== 'N') continue;
+  for (const e of drawn) {
     const ts = Array.from({ length: sectionsPerMember + 1 }, (_, j) => j / sectionsPerMember);
     const max: number[] = [], min: number[] = [];
     for (const t of ts) {
       const target = { kind: 'section' as const, elementId: e.id, t };
       const ordinateAt = (id: number, tt: number) => readForce(quantity, solve({ ...unit, loads: loadOnMember(unit, id, tt * lengthOf(id), 1, dir) }), unit, target);
-      const line = refinedPoints(lineAt(target), ordinateAt, (id) => loaded.has(id) && unit.elements.get(id)?.type !== 'truss');
+      const line = refinedPoints(lineAt(target), ordinateAt, (id) => loaded.has(id) && unit.elements.get(id)?.type !== 'truss', { search: false });
       const ex = ilExtremes(line, lengthOf, (id) => loaded.has(id), loads, placement, zoneArea(target));
       max.push(ex.max.value);
       min.push(ex.min.value);
       globalMax = Math.max(globalMax, Math.abs(ex.max.value), Math.abs(ex.min.value));
+      yield { done: ++step, total };
     }
     members.push({ elementId: e.id, t: ts, max, min });
   }

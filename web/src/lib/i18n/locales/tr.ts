@@ -12708,6 +12708,7 @@ const tr: Translations = {
   'viewport.ilSwitchedHorizontal': 'Düşey birim yükle {q} tüm yapıda sıfır çıkıyor (düşey bir çubuk boyunca etkiyen yük onu eğmez). Yatay yükle hesaplandı.',
   'viewport.ilSwitchedVertical': 'Yatay birim yükle {q} tüm yapıda sıfır çıkıyor. Düşey yükle hesaplandı.',
   'viewport.ilAllZero': '{q}, birim yük nerede olursa olsun, düşey veya yatay, sıfır: çizilecek çizgi yok.',
+  'viewport.ilNoSupport': "{n} düğümünde mesnet yok, bu yüzden tepkisi de yok: mesnetli bir düğüm seç.",
   'float.ilUnitLoad': 'Birim yük',
   'float.ilVertical': '↓ Düşey',
   'float.ilHorizontal': '→ Yatay',

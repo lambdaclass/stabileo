@@ -108,6 +108,12 @@ describe('picking the section', () => {
     expect(sectionAt({ x: 1.0058, y: 0 }, { x: 0, y: 0 }, { x: 1.006, y: 0 }, 0)).toBe(1);
     expect(sectionAt({ x: -3, y: 0 }, a, b, 0.3)).toBe(0);
   });
+  it('on a member shorter than the tolerance, a click takes the nearest snap or an interior section', () => {
+    const c = { x: 0, y: 0 }, d = { x: 1, y: 0 };
+    expect(sectionAt({ x: 0.5, y: 0 }, c, d, 0.6)).toBe(0.5);
+    expect(sectionAt({ x: 0.9, y: 0 }, c, d, 0.6)).toBe(1);
+    expect(sectionAt({ x: 0.3, y: 0 }, c, d, 0.6)).toBeCloseTo(0.3, 12);
+  });
   it('a typed x outside [0, L] is refused', () => {
     expect(positionToT(2.5, 10)).toBe(0.25);
     expect(positionToT(10, 10)).toBe(1);

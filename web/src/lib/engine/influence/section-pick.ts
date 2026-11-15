@@ -1,6 +1,7 @@
 /**
- * Where on a member a click puts the section: the click projected on the member, onto an end or
- * the midpoint when within `tol` of it, else rounded to the centimetre.
+ * Where on a member a click puts the section: the click projected on the member, onto the nearest of
+ * the ends and the midpoint when within `tol` of it (and within 15 % of the length, so a short member
+ * still takes interior sections), else rounded to the centimetre.
  */
 export function sectionAt(
   click: { x: number; y: number }, ni: { x: number; y: number }, nj: { x: number; y: number }, tol: number,
@@ -9,7 +10,9 @@ export function sectionAt(
   const L = Math.hypot(dx, dy);
   if (L < 1e-12) return 0;
   const x = Math.max(0, Math.min(L, ((click.x - ni.x) * dx + (click.y - ni.y) * dy) / L));
-  for (const snap of [0, L, L / 2]) if (Math.abs(x - snap) <= tol) return snap / L;
+  const reach = Math.min(tol, 0.15 * L);
+  const nearest = [0, L, L / 2].reduce((best, snap) => (Math.abs(x - snap) < Math.abs(x - best) ? snap : best));
+  if (Math.abs(x - nearest) <= reach) return nearest / L;
   return Math.min(L, Math.max(0, Math.round(x * 100) / 100)) / L;
 }
 

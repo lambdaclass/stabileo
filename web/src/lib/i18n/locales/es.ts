@@ -12888,6 +12888,7 @@ const es: Record<string, string> = {
   'viewport.ilSwitchedHorizontal': 'Con la carga unitaria vertical, {q} da cero en toda la estructura (una carga a lo largo de una barra vertical no la flexiona). Se calculó con la carga horizontal.',
   'viewport.ilSwitchedVertical': 'Con la carga unitaria horizontal, {q} da cero en toda la estructura. Se calculó con la carga vertical.',
   'viewport.ilAllZero': '{q} da cero para cualquier posición de la carga unitaria, vertical u horizontal: no hay línea para dibujar.',
+  'viewport.ilNoSupport': "El nudo {n} no tiene apoyo, así que no tiene reacción: elegí un nudo apoyado.",
   'float.ilUnitLoad': 'Carga unitaria',
   'float.ilVertical': '↓ Vertical',
   'float.ilHorizontal': '→ Horizontal',

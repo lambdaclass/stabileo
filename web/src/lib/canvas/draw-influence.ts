@@ -269,8 +269,9 @@ export function drawInfluenceLine(
     const eL = Math.sqrt(edx * edx + edy * edy);
     if (eL < 1e-6) continue;
 
-    const ePerpX = -edy / eL;
-    const ePerpY = edx / eL;
+    const ezs = transverseSign(edx, edy);
+    const ePerpX = ezs * -edy / eL;
+    const ePerpY = ezs * edx / eL;
     const s = dc.worldToScreen(pt.x, pt.y);
     // Offset in screen perpendicular direction
     const tipW = dc.worldToScreen(pt.x + ePerpX * 0.01, pt.y + ePerpY * 0.01);

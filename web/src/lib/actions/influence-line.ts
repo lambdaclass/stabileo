@@ -71,13 +71,19 @@ export function pickInfluenceTarget(world: { x: number; y: number }, nodeId: num
     const ni = e && modelStore.nodes.get(e.nodeI), nj = e && modelStore.nodes.get(e.nodeJ);
     return ni && nj ? sectionAt(world, ni, nj, tol) : 0.5;
   };
-  if (family === 'reaction' && nodeId !== undefined) runInfluence(q, nodeId, undefined, 0.5);
+  if (family === 'reaction' && nodeId !== undefined && !hasSupport(nodeId)) uiStore.toast(t('viewport.ilNoSupport').replace('{n}', String(nodeId)), 'info');
+  else if (family === 'reaction' && nodeId !== undefined) runInfluence(q, nodeId, undefined, 0.5);
   else if (family === 'force' && elemId !== undefined) runInfluence(q, undefined, elemId, sectionOn(elemId));
   else if (family === 'displacement' && nodeId !== undefined) runInfluence(q, nodeId, undefined, 0.5);
   else if (family === 'displacement' && elemId !== undefined) runInfluence(q, undefined, elemId, sectionOn(elemId));
   else if (nodeId !== undefined) runInfluence(reactionAt(nodeId), nodeId, undefined, 0.5);
   else if (elemId !== undefined) runInfluence('M', undefined, elemId, sectionOn(elemId));
   else uiStore.toast(t('viewport.ilClickHint'), 'info');
+}
+
+function hasSupport(nodeId: number): boolean {
+  for (const sup of modelStore.supports.values()) if (sup.nodeId === nodeId) return true;
+  return false;
 }
 
 function reactionAt(nodeId: number): 'Rz' | 'Rx' | 'My' {

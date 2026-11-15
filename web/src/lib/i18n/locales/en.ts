@@ -12899,6 +12899,7 @@ const en: Record<string, string> = {
   'viewport.ilSwitchedHorizontal': 'With a vertical unit load, {q} is zero all over the structure (a load along a vertical member does not bend it). It was computed with a horizontal load.',
   'viewport.ilSwitchedVertical': 'With a horizontal unit load, {q} is zero all over the structure. It was computed with a vertical load.',
   'viewport.ilAllZero': '{q} is zero wherever the unit load stands, vertical or horizontal: there is no line to draw.',
+  'viewport.ilNoSupport': "Node {n} has no support, so it has no reaction: pick a supported node.",
   'float.ilUnitLoad': 'Unit load',
   'float.ilVertical': '↓ Vertical',
   'float.ilHorizontal': '→ Horizontal',

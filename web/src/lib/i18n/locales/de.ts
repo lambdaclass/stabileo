@@ -12699,6 +12699,7 @@ const de: Translations = {
   'viewport.ilSwitchedHorizontal': 'Mit einer vertikalen Einheitslast ist {q} im ganzen Tragwerk null (eine Last entlang eines vertikalen Stabs biegt ihn nicht). Die Einflusslinie wurde mit einer horizontalen Last berechnet.',
   'viewport.ilSwitchedVertical': 'Mit einer horizontalen Einheitslast ist {q} im ganzen Tragwerk null. Die Einflusslinie wurde mit einer vertikalen Last berechnet.',
   'viewport.ilAllZero': '{q} ist überall null, wo die Einheitslast auch steht, vertikal oder horizontal: Es gibt keine Linie zu zeichnen.',
+  'viewport.ilNoSupport': "Knoten {n} hat kein Auflager und damit keine Auflagerkraft: Wähle einen gelagerten Knoten.",
   'float.ilUnitLoad': 'Einheitslast',
   'float.ilVertical': '↓ Vertikal',
   'float.ilHorizontal': '→ Horizontal',
