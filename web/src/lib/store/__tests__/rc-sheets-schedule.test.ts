@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
 import { uiStore } from '../ui.svelte';
@@ -8,7 +8,8 @@ import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, rcSheetsData, setSheetCode } from '../rc-sheets.svelte';
-import { rowsCode, scheduleSettings, setScheduleSettings, sheetsSchedule } from '../rc-sheets-schedule';
+import { rowsCode, scheduleSettings, scheduleViewChoice, setScheduleSettings, setScheduleViewChoice, sheetsSchedule } from '../rc-sheets-schedule';
+import { SCHEDULE_VIEWS, scheduleView } from '../../rc-sheets/schedule/views';
 import { designData } from '../design-data';
 import { migrateDesignData } from '../../model/design-data';
 
@@ -69,7 +70,32 @@ describe('the bending schedule of the sheets', () => {
     // The three columns hold the same bars: one row group of three.
     expect(s.rows.filter((r) => r.family === 'column').every((r) => r.equal === 3)).toBe(true);
     expect(s.total.withWaste).toBeCloseTo(s.total.kg * 1.2, 9);
+    for (const view of SCHEDULE_VIEWS) expect(scheduleView(s, view).total.kg, view).toBeCloseTo(s.total.kg, 9);
+    const hoops = scheduleView(s, 'unified').groups[0]!.rows.find((r) => r.kinds.includes('hoop'))!;
+    expect(hoops.uses).toHaveLength(3);
     setSheetCode('ts500-2000');
     expect(sheetsSchedule(buildSheetRows()).confirm).toBe('rcSheets.bbs.confirmTs500');
+  });
+});
+
+describe('the schedule view each viewer chose', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('is the unified one until chosen, then the chosen one; a stored value that is no view reads as the default', () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); } });
+    expect(scheduleViewChoice()).toBe('unified');
+    setScheduleViewChoice('diameter');
+    expect(store.get('stabileo-rc-bbs-view')).toBe('diameter');
+    expect(scheduleViewChoice()).toBe('diameter');
+    store.set('stabileo-rc-bbs-view', 'nowhere');
+    expect(scheduleViewChoice()).toBe('unified');
+  });
+
+  it('a browser that refuses storage keeps the default and does not throw', () => {
+    const denied = () => { throw new Error('denied'); };
+    vi.stubGlobal('localStorage', { getItem: denied, setItem: denied });
+    expect(() => setScheduleViewChoice('level')).not.toThrow();
+    expect(scheduleViewChoice()).toBe('unified');
   });
 });
