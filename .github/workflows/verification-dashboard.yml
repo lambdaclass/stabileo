@@ -125,7 +125,12 @@ jobs:
       - name: Carry over release snapshots of the pending automation PR
         run: |
           if git fetch --depth=1 origin automation/verification-dashboard 2>/dev/null; then
-            git checkout FETCH_HEAD -- testing/docs/releases/ 2>/dev/null || true
+            if git cat-file -e FETCH_HEAD:testing/docs/releases 2>/dev/null; then
+              git checkout FETCH_HEAD -- testing/docs/releases/
+            elif git cat-file -e FETCH_HEAD:docs/verification/releases 2>/dev/null; then
+              mkdir -p testing/docs/releases
+              git archive FETCH_HEAD docs/verification/releases/ | tar -x --strip-components=3 -C testing/docs/releases/
+            fi
           fi
       # A release snapshot is measured on the tagged revision, with this checkout's script.
       - uses: actions/checkout@v7

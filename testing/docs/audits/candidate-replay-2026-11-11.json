@@ -2969,72 +2969,72 @@
     {
       "issue": 1764,
       "prior_class": "FIXED-REFUSED",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 1653,
       "prior_class": "CANNOT-REPRODUCE",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 1648,
       "prior_class": "FIXED-REFUSED",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 1647,
       "prior_class": "NEEDS-INFO",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 1465,
       "prior_class": "FIXED-REFUSED",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 1202,
       "prior_class": "FIXED-REFUSED",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 1101,
       "prior_class": "CANNOT-REPRODUCE",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 1099,
       "prior_class": "FIXED-REFUSED",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 1097,
       "prior_class": "CANNOT-REPRODUCE",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 1086,
       "prior_class": "CANNOT-REPRODUCE",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 1040,
       "prior_class": "STILL-WRONG",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 972,
       "prior_class": "STILL-WRONG",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 959,
       "prior_class": "FIXED-REFUSED",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     },
     {
       "issue": 956,
       "prior_class": "CANNOT-REPRODUCE",
-      "reference": "testing/docs/audits/cause-c-replay-2026-11-11.json"
+      "reference": "docs/verification/cause-c-replay-2026-11-11.json"
     }
   ],
   "source_inventory": [

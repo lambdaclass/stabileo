@@ -310404,8 +310404,8 @@
         "docs/results-changes/2026-11-staged-cable-tension-parity.md",
         "docs/solver/nonlinear.md",
         "docs/solver/special-elements.md",
-        "testing/docs/CONTAINMENT.md",
-        "testing/docs/DERIVATION_TRIAGE.md",
+        "docs/verification/CONTAINMENT.md",
+        "docs/verification/DERIVATION_TRIAGE.md",
         "engine/src/known_issues.rs",
         "engine/src/solver/cable.rs",
         "engine/src/solver/contact.rs",
@@ -310958,9 +310958,9 @@
         "docs/results-changes/2026-11-linear-factorization-diagnostic.md",
         "docs/results-changes/2026-11-linear-stability-refusals.md",
         "docs/solver/stability.md",
-        "testing/docs/ANALYSIS_INVARIANCE_ACCURACY.md",
-        "testing/docs/CONTAINMENT.md",
-        "testing/docs/PROVENANCE.md",
+        "docs/verification/ANALYSIS_INVARIANCE_ACCURACY.md",
+        "docs/verification/CONTAINMENT.md",
+        "docs/verification/PROVENANCE.md",
         "engine/src/element/connector.rs",
         "engine/src/known_issues.rs",
         "engine/src/linalg/lanczos.rs",
@@ -311856,7 +311856,7 @@
         "docs/results-changes/2026-11-harmonic-load-independent-singularity.md",
         "docs/results-changes/2026-11-harmonic-omitted-modes.md",
         "docs/solver/mass-geometric-dynamics.md",
-        "testing/docs/CONTAINMENT.md",
+        "docs/verification/CONTAINMENT.md",
         "engine/src/known_issues.rs",
         "engine/src/solver/harmonic.rs",
         "engine/src/solver/harmonic_direct.rs",
@@ -312428,7 +312428,7 @@
       "files": [
         "changelog.d/1920-static-solver-mutants.md",
         "changelog.d/1925-static-thermal-review.md",
-        "testing/docs/STATIC_SOLVER_MUTANTS.md",
+        "docs/verification/STATIC_SOLVER_MUTANTS.md",
         "engine/tests/solver/main.rs",
         "engine/tests/static_solver_mutants.rs",
         "scripts/mutants.sh"
@@ -312626,8 +312626,8 @@
         "docs/results-changes/2026-11-pdelta-span-axial.md",
         "docs/roadmap/PRODUCT_ROADMAP.md",
         "docs/solver/mass-geometric-dynamics.md",
-        "testing/docs/CERTIFY.md",
-        "testing/docs/CONTAINMENT.md",
+        "docs/verification/CERTIFY.md",
+        "docs/verification/CONTAINMENT.md",
         "engine/src/certify/pdelta.rs",
         "engine/src/known_issues.rs",
         "engine/src/solver/geometric_stiffness.rs",
@@ -312918,8 +312918,8 @@
         "changelog.d/analysis-invariance-review-ceilings.md",
         "docs/advisories/README.md",
         "docs/advisories/SA-2026-056-constrained-shell-dynamic-invariance.md",
-        "testing/docs/ANALYSIS_INVARIANCE_ACCURACY.md",
-        "testing/docs/METAMORPHIC.md",
+        "docs/verification/ANALYSIS_INVARIANCE_ACCURACY.md",
+        "docs/verification/METAMORPHIC.md",
         "engine/tests/metamorphic/ana2.rs",
         "engine/tests/metamorphic/ana3.rs",
         "engine/tests/metamorphic/analysis_accuracy.rs",
@@ -313368,7 +313368,7 @@
         "changelog.d/results-pass-applicability-context.md",
         "changelog.d/test-gate-applicability-and-benchmarks.md",
         "docs/safety/benchmark-correctness.md",
-        "testing/docs/audits/benchmark-tolerances-1490.md",
+        "docs/verification/benchmark-tolerances-1490.md",
         "engine/tests/benchmarks/macneal_harder.json",
         "engine/tests/benchmarks/navier_plate.json",
         "engine/tests/benchmarks/navier_plate.rs",
@@ -313504,13 +313504,13 @@
         "docs/results-changes/2026-11-plastic-exact-resource-budget.md",
         "docs/results-changes/2026-11-plastic-exact-storage-accounting.md",
         "docs/results-changes/2026-11-plastic-mechanism-refusal-propagation.md",
-        "testing/docs/CONTAINMENT.md",
-        "testing/docs/FUZZ_MUTANTS.md",
-        "testing/docs/PLASTIC_3D_RAW_FACTOR.md",
-        "testing/docs/PLASTIC_LP_BUDGET.md",
-        "testing/docs/plastic-certified-lower-results.json",
-        "testing/docs/plastic-lp-budget-replays.json",
-        "testing/docs/plastic-storage-refusal-replay.json",
+        "docs/verification/CONTAINMENT.md",
+        "docs/verification/FUZZ_MUTANTS.md",
+        "docs/verification/PLASTIC_3D_RAW_FACTOR.md",
+        "docs/verification/PLASTIC_LP_BUDGET.md",
+        "docs/verification/plastic-certified-lower-results.json",
+        "docs/verification/plastic-lp-budget-replays.json",
+        "docs/verification/plastic-storage-refusal-replay.json",
         "engine/fuzz/corpus-regressions/plastic-lp-budget/engine-grid-slab.bin",
         "engine/fuzz/corpus-regressions/plastic-lp-budget/good-cantilever.bin",
         "engine/fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin",
@@ -313790,8 +313790,8 @@
         "changelog.d/1890-retain-modal-containment.md",
         "changelog.d/dynamics-modal-basis-check.md",
         "docs/results-changes/2026-11-modal-basis-rounding.md",
-        "testing/docs/CONTAINMENT.md",
-        "testing/docs/DYNAMICS-H.md",
+        "docs/verification/CONTAINMENT.md",
+        "docs/verification/DYNAMICS-H.md",
         "engine/src/known_issues.rs",
         "engine/src/solver/modal.rs",
         "engine/src/solver/self_checks.rs",
@@ -313896,7 +313896,7 @@
         "changelog.d/harmonic-nonfinite-bounds.md",
         "changelog.d/harmonic-spectral-symmetry.md",
         "changelog.d/harmonic-symmetry-coverage.md",
-        "testing/docs/HARMONIC_SPECTRAL_SYMMETRY.md",
+        "docs/verification/HARMONIC_SPECTRAL_SYMMETRY.md",
         "engine/tests/metamorphic/ana2.rs",
         "engine/tests/metamorphic/ana3.rs",
         "engine/tests/metamorphic/case.rs",
@@ -314262,7 +314262,7 @@
       "pr": 1894,
       "files": [
         "changelog.d/harness-small-cluster-integrity.md",
-        "testing/docs/HARNESS_SMALL_CLUSTERS.md",
+        "docs/verification/HARNESS_SMALL_CLUSTERS.md",
         "engine/tests/metamorphic/checks2.rs",
         "engine/tests/metamorphic/nightly_tolerances.rs",
         "engine/tests/metamorphic_corpus/nightly/issue-1085.json",
@@ -314365,7 +314365,7 @@
         "changelog.d/research-feher-ci-assets.md",
         "changelog.d/research-feher-gallery-footprint.md",
         "changelog.d/research-feher-layout-merge.md",
-        "testing/docs/FEATURE_MATRIX.md",
+        "docs/verification/FEATURE_MATRIX.md",
         "engine/src/solver/arc_length.rs",
         "engine/src/solver/corotational.rs",
         "engine/tests/feature_matrix_regressions.rs",
@@ -315139,7 +315139,7 @@
         "docs/results-changes/2026-11-periodic-inclined-2d-normal.md",
         "docs/results-changes/2026-11-support-spring-conflicts.md",
         "docs/solver/assembly-constraints.md",
-        "testing/docs/CONTAINMENT.md",
+        "docs/verification/CONTAINMENT.md",
         "engine/src/certify/plastic.rs",
         "engine/src/certify/plastic_3d.rs",
         "engine/src/certify/reactions.rs",
@@ -316394,7 +316394,7 @@
         "changelog.d/net-area-chains-and-web-lines.md",
         "changelog.d/rust-ts-migration-net-area.md",
         "docs/results-changes/net-area-chains-and-web-lines.md",
-        "testing/docs/TS_ENGINE_LOGIC.md",
+        "docs/verification/TS_ENGINE_LOGIC.md",
         "engine/src/postprocess/cirsoc301_inputs.rs",
         "engine/src/postprocess/mod.rs",
         "engine/src/postprocess/tension_net_area.rs",
@@ -316721,7 +316721,7 @@
       "pr": 1754,
       "files": [
         "changelog.d/rust-ts-migration-section-constants.md",
-        "testing/docs/TS_ENGINE_LOGIC.md",
+        "docs/verification/TS_ENGINE_LOGIC.md",
         "engine/src/postprocess/cirsoc301_inputs.rs",
         "engine/tests/cirsoc301_inputs.rs",
         "engine/tests/metamorphic/steel_inputs.rs",
@@ -316824,7 +316824,7 @@
       "files": [
         "changelog.d/buckling-round-off-member-kg.md",
         "docs/results-changes/2026-11-buckling-round-off-member-kg.md",
-        "testing/docs/CONTAINMENT.md",
+        "docs/verification/CONTAINMENT.md",
         "engine/src/solver/buckling.rs",
         "engine/src/solver/geometric_stiffness.rs",
         "engine/tests/fixtures/buckling-1465.json",
@@ -317564,7 +317564,7 @@
         "changelog.d/rust-ts-migration-cb-ends.md",
         "changelog.d/rust-ts-migration-cb.md",
         "docs/results-changes/cb-segment-ends.md",
-        "testing/docs/TS_ENGINE_LOGIC.md",
+        "docs/verification/TS_ENGINE_LOGIC.md",
         "engine/src/lib.rs",
         "engine/src/postprocess/cirsoc301_inputs.rs",
         "engine/src/postprocess/mod.rs",
@@ -318893,7 +318893,7 @@
       "files": [
         "changelog.d/1673-combined-shell-stresses-results.md",
         "changelog.d/1673-combined-shell-stresses.md",
-        "testing/docs/METAMORPHIC.md",
+        "docs/verification/METAMORPHIC.md",
         "engine/src/element/plate.rs",
         "engine/src/postprocess/combinations.rs",
         "engine/src/shell_combination_kernel.rs",
@@ -319023,8 +319023,8 @@
       "pr": 1675,
       "files": [
         "changelog.d/1672-ssi-reactions.md",
-        "testing/docs/CONTAINMENT.md",
-        "testing/docs/METAMORPHIC.md",
+        "docs/verification/CONTAINMENT.md",
+        "docs/verification/METAMORPHIC.md",
         "engine/src/solver/constraints.rs",
         "engine/src/solver/ssi.rs",
         "engine/tests/constraints_inclined_supports.rs",
@@ -319116,7 +319116,7 @@
       "subject": "Merge pull request #1674 from lambdaclass/test/1670-result-completeness",
       "pr": 1674,
       "files": [
-        "testing/docs/METAMORPHIC.md",
+        "docs/verification/METAMORPHIC.md",
         "engine/tests/metamorphic/ana2.rs",
         "engine/tests/metamorphic/ana3.rs",
         "engine/tests/metamorphic/completeness.rs",
@@ -319293,7 +319293,7 @@
       "subject": "Merge pull request #1665 from lambdaclass/test/invariance-superposition-reciprocity",
       "pr": 1665,
       "files": [
-        "testing/docs/METAMORPHIC.md",
+        "docs/verification/METAMORPHIC.md",
         "engine/tests/metamorphic/betti.rs",
         "engine/tests/metamorphic/checks2.rs",
         "engine/tests/metamorphic/checks3.rs",
@@ -319425,7 +319425,7 @@
       "pr": 1663,
       "files": [
         "changelog.d/1658-stamp-records-every-analysis.md",
-        "testing/docs/PROVENANCE.md",
+        "docs/verification/PROVENANCE.md",
         "web/e2e/advisory-notice.spec.ts",
         "web/src/components/RecheckNotice.svelte",
         "web/src/components/__tests__/recheck-notice.test.ts",
@@ -319474,7 +319474,7 @@
       "pr": 1593,
       "files": [
         "changelog.d/1569-span-shear-thermal.md",
-        "testing/docs/CONTAINMENT.md",
+        "docs/verification/CONTAINMENT.md",
         "engine/src/known_issues.rs",
         "engine/src/postprocess/diagrams.rs",
         "engine/src/solver/linear.rs",
@@ -335851,7 +335851,7 @@
     "new_refusals": 0,
     "notes": "Corrected selectors execute 9 corotational and 7 buckling tests per endpoint. Both fixed replays produced all 51 manifest outputs with unchanged inputs and results."
   },
-  "frozen_inventory_review": "testing/docs/audits/soundness-regression-audit-2026-11-11/frozen-issue-review.json",
+  "frozen_inventory_review": "docs/verification/soundness-regression-audit-2026-11-11/frozen-issue-review.json",
   "frozen_exclusions": "web/src/lib/results-snapshot/frozen-exclusions.json",
   "known_wrong_frozen_outputs": [
     {
@@ -335898,16 +335898,16 @@
     "reference_logs_sha256": "7a0f8e0331d1c79c31d02e2ab523a5c80c5c1ca442af9251a250f9a25c8c8e9c",
     "checks": {
       "collect-references.py": {
-        "command": "python3 -B testing/docs/audits/soundness-regression-audit-2026-11-11/collect-references.py .audit-input/final/replay",
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/collect-references.py .audit-input/final/replay",
         "status": 1,
         "stdout": "",
-        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/collect-references.py\", line 17, in <module>\n    endpoints[endpoint]=measurement_index(rows)\n                        ~~~~~~~~~~~~~~~~~^^^^^^\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 27, in measurement_index\n    raise ValueError(f'duplicate measurement identity: {key}; capture an explicit selector for every loop measurement')\nValueError: duplicate measurement identity: ('benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8', 'shell:6724', 'null'); capture an explicit selector for every loop measurement\n"
+        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 17, in <module>\n    endpoints[endpoint]=measurement_index(rows)\n                        ~~~~~~~~~~~~~~~~~^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 27, in measurement_index\n    raise ValueError(f'duplicate measurement identity: {key}; capture an explicit selector for every loop measurement')\nValueError: duplicate measurement identity: ('benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8', 'shell:6724', 'null'); capture an explicit selector for every loop measurement\n"
       },
       "finish-analysis.py": {
-        "command": "python3 -B testing/docs/audits/soundness-regression-audit-2026-11-11/finish-analysis.py .audit-input/final/replay",
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py .audit-input/final/replay",
         "status": 1,
         "stdout": "",
-        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/finish-analysis.py\", line 8, in <module>\n    for name in paired_endpoint_keys(*captures):\n                ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 12, in paired_endpoint_keys\n    raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')\nValueError: endpoint identity mismatch: missing baseline=[], missing head=[], empty=True\n"
+        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py\", line 8, in <module>\n    for name in paired_endpoint_keys(*captures):\n                ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 12, in paired_endpoint_keys\n    raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')\nValueError: endpoint identity mismatch: missing baseline=[], missing head=[], empty=True\n"
       }
     },
     "reference_identity_inventory": {
@@ -336501,14 +336501,14 @@
       "collect-references.py": {
         "status": 1,
         "stdout": "",
-        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/collect-references.py\", line 49, in <module>\n    main(pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path('/root/audit/soundness-2026-11-11'))\n    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/collect-references.py\", line 18, in main\n    endpoints[endpoint]=measurement_index(rows)\n                        ~~~~~~~~~~~~~~~~~^^^^^^\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 27, in measurement_index\n    raise ValueError(f'duplicate measurement identity: {key}; capture an explicit selector for every loop measurement')\nValueError: duplicate measurement identity: ('benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8', 'shell:6724', 'null'); capture an explicit selector for every loop measurement\n",
-        "command": "python3 -B testing/docs/audits/soundness-regression-audit-2026-11-11/collect-references.py .cache/issue-1946-review/replay"
+        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 49, in <module>\n    main(pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path('/root/audit/soundness-2026-11-11'))\n    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 18, in main\n    endpoints[endpoint]=measurement_index(rows)\n                        ~~~~~~~~~~~~~~~~~^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 27, in measurement_index\n    raise ValueError(f'duplicate measurement identity: {key}; capture an explicit selector for every loop measurement')\nValueError: duplicate measurement identity: ('benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8', 'shell:6724', 'null'); capture an explicit selector for every loop measurement\n",
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/collect-references.py .cache/issue-1946-review/replay"
       },
       "finish-analysis.py": {
         "status": 1,
         "stdout": "",
-        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/finish-analysis.py\", line 8, in <module>\n    for name in paired_endpoint_keys(*captures):\n                ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 12, in paired_endpoint_keys\n    raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')\nValueError: endpoint identity mismatch: missing baseline=[], missing head=[], empty=True\n",
-        "command": "python3 -B testing/docs/audits/soundness-regression-audit-2026-11-11/finish-analysis.py .cache/issue-1946-review/replay"
+        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py\", line 8, in <module>\n    for name in paired_endpoint_keys(*captures):\n                ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 12, in paired_endpoint_keys\n    raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')\nValueError: endpoint identity mismatch: missing baseline=[], missing head=[], empty=True\n",
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py .cache/issue-1946-review/replay"
       },
       "frozen-references.py": {
         "status": 0,
@@ -336522,7 +336522,7 @@
           "compared": 95,
           "refused at head": 0
         },
-        "command": "python3 -B testing/docs/audits/soundness-regression-audit-2026-11-11/frozen-references.py .cache/issue-1946-review/replay"
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/frozen-references.py .cache/issue-1946-review/replay"
       }
     },
     "refusal_coverage": {
@@ -336551,19 +336551,19 @@
   "round_9_evidence": {
     "checks": {
       "collect-references.py": {
-        "command": "python3 -B testing/docs/audits/soundness-regression-audit-2026-11-11/collect-references.py .audit-input/r9-replay",
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/collect-references.py .audit-input/r9-replay",
         "status": 1,
         "stdout": "",
-        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/collect-references.py\", line 49, in <module>\n    main(pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path('/root/audit/soundness-2026-11-11'))\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/collect-references.py\", line 18, in main\n    endpoints[endpoint]=measurement_index(rows)\n                        ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 62, in measurement_index\n    raise ValueError(f'duplicate measurement identity: {key}; capture an explicit selector for every loop measurement')\nValueError: duplicate measurement identity: ('benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8', 'shell:6724', 'null'); capture an explicit selector for every loop measurement\n"
+        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 49, in <module>\n    main(pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path('/root/audit/soundness-2026-11-11'))\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 18, in main\n    endpoints[endpoint]=measurement_index(rows)\n                        ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 62, in measurement_index\n    raise ValueError(f'duplicate measurement identity: {key}; capture an explicit selector for every loop measurement')\nValueError: duplicate measurement identity: ('benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8', 'shell:6724', 'null'); capture an explicit selector for every loop measurement\n"
       },
       "finish-analysis.py": {
-        "command": "python3 -B testing/docs/audits/soundness-regression-audit-2026-11-11/finish-analysis.py .audit-input/r9-replay",
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py .audit-input/r9-replay",
         "status": 1,
         "stdout": "",
-        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/finish-analysis.py\", line 8, in <module>\n    for name in paired_endpoint_keys(*captures):\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"$WORKTREE/testing/docs/audits/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 13, in paired_endpoint_keys\n    raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')\nValueError: endpoint identity mismatch: missing baseline=[], missing head=[], empty=True\n"
+        "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py\", line 8, in <module>\n    for name in paired_endpoint_keys(*captures):\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 13, in paired_endpoint_keys\n    raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')\nValueError: endpoint identity mismatch: missing baseline=[], missing head=[], empty=True\n"
       },
       "frozen-references.py": {
-        "command": "python3 -B testing/docs/audits/soundness-regression-audit-2026-11-11/frozen-references.py .audit-input/r9-replay",
+        "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/frozen-references.py .audit-input/r9-replay",
         "status": 0,
         "stdout": "shipped rows 48 farther 25 frozen primary 92 farther 53 unresolved 0 outcomes {'compared': 92, 'refused at head': 0}\nno farther model []\n",
         "stderr": ""

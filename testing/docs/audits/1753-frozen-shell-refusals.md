@@ -2,7 +2,7 @@
 
 All seven refusals are correct. Each frozen model has a physical rigid rotation in its plane, about its single in-plane pin. No false refusal or new engineering result was identified. The stability gate and benchmark expectations remain unchanged.
 
-The evidence is the exact seven inputs from PR #1946, `testing/docs/audits/soundness-regression-audit-2026-11-11/refusal-bisection.json`. Their inputs and pre-#1753 displacement vectors are preserved losslessly in [the fixture](../../../engine/tests/fixtures/1753-frozen-shell-refusals.json). [The measurements](1753-frozen-shell-refusals.json) retain provenance, the source SHA-256, per-model decisions and original diagnostics. The original adjacent revisions were `cb671ed319d14ee4d4505a3c43fe233b9607cd27` and `77294fe006d716bf2e1900a85b3818906cf2fd33`.
+The evidence is the exact seven inputs from PR #1946, `docs/verification/soundness-regression-audit-2026-11-11/refusal-bisection.json`. Their inputs and pre-#1753 displacement vectors are preserved losslessly in [the fixture](../../../engine/tests/fixtures/1753-frozen-shell-refusals.json). [The measurements](1753-frozen-shell-refusals.json) retain provenance, the source SHA-256, per-model decisions and original diagnostics. The original adjacent revisions were `cb671ed319d14ee4d4505a3c43fe233b9607cd27` and `77294fe006d716bf2e1900a85b3818906cf2fd33`.
 
 ## Physical null mode
 

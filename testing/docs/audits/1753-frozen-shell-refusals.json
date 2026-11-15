@@ -2,7 +2,7 @@
   "engine_base": "b91b94b73",
   "historical_parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
   "historical_merge": "77294fe006d716bf2e1900a85b3818906cf2fd33",
-  "audit_source": "PR #1946 testing/docs/audits/soundness-regression-audit-2026-11-11/refusal-bisection.json",
+  "audit_source": "PR #1946 docs/verification/soundness-regression-audit-2026-11-11/refusal-bisection.json",
   "audit_source_sha256": "f3d773ecf4f930bb0148dea07ff48a25a9037c4ae90d2567109d87296ef4f31c",
   "cases": [
     {

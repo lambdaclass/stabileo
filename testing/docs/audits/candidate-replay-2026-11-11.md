@@ -176,7 +176,7 @@ Public WASM probes also exercised the corresponding reported export for the refu
 
 ## Checks
 
-Run `python3 testing/docs/audits/cause-c-replay-audit.py` inside `make shell`. The extended audit checks both archives, label-snapshot partition, table/JSON summaries, all class/cause counts, every fixture hash, selected relation evidence, actual warning provenance, independent energy accounting, staged public/native evidence, all 28 active regression registrations and their historical-parent failures. Final audit: **20,000 checks, zero mismatches** (including all prior cause-C checks).
+Run `python3 docs/verification/cause-c-replay-audit.py` inside `make shell`. The extended audit checks both archives, label-snapshot partition, table/JSON summaries, all class/cause counts, every fixture hash, selected relation evidence, actual warning provenance, independent energy accounting, staged public/native evidence, all 28 active regression registrations and their historical-parent failures. Final audit: **20,000 checks, zero mismatches** (including all prior cause-C checks).
 
 Targeted verification: `make test.engine.targeted TEST=metamorphic FILTER=candidate_replay::`, `make check.test-targets`, `make check.changelog`, and `git diff --check`. Temporary probes, source archives, isolated Python runtime, raw issue payloads and logs are removed after their relevant evidence is retained. `.handoff.md` remains untracked working notes. Nothing is pushed and no GitHub issue is commented on or closed.
 

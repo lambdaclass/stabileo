@@ -18,7 +18,7 @@ regression, without changing the engine or its convergence or accuracy limits.
 Run from the worktree root, inside `make shell`:
 
 ```sh
-python3 testing/docs/audits/candidate-1901-reference.py
+python3 docs/verification/candidate-1901-reference.py
 ```
 
 The checked-in JSON is that command's output. The script reads the original

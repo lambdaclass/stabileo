@@ -5,8 +5,12 @@ import sys
 import urllib.parse
 
 
+def without_fenced_code(text):
+    return re.sub(r'^(`{3,}|~{3,})[^\n]*\n.*?^\1[^\n]*$', '', text, flags=re.M | re.S)
+
+
 def destinations(text):
-    text = re.sub(r'^(`{3,}|~{3,})[^\n]*\n.*?^\1[^\n]*$', '', text, flags=re.M | re.S)
+    text = without_fenced_code(text)
     text = re.sub(r'`[^`\n]+`', '', text)
     pattern = r'!?\[[^\]\n]*\]\(\s*(<[^>]+>|(?:[^\s()]|\([^()]*\))+)'
     yield from (m[1].strip('<>') for m in re.finditer(pattern, text))
@@ -16,9 +20,10 @@ def destinations(text):
 
 
 def anchors(text):
-    found = set(re.findall(r'(?:id|name)=["\']([^"\']+)["\']', text))
+    text = without_fenced_code(text)
+    non_code = re.sub(r'`[^`\n]+`', '', text)
+    found = set(re.findall(r'(?:id|name)=["\']([^"\']+)["\']', non_code))
     counts = {}
-    text = re.sub(r'^(`{3,}|~{3,})[^\n]*\n.*?^\1[^\n]*$', '', text, flags=re.M | re.S)
     for match in re.finditer(r'^ {0,3}#{1,6}\s+(.+?)\s*#*$', text, re.M):
         heading = re.sub(r'<[^>]+>', '', match[1])
         heading = re.sub(r'!?\[([^]]+)\]\([^)]*\)', r'\1', heading)
