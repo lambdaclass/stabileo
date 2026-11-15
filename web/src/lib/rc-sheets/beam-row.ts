@@ -49,7 +49,7 @@ export interface BeamDemand {
   /** The physical beam this span belongs to and its place in it. */
   line?: { group: number; index: number; spans: number; startNode: number; endNode: number; lineName: string };
   /** Envelope along the span over all combinations: largest sagging, hogging (kN·m) and shear (kN). */
-  env?: Array<{ x: number; pos: number; neg: number; v: number }>;
+  env?: Array<{ x: number; pos: number; neg: number; v: number; vPos?: number; vNeg?: number }>;
   /** Half the support's extent along the beam at each end, m. */
   supportHalf?: { start: number; end: number };
   /** What holds each end of the span: a column or wall, a support alone, a beam it frames into, or nothing (a cantilever's tip). */

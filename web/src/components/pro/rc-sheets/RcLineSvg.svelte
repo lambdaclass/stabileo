@@ -58,27 +58,45 @@
     const s = spanAt((bar.from + bar.to) / 2);
     return [fmt(bar.from - s.x0), fmt(s.x1 - bar.to)];
   }
-  const ENV_M = 96, ENV_V = 64, ENV_GAP = 18;
+  const ENV_M = 96, ENV_V = 88, ENV_GAP = 18;
   const yEnv = $derived(yBeamBottom + BELOW + 30);
   const finite = (v: number) => (Number.isFinite(v) ? v : 0);
   const muTop = $derived(Math.max(1e-6, ...line.envelope.flatMap((e) => [e.pos, e.neg])));
-  const vuTop = $derived(Math.max(1e-6, ...line.shear.map((e) => e.v)));
-  const mMax = $derived(1.5 * muTop), vMax = $derived(1.5 * vuTop);
+  const vuTop = $derived(Math.max(1e-6, ...line.shear.flatMap((e) => [e.vPos, e.vNeg])));
+  const mMax = $derived(Math.max(1.25 * muTop, Math.min(1.05 * phiMTop, 3 * muTop))), vMax = $derived(Math.max(1.25 * vuTop, Math.min(1.05 * phiVTop, 3 * vuTop)));
   const phiMTop = $derived(Math.max(0, ...line.envelope.flatMap((e) => [finite(e.phiPos), finite(e.phiNeg)])));
   const phiVTop = $derived(Math.max(0, ...line.shear.map((e) => finite(e.phiVn))));
+  const yDimEnvelope = $derived(yV + ENV_V / 2 + 14);
   const yM = $derived(yEnv + ENV_M / 2);
-  const yV = $derived(yEnv + ENV_M + ENV_GAP + ENV_V);
+  const yV = $derived(yEnv + ENV_M + ENV_GAP + ENV_V / 2);
   const mY = (m: number) => yM + (m / mMax) * (ENV_M / 2 - 4);
-  const vY = (v: number) => yV - (v / vMax) * (ENV_V - 4);
+  const vY = (v: number) => yV - (v / vMax) * (ENV_V / 2 - 4);
   const path = (pts: Array<[number, number]>) => pts.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`).join(' ');
   /** Mu below the axis where it sags and above where it hogs, as it is drawn on the tension side. */
   const muPos = $derived(path([[X(line.envelope[0]?.x ?? 0), yM], ...line.envelope.map((e) => [X(e.x), mY(e.pos)] as [number, number]), [X(line.envelope[line.envelope.length - 1]?.x ?? 0), yM]]) + ' Z');
   const muNeg = $derived(path([[X(line.envelope[0]?.x ?? 0), yM], ...line.envelope.map((e) => [X(e.x), mY(-e.neg)] as [number, number]), [X(line.envelope[line.envelope.length - 1]?.x ?? 0), yM]]) + ' Z');
-  const phiPos = $derived(path(line.envelope.map((e) => [X(e.x), mY(Math.min(finite(e.phiPos), mMax))])));
-  const phiNeg = $derived(path(line.envelope.map((e) => [X(e.x), mY(-Math.min(finite(e.phiNeg), mMax))])));
-  const vu = $derived(path([[X(line.shear[0]?.x ?? 0), yV], ...line.shear.map((e) => [X(e.x), vY(e.v)] as [number, number]), [X(line.shear[line.shear.length - 1]?.x ?? 0), yV]]) + ' Z');
-  const phiV = $derived(path(line.shear.map((e) => [X(e.x), vY(Math.min(finite(e.phiVn), vMax))])));
-  const yDim = $derived(envelope && line.envelope.length ? yV + 30 : yBeamBottom + BELOW + 36);
+  /** A capacity line split where it leaves the scale: the part inside drawn, the part outside held at the edge, faint. */
+  function capacity(pts: Array<{ x: number; v: number }>, top: number, toY: (v: number) => number): { inside: string; outside: string } {
+    const inside: string[] = [], outside: string[] = [];
+    let a: Array<[number, number]> = [], b: Array<[number, number]> = [];
+    const flush = () => { if (a.length > 1) inside.push(path(a)); if (b.length > 1) outside.push(path(b)); a = []; b = []; };
+    let was: boolean | null = null;
+    for (const p of pts) {
+      const over = Math.abs(p.v) > top;
+      if (was !== null && over !== was) { const keep = (over ? a : b).at(-1); flush(); if (keep) (over ? b : a).push(keep); }
+      (over ? b : a).push([X(p.x), toY(Math.sign(p.v) * Math.min(Math.abs(p.v), top))]);
+      was = over;
+    }
+    flush();
+    return { inside: inside.join(' '), outside: outside.join(' ') };
+  }
+  const phiPos = $derived(capacity(line.envelope.map((e) => ({ x: e.x, v: finite(e.phiPos) })), mMax, mY));
+  const phiNeg = $derived(capacity(line.envelope.map((e) => ({ x: e.x, v: -finite(e.phiNeg) })), mMax, mY));
+  const vuPos = $derived(path([[X(line.shear[0]?.x ?? 0), yV], ...line.shear.map((e) => [X(e.x), vY(e.vPos)] as [number, number]), [X(line.shear[line.shear.length - 1]?.x ?? 0), yV]]) + ' Z');
+  const vuNeg = $derived(path([[X(line.shear[0]?.x ?? 0), yV], ...line.shear.map((e) => [X(e.x), vY(-e.vNeg)] as [number, number]), [X(line.shear[line.shear.length - 1]?.x ?? 0), yV]]) + ' Z');
+  const phiVPos = $derived(capacity(line.shear.map((e) => ({ x: e.x, v: finite(e.phiVn) })), vMax, vY));
+  const phiVNeg = $derived(capacity(line.shear.map((e) => ({ x: e.x, v: -finite(e.phiVn) })), vMax, vY));
+  const yDim = $derived(envelope && line.envelope.length ? yDimEnvelope + 16 : yBeamBottom + BELOW + 36);
   const ySchedule = $derived(yDim + 34);
   const rowTop = $derived(line.bars.reduce<number[]>((acc, b, i) => { acc.push(i ? acc[i - 1]! + (line.bars[i - 1]!.kind === 'bent' ? 2 * ROW : ROW) : 0); return acc; }, []));
   const H = $derived(ySchedule + line.bars.reduce((acc, b) => acc + (b.kind === 'bent' ? 2 * ROW : ROW), 0) + 8);
@@ -146,20 +164,24 @@
       <line x1={X(0)} y1={yM} x2={X(line.length)} y2={yM} class="envaxis" />
       <path d={muPos} class="mu pos" />
       <path d={muNeg} class="mu neg" />
-      <path d={phiPos} class="phim" data-testid="rc-env-phimn-pos" />
-      <path d={phiNeg} class="phim" />
+      <path d={phiPos.inside} class="phim" data-testid="rc-env-phimn-pos" />
+      <path d={phiNeg.inside} class="phim" />
+      <path d={phiPos.outside} class="phim off" />
+      <path d={phiNeg.outside} class="phim off" />
       <text x={M - 6} y={yM - ENV_M / 2 + 10} class="small end">Mu⁻</text>
       <text x={M - 6} y={yM + ENV_M / 2 - 2} class="small end">Mu⁺</text>
       <text x={W - M + 4} y={yM - ENV_M / 2 + 10} class="small start">φMn</text>
       <line x1={X(0)} y1={yV} x2={X(line.length)} y2={yV} class="envaxis" />
-      <path d={vu} class="vu" />
-      <path d={phiV} class="phiv" data-testid="rc-env-phivn" />
-      <text x={M - 6} y={yV - ENV_V + 10} class="small end">|Vu|</text>
-      <text x={W - M + 4} y={yV - ENV_V + 10} class="small start">φVn</text>
+      <path d={vuPos} class="vu" />
+      <path d={vuNeg} class="vu" />
+      <path d={phiVPos.inside + ' ' + phiVNeg.inside} class="phiv" data-testid="rc-env-phivn" />
+      <path d={phiVPos.outside + ' ' + phiVNeg.outside} class="phiv off" />
+      <text x={M - 6} y={yV - ENV_V / 2 + 10} class="small end">Vu</text>
+      <text x={W - M + 4} y={yV - ENV_V / 2 + 10} class="small start">±φVn</text>
       <text x={W - M + 4} y={yM + 4} class="small start">{fmt(muTop, 0)}</text>
       <text x={W - M + 4} y={yV - 2} class="small start">{fmt(vuTop, 0)}</text>
       {#if phiMTop > mMax}<text x={W - M + 4} y={yM + ENV_M / 2 - 2} class="small start" data-testid="rc-env-phimn-off">↧ {fmt(phiMTop, 0)}</text>{/if}
-      {#if phiVTop > vMax}<text x={W - M + 4} y={yV - ENV_V + 22} class="small start">↥ {fmt(phiVTop, 0)}</text>{/if}
+      {#if phiVTop > vMax}<text x={W - M + 4} y={yV - ENV_V / 2 + 22} class="small start" data-testid="rc-env-phivn-off">↥ {fmt(phiVTop, 0)}</text>{/if}
     </g>
   {/if}
 
@@ -227,4 +249,5 @@
   .phim { fill: none; stroke: var(--st-text); stroke-width: 1.3; stroke-dasharray: 5 3; }
   .vu { fill: rgba(224, 160, 60, 0.25); stroke: none; }
   .phiv { fill: none; stroke: var(--st-text); stroke-width: 1.3; stroke-dasharray: 5 3; }
+  .phim.off, .phiv.off { opacity: 0.35; stroke-dasharray: 1 4; }
 </style>

@@ -122,7 +122,7 @@ export interface LineLayout {
   anchorage: Array<{ dia: number; ld: number; ldTop: number; ldh: number; lap: number }>;
   envelope: Array<{ x: number; pos: number; neg: number; phiPos: number; phiNeg: number }>;
   /** Shear along the line over all combinations, and the design capacity of the stirrups there, kN. */
-  shear: Array<{ x: number; v: number; phiVn: number }>;
+  shear: Array<{ x: number; v: number; vPos: number; vNeg: number; phiVn: number }>;
   /** Where the bars that reach each end of the line stop, m along it (negative before the first axis), and what holds that end. */
   ends: { from: number; to: number; start?: BeamEnd; end?: BeamEnd };
   spanAdopted: BeamAdopted[];
@@ -400,7 +400,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
   const shear = spans.flatMap((s, k) => (s.row.demand.env ?? []).map((e) => {
     const xl = s.x0 + e.x;
     const zi = zones.findIndex((z) => z.span === k && xl >= z.from - 1e-9 && xl <= z.to + 1e-9);
-    return { x: xl, v: e.v, phiVn: zoneVn[zi >= 0 ? zi : zones.findIndex((z) => z.span === k)] ?? 0 };
+    return { x: xl, v: e.v, vPos: e.vPos ?? e.v, vNeg: e.vNeg ?? e.v, phiVn: zoneVn[zi >= 0 ? zi : zones.findIndex((z) => z.span === k)] ?? 0 };
   }));
   const endAnchors = ([[endStart, xFrom, true], [endEnd, xTo, false]] as const).flatMap(([e, xe, first]) => {
     if (!e || e.kind !== 'column' || e.half <= 0) return [];
