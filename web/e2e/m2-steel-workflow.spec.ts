@@ -414,8 +414,6 @@ test.describe('it is not a second, disconnected application', () => {
     // A screen that replaces the app rather than living in it would show up here.
     await openSteelTab(page);
     await expect(page.getByTestId('pr-stage-design')).toBeVisible();
-    // Interface A: the stage's own bar and the rail entry that opened it are on screen.
-    await expect(page.getByTestId('desk-process')).toBeVisible();
     await expect(page.getByTestId('desk-rail-steel')).toHaveClass(/on/);
   });
 

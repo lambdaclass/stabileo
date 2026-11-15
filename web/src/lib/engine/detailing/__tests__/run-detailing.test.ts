@@ -263,11 +263,6 @@ describe('call-graph: no advertised capability is unreachable', () => {
       'lib/store/detailing.svelte.ts',
       'lib/store/design-run.svelte.ts',
       'lib/engine/detailing/run-detailing.ts',
-      'components/pro/design/DesignToolbar.svelte',
-      'components/pro/design/DesignOverview.svelte',
-      // The pipeline's actions, and the top of the Design stage where the step's command is pressed.
-      'lib/flow/rc-commands.ts',
-      'components/pro/desk/DeskProcessBar.svelte',
     ];
     return files.map((f) => readFileSync(`${SRC}/${f}`, 'utf8')).join('\n');
   }
@@ -283,30 +278,6 @@ describe('call-graph: no advertised capability is unreachable', () => {
     ['generateColumnStack', 'column stack generation'],
   ])('%s is reachable from production code (%s)', (symbol) => {
     expect(src.includes(symbol), `${symbol} has no production caller`).toBe(true);
-  });
-
-  it('the Generate detailing command exists, and calls the store', () => {
-    /*
-     * Two files, because the button and the call stopped living together and that was the point
-     * of both moves. `rc-commands.ts` extracted the action so a stage could reach it without
-     * mounting a toolbar; F3 step 4 then moved the BUTTON to the stage strip, because in
-     * `DesignToolbar` — which F2 had put inside the DISEÑAR stage — it was unreachable with that
-     * stage closed.
-     *
-     * This assertion named `DesignToolbar` + `DesignOverview` and so went red at the FIRST of
-     * those two moves, several commits before the second: `detailingStore.generate()` had already
-     * left for `rc-commands.ts` and nothing here followed it. Worth recording, because it is the
-     * failure mode this whole describe block exists to catch — wiring that no longer connects —
-     * and it caught it in its own subject.
-     */
-    // The strip is gone with interface A: the button is the Detail step's action at the top of
-    // the Design stage (`DeskProcessBar`), and it calls the same action.
-    const surface = [
-      readFileSync(`${SRC}/components/pro/desk/DeskProcessBar.svelte`, 'utf8'),
-      readFileSync(`${SRC}/lib/flow/rc-commands.ts`, 'utf8'),
-    ].join('\n');
-    expect(surface).toContain('cmd-generate-detailing');
-    expect(surface).toContain('detailingStore.generate');
   });
 
   it('a successful design run triggers detailing unless the project opted out', () => {

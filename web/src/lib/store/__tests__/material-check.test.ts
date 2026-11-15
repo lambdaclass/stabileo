@@ -12,7 +12,6 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { materialCheckState, otherFamilyOf, runMaterialChecks } from '../material-check.svelte';
 import { runSteelVerification } from '../../engine/verification-service';
-import { deskMembers } from '../design-desk';
 import { memoriaInput } from '../memoria-inputs';
 import { familySummary } from '../../report/memoria/render';
 import { serializeProject, deserializeProject } from '../file';
@@ -65,12 +64,11 @@ describe('other materials in the design', () => {
     expect(checked).not.toContain(col);
   });
 
-  it('the desk lists them by family; the memoria states them without «satisfies»', () => {
+  it('the checks name each member\'s family; the memoria states them without «satisfies»', () => {
     const { col, comp } = model();
     runMaterialChecks();
-    const rows = deskMembers();
-    expect(rows.find((r) => r.id === col)!.material).toBe('timber');
-    expect(rows.find((r) => r.id === comp)!.material).toBe('composite');
+    expect(materialCheckState.results.get(col)!.family).toBe('timber');
+    expect(materialCheckState.results.get(comp)!.family).toBe('composite');
     const m = memoriaInput((k) => k, 'en');
     const timber = m.elements.filter((e) => e.family === 'timber');
     expect(timber).toHaveLength(1);

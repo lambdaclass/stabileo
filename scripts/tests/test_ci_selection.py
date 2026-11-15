@@ -489,7 +489,7 @@ exit 0
                 result = selection.select('merge_group', [path], ROOT)
                 self.assertEqual(result['slow_e2e'], 'true')
                 specs = json.loads(result['slow_specs'])
-                self.assertIn('design-desk.spec.ts', specs)
+                self.assertIn('sheets.spec.ts', specs)
                 self.assertTrue(any(s.startswith('basic-advanced-sweep-') for s in specs))
                 self.assertIn('explained-steps.spec.ts', specs)
                 self.assertIn('basic-plastic-course.spec.ts', specs)
@@ -544,7 +544,7 @@ exit 0
 
     def test_slow_shard_filters_selected_specs_and_fails_closed(self):
         shard_script = ROOT / 'web/scripts/e2e-shard.mjs'
-        subset = ['design-desk.spec.ts', 'basic-advanced-sweep-2d-a.spec.ts']
+        subset = ['sheets.spec.ts', 'basic-advanced-sweep-2d-a.spec.ts']
         assigned = []
         for idx in range(1, selection.E2E_SHARDS + 1):
             proc = subprocess.run(
@@ -557,9 +557,9 @@ exit 0
             )
             assigned.append(proc.stdout.split())
         flat = [f for shard in assigned for f in shard]
-        self.assertEqual(sorted(flat), ['e2e/basic-advanced-sweep-2d-a.spec.ts', 'e2e/design-desk.spec.ts'])
+        self.assertEqual(sorted(flat), ['e2e/basic-advanced-sweep-2d-a.spec.ts', 'e2e/sheets.spec.ts'])
         self.assertEqual(sum(1 for shard in assigned if not shard), selection.E2E_SHARDS - 2)
-        for bad in ['not-json', '[]', '["nonexistent-spec.spec.ts"]', '["design-desk.spec.ts", "missing.spec.ts"]', '["design-desk.spec.ts", 7]']:
+        for bad in ['not-json', '[]', '["nonexistent-spec.spec.ts"]', '["sheets.spec.ts", "missing.spec.ts"]', '["sheets.spec.ts", 7]']:
             with self.subTest(bad=bad):
                 proc = subprocess.run(
                     ['node', str(shard_script), '--suite', 'slow', '1', '1'],

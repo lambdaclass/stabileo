@@ -135,8 +135,8 @@ async function cycle(page: Page): Promise<Marks> {
 
   // 3. A click that changes state, round trip: moving to another place of design.
   const clickStart = Date.now();
-  await designPlace(page, 'list');
-  await expect(page.getByTestId('desk-list')).toBeVisible();
+  await designPlace(page, 'connections');
+  await expect(page.getByTestId('conn-experimental-banner')).toBeVisible();
   const firstClick = Date.now() - clickStart;
 
   const after = await counters(page);
@@ -179,7 +179,7 @@ const REPEATS = 5;
 /**
  * The heavy scenarios, on the 7-storey building the rest of this suite prepares once.
  *
- * `prepared-building.ts` runs the whole chain — load, solve, design, detail, floors — in a worker
+ * `prepared-building.ts` runs the whole chain — load, solve, design, detail — in a worker
  * context and hands every observer a page with the project restored. This file is an observer: it
  * does not solve, so the numbers below are about coming back to a loaded project, which is the
  * complaint, and not about building one.

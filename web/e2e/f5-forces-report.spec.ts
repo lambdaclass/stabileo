@@ -13,7 +13,7 @@
  *   · it produces a file and says which one.
  */
 
-import { test, expect, bootPro, loadModel, solveModel, openClassicDesign } from './fixtures';
+import { test, expect, bootPro, loadModel, solveModel } from './fixtures';
 
 /** Small on purpose: 18 nodes and 26 members solve in seconds. */
 const MODEL = 'rc-qa-diagnostic';

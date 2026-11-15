@@ -34,9 +34,6 @@ import {
   failingLimits, isKnownBiaxialLimitation, statusOf, NOT_FOR_CONSTRUCTION_STATUSES,
   type DesignOutcomeSummary,
 } from '../../engine/detailing/element-status';
-import {
-  matchesFilter, sortRows, type DesignRow,
-} from '../../../components/pro/design/design-view';
 import en from '../../i18n/locales/en';
 import { allShippedLocales as shippedLocales, allDictFor as dictFor } from '../../i18n/locales/all';
 
@@ -116,13 +113,6 @@ describe('the detailing status agrees with the rule', () => {
 // ─── The presentation ────────────────────────────────────────────
 
 const VERIFICATION = fileURLToPath(new URL('../verification.svelte.ts', import.meta.url));
-const BADGE = fileURLToPath(
-  new URL('../../../components/pro/design/OutcomeBadge.svelte', import.meta.url));
-/** The summary counts moved to `DesignOverview.svelte`; both files carry the presentation. */
-const TOOLBAR_FILES = [
-  fileURLToPath(new URL('../../../components/pro/design/DesignToolbar.svelte', import.meta.url)),
-  fileURLToPath(new URL('../../../components/pro/design/DesignOverview.svelte', import.meta.url)),
-];
 
 /**
  * The `DisplayStatus` union's members, parsed from the type itself.
@@ -145,14 +135,6 @@ describe('every display state can be shown and read', () => {
       expect.arrayContaining(['ok', 'warn', 'fail', 'provisional', 'unavailable', 'stale']));
   });
 
-  it('gives each one a glyph, so colour is never the only carrier', () => {
-    const badge = readFileSync(BADGE, 'utf8');
-    const map = badge.slice(badge.indexOf('const STATUS_GLYPH'));
-    for (const s of statuses) {
-      expect(map.slice(0, map.indexOf('};')), `${s} has a glyph`).toContain(`${s}:`);
-    }
-  });
-
   it('gives each one a label in every locale the app ships', () => {
     for (const s of statuses) {
       const key = `design.status.${s}`;
@@ -161,57 +143,5 @@ describe('every display state can be shown and read', () => {
         expect(dictFor(loc)[key], `${loc} is missing ${key}`).toBeTruthy();
       }
     }
-  });
-
-  it('counts the proposals in the summary bar, apart from passes and failures', () => {
-    const toolbar = TOOLBAR_FILES.map((f) => readFileSync(f, 'utf8')).join('\n');
-    // Beside `fail`, not inside it, and always rendered so a zero is a visible zero.
-    expect(toolbar).toContain('{counts.provisional}');
-    expect(toolbar).toContain('data-testid="summary-count-provisional"');
-    // And never folded into the verified count, which is the failure this whole state
-    // exists to prevent in the other direction.
-    const verifiedChip = toolbar.slice(
-      toolbar.indexOf('summary-count-verified'), toolbar.indexOf('summary-count-warn'));
-    expect(verifiedChip).not.toContain('provisional');
-  });
-});
-
-// ─── The table ───────────────────────────────────────────────────
-
-function row(over: Partial<DesignRow> = {}): DesignRow {
-  return {
-    elementId: 1, elementType: 'beam', sectionName: 'RC Beam 350×650', sectionId: 2,
-    elevation: 0, elevationLabel: 'L0', utilization: 0.5, status: 'ok',
-    governingCheck: '', comboName: '', outcome: 'VERIFIED', hasReinforcement: true,
-    edited: false, auto: true, provisional: false, certified: true, sloped: false,
-    provided: null,
-    ...over,
-  };
-}
-
-describe('the design table sorts and filters a proposal as its own thing', () => {
-  it('does not answer the "fail" filter', () => {
-    const p = row({ status: 'provisional', provisional: true, certified: false });
-    expect(matchesFilter(p, 'fail', new Set())).toBe(false);
-    expect(matchesFilter(p, 'ok', new Set())).toBe(false);
-    expect(matchesFilter(p, 'warn', new Set())).toBe(false);
-  });
-
-  it('answers the "provisional" filter from EITHER signal', () => {
-    // The run's outcome flag and the display status are the same members today and can
-    // diverge — the flag is what the run decided, the status is what the steel is now.
-    expect(matchesFilter(row({ provisional: true }), 'provisional', new Set())).toBe(true);
-    expect(matchesFilter(row({ status: 'provisional' }), 'provisional', new Set())).toBe(true);
-    expect(matchesFilter(row(), 'provisional', new Set())).toBe(false);
-  });
-
-  it('sorts a proposal above a warning and below a real failure', () => {
-    const rows = [
-      row({ elementId: 3, status: 'ok' }),
-      row({ elementId: 2, status: 'warn' }),
-      row({ elementId: 1, status: 'fail' }),
-      row({ elementId: 4, status: 'provisional' }),
-    ];
-    expect(sortRows(rows, 'status', true).map((r) => r.elementId)).toEqual([1, 4, 2, 3]);
   });
 });

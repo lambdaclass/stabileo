@@ -11,7 +11,7 @@
  * once the viewer's ResizeObserver has given the canvas its new size: framed in the same tick,
  * the fit measures the size the canvas is about to stop being.
  */
-import { uiStore, modelStore } from '../store';
+import { uiStore } from '../store';
 import { deskUi, type DeskTab } from '../store/design-desk-ui.svelte';
 
 /** Ask the model viewer to frame the current selection, once the layout has settled. */
@@ -42,14 +42,15 @@ export function showInModel(ids: readonly number[]): void {
 }
 
 /**
- * The place of design each panel view of the Design stage names. The concrete list, the steel
- * profiles and connections, the design data and the independent check under another code were
- * panels of their own beside the viewer; they are places of the desk now, and a move that names
- * one of those views (a link inside a panel, a restored session, a test hook) lands on its place.
- * `desk` is the view of every other place: it names the stage and no place in particular.
+ * The place of design each panel view of the Design stage names. The steel profiles and
+ * connections, the design data and the independent check under another code were panels of their
+ * own beside the viewer; they are places of the desk now, and a move that names one of those views
+ * (a link inside a panel, a restored session, a test hook) lands on its place. `desk` is the view
+ * of every other place, and `design` the concrete list a saved session may still name: they name
+ * the stage and no place in particular.
  */
 export const DESK_PLACE_OF_TAB: Record<string, DeskTab | null> = {
-  desk: null, design: 'list', steel: 'steel', connections: 'connections', designData: 'designData', otherCodes: 'codes',
+  desk: null, design: null, steel: 'steel', connections: 'connections', designData: 'designData', otherCodes: 'codes',
 };
 
 /**
@@ -119,22 +120,4 @@ export function syncTabWithDesk(open: boolean): void {
   } else if (!open && isDesignTab(uiStore.proActiveTab)) {
     uiStore.proActiveTab = isDesignTab(returnTab) ? 'nodes' : returnTab;
   }
-}
-
-/** A modelling tool opened from design's «Prepare»: the model stage, on that tool's panel. */
-export function openModelTool(tab: string): void {
-  deskUi.open = false;
-  uiStore.proActiveTab = tab;
-  uiStore.proPanelVisible = true;
-  uiStore.currentTool = 'select';
-}
-
-/**
- * Whether design has nothing to work on yet: no member it reads (`rows`) and no bars anywhere in
- * the model. Then it offers its two ways in rather than an empty plan.
- */
-export function isDesignEmpty(rowCount: number): boolean {
-  if (rowCount > 0) return false;
-  for (const e of modelStore.elements.values()) if (e.reinforcement) return false;
-  return true;
 }

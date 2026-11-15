@@ -151,39 +151,6 @@ describe('no metallic surface puts the brand colour on an error background', () 
         .toBe(false);
     }
   });
-
-  it('and all three concrete instances are fixed now', () => {
-    /*
-     * Not a metallic assertion — a cross-check that the report M1 handed H1 is still accurate.
-     *
-     * The version this replaces asserted the three instances were STILL THERE, and said in its
-     * own words: «If H1 fixes them, this fails and the reconciliation document has to be updated,
-     * which is the correct outcome: a report nobody notices going stale is worse than no report.»
-     *
-     * That is what happened. H1's token work reached `main`, merging `main` into M1 brought it,
-     * and the test fired exactly as designed. So it is turned around — from reporting a defect to
-     * guarding its repair — and `docs/handoffs/m1-token-proposal-reconciliation.md` records the
-     * closure.
-     *
-     * ── And then it happened a second time ─────────────────────────
-     *
-     * The third instance was left asserted as still broken, "so the day it is fixed this fires
-     * again and the reconciliation gets its final update rather than quietly going stale". That
-     * day is this merge: bringing H1 itself onto `main` fixed `.banner-block`, the test fired
-     * for the second time exactly as written, and this is the final update it asked for.
-     *
-     * All three now guard their repair. Nothing here is left pointing at an open defect, which
-     * means the next change to any of the three has to come with its own reason.
-     */
-    const badge = read('components/pro/design/OutcomeBadge.svelte');
-    expect(badge, '.badge-fail is back on the brand colour')
-      .not.toMatch(/\.badge-fail\s*\{[^}]*var\(--st-accent\)/);
-    expect(badge, 'SECTION_INADEQUATE is back on the brand colour')
-      .not.toMatch(/\.badge-outcome-SECTION_INADEQUATE\s*\{[^}]*var\(--st-accent\)/);
-    expect(read('components/pro/design/DesignToolbar.svelte'),
-      '.banner-block is back on the brand colour')
-      .not.toMatch(/\.banner-block\s*\{[^}]*var\(--st-accent\)/);
-  });
 });
 
 describe('SteelStatusBadge keeps the hatch that makes it readable without hue', () => {

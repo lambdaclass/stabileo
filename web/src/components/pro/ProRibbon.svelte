@@ -429,13 +429,7 @@
       >{ribbonOpen ? '⌃' : '⌄'}</button>
     </div>
 
-    <!--
-      Design draws no groups while the desk is on screen: the desk's own bar, right under this
-      row, carries the four steps of design with their state and the actions of the step in hand
-      (`DeskProcessBar.svelte`), and the rail holds every place. The commands of the stage open
-      those same places; they are listed here only when the desk is not showing.
-    -->
-    {#if ribbonOpen && !(stage.id === 'design' && deskUi.open)}
+    {#if ribbonOpen}
     <div class="pr-groups">
       {#each stage.groups as g (g.id)}
         <section class="pr-group" class:pr-group-menu={g.menu} data-group={g.id}>

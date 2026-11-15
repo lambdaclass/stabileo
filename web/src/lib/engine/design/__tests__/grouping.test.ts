@@ -1,5 +1,5 @@
 /**
- * Derived grouping and batch editing — both pure, both fully unit-testable.
+ * Derived grouping — pure, fully unit-testable.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -11,13 +11,7 @@ import {
   clusterCoordinates, elevationLabel, bandSelection, memberKindOf, GROUP_TOL,
 } from '../member-grouping';
 import { runOrientationDiagnostic } from '../orientation-diagnostic';
-import {
-  planBatchEdit, applyPatch, patchTouchesBeam, patchTouchesColumn,
-  BATCH_PREVIEW_CAP, BATCH_CONFIRM_THRESHOLD,
-} from '../rebar-batch';
-import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 import { modelFromFixture, solveFixture, directionOf } from './helpers';
-import type { ProvidedReinforcement } from '../../../store/model.svelte';
 
 const frameModel = modelFromFixture(frame);
 const solvedQa = solveFixture(qa8);
@@ -161,137 +155,6 @@ describe('orientation diagnostic', () => {
     const r = runOrientationDiagnostic(fm.data, demands, undefined);
     expect(r.suspect.has(beamId)).toBe(true);
     expect(r.issues[0].kind).toBe('weakAxisGravityBending');
-  });
-});
-
-describe('batch edit — preview, compatibility, validation', () => {
-  const beamId = [...solvedQa.contexts.keys()].find(id => solvedQa.contexts.get(id)!.elementType === 'beam')!;
-  const colId = [...solvedQa.contexts.keys()].find(id => solvedQa.contexts.get(id)!.elementType === 'column')!;
-  const current = new Map<number, ProvidedReinforcement>();
-  const reinf = (id: number) => current.get(id);
-
-  it('classifies which kinds a patch touches', () => {
-    expect(patchTouchesBeam({ bottomSpan: { count: 4 } })).toBe(true);
-    expect(patchTouchesColumn({ bottomSpan: { count: 4 } })).toBe(false);
-    expect(patchTouchesColumn({ ties: { spacing: 0.1 } })).toBe(true);
-  });
-
-  it('writes a fitting beam arrangement and rebuilds the layers', () => {
-    const ctx = solvedQa.contexts.get(beamId)!;
-    const { candidate, blocks } = applyPatch(ctx, undefined, { bottomSpan: { count: 4, diameter: 20 } });
-    expect(blocks).toEqual([]);
-    expect(candidate!.regions!.bottomSpanLayers!.reduce((s, l) => s + l.count, 0)).toBe(4);
-    expect(candidate!.regions!.bottomSpan).toEqual({ count: 4, diameter: 20 });
-  });
-
-  it('BLOCKS an arrangement that cannot fit, with a reason', () => {
-    const ctx = solvedQa.contexts.get(beamId)!;
-    const { candidate, blocks } = applyPatch(ctx, undefined, { bottomSpan: { count: 24, diameter: 32 } });
-    expect(candidate).toBeUndefined();
-    expect(blocks.some(b => b.reason === 'barFit')).toBe(true);
-    expect(blocks[0].messageKey).toBeTruthy();
-  });
-
-  it('BLOCKS invalid spacing, legs, rho and tie spacing', () => {
-    const bctx = solvedQa.contexts.get(beamId)!;
-    expect(applyPatch(bctx, undefined, { stirrupsSupport: { spacing: 0.01 } }).blocks[0].reason).toBe('invalidValue');
-    expect(applyPatch(bctx, undefined, { stirrupsSupport: { legs: 1 } }).blocks[0].reason).toBe('invalidValue');
-    const cctx = solvedQa.contexts.get(colId)!;
-    expect(applyPatch(cctx, undefined, { column: { cornerDia: 10, perFace: 0 } }).blocks.some(b => b.reason === 'minSteel')).toBe(true);
-    expect(applyPatch(cctx, undefined, { column: { cornerDia: 32, perFace: 6 } }).blocks.some(b => b.reason === 'maxSteel')).toBe(true);
-    expect(applyPatch(cctx, undefined, { ties: { spacing: 0.5 } }).blocks.some(b => b.reason === 'tieSpacing')).toBe(true);
-    expect(applyPatch(cctx, undefined, { column: { perFace: 99 } }).blocks.some(b => b.reason === 'invalidValue')).toBe(true);
-  });
-
-  it('applies beam fields only to beams in a mixed selection', () => {
-    const plan = planBatchEdit(
-      cirsoc201Adapter, [beamId, colId], solvedQa.contexts, reinf,
-      { bottomSpan: { count: 4, diameter: 20 } },
-    );
-    expect(plan.mixed).toBe(true);
-    expect(plan.kinds.sort()).toEqual(['beam', 'column']);
-    const beamRow = plan.rows.find(r => r.elementId === beamId)!;
-    const colRow = plan.rows.find(r => r.elementId === colId)!;
-    expect(beamRow.willChange).toBe(true);
-    expect(colRow.blocks.some(b => b.reason === 'incompatibleType')).toBe(true);
-    expect(plan.blockedCount).toBe(1);
-  });
-
-  it('previews before/after utilization from the AUTHORITATIVE verifier', () => {
-    // A COMPLETE arrangement: all three regions plus both stirrup zones. An
-    // incomplete one legitimately yields an infinite utilization (missing
-    // reinforcement is a failure, not a skipped check), reported as null.
-    const complete = {
-      bottomSpan: { count: 6, diameter: 20 },
-      topStart: { count: 4, diameter: 20 },
-      topEnd: { count: 4, diameter: 20 },
-      stirrupsSupport: { diameter: 8, legs: 2, spacing: 0.10 },
-      stirrupsSpan: { diameter: 8, legs: 2, spacing: 0.15 },
-    };
-    const plan = planBatchEdit(cirsoc201Adapter, [beamId], solvedQa.contexts, reinf, complete);
-    const row = plan.rows[0];
-    expect(row.candidate).toBeDefined();
-    expect(row.utilizationAfter).not.toBeNull();
-    const direct = cirsoc201Adapter.verify(solvedQa.contexts.get(beamId)!, row.candidate!);
-    expect(row.utilizationAfter).toBeCloseTo(+direct.worstUtilization.toFixed(3), 3);
-
-    // An incomplete arrangement: infinite utilization surfaces as null, never as a
-    // comfortable number.
-    const partial = planBatchEdit(cirsoc201Adapter, [beamId], solvedQa.contexts, reinf,
-      { bottomSpan: { count: 6, diameter: 20 } });
-    expect(partial.rows[0].utilizationAfter).toBeNull();
-    expect(partial.rows[0].statusAfter).toBe('fail');
-  });
-
-  it('honours protect-manual-overrides only when opted in', () => {
-    const patch = { bottomSpan: { count: 4, diameter: 20 } };
-    const off = planBatchEdit(cirsoc201Adapter, [beamId], solvedQa.contexts, reinf, patch,
-      { manualOverrides: new Set([beamId]) });
-    expect(off.changeCount).toBe(1);            // default OVERWRITES
-    expect(off.protectedCount).toBe(0);
-    const on = planBatchEdit(cirsoc201Adapter, [beamId], solvedQa.contexts, reinf, patch,
-      { manualOverrides: new Set([beamId]), protectManualOverrides: true });
-    expect(on.changeCount).toBe(0);
-    expect(on.protectedCount).toBe(1);
-    expect(on.rows[0].blocks[0].reason).toBe('protectedOverride');
-  });
-
-  it('reports preview truncation instead of silently dropping rows', () => {
-    // ONE solve, reused. This solved the same fixture twice and threw the first result
-    // away, which made the test cost ~5,3 s under full-suite load against the default 5 s
-    // timeout — green in isolation at 1,6 s and intermittently red in a full run. Same
-    // assertions, half the work; no timeout was raised to hide it.
-    const solvedFrame = solveFixture(frame);
-    const many = [...solvedFrame.contexts.keys()];
-    const plan = planBatchEdit(cirsoc201Adapter, many, solvedFrame.contexts, () => undefined,
-      { bottomSpan: { count: 4, diameter: 20 } });
-    expect(plan.previewTotal).toBe(many.length);
-    expect(plan.previewShown).toBeLessThanOrEqual(BATCH_PREVIEW_CAP);
-    expect(plan.previewTruncated).toBe(true);
-    // Counts cover the FULL selection, not just the previewed rows.
-    expect(plan.changeCount + plan.unchangedCount + plan.blockedCount + plan.protectedCount).toBe(many.length);
-  });
-
-  it('leaves untouched fields untouched (no accidental homogenisation)', () => {
-    const ctx = solvedQa.contexts.get(beamId)!;
-    const start: ProvidedReinforcement = {
-      regions: {
-        bottomSpanLayers: [{ count: 4, diameter: 20, row: 0 }],
-        bottomSpan: { count: 4, diameter: 20 },
-        topStartLayers: [{ count: 3, diameter: 16, row: 0 }],
-        topStart: { count: 3, diameter: 16 },
-        stirrupsSupport: { diameter: 8, legs: 2, spacing: 0.12 },
-      },
-    };
-    const { candidate } = applyPatch(ctx, start, { bottomSpan: { diameter: 25 } });
-    expect(candidate!.regions!.bottomSpan!.diameter).toBe(25);
-    expect(candidate!.regions!.bottomSpan!.count).toBe(4);              // count preserved
-    expect(candidate!.regions!.topStart).toEqual({ count: 3, diameter: 16 });
-    expect(candidate!.regions!.stirrupsSupport!.spacing).toBeCloseTo(0.12, 6);
-  });
-
-  it('exposes the accidental-mass-edit thresholds', () => {
-    expect(BATCH_CONFIRM_THRESHOLD).toBe(25);
   });
 });
 

@@ -13,8 +13,6 @@ test.describe('@slow sheets', () => {
   test('the drawings on numbered sheets, revised, in another language, downloaded', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    await designPlace(page, 'list');
-    await page.getByTestId('cmd-generate-detailing').click();
     await expect.poll(async () => page.evaluate(() =>
       (window.__stabileo as unknown as { detailingAssemblies(): unknown[] })
         .detailingAssemblies().length), { timeout: 30_000 }).toBeGreaterThan(0);

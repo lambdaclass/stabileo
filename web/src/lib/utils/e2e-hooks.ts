@@ -879,7 +879,7 @@ export function installE2EHooks(): void {
       return currentResultProvenance().resultsHash;
     },
     // Design, on the member list: the screen the RC specs were written against.
-    openDesignTab: () => { openDeskAt('list'); },
+    openDesignTab: () => { openDeskAt(); },
     computeDemands: () => designRunStore.computeDemands(),
     codeCheck: () => designRunStore.runCodeCheck(),
     autoDesign: (ids: number[]) => designRunStore.autoDesign(ids),
