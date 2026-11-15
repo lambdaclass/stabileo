@@ -11,6 +11,35 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
+### BREAKING (results)
+
+#### Refuse member design with incomplete requested demands (2026-11-15)
+
+Member design and certification now require every active combination, every member in scope and every declared station, including both ends. Missing raw member records also refuse when station demands survive. EC2 peak design and foreign-code consumers preserve the requested active combination inventory. Previously a subset could return a verdict. Re-run saved concrete and steel designs and review refusals and certificates. Complete-input numerical rules are unchanged. See [the results-change record](docs/results-changes/2026-11-shared-demand-completeness.md) (#2096).
+
+### Added
+
+#### A blog post on Stabileo 0.6.1 (2026-11-15)
+
+The blog announces 0.6.1 in English, Spanish, Portuguese, German, French and Turkish.
+It leads with re-running affected member checks and regenerating snow loads before
+recalculating, covers fixed advisories SA-2026-064 through SA-2026-068 and all 24 new
+results-change notices, and preserves the known open wrong results and limitations.
+Its facts follow `docs/releases/v0.6.1*.md` and the 0.6.1 changelog. Release-note links
+open in the reader's language.
+
+### Changed
+
+#### Test systems gathered under testing/ (2026-11-15)
+
+Gather the standalone differential, symbolic, fuzz and test-system scripts under `testing/`, with a checked map of testing techniques. Existing make targets, CI job names, test cases and acceptance limits stay unchanged.
+
+### Performance
+
+#### Sample reinforcement coordinates once before projecting the workspace (2026-11-15)
+
+Bar-path sampling now copies source coordinates into plain points before bounds and mesh construction. Opening and reopening the reinforcement workspace no longer carry reactive endpoint objects through those passes, and arc sampling reads each source coordinate once. Sampling tolerance, subdivision counts, geometry and analysis results are unchanged. Regression checks count source reads instead of depending on runner speed; the existing workspace timing budgets are unchanged.
+
 ## 0.6.1 (2026-11-15)
 
 Release notes: [`docs/releases/v0.6.1.md`](docs/releases/v0.6.1.md) (also in [Spanish](docs/releases/v0.6.1.es.md), [Portuguese](docs/releases/v0.6.1.pt.md), [German](docs/releases/v0.6.1.de.md), [French](docs/releases/v0.6.1.fr.md) and [Turkish](docs/releases/v0.6.1.tr.md)).

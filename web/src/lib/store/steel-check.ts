@@ -18,7 +18,7 @@ export function runSteelCheck(): { checked: number } | { refused: 'noResults' } 
   const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
   let perCombo: Map<number, AnalysisResults3D> = activePerCombo3D();
   let combos = activeCombinations();
-  if (perCombo.size === 0) { perCombo = new Map([[0, results3D]]); combos = [{ id: 0, name: '', factors: [] }] as never; }
+  if (perCombo.size === 0 && combos.length === 0) { perCombo = new Map([[0, results3D]]); combos = [{ id: 0, name: '', factors: [] }] as never; }
   const { demands, stations } = computeStationDemands(perCombo, combos, md as never);
   /*
    * The whole of each member's lengths: `chain`, so F.1.1 reads the diagram over the unbraced

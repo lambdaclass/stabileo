@@ -42,6 +42,8 @@ export interface MemberContext {
    * force's peak (a column's smaller compression with nearly its largest moment) is only here.
    */
   tuples?: StationTuple[];
+  readonly expectedCombinationIds?: readonly number[];
+  readonly stationTs?: readonly number[];
   /** The clear cover of the member's kind (m), from the project's design data; else the default. */
   cover?: number;
   /** The bar steel's fy (MPa), from the project's design data; else the default. */

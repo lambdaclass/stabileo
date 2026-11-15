@@ -110,7 +110,7 @@ function aiscRun(): ForeignRun {
 function contexts(omitted?: Array<{ elementId: number; reasonKey: string }>): MemberContext[] {
   const perCombo = activePerCombo3D();
   if (!perCombo.size && !resultsStore.results3D) return [];
-  const combos = activeCombinations().filter((c) => perCombo.has(c.id));
+  const combos = activeCombinations();
   return memberContexts(modelStore.model as never, perCombo, combos, undefined, { ...(omitted ? { omitted } : {}), designData: otherCodesDesignData() });
 }
 
@@ -264,6 +264,7 @@ function ec2Run(code: 'ec2' | 'ec2-uk'): ForeignRun {
     const vertical = ctx.kind !== 'beam';
     if (ctx.kind === 'wall' || (vertical && Math.max(s.b, s.h) > 4 * Math.min(s.b, s.h))) { skip('otherCodes.skip.ec2Wall'); continue; }
     const input: Ec2MemberInput = {
+      elementId: id, expectedCombinationIds: ctx.expectedCombinationIds, stationTs: ctx.stationTs,
       kind: vertical ? 'column' : 'beam', b: s.b, h: s.h, L: ctx.L,
       ...(ctx.kStrong !== undefined ? { kStrong: ctx.kStrong } : {}), ...(ctx.kWeak !== undefined ? { kWeak: ctx.kWeak } : {}),
       demands: ctx.demands, ...(ctx.tuples ? { tuples: ctx.tuples } : {}), cover: vertical ? dd.covers.column : dd.covers.beam, linkDia: dd.stirrupDiaMm, barDia: bar,

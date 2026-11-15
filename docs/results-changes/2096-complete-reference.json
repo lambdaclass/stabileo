@@ -1,0 +1,351 @@
+{
+  "foreign": [
+    {
+      "code": "aisc360",
+      "rows": [
+        {
+          "elementId": 1,
+          "status": "checked",
+          "reading": {
+            "ratio": 0.18743064351491673,
+            "governing": "otherCodes.gov.interaction",
+            "clause": "H1",
+            "pass": true,
+            "unevaluated": []
+          },
+          "comboName": "C1",
+          "stationX": 0,
+          "comboId": 1,
+          "stationT": 0
+        }
+      ]
+    },
+    {
+      "code": "ec3",
+      "rows": [
+        {
+          "elementId": 1,
+          "status": "checked",
+          "reading": {
+            "ratio": 0.18878237216895513,
+            "governing": "otherCodes.gov.flexureStrong",
+            "clause": "6.3.2",
+            "pass": true,
+            "unevaluated": [],
+            "parts": [
+              {
+                "kind": "compression",
+                "clause": "6.3.1",
+                "ratio": 0
+              },
+              {
+                "kind": "tension",
+                "clause": "6.2.3",
+                "ratio": 0
+              },
+              {
+                "kind": "flexureStrong",
+                "clause": "6.3.2",
+                "ratio": 0.18878237216895513
+              },
+              {
+                "kind": "flexureWeak",
+                "clause": "6.2.5",
+                "ratio": 0
+              },
+              {
+                "kind": "shear",
+                "clause": "6.2.6",
+                "ratio": 0.003499092540543186
+              },
+              {
+                "kind": "interaction",
+                "clause": "6.3.3",
+                "ratio": 0.18878237216895513
+              }
+            ],
+            "accredited": {
+              "ratio": 0.18878237216895513,
+              "governing": "otherCodes.gov.flexureStrong",
+              "clause": "6.3.2",
+              "comboName": "C1",
+              "stationX": 0
+            }
+          },
+          "comboName": "C1",
+          "stationX": 0,
+          "comboId": 1,
+          "stationT": 0
+        }
+      ]
+    },
+    {
+      "code": "aci318",
+      "rows": [
+        {
+          "elementId": 1,
+          "status": "checked",
+          "reading": {
+            "ratio": 0.19199535777302193,
+            "governing": "otherCodes.gov.flexure",
+            "clause": "22.3",
+            "pass": true,
+            "unevaluated": []
+          },
+          "comboName": "C1",
+          "stationX": 0,
+          "comboId": 1,
+          "stationT": 0
+        }
+      ]
+    },
+    {
+      "code": "ec2",
+      "rows": [
+        {
+          "elementId": 1,
+          "status": "checked",
+          "reading": {
+            "ratio": 0.20009053467426802,
+            "governing": "otherCodes.gov.flexure",
+            "clause": "6.1",
+            "pass": true,
+            "unevaluated": []
+          },
+          "comboName": "C1",
+          "stationX": 0,
+          "comboId": 1,
+          "stationT": 0
+        }
+      ]
+    },
+    {
+      "code": "aisiS100",
+      "rows": [
+        {
+          "elementId": 1,
+          "status": "checked",
+          "reading": {
+            "ratio": 7.222837656389059,
+            "governing": "otherCodes.gov.flexureStrong",
+            "clause": "F",
+            "pass": false,
+            "unevaluated": [
+              "otherCodes.check.cfsDistortional",
+              "otherCodes.check.cfsWebShear"
+            ]
+          },
+          "comboName": "C1",
+          "stationX": 0,
+          "comboId": 1,
+          "stationT": 0
+        }
+      ]
+    }
+  ],
+  "direct": {
+    "elementId": 1,
+    "Mu": 20,
+    "Nu": 0,
+    "Vu": 1,
+    "overallStatus": "ok",
+    "flexure": {
+      "AsReq": 4.76,
+      "AsProv": 6.284,
+      "phiMn": 81.72691981835293,
+      "ratio": 0.24471740822304575
+    },
+    "shear": {
+      "ratio": 0.006049963878845501,
+      "phiVn": 165.2902430536209
+    }
+  },
+  "prepared": {
+    "elementId": 1,
+    "Mu": 20,
+    "Nu": 0,
+    "Vu": 1,
+    "overallStatus": "ok",
+    "flexure": {
+      "AsReq": 4.76,
+      "AsProv": 6.284,
+      "phiMn": 81.72691981835293,
+      "ratio": 0.24471740822304575
+    },
+    "shear": {
+      "ratio": 0.006049963878845501,
+      "phiVn": 165.2902430536209
+    }
+  },
+  "auto": [
+    {
+      "elementId": 1,
+      "Mu": 20,
+      "Nu": 0,
+      "Vu": 1,
+      "overallStatus": "ok",
+      "flexure": {
+        "AsReq": 4.76,
+        "AsProv": 6.284,
+        "phiMn": 81.72691981835293,
+        "ratio": 0.24471740822304575
+      },
+      "shear": {
+        "ratio": 0.006049963878845501,
+        "phiVn": 165.2902430536209
+      }
+    },
+    {
+      "elementId": 2,
+      "Mu": 1000,
+      "Nu": 0,
+      "Vu": 1,
+      "overallStatus": "fail",
+      "flexure": {
+        "AsReq": 84.4274545814996,
+        "AsProv": 88.462,
+        "phiMn": 1008.1060055757893,
+        "ratio": 0.9919591734093882
+      },
+      "shear": {
+        "ratio": 0.006049963878845501,
+        "phiVn": 165.2902430536209
+      }
+    }
+  ],
+  "ec2": {
+    "rows": [
+      {
+        "code": "en-1992-1-1",
+        "edition": "2004",
+        "clause": "6.1",
+        "title": "Flexure, sagging",
+        "titleKey": "check.ec2.flexurePos",
+        "formula": "As ≤ As,max (9.2.1.1(3)); block of 3.1.7(3)",
+        "inputs": [
+          {
+            "symbol": "MEd",
+            "value": 20,
+            "unit": "kN·m"
+          },
+          {
+            "symbol": "d",
+            "value": 359,
+            "unit": "mm"
+          },
+          {
+            "symbol": "K",
+            "value": 0.013
+          },
+          {
+            "symbol": "K'",
+            "value": 0.197
+          },
+          {
+            "symbol": "z",
+            "value": 341.05,
+            "unit": "mm"
+          },
+          {
+            "symbol": "As,min",
+            "value": 2.575,
+            "unit": "cm²"
+          }
+        ],
+        "demand": 2.575,
+        "capacity": 64,
+        "unit": "cm²",
+        "ratio": 0.04,
+        "status": "ok",
+        "combination": "C1",
+        "location": "x = 0.00 m",
+        "derivation": [
+          "As = 2.57 cm²",
+          "As,min = max(0.26·fctm/fyk; 0.0013)·b·d (9.2.1.1(1))"
+        ]
+      },
+      {
+        "code": "en-1992-1-1",
+        "edition": "2004",
+        "clause": "6.2.2(1); 6.2.3(3)",
+        "title": "Shear",
+        "titleKey": "check.ec2.shearMax",
+        "formula": "VEd ≤ VRd,max = αcw·bw·z·ν1·fcd/(cotθ + tanθ); Asw/s = VEd/(z·fywd·cotθ) ≥ ρw,min·bw where VEd > VRd,c",
+        "inputs": [
+          {
+            "symbol": "VEd",
+            "value": 1,
+            "unit": "kN"
+          },
+          {
+            "symbol": "k",
+            "value": 1.746
+          },
+          {
+            "symbol": "ρl",
+            "value": 0.002
+          },
+          {
+            "symbol": "VRd,c",
+            "value": 63.533,
+            "unit": "kN"
+          },
+          {
+            "symbol": "cotθ",
+            "value": 2.5
+          },
+          {
+            "symbol": "ν1",
+            "value": 0.528
+          },
+          {
+            "symbol": "z",
+            "value": 323.1,
+            "unit": "mm"
+          },
+          {
+            "symbol": "Asw/s",
+            "value": 4.173,
+            "unit": "cm²/m"
+          },
+          {
+            "symbol": "ρw,min",
+            "value": 0.001
+          },
+          {
+            "symbol": "s,max",
+            "value": 269.25,
+            "unit": "mm"
+          }
+        ],
+        "demand": 1,
+        "capacity": 470.612,
+        "unit": "kN",
+        "ratio": 0.002,
+        "status": "ok",
+        "combination": "C1",
+        "location": "x = 0.00 m",
+        "derivation": [
+          "VEd ≤ VRd,c = 63.5 kN: minimum links (9.2.2(5))",
+          "Asw/s = 4.17 cm²/m (C1, x = 0.00 m)",
+          "largest link spacing 269 mm (9.2.2(6))"
+        ]
+      }
+    ],
+    "data": [
+      [
+        "As,inf",
+        "2.57 cm²"
+      ],
+      [
+        "As,sup",
+        "0.00 cm²"
+      ],
+      [
+        "Asw/s",
+        "4.17 cm²/m"
+      ]
+    ],
+    "axis": "My"
+  }
+}

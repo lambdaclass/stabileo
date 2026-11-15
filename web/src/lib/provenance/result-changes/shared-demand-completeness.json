@@ -1,0 +1,37 @@
+{
+  "id": "shared-demand-completeness",
+  "date": "2026-11-15",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers",
+      "steelMembers"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc",
+    "steel"
+  ],
+  "title": {
+    "en": "Member verdicts require every requested demand",
+    "es": "Los resultados requieren todas las demandas solicitadas",
+    "pt": "Os resultados exigem todas as solicitações pedidas",
+    "de": "Bauteilnachweise benötigen alle angeforderten Beanspruchungen",
+    "fr": "Les vérifications exigent toutes les sollicitations demandées",
+    "tr": "Eleman sonuçları istenen tüm talepleri gerektirir"
+  },
+  "explanation": {
+    "en": "Design and certification now refuse missing active combinations, members or declared stations, including endpoints. Earlier runs could check only the surviving demands and return a verdict. Re-run saved concrete and steel designs, including foreign-code checks, and review refused members and certificates (#2096). Complete-input numerical rules are unchanged.",
+    "es": "El diseño y la certificación ahora rechazan combinaciones activas, barras o estaciones declaradas ausentes, incluidos los extremos. Antes podían verificar solo las demandas restantes y emitir un resultado. Repetí los diseños guardados de hormigón y acero, incluidos los de otras normas, y revisá los rechazos y certificados (#2096). Las reglas numéricas con datos completos no cambian.",
+    "pt": "O dimensionamento e a certificação agora recusam combinações ativas, membros ou estações declaradas ausentes, incluindo as extremidades. Antes podiam verificar apenas as solicitações restantes e emitir um resultado. Refaça os projetos salvos de concreto e aço, incluindo outras normas, e revise recusas e certificados (#2096). As regras numéricas com dados completos não mudam.",
+    "de": "Bemessung und Zertifizierung lehnen fehlende aktive Kombinationen, Bauteile oder deklarierte Stationen einschließlich der Enden ab. Frühere Läufe konnten nur die verbleibenden Beanspruchungen prüfen und ein Ergebnis ausgeben. Gespeicherte Beton- und Stahlbemessungen einschließlich anderer Normen erneut ausführen und Ablehnungen sowie Zertifikate prüfen (#2096). Die numerischen Regeln bei vollständigen Eingaben bleiben gleich.",
+    "fr": "Le dimensionnement et la certification refusent désormais les combinaisons actives, éléments ou sections déclarées manquants, y compris aux extrémités. Les calculs précédents pouvaient vérifier seulement les sollicitations restantes et rendre un résultat. Relancer les dimensionnements enregistrés en béton et acier, y compris selon les autres normes, et vérifier refus et certificats (#2096). Les règles numériques avec des données complètes restent inchangées.",
+    "tr": "Tasarım ve sertifikasyon artık eksik etkin birleşimleri, elemanları veya uçlar dahil bildirilmiş istasyonları reddeder. Önceki çalıştırmalar yalnızca kalan talepleri kontrol edip sonuç verebiliyordu. Diğer yönetmelikler dahil kayıtlı beton ve çelik tasarımlarını yeniden çalıştırın; retleri ve sertifikaları inceleyin (#2096). Tam girdilerin sayısal kuralları değişmez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-shared-demand-completeness.md",
+    "heading": "Shared demand completeness before member design (2026-11-15)"
+  }
+}
