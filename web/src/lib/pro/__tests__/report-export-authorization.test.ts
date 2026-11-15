@@ -36,7 +36,7 @@ const cases = (['2d', 'pro'] as const).flatMap(mode =>
   ),
 );
 
-it.skipIf(!process.env.RUN_KNOWN_WRONG).each(cases)(
+it.each(cases)(
   'known wrong result: #2099 — refuses $mode/$format report after $change during sign-in',
   async ({ mode, format, change }) => {
     uiStore.analysisMode = mode;

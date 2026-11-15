@@ -571,7 +571,7 @@ const stepsHu: Translations = {
   "steps.trusses.compat.meaning": "Erő",
   "steps.trusses.compat.PTable": "Az egyes elemi koordináták p alakváltozásai és P erői.",
   "steps.trusses.compat.endsTitle": "Támaszerők és egyensúly",
-  "steps.trusses.compat.endsLeadTruss": "Minden rúd a normálereje szerint húzza vagy nyomja a csomópontjait. A támasznál a támaszerő az ott találkozó k rudak ezen erőinek összege, csökkentve a csomóponti teherrel.",
+  "steps.trusses.compat.endsLeadTruss": "Minden rúd a normálereje szerint húzza vagy nyomja a csomópontjait. A támasznál a támaszerő az ott találkozó k rudak ezen erői összegének ellentettje, csökkentve a csomópontra ható P teherrel: R = −ΣF_k − P.",
   "steps.trusses.compat.endsLeadFrame": "A végnyomatékok kiegészítik az egyes rudak nyíróerőit, és az egyes támaszcsomópontok egyensúlya megadja a támaszerőt: az ott találkozó k rudak végerőinek összege, csökkentve a csomóponti teherrel.",
   "steps.trusses.compat.shearNote": "V^s a rúdteher támaszerői egyszerűen megtámasztott rúd esetén; a második tag a végnyomatékokat egyensúlyozza.",
   "steps.trusses.compat.endsTable": "A rúdvégi erők (N húzásnál pozitív, V a lokális +y mentén, M az óramutató járásával ellentétesen).",

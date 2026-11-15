@@ -20,7 +20,7 @@
  * rather than not going out.
  */
 
-import { captureProvenanceToken, provenanceForExport, provenanceLabels, scopeOfResultSet, ExportChangedError } from '../store/result-provenance';
+import { assertExportCurrent, captureProvenanceToken, provenanceForExport, provenanceLabels, scopeOfResultSet, ExportChangedError } from '../store/result-provenance';
 import { reportProvenanceLines } from '../export/provenance-attach';
 import { runEngineActionAsync } from '../store/engine-action';
 import { tick } from 'svelte';
@@ -129,7 +129,18 @@ async function exportReportWithEngine(input: ReportExportInputs, token: ReturnTy
     if (e instanceof ExportChangedError) { uiStore.toast(e.message, 'error'); return; }
     throw e;
   }
-  if (!input.format || input.format === 'pdf') { accountGate.guard('export', () => openReport(data)); return; }
+  if (!input.format || input.format === 'pdf') {
+    accountGate.guard('export', () => {
+      try { assertExportCurrent(token); }
+      catch (error) {
+        if (!(error instanceof ExportChangedError)) throw error;
+        uiStore.toast(error.message, 'error');
+        return;
+      }
+      openReport(data);
+    });
+    return;
+  }
   const { downloadReport } = await import('../export/report-download');
   await downloadReport(input.format, { title: data.projectName || input.t('proReport.title'), html: generateReportHtml(data), stem: `report-${(data.projectName || 'model').replace(/[^\w.-]+/g, '-')}`, ...(data.resultProvenance ? { provenance: reportProvenanceLines(data.resultProvenance.record) } : {}) });
 }
