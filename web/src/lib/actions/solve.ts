@@ -15,9 +15,9 @@
  */
 
 import { uiStore, resultsStore, modelStore } from '../store';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { hasInvalid2DDisplacements } from '../geometry/coordinate-system';
-import { reportModelDiagnostics } from '../engine/solve-diagnostics';
+import { reportModelDiagnostics, solverNoticeCount } from '../engine/solve-diagnostics';
 import { runGlobalSolve, lastSolveFailure } from '../engine/live-calc';
 import { requestAutosave } from '../store/autosave-service';
 import { spectralCaseResults } from '../store/spectral-cases';
@@ -131,15 +131,9 @@ function runSolve2D(): SolveOutcome {
         comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
       }
     }
-    // Show diagnostics warnings if present
-    const diagWarnings = [
-      ...(results.diagnostics ?? []).filter(d => d.metric === 'negative_jacobian').map(d => d.message),
-      ...(results.solverDiagnostics ?? []).filter(d => d.severity === 'warning').map(d => d.message),
-    ];
-    if (diagWarnings.length > 0) {
-      uiStore.toast(diagWarnings.join(' | '), 'info');
-    }
-    uiStore.toast(`${t('results.calcSuccess')}${classText} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`, 'success');
+    const noticeCount = solverNoticeCount(results);
+    const noticeText = noticeCount > 0 ? ` · ${tp('solveProgress.warnings', { n: noticeCount })}` : '';
+    uiStore.toast(`${t('results.calcSuccess')}${classText} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}${noticeText}`, 'success');
     // A solve is the expensive operation autosave exists for; only live-calc asked for one.
     void requestAutosave('solve');
     return { ok: true };
