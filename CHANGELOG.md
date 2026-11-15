@@ -36,6 +36,10 @@ Gather the standalone differential, symbolic, fuzz and test-system scripts under
 
 ### Fixed
 
+#### Spatial unloaded-shape test uses the required force record (2026-11-15)
+
+The 3D deformed-shape test now supplies forces from the same model solved without loads to match the required API signature. The loaded recovery refusal and unloaded zero-displacement assertions are unchanged, restoring the web typecheck without changing engine results (#2143, PR #2170).
+
 #### Member recovery certificate checks build against the fallible shape API (2026-11-15)
 
 The 2D and 3D displayed-result certificate tests now require successful load-free shape recovery before checking the same displacement bounds. Remove the stale fallback allow-list entry, retain validated bending stiffness as an option, select end couples explicitly, and register the shared recovery WASM export as postprocessing. Numerical results, limits and assertions are unchanged (#2143, PR #2170).

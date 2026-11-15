@@ -300,9 +300,11 @@ describe('computeDeformedShape3D', () => {
       expect(() => computeDeformedShape3D(
         { x: 0, y: 0, z: 0 }, { x: L, y: 0, z: 0 }, dI, dJ, ef, SCALE, undefined,
       )).toThrow();
+      const unloadedResults = solve3D({ ...input, loads: [] });
+      assertSuccess(unloadedResults);
       const points = computeDeformedShape3D(
         { x: 0, y: 0, z: 0 }, { x: L, y: 0, z: 0 },
-        dI, dJ, undefined, SCALE, undefined,
+        dI, dJ, getEF(unloadedResults, 1), SCALE, undefined,
       );
 
       // All points should be at y ≈ 0 (Hermite with zero end disp/rot)
