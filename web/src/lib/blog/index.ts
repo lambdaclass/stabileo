@@ -24,6 +24,7 @@ import { jaie2026Talk } from './posts/jaie-2026-talk';
 import { tiic2026SecondPlace } from './posts/tiic-2026-second-place';
 import { release050 } from './posts/release-0-5-0';
 import { release060 } from './posts/release-0-6-0';
+import { release061 } from './posts/release-0-6-1';
 
 /**
  * By `order`, not by date.
@@ -50,6 +51,7 @@ export const POSTS: Post[] = [
   tiic2026SecondPlace,
   release050,
   release060,
+  release061,
 ].sort((a, b) => a.order - b.order);
 
 addTranslations(POSTS, (p) => p.slug, import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts'], { eager: true, import: 'default' }));
