@@ -32,7 +32,7 @@ let held: QueuedEvent[] = [];
 let timer: ReturnType<typeof setTimeout> | null = null;
 let serverOff = false;
 let context: UsageContext = { appMode: () => null, locale: () => null, enabled: () => false };
-const sessionId = randomId();
+const sessionId = import.meta.env.VITE_ACCOUNTS !== '0' ? randomId() : '';
 
 function randomId(): string {
   try {
@@ -81,6 +81,7 @@ function schedule(): void {
 
 /** Until the person answers the usage notice, events wait in memory: sent if they agree, dropped if not. */
 export function trackUsage(name: string, props: Record<string, unknown> = {}): void {
+  if (import.meta.env.VITE_ACCOUNTS === '0') return;
   if (usageConsent.choice === 'denied' || serverOff || automated() || !EVENT_NAME.test(name)) return;
   const event = { name, at: new Date().toISOString(), props: cleanProps(props) };
   if (!usageConsent.granted) {

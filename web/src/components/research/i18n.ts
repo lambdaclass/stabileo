@@ -473,7 +473,7 @@ export type ResearchStrings = {
   benchmark: Record<'viewer' | 'path' | 'parameters' | 'case' | 'riseSpan' | 'loadDirection' | 'downward' | 'upward' | 'arcLengthStep' | 'recompute' | 'stop' | 'restart' | 'backToReplay' | 'play' | 'pause' | 'step' | 'reference' | 'stabileo' | 'error' | 'result' | 'reset', string>;
 };
 
-export const STRINGS: Record<'en' | 'es' | 'pt' | 'hu', ResearchStrings> = {
+export const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> & Partial<Record<'hu', ResearchStrings>> = {
   en: {
     maxDamage: "Maximum damage",
     forceAxis: "Force F (kN)",
@@ -1881,7 +1881,7 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'hu', ResearchStrings> = {
       step: 'Passo de carga mostrado', reference: 'Referência', stabileo: 'Stabileo', error: 'Erro', result: 'Resultado', reset: 'Restaurar parâmetros',
     },
   },
-  hu: {
+  ...(import.meta.env.VITE_RESEARCH === '1' ? { hu: {
     maxDamage: "Legnagyobb károsodás",
     forceAxis: "F erő (kN)",
     fractureToleranceNote: "Az 57. lépésben a károsodás tűrése 1e-4, mert a repedés egyetlen növekmény alatt átfut a lemezen; a beállt mezőknél 1e-8. Ezek összehasonlítási küszöbök, nem hibakorlátok.",
@@ -2349,7 +2349,7 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'hu', ResearchStrings> = {
       recompute: "Újraszámítás élőben", stop: "Leállítás", restart: "Újraindítás", backToReplay: "Vissza a visszajátszáshoz", play: "Lejátszás", pause: "Szünet",
       step: "Megjelenített teherlépés", reference: "Referencia", stabileo: "Stabileo", error: "Hiba", result: "Eredmény", reset: "Paraméterek visszaállítása",
     },
-  },
+  } } : {}),
 };
 
 const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
@@ -2516,14 +2516,14 @@ export const FIELD_NAMES: Record<string, Record<string, string>> = {
   en: { fracture: 'Fracture and damage', 'differentiable-fem': 'Differentiable FEM', optimization: 'Optimization', metamaterials: 'Metamaterials', constitutive: 'Constitutive models', 'digital-twins': 'Digital twins', 'numerical-methods': 'Numerical methods', seismic: 'Seismic and dynamics', shells: 'Shells and buckling' },
   es: { fracture: 'Fractura y daño', 'differentiable-fem': 'FEM diferenciable', optimization: 'Optimización', metamaterials: 'Metamateriales', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gemelos digitales', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica y dinámica', shells: 'Cáscaras y pandeo' },
   pt: { fracture: 'Fratura e dano', 'differentiable-fem': 'MEF diferenciável', optimization: 'Otimização', metamaterials: 'Metamateriais', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gêmeos digitais', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica e dinâmica', shells: 'Cascas e flambagem' },
-  hu: { fracture: 'Törés és károsodás', 'differentiable-fem': 'Differenciálható VEM', optimization: 'Optimalizálás', metamaterials: 'Metaanyagok', constitutive: 'Anyagmodellek', 'digital-twins': 'Digitális ikrek', 'numerical-methods': 'Numerikus módszerek', seismic: 'Földrengés és dinamika', shells: 'Héjak és stabilitásvesztés' },
+  ...(import.meta.env.VITE_RESEARCH === '1' ? { hu: { fracture: 'Törés és károsodás', 'differentiable-fem': 'Differenciálható VEM', optimization: 'Optimalizálás', metamaterials: 'Metaanyagok', constitutive: 'Anyagmodellek', 'digital-twins': 'Digitális ikrek', 'numerical-methods': 'Numerikus módszerek', seismic: 'Földrengés és dinamika', shells: 'Héjak és stabilitásvesztés' } } : {}),
 };
 
 export const STATUS_NAMES: Record<string, Record<string, string>> = {
   en: { proposed: 'Proposed', 'reference-reproduced': 'Reference reproduced', 'implementation-in-progress': 'Implementation in progress', 'numerically-validated': 'Numerically validated', 'published-figures-compared': 'Published figures compared', interactive: 'Interactive' },
   es: { proposed: 'Propuesto', 'reference-reproduced': 'Referencia reproducida', 'implementation-in-progress': 'Implementación en curso', 'numerically-validated': 'Validado numéricamente', 'published-figures-compared': 'Comparado con las figuras publicadas', interactive: 'Interactivo' },
   pt: { proposed: 'Proposto', 'reference-reproduced': 'Referência reproduzida', 'implementation-in-progress': 'Implementação em andamento', 'numerically-validated': 'Validado numericamente', 'published-figures-compared': 'Comparado com as figuras publicadas', interactive: 'Interativo' },
-  hu: { proposed: 'Javasolt', 'reference-reproduced': 'Referencia reprodukálva', 'implementation-in-progress': 'Megvalósítás folyamatban', 'numerically-validated': 'Numerikusan validálva', 'published-figures-compared': 'Közölt ábrákkal összevetve', interactive: 'Interaktív' },
+  ...(import.meta.env.VITE_RESEARCH === '1' ? { hu: { proposed: 'Javasolt', 'reference-reproduced': 'Referencia reprodukálva', 'implementation-in-progress': 'Megvalósítás folyamatban', 'numerically-validated': 'Numerikusan validálva', 'published-figures-compared': 'Közölt ábrákkal összevetve', interactive: 'Interaktív' } } : {}),
 };
 
 export const fieldName = (f: string) => FIELD_NAMES[publicI18n.locale]?.[f] ?? FIELD_NAMES.en[f] ?? f;

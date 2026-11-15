@@ -52,7 +52,9 @@ export const POSTS: Post[] = [
   release060,
 ].sort((a, b) => a.order - b.order);
 
-addTranslations(POSTS, (p) => p.slug, import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts'], { eager: true, import: 'default' }));
+addTranslations(POSTS, (p) => p.slug, import.meta.env.VITE_RESEARCH === '1'
+  ? import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts'], { eager: true, import: 'default' })
+  : import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts', '!./translations/hu/**'], { eager: true, import: 'default' }));
 
 /**
  * What a reader looking for news expects: newest first (by date, then by series order). The blog

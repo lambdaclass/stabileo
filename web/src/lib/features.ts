@@ -47,15 +47,15 @@ export function accounts(): boolean {
 }
 
 export function research(): boolean {
-  return readFlag('research', import.meta.env?.VITE_RESEARCH === '1');
+  return import.meta.env?.VITE_RESEARCH !== '0' && readFlag('research', import.meta.env?.VITE_RESEARCH === '1');
 }
 
 export function tools(): boolean {
-  return readFlag('tools', import.meta.env?.VITE_TOOLS === '1');
+  return import.meta.env?.VITE_TOOLS !== '0' && readFlag('tools', import.meta.env?.VITE_TOOLS === '1');
 }
 
 export function diagramGame(): boolean {
-  return readFlag('diagram-game', import.meta.env?.VITE_DIAGRAM_GAME === '1');
+  return import.meta.env?.VITE_DIAGRAM_GAME !== '0' && readFlag('diagram-game', import.meta.env?.VITE_DIAGRAM_GAME === '1');
 }
 
 export const publicFeatures = (): PublicFeatures => ({ research: research(), tools: tools(), diagramGame: diagramGame(), accounts: accounts() });

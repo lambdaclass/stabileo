@@ -1,4 +1,4 @@
-import { defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
+import { defineConfig, loadEnv, searchForWorkspaceRoot, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
@@ -44,10 +44,20 @@ function wasmStubPlugin(): Plugin {
 const publicBuildEnvironment: { value: Record<string, string | undefined> } = { value: process.env };
 
 function publicBuildSwitchesPlugin(): Plugin {
+  let switches: Record<string, string> = {};
   return {
     name: 'public-build-switches',
+    config(config, { mode, command }) {
+      if (process.env.VITEST) return;
+      const environment = { ...loadEnv(mode, config.envDir ?? __dirname), ...process.env };
+      switches = Object.fromEntries(['ACCOUNTS', 'RESEARCH', 'TOOLS', 'DIAGRAM_GAME'].map(name => {
+        const key = `VITE_${name}`;
+        return [key, environment[key] ?? (name === 'ACCOUNTS' && command === 'serve' ? '1' : '0')];
+      }));
+      return { define: Object.fromEntries(Object.entries(switches).map(([key, value]) => [`import.meta.env.${key}`, JSON.stringify(value)])) };
+    },
     configResolved(config) {
-      publicBuildEnvironment.value = config.env;
+      publicBuildEnvironment.value = { ...config.env, ...switches };
     },
   };
 }
@@ -63,6 +73,10 @@ function publicI18nPlugin(): Plugin {
     const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
       const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
       if (!m) return false;
+      if (!eager && !ADMIN && m[2].startsWith('admin.')) return false;
+      if (!eager && publicBuildEnvironment.value.VITE_TOOLS === '0' && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(m[2])) return false;
+      if (!eager && !ADMIN && publicBuildEnvironment.value.VITE_ACCOUNTS === '0' && m[2].startsWith('disclaimer.') && m[2] !== 'disclaimer.report') return false;
+      if (!eager && !ADMIN && publicBuildEnvironment.value.VITE_ACCOUNTS === '0' && /^(?:account\.|legal\.|cloud\.|feedbackForm\.|usage\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2])) return false;
       const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => m[2].startsWith(prefix))
         && (!/^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2]) || publicBuildEnvironment.value.VITE_ACCOUNTS !== '0')
         && (m[2] !== 'landing.navGame' || publicBuildEnvironment.value.VITE_DIAGRAM_GAME !== '0');

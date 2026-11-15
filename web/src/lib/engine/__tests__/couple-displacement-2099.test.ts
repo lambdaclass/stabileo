@@ -2,7 +2,6 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { computeDeformedShape, computeDisplacementAt } from '../diagrams';
 import * as engine from '../wasm-solver';
 
-const knownWrong2099 = !process.env.IGNORED;
 const L = 5, EI = 20_000, C = 6;
 afterEach(() => vi.restoreAllMocks());
 
@@ -13,7 +12,7 @@ function closed(x: number, a: number, hinges: boolean): number {
 }
 
 for (const ready of [false, true]) for (const hinges of [false, true]) {
-  it.skipIf(knownWrong2099)(`known wrong result: #2099 — point and sampled recovery include a couple with WASM ready=${ready}, hinges=${hinges}`, () => {
+  it(`#2099 — point and sampled recovery include a couple with WASM ready=${ready}, hinges=${hinges}`, () => {
     vi.spyOn(engine, 'isWasmReady').mockReturnValue(ready);
     for (const a of [0, 1e-5, 2, L - 1e-5, L]) {
       const loads = [{ a, p: 0, my: C }];
@@ -40,5 +39,16 @@ it('an unloaded recovery and zero couple keep the same rigid motion', () => {
         expect(point.y).toBeCloseTo(2 + 0.1 * x, 12);
       });
     }
+  }
+});
+
+it('#2099 — WASM sampling retains its nonuniform distributed-load solution when a couple is added', () => {
+  vi.spyOn(engine, 'isWasmReady').mockReturnValue(true);
+  const qJ = 3, a = 2;
+  const points = computeDeformedShape(0, 0, L, 0, 0, 0, 0, 0, 0, 0, 1, L, false, false, EI, 0, qJ, [{ a, p: 0, my: C }]);
+  for (const [i, point] of points.entries()) {
+    const x = i / (points.length - 1) * L;
+    const force = qJ / L * (x ** 5 / 120 - L * L * x ** 3 / 40 + L ** 3 * x * x / 60) / EI;
+    expect(point.y).toBeCloseTo(force + closed(x, a, false), 12);
   }
 });

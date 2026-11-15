@@ -20,6 +20,7 @@ export function sizeBucket(n: number): string {
 }
 
 export function noteSolve(ok: boolean, startedAt: number): void {
+  if (import.meta.env.VITE_ACCOUNTS === '0') return;
   solveSignal.bump(ok);
   analysisFinished(ok);
   trackUsage('solve', {

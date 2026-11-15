@@ -439,7 +439,7 @@ export const batchTranslations: Record<string, Record<string, string>> = {
     "tools.batch.displacementNote": "|u| = √(ux² + uz²), yatay bileşen dahil toplam yer değiştirmenin büyüklüğüdür; hiçbir zaman negatif değildir ve yön göstermez.",
     "tools.batch.displacement": "En büyük yer değiştirme |u|"
   },
-  "hu": {
+  ...(import.meta.env.VITE_RESEARCH === '1' ? { "hu": {
     "tools.index.metaTitle": "Ingyenes szerkezettervezési kalkulátorok: gerendák, oszlopok, keretek és rácsos tartók",
     "tools.index.description": "Nyolc ingyenes kalkulátor gerendákhoz, oszlopkihajláshoz, többtámaszú gerendákhoz, portálkeretekhez, rácsos tartókhoz, hatásvonalakhoz és sajátfrekvenciákhoz, a Stabileótól, a nyílt forráskódú szerkezettervező szoftvertől.",
     "tools.free": "Ingyenes, a böngészőben: a Stabileo, a nyílt forráskódú szerkezetszámító szoftver számítja, és ahol van, a klasszikus megoldással veti össze.",
@@ -511,6 +511,6 @@ export const batchTranslations: Record<string, Record<string, string>> = {
     "tools.batch.decimalComma": "Tizedesjelként pontot használjon (6.5, nem 6,5), az értékeket pedig vesszővel és szóközzel, pontosvesszővel vagy szóközökkel válassza el.",
     "tools.batch.displacementNote": "|u| = √(ux² + uz²) a teljes elmozdulás nagysága, a vízszintest is beleértve; soha nem negatív, és nem mutat irányt.",
     "tools.batch.displacement": "Legnagyobb elmozdulás |u|"
-  }
+  } } : {})
 };
 export function tBatch(key: string): string { return batchTranslations[publicI18n.locale]?.[key] ?? tPublic(key); }

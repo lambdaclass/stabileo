@@ -535,7 +535,7 @@
       </div>
     {/if}
 
-    {#if authStore.usageTelemetryEnabled}
+    {#if import.meta.env.VITE_ACCOUNTS !== '0' && authStore.usageTelemetryEnabled}
       <div class="cfg-privacy" data-testid="cfg-privacy">
         <h4 class="cfg-privacy-heading">{t('usage.settingsHeading')}</h4>
         <label class="cfg-check">

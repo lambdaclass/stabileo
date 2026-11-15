@@ -32,3 +32,34 @@ test('else-if chains retain their syntax and runtime decision', () => {
   const source = '{#if import.meta.env.VITE_RESEARCH === "1"}<p>Research</p>{:else if visible}<p>Visible</p>{:else}<p>Main</p>{/if}';
   assert.equal(prunePublicBuildBranches(source, off).code, source);
 });
+
+for (const [file, tags] of [
+  ['src/App.svelte', ['MohrDialog', 'ResultsDisclaimer', 'UsageNotice', 'TermsUpdateDialog', 'AccountGateDialog', 'FeedbackDialog']],
+  ['src/components/account/ProfileDialog.svelte', ['CloudProjectsDialog']],
+  ['src/components/toolbar/ToolbarProject.svelte', ['CloudProjectsDialog']],
+  ['src/components/pro/ProProjectTab.svelte', ['CloudProjectsDialog']],
+]) {
+  test(`${file} removes optional application components before compilation`, async () => {
+    const { readFileSync } = await import('node:fs');
+    const content = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+    for (const [environment, expected] of [[off, false], [on, true]]) {
+      const markup = prunePublicBuildBranches(content, environment).code.split('</script>').at(-1);
+      for (const tag of tags) assert.equal(markup.includes(`<${tag}`), expected, tag);
+    }
+  });
+}
+
+for (const [file, attribute] of [
+  ['src/components/ContactMenu.svelte', 'contact-feedback'],
+  ['src/components/toolbar/ToolbarAdvanced.svelte', 'adv-mohr'],
+  ['src/components/toolbar/ToolbarConfig.svelte', 'cfg-privacy'],
+]) {
+  test(`${file} removes disabled feature actions before compilation`, async () => {
+    const { readFileSync } = await import('node:fs');
+    const content = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+    for (const [environment, expected] of [[off, false], [on, true]]) {
+      const markup = prunePublicBuildBranches(content, environment).code.split('</script>').at(-1);
+      assert.equal(markup.includes(`data-testid="${attribute}"`), expected);
+    }
+  });
+}

@@ -636,8 +636,8 @@
 
   async function syncRouteState() {
     const token = ++publicRevision;
-    restoreMovedRoute();
-    restoreUnpublishedResearchRoute();
+    if (import.meta.env.VITE_TOOLS !== '0') restoreMovedRoute();
+    if (import.meta.env.VITE_RESEARCH === '1') restoreUnpublishedResearchRoute();
     const next = routeKind();
     const shell = publicShell();
     const hash = next.kind === 'app' ? '' : location.hash;
@@ -941,7 +941,7 @@
 
   onMount(() => {
     if (accountsEnabled) void authStore.init();
-    const stopUsageTracking = installUsageTracking();
+    const stopUsageTracking = import.meta.env.VITE_ACCOUNTS !== '0' ? installUsageTracking() : () => {};
     currentAppMode = pathToMode(location.pathname);
     if (currentAppMode === 'educativo') {
       uiStore.analysisMode = 'edu';
@@ -1005,7 +1005,7 @@
     if (hashMode === 'embed' || queryParams.has('embed')) {
       uiStore.embedMode = true;
     }
-    openMohrFromUrl(queryParams);
+    if (import.meta.env.VITE_TOOLS !== '0') openMohrFromUrl(queryParams);
 
     // Landing demo iframe uses ?example=<id> to pre-load a sample structure
     const exampleId = queryParams.get('example');
@@ -1589,7 +1589,7 @@
       </div>
 
       {#if authStore.showAccountEntry}
-        <AccountButton />
+        {#if import.meta.env.VITE_ACCOUNTS !== '0'}<AccountButton />{/if}
       {/if}
 
       <!--
@@ -2204,11 +2204,13 @@
 
   {#if !uiStore.embedMode && !publicActive}
     <WhatsNewNotice />
-    <ResultsDisclaimer />
-    <UsageNotice />
-    <TermsUpdateDialog />
+    {#if import.meta.env.VITE_ACCOUNTS !== '0'}
+      <ResultsDisclaimer />
+      <UsageNotice />
+      <TermsUpdateDialog />
+    {/if}
   {/if}
-  {#if accountsEnabled}<AccountGateDialog /><FeedbackDialog />{/if}
+  {#if import.meta.env.VITE_ACCOUNTS !== '0' && accountsEnabled}<AccountGateDialog /><FeedbackDialog />{/if}
 
   <!--
     Mobile drawers (overlay on top of canvas) — PRO and Education only.
@@ -2391,7 +2393,7 @@
 <RecheckNotice />
 <WorkspaceSaveNotice />
 <ReproduceDialog />
-{#if mohrPanel.open}
+{#if import.meta.env.VITE_TOOLS !== '0' && mohrPanel.open}
   {#await import('./components/mohr/MohrDialog.svelte') then { default: MohrDialog }}<MohrDialog />{/await}
 {/if}
 

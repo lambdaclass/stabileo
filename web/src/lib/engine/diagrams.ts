@@ -3,6 +3,7 @@
 
 import { computeDeformedShape as wasmComputeDeformedShape, isWasmReady } from './wasm-solver';
 import { axialLoadUpTo } from './axial-span-2d';
+import type { ElementForces } from './types';
 
 export interface DiagramPoint {
   /** Position along element [0, 1] normalized */
@@ -253,11 +254,11 @@ export function computeDeformedShape(
   EI?: number,
   loadQI?: number,
   loadQJ?: number,
-  loadPoints?: Array<{ a: number; p: number }>,
+  loadPoints?: ElementForces['pointLoads'],
   distLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>,
 ): { x: number; y: number }[] {
   if (isWasmReady()) {
-    return wasmComputeDeformedShape({
+    const points = wasmComputeDeformedShape({
       nodeIx, nodeIy, nodeJx, nodeJy,
       uIx, uIy, rIz, uJx, uJy, rJz,
       scale, length, hingeStart, hingeEnd,
@@ -266,6 +267,15 @@ export function computeDeformedShape(
       loadQj: loadQJ ?? null,
       loadPoints: (loadPoints ?? []).map(p => [p.a, p.p]),
       distLoads: (distLoads ?? []).map(d => [d.qI, d.qJ, d.a, d.b]),
+    });
+    const couples = loadPoints?.filter(p => p.my).map(p => ({ a: p.a, p: 0, my: p.my }));
+    if (!couples?.length) return points;
+    return points.map((point: { x: number; y: number }, i: number) => {
+      const correction = computeDisplacementAt(
+        i / (points.length - 1), nodeIx, nodeIy, nodeJx, nodeJy,
+        0, 0, 0, 0, 0, 0, length, hingeStart, hingeEnd, EI, 0, 0, couples,
+      );
+      return { x: point.x + scale * correction.ux, y: point.y + scale * correction.uz };
     });
   }
 
@@ -304,7 +314,7 @@ export function computeDisplacementAt(
   EI?: number,
   loadQI?: number,
   loadQJ?: number,
-  loadPoints?: Array<{ a: number; p: number }>,
+  loadPoints?: ElementForces['pointLoads'],
   distLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>,
 ): { ux: number; uz: number } {
   const L = length;
@@ -337,11 +347,11 @@ export function computeDisplacementAt(
   const hasPtLoads = loadPoints && loadPoints.length > 0;
   const hasLoads = EI && EI > 1e-6 && (hasDistLoad || hasPtLoads);
 
-  const pointVpp = (P: number, aP: number) => {
+  const pointVpp = (P: number, aP: number, couple = 0) => {
     const bP = L - aP;
     return {
-      vpp0: P * aP * bP * bP / (EI! * L2),
-      vppL: P * aP * aP * bP / (EI! * L2),
+      vpp0: (P * aP * bP * bP + couple * bP * (L - 3 * aP)) / (EI! * L2),
+      vppL: (P * aP * aP * bP + couple * aP * (2 * L - 3 * aP)) / (EI! * L2),
     };
   };
 
@@ -376,7 +386,7 @@ export function computeDisplacementAt(
     }
     if (hasPtLoads) {
       for (const pl of loadPoints!) {
-        const { vpp0, vppL } = pointVpp(pl.p, pl.a);
+        const { vpp0, vppL } = pointVpp(pl.p, pl.a, pl.my);
         vpp_p0 += vpp0;
         vpp_pL += vppL;
       }
@@ -449,12 +459,16 @@ export function computeDisplacementAt(
     }
     if (hasPtLoads) {
       for (const pl of loadPoints!) {
-        const a = pl.a, P = pl.p, b = L - a;
+        const a = pl.a, P = pl.p, b = L - a, couple = pl.my ?? 0;
         if (x <= a) {
-          vp += P * b * b * x * x * (3 * a * L - x * (3 * a + b)) / (6 * EI! * L3);
+          const term = 3 * a * L - x * (3 * a + b);
+          vp += P * b * b * x * x * term / (6 * EI! * L3);
+          vp += couple * x * x * (b * b * (3 * L - 2 * x) - 2 * b * term) / (6 * EI! * L3);
         } else {
           const Lmx = L - x;
-          vp += P * a * a * Lmx * Lmx * (3 * b * L - Lmx * (3 * b + a)) / (6 * EI! * L3);
+          const term = 3 * b * L - Lmx * (3 * b + a);
+          vp += P * a * a * Lmx * Lmx * term / (6 * EI! * L3);
+          vp += couple * Lmx * Lmx * (2 * a * term - a * a * (3 * L - 2 * Lmx)) / (6 * EI! * L3);
         }
       }
     }

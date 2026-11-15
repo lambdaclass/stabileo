@@ -129,7 +129,7 @@
       <h3 class="acc-title" id="acc-profile-title">{t('account.profileTitle')}</h3>
       <p class="acc-lede">{tp('account.signedInAs', { email: authStore.account.email })}</p>
       <div class="acc-actions acc-top-actions">
-        {#if authStore.isAuthenticated && authStore.cloudProjectsEnabled}
+        {#if import.meta.env.VITE_ACCOUNTS !== '0' && authStore.isAuthenticated && authStore.cloudProjectsEnabled}
       <button class="acc-btn" onclick={() => (cloudOpen = true)} data-testid="cloud-projects-open">{t('account.myProjects')}</button>
     {/if}
       </div>
@@ -237,7 +237,7 @@
   </div>
 {/if}
 
-<CloudProjectsDialog bind:open={cloudOpen} />
+{#if import.meta.env.VITE_ACCOUNTS !== '0'}<CloudProjectsDialog bind:open={cloudOpen} />{/if}
 
 <style>
   .acc-top-actions { justify-content: flex-start; margin: -6px 0 10px; }

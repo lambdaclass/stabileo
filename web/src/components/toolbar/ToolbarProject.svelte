@@ -205,7 +205,7 @@
     <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openTooltip')}>
       {t('project.open')}
     </button>
-    {#if authStore.isAuthenticated && authStore.cloudProjectsEnabled}
+    {#if import.meta.env.VITE_ACCOUNTS !== '0' && authStore.isAuthenticated && authStore.cloudProjectsEnabled}
       <button class="file-btn" onclick={() => (cloudOpen = true)} data-testid="cloud-projects-open">{t('account.myProjects')}</button>
     {/if}
     <!--
@@ -417,7 +417,7 @@
 <ExportViewDialog bind:open={viewExportOpen} bind:format={viewExport} />
 <ResultsExportDialog bind:open={resultsOpen} />
 
-<CloudProjectsDialog bind:open={cloudOpen} />
+{#if import.meta.env.VITE_ACCOUNTS !== '0'}<CloudProjectsDialog bind:open={cloudOpen} />{/if}
 
 <style>
   /* ─── The Excel import report ────────────────────────────────────

@@ -474,7 +474,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   'scalarViewer.editorNote': 'Deneyleri düzenleyicide açma, araştırma moduyla gelecek',
   'scalarViewer.keyboard': 'Klavye: oklar kaydırır, Shift+oklar 3B’de döndürür, + ve - yakınlaştırır, 0 veya Home görünümü sığdırır',
   },
-  hu: {
+  ...(import.meta.env.VITE_RESEARCH === '1' ? { hu: {
   "tools.simply-supported-beam.subtitle": "Két támaszon fekvő gerenda lehajlása, nyíróereje és hajlítónyomatéka.",
   "tools.cantilever-beam.subtitle": "Egyik végén befogott gerenda lehajlása, nyíróereje és hajlítónyomatéka.",
   "tools.column-buckling.subtitle": "Rugalmas kritikus teher, első kihajlási alak és kihajlási hossz.",
@@ -552,5 +552,5 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "scalarViewer.soon": " (hamarosan)",
   "scalarViewer.editorNote": "A kísérletek szerkesztőben való megnyitása a kutatási móddal érkezik",
   "scalarViewer.keyboard": "Billentyűzet: a nyilak mozgatják a nézetet, a Shift+nyilak 3D-ben forgatnak, a + és a - nagyít, a 0 vagy a Home a nézethez igazít",
-  },
+  } } : {}),
 };

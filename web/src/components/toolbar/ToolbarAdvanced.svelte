@@ -172,10 +172,10 @@
       labelKey: 'advHelp.stress.label',
       textKey: 'advHelp.stress.text',
     },
-    'mohr': {
+    ...(import.meta.env.VITE_TOOLS !== '0' ? { mohr: {
       labelKey: 'advHelp.mohr.label',
       textKey: 'advHelp.mohr.text',
-    },
+    } } : {}),
     'despiece': {
       labelKey: 'advHelp.despiece.label',
       textKey: 'advHelp.despiece.text',
@@ -258,9 +258,9 @@
     { key: 'stress', labelKey: 'advanced.sectionAnalysis',
       isActive: () => uiStore.currentTool === 'select' && uiStore.selectMode === 'stress',
       close: () => { uiStore.selectMode = 'elements'; resultsStore.stressQuery = null; } },
-    { key: 'mohr', labelKey: 'advanced.mohr',
+    ...(import.meta.env.VITE_TOOLS !== '0' ? [{ key: 'mohr', labelKey: 'advanced.mohr',
       isActive: () => mohrPanel.open,
-      close: () => closeMohr() },
+      close: () => closeMohr() }] : []),
     { key: 'pdelta', labelKey: 'advanced.pdelta',
       isActive: () => !!(is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult),
       close: () => (is3D ? resultsStore.clearPDelta3D() : resultsStore.clearPDelta()) },
@@ -754,7 +754,7 @@
     {@render helpPanel('stress')}
       {/if}
     {/if}
-    {#if shown('mohr')}
+    {#if import.meta.env.VITE_TOOLS !== '0' && shown('mohr')}
       {#if !flat || active?.key !== 'mohr'}
     <div class="adv-btn-wrap" style="grid-column: span 2">
       {#if tools()}

@@ -68,9 +68,9 @@ test('accounts-on build keeps registration available and consent outside the sta
   assert.deepEqual(modules.filter(id => /\/lib\/tracking\//.test(id)), []);
 });
 
-test('an unspecified accounts build switch retains the registration chunk for browser overrides', async () => {
+test('an unspecified production accounts switch excludes registration', async () => {
   const { manifest, modules } = await landingBuild(undefined);
-  assert.ok(manifest['src/components/register/RegisterPage.svelte']);
+  assert.equal(manifest['src/components/register/RegisterPage.svelte'], undefined);
   assert.deepEqual(modules.filter(id => /\/lib\/tracking\//.test(id)), []);
 });
 
@@ -104,9 +104,7 @@ test('Vite environment files gate the locale dictionaries and compiled public ma
   }
 });
 
-const knownWrong2099 = process.env.IGNORED ? false : 'known wrong result: #2099';
-
-test('CI default build excludes optional public policy and registration', { skip: knownWrong2099 }, async () => {
+test('CI default build excludes optional public policy and registration', async () => {
   const { manifest, modules, emittedModules } = await landingBuild(undefined, undefined, undefined, true);
   assert.deepEqual(modules.filter(id => /\/lib\/(legacy-routes|public-feature-policy)\.ts$/.test(id)), []);
   assert.equal(manifest['src/components/register/RegisterPage.svelte'], undefined);
