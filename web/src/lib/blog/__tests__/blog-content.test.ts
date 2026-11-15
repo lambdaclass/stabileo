@@ -164,7 +164,7 @@ describe('blog posts', () => {
                     ? `link:${b.slug}`
                     : b.k === 'ext'
                       ? `ext:${expectedLocale && expectedLocale !== 'en'
-                        ? b.href.replace(/(\/docs\/releases\/v0\.6\.0)\.md$/, `$1.${expectedLocale}.md`)
+                        ? b.href.replace(/(\/docs\/releases\/v0\.6\.[01])\.md$/, `$1.${expectedLocale}.md`)
                         : b.href}`
                       : b.k === 'img'
                         ? `img:${b.base}:${b.w}x${b.h}`

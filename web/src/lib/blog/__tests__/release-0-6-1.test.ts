@@ -20,7 +20,7 @@ function rows(section: string): string[][] {
     .map(line => line.split('|').slice(1, -1).map(cell => plain(cell.trim())));
 }
 
-describe.skip('0.6.1 release article — known missing content pending publication', () => {
+describe('0.6.1 release article', () => {
   it('publishes after 0.6.0 in the same six languages', () => {
     const previous = findPost('stabileo-0-6-0')!;
     const post = findPost('stabileo-0-6-1');
@@ -42,6 +42,9 @@ describe.skip('0.6.1 release article — known missing content pending publicati
     const body = findPost('stabileo-0-6-1')?.i18n[locale];
     expect(body).toBeDefined();
     const sections = notes(locale).split(/^## /m);
+    expect(body!.title).toBe(notes(locale).split('\n')[0].slice(2));
+    const action = plain(sections[1].trim().split('\n\n')[1]);
+    expect(body!.excerpt).toBe(action.split(/(?<=\.) /).slice(0, 2).join(' '));
     expect(body!.blocks[0]).toEqual({ k: 'p', t: plain(sections[1].trim().split('\n\n')[1]) });
     expect(body!.blocks[1]).toEqual({ k: 'note', t: plain(sections[2].trim().split('\n\n')[1]) });
     const expected = rows(sections[2]);
@@ -68,12 +71,16 @@ describe.skip('0.6.1 release article — known missing content pending publicati
   it.each(locales)('%s retains every open wrong-result issue and limitation without internal process claims', locale => {
     const body = findPost('stabileo-0-6-1')?.i18n[locale];
     expect(body).toBeDefined();
-    const limitations = notes(locale).split(/^## /m).at(-1)!;
+    const sections = notes(locale).split(/^## /m);
+    const other = plain(sections[4].trim().split('\n\n')[1]).split(/(?<=\.) /).slice(0, 3).join(' ');
+    expect(body!.blocks).toContainEqual({ k: 'p', t: other });
+    const limitations = sections.at(-1)!;
     const items = limitations.split('\n').filter(line => line.startsWith('- ')).map(line => plain(line.slice(2)));
     expect(items).toHaveLength(5);
     expect(items[0].match(/#\d+/g)).toEqual(['#2096', '#2142', '#2143', '#2144']);
     expect(items[1]).toContain('SA-2026-056');
     expect(body!.blocks).toContainEqual({ k: 'ul', items });
-    expect(JSON.stringify(body)).not.toMatch(/\binfra(?:structure)?\b|\breview counts?\b|\bpull requests?\b|\bCI\b|\bworkflow\b|\bbenchmark\b|\bcache\b|\bmigration\b/i);
+    expect(JSON.stringify(body)).not.toMatch(/\bCI\b|continuous integration/);
+    expect(JSON.stringify(body)).not.toMatch(/\binfra(?:structure)?\b|\breview counts?\b|\bpull requests?\b|\bworkflow\b|\bbenchmark\b|\bcache\b|\bmigration\b/i);
   });
 });
