@@ -7,10 +7,9 @@ import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 const root = resolve(import.meta.dirname, '..');
-const knownWrong = { skip: process.env.IGNORED !== '1' && 'known wrong result: #2099' };
 
 for (const environment of [undefined, {}, { VITE_TOOLS: '0', VITE_DIAGRAM_GAME: '0', VITE_RESEARCH: '0', VITE_ACCOUNTS: '0' }, { VITE_TOOLS: '1', VITE_DIAGRAM_GAME: '1', VITE_RESEARCH: '1', VITE_ACCOUNTS: '1' }]) {
-  test(`Node navigation accepts environment=${JSON.stringify(environment)}`, knownWrong, async () => {
+  test(`Node navigation accepts environment=${JSON.stringify(environment)}`, async () => {
     const result = await build({
       entryPoints: [resolve(root, 'src/components/site/site-nav.ts')],
       bundle: true,
@@ -36,7 +35,7 @@ for (const environment of [undefined, {}, { VITE_TOOLS: '0', VITE_DIAGRAM_GAME: 
   });
 }
 
-test('CI browser preflight can collect all E2E specs in Node', knownWrong, () => {
+test('CI browser preflight can collect all E2E specs in Node', () => {
   const result = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--list', '--reporter=line'], {
     cwd: root,
     env: { ...process.env, CI: '', E2E_PREBUILT: '0' },

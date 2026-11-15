@@ -8,14 +8,13 @@ import ts from 'typescript';
 import { researchLocaleBuildPlugin } from './research-locale-build.mjs';
 
 const root = resolve(import.meta.dirname, '..');
-const knownWrong = { skip: process.env.IGNORED !== '1' && 'known wrong result: #2099' };
 
 for (const [name, source] of [
   ['aliased entry', "const optional = { title: cards.hu.title }; export const strings = { en: cards.en, hu: optional };"],
   ['initializer dependency', "const title = cards.hu.title; const hu = { title }; export const strings = { en: cards.en, hu };"],
   ['shadowed binding', "const hu = { title: cards.hu.title }; export const echo = (hu: string) => hu; export const strings = { en: cards.en, hu };"],
 ]) {
-  test(`removed locale owns its private initializer: ${name}`, knownWrong, () => {
+  test(`removed locale owns its private initializer: ${name}`, () => {
     const code = `const cards = { en: { title: 'English' }, hu: { title: 'Hungarian' } }; ${source}`;
     const transformed = researchLocaleBuildPlugin(() => ({})).transform(code, `${root}/src/components/research/fixture.ts`).code;
     const context = { exports: {} };
@@ -41,7 +40,7 @@ for (const source of [
 }
 
 for (const research of [undefined, '0', '1']) {
-  test(`locale initializers execute only for retained locales, research=${research}`, knownWrong, () => {
+  test(`locale initializers execute only for retained locales, research=${research}`, () => {
     const code = `
       const cards = { en: { title: 'English' }, hu: { title: 'Hungarian' } };
       const hu = { title: cards.hu.title };
@@ -59,7 +58,7 @@ for (const research of [undefined, '0', '1']) {
 
 for (const research of [undefined, '0', '1']) {
   for (const e2e of [undefined, '1']) {
-    test(`production research dictionaries execute, research=${research}, e2e=${e2e}`, knownWrong, async () => {
+    test(`production research dictionaries execute, research=${research}, e2e=${e2e}`, async () => {
       const keys = ['VITE_ACCOUNTS', 'VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME', 'VITE_E2E', 'VITE_APP_TYPE'];
       const previous = keys.map(key => process.env[key]);
       keys.forEach(key => delete process.env[key]);
@@ -72,10 +71,10 @@ for (const research of [undefined, '0', '1']) {
             name: 'research-dictionary-execution-fixture',
             resolveId: id => id === 'research-dictionary-execution-fixture' ? '\0research-dictionary-execution-fixture' : null,
             load: id => id === '\0research-dictionary-execution-fixture' ? `
-              import { translations as feher } from '/src/components/research/feher2026/strings';
+              import { translations as feher, shapeStrings } from '/src/components/research/feher2026/strings';
               import { translations as gayNeto } from '/src/components/research/gayNeto2014/strings';
               import { strings as macneal } from '/src/components/research/macneal1985/i18n';
-              globalThis.researchDictionaries = { feher, gayNeto, macneal };
+              globalThis.researchDictionaries = { feher, gayNeto, macneal, feherDefault: shapeStrings() };
             ` : null,
           }],
           build: { write: false, rollupOptions: { input: 'research-dictionary-execution-fixture', output: { format: 'iife', inlineDynamicImports: true } } },
@@ -83,7 +82,7 @@ for (const research of [undefined, '0', '1']) {
         });
         const context = {};
         runInNewContext(result.output.filter(output => output.type === 'chunk').map(output => output.code).join('\n'), context);
-        const { feher, gayNeto, macneal } = context.researchDictionaries;
+        const { feher, gayNeto, macneal, feherDefault } = context.researchDictionaries;
         const mainCopy = JSON.parse(readFileSync(resolve(root, 'src/components/research/feher2026/main-copy.json'), 'utf8'));
         for (const locale of ['en', 'es', 'pt']) {
           assert.ok(feher[locale].title);
@@ -91,6 +90,7 @@ for (const research of [undefined, '0', '1']) {
           assert.ok(macneal[locale].error);
           assert.ok(mainCopy[locale]);
         }
+        if (research !== '1') for (const [key, value] of Object.entries(mainCopy.en)) assert.equal(feherDefault[key], value, key);
         for (const dictionary of [feher, gayNeto, macneal]) assert.equal(Object.hasOwn(dictionary, 'hu'), research === '1');
       } finally {
         keys.forEach((key, i) => {

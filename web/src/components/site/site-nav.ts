@@ -21,8 +21,8 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export const SITE_NAV = PUBLIC_POLICY_AVAILABLE ? NAV_ITEMS.flatMap(item => {
-  if (item.id === 'examples' && import.meta.env.VITE_TOOLS !== '0' && tools()) return [];
-  return item.id === 'tools' && import.meta.env.VITE_DIAGRAM_GAME !== '0' ? [item, { kind: 'page', id: 'game', to: '/diagram-game', key: 'landing.navGame' } as const] : [item];
+  if (item.id === 'examples' && import.meta.env?.VITE_TOOLS !== '0' && tools()) return [];
+  return item.id === 'tools' && import.meta.env?.VITE_DIAGRAM_GAME !== '0' ? [item, { kind: 'page', id: 'game', to: '/diagram-game', key: 'landing.navGame' } as const] : [item];
 }).filter(item => item.kind !== 'page' || publicFeatureEnabled(item.to)) : NAV_ITEMS;
 
 export type NavCurrent = NavPage | null;
