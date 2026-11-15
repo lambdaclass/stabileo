@@ -4,6 +4,10 @@ import { verifyConcurrentElement } from '../concurrent-verification';
 import { amplifiedDemand, checkColumn, verifyElement, verificationCase, type ConcurrentVerificationInput } from '../codes/argentina/cirsoc201';
 import { engineRecheckElement } from '../codes/argentina/cirsoc201-engine-gate';
 import * as engine from '../codes/argentina/cirsoc201-engine';
+import { autoVerifyFromResults, type AutoVerifyModelData } from '../auto-verify';
+import * as concurrentVerification from '../concurrent-verification';
+import { extractGoverningDemands } from '../station-design-forces';
+import type { AnalysisResults3D } from '../types-3d';
 
 const cases = (['beam', 'column', 'wall'] as const).flatMap(elementType =>
   (['My', 'Mz'] as const).flatMap(axis => (['2005', '2025'] as const).map(edition => ({ elementType, axis, edition }))));
@@ -187,4 +191,32 @@ it('preserves nonfinite input bits without merging distinct queries', () => {
     }
     expect(sizing).toHaveBeenCalledTimes(3);
   });
+});
+
+
+function sharedBeamModel() {
+  const model: AutoVerifyModelData = {
+    elements: new Map([1, 2].map(id => [id, { id, nodeI: id, nodeJ: id + 1, type: 'frame', sectionId: 1, materialId: 1 }])),
+    nodes: new Map([1, 2, 3].map(id => [id, { id, x: id - 1, y: 0, z: 0 }])),
+    sections: new Map([[1, { id: 1, name: 'RC', b: 0.4, h: 0.4 }]]),
+    materials: new Map([[1, { id: 1, name: 'H30', fc: 30, fy: 30 }]]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+  };
+  const results = { elementForces: [1, 2].map(elementId => ({ elementId, length: 1,
+    nStart: 0, nEnd: 0, myStart: 20, myEnd: 20, mzStart: 0, mzEnd: 0,
+    vyStart: 0, vyEnd: 0, vzStart: 5, vzEnd: 5, mxStart: 0, mxEnd: 0 })) } as AnalysisResults3D;
+  const demands = extractGoverningDemands({ elementId: 1, length: 2, stationTs: [0, 1],
+    comboResults: [{ comboId: 1, comboName: 'C1', stations: [0, 1].map(t => ({
+      t, x: 2 * t, n: 0, my: 20, mz: 0, vy: 0, vz: 5, torsion: 0,
+    })) }] });
+  return { model, results, demands };
+}
+
+it.fails('known wrong result: #2080 — pieces with identical shared-span inputs are verified once per run', () => {
+  const { model, results, demands } = sharedBeamModel();
+  const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
+  const output = autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, demands]]));
+  expect(output.concrete).toHaveLength(2);
+  expect(output.concrete.every(v => v.engineRecheck?.certified?.ok)).toBe(true);
+  expect(verify).toHaveBeenCalledTimes(1);
 });
