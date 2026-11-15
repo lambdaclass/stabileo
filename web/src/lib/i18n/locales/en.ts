@@ -14678,6 +14678,7 @@ const en: Record<string, string> = {
   "rcSheets.ed.corner": "Corners",
   "rcSheets.ed.faceB": "Per face b",
   "rcSheets.ed.faceH": "Per face h",
+  "rcSheets.ed.innerRow": "2nd row (b · h)",
   "rcSheets.g.data": "Data",
   "rcSheets.g.shear": "Shear",
   "rcSheets.g.torsion": "Torsion",

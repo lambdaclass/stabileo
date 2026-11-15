@@ -14667,6 +14667,7 @@ const es: Record<string, string> = {
   "rcSheets.ed.corner": "Esquinas",
   "rcSheets.ed.faceB": "Por cara b",
   "rcSheets.ed.faceH": "Por cara h",
+  "rcSheets.ed.innerRow": "2ª fila (b · h)",
   "rcSheets.g.data": "Datos",
   "rcSheets.g.shear": "Corte",
   "rcSheets.g.torsion": "Torsión",

@@ -14518,6 +14518,7 @@ const tr: Translations = {
   "rcSheets.ed.corner": "Köşeler",
   "rcSheets.ed.faceB": "b yüzü başına",
   "rcSheets.ed.faceH": "h yüzü başına",
+  "rcSheets.ed.innerRow": "2. sıra (b · h)",
   "rcSheets.g.data": "Veriler",
   "rcSheets.g.shear": "Kesme",
   "rcSheets.g.torsion": "Burulma",

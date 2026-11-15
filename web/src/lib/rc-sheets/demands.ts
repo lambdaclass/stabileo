@@ -365,6 +365,45 @@ function wideBeamShear(rows: ReadonlyArray<{ key: string; q: readonly number[] }
   return { qx: cut('x', 0), qy: cut('y', 1) };
 }
 
+/**
+ * One-way shear of a slab where the code reads it, d beyond the support face (§22.5, §7.4.3.2): the
+ * largest of the shear interpolated at d between the rows of elements on either side, and the
+ * shear of every row farther in. Samples are each element's distance from the face, m, and |q|.
+ */
+export function shearAtCritical(samples: ReadonlyArray<{ dist: number; q: number }>, d: number): number {
+  const bands = new Map<number, number>();
+  for (const s of samples) { const k = Math.round(s.dist * 1000) / 1000; bands.set(k, Math.max(bands.get(k) ?? 0, s.q)); }
+  const sorted = [...bands.entries()].sort((p, q) => p[0] - q[0]);
+  if (!sorted.length) return 0;
+  const beyond = sorted.filter(([x]) => x >= d - 1e-9);
+  const before = sorted.filter(([x]) => x < d - 1e-9);
+  const far = Math.max(0, ...beyond.map(([, q]) => q));
+  if (!before.length || !beyond.length) return beyond.length ? far : Math.max(...before.map(([, q]) => q));
+  const [x1, q1] = before[before.length - 1]!, [x2, q2] = beyond[0]!;
+  return Math.max(far, q1 + ((q2 - q1) * (d - x1)) / Math.max(x2 - x1, 1e-9));
+}
+
+/** Half the width of the beam along each edge of a panel's extent, m: where its face, not its axis, stands. */
+function edgeFaces(m: DemandInput, b: { x0: number; x1: number; y0: number; y1: number; z: number }): { x0: number; x1: number; y0: number; y1: number } {
+  const out = { x0: 0, x1: 0, y0: 0, y1: 0 };
+  const on = (v: number, w: number) => Math.abs(v - w) < 0.02;
+  for (const e of m.elements.values()) {
+    if (isVertical(m, e) || e.type === 'truss') continue;
+    const a = m.nodes.get(e.nodeI), c = m.nodes.get(e.nodeJ);
+    if (!a || !c || Math.abs(zOf(a) - b.z) > 0.6 || Math.abs(zOf(c) - b.z) > 0.6) continue;
+    const half = (m.sections.get(e.sectionId)?.b ?? 0) / 2;
+    if (on(a.x, c.x) && Math.max(a.y, c.y) > b.y0 + 1e-6 && Math.min(a.y, c.y) < b.y1 - 1e-6) {
+      if (on(a.x, b.x0)) out.x0 = Math.max(out.x0, half);
+      if (on(a.x, b.x1)) out.x1 = Math.max(out.x1, half);
+    }
+    if (on(a.y, c.y) && Math.max(a.x, c.x) > b.x0 + 1e-6 && Math.min(a.x, c.x) < b.x1 - 1e-6) {
+      if (on(a.y, b.y0)) out.y0 = Math.max(out.y0, half);
+      if (on(a.y, b.y1)) out.y1 = Math.max(out.y1, half);
+    }
+  }
+  return out;
+}
+
 export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => number | null): SlabDemand[] {
   const out: SlabDemand[] = [];
   const quadNodes = (id: number) => m.shells.quads?.get(id)?.nodes ?? [];
@@ -395,6 +434,12 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     }));
     const best: Record<SlabFace, Signed> = { bottomX: { value: 0 }, bottomY: { value: 0 }, topX: { value: 0 }, topY: { value: 0 } };
     const q = { x: { value: 0 } as Signed, y: { value: 0 } as Signed };
+    const xs0 = pts.map((p) => p.x), ys0 = pts.map((p) => p.y);
+    const ext = { x0: Math.min(...xs0), x1: Math.max(...xs0), y0: Math.min(...ys0), y1: Math.max(...ys0), z: pts.reduce((a, p) => a + zOf(p), 0) / pts.length };
+    const faces = edgeFaces(m, ext);
+    const dSlab = Math.max(0.05, h - 0.03);
+    const fromFace = (c: { x: number; y: number }, axis: 'x' | 'y') =>
+      axis === 'x' ? Math.min(c.x - ext.x0 - faces.x0, ext.x1 - faces.x1 - c.x) : Math.min(c.y - ext.y0 - faces.y0, ext.y1 - faces.y1 - c.y);
     const combos: SlabComboForces[] = [];
     for (const set of m.sets) {
       const c: SlabComboForces = { combo: set.name, bottomX: 0, bottomY: 0, topX: 0, topY: 0, qx: 0, qy: 0 };
@@ -414,6 +459,10 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
       }
       const wide = wideBeamShear(shears, centre, posts);
       if (wide) { c.qx = wide.qx; c.qy = wide.qy; }
+      else if (shears.length) {
+        const along = (axis: 'x' | 'y', comp: 0 | 1) => shearAtCritical(shears.flatMap((r) => { const ct = centre.get(r.key); return ct ? [{ dist: fromFace(ct, axis), q: Math.abs(r.q[comp]!) }] : []; }), dSlab);
+        c.qx = along('x', 0); c.qy = along('y', 1);
+      }
       if (c.qx > q.x.value) q.x = { value: c.qx, source: { combo: set.name } };
       if (c.qy > q.y.value) q.y = { value: c.qy, source: { combo: set.name } };
       combos.push(c);

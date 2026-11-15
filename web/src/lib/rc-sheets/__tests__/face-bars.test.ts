@@ -28,3 +28,14 @@ describe('bars of a beam face', () => {
     expect(one).toBeCloseTo(0.025 + 0.008 + 0.016 / 2, 9);
   });
 });
+
+describe('slab one-way shear at its critical section', () => {
+  it('interpolates at d from the face between the rows either side, and never below a farther row', async () => {
+    const { shearAtCritical } = await import('../demands');
+    const rows = [{ dist: 0.1, q: 50 }, { dist: 0.1, q: 44 }, { dist: 0.6, q: 30 }, { dist: 1.1, q: 18 }];
+    expect(shearAtCritical(rows, 0.35)).toBeCloseTo(40, 9);
+    expect(shearAtCritical(rows, 0.05)).toBeCloseTo(50, 9);
+    expect(shearAtCritical(rows, 2)).toBeCloseTo(50, 9);
+    expect(shearAtCritical([...rows, { dist: 0.9, q: 60 }], 0.35)).toBeCloseTo(60, 9);
+  });
+});

@@ -105,6 +105,11 @@
         <input type="number" min="0" max="12" step="1" value={row.adopted.ny} onchange={(e) => columnPatch({ ny: num(e) })} />
         <select value={row.adopted.dy} onchange={(e) => columnPatch({ dy: num(e) })}>{#each LONG.filter((d) => d >= 12) as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
       </label>
+      <label><span>{t('rcSheets.ed.innerRow')}</span>
+        <input type="number" min="0" max="12" step="1" value={row.adopted.inner?.nx ?? 0} aria-label={t('rcSheets.ed.faceB')} data-testid="rc-col-inner-nx" onchange={(e) => columnPatch({ inner: { nx: num(e), ny: row.adopted.inner?.ny ?? 0, dia: row.adopted.inner?.dia ?? row.adopted.dx } })} />
+        <input type="number" min="0" max="12" step="1" value={row.adopted.inner?.ny ?? 0} aria-label={t('rcSheets.ed.faceH')} data-testid="rc-col-inner-ny" onchange={(e) => columnPatch({ inner: { nx: row.adopted.inner?.nx ?? 0, ny: num(e), dia: row.adopted.inner?.dia ?? row.adopted.dy } })} />
+        <select value={row.adopted.inner?.dia ?? row.adopted.dx} aria-label={t('rcSheets.ed.dia')} onchange={(e) => columnPatch({ inner: { nx: row.adopted.inner?.nx ?? 0, ny: row.adopted.inner?.ny ?? 0, dia: num(e) } })}>{#each LONG.filter((d) => d >= 12) as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
+      </label>
     </fieldset>
     <fieldset>
       <legend>{t('rcSheets.col.ties')}</legend>

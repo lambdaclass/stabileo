@@ -149,6 +149,27 @@ describe('seismic provisions', () => {
     expect(ve.value).toContain(`+ ${f(100)} =`);
   });
 
+  it('a column takes a second row inside its faces: counted in the area and the capacity, drawn, and checked for spacing', async () => {
+    const { columnBars, columnArea, columnLabel } = await import('../column-row');
+    const { columnSection } = await import('../drawing');
+    const col: ColumnDemand = { key: 'column:9:0', name: 'C9', b: 0.3, h: 0.3, length: 3, lu: 2.7, psiTop: 1, psiBot: 1, cases: [{ combo: 'U', pu: 1100, mxTop: 80, mxBot: -64, myTop: 30, myBot: -18, vx: 30, vy: 30 }] };
+    const ctx = { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [16] };
+    const one = { corner: 16, nx: 2, dx: 16, ny: 2, dy: 16, tieDia: 8, tieSpacing: 0.15 };
+    const two = { ...one, inner: { nx: 2, ny: 2, dia: 16 } };
+    expect(columnBars(col, two, ctx as never)).toHaveLength(columnBars(col, one, ctx as never).length + 8);
+    expect(columnArea(two) - columnArea(one)).toBeCloseTo(8 * columnArea({ ...one, nx: 0, ny: 0 }) / 4, 6);
+    expect(columnLabel(two)).toContain('(b, 2)');
+    expect(columnSection(col.b, col.h, 0.03, two).bars).toHaveLength(20);
+    const inner = columnBars(col, two, ctx as never).slice(12);
+    const outerY = Math.max(...columnBars(col, one, ctx as never).map((b) => b.y));
+    expect(Math.max(...inner.map((b) => b.y))).toBeLessThan(outerY - 0.016 - 0.025 + 1e-9);
+    const r1 = columnRow(col, ctx, one, f), r2 = columnRow(col, ctx, two, f);
+    expect(r2.checks.ratio).toBeLessThan(r1.checks.ratio);
+    const p = columnRow(col, ctx, undefined, f);
+    expect(p.status).not.toBe('fail');
+    expect((p.adopted.inner?.nx ?? 0) + (p.adopted.inner?.ny ?? 0)).toBeGreaterThan(0);
+  });
+
   it('a column proposal meets chapter 18: confinement spacing and Ash', () => {
     const col: ColumnDemand = { key: 'column:1:0', name: 'C1', b: 0.4, h: 0.4, length: 3, lu: 2.7, psiTop: 1.5, psiBot: 0.2, cases: [{ combo: 'U', pu: 1400, mxTop: 80, mxBot: -40, myTop: 25, myBot: -10, vx: 40, vy: 12 }] };
     const r = columnRow(col, { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [12, 16, 20, 25], seismic: { overstrength: 1.25 } }, undefined, f);

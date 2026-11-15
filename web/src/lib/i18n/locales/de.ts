@@ -14518,6 +14518,7 @@ const de: Translations = {
   "rcSheets.ed.corner": "Ecken",
   "rcSheets.ed.faceB": "Je Seite b",
   "rcSheets.ed.faceH": "Je Seite h",
+  "rcSheets.ed.innerRow": "2. Lage (b · h)",
   "rcSheets.g.data": "Daten",
   "rcSheets.g.shear": "Querkraft",
   "rcSheets.g.torsion": "Torsion",

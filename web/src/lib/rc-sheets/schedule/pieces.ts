@@ -104,6 +104,7 @@ const columnDias = (r: ColumnRow): Array<{ dia: number; count: number }> => {
   const a = r.adopted, m = new Map<number, number>();
   const add = (dia: number, n: number) => { if (n > 0 && dia > 0) m.set(dia, (m.get(dia) ?? 0) + n); };
   add(a.corner, 4); add(a.dx, 2 * a.nx); add(a.dy, 2 * a.ny);
+  if (a.inner) add(a.inner.dia, 2 * (a.inner.nx + a.inner.ny));
   return [...m].map(([dia, count]) => ({ dia, count }));
 };
 

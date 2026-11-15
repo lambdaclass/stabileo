@@ -14319,6 +14319,7 @@ const pt: Translations = {
   "rcSheets.ed.corner": "Cantos",
   "rcSheets.ed.faceB": "Por face b",
   "rcSheets.ed.faceH": "Por face h",
+  "rcSheets.ed.innerRow": "2ª camada (b · h)",
   "rcSheets.g.data": "Dados",
   "rcSheets.g.shear": "Cisalhamento",
   "rcSheets.g.torsion": "Torção",

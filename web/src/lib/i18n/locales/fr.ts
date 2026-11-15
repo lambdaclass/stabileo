@@ -14518,6 +14518,7 @@ const fr: Translations = {
   "rcSheets.ed.corner": "Angles",
   "rcSheets.ed.faceB": "Par face b",
   "rcSheets.ed.faceH": "Par face h",
+  "rcSheets.ed.innerRow": "2e lit (b · h)",
   "rcSheets.g.data": "Données",
   "rcSheets.g.shear": "Effort tranchant",
   "rcSheets.g.torsion": "Torsion",

@@ -339,7 +339,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
 
   let proposed = adopted ?? propose(), iterations = 0;
   let bars = layout(proposed), env = verify(proposed, bars);
-  if (!adopted) {
+  const iterate = () => {
     while (iterations < 16) {
       const bad = env.filter((e) => e.pos > e.phiPos + 1e-6 || e.neg > e.phiNeg + 1e-6);
       if (!bad.length) break;
@@ -350,6 +350,25 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
       const supportsBad = new Set(bad.filter((e) => e.neg > e.phiNeg + 1e-6).map((e) => (e.xl - spans[e.k]!.x0 < spans[e.k]!.L / 2 ? e.k : e.k + 1)));
       for (const j of supportsBad) next.supportTop[j] = { dia: next.supportTop[j]!.dia, count: next.supportTop[j]!.count + 1 };
       proposed = next; bars = layout(proposed); env = verify(proposed, bars);
+    }
+  };
+  if (!adopted) {
+    iterate();
+    const rooms = [endStart, endEnd].filter((e): e is BeamEnd => !!e && e.kind === 'column' && e.half > 0).map((e) => 2 * e.half - inset);
+    if (rooms.length) {
+      const room = Math.min(...rooms);
+      const fits = (dia: number) => code.hooked(c, dia) <= room + 1e-6;
+      const best = [...c.diameters].filter((d) => d >= 10 && fits(d)).sort((p, q) => q - p)[0];
+      const shrink = (g: BarGroup | undefined): BarGroup | undefined => {
+        if (!g || !best || g.count <= 0 || fits(g.dia)) return g;
+        return { dia: best, count: Math.max(2, Math.ceil((g.count * barArea(g.dia)) / barArea(best) - 1e-9)) };
+      };
+      const next: LineAdopted = JSON.parse(JSON.stringify(proposed));
+      next.bottom = shrink(next.bottom)!; next.top = shrink(next.top)!;
+      const last = next.supportTop.length - 1;
+      next.supportTop[0] = shrink(next.supportTop[0])!; next.supportTop[last] = shrink(next.supportTop[last])!;
+      if (next.bent?.length) { next.bent[0] = shrink(next.bent[0])!; next.bent[next.bent.length - 1] = shrink(next.bent[next.bent.length - 1])!; }
+      if (JSON.stringify(next) !== JSON.stringify(proposed)) { proposed = next; bars = layout(proposed); env = verify(proposed, bars); iterate(); }
     }
   }
   const a = adopted ?? proposed;

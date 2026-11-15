@@ -39,6 +39,8 @@ export interface ColumnAdopted {
   nx: number; dx: number;
   ny: number; dy: number;
   tieDia: number; tieSpacing: number;
+  /** A second row inside each face, held off the outer row by the clear spacing between layers: nx bars on each b face, ny on each h face. */
+  inner?: { nx: number; ny: number; dia: number };
 }
 
 export interface SlabAdopted { bottomX: MeshBars; bottomY: MeshBars; topX: MeshBars; topY: MeshBars }

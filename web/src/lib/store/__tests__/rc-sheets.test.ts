@@ -255,6 +255,23 @@ describe('reinforcement sheets from a solved model', () => {
     expect(ln.steps[0]!.steps.some((x) => x.label === 'rcSheets.s.lineBent')).toBe(true);
   });
 
+  it('proposes end bars whose hooks fit in the end columns, trading diameter for count, and still verifies', () => {
+    frame();
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    for (const e of modelStore.elements.values()) {
+      const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
+      if (Math.abs((a.z ?? 0) - (b.z ?? 0)) < 1e-6) modelStore.addDistributedLoad3D(e.id, 0, 0, -60, -60, undefined, undefined, D);
+    }
+    solve();
+    const ln = buildSheetRows().line[0]!;
+    const hook = ln.verifications.find((v) => v.label === 'rcSheets.v.lineEndAnchor')!;
+    expect(hook.ok).toBe(true);
+    const reaching = ln.bars.filter((b) => b.from <= ln.ends.from + 1e-6 || b.to >= ln.ends.to - 1e-6);
+    expect(reaching.length).toBeGreaterThan(0);
+    expect(Math.max(...reaching.map((b) => b.bars.dia))).toBeLessThan(25);
+    expect(ln.envelope.every((e) => e.pos <= e.phiPos + 1e-6 && e.neg <= e.phiNeg + 1e-6)).toBe(true);
+  });
+
   it('gives the line its shear envelope against the stirrups of each zone', () => {
     frame(); solve();
     const ln = buildSheetRows().line[0]!;

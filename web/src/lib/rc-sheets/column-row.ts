@@ -3,7 +3,7 @@ import { COLUMN_STEEL_RATIO, shearFy } from '../engine/codes/argentina/cirsoc201
 import { withSection, type Bar } from '../engine/codes/argentina/cirsoc201-section';
 import { evaluateBeamSections, type BeamSectionQuery } from '../engine/codes/argentina/cirsoc201-beam-kernel';
 import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
-import { minClearSpacingColumn } from '../codes/cirsoc201/spacing';
+import { layerClearBetween, minClearSpacingColumn } from '../codes/cirsoc201/spacing';
 import { barArea, roundDown } from './bars';
 import { compressionLapMm, deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
 import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
@@ -89,15 +89,32 @@ export function columnBars(d: { b: number; h: number }, a: ColumnAdopted, c: Col
     const y = -yc + (2 * yc * i) / (a.ny + 1);
     for (const sx of [-1, 1]) out.push({ x: sx * xf, y, area: barArea(a.dy) * 1e-4 });
   }
+  const inn = a.inner;
+  if (inn && (inn.nx > 0 || inn.ny > 0)) {
+    const step = (outer: number) => outer / 2000 + layerClearBetween('2025', outer, inn.dia) + inn.dia / 2000;
+    const yIn = d.h / 2 - coverToBar(c, a.tieDia, Math.max(a.corner, a.dx)) - step(Math.max(a.corner, a.dx));
+    const xIn = d.b / 2 - coverToBar(c, a.tieDia, Math.max(a.corner, a.dy)) - step(Math.max(a.corner, a.dy));
+    for (let i = 1; i <= inn.nx; i++) {
+      const x = -xc + (2 * xc * i) / (inn.nx + 1);
+      for (const sy of [-1, 1]) out.push({ x, y: sy * yIn, area: barArea(inn.dia) * 1e-4 });
+    }
+    for (let i = 1; i <= inn.ny; i++) {
+      const y = -yc + (2 * yc * i) / (inn.ny + 1);
+      for (const sx of [-1, 1]) out.push({ x: sx * xIn, y, area: barArea(inn.dia) * 1e-4 });
+    }
+  }
   return out;
 }
 
-export const columnArea = (a: ColumnAdopted): number => 4 * barArea(a.corner) + 2 * a.nx * barArea(a.dx) + 2 * a.ny * barArea(a.dy);
+export const columnArea = (a: ColumnAdopted): number => 4 * barArea(a.corner) + 2 * a.nx * barArea(a.dx) + 2 * a.ny * barArea(a.dy)
+  + (a.inner ? 2 * (a.inner.nx + a.inner.ny) * barArea(a.inner.dia) : 0);
 
 export const columnLabel = (a: ColumnAdopted): string => {
   const parts = [`4 Ø${a.corner}`];
   if (a.nx > 0) parts.push(`2×${a.nx} Ø${a.dx} (b)`);
   if (a.ny > 0) parts.push(`2×${a.ny} Ø${a.dy} (h)`);
+  if (a.inner?.nx) parts.push(`2×${a.inner.nx} Ø${a.inner.dia} (b, 2)`);
+  if (a.inner?.ny) parts.push(`2×${a.inner.ny} Ø${a.inner.dia} (h, 2)`);
   return parts.join(' + ');
 };
 
@@ -131,7 +148,10 @@ function clearOk(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): boolean {
   const gap = (side: number, n: number, dia: number) => (side - 2 * coverToBar(c, a.tieDia, a.corner) - (n + 1) * dia / 1000) / (n + 1);
   const minX = minClearSpacingColumn(EDITION, { barDiameterMm: Math.max(a.corner, a.dx), maxAggregateSizeMm: 0 }).minClear;
   const minY = minClearSpacingColumn(EDITION, { barDiameterMm: Math.max(a.corner, a.dy), maxAggregateSizeMm: 0 }).minClear;
-  return gap(d.b, a.nx, Math.max(a.corner, a.dx)) >= minX - 1e-4 && gap(d.h, a.ny, Math.max(a.corner, a.dy)) >= minY - 1e-4;
+  const inn = a.inner;
+  const innerOk = !inn || ((inn.nx <= 0 || gap(d.b, inn.nx, inn.dia) >= minClearSpacingColumn(EDITION, { barDiameterMm: inn.dia, maxAggregateSizeMm: 0 }).minClear - 1e-4)
+    && (inn.ny <= 0 || gap(d.h, inn.ny, inn.dia) >= minClearSpacingColumn(EDITION, { barDiameterMm: inn.dia, maxAggregateSizeMm: 0 }).minClear - 1e-4));
+  return gap(d.b, a.nx, Math.max(a.corner, a.dx)) >= minX - 1e-4 && gap(d.h, a.ny, Math.max(a.corner, a.dy)) >= minY - 1e-4 && innerOk;
 }
 
 /** The face bars (1 … n, between the corners) a crosstie must hold so none is more than min(15·dbe; 150 mm) clear from a held bar (§25.7.2.3). */
@@ -370,20 +390,30 @@ function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: rea
       return { layout: a, iterations: 0 };
     }
   }
+  /** One more bar a face: in the outer row while it fits, then in the row inside it; null when neither has room. */
+  const grow = (a: ColumnAdopted, dia: number): ColumnAdopted | null => {
+    const outer = d.h >= d.b ? (a.ny <= a.nx ? { ...a, ny: a.ny + 1 } : { ...a, nx: a.nx + 1 }) : (a.nx <= a.ny ? { ...a, nx: a.nx + 1 } : { ...a, ny: a.ny + 1 });
+    if (clearOk(d, c, outer)) return outer;
+    const inn = a.inner ?? { nx: 0, ny: 0, dia };
+    const deeper: ColumnAdopted = { ...a, inner: d.h >= d.b ? (inn.ny <= inn.nx ? { ...inn, ny: inn.ny + 1 } : { ...inn, nx: inn.nx + 1 }) : (inn.nx <= inn.ny ? { ...inn, nx: inn.nx + 1 } : { ...inn, ny: inn.ny + 1 }) };
+    return clearOk(d, c, deeper) ? deeper : null;
+  };
   for (const dia of dias.length ? dias : [16]) {
     let tie = tieDiaFor(dia);
     let a = evenLayout(d, c, dia, tie, 0.3);
     let it = 0;
-    for (let guard = 0; guard < 20 && columnArea(a) < ast - 1e-6; guard++) {
-      a = d.h >= d.b ? (a.ny <= a.nx ? { ...a, ny: a.ny + 1 } : { ...a, nx: a.nx + 1 }) : (a.nx <= a.ny ? { ...a, nx: a.nx + 1 } : { ...a, ny: a.ny + 1 });
+    for (let guard = 0; guard < 40 && columnArea(a) < ast - 1e-6; guard++) {
+      const next = grow(a, dia);
+      if (!next) break;
+      a = next;
     }
-    if (!clearOk(d, c, a)) continue;
+    if (!clearOk(d, c, a) || columnArea(a) < ast - 1e-6) continue;
     a = { ...a, tieSpacing: roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing) };
-    while (demands.length && utilisation(d, c, a, demands) > 1 + 1e-6 && it < 8) {
+    while (demands.length && utilisation(d, c, a, demands) > 1 + 1e-6 && it < 24) {
       it++;
-      const grown = d.h >= d.b ? (a.ny <= a.nx ? { ...a, ny: a.ny + 1 } : { ...a, nx: a.nx + 1 }) : (a.nx <= a.ny ? { ...a, nx: a.nx + 1 } : { ...a, ny: a.ny + 1 });
-      if (!clearOk(d, c, grown)) break;
-      a = grown;
+      const next = grow(a, dia);
+      if (!next) break;
+      a = next;
     }
     if (demands.length && utilisation(d, c, a, demands) > 1 + 1e-6) continue;
     for (let guard = 0; guard < 40; guard++) {

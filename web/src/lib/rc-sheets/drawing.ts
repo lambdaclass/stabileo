@@ -28,7 +28,7 @@ export function beamSection(b: number, h: number, cover: number, top: readonly B
 /** A column section: its bars as the design places them, and the crossties §25.7.2.3 asks for. */
 export function columnSection(b: number, h: number, cover: number, a: ColumnAdopted): SectionDrawing {
   const ctx = { mat: { fc: 0, fy: 0 }, cover, tieDia: a.tieDia, diameters: [] };
-  const diaAt = (i: number) => (i < 4 ? a.corner : i < 4 + 2 * a.nx ? a.dx : a.dy);
+  const diaAt = (i: number) => (i < 4 ? a.corner : i < 4 + 2 * a.nx ? a.dx : i < 4 + 2 * a.nx + 2 * a.ny ? a.dy : a.inner?.dia ?? a.dy);
   const bars = columnBars({ b, h }, a, ctx).map((x, i) => ({ x: x.x + b / 2, y: x.y + h / 2, dia: diaAt(i) }));
   const leg = cover + a.tieDia / 2000, edge = cover + a.tieDia / 1000 + a.corner / 2000, ties: SectionDrawing['ties'] = [];
   for (const i of bracedFaceBars(b, a.nx, a.dx, a.corner, { cover }, a.tieDia)) {
