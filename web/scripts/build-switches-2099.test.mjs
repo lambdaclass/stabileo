@@ -73,3 +73,49 @@ test('admin dictionaries retain user, privacy and project labels independently o
   const code = load.call({ addWatchFile() {} }, '\0virtual:app-i18n/en');
   for (const key of ['admin.metrics.lede', 'account.name', 'legal.termsLink', 'usage.whatIsSent', 'cloud.modeBasic']) assert.ok(code.includes(JSON.stringify(key)) || code.includes(`'${key}'`), key);
 }));
+
+for (const value of [undefined, '0', '1']) {
+  test(`known wrong result: #2099 — research and tools dictionaries follow switches=${value}`, { skip: value !== '1' && !process.env.IGNORED ? 'known wrong result: #2099' : false }, () => environment(
+    value === undefined ? {} : { VITE_RESEARCH: value, VITE_TOOLS: value },
+    async () => {
+      const result = await build({
+        root,
+        plugins: [{
+          name: 'route-dictionaries-fixture',
+          resolveId: id => id === 'route-dictionaries-fixture' ? '\0route-dictionaries-fixture' : null,
+          load: id => id === '\0route-dictionaries-fixture' ? `
+            const dictionaries = import.meta.glob('/src/components/research/**/*.ts', { eager: true });
+            import { toolTranslations } from '/src/components/tools/translations';
+            import { batchTranslations } from '/src/components/tools/batch-i18n';
+            console.log(dictionaries, toolTranslations, batchTranslations);
+          `.replace("'/src/components/research/**/*.ts'", JSON.stringify([
+            '/src/components/research/gallery-i18n.ts',
+            '/src/components/research/catalogue-summaries.ts',
+            '/src/components/research/related-names.ts',
+            '/src/components/research/biggins2026/strings.ts',
+            '/src/components/research/andreassen2011/i18n.ts',
+            '/src/components/research/newmark1959/i18n.ts',
+            '/src/components/research/cqc1981/strings.ts',
+            '/src/components/research/plastic-collapse/i18n.ts',
+            '/src/components/research/navier1823/strings.ts',
+            '/src/components/research/lee1968/i18n.ts',
+            '/src/components/research/dadeppo1975/i18n.ts',
+            '/src/components/research/riksCrisfield/article.ts',
+            '/src/components/research/mattiasson1981/i18n.ts',
+            '/src/components/research/fairclough2026/translations.ts',
+            '/src/components/research/english-only-cards.ts',
+          ])) : null,
+        }],
+        build: { write: false, rollupOptions: { input: 'route-dictionaries-fixture' } },
+        logLevel: 'silent',
+      });
+      const chunks = result.output.filter(output => output.type === 'chunk');
+      const code = chunks.map(output => output.code).join('\n');
+      assert.equal(/[, {]hu:/.test(code), value === '1', 'Hungarian research dictionaries');
+      assert.equal(code.includes('Free structural engineering tools: beams, frames, columns, slabs and towers'), value === '1', 'tools expansion metadata');
+      assert.equal(code.includes('Free structural engineering calculators: beams, columns, frames and trusses'), value !== '1', 'published calculators metadata');
+      assert.ok(code.includes('galleryLead'));
+      assert.ok(code.includes('Deflection'));
+    },
+  ));
+}
