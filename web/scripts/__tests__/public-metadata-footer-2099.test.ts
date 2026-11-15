@@ -8,11 +8,9 @@ import { routeKind } from '../../src/lib/public-route';
 import { TOOLS, toolLastmod } from '../../src/components/tools/registry';
 import reviews from '../../../research/tools/batches/VALIDATION.json';
 
-const knownWrong = it.skipIf(process.env.RUN_KNOWN_WRONG !== '1');
-
 afterEach(() => { setPublicLocale('en'); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-knownWrong.each([undefined, '0', '1'])('known wrong result: #2099 — footer legal links remain public with accounts=%s', async accounts => {
+it.each([undefined, '0', '1'])('known wrong result: #2099 — footer legal links remain public with accounts=%s', async accounts => {
   vi.stubEnv('VITE_ACCOUNTS', accounts);
   vi.stubEnv('DEV', false);
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
@@ -32,7 +30,7 @@ knownWrong.each([undefined, '0', '1'])('known wrong result: #2099 — footer leg
   expect(publicFeatureEnabled('/usage-data')).toBe(accounts === '1');
 });
 
-knownWrong.each([undefined, '0', '1'])('known wrong result: #2099 — tools index keeps the latest registry review with tools=%s', async tools => {
+it.each([undefined, '0', '1'])('known wrong result: #2099 — tools index keeps the latest registry review with tools=%s', async tools => {
   vi.stubEnv('VITE_TOOLS', tools);
   await publicPaths();
   expect(POST_LASTMOD.get('/tools')).toBe(TOOLS.map(tool => toolLastmod(tool, reviews.batches)).sort().at(-1));

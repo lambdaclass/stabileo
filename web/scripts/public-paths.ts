@@ -78,7 +78,7 @@ export async function publicPaths(): Promise<string[]> {
   POST_LASTMOD.set('/blog', [...POST_LASTMOD.values()].sort().at(-1)!);
   const publishedTools = TOOLS.filter(tool => publicFeatureEnabled(`/tools/${tool.id}`, flags));
   for (const tool of publishedTools) POST_LASTMOD.set(`/tools/${tool.id}`, toolLastmod(tool, toolReviews.batches));
-  POST_LASTMOD.set('/tools', publishedTools.map((tool) => toolLastmod(tool, toolReviews.batches)).sort().at(-1)!);
+  POST_LASTMOD.set('/tools', TOOLS.map((tool) => toolLastmod(tool, toolReviews.batches)).sort().at(-1)!);
   // Standing pages, read from their own files, with their last edit for the sitemap.
   const pageIndex = await readFile(join(ROOT, 'src/lib/blog/pages/index.ts'), 'utf8');
   const pageFiles = [...pageIndex.matchAll(/from '\.\/([\w-]+)'/g)].map((m) => m[1]);

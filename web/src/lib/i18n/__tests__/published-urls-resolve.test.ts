@@ -68,6 +68,7 @@ import { PAPER_LOCALES } from '../../../components/paper/locales';
 import { PUBLIC_LOCALES } from '../offered';
 import { publishedLocales } from '../published';
 import { MOVED_PAGES, movedRoute } from '../../legacy-routes';
+import { buildPublicFeatures } from '../../../../scripts/public-paths';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '../../../..');
@@ -226,17 +227,24 @@ describe('every published URL is served, not redirected', () => {
     expect(differ, `hreflang in the sitemap disagrees with the page:\n${differ.join('\n')}`).toEqual([]);
   });
 
-  it.skipIf(process.env.RUN_KNOWN_WRONG !== '1')('known wrong result: #2099 — leaves a redirect at every moved address, in every language, and lists none of them', () => {
+  it('keeps former examples canonical at their built addresses and redirects only when tools are enabled', () => {
     const urls = publishedUrls();
+    const flags = buildPublicFeatures();
     for (const locale of PUBLIC_LOCALES) {
       for (const from of MOVED_PAGES) {
         const file = fileServedWithoutRedirect(`/${locale}${from}/`);
         expect(file, `${locale}${from}`).not.toBeNull();
-        const to = `/${locale}${movedRoute(from)}/`;
+        const moved = movedRoute(from, flags);
+        const to = `/${locale}${moved ?? from}/`;
         const html = readFileSync(file!, 'utf8');
         expect(html, `${locale}${from} canonical target ${to}`).toContain(`<link rel="canonical" href="${ORIGIN}${to}">`);
-        expect(html).toContain('location.search + location.hash');
-        expect(urls).not.toContain(`${ORIGIN}/${locale}${from}/`);
+        if (moved !== null) {
+          expect(html).toContain('location.search + location.hash');
+          expect(urls).not.toContain(`${ORIGIN}/${locale}${from}/`);
+        } else {
+          expect(html).not.toContain('http-equiv="refresh"');
+          expect(urls).toContain(`${ORIGIN}/${locale}${from}/`);
+        }
         expect(fileServedWithoutRedirect(to), to).not.toBeNull();
       }
     }

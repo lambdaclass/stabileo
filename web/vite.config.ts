@@ -77,9 +77,9 @@ function publicI18nPlugin(): Plugin {
       if (!eager && !ADMIN && m[2].startsWith('admin.')) return false;
       if (!eager && publicBuildEnvironment.value.VITE_TOOLS === '0' && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(m[2])) return false;
       if (!eager && !ADMIN && publicBuildEnvironment.value.VITE_ACCOUNTS === '0' && m[2].startsWith('disclaimer.') && m[2] !== 'disclaimer.report') return false;
-      if (!eager && !ADMIN && publicBuildEnvironment.value.VITE_ACCOUNTS === '0' && /^(?:account\.|legal\.|cloud\.|feedbackForm\.|usage\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2])) return false;
+      if (!eager && !ADMIN && publicBuildEnvironment.value.VITE_ACCOUNTS === '0' && /^(?:account\.|legal\.|cloud\.|feedbackForm\.|usage\.|landing\.footAdCookies$)/.test(m[2])) return false;
       const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => m[2].startsWith(prefix))
-        && (!/^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2]) || publicBuildEnvironment.value.VITE_ACCOUNTS !== '0')
+        && (!/^(?:legal\.|landing\.footAdCookies$)/.test(m[2]) || publicBuildEnvironment.value.VITE_ACCOUNTS !== '0')
         && (m[2] !== 'landing.navGame' || publicBuildEnvironment.value.VITE_DIAGRAM_GAME !== '0');
       return publicEntry === publicOnly;
     });

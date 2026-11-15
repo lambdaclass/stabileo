@@ -4,7 +4,7 @@ export type PublicFeatures = { research: boolean; tools: boolean; diagramGame: b
 
 export function publicFeatureEnabledWithFlags(path: string, flags: PublicFeatures): boolean {
   const route = path.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
-  if (['/register', '/terms', '/privacy', '/usage-data'].includes(route)) return flags.accounts ?? false;
+  if (['/register', '/usage-data'].includes(route)) return flags.accounts ?? false;
   if (route.startsWith('/tools/')) return flags.tools || isMainToolPath(route);
   if (route === '/diagram-game') return flags.diagramGame;
   return true;

@@ -22,7 +22,7 @@
   const GROUPS: [string, string, [string, string][]][] = [
     ['product', 'landing.navProduct', [['/tools', 'landing.navTools'], ['/#pricing', 'landing.navPricing']]],
     ['verification', 'landing.footVerification', [['/reliability', 'landing.footReliability'], ['/research', 'landing.navResearch'], ['/paper', 'landing.navPaper'], ['/cirsoc', ''], ['/sap2000-alternative', 'landing.footSap2000'], ['/etabs-alternative', 'landing.footEtabs']]],
-    ['project', 'landing.footProject', [['/blog', 'landing.footBlog'], ['/changelog', 'landing.footChangelog'], ...(import.meta.env.VITE_ACCOUNTS !== '0' ? [['/terms', 'landing.footTerms'], ['/privacy', 'landing.footPrivacy']] as [string, string][] : [])]],
+    ['project', 'landing.footProject', [['/blog', 'landing.footBlog'], ['/changelog', 'landing.footChangelog'], ['/terms', 'landing.footTerms'], ['/privacy', 'landing.footPrivacy']]],
   ];
 </script>
 
