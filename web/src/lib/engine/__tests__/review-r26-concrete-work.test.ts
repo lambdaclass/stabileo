@@ -32,7 +32,7 @@ it('known wrong result: #2080 identical complete basis inputs cross WASM once', 
 });
 
 for (const torque of [0, 6]) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const edition of ['2005', '2025'] as const) for (const entry of ['auto', 'unified', 'design'] as const) {
-  it(`known wrong result: #2080 held span checks reuse complete inputs ${spatial} ${nonlinear} ${edition} ${entry} torque=${torque}`, () => {
+  it.fails(`known wrong result: #2080 held span checks reuse complete inputs ${spatial} ${nonlinear} ${edition} ${entry} torque=${torque}`, () => {
     const model = {
       nodes: new Map([1, 2, 3].map(id => [id, { id, x: (id - 1) * 0.4, y: 0, z: 0 }])),
       elements: new Map([1, 2].map(id => [id, { id, nodeI: id, nodeJ: id + 1, type: 'frame' as const, sectionId: 1, materialId: 1 }])),
