@@ -17,6 +17,7 @@ const RELAY = 'stbTrackingRelay';
 const TIMEOUT_MS = 3000;
 
 let ready: Promise<TrackingIds | null> | null = null;
+let session = Symbol();
 
 function automated(): boolean {
   return typeof navigator !== 'undefined' && navigator.webdriver === true;
@@ -123,6 +124,13 @@ function emit(e: Emission): void {
   else void send(e);
 }
 
+async function emitHashed(accountId: string, emission: (hash: string) => Emission): Promise<void> {
+  const startedIn = session;
+  const hash = await hashedId(accountId).catch(() => null);
+  if (!hash || session !== startedIn) return;
+  emit(emission(hash));
+}
+
 export const tracking = {
   signUpClick(placement: string) {
     emit({ pixel: ['trackCustom', 'SignUpClick', { placement }], gtm: { event: 'sign_up_click', placement } });
@@ -133,23 +141,22 @@ export const tracking = {
   registrationStep(step: 'terms') {
     emit({ pixel: ['trackCustom', 'RegistrationStep', { step }], gtm: { event: 'sign_up_step', step } });
   },
-  async completeRegistration(accountId: string) {
-    const eventID = await hashedId(accountId).catch(() => null);
-    if (!eventID) return;
-    emit({ pixel: ['track', 'CompleteRegistration', {}, { eventID }], gtm: { event: 'sign_up', event_id: eventID } });
+  completeRegistration(accountId: string) {
+    return emitHashed(accountId, eventID => ({ pixel: ['track', 'CompleteRegistration', {}, { eventID }], gtm: { event: 'sign_up', event_id: eventID } }));
   },
   login() {
     emit({ pixel: ['trackCustom', 'Login'], gtm: { event: 'login' } });
   },
-  async firstSave(accountId: string) {
-    const hash = await hashedId(accountId).catch(() => null);
-    if (!hash) return;
-    const eventID = `first_save-${hash}`;
-    emit({ pixel: ['trackCustom', 'FirstSave', {}, { eventID }], gtm: { event: 'first_save', event_id: eventID } });
+  firstSave(accountId: string) {
+    return emitHashed(accountId, hash => {
+      const eventID = `first_save-${hash}`;
+      return { pixel: ['trackCustom', 'FirstSave', {}, { eventID }], gtm: { event: 'first_save', event_id: eventID } };
+    });
   },
 };
 
 export function resetTrackingForTests(): void {
+  session = Symbol();
   ready = null;
   loaded = false;
 }

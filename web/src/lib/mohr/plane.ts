@@ -52,12 +52,12 @@ export function principalPlane({ sx, sy, txy }: PlaneStress): PlanePrincipal {
 
 /** The state on axes rotated counterclockwise by `thetaDeg` from x, y. */
 export function rotatePlane({ sx, sy, txy }: PlaneStress, thetaDeg: number): PlaneStress {
-  const a = (2 * thetaDeg) / DEG;
+  const a = thetaDeg / DEG;
   const c = Math.cos(a), s = Math.sin(a);
-  const mean = (sx + sy) / 2, half = (sx - sy) / 2;
+  const cc = c * c, ss = s * s, sc = s * c;
   return {
-    sx: mean + half * c + txy * s,
-    sy: mean - half * c - txy * s,
-    txy: -half * s + txy * c,
+    sx: sx * cc + sy * ss + 2 * txy * sc,
+    sy: sx * ss + sy * cc - 2 * txy * sc,
+    txy: (sy - sx) * sc + txy * (cc - ss),
   };
 }

@@ -28,10 +28,13 @@ beforeEach(async () => {
 
 afterEach(() => { vi.unstubAllGlobals(); });
 
-it.skipIf(!process.env.IGNORED).each(['completeRegistration', 'firstSave'] as const)(
-  'known wrong result: #2099 %s cannot become consented while its hash is pending',
+it.each(['completeRegistration', 'firstSave'] as const)(
+  'known wrong result: #2099 %s cannot enter a later tracking session while its hash is pending',
   async method => {
-    const pending = tracking[method]('account-before-consent');
+    const pending = tracking[method]('account-before-reset');
+    resetTrackingForTests();
+    adConsent.resetForTests();
+    await startTracking(async () => ({ meta_pixel_id: '123456789', gtm_container_id: null }));
     adConsent.decide('granted');
     calls.length = 0;
     finishHash(new ArrayBuffer(32));
@@ -45,6 +48,33 @@ it.each(['completeRegistration', 'firstSave'] as const)('%s sends exactly once w
   adConsent.decide('granted');
   calls.length = 0;
   const pending = tracking[method]('account-with-consent');
+  finishHash(new ArrayBuffer(32));
+  await pending;
+  await Promise.resolve();
+  expect(calls).toHaveLength(1);
+  expect(calls[0][1]).toBe(method === 'firstSave' ? 'FirstSave' : 'CompleteRegistration');
+});
+
+
+it.each(['completeRegistration', 'firstSave'] as const)('%s retains main consent timing within the same session', async method => {
+  const pending = tracking[method]('account-before-consent');
+  adConsent.decide('granted');
+  calls.length = 0;
+  finishHash(new ArrayBuffer(32));
+  await pending;
+  await Promise.resolve();
+  expect(calls).toHaveLength(1);
+  expect(calls[0][1]).toBe(method === 'firstSave' ? 'FirstSave' : 'CompleteRegistration');
+});
+
+
+it.each(['completeRegistration', 'firstSave'] as const)('%s retains main timing when tracking starts during hashing', async method => {
+  resetTrackingForTests();
+  adConsent.resetForTests();
+  const pending = tracking[method]('account-before-start');
+  await startTracking(async () => ({ meta_pixel_id: '123456789', gtm_container_id: null }));
+  adConsent.decide('granted');
+  calls.length = 0;
   finishHash(new ArrayBuffer(32));
   await pending;
   await Promise.resolve();
