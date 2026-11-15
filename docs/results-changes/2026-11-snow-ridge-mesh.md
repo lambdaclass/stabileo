@@ -26,9 +26,10 @@ it. Run endpoints supply the profile; the ridge is the midpoint of the highest p
 average. Plane slopes and complete run lengths determine the representative
 slope. Widths continue to use the planes and projected physical extent.
 
-Removing the ridge average alone is insufficient. Subdividing an edge that
-crosses the ridge also changes a classification based on an individual member's
-midpoint. Side classification now belongs to the complete run. Likewise,
+Geometry and pressure classification use distinct physical information. The
+ridge follows complete runs; each member segment uses its own midpoint relative
+to that stable ridge for side classification. Splitting at the ridge restores
+the separate windward and leeward pressures. Likewise,
 shaped-roof loads use the physical profile and interpolate the complete run's
 endpoint intensities to each member. Panel and nodal tributaries evaluate that
 same run field at their stations instead of averaging the ends of a mesh member.
@@ -40,7 +41,8 @@ The reusable `assertSnowRemeshInvariant` helper inserts nodes on selected edges
 and compares physical distributed-load fields and nodal force/moment resultants,
 as well as ridge, width, slope and load-case identity. It supplies the implicit
 member length when evaluating a full-member trapezoidal load. Coverage includes
-every edge separately, uniform and unequal subdivision, geometric and entered
+every edge separately, uniform and unequal subdivision with ridge crossings
+resolved before comparing gable pressure fields, geometric and entered
 slopes, mono-pitch, duo-pitch, curved, multiple-ridge and dome configurations,
 plan rotations, width-limit boundaries and an ordinary uniform-mesh control.
 Direct generation, the snow planner and complete load planning are exercised
@@ -82,5 +84,33 @@ planning, and nodal tributaries. Tests check zero perturbation and elevations
 perturbation. A point just above the tolerance must move the ridge and receive
 the genuinely higher-point pressure. Boundary tests also retain the small
 axial projection forces arising from actual member inclination.
-The complete-run midpoint classification and its moment about a crossed ridge
-are outside this correction and remain separate coordinator work.
+
+PR #2175 round 4 corrects the unmerged branch's use of a complete run's midpoint
+for every member segment's side pressure. On the flat 16 by 4 m witness with
+an entered 20 degree slope, splitting both short edges at the stable ridge must
+assign the windward half zero pressure and the leeward half
+1.5 × 0.7 × (70 - 20) / (70 - 5) = 0.8076923076923077 kPa. Each half has length
+2 m and unit tributary width: its downward force is respectively zero or
+1.6153846153846154 kN, and its moment about the ridge has magnitude respectively
+zero or 1.6153846153846154 kNm. The branch instead assigned both halves
+0.40384615384615385 kPa. The equal total force concealed the incorrect moment.
+Both wind directions are checked independently, including rotated roofs,
+selected roofs, projected loads, width allocation, explicit panel pieces,
+nodal tributaries, the snow planner and the complete load planner. Panel-plan
+force and moment expectations account for the actual triangular tributary width.
+Width-limit tests straddle the existing 6 m boundary; midpoint tests straddle
+the existing 0.01 m side band without changing either limit.
+
+The shared member-side map now reads each segment's endpoints directly. The
+run map remains responsible for physical geometry and shaped-roof interpolation.
+Existing remeshing tests compare gable pressure fields starting from a roof
+already split at the ridge, keeping their strict invariance assertions without
+requiring an incorrect pressure field to survive a subdivision.
+
+A member that itself crosses the ridge still receives a uniform pressure chosen
+by its midpoint, matching origin/main. This remaining limitation is tracked in
+#2176 and is deliberately outside this correction. Splitting such a member at
+the ridge can therefore change its physical load field and moment; complete
+pressure-field invariance across that change is not claimed. Main already
+classifies ridge-split halves correctly, so the round 4 regression provides no
+additional released exposure or advisory.

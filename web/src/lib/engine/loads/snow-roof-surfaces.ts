@@ -502,8 +502,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     y: snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.transverse, transverseCoordinates), z: p.z,
   } : p;
   const memberSides = new Map(targets.map(m => {
-    const run = runAtMember.get(m.id)!;
-    return [m.id, geometry ? snowCoordinate([(run.a.x + run.b.x) / 2, (run.a.y + run.b.y) / 2], [geometry.origin.x, geometry.origin.y], geometry.direction, [geometry.ridge]) - geometry.ridge : 0];
+    return [m.id, geometry ? snowCoordinate([(m.a.x + m.b.x) / 2, (m.a.y + m.b.y) / 2], [geometry.origin.x, geometry.origin.y], geometry.direction, [geometry.ridge]) - geometry.ridge : 0];
   }));
   const memberValues = (id: number, field: (p: Point) => number, point?: Point): [number, number] => {
     const run = runAtMember.get(id), m = targets.find(m => m.id === id);

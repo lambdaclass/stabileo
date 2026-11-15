@@ -46,10 +46,11 @@ for (const mode of ['projected', 'width', 'panels'] as const) for (const angle o
     expect(pressure(base.cases[1]!.distributed, 2, 1)).toBeCloseTo(leeward / 2, 10);
     const witness = generate(remeshSnowRoof(model, new Map([[1, 8]])).model);
     expect(pressure(witness.cases[1]!.distributed, 2, 1)).toBeCloseTo(leeward / 2, 10);
-    for (const edges of [[1], [3], [2], [4], [1, 3], [2, 4], [1, 2, 3, 4]]) {
+    const resolved = remeshSnowRoof(model, new Map([[2, 2], [4, 2]])).model;
+    for (const edges of [[1], [3], [2], [4], [5], [6], [1, 3], [2, 4], [...resolved.elements.keys()]]) {
       const splits = new Map(edges.map(id => [id, id % 2 ? 8 : 3]));
-      const { out } = assertSnowRemeshInvariant(model, splits, generate);
-      expect(pressure(out.cases[1]!.distributed, 2, 0.1)).toBeCloseTo(leeward / 2, 10);
+      const { out } = assertSnowRemeshInvariant(resolved, splits, generate);
+      expect(pressure(out.cases[1]!.distributed, 2, 0.1)).toBeCloseTo(0, 10);
     }
   });
 }
@@ -75,7 +76,9 @@ for (const mode of ['projected', 'width', 'panels'] as const) {
 
 for (const kind of ['mono', 'gable', 'curved', 'multiple', 'dome'] as const) for (const override of [false, true]) for (const mode of ['projected', 'width', 'panels'] as const) {
   it(`#2144 shared geometry and slope ${kind} ${override} ${mode}`, () => {
-    const model = flat(), generate = generator(mode, { ...snow, roofKind: kind, ...(override ? { roofSlopeDeg: 20 } : {}) }, [...model.nodes.values()].map(n => [n.x, n.y]));
+    const base = flat(), polygon = [...base.nodes.values()].map(n => [n.x, n.y] as [number, number]);
+    const model = kind === 'gable' && override ? remeshSnowRoof(base, new Map([[2, 2], [4, 2]])).model : base;
+    const generate = generator(mode, { ...snow, roofKind: kind, ...(override ? { roofSlopeDeg: 20 } : {}) }, polygon);
     for (const edge of model.elements.keys()) assertSnowRemeshInvariant(model, new Map([[edge, 8]]), generate);
   });
 }
@@ -140,7 +143,8 @@ for (const mode of ['projected', 'width', 'panels'] as const) {
   it(`#2144 selected roof uses the same physical ridge ${mode}`, () => {
     const model = flat(), polygon = [...model.nodes.values()].map(n => [n.x, n.y] as [number, number]);
     const generate = (m: LoadModelData) => generator(mode, { ...snow, roofSlopeDeg: 20, roof: [...m.elements.keys()] }, polygon)(m);
-    assertSnowRemeshInvariant(model, new Map([[1, 8], [3, 3], [2, 4]]), generate);
+    const resolved = remeshSnowRoof(model, new Map([[2, 2], [4, 2]])).model;
+    assertSnowRemeshInvariant(resolved, new Map([[1, 8], [3, 3], [2, 4], [5, 3], [6, 4]]), generate);
   });
 }
 
