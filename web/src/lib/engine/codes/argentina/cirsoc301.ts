@@ -653,10 +653,13 @@ export function checkSteelInteraction(params: SteelDesignParams, demand: Concurr
   const Pu = demand.Nu, Mux = demand.Mu, Muy = demand.Muy;
   const p = steelParamsForDemand(params, demand);
   const r = run(p, { Nu: Pu, Muz: Mux, Muy, Vu: 0 });
+  return concurrentInteractionOf(r, demand);
+}
+
+function concurrentInteractionOf(r: EngineMemberResult | null, demand: ConcurrentSectionDemand): SteelInteractionResult {
   if (!r) return { equation: 'H1-1b', value: Infinity, ...unavailable() };
   if (r.interaction) return interactionOf(r.interaction);
-  // H.1 does not apply (one moment, no axial force): H.1.1b reduces to that flexure ratio.
-  const f = r.flexureWeak && Math.abs(Muy) > 0 ? r.flexureWeak : r.flexureStrong;
+  const f = r.flexureWeak && Math.abs(demand.Muy) > 0 ? r.flexureWeak : r.flexureStrong;
   return { equation: 'H1-1b', value: f.ratio, ...common(f) };
 }
 
@@ -749,9 +752,9 @@ function prepareFlange(concurrent: ConcurrentSteelVerificationInput) {
   return { input, selected, note };
 }
 
-export function verifyFlangeCases(inputs: readonly ConcurrentSteelVerificationInput[], opts: { trace?: boolean } = {}): Array<{ verification: SteelVerification; interactionRatio: number }> {
+export function verifyFlangeCases(inputs: readonly ConcurrentSteelVerificationInput[], opts: { trace?: boolean } = {}): Array<{ verification: SteelVerification; interactionRatio: number; interaction: SteelInteractionResult }> {
   const prepared = inputs.map(prepareFlange);
-  const results: Array<{ verification: SteelVerification; interactionRatio: number }> = [];
+  const results: Array<{ verification: SteelVerification; interactionRatio: number; interaction: SteelInteractionResult }> = [];
   const chunk = 256;
   for (let start = 0; start < prepared.length; start += chunk) {
     const batch = prepared.slice(start, start + chunk);
@@ -762,6 +765,7 @@ export function verifyFlangeCases(inputs: readonly ConcurrentSteelVerificationIn
     results.push(...batch.map((q, id) => ({
       verification: verifyOnce(q.input, q.selected, opts.trace ?? true, q.note, complete ? out![id]! : null),
       interactionRatio: complete ? interactionRatioOf(out![id]!, inputs[start + id]!.demand) : Infinity,
+      interaction: concurrentInteractionOf(complete ? out![id]! : null, inputs[start + id]!.demand),
     })));
   }
   return results;

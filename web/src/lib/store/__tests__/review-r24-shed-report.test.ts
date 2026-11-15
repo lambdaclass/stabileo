@@ -23,7 +23,7 @@ function canonical(value: unknown): unknown {
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, v]) => [key, canonical(v)]));
   return value;
 }
-it.fails('known wrong result: #2080 the memoria shed keeps its exact answer while tracing only report governors', () => {
+it('known wrong result: #2080 the memoria shed keeps its exact answer while tracing only report governors', () => {
   const checked = vi.spyOn(kernel, 'engineCheckMembers');
   const certified = vi.spyOn(kernel, 'engineCertifyMembers');
   expect(runSteelCheck()).toEqual({ checked: 571 });

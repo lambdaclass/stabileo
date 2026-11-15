@@ -38,7 +38,7 @@ import { autoVerifyFromResults, type AutoVerifyModelData, type AutoVerifyOptions
 import type { ElementVerification } from './codes/argentina/cirsoc201';
 import {
   checkSteelInteraction, steelShapeOf, verifyFlangeCases, withUndeclaredData, worseSteelVerification, steelParamsForDemand,
-  type SteelVerification, type SteelDesignParams, type TensionConnection,
+  type SteelVerification, type SteelDesignParams, type SteelInteractionResult, type TensionConnection,
 } from './codes/argentina/cirsoc301';
 import { steelNotEvaluated, steelRatio, steelResultLine, steelVerdict, worseSteel } from './codes/argentina/cirsoc301-verdict';
 import { angleSection, type AngleCompressionInput } from './steel/angle-section';
@@ -1033,17 +1033,22 @@ export function checkSteelMember(
    * together. Read once per value of a datum the member does not state (`withUndeclaredData`).
    */
   const checkAs = (p: SteelDesignParams): SteelVerification => {
-    const checked = verifyFlangeCases(concurrent.map(d => ({
+    const inputs = concurrent.map(d => ({
       elementId, demand: d.section('My'), combinedShear: !flanged, params: paramsAt(p, d),
-    })), { trace: !opts.screen });
+    }));
+    const checked = verifyFlangeCases(inputs, { trace: false });
     const runs = checked.map(c => c.verification);
-    const base = runs.reduce(worseSteelVerification);
+    const baseIndex = runs.indexOf(runs.reduce(worseSteelVerification));
     const location = (k: number) => ({ comboId: concurrent[k]!.comboId, comboName: concurrent[k]!.comboName, t: concurrent[k]!.stationT });
     const governingCombos: NonNullable<SteelVerification['governingCombos']> = {};
-    const pick = <K extends 'tension' | 'compression' | 'flexureZ' | 'flexureY' | 'shear' | 'shearWeak'>(key: K): SteelVerification[K] => {
-      let found: SteelVerification[K] | undefined;
+    const keys = ['tension', 'compression', 'flexureZ', 'flexureY', 'shear', 'shearWeak'] as const;
+    type CheckKey = typeof keys[number];
+    const indices = new Map<CheckKey, number>();
+    const labels = { tension: 'tension', compression: 'compression', flexureZ: 'flexure', flexureY: 'flexureY', shear: 'shear', shearWeak: 'shearWeak' } as const;
+    for (const key of keys) {
+      let found: SteelVerification[CheckKey] | undefined;
       let index = 0;
-      const magnitude = (x: NonNullable<SteelVerification[K]>) => 'Pu' in x ? x.Pu : 'Mu' in x ? x.Mu : x.Vu;
+      const magnitude = (x: NonNullable<SteelVerification[CheckKey]>) => 'Pu' in x ? x.Pu : 'Mu' in x ? x.Mu : x.Vu;
       const rank = (x: { status: string }) => x.status === 'fail' ? 3 : x.status === 'held' ? 2 : x.status === 'warn' ? 1 : 0;
       for (const [k, r] of runs.entries()) {
         const x = r[key];
@@ -1056,15 +1061,29 @@ export function checkSteelMember(
           index = k;
         }
       }
-      const labels = { tension: 'tension', compression: 'compression', flexureZ: 'flexure', flexureY: 'flexureY', shear: 'shear', shearWeak: 'shearWeak' } as const;
-      if (found) governingCombos[labels[key]] = location(index);
-      return found as SteelVerification[K];
+      if (found) {
+        indices.set(key, index);
+        governingCombos[labels[key]] = location(index);
+      }
+    }
+    let interactionIndex = 0;
+    for (let i = 1; i < checked.length; i++) if (checked[i]!.interactionRatio > checked[interactionIndex]!.interactionRatio) interactionIndex = i;
+    const selected = [...new Set([baseIndex, ...indices.values(), interactionIndex])]
+      .filter(i => runs[i]!.engine.available);
+    const traced = opts.screen ? [] : verifyFlangeCases(selected.map(i => inputs[i]!), { trace: true });
+    const detailed = new Map(selected.map((index, i) => [index, traced[i]]));
+    const runAt = (index: number): SteelVerification => detailed.get(index)?.verification ?? runs[index]!;
+    const pick = <K extends CheckKey>(key: K): SteelVerification[K] => {
+      const index = indices.get(key);
+      return index === undefined ? undefined as SteelVerification[K] : runAt(index)[key];
     };
+    const base = runAt(baseIndex);
     const shear = pick('shear');
     const combined = { ...base, tension: pick('tension'), compression: pick('compression'), flexureZ: pick('flexureZ'),
       flexureY: pick('flexureY'), shear, shearWeak: pick('shearWeak'), governingCombos,
       Muz: demand.MuStrong, Muy: demand.MuWeak, Vu: shear.Vu };
-    return withConcurrentInteraction(combined, concurrent, d => paramsAt(p, d), checked.map(c => c.interactionRatio));
+    return withConcurrentInteraction(combined, concurrent, d => paramsAt(p, d), interactionIndex,
+      detailed.get(interactionIndex)?.interaction);
   };
   const v = withUndeclaredData(sdp, checkAs);
   if (opts.screen) {
@@ -1105,15 +1124,13 @@ function steelConcurrentDemands(demand: SteelMemberDemand): readonly ConcurrentD
  * concurrent tuple replaces the interaction built from the maxima, and the combination and
  * station that govern it are recorded with the others.
  */
-function withConcurrentInteraction(v: SteelVerification, demands: readonly ConcurrentDemand[], paramsAt: (d: ConcurrentDemand) => SteelDesignParams, ratios: readonly number[]): SteelVerification {
+function withConcurrentInteraction(v: SteelVerification, demands: readonly ConcurrentDemand[], paramsAt: (d: ConcurrentDemand) => SteelDesignParams, k: number, provided?: SteelInteractionResult): SteelVerification {
   const governingCombos = v.governingCombos ?? {};
   const tuples = demands.map(d => ({ N: 0 - d.forces.n, MStrong: d.forces.my, MWeak: d.forces.mz,
     comboId: d.comboId, comboName: d.comboName, t: d.stationT }));
   if (tuples.length === 0 || !v.engine.available) return { ...v, governingCombos };
-  let k = 0;
-  for (let i = 1; i < ratios.length; i++) if (ratios[i]! > ratios[k]!) k = i;
   const x = tuples[k]!;
-  const r = checkSteelInteraction(paramsAt(demands[k]!), demands[k]!.section('My'));
+  const r = provided ?? checkSteelInteraction(paramsAt(demands[k]!), demands[k]!.section('My'));
   const interaction = { ...r, steps: [...r.steps, `  Combinación ${x.comboName}, estación t = ${x.t.toFixed(3)}`] };
   // The verdict again with this interaction in place of the one from the maxima.
   const parts = { ...v, interaction };
