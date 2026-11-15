@@ -40,7 +40,24 @@ export interface Cirsoc201Engine {
 
 let engine: Partial<Cirsoc201Engine> | null = null;
 
-export function registerCirsoc201Engine(value: Partial<Cirsoc201Engine> | null): void { engine = value; }
+function memoizeBeamSizing(design: Cirsoc201Engine['designBeam']): Cirsoc201Engine['designBeam'] {
+  const answers = new Map<string, Float64Array>();
+  return input => {
+    if (input.length !== 15) return design(input);
+    const bytes = new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
+    const key = String.fromCharCode(...bytes);
+    const previous = answers.get(key);
+    if (previous) return previous.slice();
+    const answer = design(input);
+    if (answers.size === 4096) answers.delete(answers.keys().next().value!);
+    answers.set(key, answer.slice());
+    return answer.slice();
+  };
+}
+
+export function registerCirsoc201Engine(value: Partial<Cirsoc201Engine> | null): void {
+  engine = value && { ...value, ...(value.designBeam ? { designBeam: memoizeBeamSizing(value.designBeam) } : {}) };
+}
 
 export function cirsoc201EngineAvailable(): boolean {
   return !!(engine?.Section && engine.basis && engine.phi);
