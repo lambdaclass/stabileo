@@ -295,6 +295,25 @@ describe('reinforcement sheets from a solved model', () => {
     expect(rcSheetsData().edited ?? []).toEqual([]);
   });
 
+  it('under chapter 18 laps the bottom bars at midspan, never in a joint (§18.6.3.3)', () => {
+    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
+    const col = modelStore.addSection({ name: '40×40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.1406 * 0.4 ** 4, b: 0.4, h: 0.4, shape: 'rect' } as never);
+    const bm = modelStore.addSection({ name: '30×60', a: 0.18, iy: 0.3 * 0.6 ** 3 / 12, iz: 0.6 * 0.3 ** 3 / 12, j: 0.0037, b: 0.3, h: 0.6, shape: 'rect' } as never);
+    const xs = [0, 5, 10, 15];
+    const base = xs.map((x) => modelStore.addNode(x, 0, 0)), top = xs.map((x) => modelStore.addNode(x, 0, 3));
+    base.forEach((b, i) => { const c = modelStore.addElement(b, top[i]!, 'frame'); modelStore.updateElementSection(c, col); modelStore.updateElementMaterial(c, conc); modelStore.addSupport(b, 'fixed3d'); });
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    for (let i = 0; i < 3; i++) { const e = modelStore.addElement(top[i]!, top[i + 1]!, 'frame'); modelStore.updateElementSection(e, bm); modelStore.updateElementMaterial(e, conc); modelStore.addDistributedLoad3D(e, 0, 0, -30, -30, undefined, undefined, D); }
+    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+    solve();
+    setRcOption('seismic', true);
+    const ln = buildSheetRows().line[0]!;
+    const bottom = ln.splices.filter((x) => x.face === 'bottom');
+    expect(ln.length).toBeGreaterThan(12);
+    expect(bottom.length).toBeGreaterThan(0);
+    for (const sp of bottom) expect([5, 10].some((x) => Math.abs(sp.x - x) < 2 * 0.6)).toBe(false);
+  });
+
   it('gives the line its shear envelope against the stirrups of each zone', () => {
     frame(); solve();
     const ln = buildSheetRows().line[0]!;

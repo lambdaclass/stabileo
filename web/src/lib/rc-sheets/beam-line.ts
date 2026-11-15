@@ -418,7 +418,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     for (const face of ['bottom', 'top'] as const) {
       const g = face === 'bottom' ? a.bottom : a.top;
       const lap = lapOf(c, g.dia, face === 'top', hMax);
-      const candidates = face === 'bottom' ? supports.slice(1, -1) : spans.map((s) => s.x0 + s.L / 2);
+      const candidates = face === 'bottom' && !c.seismic ? supports.slice(1, -1) : spans.map((s) => s.x0 + s.L / 2);
       let last = 0;
       for (const xc of candidates) if (xc - last > STOCK_LENGTH - lap - 1e-6) { const pick = candidates.filter((y) => y > last && y - last <= STOCK_LENGTH - lap).pop() ?? xc; splices.push({ face, x: pick, length: step(lap) }); last = pick; }
     }
