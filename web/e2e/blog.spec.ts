@@ -320,6 +320,61 @@ test.describe('blog', () => {
     await expect(app.locator('body')).toContainText('12.73');
   });
 
+  test('@smoke the CIRSOC post opens PRO on the reinforcement sheets of its beam', async ({ page }) => {
+    /*
+     * Booted in Spanish: `boot`'s init script runs in every frame, the embedded editor included,
+     * and the caption has to name the buttons in the language the editor runs in.
+     */
+    await boot(page, '/es/blog/verificacion-flexion-cirsoc-201', 'es');
+
+    const embed = page.locator('.post-embed');
+    await embed.scrollIntoViewIfNeeded();
+    await expect(embed.locator('iframe')).toHaveCount(0);
+    const caption = await embed.locator('figcaption').innerText();
+    for (const button of ['"Calcular"', '"Armado por planillas"', '"Dimensionar armaduras"', '"Vigas"']) expect(caption).toContain(button);
+    expect(caption).toContain('0,90');
+
+    await embed.locator('.post-embed-start').click();
+    await expect(embed.locator('iframe')).toHaveAttribute('src', /\/app\/pro\?.*proTab=rcSheets/);
+    const app = page.frameLocator('.post-embed iframe');
+    // Design off asks nothing: the sheets are a view of the analysis, open on the post's beam.
+    await expect(app.getByTestId('rc-sheets-panel')).toContainText('Calculá el modelo para ver las planillas.', { timeout: 45_000 });
+    await expect(app.getByTestId('toast-enable-design-link')).toHaveCount(0);
+    await expect(app.getByTestId('pr-cmd-solve')).toHaveText(/Calcular/);
+  });
+
+  test('@slow the CIRSOC embed reaches the state its caption promises', async ({ page }) => {
+    test.slow();
+    await boot(page, '/es/blog/verificacion-flexion-cirsoc-201', 'es');
+    const embed = page.locator('.post-embed');
+    await embed.scrollIntoViewIfNeeded();
+    await embed.locator('.post-embed-start').click();
+    const app = page.frameLocator('.post-embed iframe');
+
+    // The four presses the caption asks for, in its order: the solve shows the results, and the
+    // command under Output goes back to the sheets.
+    await app.getByTestId('pr-cmd-solve').click({ timeout: 60_000 });
+    await expect(app.getByTestId('pr-cmd-rcSheets')).toBeEnabled({ timeout: 60_000 });
+    await expect(app.getByTestId('pr-cmd-rcSheets')).toContainText('Armado por planillas');
+    await app.getByTestId('pr-cmd-rcSheets').click();
+    await expect(app.getByTestId('rc-design')).toHaveText('Dimensionar armaduras', { timeout: 60_000 });
+    await app.getByTestId('rc-design').click();
+    const beams = app.getByTestId('rc-open-beam');
+    await expect(beams).toContainText('Vigas', { timeout: 60_000 });
+    await beams.click();
+
+    // The row and the check the caption and the closing note quote.
+    const ws = app.getByTestId('rc-sheets-workspace');
+    const row = ws.getByTestId('rc-row').first();
+    await expect(row).toContainText('V1');
+    await expect(row).toContainText('3 Ø12');
+    await expect(row).toContainText('1: 1Ø12');
+    await expect(row).toContainText('0,90');
+    await expect(row).toContainText('Verifica');
+    await row.click();
+    await expect(ws).toContainText('Envolvente cubierta en toda la viga, con las barras ancladas');
+  });
+
   /*
    * The kinematic embed, checked by driving it to the end and reading the panel
    * back, not by asserting a button exists.

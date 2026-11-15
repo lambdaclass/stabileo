@@ -343,8 +343,9 @@
   import ProPanel from './components/pro/ProPanel.svelte';
   import DesignDesk from './components/pro/desk/DesignDesk.svelte';
   import { deskUi, deskLayout } from './lib/store/design-desk-ui.svelte';
-  import { isDesignTab, syncDeskWithTab, syncTabWithDesk } from './lib/pro/design-navigation';
-  import { askDesignForLink, enableDesignForLink, announceDesignOn } from './lib/store/design-presence';
+  import { syncDeskWithTab, syncTabWithDesk } from './lib/pro/design-navigation';
+  import { enableDesignForLink, announceDesignOn } from './lib/store/design-presence';
+  import { openProTabFromQuery } from './lib/pro/pro-tab-link';
   /** Design docks beside the viewer on a desktop PRO screen; elsewhere it is a full-screen sheet. */
   const deskDocked = $derived(uiStore.appMode === 'pro' && !uiStore.isMobile);
   /*
@@ -516,17 +517,6 @@
   }
 
   /**
-   * `?proTab=<id>` opens PRO on one of its tabs.
-   *
-   * The companion of `?inspect` for the other half of the application. A post
-   * about CIRSOC verification has to land the reader on the verification, and
-   * that lives in PRO's `design` tab rather than in Basic's section panel.
-   *
-   * NOT named `tab`: that parameter already carries the project tab's slug
-   * (see `replaceAppUrl`), and quietly overloading it would make a shared
-   * link rename someone's project.
-   */
-  /**
    * `?kin=1` opens the kinematic analysis panel.
    *
    * The third of the deep links a post can use, beside `?inspect` and
@@ -549,21 +539,6 @@
      * the example loader resolves, both are in place.
      */
     if (uiStore.appMode === 'basico' && !uiStore.isMobile) openBasicPanel('advanced', { toggle: false });
-  }
-
-  function openProTabFromUrl(params: URLSearchParams) {
-    const tab = params.get('proTab');
-    if (!tab) return;
-    // Mirrors the `ProTab` union in components/pro/ProPanel.svelte — a tab added
-    // there but not here makes `?proTab=` silently no-op for it.
-    const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
-      'specifications', 'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
-      'settings', 'selection', 'steel', 'grid', 'generators', 'transform', 'edit', 'groups', 'code', 'view',
-      'otherCodes', 'designData', 'desk'];
-    if (!VALID.includes(tab)) return;
-    // A link to a place of design while design is off asks the reader; it turns nothing on.
-    if (isDesignTab(tab) && !uiStore.designInPro) { askDesignForLink(tab); return; }
-    uiStore.proActiveTab = tab;
   }
 
   function findTabBySlug(tabSlug: string | null) {
@@ -1006,7 +981,7 @@
           };
           tryFit(0);
           openInspectFromUrl(queryParams);
-          openProTabFromUrl(queryParams);
+          openProTabFromQuery(queryParams);
           openKinematicFromUrl(queryParams);
         }).catch((err) => {
           /*
