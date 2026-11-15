@@ -20,6 +20,7 @@ export interface CheckDetail {
   status: CheckStatus;
   comboName?: string;     // governing combination if known
   notice?: 'RC-NM-PAIRING';
+  longitudinalProvision?: NonNullable<ElementVerification['torsion']>['longitudinalProvision'];
 }
 
 /** Unified per-member design check summary */
@@ -129,7 +130,8 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
 
     if (v.torsion && !v.torsion.neglect) {
       checks.push({
-        name: v.torsion.longitudinalProvision === 'not-checked' ? 'Torsion (longitudinal reinforcement not checked)' : 'Torsion',
+        name: 'Torsion',
+        longitudinalProvision: v.torsion.longitudinalProvision,
         demand: Math.abs(v.torsion.Tu),
         capacity: v.torsion.phiTn,
         ratio: v.torsion.ratio,

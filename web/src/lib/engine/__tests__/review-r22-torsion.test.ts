@@ -11,7 +11,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       t: 0, x: 0, n: 0, my: 20, mz: 20, vy: 0, vz: 0, torsion: torque,
     } }])[0]!.section(axis) });
   for (const entry of ['direct', 'prepared', 'concurrent'] as const) {
-    it.fails(`known wrong result: #2080 missing longitudinal provision is not checked ${edition} ${axis} ${elementType} ${entry}`, () => {
+    it(`known wrong result: #2080 missing longitudinal provision is not checked ${edition} ${axis} ${elementType} ${entry}`, () => {
       const i = input(6);
       const fixed = { shear: { spacing: 0.05, legs: 2 } };
       const v = entry === 'direct' ? verifyElement(i, fixed) : entry === 'prepared' ? prepareElementVerification(i)(fixed) : verifyConcurrentElement([i]);
