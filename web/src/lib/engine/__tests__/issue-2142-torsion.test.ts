@@ -210,3 +210,94 @@ for (const nonlinear of [false, true]) it(`2D WASM torsion-free valid control no
     expect(v.overallStatus).not.toBe('fail');
   }
 });
+
+const phiTth = 0.75 * 0.083 * Math.sqrt(p.fc) * 1000 * (p.b * p.h) ** 2 / (2 * (p.b + p.h));
+const cage = { diameter: p.stirrupDia, legs: 4, spacing: 0.05 };
+function providedBeam(torque: number, axis: 'My' | 'Mz', edition: '2005' | '2025', layout: 'none' | 'support' | 'span' | 'all' | 'legacy') {
+  const d = demand(0, 0, torque, axis);
+  return verifyProvidedReinforcement(1, 'beam', {
+    ...(layout === 'legacy' ? { stirrups: cage } : {}),
+    regions: {
+      bottomSpan: { count: 4, diameter: 16 }, topStart: { count: 4, diameter: 16 }, topEnd: { count: 4, diameter: 16 },
+      ...(layout === 'support' || layout === 'all' ? { stirrupsSupport: cage } : {}),
+      ...(layout === 'span' || layout === 'all' ? { stirrupsSpan: cage } : {}),
+    },
+  }, undefined, {}, p, { elementId: 1, length: 6, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'pure torque',
+    stations: [0, 0.5, 1].map(t => ({ ...d.source.forces, t, x: t * 6 })) }] }, undefined, {
+    spacingRule: { edition, maxAggregateSizeMm: 0 },
+    axes: { flexure: axis, shear: axis === 'My' ? 'Vz' : 'Vy', secondaryFlexure: axis === 'My' ? 'Mz' : 'My',
+      secondaryShear: axis === 'My' ? 'Vy' : 'Vz', bFlex: p.b, hFlex: p.h, biaxial: false,
+      sagCategory: `${axis}+`, hogCategory: `${axis}-`, basis: 'stress-proxy', secondaryRatio: 0 },
+  });
+}
+for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) {
+  for (const layout of ['none', 'support', 'span'] as const) {
+    for (const torque of [phiTth, phiTth * (1 + 1e-5), reference(0, 0, 0).phiTn * (1 - 1e-5), reference(0, 0, 0).phiTn * (1 + 1e-5)]) {
+      it.fails(`known wrong result: #2142 zero-shear beam reports missing torsion stirrups ${edition} ${axis} ${layout} ${torque}`, () => {
+        const r = providedBeam(torque, axis, edition, layout);
+        const rows = r.checks.filter(c => c.category.startsWith('Torsion ') && !c.category.startsWith('Torsion Al'));
+        expect(rows).toHaveLength(2);
+        expect(r.checkedAxes).toContain('T');
+        for (const c of rows) {
+          expect(c.description).toContain(`sección ${reference(0, 0, torque).sectionRatio.toFixed(2)}`);
+          const missing = layout === 'none' || (layout === 'support' ? c.category.includes('Span') : c.category.includes('Support'));
+          expect(c.missingReinforcement === true).toBe(missing);
+          if (missing) {
+            expect(c.status).toBe('fail');
+            expect(c.ratio).toBe(Infinity);
+            expect(c.description).toContain('no stirrups provided');
+          }
+        }
+        expect(r.overallStatus).toBe('fail');
+      });
+    }
+  }
+  for (const layout of ['none', 'support', 'span', 'all', 'legacy'] as const) {
+    for (const torque of [0, phiTth * (1 - 1e-5)]) {
+      it(`zero-shear negligible torsion remains answered ${edition} ${axis} ${layout} ${torque}`, () => {
+        const r = providedBeam(torque, axis, edition, layout);
+        expect(r.checks.some(c => c.category.startsWith('Torsion'))).toBe(false);
+        expect(r.overallStatus).not.toBe('fail');
+      });
+    }
+  }
+  for (const layout of ['all', 'legacy'] as const) {
+    for (const factor of [1 - 1e-3, 1 + 1e-3]) {
+      it(`zero-shear provided torsion cage retains section boundary ${edition} ${axis} ${layout} ${factor}`, () => {
+        const torque = reference(0, 0, 0).phiTn * factor;
+        const r = providedBeam(torque, axis, edition, layout);
+        const rows = r.checks.filter(c => c.category.startsWith('Torsion ') && !c.category.startsWith('Torsion Al'));
+        expect(rows).toHaveLength(2);
+        for (const c of rows) {
+          expect(c.ratio).toBeCloseTo(reference(0, 0, torque).sectionRatio, 12);
+          expect(c.status === 'fail').toBe(factor > 1);
+          expect(c.missingReinforcement).not.toBe(true);
+        }
+      });
+    }
+  }
+}
+for (const nonlinear of [false, true]) for (const compact of [false, true]) {
+  it.fails(`known wrong result: #2142 3D WASM pure torque cannot omit missing stirrups nonlinear=${nonlinear} compact=${compact}`, () => {
+    const torque = reference(0, 0, 0).phiTn * (1 + 1e-3);
+    const solver: SolverInput3D = { ...model,
+      elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
+        releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+      supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: torque, my: 20, mz: 0 } }],
+    };
+    const raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+    setCompactStationTransfer(compact);
+    const ds = computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'C1', factors: [] }], model).demands.get(1)!.concurrent!;
+    expect(ds.length).toBeGreaterThan(0);
+    for (const source of ds) {
+      const d = source.section('My');
+      expect(d.Vu).toBeCloseTo(0, 10);
+      expect(d.VuSecondary).toBeCloseTo(0, 10);
+      expect(d.Tu).toBeCloseTo(torque, 10);
+      const r = providedBeam(d.Tu, 'My', '2025', 'none');
+      expect(r.checks).toContainEqual(expect.objectContaining({ limiting: 'torsion', missingReinforcement: true, status: 'fail' }));
+      expect(r.overallStatus).toBe('fail');
+    }
+  });
+}
