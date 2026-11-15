@@ -489,9 +489,9 @@ impl MemberDeflection {
             [l, l * l / (2.0 * ei), l * l * l / (6.0 * ei) - flex_s * l],
             v_j - v_i - mq2 / ei + flex_s * sql,
         );
-        let end_couples: f64 = d.loads.iter().map(|load| match *load {
-            MemberLoad::Couple { a, c } => if a >= l { c } else { 0.0 },
-            MemberLoad::Force { .. } | MemberLoad::Distributed { .. } => 0.0,
+        let end_couples: f64 = d.loads.iter().filter_map(|load| match *load {
+            MemberLoad::Couple { a, c } if a >= l => Some(c),
+            MemberLoad::Couple { .. } | MemberLoad::Force { .. } | MemberLoad::Distributed { .. } => None,
         }).sum();
         let r3 = if hinge_end {
             ([0.0, 1.0, l], free + end_couples - mql)
@@ -648,8 +648,8 @@ pub struct MemberSample {
 }
 
 pub fn recover_member(input: &MemberRecoveryInput) -> Result<Vec<MemberSample>, String> {
-    let ei = input.ei.unwrap_or(0.0);
-    let has_ei = ei.is_finite() && ei > 1e-6;
+    let ei = input.ei.filter(|ei| ei.is_finite() && *ei > 1e-6);
+    let has_ei = ei.is_some();
     let loaded = input.points.iter().any(|p| p.p != 0.0 || p.my.is_some_and(|c| c != 0.0))
         || input.dist.iter().any(|d| d.q_i != 0.0 || d.q_j != 0.0);
     if loaded && !has_ei {
@@ -671,7 +671,7 @@ pub fn recover_member(input: &MemberRecoveryInput) -> Result<Vec<MemberSample>, 
             dist.push((q_i, q_j, a, b));
         }
     }
-    let member = MemberDeflection::new(input.length, if has_ei { ei } else { 1.0 }, flex_s,
+    let member = MemberDeflection::new(input.length, ei.unwrap_or(1.0), flex_s,
         input.v_i, input.r_i, input.v_j, input.r_j, input.hinge_start, input.hinge_end, points, dist, couples);
     Ok(input.positions.iter().map(|t| {
         let x = t.clamp(0.0, 1.0) * input.length;
