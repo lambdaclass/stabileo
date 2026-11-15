@@ -18,7 +18,7 @@ import type { AnalysisResults3D } from './types-3d';
 import type { GoverningPerElement3D } from './governing-case';
 import type { ElementDesignDemands } from './station-design-forces';
 import { classifyElement, computeJointPsiFromModel } from './codes/argentina/cirsoc201';
-import type { ElementVerification } from './codes/argentina/cirsoc201';
+import type { ElementVerification, ConcurrentVerificationInput } from './codes/argentina/cirsoc201';
 import { isDesignedMember } from './design/behaviour-demands';
 import { primaryAxis } from './design/design-axes';
 import { verifyConcurrentElement } from './concurrent-verification';
@@ -129,6 +129,18 @@ export interface AutoVerifyResult {
   concrete: ElementVerification[];
 }
 
+function verificationForElement(value: ElementVerification, elementId: number): ElementVerification {
+  const { concurrentChecks, stationDemands, ...plain } = value;
+  const out = structuredClone(plain);
+  out.elementId = elementId;
+  for (const diagnostic of out.diagnostics ?? []) {
+    diagnostic.elementIds = diagnostic.elementIds?.map(id => id === value.elementId ? elementId : id);
+  }
+  return { ...out, ...(stationDemands ? { stationDemands } : {}),
+    ...(concurrentChecks ? { concurrentChecks: concurrentChecks.map(c => ({ demand: c.demand,
+      verification: verificationForElement(c.verification, elementId) })) } : {}) };
+}
+
 // ─── Main function ──────────────────────────────────────────
 
 /**
@@ -148,6 +160,7 @@ export function autoVerifyFromResults(
   stationDemands?: Map<number, ElementDesignDemands>,
 ): AutoVerifyResult {
   const concrete: ElementVerification[] = [];
+  const shared = new WeakMap<readonly ConcurrentDemand[], Array<{ input: ConcurrentVerificationInput; tuples: readonly ConcurrentDemand[]; value: ElementVerification }>>();
   for (const ef of results.elementForces) {
     const elem = model.elements.get(ef.elementId);
     if (!elem || rcCheckability(elem, model) !== 'checkable' || !isDesignedMember(elem as never, model.sections as never)) continue;
@@ -179,7 +192,18 @@ export function autoVerifyFromResults(
       stirrupDia: options?.stirrupDia ?? 8, edition: options?.edition ?? CIRSOC201_DESIGN_EDITION,
       Lu: isVertical ? L : undefined, psiA: psi?.psiA, psiB: psi?.psiB,
     }));
-    const v = verifyConcurrentElement(inputs);
+    const first = inputs[0]!;
+    const previous = elementType === 'beam' ? shared.get(tuples)?.find(entry =>
+      entry.tuples.length === tuples.length && entry.tuples.every((d, index) => d === tuples[index])
+      && Object.entries(first).every(([key, value]) => key === 'elementId' || key === 'demand'
+        || Object.is(value, entry.input[key as keyof ConcurrentVerificationInput]))) : undefined;
+    const v = previous ? verificationForElement(previous.value, ef.elementId) : verifyConcurrentElement(inputs);
+    if (!previous && elementType === 'beam' && v.engineRecheck?.certified?.ok
+      && !v.engineRecheck.unavailable && v.engineRecheck.disagreements.length === 0) {
+      const entries = shared.get(tuples) ?? [];
+      entries.push({ input: first, tuples: [...tuples], value: v });
+      shared.set(tuples, entries);
+    }
     v.flexureAxis = axis;
     if (demands) v.stationDemands = demands;
     concrete.push(v);

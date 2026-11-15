@@ -6,6 +6,7 @@ import { engineRecheckElement } from '../codes/argentina/cirsoc201-engine-gate';
 import * as engine from '../codes/argentina/cirsoc201-engine';
 import { autoVerifyFromResults, type AutoVerifyModelData } from '../auto-verify';
 import * as concurrentVerification from '../concurrent-verification';
+import { runUnifiedVerification, runCirsocDesign } from '../verification-service';
 import { extractGoverningDemands } from '../station-design-forces';
 import type { AnalysisResults3D } from '../types-3d';
 
@@ -212,11 +213,97 @@ function sharedBeamModel() {
   return { model, results, demands };
 }
 
-it.fails('known wrong result: #2080 — pieces with identical shared-span inputs are verified once per run', () => {
+it.each(['auto', 'unified', 'design'] as const)('#2080 — $0 verifies identical shared-span inputs once per run', entry => {
   const { model, results, demands } = sharedBeamModel();
   const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
-  const output = autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, demands]]));
-  expect(output.concrete).toHaveLength(2);
-  expect(output.concrete.every(v => v.engineRecheck?.certified?.ok)).toBe(true);
+  const shared = new Map([[1, demands], [2, demands]]);
+  const output = entry === 'auto' ? autoVerifyFromResults(results, model, null, undefined, shared).concrete
+    : entry === 'unified' ? runUnifiedVerification(results, model, null, shared)
+      : runCirsocDesign(results, model, shared, new Map([[1, 'RC'], [2, 'RC']]), null).concrete;
+  expect(output).toHaveLength(2);
+  expect(output.every(v => v.engineRecheck?.certified?.ok)).toBe(true);
   expect(verify).toHaveBeenCalledTimes(1);
+});
+
+it.each(['b', 'h', 'fc'] as const)('keeps separate checks when shared-demand members differ in %s', field => {
+  const { model, results, demands } = sharedBeamModel();
+  model.elements.get(2)!.sectionId = 2;
+  model.elements.get(2)!.materialId = 2;
+  model.sections.set(2, { ...model.sections.get(1)!, id: 2, ...(field !== 'fc' ? { [field]: 0.5 } : {}) });
+  model.materials.set(2, { ...model.materials.get(1)!, id: 2, ...(field === 'fc' ? { fc: 25 } : {}) });
+  const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
+  const actual = autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, demands]])).concrete;
+  expect(verify).toHaveBeenCalledTimes(2);
+  const expected = results.elementForces.flatMap(ef => autoVerifyFromResults({ ...results, elementForces: [ef] }, model,
+    null, undefined, new Map([[ef.elementId, demands]])).concrete);
+  expect(actual).toEqual(expected);
+});
+
+it('shared-span reuse preserves exact results, diagnostics, brands and independently mutable output', () => {
+  const { model, results, demands } = sharedBeamModel();
+  const real = concurrentVerification.verifyConcurrentElement;
+  const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement').mockImplementation(inputs => {
+    const value = real(inputs);
+    const diagnostic = { severity: 'warning' as const, code: 'VERIF_WARN_FLEXURE', message: 'diag.verifWarnFlexure',
+      source: 'verification' as const, elementIds: [inputs[0]!.elementId], details: { ratio: value.flexure.ratio } };
+    value.diagnostics = [diagnostic];
+    value.concurrentChecks![0]!.verification.diagnostics = [diagnostic];
+    return value;
+  });
+  const run = (forces: typeof results.elementForces) => autoVerifyFromResults({ ...results, elementForces: forces }, model,
+    null, undefined, new Map([[1, demands], [2, demands]])).concrete;
+  const actual = run(results.elementForces);
+  expect(verify).toHaveBeenCalledTimes(1);
+  const expected = results.elementForces.flatMap(ef => run([ef]));
+  expect(actual).toEqual(expected);
+  expect(actual[1]!.concurrentChecks![0]!.demand.section('My').source).toBe(demands.concurrent![0]);
+  actual[1]!.flexure.steps.push('changed');
+  actual[1]!.concurrentChecks![0]!.verification.diagnostics![0]!.elementIds!.push(999);
+  expect(actual[0]).toEqual(expected[0]);
+});
+
+it('a new verification run recomputes shared-span checks', () => {
+  const { model, results, demands } = sharedBeamModel();
+  const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
+  const run = () => autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, demands]]));
+  run();
+  expect(verify).toHaveBeenCalledTimes(1);
+  expect(run()).toEqual(run());
+  expect(verify).toHaveBeenCalledTimes(3);
+});
+
+it('distinct tuple sets and incomplete data cannot reuse a previous member check', () => {
+  const { model, results, demands } = sharedBeamModel();
+  const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
+  autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, { ...demands, concurrent: [...demands.concurrent!] }]]));
+  expect(verify).toHaveBeenCalledTimes(2);
+  expect(() => autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, { ...demands, concurrent: [] }]])))
+    .toThrow('Incomplete concurrent demand');
+});
+
+it('uncertified shared-span checks are recomputed with each member id', () => {
+  const { model, results, demands } = sharedBeamModel();
+  const real = concurrentVerification.verifyConcurrentElement;
+  const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement').mockImplementation(inputs => {
+    const value = real(inputs);
+    value.engineRecheck!.certified = { ok: false, lower: 0, upper: Infinity, reason: `member ${inputs[0]!.elementId}` };
+    return value;
+  });
+  const actual = autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, demands]])).concrete;
+  expect(verify).toHaveBeenCalledTimes(2);
+  expect(actual.map(v => v.engineRecheck!.certified!.reason)).toEqual(['member 1', 'member 2']);
+});
+
+it('a changed tuple in the same array cannot reuse a previous shared-span check', () => {
+  const { model, results, demands } = sharedBeamModel();
+  const shared = new Map([[1, demands], [2, demands]]);
+  const get = shared.get.bind(shared);
+  vi.spyOn(shared, 'get').mockImplementation(id => {
+    if (id === 2) (demands.concurrent as ConcurrentDemand[])[0] = demands.concurrent![0]!.withAxial(-100);
+    return get(id);
+  });
+  const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
+  const actual = autoVerifyFromResults(results, model, null, undefined, shared).concrete;
+  expect(verify).toHaveBeenCalledTimes(2);
+  expect(actual.map(v => v.concurrentChecks![0]!.demand.n)).toEqual([0, -100]);
 });
