@@ -1,4 +1,4 @@
-import { CompleteDemandSet, demandCoverage, type DemandCoverage, type ScopedDemand } from './complete-demand-set';
+import { CompleteDemandSet, demandCoverage, memberDemandScope, type DemandCoverage, type ScopedDemand } from './complete-demand-set';
 import type { ElementStationResult } from './station-design-forces';
 import type { StationForces } from './station-forces';
 import type { AnalysisResults3D } from './types-3d';
@@ -42,40 +42,47 @@ export class ConcurrentDemand {
   get stationX(): number { return this.forces.x; }
 
   static fromStations(result: ElementStationResult): ConcurrentDemand[] {
+    return ConcurrentDemand.completeStations(result).values.map(row => row.demand);
+  }
+
+  static completeStations(result: ElementStationResult) {
     const tuples = result.comboResults.flatMap(c => c.stations.map(forces => ({
       comboId: c.comboId, comboName: c.comboName, forces, transverseLoading: c.transverseLoading,
     })));
     const coverage = demandCoverage({ combinationIds: [...(result.expectedCombinationIds ?? []), ...result.comboResults.map(c => c.comboId)],
       combinations: result.comboResults.map(c => ({ comboId: c.comboId, comboName: c.comboName })), stationTs: result.stationTs }, tuples);
-    return ConcurrentDemand.fromCoveredTuples(tuples, coverage, result.elementId);
+    return ConcurrentDemand.completeCoveredTuples(tuples, coverage, result.elementId);
   }
 
   static fromTuples(tuples: readonly ConcurrentTuple[], declared?: DemandCoverage): ConcurrentDemand[] {
     if (!tuples.length && !declared) return [];
     const coverage = demandCoverage(declared ?? {}, tuples);
     const independent = declared === undefined && tuples.every(t => t.coverage === undefined);
-    return ConcurrentDemand.fromCoveredTuples(tuples, coverage, 0, independent);
+    return ConcurrentDemand.completeCoveredTuples(tuples, coverage, 0, independent).values.map(row => row.demand);
   }
 
-  private static fromCoveredTuples(tuples: readonly ConcurrentTuple[], coverage: DemandCoverage, elementId: number, independent = false): ConcurrentDemand[] {
-    const names = new Map(tuples.map(t => [t.comboId, t.comboName]));
-    const complete = CompleteDemandSet.require({ combinations: coverage.combinationIds.map(comboId => ({ comboId, comboName: names.get(comboId) })),
-      members: [{ elementId, ...coverage }] }, tuples.map(t => ({ elementId, comboId: t.comboId, stationT: t.forces.t })));
-    const combos = new Map<number, ConcurrentTuple[]>();
-    for (const tuple of tuples) {
-      const list = combos.get(tuple.comboId) ?? [];
-      list.push(tuple); combos.set(tuple.comboId, list);
+  private static completeCoveredTuples(tuples: readonly ConcurrentTuple[], coverage: DemandCoverage, elementId: number, independent = false) {
+    const complete = CompleteDemandSet.require(memberDemandScope([{ elementId, ...coverage }]),
+      tuples.map(tuple => ({ elementId, comboId: tuple.comboId, stationT: tuple.forces.t, tuple, coverage })));
+    return ConcurrentDemand.convertCompleteTuples(complete, independent);
+  }
+
+  static fromCompleteTuples<T extends ScopedDemand & { readonly tuple: ConcurrentTuple; readonly coverage: DemandCoverage }>(complete: CompleteDemandSet<T>) {
+    return ConcurrentDemand.convertCompleteTuples(complete);
+  }
+
+  private static convertCompleteTuples<T extends ScopedDemand & { readonly tuple: ConcurrentTuple; readonly coverage: DemandCoverage }>(complete: CompleteDemandSet<T>, independent = false) {
+    const ends = new Map<string, ConcurrentDemand['ends']>();
+    const coverages = new Map<string, DemandCoverage>();
+    const key = (row: ScopedDemand) => `${row.elementId}|${row.comboId}`;
+    for (const [k, group] of complete.partition(key)) {
+      const ordered = [...group.values].sort((a, b) => a.stationT - b.stationT);
+      const first = ordered[0]!.tuple.forces, last = ordered[ordered.length - 1]!.tuple.forces;
+      ends.set(k, Object.freeze({ my: Object.freeze([first.my, last.my] as [number, number]), mz: Object.freeze([first.mz, last.mz] as [number, number]) }));
+      coverages.set(k, independent ? demandCoverage({ combinationIds: [ordered[0]!.comboId] }, ordered.map(r => r.tuple)) : ordered[0]!.coverage);
     }
-    const ends = new Map<number, ConcurrentDemand['ends']>();
-    const coverages = new Map<number, DemandCoverage>();
-    for (const [comboId, list] of combos) {
-      const ordered = [...list].sort((a, b) => a.forces.t - b.forces.t);
-      const first = ordered[0]!.forces, last = ordered[ordered.length - 1]!.forces;
-      ends.set(comboId, Object.freeze({ my: Object.freeze([first.my, last.my] as [number, number]), mz: Object.freeze([first.mz, last.mz] as [number, number]) }));
-      coverages.set(comboId, independent ? demandCoverage({ combinationIds: [comboId] }, list) : coverage);
-    }
-    return tuples.map(t => new ConcurrentDemand(complete, t.comboId, coverages.get(t.comboId)!, t.comboName,
-      Object.freeze({ ...t.forces }), Object.freeze({ ...t.transverseLoading }), ends.get(t.comboId)!));
+    return complete.map(row => ({ ...row, demand: new ConcurrentDemand(complete, row.comboId, coverages.get(key(row))!, row.tuple.comboName,
+      Object.freeze({ ...row.tuple.forces }), Object.freeze({ ...row.tuple.transverseLoading }), ends.get(key(row))!) }));
   }
 
   static loadingOf(ef: AnalysisResults3D['elementForces'][number] | undefined): Readonly<{ My?: boolean; Mz?: boolean }> {

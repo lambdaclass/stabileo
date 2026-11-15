@@ -14,9 +14,12 @@ export const envelopeCannotReachSteel: Assert<Refuses<ElementDesignDemands, Para
 export const stationForcesNeedProvenance: Assert<Refuses<ConcurrentDemand['forces'], ConcurrentSectionDemand>> = true;
 export const envelopeCannotReachSteelVerifier: Assert<Refuses<SteelVerificationInput, Parameters<typeof verifySteelElement>[0]>> = true;
 
-import type { CompleteDemandSet, ScopedDemand } from '../complete-demand-set';
+import type { CompleteDemandSet, ScopedDemand, DemandScope } from '../complete-demand-set';
 import type { CompleteMemberContexts } from '../member-demand-gate';
 import type { MemberContext } from '../design/other-codes/types';
 export const rawRowsCannotBeComplete: Assert<Refuses<ScopedDemand[], CompleteDemandSet<ScopedDemand>>> = true;
 export const rawContextsCannotBeComplete: Assert<Refuses<MemberContext[], CompleteMemberContexts>> = true;
 export const forgedSetCannotBeComplete: Assert<Refuses<{ values: ScopedDemand[] }, CompleteDemandSet<ScopedDemand>>> = true;
+
+export const cartesianScopeCannotReachGate: Assert<Refuses<{ combinations: { comboId: number }[]; members: { elementId: number; stationTs: number[] }[] }, DemandScope>> = true;
+export const rawTuplesCannotUseVerifiedConversion: Assert<Refuses<ScopedDemand[], Parameters<typeof ConcurrentDemand.fromCompleteTuples>[0]>> = true;

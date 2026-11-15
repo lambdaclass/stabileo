@@ -1,3 +1,4 @@
+import { CompleteDemandSet } from '../complete-demand-set';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyConcurrentElement } from '../concurrent-verification';
@@ -251,7 +252,7 @@ it('shared-span reuse preserves exact results, diagnostics, brands and independe
   const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement').mockImplementation(inputs => {
     const value = real(inputs);
     const diagnostic = { severity: 'warning' as const, code: 'VERIF_WARN_FLEXURE', message: 'diag.verifWarnFlexure',
-      source: 'verification' as const, elementIds: [inputs[0]!.elementId], details: { ratio: value.flexure.ratio } };
+      source: 'verification' as const, elementIds: [(inputs instanceof CompleteDemandSet ? inputs.values[0]!.input : inputs[0]!).elementId], details: { ratio: value.flexure.ratio } };
     value.diagnostics = [diagnostic];
     value.concurrentChecks![0]!.verification.diagnostics = [diagnostic];
     return value;
@@ -293,7 +294,7 @@ it('uncertified shared-span checks are recomputed with each member id', () => {
   const real = concurrentVerification.verifyConcurrentElement;
   const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement').mockImplementation(inputs => {
     const value = real(inputs);
-    value.engineRecheck!.certified = { ok: false, lower: 0, upper: Infinity, reason: `member ${inputs[0]!.elementId}` };
+    value.engineRecheck!.certified = { ok: false, lower: 0, upper: Infinity, reason: `member ${(inputs instanceof CompleteDemandSet ? inputs.values[0]!.input : inputs[0]!).elementId}` };
     return value;
   });
   const actual = autoVerifyFromResults(results, model, null, undefined, sharedDemands(demands)).concrete;

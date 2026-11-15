@@ -1,5 +1,5 @@
 import { ConcurrentDemand } from './concurrent-demand';
-import { CompleteDemandSet, demandCoverage } from './complete-demand-set';
+import { CompleteDemandSet, demandCoverage, memberDemandScope } from './complete-demand-set';
 import { completeResultDemands } from './result-demand-gate';
 /**
  * Shared verification service — centralized station-based demand computation
@@ -91,8 +91,8 @@ export function computeStationDemands(
 
   if (perCombo3D.size === 0 && combinations.length === 0) return { demands, stations };
   const scopedIds = model ? [...model.elements].filter(([, e]) => isDesigned((e as { behaviour?: string }).behaviour)).map(([id]) => id) : [];
-  CompleteDemandSet.require({ combinations: combinations.map(c => ({ comboId: c.id, comboName: c.name })),
-    members: scopedIds.map(elementId => ({ elementId, stationTs: [0] })) },
+  CompleteDemandSet.require({ combinations: combinations.map(c => ({ comboId: c.id, comboName: c.name,
+      members: scopedIds.map(elementId => ({ elementId, stationTs: [0] })) })) },
     [...perCombo3D].flatMap(([comboId, result]) => result.elementForces.map(ef => ({ comboId, elementId: ef.elementId, stationT: 0 }))), [...perCombo3D.keys()]);
 
   if (!model || !isSolverReady()) throw new EngineUnavailableError('the station design forces');
@@ -137,8 +137,8 @@ function computeStationDemandsWasm(
 
   const complete = (data: StationDemandData): StationDemandData => {
     if (members.length > 0) {
-      CompleteDemandSet.require({ combinations: combinations.map(c => ({ comboId: c.id, comboName: c.name })),
-        members: members.map(m => ({ elementId: m.elementId, stationTs: data.stations.get(m.elementId)?.stationTs ?? [] })) },
+      CompleteDemandSet.require({ combinations: combinations.map(c => ({ comboId: c.id, comboName: c.name,
+        members: members.map(m => ({ elementId: m.elementId, stationTs: requestedStationTs })) })) },
         [...data.demands].flatMap(([elementId, d]) => (d.concurrent ?? []).map(t => ({ elementId, comboId: t.comboId, stationT: t.stationT }))));
     }
     return data;
@@ -786,22 +786,26 @@ export function checkVariableSteelMember(
   lengths: { L: number; Lb: number; Kx?: number; Ky?: number; freeEnd?: boolean },
 ): SteelVerification | null {
   const source = stations ?? { elementId, length: lengths.L, stationTs: [], comboResults: [] };
-  ConcurrentDemand.fromStations(source);
-  const ts = [...new Set(source.comboResults.flatMap((c) => c.stations.map((x) => x.t)))].sort((a, b) => a - b);
+  const byStation = ConcurrentDemand.completeStations(source).map(row => ({
+    demand: maskAxialDemand({ Nc: 0, Nt: 0, concurrent: [row.demand] }, elem.behaviour).concurrent[0]!,
+  })).partition(row => row.stationT);
+  const ts = [...byStation.keys()].sort((a, b) => a - b);
   let worst: SteelVerification | null = null;
   for (const t of ts) {
-    const at = source.comboResults.flatMap((c) => c.stations.filter((x) => Math.abs(x.t - t) < 1e-9));
-    const demand: SteelMemberDemand = maskAxialDemand({
+    const complete = byStation.get(t)!;
+    const concurrent = complete.values.map(row => row.demand);
+    const at = concurrent.map(d => d.forces);
+    const demand: SteelMemberDemand = {
       Nc: Math.max(0, ...at.map((x) => -x.n)), Nt: Math.max(0, ...at.map((x) => x.n)),
       MuStrong: Math.max(...at.map((x) => Math.abs(x.my))), MuWeak: Math.max(...at.map((x) => Math.abs(x.mz))),
       Vu: Math.max(...at.map((x) => Math.max(Math.abs(x.vy), Math.abs(x.vz)))),
       VuStrong: Math.max(...at.map((x) => Math.abs(x.vz))), VuWeak: Math.max(...at.map((x) => Math.abs(x.vy))),
       diagram: [],
-      concurrent: ConcurrentDemand.fromStations({ ...source, stationTs: [t], comboResults: source.comboResults.map(c => ({ ...c, stations: c.stations.filter(s => Math.abs(s.t - t) < 1e-9) })) }),
-    }, elem.behaviour as never);
+      concurrent,
+    };
     const sec = memberSectionAt(sections, elem as never, t);
     if (!sec) continue;
-    const v = checkSteelMember(elementId, demand, sec as unknown as SteelSectionData, material, lengths);
+    const v = checkCompleteSteelMember(complete, [elementId, demand, sec as unknown as SteelSectionData, material, lengths]);
     if (!v) continue;
     if (!worst || worseSteel(worst, v) === v) {
       worst = { ...v, steps: [`Barra de sección variable: estación t = ${t.toFixed(2)}, sección ${(sec as { name?: string }).name ?? ''}, Cb = 1 (método de cociente por estación).`, ...v.steps] };
@@ -877,8 +881,7 @@ export function checkSteelMember(
 ): (SteelVerification & { engineRecheck: SteelEngineRecheck }) | null {
   const concurrent = steelConcurrentDemands(demand);
   const coverage = demandCoverage({}, concurrent);
-  const complete = CompleteDemandSet.require({ combinations: coverage.combinationIds.map(comboId => ({ comboId })),
-    members: [{ elementId, ...coverage }] }, concurrent.map(d => ({ elementId, comboId: d.comboId, stationT: d.stationT, demand: d })));
+  const complete = CompleteDemandSet.require(memberDemandScope([{ elementId, ...coverage }]), concurrent.map(d => ({ elementId, comboId: d.comboId, stationT: d.stationT, demand: d })));
   return checkCompleteSteelMember(complete, [elementId, demand, section, material, lengths, segment, opts]);
 }
 

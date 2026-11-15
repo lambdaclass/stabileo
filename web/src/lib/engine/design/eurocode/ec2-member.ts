@@ -1,4 +1,4 @@
-import { completeMemberDemands } from '../../member-demand-gate';
+import { completeMemberDemands, completeMemberCases } from '../../member-demand-gate';
 import type { CompleteDemandSet, DemandCoverage } from '../../complete-demand-set';
 import { ConcurrentDemand } from '../../concurrent-demand';
 /**
@@ -81,14 +81,14 @@ export const BEAM_AXIAL_COMPRESSION_SHARE = 0.1;
 export const BEAM_AXIAL_TENSION_SHARE = 0.01;
 
 export function ec2MemberDesign(i: Ec2MemberInput): Ec2MemberDesign {
-  const complete = completeMemberDemands([{ ...i, elementId: i.elementId ?? 0 }]);
+  const complete = completeMemberCases(completeMemberDemands([{ ...i, elementId: i.elementId ?? 0 }]));
   return designCompleteEc2Member(i, complete);
 }
 
 function designCompleteEc2Member(i: Ec2MemberInput, complete: CompleteDemandSet<{ elementId: number; comboId: number; stationT: number; tuple: StationTuple; coverage: DemandCoverage }>): Ec2MemberDesign {
   // One tuple per combination and station: categories that peak at the same place are one demand.
   const seen = new Set<string>();
-  const ds = ConcurrentDemand.fromTuples([...i.demands, ...complete.values.map(r => r.tuple)], complete.values[0]!.coverage).filter((d) => { const k = `${d.comboId}|${d.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  const ds = ConcurrentDemand.fromCompleteTuples(complete).values.map(r => r.demand).filter((d) => { const k = `${d.comboId}|${d.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
   if (!ds.length || ds.every(idle)) return { skip: 'otherCodes.skip.noDemand' };
   return i.kind === 'beam' ? beam(i, ds) : column(i, ds);
 }

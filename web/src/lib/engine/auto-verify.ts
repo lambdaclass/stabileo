@@ -167,7 +167,8 @@ export function autoVerifyFromResults(
 function verifyCompleteResults(complete: CompleteResultDemands, model: AutoVerifyModelData, options?: AutoVerifyOptions): AutoVerifyResult {
   const concrete: ElementVerification[] = [];
   const shared = new WeakMap<readonly ConcurrentDemand[], Array<{ base: VerificationBase; axis: 'My' | 'Mz'; tuples: readonly ConcurrentDemand[]; value: ElementVerification }>>();
-  for (const { ef, demands, tuples } of new Set(complete.values.map(r => r.member))) {
+  for (const [member, verified] of complete.partition(r => r.member)) {
+    const { ef, demands, tuples } = member;
     const elem = model.elements.get(ef.elementId);
     if (!elem || rcCheckability(elem, model) !== 'checkable' || !isDesignedMember(elem as never, model.sections as never)) continue;
     const nodeI = model.nodes.get(elem.nodeI), nodeJ = model.nodes.get(elem.nodeJ);
@@ -194,7 +195,7 @@ function verifyCompleteResults(complete: CompleteResultDemands, model: AutoVerif
       entry.tuples.length === tuples.length && entry.tuples.every((d, index) => d === tuples[index])
       && entry.axis === axis && sameVerificationBase(base, entry.base)) : undefined;
     let v = previous ? verificationForElement(previous.value, ef.elementId)
-      : verifyConcurrentElement(tuples.map(d => ({ ...base, elementId: ef.elementId, demand: d.section(axis) })));
+      : verifyConcurrentElement(verified.map(r => ({ input: { ...base, elementId: ef.elementId, demand: r.tuple.section(axis) } })));
     if (!previous && elementType === 'beam' && v.engineRecheck && canReuseCirsoc201Certificate(v.engineRecheck.certified)
       && !v.engineRecheck.unavailable && v.engineRecheck.disagreements.length === 0) {
       const entries = shared.get(tuples) ?? [];

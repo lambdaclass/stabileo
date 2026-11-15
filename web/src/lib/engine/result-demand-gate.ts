@@ -1,4 +1,4 @@
-import { CompleteDemandSet, demandCoverage } from './complete-demand-set';
+import { CompleteDemandSet, demandCoverage, memberDemandScope } from './complete-demand-set';
 import { ConcurrentDemand } from './concurrent-demand';
 import type { ElementDesignDemands } from './station-design-forces';
 import type { AnalysisResults3D } from './types-3d';
@@ -11,7 +11,7 @@ export function completeResultDemands(
   governing?: ReadonlyMap<number, GoverningPerElement3D> | null,
 ) {
   const forces = new Map(results.elementForces.map(ef => [ef.elementId, ef]));
-  CompleteDemandSet.require({ combinations: elementIds.length ? [{ comboId: 0 }] : [], members: elementIds.map(elementId => ({ elementId, stationTs: [0] })) },
+  CompleteDemandSet.require({ combinations: elementIds.length ? [{ comboId: 0, members: elementIds.map(elementId => ({ elementId, stationTs: [0] })) }] : [] },
     results.elementForces.map(ef => ({ elementId: ef.elementId, comboId: 0, stationT: 0 })), [0]);
   const snapshots = new WeakMap<readonly ConcurrentDemand[], readonly ConcurrentDemand[]>();
   const members = elementIds.map(elementId => {
@@ -30,8 +30,8 @@ export function completeResultDemands(
   const names = new Map<number, string>();
   for (const m of members) for (const c of m.coverage.combinations ?? []) names.set(c.comboId, c.comboName);
   for (const m of members) for (const d of m.tuples) if (!names.has(d.comboId)) names.set(d.comboId, d.comboName);
-  const combinations = [...new Set(members.flatMap(m => m.coverage.combinationIds))].map(comboId => ({ comboId, comboName: names.get(comboId) }));
-  return CompleteDemandSet.require({ combinations, members: members.map(m => ({ elementId: m.elementId, ...m.coverage })) },
+  const combinations = [...new Set(members.flatMap(m => m.coverage.combinationIds))].map(comboId => ({ comboId, comboName: names.get(comboId) ?? '' }));
+  return CompleteDemandSet.require(memberDemandScope(members.map(m => ({ elementId: m.elementId, ...m.coverage, combinations }))),
     members.flatMap(member => member.tuples.map(tuple => ({ elementId: member.demands?.elementId ?? member.elementId, comboId: tuple.comboId, stationT: tuple.stationT, member, tuple }))));
 }
 

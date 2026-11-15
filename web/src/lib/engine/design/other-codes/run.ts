@@ -1,4 +1,4 @@
-import { completeMemberDemands, type CompleteMemberContexts } from '../../member-demand-gate';
+import { completeMemberDemands, completeMemberCases, type CompleteMemberContexts } from '../../member-demand-gate';
 import { ConcurrentDemand } from '../../concurrent-demand';
 /**
  * Run a code's checker over the members, one force tuple at a time.
@@ -117,12 +117,12 @@ const CHUNK = 48;
  * tuples) carries every member's pairs.
  */
 export function runOtherCode(code: OtherCode, contexts: MemberContext[], opts: RunOptions = {}): OtherCodeRun {
-  return runCompleteOtherCode(code, completeMemberDemands(contexts), opts);
+  return runCompleteOtherCode(code, completeMemberCases(completeMemberDemands(contexts)), opts);
 }
 
 function runCompleteOtherCode(code: OtherCode, complete: CompleteMemberContexts, opts: RunOptions): OtherCodeRun {
   const contexts = [...new Set(complete.values.map(r => r.member))];
-  const coverages = new Map(complete.values.map(r => [r.elementId, r.coverage]));
+  const byMember = complete.partition(r => r.member);
   const rows = new Map<number, OtherCodeRow>();
   const ready: Array<{ ctx: MemberContext; data: Record<string, unknown>; flags: string[]; list: ConcurrentDemand[] }> = [];
   for (const ctx of contexts) {
@@ -130,9 +130,11 @@ function runCompleteOtherCode(code: OtherCode, complete: CompleteMemberContexts,
     if ('skip' in m) { rows.set(ctx.elementId, { elementId: ctx.elementId, status: 'skipped', reasonKey: m.skip }); continue; }
     if (ctx.demands.length === 0) { rows.set(ctx.elementId, { elementId: ctx.elementId, status: 'skipped', reasonKey: 'otherCodes.skip.noDemand' }); continue; }
     // The governing demands first, then every other combination and station, each pair once.
-    const seen = new Set(ctx.demands.map((d) => `${d.comboId}|${d.stationT}`));
-    const rest = (ctx.tuples ?? []).filter((t) => { const k = `${t.comboId}|${t.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
-    ready.push({ ctx, data: m.data, flags: m.unevaluated ?? [], list: ConcurrentDemand.fromTuples([...ctx.demands, ...rest], coverages.get(ctx.elementId)) });
+    const converted = ConcurrentDemand.fromCompleteTuples(byMember.get(ctx)!).values;
+    const governing = converted.filter(r => r.governing).map(r => r.demand);
+    const seen = new Set(governing.map(d => `${d.comboId}|${d.stationT}`));
+    const rest = converted.filter(r => !r.governing).map(r => r.demand).filter(d => { const k = `${d.comboId}|${d.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    ready.push({ ctx, data: m.data, flags: m.unevaluated ?? [], list: [...governing, ...rest] });
   }
   /*
    * The member's reading is its worst ratio, and it carries every check the engine left out at
@@ -232,7 +234,7 @@ export async function certifyOtherCode(
   stationBound: (comboId: number, elementId: number) => StationBound3D | null,
   call: (name: string, args: unknown[]) => Promise<unknown>,
 ): Promise<Map<number, MemberCertificate>> {
-  return certifyCompleteOtherCode(code, completeMemberDemands(contexts), stationBound, call);
+  return certifyCompleteOtherCode(code, completeMemberCases(completeMemberDemands(contexts)), stationBound, call);
 }
 
 async function certifyCompleteOtherCode(
@@ -242,7 +244,7 @@ async function certifyCompleteOtherCode(
   call: (name: string, args: unknown[]) => Promise<unknown>,
 ): Promise<Map<number, MemberCertificate>> {
   const contexts = [...new Set(complete.values.map(r => r.member))];
-  const coverages = new Map(complete.values.map(r => [r.elementId, r.coverage]));
+  const byMember = complete.partition(r => r.member);
   const out = new Map<number, MemberCertificate>();
   const cert = code.certify;
   if (!cert) return out;
@@ -255,7 +257,7 @@ async function certifyCompleteOtherCode(
     const m = code.member(ctx);
     if ('skip' in m || ctx.demands.length === 0) continue;
     if ((m.unevaluated ?? []).length > 0) { refuse(ctx.elementId, 'otherCodes.cert.partial'); continue; }
-    ready.push({ ctx, data: m.data, all: ConcurrentDemand.fromTuples([...ctx.demands, ...(ctx.tuples ?? [])], coverages.get(ctx.elementId)) });
+    ready.push({ ctx, data: m.data, all: ConcurrentDemand.fromCompleteTuples(byMember.get(ctx)!).values.map(r => r.demand) });
   }
   const rounds = ready.reduce((n, r) => Math.max(n, r.all.length), 0);
   for (let k = 0; k < rounds; k++) {

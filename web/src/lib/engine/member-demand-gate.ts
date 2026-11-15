@@ -1,4 +1,4 @@
-import { CompleteDemandSet, demandCoverage } from './complete-demand-set';
+import { CompleteDemandSet, demandCoverage, memberDemandScope } from './complete-demand-set';
 import type { GoverningDemand } from './station-design-forces';
 import type { MemberContext, StationTuple } from './design/other-codes/types';
 
@@ -15,9 +15,16 @@ export function completeMemberDemands<T extends MemberDemandInput>(members: read
   const names = new Map<number, string>();
   for (const c of coverages) for (const d of c.combinations ?? []) names.set(d.comboId, d.comboName);
   for (const m of members) for (const d of m.demands) names.set(d.comboId, d.comboName);
-  const combinations = [...new Set(coverages.flatMap(c => c.combinationIds))].map(comboId => ({ comboId, comboName: names.get(comboId) }));
-  return CompleteDemandSet.require({ combinations, members: members.map((m, i) => ({ elementId: m.elementId, ...coverages[i]! })) },
-    members.flatMap((member, i) => (member.tuples ?? []).map(tuple => ({ coverage: coverages[i]!, elementId: member.elementId, comboId: tuple.comboId, stationT: tuple.forces.t, tuple, member }))));
+  const combinations = [...new Set(coverages.flatMap(c => c.combinationIds))].map(comboId => ({ comboId, comboName: names.get(comboId) ?? '' }));
+  return CompleteDemandSet.require(memberDemandScope(members.map((m, i) => ({ elementId: m.elementId, ...coverages[i]!, combinations }))),
+    members.flatMap((member, i) => (member.tuples ?? []).map(tuple => ({ coverage: coverages[i]!, elementId: member.elementId, comboId: tuple.comboId, stationT: tuple.forces.t, tuple, member, governing: false as boolean }))));
+}
+
+export function completeMemberCases<T extends MemberDemandInput>(complete: ReturnType<typeof completeMemberDemands<T>>) {
+  const members = new Map(complete.values.map(row => [row.member, row.coverage]));
+  return complete.prepend([...members].flatMap(([member, coverage]) => member.demands.map(tuple => ({
+    coverage, elementId: member.elementId, comboId: tuple.comboId, stationT: tuple.forces.t, tuple, member, governing: true,
+  }))));
 }
 
 export type CompleteMemberContexts = ReturnType<typeof completeMemberDemands<MemberContext>>;

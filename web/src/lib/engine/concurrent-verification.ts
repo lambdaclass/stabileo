@@ -1,4 +1,4 @@
-import { CompleteDemandSet, demandCoverage } from './complete-demand-set';
+import { CompleteDemandSet, demandCoverage, memberDemandScope } from './complete-demand-set';
 import { copyVerificationCheck } from './verification-steps';
 import { withBiaxialCapacityCache } from './station-design-forces';
 import { verificationForElement } from './element-verification-copy';
@@ -30,15 +30,15 @@ function completeCaseKeys(): (input: ConcurrentVerificationInput) => string | un
   };
 }
 
-export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationInput[]): ElementVerification {
+export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationInput[] | CompleteDemandSet<{ elementId: number; comboId: number; stationT: number; input: ConcurrentVerificationInput }>): ElementVerification {
+  if (inputs instanceof CompleteDemandSet) return withBiaxialCapacityCache(() => verifyConcurrentCases(inputs));
   const byMember = new Map<number, ConcurrentVerificationInput[]>();
   for (const input of inputs) {
     const list = byMember.get(input.elementId) ?? [];
     list.push(input); byMember.set(input.elementId, list);
   }
   const coverage = [...byMember].map(([elementId, list]) => ({ elementId, ...demandCoverage({}, list.map(i => i.demand.source)) }));
-  const complete = CompleteDemandSet.require({ combinations: [...new Set(coverage.flatMap(c => c.combinationIds))].map(comboId => ({ comboId })),
-    members: coverage }, inputs.map(input => ({
+  const complete = CompleteDemandSet.require(memberDemandScope(coverage), inputs.map(input => ({
       elementId: input.elementId, comboId: input.demand.source.comboId, stationT: input.demand.source.stationT, input,
     })));
   return withBiaxialCapacityCache(() => verifyConcurrentCases(complete));

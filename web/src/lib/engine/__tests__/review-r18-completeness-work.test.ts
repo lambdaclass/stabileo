@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { CompleteDemandSet, IncompleteConcurrentDemandError } from '../complete-demand-set';
+import { CompleteDemandSet, IncompleteConcurrentDemandError, memberDemandScope } from '../complete-demand-set';
 import { autoVerifyFromResults, type AutoVerifyModelData } from '../auto-verify';
 import { computeStationDemands, setCompactStationTransfer } from '../verification-service';
 import * as stationBuffer from '../station-buffer';
@@ -74,7 +74,7 @@ function hasCompleteTuples(tuples: readonly { comboId: number }[] | undefined, r
   const rows = (tuples ?? []).map(d => ({ elementId: 0, get comboId() { return d.comboId; }, stationT: 0 }));
   const combinations = [...new Set([...required.map(d => d.comboId), ...(tuples ?? []).map(d => d.comboId)])].map(comboId => ({ comboId }));
   try {
-    CompleteDemandSet.require({ combinations, members: [{ elementId: 0, stationTs: [0] }] }, rows);
+    CompleteDemandSet.require(memberDemandScope([{ elementId: 0, combinationIds: combinations.map(c => c.comboId), stationTs: [0] }]), rows);
     return true;
   } catch (error) {
     if (!(error instanceof IncompleteConcurrentDemandError)) throw error;

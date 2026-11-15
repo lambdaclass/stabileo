@@ -1,4 +1,4 @@
-import { CompleteDemandSet, demandCoverage } from './complete-demand-set';
+import { CompleteDemandSet, demandCoverage, memberDemandScope } from './complete-demand-set';
 import { ConcurrentDemand } from './concurrent-demand';
 import { getColumnCapacityKernel, columnCapacityKernelRegistered } from './column-capacity-kernel';
 import { evaluateBeamSection, evaluateBeamSections } from './codes/argentina/cirsoc201-beam-kernel';
@@ -1959,8 +1959,7 @@ export function verifyProvidedReinforcement(
   const suppliedTuples = stationResult ? ConcurrentDemand.fromStations(stationResult) : demands?.concurrent;
   const coverage = demandCoverage({ combinationIds: [...(demands?.expectedCombinationIds ?? []), ...(demands?.demands.map(d => d.comboId) ?? [])],
     stationTs: demands?.stationTs ?? stationResult?.stationTs }, suppliedTuples);
-  const complete = CompleteDemandSet.require({ combinations: coverage.combinationIds.map(comboId => ({ comboId })),
-    members: [{ elementId, ...coverage }] },
+  const complete = CompleteDemandSet.require(memberDemandScope([{ elementId, ...coverage }]),
     (suppliedTuples ?? []).map(demand => ({ elementId, comboId: demand.comboId, stationT: demand.stationT, demand })));
 
   const checks: ProvidedRebarCheck[] = [];

@@ -6,8 +6,34 @@ export interface DemandCoverage {
 }
 
 export interface DemandScope {
-  readonly combinations: readonly { comboId: number; comboName?: string }[];
-  readonly members: readonly ({ elementId: number } & Pick<DemandCoverage, 'stationTs' | 'combinationStations'>)[];
+  readonly combinations: readonly {
+    readonly comboId: number;
+    readonly comboName?: string;
+    readonly members: readonly { readonly elementId: number; readonly stationTs: readonly number[] }[];
+  }[];
+  readonly missingMembers?: readonly number[];
+}
+
+export function memberDemandScope(members: readonly ({ readonly elementId: number } & DemandCoverage)[]): DemandScope {
+  const combinations = new Map<number, { comboId: number; comboName?: string; members: { elementId: number; stationTs: readonly number[] }[] }>();
+  const missingMembers: number[] = [];
+  for (const member of members) {
+    if (!member.combinationIds.length) missingMembers.push(member.elementId);
+    const names = new Map(member.combinations?.map(c => [c.comboId, c.comboName]));
+    const requested = new Map<number, Set<number>>();
+    for (const c of member.combinationStations ?? []) {
+      const ts = requested.get(c.comboId) ?? new Set<number>();
+      for (const t of c.stationTs) ts.add(t);
+      requested.set(c.comboId, ts);
+    }
+    for (const comboId of member.combinationIds) {
+      let combo = combinations.get(comboId);
+      if (!combo) { combo = { comboId, comboName: names.get(comboId), members: [] }; combinations.set(comboId, combo); }
+      combo.members.push({ elementId: member.elementId, stationTs: [...new Set([...member.stationTs,
+        ...(requested.get(comboId) ?? [])])] });
+    }
+  }
+  return { combinations: [...combinations.values()], missingMembers };
 }
 
 export interface ScopedDemand {
@@ -43,46 +69,52 @@ export class CompleteDemandSet<T extends ScopedDemand> {
     return this.rows;
   }
 
+  map<U extends object>(project: (row: T) => U): CompleteDemandSet<U & ScopedDemand> {
+    return new CompleteDemandSet(Object.freeze(this.rows.map(row => Object.freeze({ ...project(row),
+      elementId: row.elementId, comboId: row.comboId, stationT: row.stationT }))));
+  }
+
+  prepend(rows: readonly T[]): CompleteDemandSet<T> {
+    return new CompleteDemandSet(Object.freeze([...rows.map(row => Object.freeze({ ...row })), ...this.rows]));
+  }
+
+  partition<K>(key: (row: T) => K): ReadonlyMap<K, CompleteDemandSet<T>> {
+    const groups = new Map<K, T[]>();
+    for (const row of this.rows) {
+      const k = key(row), list = groups.get(k) ?? [];
+      list.push(row); groups.set(k, list);
+    }
+    return new Map([...groups].map(([k, rows]) => [k, new CompleteDemandSet(Object.freeze(rows))]));
+  }
+
   static require<T extends ScopedDemand>(scope: DemandScope, rows: readonly T[], availableCombinationIds?: readonly number[]): CompleteDemandSet<T> {
     const diagnostics: IncompleteDemandDiagnostic[] = [];
+    const snapshot = Object.freeze(rows.map(row => Object.freeze({ ...row })));
     const byCombo = new Map<number, Map<number, Set<number>>>();
-    for (const row of rows) {
+    for (const row of snapshot) {
       let members = byCombo.get(row.comboId);
       if (!members) { members = new Map(); byCombo.set(row.comboId, members); }
       let stations = members.get(row.elementId);
       if (!stations) { stations = new Set(); members.set(row.elementId, stations); }
       stations.add(row.stationT);
     }
-    if (scope.members.length && !scope.combinations.length) diagnostics.push({ code: 'missing-scope' });
-    for (const member of scope.members) {
-      const stations = [...member.stationTs, ...(member.combinationStations ?? []).flatMap(c => c.stationTs)];
-      if (!stations.length || stations.some(t => !Number.isFinite(t))) diagnostics.push({ code: 'missing-scope', elementId: member.elementId });
-    }
-    const requested = new Map(scope.members.map(m => {
-      const byCombo = new Map<number, Set<number>>();
-      for (const c of m.combinationStations ?? []) {
-        const ts = byCombo.get(c.comboId) ?? new Set<number>();
-        for (const t of c.stationTs) ts.add(t);
-        byCombo.set(c.comboId, ts);
-      }
-      return [m, byCombo] as const;
-    }));
+    for (const elementId of scope.missingMembers ?? []) diagnostics.push({ code: 'missing-scope', elementId });
     const available = new Set(availableCombinationIds ?? byCombo.keys());
     for (const combo of scope.combinations) {
       const members = byCombo.get(combo.comboId);
-      if (!Number.isFinite(combo.comboId) || !available.has(combo.comboId)) { diagnostics.push({ code: 'missing-combination', ...combo }); continue; }
-      for (const member of scope.members) {
+      const identity = { comboId: combo.comboId, comboName: combo.comboName };
+      if (!Number.isFinite(combo.comboId) || !available.has(combo.comboId)) { diagnostics.push({ code: 'missing-combination', ...identity }); continue; }
+      for (const member of combo.members) {
         const stations = members?.get(member.elementId);
-        if (!stations?.size) { diagnostics.push({ code: 'missing-member', ...combo, elementId: member.elementId }); continue; }
-        const required = [...member.stationTs, ...(requested.get(member)!.get(combo.comboId) ?? [])];
-        if (!required.length) diagnostics.push({ code: 'missing-scope', elementId: member.elementId });
-        for (const stationT of required) {
-          if (!stations.has(stationT)) diagnostics.push({ code: 'missing-station', ...combo, elementId: member.elementId, stationT });
+        if (!member.stationTs.length || member.stationTs.some(t => !Number.isFinite(t))) diagnostics.push({ code: 'missing-scope', elementId: member.elementId });
+        if (!stations?.size) { diagnostics.push({ code: 'missing-member', ...identity, elementId: member.elementId }); continue; }
+        for (const stationT of member.stationTs) {
+          if (!stations.has(stationT)) diagnostics.push({ code: 'missing-station', ...identity, elementId: member.elementId, stationT });
         }
       }
     }
     if (diagnostics.length) throw new IncompleteConcurrentDemandError(diagnostics);
-    return new CompleteDemandSet(Object.freeze([...rows]));
+    return new CompleteDemandSet(snapshot);
   }
 }
 
