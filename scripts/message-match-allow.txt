@@ -8,7 +8,6 @@ engine/src/certify/reassembly/mod.rs: if e.starts_with("out of scope") || e.star
 engine/src/certify/reassembly/mod.rs: } else if e.starts_with("a load acts on") {
 engine/src/certify/reassembly/mod.rs: Err(reason) if reason.starts_with("a load acts on") => return EndToEnd::Failed { reason },
 web/src/lib/engine/plastic-collapse.ts: if (/mechanism|singular|instab/i.test(msg)) { if (closeUnloading()) continue; isMechanism = true; break; }
-web/src/lib/listings/listing.ts: if (c.failingOnly && r[statusKey] !== undefined && !/fail|no verifica|não verifica/i.test(String(r[statusKey]))) return false;
 
 ## Classifies nightly or metamorphic findings by message text: a wording change files a refusal under another kind. The classifier is to key on codes.
 engine/src/metamorphic/compare.rs: if d.labels[k].starts_with("refusal:") { rep.refusals += 1 } else { rep.values += 1 }
@@ -34,10 +33,6 @@ web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Fit: Top Start')) want.add('start');
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Fit: Top End')) want.add('end');
 web/src/lib/engine/design/candidate-enumerate-column.ts: || cat.startsWith('Longitudinal') || cat.includes('steel ratio')
-web/src/lib/engine/design/check-clauses.ts: if (cat.startsWith('min steel')) return kind === 'beam' ? '9.6.1' : '10.6.1';
-web/src/lib/engine/design/check-clauses.ts: if (cat.startsWith('max steel')) return kind === 'beam' ? '9.3.3' : '10.6.1';
-web/src/lib/engine/design/check-clauses.ts: if (cat.startsWith('tie spacing')) return '25.7.2';
-web/src/lib/engine/design/check-clauses.ts: if (cat.startsWith('steel ratio')) return '10.6.1';
 web/src/lib/engine/design/check-rows.ts: if (c.includes('tie spacing')) return '25.7.2.1';
 web/src/lib/engine/design/check-rows.ts: if (c.includes('min steel') || c.includes('max steel')) return '9.6.1';
 web/src/lib/engine/design/lateral-anchorage-row.ts: const rows = p.checks.filter((c) => BOTTOM_SUPPORT_ROW.test(c.category));
