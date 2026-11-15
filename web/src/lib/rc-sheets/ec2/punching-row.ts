@@ -1,4 +1,4 @@
-import { checkSlabJointPunching, slabJointPosition, RESIDUAL_TOL, type JointPositionResult } from '../../engine/detailing/slab-punching';
+import { checkSlabJointPunching, slabJointPosition, RESIDUAL_TOL, type JointPositionResult } from '../slab-punching';
 import type { Fmt } from '../format';
 import type { PunchingContext, PunchingDemand, PunchingRow } from '../punching-row';
 import { check, ratioOf, type CheckLine, type ComboTable, type StepGroup } from '../types';

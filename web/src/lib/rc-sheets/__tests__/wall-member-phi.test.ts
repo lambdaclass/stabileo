@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { wallInPlane, wallOutOfPlane, wallVerticalBars } from '../wall-member';
-import type { WallReinforcement } from '../../../design-contract/reinforcement';
+import type { WallReinforcement } from '../../design-contract/reinforcement';
 
 const fc = 25, fy = 500, Es = 200000, ecu = 0.003, fcd = 0.85 * fc * 1000;
 const phi = 0.65 + 0.25 * (0.004 - 0.0025) / 0.003;

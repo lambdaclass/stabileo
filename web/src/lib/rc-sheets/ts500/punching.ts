@@ -1,4 +1,4 @@
-import { checkSlabJointPunching, slabJointPosition } from '../../engine/detailing/slab-punching';
+import { checkSlabJointPunching, slabJointPosition } from '../slab-punching';
 import { criticalSection } from '../../engine/detailing/punching-shear';
 import type { Fmt } from '../format';
 import type { PunchingContext, PunchingDemand, PunchingRow } from '../punching-row';

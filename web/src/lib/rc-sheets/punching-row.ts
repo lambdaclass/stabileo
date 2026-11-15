@@ -1,4 +1,4 @@
-import { checkSlabJointPunching, slabJointPosition, type AdjoiningShell, type SlabColumnJoint } from '../engine/detailing/slab-punching';
+import { checkSlabJointPunching, slabJointPosition, type AdjoiningShell, type SlabColumnJoint } from './slab-punching';
 import type { Fmt } from './format';
 import { check, ratioOf, type CheckLine, type ComboTable, type RowStatus, type StepGroup } from './types';
 

@@ -16,8 +16,8 @@ import {
   RESIDUAL_TOL, checkSlabJointPunching, slabJointPosition,
   type AdjoiningShell, type SlabColumnJoint, type SlabJointForce, type SlabPunchingInput,
 } from '../slab-punching';
-import { criticalSection, punchingResistance, PHI_SHEAR } from '../punching-shear';
-import type { FloorNode } from '../run-floor-design';
+import { criticalSection, punchingResistance, PHI_SHEAR } from '../../engine/detailing/punching-shear';
+type FloorNode = { x: number; y: number; z?: number };
 
 // ─── Geometry helpers: a 6 × 6 mesh of 3 m panels around node 5 ──
 //

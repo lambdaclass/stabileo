@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { columnTieLayout, tieSegments, tiesIn } from '../column-ties';
+import { columnEndZone, columnTieLayout, tieSegments, tiesIn } from '../column-ties';
 import type { ColumnRow } from '../column-row';
 
 /** A 40 × 40 column of 3 m clear height under a 60 cm beam, its ties Ø8 at `s`. */
@@ -94,5 +94,17 @@ describe('column ties along the storey', () => {
   it('TS 500: one spacing along the storey', () => {
     const seg = tieSegments(columnTieLayout(row({ s: 0.15, lap: 0.6, joint: 0 }), 'ts500-2000'));
     expect(seg.map((z) => [z.kind, z.spacing, z.clause])).toEqual([['lap', 0.15, '9.3'], ['middle', 0.15, '7.4.1']]);
+  });
+});
+
+describe('the end zone the project asks for', () => {
+  it('runs over the largest side, a sixth of the clear height or 450 mm, at half the spacing on the 25 mm grid', () => {
+    expect(columnEndZone(0.3, 0.6, 3.2, 0.25)).toEqual({ endLength: 0.6, endSpacing: 0.125 });
+    expect(columnEndZone(0.3, 0.3, 4.2, 0.2)).toEqual({ endLength: 0.7, endSpacing: 0.1 });
+    expect(columnEndZone(0.25, 0.25, 2.4, 0.15)).toEqual({ endLength: 0.45, endSpacing: 0.075 });
+  });
+
+  it('never tightens below 50 mm', () => {
+    expect(columnEndZone(0.4, 0.4, 3, 0.075).endSpacing).toBe(0.05);
   });
 });

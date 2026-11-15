@@ -63,15 +63,14 @@
  * Pure: no store, no runes, no i18n. Lengths m, forces kN, stresses MPa.
  */
 
-import type { ClauseRef } from '../../codes/regulation';
-import type { Maturity } from '../../codes/maturity';
-import { msg, type EngineMessage } from '../../codes/message';
+import type { ClauseRef } from '../codes/regulation';
+import type { Maturity } from '../codes/maturity';
+import { msg, type EngineMessage } from '../codes/message';
 import {
   PHI_SHEAR, checkPunchingShear, criticalSection, punchingResistance,
   type ColumnPosition,
-} from './punching-shear';
-import type { CheckStatus } from './foundation-check';
-import type { FloorNode } from './run-floor-design';
+} from '../engine/detailing/punching-shear';
+import type { CheckStatus } from '../engine/detailing/foundation-check';
 
 // ─── What the store collects ─────────────────────────────────────
 
@@ -135,7 +134,7 @@ export interface SlabColumnJoint {
 export interface AdjoiningShell {
   elementId: number;
   nodeIds: readonly number[];
-  points: readonly FloorNode[];
+  points: readonly { x: number; y: number; z?: number }[];
 }
 
 export type JointPattern =
@@ -375,7 +374,7 @@ export interface SlabPunchingResult {
     halfY: number;
   } | null;
   /** Stirrups the governing case needs, when the concrete alone does not carry it (§22.6.7). */
-  reinforcement?: import('./punching-moment').PunchingReinforcement;
+  reinforcement?: import('../engine/detailing/punching-moment').PunchingReinforcement;
   /** The moment transfer's share of the governing stress, MPa (§8.4.4.2), when evaluated. */
   momentStress?: number;
   maturity: Maturity;

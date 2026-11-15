@@ -7,11 +7,11 @@
  * not carry the in-plane moment the design concentrates bars at both ends (boundary elements)
  * before closing the spacing.
  */
-import type { WallReinforcement } from '../../design-contract/reinforcement';
-import { momentCapacityAtAxial, axialRange } from '../codes/argentina/cirsoc-flex-surface';
-import type { Bar } from '../codes/argentina/cirsoc201-section';
-import { CIRSOC201_DESIGN_EDITION } from '../codes/argentina/cirsoc201-basis';
-import { computeFlexureCapacity } from '../station-design-forces';
+import type { WallReinforcement } from '../design-contract/reinforcement';
+import { momentCapacityAtAxial, axialRange } from '../engine/codes/argentina/cirsoc-flex-surface';
+import type { Bar } from '../engine/codes/argentina/cirsoc201-section';
+import { CIRSOC201_DESIGN_EDITION } from '../engine/codes/argentina/cirsoc201-basis';
+import { computeFlexureCapacity } from '../engine/station-design-forces';
 
 const area = (dMm: number) => Math.PI * (dMm / 1000) ** 2 / 4;
 
