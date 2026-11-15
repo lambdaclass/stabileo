@@ -1,25 +1,81 @@
+import { copyVerificationCheck } from './verification-steps';
+import { withBiaxialCapacityCache } from './station-design-forces';
+import { verificationForElement } from './element-verification-copy';
 import { sharedTorsionReinforcement, checkColumn, prepareElementVerification, verificationCase, amplifiedDemand, type ConcurrentVerificationInput, type ElementVerification, type DemandLocation } from './codes/argentina/cirsoc201';
 import { engineRecheckElement } from './codes/argentina/cirsoc201-engine-gate';
 
+function completeCaseKeys(): (input: ConcurrentVerificationInput) => string | undefined {
+  let keys: string[] = [];
+  let sorted: string[] = [];
+  let shape = '';
+  return input => {
+    const fields = verificationCase(input);
+    const current = Object.keys(fields).filter(key => key !== 'demand');
+    if (keys.length !== current.length || keys.some((key, index) => key !== current[index])) {
+      keys = current;
+      sorted = [...current].sort();
+      shape = JSON.stringify(sorted);
+    }
+    const values: unknown[] = [];
+    for (const key of sorted) {
+      const value = (fields as unknown as Record<string, unknown>)[key];
+      if (typeof value === 'number') {
+        if (!Number.isFinite(value)) return undefined;
+        values.push(Object.is(value, -0) ? { negativeZero: true } : value);
+      } else if (value === undefined || typeof value === 'string' || typeof value === 'boolean') values.push(value ?? null);
+      else return undefined;
+    }
+    return shape + JSON.stringify(values);
+  };
+}
+
 export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationInput[]): ElementVerification {
+  return withBiaxialCapacityCache(() => verifyConcurrentCases(inputs));
+}
+
+function verifyConcurrentCases(inputs: readonly ConcurrentVerificationInput[]): ElementVerification {
   if (!inputs.length) throw new Error('Concurrent demands are required for verification');
   const first = inputs[0]!;
   const params = { b: first.b, h: first.h, fc: first.fc, fy: first.fy, cover: first.cover, stirrupDia: first.stirrupDia };
-  const amplified = inputs.map(amplifiedDemand);
+  const unique: ConcurrentVerificationInput[] = [];
+  const cases = new Map<string, number>();
+  const caseKey = completeCaseKeys();
+  const indices = inputs.map(input => {
+    const key = caseKey(input);
+    const previous = key === undefined ? undefined : cases.get(key);
+    if (previous !== undefined) return previous;
+    const index = unique.push(input) - 1;
+    if (key !== undefined) cases.set(key, index);
+    return index;
+  });
+  const amplified = unique.map(amplifiedDemand);
   const column = first.elementType !== 'beam'
     ? checkColumn(params, amplified, { edition: first.edition }) : undefined;
   const fixedColumn = column ? { barCount: column.barCount, barDia: column.barDia } : undefined;
-  const prepared = inputs.map(prepareElementVerification);
-  const preliminary = prepared.map(verify => verify({ column: fixedColumn }));
+  const prepared = unique.map(prepareElementVerification);
+  const initial = prepared.map(verify => verify({ column: fixedColumn }));
+  const preliminary = indices.map(index => initial[index]!);
   const maxFlexure = preliminary.reduce((a, b) => b.flexure.AsProv > a.flexure.AsProv ? b : a).flexure;
   const maxCompression = preliminary.reduce((a, b) => (b.flexure.AsComp ?? 0) > (a.flexure.AsComp ?? 0) ? b : a).flexure;
-  const flexure = { ...maxFlexure, AsComp: maxCompression.AsComp, barCountComp: maxCompression.barCountComp,
-    barDiaComp: maxCompression.barDiaComp, barsComp: maxCompression.barsComp, isDoublyReinforced: maxCompression.isDoublyReinforced };
+  const flexure = Object.assign(copyVerificationCheck(maxFlexure), { AsComp: maxCompression.AsComp, barCountComp: maxCompression.barCountComp,
+    barDiaComp: maxCompression.barDiaComp, barsComp: maxCompression.barsComp, isDoublyReinforced: maxCompression.isDoublyReinforced });
   const { shear, requirements } = sharedTorsionReinforcement(params, preliminary);
+  const fixed = prepared.map(verify => verify({ column: fixedColumn, flexure, shear }));
+  const used = new Set<number>();
+  const checked = new Map<number, ElementVerification>();
   const checks = inputs.map((i, index) => {
-    const v = prepared[index]!({ column: fixedColumn, flexure, shear });
+    const position = indices[index]!;
+    const value = fixed[position]!;
+    const v = checked.has(position) ? undefined : used.has(position) ? verificationForElement(value, i.elementId) : value;
+    used.add(position);
+    const previous = checked.get(position);
     const d = verificationCase(i);
-    return { demand: i.demand.source, verification: engineRecheckElement(v, { edition: i.edition, stirrupDia: i.stirrupDia, NuShear: d.Nu }) };
+    const verification = previous ? verificationForElement(previous, i.elementId)
+      : engineRecheckElement(v!, { edition: i.edition, stirrupDia: i.stirrupDia, NuShear: d.Nu });
+    const recheck = verification.engineRecheck;
+    if (!previous && recheck && !recheck.unavailable && recheck.disagreements.length === 0
+      && (!recheck.certified || recheck.certified.ok || recheck.certified.reason === 'Longitudinal torsion reinforcement not checked')) checked.set(position, verification);
+    return { demand: i.demand.source, verification };
   });
   type Check = 'flexure' | 'shear' | 'shearSecondary' | 'column' | 'biaxial' | 'torsion';
   const rank = (s: string) => s === 'fail' ? 2 : s === 'warn' ? 1 : 0;

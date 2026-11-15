@@ -40,23 +40,43 @@ export interface Cirsoc201Engine {
 
 let engine: Partial<Cirsoc201Engine> | null = null;
 
-function memoizeBeamSizing(design: Cirsoc201Engine['designBeam']): Cirsoc201Engine['designBeam'] {
-  const answers = new Map<string, Float64Array>();
+export function memoizeNumericInput<T>(design: (input: Float64Array) => T, width: number, copy: (answer: T) => T): (input: Float64Array) => T {
+  type Entry = { words: Uint32Array; answer: T };
+  const buckets = new Map<number, Entry[]>();
+  const order = new Map<Entry, number>();
   return input => {
-    if (input.length !== 15) return design(input);
-    const bytes = new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
-    const key = String.fromCharCode(...bytes);
-    const previous = answers.get(key);
-    if (previous) return previous.slice();
+    if (input.length !== width) return design(input);
+    const words = new Uint32Array(input.buffer, input.byteOffset, input.byteLength / Uint32Array.BYTES_PER_ELEMENT);
+    let hash = 2166136261;
+    for (let i = 0; i < words.length; i++) hash = Math.imul(hash ^ words[i]!, 16777619);
+    const previous = buckets.get(hash)?.find(entry => {
+      for (let i = 0; i < words.length; i++) if (entry.words[i] !== words[i]) return false;
+      return true;
+    });
+    if (previous) return copy(previous.answer);
     const answer = design(input);
-    if (answers.size === 4096) answers.delete(answers.keys().next().value!);
-    answers.set(key, answer.slice());
-    return answer.slice();
+    if (order.size === 4096) {
+      const [oldest, oldHash] = order.entries().next().value!;
+      order.delete(oldest);
+      const bucket = buckets.get(oldHash)!;
+      bucket.splice(bucket.indexOf(oldest), 1);
+      if (bucket.length === 0) buckets.delete(oldHash);
+    }
+    const entry = { words: words.slice(), answer: copy(answer) };
+    const bucket = buckets.get(hash) ?? [];
+    bucket.push(entry);
+    buckets.set(hash, bucket);
+    order.set(entry, hash);
+    return copy(answer);
   };
 }
 
+export function memoizeNumericKernel(design: (input: Float64Array) => Float64Array, width: number): (input: Float64Array) => Float64Array {
+  return memoizeNumericInput(design, width, answer => answer.slice());
+}
+
 export function registerCirsoc201Engine(value: Partial<Cirsoc201Engine> | null): void {
-  engine = value && { ...value, ...(value.designBeam ? { designBeam: memoizeBeamSizing(value.designBeam) } : {}) };
+  engine = value && { ...value, ...(value.basis ? { basis: memoizeNumericKernel(value.basis, 9) } : {}), ...(value.designBeam ? { designBeam: memoizeNumericKernel(value.designBeam, 15) } : {}) };
 }
 
 export function cirsoc201EngineAvailable(): boolean {

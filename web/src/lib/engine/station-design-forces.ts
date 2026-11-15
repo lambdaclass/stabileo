@@ -2,7 +2,7 @@ import { ConcurrentDemand } from './concurrent-demand';
 import { getColumnCapacityKernel, columnCapacityKernelRegistered } from './column-capacity-kernel';
 import { evaluateBeamSection, evaluateBeamSections } from './codes/argentina/cirsoc201-beam-kernel';
 import { beta1, axialCap } from './codes/argentina/cirsoc201-basis';
-import { Cirsoc201EngineUnavailable } from './codes/argentina/cirsoc201-engine';
+import { cirsoc201Engine, Cirsoc201EngineUnavailable, type SectionKernelConstructor } from './codes/argentina/cirsoc201-engine';
 import { prepareSection, type Bar as SectionBar, type PreparedSection } from './codes/argentina/cirsoc201-section';
 /**
  * Station-based, sign-aware, per-combo force extraction for member design.
@@ -1709,6 +1709,32 @@ export function computeBiaxialCapacity(
   return biaxialCapacity(AsProv_cm2, b, h, fc, fy, cover, stirrupDia, Nu, Muy, Muz, bars, edition);
 }
 
+type ScopedBiaxialSection = ReturnType<typeof prepareBiaxialSection>;
+let biaxialScope: Map<SectionKernelConstructor, Map<string, ScopedBiaxialSection>> | undefined;
+
+export function withBiaxialCapacityCache<T>(run: () => T): T {
+  const previous = biaxialScope;
+  const scope = new Map<SectionKernelConstructor, Map<string, ScopedBiaxialSection>>();
+  biaxialScope = scope;
+  try { return run(); } finally {
+    biaxialScope = previous;
+    for (const sections of scope.values()) for (const prepared of sections.values()) prepared.section.free();
+  }
+}
+
+function sharedBiaxialSection(b: number, h: number, fc: number, fy: number, bars: readonly BarInstance[], edition: RegulationEdition): ScopedBiaxialSection | undefined {
+  if (!biaxialScope) return undefined;
+  const values = [b, h, fc, fy, ...bars.flatMap(bar => [bar.x, bar.y, bar.diameter])];
+  if (!values.every(Number.isFinite)) return undefined;
+  const kernel = cirsoc201Engine('Section');
+  let sections = biaxialScope.get(kernel);
+  if (!sections) { sections = new Map(); biaxialScope.set(kernel, sections); }
+  const key = JSON.stringify([edition, ...values], (_key, value) => Object.is(value, -0) ? { negativeZero: true } : value);
+  let prepared = sections.get(key);
+  if (!prepared) { prepared = prepareBiaxialSection(b, h, fc, fy, bars, edition); sections.set(key, prepared); }
+  return prepared;
+}
+
 function biaxialCapacity(
   AsProv_cm2: number, b: number, h: number,
   fc: number, fy: number, _cover: number, _stirrupDia: number,
@@ -1730,7 +1756,8 @@ function biaxialCapacity(
     method: 'load-contour' as const, geometryAware: false, strainCompatible: false, status: 'fail' as const };
   if (!bars || bars.length < 4 || ![Nu, Muy, Muz].every(Number.isFinite)) return fail;
 
-  const own = prepared ?? prepareBiaxialSection(b, h, fc, fy, bars, edition);
+  const shared = prepared ? undefined : sharedBiaxialSection(b, h, fc, fy, bars, edition);
+  const own = prepared ?? shared ?? prepareBiaxialSection(b, h, fc, fy, bars, edition);
   let worst = 0;
   try {
     const mz = Math.abs(Muz), my = Math.abs(Muy);
@@ -1741,7 +1768,7 @@ function biaxialCapacity(
       worst = Math.max(worst, Number.isNaN(u) ? Number.POSITIVE_INFINITY : u);
     }
   } finally {
-    if (!prepared) own.section.free();
+    if (!prepared && !shared) own.section.free();
   }
   const Mres = Math.hypot(Muy, Muz);
   const ratio = worst > 1e-9 ? +(1 / worst).toFixed(3) : 999;

@@ -1,3 +1,4 @@
+import { copyVerificationCheck, verificationCheckFields, withDeferredVerificationSteps } from '../../verification-steps';
 import type { ConcurrentSectionDemand, ConcurrentDemand } from '../../concurrent-demand';
 // CIRSOC 201 — Reinforced Concrete Verification Engine
 // Implements design checks for flexure, shear, and flexo-compression per Argentine code CIRSOC
@@ -386,6 +387,7 @@ export function checkFlexure(
   const { fc, fy, cover, b, h, stirrupDia } = params;
   const edition = opts.edition ?? '2025';
   const steps: string[] = [];
+  const emissions: Array<() => unknown> = [];
   const MuAbs = Math.abs(Mu);
   const fixedDia = opts.barDiameterMm !== undefined && opts.barDiameterMm > 0 ? opts.barDiameterMm : undefined;
   const flange = opts.flange && opts.flange.bf > b && opts.flange.hf > 0 ? opts.flange : undefined;
@@ -473,29 +475,29 @@ export function checkFlexure(
   AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, AsMin);
   // "Needs compression steel" also when no singly-reinforced steel works at all (a footing reports it).
   const isDoubly = barsDesign.kind !== 'singly' || rebarComp !== undefined;
-  steps.push(`d (dimensionamiento) = ${(d * 100).toFixed(1)} cm, d' = ${(dPrimeAssumed * 100).toFixed(1)} cm`);
-  steps.push(`Mu = ${MuAbs.toFixed(2)} kN·m${Nu !== 0 ? `, Nu = ${Nu.toFixed(2)} kN (+ compresión)` : ''}`);
-  steps.push(`As,mín = ${AsMin.toFixed(2)} cm²`);
+  { emissions.push(() => steps.push(`d (dimensionamiento) = ${(d * 100).toFixed(1)} cm, d' = ${(dPrimeAssumed * 100).toFixed(1)} cm`)); }
+  { emissions.push(() => steps.push(`Mu = ${MuAbs.toFixed(2)} kN·m${Nu !== 0 ? `, Nu = ${Nu.toFixed(2)} kN (+ compresión)` : ''}`)); }
+  { emissions.push(() => steps.push(`As,mín = ${AsMin.toFixed(2)} cm²`)); }
   if (design.kind === 'impossible') {
-    steps.push('⚠ Ninguna armadura dentro de los límites cumple flexión y ductilidad (motor) — sección insuficiente: agrandar la sección');
+    { emissions.push(() => steps.push('⚠ Ninguna armadura dentro de los límites cumple flexión y ductilidad (motor) — sección insuficiente: agrandar la sección')); }
   } else {
-    steps.push(
+    { emissions.push(() => steps.push(
       `As,req (motor, CIRSOC 201-${edition}) = ${design.As.toFixed(2)} cm²: φMn = ${design.phiMn.toFixed(2)} kN·m, ` +
       `εt = ${(design.epsilonT * 1000).toFixed(2)} ‰${design.epsilonTMin > 0 ? ` ≥ εt,mín = ${(design.epsilonTMin * 1000).toFixed(2)} ‰` : ''}`,
-    );
+    )); }
     if (rebarComp) {
-      steps.push(`A's,req = ${design.AsComp.toFixed(2)} cm² → armadura compresión: ${rebarComp.label} (${rebarComp.area.toFixed(2)} cm²), ` +
-        `dúctil con las barras elegidas`);
+      { emissions.push(() => steps.push(`A's,req = ${design.AsComp.toFixed(2)} cm² → armadura compresión: ${rebarComp.label} (${rebarComp.area.toFixed(2)} cm²), ` +
+        `dúctil con las barras elegidas`)); }
     }
   }
-  steps.push(`As,req (tracción) = ${AsDesign.toFixed(2)} cm²`);
-  steps.push(`d (armadura provista) = ${(effectiveDepth(h, cover, stirrupDia, rebar.dia) * 100).toFixed(2)} cm`);
-  steps.push(`Armadura tracción: ${rebar.label} (${rebar.area.toFixed(2)} cm²)`);
+  { emissions.push(() => steps.push(`As,req (tracción) = ${AsDesign.toFixed(2)} cm²`)); }
+  { emissions.push(() => steps.push(`d (armadura provista) = ${(effectiveDepth(h, cover, stirrupDia, rebar.dia) * 100).toFixed(2)} cm`)); }
+  { emissions.push(() => steps.push(`Armadura tracción: ${rebar.label} (${rebar.area.toFixed(2)} cm²)`)); }
 
   const phiMn = check.flexureValid && Number.isFinite(check.phiMn) ? check.phiMn / 1e3 : 0;
   const epsilonTProv = check.flexureValid ? check.epsilonT : 0;
   const notDuctile = ductilityApplies && check.flexureValid && epsilonTProv < check.epsilonTMin;
-  steps.push(...flexureEvaluationSteps(check, phiMn));
+  { emissions.push(() => steps.push(...flexureEvaluationSteps(check, phiMn))); }
 
   const ratio = phiMn > 0 ? MuAbs / phiMn : Infinity;
   let status: VerifStatus = 'ok';
@@ -503,12 +505,12 @@ export function checkFlexure(
   else if (ratio > 0.9) status = 'warn';
   if (notDuctile) {
     status = 'fail';
-    steps.push(`⚠ εt = ${(epsilonTProv * 1000).toFixed(2)} ‰ < εt,mín = ${(check.epsilonTMin * 1000).toFixed(2)} ‰ (${edition === '2005' ? '§10.3.5' : '§9.3.3.1'})`);
+    { emissions.push(() => steps.push(`⚠ εt = ${(epsilonTProv * 1000).toFixed(2)} ‰ < εt,mín = ${(check.epsilonTMin * 1000).toFixed(2)} ‰ (${edition === '2005' ? '§10.3.5' : '§9.3.3.1'})`)); }
   }
   if (rebar.area < AsMin || design.kind === 'impossible' || barsDesign.kind === 'impossible') status = 'fail';
 
   const etc = tensionControlledStrain(fy, edition);
-  return enforcePracticalFlexureLimit({
+  return enforcePracticalFlexureLimit(withDeferredVerificationSteps({
     Mu: MuAbs, designDepth: d, d, ...providedFlexureState(check, providedDepth),
     aReq: design.a, c: design.c, cMax: (d * 0.003) / (0.003 + etc), epsilonT: design.epsilonT,
     AsReq: AsDesign,
@@ -527,7 +529,7 @@ export function checkFlexure(
     barsComp: rebarComp?.label,
     barCountComp: rebarComp?.count,
     barDiaComp: rebarComp?.dia,
-  });
+  }, () => { steps.length = 0; for (const emit of emissions) emit(); return steps; }));
 }
 
 // ─── Shear (CIRSOC 201-2025 §22.5, 9.6.3, 9.7.6.2.2) ────────────────
@@ -544,11 +546,13 @@ export function checkShear(
   const { fc, fy, cover, b, h, stirrupDia } = params;
   const edition = opts.edition ?? '2025';
   const steps: string[] = [];
+  const emissions: Array<() => unknown> = [];
   const d = effectiveDepth(h, cover, stirrupDia, 16);
   const VuAbs = Math.abs(Vu);
   const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia) ?? REBAR_DB[1]; // default Ø8
-  steps.push(`Vu = ${VuAbs.toFixed(2)} kN`);
-  steps.push(`d = ${(d * 100).toFixed(1)} cm`);
+  const stirrupLabel = stirrupBar.label;
+  { emissions.push(() => steps.push(`Vu = ${VuAbs.toFixed(2)} kN`)); }
+  { emissions.push(() => steps.push(`d = ${(d * 100).toFixed(1)} cm`)); }
 
   const ask = (legs: number, s: number) => {
     const r = evaluateBeamSection({
@@ -565,8 +569,8 @@ export function checkShear(
   const Vc = trial.shearValid ? trial.Vc / 1e3 : 0;
   const phiVc = PHI_SHEAR * Vc;
   const VsReq = Math.max(0, VuAbs / PHI_SHEAR - Vc);
-  steps.push(`φVc (motor, CIRSOC 201-${edition}) = ${phiVc.toFixed(2)} kN`);
-  steps.push(`Vs,req = ${VsReq.toFixed(2)} kN`);
+  { emissions.push(() => steps.push(`φVc (motor, CIRSOC 201-${edition}) = ${phiVc.toFixed(2)} kN`)); }
+  { emissions.push(() => steps.push(`Vs,req = ${VsReq.toFixed(2)} kN`)); }
 
   // Table 9.7.6.2.2, through THE one evaluator: the spacing along the member and the legs.
   const table = transverseSpacingLimits('2025', {
@@ -598,15 +602,15 @@ export function checkShear(
     AvOverSReq = AvProv / lo;
   }
   const AvOverSMin = spacing > 0 ? (chosen.AvMin * 1e4) / spacing : 0;
-  steps.push(`Av/s,req = ${Math.max(AvOverSReq, AvOverSMin).toFixed(2)} cm²/m`);
-  steps.push(`Estribos: ${legs} ramas ${stirrupBar.label} c/${(spacing * 100).toFixed(0)} cm`);
-  steps.push(`φVn = ${phiVn.toFixed(2)} kN`);
+  { emissions.push(() => steps.push(`Av/s,req = ${Math.max(AvOverSReq, AvOverSMin).toFixed(2)} cm²/m`)); }
+  { emissions.push(() => steps.push(`Estribos: ${legs} ramas ${stirrupLabel} c/${(spacing * 100).toFixed(0)} cm`)); }
+  { emissions.push(() => steps.push(`φVn = ${phiVn.toFixed(2)} kN`)); }
 
   const ratio = phiVn > 0 ? VuAbs / phiVn : Infinity;
   let status: VerifStatus = 'ok';
   if (chosen.vsCapped && ratio > 1.0) {
     status = 'fail';
-    steps.push(`⚠ Vs limitado a Vs,máx (§22.5.1.2) — sección insuficiente`);
+    { emissions.push(() => steps.push(`⚠ Vs limitado a Vs,máx (§22.5.1.2) — sección insuficiente`)); }
   } else if (!(ratio <= 1.0)) {
     status = 'fail';
   } else if (ratio > 0.9) {
@@ -614,17 +618,17 @@ export function checkShear(
   }
   if (chosen.avBelowMin && h > 0.25) {
     status = 'fail';
-    steps.push(`⚠ Av < Av,mín (§9.6.3.4)`);
+    { emissions.push(() => steps.push(`⚠ Av < Av,mín (§9.6.3.4)`)); }
   }
 
-  return {
+  return withDeferredVerificationSteps({
     Vu: VuAbs, d, phiVc, Vs: VsReq,
     AvOverS: Math.max(AvOverSReq, AvOverSMin),
     AvOverSReq,
     AvOverSMin,
     spacing, stirrupDia: stirrupBar.diameter, stirrupLegs: legs,
     phiVn, ratio, status, steps,
-  };
+  }, () => { steps.length = 0; for (const emit of emissions) emit(); return steps; });
 }
 
 // ─── Column (CIRSOC 201-2025 §22.4, 10.6.1.1) ─────────────────────
@@ -1365,9 +1369,9 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
   return fixed => {
     const slender = prepared.slender && { ...prepared.slender, steps: [...prepared.slender.steps] };
     const slenderSecondary = prepared.slenderSecondary && { ...prepared.slenderSecondary, steps: [...prepared.slenderSecondary.steps] };
-    let flexure = { ...requiredFlexure, steps: [...requiredFlexure.steps] };
+    let flexure = copyVerificationCheck(requiredFlexure);
     if (fixed?.flexure) {
-      const f = fixed.flexure;
+      const f = verificationCheckFields(fixed.flexure);
       const d = effectiveDepth(params.h, params.cover, params.stirrupDia, f.barDia);
       const r = evaluateBeamSection({ edition, fc: params.fc * 1e6, fy: params.fy * 1e6, b: params.b, h: params.h,
         d, As: f.AsProv * 1e-4, AsComp: (f.AsComp ?? 0) * 1e-4,
@@ -1378,11 +1382,11 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
       const ductile = input.elementType !== 'beam' || !r || Math.abs(designMu) === 0
         || flexureNu >= 0.1 * params.fc * 1000 * params.b * params.h || r.epsilonT >= r.epsilonTMin;
       const AsMin = minFlexuralSteelCm2(params.fc, params.fy, params.b, d);
-      flexure = enforcePracticalFlexureLimit({ ...flexure, AsMin, AsReq: Math.max(flexure.AsFlexural, AsMin), AsProv: f.AsProv, barDia: f.barDia, barCount: f.barCount, bars: f.bars,
+      flexure = enforcePracticalFlexureLimit(withDeferredVerificationSteps({ ...verificationCheckFields(flexure), AsMin, AsReq: Math.max(flexure.AsFlexural, AsMin), AsProv: f.AsProv, barDia: f.barDia, barCount: f.barCount, bars: f.bars,
         AsComp: f.AsComp, barDiaComp: f.barDiaComp, barCountComp: f.barCountComp, barsComp: f.barsComp,
         isDoublyReinforced: f.isDoublyReinforced, phiMn, ratio, ...providedFlexureState(r, d),
         status: f.AsProv < AsMin || !ductile || !(ratio <= 1) ? 'fail' : ratio > 0.85 ? 'warn' : 'ok',
-        steps: [
+        steps: [] }, () => [
           `d = ${(d * 100).toFixed(1)} cm`,
           `Mu = ${Math.abs(designMu).toFixed(2)} kN·m${flexureNu !== 0 ? `, Nu = ${flexureNu.toFixed(2)} kN (+ compresión)` : ''}`,
           `As,req (tracción) = ${requiredFlexure.AsReq.toFixed(2)} cm²`,
@@ -1391,7 +1395,7 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
           ...(r ? flexureEvaluationSteps(r, phiMn) : []),
           `Mu/φMn = ${ratio.toFixed(3)}`,
           ...(!ductile && r ? [`⚠ εt = ${(r.epsilonT * 1000).toFixed(2)} ‰ < εt,mín = ${(r.epsilonTMin * 1000).toFixed(2)} ‰ (${edition === '2005' ? '§10.3.5' : '§9.3.3.1'})`] : []),
-        ] });
+        ]));
     }
     let shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv, ...fixed?.shear });
     let shearSecondary = isVertical && input.VuSecondary !== undefined

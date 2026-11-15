@@ -1,3 +1,4 @@
+import { copyVerificationCheck } from '../../verification-steps';
 /**
  * The engine has the last word on a CIRSOC 201 pass.
  *
@@ -68,8 +69,8 @@ export function engineRecheckElement(
   if (v.torsion && !v.torsion.neglect) rc.notRechecked.push('torsion');
   if (v.slender?.isSlender || v.slenderSecondary?.isSlender) rc.notRechecked.push('slenderness');
   if (v.shearSecondary) rc.notRechecked.push('shear-secondary');
-  const out = { ...v, flexure: { ...v.flexure }, shear: { ...v.shear }, column: v.column && { ...v.column },
-    biaxial: v.biaxial && { ...v.biaxial }, engineRecheck: rc };
+  const out = { ...v, flexure: copyVerificationCheck(v.flexure), shear: copyVerificationCheck(v.shear), column: v.column && copyVerificationCheck(v.column),
+    biaxial: v.biaxial && copyVerificationCheck(v.biaxial), engineRecheck: rc };
   const stirrupM = opts.stirrupDia / 1000;
 
   // ── Beam flexure and ductility, with the bars actually chosen ──

@@ -1,3 +1,4 @@
+import { hasConcurrentChecks } from './element-verification-copy';
 /**
  * Unified design-check results normalization layer.
  *
@@ -111,7 +112,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
 
     const { axial, flexure, momentY } = v.governingCombos ?? {};
     const sources = [axial, flexure, momentY].filter(c => !!c);
-    const mixed = !v.concurrentChecks && new Set(sources.map(c => c!.comboId)).size > 1;
+    const mixed = !hasConcurrentChecks(v) && new Set(sources.map(c => c!.comboId)).size > 1;
     const moments = [...new Set([flexure, momentY].filter(c => !!c).map(c => c!.comboName))].join(', ');
     const pairedName = mixed ? `N ${axial?.comboName ?? '—'} · M ${moments}` : axial?.comboName ?? flexure?.comboName;
     if (v.column) {

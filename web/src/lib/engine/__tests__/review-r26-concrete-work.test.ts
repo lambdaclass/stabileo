@@ -1,12 +1,14 @@
 import { afterEach, beforeAll, expect, it, vi } from 'vitest';
 import { registerCirsoc201BeamKernel, evaluateBeamSections, type Cirsoc201BeamKernel, type BeamSectionQuery } from '../codes/argentina/cirsoc201-beam-kernel';
 import { cirsoc201Engine, registerCirsoc201Engine, type Cirsoc201Engine } from '../codes/argentina/cirsoc201-engine';
+import { ConcurrentDemand } from '../concurrent-demand';
+import { normalizeCirsoc201 } from '../design-check-results';
 import { autoVerifyFromResults } from '../auto-verify';
 import * as concurrent from '../concurrent-verification';
 import { extractGoverningDemands } from '../station-design-forces';
 import { solve, solve3D, solvePDelta, solvePDelta3D } from '../wasm-solver';
-import type { SolverInput } from '../types';
-import type { SolverInput3D } from '../types-3d';
+import type { ElementForces, SolverInput } from '../types';
+import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
 import { runCirsocDesign, runUnifiedVerification } from '../verification-service';
 
 const registered = (): Cirsoc201Engine => ({ Section: cirsoc201Engine('Section'), basis: cirsoc201Engine('basis'),
@@ -18,7 +20,7 @@ const query: BeamSectionQuery = { edition: '2025', fc: 25e6, fy: 420e6, b: 0.3, 
 
 afterEach(() => { vi.restoreAllMocks(); registerCirsoc201Engine(real); if (beamKernel) registerCirsoc201BeamKernel(beamKernel); });
 
-it.fails('known wrong result: #2080 identical complete basis inputs cross WASM once', () => {
+it('known wrong result: #2080 identical complete basis inputs cross WASM once', () => {
   const basis = vi.fn((input: Float64Array) => input.slice());
   registerCirsoc201Engine({ ...real, basis });
   const input = Float64Array.from({ length: 9 }, (_, i) => i + 1);
@@ -29,7 +31,7 @@ it.fails('known wrong result: #2080 identical complete basis inputs cross WASM o
 });
 
 for (const torque of [0, 6]) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const edition of ['2005', '2025'] as const) for (const entry of ['auto', 'unified', 'design'] as const) {
-  it.fails(`known wrong result: #2080 held span checks reuse complete inputs ${spatial} ${nonlinear} ${edition} ${entry} torque=${torque}`, () => {
+  it(`known wrong result: #2080 held span checks reuse complete inputs ${spatial} ${nonlinear} ${edition} ${entry} torque=${torque}`, () => {
     const model = {
       nodes: new Map([1, 2, 3].map(id => [id, { id, x: (id - 1) * 0.4, y: 0, z: 0 }])),
       elements: new Map([1, 2].map(id => [id, { id, nodeI: id, nodeJ: id + 1, type: 'frame' as const, sectionId: 1, materialId: 1 }])),
@@ -37,23 +39,36 @@ for (const torque of [0, 6]) for (const spatial of [false, true]) for (const non
       materials: new Map([[1, { id: 1, name: 'H25', fc: 25, fy: 25, e: 25000, nu: 0.2 }]]),
       supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' as const }]]),
     };
+    let solved: AnalysisResults3D;
     if (spatial) {
       const input: SolverInput3D = { ...model,
         elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }])),
         supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
-        loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: 0, fz: 0, mx: 6, my: 20, mz: 0 } }],
+        loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fy: 0, fz: 0, mx: torque, my: 20, mz: 0 } }],
       };
-      expect((nonlinear ? solvePDelta3D(input).results : solve3D(input)).elementForces).toHaveLength(2);
+      solved = nonlinear ? solvePDelta3D(input).results : solve3D(input);
     } else {
       const input: SolverInput = { ...model, nodes: new Map([...model.nodes].map(([id, n]) => [id, { id, x: n.x, z: 0 }])),
         elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, hingeStart: false, hingeEnd: false }])),
         loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: 0, my: 20 } }],
       };
-      expect((nonlinear ? solvePDelta(input).results : solve(input)).elementForces).toHaveLength(2);
+      const planar = nonlinear ? solvePDelta(input).results : solve(input);
+      solved = { displacements: [], reactions: [], elementForces: planar.elementForces.map((ef: ElementForces) => ({
+        elementId: ef.elementId, length: ef.length, nStart: ef.nStart, nEnd: ef.nEnd,
+        myStart: ef.mStart, myEnd: ef.mEnd, mzStart: 0, mzEnd: 0, vyStart: 0, vyEnd: 0,
+        vzStart: ef.vStart, vzEnd: ef.vEnd, mxStart: 0, mxEnd: 0,
+        releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false,
+        qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, distributedLoadsY: [], pointLoadsY: [], distributedLoadsZ: [], pointLoadsZ: [],
+      })) };
     }
-    const results = { displacements: [], reactions: [], elementForces: [1, 2].map(elementId => ({ elementId, length: 0.4,
-      nStart: 0, nEnd: 0, myStart: 20, myEnd: 20, mzStart: 0, mzEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0, mxStart: 6, mxEnd: 6 })) };
-    const demand = extractGoverningDemands({ elementId: 1, length: 0.8, stationTs: [0, 1], comboResults: [{ comboId: 1, comboName: 'torsion', stations: [0, 1].map(t => ({ t, x: 0.8 * t, n: 0, my: 20, mz: 0, vy: 0, vz: 0, torsion: torque })) }] });
+    expect(solved.elementForces).toHaveLength(2);
+    const results = { ...solved, elementForces: solved.elementForces.map(ef => ({ ...ef, mxStart: torque, mxEnd: torque })) };
+    const ef = results.elementForces[0]!;
+    const demand = extractGoverningDemands({ elementId: 1, length: 0.8, stationTs: [0, 1], comboResults: [{
+      comboId: 1, comboName: 'torsion', stations: [0, 1].map(t => ({ t, x: 0.8 * t, n: t ? ef.nEnd : ef.nStart,
+        my: t ? ef.myEnd : ef.myStart, mz: t ? ef.mzEnd : ef.mzStart,
+        vy: t ? ef.vyEnd : ef.vyStart, vz: t ? ef.vzEnd : ef.vzStart, torsion: torque })),
+    }] });
     const demands = new Map([[1, demand], [2, demand]]);
     const run = (elementForces: typeof results.elementForces) => entry === 'auto' ? autoVerifyFromResults({ ...results, elementForces }, model, null, { edition }, demands).concrete
       : entry === 'unified' ? runUnifiedVerification({ ...results, elementForces }, model, null, demands, { edition })
@@ -61,11 +76,28 @@ for (const torque of [0, 6]) for (const spatial of [false, true]) for (const non
     const expected = results.elementForces.flatMap(ef => run([ef]));
     expect(expected.every(v => torque === 0 ? v.torsion === undefined : v.torsion?.longitudinalProvision === 'not-checked')).toBe(true);
     expect(expected.every(v => torque === 0 ? v.engineRecheck?.certified?.ok === true : v.engineRecheck?.certified?.reason === 'Longitudinal torsion reinforcement not checked')).toBe(true);
-    const verify = vi.spyOn(concurrent, 'verifyConcurrentElement');
+    let stationCopies = 0;
+    const original = concurrent.verifyConcurrentElement;
+    const verify = vi.spyOn(concurrent, 'verifyConcurrentElement').mockImplementation(inputs => {
+      const value = original(inputs);
+      for (const check of value.concurrentChecks ?? []) {
+        const detailing = check.verification.detailing;
+        if (!detailing) continue;
+        const bars = detailing.bars;
+        Object.defineProperty(detailing, 'bars', { enumerable: true, configurable: true,
+          get() { stationCopies++; return bars; },
+        });
+      }
+      return value;
+    });
     const clone = vi.spyOn(globalThis, 'structuredClone');
+    const sections = vi.spyOn(ConcurrentDemand.prototype, 'section');
     const actual = run(results.elementForces);
     expect(verify).toHaveBeenCalledTimes(1);
+    expect(sections).toHaveBeenCalledTimes(demand.concurrent!.length);
     expect(clone.mock.calls.filter(([v]) => v && typeof v === 'object' && 'flexure' in v)).toHaveLength(0);
+    normalizeCirsoc201(actual, new Map());
+    expect(stationCopies).toBe(actual.length);
     expect(actual).toEqual(expected);
     actual[0]!.flexure.steps.push('first');
     actual[0]!.concurrentChecks![0]!.verification.flexure.steps.push('first station');
@@ -76,7 +108,7 @@ for (const torque of [0, 6]) for (const spatial of [false, true]) for (const non
   });
 }
 
-it.fails('known wrong result: #2080 identical complete beam queries cross WASM once', () => {
+it('known wrong result: #2080 identical complete beam queries cross WASM once', () => {
   const kernel = vi.fn((input: Float64Array) => input.slice(0, 16));
   registerCirsoc201BeamKernel(kernel);
   expect(evaluateBeamSections([query])).toEqual(evaluateBeamSections([{ ...query }]));
@@ -96,7 +128,7 @@ for (const width of [9, 17]) {
       Av: input[10], s: input[11], fyt: input[12], Ag: input[13], NuCompression: input[14], bf: input[15], hf: input[16],
     }]);
   }
-  it.fails(`known wrong result: #2080 complete ${width}-field cache keys distinguish every input and own their storage`, () => {
+  it(`known wrong result: #2080 complete ${width}-field cache keys distinguish every input and own their storage`, () => {
     const kernel = vi.fn((input: Float64Array) => input.slice(0, width === 9 ? 9 : 16));
     const ask = install(kernel);
     const input = Float64Array.from({ length: width }, (_, i) => i === 0 ? 2025 : i + 1);
@@ -120,7 +152,7 @@ for (const width of [9, 17]) {
     }
     expect(kernel).toHaveBeenCalledTimes(width + 6);
   });
-  for (const count of [4095, 4096, 4097]) it.fails(`known wrong result: #2080 ${width}-field cache retains exact answers across ${count} entries`, () => {
+  for (const count of [4095, 4096, 4097]) it(`known wrong result: #2080 ${width}-field cache retains exact answers across ${count} entries`, () => {
     const kernel = vi.fn((input: Float64Array) => input.slice(0, width === 9 ? 9 : 16));
     const ask = install(kernel);
     const input = new Float64Array(width); input[0] = 2025;
@@ -131,7 +163,7 @@ for (const width of [9, 17]) {
     input[1] = 0; ask(input);
     expect(kernel).toHaveBeenCalledTimes(count + Number(count > 4096));
   });
-  it.fails(`known wrong result: #2080 ${width}-field cache retries failures and is cleared on registration or removal`, () => {
+  it(`known wrong result: #2080 ${width}-field cache retries failures and is cleared on registration or removal`, () => {
     const kernel = vi.fn((input: Float64Array) => input.slice(0, width === 9 ? 9 : 16));
     kernel.mockImplementationOnce(() => { throw new Error('kernel failed'); });
     let ask = install(kernel);
@@ -169,4 +201,36 @@ it.each([0, 2])('a %i-section beam batch retains its exact uncached answer', cou
   const expected = evaluateBeamSections(queries);
   expect(evaluateBeamSections(queries)).toEqual(expected);
   expect(kernel).toHaveBeenCalledTimes(2);
+});
+
+it('hash collisions retain both exact bit patterns through FIFO eviction', () => {
+  const hash = (words: Uint32Array) => {
+    let value = 2166136261;
+    for (const word of words) value = Math.imul(value ^ word, 16777619);
+    return value;
+  };
+  const first = new Float64Array(9).fill(1);
+  const before = new Uint32Array(first.buffer);
+  const second = first.slice();
+  const after = new Uint32Array(second.buffer);
+  after[0] ^= 1;
+  let inverse = 1;
+  for (let i = 0; i < 5; i++) inverse = Math.imul(inverse, 2 - Math.imul(16777619, inverse));
+  after[after.length - 1] = hash(after.subarray(0, -1)) ^ Math.imul(hash(before), inverse);
+  expect(after).not.toEqual(before);
+  expect(hash(after)).toBe(hash(before));
+  const basis = vi.fn((input: Float64Array) => input.slice());
+  registerCirsoc201Engine({ ...real, basis });
+  const ask = cirsoc201Engine('basis');
+  expect(new Uint32Array(ask(first).buffer)).toEqual(before);
+  expect(new Uint32Array(ask(second).buffer)).toEqual(after);
+  expect(new Uint32Array(ask(first).buffer)).toEqual(before);
+  expect(new Uint32Array(ask(second).buffer)).toEqual(after);
+  expect(basis).toHaveBeenCalledTimes(2);
+  for (let i = 0; i < 4095; i++) ask(new Float64Array(9).fill(i + 100));
+  expect(basis).toHaveBeenCalledTimes(4097);
+  expect(new Uint32Array(ask(second).buffer)).toEqual(after);
+  expect(basis).toHaveBeenCalledTimes(4097);
+  expect(new Uint32Array(ask(first).buffer)).toEqual(before);
+  expect(basis).toHaveBeenCalledTimes(4098);
 });
