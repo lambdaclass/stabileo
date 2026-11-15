@@ -116,7 +116,8 @@ function displacementRows(ctx: MethodContext, sol: DispSolution): CompareRow[] {
     const nn = ks.pm.nodes.get(u.lead)!.name;
     const p = u.phi.get(u.lead)!;
     const x = u.dir ? u.dir === 'x' : Math.abs(p.x) >= Math.abs(p.z);
-    rows.push(x ? { label: `u_{x,${nn}}`, method: mine.x * 1000, matrix: r.ux * 1000, unit: 'mm' } : { label: `u_{z,${nn}}`, method: mine.z * 1000, matrix: r.uz * 1000, unit: 'mm' });
+    const row = x ? { label: `u_{x,${nn}}`, method: mine.x * 1000, matrix: r.ux * 1000, unit: 'mm' } : { label: `u_{z,${nn}}`, method: mine.z * 1000, matrix: r.uz * 1000, unit: 'mm' };
+    if (!rows.some((q) => q.label === row.label)) rows.push(row);
   });
   return rows;
 }

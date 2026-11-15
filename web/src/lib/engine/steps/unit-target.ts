@@ -61,7 +61,7 @@ export function pickTarget(ctx: MethodContext): Target {
   const { pm } = ctx;
   const ref = ctx.ref!;
   const raw = ctx.params?.quantity;
-  const quantity: Quantity = TARGET_QUANTITIES.includes(raw as Quantity) ? raw as Quantity : 'disp';
+  let quantity: Quantity = TARGET_QUANTITIES.includes(raw as Quantity) ? raw as Quantity : 'disp';
   const relative = quantity === 'relDisp' || quantity === 'relRot';
   const sel = ctx.selection.nodes.filter((n) => pm.nodes.has(n));
   const disp = (id: number) => ref.displacements.get(id) ?? { ux: 0, uz: 0, ry: 0 };
@@ -72,10 +72,19 @@ export function pickTarget(ctx: MethodContext): Target {
     else {
       let best = -1;
       node = pm.nodeOrder[0];
-      for (const id of pm.nodeOrder) {
-        const d = disp(id);
-        const m = quantity === 'rot' ? Math.abs(d.ry) : Math.hypot(d.ux, d.uz);
-        if (m > best * (1 + 1e-9)) { best = m; node = id; }
+      const largest = () => {
+        best = -1;
+        for (const id of pm.nodeOrder) {
+          const d = disp(id);
+          const m = quantity === 'rot' ? Math.abs(d.ry) : Math.hypot(d.ux, d.uz);
+          if (m > best * (1 + 1e-9)) { best = m; node = id; }
+        }
+      };
+      largest();
+      if (raw === undefined && quantity === 'disp' && !(best > 0)) {
+        quantity = 'rot';
+        largest();
+        if (!(best > 0)) { quantity = 'disp'; largest(); }
       }
     }
   }
