@@ -10,6 +10,8 @@ import { memberContexts, runOtherCode } from '../design/other-codes/run';
 import { AISC360, EC3 } from '../design/other-codes/steel-codes';
 import { ACI318, EC2 } from '../design/other-codes/concrete-codes';
 import { AISI_S100 } from '../design/other-codes/cfs-code';
+import { buildAllMemberContexts } from '../design/member-context';
+import { applySpanContexts } from '../design/design-spans';
 
 const model = {
   elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]),
@@ -20,20 +22,21 @@ const model = {
 } satisfies AutoVerifyModelData;
 afterEach(() => { setCompactStationTransfer(true); vi.restoreAllMocks(); });
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  const solveModel = () => {
-    const solver: SolverInput3D = { ...model,
-      elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, type: 'frame' as const, releaseMyStart: false, releaseMyEnd: false,
+  const solveModel = (source = model) => {
+    const loadedNode = Math.max(...source.nodes.keys());
+    const solver: SolverInput3D = { ...source,
+      elements: new Map([...source.elements].map(([id, e]) => [id, { ...e, type: 'frame' as const, releaseMyStart: false, releaseMyEnd: false,
         releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }])),
       supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 1, fy: spatial ? 1 : 0, fz: -10, mx: 0, my: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: loadedNode, fx: 1, fy: spatial ? 1 : 0, fz: -10, mx: 0, my: 0, mz: 0 } }],
     };
     setCompactStationTransfer(compact);
     if (spatial) return nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
-    const planar: SolverInput = { nodes: new Map([...model.nodes].map(([id, n]) => [id, { id, x: n.x, z: n.z }])),
-      materials: model.materials, sections: model.sections,
-      elements: new Map([[1, { ...model.elements.get(1)!, type: 'frame', hingeStart: false, hingeEnd: false }]]),
+    const planar: SolverInput = { nodes: new Map([...source.nodes].map(([id, n]) => [id, { id, x: n.x, z: n.z }])),
+      materials: source.materials, sections: source.sections,
+      elements: new Map([...source.elements].map(([id, e]) => [id, { ...e, type: 'frame', hingeStart: false, hingeEnd: false }])),
       supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 1, fz: -10, my: 0 } }] };
+      loads: [{ type: 'nodal', data: { nodeId: loadedNode, fx: 1, fz: -10, my: 0 } }] };
     const raw: AnalysisResults = nonlinear ? solvePDelta(planar).results : solve(planar);
     return { ...raw,
       displacements: raw.displacements.map(d => ({ ...d, uy: 0, rx: 0, rz: 0 })),
@@ -49,6 +52,36 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
   };
   const combinations = [{ id: 1, name: 'C1', factors: [] }, { id: 2, name: 'C2', factors: [] }];
   const label = `spatial=${spatial} nonlinear=${nonlinear} compact=${compact}`;
+  for (const entry of ['auto', 'unified', 'design'] as const) it.fails(`known wrong result: #2096 complete grouped span reaches ${entry} ${label}`, () => {
+    const spanModel = { ...model,
+      nodes: new Map([1, 2, 3].map(id => [id, { id, x: 2 * (id - 1), y: 0, z: 0 }])),
+      elements: new Map([1, 2].map(id => [id, { ...model.elements.get(1)!, id, nodeI: id, nodeJ: id + 1 }])),
+    };
+    const raw = solveModel(spanModel);
+    const data = computeStationDemands(new Map([[1, raw], [2, raw]]), combinations, spanModel);
+    const contexts = buildAllMemberContexts(spanModel, data);
+    const spans = applySpanContexts(contexts, spanModel, [{ key: 'span-1', representative: 1,
+      elements: [1, 2], reversed: [false, false], lengths: [2, 2], offsets: [0, 2], length: 4, start: 1, end: 3 }]);
+    expect(spans).toHaveLength(1);
+    const demands = new Map([...contexts].map(([id, c]) => [id, c.demands!]));
+    const run = (input: typeof demands) => ({
+      auto: () => autoVerifyFromResults(raw, spanModel, null, undefined, input).concrete,
+      unified: () => runUnifiedVerification(raw, spanModel, null, input),
+      design: () => runCirsocDesign(raw, spanModel, input, new Map(), null).concrete,
+    })[entry]();
+    expect(run(demands).map(v => v.elementId)).toEqual([1, 2]);
+    for (const [id, c] of contexts) {
+      expect(c.demands!.elementId).toBe(id);
+      expect(c.demands!.concurrent).toBe(contexts.get(1)!.demands!.concurrent);
+    }
+    const partial = new Map(demands);
+    partial.set(2, { ...demands.get(2)!, concurrent: demands.get(2)!.concurrent!.filter(d => d.stationT !== 1) });
+    expect(() => run(partial)).toThrow(expect.objectContaining({
+      code: 'incomplete-concurrent-demand', diagnostics: expect.arrayContaining([
+        expect.objectContaining({ code: 'missing-station', elementId: 2, comboId: 1, stationT: 1 }),
+      ]),
+    }));
+  });
   for (const missing of ['combination', 'member', 'start', 'interior', 'end', 'combined'] as const) {
     it(`known wrong result: #2096 all design dispatchers refuse ${missing} ${label}`, () => {
       const raw = solveModel();
