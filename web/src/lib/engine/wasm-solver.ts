@@ -95,6 +95,7 @@ let wasmComputeSectionStress3dFromForces: ((json: string) => string) | null = nu
 // Diagrams & Deformed Shape
 let wasmComputeDiagrams2d: ((json: string) => string) | null = null;
 let wasmComputeDiagrams3d: ((json: string) => string) | null = null;
+let wasmRecoverMember: ((json: string) => string) | null = null;
 let wasmComputeDeformedShape: ((json: string) => string) | null = null;
 let wasmComputeDiagramValueAt: ((json: string) => number) | null = null;
 let wasmComputeDiagramValueAt3d: ((json: string) => number) | null = null;
@@ -299,6 +300,7 @@ export async function initSolver(): Promise<void> {
     wasmComputeDiagrams2d = wasm.compute_diagrams_2d;
     wasmComputeDiagrams3d = wasm.compute_diagrams_3d;
     wasmComputeDeformedShape = wasm.compute_deformed_shape;
+    wasmRecoverMember = wasm.recover_member;
     wasmComputeDiagramValueAt = wasm.compute_diagram_value_at ?? null;
     wasmComputeDiagramValueAt3d = wasm.compute_diagram_value_at_3d ?? null;
 
@@ -1623,6 +1625,22 @@ export function computeDiagrams3D(input: SolverInput3D, results: AnalysisResults
 }
 
 /** Compute deformed shape for one element via WASM. */
+export interface MemberRecoveryInput {
+  length: number;
+  ei?: number;
+  gas?: number;
+  vI: number; rI: number; vJ: number; rJ: number;
+  hingeStart: boolean; hingeEnd: boolean;
+  points: readonly { a: number; p: number; px?: number; my?: number }[];
+  dist: readonly { qI: number; qJ: number; a: number; b: number }[];
+  positions: readonly number[];
+}
+
+export function recoverMember(input: MemberRecoveryInput): { v: number; rotation: number }[] {
+  if (!wasmReady || !wasmRecoverMember) throw new Error('WASM solver not initialized.');
+  return JSON.parse(wasmRecoverMember(JSON.stringify(input)));
+}
+
 export function computeDeformedShape(input: any) {
   if (!wasmReady || !wasmComputeDeformedShape) throw new Error('WASM solver not initialized.');
   return JSON.parse(wasmComputeDeformedShape(JSON.stringify(input)));

@@ -159,20 +159,45 @@ export function loadVector(sys: SoSystem): number[] {
 export const unknownValues = (sys: SoSystem, D: number[]) => unknownDofs(sys).map((d) => D[d]);
 
 /** A mode or a deflected shape on the structure, magnified to read. */
-export function shapeSketch(sys: SoSystem, D: number[], color: 'deformed' | 'accent' = 'deformed'): Sketch {
+export function shapeSketch(sys: SoSystem, D: number[], color: 'deformed' | 'accent' = 'deformed', includeMemberLoads = true): Sketch {
   const sk = sketchOf(sys.pm, { labels: true });
   sk.members = sk.members.map((m) => ({ ...m, style: 'faint' as const }));
   const xs = [...sys.pm.nodes.values()].map((n) => n.x), zs = [...sys.pm.nodes.values()].map((n) => n.z);
   const ext = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 1);
+  const curves = sys.members.map((m) => {
+    const a = sys.pm.nodes.get(m.i)!, b = sys.pm.nodes.get(m.j)!;
+    const points: { a: number; p: number; my?: number }[] = [];
+    const dist: { qI: number; qJ: number; a: number; b: number }[] = [];
+    if (includeMemberLoads && !m.truss) for (const load of sys.pm.memberLoads) {
+      if (load.member !== m.id) continue;
+      switch (load.kind) {
+        case 'point': points.push({ a: load.a, p: load.p, my: load.m }); break;
+        case 'dist': dist.push({ qI: load.qa, qJ: load.qb, a: load.a, b: load.b }); break;
+        case 'thermal': throw new Error('Thermal loads are not supported by the second-order teaching solver.');
+        default: {
+          const unhandled: never = load;
+          throw new Error(`Unhandled member load: ${String(unhandled)}`);
+        }
+      }
+    }
+    const pts = computeDeformedShape(a.x, a.z, b.x, b.z, D[sys.dof(m.i, 0)], D[sys.dof(m.i, 1)], D[sys.dof(m.i, 2)], D[sys.dof(m.j, 0)], D[sys.dof(m.j, 1)], D[sys.dof(m.j, 2)], 1, m.L, m.truss || m.hingeI, m.truss || m.hingeJ,
+      m.truss ? undefined : m.EI, 0, 0, points, dist);
+    return { a, b, pts };
+  });
   const big = Math.max(1e-12,
     ...sys.pm.nodeOrder.flatMap((id) => [Math.abs(D[sys.dof(id, 0)]), Math.abs(D[sys.dof(id, 1)])]),
-    ...sys.members.filter((m) => !m.truss).flatMap((m) => [Math.abs(D[sys.dof(m.i, 2)]) * m.L / 4, Math.abs(D[sys.dof(m.j, 2)]) * m.L / 4]));
+    ...sys.members.filter((m) => !m.truss).flatMap((m) => [Math.abs(D[sys.dof(m.i, 2)]) * m.L / 4, Math.abs(D[sys.dof(m.j, 2)]) * m.L / 4]),
+    ...curves.flatMap(({ a, b, pts }) => pts.map((p, k) => {
+      const t = k / (pts.length - 1);
+      return Math.hypot(p.x - a.x - t * (b.x - a.x), p.y - a.z - t * (b.z - a.z));
+    })));
   const scale = (0.12 * ext) / big;
-  sk.deformed = sys.members.map((m) => {
-    const a = sys.pm.nodes.get(m.i)!, b = sys.pm.nodes.get(m.j)!;
-    const pts = computeDeformedShape(a.x, a.z, b.x, b.z, D[sys.dof(m.i, 0)], D[sys.dof(m.i, 1)], D[sys.dof(m.i, 2)], D[sys.dof(m.j, 0)], D[sys.dof(m.j, 1)], D[sys.dof(m.j, 2)], scale, m.L, m.truss || m.hingeI, m.truss || m.hingeJ);
-    return { points: pts.map((p) => ({ x: p.x, z: p.y })), color };
-  });
+  sk.deformed = curves.map(({ a, b, pts }) => ({
+    points: pts.map((p, k) => {
+      const t = k / (pts.length - 1), x = a.x + t * (b.x - a.x), z = a.z + t * (b.z - a.z);
+      return { x: x + scale * (p.x - x), z: z + scale * (p.y - z) };
+    }), color,
+  }));
   return sk;
 }
 

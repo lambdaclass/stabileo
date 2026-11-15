@@ -674,6 +674,12 @@ pub fn compute_diagrams_3d(json: &str) -> Result<String, JsValue> {
 #[wasm_bindgen]
 pub fn compute_deformed_shape(json: &str) -> Result<String, JsValue> {
     #[derive(serde::Deserialize)]
+    #[serde(untagged)]
+    enum ShapePoint {
+        Complete(types::PointLoadInfo),
+        Legacy((f64, f64)),
+    }
+    #[derive(serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct Input {
         node_ix: f64, node_iy: f64,
@@ -694,19 +700,33 @@ pub fn compute_deformed_shape(json: &str) -> Result<String, JsValue> {
         #[serde(default)]
         load_qj: Option<f64>,
         #[serde(default)]
-        load_points: Vec<(f64, f64)>,
+        load_points: Vec<ShapePoint>,
+        #[serde(default)]
+        load_couples: Vec<(f64, f64)>,
         #[serde(default)]
         dist_loads: Vec<(f64, f64, f64, f64)>,
     }
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let points: Vec<_> = d.load_points.into_iter().map(|p| match p {
+        ShapePoint::Complete(p) => p,
+        ShapePoint::Legacy((a, p)) => types::PointLoadInfo { a, p, px: None, my: None },
+    }).chain(d.load_couples.into_iter().map(|(a, c)| types::PointLoadInfo { a, p: 0.0, px: None, my: Some(c) })).collect();
     let result = postprocess::diagrams::compute_deformed_shape(
         d.node_ix, d.node_iy, d.node_jx, d.node_jy,
         d.u_ix, d.u_iy, d.r_iz, d.u_jx, d.u_jy, d.r_jz,
         d.scale, d.length, d.hinge_start, d.hinge_end,
         d.ei, d.gas, d.load_qi, d.load_qj,
-        &d.load_points, &d.dist_loads,
-    );
+        &points, &d.dist_loads,
+    ).map_err(|e| JsValue::from_str(&e))?;
+    to_json(&result)
+}
+
+#[wasm_bindgen]
+pub fn recover_member(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::diagrams::MemberRecoveryInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = postprocess::diagrams::recover_member(&input).map_err(|e| JsValue::from_str(&e))?;
     to_json(&result)
 }
 

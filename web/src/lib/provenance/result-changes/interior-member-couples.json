@@ -1,0 +1,34 @@
+{
+  "id": "interior-member-couples",
+  "date": "2026-11-15",
+  "prs": [
+    2143
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "members",
+      "memberLoads"
+    ]
+  },
+  "title": {
+    "en": "Interior deflection includes concentrated member couples",
+    "es": "La flecha interior incluye momentos concentrados en barras",
+    "pt": "A flecha interior inclui momentos concentrados nas barras",
+    "de": "Innere Durchbiegung berücksichtigt konzentrierte Stabmomente",
+    "fr": "La flèche intérieure inclut les couples concentrés sur les barres",
+    "tr": "İç sehim, eleman üzerindeki tekil momentleri içerir"
+  },
+  "explanation": {
+    "en": "Hover deflection and deformed shapes omitted couples applied inside a member. Interior displacement and rotation now share the engine recovery for all span loads. Re-run saved analyses with member loads and review deflections and serviceability checks. Nodal displacements and member forces are unchanged (#2143). Loaded recovery without sufficient bending stiffness is explicitly refused.",
+    "es": "La flecha al pasar el cursor y las deformadas omitían los momentos aplicados dentro de una barra. El desplazamiento y el giro interiores ahora usan la recuperación del motor para todas las cargas de tramo. Vuelva a ejecutar los análisis guardados con cargas en barras y revise las flechas y las comprobaciones de servicio. Los desplazamientos nodales y los esfuerzos no cambian (#2143). La recuperación con cargas se rechaza explícitamente si falta rigidez a flexión suficiente.",
+    "pt": "A flecha indicada pelo cursor e as deformadas omitiam momentos aplicados no interior de uma barra. O deslocamento e a rotação interiores agora usam a recuperação do motor para todas as cargas no vão. Execute novamente as análises salvas com cargas nas barras e reveja flechas e verificações de serviço. Deslocamentos nodais e esforços permanecem iguais (#2143). A recuperação com cargas é recusada explicitamente sem rigidez à flexão suficiente.",
+    "de": "Durchbiegungsanzeigen und verformte Linien ließen Momente im Stabinneren aus. Verschiebung und Rotation verwenden nun die gemeinsame Auswertung des Rechenkerns für alle Stablasten. Gespeicherte Analysen mit Stablasten erneut ausführen und Durchbiegungen sowie Gebrauchstauglichkeit prüfen. Knotenverschiebungen und Schnittgrößen bleiben unverändert (#2143). Die Auswertung belasteter Stäbe ohne ausreichende Biegesteifigkeit wird ausdrücklich abgelehnt.",
+    "fr": "Les valeurs au survol et les déformées omettaient les couples appliqués à l’intérieur des barres. Déplacement et rotation utilisent désormais la récupération commune du moteur pour toutes les charges de travée. Relancez les analyses enregistrées avec charges sur barres et vérifiez les flèches et les contrôles de service. Déplacements nodaux et efforts restent inchangés (#2143). La récupération sous charge est explicitement refusée sans rigidité en flexion suffisante.",
+    "tr": "İmleçteki sehim ve deforme şekiller, eleman içindeki tekil momentleri atlıyordu. İç yer değiştirme ve dönme artık tüm açıklık yükleri için motorun ortak hesabını kullanır. Eleman yükleri olan kayıtlı analizleri yeniden çalıştırıp sehim ve kullanılabilirlik kontrollerini inceleyin. Düğüm yer değiştirmeleri ve eleman kuvvetleri değişmez (#2143). Yeterli eğilme rijitliği olmadan yüklü elemanın hesabı açıkça reddedilir."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-interior-member-couples.md",
+    "heading": "Interior displacement and rotation retain member couples (2026-11-15)"
+  }
+}

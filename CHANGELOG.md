@@ -11,6 +11,29 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
+### BREAKING (results)
+
+#### Interior deflection and rotation retain concentrated member couples (2026-11-15)
+
+Member hover readings and deformed shapes now include concentrated couples inside a span. The hover and both spatial bending curves use the engine's shared recovery, including point and distributed loads and released ends. Reopen saved projects with member loads, rerun analysis, and review displayed deflections and serviceability checks. Loaded recovery without sufficient bending stiffness is refused explicitly. Nodal solutions and member forces are unchanged. See [the results-change record](docs/results-changes/2026-11-interior-member-couples.md) (#2143).
+
+### Added
+
+#### A blog post on Stabileo 0.6.1 (2026-11-15)
+
+The blog announces 0.6.1 in English, Spanish, Portuguese, German, French and Turkish.
+It leads with re-running affected member checks and regenerating snow loads before
+recalculating, covers fixed advisories SA-2026-064 through SA-2026-068 and all 24 new
+results-change notices, and preserves the known open wrong results and limitations.
+Its facts follow `docs/releases/v0.6.1*.md` and the 0.6.1 changelog. Release-note links
+open in the reader's language.
+
+### Changed
+
+#### Test systems gathered under testing/ (2026-11-15)
+
+Gather the standalone differential, symbolic, fuzz and test-system scripts under `testing/`, with a checked map of testing techniques. Existing make targets, CI job names, test cases and acceptance limits stay unchanged.
+
 ## 0.6.1 (2026-11-15)
 
 Release notes: [`docs/releases/v0.6.1.md`](docs/releases/v0.6.1.md) (also in [Spanish](docs/releases/v0.6.1.es.md), [Portuguese](docs/releases/v0.6.1.pt.md), [German](docs/releases/v0.6.1.de.md), [French](docs/releases/v0.6.1.fr.md) and [Turkish](docs/releases/v0.6.1.tr.md)).

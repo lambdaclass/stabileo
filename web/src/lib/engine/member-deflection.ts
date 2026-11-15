@@ -1,38 +1,4 @@
-/**
- * The displaced shape of a member between its nodes, and its deflection relative to the chord.
- *
- * ── The shape ─────────────────────────────────────────────────────
- *
- * The solver returns displacements at the nodes. Along a member the transverse displacement is
- * the Hermite cubic of the end displacements and rotations, plus the fixed-fixed particular
- * solution of the span loads (zero displacement and rotation at both ends), with the end slopes
- * of a released end recovered from the other end and the loads:
- *
- *   Local Y plane: v(ξ) = Hermite(vI, θzI, vJ, θzJ) + v_p(x)
- *   Local Z plane: w(ξ) = Hermite(wI, −θyI, wJ, −θyJ) + w_p(x)     (θy = −dw/dx)
- *   Axial:         u(ξ) = uI + ξ·(uJ − uI)
- *
- * This is the computation the deformed-shape drawing always did; it lived there, twice. It is
- * here so the drawing and the serviceability check read one curve.
- *
- * A shear-flexible (Timoshenko) plane — a section with shear areas, solved with them — adds the
- * shear deflection: the plane is solved exactly as the engine's `compute_deformed_shape` does
- * (`timoshenkoPlane`), so a cantilever's tip under P reads PL³/3EI + PL/(G·As). The Hermite
- * curve above would miss the PL/(G·As), and between the nodes it would not even match the
- * nodal rotations, which are the sections' rotations, not the slope.
- *
- * ── Relative to the chord ─────────────────────────────────────────
- *
- * The deflection a span limit (L/240, L/360…) is written for is the member's own bending: the
- * transverse distance from the displaced curve to the straight line joining its displaced ends.
- * A node's absolute displacement is not that number — a beam on columns that shorten, or on a
- * floor that sways, moves as a whole without bending, and a simply supported beam bends with
- * both ends at rest. The check used to read an absolute displacement, estimate the midspan with
- * 5·M·L²/(48·E·I) when the ends did not move, or — in the report — take the largest vertical
- * displacement of the whole model for every beam. See `ProVerificationTab.svelte` and
- * `pro-report-inputs.ts`.
- */
-
+import { recoverMember } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { solverProperties } from '../section/state';
 import { sectionShearAreas } from '../section/shear-areas';
@@ -86,136 +52,6 @@ export function eiOf(
 }
 
 type Pt = { x: number; y: number; z: number };
-type DistLoad = { qI: number; qJ: number; a: number; b: number };
-type PointLoad = { a: number; p: number };
-
-/** v''_p at 0 and L for a point load P at aP: fixed-fixed curvature at the ends. */
-function pointVpp(P: number, aP: number, L: number, EI: number): { vpp0: number; vppL: number } {
-  const bP = L - aP;
-  const L2 = L * L;
-  return { vpp0: P * aP * bP * bP / (EI * L2), vppL: P * aP * aP * bP / (EI * L2) };
-}
-
-/** Simpson's rule over a partial load: its points and weights. */
-function simpson(dl: DistLoad, visit: (xLoad: number, dP: number) => void) {
-  const N = 20;
-  const span = dl.b - dl.a;
-  if (span < 1e-12) return;
-  const h = span / N;
-  for (let j = 0; j <= N; j++) {
-    const t = j / N;
-    const qAt = dl.qI + (dl.qJ - dl.qI) * t;
-    const w = j === 0 || j === N ? h / 3 : j % 2 === 1 ? 4 * h / 3 : 2 * h / 3;
-    const dP = qAt * w;
-    if (Math.abs(dP) >= 1e-15) visit(dl.a + t * span, dP);
-  }
-}
-
-const isFullLength = (dl: DistLoad, L: number) => dl.a < 1e-10 && Math.abs(dl.b - L) < 1e-10;
-
-/** The particular solution's end curvatures, for every load in one plane. */
-function particularVpp(dist: readonly DistLoad[], pts: readonly PointLoad[], L: number, EI: number) {
-  let vpp0 = 0, vppL = 0;
-  const L2 = L * L;
-  for (const dl of dist) {
-    if (isFullLength(dl, L)) {
-      vpp0 += L2 * (3 * dl.qI + 2 * dl.qJ) / (60 * EI);
-      vppL += L2 * (2 * dl.qI + 3 * dl.qJ) / (60 * EI);
-    } else {
-      simpson(dl, (xl, dP) => { const r = pointVpp(dP, xl, L, EI); vpp0 += r.vpp0; vppL += r.vppL; });
-    }
-  }
-  for (const pl of pts) { const r = pointVpp(pl.p, pl.a, L, EI); vpp0 += r.vpp0; vppL += r.vppL; }
-  return { vpp0, vppL };
-}
-
-/** Fixed-fixed deflection of a point load P at a, at x. */
-function pointDeflection(P: number, a: number, x: number, L: number, EI: number): number {
-  const b = L - a, L3 = L * L * L;
-  if (x <= a) return P * b * b * x * x * (3 * a * L - x * (3 * a + b)) / (6 * EI * L3);
-  const Lmx = L - x;
-  return P * a * a * Lmx * Lmx * (3 * b * L - Lmx * (3 * b + a)) / (6 * EI * L3);
-}
-
-/** The particular solution at x, for every load in one plane. */
-function particular(x: number, dist: readonly DistLoad[], pts: readonly PointLoad[], L: number, EI: number): number {
-  let vp = 0;
-  for (const dl of dist) {
-    if (isFullLength(dl, L)) {
-      const Lmx = L - x;
-      vp += x * x * Lmx * Lmx * (dl.qI / 24 + (dl.qJ - dl.qI) * (x + 2 * L) / (120 * L)) / EI;
-    } else {
-      simpson(dl, (xl, dP) => { vp += pointDeflection(dP, xl, x, L, EI); });
-    }
-  }
-  for (const pl of pts) vp += pointDeflection(pl.p, pl.a, x, L, EI);
-  return vp;
-}
-
-/**
- * The exact transverse deflection of a loaded shear-flexible (Timoshenko) member in one plane —
- * the engine's `MemberDeflection` (`engine/src/postprocess/diagrams.rs`), so the two agree.
- *
- * With m = EI·ψ' (ψ the section rotation, the nodal rotation), s = m', s' = q and
- * v' = ψ − s/(G·As), integrating from I gives, with m_q the loads' own moment (zero at x = 0):
- *   v(x) = vI + θI·x + (m0·x²/2 + s0·x³/6 + ∫₀ˣ(x − t)·m_q)/EI − (s0·x + m_q(x))/(G·As)
- * The unknowns (θI, m0, s0) follow from: θI the node's rotation, or m(0) = 0 at a release;
- * v(L) = vJ; ψ(L) = θJ, or m(L) = 0 at a release. With 1/(G·As) = 0 it is the Hermite cubic
- * plus the particular solution, the Euler–Bernoulli curve.
- */
-function timoshenkoPlane(
-  L: number, EI: number, GA: number,
-  vI: number, rI: number, vJ: number, rJ: number, hingeStart: boolean, hingeEnd: boolean,
-  dist: readonly DistLoad[], pts: readonly PointLoad[],
-): (x: number) => number {
-  const fs = 1 / GA;
-  const g = Math.sqrt(0.6);
-  const gauss: Array<[number, number]> = [[-g, 5 / 9], [0, 8 / 9], [g, 5 / 9]];
-  /** [m_q(x), ∫₀ˣ m_q, ∫₀ˣ (x − t)·m_q(t) dt] of the loads. */
-  const terms = (x: number): [number, number, number] => {
-    const out: [number, number, number] = [0, 0, 0];
-    const add = (p: number, d: number) => {
-      if (d > 0) { out[0] += p * d; out[1] += p * d * d / 2; out[2] += p * d * d * d / 6; }
-    };
-    for (const pl of pts) add(pl.p, x - pl.a);
-    // A linear load against (x − t)^k, k ≤ 3: degree ≤ 4, so 3-point Gauss is exact.
-    for (const dl of dist) {
-      const hi = Math.min(dl.b, x);
-      if (hi <= dl.a || dl.b - dl.a < 1e-12) continue;
-      const half = (hi - dl.a) / 2, mid = (hi + dl.a) / 2;
-      for (const [t, w] of gauss) {
-        const tt = mid + half * t;
-        add((dl.qI + (dl.qJ - dl.qI) * (tt - dl.a) / (dl.b - dl.a)) * w * half, x - tt);
-      }
-    }
-    return out;
-  };
-  const [mqL, mq1L, mq2L] = terms(L);
-  const A = [
-    hingeStart ? [0, 1, 0] : [1, 0, 0],
-    [L, L * L / (2 * EI), L * L * L / (6 * EI) - fs * L],
-    hingeEnd ? [0, 1, L] : [1, L / EI, L * L / (2 * EI)],
-  ];
-  const rhs = [hingeStart ? 0 : rI, vJ - vI - mq2L / EI + fs * mqL, hingeEnd ? -mqL : rJ - mq1L / EI];
-  const det = (m: number[][]) =>
-    m[0]![0]! * (m[1]![1]! * m[2]![2]! - m[1]![2]! * m[2]![1]!)
-    - m[0]![1]! * (m[1]![0]! * m[2]![2]! - m[1]![2]! * m[2]![0]!)
-    + m[0]![2]! * (m[1]![0]! * m[2]![1]! - m[1]![1]! * m[2]![0]!);
-  const den = det(A);
-  const sol = [0, 0, 0];
-  if (den !== 0 && Number.isFinite(den)) {
-    for (let c = 0; c < 3; c++) sol[c] = det(A.map((row, r) => row.map((a, k) => (k === c ? rhs[r]! : a)))) / den;
-  }
-  const [thI, m0, s0] = sol as [number, number, number];
-  return (x: number) => {
-    const [mq, , mq2] = terms(x);
-    return vI + thI * x + (m0 * x * x / 2 + s0 * x * x * x / 6 + mq2) / EI - fs * (s0 * x + mq);
-  };
-}
-
-const shearFlexible = (EI: number | undefined, GA: number | undefined): GA is number =>
-  !!EI && EI > 0 && typeof GA === 'number' && GA > 0 && Number.isFinite(GA);
-
 /** A member's displaced curve in its local axes, sampled from I to J. */
 export interface LocalCurve {
   L: number;
@@ -258,62 +94,18 @@ export function memberLocalCurve(
   const thYI = dot(ey, dispI.rx, dispI.ry, dispI.rz), thYJ = dot(ey, dispJ.rx, dispJ.ry, dispJ.rz);
   const thZI = dot(ez, dispI.rx, dispI.ry, dispI.rz), thZJ = dot(ez, dispJ.rx, dispJ.ry, dispJ.rz);
 
-  // ── Local Y plane (Mz) ──
-  const EIz = ei?.EIz;
-  const yLoads = !!(ef && EIz && EIz > 0 && (ef.distributedLoadsY.length > 0 || ef.pointLoadsY.length > 0));
-  const vppY = yLoads ? particularVpp(ef!.distributedLoadsY, ef!.pointLoadsY, L, EIz!) : { vpp0: 0, vppL: 0 };
-  let sYI = thZI, sYJ = thZJ;
-  const dv = vJ - vI;
-  if (ef?.releaseMzStart && ef.releaseMzEnd) {
-    sYI = dv / L + L * vppY.vpp0 / 3 + L * vppY.vppL / 6;
-    sYJ = dv / L - L * vppY.vpp0 / 6 - L * vppY.vppL / 3;
-  } else if (ef?.releaseMzStart) {
-    sYI = 3 * dv / (2 * L) - thZJ / 2 + L * vppY.vpp0 / 4;
-  } else if (ef?.releaseMzEnd) {
-    sYJ = 3 * dv / (2 * L) - thZI / 2 - L * vppY.vppL / 4;
-  }
-
-  // ── Local Z plane (My); the slope is −θy ──
-  const EIy = ei?.EIy;
-  const zLoads = !!(ef && EIy && EIy > 0 && (ef.distributedLoadsZ.length > 0 || ef.pointLoadsZ.length > 0));
-  const vppZ = zLoads ? particularVpp(ef!.distributedLoadsZ, ef!.pointLoadsZ, L, EIy!) : { vpp0: 0, vppL: 0 };
-  let sZI = -thYI, sZJ = -thYJ;
-  const dw = wJ - wI;
-  if (ef?.releaseMyStart && ef.releaseMyEnd) {
-    sZI = dw / L + L * vppZ.vpp0 / 3 + L * vppZ.vppL / 6;
-    sZJ = dw / L - L * vppZ.vpp0 / 6 - L * vppZ.vppL / 3;
-  } else if (ef?.releaseMyStart) {
-    sZI = 3 * dw / (2 * L) + thYJ / 2 + L * vppZ.vpp0 / 4;
-  } else if (ef?.releaseMyEnd) {
-    sZJ = 3 * dw / (2 * L) + thYI / 2 - L * vppZ.vppL / 4;
-  }
-
-  // A shear-flexible plane: the engine's exact Timoshenko curve instead (it does its own
-  // release and load terms). An Euler–Bernoulli plane keeps the curve above.
-  const noLoads = { dist: [] as DistLoad[], pts: [] as PointLoad[] };
-  const timoY = shearFlexible(EIz, ei?.GAz)
-    ? timoshenkoPlane(L, EIz!, ei!.GAz!, vI, thZI, vJ, thZJ, !!ef?.releaseMzStart, !!ef?.releaseMzEnd,
-      ef?.distributedLoadsY ?? noLoads.dist, ef?.pointLoadsY ?? noLoads.pts)
-    : null;
-  const timoZ = shearFlexible(EIy, ei?.GAy)
-    ? timoshenkoPlane(L, EIy!, ei!.GAy!, wI, -thYI, wJ, -thYJ, !!ef?.releaseMyStart, !!ef?.releaseMyEnd,
-      ef?.distributedLoadsZ ?? noLoads.dist, ef?.pointLoadsZ ?? noLoads.pts)
-    : null;
-
-  const out: LocalCurve = { L, ex, ey, ez, xi: [], u: [], v: [], w: [] };
   const xis = typeof segments === 'number' ? Array.from({ length: segments + 1 }, (_, i) => i / segments) : segments;
-  for (const xi of xis) {
-    const x = xi * L, xi2 = xi * xi, xi3 = xi2 * xi;
-    const N1 = 1 - 3 * xi2 + 2 * xi3, N2 = (xi - 2 * xi2 + xi3) * L, N3 = 3 * xi2 - 2 * xi3, N4 = (-xi2 + xi3) * L;
-    let v = N1 * vI + N2 * sYI + N3 * vJ + N4 * sYJ;
-    if (yLoads) v += particular(x, ef!.distributedLoadsY, ef!.pointLoadsY, L, EIz!);
-    let w = N1 * wI + N2 * sZI + N3 * wJ + N4 * sZJ;
-    if (zLoads) w += particular(x, ef!.distributedLoadsZ, ef!.pointLoadsZ, L, EIy!);
-    out.xi.push(xi);
-    out.u.push(uI + xi * (uJ - uI));
-    out.v.push(timoY ? timoY(x) : v);
-    out.w.push(timoZ ? timoZ(x) : w);
-  }
+  const plane = (vI: number, rI: number, vJ: number, rJ: number, ei: number | undefined, gas: number | undefined,
+    hingeStart: boolean, hingeEnd: boolean, points: readonly { a: number; p: number }[],
+    dist: readonly { qI: number; qJ: number; a: number; b: number }[]) => recoverMember({
+      length: L, ei, gas, vI, rI, vJ, rJ, hingeStart, hingeEnd, points, dist, positions: xis,
+    });
+  const y = plane(vI, thZI, vJ, thZJ, ei?.EIz, ei?.GAz, !!ef?.releaseMzStart, !!ef?.releaseMzEnd,
+    ef?.pointLoadsY ?? [], ef?.distributedLoadsY ?? []);
+  const z = plane(wI, -thYI, wJ, -thYJ, ei?.EIy, ei?.GAy, !!ef?.releaseMyStart, !!ef?.releaseMyEnd,
+    ef?.pointLoadsZ ?? [], ef?.distributedLoadsZ ?? []);
+  const out: LocalCurve = { L, ex, ey, ez, xi: [...xis], u: xis.map(xi => uI + xi * (uJ - uI)),
+    v: y.map(p => p.v), w: z.map(p => p.v) };
   return out;
 }
 
