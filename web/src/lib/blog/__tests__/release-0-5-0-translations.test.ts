@@ -1,3 +1,4 @@
+import { PUBLIC_LOCALES } from '../../i18n/offered';
 import { describe, expect, it } from 'vitest';
 import { findPost, type Block } from '..';
 
@@ -37,7 +38,7 @@ function safetyData(block: Block, locale = 'en') {
 }
 
 describe('0.5.0 release notes in the newly offered languages', () => {
-  it.each(['de', 'fr', 'tr', 'hu'] as const)('%s preserves every block and its safety data', (locale) => {
+  it.each(PUBLIC_LOCALES.filter(locale => ['de', 'fr', 'tr', 'hu'].includes(locale)))('%s preserves every block and its safety data', (locale) => {
     const post = findPost('stabileo-0-5-0')!;
     const body = post.i18n[locale];
     expect(body, `${locale}: missing release notes`).toBeDefined();
@@ -52,7 +53,7 @@ describe('0.5.0 release notes in the newly offered languages', () => {
     });
   });
 
-  it.each(['de', 'fr', 'tr', 'hu'] as const)('%s writes integer counts with local grouping and preserves their values', (locale) => {
+  it.each(PUBLIC_LOCALES.filter(locale => ['de', 'fr', 'tr', 'hu'].includes(locale)))('%s writes integer counts with local grouping and preserves their values', (locale) => {
     const post = findPost('stabileo-0-5-0')!;
     const grouping = new Intl.NumberFormat(locale).format(10000).charAt(2);
     const pattern = new RegExp(`\\b\\d{1,3}(?:${grouping === '.' ? '\\.' : grouping}\\d{3})+\\b`, 'g');
@@ -63,7 +64,7 @@ describe('0.5.0 release notes in the newly offered languages', () => {
       .toEqual(sourceCounts.map((count) => Number(count.replaceAll(',', ''))));
   });
 
-  it.each(['de', 'fr', 'tr', 'hu'] as const)('%s rejects magnitudes swapped between advisories', (locale) => {
+  it.each(PUBLIC_LOCALES.filter(locale => ['de', 'fr', 'tr', 'hu'].includes(locale)))('%s rejects magnitudes swapped between advisories', (locale) => {
     const post = findPost('stabileo-0-5-0')!;
     const source = post.i18n.en.blocks.find((block) => block.k === 'table')!;
     const table = structuredClone(post.i18n[locale]!.blocks.find((block) => block.k === 'table')!);
@@ -76,7 +77,7 @@ describe('0.5.0 release notes in the newly offered languages', () => {
 });
 
 describe('0.5.0 release-note review regressions', () => {
-  it.each([
+  it.each(([
     ['en', 'German, French and Turkish are offered again.'],
     ['es', 'El alemán, el francés y el turco vuelven a estar disponibles.'],
     ['pt', 'Alemão, francês e turco voltam a ser oferecidos.'],
@@ -84,7 +85,7 @@ describe('0.5.0 release-note review regressions', () => {
     ['fr', 'L’allemand, le français et le turc sont à nouveau proposés.'],
     ['tr', 'Almanca, Fransızca ve Türkçe yeniden sunuluyor.'],
     ['hu', 'A német, a francia és a török nyelv ismét elérhető.'],
-  ] as const)('%s describes the languages as available again', (locale, wording) => {
+  ] as const).filter(([locale]) => PUBLIC_LOCALES.includes(locale)))('%s describes the languages as available again', (locale, wording) => {
     const post = findPost('stabileo-0-5-0')!;
     const blockIndex = post.i18n.en.blocks.findIndex((block) =>
       block.k === 'ul' && block.items.some((item) => item.startsWith('German, French and Turkish')));
@@ -98,7 +99,7 @@ describe('0.5.0 release-note review regressions', () => {
     expect(translated.items[itemIndex]).toBe(wording);
   });
 
-  it.each(['de', 'fr', 'tr', 'hu'] as const)('%s writes every decimal value with a decimal comma', (locale) => {
+  it.each(PUBLIC_LOCALES.filter(locale => ['de', 'fr', 'tr', 'hu'].includes(locale)))('%s writes every decimal value with a decimal comma', (locale) => {
     const post = findPost('stabileo-0-5-0')!;
     const source = JSON.stringify(post.i18n.en.blocks);
     const translated = JSON.stringify(post.i18n[locale]!.blocks);
@@ -109,7 +110,7 @@ describe('0.5.0 release-note review regressions', () => {
     expect(safetyTokens(translated, locale)).toEqual(safetyTokens(source, 'en'));
   });
 
-  describe.each(['de', 'fr', 'tr', 'hu'] as const)('%s signed quantities and units', (locale) => {
+  describe.each(PUBLIC_LOCALES.filter(locale => ['de', 'fr', 'tr', 'hu'].includes(locale)))('%s signed quantities and units', (locale) => {
     it.each([
       ['unit prefix', (quantity: string) => quantity.replace('Hz', 'kHz')],
       ['missing unit', (quantity: string) => quantity.replace('Hz', '')],

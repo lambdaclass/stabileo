@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TOOLS, TOPICS, findTool, toolLastmod, toolPaths, toolsIn } from '../registry';
 import { TOOL_IDS } from '../calculators';
 import { BATCH_IDS } from '../batch';
@@ -12,6 +12,8 @@ import toolReviews from '../../../../../research/tools/batches/VALIDATION.json';
 
 const text = (locale: string, key: string) => batchTranslations[locale]?.[key] ?? hubTranslations[locale]?.[key] ?? toolTranslations[locale]?.[key];
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe('tool registry', () => {
   it('holds every calculator, batch tool and model once, each under a unique id', () => {
     const ids = TOOLS.map(tool => tool.id);
@@ -22,6 +24,7 @@ describe('tool registry', () => {
   });
 
   it('files every tool under a topic and keeps a slot for stresses', () => {
+    vi.stubEnv('VITE_TOOLS', '1');
     for (const tool of TOOLS) expect(TOPICS).toContain(tool.topic);
     expect(TOPICS).toEqual(['beams', 'stability', 'stresses', 'models']);
     expect(TOPICS.flatMap(toolsIn)).toHaveLength(TOOLS.length);

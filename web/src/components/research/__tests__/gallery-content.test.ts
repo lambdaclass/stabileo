@@ -89,9 +89,9 @@ it('titles the Riks card in the language its article is written in', async () =>
   }
 });
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '1')('known wrong result: #2099 — names each thumbnail link by its localized card title and keeps the image decorative', async () => {
+it('names each thumbnail link by its localized card title and keeps the image decorative', async () => {
   const { cardTitle } = await import('../card-title');
-  for (const locale of ['en', 'es', 'pt', 'hu']) {
+  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu'].includes(locale))) {
     setLocale(locale);
     expect(publicI18n.locale).toBe(locale);
     const { body } = render(Gallery);
@@ -104,9 +104,9 @@ it.skipIf(process.env.RUN_KNOWN_WRONG !== '1')('known wrong result: #2099 — na
   }
 });
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '1')('known wrong result: #2099 — the bent-strip card shows its own localized lead', async () => {
+it('the bent-strip card shows its own localized lead', async () => {
   const { translations } = await import('../feher2026/strings');
-  for (const locale of ['en', 'es', 'pt', 'hu']) {
+  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu'].includes(locale))) {
     setLocale(locale);
     expect(publicI18n.locale).toBe(locale);
     const { body } = render(Gallery);

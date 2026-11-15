@@ -31,6 +31,7 @@ it('all three integration switches default off without withdrawing anything main
   expect(routeKind(new URL('https://stabileo.test/app/basic')).kind).toBe('app');
 });
 it('each switch enables only its additions and leaves main routes available', () => {
+  for (const key of ['VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME']) vi.stubEnv(key, '');
   for (const name of ['research', 'tools', 'diagram-game']) {
     const flags = new Map<string, string>();
     vi.stubGlobal('localStorage', { getItem: (key: string) => flags.get(key) ?? null, setItem: (key: string, value: string) => flags.set(key, value) });

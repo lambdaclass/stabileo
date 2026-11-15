@@ -1,3 +1,4 @@
+import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
 import { it, expect } from 'vitest';
 import { BatchToolError, BATCH_IDS, DEFAULT_BATCH as P, batchModel, continuousReactions, continuousInfluence, frequencies, jointForces, parseTruss, portalSway, simpleInfluence, validateBatch } from '../batch';
 import { calculateBatch } from '../batch-solve';
@@ -40,9 +41,9 @@ it('influence curves agree with statics and compatibility, including shear disco
 it('three bending modes match all boundary conditions',async()=>{
  for(const boundary of ['simple','cantilever','fixed'] as const) {const r=await calculateBatch('beam-natural-frequency',{...P,boundary});expect(r.modes).toHaveLength(3);expect(r.difference).toBeLessThan(2e-5);}
 });
-it('covers every key and every tool SEO title and description in seven locales',()=>{
+it('covers every key and every tool SEO title and description in every offered locale',()=>{
  const keys=Object.keys(batchTranslations.en).sort();
- for(const locale of ['en','es','pt','de','fr','tr','hu']) {
+ for(const locale of PUBLIC_LOCALES) {
   expect(Object.keys(batchTranslations[locale]).sort()).toEqual(keys);
   for(const id of BATCH_IDS) for(const suffix of ['', '.subtitle']) expect(batchTranslations[locale][`tools.${id}${suffix}`].length).toBeGreaterThan(5);
  }

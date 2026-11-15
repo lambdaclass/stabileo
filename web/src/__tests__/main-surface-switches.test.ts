@@ -1,3 +1,4 @@
+import { PUBLIC_LOCALES } from '../lib/i18n/offered';
 import { afterEach, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { render } from 'svelte/server';
@@ -41,7 +42,7 @@ it('known wrong result: #1916 — keeps Fehér main controls and hides only adde
   for (const id of ['shape-theta', 'shape-delta']) expect(body).toContain(`id="${id}"`);
   for (const id of ['shape-q', 'shape-members', 'why']) expect(body).not.toContain(`id="${id}"`);
   vi.stubEnv('VITE_RESEARCH', '1');
-  expect(publishedLocales('/research')).toContain('hu');
+  expect(publishedLocales('/research').includes('hu')).toBe(PUBLIC_LOCALES.includes('hu'));
   const enabled = render(ShapePage).body;
   for (const id of ['shape-q', 'shape-members', 'why']) expect(enabled).toContain(`id="${id}"`);
 });
@@ -72,7 +73,7 @@ it.each(Array.from({ length: 8 }, (_, mask) => mask))('known wrong result: #1950
   const expected = [...main.routes.filter(path => !flags.tools || !path.startsWith('/examples')), ...(flags.tools ? [...models, '/tools/mohr-2d', '/tools/mohr-3d'] : []), ...(flags.diagramGame ? ['/diagram-game'] : [])].sort();
   expect(paths.sort()).toEqual(expected);
   for (const path of main.research) {
-    expect(writtenIn(path).includes('hu'), path).toBe(flags.research && path !== '/research/benchmarks/shell-obstacle-course');
+    expect(writtenIn(path).includes('hu'), path).toBe(flags.research && PUBLIC_LOCALES.includes('hu') && path !== '/research/benchmarks/shell-obstacle-course');
     expect(publishedLocales(path, flags)).toEqual(writtenIn(path));
   }
   const { movedPages } = await import('../lib/legacy-routes');

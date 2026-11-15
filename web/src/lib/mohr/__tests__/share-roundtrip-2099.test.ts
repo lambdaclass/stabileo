@@ -4,8 +4,6 @@ import { appHref, decode2D, decode3D, DEFAULT_2D, DEFAULT_3D, encodeState, readA
 import { principalPlane } from '../plane';
 import { invariants3 } from '../space';
 
-const regression = describe.skipIf(process.env.RUN_KNOWN_WRONG !== '1');
-
 function openTool(kind: 'plane', state: Mohr2DState): Mohr2DState;
 function openTool(kind: 'space', state: Mohr3DState): Mohr3DState;
 function openTool(kind: 'plane' | 'space', state: Mohr2DState | Mohr3DState) {
@@ -13,7 +11,7 @@ function openTool(kind: 'plane' | 'space', state: Mohr2DState | Mohr3DState) {
   return kind === 'plane' ? decode2D(url.searchParams) : decode3D(url.searchParams);
 }
 
-regression('known wrong result: #2099 lossless Mohr share links', () => {
+describe('lossless Mohr share links', () => {
   it.each(UNITS)('preserves nearly hydrostatic stresses and nonzero invariants in %s', unit => {
     const state: Mohr3DState = { ...DEFAULT_3D, unit, s: { xx: 1e9, yy: 1e9 - 0.01, zz: 1e9 - 0.02, xy: 0, yz: 0, xz: 0 } };
     const before = invariants3(state.s);
@@ -57,7 +55,7 @@ regression('known wrong result: #2099 lossless Mohr share links', () => {
   });
 });
 
-regression('known wrong result: #2099 Mohr link controls and unchanged limits', () => {
+describe('Mohr link controls and unchanged limits', () => {
   it.each([-1e9, -1e9 + 0.01, 0, 1e9 - 0.01, 1e9])('keeps accepted stress %s', value => {
     const plane = { ...DEFAULT_2D, sx: value, sy: value, txy: value };
     const space = { ...DEFAULT_3D, s: { xx: value, yy: value, zz: value, xy: value, yz: value, xz: value } };

@@ -42,7 +42,7 @@ export const DEFAULT_3D: Mohr3DState = { s: { ...PRESETS.general }, phi: -20, th
 export const TOOL_PATH: Record<MohrKind, string> = { 'plane': '/tools/mohr-2d', 'space': '/tools/mohr-3d' };
 
 const LIMIT = 1e9;
-const num = (v: number) => String(Number(v.toPrecision(10)));
+const num = (v: number) => String(v);
 
 function read(params: URLSearchParams, key: string, fallback: number, min = -LIMIT, max = LIMIT): number {
   const raw = params.get(key);

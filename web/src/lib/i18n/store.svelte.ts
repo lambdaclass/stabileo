@@ -22,6 +22,7 @@ let appDictionaries = false;
 
 const publicPending = new Map<string, Promise<void>>();
 const pendingLoads = new Map<string, Promise<void>>();
+const localeRequests = new Map<string, Promise<void>>();
 
 /** Resolves once `loc`'s public entries are registered, at once when they are bundled; rejects when they fail to load, and the next call tries again. */
 export function ensurePublicLocale(loc: string): Promise<void> {
@@ -62,9 +63,14 @@ export function warnLocaleLoadFailure(loc: string, error: unknown): void {
 }
 
 export function ensureLocale(loc: string): Promise<void> {
-  return import('./browser-dictionaries').then(module => module.ensureBrowserLocale(loc, ensurePublicLocale, registerFeatureDictionaries, pendingLoads)).catch(err => {
-    warnLocaleLoadFailure(loc, err);
-  });
+  let request = localeRequests.get(loc);
+  if (!request) {
+    request = import('./browser-dictionaries').then(module => module.ensureBrowserLocale(loc, ensurePublicLocale, registerFeatureDictionaries, pendingLoads)).catch(err => {
+      warnLocaleLoadFailure(loc, err);
+    }).finally(() => localeRequests.delete(loc));
+    localeRequests.set(loc, request);
+  }
+  return request;
 }
 
 /** Safe localStorage check — vitest defines localStorage but without working methods. */
