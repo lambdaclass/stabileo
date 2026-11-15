@@ -289,6 +289,8 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     const p = planes[k]!;
     if (p.kind === 'section' && [...p.members].every(id => supportFor(id).planes.some(q => q.kind === 'plane'))) planes.splice(k, 1);
   }
+  const targetPlaneSet = new Set(roof.filter(m => targetIds.has(m.id)).flatMap(m => supportFor(m.id).planes));
+  const targetPlanes = planes.filter(p => !only || targetPlaneSet.has(p));
   const sourceWidth = (source: SnowPlane) => {
     const norm = Math.hypot(...source.gradient), dir: P2 = [source.gradient[0] / norm, source.gradient[1] / norm];
     const group = new Set([source]);
@@ -379,7 +381,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
   };
   const transverse = (direction: P2): P2 => {
     const axis: P2 = [-direction[1], direction[0]];
-    const reference = roof.find(m => roofIds.has(m.id) && Math.abs(m.dx * axis[0] + m.dy * axis[1]) > 1e-8 * m.lh);
+    const reference = roof.find(m => targetIds.has(m.id) && Math.abs(m.dx * axis[0] + m.dy * axis[1]) > 1e-8 * m.lh);
     return reference && reference.dx * axis[0] + reference.dy * axis[1] > 0 ? [-axis[0], -axis[1]] : axis;
   };
   const orientations: P2[] = [];
@@ -410,9 +412,13 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     }
     return out;
   };
-  const edgeHeights = (a: P2, b: P2, layout: GravityLayout, left: number, right: number) => edgeRanges(a, b, layout, () => []).flatMap(r => [r.from, (r.from + r.to) / 2, r.to]).map(t => {
-    const pt: P2 = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
-    return panel(left, layout).elevation(pt) - panel(right, layout).elevation(pt);
+  const edgeHeights = (a: P2, b: P2, layout: GravityLayout, left: number, right: number) => edgeRanges(a, b, layout, () => []).flatMap(r => {
+    const L = panel(left, layout), R = panel(right, layout);
+    const lp = L.planeAt(r.point), rp = R.planeAt(r.point);
+    return [r.from, (r.from + r.to) / 2, r.to].flatMap(t => {
+      const pt: P2 = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+      return [L.elevation(pt) - R.elevation(pt), (lp?.elevation(pt) ?? L.elevation(pt)) - (rp?.elevation(pt) ?? R.elevation(pt))];
+    });
   });
   const resolves = (layout?: GravityLayout) => {
     if (roof.some(m => targetIds.has(m.id) && supportFor(m.id).partial)) return false;
@@ -426,7 +432,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     }
     return true;
   };
-  return { planes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets: roof.filter(m => targetIds.has(m.id)), panel, resolves };
+  return { planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets: roof.filter(m => targetIds.has(m.id)), panel, resolves };
 }
 
 export function snowRoofSurfaces(model: WindModel, layout?: GravityLayout, surfaces = roofSurfaceModel(model)) {

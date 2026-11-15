@@ -52,13 +52,14 @@ function edgeInterval(a: P2, b: P2, c: P2, d: P2): [number, number] | undefined 
   return hi - lo > 1e-9 ? [lo, hi] : undefined;
 }
 
-function joined(A: P2[], B: P2[], continuous: (pt: P2) => boolean): boolean {
+function joined(A: P2[], B: P2[], continuous: (a: P2, b: P2) => boolean): boolean {
   return A.some((a, e) => {
     const b = A[(e + 1) % A.length]!, delta = sub(b, a), len = Math.hypot(...delta);
+    const point = (t: number): P2 => [a[0] + t * delta[0] / len, a[1] + t * delta[1] / len];
     return B.some((c, f) => {
       const interval = edgeInterval(a, b, c, B[(f + 1) % B.length]!);
       return interval && interval[1] - interval[0] > 0.1
-        && interval.every(t => continuous([a[0] + t * delta[0] / len, a[1] + t * delta[1] / len]));
+        && continuous(point(interval[0]), point(interval[1]));
     });
   });
 }
@@ -101,6 +102,7 @@ export function snowDriftRefusal(model: GravityModel, layout?: GravityLayout, su
           const lo: P2 = [a[0] + interval[0] * line.u[0], a[1] + interval[0] * line.u[1]];
           const hi: P2 = [a[0] + interval[1] * line.u[0], a[1] + interval[1] * line.u[1]];
           const heights = surfaceModel.edgeHeights(lo, hi, coverage, k, other.j);
+          if (!heights.length || heights.some(h => !Number.isFinite(h))) return 'snow.refused.roofPlane';
           if (heights.some(h => h > 1e-8) && heights.some(h => h < -1e-8)) return 'snow.refused.roofPlane';
         }
       }
@@ -157,7 +159,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       for (const p of roofs) {
         if (group.includes(p)) continue;
         const current = group[i]!;
-        if (joined(current.polygon, p.polygon, pt => Math.abs(surfaces(current.k).elevation(pt) - surfaces(p.k).elevation(pt)) <= 1e-8)) group.push(p);
+        if (joined(current.polygon, p.polygon, (a, b) => surfaceModel.edgeHeights(a, b, layout, current.k, p.k).every(h => Math.abs(h) <= 1e-8))) group.push(p);
       }
     }
     return group;

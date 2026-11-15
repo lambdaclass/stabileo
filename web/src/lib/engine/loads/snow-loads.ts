@@ -41,9 +41,10 @@ export interface RoofGeometry {
 const Z = (n: { z?: number }) => n.z ?? 0;
 
 export function roofGeometry(model: WindModel, only?: ReadonlySet<number>, surfaces = roofSurfaceModel(model, only)): RoofGeometry | null {
-  const roof = surfaces.roof;
-  if (!surfaces.targets.length) return null;
-  const primary = surfaces.planes[0];
+  const roof = surfaces.targets;
+  if (!roof.length) return null;
+  const planes = surfaces.targetPlanes;
+  const primary = planes[0];
   const longest = [...roof].sort((a, b) => b.lh - a.lh)[0]!;
   const norm = primary ? Math.hypot(...primary.gradient) : longest.lh;
   const direction: [number, number] = primary ? [primary.gradient[0] / norm, primary.gradient[1] / norm] : [-longest.dy / norm, longest.dx / norm];
@@ -56,8 +57,8 @@ export function roofGeometry(model: WindModel, only?: ReadonlySet<number>, surfa
   const lo = Math.min(...pts.map(coord)), hi = Math.max(...pts.map(coord));
   const sloped = roof.filter(m => Math.abs(m.dz) > 1e-8 * m.lh);
   const weight = sloped.reduce((s, m) => s + m.lh, 0);
-  const slopeDeg = weight ? sloped.reduce((s, m) => s + surfaces.atMember.get(m.id)!.slope * m.lh, 0) / weight : 0;
-  const W = primary ? Math.max(...surfaces.planes.map(p => p.W)) : (hi - lo) / 2;
+  const slopeDeg = weight ? sloped.reduce((s, m) => s + surfaces.atMember.get(m.id)!.slope * m.lh, 0) / weight : planes.length && only ? planes.reduce((s, p) => s + p.slope, 0) / planes.length : 0;
+  const W = primary ? Math.max(...planes.map(p => p.W)) : (hi - lo) / 2;
   return { axis: Math.abs(direction[0]) >= Math.abs(direction[1]) ? 'x' : 'y', direction, transverse: surfaces.transverse(direction), origin, ridge, W, slopeDeg };
 }
 
@@ -265,7 +266,7 @@ export function snowLoadCases(input: SnowCasesInput): {
       let count = 0;
       const exemptions: EngineMessage[] = [];
       const seen = new Set<string>([JSON.stringify({ distributed: cases[0]!.distributed, nodal: cases[0]!.nodal })]);
-      for (const direction of surfaceModel.orientations.length ? surfaceModel.orientations : [geometry.direction]) {
+      for (const direction of surfaceModel.targetPlanes.length && surfaceModel.orientations.length ? surfaceModel.orientations : [geometry.direction]) {
         const frame = { ...geometry, direction, transverse: surfaceModel.transverse(direction) };
         const patterns = partialSnowPatterns(roofSpans(input.model as GravityModel, layout, frame), units);
         for (const axis of ['x', 'y'] as const) {
@@ -305,7 +306,7 @@ export function snowLoadCases(input: SnowCasesInput): {
       cases.push({ nameKey: u.dir ? 'snow.case.unbalanced' : 'snow.case.unbalancedValleys', nameParams: { dir: directionLabel(u.dir) }, ...on(atEnds(u.at)) });
     }
   } else if (surfaceModel.planes.length ? surfaceModel.planes.some(p => localResult(p).unbalanced) : result.unbalanced) {
-    for (const direction of surfaceModel.orientations.length ? surfaceModel.orientations : [geometry.direction]) for (const sense of [1, -1] as const) {
+    for (const direction of surfaceModel.targetPlanes.length && surfaceModel.orientations.length ? surfaceModel.orientations : [geometry.direction]) for (const sense of [1, -1] as const) {
       const at = (id: number, unit?: SnowUnit) => {
         const ps = localSurfaces(id, unit);
         return ps.reduce((sum, p) => {
