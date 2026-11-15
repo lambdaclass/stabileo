@@ -18,6 +18,7 @@ const PAGES: Array<[string, string | null]> = [
   ['/en/paper/', 'research'],
   ['/en/research/', 'research'],
   ['/en/tools/', 'tools'],
+  ...(BUILD_FEATURES.tools ? [] : [['/en/examples/', 'examples'] as [string, string]]),
   ['/en/tools/beam-frame/', 'tools'],
   ...EXPERIMENTS.map(({ path }): [string, string] => [`/en${path}/`, 'research']),
 ];

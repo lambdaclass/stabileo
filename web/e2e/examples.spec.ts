@@ -1,8 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
+import { EXAMPLE_IDS } from '../src/components/examples/ids';
 import { BUILD_FEATURES } from './build-features';
 import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
-
-const EXAMPLE_IDS = ['beam-frame', 'slab-on-columns', 'earthquake-frame', 'rc-column', 'outrigger', 'tower'];
 
 test.skip(BUILD_FEATURES.tools, 'The enabled Tools build moves examples to tools; covered by tools-models.spec.ts');
 
@@ -25,7 +24,7 @@ test('@smoke examples gallery: a slider re-solves, and the share link and editor
   expect(html).toContain('id="prerender"');
   for (const id of EXAMPLE_IDS) expect(html).toContain(`/en/examples/${id}/`);
   await page.goto('/en/?e2e=1');
-  await page.locator('nav.site-header').getByRole('link', { name: 'Examples', exact: true }).click();
+  await page.locator('.hero').getByRole('link', { name: /Examples/ }).click();
   await expect(page).toHaveURL(/\/en\/examples\/?/);
   await expect(page.getByTestId('card-beam-frame')).toBeVisible();
   await page.getByTestId('card-beam-frame').getByRole('heading').getByRole('link').click();
@@ -49,7 +48,7 @@ test('@smoke examples gallery: a slider re-solves, and the share link and editor
 
   await page.getByTestId('open-editor').click();
   await expect(page).toHaveURL(/\/app\/basic\?e2e=1#data=2\./);
-  await expect.poll(() => page.evaluate(() => (window as any).__stabileo?.memberAxialForces()?.length ?? 0), { timeout: 60000 }).toBe(2);
+  await expect.poll(() => page.evaluate(() => (window as any).__stabileo?.memberAxialForces()?.length ?? 0), { timeout: 60000 }).toBe(2); // slow-ok: The editor initializes WASM and solves the shared example model before publishing member forces.
   const nodes: [number, { x: number }][] = await page.evaluate(() => (window as any).__stabileo.entityData('setting', 'nodes'));
   expect(nodes.map(([, n]) => n.x).sort((a, b) => a - b)).toEqual([0, 4, 8]);
 });

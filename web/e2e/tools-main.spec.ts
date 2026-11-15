@@ -48,7 +48,7 @@ for (const id of TOOL_IDS) test(`@smoke tools ${id} computes and opens the same 
   const expectedMembers = id === 'column-buckling' ? 32 : id === 'cantilever-beam' ? 1 : 2;
   await page.getByRole('link', { name: /^Open in Stabileo/ }).click();
   await expect(page).toHaveURL(/\/app\/basic\?e2e=1#data=2\./);
-  await expect.poll(() => page.evaluate(() => (window as any).__stabileo?.memberAxialForces()?.length ?? 0), { timeout: 60000 }).toBe(expectedMembers);
+  await expect.poll(() => page.evaluate(() => (window as any).__stabileo?.memberAxialForces()?.length ?? 0), { timeout: 60000 }).toBe(expectedMembers); // slow-ok: The editor initializes WASM and solves the shared calculator model before publishing member forces.
   const materials = await page.evaluate(() => (window as any).__stabileo.entityData('setting', 'materials'));
   expect(materials[0][1].e).toBe(100000);
   const section = await page.evaluate(() => (window as any).__stabileo.entityData('section', 1));
@@ -112,7 +112,7 @@ for (const id of BATCH_IDS) test(`@smoke tools ${id} prerender and editor handof
   if (id !== 'influence-line') await expect(page.getByTestId(id === 'portal-frame' ? 'sway' : 'engine-value').first()).not.toHaveText(before!);
   await page.getByRole('link', { name: /^Open in Stabileo/ }).click();
   await expect(page).toHaveURL(/\/app\/basic\?e2e=1#data=2\./);
-  await expect.poll(() => page.evaluate(() => (window as any).__stabileo?.memberAxialForces()?.length ?? 0), { timeout: 60000 }).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => (window as any).__stabileo?.memberAxialForces()?.length ?? 0), { timeout: 60000 }).toBeGreaterThan(0); // slow-ok: The editor initializes WASM and solves the shared batch-tool model before publishing member forces.
   const materials = await page.evaluate(() => (window as any).__stabileo.entityData('setting', 'materials'));
   expect(materials[0][1].e).toBe(100000);
 });
