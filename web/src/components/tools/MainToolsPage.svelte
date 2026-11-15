@@ -16,13 +16,10 @@
   import '../research/research.css';
   import Sci from '../research/shell/Sci.svelte';
   import ParamRow from '../research/shell/ParamRow.svelte';
-  import mainCopy from './main-copy.json';
-  import { tBatch as batchText } from './batch-i18n';
+  import { tBatch as t } from './batch-i18n';
   import { BATCH_IDS } from './batch';
   import ToolPreview from './MainToolPreview.svelte';
   import { prerenderedResult, recordPrerenderedResult } from './prerendered-result';
-
-  const t = (key: string): string => (mainCopy[publicI18n.locale as keyof typeof mainCopy] as Record<string, string> | undefined)?.[key] ?? batchText(key);
 
   let { path }: { path: string } = $props();
   const id = $derived(TOOL_IDS.find(id => path.replace(/\/$/, '') === `/tools/${id}`));

@@ -8,6 +8,7 @@ import { loadedPreloads } from './scripts/loaded-preloads';
 import { buildPublicLocales } from './src/lib/i18n/offered-research';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
 import { prunePublicBuildBranches } from './scripts/prune-public-build-branches.mjs';
+import { researchLocaleBuildPlugin } from './scripts/research-locale-build.mjs';
 import { blogTranslations } from './scripts/blog-translations';
 
 /**
@@ -261,7 +262,7 @@ if (researchBuildId !== 'unavailable') {
 const preloads = loadedPreloads();
 
 export default defineConfig({
-  plugins: [publicBuildSwitchesPlugin(), preloads.plugin, wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte({ preprocess: { markup: ({ content }) => process.env.VITEST ? { code: content } : prunePublicBuildBranches(content, publicBuildEnvironment.value) } }), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
+  plugins: [publicBuildSwitchesPlugin(), researchLocaleBuildPlugin(() => publicBuildEnvironment.value), preloads.plugin, wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte({ preprocess: { markup: ({ content }) => process.env.VITEST ? { code: content } : prunePublicBuildBranches(content, publicBuildEnvironment.value) } }), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: {
     "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),

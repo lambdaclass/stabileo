@@ -1,5 +1,6 @@
 import { BASE_LOCALES } from '../blog/base-locales';
-import { publicFeatureEnabled, publicFeatures, type PublicFeatures } from '../features';
+import { PUBLIC_POLICY_AVAILABLE, publicFeatureEnabled, publicFeatures, type PublicFeatures } from '../features';
+import { publicFeatureEnabledWithFlags } from '../public-feature-policy';
 import { PUBLIC_LOCALES, type Locale } from './offered';
 import { buildPublicLocales } from './offered-research';
 import { isResearchRoute, researchLocales } from './research-routes';
@@ -21,10 +22,10 @@ export const PAPER_PUBLISHED: readonly Locale[] = ['en', 'es', 'pt'];
 export { BASE_LOCALES } from '../blog/base-locales';
 
 /** The languages a public page is published in: it is prerendered, listed and linked in these and no others. */
-export function publishedLocales(path: string, flags: PublicFeatures = publicFeatures()): readonly Locale[] {
+export function publishedLocales(path: string, flags: PublicFeatures = PUBLIC_POLICY_AVAILABLE ? publicFeatures() : { research: false, tools: false, diagramGame: false, accounts: false }): readonly Locale[] {
   const locales = import.meta.env?.MODE !== undefined ? PUBLIC_LOCALES : buildPublicLocales(flags.research);
   const route = path.split('#')[0].replace(/\/+$/, '') || '/';
-  if (!publicFeatureEnabled(route, flags)) return [];
+  if (!(PUBLIC_POLICY_AVAILABLE ? publicFeatureEnabled(route, flags) : publicFeatureEnabledWithFlags(route, flags))) return [];
   if (isResearchRoute(route)) return locales.filter((l) => researchLocales(route, flags).includes(l));
   if (route === '/paper') return locales.filter((l) => PAPER_PUBLISHED.includes(l));
   if (route === '/' || route === '/blog' || route === '/examples' || route.startsWith('/examples/') || route === '/tools' || route.startsWith('/tools/') || route === '/diagram-game') return locales;

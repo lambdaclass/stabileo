@@ -1,6 +1,7 @@
+import { MAIN_BATCH_IDS as BATCH_IDS } from '../../lib/main-tool-routes';
 import type { SolverInput, SupportType } from '../../lib/engine/types';
 import { MESH_TOLERANCE, MIN_EI } from './validity';
-export const BATCH_IDS = ['continuous-beam', 'portal-frame', 'truss-2d', 'influence-line', 'beam-natural-frequency'] as const;
+export { BATCH_IDS };
 export type BatchId = typeof BATCH_IDS[number];
 export type BatchParameters = { e: number; i: number; area: number; length: number; height: number; load: number; horizontal: number; spans: string; loads: string; ends: 'pinned' | 'fixed'; rightEnd: 'pinned' | 'fixed'; boundary: 'simple' | 'cantilever' | 'fixed'; count: number; quantity: 'reaction' | 'moment' | 'shear'; position: number; mass: number; nodes: string; members: string; supports: string; nodalLoads: string };
 export const DEFAULT_BATCH: BatchParameters = { e: 200000, i: .00008, area: .01, length: 6, height: 3, load: 10, horizontal: 10, spans: '6, 6', loads: '10, 10', ends: 'pinned', rightEnd: 'pinned', boundary: 'simple', count: 1, quantity: 'moment', position: 3, mass: 100,

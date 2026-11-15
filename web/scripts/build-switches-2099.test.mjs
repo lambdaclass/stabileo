@@ -74,9 +74,9 @@ test('admin dictionaries retain user, privacy and project labels independently o
   for (const key of ['admin.metrics.lede', 'account.name', 'legal.termsLink', 'usage.whatIsSent', 'cloud.modeBasic']) assert.ok(code.includes(JSON.stringify(key)) || code.includes(`'${key}'`), key);
 }));
 
-for (const value of [undefined, '0', '1']) {
-  test(`known wrong result: #2099 — research and tools dictionaries follow switches=${value}`, { skip: value !== '1' && !process.env.IGNORED ? 'known wrong result: #2099' : false }, () => environment(
-    value === undefined ? {} : { VITE_RESEARCH: value, VITE_TOOLS: value },
+for (const [research, tools] of [[undefined, undefined], ['0', '0'], ['1', '1'], ['1', '0'], ['0', '1']]) {
+  test(`known wrong result: #2099 — research and tools dictionaries follow research=${research}, tools=${tools}`, () => environment(
+    { ...(research === undefined ? {} : { VITE_RESEARCH: research }), ...(tools === undefined ? {} : { VITE_TOOLS: tools }) },
     async () => {
       const result = await build({
         root,
@@ -111,9 +111,9 @@ for (const value of [undefined, '0', '1']) {
       });
       const chunks = result.output.filter(output => output.type === 'chunk');
       const code = chunks.map(output => output.code).join('\n');
-      assert.equal(/[, {]hu:/.test(code), value === '1', 'Hungarian research dictionaries');
-      assert.equal(code.includes('Free structural engineering tools: beams, frames, columns, slabs and towers'), value === '1', 'tools expansion metadata');
-      assert.equal(code.includes('Free structural engineering calculators: beams, columns, frames and trusses'), value !== '1', 'published calculators metadata');
+      assert.equal(/[, {]hu:/.test(code), research === '1', 'Hungarian research dictionaries');
+      assert.equal(code.includes('Free structural engineering tools: beams, frames, columns, slabs and towers'), tools === '1', 'tools expansion metadata');
+      assert.equal(code.includes('Free structural engineering calculators: beams, columns, frames and trusses'), tools !== '1', 'published calculators metadata');
       assert.ok(code.includes('galleryLead'));
       assert.ok(code.includes('Deflection'));
     },

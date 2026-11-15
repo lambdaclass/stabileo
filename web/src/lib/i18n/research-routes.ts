@@ -34,7 +34,10 @@ export function isResearchRoute(path: string): boolean {
 }
 
 /** The languages a research route is published in: the sitemap, the prerender and the hreflang set all read this. */
-export function researchLocales(path: string, flags: PublicFeatures = publicFeatures()): readonly string[] {
+export function researchLocales(path: string, flags?: PublicFeatures): readonly string[] {
   const route = path.replace(/\/+$/, '') || '/';
-  return (PUBLISHED[route] ?? ['en']).filter(locale => publicLocaleEnabled(route, locale, flags));
+  const locales = PUBLISHED[route] ?? ['en'];
+  return import.meta.env?.VITE_RESEARCH === '0'
+    ? locales.filter(locale => locale !== 'hu')
+    : locales.filter(locale => publicLocaleEnabled(route, locale, flags ?? publicFeatures()));
 }
