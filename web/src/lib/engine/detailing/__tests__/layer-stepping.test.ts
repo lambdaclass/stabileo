@@ -4,8 +4,8 @@
  *
  * ── The defect ─────────────────────────────────────────────────────
  *
- * The blog's embedded 20×40 beam (`rc-beam-flexure`) designs 6Ø10 at the start top (4 + 2 in a
- * second layer) and 8Ø12 at the end top. The continuous top pair runs support to support at the
+ * The blog's embedded 20×40 beam (`rc-beam-flexure`), clamped at its right end as its fixture
+ * then solved, designs 6Ø10 at the start top (4 + 2 in a second layer) and 8Ø12 at the end top. The continuous top pair runs support to support at the
  * larger bar, Ø12, in the outer layer (§25.7.1.2). Both the design and the detailing stepped the
  * start's second Ø10 layer from the Ø10 bars beside the pair, 10 + 25 mm, not from the pair: as
  * laid, its centre stood 34,29 mm below the pair's, 1,7 mm short of the 6 + 25 + 5 = 36 mm the
@@ -66,18 +66,21 @@ describe('§25.2.2 stepping, by hand', () => {
 
 const turn = () => new Promise<void>((r) => setImmediate(r));
 
-describe('the blog beam, designed and laid as the embed runs it', () => {
+describe('the blog beam clamped at its right end, designed and laid', () => {
   it('lays the second Ø10 layer 36 mm below the Ø12 pair, the depth the design verified, and conforms', async () => {
     expect(isSolverReady()).toBe(true);
     modelStore.clear(); resultsStore.clear(); detailingStore.clear(); designRunStore.resetMarks(); verificationStore.clear();
     await modelStore.loadExample('rc-beam-flexure');
+    const right = [...modelStore.supports.values()].find((x) => x.nodeId === 3)!;
+    modelStore.removeSupport(right.id);
+    modelStore.addSupport(3, 'fixed3d');
     const solved = await modelStore.solveCombinations3DParallel(true, false, true) as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };
     resultsStore.setCombinationResults3D(solved.perCase as never, solved.perCombo as never, solved.envelope as never);
     await turn();
     designRunStore.designFamilies([...DEFAULT_DESIGN_FAMILIES], { verifierId: 'cirsoc201.provided.v2.2025' });
     await turn();
 
-    // The design the embed reaches (the design decides; this pins what it decided).
+    // The design it reaches (the design decides; this pins what it decided).
     const o = verificationStore.outcomeFor(1)!;
     expect(o.outcome).toBe('VERIFIED');
     const reg = o.accepted!.regions!;

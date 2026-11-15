@@ -15,14 +15,13 @@
  *     with it εt returns to 7.46‰ and φ to 0.90.
  *   · The embedded beam: 5 m span, D = 12 kN/m plus 2 kN/m of self-weight,
  *     L = 8 kN/m, governing 1.2D+1.6L → Mu = 92.5 kN·m, 2 Ø25, φMn = 115.2,
- *     D/C = 0.80. The application reports 0.81 through its own pipeline.
+ *     D/C = 0.80.
  *
- * The embed opens the reinforcement sheets on the same beam. They propose their own bars
- * (3 Ø12 running along the bottom and one more in the span), and the beam's row closes at 0.90,
- * governed by the envelope covered along the whole beam: the caption quotes that and the closing
- * note tells it apart from the 0.81 of 2 Ø25. The caption names the buttons in each language's
- * own UI strings, since the editor in the frame runs in the reader's locale. If a figure here
- * ever stops matching the embed, the embed is the one to believe.
+ * The embed opens the reinforcement sheets on the same beam, simply supported. They propose 2 Ø25
+ * along the bottom, the reinforcement this post works with, and the row closes at 0.79 against
+ * the hand calculation's 0.80. The caption names the buttons in each language's own UI strings,
+ * since the editor in the frame runs in the reader's locale. If a figure here ever stops matching
+ * the embed, the embed is the one to believe.
  */
 import type { Post } from '../types';
 
@@ -110,12 +109,12 @@ export const cirsoc201Flexure: Post = {
 
         { k: 'h', t: 'Probalo sobre una viga de verdad' },
         { k: 'p', t: 'Acá abajo está el modelo: una viga simplemente apoyada de 5 m, 20×40, H-25, con 12 kN/m de carga permanente y 8 kN/m de sobrecarga, más su peso propio. Abre en el armado por planillas del PRO, con CIRSOC 201-2025 como norma.' },
-        { k: 'img', base: 'blog/cirsoc-201-sheets', w: 1600, h: 1000, alt: 'Stabileo PRO, armado por planillas con CIRSOC 201-2025, la planilla de vigas abierta en V1 después de calcular y dimensionar. La fila propone 3 Ø12 corridos abajo, 2 Ø12 arriba, 2 Ø25 de refuerzo en el apoyo 2, 1 Ø12 en el tramo y estribos Ø8 c/18, con una relación de 0,90 y estado Verifica. Abajo, la elevación con las marcas de las barras y las envolventes de momento y corte contra la capacidad.', caption: 'La viga de abajo en la planilla de vigas, después de «Dimensionar armaduras»: las barras que propone Stabileo cierran en 0,90.' },
+        { k: 'img', base: 'blog/cirsoc-201-sheets', w: 1600, h: 1000, alt: 'Stabileo PRO, armado por planillas con CIRSOC 201-2025, la planilla de vigas abierta en V1 después de calcular y dimensionar. La fila propone 2 Ø25 corridos abajo, 2 Ø12 corridos arriba y estribos Ø8 c/18, con una relación de 0,79 y estado Holgada. Abajo, la elevación con las marcas de las barras y las envolventes de momento y corte contra la capacidad.', caption: 'La viga de abajo en la planilla de vigas, después de «Dimensionar armaduras»: los 2 Ø25 que propone Stabileo cierran en 0,79.' },
         {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=rcSheets',
-          label: 'La viga en Stabileo, en el armado por planillas del PRO. Cuatro botones y en este orden: "Calcular", "Armado por planillas" (en Salida), "Dimensionar armaduras" y "Vigas". El primero resuelve el modelo y muestra los resultados, el segundo vuelve a las planillas, el tercero dimensiona la armadura y el cuarto abre la planilla de vigas: la fila de V1 cierra en una relación de 0,90 y dice "Verifica". Abrila para ver las barras que propone Stabileo, la envolvente de momentos contra la capacidad y cada verificación; la que gobierna es "Envolvente cubierta en toda la viga, con las barras ancladas". Cambiá la carga y volvé a calcular. El armado por planillas sigue en desarrollo: revisá los resultados.',
+          label: 'La viga en Stabileo, en el armado por planillas del PRO. Cuatro botones y en este orden: "Calcular", "Armado por planillas" (en Salida), "Dimensionar armaduras" y "Vigas". El primero resuelve el modelo y muestra los resultados, el segundo vuelve a las planillas, el tercero dimensiona la armadura y el cuarto abre la planilla de vigas: la fila de V1 propone 2 Ø25 corridos abajo y 2 Ø12 arriba, cierra en una relación de 0,79 y dice "Holgada". Abrila para ver la envolvente de momentos contra la capacidad y cada verificación; la que da esa relación es "Envolvente cubierta en toda la viga, con las barras ancladas". Cambiá la carga y volvé a calcular. El armado por planillas sigue en desarrollo: revisá los resultados.',
         },
 
         { k: 'h', t: 'En resumen' },
@@ -129,7 +128,7 @@ export const cirsoc201Flexure: Post = {
           ],
         },
 
-        { k: 'note', t: 'Todas las cifras salen del módulo CIRSOC 201 de Stabileo, corrido sobre las secciones que se indican, y no de una tabla. Una advertencia que vale la pena, porque la primera versión de esta nota se equivocó ahí: el cálculo a mano daba D/C = 0,74 y la aplicación 0,81. La diferencia era el peso propio, 2 kN/m que la aplicación suma a la carga permanente. Tenía razón la aplicación. Y una aclaración sobre el editor de arriba, para que los dos números no se pisen: ese 0,81 supone 2 Ø25, que es la armadura con la que trabaja esta nota; el 0,90 de la planilla es con las barras que propone Stabileo, 3 Ø12 corridos abajo y uno más en el tramo, y mide la envolvente cubierta en toda la viga. Misma viga, dos armaduras. Si alguna vez un número de acá no coincide con lo que muestra el editor, creele al editor.' },
+        { k: 'note', t: 'Todas las cifras salen del módulo CIRSOC 201 de Stabileo, corrido sobre las secciones que se indican, y no de una tabla. Una advertencia que vale la pena, porque la primera versión de esta nota se equivocó ahí: el cálculo a mano daba D/C = 0,74 porque olvidaba el peso propio, 2 kN/m que la aplicación suma a la carga permanente. Con él, la viga simplemente apoyada carga 1,2·14 + 1,6·8 = 29,6 kN/m, Mu = 29,6·5²/8 = 92,5 kN·m y, con 2 Ø25 (φMn = 115,2 kN·m), D/C = 0,80. La planilla de arriba propone justamente 2 Ø25 abajo y cierra en 0,79. Si alguna vez un número de acá no coincide con lo que muestra el editor, creele al editor.' },
       ],
     },
 
@@ -210,12 +209,12 @@ export const cirsoc201Flexure: Post = {
 
         { k: 'h', t: 'Try it on a real beam' },
         { k: 'p', t: 'Below is the model: a simply supported 5 m beam, 20×40, H-25, with 12 kN/m of dead load and 8 kN/m of live load, plus its own weight. It opens in PRO\'s reinforcement sheets, with CIRSOC 201-2025 as the code.' },
-        { k: 'img', base: 'blog/cirsoc-201-sheets', w: 1600, h: 1000, alt: 'Stabileo PRO, reinforcement sheets under CIRSOC 201-2025, the beam sheet open on V1 after solving and designing. The row proposes 3 Ø12 running along the bottom, 2 Ø12 on top, 2 Ø25 extra at support 2, 1 Ø12 in the span and Ø8 stirrups at 18 cm, with a ratio of 0.90 and status OK. Below, the elevation with the bar marks and the moment and shear envelopes against the capacity.', caption: 'The beam below in the beam sheet, after “Design reinforcement”: the bars Stabileo proposes close at 0.90.' },
+        { k: 'img', base: 'blog/cirsoc-201-sheets', w: 1600, h: 1000, alt: 'Stabileo PRO, reinforcement sheets under CIRSOC 201-2025, the beam sheet open on V1 after solving and designing. The row proposes 2 Ø25 running along the bottom, 2 Ø12 running along the top and Ø8 stirrups at 18 cm, with a ratio of 0.79 and status Generous. Below, the elevation with the bar marks and the moment and shear envelopes against the capacity.', caption: 'The beam below in the beam sheet, after “Design reinforcement”: the 2 Ø25 Stabileo proposes close at 0.79.' },
         {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=rcSheets',
-          label: 'The beam in Stabileo, in PRO\'s reinforcement sheets. Four buttons, in this order: "Solve", "Reinforcement sheets" (under Output), "Design reinforcement" and "Beams". The first solves the model and shows the results, the second goes back to the sheets, the third designs the reinforcement and the fourth opens the beam sheet: the row for V1 closes at a ratio of 0.90 and reads "OK". Open it to see the bars Stabileo proposes, the moment envelope against the capacity and each check; the one that governs is "Envelope covered along the whole beam, bars developed". Change the load and solve again. The reinforcement sheets are still in development: review the results.',
+          label: 'The beam in Stabileo, in PRO\'s reinforcement sheets. Four buttons, in this order: "Solve", "Reinforcement sheets" (under Output), "Design reinforcement" and "Beams". The first solves the model and shows the results, the second goes back to the sheets, the third designs the reinforcement and the fourth opens the beam sheet: the row for V1 proposes 2 Ø25 running along the bottom and 2 Ø12 on top, closes at a ratio of 0.79 and reads "Generous". Open it to see the moment envelope against the capacity and each check; the one that gives that ratio is "Envelope covered along the whole beam, bars developed". Change the load and solve again. The reinforcement sheets are still in development: review the results.',
         },
 
         { k: 'h', t: 'In short' },
@@ -229,7 +228,7 @@ export const cirsoc201Flexure: Post = {
           ],
         },
 
-        { k: 'note', t: 'Every figure here comes from Stabileo\'s CIRSOC 201 module, run on the sections named, and not from a table. One warning worth passing on, because the first draft of this post got it wrong: the hand calculation gave D/C = 0.74 and the application 0.81. The difference was self-weight, 2 kN/m that the application adds to the dead case. The application was right. And one note on the editor above, so the two numbers do not collide: that 0.81 assumes 2 Ø25, the reinforcement this post works with; the 0.90 in the sheet is with the bars Stabileo proposes, 3 Ø12 running along the bottom and one more in the span, and it measures the envelope covered along the whole beam. Same beam, two different reinforcements. If a number here ever stops matching the editor, believe the editor.' },
+        { k: 'note', t: 'Every figure here comes from Stabileo\'s CIRSOC 201 module, run on the sections named, and not from a table. One warning worth passing on, because the first draft of this post got it wrong: the hand calculation gave D/C = 0.74 because it left out the self-weight, 2 kN/m that the application adds to the dead case. With it, the simply supported beam carries 1.2·14 + 1.6·8 = 29.6 kN/m, Mu = 29.6·5²/8 = 92.5 kN·m and, with 2 Ø25 (φMn = 115.2 kN·m), D/C = 0.80. The sheet above proposes exactly 2 Ø25 along the bottom and closes at 0.79. If a number here ever stops matching the editor, believe the editor.' },
       ],
     },
 
@@ -310,12 +309,12 @@ export const cirsoc201Flexure: Post = {
 
         { k: 'h', t: 'Experimente numa viga de verdade' },
         { k: 'p', t: 'Abaixo está o modelo: uma viga simplesmente apoiada de 5 m, 20×40, H-25, com 12 kN/m de carga permanente e 8 kN/m de sobrecarga, mais o peso próprio. Abre na armação por planilhas do PRO, com a CIRSOC 201-2025 como norma.' },
-        { k: 'img', base: 'blog/cirsoc-201-sheets', w: 1600, h: 1000, alt: 'Stabileo PRO, armação por planilhas com a CIRSOC 201-2025, a planilha de vigas aberta em V1 depois de calcular e dimensionar. A linha propõe 3 Ø12 corridos embaixo, 2 Ø12 em cima, 2 Ø25 de reforço no apoio 2, 1 Ø12 no vão e estribos Ø8 c/18, com relação de 0,90 e estado Verifica. Abaixo, a elevação com as marcas das barras e as envoltórias de momento e cortante contra a capacidade.', caption: 'A viga abaixo na planilha de vigas, depois de «Dimensionar armaduras»: as barras que o Stabileo propõe fecham em 0,90.' },
+        { k: 'img', base: 'blog/cirsoc-201-sheets', w: 1600, h: 1000, alt: 'Stabileo PRO, armação por planilhas com a CIRSOC 201-2025, a planilha de vigas aberta em V1 depois de calcular e dimensionar. A linha propõe 2 Ø25 corridos embaixo, 2 Ø12 corridos em cima e estribos Ø8 c/18, com relação de 0,79 e estado Folgada. Abaixo, a elevação com as marcas das barras e as envoltórias de momento e cortante contra a capacidade.', caption: 'A viga abaixo na planilha de vigas, depois de «Dimensionar armaduras»: os 2 Ø25 que o Stabileo propõe fecham em 0,79.' },
         {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=rcSheets',
-          label: 'A viga no Stabileo, na armação por planilhas do PRO. Quatro botões, nesta ordem: "Calcular", "Armação por planilhas" (em Saída), "Dimensionar armaduras" e "Vigas". O primeiro resolve o modelo e mostra os resultados, o segundo volta às planilhas, o terceiro dimensiona a armadura e o quarto abre a planilha de vigas: a linha de V1 fecha com uma relação de 0,90 e diz "Verifica". Abra-a para ver as barras que o Stabileo propõe, a envoltória de momentos contra a capacidade e cada verificação; a que governa é "Envoltória coberta em toda a viga, com barras ancoradas". Mude a carga e calcule de novo. A armação por planilhas segue em desenvolvimento: revise os resultados.',
+          label: 'A viga no Stabileo, na armação por planilhas do PRO. Quatro botões, nesta ordem: "Calcular", "Armação por planilhas" (em Saída), "Dimensionar armaduras" e "Vigas". O primeiro resolve o modelo e mostra os resultados, o segundo volta às planilhas, o terceiro dimensiona a armadura e o quarto abre a planilha de vigas: a linha de V1 propõe 2 Ø25 corridos embaixo e 2 Ø12 em cima, fecha com relação de 0,79 e diz "Folgada". Abra-a para ver a envoltória de momentos contra a capacidade e cada verificação; a que dá essa relação é "Envoltória coberta em toda a viga, com barras ancoradas". Mude a carga e calcule de novo. A armação por planilhas segue em desenvolvimento: revise os resultados.',
         },
 
         { k: 'h', t: 'Em resumo' },
@@ -329,7 +328,7 @@ export const cirsoc201Flexure: Post = {
           ],
         },
 
-        { k: 'note', t: 'Todos os valores vêm do módulo CIRSOC 201 do Stabileo, rodado nas seções indicadas, e não de uma tabela. Um aviso que vale a pena, porque a primeira versão desta nota errou nisso: o cálculo à mão dava D/C = 0,74 e a aplicação 0,81. A diferença era o peso próprio, 2 kN/m que a aplicação soma à carga permanente. A aplicação estava certa. E um esclarecimento sobre o editor acima, para que os dois números não se confundam: esse 0,81 supõe 2 Ø25, que é a armadura com que esta nota trabalha; o 0,90 da planilha é com as barras que o Stabileo propõe, 3 Ø12 corridos embaixo e mais um no vão, e mede a envoltória coberta em toda a viga. Mesma viga, duas armaduras. Se algum número daqui deixar de coincidir com o editor, acredite no editor.' },
+        { k: 'note', t: 'Todos os valores vêm do módulo CIRSOC 201 do Stabileo, rodado nas seções indicadas, e não de uma tabela. Um aviso que vale a pena, porque a primeira versão desta nota errou nisso: o cálculo à mão dava D/C = 0,74 porque esquecia o peso próprio, 2 kN/m que a aplicação soma à carga permanente. Com ele, a viga simplesmente apoiada carrega 1,2·14 + 1,6·8 = 29,6 kN/m, Mu = 29,6·5²/8 = 92,5 kN·m e, com 2 Ø25 (φMn = 115,2 kN·m), D/C = 0,80. A planilha acima propõe justamente 2 Ø25 embaixo e fecha em 0,79. Se algum número daqui deixar de coincidir com o editor, acredite no editor.' },
       ],
     },
   },

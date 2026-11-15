@@ -208,12 +208,12 @@ const body: PostBody = {
       "k": "p",
       "t": "Aşağıda model yer alıyor: 5 m açıklıklı, basit mesnetli, 20×40, H-25 bir kiriş; 12 kN/m ölü yük ve 8 kN/m hareketli yükün yanında kendi öz ağırlığı da var. PRO'nun donatı tablolarında, yönetmelik olarak CIRSOC 201-2025 ile açılır."
     },
-    {"k": "img", "base": "blog/cirsoc-201-sheets", "w": 1600, "h": 1000, "alt": "Stabileo PRO, CIRSOC 201-2025 ile donatı tabloları; çözüm ve boyutlandırmadan sonra V1 üzerinde açık kiriş tablosu. Satır altta boydan boya 3 Ø12, üstte 2 Ø12, 2 numaralı mesnette 2 Ø25 ek donatı, açıklıkta 1 Ø12 ve 18 cm aralıklı Ø8 etriye öneriyor; oran 0,90, durum Sağlıyor. Altında çubuk işaretleriyle görünüş ve kapasiteye karşı moment ve kesme zarfları.", "caption": "Aşağıdaki kiriş, “Donatıları boyutlandır” sonrasında kiriş tablosunda: Stabileo'nun önerdiği çubuklar 0,90 ile kapanıyor."},
+    {"k": "img", "base": "blog/cirsoc-201-sheets", "w": 1600, "h": 1000, "alt": "Stabileo PRO, CIRSOC 201-2025 ile donatı tabloları; çözüm ve boyutlandırmadan sonra V1 üzerinde açık kiriş tablosu. Satır altta boydan boya 2 Ø25, üstte boydan boya 2 Ø12 ve 18 cm aralıklı Ø8 etriye öneriyor; oran 0,79, durum Bol. Altında çubuk işaretleriyle görünüş ve kapasiteye karşı moment ve kesme zarfları.", "caption": "Aşağıdaki kiriş, “Donatıları boyutlandır” sonrasında kiriş tablosunda: Stabileo'nun önerdiği 2 Ø25 0,79 ile kapanıyor."},
     {
       "k": "embed",
       "mode": "pro",
       "query": "example=rc-beam-flexure&proTab=rcSheets",
-      "label": "Stabileo'da kiriş, PRO'nun donatı tablolarında. Bu sırayla dört düğme: “Hesapla”, “Donatı tabloları” (Çıktı altında), “Donatıları boyutlandır” ve “Kirişler”. Birincisi modeli çözer ve sonuçları gösterir, ikincisi tablolara geri döner, üçüncüsü donatıyı boyutlandırır, dördüncüsü kiriş tablosunu açar: V1 satırı 0,90 oranıyla kapanır ve “Sağlıyor” yazar. Stabileo'nun önerdiği çubukları, kapasiteye karşı moment zarfını ve her kontrolü görmek için satırı açın; belirleyici olan “Zarf tüm kiriş boyunca kenetlenmiş çubuklarla karşılanıyor” kontrolüdür. Yükü değiştirip yeniden hesaplayın. Donatı tabloları hâlâ geliştirme aşamasında: sonuçları gözden geçirin."
+      "label": "Stabileo'da kiriş, PRO'nun donatı tablolarında. Bu sırayla dört düğme: “Hesapla”, “Donatı tabloları” (Çıktı altında), “Donatıları boyutlandır” ve “Kirişler”. Birincisi modeli çözer ve sonuçları gösterir, ikincisi tablolara geri döner, üçüncüsü donatıyı boyutlandırır, dördüncüsü kiriş tablosunu açar: V1 satırı altta boydan boya 2 Ø25 ve üstte 2 Ø12 öneriyor, 0,79 oranıyla kapanıyor ve “Bol” yazıyor. Kapasiteye karşı moment zarfını ve her kontrolü görmek için satırı açın; bu oranı veren kontrol “Zarf tüm kiriş boyunca kenetlenmiş çubuklarla karşılanıyor”dur. Yükü değiştirip yeniden hesaplayın. Donatı tabloları hâlâ geliştirme aşamasında: sonuçları gözden geçirin."
     },
     {
       "k": "h",
@@ -230,7 +230,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Buradaki her sayı bir tablodan değil, adı geçen kesitler üzerinde çalıştırılan Stabileo CIRSOC 201 modülünden gelir. Aktarmaya değer bir uyarı var, çünkü bu yazının ilk taslağı bunu yanlış yapmıştı: elle yapılan hesap D/C = 0,74, uygulama ise 0,81 verdi. Fark, uygulamanın ölü yük durumuna eklediği 2 kN/m'lik öz ağırlıktı. Uygulama haklıydı. Yukarıdaki düzenleyiciyle ilgili de bir not, iki sayı birbirine karışmasın diye: o 0,81, bu yazının üzerinde çalıştığı donatı olan 2 Ø25'i varsayar; tablodaki 0,90 ise Stabileo'nun önerdiği çubuklarla, altta boydan boya 3 Ø12 ve açıklıkta bir tane daha, elde edilir ve tüm kiriş boyunca karşılanan zarfı ölçer. Aynı kiriş, iki farklı donatı. Buradaki bir sayı bir gün düzenleyiciyle uyuşmazsa düzenleyiciye inanın."
+      "t": "Buradaki her sayı bir tablodan değil, adı geçen kesitler üzerinde çalıştırılan Stabileo CIRSOC 201 modülünden gelir. Aktarmaya değer bir uyarı var, çünkü bu yazının ilk taslağı bunu yanlış yapmıştı: elle yapılan hesap, uygulamanın ölü yük durumuna eklediği 2 kN/m'lik öz ağırlığı unuttuğu için D/C = 0,74 veriyordu. Öz ağırlıkla basit mesnetli kiriş 1,2·14 + 1,6·8 = 29,6 kN/m taşır, Mu = 29,6·5²/8 = 92,5 kN·m olur ve 2 Ø25 ile (φMn = 115,2 kN·m) D/C = 0,80 olur. Yukarıdaki tablo altta tam olarak 2 Ø25 öneriyor ve 0,79 ile kapanıyor. Buradaki bir sayı bir gün düzenleyiciyle uyuşmazsa düzenleyiciye inanın."
     }
   ]
 };
