@@ -484,7 +484,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     const origin = targets[0]!.a;
     const coord = (p: Point) => snowCoordinate([p.x, p.y], [origin.x, origin.y], direction);
     const zMax = Math.max(...profilePoints.map(Z));
-    const top = profilePoints.filter(p => Z(p) === zMax);
+    const top = profilePoints.filter(p => Math.abs(Z(p) - zMax) <= 1e-8);
     const ridge = (Math.min(...top.map(coord)) + Math.max(...top.map(coord))) / 2;
     const low = profilePoints.reduce((a, b) => coord(a) <= coord(b) ? a : b);
     const width = Math.max(...profilePoints.map(p => snowCoordinate([p.x, p.y], [low.x, low.y], direction, [0, 2 * UNBALANCED_WIDTH_LIMIT]))) / 2;

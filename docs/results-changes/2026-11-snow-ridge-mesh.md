@@ -60,3 +60,27 @@ existing snow snapshots retain their baselines. The coordinator assigned
 [SA-2026-072](../advisories/SA-2026-072-snow-ridge-subdivision.md) for the silent
 #2144 main-source exposure. The fix is pending merge and release; historical
 release binaries were not replayed.
+
+PR #2175 round 3 also corrects exact-elevation equality introduced by the physical
+profile refactor. Highest profile points now share the existing inclusive
+1e-8 m elevation matching tolerance used for connected collinear geometry.
+The comparison is against the global maximum, so successive nearby elevations
+cannot chain a lower point into the highest group. The projected extent of
+that group supplies the ridge through the single shared geometry path.
+On the unmerged parent f21261c30, raising one corner of the same flat witness
+by 1e-12 m moves the ridge to that corner and changes its short-edge unbalanced
+pressure from 0.40384615384615385 to 0.8076923076923077 without refusal.
+The final tiny-perturbation regressions pass against origin/main 8e5c026b7;
+this exact-equality defect was introduced on the unmerged branch. It does not
+establish an additional released exposure or advisory.
+
+Regression coverage includes every corner, positive and negative 1e-12 m
+perturbations, plan rotation, projected/width/panel allocation, selected and
+detected roofs, direct geometry and snow generation, snow and complete load
+planning, and nodal tributaries. Tests check zero perturbation and elevations
+1e-12 m below and above the existing tolerance, as well as a nominal 1e-8 m
+perturbation. A point just above the tolerance must move the ridge and receive
+the genuinely higher-point pressure. Boundary tests also retain the small
+axial projection forces arising from actual member inclination.
+The complete-run midpoint classification and its moment about a crossed ridge
+are outside this correction and remain separate coordinator work.
