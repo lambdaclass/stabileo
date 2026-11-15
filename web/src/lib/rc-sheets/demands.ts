@@ -594,7 +594,7 @@ export function wallDemands(m: DemandInput): WallDemand[] {
       }
       out.push({
         key: `wall:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(lo) : g.level,
-        length, height: hi - lo, thickness, baseElements: base.length, base: { nodes: baseNodes.length, held: held.length }, combos,
+        length, height: hi - lo, thickness, baseElements: base.length, base: { nodes: baseNodes.length, held: held.length, unheld: baseNodes.filter((nd) => !held.includes(nd)) }, combos,
       });
     }
   }

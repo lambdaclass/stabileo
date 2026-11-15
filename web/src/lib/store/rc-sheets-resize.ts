@@ -153,6 +153,26 @@ export function rowTargets(row: SheetRow | LineLayout): GotoTarget[] {
 }
 
 /** Selects the row's element in the model and opens the tab where its dimensions are changed. */
+/**
+ * Hold a wall's base all along: the base nodes nothing holds get the support the base already has
+ * (the most common one there), fixed where it has none, in one undo step. The model must be solved again.
+ */
+export function supportWallBase(row: SheetRow): number {
+  if (row.family !== 'wall') return 0;
+  const unheld = row.demand.base?.unheld ?? [];
+  if (!unheld.length) return 0;
+  const kinds = new Map<string, number>();
+  const baseZ = Math.min(...unheld.map((n) => modelStore.nodes.get(n)?.z ?? 0));
+  for (const s of modelStore.supports.values()) {
+    const p = modelStore.nodes.get(s.nodeId);
+    if (p && Math.abs((p.z ?? 0) - baseZ) < 1e-3) kinds.set(s.type, (kinds.get(s.type) ?? 0) + 1);
+  }
+  const type = ([...kinds.entries()].sort((p, q) => q[1] - p[1])[0]?.[0] ?? 'fixed3d') as Parameters<typeof modelStore.addSupport>[1];
+  let added = 0;
+  modelStore.batch(() => { for (const n of unheld) if (modelStore.nodes.has(n)) { modelStore.addSupport(n, type); added++; } });
+  return added;
+}
+
 export function goToRow(row: SheetRow | LineLayout, target: GotoTarget): boolean {
   let members: number[] = [], plates: number[] = [];
   if ('spanAdopted' in row) members = membersOf(row.group);

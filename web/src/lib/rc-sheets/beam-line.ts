@@ -187,13 +187,16 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
       const extra = r.req.bottom - groupsArea([bottom]);
       return { dia: botDia, count: extra > 1e-6 ? Math.ceil(extra / barArea(botDia) - 1e-9) : 0 };
     });
-    if (!c.bentBars) return { bottom, top, supportTop, spanBottom, stirrups: sorted.map((r) => r.proposed.stirrups) };
+    if (!c.bentBars || c.seismic) return { bottom, top, supportTop, spanBottom, stirrups: sorted.map((r) => r.proposed.stirrups) };
+    const bentDia = topDia;
     const share = supportTop.map((g, j) => (g.count * barArea(g.dia)) / (j === 0 || j === supports.length - 1 ? 1 : 2));
-    const bentDia = Math.max(botDia, topDia);
-    const bent = spanBottom.map((g, k) => ({ dia: bentDia, count: Math.max(g.count >= 2 && g.dia === bentDia ? Math.floor(g.count / 2) : 0, Math.floor(Math.max(share[k] ?? 0, share[k + 1] ?? 0) / barArea(bentDia) + 1e-9)) }));
-    bent.forEach((g, k) => { if (spanBottom[k]!.dia === bentDia) spanBottom[k] = { dia: bentDia, count: Math.max(0, spanBottom[k]!.count - g.count) }; });
+    const bent = sorted.map((_, k) => ({ dia: bentDia, count: Math.floor(Math.min(share[k] ?? 0, share[k + 1] ?? 0) / barArea(bentDia) + 1e-9) }));
+    sorted.forEach((r, k) => {
+      const rest = r.req.bottom - groupsArea([bottom]) - bent[k]!.count * barArea(bentDia);
+      spanBottom[k] = rest > 1e-6 ? { dia: bentDia, count: Math.ceil(rest / barArea(bentDia) - 1e-9) } : { dia: botDia, count: 0 };
+    });
     supports.forEach((_, j) => {
-      const arriving = (bent[j - 1]?.count ?? 0) * barArea(bentDia) + (bent[j]?.count ?? 0) * barArea(bentDia);
+      const arriving = ((bent[j - 1]?.count ?? 0) + (bent[j]?.count ?? 0)) * barArea(bentDia);
       const left = j > 0 ? reqAt(sorted[j - 1]!, 'neg', 'end') : 0, right = j < sorted.length ? reqAt(sorted[j]!, 'neg', 'start') : 0;
       const extra = Math.max(left, right) - groupsArea([top]) - arriving;
       supportTop[j] = { dia: topDia, count: extra > 1e-6 ? Math.ceil(extra / barArea(topDia) - 1e-9) : 0 };

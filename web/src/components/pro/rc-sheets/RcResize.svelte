@@ -7,7 +7,8 @@
   import { t, tp, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { nextFrame } from '../../../lib/store/mesh-progress.svelte';
-  import { goToRow, lineResizeHint, resizeHints, rowTargets, type GotoTarget, type ResizeHint } from '../../../lib/store/rc-sheets-resize';
+  import { goToRow, lineResizeHint, resizeHints, rowTargets, supportWallBase, type GotoTarget, type ResizeHint } from '../../../lib/store/rc-sheets-resize';
+  import { uiStore } from '../../../lib/store';
   import type { SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import type { LineLayout } from '../../../lib/rc-sheets/beam-line';
   import type { BeamRow } from '../../../lib/rc-sheets/beam-row';
@@ -32,6 +33,11 @@
   const isPunching = $derived(!('spanAdopted' in row) && row.family === 'punching');
   const gotoLabel = (g: GotoTarget) => t(isPunching ? (g === 'plates' ? 'rcSheets.goto.slab' : 'rcSheets.goto.column') : 'rcSheets.goto.element');
   function go(g: GotoTarget) { if (goToRow(row, g)) onleave(); }
+  const baseUnheld = $derived(!('spanAdopted' in row) && row.family === 'wall' ? (row.demand.base?.unheld?.length ?? 0) : 0);
+  function holdBase() {
+    const n = supportWallBase(row as SheetRow);
+    if (n > 0) uiStore.toast(tp('rcSheets.resize.baseHeld', { n }), 'info');
+  }
 </script>
 
 <div class="rcz" data-testid="rc-resize">
@@ -48,6 +54,10 @@
       </span>
     {/each}
     {#if hints.length}<span class="dim">{t('rcSheets.resize.note')}</span>{/if}
+  {/if}
+  {#if baseUnheld > 0}
+    <span class="hint none">{tp('rcSheets.resize.baseUnheld', { n: baseUnheld })}</span>
+    <button type="button" class="rcz-btn" onclick={holdBase} data-testid="rc-wall-hold-base">{t('rcSheets.resize.holdBase')}</button>
   {/if}
   <span class="sp"></span>
   {#each targets as g (g)}

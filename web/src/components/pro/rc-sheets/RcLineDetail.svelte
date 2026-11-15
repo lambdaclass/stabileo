@@ -36,7 +36,9 @@
       const xStar = spans[k]?.demand.span.x ?? (sp.x1 - sp.x0) / 2;
       const d = spans[k]?.demand;
       const places: Array<['start' | 'span' | 'end', string, number, number]> = [
-        ['start', 'i', sp.x0 + 1e-3, sp.x0 + (d?.start.x ?? 0)], ['span', `x* = ${fmt(xStar)} m`, sp.x0 + xStar, sp.x0 + xStar], ['end', 'j', sp.x1 - 1e-3, sp.x0 + (d?.end.x ?? sp.x1 - sp.x0)],
+        ['start', 'i', sp.x0 + 1e-3, sp.x0 + Math.max(d?.start.x ?? 0, (line.supportWidths[k] ?? 0) / 2 || 0.1)],
+        ['span', `x* = ${fmt(xStar)} m`, sp.x0 + xStar, sp.x0 + xStar],
+        ['end', 'j', sp.x1 - 1e-3, sp.x1 - Math.max(sp.x1 - sp.x0 - (d?.end.x ?? sp.x1 - sp.x0), (line.supportWidths[k + 1] ?? 0) / 2 || 0.1)],
       ];
       for (const [sec, tag, x, cutAt] of places) {
         const g = sa.at?.[sec] ?? { top: sa.top, bottom: sa.bottom };

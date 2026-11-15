@@ -19,7 +19,7 @@ export interface WallDemand {
   /** Elements along the base cut: one cannot resolve an in-plane moment from its centre stress. */
   baseElements?: number;
   /** Nodes along the base cut, and how many rest on something: a support, a bar, a slab or a shell below. */
-  base?: { nodes: number; held: number };
+  base?: { nodes: number; held: number; unheld?: number[] };
   combos: WallComboForces[];
 }
 

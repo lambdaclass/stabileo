@@ -424,7 +424,8 @@ describe('reinforcement sheets from a solved model', () => {
     const row = buildSheetRows().wall[0]!;
     const base = row.verifications.find((v) => v.label === 'rcSheets.v.wallBase')!;
     expect(base.ok).toBe(false);
-    expect(row.demand.base).toEqual({ nodes: row.demand.baseElements! + 1, held: 1 });
+    expect(row.demand.base).toMatchObject({ nodes: row.demand.baseElements! + 1, held: 1 });
+    expect(row.demand.base!.unheld).toHaveLength(row.demand.baseElements!);
     expect(row.status).toBe('fail');
   });
 
