@@ -3,9 +3,11 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-13; fixed in PR #2080, pending release |
+| Status | Draft 2026-11-13; fixed in PR #2080, pending release at draft time; published 2026-11-15 |
+| Publication | 2026-11-15; included in 0.6.1 |
+| Fixed release | 0.6.1 (2026-11-15) |
 | Issues | [#1316](https://github.com/lambdaclass/stabileo/issues/1316), [#2088](https://github.com/lambdaclass/stabileo/issues/2088) |
-| Fix | PR [#2080](https://github.com/lambdaclass/stabileo/pull/2080); pending release |
+| Fix | PR [#2080](https://github.com/lambdaclass/stabileo/pull/2080); released in 0.6.1 |
 | Affected versions | Source-confirmed in 0.2.0–0.5.0 and desktop-v0.1.0-alpha.1–alpha.3; subsequent main builds before the fix, including the 0.6.0 main source; the unlocated-span witness is confirmed on main `2e8a4f65f` and unchanged in `08fa96822` |
 | Re-check registry | [`steel-cb-combination`](../../web/src/lib/provenance/result-changes/steel-cb-combination.json), [`concurrent-depth-and-load-context`](../../web/src/lib/provenance/result-changes/concurrent-depth-and-load-context.json) |
 
@@ -121,7 +123,7 @@ This is source/tag evidence, not a replay of historical release binaries or a
 claim that this exact witness ran without other warnings in every release.
 The numerical silent result above was replayed on the identified main source.
 The fix is in PR #2080, implementation commit
-`8a28989f34e11bc7fe7118471e4027d51a50bfeb`; no fixed release is claimed.
+`8a28989f34e11bc7fe7118471e4027d51a50bfeb`; the fix is released in 0.6.1.
 
 ## How to tell if your results are affected
 
@@ -136,6 +138,8 @@ containing each checked station. A single combination can still be affected by
 the unlocated-span defect.
 
 ## Fixed in
+
+Version 0.6.1 (2026-11-15).
 
 PR #2080 retains moment diagrams separately by combination, including complete
 unbraced chains. The shared steel check obtains both its forces and its Cb

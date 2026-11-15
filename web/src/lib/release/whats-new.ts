@@ -11,7 +11,7 @@
  */
 
 /** The last release whose fixes change analysis or design-check results. */
-export const RESULTS_CHANGED_IN = '0.6.0';
+export const RESULTS_CHANGED_IN = '0.6.1';
 
 export const WHATS_NEW_STORAGE_KEY = 'stabileo-whats-new-seen';
 
@@ -22,7 +22,8 @@ NOTES_LOCALES.push('hu');
 
 /** The release notes in the reader's language (English for any locale without a translation). */
 export function releaseNotesUrl(locale: string, version: string = RESULTS_CHANGED_IN): string {
-  const locales = version === RESULTS_CHANGED_IN ? NOTES_LOCALES : ['es', 'pt'];
+  const [major, minor] = version.split('.').map(Number);
+  const locales = major > 0 || minor >= 6 ? NOTES_LOCALES : ['es', 'pt'];
   const suffix = locales.includes(locale) ? `.${locale}` : '';
   return `${NOTES_BASE}/v${version}${suffix}.md`;
 }

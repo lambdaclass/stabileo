@@ -1,7 +1,7 @@
 # Snow tributaries use interior roof surfaces
 
-Review #2095 round 5 corrects two defects in inferred snow-roof surfaces.
-This branch is unmerged and unreleased. No advisory is created here.
+PR #2095 corrects two defects in inferred snow-roof surfaces.
+This correction is included in 0.6.1 (PR #2095). No advisory is created here.
 
 A tributary strip now takes its interior normal from the panel's signed
 winding and the overlapping boundary edge, with the member's direction

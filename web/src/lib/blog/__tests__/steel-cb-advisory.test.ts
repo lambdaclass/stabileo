@@ -8,13 +8,13 @@ const replay = JSON.parse(readFileSync(new URL('../../../../../docs/advisories/r
 
 describe('SA-2026-064 steel combination Cb', () => {
   it.each<[keyof typeof notice.explanation, string, string]>([
-    ['en', 'High', 'Fixed in PR #2080, pending release'],
-    ['es', 'Alta', 'Corregido en PR #2080, pendiente de publicación'],
-    ['pt', 'Alta', 'Corrigido no PR #2080, aguardando lançamento'],
-    ['de', 'Hoch', 'In PR #2080 behoben, Veröffentlichung ausstehend'],
-    ['fr', 'Élevée', 'Corrigé dans PR #2080, publication en attente'],
-    ['tr', 'Yüksek', 'PR #2080 içinde düzeltildi, yayın bekleniyor'],
-  ])('%s retains the high-severity pending fix in summary, status and saved-project notice', (locale, severity, status) => {
+    ['en', 'High', 'Fixed in 0.6.1'],
+    ['es', 'Alta', 'Corregido en 0.6.1'],
+    ['pt', 'Alta', 'Corrigido em 0.6.1'],
+    ['de', 'Hoch', 'Behoben in 0.6.1'],
+    ['fr', 'Élevée', 'Corrigé dans 0.6.1'],
+    ['tr', 'Yüksek', '0.6.1 sürümünde düzeltildi'],
+  ])('%s retains the high-severity released fix in summary, status and saved-project notice', (locale, severity, status) => {
     const post = findPost('safety-advisories')!;
     const blocks = post.i18n[locale]!.blocks;
     const summary = blocks.find(b => b.k === 'table');
@@ -25,7 +25,7 @@ describe('SA-2026-064 steel combination Cb', () => {
     expect(rows[0]![1]).toContain('Cb');
     expect(blocks.some(b => b.k === 'note' && b.t === `SA-2026-064 — ${status}.`)).toBe(true);
     expect(notice.explanation[locale]).toContain('SA-2026-064');
-    expect(post.updated).toBe('2026-11-13');
+    expect(post.updated).toBe('2026-11-15');
   });
 
   it('retains a silent certified understatement and distinguishes the warned failure-side case', () => {

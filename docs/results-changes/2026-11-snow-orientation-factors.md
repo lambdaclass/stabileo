@@ -1,7 +1,7 @@
 # Snow factors follow each roof orientation
 
-Review #2095 round 4 corrects two remaining orientation defects in generated
-CIRSOC 104 snow. This correction is unmerged and unreleased. It creates no
+PR #2095 corrects two remaining orientation defects in generated
+CIRSOC 104 snow. This correction is included in 0.6.1 (PR #2095). It creates no
 advisory; advisory disposition remains with the coordinator.
 
 Partial snow previously reduced every roof to one primary axis. When all

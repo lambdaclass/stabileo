@@ -1,7 +1,7 @@
 # Snow loads use connected roof regions
 
 Review #2095 corrects the shared roof-surface model introduced by #2082/#2093.
-The correction is unmerged and unreleased. No new advisory is assigned here.
+The correction is included in 0.6.1 (PR #2095). No new advisory is assigned here.
 
 Surface inference uses the complete model. Selection filters load targets after
 inference and leaves the reported pitch and width consistent with those loads.

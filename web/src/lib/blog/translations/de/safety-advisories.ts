@@ -28,8 +28,16 @@ const body: PostBody = {
       "k": "note",
       "t": "SA-2026-063 — In PR #2009 behoben, Veröffentlichung ausstehend."
     },
-    {"k": "note", "t": "SA-2026-064 — In PR #2080 behoben, Veröffentlichung ausstehend."},
-    {"k": "note", "t": "SA-2026-066 — Entwurf: in PR #2080 behoben, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "note", "t": "SA-2026-064 — Behoben in 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-064-steel-cb-combination.md", "label": "SA-2026-064", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-065 — Behoben in 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-065-snow-roof-step.md", "label": "SA-2026-065", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-066 — Behoben in 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-066-cirsoc201-transverse-cm.md", "label": "SA-2026-066", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-067 — Behoben in 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-068 — Behoben in 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -403,8 +411,11 @@ const body: PostBody = {
         ["SA-2026-060", "Die Bauphasenanalyse konnte reale Drehungen nach Einheitenwechseln oder an freigegebenen Enden mit Auflagerfedern ohne Warnung versteifen; Bauphasenmodelle mit Freigaben erneut prüfen", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         ["SA-2026-062", "Die rohe plastische 3D-Analyse konnte beim Scheitern des elastischen Anfangszustands ohne Warnung null melden; ältere zertifizierte Versionen behielten diesen Faktor. Main liefert bereits eine positive zertifizierte Schranke mit Warnung; PR #1943 gibt die anfängliche Ablehnung weiter", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         ["SA-2026-063", "Bauphasen- und nichtlineare Analysen mit Zwangsbedingungen verloren vorgegebene Masterbewegungen; Seil- und Zeitverlaufsanalysen lehnen nicht unterstützte Auflagerbewegungen nun ab. Bestehende allgemeine Dynamikwarnungen benannten diese Auslassung nicht", "Hoch", "In PR #2009 behoben, Veröffentlichung ausstehend"],
-        ["SA-2026-064", "Stahl-Interaktionsnachweise für Normalkraft und Biegung konnten die Ausnutzung durch Cb aus dem Momentendiagramm einer anderen Kombination ohne Warnung unterschätzen. Nach dem Upgrade die Stahlnachweise erneut ausführen.", "Hoch", "In PR #2080 behoben, Veröffentlichung ausstehend"],
-        ["SA-2026-066", "CIRSOC-201-Stützen und -Wände mit Querlasten konnten durch eine Cm-Abminderung aus Endmomenten das vergrößerte Bemessungsmoment unterschätzen. Betroffene Betonbemessungen erneut prüfen.", "Hoch", "Entwurf: in PR #2080 behoben, Zusammenführung und Veröffentlichung ausstehend"],
+        ["SA-2026-064", "Cb für Stahl konnte aus einer anderen Kombination oder einem kurzen Abschnitt ohne bekannte Halterungspositionen stammen (#1316, #2088). CIRSOC-301-Nachweise erneut ausführen und Biegetragfähigkeit, Interaktionsausnutzung und maßgebende Kombinationen prüfen.", "Hoch", "Behoben in 0.6.1"],
+        ["SA-2026-065", "Schneeverwehungen an Dachstufen konnten auf geneigten aufnehmenden Dachflächen fehlen (#2082). CIRSOC-104-Schneelasten neu erzeugen und betroffene Analysen und Nachweise wiederholen.", "Hoch", "Behoben in 0.6.1"],
+        ["SA-2026-066", "Cm für Beton konnte trotz Querlast zwischen den Auflagern durch Endmomente reduziert werden (#2089). Schlanke Stützen und Wände, vergrößerte Momente und Bewehrung erneut prüfen.", "Hoch", "Behoben in 0.6.1"],
+        ["SA-2026-067", "Eine Grundrissdrehung konnte erzeugte Schneelasten ändern (#2093). Lasten mit der tatsächlichen Dachgeometrie neu erzeugen und Analysen und Nachweise wiederholen; Zurückdrehen repariert alte Ergebnisse nicht.", "Hoch", "Behoben in 0.6.1"],
+        ["SA-2026-068", "Der Torsionsnachweis konnte mit unzureichenden bemessenen Bügeln bestehen (#2141). Betonnachweise erneut ausführen und tatsächliche Querbewehrungstragfähigkeit, Bügelabstände und Torsionsversagen prüfen. Ungeprüfte Längsbewehrung bedeutet keinen bestandenen Bewehrungskorb.", "Hoch", "Behoben in 0.6.1"],
       ]
     },
     {

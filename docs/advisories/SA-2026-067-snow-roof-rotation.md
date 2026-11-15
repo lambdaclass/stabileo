@@ -3,12 +3,13 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Drafted 2026-11-14; local correction awaiting review and release |
+| Status | Drafted 2026-11-14; published 2026-11-15 |
+| Publication | 2026-11-15; included in 0.6.1 |
 | Issue | [#2093](https://github.com/lambdaclass/stabileo/issues/2093) |
-| Fix | Prepared on fix/2082-snow-roof-plane; not merged or deployed |
-| Fixed release | None yet |
+| Fix | PR [#2095](https://github.com/lambdaclass/stabileo/pull/2095); released in 0.6.1 |
+| Fixed release | 0.6.1 (2026-11-15) |
 | Affected versions | Reproduced on origin/main fb241aa04936a993a3ecd4a2ec4f9490669c1d34, also the v0.6.0 tag; older releases not assessed here |
-| Re-check registry | [snow-roof-rotation](../../../web/src/lib/provenance/result-changes/snow-roof-rotation.json) |
+| Re-check registry | [snow-roof-rotation](../../web/src/lib/provenance/result-changes/snow-roof-rotation.json) |
 
 ## Affected features
 
@@ -52,17 +53,17 @@ of an automatic notice does not establish that their snow loads are correct.
 
 ## Fixed in
 
-The local correction shares one roof-surface model between balanced snow,
+Version 0.6.1 includes PR #2095. The correction shares one roof-surface model between balanced snow,
 drift and sliding. Planes use non-collinear geometric points. Pitch comes
 from the gradient, elevations from the plane, and widths and spans from
 roof coordinates. A section alone cannot certify a surface over a footprint
-and receives an explicit refusal. No deployed fix is claimed.
+and receives an explicit refusal. The fix is included in 0.6.1.
 
 ## Workaround
 
 Determine snow loads independently from the applicable CIRSOC 104-2005
 provisions and the actual roof surfaces. Apply verified loads explicitly
-until the reviewed correction is released. A rotation, slope override or
+until upgrading to 0.6.1 or later. A rotation, slope override or
 switch of solver is not a validated repair.
 
 ## What to do with results you already have
@@ -77,8 +78,8 @@ Re-solving with previously saved wrong loads alone does not repair them.
 
 The coordinator assigned this advisory number. Main-source replay and the
 retained tests are documented in
-[snow-roof-plane.test.ts](../../../web/src/lib/engine/loads/__tests__/snow-roof-plane.test.ts)
+[snow-roof-plane.test.ts](../../web/src/lib/engine/loads/__tests__/snow-roof-plane.test.ts)
 and the accompanying class tests. See the
-[results-change write-up](../../results-changes/2026-11-snow-roof-rotation.md).
+[results-change write-up](../results-changes/2026-11-snow-roof-rotation.md).
 Code provisions were read from the repository's
-[CIRSOC 104-2005 extraction](../../codes/CIRSOC/markdown/cirsoc-104-2005/).
+[CIRSOC 104-2005 extraction](../codes/CIRSOC/markdown/cirsoc-104-2005/).

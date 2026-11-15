@@ -1,7 +1,6 @@
 # Snow cases cover every ridge orientation
 
-Review #2095 round 3 corrects the shared roof-surface model. This change is
-unmerged and unreleased. Advisory decisions remain with the coordinator; this
+PR #2095 corrects the shared roof-surface model. This change is included in 0.6.1 (PR #2095). Advisory decisions remain with the coordinator; this
 change creates no advisory.
 
 Unbalanced snow now enumerates both senses of every distinct surface ascent
@@ -71,7 +70,7 @@ claim that a linear solve ran. Missing corpus context still fails. All other exi
 baseline assertion was relaxed.
 
 The initial blog revision-note change is superseded by
-[round 4](2026-11-snow-orientation-factors.md), which restores every locale to
+[the orientation correction](2026-11-snow-orientation-factors.md), which restores every locale to
 origin/main and keeps the coordinator's snow drafts in docs/advisories/drafts/.
 
 Validation covers projected-width, width-layout, panel-layout, surface-query,

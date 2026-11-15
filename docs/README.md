@@ -2,6 +2,9 @@
 
 ## Release notes · Notas de la versión
 
+**0.6.1 (2026-11-15): corrected member checks and snow loads (SA-2026-064…068) / verificaciones de miembros y cargas de nieve corregidas.**
+[English](releases/v0.6.1.md) · [Español](releases/v0.6.1.es.md) · [Português](releases/v0.6.1.pt.md) · [Deutsch](releases/v0.6.1.de.md) · [Français](releases/v0.6.1.fr.md) · [Türkçe](releases/v0.6.1.tr.md)
+
 **0.6.0 (2026-11-13): corrected results, explicit refusals and support motion (SA-2026-048…063; SA-2026-056 remains unfixed) / resultados corregidos, rechazos explícitos y movimiento de apoyos (SA-2026-056 sigue sin corregirse).**
 [English](releases/v0.6.0.md) · [Español](releases/v0.6.0.es.md) · [Português](releases/v0.6.0.pt.md) · [Deutsch](releases/v0.6.0.de.md) · [Français](releases/v0.6.0.fr.md) · [Türkçe](releases/v0.6.0.tr.md)
 
