@@ -4,8 +4,10 @@
 |---|---|
 | Severity | High |
 | Status | Draft 2026-11-14; fixed in PR #2080, pending merge and release |
+| Publication | 2026-11-15; included in 0.6.1 |
+| Fixed release | 0.6.1 (2026-11-15) |
 | Issue | [#2089](https://github.com/lambdaclass/stabileo/issues/2089) |
-| Fix | PR [#2080](https://github.com/lambdaclass/stabileo/pull/2080), commit `823da327c`; no fixed release yet |
+| Fix | PR [#2080](https://github.com/lambdaclass/stabileo/pull/2080), commit `823da327c`; released in 0.6.1 |
 | Affected versions | Confirmed on main `2e8a4f65f743b23949b995e9ddc9727ad008e225`; the affected sources are unchanged in 0.6.0 main `08fa96822`. Earlier introduction not yet bisected. |
 | Re-check registry | [`concurrent-depth-and-load-context`](../../web/src/lib/provenance/result-changes/concurrent-depth-and-load-context.json) |
 
@@ -65,11 +67,13 @@ condition; an axis known to be unloaded retains its valid end-moment reduction.
 
 ## Fixed in
 
+Version 0.6.1 (2026-11-15).
+
 PR #2080, commit `823da327c`, carries the loading condition separately for each
 axis and combination into the common concrete verification boundary. Only an
 axis known to have no transverse load between supports receives end-gradient
 credit. Transverse or unknown loading uses Cm = 1 and the conservative
-slenderness limit. There is no fixed release yet. Numerical tolerances and
+slenderness limit. The fix is included in 0.6.1. Numerical tolerances and
 acceptance limits are unchanged.
 
 ## Workaround

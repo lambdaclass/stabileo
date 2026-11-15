@@ -11,6 +11,194 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
+## 0.6.1 (2026-11-15)
+
+Release notes: [`docs/releases/v0.6.1.md`](docs/releases/v0.6.1.md) (also in [Spanish](docs/releases/v0.6.1.es.md), [Portuguese](docs/releases/v0.6.1.pt.md), [German](docs/releases/v0.6.1.de.md), [French](docs/releases/v0.6.1.fr.md) and [Turkish](docs/releases/v0.6.1.tr.md)).
+
+### BREAKING (results)
+
+#### Interaction checks retain concurrent forces and provenance (#1316)
+
+Member interaction checks now use each combination's concurrent station forces and retain that combination's name. CIRSOC 201 no longer pairs enveloped N, M, shear or torque; CIRSOC 301's endpoint and variable-section paths use concurrent tuples too. Steel moment-gradient capacity factors now use the same combination as the interaction forces, including the complete unbraced chain. The other-code dispatcher always checks the complete station set. Re-run saved concrete and steel member designs and review utilization, reinforcement and governing combinations. See [the results-change record](docs/results-changes/2026-11-concurrent-design-demands.md). Fixes #1316.
+
+#### Refuse partial active combinations and concurrent member data
+
+- Member design now requires results for every active combination, station entries for every supplied member and concurrent tuples covering every expected combination. Incomplete supplied station maps cannot fall back to endpoint forces. Re-run saved concrete and steel checks. Register and retire the main designer's inadequate torsion stirrup witness as #2141 (#2080).
+
+#### Refuse incomplete concurrent results and separate concrete strain states
+
+- Refuse missing station combinations and missing or empty foreign-code tuples before verification or certification. Report concrete minimum reinforcement at the selected bars’ depth, preserve required-solution strain during shared-cage checks, and expose the provided-steel strain separately. Re-run affected concrete and steel designs (#2080).
+
+#### Concurrent checks retain governing demands
+
+- Preserve each steel check's governing demand and combination when interactions use concurrent forces. Held tension checks retain maximum tension; interior axial forces survive zero endpoint summaries; negative moments select the declared bottom-flange unbraced length in both interaction entry points. Concrete certification aggregates every concurrent case. Saved designs can change demands, utilization, certification and combination labels. Re-run affected checks. See [the results-change record](docs/results-changes/2026-11-concurrent-check-demands.md) (#1316, #2080).
+
+#### Retain torsion reinforcement required by every concurrent case
+
+- Report maximum transverse and longitudinal torsion requirements independently of the case governing utilization. Size shared stirrups for shear plus torsion and check the shared reinforcement under every case. Re-run saved concrete designs and review reinforcement and failures (#2080).
+- Return demand unavailable before candidate search for incomplete station combinations, instead of throwing during verification.
+
+#### Keep excessive required reinforcement failing with a fixed cage
+
+- Apply the same practical maximum of required steel to independently sized and fixed-cage concrete flexure results. Shared-cage verification retains the failure and its explanation; re-run saved concrete designs and review statuses (#2080).
+- Include the applicable complete-concurrent-demands notice in the mixed concrete/steel frame recheck expectation.
+
+#### Apply member behaviour and flange spans consistently
+
+- Mask excluded axial force in every governing and concurrent design record. Compute steel Cb over the selected flange span and withhold diagram credit when that span is unavailable. Rebuild concrete shared-cage calculation traces from the evaluated reinforcement. Re-run affected designs and review utilization, combinations, certificates and reports (#2080).
+
+#### Check torsion against every returned stirrup cage
+
+- Check transverse torsion capacity and spacing for fixed or designed stirrups even when longitudinal torsion steel is not fixed. Insufficient cages fail verification (#2080).
+- Restore flexural sizing depth alongside required-steel quantities and expose the checked bars' depth as `providedDepth`. Keep strength and ductility checks at the actual bars. The original INTI example passes at its unchanged tolerance.
+
+#### Concrete checks retain secondary slenderness
+
+- Keep each concrete column or wall’s governing secondary-axis slenderness and calculation memo independently of the biaxial check. Previously the concurrent aggregator could omit that result or select a smaller amplification. Re-run saved concrete checks and review the secondary-axis memo. See [the results-change record](docs/results-changes/2026-11-concurrent-secondary-slenderness.md) (#1316, #2080).
+
+#### Check selected reinforcement and each demand's span loading
+
+- Evaluate shared concrete cages at the depth of their selected bars. Withhold concrete end-gradient reduction for transverse or unknown loading. Compute steel Cb only over the brace interval containing the demand, with unity for an unknown interval. Re-run affected saved designs and review utilization, governing cases and certificates (#2080).
+
+#### Preserve physical steel stations and governing shear reports
+
+- Convert legacy steel tuple stations to metres before selecting brace intervals, and withhold computed Cb credit when the element length is unknown. Report the selected strong-axis shear demand alongside its check while retaining the separate weak-axis check. Re-run affected steel designs and review capacities, utilization and shear demands. Complete the existing SA-2026-066 blog summary in all six locales and strengthen axis and saved-project regressions. See [the results-change record](docs/results-changes/2026-11-steel-station-coordinates-and-shear.md) (#2080, #2089).
+
+#### Snow loads use roof planes and roof axes
+
+- Correct CIRSOC 104 roof-step drift on pitched receiving roofs (#2082, SA-2026-065) and rotation-dependent snow loads (#2093, SA-2026-067). Shared geometric roof planes supply pitch, elevations and roof-axis widths/spans; ambiguous footprint geometry refuses explicitly. Regenerate snow loads and rerun affected analyses, combinations and design checks.
+
+#### Snow drift coverage follows continuous roof edges
+
+- Carry drift and sliding bands and fetch across continuous pitched panel edges, using actual edge elevations. Measure pitched tributary depth horizontally. Refuse partial or disconnected eave coverage before generating any snow loads (#2095). Regenerate affected snow loads and rerun analyses, combinations and design checks.
+
+#### Snow overrides preserve unbalanced sides and section runs
+
+- Restore coordinate-based unbalanced snow pressures and ridge sharing for flat models with a roof-slope override. Derive section width from connected collinear members of the same gradient so splitting a roof run preserves its loads (#2095). Regenerate affected snow loads and rerun analyses, combinations and design checks.
+
+#### Flat snow frames follow connected roof runs
+
+- Derive a flat roof's snow frame from complete connected collinear runs, preserving its width and generated loads when long beams are subdivided (#2095). Retain the exact windward-width boundary under rotation using bounded floating-point coordinate normalization. Regenerate affected snow loads and rerun analyses, combinations and design checks.
+
+#### Snow loads respect local positions and drift boundaries
+
+- Evaluate nodal snow at its tributary node, split drift and sliding loads at applicability and band boundaries, and compare actual roof elevations along exterior edges. Refuse crossing roof order consistently under rotation (#2095). Regenerate affected snow loads and rerun analyses, combinations and design checks.
+
+#### Snow factors follow each roof orientation
+
+- Apply partial snow exemptions per tributary surface and pattern direction, retaining required patterns along perpendicular ridges. Keep balanced pressure on facets whose ridge follows the wind; average only the real surfaces adjoining a shared member (#2095). Regenerate affected snow loads and rerun analyses, combinations and checks.
+
+#### Snow cases cover every ridge orientation
+
+- Generate both unbalanced directions for every distinct roof orientation, preserving bounded hip facets and the governing leeward loads on perpendicular and L-shaped gables (#2095). Selected covered roofs remain loadable with their full surface geometry. Refuse indeterminate sources crossing any part of a receiving panel. Report adjacent drift over its applicable edge intervals and retain its references. Regenerate snow loads and rerun affected analyses and checks.
+
+#### Snow fetch follows continuous roofs and selected geometry
+
+- Check every surface boundary across a roof join before extending drift fetch or the receiving roof for sliding snow. Keep roofs with an intermediate elevation mismatch separate and refuse unavailable continuity. Derive the selected roof's snow frame, width and directions from its own supporting geometry (#2095). Regenerate snow loads and rerun analyses, combinations and design checks.
+
+#### Snow loads use connected roof regions
+
+- Correct snow loads on selected eaves, asymmetric roofs, roofs with recesses or gaps, and continuous sources with changing pitch (#2095). Use each tributary region's surface geometry for balanced, unbalanced and partial snow. Follow connected sliding sources to the ridge and refuse unresolved spatial sources. Regenerate snow loads and rerun affected analyses and design checks. Correct missing snow-notice PR metadata; notices continue to require generated snow loads.
+
+#### Snow tributaries use interior roof surfaces
+
+- Resolve concave snow tributaries from polygon winding and refuse unresolved pitched strips. Exclude point-only facet contact from ridge loads and refuse incomplete member support instead of applying it to the whole member (#2095). Regenerate affected snow loads and rerun analyses, combinations and design checks.
+
+### Added
+
+#### Steel combination-specific Cb safety advisory
+
+- Publish SA-2026-064 for steel interaction checks that used Cb from another combination's diagram, corrected in PR #2080. Include generated main/fixed replay evidence, affected release tags, summaries in every locale and a saved steel-project notice asking users to re-run interaction checks after upgrading. Distinguish the silent passing witness from the variant that already emits an interaction failure diagnostic.
+
+#### Stabileo 0.6.1 release notes and safety actions (2026-11-15)
+
+Release notes in English, Spanish, Portuguese, German, French and Turkish cover every new results-change notice since v0.6.0, fixed advisories SA-2026-064 through SA-2026-068, and known open wrong results. Re-run affected steel and concrete checks; regenerate snow loads before recalculating affected analyses. The application links the new notes after upgrading. Advisory publication records preserve the original draft dates. The public safety-advisory catalog links all five fixed advisories and their user actions in the same six languages.
+
+### Fixed
+
+#### Legacy-project regression checks include material strengths and section design properties (2026-11-14)
+
+The legacy-project corpus now detects removed or changed steel Fy, concrete f'c, ultimate strength, thermal properties, timber reference values, section geometry and design metadata. One exhaustive material/section property policy drives the fingerprint; typechecking and a schema test require every new field to be classified. Nested properties and undeclared legacy fields are included conservatively, with exact input comparisons.
+
+This corrects the regression oracle (#1318, cause:B). Analysis, design and project migrations are unchanged. A direct audit of all 187 released corpus projects preserves every saved material property. The stricter comparison exposed older files without Fu against today's example-loader default; #2091 now constructs those references from the release's recorded defaults, with no baseline or tolerance adjustment. See [the verification record](docs/verification/legacy-migration-fingerprint-1318.md).
+
+#### Keep shared beam axes independent and report missing torsion provision
+
+- Include every station's section-demand axis and all verification inputs in shared-span reuse, so reversed sections cannot inherit another beam's demands, capacities or certificate (#2080).
+- Keep longitudinal torsion steel unresolved until provision is supplied; retain required steel, actual transverse-cage checks and proven failures. Unresolved designs are held and cannot receive a passing certificate (#2080).
+
+#### Read concurrent steel interaction once
+
+- Batch complete steel station checks and reuse their interaction rankings instead of checking every station twice. Skip calculation rendering during optimizer screening while keeping all concurrent demands, governing traces and the certified gate (#2080).
+
+#### Avoid duplicate concrete work on meshed spans
+
+- Avoid repeated concrete beam-section and basis kernel queries, prepare each complete biaxial section once per member verification, defer beam calculation-step formatting, reuse complete shared-span checks that retain an explicit longitudinal-torsion hold, and copy station verification records only when requested. Engineering results and verification holds are unchanged. Keep the full meshed-building cache parity oracle in dedicated tests so IFC and detailing regressions measure production work without duplicate reference runs.
+
+#### Concurrent concrete verification avoids repeated sizing
+
+- Size each station once before checking the shared reinforcement, preserving every station result and certificate. Retire the corrected #1316 RC pairing entry from the known-issue registry so it agrees with the containment ledger (#2080).
+
+#### Document steel Cb and concrete Cm corrections
+
+- Register the #2088 and #2089 regressions under their issue numbers. Extend SA-2026-064 for unlocated short steel spans and add SA-2026-066 for CIRSOC 201 moment magnification with transverse load. Re-check affected steel members and slender concrete columns and walls with load between supports (PR #2080).
+
+#### Check concurrent-demand coverage without repeated scans
+
+- Index available combination IDs and member station results once, so coverage validation scales with the tuples and combinations supplied. Preserve missing-data refusals and every station check, and remove stale peak-fallback documentation. Engineering results and the IFC test timeout are unchanged (#2080).
+
+#### Match the workbook centroid and scope steel result notices
+
+- Translate the CIRSOC_FLEX rectangular worked example's bar-centroid cover using the selected bar diameter, retaining every published expected value and tolerance. Declare member and steel quantities for the existing steel Cb results-change notice. Add regressions for tower e12's engine summary and each biaxial row's concurrent resultant; both already agree at the reviewed head. No numerical engine results change (#2080).
+
+#### Check shared-cage memo capacity at the provided bars' depth
+
+- Correct the shared-cage memo test oracle to use `providedDepth`, derived independently from the section, cover, stirrups and selected bar diameter. The old oracle used the sizing depth; the memo already reports the correct capacity of the provided cage. Engine results are unchanged (#2080).
+
+#### Regenerate the shared reinforcement witness
+
+Regenerate the #2080 shared-cage fixture with its existing witness generator after the flexural depth correction. Four rendered minimum or required steel-area steps now use the current bar-depth calculation; depths, selected bars, capacities and ratios are unchanged.
+
+#### Keep the steel report unit regression small
+
+- Exercise exact steel verification output, bounded governing-station traces and report reuse on a three-member portal with three combinations. The existing E2E test retains the full industrial shed. No engineering results or test timeouts change.
+
+#### Restore the steel Cb advisory draft status
+
+Preserve the original SA-2026-064 draft date alongside its 0.6.1 publication and fixed-release records.
+
+#### Avoid discarded calculation traces in concurrent steel reports
+
+- Check every steel station without rendering its calculation, then trace only the cases retained in the report. Reuse the governing case's interaction result. Steel shed reports retain identical results, calculation text, refusals and certificates while avoiding detailed traces for discarded stations. No numerical engine results change.
+
+#### Identify unchecked longitudinal torsion certificates by code
+
+- Carry the existing longitudinal torsion diagnostic code on CIRSOC 201 certificates and preserve it through compatible concurrent checks. Shared verification reuse now branches on the typed code, independently of display wording. Unrelated or missing certificates cannot acquire this code. Numerical engine results and the existing unchecked-provision hold are unchanged (#2080).
+
+#### Preserve the torsion section row with unchecked longitudinal steel
+
+- Keep the CIRSOC concrete torsion section row, its design capacity and its calculated utilization available when longitudinal torsion reinforcement has not been checked. Carry that unchecked provision as an explicit separate state; the member remains held and the calculation still states that the longitudinal provision is not checked. Numerical engine results are unchanged.
+
+#### Legacy example comparisons use the release's recorded defaults (2026-11-14)
+
+Saved projects are compared with the release's fixture and default material and section, verified against its recorded commit. New default fields cannot enter an older reference. Both models still use the current loader and solver, and the exact material/section fingerprint still rejects lost or changed saved strengths. No corpus, tolerance, project migration, design check or engine result changed (#2091, #1318).
+
+#### Legacy fixture materials resolve against historical defaults (2026-11-14)
+
+Release example references install their recorded material and section defaults before fixture resolution, so future default name or stiffness changes cannot alter material reuse or member references. The numeric fingerprint edge-case test retains its synthetic null and undefined inputs under strict typechecking. No engine result, tolerance or saved project changes (#2091).
+
+#### Indexed snow derivations retain generated-load applicability
+
+- Recognize bracket-indexed snow derivation fields in the results snapshot gate without requiring a solver run. Retain all generated-load, condition, area and quantity checks (#2095).
+
+### Performance
+
+#### Reuse identical concurrent flexural sizing
+
+- Reuse byte-identical CIRSOC 201 flexural sizing queries across concurrent stations and members. The bounded engine-local cache preserves every checked demand and result, copies answer storage, and resets when the engine is registered again (#2080).
+
+- Verify certified shared beam-span demands once per run when all verification parameters match, while preserving each mesh piece's independent results and diagnostic IDs (#2080).
+
 ## 0.6.0 (2026-11-13)
 
 Release notes: [`docs/releases/v0.6.0.md`](docs/releases/v0.6.0.md) (also in [Spanish](docs/releases/v0.6.0.es.md), [Portuguese](docs/releases/v0.6.0.pt.md), [German](docs/releases/v0.6.0.de.md), [French](docs/releases/v0.6.0.fr.md) and [Turkish](docs/releases/v0.6.0.tr.md)).

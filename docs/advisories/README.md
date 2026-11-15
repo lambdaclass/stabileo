@@ -25,7 +25,10 @@ merged 2026-11-09 09:27:10 UTC). Their re-check registry entries are
 `support-spring-conflicts-refused`, `non-finite-analysis-results`, `moving-loads-3d`,
 `moving-axial-patch-boundaries` and `moving-load-endpoint-forces`, respectively.
 
-**SA-2026-054 is a draft**: its fix (#1753) is prepared locally and has not been merged or deployed.
+**SA-2026-054…063 are published with 0.6.0** (2026-11-13), except
+SA-2026-056, which remains unfixed. **SA-2026-064…068 are published with 0.6.1**
+(2026-11-15). Re-run affected concrete and steel checks; regenerate affected
+snow loads before re-solving.
 
 | ID | Summary | Severity | Issue | Fix | Fixed in | Status |
 |---|---|---|---|---|---|---|
@@ -92,10 +95,11 @@ merged 2026-11-09 09:27:10 UTC). Their re-check registry entries are
 | [SA-2026-061](SA-2026-061-path-solver-reactions.md) | Path solvers omitted reactions and used unscaled member loads; constrained, Guyan, staged and dynamic result omissions | High | [#1949](https://github.com/lambdaclass/stabileo/issues/1949) | [#1952](https://github.com/lambdaclass/stabileo/pull/1952) | 0.6.0 | Published 2026-11-13 |
 | [SA-2026-062](SA-2026-062-plastic-conditioning-zero-collapse.md) | Initial elastic refusals could become silent zero raw plastic collapse factors; release certified results retained the raw factor | High | Final review of #1943 | [#1943](https://github.com/lambdaclass/stabileo/pull/1943) | 0.6.0 | Published 2026-11-13 |
 | [SA-2026-063](SA-2026-063-prescribed-master-motion.md) | Constrained analyses dropped prescribed restrained-master motion; cable and time history now refuse unsupported support motion | High | [#2008](https://github.com/lambdaclass/stabileo/issues/2008) | [#2009](https://github.com/lambdaclass/stabileo/pull/2009) | 0.6.0 | Published 2026-11-13 |
-| [SA-2026-064](SA-2026-064-steel-cb-combination.md) | Steel Cb came from another combination or an unlocated short span, overstating capacity and understating utilization | High | [#1316](https://github.com/lambdaclass/stabileo/issues/1316), [#2088](https://github.com/lambdaclass/stabileo/issues/2088) | [#2080](https://github.com/lambdaclass/stabileo/pull/2080) | Pending merge and release | Draft 2026-11-13; extended 2026-11-14 |
-| [SA-2026-065](drafts/SA-2026-065-snow-roof-step.md) | CIRSOC 104 roof-step drift uses the receiving roof plane | High | [#2082](https://github.com/lambdaclass/stabileo/issues/2082) | Local fix, unmerged | Pending | Drafted 2026-11-14 |
-| [SA-2026-066](SA-2026-066-cirsoc201-transverse-cm.md) | CIRSOC 201 Cm gave end-moment credit with transverse load, understating magnified moments in slender concrete columns and walls | High | [#2089](https://github.com/lambdaclass/stabileo/issues/2089) | [#2080](https://github.com/lambdaclass/stabileo/pull/2080) | Pending merge and release | Draft 2026-11-14 |
-| [SA-2026-067](drafts/SA-2026-067-snow-roof-rotation.md) | Snow loads use roof axes under plan rotation | High | [#2093](https://github.com/lambdaclass/stabileo/issues/2093) | Local fix, unmerged | Pending | Drafted 2026-11-14 |
+| [SA-2026-064](SA-2026-064-steel-cb-combination.md) | Steel Cb came from another combination or an unlocated short span, overstating capacity and understating utilization | High | [#1316](https://github.com/lambdaclass/stabileo/issues/1316), [#2088](https://github.com/lambdaclass/stabileo/issues/2088) | [#2080](https://github.com/lambdaclass/stabileo/pull/2080) | 0.6.1 | Published 2026-11-15; drafted 2026-11-13; extended 2026-11-14 |
+| [SA-2026-065](SA-2026-065-snow-roof-step.md) | CIRSOC 104 roof-step drift uses the receiving roof plane | High | [#2082](https://github.com/lambdaclass/stabileo/issues/2082) | [#2095](https://github.com/lambdaclass/stabileo/pull/2095) | 0.6.1 | Published 2026-11-15; drafted 2026-11-14 |
+| [SA-2026-066](SA-2026-066-cirsoc201-transverse-cm.md) | CIRSOC 201 Cm gave end-moment credit with transverse load, understating magnified moments in slender concrete columns and walls | High | [#2089](https://github.com/lambdaclass/stabileo/issues/2089) | [#2080](https://github.com/lambdaclass/stabileo/pull/2080) | 0.6.1 | Published 2026-11-15; drafted 2026-11-14 |
+| [SA-2026-067](SA-2026-067-snow-roof-rotation.md) | Snow loads use roof axes under plan rotation | High | [#2093](https://github.com/lambdaclass/stabileo/issues/2093) | [#2095](https://github.com/lambdaclass/stabileo/pull/2095) | 0.6.1 | Published 2026-11-15; drafted 2026-11-14 |
+| [SA-2026-068](SA-2026-068-provided-torsion-stirrups.md) | Concrete torsion accepted inadequate designed stirrups | High | [#2141](https://github.com/lambdaclass/stabileo/issues/2141) | [#2080](https://github.com/lambdaclass/stabileo/pull/2080) | 0.6.1 | Published 2026-11-15 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the
@@ -105,5 +109,6 @@ SA-2026-056 records an additional, unfixed dynamic result found during the analy
 [constrained shell dynamic invariance](SA-2026-056-constrained-shell-dynamic-invariance.md).
 It has no result-version entry because this change does not fix or alter engine results.
 
-The coordinator-assigned snow drafts remain in `drafts/` until the coordinator
-updates the public advisory post. They are not part of its top-level catalog.
+SA-2026-064 through SA-2026-068 are published with 0.6.1. The snow advisories
+have moved from `drafts/` into this catalog. Regenerate affected snow loads
+before re-solving projects.

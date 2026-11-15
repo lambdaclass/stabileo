@@ -1,7 +1,7 @@
 # Snow drift coverage follows continuous roof edges
 
-Review #2095 round 6 fixes two drift geometry defects and refuses a third
-unsupported geometry. This correction is unmerged and unreleased.
+PR #2095 fixes two drift geometry defects and refuses a third
+unsupported geometry. This correction is included in 0.6.1 (PR #2095).
 
 Roof grouping previously compared panel datum elevations. Continuous pitched
 panels can have different datums while meeting at the same physical height.

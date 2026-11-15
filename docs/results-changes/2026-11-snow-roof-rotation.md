@@ -1,7 +1,7 @@
 # Snow loads use roof axes under plan rotation
 
-Issues #2093; advisory [SA-2026-067](../advisories/drafts/SA-2026-067-snow-roof-rotation.md).
-This correction is local and unmerged. The advisory records the numerical
+Issues #2093; advisory [SA-2026-067](../advisories/SA-2026-067-snow-roof-rotation.md).
+This correction is included in 0.6.1 (PR #2095). The advisory records the numerical
 before/after witnesses on origin/main, also tagged v0.6.0.
 
 CIRSOC 104 section 3.4 uses W in the low-slope minimum threshold.
