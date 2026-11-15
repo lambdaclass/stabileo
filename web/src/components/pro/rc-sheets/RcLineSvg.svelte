@@ -3,6 +3,7 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { stirrupsLabel } from '../../../lib/rc-sheets/bars';
   import type { LineBar, LineLayout } from '../../../lib/rc-sheets/beam-line';
+  import { barTrace, hookLegOf, lineSupports, setOut as setOutOf, stirrupPositions } from '../../../lib/rc-sheets/line-geometry';
 
   let { line, marks = false, envelope = false, cuts = [] }: { line: LineLayout; marks?: boolean; envelope?: boolean; cuts?: Array<{ x: number; label: string }> } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
@@ -12,51 +13,30 @@
   const hMax = $derived(Math.max(...line.spans.map((s) => s.h), 0.1));
   const sy = $derived(84 / hMax);
   const X = (x: number) => M + (x - x0) * sx;
-  const supports = $derived([0, ...line.spans.map((s) => s.x1)]);
+  const supports = $derived(lineSupports(line));
   const bottomOf = (h: number) => TOP + h * sy;
   const yBeamBottom = $derived(bottomOf(hMax));
   const coverPx = $derived(Math.max(9, (line.cover + 0.012) * sy));
-  const spanAt = (x: number) => line.spans.find((s) => x >= s.x0 - 1e-9 && x <= s.x1 + 1e-9) ?? line.spans[0]!;
 
-  /** A bar's trace inside the beam, span by span (the depth may change between spans); the end spans reach into the end supports. */
   function trace(bar: LineBar): Array<{ x1: number; x2: number; y: number }> {
     if (bar.kind === 'bent') {
-      const r = bar.runs.find((x) => x.face === 'bottom') ?? bar.runs[0]!;
+      const r = barTrace(line, bar)[0]!;
       return [{ x1: X(r.from), x2: X(r.to), y: TOP + (hMax - (bar.shape.pts.find((p) => p[0] >= r.from - 1e-9)?.[1] ?? 0)) * sy }];
     }
     const inner = bar.kind === 'continuous' ? 0 : 6;
-    const last = line.spans.length - 1;
-    return line.spans.flatMap((s, k) => {
-      const lo = k === 0 ? -Infinity : s.x0, hi = k === last ? Infinity : s.x1;
-      const a = Math.max(lo, bar.from), b = Math.min(hi, bar.to);
-      return b - a > 1e-6 ? [{ x1: X(a), x2: X(b), y: bar.face === 'top' ? TOP + coverPx + inner : bottomOf(s.h) - coverPx - inner }] : [];
-    });
+    return barTrace(line, bar).map((g) => ({ x1: X(g.from), x2: X(g.to), y: bar.face === 'top' ? TOP + coverPx + inner : bottomOf(line.spans[g.span]!.h) - coverPx - inner }));
   }
-  /** A 90° hook's leg as its shape bends it, at the drawing's vertical scale, kept inside the beam. */
-  const hookLeg = (bar: LineBar) => {
-    const p = bar.shape.pts, [a, b] = bar.hooks[0] ? [p[0]!, p[1]!] : [p[p.length - 1]!, p[p.length - 2]!];
-    return Math.abs(a[1] - b[1]);
-  };
   const hookTo = (bar: LineBar, y: number) => {
-    const leg = Math.max(8, Math.min(hMax * sy - 2 * coverPx, hookLeg(bar) * sy));
+    const leg = Math.max(8, Math.min(hMax * sy - 2 * coverPx, hookLegOf(bar) * sy));
     return bar.face === 'top' ? y + leg : y - leg;
   };
 
-  const ticks = $derived(line.zones.flatMap((z) => {
-    const s = spanAt((z.from + z.to) / 2), step = Math.max(z.stirrups.spacing, 5 / sx), out: number[] = [];
-    for (let x = z.from + Math.min(0.05, z.stirrups.spacing / 2); x <= z.to - 1e-6; x += step) out.push(x);
-    return out.map((x) => ({ x: X(x), y1: TOP + coverPx - 2, y2: bottomOf(s.h) - coverPx + 2 }));
-  }));
+  const ticks = $derived(stirrupPositions(line, (s) => Math.ceil(5 / sx / Math.max(s, 1e-6)))
+    .map((p) => ({ x: X(p.x), y1: TOP + coverPx - 2, y2: bottomOf(line.spans[p.span]!.h) - coverPx + 2 })));
 
-  /** The distances a bar's ends keep from the support axes it is set out from. */
   function setOut(bar: LineBar): [string, string] | null {
-    if (bar.kind === 'continuous') return null;
-    if (bar.kind === 'support') {
-      const xs = supports.reduce((p, q) => (Math.abs(q - (bar.from + bar.to) / 2) < Math.abs(p - (bar.from + bar.to) / 2) ? q : p));
-      return [fmt(xs - bar.from), fmt(bar.to - xs)];
-    }
-    const s = spanAt((bar.from + bar.to) / 2);
-    return [fmt(bar.from - s.x0), fmt(s.x1 - bar.to)];
+    const so = setOutOf(line, bar);
+    return so ? [fmt(so.d[0]), fmt(so.d[1])] : null;
   }
   const ENV_M = 96, ENV_V = 88, ENV_GAP = 18;
   const yEnv = $derived(yBeamBottom + BELOW + 30);
