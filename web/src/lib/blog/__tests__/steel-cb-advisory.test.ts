@@ -2,13 +2,12 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { findPost } from '..';
 import notice from '../../provenance/result-changes/steel-cb-combination.json';
-import type { PublicLocale } from '../../i18n/store.svelte';
 
 const text = readFileSync(new URL('../../../../../docs/advisories/SA-2026-064-steel-cb-combination.md', import.meta.url), 'utf8');
 const replay = JSON.parse(readFileSync(new URL('../../../../../docs/advisories/replays/SA-2026-064.json', import.meta.url), 'utf8'));
 
 describe('SA-2026-064 steel combination Cb', () => {
-  it.each<[PublicLocale, string, string]>([
+  it.each<[keyof typeof notice.explanation, string, string]>([
     ['en', 'High', 'Fixed in PR #2080, pending release'],
     ['es', 'Alta', 'Corregido en PR #2080, pendiente de publicación'],
     ['pt', 'Alta', 'Corrigido no PR #2080, aguardando lançamento'],
