@@ -484,6 +484,11 @@
   /** The Mp each section went in with, shown under the result. */
   let plasticMps = $state<SectionMp[]>([]);
   let plasticWithheld = $state<PlasticWithheld | null>(null);
+  let withheldFor = -1;
+  $effect(() => {
+    const v = modelStore.modelVersion;
+    if (plasticWithheld && v !== withheldFor) plasticWithheld = null;
+  });
 
   function handlePlastic() {
     if (blockedBySlidingJoints()) return;
@@ -503,7 +508,7 @@
         ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(r.hinges.length)).replace('{ms}', dt.toFixed(0))
         : t('plastic.noCollapse'), verdict === 'collapse' ? 'info' : 'success');
     } catch (e: any) {
-      if (e instanceof PlasticWithheld) plasticWithheld = e;
+      if (e instanceof PlasticWithheld) { withheldFor = modelStore.modelVersion; plasticWithheld = e; }
       uiStore.toast(errText(e, 'toast.plasticError'), 'error');
     }
   }
@@ -630,7 +635,7 @@
   });
 </script>
 
-{#snippet soOptions()}<SecondOrderOptions onchange={() => rerunSecondOrder(handlePDelta, handleBuckling)} />{/snippet}
+{#snippet soOptions()}<SecondOrderOptions onchange={(previous) => rerunSecondOrder(previous, handlePDelta, handleBuckling)} />{/snippet}
 
 <div class="toolbar-section" class:flat data-tour="advanced-section" onclickcapture={noteOpening}>
   {#if !flat}<button class="section-toggle" onclick={() => showAdvanced = !showAdvanced}>
@@ -996,7 +1001,7 @@
     {/if}
   </div>
   {/if}
-  {#each (is3D ? resultsStore.knownIssues3D : resultsStore.knownIssues).messages as message}<p role="alert">{message}</p>{/each}
+  {#each (is3D ? resultsStore.advancedKnownIssues3D : resultsStore.advancedKnownIssues).messages as message}<p class="adv-known" role="alert">{message}</p>{/each}
   {@const pdR = is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult}
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
@@ -1467,5 +1472,14 @@
     margin-left: 0.6rem;
     padding: 0.1rem 0 0.1rem 0.6rem;
     border-left: 2px solid var(--st-hair);
+  }
+  .adv-known {
+    margin: 0.3rem 0.6rem;
+    padding: 0.35rem 0.5rem;
+    border-left: 2px solid var(--st-warn);
+    background: var(--st-warn-bg);
+    color: var(--st-text-2);
+    font-size: 0.68rem;
+    line-height: 1.4;
   }
 </style>

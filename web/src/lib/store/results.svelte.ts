@@ -5,7 +5,7 @@ import { timeHistoryView } from './time-history-view.svelte';
 import { carryCertifyJob } from '../engine/certify-tags';
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
 import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, SolveTimings } from '../engine/types';
-import { freezeResult, knownIssueResultDisposition } from '../engine/known-issues';
+import { freezeResult, knownIssueDiagnosticsIn, knownIssueDisposition, knownIssueResultDisposition } from '../engine/known-issues';
 import { modelFindings } from '../engine/model-findings';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { GoverningPerElement, GoverningPerElement3D } from '../engine/governing-case';
@@ -1409,6 +1409,16 @@ function createResultsStore() {
     get knownIssues() {
       return knownIssueResultDisposition([singleResults, results, [...perCase.values()], [...perCombo.values()], envelope?.maxAbsResults, overlayResults, pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine]);
     },
+    /**
+     * The known issues for the Advanced panel: with a second-order or buckling result on screen,
+     * the linear solve's advice to run one (LIN-SECOND-ORDER*) is already answered and is left out.
+     */
+    get advancedKnownIssues() {
+      return withoutAnsweredAdvice([singleResults, results, [...perCase.values()], [...perCombo.values()], envelope?.maxAbsResults, overlayResults, pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine], !!(pdeltaResult || bucklingResult));
+    },
+    get advancedKnownIssues3D() {
+      return withoutAnsweredAdvice([singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], envelope3D?.maxAbsResults3D, liveViewedEnvelope3D()?.maxAbsResults3D, overlayResults3D, pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, timeHistoryView.storedDiagnostics], !!(pdeltaResult3D || bucklingResult3D));
+    },
     get knownIssues3D() {
       return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], envelope3D?.maxAbsResults3D, liveViewedEnvelope3D()?.maxAbsResults3D, overlayResults3D, pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, timeHistoryView.storedDiagnostics]);
     },
@@ -1421,6 +1431,11 @@ function createResultsStore() {
       ));
     },
   };
+}
+
+function withoutAnsweredAdvice(sources: unknown[], secondOrderShown: boolean) {
+  const all = knownIssueDiagnosticsIn(sources);
+  return knownIssueDisposition(secondOrderShown ? all.filter((d) => !d.phase?.startsWith('LIN-SECOND-ORDER')) : all);
 }
 
 export const resultsStore = createResultsStore();

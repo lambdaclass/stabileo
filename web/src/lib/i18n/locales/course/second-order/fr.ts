@@ -20,6 +20,8 @@ const words: Translations = {
   'course.second-order.bk.internalNote': '* Flambement à l\'intérieur d\'une barre aux extrémités bloquées : les déplacements des nœuds ne peuvent pas le représenter, sa forme n\'est donc pas montrée.',
 
   'course.second-order.opts.title': 'Mode de calcul',
+  'course.second-order.pd.stepsOneElement': "Le pas à pas assemble ses matrices avec un élément par barre ; le résultat ci-dessus en utilise {n}, donc λ peut légèrement différer.",
+  'course.second-order.opts.reverted': "Le modèle n’accepte pas cette option : l’option précédente et ses résultats sont rétablis.",
   'course.second-order.opts.method': 'Méthode',
   'course.second-order.opts.method.consistent': 'Matrice géométrique cohérente',
   'course.second-order.opts.method.string': 'Matrice géométrique simplifiée (P/L)',

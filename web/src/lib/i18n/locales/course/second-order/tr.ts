@@ -20,6 +20,8 @@ const words: Translations = {
   'course.second-order.bk.internalNote': '* Uçları tutulu bir çubuğun içinde burkulma: düğüm yer değiştirmeleri onu çizemez, bu yüzden biçimi gösterilmez.',
 
   'course.second-order.opts.title': 'Nasıl hesaplanır',
+  'course.second-order.pd.stepsOneElement': "Adım adım anlatım matrislerini çubuk başına tek elemanla kuruyor; yukarıdaki sonuç {n} eleman kullanıyor, bu yüzden λ biraz farklı olabilir.",
+  'course.second-order.opts.reverted': "Model bu seçeneği kabul etmiyor, bu yüzden önceki seçeneğe ve sonuçlarına dönüldü.",
   'course.second-order.opts.method': 'Yöntem',
   'course.second-order.opts.method.consistent': 'Tutarlı geometrik matris',
   'course.second-order.opts.method.string': 'Basitleştirilmiş geometrik matris (P/L)',

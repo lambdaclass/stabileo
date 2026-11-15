@@ -10,10 +10,10 @@ import { firstModeB2, type SoSettings } from '../engine/second-order/settings';
 import { solveBuckling3D } from '../engine/wasm-solver';
 import { refusedWithCode } from '../engine/containment-error';
 import { secondOrderSettings } from '../store/second-order.svelte';
-import { resultsStore } from '../store';
+import { resultsStore, uiStore } from '../store';
 import { explainedSteps } from '../store/explained-steps.svelte';
 import { openExplainedCatalog } from './step-wizards';
-import { tp } from '../i18n';
+import { t, tp } from '../i18n';
 
 /** 2D P-Δ with the panel's settings; a sentence when the chosen method cannot take the model. */
 export function pdeltaBasic2D(input: SolverInput): SoPDeltaResult | string {
@@ -49,10 +49,22 @@ export function openSecondOrderSteps(methodId: string, s: Pick<SoSettings, 'meth
   if (methodId.endsWith('-kg')) explainedSteps.setOption('chord', s.method === 'string');
 }
 
-export function rerunSecondOrder(runPDelta: () => void, runBuckling: () => void): void {
+/**
+ * Re-run what is on screen with the new settings. When the model refuses them, the settings go
+ * back to `previous` and the results with them, so the options stay reachable and nothing stale
+ * is drawn.
+ */
+export function rerunSecondOrder(previous: SoSettings, runPDelta: () => void, runBuckling: () => void): void {
   const pd = !!resultsStore.pdeltaResult, bk = !!resultsStore.bucklingResult;
   if (!pd && !bk) return;
-  resultsStore.clearAdvanced();
-  if (pd) runPDelta();
-  if (bk) runBuckling();
+  const run = () => {
+    resultsStore.clearAdvanced();
+    if (pd) runPDelta();
+    if (bk) runBuckling();
+    return (!pd || !!resultsStore.pdeltaResult) && (!bk || !!resultsStore.bucklingResult);
+  };
+  if (run()) return;
+  secondOrderSettings.set(previous);
+  run();
+  uiStore.toast(t('course.second-order.opts.reverted'), 'info');
 }

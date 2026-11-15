@@ -111,6 +111,7 @@
   </details>
   {@render options?.()}
   <button class="small-btn pd-steps" onclick={() => openSecondOrderSteps(full.settings.method === 'phi' ? 'so-pdelta-phi' : 'so-pdelta-kg', full.settings)} data-testid="pdelta-open-steps">{t(`${K}.openSteps`)}</button>
+  {#if full.settings.n > 1}<p class="so-steps-note" data-testid="pdelta-open-steps-note">{tp('course.second-order.pd.stepsOneElement', { n: full.settings.n })}</p>{/if}
 {/if}
 
 <style>
@@ -124,4 +125,5 @@
   .pd-table th:first-child, .pd-table td:first-child { text-align: left; }
   .pd-table tr.phi td { color: var(--st-accent); }
   .pd-steps { margin: 0.3rem 0 0 0.25rem; }
+  .so-steps-note { margin: 0.2rem 0 0; color: var(--st-text-3); font-size: 0.66rem; line-height: 1.35; }
 </style>

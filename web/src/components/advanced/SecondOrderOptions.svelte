@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  import type { SoSettings } from '../../lib/engine/second-order/settings';
   /**
    * How P-Δ and the critical load are calculated in the plane, folded under the result it changes
    * like the result's other details. Each choice has its own ? with what it means.
@@ -14,7 +15,7 @@
   const K = 'course.second-order.opts';
   const METHODS: SoMethod[] = ['consistent', 'string', 'phi'];
 
-  let { onchange }: { onchange?: () => void } = $props();
+  let { onchange }: { onchange?: (previous: SoSettings) => void } = $props();
   let help = $state<string | null>(null);
   const s = $derived(secondOrderSettings.value);
   let open = $state(remembered);
@@ -27,8 +28,9 @@
   const toggle = (k: string) => { help = help === k ? null : k; };
   /** A change re-runs the analysis on screen, so the result always says how it was calculated. */
   function apply(patch: Parameters<typeof secondOrderSettings.set>[0]) {
+    const previous = secondOrderSettings.snapshot();
     secondOrderSettings.set(patch);
-    onchange?.();
+    onchange?.(previous);
   }
 </script>
 

@@ -96,6 +96,7 @@
   </details>
   {@render options?.()}
   <button class="small-btn bk-steps" onclick={() => openSecondOrderSteps(info.settings.method === 'phi' ? 'so-buckling-phi' : 'so-buckling-kg', info.settings)} data-testid="buckling-open-steps">{t('course.second-order.pd.openSteps')}</button>
+  {#if info.settings.n > 1}<p class="so-steps-note" data-testid="buckling-open-steps-note">{tp('course.second-order.pd.stepsOneElement', { n: info.settings.n })}</p>{/if}
 {/if}
 
 <style>
@@ -112,4 +113,5 @@
   .bk-table tr.phi td { color: var(--st-accent); }
   .bk-pick { background: none; border: none; padding: 0 0.2rem; color: inherit; cursor: pointer; font: inherit; text-decoration: underline dotted; }
   .bk-steps { margin: 0.3rem 0 0 0.25rem; }
+  .so-steps-note { margin: 0.2rem 0 0; color: var(--st-text-3); font-size: 0.66rem; line-height: 1.35; }
 </style>

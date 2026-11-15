@@ -748,12 +748,32 @@ function structuralChecks2D(input: SolverInput): string | null {
       if (dblCount >= frames && frames >= 2 && !supType) {
         return t('svc.mechDoubleHinged').replace('{n}', String(nodeId)).replace('{elems}', String(frames));
       }
-      if (hinges >= frames && frames >= 2 && dblCount > 0 && !hasRotSupport) {
+      if (hinges >= frames && frames >= 2 && dblCount > 0 && !hasRotSupport && rankConfirmsMechanism(input)) {
         return t('svc.mechInsufficientStiffness').replace('{n}', String(nodeId)).replace('{elems}', String(frames)).replace('{dbl}', String(dblCount));
       }
     }
   }
   return null;
+}
+
+/**
+ * Whether the engine's rank analysis also finds a mechanism. A double-hinged member at a joint
+ * where every member is hinged is a mechanism on pin-ended columns, but not under simply
+ * supported spans on columns fixed at their base; without the rank analysis the count stands.
+ */
+function rankConfirmsMechanism(input: SolverInput): boolean {
+  const key = `${i18n.locale}|2d:${JSON.stringify(input2DToWireObject(input))}`;
+  let kin = kinematicCacheGet(key);
+  if (kin === undefined) {
+    try {
+      const k = analyzeKinematics(input);
+      kin = k.rankAnalysis === 'unavailable' ? null : k;
+    } catch {
+      kin = null;
+    }
+    kinematicCacheSet(key, kin);
+  }
+  return kin === null || kin.rankAnalysis !== 'available' || kin.mechanismModes > 0 || !kin.isSolvable;
 }
 
 /**

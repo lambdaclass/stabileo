@@ -42,7 +42,8 @@
     const plateau = dir ? xs[xs.length - 1] + dir * 0.2 * span : null;
     const lo = Math.min(0, ...xs, plateau ?? 0), hi = Math.max(0, ...xs, plateau ?? 0);
     const xt = niceTicks(lo, hi), yt = niceTicks(0, Math.max(...pts.map((p) => p.lambda)) * 1.08);
-    const x0 = Math.min(lo, xt[0]), x1 = Math.max(hi, xt[xt.length - 1]) || 1;
+    const x0 = Math.min(lo, xt[0]);
+    const x1 = Math.max(hi, xt[xt.length - 1]) > x0 ? Math.max(hi, xt[xt.length - 1]) : x0 + 1;
     const y1 = Math.max(yt[yt.length - 1], 1e-9);
     const sx = (v: number) => PL + ((v - x0) / (x1 - x0 || 1)) * (W - PL - PR);
     const sy = (v: number) => H - PB - (v / y1) * (H - PT - PB);
