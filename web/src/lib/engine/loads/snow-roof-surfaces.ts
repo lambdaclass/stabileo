@@ -230,7 +230,11 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     const bounded = unique.filter(c => footprints(c.supported, c.gradient).some(p => memberSupport(m.a, m.b, p).positive));
     for (const best of bounded.length ? bounded : [candidates[0]]) {
       const gradient: P2 = best?.gradient ?? [m.dz * m.dx / m.lh ** 2, m.dz * m.dy / m.lh ** 2];
-      const supported = best?.supported ?? [m];
+      const supported = best?.supported ?? connected.filter(r => [r.a, r.b].every(p => {
+        const x = p.x - m.a.x, y = p.y - m.a.y;
+        return Math.abs(m.dx * y - m.dy * x) <= 1e-8 * m.lh
+          && Math.abs(Z(p) - Z(m.a) - gradient[0] * x - gradient[1] * y) <= 1e-8;
+      }));
       if (!supported.some(r => roofIds.has(r.id))) continue;
       const norm = Math.hypot(...gradient);
       const outlines = best ? footprints(supported, gradient) : [];

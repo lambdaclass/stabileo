@@ -176,6 +176,10 @@ export function snowLoadCases(input: SnowCasesInput): {
   const roof = roofMembers(input.model, chosen);
   const all = new Set(roof.map((r) => r.id));
   const only = chosen ? all : undefined;
+  const fallbackSides = new Map([...input.model.elements.values()].map(e => {
+    const a = input.model.nodes.get(e.nodeI)!, b = input.model.nodes.get(e.nodeJ)!;
+    return [e.id, ((a.x + b.x) / 2 - geometry.origin.x) * geometry.direction[0] + ((a.y + b.y) / 2 - geometry.origin.y) * geometry.direction[1] - geometry.ridge];
+  }));
   const layout = input.layout;
   const on = (pOf: (id: number, unit?: SnowUnit) => Intensity): Pick<SnowCaseLoads, 'distributed' | 'nodal'> => (layout
     ? { distributed: panelLoads(input.model, layout, pOf, input.tributaryWidth, only, surfaceModel), nodal: pointLoads(input.model, layout, pOf, only) }
@@ -307,8 +311,12 @@ export function snowLoadCases(input: SnowCasesInput): {
         return ps.reduce((sum, p) => {
           const r = localResult(p), u = r.unbalanced;
           if (!u) return sum + r.ps;
-          const side = p ? -(p.gradient[0] * direction[0] + p.gradient[1] * direction[1]) : 0;
-          return sum + (Math.abs(side) <= 1e-9 ? r.ps : side * sense > 0 ? u.leeward : u.windward);
+          if (p) {
+            const side = -(p.gradient[0] * direction[0] + p.gradient[1] * direction[1]);
+            return sum + (Math.abs(side) <= 1e-9 ? r.ps : side * sense > 0 ? u.leeward : u.windward);
+          }
+          const side = fallbackSides.get(id)!;
+          return sum + (Math.abs(side) <= 0.01 ? (u.leeward + u.windward) / 2 : side * sense > 0 ? u.leeward : u.windward);
         }, 0) / ps.length;
       };
       const [x, y] = direction.map(v => sense * v);
