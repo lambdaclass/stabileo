@@ -325,9 +325,9 @@
         "steps": [
           "d (dimensionamiento) = 35.9 cm, d' = 4.1 cm",
           "Mu = 20.00 kN·m",
-          "As,mín = 4.79 cm²",
+          "As,mín = 4.76 cm²",
           "As,req (motor, CIRSOC 201-2025) = 1.49 cm²: φMn = 20.00 kN·m, εt = 144.05 ‰ ≥ εt,mín = 5.10 ‰",
-          "As,req (tracción) = 4.79 cm²",
+          "As,req (tracción) = 4.76 cm²",
           "d (armadura provista) = 35.70 cm",
           "Armadura tracción: 2 Ø20 (6.28 cm²)",
           "a = 2.59 cm, c = 3.10 cm",
@@ -344,7 +344,7 @@
         "steps": [
           "d (dimensionamiento) = 35.9 cm, d' = 4.1 cm",
           "Mu = 100.00 kN·m",
-          "As,mín = 4.79 cm²",
+          "As,mín = 4.73 cm²",
           "As,req (motor, CIRSOC 201-2025) = 7.71 cm²: φMn = 100.00 kN·m, εt = 25.35 ‰ ≥ εt,mín = 5.10 ‰",
           "As,req (tracción) = 7.71 cm²",
           "d (armadura provista) = 35.45 cm",
@@ -363,7 +363,7 @@
         "steps": [
           "d = 35.4 cm",
           "Mu = 20.00 kN·m",
-          "As,req (tracción) = 4.79 cm²",
+          "As,req (tracción) = 4.76 cm²",
           "Armadura tracción: 2 Ø25 (9.82 cm²)",
           "a = 4.04 cm, c = 4.84 cm",
           "εt = 18.98‰ → φ = 0.900",
