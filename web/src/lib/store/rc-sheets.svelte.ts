@@ -58,19 +58,33 @@ function save(next: RcSheetsData): void {
 
 export const saveRcSheetsData = save;
 
-export function setAdopted(key: string, value: Adopted | null): void {
+/** Bars set for a row: by hand (the editor), kept whatever the code; `null` goes back to the proposal. */
+export function setAdopted(key: string, value: Adopted | null, byHand = true): void {
   const d = rcSheetsData();
-  const adopted = { ...d.adopted };
-  if (value) adopted[key] = JSON.parse(JSON.stringify(value)) as Adopted; else delete adopted[key];
-  save({ ...d, adopted });
+  const code = sheetCode();
+  const adopted = { ...(byHand ? d.adopted : liveAdopted(d, code)) };
+  const edited = new Set(d.edited ?? []);
+  if (value) { adopted[key] = JSON.parse(JSON.stringify(value)) as Adopted; if (byHand) edited.add(key); else edited.delete(key); } else { delete adopted[key]; edited.delete(key); }
+  save({ ...d, adopted, ...(edited.size ? { edited: [...edited] } : { edited: undefined }), ...(byHand ? {} : { adoptedCode: code }) });
 }
 
 export function adoptAll(rows: ReadonlyArray<{ key: string; proposed: unknown }>): void {
   const d = rcSheetsData();
-  const adopted = { ...d.adopted };
+  const live = liveAdopted(d, sheetCode());
+  const adopted = { ...live };
   for (const r of rows) if (!adopted[r.key]) adopted[r.key] = JSON.parse(JSON.stringify(r.proposed)) as Adopted;
-  save({ ...d, adopted });
+  save({ ...d, adopted, adoptedCode: sheetCode() });
 }
+
+/** The adopted bars that hold under `code`: those set by hand always, the adopted proposals only under the code they were adopted for. */
+export function liveAdopted(d: RcSheetsData, code: SheetCode): Record<string, Adopted> {
+  if (!d.adoptedCode || d.adoptedCode === code) return d.adopted;
+  const edited = new Set(d.edited ?? []);
+  return Object.fromEntries(Object.entries(d.adopted).filter(([k]) => edited.has(k)));
+}
+
+/** The rows the engineer edited by hand. */
+export const editedKeys = (): ReadonlySet<string> => new Set(rcSheetsData().edited ?? []);
 
 const FROM_LOAD_FAMILY: Record<LoadFamilyChoice, SheetCode> = { cirsoc: 'cirsoc201-2025', eurocode: 'en1992-1-1', uk: 'bs-en1992-1-1', us: 'aci318-19', turkey: 'ts500-2000' };
 const FROM_PROJECT: Record<string, SheetCode> = { aci318: 'aci318-19', ec2: 'en1992-1-1', 'ec2-uk': 'bs-en1992-1-1' };
@@ -265,6 +279,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const codeName = SHEET_CODES[code].name;
   if (!sets.length) return { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], code: codeName, basis, combos: 0 };
   const dd = designData();
+  const adoptedNow = liveAdopted(rcSheetsData(), code);
   const data = rcSheetsData();
   const key = basis === 'combinations' ? resultsStore.perCombo3D : sets[0]!.result;
   const groupsRev = modelStore.model.groups;
@@ -314,7 +329,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   for (const [g, rows] of byLine) {
     const first = rows[0]!;
     const ctx = beamCtx(first.demand);
-    const la = data.adopted[`line:${g}`] as LineAdopted | undefined;
+    const la = adoptedNow[`line:${g}`] as LineAdopted | undefined;
     const layout = cachedLine(first.demand, [code, ctx, la, dec, rows.map((r) => r.key)], () => rules.beamLine(rows, ctx, la, fmt));
     line.push(layout);
     const sortedRows = [...rows].sort((p, q) => (p.demand.line?.index ?? 0) - (q.demand.line?.index ?? 0));
@@ -325,10 +340,10 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   for (const d of D.beams) {
     const ctx = beamCtx(d);
     redesigners.set(d.key, ((x: typeof d) => rules.beamRow(x, ctx, undefined, fmt)) as Redesign);
-    const own = data.adopted[d.key] as BeamAdopted | undefined;
+    const own = adoptedNow[d.key] as BeamAdopted | undefined;
     let a = own ?? derived.get(d.key);
     let row = cached(d, [code, ctx, a, dec], () => rules.beamRow(d, ctx, a, fmt));
-    const lineAdopted = !!data.adopted[`line:${d.line?.group}`];
+    const lineAdopted = !!adoptedNow[`line:${d.line?.group}`];
     for (let guard = 0; ctx.seismic && !own && !lineAdopted && a && guard < 8; guard++) {
       const bad = row.verifications.some((v) => (v.label === 'rcSheets.v.seisBeamVe' || v.label === 'rcSheets.v.seisBeamHoops') && !v.ok);
       if (!bad || a.stirrups.spacing <= 0.05 + 1e-9) break;
@@ -337,14 +352,14 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
       row = cached(d, [code, ctx, tight, dec], () => rules.beamRow(d, ctx, tight, fmt));
       derived.set(d.key, tight);
     }
-    beam.push(own ? row : { ...row, isAdopted: !!data.adopted[`line:${d.line?.group}`], proposed: derived.get(d.key) ?? row.proposed });
+    beam.push(own ? row : { ...row, isAdopted: !!adoptedNow[`line:${d.line?.group}`], proposed: derived.get(d.key) ?? row.proposed });
     yield step();
   }
   const below = new Map<number, ColumnRow>();
   const column: ColumnRow[] = [];
   for (const d of D.columns) {
     const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, seismic };
-    const a = data.adopted[d.key] as ColumnAdopted | undefined;
+    const a = adoptedNow[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
     const stack = prev ? {
@@ -361,7 +376,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   for (const d of D.slabs) {
     const g = groupOf(d.key);
     const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: [6, 8, 10, 12, 16] };
-    const a = data.adopted[d.key] as SlabAdopted | undefined;
+    const a = adoptedNow[d.key] as SlabAdopted | undefined;
     redesigners.set(d.key, ((x: typeof d) => rules.slabRow(x, ctx, undefined, fmt)) as Redesign);
     slab.push(cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt)));
     yield step();
@@ -376,7 +391,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   for (const d of D.walls) {
     const g = groupOf(d.key);
     const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm, ...(seismic ? { seismic } : {}) };
-    const a = data.adopted[d.key] as WallAdopted | undefined;
+    const a = adoptedNow[d.key] as WallAdopted | undefined;
     redesigners.set(d.key, ((x: typeof d) => rules.wallRow(x, ctx, undefined, fmt)) as Redesign);
     wall.push(cached(d, [code, ctx, a, dec], () => rules.wallRow(d, ctx, a, fmt)));
     yield step();

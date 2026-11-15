@@ -172,7 +172,7 @@
       <button type="button" class="rcs-btn" onclick={() => setAdopted(row.key, null)}>{t('rcSheets.useProposal')}</button>
     {:else}
       <span class="hint">{t('rcSheets.showingProposal')}</span>
-      <button type="button" class="rcs-btn" onclick={() => setAdopted(row.key, row.proposed)}>{t('rcSheets.adoptProposal')}</button>
+      <button type="button" class="rcs-btn" onclick={() => setAdopted(row.key, row.proposed, false)}>{t('rcSheets.adoptProposal')}</button>
     {/if}
   </div>
 </div>

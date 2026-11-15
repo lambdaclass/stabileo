@@ -14268,6 +14268,8 @@ const pt: Translations = {
   "rcSheets.counts": "{n} elementos · {fail} não verificam",
   "rcSheets.allLevels": "Todos",
   "rcSheets.onlyFailing": "Só os que não verificam",
+  "rcSheets.onlyEdited": "Só editados",
+  "rcSheets.editedByHand": "Editado à mão: mantido mesmo se a norma mudar",
   "rcSheets.adoptAll": "Adotar as propostas",
   "rcSheets.adoptProposal": "Adotar a proposta",
   "rcSheets.useProposal": "Voltar à proposta",

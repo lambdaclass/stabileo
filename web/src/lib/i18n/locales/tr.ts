@@ -14467,6 +14467,8 @@ const tr: Translations = {
   "rcSheets.counts": "{n} eleman · {fail} sağlamıyor",
   "rcSheets.allLevels": "Tümü",
   "rcSheets.onlyFailing": "Yalnızca sağlamayanlar",
+  "rcSheets.onlyEdited": "Yalnız düzenlenenler",
+  "rcSheets.editedByHand": "Elle düzenlendi: yönetmelik değişse de korunur",
   "rcSheets.adoptAll": "Önerileri benimse",
   "rcSheets.adoptProposal": "Öneriyi benimse",
   "rcSheets.useProposal": "Öneriye dön",

@@ -73,6 +73,10 @@ export interface RcSheetsData {
   schedule?: { waste?: number; scope?: MarkScope };
   /** Adopted bars by row key. */
   adopted: Record<string, Adopted>;
+  /** The rows whose bars the engineer set by hand: they stay when the code changes. */
+  edited?: string[];
+  /** The code the proposals were adopted under: under another, those not edited by hand are designed again. */
+  adoptedCode?: SheetCode;
 }
 
 export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });

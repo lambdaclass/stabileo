@@ -27,7 +27,7 @@
   import RcPunchingSvg from './RcPunchingSvg.svelte';
   import RcResize from './RcResize.svelte';
   import RcScheduleView from './RcScheduleView.svelte';
-  import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { editedKeys, sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { designData } from '../../../lib/store/design-data';
   import { modelStore } from '../../../lib/store';
 
@@ -35,6 +35,7 @@
 
   let level = $state('');
   let failingOnly = $state(false);
+  let editedOnly = $state(false);
   let openKey = $state<string | null>(null);
   let slabView = $state<'panels' | 'plan'>('panels');
   let schedule = $state(false);
@@ -53,7 +54,8 @@
   type ListRow = SheetRow | (LineLayout & { family: 'line'; status: 'ok' | 'warn' | 'fail' });
   const all = $derived((family === 'beam' ? rows.line.map((l) => ({ ...l, family: 'line' as const, status: lineStatus(l) })) : rows[family]) as ListRow[]);
   const levels = $derived([...new Set(all.map((r) => r.level ?? ''))]);
-  const shown = $derived(all.filter((r) => (!level || (r.level ?? '') === level) && (!failingOnly || r.status === 'fail')));
+  const edited = $derived.by(() => { void modelStore.designData; return editedKeys(); });
+  const shown = $derived(all.filter((r) => (!level || (r.level ?? '') === level) && (!failingOnly || r.status === 'fail') && (!editedOnly || edited.has(r.key))));
   const counts = $derived(Object.fromEntries(SHEET_FAMILIES.map((f) => {
     const list = (f === 'beam' ? rows.line.map((l) => ({ status: lineStatus(l) })) : rows[f]) as Array<{ status: string }>;
     return [f, { n: list.length, fail: list.filter((r) => r.status === 'fail').length }];
@@ -94,6 +96,7 @@
         </select>
       </label>
       <label class="rcw-ctl" title={t('rcSheets.onlyFailing')}><input type="checkbox" bind:checked={failingOnly} aria-label={t('rcSheets.onlyFailing')} /> <span class="wide">{t('rcSheets.onlyFailing')}</span><span class="narrow">✗</span></label>
+      <label class="rcw-ctl" title={t('rcSheets.onlyEdited')}><input type="checkbox" bind:checked={editedOnly} aria-label={t('rcSheets.onlyEdited')} data-testid="rc-only-edited" /> <span class="wide">{t('rcSheets.onlyEdited')}</span><span class="narrow">✎</span></label>
       <button type="button" class="rcs-btn" title={t('rcSheets.adoptAll')} onclick={() => adoptAll(shown.filter((r): r is Exclude<ListRow, { family: 'punching' }> => r.family !== 'punching'))} disabled={!shown.length}><span class="wide">{t('rcSheets.adoptAll')}</span><span class="narrow">{t('rcSheets.adoptAllShort')}</span></button>
       <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} disabled={!rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">{t('rcSheets.exportShort')}</span></button>
     </div>
@@ -141,7 +144,7 @@
         <tbody>
           {#each shown as r (r.key)}
             <tr class="row st-{r.status}" class:open={openKey === r.key} onclick={() => (openKey = openKey === r.key ? null : r.key)} data-testid="rc-row">
-              <td class="nm">{r.name}{#if !r.isAdopted}<span class="tag" title={t('rcSheets.showingProposal')}>P</span>{/if}</td>
+              <td class="nm">{r.name}{#if !r.isAdopted}<span class="tag" title={t('rcSheets.showingProposal')}>P</span>{:else if edited.has(r.key)}<span class="tag" title={t('rcSheets.editedByHand')} data-testid="rc-edited-tag">✎</span>{/if}</td>
               <td>{r.level ?? ''}</td>
               {#if r.family === 'line'}
                 <td class="n">{r.spans.length}</td>

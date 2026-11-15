@@ -14467,6 +14467,8 @@ const de: Translations = {
   "rcSheets.counts": "{n} Bauteile · {fail} nicht erfüllt",
   "rcSheets.allLevels": "Alle",
   "rcSheets.onlyFailing": "Nur nicht erfüllte",
+  "rcSheets.onlyEdited": "Nur bearbeitete",
+  "rcSheets.editedByHand": "Von Hand bearbeitet: bleibt bei einem Normwechsel erhalten",
   "rcSheets.adoptAll": "Vorschläge übernehmen",
   "rcSheets.adoptProposal": "Vorschlag übernehmen",
   "rcSheets.useProposal": "Zurück zum Vorschlag",

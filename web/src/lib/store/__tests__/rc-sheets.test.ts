@@ -272,6 +272,29 @@ describe('reinforcement sheets from a solved model', () => {
     expect(ln.envelope.every((e) => e.pos <= e.phiPos + 1e-6 && e.neg <= e.phiNeg + 1e-6)).toBe(true);
   });
 
+  it('designs again under another code everything but what the engineer set by hand', () => {
+    frame(); solve();
+    setSheetCode('cirsoc201-2025');
+    let rows = buildSheetRows();
+    const col = rows.column[0]!;
+    const byHand = { ...col.proposed, tieSpacing: 0.1 };
+    setAdopted(col.key, byHand);
+    adoptAll([...rows.column, ...rows.line]);
+    expect(rcSheetsData().edited).toEqual([col.key]);
+    expect(rcSheetsData().adoptedCode).toBe('cirsoc201-2025');
+    setSheetCode('en1992-1-1');
+    rows = buildSheetRows();
+    expect(rows.column.find((r) => r.key === col.key)!.isAdopted).toBe(true);
+    expect(rows.column.find((r) => r.key === col.key)!.adopted.tieSpacing).toBeCloseTo(0.1, 9);
+    expect(rows.column.filter((r) => r.key !== col.key).every((r) => !r.isAdopted)).toBe(true);
+    expect(rows.line.every((l) => !l.isAdopted)).toBe(true);
+    setSheetCode('cirsoc201-2025');
+    rows = buildSheetRows();
+    expect(rows.column.every((r) => r.isAdopted)).toBe(true);
+    setAdopted(col.key, null);
+    expect(rcSheetsData().edited ?? []).toEqual([]);
+  });
+
   it('gives the line its shear envelope against the stirrups of each zone', () => {
     frame(); solve();
     const ln = buildSheetRows().line[0]!;

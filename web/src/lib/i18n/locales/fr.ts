@@ -14467,6 +14467,8 @@ const fr: Translations = {
   "rcSheets.counts": "{n} éléments · {fail} non vérifiés",
   "rcSheets.allLevels": "Tous",
   "rcSheets.onlyFailing": "Seulement les non vérifiés",
+  "rcSheets.onlyEdited": "Modifiés seulement",
+  "rcSheets.editedByHand": "Modifié à la main : conservé si la norme change",
   "rcSheets.adoptAll": "Adopter les propositions",
   "rcSheets.adoptProposal": "Adopter la proposition",
   "rcSheets.useProposal": "Revenir à la proposition",

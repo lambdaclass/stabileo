@@ -14627,6 +14627,8 @@ const en: Record<string, string> = {
   "rcSheets.counts": "{n} members · {fail} failing",
   "rcSheets.allLevels": "All",
   "rcSheets.onlyFailing": "Failing only",
+  "rcSheets.onlyEdited": "Edited only",
+  "rcSheets.editedByHand": "Edited by hand: kept when the code changes",
   "rcSheets.adoptAll": "Adopt the proposals",
   "rcSheets.adoptProposal": "Adopt the proposal",
   "rcSheets.useProposal": "Back to the proposal",

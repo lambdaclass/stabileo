@@ -14616,6 +14616,8 @@ const es: Record<string, string> = {
   "rcSheets.counts": "{n} elementos · {fail} no verifican",
   "rcSheets.allLevels": "Todos",
   "rcSheets.onlyFailing": "Solo los que no verifican",
+  "rcSheets.onlyEdited": "Solo editados",
+  "rcSheets.editedByHand": "Editado a mano: se mantiene aunque cambie la norma",
   "rcSheets.adoptAll": "Adoptar las propuestas",
   "rcSheets.adoptProposal": "Adoptar la propuesta",
   "rcSheets.useProposal": "Volver a la propuesta",

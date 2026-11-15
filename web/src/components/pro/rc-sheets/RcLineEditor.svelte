@@ -78,7 +78,7 @@
       <button type="button" class="rcs-btn" onclick={() => setAdopted(line.key, null)}>{t('rcSheets.useProposal')}</button>
     {:else}
       <span class="hint">{t('rcSheets.showingProposal')} · {t('rcSheets.s.iterations')}: {line.iterations}</span>
-      <button type="button" class="rcs-btn" onclick={() => setAdopted(line.key, line.proposed)}>{t('rcSheets.adoptProposal')}</button>
+      <button type="button" class="rcs-btn" onclick={() => setAdopted(line.key, line.proposed, false)}>{t('rcSheets.adoptProposal')}</button>
     {/if}
     <span class="hint">{fmt(line.bars.reduce((s, b) => s + b.weight, 0), 1)} kg</span>
   </div>
