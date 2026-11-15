@@ -13,7 +13,8 @@
  * at any of the 14 spans (`span-fixture.ts`, `design-anchorage-coherence.test.ts`), and what this
  * file reads is how the mesh's pieces become spans, which needs spans that design.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
+import * as autoVerification from '../../engine/auto-verify';
 import { historyStore, modelStore, resultsStore, uiStore } from '..';
 import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
@@ -33,6 +34,17 @@ beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
   expect(wasmSolver.isSolverReady(), 'real WASM solver required').toBe(true);
 });
+
+beforeEach(() => {
+  const original = autoVerification.autoVerifyFromResults;
+  vi.spyOn(autoVerification, 'autoVerifyFromResults').mockImplementation((results, model, governing, options, demands) => {
+    const cached = original(results, model, governing, options, demands);
+    const uncached = results.elementForces.flatMap(ef => original({ ...results, elementForces: [ef] }, model, governing, options, demands).concrete);
+    expect(cached.concrete).toEqual(uncached);
+    return cached;
+  });
+});
+afterEach(() => vi.restoreAllMocks());
 
 const grid: StructuralGrid = {
   axes: [

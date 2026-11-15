@@ -307,3 +307,40 @@ it('a changed tuple in the same array cannot reuse a previous shared-span check'
   expect(verify).toHaveBeenCalledTimes(2);
   expect(actual.map(v => v.concurrentChecks![0]!.demand.n)).toEqual([0, -100]);
 });
+
+for (const edition of ['2005', '2025'] as const) for (const entry of ['auto', 'unified', 'design'] as const) for (const reverse of [false, true]) {
+  it.fails(`known wrong result: #2080 shared tuples retain opposite axes ${edition} ${entry} reverse=${reverse}`, () => {
+    const { model, results } = sharedBeamModel();
+    model.sections.set(1, { id: 1, name: 'RC', b: 0.3, h: 0.6 });
+    model.sections.set(2, { id: 2, name: 'RC reversed', b: 0.6, h: 0.3 });
+    model.elements.get(2)!.sectionId = 2;
+    const demands = extractGoverningDemands({ elementId: 1, length: 2, stationTs: [0, 1],
+      comboResults: [{ comboId: 1, comboName: 'unequal axes', stations: [0, 1].map(t => ({
+        t, x: 2 * t, n: 0, my: 20, mz: 15, vy: 2, vz: 5, torsion: 0,
+      })) }] });
+    const forces = reverse ? [...results.elementForces].reverse() : results.elementForces;
+    const shared = new Map([[1, demands], [2, demands]]);
+    const run = (elementForces: typeof forces) => entry === 'auto'
+      ? autoVerifyFromResults({ ...results, elementForces }, model, null, { edition }, shared).concrete
+      : entry === 'unified' ? runUnifiedVerification({ ...results, elementForces }, model, null, shared, { edition })
+        : runCirsocDesign({ ...results, elementForces }, model, shared, new Map(), null, { edition }).concrete;
+    const expected = forces.flatMap(ef => run([ef]));
+    expect(new Set(expected.map(v => v.flexureAxis)).size).toBe(2);
+    expect(expected.every(v => v.engineRecheck?.certified?.ok)).toBe(true);
+    expect(run(forces)).toEqual(expected);
+  });
+}
+
+it.each(cases)('every shared $elementType $axis $edition fixture equals an uncached verification', options => {
+  const { model, results } = sharedBeamModel();
+  if (options.elementType !== 'beam') {
+    for (const node of model.nodes.values()) { node.z = node.x; node.x = 0; }
+  }
+  const inputs = inputsFor(options);
+  const demands = extractGoverningDemands({ elementId: 1, length: 2, stationTs: inputs.map(i => i.demand.source.stationT),
+    comboResults: inputs.map(i => ({ comboId: i.demand.source.comboId, comboName: i.demand.source.comboName,
+      stations: [{ ...i.demand.source.forces }] })) });
+  const run = (elementForces: typeof results.elementForces) => autoVerifyFromResults({ ...results, elementForces }, model,
+    null, { edition: options.edition }, new Map([[1, demands], [2, demands]])).concrete;
+  expect(run(results.elementForces)).toEqual(results.elementForces.flatMap(ef => run([ef])));
+});

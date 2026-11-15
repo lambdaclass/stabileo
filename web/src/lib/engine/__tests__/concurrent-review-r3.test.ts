@@ -1,4 +1,5 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
+import * as steelKernel from '../codes/argentina/cirsoc301-kernel';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { checkSteelInteraction, interactionRatios, verifySteelElement, type SteelDesignParams } from '../codes/argentina/cirsoc301';
 import { checkSteelMember, steelDemandOf, checkVariableSteelMember, type SteelMemberDemand } from '../verification-service';
@@ -141,3 +142,13 @@ for (const reverse of [false, true]) {
     }
   });
 }
+
+it.fails('known wrong result: #2080 concurrent steel stations use a batch whole-member check', () => {
+  const ds = Array.from({ length: 64 }, (_, i) => packet(-i, i + 1, i + 1));
+  const calls = vi.spyOn(steelKernel, 'engineCheckMembers');
+  try {
+    const v = checkSteelMember(1, demand(ds, 63), section, steel, lengths)!;
+    expect(v.compression!.Pu).toBe(63);
+    expect(calls.mock.calls.length).toBeLessThan(10);
+  } finally { calls.mockRestore(); }
+});
