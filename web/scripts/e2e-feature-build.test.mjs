@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { build } from 'vite';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { buildPublicFeatures, e2eBuildFeatures } from './build-public-features.ts';
@@ -98,4 +98,47 @@ for (const mask of [0, 1, 2, 4, 8, 15]) {
     for (const suite of report.suites) inspect(suite);
     assert.ok(inspected > 0);
   });
+}
+
+for (const value of [undefined, '0', '1']) {
+  for (const prebuilt of [false, true]) {
+    test(`#2099 shape-control coverage follows the served research switch=${value}, prebuilt=${prebuilt}`, { skip: value !== '1' && 'known wrong result: #2099' }, () => {
+      const directory = mkdtempSync(resolve(root, '.e2e-feature-test-'));
+      try {
+        const enabled = value === '1';
+        for (const path of ['e2e', 'scripts', 'dist']) mkdirSync(resolve(directory, path));
+        for (const path of ['e2e/research-shape-control.spec.ts', 'e2e/build-features.ts', 'scripts/build-public-features.ts']) writeFileSync(resolve(directory, path), readFileSync(resolve(root, path)));
+        writeFileSync(resolve(directory, 'playwright.config.ts'), `export default { testDir: './e2e', projects: [{ name: 'smoke' }] };`);
+        writeFileSync(resolve(directory, 'dist/e2e-features.json'), JSON.stringify(Object.fromEntries(keys.map(key => [key, enabled ? '1' : '0']))));
+        const environment = { ...process.env, E2E_PREBUILT: prebuilt ? '1' : '0' };
+        for (const key of keys) delete environment[key];
+        if (value !== undefined) environment.VITE_RESEARCH = value;
+        if (prebuilt) {
+          environment.VITE_RESEARCH = enabled ? '0' : '1';
+        }
+        const report = JSON.parse(execFileSync(process.execPath, [resolve(root, 'node_modules/@playwright/test/cli.js'), 'test', '--config', resolve(directory, 'playwright.config.ts'), '--project=smoke', '--list', '--reporter=json'], {
+          cwd: root,
+          env: environment,
+          encoding: 'utf8',
+        }));
+        const specs = [];
+        function inspect(suite) {
+          specs.push(...(suite.specs ?? []));
+          for (const child of suite.suites ?? []) inspect(child);
+        }
+        for (const suite of report.suites) inspect(suite);
+        assert.equal(specs.length, 5);
+        const baseline = specs.filter(spec => /: the path takes|: a rectangle below/.test(spec.title));
+        assert.equal(baseline.length, 2);
+        for (const spec of specs) {
+          const available = baseline.includes(spec) || enabled;
+          assert.equal(spec.tests.length, 1, spec.title);
+          assert.equal(spec.tests[0].expectedStatus, available ? 'passed' : 'skipped', spec.title);
+          if (!available) assert.ok(spec.tests[0].annotations.some(annotation => annotation.type === 'skip' && annotation.description.includes('build')));
+        }
+      } finally {
+        rmSync(directory, { recursive: true });
+      }
+    });
+  }
 }
