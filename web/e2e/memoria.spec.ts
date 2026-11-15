@@ -5,7 +5,7 @@
  * limit and never as satisfying a code. The document itself is pinned in
  * `lib/report/memoria/__tests__/memoria.test.ts`.
  */
-import { test, expect, designAll, loadModel, openSteelDocuments, solveModel, openDeskStage, designPlace, leaveDesign } from './fixtures';
+import { test, expect, designAll, loadModel, openSteelDocuments, solveModel, designPlace } from './fixtures';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -14,8 +14,6 @@ test.describe('@slow memoria', () => {
   test('the concrete frame: every chapter, one left out, another language, the file', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    await designPlace(page, 'list');
-    await page.getByTestId('cmd-generate-detailing').click();
     await expect.poll(async () => page.evaluate(() =>
       (window.__stabileo as unknown as { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 30_000 }).toBeGreaterThan(0);
     await openSteelDocuments(page);
@@ -50,12 +48,6 @@ test.describe('@slow memoria', () => {
   test('the steel shed: its members within the limit, never satisfying', async ({ pro: page }) => {
     await loadModel(page, '3d-nave-industrial');
     await solveModel(page);
-    await openDeskStage(page);
-    await page.getByTestId('desk-design').click();
-    if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
-    await page.getByTestId('desk-run').click();
-    await expect(page.getByTestId('desk-report')).toBeVisible({ timeout: 120_000 });
-    await leaveDesign(page);
     await designPlace(page, 'steel');
     const stage = page.getByTestId('steel-stage-documents');
     if (await stage.getAttribute('open') === null) await stage.locator('> summary').click();

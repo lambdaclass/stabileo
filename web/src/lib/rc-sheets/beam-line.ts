@@ -1,7 +1,7 @@
 import { deriveDevelopment, deriveHookedDevelopment, deriveLap, concreteBelowTopBars, topBarFactor } from '../codes/cirsoc201/anchorage';
 import { minMandrelDiameter } from '../codes/cirsoc201/bar-geometry';
 import { transverseSpacingLimits } from '../codes/cirsoc201/transverse-spacing';
-import { evaluateCutoff, type CutoffLegality } from '../engine/detailing/generate-beam';
+import { evaluateCutoff, type CutoffLegality } from './cutoff';
 import { evaluateBeamSections } from '../engine/codes/argentina/cirsoc201-beam-kernel';
 import { minFlexuralSteelCm2 } from '../engine/codes/argentina/cirsoc201-basis';
 import { barArea, faceLayout, groupsArea, groupsLabel, roundDown } from './bars';

@@ -155,34 +155,6 @@ describe('the defect the measurement found', () => {
     expect(contrast(PALETTE.danger, over('#ee2222', 0.16, SURFACE))).toBeGreaterThan(AA_TEXT);
     expect(contrast(PALETTE.danger, over('#ee2222', 0.14, SURFACE))).toBeGreaterThan(AA_TEXT);
   });
-
-  it('and both components now carry the role colour, not the brand one', () => {
-    /*
-     * This used to assert the DEFECT — that `.badge-fail` and `.banner-block` still reached for
-     * `--st-accent`, the primary-action vermillion, on an error background — so that the fix had
-     * an address. Merging `main` in brought the fix: `.badge-fail` is `--st-danger` now, and
-     * `DesignToolbar` no longer carries the rule at all.
-     *
-     * Turned around rather than deleted. A test that documents a defect is worth exactly as long
-     * as the defect lasts; the same file, asserted the other way, is a guard against it coming
-     * back.
-     */
-    const badge = read('components/pro/design/OutcomeBadge.svelte');
-    expect(badge).toMatch(/\.badge-fail\s*\{[^}]*var\(--st-danger\)/);
-    expect(badge, 'the brand vermillion is back on the failure badge')
-      .not.toMatch(/\.badge-fail\s*\{[^}]*var\(--st-accent\)/);
-    /*
-     * `.banner-block` was the third and last, asserted as still broken so the report could not
-     * go stale in the other direction. Its failure message said "the banner was fixed; update
-     * the reconciliation", and merging H1 is what fixed it — so this is that update.
-     *
-     * All three instances now carry the role colour. The assertion stays, pointed the other
-     * way, because the defect was reintroduced once already.
-     */
-    expect(read('components/pro/design/DesignToolbar.svelte'),
-      'the brand vermillion is back on the block banner')
-      .not.toMatch(/\.banner-block\s*\{[^}]*var\(--st-accent\)/);
-  });
 });
 
 describe('the proposed backgrounds, measured on both surfaces', () => {
@@ -276,10 +248,9 @@ describe('the provisional split, and why one token is not enough', () => {
 });
 
 describe('the one violet, as it is guarded today', () => {
-  it('is the token value, and the panels reach it through the token', () => {
+  it('is the token value', () => {
     const css = read('styles/tokens.css');
     expect(css, 'the token itself, first').toMatch(/--st-provisional:\s*#a066d3/);
-    expect(read('components/pro/design/OutcomeBadge.svelte')).toContain('var(--st-provisional');
   });
 });
 

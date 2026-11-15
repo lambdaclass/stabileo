@@ -214,7 +214,6 @@ export async function bootPro(page: Page, appLocale = 'en'): Promise<void> {
     .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000, message: 'real WASM solver must be initialised (not the Vite stub)' })
     .toBe(true);
 
-  // The RC Design tab must be the active PRO tab for its table to exist.
   await page.evaluate(() => window.__stabileoActions.openDesignTab());
 }
 
@@ -637,79 +636,32 @@ export function appLanguage(page: Page): Promise<string | null> {
 
 /**
  * The Design stage is one workspace: the desk, docked around the viewer. `openDeskStage` lands on
- * it, on the place it was left. The screens the stage used to open beside the viewer (the
- * concrete workflow with its member table and its detailing, the steel profiles, the steel
- * connections, the design data, the check under other codes) are places of the desk now, reached
- * with `designPlace`, which presses the step the place belongs to and then its rail entry, as a
- * person does.
+ * it, on the place it was left; `designPlace` presses a place's rail entry, as a person does.
  */
 export async function openDeskStage(page: Page): Promise<void> {
   if (!(await page.getByTestId('design-desk').isVisible())) await page.getByTestId('pr-stage-design').click();
   await expect(page.getByTestId('design-desk')).toBeVisible();
 }
 
-/** The places of design and the step each belongs to (`stepOf` in `design-desk-ui.svelte.ts`). */
-const PLACE: Record<string, { step: string; rail: string }> = {
-  prepare: { step: 'prepare', rail: 'desk-rail-prepare' },
-  designData: { step: 'prepare', rail: 'desk-rail-designData' },
-  plan: { step: 'size', rail: 'desk-tab-plan' },
-  levels: { step: 'size', rail: 'desk-tab-levels' },
-  list: { step: 'size', rail: 'desk-rail-list' },
-  steel: { step: 'size', rail: 'desk-rail-steel' },
-  connections: { step: 'size', rail: 'desk-rail-connections' },
-  codes: { step: 'size', rail: 'desk-rail-codes' },
-  sheets: { step: 'document', rail: 'desk-rail-sheets' },
+const PLACE: Record<string, string> = {
+  designData: 'desk-rail-designData',
+  steel: 'desk-rail-steel',
+  connections: 'desk-rail-connections',
+  codes: 'desk-rail-codes',
+  sheets: 'desk-rail-sheets',
 };
 export type DesignPlace = keyof typeof PLACE | 'otherCodes' | 'foreignCodes';
 
 /**
  * Go to a place of design, entering design first when it is not on screen. `otherCodes` is «Other
- * code» in its independent-check mode (the ribbon's former «Check members»), `foreignCodes` in its
- * equivalences mode (the desk's former «Foreign codes»).
+ * code» in its independent-check mode, `foreignCodes` in its equivalences mode.
  */
 export async function designPlace(page: Page, place: DesignPlace): Promise<void> {
   await openDeskStage(page);
   const key = place === 'otherCodes' || place === 'foreignCodes' ? 'codes' : place;
-  const p = PLACE[key]!;
-  const rail = page.getByTestId(p.rail);
-  if (!(await rail.isVisible())) await page.getByTestId(`desk-step-${p.step}`).click();
-  await rail.click();
+  await page.getByTestId(PLACE[key]!).click();
   if (place === 'otherCodes') await page.getByTestId('codes-mode-verify').click();
   if (place === 'foreignCodes') await page.getByTestId('codes-mode-memoria').click();
-}
-
-/** Kept for the specs written against the classic screens: design on screen, on the member list. */
-export async function openClassicDesign(page: Page): Promise<void> {
-  await designPlace(page, 'list');
-}
-
-/** «Size…» over every member, from the top of the Design stage, keeping what was edited by hand. */
-/**
- * «Size…» over every member, in one pass: the sections kept, as the specs that read a design's
- * counts were written. Enlarging the sections until every member verifies is the dialog's default
- * and is pinned in `design-resize.test.ts`; on the 408-member frame its rounds outlast a spec.
- */
-export async function sizeAll(page: Page, o: { resize?: boolean } = {}): Promise<void> {
-  await openDeskStage(page);
-  if (!(await page.getByTestId('desk-design').isVisible())) await page.getByTestId('desk-step-size').click();
-  await page.getByTestId('desk-design').click();
-  await page.getByTestId('desk-run-scope-all').check();
-  await page.getByTestId('desk-run-resize').setChecked(o.resize ?? false);
-  await page.getByTestId('desk-run').click();
-}
-
-/** Generate the coordinated detailing, from the Size step at the top of the Design stage. */
-export async function generateDetailing(page: Page): Promise<void> {
-  await designPlace(page, 'list');
-  await page.getByTestId('cmd-generate-detailing').click();
-}
-
-/** The floor pass (slabs, walls, foundations), a sub-step under the member list, opened. */
-export async function openFloorPass(page: Page): Promise<void> {
-  await designPlace(page, 'list');
-  const d = page.getByTestId('floor-families-disclosure');
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
-  await expect(d).toHaveAttribute('open', '');
 }
 
 /** Leave design for the model stage, by the stage bar (the desktop has no close of its own). */
@@ -720,40 +672,29 @@ export async function leaveDesign(page: Page): Promise<void> {
 
 /**
  * Declare the beams NOT part of the lateral-force-resisting system, through the design data
- * panel, and come back to the design table. Call it after `loadModel` and before designing.
- *
- * Since 292b87f68 a beam that declares no role is designed as part of the system (§9.7.3.8.2:
- * its bottom bars develop fy at the column face), and on that reading the frame fixtures refuse
- * beams of their own: `rc-design-qa-8` e5 and e6, `pro-edificio-7p` all 119 beams,
- * `rc-qa-diagnostic` five (SEARCH_EXHAUSTED, on that anchorage). A spec whose subject needs a
- * design that converges (a converged claim, a constructible level, a provisional proposal on a
- * beam) declares the role, which is the statement a user of these frames makes, and says so.
+ * place. Call it after `loadModel` and before designing: a beam that declares no role is designed
+ * as part of the system (§9.7.3.8.2), and on that reading the frame fixtures refuse beams of their
+ * own.
  */
 export async function declareBeamsNotLateral(page: Page): Promise<void> {
   await designPlace(page, 'designData');
   await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
-  await designPlace(page, 'list');
 }
 
 /**
- * The desk's views: the piece editors are under «Piece» and what is pending under «Pending», in
- * the Size step, with the specialties in its menu; the project's surfaces are in the menu at the
- * foot of every step.
+ * The desk's other places: the pieces under «Piece», the specialties and the project's surfaces
+ * in the menus at the foot of the rail.
  */
 const DESK_MENU: Record<string, string> = {
-  frame: 'desk-mode-piece', column: 'desk-mode-piece', wall: 'desk-mode-piece', slab: 'desk-mode-piece', joist: 'desk-mode-piece',
-  special: 'desk-mode-piece', pt: 'desk-mode-piece', stairs: 'desk-mode-piece', footing: 'desk-mode-piece', joint: 'desk-mode-piece',
-  elements: 'desk-mode-piece', geometry: 'desk-mode-pending', report: 'desk-mode-pending',
+  stairs: 'desk-mode-piece', joint: 'desk-mode-piece', elements: 'desk-mode-piece',
   seismic: 'desk-menu-specialties', fire: 'desk-menu-specialties', materials: 'desk-menu-specialties',
-  budget: 'desk-menu-project', collab: 'desk-menu-project', arch: 'desk-menu-project', site: 'desk-menu-project',
+  collab: 'desk-menu-project', arch: 'desk-menu-project', site: 'desk-menu-project',
 };
-const PROJECT_SURFACES = ['budget', 'collab', 'arch', 'site'];
 export async function deskTab(page: Page, tab: string): Promise<void> {
   if (tab === 'codes') { await designPlace(page, 'foreignCodes'); return; }
   if (PLACE[tab]) { await designPlace(page, tab as DesignPlace); return; }
+  await openDeskStage(page);
   const target = page.getByTestId(`desk-tab-${tab}`);
-  if (await target.isVisible()) { await target.click(); return; }
-  if (!PROJECT_SURFACES.includes(tab) && !(await page.getByTestId('desk-mode-piece').isVisible())) await page.getByTestId('desk-step-size').click();
   if (!(await target.isVisible()) && DESK_MENU[tab]) await page.getByTestId(DESK_MENU[tab]!).click();
   await target.click();
 }
@@ -773,13 +714,9 @@ export async function clickStage(page: Page, stage: string): Promise<void> {
  * lives, opening that menu first when the command is inside it.
  */
 export const MORE_TOOLS = ['building', 'foundations', 'physical', 'generators'] as const;
-/*
- * The Design stage's commands are places of the desk (interface A); the ribbon draws them only
- * while the desk is not on screen. A spec that pressed one goes to its place instead.
- */
+/* The Design stage's commands are places of the desk; a spec that pressed one goes to its place. */
 const DESIGN_CMD: Record<string, DesignPlace> = {
-  design: 'list', designList: 'list', designData: 'designData', designPrepare: 'prepare', steel: 'steel',
-  connections: 'connections', otherCodes: 'otherCodes', sheets: 'sheets',
+  designData: 'designData', steel: 'steel', connections: 'connections', otherCodes: 'otherCodes', sheets: 'sheets',
 };
 export async function ribbonCmd(page: Page, id: string): Promise<void> {
   if (DESIGN_CMD[id] && !(await page.getByTestId(`pr-cmd-${id}`).isVisible())) { await designPlace(page, DESIGN_CMD[id]!); return; }

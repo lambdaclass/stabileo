@@ -206,14 +206,14 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Voici le modèle : une poutre de 5 m sur appuis simples, 20×40, H-25, avec 12 kN/m de charge permanente et 8 kN/m de charge d'exploitation, plus son poids propre. Il s'ouvre dans le flux de dimensionnement de PRO, avec CIRSOC 201 comme norme de dimensionnement en vigueur."
+      "t": "Voici le modèle : une poutre de 5 m sur appuis simples, 20×40, H-25, avec 12 kN/m de charge permanente et 8 kN/m de charge d'exploitation, plus son poids propre. Il s'ouvre dans les feuilles de ferraillage de PRO, avec CIRSOC 201-2025 comme norme."
     },
-    {"k": "img", "base": "blog/cirsoc-201-beam", "w": 1600, "h": 1000, "alt": "Stabileo PRO, espace Dimensionnement, étape Dimensionner, avec la poutre 20×40 sélectionnée après calcul et dimensionnement. Le panneau de la barre indique « vérifiée, η local 0,90 » selon le CIRSOC 201 (2025), avec 13 vérifications sur les axes My et Vz et une utilisation maximale de 0,900.", "caption": "La poutre ci-dessous après « Dimensionner… » : le CIRSOC 201 la vérifie avec une utilisation de 0,90."},
+    {"k": "img", "base": "blog/cirsoc-201-sheets", "w": 1600, "h": 1000, "alt": "Stabileo PRO, feuilles de ferraillage selon le CIRSOC 201-2025, la feuille des poutres ouverte sur V1 après calcul et dimensionnement. La ligne propose 2 Ø25 filants en partie basse, 2 Ø12 filants en partie haute et des étriers Ø8 tous les 18 cm, avec un taux de 0,79 et l'état Large. En dessous, l'élévation avec les repères des barres et les enveloppes de moment et d'effort tranchant face à la capacité.", "caption": "La poutre ci-dessous dans la feuille des poutres, après « Dimensionner les armatures » : les 2 Ø25 que propose Stabileo se ferment sur 0,79."},
     {
       "k": "embed",
       "mode": "pro",
-      "query": "example=rc-beam-flexure&proTab=design",
-      "label": "La poutre dans Stabileo, dans le flux de dimensionnement de PRO. Si le dimensionnement est désactivé, cliquez sur « Activer le dimensionnement pour cette visite » dans l'avis. Trois boutons, dans cet ordre : « Calculer les sollicitations », « Calculer l'acier requis » et « Dimensionner… ». Seul le troisième choisit les barres, et tant qu'il n'y a pas de barres, il n'y a rien à vérifier : le tableau indique « sans armatures ». La portée de 5 m est modélisée en deux éléments ; les deux aboutissent à S/R = 0,90, avec l'effort tranchant en travée comme critère déterminant : la flexion et l'ancrage des barres restent en dessous. Modifiez la charge et relancez le calcul. Le dimensionnement réglementaire dans PRO est encore en développement ; le module béton est la partie implémentée et testée."
+      "query": "example=rc-beam-flexure&proTab=rcSheets",
+      "label": "La poutre dans Stabileo, dans les feuilles de ferraillage de PRO. Quatre boutons, dans cet ordre : « Calculer », « Feuilles de ferraillage » (sous Sortie), « Dimensionner les armatures » et « Poutres ». Le premier calcule le modèle et affiche les résultats, le deuxième ramène aux feuilles, le troisième dimensionne les armatures et le quatrième ouvre la feuille des poutres : la ligne de V1 propose 2 Ø25 filants en partie basse et 2 Ø12 en partie haute, se ferme sur un taux de 0,79 et indique « Large ». Ouvrez-la pour voir l'enveloppe des moments face à la capacité et chaque vérification ; celle qui donne ce taux est « Enveloppe couverte sur toute la poutre, barres ancrées ». Changez la charge et recalculez. Les feuilles de ferraillage sont encore en développement : vérifiez les résultats."
     },
     {
       "k": "h",
@@ -230,7 +230,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Tous les chiffres de cet article proviennent du module CIRSOC 201 de Stabileo, exécuté sur les sections indiquées, et non d'un tableau. Un avertissement qui mérite d'être transmis, parce que la première version de cet article s'est trompée : le calcul à la main donnait S/R = 0,74 et l'application 0,81. La différence venait du poids propre, 2 kN/m que l'application ajoute au cas des charges permanentes. L'application avait raison. Et une remarque sur l'éditeur ci-dessus, pour que les deux chiffres ne se contredisent pas : ce 0,81 suppose 2 Ø25, l'armature avec laquelle travaille cet article ; le 0,90 qu'affiche l'éditeur correspond aux barres qu'il choisit lui-même lorsqu'il dimensionne. Même poutre, deux armatures différentes. Si un chiffre de cet article cesse un jour de correspondre à l'éditeur, croyez l'éditeur."
+      "t": "Tous les chiffres de cet article proviennent du module CIRSOC 201 de Stabileo, exécuté sur les sections indiquées, et non d'un tableau. Un avertissement qui mérite d'être transmis, parce que la première version de cet article s'est trompée : le calcul à la main donnait S/R = 0,74 parce qu'il oubliait le poids propre, 2 kN/m que l'application ajoute au cas des charges permanentes. Avec lui, la poutre sur appuis simples porte 1,2·14 + 1,6·8 = 29,6 kN/m, Mu = 29,6·5²/8 = 92,5 kN·m et, avec 2 Ø25 (φMn = 115,2 kN·m), S/R = 0,80. La feuille ci-dessus propose précisément 2 Ø25 en partie basse et se ferme sur 0,79. Si un chiffre de cet article cesse un jour de correspondre à l'éditeur, croyez l'éditeur."
     }
   ]
 };

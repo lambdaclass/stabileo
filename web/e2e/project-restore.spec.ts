@@ -45,7 +45,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { declareBeamsNotLateral, designPlace, openFloorPass } from './fixtures';
+import { declareBeamsNotLateral } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -377,7 +377,7 @@ test('@slow restore, design, detail — then reload and do it again', async ({ p
   await calculate(page);
   await assertClean(page, w, 'calculate after restore');
 
-  // ── 7. Verify, design all, detail, and design the floors ─────────
+  // ── 7. Verify, design all and detail ─────────────────────────────
   await page.evaluate(() => window.__stabileoActions.computeDemands());
   await page.evaluate(() => window.__stabileoActions.codeCheck());
   await page.evaluate(() => window.__stabileoActions.designAll());
@@ -387,22 +387,12 @@ test('@slow restore, design, detail — then reload and do it again', async ({ p
   expect(runCounts.verified, 'members were verified').toBeGreaterThan(0);
   await assertClean(page, w, 'design all');
 
-  await designPlace(page, 'list');
-  const generate = page.getByTestId('cmd-generate-detailing');
-  await expect(generate).toBeEnabled();
-  await generate.click();
   await expect
     .poll(() => page.evaluate(() => (window.__stabileo as unknown as
       { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 180_000 })
     .toBeGreaterThan(0);
-
-  await openFloorPass(page);
-  const floors = page.getByTestId('floor-design-run');
-  await expect(floors).toBeEnabled();
-  await floors.click();
-  await expect(page.getByTestId('floor-families')).toBeVisible({ timeout: 300_000 });
-  await assertClean(page, w, 'detailing and floor design');
-  await assertResponsive(page, 'after the floor design');
+  await assertClean(page, w, 'detailing');
+  await assertResponsive(page, 'after the detailing');
 
   // ── 8–10. Reload, restore again, calculate again ─────────────────
   /**
@@ -454,10 +444,6 @@ test('@slow restore, design, detail — then reload and do it again', async ({ p
   await page.evaluate(() => window.__stabileoActions.designAll());
   await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0),
     { timeout: 180_000 }).toBeGreaterThan(0);
-  await designPlace(page, 'list');
-  const regenerate = page.getByTestId('cmd-generate-detailing');
-  await expect(regenerate).toBeEnabled();
-  await regenerate.click();
   await expect
     .poll(() => page.evaluate(() => (window.__stabileo as unknown as
       { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 180_000 })

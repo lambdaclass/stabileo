@@ -95,12 +95,7 @@ test.describe('@smoke Model — Organize, Draw, the tools on demand, and Code on
 });
 
 /*
- * ── Design: the ribbon draws no groups; the desk's rail holds the places ──
- *
- * Interface A: the Design stage is one workspace, and its top row is the desk's three steps
- * (`DeskProcessBar`), not seven commands. The placement claims these blocks made of the ribbon's
- * Design groups are claims about the rail now: concrete and steel are two sub-sections of sizing,
- * concrete first, each place once.
+ * ── Design: its commands in the ribbon, its places in the desk's rail ──
  */
 const railSection = (page: Page, testid: string) =>
   page.getByTestId(testid).evaluate((el) => {
@@ -109,26 +104,23 @@ const railSection = (page: Page, testid: string) =>
     return (n?.textContent ?? '').trim();
   });
 
-test.describe('@smoke Design — Concrete and Steel are two sub-sections of sizing', () => {
-  test('the stage draws no ribbon groups: its row is the steps of design', async ({ pro: page }) => {
+test.describe('@smoke Design — the steel places in the rail', () => {
+  test('the stage draws its commands in the ribbon, each opening its place', async ({ pro: page }) => {
     await openStage(page, 'design');
-    await expect(page.locator('.pr-groups')).toHaveCount(0);
-    await expect(page.getByTestId('desk-process')).toBeVisible();
+    await expect(page.locator('section[data-group="designSize"]')).toBeVisible();
+    await page.getByTestId('pr-cmd-connections').click();
+    await expect(page.getByTestId('desk-rail-connections')).toHaveClass(/on/);
   });
 
   test('each place is under the material it belongs to', async ({ pro: page }) => {
-    await designPlace(page, 'plan');
-    expect(await railSection(page, 'desk-rail-list'), 'the member list is concrete').toMatch(/concrete/i);
-    expect(await railSection(page, 'desk-tab-plan'), 'the plan is concrete').toMatch(/concrete/i);
+    await designPlace(page, 'steel');
     expect(await railSection(page, 'desk-rail-steel'), 'profile design is steel').toMatch(/steel/i);
     expect(await railSection(page, 'desk-rail-connections'), 'joints are steel').toMatch(/steel/i);
   });
 
-  test('concrete comes first, and each place appears once', async ({ pro: page }) => {
-    await designPlace(page, 'plan');
-    const ids = await page.getByTestId('desk-rail').locator('[data-testid]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
-    expect(ids.indexOf('desk-rail-list')).toBeLessThan(ids.indexOf('desk-rail-steel'));
-    for (const id of ['desk-tab-plan', 'desk-rail-list', 'desk-rail-steel', 'desk-rail-connections', 'desk-rail-codes']) {
+  test('each place appears once', async ({ pro: page }) => {
+    await designPlace(page, 'steel');
+    for (const id of ['desk-rail-designData', 'desk-rail-steel', 'desk-rail-connections', 'desk-rail-codes', 'desk-rail-sheets']) {
       await expect(page.getByTestId(id), id).toHaveCount(1);
     }
   });
@@ -149,8 +141,8 @@ test.describe('@smoke Design — Concrete and Steel are two sub-sections of sizi
  * Portuguese is a section a Portuguese user cannot navigate.
  */
 for (const [locale, words] of [
-  ['es', { generators: /^dibujar$/i, more: /^m.s herramientas$/i, button: /^generadores$/i, concrete: /hormig/i, steel: /^acero$/i, list: /^lista$/i, profiles: /^perfiles$/i, joints: /^uniones met.licas$/i }],
-  ['pt', { generators: /^desenhar$/i, more: /^mais ferramentas$/i, button: /^geradores$/i, concrete: /concreto/i, steel: /^a.o$/i, list: /^lista$/i, profiles: /^perfis$/i, joints: /^liga..es met.licas$/i }],
+  ['es', { generators: /^dibujar$/i, more: /^m.s herramientas$/i, button: /^generadores$/i, steel: /^acero$/i, profiles: /^perfiles$/i, joints: /^uniones met.licas$/i }],
+  ['pt', { generators: /^desenhar$/i, more: /^mais ferramentas$/i, button: /^geradores$/i, steel: /^a.o$/i, profiles: /^perfis$/i, joints: /^liga..es met.licas$/i }],
 ] as const) {
   test.describe(`the hierarchy keeps its names in ${locale}`, () => {
     test.use({ appLocale: locale });
@@ -163,11 +155,9 @@ for (const [locale, words] of [
       await expect(page.getByTestId('pr-cmd-generators').locator('.pr-cmd-label')).toHaveText(words.button);
     });
 
-    test('Design → Concrete and Steel in the rail, with their places', async ({ pro: page }) => {
-      await designPlace(page, 'plan');
-      expect(await railSection(page, 'desk-rail-list')).toMatch(words.concrete);
+    test('Design → Steel in the rail, with its places', async ({ pro: page }) => {
+      await designPlace(page, 'steel');
       expect(await railSection(page, 'desk-rail-steel')).toMatch(words.steel);
-      await expect(page.getByTestId('desk-rail-list')).toHaveText(words.list);
       await expect(page.getByTestId('desk-rail-steel')).toHaveText(words.profiles);
       await expect(page.getByTestId('desk-rail-connections')).toHaveText(words.joints);
     });

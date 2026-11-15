@@ -351,17 +351,7 @@ function allProStages(ctx: ProStageContext): ProStage[] {
       // The desk, where it was left (`design-navigation.ts`).
       home: 'desk',
       /*
-       * ── Design is one workspace, and these are its places ─────────────
-       *
-       * The stage had seven commands in four groups (design data, the desk, the concrete
-       * workflow, the 3-D detailing, the steel profiles, the steel connections and a check under
-       * other codes), each opening a screen of its own, so a reader entering Design had to choose
-       * between «Desk», «Rebar design» and a «Classic view» to find where the work was. Now the
-       * stage IS the desk, docked around the viewer, and every screen the commands opened is a
-       * place inside it. On a desktop the desk's own bar, with the four steps and their state,
-       * takes this row (`ProRibbon` draws no groups for Design while the desk is docked). These
-       * commands are what the phone grid and the command palette list, and what the ribbon shows
-       * the moment the desk is not on screen; each one opens the desk on its place
+       * The stage is the desk, docked around the viewer; each command opens the desk on its place
        * (`openDeskAt`), the same place the rail opens.
        */
       groups: [
@@ -369,7 +359,6 @@ function allProStages(ctx: ProStageContext): ProStage[] {
           id: 'designPrepare',
           labelKey: 'desk.step.prepare',
           cmds: [
-            { id: 'designPrepare', labelKey: 'desk.rail.model', icon: 'building', action: () => openDeskAt('prepare'), activeWhen: () => deskOn('prepare') },
             { id: 'designData', labelKey: 'designData.title', icon: 'settings', action: () => openDeskAt('designData'), activeWhen: () => deskOn('designData') },
           ],
         },
@@ -377,13 +366,6 @@ function allProStages(ctx: ProStageContext): ProStage[] {
           id: 'designSize',
           labelKey: 'desk.step.size',
           cmds: [
-            { id: 'design', labelKey: 'desk.tab.plan', descKey: 'desk.cmd.planDesc', icon: 'grid', action: () => openDeskAt('plan'), activeWhen: () => deskOn('plan') },
-            { id: 'designList', labelKey: 'desk.rail.list', descKey: 'desk.cmd.listDesc', icon: 'data', action: () => openDeskAt('list'), activeWhen: () => deskOn('list') },
-            /*
-             * Profiles and connections are the steel route inside sizing: the same panels, with
-             * the optimiser, the assumptions, the connection typologies, the bolts, the welds and
-             * the tension connection editor, in the desk.
-             */
             { id: 'steel', labelKey: 'proRibbon.cmdSteelProfiles', descKey: 'proRibbon.cmdSteelProfilesDesc', icon: 'section', action: () => openDeskAt('steel'), activeWhen: () => deskOn('steel') },
             { id: 'connections', labelKey: 'proRibbon.cmdSteelJoints', descKey: 'proRibbon.cmdSteelJointsDesc', icon: 'element', action: () => openDeskAt('connections'), activeWhen: () => deskOn('connections') },
             // One «Other code», with its two modes inside (`DeskOtherCodes.svelte`).

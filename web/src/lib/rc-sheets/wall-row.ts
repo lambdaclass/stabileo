@@ -1,5 +1,5 @@
-import { checkWallInPlaneShear, maxWallSpacing, minimumWallRatios, minimumWallThickness, PHI_WALL_SHEAR } from '../engine/detailing/wall-design';
-import { wallInPlane, wallOutOfPlane } from '../engine/detailing/wall-member';
+import { checkWallInPlaneShear, maxWallSpacing, minimumWallRatios, minimumWallThickness, PHI_WALL_SHEAR } from './wall-design';
+import { wallInPlane, wallOutOfPlane } from './wall-member';
 import { shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
 import { tensionLap } from './column-row';
 import { wallSeismic, type WallSeismic } from './wall-seismic';

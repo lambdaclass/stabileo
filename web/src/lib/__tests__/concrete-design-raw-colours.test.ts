@@ -47,41 +47,12 @@ function rawColours(source: string): number {
   return (stripped.match(COLOUR) ?? []).length;
 }
 
-/**
- * The recorded ceiling, per file. Lower it when you tokenise; never raise it.
- *
- * Bucketed by what this branch may touch, because the numbers are not equally actionable:
- *
- *   concrete-only   H1 can tokenise these whenever it likes
- *   shared PRO      `OutcomeBadge` is referenced by the metallic status badge and
- *                   `DesignToolbar` is the PRO command row — both need coordination
- */
-const CEILING: Record<string, number> = {
-  // ── concrete-only ──
-  'BatchEditDialog.svelte': 3,
-  // Both are `rgba(0,0,0,0.6)`: a modal scrim and a drop shadow. `tokens.css` has no
-  //    `--st-scrim` and no shadow token, and three other dialogs write the same value — so this
-  //    is a shared gap, reported rather than papered over with a near-match.
-  'SectionAdviceDialog.svelte': 2,
-  // 1 left: `rgba(34,204,102,0.10)` on `.cert-ok`. There is no `--st-ok-bg`, and inventing a
-  //    fourth status surface is not this commit's call — see the proposal document.
-  'VerificationDetail.svelte': 1,
-  // ── shared PRO surface: coordinate before lowering ──
-  // 10 left: the diagnostics command's own amber fill and its hover level (an affordance, not
-  //    a status band), two white hovers, a teal info banner and the desaturated hatch.
-  'DesignToolbar.svelte': 10,
-  // 8 left: two greens (no --st-ok-bg exists), a blue, a grey, the SEARCH_EXHAUSTED violet
-  //    that is NOT provisional, a slate flag fill, and the two-tone stale hatch.
-  'OutcomeBadge.svelte': 8,
-};
+/** The recorded ceiling, per file. Lower it when you tokenise; never raise it. */
+const CEILING: Record<string, number> = {};
 
-// 132 at the start of this work. −20 FootingMatPhysicalPanel, −10 RebarStatusPanel,
-// −2 RebarScenePanel, −5 ConflictInspector, −4 SelectionDetails, −4 TorsionBanner,
-// then the shared contract: −6 OutcomeBadge, −4 ProvisionalBanner, −2 DesignToolbar,
-// then the rest of bucket 1: −3 FootingCadHandoffPanel, −3 FootingMatPanel,
-// −2 DesignFamilyPanel, −2 VerificationDetail, −1 FloorFamiliesPanel,
-// then −40 with the 3-D reinforcement viewer deleted.
-const TOTAL_CEILING = 24;
+// 132 at the start of this work; 24 before the RC design desk was deleted with every file left on
+// this list.
+const TOTAL_CEILING = 0;
 
 const files = () => readdirSync(DIR).filter((f) => f.endsWith('.svelte'));
 
@@ -124,7 +95,6 @@ describe('the raw-colour debt does not grow', () => {
 describe('the files already at zero stay there', () => {
   const AT_ZERO = [
     'FootingMatPhysicalPanel.svelte', 'FootingCadHandoffPanel.svelte', 'FootingMatPanel.svelte',
-    'DesignFamilyPanel.svelte', 'FloorFamiliesPanel.svelte',
   ];
 
   it('each of them still has none', () => {

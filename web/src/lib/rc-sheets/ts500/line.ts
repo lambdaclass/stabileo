@@ -2,7 +2,7 @@ import { faceLayout } from '../bars';
 import { beamLine as layoutLine, type CutoffInput, type LineAdopted, type LineCode, type LineLayout } from '../beam-line';
 import type { BeamContext, BeamRow } from '../beam-row';
 import type { Fmt } from '../format';
-import type { CutoffLegality } from '../../engine/detailing/generate-beam';
+import type { CutoffLegality } from '../cutoff';
 import { isTopBar, lapOf, lbOf, rhoMinBeam, ts500Mat } from './basis';
 import { beamStrip } from './beam-flexure';
 import { shearState, vrOf } from './beam-shear';

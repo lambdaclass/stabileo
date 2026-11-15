@@ -11,7 +11,7 @@
  * with As > 0.02·Ac (9.6.4(1), spacing 9.5.3(3)) and at least four links per m² between the two
  * curtains (9.6.4(2)). TS 500: the edge U-bars lapped as 9.3 asks.
  */
-import { wallVerticalBars } from '../engine/detailing/wall-member';
+import { wallVerticalBars } from './wall-member';
 import { barArea } from './bars';
 import { tieDiaFor, tieSpacingLimit } from './column-row';
 import type { WallRow } from './wall-row';

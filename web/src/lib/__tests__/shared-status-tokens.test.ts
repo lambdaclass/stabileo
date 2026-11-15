@@ -246,25 +246,7 @@ describe('rule 3 — no component re-mixes a tinted status surface', () => {
    * A PENDING one is debt with an owner — it stays until the file's own migration, and the list
    * shrinking is the record of that happening.
    */
-  const EXEMPT: Record<string, string> = {
-    // ── pending: has a token, not yet migrated (commit 3) ──
-    //    Seven entries left this list when commit 2 migrated `OutcomeBadge`,
-    //    `ProvisionalBanner` and `DesignToolbar`. The stale-exemption assertion below is what
-    //    forced them out: it fails on a reason for a literal that is gone, so the register
-    //    shrinks with the work instead of outliving it.
-    'OutcomeBadge.svelte|rgba(180,120,220,0.16)':
-      'open — `.badge-outcome-SEARCH_EXHAUSTED`. A violet in provisional\'s hue family for a '
-      + 'state that is NOT provisional, on a badge whose border and label are already neutral. '
-      + '`--st-provisional-bg` would be the near match and the wrong answer; there is no token '
-      + 'for what it means. The last one standing.',
-
-    // ── out of scope: an affordance rather than a status band ──
-    'DesignToolbar.svelte|rgba(217,164,65,0.12)':
-      'not a band — the diagnostics command\'s own fill, with a 0.22 hover level above it.',
-    'DesignToolbar.svelte|rgba(217,164,65,0.22)': 'not a band — the hover level of the above.',
-    'BatchEditDialog.svelte|rgba(255,204,102,0.08)':
-      'not a band — an inline note inside a dialog, bordered with --st-hair-strong.',
-  };
+  const EXEMPT: Record<string, string> = {};
 
   /** Every translucent background in the design surface, with its hue. */
   function tints() {
@@ -348,22 +330,6 @@ describe('--st-accent stays an action, not a status', () => {
     'DetailCatalog.svelte|li.on { border-color: var(--st-accent); }':
       'selection — the border of a catalogue detail the set carries, set by its own checkbox. '
       + 'It says the person chose it, nothing about the detail itself.',
-    'DesignToolbar.svelte|.cmd-cancel { background: var(--st-hair-strong); border-color: var(--st-accent); color: var(--st-text); }':
-      'action — cancelling a run is destructive, and the accent is what this application '
-      + 'outlines destructive controls with. A border, so the 3:1 bar applies and it clears it.',
-    'RebarEditorBeam.svelte|.mini-rm { color: var(--st-text-2); border-color: var(--st-accent); }':
-      'action — the remove button. Border again, and the label is --st-text-2.',
-    'DesignToolbar.svelte|.progress-fill { height: 100%; background: var(--st-accent); transition: width 0.15s linear; }':
-      'action — the fill of the run\'s own progress bar, and the accent is what this '
-      + 'application paints an action in progress with. Not a status: it says nothing about any '
-      + 'member, and the run\'s state is the words beside it. Nor a contrast site — it is a '
-      + 'decorative fill inside a track, with the count written next to it in --st-text-2, so '
-      + 'nothing here is read off the colour. Arrived from feat/pro-steel-family, which restored '
-      + 'a fill that the merge base had left at `background: none` — an invisible progress bar.',
-    "RebarSchematics.svelte|fill={bar.index < 4 ? 'var(--st-accent)' : 'var(--st-warn)'}":
-      'neither — it distinguishes corner bars from intermediate ones in a diagram, which is data '
-      + 'and not a verdict. Left alone rather than renamed: worth noting, though, that the same '
-      + 'circle is stroked --st-danger, so one object carries two red tokens.',
   };
 
   /** Every line that reaches for the accent, comments stripped. */

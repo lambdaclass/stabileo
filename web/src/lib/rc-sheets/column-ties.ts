@@ -14,7 +14,6 @@
  * beyond what the row's shear check leaves room for.
  */
 import { roundDown } from './bars';
-import { columnEndZone } from '../engine/design/candidate-enumerate-column';
 import type { ColumnRow } from './column-row';
 import type { SheetCode } from './types';
 
@@ -35,6 +34,16 @@ export interface ColumnTieLayout {
   ties: number[];
   dia: number;
   notes: TieNote[];
+}
+
+const END_MIN_SPACING = 0.05;
+const END_SPACING_GRID = 0.025;
+
+/** The end zone of a b × h column of clear height `clear` tied at `spacing`, m: what `columnEndZones` asks, wherever it is drawn or designed. */
+export function columnEndZone(b: number, h: number, clear: number, spacing: number): { endLength: number; endSpacing: number } {
+  const endLength = +Math.max(Math.max(b, h), clear / 6, 0.45).toFixed(3);
+  const endSpacing = Math.max(END_MIN_SPACING, Math.floor((spacing / 2) / END_SPACING_GRID + 1e-9) * END_SPACING_GRID);
+  return { endLength, endSpacing: +endSpacing.toFixed(4) };
 }
 
 const family = (code: SheetCode): 'aci' | 'ec2' | 'ts500' => (code === 'en1992-1-1' || code === 'bs-en1992-1-1' ? 'ec2' : code === 'ts500-2000' ? 'ts500' : 'aci');

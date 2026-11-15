@@ -1,6 +1,6 @@
 import { ec2Shear } from '../../engine/design/eurocode/ec2-beam';
 import { ec2CreepCoefficient } from '../../engine/design/eurocode/ec2-params';
-import { wallVerticalBars } from '../../engine/detailing/wall-member';
+import { wallVerticalBars } from '../wall-member';
 import { barArea, roundDown } from '../bars';
 import type { Fmt } from '../format';
 import { wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';

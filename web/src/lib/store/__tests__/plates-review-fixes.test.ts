@@ -20,7 +20,6 @@ import { ensurePlates } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 import { meshProgress } from '../mesh-progress.svelte';
 import { meshPlatesInModel } from '../mesh-apply';
-import { solveForDesign } from '../design-resize';
 import { closePlateHole } from '../plate-shape';
 import { plateLoops } from '../../model/physical/plate';
 
@@ -69,18 +68,6 @@ describe('a mesh run in slices', () => {
     expect(a).toEqual({ ok: true, meshed: 0, cells: 0 });
     expect(meshProgress.now).toBeNull();
     for (const id of ids) expect(plateStatus(id)).toBe('current');
-  });
-});
-
-describe('«Size»', () => {
-  it('stops before solving when a plate is left without a mesh', () => {
-    slabs(1);
-    meshBeforeAnalysis.value = false;
-    try {
-      expect(solveForDesign()).toBe(false);
-    } finally {
-      meshBeforeAnalysis.value = true;
-    }
   });
 });
 

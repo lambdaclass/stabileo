@@ -7,7 +7,7 @@
  * wider than the columns, two corners with no column, an eccentric column, and every joint at the roof.
  */
 import { readFileSync } from 'node:fs';
-import { test, expect, designAll, designPlace, openSteelDocuments } from './fixtures';
+import { test, expect, designAll, openSteelDocuments } from './fixtures';
 
 const FRAME = JSON.parse(readFileSync('src/lib/engine/physical/__tests__/fixtures/physical-joints-frame.json', 'utf8'));
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -34,8 +34,6 @@ test.describe('@slow the joints of a designed frame', () => {
     test.setTimeout(600_000);
     await load(page);
     await designAll(page);
-    await designPlace(page, 'list');
-    await page.getByTestId('cmd-generate-detailing').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.detailingAssemblies().length), { timeout: 120_000 }).toBeGreaterThan(0);
     await openSteelDocuments(page);
 

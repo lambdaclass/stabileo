@@ -30,11 +30,6 @@ async function openProTab(page: Page, stage: string, cmd: string) {
   await page.getByTestId(`pr-cmd-${cmd}`).click();
 }
 
-async function openDesign(page: Page) {
-  await openProTab(page, 'design', 'design');
-  await expect(page.getByTestId('design-toolbar')).toBeVisible();
-}
-
 async function openLoads(page: Page) {
   // Loads are a group inside Model now, not a stage of their own.
   await openProTab(page, 'model', 'loads');
@@ -407,8 +402,7 @@ test.describe('@slow revision invalidation is precise', () => {
 
     // No solve was triggered: the forces are still the forces.
     expect(await page.evaluate(() => window.__stabileo.solveCount())).toBe(before);
-    // The check command lives in the list of pieces, a separate place of design (interface A).
-    await designPlace(page, 'list');
-    await expect(page.getByTestId('cmd-code-check')).toBeEnabled();
+    await designPlace(page, 'steel');
+    await expect(page.getByTestId('pro-steel-panel')).toBeVisible();
   });
 });

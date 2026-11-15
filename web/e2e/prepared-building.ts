@@ -63,7 +63,7 @@
  */
 
 import {
-  test as proTest, expect, designAll, loadModel, bootPro, turnRolledBeams, designPlace } from './fixtures';
+  test as proTest, expect, designAll, loadModel, bootPro, turnRolledBeams } from './fixtures';
 import type { BrowserContext, Page } from '@playwright/test';
 
 /** The example every heavy spec in this suite sets up. */
@@ -137,28 +137,8 @@ async function prepare(page: Page, building: string): Promise<Omit<PreparedProje
   });
   await stage('design all', () => designAll(page));
 
-  // Beams and columns come from `cmd-generate-detailing`; slabs, walls and footings come from
-  // `floor-design-run` in its own disclosure. A caller who wants the whole structure has to run
-  // both — that is the app's real shape, and a preparation that ran only the first would hand
-  // every observer a building with no floors in it.
   await stage('detailing', async () => {
-    await designPlace(page, 'list');
-    const generate = page.getByTestId('cmd-generate-detailing');
-    await expect(generate).toBeEnabled();
-    await generate.click();
     await expect.poll(() => assemblyCount(page), { timeout: 180_000 }).toBeGreaterThan(0);
-  });
-
-  // A frame without slabs or walls has no floor families to run.
-  const hasFloors = (await page.evaluate(() => window.__stabileo.quadIds().length)) > 0;
-  if (hasFloors) await stage('floor design', async () => {
-    // The floor pass is a sub-step of the member list (interface A).
-    await designPlace(page, 'list');
-    await page.getByTestId('floor-families-disclosure').locator('> summary').click();
-    const floors = page.getByTestId('floor-design-run');
-    await expect(floors).toBeEnabled();
-    await floors.click();
-    await expect(page.getByTestId('floor-families')).toBeVisible({ timeout: 300_000 });
   });
 
   const elements = (await page.evaluate(() => window.__stabileo.elementIds())).length;

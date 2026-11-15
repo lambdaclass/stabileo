@@ -1,7 +1,6 @@
 /**
  * Fire resistance and the particular elements in the design desk, on a concrete frame: a rating
- * and a fire table stated, the members checked against it and one opened; a corbel stated with
- * its shear, checked by 16.5 and opened. The arithmetic is pinned in the engine tests under
+ * and a fire table stated, the members checked against it and one opened; no coupling beam found. The arithmetic is pinned in the engine tests under
  * `engine/design/{fire,special,masonry,connections}` and in `store/__tests__/special-elements.test.ts`.
  */
 import { test, expect, loadModel, solveModel, openDeskStage, deskTab } from './fixtures';
@@ -9,7 +8,7 @@ import { test, expect, loadModel, solveModel, openDeskStage, deskTab } from './f
 test.use({ viewport: { width: 1440, height: 900 } });
 
 test.describe('@slow fire and particular elements', () => {
-  test('a fire rating checked against the project table; a corbel', async ({ pro: page }) => {
+  test('a fire rating checked against the project table; the particular elements', async ({ pro: page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await loadModel(page, 'rc-design-qa-8');
@@ -34,12 +33,6 @@ test.describe('@slow fire and particular elements', () => {
     const el = page.getByTestId('elements-editor');
     await el.getByTestId('sel-coupling').locator('summary').click();
     await expect(el.getByTestId('sel-coupling')).toContainText(/No beam joins two walls|No hay vigas que unan dos tabiques/);
-    await el.getByTestId('sel-corbels').locator('summary').click();
-    await el.getByTestId('corbel-name').fill('M1');
-    await el.getByTestId('corbel-vu').fill('150');
-    await el.getByTestId('corbel-save').click();
-    await expect(el.locator('[data-testid^="corbel-row-"]')).toHaveCount(1);
-    await expect(page.getByTestId('member-rows-sheet')).toContainText('16.5');
     expect(errors).toEqual([]);
   });
 });

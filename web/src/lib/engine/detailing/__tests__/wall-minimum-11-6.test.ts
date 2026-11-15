@@ -10,7 +10,8 @@
  *     (b) ρt debe ser al menos 0,0025."
  */
 import { describe, it, expect } from 'vitest';
-import { designWall, minimumWallRatios, type WallDesignInput } from '../wall-design';
+import { designWall, type WallDesignInput } from '../wall-design';
+import { minimumWallRatios } from '../../../rc-sheets/wall-design';
 import { wallCheckRows } from '../../design/check-rows-families';
 import { wallMemberMinimumChecks } from '../../design/wall-minimum-steel';
 import { concreteCheckRows } from '../../design/check-rows';

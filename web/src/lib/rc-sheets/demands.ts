@@ -2,14 +2,14 @@ import { buildCriticalStations, extractForcesAtStation, type StationForces } fro
 import { shellCentreRows, shellLocalAxes, type ShellCentreRow, type ShellModel } from '../engine/shell-results';
 import { woodArmer } from '../engine/wood-armer';
 import { effectiveFlange, type FlangeSide } from '../codes/cirsoc201/effective-flange';
-import { wallBaseResultants } from '../engine/detailing/wall-design';
+import { wallBaseResultants } from './wall-design';
 import type { AnalysisResults3D, ElementForces3D } from '../engine/types-3d';
 import type { BeamComboForces, BeamDemand, BeamEnd, SectionEnv } from './beam-row';
 import type { ColumnCase, ColumnDemand } from './column-row';
 import type { SlabComboForces, SlabDemand, SlabFace } from './slab-row';
 import type { WallComboForces, WallDemand } from './wall-row';
 import type { PunchingDemand } from './punching-row';
-import type { SlabJointForce } from '../engine/detailing/slab-punching';
+import type { SlabJointForce } from './slab-punching';
 import type { Signed } from './types';
 import type { LevelGeometry, PlanBeam, PlanColumn } from './slab-plan';
 
