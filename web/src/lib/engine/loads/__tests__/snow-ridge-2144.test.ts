@@ -3,7 +3,7 @@ import { mesh, transform } from './snow-surface-round2-fixture';
 import { snow, pressure, regulations } from './snow-roof-plane-fixture';
 import { assertSnowRemeshInvariant, remeshSnowRoof } from './snow-remesh-invariance';
 import { gravityLayout } from '../plan-gravity';
-import { snowLoadCases, type SnowCasesInput } from '../snow-loads';
+import { roofGeometry, snowLoadCases, type SnowCasesInput } from '../snow-loads';
 import { planSnow } from '../load-plan-snow';
 import { buildLoadPlan, type PlanSink, type LoadModelData } from '../load-plan';
 
@@ -167,3 +167,62 @@ it('#2144 nodal tributaries receive the same ridge-crossing pressure', () => {
   };
   assertSnowRemeshInvariant(model, new Map([[1, 8]]), generate);
 });
+
+const ridgeElevationTest = process.env.RUN_KNOWN_WRONG === '2144' ? it : it.skip;
+
+function perturbedFlat(corner: number, delta: number, angle = 0) {
+  const model = flat(2, angle), node = model.nodes.get(corner)!;
+  node.z = node.z! + delta;
+  return model;
+}
+
+for (const mode of ['projected', 'width', 'panels'] as const) for (const angle of [0, 0.37]) for (const corner of [1, 2, 3, 4]) for (const delta of [-1e-12, 1e-12]) {
+  ridgeElevationTest(`known wrong result: #2144 tiny elevation perturbation preserves ridge and pressures ${mode} ${angle} ${corner} ${delta}`, () => {
+    const model = perturbedFlat(corner, delta, angle), polygon = [...model.nodes.values()].map(n => [n.x, n.y] as [number, number]);
+    const config = { ...snow, roofSlopeDeg: 20, roof: [...model.elements.keys()] };
+    const generate = generator(mode, config, polygon), base = generate(flat(2, angle)), out = generate(model);
+    expect(roofGeometry(model)).toEqual(base.geometry);
+    expect(roofGeometry(model, new Set(config.roof))).toEqual(base.geometry);
+    expect(out.geometry).toEqual(base.geometry);
+    expect(out.cases).toEqual(base.cases);
+    expect(pressure(out.cases[1]!.distributed, 2, 1)).toBeCloseTo(1.5 * 0.7 * 50 / 65 / 2, 10);
+  });
+}
+
+for (const delta of [0, 1e-8 - 1e-12, 1e-8, 1e-8 + 1e-12]) for (const corner of [1, 3]) for (const mode of ['projected', 'width', 'panels'] as const) {
+  const test = delta > 0 && delta <= 1e-8 ? ridgeElevationTest : it;
+  test(`known wrong result: #2144 ridge elevation tolerance boundary ${mode} ${corner} ${delta}`, () => {
+    const model = perturbedFlat(corner, delta), polygon = [...model.nodes.values()].map(n => [n.x, n.y] as [number, number]);
+    const generate = generator(mode, { ...snow, roofSlopeDeg: 20 }, polygon), base = generate(flat()), out = generate(model);
+    const higher = delta > 1e-8;
+    expect(out.geometry.ridge).toBe(higher ? (corner === 1 ? 0 : 4) : 2);
+    expect(roofGeometry(model)).toEqual(out.geometry);
+    const expected = 1.5 * 0.7 * 50 / 65 * (higher ? (corner === 1 ? 1 : 0) : 0.5);
+    expect(pressure(out.cases[1]!.distributed, 2, 1)).toBeCloseTo(expected, 10);
+    if (!higher) expect(out.cases).toEqual(base.cases);
+  });
+}
+
+for (const mode of ['width', 'panels'] as const) for (const delta of [-1e-12, 1e-12]) {
+  ridgeElevationTest(`known wrong result: #2144 complete load planner preserves tiny elevation ridge ${mode} ${delta}`, () => {
+    const input = { regulations: regulations(), dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam' as const, floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, gravity: { mode }, tributaryWidth: 1, snow: { ...snow, roofSlopeDeg: 20, enabled: true, source: 'site' as const } };
+    const base = buildLoadPlan({ ...input, model: flat() }), out = buildLoadPlan({ ...input, model: perturbedFlat(1, delta) });
+    expect(out.outcome).toBe('READY');
+    expect(out.cases).toEqual(base.cases);
+    expect(out.distributed).toEqual(base.distributed);
+    expect(out.nodal).toEqual(base.nodal);
+    const c = out.cases.findIndex(c => c.type === 'S' && c.nameKey === 'snow.case.unbalanced');
+    expect(pressure(out.distributed.filter(d => d.caseIndex === c), 2, 1)).toBeCloseTo(1.5 * 0.7 * 50 / 65 / 2, 10);
+  });
+}
+
+for (const delta of [-1e-12, 1e-12]) {
+  ridgeElevationTest(`known wrong result: #2144 nodal tributary preserves tiny elevation ridge ${delta}`, () => {
+    const model = perturbedFlat(1, delta), layout = gravityLayout(model, { mode: 'width', tributaryWidth: 1 });
+    layout.widthMembers = []; layout.pieces = [];
+    layout.points = [{ elementId: 2, nodeId: model.elements.get(2)!.nodeI, panel: 0, roof: true, w: 1 }];
+    const out = snowLoadCases({ model, layout, snow: { ...snow, roofSlopeDeg: 20 }, tributaryWidth: 1 })!;
+    expect(out.result.refused).toBeUndefined();
+    expect(out.cases[1]!.nodal[0]!.fz).toBeCloseTo(-1.5 * 0.7 * 50 / 65 / 2, 10);
+  });
+}
