@@ -66,6 +66,8 @@ export const IMPORTANCE_FACTOR: Readonly<Record<SnowCategory, number>> = Object.
 
 export type RoofKind = 'mono' | 'gable';
 
+export const UNBALANCED_WIDTH_LIMIT = 6;
+
 export interface SnowRoof {
   kind: RoofKind;
   slopeDeg: number;
@@ -156,7 +158,7 @@ export function roofSnow(i: SnowInputs): SnowResult {
   let unbalanced: SnowResult['unbalanced'] = null;
   if (i.roof.kind === 'gable' && i.roof.slopeDeg <= 70 && i.roof.slopeDeg >= 21 / Math.max(i.roof.W, 1e-9) + 0.5) {
     const psBal = cs * pf;
-    unbalanced = i.roof.W <= 6
+    unbalanced = i.roof.W <= UNBALANCED_WIDTH_LIMIT
       ? { leeward: (1.5 * psBal) / ce, windward: 0 }
       : { leeward: (1.2 * (1 + driftIndex(i.pg) / 2) * psBal) / ce, windward: 0.3 * psBal };
     refs.push(REF_UNBALANCED);

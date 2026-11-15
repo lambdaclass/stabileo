@@ -361,12 +361,12 @@ check.web.route-size:
 # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
 test.web.results:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project results"
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project results $(FILE) $(if $(FILTER),-t '$(FILTER)')"
 
 ## Regenerate web/results-snapshots/ after a DELIBERATE result change, then register it:
 ## an entry in web/src/lib/provenance/result-changes/ and a "BREAKING (results)" fragment.
 snapshots-update:
-	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results"
+	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results $(FILE) $(if $(FILTER),-t '$(FILTER)')"
 
 # A pull request that changes a committed snapshot must register the change. BASE=<rev>, the
 # commit the pull request is compared with (CI: the merge's first parent, or the queue's base).

@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import spanAxial from '../../src/lib/provenance/result-changes/pdelta-span-axial.json';
 import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { decide, isBreakingResultsFragment, newlyRecorded, corpusExamples, modelInputs, proveEquivalence, headEngineServesBase } from '../results-snapshot/gate.mjs';
+import { decide, isBreakingResultsFragment, newlyRecorded, corpusExamples, modelInputs, proveEquivalence, headEngineServesBase, corpusCases } from '../results-snapshot/gate.mjs';
 
 describe('the tolerance', () => {
   const ref = { 'r.m[e1].my': 100, 'r.m[e2].my': -40, 'r.m[e3].my': 0, 'r.d[n1].ux': 0.0123 };
@@ -349,3 +349,52 @@ describe('the base checkout reuses this build\'s engine', () => {
     expect(headEngineServesBase(['research/topopt/src/lib.rs'])).toBe(false);
   });
 });
+
+
+it('known wrong result: #2095 snow corpus context reaches the applicability gate', () => {
+  const source = "  { name: 'snow-two-pitch', source: { snowRoof: 'two-pitch' }, workspace: '3d', group: 'loads', covers: 'connected sliding' },";
+  expect(corpusCases(source)['web/results-snapshots/snow-two-pitch.json']).toMatchObject({ workspace: '3d', source: { snowRoof: 'two-pitch' } });
+  expect(corpusCases(source.replace("workspace: '3d'", "workspace: 'unknown'"))).toEqual({});
+});
+
+for (const path of ['generatedLoads.item7.distributed.item0.q', 'snowResult.ps', 'snowDerivation.item0.params.hb']) {
+  it(`known wrong result: #2095 generated snow fields have pre-solve applicability ${path}`, () => {
+    const entry = { id: 'snow', area: 'loads', when: { all: ['snow', 'generatedLoads'] }, quantities: ['*'] };
+    const features = ['snow', 'members', 'space3D', 'generatedLoads'];
+    const check = (notice = entry, opened = features) => decide({
+      snapshots: [{ file: 'web/results-snapshots/snow.json', base: { values: { [path]: 1 } }, head: { values: { [path]: 2 } } }],
+      baseRegistry: { schema: 1, numbered: [], unnumbered: [] },
+      headRegistry: { schema: 1, numbered: [], unnumbered: [notice] },
+      fragments: [{ file: 'changelog.d/snow.md', text: '### BREAKING (results)\n#### Snow\n' }],
+      caseFeatures: { 'web/results-snapshots/snow.json': opened },
+    }).ok;
+    expect(check()).toBe(true);
+    expect(check(entry, features.filter(f => f !== 'generatedLoads'))).toBe(false);
+    expect(check(entry, features.filter(f => f !== 'snow'))).toBe(false);
+    expect(check({ ...entry, area: 'analysis' })).toBe(false);
+    expect(check({ ...entry, quantities: [] })).toBe(false);
+    expect(check({ ...entry, when: { all: ['snow', 'generatedLoads', 'analysis:linear'] } })).toBe(false);
+  });
+}
+
+const knownWrongArrayPath = it;
+
+for (const path of ['snowDerivation[0].key', 'snowDerivation[0].params.n', 'snowDerivation[1].params.axis']) for (const change of ['changed', 'removed', 'added']) {
+  knownWrongArrayPath(`known wrong result: #2095 bracketed snow derivation applicability ${path} ${change}`, () => {
+    const entry = { id: 'snow', area: 'loads', when: { all: ['snow', 'generatedLoads'] }, quantities: ['*'] };
+    const features = ['snow', 'members', 'space3D', 'generatedLoads'];
+    const check = (notice = entry, opened = features) => decide({
+      snapshots: [{ file: 'web/results-snapshots/snow.json', base: { values: change === 'added' ? {} : { [path]: 'before' } }, head: { values: change === 'removed' ? {} : { [path]: 'after' } } }],
+      baseRegistry: { schema: 1, numbered: [], unnumbered: [] },
+      headRegistry: { schema: 1, numbered: [], unnumbered: [notice] },
+      fragments: [{ file: 'changelog.d/snow.md', text: '### BREAKING (results)\n#### Snow\n' }],
+      caseFeatures: { 'web/results-snapshots/snow.json': opened },
+    }).ok;
+    expect(check()).toBe(true);
+    expect(check(entry, features.filter(f => f !== 'generatedLoads'))).toBe(false);
+    expect(check(entry, features.filter(f => f !== 'snow'))).toBe(false);
+    expect(check({ ...entry, area: 'analysis' })).toBe(false);
+    expect(check({ ...entry, quantities: [] })).toBe(false);
+    expect(check({ ...entry, when: { all: ['snow', 'generatedLoads', 'analysis:linear'] } })).toBe(false);
+  });
+}
