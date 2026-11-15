@@ -1,4 +1,4 @@
-//! Planted assembly bugs (docs/verification/CERTIFY.md, "End-to-end
+//! Planted assembly bugs (testing/docs/CERTIFY.md, "End-to-end
 //! certificates"): an engine whose assembly has a wrong sign in a transform,
 //! a missing Timoshenko term or a wrong fixed-end force solves its own K and f
 //! correctly, so the assembled-level certificate certifies the wrong answer.

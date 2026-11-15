@@ -1,6 +1,6 @@
 //! Load generation in the engine (`loads`): CIRSOC 101 combinations and INPRES-CIRSOC 103.
 //! The clause-by-clause verification is in the web differential tests against the oracle that
-//! #292 verified (docs/verification/LOADS.md); these pin the printed values directly.
+//! #292 verified (testing/docs/LOADS.md); these pin the printed values directly.
 
 use dedaliano_engine::loads::cirsoc101_combinations::*;
 use dedaliano_engine::loads::cirsoc103_seismic::*;

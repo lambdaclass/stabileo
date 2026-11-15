@@ -1,5 +1,5 @@
 /**
- * The certificate wrappers (docs/verification/CERTIFY.md), the background certificate store,
+ * The certificate wrappers (testing/docs/CERTIFY.md), the background certificate store,
  * and the directed rounding that keeps a printed bound a bound.
  */
 import { describe, it, expect, beforeAll, vi } from 'vitest';

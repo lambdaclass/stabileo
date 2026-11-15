@@ -1,5 +1,5 @@
 //! Regressions found by the cargo-fuzz targets (testing/fuzz,
-//! docs/verification/FUZZ_MUTANTS.md): every number in an `Ok` result of a
+//! testing/docs/FUZZ_MUTANTS.md): every number in an `Ok` result of a
 //! WASM entry point is finite unless its field documents +∞.
 
 use dedaliano_engine::certify::dynamics::certify_time_history_3d;

@@ -7,10 +7,10 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import sys
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'docs/verification/soundness-regression-audit-2026-11-11'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'testing/docs/audits/soundness-regression-audit-2026-11-11'))
 
 ROOT = Path(__file__).resolve().parents[2]
-AUDIT = ROOT / 'docs/verification/soundness-regression-audit-2026-11-11'
+AUDIT = ROOT / 'testing/docs/audits/soundness-regression-audit-2026-11-11'
 
 
 def execute_audit_script(filename, area):

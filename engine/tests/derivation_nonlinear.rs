@@ -306,7 +306,7 @@ fn nl_pdelta_matches_beam_column_and_buckling() {
 }
 
 // ======================================================================
-// 3D co-rotational with released members (docs/verification/SYMBOLIC.md, item 5)
+// 3D co-rotational with released members (testing/docs/SYMBOLIC.md, item 5)
 // ======================================================================
 
 /// A Gerber beam: member 1 fixed at its base and pinned (released) at node 2,

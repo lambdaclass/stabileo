@@ -312,7 +312,7 @@ const body: PostBody = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/PROVENANCE.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/PROVENANCE.md",
       "label": "Yeniden kontrol bildirimi, köken bilgisi ve yeniden üretilebilirlik",
       "t": "Sonuç sürümlerinin, damgaların ve bildirimin ayrıntılı olarak nasıl çalıştığı:"
     },

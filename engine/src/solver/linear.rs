@@ -3607,7 +3607,7 @@ pub(crate) fn refuse_moments_without_rotation_2d(input: &SolverInput, loads: &[S
             // Only a constraint that involves the rotation (DOF 2) carries it: one
             // tying translations alone left the slave's moment on the artificial
             // spring, and the constrained path returned a rotation of ~1e5 rad
-            // (found by the metamorphic energy check, docs/verification/METAMORPHIC.md).
+            // (found by the metamorphic energy check, testing/docs/METAMORPHIC.md).
             Constraint::RigidLink(r) => {
                 carried.insert(r.master_node);
                 if r.dofs.contains(&2) { carried.insert(r.slave_node); }

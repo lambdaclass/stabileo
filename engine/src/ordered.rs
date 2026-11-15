@@ -8,7 +8,7 @@
 //!
 //! Every loop over an input map goes through [`values`], which yields the entries in key
 //! order, so a model always solves to the same bits (tests/determinism.rs;
-//! docs/verification/PROVENANCE.md, "Determinism").
+//! testing/docs/PROVENANCE.md, "Determinism").
 
 /// The map's values in increasing key order.
 pub fn values<'a, K: Ord + 'a, V: 'a, M: ?Sized>(m: &'a M) -> std::vec::IntoIter<&'a V>

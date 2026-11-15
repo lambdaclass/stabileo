@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Plant assembly bugs in the engine's source, one at a time, and check that
-# the end-to-end certificate tests fail on each (docs/verification/CERTIFY.md,
+# the end-to-end certificate tests fail on each (testing/docs/CERTIFY.md,
 # "End-to-end certificates").
 #
 # The bugs are planted in a temporary git worktree of the committed HEAD, never

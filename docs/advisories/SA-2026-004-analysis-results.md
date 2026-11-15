@@ -28,7 +28,7 @@ analyses; inclined supports, constraints, connectors, shells; the example galler
   Euler–Bernoulli fixed-end forces (13.6 % off on a short cantilever).
 - **Mechanisms solved silently** (singularity threshold 64ε); analyses that could not handle a
   feature solved a simplified model without saying so (now refused by name,
-  [FEATURE_MATRIX.md](../verification/FEATURE_MATRIX.md)).
+  [FEATURE_MATRIX.md](../../testing/docs/FEATURE_MATRIX.md)).
 - **Example models** had gravity loads in a horizontal axis or duplicated/unconnected members
   (dead vertical reaction 2 695 → 4 135 kN in `3d-building`).
 

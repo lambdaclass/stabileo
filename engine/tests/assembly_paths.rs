@@ -21,7 +21,7 @@
 //! Checks that fail only because of a known, separately tracked bug are
 //! tallied, not asserted; each has a minimal `#[ignore = "KNOWN: ..."]`
 //! reproduction below. New findings have their own minimal tests. See
-//! docs/verification/ASSEMBLY.md.
+//! testing/docs/ASSEMBLY.md.
 
 use crate::fuzz_models;
 
@@ -1167,7 +1167,7 @@ fn oracle_one() {
 //
 // One per discrepancy class the sweep found. `KNOWN` ones belong to bugs
 // fixed on other branches; `REPORTED` ones are new and documented here
-// rather than fixed (see docs/verification/ASSEMBLY.md for why); the rest
+// rather than fixed (see testing/docs/ASSEMBLY.md for why); the rest
 // are regression tests of the fixes.
 
 const E_MPA: f64 = 200_000.0;

@@ -12649,7 +12649,7 @@ const en: Record<string, string> = {
   'loadZone.changed': 'A node of its outline was deleted: its shape is not the one drawn.',
   'floorLoad.readOnlyLoad': 'A load written by a floor-load definition is changed or removed through its definition (Loads › Floor): it is rewritten from it.',
   'floorLoad.rangeInvalid': 'Give each axis of the box both bounds, or neither.',
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'Certified: displacement error ≤ {abs} ({rel} relative)',
   'certificate.notCertified': 'Not certified: {reason}',
   'certificate.e2eCertified': 'Checked end to end: an independent re-assembly of the model agrees; displacement error ≤ {abs}',
@@ -13076,7 +13076,7 @@ const en: Record<string, string> = {
   'proReport.noneFound': 'The model has no warnings',
   'proReport.letterhead': 'Letterhead',
   'proReport.shellFigure': 'Component in the figure',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'Certified: displacement error ≤ {abs}',
   'certificate.envelopeCertified': 'Envelope certified: every value within {abs} of the exact envelope (displacements)',
   'certificate.comboTooltip': 'Rigorous bound, proved in Lean: each load case is certified against the exact solution of the assembled system; a combination\'s bound adds the cases\' bounds times |factor| and the rounding of the combination itself; the envelope lies within the largest combination bound of the exact envelope. The ± next to a member force bounds its error the same way.',

@@ -1,5 +1,5 @@
 //! Certified bounds on the support reactions. See "Diagrams, extremes,
-//! deflections and reactions" in `docs/verification/CERTIFY.md`.
+//! deflections and reactions" in `testing/docs/CERTIFY.md`.
 //!
 //! The solvers report, per support component with global DOF d,
 //!

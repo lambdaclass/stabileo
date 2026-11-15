@@ -2,7 +2,7 @@
  * End-to-end certificates: checking the result against the model, not against the matrices.
  *
  * Every claim has a source and must stay no stronger than it:
- *  - docs/verification/CERTIFY.md, "End-to-end certificates" (what it states, the independent
+ *  - testing/docs/CERTIFY.md, "End-to-end certificates" (what it states, the independent
  *    re-assembly, the bound, the findings, the tests, what remains trusted);
  *  - CHANGELOG.md, 0.3.0, "End-to-end certificates for frames and trusses";
  *  - verify/Certify/EndToEnd.lean (Certify.end_to_end_bound).
@@ -81,7 +81,7 @@ export const endToEndCertificates: Post = {
         },
 
         { k: 'link', slug: 'how-stabileo-checks-its-results', t: 'Las otras formas en que buscamos errores, y sus límites:' },
-        { k: 'ext', href: `${REPO}/docs/verification/CERTIFY.md`, label: 'CERTIFY.md, «End-to-end certificates»', t: 'La descripción técnica completa, con las fórmulas y las pruebas:' },
+        { k: 'ext', href: `${REPO}/testing/docs/CERTIFY.md`, label: 'CERTIFY.md, «End-to-end certificates»', t: 'La descripción técnica completa, con las fórmulas y las pruebas:' },
       ],
     },
     en: {
@@ -145,7 +145,7 @@ export const endToEndCertificates: Post = {
         },
 
         { k: 'link', slug: 'how-stabileo-checks-its-results', t: 'The other ways we look for errors, and their limits:' },
-        { k: 'ext', href: `${REPO}/docs/verification/CERTIFY.md`, label: 'CERTIFY.md, “End-to-end certificates”', t: 'The full technical description, with the formulas and the tests:' },
+        { k: 'ext', href: `${REPO}/testing/docs/CERTIFY.md`, label: 'CERTIFY.md, “End-to-end certificates”', t: 'The full technical description, with the formulas and the tests:' },
       ],
     },
     pt: {
@@ -209,7 +209,7 @@ export const endToEndCertificates: Post = {
         },
 
         { k: 'link', slug: 'how-stabileo-checks-its-results', t: 'As outras formas em que procuramos erros, e seus limites:' },
-        { k: 'ext', href: `${REPO}/docs/verification/CERTIFY.md`, label: 'CERTIFY.md, «End-to-end certificates»', t: 'A descrição técnica completa, com as fórmulas e os testes:' },
+        { k: 'ext', href: `${REPO}/testing/docs/CERTIFY.md`, label: 'CERTIFY.md, «End-to-end certificates»', t: 'A descrição técnica completa, com as fórmulas e os testes:' },
       ],
     },
   },

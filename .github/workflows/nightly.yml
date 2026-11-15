@@ -10,7 +10,7 @@ run-name: ${{ inputs.force_failure && '[forced failure] Nightly verification' ||
 # `only` to pick jobs). A failed scheduled run opens or updates a
 # `ci-failure` issue for this workflow (verification-alert.yml).
 #
-# Runner routing, capacity budgets and staged rollout: docs/verification/NIGHTLY.md.
+# Runner routing, capacity budgets and staged rollout: testing/docs/NIGHTLY.md.
 # A heavy rerun on stabileo-ci-1 between 07:00 and 24:00 UTC, outside the nightly window:
 #   gh workflow run nightly.yml --ref main -f only=opensees-diff -f pool=stabileo-heavy
 # pool picks where opensees-diff runs (.github/scripts/heavy-pool.py); inside the window it takes the
@@ -191,7 +191,7 @@ jobs:
   # Large-model certificate runs (release, #[ignore]d in the normal suite):
   # certifies the 3D fixtures above 400 DOFs and grid frames up to 15k DOFs,
   # and runs the large sweep of the cross-path assembly oracle
-  # (docs/verification/ASSEMBLY.md).
+  # (testing/docs/ASSEMBLY.md).
   certify-large:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' certify-large ')
@@ -228,7 +228,7 @@ jobs:
         working-directory: engine
         run: cargo test --locked --release --test robustness fuzz_regressions::generated_buckling_certificate_invariant_nightly -- --exact --ignored --nocapture
 
-  # Metamorphic tests, exhaustive tier (docs/verification/METAMORPHIC.md):
+  # Metamorphic tests, exhaustive tier (testing/docs/METAMORPHIC.md):
   # the whole corpus and up to 2,000 random models through every analysis, checking
   # rotation / mirror / renumbering / unit-scaling invariance, superposition,
   # reciprocity, energy and symmetry. Pull requests run the sampled tier in
@@ -455,7 +455,7 @@ jobs:
           if-no-files-found: ignore
 
   # Coverage-guided fuzzing of the JSON entry points the WASM layer exposes
-  # (testing/fuzz, docs/verification/FUZZ_MUTANTS.md): no panic, no runaway
+  # (testing/fuzz, testing/docs/FUZZ_MUTANTS.md): no panic, no runaway
   # work, finite results, consistent certificates. One target per runner,
   # seeded from the template fixtures; crashing inputs are uploaded.
   fuzz:
@@ -711,7 +711,7 @@ jobs:
             .github/scripts
             scripts/mutants-safety.py
             scripts/mutants-safety.json
-            docs/verification/mutants-baseline.json
+            testing/docs/mutants-baseline.json
           sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -750,7 +750,7 @@ jobs:
           script: |
             const fs = require('fs');
             const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = `The weekly mutation run of the safety-critical modules (${run}) killed fewer mutants than the baseline in \`docs/verification/mutants-baseline.json\`:\n\n${fs.readFileSync(process.env.REPORT, 'utf8')}\nAdd tests that kill the new survivors (the run's \`mutants-safety-killrate\` artifact lists them), or exclude an equivalent mutant in \`.cargo/mutants.toml\` with its justification. When the rate goes up, raise the baseline with \`make mutants.safety.record\`.`;
+            const body = `The weekly mutation run of the safety-critical modules (${run}) killed fewer mutants than the baseline in \`testing/docs/mutants-baseline.json\`:\n\n${fs.readFileSync(process.env.REPORT, 'utf8')}\nAdd tests that kill the new survivors (the run's \`mutants-safety-killrate\` artifact lists them), or exclude an equivalent mutant in \`.cargo/mutants.toml\` with its justification. When the rate goes up, raise the baseline with \`make mutants.safety.record\`.`;
             await require('./.github/scripts/cadence-reports.cjs').upsertIssue({ github, context, core, title: 'Mutation kill rate below baseline', label: 'mutants-ratchet', body, dry: process.env.DRY === 'true' });
 
   mutants-monthly:

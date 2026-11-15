@@ -26,7 +26,7 @@ The frozen audit replay compares the adjacent parent `477adc7b3` with merge
 | 9d1d31be49ba5639 | 21 | -0.20789844971358207 | 0 |
 | c703b27bda5f4eb8 | 11 | 0 | 180.70590035965176 |
 
-Values are copied from the [audit](../verification/soundness-regression-audit-2026-11-11.md),
+Values are copied from the [audit](../../testing/docs/audits/soundness-regression-audit-2026-11-11.md),
 not inferred from an empty list. The PR's independent checks compare SSI without
 soil springs against the linear solver and balance reactions, loads and soil
 forces for converged spring models. Its retained tests include dense/sparse

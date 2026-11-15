@@ -1,5 +1,5 @@
 //! Certified load combinations / envelopes and certified design checks
-//! (docs/verification/CERTIFY.md). Honesty is checked against double-double
+//! (testing/docs/CERTIFY.md). Honesty is checked against double-double
 //! reference solutions of the same reduced f64 systems.
 
 use crate::certify_ref;

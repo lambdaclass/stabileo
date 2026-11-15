@@ -50,7 +50,7 @@ is filed at the highest one.
 | **GitHub issue** labelled `safety-advisory`, titled `SA-YYYY-NNN: <summary>`, body = the advisory | At publication | Release manager |
 | **Advisory file** `docs/advisories/SA-YYYY-NNN-<slug>.md` | Drafted on confirmation, published with the fix | Author of the fix |
 | **Release notes** (`docs/releases/vX.Y.Z{,.es,.pt}.md`): a "Safety advisories" section linking each advisory, in English, Spanish and Portuguese | In the release that fixes it | Release manager |
-| **In-app notice**: the release's "your results may have changed" notice (`web/src/lib/release/whats-new.ts`), and the per-project re-check prompt, which shows the advisory to projects that use the affected feature. Each advisory has an entry in the re-check registry, `web/src/lib/provenance/result-changes/` (PR [#328](https://github.com/lambdaclass/stabileo/pull/328), schema in `docs/verification/PROVENANCE.md`), whose `when` condition is the advisory's "how to tell if your model is affected" | In the release that fixes it | Author of the fix |
+| **In-app notice**: the release's "your results may have changed" notice (`web/src/lib/release/whats-new.ts`), and the per-project re-check prompt, which shows the advisory to projects that use the affected feature. Each advisory has an entry in the re-check registry, `web/src/lib/provenance/result-changes/` (PR [#328](https://github.com/lambdaclass/stabileo/pull/328), schema in `testing/docs/PROVENANCE.md`), whose `when` condition is the advisory's "how to tell if your model is affected" | In the release that fixes it | Author of the fix |
 | **GitHub Security Advisory** (repository Security tab) | Critical and High, so that the advisory has a stable public identifier | Maintainers |
 | **Email** | There is no mailing list today. When one exists (opt-in, see [#441](https://github.com/lambdaclass/stabileo/issues/441)), Critical and High advisories are mailed at publication | — |
 
@@ -117,7 +117,7 @@ Every advisory has these sections; the [template](#template) lists them.
 ## Index
 
 The list of advisories, with status and severity, is [advisories/README.md](advisories/README.md).
-The dashboard counts published advisories ([verification/DASHBOARD.md](verification/DASHBOARD.md)).
+The dashboard counts published advisories ([verification/DASHBOARD.md](../testing/docs/DASHBOARD.md)).
 
 Published with 0.6.1 (2026-11-15): [SA-2026-064](advisories/SA-2026-064-steel-cb-combination.md)
 (steel Cb), [SA-2026-065](advisories/SA-2026-065-snow-roof-step.md) (roof-step drift),

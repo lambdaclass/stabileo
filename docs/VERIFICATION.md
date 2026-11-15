@@ -181,7 +181,7 @@ These should act as release gates for major solver changes.
 
 The release-gate suite of public benchmark buildings with published reference
 results (SAC steel frames, IASC-ASCE SHM frame, ...) is described in
-[`verification/ACCEPTANCE.md`](verification/ACCEPTANCE.md) and runs as
+[`verification/ACCEPTANCE.md`](../testing/docs/ACCEPTANCE.md) and runs as
 `cargo test --release --test gates acceptance::`.
 
 ## Priority Order

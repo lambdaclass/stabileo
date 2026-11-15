@@ -1,4 +1,4 @@
-//! Model transforms for metamorphic testing (docs/verification/METAMORPHIC.md).
+//! Model transforms for metamorphic testing (testing/docs/METAMORPHIC.md).
 //!
 //! A metamorphic test needs no reference solution: it solves a model and a
 //! transformed copy of it, and checks that the two answers are related the way

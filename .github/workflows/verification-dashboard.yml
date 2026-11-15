@@ -1,6 +1,6 @@
 name: Verification dashboard
 
-# Regenerates docs/verification/DASHBOARD.md, dashboard.json and MATURITY.md with
+# Regenerates testing/docs/DASHBOARD.md, dashboard.json and MATURITY.md with
 # scripts/verification-metrics.py (repository, GitHub issues and the latest CI artifacts of the
 # nightly verification jobs) and opens or updates a pull request with the result. On a release
 # tag it also measures engine coverage (cargo llvm-cov) and records a history row for the tag.
@@ -18,6 +18,7 @@ on:
       - scripts/tests/**
       - .github/workflows/nightly.yml
       - docs/roadmap/PRODUCT_ROADMAP.md
+      - testing/ROADMAP.md
       - .github/workflows/verification-dashboard.yml
   workflow_dispatch:
     inputs:
@@ -124,7 +125,7 @@ jobs:
       - name: Carry over release snapshots of the pending automation PR
         run: |
           if git fetch --depth=1 origin automation/verification-dashboard 2>/dev/null; then
-            git checkout FETCH_HEAD -- docs/verification/releases/ 2>/dev/null || true
+            git checkout FETCH_HEAD -- testing/docs/releases/ 2>/dev/null || true
           fi
       # A release snapshot is measured on the tagged revision, with this checkout's script.
       - uses: actions/checkout@v7
@@ -136,15 +137,20 @@ jobs:
       - name: Release snapshot (measured on the tag)
         if: env.RELEASE != ''
         run: |
+          snapshot_docs=$(python3 -c 'import runpy; print(runpy.run_path("tagtree/scripts/verification-metrics.py")["VDIR"])')
           cp scripts/verification-metrics.py tagtree/scripts/verification-metrics.py
+          if [ ! -d tagtree/testing/docs ]; then
+            mkdir -p tagtree/testing
+            mv "$snapshot_docs" tagtree/testing/docs
+          fi
           args=()
           # Coverage from this run was measured on the tag only when the run was triggered by it.
           if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ -f cov/llvm-cov-summary.json ]; then
             args+=(--coverage-json "$PWD/cov/llvm-cov-summary.json")
           fi
           python3 -I tagtree/scripts/verification-metrics.py --max-runs 20 --record "$RELEASE" "${args[@]}"
-          mkdir -p docs/verification/releases
-          cp "tagtree/docs/verification/releases/${RELEASE}.json" docs/verification/releases/
+          mkdir -p testing/docs/releases
+          cp "tagtree/testing/docs/releases/${RELEASE}.json" testing/docs/releases/
           rm -rf tagtree
       - name: Current dashboard
         run: |
@@ -158,12 +164,12 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: verification-dashboard
-          path: docs/verification/
+          path: testing/docs/
       - name: Open or update the pull request
         if: env.PUBLISH == 'true'
         run: |
-          git add -N docs/verification/releases 2>/dev/null || true
-          if git diff --quiet -- docs/verification; then echo "no change"; exit 0; fi
+          git add -N testing/docs/releases 2>/dev/null || true
+          if git diff --quiet -- testing/docs; then echo "no change"; exit 0; fi
           branch=automation/verification-dashboard
           # The repository's rules require verified signatures, and a commit made here with git is
           # unsigned: the push was declined (scheduled run 40280524649, 2026-10-26). A commit made
@@ -173,8 +179,8 @@ jobs:
           base=$(git rev-parse HEAD)
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" -f sha="$base" -F force=true >/dev/null 2>&1 ||
             gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/heads/$branch" -f sha="$base" >/dev/null
-          git add -A docs/verification/DASHBOARD.md docs/verification/dashboard.json docs/verification/MATURITY.md \
-            docs/verification/releases
+          git add -A testing/docs/DASHBOARD.md testing/docs/dashboard.json testing/docs/MATURITY.md \
+            testing/docs/releases
           python3 -I - "$GITHUB_REPOSITORY" "$branch" "$base" "docs(verification): regenerate dashboard and maturity matrix (${GITHUB_REF_NAME})" > commit.json <<'PY'
           import base64, json, subprocess, sys
           repo, branch, base, headline = sys.argv[1:]

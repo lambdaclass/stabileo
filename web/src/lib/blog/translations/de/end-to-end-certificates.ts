@@ -117,7 +117,7 @@ const body: PostBody = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/CERTIFY.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/CERTIFY.md",
       "label": "CERTIFY.md, Abschnitt „End-to-end certificates“",
       "t": "Die vollständige technische Beschreibung mit den Formeln und den Tests:"
     }

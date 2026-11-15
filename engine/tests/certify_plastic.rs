@@ -1,4 +1,4 @@
-//! Certified plastic collapse load factor (docs/verification/CERTIFY.md,
+//! Certified plastic collapse load factor (testing/docs/CERTIFY.md,
 //! "Plastic collapse load factor").
 //!
 //! Honesty is checked against closed-form collapse loads of classical rigid-

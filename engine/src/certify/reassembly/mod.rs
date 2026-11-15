@@ -1,5 +1,5 @@
 //! End-to-end certificates: re-assemble `K` and `f` from the model, not from
-//! the engine. See "End-to-end certificates" in `docs/verification/CERTIFY.md`.
+//! the engine. See "End-to-end certificates" in `testing/docs/CERTIFY.md`.
 //!
 //! The linear certificate (`certify::solver`) proves that the returned
 //! displacements solve the f64 `K` and `f` the engine assembled. This module

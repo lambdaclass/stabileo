@@ -1,5 +1,5 @@
 //! Certified a posteriori error bound for a dense linear system `K u = f`.
-//! Implements `docs/verification/CERTIFY.md` literally:
+//! Implements `testing/docs/CERTIFY.md` literally:
 //!
 //! 1. `M = S − σI`, `S = (K + Kᵀ)/2`, formed in interval arithmetic.
 //! 2. Interval Cholesky of `M`; every pivot (before the square root) must have

@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The certified response-spectrum result (docs/verification/CERTIFY.md): the base shear of the
+   * The certified response-spectrum result (testing/docs/CERTIFY.md): the base shear of the
    * exact lowest modes enclosed, and bounds on the error of every reported displacement and
    * member force. One per direction run. In the background, once the result is shown.
    */

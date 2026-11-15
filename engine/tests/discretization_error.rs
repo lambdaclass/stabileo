@@ -1,4 +1,4 @@
-//! Discretization-error estimation (docs/verification/DISCRETIZATION.md): the
+//! Discretization-error estimation (testing/docs/DISCRETIZATION.md): the
 //! Zienkiewicz–Zhu/SPR estimator's effectivity index and the Richardson-extrapolated
 //! convergence check, on benchmarks with known solutions.
 //!

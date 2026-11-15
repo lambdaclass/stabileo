@@ -1,4 +1,4 @@
-//! End-to-end certificates (docs/verification/CERTIFY.md, "End-to-end
+//! End-to-end certificates (testing/docs/CERTIFY.md, "End-to-end
 //! certificates"): the independent re-assembly of K and f from the model
 //! (`certify::reassembly`) agrees with the engine on every example model,
 //! fixture and random model it covers, and catches planted assembly bugs.

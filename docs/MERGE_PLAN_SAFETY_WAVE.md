@@ -294,7 +294,7 @@ the same model gives different numbers.
 - Spectral leak of FEF, partial-load integration, 2D truss axial point loads, roller spring reactions,
   HHT-α, Timoshenko FEF, harmonic truncation (#275).
 - Many silently-wrong feature × analysis cells are now fixed or refused by name (#290; see
-  docs/verification/FEATURE_MATRIX.md).
+  testing/docs/FEATURE_MATRIX.md).
 - Section properties: Iyz in the shear solve (L100x10 Cw was 24× too large), thin-wall J +18–24 %;
   bolt bearing uses s − dh (#291).
 

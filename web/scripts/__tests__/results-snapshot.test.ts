@@ -330,7 +330,7 @@ describe('the examples-only equivalence proof, with both engines', () => {
 
 describe('the base checkout reuses this build\'s engine', () => {
   it('when only the app, the docs, the changelog or research papers changed', () => {
-    expect(headEngineServesBase(['web/src/lib/templates/fixtures/torsion.json', 'docs/verification/PROVENANCE.md', 'changelog.d/x.md', 'research/papers.yaml'])).toBe(true);
+    expect(headEngineServesBase(['web/src/lib/templates/fixtures/torsion.json', 'testing/docs/PROVENANCE.md', 'changelog.d/x.md', 'research/papers.yaml'])).toBe(true);
     expect(headEngineServesBase([])).toBe(true);
   });
   it('NEGATIVE: not when only the WASM build script changed', () => {

@@ -2,7 +2,7 @@
  * TEST ORACLE. Not imported by the app.
  *
  * The TypeScript INPRES-CIRSOC 103 module as it was verified clause by clause in #292
- * (docs/verification/LOADS.md). The arithmetic now runs in the engine
+ * (testing/docs/LOADS.md). The arithmetic now runs in the engine
  * (`engine/src/loads/cirsoc103_seismic.rs`) and `static-method.ts` is an adapter; this copy is what
  * `seismic-engine.test.ts` holds the engine to.
  */

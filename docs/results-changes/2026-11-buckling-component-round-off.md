@@ -10,7 +10,7 @@ The multiplier `100 ε`, compression comparisons, omitted-member worst-compressi
 
 ## Reference and observed change
 
-The exact F probe input is archived under `1756-true` in the read-only cause-C replay worktree's `docs/verification/cause-c-replay-2026-11-11.json`. The corresponding separate-member control is `1756-false`. The temporary F probe code was removed in that worktree; its report and serialized inputs remain. The permanent reproducer uses the same independent column and tie, with the local MPC `u3z = u4z` inside the tie.
+The exact F probe input is archived under `1756-true` in the read-only cause-C replay worktree's `testing/docs/audits/cause-c-replay-2026-11-11.json`. The corresponding separate-member control is `1756-false`. The temporary F probe code was removed in that worktree; its report and serialized inputs remain. The permanent reproducer uses the same independent column and tie, with the local MPC `u3z = u4z` inside the tie.
 
 The independent reference is the smaller root of the one-element cantilever pencil, derived in the existing buckling controls:
 

@@ -1,10 +1,10 @@
 # Test systems
 
-The standalone public API test systems live here. The map also includes the tests that stay beside the engine and web app until later phases. Counts live in the [generated dashboard](../docs/verification/DASHBOARD.md).
+The standalone public API test systems live here. The map also includes the tests that stay beside the engine and web app until later phases. The [testing roadmap](ROADMAP.md) holds the prevention, verification, proof and CI backlog. Durable verification documents live in [docs/](docs/); one-off investigations live in [docs/audits/](docs/audits/). Counts live in the [generated dashboard](docs/DASHBOARD.md).
 
 | Technique | What bug class it catches | Where it lives | CI job or make target that runs it | How often |
 |---|---|---|---|---|
-| Examples and engineering benchmarks | Answers that disagree with a known solution | `engine/tests`, `docs/verification` | `make test.engine.gates`, `make test.engine.suite` | Every PR, merge queue and nightly |
+| Examples and engineering benchmarks | Answers that disagree with a known solution | `engine/tests`, `testing/docs` | `make test.engine.gates`, `make test.engine.suite` | Every PR, merge queue and nightly |
 | Property and certificate checks | Broken equilibrium, bounds and refusal contracts | `engine/tests/certificates`, `engine/tests/property` | `make test.engine.gates`, `make test.engine.suite` | Every PR, merge queue and nightly |
 | Metamorphic tests | Answers that change under equivalent models | `engine/src/metamorphic`, `engine/tests/metamorphic` | `make test.engine.metamorphic` | Every PR, merge queue and nightly |
 | Mechanism fuzzing | Singular structures accepted as stable | `engine/tests/mechanism_fuzz` | `make test.engine.mechanism-fuzz.quick` | Every PR and merge queue; longer runs nightly |
