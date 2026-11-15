@@ -49,7 +49,11 @@ export interface EngineRecheck {
    * [lower, upper]. `ok` = provably below 1. Absent when the build has no certify export or the
    * member is not a beam check; `reason` when the certificate was refused.
    */
-  certified?: { ok: boolean; lower: number; upper: number; reason?: string };
+  certified?: { ok: boolean; lower: number; upper: number; reason?: string; code?: 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED' };
+}
+
+export function canReuseCirsoc201Certificate(certificate: EngineRecheck['certified']): boolean {
+  return certificate?.ok === true || certificate?.code === 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED';
 }
 
 const fail = (s: VerifStatus): boolean => s === 'fail';
@@ -183,7 +187,7 @@ export function engineRecheckElement(
   }
 
   if (v.torsion?.longitudinalProvision === 'not-checked' && rc.certified) {
-    rc.certified = { ...rc.certified, ok: false, reason: 'Longitudinal torsion reinforcement not checked' };
+    rc.certified = { ...rc.certified, ok: false, code: 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED', reason: 'Longitudinal torsion reinforcement not checked' };
   }
 
   const diags: SolverDiagnostic[] = [...(v.diagnostics ?? [])];

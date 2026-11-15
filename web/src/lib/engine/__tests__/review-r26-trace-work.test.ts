@@ -58,7 +58,7 @@ it('repeated station checks own their steps before a sibling is read', () => {
   expect(result.concurrentChecks![1]!.verification.flexure.steps).toEqual(expected);
 });
 
-for (const sameText of [false, true]) (sameText ? it.fails : it)(`known wrong result: #2080 refused certificates retry without a hold code ${sameText}`, async () => {
+for (const sameText of [false, true]) it(`known wrong result: #2080 refused certificates retry without a hold code ${sameText}`, async () => {
   const gate = await import('../codes/argentina/cirsoc201-engine-gate');
   const original = gate.engineRecheckElement;
   let calls = 0;
@@ -77,7 +77,7 @@ for (const sameText of [false, true]) (sameText ? it.fails : it)(`known wrong re
   expect(result.engineRecheck!.certified).not.toHaveProperty('code');
 });
 
-for (const other of ['ok', 'hold', 'refused', 'missing'] as const) ((other === 'ok' || other === 'hold') ? it.fails : it)(`known wrong result: #2080 concurrent hold code survives only compatible certificates ${other}`, async () => {
+for (const other of ['ok', 'hold', 'refused', 'missing'] as const) it(`known wrong result: #2080 concurrent hold code survives only compatible certificates ${other}`, async () => {
   const gate = await import('../codes/argentina/cirsoc201-engine-gate');
   const original = gate.engineRecheckElement;
   const code = 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED' as const;
@@ -100,7 +100,7 @@ for (const other of ['ok', 'hold', 'refused', 'missing'] as const) ((other === '
   expect(result.engineRecheck!.certified!.code).toBe(other === 'ok' || other === 'hold' ? code : undefined);
 });
 
-it.fails('known wrong result: #2080 repeated held stations reuse the code after wording changes', async () => {
+it('known wrong result: #2080 repeated held stations reuse the code after wording changes', async () => {
   const gate = await import('../codes/argentina/cirsoc201-engine-gate');
   const original = gate.engineRecheckElement;
   const check = vi.spyOn(gate, 'engineRecheckElement').mockImplementation((...args) => {

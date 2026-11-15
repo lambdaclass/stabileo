@@ -23,6 +23,7 @@ import type { ElementVerification, ConcurrentVerificationInput } from './codes/a
 import { isDesignedMember } from './design/behaviour-demands';
 import { primaryAxis } from './design/design-axes';
 import { verifyConcurrentElement } from './concurrent-verification';
+import { canReuseCirsoc201Certificate } from './codes/argentina/cirsoc201-engine-gate';
 import { ConcurrentDemand, requireCompleteConcurrentDemand } from './concurrent-demand';
 import { CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 import type { RegulationEdition } from '../codes/regulation';
@@ -195,7 +196,7 @@ export function autoVerifyFromResults(
       && entry.axis === axis && sameVerificationBase(base, entry.base)) : undefined;
     let v = previous ? verificationForElement(previous.value, ef.elementId)
       : verifyConcurrentElement(tuples.map(d => ({ ...base, elementId: ef.elementId, demand: d.section(axis) })));
-    if (!previous && elementType === 'beam' && (v.engineRecheck?.certified?.ok || v.engineRecheck?.certified?.reason === 'Longitudinal torsion reinforcement not checked')
+    if (!previous && elementType === 'beam' && v.engineRecheck && canReuseCirsoc201Certificate(v.engineRecheck.certified)
       && !v.engineRecheck.unavailable && v.engineRecheck.disagreements.length === 0) {
       const entries = shared.get(tuples) ?? [];
       entries.push({ base, axis, tuples: [...tuples], value: v });

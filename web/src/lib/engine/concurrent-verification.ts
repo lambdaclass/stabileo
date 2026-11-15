@@ -2,7 +2,7 @@ import { copyVerificationCheck } from './verification-steps';
 import { withBiaxialCapacityCache } from './station-design-forces';
 import { verificationForElement } from './element-verification-copy';
 import { sharedTorsionReinforcement, checkColumn, prepareElementVerification, verificationCase, amplifiedDemand, type ConcurrentVerificationInput, type ElementVerification, type DemandLocation } from './codes/argentina/cirsoc201';
-import { engineRecheckElement } from './codes/argentina/cirsoc201-engine-gate';
+import { canReuseCirsoc201Certificate, engineRecheckElement } from './codes/argentina/cirsoc201-engine-gate';
 
 function completeCaseKeys(): (input: ConcurrentVerificationInput) => string | undefined {
   let keys: string[] = [];
@@ -74,7 +74,7 @@ function verifyConcurrentCases(inputs: readonly ConcurrentVerificationInput[]): 
       : engineRecheckElement(v!, { edition: i.edition, stirrupDia: i.stirrupDia, NuShear: d.Nu });
     const recheck = verification.engineRecheck;
     if (!previous && recheck && !recheck.unavailable && recheck.disagreements.length === 0
-      && (!recheck.certified || recheck.certified.ok || recheck.certified.reason === 'Longitudinal torsion reinforcement not checked')) checked.set(position, verification);
+      && (!recheck.certified || canReuseCirsoc201Certificate(recheck.certified))) checked.set(position, verification);
     return { demand: i.demand.source, verification };
   });
   type Check = 'flexure' | 'shear' | 'shearSecondary' | 'column' | 'biaxial' | 'torsion';
@@ -121,11 +121,14 @@ function verifyConcurrentCases(inputs: readonly ConcurrentVerificationInput[]): 
     columnRatio: c?.verification.engineRecheck!.columnRatio, biaxialRatio: b?.verification.engineRecheck!.biaxialRatio };
   if (engine.some(e => e.certified)) {
     const reasons = [...new Set(engine.flatMap(e => e.certified?.reason ? [e.certified.reason] : e.certified ? [] : ['Concurrent certificate unavailable']))];
+    const code = engine.every(e => canReuseCirsoc201Certificate(e.certified))
+      ? engine.find(e => e.certified?.code)?.certified?.code : undefined;
     out.engineRecheck.certified = {
       ok: engine.every(e => !e.unavailable && !e.disagreements.length && e.certified?.ok === true),
       lower: Math.max(...engine.map(e => e.certified?.lower ?? 0)),
       upper: Math.max(...engine.map(e => e.certified?.upper ?? Infinity)),
       ...(reasons.length ? { reason: reasons.join('; ') } : {}),
+      ...(code ? { code } : {}),
     };
   }
   return out;
