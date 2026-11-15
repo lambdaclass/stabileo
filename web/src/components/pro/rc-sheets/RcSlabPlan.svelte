@@ -4,7 +4,7 @@
   import { meshArea, meshLabel } from '../../../lib/rc-sheets/bars';
   import { planDrawing, type LevelPlan } from '../../../lib/rc-sheets/slab-plan';
 
-  let { plan }: { plan: LevelPlan } = $props();
+  let { plan, highlight = [] }: { plan: LevelPlan; highlight?: string[] } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   let show = $state({ bottom: true, top: true, base: false });
 
@@ -54,7 +54,7 @@
     {/each}
     {#each bars as b (b.id)}
       {@const main = b.legs.reduce((m, l, j) => (l.length > b.legs[m]!.length ? j : m), 0)}
-      <g class="bar {b.layer}-{b.dir} k-{b.kind}" data-testid="rc-plan-bar" data-layer={b.layer} data-dir={b.dir} data-kind={b.kind} data-mark={b.mark}>
+      <g class="bar {b.layer}-{b.dir} k-{b.kind}" class:hl={highlight.includes(b.mark)} data-testid="rc-plan-bar" data-layer={b.layer} data-dir={b.dir} data-kind={b.kind} data-mark={b.mark}>
         <line x1={sx(b.band[0][0])} y1={sy(b.band[0][1])} x2={sx(b.band[1][0])} y2={sy(b.band[1][1])} class="band" />
         <polygon points={arrow(b.band[0], b.band[1])} class="tip" />
         <polygon points={arrow(b.band[1], b.band[0])} class="tip" />
@@ -118,6 +118,8 @@
   .top-x { --c: #d08a1e; }
   .top-y { --c: #c64a6a; }
   .k-bent .rod { stroke-width: 2.2; }
+  .hl .rod { stroke-width: 4; filter: drop-shadow(0 0 3px var(--st-warn)); }
+  .hl .lbl { font-weight: 700; fill: var(--st-warn); }
   .note { margin: 0; font-size: 0.68rem; color: var(--st-text-3); max-width: 110ch; }
   .note.bad { color: var(--st-danger); }
   .note.warn { color: var(--st-warn); }

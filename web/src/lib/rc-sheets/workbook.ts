@@ -9,7 +9,7 @@ import { wallLabel, type WallRow } from './wall-row';
 import type { CheckLine } from './types';
 import type { PunchingRow } from './punching-row';
 import type { BendingSchedule } from './schedule/schedule';
-import { scheduleSheet } from './schedule/exports';
+import { scheduleSheets } from './schedule/exports';
 
 type Tr = (key: string) => string;
 const r2 = (v: number) => Math.round(v * 100) / 100;
@@ -74,6 +74,6 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     { name: tr('rcSheets.family.slab'), rows: slabs },
     { name: tr('rcSheets.family.wall'), rows: walls },
     ...((rows.punching ?? []).length ? [{ name: tr('rcSheets.family.punching'), rows: punch }] : []),
-    ...(bending?.rows.length ? [scheduleSheet(bending, tr, rows.code)] : []),
+    ...(bending?.rows.length ? scheduleSheets(bending, tr, rows.code) : []),
   ];
 }

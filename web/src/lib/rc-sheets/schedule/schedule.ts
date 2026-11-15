@@ -28,6 +28,8 @@ export interface MarkedPiece { mark: string; key: string; kind: PieceKind; count
 export interface ScheduleRow {
   /** The elements the row stands for, by name. */
   element: string;
+  /** The bar's `shapeKey`. */
+  key: string;
   elements: string[];
   family: SheetFamily;
   level?: string;
@@ -48,8 +50,12 @@ export interface ScheduleRow {
   long: boolean;
 }
 
+export type MarkedElement = ScheduleElement & { marks: MarkedPiece[] };
+
 export interface BendingSchedule {
   rows: ScheduleRow[];
+  /** Every element with its marked pieces, empty ones left out. */
+  marked: MarkedElement[];
   byDiameter: Array<{ dia: number; length: number; kg: number; withWaste: number; stockBars: number }>;
   byFamily: Array<{ family: SheetFamily; kg: number; withWaste: number }>;
   total: { length: number; kg: number; withWaste: number };
@@ -65,7 +71,7 @@ export const letterMark = (i: number): string => String.fromCharCode(65 + (i % 2
 const scopeOf = (e: ScheduleElement, scope: MarkScope) => (scope === 'element' ? `e:${e.key}` : scope === 'level' ? `l:${e.level ?? ''}` : 'p');
 
 /** Each element's pieces with equal ones merged and marked within the scope. */
-export function assignMarks(elements: readonly ScheduleElement[], scope: MarkScope): Array<ScheduleElement & { marks: MarkedPiece[] }> {
+export function assignMarks(elements: readonly ScheduleElement[], scope: MarkScope): MarkedElement[] {
   const numbered = new Map<string, Map<string, string>>();
   return elements.map((e) => {
     const merged = new Map<string, MarkedPiece>();
@@ -122,7 +128,7 @@ export function scheduleOf(elements: readonly ScheduleElement[], o: Pick<Schedul
     for (const m of first.marks) {
       const total = m.count * g.length, unitLength = developedLength(m.shape);
       out.push({
-        element: labelOf(g), elements: g.map((e) => e.key), family: first.family, level: levels.join(', ') || undefined,
+        element: labelOf(g), key: m.key, elements: g.map((e) => e.key), family: first.family, level: levels.join(', ') || undefined,
         mark: m.mark, elevation: m.elevation.length > 1 ? [...new Set(m.elevation)] : [], kind: m.kind, dia: m.shape.dia,
         perElement: m.count, equal: g.length, total, shape: m.shape,
         unitLength, totalLength: unitLength * total, kg: shapeWeight(m.shape, total), long: unitLength > STOCK_LENGTH + 1e-9,
@@ -155,7 +161,7 @@ export function scheduleOf(elements: readonly ScheduleElement[], o: Pick<Schedul
   const kg = out.reduce((s, r) => s + r.kg, 0);
   const bends = rulesFor(o.code).bends;
   return {
-    rows: out, byDiameter, byFamily,
+    rows: out, marked: marked.filter((e) => e.marks.length), byDiameter, byFamily,
     total: { length: out.reduce((s, r) => s + r.totalLength, 0), kg, withWaste: kg * (1 + waste) },
     waste, scope, clause: bends.clause, ...(bends.confirm ? { confirm: bends.confirm } : {}),
   };

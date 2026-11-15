@@ -27,6 +27,8 @@
   import RcPunchingSvg from './RcPunchingSvg.svelte';
   import RcResize from './RcResize.svelte';
   import RcScheduleView from './RcScheduleView.svelte';
+  import type { ElementRef } from '../../../lib/rc-sheets/schedule/views';
+  import { tick } from 'svelte';
   import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { designData } from '../../../lib/store/design-data';
   import { modelStore } from '../../../lib/store';
@@ -38,6 +40,7 @@
   let openKey = $state<string | null>(null);
   let slabView = $state<'panels' | 'plan'>('panels');
   let schedule = $state(false);
+  let highlight = $state<string[]>([]);
 
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const EMPTY: SheetRows = { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], code: '', basis: 'combinations', combos: 0 };
@@ -66,6 +69,19 @@
     document.body.appendChild(node);
     return { destroy() { node.remove(); } };
   }
+  async function openFromSchedule(el: ElementRef, marks: string[]) {
+    const plan = el.key.startsWith('slabplan:');
+    schedule = false;
+    failingOnly = false;
+    family = el.family;
+    slabView = plan ? 'plan' : 'panels';
+    level = plan ? el.level ?? '' : '';
+    openKey = plan ? null : el.key;
+    highlight = marks;
+    await tick();
+    const target = plan ? document.querySelector('[data-testid="rc-plan-svg"]') : document.querySelector(`[data-testid="rc-row"][data-key="${CSS.escape(el.key)}"]`);
+    target?.scrollIntoView({ block: 'start' });
+  }
   function onkey(e: KeyboardEvent) { if (e.key === 'Escape') onclose(); }
 </script>
 
@@ -80,7 +96,7 @@
     {#if stale && !sheetsRun.progress}<span class="rcw-dim rcw-stale" data-testid="rc-stale">{t('rcSheets.staleShort')}</span><button type="button" class="rcs-btn" onclick={designSheets} data-testid="rc-redesign">{t('rcSheets.redesign')}</button>{/if}
     <div class="rcw-tabs" role="tablist">
       {#each SHEET_FAMILIES as f (f)}
-        <button type="button" role="tab" aria-selected={!schedule && family === f} class:on={!schedule && family === f} data-testid={`rc-tab-${f}`} onclick={() => { family = f; schedule = false; level = ''; openKey = null; }}>
+        <button type="button" role="tab" aria-selected={!schedule && family === f} class:on={!schedule && family === f} data-testid={`rc-tab-${f}`} onclick={() => { family = f; schedule = false; level = ''; openKey = null; highlight = []; }}>
           {t(`rcSheets.family.${f}`)} <small>{counts[f].n}{counts[f].fail ? ` · ${counts[f].fail} ✗` : ''}</small>
         </button>
       {/each}
@@ -107,7 +123,7 @@
       <p class="rcw-empty" data-testid="rc-not-designed">{t('rcSheets.designHint')}</p>
       <button type="button" class="rcs-btn primary" onclick={designSheets} data-testid="rc-design">{t('rcSheets.design')}</button>
     {:else if schedule}
-      <RcScheduleView {rows} />
+      <RcScheduleView {rows} onopen={openFromSchedule} />
     {:else if !all.length}
       <p class="rcw-empty" data-testid="rc-empty">{t(rows.basis === 'none' ? 'rcSheets.solveFirst' : `rcSheets.empty.${family}`)}</p>
     {:else}
@@ -118,7 +134,7 @@
         </div>
       {/if}
       {#if family === 'slab' && slabView === 'plan'}
-        {#if levelPlan}{#key levelPlan.level}<RcSlabPlan plan={levelPlan} />{/key}{/if}
+        {#if levelPlan}{#key levelPlan.level}<RcSlabPlan plan={levelPlan} {highlight} />{/key}{/if}
       {:else}
       <table class="rcw-table" data-testid={`rc-table-${family}`}>
         <thead>
@@ -140,7 +156,7 @@
         </thead>
         <tbody>
           {#each shown as r (r.key)}
-            <tr class="row st-{r.status}" class:open={openKey === r.key} onclick={() => (openKey = openKey === r.key ? null : r.key)} data-testid="rc-row">
+            <tr class="row st-{r.status}" class:open={openKey === r.key} onclick={() => { openKey = openKey === r.key ? null : r.key; highlight = []; }} data-testid="rc-row" data-key={r.key}>
               <td class="nm">{r.name}{#if !r.isAdopted}<span class="tag" title={t('rcSheets.showingProposal')}>P</span>{/if}</td>
               <td>{r.level ?? ''}</td>
               {#if r.family === 'line'}
@@ -198,7 +214,7 @@
               <tr class="detail">
                 <td colspan="13">
                   {#if r.family === 'line'}
-                    <RcLineDetail line={r} spans={spansOf(r)} onleave={onclose} />
+                    <RcLineDetail line={r} spans={spansOf(r)} onleave={onclose} {highlight} />
                   {:else}
                   <RcResize row={r} onleave={onclose} />
                   {#if r.family !== 'punching'}<RcRowEditor row={r} />{/if}
@@ -270,7 +286,7 @@
   .rcw-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
   th { position: sticky; top: 0; background: var(--st-surface-2); text-align: left; font-weight: 600; color: var(--st-text-2); padding: 4px 6px; border-bottom: 1px solid var(--st-hair); white-space: nowrap; }
   td { padding: 3px 6px; border-bottom: 1px solid var(--st-hair); white-space: nowrap; }
-  tr.row { cursor: pointer; }
+  tr.row { cursor: pointer; scroll-margin-top: 32px; }
   tr.row:hover { background: var(--st-surface-2); }
   tr.open { background: var(--st-surface-2); }
   .n { text-align: right; font-family: var(--st-mono); }

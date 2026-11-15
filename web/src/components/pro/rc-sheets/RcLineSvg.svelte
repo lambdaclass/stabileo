@@ -4,7 +4,8 @@
   import { stirrupsLabel } from '../../../lib/rc-sheets/bars';
   import type { LineBar, LineLayout } from '../../../lib/rc-sheets/beam-line';
 
-  let { line, marks = false, envelope = false, cuts = [] }: { line: LineLayout; marks?: boolean; envelope?: boolean; cuts?: Array<{ x: number; label: string }> } = $props();
+  let { line, marks = false, envelope = false, cuts = [], highlight = [] }: { line: LineLayout; marks?: boolean; envelope?: boolean; cuts?: Array<{ x: number; label: string }>; highlight?: string[] } = $props();
+  const hl = (b: LineBar) => highlight.includes(b.mark);
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const W = 1200, M = 56, TOP = 40, STUB = 22, BELOW = 12, ROW = 30;
   const x0 = $derived(Math.min(0, line.ends.from)), x1 = $derived(Math.max(line.length, line.ends.to));
@@ -97,12 +98,12 @@
     <line x1={tk.x} y1={tk.y1} x2={tk.x} y2={tk.y2} class="stirrup" />
   {/each}
   {#each line.bars.filter((b) => b.kind === 'bent') as bar (bar.mark)}
-    <polyline points={bar.shape.pts.map((p) => `${X(p[0]).toFixed(1)},${(TOP + (hMax - p[1]) * sy).toFixed(1)}`).join(' ')} class="bar bent" data-testid="rc-bent-bar" />
+    <polyline points={bar.shape.pts.map((p) => `${X(p[0]).toFixed(1)},${(TOP + (hMax - p[1]) * sy).toFixed(1)}`).join(' ')} class="bar bent" class:hl={hl(bar)} data-testid="rc-bent-bar" />
   {/each}
   {#each line.bars.filter((b) => b.kind !== 'bent') as bar (bar.mark)}
     {@const segs = trace(bar)}
     {#each segs as sg, i (i)}
-      <line x1={sg.x1} y1={sg.y} x2={sg.x2} y2={sg.y} class="bar {bar.kind}" />
+      <line x1={sg.x1} y1={sg.y} x2={sg.x2} y2={sg.y} class="bar {bar.kind}" class:hl={hl(bar)} />
     {/each}
     {#if segs.length && bar.hooks[0]}<line x1={segs[0]!.x1} y1={segs[0]!.y} x2={segs[0]!.x1} y2={hookTo(bar, segs[0]!.y)} class="bar {bar.kind}" />{/if}
     {#if segs.length && bar.hooks[1]}<line x1={segs[segs.length - 1]!.x2} y1={segs[segs.length - 1]!.y} x2={segs[segs.length - 1]!.x2} y2={hookTo(bar, segs[segs.length - 1]!.y)} class="bar {bar.kind}" />{/if}
@@ -114,7 +115,7 @@
         {#if segs.length}
           {@const mid = segs.reduce((a, b) => (b.x2 - b.x1 > a.x2 - a.x1 ? b : a))}
           {@const cy = bar.face === 'top' ? mid.y - 13 : mid.y + 13}
-          <circle cx={(mid.x1 + mid.x2) / 2} cy={cy} r="7.5" class="mark onbeam {bar.kind}" />
+          <circle cx={(mid.x1 + mid.x2) / 2} cy={cy} r="7.5" class="mark onbeam {bar.kind}" class:hl={hl(bar)} data-testid={hl(bar) ? 'rc-line-mark-hl' : undefined} data-mark={bar.mark} />
           <text x={(mid.x1 + mid.x2) / 2} y={cy + 3.2} class="markt small-mark">{bar.mark}</text>
         {/if}
       {/each}
@@ -173,7 +174,7 @@
   {#each line.bars as bar, n (bar.mark)}
     {@const y = ySchedule + rowTop[n]! + (bar.kind === 'bent' ? ROW : 0) + 16}
     {@const so = setOut(bar)}
-    <circle cx={M - 26} cy={y} r="9" class="mark {bar.kind}" />
+    <circle cx={M - 26} cy={y} r="9" class="mark {bar.kind}" class:hl={hl(bar)} />
     <text x={M - 26} y={y + 3.5} class="markt">{bar.mark}</text>
     {#if bar.kind === 'bent'}
       {@const base = Math.min(...bar.shape.pts.map((p) => p[1]))}
@@ -217,6 +218,8 @@
   .markt { font-size: 10px; font-weight: 700; fill: var(--st-text); text-anchor: middle; font-family: var(--st-mono); }
   .mark.onbeam { fill: var(--st-surface-2); }
   .small-mark { font-size: 9px; }
+  .bar.hl { stroke-width: 4.4; filter: drop-shadow(0 0 3px var(--st-warn)); }
+  .mark.hl { stroke: var(--st-warn); stroke-width: 2.6; fill: color-mix(in srgb, var(--st-warn) 30%, var(--st-surface-2)); }
   .cut { stroke: #f0b84a; stroke-width: 1; stroke-dasharray: 4 2; }
   .cutbox { fill: var(--st-surface-2); stroke: #f0b84a; stroke-width: 1; }
   .cutt { font-size: 9.5px; font-weight: 700; fill: #f0b84a; text-anchor: middle; font-family: var(--st-mono); }

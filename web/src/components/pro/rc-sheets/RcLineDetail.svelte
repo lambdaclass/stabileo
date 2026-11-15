@@ -13,7 +13,7 @@
   import { beamSection } from '../../../lib/rc-sheets/drawing';
   import { groupsLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
 
-  let { line, spans, onleave = () => {} }: { line: LineLayout; spans: BeamRow[]; onleave?: () => void } = $props();
+  let { line, spans, onleave = () => {}, highlight = [] }: { line: LineLayout; spans: BeamRow[]; onleave?: () => void; highlight?: string[] } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   let open = $state<string | null>(null);
   const MARKS_KEY = 'stabileo-rc-marks';
@@ -61,7 +61,7 @@
   <label class="rcd-marks"><input type="checkbox" checked={showEnvelope} onchange={(e) => setEnvelope(e.currentTarget.checked)} data-testid="rc-envelope-toggle" /> {t('rcSheets.line.showEnvelope')}</label>
   <label class="rcd-marks"><input type="checkbox" checked={showCuts} onchange={(e) => setCuts(e.currentTarget.checked)} data-testid="rc-cuts-toggle" /> {t('rcSheets.line.showCuts')}</label>
 </div>
-<RcLineSvg {line} marks={showMarks} envelope={showEnvelope} cuts={showCuts ? sections.flatMap((g) => g.at.map((x) => ({ x, label: g.label }))) : []} />
+<RcLineSvg {line} marks={showMarks || highlight.length > 0} {highlight} envelope={showEnvelope} cuts={showCuts ? sections.flatMap((g) => g.at.map((x) => ({ x, label: g.label }))) : []} />
 <h5 class="rcd-h">{t('rcSheets.sections')}</h5>
 <div class="rcd-secs">
   {#each sections as g (g.key)}
@@ -72,7 +72,7 @@
   <thead><tr><th>{t('rcSheets.line.mark')}</th><th>{t('rcSheets.line.kind')}</th><th>{t('rcSheets.col.bars')}</th><th class="n">{t('rcSheets.line.from')}</th><th class="n">{t('rcSheets.line.to')}</th><th class="n">{t('rcSheets.line.length')}</th><th class="n">kg</th></tr></thead>
   <tbody>
     {#each line.bars as b (b.mark)}
-      <tr><td>{b.mark}</td><td>{kind(b.kind)} ({t(b.face === 'top' ? 'rcSheets.col.top' : 'rcSheets.col.bottom')})</td><td>{b.bars.count} Ø{b.bars.dia}{b.hooks[0] || b.hooks[1] ? ' ⌐' : ''}</td>
+      <tr class:hl={highlight.includes(b.mark)} data-testid="rc-line-bar" data-mark={b.mark}><td>{b.mark}</td><td>{kind(b.kind)} ({t(b.face === 'top' ? 'rcSheets.col.top' : 'rcSheets.col.bottom')})</td><td>{b.bars.count} Ø{b.bars.dia}{b.hooks[0] || b.hooks[1] ? ' ⌐' : ''}</td>
         <td class="n">{fmt(b.from)}</td><td class="n">{fmt(b.to)}</td><td class="n">{fmt(b.length)}</td><td class="n">{fmt(b.weight, 1)}</td></tr>
     {/each}
   </tbody>
@@ -103,6 +103,7 @@
 {/each}
 
 <style>
+  tr.hl td { background: color-mix(in srgb, var(--st-warn) 22%, transparent); font-weight: 600; }
   .rcd { width: 100%; border-collapse: collapse; font-size: 0.72rem; margin-bottom: 8px; }
   th { text-align: left; font-weight: 600; color: var(--st-text-2); padding: 3px 6px; border-bottom: 1px solid var(--st-hair); background: var(--st-surface-2); }
   td { padding: 2px 6px; border-bottom: 1px solid var(--st-hair); color: var(--st-text); }
