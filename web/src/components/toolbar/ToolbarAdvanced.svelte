@@ -997,7 +997,6 @@
     {/if}
   </div>
   {/if}
-  {#each (is3D ? resultsStore.knownIssues3D : resultsStore.knownIssues).messages as message}<p role="alert">{message}</p>{/each}
   {@const pdR = is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult}
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}

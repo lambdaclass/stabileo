@@ -20,6 +20,7 @@
    */
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
+  import NoticeRow from '../notices/NoticeRow.svelte';
   import { activePerCombo3D, activeCombinations } from '../../lib/store/active-results';
     import { exportToExcel } from '../../lib/export/excel';
   import { computeStationDemands } from '../../lib/engine/verification-service';
@@ -151,7 +152,7 @@
   }
 </script>
 
-{#each resultsStore.knownIssues3D.messages as message}<p role="alert">{message}</p>{/each}
+{#if resultsStore.knownIssues3D.refused}<div role="alert" data-testid="results-withheld"><NoticeRow kind="withheld" level="blocking" summary={t('notices.kind.withheld')} details={resultsStore.knownIssues3D.messages} open /></div>{/if}
 <div class="tm-bar" role="tablist" data-testid="table-modes-{kind}"><div class="pk-tabs tm-tabs">
   {#each modes as m (m)}
     <button class:on={mode === m} role="tab" aria-selected={mode === m}
