@@ -2,7 +2,7 @@
   /** A wall's bars in elevation and in a horizontal cut, as `rc-sheets/wall-detail.ts` lays them out, each kind switched on and off on its own. */
   import { t, tp, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
-  import { wallDetail } from '../../../lib/rc-sheets/wall-detail';
+  import { wallDetail, wallLevels } from '../../../lib/rc-sheets/wall-detail';
   import type { WallRow } from '../../../lib/rc-sheets/wall-row';
   import type { SheetCode } from '../../../lib/rc-sheets/types';
 
@@ -16,7 +16,7 @@
   const ew = $derived(d.length * ke), eh = $derived(row.height * ke);
   const EX = (x: number) => PAD + x * ke, EY = (y: number) => PAD + eh - y * ke;
   const face = $derived(d.verticals.filter((v) => Math.abs(v.y - Math.min(...d.verticals.map((q) => q.y))) < 1e-6));
-  const levels = (span: number, s: number) => { const n = Math.max(1, Math.floor((span - s / 2) / s) + 1); const every = Math.ceil(n / MAXLINES); return Array.from({ length: Math.ceil(n / every) }, (_, i) => s / 2 + i * every * s); };
+  const levels = (span: number, s: number) => wallLevels(span, s, MAXLINES);
   const hLevels = $derived(levels(row.height, d.horizontals.spacing));
   const tieLevels = $derived(d.boundary?.ties ? levels(row.height, d.boundary.ties.spacing) : []);
   const crossGrid = $derived(d.crossTies ? { xs: levels(d.length, d.crossTies.along), ys: levels(row.height, d.crossTies.up) } : null);

@@ -102,3 +102,10 @@ export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   }
   return { length: L, thickness: t, cover, verticals, horizontals: { dia: a.horizontal.diameter, spacing: a.horizontal.spacing, y: hy }, ends, boundary, crossTies, notes };
 }
+
+/** Bars at a spacing up a height (or along a length), from half a spacing in; one kept in so many past `maxLines`. */
+export function wallLevels(span: number, s: number, maxLines = Infinity): number[] {
+  const n = Math.max(1, Math.floor((span - s / 2) / s) + 1);
+  const every = Number.isFinite(maxLines) ? Math.ceil(n / maxLines) : 1;
+  return Array.from({ length: Math.ceil(n / every) }, (_, i) => s / 2 + i * every * s);
+}
