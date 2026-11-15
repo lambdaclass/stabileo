@@ -221,3 +221,5 @@ Stabileo is backed by [Ergodic Group](https://ergodicgroup.com/) and developed b
 
 With contributions from mathematicians, physicists, computer engineers and computer scientists at
 LambdaClass.
+
+See [the test map](testing/README.md) for the testing techniques, their locations and when they run.

@@ -150,7 +150,7 @@ web/scripts/research-cargo-notices.mjs: if (pkg.license.includes('Unicode-3.0'))
 web/scripts/translate.mjs: output = output.replace(
 web/scripts/translate.mjs: output = output.replace(/^export default en;$/m, `export default ${lang};`);
 web/scripts/translation-gate.ts: const body = html.match(/<div id="prerender">([\s\S]*)<div id="app">/)?.[1] ?? html;
-scripts/nightly-models.py: if failure['test'].startswith('metamorphic/'):
+testing/scripts/nightly-models.py: if failure['test'].startswith('metamorphic/'):
 scripts/verification-metrics.py: return "linear static" in text.lower() or "member end forces" in text
 scripts/verification-metrics.py: return analysis == "static" and "linear static" in src["codeaster"]
 .github/scripts/cadence-reports.cjs: if (!['success', 'failure'].includes(j.conclusion)) continue;

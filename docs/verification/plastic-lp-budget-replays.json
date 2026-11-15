@@ -16,7 +16,7 @@
     {
       "issue": 951,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/951",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-951.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-951.bin",
       "raw_sha1": "137c0dc8daa15f8d7cb171378046650a516b2060",
       "raw_sha256": "2fd5dfb85302004d4d7c60fe054c6514e79ef4a4a05f8aa26b24a1db78148971",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
@@ -266,7 +266,7 @@
     {
       "issue": 952,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/952",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-952.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-952.bin",
       "raw_sha1": "158a48faf3993f5a9f6efd296446b24ecfe374b2",
       "raw_sha256": "9bd35744a7003b7506809de1fc144374c10dace4a8739fe3fe342e3af9a258b9",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
@@ -516,7 +516,7 @@
     {
       "issue": 953,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/953",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-953.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-953.bin",
       "raw_sha1": "d886d7f3d43878f1c4f3a6b5771ebed044d32d99",
       "raw_sha256": "f71975bf8815ab8c513f30f1a68fc4486a93bdba0bb22f63b0f5543c69b674b1",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
@@ -766,7 +766,7 @@
     {
       "issue": 989,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/989",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-989.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-989.bin",
       "raw_sha1": "c507ca7aa2dadaaa15bd1f0561a6286d4f5c4abb",
       "raw_sha256": "1189dcf8403f7891d4fceb4506828dd4cdfc588d556c81e85b3d2cec4cedbb48",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
@@ -1016,7 +1016,7 @@
     {
       "issue": 990,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/990",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-990.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-990.bin",
       "raw_sha1": "c7f1ef441d8ec105f49d584f07bfb981dc219431",
       "raw_sha256": "b09604388da6c05740c863cce5bd77e81a3b7ec3737a066ddb27a5294f8191dc",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
@@ -1266,7 +1266,7 @@
     {
       "issue": 991,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/991",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-991.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-991.bin",
       "raw_sha1": "5ab3e57be542f3dbd4fd086e72051a1c95ce5dba",
       "raw_sha256": "e43c9182d0d88041f84162734d38456210a225700370ef907f3b3df657305623",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
@@ -1516,7 +1516,7 @@
     {
       "issue": 1081,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/1081",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1081.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1081.bin",
       "raw_sha1": "d905f6d561e4606218e5ceaf9bbe229f76ba9278",
       "raw_sha256": "22a074a3e3bb5092d5edc7b994412a04962191a47b58a48abe318eb6ec6739f9",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
@@ -1766,7 +1766,7 @@
     {
       "issue": 1082,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/1082",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1082.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1082.bin",
       "raw_sha1": "4f033b1e11c83fdae1b76b6982134b7dc42dd22a",
       "raw_sha256": "d7dae7ef6b3b604009d537610904f82ab78a8cccc10e4fb1cc07143f3e9cbae3",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
@@ -2016,7 +2016,7 @@
     {
       "issue": 1261,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/1261",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1261.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1261.bin",
       "raw_sha1": "56705b73f94746d1372044e8e0177f57f253e824",
       "raw_sha256": "c347e36ace7d52b9926730f64aaf4e05e9eb684dd34c66063f5376943f1b01ff",
       "resource_classification": "existing 2D safety refusal; historical OOM not reproduced",
@@ -2263,7 +2263,7 @@
     {
       "issue": 1349,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/1349",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1349.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1349.bin",
       "raw_sha1": "a3094cc39131a2b3dee2bf144c6e6ce128eaa264",
       "raw_sha256": "0e2a8cd67cb113265a91e1c0155cd88dac46e03fdbb91d974dc717e2ea06da10",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
@@ -2513,7 +2513,7 @@
     {
       "issue": 1458,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/1458",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1458.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1458.bin",
       "raw_sha1": "74716f471f915500c1ad5e8820f9cfdf4fd36953",
       "raw_sha256": "11311f7c65dce9ff544d0574edb67c5cbb1d36c353bb70263371d1ccf835dffd",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
@@ -2763,7 +2763,7 @@
     {
       "issue": 1459,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/1459",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1459.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1459.bin",
       "raw_sha1": "65c46ab04bc7187fb9c4e1a9fb98fac072361e14",
       "raw_sha256": "75c229ba464e0108cc96ed0396fc1a798634ea82960aa53b712f611b9688c934",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
@@ -3013,7 +3013,7 @@
     {
       "issue": 1460,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/1460",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1460.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1460.bin",
       "raw_sha1": "bc2032107b52c694b435146e26a9ae5c6adf6a4f",
       "raw_sha256": "82a85755406e95c360a979cfba896bbd335f3044c91847bf9b5aad8ca152b80b",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
@@ -3263,7 +3263,7 @@
     {
       "issue": 1760,
       "issue_url": "https://github.com/lambdaclass/stabileo/issues/1760",
-      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin",
+      "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin",
       "raw_sha1": "1d283e64888730445219207f88a5a98edb5ade90",
       "raw_sha256": "e3b694b7080419e2c849a5f035ae75e1014376165dc4064fa28a07d8990adc2b",
       "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",

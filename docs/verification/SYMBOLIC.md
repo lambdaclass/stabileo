@@ -10,20 +10,20 @@ This check derives the frame-family element matrices **from first principles**, 
 functions and an energy or virtual-work expression in SymPy, and compares the Rust kernels against
 the exact result.
 
-- `tools/symbolic/derive.py`: the derivations. Its `checks()` also confirms that each derived
+- `testing/symbolic/derive.py`: the derivations. Its `checks()` also confirms that each derived
   matrix equals its closed form in the literature (Przemieniecki, Archer, Barsoum–Gallagher), so
   the derivation and the textbook vouch for each other.
-- `tools/symbolic/gen.py`: evaluates the derivations at random parameter points and writes
+- `testing/symbolic/gen.py`: evaluates the derivations at random parameter points and writes
   `engine/tests/symbolic_elements.rs`.
 - CI: `engine/tests/symbolic_elements.rs` runs with the rest of the engine suite. The `symbolic`
   job in `.github/workflows/verify.yml` regenerates the file and fails on any difference
   (`gen.py --check`, about 20 s).
 
 ```sh
-python3 -m venv tools/symbolic/.venv
-tools/symbolic/.venv/bin/pip install -r tools/symbolic/requirements.txt
-tools/symbolic/.venv/bin/python -I tools/symbolic/gen.py          # write the test
-tools/symbolic/.venv/bin/python -I tools/symbolic/gen.py --check  # CI's check
+python3 -m venv testing/symbolic/.venv
+testing/symbolic/.venv/bin/pip install -r testing/symbolic/requirements.txt
+testing/symbolic/.venv/bin/python -I testing/symbolic/gen.py          # write the test
+testing/symbolic/.venv/bin/python -I testing/symbolic/gen.py --check  # CI's check
 cd engine && cargo test --release --test derivations symbolic_elements::
 ```
 

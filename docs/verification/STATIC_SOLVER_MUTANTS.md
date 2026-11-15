@@ -23,8 +23,8 @@ this slice. The largest function totals below are historical context, not
 current measurements of the entire functions.
 
 The repository entry point is `make mutants.engine SCOPE=solver ARGS='...'`,
-which invokes `scripts/mutants.sh`. `.cargo/mutants.toml` excludes documented
-heuristics and equivalent mutations; `scripts/mutants-equivalent.py` excludes
+which invokes `testing/scripts/mutants.sh`. `.cargo/mutants.toml` excludes documented
+heuristics and equivalent mutations; `testing/scripts/mutants-equivalent.py` excludes
 integer index expressions only when their values are exactly unchanged.
 The script uses cargo-mutants `--file` filters and maps test modules to their
 binaries, with a nextest filter when that runner is selected.

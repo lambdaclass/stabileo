@@ -5,6 +5,7 @@ Structural analysis in the browser, plus the SaaS around it. Conventions follow
 
 | Directory | What | Conventions |
 |-----------|------|-------------|
+| `testing/` | Public API test systems and the test map | `testing/README.md` |
 | `engine/` | Rust solver, compiled to WASM for the web app | `cargo` |
 | `web/` | Svelte 5 + TypeScript app | `web/CLAUDE.md` |
 | `backend/` | Elixir/Phoenix umbrella: accounts, and the SaaS from here on | `backend/CLAUDE.md` |

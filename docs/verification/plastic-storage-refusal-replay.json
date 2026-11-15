@@ -1,5 +1,5 @@
 {
-  "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/over-budget-grid.bin",
+  "artifact": "testing/fuzz/corpus-regressions/plastic-lp-budget/over-budget-grid.bin",
   "exit_code": 0,
   "failure": null,
   "iterations": [

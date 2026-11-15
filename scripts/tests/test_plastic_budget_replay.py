@@ -13,8 +13,8 @@ spec.loader.exec_module(module)
 
 
 class SeededReplay(unittest.TestCase):
-    binary = Path("engine/fuzz/target/release/examples/plastic_replay")
-    seed = Path("engine/fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin")
+    binary = Path("testing/fuzz/target/release/examples/plastic_replay")
+    seed = Path("testing/fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin")
 
     @classmethod
     def setUpClass(cls):
@@ -118,7 +118,7 @@ class ReplayBuild(unittest.TestCase):
         result = subprocess.run(["make", "-n", "build.engine.plastic-budget", "NIX_RUN="],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("--target-dir engine/fuzz/target", result.stdout)
+        self.assertIn("--target-dir testing/fuzz/target", result.stdout)
         self.assertIn("--example plastic_replay", result.stdout)
 
 

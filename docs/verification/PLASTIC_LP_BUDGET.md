@@ -13,7 +13,7 @@ warnings after the policy correction. #1261 remains refused.
 
 ## Reproduction and measurement
 
-Every listed issue was read with `gh issue view`. Its `raw_hex` was decoded without reformatting the bytes. Every artifact’s SHA-1 matches the original `oom-*` or `slow-unit-*` filename in the issue body. The unchanged bytes are in [the corpus](../../engine/fuzz/corpus-regressions/plastic-lp-budget). Hashes, individual call measurements, refusal phases and work forecasts are in [the replay data](plastic-lp-budget-replays.json).
+Every listed issue was read with `gh issue view`. Its `raw_hex` was decoded without reformatting the bytes. Every artifact’s SHA-1 matches the original `oom-*` or `slow-unit-*` filename in the issue body. The unchanged bytes are in [the corpus](../../testing/fuzz/corpus-regressions/plastic-lp-budget). Hashes, individual call measurements, refusal phases and work forecasts are in [the replay data](plastic-lp-budget-replays.json).
 
 Each artifact runs alone in a child process and is called five times in that same process. The supervisor enforces a 60-second wall limit, a CPU limit, a 512 MiB address-space limit and a 512 MiB RSS limit. The ASan-only replay repeats each artifact three times, retains the original fuzz job’s 2048 MiB RSS limit and the same wall limit, and omits the incompatible address-space limit required for ASan shadow memory. No sanitizer quarantine setting is reduced. This is not a full coverage-instrumented libFuzzer session. An initial 512 MiB ASan probe of #1760 hit its RSS cap; the reported ASan corpus runs use the existing 2 GiB production fuzz limit, while native replay retains the 512 MiB cap.
 
@@ -25,8 +25,8 @@ make test.engine.plastic-budget-watchdog
 make test.engine.plastic-resource
 make test.engine.plastic-budget-corpus
 make test.engine.plastic-wasm
-make replay.engine.plastic-budget FILE=engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin MODE=engine REPEATS=5
-make replay.engine.plastic-budget-asan FILE=engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin MODE=engine REPEATS=3
+make replay.engine.plastic-budget FILE=testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin MODE=engine REPEATS=5
+make replay.engine.plastic-budget-asan FILE=testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin MODE=engine REPEATS=3
 ```
 
 The `before` column uses the preserved native executable built before the fixes. The two reproducer commits are `e6d0818b3` (fourteen failing assertions when explicitly run despite their known-wrong ignores) and `6a4765f75` (the separate #743 one-second watchdog failure). The fix removes all of those ignores. Each command replays one artifact; no soak, benchmark sweep or full test suite was run.

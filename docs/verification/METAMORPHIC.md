@@ -160,7 +160,7 @@ each legitimately carries:
   written by `feature_matrix.rs::feature_models_exported`, which fails when they
   drift from the builders).
 * The differential generators' models (`engine/tests/metamorphic_corpus/differential`,
-  `tools/differential/export_corpus.py`: frame2d, rich3d, frame3d, building,
+  `testing/differential/export_corpus.py`: frame2d, rich3d, frame3d, building,
   modal3d, pdelta3d; the nightly job checks they are current).
 * The fuzz generators (`engine/tests/fuzz_models`: `random_2d_model_rich`,
   `random_3d_model_rich`, with random constraints on every third model).

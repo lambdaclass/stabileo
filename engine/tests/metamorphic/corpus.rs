@@ -1,7 +1,7 @@
 //! The corpus: example models and fixtures (engine/tests/fixtures), the
 //! feature-matrix models (engine/tests/metamorphic_corpus/feature_matrix),
 //! the differential generators' models (engine/tests/metamorphic_corpus/
-//! differential, exported from tools/differential) and the fuzz generators
+//! differential, exported from testing/differential) and the fuzz generators
 //! (engine/tests/fuzz_models).
 
 #[path = "../fuzz_models/mod.rs"]

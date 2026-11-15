@@ -36,7 +36,7 @@
 //!
 //! A second measurement (#296, verify/diff-codeaster) agrees:
 //! on 993 random space frames (differential
-//! testing against PyNite and OpenSees, tools/differential/) the pivots of
+//! testing against PyNite and OpenSees, testing/differential/) the pivots of
 //! the singular models (Jacobi-scaled condition number > 1e14) reached
 //! 5e-12 of their diagonal, while no regular model (condition number < 1e10)
 //! had a pivot below 2.4e-5 of its diagonal. The threshold sits between the

@@ -6,15 +6,15 @@ that file's header.
 
 ## Running
 
-Run harnesses only through `scripts/kani-safe.sh`. It runs one harness at a time under a
+Run harnesses only through `testing/scripts/kani-safe.sh`. It runs one harness at a time under a
 memory and time watchdog. `cargo kani` on its own, and especially `-j`, has taken down a
 128 GB machine.
 
-    nix develop .#verify -c scripts/kani-safe.sh                 # every harness
-    KANI_TIER=fast nix develop .#verify -c scripts/kani-safe.sh  # skip `// kani: nightly`
-    KANI_MEM_GB=8 KANI_TIMEOUT_S=900 nix develop .#verify -c scripts/kani-safe.sh interval_ csc_
+    nix develop .#verify -c testing/scripts/kani-safe.sh                 # every harness
+    KANI_TIER=fast nix develop .#verify -c testing/scripts/kani-safe.sh  # skip `// kani: nightly`
+    KANI_MEM_GB=8 KANI_TIMEOUT_S=900 nix develop .#verify -c testing/scripts/kani-safe.sh interval_ csc_
     KANI_EXTRA_ARGS="-Z concrete-playback --concrete-playback=print" \
-        nix develop .#verify -c scripts/kani-safe.sh <harness>   # print a counterexample
+        nix develop .#verify -c testing/scripts/kani-safe.sh <harness>   # print a counterexample
 
 Results go to `target/kani-report.tsv` (status, seconds, peak GB); logs go to
 `target/kani-logs/`. CI runs the fast tier on pull requests and every harness nightly

@@ -276,9 +276,9 @@ properties a member type does not use.
 | stable random frames, 3D | 150 | 150 | identical |
 | fuzz generators (`fuzz_models`, rich and plain), 2D | 300 | 56; 42 out of scope (the rich generator puts settlements on DOFs their support leaves free, refused); 1 uncertified and 2 with no solution, see findings | identical |
 | fuzz generators, 3D | 240 | 20 (most are mechanisms the solver refuses); 4 out of scope; 1 uncertified (ill-conditioned beyond `ε`) | identical |
-| differential generators (`tools/differential`, 14 generators × 200, `e2e_dir`, run by hand) | 2800 | 2193; 201 out of scope (settlements on DOFs their support leaves free, refused); of the rest, every model the assembled-level certificate certifies except 6 (two `rich3d` models in three variants, singular in exact arithmetic, see findings) | identical |
+| differential generators (`testing/differential`, 14 generators × 200, `e2e_dir`, run by hand) | 2800 | 2193; 201 out of scope (settlements on DOFs their support leaves free, refused); of the rest, every model the assembled-level certificate certifies except 6 (two `rich3d` models in three variants, singular in exact arithmetic, see findings) | identical |
 
-The differential models: `python3 tools/differential/dump_models.py DIR 200`, then
+The differential models: `python3 testing/differential/dump_models.py DIR 200`, then
 `E2E_DIR=DIR cargo test --release --test certificates certify_end_to_end::e2e_dir -- --ignored --nocapture`.
 
 The stable generators cover every feature in scope: jittered multi-bay frames, braces,
@@ -294,7 +294,7 @@ the wrong answer, the end-to-end certificate fails ("disagrees with the re-assem
 model"), and the end-to-end bound against the model still exceeds the real error:
 wrong sign in the 2D transformation, the `(2 − φ)` Timoshenko term dropped, a uniform-load
 fixed-end moment `qL²/8`, the 3D roll angle's sign, the 3D shear-area pairing swapped, the
-`q_z` moments not negated. `scripts/e2e-planted-bugs.sh` plants bugs in the engine's
+`q_z` moments not negated. `testing/scripts/e2e-planted-bugs.sh` plants bugs in the engine's
 source (in a temporary git worktree of `HEAD`, never the checkout) instead and runs the end-to-end tests: all 15 caught (each fails the end-to-end tests; the assembled-level tests would pass): the 2D transform's `−sin`
 sign; the `(2 − φ)` and `(4 + φ)` Timoshenko terms; the hinge's condensed factor `12/(4 + φ)` as 3;
 the uniform-load end moment `qL²/12` as `qL²/8`; the sign of the Timoshenko moment correction of
