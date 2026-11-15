@@ -6,7 +6,7 @@
 
   let { plan }: { plan: LevelPlan } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
-  let show = $state({ bottom: true, top: true, base: false });
+  let show = $state({ bottom: true, top: true, base: true });
 
   const W = 1100, PAD = 44, LEG_PX = 14;
   const box = $derived.by(() => {
@@ -39,7 +39,7 @@
   <div class="rsp-toggles" role="group" aria-label={t('rcSheets.slabFig.layers')}>
     <label class="tg tg-bottom" class:off={!has('bottom')}><input type="checkbox" bind:checked={show.bottom} disabled={!has('bottom')} data-testid="rc-plan-show-bottom" /> {t('rcSheets.planFig.bottom')}</label>
     <label class="tg tg-top" class:off={!has('top')}><input type="checkbox" bind:checked={show.top} disabled={!has('top')} data-testid="rc-plan-show-top" /> {t('rcSheets.planFig.top')}</label>
-    {#if plan.baseMesh}<label class="tg"><input type="checkbox" bind:checked={show.base} data-testid="rc-plan-show-base" /> {t('rcSheets.planFig.base')}</label>{/if}
+    {#if plan.baseMesh}<label class="tg" class:off={!show.bottom}><input type="checkbox" bind:checked={show.base} disabled={!show.bottom} data-testid="rc-plan-show-base" /> {t('rcSheets.planFig.base')}</label>{/if}
   </div>
   <svg viewBox="0 0 {W} {H}" width="100%" style="max-width: {W}px" role="img" aria-label={tp('rcSheets.planFig.title', { level: plan.level || '—' })} data-testid="rc-plan-svg">
     {#each plan.panels as p (p.key)}

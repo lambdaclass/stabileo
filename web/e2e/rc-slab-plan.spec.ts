@@ -51,6 +51,7 @@ test('@slow the reinforcement sheets draw the slabs of a level as one plan', asy
   await fig.getByTestId('rc-plan-show-top').check();
   await fig.getByTestId('rc-plan-show-bottom').uncheck();
   await expect(fig.locator('[data-testid="rc-plan-bar"][data-layer="bottom"]')).toHaveCount(0);
+  if (base) await expect(fig.getByTestId('rc-plan-show-base')).toBeDisabled();
   await fig.screenshot({ path: test.info().outputPath('slab-plan-top.png') });
 
   await ws.getByTestId('rc-slab-view-panels').click();
