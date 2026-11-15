@@ -85,6 +85,8 @@ describe('drifts on the model', () => {
     let n = 100, e = 100;
     const node = (x: number, y: number, z: number) => { m.nodes.set(n, { id: n, x, y, z }); return n++; };
     for (const y of [0, 6]) m.elements.set(e, { id: e++, nodeI: node(6, y, 4), nodeJ: node(0, y, 5.5), sectionId: 1 });
+    m.elements.set(e, { id: e++, nodeI: 100, nodeJ: 102, sectionId: 1 });
+    m.elements.set(e, { id: e++, nodeI: 101, nodeJ: 103, sectionId: 1 });
     const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
     const out = driftAndSlidingLoads(m, layout, { pg: 1, balanced: 0.7, pf: 0.7, slippery: true, tributaryWidth: 3 });
     const msg = out.derivation.find((x) => x.key === 'snow.derivation.sliding')!;
