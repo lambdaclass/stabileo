@@ -1,3 +1,4 @@
+import type { ConcurrentDemand } from '../../concurrent-demand';
 /**
  * Member checks under codes other than CIRSOC, through the engine's own checkers.
  *
@@ -90,11 +91,11 @@ export interface OtherCode {
    * every demand. A `reading` settles the demand without the engine (no steel on the face in
    * tension); `unevaluated` adds checks this adapter knows the checker leaves out for it.
    */
-  at?(ctx: MemberContext, d: StationTuple, data: Record<string, unknown>):
+  at?(ctx: MemberContext, d: ConcurrentDemand, data: Record<string, unknown>):
     | { data: Record<string, unknown>; unevaluated?: string[] }
     | { reading: CheckReading };
   /** One demand as the checker's force row. `data` is what `member` returned. */
-  forces(ctx: MemberContext, d: StationTuple, data: Record<string, unknown>): Record<string, unknown>;
+  forces(ctx: MemberContext, d: ConcurrentDemand, data: Record<string, unknown>): Record<string, unknown>;
   /**
    * The engine call. Throws `EngineUnavailableError` when the checker is not loaded and
    * `EngineCheckError` (with the engine's message) when it refused the input.
@@ -108,10 +109,10 @@ export interface OtherCode {
    */
   certify?: {
     name: 'certify_steel_members' | 'certify_ec3_members' | 'certify_ec2_members' | 'certify_rc_members';
-    bound(ctx: MemberContext, d: GoverningDemand, data: Record<string, unknown>, sb: StationBound3D): DemandBound;
+    bound(ctx: MemberContext, d: ConcurrentDemand, data: Record<string, unknown>, sb: StationBound3D): DemandBound;
   };
   /** Parts the adapter computes itself, for a demand, besides the checker's (`read`). */
-  extraParts?(ctx: MemberContext, d: StationTuple, data: Record<string, unknown>): Array<{ kind: CheckKind; clause: string; ratio: number }>;
+  extraParts?(ctx: MemberContext, d: ConcurrentDemand, data: Record<string, unknown>): Array<{ kind: CheckKind; clause: string; ratio: number }>;
   /** Which parts of the reading an `unevaluated` key leaves without a clause behind them. */
   disables?: Readonly<Record<string, readonly CheckKind[]>>;
 }

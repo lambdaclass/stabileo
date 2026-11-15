@@ -148,10 +148,7 @@ describe('Cb over the unbraced segment, not the element', () => {
     }
   });
 
-  it('bounds the read to a declared Lb shorter than the chain', () => {
-    // Element 1 declares Lb = 3 m: its unbraced segment is no longer the whole chain, and the
-    // read is bounded to a 3 m window. Centred on element 1 that window IS element 1's extent,
-    // so the element-local triangle half — 1,667 — is here the CORRECT segment value.
+  it('withholds Cb when a declared shorter length has no brace locations', () => {
     const model = chainModel({ el1DeclaredLb: 3 });
     const lengths = memberLengths(model);
     expect(lengths.get(1)?.Lb).toBeCloseTo(3, 9);
@@ -160,7 +157,7 @@ describe('Cb over the unbraced segment, not the element', () => {
     const verifs = runSteelVerification(resultsFor(), model, undefined, stationDiagrams(), lengths);
     const v1 = verifs.find((v) => v.elementId === 1)!;
     const v2 = verifs.find((v) => v.elementId === 2)!;
-    expect(cbOf(v1)).toBeCloseTo(CB_ELEMENT_LOCAL, 3);
+    expect(cbOf(v1)).toBeCloseTo(1, 3);
     expect(cbOf(v2)).toBeCloseTo(CB_SEGMENT, 3);
   });
 });
@@ -194,14 +191,14 @@ describe('steelSegmentDiagram — the stitched segment diagram', () => {
     expect(momentGradient({ stations: seg.stations, shape: 'I' }).cb).toBeCloseTo(CB_SEGMENT, 3);
   });
 
-  it('centres a shorter declared Lb on the element that declared it', () => {
+  it('keeps the whole diagram without inventing a shorter brace interval', () => {
     const model = chainModel({ el1DeclaredLb: 3 });
     const lengths = memberLengths(model);
     const seg1 = steelSegmentDiagram(1, lengths.get(1), stationDiagrams(), model)!;
     expect(seg1.tStart).toBeCloseTo(0, 9);
-    expect(seg1.tEnd).toBeCloseTo(0.5, 9);
+    expect(seg1.tEnd).toBeCloseTo(1, 9);
     expect(momentGradient({ stations: seg1.stations, tStart: seg1.tStart, tEnd: seg1.tEnd, shape: 'I' }).cb)
-      .toBeCloseTo(CB_ELEMENT_LOCAL, 3);
+      .toBeCloseTo(CB_SEGMENT, 3);
 
     // The same declaration seen from element 2 — which did NOT declare — keeps the whole chain.
     const seg2 = steelSegmentDiagram(2, lengths.get(2), stationDiagrams(), model)!;

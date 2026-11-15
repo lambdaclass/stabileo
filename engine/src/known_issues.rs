@@ -63,7 +63,6 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "LIN-SECOND-ORDER", issue: 1551, mode: Mode::Warn, message: "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "LIN-SECOND-ORDER-NEAR", issue: 1551, mode: Mode::Warn, message: "Axial compression is near the second-order limit (N/Ncr above 0.047, the limit 0.075 over the largest CIRSOC 301 load factor 1.6): a combination that factors this case up may pass it. Check the combinations with a P-Delta or second-order analysis" },
     Entry { id: "LIN-SECOND-ORDER-UNBOUNDED", issue: 1551, mode: Mode::Warn, message: "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design" },
-    Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
 
 pub fn diagnostic(id: &str) -> StructuredDiagnostic {
@@ -1337,6 +1336,14 @@ mod tests {
     #[test]
     fn corrected_harmonic_truncation_is_retired_from_registry() {
         assert!(!ENTRIES.iter().any(|entry| entry.issue == 1434));
+    }
+
+    #[test]
+    fn corrected_rc_nm_pairing_is_retired_from_registry() {
+        assert!(!ENTRIES.iter().any(|entry| entry.issue == 1316));
+        let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
+        let row = ledger.lines().find(|line| line.starts_with("| #1316 |")).unwrap();
+        assert_eq!(row.split('|').nth(3).unwrap().trim(), "CORRECTED");
     }
 
     #[test]

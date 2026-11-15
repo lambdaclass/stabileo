@@ -19,6 +19,8 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { solve, solve3D } from '../wasm-solver';
+import { autoVerifyFromResults, type AutoVerifyModelData } from '../auto-verify';
+import type { AnalysisResults3D } from '../types-3d';
 import type { SolverInput, SolverLoad } from '../types';
 import type {
   SolverInput3D, SolverSection3D, ElementForces3D,
@@ -163,17 +165,33 @@ describe('SEAM 2: Permitted analysis modes and PRO handling', () => {
 describe('SEAM 3: My/Mz axis identity preservation', () => {
   it('auto-verify.ts preserves column Mz/My identity and never magnitude-sorts moments', () => {
     const src = readSource('../auto-verify.ts');
-    expect(src, 'one axis choice, shared with resolveDesignAxes').toContain('primaryAxis(elemType, section, MyMax, MzMax)');
-    expect(src, 'My pairs with Vz').toContain('const VuMax = onMy ? VzMax : VyAbs;');
-    expect(src, 'the section turns with the axis').toContain('const hFlex = onMy ? section.h : section.b;');
+    const model: AutoVerifyModelData = {
+      nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: 0.4 }]]),
+      elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, type: 'frame' }]]),
+      sections: new Map([[1, { id: 1, name: 'rectangular', b: 0.4, h: 0.6 }]]),
+      materials: new Map([[1, { id: 1, name: 'concrete', fc: 30, fy: 30, e: 25000000 }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 2, type: 'fixed' }]]),
+    };
+    for (const axis of ['My', 'Mz'] as const) {
+      const my = axis === 'My' ? 20 : 10, mz = axis === 'Mz' ? 20 : 10;
+      const result = { elementForces: [{ elementId: 1, length: 0.4, nStart: -100, nEnd: -100,
+        myStart: my, myEnd: my, mzStart: mz, mzEnd: mz, vyStart: 7, vyEnd: 7, vzStart: 11, vzEnd: 11, mxStart: 0, mxEnd: 0,
+      }] } as unknown as AnalysisResults3D;
+      const v = autoVerifyFromResults(result, model, null).concrete[0]!;
+      expect(v.flexureAxis).toBe(axis);
+      expect([v.b, v.h]).toEqual(axis === 'My' ? [0.4, 0.6] : [0.6, 0.4]);
+      expect(v.Mu).toBe(20);
+      expect(v.shear.Vu).toBe(axis === 'My' ? 11 : 7);
+      expect(v.concurrentChecks!.every(c => c.demand.forces.my === my && c.demand.forces.mz === mz)).toBe(true);
+    }
     expect(src).not.toContain('MuMax = MzMax;');
     // Beams are axis-aware (My vs Mz chosen by stress proxy), but moments must
     // NEVER be collapsed by magnitude-sorting into a single Mu.
     expect(src).not.toContain('Math.max(MzMax, MyMax)');
     expect(src).not.toContain('Math.min(MzMax, MyMax)');
     expect(src).not.toContain('Math.max(MyMax, MzMax)');
-    // The column branch must be gated on isVertical (so the axis-aware path is beam-only).
-    expect(src).toContain('if (isVertical)');
+    expect(src).toContain("const isVertical = elementType !== 'beam';");
+    expect(src).toContain('Lu: isVertical ? L : undefined');
   });
 
   it('the report no longer computes a per-combination Mu of its own', () => {

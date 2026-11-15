@@ -11407,6 +11407,7 @@ const es: Record<string, string> = {
   'otherCodes.check.cfsFlexuralTorsional': 'pandeo flexo-torsional en compresión (E2)',
   'otherCodes.check.cfsWeakAxis': 'flexión alrededor del eje débil',
   'otherCodes.check.cfsWebShear': 'corte del alma fuera de la fluencia (G2.1)',
+  'otherCodes.skip.incompleteDemand': 'esfuerzos por estación incompletos para las combinaciones activas',
   'otherCodes.skip.noDemand': 'sin esfuerzos en las combinaciones activas',
   'otherCodes.skip.notSteel': 'el material no es acero',
   'otherCodes.skip.noFy': 'el material no tiene fy',

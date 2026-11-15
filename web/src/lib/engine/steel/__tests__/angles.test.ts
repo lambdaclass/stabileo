@@ -1,3 +1,4 @@
+import { manualSteelDemand } from '../../__tests__/helpers/manual-interactions';
 /**
  * Angles reach the CIRSOC 301 check (`steel/angle-section.ts`): a catalogue angle has one
  * thickness and used to be left out for want of a web and a flange thickness.
@@ -10,8 +11,8 @@ import { lightestPassing } from '../profile-optimise';
 
 const mat = { fy: 235, fu: 370, e: 200_000 };
 const L80 = () => profileToSectionFull(profileByName('L 80x80x8')!);
-const pull = (Nt: number) => ({ Nc: 0, Nt, MuStrong: 0, MuWeak: 0, Vu: 0, diagram: [] });
-const push = (Nc: number) => ({ Nc, Nt: 0, MuStrong: 0, MuWeak: 0, Vu: 0, diagram: [] });
+const pull = (Nt: number) => manualSteelDemand({ Nc: 0, Nt, MuStrong: 0, MuWeak: 0, Vu: 0, diagram: [] });
+const push = (Nc: number) => manualSteelDemand({ Nc, Nt: 0, MuStrong: 0, MuWeak: 0, Vu: 0, diagram: [] });
 
 describe('single angles', () => {
   it('a catalogue angle is no longer missing a thickness', () => {
@@ -46,7 +47,7 @@ describe('single angles', () => {
   });
 
   it('in flexure: refused by name (F.10 is not implemented)', () => {
-    const v = checkSteelMember(1, { ...push(0), MuStrong: 1 }, L80(), mat, { L: 2, Lb: 2 })!;
+    const v = checkSteelMember(1, manualSteelDemand({ ...push(0), MuStrong: 1 }), L80(), mat, { L: 2, Lb: 2 })!;
     expect(v.flexureZ.notEvaluatedMessage!.key).toBe('c301.refuse.f10');
     // held, not failed: a refused check is never a pass and proves no failure (`cirsoc301-verdict.ts`).
     expect(v.overallStatus).toBe('held');

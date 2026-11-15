@@ -259,6 +259,10 @@ check.engine.acceptance-models:
 # The result walkers' keys are generated from the engine's result types; a hand edit fails test.engine.gates.
 gen.result-sites:
 	cd engine && STABILEO_WRITE_RESULT_SITES=1 $(NIX_RUN) cargo nextest run --profile ci --test gates -E 'test(=result_sites::generated_result_sites_are_current)'
+	$(SUBMAKE) gen.result-sites.web
+
+.PHONY: gen.result-sites.web
+gen.result-sites.web:
 	$(NIX_RUN) bash -c "cd web && node scripts/gen-result-sites.mjs --write"
 
 # nextest does not execute the compile-fail doctests protecting unit boundaries.
@@ -504,7 +508,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
+test.ci-scripts: test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -1222,3 +1226,11 @@ test.web.tool-current-result-2099:
 .PHONY: test.web.e2e-features
 test.web.e2e-features:
 	$(NIX_RUN) bash -c 'cd web && node --experimental-strip-types --test scripts/e2e-feature-build.test.mjs'
+
+.PHONY: replay.advisory.steel-cb
+replay.advisory.steel-cb:
+	$(NIX_RUN) python3 -B scripts/replay-steel-cb-advisory.py
+
+.PHONY: test.replay-steel-cb
+test.replay-steel-cb:
+	$(NIX_RUN) python3 -B -I scripts/tests/test_steel_cb_replay.py

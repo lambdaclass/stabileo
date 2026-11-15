@@ -1,0 +1,37 @@
+{
+  "id": "steel-cb-combination",
+  "date": "2026-11-13",
+  "prs": [
+    2080
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "steelCirsoc301"
+    ]
+  },
+  "title": {
+    "en": "Steel interaction Cb uses its own combination diagram",
+    "es": "El Cb de la interacción del acero usa el diagrama de su propia combinación",
+    "pt": "O Cb da interação do aço usa o diagrama da própria combinação",
+    "de": "Cb im Stahl-Interaktionsnachweis verwendet das Diagramm der eigenen Kombination",
+    "fr": "Le Cb de l’interaction de l’acier utilise le diagramme de sa propre combinaison",
+    "tr": "Çelik etkileşim Cb katsayısı kendi kombinasyon diyagramını kullanır"
+  },
+  "explanation": {
+    "en": "CIRSOC 301 steel axial and bending interaction checks could use Cb from another combination’s moment diagram and silently understate utilization (SA-2026-064, PR #2080). After upgrading, re-run steel design checks and review interaction utilization, governing combinations and statuses.",
+    "es": "Las interacciones de axil y flexión del acero CIRSOC 301 podían usar Cb del diagrama de otra combinación y subestimar la utilización sin aviso (SA-2026-064, PR #2080). Después de actualizar, repetí las verificaciones de acero y revisá la utilización de las interacciones, las combinaciones determinantes y los estados.",
+    "pt": "As interações de esforço normal e flexão do aço CIRSOC 301 podiam usar Cb do diagrama de outra combinação e subestimar a utilização sem aviso (SA-2026-064, PR #2080). Após atualizar, refaça as verificações de aço e revise a utilização das interações, as combinações determinantes e os estados.",
+    "de": "CIRSOC-301-Interaktionsnachweise für Normalkraft und Biegung konnten Cb aus dem Momentendiagramm einer anderen Kombination verwenden und die Ausnutzung ohne Warnung unterschätzen (SA-2026-064, PR #2080). Nach dem Upgrade die Stahlnachweise erneut ausführen und Interaktionsausnutzung, maßgebende Kombinationen und Status prüfen.",
+    "fr": "Les interactions entre effort normal et flexion de l’acier CIRSOC 301 pouvaient utiliser Cb du diagramme d’une autre combinaison et sous-estimer le taux sans avertissement (SA-2026-064, PR #2080). Après la mise à jour, relancer les vérifications de l’acier et examiner les taux d’interaction, les combinaisons déterminantes et les états.",
+    "tr": "CIRSOC 301 çelik eksenel kuvvet ve eğilme etkileşim kontrolleri başka bir kombinasyonun moment diyagramından Cb alarak kullanım oranını uyarı vermeden düşük hesaplayabiliyordu (SA-2026-064, PR #2080). Güncellemeden sonra çelik tasarım kontrollerini yeniden çalıştırın; etkileşim kullanım oranlarını, belirleyici kombinasyonları ve durumları inceleyin."
+  },
+  "quantities": [
+    "member",
+    "steel"
+  ],
+  "changelog": {
+    "file": "docs/advisories/SA-2026-064-steel-cb-combination.md",
+    "heading": "SA-2026-064: Steel checks used Cb from another combination or an unlocated span"
+  }
+}

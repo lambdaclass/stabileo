@@ -1,6 +1,8 @@
+import { extractGoverningDemands } from '../station-design-forces';
+import { ConcurrentDemand } from '../concurrent-demand';
 import { describe, expect, it } from 'vitest';
 import { autoVerifyFromResults } from '../auto-verify';
-import { verifyElement } from '../codes/argentina/cirsoc201';
+import { verifyElement } from './helpers/verify-element';
 import { normalizeCirsoc201 } from '../design-check-results';
 
 function makeElementForces(overrides: Partial<any> = {}) {
@@ -280,7 +282,11 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
       shearY: { comboId: 2, comboName: '1.2D+1.0E', value: 150 },
     }]]);
     const forces = column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80, vyStart: 150, vyEnd: 150 });
-    const [v] = autoVerifyFromResults(forces, columnModel(0.3, 0.6), governing).concrete;
+    const demands = extractGoverningDemands({ elementId: 1, length: 3, stationTs: [0, 1], comboResults:
+      ['1.2D+1.6L', '1.2D+1.0E'].map((comboName, k) => ({ comboId: k + 1, comboName, stations: ConcurrentDemand.endpoints(forces.elementForces[0]).map(d => ({
+        ...d.forces, vy: d.forces.vy * (k === 0 ? 0.5 : 1), vz: d.forces.vz * (k === 0 ? 1 : 0.5),
+      })) })) });
+    const [v] = autoVerifyFromResults(forces, columnModel(0.3, 0.6), governing, undefined, new Map([[1, demands]])).concrete;
     expect(v!.governingCombos?.shear?.comboName).toBe('1.2D+1.6L');
     expect(v!.governingCombos?.shearSecondary?.comboName).toBe('1.2D+1.0E');
     const rows = normalizeCirsoc201([v!], new Map([[1, 'RC']]))[0]!.checks;
@@ -295,7 +301,11 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
       shearZ: { comboId: 3, comboName: '0.9D+1.0E', value: 150 },
     }]]);
     const forces = column({ mzStart: 120, mzEnd: -120, vyStart: 80, vyEnd: 80, vzStart: 150, vzEnd: 150 });
-    const [v] = autoVerifyFromResults(forces, columnModel(0.3, 0.6), governing).concrete;
+    const demands = extractGoverningDemands({ elementId: 1, length: 3, stationTs: [0, 1], comboResults:
+      ['1.2D+1.6L', '0.9D+1.0E'].map((comboName, k) => ({ comboId: k + 1, comboName, stations: ConcurrentDemand.endpoints(forces.elementForces[0]).map(d => ({
+        ...d.forces, vy: d.forces.vy * (k === 0 ? 1 : 0.5), vz: d.forces.vz * (k === 0 ? 0.5 : 1),
+      })) })) });
+    const [v] = autoVerifyFromResults(forces, columnModel(0.3, 0.6), governing, undefined, new Map([[1, demands]])).concrete;
     expect(v!.flexureAxis).toBe('Mz');
     expect(v!.governingCombos?.shearSecondary?.comboName).toBe('0.9D+1.0E');
   });

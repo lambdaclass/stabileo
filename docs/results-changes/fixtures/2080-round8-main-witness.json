@@ -1,0 +1,839 @@
+{
+  "rcInput": {
+    "elementId": 1,
+    "elementType": "column",
+    "b": 0.4,
+    "h": 0.4,
+    "fc": 30,
+    "fy": 420,
+    "cover": 0.025,
+    "stirrupDia": 8,
+    "Mu": 60,
+    "Muy": 60,
+    "Nu": 300,
+    "Vu": 0,
+    "Lu": 6,
+    "M1": -20,
+    "M2": 20,
+    "M1Secondary": -20,
+    "M2Secondary": 20
+  },
+  "steel": {
+    "actual": {
+      "elementId": 1,
+      "overallStatus": "ok",
+      "engineRecheck": {
+        "certified": true,
+        "certifiedOk": true,
+        "disagrees": false,
+        "unavailable": false,
+        "utilizationLower": 0.2992322882004362,
+        "utilizationUpper": 0.29923228820043857,
+        "governingCheck": "Flexure-x F"
+      },
+      "flexureZ": {
+        "Mu": 20,
+        "phiMn": 66.83770698770057,
+        "ratio": 0.2992322882004373,
+        "status": "ok",
+        "steps": [
+          "§F — Flexión, eje fuerte:",
+          "  Zx = 602098 mm³, Sx = 557067 mm³",
+          "  Mp = Fy·Zx = 150.52 kN·m — el tope de F.2.1 no gobierna (Zx/Sx = 1.081 ≤ 1,5)",
+          "  Ala: λf = 7.01, λpf = 10.75, λrf = 28.06 → compacta (Tabla B.4.1b caso 11)",
+          "  Alma: h/tw = 39.2, λpw = 106.3, λrw = 161.2 → compacta (caso 16)",
+          "  Carga aplicada en el alma o el ala inferior (F.2.2 (1))",
+          "  Cb = 1.364 (F.1.1, calculado del diagrama)",
+          "  ry = 33.5 mm; Lp = 1,76·ry·√(E/Fy) = 1668 mm  (F.2.5a)",
+          "  Lb = 8000 mm",
+          "  X1 = (π/Sx)·√(E·G·J·A/2) = 14343 MPa (F.2.4c); X2 = 0 MPa⁻² (F.2.4d; Cw dado: sí)",
+          "  FL = Fy − Fr = 181 MPa; Lr = 5055 mm (F.2.6a); Mr = FL·Sx = 100.83 kN·m (F.2.7)",
+          "  Lb > Lr → pandeo lateral-torsional elástico: Mn = Mcr ≤ Mp = 74.26 kN·m  (F.2.4a, F.2.3)",
+          "  plastificación / pandeo lateral-torsional: Mn = 74.26 kN·m",
+          "  §F.2: gobierna plastificación / pandeo lateral-torsional, Mn = 74.26 kN·m",
+          "  φMn = 0,90·74.26 = 66.84 kN·m",
+          "  Mu = 20; relación = 0.299"
+        ]
+      }
+    },
+    "unity": {
+      "elementId": 1,
+      "overallStatus": "ok",
+      "engineRecheck": {
+        "certified": true,
+        "certifiedOk": true,
+        "disagrees": false,
+        "unavailable": false,
+        "utilizationLower": 0.40804402936423106,
+        "utilizationUpper": 0.4080440293642343,
+        "governingCheck": "Flexure-x F"
+      },
+      "flexureZ": {
+        "Mu": 20,
+        "phiMn": 49.01431845764709,
+        "ratio": 0.4080440293642326,
+        "status": "ok",
+        "steps": [
+          "§F — Flexión, eje fuerte:",
+          "  Zx = 602098 mm³, Sx = 557067 mm³",
+          "  Mp = Fy·Zx = 150.52 kN·m — el tope de F.2.1 no gobierna (Zx/Sx = 1.081 ≤ 1,5)",
+          "  Ala: λf = 7.01, λpf = 10.75, λrf = 28.06 → compacta (Tabla B.4.1b caso 11)",
+          "  Alma: h/tw = 39.2, λpw = 106.3, λrw = 161.2 → compacta (caso 16)",
+          "  Carga aplicada en el alma o el ala inferior (F.2.2 (1))",
+          "  Cb = 1,000 (F.1.1 permite adoptarlo conservadoramente)",
+          "  ry = 33.5 mm; Lp = 1,76·ry·√(E/Fy) = 1668 mm  (F.2.5a)",
+          "  Lb = 8000 mm",
+          "  X1 = (π/Sx)·√(E·G·J·A/2) = 14343 MPa (F.2.4c); X2 = 0 MPa⁻² (F.2.4d; Cw dado: sí)",
+          "  FL = Fy − Fr = 181 MPa; Lr = 5055 mm (F.2.6a); Mr = FL·Sx = 100.83 kN·m (F.2.7)",
+          "  Lb > Lr → pandeo lateral-torsional elástico: Mn = Mcr ≤ Mp = 54.46 kN·m  (F.2.4a, F.2.3)",
+          "  plastificación / pandeo lateral-torsional: Mn = 54.46 kN·m",
+          "  §F.2: gobierna plastificación / pandeo lateral-torsional, Mn = 54.46 kN·m",
+          "  φMn = 0,90·54.46 = 49.01 kN·m",
+          "  Mu = 20; relación = 0.408"
+        ]
+      }
+    }
+  },
+  "rc": {
+    "actual": {
+      "elementId": 1,
+      "elementType": "column",
+      "b": 0.4,
+      "h": 0.4,
+      "fc": 30,
+      "fy": 420,
+      "cover": 0.025,
+      "Mu": 60,
+      "Nu": 300,
+      "overallStatus": "ok",
+      "slender": {
+        "lu": 6,
+        "r": 0.12,
+        "k": 1,
+        "klu_r": 50,
+        "lambda_lim": 40,
+        "isSlender": true,
+        "Cm": 0.4,
+        "delta_ns": 1,
+        "Mc": 60,
+        "steps": [
+          "r = 0.3·h = 12.0 cm",
+          "k = 1.0 (conservador, sin datos de nudos)",
+          "Lu = 600 cm",
+          "k·Lu/r = 50.0",
+          "M1/M2 = -1.000 → λm,lím = 34 - 12·(M1/M2) = 40.0",
+          "k·Lu/r = 50.0 > 40.0 → columna esbelta → momentos amplificados",
+          "Cm = 0.6 + 0.4·(M1/M2) = 0.400",
+          "βdns = 0.6 (estimación)",
+          "EI,eff = 0.4·Ec·Ig/(1+βdns) = 13730 kN·m²",
+          "Pc = π²·EI,eff/(k·Lu)² = 3764 kN",
+          "δns = Cm/(1-Pu/(0.75·Pc)) = 1.000",
+          "Mc = δns·M2C = 1.000·60.00 = 60.00 kN·m"
+        ]
+      },
+      "slenderSecondary": {
+        "lu": 6,
+        "r": 0.12,
+        "k": 1,
+        "klu_r": 50,
+        "lambda_lim": 40,
+        "isSlender": true,
+        "Cm": 0.4,
+        "delta_ns": 1,
+        "Mc": 60,
+        "steps": [
+          "r = 0.3·h = 12.0 cm",
+          "k = 1.0 (conservador, sin datos de nudos)",
+          "Lu = 600 cm",
+          "k·Lu/r = 50.0",
+          "M1/M2 = -1.000 → λm,lím = 34 - 12·(M1/M2) = 40.0",
+          "k·Lu/r = 50.0 > 40.0 → columna esbelta → momentos amplificados",
+          "Cm = 0.6 + 0.4·(M1/M2) = 0.400",
+          "βdns = 0.6 (estimación)",
+          "EI,eff = 0.4·Ec·Ig/(1+βdns) = 13730 kN·m²",
+          "Pc = π²·EI,eff/(k·Lu)² = 3764 kN",
+          "δns = Cm/(1-Pu/(0.75·Pc)) = 1.000",
+          "Mc = δns·M2C = 1.000·60.00 = 60.00 kN·m"
+        ]
+      }
+    },
+    "unity": {
+      "elementId": 1,
+      "elementType": "column",
+      "b": 0.4,
+      "h": 0.4,
+      "fc": 30,
+      "fy": 420,
+      "cover": 0.025,
+      "Mu": 60,
+      "Nu": 300,
+      "overallStatus": "ok",
+      "slender": {
+        "lu": 6,
+        "r": 0.12,
+        "k": 1,
+        "klu_r": 50,
+        "lambda_lim": 22,
+        "isSlender": true,
+        "Cm": 1,
+        "delta_ns": 1.1189045805521658,
+        "Mc": 67.13427483312995,
+        "steps": [
+          "r = 0.3·h = 12.0 cm",
+          "k = 1.0 (conservador, sin datos de nudos)",
+          "Lu = 600 cm",
+          "k·Lu/r = 50.0",
+          "M1/M2 = 1.000 → λm,lím = 34 - 12·(M1/M2) = 22.0",
+          "k·Lu/r = 50.0 > 22.0 → columna esbelta → momentos amplificados",
+          "Cm = 0.6 + 0.4·(M1/M2) = 1.000",
+          "βdns = 0.6 (estimación)",
+          "EI,eff = 0.4·Ec·Ig/(1+βdns) = 13730 kN·m²",
+          "Pc = π²·EI,eff/(k·Lu)² = 3764 kN",
+          "δns = Cm/(1-Pu/(0.75·Pc)) = 1.119",
+          "Mc = δns·M2C = 1.119·60.00 = 67.13 kN·m"
+        ]
+      },
+      "slenderSecondary": {
+        "lu": 6,
+        "r": 0.12,
+        "k": 1,
+        "klu_r": 50,
+        "lambda_lim": 22,
+        "isSlender": true,
+        "Cm": 1,
+        "delta_ns": 1.1189045805521658,
+        "Mc": 67.13427483312995,
+        "steps": [
+          "r = 0.3·h = 12.0 cm",
+          "k = 1.0 (conservador, sin datos de nudos)",
+          "Lu = 600 cm",
+          "k·Lu/r = 50.0",
+          "M1/M2 = 1.000 → λm,lím = 34 - 12·(M1/M2) = 22.0",
+          "k·Lu/r = 50.0 > 22.0 → columna esbelta → momentos amplificados",
+          "Cm = 0.6 + 0.4·(M1/M2) = 1.000",
+          "βdns = 0.6 (estimación)",
+          "EI,eff = 0.4·Ec·Ig/(1+βdns) = 13730 kN·m²",
+          "Pc = π²·EI,eff/(k·Lu)² = 3764 kN",
+          "δns = Cm/(1-Pu/(0.75·Pc)) = 1.119",
+          "Mc = δns·M2C = 1.119·60.00 = 67.13 kN·m"
+        ]
+      }
+    }
+  },
+  "solved": {
+    "model": {
+      "nodes": [
+        [
+          1,
+          {
+            "id": 1,
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        ],
+        [
+          2,
+          {
+            "id": 2,
+            "x": 0,
+            "y": 0,
+            "z": 8
+          }
+        ]
+      ],
+      "elements": [
+        [
+          1,
+          {
+            "id": 1,
+            "type": "frame",
+            "nodeI": 1,
+            "nodeJ": 2,
+            "sectionId": 1,
+            "materialId": 1,
+            "releaseMyStart": false,
+            "releaseMyEnd": false,
+            "releaseMzStart": false,
+            "releaseMzEnd": false,
+            "releaseTStart": false,
+            "releaseTEnd": false
+          }
+        ]
+      ],
+      "sections": [
+        [
+          1,
+          {
+            "id": 1,
+            "name": "RC",
+            "b": 0.4,
+            "h": 0.4,
+            "a": 0.16,
+            "iy": 0.002133333333333334,
+            "iz": 0.002133333333333334,
+            "j": 0.001
+          }
+        ]
+      ],
+      "materials": [
+        [
+          1,
+          {
+            "id": 1,
+            "name": "H30",
+            "fc": 30,
+            "fy": 30,
+            "e": 25000,
+            "nu": 0.2
+          }
+        ]
+      ],
+      "supports": [
+        [
+          1,
+          {
+            "id": 1,
+            "nodeId": 1,
+            "type": "fixed"
+          }
+        ]
+      ]
+    },
+    "loads": [
+      {
+        "type": "nodal",
+        "data": {
+          "nodeId": 2,
+          "fx": 0,
+          "fy": 0,
+          "fz": -300,
+          "mx": 0,
+          "my": 0,
+          "mz": 0
+        }
+      },
+      {
+        "type": "distributed",
+        "data": {
+          "elementId": 1,
+          "qYI": 0,
+          "qYJ": 0,
+          "qZI": 0.1,
+          "qZJ": 0.1
+        }
+      }
+    ],
+    "raw": {
+      "displacements": [
+        {
+          "nodeId": 1,
+          "ux": 0,
+          "uy": 0,
+          "uz": 0,
+          "rx": 0,
+          "ry": 0,
+          "rz": 0
+        },
+        {
+          "nodeId": 2,
+          "ux": 0.0009600000000000007,
+          "uy": 0,
+          "uz": -0.0006,
+          "rx": 0,
+          "ry": 0.00016000000000000012,
+          "rz": 0
+        }
+      ],
+      "reactions": [
+        {
+          "nodeId": 1,
+          "fx": -0.8000000000000004,
+          "fy": 0,
+          "fz": 300,
+          "mx": 0,
+          "my": -3.200000000000002,
+          "mz": 0
+        }
+      ],
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 8,
+          "nStart": -300,
+          "nEnd": -300,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": -0.8000000000000004,
+          "vzEnd": -3.3306690738754696e-16,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 3.200000000000002,
+          "myEnd": 1.1102230246251565e-16,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [
+            {
+              "qI": 0,
+              "qJ": 0,
+              "a": 0,
+              "b": 8
+            }
+          ],
+          "pointLoadsY": [],
+          "qZI": 0.1,
+          "qZJ": 0.1,
+          "distributedLoadsZ": [
+            {
+              "qI": 0.1,
+              "qJ": 0.1,
+              "a": 0,
+              "b": 8
+            }
+          ],
+          "pointLoadsZ": []
+        }
+      ],
+      "solverDiagnostics": [
+        {
+          "category": "solver_path",
+          "message": "Dense solver (6 free DOFs)",
+          "severity": "info"
+        }
+      ],
+      "structuredDiagnostics": [
+        {
+          "code": "dense_lu",
+          "severity": "info",
+          "message": "Dense solver (6 free DOFs)",
+          "phase": "solve"
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "Dense solver residual 1.17e-18 (6 free DOFs)",
+          "phase": "solve",
+          "value": 1.1702749332947312e-18,
+          "threshold": 1e-06
+        },
+        {
+          "code": "known_issue",
+          "severity": "warning",
+          "message": "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER)",
+          "elementIds": [
+            1
+          ],
+          "phase": "LIN-SECOND-ORDER",
+          "value": 1551,
+          "threshold": 0.07483,
+          "elementKind": "frame"
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check static_residual: 2.225e-17 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:static_residual",
+          "value": 2.2253639390002762e-17,
+          "threshold": 1e-06
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check static_balance: 4.325e-19 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:static_balance",
+          "value": 4.3252746242772775e-19,
+          "threshold": 1e-06
+        }
+      ],
+      "equilibrium": {
+        "relativeResidual": 1.1702749332947312e-18,
+        "residualOk": true,
+        "appliedForceSum": [
+          0.8,
+          0,
+          -300,
+          0,
+          0,
+          0
+        ],
+        "reactionForceSum": [
+          -0.8000000000000004,
+          0,
+          300,
+          0,
+          -3.200000000000002,
+          0
+        ],
+        "maxImbalance": 3.3306690738754696e-16,
+        "equilibriumOk": true
+      },
+      "resultSummary": {
+        "displacementX": {
+          "maxValue": 0.0009600000000000007,
+          "maxId": 2,
+          "minValue": 0,
+          "minId": 1
+        },
+        "displacementY": {
+          "maxValue": 0,
+          "maxId": 1,
+          "minValue": 0,
+          "minId": 1
+        },
+        "displacementZ": {
+          "maxValue": 0,
+          "maxId": 1,
+          "minValue": -0.0006,
+          "minId": 2
+        },
+        "displacementResultant": {
+          "maxValue": 0.001132077735846793,
+          "maxId": 2,
+          "minValue": 0,
+          "minId": 1
+        },
+        "reactionResultant": {
+          "maxValue": 300.00106666477035,
+          "maxId": 1,
+          "minValue": 300.00106666477035,
+          "minId": 1
+        },
+        "secondOrderRatio": 0.14590250444496636,
+        "memberChords": [
+          {
+            "elementId": 1,
+            "chord": [
+              0.00012000000000000008,
+              0,
+              -7.5e-05
+            ]
+          }
+        ],
+        "memberSpans": [
+          {
+            "elementId": 1,
+            "nodes": [
+              1,
+              2
+            ],
+            "length": 8,
+            "axes": [
+              [
+                0,
+                0,
+                1
+              ],
+              [
+                0,
+                -1,
+                0
+              ],
+              [
+                1,
+                0,
+                0
+              ]
+            ],
+            "ei": [
+              53333.33333333335,
+              53333.33333333335
+            ],
+            "shearFlexibility": [
+              0,
+              0
+            ],
+            "curvature": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      "solverRunMeta": {
+        "engineVersion": "0.5.0",
+        "buildTimestamp": "unknown",
+        "buildSha": "dev",
+        "solverPath": "dense_lu",
+        "nFreeDofs": 6,
+        "nElements": 1,
+        "nNodes": 2
+      }
+    },
+    "stations": [
+      {
+        "elementId": 1,
+        "length": 8,
+        "stationTs": [
+          0,
+          0.1,
+          0.2,
+          0.3,
+          0.4,
+          0.5,
+          0.6,
+          0.7,
+          0.8,
+          0.9,
+          1
+        ],
+        "comboResults": [
+          {
+            "comboId": 1,
+            "comboName": "transverse",
+            "stations": [
+              {
+                "x": 0,
+                "t": 0,
+                "n": -300,
+                "vy": 0,
+                "vz": -0.8000000000000004,
+                "my": 3.200000000000002,
+                "mz": 0,
+                "torsion": 0
+              },
+              {
+                "x": 0.8,
+                "t": 0.1,
+                "n": -300,
+                "vy": 0,
+                "vz": -0.7200000000000004,
+                "my": 2.5920000000000014,
+                "mz": 0,
+                "torsion": 0
+              },
+              {
+                "x": 1.6,
+                "t": 0.2,
+                "n": -300,
+                "vy": 0,
+                "vz": -0.6400000000000003,
+                "my": 2.0480000000000014,
+                "mz": 0,
+                "torsion": 0
+              },
+              {
+                "x": 2.4,
+                "t": 0.3,
+                "n": -300,
+                "vy": 0,
+                "vz": -0.5600000000000004,
+                "my": 1.5680000000000012,
+                "mz": 0,
+                "torsion": 0
+              },
+              {
+                "x": 3.2,
+                "t": 0.4,
+                "n": -300,
+                "vy": 0,
+                "vz": -0.4800000000000003,
+                "my": 1.1520000000000006,
+                "mz": 0,
+                "torsion": 0
+              },
+              {
+                "x": 4,
+                "t": 0.5,
+                "n": -300,
+                "vy": 0,
+                "vz": -0.40000000000000036,
+                "my": 0.8000000000000005,
+                "mz": 0,
+                "torsion": 0
+              },
+              {
+                "x": 4.8,
+                "t": 0.6,
+                "n": -300,
+                "vy": 0,
+                "vz": -0.3200000000000004,
+                "my": 0.5120000000000002,
+                "mz": 0,
+                "torsion": 0
+              },
+              {
+                "x": 5.6,
+                "t": 0.7,
+                "n": -300,
+                "vy": 0,
+                "vz": -0.24000000000000044,
+                "my": 0.2879999999999996,
+                "mz": 0,
+                "torsion": 0
+              },
+              {
+                "x": 6.4,
+                "t": 0.8,
+                "n": -300,
+                "vy": 0,
+                "vz": -0.16000000000000025,
+                "my": 0.12799999999999967,
+                "mz": 0,
+                "torsion": 0
+              },
+              {
+                "x": 7.2,
+                "t": 0.9,
+                "n": -300,
+                "vy": 0,
+                "vz": -0.0800000000000003,
+                "my": 0.03200000000000003,
+                "mz": 0,
+                "torsion": 0
+              },
+              {
+                "x": 8,
+                "t": 1,
+                "n": -300,
+                "vy": 0,
+                "vz": -3.3306690738754696e-16,
+                "my": -8.881784197001252e-16,
+                "mz": 0,
+                "torsion": 0
+              }
+            ],
+            "transverseLoading": {
+              "My": true,
+              "Mz": false
+            }
+          }
+        ]
+      }
+    ],
+    "actual": {
+      "elementId": 1,
+      "elementType": "column",
+      "b": 0.4,
+      "h": 0.4,
+      "fc": 30,
+      "fy": 420,
+      "cover": 0.025,
+      "Mu": 3.200000000000002,
+      "Nu": 300,
+      "overallStatus": "ok",
+      "slender": {
+        "lu": 8,
+        "r": 0.12,
+        "k": 0.7761071996366113,
+        "klu_r": 51.74047997577409,
+        "lambda_lim": 34,
+        "isSlender": true,
+        "Cm": 0.6,
+        "delta_ns": 1,
+        "Mc": 8.1,
+        "psiA": 0.2,
+        "psiB": 20,
+        "steps": [
+          "r = 0.3·h = 12.0 cm",
+          "ΨA = 0.20, ΨB = 20.00",
+          "k = 0.776 (fórmula con Ψ)",
+          "Lu = 800 cm",
+          "k·Lu/r = 51.7",
+          "M1/M2 = 0.000 → λm,lím = 34 - 12·(M1/M2) = 34.0",
+          "k·Lu/r = 51.7 > 34.0 → columna esbelta → momentos amplificados",
+          "Cm = 0.6 + 0.4·(M1/M2) = 0.600",
+          "βdns = 0.6 (estimación)",
+          "EI,eff = 0.4·Ec·Ig/(1+βdns) = 13730 kN·m²",
+          "Pc = π²·EI,eff/(k·Lu)² = 3515 kN",
+          "δns = Cm/(1-Pu/(0.75·Pc)) = 1.000",
+          "M2,mín = Pu·(15mm + 0.03h) = 8.10 kN·m > M2 → se usa M2,mín",
+          "Mc = δns·M2C = 1.000·8.10 = 8.10 kN·m"
+        ]
+      },
+      "slenderSecondary": {
+        "lu": 8,
+        "r": 0.12,
+        "k": 1,
+        "klu_r": 66.66666666666667,
+        "lambda_lim": 22,
+        "isSlender": true,
+        "Cm": 1,
+        "delta_ns": 1.232927354994179,
+        "Mc": 9.98671157545285,
+        "steps": [
+          "r = 0.3·h = 12.0 cm",
+          "k = 1.0 (conservador, sin datos de nudos)",
+          "Lu = 800 cm",
+          "k·Lu/r = 66.7",
+          "M1 = M2 = 0 → λm,lím = 22",
+          "k·Lu/r = 66.7 > 22.0 → columna esbelta → momentos amplificados",
+          "Cm = 1.0 (conservador)",
+          "βdns = 0.6 (estimación)",
+          "EI,eff = 0.4·Ec·Ig/(1+βdns) = 13730 kN·m²",
+          "Pc = π²·EI,eff/(k·Lu)² = 2117 kN",
+          "δns = Cm/(1-Pu/(0.75·Pc)) = 1.233",
+          "M2,mín = Pu·(15mm + 0.03h) = 8.10 kN·m > M2 → se usa M2,mín",
+          "Mc = δns·M2C = 1.233·8.10 = 9.99 kN·m"
+        ]
+      },
+      "engineRecheck": {
+        "edition": "2025",
+        "disagreements": [],
+        "unavailable": false,
+        "notRechecked": [
+          "slenderness"
+        ],
+        "flexureRatio": 0.09911055033033352,
+        "shearRatio": 0.004043709342995356,
+        "columnRatio": 0.05408621342419817,
+        "biaxialRatio": 0.0851063829787234
+      }
+    },
+    "unity": {
+      "elementId": 1,
+      "elementType": "column",
+      "b": 0.4,
+      "h": 0.4,
+      "fc": 30,
+      "fy": 420,
+      "cover": 0.025,
+      "Mu": 8.1,
+      "Nu": 300,
+      "overallStatus": "ok",
+      "slender": {
+        "lu": 8,
+        "r": 0.12,
+        "k": 0.7761071996366113,
+        "klu_r": 51.74047997577409,
+        "lambda_lim": 22,
+        "isSlender": true,
+        "Cm": 1,
+        "delta_ns": 1.1284081687875414,
+        "Mc": 9.140106167179084,
+        "psiA": 0.2,
+        "psiB": 20,
+        "steps": [
+          "r = 0.3·h = 12.0 cm",
+          "ΨA = 0.20, ΨB = 20.00",
+          "k = 0.776 (fórmula con Ψ)",
+          "Lu = 800 cm",
+          "k·Lu/r = 51.7",
+          "λm,lím = 22 (sin datos M1/M2)",
+          "k·Lu/r = 51.7 > 22.0 → columna esbelta → momentos amplificados",
+          "Cm = 1.0 (conservador)",
+          "βdns = 0.6 (estimación)",
+          "EI,eff = 0.4·Ec·Ig/(1+βdns) = 13730 kN·m²",
+          "Pc = π²·EI,eff/(k·Lu)² = 3515 kN",
+          "δns = Cm/(1-Pu/(0.75·Pc)) = 1.128",
+          "Mc = δns·M2C = 1.128·8.10 = 9.14 kN·m"
+        ]
+      }
+    }
+  },
+  "mainRevision": "2e8a4f65f743b23949b995e9ddc9727ad008e225",
+  "sourceSha256": {
+    "web/src/lib/engine/verification-service.ts": "61fc199cd3b461fc15c7e25ccb94a7878bcdb9996cd45949ab30c1e1ddcf584d",
+    "web/src/lib/engine/auto-verify.ts": "014670c0b02bd0d3621366e47c845b940a0c5ed20b3f49b771168d8f249c8435",
+    "web/src/lib/engine/codes/argentina/cirsoc201.ts": "52fa26ce7f5938703a950b6d90c13cdc9acc5f4ffbe243432290503e4a0906ec",
+    "web/src/lib/engine/codes/argentina/cirsoc301.ts": "716d27eb0d79b989345fe8d78ba37df314c94e0d8fef072e08601f2a15edc9b0"
+  },
+  "oracle": "Steel: the same demand and selected length with no Cb credit for the unlocated interval. RC: the same section, compression, restraint and moment with no end-gradient credit, as required for the recorded transverse load."
+}

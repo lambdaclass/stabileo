@@ -1,0 +1,37 @@
+{
+  "id": "concurrent-design-demands",
+  "date": "2026-11-13",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers",
+      "steelMembers"
+    ]
+  },
+  "title": {
+    "en": "Interaction checks use concurrent station forces",
+    "es": "Las interacciones usan esfuerzos simultáneos por estación",
+    "pt": "Interações usam esforços simultâneos por estação",
+    "de": "Interaktionsnachweise verwenden gleichzeitige Schnittgrößen",
+    "fr": "Les interactions utilisent les efforts simultanés par section",
+    "tr": "Etkileşim kontrolleri eşzamanlı istasyon kuvvetlerini kullanır"
+  },
+  "explanation": {
+    "en": "Member checks now evaluate each combination at each station with its own axial force, moments, shear and torsion, and report the governing combination. Envelopes without concurrent data are refused. Re-run saved concrete and steel designs; utilization, reinforcement, statuses and combination labels may change (#1316). Steel moment-gradient capacity factors now use their own combination diagrams; previously ratios could be silently understated.",
+    "es": "Las verificaciones evalúan cada combinación en cada estación con su propio axil, momentos, corte y torsión, e indican la combinación determinante. Se rechazan envolventes sin datos simultáneos. Repita los diseños guardados de hormigón y acero; pueden cambiar la utilización, la armadura, los estados y las combinaciones (#1316). Los factores de capacidad por gradiente de momento del acero usan el diagrama de su propia combinación; antes podían subestimarse razones sin advertencia.",
+    "pt": "As verificações avaliam cada combinação em cada estação com seus próprios esforços normal, momentos, cortante e torção, e identificam a combinação determinante. Envoltórias sem dados simultâneos são recusadas. Refaça os dimensionamentos salvos de concreto e aço; utilização, armadura, estados e combinações podem mudar (#1316). Os fatores de capacidade por gradiente de momento do aço usam o diagrama da própria combinação; antes podiam subestimar razões sem aviso.",
+    "de": "Die Nachweise werten jede Kombination an jeder Stelle mit ihrer eigenen Normalkraft, ihren Momenten, Querkräften und ihrer Torsion aus und nennen die maßgebende Kombination. Umhüllende ohne gleichzeitige Daten werden abgelehnt. Gespeicherte Beton- und Stahlbemessungen erneut ausführen; Ausnutzung, Bewehrung, Status und Kombination können sich ändern (#1316). Stahl-Tragfähigkeitsfaktoren für Momentengradienten verwenden das Diagramm der eigenen Kombination; zuvor konnten Ausnutzungen ohne Warnung unterschätzt werden.",
+    "fr": "Les vérifications évaluent chaque combinaison à chaque section avec ses propres efforts normal, moments, cisaillement et torsion et indiquent la combinaison déterminante. Les enveloppes sans données simultanées sont refusées. Recalculer les projets enregistrés en béton et acier ; taux, armatures, états et combinaisons peuvent changer (#1316). Les facteurs de résistance liés au gradient de moment de l’acier utilisent le diagramme de leur propre combinaison ; des taux pouvaient auparavant être sous-estimés sans avertissement.",
+    "tr": "Kontroller her kombinasyonu her istasyonda kendi eksenel kuvveti, momentleri, kesmesi ve burulmasıyla değerlendirir ve belirleyici kombinasyonu bildirir. Eşzamanlı verisi olmayan zarflar reddedilir. Kayıtlı betonarme ve çelik tasarımlarını yeniden çalıştırın; kullanım oranı, donatı, durumlar ve kombinasyonlar değişebilir (#1316). Çelik moment gradyanı kapasite katsayıları artık kendi kombinasyon diyagramlarını kullanır; önceden oranlar uyarı verilmeden düşük hesaplanabiliyordu."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-concurrent-design-demands.md",
+    "heading": "Interaction checks use concurrent station demands (2026-11-13)"
+  },
+  "quantities": [
+    "member",
+    "rc",
+    "steel"
+  ]
+}

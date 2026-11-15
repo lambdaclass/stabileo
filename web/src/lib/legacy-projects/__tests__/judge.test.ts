@@ -15,7 +15,7 @@ import type { Values } from '../capture-results';
 import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 import { modelStore } from '../../store/model.svelte';
 
-const change = (id: string, quantities?: ResultChange['quantities']): ResultChange => ({ ...RESULT_CHANGES.changes[0], id, resultsVersion: 1, when: {}, quantities });
+const change = (id: string, quantities?: ResultChange['quantities']): ResultChange => ({ ...RESULT_CHANGES.changes[0], id, area: 'analysis', resultsVersion: 1, when: {}, quantities });
 const designOnly = change('design-only');
 const shellStresses = change('shell-stresses', ['quadStresses.sigmaXx', 'quadStresses.sigmaYy']);
 const everything = change('everything', ['*']);

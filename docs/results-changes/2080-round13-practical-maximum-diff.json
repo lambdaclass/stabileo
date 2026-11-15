@@ -1,0 +1,374 @@
+{
+  "issue": 2080,
+  "round": 13,
+  "parent": "7dcb1176ed47d61b85303d41ee376a82113161bf",
+  "originMain": "fb241aa04936a993a3ecd4a2ec4f9490669c1d34",
+  "method": "Exact parent and main TypeScript designer sources loaded beside current sources, using the current initialized WASM kernels; no historical release binary replay.",
+  "params": {
+    "fc": 25,
+    "fy": 420,
+    "cover": 0.025,
+    "b": 0.2,
+    "h": 0.5,
+    "stirrupDia": 8
+  },
+  "axis": "My",
+  "axialAndShear": 0,
+  "rows": [
+    {
+      "edition": "2005",
+      "Mu": 150,
+      "independent": {
+        "AsReq": 9.647356441060777,
+        "AsMax": 40,
+        "AsProv": 9.818,
+        "phiMn": 150.67025431030586,
+        "ratio": 0.9955515153712725,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      },
+      "fixedBefore": {
+        "AsReq": 9.647356441060777,
+        "AsMax": 40,
+        "AsProv": 9.818,
+        "phiMn": 150.67025431030586,
+        "ratio": 0.9955515153712725,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      },
+      "fixedAfter": {
+        "AsReq": 9.647356441060777,
+        "AsMax": 40,
+        "AsProv": 9.818,
+        "phiMn": 150.67025431030586,
+        "ratio": 0.9955515153712725,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      },
+      "concurrentBefore": {
+        "AsReq": 9.647356441060777,
+        "AsMax": 40,
+        "AsProv": 9.818,
+        "phiMn": 150.67025431030586,
+        "ratio": 0.9955515153712725,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      },
+      "concurrentAfter": {
+        "AsReq": 9.647356441060777,
+        "AsMax": 40,
+        "AsProv": 9.818,
+        "phiMn": 150.67025431030586,
+        "ratio": 0.9955515153712725,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      },
+      "main": {
+        "AsReq": 9.647356441060777,
+        "AsMax": 40,
+        "AsProv": 9.818,
+        "phiMn": 150.67025431030586,
+        "ratio": 0.9955515153712725,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      }
+    },
+    {
+      "edition": "2005",
+      "Mu": 800,
+      "independent": {
+        "AsReq": 57.7196536019777,
+        "AsMax": 40,
+        "AsProv": 64.336,
+        "AsComp": 56.294,
+        "phiMn": 970.3001359857666,
+        "ratio": 0.824487156427375,
+        "status": "fail",
+        "overallStatus": "fail",
+        "practicalNotice": [
+          "⚠ As,req = 57.7 cm² supera el máximo práctico 40.0 cm² (4 %·b·h) — sección insuficiente: agrandar la sección"
+        ],
+        "diagnosticCodes": [
+          "VERIF_FAIL_FLEXURE"
+        ]
+      },
+      "fixedBefore": {
+        "AsReq": 57.7196536019777,
+        "AsMax": 40,
+        "AsProv": 64.336,
+        "AsComp": 56.294,
+        "phiMn": 970.3001359857666,
+        "ratio": 0.824487156427375,
+        "status": "ok",
+        "overallStatus": "ok",
+        "practicalNotice": []
+      },
+      "fixedAfter": {
+        "AsReq": 57.7196536019777,
+        "AsMax": 40,
+        "AsProv": 64.336,
+        "AsComp": 56.294,
+        "phiMn": 970.3001359857666,
+        "ratio": 0.824487156427375,
+        "status": "fail",
+        "overallStatus": "fail",
+        "practicalNotice": [
+          "⚠ As,req = 57.7 cm² supera el máximo práctico 40.0 cm² (4 %·b·h) — sección insuficiente: agrandar la sección"
+        ],
+        "diagnosticCodes": [
+          "VERIF_FAIL_FLEXURE"
+        ]
+      },
+      "concurrentBefore": {
+        "AsReq": 57.7196536019777,
+        "AsMax": 40,
+        "AsProv": 64.336,
+        "AsComp": 56.294,
+        "phiMn": 970.3001359857666,
+        "ratio": 0.824487156427375,
+        "status": "ok",
+        "overallStatus": "ok",
+        "practicalNotice": [],
+        "diagnosticCodes": []
+      },
+      "concurrentAfter": {
+        "AsReq": 57.7196536019777,
+        "AsMax": 40,
+        "AsProv": 64.336,
+        "AsComp": 56.294,
+        "phiMn": 970.3001359857666,
+        "ratio": 0.824487156427375,
+        "status": "fail",
+        "overallStatus": "fail",
+        "practicalNotice": [
+          "⚠ As,req = 57.7 cm² supera el máximo práctico 40.0 cm² (4 %·b·h) — sección insuficiente: agrandar la sección"
+        ],
+        "diagnosticCodes": [
+          "VERIF_FAIL_FLEXURE"
+        ]
+      },
+      "main": {
+        "AsReq": 57.7196536019777,
+        "AsMax": 40,
+        "AsProv": 64.336,
+        "AsComp": 56.294,
+        "phiMn": 970.3001359857666,
+        "ratio": 0.824487156427375,
+        "status": "fail",
+        "overallStatus": "fail",
+        "practicalNotice": [
+          "⚠ As,req = 57.7 cm² supera el máximo práctico 40.0 cm² (4 %·b·h) — sección insuficiente: agrandar la sección"
+        ],
+        "diagnosticCodes": [
+          "VERIF_FAIL_FLEXURE"
+        ]
+      }
+    },
+    {
+      "edition": "2025",
+      "Mu": 150,
+      "independent": {
+        "AsReq": 9.64735644106513,
+        "AsMax": 40,
+        "AsProv": 9.818,
+        "phiMn": 150.67025431030586,
+        "ratio": 0.9955515153712725,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      },
+      "fixedBefore": {
+        "AsReq": 9.64735644106513,
+        "AsMax": 40,
+        "AsProv": 9.818,
+        "phiMn": 150.67025431030586,
+        "ratio": 0.9955515153712725,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      },
+      "fixedAfter": {
+        "AsReq": 9.64735644106513,
+        "AsMax": 40,
+        "AsProv": 9.818,
+        "phiMn": 150.67025431030586,
+        "ratio": 0.9955515153712725,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      },
+      "concurrentBefore": {
+        "AsReq": 9.64735644106513,
+        "AsMax": 40,
+        "AsProv": 9.818,
+        "phiMn": 150.67025431030586,
+        "ratio": 0.9955515153712725,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      },
+      "concurrentAfter": {
+        "AsReq": 9.64735644106513,
+        "AsMax": 40,
+        "AsProv": 9.818,
+        "phiMn": 150.67025431030586,
+        "ratio": 0.9955515153712725,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      },
+      "main": {
+        "AsReq": 9.64735644106513,
+        "AsMax": 40,
+        "AsProv": 9.818,
+        "phiMn": 150.67025431030586,
+        "ratio": 0.9955515153712725,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      }
+    },
+    {
+      "edition": "2025",
+      "Mu": 800,
+      "independent": {
+        "AsReq": 51.72478327289504,
+        "AsMax": 40,
+        "AsProv": 56.294,
+        "AsComp": 48.251999999999995,
+        "phiMn": 848.8402557440642,
+        "ratio": 0.9424623709660748,
+        "status": "fail",
+        "overallStatus": "fail",
+        "practicalNotice": [
+          "⚠ As,req = 51.7 cm² supera el máximo práctico 40.0 cm² (4 %·b·h) — sección insuficiente: agrandar la sección"
+        ],
+        "diagnosticCodes": [
+          "VERIF_FAIL_FLEXURE"
+        ]
+      },
+      "fixedBefore": {
+        "AsReq": 51.72478327289504,
+        "AsMax": 40,
+        "AsProv": 56.294,
+        "AsComp": 48.251999999999995,
+        "phiMn": 848.8402557440642,
+        "ratio": 0.9424623709660748,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      },
+      "fixedAfter": {
+        "AsReq": 51.72478327289504,
+        "AsMax": 40,
+        "AsProv": 56.294,
+        "AsComp": 48.251999999999995,
+        "phiMn": 848.8402557440642,
+        "ratio": 0.9424623709660748,
+        "status": "fail",
+        "overallStatus": "fail",
+        "practicalNotice": [
+          "⚠ As,req = 51.7 cm² supera el máximo práctico 40.0 cm² (4 %·b·h) — sección insuficiente: agrandar la sección"
+        ],
+        "diagnosticCodes": [
+          "VERIF_FAIL_FLEXURE"
+        ]
+      },
+      "concurrentBefore": {
+        "AsReq": 51.72478327289504,
+        "AsMax": 40,
+        "AsProv": 56.294,
+        "AsComp": 48.251999999999995,
+        "phiMn": 848.8402557440642,
+        "ratio": 0.9424623709660748,
+        "status": "warn",
+        "overallStatus": "warn",
+        "practicalNotice": [],
+        "diagnosticCodes": [
+          "VERIF_WARN_FLEXURE"
+        ]
+      },
+      "concurrentAfter": {
+        "AsReq": 51.72478327289504,
+        "AsMax": 40,
+        "AsProv": 56.294,
+        "AsComp": 48.251999999999995,
+        "phiMn": 848.8402557440642,
+        "ratio": 0.9424623709660748,
+        "status": "fail",
+        "overallStatus": "fail",
+        "practicalNotice": [
+          "⚠ As,req = 51.7 cm² supera el máximo práctico 40.0 cm² (4 %·b·h) — sección insuficiente: agrandar la sección"
+        ],
+        "diagnosticCodes": [
+          "VERIF_FAIL_FLEXURE"
+        ]
+      },
+      "main": {
+        "AsReq": 51.72478327289504,
+        "AsMax": 40,
+        "AsProv": 56.294,
+        "AsComp": 48.251999999999995,
+        "phiMn": 848.8402557440642,
+        "ratio": 0.9424623709660748,
+        "status": "fail",
+        "overallStatus": "fail",
+        "practicalNotice": [
+          "⚠ As,req = 51.7 cm² supera el máximo práctico 40.0 cm² (4 %·b·h) — sección insuficiente: agrandar la sección"
+        ],
+        "diagnosticCodes": [
+          "VERIF_FAIL_FLEXURE"
+        ]
+      }
+    }
+  ],
+  "sourceHashes": {
+    "7dcb1176ed47d61b85303d41ee376a82113161bf": "7afa8746423fe8a2baf76a5e89cc412c7debeca9570d7980e090db5071b225f6",
+    "fb241aa04936a993a3ecd4a2ec4f9490669c1d34": "52fa26ce7f5938703a950b6d90c13cdc9acc5f4ffbe243432290503e4a0906ec"
+  }
+}

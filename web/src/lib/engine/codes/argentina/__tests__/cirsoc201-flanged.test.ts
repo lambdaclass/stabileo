@@ -53,7 +53,7 @@ describe('a T beam whose block stays in the flange', () => {
     expect(t.AsFlange).toBe(0);
   });
 
-  it('takes its minimum steel from the web, not the flange', () => {
+  it('#2080 takes its minimum steel from the web, not the flange', () => {
     /*
      * §9.6.1.2 is written on bw. With bf six times bw, using the flange would
      * demand roughly six times the minimum — a real over-reinforcement, and
@@ -63,7 +63,8 @@ describe('a T beam whose block stays in the flange', () => {
     const rect = checkFlexure({ ...P, b: T.bf }, 120);
     expect(t.AsMin).toBeLessThan(rect.AsMin);
     const rhoMin = Math.max((0.25 * Math.sqrt(P.fc)) / P.fy, 1.4 / P.fy);
-    expect(t.AsMin).toBeCloseTo(rhoMin * T.bw * t.d * 1e4, 6);
+    expect(t.providedDepth).toBe(P.h - P.cover - P.stirrupDia / 1000 - t.barDia / 2000);
+    expect(t.AsMin).toBeCloseTo(rhoMin * T.bw * t.providedDepth * 1e4, 6);
   });
 });
 
