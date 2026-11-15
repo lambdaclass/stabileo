@@ -117,7 +117,7 @@ Every advisory has these sections; the [template](#template) lists them.
 ## Index
 
 The list of advisories, with status and severity, is [advisories/README.md](advisories/README.md).
-The dashboard counts published advisories ([verification/DASHBOARD.md](../testing/docs/DASHBOARD.md)).
+The dashboard counts published advisories ([testing/docs/DASHBOARD.md](../testing/docs/DASHBOARD.md)).
 
 Published with 0.6.1 (2026-11-15): [SA-2026-064](advisories/SA-2026-064-steel-cb-combination.md)
 (steel Cb), [SA-2026-065](advisories/SA-2026-065-snow-roof-step.md) (roof-step drift),

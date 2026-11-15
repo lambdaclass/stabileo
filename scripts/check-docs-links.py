@@ -6,7 +6,21 @@ import urllib.parse
 
 
 def without_fenced_code(text):
-    return re.sub(r'^(`{3,}|~{3,})[^\n]*\n.*?^\1[^\n]*$', '', text, flags=re.M | re.S)
+    lines = []
+    closer = None
+    for line in text.splitlines(keepends=True):
+        body = line.rstrip('\r\n')
+        if closer is not None:
+            if closer.fullmatch(body):
+                closer = None
+        else:
+            opener = re.fullmatch(r' {0,3}(`{3,}|~{3,})(.*)', body)
+            if opener is None or (opener[1][0] == '`' and '`' in opener[2]):
+                lines.append(line)
+                continue
+            closer = re.compile(r' {0,3}' + re.escape(opener[1][0]) + '{' + str(len(opener[1])) + r',}[ \t]*')
+        lines.append('\n' if line.endswith('\n') else '')
+    return ''.join(lines)
 
 
 def destinations(text):

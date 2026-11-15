@@ -1,7 +1,7 @@
 {
   "date": "2026-11-11",
   "tested_main": "85c002b3a378a076fe118d75fcb665b5099dba46",
-  "source": "Supplied read-only candidate-replay/testing/docs/audits/candidate-replay-2026-11-11.json, staged_followups for #1846; independent observations retained unchanged.",
+  "source": "Supplied read-only candidate-replay/docs/verification/candidate-replay-2026-11-11.json, staged_followups for #1846; independent observations retained unchanged.",
   "fixture": "engine/tests/fixtures/staged-orphan-1846.json",
   "observations": [
     {
@@ -721,7 +721,7 @@
   ],
   "comment_witness_source": {
     "tested_main": "85c002b3a378a076fe118d75fcb665b5099dba46",
-    "archive": "candidate-replay/testing/docs/audits/candidate-replay-2026-11-11.json",
+    "archive": "candidate-replay/docs/verification/candidate-replay-2026-11-11.json",
     "fixture": "engine/tests/fixtures/staged-review-comments.json",
     "scope": "Multi-member translations and member actions, plus multiple load stages; issue bodies are distinct witnesses."
   }

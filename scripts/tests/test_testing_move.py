@@ -51,7 +51,6 @@ class AuditEvidence(unittest.TestCase):
                     data = markdown_evidence(data)
                 self.assertEqual(hashlib.sha256(data).hexdigest(), expected, name)
 
-    @unittest.skip('known wrong result: #2167')
     def test_historical_replay_provenance_keeps_the_supplied_archive_paths(self):
         replay = json.loads((ROOT / 'docs/advisories/replays/SA-2026-060.json').read_text())
         self.assertEqual(replay['source'], 'Supplied read-only candidate-replay/docs/verification/candidate-replay-2026-11-11.json, staged_followups for #1846; independent observations retained unchanged.')
@@ -108,7 +107,6 @@ class DocumentationLinks(unittest.TestCase):
         self.assertEqual(problems, expected)
         self.assertEqual(result.returncode, int(not visible), result.stdout + result.stderr)
 
-    @unittest.skip('known wrong result: #2167')
     def test_indented_fenced_anchors_and_headings_cannot_satisfy_a_link(self):
         for indent in (1, 2, 3):
             for marker in ('```', '~~~', '````', '~~~~'):
@@ -116,7 +114,6 @@ class DocumentationLinks(unittest.TestCase):
                     with self.subTest(indent=indent, marker=marker, anchor=anchor):
                         self.assert_target_visibility(f'{" " * indent}{marker}html\n{anchor}\n{marker}\n', False)
 
-    @unittest.skip('known wrong result: #2167')
     def test_only_matching_fences_with_no_trailing_text_close_a_block(self):
         for marker in ('```', '~~~', '````', '~~~~'):
             other = '~' if marker[0] == '`' else '`'
@@ -125,7 +122,6 @@ class DocumentationLinks(unittest.TestCase):
                 with self.subTest(marker=marker, closer=closer):
                     self.assert_target_visibility(f'{marker}\n{closer}\n# missing\n{marker}\n', False)
 
-    @unittest.skip('known wrong result: #2167')
     def test_unclosed_fences_hide_anchors_and_headings_through_end_of_file(self):
         for indent in (0, 1, 3):
             for marker in ('```', '~~~'):
@@ -133,7 +129,6 @@ class DocumentationLinks(unittest.TestCase):
                     with self.subTest(indent=indent, marker=marker, anchor=anchor):
                         self.assert_target_visibility(f'{" " * indent}{marker}\n{anchor}', False)
 
-    @unittest.skip('known wrong result: #2167')
     def test_same_or_longer_indented_closers_reveal_real_headings(self):
         for marker in ('```', '~~~'):
             for indent in (0, 1, 2, 3):
@@ -142,13 +137,11 @@ class DocumentationLinks(unittest.TestCase):
                         closer = ' ' * indent + marker + marker[0] * extra + ' \t'
                         self.assert_target_visibility(f'{marker}\n# example\n{closer}\n# missing\n', True)
 
-    @unittest.skip('known wrong result: #2167')
     def test_four_space_indentation_and_backticks_in_info_do_not_open_fences(self):
         for opener in ('    ```', '    ~~~', '\t```', '```lang`invalid'):
             with self.subTest(opener=opener):
                 self.assert_target_visibility(f'{opener}\n# missing\n```\n', True)
 
-    @unittest.skip('known wrong result: #2167')
     def test_indented_and_unclosed_fences_hide_destinations_for_api_and_cli(self):
         links = '[example](absent.md)\n[example]: absent.md\n<a href="absent.md">example</a>\n'
         for marker in ('```', '~~~'):
@@ -160,7 +153,6 @@ class DocumentationLinks(unittest.TestCase):
                     self.assertEqual(list(LINKS.destinations(target)), [])
                     self.assert_target_visibility(target, True)
 
-    @unittest.skip('known wrong result: #2167')
     def test_invalid_fence_openers_cannot_hide_broken_links(self):
         for opener in ('    ```', '    ~~~', '```lang`invalid'):
             with self.subTest(opener=opener):

@@ -18,9 +18,10 @@ On main `85c002b3a378a076fe118d75fcb665b5099dba46`, the exact unit-transformed
 compared both original and transformed inputs with OpenSees and confirmed the
 linear answer. Native and public WASM staged exports returned the wrong rotation
 without final structured diagnostics. These observations come from
-`candidate-replay/testing/docs/audits/candidate-replay-2026-11-11.md` and its JSON
+`candidate-replay/docs/verification/candidate-replay-2026-11-11.md` and its JSON
 record (`staged_followups`), supplied for this task; the two exact inputs are now
-retained in `engine/tests/fixtures/staged-orphan-1846.json`.
+retained in `engine/tests/fixtures/staged-orphan-1846.json`. The retained replay
+is available in the [current audit record](../../testing/docs/audits/candidate-replay-2026-11-11.md).
 
 Both staged dimensions now assemble their active physical model through regular
 linear assembly with legacy artificial rotational stiffness disabled. Regular
