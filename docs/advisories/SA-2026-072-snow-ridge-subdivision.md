@@ -82,5 +82,4 @@ loads. Review explicit-panel faceted domes separately under #2172.
 The exposure is tracked as #2144. The coordinator assigned SA-2026-072.
 The [results-change record](../results-changes/2026-11-snow-ridge-mesh.md)
 retains the main witness, shared-path coverage, boundary tests and correct
-controls. The fix is pending merge and release; the coordinator will fill in
-the fixing pull-request number.
+controls. The fix is in PR #2175, pending merge and release.
