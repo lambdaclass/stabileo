@@ -150,7 +150,7 @@ describe('blog posts', () => {
       }
 
       it('has the same structure in every language', () => {
-        const shape = (l: PublicLocale) =>
+        const shape = (l: PublicLocale, expectedLocale?: PublicLocale) =>
           post.i18n[l]!.blocks.map((b) =>
             b.k === 'ul' || b.k === 'ol'
               ? `${b.k}:${b.items.length}`
@@ -163,13 +163,15 @@ describe('blog posts', () => {
                   : b.k === 'link'
                     ? `link:${b.slug}`
                     : b.k === 'ext'
-                      ? `ext:${b.href}`
+                      ? `ext:${expectedLocale && expectedLocale !== 'en'
+                        ? b.href.replace(/(\/docs\/releases\/v0\.6\.0)\.md$/, `$1.${expectedLocale}.md`)
+                        : b.href}`
                       : b.k === 'img'
                         ? `img:${b.base}:${b.w}x${b.h}`
                         : b.k,
           );
         for (const locale of written(post)) {
-          expect(shape(locale), `${locale} does not match the English structure`).toEqual(shape('en'));
+          expect(shape(locale), `${locale} does not match the English structure`).toEqual(shape('en', locale));
         }
       });
 

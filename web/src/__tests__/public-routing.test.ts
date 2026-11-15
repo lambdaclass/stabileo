@@ -6,7 +6,7 @@ import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, researchLocales } from '../comp
 import { POSTS, writtenIn as writtenInContent } from '../lib/blog';
 import { PUBLIC_LOCALES } from '../lib/i18n/offered';
 import { PAPER_LOCALES } from '../components/paper/locales';
-import { publicPaths, writtenIn } from '../../scripts/public-paths';
+import { publicPaths, writtenIn, POST_DATE, POST_LASTMOD } from '../../scripts/public-paths';
 import { SITE_NAV, currentNav } from '../components/site/site-nav';
 
 const source = (file: string) => readFileSync(new URL(file, import.meta.url), 'utf8');
@@ -47,12 +47,20 @@ describe('merged public routes', () => {
     expect(['/examples', '/examples/beam-frame', '/tools', '/tools/truss-2d', '/research', '/research/benchmarks/navier-plate', '/paper', '/blog', '/blog/safety-advisories', '/changelog'].map(currentNav))
       .toEqual(['examples', 'examples', 'tools', 'tools', 'research', 'research', 'research', 'blog', 'blog', 'blog']);
   });
-  it('prerenders paper, research, tools, every standing page and every post, each once', async () => {
+  it('known wrong result: #2087 — prerenders paper, research, tools, every standing page and every post, each once', async () => {
     const paths = await publicPaths();
     expect(new Set(paths).size).toBe(paths.length);
     expect(RESEARCH_GALLERY).toBe('/research');
     for (const path of ['/', '/blog', '/paper', '/tools', '/examples', '/examples/beam-frame', '/examples/slab-on-columns', '/examples/earthquake-frame', '/changelog', RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS, ...STANDING_PAGES.map(page => page.path), ...POSTS.map(post => `/blog/${post.slug}`)]) {
       expect(paths, path).toContain(path);
+    }
+  });
+  it('known wrong result: #2087 — preserves every post’s publication and last-change dates for feeds and sitemaps', async () => {
+    await publicPaths();
+    for (const post of POSTS) {
+      const path = `/blog/${post.slug}`;
+      expect(POST_DATE.get(path), path).toBe(post.date);
+      expect(POST_LASTMOD.get(path), path).toBe(post.updated ?? post.date);
     }
   });
   it('builds each page in exactly the languages it is written in', async () => {

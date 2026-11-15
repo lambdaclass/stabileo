@@ -6,8 +6,10 @@ export function conditionHolds(w, features) {
   return conditionGroups(w).every((g) => g.some((f) => features.has(f)));
 }
 
+const resultFamily = (path) => path.split(/\.|\[/)[0];
+
 function resultAnalysis(path) {
-  const family = path.split('.')[0];
+  const family = resultFamily(path);
   return /^(pdelta|modal|spectral|buckling|nonlinear|ssi)$/.test(family) ? family : 'linear';
 }
 
@@ -18,12 +20,14 @@ export function conditionAllowsResult(w, path) {
 
 export function fieldCovered(entry, path, features) {
   if (!Array.isArray(features) || !entry.when || typeof entry.when !== 'object' || Array.isArray(entry.when) || !Array.isArray(entry.quantities)) return false;
-  const family = path.split('.')[0];
-  const analysis = resultAnalysis(path);
-  if (family !== 'design' && !conditionAllowsResult(entry.when, path)) return false;
-  if (family !== 'design' && !features.includes(`analysis:${analysis}`)) return false;
+  const family = resultFamily(path);
+  const loadResult = ['generatedLoads', 'snowDerivation', 'snowResult'].includes(family);
+  const analysis = loadResult ? null : resultAnalysis(path);
+  if (loadResult && (entry.area !== 'loads' || !features.includes('generatedLoads'))) return false;
+  if (!loadResult && family !== 'design' && !conditionAllowsResult(entry.when, path)) return false;
+  if (!loadResult && family !== 'design' && !features.includes(`analysis:${analysis}`)) return false;
   const fieldFeatures = new Set(features.filter((f) => !f.startsWith('analysis:')));
-  if (family !== 'design') fieldFeatures.add(`analysis:${analysis}`);
+  if (!loadResult && family !== 'design') fieldFeatures.add(`analysis:${analysis}`);
   if (!conditionHolds(entry.when, fieldFeatures)) return false;
   if (family === 'model') return false;
   if (family === 'design' ? entry.area !== 'design' : entry.area === 'design') return false;

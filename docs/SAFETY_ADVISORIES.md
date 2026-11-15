@@ -124,3 +124,5 @@ covers steel Cb from another combination or an unlocated short span (#1316, #208
 [SA-2026-066](advisories/SA-2026-066-cirsoc201-transverse-cm.md) covers CIRSOC 201
 Cm credit with transverse load (#2089). Both fixes are in PR #2080, pending merge
 and release.
+
+Coordinator-assigned snow advisories: [SA-2026-065](advisories/drafts/SA-2026-065-snow-roof-step.md) and [SA-2026-067](advisories/drafts/SA-2026-067-snow-roof-rotation.md). Both reproduce silent wrong loads on main/v0.6.0; the local correction awaits review and release. Regenerate snow loads before re-solving affected projects.
