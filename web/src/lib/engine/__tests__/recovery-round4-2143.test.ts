@@ -2,22 +2,23 @@ import { beforeAll, expect, it } from 'vitest';
 import { computeDeformedShape, computeDisplacementAt } from '../diagrams';
 import { initSolver, recoverMember, solve, solvePDelta, solve3D, solvePDelta3D } from '../wasm-solver';
 import { memberLocalCurve } from '../member-deflection';
-import type { SolverInput } from '../types';
-import type { SolverInput3D } from '../types-3d';
+import type { AnalysisResults, SolverInput } from '../types';
+import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
 
 beforeAll(async () => { await initSolver(); });
-const knownWrong = it.skipIf(!process.env.RUN_KNOWN_WRONG_2143);
 const close = (a: number, b: number) => expect(Math.abs(a - b)).toBeLessThanOrEqual(1e-12 * Math.max(Math.abs(b), 1e-12));
-const hover = computeDisplacementAt as (...args: [...Parameters<typeof computeDisplacementAt>, number?]) => ReturnType<typeof computeDisplacementAt>;
-const shape = computeDeformedShape as (...args: [...Parameters<typeof computeDeformedShape>, number?]) => ReturnType<typeof computeDeformedShape>;
+const hover = computeDisplacementAt;
+const shape = computeDeformedShape;
 
 for (const gas of [undefined, 20_000]) for (const memberLoad of [false, true]) {
-  const test = gas ? knownWrong : it;
-  test(`known wrong result: #2143 planar Timoshenko adapters gas=${gas} memberLoad=${memberLoad}`, () => {
+  it(`#2143 planar Timoshenko adapters gas=${gas} memberLoad=${memberLoad}`, () => {
     const L = 5, EI = 20_000, P = 1;
     const v = (x: number) => P * x * x * (3 * L - x) / (6 * EI) + (gas ? P * x / gas : 0);
     const r = (x: number) => P * x * (2 * L - x) / (2 * EI);
     const points = memberLoad ? [{ a: L, p: P }] : [];
+    const mid = hover(0.5, 0, 0, L, 0, 0, 0, 0, 0, v(L), r(L), L, false, false, EI, 0, 0, points, [], gas);
+    close(mid.ry, r(L / 2));
+    close(mid.uz, v(L / 2));
     const drawn = shape(0, 0, L, 0, 0, 0, 0, 0, v(L), r(L), 1, L, false, false, EI, 0, 0, points, [], gas);
     for (let k = 0; k <= 20; k++) {
       const x = L * k / 20;
@@ -40,10 +41,10 @@ function model(dimension: 2 | 3, EI: number, plane: 'Y' | 'Z', gas?: number) {
 }
 
 for (const nonlinear of [false, true]) {
-  knownWrong(`known wrong result: #2143 planar solved shear curve nonlinear=${nonlinear}`, () => {
+  it(`#2143 planar solved shear curve nonlinear=${nonlinear}`, () => {
     const L = 5, EI = 20_000, gas = 20_000, q = -EI * 1e-4;
     const input = model(2, EI, 'Y', gas) as unknown as SolverInput;
-    const result = nonlinear ? solvePDelta(input, 20, 1e-10).results : solve(input);
+    const result: AnalysisResults = nonlinear ? solvePDelta(input, 20, 1e-10).results : solve(input);
     const [a, b] = [result.displacements.find(d => d.nodeId === 0)!, result.displacements.find(d => d.nodeId === 1)!];
     const ef = result.elementForces[0]!;
     for (let k = 1; k < 20; k++) {
@@ -54,10 +55,9 @@ for (const nonlinear of [false, true]) {
     }
   });
   for (const plane of ['Y', 'Z'] as const) for (const EI of [5e-7, 1e-6, 1.000001e-6]) {
-    const test = EI <= 1e-6 ? knownWrong : it;
-    test(`known wrong result: #2143 spatial positive EI=${EI} plane=${plane} nonlinear=${nonlinear}`, () => {
+    it(`#2143 spatial positive EI=${EI} plane=${plane} nonlinear=${nonlinear}`, () => {
       const input = model(3, EI, plane) as unknown as SolverInput3D;
-      const result = nonlinear ? solvePDelta3D(input, 20, 1e-10).results : solve3D(input);
+      const result: AnalysisResults3D = nonlinear ? solvePDelta3D(input, 20, 1e-10).results : solve3D(input);
       const a = result.displacements.find(d => d.nodeId === 0)!, b = result.displacements.find(d => d.nodeId === 1)!;
       const c = memberLocalCurve({ x: 0, y: 0, z: 0 }, { x: 5, y: 0, z: 0 }, a, b, result.elementForces[0], { EIy: EI, EIz: EI })!;
       const values = plane === 'Y' ? c.v : c.w, q = -EI * 1e-4;
@@ -78,5 +78,36 @@ for (const ei of [5e-7, 1e-6, 1.000001e-6]) {
   it(`planar cutoff remains EI=${ei}`, () => {
     const run = () => recoverMember({ length: 5, ei, vI: 0, rI: 0, vJ: 0, rJ: 0, hingeStart: false, hingeEnd: false, points: [{ a: 2, p: ei }], dist: [], positions: [0.5] });
     if (ei <= 1e-6) expect(run).toThrow(); else expect(Number.isFinite(run()[0]!.v)).toBe(true);
+  });
+}
+
+it('spatial recovery accepts a small positive EI directly and through a variable-member piece', () => {
+  const EI = 1e-12, q = -EI * 1e-4;
+  const d = { nodeId: 0, ux: 0, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 };
+  const ei = { EIy: EI, EIz: EI };
+  const forces = { length: 5, distributedLoadsY: [{ qI: q, qJ: q, a: 0, b: 5 }] };
+  const start = { x: 0, y: 0, z: 0 }, end = { x: 5, y: 0, z: 0 };
+  const direct = memberLocalCurve(start, end, d, d, forces as never, ei)!;
+  const pieces = { ...forces, pieces: [{ x0: 0, x1: 5, dI: d, dJ: d, ei, forces }] };
+  const piecewise = memberLocalCurve(start, end, d, d, pieces as never, ei)!;
+  const expected = q * 5 ** 4 / (384 * EI);
+  close(direct.v[10]!, expected); close(piecewise.v[10]!, expected);
+  expect(piecewise).toEqual(direct);
+});
+
+for (const q of [-1.000001e-10, -1e-10, -9.99999e-11, 0]) {
+  it(`legacy scalar loads reach the same curve without dropping small loads q=${q}`, () => {
+    const EI = 20_000, L = 5;
+    const hoverValue = hover(0.5, 0, 0, L, 0, 0, 0, 0, 0, 0, 0, L, false, false, EI, q, q).uz;
+    const drawn = shape(0, 0, L, 0, 0, 0, 0, 0, 0, 0, 1, L, false, false, EI, q, q);
+    const expected = q * L ** 4 / (384 * EI);
+    close(hoverValue, expected); close(drawn[10]!.y, expected);
+  });
+}
+
+for (const q of [-1e-10, -9.99999e-11]) {
+  it(`small scalar loads still require bending stiffness q=${q}`, () => {
+    expect(() => hover(0.5, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 5, false, false, undefined, q, q)).toThrow();
+    expect(() => shape(0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 1, 5, false, false, undefined, q, q)).toThrow();
   });
 }

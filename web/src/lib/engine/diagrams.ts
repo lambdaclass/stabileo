@@ -1,7 +1,7 @@
 // Diagram calculation: M(x), V(x), N(x) along each element
 // Given end forces and distributed load, compute intermediate values
 
-import { computeDeformedShape as wasmComputeDeformedShape, recoverMember } from './wasm-solver';
+import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
 import { axialLoadUpTo } from './axial-span-2d';
 
 export interface DiagramPoint {
@@ -237,9 +237,22 @@ export function computeDiagramValueAt(
   }
 }
 
-/**
- * Compute deformed shape points using Hermite cubic interpolation + particular solution.
- */
+type PlanarRecoveryRequest = {
+  nodeIx: number; nodeIy: number; nodeJx: number; nodeJy: number;
+  uIx: number; uIy: number; rIz: number; uJx: number; uJy: number; rJz: number;
+  length: number; hingeStart: boolean; hingeEnd: boolean;
+  ei: number | undefined; gas: number | undefined;
+  loadQi: number | undefined; loadQj: number | undefined;
+  loadPoints: Array<{ a: number; p: number; my?: number }> | undefined;
+  distLoads: Array<{ qI: number; qJ: number; a: number; b: number }> | undefined;
+};
+
+function planarRecoveryRequest({ distLoads, loadPoints, ...input }: PlanarRecoveryRequest) {
+  return { ...input, scale: 1, loadPoints: loadPoints ?? [],
+    distLoads: (distLoads?.length ? distLoads : [{ qI: input.loadQi ?? 0, qJ: input.loadQj ?? 0, a: 0, b: input.length }])
+      .map(d => [d.qI, d.qJ, d.a, d.b]) };
+}
+
 export function computeDeformedShape(
   nodeIx: number, nodeIy: number,
   nodeJx: number, nodeJy: number,
@@ -254,17 +267,12 @@ export function computeDeformedShape(
   loadQJ?: number,
   loadPoints?: Array<{ a: number; p: number; my?: number }>,
   distLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>,
+  gas?: number,
 ): { x: number; y: number }[] {
-  return wasmComputeDeformedShape({
-    nodeIx, nodeIy, nodeJx, nodeJy,
-    uIx, uIy, rIz, uJx, uJy, rJz,
-    scale, length, hingeStart, hingeEnd,
-    ei: EI ?? null,
-    loadQi: loadQI ?? null,
-    loadQj: loadQJ ?? null,
-    loadPoints: loadPoints ?? [],
-    distLoads: (distLoads ?? []).map(d => [d.qI, d.qJ, d.a, d.b]),
-  });
+  return wasmComputeDeformedShape({ ...planarRecoveryRequest({
+    nodeIx, nodeIy, nodeJx, nodeJy, uIx, uIy, rIz, uJx, uJy, rJz,
+    length, hingeStart, hingeEnd, ei: EI, gas, loadQi: loadQI, loadQj: loadQJ, loadPoints, distLoads,
+  }), scale });
 }
 
 /**
@@ -288,19 +296,15 @@ export function computeDisplacementAt(
   loadQJ?: number,
   loadPoints?: Array<{ a: number; p: number; my?: number }>,
   distLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>,
+  gas?: number,
 ): { ux: number; uz: number; ry: number } {
   if (length < 1e-12) return { ux: uIx, uz: uIy, ry: rIz };
-  const c = (nodeJx - nodeIx) / length, s = (nodeJy - nodeIy) / length;
-  const xi = Math.max(0, Math.min(1, t));
-  const sample = recoverMember({
-    length, ei: EI,
-    vI: -uIx * s + uIy * c, rI: rIz,
-    vJ: -uJx * s + uJy * c, rJ: rJz,
-    hingeStart, hingeEnd,
-    points: loadPoints ?? [],
-    dist: distLoads?.length ? distLoads : [{ qI: loadQI ?? 0, qJ: loadQJ ?? 0, a: 0, b: length }],
-    positions: [xi],
-  })[0]!;
-  const u = (uIx * c + uIy * s) * (1 - xi) + (uJx * c + uJy * s) * xi;
-  return { ux: u * c - sample.v * s, uz: u * s + sample.v * c, ry: sample.rotation };
+  const sample = wasmComputeDeformedShape({ ...planarRecoveryRequest({
+    nodeIx, nodeIy, nodeJx, nodeJy, uIx, uIy, rIz, uJx, uJy, rJz,
+    length, hingeStart, hingeEnd, ei: EI, gas, loadQi: loadQI, loadQj: loadQJ, loadPoints, distLoads,
+  }), displacementsOnly: true, positions: [Math.max(0, Math.min(1, t))] })[0];
+  if (!sample || !Number.isFinite(sample.ux) || !Number.isFinite(sample.uz) || !Number.isFinite(sample.ry)) {
+    throw new Error('Member displacement recovery did not return finite displacement and rotation.');
+  }
+  return sample;
 }

@@ -1626,6 +1626,7 @@ export function computeDiagrams3D(input: SolverInput3D, results: AnalysisResults
 
 /** Compute deformed shape for one element via WASM. */
 export interface MemberRecoveryInput {
+  space?: 'planar' | 'spatial';
   length: number;
   ei?: number;
   gas?: number;

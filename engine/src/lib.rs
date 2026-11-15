@@ -686,6 +686,10 @@ pub fn compute_deformed_shape(json: &str) -> Result<String, JsValue> {
         node_jx: f64, node_jy: f64,
         u_ix: f64, u_iy: f64, r_iz: f64,
         u_jx: f64, u_jy: f64, r_jz: f64,
+        #[serde(default)]
+        displacements_only: bool,
+        #[serde(default)]
+        positions: Vec<f64>,
         scale: f64,
         length: f64,
         hinge_start: bool,
@@ -712,6 +716,15 @@ pub fn compute_deformed_shape(json: &str) -> Result<String, JsValue> {
         ShapePoint::Complete(p) => p,
         ShapePoint::Legacy((a, p)) => types::PointLoadInfo { a, p, px: None, my: None },
     }).chain(d.load_couples.into_iter().map(|(a, c)| types::PointLoadInfo { a, p: 0.0, px: None, my: Some(c) })).collect();
+    if d.displacements_only {
+        let result = postprocess::diagrams::compute_member_displacements_2d(
+            d.node_ix, d.node_iy, d.node_jx, d.node_jy,
+            d.u_ix, d.u_iy, d.r_iz, d.u_jx, d.u_jy, d.r_jz,
+            d.length, d.hinge_start, d.hinge_end, d.ei, d.gas, d.load_qi, d.load_qj,
+            &points, &d.dist_loads, &d.positions,
+        ).map_err(|e| JsValue::from_str(&e))?;
+        return to_json(&result);
+    }
     let result = postprocess::diagrams::compute_deformed_shape(
         d.node_ix, d.node_iy, d.node_jx, d.node_jy,
         d.u_ix, d.u_iy, d.r_iz, d.u_jx, d.u_jy, d.r_jz,

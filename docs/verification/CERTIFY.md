@@ -788,7 +788,11 @@ combination of `certify_multi_case_2d/3d` and to the envelope as `stationBounds`
   three parts use disjoint end components, so every displayed translation (and the length of
   the displacement) at every x is within `√max(1, S)·‖T‖²·‖u* − ũ‖₂`, `S = sup ‖p(x)‖₂²`
   enclosed by interval Horner on 64 subintervals (max over Euler–Bernoulli and, with a shear
-  area, Timoshenko; trusses as straight lines). Rotations along the curve are not bounded.
+  area, Timoshenko; trusses as straight lines). The planar hover and drawing both evaluate
+  `compute_member_displacements_2d`; drawing adds world coordinates only after this evaluation.
+  Compare the hover to the raw displacement, rather than subtracting world coordinates from a
+  drawn point: that subtraction has its own cancellation error outside this bound.
+  Rotations along the curve are not bounded.
 * **Reactions.** Restrained DOF: `R = (K u − f)_d`, so `|ΔR| ≤ ‖K_{d,F}‖₂·‖u* − ũ‖₂`; spring
   DOF: `R = −k u_d`, `|k|·‖u* − ũ‖₂`. The reported value is also compared with the formula
   at ũ in interval arithmetic and the difference added, so the reaction bound covers the

@@ -82,9 +82,7 @@ describe('certified diagrams, deflections and reactions (2D)', () => {
     expect(Math.abs(legacy.maxAbsValue - d.maxAbsValue)).toBeGreaterThan(1);
   });
 
-  it.skipIf(!process.env.RUN_KNOWN_WRONG_2143)('known wrong result: #2143 the TypeScript deflection the hover reads lies inside the bound around the engine curve', () => {
-    // Full-length loads only: there both evaluate the same closed form (partial loads differ by
-    // the TS Simpson rule, a load term the certificate does not see).
+  it('the TypeScript deflection the hover reads lies inside the bound around the engine curve', () => {
     const model = frame() as any;
     model.loads = [{ type: 'distributed', data: { id: 1, elementId: 2, qI: -8, qJ: -8 } }];
     const out = certifyLinear2D(model);
@@ -96,14 +94,15 @@ describe('certified diagrams, deflections and reactions (2D)', () => {
     const engine = wasmDeformed({
       nodeIx: 0, nodeIy: 4, nodeJx: 7, nodeJy: 4, uIx: a.ux, uIy: a.uz, rIz: a.ry, uJx: b.ux, uJy: b.uz, rJz: b.ry,
       scale: 1, length: 7, hingeStart: false, hingeEnd: false, ei: EI, loadQi: null, loadQj: null, loadPoints: [],
-      distLoads: [[-8, -8, 0, 7]],
-    }) as Array<{ x: number; y: number }>;
+      distLoads: [[-8, -8, 0, 7]], displacementsOnly: true, positions: Array.from({ length: 21 }, (_, k) => k / 20),
+    }) as Array<{ ux: number; uz: number; ry: number }>;
     engine.forEach((p, i) => {
       const t = i / 20;
       const ts = computeDisplacementAt(t, 0, 4, 7, 4, a.ux, a.uz, a.ry, b.ux, b.uz, b.ry, 7, false, false, EI, ef.qI, ef.qJ, [], ef.distributedLoads);
+      expect(ts).toEqual(p);
       const scale = Math.abs(ts.uz) + Math.abs(ts.ux);
-      expect(Math.abs(ts.ux - (p.x - 7 * t))).toBeLessThanOrEqual(bound + 1e-12 * scale);
-      expect(Math.abs(ts.uz - (p.y - 4))).toBeLessThanOrEqual(bound + 1e-12 * scale);
+      expect(Math.abs(ts.ux - p.ux)).toBeLessThanOrEqual(bound + 1e-12 * scale);
+      expect(Math.abs(ts.uz - p.uz)).toBeLessThanOrEqual(bound + 1e-12 * scale);
     });
   });
 });

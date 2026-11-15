@@ -98,7 +98,7 @@ export function memberLocalCurve(
   const plane = (vI: number, rI: number, vJ: number, rJ: number, ei: number | undefined, gas: number | undefined,
     hingeStart: boolean, hingeEnd: boolean, points: readonly { a: number; p: number }[],
     dist: readonly { qI: number; qJ: number; a: number; b: number }[]) => recoverMember({
-      length: L, ei, gas, vI, rI, vJ, rJ, hingeStart, hingeEnd, points, dist, positions: xis,
+      space: 'spatial', length: L, ei, gas, vI, rI, vJ, rJ, hingeStart, hingeEnd, points, dist, positions: xis,
     });
   const y = plane(vI, thZI, vJ, thZJ, ei?.EIz, ei?.GAz, !!ef?.releaseMzStart, !!ef?.releaseMzEnd,
     ef?.pointLoadsY ?? [], ef?.distributedLoadsY ?? []);

@@ -56,8 +56,8 @@ TypeScript-only curves under those loads can change even without a couple.
 
 With nonzero transverse span loads and missing, nonfinite or insufficient EI,
 recovery could silently return the load-free interpolation. The fix explicitly
-refuses loaded recovery unless finite EI exceeds the existing 1e-6 cutoff;
-it does not lower that cutoff. Load-free and axial-only recovery still returns
+refuses loaded planar recovery unless finite EI exceeds the existing 1e-6 cutoff;
+it does not lower that cutoff. Spatial recovery retains its finite positive EI criterion. Load-free and axial-only recovery still returns
 a curve. A refusal is not a zero-deflection answer.
 
 **The application serviceability checks consumed the affected recovered curves.**
