@@ -7,7 +7,7 @@
 //! analysis that cannot honour a feature now says so at its entry point,
 //! naming the feature and where it is in the model. The support of every
 //! (feature, analysis) pair is tested in `tests/feature_matrix.rs` and listed
-//! in `docs/verification/FEATURE_MATRIX.md`.
+//! in `testing/docs/FEATURE_MATRIX.md`.
 
 use crate::solver::support::{support_dofs_2d, support_dofs_3d};
 use crate::types::*;

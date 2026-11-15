@@ -17,7 +17,7 @@
 //! * Curved shells and solid-shells sample their own 2×2×2 points
 //!   (`curved_shell_stress_samples`, `solid_shell_inplane_samples`).
 //!
-//! Transverse shear is not sampled in any family (see `docs/verification/DISCRETIZATION.md`).
+//! Transverse shear is not sampled in any family (see `testing/docs/DISCRETIZATION.md`).
 
 use std::collections::HashMap;
 

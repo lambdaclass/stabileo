@@ -11,8 +11,8 @@ Read this first. It tells you where your time is most valuable.
 
 | Layer | Checked by | What it does not cover |
 |---|---|---|
-| The solver solved its own assembled system $Ku=f$ accurately | Result certificates in exact/interval arithmetic, with Lean proofs ([CERTIFY.md](../verification/CERTIFY.md)) | Whether $K$ and $f$ represent the model |
-| Frame/truss $K$, $K_g$, $M$, equivalent loads, transformations equal their derivation | SymPy derivation compared entry by entry to 1e-13 ([SYMBOLIC.md](../verification/SYMBOLIC.md)) | Whether the derivation's *assumptions* are appropriate |
+| The solver solved its own assembled system $Ku=f$ accurately | Result certificates in exact/interval arithmetic, with Lean proofs ([CERTIFY.md](../../testing/docs/CERTIFY.md)) | Whether $K$ and $f$ represent the model |
+| Frame/truss $K$, $K_g$, $M$, equivalent loads, transformations equal their derivation | SymPy derivation compared entry by entry to 1e-13 ([SYMBOLIC.md](../../testing/docs/SYMBOLIC.md)) | Whether the derivation's *assumptions* are appropriate |
 | Elements against closed forms and other codes | Validation suites (`engine/tests/validation`), OpenSees and Code_Aster differential tests ([BENCHMARKS.md](../BENCHMARKS.md)) | Cases nobody thought to compare |
 | Shells, cables, curved beams, fiber beams, nonlinear solvers | Patch tests, rigid-body-mode tests, benchmarks, and the tests listed in each file | No symbolic derivation: **highest review value** |
 
@@ -124,7 +124,7 @@ cargo test --test derivations derivation_nonlinear::
 cargo test --test derivations derivation_mass_geometric_dynamics:: -- --include-ignored   # see open questions fail
 ```
 
-To regenerate the symbolic test, see [SYMBOLIC.md](../verification/SYMBOLIC.md)
+To regenerate the symbolic test, see [SYMBOLIC.md](../../testing/docs/SYMBOLIC.md)
 (`testing/symbolic/gen.py --check`).
 
 ## Reporting

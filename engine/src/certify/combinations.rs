@@ -1,5 +1,5 @@
 //! Certified load combinations and envelopes. See "Load combinations and
-//! envelopes" in `docs/verification/CERTIFY.md`.
+//! envelopes" in `testing/docs/CERTIFY.md`.
 //!
 //! A combination is `Σ cᵢ · (case i)`. Its exact value is defined as the same
 //! linear combination of the exact case solutions `u*ᵢ` (equivalently, the exact

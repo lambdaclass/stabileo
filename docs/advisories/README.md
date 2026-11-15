@@ -103,7 +103,7 @@ snow loads before re-solving.
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the
-[verification dashboard](../verification/DASHBOARD.md).
+[verification dashboard](../../testing/docs/DASHBOARD.md).
 
 SA-2026-056 records an additional, unfixed dynamic result found during the analysis-error-model investigation:
 [constrained shell dynamic invariance](SA-2026-056-constrained-shell-dynamic-invariance.md).

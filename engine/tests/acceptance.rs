@@ -1,5 +1,5 @@
 //! Real-model acceptance suite (docs/VERIFICATION.md layer 9,
-//! docs/verification/ACCEPTANCE.md).
+//! testing/docs/ACCEPTANCE.md).
 //!
 //! Every case in `tests/acceptance/models/*.json` is a public benchmark with
 //! published reference results: the model in stabileo's solver JSON, the

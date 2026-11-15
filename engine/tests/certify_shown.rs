@@ -1,5 +1,5 @@
 //! Certified bounds on what the result views show beyond member end forces
-//! (docs/verification/CERTIFY.md, "Diagrams, extremes, deflections and
+//! (testing/docs/CERTIFY.md, "Diagrams, extremes, deflections and
 //! reactions"): diagram values at every x, their extremes and the gaps between
 //! stations, member deflection curves, reactions, and the same for load cases,
 //! combinations and envelopes.

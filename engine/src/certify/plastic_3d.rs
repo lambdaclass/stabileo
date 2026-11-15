@@ -1,4 +1,4 @@
-//! Certified plastic collapse load factor for 3D frames (docs/verification/CERTIFY.md,
+//! Certified plastic collapse load factor for 3D frames (testing/docs/CERTIFY.md,
 //! "Plastic collapse load factor, 3D").
 //!
 //! The solver (`solver::plastic::solve_plastic_3d`) runs an event-to-event hinge

@@ -4,10 +4,10 @@
  * current rather than dated.
  *
  * Every claim has a source and must stay no stronger than it:
- *  - docs/verification/MATURITY.md (verification level of each checker, clause counts against
+ *  - testing/docs/MATURITY.md (verification level of each checker, clause counts against
  *    published examples, open issues #366, #374, #389, #391, #393);
- *  - docs/verification/DESIGN_EXAMPLES.md (INTI-CIRSOC 201-2005 and 301-2018 worked examples);
- *  - docs/verification/LOADS.md (CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 Parte I,
+ *  - testing/docs/DESIGN_EXAMPLES.md (INTI-CIRSOC 201-2005 and 301-2018 worked examples);
+ *  - testing/docs/LOADS.md (CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 Parte I,
  *    CIRSOC 104-2005; ice and extraordinary events not implemented);
  *  - web/src/lib/engine/design/adapters/cirsoc201-adapter.ts (CIRSOC 201: 2025 by default, 2005
  *    selectable);

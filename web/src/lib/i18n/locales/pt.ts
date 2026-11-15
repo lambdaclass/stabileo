@@ -12290,7 +12290,7 @@ const pt: Translations = {
   'loadZone.changed': 'Um nó do seu contorno foi apagado: sua forma já não é a desenhada.',
   'floorLoad.readOnlyLoad': 'Uma carga escrita por uma carga de piso definida é mudada ou apagada pela sua definição (Cargas › Piso): é refeita a partir dela.',
   'floorLoad.rangeInvalid': 'Indique os dois limites de cada eixo da caixa, ou nenhum.',
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'Certificado: erro de deslocamentos ≤ {abs} ({rel} relativo)',
   'certificate.notCertified': 'Não certificado: {reason}',
   'certificate.e2eCertified': 'Verificado de ponta a ponta: uma remontagem independente do modelo concorda; erro de deslocamentos ≤ {abs}',
@@ -12717,7 +12717,7 @@ const pt: Translations = {
   'proReport.noneFound': 'O modelo não tem avisos',
   'proReport.letterhead': 'Timbre',
   'proReport.shellFigure': 'Componente da figura',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'Certificado: erro de deslocamentos ≤ {abs}',
   'certificate.envelopeCertified': 'Envoltória certificada: cada valor a menos de {abs} da envoltória exata (deslocamentos)',
   'certificate.comboTooltip': 'Limite rigoroso, demonstrado em Lean: cada caso de carga é certificado contra a solução exata do sistema montado; o limite de uma combinação soma os limites dos casos vezes |fator| e o arredondamento da própria combinação; a envoltória fica a menos do maior limite das combinações da envoltória exata. O ± ao lado de um esforço de barra limita seu erro da mesma forma.',

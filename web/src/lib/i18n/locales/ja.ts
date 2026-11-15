@@ -3645,7 +3645,7 @@ const ja: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': '認証済み: 変位誤差 ≤ {abs}（相対 {rel}）',
   'certificate.notCertified': '未認証: {reason}',
   'certificate.pending': '認証中…',
@@ -3653,7 +3653,7 @@ const ja: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}]（認証済み）',
   'certificate.bucklingNotCertified': 'λ_cr 未認証: {reason}',
   'certificate.bucklingTooltip': 'Lean で証明された厳密な包含: 構造物は下限値までのすべての荷重係数で安定であることが保証され、上限値で不安定であることが保証されます。',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': '認証済み: 変位誤差 ≤ {abs}',
   'certificate.envelopeCertified': '包絡線認証済み: 各値は厳密な包絡線から {abs} 以内（変位）',
   'certificate.comboTooltip': 'Lean で証明された厳密な上界: 各荷重ケースは組み立てた系の厳密解に対して認証されます。組合せの上界は各ケースの上界に |係数| を掛けた和と組合せ自体の丸めを加えたもので、包絡線は厳密な包絡線から組合せの最大上界以内にあります。部材力の横の ± も同様に誤差を抑えます。',

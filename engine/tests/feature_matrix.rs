@@ -28,7 +28,7 @@
 //!   * N/A       — the feature does not change this analysis' answer (e.g. a
 //!                 member load in a modal analysis), so nothing is checked.
 //!
-//! The matrix is rendered into `docs/verification/FEATURE_MATRIX.md`, and the
+//! The matrix is rendered into `testing/docs/FEATURE_MATRIX.md`, and the
 //! test fails if the file is out of date (regenerate with
 //! `UPDATE_FEATURE_MATRIX=1 cargo test --release --test robustness feature_matrix::`) or if
 //! any IGNORED/WRONG cell is not listed in `KNOWN` with the branch fixing it.
@@ -1765,7 +1765,7 @@ fn feature_matrix() {
     let ms = vec![matrix_2d(), matrix_3d()];
     let text = render(&ms);
     println!("{text}");
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/verification/FEATURE_MATRIX.md");
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../testing/docs/FEATURE_MATRIX.md");
     if std::env::var("UPDATE_FEATURE_MATRIX").is_ok() {
         std::fs::write(&path, &text).unwrap();
     }
@@ -1779,7 +1779,7 @@ fn feature_matrix() {
     }
     assert!(bad.is_empty(), "analyses that silently ignore, mishandle or fail on a feature:\n{}", bad.join("\n"));
     let on_disk = std::fs::read_to_string(&path).unwrap_or_default();
-    assert!(on_disk == text, "docs/verification/FEATURE_MATRIX.md is out of date: rerun with UPDATE_FEATURE_MATRIX=1");
+    assert!(on_disk == text, "testing/docs/FEATURE_MATRIX.md is out of date: rerun with UPDATE_FEATURE_MATRIX=1");
 }
 
 // ==================== 3D model builder ====================

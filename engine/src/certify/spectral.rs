@@ -1,5 +1,5 @@
 //! Certified response-spectrum results. See "Response spectrum" in
-//! `docs/verification/CERTIFY.md`.
+//! `testing/docs/CERTIFY.md`.
 //!
 //! The certified quantity is the spectral response (SRSS or CQC, as requested — the
 //! rule applies to every quantity: displacements, each end's signed member force, base

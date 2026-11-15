@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { compareFrozen, freezeValues } from '../../web/scripts/results-snapshot/frozen.mjs';
 import { decide } from '../../web/scripts/results-snapshot/gate.mjs';
 
-const evidence = JSON.parse(readFileSync(new URL('../../docs/verification/soundness-regression-audit-2026-11-11/arc-bisection.json', import.meta.url)));
+const evidence = JSON.parse(readFileSync(new URL('../../testing/docs/audits/soundness-regression-audit-2026-11-11/arc-bisection.json', import.meta.url)));
 const entry = JSON.parse(readFileSync(new URL('../../web/src/lib/provenance/result-changes/arc-length-reference-norm.json', import.meta.url)));
 const baseRegistry = { schema: 1, numbered: [], unnumbered: [] };
 const expectedModels = [

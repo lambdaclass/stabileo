@@ -1,4 +1,4 @@
-//! Metamorphic fuzzing (docs/verification/METAMORPHIC.md): any model the
+//! Metamorphic fuzzing (testing/docs/METAMORPHIC.md): any model the
 //! linear solver accepts must give the same physical answer after a rigid
 //! motion, a renumbering and a change of units, within the tolerance its
 //! conditioning allows. Input: selector byte (which transform and seed),

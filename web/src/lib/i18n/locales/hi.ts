@@ -3665,7 +3665,7 @@ const hi: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'प्रमाणित: विस्थापन त्रुटि ≤ {abs} ({rel} सापेक्ष)',
   'certificate.notCertified': 'प्रमाणित नहीं: {reason}',
   'certificate.pending': 'प्रमाणित किया जा रहा है…',
@@ -3673,7 +3673,7 @@ const hi: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (प्रमाणित)',
   'certificate.bucklingNotCertified': 'λ_cr प्रमाणित नहीं: {reason}',
   'certificate.bucklingTooltip': 'Lean में सिद्ध कठोर अंतराल: संरचना निचले मान तक हर भार गुणांक के लिए प्रमाणित रूप से स्थिर है और ऊपरी मान पर प्रमाणित रूप से अस्थिर है।',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'प्रमाणित: विस्थापन त्रुटि ≤ {abs}',
   'certificate.envelopeCertified': 'आवरण प्रमाणित: हर मान सटीक आवरण से {abs} के भीतर (विस्थापन)',
   'certificate.comboTooltip': 'Lean में सिद्ध कठोर सीमा: हर भार स्थिति को संयोजित प्रणाली के सटीक हल के विरुद्ध प्रमाणित किया जाता है; किसी संयोजन की सीमा स्थितियों की सीमाओं को |गुणांक| से गुणा कर जोड़ती है, और संयोजन का अपना पूर्णांकन भी; आवरण सटीक आवरण से सबसे बड़ी संयोजन सीमा के भीतर है। किसी अवयव बल के पास का ± उसकी त्रुटि को इसी तरह सीमित करता है।',

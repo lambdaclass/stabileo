@@ -1,7 +1,7 @@
 name: Verification alert
 
 # One `ci-failure` issue per watched workflow (.github/scripts/verification-alert.cjs,
-# docs/verification/NIGHTLY.md). workflow_run always runs this file as it is on main: to try a
+# testing/docs/NIGHTLY.md). workflow_run always runs this file as it is on main: to try a
 # branch's version, dispatch it with a run id (dry run by default). It never checks out code
 # from the triggering run.
 

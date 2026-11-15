@@ -1,5 +1,5 @@
 //! Determinism: the same model solved twice gives bit-identical results
-//! (docs/verification/PROVENANCE.md, "Determinism").
+//! (testing/docs/PROVENANCE.md, "Determinism").
 //!
 //! Every solver input keeps its nodes, elements, supports, … in `HashMap`s, and
 //! every `HashMap` gets its own random hash keys. Two deserializations of the same

@@ -311,7 +311,7 @@ mod review_checks {
         let status = std::process::Command::new("python3")
             .arg(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../docs/verification/cause-c-replay-audit.py"
+                "/../testing/docs/audits/cause-c-replay-audit.py"
             ))
             .arg("--self-test")
             .status()
@@ -335,7 +335,7 @@ mod review_checks {
 
 fn reference_1901() -> Value {
     let references: Value = serde_json::from_str(include_str!(
-        "../../../docs/verification/candidate-1901-reference.json"
+        "../../../testing/docs/audits/candidate-1901-reference.json"
     ))
     .unwrap();
     references[1].clone()

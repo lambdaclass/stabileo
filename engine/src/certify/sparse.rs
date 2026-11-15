@@ -1,7 +1,7 @@
 //! Certified error bound for a sparse symmetric system `K u = f`, at the cost of
 //! about two sparse factorizations — no dense O(n³) interval Cholesky, no size cap.
 //! See "Scalable certificate (Gram residual + Gershgorin)" in
-//! `docs/verification/CERTIFY.md`; Lean: `Certify.certified_error_bound_gram`.
+//! `testing/docs/CERTIFY.md`; Lean: `Certify.certified_error_bound_gram`.
 //!
 //! `K` is the symmetric matrix whose lower triangle is stored in a `CscMatrix`
 //! (as the solver's sparse path assembles it), so `S = (K + Kᵀ)/2 = K` exactly.

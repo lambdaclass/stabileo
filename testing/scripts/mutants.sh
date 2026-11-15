@@ -2,7 +2,7 @@
 # Mutation testing of the certificate code (engine/src/certify/), the core of
 # the linear solver (DOF numbering, assembly, reactions, input validation) and
 # the element kernels (engine/src/element/) with cargo-mutants
-# (docs/verification/FUZZ_MUTANTS.md).
+# (testing/docs/FUZZ_MUTANTS.md).
 #
 # Equivalent mutants are excluded by name in .cargo/mutants.toml, each with a
 # one-line justification, and the equivalent index-arithmetic mutants by

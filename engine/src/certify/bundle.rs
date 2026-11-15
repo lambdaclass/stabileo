@@ -1,7 +1,7 @@
 //! Certificate bundles: everything a third party needs to re-check the sparse
 //! linear-static certificate (Gram residual + Gershgorin, `sparse.rs`) without
 //! trusting this crate's interval arithmetic or its rounding model. See
-//! "Independent checking: certificate bundles" in `docs/verification/CERTIFY.md`.
+//! "Independent checking: certificate bundles" in `testing/docs/CERTIFY.md`.
 //!
 //! The bundle holds `K` (lower-triangle CSC), the enclosure `[fLo, fHi]` of the
 //! right-hand side, `ũ`, the factor `L` that certified μ (in the permuted ordering)

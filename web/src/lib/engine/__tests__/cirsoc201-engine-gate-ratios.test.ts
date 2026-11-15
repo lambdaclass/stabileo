@@ -2,7 +2,7 @@
  * The engine gate's numbers, exactly: each ratio it reports is the engine's, for the bars the
  * TypeScript chose at the depths they really sit, and each disagreement lowers exactly the
  * check it concerns. Written to kill the mutants Stryker found surviving in
- * cirsoc201-engine-gate.ts (docs/verification/TS_ENGINE_LOGIC.md, step 5).
+ * cirsoc201-engine-gate.ts (testing/docs/TS_ENGINE_LOGIC.md, step 5).
  */
 import { describe, it, expect } from 'vitest';
 import { REBAR_DB, type VerificationInput } from '../codes/argentina/cirsoc201';

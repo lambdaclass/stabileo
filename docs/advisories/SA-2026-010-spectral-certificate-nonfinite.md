@@ -43,4 +43,4 @@ Nothing, unless a delivered result showed non-finite values.
 ## Credits and references
 
 Nightly fuzz job, target `json_dynamics` (run 39125781094, PR #326);
-`docs/verification/FUZZ_MUTANTS.md`.
+`testing/docs/FUZZ_MUTANTS.md`.

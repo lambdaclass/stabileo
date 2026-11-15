@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures';
 
-// The end-to-end certificate (docs/verification/CERTIFY.md, "End-to-end certificates") must
+// The end-to-end certificate (testing/docs/CERTIFY.md, "End-to-end certificates") must
 // reach the results panel through the real certify path (worker or main-thread fallback),
 // not only through direct engine calls in the Rust tests: a solved frame shows the
 // end-to-end line under the certificate.

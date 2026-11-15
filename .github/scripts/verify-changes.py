@@ -9,7 +9,7 @@ import sys
 API_FILE_LIMIT = 3000
 
 VERIFY_PATHS = re.compile(
-    r'^(verify/|engine/src/|engine/Cargo\.toml$|Cargo\.lock$|docs/verification/|testing/symbolic/'
+    r'^(verify/|engine/src/|engine/Cargo\.toml$|Cargo\.lock$|testing/docs/|testing/symbolic/'
     r'|engine/tests/symbolic_elements\.rs$|flake\.(nix|lock)$|testing/scripts/kani|\.github/workflows/verify\.yml$'
     r'|\.github/scripts/verify-changes\.py$)')
 

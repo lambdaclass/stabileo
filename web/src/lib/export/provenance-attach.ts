@@ -1,5 +1,5 @@
 /**
- * Provenance on every exported file (docs/verification/PROVENANCE.md).
+ * Provenance on every exported file (testing/docs/PROVENANCE.md).
  *
  * Every export of results takes its record through `prepareExportProvenance`: captured in the
  * same tick as the caller built the file's content, engine hashes awaited off the main thread,

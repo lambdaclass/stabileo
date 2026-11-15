@@ -1,7 +1,7 @@
 //! Certified error bounds for the two transformed static systems the solver
 //! factors: multi-point constraints (`u_F = C q + u_p`, reduced system
 //! `Cᵀ K C q = Cᵀ(…)`) and inclined supports (DOFs rotated by `T`). See
-//! "Constraints" and "Inclined supports" in `docs/verification/CERTIFY.md`.
+//! "Constraints" and "Inclined supports" in `testing/docs/CERTIFY.md`.
 //!
 //! Constraints. With `C` the free rows / free-independent columns of the
 //! solver's constraint transform (its f64 entries taken as exact), `C_R` its
