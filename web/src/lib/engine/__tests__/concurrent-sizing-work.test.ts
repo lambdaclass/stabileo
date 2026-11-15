@@ -60,3 +60,102 @@ it.each(cases)('$elementType $axis $edition retains every exact shared-cage resu
 it('refuses an empty concurrent set', () => {
   expect(() => verifyConcurrentElement([])).toThrow('Concurrent demands are required for verification');
 });
+
+function withSizingKernel(run: (sizing: ReturnType<typeof vi.fn<engine.Cirsoc201Engine['designBeam']>>) => void) {
+  const get = engine.cirsoc201Engine;
+  const original = { Section: get('Section'), basis: get('basis'), phi: get('phi'),
+    designBeam: get('designBeam'), slabProvisions: get('slabProvisions') };
+  const sizing = vi.fn(original.designBeam);
+  try {
+    engine.registerCirsoc201Engine({ ...original, designBeam: sizing });
+    run(sizing);
+  } finally {
+    engine.registerCirsoc201Engine(original);
+  }
+}
+
+it.fails.each(cases)('known wrong result: #2080 — $elementType $axis $edition repeats identical sizing across concurrent members', options => {
+  withSizingKernel(sizing => {
+    const inputs = inputsFor(options);
+    const expected = verifyConcurrentElement(inputs);
+    const once = sizing.mock.calls.length;
+    expect(once).toBeGreaterThan(0);
+    expect(verifyConcurrentElement(inputs)).toEqual(expected);
+    inputs.forEach(i => verifyElement(i));
+    expect(sizing).toHaveBeenCalledTimes(once);
+  });
+});
+
+it.fails('known wrong result: #2080 — repeated sizing queries reuse only identical input bytes', () => {
+  withSizingKernel(sizing => {
+    sizing.mockImplementation(input => input.slice());
+    const query = Float64Array.from({ length: 15 }, (_, i) => i + 1);
+    const ask = engine.cirsoc201Engine('designBeam');
+    const expected = ask(query);
+    expect(ask(query.slice())).toEqual(expected);
+    expect(sizing).toHaveBeenCalledTimes(1);
+    for (let i = 0; i < query.length; i++) {
+      const changed = query.slice();
+      changed[i] += Number.EPSILON * changed[i];
+      expect(ask(changed)).toEqual(changed);
+    }
+    expect(sizing).toHaveBeenCalledTimes(16);
+    const zeros = Float64Array.of(0), negativeZero = Float64Array.of(-0);
+    expect(Object.is(ask(zeros)[0], 0)).toBe(true);
+    expect(Object.is(ask(negativeZero)[0], -0)).toBe(true);
+    const storage = Float64Array.of(999, ...query, 999);
+    expect(ask(storage.subarray(1, 16))).toEqual(expected);
+    expect(sizing).toHaveBeenCalledTimes(18);
+  });
+});
+
+it.fails('known wrong result: #2080 — cached sizing answers own their storage', () => {
+  withSizingKernel(sizing => {
+    const output = Float64Array.of(10, 20);
+    sizing.mockReturnValue(output);
+    const query = Float64Array.of(1, 2);
+    const ask = engine.cirsoc201Engine('designBeam');
+    const first = ask(query);
+    first[0] = 999;
+    output[1] = 999;
+    expect(ask(query)).toEqual(Float64Array.of(10, 20));
+    query[0] = 3;
+    expect(ask(query)).toEqual(output);
+    expect(sizing).toHaveBeenCalledTimes(2);
+  });
+});
+
+it.fails.each([4095, 4096, 4097])('known wrong result: #2080 — sizing cache retains correct answers across %i distinct queries', count => {
+  withSizingKernel(sizing => {
+    sizing.mockImplementation(input => input.slice());
+    const ask = engine.cirsoc201Engine('designBeam');
+    for (let i = 0; i < count; i++) expect(ask(Float64Array.of(i))).toEqual(Float64Array.of(i));
+    expect(sizing).toHaveBeenCalledTimes(count);
+    expect(ask(Float64Array.of(count - 1))).toEqual(Float64Array.of(count - 1));
+    expect(sizing).toHaveBeenCalledTimes(count);
+    expect(ask(Float64Array.of(0))).toEqual(Float64Array.of(0));
+    expect(sizing).toHaveBeenCalledTimes(count + Number(count > 4096));
+  });
+});
+
+it('engine replacement and removal never retain sizing answers', () => {
+  withSizingKernel(sizing => {
+    sizing.mockReturnValue(Float64Array.of(1));
+    expect(engine.cirsoc201Engine('designBeam')(Float64Array.of(0))).toEqual(Float64Array.of(1));
+    engine.registerCirsoc201Engine({ designBeam: () => Float64Array.of(2) });
+    expect(engine.cirsoc201Engine('designBeam')(Float64Array.of(0))).toEqual(Float64Array.of(2));
+    engine.registerCirsoc201Engine(null);
+    expect(() => engine.cirsoc201Engine('designBeam')).toThrow(engine.Cirsoc201EngineUnavailable);
+  });
+});
+
+it('failed sizing calls are retried', () => {
+  withSizingKernel(sizing => {
+    sizing.mockImplementationOnce(() => { throw new Error('sizing failed'); });
+    sizing.mockReturnValue(Float64Array.of(1));
+    const ask = engine.cirsoc201Engine('designBeam');
+    expect(() => ask(Float64Array.of(0))).toThrow('sizing failed');
+    expect(ask(Float64Array.of(0))).toEqual(Float64Array.of(1));
+    expect(sizing).toHaveBeenCalledTimes(2);
+  });
+});
