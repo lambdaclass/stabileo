@@ -1218,3 +1218,7 @@ test.web.ci-runtime-2099:
 .PHONY: test.web.tool-current-result-2099
 test.web.tool-current-result-2099:
 	VITE_RESEARCH=1 VITE_TOOLS=1 nix develop .\#e2e --command node --test web/scripts/tests/tool-current-result-2099.test.mjs
+
+.PHONY: test.web.e2e-features
+test.web.e2e-features:
+	$(NIX_RUN) bash -c 'cd web && node --test scripts/e2e-feature-build.test.mjs'
