@@ -41,7 +41,7 @@ describe('discretization store', () => {
     expect(s.estimate.certified).toBe(false);
     // The curved quad (sent to the engine as a curved shell) is painted on its quad mesh.
     expect([...discretizationStore.elementMap()]).toEqual([['q3', 14], ['p4', 2], ['q5', 3]]);
-    expect(discretizationStore.mapRange()).toEqual({ min: 0, max: 14 });
+    expect(discretizationStore.mapRange()).toEqual({ min: 0, max: 14, clipped: false });
   });
 
   it('leaves models without shells, and 2D solves, alone', async () => {
