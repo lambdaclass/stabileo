@@ -4,14 +4,25 @@ This is the single entry point for Stabileo's plans. Read this page first; it sa
 answers which question, how current each one is, and where the work is tracked.
 
 **The backlog lives in one place:** the backlog sections of
-[PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) (Multipliers, Trust and verification, Engineering
-coverage, Solver and proof depth, Release safety, Platform and architecture, Growth and
-housekeeping). Every item there links to its GitHub issue;
+[PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md), soundness areas first (Prevention, Soundness multipliers,
+Trust and verification, Solver and proof depth, Release safety, Engineering coverage), then
+Multipliers, CI, performance, platform, growth and housekeeping. Every item there links to its GitHub issue;
 the tracker is [#396](https://github.com/lambdaclass/stabileo/issues/396). What comes first right now is
-the **Overall order** and **Priority now** in the Now section of PRODUCT_ROADMAP: soundness first (wrong-result bugs, the tests
-that catch them, the verification safety net and release safety), then other bugs, then features. Each section has
+the **Overall order** and **Priority now** in the Now section of PRODUCT_ROADMAP: soundness first, ranked from (a) uncontained
+silent wrong results down to (g) growth and SaaS; sections 3 to 6 follow the same ranking. Each section has
 measurable exit criteria, and the metrics behind them are regenerated on the
 [verification dashboard](../verification/DASHBOARD.md).
+
+As of **2026-11-15**, the RC and steel interaction fixes
+([#2080](https://github.com/lambdaclass/stabileo/pull/2080)), the snow roof-plane fixes
+([#2095](https://github.com/lambdaclass/stabileo/pull/2095)) and the legacy-project fingerprint
+([#2091](https://github.com/lambdaclass/stabileo/pull/2091)) are on main, and 0.6.1 carries
+SA-2026-064 to SA-2026-068. Next are four silent wrong results found while landing them
+([#2096](https://github.com/lambdaclass/stabileo/issues/2096),
+[#2142](https://github.com/lambdaclass/stabileo/issues/2142),
+[#2143](https://github.com/lambdaclass/stabileo/issues/2143),
+[#2144](https://github.com/lambdaclass/stabileo/issues/2144)), then the design and load layer
+audit; the full order is **Priority now** in PRODUCT_ROADMAP.
 
 As of **2026-11-13 evening**, [#1846](https://github.com/lambdaclass/stabileo/issues/1846)
 and [#1085](https://github.com/lambdaclass/stabileo/issues/1085) are done in
