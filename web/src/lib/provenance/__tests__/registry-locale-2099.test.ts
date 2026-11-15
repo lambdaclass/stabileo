@@ -2,16 +2,15 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
 import { FEATURE_IDS } from '../model-features';
 
-const knownWrong = it.skipIf(!process.env.RUN_KNOWN_WRONG);
 afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); });
 
-knownWrong('known wrong result: #2099 — main registry remains valid without research translations', async () => {
+it('known wrong result: #2099 — main registry remains valid without research translations', async () => {
   const { validateRegistry } = await import('../registry');
   expect(validateRegistry(readRegistry(), new Set(FEATURE_IDS))).toEqual([]);
 });
 
 for (const research of ['0', '1']) {
-  knownWrong(`known wrong result: #2099 — complete notice fallback with research=${research}`, async () => {
+  it(`known wrong result: #2099 — complete notice fallback with research=${research}`, async () => {
     vi.stubEnv('VITE_RESEARCH', research);
     vi.resetModules();
     const { registryLocale } = await import('../registry');

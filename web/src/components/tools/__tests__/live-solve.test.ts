@@ -155,3 +155,102 @@ describe('live solving', () => {
     expect(most).toBe(1);
   });
 });
+
+for (const delay of [0, 120]) {
+  it(`invalidates running and queued work when a cached answer arrives with delay ${delay}`, async () => {
+    const { currentSolver } = await import('../live-solve');
+    const t = fakeClock();
+    const release: ((value: string) => void)[] = [];
+    const solved: string[] = [];
+    const settled: string[] = [];
+    const solver = currentSolver((input: string) => new Promise<string>(resolve => { solved.push(input); release.push(resolve); }),
+      (outcome, input) => { if (outcome.ok) settled.push(`${input}:${outcome.value}`); }, { clock: t.clock, delay });
+    solver.request('A');
+    await t.advance(delay);
+    await t.tick();
+    solver.request('queued');
+    solver.request('B', 'cached');
+    expect(settled).toEqual(['B:cached']);
+    release.shift()!('late');
+    await t.tick();
+    await t.advance(delay);
+    await t.tick();
+    expect(solved).toEqual(['A']);
+    expect(settled).toEqual(['B:cached']);
+    expect(solver.busy).toBe(false);
+    solver.request('C');
+    await t.advance(delay);
+    await t.tick();
+    release.shift()!('current');
+    await t.tick();
+    expect(settled).toEqual(['B:cached', 'C:current']);
+    expect(solver.isCurrent('B')).toBe(false);
+    expect(solver.isCurrent('C')).toBe(true);
+  });
+
+  it(`cancels a scheduled solve before its frame or delay when a cache hit arrives with delay ${delay}`, async () => {
+    const { currentSolver } = await import('../live-solve');
+    const t = fakeClock();
+    const solved: string[] = [];
+    const settled: string[] = [];
+    const solver = currentSolver((input: string) => { solved.push(input); return input; },
+      (outcome) => { if (outcome.ok) settled.push(outcome.value); }, { clock: t.clock, delay });
+    solver.request('A');
+    solver.request('B', 'cached');
+    await t.advance(delay);
+    await t.tick();
+    expect(solved).toEqual([]);
+    expect(settled).toEqual(['cached']);
+    expect(t.frames).toBe(0);
+    expect(t.timers).toBe(0);
+    expect(solver.busy).toBe(false);
+  });
+}
+
+it('drops a late failure while preserving a current failure and a current success', async () => {
+  const { currentSolver } = await import('../live-solve');
+  const t = fakeClock();
+  const release: { resolve: (value: string) => void; reject: (error: unknown) => void }[] = [];
+  const settled: string[] = [];
+  const solver = currentSolver((_input: string) => new Promise<string>((resolve, reject) => release.push({ resolve, reject })),
+    (outcome, input) => settled.push(`${input}:${outcome.ok ? outcome.value : 'error'}`), { clock: t.clock });
+  solver.request('A');
+  await t.tick();
+  solver.request('B');
+  release.shift()!.reject(new Error('late'));
+  await t.tick();
+  expect(settled).toEqual([]);
+  await t.tick();
+  release.shift()!.reject(new Error('current'));
+  await t.tick();
+  expect(settled).toEqual(['B:error']);
+  solver.request('C');
+  await t.tick();
+  release.shift()!.resolve('answer');
+  await t.tick();
+  expect(settled).toEqual(['B:error', 'C:answer']);
+});
+
+it('does not accept an old completion when the same input is requested again or after disposal', async () => {
+  const { currentSolver } = await import('../live-solve');
+  const t = fakeClock();
+  const release: ((value: string) => void)[] = [];
+  const settled: string[] = [];
+  const solver = currentSolver((_input: string) => new Promise<string>(resolve => release.push(resolve)),
+    (outcome) => { if (outcome.ok) settled.push(outcome.value); }, { clock: t.clock });
+  solver.request('A');
+  await t.tick();
+  solver.request('B', 'cached B');
+  solver.request('A');
+  release.shift()!('old A');
+  await t.tick();
+  expect(settled).toEqual(['cached B']);
+  await t.tick();
+  solver.stop();
+  release.shift()!('new A after disposal');
+  await t.tick();
+  solver.request('C', 'cached after disposal');
+  expect(settled).toEqual(['cached B']);
+  expect(solver.isCurrent('A')).toBe(false);
+  expect(solver.busy).toBe(false);
+});

@@ -12,7 +12,7 @@
   import { EXAMPLE, FORMULAS, format, formula, valid, workedExamples, type ToolId, type Parameters } from './calculators';
   import { type Warning } from './validity';
   import { solverMessages } from './solver-messages';
-  import { liveSolver } from './live-solve';
+  import { currentSolver } from './live-solve';
   import { widen, type Span } from './slider';
   import { prerenderedResult, recordPrerenderedResult } from './prerendered-result';
   import type { calculate } from './solve';
@@ -31,14 +31,15 @@
   let spans = $state<Record<'length' | 'load', Span>>({ length: [0.5, 30, 0.1], load: [1, 100, 1] });
   const ends = [[0.5, 'fixedFixed'], [0.7, 'fixedPinned'], [1, 'pinnedPinned'], [2, 'fixedFree']] as const;
 
-  const solver = liveSolver(
-    async (values: Parameters) => {
+  type Input = { id: ToolId; values: Parameters };
+  const solver = currentSolver(
+    async ({ id, values }: Input) => {
       if (!valid(values)) throw new Error('tools.invalid');
       const { calculate } = await import('./solve');
       return calculate(id, values);
     },
-    (outcome, values, superseded) => {
-      stale = superseded;
+    (outcome, input) => {
+      stale = false;
       if (!outcome.ok) {
         error = t(outcome.error instanceof Error && outcome.error.message === 'tools.invalid' ? 'tools.invalid' : 'tools.failed');
         stale = true;
@@ -46,23 +47,23 @@
       }
       error = '';
       result = outcome.value;
-      recordPrerenderedResult(id, values, outcome.value);
-      void link(outcome.value);
+      recordPrerenderedResult(input.id, input.values, outcome.value);
+      void link(outcome.value, input);
     },
   );
   onDestroy(() => solver.stop());
-  async function link(answer: Result) {
+  async function link(answer: Result, input: Input) {
     const { editorUrl } = await import('./share');
-    if (result === answer) href = editorUrl(answer.model, title);
+    if (solver.isCurrent(input) && result === answer) href = editorUrl(answer.model, title);
   }
   $effect(() => {
-    const values = { ...p };
+    const input = { id, values: { ...p } };
+    const { values } = input;
     untrack(() => {
       spans = { length: widen(spans.length, values.length), load: widen(spans.load, values.load) };
-      const ready = result ? null : prerenderedResult<Result>(id, values);
-      if (ready) { result = ready; void link(ready); return; }
       stale = true;
-      solver.request(values);
+      href = '';
+      solver.request(input, prerenderedResult<Result>(input.id, values));
     });
   });
 

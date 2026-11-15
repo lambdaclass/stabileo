@@ -39,6 +39,7 @@ export function liveSolver<I, O>(
   let pending: { kind: 'frame' | 'after'; handle: number } | null = null;
   let stopped = false;
   let requestedAt = -Infinity;
+  let generation = 0;
 
   function cancelPending() {
     if (!pending) return;
@@ -57,6 +58,7 @@ export function liveSolver<I, O>(
   async function flush() {
     if (!waiting || running || stopped) return;
     const { input } = waiting;
+    const token = generation;
     waiting = null;
     running = true;
     let outcome: Outcome<O>;
@@ -67,7 +69,7 @@ export function liveSolver<I, O>(
     }
     running = false;
     try {
-      if (!stopped) settle(outcome, input, waiting !== null);
+      if (!stopped && token === generation) settle(outcome, input, waiting !== null);
     } catch (error) {
       onError(error);
     } finally {
@@ -82,6 +84,11 @@ export function liveSolver<I, O>(
       if (pending?.kind === 'after') cancelPending();
       schedule();
     },
+    invalidate() {
+      generation++;
+      waiting = null;
+      cancelPending();
+    },
     get busy() {
       return running || waiting !== null;
     },
@@ -89,6 +96,34 @@ export function liveSolver<I, O>(
       stopped = true;
       waiting = null;
       cancelPending();
+    },
+  };
+}
+
+export function currentSolver<I, O>(
+  solve: (input: I) => Promise<O> | O,
+  settle: (outcome: Outcome<O>, input: I) => void,
+  options: Parameters<typeof liveSolver<I, O>>[2] = {},
+) {
+  const solver = liveSolver(solve, settle, options);
+  let current: { input: I } | null = null;
+  let stopped = false;
+  return {
+    request(input: I, cached: O | null = null) {
+      if (stopped) return;
+      solver.invalidate();
+      current = { input };
+      if (cached !== null) settle({ ok: true, value: cached }, input);
+      else solver.request(input);
+    },
+    isCurrent(input: I) {
+      return !stopped && current !== null && current.input === input;
+    },
+    get busy() { return solver.busy; },
+    stop() {
+      stopped = true;
+      current = null;
+      solver.stop();
     },
   };
 }

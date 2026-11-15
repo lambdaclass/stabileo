@@ -9,7 +9,7 @@
  import { publicI18n } from '../../lib/i18n/store.svelte';
  import { type Warning } from './validity';
  import { solverMessages } from './solver-messages';
- import { liveSolver, SOLVE_DELAY } from './live-solve';
+ import { currentSolver, SOLVE_DELAY } from './live-solve';
  import { widen, type Span } from './slider';
  import { BatchToolError, DEFAULT_BATCH, validateBatch, type BatchId, type BatchParameters } from './batch';
  import type { BatchResult } from './batch-solve';
@@ -32,23 +32,23 @@
   ...(id==='influence-line'?[['position','tools.batch.section','m',.000001,p.length*p.count-.000001]]:[])
  ] as [Field,string,string,number,number][]).filter(([key])=>id!=='truss-2d'||key!=='i'));
  const slider=(key:Field):Span|undefined=>key==='position'?[p.length*p.count/100,p.length*p.count*.99,p.length*p.count/100]:sliders[key];
- const solver=liveSolver(
-  async(values:BatchParameters)=>{validateBatch(id,values);const {calculateBatch}=await import('./batch-solve');return calculateBatch(id,values);},
-  (outcome,values,superseded)=>{
-   stale=superseded;
+ type Input={id:BatchId;values:BatchParameters};
+ const solver=currentSolver(
+  async({id,values}:Input)=>{validateBatch(id,values);const {calculateBatch}=await import('./batch-solve');return calculateBatch(id,values);},
+  (outcome,input)=>{
+   stale=false;
    if(!outcome.ok){const e=outcome.error;error=t(e instanceof BatchToolError?e.key:'tools.failed');stale=true;return;}
-   error='';result=outcome.value;recordPrerenderedResult(id,values,outcome.value);void link(outcome.value,values);
+   error='';result=outcome.value;recordPrerenderedResult(input.id,input.values,outcome.value);void link(outcome.value,input);
   },
   {delay:()=>id==='influence-line'||id==='beam-natural-frequency'?SOLVE_DELAY:0});
  onDestroy(()=>solver.stop());
- async function link(answer:BatchResult,values:BatchParameters){const {editorUrl}=await import('./share');if(result===answer)href=editorUrl(answer.model,t(`tools.${id}`),id==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);}
+ async function link(answer:BatchResult,input:Input){const {id,values}=input;const {editorUrl}=await import('./share');if(solver.isCurrent(input)&&result===answer)href=editorUrl(answer.model,t(`tools.${id}`),id==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);}
  $effect(()=>{
-  const values={...p};
+  const input={id,values:{...p}};
+  const {values}=input;
   untrack(()=>{
    sliders=Object.fromEntries(Object.entries(sliders).map(([key,span])=>[key,widen(span,values[key as Field])]));
-   const ready=result?null:prerenderedResult<BatchResult>(id,values);
-   if(ready){result=ready;void link(ready,values);return;}
-   stale=true;solver.request(values);
+   stale=true;href='';solver.request(input,prerenderedResult<BatchResult>(input.id,values));
   });
  });
  const figures=$derived(result?batchFigures(id,result,t,result.comparisons[0]?.unit==='kN·m'?'m':'1'):[]);
