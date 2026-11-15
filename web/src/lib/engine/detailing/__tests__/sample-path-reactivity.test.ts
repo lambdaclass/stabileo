@@ -23,7 +23,7 @@ function observed(segments: BarSegment[]) {
   return { path: { segments: input } as BarPath, reads: () => reads };
 }
 
-describe.skip('known wrong result: #2163', () => {
+describe('bar sampling detaches reactive coordinates (#2163)', () => {
   it.each([
     ['straight', [straight]],
     ['arc', [arc]],
