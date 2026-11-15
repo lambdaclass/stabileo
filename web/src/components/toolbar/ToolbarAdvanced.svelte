@@ -65,7 +65,8 @@
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import { loadCourse } from '../../lib/course/load-course';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
+  import { advancedRefusal2D } from '../../lib/engine/solver-service';
   import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
   import { withBasicMass } from '../../lib/engine/dynamics/basic-mass';
@@ -444,6 +445,8 @@
     if (blockedBySlidingJoints()) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    const refusal = advancedRefusal2D(input);
+    if (refusal) { uiStore.toast(refusal, 'error'); return; }
     try {
       const t0 = performance.now();
       const physical = withBasicMass(input, modelStore.model, 'iy');
@@ -473,8 +476,12 @@
       if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setBucklingResult(result);
       const factor = result.modes[0]?.loadFactor;
-      const nComp = result.elementData.length;
-      uiStore.toast(t('toast.bucklingSuccess').replace('{factor}', factor?.toFixed(2) ?? '—').replace('{nComp}', String(nComp)).replace('{ms}', dt.toFixed(0)), 'success');
+      const bars = result.secondOrder.trussEuler;
+      const nComp = result.elementData.length + bars.length;
+      const weak = bars[0] && !(bars[0].lambda > (factor ?? Infinity)) ? bars[0] : null;
+      uiStore.toast(weak
+        ? tp('toast.bucklingTrussBar', { factor: factor?.toFixed(2) ?? '—', e: weak.elementId, lambda: weak.lambda.toFixed(2) })
+        : t('toast.bucklingSuccess').replace('{factor}', factor?.toFixed(2) ?? '—').replace('{nComp}', String(nComp)).replace('{ms}', dt.toFixed(0)), weak ? 'info' : 'success');
       nullModesToast(result, true);
     } catch (e: any) {
       bucklingFailure(e);

@@ -2081,6 +2081,7 @@ const es: Record<string, string> = {
   'toast.spectralSuccess': 'Espectral CQC: V_base={vBase} kN, Zona 4 Suelo II ({ms}ms)',
   'toast.spectralError': 'Error análisis espectral',
   'toast.bucklingSuccess': 'Pandeo: λ_cr={factor}, {nComp} elem. comprimidos ({ms}ms)',
+  'toast.bucklingTrussBar': "λ₁ global = {factor}, pero la barra de reticulado {e} pandea antes por Euler, con λ = {lambda}.",
   'toast.bucklingError': 'Error pandeo',
   'toast.bucklingNoCompression': 'Con estas cargas ninguna barra queda comprimida: no hay pandeo que calcular.',
   'toast.pdeltaPrescribed': 'P-Δ todavía no considera desplazamientos impuestos de apoyo (asentamientos). Quitalos para correrlo, o usá el cálculo lineal.',

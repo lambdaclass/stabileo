@@ -952,7 +952,6 @@ export function plasticHistory2D(original: SolverInput, opts: PlasticCollapseOpt
 export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
   const { unresolved: historyUnresolved, ...history } = plasticHistory2D(original, opts);
   const lambda = history.collapseFactor;
-  const settled = history.isMechanism;
   let collapseFactor = lambda;
   let limit: PlasticCollapseResult['limit'];
   let withheld = false;
@@ -970,7 +969,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       unresolved = true;
     } else {
       collapseFactor = lp.lambda;
-      if (!(settled && Math.abs(lambda - lp.lambda) <= HISTORY_TOL * lp.lambda)) limit = { lambda: lp.lambda, historyLambda: lambda };
+      if (!(Math.abs(lambda - lp.lambda) <= HISTORY_TOL * lp.lambda)) limit = { lambda: lp.lambda, historyLambda: lambda };
       isMechanism = true;
       unresolved = false;
     }

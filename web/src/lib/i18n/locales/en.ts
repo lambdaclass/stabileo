@@ -2088,6 +2088,7 @@ const en: Record<string, string> = {
   'toast.spectralSuccess': 'Spectral CQC: V_base={vBase} kN, Zone 4 Soil II ({ms}ms)',
   'toast.spectralError': 'Spectral analysis error',
   'toast.bucklingSuccess': 'Buckling: λ_cr={factor}, {nComp} compressed elem. ({ms}ms)',
+  'toast.bucklingTrussBar': "Global λ₁ = {factor}, but truss bar {e} buckles first by Euler, at λ = {lambda}.",
   'toast.bucklingError': 'Buckling error',
   'toast.bucklingNoCompression': 'No member is in compression under these loads: there is no buckling to compute.',
   'toast.pdeltaPrescribed': 'P-Δ does not yet account for prescribed support displacements (settlements). Remove them to run it, or use the linear analysis.',

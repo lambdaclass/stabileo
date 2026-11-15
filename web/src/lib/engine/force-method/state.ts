@@ -89,6 +89,12 @@ export function solveState(input: SolverInput, fold: PatternItem[] = []): Solved
   const reactions = data.dofNumbering.dofs
     .filter((d) => !d.isFree)
     .map((d) => ({ nodeId: d.nodeId, component: d.localDof, value: data.reactionsRaw[d.globalIndex - data.dofNumbering.nFree] }));
+  for (const sup of input.supports.values()) {
+    if (sup.type !== 'spring') continue;
+    [sup.kx, sup.ky, sup.kz].forEach((k, c) => {
+      if ((k ?? 0) > 0) reactions.push({ nodeId: sup.nodeId, component: c, value: -(k as number) * val(sup.nodeId, c) });
+    });
+  }
   return { data, input, disp, forces, reactions };
 }
 

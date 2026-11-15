@@ -21,6 +21,7 @@ export const es: Translations = {
   'course.second-order.bk.internalNote': '* Pandeo dentro de una barra con sus extremos fijos: los desplazamientos de los nudos no lo dibujan, así que su forma no se muestra.',
 
   'course.second-order.opts.title': 'Cómo se calcula',
+  'course.second-order.bk.trussEuler': "Las barras de reticulado no se cortan, así que su pandeo entre nudos no entra en λ₁ = {lambda1}. Con Euler articulada-articulada, la barra {e} pandea antes, con λ = {lambda}.",
   'course.second-order.pd.stepsOneElement': "El paso a paso arma las matrices con un elemento por barra; el resultado de arriba usa {n}, así que λ puede diferir un poco.",
   'course.second-order.opts.reverted': "El modelo no admite esa opción, así que se volvió a la anterior y a sus resultados.",
   'course.second-order.opts.method': 'Método',
@@ -229,6 +230,7 @@ export const en: Translations = {
   'course.second-order.bk.internalNote': '* A buckling inside one member with its ends held: the node displacements cannot draw it, so its shape is not shown.',
 
   'course.second-order.opts.title': 'How it is calculated',
+  'course.second-order.bk.trussEuler': "Truss bars are not cut, so their buckling between nodes is not in λ₁ = {lambda1}. As a pin-ended Euler bar, member {e} buckles first, at λ = {lambda}.",
   'course.second-order.pd.stepsOneElement': "The step-by-step builds its matrices with one element per member; the result above uses {n}, so λ may differ slightly.",
   'course.second-order.opts.reverted': "The model does not take that option, so the previous one and its results are back.",
   'course.second-order.opts.method': 'Method',
@@ -437,6 +439,7 @@ export const pt: Translations = {
   'course.second-order.bk.internalNote': '* Flambagem dentro de uma barra com as extremidades fixas: os deslocamentos dos nós não a desenham, então a sua forma não é mostrada.',
 
   'course.second-order.opts.title': 'Como é calculado',
+  'course.second-order.bk.trussEuler': "As barras de treliça não são divididas, então sua flambagem entre nós não entra em λ₁ = {lambda1}. Pela fórmula de Euler biarticulada, a barra {e} flamba antes, com λ = {lambda}.",
   'course.second-order.pd.stepsOneElement': "O passo a passo monta as matrizes com um elemento por barra; o resultado acima usa {n}, então λ pode diferir um pouco.",
   'course.second-order.opts.reverted': "O modelo não aceita essa opção, então voltou a anterior e seus resultados.",
   'course.second-order.opts.method': 'Método',

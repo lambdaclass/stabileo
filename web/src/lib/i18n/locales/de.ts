@@ -2068,6 +2068,7 @@ const de: Translations = {
   'toast.spectralSuccess': 'Spektral CQC: V_base={vBase} kN, Zone 4 Boden II ({ms}ms)',
   'toast.spectralError': 'Fehler bei der Spektralanalyse',
   'toast.bucklingSuccess': 'Knicken: λ_cr={factor}, {nComp} gedrückte Elem. ({ms}ms)',
+  'toast.bucklingTrussBar': "Globales λ₁ = {factor}, aber Fachwerkstab {e} knickt nach Euler zuerst, bei λ = {lambda}.",
   'toast.bucklingError': 'Fehler bei der Knickanalyse',
   'toast.bucklingNoCompression': 'Unter diesen Lasten ist kein Stab gedrückt: Es gibt kein Knicken zu berechnen.',
   'toast.pdeltaPrescribed': 'P-Δ berücksichtigt vorgegebene Auflagerverschiebungen (Setzungen) noch nicht. Entfernen Sie sie, um die Berechnung auszuführen, oder verwenden Sie die lineare Analyse.',

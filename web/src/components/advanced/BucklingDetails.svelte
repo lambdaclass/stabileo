@@ -43,6 +43,10 @@
   <p class="bk-line" data-testid="buckling-how">
     {tp(`${K}.how`, { method: t(`course.second-order.opts.short.${info.settings.method}`), n: info.settings.n })}
   </p>
+  {@const weakBar = info.trussEuler?.[0]}
+  {#if weakBar && !(weakBar.lambda > (result.modes[0]?.loadFactor ?? Infinity))}
+    <p class="bk-warn" data-testid="buckling-truss-euler">{tp(`${K}.trussEuler`, { e: weakBar.elementId, lambda: num(weakBar.lambda), lambda1: num(result.modes[0]?.loadFactor) })}</p>
+  {/if}
   {#if info.settings.n === 1 && info.settings.method !== 'phi'}
     <p class="bk-warn" data-testid="buckling-n1-warning">{t(`${K}.n1Warn`)}</p>
   {/if}

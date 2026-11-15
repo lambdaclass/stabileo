@@ -195,7 +195,7 @@ export function solveForceMethod(input: SolverInput, opts: ForceMethodOptions = 
     return { ...r, value: v };
   });
   redundants.forEach((r, i) => {
-    if (r.kind === 'reaction') finalReactions.push({ nodeId: r.nodeId, component: r.component!, value: X[i] });
+    if (r.kind === 'reaction' || r.kind === 'spring') finalReactions.push({ nodeId: r.nodeId, component: r.component!, value: X[i] });
   });
   const byNode = (a: { nodeId: number; component: number }, b: { nodeId: number; component: number }) =>
     a.nodeId - b.nodeId || a.component - b.component;

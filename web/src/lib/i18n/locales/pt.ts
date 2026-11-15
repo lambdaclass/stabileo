@@ -8086,6 +8086,7 @@ const pt: Translations = {
   'toast.pdeltaLinearNoLoads': 'P-Δ: nada deforma a estrutura (não há cargas), então o resultado é o linear, B₂ = 1.',
   'toast.pdeltaLinearNoFreeDofs': 'P-Δ: todos os graus de liberdade estão restringidos e não há nada a amplificar, então o resultado é o linear, B₂ = 1.',
   'toast.bucklingSuccess': 'Flambagem: λ_cr={factor}, {nComp} elem. comprimidos ({ms}ms)',
+  'toast.bucklingTrussBar': "λ₁ global = {factor}, mas a barra de treliça {e} flamba antes por Euler, com λ = {lambda}.",
   'toast.combinations3dSuccess': '{n} combinações 3D calculadas ({cases} casos de carga).',
   'toast.combinationsSuccess': '{n} combinações calculadas ({cases} casos de carga). Use "Primário" nos diagramas M/V/N para ver Envoltória ou combos individuais.',
   'toast.detailedSolver3dError': 'Erro no solver detalhado 3D',

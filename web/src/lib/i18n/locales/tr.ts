@@ -2077,6 +2077,7 @@ const tr: Translations = {
   'toast.spectralSuccess': 'Spektral CQC: V_taban={vBase} kN, Bölge 4 Zemin II ({ms}ms)',
   'toast.spectralError': 'Spektral analiz hatası',
   'toast.bucklingSuccess': 'Burkulma: λ_cr={factor}, {nComp} basınçlı eleman ({ms}ms)',
+  'toast.bucklingTrussBar': "Global λ₁ = {factor}, ancak {e} kafes çubuğu Euler’e göre önce burkuluyor: λ = {lambda}.",
   'toast.bucklingError': 'Burkulma hatası',
   'toast.bucklingNoCompression': 'Bu yükler altında basınç altında çubuk yok: hesaplanacak burkulma yok.',
   'toast.pdeltaPrescribed': 'P-Δ henüz zorlanmış mesnet yer değiştirmelerini (mesnet çökmelerini) hesaba katmıyor. Çalıştırmak için bunları kaldırın veya doğrusal analizi kullanın.',

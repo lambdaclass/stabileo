@@ -9,19 +9,28 @@ import { runBuckling2D, type SoBucklingResult } from '../engine/second-order/run
 import { firstModeB2, type SoSettings } from '../engine/second-order/settings';
 import { solveBuckling3D } from '../engine/wasm-solver';
 import { refusedWithCode } from '../engine/containment-error';
+import { advancedRefusal2D } from '../engine/solver-service';
 import { secondOrderSettings } from '../store/second-order.svelte';
 import { resultsStore, uiStore } from '../store';
 import { explainedSteps } from '../store/explained-steps.svelte';
 import { openExplainedCatalog } from './step-wizards';
 import { t, tp } from '../i18n';
 
-/** 2D P-Δ with the panel's settings; a sentence when the chosen method cannot take the model. */
+/**
+ * 2D P-Δ with the panel's settings; a sentence when the chosen method cannot take the model. The
+ * structural checks run on the model as drawn first, so a mechanism is named by its own nodes and
+ * not by the cut model's.
+ */
 export function pdeltaBasic2D(input: SolverInput): SoPDeltaResult | string {
+  const refusal = advancedRefusal2D(input);
+  if (refusal) return refusal;
   const got = runPDelta2D(input, secondOrderSettings.snapshot());
   return got.ok ? got.result : tp(got.reason.key, got.reason.params);
 }
 
 export function bucklingBasic2D(input: SolverInput): SoBucklingResult | string {
+  const refusal = advancedRefusal2D(input);
+  if (refusal) return refusal;
   const s = secondOrderSettings.snapshot();
   const got = runBuckling2D(input, s);
   return got.ok ? got.result : tp(got.reason.key, got.reason.params);

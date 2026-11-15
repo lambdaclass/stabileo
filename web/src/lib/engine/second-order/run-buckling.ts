@@ -19,6 +19,31 @@ export interface BucklingInfo {
   geometry: ReturnType<typeof refinedGeometry> | null;
   /** The engine's factors on the same cut model, when this run is the teaching solver's. */
   engineFactors: number[] | null;
+  /**
+   * Compressed truss bars with their own pin-ended Euler factor π²EI/(L²|N|), lowest first. A
+   * truss bar is not cut, so its buckling between nodes is not in the structure's λ₁.
+   */
+  trussEuler: TrussEulerBar[];
+}
+
+export interface TrussEulerBar { elementId: number; axialForce: number; criticalForce: number; lambda: number }
+
+export function trussEulerBars(original: SolverInput, r: Refined, pieceN: Map<number, number>): TrussEulerBar[] {
+  const out: TrussEulerBar[] = [];
+  const scale = Math.max(0, ...[...pieceN.values()].map(Math.abs));
+  for (const [id, list] of r.pieces) {
+    const e = original.elements.get(id)!;
+    if (e.type !== 'truss') continue;
+    const n = Math.min(...list.map((p) => pieceN.get(p.id) ?? 0));
+    if (!(n < -1e-9 * scale)) continue;
+    const mat = original.materials.get(e.materialId), sec = original.sections.get(e.sectionId);
+    const EI = (mat?.e ?? 0) * 1000 * (sec?.iz ?? 0);
+    const L = list[list.length - 1].x1;
+    if (!(EI > 0 && L > 0)) continue;
+    const pcr = (Math.PI * Math.PI * EI) / (L * L);
+    out.push({ elementId: id, axialForce: n, criticalForce: pcr, lambda: pcr / -n });
+  }
+  return out.sort((a, b) => a.lambda - b.lambda);
 }
 
 export type SoBucklingResult = BucklingResult & { secondOrder: BucklingInfo; discardedModes?: unknown[] };
@@ -85,7 +110,7 @@ export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; re
     const first = firstOrder(r.input);
     const represented = first ? representsFirstMode(first.sys, first.N0, lambda1) : !(lambda1 > engineClampedBound(r.input, pieceN) * (1 + 1e-9));
     if (!represented) return { ok: false, reason: tx('course.second-order.refuse.noModeRepresented') };
-    return { ok: true, result: { ...raw, elementData: memberBucklingData(input, r, pieceN, lambda1, first?.noise), secondOrder: { settings: s, geometry, engineFactors: null } } };
+    return { ok: true, result: { ...raw, elementData: memberBucklingData(input, r, pieceN, lambda1, first?.noise), secondOrder: { settings: s, geometry, engineFactors: null, trussEuler: trussEulerBars(input, r, pieceN) } } };
   }
   const got = teachingBuckling(r.input, teachingOptions(s), s.modes);
   if (!got.ok) return got;
@@ -105,7 +130,7 @@ export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; re
       modes,
       nDof: run.sys.free.length,
       elementData: memberBucklingData(input, r, run.N0, modes[0]?.loadFactor ?? NaN, run.N0Noise),
-      secondOrder: { settings: s, geometry, engineFactors },
+      secondOrder: { settings: s, geometry, engineFactors, trussEuler: trussEulerBars(input, r, run.N0) },
     },
   };
 }

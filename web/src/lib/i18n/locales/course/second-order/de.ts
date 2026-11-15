@@ -20,6 +20,7 @@ const words: Translations = {
   'course.second-order.bk.internalNote': '* Knicken innerhalb eines Stabs mit festgehaltenen Enden: Die Knotenverschiebungen können es nicht darstellen, daher wird die Form nicht gezeigt.',
 
   'course.second-order.opts.title': 'Wie gerechnet wird',
+  'course.second-order.bk.trussEuler': "Fachwerkstäbe werden nicht unterteilt, daher steckt ihr Knicken zwischen den Knoten nicht in λ₁ = {lambda1}. Als beidseitig gelenkiger Euler-Stab knickt Stab {e} zuerst, bei λ = {lambda}.",
   'course.second-order.pd.stepsOneElement': "Die Schritt-für-Schritt-Darstellung stellt ihre Matrizen mit einem Element je Stab auf; das Ergebnis oben verwendet {n}, daher kann λ leicht abweichen.",
   'course.second-order.opts.reverted': "Das Modell nimmt diese Option nicht an, deshalb gelten wieder die vorherige und ihre Ergebnisse.",
   'course.second-order.opts.method': 'Verfahren',

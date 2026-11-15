@@ -20,6 +20,7 @@ const words: Translations = {
   'course.second-order.bk.internalNote': '* Flambement à l\'intérieur d\'une barre aux extrémités bloquées : les déplacements des nœuds ne peuvent pas le représenter, sa forme n\'est donc pas montrée.',
 
   'course.second-order.opts.title': 'Mode de calcul',
+  'course.second-order.bk.trussEuler': "Les barres de treillis ne sont pas découpées : leur flambement entre nœuds n’entre pas dans λ₁ = {lambda1}. Comme barre d’Euler bi-articulée, la barre {e} flambe d’abord, à λ = {lambda}.",
   'course.second-order.pd.stepsOneElement': "Le pas à pas assemble ses matrices avec un élément par barre ; le résultat ci-dessus en utilise {n}, donc λ peut légèrement différer.",
   'course.second-order.opts.reverted': "Le modèle n’accepte pas cette option : l’option précédente et ses résultats sont rétablis.",
   'course.second-order.opts.method': 'Méthode',

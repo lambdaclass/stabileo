@@ -2068,6 +2068,7 @@ const fr: Translations = {
   'toast.spectralSuccess': 'Spectral CQC : V_base={vBase} kN, zone 4 sol II ({ms}ms)',
   'toast.spectralError': 'Erreur d\'analyse spectrale',
   'toast.bucklingSuccess': 'Flambement : λ_cr={factor}, {nComp} élém. comprimés ({ms}ms)',
+  'toast.bucklingTrussBar': "λ₁ global = {factor}, mais la barre de treillis {e} flambe d’abord par Euler, à λ = {lambda}.",
   'toast.bucklingError': 'Erreur de flambement',
   'toast.bucklingNoCompression': 'Aucune barre n\'est comprimée sous ces charges : il n\'y a pas de flambement à calculer.',
   'toast.pdeltaPrescribed': 'Le P-Δ ne prend pas encore en compte les déplacements d\'appui imposés (tassements). Supprimez-les pour le lancer, ou utilisez l\'analyse linéaire.',
