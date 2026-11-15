@@ -1210,3 +1210,7 @@ test.web.public-policy-isolation:
 .PHONY: test.web.landing-footer-2099
 test.web.landing-footer-2099:
 	$(NIX_RUN) node --test web/scripts/tests/landing-footer-2099.test.mjs
+
+.PHONY: test.web.ci-runtime-2099
+test.web.ci-runtime-2099:
+	$(NIX_RUN) node --test web/scripts/research-locale-build.test.mjs web/scripts/site-nav-node-env-2099.test.mjs
