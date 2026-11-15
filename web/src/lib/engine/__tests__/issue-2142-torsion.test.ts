@@ -213,7 +213,7 @@ for (const nonlinear of [false, true]) it(`2D WASM torsion-free valid control no
 
 const phiTth = 0.75 * 0.083 * Math.sqrt(p.fc) * 1000 * (p.b * p.h) ** 2 / (2 * (p.b + p.h));
 const cage = { diameter: p.stirrupDia, legs: 4, spacing: 0.05 };
-function providedBeam(torque: number, axis: 'My' | 'Mz', edition: '2005' | '2025', layout: 'none' | 'support' | 'span' | 'all' | 'legacy') {
+function providedBeam(torque: number, axis: 'My' | 'Mz', edition: '2005' | '2025', layout: 'none' | 'support' | 'span' | 'all' | 'legacy', stations?: Parameters<typeof verifyProvidedReinforcement>[6]) {
   const d = demand(0, 0, torque, axis);
   return verifyProvidedReinforcement(1, 'beam', {
     ...(layout === 'legacy' ? { stirrups: cage } : {}),
@@ -222,7 +222,7 @@ function providedBeam(torque: number, axis: 'My' | 'Mz', edition: '2005' | '2025
       ...(layout === 'support' || layout === 'all' ? { stirrupsSupport: cage } : {}),
       ...(layout === 'span' || layout === 'all' ? { stirrupsSpan: cage } : {}),
     },
-  }, undefined, {}, p, { elementId: 1, length: 6, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'pure torque',
+  }, undefined, {}, p, stations ?? { elementId: 1, length: 6, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'pure torque',
     stations: [0, 0.5, 1].map(t => ({ ...d.source.forces, t, x: t * 6 })) }] }, undefined, {
     spacingRule: { edition, maxAggregateSizeMm: 0 },
     axes: { flexure: axis, shear: axis === 'My' ? 'Vz' : 'Vy', secondaryFlexure: axis === 'My' ? 'Mz' : 'My',
@@ -233,7 +233,7 @@ function providedBeam(torque: number, axis: 'My' | 'Mz', edition: '2005' | '2025
 for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) {
   for (const layout of ['none', 'support', 'span'] as const) {
     for (const torque of [phiTth, phiTth * (1 + 1e-5), reference(0, 0, 0).phiTn * (1 - 1e-5), reference(0, 0, 0).phiTn * (1 + 1e-5)]) {
-      it.fails(`known wrong result: #2142 zero-shear beam reports missing torsion stirrups ${edition} ${axis} ${layout} ${torque}`, () => {
+      it(`known wrong result: #2142 zero-shear beam reports missing torsion stirrups ${edition} ${axis} ${layout} ${torque}`, () => {
         const r = providedBeam(torque, axis, edition, layout);
         const rows = r.checks.filter(c => c.category.startsWith('Torsion ') && !c.category.startsWith('Torsion Al'));
         expect(rows).toHaveLength(2);
@@ -278,7 +278,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
   }
 }
 for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  it.fails(`known wrong result: #2142 3D WASM pure torque cannot omit missing stirrups nonlinear=${nonlinear} compact=${compact}`, () => {
+  it(`known wrong result: #2142 3D WASM pure torque cannot omit missing stirrups nonlinear=${nonlinear} compact=${compact}`, () => {
     const torque = reference(0, 0, 0).phiTn * (1 + 1e-3);
     const solver: SolverInput3D = { ...model,
       elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
@@ -288,16 +288,35 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) {
     };
     const raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
     setCompactStationTransfer(compact);
-    const ds = computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'C1', factors: [] }], model).demands.get(1)!.concurrent!;
+    const complete = computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'C1', factors: [] }], model);
+    const ds = complete.demands.get(1)!.concurrent!;
     expect(ds.length).toBeGreaterThan(0);
     for (const source of ds) {
       const d = source.section('My');
       expect(d.Vu).toBeCloseTo(0, 10);
       expect(d.VuSecondary).toBeCloseTo(0, 10);
       expect(d.Tu).toBeCloseTo(torque, 10);
-      const r = providedBeam(d.Tu, 'My', '2025', 'none');
+      const r = providedBeam(d.Tu, 'My', '2025', 'none', complete.stations.get(1)!);
       expect(r.checks).toContainEqual(expect.objectContaining({ limiting: 'torsion', missingReinforcement: true, status: 'fail' }));
       expect(r.overallStatus).toBe('fail');
     }
   });
 }
+
+for (const nonlinear of [false, true]) it(`2D WASM provided beam without stirrups remains torsion-free nonlinear=${nonlinear}`, () => {
+  const solver: SolverInput = { nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 6, z: 0 }]]),
+    materials: model.materials, sections: new Map([[1, { ...model.sections.get(1)!, iz: model.sections.get(1)!.iy }]]),
+    elements: new Map([[1, { ...model.elements.get(1)!, hingeStart: false, hingeEnd: false }]]), supports: model.supports,
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: 20 } }] };
+  const raw = nonlinear ? solvePDelta(solver).results : solve(solver);
+  const ef = raw.elementForces[0]!;
+  expect(Math.abs(ef.mStart)).toBeCloseTo(20, 10);
+  expect(ef.vStart).toBeCloseTo(0, 10);
+  expect(ef.vEnd).toBeCloseTo(0, 10);
+  const stations = { elementId: 1, length: ef.length, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: '2D',
+    stations: [0, 0.5, 1].map(t => ({ t, x: t * ef.length, n: ef.nStart + t * (ef.nEnd - ef.nStart),
+      my: ef.mStart + t * (ef.mEnd - ef.mStart), mz: 0, vy: 0, vz: ef.vStart + t * (ef.vEnd - ef.vStart), torsion: 0 })) }] };
+  const r = providedBeam(0, 'My', '2025', 'none', stations);
+  expect(r.checks.some(c => c.category.startsWith('Torsion'))).toBe(false);
+  expect(r.overallStatus).not.toBe('fail');
+});

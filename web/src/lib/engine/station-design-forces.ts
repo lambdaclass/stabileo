@@ -2626,7 +2626,7 @@ export function verifyProvidedReinforcement(
       // A beam only: a column's ties are checked by their own rules. Below φ·Tth it is
       // neglected and says nothing; above it, the cross-section, the closed stirrups and the
       // longitudinal steel torsion adds are checked at the worst tuple of the region.
-      if (elementType === 'beam' && ss.stir) {
+      if (elementType === 'beam') {
         // ── The longitudinal steel torsion adds (§22.7.6.1, §9.5.4.3, §9.6.4.3) ──
         //
         // CIRSOC 201-2025 asks it at every section where torsion is not negligible: §9.5.4.1 and
@@ -2669,7 +2669,7 @@ export function verifyProvidedReinforcement(
         const evaluated: Array<{ r: ReturnType<typeof checkTorsion2025>; t: Tuple }> = [];
         for (const t of ss.tuples) {
           if (Math.abs(t.tq) < 0.01) continue;
-          const r = checkTorsion2025({ b: section.b, h: section.h, d, dSecondary: section.b - section.cover - ss.stir.diameter / 1000 - 0.008, cover: section.cover, stirrupDiaMm: ss.stir.diameter, fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure), stirrup: ss.stir });
+          const r = checkTorsion2025({ b: section.b, h: section.h, d, dSecondary: section.b - section.cover - (ss.stir?.diameter ?? section.stirrupDia) / 1000 - 0.008, cover: section.cover, stirrupDiaMm: ss.stir?.diameter ?? section.stirrupDia, fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure), stirrup: ss.stir });
           if (!r.neglect) evaluated.push({ r, t });
         }
         let tw: { r: ReturnType<typeof checkTorsion2025>; t: Tuple } | null = null;
@@ -2686,9 +2686,9 @@ export function verifyProvidedReinforcement(
             demand: +Math.abs(tw.t.tq).toFixed(2), capacity: 0,
             utilization: tr.ratio,
             unit: 'kN·m', method: 'capacity', tuplesChecked: ss.tuples.length, regionRange: ss.range,
-            description: `§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transverseRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
+            description: `${ss.stir ? '' : 'no stirrups provided in this region — '}§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transverseRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
             comboName: tw.t.comboName, stationX: tw.t.stationX,
-            limiting: 'torsion',
+            limiting: 'torsion', ...(!ss.stir ? { missingReinforcement: true } : {}),
           });
           const { AlReq, AsFlex, required, provided, face, u } = lw.need;
           pushStrength({
