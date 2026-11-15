@@ -15,7 +15,7 @@ One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changel
 
 #### Interior deflection and rotation retain concentrated member couples (2026-11-15)
 
-Member hover readings and deformed shapes now include concentrated couples inside a span. The hover and both spatial bending curves use the engine's shared recovery, including point and distributed loads and released ends. Reopen saved projects with member loads, rerun analysis, and review displayed deflections and serviceability checks. Loaded recovery without sufficient bending stiffness is refused explicitly. Nodal solutions and member forces are unchanged. See [the results-change record](docs/results-changes/2026-11-interior-member-couples.md) (#2143).
+Member hover readings and deformed shapes now include concentrated couples inside a span. The hover and both spatial bending curves use the engine's shared recovery, including point and distributed loads and released ends. Reopen saved projects with member loads, rerun analysis, and review displayed deflections and serviceability checks. Loaded recovery without sufficient bending stiffness is refused explicitly. Nodal solutions and member forces are unchanged. See [the results-change record](docs/results-changes/2026-11-interior-member-couples.md) ([SA-2026-070](docs/advisories/SA-2026-070-interior-member-couples.md), #2143; PR #2170, pending merge and release).
 
 ### Added
 
@@ -33,6 +33,12 @@ open in the reader's language.
 #### Test systems gathered under testing/ (2026-11-15)
 
 Gather the standalone differential, symbolic, fuzz and test-system scripts under `testing/`, with a checked map of testing techniques. Existing make targets, CI job names, test cases and acceptance limits stay unchanged.
+
+### Fixed
+
+#### Member recovery certificate checks build against the fallible shape API (2026-11-15)
+
+The 2D and 3D displayed-result certificate tests now require successful load-free shape recovery before checking the same displacement bounds. Remove the stale fallback allow-list entry, retain validated bending stiffness as an option, select end couples explicitly, and register the shared recovery WASM export as postprocessing. Numerical results, limits and assertions are unchanged (#2143, PR #2170).
 
 ## 0.6.1 (2026-11-15)
 
