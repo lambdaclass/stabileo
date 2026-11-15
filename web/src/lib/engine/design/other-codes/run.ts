@@ -1,3 +1,4 @@
+import { completeMemberDemands, type CompleteMemberContexts } from '../../member-demand-gate';
 import { ConcurrentDemand } from '../../concurrent-demand';
 /**
  * Run a code's checker over the members, one force tuple at a time.
@@ -48,9 +49,10 @@ export function memberContexts(
     designData?: { cover: { beam: number; column: number }; rebarFy: number };
   } = {},
 ): MemberContext[] {
-  const { demands } = computeStationDemands(perCombo, combinations, model as never);
-  const lengths = memberLengths(model as never);
   const want = ids ? new Set(ids) : null;
+  const scoped = want ? { ...model, elements: new Map([...model.elements].filter(([id]) => want.has(id))) } : model;
+  const { demands } = computeStationDemands(perCombo, combinations, scoped as never);
+  const lengths = memberLengths(model as never);
   const out: MemberContext[] = [];
   for (const [id, e] of model.elements) {
     if (want && !want.has(id)) continue;
@@ -80,6 +82,7 @@ export function memberContexts(
       }),
       demands: d.demands,
       tuples,
+      expectedCombinationIds: raw.expectedCombinationIds, stationTs: raw.stationTs,
       ...(opts.designData ? { cover: kind === 'beam' ? opts.designData.cover.beam : opts.designData.cover.column, rebarFy: opts.designData.rebarFy } : {}),
     });
   }
@@ -114,13 +117,17 @@ const CHUNK = 48;
  * tuples) carries every member's pairs.
  */
 export function runOtherCode(code: OtherCode, contexts: MemberContext[], opts: RunOptions = {}): OtherCodeRun {
+  return runCompleteOtherCode(code, completeMemberDemands(contexts), opts);
+}
+
+function runCompleteOtherCode(code: OtherCode, complete: CompleteMemberContexts, opts: RunOptions): OtherCodeRun {
+  const contexts = [...new Set(complete.values.map(r => r.member))];
   const rows = new Map<number, OtherCodeRow>();
   const ready: Array<{ ctx: MemberContext; data: Record<string, unknown>; flags: string[]; list: ConcurrentDemand[] }> = [];
   for (const ctx of contexts) {
     const m = code.member(ctx);
     if ('skip' in m) { rows.set(ctx.elementId, { elementId: ctx.elementId, status: 'skipped', reasonKey: m.skip }); continue; }
     if (ctx.demands.length === 0) { rows.set(ctx.elementId, { elementId: ctx.elementId, status: 'skipped', reasonKey: 'otherCodes.skip.noDemand' }); continue; }
-    if (!ConcurrentDemand.hasCompleteTuples(ctx.tuples, ctx.demands)) { rows.set(ctx.elementId, { elementId: ctx.elementId, status: 'skipped', reasonKey: 'otherCodes.skip.incompleteDemand' }); continue; }
     // The governing demands first, then every other combination and station, each pair once.
     const seen = new Set(ctx.demands.map((d) => `${d.comboId}|${d.stationT}`));
     const rest = (ctx.tuples ?? []).filter((t) => { const k = `${t.comboId}|${t.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
@@ -224,6 +231,16 @@ export async function certifyOtherCode(
   stationBound: (comboId: number, elementId: number) => StationBound3D | null,
   call: (name: string, args: unknown[]) => Promise<unknown>,
 ): Promise<Map<number, MemberCertificate>> {
+  return certifyCompleteOtherCode(code, completeMemberDemands(contexts), stationBound, call);
+}
+
+async function certifyCompleteOtherCode(
+  code: OtherCode,
+  complete: CompleteMemberContexts,
+  stationBound: (comboId: number, elementId: number) => StationBound3D | null,
+  call: (name: string, args: unknown[]) => Promise<unknown>,
+): Promise<Map<number, MemberCertificate>> {
+  const contexts = [...new Set(complete.values.map(r => r.member))];
   const out = new Map<number, MemberCertificate>();
   const cert = code.certify;
   if (!cert) return out;
@@ -235,7 +252,6 @@ export async function certifyOtherCode(
   for (const ctx of contexts) {
     const m = code.member(ctx);
     if ('skip' in m || ctx.demands.length === 0) continue;
-    if (!ConcurrentDemand.hasCompleteTuples(ctx.tuples, ctx.demands)) { refuse(ctx.elementId, 'otherCodes.skip.incompleteDemand'); continue; }
     if ((m.unevaluated ?? []).length > 0) { refuse(ctx.elementId, 'otherCodes.cert.partial'); continue; }
     ready.push({ ctx, data: m.data, all: ConcurrentDemand.fromTuples([...ctx.demands, ...(ctx.tuples ?? [])]) });
   }

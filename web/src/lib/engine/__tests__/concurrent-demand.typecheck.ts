@@ -13,3 +13,10 @@ export const envelopeCannotReachTorsion: Assert<Refuses<ElementDesignDemands, Pa
 export const envelopeCannotReachSteel: Assert<Refuses<ElementDesignDemands, Parameters<typeof checkSteelInteraction>[1]>> = true;
 export const stationForcesNeedProvenance: Assert<Refuses<ConcurrentDemand['forces'], ConcurrentSectionDemand>> = true;
 export const envelopeCannotReachSteelVerifier: Assert<Refuses<SteelVerificationInput, Parameters<typeof verifySteelElement>[0]>> = true;
+
+import type { CompleteDemandSet, ScopedDemand } from '../complete-demand-set';
+import type { CompleteMemberContexts } from '../member-demand-gate';
+import type { MemberContext } from '../design/other-codes/types';
+export const rawRowsCannotBeComplete: Assert<Refuses<ScopedDemand[], CompleteDemandSet<ScopedDemand>>> = true;
+export const rawContextsCannotBeComplete: Assert<Refuses<MemberContext[], CompleteMemberContexts>> = true;
+export const forgedSetCannotBeComplete: Assert<Refuses<{ values: ScopedDemand[] }, CompleteDemandSet<ScopedDemand>>> = true;

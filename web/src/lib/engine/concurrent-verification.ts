@@ -1,3 +1,4 @@
+import { CompleteDemandSet, demandCoverage } from './complete-demand-set';
 import { copyVerificationCheck } from './verification-steps';
 import { withBiaxialCapacityCache } from './station-design-forces';
 import { verificationForElement } from './element-verification-copy';
@@ -30,10 +31,21 @@ function completeCaseKeys(): (input: ConcurrentVerificationInput) => string | un
 }
 
 export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationInput[]): ElementVerification {
-  return withBiaxialCapacityCache(() => verifyConcurrentCases(inputs));
+  const byMember = new Map<number, ConcurrentVerificationInput[]>();
+  for (const input of inputs) {
+    const list = byMember.get(input.elementId) ?? [];
+    list.push(input); byMember.set(input.elementId, list);
+  }
+  const coverage = [...byMember].map(([elementId, list]) => ({ elementId, ...demandCoverage({}, list.map(i => i.demand.source)) }));
+  const complete = CompleteDemandSet.require({ combinations: [...new Set(coverage.flatMap(c => c.combinationIds))].map(comboId => ({ comboId })),
+    members: coverage.map(c => ({ elementId: c.elementId, stationTs: c.stationTs })) }, inputs.map(input => ({
+      elementId: input.elementId, comboId: input.demand.source.comboId, stationT: input.demand.source.stationT, input,
+    })));
+  return withBiaxialCapacityCache(() => verifyConcurrentCases(complete));
 }
 
-function verifyConcurrentCases(inputs: readonly ConcurrentVerificationInput[]): ElementVerification {
+function verifyConcurrentCases(complete: CompleteDemandSet<{ elementId: number; comboId: number; stationT: number; input: ConcurrentVerificationInput }>): ElementVerification {
+  const inputs = complete.values.map(r => r.input);
   if (!inputs.length) throw new Error('Concurrent demands are required for verification');
   const first = inputs[0]!;
   const params = { b: first.b, h: first.h, fc: first.fc, fy: first.fy, cover: first.cover, stirrupDia: first.stirrupDia };

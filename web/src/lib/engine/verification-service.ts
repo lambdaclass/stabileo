@@ -1,4 +1,6 @@
-import { ConcurrentDemand, requireCompleteConcurrentDemand } from './concurrent-demand';
+import { ConcurrentDemand } from './concurrent-demand';
+import { CompleteDemandSet, demandCoverage } from './complete-demand-set';
+import { completeResultDemands } from './result-demand-gate';
 /**
  * Shared verification service — centralized station-based demand computation
  * and verification orchestration for PRO mode.
@@ -88,8 +90,10 @@ export function computeStationDemands(
   const stations = new Map<number, ElementStationResult>();
 
   if (perCombo3D.size === 0 && combinations.length === 0) return { demands, stations };
-  requireCompleteConcurrentDemand(combinations.map(c => c.id), perCombo3D.keys(),
-    'every active combination requires analysis results');
+  const scopedIds = model ? [...model.elements].filter(([, e]) => isDesigned((e as { behaviour?: string }).behaviour)).map(([id]) => id) : [];
+  CompleteDemandSet.require({ combinations: combinations.map(c => ({ comboId: c.id, comboName: c.name })),
+    members: scopedIds.map(elementId => ({ elementId, stationTs: [0] })) },
+    [...perCombo3D].flatMap(([comboId, result]) => result.elementForces.map(ef => ({ comboId, elementId: ef.elementId, stationT: 0 }))), [...perCombo3D.keys()]);
 
   if (!model || !isSolverReady()) throw new EngineUnavailableError('the station design forces');
   return computeStationDemandsWasm(perCombo3D, combinations, model);
@@ -104,11 +108,14 @@ function computeStationDemandsWasm(
   combinations: LoadCombination[],
   model: AutoVerifyModelData,
 ): StationDemandData {
+  const numStations = 11;
+  const requestedStationTs = Array.from({ length: numStations }, (_, i) => i / (numStations - 1));
   const loading = new Map([...perCombo3D].map(([id, r]) => [id, new Map(r.elementForces.map(ef => [ef.elementId, ConcurrentDemand.loadingOf(ef)]))]));
   const withLoading = (esr: ElementStationResult): ElementStationResult => {
     const byCombo = new Map<number, ElementStationResult['comboResults'][number]>();
     for (const c of esr.comboResults) if (!byCombo.has(c.comboId)) byCombo.set(c.comboId, c);
-    return { ...esr, comboResults: combinations.map(({ id: comboId, name }) => {
+    return { ...esr, stationTs: [...new Set([...requestedStationTs, ...esr.stationTs])],
+      expectedCombinationIds: Object.freeze(combinations.map(c => c.id)), comboResults: combinations.map(({ id: comboId, name }) => {
       const c = byCombo.get(comboId);
       const transverseLoading = loading.get(comboId)?.get(esr.elementId);
       return { comboId, comboName: c?.comboName ?? name ?? `Combo ${comboId}`,
@@ -118,6 +125,7 @@ function computeStationDemandsWasm(
   // Build member list from model
   const members: Array<{ elementId: number; sectionId: number; materialId: number; length: number }> = [];
   for (const [id, elem] of model.elements) {
+    if (!isDesigned((elem as { behaviour?: string }).behaviour)) continue;
     const nI = model.nodes.get(elem.nodeI);
     const nJ = model.nodes.get(elem.nodeJ);
     if (!nI || !nJ) continue;
@@ -129,8 +137,9 @@ function computeStationDemandsWasm(
 
   const complete = (data: StationDemandData): StationDemandData => {
     if (members.length > 0) {
-      requireCompleteConcurrentDemand(members.map(m => m.elementId), data.demands.keys(),
-        'every element requires station demands');
+      CompleteDemandSet.require({ combinations: combinations.map(c => ({ comboId: c.id, comboName: c.name })),
+        members: members.map(m => ({ elementId: m.elementId, stationTs: data.stations.get(m.elementId)?.stationTs ?? [] })) },
+        [...data.demands].flatMap(([elementId, d]) => (d.concurrent ?? []).map(t => ({ elementId, comboId: t.comboId, stationT: t.stationT }))));
     }
     return data;
   };
@@ -142,7 +151,7 @@ function computeStationDemandsWasm(
     const buffer = extractBeamStationBuffer3D({
       members: members.map(({ elementId, length }) => ({ elementId, length })),
       combinations: [...perCombo3D].map(([comboId, results]) => ({ comboId, elementForces: results.elementForces })),
-      numStations: 11,
+      numStations,
     });
     if (buffer) {
       const stations = new Map<number, ElementStationResult>();
@@ -161,7 +170,7 @@ function computeStationDemandsWasm(
     labeledCombos.push({ comboId, comboName: comboNameMap.get(comboId), results });
   }
 
-  const input: BeamStationInput3D = { members, combinations: labeledCombos, numStations: 11 };
+  const input: BeamStationInput3D = { members, combinations: labeledCombos, numStations };
   const grouped: GroupedBeamStationResult3D = extractBeamStationsGrouped3D(input);
 
   // Adapt WASM output → app-side StationDemandData
@@ -466,6 +475,14 @@ export function runSteelVerification(
   const verifs: SteelVerification[] = [];
   amplified ||= amplifiedByCompression([results3D]);
 
+  const ids = [...model.elements].filter(([, elem]) => {
+    const material = model.materials.get(elem.materialId), section = model.sections.get(elem.sectionId);
+    return material && section && material.fy && material.fy > 80
+      && materialFamilyOf(material as never, catalogueGradeFamily).family === 'steel'
+      && !(elem as { composite?: unknown }).composite && isDesigned((elem as { behaviour?: string }).behaviour)
+      && steelCheckerFor(section as never).implemented;
+  }).map(([id]) => id);
+  completeResultDemands(results3D, ids, stationDemands);
   for (const ef of results3D.elementForces) {
     const elem = model.elements.get(ef.elementId);
     if (!elem) continue;
@@ -768,18 +785,19 @@ export function checkVariableSteelMember(
   stations: ElementStationResult | undefined,
   lengths: { L: number; Lb: number; Kx?: number; Ky?: number; freeEnd?: boolean },
 ): SteelVerification | null {
-  if (!stations?.comboResults.length) return null;
-  const ts = [...new Set(stations.comboResults.flatMap((c) => c.stations.map((x) => x.t)))].sort((a, b) => a - b);
+  const source = stations ?? { elementId, length: lengths.L, stationTs: [], comboResults: [] };
+  ConcurrentDemand.fromStations(source);
+  const ts = [...new Set(source.comboResults.flatMap((c) => c.stations.map((x) => x.t)))].sort((a, b) => a - b);
   let worst: SteelVerification | null = null;
   for (const t of ts) {
-    const at = stations.comboResults.flatMap((c) => c.stations.filter((x) => Math.abs(x.t - t) < 1e-9));
+    const at = source.comboResults.flatMap((c) => c.stations.filter((x) => Math.abs(x.t - t) < 1e-9));
     const demand: SteelMemberDemand = maskAxialDemand({
       Nc: Math.max(0, ...at.map((x) => -x.n)), Nt: Math.max(0, ...at.map((x) => x.n)),
       MuStrong: Math.max(...at.map((x) => Math.abs(x.my))), MuWeak: Math.max(...at.map((x) => Math.abs(x.mz))),
       Vu: Math.max(...at.map((x) => Math.max(Math.abs(x.vy), Math.abs(x.vz)))),
       VuStrong: Math.max(...at.map((x) => Math.abs(x.vz))), VuWeak: Math.max(...at.map((x) => Math.abs(x.vy))),
       diagram: [],
-      concurrent: ConcurrentDemand.fromStations({ ...stations, comboResults: stations.comboResults.map(c => ({ ...c, stations: c.stations.filter(s => Math.abs(s.t - t) < 1e-9) })) }),
+      concurrent: ConcurrentDemand.fromStations({ ...source, stationTs: [t], comboResults: source.comboResults.map(c => ({ ...c, stations: c.stations.filter(s => Math.abs(s.t - t) < 1e-9) })) }),
     }, elem.behaviour as never);
     const sec = memberSectionAt(sections, elem as never, t);
     if (!sec) continue;
@@ -857,6 +875,17 @@ export function checkSteelMember(
    */
   opts: { screen?: boolean } = {},
 ): (SteelVerification & { engineRecheck: SteelEngineRecheck }) | null {
+  const concurrent = steelConcurrentDemands(demand);
+  const coverage = demandCoverage({}, concurrent);
+  const complete = CompleteDemandSet.require({ combinations: coverage.combinationIds.map(comboId => ({ comboId })),
+    members: [{ elementId, stationTs: coverage.stationTs }] }, concurrent.map(d => ({ elementId, comboId: d.comboId, stationT: d.stationT, demand: d })));
+  return checkCompleteSteelMember(complete, [elementId, demand, section, material, lengths, segment, opts]);
+}
+
+function checkCompleteSteelMember(
+  complete: CompleteDemandSet<{ elementId: number; comboId: number; stationT: number; demand: ConcurrentDemand }>,
+  [elementId, demand, section, material, lengths, segment, opts = {}]: Parameters<typeof checkSteelMember>,
+): (SteelVerification & { engineRecheck: SteelEngineRecheck }) | null {
   const { L, Lb } = lengths;
   /*
    * ── The DEMAND side of the axis mapping, which crosses the same way ──
@@ -902,7 +931,7 @@ export function checkSteelMember(
   const gaps = missingSteelInputs(section as SteelSectionData, material as SteelMaterialData);
   if (gaps.length > 0) return null;
 
-  const concurrent = steelConcurrentDemands(demand);
+  const concurrent = complete.values.map(r => r.demand);
   if (!concurrent.length) throw new Error('Concurrent steel demands are required; an envelope cannot be verified');
   const cb = new Map<string, number | undefined>();
   const paramsAt = (p: SteelDesignParams, d: ConcurrentDemand): SteelDesignParams => {

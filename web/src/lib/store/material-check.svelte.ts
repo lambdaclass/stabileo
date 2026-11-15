@@ -69,7 +69,7 @@ export function runMaterialChecks(): { checked: number } | { refused: 'noResults
   const m = modelStore.model;
   let perCombo = activePerCombo3D(), combos = activeCombinations();
   // A single solve without combinations: read as one, holding every load case.
-  const single = perCombo.size === 0 ? activeResultSet3D() : null;
+  const single = perCombo.size === 0 && combos.length === 0 ? activeResultSet3D() : null;
   if (single) {
     perCombo = new Map([[0, single]]);
     combos = [{ id: 0, name: 'solve', factors: m.loadCases.map((c) => ({ caseId: c.id, factor: 1 })) }];

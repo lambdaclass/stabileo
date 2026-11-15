@@ -1,40 +1,28 @@
+import { CompleteDemandSet, demandCoverage, type DemandCoverage, type ScopedDemand } from './complete-demand-set';
 import type { ElementStationResult } from './station-design-forces';
 import type { StationForces } from './station-forces';
 import type { AnalysisResults3D } from './types-3d';
 
-export function hasCompleteConcurrentDemand(groups: readonly (readonly unknown[] | undefined)[]): boolean {
-  return groups.length > 0 && groups.every(stations => stations !== undefined && stations.length > 0);
-}
-
-function hasCompleteConcurrentIds(expected: Iterable<number>, available: Iterable<number>): boolean {
-  const ids = new Set(available);
-  let any = false;
-  for (const id of expected) {
-    any = true;
-    if (Number.isNaN(id) || !ids.has(id)) return false;
-  }
-  return any;
-}
-
-export function requireCompleteConcurrentDemand(
-  expected: Iterable<number>,
-  available: Iterable<number>,
-  context: string,
-): void {
-  if (!hasCompleteConcurrentIds(expected, available)) {
-    throw new Error(`Incomplete concurrent demand: ${context}`);
-  }
-}
-
 export class ConcurrentDemand {
   readonly #concurrent = true;
+  readonly #complete: CompleteDemandSet<ScopedDemand>;
+  readonly #coverage: DemandCoverage;
   private constructor(
+    complete: CompleteDemandSet<ScopedDemand>,
     readonly comboId: number,
+    coverage: DemandCoverage,
     readonly comboName: string,
     readonly forces: Readonly<StationForces>,
     readonly transverseLoading: Readonly<{ My?: boolean; Mz?: boolean }>,
     readonly ends: Readonly<{ my: readonly [number, number]; mz: readonly [number, number] }>,
-  ) { Object.freeze(this); }
+  ) {
+    if (!complete.values.length) throw new TypeError('Complete concurrent demand required');
+    this.#complete = complete;
+    this.#coverage = coverage;
+    Object.freeze(this);
+  }
+
+  get coverage(): DemandCoverage { return this.#coverage; }
 
   get n(): number { return this.forces.n; }
   get my(): number { return this.forces.my; }
@@ -46,23 +34,21 @@ export class ConcurrentDemand {
   get stationX(): number { return this.forces.x; }
 
   static fromStations(result: ElementStationResult): ConcurrentDemand[] {
-    if (!hasCompleteConcurrentDemand(result.comboResults.map(c => c.stations))) {
-      throw new Error('Incomplete concurrent demand: every combination requires station results');
-    }
+    const combinations = new Map(result.comboResults.map(c => [c.comboId, { comboId: c.comboId, comboName: c.comboName }]));
+    for (const comboId of result.expectedCombinationIds ?? []) if (!combinations.has(comboId)) combinations.set(comboId, { comboId, comboName: '' });
+    const coverage = Object.freeze({ combinations: Object.freeze([...combinations.values()].map(c => Object.freeze(c))),
+      combinationIds: Object.freeze([...combinations.keys()]), stationTs: Object.freeze([...result.stationTs]) });
+    const complete = CompleteDemandSet.require({ combinations: coverage.combinations, members: [{ elementId: result.elementId, stationTs: result.stationTs }] },
+      result.comboResults.flatMap(c => c.stations.map(s => ({ elementId: result.elementId, comboId: c.comboId, stationT: s.t }))));
     return result.comboResults.flatMap(c => {
       const ordered = [...c.stations].sort((a, b) => a.t - b.t);
       const first = ordered[0]!, last = ordered[ordered.length - 1]!;
       const ends = Object.freeze({ my: Object.freeze([first.my, last.my] as [number, number]), mz: Object.freeze([first.mz, last.mz] as [number, number]) });
-      return c.stations.map(s => new ConcurrentDemand(c.comboId, c.comboName, Object.freeze({ ...s }), Object.freeze({ ...c.transverseLoading }), ends));
+      return c.stations.map(s => new ConcurrentDemand(complete, c.comboId, coverage, c.comboName, Object.freeze({ ...s }), Object.freeze({ ...c.transverseLoading }), ends));
     });
   }
 
-  static hasCompleteTuples(tuples: readonly { comboId: number }[] | undefined, required: readonly { comboId: number }[]): boolean {
-    const ids = (tuples ?? []).map(d => d.comboId);
-    return hasCompleteConcurrentIds([...required.map(d => d.comboId), ...ids], ids);
-  }
-
-  static fromTuples(tuples: readonly { comboId: number; comboName: string; forces: Readonly<StationForces> }[]): ConcurrentDemand[] {
+  static fromTuples(tuples: readonly { comboId: number; comboName: string; forces: Readonly<StationForces>; coverage?: DemandCoverage }[]): ConcurrentDemand[] {
     if (tuples.length === 0) return [];
     const combos = new Map<number, { comboId: number; comboName: string; stations: StationForces[] }>();
     for (const t of tuples) {
@@ -70,8 +56,12 @@ export class ConcurrentDemand {
       if (!c) { c = { comboId: t.comboId, comboName: t.comboName, stations: [] }; combos.set(t.comboId, c); }
       c.stations.push({ ...t.forces });
     }
-    const ends = new Map(ConcurrentDemand.fromStations({ elementId: 0, length: 0, stationTs: [], comboResults: [...combos.values()] }).map(d => [d.comboId, d.ends]));
-    return tuples.map(t => new ConcurrentDemand(t.comboId, t.comboName, Object.freeze({ ...t.forces }), Object.freeze({}), ends.get(t.comboId)!));
+    const declared = demandCoverage({}, tuples);
+    const stationTs = declared.stationTs.length ? [...declared.stationTs] : [...new Set(tuples.map(t => t.forces.t))];
+    const sources = ConcurrentDemand.fromStations({ elementId: 0, length: 0, expectedCombinationIds: declared.combinationIds, stationTs, comboResults: [...combos.values()] });
+    const ends = new Map(sources.map(d => [d.comboId, d.ends]));
+    const coverage = sources[0]!.coverage;
+    return tuples.map(t => new ConcurrentDemand(sources[0]!.#complete, t.comboId, coverage, t.comboName, Object.freeze({ ...t.forces }), Object.freeze({}), ends.get(t.comboId)!));
   }
 
   static loadingOf(ef: AnalysisResults3D['elementForces'][number] | undefined): Readonly<{ My?: boolean; Mz?: boolean }> {
@@ -103,13 +93,13 @@ export class ConcurrentDemand {
     const span = other.stationT - this.stationT;
     const w = span > 1e-9 ? (t - this.stationT) / span : 0;
     const lerp = (key: 'n' | 'my' | 'mz' | 'vy' | 'vz' | 'torsion' | 'x') => this.forces[key] + (other.forces[key] - this.forces[key]) * w;
-    return new ConcurrentDemand(this.comboId, this.comboName, Object.freeze({ t, x: lerp('x'), n: lerp('n'),
+    return new ConcurrentDemand(this.#complete, this.comboId, this.coverage, this.comboName, Object.freeze({ t, x: lerp('x'), n: lerp('n'),
       my: lerp('my'), mz: lerp('mz'), vy: lerp('vy'), vz: lerp('vz'), torsion: lerp('torsion') }), this.transverseLoading, this.ends);
   }
 
   withAxial(n: number): ConcurrentDemand {
     if (!this.#concurrent) throw new Error('Concurrent demand required');
-    return new ConcurrentDemand(this.comboId, this.comboName, Object.freeze({ ...this.forces, n }), this.transverseLoading, this.ends);
+    return new ConcurrentDemand(this.#complete, this.comboId, this.coverage, this.comboName, Object.freeze({ ...this.forces, n }), this.transverseLoading, this.ends);
   }
 
   section(axis: 'My' | 'Mz'): ConcurrentSectionDemand {

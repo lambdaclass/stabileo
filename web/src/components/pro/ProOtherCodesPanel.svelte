@@ -60,10 +60,8 @@
     try {
       const forces = direct ? directAnalysis.forces() : activePerCombo3D();
       if (!forces) { otherCodesRun.fail(); return; }
-      // Direct forces are available only when every active combination is fit for design. Linear
-      // ones only for the combinations that solved: an unstable one publishes none, and is named.
       const active = activeCombinations();
-      const combos = direct ? active : active.filter((c) => forces.has(c.id));
+      const combos = active;
       const missingNow = direct ? [] : active.filter((c) => !forces.has(c.id)).map((c) => c.id);
       // The concrete is read with the project's cover and bar steel, as the CIRSOC design reads it.
       const ctxs = memberContexts(modelStore.model as never, forces, combos, undefined, { unitK: direct, designData: otherCodesDesignData() });

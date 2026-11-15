@@ -1,3 +1,4 @@
+import { CompleteDemandSet, demandCoverage } from './complete-demand-set';
 import { ConcurrentDemand } from './concurrent-demand';
 import { getColumnCapacityKernel, columnCapacityKernelRegistered } from './column-capacity-kernel';
 import { evaluateBeamSection, evaluateBeamSections } from './codes/argentina/cirsoc201-beam-kernel';
@@ -79,6 +80,7 @@ export interface ComboStationResult {
 
 /** Full station-based results for one element across all combos. */
 export interface ElementStationResult {
+  readonly expectedCombinationIds?: readonly number[];
   elementId: number;
   length: number;
   stationTs: number[];  // the t-values used
@@ -105,6 +107,7 @@ export interface ElementDesignDemands {
   demands: GoverningDemand[];
   concurrent?: readonly ConcurrentDemand[];
   readonly expectedCombinationIds?: readonly number[];
+  readonly stationTs?: readonly number[];
   /**
    * The least compression (kN) at any station of any combination, when none is in tension.
    * Below the balance point a column's moment capacity falls with its compression, so the
@@ -279,6 +282,7 @@ export function computeBeamCriticalSections(
 
 /** Extract governing demands from station-level per-combo data. */
 export function extractGoverningDemands(esr: ElementStationResult): ElementDesignDemands {
+  const concurrent = ConcurrentDemand.fromStations(esr);
   type Cat = GoverningDemand['category'];
   const best = new Map<Cat, GoverningDemand>();
 
@@ -326,8 +330,9 @@ export function extractGoverningDemands(esr: ElementStationResult): ElementDesig
   return {
     elementId: esr.elementId,
     length: esr.length,
-    concurrent: ConcurrentDemand.fromStations(esr),
-    expectedCombinationIds: Object.freeze(esr.comboResults.map(c => c.comboId)),
+    concurrent,
+    stationTs: Object.freeze([...esr.stationTs]),
+    expectedCombinationIds: concurrent[0]!.coverage.combinationIds,
     demands: Array.from(best.values()).sort((a, b) => b.absValue - a.absValue),
     ...(leastCompression >= 0 && Number.isFinite(leastCompression) ? { leastCompression } : {}),
   };
@@ -1951,6 +1956,12 @@ export function verifyProvidedReinforcement(
     worstUtilization: 0, checkedAxes: [], strengthCheckCount: 0,
   });
   if (!provided) return emptyResult('none');
+  const suppliedTuples = stationResult ? ConcurrentDemand.fromStations(stationResult) : demands?.concurrent;
+  const coverage = demandCoverage({ combinationIds: [...(demands?.expectedCombinationIds ?? []), ...(demands?.demands.map(d => d.comboId) ?? [])],
+    stationTs: demands?.stationTs ?? stationResult?.stationTs }, suppliedTuples);
+  const complete = CompleteDemandSet.require({ combinations: coverage.combinationIds.map(comboId => ({ comboId })),
+    members: [{ elementId, stationTs: coverage.stationTs }] },
+    (suppliedTuples ?? []).map(demand => ({ elementId, comboId: demand.comboId, stationT: demand.stationT, demand })));
 
   const checks: ProvidedRebarCheck[] = [];
   const checkedAxes = new Set<string>();
@@ -2024,7 +2035,7 @@ export function verifyProvidedReinforcement(
 
   // Collect ALL force tuples from station × combo results for sweeping
   type Tuple = ConcurrentDemand;
-  const allTuples = stationResult ? ConcurrentDemand.fromStations(stationResult) : [];
+  const allTuples = complete.values.map(r => r.demand);
   const hasTuples = allTuples.length > 0;
   const M = (t: Tuple) => tupleMoment(t, axes.flexure);
 
