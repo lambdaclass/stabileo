@@ -52,8 +52,9 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
   };
   const combinations = [{ id: 1, name: 'C1', factors: [] }, { id: 2, name: 'C2', factors: [] }];
   const label = `spatial=${spatial} nonlinear=${nonlinear} compact=${compact}`;
-  for (const entry of ['auto', 'unified', 'design'] as const) it.fails(`known wrong result: #2096 complete grouped span reaches ${entry} ${label}`, () => {
+  for (const entry of ['auto', 'unified', 'design'] as const) it(`known wrong result: #2096 complete grouped span reaches ${entry} ${label}`, () => {
     const spanModel = { ...model,
+      sections: new Map([...model.sections].map(([id, s]) => [id, { ...s, rotation: 0 }])),
       nodes: new Map([1, 2, 3].map(id => [id, { id, x: 2 * (id - 1), y: 0, z: 0 }])),
       elements: new Map([1, 2].map(id => [id, { ...model.elements.get(1)!, id, nodeI: id, nodeJ: id + 1 }])),
     };
@@ -72,6 +73,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
     expect(run(demands).map(v => v.elementId)).toEqual([1, 2]);
     for (const [id, c] of contexts) {
       expect(c.demands!.elementId).toBe(id);
+      expect(c.stations!.elementId).toBe(id);
       expect(c.demands!.concurrent).toBe(contexts.get(1)!.demands!.concurrent);
     }
     const partial = new Map(demands);

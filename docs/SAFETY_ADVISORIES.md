@@ -126,3 +126,7 @@ Published with 0.6.1 (2026-11-15): [SA-2026-064](advisories/SA-2026-064-steel-cb
 and [SA-2026-068](advisories/SA-2026-068-provided-torsion-stirrups.md) (torsion stirrups).
 Re-run affected design checks; regenerate snow loads before re-solving.
 See the [release notes](releases/v0.6.1.md) for every results-change notice and known limitations.
+
+Draft 2026-11-15; fixed in PR #2173, pending merge and release:
+[SA-2026-071](advisories/SA-2026-071-incomplete-concurrent-demands.md)
+(member verdicts from incomplete concurrent demands, #2096).

@@ -281,7 +281,9 @@ export function applySpanContexts(
       ...(pieces.some((c) => c!.lateral) ? { lateral: spanLateralReading(pieces.map((c) => c!.lateral)) } : {}),
     };
     span.elements.forEach((id, index) => {
-      contexts.set(id, { ...base, elementId: id, span: { ...span, ...(name ? { label: name } : {}), index } });
+      contexts.set(id, { ...base, elementId: id,
+        stations: { ...merged, elementId: id }, demands: { ...demands, elementId: id },
+        span: { ...span, ...(name ? { label: name } : {}), index } });
     });
     done.push(span);
   }

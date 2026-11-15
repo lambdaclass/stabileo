@@ -38,6 +38,8 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-068 — 0.6.1 sürümünde düzeltildi."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-071 — Taslak 2026-11-15; PR #2173 ile düzeltildi, birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-071-incomplete-concurrent-demands.md", "label": "SA-2026-071", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -416,6 +418,7 @@ const body: PostBody = {
         ["SA-2026-066", "Mesnetler arasında enine yük varken beton Cm katsayısına uç momentlerinden azaltma uygulanabiliyordu (#2089). Narin kolon ve perdeleri, büyütülmüş momentleri ve donatıyı yeniden kontrol edin.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
         ["SA-2026-067", "Plandaki dönme üretilen kar yüklerini değiştirebiliyordu (#2093). Gerçek çatı geometrisiyle yükleri yeniden üretip analizleri ve kontrolleri tekrarlayın; eski modeli geri döndürmek sonuçları düzeltmez.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
         ["SA-2026-068", "Burulma kontrolü yetersiz tasarlanmış etriyelerle başarılı olabiliyordu (#2141). Beton kontrollerini yeniden çalıştırıp gerçek enine kapasiteyi, etriye aralığını ve burulma başarısızlıklarını inceleyin. Kontrol edilmemiş boyuna donatı, başarılı bir donatı kafesi anlamına gelmez.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
+        ["SA-2026-071", "Eleman kontrolü eksik eşzamanlı taleplerle başarılı olabiliyordu (#2096). Beton ve çelik tasarımlarını yeniden çalıştırın; birleşimleri, elemanları, istasyonları ve sertifikaları inceleyin.", "Yüksek", "Taslak 2026-11-15; PR #2173 ile düzeltildi, birleştirme ve yayın bekleniyor"],
       ]
     },
     {

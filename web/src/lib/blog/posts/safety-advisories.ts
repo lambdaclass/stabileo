@@ -45,6 +45,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Datos afectados y acciones necesarias."},
         {"k": "note", "t": "SA-2026-068 — Corregido en 0.6.1."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Datos afectados y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-071 — Borrador 2026-11-15; corregido en PR #2173, pendiente de integración y publicación."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-071-incomplete-concurrent-demands.md", "label": "SA-2026-071", "t": "Datos afectados y acciones necesarias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -121,6 +123,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-066", "El Cm del hormigón podía reducirse por los momentos extremos aun con carga transversal entre apoyos (#2089). Revisá columnas y tabiques esbeltos, momentos amplificados y armaduras.", "Alta", "Corregido en 0.6.1"],
             ["SA-2026-067", "Un giro en planta podía cambiar las cargas de nieve generadas (#2093). Regenerá las cargas con la geometría real y repetí los análisis y verificaciones; girar el modelo de vuelta no lo corrige.", "Alta", "Corregido en 0.6.1"],
             ["SA-2026-068", "La torsión podía aprobar con estribos diseñados insuficientes (#2141). Repetí las verificaciones de hormigón y revisá capacidad transversal real, separación de estribos y fallas por torsión. La armadura longitudinal sin verificar no constituye una jaula aprobada.", "Alta", "Corregido en 0.6.1"],
+            ["SA-2026-071", "La verificación podía aprobar con demandas concurrentes incompletas (#2096). Repetí los diseños de hormigón y acero y revisá combinaciones, barras, estaciones y certificados.", "Alta", "Borrador 2026-11-15; corregido en PR #2173, pendiente de integración y publicación"],
           ],
         },
         {
@@ -321,6 +324,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-068 — Fixed in 0.6.1."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-071 — Draft 2026-11-15; fixed in PR #2173, pending merge and release."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-071-incomplete-concurrent-demands.md", "label": "SA-2026-071", "t": "Affected inputs and user action."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -397,6 +402,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-066", "Concrete Cm could receive end-moment credit with transverse load between supports (#2089). Re-check slender concrete columns and walls, magnified moments and reinforcement.", "High", "Fixed in 0.6.1"],
             ["SA-2026-067", "Plan rotation could change generated snow loads (#2093). Regenerate loads using the actual roof geometry, then re-run analyses and checks; rotating an old model back is not a repair.", "High", "Fixed in 0.6.1"],
             ["SA-2026-068", "Torsion could pass with inadequate designed stirrups (#2141). Re-run concrete design checks and review actual transverse capacity, stirrup spacing and torsion failures. Unchecked longitudinal provision is not a passing cage.", "High", "Fixed in 0.6.1"],
+            ["SA-2026-071", "Member verification could pass with incomplete concurrent demands (#2096). Re-run concrete and steel designs and review combinations, members, stations and certificates.", "High", "Draft 2026-11-15; fixed in PR #2173, pending merge and release"],
           ],
         },
         {
@@ -597,6 +603,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-068 — Corrigido em 0.6.1."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-071 — Rascunho 2026-11-15; corrigido no PR #2173, aguardando integração e lançamento."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-071-incomplete-concurrent-demands.md", "label": "SA-2026-071", "t": "Entradas afetadas e ações necessárias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -673,6 +681,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-066", "O Cm do concreto podia receber redução pelos momentos de extremidade com carga transversal entre apoios (#2089). Verifique pilares e paredes esbeltos, momentos amplificados e armaduras.", "Alta", "Corrigido em 0.6.1"],
             ["SA-2026-067", "A rotação em planta podia mudar as cargas de neve geradas (#2093). Gere novamente as cargas com a geometria real e refaça análises e verificações; girar o modelo de volta não o corrige.", "Alta", "Corrigido em 0.6.1"],
             ["SA-2026-068", "A torção podia passar com estribos dimensionados insuficientes (#2141). Refaça as verificações de concreto e revise capacidade transversal real, espaçamento dos estribos e falhas por torção. Armadura longitudinal não verificada não constitui uma gaiola aprovada.", "Alta", "Corrigido em 0.6.1"],
+            ["SA-2026-071", "A verificação podia aprovar com solicitações simultâneas incompletas (#2096). Refaça os projetos de concreto e aço e revise combinações, membros, estações e certificados.", "Alta", "Rascunho 2026-11-15; corrigido no PR #2173, aguardando integração e lançamento"],
           ],
         },
         {
