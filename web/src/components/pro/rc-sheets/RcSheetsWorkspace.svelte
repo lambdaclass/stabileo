@@ -27,6 +27,7 @@
   import RcPunchingSvg from './RcPunchingSvg.svelte';
   import RcResize from './RcResize.svelte';
   import RcScheduleView from './RcScheduleView.svelte';
+  import RcPlansExport from './RcPlansExport.svelte';
   import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { designData } from '../../../lib/store/design-data';
   import { modelStore } from '../../../lib/store';
@@ -38,6 +39,7 @@
   let openKey = $state<string | null>(null);
   let slabView = $state<'panels' | 'plan'>('panels');
   let schedule = $state(false);
+  let plansOpen = $state(false);
 
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const EMPTY: SheetRows = { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], code: '', basis: 'combinations', combos: 0 };
@@ -66,7 +68,9 @@
     document.body.appendChild(node);
     return { destroy() { node.remove(); } };
   }
-  function onkey(e: KeyboardEvent) { if (e.key === 'Escape') onclose(); }
+  function onkey(e: KeyboardEvent) { if (e.key !== 'Escape') return; if (plansOpen) plansOpen = false; else onclose(); }
+  const openRow = $derived(openKey ? shown.find((r) => r.key === openKey) : undefined);
+  const drawable = $derived(rows.line.length + rows.column.length + rows.wall.length + rows.slabPlan.length > 0);
 </script>
 
 <svelte:window onkeydown={onkey} />
@@ -95,11 +99,15 @@
       </label>
       <label class="rcw-ctl" title={t('rcSheets.onlyFailing')}><input type="checkbox" bind:checked={failingOnly} aria-label={t('rcSheets.onlyFailing')} /> <span class="wide">{t('rcSheets.onlyFailing')}</span><span class="narrow">✗</span></label>
       <button type="button" class="rcs-btn" title={t('rcSheets.adoptAll')} onclick={() => adoptAll(shown.filter((r): r is Exclude<ListRow, { family: 'punching' }> => r.family !== 'punching'))} disabled={!shown.length}><span class="wide">{t('rcSheets.adoptAll')}</span><span class="narrow">{t('rcSheets.adoptAllShort')}</span></button>
+      <button type="button" class="rcs-btn" title={t('rcSheets.plans.export')} onclick={() => (plansOpen = true)} disabled={!sheetsRun.rows || !drawable} data-testid="rc-plans-export"><span class="wide">{t('rcSheets.plans.export')}</span><span class="narrow">{t('rcSheets.plans.exportShort')}</span></button>
       <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} disabled={!rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">{t('rcSheets.exportShort')}</span></button>
     </div>
     <button type="button" class="rcs-btn rcw-close" onclick={onclose} aria-label={t('rcSheets.close')} data-testid="rc-close">✕</button>
   </header>
 
+  {#if plansOpen}
+    <RcPlansExport {rows} current={openRow && openRow.family !== 'punching' ? { key: openRow.key, name: openRow.name } : null} onclose={() => (plansOpen = false)} />
+  {/if}
   <div class="rcw-body">
     {#if sheetsRun.progress}
       <div class="rcw-empty"><RcSheetsProgress progress={sheetsRun.progress} /></div>

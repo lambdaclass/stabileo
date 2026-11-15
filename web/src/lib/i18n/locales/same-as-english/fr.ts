@@ -545,6 +545,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'pt.ui.systemSummary',
   'rcSheets.country.EU',
   'rcSheets.g.torsion',
+  'rcSheets.plans.tb.date',
   'rcSheets.s.punchPosition',
   'rcSheets.s.section',
   'rcSheets.s.tu',
