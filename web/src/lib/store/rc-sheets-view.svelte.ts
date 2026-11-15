@@ -33,7 +33,7 @@ const setProgress = (p: SheetProgress | null) => { sheetsProgress.now = p; };
 
 function stampNow(): Stamp {
   void modelStore.designData;
-  const { adopted, ...sheets } = rcSheetsData();
+  const { adopted, edited: _edited, adoptedCode: _adoptedCode, ...sheets } = rcSheetsData();
   const { rcSheets: _, ...rest } = designData() as { rcSheets?: unknown };
   return {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
