@@ -1819,7 +1819,7 @@ mod tests {
 
     #[test]
     fn phase_cost_work_is_linear_for_issue_1760() {
-        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin");
+        let bytes = include_bytes!("../../../testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin");
         let input = serde_json::from_slice(&bytes[2..]).unwrap();
         assert_phase_cost_work(|| {
             let certificate = super::super::plastic_3d::certify_collapse_3d(&input, None);
@@ -1842,7 +1842,7 @@ mod tests {
 
     #[test]
     fn mechanism_resource_refusal_is_preserved() {
-        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/issue-1261.bin");
+        let bytes = include_bytes!("../../../testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1261.bin");
         let input = serde_json::from_slice(&bytes[2..]).unwrap();
         let mut model = build_model(&input).unwrap();
         model.elems[0].dx = Q::from_integer(num_bigint::BigInt::one() << (super::super::plastic_budget::MAX_EXACT_BITS as usize + 1));
@@ -1857,7 +1857,7 @@ mod tests {
 
     #[test]
     fn lp_work_matches_initial_samples() {
-        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/issue-1261.bin");
+        let bytes = include_bytes!("../../../testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1261.bin");
         let input = serde_json::from_slice(&bytes[2..]).unwrap();
         let original = build_model(&input).unwrap();
         for degree in 0..4 {

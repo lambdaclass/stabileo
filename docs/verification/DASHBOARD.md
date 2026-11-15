@@ -120,7 +120,7 @@ One row per release, from the snapshots in [`releases/`](releases/): each is mea
 | opensees | [2026-10-18](https://github.com/lambdaclass/stabileo/actions/runs/39099586668) | 4274 | 3234 | 3233 | 1 | ill_conditioned 524, stabileo_failed 427, unloaded 3, unstable 13, unsupported 73 |
 | pynite | [2026-10-18](https://github.com/lambdaclass/stabileo/actions/runs/39097987226) | 1114 | 760 | 760 | 0 | ill_conditioned 222, stabileo_failed 11, unsupported 121 |
 
-*Compared* counts models where both programs produced a comparable answer (ok, mismatch, or known); ill-conditioned, unsupported and refused models are reported but not compared ([statuses](../../tools/differential/README.md#statuses)).
+*Compared* counts models where both programs produced a comparable answer (ok, mismatch, or known); ill-conditioned, unsupported and refused models are reported but not compared ([statuses](../../testing/differential/README.md#statuses)).
 
 ### Feature-matrix cells by status
 

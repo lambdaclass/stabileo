@@ -1,5 +1,5 @@
 //! Regressions found by differential testing against OpenSees
-//! (tools/opensees/compare.py). Each case is checked against a closed-form
+//! (testing/opensees/compare.py). Each case is checked against a closed-form
 //! answer, which OpenSees also reproduces.
 
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};

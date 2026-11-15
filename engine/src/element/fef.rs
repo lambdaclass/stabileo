@@ -23,7 +23,7 @@
 // (N = transverse deflection v, ψ = section rotation, the rotational DOF.)
 // A transverse force loads by N, a concentrated couple by ψ. For φ = 0 these
 // are the cubic Hermite functions and ψ = N'. Integrated against a load, the
-// φ terms give the closed form (tools/opensees/README.md)
+// φ terms give the closed form (testing/opensees/README.md)
 //   V' = (V + φ·R)/(1+φ),   M_i' = (M_i + φ/2·(M_i − M_j))/(1+φ),
 //   M_j' = (M_j − φ/2·(M_i − M_j))/(1+φ),
 // with R the simply supported reactions; uniform full-length loads are

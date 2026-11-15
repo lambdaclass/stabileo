@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--reports", type=Path)
     parser.add_argument("--summary", type=Path)
     args = parser.parse_args()
-    corpus = Path("engine/fuzz/corpus-regressions/plastic-lp-budget")
+    corpus = Path("testing/fuzz/corpus-regressions/plastic-lp-budget")
     files = sorted(corpus.glob("issue-*.bin"))
     assert len(files) == 14
     summary = []
@@ -22,7 +22,7 @@ def main():
         if args.reports:
             result = json.loads((args.reports / f"after-engine-{number}.json").read_text())
         else:
-            result = module.replay(Path("engine/fuzz/target/release/examples/plastic_replay"),
+            result = module.replay(Path("testing/fuzz/target/release/examples/plastic_replay"),
                                    artifact, mode="engine", repeats=3)
         assert result["failure"] is None, result
         assert result["exit_code"] == 0, result

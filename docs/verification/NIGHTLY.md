@@ -55,7 +55,7 @@ is a harness error, not a successful comparison.
 | `metamorphic-nightly` | Full corpus plus 1,000 random cases **per dimension** on own runners; 200 per dimension hosted; exhaustive invariants/analyses; test command capped at 110 min | 150 min |
 | `random-models` | 1,000 valid generated models, alternating 2D/3D attempts; 100 hosted; two-hour work budget, 30 min hosted | 150 min |
 | `properties` | 10,000 cases per property, 1,000 hosted; command budget 2 h / 30 min | 150 min |
-| `opensees-diff` | Fixtures plus 4,160 random analysis cases, in five parallel parts (frames, buckling, pdelta, dynamics, shells); buckling runs four at a time because models with axial span loads are re-compared on meshes (see tools/opensees/README.md) | 45 min per part |
+| `opensees-diff` | Fixtures plus 4,160 random analysis cases, in five parallel parts (frames, buckling, pdelta, dynamics, shells); buckling runs four at a time because models with axial span loads are re-compared on meshes (see testing/opensees/README.md) | 45 min per part |
 | `codeaster-diff` | Fixtures plus 900 random 3D models | 60 min |
 | `fuzz` | Four independent targets, each 2 h own / 30 min hosted, 2 GiB RSS and 60 s per input | 180 min each |
 | `mutants` | Four of 512 shards, each capped at 120 min | 150 min each |
@@ -74,7 +74,7 @@ limits; report reduction has its own 15-minute step cap. Artifacts upload with
 The test files are modules of a few shared binaries (`engine/tests/<binary>/main.rs`), so
 `--test <binary>` alone would run every module in it for each mutant: from 2026-10-24 to -28
 that doubled the baseline (155 s to ~400 s, a missed mutant ~800 s) and no shard finished.
-`scripts/mutants.sh` passes nextest a filterset (`-E`) that keeps the run to the listed files.
+`testing/scripts/mutants.sh` passes nextest a filterset (`-E`) that keeps the run to the listed files.
 A shard fails whenever `mutants.out/missed.txt` is not empty, whatever cargo-mutants' exit code
 (it reports timeouts, 3, over missed mutants, 2).
 
@@ -95,7 +95,7 @@ any shard has none from the last 16 days
 
 ## Random models and findings
 
-`scripts/nightly-models.py` uses the existing `solve_json --gen2d/--gen3d`
+`testing/scripts/nightly-models.py` uses the existing `solve_json --gen2d/--gen3d`
 generators. The default base seed is UTC `YYYYMMDD`; candidate seeds are
 `base * 100000 + candidate_index`. It prints and stores the base seed, counts
 valid/rejected models and requires the requested number of solvable models
@@ -186,7 +186,7 @@ Build once and locate the exact metamorphic executable (honors target overrides)
 cargo build --release --example solve_json
 cargo test --release --test metamorphic --no-run --message-format=json > /tmp/nightly-build.jsonl
 export NIGHTLY_REPLAY_BIN="$(python3 -c 'import json; rows=[json.loads(l) for l in open("/tmp/nightly-build.jsonl")]; print(next(r["executable"] for r in rows if r.get("executable") and r.get("target",{}).get("name")=="metamorphic"))')"
-python3 scripts/nightly-models.py --model model.json --seed SEED_FROM_ISSUE --check metamorphic --count 1
+python3 testing/scripts/nightly-models.py --model model.json --seed SEED_FROM_ISSUE --check metamorphic --count 1
 ```
 
 Use the issue's `--check opensees` or `--check codeaster` for reference failures;

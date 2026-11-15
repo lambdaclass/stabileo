@@ -7,7 +7,7 @@ for both, so the combined API returns its lower bound with a warning.
 
 ## Reachable reproducer
 
-[unconservative-cantilever.bin](../../engine/fuzz/corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin)
+[unconservative-cantilever.bin](../../testing/fuzz/corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin)
 is derived from the existing `good-cantilever.bin` by setting its nodal load's
 `fy` to zero and `fz` to -0.1. Its selector is the combined checked 3D API.
 No hidden solver-state change or injected fault is involved. The complete model,
@@ -43,7 +43,7 @@ returned factor equals the lower bound exactly; no tolerance is used to accept i
 
 ```sh
 make shell
-cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --lib plastic::tests::issue_1760_above_interval_roundoff_returns_certified_lower -- --exact
+cargo test --locked --release --manifest-path testing/fuzz/Cargo.toml --lib plastic::tests::issue_1760_above_interval_roundoff_returns_certified_lower -- --exact
 ```
 
 The regression runs under the repository’s pinned Rust 1.99.1. The test

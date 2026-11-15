@@ -347,7 +347,7 @@ fn seeded_failure_reaches_nightly_findings() {
         let output = std::process::Command::new("python3")
             .arg("-B")
             .arg("-I")
-            .arg(root.join("scripts/nightly-models.py"))
+            .arg(root.join("testing/scripts/nightly-models.py"))
             .arg("--model")
             .arg(root.join("engine/tests/fixtures/ex-cantilever-input.json"))
             .args([

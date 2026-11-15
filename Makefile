@@ -308,7 +308,7 @@ test.engine.differential.full:
 	$(NEXTEST) --cargo-profile release --test differential --run-ignored all
 
 mutants.engine:
-	$(NIX_RUN) env -u RUSTC_WRAPPER MUTANTS_SCOPE=$(or $(SCOPE),all) CARGO_INCREMENTAL=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 scripts/mutants.sh $(ARGS)
+	$(NIX_RUN) env -u RUSTC_WRAPPER MUTANTS_SCOPE=$(or $(SCOPE),all) CARGO_INCREMENTAL=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 testing/scripts/mutants.sh $(ARGS)
 
 mutants.safety.report:
 	python3 -I scripts/mutants-safety.py report $(or $(OUT),mutants.out) --json mutants-safety-report.json
@@ -495,11 +495,11 @@ check.issue-reproducers:
 	python3 -I scripts/issue-reproducers.py flip-check --base $(BASE) --head $(HEAD) --body-file $(BODY) $(if $(LABELS),--labels-json $(LABELS))
 
 test.nightly-scripts:
-	python3 -B -I scripts/tests/test_nightly.py
+	python3 -B -I testing/scripts/tests/test_nightly.py
 	python3 -B -I scripts/tests/test_replay_findings.py
 	python3 -B -I scripts/tests/test_mutants_plan.py
-	python3 -B -I tools/opensees/test_gen_models.py
-	python3 -B -I tools/opensees/test_compare.py
+	python3 -B -I testing/opensees/test_gen_models.py
+	python3 -B -I testing/opensees/test_compare.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/production-health.test.mjs
@@ -508,14 +508,14 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
+test.ci-scripts: test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
 	python3 -B -I scripts/tests/test_check_containment.py
-	python3 -B -I scripts/tests/test_mutants_safety.py
+	python3 -B -I testing/scripts/tests/test_mutants_safety.py
 	python3 -B -I scripts/tests/test_retry_infra.py
-	python3 -B -I scripts/tests/test_kani_shards.py
+	python3 -B -I testing/scripts/tests/test_kani_shards.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
 	python3 -B -I scripts/tests/test_release_step.py
 	python3 -B -I scripts/tests/test_changelog.py
@@ -827,10 +827,10 @@ wasm.research.biggins:
 .PHONY: build.engine.plastic-budget test.engine.plastic-budget replay.engine.plastic-budget test.engine.plastic-budget-watchdog
 
 build.engine.plastic-budget:
-	$(NIX_RUN) cargo build --locked --release --manifest-path engine/fuzz/Cargo.toml --example plastic_replay --target-dir engine/fuzz/target -j 2
+	$(NIX_RUN) cargo build --locked --release --manifest-path testing/fuzz/Cargo.toml --example plastic_replay --target-dir testing/fuzz/target -j 2
 
 test.engine.plastic-budget:
-	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --lib plastic::tests -- --test-threads=1 $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test --locked --release --manifest-path testing/fuzz/Cargo.toml --lib plastic::tests -- --test-threads=1 $(if $(IGNORED),--ignored)
 
 replay.engine.plastic-budget: build.engine.plastic-budget
 	$(NIX_RUN) python3 -I scripts/replay-plastic-budget.py $(FILE) --mode $(or $(MODE),gate) $(if $(SECONDS),--seconds $(SECONDS)) $(if $(REPEATS),--repeats $(REPEATS))
@@ -844,21 +844,21 @@ test.engine.plastic-replay: build.engine.plastic-budget
 
 .PHONY: build.engine.plastic-budget-asan
 build.engine.plastic-budget-asan:
-	$(NIX_RUN) env RUSTC_BOOTSTRAP=1 RUSTFLAGS=-Zsanitizer=address cargo build --locked --release --manifest-path engine/fuzz/Cargo.toml --example plastic_replay --target x86_64-unknown-linux-gnu --target-dir engine/fuzz/target/asan -j 2
+	$(NIX_RUN) env RUSTC_BOOTSTRAP=1 RUSTFLAGS=-Zsanitizer=address cargo build --locked --release --manifest-path testing/fuzz/Cargo.toml --example plastic_replay --target x86_64-unknown-linux-gnu --target-dir testing/fuzz/target/asan -j 2
 
 .PHONY: test.engine.plastic-resource replay.engine.plastic-budget-asan
 test.engine.plastic-resource: build.engine.plastic-budget
-	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --test plastic_resource -j 2 -- $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test --locked --release --manifest-path testing/fuzz/Cargo.toml --test plastic_resource -j 2 -- $(if $(IGNORED),--ignored)
 
 replay.engine.plastic-budget-asan: build.engine.plastic-budget-asan
-	$(NIX_RUN) python3 -I scripts/replay-plastic-budget.py $(FILE) --binary engine/fuzz/target/asan/x86_64-unknown-linux-gnu/release/examples/plastic_replay --asan --memory-mib 2048 --mode $(or $(MODE),gate) $(if $(SECONDS),--seconds $(SECONDS)) $(if $(REPEATS),--repeats $(REPEATS))
+	$(NIX_RUN) python3 -I scripts/replay-plastic-budget.py $(FILE) --binary testing/fuzz/target/asan/x86_64-unknown-linux-gnu/release/examples/plastic_replay --asan --memory-mib 2048 --mode $(or $(MODE),gate) $(if $(SECONDS),--seconds $(SECONDS)) $(if $(REPEATS),--repeats $(REPEATS))
 
 .PHONY: test.engine.plastic-budget-corpus check.engine.plastic-fuzz
 test.engine.plastic-budget-corpus: build.engine.plastic-budget
 	$(NIX_RUN) python3 -B -I scripts/plastic-budget-corpus.py
 
 check.engine.plastic-fuzz:
-	$(NIX_RUN) cargo check --locked --release --manifest-path engine/fuzz/Cargo.toml --bin json_plastic -j 2
+	$(NIX_RUN) cargo check --locked --release --manifest-path testing/fuzz/Cargo.toml --bin json_plastic -j 2
 
 .PHONY: test.engine.plastic-costs
 test.engine.plastic-costs:
@@ -866,14 +866,14 @@ test.engine.plastic-costs:
 
 .PHONY: test.engine.plastic-wasm
 test.engine.plastic-wasm: wasm
-	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/over-budget-grid.bin 'dense storage bytes'
-	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin certified-lower
-	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin certified-lower-above
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs testing/fuzz/corpus-regressions/plastic-lp-budget/over-budget-grid.bin 'dense storage bytes'
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin certified-lower
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs testing/fuzz/corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin certified-lower-above
 
 .PHONY: check.engine.plastic-workflow
 check.engine.plastic-workflow:
 	$(NIX_RUN) actionlint .github/workflows/nightly.yml
-	$(NIX_RUN) python3 -B -I scripts/tests/test_nightly.py Workflow.test_raw_artifact_upload_and_immutable_action
+	$(NIX_RUN) python3 -B -I testing/scripts/tests/test_nightly.py Workflow.test_raw_artifact_upload_and_immutable_action
 
 .PHONY: test.engine.plastic-samples
 test.engine.plastic-samples:
@@ -1209,3 +1209,11 @@ replay.advisory.steel-cb:
 .PHONY: test.replay-steel-cb
 test.replay-steel-cb:
 	$(NIX_RUN) python3 -B -I scripts/tests/test_steel_cb_replay.py
+
+.PHONY: check.testing-map test.testing-map
+
+check.testing-map:
+	python3 -B -I scripts/check-testing-map.py
+
+test.testing-map:
+	python3 -B -I testing/scripts/tests/test_testing_map.py

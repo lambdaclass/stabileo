@@ -11,7 +11,7 @@ spec.loader.exec_module(checks)
 class EngineReplay(checks.SeededReplay):
     @classmethod
     def setUpClass(cls):
-        cls.binary = Path("engine/fuzz/target/release/examples/plastic_replay")
+        cls.binary = Path("testing/fuzz/target/release/examples/plastic_replay")
 
 
 if __name__ == "__main__":

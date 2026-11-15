@@ -387,7 +387,7 @@ fn validation_warping_torsion_release_kills_twist_transmission() {
 ///   ω² = (π/L)²·(GJ + ECw·(π/L)²) / (ρIp + ρCw·(π/L)²).
 /// The warping DOF used to carry a lumped ρ·Ip·L/2 — a polar mass moment on a rate-of-twist DOF,
 /// dimensionally a rotation's inertia — beside the linear-twist torsion mass of the 12×12.
-/// Found while checking the mass matrices against tools/symbolic.
+/// Found while checking the mass matrices against testing/symbolic.
 #[test]
 fn validation_warping_fork_beam_torsional_frequency() {
     use dedaliano_engine::solver::modal;

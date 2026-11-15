@@ -125,7 +125,7 @@ cargo test --test derivations derivation_mass_geometric_dynamics:: -- --include-
 ```
 
 To regenerate the symbolic test, see [SYMBOLIC.md](../verification/SYMBOLIC.md)
-(`tools/symbolic/gen.py --check`).
+(`testing/symbolic/gen.py --check`).
 
 ## Reporting
 
