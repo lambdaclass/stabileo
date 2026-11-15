@@ -687,7 +687,7 @@ export async function declareBeamsNotLateral(page: Page): Promise<void> {
  */
 const DESK_MENU: Record<string, string> = {
   stairs: 'desk-mode-piece', joint: 'desk-mode-piece', elements: 'desk-mode-piece',
-  fire: 'desk-menu-specialties', materials: 'desk-menu-specialties',
+  seismic: 'desk-menu-specialties', fire: 'desk-menu-specialties', materials: 'desk-menu-specialties',
   collab: 'desk-menu-project', arch: 'desk-menu-project', site: 'desk-menu-project',
 };
 export async function deskTab(page: Page, tab: string): Promise<void> {

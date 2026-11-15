@@ -573,6 +573,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'section.modal.rotation',
   'section.sheet.identity',
   'section.sheet.limitations',
+  'seisDes.factor.moment',
   'sel.dowel.D',
   'sel.dowel.Fem',
   'sel.dowel.Fes',

@@ -9,12 +9,13 @@
  */
 import { uiStore } from './ui.svelte';
 
-export type DeskTab = 'designData' | 'steel' | 'connections' | 'codes' | 'joint' | 'stairs' | 'elements' | 'sheets' | 'materials' | 'fire' | 'collab' | 'arch' | 'site';
+export type DeskTab = 'designData' | 'steel' | 'connections' | 'codes' | 'joint' | 'stairs' | 'elements' | 'sheets' | 'seismic' | 'materials' | 'fire' | 'collab' | 'arch' | 'site';
 
 /**
  * How the desk's places are grouped: the project's design data, the steel (its profiles and its
  * connections), the check under another code, the pieces that are not members, the drawings, the
- * specialties that act on the whole building, and the project's own surfaces.
+ * specialties that act on the whole building (the seismic data the reinforcement sheets read among
+ * them), and the project's own surfaces.
  */
 export const DESK_GROUPS = {
   prepare: ['designData'],
@@ -22,7 +23,7 @@ export const DESK_GROUPS = {
   codes: ['codes'],
   piece: ['joint', 'stairs', 'elements'],
   documents: ['sheets'],
-  specialties: ['fire', 'materials'],
+  specialties: ['seismic', 'fire', 'materials'],
   project: ['collab', 'arch', 'site'],
 } as const satisfies Record<string, readonly DeskTab[]>;
 export type DeskGroup = keyof typeof DESK_GROUPS;

@@ -31,6 +31,7 @@
   import DeskOtherCodes from './DeskOtherCodes.svelte';
   import JointDeskView from './joint/JointDeskView.svelte';
   import MaterialsEditor from './materials/MaterialsEditor.svelte';
+  import SeismicEditor from './seismic/SeismicEditor.svelte';
   import StairsEditor from './stairs/StairsEditor.svelte';
   import ElementsEditor from './elements/ElementsEditor.svelte';
   import FireEditor from './fire/FireEditor.svelte';
@@ -118,6 +119,7 @@
         {:else if deskUi.tab === 'codes'}<DeskOtherCodes />
         {:else if deskUi.tab === 'joint'}<JointDeskView />
         {:else if deskUi.tab === 'materials'}<MaterialsEditor />
+        {:else if deskUi.tab === 'seismic'}<SeismicEditor />
         {:else if deskUi.tab === 'stairs'}<StairsEditor />
         {:else if deskUi.tab === 'elements'}<ElementsEditor />
         {:else if deskUi.tab === 'fire'}<FireEditor />

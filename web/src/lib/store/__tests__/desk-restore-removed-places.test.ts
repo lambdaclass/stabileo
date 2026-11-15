@@ -6,7 +6,7 @@ const saved = (tab: string): DeskViewState => ({
 });
 
 describe('a design tab saved on a place that no longer exists', () => {
-  it.each(['detailing', 'documents', 'listings', 'plan', 'levels', 'list', 'prepare', 'frame', 'column', 'slab', 'footing', 'seismic', 'budget', 'report'])('restores %s onto the steel profiles', (tab) => {
+  it.each(['detailing', 'documents', 'listings', 'plan', 'levels', 'list', 'prepare', 'frame', 'column', 'slab', 'footing', 'budget', 'report'])('restores %s onto the steel profiles', (tab) => {
     deskUi.restore(saved(tab), false);
     expect(deskUi.tab).toBe('steel');
   });
