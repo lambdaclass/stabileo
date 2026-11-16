@@ -55,22 +55,12 @@ function projectionLoads(
   for (const e of model.elements.values()) {
     if (!ids.has(e.id)) continue;
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-    const dx = b.x - a.x, dy = b.y - a.y, dz = Z(b) - Z(a);
-    const L = Math.hypot(dx, dy, dz), Lh = Math.hypot(dx, dy);
+    const L = Math.hypot(b.x - a.x, b.y - a.y, Z(b) - Z(a));
     for (const piece of profile.memberLoads(e.id)) {
       const { q: pI, qJ: pJ } = piece;
       if (!(pI > 0 || pJ > 0) || L < 1e-9) continue;
-      const cos = Lh / L;
       const wI = pI * tributaryWidth, wJ = pJ * tributaryWidth;
-      distributed.push({ elementId: e.id, ...(piece.a === 0 && piece.b === L ? {} : { a: piece.a, b: piece.b }), q: -wI * cos * cos, ...(Math.abs(wJ - wI) > 1e-9 ? { qJ: -wJ * cos * cos } : {}) });
-      const total = ((wI + wJ) / 2) * (piece.b - piece.a) * cos;
-      const ex = [dx / L, dy / L, dz / L];
-      const fAx = -total * ex[2]!;
-      if (Math.abs(fAx) > 1e-9) {
-        for (const id of [e.nodeI, e.nodeJ]) {
-          nodal.push({ nodeId: id, fx: (fAx / 2) * ex[0]!, fy: (fAx / 2) * ex[1]!, fz: (fAx / 2) * ex[2]! });
-        }
-      }
+      distributed.push({ elementId: e.id, ...(piece.a === 0 && piece.b === L ? {} : { a: piece.a, b: piece.b }), q: -wI, ...(Math.abs(wJ - wI) > 1e-9 ? { qJ: -wJ } : {}), frame: 'projected' });
     }
   }
   return { distributed, nodal };

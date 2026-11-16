@@ -1,3 +1,4 @@
+import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
 import { mesh, transform } from './snow-surface-round2-fixture';
 import { snow, pressure, regulations } from './snow-roof-plane-fixture';
@@ -61,7 +62,7 @@ for (const splits of [1, 2, 3]) for (const mode of ['projected', 'width', 'panel
     const cos2 = mode === 'projected' ? 1 / (1 + 0.2 ** 2) : 1;
     for (const [k, c] of cases.entries()) for (const e of model.elements.values()) {
       const p = (e.id <= splits) === (k === 0) ? expected.unbalanced!.windward : expected.unbalanced!.leeward;
-      expect(pressure(c.distributed, e.id)).toBeCloseTo(p * cos2, 10);
+      expect(pressure(mode === 'projected' ? transverseSnowLoads(model, c.distributed) : c.distributed, e.id)).toBeCloseTo(p * cos2, 10);
     }
   });
 }

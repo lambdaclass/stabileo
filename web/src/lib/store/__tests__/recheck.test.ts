@@ -92,7 +92,7 @@ describe('recheckStore', () => {
     };
     const expected = [
       'generated-area-loads-headroom', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
-      'snow-flat-frame', 'snow-local-boundaries', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-quadratic-intensity',
+      'snow-flat-frame', 'snow-local-boundaries', 'snow-member-loading', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-quadratic-intensity',
       'snow-ridge-mesh', 'snow-ridge-orientations', 'snow-roof-connectivity',
       'snow-roof-rotation', 'snow-roof-step', 'snow-surface-regions', 'snow-surface-support',
     ];

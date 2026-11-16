@@ -37,6 +37,18 @@ This is a main-source replay; historical release binaries were not assessed.
 Default tributary loading already diagnoses overlapping roof tributaries for
 this witness; that diagnostic is retained.
 
+The same scope includes an unsplit rafter (0,0,3) → (8,0,7) above the
+separate lower panel [5,7] × [−1,1] at z=4. On origin/main `e6cf6cb0a`,
+its local height over the panel is 6, but minimum-end elevation coverage
+misclassifies the lower panel as roof. With synthetic floor/roof pressures
+1/3, the area-4 panel receives 12 instead of 4. The width equivalent
+(5,0,4) → (7,0,4), width 1, receives 6 instead of 2 and one lower snow
+load without refusal or layout warning. Panel-mode snow instead explicitly
+refuses with `snow.refused.roofPlane`; that refusal is not a silent snow
+result. Local-height coverage corrects both area-load classifications.
+These synthetic witness pressures are test inputs, not prescribed code values.
+Historical releases were not assessed for this case.
+
 ## How to tell if your model is affected
 
 Review generated snow with explicit roof panels, especially eave panels below

@@ -51,6 +51,21 @@ export function snowDistributedResultant(model: Model, loads: Output['cases'][nu
   }, [0, 0]);
 }
 
+type MemberInterval = { a: number; b: number; q: number; qJ: number };
+
+export function memberResponse(intervals: MemberInterval[], length: number, station: number) {
+  const integrate = (weight: (x: number) => number, from: number) => intervals.reduce((sum, d) => {
+    const lo = Math.max(from, d.a), hi = d.b;
+    if (hi <= lo) return sum;
+    const mid = (lo + hi) / 2, half = (hi - lo) / 2;
+    return sum + half * [-Math.sqrt(3 / 5), 0, Math.sqrt(3 / 5)].reduce((v, t, k) => {
+      const x = mid + half * t, q = d.q + (d.qJ - d.q) * (x - d.a) / (d.b - d.a);
+      return v + [5 / 9, 8 / 9, 5 / 9][k]! * q * weight(x);
+    }, 0);
+  }, 0);
+  return [integrate(() => 1, station), integrate(x => x - station, station), integrate(x => x, 0), integrate(x => x * x * (3 * length - x) / 6, 0)];
+}
+
 export function assertSnowRemeshInvariant(model: Model, subdivisions: ReadonlyMap<number, number>, generate: (model: Model) => Output) {
   const base = generate(model), refined = remeshSnowRoof(model, subdivisions), out = generate(refined.model);
   expect(out.result.refused).toBe(base.result.refused);
@@ -78,6 +93,17 @@ export function assertSnowRemeshInvariant(model: Model, subdivisions: ReadonlyMa
       const expected = snowDistributedResultant(model, reference.distributed, new Set([source]), origin, direction, region);
       const actual = snowDistributedResultant(refined.model, c.distributed, ids, origin, direction, region);
       for (const [j, value] of actual.entries()) expect(value, `roof region ${region}, edge ${source}, resultant ${j}, case ${k}`).toBeCloseTo(expected[j]!, 10);
+    }
+    for (const source of model.elements.keys()) {
+      const e = model.elements.get(source)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+      const length = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
+      const referenceIntervals = reference.distributed.filter(d => d.elementId === source).map(d => ({ a: d.a ?? 0, b: d.b ?? length, q: d.q, qJ: d.qJ ?? d.q }));
+      const actualIntervals = refined.segments.filter(s => s.source === source).flatMap(s => c.distributed.filter(d => d.elementId === s.id).map(d => ({ a: s.from * length + (d.a ?? 0), b: s.from * length + (d.b ?? (s.to - s.from) * length), q: d.q, qJ: d.qJ ?? d.q })));
+      for (const station of [0.1, 0.3, 0.6, 0.9]) {
+        const expected = memberResponse(referenceIntervals, length, station * length);
+        const actual = memberResponse(actualIntervals, length, station * length);
+        for (const [j, value] of actual.entries()) expect(value, `carrier ${source}, case ${k}, station ${station}, shear/moment/axial displacement/deflection ${j}`).toBeCloseTo(expected[j]!, 10);
+      }
     }
     for (const s of refined.segments) for (const t of [0.125, 0.375, 0.625, 0.875]) {
       const refinedLoads = c.distributed.map(d => ({ ...d, b: d.b ?? (s.to - s.from) * s.length }));

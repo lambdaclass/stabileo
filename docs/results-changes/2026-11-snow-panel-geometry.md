@@ -123,3 +123,12 @@ analysis method or native/WASM selection; there is no separate native generation
 implementation. The existing broad `snow-panel-geometry` registry entry covers
 this corrected classification within the same unmerged PR. No result baseline,
 engineering tolerance or assertion is relaxed.
+
+## Connected footprint correction in PR #2197 round 5
+
+Own-roof containment uses the union of panels at the eave elevation. The
+complete run must stay inside one connected footprint, including its holes
+and concavities, rather than inside one artificial panel. Local-height
+coverage over separate lower panels remains unchanged. See the
+[member-loading record](2026-11-snow-member-loading.md) for the supplied
+adjacent-panel witness and the member-response regression evidence.

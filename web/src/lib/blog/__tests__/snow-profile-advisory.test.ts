@@ -31,6 +31,12 @@ for (const [issue, sa, name, notice] of [[2176, 'SA-2026-073', 'snow-crossing-mo
     expect(rows).toHaveLength(1);
     expect(rows[0]!.slice(2)).toEqual([severity, status]);
     expect(rows[0]![1]).toContain(`#${issue}`);
+    if (issue === 2172) {
+      const unsplit = { en: 'unsplit sloped rafter', es: 'sin subdividir', pt: 'sem subdivisão', de: 'ungeteilter geneigter Sparren', fr: 'non subdivisé', tr: 'bölünmemiş eğimli mertek', hu: 'felosztatlan ferde szarufa' };
+      expect(rows[0]![1]).toContain(unsplit[locale]);
+      expect(notice.explanation[locale]).toContain(unsplit[locale]);
+    }
+
     expect(rows[0]![1]).toContain(regenerationAction[locale]);
     expect(notice.explanation[locale]).toContain(regenerationAction[locale]);
     expect(document(`advisories/${sa}-${name}.md`).replace(/\s+/g, ' ')).toContain(regenerationAction.en);

@@ -199,9 +199,17 @@ for (const delta of [0, 1e-8 - 1e-12, 1e-8, 1e-8 + 1e-12]) for (const corner of 
       expect(out.cases.map(({ nodal, ...c }) => c)).toEqual(base.cases.map(({ nodal, ...c }) => c));
       if (mode !== 'projected' || delta === 0) expect(out.cases).toEqual(base.cases);
       else {
-        expect(out.cases[0]!.nodal).toHaveLength(4);
+        expect(out.cases[0]!.nodal).toHaveLength(0);
+        const shares = out.cases[0]!.distributed.flatMap(d => {
+          const e = model.elements.get(d.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+          const dx = b.x - a.x, dy = b.y - a.y, dz = (b.z ?? 0) - (a.z ?? 0);
+          const L = Math.hypot(dx, dy, dz), cos = Math.hypot(dx, dy) / L;
+          const force = d.q * cos * dz / L * L / 2;
+          return dz === 0 ? [] : [e.nodeI, e.nodeJ].map(nodeId => ({ nodeId, fx: force * dx / L, fy: force * dy / L, fz: force * dz / L }));
+        });
+        expect(shares).toHaveLength(4);
         const dz = model.nodes.get(corner)!.z! - 3, ps = 0.7 * 50 / 65;
-        for (const n of out.cases[0]!.nodal) {
+        for (const n of shares) {
           expect(Math.hypot(n.fx, n.fy)).toBeCloseTo(ps * dz / 2, 20);
           expect(n.fz).toBeLessThan(0);
         }

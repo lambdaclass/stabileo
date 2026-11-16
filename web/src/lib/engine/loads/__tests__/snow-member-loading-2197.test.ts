@@ -1,17 +1,19 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import * as surfaces from '../snow-roof-surfaces';
 import { snowLoadCases } from '../snow-loads';
-import { gravityLayout } from '../plan-gravity';
+import { connectedRoofFootprints, gravityLayout } from '../plan-gravity';
 import { distributedGlobalEnds, dot, type Vec3 } from '../../member-loads';
 import { mesh, transform } from './snow-surface-round2-fixture';
-import { snow } from './snow-roof-plane-fixture';
-import { remeshSnowRoof } from './snow-remesh-invariance';
+import { regulations, snow } from './snow-roof-plane-fixture';
+import { planSnow } from '../load-plan-snow';
+import type { PlanSink } from '../load-plan';
+import { memberResponse, remeshSnowRoof } from './snow-remesh-invariance';
 
-const regression = it.skipIf(process.env.RUN_KNOWN_WRONG !== '2197');
+const regression = it;
 afterEach(() => vi.restoreAllMocks());
 
 for (const mode of ['projected', 'width'] as const) for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) {
-  regression(`known wrong result: #2197 inclined partial snow retains member axial force and displacement ${mode} ${angle} ${mirror}`, () => {
+  regression(`#2197 inclined partial snow retains member axial force and displacement ${mode} ${angle} ${mirror}`, () => {
     const original = surfaces.roofSurfaceModel;
     for (const split of [1, 2, 3, 8]) for (const start of [0.5, 0, 0.999, 1]) {
       vi.restoreAllMocks();
@@ -33,6 +35,11 @@ for (const mode of ['projected', 'width'] as const) for (const angle of [0, 0.37
       const out = snowLoadCases({ model, layout, snow: { ...snow, roofKind: 'mono' }, tributaryWidth: 1 })!;
       expect(out.result.refused).toBeUndefined();
       const c = out.cases[0]!;
+      const sink: PlanSink = { cases: [], distributed: [], nodal: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
+      expect(planSnow({ regulations: regulations(), model, dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, tributaryWidth: 1, snow: { ...snow, roofKind: 'mono', enabled: true, source: 'site' } }, sink, layout)).toBe(true);
+      expect(sink.distributed.filter(d => d.caseIndex === 0).map(({ caseIndex, caseType, ...d }) => d)).toEqual(c.distributed);
+      expect(sink.nodal).toHaveLength(0);
+
       const ex: Vec3 = [mirror * cos * Math.cos(angle), mirror * cos * Math.sin(angle), sin];
       const ey: Vec3 = [-Math.sin(angle), Math.cos(angle), 0];
       const ez: Vec3 = [-sin * mirror * Math.cos(angle), -sin * mirror * Math.sin(angle), cos];
@@ -64,7 +71,7 @@ for (const mode of ['projected', 'width'] as const) for (const angle of [0, 0.37
   });
 }
 
-for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) regression(`known wrong result: #2197 connected roof panels own a complete rafter ${angle} ${mirror}`, () => {
+for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) regression(`#2197 connected roof panels own a complete rafter ${angle} ${mirror}`, () => {
   for (const panels of [1, 2, 4]) for (const split of [1, 2, 3, 8]) {
     const rings = Array.from({ length: panels }, (_, k) => [[8 * k / panels, -1, 3], [8 * (k + 1) / panels, -1, 3], [8 * (k + 1) / panels, 1, 3], [8 * k / panels, 1, 3]]);
     const base = mesh([...rings, [[0, 0, 3], [8, 0, 7]]]);
@@ -73,6 +80,68 @@ for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) regression(`known w
     expect(layout.panels).toHaveLength(panels);
     expect(layout.panels.every(p => p.roof)).toBe(true);
     expect(layout.pieces.every(p => p.roof)).toBe(true);
+    const out = snowLoadCases({ model, layout, snow: { ...snow, roofKind: 'mono', roofSlopeDeg: 20 }, tributaryWidth: 1 })!;
+    expect(out.result.refused).toBe('snow.refused.roofPlane');
+    expect(out.cases).toHaveLength(0);
+
     expect([...layout.roofAreaOf.values()].reduce((a, b) => a + b, 0)).toBeCloseTo(24, 10);
+  }
+});
+
+for (const angle of [0, 0.37]) for (const gap of [0, 0.01]) it(`#2197 roof footprint ownership does not cross a gap ${angle} ${gap}`, () => {
+  const model = transform(mesh([[[0, -1, 3], [4 - gap, -1, 3], [4 - gap, 1, 3], [0, 1, 3]], [[4 + gap, -1, 3], [8, -1, 3], [8, 1, 3], [4 + gap, 1, 3]], [[0, 0, 3], [8, 0, 7]]]), angle, 0);
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true });
+  expect(layout.panels).toHaveLength(2);
+  expect(layout.panels.every(p => p.roof)).toBe(gap === 0);
+});
+
+for (const angle of [0, 0.37]) it(`#2197 connected roof ownership does not fill a footprint hole ${angle}`, () => {
+  const rings = [
+    [[0, -2, 3], [3, -2, 3], [3, 2, 3], [0, 2, 3]],
+    [[5, -2, 3], [8, -2, 3], [8, 2, 3], [5, 2, 3]],
+    [[3, -2, 3], [5, -2, 3], [5, -1, 3], [3, -1, 3]],
+    [[3, 1, 3], [5, 1, 3], [5, 2, 3], [3, 2, 3]],
+  ];
+  const polygons = rings.map(ring => ring.map(([x, y]) => [x! * Math.cos(angle) - y! * Math.sin(angle), x! * Math.sin(angle) + y! * Math.cos(angle)] as [number, number]));
+  const footprints = connectedRoofFootprints(polygons);
+  expect(footprints).toHaveLength(1);
+  expect(footprints[0]).toHaveLength(2);
+  const area = (ring: Array<[number, number]>) => Math.abs(ring.reduce((sum, p, k) => { const q = ring[(k + 1) % ring.length]!; return sum + p[0] * q[1] - q[0] * p[1]; }, 0) / 2);
+  expect(area(footprints[0]![0]!)).toBeCloseTo(32, 10);
+  expect(area(footprints[0]![1]!)).toBeCloseTo(4, 10);
+});
+
+for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) for (const panels of [1, 2, 4]) for (const split of [1, 2, 3, 8]) it(`#2197 a resolved roof retains member snow across adjoining panels ${angle} ${mirror} ${panels} ${split}`, () => {
+  const rings = Array.from({ length: panels }, (_, k) => [[8 * k / panels, -1, 3], [8 * (k + 1) / panels, -1, 3], [8 * (k + 1) / panels, 1, 3], [8 * k / panels, 1, 3]]);
+  const base = mesh([...rings, [[0, -1, 3], [8, -1, 7]], [[0, 1, 3], [8, 1, 7]], [[0, 0, 3], [8, 0, 7]]]);
+  const rafter = base.elements.size;
+  const { model: refined, segments } = remeshSnowRoof(base, new Map([[rafter, split]]));
+  const model = transform(refined, angle, 0, mirror);
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true });
+  expect(layout.panels).toHaveLength(panels);
+  expect(layout.panels.every(p => p.roof)).toBe(true);
+  const out = snowLoadCases({ model, layout, snow: { ...snow, roofKind: 'mono' }, tributaryWidth: 1 })!;
+  expect(out.result.refused).toBeUndefined();
+  const ids = new Set(segments.filter(s => s.source === rafter).map(s => s.id));
+  const loads = out.cases[0]!.distributed.filter(d => ids.has(d.elementId));
+  expect(loads.length).toBeGreaterThan(0);
+  const ps = 0.7 * (70 - Math.atan(0.5) * 180 / Math.PI) / 65;
+  for (const load of loads) {
+    expect(load.frame).toBe('projected');
+    expect(load.q).toBeCloseTo(-ps, 11);
+    expect(load.qJ ?? load.q).toBeCloseTo(-ps, 11);
+  }
+  const L = Math.sqrt(80), cos = 8 / L, sin = 4 / L;
+  const intervals = loads.map(d => {
+    const segment = segments.find(s => s.id === d.elementId)!;
+    return { a: segment.from * L + (d.a ?? 0), b: segment.from * L + (d.b ?? (segment.to - segment.from) * L), q: d.q, qJ: d.qJ ?? d.q };
+  });
+  for (const t of [0.1, 0.3, 0.6, 0.9]) {
+    const response = memberResponse(intervals, L, t * L);
+    expect(response[0]! * cos * sin).toBeCloseTo(-ps * cos * sin * L * (1 - t), 10);
+    expect(response[0]! * cos * cos).toBeCloseTo(-ps * cos * cos * L * (1 - t), 10);
+    expect(response[1]! * cos * cos).toBeCloseTo(-ps * cos * cos * (L * (1 - t)) ** 2 / 2, 10);
+    expect(response[2]! * cos * sin).toBeCloseTo(-ps * cos * sin * L ** 2 / 2, 10);
+    expect(response[3]! * cos * cos).toBeCloseTo(-ps * cos * cos * L ** 4 / 8, 10);
   }
 });
