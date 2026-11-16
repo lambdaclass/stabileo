@@ -59,3 +59,57 @@ Regenerate snow loads and combinations, then rerun analyses and checks.
 Issue #2218 remains open: preserving its physical eccentric loading
 requires distributed torque support and a geometric tributary partition;
 this change does not claim that its transfer is corrected.
+
+## Deliberate combination-5 expectation change in #2233 round 3
+
+The native integration test previously asserted that combination `5` had a
+single snow factor `max(0.2, f2) = 0.7`. That assertion describes the old
+conflation of two snow fields; it is not a direct pressure or slope-factor
+assertion. The split introduced by this results change is intentional.
+The authoritative texts checked into this repository give the derivation:
+
+- [CIRSOC 101-2025 §2.3.2](../codes/CIRSOC/markdown/cirsoc-101-2025/capitulo-2-combinaciones-de-carga.md),
+  combination 5, specifies `1.2 D + 1.0 E + L + 0.2 S`.
+  Exception 1 permits the live factor to be `0.5` when `Lo <= 5 kN/m²`,
+  excluding garages and public assembly. Exception 2 requires the
+  complementary snow in combinations 2, 4 and 5 to be flat-roof snow.
+- [INPRES-CIRSOC 103-I §3.7.1](../codes/CIRSOC/markdown/inpres-cirsoc-103-i/capitulo-3-espectros-acciones-y-combinaciones-de.md),
+  equation [3.16], specifies `1.20 D ± 1.00 E + f1 L + f2 S`.
+  Table 3.3 supplies `f1 = 0.25` for the residential-use example and
+  `f2 = 0.70` for roofs that retain snow; other snow cases use `0.20`.
+- [CIRSOC 104-2005 chapter 3](../codes/CIRSOC/markdown/cirsoc-104-2005/capitulo-3-cargas-de-nieve-sobre-cubiertas.md),
+  equation (1), defines `pf = 0.7 Ce Ct I pg`, subject to §3.4 minima.
+  [Chapter 4](../codes/CIRSOC/markdown/cirsoc-104-2005/capitulo-4-cargas-de-nieve-sobre-cubiertas.md),
+  equation (2), defines physical sloped-roof snow as `ps = Cs pf`,
+  applied over the horizontal projection. Thus `pf` and physical `S`
+  cannot generally share a scalar factor or case identity.
+
+For the exact integration-test input (`Lo = 3`, no excluded occupancy,
+`f1 = 0.25`, `f2 = 0.7`), the retained conservative live companion is
+`max(0.5, 0.25) = 0.5`. The two generated specifications must be:
+
+| Specification | Dead | Earthquake | Live | Snow member loading |
+| --- | --- | --- | --- | --- |
+| `5` | 1.2 D | 1.0 E | 0.5 L | 0.2 pf (`snowBasis: flatRoof`) |
+| `5-seismic` | 1.2 D | 1.0 E | 0.5 L | 0.7 physical S (no flat-roof basis) |
+
+Earthquake sense is expanded downstream. These are distinct specifications,
+not additive snow terms. Both must survive even when `f2 = 0.2`: equality
+of factors does not imply equality of member loading. When no `f2` is
+supplied there is only the CIRSOC 101 snow specification; when snow is
+absent neither specification may invent a snow term. The unchanged
+combination `7` remains `0.9 D + 1.0 E`.
+
+The revised native test asserts every serialized term, factor and snow basis
+for both specifications. It also covers both published snow participation
+factors, missing `f2`, both sides of the live-reduction boundary, the excluded
+occupancy, a larger published `f1`, and snow-absent controls. The existing
+WASM-backed load tests check case expansion and per-carrier member loading.
+The two exact notice tests now include `snow-companion-basis` and
+`snow-combination-validation`, retaining every existing main notice across
+2D, 3D and Pro and linear, P-delta and plastic solve stamps.
+
+This round changes tests and documentation only. The engine result change
+remains registered by `snow-companion-basis.json`; the subsequent validation
+change remains registered by `snow-combination-validation.json`. No result
+snapshot, tolerance or engine implementation is changed in round 3.

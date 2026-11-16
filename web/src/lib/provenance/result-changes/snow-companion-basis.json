@@ -1,7 +1,7 @@
 {
   "id": "snow-companion-basis",
   "date": "2026-11-16",
-  "prs": [],
+  "prs": [2233],
   "area": "loads",
   "when": {
     "all": [
