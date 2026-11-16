@@ -35,13 +35,13 @@ it('known wrong result: #1986 custom curve directions are printed in user compon
   expect(render(Piece).body).toContain('(0.00, 0.80, -0.60)');
 });
 
-it('known wrong result: #1986 storey shears use the axis names and signs of their columns', () => {
+it('known wrong result: #1986 storey shear magnitudes use the axis names of their columns', () => {
   axesStore.choice = { up: '+Y', right: '-Z', hand: 'left' };
   const m = {
     project: { name: 'A', date: '2026-11-16', revision: '' }, codes: [], scope: [],
     hypotheses: { analysis: [], stiffness: [], diaphragms: [], shells: [], supports: [] },
     actions: { cases: [], combinations: [] },
-    global: { storeyShear: [{ level: 'L1', vx: 6, vy: 8, kx: 10, ky: 12, soft: false }] },
+    global: { storeyShear: [{ level: 'L1', vxMagnitude: 6, vyMagnitude: 8, kx: 10, ky: 12, soft: false }] },
     elements: [], notices: { automatic: [], manual: [] },
     quantities: { byLevel: [], byType: [], rebar: [], steel: [], connections: [] },
   };
@@ -49,5 +49,5 @@ it('known wrong result: #1986 storey shears use the axis names and signs of thei
   expect(html).toContain('Vz (kN)');
   expect(html).toContain('Vx (kN)');
   expect(html).toContain('Kz (kN/m)');
-  expect(html).toContain('<td>-6.0</td>');
+  expect(html).toContain('<td>6.0</td><td>8.0</td>');
 });
