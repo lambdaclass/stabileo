@@ -6,9 +6,10 @@ import { generateReportHtml, type ReportConfig } from '../pro-report';
 import { printedTables } from '../report/printed-values';
 import { comparePrintedReport } from '../../actions/reproduce';
 import { axesStore } from '../../axes/axes.svelte';
-import { makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
+import { allChoices, makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
 import { withPresentation } from '../../pro/report-export';
 import { t } from '../../i18n';
+import { rowsOf } from '../result-tables';
 
 const YUP: AxesChoice = { up: '+Y', right: '-Z', hand: 'left' };
 
@@ -67,4 +68,28 @@ describe('the report in the user axes', () => {
     expect(v!.differences).toEqual([]);
     expect(v!.structural).toEqual([]);
   });
+});
+
+it.skip('known wrong result: #2259 SRSS and ABS tables and reports permute component magnitudes in every frame', () => {
+  solvedPortal();
+  for (const method of ['srss', 'abs'] as const) {
+    const base = buildProReportData({ config: config(), t })!;
+    const r = { ...base.results, magnitude: { method },
+      reactions: [{ nodeId: 1, fx: 1, fy: 2, fz: 3, mx: 4, my: 5, mz: 6 }],
+      displacements: [{ nodeId: 1, ux: 0.001, uy: 0.002, uz: 0.003, rx: 0.004, ry: 0.005, rz: 0.006 }] };
+    for (const axes of allChoices()) {
+      axesStore.choice = axes;
+      const f = makeFrame(axes);
+      const permute = (v: number[]) => f.rows.map(row => v[row.findIndex(x => x !== 0)]!);
+      for (const [kind, values] of [['reactions', [1, 2, 3, 4, 5, 6]], ['displacements', [0.001, 0.002, 0.003, 0.004, 0.005, 0.006]]] as const) {
+        const want = [...permute([...values.slice(0, 3)]), ...permute([...values.slice(3)])];
+        expect(rowsOf(kind, r, { axes })[0]!.values).toEqual(want);
+        expect(rowsOf(kind, r)[0]!.values).toEqual(want);
+        const html = generateReportHtml({ ...base, results: r, config: { ...config(), axes } });
+        const table = printedTables(html).find(p => p.key === kind)!;
+        expect(table).toBeDefined();
+        expect(table.rows.find(x => x.label === '1')!.cells.every(c => !c.trim().startsWith('-'))).toBe(true);
+      }
+    }
+  }
 });

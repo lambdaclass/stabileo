@@ -86,3 +86,40 @@ for (const [label, width, height] of [['phone', 390, 844], ['tablet', 768, 1024]
     await expect(page.locator('canvas:not(.axis-gizmo)').first()).toBeVisible();
   });
 }
+
+for (const dirMode of ['global', 'projected']) for (const change of ['hand', 'right', 'up']) {
+  test.skip(`known wrong result: #2259 @smoke changing ${change} clears a drafted ${dirMode} shell load`, async ({ pro: page }) => {
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-loads').click();
+    await page.getByTestId('write-load').click();
+    await page.getByTestId('wl-kind').selectOption('surface');
+    await page.getByTestId('wl-sl-dir').selectOption(dirMode);
+    await page.getByTestId('wl-sl-axis').selectOption('X');
+    await page.getByTestId('wl-sq').fill('7');
+    const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
+    await page.mouse.click(triad.x + triad.width / 2, triad.y + triad.height / 2);
+    await page.getByTestId(change === 'hand' ? 'axes-hand-left' : change === 'right' ? 'axes-right--X' : 'axes-up--Y').click();
+    await page.getByTestId('axes-done').click();
+    await expect(page.getByTestId('wl-sq')).toHaveValue('');
+    await page.getByTestId('wl-sq').fill('0');
+    await expect(page.getByTestId('wl-sq')).toHaveValue('0');
+  });
+}
+
+test.skip('known wrong result: #2259 @smoke a solved automatic modal note follows the current axes', async ({ pro: page }) => {
+  await page.evaluate(async () => {
+    await window.__stabileoActions.loadExample('3d-portal-frame');
+    window.__stabileoActions.openProTab('advanced');
+  });
+  await page.getByTestId('modal-auto').check();
+  await page.getByTestId('adv-run-modal').click();
+  const note = page.getByTestId('modal-auto-note');
+  await expect(note).toBeVisible();
+  const before = (await note.textContent())!;
+  expect(before).toContain('Y');
+  const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
+  await page.mouse.click(triad.x + triad.width / 2, triad.y + triad.height / 2);
+  await page.getByTestId('axes-up-+Y').click();
+  await page.getByTestId('axes-done').click();
+  await expect(note).toHaveText(before.replace(/\bY\b/g, 'Z'));
+});

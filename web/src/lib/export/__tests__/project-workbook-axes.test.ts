@@ -8,7 +8,7 @@ import { publishCombinations3D } from '../../store/active-results';
 import { currentWorkbookSheets } from '../../store/project-workbook';
 import { parseWorkbook } from '../../excel-import/parse';
 import { axesStore } from '../../axes/axes.svelte';
-import { makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
+import { allChoices, makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
 import { tensorToUser } from '../workbook-frame';
 import type { WorkbookSheet } from '../workbook-cells';
 
@@ -94,4 +94,17 @@ describe('the project workbook in the user axes', () => {
     const full = (i: number, j: number) => R[i]!.reduce((s, a, p) => s + R[j]!.reduce((q, b, r) => q + a * b * M[p]![r]!, 0), 0);
     expect(u).toEqual({ xx: full(0, 0), yy: full(1, 1), zz: full(2, 2), xy: full(0, 1), yz: full(1, 2), zx: full(2, 0) });
   });
+});
+
+it.skip('known wrong result: #2259 self-weight directions and signed factors round trip in every frame', () => {
+  portal();
+  const weights = ['X', 'Y', 'Z'].flatMap(direction => [-1, 0, 2].map(factor => ({ caseId: 1, direction, factor })));
+  modelStore.setAnalysis({ selfWeight: weights as never });
+  for (const c of allChoices()) {
+    axesStore.choice = c;
+    const back = parseWorkbook(asImport(currentWorkbookSheets(2, { results: false })));
+    expect(back.model.analysis?.selfWeight).toEqual(weights);
+    expect(back.problems.filter(p => p.sheet === 'SelfWeight')).toEqual([]);
+    expect(back.unknownSheets).not.toContain('SelfWeight');
+  }
 });

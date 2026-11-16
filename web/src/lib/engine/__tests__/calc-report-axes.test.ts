@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { generateCalcReportHtml, type CalcReportData } from '../calc-report';
 import { loadComponentsText, pointOnElementText } from '../calc-report-loads';
+import { allChoices } from '../../axes/frame';
 import { axesStore } from '../../axes/axes.svelte';
 
 afterEach(() => axesStore.reset());
@@ -48,4 +49,23 @@ describe('the calculation report in the user axes', () => {
     expect(loadComponentsText('nodal', { fx: 3, fz: -10, my: 1 })).toBe('Fx=3 kN, Fy=10 kN, Mz=-1 kN·m');
     expect(pointOnElementText({ a: 1, p: -5, my: 2 }, { global: 'g', perpendicular: 'p' } as never)).toContain('Mz=-2');
   });
+});
+
+it.skip('known wrong result: #2259 calculation reports retain SRSS and ABS magnitudes in plane and space frames', () => {
+  for (const method of ['srss', 'abs'] as const) for (const c of allChoices()) {
+    axesStore.choice = c;
+    for (const is3D of [false, true]) {
+      const result = is3D ? { magnitude: { method }, reactions: [{ nodeId: 1, fx: 1, fy: 2, fz: 3, mx: 4, my: 5, mz: 6 }], displacements: [{ nodeId: 1, ux: 0.001, uy: 0.002, uz: 0.003, rx: 0.004, ry: 0.005, rz: 0.006 }], elementForces: [] }
+        : { ...data().results2D!, magnitude: { method }, displacements: [{ nodeId: 1, ux: 0.001, uz: 0.002, ry: 0.003 }] };
+      const html = generateCalcReportHtml(data({ is3D, results2D: is3D ? undefined : result as never, results3D: is3D ? result as never : undefined }));
+      for (const id of ['reactions', 'displacements']) {
+        const at = html.indexOf(`id="sec-${id}"`);
+        const end = html.indexOf('</div><div class="page-break">', at);
+        const section = html.slice(at, end);
+        const numbers = [...section.matchAll(/<td class="num">([^<]+)<\/td>/g)].map(m => m[1]!);
+        expect(numbers.length).toBeGreaterThan(0);
+        expect(numbers.every(n => !n.trim().startsWith('-'))).toBe(true);
+      }
+    }
+  }
 });
