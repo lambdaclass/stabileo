@@ -5,6 +5,8 @@ import { connectedRoofFootprints, gravityLayout } from '../plan-gravity';
 import { distributedGlobalEnds, dot, type Vec3 } from '../../member-loads';
 import { mesh, transform } from './snow-surface-round2-fixture';
 import { regulations, snow } from './snow-roof-plane-fixture';
+import * as floorLoads from '../floor-loads';
+import { planAreaLoads } from '../plan-area-loads';
 import { planSnow } from '../load-plan-snow';
 import type { PlanSink } from '../load-plan';
 import { memberResponse, remeshSnowRoof } from './snow-remesh-invariance';
@@ -143,5 +145,46 @@ for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) for (const panels o
     expect(response[1]! * cos * cos).toBeCloseTo(-ps * cos * cos * (L * (1 - t)) ** 2 / 2, 10);
     expect(response[2]! * cos * sin).toBeCloseTo(-ps * cos * sin * L ** 2 / 2, 10);
     expect(response[3]! * cos * cos).toBeCloseTo(-ps * cos * cos * L ** 4 / 8, 10);
+  }
+});
+
+for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) it(`#2197 hole-crossing rafters retain covered floor panels ${angle} ${mirror}`, () => {
+  const xs = [0, 3, 5, 8], ys = [-2, -1, 1, 2];
+  const rings = xs.slice(1).flatMap((x, i) => ys.slice(1).map((y, j) => [[xs[i]!, ys[j]!, 3], [x, ys[j]!, 3], [x, y, 3], [xs[i]!, y, 3]]));
+  const physicalFloorLoad = floorLoads.physicalFloorLoad;
+  vi.spyOn(floorLoads, 'physicalFloorLoad').mockImplementation(input => {
+    const out = physicalFloorLoad(input);
+    return { ...out, panels: out.panels.filter(p => {
+      const x = p.polygon.reduce((v, p) => v + mirror * (p[0] * Math.cos(angle) + p[1] * Math.sin(angle)), 0) / p.polygon.length;
+      const y = p.polygon.reduce((v, p) => v - p[0] * Math.sin(angle) + p[1] * Math.cos(angle), 0) / p.polygon.length;
+      return !(x > 3 && x < 5 && y > -1 && y < 1);
+    }) };
+  });
+  for (const split of [1, 2, 3, 8]) {
+    const base = mesh([...rings, [[0, 0, 3], [8, 0, 7]]]);
+    const model = transform(remeshSnowRoof(base, new Map([[base.elements.size, split]])).model, angle, 0, mirror);
+    const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true });
+    expect(layout.panels).toHaveLength(8);
+    const footprints = connectedRoofFootprints(layout.panels.map(p => p.polygon));
+    expect(footprints).toHaveLength(1);
+    expect(footprints[0]).toHaveLength(2);
+    const affected = new Set(layout.panels.flatMap((p, i) => {
+      const y = p.polygon.reduce((v, p) => v - p[0] * Math.sin(angle) + p[1] * Math.cos(angle), 0) / p.polygon.length;
+      return Math.abs(y) < 1e-8 ? [i] : [];
+    }));
+    expect(affected.size).toBe(2);
+    for (const i of affected) expect(layout.panels[i]!.roof).toBe(false);
+    const pieces = layout.pieces.filter(p => affected.has(p.panel));
+    expect(pieces.length).toBeGreaterThan(0);
+    expect(pieces.every(p => !p.roof)).toBe(true);
+    const floor = { ...layout, pieces, points: layout.points.filter(p => affected.has(p.panel)), widthMembers: [] };
+    const loads = planAreaLoads({ layout: floor, tributaryWidth: 1, floor: { dead: 1, lo: 2, liveOf: () => 2 }, roof: { dead: 3, use: 'occupancy', weight: 'light', slopePercent: 0, lo: 4, liveOf: () => 4 } });
+    for (const [kind, expected] of [['D', 12], ['L', 24]] as const) {
+      const force = loads.distributed.filter(d => d.caseType === kind).reduce((sum, d) => {
+        const e = model.elements.get(d.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+        return sum - (d.q + (d.qJ ?? d.q)) / 2 * ((d.b ?? Math.hypot(b.x - a.x, b.y - a.y)) - (d.a ?? 0));
+      }, 0);
+      expect(force).toBeCloseTo(expected, 10);
+    }
   }
 });
