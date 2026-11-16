@@ -69,7 +69,7 @@ describe('the changelog', () => {
     expect(warning, locale).toMatch(/2[.,]4/);
   });
 
-  it.skip.each(LOCALES)('known wrong result: #2234 the current report starts with engine changes and keeps source order in %s', (locale) => {
+  it.each(LOCALES)('known wrong result: #2234 the current report starts with engine changes and keeps source order in %s', (locale) => {
     const entry = CHANGELOG[0];
     const groups = itemsByArea(entry, locale);
     expect(groups.map((g) => g.area)).toEqual(['engine', 'pro', 'app', 'site']);
