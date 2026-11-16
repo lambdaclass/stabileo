@@ -114,3 +114,15 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
     for (const r of rows) { expect(r.capacity).toBe(+capacity(12, 4, 0.1, 0.4, depth).toFixed(2)); expect(r.status).toBe('ok'); }
   });
 }
+
+for (const kind of ['beam', 'column'] as const) {
+  known(`known wrong result: #2198 retain every supported secondary count even below the strength seed ${kind}`, () => {
+    const ctx = syntheticBeamContext({ elementType: kind, codeEdition: '2025' });
+    ctx.section = { ...ctx.section, b: 0.45, h: 0.45 };
+    ctx.axes = { ...ctx.axes, bFlex: 0.45, hFlex: 0.45 };
+    ctx.material = { ...ctx.material, fc: 25, stirrupDiametersMm: [6] };
+    ctx.stations = stations(1);
+    const options = kind === 'beam' ? buildStirrupOptions(ctx, 0) : buildTieOptions(ctx, 16);
+    expect([...new Set(options.map(c => c.secondaryLegs))].sort()).toEqual([2, 3, 4]);
+  });
+}
