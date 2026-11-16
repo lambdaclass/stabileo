@@ -456,13 +456,13 @@ const body: PostBody = {
           "Magas",
           "Javítva a #2170 PR-ben, kiadásra vár"
         ],
+        ["SA-2026-075", "A kengyelek főirányú szárait a másodlagos nyíráshoz is beszámította a program, ezért túl kevés vízszintes szárral is figyelmeztetés nélküli megfelelést adhatott (#2171). Futtassa újra a betonellenőrzéseket, és vizsgálja felül a másodlagos nyírást, a csavarást és az egyes irányokban megadott szárakat.", "Magas", "Javítva a #2198 PR-ben, összevonásra és kiadásra vár"],
         [
           "SA-2026-072",
           "A tetőélek egyenlőtlen felosztása eltolhatta a gerinc helyzetét és megváltoztathatta a generált hóterheket (#2144). Generálja újra a hóterheket, majd ismételje meg az analíziseket, a teherkombinációkat és a méretezési ellenőrzéseket. A mentett terhek puszta újraszámítása nem javítja ki őket.",
           "Magas",
           "Javítva a #2175 PR-ben, kiadásra vár"
-        ],
-        ["SA-2026-075", "A kengyelek főirányú szárait a másodlagos nyíráshoz is beszámította a program, ezért túl kevés vízszintes szárral is figyelmeztetés nélküli megfelelést adhatott (#2171). Futtassa újra a betonellenőrzéseket, és vizsgálja felül a másodlagos nyírást, a csavarást és az egyes irányokban megadott szárakat.", "Magas", "Javítva a #2198 PR-ben, összevonásra és kiadásra vár"]
+        ]
       ]
     },
     {
