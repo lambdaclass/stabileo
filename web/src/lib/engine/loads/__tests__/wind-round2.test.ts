@@ -91,6 +91,19 @@ it('#2220 member-force comparison accepts every model member in either order', (
   compareWindMemberForces([1, 2], rows, rows.toReversed(), (x, y) => expect(x).toEqual(y));
 });
 
+const round10 = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
+for (const dimension of ['2d', '3d'] as const) for (const side of ['actual', 'reference', 'both'] as const) for (const defect of ['id-only', 'missing-start', 'missing-end', 'wrong-dimension', 'nan', 'infinity', 'string'] as const) round10(`known wrong result: #2220 force comparison rejects ${dimension} ${side} ${defect}`, () => {
+  const components = dimension === '2d' ? ['n', 'v', 'm'] : ['n', 'vy', 'vz', 'mx', 'my', 'mz'];
+  const row = { elementId: 1, ...Object.fromEntries(components.flatMap(c => [[`${c}Start`, 1], [`${c}End`, 0]])) };
+  const broken: Record<string, unknown> = { ...row };
+  if (defect === 'id-only') for (const key of Object.keys(broken)) { if (key !== 'elementId') delete broken[key]; }
+  else if (defect === 'wrong-dimension') { delete broken[`${components[1]}Start`]; broken[dimension === '2d' ? 'vyStart' : 'vStart'] = 1; }
+  else if (defect.startsWith('missing')) delete broken[`${components[1]}${defect === 'missing-start' ? 'Start' : 'End'}`];
+  else broken[`${components[1]}Start`] = defect === 'nan' ? NaN : defect === 'infinity' ? Infinity : '1';
+  const a = side === 'reference' ? row : broken as typeof row, b = side === 'actual' ? row : broken as typeof row;
+  expect(() => compareWindMemberForces([1], [a], [b], (x, y) => expect(x).toEqual(y))).toThrow();
+});
+
 for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) for (const dimension of ['2d', '3d']) it(`#2204 hand wind distribution matches member forces and reactions ${dimension} nonlinear=${nonlinear} diaphragm=${diaphragm}`, () => {
   const model = columns();
   const sink = generate(model);

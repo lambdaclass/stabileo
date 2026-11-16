@@ -44,12 +44,23 @@ const generate = (model: ReturnType<typeof mesh>, kind: string, rotated = false)
   return { points: sink.nodal.filter(n => n.caseIndex === 0), lines: sink.distributed.filter(n => n.caseIndex === 0) };
 };
 
+function memberIntensity(p: { qX?: number; qXJ?: number; qY?: number; qYJ?: number }, rotated: boolean, sign: number): [number, number] {
+  const start = sign * ((rotated ? p.qY : p.qX) ?? 0);
+  return [start, start];
+}
+
+const round10 = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
+for (const rotated of [false, true]) for (const sign of [1, -1]) round10(`known wrong result: #2220 solver member intensities retain both endpoints rotated=${rotated} sign=${sign}`, () => {
+  expect(memberIntensity({ qX: 2, qXJ: 3, qY: 4, qYJ: 5 }, rotated, sign)).toEqual(rotated ? [4 * sign, 5 * sign] : [2 * sign, 3 * sign]);
+  expect(memberIntensity({ qX: 2, qY: 4 }, rotated, sign)).toEqual(rotated ? [4 * sign, 4 * sign] : [2 * sign, 2 * sign]);
+});
+
 for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign', 'triangularTower', 'solidSignMinimumPositive', 'solidSignMinimumNegative']) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const pressureSign of [1, -1]) {
   it(`#2220 ${kind} member loading ${variant} spatial=${spatial} nonlinear=${nonlinear} pressure=${pressureSign}`, () => {
     const { model } = remeshWind(mesh(kind === 'triangularTower' ? [[[-2, -1, 0], [-2, -1, 6]], [[2, -1, 0], [2, -1, 6]], [[0, 2, 0], [0, 2, 6]]] : kind.startsWith('solidSign') ? [[[0, 0, 0], [0, 0, 6]], [[0, 2, 0], [0, 2, 6]]] : [[[0, 0, 0], [0, 0, 6]]]), variant);
     const rotated = variant === 'rotate';
     const { points, lines } = generate(model, kind, rotated);
-    const component = (p: { qX?: number; qY?: number }) => pressureSign * ((rotated ? p.qY : p.qX) ?? 0);
+    const component = (p: { qX?: number; qXJ?: number; qY?: number; qYJ?: number }, endpoint = 0) => memberIntensity(p, rotated, pressureSign)[endpoint]!;
     const w = pressureSign * (kind === 'wall' ? 2 : kind.startsWith('solidSign') || kind === 'triangularTower' ? 0.8 : 1.6);
     if (kind === 'triangularTower') assertWindResultants(windResultants(model, lines.map(p => ({ ...p, q: 0 }))), rotated ? [0, 0.8 * 3 * 6, 0, -0.8 * 3 * 18, 0, 0] : [0.8 * 3 * 6, 0, 0, 0, 0.8 * 3 * 18, 0]);
     if (kind.startsWith('solidSignMinimum')) {
@@ -66,7 +77,7 @@ for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign', 
       elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, type: 'frame', hingeStart: false, hingeEnd: false }])),
       materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]), sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 }]]),
       supports: new Map([...model.nodes.values()].filter(n => n.z === 0).map(n => [n.id, { id: n.id, nodeId: n.id, type: 'fixed' }])),
-      loads: [...lines.map(d => ({ type: 'distributed' as const, data: { elementId: d.elementId, qI: -component(d), qJ: -component(d), a: d.a, b: d.b } })), ...points.map(p => ({ type: 'nodal' as const, data: { nodeId: p.nodeId, fx: rotated ? p.fy : p.fx, fz: 0, my: 0 } }))],
+      loads: [...lines.map(d => ({ type: 'distributed' as const, data: { elementId: d.elementId, qI: -component(d), qJ: -component(d, 1), a: d.a, b: d.b } })), ...points.map(p => ({ type: 'nodal' as const, data: { nodeId: p.nodeId, fx: rotated ? p.fy : p.fx, fz: 0, my: 0 } }))],
     };
     const assertMemberLoads = () => { expect(points).toEqual([]); expect(lines.length).toBeGreaterThan(0); };
     const assertCarrierForces = () => { for (const e of model.elements.values()) {
@@ -77,7 +88,7 @@ for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign', 
       const input3: SolverInput3D = { ...input, nodes: new Map([...model.nodes].map(([id, n]) => [id, { ...n, z: n.z ?? 0 }])),
         elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, type: 'frame', localYx: rotated ? 0 : 1, localYy: rotated ? 1 : 0, localYz: 0, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }])),
         sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4 }]]), supports: new Map([...model.nodes.values()].filter(n => n.z === 0).map(n => [n.id, { nodeId: n.id, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }])),
-        loads: [...lines.map(d => ({ type: 'distributed' as const, data: { elementId: d.elementId, qYI: component(d), qYJ: component(d), qZI: 0, qZJ: 0, a: d.a, b: d.b } })), ...points.map(p => ({ type: 'nodal' as const, data: { nodeId: p.nodeId, fx: p.fx, fy: p.fy, fz: 0, mx: 0, my: 0, mz: p.mz ?? 0 } }))],
+        loads: [...lines.map(d => ({ type: 'distributed' as const, data: { elementId: d.elementId, qYI: component(d), qYJ: component(d, 1), qZI: 0, qZJ: 0, a: d.a, b: d.b } })), ...points.map(p => ({ type: 'nodal' as const, data: { nodeId: p.nodeId, fx: p.fx, fy: p.fy, fz: 0, mx: 0, my: 0, mz: p.mz ?? 0 } }))],
       };
       if (!nonlinear && variant !== 'mirror') nativeCases.push({ kind, variant: `${variant}:${pressureSign}`, dimension: 3, axis: 'z', displacement: rotated ? 'uy' : 'ux', length: 6, segments: [{ a: 0, b: 6, q: w }], scales, tipScale: carrierScale(tip), base, tip, input: input3DToWireObject(input3) });
       assertMemberLoads();
