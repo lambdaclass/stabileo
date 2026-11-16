@@ -1,6 +1,7 @@
 import { msg, round } from '../message';
 import { roofMembers } from '../../engine/loads/wind-cases';
 import { roofGeometry, snowSlopes } from '../../engine/loads/snow-loads';
+import { snowCoordinate } from '../../engine/loads/snow-roof-surfaces';
 import { SNOW_PATTERNS } from '../../engine/loads/load-plan-snow';
 import { widthSpans, type GravityLayout } from '../../engine/loads/plan-gravity';
 import type { LoadPlanInput, PlannedDistributed, PlannedNodal, PlanSink } from '../../engine/loads/load-plan';
@@ -45,15 +46,16 @@ export function planEcSnow(family: EcFamily, input: LoadPlanInput, sink: PlanSin
   const slopes = snowSlopes(input.model, layout);
   const ce = EXPOSURE_CE[ci.exposure], ct = ci.ct;
   const nodes = input.model.nodes;
+  const across = (p: { x: number; y: number }) => snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.direction);
   const span = (() => {
-    const c = [...nodes.values()].map((n) => (geometry.axis === 'x' ? n.x : n.y));
+    const c = [...nodes.values()].map(across);
     return Math.max(...c) - Math.min(...c);
   })();
   const sideOf = (id: number): 0 | 1 | 2 => {
     const e = input.model.elements.get(id);
     const a = e && nodes.get(e.nodeI), b = e && nodes.get(e.nodeJ);
     if (!a || !b) return 0;
-    const c = geometry.axis === 'x' ? (a.x + b.x) / 2 : (a.y + b.y) / 2;
+    const c = across({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
     if (Math.abs(c - geometry.ridge) <= 1e-3 * Math.max(span, 1)) return 0;
     return c < geometry.ridge ? 1 : 2;
   };
