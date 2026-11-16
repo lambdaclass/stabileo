@@ -183,8 +183,7 @@ describe('results versions', () => {
 });
 
 
-const knownWrong2198 = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
-knownWrong2198.each([-1, 0, 1])('known wrong result: #2198 — exact directional notice with recovery version offset %s', (recoveryOffset) => {
+it.each([-1, 0, 1])('#2198 shows exact notices across recovery merge orders, offset %s', (recoveryOffset) => {
   const entry = RESULT_CHANGES.changes.find(c => c.id === 'directional-stirrup-legs')!;
   const frame: FeatureSnapshot = { analysisMode: 'pro',
     materials: [[1, { id: 1, name: 'H25', fc: 25, fy: 25, e: 25000, nu: 0.2, rho: 25 }]] as never,
@@ -195,6 +194,16 @@ knownWrong2198.each([-1, 0, 1])('known wrong result: #2198 — exact directional
     c.id === 'member-recovery-round4' ? { ...c, resultsVersion: entry.resultsVersion + recoveryOffset } : c),
     currentResultsVersion: Math.max(RESULT_CHANGES.currentResultsVersion, entry.resultsVersion + recoveryOffset),
   };
-  expect(assessProject(frame, { resultsVersion: entry.resultsVersion - 1, analyses: ['linear'] } as SolveStamp, 'pro', registry)
-    .changes.map(c => c.id).sort()).toEqual(['directional-stirrup-legs', 'member-recovery-round4']);
+  for (const analysisMode of ['2d', 'pro']) for (const analysis of ['linear', 'pdelta', 'nonlinear'] as const) {
+    const seen = (snapshot: FeatureSnapshot, resultsVersion: number) => assessProject(
+      { ...snapshot, analysisMode }, { resultsVersion, analyses: [analysis], recorded: [...ANALYSIS_KINDS] } as SolveStamp, analysisMode, registry,
+    ).changes.map(c => c.id).sort();
+    expect(seen(frame, entry.resultsVersion - 1)).toEqual(recoveryOffset < 0
+      ? ['directional-stirrup-legs'] : ['directional-stirrup-legs', 'member-recovery-round4']);
+    expect(seen(frame, entry.resultsVersion)).toEqual(recoveryOffset > 0 ? ['member-recovery-round4'] : []);
+    expect(seen(frame, entry.resultsVersion + 1)).toEqual([]);
+    expect(seen({ ...frame, materials: [] }, entry.resultsVersion - 1)).toEqual(
+      recoveryOffset < 0 ? [] : ['member-recovery-round4'],
+    );
+  }
 });

@@ -49,3 +49,11 @@ it('#2144 follows the assigned advisory structure and retains only the recorded 
   expect(notice.when).toEqual({ all: ['snow', 'generatedLoads'] });
   expect(record).toContain('RUN_KNOWN_WRONG=2172');
 });
+
+it('known wrong result: #2099 — Hungarian snow guidance preserves subdivision, ridge-side loads and the unsplit-member limitation', () => {
+  expect(notice.explanation.hu).toContain('tetőélek egyenlőtlen felosztása');
+  expect(notice.explanation.hu).toContain('gerinc helyzetét');
+  expect(notice.explanation.hu).toContain('Minden rúdszakasz');
+  expect(notice.explanation.hu).toContain('gerincet felosztás nélkül keresztező tetőrudak');
+  expect(notice.explanation.hu).toContain('(#2176)');
+});
