@@ -73,6 +73,7 @@ let wasmReviewModelSanity: ((json: string) => string) | null = null;
 // Combinations & Envelope
 let wasmCombineResults2d: ((input: any) => any) | null = null;
 let wasmCombineResults3d: ((input: any) => any) | null = null;
+let wasmCombineResultsBatch3d: ((input: any) => any) | null = null;
 let wasmComputeEnvelope2d: ((input: any) => any) | null = null;
 let wasmComputeEnvelope3d: ((input: any) => any) | null = null;
 
@@ -275,6 +276,7 @@ export async function initSolver(): Promise<void> {
     // Combinations & Envelope
     wasmCombineResults2d = wasm.combine_results_2d;
     wasmCombineResults3d = wasm.combine_results_3d;
+    wasmCombineResultsBatch3d = wasm.combine_results_batch_3d;
     wasmComputeEnvelope2d = wasm.compute_envelope_2d;
     wasmComputeEnvelope3d = wasm.compute_envelope_3d;
 
@@ -1508,6 +1510,21 @@ export function combineResults3D(
   assertFiniteWire(factors);
   const combined = wasmCombineResults3d({ factors, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]) });
   return combined === null ? null : results3DFromWasm(combined);
+}
+
+export function combineResultsBatch3D(
+  combinations: Array<Array<{ caseId: number; factor: number }>>,
+  perCase: Map<number, AnalysisResults3D>,
+  plates: PlateThickness,
+): Array<AnalysisResults3DWire | null> {
+  if (!wasmReady || !wasmCombineResultsBatch3d) throw new Error('WASM solver not initialized.');
+  assertFiniteWire(combinations);
+  const ids = new Set(combinations.flatMap(factors => factors.map(f => f.caseId)));
+  const cases = [...perCase].filter(([id]) => ids.has(id)).map(([caseId, results]) => ({ caseId, results }));
+  const results: Array<any | null> = wasmCombineResultsBatch3d({
+    combinations, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]),
+  });
+  return results.map(result => result == null ? null : results3DFromWasm(result));
 }
 
 /** Compute 2D envelope via WASM. JsValue in/out — no JSON round trip. */

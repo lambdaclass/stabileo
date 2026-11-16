@@ -17,7 +17,7 @@ import { amplification } from './pdelta-amplification';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { supportDofs3D } from './support-dofs-3d';
-import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
+import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, combineResultsBatch3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
@@ -3024,20 +3024,14 @@ async function solveCombinations3DParallelCore(
 
     if (perCase.size === 0) return t('svc.noLoadsApplied');
 
-    // Combine results for each combination (fast, on main thread)
-    // TODO(perf): batch the combine+envelope into one WASM call. Not possible
-    // today without an engine change: combine_results_3d is per-combo (each
-    // call re-serializes the referenced per-case results) and
-    // solve_multi_case_3d would re-solve the cases the workers just solved.
-    // Needs an engine-side batch export (e.g. combine_multi_3d) first.
     const t1 = performance.now();
     const perCombo = new Map<number, AnalysisResults3D>();
-    for (const combo of combinations) {
-      const factors = combo.factors.map(f => ({
-        caseId: f.caseId,
-        factor: f.factor,
-      }));
-      const combined = combineResults3D(factors, perCase, model.plates ?? new Map());
+    const combinedResults = combineResultsBatch3D(
+      combinations.map(combo => combo.factors.map(f => ({ caseId: f.caseId, factor: f.factor }))),
+      perCase, model.plates ?? new Map(),
+    );
+    for (const [index, combo] of combinations.entries()) {
+      const combined = combinedResults[index];
       if (combined) {
         if (hasShells) {
           postProcessShellStresses(combined, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);

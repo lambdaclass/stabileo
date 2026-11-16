@@ -35,6 +35,29 @@ pub struct CombinationInput3D {
     pub plate_thicknesses: Vec<(usize, f64)>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchCombinationInput3D {
+    pub combinations: Vec<Vec<CombinationFactor>>,
+    pub cases: Vec<CaseEntry3D>,
+    #[serde(default)]
+    pub plate_thicknesses: Vec<(usize, f64)>,
+}
+
+pub fn combine_results_batch_3d(input: &BatchCombinationInput3D) -> Result<Vec<Option<AnalysisResults3D>>, String> {
+    let thicknesses = input.plate_thicknesses.iter().copied().collect();
+    let mut by_id = std::collections::HashMap::new();
+    for case in &input.cases {
+        by_id.entry(case.case_id).or_insert(&case.results);
+    }
+    input.combinations.iter().map(|factors| {
+        let cases: Vec<_> = factors.iter().filter_map(|f| {
+            by_id.get(&f.case_id).map(|result| (f.case_id, *result))
+        }).collect();
+        combine_results_3d_refs_with_thickness(factors, &cases, &thicknesses)
+    }).collect()
+}
+
 /// Plate id → thickness, which a combined plate's face stresses need.
 pub type PlateThicknesses = std::collections::HashMap<usize, f64>;
 
