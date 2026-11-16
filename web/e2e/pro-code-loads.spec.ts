@@ -184,11 +184,14 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       await expect(edition.locator('option[value="cirsoc102-2005"]')).toHaveAttribute('disabled', /.*/);
       await expect(edition.locator('option[value="cirsoc102-2005"]')).toContainText(/text not supplied/);
 
-      // The openings classify the enclosure: 10 m² of openings on a 100 m² wall, none elsewhere.
       await page.getByTestId('al-wind-openings').locator('summary').click();
-      await page.getByTestId('al-wind-a0').fill('10');
-      await page.getByTestId('al-wind-ag').fill('100');
-      await page.getByTestId('al-wind-agi').fill('300');
+      await expect(page.getByTestId('al-wind-classification-refused')).toBeVisible();
+      await page.getByTestId('al-wind-wall-0-openings').fill('10');
+      for (const wall of [0, 1, 2, 3]) await page.getByTestId(`al-wind-wall-${wall}-gross`).fill('100');
+      await expect(page.getByTestId('al-wind-classification-refused')).toBeVisible();
+      await page.getByTestId('al-wind-roof-gross').fill('100');
+      await page.getByTestId('al-wind-roof-gross').press('Tab');
+      await expect(page.getByTestId('al-wind-classification-refused')).toHaveCount(0);
       await expect(page.getByTestId('al-wind-classified')).toContainText(/partially enclosed/i);
       await page.getByTestId('al-wind-use-classified').click();
       await expect(page.getByTestId('al-wind-enclosure')).toHaveValue('partiallyEnclosed');

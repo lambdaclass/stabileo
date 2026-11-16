@@ -50,6 +50,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-074 — PR #2197; birleştirme ve yayın bekleniyor."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-076 — PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md", "label": "SA-2026-076", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-077 — PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-077-wind-wall-height-transfer.md", "label": "SA-2026-077", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-078 — PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-083 — PR #2236; birleştirme ve yayın bekleniyor."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
@@ -416,13 +422,13 @@ const body: PostBody = {
           "Yüksek",
           "PR #1921 ile düzeltildi, sürüm yayını bekleniyor"
         ],
+        ["SA-2026-060", "Aşamalı analiz, birim değişiminden sonra veya mesnet yaylı mafsallı uçlarda gerçek dönmeleri uyarı vermeden sertleştirebiliyordu; serbestlik içeren aşamalı modelleri yeniden kontrol edin", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
         [
           "SA-2026-061",
           "Yay uzunluğu ve yer değiştirme kontrolü tepkileri atlıyor ve ölçeklenmemiş eleman yüklerini kullanıyordu; 2D/3D kısıt, Guyan, aşamalı ve zaman tanım alanı sonuçlarındaki eksiklikler de incelenmelidir. Etkilenen sonuçları yeniden hesaplayın veya bağımsız doğrulayın; 0.2.0–0.5.0 ve etkilenen sonraki main derlemeleri.",
           "Yüksek",
           "PR #1952 içinde düzeltildi, yayın bekleniyor"
         ],
-        ["SA-2026-060", "Aşamalı analiz, birim değişiminden sonra veya mesnet yaylı mafsallı uçlarda gerçek dönmeleri uyarı vermeden sertleştirebiliyordu; serbestlik içeren aşamalı modelleri yeniden kontrol edin", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
         ["SA-2026-062", "Ham 3D plastik analiz, başlangıç elastik durumu çözülemediğinde uyarısız sıfır bildirebiliyordu; eski sertifikalı sürümler bu katsayıyı koruyordu. Main artık uyarıyla pozitif sertifikalı sınır döndürüyor; PR #1943 başlangıç reddini iletiyor", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
         ["SA-2026-063", "Kısıtlı aşamalı ve doğrusal olmayan analizler tanımlı ana düğüm hareketini kaybediyordu; kablo ve zaman tanım alanı analizleri artık desteklenmeyen mesnet hareketlerini reddediyor. Mevcut genel dinamik uyarıları bu eksikliği belirtmiyordu", "Yüksek", "PR #2009 ile düzeltildi, sürüm yayını bekleniyor"],
         ["SA-2026-064", "Çelik Cb katsayısı başka bir birleşimden veya yanal mesnet konumları bilinmeyen kısa bir aralıktan alınabiliyordu (#1316, #2088). CIRSOC 301 çelik kontrollerini yeniden çalıştırıp eğilme kapasitesini, etkileşim kullanım oranını ve belirleyici birleşimleri inceleyin.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
@@ -436,6 +442,9 @@ const body: PostBody = {
         ["SA-2026-072", "Çatı kenarlarının eşit olmayan bölünmesi mahyayı kaydırıp üretilen kar yüklerini değiştirebiliyordu (#2144). Kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez.", "Yüksek", "PR #2175 ile düzeltildi, yayın bekleniyor"],
         ["SA-2026-073", "Mahyayı geçen çubuklara düzgün basınç uygulanıyor ve fiziksel yük momenti kayboluyordu. Yükler artık fiziksel mahyada bölünür. Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez. (#2176).", "Yüksek", "PR #2197; birleştirme ve yayın bekleniyor"],
         ["SA-2026-074", "Eğimli bir merteğin bölünmesi, açık çatı panelini döşeme olarak sınıflandırıp saçak karını uyarı vermeden kaldırabiliyordu. Sınıflandırma artık fiziksel panel izdüşümlerini kullanır. Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez. (#2172). Ayrı bir alt panelin üzerindeki bölünmemiş eğimli mertek de paneli çatı olarak sınıflandırabiliyor, çatı ve döşeme alan yüklerini değiştiriyor ve genişlik modunda uyarısız kar ekleyebiliyordu.", "Yüksek", "PR #2197; birleştirme ve yayın bekleniyor"],
+        ["SA-2026-076", "Tek bir açık duvar, binanın açık sınıflandırılmasına ve iç basıncın kaldırılmasına yol açabiliyordu (#2203). Her duvar ve çatının açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez.", "Yüksek", "PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor"],
+        ["SA-2026-077", "Duvar rüzgâr yüklerinde temel kuvvetleri eksikti ve yükler bölünmeye göre değişiyordu (#2204). Her duvar ve çatının açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez.", "Yüksek", "PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor"],
+        ["SA-2026-078", "Çatı basınç bölgeleri ve bunların birinci momentleri bölünmeye bağlıydı (#2205). Her duvar ve çatının açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez.", "Yüksek", "PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor"],
         ["SA-2026-083", "SA-2026-083: CIRSOC 101 otomatik yük üretimi, en elverişsiz konumları değerlendirilmeyen tekil kullanım ve çatı etkilerini engeller (§4.4). Önceden üretilen düzgün yayılı yükler belirleyici etkileri atlamış olabilir. Analiz ve tasarımı yenilemeden önce etkilenen modelleri inceleyip tekil etkileri elle kontrol edin. (#2207).", "Yüksek", "PR #2236; birleştirme ve yayın bekleniyor"],
       ]
     },

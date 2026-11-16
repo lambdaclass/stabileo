@@ -1,3 +1,4 @@
+import { windEndResultants } from './wind-integration-fixture';
 /**
  * The generator's wind on a pressure profile and on a part of the model, the snow on a chosen roof,
  * the mass's own weights, and the pushover's lateral pattern and target.
@@ -37,7 +38,7 @@ const plan = (wind: Partial<NonNullable<LoadPlanInput['wind']>>, model = tower()
   reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: false,
   wind: { enabled: true, basicSpeed: 45, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, directions: { x: false, y: true }, senses: ['+y'], caseSet: 'all', ...wind },
 });
-const yAt = (p: ReturnType<typeof buildLoadPlan>, ids: number[]) => p.nodal.filter((n) => n.caseType === 'W' && ids.includes(n.nodeId)).reduce((s, n) => s + n.fy, 0);
+const yAt = (p: ReturnType<typeof buildLoadPlan>, ids: number[]) => windEndResultants(tower(), p.distributed.filter(d => d.caseType === 'W'), p.nodal.filter(d => d.caseType === 'W')).filter(n => ids.includes(n.nodeId)).reduce((s, n) => s + n.fy, 0);
 
 describe('wind on a profile of the user’s and on a part of the model', () => {
   it('the profile’s mean over a band, exactly', () => {
@@ -51,7 +52,7 @@ describe('wind on a profile of the user’s and on a part of the model', () => {
     // Level +6 m: band 4.5 to 7.5 m, the 20 m front facing Y: 1 kPa × 20 × 3 = 60 kN.
     expect(yAt(p, [9, 10, 11, 12])).toBeCloseTo(60, 6);
     expect(p.cases.filter((c) => c.type === 'W')).toHaveLength(1);
-    expect(p.distributed.filter((d) => d.caseType === 'W')).toHaveLength(0);
+    expect(p.distributed.filter((d) => d.caseType === 'W' && d.q !== 0)).toHaveLength(0);
   });
 
   it('on a part of the model, only its nodes, with its own front', () => {

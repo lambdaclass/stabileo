@@ -319,9 +319,10 @@ export interface PlannedDistributed {
   a?: number;
   b?: number;
   frame?: 'local' | 'global' | 'projected';
-  /** With a global frame, the X and Y components, kN/m, uniform. */
   qX?: number;
+  qXJ?: number;
   qY?: number;
+  qYJ?: number;
 }
 
 /** An area load on a quad, kN/m², positive downward (`SurfaceLoad3D`). */
@@ -1080,8 +1081,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   if (input.generateCombinations) {
     const present: CombinationInputs['present'] = {
       L: area.planned.has('L') || !input.roof, Lr: area.planned.has('Lr'), S: snowPlanned, R: false,
-      W: !!input.wind?.enabled && nodal.some((n) => n.caseType === 'W'),
-      Wa: nodal.some((n) => n.caseType === 'Wa'),
+      W: !!input.wind?.enabled && [...nodal, ...distributed].some((n) => n.caseType === 'W'),
+      Wa: [...nodal, ...distributed].some((n) => n.caseType === 'Wa'),
       E: !!input.seismic?.enabled && nodal.some((n) => n.caseType === 'E'),
       F: special.fluid.length > 0 || special.fluidBottom.length > 0, H: special.soil.length > 0,
       T: special.thermal.length > 0,
