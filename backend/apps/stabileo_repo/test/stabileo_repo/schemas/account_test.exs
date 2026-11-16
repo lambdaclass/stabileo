@@ -80,6 +80,12 @@ defmodule StabileoRepo.Schemas.AccountTest do
       assert %{password: ["should be at most 72 character(s)"]} = errors_on(changeset)
     end
 
+    test "accepts Hungarian, the seventh offered locale" do
+      changeset = @valid |> Map.put(:locale, "hu") |> Account.registration_changeset()
+      assert changeset.valid?
+      assert Ecto.Changeset.get_change(changeset, :locale) == "hu"
+    end
+
     test "rejects an unknown locale" do
       changeset = @valid |> Map.put(:locale, "xx") |> Account.registration_changeset()
       assert %{locale: ["is invalid"]} = errors_on(changeset)
@@ -196,6 +202,45 @@ defmodule StabileoRepo.Schemas.AccountTest do
     test "is false without an account or with an empty password" do
       refute Account.valid_password?(nil, "anything")
       refute Account.valid_password?(Factory.insert(:account), "")
+    end
+  end
+
+  describe "google_changeset/1" do
+    @google %{email: "Google-Schema@Example.com", name: "Grace", google_subject: "g-schema"}
+
+    test "inserts a verified account with no password" do
+      assert {:ok, account} = @google |> Account.google_changeset() |> Repo.insert()
+
+      saved = Repo.get!(Account, account.id)
+      assert saved.email == "google-schema@example.com"
+      assert saved.google_subject == "g-schema"
+      assert saved.password_hash == nil
+      assert %DateTime{} = saved.email_verified_at
+      refute Account.valid_password?(saved, "anything")
+    end
+
+    for field <- [:email, :name, :google_subject] do
+      test "requires #{field}" do
+        changeset = @google |> Map.delete(unquote(field)) |> Account.google_changeset()
+        assert %{unquote(field) => ["can't be blank"]} = errors_on(changeset)
+      end
+    end
+
+    test "ignores a password" do
+      changeset = @google |> Map.put(:password, "long-enough") |> Account.google_changeset()
+      assert Ecto.Changeset.get_change(changeset, :password_hash) == nil
+    end
+
+    test "one account per Google subject" do
+      assert {:ok, _} = @google |> Account.google_changeset() |> Repo.insert()
+
+      assert {:error, changeset} =
+               @google
+               |> Map.put(:email, "other@example.com")
+               |> Account.google_changeset()
+               |> Repo.insert()
+
+      assert %{google_subject: ["has already been taken"]} = errors_on(changeset)
     end
   end
 end

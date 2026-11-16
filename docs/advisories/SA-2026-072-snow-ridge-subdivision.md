@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-15; fixed in PR #2175, pending merge and release |
+| Status | Draft 2026-11-15; fixed in PR #2175, pending release |
 | Issue | [#2144](https://github.com/lambdaclass/stabileo/issues/2144) |
-| Fix | PR [#2175](https://github.com/lambdaclass/stabileo/pull/2175); pending merge and release |
+| Fix | PR [#2175](https://github.com/lambdaclass/stabileo/pull/2175); pending release |
 | Fixed release | Not released |
 | Affected versions | Confirmed on origin/main `8e5c026b7`; earlier introduction and historical release binaries not assessed |
 | Re-check registry | [`snow-ridge-mesh`](../../web/src/lib/provenance/result-changes/snow-ridge-mesh.json) |
@@ -50,7 +50,7 @@ roof had an incorrect load.
 
 ## Fixed in
 
-Fixed in PR #2175, pending merge and release. One shared
+Fixed in PR #2175, pending release. One shared
 roof-surface model now owns geometry, complete connected collinear runs,
 profile points, side classification and interpolation to member stations.
 The ridge uses the projected extent of the highest physical profile points;
@@ -64,7 +64,7 @@ retained. This fix does not establish end-to-end invariance for that configurati
 
 ## Workaround
 
-Until the correction is merged and released, independently verify the physical
+Until the correction is released, independently verify the physical
 ridge, snow pressures and load allocation, including a subdivision-invariance
 check. Do not rely on an earlier generated snow field solely because the solve
 completed without refusal.
@@ -82,4 +82,4 @@ loads. Review explicit-panel faceted domes separately under #2172.
 The exposure is tracked as #2144. The coordinator assigned SA-2026-072.
 The [results-change record](../results-changes/2026-11-snow-ridge-mesh.md)
 retains the main witness, shared-path coverage, boundary tests and correct
-controls. The fix is in PR #2175, pending merge and release.
+controls. The fix is in PR #2175, pending release.

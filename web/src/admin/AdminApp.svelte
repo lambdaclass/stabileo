@@ -10,6 +10,12 @@
   import UsersPage from './UsersPage.svelte';
   import SettingsPage from './SettingsPage.svelte';
   import AllowlistPage from './AllowlistPage.svelte';
+  import MetricsPage from './MetricsPage.svelte';
+  import AdsPage from './AdsPage.svelte';
+  import ProjectsPage from './ProjectsPage.svelte';
+  import FeedbackPage from './FeedbackPage.svelte';
+  import AuditLogPage from './AuditLogPage.svelte';
+  import './admin-pages.css';
   import OAuthCallback from './OAuthCallback.svelte';
   import { adminRoute } from './admin-route.svelte';
 
@@ -41,6 +47,16 @@
     <main class="adm-main">
       {#if adminRoute.page === 'settings'}
         <SettingsPage />
+      {:else if adminRoute.page === 'metrics'}
+        <MetricsPage />
+      {:else if adminRoute.page === 'ads'}
+        <AdsPage />
+      {:else if adminRoute.page === 'projects'}
+        <ProjectsPage />
+      {:else if adminRoute.page === 'feedback'}
+        <FeedbackPage />
+      {:else if adminRoute.page === 'audit'}
+        <AuditLogPage />
       {:else if adminRoute.page === 'allowlist'}
         <AllowlistPage />
       {:else}

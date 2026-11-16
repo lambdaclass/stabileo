@@ -145,6 +145,12 @@ export function compareWithEnglish(page: string, locale: string, html: string, e
   return failures;
 }
 
+/** A page left at a moved address only sends its reader on: noindex with an immediate refresh, so it has no translations or sitemap entry of its own. */
+export function isMovedPage(html: string): boolean {
+  const head = html.slice(0, html.indexOf('</head>') + 1 || html.length);
+  return /<meta\s+name="robots"\s+content="noindex"/i.test(head) && /<meta\s+http-equiv="refresh"\s+content="0;/i.test(head);
+}
+
 function isFile(p: string): boolean {
   return existsSync(p) && statSync(p).isFile();
 }
@@ -176,7 +182,9 @@ export function checkTranslations(distDir: string, origin = 'https://stabileo.co
   const dist = resolve(distDir);
   const failures: GateFailure[] = [];
   const built = new Map<string, string>();
-  for (const locale of locales) for (const file of indexFiles(join(dist, locale))) built.set(urlPath(dist, file), file);
+  for (const locale of locales) for (const file of indexFiles(join(dist, locale))) {
+    if (!isMovedPage(readFileSync(file, 'utf8'))) built.set(urlPath(dist, file), file);
+  }
   if (![...built.keys()].some((p) => p.startsWith('/en/'))) {
     return [{ page: dist, locale: 'en', rule: 'no English pages were built', offending: [] }];
   }

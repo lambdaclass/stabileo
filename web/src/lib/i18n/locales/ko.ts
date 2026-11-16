@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  "account.err.invalid_credentials": "이메일 또는 비밀번호가 올바르지 않습니다.",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───
@@ -795,28 +796,6 @@ const ko: Translations = {
   'float.vShear': 'V 전단력',
   'float.ilHint': '절점(반력) 또는 부재(내부 M/V)를 클릭하세요',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': '보고 / 제안',
-  'feedback.close': '닫기',
-  'feedback.reportCreated': '보고서 #{n} 생성됨',
-  'feedback.bugError': '버그 / 오류',
-  'feedback.suggestion': '제안',
-  'feedback.other': '기타',
-  'feedback.namePlaceholder': '이름 또는 별명 (선택 사항)',
-  'feedback.textPlaceholder': '문제 또는 제안 사항을 설명하세요...',
-  'feedback.linkAttached': '구조물 링크가 첨부됩니다',
-  'feedback.copy': '복사',
-  'feedback.sending': '전송 중...',
-  'feedback.submitReport': '보고서 제출',
-  'feedback.toastCreated': '보고서 #{n} 생성됨 — 감사합니다!',
-  'feedback.toastError': '보고서를 전송할 수 없습니다',
-  'feedback.toastConnectionError': '연결 오류 — 다시 시도하세요',
-  'feedback.toastEmptyText': '문제 또는 제안에 대한 설명을 작성하세요',
-  'feedback.toastSecurityWait': '보안 확인 대기 중...',
-  'feedback.toastLinkCopied': '링크 복사됨',
-  'feedback.reportBug': '버그 보고 / 제안',
-  'feedback.communityTelegram': '텔레그램 커뮤니티',
-  'feedback.buyCoffee': '커피 한 잔 사주기',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': '단면 {id}',
@@ -2218,6 +2197,7 @@ const ko: Translations = {
   'lang.fr': 'Français',
   'lang.it': 'Italiano',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.hi': 'हिन्दी',
   'lang.zh': '中文',
   'lang.ja': '日本語',

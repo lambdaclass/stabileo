@@ -2,7 +2,7 @@
   import ScalarFieldViewer from '../viewport/ScalarFieldViewer.svelte';
   import PaneTabs from '../research/shell/PaneTabs.svelte';
   import LineChart from '../research/shauer2025/LineChart.svelte';
-  import ToolPreview from './ToolPreview.svelte';
+  import ToolPreview from './MainToolPreview.svelte';
   import { tPublic as t, publicI18n } from '../../lib/i18n/store.svelte';
   import type { Parameters, ToolId } from './calculators';
   import type { calculate } from './solve';
@@ -12,8 +12,6 @@
   const column = $derived(id === 'column-buckling');
   const number = (n: number) => new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: 5 }).format(n);
   const unit = $derived(metric === 'moment' ? 'kN·m' : metric === 'shear' ? 'kN' : 'm');
-  // Diagram samples come from the same computeElementDiagram / computeDeformedShape
-  // functions as the editor. The column uses the solver's first eigenvector, never unit-load deflection.
   const mode = $derived.by((): [number, number][] => {
     if (!result?.buckling) return [];
     return (result.buckling.modes[0].displacements as { nodeId: number; uz: number }[]).map(d => [result.model.nodes.get(d.nodeId)!.x, d.uz]);

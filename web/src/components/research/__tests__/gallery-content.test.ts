@@ -31,7 +31,7 @@ const SECOND_ROUND = new Set(['mattiasson-elastica', 'ferrari-2025', 'shauer-202
 const ROUNDS: Record<string, number> = { 'mattiasson-elastica': 3 };
 const AWAITING_REVIEW = new Set(['gay-neto-2014', 'feher-sipos-varkonyi-2026']);
 const REVIEWED = EXPERIMENTS.filter(e => !AWAITING_REVIEW.has(e.paperId));
-const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu/;
+const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu|Első változat|felülvizsgálati köre?\b/;
 it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed review rounds', e => {
   const paper = catalog.papers.find(p => p.id === e.paperId)!;
   const b = bibliography(paper);
@@ -91,8 +91,9 @@ it('titles the Riks card in the language its article is written in', async () =>
 
 it('names each thumbnail link by its localized card title and keeps the image decorative', async () => {
   const { cardTitle } = await import('../card-title');
-  for (const locale of ['en', 'es', 'pt']) {
+  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu'].includes(locale))) {
     setLocale(locale);
+    expect(publicI18n.locale).toBe(locale);
     const { body } = render(Gallery);
     const thumbs = [...body.matchAll(/<a[^>]*class="rs-g-thumb[^"]*"[^>]*>([\s\S]*?)<\/a>/g)];
     expect(thumbs).toHaveLength(EXPERIMENTS.length);
@@ -105,8 +106,9 @@ it('names each thumbnail link by its localized card title and keeps the image de
 
 it('the bent-strip card shows its own localized lead', async () => {
   const { translations } = await import('../feher2026/strings');
-  for (const locale of ['en', 'es', 'pt']) {
+  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu'].includes(locale))) {
     setLocale(locale);
+    expect(publicI18n.locale).toBe(locale);
     const { body } = render(Gallery);
     const cards = [...body.matchAll(/<li class="rs-g-runcard[^>]*>([\s\S]*?)<\/li>/g)];
     const card = cards.find(([html]) => html.includes('/research/stability/feher-sipos-varkonyi-2026'))![0];

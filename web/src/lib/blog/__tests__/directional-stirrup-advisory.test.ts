@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { findPost } from '..';
+import huBody from '../translations/hu/safety-advisories';
 import notice from '../../provenance/result-changes/directional-stirrup-legs.json';
 import type { PublicLocale } from '../../i18n/store.svelte';
 
@@ -14,10 +15,11 @@ it.each<[PublicLocale, string, string]>([
   ["pt", "Alta", "Corrigido no PR #2198, aguardando integração e publicação"],
   ["de", "Hoch", "In PR #2198 behoben, Zusammenführung und Veröffentlichung ausstehend"],
   ["fr", "Élevée", "Corrigé dans la PR #2198, fusion et publication en attente"],
+  ["hu", "Magas", "Javítva a #2198 PR-ben, összevonásra és kiadásra vár"],
   ["tr", "Yüksek", "PR #2198 ile düzeltildi, birleştirme ve yayın bekleniyor"],
 ])('#2171 %s lists the draft directional-stirrup advisory and recheck notice', (locale, severity, status) => {
   const post = findPost('safety-advisories')!;
-  const blocks = post.i18n[locale]!.blocks;
+  const blocks = (locale === 'hu' ? huBody : post.i18n[locale]!).blocks;
   const table = blocks.find(b => b.k === 'table');
   if (table?.k !== 'table') throw new Error('Missing advisory table');
   const rows = table.rows.filter(r => r[0] === 'SA-2026-075');

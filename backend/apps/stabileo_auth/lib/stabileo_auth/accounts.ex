@@ -1,7 +1,6 @@
 defmodule StabileoAuth.Accounts do
-  @moduledoc "Accounts: sign-up, credentials and profile."
+  @moduledoc false
 
-  alias StabileoAuth.Sessions
   alias StabileoRepo.Repo
   alias StabileoRepo.Schemas.Account
 
@@ -49,26 +48,5 @@ defmodule StabileoAuth.Accounts do
     account
     |> Account.profile_changeset(attrs)
     |> Repo.update()
-  end
-
-  @doc "Changes the password and revokes every session but `keep_session_id`."
-  def change_password(%Account{} = account, current_password, new_password, keep_session_id) do
-    if Account.valid_password?(account, current_password) do
-      Repo.transaction(fn -> set_password(account, new_password, keep_session_id) end)
-    else
-      {:error, :invalid_current_password}
-    end
-  end
-
-  defp set_password(account, new_password, keep_session_id) do
-    with {:ok, updated} <-
-           account
-           |> Account.password_changeset(%{password: new_password})
-           |> Repo.update(),
-         {:ok, _count} <- Sessions.revoke_all_except(account.id, keep_session_id) do
-      updated
-    else
-      {:error, reason} -> Repo.rollback(reason)
-    end
   end
 end

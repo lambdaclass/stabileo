@@ -8,7 +8,8 @@ declare module 'virtual:public-i18n' {
   export const de: Record<string, string>;
   export const fr: Record<string, string>;
   export const tr: Record<string, string>;
-  export const loaders: Partial<Record<'es' | 'pt' | 'de' | 'fr' | 'tr', () => Promise<{ default: Record<string, string> }>>>;
+  export const hu: Record<string, string>;
+  export const loaders: Partial<Record<'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu', () => Promise<{ default: Record<string, string> }>>>;
 }
 
 declare module 'virtual:app-i18n' {
@@ -18,6 +19,7 @@ declare module 'virtual:app-i18n' {
   export const de: Record<string, string>;
   export const fr: Record<string, string>;
   export const tr: Record<string, string>;
+  export const hu: Record<string, string>;
 }
 
 declare module 'virtual:app-i18n/de' {
@@ -28,6 +30,9 @@ declare module 'virtual:app-i18n/fr' {
 }
 declare module 'virtual:app-i18n/tr' {
   export const tr: Record<string, string>;
+}
+declare module 'virtual:app-i18n/hu' {
+  export const hu: Record<string, string>;
 }
 
 declare module 'virtual:result-change-metadata' {
@@ -48,4 +53,10 @@ declare module 'virtual:result-change-quantities' {
 declare module 'virtual:result-change-packed' {
   const packed: string;
   export default packed;
+}
+
+interface ImportMetaEnv {
+  readonly VITE_RESEARCH?: string;
+  readonly VITE_TOOLS?: string;
+  readonly VITE_DIAGRAM_GAME?: string;
 }

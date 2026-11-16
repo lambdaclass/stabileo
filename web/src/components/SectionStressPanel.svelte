@@ -1350,6 +1350,8 @@
         {mohrData}
         {mohrSigma}
         {mohrTau}
+        tauComponents={activeState?.tauComponents}
+        spaceMode={uses3DPath}
       />
 
       <!-- How the centroid and the shear centre are found. Next to the core,

@@ -26,7 +26,7 @@ test('RESEARCH_ISOLATION enforces 128 bytes unless it is exactly false', () => {
     if (mode !== undefined) env.RESEARCH_ISOLATION = mode;
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
       import { reviewRouteGrowth } from ${JSON.stringify(new URL('./research-route-budget.mjs', import.meta.url).href)};
-      reviewRouteGrowth({ '/en/': 1000 }, { '/en/': ${1000 + growth} });
+      reviewRouteGrowth({ '/de/': 1000 }, { '/de/': ${1000 + growth} });
     `], { env, encoding: 'utf8' });
     assert.equal(result.status, status, `${mode} ${growth}: ${result.stderr}`);
     if (status) assert.match(result.stderr, /research isolation/);
@@ -49,15 +49,18 @@ test('allowances need bytes, a reason and an existing module', () => {
   assert.throws(() => parse([]), /invalid route allowance/);
   assert.throws(() => parse([entry, { ...entry, reason: '' }]), /invalid route allowance/);
 });
-test('the shipped allowances cover #1483 related links, the #1619 riser card, #447 containment messages and #818 Rayleigh refinement', () => {
+test('the shipped allowances are the #1483 related links on research and tools, the #1619 riser card on research, the #447 containment messages on tools, #818 Rayleigh refinement on the app, and #1916 Hungarian on every route', () => {
   const routes = routeAllowances(readFileSync(new URL('./research-route-allowances.json', import.meta.url), 'utf8'), () => true);
-  assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/research/', '/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']);
-  for (const route of ['/app/basic', '/app/education', '/app/pro']) {
-    assert.deepEqual(routes[route], { bytes: 3400, reason: '#818 original-pencil Rayleigh refinement', modules: ['src/lib/engine/second-order/dense.ts'] });
+  assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
+  for (const route of ['/en/', '/es/', '/pt/']) {
+    assert.deepEqual(routes[route], { bytes: 400, reason: '#1916 Hungarian, the seventh offered language: its name and lazy loader', modules: ['src/lib/i18n/offered.ts'] });
   }
-  assert.deepEqual(routes['/en/research/'], { bytes: 2600, reason: '#1483 related links styled as theme chips + #1619 riser gallery card and catalogue entry', modules: ['src/components/research/RelatedLinks.svelte', 'src/components/research/gayNeto2014/card.ts'] });
+  for (const route of ['/app/basic', '/app/education', '/app/pro']) {
+    assert.deepEqual(routes[route], { bytes: 1303400, reason: '#818 original-pencil Rayleigh refinement + #1916 Hungarian, the seventh offered language: its lazily loaded app dictionary', modules: ['src/lib/engine/second-order/dense.ts', 'src/lib/i18n/locales/hu.ts'] });
+  }
+  assert.deepEqual(routes['/en/research/'], { bytes: 102600, reason: '#1483 related links styled as theme chips + #1619 riser gallery card and catalogue entry + #1916 Hungarian copy of the research gallery and catalogue', modules: ['src/components/research/RelatedLinks.svelte', 'src/components/research/gayNeto2014/card.ts', 'src/components/research/gallery-i18n.ts'] });
   for (const route of ['/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']) {
-    assert.deepEqual(routes[route], { bytes: 1300, reason: '#1483 related links styled as theme chips + #447 containment messages', modules: ['src/components/research/RelatedLinks.svelte', 'src/lib/engine/known-issue-message.ts'] });
+    assert.deepEqual(routes[route], { bytes: 61300, reason: '#1483 related links styled as theme chips + #447 containment messages + #1916 Hungarian copy of the free calculators', modules: ['src/components/research/RelatedLinks.svelte', 'src/lib/engine/known-issue-message.ts', 'src/components/tools/batch-i18n.ts'] });
   }
 });
 test('missing and non-finite measurements fail', () => {
@@ -70,7 +73,7 @@ test('a route over its absolute ceiling is named; at the ceiling it is not', () 
 });
 test('the shipped ceilings cover every measured route', () => {
   const { routes } = JSON.parse(readFileSync(new URL('./route-size-ceilings.json', import.meta.url), 'utf8'));
-  assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
+  assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/beam-frame/', '/en/tools/continuous-beam/', '/en/tools/mohr-2d/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
   for (const bytes of Object.values(routes)) assert.ok(Number.isInteger(bytes) && bytes > 0);
 });
 
@@ -125,5 +128,17 @@ test('the course route boundary and what only it reaches leave the app footprint
     'src/lib/course/locale-de.ts': { file: 'course-de.js' } };
   const files = routeChunkFiles(withCourse, appRoots);
   for (const file of ['course-route.js', 'course-only.js', 'course-de.js']) assert.ok(!files.has(file), file);
+  assert.ok(files.has('shared.js'));
+});
+
+test('the diagram game page loader is a route boundary: the game and what only it reaches leave the app footprint', () => {
+  const loader = 'src/components/diagram-game/load-page.ts';
+  const withGame = { ...manifest,
+    'src/App.svelte': { ...manifest['src/App.svelte'], dynamicImports: [...manifest['src/App.svelte'].dynamicImports, loader] },
+    [loader]: { file: 'game-loader.js', dynamicImports: ['src/components/diagram-game/DiagramGamePage.svelte'] },
+    'src/components/diagram-game/DiagramGamePage.svelte': { file: 'game.js', imports: ['_shared.js'] } };
+  assert.ok(isLazyRouteBoundary(loader));
+  const files = routeChunkFiles(withGame, appRoots);
+  for (const file of ['game-loader.js', 'game.js']) assert.ok(!files.has(file), file);
   assert.ok(files.has('shared.js'));
 });

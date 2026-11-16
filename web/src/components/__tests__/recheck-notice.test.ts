@@ -94,9 +94,11 @@ it.each(OFFERED_LOCALES.filter((l) => l !== 'en'))('shows each change in the rea
   const html = render(RecheckNotice).body;
   const text = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   for (const change of changes) {
-    expect(change.title[locale], change.id).not.toBe(change.title.en);
-    expect(html).toContain(text(change.title[locale]));
-    expect(html).toContain(text(change.explanation[locale]));
+    const title = change.title[locale], explanation = change.explanation[locale];
+    if (title === undefined || explanation === undefined) throw new Error(`Missing ${locale} notice for ${change.id}`);
+    expect(title, change.id).not.toBe(change.title.en);
+    expect(html).toContain(text(title));
+    expect(html).toContain(text(explanation));
     expect(html).not.toContain(text(change.explanation.en));
   }
 });
@@ -112,4 +114,29 @@ it('does not claim results changed when the change list could not be loaded', ()
   expect(html).toContain(t('recheck.loadFailed'));
   expect(html).not.toContain(t('recheck.title'));
   expect(html).toMatch(/<input[^>]*disabled[^>]*data-testid="recheck-ack"/);
+});
+
+
+it('known wrong result: #2099 — renders a complete English snow notice when Hungarian is incomplete', async () => {
+  const { RESULT_CHANGES } = await import('../../lib/provenance/full-registry');
+  const { i18n } = await import('../../lib/i18n');
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'snow-roof-step')!;
+  vi.stubEnv('VITE_RESEARCH', '1');
+  vi.spyOn(i18n, 'locale', 'get').mockReturnValue('hu');
+  vi.spyOn(recheckStore, 'pending', 'get').mockReturnValue(false);
+  vi.spyOn(recheckStore, 'noticeOpen', 'get').mockReturnValue(true);
+  try {
+    for (const translated of ['neither', 'title', 'explanation', 'both']) {
+      const change = {
+        ...entry,
+        title: { ...entry.title, ...(translated === 'title' || translated === 'both' ? { hu: 'Magyar cím' } : {}) },
+        explanation: { ...entry.explanation, ...(translated === 'explanation' || translated === 'both' ? { hu: 'Magyar magyarázat' } : {}) },
+      };
+      vi.spyOn(recheckStore, 'assessment', 'get').mockReturnValue({ solvedVersion: 1, currentVersion: RESULT_CHANGES.currentResultsVersion, older: true, newer: false, changes: [change], advisories: [], maybe: [] });
+      const html = render(RecheckNotice).body;
+      const escaped = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      expect(html).toContain(escaped(translated === 'both' ? change.title.hu! : change.title.en));
+      expect(html).toContain(escaped(translated === 'both' ? change.explanation.hu! : change.explanation.en));
+    }
+  } finally { vi.unstubAllEnvs(); }
 });

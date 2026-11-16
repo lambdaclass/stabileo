@@ -1,9 +1,17 @@
+import { BUILD_FEATURES } from './build-features';
 import { test, expect } from '@playwright/test';
 
-const ITEMS = [['basic', 'Product', '/en/#basic'], ['examples', 'Examples', '/en/examples/'], ['tools', 'Tools', '/en/tools/'], ['research', 'Research', '/en/research/'], ['pricing', 'Pricing', '/en/#pricing'], ['blog', 'Blog', '/en/blog/']];
+const MAIN_ITEMS = [['basic', 'Product', '/en/#basic'], ['examples', 'Examples', '/en/examples/'], ['tools', 'Tools', '/en/tools/'], ['research', 'Research', '/en/research/'], ['pricing', 'Pricing', '/en/#pricing'], ['blog', 'Blog', '/en/blog/']];
 
-test.describe('@smoke landing nav', () => {
-  test('six items and the editor button on a wide screen', async ({ page }) => {
+const SWITCHED_ITEMS = MAIN_ITEMS.flatMap(item => {
+  if (item[0] === 'examples' && BUILD_FEATURES.tools) return [];
+  return item[0] === 'tools' && BUILD_FEATURES.diagramGame ? [item, ['game', 'Game', '/en/diagram-game/']] : [item];
+});
+
+for (const switched of [false, true]) test.describe(`@smoke landing nav ${switched ? 'with switched items' : 'from main'}`, () => {
+  test.skip(switched !== (BUILD_FEATURES.tools || BUILD_FEATURES.diagramGame), 'Navigation expectation for a different build switch configuration');
+  const ITEMS = switched ? SWITCHED_ITEMS : MAIN_ITEMS;
+  test('expected items and the editor button on a wide screen', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/en/');
     const header = page.locator('nav.site-header');
@@ -29,7 +37,7 @@ test.describe('@smoke landing nav', () => {
   });
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 }]) {
-    test(`the menu at ${viewport.width}px holds the six items${viewport.width < 761 ? ', then the editor button' : ''}`, async ({ page }) => {
+    test(`the menu at ${viewport.width}px holds the expected items${viewport.width < 761 ? ', then the editor button' : ''}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto('/en/research/');
       const header = page.locator('nav.site-header');

@@ -1,5 +1,6 @@
 import type { Translations } from '../types';
 const it: Translations = {
+  "account.err.invalid_credentials": "L'indirizzo e-mail o la password non sono corretti.",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───
@@ -818,28 +819,6 @@ const it: Translations = {
   'float.vShear': 'V taglio',
   'float.ilHint': 'Clicca un nodo (reazioni) o un\'asta (M/V interni)',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': 'Segnala / Suggerisci',
-  'feedback.close': 'Chiudi',
-  'feedback.reportCreated': 'Segnalazione #{n} creata',
-  'feedback.bugError': 'Bug / Errore',
-  'feedback.suggestion': 'Suggerimento',
-  'feedback.other': 'Altro',
-  'feedback.namePlaceholder': 'Il tuo nome o alias (opzionale)',
-  'feedback.textPlaceholder': 'Descrivi il problema o il suggerimento...',
-  'feedback.linkAttached': 'Verrà allegato un link alla tua struttura',
-  'feedback.copy': 'Copia',
-  'feedback.sending': 'Invio in corso...',
-  'feedback.submitReport': 'Invia segnalazione',
-  'feedback.toastCreated': 'Segnalazione #{n} creata — grazie!',
-  'feedback.toastError': 'Impossibile inviare la segnalazione',
-  'feedback.toastConnectionError': 'Errore di connessione — riprova',
-  'feedback.toastEmptyText': 'Scrivi una descrizione del problema o del suggerimento',
-  'feedback.toastSecurityWait': 'In attesa della verifica di sicurezza...',
-  'feedback.toastLinkCopied': 'Link copiato',
-  'feedback.reportBug': 'Segnala bug / Suggerimento',
-  'feedback.communityTelegram': 'Comunità Telegram',
-  'feedback.buyCoffee': 'Offrimi un caffè',
 
   // ─── Toast messages ───
   // Toolbar.svelte / ToolbarResults.svelte solve toasts
@@ -2219,6 +2198,7 @@ const it: Translations = {
   'lang.fr': 'Français',
   'lang.it': 'Italiano',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.hi': 'हिन्दी',
   'lang.zh': '中文',
   'lang.ja': '日本語',

@@ -180,5 +180,44 @@ const tr: Strings = {
     "Euler f1 relative error": "İkinci Euler yükü"
   }
 };
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr };
+const hu: Strings = {
+  "title": "Átpattanó ívek görbületi mintázattal",
+  "lead": "Változtassa meg egy görbült szakasz szélességét, és tolja el azt a küszöböt, amelynél egy lapos ív átpattan a másik oldalra.",
+  "model": "Az Euler-kihajlástól az egyensúlyi ugrásig",
+  "theory": "A két végén vízszintesen befogott ív a végpontok közeledését az alakjában tárolja. A preferált görbület mintázata a kihajlási alakokhoz csatolódik. Az arXiv v2 3–4. oldalán közölt (2) és (3) egyenlet adja a kis szögű egyensúlyt és a nyomási spektrumot. A kísérletet középre helyezett, téglalap alakú mintázatra korlátozzuk.",
+  "method": "A Stabileo alkalmazásban futó 2D keretkihajlási megoldó 64 elemen 16 kihajlási alakot számít. Egy kutatási réteg ezekre az alakokra vetíti a görbületet, és megoldja a cikk nyomási kényszerfeltételét. Ugyanez a Rust-kód fut itt WASM-ként, és ez állítja elő a visszajátszást is.",
+  "limits": "Ez egy lapos, nyúlásmentes egyensúlyi modell. Az ugrás egyensúlyi állapotokat köt össze; nem szimulálja az átpattanás dinamikáját, és nem reprodukál laboratóriumi méréseket. Az alkalmazás ívhossz-módszere nem fogad el előírt elmozdulásokat és hőmérsékleti terhet, ezért ezt a görbület által vezérelt utat nem azzal követjük. Csak középre helyezett mintázatokat és kis végponti rövidülést vizsgálunk.",
+  "evidence": "70%-os gerjesztett szélességnél a cikk α/√ε = {threshold} értéket ad (arXiv v2, 3. oldal, a (2) egyenlet után). Az összehasonlító görbét a szerzők kis szögű szoftverével állítjuk elő újra, amely a Zenodo 18256271 rekordban érhető el CC-BY-4.0 licenccel. Ez numerikus referencia, nem kísérleti validáció.",
+  "checks": "Validáció és források",
+  "publishedValue": "Közölt küszöb 70%-os szélességnél",
+  "width": "Gerjesztett szélesség γ",
+  "compression": "Végponti rövidülés ε",
+  "threshold": "Átpattanási küszöb α",
+  "normalized": "Normalizált küszöb α/√ε",
+  "mode": "Első antimetrikus kihajlási alak",
+  "arch": "Az ív egyensúlya",
+  "jump": "Egyensúlyi sorozat; az ugrásnak nincs fizikai időtartama",
+  "run": "Újraszámítás élőben",
+  "stop": "Leállítás",
+  "restart": "Újraindítás",
+  "error": "A megoldó nem töltődött be, vagy nem futott le. Az előző eredmény továbbra is elérhető.",
+  "computing": "Számítás a Stabileóval…",
+  "paper": "Cikk és kiegészítő egyenletek",
+  "data": "Zenodo-adatok és -szoftver",
+  "ours": "Stabileo-kihajlási alakok + a lapos ív egyenletei",
+  "reference": "A szerzők Zenodo-szoftvere",
+  "parameterNotice": "A megjelenített eredmények az újraszámítás befejezéséig megőrzik azokat a paramétereket, amelyekkel kiszámították őket.",
+  "resultParameters": "Számított paraméterek",
+  "alpha": "Preferált görbület α = Lκ₀",
+  "force": "Normálerő f = NL²/EI (pozitív: nyomás; negatív: húzás)",
+  "coordinates": "Mindkét végén befogott. A koordináták x/L és w/L; α a preferált görbület és az L fesztáv szorzata.",
+  "referenceCaveat": "A szerzők alapértelmezett optimalizálója és téglalapszabályos kvadratúrája kis egyenetlenségeket okoz; 70%-nál a szoftverük {software} értéket ad, a cikk viszont {published} értéket közöl.",
+  "checkLabels": {
+    "max relative threshold error against 31 Zenodo software outputs": "Zenodo-görbe: legnagyobb relatív hiba",
+    "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "Háló- és alakfinomítás",
+    "Euler f0 relative error": "Első Euler-teher",
+    "Euler f1 relative error": "Második Euler-teher"
+  }
+};
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu };
 export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

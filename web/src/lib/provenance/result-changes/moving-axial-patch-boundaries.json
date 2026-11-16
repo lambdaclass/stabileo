@@ -18,6 +18,7 @@
     "pt": "As envoltórias axiais de cargas móveis incluem os limites das cargas distribuídas",
     "de": "Axialkraftumhüllende für Wanderlasten berücksichtigen Grenzen verteilter Lasten",
     "fr": "Les enveloppes axiales des charges mobiles incluent les limites des charges réparties",
+    "hu": "A mozgó teher normálerő-burkolói tartalmazzák a megoszló teher határait",
     "tr": "Hareketli yük eksenel zarfları yayılı yük sınırlarını içeriyor"
   },
   "explanation": {
@@ -26,6 +27,7 @@
     "pt": "As envoltórias de cargas móveis 2D e 3D podiam omitir um pico axial no início ou fim de uma carga distribuída e retornar zero apesar de existir força interior (#1782, SA-2026-052). Agora são avaliados todos os limites e as raízes de mudança de sinal existentes. Execute novamente as envoltórias afetadas e reveja os projetos e dimensionamentos baseados nos extremos axiais. O aviso identifica casos de posições de cargas móveis salvos; varreduras transitórias não deixam marca salva.",
     "de": "Wanderlastumhüllende in 2D und 3D konnten Axialkraftspitzen am Anfang oder Ende verteilter Lasten übersehen und trotz innerer Kraft null melden (#1782, SA-2026-052). Nun werden alle Lastgrenzen sowie die bisherigen Vorzeichenwurzeln ausgewertet. Berechnen Sie betroffene Umhüllende erneut und prüfen Sie darauf beruhende Nachweise und Dimensionierungen. Gespeicherte Lastfälle für Wanderlastpositionen bestimmen diesen Hinweis; vorübergehende Lastdurchläufe hinterlassen keine gespeicherte Markierung.",
     "fr": "Les enveloppes de charges mobiles 2D et 3D pouvaient omettre un pic axial au début ou à la fin d’une charge répartie et donner zéro malgré un effort intérieur (#1782, SA-2026-052). Toutes les limites et les racines de changement de signe existantes sont désormais évaluées. Recalculez les enveloppes concernées et vérifiez les dimensionnements fondés sur leurs extrêmes axiaux. Cet avis utilise les cas de positions de charges mobiles enregistrés ; les balayages transitoires ne laissent aucune marque enregistrée.",
+    "hu": "A 2D és 3D mozgóteher-burkolók elmulaszthattak egy normálerő-csúcsot egy megoszló teherszakasz elején vagy végén, és nullát adtak még belső erővel rendelkező, ellentétes teherszakaszok esetén is (#1782, SA-2026-052). Most minden normálerő-teherszakasz határát és a meglévő előjelváltási gyököket is kiértékeli. Futtassa újra az érintett burkolókat, és vizsgálja felül a normálerő-szélsőértékeikre alapozott méretezéseket és keresztmetszet-felvételeket. A mentett mozgóteher-pozíció teheresetek azonosítják az ehhez az értesítéshez tartozó projekteket; az átmeneti végigfuttatások nem hagynak mentett jelölést.",
     "tr": "2B ve 3B hareketli yük zarfları yayılı yük başlangıcında veya sonunda eksenel kuvvet zirvesini kaçırıp iç kuvvet varken sıfır bildirebiliyordu (#1782, SA-2026-052). Artık tüm yük sınırları ve mevcut işaret değişimi kökleri değerlendiriliyor. Etkilenen zarfları yeniden hesaplayın ve eksenel uç değerlere dayanan tasarım ve boyutlandırmaları inceleyin. Bildirim kayıtlı hareketli yük konumu durumlarını kullanır; geçici taramalar kayıtlı işaret bırakmaz."
   },
   "changelog": {

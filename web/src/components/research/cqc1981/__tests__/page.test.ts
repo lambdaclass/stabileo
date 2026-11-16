@@ -40,7 +40,7 @@ it('shows every number the page reports from the replay, in tables', () => {
   expect(cell('cqc-deficit')).toBe('−18.02');
 });
 
-it('renders the page, shell and metadata language in all six locales', () => {
+it('renders the page, shell and metadata language in all seven locales', () => {
   for (const locale of PUBLIC_LOCALES) {
     setLocale(locale);
     const { body } = render(CqcPage);
