@@ -13,6 +13,22 @@ One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changel
 
 ### BREAKING (results)
 
+#### Snow ridges and slopes follow physical roof geometry (2026-11-15)
+
+Unequal subdivision of roof edges could move the inferred snow ridge and change
+snow loads without warning, including on flat models with an entered roof slope.
+The shared roof-surface path now derives ridges, slopes and shaped-roof profiles
+from complete physical runs, so inserting nodes does not change that geometry
+(#2144). Each member segment
+uses its own position relative to the stable ridge for side pressure, restoring
+the correct force and moment on members split at the ridge. A member that itself
+crosses the ridge retains its previous uniform treatment, tracked in #2176.
+Highest profile points are grouped with the existing elevation tolerance, preventing tiny corner-height changes from moving the ridge;
+points above that tolerance remain distinct. Regenerate affected snow loads,
+then rerun analyses, combinations and design checks; re-solving stored generated loads is insufficient.
+See [the results-change record](docs/results-changes/2026-11-snow-ridge-mesh.md).
+See [SA-2026-072](docs/advisories/SA-2026-072-snow-ridge-subdivision.md), pending merge and release.
+
 #### Interior deflection and rotation retain concentrated member couples (2026-11-15)
 
 Member hover readings and deformed shapes now include concentrated couples inside a span. The hover and both spatial bending curves use the engine's shared recovery, including point and distributed loads and released ends. Reopen saved projects with member loads, rerun analysis, and review displayed deflections and serviceability checks. Loaded recovery without sufficient bending stiffness is refused explicitly. Nodal solutions and member forces are unchanged. See [the results-change record](docs/results-changes/2026-11-interior-member-couples.md) ([SA-2026-070](docs/advisories/SA-2026-070-interior-member-couples.md), #2143; PR #2170, pending merge and release).
@@ -47,6 +63,10 @@ Move verification documents and data to `testing/docs/`, with one-off investigat
 The section-boundary and zero-secondary-shear regressions now require torsion results from direct, prepared and concurrent verification. Only the standalone torsion entry invokes the torsion checker directly, so a missing wrapper result fails instead of being replaced by a passing fallback (PR #2169, #2142).
 
 ### Fixed
+
+#### Teaching shape tests require every recovered sample (2026-11-16)
+
+Require all 21 samples in both the loaded teaching displacement sketch and the load-free mode before comparing ordinates, so empty or truncated recovery cannot pass the fixed-fixed couple regression tests (PR #2170). Preserve the member-recovery and snow-ridge advisories and saved-project notices when merging main. Engine results are unchanged.
 
 #### Spatial unloaded-shape test uses the required force record (2026-11-15)
 

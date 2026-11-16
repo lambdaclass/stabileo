@@ -23,8 +23,10 @@ for (const a of [1, 2, 4]) {
     });
     const scale = 0.12 * L / Math.max(...expected.map(Math.abs));
     const shape = shapeSketch(built.sys, new Array(built.sys.nTotal).fill(0)).deformed![0]!.points;
+    expect(shape).toHaveLength(21);
     shape.forEach((p, k) => expect(Math.abs(p.z - expected[k]! * scale)).toBeLessThanOrEqual(2e-13));
     const mode = shapeSketch(built.sys, new Array(built.sys.nTotal).fill(0), 'deformed', false).deformed![0]!.points;
+    expect(mode).toHaveLength(21);
     mode.forEach(p => expect(p.z).toBe(0));
   });
 }
