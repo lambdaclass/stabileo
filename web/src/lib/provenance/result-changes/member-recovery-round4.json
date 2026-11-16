@@ -1,0 +1,35 @@
+{
+  "id": "member-recovery-round4",
+  "date": "2026-11-15",
+  "prs": [
+    2170
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "members"
+    ]
+  },
+  "title": {
+    "en": "Member recovery preserves shear rigidity and spatial stiffness",
+    "es": "La recuperación de barras conserva las rigideces de corte y espaciales",
+    "pt": "A recuperação de barras preserva as rigidezes de corte e espaciais",
+    "de": "Stabauswertung erhält Schubsteifigkeit und räumliche Biegesteifigkeit",
+    "fr": "La récupération conserve les rigidités de cisaillement et de flexion spatiale",
+    "tr": "Eleman hesabı kayma ve uzaysal eğilme rijitliklerini korur",
+    "hu": "A rúd belső elmozdulásának számítása megőrzi a nyírási és térbeli hajlítási merevséget"
+  },
+  "explanation": {
+    "en": "Planar recovery now forwards shear rigidity. Spatial recovery again accepts every finite positive bending stiffness. Hover displacement reads the same Rust curve evaluation used for drawing, before adding world coordinates. Re-run analyses and review recovered deflections, rotations and serviceability; nodal solutions and certificate bounds are unchanged. These correct regressions on the unmerged #2143 branch (PR #2170).",
+    "es": "La recuperación plana ahora transmite la rigidez de corte. La espacial vuelve a aceptar toda rigidez a flexión finita y positiva. El desplazamiento al pasar el cursor usa la misma curva de Rust que el dibujo, antes de sumar coordenadas globales. Repita los análisis y revise flechas, giros y servicio; las soluciones nodales y las cotas del certificado no cambian. Se corrigen regresiones de la rama #2143 aún no integrada (PR #2170).",
+    "pt": "A recuperação plana agora transmite a rigidez de corte. A espacial volta a aceitar toda rigidez à flexão finita e positiva. O deslocamento do cursor usa a mesma curva Rust do desenho, antes de somar coordenadas globais. Execute os cálculos novamente e reveja flechas, rotações e serviço; soluções nodais e limites do certificado não mudam. Corrige regressões da branch #2143 ainda não integrada (PR #2170).",
+    "de": "Die ebene Auswertung übergibt jetzt die Schubsteifigkeit. Die räumliche Auswertung akzeptiert wieder jede endliche positive Biegesteifigkeit. Die Anzeige am Mauszeiger nutzt dieselbe Rust-Kurve wie die Zeichnung, bevor globale Koordinaten addiert werden. Analysen erneut ausführen und Verformungen, Rotationen und Gebrauchstauglichkeit prüfen; Knotenlösungen und Zertifikatsschranken bleiben unverändert. Korrigiert Regressionen im noch nicht integrierten Zweig #2143 (PR #2170).",
+    "fr": "La récupération plane transmet désormais la rigidité de cisaillement. La récupération spatiale accepte à nouveau toute rigidité en flexion finie et positive. Le déplacement au survol utilise la même courbe Rust que le dessin, avant ajout des coordonnées globales. Relancez les analyses et vérifiez flèches, rotations et service ; solutions nodales et bornes du certificat sont inchangées. Corrige des régressions de la branche #2143 non encore intégrée (PR #2170).",
+    "tr": "Düzlem hesabı artık kayma rijitliğini iletir. Uzaysal hesap her sonlu pozitif eğilme rijitliğini yeniden kabul eder. İmleçteki yer değiştirme, global koordinatlar eklenmeden önce çizimle aynı Rust eğrisini kullanır. Analizleri yeniden çalıştırıp sehim, dönme ve kullanılabilirliği inceleyin; düğüm çözümleri ve sertifika sınırları değişmez. Birleştirilmemiş #2143 dalındaki gerilemeler düzeltilir (PR #2170).",
+    "hu": "A síkbeli számítás most továbbadja a nyírási merevséget. A térbeli számítás ismét minden véges pozitív hajlítási merevséget elfogad. A kurzorral leolvasott elmozdulás ugyanazt a Rust-görbekiértékelést használja, mint a rajzolás, a globális koordináták hozzáadása előtt. Futtassa újra az analíziseket, és ellenőrizze a számított lehajlásokat, elfordulásokat és használhatóságot; a csomóponti megoldások és a tanúsítvány korlátai nem változnak. Ezek a még be nem olvasztott #2143 ágon bevezetett regressziókat javítják (#2170 PR)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-member-recovery-round4.md",
+    "heading": "Member recovery preserves shear rigidity and spatial stiffness (2026-11-15)"
+  }
+}

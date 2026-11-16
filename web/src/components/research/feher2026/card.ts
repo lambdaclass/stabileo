@@ -11,4 +11,8 @@ export const shapeCard = {
     title: 'Guiar uma lâmina curvada entre duas formas',
     hook: 'Gire as duas garras de uma lâmina curvada ativamente sob uma carga fixa e leve-a de arco à forma invertida sem salto.',
   },
+  hu: {
+    title: 'Egy hajlított csík vezetése két alak között',
+    hook: 'Forgassa el egy aktívan hajlított csík két befogását állandó teher alatt, és vigye át ívből az átfordult alakjába átpattanás nélkül.',
+  },
 };

@@ -208,6 +208,6 @@ export async function downloadResultText(content: string, filename: string, mime
     : ext === 'dxf' ? dxfWithProvenance(content, p, warnings)
     : ext === 'svg' ? svgWithProvenance(content, p, warnings)
     : content;
-  downloadText(out, filename, mime);
+  downloadText(out, filename, mime, record ? sources : undefined);
   return true;
 }

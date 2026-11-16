@@ -89,7 +89,7 @@ export function parsePublicPath(pathname: string): PublicRoute {
  */
 export function publicHref(path: string, locale: PublicLocale): string {
 	const [, pathname, suffix] = path.match(/^([^?#]*)(.*)$/)!;
-	const clean = pathname === '/' ? '' : pathname.startsWith('/') ? pathname : `/${pathname}`;
+	const clean = pathname[0] === '/' ? pathname : `/${pathname}`;
 	// Guard the double slash: a caller may already have passed '/blog/'.
 	return `/${locale}${clean.replace(/\/+$/, '')}/${suffix}`;
 }

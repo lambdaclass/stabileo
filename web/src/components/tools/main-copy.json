@@ -1,0 +1,32 @@
+{
+  "en": {
+    "tools.index": "Free engineering calculators",
+    "tools.lead": "Beams, columns, frames, trusses, influence lines and natural frequencies, solved with the production Stabileo engine and compared with classical formulas.",
+    "tools.indexAssumptions": "Linear elastic, small displacements, prismatic Euler–Bernoulli members; truss bars carry axial force only. SI units. Self-weight excluded. Each tool states its own assumptions, sign convention and classical reference. Not a code design check."
+  },
+  "es": {
+    "tools.index": "Calculadoras de ingeniería gratuitas",
+    "tools.lead": "Vigas, columnas, pórticos, cerchas, líneas de influencia y frecuencias naturales, resueltos con el motor de producción de Stabileo y comparados con fórmulas clásicas.",
+    "tools.indexAssumptions": "Elástico lineal, pequeños desplazamientos, miembros prismáticos de Euler–Bernoulli; las barras de cercha solo toman esfuerzo axial. Unidades SI. Sin peso propio. Cada herramienta indica sus hipótesis, su convención de signos y su referencia clásica. No es una verificación normativa."
+  },
+  "pt": {
+    "tools.index": "Calculadoras de engenharia gratuitas",
+    "tools.lead": "Vigas, pilares, pórticos, treliças, linhas de influência e frequências naturais, resolvidos com o motor de produção do Stabileo e comparados com fórmulas clássicas.",
+    "tools.indexAssumptions": "Elástico linear, pequenos deslocamentos, membros prismáticos de Euler–Bernoulli; barras de treliça só resistem a esforço axial. Unidades SI. Sem peso próprio. Cada ferramenta indica suas hipóteses, sua convenção de sinais e sua referência clássica. Não é uma verificação normativa."
+  },
+  "de": {
+    "tools.index": "Kostenlose Rechner für Tragwerke",
+    "tools.lead": "Balken, Stützen, Rahmen, Fachwerke, Einflusslinien und Eigenfrequenzen, berechnet mit dem produktiven Stabileo-Rechenkern und mit klassischen Formeln verglichen.",
+    "tools.indexAssumptions": "Linear elastisch, kleine Verschiebungen, prismatische Euler–Bernoulli-Stäbe; Fachwerkstäbe tragen nur Normalkraft. SI-Einheiten. Ohne Eigengewicht. Jedes Werkzeug nennt seine Annahmen, Vorzeichenregel und klassische Referenz. Kein Normnachweis."
+  },
+  "fr": {
+    "tools.index": "Calculateurs de structures gratuits",
+    "tools.lead": "Poutres, poteaux, portiques, treillis, lignes d’influence et fréquences propres, calculés avec le moteur de production Stabileo et comparés aux formules classiques.",
+    "tools.indexAssumptions": "Élastique linéaire, petits déplacements, éléments prismatiques Euler–Bernoulli ; les barres de treillis ne reprennent que l’effort normal. Unités SI. Sans poids propre. Chaque outil indique ses hypothèses, sa convention de signes et sa référence classique. Aucune vérification réglementaire."
+  },
+  "tr": {
+    "tools.index": "Ücretsiz mühendislik hesaplayıcıları",
+    "tools.lead": "Kirişler, kolonlar, çerçeveler, kafes sistemler, tesir çizgileri ve doğal frekanslar; üretimdeki Stabileo motoruyla çözülür ve klasik formüllerle karşılaştırılır.",
+    "tools.indexAssumptions": "Doğrusal elastik, küçük yer değiştirmeler, prizmatik Euler–Bernoulli elemanları; kafes çubukları yalnız eksenel kuvvet taşır. SI birimleri. Öz ağırlık hariçtir. Her araç kendi varsayımlarını, işaret kuralını ve klasik referansını belirtir. Yönetmelik tasarım kontrolü değildir."
+  }
+}

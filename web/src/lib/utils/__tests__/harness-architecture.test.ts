@@ -160,6 +160,7 @@ describe('Vitest harness architecture', () => {
     const groups = [...new Set(CORPUS.map((c) => c.group))].sort();
     expect(files.filter(inResultsPass).map((f) => f.split('/').pop()).sort()).toEqual([
       'applicability-context.test.ts', 'coverage.test.ts', 'examples-equivalence.test.ts', 'frozen-engine.test.ts', 'governing-envelope.test.ts', 'negative.test.ts', 'self-checks-preserve-snapshots.test.ts',
+      'gallery-isolation-2099.test.ts',
       ...groups.map((g) => `snapshot-${g}.test.ts`),
     ].sort());
   });

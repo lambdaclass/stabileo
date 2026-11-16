@@ -122,7 +122,7 @@ export function buildBucklingDoc(ctx: MethodContext, sys: SoSystem, id: string, 
   const modeBlocks: Block[] = [];
   modes.slice(0, 2).forEach((m, k) => modeBlocks.push(m.internal
     ? { kind: 'p', text: tx(`${P}.bk.internalMode`, { k: k + 1, lambda: num(m.lambda) }) }
-    : { kind: 'fig', sketch: shapeSketch(sys, m.D, k === 0 ? 'deformed' : 'accent'), caption: tx(`${P}.bk.modeCaption`, { k: k + 1, lambda: num(m.lambda) }) }));
+    : { kind: 'fig', sketch: shapeSketch(sys, m.D, k === 0 ? 'deformed' : 'accent', false), caption: tx(`${P}.bk.modeCaption`, { k: k + 1, lambda: num(m.lambda) }) }));
   modeBlocks.push({ kind: 'table', head: [tx(`${P}.bk.mode`), { tex: '\\lambda_i' }], rows: modes.map((m, k) => [{ tex: String(k + 1) }, { tex: num(m.lambda, 6) }]) });
   steps.push({ title: tx(`${P}.bk.modes.title`), blocks: [{ kind: 'p', text: tx(`${P}.bk.modes.what`) }, ...modeBlocks] });
 

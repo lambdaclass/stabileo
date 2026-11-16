@@ -6,7 +6,6 @@
  * dependencies. Modes share an entry, so receive the same conservative byte budget.
  * /en/research/ and /en/tools/: the landing's closure plus the page loader's static closure and
  * its page chunk; per-page details (load-detail) are excluded, so every paper's code stays out.
- * A tool page adds its own detail chunk's static closure (never the solver, which is lazy).
  * Every route counts the largest per-language public dictionary chunk, which it loads lazily: a reader loads one.
  */
 import { build } from 'vite';
@@ -23,6 +22,7 @@ const outDir = mkdtempSync(join(tmpdir(), 'research-route-size-'));
 process.env.GITHUB_SHA = '000000000000';
 delete process.env.VITE_E2E;
 delete process.env.VITE_APP_TYPE;
+const featureSwitches = {};
 const researchChunks = new Set();
 const toolsChunks = new Set();
 const blogPostsChunks = new Set();
@@ -31,7 +31,12 @@ try {
   // A deterministic engine stub makes this gate independent of locally built WASM. It measures
   // web dependency isolation, not the engine binary, which has its own build/validation gates.
   await build({
-    plugins: [{ name: 'route-size-engine-stub', enforce: 'pre', resolveId(id) {
+    plugins: [{ name: 'route-size-engine-stub', enforce: 'pre', configResolved(config) {
+      for (const feature of ['research', 'tools']) {
+        const key = `VITE_${feature.toUpperCase()}`;
+        featureSwitches[feature] = JSON.parse(config.define[`import.meta.env.${key}`]);
+      }
+    }, resolveId(id) {
       if (id.includes('dedaliano_engine_bg.wasm')) return '\0route-size-wasm';
       if (id.includes('wasm/dedaliano_engine') && id.endsWith('.js')) return '\0route-size-engine';
     }, transform(code, id) {
@@ -44,7 +49,7 @@ try {
     }, generateBundle(_options, bundle) {
       for (const output of Object.values(bundle)) {
         if (output.type === 'chunk' && isBlogPostsChunk(Object.keys(output.modules))) blogPostsChunks.add(output.fileName);
-        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/') || id.includes('/components/examples/'))) toolsChunks.add(output.fileName);
+        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/') || id.includes('/components/examples/') || id.includes('/components/diagram-game/'))) toolsChunks.add(output.fileName);
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.startsWith('\0virtual:public-i18n/'))) publicLocaleChunks.add(output.fileName);
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/research/') || /\/research\/.*\.json$/.test(id))) {
           researchChunks.add(output.fileName);
@@ -62,14 +67,19 @@ try {
     if (!feature && manifest['src/components/LandingPage.svelte']) roots.push(['src/components/LandingPage.svelte', false]);
     if (app) roots.push([appEntry, true], ...(loader ? [[loader, true]] : []));
     const files = routeChunkFiles(manifest, roots, (key, chunk) => {
-      if (toolsChunks.has(chunk.file)) throw new Error(`product statically imports tools or examples: ${key}`);
+      if (toolsChunks.has(chunk.file)) throw new Error(`product statically imports tools, examples or the diagram game: ${key}`);
       if (researchChunks.has(chunk.file)) throw new Error(`product statically imports research: ${key}`);
     }, (key) => isLazyRouteBoundary(key) || blogPostsChunks.has(manifest[key]?.file));
     if (feature) {
       const pageLoader = `src/components/${feature}/load-page.ts`;
       if (!manifest[pageLoader]) throw new Error(`missing manifest entry ${pageLoader}`);
-      const featureRoots = [pageLoader, ...(manifest[pageLoader].dynamicImports ?? []).filter((dep) => !/load-detail\.ts$/.test(dep))];
-      if (detail && manifest[`src/components/${feature}/${detail}`]) featureRoots.push(`src/components/${feature}/${detail}`);
+      const featureRoots = [pageLoader, ...(manifest[pageLoader].dynamicImports ?? []).filter((dep) => !/load-(?:main-)?detail\.ts$/.test(dep))];
+      if (detail) {
+        const name = detail.replace(/\.svelte$/, '');
+        const key = manifest[`src/components/${feature}/${detail}`] ? `src/components/${feature}/${detail}` : Object.keys(manifest).find((k) => manifest[k].name === name && manifest[k].src === undefined);
+        if (!key) throw new Error(`missing manifest entry for ${detail}`);
+        featureRoots.push(key);
+      }
       for (const file of routeChunkFiles(manifest, featureRoots.map((key) => [key, false]))) files.add(file);
     }
     // Public fonts/images and emitted workers referenced by the selected bundles also count.
@@ -87,10 +97,25 @@ try {
   }
   const landing = footprint(false), app = footprint(true);
   const measured = { '/en/': landing, '/es/': landing, '/pt/': landing,
-    '/app/basic': app, '/app/education': app, '/app/pro': app,
-    '/en/research/': footprint(false, 'research'), '/en/tools/': footprint(false, 'tools'),
-    '/en/tools/simply-supported-beam/': footprint(false, 'tools', 'ToolViewer.svelte'),
-    '/en/tools/continuous-beam/': footprint(false, 'tools', 'BatchTool.svelte') };
+    '/app/basic': app, '/app/education': app, '/app/pro': app };
+  const featureRoutes = {
+    research: { '/en/research/': { published: null, expanded: null } },
+    tools: {
+      '/en/tools/': { published: null, expanded: null },
+      '/en/tools/simply-supported-beam/': { published: 'ToolViewer.svelte', expanded: 'CalculatorTool.svelte' },
+      '/en/tools/continuous-beam/': { published: 'MainBatchTool.svelte', expanded: 'BatchTool.svelte' },
+      '/en/tools/beam-frame/': { expanded: 'ModelTool.svelte' },
+      '/en/tools/mohr-2d/': { expanded: 'MohrTool.svelte' },
+    },
+  };
+  for (const [feature, routes] of Object.entries(featureRoutes)) {
+    const expanded = featureSwitches[feature] !== '0';
+    for (const [route, details] of Object.entries(routes)) {
+      const detail = expanded ? details.expanded : details.published;
+      if (detail === undefined) console.log(`${route}: skipped (VITE_${feature.toUpperCase()}=0)`);
+      else measured[route] = footprint(false, feature, detail);
+    }
+  }
   for (const [route, bytes] of Object.entries(measured)) console.log(`${route}: ${bytes} bytes`);
   if (ceilingPath) {
     const over = overCeilings(measured, JSON.parse(readFileSync(ceilingPath, 'utf8')).routes);

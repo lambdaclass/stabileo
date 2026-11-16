@@ -22,6 +22,7 @@
     "pt": "A remoção de uma barra carregada recusa a sequência de etapas",
     "de": "Das Entfernen belasteter Stäbe lehnt die Bauphasenfolge ab",
     "fr": "Le retrait d’un élément chargé refuse la séquence de phases",
+    "hu": "A terhelt elem eltávolítása elutasítja a fázistörténetet",
     "tr": "Yüklü elemanın kaldırılması aşama geçmişini reddeder"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "pt": "Remover uma barra com esforço interno não nulo agora recusa a sequência com diagnóstico explícito #1996. Os deslocamentos anteriores não redistribuíam os esforços liberados. Barras descarregadas e remoção antes das cargas mantêm os resultados. Recalcule as sequências salvas com remoção de barras.",
     "de": "Das Entfernen eines Stabs mit inneren Kräften ungleich null lehnt die Bauphasenfolge nun mit Diagnose #1996 ab. Frühere Verschiebungen verteilten die freigesetzten Kräfte nicht um. Unbelastete Stäbe und Entfernen vor Belastung behalten ihre Ergebnisse. Berechnen Sie gespeicherte Folgen mit Stabentfernung neu.",
     "fr": "Le retrait d’un élément avec des efforts internes non nuls refuse désormais la séquence avec le diagnostic explicite #1996. Les déplacements précédents ne redistribuaient pas les efforts libérés. Les éléments déchargés et le retrait avant chargement conservent leurs résultats. Recalculez les séquences enregistrées avec retrait d’éléments.",
+    "hu": "A nem nulla belső erőt viselő elem eltávolítása most kifejezett #1996 diagnosztikával elutasítja a fázistörténetet. A korábbi elmozdulások nem osztották újra a felszabaduló erőket. A terheletlen elemek és a terhelés előtti eltávolítás válaszai megmaradnak. Futtassa újra a mentett elemeltávolítási fázistörténeteket.",
     "tr": "Sıfır olmayan iç kuvvet taşıyan elemanın kaldırılması artık aşama geçmişini açık #1996 tanısıyla reddeder. Önceki yer değiştirmeler serbest kalan kuvvetleri yeniden dağıtmıyordu. Yüksüz elemanlar ve yüklemeden önce kaldırma sonuçlarını korur. Kayıtlı eleman kaldırma geçmişlerini yeniden çözün."
   },
   "changelog": {

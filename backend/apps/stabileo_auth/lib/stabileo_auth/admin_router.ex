@@ -54,5 +54,7 @@ defmodule StabileoAuth.AdminRouter do
     get("/allowed-emails", AllowedEmailController, :index)
     post("/allowed-emails", AllowedEmailController, :create)
     delete("/allowed-emails/:id", AllowedEmailController, :delete)
+
+    get("/audit-log", AuditLogController, :index)
   end
 end
