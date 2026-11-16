@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * One compact line saying what of an analysis result is certified, with the tooltip that says
-   * what that means (docs/verification/CERTIFY.md). The look of `CertificateStatus`: quiet when
+   * what that means (testing/docs/CERTIFY.md). The look of `CertificateStatus`: quiet when
    * certified, a warning border when not, and `alarm` for a computed value the certificate
    * contradicts.
    */

@@ -1,7 +1,7 @@
-import { RESULT_CHANGES } from '../full-registry';
+import { RESULT_CHANGES, RESULT_CHANGES as CURRENT_RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
-import { assessProject } from '../applicability';
-import type { FeatureSnapshot } from '../model-features';
+import { assessProject, assessProject as assessWithRegistry } from '../applicability';
+import { ANALYSIS_KINDS, type FeatureSnapshot } from '../model-features';
 import type { SolveStamp } from '../solve-stamp';
 
 /**
@@ -98,21 +98,66 @@ describe('results versions', () => {
     expect(RESULT_CHANGES.currentResultsVersion).toBeGreaterThanOrEqual(frozen);
   });
 
+  describe.each([false, true])('SSI notice registered: %s', (includeSSI) => {
+    const RESULT_CHANGES = includeSSI ? CURRENT_RESULT_CHANGES : { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
+    const assessProject = (...args: Parameters<typeof assessWithRegistry>) =>
+      assessWithRegistry(args[0], args[1], args[2], args[3] ?? RESULT_CHANGES, args[4], args[5]);
   it('tells a modal frame about modal completeness up to version 8, self-checks up to 9, the mechanism refusal up to 12, the 3D co-rotational rotations up to 23 and the containment diagnostics up to 29, until it is re-solved', () => {
     const frame: FeatureSnapshot = {
       analysisMode: 'pro',
       elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
     };
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
-    const ids = (resultsVersion: number) => assessProject(frame, { ...stamp, resultsVersion }, 'pro').changes.map((c) => c.id).sort();
+    const precedingRegistry = {
+      ...RESULT_CHANGES,
+      changes: RESULT_CHANGES.changes.filter(c => c.id !== 'kinematic-translation-motion'),
+    };
+    const ids = (resultsVersion: number) => {
+      const saved = { ...stamp, resultsVersion };
+      const preceding = assessProject(frame, saved, 'pro', precedingRegistry).changes.map(c => c.id).sort();
+      const combined = assessProject(frame, saved, 'pro').changes.map(c => c.id).sort();
+      const staged = resultsVersion === RESULT_CHANGES.currentResultsVersion ? [] : ['kinematic-translation-motion'];
+      expect(combined).toEqual([...preceding, ...staged].sort());
+      return preceding;
+    };
+    if (includeSSI) {
     for (const version of [4, 5, 6, 7, 8]) {
-      expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'modal-basis-entrywise-rounding', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'static-modal-runtime-self-checks']);
+      expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-recovery-round4', 'modal-basis-entrywise-rounding', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions', 'static-modal-runtime-self-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
     }
-    expect(ids(9)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'modal-basis-entrywise-rounding', 'modal-mechanism-refused', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'static-modal-runtime-self-checks']);
-    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'modal-basis-entrywise-rounding', 'modal-mechanism-refused', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
-    expect(ids(13)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'modal-basis-entrywise-rounding', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
-    expect(ids(26)).toEqual(['harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'modal-basis-entrywise-rounding', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
+    expect(ids(9)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-recovery-round4', 'modal-basis-entrywise-rounding', 'modal-mechanism-refused', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions', 'static-modal-runtime-self-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
+    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-recovery-round4', 'modal-basis-entrywise-rounding', 'modal-mechanism-refused', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
+    expect(ids(13)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-recovery-round4', 'modal-basis-entrywise-rounding', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
+    expect(ids(26)).toEqual(['harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-recovery-round4', 'modal-basis-entrywise-rounding', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
+    } else {
+    for (const version of [4, 5, 6, 7, 8]) {
+      expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-recovery-round4', 'modal-basis-entrywise-rounding', 'modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'static-modal-runtime-self-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
+    }
+    expect(ids(9)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-recovery-round4', 'modal-basis-entrywise-rounding', 'modal-mechanism-refused', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'static-modal-runtime-self-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
+    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-recovery-round4', 'modal-basis-entrywise-rounding', 'modal-mechanism-refused', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
+    expect(ids(13)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-recovery-round4', 'modal-basis-entrywise-rounding', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
+    expect(ids(26)).toEqual(['harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-recovery-round4', 'modal-basis-entrywise-rounding', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
+    }
     expect(ids(RESULT_CHANGES.currentResultsVersion)).toEqual([]);
+  });
+  });
+
+  it('#761 distinguishes unknown nonlinear history from complete linear and modal histories', () => {
+    const nonlinearIds = ['nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium'];
+    const before = Math.min(...nonlinearIds.map(id => RESULT_CHANGES.changes.find(c => c.id === id)!.resultsVersion)) - 1;
+    for (const analysisMode of ['2d', 'pro']) {
+      const frame: FeatureSnapshot = {
+        analysisMode,
+        elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+      };
+      for (const analysis of ['linear', 'modal'] as const) {
+        const stamp = { resultsVersion: before, analyses: [analysis] } as unknown as SolveStamp;
+        const ids = (saved: SolveStamp) => assessProject(frame, saved, analysisMode).changes
+          .map(c => c.id).filter(id => nonlinearIds.includes(id)).sort();
+        expect(ids(stamp)).toEqual(nonlinearIds);
+        expect(ids({ ...stamp, recorded: [...ANALYSIS_KINDS] })).toEqual([]);
+        expect(ids({ ...stamp, resultsVersion: RESULT_CHANGES.currentResultsVersion })).toEqual([]);
+      }
+    }
   });
 
   it('tells a project solved with version 1 about the changes added after it shipped', () => {
@@ -135,4 +180,18 @@ describe('results versions', () => {
     // Nothing from version 1 again.
     expect(ids.filter((id) => RELEASED[1].includes(id))).toEqual([]);
   });
+});
+
+for (const mode of ['2d', '3d', 'pro']) it(`retains the exact generated snow notices after a current solve in ${mode}`, () => {
+  const snapshot: FeatureSnapshot = { loadCases: [{ id: 1, type: 'S' }], loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }] };
+  const expected = [
+    'generated-area-loads-headroom', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
+    'snow-flat-frame', 'snow-local-boundaries', 'snow-member-loading', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-quadratic-intensity', 'snow-ridge-mesh',
+    'snow-ridge-orientations', 'snow-roof-connectivity', 'snow-roof-rotation', 'snow-roof-step', 'snow-selected-subsets',
+    'snow-surface-regions', 'snow-surface-support',
+  ];
+  for (const analysis of ['linear', 'pdelta', 'plastic']) {
+    const stamp = { resultsVersion: RESULT_CHANGES.currentResultsVersion, recorded: [analysis] } as SolveStamp;
+    expect(assessProject(snapshot, stamp, mode, RESULT_CHANGES, undefined, 0).changes.map(c => c.id).sort()).toEqual(expected);
+  }
 });

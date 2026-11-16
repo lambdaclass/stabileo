@@ -1,19 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import {
-  checkFlexure,
-  checkShear,
-  checkColumn,
-  checkTorsion,
-  checkBiaxial,
-  checkSlender,
-  computeK,
-  computePsi,
-  computeJointPsiFromModel,
-  isElongatedSection,
-  verifyElement,
-  classifyElement,
-  REBAR_DB,
-} from '../codes/argentina/cirsoc201';
+import { checkFlexure, checkShear, checkSlender, computeK, computePsi, computeJointPsiFromModel, isElongatedSection, classifyElement, REBAR_DB } from '../codes/argentina/cirsoc201';
+import { checkColumn, checkTorsion, checkBiaxial } from './helpers/manual-interactions';
+import { verifyElement } from './helpers/verify-element';
 import type { ConcreteDesignParams, VerificationInput } from '../codes/argentina/cirsoc201';
 import {
   designSlab,
@@ -401,8 +389,8 @@ describe('CIRSOC 201 Verification', () => {
       const r16 = checkFlexure(beamParams, 50);
       const r25 = checkFlexure(beamParams, 50, 0, { barDiameterMm: 25 });
       // d = h − cover − stirrup − d_b/2 = 0,40 − 0,025 − 0,008 − 0,0125 = 0,3545 m
-      expect(r25.d).toBeCloseTo(0.3545, 12);
-      expect(r16.d).toBeCloseTo(0.359, 12);
+      expect(r25.designDepth).toBeCloseTo(0.3545, 12);
+      expect(r16.designDepth).toBeCloseTo(0.359, 12);
       expect(r25.AsFlexural).toBeGreaterThan(r16.AsFlexural);   // shallower ⇒ more steel
     });
 

@@ -23,6 +23,8 @@ import { stepByStepCourse } from './posts/step-by-step-course';
 import { jaie2026Talk } from './posts/jaie-2026-talk';
 import { tiic2026SecondPlace } from './posts/tiic-2026-second-place';
 import { release050 } from './posts/release-0-5-0';
+import { release060 } from './posts/release-0-6-0';
+import { release061 } from './posts/release-0-6-1';
 
 /**
  * By `order`, not by date.
@@ -48,9 +50,13 @@ export const POSTS: Post[] = [
   jaie2026Talk,
   tiic2026SecondPlace,
   release050,
+  release060,
+  release061,
 ].sort((a, b) => a.order - b.order);
 
-addTranslations(POSTS, (p) => p.slug, import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts'], { eager: true, import: 'default' }));
+addTranslations(POSTS, (p) => p.slug, import.meta.env.VITE_RESEARCH === '1'
+  ? import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts'], { eager: true, import: 'default' })
+  : import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts', '!./translations/hu/**'], { eager: true, import: 'default' }));
 
 /**
  * What a reader looking for news expects: newest first (by date, then by series order). The blog

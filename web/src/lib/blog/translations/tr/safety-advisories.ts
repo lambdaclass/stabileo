@@ -14,12 +14,42 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "10 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde ve SA-2026-025 ile 047 arası 0.5.0 sürümünde düzeltildi (SA-2026-040 için önlem alındı: kontrol eksik olarak işaretlenir); SA-2026-044 hariç: #758 kapanana kadar 2D plastik göçme hesabı reddedilmeye devam eder. SA-2026-048, 0.5.0 sürümünden sonra düzeltildi ve 8 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 ve SA-2026-053, 0.5.0 sürümünden sonra düzeltildi ve 9 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin. SA-2026-054 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-055 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-056 — Taslak: çözülmedi; hiçbir düzeltme birleştirilmedi veya yayımlanmadı. SA-2026-057 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-059 — PR #1921 ile düzeltildi, sürüm yayını bekleniyor."
+      "t": "12 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde ve SA-2026-025 ile 047 arası 0.5.0 sürümünde düzeltildi (SA-2026-040 için önlem alındı: kontrol eksik olarak işaretlenir); SA-2026-044 hariç: #758 kapanana kadar 2D plastik göçme hesabı reddedilmeye devam eder. SA-2026-048, 0.5.0 sürümünden sonra düzeltildi ve 8 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 ve SA-2026-053, 0.5.0 sürümünden sonra düzeltildi ve 9 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin. SA-2026-054 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-055 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-056 — Taslak: çözülmedi; hiçbir düzeltme birleştirilmedi veya yayımlanmadı. SA-2026-057 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-059 — PR #1921 ile düzeltildi, sürüm yayını bekleniyor. SA-2026-060 — Taslak: yerel düzeltme inceleme ve yayın bekliyor. SA-2026-062 — Taslak: yerel düzeltme inceleme ve yayın bekliyor."
     },
     {
       "k": "note",
       "t": "SA-2026-058 — PR #1922 ile düzeltildi, sürüm yayını bekleniyor."
     },
+    {
+      "k": "note",
+      "t": "SA-2026-061 — PR #1952 içinde düzeltildi, yayın bekleniyor."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-063 — PR #2009 ile düzeltildi, sürüm yayını bekleniyor."
+    },
+    {"k": "note", "t": "SA-2026-064 — 0.6.1 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-064-steel-cb-combination.md", "label": "SA-2026-064", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-065 — 0.6.1 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-065-snow-roof-step.md", "label": "SA-2026-065", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-066 — 0.6.1 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-066-cirsoc201-transverse-cm.md", "label": "SA-2026-066", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-067 — 0.6.1 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-068 — 0.6.1 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-069 — Taslak 2026-11-15; PR #2169 ile düzeltildi, birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-070 — PR #2170 içinde düzeltildi, yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-070-interior-member-couples.md", "label": "SA-2026-070", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-071 — Taslak 2026-11-15; PR #2173 ile düzeltildi, birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-071-incomplete-concurrent-demands.md", "label": "SA-2026-071", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-072 — PR #2175 ile düzeltildi, yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-073 — PR #2197; birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-074 — PR #2197; birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -384,6 +414,26 @@ const body: PostBody = {
           "Yüksek",
           "PR #1921 ile düzeltildi, sürüm yayını bekleniyor"
         ],
+        [
+          "SA-2026-061",
+          "Yay uzunluğu ve yer değiştirme kontrolü tepkileri atlıyor ve ölçeklenmemiş eleman yüklerini kullanıyordu; 2D/3D kısıt, Guyan, aşamalı ve zaman tanım alanı sonuçlarındaki eksiklikler de incelenmelidir. Etkilenen sonuçları yeniden hesaplayın veya bağımsız doğrulayın; 0.2.0–0.5.0 ve etkilenen sonraki main derlemeleri.",
+          "Yüksek",
+          "PR #1952 içinde düzeltildi, yayın bekleniyor"
+        ],
+        ["SA-2026-060", "Aşamalı analiz, birim değişiminden sonra veya mesnet yaylı mafsallı uçlarda gerçek dönmeleri uyarı vermeden sertleştirebiliyordu; serbestlik içeren aşamalı modelleri yeniden kontrol edin", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
+        ["SA-2026-062", "Ham 3D plastik analiz, başlangıç elastik durumu çözülemediğinde uyarısız sıfır bildirebiliyordu; eski sertifikalı sürümler bu katsayıyı koruyordu. Main artık uyarıyla pozitif sertifikalı sınır döndürüyor; PR #1943 başlangıç reddini iletiyor", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
+        ["SA-2026-063", "Kısıtlı aşamalı ve doğrusal olmayan analizler tanımlı ana düğüm hareketini kaybediyordu; kablo ve zaman tanım alanı analizleri artık desteklenmeyen mesnet hareketlerini reddediyor. Mevcut genel dinamik uyarıları bu eksikliği belirtmiyordu", "Yüksek", "PR #2009 ile düzeltildi, sürüm yayını bekleniyor"],
+        ["SA-2026-064", "Çelik Cb katsayısı başka bir birleşimden veya yanal mesnet konumları bilinmeyen kısa bir aralıktan alınabiliyordu (#1316, #2088). CIRSOC 301 çelik kontrollerini yeniden çalıştırıp eğilme kapasitesini, etkileşim kullanım oranını ve belirleyici birleşimleri inceleyin.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
+        ["SA-2026-065", "Eğimli alıcı çatıda kot farkındaki kar birikimi atlanabiliyordu (#2082). CIRSOC 104 kar yüklerini yeniden üretip etkilenen analizleri ve tasarım kontrollerini yeniden hesaplayın.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
+        ["SA-2026-066", "Mesnetler arasında enine yük varken beton Cm katsayısına uç momentlerinden azaltma uygulanabiliyordu (#2089). Narin kolon ve perdeleri, büyütülmüş momentleri ve donatıyı yeniden kontrol edin.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
+        ["SA-2026-067", "Plandaki dönme üretilen kar yüklerini değiştirebiliyordu (#2093). Gerçek çatı geometrisiyle yükleri yeniden üretip analizleri ve kontrolleri tekrarlayın; eski modeli geri döndürmek sonuçları düzeltmez.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
+        ["SA-2026-068", "Burulma kontrolü yetersiz tasarlanmış etriyelerle başarılı olabiliyordu (#2141). Beton kontrollerini yeniden çalıştırıp gerçek enine kapasiteyi, etriye aralığını ve burulma başarısızlıklarını inceleyin. Kontrol edilmemiş boyuna donatı, başarılı bir donatı kafesi anlamına gelmez.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
+        ["SA-2026-069", "Burulma kesit sınırı eşzamanlı ikincil kesmeyi atlıyordu (#2142). Betonarme tasarımlarını yeniden çalıştırın, kesit hatalarını ve eksik etriyeleri inceleyin; etriye eklemek aşılmış kesit sınırını gidermez.", "Yüksek", "Taslak 2026-11-15; PR #2169 ile düzeltildi, birleştirme ve yayın bekleniyor"],
+        ["SA-2026-070", "Eleman içi sehim ve dönme, eleman yüklerini atlıyordu (#2143). Tam ve kısmi trapez yükler dahil deforme şekilleri, eğitim okumalarını ve çelik/beton kullanılabilirlik kontrollerini inceleyin. Yeterli EI olmadan yüklü elemanın hesabı artık açıkça reddedilir.", "Yüksek", "PR #2170 içinde düzeltildi, yayın bekleniyor"],
+        ["SA-2026-071", "Eleman kontrolü eksik eşzamanlı taleplerle başarılı olabiliyordu (#2096). Beton ve çelik tasarımlarını yeniden çalıştırın; birleşimleri, elemanları, istasyonları ve sertifikaları inceleyin.", "Yüksek", "Taslak 2026-11-15; PR #2173 ile düzeltildi, birleştirme ve yayın bekleniyor"],
+        ["SA-2026-072", "Çatı kenarlarının eşit olmayan bölünmesi mahyayı kaydırıp üretilen kar yüklerini değiştirebiliyordu (#2144). Kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez.", "Yüksek", "PR #2175 ile düzeltildi, yayın bekleniyor"],
+        ["SA-2026-073", "Mahyayı geçen çubuklara düzgün basınç uygulanıyor ve fiziksel yük momenti kayboluyordu. Yükler artık fiziksel mahyada bölünür. Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez. (#2176).", "Yüksek", "PR #2197; birleştirme ve yayın bekleniyor"],
+        ["SA-2026-074", "Eğimli bir merteğin bölünmesi, açık çatı panelini döşeme olarak sınıflandırıp saçak karını uyarı vermeden kaldırabiliyordu. Sınıflandırma artık fiziksel panel izdüşümlerini kullanır. Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez. (#2172). Ayrı bir alt panelin üzerindeki bölünmemiş eğimli mertek de paneli çatı olarak sınıflandırabiliyor, çatı ve döşeme alan yüklerini değiştiriyor ve genişlik modunda uyarısız kar ekleyebiliyordu.", "Yüksek", "PR #2197; birleştirme ve yayın bekleniyor"],
       ]
     },
     {

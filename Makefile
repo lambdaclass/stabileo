@@ -78,6 +78,7 @@ help:
 	@echo "CI-shaped targets (what each CI job runs):"
 	@echo "  make check-pins           - One version of each tool in rust-toolchain.toml, .nvmrc, flake.nix and CI"
 	@echo "  make check.changelog      - changelog.d/ fragments are well formed"
+	@echo "  make changelog.unreleased - Refresh CHANGELOG.md from fragments, keeping them"
 	@echo "  make check.reverts [BASE=origin/main] [HEAD=HEAD] - Merging HEAD into BASE deletes no recent lines HEAD's branch never had"
 	@echo "  make lint.engine          - Clippy over the engine"
 	@echo "  make test.engine.gates    - The named engine correctness gates"
@@ -250,7 +251,7 @@ lint.engine:
 	python3 -B -I scripts/invariance-gate.py
 	cd engine && $(NIX_RUN) cargo clippy --lib -- -W clippy::all -A clippy::erasing_op
 
-# The acceptance models are generated (docs/verification/ACCEPTANCE.md); a hand edit fails here.
+# The acceptance models are generated (testing/docs/ACCEPTANCE.md); a hand edit fails here.
 check.engine.acceptance-models:
 	$(NIX_RUN) bash -c 'for g in engine/tests/acceptance/generators/*.py; do python3 -I "$$g"; done'
 	git diff --exit-code -- engine/tests/acceptance/models
@@ -258,6 +259,10 @@ check.engine.acceptance-models:
 # The result walkers' keys are generated from the engine's result types; a hand edit fails test.engine.gates.
 gen.result-sites:
 	cd engine && STABILEO_WRITE_RESULT_SITES=1 $(NIX_RUN) cargo nextest run --profile ci --test gates -E 'test(=result_sites::generated_result_sites_are_current)'
+	$(SUBMAKE) gen.result-sites.web
+
+.PHONY: gen.result-sites.web
+gen.result-sites.web:
 	$(NIX_RUN) bash -c "cd web && node scripts/gen-result-sites.mjs --write"
 
 # nextest does not execute the compile-fail doctests protecting unit boundaries.
@@ -303,7 +308,7 @@ test.engine.differential.full:
 	$(NEXTEST) --cargo-profile release --test differential --run-ignored all
 
 mutants.engine:
-	$(NIX_RUN) env -u RUSTC_WRAPPER MUTANTS_SCOPE=$(or $(SCOPE),all) CARGO_INCREMENTAL=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 scripts/mutants.sh $(ARGS)
+	$(NIX_RUN) env -u RUSTC_WRAPPER MUTANTS_SCOPE=$(or $(SCOPE),all) CARGO_INCREMENTAL=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 testing/scripts/mutants.sh $(ARGS)
 
 mutants.safety.report:
 	python3 -I scripts/mutants-safety.py report $(or $(OUT),mutants.out) --json mutants-safety-report.json
@@ -357,15 +362,15 @@ check.web.translations:
 check.web.route-size:
 	$(NIX_RUN) bash -c "cd web && node scripts/check-research-route-size.mjs --ceiling scripts/route-size-ceilings.json"
 
-# The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus solved
+# The results snapshot gate (#716, testing/docs/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
 test.web.results:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project results"
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project results $(FILE) $(if $(FILTER),-t '$(FILTER)')"
 
 ## Regenerate web/results-snapshots/ after a DELIBERATE result change, then register it:
 ## an entry in web/src/lib/provenance/result-changes/ and a "BREAKING (results)" fragment.
 snapshots-update:
-	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results"
+	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results $(FILE) $(if $(FILTER),-t '$(FILTER)')"
 
 # A pull request that changes a committed snapshot must register the change. BASE=<rev>, the
 # commit the pull request is compared with (CI: the merge's first parent, or the queue's base).
@@ -373,7 +378,7 @@ check.results-snapshot-gate:
 	$(NIX_RUN) node web/scripts/results-snapshot/gate.mjs --base $(or $(BASE),origin/main)
 
 # The WASM must give bit-identical results in Node, Chromium, Firefox and WebKit
-# (docs/verification/TRUSTED_BASE.md). Needs make wasm and make web.deps first.
+# (testing/docs/TRUSTED_BASE.md). Needs make wasm and make web.deps first.
 test.web.determinism:
 	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs determinism/containment.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
 
@@ -382,7 +387,7 @@ e2e.web.setup:
 
 # The site the e2e suites test with E2E_PREBUILT=1: VITE_E2E=1 compiles the read-only test hooks in,
 # and web/playwright.config.ts refuses a prebuilt dist without the marker. Needs make e2e.web.setup.
-e2e.web.build:
+e2e.web.build: test.web.e2e-features
 	$(NIX_RUN) bash -c 'cd web && VITE_E2E=1 npm run build && echo "VITE_E2E=1 build of $${GITHUB_SHA:-$$(git rev-parse HEAD)}" > dist/e2e-build.txt'
 
 # SHARD=i/n picks whole spec files balanced by measured duration (web/scripts/e2e-shard.mjs).
@@ -391,7 +396,7 @@ e2e.web.smoke:
 	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert @flaky $(FILE) $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
 
 e2e.web.slow:
-	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$files)'
+	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$files) $(FILE)'
 
 e2e.web.timing:
 	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "@slow" e2e/rebar-workspace-open.spec.ts e2e/model-fluidity.spec.ts'
@@ -456,6 +461,10 @@ roadmap.inflight:
 	  | $(NIX_RUN) python3 -I scripts/roadmap-inflight.py docs/roadmap/PRODUCT_ROADMAP.md 1000
 
 ## Unreleased changes are one file each in changelog.d/ (scripts/changelog.py)
+.PHONY: changelog.unreleased
+changelog.unreleased:
+	$(NIX_RUN) python3 -I scripts/changelog.py --unreleased
+
 check.changelog:
 	$(NIX_RUN) python3 -I scripts/changelog.py --check
 
@@ -486,28 +495,30 @@ check.issue-reproducers:
 	python3 -I scripts/issue-reproducers.py flip-check --base $(BASE) --head $(HEAD) --body-file $(BODY) $(if $(LABELS),--labels-json $(LABELS))
 
 test.nightly-scripts:
-	python3 -B -I scripts/tests/test_nightly.py
+	python3 -B -I testing/scripts/tests/test_nightly.py
 	python3 -B -I scripts/tests/test_replay_findings.py
 	python3 -B -I scripts/tests/test_mutants_plan.py
-	python3 -B -I tools/opensees/test_gen_models.py
-	python3 -B -I tools/opensees/test_compare.py
+	python3 -B -I testing/opensees/test_gen_models.py
+	python3 -B -I testing/opensees/test_compare.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
+	$(NIX_RUN) node --test scripts/tests/production-health.test.mjs
 	$(NIX_RUN) node --test scripts/tests/slow-e2e-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/timing-budget-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog
+test.ci-scripts: test.testing-move test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
 	python3 -B -I scripts/tests/test_check_containment.py
-	python3 -B -I scripts/tests/test_mutants_safety.py
+	python3 -B -I testing/scripts/tests/test_mutants_safety.py
 	python3 -B -I scripts/tests/test_retry_infra.py
-	python3 -B -I scripts/tests/test_kani_shards.py
+	python3 -B -I testing/scripts/tests/test_kani_shards.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
 	python3 -B -I scripts/tests/test_release_step.py
+	python3 -B -I scripts/tests/test_changelog.py
 	python3 -B -I scripts/tests/test_roadmap_inflight.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
@@ -535,8 +546,10 @@ test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-w
 	python3 -B -I scripts/tests/test_issue_reproducers.py
 	python3 -B -I scripts/tests/test_verification_metrics.py
 	python3 -B -I scripts/tests/test_ci_scripts_target.py
+	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
 	python3 -B -I scripts/tests/test_benchmark_gate.py
 	$(NIX_RUN) node scripts/tests/snapshot-applicability.mjs
+	$(NIX_RUN) node --test scripts/tests/frozen-results-gate.test.mjs scripts/tests/frozen-results-values.test.mjs
 	python3 -B -I scripts/tests/test_invariance_gate.py
 	python3 -B -I scripts/tests/test_engine_wall_clock_gate.py
 	python3 -B -I scripts/tests/test_timing_budgets_gate.py
@@ -814,10 +827,10 @@ wasm.research.biggins:
 .PHONY: build.engine.plastic-budget test.engine.plastic-budget replay.engine.plastic-budget test.engine.plastic-budget-watchdog
 
 build.engine.plastic-budget:
-	$(NIX_RUN) cargo build --locked --release --manifest-path engine/fuzz/Cargo.toml --example plastic_replay --target-dir engine/fuzz/target -j 2
+	$(NIX_RUN) cargo build --locked --release --manifest-path testing/fuzz/Cargo.toml --example plastic_replay --target-dir testing/fuzz/target -j 2
 
 test.engine.plastic-budget:
-	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --lib plastic::tests -- --test-threads=1 $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test --locked --release --manifest-path testing/fuzz/Cargo.toml --lib plastic::tests -- --test-threads=1 $(if $(IGNORED),--ignored)
 
 replay.engine.plastic-budget: build.engine.plastic-budget
 	$(NIX_RUN) python3 -I scripts/replay-plastic-budget.py $(FILE) --mode $(or $(MODE),gate) $(if $(SECONDS),--seconds $(SECONDS)) $(if $(REPEATS),--repeats $(REPEATS))
@@ -831,32 +844,36 @@ test.engine.plastic-replay: build.engine.plastic-budget
 
 .PHONY: build.engine.plastic-budget-asan
 build.engine.plastic-budget-asan:
-	$(NIX_RUN) env RUSTC_BOOTSTRAP=1 RUSTFLAGS=-Zsanitizer=address cargo build --locked --release --manifest-path engine/fuzz/Cargo.toml --example plastic_replay --target x86_64-unknown-linux-gnu --target-dir engine/fuzz/target/asan -j 2
+	$(NIX_RUN) env RUSTC_BOOTSTRAP=1 RUSTFLAGS=-Zsanitizer=address cargo build --locked --release --manifest-path testing/fuzz/Cargo.toml --example plastic_replay --target x86_64-unknown-linux-gnu --target-dir testing/fuzz/target/asan -j 2
 
 .PHONY: test.engine.plastic-resource replay.engine.plastic-budget-asan
 test.engine.plastic-resource: build.engine.plastic-budget
-	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --test plastic_resource -j 2 -- $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test --locked --release --manifest-path testing/fuzz/Cargo.toml --test plastic_resource -j 2 -- $(if $(IGNORED),--ignored)
 
 replay.engine.plastic-budget-asan: build.engine.plastic-budget-asan
-	$(NIX_RUN) python3 -I scripts/replay-plastic-budget.py $(FILE) --binary engine/fuzz/target/asan/x86_64-unknown-linux-gnu/release/examples/plastic_replay --asan --memory-mib 2048 --mode $(or $(MODE),gate) $(if $(SECONDS),--seconds $(SECONDS)) $(if $(REPEATS),--repeats $(REPEATS))
+	$(NIX_RUN) python3 -I scripts/replay-plastic-budget.py $(FILE) --binary testing/fuzz/target/asan/x86_64-unknown-linux-gnu/release/examples/plastic_replay --asan --memory-mib 2048 --mode $(or $(MODE),gate) $(if $(SECONDS),--seconds $(SECONDS)) $(if $(REPEATS),--repeats $(REPEATS))
 
 .PHONY: test.engine.plastic-budget-corpus check.engine.plastic-fuzz
 test.engine.plastic-budget-corpus: build.engine.plastic-budget
 	$(NIX_RUN) python3 -B -I scripts/plastic-budget-corpus.py
 
 check.engine.plastic-fuzz:
-	$(NIX_RUN) cargo check --locked --release --manifest-path engine/fuzz/Cargo.toml --bin json_plastic -j 2
+	$(NIX_RUN) cargo check --locked --release --manifest-path testing/fuzz/Cargo.toml --bin json_plastic -j 2
+
+.PHONY: test.engine.plastic-costs
+test.engine.plastic-costs:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib phase_cost_work -- --nocapture
 
 .PHONY: test.engine.plastic-wasm
 test.engine.plastic-wasm: wasm
-	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/over-budget-grid.bin 'dense storage bytes'
-	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin certified-lower
-	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin certified-lower-above
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs testing/fuzz/corpus-regressions/plastic-lp-budget/over-budget-grid.bin 'dense storage bytes'
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs testing/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin certified-lower
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs testing/fuzz/corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin certified-lower-above
 
 .PHONY: check.engine.plastic-workflow
 check.engine.plastic-workflow:
 	$(NIX_RUN) actionlint .github/workflows/nightly.yml
-	$(NIX_RUN) python3 -B -I scripts/tests/test_nightly.py Workflow.test_raw_artifact_upload_and_immutable_action
+	$(NIX_RUN) python3 -B -I testing/scripts/tests/test_nightly.py Workflow.test_raw_artifact_upload_and_immutable_action
 
 .PHONY: test.engine.plastic-samples
 test.engine.plastic-samples:
@@ -865,9 +882,378 @@ FEHER_DIR = research/stability/feher-sipos-varkonyi-2026
 .PHONY: test.research.feher evidence.research.feher
 test.research.feher:
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin validate
+	$(NIX_RUN) cargo test --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml
 	$(NIX_RUN) cargo test --locked -p dedaliano-engine --test validation corotational_prescribed
 
 evidence.research.feher:
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin replay -- $(FEHER_DIR)/reference-results/replay.json
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin validate -- --write
 	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("$(FEHER_DIR)/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]={n: hashlib.sha256(p.with_name(n).read_bytes()).hexdigest() for n in d["files_sha256"]}; p.write_text(json.dumps(d,indent=2)+"\n")'
+
+.PHONY: test.engine.reactions-wasm
+test.engine.reactions-wasm: wasm
+	$(NIX_RUN) node scripts/tests/reaction-recovery-wasm.mjs
+	$(NIX_RUN) node scripts/tests/reaction-recovery-r11.mjs
+
+.PHONY: test.engine.reactions-frozen
+test.engine.reactions-frozen: wasm
+	$(NIX_RUN) node scripts/tests/arc-length-frozen.mjs $(if $(UPDATE),--update)
+.PHONY: test.audit.evidence
+test.audit.evidence:
+	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
+
+.PHONY: test.engine.staged-orphan-wasm
+test.engine.staged-orphan-wasm: wasm scripts/tests/staged-history-containment.mjs test.engine.staged-physical-r14-wasm test.engine.staged-r20-wasm test.engine.staged-r23-wasm
+	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-orphan-1846-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-round4-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-round5-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-round7-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-round8-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs
+	$(NIX_RUN) node scripts/tests/translation-rank-red-wasm.mjs
+
+.PHONY: test.engine.staged-prestress test.staged-wasm-assertions
+test.engine.staged-prestress:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_prestress_inclined -- --nocapture $(if $(IGNORED),--ignored)
+
+test.staged-wasm-assertions: scripts/tests/staged-orphan-1846-unloaded.mjs
+	$(NIX_RUN) node --test scripts/tests/staged-orphan-1846-assertions.test.mjs scripts/tests/staged-orphan-1846-unloaded.test.mjs
+
+.PHONY: test.engine.staged-review test.engine.staged-review-numeric
+test.engine.staged-review:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1846_review -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-review-numeric:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_review_numeric -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.staged-round3
+test.engine.staged-round3:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1846_round3 -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.staged-round4 test.engine.staged-round4-internal test.engine.staged-round4-wasm
+
+test.engine.staged-round4:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration $(or $(FILTER),issue_1846_round4) -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round4-internal:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(or $(FILTER),staged_round4) -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round4-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round4-wasm.mjs
+
+.PHONY: test.engine.staged-round5 test.engine.staged-round5-wasm
+
+test.engine.staged-round5:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_round5 -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1846_round5 -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round5-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round5-wasm.mjs
+
+.PHONY: test.engine.translation-rank-wasm
+
+test.engine.translation-rank-wasm: wasm
+	$(NIX_RUN) node scripts/tests/translation-rank-red-wasm.mjs
+
+.PHONY: test.engine.nonlinear-convergence-wasm
+test.engine.nonlinear-convergence-wasm: wasm
+	NONLINEAR_CONVERGENCE_CASES=$(CURDIR)/.761-wasm-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=nonlinear_convergence::issue_761_native_and_wasm_cases
+	$(NIX_RUN) node scripts/tests/nonlinear-convergence-wasm.mjs $(CURDIR)/.761-wasm-cases.json
+	rm -f $(CURDIR)/.761-wasm-cases.json
+
+.PHONY: test.engine.plastic-nightly-wasm
+test.engine.plastic-nightly-wasm: wasm
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-nightly-wasm.mjs
+
+.PHONY: test.engine.buckling-818-wasm
+
+test.engine.buckling-818-wasm: wasm
+	$(NIX_RUN) node scripts/tests/buckling-818-wasm.mjs
+
+.PHONY: test.engine.frozen-shell-refusals
+test.engine.frozen-shell-refusals: wasm
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib frozen_shell_refusals -- --nocapture
+	$(NIX_RUN) node scripts/tests/frozen-shell-refusals-wasm.mjs
+
+.PHONY: test.engine.load-frame-wasm
+test.engine.load-frame-wasm: wasm
+	$(NIX_RUN) node scripts/tests/corotational-load-frame.mjs
+
+.PHONY: test.engine.thermal-frame
+test.engine.thermal-frame:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(or $(FILTER),r10_tests) -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.reactions-r11-wasm
+test.engine.reactions-r11-wasm: wasm
+	$(NIX_RUN) node scripts/tests/reaction-recovery-r11.mjs
+	$(NIX_RUN) node scripts/tests/staged-springs-r12.mjs
+
+.PHONY: test.engine.truss-balance-1969-wasm
+
+test.engine.truss-balance-1969-wasm: wasm
+	$(NIX_RUN) node scripts/tests/truss-balance-1969-wasm.mjs
+
+.PHONY: test.engine.candidate-1901-wasm
+
+test.engine.candidate-1901-wasm: wasm
+	CANDIDATE_1901_AUDIT=$(CURDIR)/.1901-audit.json $(NIX_RUN) node scripts/tests/candidate-1901-wasm.mjs
+	$(NIX_RUN) python3 testing/docs/audits/candidate-1901-audit.py $(CURDIR)/.1901-audit.json
+	rm -f $(CURDIR)/.1901-audit.json
+.PHONY: test.engine.staged-settlement-1085-wasm
+
+test.engine.staged-settlement-1085-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs
+
+.PHONY: test.engine.staged-final test.engine.staged-final-wasm
+
+test.engine.staged-final:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1846_round5_persistent_moment_after_member_removal -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_final -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1943_final -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-final-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round5-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs
+
+.PHONY: test.engine.staged-round7 test.engine.staged-round7-wasm test.staged-round7-assertions
+
+test.engine.staged-round7:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_round7 -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1943_round7 -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round7-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round7-wasm.mjs
+
+test.staged-round7-assertions: scripts/tests/staged-round7-reactions.mjs
+	$(NIX_RUN) node --test scripts/tests/staged-round7-reactions.test.mjs
+
+.PHONY: test.engine.staged-round8 test.engine.staged-round8-internal
+
+test.engine.staged-round8-internal:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_round8 -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round8:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1943_round8 -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.staged-round8-wasm
+
+test.engine.staged-round8-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round8-wasm.mjs
+
+.PHONY: test.engine.convergence-regressions-wasm
+test.engine.convergence-regressions-wasm: wasm
+	FLIP_WASM_CASES=$(CURDIR)/.flip-reference-cases.json FLIP_SUPPORTED_CASES=$(CURDIR)/.flip-supported-cases.json FLIP_RIGID_CASES=$(CURDIR)/.flip-rigid-cases.json FLIP_ROLL_CASES=$(CURDIR)/.flip-roll-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=flip_regressions::
+	$(NIX_RUN) node scripts/tests/convergence-regressions-wasm.mjs $(CURDIR)/.flip-reference-cases.json $(CURDIR)/.flip-supported-cases.json $(CURDIR)/.flip-rigid-cases.json $(CURDIR)/.flip-roll-cases.json
+	rm -f $(CURDIR)/.flip-reference-cases.json $(CURDIR)/.flip-supported-cases.json $(CURDIR)/.flip-rigid-cases.json $(CURDIR)/.flip-roll-cases.json
+
+.PHONY: test.engine.pdelta-rotation-wasm
+test.engine.pdelta-rotation-wasm: wasm
+	PLATE_CONVERGENCE_CASES=$(CURDIR)/.1940-plate-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=plate_convergence::native_exports_and_wasm_cases_keep_answers_and_iteration_limits
+	$(NIX_RUN) node scripts/tests/pdelta-rotation-wasm.mjs $(CURDIR)/.1940-plate-cases.json
+	rm -f $(CURDIR)/.1940-plate-cases.json
+
+.PHONY: test.engine.staged-springs-r12-wasm
+test.engine.staged-springs-r12-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-springs-r12.mjs
+
+.PHONY: test.engine.modal-mass-range-wasm
+test.engine.modal-mass-range-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-mass-range.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MODAL_MASS_RANGE_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER="modal_mass_range:: --release"; node scripts/tests/modal-mass-range-wasm.mjs "$$cases"'
+
+.PHONY: audit.1088
+audit.1088:
+	$(NIX_RUN) python3 -I testing/docs/audits/issue-1088-rank.py
+
+.PHONY: test.engine.staged-physical-r14-wasm
+
+test.engine.staged-physical-r14-wasm: wasm
+	STABILEO_R14_CASES=$(CURDIR)/.1952-r14-cases $(MAKE) test.engine.targeted TEST=validation FILTER=issue_1952_r14
+	$(NIX_RUN) node scripts/tests/staged-physical-r14-wasm.mjs $(CURDIR)/.1952-r14-cases
+	rm -f $(CURDIR)/.1952-r14-cases-2.json $(CURDIR)/.1952-r14-cases-3.json
+
+.PHONY: test.engine.containment-r17 test.engine.containment-r17-wasm
+
+test.engine.containment-r17:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib r17_ -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test validation issue_1952_r17 -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.containment-r17-wasm: wasm
+	STABILEO_R17_CASES=$(CURDIR)/.1952-r17-cases $(MAKE) test.engine.containment-r17
+	$(NIX_RUN) node scripts/tests/containment-r17-wasm.mjs $(CURDIR)/.1952-r17-cases
+	rm -f $(CURDIR)/.1952-r17-cases-*.json
+
+.PHONY: test.engine.containment-r18-wasm
+test.engine.containment-r18-wasm: wasm
+	STABILEO_R18_CASES=$(CURDIR)/.1952-r18-cases $(MAKE) test.engine.targeted TEST=validation FILTER=issue_1952_r18
+	$(NIX_RUN) node scripts/tests/containment-r18-wasm.mjs $(CURDIR)/.1952-r18-cases
+	rm -f $(CURDIR)/.1952-r18-cases-*.json
+.PHONY: test.engine.prescribed-master-2008 test.engine.prescribed-master-2008-wasm
+test.engine.prescribed-master-2008:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration prescribed_master_2008 -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.prescribed-master-2008-wasm: wasm
+	$(NIX_RUN) node scripts/tests/prescribed-master-2008-wasm.mjs
+
+.PHONY: test.engine.prescribed-master-2008-internals
+test.engine.prescribed-master-2008-internals:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib solver::constraints::tests -- --nocapture
+
+.PHONY: test.engine.time-history-2009 test.engine.time-history-2009-wasm
+
+test.engine.time-history-2009:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration time_history_2009 -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.time-history-2009-wasm: wasm
+	$(NIX_RUN) node scripts/tests/time-history-2009-wasm.mjs
+
+.PHONY: test.engine.arc-corrector-2009-wasm
+
+test.engine.arc-corrector-2009-wasm: wasm
+	ARC_CORRECTOR_2009_CASES=$(CURDIR)/.arc-corrector-2009.json $(MAKE) test.engine.targeted TEST=integration FILTER=prescribed_master_2008::arc_corrector_preserves_motion_and_free_equilibrium
+	$(NIX_RUN) node scripts/tests/arc-corrector-2009-wasm.mjs $(CURDIR)/.arc-corrector-2009.json
+	rm -f $(CURDIR)/.arc-corrector-2009.json
+
+.PHONY: test.engine.released-load-work-2023-wasm
+
+test.engine.released-load-work-2023-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.released-load-work.XXXXXX"); trap '\''rm -f -- "$$cases"'\'' EXIT; RELEASED_LOAD_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER="released_load_work::native_and_wasm_share_released_load_models --release"; node scripts/tests/released-load-work-2023-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.released-load-work-2023
+
+test.engine.released-load-work-2023:
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='released_load_work:: --release'
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='released_rotation_load --release'
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib solver::load_work::tests -- --nocapture
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib solver::stability::tests -- --nocapture
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib staged_round8 -- --nocapture
+
+.PHONY: test.engine.released-load-work-2023-parallel
+
+test.engine.released-load-work-2023-parallel:
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --features parallel --test metamorphic released_load_work:: -- --nocapture
+.PHONY: test.engine.containment-r19 test.engine.containment-r19-wasm
+test.engine.containment-r19:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib r19_ -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test metamorphic issue_1952_r19 -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test validation issue_1952_r19 -- --nocapture
+
+test.engine.containment-r19-wasm: wasm
+	R19_CANTILEVERS=$(CURDIR)/.1952-r19-cantilevers R19_SSI_CASES=$(CURDIR)/.1952-r19-ssi $(MAKE) test.engine.containment-r19
+	$(NIX_RUN) node scripts/tests/containment-r19-wasm.mjs $(CURDIR)/.1952-r19-cantilevers $(CURDIR)/.1952-r19-ssi
+	rm -f $(CURDIR)/.1952-r19-cantilevers-*.json $(CURDIR)/.1952-r19-ssi-*.json
+
+.PHONY: test.engine.staged-r20-wasm
+
+test.engine.staged-r20-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-r20-wasm.mjs
+
+.PHONY: test.engine.staged-r23 test.engine.staged-r23-wasm
+
+test.engine.staged-r23:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_r23 -- --nocapture $(if $(IGNORED),--include-ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test validation issue_1952_r23 -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.staged-r23-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-determined-r23-wasm.mjs
+
+.PHONY: test.engine.ssi-elastic-2011 test.engine.ssi-elastic-2011-wasm
+
+test.engine.ssi-elastic-2011:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib refinement_scope_2072 --release -- $(if $(IGNORED),--include-ignored) --nocapture
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='ssi_elastic_2011:: --release $(if $(IGNORED),-- --include-ignored)'
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='nightly_1113::issue_2011 --release $(if $(IGNORED),-- --ignored)'
+	$(MAKE) test.engine.targeted TEST=core FILTER='units_3d_ssi_wrapper --release'
+
+test.engine.ssi-elastic-2011-wasm: wasm
+	SSI_ELASTIC_2011_CASES=$(CURDIR)/.2011-cases $(MAKE) test.engine.ssi-elastic-2011
+	$(NIX_RUN) node scripts/tests/ssi-elastic-2011-wasm.mjs $(CURDIR)/.2011-cases.2.json $(CURDIR)/.2011-cases.3.json $(CURDIR)/.2011-cases.4.json $(CURDIR)/.2011-cases.5.json $(CURDIR)/.2011-cases.6.json $(CURDIR)/.2011-cases.7.json $(CURDIR)/.2011-cases.8.json $(CURDIR)/.2011-cases.9.json
+	rm -f $(CURDIR)/.2011-cases.*.json
+
+.PHONY: test.engine.released-orphan-2074
+
+test.engine.released-orphan-2074:
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib released_orphan_2074_tests -- --nocapture $(if $(IGNORED),--include-ignored)
+
+test.engine.released-load-work-2023: test.engine.released-orphan-2074
+
+.PHONY: test.engine.released-assembly-2074 test.released-load-work-outcomes
+
+test.engine.released-assembly-2074:
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib solver::load_work::tests -- --nocapture $(if $(IGNORED),--include-ignored)
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='released_load_work:: --release $(if $(IGNORED),-- --include-ignored)'
+
+test.released-load-work-outcomes: scripts/tests/released-load-work-outcome.mjs scripts/tests/released-load-work-unresolved.json scripts/tests/released-load-work-pdelta-outcomes.json
+	$(NIX_RUN) node --test scripts/tests/released-load-work-outcome.test.mjs
+
+.PHONY: test.released-load-work-physics
+
+test.released-load-work-physics: scripts/tests/released-load-work-physics.mjs
+	$(NIX_RUN) node --test scripts/tests/released-load-work-physics.test.mjs
+.PHONY: test.engine.constraint-rounding-2013 test.engine.constraint-rounding-2013-wasm
+
+test.engine.constraint-rounding-2013:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib constraint_2013 --release -- --nocapture $(if $(IGNORED),--include-ignored)
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='constraint_rounding_2013:: --release $(if $(IGNORED),-- --include-ignored)'
+	$(MAKE) test.engine.targeted TEST=metamorphic FILTER='constrained_release --release $(if $(IGNORED),-- --include-ignored)'
+
+test.engine.constraint-rounding-2013-wasm: wasm
+	CONSTRAINT_2013_CASES=$(CURDIR)/.2013-cases $(MAKE) test.engine.constraint-rounding-2013
+	$(NIX_RUN) node scripts/tests/constraint-rounding-2013-wasm.mjs $(CURDIR)/.2013-cases.2.false.json $(CURDIR)/.2013-cases.2.true.json $(CURDIR)/.2013-cases.3.false.json $(CURDIR)/.2013-cases.3.true.json
+	rm -f $(CURDIR)/.2013-cases.*.json
+
+.PHONY: test.web.feher-result-state
+test.web.feher-result-state:
+	nix develop .\#e2e --command node --test web/scripts/tests/feher-result-state.test.mjs
+
+.PHONY: test.web.public-policy-isolation
+test.web.public-policy-isolation:
+	nix develop .\#e2e --command bash -c 'cd web && node --test scripts/landing-isolation.test.mjs scripts/public-link-policy.test.mjs scripts/prune-public-build-branches.test.mjs scripts/build-switches-2099.test.mjs'
+
+.PHONY: test.web.landing-footer-2099
+test.web.landing-footer-2099:
+	$(NIX_RUN) node --test web/scripts/tests/landing-footer-2099.test.mjs
+
+.PHONY: test.web.ci-runtime-2099
+test.web.ci-runtime-2099:
+	$(NIX_RUN) node --test web/scripts/research-locale-build.test.mjs web/scripts/site-nav-node-env-2099.test.mjs
+
+.PHONY: test.web.tool-current-result-2099
+test.web.tool-current-result-2099:
+	VITE_RESEARCH=1 VITE_TOOLS=1 nix develop .\#e2e --command node --test web/scripts/tests/tool-current-result-2099.test.mjs
+
+.PHONY: test.web.e2e-features
+test.web.e2e-features:
+	$(NIX_RUN) bash -c 'cd web && node --experimental-strip-types --test scripts/e2e-feature-build.test.mjs'
+
+.PHONY: replay.advisory.steel-cb
+replay.advisory.steel-cb:
+	$(NIX_RUN) python3 -B scripts/replay-steel-cb-advisory.py
+
+.PHONY: test.replay-steel-cb
+test.replay-steel-cb:
+	$(NIX_RUN) python3 -B -I scripts/tests/test_steel_cb_replay.py
+
+.PHONY: check.testing-map test.testing-map
+
+check.testing-map:
+	python3 -B -I scripts/check-testing-map.py
+
+test.testing-map:
+	python3 -B -I testing/scripts/tests/test_testing_map.py
+
+.PHONY: check.docs-links
+
+check.docs-links:
+	python3 -B -I scripts/check-docs-links.py
+
+.PHONY: test.testing-move
+
+test.testing-move:
+	python3 -B -I scripts/tests/test_testing_move.py $(FILTER)
+
+.PHONY: test.design.completeness-2096
+
+test.design.completeness-2096:
+	$(SUBMAKE) test.web.unit FILE='src/lib/engine/__tests__/issue-2096-completeness.test.ts src/lib/engine/__tests__/issue-2096-solved-entries.test.ts src/lib/engine/__tests__/issue-2096-reference.test.ts src/lib/store/__tests__/issue-2096-active-scope.test.ts' VITEST_WORKERS=$(or $(VITEST_WORKERS),2)

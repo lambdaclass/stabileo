@@ -1,0 +1,59 @@
+{
+  "nodes": {
+    "0": {
+      "id": 0,
+      "x": 0.0,
+      "z": 0.0
+    },
+    "1": {
+      "id": 1,
+      "x": 3.0,
+      "z": 0.0
+    }
+  },
+  "materials": {
+    "1": {
+      "id": 1,
+      "e": 200000.0,
+      "nu": 0.3
+    }
+  },
+  "sections": {
+    "1": {
+      "id": 1,
+      "a": 0.01,
+      "iz": 0.0001
+    }
+  },
+  "elements": {
+    "1": {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 0,
+      "nodeJ": 1,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  },
+  "supports": {
+    "0": {
+      "id": 0,
+      "nodeId": 0,
+      "type": "fixed"
+    }
+  },
+  "loads": [
+    {
+      "type": "nodal",
+      "data": {
+        "nodeId": 1,
+        "fx": 0.0,
+        "fz": -10.0,
+        "my": 0.0
+      }
+    }
+  ],
+  "constraints": []
+}

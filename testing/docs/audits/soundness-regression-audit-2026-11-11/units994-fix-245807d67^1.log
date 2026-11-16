@@ -1,0 +1,242 @@
+warning: Git tree '/root/audit/soundness-2026-11-11/units994-245807d67^1' is dirty
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /root/audit/soundness-2026-11-11/units994-245807d67^1/engine/Cargo.toml
+workspace: /root/audit/soundness-2026-11-11/units994-245807d67^1/Cargo.toml
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling cfg-if v1.0.4
+   Compiling wasm-bindgen-shared v0.2.129
+   Compiling libc v0.2.183
+   Compiling syn v3.0.9
+   Compiling once_cell v1.21.4
+   Compiling autocfg v1.5.0
+   Compiling libm v0.2.16
+   Compiling rustversion v1.0.22
+   Compiling num-traits v0.2.19
+   Compiling syn v2.0.117
+   Compiling serde_core v1.0.229
+   Compiling bumpalo v3.20.2
+   Compiling wasm-bindgen-macro-support v0.2.129
+   Compiling wasm-bindgen v0.2.129
+   Compiling zerocopy v0.8.42
+   Compiling wasm-bindgen-macro v0.2.129
+   Compiling zerocopy-derive v0.8.42
+   Compiling serde v1.0.229
+   Compiling serde_derive v1.0.229
+   Compiling rand_core v0.10.1
+   Compiling zmij v1.0.21
+   Compiling slab v0.4.12
+   Compiling futures-core v0.3.32
+   Compiling pin-project-lite v0.2.17
+   Compiling futures-task v0.3.32
+   Compiling crossbeam-utils v0.8.21
+   Compiling futures-util v0.3.32
+   Compiling serde_json v1.0.154
+   Compiling getrandom v0.4.2
+   Compiling crossbeam-epoch v0.9.21
+   Compiling js-sys v0.3.106
+   Compiling memchr v2.8.0
+   Compiling rustix v1.1.4
+   Compiling itoa v1.0.17
+   Compiling either v1.15.0
+   Compiling regex-syntax v0.8.10
+   Compiling bitflags v2.11.0
+   Compiling linux-raw-sys v0.12.1
+   Compiling rayon-core v1.13.0
+   Compiling crossbeam-deque v0.8.6
+   Compiling half v2.7.1
+   Compiling num-integer v0.1.47
+   Compiling getrandom v0.2.17
+   Compiling ciborium-io v0.2.2
+   Compiling clap_lex v1.1.0
+   Compiling foldhash v0.2.0
+   Compiling anstyle v1.0.14
+   Compiling equivalent v1.0.2
+   Compiling plotters-backend v0.3.7
+   Compiling cast v0.3.0
+   Compiling allocator-api2 v0.2.21
+   Compiling fastrand v2.3.0
+   Compiling tempfile v3.27.0
+   Compiling hashbrown v0.16.1
+   Compiling plotters-svg v0.3.7
+   Compiling clap_builder v4.6.0
+   Compiling ciborium-ll v0.2.2
+   Compiling rand_core v0.6.4
+   Compiling num-bigint v0.4.8
+   Compiling regex-automata v0.4.14
+   Compiling itertools v0.10.5
+   Compiling ppv-lite86 v0.2.21
+   Compiling wait-timeout v0.2.1
+   Compiling same-file v1.0.6
+   Compiling dedaliano-engine v0.4.0 (/root/audit/soundness-2026-11-11/units994-245807d67^1/engine)
+   Compiling quick-error v1.2.3
+   Compiling fnv v1.0.7
+   Compiling cpufeatures v0.3.1
+   Compiling oorandom v11.1.5
+   Compiling smallvec v1.15.1
+   Compiling robust v1.2.0
+   Compiling bit-vec v0.10.1
+   Compiling bit-set v0.11.1
+   Compiling spade v2.15.1
+   Compiling chacha20 v0.10.2
+   Compiling rusty-fork v0.3.1
+   Compiling walkdir v2.5.0
+   Compiling rand_chacha v0.3.1
+   Compiling criterion-plot v0.5.0
+   Compiling regex v1.12.3
+   Compiling rayon v1.12.0
+   Compiling num-rational v0.4.2
+   Compiling clap v4.6.0
+   Compiling ciborium v0.2.2
+   Compiling plotters v0.3.7
+   Compiling rand v0.10.3
+   Compiling serde-wasm-bindgen v0.6.5
+   Compiling web-sys v0.3.106
+   Compiling wasm-bindgen-futures v0.4.79
+   Compiling tinytemplate v1.2.1
+   Compiling rand_xorshift v0.5.0
+   Compiling console_error_panic_hook v0.1.7
+   Compiling async-trait v0.1.89
+   Compiling wasm-bindgen-test-macro v0.3.79
+   Compiling is-terminal v0.4.17
+   Compiling nu-ansi-term v0.50.3
+   Compiling wasm-bindgen-test-shared v0.2.129
+   Compiling core_detect v1.0.0
+   Compiling anes v0.1.6
+   Compiling unarray v0.1.4
+   Compiling proptest v1.12.0
+   Compiling criterion v0.5.1
+   Compiling wasm-bindgen-test v0.3.79
+   Compiling rand v0.8.6
+warning: value assigned to `rx` is never read
+    --> engine/src/solver/linear.rs:3911:22
+     |
+3911 |         let mut rx = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+3968 |             rx = vals[0];
+     |             ------------ `rx` is overwritten here before the previous value is read
+     |
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `rz` is never read
+    --> engine/src/solver/linear.rs:3912:22
+     |
+3912 |         let mut rz = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+3969 |             rz = vals[1];
+     |             ------------ `rz` is overwritten here before the previous value is read
+
+warning: value assigned to `my` is never read
+    --> engine/src/solver/linear.rs:3913:22
+     |
+3913 |         let mut my = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+3970 |             my = vals[2];
+     |             ------------ `my` is overwritten here before the previous value is read
+
+warning: variable does not need to be mutable
+    --> engine/src/solver/pre_solve_gates.rs:1200:9
+     |
+1200 |     let mut link = |p: &mut Vec<usize>, nodes: &[usize]| -> bool {
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `not` is never used
+   --> engine/src/postprocess/cirsoc201_check.rs:192:4
+    |
+192 | fn not(t: Tri) -> Tri {
+    |    ^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `c_norm` and `n_params` are never read
+   --> engine/src/certify/reassembly/system.rs:360:9
+    |
+355 | pub struct E2eBound {
+    |            -------- fields in this struct
+...
+360 |     pub c_norm: f64,
+    |         ^^^^^^
+...
+365 |     pub n_params: usize,
+    |         ^^^^^^^^
+
+warning: field `rot` is never read
+   --> engine/src/metamorphic/transform.rs:183:12
+    |
+183 |     Both { rot: bool },
+    |     ----   ^^^
+    |     |
+    |     field in this variant
+
+warning: variable `bA` should have a snake case name
+   --> engine/src/certify/reassembly/system.rs:180:14
+    |
+180 |     for (bi, bA) in blocks.iter().enumerate() {
+    |              ^^ help: convert the identifier to snake case: `b_a`
+    |
+    = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: variable `bB` should have a snake case name
+   --> engine/src/certify/reassembly/system.rs:181:18
+    |
+181 |         for (bj, bB) in blocks.iter().enumerate() {
+    |                  ^^ help: convert the identifier to snake case: `b_b`
+
+warning: `dedaliano-engine` (lib) generated 9 warnings (run `cargo fix --lib -p dedaliano-engine` to apply 1 suggestion)
+warning: unused import: `rect`
+ --> engine/tests/metamorphic/ana3.rs:3:25
+  |
+3 | use crate::ana2::{conv, rect, Law};
+  |                         ^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Verdict`
+ --> engine/tests/metamorphic/quick.rs:5:27
+  |
+5 | use crate::tally::{Tally, Verdict};
+  |                           ^^^^^^^
+
+warning: field `0` is never read
+  --> engine/tests/metamorphic/tally.rs:16:18
+   |
+16 |     Inconclusive(f64),
+   |     ------------ ^^^
+   |     |
+   |     field in this variant
+   |
+   = note: `Verdict` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+help: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+   |
+16 -     Inconclusive(f64),
+16 +     Inconclusive(()),
+   |
+
+warning: `dedaliano-engine` (test "metamorphic") generated 3 warnings (run `cargo fix --test "metamorphic" -p dedaliano-engine` to apply 2 suggestions)
+    Finished `release` profile [optimized] target(s) in 1m 45s
+     Running tests/metamorphic/main.rs (/root/audit/soundness-2026-11-11/target-units994-245807d67^1/release/deps/metamorphic-61f81a817041aaca)
+
+running 1 test
+test audit_missing_regressions::audit_issue_994_published_model ...
+thread 'audit_missing_regressions::audit_issue_994_published_model' (622757) panicked at engine/tests/metamorphic/audit_missing_regressions.rs:27:9:
+#994: Cell { pass: 0, ignored: {}, refused: 0, unrep: 0, not_applicable: 0, inconclusive: 0, fails: ["fuzz_rich_2d/20892: translation H_im2@n4[0]: got 1.7031838819e-5, expected -1.6664163162e-6, |diff| 1.870e-5 > tol 9.341e-6 (scale 3.716e-1, rel 2.51e-5)"], worst: 0.0, notes: {} }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    audit_missing_regressions::audit_issue_994_published_model
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 82 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p dedaliano-engine --test metamorphic`

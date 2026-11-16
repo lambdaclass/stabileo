@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Trusted-base gate for the Lean proofs (docs/verification/TRUSTED_BASE.md). Run from
+# Trusted-base gate for the Lean proofs (testing/docs/TRUSTED_BASE.md). Run from
 # verify/ after `lake build`. Fails on:
 # * an unpinned toolchain or Mathlib (lean-toolchain must name an exact release, the
 #   lakefile's Mathlib `rev` must be a tag or commit and match lake-manifest.json, and

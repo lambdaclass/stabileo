@@ -246,7 +246,7 @@ class EvidenceRemovalDowngrades(unittest.TestCase):
         self.assertEqual(b[FOOT]["level"], "Differential")
 
     def test_certify_doc_removed(self):
-        with hidden("docs/verification/CERTIFY.md"):
+        with hidden("testing/docs/CERTIFY.md"):
             r = maturity_rows()
         self.assertNotIn("Certified", r[LINEAR]["evidence"])
         self.assertNotEqual(r[LINEAR]["level"], "Certified")
@@ -259,31 +259,31 @@ class EvidenceRemovalDowngrades(unittest.TestCase):
         self.assertNotIn("Benchmarked", r[LINEAR]["evidence"])
 
     def test_one_harness_removed(self):
-        with hidden("tools/differential/codeaster"):
+        with hidden("testing/differential/codeaster"):
             r = maturity_rows()
         self.assertEqual(r[CONNECTOR]["level"], "Tested")
         self.assertNotIn("Code_Aster", r[LINEAR]["evidence"].get("Differential", ""))
         self.assertIn("OpenSees", r[LINEAR]["evidence"]["Differential"])
 
     def test_all_harnesses_removed(self):
-        with hidden("tools/differential", "tools/opensees"):
+        with hidden("testing/differential", "testing/opensees"):
             r = maturity_rows()
         for row in r.values():
             if "Differential" in row["evidence"]:
                 self.assertIn("TypeScript vs Rust", row["evidence"]["Differential"], row["name"])
 
     def test_symbolic_doc_removed(self):
-        with hidden("docs/verification/SYMBOLIC.md"):
+        with hidden("testing/docs/SYMBOLIC.md"):
             r = maturity_rows()
         self.assertEqual(r[FRAME]["level"], "Benchmarked")
 
     def test_worked_examples_removed(self):
-        with hidden("docs/verification/DESIGN_EXAMPLES.md"):
+        with hidden("testing/docs/DESIGN_EXAMPLES.md"):
             r = maturity_rows()
         self.assertNotEqual(r[CONN]["level"], "Benchmarked")
 
     def test_ts_differential_removed(self):
-        with hidden("docs/verification/TS_ENGINE_LOGIC.md"):
+        with hidden("testing/docs/TS_ENGINE_LOGIC.md"):
             r = maturity_rows()
             m = vm.ts_metrics(vm.ts_engine_logic())
         self.assertNotEqual(r[FOOT]["level"], "Differential")
@@ -291,7 +291,7 @@ class EvidenceRemovalDowngrades(unittest.TestCase):
             self.assertEqual(v["status"], "not_measured", k)
 
     def test_feature_matrix_removed(self):
-        with hidden("docs/verification/FEATURE_MATRIX.md"):
+        with hidden("testing/docs/FEATURE_MATRIX.md"):
             fm = vm.feature_matrix()
             r = maturity_rows()
         self.assertNotIn("feature matrix", r[LINEAR]["evidence"].get("Tested", ""))
@@ -447,7 +447,7 @@ class AbsentInputsAreNotNumbers(unittest.TestCase):
     def test_certified_share_without_certify_doc(self):
         rows = vm.maturity(vm.feature_matrix(), {})
         self.assertEqual(vm.certified_metrics(rows)["certified_analyses"]["status"], "measured")
-        with hidden("docs/verification/CERTIFY.md"):
+        with hidden("testing/docs/CERTIFY.md"):
             m = vm.certified_metrics(vm.maturity(vm.feature_matrix(), {}))
         for v in m.values():
             self.assertEqual(v["status"], "not_measured")
@@ -594,7 +594,7 @@ class MutantsRotation(unittest.TestCase):
     def test_the_nightly_plan_keeps_the_roadmap_promise(self):
         total, slots = vm.mutants_plan()
         self.assertLessEqual(-(-total // slots), vm.MUTANTS_PROMISE_DAYS)
-        roadmap = vm.read("docs/roadmap/PRODUCT_ROADMAP.md")
+        roadmap = vm.read("testing/ROADMAP.md")
         self.assertIn(f"covers all shards at least every {vm.MUTANTS_PROMISE_DAYS} days", roadmap)
         workflow = vm.read(".github/workflows/nightly.yml")
         self.assertIn('python3 -I .github/scripts/mutants-plan.py "$total" "$MUTANTS_SLOTS" "$day"', workflow)

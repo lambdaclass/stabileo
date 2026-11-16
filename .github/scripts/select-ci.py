@@ -73,9 +73,10 @@ def slow_specs_for_path(path):
     if not isinstance(path, str) or not path or path.startswith('/') or '..' in path.split('/'):
         return ALL_SLOW_SPECS
     if path.startswith(('docs/', 'changelog.d/', 'specs/', 'backend/', 'verify/', 'tools/', 'ai-backend/',
-                        'engine/tests/', 'engine/benches/', 'scripts/tests/')):
+                        'engine/tests/', 'engine/benches/', 'scripts/tests/', 'testing/scripts/tests/',
+                        'testing/differential/', 'testing/opensees/', 'testing/symbolic/', 'testing/docs/')):
         return ()
-    if '/' not in path and path.endswith('.md'):
+    if path == 'testing/ROADMAP.md' or ('/' not in path and path.endswith('.md')):
         return ()
     if path.startswith('research/') and path.endswith('.md') and not path.startswith('research/tools/'):
         return ()
@@ -114,7 +115,9 @@ def select_slow_specs(paths):
 def area(path):
     if not isinstance(path, str) or path.startswith('/') or '..' in path.split('/'):
         return 'full'
-    if path.startswith(('docs/', 'changelog.d/')) or ('/' not in path and path.endswith('.md')):
+    if (path.startswith(('docs/', 'testing/docs/', 'changelog.d/'))
+            or path == 'testing/ROADMAP.md'
+            or ('/' not in path and path.endswith('.md'))):
         return 'docs'
     if path.startswith('specs/') and path.endswith('.md'):
         return 'docs'
@@ -126,7 +129,7 @@ def area(path):
         return 'research'
     if path.startswith('web/src/components/tools/') or re.fullmatch(r'web/e2e/tools[^/]*\.spec\.ts', path):
         return 'tools'
-    if path.startswith('engine/'):
+    if path.startswith(('engine/', 'testing/fuzz/')):
         return 'engine'
     if path.startswith('web/') and not path.startswith(SITE_EXCLUDED):
         return 'site'

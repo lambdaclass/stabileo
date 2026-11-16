@@ -243,5 +243,45 @@ const tr: Strings = {
   wholeLine: 'tüm hat',
 };
 
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr };
+const hu: Strings = {
+  title: riserTitle.hu,
+  lead: 'Egy 835 m hosszú vezeték a tengerfenéken fekszik; szabad végénél fogva meghúzzák, majd 186 m-rel megemelik. Figyelje meg, hol válik el a talajtól, és hogyan éri el ott a hajlítás a csúcsát.',
+  model: 'A modell',
+  theory: 'Geometriailag egzakt rúd: minden keresztmetszet szabadon elmozdul és elfordul, az energia pedig a keresztmetszet saját koordináta-rendszerében mért nyúlástól, nyírástól, hajlítástól és csavarodástól függ. Háromcsomópontos elemek két Gauss-ponttal. A tengerfenék merev sík, amely minden csomópontban büntetőrugóval, Coulomb-súrlódással nyom vissza.',
+  method: 'Beolvassuk a referenciakód saját bemeneti fájljait, és ugyanazt a három statikus lépést oldjuk meg: önsúly érintkezéssel, 1 MN vízszintes húzás, majd a szabad vég 186 m-es megemelése. A megoldó egy új Rust-crate, amelyet ehhez az oldalhoz WASM-ra fordítottunk. Az érintőmátrixot az elemenergia kétszeri deriválásával kapjuk, így a Newton-iteráció kvadratikusan konvergál.',
+  comparison: 'A 3. lépés végén mind a 134 elem hajlítónyomatékát és nyíróerejét összevetjük a referenciakód oktatási útmutatójában tárolt értékekkel. A felfekvési pontot és a lógó alakot a rugalmas láncgörbével is ellenőrizzük. Egy 1 m-es konzol (1. oktatási példa) önmagában ellenőrzi a gerendaelemet.',
+  limits: 'Csak statika: nincs tengeráramlás, nincs hullám- vagy közegellenállási teher, nincs vezetékek közötti érintkezés. A referenciakóddal való egyezés numerikus; nem kísérlet és nem méretezési ellenőrzés.',
+  checks: 'Validáció és források',
+  checkLabels: {
+    'T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]': 'Konzol: a végpont X, Z a futás végén (m)',
+    'T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]': 'Konzol, 5 elem: végpont X, Z (m)',
+    'T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]': 'Konzol, 40 elem: végpont X, Z (m)',
+    'T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]': 'Riser: legnagyobb hajlítónyomaték (N·m)',
+    'T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]': 'Riser: legnagyobb nyíróerő (N)',
+    'T16 step 3: touchdown (moment at half its plateau) vs reference data [m]': 'Riser: felfekvési pont (m a vezeték mentén)',
+    'T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]': 'Riser: felfekvési pont (m a vezeték mentén)',
+    'T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]': 'Riser: lógó alak (m)',
+  },
+  riser: 'Riser', forces: 'Igénybevételek', cantilever: 'Konzol',
+  pull: 'Vízszintes húzás', lift: 'A szabad vég megemelése', friction: 'Talajsúrlódás μ',
+  run: 'Újraszámítás élőben', stop: 'Leállítás', restart: 'Újraindítás',
+  computing: 'Számítás a Stabileóval… (néhány másodperc)',
+  caseLabel: 'Eset',
+  error: 'A megoldó nem töltődött be, vagy nem futott le. Az előző eredmény továbbra is elérhető.',
+  ours: 'Stabileo', reference: 'Referenciakód, a 3. lépés vége', figure: 'Referenciakód, 1-6. ábra',
+  moment: 'Hajlítónyomaték M(e1)', shear: 'Nyíróerő V(e2)', length: 'Helyzet a vezeték mentén (m)', time: 'Teherszorzó',
+  tipX: 'Végpont X (m)', tipZ: 'Végpont Z (m)',
+  steps: ['Önsúly a tengerfenéken', 'Vízszintes húzás', 'A szabad vég megemelése'],
+  fairlead: 'Szabad vég', touchdown: 'Felfekvési pont (a vezeték mentén)', anchor: 'Húzóerő a horgonynál',
+  defaults: 'A referenciaértékek az oktatási példa saját paramétereire vonatkoznak (1 MN, 186 m, μ = 0,2).',
+  coordinates: 'Valós lépték, x a tengerfenék mentén, z felfelé, méterben. Szín: hajlítónyomaték.',
+  cantileverNote: 'Egy 1 m-es konzol, végén 1000 N keresztirányú erővel, tíz lépésben.',
+  inputs: 'Bemeneti fájlok', code: 'Referenciakód (BSD-3-Clause)',
+  tableIntro: 'A cikk ábráival nem vetettük össze az eredményeket, mert a teljes szöveghez nem fértünk hozzá. A referenciák a szerző kódjával, a GIRAFFE-fal közölt eredmények, a konzolra egy független egzakt megoldás, a riserre pedig az analitikus láncgörbe. Az eltérés a legnagyobb érték mindarra, amit összevetettünk: a konzol tíz lépése az ábrával szemben, a riser 134 eleme nyomatékra és nyíróerőre, valamint a vezeték teljes lógó szakasza.',
+  table: { quantity: 'Mennyiség', reference: 'Referencia', ours: 'Stabileo', difference: 'Legnagyobb eltérés', tolerance: 'Tűrés' },
+  sources: { figure: 'GIRAFFE, az útmutató 1-6. ábrája', exact: 'Egzakt rúdmegoldás, független', giraffe: 'GIRAFFE, a 16. oktatási példa eredményei', catenary: 'Analitikus rugalmas láncgörbe' } as Record<string, string>,
+  wholeLine: 'a teljes vezeték',
+};
+
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu };
 export const riserStrings = (): Strings => translations[publicI18n.locale] ?? en;

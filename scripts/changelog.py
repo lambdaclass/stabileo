@@ -9,6 +9,7 @@ parallel PRs conflicted there on nearly every merge. Now each adds its own file:
         #### What changed (2026-10-22)  <- the entry's title, as before
         The body, as before.
 
+    scripts/changelog.py --unreleased
     scripts/changelog.py --check                   # CI: every fragment is well formed
     scripts/changelog.py --release 0.3.1 2026-10-23  # move them under "## 0.3.1 (2026-10-23)"
 """
@@ -49,28 +50,55 @@ def check():
     return 1 if problems else 0
 
 
-def release(version, date):
-    if check():
-        return 1
+def render(heading):
     by_section = {s: [] for s in SECTIONS}
     for f in fragments():
         section, body, _ = parse(f)
         by_section[section].append(body)
-    block = f"## {version} ({date})\n"
+    block = heading + "\n"
     for s in SECTIONS:
         if by_section[s]:
             block += f"\n### {s}\n\n" + "\n".join(by_section[s])
+    return block, sum(map(len, by_section.values()))
+
+
+def rewrite_unreleased(block):
     log = CHANGELOG.read_text()
     start = log.index("## Unreleased")
-    end = log.index("\n## ", start + 1) + 1
-    CHANGELOG.write_text(log[:start] + UNRELEASED + "\n" + block + "\n" + log[end:])
+    following = re.search(r"^## ", log[start + len("## Unreleased"):], re.M)
+    end = start + len("## Unreleased") + following.start() if following else len(log)
+    CHANGELOG.write_text(log[:start] + block.rstrip() + "\n\n" + log[end:])
+
+
+def rebase_fragment_links(text):
+    text = re.sub(r"(\]\(\s*<?)\.\./", r"\1", text)
+    return re.sub(r"^( {0,3}\[[^\]]+\]:\s*<?)\.\./", r"\1", text, flags=re.M)
+
+
+def unreleased():
+    if check():
+        return 1
+    block, count = render("## Unreleased")
+    body = block[len("## Unreleased\n"):]
+    rewrite_unreleased(UNRELEASED + rebase_fragment_links(body))
+    print(f"CHANGELOG.md: Unreleased with {count} entries (fragments kept)")
+    return 0
+
+
+def release(version, date):
+    if check():
+        return 1
+    block, count = render(f"## {version} ({date})")
+    rewrite_unreleased(UNRELEASED + "\n" + block)
     for f in fragments():
         f.unlink()
-    print(f"CHANGELOG.md: {version} with {sum(map(len, by_section.values()))} entries")
+    print(f"CHANGELOG.md: {version} with {count} entries")
     return 0
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--unreleased"]:
+        sys.exit(unreleased())
     if sys.argv[1:] == ["--check"]:
         sys.exit(check())
     if len(sys.argv) == 4 and sys.argv[1] == "--release":

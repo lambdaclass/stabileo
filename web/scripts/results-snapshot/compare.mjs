@@ -27,7 +27,7 @@
  *   ten-millionth of the largest moment in the model is not a result.
  *
  * Against last-bit noise: the WASM engine is bit-for-bit deterministic for one build
- * (docs/verification/PROVENANCE.md, "Determinism"), so the same build reproduces the snapshot
+ * (testing/docs/PROVENANCE.md, "Determinism"), so the same build reproduces the snapshot
  * exactly. What the tolerance absorbs is a refactor that reorders floating-point operations
  * (a sum in another order, a factorisation with another pivot sequence): its error is about
  * κ·ε, with ε = 2.2e-16 and κ the stiffness's condition number, up to ~1e8 on the slender

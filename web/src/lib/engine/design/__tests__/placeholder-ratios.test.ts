@@ -14,7 +14,7 @@ import {
 import { concreteCheckRows, elementOutcome } from '../check-rows';
 import type { DesignAxes } from '../design-axes';
 import type { ProvidedReinforcement } from '../../../store/model.svelte';
-import { checkTorsion } from '../../codes/argentina/cirsoc201';
+import { checkTorsion, torsionDemand } from '../../__tests__/helpers/manual-interactions';
 import { checkTorsion2025 } from '../../../codes/cirsoc201/torsion';
 
 const st = (t: number, over: Partial<StationForces> = {}): StationForces => ({
@@ -110,7 +110,7 @@ describe('the torsion row of the code check states the section, not the demand t
     expect(r.ratio).toBeCloseTo(7.56 / r.phiTn, 9);
     expect(r.status).toBe('ok');
     // At φTn the section ratio of the shared §22.7 module is exactly 1.
-    const at = checkTorsion2025({ b: 0.3, h: 0.6, d: 0.6 - 0.025 - 0.008 - 0.008, cover: 0.025, stirrupDiaMm: 8, fc: 25, fy: 420, fyt: 420, Vu: 40, Tu: r.phiTn });
+    const at = checkTorsion2025({ b: 0.3, h: 0.6, d: 0.6 - 0.025 - 0.008 - 0.008, dSecondary: 0.3 - 0.025 - 0.008 - 0.008, cover: 0.025, stirrupDiaMm: 8, fc: 25, fy: 420, fyt: 420, demand: torsionDemand(r.phiTn, 40) });
     expect(at.sectionRatio).toBeCloseTo(1, 6);
   });
 

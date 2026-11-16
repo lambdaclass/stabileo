@@ -90,7 +90,7 @@ issue) or close it as a harness artefact with the evidence.
 
 | Check | Where | What |
 |---|---|---|
-| `mutants-safety` | nightly.yml mutants-safety, mutants-ratchet (Sunday, GitHub-hosted) | mutation testing of the safety-critical modules ([FUZZ_MUTANTS.md](verification/FUZZ_MUTANTS.md#safety-critical-scope-weekly)); a kill rate below the baseline opens or updates the **Mutation kill rate below baseline** issue |
+| `mutants-safety` | nightly.yml mutants-safety, mutants-ratchet (Sunday, GitHub-hosted) | mutation testing of the safety-critical modules ([FUZZ_MUTANTS.md](../testing/docs/FUZZ_MUTANTS.md#safety-critical-scope-weekly)); a kill rate below the baseline opens or updates the **Mutation kill rate below baseline** issue |
 | `fuzz-long` | nightly.yml fuzz (Sunday) | each fuzz target for 5 hours instead of 2 |
 | `mechanism-fuzz-long` | nightly.yml cadence | `make test.engine.mechanism-fuzz.long DURATION=4h`, from a new seed each week |
 | `route-size` | route-size.yml (Monday) | landing and /app footprints against their ceilings |

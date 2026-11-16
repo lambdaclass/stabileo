@@ -113,8 +113,24 @@ export interface StepDrift {
 }
 
 /** The triangle of §7.1 for a drift height h_d under a clear height h_c (see the header). */
+const DRIFT_WIDTH_FACTOR = 4;
+const CLEAR_HEIGHT_WIDTH_CAP = 8;
+
 function driftShape(hd: number, hc: number): { height: number; w: number } {
-  return { height: hd <= hc ? hd : hc, w: Math.min(hd <= hc ? 4 * hd : (4 * hd * hd) / hc, 8 * hc) };
+  return { height: hd <= hc ? hd : hc, w: Math.min(hd <= hc ? DRIFT_WIDTH_FACTOR * hd : (DRIFT_WIDTH_FACTOR * hd * hd) / hc, CLEAR_HEIGHT_WIDTH_CAP * hc) };
+}
+
+export function driftShapeMargins(dr: StepDrift, clearHeight: number, distance: number): number[] {
+  const hd = Math.max(dr.hdLeeward, dr.hdWindward);
+  return [clearHeight - hd, CLEAR_HEIGHT_WIDTH_CAP * clearHeight - distance, DRIFT_WIDTH_FACTOR * hd - distance, DRIFT_WIDTH_FACTOR * hd * hd - distance * clearHeight];
+}
+
+const MIN_CLEAR_RATIO = 0.2;
+const MAX_SEPARATION = 6;
+
+export function stepDriftMargins(i: Pick<StepDriftInputs, 'pg' | 'balanced' | 'stepHeight' | 'separation'>): number[] {
+  const hb = i.balanced / snowDensity(i.pg);
+  return [hb, i.stepHeight - (1 + MIN_CLEAR_RATIO) * hb, MAX_SEPARATION - (i.separation ?? 0)];
 }
 
 export function stepDrift(i: StepDriftInputs): StepDrift {
@@ -126,8 +142,8 @@ export function stepDrift(i: StepDriftInputs): StepDrift {
   const hd = Math.max(hdLeeward, hdWindward);
   const base = { gamma, hb, hc, hdLeeward, hdWindward, governs: (hdLeeward >= hdWindward ? 'leeward' : 'windward') as StepDrift['governs'], outside: lee.outside || wind.outside };
   const s = i.separation ?? 0;
-  if (hb <= 0 || hc / hb < 0.2 || s >= 6) return { ...base, applies: false, height: 0, w: 0, pd: 0 };
-  const reduce = (6 - s) / 6;
+  if (hb <= 0 || hc / hb < MIN_CLEAR_RATIO || s >= MAX_SEPARATION) return { ...base, applies: false, height: 0, w: 0, pd: 0 };
+  const reduce = (MAX_SEPARATION - s) / MAX_SEPARATION;
   const shape = driftShape(hd, hc);
   const height = shape.height * reduce;
   return { ...base, applies: true, height, w: shape.w, pd: height * gamma };
@@ -145,7 +161,7 @@ export function parapetDrift(i: { pg: number; balanced: number; parapetHeight: n
   const f = figure9Hd(i.pg, i.lu);
   const hd = 0.75 * f.hd;
   const base = { gamma, hb, hc, hdLeeward: 0, hdWindward: hd, governs: 'windward' as const, outside: f.outside };
-  if (hb <= 0 || hc / hb < 0.2) return { ...base, applies: false, height: 0, w: 0, pd: 0 };
+  if (hb <= 0 || hc / hb < MIN_CLEAR_RATIO) return { ...base, applies: false, height: 0, w: 0, pd: 0 };
   const shape = driftShape(hd, hc);
   return { ...base, applies: true, height: shape.height, w: shape.w, pd: shape.height * gamma };
 }

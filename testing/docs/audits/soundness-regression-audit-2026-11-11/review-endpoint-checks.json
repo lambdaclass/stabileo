@@ -1,0 +1,52 @@
+{
+  "checks": {
+    "collect-references.py": {
+      "status": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 49, in <module>\n    main(pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path('/root/audit/soundness-2026-11-11'))\n    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 18, in main\n    endpoints[endpoint]=measurement_index(rows)\n                        ~~~~~~~~~~~~~~~~~^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 27, in measurement_index\n    raise ValueError(f'duplicate measurement identity: {key}; capture an explicit selector for every loop measurement')\nValueError: duplicate measurement identity: ('benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8', 'shell:6724', 'null'); capture an explicit selector for every loop measurement\n",
+      "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/collect-references.py .cache/issue-1946-review/replay"
+    },
+    "finish-analysis.py": {
+      "status": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py\", line 8, in <module>\n    for name in paired_endpoint_keys(*captures):\n                ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 12, in paired_endpoint_keys\n    raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')\nValueError: endpoint identity mismatch: missing baseline=[], missing head=[], empty=True\n",
+      "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py .cache/issue-1946-review/replay"
+    },
+    "frozen-references.py": {
+      "status": 0,
+      "stdout": "shipped rows 48 farther 25 frozen primary 95 farther 53 unresolved 0 outcomes {'compared': 95, 'refused at head': 0}\nno farther model []\n",
+      "stderr": "",
+      "scope": "Available archived adjacent full outputs, not a complete pinned-endpoint replay; each regenerated measurement exactly matches its stored pinned-endpoint values.",
+      "models": 80,
+      "measurements": 95,
+      "farther": 53,
+      "outcome_counts": {
+        "compared": 95,
+        "refused at head": 0
+      },
+      "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/frozen-references.py .cache/issue-1946-review/replay"
+    }
+  },
+  "refusal_coverage": {
+    "native_refused_models": 7,
+    "reference_attributed_refused_models": 0,
+    "formula_reference_refused_models": 0,
+    "archived_reference_measurements": 176,
+    "refused_at_head": 0
+  },
+  "attribution_limitation": "Model attribution and fallback measurement-selector recovery remain value-based and may be ambiguous where values coincide; the coordinator tracks that separately.",
+  "conclusion_changes": [],
+  "scope": "No engine suite or full replay run. Complete pinned endpoint captures are unavailable locally. Historical as-shipped measurements and gallery completeness remain unvalidated; their scripts still refuse.",
+  "reconstruction": {
+    "inputs": "fixed-models.json.gz",
+    "outputs": [
+      "all-static-bisection.json.gz",
+      "reference-bisection.json"
+    ],
+    "references": "reference-comparisons.json; engineering rows with all attributed models present in the available output archives",
+    "benchmark_cases": "3e8b33d1c11b39ccf7590596196a8c9443151491:engine/tests/benchmarks/macneal_harder.json",
+    "roof_references": "85c002b3a378a076fe118d75fcb665b5099dba46:engine/tests/benchmarks/spec/scordelis-lo.json",
+    "endpoint_logs": "reference-probe-logs.json.gz",
+    "verification": "Every regenerated before, after, reference, error, selector, test and farther flag equals its archived frozen comparison. Other archived comparisons are retained without claiming a fresh endpoint replay."
+  }
+}

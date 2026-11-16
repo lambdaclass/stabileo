@@ -46,6 +46,9 @@ jobs:
             Makefile
             .nvmrc
             web/package.json
+            .github/actions/browser-deps
+            .github/scripts/browser-deps.py
+            .github/scripts/retry-infra.sh
             web/perf-lighthouse.json
             web/scripts/perf-lighthouse.mjs
             web/lighthouse
@@ -60,8 +63,15 @@ jobs:
           make perf.lighthouse.deps NIX_RUN=
           version=$(node -p "require('./web/package.json').devDependencies['@playwright/test']")
           npm install --prefix "$RUNNER_TEMP/pw" --no-save --no-audit --no-fund "playwright@$version"
-          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install chromium
           echo "CHROME_PATH=$(node -e "console.log(require('$RUNNER_TEMP/pw/node_modules/playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
+
+      - name: Install Chromium system dependencies
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
+          playwright-directory: ${{ runner.temp }}/pw
+          use-nix: "false"
 
       - name: Lighthouse against the baseline
         env:

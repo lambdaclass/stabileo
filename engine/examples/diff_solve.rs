@@ -1,5 +1,5 @@
 //! JSON CLI around the engine's analyses, used by the differential harnesses
-//! in tools/differential/ (Frame3DD, PyNite, Mystran, Kratos, CalculiX).
+//! in testing/differential/ (Frame3DD, PyNite, Mystran, Kratos, CalculiX).
 //!
 //!   diff_solve [--2d|--3d] [--analysis KIND] [options] [FILE]
 //!

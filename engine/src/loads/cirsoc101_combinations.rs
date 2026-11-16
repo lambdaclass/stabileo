@@ -2,7 +2,7 @@
 //! companions in the seismic one, F and H per §2.3.2, the "loads not acting" variants and
 //! §2.3.4 (T).
 //!
-//! Verified clause by clause in `docs/verification/LOADS.md` (the TypeScript generator that
+//! Verified clause by clause in `testing/docs/LOADS.md` (the TypeScript generator that
 //! preceded this one, `web/src/lib/codes/cirsoc101/combinations.ts`, is now an adapter, and its
 //! differential tests hold the two to each other on every subset of loads).
 //!

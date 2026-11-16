@@ -3,7 +3,8 @@
  * engine does not confirm is a failure, and an engine that cannot be asked is not a pass.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { verifyElement, type VerificationInput } from '../codes/argentina/cirsoc201';
+import { type VerificationInput } from '../codes/argentina/cirsoc201';
+import { verifyElement } from './helpers/verify-element';
 import { engineRecheckElement } from '../codes/argentina/cirsoc201-engine-gate';
 import { registerCirsoc201BeamKernel } from '../codes/argentina/cirsoc201-beam-kernel';
 import { initSolver } from '../wasm-solver';

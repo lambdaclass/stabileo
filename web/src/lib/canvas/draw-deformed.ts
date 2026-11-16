@@ -3,7 +3,7 @@
 import type { AnalysisResults } from '../engine/types';
 import { computeDeformedShape } from '../engine/diagrams';
 import { canvasTheme } from './theme';
-import { transverseSign } from '../engine/transverse-sign-2d';
+import { solverBendingForces2D } from '../engine/transverse-sign-2d';
 
 interface DrawContext {
   ctx: CanvasRenderingContext2D;
@@ -43,7 +43,7 @@ function* deformedCurves(results: AnalysisResults, dc: DrawContext, scale: numbe
      * The member's loads are published in the drawn axes; the particular
      * solution is the solver's, so it gets them back in the solver's.
      */
-    const zs = transverseSign(nodeJ.x - nodeI.x, nodeJ.y - nodeI.y);
+    const recovery = solverBendingForces2D(ef, nodeJ.x - nodeI.x, nodeJ.y - nodeI.y);
     /*
      * A truss member carries axial force only: no shear, no moment, so no curvature. It stays
      * straight between its displaced nodes, whatever the joints it meets turn by: drawn hinged at
@@ -57,9 +57,9 @@ function* deformedCurves(results: AnalysisResults, dc: DrawContext, scale: numbe
       scale, ef.length,
       truss || ef.hingeStart, truss || ef.hingeEnd,
       truss ? undefined : EI,
-      truss ? 0 : zs * ef.qI, truss ? 0 : zs * ef.qJ,
-      truss ? [] : zs > 0 ? ef.pointLoads : ef.pointLoads.map((p) => ({ ...p, p: -p.p, ...(p.my !== undefined ? { my: -p.my } : {}) })),
-      truss ? [] : zs > 0 ? ef.distributedLoads : ef.distributedLoads.map((d) => ({ ...d, qI: -d.qI, qJ: -d.qJ })),
+      truss ? 0 : recovery.qI, truss ? 0 : recovery.qJ,
+      truss ? [] : recovery.pointLoads,
+      truss ? [] : recovery.distributedLoads,
     );
 
     yield { nodeI, nodeJ, points };

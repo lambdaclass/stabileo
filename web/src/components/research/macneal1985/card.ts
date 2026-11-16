@@ -23,4 +23,8 @@ export const card = {
     title: 'MacNeal–Harder (1985): motor kıyaslama testleri',
     hook: 'Üretim motorunu MacNeal–Harder konsollarında çalıştırın; başarısızlıklar dahil her sonucu inceleyin.',
   },
+  hu: {
+    title: 'MacNeal–Harder (1985): a számítómotor benchmarkjai',
+    hook: 'Futtassa az éles számítómotort a MacNeal–Harder-féle konzolokon, és vizsgáljon meg minden eredményt, a sikerteleneket is.',
+  },
 };

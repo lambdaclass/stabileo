@@ -86,7 +86,7 @@ const body: PostBody = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/PROVENANCE.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/PROVENANCE.md",
       "label": "PROVENANCE.md",
       "t": "La description technique complète :"
     }

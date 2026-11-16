@@ -6,6 +6,9 @@
  * scope; one that is cheap can be read on every access.
  */
 
+import { publicFeatureEnabledWithFlags, type PublicFeatures } from './public-feature-policy';
+export type { PublicFeatures } from './public-feature-policy';
+
 const PREFIX = 'stabileo-feature-';
 
 function readFlag(name: string, defaultValue: boolean): boolean {
@@ -35,8 +38,30 @@ export function canonicalSections(): boolean {
   return readFlag('canonical-sections', true);
 }
 
+export const PUBLIC_POLICY_AVAILABLE = import.meta.env?.VITE_RESEARCH === '1' || import.meta.env?.VITE_TOOLS !== '0' || import.meta.env?.VITE_DIAGRAM_GAME !== '0' || import.meta.env?.VITE_ACCOUNTS !== '0';
+
+export const ACCOUNT_ROUTES_AVAILABLE = import.meta.env?.VITE_ACCOUNTS !== '0';
+
 export function accounts(): boolean {
-  return readFlag('accounts', import.meta.env.DEV || import.meta.env.VITE_ACCOUNTS === '1');
+  return ACCOUNT_ROUTES_AVAILABLE && readFlag('accounts', import.meta.env?.DEV || import.meta.env?.VITE_ACCOUNTS === '1');
+}
+
+export function research(): boolean {
+  return import.meta.env?.VITE_RESEARCH !== '0' && readFlag('research', import.meta.env?.VITE_RESEARCH === '1');
+}
+
+export function tools(): boolean {
+  return import.meta.env?.VITE_TOOLS !== '0' && readFlag('tools', import.meta.env?.VITE_TOOLS === '1');
+}
+
+export function diagramGame(): boolean {
+  return import.meta.env?.VITE_DIAGRAM_GAME !== '0' && readFlag('diagram-game', import.meta.env?.VITE_DIAGRAM_GAME === '1');
+}
+
+export const publicFeatures = (): PublicFeatures => ({ research: research(), tools: tools(), diagramGame: diagramGame(), accounts: accounts() });
+
+export function publicFeatureEnabled(path: string, flags: PublicFeatures = publicFeatures()): boolean {
+  return publicFeatureEnabledWithFlags(path, { ...flags, accounts: flags.accounts ?? accounts() });
 }
 
 /** Override a flag for the current session (used by tests and support). */
@@ -46,4 +71,9 @@ export function setFeatureFlag(name: string, value: boolean): void {
   } catch {
     // private mode — ignore
   }
+}
+
+export function publicLocaleEnabled(path: string, locale: string, flags: PublicFeatures = publicFeatures()): boolean {
+  const route = path.split(/[?#]/)[0].replace(/\/+$/, '');
+  return locale !== 'hu' || !(route === '/research' || route.startsWith('/research/')) || flags.research;
 }

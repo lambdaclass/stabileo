@@ -109,7 +109,7 @@
 
 <label class="pk-btn ul-file">
   {t('underlay.load')}
-  <input type="file" accept=".dxf,.dwg" onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) void read(f); e.currentTarget.value = ''; }} data-testid="underlay-file" />
+  <input type="file" accept=".dxf,.dwg" onchange={(e) => { const input = e.currentTarget as HTMLInputElement; const f = input.files?.[0]; if (f) void read(f); input.value = ''; }} data-testid="underlay-file" />
 </label>
 {#if error}<p class="pk-hint ul-warn" role="alert">{error}</p>{/if}
 

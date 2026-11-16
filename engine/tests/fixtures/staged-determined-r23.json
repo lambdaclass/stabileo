@@ -1,0 +1,198 @@
+[
+  {
+    "dim": 2,
+    "tie": "rigidLink",
+    "padding": 0,
+    "sign": 1,
+    "motion": 0,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0,
+          "z": 0
+        },
+        "1": {
+          "id": 1,
+          "x": 3,
+          "z": 0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        }
+      },
+      "supports": {
+        "0": {
+          "id": 0,
+          "nodeId": 0,
+          "type": "fixed",
+          "dx": 0
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0,
+            "fz": -10,
+            "my": 0
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "type": "rigidLink",
+          "masterNode": 0,
+          "slaveNode": 1,
+          "dofs": [
+            0,
+            1,
+            2
+          ]
+        }
+      ],
+      "stages": [
+        {
+          "name": "no stiffness",
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "unchanged"
+        }
+      ]
+    }
+  },
+  {
+    "dim": 3,
+    "tie": "rigidLink",
+    "padding": 0,
+    "sign": 1,
+    "motion": 0,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0,
+          "z": 0,
+          "y": 0
+        },
+        "1": {
+          "id": 1,
+          "x": 3,
+          "z": 0,
+          "y": 0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        }
+      },
+      "supports": {
+        "0": {
+          "nodeId": 0,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "dx": 0
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0,
+            "fz": -10,
+            "my": 0,
+            "fy": 0,
+            "mx": 0,
+            "mz": 0
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "type": "rigidLink",
+          "masterNode": 0,
+          "slaveNode": 1,
+          "dofs": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      ],
+      "stages": [
+        {
+          "name": "no stiffness",
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "unchanged"
+        }
+      ]
+    }
+  }
+]

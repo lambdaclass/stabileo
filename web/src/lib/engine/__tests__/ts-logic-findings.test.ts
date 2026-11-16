@@ -1,6 +1,6 @@
 /**
  * Regression tests for defects found while inventorying the engineering logic computed in
- * TypeScript (docs/verification/TS_ENGINE_LOGIC.md, findings 7, 8 and 9).
+ * TypeScript (testing/docs/TS_ENGINE_LOGIC.md, findings 7, 8 and 9).
  */
 import { describe, it, expect } from 'vitest';
 import { statusFromRatio } from '../codes/argentina/cirsoc301';

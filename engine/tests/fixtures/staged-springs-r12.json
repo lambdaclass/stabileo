@@ -1,0 +1,1116 @@
+[
+  {
+    "name": "spring-2d-added",
+    "dim": 2,
+    "change": "added",
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 3.0,
+          "z": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "0": {
+          "id": 0,
+          "nodeId": 0,
+          "type": "fixed"
+        },
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "spring",
+          "ky": 3000.0
+        },
+        "2": {
+          "id": 2,
+          "nodeId": 2,
+          "type": "spring",
+          "ky": 7000.0
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "type": "equalDOF",
+          "masterNode": 1,
+          "slaveNode": 2,
+          "dofs": [
+            0,
+            1,
+            2
+          ]
+        }
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "supportsAdded": [
+            1
+          ],
+          "supportsRemoved": [],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "spring-2d-removed",
+    "dim": 2,
+    "change": "removed",
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 3.0,
+          "z": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "0": {
+          "id": 0,
+          "nodeId": 0,
+          "type": "fixed"
+        },
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "spring",
+          "ky": 3000.0
+        },
+        "2": {
+          "id": 2,
+          "nodeId": 2,
+          "type": "spring",
+          "ky": 7000.0
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "type": "equalDOF",
+          "masterNode": 1,
+          "slaveNode": 2,
+          "dofs": [
+            0,
+            1,
+            2
+          ]
+        }
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0,
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "supportsAdded": [],
+          "supportsRemoved": [
+            1
+          ],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "spring-2d-changed",
+    "dim": 2,
+    "change": "changed",
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 3.0,
+          "z": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "0": {
+          "id": 0,
+          "nodeId": 0,
+          "type": "fixed"
+        },
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "spring",
+          "ky": 3000.0
+        },
+        "2": {
+          "id": 2,
+          "nodeId": 2,
+          "type": "spring",
+          "ky": 7000.0
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "type": "equalDOF",
+          "masterNode": 1,
+          "slaveNode": 2,
+          "dofs": [
+            0,
+            1,
+            2
+          ]
+        }
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0,
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "supportsAdded": [
+            2
+          ],
+          "supportsRemoved": [
+            1
+          ],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "spring-2d-unchanged",
+    "dim": 2,
+    "change": "unchanged",
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 3.0,
+          "z": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "0": {
+          "id": 0,
+          "nodeId": 0,
+          "type": "fixed"
+        },
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "spring",
+          "ky": 3000.0
+        },
+        "2": {
+          "id": 2,
+          "nodeId": 2,
+          "type": "spring",
+          "ky": 7000.0
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "type": "equalDOF",
+          "masterNode": 1,
+          "slaveNode": 2,
+          "dofs": [
+            0,
+            1,
+            2
+          ]
+        }
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0,
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "supportsAdded": [],
+          "supportsRemoved": [],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "spring-3d-added",
+    "dim": 3,
+    "change": "added",
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1
+        }
+      },
+      "supports": {
+        "0": {
+          "nodeId": 0,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        },
+        "1": {
+          "nodeId": 1,
+          "rx": false,
+          "ry": false,
+          "rz": false,
+          "rrx": false,
+          "rry": false,
+          "rrz": false,
+          "kz": 3000.0
+        },
+        "2": {
+          "nodeId": 2,
+          "rx": false,
+          "ry": false,
+          "rz": false,
+          "rrx": false,
+          "rry": false,
+          "rrz": false,
+          "kz": 7000.0
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0,
+            "fy": 0.0,
+            "mx": 0.0,
+            "mz": 0.0
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "type": "equalDOF",
+          "masterNode": 1,
+          "slaveNode": 2,
+          "dofs": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "supportsAdded": [
+            1
+          ],
+          "supportsRemoved": [],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "spring-3d-removed",
+    "dim": 3,
+    "change": "removed",
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1
+        }
+      },
+      "supports": {
+        "0": {
+          "nodeId": 0,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        },
+        "1": {
+          "nodeId": 1,
+          "rx": false,
+          "ry": false,
+          "rz": false,
+          "rrx": false,
+          "rry": false,
+          "rrz": false,
+          "kz": 3000.0
+        },
+        "2": {
+          "nodeId": 2,
+          "rx": false,
+          "ry": false,
+          "rz": false,
+          "rrx": false,
+          "rry": false,
+          "rrz": false,
+          "kz": 7000.0
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0,
+            "fy": 0.0,
+            "mx": 0.0,
+            "mz": 0.0
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "type": "equalDOF",
+          "masterNode": 1,
+          "slaveNode": 2,
+          "dofs": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0,
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "supportsAdded": [],
+          "supportsRemoved": [
+            1
+          ],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "spring-3d-changed",
+    "dim": 3,
+    "change": "changed",
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1
+        }
+      },
+      "supports": {
+        "0": {
+          "nodeId": 0,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        },
+        "1": {
+          "nodeId": 1,
+          "rx": false,
+          "ry": false,
+          "rz": false,
+          "rrx": false,
+          "rry": false,
+          "rrz": false,
+          "kz": 3000.0
+        },
+        "2": {
+          "nodeId": 2,
+          "rx": false,
+          "ry": false,
+          "rz": false,
+          "rrx": false,
+          "rry": false,
+          "rrz": false,
+          "kz": 7000.0
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0,
+            "fy": 0.0,
+            "mx": 0.0,
+            "mz": 0.0
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "type": "equalDOF",
+          "masterNode": 1,
+          "slaveNode": 2,
+          "dofs": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0,
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "supportsAdded": [
+            2
+          ],
+          "supportsRemoved": [
+            1
+          ],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "spring-3d-unchanged",
+    "dim": 3,
+    "change": "unchanged",
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1
+        }
+      },
+      "supports": {
+        "0": {
+          "nodeId": 0,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        },
+        "1": {
+          "nodeId": 1,
+          "rx": false,
+          "ry": false,
+          "rz": false,
+          "rrx": false,
+          "rry": false,
+          "rrz": false,
+          "kz": 3000.0
+        },
+        "2": {
+          "nodeId": 2,
+          "rx": false,
+          "ry": false,
+          "rz": false,
+          "rrx": false,
+          "rry": false,
+          "rrz": false,
+          "kz": 7000.0
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0,
+            "fy": 0.0,
+            "mx": 0.0,
+            "mz": 0.0
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "type": "equalDOF",
+          "masterNode": 1,
+          "slaveNode": 2,
+          "dofs": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      ],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0,
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "supportsAdded": [],
+          "supportsRemoved": [],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  }
+]

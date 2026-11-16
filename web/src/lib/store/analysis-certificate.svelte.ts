@@ -1,6 +1,6 @@
 /**
  * The certificate of one analysis result on screen (modal, P-Delta, spectral, harmonic, time
- * history, plastic collapse), computed in the background (docs/verification/CERTIFY.md).
+ * history, plastic collapse), computed in the background (testing/docs/CERTIFY.md).
  *
  * A component makes one and tells it which result it shows (`track`). If the solve that made the
  * result noted how to certify it (`engine/certify-tags.ts`), the certificate is computed after a

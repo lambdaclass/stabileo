@@ -1,0 +1,190 @@
+test_empty_arch_reactions_are_known_wrong (audit_controls.References.test_empty_arch_reactions_are_known_wrong) ... FAIL
+test_frame_measurements_reproduce_each_source_observation (audit_controls.References.test_frame_measurements_reproduce_each_source_observation) ... FAIL
+test_missing_nonzero_load_restraint_and_geometry_do_not_match (audit_controls.References.test_missing_nonzero_load_restraint_and_geometry_do_not_match) ...
+  test_missing_nonzero_load_restraint_and_geometry_do_not_match (audit_controls.References.test_missing_nonzero_load_restraint_and_geometry_do_not_match) (field='fz') ... FAIL
+  test_missing_nonzero_load_restraint_and_geometry_do_not_match (audit_controls.References.test_missing_nonzero_load_restraint_and_geometry_do_not_match) (field='rz') ... FAIL
+  test_missing_nonzero_load_restraint_and_geometry_do_not_match (audit_controls.References.test_missing_nonzero_load_restraint_and_geometry_do_not_match) (field='x') ... FAIL
+test_present_fields_and_extra_fields (audit_controls.References.test_present_fields_and_extra_fields) ... ok
+test_reverted_changes_and_refusals_find_first_adjacent_transition (audit_controls.History.test_reverted_changes_and_refusals_find_first_adjacent_transition) ... evaluated 0 r0
+evaluated 4 r4
+evaluated 2 r2
+evaluated 3 r3
+FIRST CHANGE solve_3d-test.json subject
+
+  test_reverted_changes_and_refusals_find_first_adjacent_transition (audit_controls.History.test_reverted_changes_and_refusals_find_first_adjacent_transition) (script='bisect-all-static.py') ... FAIL
+evaluated 0 r0
+evaluated 4 r4
+evaluated 2 r2
+evaluated 3 r3
+FIRST CHANGE solve_3d-test.json subject
+  test_reverted_changes_and_refusals_find_first_adjacent_transition (audit_controls.History.test_reverted_changes_and_refusals_find_first_adjacent_transition) (script='bisect-arc.py') ... FAIL
+evaluated 0 r0
+evaluated 4 r4
+evaluated 2 r2
+evaluated 3 r3
+FIRST CHANGE solve_3d-test.json subject
+  test_reverted_changes_and_refusals_find_first_adjacent_transition (audit_controls.History.test_reverted_changes_and_refusals_find_first_adjacent_transition) (script='bisect-reference.py') ... FAIL
+evaluated 0 r0 [False]
+evaluated 4 r4 [True]
+evaluated 2 r2 [False]
+evaluated 3 r3 [False]
+FIRST BAD solve_3d-test.json r4 subject
+  test_reverted_changes_and_refusals_find_first_adjacent_transition (audit_controls.History.test_reverted_changes_and_refusals_find_first_adjacent_transition) (script='bisect-refusals.py') ... FAIL
+test_unchanged_static_history_has_no_boundary (audit_controls.History.test_unchanged_static_history_has_no_boundary) ... evaluated 0 r0
+evaluated 4 r4
+evaluated 0 r0
+evaluated 4 r4
+ok
+test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) ...
+  test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) (script='run-complete-native.sh', failure='setup') ... FAIL
+  test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) (script='run-complete-native.sh', failure='integrity') ... FAIL
+  test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) (script='finish-corpus.sh', failure='setup') ... FAIL
+  test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) (script='finish-corpus.sh', failure='integrity') ... FAIL
+  test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) (script='probe-units.sh', failure='integrity') ... FAIL
+  test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) (script='probe-units-parent.sh', failure='integrity') ... FAIL
+test_suite_selectors_exist_and_every_suite_checks_execution (audit_controls.Shells.test_suite_selectors_exist_and_every_suite_checks_execution) ... FAIL
+
+======================================================================
+FAIL: test_empty_arch_reactions_are_known_wrong (audit_controls.References.test_empty_arch_reactions_are_known_wrong)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 56, in test_empty_arch_reactions_are_known_wrong
+    self.assertEqual(data.get('knownWrong', [{}])[0].get('issue'), 'https://github.com/lambdaclass/stabileo/issues/1949')
+AssertionError: None != 'https://github.com/lambdaclass/stabileo/issues/1949'
+
+======================================================================
+FAIL: test_frame_measurements_reproduce_each_source_observation (audit_controls.References.test_frame_measurements_reproduce_each_source_observation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 42, in test_frame_measurements_reproduce_each_source_observation
+    self.assertTrue(r['models'][0].startswith('solve_2d-'), r)
+AssertionError: False is not true : {'id': 'research_benchmarks::macneal_frame_shear_and_moment:0', 'test': 'research_benchmarks::macneal_frame_shear_and_moment', 'observation': 0, 'before_site': 'research_benchmarks', 'after_site': 'research_benchmarks', 'before': -0.0035999999999999986, 'after': -0.0035999999999999986, 'reference': -0.0036, 'before_reference': -0.0036, 'same_reference': True, 'before_error': 1.3010426069826053e-18, 'after_error': 1.3010426069826053e-18, 'farther': False, 'models': ['solve_3d-ee102f840b16f341.json'], 'attribution': 'Associated frozen models were bisected for displacement changes; source test observations remain separate.', 'pr': 1753, 'category': 'engineering_reference', 'first_parent_merges': ['77294fe006d716bf2e1900a85b3818906cf2fd33'], 'comparison_mode': 'as-shipped test observation', 'reference_kind': 'source formula or published target'}
+
+======================================================================
+FAIL: test_missing_nonzero_load_restraint_and_geometry_do_not_match (audit_controls.References.test_missing_nonzero_load_restraint_and_geometry_do_not_match) (field='fz')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 34, in test_missing_nonzero_load_restraint_and_geometry_do_not_match
+    self.assertFalse(partial()({field: value}, {}))
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_missing_nonzero_load_restraint_and_geometry_do_not_match (audit_controls.References.test_missing_nonzero_load_restraint_and_geometry_do_not_match) (field='rz')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 34, in test_missing_nonzero_load_restraint_and_geometry_do_not_match
+    self.assertFalse(partial()({field: value}, {}))
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_missing_nonzero_load_restraint_and_geometry_do_not_match (audit_controls.References.test_missing_nonzero_load_restraint_and_geometry_do_not_match) (field='x')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 34, in test_missing_nonzero_load_restraint_and_geometry_do_not_match
+    self.assertFalse(partial()({field: value}, {}))
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_reverted_changes_and_refusals_find_first_adjacent_transition (audit_controls.History.test_reverted_changes_and_refusals_find_first_adjacent_transition) (script='bisect-all-static.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 114, in test_reverted_changes_and_refusals_find_first_adjacent_transition
+    self.assertEqual(result[0].get('first_change', result[0].get('first_bad')), 'r1')
+AssertionError: 'r4' != 'r1'
+- r4
++ r1
+
+
+======================================================================
+FAIL: test_reverted_changes_and_refusals_find_first_adjacent_transition (audit_controls.History.test_reverted_changes_and_refusals_find_first_adjacent_transition) (script='bisect-arc.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 114, in test_reverted_changes_and_refusals_find_first_adjacent_transition
+    self.assertEqual(result[0].get('first_change', result[0].get('first_bad')), 'r1')
+AssertionError: 'r4' != 'r1'
+- r4
++ r1
+
+
+======================================================================
+FAIL: test_reverted_changes_and_refusals_find_first_adjacent_transition (audit_controls.History.test_reverted_changes_and_refusals_find_first_adjacent_transition) (script='bisect-reference.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 114, in test_reverted_changes_and_refusals_find_first_adjacent_transition
+    self.assertEqual(result[0].get('first_change', result[0].get('first_bad')), 'r1')
+AssertionError: 'r4' != 'r1'
+- r4
++ r1
+
+
+======================================================================
+FAIL: test_reverted_changes_and_refusals_find_first_adjacent_transition (audit_controls.History.test_reverted_changes_and_refusals_find_first_adjacent_transition) (script='bisect-refusals.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 114, in test_reverted_changes_and_refusals_find_first_adjacent_transition
+    self.assertEqual(result[0].get('first_change', result[0].get('first_bad')), 'r1')
+AssertionError: 'r4' != 'r1'
+- r4
++ r1
+
+
+======================================================================
+FAIL: test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) (script='run-complete-native.sh', failure='setup')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 153, in test_setup_and_integrity_fail_before_tests
+    self.assertNotEqual(status, 0)
+AssertionError: 0 == 0
+
+======================================================================
+FAIL: test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) (script='run-complete-native.sh', failure='integrity')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 153, in test_setup_and_integrity_fail_before_tests
+    self.assertNotEqual(status, 0)
+AssertionError: 0 == 0
+
+======================================================================
+FAIL: test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) (script='finish-corpus.sh', failure='setup')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 153, in test_setup_and_integrity_fail_before_tests
+    self.assertNotEqual(status, 0)
+AssertionError: 0 == 0
+
+======================================================================
+FAIL: test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) (script='finish-corpus.sh', failure='integrity')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 153, in test_setup_and_integrity_fail_before_tests
+    self.assertNotEqual(status, 0)
+AssertionError: 0 == 0
+
+======================================================================
+FAIL: test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) (script='probe-units.sh', failure='integrity')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 153, in test_setup_and_integrity_fail_before_tests
+    self.assertNotEqual(status, 0)
+AssertionError: 0 == 0
+
+======================================================================
+FAIL: test_setup_and_integrity_fail_before_tests (audit_controls.Shells.test_setup_and_integrity_fail_before_tests) (script='probe-units-parent.sh', failure='integrity')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 153, in test_setup_and_integrity_fail_before_tests
+    self.assertNotEqual(status, 0)
+AssertionError: 0 == 0
+
+======================================================================
+FAIL: test_suite_selectors_exist_and_every_suite_checks_execution (audit_controls.Shells.test_suite_selectors_exist_and_every_suite_checks_execution)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/scripts/tests/test_soundness_audit.py", line 158, in test_suite_selectors_exist_and_every_suite_checks_execution
+    self.assertNotIn('three_d::corotational_benchmarks', source)
+AssertionError: 'three_d::corotational_benchmarks' unexpectedly found in 'set -u\narea=/root/audit/soundness-2026-11-11\nfor endpoint in repo base; do\ncd "$area/$endpoint"\npython3 "$area/instrument.py"\npython3 "$area/instrument-lib.py"\ngit diff --exit-code -- engine/src web/src/lib/engine\nexport AUDIT_NATIVE_OUT="$area/$endpoint-native-isolated"\nfor binary_filter in \'gates acceptance::\' \'validation benchmarks::\' \'validation benchmark_protocol::\' \'validation three_d::corotational_benchmarks\' \'validation three_d::buckling_benchmarks\' \'validation research_benchmarks::\' \'validation navier_plate::\' \'integration newmark_1959::\' \'integration plastic_collapse_benchmark::\' \'solver cqc_1981::\' \'solver dadeppo_arch::\' \'solver lee_frame::\' \'shells macneal_harder::\' \'lib unrefused_oracles::constraints_benchmark::\' \'lib unrefused_oracles::neal_plastic_extended::\' \'lib unrefused_oracles::plastic_collapse::\' \'lib unrefused_oracles::plastic_collapse_extended::\' \'lib unrefused_oracles::plastic_mechanisms::\'; do\nread -r binary filter <<< "$binary_filter"\nargs=(--test "$binary")\nif test "$binary" = lib; then args=(--lib); fi\nnice -n 19 nix develop --command env CARGO_BUILD_JOBS=2 CARGO_TARGET_DIR="$area/target-$endpoint" RUSTC_WRAPPER= cargo test --locked -p dedaliano-engine --release "${args[@]}" "$filter" -- --nocapture --test-threads=1 > "$area/$endpoint-complete-$binary-${filter//:/_}.log" 2>&1\nprintf \'%s %s %s status=%s\\n\' "$endpoint" "$binary" "$filter" "$?"\ndone\ndone\npython3 - <<\'PY\'\nimport pathlib,json\narea=pathlib.Path(\'/root/audit/soundness-2026-11-11\')\ntarget=area/\'fixed-inputs\'\ntarget.mkdir(exist_ok=True)\nfor endpoint in [\'base\',\'repo\']:\n for p in (area/f\'{endpoint}-native-isolated\').glob(\'*.json\'):\n  d=json.loads(p.read_text());d.pop(\'result\',None)\n  (target/p.name).write_text(json.dumps(d))\nprint(\'union models\',len(list(target.glob(\'*.json\'))),flush=True)\nPY\nunset AUDIT_NATIVE_OUT\nfor endpoint in repo base; do\ncd "$area/$endpoint"\nAUDIT_FIXED_FROM="$area/fixed-inputs" AUDIT_FIXED_TO="$area/$endpoint-fixed-native" nice -n 19 nix develop --command env CARGO_BUILD_JOBS=2 CARGO_TARGET_DIR="$area/target-$endpoint" RUSTC_WRAPPER= cargo test --locked -p dedaliano-engine --release --lib unrefused_oracles::audit_capture_lib::audit_replay_fixed_corpus -- --nocapture --test-threads=1 > "$area/$endpoint-fixed-replay.log" 2>&1\nprintf \'%s frozen replay status=%s\\n\' "$endpoint" "$?"\ndone\nnice -n 19 nix develop --command python3 "$area/compare.py" native\n'
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.164s
+
+FAILED (failures=16)

@@ -17,9 +17,12 @@ import { conditionGroups } from '../../../scripts/results-snapshot/applicability
 
 export const REGISTRY_LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
 export type RegistryLocale = (typeof REGISTRY_LOCALES)[number];
-export type Localised = Record<RegistryLocale, string>;
+export type Localised = Record<RegistryLocale, string> & { hu?: string };
 
-export function registryLocale(locale: string): RegistryLocale {
+export function registryLocale(locale: string): RegistryLocale;
+export function registryLocale(locale: string, first: Localised, ...rest: Localised[]): RegistryLocale | 'hu';
+export function registryLocale(locale: string, ...texts: Localised[]): RegistryLocale | 'hu' {
+  if (locale === 'hu' && import.meta.env.VITE_RESEARCH === '1' && texts.length > 0 && texts.every(text => typeof text.hu === 'string' && !!text.hu.trim())) return 'hu';
   return (REGISTRY_LOCALES as readonly string[]).includes(locale) ? (locale as RegistryLocale) : 'en';
 }
 
@@ -123,6 +126,7 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
       problems.push(`${where}: resultsVersion ${c.resultsVersion} outside 1..${r.currentResultsVersion}`);
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(c.date)) problems.push(`${where}: date must be YYYY-MM-DD`);
+    if (!Array.isArray(c.prs) || c.prs.some(pr => !Number.isInteger(pr) || pr <= 0)) problems.push(`${where}: prs must be a list of positive integer issue or PR numbers`);
     if (!['analysis', 'design', 'loads'].includes(c.area)) problems.push(`${where}: unknown area ${c.area}`);
     for (const loc of REGISTRY_LOCALES) {
       if (!c.title?.[loc]?.trim()) problems.push(`${where}: missing title.${loc}`);

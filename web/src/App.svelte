@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { accountGate } from './lib/store/account-gate.svelte';
   import { provideEditorActivity } from './lib/utils/editor-activity';
   // First: every dictionary entry, before anything here renders (the store starts with the public
   // pages' entries only; Root.svelte loads this component on the first app route).
@@ -27,6 +28,12 @@
   import { placementStore } from './lib/store/placement.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import WhatsNewNotice from './components/WhatsNewNotice.svelte';
+  import ResultsDisclaimer from './components/legal/ResultsDisclaimer.svelte';
+  import UsageNotice from './components/legal/UsageNotice.svelte';
+  import TermsUpdateDialog from './components/legal/TermsUpdateDialog.svelte';
+  import AccountGateDialog from './components/account/AccountGateDialog.svelte';
+  import FeedbackDialog from './components/account/FeedbackDialog.svelte';
+  import { installUsageTracking } from './lib/telemetry/instrument.svelte';
   import NodeEditor from './components/NodeEditor.svelte';
   import ElementEditor from './components/ElementEditor.svelte';
   import DespieceInspector from './components/DespieceInspector.svelte';
@@ -333,6 +340,8 @@
   import WorkspaceSaveNotice from './components/WorkspaceSaveNotice.svelte';
   import { prepareExportProvenance, pngWithProvenance } from './lib/export/provenance-attach';
   import ReproduceDialog from './components/ReproduceDialog.svelte';
+  import { mohrPanel, openMohr } from './lib/mohr/panel.svelte';
+  import { readAppLink, APP_LINK_KEYS } from './lib/mohr/state';
   import TabBar from './components/TabBar.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import KeyboardShortcuts from './components/KeyboardShortcuts.svelte';
@@ -400,7 +409,9 @@
   import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
   import LandingPage from './components/LandingPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
-  import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
+  import { skipNextAnalysis } from './lib/tracking/activity.svelte';
+  import { routeKind, isAppPath, isDemoPath, isRegisterPath } from './lib/public-route';
+  import { restoreMovedRoute } from './lib/legacy-routes';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
   import { publicI18n, ensurePublicLocale } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
@@ -567,6 +578,16 @@
     uiStore.proActiveTab = tab;
   }
 
+  /** `?mohr=plane|space&…` opens the Mohr circle function with the state the public tool encoded. */
+  function openMohrFromUrl(params: URLSearchParams) {
+    const link = readAppLink(params);
+    if (!link) return;
+    openMohr(link.kind === 'plane' ? { kind: 'plane', plane: link.state } : { kind: 'space', space: link.state });
+    const url = new URL(location.href);
+    for (const key of APP_LINK_KEYS) url.searchParams.delete(key);
+    history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
   function findTabBySlug(tabSlug: string | null) {
     if (!tabSlug) return null;
     return tabManager.tabs.find(tab => slugifyTabName(tab.name) === tabSlug) ?? null;
@@ -580,7 +601,7 @@
   const initialPublicRoute = routeKind();
   const initialShell = publicShell();
   let showLanding = $state(initialShell.kind === 'landing');
-  let showExperiment = $state(['research', 'tools', 'examples'].includes(initialPublicRoute.kind));
+  let showExperiment = $state(['research', 'tools', 'examples', 'game', 'register'].includes(initialPublicRoute.kind));
   let showPaper = $state(initialPublicRoute.kind === 'paper');
   let publicPage = $state<import('svelte').Component<{ path: string }> | null>(null);
   let publicRevision = 0;
@@ -619,6 +640,12 @@
 
   async function syncRouteState() {
     const token = ++publicRevision;
+    if (import.meta.env.VITE_TOOLS !== '0') restoreMovedRoute();
+    if (location.pathname.startsWith('/hu/')) {
+      const { restoreUnpublishedResearchRoute } = await import('./lib/research-fallback');
+      if (token !== publicRevision) return;
+      restoreUnpublishedResearchRoute();
+    }
     const next = routeKind();
     const shell = publicShell();
     const hash = next.kind === 'app' ? '' : location.hash;
@@ -631,7 +658,7 @@
       if (token === publicRevision) location.reload();
       return;
     }
-    showExperiment = next.kind === 'research' || next.kind === 'tools' || next.kind === 'examples';
+    showExperiment = ['research', 'tools', 'examples', 'game', 'register'].includes(next.kind);
     showPaper = next.kind === 'paper';
     adoptLocaleFromPath();
     showBlog = shell.kind === 'blog';
@@ -922,6 +949,7 @@
 
   onMount(() => {
     if (accountsEnabled) void authStore.init();
+    const stopUsageTracking = import.meta.env.VITE_ACCOUNTS !== '0' ? installUsageTracking() : () => {};
     currentAppMode = pathToMode(location.pathname);
     if (currentAppMode === 'educativo') {
       uiStore.analysisMode = 'edu';
@@ -985,6 +1013,7 @@
     if (hashMode === 'embed' || queryParams.has('embed')) {
       uiStore.embedMode = true;
     }
+    if (import.meta.env.VITE_TOOLS !== '0') openMohrFromUrl(queryParams);
 
     // Landing demo iframe uses ?example=<id> to pre-load a sample structure
     const exampleId = queryParams.get('example');
@@ -993,6 +1022,7 @@
         modelStore.loadExample(exampleId).then(() => {
           resultsStore.clear();
           resultsStore.clear3D();
+          skipNextAnalysis();
           window.dispatchEvent(new Event('stabileo-solve'));
           // Fire zoom-to-fit repeatedly until the canvas has non-zero size:
           // inside an iframe the canvas is 0×0 during first paint, so a single
@@ -1118,13 +1148,15 @@
     window.addEventListener('stabileo-import-dxf', handleDxfImportEvent);
     const handleDxfDropEvent = (e: Event) => {
       const ce = e as CustomEvent<File>;
-      if (dxfGoesToCadWizard()) {
-        cadWizardFile = ce.detail;
-        showCadWizard = true;
-      } else {
-        dxfImportFile = ce.detail;
-        showDxfImport = true;
-      }
+      accountGate.guard('import', () => {
+        if (dxfGoesToCadWizard()) {
+          cadWizardFile = ce.detail;
+          showCadWizard = true;
+        } else {
+          dxfImportFile = ce.detail;
+          showDxfImport = true;
+        }
+      });
     };
     window.addEventListener('stabileo-dxf-drop', handleDxfDropEvent);
     const handleIfcImportEvent = () => { ifcFileInput?.click(); };
@@ -1157,6 +1189,7 @@
     window.addEventListener('stabileo-open-panel', handleOpenPanelEvent);
 
     return () => {
+      stopUsageTracking();
       if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
@@ -1425,7 +1458,7 @@
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
 {#if publicActive}
-  <SiteHeader path={blogPath} />
+  {#if import.meta.env.VITE_ACCOUNTS === '0' || !isRegisterPath(blogPath)}<SiteHeader path={blogPath} />{/if}
   {#if showLanding}
     <LandingPage />
   {:else if publicPage}
@@ -1564,7 +1597,7 @@
       </div>
 
       {#if authStore.showAccountEntry}
-        <AccountButton />
+        {#if import.meta.env.VITE_ACCOUNTS !== '0'}<AccountButton />{/if}
       {/if}
 
       <!--
@@ -2179,7 +2212,13 @@
 
   {#if !uiStore.embedMode && !publicActive}
     <WhatsNewNotice />
+    {#if import.meta.env.VITE_ACCOUNTS !== '0'}
+      <ResultsDisclaimer />
+      <UsageNotice />
+      <TermsUpdateDialog />
+    {/if}
   {/if}
+  {#if import.meta.env.VITE_ACCOUNTS !== '0' && accountsEnabled}<AccountGateDialog /><FeedbackDialog />{/if}
 
   <!--
     Mobile drawers (overlay on top of canvas) — PRO and Education only.
@@ -2364,6 +2403,9 @@
 <RecheckNotice />
 <WorkspaceSaveNotice />
 <ReproduceDialog />
+{#if import.meta.env.VITE_TOOLS !== '0' && mohrPanel.open}
+  {#await import('./components/mohr/MohrDialog.svelte') then { default: MohrDialog }}<MohrDialog />{/await}
+{/if}
 
 <DxfImportDialog
   open={showDxfImport}
@@ -2424,7 +2466,7 @@
         rows="10"
       ></textarea>
       <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
-        <button class="btn btn-primary" onclick={handleImportCoordinates}>{t('app.import')}</button>
+        <button class="btn btn-primary" onclick={() => accountGate.guard('import', handleImportCoordinates)}>{t('app.import')}</button>
         <button class="btn btn-secondary" onclick={() => showImportDialog = false}>{t('app.cancel')}</button>
       </div>
     </div>
@@ -2432,8 +2474,6 @@
 {/if}
 
 {#if !uiStore.embedMode}
-  <!-- FeedbackWidget disabled — will be reimplemented professionally -->
-  <!-- <FeedbackWidget /> -->
 {/if}
 
 <!--

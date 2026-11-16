@@ -7,7 +7,7 @@
 //! analysis that cannot honour a feature now says so at its entry point,
 //! naming the feature and where it is in the model. The support of every
 //! (feature, analysis) pair is tested in `tests/feature_matrix.rs` and listed
-//! in `docs/verification/FEATURE_MATRIX.md`.
+//! in `testing/docs/FEATURE_MATRIX.md`.
 
 use crate::solver::support::{support_dofs_2d, support_dofs_3d};
 use crate::types::*;
@@ -248,4 +248,16 @@ pub fn refuse_3d(input: &SolverInput3D, analysis: &str, unsupported: &[Feature])
         }
     }
     Ok(())
+}
+
+fn structured_refusal(message: String) -> String {
+    super::validity::refusal(DiagnosticCode::UnsupportedFeature, vec![], "input", &message)
+}
+
+pub(crate) fn refuse_2d_structured(input: &SolverInput, analysis: &str, unsupported: &[Feature]) -> Result<(), String> {
+    refuse_2d(input, analysis, unsupported).map_err(structured_refusal)
+}
+
+pub(crate) fn refuse_3d_structured(input: &SolverInput3D, analysis: &str, unsupported: &[Feature]) -> Result<(), String> {
+    refuse_3d(input, analysis, unsupported).map_err(structured_refusal)
 }

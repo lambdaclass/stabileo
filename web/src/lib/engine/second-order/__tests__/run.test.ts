@@ -30,6 +30,13 @@ describe('B₂ = 1/(1 − 1/λ₁)', () => {
       historyStore.clear();
       generate(fam, seed);
       const input = modelStore.buildSolverInput(false)!;
+      if (fam === 'mixed') {
+        expect(() => runPDelta2D(input, S())).toThrow(/"code":"non_finite_result"/);
+        expect(() => wasm.solvePDelta(refineInput(input, S().n).input)).toThrow(/"phase":"results.reactions\[0\].rx"/);
+        const bk = runBuckling2D(input, S());
+        expect(bk.ok).toBe(true);
+        return;
+      }
       const pd = runPDelta2D(input, S());
       const bk = runBuckling2D(input, S());
       if (!pd.ok || !bk.ok) throw new Error('refused');

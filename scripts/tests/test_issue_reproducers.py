@@ -51,6 +51,30 @@ class ScanTest(unittest.TestCase):
         self.assertIn(("engine/tests/a.rs", "unrelated"), plain)
         self.assertIn(("web/src/x.test.ts", "other"), plain)
 
+    def test_known_wrong_skip_is_discoverable_and_must_flip(self):
+        title = "known wrong result: #2172 faceted dome retains its geometry-derived pressure panels"
+        source = f"it.skip('{title}', () => {{}});"
+        tagged, _ = rep.ts_tests(source)
+        self.assertIn((2172, title.removeprefix("known wrong result: ")), tagged)
+        path = "web/src/snow.test.ts"
+        before = [(path, source)]
+        after = [(path, f"it('{title}', () => {{}});")]
+        labels = {2172: ["wrong-result"]}
+        self.assertTrue(check("Fixes #2172", before, before, labels)[0])
+        self.assertEqual(check("Fixes #2172", before, after, labels)[0], [])
+        self.assertEqual(rep.ts_tests("it.skip('#77 pending feature', () => {});"), ([], set()))
+
+    def test_known_wrong_runner_alias_flips_to_active_issue_test(self):
+        before = """const knownWrong = 'known wrong result: #2144';
+const regression = process.env.RUN_KNOWN_WRONG === '2144' ? it : it.skip;
+regression(`${knownWrong} ridge ${mode}`, () => {});
+"""
+        after = "it(`#2144 ridge ${mode}`, () => {});"
+        labels = {2144: ["wrong-result"]}
+        self.assertEqual(rep.ts_tests(before)[0], [(2144, "#2144 ridge ${mode}")])
+        self.assertTrue(check("Fixes #2144", [("web/src/snow.test.ts", before)], [("web/src/snow.test.ts", before)], labels)[0])
+        self.assertEqual(check("Fixes #2144", [("web/src/snow.test.ts", before)], [("web/src/snow.test.ts", after)], labels)[0], [])
+
     def test_closing_keywords(self):
         self.assertEqual(rep.closing_issues("Fixes #12, closes #3 and Resolved: #40; see #99. fix #7"), [3, 7, 12, 40])
         self.assertEqual(rep.closing_issues(""), [])

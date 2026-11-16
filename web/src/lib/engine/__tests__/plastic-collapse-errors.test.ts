@@ -1,6 +1,6 @@
 /**
  * An engine failure in the middle of a plastic collapse analysis is an error, not a mechanism
- * (docs/verification/TS_ENGINE_LOGIC.md, finding 12). It used to be recorded as collapse, so the
+ * (testing/docs/TS_ENGINE_LOGIC.md, finding 12). It used to be recorded as collapse, so the
  * failure came out as a collapse factor.
  */
 import { describe, it, expect, vi } from 'vitest';

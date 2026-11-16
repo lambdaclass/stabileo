@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The certified plastic collapse factor (docs/verification/CERTIFY.md): λc ∈ [lower, upper]
+   * The certified plastic collapse factor (testing/docs/CERTIFY.md): λc ∈ [lower, upper]
    * from the static and kinematic theorems, checked in exact arithmetic, for the rigid–plastic
    * model with bending-only yield. The λc found step by step is read against it, and a value
    * outside the enclosure is said loudly: the step-by-step analysis is then wrong. A collapse in

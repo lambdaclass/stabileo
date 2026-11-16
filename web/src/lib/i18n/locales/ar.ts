@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ar: Translations = {
+  "account.err.invalid_credentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───
@@ -795,28 +796,6 @@ const ar: Translations = {
   'float.vShear': 'V قص',
   'float.ilHint': 'انقر على عقدة (ردود فعل) أو على عنصر (M/V داخلية)',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': 'إبلاغ / اقتراح',
-  'feedback.close': 'إغلاق',
-  'feedback.reportCreated': 'تم إنشاء التقرير #{n}',
-  'feedback.bugError': 'خلل / خطأ',
-  'feedback.suggestion': 'اقتراح',
-  'feedback.other': 'أخرى',
-  'feedback.namePlaceholder': 'اسمك أو لقبك (اختياري)',
-  'feedback.textPlaceholder': 'صف المشكلة أو الاقتراح...',
-  'feedback.linkAttached': 'سيتم إرفاق رابط لمنشأك',
-  'feedback.copy': 'نسخ',
-  'feedback.sending': 'جارٍ الإرسال...',
-  'feedback.submitReport': 'إرسال التقرير',
-  'feedback.toastCreated': 'تم إنشاء التقرير #{n} — شكراً!',
-  'feedback.toastError': 'تعذّر إرسال التقرير',
-  'feedback.toastConnectionError': 'خطأ في الاتصال — حاول مجدداً',
-  'feedback.toastEmptyText': 'اكتب وصفاً للمشكلة أو الاقتراح',
-  'feedback.toastSecurityWait': 'في انتظار التحقق الأمني...',
-  'feedback.toastLinkCopied': 'تم نسخ الرابط',
-  'feedback.reportBug': 'إبلاغ عن خلل / اقتراح',
-  'feedback.communityTelegram': 'مجتمع تيليغرام',
-  'feedback.buyCoffee': 'اشترِ لي قهوة',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': 'المقطع {id}',
@@ -2220,6 +2199,7 @@ const ar: Translations = {
   'lang.fr': 'Français',
   'lang.it': 'Italiano',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.hi': 'हिन्दी',
   'lang.zh': '中文',
   'lang.ja': '日本語',
@@ -3651,7 +3631,7 @@ const ar: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'معتمد: خطأ الإزاحات ≤ {abs} ({rel} نسبي)',
   'certificate.notCertified': 'غير معتمد: {reason}',
   'certificate.pending': 'جارٍ الاعتماد…',
@@ -3659,7 +3639,7 @@ const ar: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (معتمد)',
   'certificate.bucklingNotCertified': 'λ_cr غير معتمد: {reason}',
   'certificate.bucklingTooltip': 'حصر صارم مُثبت في Lean: المنشأ مستقر بشكل مؤكد لكل معامل حمل حتى القيمة الدنيا وغير مستقر بشكل مؤكد عند القيمة العليا.',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'معتمد: خطأ الإزاحات ≤ {abs}',
   'certificate.envelopeCertified': 'الغلاف معتمد: كل قيمة ضمن {abs} من الغلاف الدقيق (الإزاحات)',
   'certificate.comboTooltip': 'حد صارم مُثبت في Lean: تُعتمد كل حالة تحميل مقابل الحل الدقيق للنظام المُجمَّع؛ ويجمع حد التركيبة حدود الحالات مضروبة في |المعامل| مع تقريب التركيبة نفسها؛ ويقع الغلاف ضمن أكبر حد للتركيبات من الغلاف الدقيق. والعلامة ± بجانب قوة العنصر تحد خطأها بالطريقة نفسها.',

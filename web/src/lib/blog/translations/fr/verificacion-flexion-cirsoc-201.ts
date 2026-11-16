@@ -1,4 +1,5 @@
 import type { PostBody } from '../../types';
+import { flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
 
 const body: PostBody = {
   "title": "Vérification en flexion selon CIRSOC 201, pas à pas",
@@ -14,18 +15,7 @@ const body: PostBody = {
     },
     {
       "k": "ol",
-      "items": [
-        "d = 35,9 cm, d' = 4,1 cm",
-        "Mu = 60,00 kN·m",
-        "As,min = 2,39 cm²",
-        "As,max (armature simple) = 11,58 cm²",
-        "As,req (traction) = 4,73 cm²",
-        "Armature tendue : 2 Ø20 (6,28 cm²)",
-        "a = 6,21 cm, c = 7,31 cm",
-        "εt = 11,74 ‰",
-        "εt ≥ 5 ‰ → contrôlée par la traction → φ = 0,90",
-        "φMn = 77,90 kN·m"
-      ]
+      "items": flexureExampleSteps("Armature tendue : 2 Ø20 (6,28 cm²)")
     },
     {
       "k": "p",
@@ -143,46 +133,18 @@ const body: PostBody = {
         "Armature",
         "εt [‰]",
         "φ",
-        "φMn [kN·m]"
+        "φMn [kN·m]",
+        "Ductilité"
       ],
-      "rows": [
-        [
-          "30",
-          "2 Ø16",
-          "20,03",
-          "0,90",
-          "51,6"
-        ],
-        [
-          "60",
-          "2 Ø20",
-          "11,74",
-          "0,90",
-          "77,9"
-        ],
-        [
-          "90",
-          "2 Ø25",
-          "6,44",
-          "0,90",
-          "115,2"
-        ],
-        [
-          "120",
-          "2 Ø32",
-          "2,76",
-          "0,707",
-          "133,5"
-        ]
-      ]
+      "rows": flexureExampleRows("Conforme", "Non conforme")
     },
     {
       "k": "p",
-      "t": "Dans la dernière ligne, la section est entrée dans la zone de transition et φ est tombé à 0,707. La capacité n'a pas augmenté comme l'acier : entre les deux dernières lignes, la section d'acier passe de 9,82 à 16,08 cm² nominaux et φMn ne passe que de 115,2 à 133,5 kN·m. Une bonne part de ce que l'on ajoute se perd dans le coefficient."
+      "t": "La section avec 2 Ø32 n’est pas conforme : sa déformation de traction est inférieure au minimum requis. Réduire φ ne satisfait pas le contrôle de ductilité. Redimensionner la section ou ses armatures."
     },
     {
       "k": "quote",
-      "t": "Une section surarmée n'échoue pas à la vérification. Elle échoue dans φ, et le résultat continue de dire qu'elle est conforme."
+      "t": "La section avec 2 Ø32 n’est pas conforme : sa déformation de traction est inférieure au minimum requis. Réduire φ ne satisfait pas le contrôle de ductilité. Redimensionner la section ou ses armatures."
     },
     {
       "k": "h",
@@ -190,7 +152,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "La réponse habituelle est « pour que les barres rentrent ». C'est la conséquence, pas la raison. Pour Mu = 200 kN·m sur cette même poutre, le module trouve εt = 1,51 ‰, en dessous de la limite, et ajoute une armature comprimée. Avec elle, l'axe neutre remonte, εt revient à 7,46 ‰ et φ revient à 0,90."
+      "t": "Des armatures comprimées peuvent être nécessaires dès la limite de ductilité. Ne pas attendre que l’acier tendu cesse de plastifier ; vérifier la section redimensionnée avec les profondeurs réelles des barres."
     },
     {
       "k": "p",
@@ -198,7 +160,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Les étapes que le module produit pour ce cas le disent dans cet ordre : « εt = 1,51 ‰ < 2,1 ‰ → A's requise », puis « ΔM = 144,50 kN·m, A's,req = 11,40 cm² », et seulement à la fin « εt = 7,46 ‰ → contrôlée par la traction → φ = 0,90 »."
+      "t": "Des armatures comprimées peuvent être nécessaires dès la limite de ductilité. Ne pas attendre que l’acier tendu cesse de plastifier ; vérifier la section redimensionnée avec les profondeurs réelles des barres."
     },
     {
       "k": "h",
@@ -208,7 +170,14 @@ const body: PostBody = {
       "k": "p",
       "t": "Voici le modèle : une poutre de 5 m sur appuis simples, 20×40, H-25, avec 12 kN/m de charge permanente et 8 kN/m de charge d'exploitation, plus son poids propre. Il s'ouvre dans le flux de dimensionnement de PRO, avec CIRSOC 201 comme norme de dimensionnement en vigueur."
     },
-    {"k": "img", "base": "blog/cirsoc-201-beam", "w": 1600, "h": 1000, "alt": "Stabileo PRO, espace Dimensionnement, étape Dimensionner, avec la poutre 20×40 sélectionnée après calcul et dimensionnement. Le panneau de la barre indique « vérifiée, η local 0,90 » selon le CIRSOC 201 (2025), avec 13 vérifications sur les axes My et Vz et une utilisation maximale de 0,900.", "caption": "La poutre ci-dessous après « Dimensionner… » : le CIRSOC 201 la vérifie avec une utilisation de 0,90."},
+    {
+      "k": "img",
+      "base": "blog/cirsoc-201-beam",
+      "w": 1600,
+      "h": 1000,
+      "alt": "Stabileo PRO, espace Dimensionnement, étape Dimensionner, avec la poutre 20×40 sélectionnée après calcul et dimensionnement. Le panneau de la barre indique « vérifiée, η local 0,90 » selon le CIRSOC 201 (2025), avec 13 vérifications sur les axes My et Vz et une utilisation maximale de 0,900.",
+      "caption": "La poutre ci-dessous après « Dimensionner… » : le CIRSOC 201 la vérifie avec une utilisation de 0,90."
+    },
     {
       "k": "embed",
       "mode": "pro",
@@ -230,7 +199,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Tous les chiffres de cet article proviennent du module CIRSOC 201 de Stabileo, exécuté sur les sections indiquées, et non d'un tableau. Un avertissement qui mérite d'être transmis, parce que la première version de cet article s'est trompée : le calcul à la main donnait S/R = 0,74 et l'application 0,81. La différence venait du poids propre, 2 kN/m que l'application ajoute au cas des charges permanentes. L'application avait raison. Et une remarque sur l'éditeur ci-dessus, pour que les deux chiffres ne se contredisent pas : ce 0,81 suppose 2 Ø25, l'armature avec laquelle travaille cet article ; le 0,90 qu'affiche l'éditeur correspond aux barres qu'il choisit lui-même lorsqu'il dimensionne. Même poutre, deux armatures différentes. Si un chiffre de cet article cesse un jour de correspondre à l'éditeur, croyez l'éditeur."
+      "t": "Recalculer la hauteur utile pour chaque diamètre choisi. Le tableau des capacités est vérifié avec le moteur actuel ; la capacité seule ne constitue pas une vérification complète."
     }
   ]
 };

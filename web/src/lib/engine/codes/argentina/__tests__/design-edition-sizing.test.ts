@@ -11,7 +11,9 @@
  *                  "limitado a un máximo de 500 MPa".
  */
 import { describe, it, expect } from 'vitest';
-import { checkFlexure, verifyElement, checkColumn } from '../cirsoc201';
+import { checkFlexure } from '../cirsoc201';
+import { checkColumn } from '../../../__tests__/helpers/manual-interactions';
+import { verifyElement } from '../../../__tests__/helpers/verify-element';
 import { designSlab } from '../losas';
 import { axialCap } from '../cirsoc201-basis';
 import { generateInteractionDiagram } from '../interaction-diagram';

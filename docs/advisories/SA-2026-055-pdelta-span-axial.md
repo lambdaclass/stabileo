@@ -3,9 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-10; fix prepared locally, not released |
+| Status | Published 2026-11-13 (drafted 2026-11-10) |
 | Issue | [#1329](https://github.com/lambdaclass/stabileo/issues/1329) |
-| Fix | PR [#1895](https://github.com/lambdaclass/stabileo/pull/1895), prepared locally; not merged or released |
+| Fix | PR [#1895](https://github.com/lambdaclass/stabileo/pull/1895), included in 0.6.0 |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | Confirmed on main `8f4c3ee6c`; release boundaries not bisected |
 | Re-check registry | results-change entry `pdelta-span-axial` |
 
@@ -70,7 +71,7 @@ the missing axial-force term.
 
 ## Fixed in
 
-Fix prepared locally on 2026-11-10; no published release is claimed. The fix
+0.6.0, containing merged PR #1895. The fix
 uses the existing buckling span integration on the P-Delta dense and sparse
 paths, geometric end-force recovery, and certified residual model. It removes
 `PD-SPAN-AXIAL` after correcting that formulation. Regressions are in
@@ -195,4 +196,4 @@ All eight fail on `aca7eb07a` and pass after restoring the previous centring.
 The derivation is in the results-change write-up. The `aca7eb07a` regression
 existed only on this unmerged branch, never on main or in a release. The application
 uses displacement assembly, so no additional application result change is
-established here. This advisory retains its draft status.
+established here. The correction is included in 0.6.0.

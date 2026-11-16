@@ -38,7 +38,7 @@ export function setAuthHooks(next: AuthHooks | null): void {
   hooks = next;
 }
 
-const NOT_A_SESSION_FAILURE = new Set(['invalid_current_password', 'invalid_credentials', 'refresh_failed']);
+const NOT_A_SESSION_FAILURE = new Set(['invalid_credentials', 'refresh_failed']);
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'DELETE';
 

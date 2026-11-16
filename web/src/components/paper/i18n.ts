@@ -52,6 +52,14 @@ const S: Record<'es' | 'en', PaperStrings> & Partial<Record<PublicLocale, PaperS
     metaTitle: 'Developing a structural calculation agent on top of a verified solver (makale, İngilizce) — Stabileo',
     metaDescription: 'Makalenin İngilizce tamamı: yapısal hesap için bir yapay zekâ ajanı, ancak doğrulanmış bir çözücüyü yönetir ve kendisi hiçbir sayı üretmezse güvenilirdir.',
   },
+  hu: {
+    venue: 'Elhangzott a 29. Argentin Szerkezetépítő Mérnöki Konferencián (JAIE 2026).',
+    download: 'PDF letöltése',
+    original: 'Spanyol nyelvű eredeti (PDF)',
+    language: 'Ez az angol fordítás; a spanyol nyelvű eredeti letölthető.',
+    metaTitle: 'Developing a structural calculation agent on top of a verified solver (cikk, angol nyelven) — Stabileo',
+    metaDescription: 'A teljes cikk angolul: egy szerkezetszámításra szolgáló MI-ügynök csak akkor megbízható, ha egy verifikált megoldót vezérel, és maga soha nem állít elő számot.',
+  },
 };
 
 export function ps(): PaperStrings {

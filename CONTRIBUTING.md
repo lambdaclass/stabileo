@@ -106,3 +106,5 @@ path, so artifact reuse does not eliminate its source compilation. Docker now wa
 Build, so total PR wall time may increase on a cold cache; do not equate runner
 minutes saved with critical-path improvement. Measure the first hosted runs
 before revising the timeout or promising an overall speedup.
+
+See [the test map](testing/README.md) for the testing techniques, their locations and when they run.

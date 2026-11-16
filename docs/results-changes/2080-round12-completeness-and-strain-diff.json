@@ -1,0 +1,385 @@
+{
+  "reviewedParent": "ffba33bb4ecfe7851beb45361b00d0f9c115ef8a",
+  "reproducerCommit": "373c2bdc1db271bba131a35513ee8bdd14066e42",
+  "before": {
+    "flange": {
+      "d": 0.5519999999999999,
+      "designDepth": 0.5539999999999999,
+      "AsMin": 3.693333333333333,
+      "AsReq": 5.779992606899417,
+      "AsFlexural": 5.779992606899417,
+      "AsProv": 6.284,
+      "a": 0.010350117647058822,
+      "aReq": 0.00951998782312845,
+      "c": 0.011199985674268765,
+      "epsilonT": 0.14539304694990246,
+      "ratio": 0.9238574279118176,
+      "status": "warn"
+    },
+    "independent": [
+      {
+        "d": 0.357,
+        "designDepth": 0.359,
+        "AsMin": 4.786666666666666,
+        "AsReq": 4.786666666666666,
+        "AsFlexural": 1.4864897271046174,
+        "AsProv": 6.284,
+        "a": 0.02587529411764706,
+        "aReq": 0.006120840052783718,
+        "c": 0.007324082114442056,
+        "epsilonT": 0.1440491432470846,
+        "ratio": 0.24471740822304575,
+        "status": "ok"
+      },
+      {
+        "d": 0.3545,
+        "designDepth": 0.359,
+        "AsMin": 4.786666666666666,
+        "AsReq": 7.709992535649751,
+        "AsFlexural": 7.709992535649751,
+        "AsProv": 9.818,
+        "a": 0.040427058823529406,
+        "aReq": 0.03174702808796955,
+        "c": 0.037987896857399464,
+        "epsilonT": 0.025351135206112808,
+        "ratio": 0.8060581481037178,
+        "status": "ok"
+      }
+    ],
+    "shared": [
+      {
+        "d": 0.3545,
+        "designDepth": 0.359,
+        "AsMin": 4.786666666666666,
+        "AsReq": 4.786666666666666,
+        "AsFlexural": 1.4864897271046174,
+        "AsProv": 9.818,
+        "a": 0.040427058823529406,
+        "aReq": 0.006120840052783718,
+        "c": 0.007324082114442056,
+        "epsilonT": 0.018984833146947926,
+        "ratio": 0.16121162962074356,
+        "status": "ok"
+      },
+      {
+        "d": 0.3545,
+        "designDepth": 0.359,
+        "AsMin": 4.786666666666666,
+        "AsReq": 7.709992535649751,
+        "AsFlexural": 7.709992535649751,
+        "AsProv": 9.818,
+        "a": 0.040427058823529406,
+        "aReq": 0.03174702808796955,
+        "c": 0.037987896857399464,
+        "epsilonT": 0.018984833146947926,
+        "ratio": 0.8060581481037178,
+        "status": "ok"
+      }
+    ]
+  },
+  "after": {
+    "flange": {
+      "d": 0.5519999999999999,
+      "designDepth": 0.5539999999999999,
+      "AsMin": 3.6799999999999993,
+      "AsReq": 5.779992606899417,
+      "AsFlexural": 5.779992606899417,
+      "AsProv": 6.284,
+      "a": 0.010350117647058822,
+      "aReq": 0.00951998782312845,
+      "c": 0.011199985674268765,
+      "epsilonT": 0.14539304694990246,
+      "epsilonTProv": 0.13299845412385197,
+      "ratio": 0.9238574279118176,
+      "status": "warn"
+    },
+    "independent": [
+      {
+        "d": 0.357,
+        "designDepth": 0.359,
+        "AsMin": 4.76,
+        "AsReq": 4.76,
+        "AsFlexural": 1.4864897271046174,
+        "AsProv": 6.284,
+        "a": 0.02587529411764706,
+        "aReq": 0.006120840052783718,
+        "c": 0.007324082114442056,
+        "epsilonT": 0.1440491432470846,
+        "epsilonTProv": 0.031590911157588435,
+        "ratio": 0.24471740822304575,
+        "status": "ok"
+      },
+      {
+        "d": 0.3545,
+        "designDepth": 0.359,
+        "AsMin": 4.726666666666667,
+        "AsReq": 7.709992535649751,
+        "AsFlexural": 7.709992535649751,
+        "AsProv": 9.818,
+        "a": 0.040427058823529406,
+        "aReq": 0.03174702808796955,
+        "c": 0.037987896857399464,
+        "epsilonT": 0.025351135206112808,
+        "epsilonTProv": 0.018984833146947926,
+        "ratio": 0.8060581481037178,
+        "status": "ok"
+      }
+    ],
+    "shared": [
+      {
+        "d": 0.3545,
+        "designDepth": 0.359,
+        "AsMin": 4.726666666666667,
+        "AsReq": 4.726666666666667,
+        "AsFlexural": 1.4864897271046174,
+        "AsProv": 9.818,
+        "a": 0.040427058823529406,
+        "aReq": 0.006120840052783718,
+        "c": 0.007324082114442056,
+        "epsilonT": 0.1440491432470846,
+        "epsilonTProv": 0.018984833146947926,
+        "ratio": 0.16121162962074356,
+        "status": "ok"
+      },
+      {
+        "d": 0.3545,
+        "designDepth": 0.359,
+        "AsMin": 4.726666666666667,
+        "AsReq": 7.709992535649751,
+        "AsFlexural": 7.709992535649751,
+        "AsProv": 9.818,
+        "a": 0.040427058823529406,
+        "aReq": 0.03174702808796955,
+        "c": 0.037987896857399464,
+        "epsilonT": 0.025351135206112808,
+        "epsilonTProv": 0.018984833146947926,
+        "ratio": 0.8060581481037178,
+        "status": "ok"
+      }
+    ]
+  },
+  "mainDispatcherReplay": {
+    "mainSource": "fb241aa04936a993a3ecd4a2ec4f9490669c1d34",
+    "dispatchSha256": "6dae08bdf268f82062aa827a14a319b56a7e4d37f1e0f9dc6e56451ca1b7bb43",
+    "unchangedSteelAdapterSha256": "ae72aa2dc95089aeecdd373a6a2596c7555943f5db4a2197374c707e13210144",
+    "scope": "Exact origin/main dispatcher in this worktree with the unchanged EC3 adapter and the current initialized WASM engine; not a historical release binary replay. HEB 200 fixture from foreign-design-ec3-tuples.test.ts, opts.tuples=true.",
+    "rows": {
+      "empty": {
+        "elementId": 1,
+        "status": "checked",
+        "reading": {
+          "ratio": 0.8108643057656727,
+          "governing": "otherCodes.gov.interaction",
+          "clause": "6.3.3",
+          "pass": true,
+          "unevaluated": [],
+          "parts": [
+            {
+              "kind": "compression",
+              "clause": "6.3.1",
+              "ratio": 0
+            },
+            {
+              "kind": "tension",
+              "clause": "6.2.3",
+              "ratio": 0
+            },
+            {
+              "kind": "flexureStrong",
+              "clause": "6.3.2",
+              "ratio": 0.8061080963347442
+            },
+            {
+              "kind": "flexureWeak",
+              "clause": "6.2.5",
+              "ratio": 0.004756209430928517
+            },
+            {
+              "kind": "shear",
+              "clause": "6.2.6",
+              "ratio": 0.001749546270271593
+            },
+            {
+              "kind": "interaction",
+              "clause": "6.3.3",
+              "ratio": 0.8108643057656727
+            }
+          ],
+          "accredited": {
+            "ratio": 0.8108643057656727,
+            "governing": "otherCodes.gov.interaction",
+            "clause": "6.3.3",
+            "comboName": "C1",
+            "stationX": 0
+          }
+        },
+        "comboName": "C1",
+        "stationX": 0,
+        "comboId": 5,
+        "stationT": 0
+      },
+      "missing": {
+        "elementId": 1,
+        "status": "checked",
+        "reading": {
+          "ratio": 0.8108643057656727,
+          "governing": "otherCodes.gov.interaction",
+          "clause": "6.3.3",
+          "pass": true,
+          "unevaluated": [],
+          "parts": [
+            {
+              "kind": "compression",
+              "clause": "6.3.1",
+              "ratio": 0
+            },
+            {
+              "kind": "tension",
+              "clause": "6.2.3",
+              "ratio": 0
+            },
+            {
+              "kind": "flexureStrong",
+              "clause": "6.3.2",
+              "ratio": 0.8061080963347442
+            },
+            {
+              "kind": "flexureWeak",
+              "clause": "6.2.5",
+              "ratio": 0.004756209430928517
+            },
+            {
+              "kind": "shear",
+              "clause": "6.2.6",
+              "ratio": 0.001749546270271593
+            },
+            {
+              "kind": "interaction",
+              "clause": "6.3.3",
+              "ratio": 0.8108643057656727
+            }
+          ],
+          "accredited": {
+            "ratio": 0.8108643057656727,
+            "governing": "otherCodes.gov.interaction",
+            "clause": "6.3.3",
+            "comboName": "C1",
+            "stationX": 0
+          }
+        },
+        "comboName": "C1",
+        "stationX": 0,
+        "comboId": 5,
+        "stationT": 0
+      },
+      "full": {
+        "elementId": 1,
+        "status": "checked",
+        "reading": {
+          "ratio": 1.4134882126111605,
+          "governing": "otherCodes.gov.interaction",
+          "clause": "6.3.3",
+          "pass": false,
+          "unevaluated": [],
+          "parts": [
+            {
+              "kind": "compression",
+              "clause": "6.3.1",
+              "ratio": 0
+            },
+            {
+              "kind": "tension",
+              "clause": "6.2.3",
+              "ratio": 0
+            },
+            {
+              "kind": "flexureStrong",
+              "clause": "6.3.2",
+              "ratio": 0.7119473215492039
+            },
+            {
+              "kind": "flexureWeak",
+              "clause": "6.2.5",
+              "ratio": 0.7015408910619566
+            },
+            {
+              "kind": "shear",
+              "clause": "6.2.6",
+              "ratio": 5.967011487444757e-17
+            },
+            {
+              "kind": "interaction",
+              "clause": "6.3.3",
+              "ratio": 1.4134882126111605
+            }
+          ],
+          "accredited": {
+            "ratio": 1.4134882126111605,
+            "governing": "otherCodes.gov.interaction",
+            "clause": "6.3.3",
+            "comboName": "C3",
+            "stationX": 0
+          }
+        },
+        "comboName": "C3",
+        "stationX": 0,
+        "comboId": 7,
+        "stationT": 0
+      }
+    }
+  },
+  "cases": {
+    "flange": {
+      "params": {
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.03,
+        "b": 0.2,
+        "h": 0.6,
+        "stirrupDia": 8
+      },
+      "geometry": {
+        "bf": 1.2,
+        "hf": 0.1,
+        "bw": 0.2
+      },
+      "Mu": 120,
+      "edition": "2025"
+    },
+    "shared": {
+      "params": {
+        "fc": 30,
+        "fy": 420,
+        "cover": 0.025,
+        "b": 0.4,
+        "h": 0.4,
+        "stirrupDia": 8
+      },
+      "edition": "2025",
+      "elementType": "beam",
+      "axis": "My",
+      "forces": [
+        {
+          "t": 0.5,
+          "x": 2,
+          "n": 0,
+          "my": 20,
+          "mz": 20,
+          "vy": 1,
+          "vz": 1,
+          "torsion": 0
+        },
+        {
+          "t": 0.5,
+          "x": 2,
+          "n": 0,
+          "my": 100,
+          "mz": 100,
+          "vy": 1,
+          "vz": 1,
+          "torsion": 0
+        }
+      ]
+    }
+  }
+}

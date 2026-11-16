@@ -28,9 +28,12 @@
    */
   import type { Snippet } from 'svelte';
   import { publicI18n } from '../../lib/i18n/store.svelte';
+  import { publishedLocale } from '../../lib/i18n/published';
   import { publicHref } from '../../lib/i18n/public-routes';
   import { prefetchPublicLink } from '../../lib/public-navigation';
   import { goPublic } from './landing-utils';
+  import { publicFeatureEnabled } from '../../lib/features';
+  import { movedRoute } from '../../lib/legacy-routes';
 
   type Props = {
     /** Unprefixed: '/', '/blog', '/blog/<slug>'. The language is added here. */
@@ -44,14 +47,17 @@
   };
   let { to, class: cls = '', children, ...rest }: Props = $props();
 
-  const href = $derived(publicHref(to, publicI18n.locale));
+  const target = $derived(import.meta.env.VITE_TOOLS !== '0' ? movedRoute(to) ?? to : to);
+  const href = $derived(publicHref(target, import.meta.env.VITE_RESEARCH === '1' ? publishedLocale(target, publicI18n.locale) : publicI18n.locale));
 
   function onclick(e: MouseEvent) {
     // Anything but a plain left click belongs to the browser.
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    goPublic(to);
+    goPublic(target);
   }
 </script>
 
-<a use:prefetchPublicLink={to} {href} class={cls} {onclick} {...rest}>{@render children()}</a>
+{#if (import.meta.env.VITE_RESEARCH === '1' || import.meta.env.VITE_TOOLS !== '0' || import.meta.env.VITE_DIAGRAM_GAME !== '0' || import.meta.env.VITE_ACCOUNTS !== '0') ? publicFeatureEnabled(target) : true}
+<a use:prefetchPublicLink={target} {href} class={cls} {onclick} {...rest}>{@render children()}</a>
+{/if}

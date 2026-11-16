@@ -6,6 +6,7 @@
 | Status | Published 2026-11-09 (fixed after 0.5.0; live on stabileo.com since 2026-11-09) |
 | Issue | [#1782](https://github.com/lambdaclass/stabileo/issues/1782), blocker found in review of head `3bbedb2b5` |
 | Fix | PR [#1783](https://github.com/lambdaclass/stabileo/pull/1783) (merged 2026-11-09 09:27:10 UTC) |
+| Fixed release | 0.6.0 (2026-11-13) |
 | Affected versions | Present on `origin/main` at `4f9b69cad`: 2D axial/shear and both 3D shears. First affected version not yet bisected. The 3D axial point-load path introduced in PR #1783 is corrected in the same PR |
 | Re-check registry | results-change entry `moving-load-endpoint-forces` |
 

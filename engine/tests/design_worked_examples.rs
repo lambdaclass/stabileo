@@ -8,7 +8,7 @@
 //! resistance, so a wrong clause cannot hide behind a right total.
 //!
 //! Coverage, discrepancies and their root causes are tabulated in
-//! `docs/verification/DESIGN_EXAMPLES.md`.
+//! `testing/docs/DESIGN_EXAMPLES.md`.
 //!
 //! ── Sources ───────────────────────────────────────────────────────────────
 //!

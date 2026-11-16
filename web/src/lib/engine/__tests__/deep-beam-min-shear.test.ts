@@ -19,7 +19,7 @@ import { CIRSOC201_DESIGN_EDITION } from '../codes/argentina/cirsoc201-basis';
 describe('a deep beam below Av,min where Vu passes φ·0,085·√f\'c·bw·d', () => {
   function deep(V: number, stirrups: { diameter: number; legs: number; spacing: number }) {
     const st = [];
-    for (let i = 0; i <= 10; i++) { const t = i / 10; st.push({ t, x: t * 6, n: 0, vy: 0, vz: V * (1 - 2 * t), my: 120 * 4 * t * (1 - t), mz: 0, mx: 0 }); }
+    for (let i = 0; i <= 10; i++) { const t = i / 10; st.push({ t, x: t * 6, n: 0, vy: 0, vz: V * (1 - 2 * t), my: 120 * 4 * t * (1 - t), mz: 0, torsion: 0 }); }
     return verifyProvidedReinforcement(1, 'beam', { top: { count: 3, diameter: 16 }, bottom: { count: 4, diameter: 16 }, stirrups } as never,
       undefined, {}, { b: 0.3, h: 0.65, fc: 25, fy: 420, cover: 0.025, stirrupDia: stirrups.diameter },
       { elementId: 1, length: 6, comboResults: [{ comboId: 1, comboName: 'U1', stations: st }] } as never);

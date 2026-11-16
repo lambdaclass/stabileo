@@ -120,7 +120,7 @@ several posts embed the real editor on the model they describe. Two to start wit
   Manual, Code_Aster and textbook problems. See [BENCHMARKS.md](docs/BENCHMARKS.md).
 - **Certified results:** after a solve, the engine can prove bounds on how far its answers are from
   the exact solution, with the checks' soundness proved in Lean. See
-  [CERTIFY.md](docs/verification/CERTIFY.md).
+  [CERTIFY.md](testing/docs/CERTIFY.md).
 
 <details>
 <summary><strong>What the engine can solve</strong></summary>
@@ -221,3 +221,5 @@ Stabileo is backed by [Ergodic Group](https://ergodicgroup.com/) and developed b
 
 With contributions from mathematicians, physicists, computer engineers and computer scientists at
 LambdaClass.
+
+See [the test map](testing/README.md) for the testing techniques, their locations and when they run.

@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
+  "account.err.invalid_credentials": "电子邮箱或密码不正确。",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───
@@ -789,28 +790,6 @@ const zh: Translations = {
   'float.vShear': 'V 剪力',
   'float.ilHint': '点击节点（反力）或杆件（内力 M/V）',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': '报告 / 建议',
-  'feedback.close': '关闭',
-  'feedback.reportCreated': '报告 #{n} 已创建',
-  'feedback.bugError': 'Bug / 错误',
-  'feedback.suggestion': '建议',
-  'feedback.other': '其他',
-  'feedback.namePlaceholder': '您的姓名或昵称（可选）',
-  'feedback.textPlaceholder': '描述问题或建议...',
-  'feedback.linkAttached': '将附带您结构的链接',
-  'feedback.copy': '复制',
-  'feedback.sending': '发送中...',
-  'feedback.submitReport': '提交报告',
-  'feedback.toastCreated': '报告 #{n} 已创建 — 谢谢！',
-  'feedback.toastError': '无法发送报告',
-  'feedback.toastConnectionError': '连接错误 — 请重试',
-  'feedback.toastEmptyText': '请输入问题或建议的描述',
-  'feedback.toastSecurityWait': '正在等待安全验证...',
-  'feedback.toastLinkCopied': '链接已复制',
-  'feedback.reportBug': '报告 Bug / 建议',
-  'feedback.communityTelegram': 'Telegram 社区',
-  'feedback.buyCoffee': '请我喝杯咖啡',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': '截面 {id}',
@@ -2214,6 +2193,7 @@ const zh: Translations = {
   'lang.fr': 'Français',
   'lang.it': 'Italiano',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.hi': 'हिन्दी',
   'lang.zh': '中文',
   'lang.ja': '日本語',
@@ -3652,7 +3632,7 @@ const zh: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': '已认证：位移误差 ≤ {abs}（相对 {rel}）',
   'certificate.notCertified': '未认证：{reason}',
   'certificate.pending': '正在认证…',
@@ -3660,7 +3640,7 @@ const zh: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}]（已认证）',
   'certificate.bucklingNotCertified': 'λ_cr 未认证：{reason}',
   'certificate.bucklingTooltip': '在 Lean 中证明的严格区间：结构在直至下限值的任意荷载系数下保证稳定，在上限值处保证失稳。',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': '已认证：位移误差 ≤ {abs}',
   'certificate.envelopeCertified': '包络已认证：每个值与精确包络相差不超过 {abs}（位移）',
   'certificate.comboTooltip': '严格上界，已在 Lean 中证明：每个荷载工况都相对于组装系统的精确解进行认证；组合的上界为各工况上界乘以 |系数| 之和，再加上组合本身的舍入；包络与精确包络的差不超过最大的组合上界。构件内力旁的 ± 以同样方式界定其误差。',

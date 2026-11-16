@@ -1,5 +1,5 @@
 //! Regressions found by differential testing against Frame3DD, PyNite,
-//! Mystran, Kratos and CalculiX (tools/differential/). Each case is the
+//! Mystran, Kratos and CalculiX (testing/differential/). Each case is the
 //! shrunk model the harness dumped, checked against a closed form or a
 //! property every reference program agrees on.
 
@@ -28,7 +28,7 @@ fn warns_singular(input: &SolverInput3D) -> bool {
 /// condition number 9e16 in PyNite and OpenSees). Rounding left the
 /// mechanism's Cholesky pivot at ~1e-14 of its diagonal, above the 64 eps
 /// singularity threshold, so stabileo solved it with no warning and returned
-/// arbitrary displacements (found by tools/differential, PyNite, rich3d-184).
+/// arbitrary displacements (found by testing/differential, PyNite, rich3d-184).
 /// The threshold is now 1e-10 (engine/src/solver/definiteness.rs).
 #[test]
 fn dangling_hinged_member_is_flagged_singular() {
@@ -132,7 +132,7 @@ fn beam_free_to_spin_about_its_supports_is_flagged() {
 /// Members with a released rotation get a lumped mass (no rotary inertia),
 /// so a small model whose members all have a release has massless rotations:
 /// M is singular and the dense eigen path (Cholesky of M) failed with
-/// "Eigenvalue decomposition failed" (found by tools/differential, MYSTRAN,
+/// "Eigenvalue decomposition failed" (found by testing/differential, MYSTRAN,
 /// modal3d_lumped). Fixed-fixed beam of two members meeting at node 2, the
 /// first released about y there, the second about z: lumped mass ρAL at node
 /// 2, vertical stiffness 3EIy/L³ from each member (the first pinned at node
@@ -172,7 +172,7 @@ fn modal_with_massless_rotations_solves() {
 /// the member's local y), but together they do, through the combination
 /// that axis cannot absorb. The first version of the rigid-body gate counted
 /// restraints one at a time and flagged this regular model (PyNite κ = 4e4;
-/// found by tools/differential, PyNite, rich3d_eb-557).
+/// found by testing/differential, PyNite, rich3d_eb-557).
 #[test]
 fn rotational_restraints_combine_through_a_released_end() {
     let input = input_3d(serde_json::from_str(r#"{"nodes": {"1": {"id": 1, "x": 4.037, "y": 5.431, "z": 7.051}, "2": {"id": 2, "x": 6.757, "y": 5.106, "z": 3.241}, "3": {"id": 3, "x": 4.754, "y": 6.128, "z": 1.412}}, "materials": {"1": {"id": 1, "e": 15187.112505507092, "nu": 0.1774214968032978}, "2": {"id": 2, "e": 200000.0, "nu": 0.26224332909049797}}, "sections": {"1": {"id": 1, "a": 0.12948526732991544, "iy": 0.0019544357604186365, "iz": 0.0009988437087988238, "j": 0.002900179903104928}, "2": {"id": 2, "a": 0.04858193393768227, "iy": 0.00037968693107250643, "iz": 0.00010188518900655119, "j": 0.0003587968197734484}, "3": {"id": 3, "a": 0.20881961557909248, "iy": 0.00992746133894461, "iz": 0.0013301005442339848, "j": 0.004440487819632662}}, "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 3, "releaseMyStart": true}, "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 2, "sectionId": 2}}, "supports": {"1": {"nodeId": 1, "rx": true, "ry": false, "rz": true, "rrx": true, "rry": true, "rrz": false}, "2": {"nodeId": 3, "rx": false, "ry": true, "rz": false, "rrx": true, "rry": false, "rrz": true}}, "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 1.0, "fy": 2.0, "fz": -3.0, "mx": 0.0, "my": 0.0, "mz": 0.0}}]}"#).unwrap());

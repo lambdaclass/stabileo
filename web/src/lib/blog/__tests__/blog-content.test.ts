@@ -150,7 +150,7 @@ describe('blog posts', () => {
       }
 
       it('has the same structure in every language', () => {
-        const shape = (l: PublicLocale) =>
+        const shape = (l: PublicLocale, expectedLocale?: PublicLocale) =>
           post.i18n[l]!.blocks.map((b) =>
             b.k === 'ul' || b.k === 'ol'
               ? `${b.k}:${b.items.length}`
@@ -163,13 +163,15 @@ describe('blog posts', () => {
                   : b.k === 'link'
                     ? `link:${b.slug}`
                     : b.k === 'ext'
-                      ? `ext:${b.href}`
+                      ? `ext:${expectedLocale && expectedLocale !== 'en'
+                        ? b.href.replace(/(\/docs\/releases\/v0\.6\.[01])\.md$/, `$1.${expectedLocale}.md`)
+                        : b.href}`
                       : b.k === 'img'
                         ? `img:${b.base}:${b.w}x${b.h}`
                         : b.k,
           );
         for (const locale of written(post)) {
-          expect(shape(locale), `${locale} does not match the English structure`).toEqual(shape('en'));
+          expect(shape(locale), `${locale} does not match the English structure`).toEqual(shape('en', locale));
         }
       });
 
@@ -352,6 +354,42 @@ describe('the safety-advisories post quotes the advisories', () => {
   const post = findPost('safety-advisories');
 
   it.each<[PublicLocale, string, string]>([
+    ['en', 'High', 'Draft: local fix awaiting review and release'],
+    ['es', 'Alta', 'Borrador: corrección local pendiente de revisión y publicación'],
+    ['pt', 'Alta', 'Rascunho: correção local aguardando revisão e lançamento'],
+    ['de', 'Hoch', 'Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung'],
+    ['fr', 'Haute', 'Brouillon : correction locale en attente de revue et de publication'],
+    ['tr', 'Yüksek', 'Taslak: yerel düzeltme inceleme ve yayın bekliyor'],
+  ])('known wrong result: #1846 — %s: lists SA-2026-060 as a pending draft', (locale, severity, draftStatus) => {
+    const blocks = post!.i18n[locale]!.blocks;
+    const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+    const status = blocks.find((b) => b.k === 'note') as Extract<Block, { k: 'note' }>;
+    const row = summary.rows.find((r) => r[0] === 'SA-2026-060');
+    expect(row, `${locale}: SA-2026-060 missing`).toBeDefined();
+    expect(row![2]).toBe(severity);
+    expect(row![3]).toBe(draftStatus);
+    expect(status.t).toContain(`SA-2026-060 — ${draftStatus}.`);
+  });
+
+  it.each<[PublicLocale, string, string]>([
+    ['en', 'High', 'Draft: local fix awaiting review and release'],
+    ['es', 'Alta', 'Borrador: corrección local pendiente de revisión y publicación'],
+    ['pt', 'Alta', 'Rascunho: correção local aguardando revisão e lançamento'],
+    ['de', 'Hoch', 'Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung'],
+    ['fr', 'Haute', 'Brouillon : correction locale en attente de revue et de publication'],
+    ['tr', 'Yüksek', 'Taslak: yerel düzeltme inceleme ve yayın bekliyor'],
+  ])('known wrong result: #1943 — %s: lists SA-2026-062 as a pending draft', (locale, severity, draftStatus) => {
+    const blocks = post!.i18n[locale]!.blocks;
+    const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+    const status = blocks.find((b) => b.k === 'note') as Extract<Block, { k: 'note' }>;
+    const row = summary.rows.find((r) => r[0] === 'SA-2026-062');
+    expect(row, `${locale}: SA-2026-062 missing`).toBeDefined();
+    expect(row![2]).toBe(severity);
+    expect(row![3]).toBe(draftStatus);
+    expect(status.t).toContain(`SA-2026-062 — ${draftStatus}.`);
+  });
+
+  it.each<[PublicLocale, string, string]>([
     ['en', 'Medium', 'Draft: fix not yet merged or deployed'],
     ['es', 'Media', 'Borrador: corrección aún no integrada ni publicada'],
     ['pt', 'Média', 'Rascunho: correção ainda não integrada nem publicada'],
@@ -401,6 +439,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     ['de', 'Niedrig', 'Behoben nach 0.5.0; auf stabileo.com seit dem 9. November 2026'],
     ['fr', 'Faible', 'Corrigé après 0.5.0 ; sur stabileo.com depuis le 9 novembre 2026'],
     ['tr', 'Düşük', "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"],
+    ...(import.meta.env.VITE_RESEARCH === '1' ? [['hu', 'Alacsony', '0.5.0 után javítva; 2026. november 9. óta a stabileo.com-on'] as [PublicLocale, string, string]] : []),
   ])('%s: publishes SA-2026-049 through 053 as fixed and retains 053’s low severity', (locale, severity, fixedStatus) => {
     const blocks = post!.i18n[locale]!.blocks;
     const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;

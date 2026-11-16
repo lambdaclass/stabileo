@@ -1,0 +1,126 @@
+{
+  "solver": {
+    "nodes": {
+      "1": {
+        "id": 1,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "2": {
+        "id": 2,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 3.0
+      },
+      "3": {
+        "id": 3,
+        "x": 4.0,
+        "y": 0.0,
+        "z": 3.0
+      },
+      "4": {
+        "id": 4,
+        "x": 4.0,
+        "y": 0.0,
+        "z": 0.0
+      }
+    },
+    "materials": {
+      "1": {
+        "id": 1,
+        "e": 200000.0,
+        "nu": 0.3
+      }
+    },
+    "sections": {
+      "1": {
+        "id": 1,
+        "a": 0.01,
+        "iy": 8e-06,
+        "iz": 4e-06,
+        "j": 1e-05
+      }
+    },
+    "elements": {
+      "1": {
+        "id": 1,
+        "type": "frame",
+        "nodeI": 1,
+        "nodeJ": 2,
+        "materialId": 1,
+        "sectionId": 1
+      },
+      "2": {
+        "id": 2,
+        "type": "frame",
+        "nodeI": 2,
+        "nodeJ": 3,
+        "materialId": 1,
+        "sectionId": 1
+      },
+      "3": {
+        "id": 3,
+        "type": "frame",
+        "nodeI": 4,
+        "nodeJ": 3,
+        "materialId": 1,
+        "sectionId": 1
+      }
+    },
+    "supports": {
+      "1": {
+        "nodeId": 1,
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      },
+      "4": {
+        "nodeId": 4,
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      }
+    },
+    "loads": [
+      {
+        "type": "nodal",
+        "data": {
+          "nodeId": 2,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 1.0,
+          "mz": 0.0
+        }
+      }
+    ]
+  },
+  "sections": {
+    "1": {
+      "a": 0.01,
+      "iy": 8e-06,
+      "iz": 4e-06,
+      "materialId": 1
+    }
+  },
+  "materials": {
+    "1": {
+      "fy": 250.0
+    }
+  },
+  "maxHinges": 60,
+  "mpOverrides": {
+    "1": [
+      100.0,
+      50.0
+    ]
+  }
+}

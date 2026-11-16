@@ -571,7 +571,7 @@ const stepsDe: Translations = {
   'steps.trusses.compat.meaning': 'Kraft',
   'steps.trusses.compat.PTable': 'Verformungen p und Kräfte P jeder Elementkoordinate.',
   'steps.trusses.compat.endsTitle': 'Auflagerreaktionen und Gleichgewicht',
-  'steps.trusses.compat.endsLeadTruss': 'Jeder Stab zieht oder drückt entsprechend seiner Normalkraft an seinen Knoten. An einem Auflager ist die Reaktion die Summe dieser Kräfte über die dort anschließenden Stäbe k, abzüglich der Knotenlast.',
+  "steps.trusses.compat.endsLeadTruss": "Jeder Stab zieht oder drückt entsprechend seiner Normalkraft an seinen Knoten. An einem Auflager ist die Reaktion die negative Summe dieser Kräfte der dort anschließenden Stäbe k, abzüglich der aufgebrachten Knotenlast P: R = −ΣF_k − P.",
   'steps.trusses.compat.endsLeadFrame': 'Die Endmomente ergänzen die Querkräfte jedes Stabes, und das Gleichgewicht jedes Auflagerknotens liefert seine Reaktion: die Summe der Stabendkräfte der dort anschließenden Stäbe k, abzüglich der Knotenlast.',
   'steps.trusses.compat.shearNote': 'V^s sind die Auflagerreaktionen aus der Stablast am Stab als Einfeldträger; der zweite Term gleicht die Endmomente aus.',
   'steps.trusses.compat.endsTable': 'Stabendkräfte (N bei Zug positiv, V in lokaler +y-Richtung, M gegen den Uhrzeigersinn).',

@@ -3,7 +3,7 @@ name: Mutation testing (TypeScript engine logic)
 # Stryker over the safety-relevant TypeScript in web/src/lib/engine (web/stryker.config.json
 # lists the modules). Nightly, because a full run takes far longer than a PR should wait; on
 # demand from the Actions tab. The HTML report is uploaded; surviving mutants in the critical
-# modules are listed in docs/verification/TS_ENGINE_LOGIC.md.
+# modules are listed in testing/docs/TS_ENGINE_LOGIC.md.
 
 on:
   schedule:

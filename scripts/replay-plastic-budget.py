@@ -72,7 +72,7 @@ def replay(binary, artifact, mode="gate", repeats=5, seconds=60, memory_mib=512,
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("artifact", type=Path)
-    parser.add_argument("--binary", type=Path, default=Path("engine/fuzz/target/release/examples/plastic_replay"))
+    parser.add_argument("--binary", type=Path, default=Path("testing/fuzz/target/release/examples/plastic_replay"))
     parser.add_argument("--mode", default="gate", choices=["gate", "engine", "hang", "leak", "leak-first"])
     parser.add_argument("--seconds", type=float, default=60)
     parser.add_argument("--repeats", type=int, default=5)

@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  "account.err.invalid_credentials": "이메일 또는 비밀번호가 올바르지 않습니다.",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───
@@ -795,28 +796,6 @@ const ko: Translations = {
   'float.vShear': 'V 전단력',
   'float.ilHint': '절점(반력) 또는 부재(내부 M/V)를 클릭하세요',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': '보고 / 제안',
-  'feedback.close': '닫기',
-  'feedback.reportCreated': '보고서 #{n} 생성됨',
-  'feedback.bugError': '버그 / 오류',
-  'feedback.suggestion': '제안',
-  'feedback.other': '기타',
-  'feedback.namePlaceholder': '이름 또는 별명 (선택 사항)',
-  'feedback.textPlaceholder': '문제 또는 제안 사항을 설명하세요...',
-  'feedback.linkAttached': '구조물 링크가 첨부됩니다',
-  'feedback.copy': '복사',
-  'feedback.sending': '전송 중...',
-  'feedback.submitReport': '보고서 제출',
-  'feedback.toastCreated': '보고서 #{n} 생성됨 — 감사합니다!',
-  'feedback.toastError': '보고서를 전송할 수 없습니다',
-  'feedback.toastConnectionError': '연결 오류 — 다시 시도하세요',
-  'feedback.toastEmptyText': '문제 또는 제안에 대한 설명을 작성하세요',
-  'feedback.toastSecurityWait': '보안 확인 대기 중...',
-  'feedback.toastLinkCopied': '링크 복사됨',
-  'feedback.reportBug': '버그 보고 / 제안',
-  'feedback.communityTelegram': '텔레그램 커뮤니티',
-  'feedback.buyCoffee': '커피 한 잔 사주기',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': '단면 {id}',
@@ -2218,6 +2197,7 @@ const ko: Translations = {
   'lang.fr': 'Français',
   'lang.it': 'Italiano',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.hi': 'हिन्दी',
   'lang.zh': '中文',
   'lang.ja': '日本語',
@@ -3650,7 +3630,7 @@ const ko: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': '인증됨: 변위 오차 ≤ {abs} (상대 {rel})',
   'certificate.notCertified': '인증되지 않음: {reason}',
   'certificate.pending': '인증 중…',
@@ -3658,7 +3638,7 @@ const ko: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (인증됨)',
   'certificate.bucklingNotCertified': 'λ_cr 인증되지 않음: {reason}',
   'certificate.bucklingTooltip': 'Lean으로 증명된 엄밀한 구간: 구조물은 하한값까지의 모든 하중 계수에서 안정함이 보장되고 상한값에서 불안정함이 보장됩니다.',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': '인증됨: 변위 오차 ≤ {abs}',
   'certificate.envelopeCertified': '포락선 인증됨: 모든 값이 정확한 포락선에서 {abs} 이내 (변위)',
   'certificate.comboTooltip': 'Lean으로 증명된 엄밀한 한계: 각 하중 케이스는 조립된 시스템의 정확해에 대해 인증됩니다. 조합의 한계는 케이스 한계에 |계수|를 곱한 합에 조합 자체의 반올림을 더한 것이며, 포락선은 정확한 포락선에서 가장 큰 조합 한계 이내에 있습니다. 부재력 옆의 ±도 같은 방식으로 오차를 제한합니다.',

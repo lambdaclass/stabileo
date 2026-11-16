@@ -1,3 +1,4 @@
+import { BUILD_FEATURES } from './build-features';
 import { test, expect } from '@playwright/test';
 
 for (const width of [390, 1440]) {
@@ -95,7 +96,7 @@ for (const width of [1440, 390]) {
       const timer = window.setInterval(() => samples.push(read()), 50);
       Object.assign(window, { headerProbe: { baseline, samples, timer, read } });
     });
-    for (const destination of ['research', 'tools', 'examples', 'blog', '']) {
+    for (const destination of ['research', 'tools', ...(BUILD_FEATURES.tools ? [] : ['examples']), 'blog', '']) {
       if (width === 390 && destination) await header.locator('.nav-toggle').click();
       await header.locator(destination ? `[data-nav="${destination}"]` : '.nav-brand').click();
       await expect(header).toHaveAttribute('data-current', destination);

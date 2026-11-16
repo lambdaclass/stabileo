@@ -78,7 +78,9 @@ web/src/components/pro/ProConnectionsTab.svelte: {#if fieldProblem && (!fieldPro
 web/src/components/pro/ProConnectionsTab.svelte: {#if fieldProblem && fieldProblem.field.startsWith('w-')}
 web/src/components/pro/ProConnectionsTab.svelte: {#if fieldProblem && fieldProblem.field.startsWith('b-')}
 web/src/components/pro/ProOtherCodesPanel.svelte: return c.reason.startsWith('otherCodes.') ? t(c.reason).replace('{combo}', c.combo ?? '') : c.reason;
-web/src/components/tools/BatchTool.svelte: catch(e) {if(token===revision)error=t(e instanceof Error&&e.message.startsWith('tools.')?e.message:'tools.failed');}
+web/src/components/tools/CalculatorTool.svelte: error = t(outcome.error instanceof Error && outcome.error.message === 'tools.invalid' ? 'tools.invalid' : 'tools.failed');
+web/src/components/tools/ModelTool.svelte: {#if outcome?.status === 'ok' && outcome.notes.includes('editorFrameOnly')}<p class="fine" data-testid="editor-note">{te('note.editorFrameOnly')}</p>{/if}
+web/src/components/tools/ModelTool.svelte: {#if outcome.notes.includes('elasticShear')}<p class="fine" data-testid="elastic-shear-note">{te('note.elasticShear')}</p>{/if}
 web/src/lib/cad/diagnostics.ts: .filter((w) => w.message.startsWith('beamEndsFloating:'))
 web/src/lib/cad/parse.ts: if (doc.warnings.includes('parseError')) return 'parseError';
 web/src/lib/engine/codes/argentina/cirsoc301.ts: if (legacy && r.notEvaluatedMessage?.key.startsWith('c301.refuse.end')) {
@@ -125,6 +127,7 @@ web/scripts/legacy-projects/in-version.capture.ts: if (!(e instanceof ReferenceE
 .github/scripts/slow-e2e-alert.cjs: const slowPassed = (j) => (j.steps ?? []).some((step) => step.name.startsWith('E2E slow suite') && step.conclusion === 'success');
 
 ## Not a message: ids, input labels, field names, file, HTML or source text that the name heuristic took for one.
+web/scripts/translation-gate.ts: return /<meta\s+name="robots"\s+content="noindex"/i.test(head) && /<meta\s+http-equiv="refresh"\s+content="0;/i.test(head);
 engine/src/certify/finite.rs: .filter(|(p, x)| !(*x == f64::INFINITY && DOCUMENTED_INFINITE.iter().any(|f| p.ends_with(&format!(".{f}")))))
 engine/src/postprocess/cirsoc301_check.rs: let long = cond.ends_with("Long");
 engine/src/postprocess/cirsoc301_check.rs: let a_case = cond.starts_with("e5a");
@@ -150,7 +153,7 @@ web/scripts/research-cargo-notices.mjs: if (pkg.license.includes('Unicode-3.0'))
 web/scripts/translate.mjs: output = output.replace(
 web/scripts/translate.mjs: output = output.replace(/^export default en;$/m, `export default ${lang};`);
 web/scripts/translation-gate.ts: const body = html.match(/<div id="prerender">([\s\S]*)<div id="app">/)?.[1] ?? html;
-scripts/nightly-models.py: if failure['test'].startswith('metamorphic/'):
+testing/scripts/nightly-models.py: if failure['test'].startswith('metamorphic/'):
 scripts/verification-metrics.py: return "linear static" in text.lower() or "member end forces" in text
 scripts/verification-metrics.py: return analysis == "static" and "linear static" in src["codeaster"]
 .github/scripts/cadence-reports.cjs: if (!['success', 'failure'].includes(j.conclusion)) continue;
@@ -177,3 +180,7 @@ scripts/benchmark-gate.py: match = re.search(r'^Tolerance-change reason:[ \t]*([
 ## Replay assertions verify the user-visible warning contract; dispatch and acceptance also require the structured phase and severity.
 scripts/plastic-budget-corpus.py: assert any("certified lower bound" in warning for warning in certificate["solverWarnings"]), result
 scripts/plastic-budget-corpus.py: assert any("PL-3D-CERTIFICATE-MISMATCH" in warning
+
+## Translates an Ecto validation message the accounts backend returns for a form field: a wording change shows the server's English text instead of the translation; no result or decision depends on it.
+web/src/lib/api/error-text.ts: if (message === 'must be accepted') return t('account.field.mustAccept');
+web/src/lib/api/error-text.ts: if (message === 'is too large') return t('account.field.tooLarge');

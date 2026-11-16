@@ -3,7 +3,7 @@
 //! and 6.2), design coefficient (§6.2.2 [6.3]–[6.7]), distribution in height (§6.2.4.1
 //! [6.11]–[6.13]) and its applicability (Tabla 2.5, §2.7).
 //!
-//! Verified clause by clause in `docs/verification/LOADS.md`. The TypeScript modules
+//! Verified clause by clause in `testing/docs/LOADS.md`. The TypeScript modules
 //! (`web/src/lib/codes/cirsoc103/spectrum.ts`, `static-method.ts`) are adapters over these
 //! functions; they render the messages and clause references from what is returned here.
 

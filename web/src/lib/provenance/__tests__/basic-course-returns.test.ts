@@ -42,10 +42,10 @@ describe('the Basic course units return with their review fixes', () => {
     expect(ids(frame(), v, ['linear', 'plastic'])).not.toContain('basic-plastic-closes-unloading-hinges-returns');
   });
 
-  it('writes each returning entry in the six languages', () => {
+  it('writes each returning entry in the seven languages', () => {
     for (const c of RESULT_CHANGES.changes.filter((x) => x.id.endsWith('-returns'))) {
       const e = c as unknown as { title: Record<string, string>; explanation: Record<string, string> };
-      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
         expect(e.title[locale]?.trim(), `${c.id} title.${locale}`).toBeTruthy();
         expect(e.explanation[locale]?.trim(), `${c.id} explanation.${locale}`).toBeTruthy();
       }

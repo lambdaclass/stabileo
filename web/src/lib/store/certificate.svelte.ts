@@ -1,5 +1,5 @@
 /**
- * The certificate of the linear static result on screen (docs/verification/CERTIFY.md): the base
+ * The certificate of the linear static result on screen (testing/docs/CERTIFY.md): the base
  * solve, a load case, a combination or the envelope.
  *
  * Not the design-code "verification" (`verification.svelte.ts`): this is a rigorous bound on how

@@ -19,3 +19,5 @@ mod pushover_extended;
 #[path = "../validation/textbooks/neal_plastic_extended.rs"]
 mod neal_plastic_extended;
 mod metamorphic_plastic;
+#[path = "../frozen_shell_refusals.rs"]
+mod frozen_shell_refusals;

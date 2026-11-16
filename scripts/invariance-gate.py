@@ -7,7 +7,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 REGISTRY = 'engine/tests/metamorphic/entry_points.json'
 SOURCES = 'engine/src'
-DOC = 'docs/verification/METAMORPHIC.md'
+DOC = 'testing/docs/METAMORPHIC.md'
 ANALYSES = {'pr_2d': 'engine/tests/metamorphic/ana2.rs', 'pr_3d': 'engine/tests/metamorphic/ana3.rs'}
 INVARIANCES = {
     'units': 'units',

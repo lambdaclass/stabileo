@@ -1,0 +1,267 @@
+{
+  "revision": "013485aa2629a05672403919060cc1397f510fd1",
+  "routes": [
+    "/",
+    "/blog",
+    "/blog/bars-or-finite-elements",
+    "/blog/conceptual-side-advanced-tools",
+    "/blog/end-to-end-certificates",
+    "/blog/how-stabileo-checks-its-results",
+    "/blog/jaie-2026-talk",
+    "/blog/learn-structural-analysis-step-by-step",
+    "/blog/research-tools-and-checking-our-tests",
+    "/blog/safety-advisories",
+    "/blog/same-model-same-numbers",
+    "/blog/stabileo-0-3-0",
+    "/blog/stabileo-0-5-0",
+    "/blog/stabileo-0-6-0",
+    "/blog/stabileo-0-6-1",
+    "/blog/the-determinism-boundary",
+    "/blog/tiic-2026-second-place",
+    "/blog/torsion-bredt-saint-venant",
+    "/blog/verificacion-flexion-cirsoc-201",
+    "/blog/when-results-change",
+    "/changelog",
+    "/cirsoc",
+    "/etabs-alternative",
+    "/examples",
+    "/examples/beam-frame",
+    "/examples/earthquake-frame",
+    "/examples/outrigger",
+    "/examples/rc-column",
+    "/examples/slab-on-columns",
+    "/examples/tower",
+    "/paper",
+    "/reliability",
+    "/research",
+    "/research/benchmarks/cqc-1981",
+    "/research/benchmarks/dadeppo-arch-1975",
+    "/research/benchmarks/lee-frame-1968",
+    "/research/benchmarks/macneal-harder-1985",
+    "/research/benchmarks/mattiasson-elastica",
+    "/research/benchmarks/navier-plate",
+    "/research/benchmarks/newmark-1959",
+    "/research/benchmarks/plastic-collapse",
+    "/research/benchmarks/riks-crisfield",
+    "/research/benchmarks/shell-obstacle-course",
+    "/research/form-finding/pastrana-2026",
+    "/research/fracture/shauer-2025",
+    "/research/mechanics/biggins-2026",
+    "/research/mechanics/gay-neto-2014",
+    "/research/metamaterials/grossman-2026",
+    "/research/optimisation/fairclough-2026",
+    "/research/optimization/andreassen-2011",
+    "/research/stability/feher-sipos-varkonyi-2026",
+    "/research/stability/ferrari-sigmund-2025",
+    "/sap2000-alternative",
+    "/tools",
+    "/tools/beam-natural-frequency",
+    "/tools/cantilever-beam",
+    "/tools/column-buckling",
+    "/tools/continuous-beam",
+    "/tools/influence-line",
+    "/tools/portal-frame",
+    "/tools/simply-supported-beam",
+    "/tools/truss-2d"
+  ],
+  "nav": [
+    {
+      "kind": "section",
+      "id": "basic",
+      "key": "landing.navProduct"
+    },
+    {
+      "kind": "page",
+      "id": "examples",
+      "to": "/examples",
+      "key": "landing.navExamples"
+    },
+    {
+      "kind": "page",
+      "id": "tools",
+      "to": "/tools",
+      "key": "landing.navTools"
+    },
+    {
+      "kind": "page",
+      "id": "research",
+      "to": "/research",
+      "key": "landing.navResearch"
+    },
+    {
+      "kind": "section",
+      "id": "pricing",
+      "key": "landing.navPricing"
+    },
+    {
+      "kind": "page",
+      "id": "blog",
+      "to": "/blog",
+      "key": "landing.navBlog"
+    }
+  ],
+  "research": [
+    "/research",
+    "/research/benchmarks/lee-frame-1968",
+    "/research/stability/ferrari-sigmund-2025",
+    "/research/optimization/andreassen-2011",
+    "/research/form-finding/pastrana-2026",
+    "/research/optimisation/fairclough-2026",
+    "/research/benchmarks/mattiasson-elastica",
+    "/research/benchmarks/shell-obstacle-course",
+    "/research/benchmarks/macneal-harder-1985",
+    "/research/benchmarks/newmark-1959",
+    "/research/benchmarks/plastic-collapse",
+    "/research/benchmarks/navier-plate",
+    "/research/benchmarks/dadeppo-arch-1975",
+    "/research/fracture/shauer-2025",
+    "/research/metamaterials/grossman-2026",
+    "/research/mechanics/biggins-2026",
+    "/research/stability/feher-sipos-varkonyi-2026",
+    "/research/mechanics/gay-neto-2014",
+    "/research/benchmarks/cqc-1981",
+    "/research/benchmarks/riks-crisfield"
+  ],
+  "researchLocales": {
+    "/research": [
+      "en",
+      "es",
+      "pt"
+    ],
+    "/research/optimization/andreassen-2011": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/mechanics/biggins-2026": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/mechanics/gay-neto-2014": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/benchmarks/cqc-1981": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/benchmarks/dadeppo-arch-1975": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/optimisation/fairclough-2026": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/stability/feher-sipos-varkonyi-2026": [
+      "en",
+      "es",
+      "pt"
+    ],
+    "/research/stability/ferrari-sigmund-2025": [
+      "en",
+      "es",
+      "pt"
+    ],
+    "/research/metamaterials/grossman-2026": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/benchmarks/lee-frame-1968": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/benchmarks/macneal-harder-1985": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/benchmarks/mattiasson-elastica": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/benchmarks/navier-plate": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/benchmarks/newmark-1959": [
+      "en",
+      "es",
+      "pt"
+    ],
+    "/research/form-finding/pastrana-2026": [
+      "en",
+      "es",
+      "pt"
+    ],
+    "/research/benchmarks/plastic-collapse": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/benchmarks/riks-crisfield": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/fracture/shauer-2025": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr"
+    ],
+    "/research/benchmarks/shell-obstacle-course": [
+      "en"
+    ]
+  }
+}

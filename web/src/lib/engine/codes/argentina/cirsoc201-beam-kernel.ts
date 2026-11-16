@@ -11,12 +11,17 @@
  * answers `null`: the verifier reports the member as not verifiable, never with a capacity
  * this module made up.
  */
+import { memoizeNumericInput } from './cirsoc201-engine';
 import type { RegulationEdition } from '../../../codes/regulation';
 
 export type Cirsoc201BeamKernel = (data: Float64Array) => Float64Array;
 
 let kernel: Cirsoc201BeamKernel | null = null;
-export function registerCirsoc201BeamKernel(value: Cirsoc201BeamKernel | null): void { kernel = value; }
+let single: ((data: Float64Array) => BeamSectionAnswer) | null = null;
+export function registerCirsoc201BeamKernel(value: Cirsoc201BeamKernel | null): void {
+  kernel = value;
+  single = value && memoizeNumericInput(data => unpackSections(value(data), 1)[0]!, IN, answer => ({ ...answer }));
+}
 export function cirsoc201BeamKernelAvailable(): boolean { return kernel !== null; }
 
 /** One section, SI units (Pa, m, m², N). Absent optional quantities are 0. */
@@ -54,16 +59,24 @@ const OUT = 16;
 export function evaluateBeamSections(queries: readonly BeamSectionQuery[]): BeamSectionAnswer[] | null {
   if (!kernel) return null;
   const data = new Float64Array(queries.length * IN);
-  queries.forEach((q, i) => {
-    data.set([
-      q.edition === '2005' ? 2005 : 2025, q.fc, q.fy, q.es ?? 0, q.b, q.h, q.d,
-      q.As, q.AsComp ?? 0, q.dPrime ?? 0, q.Av ?? 0, q.s ?? 0, q.fyt ?? 0, q.Ag ?? 0, q.NuCompression ?? 0,
-      q.bf ?? 0, q.hf ?? 0,
-    ], i * IN);
-  });
-  const out = kernel(data);
-  if (out.length !== queries.length * OUT) throw new Error('cirsoc201_beam_batch: unexpected output length');
-  return queries.map((_, i) => {
+  queries.forEach((q, i) => packSection(q, data, i * IN));
+  if (queries.length === 1) return [single!(data)];
+  return unpackSections(kernel(data), queries.length);
+}
+
+function packSection(q: BeamSectionQuery, data: Float64Array, offset: number): void {
+  data[offset++] = q.edition === '2005' ? 2005 : 2025;
+  data[offset++] = q.fc; data[offset++] = q.fy; data[offset++] = q.es ?? 0;
+  data[offset++] = q.b; data[offset++] = q.h; data[offset++] = q.d;
+  data[offset++] = q.As; data[offset++] = q.AsComp ?? 0; data[offset++] = q.dPrime ?? 0;
+  data[offset++] = q.Av ?? 0; data[offset++] = q.s ?? 0; data[offset++] = q.fyt ?? 0;
+  data[offset++] = q.Ag ?? 0; data[offset++] = q.NuCompression ?? 0;
+  data[offset++] = q.bf ?? 0; data[offset] = q.hf ?? 0;
+}
+
+function unpackSections(out: Float64Array, count: number): BeamSectionAnswer[] {
+  if (out.length !== count * OUT) throw new Error('cirsoc201_beam_batch: unexpected output length');
+  return Array.from({ length: count }, (_, i) => {
     const r = out.subarray(i * OUT, (i + 1) * OUT);
     return {
       phiMn: r[0], a: r[1], c: r[2], epsilonT: r[3], phi: r[4], fsTension: r[5], fsComp: r[6], epsilonTMin: r[7],
@@ -74,5 +87,8 @@ export function evaluateBeamSections(queries: readonly BeamSectionQuery[]): Beam
 }
 
 export function evaluateBeamSection(q: BeamSectionQuery): BeamSectionAnswer | null {
-  return evaluateBeamSections([q])?.[0] ?? null;
+  if (!single) return null;
+  const data = new Float64Array(IN);
+  packSection(q, data, 0);
+  return single(data);
 }
