@@ -3,8 +3,9 @@ import { defaultRegulations } from '../../../codes/roles';
 import { buildLoadPlan, levelsWithPlanArea, type LoadPlanInput, type PlanSink } from '../load-plan';
 import { planWind } from '../load-plan-wind';
 import { otherStructureWind } from '../wind-other';
+import { windLoadCases } from '../wind-cases';
 import { windHeightField, windHeightLoads } from '../wind-pressure-field';
-import { mesh, windProject, windResultants } from './wind-integration-fixture';
+import { mesh, windAxis, windProject, windResultants } from './wind-integration-fixture';
 
 const neck = 1e-7;
 const source = () => mesh([-1, 1].flatMap(side => [[[0, side, 0], [0, side * neck, 6]], [[0, side * neck, 6], [0, side, 10]]]));
@@ -16,6 +17,7 @@ for (const sign of [-1, 1]) it(`#2220 eccentric transfer cannot skip a narrow ne
   expect([...new Set(loads.map(p => p.elementId))].sort()).toEqual([1, 2, 3, 4]);
   expect(windResultants(model, loads)[0]).toBeCloseTo(sign * 10 * (1 + neck), 10);
   expect(() => windHeightLoads(field, 1, 0, 1)).toThrow('wind.pressure.distributedTorqueUnsupported');
+  expect(() => windLoadCases({ model, axes: [{ ...windAxis, pressureField: field }], set: 'all', directions: ['+x'], tributaryWidth: 2, speed: windProject.basicSpeed })).toThrow('wind.pressure.distributedTorqueUnsupported');
 });
 
 it('#2220 solid sign eccentric cases refuse a narrow neck', () => {
