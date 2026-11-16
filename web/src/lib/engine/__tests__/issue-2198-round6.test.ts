@@ -1,7 +1,6 @@
 import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 import { syntheticBeamContext } from '../design/__tests__/helpers';
 import { buildStirrupOptions, BEAM_LIMITS } from '../design/candidate-enumerate-beam';
 import { buildTieOptions, COLUMN_LIMITS } from '../design/candidate-enumerate-column';
@@ -37,7 +36,7 @@ for (const kind of ['beam', 'wall'] as const) for (const edition of ['2005', '20
 }
 
 for (const diameters of [[6, 8, 12], [12, 8, 6], [8, 8, 8]]) {
-  knownWrong(`known wrong result: #2198 torsion uses each cage secondary depth ${diameters}`, () => {
+  it(`known wrong result: #2198 torsion uses each cage secondary depth ${diameters}`, () => {
     const cages = diameters.map(diameter => ({ diameter, legs: 4, secondaryLegs: 2, spacing: 0.1 }));
     const st = stations(260, 10);
     const result = verifyProvidedReinforcement(1, 'beam', { regions: { bottomSpan: bars, topStart: bars, topEnd: bars, stirrupsStart: cages[0], stirrupsSpan: cages[1], stirrupsEnd: cages[2] } }, undefined, {}, section, st, undefined, { axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 0 } });
@@ -88,15 +87,15 @@ import { solve, solvePDelta, solve3D, solvePDelta3D } from '../wasm-solver';
 import { computeStationDemands, setCompactStationTransfer } from '../verification-service';
 
 afterEach(() => setCompactStationTransfer(true));
-for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  knownWrong(`known wrong result: #2198 solved actual-cage depth ${spatial} ${nonlinear} ${compact}`, () => {
+for (const edition of ['2005', '2025'] as const) for (const spatial of [false, true]) for (const primary of spatial ? [false, true] : [true]) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
+  it(`known wrong result: #2198 solved actual-cage depth ${edition} ${spatial} ${primary} ${nonlinear} ${compact}`, () => {
     const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0.04, y: 0, z: 0 }]]);
     const elements = new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, hingeStart: false, hingeEnd: false, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]);
     const sections = new Map([[1, { id: 1, name: 'RC', ...section, a: section.b * section.h, iy: section.b * section.h ** 3 / 12, iz: section.h * section.b ** 3 / 12, j: 0.001 }]]);
     const materials = new Map([[1, { id: 1, name: 'H25', fc: section.fc, fy: section.fy, e: 25000, nu: 0.2 }]]);
     const model = { nodes, elements, sections, materials, supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' as const }]]) };
     const spatialElements = new Map([...elements].map(([id, { hingeStart, hingeEnd, ...e }]) => [id, e]));
-    const solver3D = { nodes, elements: spatialElements, sections, materials, supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]), loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fy: 1, fz: 0, mx: 0, my: 0, mz: 0 } }] };
+    const solver3D = { nodes, elements: spatialElements, sections, materials, supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]), loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fy: primary ? 0 : 1, fz: primary ? 1 : 0, mx: 0, my: 0, mz: 0 } }] };
     const planarNodes = new Map([...nodes].map(([id, { x, z }]) => [id, { id, x, z }]));
     const planarElements = new Map([...elements].map(([id, e]) => [id, { id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ, sectionId: e.sectionId, materialId: e.materialId, hingeStart: false, hingeEnd: false }]));
     const solver2D = { ...model, nodes: planarNodes, elements: planarElements, loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fz: 1, my: 0 } }] };
@@ -110,11 +109,11 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
       return { ...stations(0), comboResults: [{ comboId: 1, comboName: 'C1', stations: [0, 0.5, 1].map(t => ({ t, x: f.length * t, n: 0, my: 0, mz: 0, vy: 0, vz: t ? f.vEnd : f.vStart, torsion: 0 })) }] };
     })();
     const cage = { diameter: 12, legs: 4, secondaryLegs: 4, spacing: 0.1 };
-    const result = verifyProvidedReinforcement(1, 'beam', { bottom: bars, top: bars, stirrups: cage }, undefined, {}, section, st, undefined, { axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 0 } });
-    const rows = result.checks.filter(c => c.demandCategory === (spatial ? 'Vy' : 'Vz') && c.limiting === 'shear');
+    const result = verifyProvidedReinforcement(1, 'beam', { bottom: bars, top: bars, stirrups: cage }, undefined, {}, section, st, undefined, { axes, spacingRule: { edition, maxAggregateSizeMm: 0 } });
+    const rows = result.checks.filter(c => c.demandCategory === (spatial && !primary ? 'Vy' : 'Vz') && c.limiting === 'shear');
     expect(rows.length).toBeGreaterThan(0);
     const depth = 0.4 - section.cover - cage.diameter / 1000 - bars.diameter / 2000;
-    for (const r of rows) { expect(r.capacity).toBe(+capacity(12, 4, 0.1, 0.4, depth).toFixed(2)); expect(r.status).toBe('ok'); }
+    for (const r of rows) { expect(r.capacity).toBe(+capacity(12, 4, 0.1, 0.4, depth, edition).toFixed(2)); expect(r.status).toBe('ok'); }
   });
 }
 

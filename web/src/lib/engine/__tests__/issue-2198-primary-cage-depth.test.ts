@@ -5,7 +5,6 @@ import { syntheticBeamContext } from '../design/__tests__/helpers';
 import { cirsoc201Adapter2005, cirsoc201Adapter2025 } from '../design/adapters/cirsoc201-adapter';
 import { buildStirrupOptions } from '../design/candidate-enumerate-beam';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 const section = { b: 0.4, h: 0.4, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const bars = { count: 4, diameter: 16 };
 const capacity = (diameter: number, legs: number, spacing: number, depth: number, edition: '2005' | '2025') => {
@@ -19,10 +18,10 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
   for (const kind of ['beam', 'wall'] as const) for (const entry of ['direct', 'adapter'] as const)
     for (const layout of ['global', 'shared', 'ends'] as const) for (const diameter of [6, 8, 12])
       for (const factor of [0.999, 1, 1.001]) for (const shift of [0, 0.01]) {
-        knownWrong(`known wrong result: #2198 primary uses actual cage ${edition} ${axis} ${kind} ${entry} ${layout} ${diameter} ${factor} ${shift}`, () => {
+        it(`known wrong result: #2198 primary uses actual cage ${edition} ${axis} ${kind} ${entry} ${layout} ${diameter} ${factor} ${shift}`, () => {
           const ctx = syntheticBeamContext({ elementType: kind, codeEdition: edition });
           ctx.section = { ...ctx.section, ...section };
-          ctx.material = { ...ctx.material, ...section, maxAggregateSize: { value: 0, source: 'explicit' } };
+          ctx.material = { ...ctx.material, ...section, maxAggregateSize: { value: 0, origin: 'project', refs: [] } };
           ctx.axes = { ...ctx.axes, bFlex: section.b, hFlex: section.h, ...(axis === 'Mz' ? {
             flexure: 'Mz', shear: 'Vy', secondaryFlexure: 'My', secondaryShear: 'Vz', sagCategory: 'Mz+', hogCategory: 'Mz-',
           } : {}) };
@@ -55,12 +54,12 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       }
 
 for (const edition of ['2005', '2025'] as const) {
-  knownWrong(`known wrong result: #2198 generated cage may differ from nominal diameter ${edition}`, () => {
+  it(`known wrong result: #2198 generated cage may differ from nominal diameter ${edition}`, () => {
     const ctx = syntheticBeamContext({ codeEdition: edition });
     ctx.section = { ...ctx.section, ...section };
     ctx.axes = { ...ctx.axes, bFlex: section.b, hFlex: section.h };
-    ctx.material = { ...ctx.material, ...section, stirrupDiametersMm: [12], maxAggregateSize: { value: 0, source: 'explicit' } };
-    const cage = buildStirrupOptions(ctx, 1)[0]!;
+    ctx.material = { ...ctx.material, ...section, stirrupDiametersMm: [12], maxAggregateSize: { value: 0, origin: 'project', refs: [] } };
+    const cage = buildStirrupOptions({ ...ctx, codeEdition: '2025' }, 1)[0]!;
     expect(cage.diameter).toBe(12);
     expect(cage.diameter).not.toBe(ctx.material.stirrupDia);
     const expected = capacity(cage.diameter, cage.legs, cage.spacing,
@@ -72,7 +71,48 @@ for (const edition of ['2005', '2025'] as const) {
     const rows = result.checks.filter(c => c.demandCategory === ctx.axes.shear && c.limiting === 'shear');
     expect(rows).toHaveLength(2);
     for (const row of rows) {
+      expect(row.status).toBe('fail');
       expect(row.capacity).toBe(expected);
+    }
+  });
+}
+
+for (const diameter of [6, 8, 12]) for (const factor of [0.999, 1, 1.001]) {
+  it(`known wrong result: #2198 actual cage primary spacing boundary ${diameter} ${factor}`, () => {
+    const depth = section.h - section.cover - diameter / 1000 - bars.diameter / 2000;
+    const cage = { diameter, legs: 4, spacing: depth / 2 * factor };
+    const stations = { elementId: 1, length: 6, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'C1',
+      stations: [0, 0.5, 1].map(t => ({ t, x: 6 * t, n: 0, my: 0, mz: 0, vy: 0, vz: 1, torsion: 0 })),
+    }] };
+    const result = verifyProvidedReinforcement(1, 'beam', { bottom: bars, top: bars, stirrups: cage }, undefined, {}, section, stations,
+      undefined, { axes: { ...syntheticBeamContext().axes, bFlex: section.b, hFlex: section.h }, spacingRule: { edition: '2025', maxAggregateSizeMm: 0 } });
+    const rows = result.checks.filter(c => c.category.includes('Shear') && c.unit === 'cm');
+    expect(rows).toHaveLength(factor > 1 ? 2 : 0);
+    for (const row of rows) {
+      expect(row.status).toBe('fail');
+      expect(row.ratio).toBe(+factor.toFixed(3));
+    }
+    const strength = result.checks.filter(c => c.demandCategory === 'Vz' && c.limiting === 'shear');
+    expect(strength).toHaveLength(2);
+    for (const row of strength) expect(row.status).toBe('ok');
+  });
+}
+
+for (const diameter of [6, 8, 12]) {
+  it(`missing bottom bars retain incomplete arrangement shear check ${diameter}`, () => {
+    const cage = { diameter, legs: 4, spacing: 0.1 };
+    const stations = { elementId: 1, length: 6, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'C1',
+      stations: [0, 0.5, 1].map(t => ({ t, x: 6 * t, n: 0, my: 0, mz: 0, vy: 0, vz: 1, torsion: 0 })),
+    }] };
+    const result = verifyProvidedReinforcement(1, 'beam', { top: bars, stirrups: cage }, undefined, {}, section, stations);
+    const rows = result.checks.filter(c => c.demandCategory === 'Vz' && c.limiting === 'shear');
+    expect(rows).toHaveLength(2);
+    for (const row of rows) expect(row.capacity).toBe(capacity(diameter, 4, 0.1, 0.9 * section.h, '2025'));
+    const missing = verifyProvidedReinforcement(1, 'beam', { bottom: bars, top: bars }, undefined, {}, section, stations);
+    const refusals = missing.checks.filter(c => c.demandCategory === 'Vz' && c.limiting === 'shear');
+    expect(refusals).toHaveLength(2);
+    for (const row of refusals) {
+      expect(row.capacity).toBe(0);
       expect(row.status).toBe('fail');
     }
   });

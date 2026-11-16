@@ -2206,12 +2206,16 @@ export function verifyProvidedReinforcement(
     const dTopEnd = section.h - topEndCentroid;
     const dPrimeFromTop = topStartCentroid;
     const dPrimeFromBottom = bottomCentroid;
-    // Shear d falls back to a nominal 0.9h when no bottom steel exists yet, so the
-    // shear check still runs (and can still fail) on an incomplete arrangement.
-    const d = bottomLayers.length > 0 ? dBottom : 0.9 * section.h;
     const sideDiameters = [...bottomLayers, ...topStartLayers, ...topEndLayers].filter(layer => layer.count > 0).map(layer => layer.diameter);
     const sideBarDiameter = sideDiameters.length ? Math.max(...sideDiameters) : ASSUMED_FLEXURE_BAR_DIA_MM;
-    const secondaryDepthFor = (cage: StirrupDef | undefined) => section.b - layerCentroid([{ count: 1, diameter: sideBarDiameter, row: 0 }], section.cover, cage?.diameter ?? section.stirrupDia);
+    const shearDepthsFor = (cage: StirrupDef | undefined) => {
+      const diameter = cage?.diameter ?? section.stirrupDia;
+      const depthFor = (height: number, layers: RebarLayer[], shift = 0) => height - layerCentroid(layers, section.cover, diameter) - shift;
+      return {
+        primary: bottomLayers.length > 0 ? depthFor(section.h, bottomLayers, bottomShift) : 0.9 * section.h,
+        secondary: depthFor(section.b, [{ count: 1, diameter: sideBarDiameter, row: 0 }]),
+      };
+    };
 
     const userT = reg?.regionT;
     const tStartEnd = critSections ? critSections.start.tCritShear : (userT ?? 0.25);
@@ -2627,21 +2631,20 @@ export function verifyProvidedReinforcement(
     // ─── Shear: support and span regions, on the GOVERNING shear axis ───
     // ρw of the tension steel in each region, for row (c): the top at the supports (the smaller
     // end, conservatively), the bottom along the span.
-    const rhoOf = (cm2: number) => cm2 / (section.b * d * 1e4);
-    const rhoSupport = rhoOf(Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers)));
-    const rhoSpan = rhoOf(layersTotalArea(bottomLayers));
-    const supportSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number]; rhoW: number }> = reg?.stirrupsStart || reg?.stirrupsEnd ? [
-      { label: 'Support Start', stir: reg.stirrupsStart ?? stirSupport, tuples: startTuples, range: [0, tStartEnd], rhoW: rhoSupport },
-      { label: 'Support End', stir: reg.stirrupsEnd ?? stirSupport, tuples: endTuples, range: [tEndStart, 1], rhoW: rhoSupport },
-    ] : [{ label: 'Support', stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], rhoW: rhoSupport }];
-    const shearSpecs = [...supportSpecs, { label: 'Span', stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart] as [number, number], rhoW: rhoSpan }]
+    const supportSteel = Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers));
+    const spanSteel = layersTotalArea(bottomLayers);
+    const supportSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number]; steelArea: number }> = reg?.stirrupsStart || reg?.stirrupsEnd ? [
+      { label: 'Support Start', stir: reg.stirrupsStart ?? stirSupport, tuples: startTuples, range: [0, tStartEnd], steelArea: supportSteel },
+      { label: 'Support End', stir: reg.stirrupsEnd ?? stirSupport, tuples: endTuples, range: [tEndStart, 1], steelArea: supportSteel },
+    ] : [{ label: 'Support', stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], steelArea: supportSteel }];
+    const shearSpecs = [...supportSpecs, { label: 'Span', stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart] as [number, number], steelArea: spanSteel }]
       .flatMap(ss => (['primary', 'secondary'] as const).map(direction => {
         const primary = direction === 'primary';
         const axis = primary ? axes.shear : axes.secondaryShear;
-        const dSecondary = secondaryDepthFor(ss.stir);
-        const depth = primary ? d : dSecondary;
+        const depths = shearDepthsFor(ss.stir);
+        const depth = depths[direction];
         return { ...ss, label: `Shear ${ss.label} (${axis})`, direction, axis, read: primary ? V : V2,
-          width: primary ? section.b : section.h, depth, dSecondary, height: primary ? section.h : section.b, rhoW: primary ? ss.rhoW : 0 };
+          width: primary ? section.b : section.h, depth, dSecondary: depths.secondary, height: primary ? section.h : section.b, rhoW: primary ? ss.steelArea / (section.b * depth * 1e4) : 0 };
       }));
     /*
      * CIRSOC 201-2025 §9.6.3.1 and Tabla 9.6.3.1: a beam «de poca altura» (h ≤ 250 mm) is exempt

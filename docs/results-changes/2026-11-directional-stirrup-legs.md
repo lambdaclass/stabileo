@@ -108,3 +108,5 @@ counts and omitted checks, including two-primary/two-secondary cages.
 Round 7 also corrects missing secondary counts without a spacing seed, candidate-diameter spacing seeds and overridden seismic fallback cages. See the [round-7 results record](2198-round7-candidates.md).
 
 Round 9 limits secondary shear distribution checks to nonzero checked secondary shear while retaining the outer-leg torsion provision. It also strengthens fallback end-cage capacity assertions and restores safety warnings in five translations. See the [round-9 results record](2198-round9-pure-torsion.md).
+
+Round 10 also corrects primary shear depth when an actual cage differs from the nominal diameter, including an inherited main error. See [primary shear and actual cage geometry](2198-round10-primary-depth.md).
