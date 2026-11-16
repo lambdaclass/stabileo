@@ -89,7 +89,12 @@ export interface RcSheetsData {
   adoptedCode?: SheetCode;
   /** The proposals were adopted with the seismic provisions applying: with them off, or on when this is absent, those not edited by hand are designed again. */
   adoptedSeismic?: true;
+  /** The version of the proposals' logic they were adopted under (`RC_SHEETS_LOGIC`): under another, those not edited by hand are designed again. Absent: before any. */
+  adoptedLogic?: number;
 }
+
+/** Raised whenever what the proposals propose changes, so the proposals adopted before it are proposed again. */
+export const RC_SHEETS_LOGIC = 1;
 
 export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });
 

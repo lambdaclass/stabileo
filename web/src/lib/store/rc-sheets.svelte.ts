@@ -25,7 +25,7 @@ import type { ColumnRow } from '../rc-sheets/column-row';
 import type { SlabRow } from '../rc-sheets/slab-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import { makeFmt, type Fmt } from '../rc-sheets/format';
-import { defaultRcSheetsData, SHEET_CODES, SLAB_MESH_DIAMETERS, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
+import { defaultRcSheetsData, RC_SHEETS_LOGIC, SHEET_CODES, SLAB_MESH_DIAMETERS, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 
 export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow | FootingRow;
@@ -64,8 +64,8 @@ export function rcSheetsData(): RcSheetsData {
 const seismicIn = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): boolean => d.seismic === true && rulesFor(code).seismic;
 
 /** What adopted proposals hold under: the code and whether the seismic provisions apply. */
-const adoptionStamp = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): Pick<RcSheetsData, 'adoptedCode' | 'adoptedSeismic'> =>
-  ({ adoptedCode: code, adoptedSeismic: seismicIn(d, code) ? true : undefined });
+const adoptionStamp = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): Pick<RcSheetsData, 'adoptedCode' | 'adoptedSeismic' | 'adoptedLogic'> =>
+  ({ adoptedCode: code, adoptedSeismic: seismicIn(d, code) ? true : undefined, adoptedLogic: RC_SHEETS_LOGIC });
 
 function save(next: RcSheetsData): void {
   patchOwnDesignData({ rcSheets: next });
@@ -91,9 +91,9 @@ export function adoptAll(rows: ReadonlyArray<{ key: string; proposed: unknown }>
   save({ ...d, adopted, ...adoptionStamp(d, sheetCode()) });
 }
 
-/** The adopted bars that hold under `code`: those set by hand always, the adopted proposals only under the code and seismic option they were adopted for. */
+/** The adopted bars that hold under `code`: those set by hand always, the adopted proposals only under the code, seismic option and proposals' logic they were adopted for. */
 export function liveAdopted(d: RcSheetsData, code: SheetCode): Record<string, Adopted> {
-  if (!d.adoptedCode || (d.adoptedCode === code && (d.adoptedSeismic === true) === seismicIn(d, code))) return d.adopted;
+  if (!d.adoptedCode || (d.adoptedCode === code && (d.adoptedSeismic === true) === seismicIn(d, code) && d.adoptedLogic === RC_SHEETS_LOGIC)) return d.adopted;
   const edited = new Set(d.edited ?? []);
   return Object.fromEntries(Object.entries(d.adopted).filter(([k]) => edited.has(k)));
 }
