@@ -1,0 +1,9 @@
+{
+  "source": "replay.json: `cargo run --release --bin replay -- reference-results/replay.json` (this crate). python_highs.json: `python -I reference/arch_limit.py --out <dir> --kinematic-max-n 40`, an independent implementation of the same model with SciPy's HiGHS, Python 3.9.6, NumPy 2.0.2, SciPy 1.13.1. rizzi2010_table1.json: Table 1 (p. 469) of Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, transcribed by hand.",
+  "platform": "rustc 1.99.1, Darwin arm64, 2026-11-16",
+  "files_sha256": {
+    "replay.json": "79b33a9a5760b807419e5dce96b07cc7ee2cab99d111ae7737560f5d766de868",
+    "python_highs.json": "fec9442949f3fa8a8e93ac407ca61f308b2e09f815c6f6260cad8eab7bf6a1bb",
+    "rizzi2010_table1.json": "5406f93f1aef631b09a821b07000d57968abf032c613323e15b8876af31bde95"
+  }
+}

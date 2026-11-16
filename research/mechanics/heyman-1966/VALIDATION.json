@@ -1,0 +1,502 @@
+{
+  "checks": [
+    {
+      "computed": 0.022848793411139923,
+      "id": "milankovitch-60-eta",
+      "metric": "α = 60°, true voussoir weights against Milankovitch: least thickness t/r, relative difference (1066 voussoirs)",
+      "observed": 4.664944924044572e-6,
+      "passed": true,
+      "reference": 0.0228489,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "computed": 39.46060302779092,
+      "id": "milankovitch-60-beta",
+      "metric": "α = 60°, true voussoir weights against Milankovitch: haunch hinge angle from the crown, degrees",
+      "observed": 3.027790917542461e-6,
+      "passed": true,
+      "reference": 39.4606,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.01
+    },
+    {
+      "computed": 0.8250517041316154,
+      "id": "milankovitch-60-h",
+      "metric": "α = 60°, true voussoir weights against Milankovitch: H/(w r), relative difference",
+      "observed": 3.586057419047089e-7,
+      "passed": true,
+      "reference": 0.825052,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "id": "milankovitch-60-hinges",
+      "metric": "α = 60°, true voussoir weights against Milankovitch: five hinges, symmetric, extrados at the crown and springings (0 = yes)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "computed": 0.02284808595904906,
+      "id": "ccr-60-eta",
+      "metric": "α = 60°, weight on the centreline against CCR: least thickness t/r, relative difference (1066 voussoirs)",
+      "observed": 4.9912444279869425e-6,
+      "passed": true,
+      "reference": 0.0228482,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "computed": 39.46080161577445,
+      "id": "ccr-60-beta",
+      "metric": "α = 60°, weight on the centreline against CCR: haunch hinge angle from the crown, degrees",
+      "observed": 1.6157744511247074e-6,
+      "passed": true,
+      "reference": 39.4608,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.01
+    },
+    {
+      "computed": 0.8250943725532981,
+      "id": "ccr-60-h",
+      "metric": "α = 60°, weight on the centreline against CCR: H/(w r), relative difference",
+      "observed": 4.5152830841124087e-7,
+      "passed": true,
+      "reference": 0.825094,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "id": "ccr-60-hinges",
+      "metric": "α = 60°, weight on the centreline against CCR: five hinges, symmetric, extrados at the crown and springings (0 = yes)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "computed": 0.1074779496089832,
+      "id": "milankovitch-90-eta",
+      "metric": "α = 90°, true voussoir weights against Milankovitch: least thickness t/r, relative difference (1600 voussoirs)",
+      "observed": 4.6884959530050853e-7,
+      "passed": true,
+      "reference": 0.107478,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "computed": 54.483960247866406,
+      "id": "milankovitch-90-beta",
+      "metric": "α = 90°, true voussoir weights against Milankovitch: haunch hinge angle from the crown, degrees",
+      "observed": 0.00003975213359552754,
+      "passed": true,
+      "reference": 54.484,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.01
+    },
+    {
+      "computed": 0.6208811677868875,
+      "id": "milankovitch-90-h",
+      "metric": "α = 90°, true voussoir weights against Milankovitch: H/(w r), relative difference",
+      "observed": 2.7024000975222227e-7,
+      "passed": true,
+      "reference": 0.620881,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "id": "milankovitch-90-hinges",
+      "metric": "α = 90°, true voussoir weights against Milankovitch: five hinges, symmetric, extrados at the crown and springings (0 = yes)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "computed": 0.10742628827538286,
+      "id": "ccr-90-eta",
+      "metric": "α = 90°, weight on the centreline against CCR: least thickness t/r, relative difference (1600 voussoirs)",
+      "observed": 2.6834787004109906e-6,
+      "passed": true,
+      "reference": 0.107426,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "computed": 54.49633249528597,
+      "id": "ccr-90-beta",
+      "metric": "α = 90°, weight on the centreline against CCR: haunch hinge angle from the crown, degrees",
+      "observed": 0.00003249528597137896,
+      "passed": true,
+      "reference": 54.4963,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.01
+    },
+    {
+      "computed": 0.6217714374656927,
+      "id": "ccr-90-h",
+      "metric": "α = 90°, weight on the centreline against CCR: H/(w r), relative difference",
+      "observed": 9.047276288524451e-7,
+      "passed": true,
+      "reference": 0.621772,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "id": "ccr-90-hinges",
+      "metric": "α = 90°, weight on the centreline against CCR: five hinges, symmetric, extrados at the crown and springings (0 = yes)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "computed": 0.3276064340114317,
+      "id": "milankovitch-120-eta",
+      "metric": "α = 120°, true voussoir weights against Milankovitch: least thickness t/r, relative difference (2134 voussoirs)",
+      "observed": 1.727644916899546e-6,
+      "passed": true,
+      "reference": 0.327607,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "computed": 63.74019990245577,
+      "id": "milankovitch-120-beta",
+      "metric": "α = 120°, true voussoir weights against Milankovitch: haunch hinge angle from the crown, degrees",
+      "observed": 9.754423047070304e-8,
+      "passed": true,
+      "reference": 63.7402,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.01
+    },
+    {
+      "computed": 0.3422627808649677,
+      "id": "milankovitch-120-h",
+      "metric": "α = 120°, true voussoir weights against Milankovitch: H/(w r), relative difference",
+      "observed": 6.402533498702892e-7,
+      "passed": true,
+      "reference": 0.342263,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "id": "milankovitch-120-hinges",
+      "metric": "α = 120°, true voussoir weights against Milankovitch: five hinges, symmetric, extrados at the crown and springings (0 = yes)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "computed": 0.326546618759494,
+      "id": "ccr-120-eta",
+      "metric": "α = 120°, weight on the centreline against CCR: least thickness t/r, relative difference (2134 voussoirs)",
+      "observed": 1.1674904561908352e-6,
+      "passed": true,
+      "reference": 0.326547,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "computed": 64.00723685618377,
+      "id": "ccr-120-beta",
+      "metric": "α = 120°, weight on the centreline against CCR: haunch hinge angle from the crown, degrees",
+      "observed": 0.00003685618376891853,
+      "passed": true,
+      "reference": 64.0072,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.01
+    },
+    {
+      "computed": 0.3495563676884605,
+      "id": "ccr-120-h",
+      "metric": "α = 120°, weight on the centreline against CCR: H/(w r), relative difference",
+      "observed": 1.0518728344297883e-6,
+      "passed": true,
+      "reference": 0.349556,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "id": "ccr-120-hinges",
+      "metric": "α = 120°, weight on the centreline against CCR: five hinges, symmetric, extrados at the crown and springings (0 = yes)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "computed": 0.7639949121454264,
+      "id": "milankovitch-145-eta",
+      "metric": "α = 145°, true voussoir weights against Milankovitch: least thickness t/r, relative difference (2578 voussoirs)",
+      "observed": 1.149936499794395e-7,
+      "passed": true,
+      "reference": 0.763995,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "computed": 49.66981713472706,
+      "id": "milankovitch-145-beta",
+      "metric": "α = 145°, true voussoir weights against Milankovitch: haunch hinge angle from the crown, degrees",
+      "observed": 0.000017134727059442412,
+      "passed": true,
+      "reference": 49.6698,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.01
+    },
+    {
+      "computed": 0.039149025829277324,
+      "id": "milankovitch-145-h",
+      "metric": "α = 145°, true voussoir weights against Milankovitch: H/(w r), relative difference",
+      "observed": 1.8945703138716704e-6,
+      "passed": true,
+      "reference": 0.0391491,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "id": "milankovitch-145-hinges",
+      "metric": "α = 145°, true voussoir weights against Milankovitch: five hinges, symmetric, extrados at the crown and springings (0 = yes)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "computed": 0.7406376041093612,
+      "id": "ccr-145-eta",
+      "metric": "α = 145°, weight on the centreline against CCR: least thickness t/r, relative difference (2578 voussoirs)",
+      "observed": 5.34526501241949e-7,
+      "passed": true,
+      "reference": 0.740638,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "computed": 56.22715933762071,
+      "id": "ccr-145-beta",
+      "metric": "α = 145°, weight on the centreline against CCR: haunch hinge angle from the crown, degrees",
+      "observed": 0.00005933762071208548,
+      "passed": true,
+      "reference": 56.2271,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.01
+    },
+    {
+      "computed": 0.06817809788211553,
+      "id": "ccr-145-h",
+      "metric": "α = 145°, weight on the centreline against CCR: H/(w r), relative difference",
+      "observed": 3.106399971402414e-8,
+      "passed": true,
+      "reference": 0.0681781,
+      "source": "Rizzi, Cocchetti, Colasante & Rusconi (2010), doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+      "tolerance": 0.0001
+    },
+    {
+      "id": "ccr-145-hinges",
+      "metric": "α = 145°, weight on the centreline against CCR: five hinges, symmetric, extrados at the crown and springings (0 = yes)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "id": "python-eta",
+      "metric": "α = 90°, N = 10 to 201, both weight models: largest relative difference in t/r from the Python/HiGHS implementation",
+      "observed": 4.210949317571002e-6,
+      "passed": true,
+      "source": "reference-results/python_highs.json (reference/arch_limit.py, SciPy HiGHS)",
+      "tolerance": 0.00001
+    },
+    {
+      "id": "ring-bounds",
+      "metric": "ring under a quarter-span point load, N = 10 to 40: relative gap between the static multiplier and the smallest over every four-hinge mechanism",
+      "observed": 4.151405107580847e-14,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "id": "ring-python",
+      "metric": "ring under a quarter-span point load, N = 10 to 160: largest relative difference in the collapse load from the Python/HiGHS implementation",
+      "observed": 1.2822114736838402e-13,
+      "passed": true,
+      "source": "reference-results/python_highs.json (reference/arch_limit.py, SciPy HiGHS)",
+      "tolerance": 1e-6
+    },
+    {
+      "id": "ring-hinges",
+      "metric": "ring under a quarter-span point load, N = 10 to 160: cases whose hinge joints differ from the Python/HiGHS implementation",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "id": "replay",
+      "metric": "replay.json against a fresh run: differs (0 = identical)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    }
+  ],
+  "heyman_closed_form": [
+    {
+      "alpha": 60,
+      "beta": 40.7902,
+      "eta": 0.0227694,
+      "h": 0.825056,
+      "milankovitch_over_heyman": 0.0034868468707969225
+    },
+    {
+      "alpha": 90,
+      "beta": 58.8293,
+      "eta": 0.105965,
+      "h": 0.621113,
+      "milankovitch_over_heyman": 0.014277823894523589
+    },
+    {
+      "alpha": 120,
+      "beta": 75.292,
+      "eta": 0.314124,
+      "h": 0.344942,
+      "milankovitch_over_heyman": 0.042920738343557474
+    },
+    {
+      "alpha": 145,
+      "beta": 88.2735,
+      "eta": 0.661358,
+      "h": 0.0464391,
+      "milankovitch_over_heyman": 0.15519115538849815
+    }
+  ],
+  "least_thickness": [
+    {
+      "alpha": 60.0,
+      "ccr": {
+        "beta": 39.46080161577445,
+        "eta": 0.02284808595904906,
+        "h": 0.8250943725532981,
+        "hinges": 5
+      },
+      "milankovitch": {
+        "beta": 39.46060302779092,
+        "eta": 0.022848793411139923,
+        "h": 0.8250517041316154,
+        "hinges": 5
+      },
+      "n": 1066
+    },
+    {
+      "alpha": 90.0,
+      "ccr": {
+        "beta": 54.49633249528597,
+        "eta": 0.10742628827538286,
+        "h": 0.6217714374656927,
+        "hinges": 5
+      },
+      "milankovitch": {
+        "beta": 54.483960247866406,
+        "eta": 0.1074779496089832,
+        "h": 0.6208811677868875,
+        "hinges": 5
+      },
+      "n": 1600
+    },
+    {
+      "alpha": 120.0,
+      "ccr": {
+        "beta": 64.00723685618377,
+        "eta": 0.326546618759494,
+        "h": 0.3495563676884605,
+        "hinges": 5
+      },
+      "milankovitch": {
+        "beta": 63.74019990245577,
+        "eta": 0.3276064340114317,
+        "h": 0.3422627808649677,
+        "hinges": 5
+      },
+      "n": 2134
+    },
+    {
+      "alpha": 145.0,
+      "ccr": {
+        "beta": 56.22715933762071,
+        "eta": 0.7406376041093612,
+        "h": 0.06817809788211553,
+        "hinges": 5
+      },
+      "milankovitch": {
+        "beta": 49.66981713472706,
+        "eta": 0.7639949121454264,
+        "h": 0.039149025829277324,
+        "hinges": 5
+      },
+      "n": 2578
+    }
+  ],
+  "ring": [
+    {
+      "hinges": [
+        36.0,
+        90.0,
+        144.0,
+        180.0
+      ],
+      "kinematic": 4.283332241390594,
+      "n": 10,
+      "static": 4.283332241390428
+    },
+    {
+      "hinges": [
+        27.0,
+        81.0,
+        144.0,
+        180.0
+      ],
+      "kinematic": 3.749736210004731,
+      "n": 20,
+      "static": 3.749736210004662
+    },
+    {
+      "hinges": [
+        29.03225806451613,
+        81.29032258064517,
+        139.35483870967744,
+        180.0
+      ],
+      "kinematic": 3.7440630201012346,
+      "n": 31,
+      "static": 3.744063020101079
+    },
+    {
+      "hinges": [
+        31.5,
+        81.0,
+        144.0,
+        180.0
+      ],
+      "kinematic": 3.6444341271588114,
+      "n": 40,
+      "static": 3.6444341271589136
+    },
+    {
+      "hinges": [
+        31.5,
+        83.25,
+        141.75,
+        180.0
+      ],
+      "kinematic": null,
+      "n": 80,
+      "static": 3.5888079270293676
+    },
+    {
+      "hinges": [
+        31.5,
+        83.25,
+        142.875,
+        180.0
+      ],
+      "kinematic": null,
+      "n": 160,
+      "static": 3.5881477497845857
+    }
+  ],
+  "scope": "Rigid voussoirs with radial joints, no tension, unlimited compressive strength, no sliding; equilibrium checked at the joints. A numerical comparison with published analytical solutions and with an independent implementation, not a laboratory validation."
+}

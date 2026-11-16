@@ -1,0 +1,32 @@
+id: heyman-1966
+doi: 10.1016/0020-7683(66)90018-7
+scope: The plastic (limit-analysis) view of masonry the paper sets out, applied to the circular arch of rigid voussoirs; its least thickness under self-weight and the collapse load of a point load
+equations: |
+  Unknowns per joint j = 0..N: the force (Fx, Fy) the left part exerts on the right part and its moment M about the joint mid-point.
+  Per voussoir: F_{k-1} − F_k + W_k + λ P_k = 0 and the moment equation about the arch centre (three equations).
+  Per joint: n_j = F_j · t_j ≥ 0 (no tension), |M_j| ≤ n_j t/2 (resultant inside the joint). Hinges where |e| = |M|/n = t/2.
+  Equilibrium fixes every joint force once (Fx₀, Fy₀, M₀, λ) are chosen, so each problem is a linear program in four variables and 3(N+1) inequalities.
+  (a) least thickness: bisection on t/r; each step minimises the largest violation s of n ≥ −s, |M| ≤ (n + s) t/2 and is admissible when s ≤ 0.
+  (b) collapse multiplier of a point load: maximise λ.
+  Kinematic check: every four-hinge mechanism with alternating faces and admissible relative rotations; its smallest multiplier is the upper bound.
+assumptions:
+  - no tensile strength, unlimited compressive strength, no sliding (Heyman)
+  - rigid voussoirs with radial joints; the conditions are checked at the joints only
+  - two weight models, true voussoir weights and centroids (Milankovitch) or weight uniform along the centreline (Heyman, CCR)
+  - the point load is vertical and applied on the extrados above its abscissa; no backfill
+units: {self_weight: "r = 1, γ = d = 1; h = H/(w r) with w = γ t d", point_load: "m, kN"}
+experiments:
+  - name: least thickness under self-weight
+    inputs: {alpha_deg: [60, 90, 120, 145], weights: [true, centreline]}
+    mesh: {voussoirs: "2·round(800·α/90) (validation), 101 (page)"}
+    solver: {bisection_relative_width: 1.0e-12, lp: dual revised simplex, src/lp.rs}
+    references: [reference-results/rizzi2010_table1.json, reference-results/python_highs.json]
+  - name: ring under a point load at a quarter of the clear span
+    inputs: {inner_radius_m: 2.35, thickness_m: 0.30, depth_m: 1.0, gamma_kN_m3: 20, load_x_m: -1.175, weights: true}
+    mesh: {voussoirs: [10, 20, 31, 40, 80, 160]}
+    solver: {kinematic_enumeration_up_to: 40}
+    references: [reference-results/python_highs.json]
+environment: {rust: 1.99.1}
+excluded:
+  - Heyman's closed form, which imposes tangency on the resultant rather than the line of thrust; shown for comparison only
+  - sliding, finite compressive strength, backfill and the published 18 kN ring case (its backfill geometry is not available)
