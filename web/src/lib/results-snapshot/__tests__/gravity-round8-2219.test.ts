@@ -50,3 +50,30 @@ for (const [a, b] of [[-allowance, 0.49], [0.51, 1 + allowance], [-allowance, 4 
     for (const solve of solves) expect(() => solve(fixture(a!, b!, 'x'))).toThrow(/distributed moment span/);
   });
 }
+
+const round10 = process.env.RUN_KNOWN_WRONG === '2219-round10' ? it : it.skip;
+for (const axis of ['x', 'y', 'z'] as const) {
+  round10(`known wrong result: #2219 round10 WASM refuses subgeometry quadratic ${axis} support`, () => {
+    for (const [a, b] of [[0.5, 0.5 + Number.EPSILON / 2], [0, 1e-10 - 1e-26], [0.5, 0.5 + 5e-11]]) {
+      const s = fixture(a!, b!, axis), h = b! - a!;
+      s.loads[0].data.moments[axis] = [1 / h, -0.5 / h, 1 / h];
+      for (const solve of solves) expect(() => solve(s)).toThrow(/1e-10/);
+    }
+  });
+  round10(`known wrong result: #2219 round10 WASM retains local quadratic ${axis} extrema`, async () => {
+    const { compute_diagrams_3d } = await import('../../wasm/dedaliano_engine.js');
+    for (const [a, b] of [[0, 1e-10], [0, 1e-10 + 1e-26], [0.5, 0.5 + 1e-10], [0.5, 0.5 + 1e-8], [0.25, 0.75]]) {
+      const s = fixture(a!, b!, axis), h = b! - a!;
+      s.loads[0].data.moments[axis] = [1 / h, -0.5 / h, 1 / h];
+      for (const solve of solves) {
+        const result = solve(s), ef = result.elementForces[0]!;
+        const ds = JSON.parse(compute_diagrams_3d(JSON.stringify(result)));
+        const d = axis === 'x' ? ds.torsion[0] : axis === 'y' ? ds.momentY[0] : ds.momentZ[0];
+        const base = axis === 'x' ? ef.mxStart : axis === 'y' ? ef.myStart + ef.vzStart * a! : ef.mzStart - ef.vyStart * a!;
+        const peak = Math.sqrt(3) / 18;
+        expect(Math.abs(d.maxValue - base - peak)).toBeLessThan(1e-14);
+        expect(Math.abs(d.minValue - base + peak)).toBeLessThan(1e-14);
+      }
+    }
+  });
+}

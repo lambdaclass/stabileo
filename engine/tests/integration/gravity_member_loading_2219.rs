@@ -412,3 +412,51 @@ fn round8_representable_moment_support_has_identical_assembly_and_recovery_endpo
         assert!(linear::solve_3d(&round8_endpoint_model(a, b, "x")).is_err());
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round10_subgeometry_quadratic_moment_support_refuses_every_spatial_entry() {
+    for axis in ["x", "y", "z"] {
+        for (a, b) in [(0.5, 0.5_f64.next_up()), (0.0, 1e-10_f64.next_down()), (0.5, 0.5 + 5e-11)] {
+            let mut input = round8_endpoint_model(a, b, axis);
+            if let SolverLoad3D::Distributed(d) = &mut input.loads[0] {
+                let v = [1.0 / (b-a), -0.5 / (b-a), 1.0 / (b-a)];
+                let m = d.moments.as_mut().unwrap();
+                match axis { "x" => m.x=v, "y" => m.y=v, _ => m.z=v }
+            }
+            let mut unloaded=input.clone(); unloaded.loads.clear();
+            let prepared=linear::prepare_static_3d(&unloaded).unwrap();
+            for result in [linear::solve_3d(&input), prepared.solve_loads(&input.loads), pdelta::solve_pdelta_3d(&input,100,1e-10).map(|r|r.results), corotational::solve_corotational_3d(&input,100,1e-10,4,false).map(|r|r.results)] {
+                assert!(result.is_err(), "accepted {axis} [{a},{b}]");
+                assert!(result.unwrap_err().contains("1e-10"));
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round10_supported_quadratic_extrema_keep_local_parameter_values() {
+    use dedaliano_engine::postprocess::diagrams_3d::compute_diagrams_3d;
+    for axis in ["x", "y", "z"] {
+        for (a,b) in [(0.0,1e-10_f64), (0.0,1e-10_f64.next_up()), (0.5,0.5+1e-10), (0.5,0.5+1e-8), (0.25,0.75)] {
+            let mut input=round8_endpoint_model(a,b,axis);
+            if let SolverLoad3D::Distributed(d)=&mut input.loads[0] {
+                let v=[1.0/(b-a), -0.5/(b-a), 1.0/(b-a)];
+                let m=d.moments.as_mut().unwrap();
+                match axis {"x"=>m.x=v,"y"=>m.y=v,_=>m.z=v}
+            }
+            let mut unloaded=input.clone(); unloaded.loads.clear();
+            let prepared=linear::prepare_static_3d(&unloaded).unwrap();
+            for r in [linear::solve_3d(&input).unwrap(),prepared.solve_loads(&input.loads).unwrap(),pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results,corotational::solve_corotational_3d(&input,100,1e-10,4,false).unwrap().results] {
+                let ds=compute_diagrams_3d(&r);
+                let d=match axis {"x"=>&ds.torsion[0],"y"=>&ds.moment_y[0],_=>&ds.moment_z[0]};
+                let ef=&r.element_forces[0];
+                let base=match axis {"x"=>ef.mx_start,"y"=>ef.my_start+ef.vz_start*a,_=>ef.mz_start-ef.vy_start*a};
+                let peak=3.0_f64.sqrt()/18.0;
+                assert!((d.max_value-base-peak).abs()<1e-14,"{axis} [{a},{b}] max {} base {base}",d.max_value);
+                assert!((d.min_value-base+peak).abs()<1e-14,"{axis} [{a},{b}] min {} base {base}",d.min_value);
+            }
+        }
+    }
+}
