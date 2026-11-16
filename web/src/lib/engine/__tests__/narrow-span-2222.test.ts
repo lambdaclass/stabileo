@@ -100,6 +100,11 @@ it('#2222: WASM diagrams include collapsed loads at exact member endpoints', () 
         const v = dim === 2 ? f.vStart : axis === 'y' ? f.vyStart : f.vzStart;
         const m = dim === 2 ? f.mStart : axis === 'y' ? f.mzStart : f.myStart;
         const sign = axis === 'z' ? 1 : -1;
+        if (b === 3) {
+          const isolated = {...f, length:b, vStart:0, mStart:0, vyStart:0, vzStart:0, myStart:0, mzStart:0};
+          const value = (dim === 2 ? wasm.compute_diagram_value_at : wasm.compute_diagram_value_at_3d)(JSON.stringify({kind:moment, t:1, elementForces:isolated}));
+          endpointMomentNear(sign * value, -(b - a) / 2);
+        }
         expect(evaluate(shear,0)).toBeCloseTo(v,10);
         expect(evaluate(moment,0)).toBeCloseTo(m,10);
         expect(evaluate(shear,1)).toBeCloseTo(v-1,10);
@@ -108,4 +113,26 @@ it('#2222: WASM diagrams include collapsed loads at exact member endpoints', () 
       }
     }
   }
+});
+
+it.skip('#2222 WASM recovery skips reversed intervals in both spaces', () => {
+  for (const space of ['planar', 'spatial']) for (const gas of [null, 1700]) {
+    for (const width of [-1.5e-12, -1e-12, -5e-13, -Number.EPSILON, 0, Number.EPSILON, 5e-13, 1e-12, 1.5e-12, 0.5]) {
+      const a = 1.5, b = a + width, q = b === a ? -7 : -1 / Math.abs(b - a);
+      const base = {space, length:3, ei:1000, gas, vI:0, rI:0, vJ:0, rJ:0, positions:[0, 0.1, 0.3, 0.7, 0.9, 1]};
+      const recovered = JSON.parse(wasm.recover_member(JSON.stringify({...base, dist:[{qI:q, qJ:q, a, b}]})));
+      if (b <= a) expect(recovered).toEqual(JSON.parse(wasm.recover_member(JSON.stringify(base))));
+      else {
+        expect(recovered.some((s: any) => Math.abs(s.v) > 1e-6)).toBe(true);
+        expect(recovered.some((s: any) => Math.abs(s.rotation) > 1e-6)).toBe(true);
+      }
+    }
+  }
+});
+
+const endpointMomentNear = (actual: number, expected: number) => expect(actual).toBeCloseTo(expected, 10);
+
+it.skip('#2222 WASM endpoint moment assertion rejects omission', () => {
+  const width = 3 - (3 - 5e-13);
+  expect(() => endpointMomentNear(0, -width / 2)).toThrow();
 });

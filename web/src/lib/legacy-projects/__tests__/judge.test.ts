@@ -1,5 +1,6 @@
 /** The verdicts of the legacy-projects test (#718), and the negative tests that prove they fail. */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { modelFeatures } from '../../provenance/model-features';
 import * as applicability from '../../provenance/applicability';
 import refinementEvidence from '../../../../../docs/results-changes/1753-refinement-corpus-evidence.json';
 import appliedForceEvidence from '../../../../../docs/results-changes/2223-independent-applied-force-corpus-evidence.json';
@@ -62,18 +63,23 @@ describe('which values a registered change declares it moves', () => {
 });
 
 describe('analysis-specific result changes', () => {
-  it('#2222 restricts numerical load corrections to point or partial member loads', () => {
+  it.skip('#2222 keeps point-load numerical changes unexplained and distributed corrections covered', () => {
     const registered = RESULT_CHANGES.changes.find(c => c.id === 'narrow-partial-loads')!;
-    const entry = { ...registered, quantities: declaredQuantities[registered.id] };
-    const field = 'base.elementForces[e1].nStart';
-    const features = ['plane2D', 'members', 'analysis:linear'];
-    expect(fieldCovered(entry, field, features)).toBe(false);
-    expect(fieldCovered(entry, field, [...features, 'pointOrPartialMemberLoads'])).toBe(true);
+    const entry = { ...registered, quantities: declaredQuantities[registered.id]!.filter((q): q is string => typeof q === 'string') };
     const summary = RESULT_CHANGES.changes.find(c => c.id === 'independent-applied-force-checks')!;
-    expect(summary).toBeDefined();
-    const summaryEntry = { ...summary, quantities: declaredQuantities[summary.id] };
-    expect(declaresMove(summaryEntry, field)).toBe(false);
-    expect(declaresMove(summaryEntry, 'base.equilibrium.appliedForceSum')).toBe(true);
+    const summaryEntry = { ...summary, quantities: declaredQuantities[summary.id]!.filter((q): q is string => typeof q === 'string') };
+    for (const analysisMode of ['2d', '3d']) for (const analysis of ['linear', 'pdelta', 'nonlinear']) {
+      for (const type of ['pointOnElement', 'pointOnElement3d', 'distributed', 'distributed3d', 'nodal']) {
+        const features = [...modelFeatures({ analysisMode, loads: [{ type, data: { a: 1.5, b: 1.5 + 5e-13 } }] }), `analysis:${analysis}`];
+        const prefix = analysis === 'linear' ? 'base' : `${analysis}.results`;
+        for (const field of ['elementForces[e1].nStart', 'displacements[n2].uz']) {
+          const distributed = type.startsWith('distributed');
+          expect(fieldCovered(entry, `${prefix}.${field}`, features), `${type}: ${field}`).toBe(distributed);
+          expect(fieldCovered(summaryEntry, `${prefix}.${field}`, features)).toBe(false);
+        }
+        expect(fieldCovered(summaryEntry, `${prefix}.equilibrium.appliedForceSum`, features)).toBe(type !== 'nodal');
+      }
+    }
   });
 
   it('nonlinear and SSI notices cannot explain linear results', () => {

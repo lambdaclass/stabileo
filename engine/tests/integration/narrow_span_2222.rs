@@ -371,6 +371,13 @@ fn issue_2222_collapsed_endpoints_planar() {
             corotational::solve_corotational_2d(&input, 40, 1e-9, 1, false).unwrap().results,
         ] {
             let f = &result.element_forces[0];
+            if b == 3.0 {
+                let mut isolated = f.clone();
+                isolated.length = b;
+                isolated.v_start = 0.0;
+                isolated.m_start = 0.0;
+                endpoint_moment_near(-compute_diagram_value_at("moment", 1.0, &isolated), -(b - a) / 2.0);
+            }
             for t in [0.0, 1.0, b / f.length] {
                 let force = if t == 0.0 { 0.0 } else { -1.0 };
                 let moment = if t == 0.0 { 0.0 } else { -t * f.length + a + (b - a) / 2.0 };
@@ -393,6 +400,17 @@ fn issue_2222_collapsed_endpoints_spatial() {
                 corotational::solve_corotational_3d(&input, 40, 1e-9, 1, false).unwrap().results,
             ] {
                 let f = &result.element_forces[0];
+                if b == 3.0 {
+                    let mut isolated = f.clone();
+                    isolated.length = b;
+                    isolated.vy_start = 0.0;
+                    isolated.vz_start = 0.0;
+                    isolated.my_start = 0.0;
+                    isolated.mz_start = 0.0;
+                    let (loaded, unloaded, sign) = if matches!(plane, Plane::XY) { ("momentZ", "momentY", -1.0) } else { ("momentY", "momentZ", 1.0) };
+                    endpoint_moment_near(sign * evaluate_diagram_3d_at(&isolated, loaded, 1.0), -(b - a) / 2.0);
+                    assert_eq!(evaluate_diagram_3d_at(&isolated, unloaded, 1.0), 0.0);
+                }
                 for t in [0.0, 1.0, b / f.length] {
                     let force = if t == 0.0 { 0.0 } else { -1.0 };
                     let moment = if t == 0.0 { 0.0 } else { -t * f.length + a + (b - a) / 2.0 };
@@ -420,4 +438,56 @@ fn issue_2222_empty_reversed_and_one_sided_interval_terms() {
     assert_eq!(distributed_load_terms(q, q, a, b, at.next_down()).0, 0.0);
     assert_eq!(distributed_load_terms(q, q, a, b, at.next_up()).0, -1.0);
     assert_eq!(distributed_load_terms(-2.0, -2.0, 0.0, 3.0, 3.0), (-6.0, -9.0));
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_recovery_skips_empty_and_reversed_intervals() {
+    use dedaliano_engine::postprocess::diagrams::{recover_member, MemberRecoveryInput};
+    for space in ["planar", "spatial"] {
+        for gas in [None, Some(1700.0)] {
+            for width in [-1.5e-12, -1e-12, -5e-13, -f64::EPSILON, 0.0, f64::EPSILON, 5e-13, 1e-12, 1.5e-12, 0.5] {
+                let a = 1.5;
+                let b = a + width;
+                let q = if b == a { -7.0 } else { -1.0 / (b - a).abs() };
+                let base = serde_json::json!({"space":space,"length":3.0,"ei":1000.0,"gas":gas,"vI":0.0,"rI":0.0,"vJ":0.0,"rJ":0.0,"positions":[0.0,0.1,0.3,0.7,0.9,1.0]});
+                let mut loaded = base.clone();
+                loaded["dist"] = serde_json::json!([{"qI":q,"qJ":q,"a":a,"b":b}]);
+                let input: MemberRecoveryInput = serde_json::from_value(loaded).unwrap();
+                let samples = recover_member(&input).unwrap();
+                if b <= a {
+                    let empty: MemberRecoveryInput = serde_json::from_value(base).unwrap();
+                    for (actual, expected) in samples.iter().zip(recover_member(&empty).unwrap()) {
+                        assert_eq!(actual.v, expected.v, "{space}: [{a}, {b}]");
+                        assert_eq!(actual.rotation, expected.rotation, "{space}: [{a}, {b}]");
+                    }
+                    assert_eq!(distributed_load_terms(q, q, a, b, 3.0), (0.0, 0.0));
+                } else {
+                    assert!(samples.iter().any(|s| s.v.abs() > 1e-6));
+                    assert!(samples.iter().any(|s| s.rotation.abs() > 1e-6));
+                }
+            }
+        }
+    }
+}
+
+fn endpoint_moment_near(actual: f64, expected: f64) {
+    near(actual, expected);
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_endpoint_moment_assertion_rejects_omission() {
+    let a = 3.0 - 5e-13;
+    let b = 3.0;
+    let expected = -(b - a) / 2.0;
+    assert!(std::panic::catch_unwind(|| endpoint_moment_near(0.0, expected)).is_err());
+}
+
+#[test]
+fn issue_2222_isolated_endpoint_moment() {
+    let a = 3.0 - 5e-13;
+    let b = 3.0;
+    let q = -1.0 / (b - a);
+    endpoint_moment_near(distributed_load_terms(q, q, a, b, b).1, -(b - a) / 2.0);
 }
