@@ -36,8 +36,21 @@ const plan = (wind: Partial<NonNullable<LoadPlanInput['wind']>>, model = tower()
   reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: false,
   wind: { enabled: true, basicSpeed: 45, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, directions: { x: false, y: true }, senses: ['+y'], caseSet: 'case1', ...wind },
 }), testModel: model });
-const forces = (p: ReturnType<typeof plan>) => windEndResultants(p.testModel, p.distributed, p.nodal);
+const forces = (p: ReturnType<typeof plan>, caseIndex?: number) => windEndResultants(p.testModel, p.distributed, p.nodal);
 const yForce = (p: ReturnType<typeof plan>, nodeIds: number[]) => forces(p).filter((n) => n.caseType === 'W' && n.caseIndex !== undefined && p.cases[n.caseIndex]!.nameKey.startsWith('autoLoad.windCase1') && nodeIds.includes(n.nodeId)).reduce((s, n) => s + n.fy, 0);
+
+const round10 = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
+for (const selection of ['first', 'torsion', 'last', 'absent'] as const) round10(`known wrong result: #2220 resultants select only the requested case ${selection}`, () => {
+  const p = plan({ caseSet: 'all', directions: { x: true, y: true }, senses: ['+x', '+y'] }, tower(2));
+  const index = selection === 'first' ? 0 : selection === 'last' ? p.cases.length - 1 : selection === 'absent' ? p.cases.length : p.cases.findIndex(c => c.nameKey === 'autoLoad.windCase2');
+  expect(index).toBeGreaterThanOrEqual(0);
+  const expected = forces(p).filter(n => n.caseIndex === index);
+  if (selection !== 'absent') expect(expected.length).toBeGreaterThan(0);
+  else expect(expected).toEqual([]);
+  const actual = forces(p, index);
+  expect(actual).toHaveLength(expected.length);
+  expect(actual).toEqual(expected);
+});
 
 describe('a flexible building in the load plan', () => {
   it('a 60 m concrete frame by the approximate frequency: G_f 0,978 along Y, its level forces 1,151 times the rigid ones', () => {
