@@ -18,7 +18,8 @@ import type { ColumnRow } from './column-row';
 import type { SheetCode } from './types';
 
 export type TieZoneKind = 'end' | 'middle' | 'lap' | 'joint';
-export interface TieZone { kind: TieZoneKind; from: number; to: number; spacing: number; clause: string }
+/** `confined`: where chapter 18 asks its Ash of the hoops (§18.7.5.4, §18.8.3.1), with the crossties the design gives that zone. */
+export interface TieZone { kind: TieZoneKind; from: number; to: number; spacing: number; clause: string; confined?: true }
 
 /** Why the storey looks as it does, as i18n keys: one spacing by the code, ends asked by the project, the shear holding the middle. */
 export type TieNote = 'rcSheets.elev.n.oneSpacingAci' | 'rcSheets.elev.n.oneSpacingTs500' | 'rcSheets.elev.n.projectEnds' | 'rcSheets.elev.n.shearHolds' | 'rcSheets.elev.n.ruleHolds';
@@ -83,13 +84,13 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZone
   if (fam === 'aci' && row.confinement) {
     const lo = Math.min(row.confinement.lo, clear / 2);
     middle(Math.min(0.006 * thinnest, 0.15, row.checks.tieMax), '§18.7.5.5', '§22.5');
-    zones.push({ kind: 'end', from: 0, to: lo, spacing: s, clause: '§18.7.5.1, §18.7.5.3' }, { kind: 'end', from: clear - lo, to: clear, spacing: s, clause: '§18.7.5.1, §18.7.5.3' });
+    zones.push({ kind: 'end', from: 0, to: lo, spacing: s, clause: '§18.7.5.1, §18.7.5.3', confined: true }, { kind: 'end', from: clear - lo, to: clear, spacing: s, clause: '§18.7.5.1, §18.7.5.3', confined: true });
     if (row.lap) {
       const l = Math.min(row.lap.length, clear / 2);
       lap = { from: clear / 2 - l / 2, to: clear / 2 + l / 2 };
       zones.push({ kind: 'lap', ...lap, spacing: s, clause: '§18.7.4.3' });
     }
-    if (jointTop > 0) zones.push({ kind: 'joint', from: clear, to: clear + jointTop, spacing: s, clause: '§18.8.3.1' });
+    if (jointTop > 0) zones.push({ kind: 'joint', from: clear, to: clear + jointTop, spacing: s, clause: '§18.8.3.1', confined: true });
   } else if (fam === 'ec2') {
     const scl = row.checks.tieMax / 0.6;
     const near = Math.min(Math.max(row.b, row.h), clear / 2);
@@ -135,6 +136,10 @@ function placeTies(zones: readonly TieZone[], top: number): number[] {
   if (last !== undefined && end - last > 1e-6) out.push(end);
   return out;
 }
+
+/** How many ties fall in a zone of chapter 18's confinement, each counted once. */
+export const confinedTieCount = (layout: ColumnTieLayout): number =>
+  layout.ties.filter((y) => layout.zones.some((z) => z.confined && y >= z.from - 1e-6 && y <= z.to + 1e-6)).length;
 
 /** How many ties fall in a zone, its ends included. */
 export const tiesIn = (layout: ColumnTieLayout, z: TieZone): number => layout.ties.filter((y) => y >= z.from - 1e-6 && y <= z.to + 1e-6).length;

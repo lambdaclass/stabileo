@@ -44,7 +44,7 @@ export function frameJoints(columns: ColumnRow[], beams: BeamRow[], nodes: Reado
     members.push({
       id: i + 1, kind: 'column', role: 'primary', nodeI: n.bottom, nodeJ: n.top, L: r.demand.length,
       b: r.b, h: r.h, cover: c.cover, fc, fy: c.fy, stirrupDia: a.tieDia,
-      r: { column: { cornerDia: a.corner, faceDia: Math.max(a.dx, a.dy), nBottom: a.nx, nTop: a.nx, nLeft: a.ny, nRight: a.ny }, stirrups: { diameter: a.tieDia, legs: 2 + r.checks.crossties.x, spacing: a.tieSpacing } },
+      r: { column: { cornerDia: a.corner, faceDia: Math.max(a.dx, a.dy), nBottom: a.nx, nTop: a.nx, nLeft: a.ny, nRight: a.ny }, stirrups: { diameter: a.tieDia, legs: 2 + (r.checks.crossties.confined?.x ?? r.checks.crossties.x), spacing: a.tieSpacing } },
       ...columnJointSection(r, fc, c.fy, c.cover),
       vu: Math.max(0, ...r.demand.cases.map((k) => Math.max(k.vx ?? 0, k.vy ?? 0))),
     });

@@ -47,6 +47,8 @@ export interface ColumnAdopted {
   tieDia: number; tieSpacing: number;
   /** Rows inside each face, each held off the one outside it by the clear spacing between layers: nx bars on each b face, ny on each h face, in `rows` rows (one when absent). */
   inner?: { nx: number; ny: number; dia: number; rows?: number };
+  /** Crossties in the confinement zones of chapter 18 (lo and the joint), `x` holding bars along b and `y` along h, where more than §25.7.2.3's. */
+  confined?: { x: number; y: number };
 }
 
 export interface SlabAdopted { bottomX: MeshBars; bottomY: MeshBars; topX: MeshBars; topY: MeshBars }
@@ -94,7 +96,7 @@ export interface RcSheetsData {
 }
 
 /** Raised whenever what the proposals propose changes, so the proposals adopted before it are proposed again. */
-export const RC_SHEETS_LOGIC = 2;
+export const RC_SHEETS_LOGIC = 3;
 
 export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });
 

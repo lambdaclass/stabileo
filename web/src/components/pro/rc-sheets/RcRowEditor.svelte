@@ -120,6 +120,12 @@
         <input type="number" min="5" max="40" step="2.5" value={Math.round(row.adopted.tieSpacing * 1000) / 10} onchange={(e) => columnPatch({ tieSpacing: num(e) / 100 })} />
         <span>cm</span>
       </label>
+      {#if row.confinement}
+        <label><span>{t('rcSheets.ed.confinedTies')}</span>
+          <input type="number" min="0" max={row.adopted.nx} step="1" value={row.checks.crossties.confined?.x ?? row.checks.crossties.x} aria-label={t('rcSheets.ed.faceB')} data-testid="rc-col-confined-x" onchange={(e) => columnPatch({ confined: { x: num(e), y: row.checks.crossties.confined?.y ?? row.checks.crossties.y } })} />
+          <input type="number" min="0" max={row.adopted.ny} step="1" value={row.checks.crossties.confined?.y ?? row.checks.crossties.y} aria-label={t('rcSheets.ed.faceH')} data-testid="rc-col-confined-y" onchange={(e) => columnPatch({ confined: { x: row.checks.crossties.confined?.x ?? row.checks.crossties.x, y: num(e) } })} />
+        </label>
+      {/if}
     </fieldset>
   {:else if row.family === 'wall'}
     {#each ['vertical', 'horizontal'] as const as k (k)}

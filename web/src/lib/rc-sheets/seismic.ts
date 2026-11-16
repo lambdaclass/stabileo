@@ -70,17 +70,28 @@ export function beamSeismic(
   };
 }
 
+/** The hoop's legs across each side in the confinement zones: the crossties `x` across h (for the bars along b) and `y` across b, the largest spacing hx between held bars, m, and the perimeter bars held. */
+export interface ConfinedTies { x: number; y: number; hx: number; held: number; perimeter: number }
+
+/** §18.7.5 as the adopted hoops meet it: lo, so and Ash at the spacing in lo, with Table 18.7.5.4 (c) above 0.3·Ag·f'c. */
+export function columnConfinementOf(
+  d: { b: number; h: number; lu: number; cases: Array<{ pu: number }> }, c: { mat: { fc: number; fy: number }; cover: number },
+  a: ColumnAdopted, ct: ConfinedTies,
+) {
+  const longMin = Math.min(a.corner, a.nx > 0 ? a.dx : 99, a.ny > 0 ? a.dy : 99);
+  const pu = Math.max(0, ...d.cases.map((k) => k.pu));
+  return columnConfinement({ b: d.b, h: d.h, cover: c.cover, lu: d.lu, fc: c.mat.fc, fyt: c.mat.fy, longMinDiaMm: longMin, tieDiaMm: a.tieDia, legsB: 2 + ct.x, legsH: 2 + ct.y, hx: ct.hx, provided: { length: Math.max(d.b, d.h, d.lu / 6, 0.45), spacing: a.tieSpacing }, pu, nl: ct.held });
+}
+
 export function columnSeismic(
   d: { b: number; h: number; lu: number; cases: Array<{ pu: number; vx?: number; vy?: number }> },
   c: { mat: { fc: number; fy: number }; cover: number; overstrength: number },
-  a: ColumnAdopted, bars: Array<{ x: number; y: number; area: number }>, ct: { x: number; y: number }, fmt: Fmt,
+  a: ColumnAdopted, bars: Array<{ x: number; y: number; area: number }>, ct: ConfinedTies, fmt: Fmt,
 ): { checks: CheckLine[]; steps: Step[]; so: number; lo: number } {
   const minDim = Math.min(d.b, d.h), Ag = d.b * d.h;
   const area = bars.reduce((s, b) => s + b.area, 0);
   const rho = area / Ag;
-  const longMin = Math.min(a.corner, a.nx > 0 ? a.dx : 99, a.ny > 0 ? a.dy : 99);
-  const hx = Math.max((d.b - 2 * c.cover) / (1 + ct.x), (d.h - 2 * c.cover) / (1 + ct.y));
-  const conf = columnConfinement({ b: d.b, h: d.h, cover: c.cover, lu: d.lu, fc: c.mat.fc, fyt: c.mat.fy, longMinDiaMm: longMin, tieDiaMm: a.tieDia, legsB: 2 + ct.x, legsH: 2 + ct.y, hx, provided: { length: Math.max(d.b, d.h, d.lu / 6, 0.45), spacing: a.tieSpacing } });
+  const conf = columnConfinementOf(d, c, a, ct);
   const puMax = Math.max(0, ...d.cases.map((k) => k.pu));
   const outline = { kind: 'rect' as const, b: d.b, h: d.h };
   const mprX = nominalMomentAt(outline, bars, c.mat.fc, c.overstrength * c.mat.fy, Math.PI / 2, puMax);
@@ -89,18 +100,21 @@ export function columnSeismic(
   const vx = Math.max(0, ...d.cases.map((k) => k.vx ?? 0)), vy = Math.max(0, ...d.cases.map((k) => k.vy ?? 0));
   const shX = columnCapacityShear({ b: d.b, h: d.h, d: d.h - c.cover - 0.02, fc: c.mat.fc, fyt: c.mat.fy, mpr: [mprX, mprX], lu: d.lu, vu: vx, pu: puMax, ties: ties(2 + ct.x) });
   const shY = columnCapacityShear({ b: d.h, h: d.b, d: d.b - c.cover - 0.02, fc: c.mat.fc, fyt: c.mat.fy, mpr: [mprY, mprY], lu: d.lu, vu: vy, pu: puMax, ties: ties(2 + ct.y) });
+  const allHeld = !conf.high || ct.held >= ct.perimeter;
   return {
     so: conf.so, lo: conf.lo,
     checks: [
       check('rcSheets.v.seisColDim', minDim >= 0.3 - 1e-9 && minDim / Math.max(d.b, d.h) >= 0.4 - 1e-9, { clause: '§18.7.2.1', demand: `${fmt(d.b * 100, 0)} × ${fmt(d.h * 100, 0)} cm`, capacity: '≥ 30 cm; ≥ 0.4' }),
       check('rcSheets.v.seisColRho', rho >= 0.01 - 1e-9 && rho <= 0.06 + 1e-9, { clause: '§18.7.4.1', demand: `${fmt(rho * 100, 2)} %`, capacity: '1 … 6 %' }),
+      check('rcSheets.v.seisColHx', ct.hx <= conf.hxMax + 1e-6 && allHeld, { clause: '§18.7.5.2', demand: `hx = ${fmt(ct.hx * 100, 1)} cm${conf.high ? ` · ${ct.held}/${ct.perimeter}` : ''}`, capacity: `≤ ${fmt(conf.hxMax * 100, 0)} cm${conf.high ? ` · ${ct.perimeter}/${ct.perimeter}` : ''}`, ratio: ct.hx / conf.hxMax }),
       check('rcSheets.v.seisColSo', a.tieSpacing <= conf.so + 1e-6, { clause: '§18.7.5.3', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ ${fmt(conf.so * 100, 1)} cm (lo = ${fmt(conf.lo * 100, 0)} cm)` }),
-      check('rcSheets.v.seisColAsh', conf.ashOk, { clause: '§18.7.5.4', demand: `${fmt(conf.ashRequired.acrossB)} · ${fmt(conf.ashRequired.acrossH)} cm²`, capacity: `${fmt(conf.ashProvided.acrossB)} · ${fmt(conf.ashProvided.acrossH)} cm²`, ratio: Math.max(ratioOf(conf.ashRequired.acrossB, conf.ashProvided.acrossB), ratioOf(conf.ashRequired.acrossH, conf.ashProvided.acrossH)) }),
+      check('rcSheets.v.seisColAsh', conf.ashOk, { clause: '§18.7.5.4', demand: `${fmt(conf.ashRequired.acrossB)} · ${fmt(conf.ashRequired.acrossH)} cm²`, capacity: `${2 + ct.x} · ${2 + ct.y} Ø${a.tieDia} c/${fmt(a.tieSpacing * 100, 1)} = ${fmt(conf.ashProvided.acrossB)} · ${fmt(conf.ashProvided.acrossH)} cm²`, ratio: Math.max(ratioOf(conf.ashRequired.acrossB, conf.ashProvided.acrossB), ratioOf(conf.ashRequired.acrossH, conf.ashProvided.acrossH)) }),
       check('rcSheets.v.seisColVe', shX.utilization <= 1 + 1e-6 && shY.utilization <= 1 + 1e-6, { clause: '§18.7.6', demand: `${fmt(shX.ve)} · ${fmt(shY.ve)} kN`, capacity: `${fmt(shX.phiVn)} · ${fmt(shY.phiVn)} kN`, ratio: Math.max(shX.utilization, shY.utilization) }),
     ],
     steps: [
       { label: 'rcSheets.s.seisColMpr', formula: `Mpr = Mn(${fmt(c.overstrength)}·fy; Pu,max)`, value: `${fmt(mprX)} · ${fmt(mprY)} kN·m` },
       { label: 'rcSheets.s.seisColConf', formula: 'lo = max(b; h; lu/6; 450 mm); so; Ash', value: `${fmt(conf.lo * 100, 0)} cm · ${fmt(conf.so * 100, 1)} cm` },
+      { label: 'rcSheets.s.seisColAsh', formula: `Ash/(s·bc) ≥ max(0.3·(Ag/Ach − 1)·f'c/fyt; 0.09·f'c/fyt${conf.high ? '; 0.2·kf·kn·Pu/(fyt·Ach)' : ''})`, value: `${2 + ct.x} · ${2 + ct.y} Ø${a.tieDia} c/${fmt(a.tieSpacing * 100, 1)} cm` },
     ],
   };
 }
