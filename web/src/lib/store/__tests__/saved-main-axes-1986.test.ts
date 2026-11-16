@@ -1,6 +1,7 @@
 import { beforeAll, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { modelStore, uiStore } from '../../store';
+import { serializeProject, deserializeProject } from '../file';
 import { initSolver, solve, solve3D, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 
 import { axesStore } from '../../axes/axes.svelte';
@@ -26,10 +27,11 @@ it('#1986 projects saved before global axes retain canonical inputs and exact li
       uiStore.analysisMode = mode;
       axesStore.reset();
       await modelStore.loadExample(name);
-      const saved = modelStore.snapshot();
+      const savedProject = serializeProject();
       for (const c of choices) {
-        modelStore.restore(saved);
         axesStore.choice = c;
+        expect(deserializeProject(savedProject)).toBe(true);
+        expect(axesStore.choice).toEqual(c);
         const input = mode === '2d' ? modelStore.buildSolverInput(false)! : modelStore.buildSolverInput3D(false)!;
         expect(input).not.toBeNull();
         const r = mode === '2d' ? solve(input as never) : solve3D(input as never);
