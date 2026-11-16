@@ -3798,6 +3798,7 @@ const fr: Translations = {
   'svc.engine.mechanism': 'Matrice de rigidité singulière : la structure est un mécanisme',
   'svc.engine.zeroDiagonal': 'Tous les termes diagonaux sont nuls : matrice singulière',
   'svc.engine.singular': 'Matrice de rigidité singulière',
+  'svc.engine.conflictingConstraints': 'Le degré de liberté {dof} (nœud {node}) est soumis à {n} liaisons ; seule la dernière s’applique',
   'svc.settlementCase': 'Tassements imposés',
   'svc.noLoadsApplied': 'Aucun cas de charge n\'a de charges appliquées',
   'svc.pdeltaNoneStable': 'Aucune combinaison n\'atteint l\'équilibre du second ordre : la structure flambe avant d\'atteindre la charge de chaque combinaison.',

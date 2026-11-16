@@ -3864,6 +3864,7 @@ const en: Record<string, string> = {
   'svc.engine.mechanism': "Singular stiffness matrix: the structure is a mechanism",
   'svc.engine.zeroDiagonal': "All diagonal entries are zero: singular matrix",
   'svc.engine.singular': "Singular stiffness matrix",
+  'svc.engine.conflictingConstraints': 'Degree of freedom {dof} (node {node}) is tied by {n} constraints; only the last one applies',
   'svc.settlementCase': 'Imposed settlements',
   'svc.noLoadsApplied': 'No load case has applied loads',
   'svc.pdeltaNoneStable': 'No combination reaches second-order equilibrium: the structure buckles before reaching each combination\'s load.',

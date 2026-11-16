@@ -299,8 +299,9 @@
   .rcw-head:not([data-fit="0"]) .rcw-code :global(.rcc > span) { display: none; }
   .rcw-head:not([data-fit="0"]) .rcw-tools .wide { display: none; }
   .rcw-head:not([data-fit="0"]) .rcw-tools .narrow { display: inline; }
-  .rcw-head:is([data-fit="2"], [data-fit="3"]) .rcw-tabs small { display: none; }
-  .rcw-head:is([data-fit="2"], [data-fit="3"]) .rcw-name { display: none; }
+  .rcw-head[data-fit="2"] .rcw-tabs small, .rcw-head[data-fit="3"] .rcw-tabs small { display: none; }
+  .rcw-head[data-fit="2"] .rcw-name, .rcw-head[data-fit="3"] .rcw-name { display: none; }
+  .rcw-head[data-fit="2"] .rcw-code :global(select), .rcw-head[data-fit="3"] .rcw-code :global(select) { max-width: 11rem; }
   .rcw-head[data-fit="3"] .rcw-tabs { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
   .rcw-head strong { font-family: var(--st-display); font-size: 0.9rem; }
   .rcw-dim { font-size: 0.72rem; color: var(--st-text-3); }

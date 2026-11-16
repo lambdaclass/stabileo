@@ -4,6 +4,7 @@
   import { t, i18n } from '../../lib/i18n';
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { selectionOf, shellRef } from '../../lib/engine/model-findings';
+  import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
   import { collectDiagnostics, groupDiagnostics, numbersMasked, withoutIssueRef } from '../../lib/pro/diagnostics-list';
   import { postAnalysisLines, partLines, postAnalysisRows, postAnalysisHtml, type PostAnalysisLine } from '../../lib/engine/post-analysis';
@@ -154,7 +155,7 @@
       .join(' | ');
   }
 
-  const messageOf = (d: SolverDiagnostic) => withoutIssueRef(t(d.message) !== d.message ? t(d.message) : d.message);
+  const messageOf = (d: SolverDiagnostic) => withoutIssueRef(t(d.message) !== d.message ? t(d.message) : localizeEngineText(d.message));
 
   function shellLabel(key: string): string {
     const { kind, id } = shellRef(key);

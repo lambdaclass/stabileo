@@ -3798,6 +3798,7 @@ const de: Translations = {
   'svc.engine.mechanism': 'Singuläre Steifigkeitsmatrix: Das Tragwerk ist ein Mechanismus',
   'svc.engine.zeroDiagonal': 'Alle Diagonalelemente sind null: singuläre Matrix',
   'svc.engine.singular': 'Singuläre Steifigkeitsmatrix',
+  'svc.engine.conflictingConstraints': 'Freiheitsgrad {dof} (Knoten {node}) wird von {n} Kopplungen bestimmt; nur die letzte gilt',
   'svc.settlementCase': 'Vorgegebene Setzungen',
   'svc.noLoadsApplied': 'Kein Lastfall enthält aufgebrachte Lasten',
   'svc.pdeltaNoneStable': 'Keine Kombination erreicht ein Gleichgewicht nach Theorie II. Ordnung: Das Tragwerk knickt aus, bevor die Last der jeweiligen Kombination erreicht ist.',

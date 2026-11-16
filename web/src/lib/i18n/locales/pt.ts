@@ -7334,6 +7334,7 @@ const pt: Translations = {
   'svc.engine.mechanism': "Matriz de rigidez singular: a estrutura é um mecanismo",
   'svc.engine.zeroDiagonal': "Todas as entradas da diagonal são zero: matriz singular",
   'svc.engine.singular': "Matriz de rigidez singular",
+  'svc.engine.conflictingConstraints': 'O grau de liberdade {dof} (nó {node}) está sujeito a {n} restrições; só vale a última',
   'svc.settlementCase': 'Recalques impostos',
   'svc.hypostaticDofs': 'Estrutura hipostática: apenas {n} GDL restringidos (mínimo 3 para equilíbrio 2D). É um mecanismo.',
   'svc.hypostaticNoHoriz': 'Estrutura hipostática (mecanismo): sem restrição horizontal em nenhum apoio.',

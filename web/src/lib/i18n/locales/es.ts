@@ -3857,6 +3857,7 @@ const es: Record<string, string> = {
   'svc.engine.mechanism': "Matriz de rigidez singular: la estructura es un mecanismo",
   'svc.engine.zeroDiagonal': "Todas las entradas de la diagonal son cero: matriz singular",
   'svc.engine.singular': "Matriz de rigidez singular",
+  'svc.engine.conflictingConstraints': 'El grado de libertad {dof} (nodo {node}) está sujeto a {n} restricciones; sólo vale la última',
   'svc.settlementCase': 'Asentamientos impuestos',
   'svc.noLoadsApplied': 'Ning\u00FAn caso de carga tiene cargas aplicadas',
   'svc.pdeltaNoneStable': 'Ninguna combinación tiene equilibrio de segundo orden: la estructura pandea antes de llegar a la carga de cada una.',

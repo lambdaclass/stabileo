@@ -3807,6 +3807,7 @@ const tr: Translations = {
   'svc.engine.mechanism': 'Tekil rijitlik matrisi: yapı bir mekanizma',
   'svc.engine.zeroDiagonal': 'Köşegen terimlerin tümü sıfır: tekil matris',
   'svc.engine.singular': 'Tekil rijitlik matrisi',
+  'svc.engine.conflictingConstraints': '{node} düğümünün {dof} serbestlik derecesi {n} kısıtla bağlı; yalnızca sonuncusu geçerli',
   'svc.settlementCase': 'Zorlanmış mesnet çökmeleri',
   'svc.noLoadsApplied': 'Hiçbir yük durumunda uygulanmış yük yok',
   'svc.pdeltaNoneStable': 'Hiçbir kombinasyon ikinci mertebe dengeye ulaşmıyor: yapı her kombinasyonun yüküne ulaşmadan burkuluyor.',
