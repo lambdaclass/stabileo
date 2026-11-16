@@ -14,6 +14,7 @@ const regenerationAction: Record<PublicLocale, string> = {
   fr: 'Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications.',
   hu: 'Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket.',
   tr: 'Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın.',
+  zh: '请重新生成所有受影响的生成面荷载，然后重新运行分析、组合和设计验算。',
 };
 
 const document = (path: string) => readFileSync(new URL(`../../../../../docs/${path}`, import.meta.url), 'utf8');
@@ -23,6 +24,7 @@ for (const [issue, sa, name, notice] of [[2176, 'SA-2026-073', 'snow-crossing-mo
     ['en', 'High', 'PR #2197; pending merge and release'], ['es', 'Alta', 'PR #2197; pendiente de integración y publicación'], ['pt', 'Alta', 'PR #2197; aguardando integração e publicação'],
     ['hu', 'Magas', 'PR #2197; egyesítésre és kiadásra vár'],
     ['de', 'Hoch', 'PR #2197; Zusammenführung und Veröffentlichung ausstehend'], ['fr', 'Élevée', 'PR #2197; fusion et publication en attente'], ['tr', 'Yüksek', 'PR #2197; birleştirme ve yayın bekleniyor'],
+    ['zh', '高', 'PR #2197；待合并和发布'],
   ])(`#${issue} %s has the assigned advisory and regeneration notice`, (locale, severity, status) => {
     const blocks = (locale === 'hu' ? hu : findPost('safety-advisories')!.i18n[locale]!).blocks;
     const table = blocks.find(b => b.k === 'table');
@@ -32,7 +34,7 @@ for (const [issue, sa, name, notice] of [[2176, 'SA-2026-073', 'snow-crossing-mo
     expect(rows[0]!.slice(2)).toEqual([severity, status]);
     expect(rows[0]![1]).toContain(`#${issue}`);
     if (issue === 2172) {
-      const unsplit = { en: 'unsplit sloped rafter', es: 'sin subdividir', pt: 'sem subdivisão', de: 'ungeteilter geneigter Sparren', fr: 'non subdivisé', tr: 'bölünmemiş eğimli mertek', hu: 'felosztatlan ferde szarufa' };
+      const unsplit = { en: 'unsplit sloped rafter', es: 'sin subdividir', pt: 'sem subdivisão', de: 'ungeteilter geneigter Sparren', fr: 'non subdivisé', tr: 'bölünmemiş eğimli mertek', hu: 'felosztatlan ferde szarufa', zh: '未拆分的坡屋面斜梁' };
       expect(rows[0]![1]).toContain(unsplit[locale]);
       expect(notice.explanation[locale]).toContain(unsplit[locale]);
     }
@@ -40,7 +42,7 @@ for (const [issue, sa, name, notice] of [[2176, 'SA-2026-073', 'snow-crossing-mo
     expect(rows[0]![1]).toContain(regenerationAction[locale]);
     expect(notice.explanation[locale]).toContain(regenerationAction[locale]);
     expect(document(`advisories/${sa}-${name}.md`).replace(/\s+/g, ' ')).toContain(regenerationAction.en);
-    expect(blocks.some(b => b.k === 'note' && b.t === `${sa} — ${status}.`)).toBe(true);
+    expect(blocks.some(b => b.k === 'note' && b.t === `${sa} — ${status}${locale === 'zh' ? '。' : '.'}`)).toBe(true);
     expect(blocks.some(b => b.k === 'ext' && b.label === sa && b.href.endsWith(`/docs/advisories/${sa}-${name}.md`))).toBe(true);
     expect(notice.explanation[locale]).toContain(sa);
     expect(notice.when).toEqual({ all: issue === 2172 ? ['generatedLoads'] : ['snow', 'generatedLoads'] });
