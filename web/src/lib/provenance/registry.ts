@@ -101,8 +101,12 @@ export function changelogUrl(c: Pick<ResultChange, 'changelog'>): string {
   return `${REPO_BLOB}${c.changelog.file}#${githubSlug(c.changelog.heading)}`;
 }
 
+export function concernsGeneratedLoads(w: ChangeCondition = {}): boolean {
+  return conditionGroups(w).some((g) => g.includes('generatedLoads') || g.includes('generatedWindLoads'));
+}
+
 export function concernsLoadBasis(c: ResultChange): boolean {
-  return c.requiresLoadRegeneration === true || conditionGroups(c.when ?? {}).some(g => g.includes('generatedLoads') || g.includes('generatedWindLoads'));
+  return c.requiresLoadRegeneration === true || concernsGeneratedLoads(c.when ?? {});
 }
 
 /** Every condition group of an entry, normalised to OR-groups that must all hold. */
