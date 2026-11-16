@@ -13,7 +13,7 @@ import { steelJoints } from './joint-typology';
 import { physicalGroups, physicalThickness } from './physical';
 import { memberNames, wallNames } from './member-names';
 import { coverOf, designData } from './design-data';
-import { resolveConcreteProperties } from './detailing-project-inputs';
+import { resolveConcreteProperties } from './concrete-properties';
 import { regulationsStore } from './regulations.svelte';
 import { gridFromModel, sortedLevels } from '../model/grid';
 import { columnShapeOf } from '../engine/design/shaped-column';

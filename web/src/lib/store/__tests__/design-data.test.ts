@@ -10,7 +10,8 @@ import { coversUnderMinimum, concreteFc, defaultDesignData, migrateDesignData, m
 import { buildMemberContext, DEFAULT_COVER, DEFAULT_REBAR_FY, DEFAULT_STIRRUP_DIA } from '../../engine/design/member-context';
 import { buildRegionOptions } from '../../engine/design/candidate-enumerate-beam';
 import { syntheticBeamContext } from '../../engine/design/__tests__/helpers';
-import { resolveConcreteProperties, wallBarDiameterMm } from '../detailing-project-inputs';
+import { wallBarDiameterMm } from '../detailing-project-inputs';
+import { resolveConcreteProperties } from '../concrete-properties';
 import { applyTemplate, templateFromProject } from '../office-templates';
 
 const model = {
