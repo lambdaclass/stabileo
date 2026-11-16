@@ -83,7 +83,7 @@ pub struct SolverNodalLoad {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SolverDistributedLoad {
     pub element_id: usize,
     #[serde(rename = "qI")]
@@ -437,8 +437,39 @@ pub struct SolverNodalLoad3D {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemberMoments<T = f64> {
+    pub x: [T; 3],
+    pub y: [T; 3],
+    pub z: [T; 3],
+}
+
+impl MemberMoments {
+    pub fn at(values: [f64; 3], t: f64) -> f64 {
+        2.0 * (t - 0.5) * (t - 1.0) * values[0] + 4.0 * t * (1.0 - t) * values[1] + 2.0 * t * (t - 0.5) * values[2]
+    }
+
+    pub fn integral(values: [f64; 3], a: f64, b: f64, x: f64) -> f64 {
+        let h = b - a;
+        if h <= 0.0 { return 0.0; }
+        let t = ((x - a) / h).clamp(0.0, 1.0);
+        h * (values[0] * t + (-3.0 * values[0] + 4.0 * values[1] - values[2]) * t * t / 2.0 + (2.0 * values[0] - 4.0 * values[1] + 2.0 * values[2]) * t * t * t / 3.0)
+    }
+
+    pub fn scaled(&self, factor: f64) -> Self {
+        Self { x: self.x.map(|v| v * factor), y: self.y.map(|v| v * factor), z: self.z.map(|v| v * factor) }
+    }
+
+    pub fn slice(&self, t0: f64, t1: f64) -> Self {
+        let at = |v| [Self::at(v,t0), Self::at(v,(t0+t1)/2.0), Self::at(v,t1)];
+        Self { x: at(self.x), y: at(self.y), z: at(self.z) }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverDistributedLoad3D {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub moments: Option<MemberMoments>,
     #[serde(default, rename = "qXI")]
     pub q_xi: f64,
     #[serde(default, rename = "qXJ")]
@@ -456,6 +487,34 @@ pub struct SolverDistributedLoad3D {
     pub a: Option<f64>,
     #[serde(default)]
     pub b: Option<f64>,
+}
+
+impl SolverDistributedLoad3D {
+    pub fn fef(&self, l: f64, phi_y: f64, phi_z: f64) -> [f64; 12] {
+        let a = self.a.unwrap_or(0.0);
+        let b = self.b.unwrap_or(l);
+        let mut f = if a.abs() < 1e-12 && (b - l).abs() < 1e-12 {
+            crate::element::fef_distributed_3d(self.q_yi, self.q_yj, self.q_zi, self.q_zj, l, phi_y, phi_z)
+        } else {
+            crate::element::fef_partial_distributed_3d(self.q_yi, self.q_yj, self.q_zi, self.q_zj, a, b, l, phi_y, phi_z)
+        };
+        let axial = crate::element::axial_distributed_fef(self.q_xi, self.q_xj, a, b, l);
+        f[0] = axial[0]; f[6] = axial[1];
+        if let Some(m) = &self.moments {
+            let r = (3.0_f64 / 5.0).sqrt();
+            for (t, w) in [((1.0-r)/2.0,5.0/18.0),(0.5,4.0/9.0),((1.0+r)/2.0,5.0/18.0)] {
+                let x = a + (b-a)*t;
+                let mx = MemberMoments::at(m.x,t) * (b-a)*w;
+                f[3] += mx * (1.0-x/l); f[9] += mx*x/l;
+                for (values, phi, indices, signs) in [(m.y,phi_y,[2,4,8,10],[-1.0,1.0,-1.0,1.0]),(m.z,phi_z,[1,5,7,11],[1.0;4])] {
+                    let shapes = crate::element::timoshenko_rotation_shapes(x,l,phi);
+                    let value = MemberMoments::at(values,t) * (b-a)*w;
+                    for k in 0..4 { f[indices[k]] += signs[k] * value * shapes[k]; }
+                }
+            }
+        }
+        f
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

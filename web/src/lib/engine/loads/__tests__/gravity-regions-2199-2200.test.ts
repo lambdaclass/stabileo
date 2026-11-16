@@ -1,3 +1,4 @@
+import { loadResultant } from './physical-region-invariance';
 import { expect, it } from 'vitest';
 import { gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
@@ -10,17 +11,8 @@ function model(w=4.76,angle=0) {
 function totals(m:ReturnType<typeof model>,angle=0) {
   const l=gravityLayout(m,{mode:'panels',tributaryWidth:1,loadEveryPanel:true});
   const out=planAreaLoads({layout:l,tributaryWidth:1,floor:{dead:1,lo:0,liveOf:()=>0}});
-  let force=0,first=0;
-  for (const d of out.distributed) {
-    const e=m.elements.get(d.elementId)!;const a=m.nodes.get(e.nodeI)!,b=m.nodes.get(e.nodeJ)!;
-    const L=Math.hypot(b.x-a.x,b.y-a.y),lo=d.a??0,hi=d.b??L;
-    const q0=-d.q,q1=-(d.qJ??d.q),f=(q0+q1)*(hi-lo)/2;
-    const s=lo+(hi-lo)*(q0+2*q1)/(3*(q0+q1));
-    const x=(a.x+(b.x-a.x)*s/L)*Math.cos(angle)+(a.y+(b.y-a.y)*s/L)*Math.sin(angle);
-    force+=f;first+=f*x;
-  }
-  for(const s of out.surface){const q=m.quads.get(s.quadId)!;const pts=q.nodes.map(id=>m.nodes.get(id)!);const area=l.shellQuads.find(x=>x.quadId===s.quadId)!.area;force+=s.q*area;first+=s.q*area*pts.reduce((sum,p)=>sum+p.x*Math.cos(angle)+p.y*Math.sin(angle),0)/pts.length;}
-  for (const n of out.nodal) { const p=m.nodes.get(n.nodeId)!; const c=n as typeof n & { mx?:number; my?:number }; force-=n.fz; first+=-n.fz*(p.x*Math.cos(angle)+p.y*Math.sin(angle))+(c.my??0)*Math.cos(angle)-(c.mx??0)*Math.sin(angle); }
+  const resultant=loadResultant(m,out);
+  const force=resultant[0],first=resultant[1]*Math.cos(angle)+resultant[2]*Math.sin(angle);
   return {force,first};
 }
 it('known wrong result: #2199 partial shell coverage preserves total vertical area load',()=>{expect(totals(model()).force).toBeCloseTo(60,8)});

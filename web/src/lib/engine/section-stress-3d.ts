@@ -1,3 +1,4 @@
+import { evaluateDiagramAt } from './diagrams-3d';
 // 3D Section Stress Analysis — Complete
 // Biaxial bending (PR [12] convention — aligned with PR [10] local axes + PR [11] render):
 //   σ(y,z) = N/A − My·y/Iy + Mz·z/Iz
@@ -282,84 +283,7 @@ export function computePerpNADistribution(
 export function interpolateForces3D(
   ef: ElementForces3D, t: number,
 ): { N: number; Vy: number; Vz: number; Mx: number; My: number; Mz: number } {
-  const x = t * ef.length;
-
-  // N: linear (no distributed axial loads assumed)
-  const N = ef.nStart + t * (ef.nEnd - ef.nStart);
-
-  // Mx: linear (no distributed torsion loads assumed)
-  const Mx = ef.mxStart + t * (ef.mxEnd - ef.mxStart);
-
-  // Vy: start value + cumulative distributed load in Y (dV/dx = q convention)
-  let Vy = ef.vyStart;
-  for (const dl of ef.distributedLoadsY) {
-    if (x > dl.a + 1e-10) {
-      const xEnd = Math.min(x, dl.b);
-      const s = xEnd - dl.a;
-      const span = dl.b - dl.a;
-      if (span < 1e-12 || s < 1e-12) continue;
-      const dq = (dl.qJ - dl.qI) / span;
-      // ∫_0^s (qI + dq·u) du = qI·s + dq·s²/2
-      Vy += dl.qI * s + dq * s * s / 2;
-    }
-  }
-  for (const pl of ef.pointLoadsY) {
-    if (x > pl.a + 1e-10) Vy += pl.p;
-  }
-
-  // Mz: start value - integral of Vy
-  let Mz = ef.mzStart - ef.vyStart * x;
-  for (const dl of ef.distributedLoadsY) {
-    if (x > dl.a + 1e-10) {
-      const xEnd = Math.min(x, dl.b);
-      const s = xEnd - dl.a;
-      const span = dl.b - dl.a;
-      if (span < 1e-12 || s < 1e-12) continue;
-      const dq = (dl.qJ - dl.qI) / span;
-      const d = x - dl.a;
-      Mz -= dl.qI * (d * s - s * s / 2) + dq * (d * s * s / 2 - s * s * s / 3);
-    }
-  }
-  for (const pl of ef.pointLoadsY) {
-    if (x > pl.a + 1e-10) Mz -= pl.p * (x - pl.a);
-  }
-
-  // Vz: start value + cumulative distributed load in Z (dV/dx = q convention)
-  let Vz = ef.vzStart;
-  for (const dl of ef.distributedLoadsZ) {
-    if (x > dl.a + 1e-10) {
-      const xEnd = Math.min(x, dl.b);
-      const s = xEnd - dl.a;
-      const span = dl.b - dl.a;
-      if (span < 1e-12 || s < 1e-12) continue;
-      const dq = (dl.qJ - dl.qI) / span;
-      Vz += dl.qI * s + dq * s * s / 2;
-    }
-  }
-  for (const pl of ef.pointLoadsZ) {
-    if (x > pl.a + 1e-10) Vz += pl.p;
-  }
-
-  // My: positive signs because θy = -dw/dx inverts the relation → dMy/dx = +Vz
-  // This matches the convention in diagrams-3d.ts:
-  //   My(x) = myStart + vzStart·x + Σ distributed + Σ point loads
-  let My = ef.myStart + ef.vzStart * x;
-  for (const dl of ef.distributedLoadsZ) {
-    if (x > dl.a + 1e-10) {
-      const xEnd = Math.min(x, dl.b);
-      const s = xEnd - dl.a;
-      const span = dl.b - dl.a;
-      if (span < 1e-12 || s < 1e-12) continue;
-      const dq = (dl.qJ - dl.qI) / span;
-      const d = x - dl.a;
-      My += dl.qI * (d * s - s * s / 2) + dq * (d * s * s / 2 - s * s * s / 3);
-    }
-  }
-  for (const pl of ef.pointLoadsZ) {
-    if (x > pl.a + 1e-10) My += pl.p * (x - pl.a);
-  }
-
-  return { N, Vy, Vz, Mx, My, Mz };
+  return { N: evaluateDiagramAt(ef, 'axial', t), Vy: evaluateDiagramAt(ef, 'shearY', t), Vz: evaluateDiagramAt(ef, 'shearZ', t), Mx: evaluateDiagramAt(ef, 'torsion', t), My: evaluateDiagramAt(ef, 'momentY', t), Mz: evaluateDiagramAt(ef, 'momentZ', t) };
 }
 
 // ─── Sampling positions ──────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import { integrateQuadratic } from '../../member-moments';
 import { describe, it, expect } from 'vitest';
 import { gravityLayout, type GravityModel } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
@@ -181,6 +182,7 @@ describe('a narrow gap between the strips of the beams above', () => {
       force += p.w; mx += p.w * n.x; my += p.w * n.y;
     }
     for (const p of layout.couples.filter(q => ringIds.has(q.elementId))) { const n = model.nodes.get(p.nodeId)!; force += p.w; mx += p.w * n.x + p.my; my += p.w * n.y - p.mx; }
+    for(const p of layout.moments.filter(q=>ringIds.has(q.elementId))) { const e=model.elements.get(p.elementId)!, a=model.nodes.get(e.nodeI)!, b=model.nodes.get(e.nodeJ)!, L=Math.hypot(b.x-a.x,b.y-a.y,(b.z??0)-(a.z??0)); mx+=integrateQuadratic(p.moments.y,p.a??0,p.b??L,L); my-=integrateQuadratic(p.moments.x,p.a??0,p.b??L,L); }
     expect(force).toBeCloseTo(0.3, 6);
     expect(mx / force - x0).toBeCloseTo(3, 6);
     expect(my / force - y0).toBeCloseTo(4.525, 6);
@@ -351,6 +353,7 @@ describe('a roof-structure ring carried above all but its back strip', () => {
       force += p.w; mx += p.w * n.x; my += p.w * n.y;
     }
     for (const p of layout.couples.filter(q => ringIds.has(q.elementId))) { const n = model.nodes.get(p.nodeId)!; force += p.w; mx += p.w * n.x + p.my; my += p.w * n.y - p.mx; }
+    for(const p of layout.moments.filter(q=>ringIds.has(q.elementId))) { const e=model.elements.get(p.elementId)!, a=model.nodes.get(e.nodeI)!, b=model.nodes.get(e.nodeJ)!, L=Math.hypot(b.x-a.x,b.y-a.y,(b.z??0)-(a.z??0)); mx+=integrateQuadratic(p.moments.y,p.a??0,p.b??L,L); my-=integrateQuadratic(p.moments.x,p.a??0,p.b??L,L); }
     expect(force).toBeCloseTo(6, 6);
     expect(mx / force).toBeCloseTo(3, 6);
     expect(my / force).toBeCloseTo(3.5, 6);
@@ -443,6 +446,7 @@ describe('a concave roof-structure ring under trusses, one low beam and a small 
       force += p.w; mx += p.w * n.x; my += p.w * n.y;
     }
     for (const p of layout.couples.filter(q => ringIds.has(q.elementId))) { const n = model.nodes.get(p.nodeId)!; force += p.w; mx += p.w * n.x + p.my; my += p.w * n.y - p.mx; }
+    for(const p of layout.moments.filter(q=>ringIds.has(q.elementId))) { const e=model.elements.get(p.elementId)!, a=model.nodes.get(e.nodeI)!, b=model.nodes.get(e.nodeJ)!, L=Math.hypot(b.x-a.x,b.y-a.y,(b.z??0)-(a.z??0)); mx+=integrateQuadratic(p.moments.y,p.a??0,p.b??L,L); my-=integrateQuadratic(p.moments.x,p.a??0,p.b??L,L); }
     expect(force).toBeCloseTo(area, 6);
     expect(mx / force).toBeCloseTo(cx, 6);
     expect(my / force).toBeCloseTo(cy, 6);
@@ -478,6 +482,7 @@ describe('a roof-structure ring with another ring inside it', () => {
       force += p.w; mx += p.w * n.x; my += p.w * n.y;
     }
     for (const p of layout.couples.filter(q => levelIds.has(q.elementId))) { const n = model.nodes.get(p.nodeId)!; force += p.w; mx += p.w * n.x + p.my; my += p.w * n.y - p.mx; }
+    for(const p of layout.moments.filter(q=>levelIds.has(q.elementId))) { const e=model.elements.get(p.elementId)!, a=model.nodes.get(e.nodeI)!, b=model.nodes.get(e.nodeJ)!, L=Math.hypot(b.x-a.x,b.y-a.y,(b.z??0)-(a.z??0)); mx+=integrateQuadratic(p.moments.y,p.a??0,p.b??L,L); my-=integrateQuadratic(p.moments.x,p.a??0,p.b??L,L); }
     expect(force).toBeCloseTo(12, 6);
     expect(mx / force).toBeCloseTo(3, 6);
     expect(my / force).toBeCloseTo(3, 6);

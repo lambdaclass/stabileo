@@ -123,7 +123,7 @@ fn bar_3d(loads: Vec<SolverLoad3D>) -> SolverInput3D {
 fn a_transverse_distributed_load_on_a_3d_truss_reaches_the_nodes() {
     // Bar along global z; qYI = −12 uniform: local y is what the frame computes,
     // the reactions split qL/2 each in that direction and nowhere else.
-    let load = SolverLoad3D::Distributed(SolverDistributedLoad3D {
+    let load = SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
         element_id: 1, q_xi: 0.0, q_xj: 0.0, q_yi: -12.0, q_yj: -12.0, q_zi: 0.0, q_zj: 0.0, a: None, b: None,
     });
     let r = linear::solve_3d(&bar_3d(vec![load])).unwrap();
@@ -178,7 +178,7 @@ fn the_parallel_3d_load_vector_carries_the_same_truss_member_loads() {
     use dedaliano_engine::solver::dof::DofNumbering;
     use dedaliano_engine::solver::sparse_assembly::assemble_load_vector_3d_sparse_parallel;
     let input = bar_3d(vec![
-        SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             element_id: 1, q_xi: 1.0, q_xj: 3.0, q_yi: -12.0, q_yj: -4.0, q_zi: 2.0, q_zj: 2.0,
             a: Some(0.5), b: Some(3.0),
         }),

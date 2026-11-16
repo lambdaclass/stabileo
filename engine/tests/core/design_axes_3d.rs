@@ -77,7 +77,7 @@ fn midspan_gravity() -> Vec<SolverLoad3D> {
 fn udl_gravity_alpha0() -> Vec<SolverLoad3D> {
     (1..=2)
         .map(|id| {
-            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 q_xi: 0.0, q_xj: 0.0, element_id: id,
                 q_yi: 0.0, q_yj: 0.0, q_zi: -W, q_zj: -W, a: None, b: None,
             })
@@ -297,7 +297,7 @@ fn certified_beam(roll: Option<f64>, w: f64, span: f64, member: SteelMemberData)
         solver,
         load_cases: vec![LoadCase3D {
             name: "G".into(),
-            loads: vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            loads: vec![SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 q_xi: 0.0, q_xj: 0.0, element_id: 1,
                 q_yi: qy, q_yj: qy, q_zi: qz, q_zj: qz, a: None, b: None,
             })],

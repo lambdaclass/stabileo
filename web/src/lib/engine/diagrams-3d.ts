@@ -1,3 +1,4 @@
+import { integrateQuadratic } from './member-moments';
 // 3D Diagram Computation — Analytical equations
 // Compute diagram values (My, Mz, Vy, Vz, N, Mx) along each 3D element
 // using equilibrium equations with distributed and point loads.
@@ -165,6 +166,7 @@ export function evaluateDiagramAt(
   switch (kind) {
     case 'momentZ': {
       let value = ef.mzStart - ef.vyStart * x;
+      for (const m of ef.memberMoments ?? []) value += integrateQuadratic(m.moments.z, m.a, m.b, x);
       for (const dl of ef.distributedLoadsY ?? []) {
         const a = dl.a;
         const b = dl.b;
@@ -184,6 +186,7 @@ export function evaluateDiagramAt(
     }
     case 'momentY': {
       let value = ef.myStart + ef.vzStart * x;
+      for (const m of ef.memberMoments ?? []) value += integrateQuadratic(m.moments.y, m.a, m.b, x);
       for (const dl of ef.distributedLoadsZ ?? []) {
         const a = dl.a;
         const b = dl.b;
@@ -249,7 +252,7 @@ export function evaluateDiagramAt(
       return value;
     }
     case 'torsion':
-      return ef.mxStart + t * (ef.mxEnd - ef.mxStart);
+      return ef.memberMoments?.length ? ef.mxStart + ef.memberMoments.reduce((sum,m) => sum+integrateQuadratic(m.moments.x,m.a,m.b,x),0) : ef.mxStart + t * (ef.mxEnd - ef.mxStart);
   }
 }
 

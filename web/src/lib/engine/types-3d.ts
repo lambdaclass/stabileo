@@ -155,6 +155,7 @@ export interface SolverNodalLoad3D {
 }
 
 export interface SolverDistributedLoad3D {
+  moments?: import('./member-moments').MemberMoments;
   qXI?: number;
   qXJ?: number;
   elementId: number;
@@ -420,6 +421,7 @@ export interface Reaction3D {
 }
 
 export interface ElementForces3D {
+  memberMoments?: Array<{ a: number; b: number; moments: import('./member-moments').MemberMoments }>;
   elementId: number;
   length: number;  // m
   // Axial force (+ = tension)

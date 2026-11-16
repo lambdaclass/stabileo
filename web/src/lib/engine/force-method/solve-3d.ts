@@ -248,6 +248,7 @@ function kffNullity(d: DSMStepData): number {
 
 export function solveForceMethod3D(input: SolverInput3D): ForceMethodResult {
   requireCableAnalysis(input.elements.values());
+  if (input.loads.some(l => l.type === 'distributed' && l.data.moments && Object.values(l.data.moments).some(v => v.some((x: number) => x !== 0)))) throw new Error('Distributed member moments require the engine solver');
   let base: DSMStepData;
   try { base = solveDetailed3D(input); } catch { throw new ForceMethodError('hypostatic'); }
   if (base.nullModes.length > 0) throw new ForceMethodError('unstable', base.nullModes);

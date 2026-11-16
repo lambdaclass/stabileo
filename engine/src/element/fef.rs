@@ -271,6 +271,12 @@ pub fn adjust_fef_for_hinges_3d(
     phi_y: f64,
     phi_z: f64,
 ) {
+    match (hinge.release_t_start, hinge.release_t_end) {
+        (true, false) => { fef[9] += fef[3]; fef[3] = 0.0; }
+        (false, true) => { fef[3] += fef[9]; fef[9] = 0.0; }
+        (true, true) => { fef[3] = 0.0; fef[9] = 0.0; }
+        (false, false) => {}
+    }
     // --- Y-bending plane (shear-y / moment-z) — controlled by release_mz_* ---
     let mz_start = hinge.release_mz_start;
     let mz_end = hinge.release_mz_end;

@@ -24,7 +24,7 @@ use crate::common::*;
 fn make_ef3d(
     n: f64, vy: f64, vz: f64, mx: f64, my: f64, mz: f64, length: f64,
 ) -> ElementForces3D {
-    ElementForces3D {
+    ElementForces3D { member_moments: Vec::new(),
         element_id: 1,
         length,
         n_start: n, n_end: -n,

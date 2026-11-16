@@ -84,7 +84,7 @@ pub fn embed(s: &SolverInput) -> SolverInput3D {
             }),
             SolverLoad::Distributed(d) => {
                 let (cy, cz) = transverse(s, d.element_id);
-                SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                     element_id: d.element_id, q_xi: 0.0, q_xj: 0.0,
                     q_yi: cy * d.q_i, q_yj: cy * d.q_j, q_zi: cz * d.q_i, q_zj: cz * d.q_j, a: d.a, b: d.b,
                 })

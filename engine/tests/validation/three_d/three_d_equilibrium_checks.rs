@@ -299,7 +299,7 @@ fn validation_3d_eq_distributed() {
     let q_y: f64 = -10.0;
 
     let loads: Vec<SolverLoad3D> = (1..=n)
-        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q_y, q_yj: q_y, q_zi: 0.0, q_zj: 0.0,

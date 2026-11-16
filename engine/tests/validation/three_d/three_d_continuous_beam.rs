@@ -193,7 +193,7 @@ fn validation_3d_continuous_two_span_reactions() {
     let n_per = 4;
 
     let loads: Vec<SolverLoad3D> = (1..=2 * n_per)
-        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
@@ -242,7 +242,7 @@ fn validation_3d_continuous_three_span_moments() {
     let n_total = 3 * n_per;
 
     let loads: Vec<SolverLoad3D> = (1..=n_total)
-        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
@@ -289,7 +289,7 @@ fn validation_3d_continuous_midspan_deflection() {
     let e_eff = E * 1000.0;
 
     let loads: Vec<SolverLoad3D> = (1..=2 * n_per)
-        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
@@ -355,7 +355,7 @@ fn validation_3d_continuous_alternating_span_load() {
 
     // Load only on span 1 (elements 1..n_per)
     let loads: Vec<SolverLoad3D> = (1..=n_per)
-        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
@@ -402,7 +402,7 @@ fn validation_3d_continuous_elastic_support() {
 
     // Rigid interior support: standard 2-span beam
     let loads_rigid: Vec<SolverLoad3D> = (1..=n_total)
-        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
@@ -494,7 +494,7 @@ fn validation_3d_continuous_elastic_support() {
     });
 
     let loads_spring: Vec<SolverLoad3D> = (1..=n_total)
-        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
@@ -551,7 +551,7 @@ fn validation_3d_continuous_equal_spans_symmetry() {
     let n_per = 4;
 
     let loads: Vec<SolverLoad3D> = (1..=2 * n_per)
-        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
@@ -604,7 +604,7 @@ fn validation_3d_continuous_global_equilibrium() {
     let mid_node = n_per / 2 + 1; // midspan of span 1
 
     let mut loads: Vec<SolverLoad3D> = (1..=n_total)
-        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
@@ -661,7 +661,7 @@ fn validation_3d_continuous_moment_ei_proportionality() {
 
     // Standard beam: uniform EI
     let loads_std: Vec<SolverLoad3D> = (1..=n_total)
-        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,
@@ -750,7 +750,7 @@ fn validation_3d_continuous_moment_ei_proportionality() {
     });
 
     let loads_2ei: Vec<SolverLoad3D> = (1..=n_total)
-        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: q, q_yj: q,

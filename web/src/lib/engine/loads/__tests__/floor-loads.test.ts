@@ -33,10 +33,10 @@ describe('two way', () => {
     const long = (q * 4 * (2 * 6 - 4)) / 4, short = (q * 4 * 4) / 4;
     expect(totals(r)).toEqual({ 1: long, 2: short, 3: long, 4: short });
     // The short side: 0 → q·ly/2 at mid-span → 0.
-    const s = r.loads.filter((l) => l.elementId === 2).sort((a, b) => (a.a ?? 0) - (b.a ?? 0));
+    const s = r.loads.filter((l) => l.elementId === 2 && (l.qI !== 0 || l.qJ !== 0)).sort((a, b) => (a.a ?? 0) - (b.a ?? 0));
     expect(s.map((l) => [l.a, l.b, l.qI, l.qJ])).toEqual([[0, 2, 0, 10], [2, 4, 10, 0]]);
     // The long side: rises over 2 m, flat over 2 m, falls over 2 m.
-    const l1 = r.loads.filter((l) => l.elementId === 1).sort((a, b) => (a.a ?? 0) - (b.a ?? 0));
+    const l1 = r.loads.filter((l) => l.elementId === 1 && (l.qI !== 0 || l.qJ !== 0)).sort((a, b) => (a.a ?? 0) - (b.a ?? 0));
     expect(l1.map((l) => [l.a, l.b, l.qI, l.qJ])).toEqual([[0, 2, 0, 10], [2, 4, 10, 10], [4, 6, 10, 0]]);
   });
 
@@ -47,7 +47,7 @@ describe('two way', () => {
 
   it('a member drawn backwards gets the same load, measured from its own node I', () => {
     const r = floorLoad({ ...panelModel([[0, 0], [6, 0], [6, 4], [0, 4]], 3, [1]), q: 5, distribution: 'twoWay' });
-    const l1 = r.loads.filter((l) => l.elementId === 1).sort((a, b) => (a.a ?? 0) - (b.a ?? 0));
+    const l1 = r.loads.filter((l) => l.elementId === 1 && (l.qI !== 0 || l.qJ !== 0)).sort((a, b) => (a.a ?? 0) - (b.a ?? 0));
     expect(l1.map((l) => [l.a, l.b, l.qI, l.qJ])).toEqual([[0, 2, 0, 10], [2, 4, 10, 10], [4, 6, 10, 0]]);
     expect(r.perBeam.get(1)).toBeCloseTo(40, 6);
   });
@@ -163,7 +163,7 @@ describe('what is not loaded', () => {
     expect(t[3]! + (r.nodal.filter((n) => n.elementId === 3).reduce((s, n) => s - n.fz, 0))).toBeCloseTo(t[4]! + r.nodal.filter((n) => n.elementId === 4).reduce((s, n) => s - n.fz, 0), 6);
     // The share past the sides' ends at the re-entrant corner goes to its node.
     expect(r.nodal.filter(n => n.fz !== 0).every((n) => n.nodeId === 4)).toBe(true);
-    expect(r.nodal.some(n => n.mx !== 0 || n.my !== 0)).toBe(true);
+    expect(r.loads.some(l => l.moments !== undefined)).toBe(true);
   });
 
   it('a cantilever beam bounds nothing', () => {

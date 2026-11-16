@@ -231,7 +231,7 @@ fn loads_3d_nothing_resists() {
         "thermal load on a missing element",
     );
     assert_failed(
-        e2e_3d(frame_3d(), |i| i.loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        e2e_3d(frame_3d(), |i| i.loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0, element_id: 99, q_yi: 0.0, q_yj: 0.0, q_zi: -1.0, q_zj: -1.0, a: None, b: None,
         }))),
         "distributed load on a missing element",

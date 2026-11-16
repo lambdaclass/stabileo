@@ -301,7 +301,7 @@ fn a_stopped_3d_run_under_a_distributed_load_reports_member_forces_at_the_carrie
     let qu = 2.0 * plastic_moment() / (L * L);
     let q_ref = 1.2 * qu;
     let mut input = cantilever_3d(steel(), 0.0, 0.0, 48);
-    input.solver.loads = (1..=N_EL).map(|id| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+    input.solver.loads = (1..=N_EL).map(|id| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
         element_id: id, q_xi: 0.0, q_xj: 0.0, q_yi: q_ref, q_yj: q_ref, q_zi: 0.0, q_zj: 0.0, a: None, b: None,
     })).collect();
     let r = solve_fiber_nonlinear_3d(&input).unwrap();

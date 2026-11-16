@@ -1140,7 +1140,7 @@ fn pdelta_with_axial_span_loads_needs_no_mean_force_warning_1329() {
         assert!(!ids(&solve_2d(&input).unwrap().structured_diagnostics).contains(&"PD-SPAN-AXIAL".into()), "linear analysis is not affected");
     }
     let tip = SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: -100.0, fy: 1.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None });
-    let span = |qx: f64| SolverLoad3D::Distributed(SolverDistributedLoad3D { q_xi: qx, q_xj: qx, element_id: 1, q_yi: 1.0, q_yj: 1.0, q_zi: 0.0, q_zj: 0.0, a: None, b: None });
+    let span = |qx: f64| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None, q_xi: qx, q_xj: qx, element_id: 1, q_yi: 1.0, q_yj: 1.0, q_zi: 0.0, q_zj: 0.0, a: None, b: None });
     for qx in [0.0, 25.0] {
         let input = make_3d_beam(1, 4.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None, vec![tip.clone(), span(qx)]);
         let ds = solve_pdelta_3d(&input, 20, 1e-6).unwrap().results.structured_diagnostics;
@@ -2360,7 +2360,7 @@ fn fixed_ended_span_3d(qy: f64, qz: f64) -> AnalysisResults3D {
         vec![(1, "frame", 1, 2, 1, 1), (2, "frame", 2, 3, 1, 1)],
         vec![(1, vec![true; 6]), (2, vec![true; 6])],
         vec![
-            SolverLoad3D::Distributed(SolverDistributedLoad3D { q_xi: 0.0, q_xj: 0.0, element_id: 1, q_yi: qy, q_yj: qy, q_zi: qz, q_zj: qz, a: None, b: None }),
+            SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None, q_xi: 0.0, q_xj: 0.0, element_id: 1, q_yi: qy, q_yj: qy, q_zi: qz, q_zj: qz, a: None, b: None }),
             SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: -1.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }),
         ],
     );

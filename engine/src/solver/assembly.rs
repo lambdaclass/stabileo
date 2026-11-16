@@ -2159,14 +2159,7 @@ fn assemble_element_loads_3d(
                 let b = dl.b.unwrap_or(l);
                 let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
 
-                let mut fef = if is_full {
-                    fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l, phi_y, phi_z)
-                } else {
-                    fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l, phi_y, phi_z)
-                };
-                let axial = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
-                fef[0] = axial[0];
-                fef[6] = axial[1];
+                let mut fef = dl.fef(l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 accumulate_frame_load(&fef, t, 12, elem_dofs, None, f_global, rounding);
             }
@@ -2214,14 +2207,7 @@ fn assemble_element_loads_3d_warping(
                 let b = dl.b.unwrap_or(l);
                 let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
 
-                let mut fef12 = if is_full {
-                    fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l, phi_y, phi_z)
-                } else {
-                    fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l, phi_y, phi_z)
-                };
-                let axial = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
-                fef12[0] = axial[0];
-                fef12[6] = axial[1];
+                let mut fef12 = dl.fef(l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
                 accumulate_frame_load(&fef14, t14, 14, elem_dofs, None, f_global, rounding);
@@ -2271,14 +2257,7 @@ fn assemble_element_loads_3d_mapped(
                 let b = dl.b.unwrap_or(l);
                 let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
 
-                let mut fef = if is_full {
-                    fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l, phi_y, phi_z)
-                } else {
-                    fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l, phi_y, phi_z)
-                };
-                let axial = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
-                fef[0] = axial[0];
-                fef[6] = axial[1];
+                let mut fef = dl.fef(l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 accumulate_frame_load(&fef, t12, 12, elem_dofs, Some(&DOF_MAP_12_TO_14), f_global, rounding);
             }

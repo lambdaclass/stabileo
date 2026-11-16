@@ -120,6 +120,7 @@ export interface PointLoad3DWire { elementId: number; a: Length; py: Force; pz: 
 export interface DistributedLoadWire { elementId: number; qI: LineLoad; qJ: LineLoad; a?: Length; b?: Length }
 export interface ThermalLoadWire { elementId: number; dtUniform: TemperatureDifference; dtGradient: TemperatureDifference; alpha?: ThermalExpansion; depth?: Length }
 export interface DistributedLoad3DWire {
+  moments?: { x: [Force, Force, Force]; y: [Force, Force, Force]; z: [Force, Force, Force] };
   qXI?: LineLoad; qXJ?: LineLoad; elementId: number; qYI: LineLoad; qYJ: LineLoad; qZI: LineLoad; qZJ: LineLoad; a?: Length; b?: Length;
 }
 export interface ThermalLoad3DWire {
@@ -280,6 +281,7 @@ export interface Displacement3DWire { ux: Length; uy: Length; uz: Length; rx: An
 export interface Reaction3DWire { fx: Force; fy: Force; fz: Force; mx: Moment; my: Moment; mz: Moment; bimoment?: Bimoment }
 export interface PointLoadInfo3DWire { a: Length; p: Force }
 export interface ElementForces3DWire {
+  memberMoments?: Array<{ a: Length; b: Length; moments: { x: [Force, Force, Force]; y: [Force, Force, Force]; z: [Force, Force, Force] } }>;
   length: Length; nStart: Force; nEnd: Force; vyStart: Force; vyEnd: Force; vzStart: Force; vzEnd: Force;
   mxStart: Moment; mxEnd: Moment; myStart: Moment; myEnd: Moment; mzStart: Moment; mzEnd: Moment;
   qYI: LineLoad; qYJ: LineLoad; distributedLoadsY: DistributedLoadInfoWire[]; pointLoadsY: PointLoadInfo3DWire[];

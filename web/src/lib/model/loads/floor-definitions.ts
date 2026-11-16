@@ -1,3 +1,4 @@
+import { RESULTS_VERSION } from '../../provenance/registry';
 /**
  * Floor loads kept as what they are (an area load on a target, carried to the members or to the
  * slab) and load zones, both stored as groups of the model (`ModelGroup.kind`). A definition is
@@ -152,7 +153,7 @@ export function expandDefinition(m: DefinitionModel, def: FloorLoadDef, own: Gro
   const zone = def.target.by === 'zone' ? zoneOutline(m, def.target.zoneId) : null;
   if (def.target.by === 'zone' && !zone) return none('noZone');
   const tg = targetsOf(m, def, own);
-  const mark = { caseId: def.caseId, fromDef: defId };
+  const mark = { caseId: def.caseId, fromDef: defId, floorLoadsVersion: RESULTS_VERSION };
 
   if (def.distribution === 'slab') {
     const loads: Load[] = [];
@@ -189,8 +190,9 @@ export function expandDefinition(m: DefinitionModel, def: FloorLoadDef, own: Gro
     ...(def.perPlanArea ? { perPlanArea: true } : {}),
   });
   const loads: Load[] = [
+    ...res.concentrated.map((data): Load => ({ type: 'pointOnElement3d', data: { id: 0, ...data, ...mark } })),
     // The part along an inclined member's axis too (qX), or the load would not stay vertical.
-    ...res.loads.map((l): Load => ({ type: 'distributed3d', data: { id: 0, elementId: l.elementId, ...(l.qXI || l.qXJ ? { qXI: l.qXI, qXJ: l.qXJ } : {}), qYI: l.qYI, qYJ: l.qYJ, qZI: l.qZI, qZJ: l.qZJ, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), ...mark } })),
+    ...res.loads.map((l): Load => ({ type: 'distributed3d', data: { id: 0, elementId: l.elementId, ...(l.qXI || l.qXJ ? { qXI: l.qXI, qXJ: l.qXJ } : {}), ...(l.moments ? { moments: l.moments } : {}), qYI: l.qYI, qYJ: l.qYJ, qZI: l.qZI, qZJ: l.qZJ, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), ...mark } })),
     // A share at a re-entrant corner names the member it belongs to, which carries its mass.
     ...res.nodal.map((n): Load => ({ type: 'nodal3d', data: { id: 0, nodeId: n.nodeId, fx: 0, fy: 0, fz: n.fz, mx: n.mx, my: n.my, mz: 0, carrier: n.elementId, ...mark } })),
   ];
@@ -256,9 +258,6 @@ export function definitionName(m: Pick<DefinitionModel, 'groups'>, defId: number
   const g = m.groups.get(defId);
   return g?.kind === 'floorLoad' ? g.name : `#${defId}`;
 }
-
-/** The area of a polygon in plan, m². */
-
 
 /** A zone's area in plan less its openings', m². */
 export function zoneArea(m: DefinitionModel, zoneId: number): number {
@@ -364,3 +363,8 @@ export function carriedTarget(t: FloorTarget, T: Affine): FloorTarget | null {
   return null;
 }
 
+
+export function orphanFloorLoadData(data: Record<string, unknown>): Record<string, unknown> {
+  const { fromDef, ...rest }=data;
+  return fromDef !== undefined ? { ...rest, floorLoadsVersion: data.floorLoadsVersion ?? 0 } : rest;
+}

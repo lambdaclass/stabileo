@@ -1,3 +1,4 @@
+import { mapMoments } from '../../engine/member-moments';
 /**
  * A member load moved to the other frame, the same load: its components re-expressed so it acts
  * as it did. The frame toggle on the edit card (Global / Local) is a choice of how to read the
@@ -35,6 +36,10 @@ export function reframedDistributed(d: DistributedLoad3DLike, axes: MemberAxes, 
   const I = onFrame(gI, axes, to, leftHand), J = onFrame(gJ, axes, to, leftHand);
   return {
     frame: to === 'global' ? 'global' as const : undefined,
+    ...(d.moments ? { moments: mapMoments(d.moments, v => {
+      const g = d.frame && d.frame !== 'local' ? v : [0,1,2].map(i => v[0]*axes.ex[i]! + v[1]*(leftHand ? -1 : 1)*axes.ey[i]! + v[2]*axes.ez[i]!) as [number,number,number];
+      return onFrame(g,axes,to,leftHand);
+    }) } : {}),
     qXI: I[0], qYI: I[1], qZI: I[2], qXJ: J[0], qYJ: J[1], qZJ: J[2],
   };
 }
@@ -55,7 +60,7 @@ export function reframedPoint(d: PointLoad3DLike, axes: MemberAxes, to: LoadFram
  */
 export function reframedMemberLoad(
   load: { type: string; data: unknown }, model: ModelData, to: LoadFrame, leftHand = false,
-): Record<string, number | string | undefined> | null {
+): Record<string, unknown> | null {
   if (load.type !== 'distributed3d' && load.type !== 'pointOnElement3d') return null;
   const d = load.data as { elementId: number };
   let ref: ReturnType<typeof memberRef3D> = null;

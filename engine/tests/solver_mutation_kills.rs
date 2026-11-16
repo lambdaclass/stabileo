@@ -511,7 +511,7 @@ fn expected_member_loads(scale: f64) -> [f64; 12] {
 
 fn member_loads(element_id: usize, scale: f64) -> Vec<SolverLoad3D> {
     vec![
-        SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             element_id,
             q_xi: 2.0 * scale,
             q_xj: 2.0 * scale,
@@ -522,7 +522,7 @@ fn member_loads(element_id: usize, scale: f64) -> Vec<SolverLoad3D> {
             a: None,
             b: None,
         }),
-        SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             element_id,
             q_xi: 0.0,
             q_xj: 0.0,

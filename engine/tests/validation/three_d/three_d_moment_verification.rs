@@ -220,7 +220,7 @@ fn validation_fixed_fixed_udl_z_end_moments() {
     let fixed = vec![true, true, true, true, true, true];
 
     let loads: Vec<SolverLoad3D> = (1..=n)
-        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i,
             q_yi: 0.0, q_yj: 0.0,

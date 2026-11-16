@@ -2283,7 +2283,7 @@ fn cases_3d() -> Vec<Case3> {
             m
         };
         let dist = |e: usize, qy: (f64, f64), qz: (f64, f64), ab: Option<(f64, f64)>| {
-            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 q_xi: 0.0, q_xj: 0.0, element_id: e, q_yi: qy.0, q_yj: qy.1, q_zi: qz.0, q_zj: qz.1, a: ab.map(|x| x.0), b: ab.map(|x| x.1),
             })
         };

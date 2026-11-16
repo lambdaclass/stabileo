@@ -306,6 +306,7 @@ function dofLabel3D(nodeId: number, localDof: number, dofsPerNode: number): stri
 
 export function solveDetailed3D(input: SolverInput3D): DSMStepData {
   requireCableAnalysis(input.elements.values());
+  if (input.loads.some(l => l.type === 'distributed' && l.data.moments && Object.values(l.data.moments).some(v => v.some((x: number) => x !== 0)))) throw new Error('Distributed member moments require the engine solver');
   // ─── Step 1: DOF Numbering ────────────────────────────────────
   const hasFrames = Array.from(input.elements.values()).some(e => e.type === 'frame');
   const dofsPerNode = hasFrames ? 6 : 3;

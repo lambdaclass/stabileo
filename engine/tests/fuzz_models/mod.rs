@@ -1000,7 +1000,7 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
                     (None, None)
                 };
                 let axial = rng.gen_bool(0.4);
-                loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                     element_id: eid,
                     q_xi: if axial { q(&mut rng) } else { 0.0 },
                     q_xj: if axial { q(&mut rng) } else { 0.0 },

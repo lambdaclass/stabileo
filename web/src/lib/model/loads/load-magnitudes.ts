@@ -1,3 +1,4 @@
+import { mapMoments } from '../../engine/member-moments';
 /**
  * Which fields of each load type are its magnitude: what scales when the load is scaled (a what-if
  * slider, the "scale loads" operation, a case duplicated with a factor). Positions, ids, frames and
@@ -18,7 +19,7 @@ export const MAGNITUDE_FIELDS: MagnitudeFields = {
   pointOnElement: ['p', 'px', 'my', 'mz'],
   thermal: ['dtUniform', 'dtGradient', 'dtGradientY', 'strain'],
   nodal3d: ['fx', 'fy', 'fz', 'mx', 'my', 'mz'],
-  distributed3d: ['qYI', 'qYJ', 'qZI', 'qZJ', 'qXI', 'qXJ'],
+  distributed3d: ['qYI', 'qYJ', 'qZI', 'qZJ', 'qXI', 'qXJ', 'moments'],
   pointOnElement3d: ['py', 'pz', 'px', 'mx', 'my', 'mz'],
   surface3d: ['q', 'qNodes', 'vary'],
   thermalQuad3d: ['dtUniform', 'dtGradient'],
@@ -31,7 +32,8 @@ export function scaledLoad<L extends Load>(l: L, k: number): L {
   const data = { ...l.data } as Record<string, unknown>;
   for (const f of MAGNITUDE_FIELDS[l.type] as readonly string[]) {
     const v = data[f];
-    if (typeof v === 'number') data[f] = v * k;
+    if (f === 'moments' && l.type === 'distributed3d' && l.data.moments) data[f] = mapMoments(l.data.moments,v=>v.map(x=>x*k) as [number,number,number]);
+    else if (typeof v === 'number') data[f] = v * k;
     // A value per corner, and the two values of a variation.
     else if (Array.isArray(v)) data[f] = v.map((x) => (typeof x === 'number' ? x * k : x));
     else if (v && typeof v === 'object' && 'q1' in v && 'q2' in v) {
@@ -55,6 +57,7 @@ export function editLeavesNothing(l: Load, edit: Record<string, unknown>): boole
   const data = l.data as unknown as Record<string, unknown>;
   return fields.every((f) => {
     const v = f in edit ? edit[f] : data[f];
+    if(f === 'moments' && v) return Object.values(v as import('../../engine/member-moments').MemberMoments).every(values=>values.every((x: number)=>x===0));
     return typeof v !== 'number' || v === 0;
   });
 }

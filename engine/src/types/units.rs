@@ -722,7 +722,7 @@ mod wire {
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
     pub struct SolverDistributedLoad {
         pub element_id: usize,
         #[serde(rename = "qI")]
@@ -764,6 +764,8 @@ mod wire {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct SolverDistributedLoad3D {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub moments: Option<super::super::MemberMoments<Force>>,
         #[serde(default, rename = "qXI")]
         pub q_xi: LineLoad,
         #[serde(default, rename = "qXJ")]
@@ -1037,6 +1039,8 @@ mod wire {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct ElementForces3D {
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pub member_moments: Vec<super::super::MemberMomentInfo<Length, Force>>,
         pub element_id: usize,
         pub length: Length,
         pub n_start: Force,
@@ -1333,6 +1337,7 @@ impl From<TypedThermalLoad> for super::SolverThermalLoad {
 impl From<TypedDistributedLoad3D> for super::SolverDistributedLoad3D {
     fn from(l: TypedDistributedLoad3D) -> Self {
         Self {
+            moments: l.moments.map(|m| super::MemberMoments { x: m.x.map(Force::in_kn), y: m.y.map(Force::in_kn), z: m.z.map(Force::in_kn) }),
             q_xi: l.q_xi.in_kn_per_m(),
             q_xj: l.q_xj.in_kn_per_m(),
             element_id: l.element_id,
@@ -1610,6 +1615,7 @@ impl From<&super::PointLoadInfo3D> for TypedPointLoadInfo3D {
 impl From<&super::ElementForces3D> for TypedElementForces3D {
     fn from(f: &super::ElementForces3D) -> Self {
         let super::ElementForces3D {
+            member_moments,
             element_id,
             length,
             n_start,
@@ -1644,6 +1650,7 @@ impl From<&super::ElementForces3D> for TypedElementForces3D {
             bimoment_end,
         } = f;
         Self {
+            member_moments: member_moments.iter().map(|m| super::MemberMomentInfo { a: Length::from_m(m.a), b: Length::from_m(m.b), moments: super::MemberMoments { x: m.moments.x.map(Force::from_kn), y: m.moments.y.map(Force::from_kn), z: m.moments.z.map(Force::from_kn) } }).collect(),
             element_id: *element_id,
             length: Length::from_m(*length),
             n_start: Force::from_kn(*n_start),

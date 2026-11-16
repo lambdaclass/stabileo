@@ -192,7 +192,7 @@ pub fn embed_2d(s: &SolverInput, plane: Plane) -> TResult<SolverInput3D> {
             }
             SolverLoad::Distributed(q) => {
                 let m = member(s, plane, q.element_id)?;
-                SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                     element_id: q.element_id, q_xi: 0.0, q_xj: 0.0,
                     q_yi: m.cy * q.q_i, q_yj: m.cy * q.q_j, q_zi: m.cz * q.q_i, q_zj: m.cz * q.q_j, a: q.a, b: q.b,
                 })
@@ -204,7 +204,7 @@ pub fn embed_2d(s: &SolverInput, plane: Plane) -> TResult<SolverInput3D> {
                 let m = member(s, plane, p.element_id)?;
                 SolverLoad3D::PointOnElement(SolverPointLoad3D { px: p.px.unwrap_or(0.0), element_id: p.element_id, a: p.a, py: m.cy * p.p, pz: m.cz * p.p })
             }
-            SolverLoad::AxialDistributed(q) => SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            SolverLoad::AxialDistributed(q) => SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 element_id: q.element_id, q_xi: q.q_i, q_xj: q.q_j, q_yi: 0.0, q_yj: 0.0, q_zi: 0.0, q_zj: 0.0, a: q.a, b: q.b,
             }),
             SolverLoad::Thermal(t) => {

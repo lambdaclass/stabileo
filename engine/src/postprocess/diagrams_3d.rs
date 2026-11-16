@@ -71,6 +71,7 @@ pub fn evaluate_diagram_3d_at(
     match kind {
         "momentZ" => {
             let mut value = ef.mz_start - ef.vy_start * x;
+            for m in &ef.member_moments { value += MemberMoments::integral(m.moments.z, m.a, m.b, x); }
             for dl in &ef.distributed_loads_y {
                 let a = dl.a;
                 let b = dl.b;
@@ -92,6 +93,7 @@ pub fn evaluate_diagram_3d_at(
         }
         "momentY" => {
             let mut value = ef.my_start + ef.vz_start * x;
+            for m in &ef.member_moments { value += MemberMoments::integral(m.moments.y, m.a, m.b, x); }
             for dl in &ef.distributed_loads_z {
                 let a = dl.a;
                 let b = dl.b;
@@ -161,7 +163,10 @@ pub fn evaluate_diagram_3d_at(
             }
             value
         },
-        "torsion" => ef.mx_start + t * (ef.mx_end - ef.mx_start),
+        "torsion" => {
+            if ef.member_moments.is_empty() { return ef.mx_start + t * (ef.mx_end - ef.mx_start); }
+            ef.mx_start + ef.member_moments.iter().map(|m| MemberMoments::integral(m.moments.x, m.a, m.b, x)).sum::<f64>()
+        },
         _ => 0.0,
     }
 }

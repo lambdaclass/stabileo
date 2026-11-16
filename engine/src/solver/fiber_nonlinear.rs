@@ -638,6 +638,7 @@ fn loads_at_3d(solver: &SolverInput3D, factor: f64) -> SolverInput3D {
                 n.bw = n.bw.map(|v| v * factor);
             }
             SolverLoad3D::Distributed(d) => {
+                d.moments = d.moments.as_ref().map(|m| m.scaled(factor));
                 for v in [&mut d.q_xi, &mut d.q_xj, &mut d.q_yi, &mut d.q_yj, &mut d.q_zi, &mut d.q_zj] {
                     *v *= factor;
                 }
@@ -1916,7 +1917,7 @@ mod tests {
         let (qy, qz) = (-7.0, 11.0);
         let solver = SolverInput3D {
             solver_options: None, nodes, materials, sections, elements, supports,
-            loads: vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            loads: vec![SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 q_xi: 0.0, q_xj: 0.0, element_id: 1, q_yi: qy, q_yj: qy, q_zi: qz, q_zj: qz, a: None, b: None })],
             constraints: vec![], left_hand: None, plates: Map::new(), quads: Map::new(), quad9s: Map::new(),
             solid_shells: Map::new(), curved_shells: Map::new(), curved_beams: vec![], connectors: Map::new(),

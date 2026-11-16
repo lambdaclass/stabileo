@@ -451,7 +451,8 @@ describe('an opening’s ring is loaded once, by its own panel', () => {
     // The opening's sides take part of theirs past their ends, at the ring's corners.
     const p = buildLoadPlan(planInput(m));
     const atCorners = p.nodal.filter((n) => n.caseType === 'D').reduce((s, n) => s + n.fz, 0);
-    expect(atCorners).toBeLessThan(0);
+    expect(atCorners).toBe(0);
+    expect(p.distributed.some(d=>d.caseType==='D' && d.moments !== undefined)).toBe(true);
     expect(totalKN(p.distributed.filter((d) => d.caseType === 'D'), m) + atCorners).toBeCloseTo(-200, 6);
   });
 
@@ -489,7 +490,8 @@ describe('a share at a re-entrant corner weighs the same in the plan and in the 
     const lv = planned.levels.find((l) => l.elevation === 3)!;
     expect(lv.superimposedKN).toBeCloseTo(q * area, 6);
     const corner = planned.nodal.filter((n) => n.caseType === 'D');
-    expect(corner.length).toBeGreaterThan(0);
+    expect(corner).toEqual([]);
+    expect(planned.distributed.some(d=>d.caseType==='D' && d.moments !== undefined)).toBe(true);
     expect(corner.every((n) => n.carrier !== undefined && [m.elements.get(n.carrier)!.nodeI, m.elements.get(n.carrier)!.nodeJ].includes(n.nodeId))).toBe(true);
     // The Floor tool, on the same floor standing on columns.
     const nodes = new Map<number, { id: number; x: number; y: number; z: number }>();
@@ -501,7 +503,8 @@ describe('a share at a re-entrant corner weighs the same in the plan and in the 
     const def = expandDefinition({
       nodes, elements, quads: new Map(), plates: new Map(), sections: new Map(), groups: new Map(), loadCases: cases,
     }, { caseId: 1, q, target: { by: 'level', z: 3 }, distribution: 'twoWay' }, {}, 1, { leftHand: false });
-    expect(def.loads.some((l) => l.type === 'nodal3d')).toBe(true);
+    expect(def.loads.some((l) => l.type === 'nodal3d')).toBe(false);
+    expect(def.loads.some(l=>l.type==='distributed3d' && l.data.moments !== undefined)).toBe(true);
     expect(def.totalKN).toBeCloseTo(q * area, 6);
     const md = {
       nodes, elements, loads: def.loads.map((l, i) => ({ ...l, data: { ...l.data, id: i + 1 } })),

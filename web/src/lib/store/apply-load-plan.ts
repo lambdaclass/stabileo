@@ -117,7 +117,7 @@ export function replacedByPlan(
     : s.generated;
 }
 
-const DISTRIBUTED_TYPES: readonly string[] = ['distributed', 'distributed3d'];
+const DISTRIBUTED_TYPES: readonly string[] = ['distributed', 'distributed3d', 'pointOnElement', 'pointOnElement3d'];
 const NODAL_TYPES: readonly string[] = ['nodal', 'nodal3d'];
 
 /**
@@ -201,15 +201,20 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     }
     const caseOf = (type: string, index?: number) => (index !== undefined ? caseIds[index] : caseIdByType.get(type)?.[0]);
 
+    for (const point of p.concentrated ?? []) {
+      const id = caseOf(point.caseType, point.caseIndex);
+      if (id === undefined) continue;
+      modelStore.addPointLoadOnElement3D(point.elementId, point.a, point.py, point.pz, id, { px: point.px, mx: point.mx, my: point.my, mz: point.mz, frame: point.frame });
+    }
     for (const d of p.distributed) {
       const id = caseOf(d.caseType, d.caseIndex);
       if (id === undefined) continue;
       const qJ = d.qJ ?? d.q;
       if (d.frame === 'global' || d.frame === 'projected') {
         modelStore.addDistributedLoad3D(d.elementId, d.qY ?? 0, d.qY ?? 0, d.q, qJ, d.a, d.b, id,
-          { frame: d.frame, ...(d.qX ? { qXI: d.qX, qXJ: d.qX } : {}) });
+          { moments: d.moments, frame: d.frame, ...(d.qX ? { qXI: d.qX, qXJ: d.qX } : {}) });
       } else {
-        modelStore.addDistributedLoad3D(d.elementId, 0, 0, d.q, qJ, d.a, d.b, id);
+        modelStore.addDistributedLoad3D(d.elementId, 0, 0, d.q, qJ, d.a, d.b, id, { moments: d.moments });
       }
     }
     // A floor's share at a re-entrant corner keeps the member it belongs to, which carries its mass.

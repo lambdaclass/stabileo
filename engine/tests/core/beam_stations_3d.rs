@@ -36,7 +36,7 @@ fn test_full_solve_to_station_extraction_3d() {
             (2, vec![false, true, true, false, false, false]), // roller Y+Z at node 2
             (3, vec![false, true, true, false, false, false]), // roller Y+Z at node 3
         ],
-        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: 1,
             q_yi: -10.0, q_yj: -10.0,
@@ -59,7 +59,7 @@ fn test_full_solve_to_station_extraction_3d() {
             (2, vec![false, true, true, false, false, false]),
             (3, vec![false, true, true, false, false, false]),
         ],
-        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: 1,
             q_yi: -20.0, q_yj: -20.0,
@@ -408,7 +408,7 @@ fn test_grouped_full_solve_3d() {
             (2, vec![false, true, true, false, false, false]),
             (3, vec![false, true, true, false, false, false]),
         ],
-        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: 1,
             q_yi: -10.0, q_yj: -10.0,
@@ -431,7 +431,7 @@ fn test_grouped_full_solve_3d() {
             (2, vec![false, true, true, false, false, false]),
             (3, vec![false, true, true, false, false, false]),
         ],
-        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: 1,
             q_yi: -20.0, q_yj: -20.0,

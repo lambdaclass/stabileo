@@ -110,7 +110,7 @@ fn build_frame() -> SolverInput3D {
     let loads: Vec<_> = beams
         .iter()
         .map(|&element_id| {
-            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 q_xi: 0.0, q_xj: 0.0,
                 element_id,
                 q_yi: 0.0,

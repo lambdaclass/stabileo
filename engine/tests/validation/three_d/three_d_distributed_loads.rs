@@ -44,7 +44,7 @@ fn validation_cantilever_udl_z_tip_deflection() {
 
     let loads: Vec<SolverLoad3D> = (0..n)
         .map(|i| {
-            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 q_xi: 0.0, q_xj: 0.0,
                 element_id: i + 1,
                 q_yi: 0.0,
@@ -91,7 +91,7 @@ fn validation_cantilever_udl_y_tip_deflection() {
 
     let loads: Vec<SolverLoad3D> = (0..n)
         .map(|i| {
-            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 q_xi: 0.0, q_xj: 0.0,
                 element_id: i + 1,
                 q_yi: w,
@@ -195,7 +195,7 @@ fn validation_simultaneous_wy_wz_superposition() {
     let make_loads = |qy: f64, qz: f64| -> Vec<SolverLoad3D> {
         (0..n)
             .map(|i| {
-                SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                     q_xi: 0.0, q_xj: 0.0,
                     element_id: i + 1,
                     q_yi: qy,
@@ -264,7 +264,7 @@ fn validation_triangular_load_z_tip_deflection() {
             let xj = (i + 1) as f64 * elem_len;
             let wz_i = w_max * (1.0 - xi / l);
             let wz_j = w_max * (1.0 - xj / l);
-            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 q_xi: 0.0, q_xj: 0.0,
                 element_id: i + 1,
                 q_yi: 0.0,
@@ -309,7 +309,7 @@ fn validation_cantilever_udl_wz_reactions() {
 
     let loads: Vec<SolverLoad3D> = (0..n)
         .map(|i| {
-            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 q_xi: 0.0, q_xj: 0.0,
                 element_id: i + 1,
                 q_yi: 0.0,
@@ -357,7 +357,7 @@ fn validation_ss_beam_udl_wz_total_reaction() {
 
     let loads: Vec<SolverLoad3D> = (0..n)
         .map(|i| {
-            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 q_xi: 0.0, q_xj: 0.0,
                 element_id: i + 1,
                 q_yi: 0.0,
@@ -397,7 +397,7 @@ fn validation_double_load_double_deflection() {
     let make_loads = |w: f64| -> Vec<SolverLoad3D> {
         (0..n)
             .map(|i| {
-                SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                     q_xi: 0.0, q_xj: 0.0,
                     element_id: i + 1,
                     q_yi: 0.0,

@@ -1,3 +1,4 @@
+import { mapMoments } from '../../engine/member-moments';
 import { expect, it } from 'vitest';
 import { modelStore, type Load } from '../model.svelte';
 import '../index';
@@ -26,7 +27,7 @@ function resultant(loads: Load[]) {
       const e = modelStore.elements.get(l.data.elementId)!, a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
       const axes = computeLocalAxes3D({ ...a, z: a.z ?? 0 }, { ...b, z: b.z ?? 0 }, undefined, 0, false);
       const global = distributedGlobalEnds(l.data, { ...axes, L: Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) }, uiStore.axisConvention3D === 'leftHand');
-      return [{ elementId: e.id, q: global.gI[2], qJ: global.gJ[2], a: global.a, b: global.b }];
+      return [{ ...(l.data.moments ? { moments: l.data.frame && l.data.frame !== 'local' ? l.data.moments : mapMoments(l.data.moments,v => [0,1,2].map(i=>v[0]*axes.ex[i]!+v[1]*(uiStore.axisConvention3D==='leftHand'?-1:1)*axes.ey[i]!+v[2]*axes.ez[i]!) as [number,number,number]) } : {}), elementId: e.id, q: global.gI[2], qJ: global.gJ[2], a: global.a, b: global.b }];
     }),
     nodal: loads.flatMap(l => l.type === 'nodal3d' ? [l.data] : []),
     surface: loads.flatMap(l => l.type === 'surface3d' ? [l.data] : []),
@@ -48,7 +49,7 @@ for (const mode of ['2d', '3d', 'pro'] as const) {
     applyLoadPlan(p, { clearExisting: true, bothSenses: false, nameOf: k => k });
     const d = modelStore.model.loadCases.find(c => c.type === 'D')!.id;
     expectResultant(resultant(modelStore.loads.filter(l => l.data.caseId === d)), [60, 300, 180]);
-    expect(modelStore.loads.some(l => l.type === 'nodal3d' && (l.data.mx !== 0 || l.data.my !== 0))).toBe(true);
+    expect(modelStore.loads.some(l => l.type === 'distributed3d' && l.data.moments !== undefined)).toBe(true);
     if (overlap) expect(modelStore.loads.some(l => l.type === 'surface3d' && l.data.region !== undefined)).toBe(true);
   });
   for (const distribution of ['twoWay', 'oneWay'] as const) for (const handed of ['rightHand', 'leftHand'] as const) {

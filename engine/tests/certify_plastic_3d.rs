@@ -39,7 +39,7 @@ fn plastic(solver: SolverInput3D, mpy: f64, mpz: f64) -> PlasticInput3D {
 }
 
 fn udl(e: usize, qy: f64, qz: f64) -> SolverLoad3D {
-    SolverLoad3D::Distributed(SolverDistributedLoad3D {
+    SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
         q_xi: 0.0,
         q_xj: 0.0,
         element_id: e,

@@ -1,3 +1,5 @@
+import { orphanFloorLoadData } from '../loads/floor-definitions';
+import { mapMoments } from '../../engine/member-moments';
 /**
  * What an isometry does to each thing a member, a shell, a support or a load carries.
  *
@@ -224,7 +226,7 @@ export function carriedLoad(
   // A copy of a floor-load definition's load is a plain load (`fromDef` dropped): the definition
   // loads the original, and its rewrite deleted the copies, which lost their loads at the next solve.
   if ((l.data as { fromDef?: number }).fromDef !== undefined) {
-    const { fromDef: _def, ...rest } = l.data as unknown as Record<string, unknown>;
+    const rest = orphanFloorLoadData(l.data as unknown as Record<string, unknown>);
     l = { ...l, data: rest } as unknown as Load;
   }
   const translationOnly = T.A.every((v, i) => Math.abs(v - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]!) < 1e-12);
@@ -245,9 +247,9 @@ export function carriedLoad(
       const { sy, sz } = signsOf(q.elementId);
       if (q.frame === 'global' || q.frame === 'projected') {
         const I = applyVector(T, [q.qXI ?? 0, q.qYI, q.qZI]), J = applyVector(T, [q.qXJ ?? 0, q.qYJ, q.qZJ]);
-        return { load: { type: 'distributed3d', data: { ...q, elementId: to, qXI: I[0], qYI: I[1], qZI: I[2], qXJ: J[0], qYJ: J[1], qZJ: J[2] } } };
+        return { load: { type: 'distributed3d', data: { ...q, elementId: to, ...(q.moments ? { moments: mapMoments(q.moments, v => applyAxial(T,v)) } : {}), qXI: I[0], qYI: I[1], qZI: I[2], qXJ: J[0], qYJ: J[1], qZJ: J[2] } } };
       }
-      return { load: { type: 'distributed3d', data: { ...q, elementId: to, qYI: sy * q.qYI, qYJ: sy * q.qYJ, qZI: sz * q.qZI, qZJ: sz * q.qZJ } } };
+      return { load: { type: 'distributed3d', data: { ...q, elementId: to, ...(q.moments ? { moments: mapMoments(q.moments, v => [sy*sz*v[0],sz*v[1],sy*v[2]]) } : {}), qYI: sy * q.qYI, qYJ: sy * q.qYJ, qZI: sz * q.qZI, qZJ: sz * q.qZJ } } };
     }
     case 'pointOnElement3d': {
       const q = l.data as PointLoadOnElement3D;

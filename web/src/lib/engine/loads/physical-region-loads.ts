@@ -1,8 +1,9 @@
+import { linearProfile } from '../linear-profile';
 import fastClipping from 'polygon-clipping';
 import BigNumber from 'bignumber.js';
 import * as polygonClipping from 'polyclip-ts';
 type MultiPolygon = Array<Array<Array<[number, number]>>>;
-import { skeletonCells, type P2 } from './floor-skeleton';
+import { type P2 } from './floor-skeleton';
 
 export interface Side {
 
@@ -22,11 +23,9 @@ export interface Piece { s0: number; s1: number; q0: number; q1: number }
 export interface Zone2D { outer: P2[]; holes: P2[][] }
 
 export interface SideShare {
+  moments: Array<{ s0: number; s1: number; first: [P2, P2, P2] }>;
   pieces: Piece[];
 
-  atA: number; atB: number;
-  eccentricFirst: P2;
-  roundoffForce: number;
 }
 
 const dot = (a: P2, b: P2) => a[0] * b[0] + a[1] * b[1];
@@ -44,58 +43,14 @@ function signedArea(p: readonly P2[]): number {
 
 export function twoWayShares(sides: Side[], holes: Side[][], q: number, zone?: Zone2D, excluded: P2[][] = [], selection?: PhysicalRegion): SideShare[] | null {
   const all = [...sides, ...holes.flat()];
-  let cells: P2[][][];
-  if (!holes.length && isConvex(sides.map((s) => s.a))) {
-    const corners = sides.map((s) => s.a);
-    cells = sides.map((e, k) => {
-      let face: P2[] = corners;
-      for (let f = 0; f < sides.length && face.length >= 3; f++) {
-        if (f !== k) { const g = sides[f]!; face = clipExact(face, (p) => dist(e, p) - dist(g, p)); }
-      }
-      return face.length >= 3 ? [face] : [];
-    });
-  } else {
-    const c = skeletonCells([sides.map((s) => s.a), ...holes.map((h) => h.map((s) => s.a))]);
-    if (!c) return null;
-    cells = c;
-  }
   const full = loadedRegion(sides, holes, zone, excluded);
-  const region = selection ? intersectRegions(full, selection) : full;
-  const out: SideShare[] = all.map(() => ({ pieces: [], atA: 0, atB: 0, roundoffForce: 0, eccentricFirst: [0, 0] }));
-  const complete = (holes.length > 0 || !isConvex(sides.map(s => s.a))) && (!!zone || excluded.length > 0 || !!selection);
-  let remaining = region;
-  const put = (k: number, portion: PhysicalRegion) => {
-    const sh = transferRegionToSide(all[k]!, portion, q), target = out[k]!;
-    target.pieces.push(...sh.pieces); target.atA += sh.atA; target.atB += sh.atB; target.roundoffForce += sh.roundoffForce;
-    target.eccentricFirst[0] += sh.eccentricFirst[0]; target.eccentricFirst[1] += sh.eccentricFirst[1];
-  };
-  all.forEach((_e, k) => {
-    for (const cell of cells[k]!) {
-      const raw = physicalRegion(cell);
-      const clipped = complete ? intersectRegions(raw, remaining) : zone || excluded.length || selection ? intersectRegions(raw, region) : raw;
-      put(k, clipped);
-      if (complete) remaining = subtractRegions(remaining, clipped);
-    }
-  });
-  if (complete) for (const cell of regionCells(remaining)) {
-    const portion = physicalRegion(cell), integral = regionIntegral(portion);
-    if (!(integral.area > 0)) continue;
-    const c: P2 = [integral.first[0] / integral.area, integral.first[1] / integral.area];
-    const distance = (side: Side) => {
-      const s = Math.max(0, Math.min(side.len, along(side, c)));
-      return Math.hypot(c[0] - side.a[0] - s * side.u[0], c[1] - side.a[1] - s * side.u[1]);
-    };
-    let nearest = 0;
-    all.forEach((side, k) => { if (distance(side) < distance(all[nearest]!)) nearest = k; });
-    put(nearest, portion);
-  }
-  return out;
+  return partitionRegionToSides(all, selection ? intersectRegions(full, selection) : full).map((owned, k) => transferRegionToSide(all[k]!, owned, q));
 }
 
 
 export function oneWayShares(sides: Side[], holes: Side[][], d: P2, q: number, zone?: Zone2D, excluded: P2[][] = [], selection?: PhysicalRegion): SideShare[] | null {
   const all = [...sides, ...holes.flat()];
-  const out: SideShare[] = all.map(() => ({ pieces: [], atA: 0, atB: 0, roundoffForce: 0, eccentricFirst: [0, 0] }));
+  const out: SideShare[] = all.map(() => ({ moments: [], pieces: [] }));
   const n: P2 = [-d[1], d[0]];
   const full = loadedRegion(sides, holes, zone, excluded);
   const region = selection ? intersectRegions(full, selection) : full;
@@ -123,11 +78,14 @@ export function oneWayShares(sides: Side[], holes: Side[][], d: P2, q: number, z
         piece = clipExact(piece, p => -dist(far, p));
         const strip = physicalRegion(piece);
         for (const k of [hits[j]!.k, hits[j + 1]!.k]) {
-          const sh = transferRegionToSide(all[k]!, strip, q / 2, d);
-          out[k]!.pieces.push(...sh.pieces);
-          out[k]!.atA += sh.atA; out[k]!.atB += sh.atB; out[k]!.roundoffForce += sh.roundoffForce;
-          out[k]!.eccentricFirst[0] += sh.eccentricFirst[0];
-          out[k]!.eccentricFirst[1] += sh.eccentricFirst[1];
+          const middle0 = point(near, t0), middle1 = point(far, t0), middle2 = point(near, t1), middle3 = point(far, t1);
+          const m0: P2 = [(middle0[0]+middle1[0])/2,(middle0[1]+middle1[1])/2], m1: P2 = [(middle2[0]+middle3[0])/2,(middle2[1]+middle3[1])/2];
+          const sign = k === hits[j]!.k ? 1 : -1;
+          const halfway = (p: P2) => sign * ((m1[0]-m0[0])*(p[1]-m0[1])-(m1[1]-m0[1])*(p[0]-m0[0]));
+          const sideSign = halfway(point(all[k]!, tm)) <= 0 ? 1 : -1;
+          const half = unionRegions(regionCells(strip).map(cell => physicalRegion(clipExact(cell, p => sideSign * halfway(p)))));
+          const sh = transferRegionToSide(all[k]!, half, q, d);
+          out[k]!.moments.push(...sh.moments); out[k]!.pieces.push(...sh.pieces);
         }
       }
     }
@@ -202,41 +160,46 @@ function loadedRegion(sides: Side[], holes: Side[][], zone: Zone2D | undefined, 
 
 export function transferRegionToSide(e: Side, region: PhysicalRegion, q: number, direction: P2 = e.n): SideShare {
   const ratio = dot(direction, e.u) / dot(direction, e.n);
-  const local = (p: P2): P2 => [along(e, p) - dist(e, p) * ratio, dist(e, p)];
+  const local = (p: P2): P2 => {
+    const s=along(e,p)-dist(e,p)*ratio;
+    const roundoff=64*Number.EPSILON*(Math.abs(p[0])+Math.abs(p[1])+Math.abs(e.a[0])+Math.abs(e.a[1])+e.len)*(1+Math.abs(ratio));
+    if(s < -roundoff || s > e.len+roundoff) throw new Error('Physical load projects beyond its carrier member');
+    return [Math.max(0,Math.min(e.len,s)),dist(e,p)];
+  };
   const rings = region.polygons.map(poly => poly.map(ring => ring.map(local)));
-  const stations = [...new Set([0, e.len, ...rings.flat(2).map(p => p[0])].map(s => Math.round(s * 1e9) / 1e9))].sort((a, b) => a - b);
-  const chord = (s: number, interior: number) => {
-    let total = 0;
+  const stations = [...new Set([0, e.len, ...rings.flat(2).map(p => p[0])])].sort((a, b) => a - b);
+  const chord = (s: number, lo: number, hi: number) => {
+    let total = 0, moment = 0;
     for (const poly of rings) for (const [k, ring] of poly.entries()) {
       const edges: Array<{ at: (x: number) => number }> = [];
       ring.forEach((a, i) => {
         const b = ring[(i + 1) % ring.length]!;
-        if ((a[0] <= interior) !== (b[0] <= interior)) edges.push({ at: x => a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]) });
+        if (Math.min(a[0],b[0]) <= lo && Math.max(a[0],b[0]) >= hi && a[0] !== b[0]) edges.push({ at: x => a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]) });
       });
-      edges.sort((a, b) => a.at(interior) - b.at(interior));
-      for (let i = 0; i + 1 < edges.length; i += 2) total += (k === 0 ? 1 : -1) * (edges[i + 1]!.at(s) - edges[i]!.at(s));
+      edges.sort((a, b) => (a.at(lo)+a.at(hi)) - (b.at(lo)+b.at(hi)));
+      for (let i = 0; i + 1 < edges.length; i += 2) {
+        const lo = edges[i]!.at(s), hi = edges[i + 1]!.at(s), sign = k === 0 ? 1 : -1;
+        total += sign * (hi - lo); moment += sign * (hi * hi - lo * lo) / 2;
+      }
     }
-    return total;
+    return { total, moment };
   };
-  const target = regionIntegral(region);
-  const out: SideShare = { pieces: [], atA: 0, atB: 0, roundoffForce: 0, eccentricFirst: [q * target.first[0], q * target.first[1]] };
-  let force = 0, first = 0;
+  const out: SideShare = { moments: [], pieces: [] };
   for (let i = 0; i + 1 < stations.length; i++) {
     const s0 = stations[i]!, s1 = stations[i + 1]!, h = s1 - s0;
     if (!(h > 0)) continue;
-    const c1 = chord(s0 + h / 3, s0 + h / 3), c2 = chord(s0 + 2 * h / 3, s0 + 2 * h / 3);
-    const q0 = q * (2 * c1 - c2), q1 = q * (2 * c2 - c1);
+    const q0 = q * chord(s0, s0, s1).total, q1 = q * chord(s1, s0, s1).total;
     if (q0 === 0 && q1 === 0) continue;
-    const f = (q0 + q1) * h / 2;
-    force += f;
-    if (s1 <= 1e-9) out.atA += f;
-    else if (s0 >= e.len - 1e-9) { out.atB += f; first += f * e.len; }
-    else { out.pieces.push({ s0, s1, q0, q1 }); first += s0 * f + h * h * (q0 + 2 * q1) / 6; }
+    {
+      out.pieces.push({ s0, s1, q0, q1 });
+      const momentAt = (s: number): P2 => {
+        const v = q * chord(s, s0, s1).moment;
+        return [v * (e.n[0] + ratio * e.u[0]), v * (e.n[1] + ratio * e.u[1])];
+      };
+      out.moments.push({ s0, s1, first: [momentAt(s0), momentAt((s0 + s1) / 2), momentAt(s1)] });
+    }
   }
-  out.roundoffForce = q * target.area - force;
-  force += out.roundoffForce;
-  out.eccentricFirst[0] -= e.a[0] * force + e.u[0] * first;
-  out.eccentricFirst[1] -= e.a[1] * force + e.u[1] * first;
+  out.pieces=linearProfile(out.pieces.map(p=>({a:p.s0,b:p.s1,qa:p.q0,qb:p.q1}))).map(p=>({s0:p.a,s1:p.b,q0:p.qa,q1:p.qb}));
   return out;
 }
 
@@ -245,13 +208,13 @@ export function regionCells(region: PhysicalRegion): P2[][] {
   for (const polygon of region.polygons) {
     const xs = [...new Set(polygon.flat().map(p => p[0]))].sort((a, b) => a - b);
     for (let k = 0; k + 1 < xs.length; k++) {
-      const lo = xs[k]!, hi = xs[k + 1]!, mid = (lo + hi) / 2;
+      const lo = xs[k]!, hi = xs[k + 1]!;
       const edges: Array<(x: number) => number> = [];
       for (const ring of polygon) ring.forEach((a, i) => {
         const b = ring[(i + 1) % ring.length]!;
-        if ((a[0] <= mid) !== (b[0] <= mid)) edges.push(x => a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]));
+        if (Math.min(a[0],b[0]) <= lo && Math.max(a[0],b[0]) >= hi && a[0] !== b[0]) edges.push(x => a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]));
       });
-      edges.sort((a, b) => a(mid) - b(mid));
+      edges.sort((a, b) => (a(lo)+a(hi)) - (b(lo)+b(hi)));
       for (let j = 0; j + 1 < edges.length; j += 2) {
         const a = edges[j]!, b = edges[j + 1]!;
         cells.push([[lo, a(lo)], [hi, a(hi)], [hi, b(hi)], [lo, b(lo)]]);
@@ -274,38 +237,108 @@ function clipExact(poly: P2[], g: (p: P2) => number): P2[] {
   return out;
 }
 
+function convexRing(region: PhysicalRegion): P2[] | null {
+  if (region.polygons.length !== 1 || region.polygons[0]!.length !== 1) return null;
+  let ring=region.polygons[0]![0]!;
+  if (signedArea(ring)<0) ring=[...ring].reverse();
+  return ring.every((a,i) => { const b=ring[(i+1)%ring.length]!,c=ring[(i+2)%ring.length]!; return (b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]) >= 0; }) ? ring : null;
+}
+
+function clipRegion(region: PhysicalRegion, g: (p: P2) => number): PhysicalRegion {
+  const convex = convexRing(region);
+  if (convex) return physicalRegion(clipExact(convex,g));
+  return unionRegions(regionCells(region).map(cell => physicalRegion(clipExact(cell,g))));
+}
+
+function projectionStrip(region: PhysicalRegion, side: Side): PhysicalRegion {
+  return clipRegion(clipRegion(region, p => -along(side,p)), p => along(side,p)-side.len);
+}
+
+function partitionRegionToSides(sides: Side[], region: PhysicalRegion): PhysicalRegion[] {
+  const out = partitionRegionToSidesUnchecked(sides,region);
+  const expected = regionIntegral(region).area,actual = out.reduce((sum,r) => sum+regionIntegral(r).area,0);
+  const coordinateError = 64*Number.EPSILON*region.polygons.flat().reduce((sum,ring) => sum+ring.reduce((perimeter,p,i) => { const next=ring[(i+1)%ring.length]!; return perimeter+Math.hypot(next[0]-p[0],next[1]-p[1])*Math.max(Math.abs(p[0]),Math.abs(p[1]),Math.abs(next[0]),Math.abs(next[1])); },0),0);
+  if (Math.abs(expected-actual) > coordinateError+256*Number.EPSILON*Math.max(expected,actual)*Math.max(1,out.length)) throw new Error(`Incomplete physical carrier partition: ${JSON.stringify({expected,actual,sides:sides.map(s=>[s.a,s.b]),region:region.polygons})}`);
+  return out;
+}
+
+function partitionRegionToSidesUnchecked(sides: Side[], region: PhysicalRegion): PhysicalRegion[] {
+  const groups: Array<{ side: Side; members: number[] }> = [];
+  for (const [k,side] of sides.entries()) {
+    const group = groups.find(g => Math.abs(Math.abs(dot(g.side.u,side.u))-1) <= 32*Number.EPSILON && Math.abs(dist(g.side,side.a)) <= 64*Number.EPSILON*Math.max(1,g.side.len,side.len));
+    if (!group) { groups.push({ side: { ...side }, members: [k] }); continue; }
+    const lo = Math.min(0,along(group.side,side.a),along(group.side,side.b)), hi = Math.max(group.side.len,along(group.side,side.a),along(group.side,side.b));
+    group.side = { ...group.side, a: [group.side.a[0]+lo*group.side.u[0],group.side.a[1]+lo*group.side.u[1]], b: [group.side.a[0]+hi*group.side.u[0],group.side.a[1]+hi*group.side.u[1]], len: hi-lo };
+    group.members.push(k);
+  }
+  if (groups.length === 1) return sides.map(side => projectionStrip(region,side));
+  const points = sides.flatMap(s => [s.a,s.b]).sort((a,b) => a[0]-b[0] || a[1]-b[1]);
+  const cross = (a: P2,b: P2,c: P2) => (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+  const hull: P2[] = [];
+  for (const point of points) { while (hull.length >= 2 && cross(hull[hull.length-2]!,hull[hull.length-1]!,point) <= 0) hull.pop(); hull.push(point); }
+  const lower = hull.length;
+  for (const point of points.slice(0,-1).reverse()) { while (hull.length > lower && cross(hull[hull.length-2]!,hull[hull.length-1]!,point) <= 0) hull.pop(); hull.push(point); }
+  hull.pop();
+  const signs = groups.map(({side}) => Math.sign(hull.reduce((sum,p) => sum+dist(side,p),0)));
+  const compatible = groups.every(({side},k) => {
+    const eps = 64*Number.EPSILON*Math.max(1,side.len,...hull.flat().map(Math.abs));
+    return signs[k] !== 0 && hull.every(p => signs[k]!*dist(side,p) >= -eps) && region.polygons.flat(2).every(p => signs[k]!*dist(side,p) >= -eps);
+  });
+  const cells=regionCells(region);
+  const out: P2[][][] = sides.map(() => []);
+  groups.forEach(({side,members},k) => {
+    const owned: P2[][]=[];
+    if (compatible) {
+      for (const cell of cells) {
+        let part=cell;
+        groups.forEach((other,j) => { if(j!==k) part=clipExact(part,p=>signs[k]!*dist(side,p)-signs[j]!*dist(other.side,p)); });
+        if(part.length>=3) owned.push(part);
+      }
+    } else for(const sign of [-1,1]) {
+      let parts=cells.map(cell=>clipExact(clipExact(clipExact(cell,p=>-along(side,p)),p=>along(side,p)-side.len),p=>-sign*dist(side,p))).filter(p=>p.length>=3);
+      for(const [j,other] of groups.entries()) {
+        if(j===k) continue;
+        parts=parts.flatMap(part=>{
+          const outside=[clipExact(part,p=>along(other.side,p)),clipExact(part,p=>other.side.len-along(other.side,p))];
+          const eligible=clipExact(clipExact(part,p=>-along(other.side,p)),p=>along(other.side,p)-other.side.len);
+          const inside=[-1,1].map(s=>clipExact(clipExact(eligible,p=>-s*dist(other.side,p)),p=>sign*dist(side,p)-s*dist(other.side,p)));
+          return [...outside,...inside].filter(p=>p.length>=3);
+        });
+      }
+      owned.push(...parts);
+    }
+    for(const i of members) for(const cell of owned) {
+      const part=clipExact(clipExact(cell,p=>-along(sides[i]!,p)),p=>along(sides[i]!,p)-sides[i]!.len);
+      if(part.length>=3 && signedArea(part)!==0) out[i]!.push(part);
+    }
+  });
+  return out.map(parts=>regionOf(parts.map(part=>[part])));
+}
+
 export function transferRegionToCarriers(model: { nodes: Map<number, { x: number; y: number }>; elements: Map<number, { nodeI: number; nodeJ: number }> }, region: PhysicalRegion, ids: number[]) {
   const pieces: Array<{ elementId: number; a: number; b: number; wI: number; wJ: number }> = [];
   const points: Array<{ nodeId: number; w: number; elementId: number }> = [];
   const couples: Array<{ nodeId: number; w: number; mx: number; my: number; elementId: number }> = [];
-  const carriers = ids.flatMap(id => {
+  const moments: Array<{ elementId: number; a: number; b: number; first: [P2, P2, P2] }> = [];
+  const carriers = ids.map(id => {
     const e = model.elements.get(id)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-    const length = Math.hypot(b.x - a.x, b.y - a.y);
-    return length > 0 ? [{ id, e, a, b, length }] : [];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (!(len > 0)) throw new Error('Physical load region has a zero-length carrier');
+    const u: P2 = [(b.x - a.x) / len, (b.y - a.y) / len];
+    const side: Side = { a: [a.x, a.y], b: [b.x, b.y], u, n: [-u[1], u[0]], len, nodeA: e.nodeI, nodeB: e.nodeJ, segments: [{ elementId: id, s0: 0, s1: len, forward: true }] };
+    return { id, side };
   });
   if (!carriers.length && region.polygons.length) throw new Error('Physical load region has no carrier');
-  for (const cell of regionCells(region)) {
-    const { area, first } = regionIntegral(physicalRegion(cell));
-    if (!(area > 0)) continue;
-    const x = first[0] / area, y = first[1] / area;
-    const candidates = carriers.map(c => {
-      const s = Math.max(0, Math.min(c.length, ((x - c.a.x) * (c.b.x - c.a.x) + (y - c.a.y) * (c.b.y - c.a.y)) / c.length));
-      const px = c.a.x + (c.b.x - c.a.x) * s / c.length, py = c.a.y + (c.b.y - c.a.y) * s / c.length;
-      return { ...c, s, px, py, distance: Math.hypot(x - px, y - py) };
-    }).sort((a, b) => a.distance - b.distance);
-    const nearest = candidates.filter(c => c.distance === candidates[0]!.distance);
-    for (const c of nearest) {
-      const share = area / nearest.length, half = Math.min(c.s, c.length - c.s);
-      let px = c.px, py = c.py;
-      if (half > 0) pieces.push({ elementId: c.id, a: c.s - half, b: c.s + half, wI: share / (2 * half), wJ: share / (2 * half) });
-      else {
-        const nodeId = c.s === 0 ? c.e.nodeI : c.e.nodeJ, p = model.nodes.get(nodeId)!;
-        points.push({ nodeId, elementId: c.id, w: share }); px = p.x; py = p.y;
-      }
-      couples.push({ nodeId: c.e.nodeI, elementId: c.id, w: 0, mx: -(first[1] / nearest.length - share * py), my: first[0] / nearest.length - share * px });
-    }
+  const owned = partitionRegionToSides(carriers.map(c => c.side), region);
+  for (const [k,c] of carriers.entries()) {
+    const share = transferRegionToSide(c.side, owned[k]!, 1);
+    pieces.push(...share.pieces.map(p => ({ elementId: c.id, a: p.s0, b: p.s1, wI: p.q0, wJ: p.q1 })));
+    moments.push(...share.moments.map(p => ({ elementId: c.id, a: p.s0, b: p.s1, first: p.first })));
   }
-  return { pieces, points, couples };
+  const expected = regionIntegral(region).area;
+  const actual = pieces.reduce((s, p) => s + (p.wI + p.wJ) * (p.b - p.a) / 2, 0) + couples.reduce((s, p) => s + p.w, 0);
+  if (Math.abs(expected - actual) > 256 * Number.EPSILON * Math.max(expected, actual, 1) * Math.max(1, pieces.length)) throw new Error('Physical load region extends beyond its carrier partition');
+  return { pieces, points, couples, moments };
 }
 
 export function sameCarrierPlane(a: Array<[number, number, number]>, b: Array<[number, number, number]>): boolean {

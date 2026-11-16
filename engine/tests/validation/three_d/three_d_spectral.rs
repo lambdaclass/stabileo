@@ -391,7 +391,7 @@ fn spectral_3d_cantilever(loaded: bool) -> spectral::SpectralResult3D {
     let n = 6;
     let loads: Vec<SolverLoad3D> = if loaded {
         (1..=n)
-            .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 q_xi: 1.0, q_xj: 1.0,
                 element_id: i,
                 q_yi: -6.0, q_yj: -6.0,

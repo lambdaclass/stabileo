@@ -58,7 +58,7 @@ fn cantilever_3d(count: usize, method: &str) -> SolverInput3D {
         );
         input
             .loads
-            .push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            .push(SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 element_id: id,
                 q_xi: Q[0],
                 q_xj: Q[0],
@@ -413,7 +413,7 @@ fn check_fixed_member_loads(case: &str, warping: bool) {
     for id in 1..=2 {
         let factor = if id == 1 { 1.0 } else { -0.7 };
         loads.push(match case {
-            "distributed" => SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            "distributed" => SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 element_id: id,
                 q_xi: factor * Q[0],
                 q_xj: factor * Q[0],

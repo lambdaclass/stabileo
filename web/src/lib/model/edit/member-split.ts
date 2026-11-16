@@ -1,3 +1,5 @@
+import { memberLoadSpans } from '../../engine/loads/member-load-spans';
+import { sliceMoments } from '../../engine/member-moments';
 /**
  * Splitting one member into consecutive segments: what each segment inherits.
  *
@@ -65,16 +67,16 @@ function lerp(qa: number, qb: number, a: number, b: number, s: number): number {
  * clipping serves the 2D load (one component) and the 3D one (two).
  */
 function clipTrapezoid(
-  a: number, b: number, values: ReadonlyArray<readonly [number, number]>, s0: number, s1: number,
+  a: number, b: number, values: ReadonlyArray<readonly [number, number]>, s0: number, s1: number, exact = false,
 ): { a?: number; b?: number; values: Array<[number, number]> } | null {
   const lo = Math.max(a, s0), hi = Math.min(b, s1);
-  if (hi - lo <= EPS) return null;
+  if (!(hi - lo > (exact ? 0 : EPS))) return null;
   const segL = s1 - s0;
   const out: { a?: number; b?: number; values: Array<[number, number]> } = {
     values: values.map(([qa, qb]) => [lerp(qa, qb, a, b, lo), lerp(qa, qb, a, b, hi)]),
   };
-  if (lo - s0 > EPS) out.a = lo - s0;
-  if (segL - (hi - s0) > EPS) out.b = hi - s0;
+  if (lo - s0 > (exact ? 0 : EPS)) out.a = lo - s0;
+  if (segL - (hi - s0) > (exact ? 0 : EPS)) out.b = hi - s0;
   return out;
 }
 
@@ -123,18 +125,21 @@ export function splitElementLoads(
       case 'distributed3d': {
         const d = l.data as DistributedLoad3D;
         for (let k = 0; k < segmentIds.length; k++) {
-          const c = clipTrapezoid(d.a ?? 0, d.b ?? L, [[d.qYI, d.qYJ], [d.qZI, d.qZJ], [d.qXI ?? 0, d.qXJ ?? 0]], bounds[k]!, bounds[k + 1]!);
+          const c = clipTrapezoid(d.a ?? 0, d.b ?? L, [[d.qYI, d.qYJ], [d.qZI, d.qZJ], [d.qXI ?? 0, d.qXJ ?? 0]], bounds[k]!, bounds[k + 1]!, true);
           if (!c) continue;
           const { id: _id, elementId: _e, a: _a, b: _b, qXI: _xi, qXJ: _xj, ...meta } = d;
           const data: DistributedLoad3D = {
             ...meta, id: newId(), elementId: segmentIds[k]!,
+            ...(d.moments ? { moments: sliceMoments(d.moments, (Math.max(d.a??0,bounds[k]!)-(d.a??0))/((d.b??L)-(d.a??0)), (Math.min(d.b??L,bounds[k+1]!)-(d.a??0))/((d.b??L)-(d.a??0))) } : {}),
             qYI: c.values[0]![0], qYJ: c.values[0]![1], qZI: c.values[1]![0], qZJ: c.values[1]![1],
             // The axial (or global X) part is clipped like the others, and kept only when given.
             ...(d.qXI !== undefined || d.qXJ !== undefined ? { qXI: c.values[2]![0], qXJ: c.values[2]![1] } : {}),
           };
           if (c.a !== undefined) data.a = c.a;
           if (c.b !== undefined) data.b = c.b;
-          added.push({ type: 'distributed3d', data });
+          const bounded = memberLoadSpans([data], () => bounds[k+1]!-bounds[k]!);
+          added.push(...bounded.distributed.map(data => ({ type: 'distributed3d' as const, data })));
+          added.push(...bounded.concentrated.map(data => ({ type: 'pointOnElement3d' as const, data })));
         }
         break;
       }

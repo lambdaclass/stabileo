@@ -262,6 +262,7 @@ fn exact_axes(el: &SolverElement3D, d: &V3, l2: &Q, left_hand: bool) -> Result<(
 
 /// Translate the solver input into the exact rigid-plastic model, or refuse.
 pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
+    if input.solver.loads.iter().any(|l| matches!(l, SolverLoad3D::Distributed(d) if d.moments.as_ref().is_some_and(|m| m.x.iter().chain(&m.y).chain(&m.z).any(|v| *v != 0.0)))) { return Err("unsupported: distributed member moments are not independently certified".into()); }
     // Exact rational arithmetic: its cost grows with the bit length of the
     // data, and an input value of ±1e300 or a subnormal made it run for
     // minutes (issue #335 property tests). Models in any unit system stay far

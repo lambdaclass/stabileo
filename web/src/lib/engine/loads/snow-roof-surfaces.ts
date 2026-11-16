@@ -140,7 +140,8 @@ export function snowSegmentCuts(a: P2, b: P2, polygons: ReadonlyArray<ReadonlyAr
       if (u >= -1e-9 && u <= 1 + 1e-9) ts.push(t);
     }
   }
-  return ts.filter(t => t >= 0 && t <= 1).sort((a, b) => a - b).filter((t, k, all) => k === 0 || t > all[k - 1]!);
+  const parameterRoundoff=32*Number.EPSILON*(Math.abs(a[0])+Math.abs(a[1])+Math.abs(b[0])+Math.abs(b[1]))/Math.sqrt(l2);
+  return ts.map(t=>Math.abs(t)<=parameterRoundoff?0:Math.abs(t-1)<=parameterRoundoff?1:t).filter(t => t >= 0 && t <= 1).sort((a, b) => a - b).filter((t, k, all) => k === 0 || t > all[k - 1]!);
 }
 
 function memberSupport(a: Point, b: Point, polygon: P2[]) {

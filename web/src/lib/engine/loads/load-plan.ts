@@ -1,3 +1,4 @@
+import { plannedMemberLoadSpans } from './member-load-spans';
 import type { ShellLoadSpec } from '../shell-load-integration';
 /**
  * The single authoritative regulation-backed load generator.
@@ -308,6 +309,7 @@ export interface PlannedCase {
 }
 
 export interface PlannedDistributed {
+  moments?: import('../member-moments').MemberMoments;
   elementId: number;
   caseType: PlannedCase['type'];
   /** Index into `LoadPlan.cases` when a type has several cases (wind, seismic). */
@@ -413,6 +415,7 @@ export interface SeismicPlanDetail {
 }
 
 export interface LoadPlan {
+  concentrated?: Array<import('../member-point-loads').PointLoad3DLike & { caseType: PlannedCase['type']; caseIndex?: number }>;
   outcome: PlanOutcome;
   cases: PlannedCase[];
   distributed: PlannedDistributed[];
@@ -787,7 +790,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * area any member of the model could carry (`tributaryAreaM2` above): an edge beam 6 m long under
    * a 3 m width, KLL·AT = 36 m² < 37 m² and so not reducible by §4.7.2, came out 21 % lighter.
    */
-  const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, widthSpans(m, input.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength]));
+  const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, widthSpans(m, input.tributaryWidth).reduce((s, w) => s + (w.width+(w.widthJ??w.width))/2 * (w.t1 - w.t0), 0) * m.horizontalLength]));
   const reducedFor = (entry: OccupancyEntry, loKNm2: number, _uniform: number, areas: Map<number, number>) => (elementId: number): number => {
     if (!input.applyLiveReduction) return loKNm2;
     return codes.loads.reduce({
@@ -1122,11 +1125,16 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     derivation.push(msg('loadPlan.derivation.combinationCount', { count: combinations.length }));
   }
 
+  const bounded = plannedMemberLoadSpans(distributed, input.model);
+  const concentrated = [
+    ...area.concentrated.map(({ arrangement, ...load }) => ({ ...load, ...(arrangement !== undefined ? { caseIndex: arrangementCase[arrangement]! } : {}) })),
+    ...bounded.concentrated,
+  ];
   // Each case with the action category of its type, as the basis code reads it.
   for (const c of cases) if (!c.category) c.category = codes.basis.categoryOf(String(c.type));
   return {
     outcome: 'READY',
-    cases, distributed, nodal, surface, thermal, combinations,
+    cases, distributed: bounded.distributed, concentrated, nodal, surface, thermal, combinations,
     factors: {
       occupancy: fromProject(lo, 'kN/m²'),
       liveReduced: fromProject(liveDesign, 'kN/m²'),

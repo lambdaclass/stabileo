@@ -1,3 +1,4 @@
+import { mapMoments, sliceMoments } from '../engine/member-moments';
 /**
  * Reverse a member: J becomes I, and its local x points the other way.
  *
@@ -118,7 +119,7 @@ export function reverseElementInModel(model: ReversibleModel, id: number, is3D =
         const { a: _a, b: _b, ...rest } = q;
         return {
           type: 'distributed3d',
-          data: { ...rest, qYI: sy * q.qYJ, qYJ: sy * q.qYI, qZI: sz * q.qZJ, qZJ: sz * q.qZI, ...span(q.a, q.b) },
+          data: { ...rest, ...(q.moments ? { moments: mapMoments(sliceMoments(q.moments,1,0),v => q.frame && q.frame !== 'local' ? v : [-v[0],sy*v[1],sz*v[2]]) } : {}), qYI: sy * q.qYJ, qYJ: sy * q.qYI, qZI: sz * q.qZJ, qZJ: sz * q.qZI, ...span(q.a, q.b) },
         };
       }
       case 'pointOnElement3d': {

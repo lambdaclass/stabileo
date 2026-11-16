@@ -18,7 +18,7 @@ fn column(qi: f64, qj: f64, a: f64, b: f64) -> SolverInput3D {
         vec![(1, 0.01, 1e-4, 1e-4, 1e-4)],
         vec![(1, "frame", 1, 2, 1, 1)],
         vec![(1, vec![true; 6])],
-        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             element_id: 1,
             q_xi: qi,
             q_xj: qj,

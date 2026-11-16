@@ -87,6 +87,7 @@ export interface DriftInputs {
 }
 
 export function snowDriftRefusal(model: GravityModel, layout?: GravityLayout, surfaceModel = roofSurfaceModel(model)): string | undefined {
+  if (layout?.widthMembers.some(m=>m.spans?.some(s=>s.widthJ !== undefined && Math.abs(s.widthJ-s.width)>32*Number.EPSILON*(Math.abs(s.widthJ)+Math.abs(s.width))))) return 'snow.refused.roofPlane';
   if (!surfaceModel.resolves(layout)) return 'snow.refused.roofPlane';
   const coverage = layout?.panels.some(p => p.roof) ? layout : gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   const coverageResolved = coverage === layout || surfaceModel.resolves(coverage);

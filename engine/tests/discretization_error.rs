@@ -690,7 +690,7 @@ fn refinement_keeps_loads_supports_and_members() {
             release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false,
             release_t_start: false, release_t_end: false, local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
         });
-        m.input.loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        m.input.loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             element_id: eid, q_xi: 0.0, q_xj: 0.0, q_yi: 0.0, q_yj: 0.0, q_zi: -2.0, q_zj: -2.0, a: None, b: None,
         }));
         eid += 1;
@@ -1010,7 +1010,7 @@ fn beam(id: usize, i: usize, j: usize) -> SolverElement3D {
 }
 
 fn udl(element_id: usize, q: f64) -> SolverLoad3D {
-    SolverLoad3D::Distributed(SolverDistributedLoad3D {
+    SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
         element_id, q_xi: 0.0, q_xj: 0.0, q_yi: q, q_yj: q, q_zi: 0.0, q_zj: 0.0, a: None, b: None,
     })
 }

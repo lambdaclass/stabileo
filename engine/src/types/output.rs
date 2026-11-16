@@ -1,3 +1,4 @@
+use super::MemberMoments;
 use serde::{Deserialize, Serialize};
 
 // ==================== 2D Output Types ====================
@@ -732,9 +733,18 @@ pub struct PointLoadInfo3D {
     pub p: f64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemberMomentInfo<L = f64, F = f64> {
+    pub a: L,
+    pub b: L,
+    pub moments: MemberMoments<F>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ElementForces3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub member_moments: Vec<MemberMomentInfo>,
     pub element_id: usize,
     pub length: f64,
     pub n_start: f64,

@@ -104,7 +104,7 @@ impl Member3 {
         };
         let pl = |v: &Vec<PointLoadInfo3D>| -> Vec<PointLoadInfo3D> { v.iter().map(|p| PointLoadInfo3D { a: p.a, p: p.p * scale }).collect() };
         let t = self.template.as_ref();
-        ElementForces3D {
+        ElementForces3D { member_moments: self.template.as_ref().map(|t| t.member_moments.iter().map(|m| MemberMomentInfo { a: m.a, b: m.b, moments: m.moments.scaled(scale) }).collect()).unwrap_or_default(),
             element_id: self.id,
             length: self.l,
             n_start: v[0],
@@ -263,6 +263,7 @@ fn split_member(input: &mut SolverInput3D, m: &mut Member3, t: f64, next_node: &
                     let (xs, ys, zs) = (at(dl.q_xi, dl.q_xj, s), at(dl.q_yi, dl.q_yj, s), at(dl.q_zi, dl.q_zj, s));
                     let (oa, ob) = opt(a, s, s);
                     loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                        moments: dl.moments.as_ref().map(|m| m.slice(0.0, (s-a)/(b-a))),
                         q_xj: xs,
                         q_yj: ys,
                         q_zj: zs,
@@ -272,6 +273,7 @@ fn split_member(input: &mut SolverInput3D, m: &mut Member3, t: f64, next_node: &
                     }));
                     let (oa, ob) = opt(0.0, b - s, l_new);
                     loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                        moments: dl.moments.as_ref().map(|m| m.slice((s-a)/(b-a), 1.0)),
                         element_id: eid,
                         q_xi: xs,
                         q_yi: ys,
@@ -389,17 +391,7 @@ fn local_fef(
     for ld in &input.loads {
         let f: [f64; 12] = match ld {
             SolverLoad3D::Distributed(dl) if dl.element_id == el.id => {
-                let a = dl.a.unwrap_or(0.0);
-                let b = dl.b.unwrap_or(l);
-                let mut f = if a.abs() < 1e-12 && (b - l).abs() < 1e-12 {
-                    element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l, phi_y, phi_z)
-                } else {
-                    element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l, phi_y, phi_z)
-                };
-                let ax = element::axial_distributed_fef(dl.q_xi, dl.q_xj, a, b, l);
-                f[0] = ax[0];
-                f[6] = ax[1];
-                f
+                dl.fef(l, phi_y, phi_z)
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == el.id => {
                 element::fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z)

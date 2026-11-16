@@ -443,7 +443,7 @@ fn notional_loads_include_member_gravity_loads() {
     let (ex, ey, ez) = dedaliano_engine::element::compute_local_axes_3d(0.0, 0.0, 0.0, 4.0, 0.0, 3.0, None, None, None, None, false);
     let q = |a: &[f64; 3]| -10.0 * a[2];
     let mut input3 = input3;
-    input3.loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+    input3.loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
         element_id: 1, q_xi: q(&ex), q_xj: q(&ex), q_yi: q(&ey), q_yj: q(&ey), q_zi: q(&ez), q_zj: q(&ez), a: None, b: None,
     }));
     let def: NotionalLoadDef = serde_json::from_str(r#"{"ratio": 0.01}"#).unwrap();

@@ -447,7 +447,7 @@ fn resolve3(m: &Model3, raws: &[RawLoad3], nodal_only: bool) -> Vec<SolverLoad3D
                     Some((u, v)) if (u - v).abs() > 0.05 => (Some(u.min(v) * l), Some(u.max(v) * l)),
                     _ => (None, None),
                 };
-                out.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                out.push(SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                     q_xi: qx.0,
                     q_xj: qx.1,
                     element_id: eid,

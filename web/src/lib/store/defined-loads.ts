@@ -1,3 +1,4 @@
+import { orphanFloorLoadData } from '../model/loads/floor-definitions';
 /**
  * The loads of the model's floor-load definitions (`model/loads/floor-definitions.ts`), kept in
  * step with them: written when a definition is, and rewritten whenever the model moves under them
@@ -64,6 +65,7 @@ export function syncDefinedLoads(): number | null {
       if (fromDefOf(l) === undefined) return [l];
       if (!orphan(l)) return [];
       const data = { ...l.data } as Record<string, unknown>;
+      Object.assign(data,orphanFloorLoadData(data));
       delete data.fromDef;
       return [{ ...l, data } as unknown as Load];
     }));

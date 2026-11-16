@@ -1,3 +1,4 @@
+import { mapMoments } from '../../engine/member-moments';
 /**
  * Move, rotate or mirror a set of entities where it is, keeping its connections.
  *
@@ -124,9 +125,9 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
           // A load on the global axes turns with the structure; a local one keeps its components.
           if (q.frame === 'global' || q.frame === 'projected') {
             const I = applyVector(T, [q.qXI ?? 0, q.qYI, q.qZI]), J = applyVector(T, [q.qXJ ?? 0, q.qYJ, q.qZJ]);
-            return { type: 'distributed3d', data: { ...q, qXI: I[0], qYI: I[1], qZI: I[2], qXJ: J[0], qYJ: J[1], qZJ: J[2] } };
+            return { type: 'distributed3d', data: { ...q, ...(q.moments ? { moments: mapMoments(q.moments, v => applyAxial(T,v)) } : {}), qXI: I[0], qYI: I[1], qZI: I[2], qXJ: J[0], qYJ: J[1], qZJ: J[2] } };
           }
-          return { type: 'distributed3d', data: { ...q, qYI: g.sy * q.qYI, qYJ: g.sy * q.qYJ, qZI: g.sz * q.qZI, qZJ: g.sz * q.qZJ } };
+          return { type: 'distributed3d', data: { ...q, ...(q.moments ? { moments: mapMoments(q.moments, v => [g.sy*g.sz*v[0],g.sz*v[1],g.sy*v[2]]) } : {}), qYI: g.sy * q.qYI, qYJ: g.sy * q.qYJ, qZI: g.sz * q.qZI, qZJ: g.sz * q.qZJ } };
         }
         case 'pointOnElement3d': {
           const q = l.data as PointLoadOnElement3D; const g = signs.get(q.elementId); if (!g) return null;

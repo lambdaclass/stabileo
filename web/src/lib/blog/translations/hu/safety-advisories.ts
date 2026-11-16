@@ -48,6 +48,10 @@ const body: PostBody = {
       "label": "SA-2026-072",
       "t": "Érintett modellek és szükséges teendők."
     },
+    {"k": "note", "t": "SA-2026-079 — Javítva a #2219 PR-ben, beolvasztásra és kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-079-gravity-shell-coverage.md", "label": "SA-2026-079", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-080 — Javítva a #2219 PR-ben, beolvasztásra és kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-080-floor-zone-eccentricity.md", "label": "SA-2026-080", "t": "Érintett modellek és szükséges teendők."},
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -70,6 +74,8 @@ const body: PostBody = {
         "Állapot"
       ],
       "rows": [
+        ["SA-2026-079", "A részleges héjlefedés figyelmeztetés nélkül elveszíthette vagy eltolhatta a generált gravitációs terheket (#2199). Generálja újra az összes érintett generált felületi terhet; frissítse a födémdefiníciókat vagy cserélje le az árva terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket.", "Magas", "Javítva a #2219 PR-ben, beolvasztásra és kiadásra vár"],
+        ["SA-2026-080", "A födémterhelési zónák figyelmeztetés nélkül elveszíthették a rudak külpontos terhelését (#2201). Generálja újra az összes érintett generált felületi terhet; frissítse a födémdefiníciókat vagy cserélje le az árva terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket.", "Magas", "Javítva a #2219 PR-ben, beolvasztásra és kiadásra vár"],
         [
           "SA-2026-021",
           "Szabadon álló tetők: gerincirányú szél nem volt, keresztirányban pedig kevesebb a §2.1.5 szerinti minimumnál (20 m/s-nál annak 17 %-a)",

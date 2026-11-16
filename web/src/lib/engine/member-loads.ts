@@ -34,6 +34,7 @@ export type MemberFrame = 'local' | 'global' | 'projected';
 export interface MemberAxes { ex: Vec3; ey: Vec3; ez: Vec3; L: number }
 
 export interface DistributedLoad3DLike {
+  moments?: import('./member-moments').MemberMoments;
   elementId: number;
   qYI: number; qYJ: number; qZI: number; qZJ: number;
   qXI?: number; qXJ?: number;

@@ -510,7 +510,7 @@ fn fully_restrained_3d_beam_udl() {
             (1, 1, true, true, true, true, true, true),
             (2, 2, true, true, true, true, true, true),
         ],
-        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: 1,
             q_yi: 0.0, q_yj: 0.0,

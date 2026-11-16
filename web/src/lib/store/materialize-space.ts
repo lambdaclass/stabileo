@@ -91,7 +91,7 @@ export function materializeStandingPlaneModel(model: ModelData, nextLoadId: () =
           loads.push({ type: 'nodal3d', data: { id, nodeId: d.nodeId, fx: d.fx, fy: d.fy, fz: d.fz, mx: d.mx, my: d.my, mz: d.mz, ...c } } as Load);
           break;
         case 'distributed':
-          loads.push({ type: 'distributed3d', data: { id, elementId: d.elementId, ...(d.qXI || d.qXJ ? { qXI: d.qXI ?? 0, qXJ: d.qXJ ?? 0 } : {}), qYI: d.qYI, qYJ: d.qYJ, qZI: d.qZI, qZJ: d.qZJ, ...(d.a !== undefined ? { a: d.a } : {}), ...(d.b !== undefined ? { b: d.b } : {}), ...c } } as Load);
+          loads.push({ type: 'distributed3d', data: { id, elementId: d.elementId, ...(d.qXI || d.qXJ ? { qXI: d.qXI ?? 0, qXJ: d.qXJ ?? 0 } : {}), ...(w.type==='distributed' && w.data.moments ? { moments: w.data.moments } : {}), qYI: d.qYI, qYJ: d.qYJ, qZI: d.qZI, qZJ: d.qZJ, ...(d.a !== undefined ? { a: d.a } : {}), ...(d.b !== undefined ? { b: d.b } : {}), ...c } } as Load);
           break;
         case 'pointOnElement':
           loads.push({ type: 'pointOnElement3d', data: { id, elementId: d.elementId, a: d.a, py: d.py, pz: d.pz, ...c } } as Load);

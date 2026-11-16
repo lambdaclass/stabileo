@@ -1,3 +1,4 @@
+import { orphanFloorLoadData } from '../model/loads/floor-definitions';
 /**
  * Operations on loads as a set: copy, move and scale loads between cases, duplicate a case, and
  * write a batch of new loads to many targets. Each is one undo step.
@@ -77,7 +78,8 @@ function userCopy(l: Load, factor: number, caseId: number): Load {
   const data = { ...c.data, caseId } as Record<string, unknown>;
   delete data.generatedBy;
   // Nor to a floor-load definition (`fromDef`): a rewrite of the definition would replace it.
-  delete data.fromDef;
+  Object.assign(data,orphanFloorLoadData(data));
+      delete data.fromDef;
   return { ...c, data } as unknown as Load;
 }
 

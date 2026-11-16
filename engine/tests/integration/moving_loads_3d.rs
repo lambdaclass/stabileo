@@ -646,7 +646,7 @@ fn issue_1782_moving_3d_point_jump_limits_are_reversal_invariant() {
     let expected = -(q * length / 2.0 + p * (length - a) / length) + q * a;
     let mut solver = make_ss_beam_3d();
     solver.loads = vec![
-        SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             element_id: 1, q_xi: 0.0, q_xj: 0.0, q_yi: 0.0, q_yj: 0.0,
             q_zi: q, q_zj: q, a: None, b: None,
         }),
@@ -665,7 +665,7 @@ fn issue_1782_moving_3d_point_jump_limits_are_reversal_invariant() {
     for axial in [false, true] {
         for sign in [-1.0, 1.0] {
             let mut s = make_ss_beam_3d();
-            s.loads = vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            s.loads = vec![SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 element_id: 1, q_xi: if axial { sign * q } else { 0.0 },
                 q_xj: if axial { sign * q } else { 0.0 },
                 q_yi: if axial { 0.0 } else { sign * q },

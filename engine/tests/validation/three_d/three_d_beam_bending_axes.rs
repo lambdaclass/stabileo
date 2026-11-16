@@ -260,7 +260,7 @@ fn validation_3d_cantilever_udl_z() {
 
     let mut loads = Vec::new();
     for i in 0..n {
-        loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
             q_xi: 0.0, q_xj: 0.0,
             element_id: i + 1,
             q_yi: 0.0, q_yj: 0.0,

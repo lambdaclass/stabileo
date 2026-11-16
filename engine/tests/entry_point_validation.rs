@@ -679,7 +679,7 @@ fn issue_1780_curved_arch_generated_segment_load_is_refused_before_expansion() {
 
     let mut input = loaded_curved_arch();
     let session = LoadSession3D::from_input(input.clone()).unwrap();
-    input.loads = vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+    input.loads = vec![SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
         element_id: 1, q_xi: 0.0, q_xj: 0.0, q_yi: 0.0, q_yj: 0.0,
         q_zi: -2.0, q_zj: -2.0, a: None, b: None,
     })];

@@ -689,7 +689,7 @@ fn parity_3d_dense_multi_case() {
                         node_id: 1, fx: 0.0, fy: 0.0, fz: -30.0,
                         mx: 0.0, my: 0.0, mz: 0.0, bw: None,
                     }),
-                    SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                    SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                         q_xi: 0.0, q_xj: 0.0,
                         element_id: 1, q_yi: -2.0, q_yj: -2.0, q_zi: 0.0, q_zj: 0.0,
                         a: None, b: None,
@@ -758,12 +758,12 @@ fn parity_3d_sparse_multi_case() {
                         node_id: 13, fx: 0.0, fy: 0.0, fz: -40.0,
                         mx: 0.0, my: 0.0, mz: 0.0, bw: None,
                     }),
-                    SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                    SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                         q_xi: 0.0, q_xj: 0.0,
                         element_id: 1, q_yi: -3.0, q_yj: -3.0, q_zi: 0.0, q_zj: 0.0,
                         a: None, b: None,
                     }),
-                    SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                    SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                         q_xi: 0.0, q_xj: 0.0,
                         element_id: 3, q_yi: 0.0, q_yj: 0.0, q_zi: -1.5, q_zj: -2.5,
                         a: Some(0.5), b: Some(2.0),

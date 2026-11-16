@@ -1,3 +1,4 @@
+import { mapMoments, sliceMoments } from '../../engine/member-moments';
 /**
  * Reverse members: I becomes J. The section keeps its orientation (its local y is pinned to what
  * it was, so the web stays where it was), which reverses local x and so local z. Everything stated
@@ -53,14 +54,15 @@ export function flipMembers(ids: Iterable<number>): FlipReport {
         const d = l.data as unknown as Record<string, number | undefined>;
         if (d.elementId !== id) return l;
         if (l.type === 'distributed3d') {
+          const moments = l.data.moments ? sliceMoments(l.data.moments,1,0) : undefined;
           const aa = d.a ?? 0, bb = d.b ?? L;
           const span = d.a !== undefined || d.b !== undefined ? { a: L - bb, b: L - aa } : {};
           // Global and projected loads point where they pointed: only the ends swap. A local one
           // follows the reversed axes, x and z turning over with the section kept in place.
           if ((d as { frame?: string }).frame === 'global' || (d as { frame?: string }).frame === 'projected') {
-            return { ...l, data: { ...d, qYI: d.qYJ, qYJ: d.qYI, qZI: d.qZJ, qZJ: d.qZI, ...(d.qXI !== undefined || d.qXJ !== undefined ? { qXI: d.qXJ, qXJ: d.qXI } : {}), ...span } };
+            return { ...l, data: { ...d, ...(moments ? { moments } : {}), qYI: d.qYJ, qYJ: d.qYI, qZI: d.qZJ, qZJ: d.qZI, ...(d.qXI !== undefined || d.qXJ !== undefined ? { qXI: d.qXJ, qXJ: d.qXI } : {}), ...span } };
           }
-          return { ...l, data: { ...d, qYI: d.qYJ, qYJ: d.qYI, qZI: -(d.qZJ ?? 0), qZJ: -(d.qZI ?? 0), ...(d.qXI !== undefined || d.qXJ !== undefined ? { qXI: -(d.qXJ ?? 0), qXJ: -(d.qXI ?? 0) } : {}), ...span } };
+          return { ...l, data: { ...d, ...(moments ? { moments: mapMoments(moments,v => [-v[0],v[1],-v[2]]) } : {}), qYI: d.qYJ, qYJ: d.qYI, qZI: -(d.qZJ ?? 0), qZJ: -(d.qZI ?? 0), ...(d.qXI !== undefined || d.qXJ !== undefined ? { qXI: -(d.qXJ ?? 0), qXJ: -(d.qXI ?? 0) } : {}), ...span } };
         }
         // Local y kept, x and z reversed.
         if (l.type === 'pointOnElement3d') return { ...l, data: reversePointLoad(l.data, L, { sy: 1, sz: -1 }) };

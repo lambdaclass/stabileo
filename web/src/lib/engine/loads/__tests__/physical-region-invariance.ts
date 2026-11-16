@@ -1,3 +1,5 @@
+import { pointGlobal, type PointLoad3DLike } from '../../member-point-loads';
+import { mapMoments, integrateQuadratic, type MemberMoments } from '../../member-moments';
 import type { FloorLoadResult } from '../floor-loads';
 import { computeLocalAxes3D } from '../../local-axes-3d';
 import { distributedGlobalEnds } from '../../member-loads';
@@ -8,7 +10,8 @@ import { shellLoadForces, type ShellLoadSpec } from '../../shell-load-integratio
 export type RegionModel = LoadModelData & { quads: Map<number, { id: number; nodes: number[]; thickness: number; materialId: number }> };
 export type Resultant = [number, number, number];
 type Loads = {
-  distributed: Array<{ elementId: number; q: number; qJ?: number; a?: number; b?: number; frame?: string }>;
+  concentrated?: PointLoad3DLike[];
+  distributed: Array<{ elementId: number; q: number; qJ?: number; a?: number; b?: number; frame?: string; moments?: MemberMoments }>;
   nodal: Array<{ nodeId: number; fz: number; mx?: number; my?: number }>;
   surface: Array<{ quadId: number; q: number; region?: ShellLoadSpec['region'] }>;
 };
@@ -51,7 +54,14 @@ export function loadResultant(m: LoadModelData, loads: Loads): Resultant {
     const scale = d.frame === 'projected' ? Math.hypot(b.x - a.x, b.y - a.y) / L : 1;
     const f = -(d.q + (d.qJ ?? d.q)) * h / 2 * scale;
     const first = (d.a ?? 0) * f - h * h * (d.q + 2 * (d.qJ ?? d.q)) / 6 * scale;
-    add(f, a.x * f + (b.x - a.x) / L * first, a.y * f + (b.y - a.y) / L * first);
+    add(f, a.x * f + (b.x - a.x) / L * first + (d.moments ? integrateQuadratic(d.moments.y,d.a??0,d.b??L,L) : 0), a.y * f + (b.y - a.y) / L * first - (d.moments ? integrateQuadratic(d.moments.x,d.a??0,d.b??L,L) : 0));
+  }
+  for (const d of loads.concentrated ?? []) {
+    const e = m.elements.get(d.elementId)!, a = m.nodes.get(e.nodeI)!, b = m.nodes.get(e.nodeJ)!;
+    const L = Math.hypot(b.x-a.x,b.y-a.y,(b.z??0)-(a.z??0)), t = d.a/L;
+    const axes = computeLocalAxes3D({...a,z:a.z??0},{...b,z:b.z??0});
+    const {F,M} = pointGlobal(d,{...axes,L});
+    add(-F[2], -F[2]*(a.x+t*(b.x-a.x))+M[1], -F[2]*(a.y+t*(b.y-a.y))-M[0]);
   }
   for (const n of loads.nodal) point(n.nodeId, n.fz, n.mx, n.my);
   for (const s of loads.surface) {
@@ -140,7 +150,7 @@ export function floorResultant(m: LoadModelData, out: FloorLoadResult, leftHand 
     const L = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
     const field = distributedGlobalEnds(l, { ...axes, L }, leftHand);
     for (const g of [field.gI, field.gJ]) { expect(g[0]).toBeCloseTo(0, 10); expect(g[1]).toBeCloseTo(0, 10); }
-    return { elementId: l.elementId, q: field.gI[2], qJ: field.gJ[2], a: field.a, b: field.b };
+    return { ...(l.moments ? { moments: mapMoments(l.moments, v => [0,1,2].map(i => v[0]*axes.ex[i]! + v[1]*(leftHand ? -1 : 1)*axes.ey[i]! + v[2]*axes.ez[i]!) as [number,number,number]) } : {}), elementId: l.elementId, q: field.gI[2], qJ: field.gJ[2], a: field.a, b: field.b };
   });
-  return loadResultant(m, { distributed, nodal: out.nodal, surface: [] });
+  return loadResultant(m, { distributed, concentrated: out.concentrated, nodal: out.nodal, surface: [] });
 }

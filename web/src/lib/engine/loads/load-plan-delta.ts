@@ -174,18 +174,18 @@ export function describePlanDelta(
   }), { distributed: 0, nodal: 0 }) : null;
   const after = replace && g && gone
     ? {
-        distributed: current.distributed - gone.distributed + plan.distributed.length,
+        distributed: current.distributed - gone.distributed + (plan.distributed.length + (plan.concentrated?.length ?? 0)),
         nodal: current.nodal - gone.nodal + plan.nodal.length,
         combinations: current.combinations - g.combinations - defaultCombos - (takenUnmarked?.combinations ?? 0) + plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions),
         cases: [...new Set([...beforeTypes.filter((t) => !goneTypes.has(t)), ...afterTypes])].sort(),
       }
     : replace
     ? {
-        distributed: plan.distributed.length, nodal: plan.nodal.length,
+        distributed: (plan.distributed.length + (plan.concentrated?.length ?? 0)), nodal: plan.nodal.length,
         combinations: plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions), cases: afterTypes,
       }
     : {
-        distributed: current.distributed + plan.distributed.length,
+        distributed: current.distributed + (plan.distributed.length + (plan.concentrated?.length ?? 0)),
         nodal: current.nodal + plan.nodal.length,
         combinations: current.combinations - defaultCombos + plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions),
         cases: [...new Set([...beforeTypes.filter((t) => !goneTypes.has(t)), ...afterTypes])].sort(),

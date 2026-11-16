@@ -615,6 +615,7 @@ export interface NodalLoad3D {
 }
 
 export interface DistributedLoad3D {
+  moments?: import('../engine/member-moments').MemberMoments;
   id: number;
   elementId: number;
   /**
@@ -2987,12 +2988,12 @@ function createModelStore() {
 
     addDistributedLoad3D(
       elementId: number, qYI: number, qYJ: number, qZI: number, qZJ: number, a?: number, b?: number, caseId?: number,
-      opts: { frame?: import('../engine/member-loads').MemberFrame; qXI?: number; qXJ?: number } = {},
+      opts: { moments?: import('../engine/member-moments').MemberMoments; frame?: import('../engine/member-loads').MemberFrame; qXI?: number; qXJ?: number } = {},
     ): number {
       if (!_undoBatching) _pushUndo?.();
       this.ensureSpaceCoordinates();
       const id = nextId.load++;
-      const data: DistributedLoad3D = { id, elementId, qYI, qYJ, qZI, qZJ };
+      const data: DistributedLoad3D = { id, elementId, qYI, qYJ, qZI, qZJ, ...(opts.moments ? { moments: opts.moments } : {}) };
       if (opts.frame && opts.frame !== 'local') data.frame = opts.frame;
       if (opts.qXI || opts.qXJ) { data.qXI = opts.qXI ?? 0; data.qXJ = opts.qXJ ?? opts.qXI ?? 0; }
       if (a !== undefined && a > 0) data.a = a;
@@ -3004,12 +3005,11 @@ function createModelStore() {
       return id;
     },
 
-    addPointLoadOnElement3D(elementId: number, a: number, py: number, pz: number, caseId?: number): number {
-      // Undo first, so that undoing the load stands the plane model back up.
+    addPointLoadOnElement3D(elementId: number, a: number, py: number, pz: number, caseId?: number, extra: Partial<Pick<PointLoadOnElement3D, 'px' | 'mx' | 'my' | 'mz' | 'frame'>> = {}): number {
       if (!_undoBatching) _pushUndo?.();
       this.ensureSpaceCoordinates();
       const id = nextId.load++;
-      const data: PointLoadOnElement3D = { id, elementId, a, py, pz };
+      const data: PointLoadOnElement3D = { id, elementId, a, py, pz, ...extra };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'pointOnElement3d' as const, data };
       if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);

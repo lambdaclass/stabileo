@@ -1,3 +1,4 @@
+import { hasMemberMoments, mapMoments } from './member-moments';
 import { knownIssueRefusal } from './known-issues';
 import { isContainmentRefusal } from './containment-error';
 // Solver service — pure functions extracted from model.svelte.ts
@@ -249,6 +250,7 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
  *  validateAndSolve2D and the multi-case combo path so both produce
  *  identical per-case loads on the wire. */
 function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: boolean): SolverInput['loads'] {
+  if(loads.some(l=>l.type==='distributed3d' && hasMemberMoments(l.data.moments))) throw new Error('Distributed member moments require a spatial frame solve');
   /*
    * One builder for every 2D path. The linear solve and the combinations had
    * their own, which passed a distributed or point load's value straight to
@@ -1523,6 +1525,12 @@ export function buildSolverLoads3D(
       if (!m) continue;
       const g = distributedGlobalEnds(d, m.axes, userLeftHand);
       solverLoads.push(...globalDistributedToSolver(m, g.gI, g.gJ, g.a, g.b));
+      if (d.moments) {
+        if (hasMemberMoments(d.moments) && memberTakesNoBending(model.elements.get(d.elementId)!)) throw new Error(`Member ${d.elementId}: distributed moments require a frame`);
+        const global = d.frame && d.frame !== 'local' ? d.moments : mapMoments(d.moments, v => [0,1,2].map(i => v[0]*m.axes.ex[i]! + v[1]*(userLeftHand ? -1 : 1)*m.axes.ey[i]! + v[2]*m.axes.ez[i]!) as [number,number,number]);
+        const local = mapMoments(global, v => [m.axes.ex,m.axes.ey,m.axes.ez].map(axis => v.reduce((sum,x,i) => sum+x*axis[i]!,0)) as [number,number,number]);
+        solverLoads.push({ type: 'distributed', data: { elementId: d.elementId, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, a: g.a, b: g.b, moments: local } });
+      }
     } else if (l.type === 'pointOnElement') {
       // A plane point load in the space axes (`planePointLoad3D`), then as a space one: its
       // couple, and its interior axial part, at the node the solve cut there.

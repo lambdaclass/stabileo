@@ -2,10 +2,9 @@ import { expect, it } from 'vitest';
 import { floorLoad } from '../floor-loads';
 import { regionModel, rectangle, floorResultant } from './physical-region-invariance';
 
-const witness = process.env.RUN_KNOWN_WRONG === '2222' ? it : it.skip;
 
 for (const distribution of ['oneWay', 'twoWay'] as const) for (const width of [0.5e-12, 1.5e-12, 0.5e-9, 1.5e-9]) for (const q of [1, -1]) {
-  witness(`known wrong result: #2222 gravity slivers keep their load on the member: ${distribution}, width=${width}, q=${q}`, () => {
+  it(`known wrong result: #2222 gravity slivers keep their load on the member: ${distribution}, width=${width}, q=${q}`, () => {
     const model = regionModel([rectangle(0,0,6,4)]), a = 1.5, b = a+width;
     const out = floorLoad({ nodes: model.nodes, beams: [...model.elements.values()].map(e=>({...e,type:'frame' as const})), q: q/(b-a), distribution, spanAxis:'y', zone: { outer: rectangle(a,0,b,1).map(p=>[p[0]!,p[1]!,p[2]!] as [number,number,number]) } });
     expect(out.loadedArea).toBeCloseTo(b-a, 15);

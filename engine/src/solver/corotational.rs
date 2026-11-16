@@ -514,6 +514,7 @@ fn scaled_loads_3d(input: &SolverInput3D, factor: f64) -> SolverInput3D {
                 n.bw = n.bw.map(|v| v * factor);
             }
             SolverLoad3D::Distributed(d) => {
+                d.moments = d.moments.as_ref().map(|m| m.scaled(factor));
                 for v in [&mut d.q_xi, &mut d.q_xj, &mut d.q_yi, &mut d.q_yj, &mut d.q_zi, &mut d.q_zj] {
                     *v *= factor;
                 }
@@ -2521,7 +2522,7 @@ fn elastic_corotational_forces_3d(
             let elong = elongation(&[dx0, dy0, dz0], &[uj[0] - ui[0], uj[1] - ui[1], uj[2] - ui[2]], l0, l_n);
             let n_axial = e * sec.a / l0 * elong;
 
-            forces.push(ElementForces3D {
+            forces.push(ElementForces3D { member_moments: Vec::new(),
                 element_id: elem.id, length: l_n,
                 n_start: n_axial, n_end: n_axial,
                 vy_start: 0.0, vy_end: 0.0,
@@ -2624,7 +2625,7 @@ fn elastic_corotational_forces_3d(
         add_wagner_torque(&mut f_local, &d_nat, elem, &wagner_section(sec.a, sec.iy, sec.iz), l_n);
 
         // Sign convention: match linear solver output
-        forces.push(ElementForces3D {
+        forces.push(ElementForces3D { member_moments: Vec::new(),
             element_id: elem.id,
             length: l_n,
             n_start: -f_local[0],

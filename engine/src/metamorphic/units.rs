@@ -169,6 +169,7 @@ pub fn scale_load_3d(l: &mut SolverLoad3D, u: &Units) {
     match l {
         L::Nodal(n) => scale_nodal_3d(n, u),
         L::Distributed(d) => {
+            d.moments = d.moments.as_ref().map(|m| m.scaled(u.force));
             for q in [&mut d.q_xi, &mut d.q_xj, &mut d.q_yi, &mut d.q_yj, &mut d.q_zi, &mut d.q_zj] {
                 *q *= u.line_load();
             }
@@ -316,6 +317,7 @@ pub fn scale_results_3d(r: &AnalysisResults3D, u: &Units) -> AnalysisResults3D {
         for m in [&mut e.mx_start, &mut e.mx_end, &mut e.my_start, &mut e.my_end, &mut e.mz_start, &mut e.mz_end] {
             *m *= u.moment();
         }
+        for m in &mut e.member_moments { m.a *= u.length; m.b *= u.length; m.moments = m.moments.scaled(u.force); }
         e.length *= u.length;
     }
     for p in o.plate_stresses.iter_mut() {

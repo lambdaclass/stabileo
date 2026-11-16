@@ -148,6 +148,12 @@ export function loadsGeneratedWith(s: FeatureSnapshot): number {
   return (Array.isArray(s.loads) ? s.loads : []).some((l) => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
 }
 
+export function floorLoadsCorrectedWith(s: FeatureSnapshot): number {
+  const loads = (Array.isArray(s.loads) ? s.loads : []).filter(l => l.data?.fromDef !== undefined || l.data?.floorLoadsVersion !== undefined);
+  if (!loads.length) return values(s.groups).some(g => g?.kind === 'floorLoad') ? 0 : Infinity;
+  return Math.min(...loads.map(l => Number.isInteger(l.data?.floorLoadsVersion) ? l.data!.floorLoadsVersion as number : 0));
+}
+
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
@@ -254,7 +260,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (/edge/i.test(t)) f.add('shellEdgeLoads');
     const dead = caseType.get(d.caseId as number) === 'D' || d.caseId === undefined;
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
-    if (d.fromDef !== undefined) f.add('floorLoads');
+    if (d.fromDef !== undefined || d.floorLoadsVersion !== undefined) f.add('floorLoads');
     if (fromLoadPlan(d.generatedBy)) f.add('generatedLoads');
   }
   if (s.designData?.site?.phases?.length) {

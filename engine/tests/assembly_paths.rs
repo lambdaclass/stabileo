@@ -289,7 +289,7 @@ fn forces_2d(input: &SolverInput, axial: &HashMap<usize, f64>) -> Vec<ElementFor
 fn forces_3d(input: &SolverInput3D, axial: &HashMap<usize, f64>) -> Vec<ElementForces3D> {
     let mut v: Vec<ElementForces3D> = axial
         .iter()
-        .map(|(&id, &n)| ElementForces3D {
+        .map(|(&id, &n)| ElementForces3D { member_moments: Vec::new(),
             element_id: id, length: 0.0, n_start: n, n_end: n, vy_start: 0.0, vy_end: 0.0, vz_start: 0.0,
             vz_end: 0.0, mx_start: 0.0, mx_end: 0.0, my_start: 0.0, my_end: 0.0, mz_start: 0.0, mz_end: 0.0,
             release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false,
@@ -609,7 +609,7 @@ fn embed(input: &SolverInput, rot_sign: f64) -> SolverInput3D {
             }),
             SolverLoad::Distributed(dl) => {
                 let (cy, cz) = transverse(dl.element_id);
-                SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                     element_id: dl.element_id, q_xi: 0.0, q_xj: 0.0,
                     q_yi: cy * dl.q_i, q_yj: cy * dl.q_j, q_zi: cz * dl.q_i, q_zj: cz * dl.q_j, a: dl.a, b: dl.b,
                 })
@@ -618,7 +618,7 @@ fn embed(input: &SolverInput, rot_sign: f64) -> SolverInput3D {
                 let (cy, cz) = transverse(pl.element_id);
                 SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: pl.element_id, a: pl.a, py: cy * pl.p, pz: cz * pl.p })
             }
-            SolverLoad::AxialDistributed(al) => SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            SolverLoad::AxialDistributed(al) => SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 element_id: al.element_id, q_xi: al.q_i, q_xj: al.q_j,
                 q_yi: 0.0, q_yj: 0.0, q_zi: 0.0, q_zj: 0.0, a: al.a, b: al.b,
             }),

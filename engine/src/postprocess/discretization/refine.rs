@@ -718,7 +718,7 @@ fn split_distributed(dl: &SolverDistributedLoad3D, l: f64, r: f64, c1: usize, c2
             continue;
         }
         let map = |s: f64| (s - lo) / (hi - lo) * len;
-        out.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        out.push(SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: dl.moments.as_ref().map(|m| m.slice((s0-a)/(bb-a),(s1-a)/(bb-a))),
             element_id: child,
             q_xi: lerp(dl.q_xi, dl.q_xj, s0), q_xj: lerp(dl.q_xi, dl.q_xj, s1),
             q_yi: lerp(dl.q_yi, dl.q_yj, s0), q_yj: lerp(dl.q_yi, dl.q_yj, s1),

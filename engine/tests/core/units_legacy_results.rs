@@ -275,7 +275,7 @@ fn reac3(r: &dedaliano_engine::types::Reaction3D) -> Reaction3D {
 }
 
 fn forces3(f: &dedaliano_engine::types::ElementForces3D) -> ElementForces3D {
-    ElementForces3D {
+    ElementForces3D { member_moments: Vec::new(),
         element_id: f.element_id,
         length: f.length,
         n_start: f.n_start,

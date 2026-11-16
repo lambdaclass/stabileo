@@ -1,3 +1,6 @@
+import { pointGlobal } from '../member-point-loads';
+import { mapMoments } from '../member-moments';
+import { computeLocalAxes3D } from '../local-axes-3d';
 /**
  * Where the load plan puts an area load (dead, live, roof live): which members or shells carry
  * it, and how much of each square metre each one takes.
@@ -72,13 +75,15 @@ export interface GravityPiece { elementId: number; a?: number; b?: number; wI: n
 /** Area a panel brings to a node past the end of one of its sides (a re-entrant corner), m². */
 export interface GravityPoint { nodeId: number; w: number; elementId: number; roof: boolean; panel: number }
 
-export interface WidthSpan { t0: number; t1: number; width: number }
+export interface WidthSpan { t0: number; t1: number; width: number; widthJ?: number }
 
 export function widthSpans(m: { spans?: WidthSpan[] }, tributaryWidth: number): WidthSpan[] {
   return m.spans ?? [{ t0: 0, t1: 1, width: tributaryWidth }];
 }
 
 export interface GravityLayout {
+  moments: Array<{ elementId: number; a?: number; b?: number; moments: import('../member-moments').MemberMoments; roof: boolean; panel: number }>;
+  concentrated?: Array<import('../member-point-loads').PointLoad3DLike & { roof: boolean; panel: number }>;
   pieces: GravityPiece[];
   points: GravityPoint[];
   couples: Array<{ nodeId: number; w: number; mx: number; my: number; elementId: number; roof: boolean; panel: number }>;
@@ -139,7 +144,7 @@ function planArea(pts: Array<{ x: number; y: number }>): number {
 
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
   const out: GravityLayout = {
-    pieces: [], points: [], couples: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
+    pieces: [], points: [], couples: [], moments: [], concentrated: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
     roof: new Set(), roofQuads: new Set(), zOf: new Map(), panelColour: [], widthColour: new Map(), panels: [], oneSided: [], notes: [],
   };
   const sidesOf = new Map<number, SideStretch[]>();
@@ -324,13 +329,14 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         const axis = { p: [a[0], a[1]] as [number, number], u: [(b[0] - a[0]) / L, (b[1] - a[1]) / L] as [number, number], L };
         const { share, kept } = deck!.uncarried(tributaryStrip([a[0], a[1]], [b[0], b[1]], opts.tributaryWidth), z, held);
         const physical = unionRegions(kept.map(p => physicalRegion(p[0]!, p.slice(1))));
-        const moved = share > 0 ? transferRegionToCarriers(model, physical, [e.id]) : { pieces: [], points: [], couples: [] };
-        const spans: WidthSpan[] = moved.pieces.map(p => ({ t0: p.a / L, t1: p.b / L, width: p.wI }));
+        const moved = share > 0 ? transferRegionToCarriers(model, physical, [e.id]) : { pieces: [], points: [], couples: [], moments: [] };
+        const spans: WidthSpan[] = moved.pieces.map(p => ({ t0: p.a / L, t1: p.b / L, width: p.wI, widthJ: p.wJ }));
         for (const p of moved.points) {
           out.points.push({ ...p, roof: true, panel: -1 });
           addArea(out.roofAreaOf, p.elementId, p.w);
         }
         for (const p of moved.couples) out.couples.push({ ...p, roof: true, panel: -1 });
+        for (const p of moved.moments) out.moments.push({ elementId: p.elementId, a: p.a, b: p.b, moments: { x: p.first.map(v => -v[1]) as [number, number, number], y: p.first.map(v => v[0]) as [number, number, number], z: [0,0,0] }, roof: true, panel: -1 });
         if (spans.length === 0 && moved.points.length === 0) { droppedMembers.add(e.id); continue; }
         fringeRoof.set(e.id, spans);
         fringeSides.set(e.id, loadedSides(kept, axis));
@@ -414,7 +420,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         for (const pc of moved.pieces) {
           out.pieces.push({ ...pc, roof, panel: index });
           addSides(pc.elementId, one.sides.get(pc.elementId));
-          const area = pc.wI * (pc.b - pc.a); carried += area;
+          const area = (pc.wI + pc.wJ) / 2 * (pc.b - pc.a); carried += area;
           addArea(out.roofAreaOf, pc.elementId, area); out.roof.add(pc.elementId);
         }
         for (const pt of moved.points) {
@@ -422,10 +428,23 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
           addArea(out.roofAreaOf, pt.elementId, pt.w); out.roof.add(pt.elementId);
         }
         for (const moment of moved.couples) out.couples.push({ ...moment, roof, panel: index });
+        for (const p of moved.moments) out.moments.push({ elementId: p.elementId, a: p.a, b: p.b, moments: { x: p.first.map(v => -v[1]) as [number, number, number], y: p.first.map(v => v[0]) as [number, number, number], z: [0,0,0] }, roof, panel: index });
         out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + carried);
         continue;
       }
+      for (const l of one.concentrated) {
+        const e = model.elements.get(l.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+        const axes = computeLocalAxes3D({ ...a, id: e.nodeI, z: a.z ?? 0 }, { ...b, id: e.nodeJ, z: b.z ?? 0 });
+        const { F, M } = pointGlobal(l, { ...axes, L: Math.hypot(b.x-a.x,b.y-a.y,(b.z??0)-(a.z??0)) });
+        out.concentrated!.push({ elementId: l.elementId, a: l.a, px: F[0], py: F[1], pz: F[2], mx: M[0], my: M[1], mz: M[2], frame: 'global', roof, panel: index });
+      }
       for (const l of one.loads) {
+        if (l.moments) {
+          const e = model.elements.get(l.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+          const axes = computeLocalAxes3D({ ...a, id: e.nodeI, z: a.z ?? 0 }, { ...b, id: e.nodeJ, z: b.z ?? 0 }, undefined, 0, false);
+          out.moments.push({ elementId: l.elementId, a: l.a, b: l.b, moments: mapMoments(l.moments, v => [0,1,2].map(i => v[0]*axes.ex[i]! + v[1]*axes.ey[i]! + v[2]*axes.ez[i]!) as [number, number, number]), roof, panel: index });
+        }
+        if (l.qI === 0 && l.qJ === 0) continue;
         addSides(l.elementId, one.sides.get(l.elementId));
         out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI, wJ: l.qJ, roof, panel: index });
       }
@@ -469,7 +488,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const e = model.elements.get(m.elementId)!;
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     const roof = fringeRoof.has(m.elementId) || !covered([(a.x + b.x) / 2, (a.y + b.y) / 2], Math.max(a.z ?? 0, b.z ?? 0));
-    addArea(roof ? out.roofAreaOf : out.areaOf, m.elementId, widthSpans(m, opts.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength);
+    addArea(roof ? out.roofAreaOf : out.areaOf, m.elementId, widthSpans(m, opts.tributaryWidth).reduce((s, w) => s + (w.width+(w.widthJ??w.width))/2 * (w.t1 - w.t0), 0) * m.horizontalLength);
     if (roof) out.roof.add(m.elementId);
   }
   for (const q of model.quads?.values() ?? []) {

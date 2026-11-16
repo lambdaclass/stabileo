@@ -18,6 +18,8 @@ for (const mode of ['2d', '3d', 'pro']) for (const analysis of ANALYSIS_KINDS) {
 it('floor definitions need the moment correction; ordinary manual point loads do not', () => {
   const snapshot: FeatureSnapshot = { groups: [[1, { kind: 'floorLoad' }]] };
   expect(assessProject(snapshot, null).changes.map(c => c.id)).toContain(floor);
+  expect(assessProject(snapshot, stampSolve('linear', null)).changes.map(c => c.id)).toContain(floor);
+  snapshot.loads = [{ type: 'distributed3d', data: { fromDef: 1, floorLoadsVersion: RESULT_CHANGES.currentResultsVersion } }];
   expect(assessProject(snapshot, stampSolve('linear', null)).changes.map(c => c.id)).not.toContain(floor);
   expect(assessProject({ loads: [{ type: 'nodal3d', data: { fz: -1 } }] }, null).changes.map(c => c.id)).not.toContain(floor);
 });

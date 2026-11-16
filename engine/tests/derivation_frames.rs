@@ -11,7 +11,7 @@ use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
 use dedaliano_engine::types::*;
 
 fn udl3(id: usize, qy: f64, qz: f64) -> SolverLoad3D {
-    SolverLoad3D::Distributed(SolverDistributedLoad3D {
+    SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
         q_xi: 0.0, q_xj: 0.0, element_id: id, q_yi: qy, q_yj: qy, q_zi: qz, q_zj: qz, a: None, b: None,
     })
 }

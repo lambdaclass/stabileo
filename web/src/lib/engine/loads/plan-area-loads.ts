@@ -1,3 +1,5 @@
+import { plannedMemberLoadSpans } from './member-load-spans';
+import { mapMoments } from '../member-moments';
 import type { ShellLoadSpec } from '../shell-load-integration';
 /**
  * The area loads of a load plan, dead, live and roof live, on what carries them
@@ -57,6 +59,7 @@ export interface AreaArrangement {
 }
 
 export interface AreaLoad {
+  moments?: import('../member-moments').MemberMoments;
   elementId: number; caseType: AreaCaseType; q: number; qJ?: number; a?: number; b?: number;
   frame?: 'global' | 'projected';
   /** The arrangement this load belongs to, by `AreaLoadsResult.arrangements`; absent: the full load. */
@@ -69,6 +72,7 @@ export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number
 export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; mx: number; my: number; carrier?: number; arrangement?: number }
 
 export interface AreaLoadsResult {
+  concentrated: Array<import('../member-point-loads').PointLoad3DLike & { caseType: AreaCaseType; arrangement?: number }>;
   distributed: AreaLoad[];
   nodal: AreaPoint[];
   surface: AreaSurface[];
@@ -92,7 +96,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
   const floorMass = { dead: i.floor.dead, live: i.floor.lo };
   const roofMass = roof ? { dead: roof.dead, live: roof.use === 'occupancy' ? roof.lo ?? 0 : 0 } : floorMass;
   const out: AreaLoadsResult = {
-    distributed: [], nodal: [], surface: [], planned: new Set(), arranged: new Set(), arrangements: [], derivation: [], refs: [], floorMass, roofMass,
+    distributed: [], concentrated: [], nodal: [], surface: [], planned: new Set(), arranged: new Set(), arrangements: [], derivation: [], refs: [], floorMass, roofMass,
     massOfQuad: (id) => (isRoofQuad(id) ? roofMass : floorMass),
   };
 
@@ -120,12 +124,25 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
   const put = (caseType: AreaCaseType, qOf: (id: number, roof: boolean) => number, qOfQuad: (id: number) => number, perProjection: boolean,
     arrangement?: { index: number; loads: (u: Unit) => boolean }) => {
     const arr = arrangement !== undefined ? { arrangement: arrangement.index } : {};
+    for (const p of layout.concentrated ?? []) {
+      if (arrangement !== undefined && !arrangement.loads(p.panel < 0 ? { member: p.elementId } : { panel: p.panel })) continue;
+      const q = qOf(p.elementId, !!roof && p.roof);
+      if (q === 0) continue;
+      out.concentrated.push({ ...p, px: (p.px ?? 0)*q, py: p.py*q, pz: p.pz*q, mx: (p.mx ?? 0)*q, my: (p.my ?? 0)*q, mz: (p.mz ?? 0)*q, caseType, ...arr });
+      if (arrangement === undefined) out.planned.add(caseType);
+    }
     for (const p of layout.pieces) {
       if (arrangement !== undefined && !arrangement.loads(p.panel < 0 ? { member: p.elementId } : { panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
       if (q === 0 || (p.wI === 0 && p.wJ === 0)) continue;
       out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr });
       if (arrangement === undefined) out.planned.add(caseType);
+    }
+    for (const p of layout.moments ?? []) {
+      if (arrangement !== undefined && !arrangement.loads(p.panel < 0 ? { member: p.elementId } : { panel: p.panel })) continue;
+      const q = qOf(p.elementId, !!roof && p.roof);
+      if (q === 0) continue;
+      out.distributed.push({ elementId: p.elementId, caseType, q: 0, a: p.a, b: p.b, frame: 'global', moments: mapMoments(p.moments, v => v.map(x => x*q) as [number,number,number]), ...arr });
     }
     for (const p of [...layout.points.map(p => ({ ...p, mx: 0, my: 0 })), ...layout.couples]) {
       if (arrangement !== undefined && !arrangement.loads(p.panel < 0 ? { member: p.elementId } : { panel: p.panel })) continue;
@@ -140,9 +157,10 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       // horizontal thrust, and the live loads per sloped metre instead of per metre of plan.
       for (const s of widthSpans(m, i.tributaryWidth)) {
         const q = -qOf(m.elementId, isRoof(m.elementId)) * s.width;
-        if (q === 0) continue;
+        const qJ = -qOf(m.elementId, isRoof(m.elementId)) * (s.widthJ??s.width);
+        if (q === 0 && qJ === 0) continue;
         const span = m.spans ? { a: s.t0 * m.length, b: s.t1 * m.length } : {};
-        out.distributed.push({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr });
+        out.distributed.push({ elementId: m.elementId, caseType, q, qJ, ...span, frame: perProjection ? 'projected' : 'global', ...arr });
         if (arrangement === undefined) out.planned.add(caseType);
       }
     }
@@ -215,5 +233,8 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       if (adjacent > 0) out.derivation.push(msg('loadPlan.derivation.adjacentSpans', { n: adjacent, x: spans!.lines.x.length, y: spans!.lines.y.length }));
     }
   }
+  const bounded = plannedMemberLoadSpans(out.distributed, i.model);
+  out.distributed = bounded.distributed;
+  out.concentrated.push(...bounded.concentrated);
   return out;
 }

@@ -1,0 +1,43 @@
+{
+  "id": "gravity-member-loading",
+  "date": "2026-11-16",
+  "prs": [
+    2219,
+    2199,
+    2200,
+    2201,
+    2210
+  ],
+  "area": "loads",
+  "when": {
+    "any": [
+      "generatedLoads",
+      "floorLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Gravity reaches each carrier as member loading",
+    "es": "La gravedad llega a cada portante como carga de barra",
+    "pt": "A gravidade chega a cada portante como carga de barra",
+    "de": "Schwerkraft erreicht jeden Träger als Stabbelastung",
+    "fr": "La gravité atteint chaque porteur comme chargement de barre",
+    "tr": "Yerçekimi her taşıyıcıya çubuk yüklemesi olarak ulaşır",
+    "hu": "A gravitáció minden tartóhoz rúdterhelésként jut el"
+  },
+  "explanation": {
+    "en": "Floor zones could lose the eccentric moment when transferred to beam lines. Reapply floor loads or refresh their definitions, then rerun analyses, combinations and design checks (#2201). Regenerate all affected generated area loads; refresh floor definitions or replace orphaned shares, then rerun analyses, combinations and design checks. Re-solving stored loads alone does not correct them. (SA-2026-080).",
+    "es": "Las zonas de piso podían perder el momento excéntrico al transferirse a las vigas. Vuelva a aplicar las cargas o actualice sus definiciones y recalcule análisis, combinaciones y verificaciones (#2201). Regenerá todas las cargas de área generadas afectadas; actualizá las definiciones de piso o reemplazá sus cargas huérfanas y repetí análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige. (SA-2026-080).",
+    "pt": "As zonas de piso podiam perder o momento excêntrico na transferência às vigas. Reaplique as cargas ou atualize suas definições e recalcule análises, combinações e verificações (#2201). Gere novamente todas as cargas de área geradas afetadas; atualize as definições de piso ou substitua suas cargas órfãs e refaça análises, combinações e verificações. Recalcular as cargas salvas não as corrige. (SA-2026-080).",
+    "de": "Deckenlastzonen konnten bei der Übertragung auf Stabachsen ihr exzentrisches Moment verlieren. Lasten erneut anwenden oder Definitionen aktualisieren, dann Analysen, Kombinationen und Nachweise wiederholen (#2201). Alle betroffenen erzeugten Flächenlasten neu erzeugen; Deckendefinitionen aktualisieren oder verwaiste Lastanteile ersetzen, dann Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten korrigiert sie nicht. (SA-2026-080).",
+    "fr": "Les zones de plancher pouvaient perdre leur moment excentré lors du transfert aux poutres. Réappliquez les charges ou actualisez leurs définitions, puis relancez analyses, combinaisons et vérifications (#2201). Régénérez toutes les charges surfaciques générées concernées ; actualisez les définitions de plancher ou remplacez leurs charges orphelines, puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. (SA-2026-080).",
+    "tr": "Döşeme bölgeleri kiriş eksenlerine aktarılırken dışmerkez momentlerini kaybedebiliyordu. Yükleri yeniden uygulayın veya tanımlarını güncelleyin; ardından analizleri, birleşimleri ve kontrolleri tekrarlayın (#2201). Etkilenen tüm üretilmiş alan yüklerini yeniden üretin; döşeme tanımlarını güncelleyin veya sahipsiz yükleri değiştirin, ardından analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yeniden çözmek onları düzeltmez. (SA-2026-080).",
+    "hu": "A részleges héjlefedés elveszíthette a gravitációs erőt, a födémzónák pedig a rudak külpontos terhelését (#2199, #2201). A fizikai tartógeometria most rúdterhelésként viszi át az erőket és nyomatékokat. Generálja újra az összes érintett generált felületi terhet; frissítse a födémdefiníciókat vagy cserélje le az árva terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket. (SA-2026-080)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-member-loading.md",
+    "heading": "Gravity reaches each carrier as member loading"
+  }
+}

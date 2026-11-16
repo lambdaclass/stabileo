@@ -610,7 +610,7 @@ fn validation_3d_ext_8_cantilever_udl_3d() {
     // 3D distributed load in Y direction
     let loads_3d: Vec<SolverLoad3D> = (0..n)
         .map(|i| {
-            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D { moments: None,
                 q_xi: 0.0, q_xj: 0.0,
                 element_id: i + 1,
                 q_yi: w,
