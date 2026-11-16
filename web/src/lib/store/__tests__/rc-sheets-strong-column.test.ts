@@ -12,7 +12,7 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
-import { buildSheetRows, setRcOption, setSheetCode } from '../rc-sheets.svelte';
+import { buildSheetRows, redesignerOf, setRcOption, setSheetCode } from '../rc-sheets.svelte';
 import { resizeHints } from '../rc-sheets-resize';
 
 beforeAll(async () => { await initSolver(); });
@@ -74,6 +74,20 @@ describe('strong column, weak beam in the column proposal', () => {
       expect(hint?.direction).toBe('grow');
       expect(hint!.to).not.toBeNull();
       expect(Math.min(...hint!.to!)).toBeGreaterThan(0.3);
+    }
+  });
+
+  it('sizes a column whose joint fails in shear with the joint checked, not the column alone', () => {
+    frame(0.3, 80);
+    const rows = buildSheetRows();
+    const joint = rows.column.filter((r) => r.verifications.some((v) => v.label === 'rcSheets.v.seisJoint' && !v.ok));
+    expect(joint.length).toBeGreaterThan(0);
+    for (const r of joint) {
+      const hint = resizeHints(r).find((h) => h.what === 'column')!;
+      expect(hint.to).not.toBeNull();
+      const [b, h] = hint.to!;
+      const grown = redesignerOf(r.key)!({ ...r.demand, b, h } as never) as typeof r;
+      expect(grown.verifications.find((v) => v.label === 'rcSheets.v.seisJoint')?.ok, `${r.name} ${r.level} at ${b} × ${h}`).toBe(true);
     }
   });
 });

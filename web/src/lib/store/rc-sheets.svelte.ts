@@ -485,10 +485,28 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const columnsFinal = seismic ? jointChecks(column, beam, modelStore.nodes, fmt, joint) : column;
+  if (seismic) for (const r of columnsFinal) jointAwareRedesign(r, columnsFinal, beam, (rows, beams) => jointChecks(rows, beams, modelStore.nodes, fmt, joint));
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
   return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), footing: sort(withOverlaps(footing)), code: codeName, basis, combos: sets.length };
 }
 
+
+/**
+ * A column redesigned for its resize hint is checked for the shear of the joint at its top too, the
+ * members framing into it as they are. The strong-column rule stays with the column's own Mn: the
+ * joint's share of it falls to the columns above as well, which the hint does not resize.
+ */
+function jointAwareRedesign(r: ColumnRow, columns: readonly ColumnRow[], beams: readonly BeamRow[], check: (rows: ColumnRow[], beams: BeamRow[]) => ColumnRow[]): void {
+  const own = redesigners.get(r.key), top = r.demand.nodes?.top;
+  if (!own || top === undefined) return;
+  const near = columns.filter((x) => x.demand.nodes?.top === top || x.demand.nodes?.bottom === top);
+  const framing = beams.filter((b) => b.demand.line?.startNode === top || b.demand.line?.endNode === top);
+  redesigners.set(r.key, ((x: never) => {
+    const row = own(x) as ColumnRow;
+    const joint = check(near.map((c) => (c.key === r.key ? row : c)), framing).find((c) => c.key === r.key)?.verifications.find((v) => v.label === 'rcSheets.v.seisJoint');
+    return joint ? { ...row, verifications: [...row.verifications, joint], ...(joint.ok ? {} : { status: 'fail' as const, checks: { ...row.checks, ok: false } }) } : row;
+  }) as Redesign);
+}
 
 /**
  * The columns grown, joint by joint, until the strong-column rule holds (§18.7.3.2) with the beams'
