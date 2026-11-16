@@ -622,11 +622,16 @@ export function wallDemands(m: DemandInput): WallDemand[] {
       }
       out.push({
         key: `wall:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(lo) : g.level,
-        length, height: hi - lo, thickness, baseElements: base.length, base: { nodes: baseNodes.length, held: held.length, unheld: baseNodes.filter((nd) => !held.includes(nd)) }, combos,
+        length, height: hi - lo, thickness, baseElements: base.length, plan: basePlan(base.flatMap((x) => x.pts), uOf), base: { nodes: baseNodes.length, held: held.length, unheld: baseNodes.filter((nd) => !held.includes(nd)) }, combos,
       });
     }
   }
   return out;
+}
+
+function basePlan(pts: readonly Pt[], uOf: (p: Pt) => number): { x1: number; y1: number; x2: number; y2: number } {
+  const a = pts.reduce((p, q) => (uOf(q) < uOf(p) ? q : p)), b = pts.reduce((p, q) => (uOf(q) > uOf(p) ? q : p));
+  return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
 }
 
 export function punchingDemands(m: DemandInput): PunchingDemand[] {

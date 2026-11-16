@@ -25,6 +25,8 @@
   import RcColumnElevation from './RcColumnElevation.svelte';
   import RcSlabLayers from './RcSlabLayers.svelte';
   import RcSlabPlan from './RcSlabPlan.svelte';
+  import RcStructurePlan from './RcStructurePlan.svelte';
+  import { structurePlanOf } from '../../../lib/store/rc-structure-plan';
   import { slabSpanKind } from '../../../lib/rc-sheets/slab-plan';
   import RcWallDetail from './RcWallDetail.svelte';
   import RcPunchingSvg from './RcPunchingSvg.svelte';
@@ -50,6 +52,7 @@
   let editedOnly = $state(false);
   let openKey = $state<string | null>(null);
   let slabView = $state<'panels' | 'plan'>('panels');
+  let structView = $state<'list' | 'plan'>('list');
   let schedule = $state(false);
   let plansOpen = $state(false);
   let highlight = $state<string[]>([]);
@@ -75,6 +78,9 @@
     const list = (f === 'beam' ? rows.line.map((l) => ({ status: lineStatus(l) })) : rows[f]) as Array<{ status: string }>;
     return [f, { n: list.length, fail: list.filter((r) => r.status === 'fail').length }];
   })) as Record<SheetFamily, { n: number; fail: number }>);
+  const planFamily = $derived(family === 'beam' || family === 'column' || family === 'wall' ? family : null);
+  const structPlan = $derived(planFamily && structView === 'plan' && level ? structurePlanOf(planFamily, level, rows) : null);
+  $effect(() => { if (planFamily && structView === 'plan' && !schedule && !level && levels.length) level = levels[0]!; });
   const levelPlan = $derived(rows.slabPlan.find((p) => p.level === level) ?? rows.slabPlan[0]);
   const f1 = (v: number) => fmt(v, 1);
   const f2 = (v: number) => fmt(v, 2);
@@ -93,12 +99,22 @@
     editedOnly = false;
     family = el.family;
     slabView = plan ? 'plan' : 'panels';
+    structView = 'list';
     level = plan ? el.level ?? '' : '';
     openKey = plan ? null : el.key;
     highlight = marks;
     await tick();
     const target = plan ? document.querySelector('[data-testid="rc-plan-svg"]') : document.querySelector(`[data-testid="rc-row"][data-key="${CSS.escape(el.key)}"]`);
     target?.scrollIntoView({ block: 'start' });
+  }
+  async function openFromPlan(key: string) {
+    structView = 'list';
+    failingOnly = false;
+    editedOnly = false;
+    openKey = key;
+    highlight = [];
+    await tick();
+    document.querySelector(`[data-testid="rc-row"][data-key="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'start' });
   }
   $effect(() => fullScreenWorkspace.enter());
 
@@ -182,6 +198,12 @@
           <button type="button" role="tab" aria-selected={slabView === 'plan'} class:on={slabView === 'plan'} onclick={() => { slabView = 'plan'; if (!level && levelPlan) level = levelPlan.level; }} disabled={!rows.slabPlan.length} data-testid="rc-slab-view-plan">{t('rcSheets.slabView.plan')}</button>
         </div>
       {/if}
+      {#if planFamily}
+        <div class="rcw-views" role="tablist" aria-label={t('rcSheets.structView.label')}>
+          <button type="button" role="tab" aria-selected={structView === 'list'} class:on={structView === 'list'} onclick={() => (structView = 'list')} data-testid="rc-struct-view-list">{t('rcSheets.structView.list')}</button>
+          <button type="button" role="tab" aria-selected={structView === 'plan'} class:on={structView === 'plan'} onclick={() => { structView = 'plan'; if (!level && levels.length) level = levels[0]!; }} data-testid="rc-struct-view-plan">{t('rcSheets.slabView.plan')}</button>
+        </div>
+      {/if}
       {#if family === 'footing'}
         <label class="rcw-ctl rcw-sizing"><span>{t('rcSheets.footSizing.label')}</span>
           <select value={sizing} onchange={(e) => setFootingSizing((e.currentTarget as HTMLSelectElement).value as typeof sizing)} data-testid="rc-footing-sizing">
@@ -191,6 +213,8 @@
       {/if}
       {#if family === 'slab' && slabView === 'plan'}
         {#if levelPlan}{#key levelPlan.level}<RcSlabPlan plan={levelPlan} {highlight} />{/key}{/if}
+      {:else if structPlan}
+        {#key `${structPlan.family}:${structPlan.level}`}<RcStructurePlan plan={structPlan} onopen={openFromPlan} />{/key}
       {:else}
       <table class="rcw-table" data-testid={`rc-table-${family}`}>
         <thead>
@@ -299,7 +323,7 @@
                   {:else if r.family === 'punching' && r.figure}
                     <div class="rcw-secs"><RcPunchingSvg fig={r.figure} name={r.name} /></div>
                   {/if}
-                  <RcChecks lines={r.verifications} />
+                  <RcChecks lines={r.verifications} kind={r.family === 'beam' || r.family === 'column' ? r.family : undefined} />
                   <details open={r.status === 'fail'}>
                     <summary>{t('rcSheets.combo.title')} ({r.combos.rows.length})</summary>
                     <RcCombos table={r.combos} />

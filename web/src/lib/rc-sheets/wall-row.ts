@@ -20,6 +20,8 @@ export interface WallDemand {
   baseElements?: number;
   /** Nodes along the base cut, and how many rest on something: a support, a bar, a slab or a shell below. */
   base?: { nodes: number; held: number; unheld?: number[] };
+  /** Its base in plan, end to end along its length, m. */
+  plan?: { x1: number; y1: number; x2: number; y2: number };
   combos: WallComboForces[];
 }
 

@@ -11,6 +11,7 @@ import type { SheetRows } from './rc-sheets.svelte';
 import { i18n } from '../i18n';
 import { decimalFor, makeFmt } from '../rc-sheets/format';
 import type { Tr } from '../rc-sheets/plans/draw';
+import { structurePlansOf } from './rc-structure-plan';
 import { planDownload, planDrawings, planFiles, planSheets, type PlanFormat, type PlanProject, type PlanScales, type PlanSelection } from '../rc-sheets/plans/sheets';
 
 export interface PlanExportRequest {
@@ -27,7 +28,7 @@ export const defaultPlanAuthor = (): string => modelStore.model.projectInfo?.des
 
 export function buildPlanExport(rows: SheetRows, req: PlanExportRequest, tr: Tr, project: PlanProject, base: string) {
   const dd = designData();
-  const { drawings, levels } = planDrawings(rows, req.selection, {
+  const { drawings, levels } = planDrawings({ ...rows, structure: req.selection.element ? [] : structurePlansOf(rows) }, req.selection, {
     format: req.format, scales: req.scales, code: rowsCode(rows), endZones: dd.columnEndZones === true, slabCover: dd.covers.slab,
     fmt: makeFmt(decimalFor(i18n.locale)), tr,
   });

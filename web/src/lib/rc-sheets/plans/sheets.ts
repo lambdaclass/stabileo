@@ -26,6 +26,8 @@ import { wallPlans } from './wall-detail';
 import { footingPlans } from './footing-detail';
 import type { FootingRow } from '../footing-types';
 import type { Tr } from './draw';
+import type { StructurePlan } from '../structure-plan';
+import { structurePlanDrawing } from './structure-plan';
 
 export type PlanFormat = 'A3' | 'A1' | 'A0';
 export const PLAN_FORMATS: readonly PlanFormat[] = ['A3', 'A1', 'A0'];
@@ -36,7 +38,8 @@ export const PLAN_FAMILIES: readonly PlanFamily[] = ['beam', 'column', 'slab', '
 export interface PlanScales { elevation: number; plan: number }
 export const DEFAULT_PLAN_SCALES: PlanScales = { elevation: 20, plan: 50 };
 
-export interface PlanRows { line: LineLayout[]; beam: BeamRow[]; column: ColumnRow[]; slab: SlabRow[]; slabPlan: LevelPlan[]; wall: WallRow[]; footing?: FootingRow[] }
+/** `structure`: each family's level plans, drawn ahead of its elements when families are asked for. */
+export interface PlanRows { line: LineLayout[]; beam: BeamRow[]; column: ColumnRow[]; slab: SlabRow[]; slabPlan: LevelPlan[]; wall: WallRow[]; footing?: FootingRow[]; structure?: readonly StructurePlan[] }
 
 /** The families and levels to draw (all levels when `levels` is null), or one element by its row key. */
 export interface PlanSelection { families: readonly PlanFamily[]; levels: readonly string[] | null; element?: string }
@@ -60,11 +63,17 @@ export function planDrawings(rows: PlanRows, sel: PlanSelection, o: PlanOptions)
   const elementLevel = sel.element ? rows.slab.find((r) => r.key === sel.element)?.level : undefined;
   const want = (f: PlanFamily, key: string, level: string | undefined) => (sel.element ? key === sel.element : sel.families.includes(f) && levelOk(sel, level));
   const maxWidth = formatGeometry(o.format).drawable.x1 - formatGeometry(o.format).drawable.x0;
+  const structure = (f: PlanFamily) => {
+    if (sel.element || !sel.families.includes(f)) return;
+    for (const sp of rows.structure ?? []) if (sp.family === f && sp.items.length && levelOk(sel, sp.level)) drawings.push(structurePlanDrawing(sp, { ...p, group: group(f, sp.level) }));
+  };
+  structure('beam');
   for (const line of rows.line) {
     if (!want('beam', line.key, line.level)) continue;
     const spans = rows.beam.filter((r) => r.demand.line?.group === line.group);
     drawings.push(...beamPlans(line, spans, { ...e, code: o.code, maxWidth, group: group('beam', line.level) }));
   }
+  structure('column');
   for (const row of rows.column) {
     if (!want('column', row.key, row.level)) continue;
     drawings.push(...columnPlans(row, rows.column, { ...e, code: o.code, endZones: o.endZones, group: group('column', row.level) }));
@@ -74,6 +83,7 @@ export function planDrawings(rows: PlanRows, sel: PlanSelection, o: PlanOptions)
     if (!pick || !plan.packages.length) continue;
     drawings.push(...slabLevelPlans(plan, { ...p, code: o.code, slabCover: o.slabCover, group: group('slab', plan.level) }));
   }
+  structure('wall');
   for (const row of rows.wall) {
     if (!want('wall', row.key, row.level)) continue;
     drawings.push(...wallPlans(row, rows.wall, { ...e, code: o.code, group: group('wall', row.level) }));
