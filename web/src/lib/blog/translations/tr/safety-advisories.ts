@@ -40,6 +40,8 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-069 — Taslak 2026-11-15; PR #2169 ile düzeltildi, birleştirme ve yayın bekleniyor."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-070 — PR #2170 içinde düzeltildi, birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-070-interior-member-couples.md", "label": "SA-2026-070", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-072 — PR #2175 ile düzeltildi, birleştirme ve yayın bekleniyor."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-075 — PR #2198 ile düzeltildi, birleştirme ve yayın bekleniyor."},
@@ -423,6 +425,7 @@ const body: PostBody = {
         ["SA-2026-067", "Plandaki dönme üretilen kar yüklerini değiştirebiliyordu (#2093). Gerçek çatı geometrisiyle yükleri yeniden üretip analizleri ve kontrolleri tekrarlayın; eski modeli geri döndürmek sonuçları düzeltmez.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
         ["SA-2026-068", "Burulma kontrolü yetersiz tasarlanmış etriyelerle başarılı olabiliyordu (#2141). Beton kontrollerini yeniden çalıştırıp gerçek enine kapasiteyi, etriye aralığını ve burulma başarısızlıklarını inceleyin. Kontrol edilmemiş boyuna donatı, başarılı bir donatı kafesi anlamına gelmez.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
         ["SA-2026-069", "Burulma kesit sınırı eşzamanlı ikincil kesmeyi atlıyordu (#2142). Betonarme tasarımlarını yeniden çalıştırın, kesit hatalarını ve eksik etriyeleri inceleyin; etriye eklemek aşılmış kesit sınırını gidermez.", "Yüksek", "Taslak 2026-11-15; PR #2169 ile düzeltildi, birleştirme ve yayın bekleniyor"],
+        ["SA-2026-070", "Eleman içi sehim ve dönme, eleman yüklerini atlıyordu (#2143). Tam ve kısmi trapez yükler dahil deforme şekilleri, eğitim okumalarını ve çelik/beton kullanılabilirlik kontrollerini inceleyin. Yeterli EI olmadan yüklü elemanın hesabı artık açıkça reddedilir.", "Yüksek", "PR #2170 içinde düzeltildi, birleştirme ve yayın bekleniyor"],
         ["SA-2026-072", "Çatı kenarlarının eşit olmayan bölünmesi mahyayı kaydırıp üretilen kar yüklerini değiştirebiliyordu (#2144). Kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez.", "Yüksek", "PR #2175 ile düzeltildi, birleştirme ve yayın bekleniyor"],
         ["SA-2026-075", "Birincil etriye kolları ikincil kesmede de sayılıyordu. Bu nedenle yetersiz yatay kollara rağmen genel sonuç uyarısız geçebiliyordu (#2171). Beton eleman denetimlerini yeniden çalıştırın; ikincil kesmeyi, burulmayı ve her yönde tanımlanan kolları inceleyin.", "Yüksek", "PR #2198 ile düzeltildi, birleştirme ve yayın bekleniyor"],
       ]

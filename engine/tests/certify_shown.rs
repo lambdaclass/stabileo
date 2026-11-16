@@ -116,7 +116,7 @@ fn curve_2d(input: &SolverInput, dof: &DofNumbering, u: &[f64], elem: &SolverEle
     };
     // The displacement drawn at each point: (shape at scale s − base) / s, with s
     // a power of two large enough that rounding against the base is negligible.
-    let (base, big) = (shape(0.0), shape(SCALE));
+    let (base, big) = (shape(0.0).expect("load-free base curve"), shape(SCALE).expect("load-free displaced curve"));
     base.iter().zip(&big).map(|(p0, p1)| [(p1.x - p0.x) / SCALE, (p1.y - p0.y) / SCALE]).collect()
 }
 
@@ -145,7 +145,7 @@ fn curve_3d(input: &SolverInput3D, dof: &DofNumbering, u: &[f64], elem: &SolverE
                 truss || hs, truss || he, if truss { None } else { Some(ei) }, gas, None, None, &[], &[],
             )
         };
-        let (base, big) = (shape(0.0), shape(SCALE));
+        let (base, big) = (shape(0.0).expect("load-free base curve"), shape(SCALE).expect("load-free displaced curve"));
         base.iter().zip(&big).map(|(p0, p1)| ((p1.x - p0.x) / SCALE, (p1.y - p0.y) / SCALE)).collect()
     };
     let py = plane(
