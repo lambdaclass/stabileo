@@ -11782,6 +11782,7 @@ const es: Record<string, string> = {
   'snow.derivation.parapet': "Parapeto de {hp} m en un borde de la cubierta de +{z} m (Cap. 8): lu = {lu} m, hb = {hb} m, hc = {hc} m, 0,75 hd = {hd} m; triángulo de {h} m de alto y {w} m de ancho, pd = {pd} kN/m², sumado a la nieve balanceada.",
   'snow.derivation.partialExempt': "Los tramos a lo largo de {axis}, perpendiculares a la cumbrera, no llevan cargas parciales: la pendiente de {slope}° supera 21/W + 0,5 = {limit}° (§5.1).",
   'snow.derivation.noPartial': "Cargas parciales (§5.1): la cubierta no tiene tres tramos seguidos en ninguna dirección; no hay disposición que agregar.",
+  'snow.derivation.intensityBound': "Las intensidades tributarias cuadráticas usan cargas lineales por tramos que conservan la fuerza y ambos momentos en planta. El error puntual no supera el {relativePercent}% de la intensidad máxima muestreada de cada franja física completa; la mayor cota absoluta es {absolute} kN/m.",
   'snow.derivation.partial': "Cargas parciales (§5.1): {n} disposiciones de la nieve balanceada, completa en unos tramos y a la mitad en el resto, que entran a las combinaciones en lugar de la balanceada donde la nieve es la acción principal.",
   'snow.case.unbalancedValleys': "Nieve no balanceada, acumulada en los valles",
   'snow.case.partialPair': "Nieve parcial, tramos junto a {axis} = {at} m",

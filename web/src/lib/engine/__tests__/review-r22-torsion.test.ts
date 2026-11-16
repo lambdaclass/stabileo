@@ -1,13 +1,13 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
 import { normalizeCirsoc201 } from '../design-check-results';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { checkTorsion, verifyElement, prepareElementVerification } from '../codes/argentina/cirsoc201';
 
 const params = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) for (const elementType of ['beam', 'column', 'wall'] as const) {
   const input = (torque: number) => ({ ...params, edition, elementId: 1, elementType,
-    demand: ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'torsion', forces: {
+    demand: declaredTestDemands([{ comboId: 1, comboName: 'torsion', forces: {
       t: 0, x: 0, n: 0, my: 20, mz: 20, vy: 0, vz: 0, torsion: torque,
     } }])[0]!.section(axis) });
   for (const entry of ['direct', 'prepared', 'concurrent'] as const) {

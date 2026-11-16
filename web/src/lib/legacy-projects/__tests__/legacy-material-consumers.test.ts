@@ -1,6 +1,8 @@
+import { checkDeclaredSteelMember } from '../../engine/__tests__/helpers/declared-demands';
+import { declaredTestDemands } from '../../engine/__tests__/helpers/declared-demands';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { initSolver, checkSteelMembers } from '../../engine/wasm-solver';
-import { checkSteelMember, missingSteelInputs } from '../../engine/verification-service';
+import { missingSteelInputs } from '../../engine/verification-service';
 import { modelStore } from '../../store/model.svelte';
 import { resultsStore } from '../../store/results.svelte';
 import { typologyContext } from '../../store/joint-typology';
@@ -28,7 +30,14 @@ describe('legacy material consumer audit', () => {
     expect(material.timber).toBeUndefined();
     const section = modelStore.sections.get(1)!;
     expect(missingSteelInputs(section, material)).toContain('ultimateStrength');
-    expect(checkSteelMember(1, { Nc: 0, Nt: 1, MuStrong: 0, MuWeak: 0, Vu: 0, diagram: [] }, section, material, { L: 1, Lb: 0 })).toBeNull();
+    const demand = { Nc: 0, Nt: 1, MuStrong: 0, MuWeak: 0, Vu: 0, diagram: [],
+      concurrent: declaredTestDemands([{ comboId: 1, comboName: 'C1',
+        forces: { t: 0, x: 0, n: 1, my: 0, mz: 0, vy: 0, vz: 0, torsion: 0 } }]) };
+    expect(checkDeclaredSteelMember(1, demand, section, material, { L: 1, Lb: 0 })).toBeNull();
+    const savedFu = JSON.parse(readCorpusText('v0.4.0/truss.ded')).snapshot.materials[0][1].fu;
+    const completeMaterial = { ...material, fu: savedFu };
+    expect(missingSteelInputs(section, completeMaterial)).toEqual([]);
+    expect(checkDeclaredSteelMember(1, demand, section, completeMaterial, { L: 1, Lb: 0 })).not.toBeNull();
     const entry = readManifest('v0.2.0').examples.find(e => e.example === 'rc-beam-flexure')!;
     await openAndSolve(readCorpusText(`v0.2.0/${entry.file}`), { solve: false });
     const concrete = [...modelStore.materials.values()].find(m => m.name === 'H-25')!;

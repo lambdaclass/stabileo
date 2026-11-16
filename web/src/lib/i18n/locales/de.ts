@@ -11257,6 +11257,7 @@ const de: Translations = {
   'snow.derivation.parapet': 'Eine {hp} m hohe Attika an einem Rand des Dachs auf +{z} m (Kap. 8): lu = {lu} m, hb = {hb} m, hc = {hc} m, 0,75 hd = {hd} m; ein Dreieck mit {h} m Höhe und {w} m Breite, pd = {pd} kN/m², zur gleichmäßigen Schneelast addiert.',
   'snow.derivation.partialExempt': 'Die Felder in Richtung {axis}, senkrecht zum First, erhalten keine Teillasten: Die Neigung von {slope}° liegt über 21/W + 0.5 = {limit}° (§5.1).',
   'snow.derivation.noPartial': 'Teillasten (§5.1): Das Dach hat in keiner Richtung drei Felder hintereinander; es gibt keine Anordnung hinzuzufügen.',
+  'snow.derivation.intensityBound': "Quadratische Einzugslasten werden abschnittsweise linear angenähert; Kraft und beide Grundrissmomente bleiben erhalten. Der punktuelle Fehler beträgt höchstens {relativePercent}% der maximalen abgetasteten Intensität je vollständigem physischem Einzugsstreifen; die größte absolute Schranke ist {absolute} kN/m.",
   'snow.derivation.partial': 'Teillasten (§5.1): {n} Anordnungen der gleichmäßigen Schneelast, voll auf einigen Feldern und zur Hälfte auf den übrigen, die in den Kombinationen, in denen Schnee die Leiteinwirkung ist, an die Stelle der gleichmäßigen treten.',
   'snow.case.unbalancedValleys': 'Ungleichmäßige Schneelast, in den Kehlen angesammelt',
   'snow.case.partialPair': 'Teilschneelast, Felder neben {axis} = {at} m',

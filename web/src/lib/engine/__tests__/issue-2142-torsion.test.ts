@@ -1,6 +1,6 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { afterEach, expect, it } from 'vitest';
 import main from './fixtures/issue-2142-main.json';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { checkTorsion, prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
@@ -15,7 +15,7 @@ const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const clause = 'CIRSOC 201-2025 §22.7.7.1(a), C22.7.7.1, docs/codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-22-resistencia-de-las-secciones-de-los-elementos.md#c22.7.7.1';
 const depth = (h: number) => h - p.cover - p.stirrupDia / 1000 - 16 / 2000;
 const fixed = { shear: { spacing: 0.05, legs: 4 }, torsion: { AlProv: 100 } };
-const demand = (primary: number, secondary: number, torque: number, axis: 'My' | 'Mz' = 'My') => ConcurrentDemand.fromTuples([
+const demand = (primary: number, secondary: number, torque: number, axis: 'My' | 'Mz' = 'My') => declaredTestDemands([
   { comboId: 1, comboName: 'concurrent', forces: { t: 0, x: 0, n: 0,
     my: axis === 'My' ? 20 : 0, mz: axis === 'Mz' ? 20 : 0,
     vy: axis === 'My' ? secondary : primary, vz: axis === 'My' ? primary : secondary, torsion: torque } },
@@ -164,7 +164,7 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) {
       expect(d.Tu).toBeCloseTo(57, 10);
       for (const elementType of ['beam', 'column', 'wall'] as const) {
         const input = { ...p, elementId: 1, elementType, demand: d };
-        for (const v of [verifyElement(input, fixed), prepareElementVerification(input)(fixed), verifyConcurrentElement([input])]) {
+        for (const v of [verifyElement(input, fixed), prepareElementVerification(input)(fixed), verifyConcurrentElement(ds.map(source => ({ ...p, elementId: 1, elementType, demand: source.section('My') })))]) {
           expect(v.torsion!.ratio).toBeCloseTo(reference(d.Vu, d.VuSecondary, d.Tu).ratio, 12);
           expect(v.torsion!.status).toBe('fail');
           expect(v.overallStatus).toBe('fail');
@@ -202,7 +202,7 @@ for (const nonlinear of [false, true]) it(`2D WASM torsion-free valid control no
   const raw = nonlinear ? solvePDelta(solver).results : solve(solver);
   const ef = raw.elementForces[0]!;
   expect(Math.abs(ef.mStart)).toBeCloseTo(24, 10);
-  const inputs = ConcurrentDemand.fromTuples(([0, 1] as const).map(t => ({ comboId: 1, comboName: '2D', forces: {
+  const inputs = declaredTestDemands(([0, 1] as const).map(t => ({ comboId: 1, comboName: '2D', forces: {
     t, x: t * ef.length, n: t ? ef.nEnd : ef.nStart, my: t ? ef.mEnd : ef.mStart, mz: 0,
     vy: 0, vz: t ? ef.vEnd : ef.vStart, torsion: 0,
   } }))).map(d => ({ ...p, elementId: 1, elementType: 'beam' as const, demand: d.section('My') }));

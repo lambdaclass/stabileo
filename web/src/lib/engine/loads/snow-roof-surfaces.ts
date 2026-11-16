@@ -1,3 +1,5 @@
+import { physicalRoofRuns, snowCoordinate, sameSnowPoint, collinearSnowMembers, connectedSnowMembers } from './physical-roof-geometry';
+export { snowCoordinate } from './physical-roof-geometry';
 import { roofMembers, type WindModel } from './wind-cases';
 import { beamLike, type GravityLayout } from './plan-gravity';
 import { UNBALANCED_WIDTH_LIMIT } from '../../codes/cirsoc104/snow';
@@ -5,17 +7,40 @@ import { UNBALANCED_WIDTH_LIMIT } from '../../codes/cirsoc104/snow';
 type P2 = [number, number];
 type Point = { x: number; y: number; z?: number };
 const Z = (p: Point) => p.z ?? 0;
+export const SNOW_INTENSITY_RELATIVE_ERROR = 1e-4;
+
+export function onSnowRoof(layout: GravityLayout, piece: { elementId: number; roof: boolean }, only?: ReadonlySet<number>): boolean {
+  if (!only) return piece.roof;
+  return only.has(piece.elementId) && (piece.roof || !layout.roof.has(piece.elementId));
+}
 
 export class SnowRoofPlaneRefusal extends Error {
   constructor() { super('snow.refused.roofPlane'); }
 }
+export function boundedSnowIntensity(qI: number, centre: number, qJ: number, referenceScale = 0) {
+  const scale = Math.max(referenceScale, Math.abs(qI), Math.abs(qJ), Math.abs(centre));
+  if (!Number.isFinite(scale) || Math.max(qI, centre, qJ) > 0) throw new SnowRoofPlaneRefusal();
+  const rawDelta = centre - (qI + qJ) / 2;
+  if (!Number.isFinite(rawDelta)) throw new SnowRoofPlaneRefusal();
+  const delta = Math.abs(rawDelta) <= 128 * Number.EPSILON * scale ? 0 : rawDelta;
+  const count = Math.max(1, Math.ceil(Math.sqrt(Math.abs(delta) / (3 * SNOW_INTENSITY_RELATIVE_ERROR * scale)) || 0));
+  const value = (t: number) => qI + (qJ - qI) * t + 4 * delta * t * (1 - t);
+  const vertex = delta === 0 ? -1 : (qJ - qI + 4 * delta) / (8 * delta);
+  const cuts = Array.from({ length: count + 1 }, (_, j) => j / count);
+  if (vertex > 0 && vertex < 1 && cuts.every(t => t !== vertex)) cuts.push(vertex);
+  cuts.sort((a, b) => a - b);
+  const segments: Array<{ a: number; b: number; q: number; qJ: number }> = [];
+  for (let j = 1; j < cuts.length; j++) {
+    const start = cuts[j - 1]!, end = cuts[j]!, mid = (start + end) / 2;
+    const first = value(start), last = value(end), middle = (8 * value(mid) - first - last) / 6;
+    if (![first, middle, last].every(Number.isFinite) || Math.max(first, middle, last) > 128 * Number.EPSILON * scale) throw new SnowRoofPlaneRefusal();
+    segments.push({ a: start, b: mid, q: Math.min(0, first), qJ: Math.min(0, middle) }, { a: mid, b: end, q: Math.min(0, middle), qJ: Math.min(0, last) });
+  }
+  return { segments, approximated: delta !== 0, absoluteErrorBound: Math.abs(delta) / (3 * count * count) + Math.abs(rawDelta - delta) };
+}
+
 const cross = (a: P2, b: P2, c: P2) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 
-export function snowCoordinate(pt: P2, origin: P2, direction: P2, boundaries: number[] = []): number {
-  const value = (pt[0] - origin[0]) * direction[0] + (pt[1] - origin[1]) * direction[1];
-  const error = 16 * Number.EPSILON * ((Math.abs(pt[0]) + Math.abs(origin[0])) * Math.abs(direction[0]) + (Math.abs(pt[1]) + Math.abs(origin[1])) * Math.abs(direction[1]));
-  return boundaries.find(b => Math.abs(value - b) <= error) ?? value;
-}
 
 function footprints(edges: Array<{ a: Point; b: Point }>, gradient: P2): P2[][] {
   const points: Point[] = [];
@@ -140,7 +165,9 @@ export function snowSegmentCuts(a: P2, b: P2, polygons: ReadonlyArray<ReadonlyAr
       if (u >= -1e-9 && u <= 1 + 1e-9) ts.push(t);
     }
   }
-  return ts.filter(t => t >= 0 && t <= 1).sort((a, b) => a - b).filter((t, k, all) => k === 0 || t > all[k - 1]!);
+  const stationError = 32 * Number.EPSILON * (Math.abs(a[0]) + Math.abs(a[1]) + Math.abs(b[0]) + Math.abs(b[1]) + Math.sqrt(l2)) / Math.sqrt(l2);
+  return ts.map(t => Math.abs(t) <= stationError ? 0 : Math.abs(t - 1) <= stationError ? 1 : t)
+    .filter(t => t >= 0 && t <= 1).sort((a, b) => a - b).filter((t, k, all) => k === 0 || t - all[k - 1]! > stationError);
 }
 
 function memberSupport(a: Point, b: Point, polygon: P2[]) {
@@ -187,8 +214,6 @@ export interface SnowPlane {
   elevation: (pt: P2) => number;
 }
 
-const sameSnowPoint = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y, Z(a) - Z(b)) <= 1e-8;
-
 export interface RoofGeometry {
   axis: 'x' | 'y';
   ridge: number;
@@ -199,25 +224,6 @@ export interface RoofGeometry {
   origin: { x: number; y: number };
 }
 
-type SnowRun = { direction: P2; length: number; a: Point; b: Point; members: Set<number> };
-
-type SnowMember = { a: Point; b: Point; dx: number; dy: number; lh: number };
-
-function collinearSnowMembers<M extends SnowMember>(members: M[], m: M, gradient: P2): M[] {
-  return members.filter(r => [r.a, r.b].every(p => {
-    const x = p.x - m.a.x, y = p.y - m.a.y;
-    return Math.abs(m.dx * y - m.dy * x) <= 1e-8 * m.lh
-      && Math.abs(Z(p) - Z(m.a) - gradient[0] * x - gradient[1] * y) <= 1e-8;
-  }));
-}
-
-function connectedSnowMembers<M extends { a: Point; b: Point }>(m: M, supported: M[]): M[] {
-  const connected = new Set([m]);
-  for (const r of connected) for (const q of supported) {
-    if ([r.a, r.b].some(a => [q.a, q.b].some(b => sameSnowPoint(a, b)))) connected.add(q);
-  }
-  return [...connected];
-}
 
 export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
   const exposed = roofMembers(model);
@@ -230,20 +236,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     return [{ id: e.id, a, b, dx, dy, dz, lh: Math.hypot(dx, dy), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }];
   });
   const targets = roof.filter(m => targetIds.has(m.id));
-  const remaining = new Set(targets);
-  const runs: SnowRun[] = [];
-  for (const m of targets) {
-    if (!remaining.has(m)) continue;
-    const gradient: P2 = [m.dz * m.dx / m.lh ** 2, m.dz * m.dy / m.lh ** 2];
-    const members = connectedSnowMembers(m, collinearSnowMembers(targets, m, gradient));
-    for (const member of members) remaining.delete(member);
-    const direction: P2 = [m.dx / m.lh, m.dy / m.lh];
-    const coordinate = (p: Point) => snowCoordinate([p.x, p.y], [m.a.x, m.a.y], direction);
-    const points = members.flatMap(r => [r.a, r.b]);
-    const a = points.reduce((a, b) => coordinate(a) <= coordinate(b) ? a : b);
-    const b = points.reduce((a, b) => coordinate(a) >= coordinate(b) ? a : b);
-    runs.push({ direction, length: coordinate(b) - coordinate(a), a, b, members: new Set(members.map(r => r.id)) });
-  }
+  const runs = physicalRoofRuns(targets);
   const parent = roof.map((_, k) => k);
   const root = (k: number): number => parent[k] === k ? k : (parent[k] = root(parent[k]!));
   for (let a = 0; a < roof.length; a++) for (let b = a + 1; b < roof.length; b++) {
@@ -377,47 +370,141 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     if (!value.resolved) throw new SnowRoofPlaneRefusal();
     return value;
   };
-  const pieceLoads = (pc: GravityLayout['pieces'][number], layout: GravityLayout, pressure: (plane: SnowPlane | undefined, pt: P2) => number) => {
+  const approximation = { maxAbsoluteError: 0 };
+  const pieceLoads = (pc: GravityLayout['pieces'][number], layout: GravityLayout, pressure: (plane: SnowPlane | undefined, pt: P2, inside: P2) => number, boundaries: P2[][] = []) => {
     const e = model.elements.get(pc.elementId)!;
-    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    const memberA = model.nodes.get(e.nodeI)!, memberB = model.nodes.get(e.nodeJ)!;
+    const memberLength = Math.hypot(memberB.x - memberA.x, memberB.y - memberA.y, Z(memberB) - Z(memberA));
+    const run = allocationRunAtMember.get(pc.elementId);
+    const a = run?.a ?? memberA, b = run?.b ?? memberB;
     const L = Math.hypot(b.x - a.x, b.y - a.y, Z(b) - Z(a));
+    const horizontalLength = Math.hypot(b.x - a.x, b.y - a.y);
+    const direction: P2 = [(b.x - a.x) / horizontalLength, (b.y - a.y) / horizontalLength];
+    const position = (p: Point) => snowCoordinate([p.x, p.y], [a.x, a.y], direction, [0, horizontalLength]) * L / horizontalLength;
+    const offset = position(memberA), sense = position(memberB) >= offset ? 1 : -1;
+    const from = offset + sense * (pc.a ?? 0), to = offset + sense * (pc.b ?? memberLength);
     const dir: P2 = [(b.x - a.x) / L, (b.y - a.y) / L];
     const poly = layout.panels[pc.panel]!.polygon;
     const inward = inwardSnowPanel(a, b, poly);
     const pitched = memberPlanes(pc.elementId).length > 0;
-    const x0 = pc.a ?? 0, x1 = pc.b ?? L;
-    const depth = (x: number) => pc.wI + (pc.wJ - pc.wI) * (x - x0) / (x1 - x0);
-    const point = (x: number, d: number): P2 => [a.x + dir[0] * x + inward[0] * d, a.y + dir[1] * x + inward[1] * d];
-    const sf = panel(pc.panel, layout);
-    const cuts = (a: P2, b: P2) => snowSegmentCuts(a, b, planes.map(p => p.polygon));
-    const intensity = (x: number, insideX: number) => {
-      const dep = depth(x);
-      if (dep <= 0) return 0;
-      const ts = cuts(point(x, 0), point(x, dep));
-      let q = 0;
-      for (let k = 1; k < ts.length; k++) {
-        const lo = ts[k - 1]!, hi = ts[k]!, pt = point(x, dep * (lo + hi) / 2);
-        const plane = sf.planeAt(point(insideX, depth(insideX) * (lo + hi) / 2));
-        if (pitched && !plane) throw new SnowRoofPlaneRefusal();
-        q += dep * (hi - lo) * pressure(plane, pt);
-      }
-      return q;
-    };
-    const xs = [x0, x1];
-    for (const d of [0, 1]) for (const t of cuts(point(x0, d * depth(x0)), point(x1, d * depth(x1)))) xs.push(x0 + (x1 - x0) * t);
-    for (const p of planes) for (const v of p.polygon) {
-      const x = ((v[0] - a.x) * dir[0] + (v[1] - a.y) * dir[1]) / (dir[0] ** 2 + dir[1] ** 2);
-      if (x > x0 && x < x1) xs.push(x);
+    const strips = layout.pieces.filter(p => p.panel === pc.panel && (run ? run.members.has(p.elementId) : p === pc)).map(p => {
+      const edge = model.elements.get(p.elementId)!, i = model.nodes.get(edge.nodeI)!, j = model.nodes.get(edge.nodeJ)!;
+      const length = Math.hypot(j.x - i.x, j.y - i.y, Z(j) - Z(i)), start = position(i), sign = position(j) >= start ? 1 : -1;
+      const lo = start + sign * (p.a ?? 0), hi = start + sign * (p.b ?? length);
+      return lo < hi ? { a: lo, b: hi, wI: p.wI, wJ: p.wJ, sources: new Set([p]) } : { a: hi, b: lo, wI: p.wJ, wJ: p.wI, sources: new Set([p]) };
+    }).sort((a, b) => a.a - b.a);
+    const merged: typeof strips = [];
+    for (const strip of strips) {
+      const slope = (strip.wJ - strip.wI) / (strip.b - strip.a);
+      const joined = merged.find(p => strip.a <= p.b + 1e-8
+        && Math.abs((p.wJ - p.wI) / (p.b - p.a) - slope) < 1e-9
+        && Math.abs(p.wI + slope * (strip.a - p.a) - strip.wI) < 1e-9);
+      if (joined) {
+        if (strip.b > joined.b) { joined.b = strip.b; joined.wJ = strip.wJ; }
+        for (const source of strip.sources) joined.sources.add(source);
+      } else merged.push({ ...strip, sources: new Set(strip.sources) });
     }
-    const sorted = [x0, ...xs.filter(x => x > x0 + 1e-8 && x < x1 - 1e-8).sort((a, b) => a - b).filter((x, k, all) => k === 0 || x - all[k - 1]! > 1e-8), x1];
+    const physicalPolygon = (polygon: P2[]) => polygon.filter((p, k) => {
+      const prev = polygon[(k + polygon.length - 1) % polygon.length]!, next = polygon[(k + 1) % polygon.length]!;
+      return Math.abs(cross(prev, p, next)) > 1e-8 * Math.hypot(next[0] - prev[0], next[1] - prev[1]);
+    });
+    const polygons = [...planes.map(p => physicalPolygon(p.polygon)), ...boundaries];
+    const cuts = (a: P2, b: P2) => snowSegmentCuts(a, b, polygons);
     const out: Array<{ q: number; qJ: number; a: number; b: number }> = [];
-    for (let k = 1; k < sorted.length; k++) {
-      const a = sorted[k - 1]!, b = sorted[k]!, q = -intensity(a, a + (b - a) * 1e-6), qJ = -intensity(b, b - (b - a) * 1e-6);
-      const last = out[out.length - 1];
-      if (last && Math.abs(last.qJ - q) < 1e-9 && Math.abs((last.qJ - last.q) / (last.b - last.a) - (qJ - q) / (b - a)) < 1e-9) { last.b = b; last.qJ = qJ; }
-      else out.push({ a, b, q, qJ });
+    const append = (lo: number, hi: number, qI: number, qJ: number) => {
+      const start = Math.max(lo, Math.min(from, to)), end = Math.min(hi, Math.max(from, to));
+      const error = 64 * Number.EPSILON * (L + Math.abs(from) + Math.abs(to));
+      if (end - start <= error) return;
+      const q = (x: number) => {
+        const t = (x - lo) / (hi - lo);
+        return (1 - t) * qI + t * qJ;
+      };
+      const first = sense > 0 ? start : end, last = sense > 0 ? end : start;
+      const station = (x: number) => {
+        const value = (x - offset) * sense;
+        return Math.abs(value - (pc.a ?? 0)) <= error ? pc.a ?? 0 : Math.abs(value - (pc.b ?? memberLength)) <= error ? pc.b ?? memberLength : value;
+      };
+      out.push({ a: station(first), b: station(last), q: q(first), qJ: q(last) });
+    };
+    for (const strip of merged.filter(strip => strip.sources.has(pc))) {
+      const overlap = Math.min(strip.b, Math.max(from, to)) - Math.max(strip.a, Math.min(from, to));
+      if (overlap <= 64 * Number.EPSILON * (L + Math.abs(from) + Math.abs(to))) continue;
+      const x0 = strip.a, x1 = strip.b;
+      const depth = (x: number) => {
+        const value = strip.wI + (strip.wJ - strip.wI) * (x - x0) / (x1 - x0);
+        const error = 32 * Number.EPSILON * (Math.abs(strip.wI) + Math.abs(strip.wJ) + L);
+        return Math.abs(value) <= error ? 0 : value;
+      };
+      const point = (x: number, d: number): P2 => [a.x + dir[0] * x + inward[0] * d, a.y + dir[1] * x + inward[1] * d];
+      const sf = panel(pc.panel, layout);
+      const intensity = (x: number, insideX: number) => {
+        const dep = depth(x);
+        if (dep <= 0) return 0;
+        const ts = cuts(point(x, 0), point(x, dep));
+        let q = 0;
+        for (let k = 1; k < ts.length; k++) {
+          const lo = ts[k - 1]!, hi = ts[k]!, pt = point(x, dep * (lo + hi) / 2);
+          const inside = point(insideX, depth(insideX) * (lo + hi) / 2), plane = sf.planeAt(inside);
+          if (pitched && !plane) throw new SnowRoofPlaneRefusal();
+          q += dep * (hi - lo) * pressure(plane, pt, inside);
+        }
+        return -q;
+      };
+      const activeStrips = strips.filter(p => {
+        const source = [...p.sources][0]!;
+        return strip.sources.has(source) && onSnowRoof(layout, source, only);
+      });
+      const sourceEvents = strips.filter(p => strip.sources.has([...p.sources][0]!))
+        .flatMap(p => {
+          const active = activeStrips.includes(p) ? 1 : 0;
+          return [{ x: p.a, delta: 1, active }, { x: p.b, delta: -1, active: -active }];
+        }).sort((a, b) => a.x - b.x);
+      const coverageChanges: typeof sourceEvents = [];
+      for (const event of sourceEvents) {
+        const last = coverageChanges[coverageChanges.length - 1];
+        if (last && Math.abs(last.x - event.x) < 1e-8) { last.delta += event.delta; last.active += event.active; }
+        else coverageChanges.push({ ...event });
+      }
+      const xs = [x0, x1, ...coverageChanges.filter(e => e.delta !== 0 || e.active !== 0).map(e => e.x)];
+      for (const d of [0, 1]) for (const t of cuts(point(x0, d * depth(x0)), point(x1, d * depth(x1)))) xs.push(x0 + (x1 - x0) * t);
+      for (const polygon of polygons) for (const v of polygon) {
+        const x = ((v[0] - a.x) * dir[0] + (v[1] - a.y) * dir[1]) / (dir[0] ** 2 + dir[1] ** 2);
+        if (x > x0 && x < x1) xs.push(x);
+      }
+      const sorted = [x0, ...xs.filter(x => x > x0 + 1e-8 && x < x1 - 1e-8).sort((a, b) => a - b).filter((x, k, all) => k === 0 || x - all[k - 1]! > 1e-8), x1];
+      const intervals = sorted.slice(1).flatMap((hi, k) => {
+        const lo = sorted[k]!, mid = (lo + hi) / 2;
+        const active = coverageChanges.reduce((count, event) => count + (event.x <= mid ? event.active : 0), 0);
+        if (active === 0) return [];
+        return [{ lo, hi, qI: intensity(lo, lo + (hi - lo) * 1e-6), qJ: intensity(hi, hi - (hi - lo) * 1e-6), centre: intensity(mid, mid) }];
+      });
+      const referenceScale = intervals.reduce((scale, p) => Math.max(scale, Math.abs(p.qI), Math.abs(p.qJ), Math.abs(p.centre)), 0);
+      for (const { lo, hi, qI, qJ, centre } of intervals) {
+        const profile = boundedSnowIntensity(qI, centre, qJ, referenceScale);
+        if (profile.approximated) approximation.maxAbsoluteError = Math.max(approximation.maxAbsoluteError, profile.absoluteErrorBound);
+        for (const segment of profile.segments) append(lo + (hi - lo) * segment.a, lo + (hi - lo) * segment.b, segment.q, segment.qJ);
+      }
     }
-    return out.map(p => ({ elementId: pc.elementId, q: p.q, qJ: p.qJ, ...(out.length === 1 && pc.a === undefined ? {} : { a: p.a, b: p.b }), frame: 'projected' as const }));
+    out.sort((a, b) => a.a - b.a);
+    const loads: typeof out = [];
+    const loadScale = out.reduce((scale, p) => Math.max(scale, Math.abs(p.q), Math.abs(p.qJ)), 0);
+    const coordinateScale = Math.abs(a.x) + Math.abs(a.y) + Math.abs(b.x) + Math.abs(b.y) + L;
+    const depthScale = strips.reduce((scale, p) => Math.min(scale, ...[p.wI, p.wJ].filter(w => w > 0)), L);
+    const coalescingRoundoff = Math.min(1e-9, 128 * Number.EPSILON * loadScale * (1 + coordinateScale / depthScale));
+    for (const p of out) {
+      const last = loads[loads.length - 1];
+      const combined = (x: number) => {
+        const t = (x - last!.a) / (p.b - last!.a);
+        return (1 - t) * last!.q + t * p.qJ;
+      };
+      if (last && Math.abs(last.b - p.a) < 1e-8
+        && Math.abs(last.qJ - p.q) < 1e-9
+        && Math.abs((last.qJ - last.q) / (last.b - last.a) - (p.qJ - p.q) / (p.b - p.a)) < 1e-9
+        && Math.abs(last.qJ - combined(last.b)) <= coalescingRoundoff
+        && Math.abs(p.q - combined(p.a)) <= coalescingRoundoff) { last.b = p.b; last.qJ = p.qJ; }
+      else loads.push(p);
+    }
+    return loads.map(p => ({ elementId: pc.elementId, q: p.q, qJ: p.qJ, ...(loads.length === 1 && pc.a === undefined ? {} : { a: p.a, b: p.b }), frame: 'projected' as const }));
   };
   const transverse = (direction: P2): P2 => {
     const axis: P2 = [-direction[1], direction[0]];
@@ -465,7 +552,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     if (!layout) return true;
     if (!layout.panels.every((p, k) => !p.roof || readPanel(k, layout).resolved)) return false;
     try {
-      for (const pc of layout.pieces) if (targetIds.has(pc.elementId) && (pc.roof || only && !layout.roof.has(pc.elementId))) pieceLoads(pc, layout, () => 0);
+      for (const pc of layout.pieces) if (targetIds.has(pc.elementId) && onSnowRoof(layout, pc, only)) pieceLoads(pc, layout, () => 0);
     } catch (error) {
       if (error instanceof SnowRoofPlaneRefusal) return false;
       throw error;
@@ -474,6 +561,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
   };
   const profilePoints = runs.flatMap(r => [r.a, r.b]).filter((p, k, all) => !all.slice(0, k).some(q => sameSnowPoint(p, q)));
   const runAtMember = new Map(runs.flatMap(r => [...r.members].map(id => [id, r] as const)));
+  const allocationRunAtMember = new Map(physicalRoofRuns(roof).flatMap(r => [...r.members].map(id => [id, r] as const)));
   const geometry = (() : RoofGeometry | null => {
     if (!targets.length) return null;
     const longest = runs.reduce((best, run) => run.length - best.length > 32 * Number.EPSILON * Math.max(run.length, best.length) ? run : best);
@@ -498,12 +586,9 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
   const roofCoordinates = geometry ? profilePoints.map(p => snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.direction)) : [];
   const transverseCoordinates = geometry ? profilePoints.map(p => snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.transverse)) : [];
   const roofPoint = (p: Point) => geometry ? {
-    x: snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.direction, roofCoordinates),
+    x: snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.direction, [geometry.ridge, ...roofCoordinates]),
     y: snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.transverse, transverseCoordinates), z: p.z,
   } : p;
-  const memberSides = new Map(targets.map(m => {
-    return [m.id, geometry ? snowCoordinate([(m.a.x + m.b.x) / 2, (m.a.y + m.b.y) / 2], [geometry.origin.x, geometry.origin.y], geometry.direction, [geometry.ridge]) - geometry.ridge : 0];
-  }));
   const memberValues = (id: number, field: (p: Point) => number, point?: Point): [number, number] => {
     const run = runAtMember.get(id), m = targets.find(m => m.id === id);
     if (!run || !m) return [0, 0];
@@ -511,7 +596,28 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     const at = (p: Point) => a + (b - a) * snowCoordinate([p.x, p.y], [run.a.x, run.a.y], run.direction, [0, run.length]) / run.length;
     return point ? [at(point), at(point)] : [at(m.a), at(m.b)];
   };
-  return { geometry, roofPoint, profilePoints, memberSides, memberValues, planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets, runs, panel, resolves };
+  const pressureProfile = (field: (id: number, point: Point, inside: Point, surface?: SnowPlane, panel?: number) => number, splitRidge = false) => {
+    const boundaries: P2[][] = [];
+    if (splitRidge && geometry && targets.some(m => supportFor(m.id).planes.length === 0)) {
+      const centre: P2 = [geometry.origin.x + geometry.ridge * geometry.direction[0], geometry.origin.y + geometry.ridge * geometry.direction[1]];
+      const extent = 1 + Math.max(...profilePoints.map(p => Math.hypot(p.x - centre[0], p.y - centre[1])));
+      boundaries.push([-1, 1].map(sign => [centre[0] + sign * extent * geometry.transverse[0], centre[1] + sign * extent * geometry.transverse[1]]));
+    }
+    const memberLoads = (id: number, from = 0, to?: number) => {
+      const e = model.elements.get(id)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+      const length = Math.hypot(b.x - a.x, b.y - a.y, Z(b) - Z(a)), end = to ?? length;
+      const point = (x: number): Point => ({ x: a.x + (b.x - a.x) * x / length, y: a.y + (b.y - a.y) * x / length, z: Z(a) + (Z(b) - Z(a)) * x / length });
+      const startStation = roofPoint(a).x, endStation = roofPoint(b).x;
+      const crossing = boundaries.length && supportFor(id).planes.length === 0 && startStation !== endStation ? (geometry!.ridge - startStation) * length / (endStation - startStation) : undefined;
+      const cuts = [from, ...(crossing !== undefined && crossing > from && crossing < end ? [crossing] : []), end];
+      return cuts.slice(1).map((hi, k) => {
+        const lo = cuts[k]!, inside = point((lo + hi) / 2);
+        return { a: lo, b: hi, q: field(id, point(lo), inside), qJ: field(id, point(hi), inside) };
+      });
+    };
+    return { at: field, boundaries, memberLoads };
+  };
+  return { approximation, geometry, roofPoint, profilePoints, pressureProfile, memberValues, planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets, runs, panel, resolves };
 }
 
 export function snowRoofSurfaces(model: WindModel, layout?: GravityLayout, surfaces = roofSurfaceModel(model)) {
