@@ -10,17 +10,14 @@ const advisory = document('advisories/SA-2026-072-snow-ridge-subdivision.md');
 const record = document('results-changes/2026-11-snow-ridge-mesh.md');
 
 it.each<[PublicLocale, string, string]>([
-  ["en", "High", "Fixed in PR #2175, pending merge and release"],
-  ["es", "Alta", "Corregido en PR #2175, pendiente de integración y publicación"],
-  ["pt", "Alta", "Corrigido no PR #2175, aguardando integração e publicação"],
-  ["de", "Hoch", "In PR #2175 behoben, Zusammenführung und Veröffentlichung ausstehend"],
-  ["fr", "Élevée", "Corrigé dans la PR #2175, fusion et publication en attente"],
-  ["tr", "Yüksek", "PR #2175 ile düzeltildi, birleştirme ve yayın bekleniyor"],
-])('#2144 %s lists the draft snow advisory and regeneration notice', checkAdvisory);
-
-it.skip.each<[PublicLocale, string, string]>([
+  ["en", "High", "Fixed in PR #2175, pending release"],
+  ["es", "Alta", "Corregido en PR #2175, pendiente de publicación"],
+  ["pt", "Alta", "Corrigido no PR #2175, aguardando publicação"],
+  ["de", "Hoch", "In PR #2175 behoben, Veröffentlichung ausstehend"],
+  ["fr", "Élevée", "Corrigé dans la PR #2175, publication en attente"],
+  ["tr", "Yüksek", "PR #2175 ile düzeltildi, yayın bekleniyor"],
   ['hu', 'Magas', 'Javítva a #2175 PR-ben, kiadásra vár'],
-])('known wrong result: #2099 — %s lists the snow advisory and regeneration notice', checkAdvisory);
+])('#2144 %s lists the snow advisory and regeneration notice', checkAdvisory);
 
 function checkAdvisory(locale: PublicLocale, severity: string, status: string) {
   const post = findPost('safety-advisories')!;
@@ -41,7 +38,7 @@ function checkAdvisory(locale: PublicLocale, severity: string, status: string) {
 it('#2144 follows the assigned advisory structure and retains only the recorded main witness', () => {
   const structure = (text: string) => text.split('\n').filter(line => line.startsWith('## ') || /^\| [A-Z][^|]+ \|/.test(line)).map(line => line.startsWith('## ') ? line : line.split('|')[1]!.trim());
   expect(structure(advisory)).toEqual(structure(document('advisories/SA-2026-068-provided-torsion-stirrups.md')));
-  expect(advisory).toContain('Draft 2026-11-15; fixed in PR #2175, pending merge and release');
+  expect(advisory).toContain('Draft 2026-11-15; fixed in PR #2175, pending release');
   expect(advisory).toContain('historical release binaries not assessed');
   expect(advisory).toContain('snow-ridge-mesh.json');
   for (const value of ['8e5c026b7', '16 by 4 m', '20 degrees', 'eight members', '0.8076923076923077', '0.40384615384615385']) {
@@ -53,7 +50,7 @@ it('#2144 follows the assigned advisory structure and retains only the recorded 
   expect(record).toContain('RUN_KNOWN_WRONG=2172');
 });
 
-it.skip('known wrong result: #2099 — Hungarian snow guidance preserves subdivision, ridge-side loads and the unsplit-member limitation', () => {
+it('known wrong result: #2099 — Hungarian snow guidance preserves subdivision, ridge-side loads and the unsplit-member limitation', () => {
   expect(notice.explanation.hu).toContain('tetőélek egyenlőtlen felosztása');
   expect(notice.explanation.hu).toContain('gerinc helyzetét');
   expect(notice.explanation.hu).toContain('Minden rúdszakasz');
