@@ -1,7 +1,7 @@
 import type { WallReinforcement } from '../design-contract/reinforcement';
 
-export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall' | 'punching';
-export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'punching'];
+export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall' | 'punching' | 'footing';
+export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'punching', 'footing'];
 
 export type SheetCode = 'cirsoc201-2025' | 'aci318-19' | 'en1992-1-1' | 'bs-en1992-1-1' | 'ts500-2000';
 /** The codes the sheets design to, in the order they are offered. */
@@ -53,7 +53,7 @@ export interface SlabAdopted { bottomX: MeshBars; bottomY: MeshBars; topX: MeshB
 
 export type WallAdopted = WallReinforcement;
 
-export type Adopted = BeamAdopted | ColumnAdopted | SlabAdopted | WallAdopted | import('./beam-line').LineAdopted;
+export type Adopted = BeamAdopted | ColumnAdopted | SlabAdopted | WallAdopted | import('./beam-line').LineAdopted | import('./footing-types').FootingAdopted;
 
 export type TorsionMode = 'equilibrium' | 'compatibility';
 
@@ -77,6 +77,8 @@ export interface RcSheetsData {
   bentLines?: Record<string, boolean>;
   /** Slabs whose span bars, every other one, rise over both supports in the level plan. */
   slabBentBars?: boolean;
+  /** How the footings are sized: from the loads, never under the modelled footing ('minimum' when absent), or as modelled with only their bars designed. */
+  footingSizing?: import('./footing-types').FootingSizing;
   /** The bending schedule: waste on the order (a fraction, 0.1 when absent) and where equal bars share a mark ('element' when absent). */
   schedule?: { waste?: number; scope?: MarkScope };
   /** Adopted bars by row key. */

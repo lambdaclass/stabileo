@@ -8,6 +8,8 @@ import { SLAB_FACES, type SlabRow } from './slab-row';
 import { wallLabel, type WallRow } from './wall-row';
 import type { CheckLine } from './types';
 import type { PunchingRow } from './punching-row';
+import type { FootingRow } from './footing-types';
+import { meshText } from './footing-mesh';
 import type { BendingSchedule } from './schedule/schedule';
 import { scheduleSheets } from './schedule/exports';
 
@@ -17,7 +19,7 @@ const r3 = (v: number) => (Number.isFinite(v) ? Math.round(v * 1000) / 1000 : '�
 const cm = (v: number) => Math.round(v * 100);
 const worst = (v: CheckLine[]) => Math.max(0, ...v.map((x) => x.ratio ?? 0));
 
-export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; punching?: PunchingRow[]; code: string }, tr: Tr, bending?: BendingSchedule): WorkbookSheet[] {
+export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; punching?: PunchingRow[]; footing?: FootingRow[]; code: string }, tr: Tr, bending?: BendingSchedule): WorkbookSheet[] {
   const head = [`${tr('rcSheets.code')}: ${rows.code}`];
   const state = (s: string) => tr(`rcSheets.status.${s}`);
   const name = tr('rcSheets.col.name'), level = tr('rcSheets.col.level'), status = tr('rcSheets.col.status'), ratio = tr('rcSheets.col.ratio'), req = tr('rcSheets.req');
@@ -67,6 +69,11 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
   }
   const punch: WorkbookSheet['rows'] = [head, [name, level, tr('rcSheets.s.punchPosition'), 'Vu (kN)', 'φVc (kN)', ratio, status]];
   for (const r of rows.punching ?? []) punch.push([safeText(r.name), safeText(r.level ?? ''), r.position, r2(r.vu), r2(r.phiVc), r3(r.utilization), state(r.status)]);
+  const feet: WorkbookSheet['rows'] = [head, [name, level, 'B (cm)', 'L (cm)', 'h (cm)', 'N (kN)', 'qmax (kPa)', 'qadm (kPa)', tr('rcSheets.foot.mesh.x'), tr('rcSheets.foot.mesh.y'), tr('rcSheets.foot.dowels'), ratio, status]];
+  for (const r of rows.footing ?? []) {
+    feet.push([safeText(r.name), safeText(r.level ?? ''), cm(r.B), cm(r.L), cm(r.h), r2(r.demand.service?.N ?? 0), r2(r.bearing?.qMax ?? 0), r2(r.bearing?.allowable ?? 0),
+      meshText(r.adopted.x), meshText(r.adopted.y), r.adopted.dowels && !r.uncovered ? `${r.adopted.dowels.count} Ø${r.adopted.dowels.dia}` : '—', r3(r.utilization), state(r.status)]);
+  }
   return [
     { name: tr('rcSheets.family.beam'), rows: beams },
     { name: tr('rcSheets.sheet.schedule'), rows: schedule },
@@ -74,6 +81,7 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     { name: tr('rcSheets.family.slab'), rows: slabs },
     { name: tr('rcSheets.family.wall'), rows: walls },
     ...((rows.punching ?? []).length ? [{ name: tr('rcSheets.family.punching'), rows: punch }] : []),
+    ...((rows.footing ?? []).length ? [{ name: tr('rcSheets.family.footing'), rows: feet }] : []),
     ...(bending?.rows.length ? scheduleSheets(bending, tr, rows.code) : []),
   ];
 }

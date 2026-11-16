@@ -17,6 +17,8 @@ import { concreteFc } from '../model/design-data';
 import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
 import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
+import type { FootingRow } from '../rc-sheets/footing-types';
+import { currentFootingDemands, footingRowOf, footingSizing, withOverlaps } from './rc-sheets-footings';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { LineAdopted, LineLayout } from '../rc-sheets/beam-line';
 import type { ColumnRow } from '../rc-sheets/column-row';
@@ -26,7 +28,7 @@ import { makeFmt, type Fmt } from '../rc-sheets/format';
 import { defaultRcSheetsData, SHEET_CODES, SLAB_MESH_DIAMETERS, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 
-export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow;
+export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow | FootingRow;
 
 export interface SheetRows {
   beam: BeamRow[];
@@ -38,6 +40,7 @@ export interface SheetRows {
   slabPlan: LevelPlan[];
   wall: WallRow[];
   punching: PunchingRow[];
+  footing: FootingRow[];
   /** The regulation the rows are computed with. */
   code: string;
   /** Where the forces came from: the design combinations, or the result on screen when none is solved. */
@@ -312,7 +315,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const code = sheetCode();
   const rules = rulesFor(code);
   const codeName = SHEET_CODES[code].name;
-  if (!sets.length) return { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], code: codeName, basis, combos: 0 };
+  if (!sets.length) return { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], footing: [], code: codeName, basis, combos: 0 };
   const dd = designData();
   const adoptedNow = liveAdopted(rcSheetsData(), code);
   const data = rcSheetsData();
@@ -342,7 +345,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     demandCache.set(key, dem);
   }
   const D = dem;
-  const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length;
+  const feet = currentFootingDemands(sets, storeyNamer());
+  const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length + feet.length;
   let done = 0;
   const step = (): SheetProgress => ({ phase: 'design', done: ++done, total });
   const groupsById = new Map(physicalGroups().map((g) => [g.id, g]));
@@ -461,9 +465,16 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     punching.push(cached(d, [code, ctx, dec], () => rules.punchingRow(d, ctx, fmt)));
     yield step();
   }
+  const footing: FootingRow[] = [];
+  for (const d of feet) {
+    const f = footingRowOf(d, rules, adoptedNow, footingSizing(data), column, fmt);
+    redesigners.set(d.key, f.redo as Redesign);
+    footing.push(f.row);
+    yield step();
+  }
   const columnsFinal = seismic ? jointChecks(column, beam, modelStore.nodes, fmt, { fc: (r) => fcOfElement(groupOf(r.key)?.members.elements?.[0]), beamFc: (b) => fcOfElement(groupOf(b.key)?.members.elements?.[0]), fy, cover: dd.covers.column, beamCover: dd.covers.beam, settings: seismicSettings() }) : column;
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
-  return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), code: codeName, basis, combos: sets.length };
+  return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), footing: sort(withOverlaps(footing)), code: codeName, basis, combos: sets.length };
 }
 
 

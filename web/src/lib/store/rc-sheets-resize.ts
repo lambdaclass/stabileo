@@ -95,6 +95,7 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
         { what: 'punchDrop', direction: 'grow', from: [0, 0], to: dropPanel(row.key, d) },
       ];
     }
+    case 'footing': return [];
   }
 }
 
@@ -151,6 +152,7 @@ export function rowTargets(row: SheetRow | LineLayout): GotoTarget[] {
   if ('spanAdopted' in row) return ['members'];
   if (row.family === 'beam' || row.family === 'column') return ['members'];
   if (row.family === 'punching') return ['plates', 'members'];
+  if (row.family === 'footing') return [];
   return ['plates'];
 }
 

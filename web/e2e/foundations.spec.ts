@@ -118,43 +118,15 @@ test.describe('@smoke foundations — the visible workflow', () => {
     }
   });
 
-  test('F-K the export panel says the JSON is not a drawing and names the tool',
-    async ({ pro: page }) => {
-      /**
-       * The QA blocker: a user downloaded the handoff JSON and nothing anywhere said what to do with
-       * it. The CAD viewer reads `.step`/`.glb`/`.stl`/`.3mf`/`.dxf` and robot descriptions — never
-       * `.json` — so a handoff dropped in its catalogue is invisible. The explanation belongs at the
-       * moment of download, which is this panel.
-       *
-       * Lives in THIS spec rather than beside the other CAD-handoff journeys: those open the
-       * committed project through the Básico file input and are sensitive to the autosaved state a
-       * preceding run leaves behind, so adding an eleventh project load to that describe block broke
-       * every test in it. Measured, not guessed.
-       */
-      await loadModel(page, QA);
-      await openFoundations(page);
-      await addFooting(page);
-      await dimensionFooting(page);
+  test('F-K a footing points to the reinforcement sheets, where it is designed and drawn', async ({ pro: page }) => {
+    await loadModel(page, QA);
+    await openFoundations(page);
+    await addFooting(page);
+    await dimensionFooting(page);
 
-      const notADrawing = page.getByTestId('footing-cad-not-a-drawing');
-      await expect(notADrawing).toBeVisible();
-      await expect(notADrawing).toContainText(/semantic/i);
-      await expect(notADrawing).toContainText(/no CAD program opens it directly/i);
-
-      const nextStep = page.getByTestId('footing-cad-next-step');
-      await expect(nextStep).toBeVisible();
-      // Every output named, including the one the viewer cannot show.
-      for (const output of ['STEP', 'GLB', 'IFC4', 'cad-review.json']) {
-        await expect(nextStep).toContainText(output);
-      }
-
-      // A visible action that needs no command and no port knowledge.
-      const open = page.getByTestId('footing-cad-open-tool');
-      await expect(open).toBeVisible();
-      await expect(open).toContainText(/RC CAD handoff/i);
-      await expect(page.getByTestId('footing-cad-tool-at')).toContainText('127.0.0.1:4179');
-
-      // And the scope sentence no longer claims the mats are excluded — V2 carries them.
-      await expect(page.getByText(/Does NOT include top reinforcement/i)).toBeVisible();
-    });
+    await expect(page.getByTestId('footing-to-sheets')).toContainText(/reinforcement sheets, Footings family/);
+    await expect(page.getByTestId('footing-cad-export')).toHaveCount(0);
+    await page.getByTestId('footing-open-sheets').click();
+    await expect(page.getByTestId('rc-sheets-panel')).toBeVisible();
+  });
 });

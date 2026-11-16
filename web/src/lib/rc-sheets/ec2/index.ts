@@ -6,6 +6,7 @@ import { makeColumnRow } from './column-row';
 import { makeSlabRow } from './slab-row';
 import { makeWallRow } from './wall-row';
 import { makePunchingRow } from './punching-row';
+import { uncoveredFootingRow } from '../footing-row';
 import { ec2LineCode } from './beam-line';
 import type { SlabPlanCode } from '../slab-plan';
 
@@ -20,7 +21,7 @@ const ec2SlabPlan = (set: Ec2Set): SlabPlanCode => ({
 export function ec2RulesFor(set: Ec2Set): SheetRules {
   return {
     beamRow: makeBeamRow(set), beamLine: makeBeamLine(set), columnRow: makeColumnRow(set),
-    slabRow: makeSlabRow(set), wallRow: makeWallRow(set), punchingRow: makePunchingRow(set), slabPlan: ec2SlabPlan(set), seismic: false, bends: EC2_BENDS,
+    slabRow: makeSlabRow(set), wallRow: makeWallRow(set), punchingRow: makePunchingRow(set), footingRow: uncoveredFootingRow, slabPlan: ec2SlabPlan(set), seismic: false, bends: EC2_BENDS,
   };
 }
 
