@@ -13595,6 +13595,7 @@ const en: Record<string, string> = {
   "rcSheets.onlyEdited": "Edited only",
   "rcSheets.editedByHand": "Edited by hand: kept when the code changes",
   "rcSheets.adoptAll": "Adopt the proposals",
+  "rcSheets.seismicData": "Seismic data",
   "rcSheets.adoptProposal": "Adopt the proposal",
   "rcSheets.useProposal": "Back to the proposal",
   "rcSheets.showingProposal": "Showing Stabileo's proposal, not adopted yet.",

@@ -15,6 +15,8 @@
   import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { rulesFor } from '../../../lib/rc-sheets/codes';
   import { designData } from '../../../lib/store/design-data';
+  import ProDesignDataPanel from '../ProDesignDataPanel.svelte';
+  import SeismicEditor from '../desk/seismic/SeismicEditor.svelte';
 
   let open = $state(false);
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
@@ -27,6 +29,7 @@
   const stale = $derived(sheetsStale());
   const torsion = $derived.by(() => { void modelStore.designData; return rcSheetsData().torsion; });
   const options = $derived.by(() => { void modelStore.designData; const d = rcSheetsData(); return { faces: d.faces === true, flange: d.flange === true, seismic: d.seismic === true, bentBars: d.bentBars === true, slabBentBars: d.slabBentBars === true, endZones: designData().columnEndZones === true }; });
+  const dd = $derived.by(() => { void modelStore.designData; return designData(); });
   const stat = (list: SheetRow[]) => ({ n: list.length, ok: list.filter((r) => r.status !== 'fail').length, fail: list.filter((r) => r.status === 'fail').length });
 
   function openAt(f: SheetFamily) { family = f; open = true; }
@@ -105,6 +108,16 @@
     <p class="rcp-note" data-testid="rc-scope-note">{t('rcSheets.scopeNote')}</p>
     {#if options.seismic && rulesFor(code).seismic}<p class="rcp-note">{t('rcSheets.scopeNoteSeismic')}</p>{/if}
   {/if}
+  <details class="rcp-more" data-testid="rc-design-data">
+    <summary>{t('designData.title')} <span class="cnt">· {tp('building.general.moreSummary', { c: Math.round(dd.covers.beam * 1000), e: t(`designData.exp.${dd.exposure.beam}`) })}</span></summary>
+    <ProDesignDataPanel />
+  </details>
+  {#if options.seismic && rulesFor(code).seismic}
+    <details class="rcp-more" data-testid="rc-seismic-data">
+      <summary>{t('rcSheets.seismicData')}</summary>
+      <SeismicEditor />
+    </details>
+  {/if}
 </div>
 
 {#if open}
@@ -126,6 +139,8 @@
   .rcp-ctl { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 0.72rem; color: var(--st-text-2); }
   .rcp-ctl select { font-size: 0.72rem; background: var(--st-surface); color: var(--st-text); border: 1px solid var(--st-hair); border-radius: 4px; }
   .rcp-actions { display: flex; gap: 6px; }
+  .rcp-more { border-top: 1px solid var(--st-hair); padding-top: 6px; }
+  .rcp-more > summary { cursor: pointer; font-size: 0.74rem; color: var(--st-text); }
   .rcp-chk { display: flex; align-items: flex-start; gap: 6px; font-size: 0.72rem; color: var(--st-text-2); line-height: 1.35; }
   .rcs-btn { font-size: 0.74rem; border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
   .rcs-btn.primary { background: var(--st-accent, var(--st-surface-3)); color: var(--st-on-accent, var(--st-text)); }

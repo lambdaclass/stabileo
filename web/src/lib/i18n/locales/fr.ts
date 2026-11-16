@@ -13435,6 +13435,7 @@ const fr: Translations = {
   "rcSheets.onlyEdited": "Modifiés seulement",
   "rcSheets.editedByHand": "Modifié à la main : conservé si la norme change",
   "rcSheets.adoptAll": "Adopter les propositions",
+  "rcSheets.seismicData": "Données sismiques",
   "rcSheets.adoptProposal": "Adopter la proposition",
   "rcSheets.useProposal": "Revenir à la proposition",
   "rcSheets.showingProposal": "Proposition de Stabileo affichée, pas encore adoptée.",

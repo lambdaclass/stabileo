@@ -13435,6 +13435,7 @@ const tr: Translations = {
   "rcSheets.onlyEdited": "Yalnız düzenlenenler",
   "rcSheets.editedByHand": "Elle düzenlendi: yönetmelik değişse de korunur",
   "rcSheets.adoptAll": "Önerileri benimse",
+  "rcSheets.seismicData": "Deprem verileri",
   "rcSheets.adoptProposal": "Öneriyi benimse",
   "rcSheets.useProposal": "Öneriye dön",
   "rcSheets.showingProposal": "Stabileo'nun önerisi gösteriliyor, henüz benimsenmedi.",
