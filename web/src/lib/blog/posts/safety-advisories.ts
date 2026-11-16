@@ -57,6 +57,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Datos afectados y acciones necesarias."},
         {"k": "note", "t": "SA-2026-074 — PR #2197; pendiente de integración y publicación."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Datos afectados y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-083 — PR #2236; pendiente de integración y publicación."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Datos afectados y acciones necesarias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -139,6 +141,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-072", "La subdivisión desigual de los bordes de la cubierta podía desplazar la cumbrera y cambiar las cargas de nieve (#2144). Regenerá las cargas y repetí análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige.", "Alta", "Corregido en PR #2175, pendiente de publicación"],
             ["SA-2026-073", "Los miembros que cruzaban una cumbrera recibían una presión uniforme y perdían el momento físico. Las cargas ahora se dividen en la cumbrera física. Regenere todas las cargas de área generadas afectadas y repita análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige. (#2176).", "Alta", "PR #2197; pendiente de integración y publicación"],
             ["SA-2026-074", "Subdividir un cabio inclinado podía clasificar un panel explícito de cubierta como piso y eliminar su nieve de alero sin aviso. La clasificación ahora usa las huellas físicas de los paneles. Regenere todas las cargas de área generadas afectadas y repita análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige. (#2172). Un cabio inclinado sin subdividir sobre un panel inferior separado también podía clasificarlo como cubierta, alterar las cargas de área de cubierta y piso y añadir nieve sin aviso en modo por ancho.", "Alta", "PR #2197; pendiente de integración y publicación"],
+            ["SA-2026-083", "SA-2026-083: La generación automática de CIRSOC 101 bloquea las acciones concentradas de uso y cubierta cuyas posiciones más desfavorables no se evalúan (§4.4). Las cargas uniformes generadas previamente pueden omitir acciones determinantes. Revisá los modelos afectados y verificá las acciones concentradas manualmente antes de repetir análisis y diseño. (#2207).", "Alta", "PR #2236; pendiente de integración y publicación"],
           ],
         },
         {
@@ -351,6 +354,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-074 — PR #2197; pending merge and release."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-083 — PR #2236; pending merge and release."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Affected inputs and user action."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -433,6 +438,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-072", "Unequal roof-edge subdivision could move the snow ridge and change generated loads (#2144). Regenerate snow loads, then rerun analyses, combinations and design checks. Re-solving stored loads alone does not correct them.", "High", "Fixed in PR #2175, pending release"],
             ["SA-2026-073", "Members crossing a snow ridge received one uniform pressure and lost the physical load moment. Loads now split at the physical ridge. Regenerate all affected generated area loads, then rerun analyses, combinations and design checks. Re-solving stored generated loads alone does not correct them. (#2176).", "High", "PR #2197; pending merge and release"],
             ["SA-2026-074", "Subdividing a sloped rafter could classify an explicit roof panel as a floor and silently remove its eave snow. Panel roof classification now uses physical panel footprints. Regenerate all affected generated area loads, then rerun analyses, combinations and design checks. Re-solving stored loads alone does not correct them. (#2172). An unsplit sloped rafter over a separate lower panel could also misclassify that panel as a roof, changing roof/floor area loads and silently adding snow in width mode.", "High", "PR #2197; pending merge and release"],
+            ["SA-2026-083", "SA-2026-083: CIRSOC 101 automatic load generation blocks concentrated occupancy and roof actions whose governing placements are not evaluated (§4.4). Previously generated uniform loads may omit governing actions. Review affected models and check concentrated actions manually before rerunning analysis and design. (#2207).", "High", "PR #2236; pending merge and release"],
           ],
         },
         {
@@ -645,6 +651,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-074 — PR #2197; aguardando integração e publicação."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-083 — PR #2236; aguardando integração e publicação."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Entradas afetadas e ações necessárias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -727,6 +735,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-072", "A subdivisão desigual das bordas da cobertura podia deslocar a cumeeira e alterar as cargas de neve (#2144). Gere novamente as cargas e refaça análises, combinações e verificações. Recalcular somente as cargas salvas não as corrige.", "Alta", "Corrigido no PR #2175, aguardando publicação"],
             ["SA-2026-073", "Membros que cruzavam a cumeeira recebiam pressão uniforme e perdiam o momento físico. As cargas agora são divididas na cumeeira física. Gere novamente todas as cargas de área geradas afetadas e repita análises, combinações e verificações. Recalcular somente as cargas salvas não as corrige. (#2176).", "Alta", "PR #2197; aguardando integração e publicação"],
             ["SA-2026-074", "Subdividir uma viga inclinada podia classificar um painel explícito da cobertura como piso e remover silenciosamente a neve do beiral. A classificação agora usa as projeções físicas dos painéis. Gere novamente todas as cargas de área geradas afetadas e repita análises, combinações e verificações. Recalcular somente as cargas salvas não as corrige. (#2172). Uma viga inclinada sem subdivisão sobre um painel inferior separado também podia classificá-lo como cobertura, alterar cargas de área de cobertura e piso e acrescentar neve sem aviso no modo por largura.", "Alta", "PR #2197; aguardando integração e publicação"],
+            ["SA-2026-083", "SA-2026-083: A geração automática de CIRSOC 101 bloqueia ações concentradas de uso e cobertura cujas posições mais desfavoráveis não são avaliadas (§4.4). Cargas uniformes geradas anteriormente podem omitir ações determinantes. Revise os modelos afetados e verifique as ações concentradas manualmente antes de repetir análise e dimensionamento. (#2207).", "Alta", "PR #2236; aguardando integração e publicação"],
           ],
         },
         {
