@@ -1,3 +1,4 @@
+import { completeResultDemands } from '../result-demand-gate';
 import { extractGoverningDemands } from '../station-design-forces';
 import { expect, it, afterEach, vi } from 'vitest';
 import * as wasmSolver from '../wasm-solver';
@@ -71,6 +72,24 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
     const contexts = memberContexts(model as never, new Map([[1, raw], [2, raw]]), combinations);
     contexts[0] = { ...contexts[0]!, demands: demands.demands, tuples: [...demands.concurrent!], stationTs: [0, 1] };
     for (const adapter of [AISC360, EC3, ACI318, EC2, AISI_S100]) expect(runOtherCode(adapter, contexts).rows).toHaveLength(1);
+  });
+  it.fails(`known wrong result: #2096 round7 converted extra station cannot disappear ${label}`, () => {
+    const raw = solveModel();
+    const data = computeStationDemands(new Map([[1, raw], [2, raw]]), combinations, model);
+    const source = data.stations.get(1)!;
+    const extra = source.stationTs.find(t => t > 0 && t < 1)!;
+    expect(extra).toBeGreaterThan(0);
+    expect(extra).toBeLessThan(1);
+    const demands = extractGoverningDemands({ ...source, stationTs: [0, 1], comboResults: source.comboResults.map(c => ({ ...c,
+      stations: c.stations.filter(s => s.t === 0 || s.t === 1 || c.comboId === 1 && s.t === extra),
+    })) });
+    expect(completeResultDemands(raw, [1], new Map([[1, demands]])).values).toHaveLength(5);
+    const partial = { ...demands, concurrent: demands.concurrent!.filter(d => !(d.comboId === 1 && d.stationT === extra)) };
+    expect(() => completeResultDemands(raw, [1], new Map([[1, partial]]))).toThrow(expect.objectContaining({
+      code: 'incomplete-concurrent-demand', diagnostics: expect.arrayContaining([
+        expect.objectContaining({ code: 'missing-station', elementId: 1, comboId: 1, stationT: extra }),
+      ]),
+    }));
   });
   for (const entry of ['auto', 'unified', 'design'] as const) it(`known wrong result: #2096 complete grouped span reaches ${entry} ${label}`, () => {
     const spanModel = { ...model,
