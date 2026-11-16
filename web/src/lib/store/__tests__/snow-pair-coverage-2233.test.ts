@@ -9,7 +9,6 @@ import { regulations } from '../../engine/loads/__tests__/snow-roof-plane-fixtur
 import { completeSnowPair, pairedSpecs, partialSnowPair } from '../../engine/loads/__tests__/snow-pair-coverage-2233-fixture';
 
 const empty = { distributed: 0, nodal: 0, combinations: 0, caseTypes: [] };
-const reproducer = it.skipIf(process.env.SNOW_ROUND9_REPRO !== '1');
 const planFor = (complete: boolean): LoadPlan => {
   const base = buildLoadPlan({ model: mesh([[[0, 0, 3], [10, 0, 3]]]), regulations: regulations(), dead: [],
     occupancyKey: 'vivienda', tributaryWidth: 1, reductionElementKind: 'interiorBeam', floorsSupported: 1,
@@ -21,7 +20,7 @@ const planFor = (complete: boolean): LoadPlan => {
 };
 
 for (const mode of ['2d', '3d', 'pro'] as const) for (const analysis of ['linear', 'pdelta'] as const) for (const entry of ['preview', 'apply'] as const) {
-  reproducer(`known wrong result: #2233 partial snow pair refuses ${mode} ${analysis} ${entry}`, () => {
+  it(`known wrong result: #2233 partial snow pair refuses ${mode} ${analysis} ${entry}`, () => {
     for (const both of [false, true]) for (const patterns of [false, true]) {
       modelStore.clear();
       uiStore.analysisMode = mode;

@@ -5,7 +5,7 @@ import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { modelFeatures, type FeatureSnapshot } from '../../provenance/model-features';
 import type { SolveStamp } from '../../provenance/solve-stamp';
 
-const ids = ['snow-combination-validation', 'snow-companion-basis'];
+const ids = ['snow-combination-validation', 'snow-companion-basis', 'snow-pair-coverage'];
 const notices = (changes: Array<{ id: string }>) => changes.map(c => c.id).filter(id => ids.includes(id)).sort();
 const current = RESULT_CHANGES.currentResultsVersion;
 

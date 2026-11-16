@@ -3,10 +3,9 @@ import { expandCombinations } from '../combination-cases';
 import { flatSpec, snowCases } from './snow-provenance-2233-fixture';
 import { completeSnowPair, pairedSpecs, partialSnowPair, physicalSpecs } from './snow-pair-coverage-2233-fixture';
 
-const reproducer = it.skipIf(process.env.SNOW_ROUND9_REPRO !== '1');
 
 for (const spec of physicalSpecs()) {
-  reproducer(`known wrong result: #2233 ${spec.id} refuses an orphan flat-roof group beside a complete pair`, () => {
+  it(`known wrong result: #2233 ${spec.id} refuses an orphan flat-roof group beside a complete pair`, () => {
     for (const both of [false, true]) for (const patterns of [false, true]) {
       for (const cases of [partialSnowPair, partialSnowPair.filter(c => c.type !== 'D')]) {
         expect(() => expandCombinations([spec], cases, { bothSenses: { E: both }, patternsInCompanions: patterns }))
@@ -16,11 +15,11 @@ for (const spec of physicalSpecs()) {
   });
 }
 
-reproducer('known wrong result: #2233 mixed companion and physical specifications refuse partial snow pairing', () => {
+it('known wrong result: #2233 mixed companion and physical specifications refuse partial snow pairing', () => {
   expect(() => expandCombinations(pairedSpecs(), partialSnowPair)).toThrow('snow.refused.flatRoofCase');
 });
 
-reproducer('known wrong result: #2233 physical selection refuses ambiguous ungrouped and mismatched flat-roof coverage', () => {
+it('known wrong result: #2233 physical selection refuses ambiguous ungrouped and mismatched flat-roof coverage', () => {
   const principal = physicalSpecs()[0]!;
   for (const cases of [
     [...snowCases, { id: 6, type: 'S', name: 'extra pf', snowBasis: 'flatRoof' as const }],

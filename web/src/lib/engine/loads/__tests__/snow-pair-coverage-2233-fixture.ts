@@ -1,13 +1,15 @@
 import type { LoadCombinationSpec } from '../../../codes/cirsoc101/combinations';
 import { flatSpec, legacyOmittedE, snowCases } from './snow-provenance-2233-fixture';
 
-export const partialSnowPair = [
+type CoverageCase = { id: number; type: 'D' | 'L' | 'H' | 'S' | 'E'; name: string; alternatives?: string; snowBasis?: 'flatRoof' };
+
+export const partialSnowPair: CoverageCase[] = [
   ...snowCases.map(c => c.type === 'S' ? { ...c, alternatives: 'A' } : c),
   { id: 6, type: 'S', name: 'pf B', alternatives: 'B', snowBasis: 'flatRoof' as const },
   { id: 7, type: 'E', name: 'E' },
 ];
 
-export const completeSnowPair = [
+export const completeSnowPair: CoverageCase[] = [
   ...partialSnowPair,
   { id: 8, type: 'S', name: 'physical B', alternatives: 'B' },
 ];

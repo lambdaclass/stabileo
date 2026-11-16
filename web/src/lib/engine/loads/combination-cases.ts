@@ -151,13 +151,14 @@ export function expandCombinations(
       const all = bySymbol.get(t.symbol) ?? [];
       const basis = t.snowBasis ?? (t.symbol === 'S' && legacyFlatRoof ? 'flatRoof' : undefined);
       const matching = all.filter(c => t.symbol !== 'S' || c.snowBasis === basis);
-      if (basis === 'flatRoof') {
-        const ungroupedPair = all.filter(c => !c.snowBasis && !c.alternatives).length === 1
+      if (t.symbol === 'S') {
+        const counterparts = all.filter(c => c.snowBasis !== basis);
+        const ungroupedPair = counterparts.filter(c => !c.alternatives).length === 1
           && matching.filter(c => !c.alternatives).length === 1;
         const covered = (c: Case) => c.alternatives
           ? matching.some(m => m.alternatives === c.alternatives)
           : ungroupedPair;
-        if (all.some(c => !c.snowBasis && !covered(c))) throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
+        if (counterparts.some(c => !covered(c))) throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
       }
       if ((basis === 'flatRoof' || all.length > 0) && !matching.length) throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
       return [t, matching] as const;

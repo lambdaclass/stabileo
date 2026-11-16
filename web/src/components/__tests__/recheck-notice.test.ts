@@ -153,7 +153,7 @@ it('known wrong result: #2233 hand-entered snow still offers regeneration after 
   });
   await recheckStore.retry();
   const html = render(RecheckNotice).body;
-  for (const id of ['snow-companion-basis', 'snow-combination-validation']) expect(html).toContain(`data-change-id="${id}"`);
+  for (const id of ['snow-companion-basis', 'snow-combination-validation', 'snow-pair-coverage']) expect(html).toContain(`data-change-id="${id}"`);
   expect(html).toContain('data-testid="recheck-regenerate"');
   expect(html).not.toContain('data-testid="recheck-rerun"');
 });
