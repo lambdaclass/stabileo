@@ -238,15 +238,33 @@ fn validation_ground_accel_base_shear() {
     );
     let result = time_integration::solve_time_history_2d(&input).unwrap();
 
-    // Peak reactions should be non-zero (inertial forces at base)
-    let base_reaction = &result.peak_reactions;
-    assert!(!base_reaction.is_empty(), "Should have peak reactions");
+    assert!(result.peak_reactions.is_empty());
+    assert!(result.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("peakReactions")));
+    let dofs = dedaliano_engine::solver::dof::DofNumbering::build_2d(&input.solver);
+    let mass = dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_2d(&input.solver,&dofs,&input.densities);
+    let stiffness = dedaliano_engine::solver::assembly::assemble_2d(&input.solver,&dofs).k;
+    let n = dofs.n_total;
+    let root = dofs.global_dof(1,0).unwrap();
+    let mut peak_rx = 0.0_f64;
+    for step in 0..=n_steps {
+        let mut u = vec![0.0; n];
+        let mut absolute_acceleration = vec![0.0; n];
+        for h in &result.node_histories {
+            u[dofs.global_dof(h.node_id,0).unwrap()] = h.ux[step];
+            u[dofs.global_dof(h.node_id,1).unwrap()] = h.uz[step];
+            u[dofs.global_dof(h.node_id,2).unwrap()] = h.ry[step];
+            absolute_acceleration[dofs.global_dof(h.node_id,0).unwrap()] = h.ax[step] + 1.0;
+        }
+        let inertia = dedaliano_engine::linalg::mat_vec(&mass,&absolute_acceleration,n);
+        let internal = dedaliano_engine::linalg::mat_vec(&stiffness,&u,n);
+        let base_shear = internal[root] + inertia[root];
+        let total_inertia: f64 = dofs.node_order.iter().map(|id|inertia[dofs.global_dof(*id,0).unwrap()]).sum();
+        assert!((base_shear-total_inertia).abs() < 1e-6,"step={step}: shear={base_shear:e}, inertia={total_inertia:e}");
+        peak_rx = peak_rx.max(base_shear.abs());
+    }
+    assert!(peak_rx > 1e-6,"Ground accel should produce base shear, peak_rx={peak_rx:.6e}");
+    eprintln!("r19 independently reconstructed peak base shear={peak_rx:.17e}");
 
-    let peak_rx = base_reaction.iter()
-        .map(|r| r.rx.abs())
-        .fold(0.0_f64, f64::max);
-    assert!(peak_rx > 1e-6,
-        "Ground accel should produce base shear, peak_rx={:.6e}", peak_rx);
 }
 
 // ================================================================

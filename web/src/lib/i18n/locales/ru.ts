@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ru: Translations = {
+  "account.err.invalid_credentials": "Неверный адрес электронной почты или пароль.",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───
@@ -789,28 +790,6 @@ const ru: Translations = {
   'float.vShear': 'V поп. сила',
   'float.ilHint': 'Кликните по узлу (реакции) или стержню (внутренние M/V)',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': 'Сообщить / Предложить',
-  'feedback.close': 'Закрыть',
-  'feedback.reportCreated': 'Отчёт #{n} создан',
-  'feedback.bugError': 'Ошибка / Баг',
-  'feedback.suggestion': 'Предложение',
-  'feedback.other': 'Другое',
-  'feedback.namePlaceholder': 'Ваше имя или псевдоним (необязательно)',
-  'feedback.textPlaceholder': 'Опишите проблему или предложение...',
-  'feedback.linkAttached': 'Ссылка на вашу конструкцию будет прикреплена',
-  'feedback.copy': 'Копировать',
-  'feedback.sending': 'Отправка...',
-  'feedback.submitReport': 'Отправить отчёт',
-  'feedback.toastCreated': 'Отчёт #{n} создан — спасибо!',
-  'feedback.toastError': 'Не удалось отправить отчёт',
-  'feedback.toastConnectionError': 'Ошибка соединения — попробуйте снова',
-  'feedback.toastEmptyText': 'Напишите описание проблемы или предложения',
-  'feedback.toastSecurityWait': 'Ожидание проверки безопасности...',
-  'feedback.toastLinkCopied': 'Ссылка скопирована',
-  'feedback.reportBug': 'Сообщить об ошибке / Предложение',
-  'feedback.communityTelegram': 'Сообщество Telegram',
-  'feedback.buyCoffee': 'Угостите меня кофе',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': 'Сечение {id}',
@@ -2214,6 +2193,7 @@ const ru: Translations = {
   'lang.fr': 'Français',
   'lang.it': 'Italiano',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.hi': 'हिन्दी',
   'lang.zh': '中文',
   'lang.ja': '日本語',
@@ -3372,7 +3352,7 @@ const ru: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'Сертифицировано: погрешность перемещений ≤ {abs} ({rel} относительная)',
   'certificate.notCertified': 'Не сертифицировано: {reason}',
   'certificate.pending': 'Сертификация…',
@@ -3380,7 +3360,7 @@ const ru: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (сертифицировано)',
   'certificate.bucklingNotCertified': 'λ_cr не сертифицировано: {reason}',
   'certificate.bucklingTooltip': 'Строгая оценка, доказанная в Lean: конструкция гарантированно устойчива при любом коэффициенте нагрузки до нижнего значения и гарантированно неустойчива при верхнем.',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'Сертифицировано: погрешность перемещений ≤ {abs}',
   'certificate.envelopeCertified': 'Огибающая сертифицирована: каждое значение отличается от точной огибающей менее чем на {abs} (перемещения)',
   'certificate.comboTooltip': 'Строгая оценка, доказанная в Lean: каждое загружение сертифицируется относительно точного решения собранной системы; оценка сочетания складывает оценки загружений, умноженные на |коэффициент|, и округление самого сочетания; огибающая отличается от точной не более чем на наибольшую оценку сочетаний. ± рядом с усилием в стержне оценивает его погрешность так же.',

@@ -1,6 +1,6 @@
 /**
  * The isolated-footing check against published worked examples.
- * Recorded in docs/verification/DESIGN_EXAMPLES.md (spread footings).
+ * Recorded in testing/docs/DESIGN_EXAMPLES.md (spread footings).
  *
  * [INTI-B]   INTI-CIRSOC, Ejemplos de Aplicación del Reglamento CIRSOC 201-2005, "Bases de
  *            Hormigón Armado", Ejemplo 7.I (pp. 122–124).

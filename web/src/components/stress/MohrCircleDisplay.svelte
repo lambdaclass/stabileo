@@ -2,15 +2,19 @@
   import type { MohrCircle } from '../../lib/engine/section-stress';
   import { t } from '../../lib/i18n';
   import { fmt } from './fmt';
+  import { tools } from '../../lib/features';
+  import { openMohrFromFibre } from '../../lib/mohr/panel.svelte';
 
   interface Props {
     showMohr: boolean;
     mohrData: MohrCircle | null;
     mohrSigma: number;
     mohrTau: number;
+    tauComponents?: [number, number];
+    spaceMode?: boolean;
   }
 
-  let { showMohr = $bindable(), mohrData, mohrSigma, mohrTau }: Props = $props();
+  let { showMohr = $bindable(), mohrData, mohrSigma, mohrTau, tauComponents, spaceMode = false }: Props = $props();
 </script>
 
 <button class="ssp-section-toggle" onclick={() => showMohr = !showMohr}>
@@ -18,6 +22,10 @@
   {t('stress.mohrCircle')}
   <span class="ssp-help ssp-help-inline" title={t('stress.mohrCircleHelp')}>?</span>
 </button>
+{#if mohrData}
+  {#if import.meta.env.VITE_TOOLS !== '0' && tools()}<button class="ssp-open-mohr" data-testid="stress-open-mohr"
+    onclick={() => openMohrFromFibre(mohrSigma, mohrTau, tauComponents, spaceMode ? 'space' : 'plane')}>{t('stress.openMohr')} ↗</button>{/if}
+{/if}
 {#if showMohr && mohrData}
   {@const m = mohrData}
   {@const maxVal = Math.max(Math.abs(m.sigma1), Math.abs(m.sigma2), m.radius, 1)}
@@ -145,6 +153,20 @@
   }
   .ssp-section-toggle:hover { color: var(--st-text-2); }
   .ssp-chevron { font-size: 0.6rem; width: 10px; }
+  .ssp-open-mohr {
+    display: block;
+    width: 100%;
+    margin: 4px 0;
+    padding: 4px 8px;
+    background: var(--st-surface-3);
+    color: var(--st-interactive);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    font-size: 0.68rem;
+    text-align: left;
+    cursor: pointer;
+  }
+  .ssp-open-mohr:hover { border-color: var(--st-interactive); }
 
   .ssp-svg-container {
     display: flex;

@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The two errors of a 3D shell result side by side (docs/verification/DISCRETIZATION.md):
+   * The two errors of a 3D shell result side by side (testing/docs/DISCRETIZATION.md):
    * the algebraic error, CERTIFIED (`certificate.svelte.ts`), and the discretization error,
    * ESTIMATED and never certified (`discretization.svelte.ts`). Below them, the element error map
    * toggle and the on-demand convergence check.

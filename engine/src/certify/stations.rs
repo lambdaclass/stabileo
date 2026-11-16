@@ -1,6 +1,6 @@
 //! Certified bounds on the internal-force diagrams the result views show, and
 //! on their extremes. See "Diagrams, extremes, deflections and reactions" in
-//! `docs/verification/CERTIFY.md`.
+//! `testing/docs/CERTIFY.md`.
 //!
 //! The diagram evaluators (`postprocess::diagrams::compute_diagram_value_at`,
 //! `postprocess::diagrams_3d::evaluate_diagram_3d_at`, and their TypeScript

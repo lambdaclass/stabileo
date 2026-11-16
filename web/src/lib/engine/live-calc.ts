@@ -13,6 +13,7 @@ import { knownIssueRefusal } from './known-issues';
  * stays thin.
  */
 
+import { noteSolve } from '../telemetry/instrument.svelte';
 import { meshDeferredSlabs, representFootprints } from '../model/building/deferred-slabs';
 import { ensurePhysicalModel } from '../store/plates-from-shells';
 import { physicalPlates, platesNeedingMesh, preparePlatesForAnalysisAsync } from '../store/physical-plates';
@@ -307,6 +308,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
 type ProgressStep = (phase: Exclude<SolvePhase, 'done' | 'failed'>, done?: number, total?: number) => void;
 
 async function globalSolve(options: { directBase?: boolean }, run: { latest: () => boolean; step: ProgressStep }): Promise<GlobalSolveOutcome> {
+  const startedAt = performance.now();
   cancelPendingLiveCalc?.();
   // A solve that was asked for the combinations and did not get them must not end the stale state
   // (`store/recheck.svelte.ts`): its single-solve publish stamps the project, so the stamp before it
@@ -382,6 +384,7 @@ async function globalSolve(options: { directBase?: boolean }, run: { latest: () 
   // A solve is minutes of computed state produced by one click. Waiting for the 30 s timer
   // to notice is how a run gets lost to a closed tab.
   void requestAutosave('solve');
+  noteSolve(outcome.ok, startedAt);
   return outcome;
 }
 

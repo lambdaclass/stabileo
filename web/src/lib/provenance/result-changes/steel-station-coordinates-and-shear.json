@@ -1,0 +1,37 @@
+{
+  "id": "steel-station-coordinates-and-shear",
+  "date": "2026-11-14",
+  "prs": [
+    2080
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "steelMembers"
+    ]
+  },
+  "title": {
+    "en": "Steel stations use physical lengths and retain shear demands",
+    "es": "Las estaciones de acero usan longitudes físicas y conservan el corte",
+    "pt": "As estações de aço usam comprimentos físicos e preservam o corte",
+    "de": "Stahlstationen verwenden physische Längen und behalten Querkräfte",
+    "fr": "Les stations acier utilisent les longueurs physiques et conservent le cisaillement",
+    "tr": "Çelik istasyonları fiziksel uzunlukları ve kesme taleplerini korur"
+  },
+  "explanation": {
+    "en": "Legacy steel tuples now locate brace intervals in metres; unknown element lengths receive no computed Cb credit. The reported shear demand follows its selected strong-axis check, with weak-axis shear checked separately. Re-run saved steel designs and review capacities, utilization and shear demands (PR #2080).",
+    "es": "Las tuplas antiguas de acero ubican los intervalos arriostrados en metros; sin longitud del elemento no se otorga crédito calculado de Cb. El corte informado corresponde a su verificación del eje fuerte; el eje débil se verifica por separado. Repetí los diseños de acero y revisá capacidades, utilización y cortes (PR #2080).",
+    "pt": "As tuplas antigas de aço localizam os trechos contraventados em metros; sem o comprimento do elemento não há benefício calculado de Cb. O corte informado segue a verificação do eixo forte, com o eixo fraco verificado separadamente. Refaça os projetos de aço e revise capacidades, utilização e cortes (PR #2080).",
+    "de": "Alte Stahltupel ordnen Aussteifungsabschnitte in Metern zu; bei unbekannter Elementlänge entfällt der berechnete Cb-Vorteil. Die gemeldete Querkraft folgt dem Nachweis der starken Achse; die schwache Achse wird separat geprüft. Stahlbemessungen erneut ausführen und Tragfähigkeiten, Ausnutzung und Querkräfte prüfen (PR #2080).",
+    "fr": "Les anciens tuples acier situent les intervalles entre maintiens en mètres ; une longueur inconnue ne reçoit aucun bénéfice calculé de Cb. Le cisaillement annoncé suit le contrôle de l’axe fort, l’axe faible étant vérifié séparément. Relancer les calculs acier et examiner capacités, taux et efforts tranchants (PR #2080).",
+    "tr": "Eski çelik kayıtları çapraz aralıklarını metre cinsinden belirler; eleman uzunluğu bilinmiyorsa hesaplanmış Cb avantajı verilmez. Bildirilen kesme talebi güçlü eksen kontrolünü izler; zayıf eksen ayrıca kontrol edilir. Çelik tasarımlarını yeniden çalıştırıp kapasiteleri, kullanım oranlarını ve kesme taleplerini inceleyin (PR #2080)."
+  },
+  "quantities": [
+    "member",
+    "steel"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-steel-station-coordinates-and-shear.md",
+    "heading": "Steel stations and shear reports retain their physical meaning (2026-11-14)"
+  }
+}

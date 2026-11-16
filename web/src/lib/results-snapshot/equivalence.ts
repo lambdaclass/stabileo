@@ -1,6 +1,5 @@
 import { capture, type Snapshot } from './capture';
 import type { SnapshotCase } from './corpus';
-// @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, formatCaseReport } from '../../../scripts/results-snapshot/compare.mjs';
 import { unexplainedDiff, type Excuse } from '../../../scripts/results-snapshot/applicability.mjs';
 

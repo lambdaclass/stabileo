@@ -10,7 +10,8 @@ ROOT = Path(__file__).resolve().parent.parent
 WRONG_RESULT_LABELS = {"wrong-result", "safety", "wrong-result-candidate"}
 RUST_TAG = re.compile(r'#\[ignore\s*=\s*"known wrong result: #(\d+)\b[^"]*"\]')
 RUST_FN = re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)")
-TS_TEST = re.compile(r"""\b(it|test)(\.fails)?\(\s*(['"`])(.*?)\3""")
+TS_TEST = re.compile(r"""\b(it|test)(\.(?:fails|skip))?\(\s*(['"`])(.*?)\3""")
+TS_SKIP_TAG = re.compile(r"^known wrong result: #(\d+)\b")
 ISSUE = re.compile(r"#(\d+)\b")
 CLOSES = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s+#(\d+)\b", re.I)
 PARTLY = re.compile(r"\bpartly\s+address(?:es|ed)?\s*:?\s+#(\d+)\b", re.I)
@@ -42,12 +43,17 @@ def rust_tests(text):
 
 def ts_tests(text):
     tagged, plain = [], set()
-    for m in TS_TEST.finditer(text):
-        title = m.group(4)
-        if m.group(2):
+    constants = {m.group(1): m.group(3) for m in re.finditer(r"""\bconst\s+(\w+)\s*=\s*(['"])(.*?)\2\s*;""", text)}
+    aliases = re.findall(r"""\bconst\s+(\w+)\s*=\s*process\.env\.RUN_KNOWN_WRONG\s*===\s*['"]\d+['"]\s*\?\s*it\s*:\s*it\.skip\s*;""", text)
+    pattern = re.compile(TS_TEST.pattern.replace("(it|test)", "(" + "|".join(["it", "test", *map(re.escape, aliases)]) + ")"))
+    for m in pattern.finditer(text):
+        title = re.sub(r"\$\{(\w+)\}", lambda value: constants.get(value.group(1), value.group(0)), m.group(4))
+        known_skip = (m.group(2) == ".skip" or m.group(1) in aliases) and TS_SKIP_TAG.match(title)
+        title = title.removeprefix("known wrong result: ")
+        if m.group(2) == ".fails" or known_skip:
             for n in ISSUE.findall(title):
                 tagged.append((int(n), title))
-        else:
+        elif not m.group(2):
             plain.add(title)
     return tagged, plain
 

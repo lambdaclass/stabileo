@@ -3,7 +3,7 @@
 Workstream 2, stacked on #813 (`safety/metamorphic-invariance`). Audit of
 `engine/tests/metamorphic/{main,generated,active,safety_cases,checks2,checks3,
 ana2,ana3,modal_checks,symmetry,corpus,regressions,response}.rs` and
-[the existing suite documentation](../verification/METAMORPHIC.md).
+[the existing suite documentation](../../testing/docs/METAMORPHIC.md).
 This is a coverage inventory, not a claim that every supported input is correct.
 No solver behavior or numerical tolerance changes in this slice. The strict
 response validator does gain acceptance rules: a spectral response must report

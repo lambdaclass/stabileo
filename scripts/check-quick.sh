@@ -18,13 +18,13 @@ changed=$( { git diff --no-renames --name-only "$base"; git ls-files --others --
 touched() { grep -Eq "$1" <<< "$changed"; }
 
 targets=(check.changelog check-pins check.test-targets)
-touched '^(engine/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)' && targets+=(lint.engine)
+touched '^(engine/|testing/fuzz/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)' && targets+=(lint.engine)
 touched '^backend/' && targets+=(lint.backend)
-touched '^(\.github/|scripts/|tools/)' && targets+=(test.ci-scripts)
+touched '^(\.github/|scripts/|tools/|testing/(differential/|opensees/|symbolic/|scripts/))' && targets+=(test.ci-scripts)
 wasm=0
 if touched '^web/'; then
   targets+=(typecheck.web)
-  if touched '^(engine/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)' || [ ! -f web/src/lib/wasm/dedaliano_engine.d.ts ]; then wasm=1; fi
+  if touched '^(engine/|testing/fuzz/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)' || [ ! -f web/src/lib/wasm/dedaliano_engine.d.ts ]; then wasm=1; fi
 fi
 
 echo "check.quick: $(printf '%s\n' "$changed" | grep -c . || true) changed file(s) since $(git rev-parse --short "$base")"

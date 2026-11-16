@@ -13,9 +13,9 @@
 import type { Txt } from '../steps/doc';
 import { tx } from '../steps/doc';
 import type { SolverInput } from '../types';
-import { buildSystem, memberDofs, memberLocals, type SecondOrderOptions, type SoSystem } from './system';
+import { assemble, buildSystem, memberDofs, memberLocals, type SecondOrderOptions, type SoSystem } from './system';
 import { clampedCount, reducedStiffness, rigidAxialScale, solveState } from './pdelta';
-import { congruent, generalizedEigen, logDet, matMul, matVec, negativeEigenvalues, norm2, transpose, zeros, type Mat } from './dense';
+import { generalizedEigen, logDet, matMul, matVec, negativeEigenvalues, norm2, transpose, zeros, type Mat } from './dense';
 import { solveDense } from '../steps/sway-modes';
 import { rotation, type GeomMethod } from './member-matrices';
 import { clampedModesBelow } from './stability-functions';
@@ -84,14 +84,14 @@ function geometricStiffness(sys: SoSystem, N0: Map<number, number>, method: 'con
       for (let b = 0; b < 6; b++) { const c = at.get(ids[b]); if (c !== undefined) G[r][c] += kg[a][b]; }
     }
   }
-  return sys.rigid ? congruent(G, sys.rigid.T) : G;
+  return G;
 }
 
 /** The eigenproblem with a geometric matrix linear in N. */
 export function linearBuckling(sys: SoSystem, method: 'consistent' | 'string', nModes: number, N0: Map<number, number>): TeachingMode[] {
-  const K = reducedStiffness(sys, new Map(), 'none');
+  const K = assemble(sys, new Map(), 'none', sys.free).K;
   const KG = geometricStiffness(sys, N0, method);
-  const pairs = generalizedEigen(K, KG.map((r) => r.map((v) => -v)));
+  const pairs = generalizedEigen(K, KG.map((r) => r.map((v) => -v)), sys.rigid?.T);
   if (!pairs) return [];
   return pairs.slice(0, nModes).map((p) => ({ lambda: p.lambda, D: expand(sys, p.vector) }));
 }

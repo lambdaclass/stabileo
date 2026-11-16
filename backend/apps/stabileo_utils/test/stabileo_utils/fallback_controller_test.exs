@@ -26,14 +26,20 @@ defmodule StabileoUtils.FallbackControllerTest do
              call({:error, :not_found})
   end
 
+  test "cloud_projects_disabled is a 403 and project_limit_reached a 409, each with its code" do
+    assert {403, %{"error" => "cloud_projects_disabled"}} =
+             call({:error, :cloud_projects_disabled})
+
+    assert {409, %{"error" => "project_limit_reached"}} = call({:error, :project_limit_reached})
+  end
+
   test "invalid_credentials is a 401 that does not say which half was wrong" do
     assert {401, %{"error" => "invalid_credentials", "message" => "Invalid email or password"}} =
              call({:error, :invalid_credentials})
   end
 
-  test "invalid_current_password is a 401" do
-    assert {401, %{"error" => "invalid_current_password"}} =
-             call({:error, :invalid_current_password})
+  test "project_conflict is a 409" do
+    assert {409, %{"error" => "project_conflict"}} = call({:error, :project_conflict})
   end
 
   test "account_disabled is a 403" do

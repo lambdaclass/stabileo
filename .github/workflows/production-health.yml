@@ -66,6 +66,9 @@ jobs:
             .github/scripts/production-health-alert.cjs
             .github/scripts/issue-assignees.cjs
             web/package.json
+            .github/actions/browser-deps
+            .github/scripts/browser-deps.py
+            .github/scripts/retry-infra.sh
             .nvmrc
           sparse-checkout-cone-mode: false
 
@@ -79,7 +82,14 @@ jobs:
         run: |
           version=$(node -p "require('./web/package.json').devDependencies['@playwright/test']")
           npm install --prefix "$RUNNER_TEMP/pw" --no-save --no-audit --no-fund "playwright@$version"
-          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install chromium
+
+      - name: Install Chromium system dependencies
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
+          playwright-directory: ${{ runner.temp }}/pw
+          use-nix: "false"
 
       - name: Check the sites
         id: check
@@ -96,7 +106,7 @@ jobs:
           node scripts/production-health.mjs ${INPUT_SITES:-$SITES} | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Open, update or close the issues
-        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           HEALTH_RESULTS: ${{ runner.temp }}/health.jsonl
           HEALTH_SITES: ${{ inputs.sites || env.SITES }}

@@ -1,0 +1,2548 @@
+[
+  {
+    "name": "pdelta-2d",
+    "dim": 2,
+    "kind": "pdelta",
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 3.0,
+          "z": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": true
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": true
+        }
+      },
+      "supports": {
+        "0": {
+          "id": 0,
+          "nodeId": 0,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": 0,
+            "my": 2
+          }
+        },
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 2,
+            "fx": 0.0,
+            "fz": 0,
+            "my": -2
+          }
+        }
+      ],
+      "constraints": []
+    }
+  },
+  {
+    "name": "staged-2d-added",
+    "dim": 2,
+    "kind": "staged",
+    "unavailable": true,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "0": {
+          "id": 0,
+          "nodeId": 0,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0
+          }
+        }
+      ],
+      "constraints": [],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1
+          ],
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "elementsAdded": [
+            2
+          ],
+          "elementsRemoved": [],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "staged-2d-removed",
+    "dim": 2,
+    "kind": "staged",
+    "unavailable": true,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "0": {
+          "id": 0,
+          "nodeId": 0,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0
+          }
+        }
+      ],
+      "constraints": [],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "elementsAdded": [],
+          "elementsRemoved": [
+            2
+          ],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "staged-2d-unchanged",
+    "dim": 2,
+    "kind": "staged",
+    "unavailable": false,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "0": {
+          "id": 0,
+          "nodeId": 0,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0
+          }
+        }
+      ],
+      "constraints": [],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "elementsAdded": [],
+          "elementsRemoved": [],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "staged-2d-unloaded-added",
+    "dim": 2,
+    "kind": "staged",
+    "unavailable": false,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "0": {
+          "id": 0,
+          "nodeId": 0,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0
+          }
+        }
+      ],
+      "constraints": [],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1
+          ],
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": []
+        },
+        {
+          "name": "change",
+          "elementsAdded": [
+            2
+          ],
+          "elementsRemoved": [],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "staged-2d-unloaded-removed",
+    "dim": 2,
+    "kind": "staged",
+    "unavailable": false,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "0": {
+          "id": 0,
+          "nodeId": 0,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0
+          }
+        }
+      ],
+      "constraints": [],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": []
+        },
+        {
+          "name": "change",
+          "elementsAdded": [],
+          "elementsRemoved": [
+            2
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "pdelta-3d",
+    "dim": 3,
+    "kind": "pdelta",
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "releaseMyEnd": true
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "releaseMyEnd": true
+        }
+      },
+      "supports": {
+        "0": {
+          "nodeId": 0,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": 0,
+            "my": 2,
+            "fy": 0.0,
+            "mx": 0.0,
+            "mz": 0.0
+          }
+        },
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 2,
+            "fx": 0.0,
+            "fz": 0,
+            "my": -2,
+            "fy": 0.0,
+            "mx": 0.0,
+            "mz": 0.0
+          }
+        }
+      ],
+      "constraints": []
+    }
+  },
+  {
+    "name": "staged-3d-added",
+    "dim": 3,
+    "kind": "staged",
+    "unavailable": true,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        }
+      },
+      "supports": {
+        "0": {
+          "nodeId": 0,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0,
+            "fy": 0.0,
+            "mx": 0.0,
+            "mz": 0.0
+          }
+        }
+      ],
+      "constraints": [],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1
+          ],
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "elementsAdded": [
+            2
+          ],
+          "elementsRemoved": [],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "staged-3d-removed",
+    "dim": 3,
+    "kind": "staged",
+    "unavailable": true,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        }
+      },
+      "supports": {
+        "0": {
+          "nodeId": 0,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0,
+            "fy": 0.0,
+            "mx": 0.0,
+            "mz": 0.0
+          }
+        }
+      ],
+      "constraints": [],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "elementsAdded": [],
+          "elementsRemoved": [
+            2
+          ],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "staged-3d-unchanged",
+    "dim": 3,
+    "kind": "staged",
+    "unavailable": false,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        }
+      },
+      "supports": {
+        "0": {
+          "nodeId": 0,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0,
+            "fy": 0.0,
+            "mx": 0.0,
+            "mz": 0.0
+          }
+        }
+      ],
+      "constraints": [],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "elementsAdded": [],
+          "elementsRemoved": [],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "staged-3d-unloaded-added",
+    "dim": 3,
+    "kind": "staged",
+    "unavailable": false,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        }
+      },
+      "supports": {
+        "0": {
+          "nodeId": 0,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0,
+            "fy": 0.0,
+            "mx": 0.0,
+            "mz": 0.0
+          }
+        }
+      ],
+      "constraints": [],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1
+          ],
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": []
+        },
+        {
+          "name": "change",
+          "elementsAdded": [
+            2
+          ],
+          "elementsRemoved": [],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "staged-3d-unloaded-removed",
+    "dim": 3,
+    "kind": "staged",
+    "unavailable": false,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        }
+      },
+      "supports": {
+        "0": {
+          "nodeId": 0,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 1,
+            "fx": 0.0,
+            "fz": -10.0,
+            "my": 0.0,
+            "fy": 0.0,
+            "mx": 0.0,
+            "mz": 0.0
+          }
+        }
+      ],
+      "constraints": [],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0
+          ],
+          "loadIndices": []
+        },
+        {
+          "name": "change",
+          "elementsAdded": [],
+          "elementsRemoved": [
+            2
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "staged-2d-fixed-removed",
+    "dim": 2,
+    "kind": "staged",
+    "unavailable": true,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "0": {
+          "id": 0,
+          "nodeId": 0,
+          "type": "fixed"
+        },
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 2,
+            "qI": -10,
+            "qJ": -10
+          }
+        }
+      ],
+      "constraints": [],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0,
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "elementsAdded": [],
+          "elementsRemoved": [
+            2
+          ],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "staged-3d-fixed-removed",
+    "dim": 3,
+    "kind": "staged",
+    "unavailable": true,
+    "model": {
+      "nodes": {
+        "0": {
+          "id": 0,
+          "x": 0.0,
+          "z": 0.0,
+          "y": 0.0
+        },
+        "1": {
+          "id": 1,
+          "x": 3.0,
+          "z": 0.0,
+          "y": 0.0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000.0,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iz": 0.0001,
+          "iy": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 0,
+          "nodeJ": 1,
+          "materialId": 1,
+          "sectionId": 1
+        }
+      },
+      "supports": {
+        "0": {
+          "nodeId": 0,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        },
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 2,
+            "qYI": 0,
+            "qYJ": 0,
+            "qZI": -10,
+            "qZJ": -10
+          }
+        }
+      ],
+      "constraints": [],
+      "stages": [
+        {
+          "name": "initial",
+          "elementsAdded": [
+            1,
+            2
+          ],
+          "supportsAdded": [
+            0,
+            1
+          ],
+          "loadIndices": [
+            0
+          ]
+        },
+        {
+          "name": "change",
+          "elementsAdded": [],
+          "elementsRemoved": [
+            2
+          ],
+          "loadIndices": []
+        },
+        {
+          "name": "later",
+          "loadIndices": []
+        }
+      ]
+    }
+  },
+  {
+    "dim": 3,
+    "kind": "staged-shell",
+    "model": {
+      "constraints": [],
+      "elements": {
+        "1": {
+          "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "2": {
+          "id": 2,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 2,
+          "nodeJ": 3,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "3": {
+          "id": 3,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 3,
+          "nodeJ": 4,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "4": {
+          "id": 4,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 2,
+          "nodeJ": 5,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "5": {
+          "id": 5,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 3,
+          "nodeJ": 6,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        }
+      },
+      "leftHand": null,
+      "loads": [
+        {
+          "data": {
+            "bw": null,
+            "fx": 50.0,
+            "fy": 0.0,
+            "fz": 0.0,
+            "mx": 0.0,
+            "my": 0.0,
+            "mz": 0.0,
+            "nodeId": 3
+          },
+          "type": "nodal"
+        }
+      ],
+      "materials": {
+        "1": {
+          "e": 30000.0,
+          "id": 1,
+          "nu": 0.2
+        }
+      },
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "3": {
+          "id": 3,
+          "x": 4.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "4": {
+          "id": 4,
+          "x": 4.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "5": {
+          "id": 5,
+          "x": 0.0,
+          "y": 4.0,
+          "z": 3.0
+        },
+        "6": {
+          "id": 6,
+          "x": 4.0,
+          "y": 4.0,
+          "z": 3.0
+        }
+      },
+      "plates": {},
+      "quad9s": {},
+      "quads": {
+        "1": {
+          "id": 1,
+          "materialId": 1,
+          "nodes": [
+            2,
+            3,
+            6,
+            5
+          ],
+          "thickness": 0.2
+        }
+      },
+      "sections": {
+        "1": {
+          "a": 0.09,
+          "asY": null,
+          "asZ": null,
+          "cw": null,
+          "id": 1,
+          "iy": 0.000675,
+          "iz": 0.000675,
+          "j": 0.00114,
+          "name": null,
+          "shearCenterY": null,
+          "shearCenterZ": null
+        }
+      },
+      "stages": [
+        {
+          "elementsAdded": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elementsRemoved": [],
+          "loadIndices": [
+            0
+          ],
+          "name": "initial",
+          "platesAdded": [],
+          "platesRemoved": [],
+          "prestressLoads": [],
+          "quadsAdded": [],
+          "quadsRemoved": [],
+          "supportsAdded": [
+            1,
+            4,
+            5,
+            6
+          ],
+          "supportsRemoved": []
+        },
+        {
+          "elementsAdded": [],
+          "elementsRemoved": [],
+          "loadIndices": [],
+          "name": "quad-added",
+          "platesAdded": [],
+          "platesRemoved": [],
+          "prestressLoads": [],
+          "quadsAdded": [
+            1
+          ],
+          "quadsRemoved": [],
+          "supportsAdded": [],
+          "supportsRemoved": []
+        },
+        {
+          "elementsAdded": [],
+          "elementsRemoved": [],
+          "loadIndices": [],
+          "name": "later",
+          "platesAdded": [],
+          "platesRemoved": [],
+          "prestressLoads": [],
+          "quadsAdded": [],
+          "quadsRemoved": [],
+          "supportsAdded": [],
+          "supportsRemoved": []
+        }
+      ],
+      "supports": {
+        "1": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 1,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "4": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 4,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "5": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 5,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "6": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 6,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        }
+      }
+    },
+    "name": "staged-3d-quad-added",
+    "unavailable": true
+  },
+  {
+    "dim": 3,
+    "kind": "staged-shell",
+    "model": {
+      "constraints": [],
+      "elements": {
+        "1": {
+          "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "2": {
+          "id": 2,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 2,
+          "nodeJ": 3,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "3": {
+          "id": 3,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 3,
+          "nodeJ": 4,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "4": {
+          "id": 4,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 2,
+          "nodeJ": 5,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "5": {
+          "id": 5,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 3,
+          "nodeJ": 6,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        }
+      },
+      "leftHand": null,
+      "loads": [
+        {
+          "data": {
+            "bw": null,
+            "fx": 50.0,
+            "fy": 0.0,
+            "fz": 0.0,
+            "mx": 0.0,
+            "my": 0.0,
+            "mz": 0.0,
+            "nodeId": 3
+          },
+          "type": "nodal"
+        }
+      ],
+      "materials": {
+        "1": {
+          "e": 30000.0,
+          "id": 1,
+          "nu": 0.2
+        }
+      },
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "3": {
+          "id": 3,
+          "x": 4.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "4": {
+          "id": 4,
+          "x": 4.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "5": {
+          "id": 5,
+          "x": 0.0,
+          "y": 4.0,
+          "z": 3.0
+        },
+        "6": {
+          "id": 6,
+          "x": 4.0,
+          "y": 4.0,
+          "z": 3.0
+        }
+      },
+      "plates": {
+        "1": {
+          "id": 1,
+          "materialId": 1,
+          "nodes": [
+            2,
+            3,
+            6
+          ],
+          "thickness": 0.2
+        },
+        "2": {
+          "id": 2,
+          "materialId": 1,
+          "nodes": [
+            2,
+            6,
+            5
+          ],
+          "thickness": 0.2
+        }
+      },
+      "quad9s": {},
+      "quads": {},
+      "sections": {
+        "1": {
+          "a": 0.09,
+          "asY": null,
+          "asZ": null,
+          "cw": null,
+          "id": 1,
+          "iy": 0.000675,
+          "iz": 0.000675,
+          "j": 0.00114,
+          "name": null,
+          "shearCenterY": null,
+          "shearCenterZ": null
+        }
+      },
+      "stages": [
+        {
+          "elementsAdded": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elementsRemoved": [],
+          "loadIndices": [
+            0
+          ],
+          "name": "initial",
+          "platesAdded": [],
+          "platesRemoved": [],
+          "prestressLoads": [],
+          "quadsAdded": [],
+          "quadsRemoved": [],
+          "supportsAdded": [
+            1,
+            4,
+            5,
+            6
+          ],
+          "supportsRemoved": []
+        },
+        {
+          "elementsAdded": [],
+          "elementsRemoved": [],
+          "loadIndices": [],
+          "name": "plates-added",
+          "platesAdded": [
+            1,
+            2
+          ],
+          "platesRemoved": [],
+          "prestressLoads": [],
+          "quadsAdded": [],
+          "quadsRemoved": [],
+          "supportsAdded": [],
+          "supportsRemoved": []
+        },
+        {
+          "elementsAdded": [],
+          "elementsRemoved": [],
+          "loadIndices": [],
+          "name": "later",
+          "platesAdded": [],
+          "platesRemoved": [],
+          "prestressLoads": [],
+          "quadsAdded": [],
+          "quadsRemoved": [],
+          "supportsAdded": [],
+          "supportsRemoved": []
+        }
+      ],
+      "supports": {
+        "1": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 1,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "4": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 4,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "5": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 5,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "6": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 6,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        }
+      }
+    },
+    "name": "staged-3d-plates-added",
+    "unavailable": true
+  },
+  {
+    "dim": 3,
+    "kind": "staged-shell",
+    "model": {
+      "constraints": [],
+      "elements": {
+        "1": {
+          "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "2": {
+          "id": 2,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 2,
+          "nodeJ": 3,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "3": {
+          "id": 3,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 3,
+          "nodeJ": 4,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "4": {
+          "id": 4,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 2,
+          "nodeJ": 5,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "5": {
+          "id": 5,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 3,
+          "nodeJ": 6,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        }
+      },
+      "leftHand": null,
+      "loads": [
+        {
+          "data": {
+            "bw": null,
+            "fx": 50.0,
+            "fy": 0.0,
+            "fz": 0.0,
+            "mx": 0.0,
+            "my": 0.0,
+            "mz": 0.0,
+            "nodeId": 3
+          },
+          "type": "nodal"
+        }
+      ],
+      "materials": {
+        "1": {
+          "e": 30000.0,
+          "id": 1,
+          "nu": 0.2
+        }
+      },
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "3": {
+          "id": 3,
+          "x": 4.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "4": {
+          "id": 4,
+          "x": 4.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "5": {
+          "id": 5,
+          "x": 0.0,
+          "y": 4.0,
+          "z": 3.0
+        },
+        "6": {
+          "id": 6,
+          "x": 4.0,
+          "y": 4.0,
+          "z": 3.0
+        }
+      },
+      "plates": {},
+      "quad9s": {},
+      "quads": {
+        "1": {
+          "id": 1,
+          "materialId": 1,
+          "nodes": [
+            2,
+            3,
+            6,
+            5
+          ],
+          "thickness": 0.2
+        }
+      },
+      "sections": {
+        "1": {
+          "a": 0.09,
+          "asY": null,
+          "asZ": null,
+          "cw": null,
+          "id": 1,
+          "iy": 0.000675,
+          "iz": 0.000675,
+          "j": 0.00114,
+          "name": null,
+          "shearCenterY": null,
+          "shearCenterZ": null
+        }
+      },
+      "stages": [
+        {
+          "elementsAdded": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elementsRemoved": [],
+          "loadIndices": [
+            0
+          ],
+          "name": "initial",
+          "platesAdded": [],
+          "platesRemoved": [],
+          "prestressLoads": [],
+          "quadsAdded": [
+            1
+          ],
+          "quadsRemoved": [],
+          "supportsAdded": [
+            1,
+            4,
+            5,
+            6
+          ],
+          "supportsRemoved": []
+        },
+        {
+          "elementsAdded": [],
+          "elementsRemoved": [],
+          "loadIndices": [],
+          "name": "quad-removed",
+          "platesAdded": [],
+          "platesRemoved": [],
+          "prestressLoads": [],
+          "quadsAdded": [],
+          "quadsRemoved": [
+            1
+          ],
+          "supportsAdded": [],
+          "supportsRemoved": []
+        },
+        {
+          "elementsAdded": [],
+          "elementsRemoved": [],
+          "loadIndices": [],
+          "name": "later",
+          "platesAdded": [],
+          "platesRemoved": [],
+          "prestressLoads": [],
+          "quadsAdded": [],
+          "quadsRemoved": [],
+          "supportsAdded": [],
+          "supportsRemoved": []
+        }
+      ],
+      "supports": {
+        "1": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 1,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "4": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 4,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "5": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 5,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "6": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 6,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        }
+      }
+    },
+    "name": "staged-3d-quad-removed",
+    "unavailable": true
+  }
+]

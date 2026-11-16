@@ -64,6 +64,6 @@ Re-run models with H and check the walls' overturning, sliding and reverse-momen
 
 ## Credits and references
 
-Recorded as an open item of the loads verification (docs/verification/LOADS.md, "Loads not
+Recorded as an open item of the loads verification (testing/docs/LOADS.md, "Loads not
 acting, with H"), fixed by #581, and completed when this advisory was written (#593). CIRSOC 101-2025
 §2.3.2.

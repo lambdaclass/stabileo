@@ -261,11 +261,13 @@ pub enum DiagnosticCode {
     CableAnalysisRequired,
     ContactStateInvalid,
     ContactToleranceInvalid,
+    UnsupportedFeature,
 
     // ---- Result boundary ----
     /// A result held a NaN or ±∞ and was withheld instead of being sent (`boundary`): the path
     /// of the first one in `phase`.
     NonFiniteResult,
+    ResultQuantityUnavailable,
 }
 
 /// A structured diagnostic with enum code, severity, optional element/node
@@ -395,8 +397,9 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::KnownIssue => "known_issue",
             DiagnosticCode::ThermalDefaultAssumed => "assumption",
             DiagnosticCode::CableSelfWeightTension => "assumption",
-            DiagnosticCode::PlasticCapacityMissing | DiagnosticCode::CableAnalysisRequired | DiagnosticCode::ContactStateInvalid | DiagnosticCode::ContactToleranceInvalid => "model_quality",
+            DiagnosticCode::PlasticCapacityMissing | DiagnosticCode::CableAnalysisRequired | DiagnosticCode::ContactStateInvalid | DiagnosticCode::ContactToleranceInvalid | DiagnosticCode::UnsupportedFeature => "model_quality",
             DiagnosticCode::NonFiniteResult => "non_finite_result",
+            DiagnosticCode::ResultQuantityUnavailable => "result_quantity_unavailable",
         };
         let severity = match sd.severity {
             Severity::Info => "info",

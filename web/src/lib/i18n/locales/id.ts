@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const id: Translations = {
+  "account.err.invalid_credentials": "Email atau kata sandi salah.",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───
@@ -795,28 +796,6 @@ const id: Translations = {
   'float.vShear': 'V geser',
   'float.ilHint': 'Klik titik simpul (reaksi) atau batang (M/V dalam)',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': 'Laporkan / Sarankan',
-  'feedback.close': 'Tutup',
-  'feedback.reportCreated': 'Laporan #{n} dibuat',
-  'feedback.bugError': 'Bug / Error',
-  'feedback.suggestion': 'Saran',
-  'feedback.other': 'Lainnya',
-  'feedback.namePlaceholder': 'Nama atau alias Anda (opsional)',
-  'feedback.textPlaceholder': 'Jelaskan masalah atau saran...',
-  'feedback.linkAttached': 'Tautan ke struktur Anda akan dilampirkan',
-  'feedback.copy': 'Salin',
-  'feedback.sending': 'Mengirim...',
-  'feedback.submitReport': 'Kirim laporan',
-  'feedback.toastCreated': 'Laporan #{n} dibuat — terima kasih!',
-  'feedback.toastError': 'Gagal mengirim laporan',
-  'feedback.toastConnectionError': 'Kesalahan koneksi — coba lagi',
-  'feedback.toastEmptyText': 'Tuliskan deskripsi masalah atau saran',
-  'feedback.toastSecurityWait': 'Menunggu verifikasi keamanan...',
-  'feedback.toastLinkCopied': 'Tautan disalin',
-  'feedback.reportBug': 'Laporkan Bug / Saran',
-  'feedback.communityTelegram': 'Komunitas Telegram',
-  'feedback.buyCoffee': 'Traktir saya kopi',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': 'Penampang {id}',
@@ -2218,6 +2197,7 @@ const id: Translations = {
   'lang.fr': 'Français',
   'lang.it': 'Italiano',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.hi': 'हिन्दी',
   'lang.zh': '中文',
   'lang.ja': '日本語',
@@ -3370,7 +3350,7 @@ const id: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'Tersertifikasi: galat perpindahan ≤ {abs} ({rel} relatif)',
   'certificate.notCertified': 'Tidak tersertifikasi: {reason}',
   'certificate.pending': 'Mensertifikasi…',
@@ -3378,7 +3358,7 @@ const id: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (tersertifikasi)',
   'certificate.bucklingNotCertified': 'λ_cr tidak tersertifikasi: {reason}',
   'certificate.bucklingTooltip': 'Selang ketat, dibuktikan di Lean: struktur dipastikan stabil untuk setiap faktor beban hingga nilai bawah dan dipastikan tidak stabil pada nilai atas.',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'Tersertifikasi: galat perpindahan ≤ {abs}',
   'certificate.envelopeCertified': 'Selubung tersertifikasi: setiap nilai dalam {abs} dari selubung eksak (perpindahan)',
   'certificate.comboTooltip': 'Batas ketat, dibuktikan di Lean: setiap kasus beban disertifikasi terhadap solusi eksak sistem yang dirakit; batas suatu kombinasi menjumlahkan batas kasus dikali |faktor| dan pembulatan kombinasi itu sendiri; selubung berada dalam batas kombinasi terbesar dari selubung eksak. Tanda ± di samping gaya batang membatasi galatnya dengan cara yang sama.',

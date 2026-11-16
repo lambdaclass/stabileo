@@ -1,4 +1,5 @@
 import type { PostBody } from '../../types';
+import { flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
 
 const body: PostBody = {
   "title": "Biegenachweis nach CIRSOC 201, Schritt für Schritt",
@@ -14,18 +15,7 @@ const body: PostBody = {
     },
     {
       "k": "ol",
-      "items": [
-        "d = 35,9 cm, d' = 4,1 cm",
-        "Mu = 60,00 kN·m",
-        "As,min = 2,39 cm²",
-        "As,max (einfach bewehrt) = 11,58 cm²",
-        "As,req (Zug) = 4,73 cm²",
-        "Zugbewehrung: 2 Ø20 (6,28 cm²)",
-        "a = 6,21 cm, c = 7,31 cm",
-        "εt = 11,74‰",
-        "εt ≥ 5‰ → zugbestimmt → φ = 0,90",
-        "φMn = 77,90 kN·m"
-      ]
+      "items": flexureExampleSteps("Zugbewehrung: 2 Ø20 (6,28 cm²)")
     },
     {
       "k": "p",
@@ -143,46 +133,18 @@ const body: PostBody = {
         "Bewehrung",
         "εt [‰]",
         "φ",
-        "φMn [kN·m]"
+        "φMn [kN·m]",
+        "Duktilität"
       ],
-      "rows": [
-        [
-          "30",
-          "2 Ø16",
-          "20,03",
-          "0,90",
-          "51,6"
-        ],
-        [
-          "60",
-          "2 Ø20",
-          "11,74",
-          "0,90",
-          "77,9"
-        ],
-        [
-          "90",
-          "2 Ø25",
-          "6,44",
-          "0,90",
-          "115,2"
-        ],
-        [
-          "120",
-          "2 Ø32",
-          "2,76",
-          "0,707",
-          "133,5"
-        ]
-      ]
+      "rows": flexureExampleRows("Erfüllt", "Nicht erfüllt")
     },
     {
       "k": "p",
-      "t": "In der letzten Zeile ist der Querschnitt in den Übergangsbereich geraten, und φ ist auf 0,707 gefallen. Die Tragfähigkeit ist nicht im gleichen Maß gewachsen wie der Stahl: Zwischen den letzten beiden Zeilen steigt die Stabfläche nominell von 9,82 auf 16,08 cm², φMn dagegen nur von 115,2 auf 133,5 kN·m. Ein guter Teil dessen, was hinzukommt, geht im Beiwert verloren."
+      "t": "Der Querschnitt mit 2 Ø32 erfüllt den Nachweis nicht: Die Zugdehnung liegt unter dem geforderten Mindestwert. Ein kleineres φ ersetzt den Duktilitätsnachweis nicht. Querschnitt oder Bewehrung müssen neu bemessen werden."
     },
     {
       "k": "quote",
-      "t": "Ein überbewehrter Querschnitt fällt nicht durch den Nachweis. Er verliert in φ, und das Ergebnis sagt trotzdem, dass er besteht."
+      "t": "Der Querschnitt mit 2 Ø32 erfüllt den Nachweis nicht: Die Zugdehnung liegt unter dem geforderten Mindestwert. Ein kleineres φ ersetzt den Duktilitätsnachweis nicht. Querschnitt oder Bewehrung müssen neu bemessen werden."
     },
     {
       "k": "h",
@@ -190,7 +152,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Die übliche Antwort lautet „damit die Stäbe hineinpassen“. Das ist die Folge, nicht der Grund. Bei Mu = 200 kN·m an genau diesem Balken ermittelt das Modul εt = 1,51‰, unterhalb der Grenze, und fügt Druckbewehrung hinzu. Damit steigt die Nulllinie nach oben, εt kehrt auf 7,46‰ zurück und φ auf 0,90."
+      "t": "Druckbewehrung kann bereits an der Duktilitätsgrenze erforderlich sein. Nicht erst warten, bis der Zugstahl nicht mehr fließt; den neu bemessenen Querschnitt mit den tatsächlichen Stabtiefen prüfen."
     },
     {
       "k": "p",
@@ -198,7 +160,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Die Schritte, die das Modul für diesen Fall ausgibt, sagen es in genau dieser Reihenfolge: „εt = 1,51‰ < 2,1‰ → A's erforderlich“, dann „ΔM = 144,50 kN·m, A's,req = 11,40 cm²“ und erst am Ende „εt = 7,46‰ → zugbestimmt → φ = 0,90“."
+      "t": "Druckbewehrung kann bereits an der Duktilitätsgrenze erforderlich sein. Nicht erst warten, bis der Zugstahl nicht mehr fließt; den neu bemessenen Querschnitt mit den tatsächlichen Stabtiefen prüfen."
     },
     {
       "k": "h",
@@ -208,7 +170,14 @@ const body: PostBody = {
       "k": "p",
       "t": "Unten finden Sie das Modell: einen Einfeldträger mit 5 m Spannweite, 20×40, H-25, mit 12 kN/m ständiger Last und 8 kN/m Nutzlast zuzüglich Eigengewicht. Es öffnet sich in den Bewehrungstabellen von PRO, mit CIRSOC 201-2025 als Norm."
     },
-    {"k": "img", "base": "blog/cirsoc-201-sheets", "w": 1600, "h": 1000, "alt": "Stabileo PRO, Bewehrungstabellen nach CIRSOC 201-2025, die Balkentabelle auf V1 geöffnet nach Berechnung und Bemessung. Die Zeile schlägt unten 2 durchlaufende Ø25, oben 2 durchlaufende Ø12 und Bügel Ø8 im Abstand von 18 cm vor, mit einer Ausnutzung von 0,79 und dem Status Reichlich. Darunter die Ansicht mit den Positionen der Stäbe und den Momenten- und Querkraftlinien gegenüber der Tragfähigkeit.", "caption": "Der Balken unten in der Balkentabelle nach „Bewehrung bemessen“: Die 2 Ø25, die Stabileo vorschlägt, schließen mit 0,79 ab."},
+    {
+      "k": "img",
+      "base": "blog/cirsoc-201-sheets",
+      "w": 1600,
+      "h": 1000,
+      "alt": "Stabileo PRO, Bewehrungstabellen nach CIRSOC 201-2025, die Balkentabelle auf V1 geöffnet nach Berechnung und Bemessung. Die Zeile schlägt unten 2 durchlaufende Ø25, oben 2 durchlaufende Ø12 und Bügel Ø8 im Abstand von 18 cm vor, mit einer Ausnutzung von 0,79 und dem Status Reichlich. Darunter die Ansicht mit den Positionen der Stäbe und den Momenten- und Querkraftlinien gegenüber der Tragfähigkeit.",
+      "caption": "Der Balken unten in der Balkentabelle nach „Bewehrung bemessen“: Die 2 Ø25, die Stabileo vorschlägt, schließen mit 0,79 ab."
+    },
     {
       "k": "embed",
       "mode": "pro",
@@ -230,7 +199,11 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Jede Zahl hier stammt aus dem CIRSOC-201-Modul von Stabileo, angewendet auf die genannten Querschnitte, und nicht aus einer Tabelle. Ein Hinweis, der sich weiterzugeben lohnt, weil der erste Entwurf dieses Beitrags hier falsch lag: Die Handrechnung ergab D/C = 0,74, weil sie das Eigengewicht vergaß, 2 kN/m, die die Anwendung dem Lastfall der ständigen Lasten hinzufügt. Mit ihm trägt der Einfeldträger 1,2·14 + 1,6·8 = 29,6 kN/m, Mu = 29,6·5²/8 = 92,5 kN·m, und mit 2 Ø25 (φMn = 115,2 kN·m) D/C = 0,80. Die Tabelle oben schlägt genau 2 Ø25 unten vor und schließt mit 0,79 ab. Sollte eine Zahl hier einmal nicht mehr mit dem Editor übereinstimmen, glauben Sie dem Editor."
+      "t": "Jede Zahl hier stammt aus dem CIRSOC-201-Modul von Stabileo, angewendet auf die genannten Querschnitte, und nicht aus einer Tabelle. Ein Hinweis, der sich weiterzugeben lohnt, weil der erste Entwurf dieses Beitrags hier falsch lag: Die Handrechnung ergab D/C = 0,74, weil sie das Eigengewicht vergaß, 2 kN/m, die die Anwendung dem Lastfall der ständigen Lasten hinzufügt. Mit ihm trägt der Einfeldträger 1,2·14 + 1,6·8 = 29,6 kN/m, Mu = 29,6·5²/8 = 92,5 kN·m, und mit 2 Ø25 (φMn = 113,55 kN·m) D/C = 0,81. Die Tabelle oben schlägt genau 2 Ø25 unten vor und schließt mit 0,79 ab. Sollte eine Zahl hier einmal nicht mehr mit dem Editor übereinstimmen, glauben Sie dem Editor."
+    },
+    {
+      "k": "note",
+      "t": "Die statische Nutzhöhe für jeden gewählten Stabdurchmesser neu berechnen. Die Tragfähigkeitstabelle wird gegen den aktuellen Rechenkern geprüft; Tragfähigkeit allein ist kein vollständiger Nachweis."
     }
   ]
 };

@@ -1,6 +1,6 @@
 //! Kani bounded-model-checking harnesses. Run with `cargo kani`.
 //!
-//! See `docs/verification/KANI.md` for what each harness proves, under which
+//! See `testing/docs/KANI.md` for what each harness proves, under which
 //! input assumptions, and the counterexamples Kani found.
 //!
 //! Conventions:
@@ -12,7 +12,7 @@
 //! - "Bitwise" equalities compare `f64::to_bits`, i.e. exact IEEE-754 equality
 //!   (stronger than `==`, which conflates +0.0/-0.0).
 //! - Harnesses preceded by `// kani: nightly` are skipped on pull requests
-//!   (`KANI_TIER=fast` in scripts/kani-safe.sh) and run on the nightly schedule.
+//!   (`KANI_TIER=fast` in testing/scripts/kani-safe.sh) and run on the nightly schedule.
 //! - Harnesses marked `#[kani::should_panic]` encode a property that does NOT
 //!   hold; they pass only because Kani finds a counterexample. They document
 //!   findings and guard against silently "fixing" them in the docs.
@@ -709,7 +709,7 @@ fn dense_extract_scatter_subvec_roundtrip() {
 
 // ─── certify/interval.rs: outward-rounded interval arithmetic ───────────────
 //
-// What is proved, and how (details and the full table: docs/verification/KANI.md):
+// What is proved, and how (details and the full table: testing/docs/KANI.md):
 //
 // 1. Structure, over every finite input: for + and −, each endpoint is the
 //    outward neighbour (next_down / next_up) of the round-to-nearest result of

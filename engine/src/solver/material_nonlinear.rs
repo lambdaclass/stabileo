@@ -5,7 +5,7 @@ use crate::element::*;
 use super::dof::DofNumbering;
 use super::assembly;
 use super::linear::{compute_plate_stresses, compute_quad_stresses};
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::sparse_tangent::{
     solve_tangent_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
@@ -38,7 +38,7 @@ fn validate_material_models(models: &std::collections::HashMap<String, MaterialM
 
 /// Per-element state tracking for the nonlinear material analysis.
 #[derive(Clone)]
-struct ElementState {
+pub(super) struct ElementState {
     yielded_start: bool,
     yielded_end: bool,
     /// Hardening ratio: EI_effective = alpha * EI when yielded.
@@ -80,11 +80,11 @@ fn solve_nonlinear_material_2d_inner(
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let free_idx: Vec<usize> = (0..nf).collect();
-    let rest_idx: Vec<usize> = (nf..n).collect();
     let nr = n - nf;
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_2d(&solver, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_2d(solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Full elastic assembly to obtain the total external load vector.
@@ -144,10 +144,6 @@ fn solve_nonlinear_material_2d_inner(
 
         // Target external load for this increment.
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
-        let f_ext_free = extract_subvec(&f_ext, &free_idx);
-
-        // F_ext_free norm for convergence check.
-        let f_ext_norm = vec_norm_l2(&f_ext_free);
 
         // Apply this increment's prescribed displacements to the restrained
         // DOFs BEFORE the first residual evaluation: f_int then includes the
@@ -156,6 +152,9 @@ fn solve_nonlinear_material_2d_inner(
         // with zero external load must still iterate).
         for i in 0..nr {
             u_full[nf + i] = load_factor * u_r[i];
+        }
+        if u_r.iter().any(|&v| v != 0.0) {
+            if let Some(ref cs) = cs { cs.impose_motion(&mut u_full); }
         }
 
         // Newton-Raphson inner loop.
@@ -224,12 +223,8 @@ fn solve_nonlinear_material_2d_inner(
             // free-DOF residual carries the constraint forces, which never
             // vanish, and the iteration never converged (a model with a
             // single rigid link or EqualDOF always came back unconverged).
-            let r_norm = match &cs {
-                Some(cs) => vec_norm_l2(&cs.reduce_vector(&r_free)),
-                None => vec_norm_l2(&r_free),
-            };
-            let ref_norm = if f_ext_norm > 1e-20 { f_ext_norm } else { 1.0 };
-            if r_norm < tolerance * ref_norm {
+            let support_driven = u_r.iter().any(|v| *v != 0.0);
+            if (!support_driven || _nr_iter > 0) && metric.relative_residual(&residual, &f_ext, support_driven.then_some(load_factor), cs.as_ref()) < tolerance {
                 converged_increment = true;
                 break;
             }
@@ -261,7 +256,7 @@ fn solve_nonlinear_material_2d_inner(
                 solve_system(k_s, rhs_s, ns)?
             };
             let delta_u_f = if let Some(ref cs) = cs {
-                cs.expand_solution(&delta_u_indep)
+                cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous)
             } else {
                 delta_u_indep
             };
@@ -304,24 +299,10 @@ fn solve_nonlinear_material_2d_inner(
     // k_final has no u-dependence, so rotate it directly to match f_final's
     // (already-rotated, from f_total = asm.f.clone()) convention; the dummy
     // F output of apply_inclined_transform_2d is discarded.
-    let mut k_final = assemble_tangent_stiffness(solver, &dof_num, &states, &art);
-    let mut k_final_f_dummy = vec![0.0; n];
-    for it in &asm.inclined_transforms_2d {
-        assembly::apply_inclined_transform_2d(&mut k_final, &mut k_final_f_dummy, n, &it.dofs, &it.r);
-    }
-    let f_final: Vec<f64> = f_total.iter().map(|&f| f).collect(); // load_factor = 1.0 at end
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        let row = nf + i;
-        let mut ku = 0.0;
-        for j in 0..n {
-            // u_full stays in the rotated ("mixed") convention here — matches
-            // k_final's just-applied rotation (K'@u_mixed == R∘f_int_true_global,
-            // the same identity the NR loop relies on).
-            ku += k_final[row * n + j] * u_full[j];
-        }
-        reactions_vec[i] = ku - f_final[row];
-    }
+    let physical = super::reaction_recovery::PhysicalForces::material_2d(solver, &dof_num, &states, &u_full, &asm.inclined_transforms_2d);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(
+        &physical, &f_total, &dof_num, cs.as_ref(),
+    );
 
     // Reverse inclined transforms to get TRUE global displacements for
     // reporting — mirrors linear::solve_2d.
@@ -332,11 +313,7 @@ fn solve_nonlinear_material_2d_inner(
 
     let displacements = super::linear::build_displacements_2d(&dof_num, &u_geom);
 
-    let f_r = extract_subvec(&f_final, &rest_idx);
-    let mut reactions = super::linear::build_reactions_2d_inclined(
-        solver, &dof_num, &reactions_vec, &f_r, nf, &u_geom, &asm.inclined_transforms_2d,
-    );
-    reactions.sort_by_key(|r| r.node_id);
+    let reactions = recovered.reactions_2d(&dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_geom), &asm.inclined_transforms_2d)?;
 
     // Member forces from the stiffness the solve balanced: a yielded member at α·EI (NL-4).
     // They were recovered with the elastic EI, so after yield they were up to ~100× off and did
@@ -349,14 +326,7 @@ fn solve_nonlinear_material_2d_inner(
 
     let final_load_factor = last_converged_factor;
 
-    // Compute constraint forces if constraints are active
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let constraint_forces = recovered.constraint_forces;
 
     Ok(NonlinearMaterialResult {
         results: AnalysisResults {
@@ -504,7 +474,7 @@ fn lookup_capacities(input: &NonlinearMaterialInput, elem: &SolverElement) -> (f
 // ---------------------------------------------------------------------------
 
 /// Dense (n×n) tangent — small models and the once-per-solve reaction pass.
-fn assemble_tangent_stiffness(
+pub(super) fn assemble_tangent_stiffness(
     solver: &SolverInput,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState)],
@@ -812,9 +782,17 @@ fn update_element_states(
 // Yield interaction criterion: (N/Np)^2 + |M|/Mp
 // ---------------------------------------------------------------------------
 
+fn capacity_ratio(demand: f64, capacity: f64) -> f64 {
+    if capacity > 0.0 {
+        demand / capacity
+    } else {
+        0.0
+    }
+}
+
 fn yield_utilization(n: f64, m: f64, np: f64, mp: f64) -> f64 {
-    let axial_ratio = if np > 1e-20 { n / np } else { 0.0 };
-    let moment_ratio = if mp > 1e-20 { m.abs() / mp } else { 0.0 };
+    let axial_ratio = capacity_ratio(n, np);
+    let moment_ratio = capacity_ratio(m.abs(), mp);
     axial_ratio * axial_ratio + moment_ratio
 }
 
@@ -838,12 +816,7 @@ fn solve_system(k_ff: Vec<f64>, rhs: Vec<f64>, nf: usize) -> Result<Vec<f64>, St
 }
 
 // ---------------------------------------------------------------------------
-// L2 norm of a vector.
-// ---------------------------------------------------------------------------
 
-fn vec_norm_l2(v: &[f64]) -> f64 {
-    v.iter().map(|x| x * x).sum::<f64>().sqrt()
-}
 
 // ---------------------------------------------------------------------------
 // Compute the maximum absolute translational displacement.
@@ -949,7 +922,7 @@ fn build_element_status(
 
 /// Per-element state tracking for 3D nonlinear material analysis.
 #[derive(Clone)]
-struct ElementState3D {
+pub(super) struct ElementState3D {
     yielded_start: bool,
     yielded_end: bool,
     alpha: f64,
@@ -1000,17 +973,17 @@ fn solve_nonlinear_material_3d_inner(
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let free_idx: Vec<usize> = (0..nf).collect();
-    let rest_idx: Vec<usize> = (nf..n).collect();
     let nr = n - nf;
 
     // Full elastic assembly for total external load vector.
     let asm = super::assembly::assemble_3d(solver, &dof_num);
     let f_total = asm.f.clone();
     let art = assembly::artificial_stiffness_entries(&asm);
-    super::linear::refuse_loads_on_orphan_dofs_3d(&dof_num, &asm.artificial_dofs.iter().copied().collect(), &solver.loads)?;
+    super::linear::refuse_material_loads_on_orphan_dofs_3d(solver, &dof_num, &asm.artificial_dofs.iter().copied().collect())?;
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&solver, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_3d(solver, &dof_num, cs.as_ref())?;
 
     // Prescribed displacements, in the inclined-support frames the restrained
     // DOFs are numbered in (one definition with the linear solver: this
@@ -1059,8 +1032,6 @@ fn solve_nonlinear_material_3d_inner(
         let load_factor = inc as f64 / n_increments as f64;
 
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
-        let f_ext_free = extract_subvec(&f_ext, &free_idx);
-        let f_ext_norm = vec_norm_l2(&f_ext_free);
 
         // Apply this increment's prescribed displacements to the restrained
         // DOFs BEFORE the first residual evaluation — see the 2D solver for
@@ -1068,6 +1039,9 @@ fn solve_nonlinear_material_3d_inner(
         // pure-settlement increment still iterates).
         for i in 0..nr {
             u_full[nf + i] = load_factor * u_r[i];
+        }
+        if u_r.iter().any(|&v| v != 0.0) {
+            if let Some(ref cs) = cs { cs.impose_motion(&mut u_full); }
         }
 
         let mut converged_increment = false;
@@ -1126,12 +1100,8 @@ fn solve_nonlinear_material_3d_inner(
             // free-DOF residual carries the constraint forces, which never
             // vanish, and the iteration never converged (a model with a
             // single rigid link or EqualDOF always came back unconverged).
-            let r_norm = match &cs {
-                Some(cs) => vec_norm_l2(&cs.reduce_vector(&r_free)),
-                None => vec_norm_l2(&r_free),
-            };
-            let ref_norm = if f_ext_norm > 1e-20 { f_ext_norm } else { 1.0 };
-            if r_norm < tolerance * ref_norm {
+            let support_driven = u_r.iter().any(|v| *v != 0.0);
+            if (!support_driven || _nr_iter > 0) && metric.relative_residual(&residual, &f_ext, support_driven.then_some(load_factor), cs.as_ref()) < tolerance {
                 converged_increment = true;
                 break;
             }
@@ -1164,7 +1134,7 @@ fn solve_nonlinear_material_3d_inner(
                 solve_system(k_s, rhs_s, ns)?
             };
             let delta_u_f = match &cs {
-                Some(cs) => cs.expand_solution(&delta_u_indep),
+                Some(cs) => cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous),
                 None => delta_u_indep,
             };
 
@@ -1196,23 +1166,10 @@ fn solve_nonlinear_material_3d_inner(
     }
 
     // k_final has no u-dependence — rotate directly (dummy F discarded).
-    let mut k_final = assemble_tangent_stiffness_3d(solver, &dof_num, &states, &art);
-    let mut k_final_f_dummy = vec![0.0; n];
-    for it in &asm.inclined_transforms {
-        assembly::apply_inclined_transform(&mut k_final, &mut k_final_f_dummy, n, &it.dofs, &it.r);
-    }
-    let f_final = f_total.clone();
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        let row = nf + i;
-        let mut ku = 0.0;
-        for j in 0..n {
-            // u_full stays in the rotated ("mixed") convention — see the
-            // 2D final-block comment for why this matches k_final's rotation.
-            ku += k_final[row * n + j] * u_full[j];
-        }
-        reactions_vec[i] = ku - f_final[row];
-    }
+    let physical = super::reaction_recovery::PhysicalForces::material_3d(solver, &dof_num, &states, &u_full, &asm.inclined_transforms);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(
+        &physical, &f_total, &dof_num, cs.as_ref(),
+    );
 
     // Reverse inclined transforms to get TRUE global displacements for
     // reporting — mirrors linear::solve_3d.
@@ -1230,11 +1187,7 @@ fn solve_nonlinear_material_3d_inner(
     // would silently report zero reaction at an inclined 3D support. Use the
     // shared, dof_num-driven (and inclined-aware) builder instead, which
     // correctly detects restraint via the actual DOF partition.
-    let f_r = extract_subvec(&f_final, &rest_idx);
-    let mut reactions = super::linear::build_reactions_3d_inclined(
-        solver, &dof_num, &reactions_vec, &f_r, nf, &u_geom, &asm.inclined_transforms,
-    );
-    reactions.sort_by_key(|r| r.node_id);
+    let reactions = recovered.reactions_3d(&dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_geom), &asm.inclined_transforms)?;
 
     // Member forces from the stiffness the solve balanced, as in 2D (NL-4).
     let mut element_forces = secant_member_forces_3d(solver, &states, &dof_num, &u_geom);
@@ -1242,14 +1195,7 @@ fn solve_nonlinear_material_3d_inner(
 
     let element_status = build_element_status_3d(solver, input, &dof_num, &u_geom, &element_forces, &states);
 
-    // Compute constraint forces if constraints are active
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let constraint_forces = recovered.constraint_forces;
 
     Ok(NonlinearMaterialResult3D {
         results: AnalysisResults3D {
@@ -1311,7 +1257,7 @@ fn lookup_capacities_3d(input: &NonlinearMaterialInput3D, elem: &SolverElement3D
 // ---------------------------------------------------------------------------
 
 /// Dense (n×n) tangent — small models and the once-per-solve reaction pass.
-fn assemble_tangent_stiffness_3d(
+pub(super) fn assemble_tangent_stiffness_3d(
     solver: &SolverInput3D,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState3D)],
@@ -1650,9 +1596,9 @@ fn compute_global_internal_forces_3d(
 /// convex), so it never yields later than either uniaxial limit implies. It replaced
 /// `(N/Np)^2 + (My/Mpy)^2 + (Mz/Mpz)^2`, which gave 0.74 where 2D gives 0.95 (NL-6, #429).
 fn yield_utilization_3d(n: f64, my: f64, mz: f64, np: f64, mpy: f64, mpz: f64) -> f64 {
-    let axial_ratio = if np > 1e-20 { n / np } else { 0.0 };
-    let my_ratio = if mpy > 1e-20 { my.abs() / mpy } else { 0.0 };
-    let mz_ratio = if mpz > 1e-20 { mz.abs() / mpz } else { 0.0 };
+    let axial_ratio = capacity_ratio(n, np);
+    let my_ratio = capacity_ratio(my.abs(), mpy);
+    let mz_ratio = capacity_ratio(mz.abs(), mpz);
     axial_ratio * axial_ratio + my_ratio + mz_ratio
 }
 

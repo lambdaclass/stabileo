@@ -1,4 +1,0 @@
-### Fixed
-#### Certify stalled spectral estimates and restore structural validation coverage (#1753)
-
-Require an upper spectral certificate before Lanczos accepts a stalled or exhausted estimate. Preserve the existing precision gate and certification budget. Restore the Q9 cap convergence assertion, Raasch response bounds, the 32x32 cap containment identity and the original axial contrast. Prove the original truss mechanisms and check the renamed braced fixtures against independent signed forces. Reject nonfinite invariance comparisons and require complete zero displacements for empty prepared cases. See [the results-change evidence](../docs/results-changes/2026-11-linear-stability-refusals.md#final-review-bounded-lanczos-acceptance-and-restored-fixture-checks). Deferred review findings are tracked in [#1891](https://github.com/lambdaclass/stabileo/issues/1891).

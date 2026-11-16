@@ -110,7 +110,7 @@ function aiscRun(): ForeignRun {
 function contexts(omitted?: Array<{ elementId: number; reasonKey: string }>): MemberContext[] {
   const perCombo = activePerCombo3D();
   if (!perCombo.size && !resultsStore.results3D) return [];
-  const combos = activeCombinations().filter((c) => perCombo.has(c.id));
+  const combos = activeCombinations();
   return memberContexts(modelStore.model as never, perCombo, combos, undefined, { ...(omitted ? { omitted } : {}), designData: otherCodesDesignData() });
 }
 
@@ -147,7 +147,7 @@ function ec3Run(code: 'ec3' | 'ec3-uk', cap = 200): ForeignRun {
   const ctxs = contexts(omitted).filter((c) => familyOf(c.material) === 'steel');
   const skipped: ForeignRun['skipped'] = omitted.filter((o) => familyOfElement(o.elementId) === 'steel');
   // Every combination at every station: 6.2, 6.3.2 and 6.3.3 read N, My, Mz and V together.
-  const run = runOtherCode(EC3, ctxs, { tuples: true });
+  const run = runOtherCode(EC3, ctxs, { tuples: true, memberIds: ctxs.map(c => c.elementId) });
   const members: ForeignMember[] = [];
   for (const row of run.rows) {
     if (row.status === 'skipped') { skipped.push({ elementId: row.elementId, reasonKey: row.reasonKey }); continue; }
@@ -158,7 +158,7 @@ function ec3Run(code: 'ec3' | 'ec3-uk', cap = 200): ForeignRun {
     if (current && members.length < cap) {
       for (const p of familyByWeight(current.family as ProfileFamily)) {
         // All the member's tuples, the governing ones first; a profile past 1 is not read further.
-        const r = runOtherCode(EC3, [withProfile(ctx, p)], { tuples: true, stopAbove: 1 }).rows[0];
+        const r = runOtherCode(EC3, [withProfile(ctx, p)], { tuples: true, stopAbove: 1, memberIds: [ctx.elementId] }).rows[0];
         // A profile past 1 on any part, the 6.3.3 sum included, is passed over. That sum is no check of
         // 6.3.3 (it lacks the interaction factors); here it only screens the candidates, so that the one
         // named is not one the sum already rules out. It verifies nothing.
@@ -264,6 +264,7 @@ function ec2Run(code: 'ec2' | 'ec2-uk'): ForeignRun {
     const vertical = ctx.kind !== 'beam';
     if (ctx.kind === 'wall' || (vertical && Math.max(s.b, s.h) > 4 * Math.min(s.b, s.h))) { skip('otherCodes.skip.ec2Wall'); continue; }
     const input: Ec2MemberInput = {
+      elementId: id, expectedCombinationIds: ctx.expectedCombinationIds, stationTs: ctx.stationTs,
       kind: vertical ? 'column' : 'beam', b: s.b, h: s.h, L: ctx.L,
       ...(ctx.kStrong !== undefined ? { kStrong: ctx.kStrong } : {}), ...(ctx.kWeak !== undefined ? { kWeak: ctx.kWeak } : {}),
       demands: ctx.demands, ...(ctx.tuples ? { tuples: ctx.tuples } : {}), cover: vertical ? dd.covers.column : dd.covers.beam, linkDia: dd.stirrupDiaMm, barDia: bar,

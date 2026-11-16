@@ -1,4 +1,4 @@
-//! End-to-end certificates (docs/verification/CERTIFY.md, "End-to-end
+//! End-to-end certificates (testing/docs/CERTIFY.md, "End-to-end
 //! certificates"): the independent re-assembly of K and f from the model
 //! (`certify::reassembly`) agrees with the engine on every example model,
 //! fixture and random model it covers, and catches planted assembly bugs.
@@ -283,7 +283,7 @@ fn stable_one() {
 }
 
 /// Every model file in `E2E_DIR` (e.g. dumped from the differential
-/// generators, `tools/differential`): `E2E_DIR=… cargo test --release --test
+/// generators, `testing/differential`): `E2E_DIR=… cargo test --release --test
 /// certify_end_to_end e2e_dir -- --ignored --nocapture`.
 #[test]
 #[ignore]

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
+  import { tools } from '../../lib/features';
   import { enterApp } from './landing-utils';
   import PublicLink from './PublicLink.svelte';
   import Eyebrow from './Eyebrow.svelte';
@@ -18,7 +19,7 @@
 
       <div class="hero-ctas">
         <button class="btn btn-primary btn-lg" onclick={() => enterApp()}>{t('landing.heroCtaPrimary')}</button>
-        <PublicLink to="/examples" class="btn btn-ghost btn-lg">{t('landing.navExamples')} →</PublicLink>
+        <PublicLink to={tools() ? '/tools' : '/examples'} class="btn btn-ghost btn-lg">{t(tools() ? 'landing.navTools' : 'landing.navExamples')} →</PublicLink>
       </div>
 
       <!--

@@ -36,7 +36,7 @@ axial load and deep footings are the most affected.
 ## Fixed in
 
 0.2.0 (release notes §1.3). The verdict now comes from the engine and is certified
-([CERTIFY.md](../verification/CERTIFY.md#certified-design-checks)).
+([CERTIFY.md](../../testing/docs/CERTIFY.md#certified-design-checks)).
 
 ## Workaround
 
@@ -50,4 +50,4 @@ bar schedules derived from them may need revision.
 ## Credits and references
 
 Differential testing TypeScript vs Rust and published worked examples (INTI-CIRSOC 201, JRC EC2);
-`docs/verification/TS_ENGINE_LOGIC.md`, `docs/verification/DESIGN_EXAMPLES.md` (D2, D3).
+`testing/docs/TS_ENGINE_LOGIC.md`, `testing/docs/DESIGN_EXAMPLES.md` (D2, D3).

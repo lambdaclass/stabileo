@@ -3,7 +3,7 @@
  * was produced.
  *
  * Every claim has a source and must stay no stronger than it:
- *  - docs/verification/PROVENANCE.md ("Determinism", "Provenance of results and reports",
+ *  - testing/docs/PROVENANCE.md ("Determinism", "Provenance of results and reports",
  *    "Reproducing a report", "Solve stamps and the re-check prompt", "Registry");
  *  - engine/src/ordered.rs, engine/tests/determinism.rs;
  *  - CHANGELOG.md, 0.3.0.
@@ -61,7 +61,7 @@ export const sameModelSameNumbers: Post = {
         { k: 'p', t: 'La aplicación siempre compara WebAssembly contra WebAssembly. La herramienta nativa reprodujo bit a bit las huellas del navegador en el modelo de prueba, pero las funciones trigonométricas vienen de bibliotecas distintas en cada plataforma, así que un modelo cuyo ensamblado las use de una forma que las dos redondeen distinto podría diferir en el último bit entre la línea de comandos y el navegador.' },
 
         { k: 'link', slug: 'end-to-end-certificates', t: 'La otra mitad de confiar en un número: verificarlo contra el modelo:' },
-        { k: 'ext', href: `${REPO}/docs/verification/PROVENANCE.md`, label: 'PROVENANCE.md', t: 'La descripción técnica completa:' },
+        { k: 'ext', href: `${REPO}/testing/docs/PROVENANCE.md`, label: 'PROVENANCE.md', t: 'La descripción técnica completa:' },
       ],
     },
     en: {
@@ -105,7 +105,7 @@ export const sameModelSameNumbers: Post = {
         { k: 'p', t: 'The app always compares WebAssembly with WebAssembly. The native tool reproduced the browser’s fingerprints bit for bit on the test model, but trigonometric functions come from different libraries on each platform, so a model whose assembly uses them in a way the two round differently could differ in the last bit between the command line and the browser.' },
 
         { k: 'link', slug: 'end-to-end-certificates', t: 'The other half of trusting a number: checking it against the model:' },
-        { k: 'ext', href: `${REPO}/docs/verification/PROVENANCE.md`, label: 'PROVENANCE.md', t: 'The full technical description:' },
+        { k: 'ext', href: `${REPO}/testing/docs/PROVENANCE.md`, label: 'PROVENANCE.md', t: 'The full technical description:' },
       ],
     },
     pt: {
@@ -149,7 +149,7 @@ export const sameModelSameNumbers: Post = {
         { k: 'p', t: 'O aplicativo sempre compara WebAssembly com WebAssembly. A ferramenta nativa reproduziu bit a bit as impressões do navegador no modelo de teste, mas as funções trigonométricas vêm de bibliotecas diferentes em cada plataforma, então um modelo cuja montagem as use de um jeito que as duas arredondem diferente poderia diferir no último bit entre a linha de comando e o navegador.' },
 
         { k: 'link', slug: 'end-to-end-certificates', t: 'A outra metade de confiar num número: verificá-lo contra o modelo:' },
-        { k: 'ext', href: `${REPO}/docs/verification/PROVENANCE.md`, label: 'PROVENANCE.md', t: 'A descrição técnica completa:' },
+        { k: 'ext', href: `${REPO}/testing/docs/PROVENANCE.md`, label: 'PROVENANCE.md', t: 'A descrição técnica completa:' },
       ],
     },
   },

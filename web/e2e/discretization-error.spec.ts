@@ -1,5 +1,5 @@
 /**
- * The discretization-error estimate in the real app (docs/verification/DISCRETIZATION.md): a
+ * The discretization-error estimate in the real app (testing/docs/DISCRETIZATION.md): a
  * frame-and-shell model solved in PRO shows "discretization error: estimated ~Y% (… not
  * certified)" next to the certificate, folded under a calm flag, and the convergence check re-solves
  * and fills its table.

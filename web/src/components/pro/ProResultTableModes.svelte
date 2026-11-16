@@ -90,7 +90,7 @@
     const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
     let perCombo: Map<number, AnalysisResults3D> = activePerCombo3D();
     let combos = activeCombinations();
-    if (perCombo.size === 0 && resultsStore.results3D) {
+    if (perCombo.size === 0 && combos.length === 0 && resultsStore.results3D) {
       // Nothing combined: the result set on screen, named as what it is.
       perCombo = new Map([[0, resultsStore.results3D]]);
       combos = [{ id: 0, name: t('tables.shown'), factors: [] }] as never;

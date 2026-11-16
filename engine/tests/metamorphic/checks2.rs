@@ -114,6 +114,10 @@ pub fn judge_split(got: &Resp, expected: &Resp, rel: f64, base: f64, cmp: impl F
 
 /// Run `a` on the transformed case and compare with `expected`.
 fn same(a: &Ana2, tc: &Case2, expected: Result<Resp, String>, cond: &Conditioning) -> Verdict {
+    same_with_assembly(a, tc, expected, cond, false)
+}
+
+fn same_with_assembly(a: &Ana2, tc: &Case2, expected: Result<Resp, String>, cond: &Conditioning, assembly: bool) -> Verdict {
     let expected = match expected {
         Ok(e) => e,
         Err(e) => return Verdict::Unrepresentable(e),
@@ -124,7 +128,14 @@ fn same(a: &Ana2, tc: &Case2, expected: Result<Resp, String>, cond: &Conditionin
     };
     let rel = rel_for(a.name, a.iter_tol, &c2);
     match run(a, tc) {
-        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| crate::analysis_accuracy::compare(&g, &e, c2.lchar, rel, load_floor_2d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
+        Ok(mut got) => {
+            if assembly {
+                if let Err(e) = crate::analysis_accuracy::assembly_2d(tc, &mut got) {
+                    return Verdict::Refused(format!("no load assembly budget: {e}"));
+                }
+            }
+            bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| crate::analysis_accuracy::compare(&g, &e, c2.lchar, rel, load_floor_2d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2))))
+        },
         Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => transformed_failure(e, expected.2),
     }
@@ -295,12 +306,20 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
                     same(a, &c.relabel(&rl, seed), Ok(base.relabel(&rl)), &cond)
                 }
                 "reversal" => {
+                    let assembly = crate::analysis_accuracy::static_assembly(a.name);
+                    let mut base = base.clone();
+                    if assembly {
+                        if let Err(e) = crate::analysis_accuracy::assembly_2d(c, &mut base) {
+                            ctx.tally.record(a.name, inv, &c.name, Verdict::Refused(format!("no load assembly budget: {e}")));
+                            continue;
+                        }
+                    }
                     let mut ids: Vec<_> = c.s.elements.values().map(|e| e.id).collect();
                     ids.sort_unstable();
                     let mut flipped: std::collections::HashSet<usize> = ids.iter().copied().filter(|_| rng.f64() < 0.5).collect();
                     if crate::generated::strict() && flipped.is_empty() { flipped.insert(ids[0]); }
                     let tc = Case2 { s: dedaliano_engine::metamorphic::reversal::reverse_2d(&c.s, &|id| flipped.contains(&id)), ..c.clone() };
-                    same(a, &tc, if a.name == "influence line" { base.reverse_influence(&flipped, c.path.as_ref().unwrap()[1]) } else { base.reverse(&flipped, false) }, &cond)
+                    same_with_assembly(a, &tc, if a.name == "influence line" { base.reverse_influence(&flipped, c.path.as_ref().unwrap()[1]) } else { base.reverse(&flipped, false) }, &cond, assembly)
                 }
                 "units" => {
                     let (l, f) = [(1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)][rng.below(3)];

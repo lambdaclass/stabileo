@@ -4,7 +4,7 @@
  * When the WASM engine is not loaded (init not finished, a missing build, a failed fetch) a
  * computation that needs it throws `EngineUnavailableError`, and the screen that asked shows
  * "engine not available". It never falls back to a TypeScript duplicate: those sit outside the
- * engine's verification (docs/verification/TS_ENGINE_LOGIC.md) and are kept only as test
+ * engine's verification (testing/docs/TS_ENGINE_LOGIC.md) and are kept only as test
  * oracles.
  *
  * When the engine is loaded but refuses or fails, `EngineCheckError` carries the engine's own

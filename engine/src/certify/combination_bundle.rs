@@ -4,7 +4,7 @@
 //! and the combination/envelope bounds of the member end forces, re-checked by the
 //! verified Lean checker `lake exe certcheck` (`verify/Certify/ComboCheck.lean`,
 //! soundness `Certify.Combo.check_sound_disp` and `check_sound_quantities`). See
-//! "Independent checking: certificate bundles" in `docs/verification/CERTIFY.md`.
+//! "Independent checking: certificate bundles" in `testing/docs/CERTIFY.md`.
 //!
 //! Displacements are checked end to end (the case bounds themselves are verified).
 //! The per-case end-force bounds (`forces.rs`) are stated in the bundle and assumed by

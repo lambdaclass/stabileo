@@ -122,7 +122,7 @@ pub fn solve_3d(input: JsValue) -> Result<JsValue, JsValue> {
 }
 
 /// Solve a 3D linear static model and estimate its discretization (mesh) error
-/// (docs/verification/DISCRETIZATION.md): a Zienkiewicz–Zhu/SPR energy-norm estimate per shell
+/// (testing/docs/DISCRETIZATION.md): a Zienkiewicz–Zhu/SPR energy-norm estimate per shell
 /// element and for the model. An estimate, never a bound (`certified` is always false).
 #[wasm_bindgen]
 pub fn estimate_discretization_3d(input: JsValue) -> Result<JsValue, JsValue> {
@@ -133,7 +133,7 @@ pub fn estimate_discretization_3d(input: JsValue) -> Result<JsValue, JsValue> {
 
 /// Convergence check of a 3D linear static model: re-solve on uniformly refined meshes and
 /// report the governing quantities with a Richardson extrapolation and observed order
-/// (docs/verification/DISCRETIZATION.md). `options` may be null for the defaults.
+/// (testing/docs/DISCRETIZATION.md). `options` may be null for the defaults.
 #[wasm_bindgen]
 pub fn convergence_study_3d(input: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
     let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
@@ -144,7 +144,7 @@ pub fn convergence_study_3d(input: JsValue, options: JsValue) -> Result<JsValue,
 }
 
 /// Solve 2D linear static analysis and certify the displacements
-/// (docs/verification/CERTIFY.md). JsValue in → `{ results, certificate }`.
+/// (testing/docs/CERTIFY.md). JsValue in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_linear_2d(input: JsValue) -> Result<JsValue, JsValue> {
     let input: types::SolverInput = from_js_value(input)?;
@@ -153,7 +153,7 @@ pub fn certify_linear_2d(input: JsValue) -> Result<JsValue, JsValue> {
 }
 
 /// Solve 3D linear static analysis and certify the displacements
-/// (docs/verification/CERTIFY.md). JsValue in → `{ results, certificate }`.
+/// (testing/docs/CERTIFY.md). JsValue in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_linear_3d(input: JsValue) -> Result<JsValue, JsValue> {
     let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
@@ -162,7 +162,7 @@ pub fn certify_linear_3d(input: JsValue) -> Result<JsValue, JsValue> {
 }
 
 /// Solve a 3D linear static model and export its certificate bundle
-/// (docs/verification/CERTIFY.md, "Independent checking: certificate bundles"):
+/// (testing/docs/CERTIFY.md, "Independent checking: certificate bundles"):
 /// JSON in → bundle JSON out, checkable with `lake exe certcheck`.
 #[wasm_bindgen]
 pub fn export_linear_bundle_3d(json: &str) -> Result<String, JsValue> {
@@ -183,7 +183,7 @@ pub fn export_linear_bundle_2d(json: &str) -> Result<String, JsValue> {
 }
 
 /// Solve and certify a 2D plastic collapse model and export its certificate bundle
-/// (`stabileo.plastic-certificate.v1`, docs/verification/CERTIFY.md): JSON in → bundle
+/// (`stabileo.plastic-certificate.v1`, testing/docs/CERTIFY.md): JSON in → bundle
 /// JSON out, checkable with `lake exe certcheck`.
 #[wasm_bindgen]
 pub fn export_plastic_bundle_2d(json: &str) -> Result<String, JsValue> {
@@ -203,7 +203,7 @@ pub fn export_plastic_bundle_3d(json: &str) -> Result<String, JsValue> {
 }
 
 /// Solve and certify a 2D multi-case model and export its load-combination bundle
-/// (`stabileo.combination-certificate.v1`, docs/verification/CERTIFY.md).
+/// (`stabileo.combination-certificate.v1`, testing/docs/CERTIFY.md).
 #[wasm_bindgen]
 pub fn export_combination_bundle_2d(json: &str) -> Result<String, JsValue> {
     let input: solver::load_cases::MultiCaseInput = serde_json::from_str(json)
@@ -223,7 +223,7 @@ pub fn export_combination_bundle_3d(json: &str) -> Result<String, JsValue> {
 
 /// Solve 2D P-Delta and certify the displacements: a Newton–Kantorovich bound on
 /// the distance to the exact fixed point of the P-Delta model, its uniqueness
-/// radius and certified stability (docs/verification/CERTIFY.md).
+/// radius and certified stability (testing/docs/CERTIFY.md).
 /// JSON in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_pdelta_2d(json: &str, max_iter: usize, tolerance: f64) -> Result<String, JsValue> {
@@ -255,7 +255,7 @@ pub fn solve_buckling_2d(json: &str, num_modes: usize) -> Result<String, JsValue
 }
 
 /// Solve 2D linear buckling and certify the critical load factor
-/// (docs/verification/CERTIFY.md). JSON in → `{ results, certificate }`.
+/// (testing/docs/CERTIFY.md). JSON in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_buckling_2d(json: &str, num_modes: usize) -> Result<String, JsValue> {
     let input: types::SolverInput = serde_json::from_str(json)
@@ -264,6 +264,23 @@ pub fn certify_buckling_2d(json: &str, num_modes: usize) -> Result<String, JsVal
         .map_err(|e| JsValue::from_str(&e))?;
     to_json(&results)
 }
+
+#[wasm_bindgen]
+pub fn certify_buckling_result_2d(json: &str, results_json: &str) -> Result<String, JsValue> {
+    let input = serde_json::from_str(json).map_err(|e| JsValue::from_str(&format!("Parse error: {e}")))?;
+    let results = serde_json::from_str(results_json).map_err(|e| JsValue::from_str(&format!("Parse error: {e}")))?;
+    let out = certify::buckling::certify_buckling_result_2d(&input, results).map_err(|e| JsValue::from_str(&e))?;
+    to_json(&out)
+}
+
+#[wasm_bindgen]
+pub fn certify_buckling_result_3d(json: &str, results_json: &str) -> Result<String, JsValue> {
+    let input = serde_json::from_str(json).map_err(|e| JsValue::from_str(&format!("Parse error: {e}")))?;
+    let results = serde_json::from_str(results_json).map_err(|e| JsValue::from_str(&format!("Parse error: {e}")))?;
+    let out = certify::buckling::certify_buckling_result_3d(&input, results).map_err(|e| JsValue::from_str(&e))?;
+    to_json(&out)
+}
+
 
 /// Solve 2D modal analysis. JSON in → JSON out.
 /// densities_json: { "materialId": density_kg_m3, ... }
@@ -277,7 +294,7 @@ pub fn solve_modal_2d(json: &str, num_modes: usize) -> Result<String, JsValue> {
 }
 
 /// Solve 2D modal analysis and certify the modes: per-mode ω² enclosures and
-/// whether any mode below the cutoff was missed (docs/verification/CERTIFY.md).
+/// whether any mode below the cutoff was missed (testing/docs/CERTIFY.md).
 /// JSON in → JSON `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_modal_2d(json: &str, num_modes: usize) -> Result<String, JsValue> {
@@ -291,7 +308,7 @@ pub fn certify_modal_2d(json: &str, num_modes: usize) -> Result<String, JsValue>
 /// Solve 2D spectral analysis and certify it: enclosures of the SRSS/CQC
 /// response of the exact lowest modes (per-node displacements, per-member
 /// forces, base shear) and bounds on the reported values' error
-/// (docs/verification/CERTIFY.md). JSON in → `{ results, certificate }`.
+/// (testing/docs/CERTIFY.md). JSON in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_spectral_2d(json: &str) -> Result<String, JsValue> {
     let input: types::SpectralInput = serde_json::from_str(json)
@@ -313,7 +330,7 @@ pub fn solve_spectral_2d(json: &str) -> Result<String, JsValue> {
 
 /// Solve 3D P-Delta and certify the displacements: a Newton–Kantorovich bound on
 /// the distance to the exact fixed point of the P-Delta model, its uniqueness
-/// radius and certified stability (docs/verification/CERTIFY.md).
+/// radius and certified stability (testing/docs/CERTIFY.md).
 /// JSON in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_pdelta_3d(json: &str, max_iter: usize, tolerance: f64) -> Result<String, JsValue> {
@@ -348,7 +365,7 @@ pub fn solve_buckling_3d(json: &str, num_modes: usize) -> Result<String, JsValue
 }
 
 /// Solve 3D linear buckling and certify the critical load factor
-/// (docs/verification/CERTIFY.md). JSON in → `{ results, certificate }`.
+/// (testing/docs/CERTIFY.md). JSON in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_buckling_3d(json: &str, num_modes: usize) -> Result<String, JsValue> {
     let input = serde_json::from_str::<types::units::ElasticInput3D>(json)
@@ -370,7 +387,7 @@ pub fn solve_modal_3d(json: &str, num_modes: usize) -> Result<String, JsValue> {
 }
 
 /// Solve 3D modal analysis and certify the modes: per-mode ω² enclosures and
-/// whether any mode below the cutoff was missed (docs/verification/CERTIFY.md).
+/// whether any mode below the cutoff was missed (testing/docs/CERTIFY.md).
 /// JSON in → JSON `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_modal_3d(json: &str, num_modes: usize) -> Result<String, JsValue> {
@@ -384,7 +401,7 @@ pub fn certify_modal_3d(json: &str, num_modes: usize) -> Result<String, JsValue>
 /// Solve 3D spectral analysis and certify it: enclosures of the SRSS/CQC
 /// response of the exact lowest modes (per-node displacements, per-member
 /// forces, base shear) and bounds on the reported values' error
-/// (docs/verification/CERTIFY.md). JSON in → `{ results, certificate }`.
+/// (testing/docs/CERTIFY.md). JSON in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_spectral_3d(json: &str) -> Result<String, JsValue> {
     let input: types::SpectralInput3D = serde_json::from_str(json)
@@ -416,7 +433,7 @@ pub fn solve_plastic_2d(json: &str) -> Result<String, JsValue> {
 
 /// Solve 2D plastic analysis and certify the collapse load factor λ_c:
 /// `[lambdaLower, lambdaUpper]` from the static and kinematic theorems, both
-/// checked in exact rational arithmetic (docs/verification/CERTIFY.md).
+/// checked in exact rational arithmetic (testing/docs/CERTIFY.md).
 /// JSON (`PlasticInput`) in → JSON `{ results, certificate }` out.
 #[wasm_bindgen]
 pub fn certify_plastic_2d(json: &str) -> Result<String, JsValue> {
@@ -429,7 +446,7 @@ pub fn certify_plastic_2d(json: &str) -> Result<String, JsValue> {
 /// Solve 3D plastic analysis and certify the collapse load factor λ_c of the
 /// biaxial-yield model: `[lambdaLower, lambdaUpper]` from the static and
 /// kinematic theorems, checked in exact rational arithmetic
-/// (docs/verification/CERTIFY.md). JSON (`PlasticInput3D`) in → JSON
+/// (testing/docs/CERTIFY.md). JSON (`PlasticInput3D`) in → JSON
 /// `{ results, certificate }` out.
 #[wasm_bindgen]
 pub fn certify_plastic_3d(json: &str) -> Result<String, JsValue> {
@@ -540,7 +557,7 @@ pub fn solve_time_history_3d(json: &str) -> Result<String, JsValue> {
 /// model and step (exact parameter checks, certified λ_max bound for
 /// conditionally stable schemes), per-step interval residuals of the discrete
 /// equations, interval energy balance, and a labelled time-error estimate
-/// (docs/verification/CERTIFY.md). JSON in → JSON `{ results, certificate }` out.
+/// (testing/docs/CERTIFY.md). JSON in → JSON `{ results, certificate }` out.
 #[wasm_bindgen]
 pub fn certify_time_history_2d(json: &str) -> Result<String, JsValue> {
     let input: types::TimeHistoryInput = serde_json::from_str(json)
@@ -657,12 +674,22 @@ pub fn compute_diagrams_3d(json: &str) -> Result<String, JsValue> {
 #[wasm_bindgen]
 pub fn compute_deformed_shape(json: &str) -> Result<String, JsValue> {
     #[derive(serde::Deserialize)]
+    #[serde(untagged)]
+    enum ShapePoint {
+        Complete(types::PointLoadInfo),
+        Legacy((f64, f64)),
+    }
+    #[derive(serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct Input {
         node_ix: f64, node_iy: f64,
         node_jx: f64, node_jy: f64,
         u_ix: f64, u_iy: f64, r_iz: f64,
         u_jx: f64, u_jy: f64, r_jz: f64,
+        #[serde(default)]
+        displacements_only: bool,
+        #[serde(default)]
+        positions: Vec<f64>,
         scale: f64,
         length: f64,
         hinge_start: bool,
@@ -677,19 +704,42 @@ pub fn compute_deformed_shape(json: &str) -> Result<String, JsValue> {
         #[serde(default)]
         load_qj: Option<f64>,
         #[serde(default)]
-        load_points: Vec<(f64, f64)>,
+        load_points: Vec<ShapePoint>,
+        #[serde(default)]
+        load_couples: Vec<(f64, f64)>,
         #[serde(default)]
         dist_loads: Vec<(f64, f64, f64, f64)>,
     }
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let points: Vec<_> = d.load_points.into_iter().map(|p| match p {
+        ShapePoint::Complete(p) => p,
+        ShapePoint::Legacy((a, p)) => types::PointLoadInfo { a, p, px: None, my: None },
+    }).chain(d.load_couples.into_iter().map(|(a, c)| types::PointLoadInfo { a, p: 0.0, px: None, my: Some(c) })).collect();
+    if d.displacements_only {
+        let result = postprocess::diagrams::compute_member_displacements_2d(
+            d.node_ix, d.node_iy, d.node_jx, d.node_jy,
+            d.u_ix, d.u_iy, d.r_iz, d.u_jx, d.u_jy, d.r_jz,
+            d.length, d.hinge_start, d.hinge_end, d.ei, d.gas, d.load_qi, d.load_qj,
+            &points, &d.dist_loads, &d.positions,
+        ).map_err(|e| JsValue::from_str(&e))?;
+        return to_json(&result);
+    }
     let result = postprocess::diagrams::compute_deformed_shape(
         d.node_ix, d.node_iy, d.node_jx, d.node_jy,
         d.u_ix, d.u_iy, d.r_iz, d.u_jx, d.u_jy, d.r_jz,
         d.scale, d.length, d.hinge_start, d.hinge_end,
         d.ei, d.gas, d.load_qi, d.load_qj,
-        &d.load_points, &d.dist_loads,
-    );
+        &points, &d.dist_loads,
+    ).map_err(|e| JsValue::from_str(&e))?;
+    to_json(&result)
+}
+
+#[wasm_bindgen]
+pub fn recover_member(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::diagrams::MemberRecoveryInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = postprocess::diagrams::recover_member(&input).map_err(|e| JsValue::from_str(&e))?;
     to_json(&result)
 }
 
@@ -868,7 +918,7 @@ pub fn solve_multi_case_3d(input: JsValue) -> Result<JsValue, JsValue> {
 }
 
 /// Solve 2D multi-case load combinations and certify every case, combination
-/// and the envelope (docs/verification/CERTIFY.md, "Load combinations and
+/// and the envelope (testing/docs/CERTIFY.md, "Load combinations and
 /// envelopes"). JsValue in → `{ results, cases, combinations, envelope }`.
 #[wasm_bindgen]
 pub fn certify_multi_case_2d(input: JsValue) -> Result<JsValue, JsValue> {
@@ -886,7 +936,7 @@ pub fn certify_multi_case_3d(input: JsValue) -> Result<JsValue, JsValue> {
 }
 
 /// Certified AISC 360 member checks: utilization enclosures from bounded
-/// demands (docs/verification/CERTIFY.md, "Certified design checks").
+/// demands (testing/docs/CERTIFY.md, "Certified design checks").
 /// JSON `CertifiedSteelCheckInput` in → JSON results.
 #[wasm_bindgen]
 pub fn certify_steel_members(json: &str) -> Result<String, JsValue> {
@@ -991,7 +1041,7 @@ pub fn certify_steel_multi_case_3d(json: &str) -> Result<String, JsValue> {
 /// Solve 2D harmonic analysis and certify the steady state at every
 /// frequency: enclosures of the exact response of the Rayleigh-damped model
 /// at the target DOF and bounds on the reported values' error, which include
-/// the solver's modal truncation (docs/verification/CERTIFY.md).
+/// the solver's modal truncation (testing/docs/CERTIFY.md).
 /// JSON in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_harmonic_2d(json: &str) -> Result<String, JsValue> {
@@ -1015,7 +1065,7 @@ pub fn solve_harmonic_2d(json: &str) -> Result<String, JsValue> {
 /// Solve 3D harmonic analysis and certify the steady state at every
 /// frequency: enclosures of the exact response of the Rayleigh-damped model
 /// at the target DOF and bounds on the reported values' error, which include
-/// the solver's modal truncation (docs/verification/CERTIFY.md).
+/// the solver's modal truncation (testing/docs/CERTIFY.md).
 /// JSON in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_harmonic_3d(json: &str) -> Result<String, JsValue> {
@@ -2062,7 +2112,7 @@ fn normalize_and_mesh(
     // included) sets a second bound of (2A/P)^2/50 per triangle; the whole is
     // capped at sixty thousand triangles so a very slender outline stays a
     // sub-second solve. The result is still a lower bound, now within a few
-    // percent on thin walls (see docs/verification/SECTIONS_CONNECTIONS.md).
+    // percent on thin walls (see testing/docs/SECTIONS_CONNECTIONS.md).
     let scaled_area = props.a * scale * scale;
     let perimeter: f64 = geometry.polygons.iter().map(|p| {
         let n = p.vertices.len();

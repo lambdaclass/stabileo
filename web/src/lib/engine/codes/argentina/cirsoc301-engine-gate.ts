@@ -6,7 +6,7 @@
  * and decides what to show from the result (the worse of the compression and tension runs, the
  * optimiser's target). This gate takes the exact input the app checked and every demand set it
  * checked it under, and asks the engine's CERTIFIED check (`certify_cirsoc301_members`: the same
- * formulas in outward-rounded interval arithmetic, docs/verification/CERTIFY.md) whether the
+ * formulas in outward-rounded interval arithmetic, testing/docs/CERTIFY.md) whether the
  * member passes. A pass stands only if the certified utilization is provably below 1.
  *
  * A pass the engine does not confirm becomes a FAILURE with `VERIF_ENGINE_DISAGREES` and the

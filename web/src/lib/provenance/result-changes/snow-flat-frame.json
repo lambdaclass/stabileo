@@ -1,0 +1,37 @@
+{
+  "id": "snow-flat-frame",
+  "date": "2026-11-15",
+  "prs": [
+    2095
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "snow",
+      "generatedLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Flat snow frames follow connected roof runs",
+    "es": "El marco de nieve sigue los tramos conectados de cubiertas planas",
+    "pt": "O referencial de neve segue os trechos conectados da cobertura plana",
+    "de": "Schneeachsen flacher Dächer folgen verbundenen Stabzügen",
+    "fr": "Le repère de neige suit les tronçons connectés du toit plat",
+    "tr": "Düz çatının kar eksenleri bağlı eleman dizilerini izler"
+  },
+  "explanation": {
+    "en": "Subdividing long beams on a flat roof with a slope override preserves its snow frame, width and generated loads. Regenerate snow loads and rerun analyses, combinations and design checks (#2095). This correction is included in 0.6.1.",
+    "es": "Dividir las vigas largas de una cubierta plana con pendiente indicada conserva su marco de nieve, ancho y cargas generadas. Regenere las cargas y recalcule análisis, combinaciones y verificaciones (#2095). Corrección incluida en 0.6.1.",
+    "pt": "Dividir vigas longas de uma cobertura plana com inclinação informada preserva seu referencial de neve, largura e cargas geradas. Gere novamente as cargas e recalcule análises, combinações e verificações (#2095). Correção incluída na versão 0.6.1.",
+    "de": "Das Unterteilen langer Stäbe eines flachen Dachs mit vorgegebener Neigung erhält Schneeachsen, Breite und erzeugte Lasten. Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2095). In 0.6.1 enthalten.",
+    "fr": "Diviser les longues poutres d’un toit plat avec pente imposée conserve son repère de neige, sa largeur et ses charges générées. Régénérez les charges et relancez analyses, combinaisons et vérifications (#2095). Correction incluse dans 0.6.1.",
+    "tr": "Eğimi belirtilen düz çatının uzun kirişlerini bölmek kar eksenlerini, genişliğini ve üretilen yüklerini korur. Kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri çalıştırın (#2095). Düzeltme 0.6.1 sürümüne dahildir."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-snow-flat-frame.md",
+    "heading": "Flat snow frames follow connected roof runs"
+  }
+}

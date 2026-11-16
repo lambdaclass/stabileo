@@ -10,7 +10,8 @@
  *   Flange b/2tf = 7,01 ≤ 0,38·√(E/Fy) = 11,1 (compact).
  */
 import { describe, it, expect } from 'vitest';
-import { verifySteelElement, type SteelDesignParams } from '../../../codes/argentina/cirsoc301';
+import { type SteelDesignParams } from '../../../codes/argentina/cirsoc301';
+import { verifySteelElement } from '../../../__tests__/helpers/manual-interactions';
 import { steelBranches } from '../equivalence';
 
 const ipe300: SteelDesignParams = {

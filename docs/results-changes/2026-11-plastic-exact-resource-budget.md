@@ -45,4 +45,4 @@ this exact LP and retains its existing behavior and warnings.
 The registry flags frame projects after plastic analysis, in either dimension.
 The 2D combined API's existing `PL-2D-INVARIANCE` refusal remains in place.
 No engineering tolerance, numerical baseline, assertion bound, or simplex
-iteration limit is loosened. See [the derivation and measured replay table](../verification/PLASTIC_LP_BUDGET.md).
+iteration limit is loosened. See [the derivation and measured replay table](../../testing/docs/PLASTIC_LP_BUDGET.md).

@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * The certified enclosure of the critical load factor, beside the computed one: stable for
-   * every factor up to the lower value, unstable at the upper (docs/verification/CERTIFY.md).
+   * every factor up to the lower value, unstable at the upper (testing/docs/CERTIFY.md).
    */
   import { t } from '../../lib/i18n';
   import type { BucklingCertificate } from '../../lib/engine/wasm-solver';

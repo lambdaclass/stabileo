@@ -1,5 +1,5 @@
 //! Metamorphic tests: physics invariants on every analysis and the corpus
-//! (docs/verification/METAMORPHIC.md).
+//! (testing/docs/METAMORPHIC.md).
 //!
 //! No reference solution is needed: each model is solved, transformed (rigid
 //! rotation, mirror, renumbering, unit change, load splitting, unit loads),
@@ -15,12 +15,17 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod constraint_rounding_2013;
+mod roll_reference;
+mod flip_regressions;
+mod plate_convergence;
 mod active;
 mod betti;
 mod stiffness;
 mod generated;
 mod safety_cases;
 mod analysis_accuracy;
+mod ordinary_accuracy;
 mod ana2;
 mod ana3;
 mod case;
@@ -28,6 +33,7 @@ mod checks2;
 mod checks3;
 mod corpus;
 mod modal_checks;
+mod modal_mass_range;
 mod parity;
 mod nightly_tolerances;
 mod dynamic_accuracy;
@@ -53,7 +59,7 @@ fn seed() -> u64 {
 }
 
 /// The invariants × analyses matrix of a PR-tier run, as it appears in
-/// docs/verification/METAMORPHIC.md (between the BEGIN/END markers).
+/// testing/docs/METAMORPHIC.md (between the BEGIN/END markers).
 fn render(t: &Tally, anas: &[&str], invs: &[&str]) -> String {
     let mut s = format!("| Analysis | {} |\n|---|{}\n", invs.join(" | "), ":-:|".repeat(invs.len()));
     for a in anas {
@@ -64,17 +70,17 @@ fn render(t: &Tally, anas: &[&str], invs: &[&str]) -> String {
 }
 
 fn check_doc(section: &str, table: &str) {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/verification/METAMORPHIC.md");
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../testing/docs/METAMORPHIC.md");
     let doc = std::fs::read_to_string(&path).unwrap_or_default();
     let (b, e) = (format!("<!-- BEGIN {section} -->\n"), format!("<!-- END {section} -->"));
-    let (Some(i), Some(j)) = (doc.find(&b), doc.find(&e)) else { panic!("docs/verification/METAMORPHIC.md has no {section} section") };
+    let (Some(i), Some(j)) = (doc.find(&b), doc.find(&e)) else { panic!("testing/docs/METAMORPHIC.md has no {section} section") };
     let current = &doc[i + b.len()..j];
     if current != table {
         if std::env::var("UPDATE_METAMORPHIC_DOC").is_ok() {
             let new = format!("{}{}{}", &doc[..i + b.len()], table, &doc[j..]);
             std::fs::write(&path, new).unwrap();
         } else {
-            panic!("docs/verification/METAMORPHIC.md ({section}) is out of date: rerun with UPDATE_METAMORPHIC_DOC=1\n{table}");
+            panic!("testing/docs/METAMORPHIC.md ({section}) is out of date: rerun with UPDATE_METAMORPHIC_DOC=1\n{table}");
         }
     }
 }
@@ -218,7 +224,9 @@ fn metamorphic_replay() {
 
 fn finish_replay(t: &Tally) {
     let results = t.replay_results();
-    std::fs::write(std::env::var("NIGHTLY_RESULTS").unwrap(), serde_json::to_vec(&results).unwrap()).unwrap();
+    let path = std::env::var("NIGHTLY_RESULTS").unwrap();
+    std::fs::write(&path, serde_json::to_vec(&results).unwrap())
+        .unwrap_or_else(|error| panic!("failed to write replay results to {path}: {error}"));
     assert!(t.failures().is_empty(), "metamorphic violations: {results}");
 }
 
@@ -237,4 +245,18 @@ mod harmonic_coverage;
 
 mod seeded_failures;
 
+mod nonlinear_convergence;
 mod cause_c_replay;
+mod translation_rank;
+
+mod red_ci;
+
+mod candidate_replay;
+mod nightly_triage;
+
+mod nightly_harness;
+
+mod nightly_1113;
+
+mod released_load_work;
+mod ssi_elastic_2011;

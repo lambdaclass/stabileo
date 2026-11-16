@@ -1,3 +1,4 @@
+import { copyVerificationCheck } from '../../verification-steps';
 /**
  * The engine has the last word on a CIRSOC 201 pass.
  *
@@ -48,7 +49,11 @@ export interface EngineRecheck {
    * [lower, upper]. `ok` = provably below 1. Absent when the build has no certify export or the
    * member is not a beam check; `reason` when the certificate was refused.
    */
-  certified?: { ok: boolean; lower: number; upper: number; reason?: string };
+  certified?: { ok: boolean; lower: number; upper: number; reason?: string; code?: 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED' };
+}
+
+export function canReuseCirsoc201Certificate(certificate: EngineRecheck['certified']): boolean {
+  return certificate?.ok === true || certificate?.code === 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED';
 }
 
 const fail = (s: VerifStatus): boolean => s === 'fail';
@@ -68,8 +73,8 @@ export function engineRecheckElement(
   if (v.torsion && !v.torsion.neglect) rc.notRechecked.push('torsion');
   if (v.slender?.isSlender || v.slenderSecondary?.isSlender) rc.notRechecked.push('slenderness');
   if (v.shearSecondary) rc.notRechecked.push('shear-secondary');
-  const out = { ...v, flexure: { ...v.flexure }, shear: { ...v.shear }, column: v.column && { ...v.column },
-    biaxial: v.biaxial && { ...v.biaxial }, engineRecheck: rc };
+  const out = { ...v, flexure: copyVerificationCheck(v.flexure), shear: copyVerificationCheck(v.shear), column: v.column && copyVerificationCheck(v.column),
+    biaxial: v.biaxial && copyVerificationCheck(v.biaxial), engineRecheck: rc };
   const stirrupM = opts.stirrupDia / 1000;
 
   // ── Beam flexure and ductility, with the bars actually chosen ──
@@ -179,6 +184,10 @@ export function engineRecheckElement(
         }
       }
     }
+  }
+
+  if (v.torsion?.longitudinalProvision === 'not-checked' && rc.certified) {
+    rc.certified = { ...rc.certified, ok: false, code: 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED', reason: 'Longitudinal torsion reinforcement not checked' };
   }
 
   const diags: SolverDiagnostic[] = [...(v.diagnostics ?? [])];

@@ -23,6 +23,7 @@ import { requestAutosave } from '../store/autosave-service';
 import { noticesToReview } from '../store/solve-progress.svelte';
 import { spectralCaseResults } from '../store/spectral-cases';
 import { errorText } from '../utils/error-text';
+import { noteSolve } from '../telemetry/instrument.svelte';
 
 /**
  * The spectral cases' results, or nothing (said) when they cannot be had: those cases are left out.
@@ -80,8 +81,14 @@ export async function ensureResults(): Promise<SolveOutcome> {
  */
 export async function solveNow(): Promise<SolveOutcome> {
   if (!uiStore.is3DWorkspace) {
+    const startedAt = performance.now();
     reportModelDiagnostics();
-    try { return runSolve2D(); } catch (e) {
+    try {
+      const outcome = runSolve2D();
+      noteSolve(outcome.ok, startedAt);
+      return outcome;
+    } catch (e) {
+      noteSolve(false, startedAt);
       resultsStore.clear();
       const error = errorText(e, t('error.unknown'));
       uiStore.toast(error, 'error');

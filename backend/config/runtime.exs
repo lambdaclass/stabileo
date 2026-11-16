@@ -23,7 +23,14 @@ if config_env() == :prod do
       "You can generate one by running: mix phx.gen.secret"
     )
 
+  config :stabileo_marketing,
+    meta_pixel_id: StabileoUtils.fetch_env("META_PIXEL_ID"),
+    meta_capi_access_token: StabileoUtils.fetch_env("META_CAPI_ACCESS_TOKEN"),
+    meta_capi_test_event_code: StabileoUtils.fetch_env("META_CAPI_TEST_EVENT_CODE"),
+    gtm_container_id: StabileoUtils.fetch_env("GTM_CONTAINER_ID")
+
   host = StabileoUtils.fetch_env!("PHX_HOST")
+  app_url = StabileoUtils.fetch_env("APP_URL", "https://#{host}") |> String.trim_trailing("/")
   port = StabileoUtils.fetch_env_integer("PORT", 4100)
   bind_address = StabileoUtils.fetch_env("BIND_ADDRESS", "127.0.0.1")
 
@@ -54,6 +61,7 @@ if config_env() == :prod do
     admin_password_login: false,
     admin_frontend_url:
       StabileoUtils.fetch_env!("ADMIN_FRONTEND_URL", "The URL the admin site is served from."),
+    app_frontend_url: app_url,
     admin_domains:
       "ADMIN_DOMAINS"
       |> StabileoUtils.fetch_env("lambdaclass.com,ergodicgroup.com")
@@ -63,9 +71,12 @@ if config_env() == :prod do
   config :stabileo_auth, :google_oauth,
     client_id: StabileoUtils.fetch_env("GOOGLE_CLIENT_ID"),
     client_secret: StabileoUtils.fetch_env("GOOGLE_CLIENT_SECRET"),
+    app_client_id: StabileoUtils.fetch_env("GOOGLE_APP_CLIENT_ID"),
+    app_client_secret: StabileoUtils.fetch_env("GOOGLE_APP_CLIENT_SECRET"),
     redirect_uri:
       StabileoUtils.fetch_env!("API_URL", "The public URL of this backend.") <>
-        "/api/v1/admin/auth/google/callback"
+        "/api/v1/admin/auth/google/callback",
+    app_redirect_uri: app_url <> "/api/v1/auth/google/callback"
 
   config :cors_plug,
     origin:

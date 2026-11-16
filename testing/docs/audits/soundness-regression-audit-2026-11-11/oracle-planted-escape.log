@@ -1,0 +1,464 @@
+======================================================================
+FAIL: test_issue_1126_disp_rz_planted_error (audit_tests.NumericFieldAudit.test_issue_1126_disp_rz_planted_error) (issue=1126, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1126, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1127_disp_ry_planted_error (audit_tests.NumericFieldAudit.test_issue_1127_disp_ry_planted_error) (issue=1127, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1127, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1131_disp_rx_planted_error (audit_tests.NumericFieldAudit.test_issue_1131_disp_rx_planted_error) (issue=1131, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1131, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1137_disp_ux_planted_error (audit_tests.NumericFieldAudit.test_issue_1137_disp_ux_planted_error) (issue=1137, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1137, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1145_disp_uz_planted_error (audit_tests.NumericFieldAudit.test_issue_1145_disp_uz_planted_error) (issue=1145, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1145, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1149_force_vzStart_planted_error (audit_tests.NumericFieldAudit.test_issue_1149_force_vzStart_planted_error) (issue=1149, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1149, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1150_reac_mx_planted_error (audit_tests.NumericFieldAudit.test_issue_1150_reac_mx_planted_error) (issue=1150, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1150, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1153_disp_uy_planted_error (audit_tests.NumericFieldAudit.test_issue_1153_disp_uy_planted_error) (issue=1153, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1153, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1154_force_nEnd_planted_error (audit_tests.NumericFieldAudit.test_issue_1154_force_nEnd_planted_error) (issue=1154, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1154, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1155_force_nStart_planted_error (audit_tests.NumericFieldAudit.test_issue_1155_force_nStart_planted_error) (issue=1155, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1155, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1156_reac_fz_planted_error (audit_tests.NumericFieldAudit.test_issue_1156_reac_fz_planted_error) (issue=1156, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1156, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1168_reac_fy_planted_error (audit_tests.NumericFieldAudit.test_issue_1168_reac_fy_planted_error) (issue=1168, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1168, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1171_force_vyStart_planted_error (audit_tests.NumericFieldAudit.test_issue_1171_force_vyStart_planted_error) (issue=1171, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1171, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1174_force_mxStart_planted_error (audit_tests.NumericFieldAudit.test_issue_1174_force_mxStart_planted_error) (issue=1174, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1174, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1180_reac_fx_planted_error (audit_tests.NumericFieldAudit.test_issue_1180_reac_fx_planted_error) (issue=1180, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1180, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1184_force_vyEnd_planted_error (audit_tests.NumericFieldAudit.test_issue_1184_force_vyEnd_planted_error) (issue=1184, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1184, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1185_force_vzEnd_planted_error (audit_tests.NumericFieldAudit.test_issue_1185_force_vzEnd_planted_error) (issue=1185, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1185, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1186_force_mxEnd_planted_error (audit_tests.NumericFieldAudit.test_issue_1186_force_mxEnd_planted_error) (issue=1186, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1186, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1187_reac_my_planted_error (audit_tests.NumericFieldAudit.test_issue_1187_reac_my_planted_error) (issue=1187, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1187, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_1256_reac_mx_planted_error (audit_tests.NumericFieldAudit.test_issue_1256_reac_mx_planted_error) (issue=1256, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (1256, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_906_disp_rx_planted_error (audit_tests.NumericFieldAudit.test_issue_906_disp_rx_planted_error) (issue=906, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (906, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_907_disp_ry_planted_error (audit_tests.NumericFieldAudit.test_issue_907_disp_ry_planted_error) (issue=907, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (907, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_908_disp_rz_planted_error (audit_tests.NumericFieldAudit.test_issue_908_disp_rz_planted_error) (issue=908, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (908, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_909_force_myEnd_planted_error (audit_tests.NumericFieldAudit.test_issue_909_force_myEnd_planted_error) (issue=909, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (909, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_910_force_nStart_planted_error (audit_tests.NumericFieldAudit.test_issue_910_force_nStart_planted_error) (issue=910, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (910, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_911_force_vzEnd_planted_error (audit_tests.NumericFieldAudit.test_issue_911_force_vzEnd_planted_error) (issue=911, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (911, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_912_force_vzStart_planted_error (audit_tests.NumericFieldAudit.test_issue_912_force_vzStart_planted_error) (issue=912, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (912, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_924_force_vyEnd_planted_error (audit_tests.NumericFieldAudit.test_issue_924_force_vyEnd_planted_error) (issue=924, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (924, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_925_force_vyStart_planted_error (audit_tests.NumericFieldAudit.test_issue_925_force_vyStart_planted_error) (issue=925, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (925, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_926_reac_my_planted_error (audit_tests.NumericFieldAudit.test_issue_926_reac_my_planted_error) (issue=926, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (926, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_933_disp_uy_planted_error (audit_tests.NumericFieldAudit.test_issue_933_disp_uy_planted_error) (issue=933, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (933, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_934_disp_uz_planted_error (audit_tests.NumericFieldAudit.test_issue_934_disp_uz_planted_error) (issue=934, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (934, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_941_reac_fx_planted_error (audit_tests.NumericFieldAudit.test_issue_941_reac_fx_planted_error) (issue=941, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (941, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_942_reac_fy_planted_error (audit_tests.NumericFieldAudit.test_issue_942_reac_fy_planted_error) (issue=942, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (942, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_943_reac_fz_planted_error (audit_tests.NumericFieldAudit.test_issue_943_reac_fz_planted_error) (issue=943, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (943, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_945_force_mzEnd_planted_error (audit_tests.NumericFieldAudit.test_issue_945_force_mzEnd_planted_error) (issue=945, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (945, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_946_force_mzStart_planted_error (audit_tests.NumericFieldAudit.test_issue_946_force_mzStart_planted_error) (issue=946, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (946, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_947_force_mxEnd_planted_error (audit_tests.NumericFieldAudit.test_issue_947_force_mxEnd_planted_error) (issue=947, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (947, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_issue_948_force_mxStart_planted_error (audit_tests.NumericFieldAudit.test_issue_948_force_mxStart_planted_error) (issue=948, entry='opensees')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (948, 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_planar_displacements_reactions_and_member_forces_reject_planted_errors (audit_tests.NumericFieldAudit.test_planar_displacements_reactions_and_member_forces_reject_planted_errors) (issue='planar control', entry='opensees', field='disp', component='ux')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : ('planar control', 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_planar_displacements_reactions_and_member_forces_reject_planted_errors (audit_tests.NumericFieldAudit.test_planar_displacements_reactions_and_member_forces_reject_planted_errors) (issue='planar control', entry='opensees', field='disp', component='uz')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : ('planar control', 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_planar_displacements_reactions_and_member_forces_reject_planted_errors (audit_tests.NumericFieldAudit.test_planar_displacements_reactions_and_member_forces_reject_planted_errors) (issue='planar control', entry='opensees', field='disp', component='ry')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : ('planar control', 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_planar_displacements_reactions_and_member_forces_reject_planted_errors (audit_tests.NumericFieldAudit.test_planar_displacements_reactions_and_member_forces_reject_planted_errors) (issue='planar control', entry='opensees', field='reac', component='rx')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : ('planar control', 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_planar_displacements_reactions_and_member_forces_reject_planted_errors (audit_tests.NumericFieldAudit.test_planar_displacements_reactions_and_member_forces_reject_planted_errors) (issue='planar control', entry='opensees', field='reac', component='rz')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : ('planar control', 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_planar_displacements_reactions_and_member_forces_reject_planted_errors (audit_tests.NumericFieldAudit.test_planar_displacements_reactions_and_member_forces_reject_planted_errors) (issue='planar control', entry='opensees', field='reac', component='my')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : ('planar control', 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_planar_displacements_reactions_and_member_forces_reject_planted_errors (audit_tests.NumericFieldAudit.test_planar_displacements_reactions_and_member_forces_reject_planted_errors) (issue='planar control', entry='opensees', field='force', component='nStart')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : ('planar control', 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_planar_displacements_reactions_and_member_forces_reject_planted_errors (audit_tests.NumericFieldAudit.test_planar_displacements_reactions_and_member_forces_reject_planted_errors) (issue='planar control', entry='opensees', field='force', component='nEnd')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : ('planar control', 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_planar_displacements_reactions_and_member_forces_reject_planted_errors (audit_tests.NumericFieldAudit.test_planar_displacements_reactions_and_member_forces_reject_planted_errors) (issue='planar control', entry='opensees', field='force', component='vStart')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : ('planar control', 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_planar_displacements_reactions_and_member_forces_reject_planted_errors (audit_tests.NumericFieldAudit.test_planar_displacements_reactions_and_member_forces_reject_planted_errors) (issue='planar control', entry='opensees', field='force', component='vEnd')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : ('planar control', 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_planar_displacements_reactions_and_member_forces_reject_planted_errors (audit_tests.NumericFieldAudit.test_planar_displacements_reactions_and_member_forces_reject_planted_errors) (issue='planar control', entry='opensees', field='force', component='mStart')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : ('planar control', 'opensees', 'actual', [])
+
+======================================================================
+FAIL: test_planar_displacements_reactions_and_member_forces_reject_planted_errors (audit_tests.NumericFieldAudit.test_planar_displacements_reactions_and_member_forces_reject_planted_errors) (issue='planar control', entry='opensees', field='force', component='mEnd')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/unbalancedparen/projects/stabileo-wt/regression-audit/tools/opensees/test_compare.py", line 668, in field
+    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : ('planar control', 'opensees', 'actual', [])
+
+----------------------------------------------------------------------
+Ran 40 tests in 0.125s
+
+FAILED (failures=51)
+PLANTED ESCAPED ERRORS: 40 tests; 51 failures; 0 errors

@@ -1,0 +1,826 @@
+use super::{
+    assembly::{InclinedTransformData, InclinedTransformData2D},
+    constraints::FreeConstraintSystem,
+    dof::DofNumbering,
+    linear,
+};
+use crate::types::*;
+
+pub(super) struct SolverDisplacements<'a>(&'a [f64]);
+
+pub(super) struct GlobalDisplacements<'a>(std::borrow::Cow<'a, [f64]>);
+
+impl<'a> SolverDisplacements<'a> {
+    pub(super) fn new(values: &'a [f64]) -> Self { Self(values) }
+    pub(super) fn as_slice(&self) -> &[f64] { self.0 }
+    pub(super) fn to_global_2d(&self, transforms: &[InclinedTransformData2D]) -> GlobalDisplacements<'a> {
+        let mut values = self.0.to_vec();
+        for transform in transforms {
+            super::assembly::reverse_inclined_transform_2d(&mut values, &transform.dofs, &transform.r);
+        }
+        GlobalDisplacements(std::borrow::Cow::Owned(values))
+    }
+    pub(super) fn to_global_3d(&self, transforms: &[InclinedTransformData]) -> GlobalDisplacements<'a> {
+        let mut values = self.0.to_vec();
+        for transform in transforms {
+            super::assembly::reverse_inclined_transform(&mut values, &transform.dofs, &transform.r);
+        }
+        GlobalDisplacements(std::borrow::Cow::Owned(values))
+    }
+}
+
+impl<'a> GlobalDisplacements<'a> {
+    pub(super) fn from_global(values: &'a [f64]) -> Self { Self(std::borrow::Cow::Borrowed(values)) }
+    pub(super) fn as_slice(&self) -> &[f64] { &self.0 }
+}
+
+#[derive(Clone)]
+pub(super) enum ExpandedReactionModel {
+    Plane(ExpandedReactionModel2D),
+    Space(ExpandedReactionModel3D),
+}
+
+#[derive(Clone)]
+pub(super) struct ExpandedReactionModel2D {
+    supports: std::collections::HashMap<String, SolverSupport>,
+}
+
+#[derive(Clone)]
+pub(super) struct ExpandedReactionModel3D {
+    supports: std::collections::HashMap<String, SolverSupport3D>,
+}
+
+impl ExpandedReactionModel2D {
+    pub(super) fn from_assembly(input: &SolverInput) -> Self { Self { supports: input.supports.clone() } }
+    pub(super) fn supports(&self) -> &std::collections::HashMap<String, SolverSupport> { &self.supports }
+}
+
+impl ExpandedReactionModel3D {
+    pub(super) fn from_assembly(input: &SolverInput3D) -> Self { Self { supports: input.supports.clone() } }
+    pub(super) fn supports(&self) -> &std::collections::HashMap<String, SolverSupport3D> { &self.supports }
+}
+
+impl ExpandedReactionModel {
+    pub(super) fn plane(input: &SolverInput) -> Self { Self::Plane(ExpandedReactionModel2D::from_assembly(input)) }
+    pub(super) fn space(input: &SolverInput3D) -> Self { Self::Space(ExpandedReactionModel3D::from_assembly(input)) }
+}
+
+pub(crate) struct RecoveredForces {
+    model: ExpandedReactionModel,
+    restrained: Vec<f64>,
+    free_residual: Vec<f64>,
+    pub constraint_forces: Vec<ConstraintForce>,
+}
+
+impl RecoveredForces {
+    pub(super) fn from_physical(
+        internal: &PhysicalForces,
+        applied: &[f64],
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+    ) -> Self {
+        let model = internal.1.clone();
+        let internal = &internal.0;
+        assert_eq!(internal.len(), dofs.n_total);
+        assert_eq!(applied.len(), dofs.n_total);
+        let residual: Vec<f64> = internal.iter().zip(applied).map(|(i, e)| i - e).collect();
+        Self::from_residual(&residual, dofs, cs, model)
+    }
+
+    fn from_residual(
+        residual: &[f64],
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+        model: ExpandedReactionModel,
+    ) -> Self {
+        assert_eq!(residual.len(), dofs.n_total);
+        Self::from_parts(residual[..dofs.n_free].to_vec(), residual[dofs.n_free..].to_vec(), dofs, cs, model)
+    }
+
+    pub(super) fn from_pdelta(
+        residual: &super::pdelta::PhysicalPDeltaResidual,
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+    ) -> Self {
+        let (values, model) = residual.parts();
+        Self::from_residual(values, dofs, cs, model.clone())
+    }
+
+    pub(super) fn from_soil(
+        residual: super::ssi::PhysicalSoilResidual,
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+    ) -> Self {
+        let (free, restrained, model) = residual.into_parts();
+        Self::from_parts(free, restrained, dofs, cs, model)
+    }
+
+    fn from_parts(
+        free_residual: Vec<f64>,
+        mut restrained: Vec<f64>,
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+        model: ExpandedReactionModel,
+    ) -> Self {
+        assert_eq!(free_residual.len(), dofs.n_free);
+        assert_eq!(restrained.len(), dofs.n_total - dofs.n_free);
+        let constraint_forces = cs.map_or_else(Vec::new, |cs| {
+            let raw = cs.constraint_forces_from_residual(&free_residual);
+            cs.add_restrained_master_forces(&raw, &mut restrained);
+            cs.constraint_forces(&raw, dofs)
+        });
+        Self { model, restrained, free_residual, constraint_forces }
+    }
+
+    pub(super) fn free_residual(&self) -> &[f64] {
+        &self.free_residual
+    }
+
+    pub(super) fn from_stage(
+        residual: &super::staged::PhysicalStageResidual,
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+    ) -> Self {
+        Self::from_residual(&residual.as_slice(), dofs, cs, residual.model().clone())
+    }
+
+    pub(super) fn checked_restrained_2d(
+        &self,
+        input: &SolverInput,
+        dofs: &DofNumbering,
+    ) -> Result<&[f64], String> {
+        check_restraints(dofs, crate::ordered::values(&input.supports).flat_map(|s| {
+            super::support::support_dofs_2d(s).into_iter().enumerate().filter_map(move |(k, d)| d.restrained.then_some((s.node_id, k)))
+        }))?;
+        Ok(&self.restrained)
+    }
+
+    pub(super) fn reactions_2d(
+        &self,
+        dofs: &DofNumbering,
+        u_global: &GlobalDisplacements<'_>,
+        its: &[InclinedTransformData2D],
+    ) -> Result<Vec<Reaction>, String> {
+        let ExpandedReactionModel::Plane(input) = &self.model else { return Err("Spatial recovery model used for planar reactions".into()); };
+        check_restraints(dofs, crate::ordered::values(&input.supports).flat_map(|s| {
+            super::support::support_dofs_2d(s).into_iter().enumerate().filter_map(move |(k,d)| d.restrained.then_some((s.node_id,k)))
+        }))?;
+        let restrained = &self.restrained;
+        let mut r = linear::build_reactions_2d_inclined(
+            input,
+            dofs,
+            restrained,
+            &[],
+            dofs.n_free,
+            u_global.as_slice(),
+            its,
+        );
+        r.sort_by_key(|r| r.node_id);
+        Ok(r)
+    }
+
+    pub(super) fn reactions_3d(
+        &self,
+        dofs: &DofNumbering,
+        u_global: &GlobalDisplacements<'_>,
+        its: &[InclinedTransformData],
+    ) -> Result<Vec<Reaction3D>, String> {
+        let ExpandedReactionModel::Space(input) = &self.model else { return Err("Planar recovery model used for spatial reactions".into()); };
+        check_restraints(dofs, crate::ordered::values(&input.supports).flat_map(|s| {
+            super::support::support_dofs_3d(s).into_iter().enumerate().filter_map(move |(k, d)| d.restrained.then_some((s.node_id, k)))
+        }))?;
+        let mut r = linear::build_reactions_3d_inclined(
+            input,
+            dofs,
+            &self.restrained,
+            &[],
+            dofs.n_free,
+            u_global.as_slice(),
+            its,
+        );
+        r.sort_by_key(|r| r.node_id);
+        Ok(r)
+    }
+}
+
+fn unavailable(phase: &str, message: &str) -> StructuredDiagnostic {
+    let mut d = StructuredDiagnostic::global(
+        DiagnosticCode::ResultQuantityUnavailable,
+        Severity::Warning,
+        message.to_string(),
+    );
+    d.phase = Some(phase.to_string());
+    d
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum UnavailableQuantity {
+    PhysicalEquilibrium,
+    StageEquilibrium,
+    PeakReactions,
+}
+
+pub(super) trait WithholdForces {
+    fn diagnostics_mut(&mut self) -> &mut Vec<StructuredDiagnostic>;
+    fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]);
+}
+
+impl<D> WithholdForces for AnalysisResults<D> {
+    fn diagnostics_mut(&mut self) -> &mut Vec<StructuredDiagnostic> { &mut self.structured_diagnostics }
+    fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]) {
+        self.result_summary = None;
+        let phases: &[_] = match quantity {
+            UnavailableQuantity::PhysicalEquilibrium => {
+                for r in &mut self.reactions { r.rx = f64::NAN; r.rz = f64::NAN; r.my = f64::NAN; }
+                for f in &mut self.element_forces {
+                    f.n_start = f64::NAN; f.n_end = f64::NAN;
+                    f.v_start = f64::NAN; f.v_end = f64::NAN;
+                    f.m_start = f64::NAN; f.m_end = f64::NAN;
+                }
+                for f in &mut self.constraint_forces { f.force = f64::NAN; }
+                &["reactions", "elementForces", "constraintForces"]
+            }
+            UnavailableQuantity::StageEquilibrium => {
+                self.reactions.clear();
+                self.element_forces.clear();
+                self.constraint_forces.clear();
+                &["stageResults", "reactions", "elementForces", "constraintForces"]
+            }
+            UnavailableQuantity::PeakReactions => unreachable!(),
+        };
+        (&mut self.structured_diagnostics, phases)
+    }
+}
+
+impl<D> WithholdForces for AnalysisResults3D<D> {
+    fn diagnostics_mut(&mut self) -> &mut Vec<StructuredDiagnostic> { &mut self.structured_diagnostics }
+    fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]) {
+        self.result_summary = None;
+        let phases: &[_] = match quantity {
+            UnavailableQuantity::PhysicalEquilibrium => {
+                for r in &mut self.reactions {
+                    r.fx = f64::NAN; r.fy = f64::NAN; r.fz = f64::NAN;
+                    r.mx = f64::NAN; r.my = f64::NAN; r.mz = f64::NAN;
+                    if let Some(b) = &mut r.bimoment { *b = f64::NAN; }
+                }
+                for f in &mut self.element_forces {
+                    f.n_start = f64::NAN; f.n_end = f64::NAN;
+                    f.vy_start = f64::NAN; f.vy_end = f64::NAN;
+                    f.vz_start = f64::NAN; f.vz_end = f64::NAN;
+                    f.mx_start = f64::NAN; f.mx_end = f64::NAN;
+                    f.my_start = f64::NAN; f.my_end = f64::NAN;
+                    f.mz_start = f64::NAN; f.mz_end = f64::NAN;
+                    f.bimoment_start = f.bimoment_start.map(|_| f64::NAN);
+                    f.bimoment_end = f.bimoment_end.map(|_| f64::NAN);
+                }
+                for f in &mut self.constraint_forces { f.force = f64::NAN; }
+                for f in &mut self.plate_stresses {
+                    f.sigma_xx = f64::NAN; f.sigma_yy = f64::NAN; f.tau_xy = f64::NAN;
+                    f.mx = f64::NAN; f.my = f64::NAN; f.mxy = f64::NAN;
+                    f.sigma_1 = f64::NAN; f.sigma_2 = f64::NAN; f.von_mises = f64::NAN;
+                    f.nodal_von_mises.fill(f64::NAN);
+                    f.qx = f.qx.map(|_| f64::NAN); f.qy = f.qy.map(|_| f64::NAN);
+                }
+                for f in &mut self.quad_stresses {
+                    f.sigma_xx = f64::NAN; f.sigma_yy = f64::NAN; f.tau_xy = f64::NAN;
+                    f.mx = f64::NAN; f.my = f64::NAN; f.mxy = f64::NAN; f.von_mises = f64::NAN;
+                    f.nodal_von_mises.fill(f64::NAN);
+                    f.qx = f.qx.map(|_| f64::NAN); f.qy = f.qy.map(|_| f64::NAN);
+                }
+                for f in &mut self.quad_nodal_stresses {
+                    f.sigma_xx = f64::NAN; f.sigma_yy = f64::NAN; f.tau_xy = f64::NAN;
+                    f.mx = f64::NAN; f.my = f64::NAN; f.mxy = f64::NAN; f.von_mises = f64::NAN;
+                    f.qx = f.qx.map(|_| f64::NAN); f.qy = f.qy.map(|_| f64::NAN);
+                }
+                &["reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"]
+            }
+            UnavailableQuantity::StageEquilibrium => {
+                self.reactions.clear();
+                self.element_forces.clear();
+                self.constraint_forces.clear();
+                self.plate_stresses.clear();
+                self.quad_stresses.clear();
+                self.quad_nodal_stresses.clear();
+                &["stageResults", "reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"]
+            }
+            UnavailableQuantity::PeakReactions => unreachable!(),
+        };
+        (&mut self.structured_diagnostics, phases)
+    }
+}
+
+impl WithholdForces for TimeHistoryResult {
+    fn diagnostics_mut(&mut self) -> &mut Vec<StructuredDiagnostic> { &mut self.structured_diagnostics }
+    fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]) {
+        assert!(matches!(quantity, UnavailableQuantity::PeakReactions));
+        self.peak_reactions.clear();
+        (&mut self.structured_diagnostics, &["peakReactions"])
+    }
+}
+
+impl WithholdForces for TimeHistoryResult3D {
+    fn diagnostics_mut(&mut self) -> &mut Vec<StructuredDiagnostic> { &mut self.structured_diagnostics }
+    fn clear_unavailable(&mut self, quantity: UnavailableQuantity) -> (&mut Vec<StructuredDiagnostic>, &'static [&'static str]) {
+        assert!(matches!(quantity, UnavailableQuantity::PeakReactions));
+        self.peak_reactions.clear();
+        (&mut self.structured_diagnostics, &["peakReactions"])
+    }
+}
+
+pub(super) fn contain_pdelta(results: &mut impl WithholdForces, equilibrium: &EquilibriumSummary) {
+    if !equilibrium.residual_ok {
+        withhold(results, UnavailableQuantity::PhysicalEquilibrium, "P-Delta equilibrium forces are unavailable: the physical free-DOF residual after constraint projection fails the requested tolerance. Reaction, member, constraint force and stress records retain their identities with explicitly unavailable force and stress quantities.");
+    } else if !equilibrium.equilibrium_ok {
+        let diagnostic = StructuredDiagnostic::global(DiagnosticCode::EquilibriumViolation, Severity::Warning, "P-Delta satisfies its physical small-displacement equations, but its support-only force and moment balance on the displaced geometry fails the requested tolerance. General MPC actions are reported separately as constraint forces and need not have zero resultant. Small-strain P-Delta also does not enforce finite-displacement moment balance; use corotational analysis for finite-displacement reactions.".to_string());
+        let diagnostics = results.diagnostics_mut();
+        crate::known_issues::attach(diagnostics, vec![diagnostic]);
+    }
+}
+
+pub(super) fn withhold(results: &mut impl WithholdForces, quantity: UnavailableQuantity, message: &str) {
+    let (diagnostics, phases) = results.clear_unavailable(quantity);
+    crate::known_issues::attach(diagnostics, phases.iter().map(|phase| unavailable(phase, message)).collect());
+}
+
+pub(crate) fn balance_2d(
+    input: &SolverInput,
+    dofs: &DofNumbering,
+    u: &[f64],
+    f: &[f64],
+    reactions: &[Reaction],
+    its: &[InclinedTransformData2D],
+    tolerance: f64,
+) -> EquilibriumSummary {
+    use super::fiber_nonlinear::{wrench_equilibrium, NodalWrench};
+    let f = super::assembly::to_global(f, dofs.n_total, its);
+    let at = |node, k| dofs.global_dof(node, k).map_or(0.0, |d| u[d]);
+    let nodes: std::collections::HashMap<_, _> = crate::ordered::values(&input.nodes)
+        .map(|n| (n.id, n))
+        .collect();
+    let position = |id| {
+        let n = nodes[&id];
+        [n.x + at(id, 0), 0.0, n.z + at(id, 1)]
+    };
+    let applied: Vec<_> = dofs
+        .node_order
+        .iter()
+        .map(|&id| {
+            let force = |k| dofs.global_dof(id, k).map_or(0.0, |d| f[d]);
+            NodalWrench {
+                r: position(id),
+                f: [force(0), 0.0, force(1)],
+                m: [0.0, -force(2), 0.0],
+            }
+        })
+        .collect();
+    let reacting: Vec<_> = reactions
+        .iter()
+        .map(|r| NodalWrench {
+            r: position(r.node_id),
+            f: [r.rx, 0.0, r.rz],
+            m: [0.0, -r.my, 0.0],
+        })
+        .collect();
+    let points: Vec<_> = applied.iter().map(|w| w.r).collect();
+    let b = wrench_equilibrium(&points, &applied, &reacting, 0.0, tolerance, dofs.n_free);
+    let mut summary = b.summary;
+    summary.applied_force_sum = vec![b.applied[0], b.applied[2], -b.applied[4]];
+    summary.reaction_force_sum = vec![b.reactions[0], b.reactions[2], -b.reactions[4]];
+    summary
+}
+
+pub(crate) fn balance_3d(
+    input: &SolverInput3D,
+    dofs: &DofNumbering,
+    u: &[f64],
+    f: &[f64],
+    reactions: &[Reaction3D],
+    its: &[InclinedTransformData],
+    tolerance: f64,
+) -> EquilibriumSummary {
+    use super::fiber_nonlinear::{wrench_equilibrium, NodalWrench};
+    let f = super::assembly::to_global(f, dofs.n_total, its);
+    let at = |node, k| dofs.global_dof(node, k).map_or(0.0, |d| u[d]);
+    let nodes: std::collections::HashMap<_, _> = crate::ordered::values(&input.nodes)
+        .map(|n| (n.id, n))
+        .collect();
+    let position = |id| {
+        let n = nodes[&id];
+        [n.x + at(id, 0), n.y + at(id, 1), n.z + at(id, 2)]
+    };
+    let applied: Vec<_> = dofs
+        .node_order
+        .iter()
+        .map(|&id| {
+            let force = |k| dofs.global_dof(id, k).map_or(0.0, |d| f[d]);
+            NodalWrench {
+                r: position(id),
+                f: [force(0), force(1), force(2)],
+                m: [force(3), force(4), force(5)],
+            }
+        })
+        .collect();
+    let reacting: Vec<_> = reactions
+        .iter()
+        .map(|r| NodalWrench {
+            r: position(r.node_id),
+            f: [r.fx, r.fy, r.fz],
+            m: [r.mx, r.my, r.mz],
+        })
+        .collect();
+    let points: Vec<_> = applied.iter().map(|w| w.r).collect();
+    let b = wrench_equilibrium(&points, &applied, &reacting, 0.0, tolerance, dofs.n_free);
+    let mut summary = b.summary;
+    summary.applied_force_sum = b.applied.to_vec();
+    summary.reaction_force_sum = b.reactions.to_vec();
+    summary
+}
+
+fn check_restraints(dofs: &DofNumbering, required: impl Iterator<Item = (usize, usize)>) -> Result<(), String> {
+    let required: std::collections::HashSet<_> = required.collect();
+    let mut nodes: Vec<_> = dofs.map.iter().filter_map(|(&(node, k), &d)| ((d >= dofs.n_free) != required.contains(&(node, k))).then_some(node)).collect();
+    nodes.sort_unstable();
+    nodes.dedup();
+    if nodes.is_empty() { return Ok(()); }
+    let mut diagnostic = unavailable("reactions", "Results withheld: active support restraints differ from the DOFs used by the solve. Reactions, displacements and member forces cannot be recovered for this model. Rebuild the analysis with the requested supports.").with_nodes(nodes);
+    diagnostic.severity = Severity::Error;
+    Err(serde_json::json!({"message":diagnostic.message,"structuredDiagnostics":[diagnostic]}).to_string())
+}
+
+pub(crate) struct PhysicalForces(Vec<f64>, ExpandedReactionModel);
+
+impl PhysicalForces {
+    pub(super) fn linear_2d(input: &SolverInput, dofs: &DofNumbering, u: &[f64]) -> Self {
+        let a = super::assembly::physical_stiffness(|| {
+            super::sparse_assembly::assemble_stiffness_sparse_2d(input, dofs)
+        });
+        Self(a.k_full.sym_mat_vec(u), ExpandedReactionModel::plane(input))
+    }
+
+    pub(super) fn linear_3d(input: &SolverInput3D, dofs: &DofNumbering, u: &[f64]) -> Self {
+        let a = super::assembly::physical_stiffness(|| {
+            super::assembly::assemble_stiffness_sparse_3d(input, dofs, true)
+        });
+        Self(
+            a.k_full
+                .expect("physical full stiffness requested")
+                .sym_mat_vec(u),
+            ExpandedReactionModel::space(input),
+        )
+    }
+
+    pub(super) fn corotational_2d(
+        input: &SolverInput,
+        dofs: &DofNumbering,
+        u: &[f64],
+        its: &[InclinedTransformData2D],
+    ) -> Self {
+        let mut f = vec![0.0; dofs.n_total];
+        let mut discard = |_, _, _| {};
+        super::corotational::assemble_corotational_impl(input, dofs, u, &mut f, &mut discard);
+        super::corotational::add_physical_spring_contributions(
+            input,
+            dofs,
+            u,
+            &mut f,
+            &mut discard,
+        );
+        Self(super::assembly::to_inclined_free(f, its, dofs.n_total), ExpandedReactionModel::plane(input))
+    }
+
+    pub(super) fn corotational_3d(
+        input: &SolverInput3D,
+        dofs: &DofNumbering,
+        u: &[f64],
+        left_hand: bool,
+        its: &[InclinedTransformData],
+    ) -> Self {
+        let mut f = vec![0.0; dofs.n_total];
+        let mut discard = |_, _, _| {};
+        super::corotational::assemble_corotational_3d_impl(
+            input,
+            dofs,
+            u,
+            &mut f,
+            &mut discard,
+            left_hand,
+        );
+        super::corotational::add_spring_contributions_3d(input, dofs, u, &mut f, &mut discard);
+        Self(super::assembly::to_inclined_free(f, its, dofs.n_total), ExpandedReactionModel::space(input))
+    }
+
+    pub(super) fn material_2d(
+        input: &SolverInput,
+        dofs: &DofNumbering,
+        states: &[(usize, super::material_nonlinear::ElementState)],
+        u: &[f64],
+        its: &[InclinedTransformData2D],
+    ) -> Self {
+        let mut k = super::material_nonlinear::assemble_tangent_stiffness(input, dofs, states, &[]);
+        let mut unused = vec![0.0; dofs.n_total];
+        for it in its {
+            super::assembly::apply_inclined_transform_2d(
+                &mut k,
+                &mut unused,
+                dofs.n_total,
+                &it.dofs,
+                &it.r,
+            );
+        }
+        Self(crate::linalg::mat_vec(&k, u, dofs.n_total), ExpandedReactionModel::plane(input))
+    }
+
+    pub(super) fn material_3d(
+        input: &SolverInput3D,
+        dofs: &DofNumbering,
+        states: &[(usize, super::material_nonlinear::ElementState3D)],
+        u: &[f64],
+        its: &[InclinedTransformData],
+    ) -> Self {
+        let mut k =
+            super::material_nonlinear::assemble_tangent_stiffness_3d(input, dofs, states, &[]);
+        let mut unused = vec![0.0; dofs.n_total];
+        for it in its {
+            super::assembly::apply_inclined_transform(
+                &mut k,
+                &mut unused,
+                dofs.n_total,
+                &it.dofs,
+                &it.r,
+            );
+        }
+        Self(crate::linalg::mat_vec(&k, u, dofs.n_total), ExpandedReactionModel::space(input))
+    }
+
+    pub(super) fn contact_2d(
+        input: &SolverInput,
+        dofs: &DofNumbering,
+        u: &[f64],
+        inactive: &[usize],
+        corrections: &[super::contact::Correction],
+    ) -> Self {
+        let mut model = input.clone();
+        model.elements.retain(|_, e| !inactive.contains(&e.id));
+        Self::linear_2d(&model, dofs, u).with_contact(u, corrections)
+    }
+
+    pub(super) fn contact_3d(
+        input: &SolverInput3D,
+        dofs: &DofNumbering,
+        u: &[f64],
+        inactive: &[usize],
+        corrections: &[super::contact::Correction],
+    ) -> Self {
+        let mut model = input.clone();
+        model.elements.retain(|_, e| !inactive.contains(&e.id));
+        Self::linear_3d(&model, dofs, u).with_contact(u, corrections)
+    }
+
+    fn with_contact(mut self, u: &[f64], corrections: &[super::contact::Correction]) -> Self {
+        for c in corrections {
+            let n = c.dofs.len();
+            for a in 0..n {
+                self.0[c.dofs[a]] -= c.f[a];
+                for b in 0..n {
+                    self.0[c.dofs[a]] += c.k[a * n + b] * u[c.dofs[b]];
+                }
+            }
+        }
+        self
+    }
+
+    pub(super) fn with_cables_2d(
+        mut self,
+        cables: &[super::cable::CableGeom],
+        slots: &[([usize; 4], [f64; 4])],
+        tensions: &std::collections::HashMap<usize, f64>,
+        strains: &std::collections::HashMap<usize, f64>,
+    ) -> Self {
+        for (c, (dofs, coefficients)) in cables.iter().zip(slots) {
+            for (&d, &coef) in dofs.iter().zip(coefficients) {
+                if d != usize::MAX {
+                    self.0[d] -= coef * (tensions[&c.elem_id] - c.ea * strains[&c.elem_id]);
+                }
+            }
+        }
+        self
+    }
+
+    pub(super) fn with_cables_3d(
+        mut self,
+        cables: &[super::cable::CableGeom3D],
+        slots: &[([usize; 6], [f64; 6])],
+        tensions: &std::collections::HashMap<usize, f64>,
+        strains: &std::collections::HashMap<usize, f64>,
+    ) -> Self {
+        for (c, (dofs, coefficients)) in cables.iter().zip(slots) {
+            for (&d, &coef) in dofs.iter().zip(coefficients) {
+                if d != usize::MAX {
+                    self.0[d] -= coef * (tensions[&c.elem_id] - c.ea * strains[&c.elem_id]);
+                }
+            }
+        }
+        self
+    }
+
+    pub(super) fn winkler_2d(
+        input: &super::winkler::WinklerInput,
+        dofs: &DofNumbering,
+        u: &[f64],
+    ) -> Result<Self, String> {
+        let mut a = super::assembly::physical_stiffness(|| {
+            super::assembly::assemble_2d(&input.solver, dofs)
+        });
+        let nodes = crate::ordered::values(&input.solver.nodes)
+            .map(|n| (n.id, n))
+            .collect();
+        let elements = crate::ordered::values(&input.solver.elements)
+            .map(|e| (e.id, e))
+            .collect();
+        for spring in &input.foundation_springs {
+            super::winkler::add_foundation_2d(
+                &mut a.k,
+                dofs.n_total,
+                spring,
+                &nodes,
+                &elements,
+                dofs,
+            )?;
+        }
+        Ok(Self(crate::linalg::mat_vec(&a.k, u, dofs.n_total), ExpandedReactionModel::plane(&input.solver)))
+    }
+
+    pub(super) fn winkler_3d(
+        input: &super::winkler::WinklerInput3D,
+        model: &SolverInput3D,
+        dofs: &DofNumbering,
+        u: &[f64],
+    ) -> Result<Self, String> {
+        let mut a =
+            super::assembly::physical_stiffness(|| super::assembly::assemble_3d(model, dofs));
+        let nodes = crate::ordered::values(&model.nodes)
+            .map(|n| (n.id, n))
+            .collect();
+        let elements = crate::ordered::values(&model.elements)
+            .map(|e| (e.id, e))
+            .collect();
+        for spring in &input.foundation_springs {
+            super::winkler::add_foundation_3d(
+                &mut a.k,
+                dofs.n_total,
+                spring,
+                model,
+                &nodes,
+                &elements,
+                dofs,
+            )?;
+        }
+        Ok(Self(crate::linalg::mat_vec(&a.k, u, dofs.n_total), ExpandedReactionModel::space(model)))
+    }
+
+    pub(super) fn fiber_2d(
+        input: &super::fiber_nonlinear::FiberNonlinearInput,
+        dofs: &DofNumbering,
+        u: &[f64],
+        states: &std::collections::HashMap<usize, super::fiber_nonlinear::ElementFiberState>,
+        n_ip: usize,
+    ) -> Self {
+        let mut f = vec![0.0; dofs.n_total];
+        let mut probe = states.clone();
+        let mut discard = |_, _, _| {};
+        super::fiber_nonlinear::assemble_fiber_elements(
+            &input.solver,
+            &input.fiber_sections,
+            dofs,
+            u,
+            &mut probe,
+            n_ip,
+            &mut f,
+            &mut discard,
+        );
+        super::fiber_nonlinear::assemble_elastic_elements(
+            &input.solver,
+            &input.fiber_sections,
+            dofs,
+            u,
+            &mut f,
+            &mut discard,
+        );
+        super::fiber_nonlinear::add_springs(&input.solver, dofs, u, &mut f, &[], &mut discard);
+        Self(f, ExpandedReactionModel::plane(&input.solver))
+    }
+
+    pub(super) fn fiber_3d(
+        input: &super::fiber_nonlinear::FiberNonlinearInput3D,
+        dofs: &DofNumbering,
+        u: &[f64],
+        states: &std::collections::HashMap<usize, super::fiber_nonlinear::ElementFiberState>,
+        n_ip: usize,
+    ) -> Self {
+        let mut f = vec![0.0; dofs.n_total];
+        let mut probe = states.clone();
+        let mut discard = |_, _, _| {};
+        super::fiber_nonlinear::assemble_fiber_elements_3d(
+            &input.solver,
+            &input.fiber_sections,
+            dofs,
+            u,
+            &mut probe,
+            n_ip,
+            &mut f,
+            &mut discard,
+        );
+        super::fiber_nonlinear::assemble_elastic_elements_3d(
+            &input.solver,
+            &input.fiber_sections,
+            dofs,
+            u,
+            &mut f,
+            &mut discard,
+        );
+        super::fiber_nonlinear::add_springs_3d(&input.solver, dofs, u, &mut f, &mut discard);
+        Self(f, ExpandedReactionModel::space(&input.solver))
+    }
+
+    pub(super) fn in_frame<T: super::assembly::InclinedFrame>(self, its: &[T]) -> Self {
+        let n = self.0.len();
+        Self(super::assembly::to_inclined_free(self.0, its, n), self.1)
+    }
+
+    pub(super) fn as_slice(&self) -> &[f64] {
+        &self.0
+    }
+}
+
+#[cfg(test)]
+mod r8_tests {
+    use super::super::corotational::{add_spring_contributions, build_final_results};
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn issue_1952_r8_stabilized_released_slave_recovery() {
+        let mut failures = Vec::new();
+        for motion in [0.0, 0.0013, -0.0013] {
+            let mut m: serde_json::Value = serde_json::from_str(include_str!(
+                "../../tests/fixtures/reaction-recovery-2d.json"
+            ))
+            .unwrap();
+            m["elements"]["1"]["hingeEnd"] = json!(true);
+            m["nodes"]["2"] = m["nodes"]["0"].clone();
+            m["nodes"]["2"]["id"] = json!(2);
+            m["supports"]["2"] = json!({"id":2,"nodeId":2,"type":"fixed","dry":motion});
+            m["constraints"] = json!([{"type":"equalDOF","masterNode":2,"slaveNode":1,"dofs":[2]}]);
+            m["loads"] = json!([]);
+            let input: SolverInput = serde_json::from_value(m).unwrap();
+            let dofs = DofNumbering::build_2d(&input);
+            let cs = FreeConstraintSystem::build_2d(&input, &dofs).unwrap();
+            let slave = dofs.global_dof(1, 2).unwrap();
+            let mut u = vec![0.0; dofs.n_total];
+            u[slave] = motion;
+            u[dofs.global_dof(2, 2).unwrap()] = motion;
+            for k in [1e-6, 1.0, 1e6] {
+                let mut artificial = vec![0.0; dofs.n_total];
+                add_spring_contributions(
+                    &input,
+                    &dofs,
+                    &u,
+                    &mut artificial,
+                    &[(slave, k)],
+                    &mut |_, _, _| {},
+                );
+                assert_eq!(artificial[slave], k * motion);
+                let contaminated = RecoveredForces::from_residual(&artificial, &dofs, cs.as_ref(), ExpandedReactionModel::plane(&input));
+                let contaminated_reactions =
+                    contaminated.reactions_2d(&dofs, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u), &[]).unwrap();
+                let master = contaminated_reactions
+                    .iter()
+                    .find(|r| r.node_id == 2)
+                    .unwrap();
+                assert_eq!(master.my, k * motion);
+
+                let result = build_final_results(&input, &dofs, &u, &cs, &[]).unwrap();
+                assert_eq!(result.displacements.len(), 3);
+                assert_eq!(result.reactions.len(), 2);
+                assert_eq!(result.element_forces.len(), 1);
+                if result
+                    .reactions
+                    .iter()
+                    .any(|r| [r.rx, r.rz, r.my].iter().any(|&v| v != 0.0))
+                    || result.constraint_forces.iter().any(|f| f.force != 0.0)
+                {
+                    failures.push(format!(
+                        "motion={motion} k={k}: {}",
+                        serde_json::to_value(&result).unwrap()
+                    ));
+                }
+                let f = &result.element_forces[0];
+                assert_eq!(
+                    [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end],
+                    [0.0; 6]
+                );
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+}

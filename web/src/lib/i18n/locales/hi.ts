@@ -1,5 +1,6 @@
 import type { Translations } from '../types';
 const hi: Translations = {
+  "account.err.invalid_credentials": "ईमेल या पासवर्ड गलत है।",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───
@@ -818,28 +819,6 @@ const hi: Translations = {
   'float.vShear': 'V अपरूपण',
   'float.ilHint': 'नोड (प्रतिक्रियाएँ) या सदस्य (आंतरिक M/V) पर क्लिक करें',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': 'रिपोर्ट / सुझाव',
-  'feedback.close': 'बंद करें',
-  'feedback.reportCreated': 'रिपोर्ट #{n} बनाई गई',
-  'feedback.bugError': 'बग / त्रुटि',
-  'feedback.suggestion': 'सुझाव',
-  'feedback.other': 'अन्य',
-  'feedback.namePlaceholder': 'आपका नाम या उपनाम (वैकल्पिक)',
-  'feedback.textPlaceholder': 'समस्या या सुझाव का वर्णन करें...',
-  'feedback.linkAttached': 'आपकी संरचना का एक लिंक संलग्न किया जाएगा',
-  'feedback.copy': 'कॉपी',
-  'feedback.sending': 'भेज रहा है...',
-  'feedback.submitReport': 'रिपोर्ट सबमिट करें',
-  'feedback.toastCreated': 'रिपोर्ट #{n} बनाई गई — धन्यवाद!',
-  'feedback.toastError': 'रिपोर्ट सबमिट नहीं हो सकी',
-  'feedback.toastConnectionError': 'कनेक्शन त्रुटि — पुनः प्रयास करें',
-  'feedback.toastEmptyText': 'कृपया समस्या या सुझाव का विवरण लिखें',
-  'feedback.toastSecurityWait': 'सुरक्षा सत्यापन की प्रतीक्षा...',
-  'feedback.toastLinkCopied': 'लिंक कॉपी किया गया',
-  'feedback.reportBug': 'बग / सुझाव रिपोर्ट करें',
-  'feedback.communityTelegram': 'टेलीग्राम समुदाय',
-  'feedback.buyCoffee': 'मुझे एक कॉफ़ी खरीदें',
 
   // ─── Toast messages ───
   // Toolbar.svelte / ToolbarResults.svelte solve toasts
@@ -2219,6 +2198,7 @@ const hi: Translations = {
   'lang.fr': 'Français',
   'lang.it': 'Italiano',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.hi': 'हिन्दी',
   'lang.zh': '中文',
   'lang.ja': '日本語',
@@ -3380,7 +3360,7 @@ const hi: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'प्रमाणित: विस्थापन त्रुटि ≤ {abs} ({rel} सापेक्ष)',
   'certificate.notCertified': 'प्रमाणित नहीं: {reason}',
   'certificate.pending': 'प्रमाणित किया जा रहा है…',
@@ -3388,7 +3368,7 @@ const hi: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (प्रमाणित)',
   'certificate.bucklingNotCertified': 'λ_cr प्रमाणित नहीं: {reason}',
   'certificate.bucklingTooltip': 'Lean में सिद्ध कठोर अंतराल: संरचना निचले मान तक हर भार गुणांक के लिए प्रमाणित रूप से स्थिर है और ऊपरी मान पर प्रमाणित रूप से अस्थिर है।',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'प्रमाणित: विस्थापन त्रुटि ≤ {abs}',
   'certificate.envelopeCertified': 'आवरण प्रमाणित: हर मान सटीक आवरण से {abs} के भीतर (विस्थापन)',
   'certificate.comboTooltip': 'Lean में सिद्ध कठोर सीमा: हर भार स्थिति को संयोजित प्रणाली के सटीक हल के विरुद्ध प्रमाणित किया जाता है; किसी संयोजन की सीमा स्थितियों की सीमाओं को |गुणांक| से गुणा कर जोड़ती है, और संयोजन का अपना पूर्णांकन भी; आवरण सटीक आवरण से सबसे बड़ी संयोजन सीमा के भीतर है। किसी अवयव बल के पास का ± उसकी त्रुटि को इसी तरह सीमित करता है।',

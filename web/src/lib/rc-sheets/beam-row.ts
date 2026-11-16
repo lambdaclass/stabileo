@@ -3,6 +3,7 @@ import { evaluateBeamSections, type BeamSectionAnswer, type BeamSectionQuery } f
 import { beta1, ductilityStrain, phiFromStrain, shearFy, shearSqrtFc, tensionControlledStrain } from '../engine/codes/argentina/cirsoc201-basis';
 import { crackControlFaceSpacing } from '../engine/design/crack-spacing';
 import { checkTorsion2025 } from '../codes/cirsoc201/torsion';
+import { ConcurrentDemand } from '../engine/concurrent-demand';
 import { transverseSpacingLimits } from '../codes/cirsoc201/transverse-spacing';
 import { proposeSkin } from '../codes/cirsoc201/skin';
 import { mainBarCoverMm } from '../codes/cirsoc201/cover';
@@ -14,6 +15,10 @@ import { BEAM_BAR_RANGE, check, inRange, ratioOf, type BarGroup, type BeamAdopte
 const EDITION = '2025' as const;
 const PHI_V = 0.75;
 const MAX_ITERATIONS = 12;
+
+const shearTorsion = (vu: number, tu: number) => ConcurrentDemand.fromStations({ elementId: 0, length: 1, stationTs: [0], comboResults: [{
+  comboId: 0, comboName: '', stations: [{ t: 0, x: 0, n: 0, my: 0, mz: 0, vy: vu, vz: 0, torsion: tu }],
+}] })[0]!.section('Mz');
 
 export type SectionName = 'start' | 'span' | 'end';
 export const SECTION_NAMES: readonly SectionName[] = ['start', 'span', 'end'];
@@ -285,14 +290,14 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   const topReq = hogging.length ? gNeg.r.AsReq : 0;
 
   const shear = checkShear(p, d.vu.value, d.nAtV, { edition: EDITION, AsTensionCm2: bottomReq });
-  const tor0 = checkTorsion(p, d.tu.value, d.vu.value, EDITION);
+  const tor0 = checkTorsion(p, shearTorsion(d.vu.value, d.tu.value), EDITION);
   const tuDesign = !tor0.neglect && c.torsion === 'compatibility' ? Math.min(d.tu.value, PHI_V * tor0.Tcr) : d.tu.value;
-  const tor = tuDesign === d.tu.value ? tor0 : checkTorsion(p, tuDesign, d.vu.value, EDITION);
+  const tor = tuDesign === d.tu.value ? tor0 : checkTorsion(p, shearTorsion(d.vu.value, tuDesign), EDITION);
   const limits = transverseSpacingLimits(EDITION, { VsRequired: shear.Vs, bw: d.b, d: shear.d, fc, cover: c.cover, stirrupDiaMm: c.stirrupDia });
   const legs = Math.max(2, shear.stirrupLegs, limits.requiredLegs);
   const ph = hoopPerimeter(d, c, c.stirrupDia);
   const atS = tor.neglect ? 0 : tor.AtOverS;
-  const torsion25 = (Tu: number) => checkTorsion2025({ b: d.b, h: d.h, d: shear.d, cover: c.cover, stirrupDiaMm: c.stirrupDia, fc, fy, fyt: fy, Vu: 0, Tu });
+  const torsion25 = (Tu: number) => checkTorsion2025({ b: d.b, h: d.h, d: shear.d, dSecondary: d.b - c.cover - c.stirrupDia / 1000 - 0.008, cover: c.cover, stirrupDiaMm: c.stirrupDia, fc, fy, fyt: fy, demand: shearTorsion(0, Tu) });
   const t25 = torsion25(tuDesign);
   const alMin = tor.neglect ? 0 : t25.AlMin * 1e4;
   const transverseMin = torsion25(0).transverseRequired * 1e4;
@@ -401,7 +406,7 @@ function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): Co
   const cap = (i: number) => phiMnOf(ans[i]);
   const legs = Math.max(1, a.stirrups.legs);
   const perLegProvided = a.stirrups.spacing > 0 ? barArea(sd) / a.stirrups.spacing : 0;
-  const tcr = checkTorsion(p, 0, 0, EDITION).Tcr;
+  const tcr = checkTorsion(p, shearTorsion(0, 0), EDITION).Tcr;
   const rows = d.combos.map((k, i) => {
     const o = i * 6;
     const mRatio = (m: number, iPos: number, iNeg: number) => (m >= 0 ? ratioOf(m, cap(iPos)) : ratioOf(-m, cap(iNeg)));
@@ -409,7 +414,7 @@ function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): Co
       ratioOf(k.mNeg, Math.min(cap(o + 1), cap(o + 2), cap(o + 5))));
     const sh = checkShear(p, k.v, k.nV, { edition: EDITION, AsTensionCm2: groupsArea(a.bottom), spacing: a.stirrups.spacing, legs: a.stirrups.legs });
     const t = c.torsion === 'compatibility' ? Math.min(k.t, PHI_V * tcr) : k.t;
-    const tor = checkTorsion(p, t, k.v, EDITION);
+    const tor = checkTorsion(p, shearTorsion(k.v, t), EDITION);
     const stir = ratioOf((sh.AvOverSReq ?? 0) / legs + (tor.neglect ? 0 : tor.AtOverS), perLegProvided);
     const ratio = Math.max(flex, stir, ratioOf(k.v, sh.phiVn));
     return { combo: k.combo, values: [fmt(k.mStart, 1), fmt(k.mSpan, 1), fmt(k.mEnd, 1), fmt(k.v, 1), fmt(k.t, 1), fmt(k.nSpan, 1)], ratio, ok: ratio <= 1 + 1e-6 };

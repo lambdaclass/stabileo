@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The certified P-Delta result (docs/verification/CERTIFY.md): a Newton–Kantorovich bound on
+   * The certified P-Delta result (testing/docs/CERTIFY.md): a Newton–Kantorovich bound on
    * the distance from the computed displacements to the exact second-order equilibrium, and
    * whether that equilibrium is certified stable. In the background, once the result is shown.
    */

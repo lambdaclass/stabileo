@@ -766,7 +766,7 @@ engineering input nor assertion is widened. The superseded product-only refusal
 paragraph above is not a statement of the current loaded solve outcome.
 
 The retained PCG units cell is kept as a required numerical pass as documented
-in [the verification transition](../verification/ANALYSIS_INVARIANCE_ACCURACY.md#pr-1753-retained-cell-transition).
+in [the verification transition](../../testing/docs/ANALYSIS_INVARIANCE_ACCURACY.md#pr-1753-retained-cell-transition).
 The generated-model native tests deserialize through `ElasticInput3D` before
 obtaining the legacy solver input, preserving the typed-boundary inventory.
 

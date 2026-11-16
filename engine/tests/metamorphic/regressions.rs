@@ -1,6 +1,6 @@
 //! Minimal reproductions of the violations the metamorphic harness found,
 //! one per bug, each stated as the physics it must obey
-//! (docs/verification/METAMORPHIC.md, "Violations found").
+//! (testing/docs/METAMORPHIC.md, "Violations found").
 
 use crate::case::Case2;
 use dedaliano_engine::solver::plastic_limit::limit_analysis_2d_input;
@@ -544,7 +544,7 @@ fn plastic_3d_frame3d_2_is_a_lower_bound_of_its_certificate() {
     assert!(!r.warnings.iter().any(|w| w.contains("exceeds the yield surface")), "{:?}", r.warnings);
 }
 
-/// Nightly findings that were harness defects (docs/verification/CONTAINMENT.md): each model,
+/// Nightly findings that were harness defects (testing/docs/CONTAINMENT.md): each model,
 /// replayed with its reported seed, holds the invariant it was reported to violate.
 #[test]
 fn nightly_harness_findings_hold() {
@@ -1376,4 +1376,52 @@ fn linear_agreement_pairs_a_quad_and_a_quad9_with_the_same_id() {
         let cell = &cells[&(a.to_string(), "linear agreement".to_string())];
         assert!(cell.fails.is_empty() && cell.pass > 0, "{a}: {cell:?}");
     }
+}
+
+#[test]
+fn pdelta_shell_self_weight_converges_after_relabeling() {
+    let c = crate::corpus::cases_3d(crate::corpus::Tier::Pr, 20261018)
+        .into_iter().find(|c| c.name == "feature_matrix/3d-shell-self-weight-mitc4-strip-equiv").unwrap();
+    let a = crate::ana3::rows().into_iter().find(|a| a.name == "P-Delta").unwrap();
+    let tally = crate::tally::Tally::default();
+    crate::checks3::check_case(&crate::checks3::Ctx { tally: &tally, rng_seed: 20261018 }, &c, &[a], &["rotation", "mirror", "relabel"]);
+    check_shell_invariants(&tally);
+}
+
+fn check_shell_invariants(tally: &crate::tally::Tally) {
+    assert!(tally.failures().is_empty(), "{}", tally.failures().join("\n"));
+    for invariant in ["rotation", "mirror", "relabel"] {
+        assert_eq!(tally.status("P-Delta", invariant), "holds", "{}", tally.report());
+    }
+}
+
+#[test]
+fn r8_shell_invariants_reject_refused_and_skipped_comparisons() {
+    use crate::tally::{Tally, Verdict};
+    let mut accepted = Vec::new();
+    for invariant in ["rotation", "mirror", "relabel"] {
+        for verdict in [None, Some(Verdict::Refused("did not converge".into())),
+            Some(Verdict::SameRefusal), Some(Verdict::Ignored("#1940")),
+            Some(Verdict::NotApplicable), Some(Verdict::Unrepresentable("transform".into())),
+            Some(Verdict::Inconclusive(1.0)), Some(Verdict::Fail("wrong answer".into()))] {
+            let tally = Tally::default();
+            for other in ["rotation", "mirror", "relabel"] {
+                if other != invariant {
+                    tally.record("P-Delta", other, "shell", Verdict::Pass(0.0));
+                }
+            }
+            if let Some(v) = &verdict {
+                tally.record("P-Delta", invariant, "shell", v.clone());
+            }
+            if std::panic::catch_unwind(|| check_shell_invariants(&tally)).is_ok() {
+                accepted.push(format!("{invariant}: {verdict:?}"));
+            }
+        }
+    }
+    let tally = Tally::default();
+    for invariant in ["rotation", "mirror", "relabel"] {
+        tally.record("P-Delta", invariant, "shell", Verdict::Pass(0.0));
+    }
+    check_shell_invariants(&tally);
+    assert!(accepted.is_empty(), "accepted unchecked comparisons: {accepted:?}");
 }

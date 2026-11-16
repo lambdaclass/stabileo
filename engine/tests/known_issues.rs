@@ -528,7 +528,11 @@ fn reported_seeds_advanced_modal_and_time_history_are_contained() {
         let th: TimeHistoryInput = serde_json::from_value(serde_json::json!({
             "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
         })).unwrap();
-        assert_warning(&solve_time_history_2d(&th).unwrap().structured_diagnostics, "NUM-INVARIANCE", 762.0);
+        if th.solver.supports.values().any(|s| [s.dx, s.dz, s.dry].into_iter().flatten().any(|v| v != 0.0)) {
+            assert_eq!(codes(&solve_time_history_2d(&th).unwrap_err()), ["unsupported_feature"]);
+        } else {
+            assert_warning(&solve_time_history_2d(&th).unwrap().structured_diagnostics, "NUM-INVARIANCE", 762.0);
+        }
     }
     let (solver, densities) = crate::fuzz_models::random_3d_model_rich(20788);
     match solve_modal_3d(&solver, &densities, 2) {
@@ -538,7 +542,11 @@ fn reported_seeds_advanced_modal_and_time_history_are_contained() {
     let th: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({
         "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
     })).unwrap();
-    assert_warning(&solve_time_history_3d(&th).unwrap().structured_diagnostics, "NUM-INVARIANCE", 762.0);
+    if th.solver.supports.values().any(|s| [s.dx, s.dy, s.dz, s.drx, s.dry, s.drz].into_iter().flatten().any(|v| v != 0.0)) {
+        assert_eq!(codes(&solve_time_history_3d(&th).unwrap_err()), ["unsupported_feature"]);
+    } else {
+        assert_warning(&solve_time_history_3d(&th).unwrap().structured_diagnostics, "NUM-INVARIANCE", 762.0);
+    }
 }
 
 #[test]
@@ -683,16 +691,14 @@ fn reported_buckling_741_818_plain_and_certified() {
     }
     let input: SolverInput3D = serde_json::from_str(include_str!("fixtures/buckling-741-compressed.json")).unwrap();
     let result = solve_buckling_3d(&input, 1).unwrap();
-    assert!((result.modes[0].load_factor / 1.2087954149900562 - 1.0).abs() < 1e-9, "{}", result.modes[0].load_factor);
+    let factor = result.modes[0].load_factor;
+    assert!((1.208795360470504..=1.208795360470958).contains(&factor), "{factor}");
     assert_warning(&result.structured_diagnostics, "BU-ACCURACY", 818.0);
-    let error = certify_buckling_3d(&input, 1).unwrap_err();
-    assert!(error.contains("BU-BOUND"), "{error}");
+    let certified = certify_buckling_3d(&input, 1).unwrap();
+    assert_eq!(certified.results.modes[0].load_factor, factor);
     let certificate = dedaliano_engine::certify::buckling::buckling_certificate_3d(&input, 1).unwrap();
-    let dedaliano_engine::certify::buckling::BucklingCertificate::Uncertified { refusal: Some(dedaliano_engine::certify::buckling::BucklingRefusal::ComputedAboveUpperBound { lambda_computed, lambda_upper }), .. } = certificate else {
-        panic!("not a computedAboveUpperBound refusal: {certificate:?}");
-    };
-    assert_eq!(lambda_computed, result.modes[0].load_factor);
-    assert!(lambda_computed > lambda_upper, "{lambda_computed} {lambda_upper}");
+    assert!(certificate.is_certified(), "{certificate:?}");
+    assert_eq!(certified.certificate, certificate);
 }
 
 #[test]
@@ -790,11 +796,21 @@ fn winkler_and_stages_check_the_solved_matrix() {
         let winkler = solve_winkler_2d(&WinklerInput { solver: solver.clone(), foundation_springs: vec![] }).unwrap();
         let mut staged = serde_json::to_value(&solver).unwrap();
         staged["stages"] = serde_json::json!([{ "name": "all", "elementsAdded": [1,2,3,4], "supportsAdded": [1], "loadIndices": [0] }]);
-        let staged = solve_staged_2d(&serde_json::from_value(staged).unwrap()).unwrap();
-        if affected { refused_as_unresolvable(solve_2d(&solver)); }
+        let staged = solve_staged_2d(&serde_json::from_value(staged).unwrap());
+        if affected {
+            let verdict = dedaliano_engine::solver::stability::of_2d(&solver).unwrap();
+            assert_eq!(verdict.reason, dedaliano_engine::solver::stability::Reason::Conditioning);
+            assert!(verdict.kappa * verdict.anisotropy > dedaliano_engine::solver::stability::RESOLVABLE);
+            assert_eq!(staged.as_ref().unwrap_err(), &verdict.refusal().unwrap());
+            refused_as_unresolvable(solve_2d(&solver));
+        }
         else { assert!(!ids(&solve_2d(&solver).unwrap().structured_diagnostics).contains(&"NUM-INVARIANCE".into())); }
-        for ds in [&winkler.structured_diagnostics, &staged.final_results.structured_diagnostics, &staged.stages[0].results.structured_diagnostics] {
-            assert_eq!(ids(ds).contains(&"NUM-INVARIANCE".into()), affected);
+        assert_eq!(ids(&winkler.structured_diagnostics).contains(&"NUM-INVARIANCE".into()), affected);
+        if !affected {
+            let staged = staged.unwrap();
+            for ds in [&staged.final_results.structured_diagnostics, &staged.stages[0].results.structured_diagnostics] {
+                assert!(!ids(ds).contains(&"NUM-INVARIANCE".into()));
+            }
         }
         let mut solver = beam3d();
         for section in solver.sections.values_mut() { section.iy = inertia; section.iz = inertia; section.j = inertia; }

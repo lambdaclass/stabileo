@@ -1,4 +1,6 @@
 pub mod dof;
+pub(crate) mod convergence;
+mod equilibrium;
 pub(crate) mod support;
 pub(crate) mod dynamic_validation;
 pub mod assembly;
@@ -8,6 +10,7 @@ pub mod geometric_stiffness;
 pub mod mass_matrix;
 pub mod buckling;
 pub mod modal;
+mod modal_mass;
 pub mod spectral;
 pub mod plastic;
 pub mod plastic_limit;
@@ -65,6 +68,10 @@ pub use winkler::*;
 pub(crate) mod self_checks;
 
 pub(crate) mod conditioning_accuracy;
+mod member_actions;
 
 #[cfg(test)]
 mod web_mechanism_regressions;
+
+pub(crate) mod load_work;
+pub(crate) mod reaction_recovery;

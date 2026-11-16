@@ -4,7 +4,7 @@
  * Source: G. Troglia, D. Troglia, J. Angulo Bocco, *Ejemplos de Aplicación del Reglamento
  * CIRSOC 301-2018*, INTI-CIRSOC, July 2018, Ejemplo 2 (Ej. 2-2 … 2-3): double angle
  * 2×(50,8×6,4) in tension, Tu = 220 kN, welded to a 6,4 mm gusset with four fillet runs.
- * Coverage table: `docs/verification/DESIGN_EXAMPLES.md`.
+ * Coverage table: `testing/docs/DESIGN_EXAMPLES.md`.
  */
 
 import { describe, it, expect } from 'vitest';

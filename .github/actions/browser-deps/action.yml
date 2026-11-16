@@ -5,6 +5,12 @@ inputs:
   browsers:
     description: "Space-separated Playwright browsers"
     required: true
+  playwright-directory:
+    description: "Directory containing the pinned Playwright installation"
+    default: web
+  use-nix:
+    description: "Run the helper in the repository Nix shell"
+    default: "true"
 
 runs:
   using: "composite"
@@ -14,27 +20,28 @@ runs:
       shell: bash
       env:
         BROWSERS: ${{ inputs.browsers }}
+        PLAYWRIGHT_DIRECTORY: ${{ inputs.playwright-directory }}
+        USE_NIX: ${{ inputs.use-nix }}
       run: |
-        echo "dir=$HOME/.cache/browser-debs" >> "$GITHUB_OUTPUT"
-        echo "key=browser-debs-${ImageOS:-unknown}-${ImageVersion:-unknown}-${BROWSERS// /-}-$(sha256sum web/package-lock.json | cut -c1-16)" >> "$GITHUB_OUTPUT"
+        helper=(python3)
+        if [[ "$USE_NIX" == true ]]; then helper=(nix develop --command python3); fi
+        "${helper[@]}" .github/scripts/browser-deps.py --playwright-directory "$PLAYWRIGHT_DIRECTORY" key $BROWSERS
     - name: Restore downloaded packages
       id: restore
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.key.outputs.dir }}
         key: ${{ steps.key.outputs.key }}
-    # apt reads the packages from this directory and leaves new downloads there for the save below.
-    - name: Point apt at the package cache
-      shell: bash
-      env:
-        DEBS: ${{ steps.key.outputs.dir }}
-      run: |
-        mkdir -p "$DEBS/partial"
-        printf 'Dir::Cache::Archives "%s/";\nBinary::apt::APT::Keep-Downloaded-Packages "true";\nAPT::Keep-Downloaded-Packages "true";\nDPkg::Lock::Timeout "300";\n' "$DEBS" \
-          | sudo tee /etc/apt/apt.conf.d/99-stabileo-browser-debs > /dev/null
     - name: Install browser system dependencies
       shell: bash
-      run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps ${{ inputs.browsers }}"
+      env:
+        BROWSERS: ${{ inputs.browsers }}
+        PLAYWRIGHT_DIRECTORY: ${{ inputs.playwright-directory }}
+        USE_NIX: ${{ inputs.use-nix }}
+      run: |
+        helper=(python3)
+        if [[ "$USE_NIX" == true ]]; then helper=(nix develop --command python3); fi
+        .github/scripts/retry-infra.sh "${helper[@]}" .github/scripts/browser-deps.py --playwright-directory "$PLAYWRIGHT_DIRECTORY" install $BROWSERS
     - name: Prepare downloaded packages for the cache
       if: steps.restore.outputs.cache-hit != 'true'
       shell: bash

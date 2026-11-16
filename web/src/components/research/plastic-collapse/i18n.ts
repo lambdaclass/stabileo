@@ -39,7 +39,7 @@ const en = {
 };
 export type PlasticStrings = typeof en;
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', PlasticStrings> = {
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu', PlasticStrings> = {
   en,
   es: {
     publisher: 'Elsevier',
@@ -225,6 +225,43 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', PlasticStr
     eventsHeading: 'Mafsal olayları', event: 'Olay', location: 'Mafsal yeri', moment: 'My · kN·m',
     places: { leftBase: 'Sol taban', leftCorner: 'Sol köşe', midspan: 'Açıklık ortası', rightCorner: 'Sağ köşe', rightBase: 'Sağ taban' },
     nodalHeading: '{event}. olaydaki düğüm yerdeğiştirmeleri · m', node: 'Düğüm',
+  },
+  hu: {
+    publisher: 'Elsevier',
+    title: 'Klasszikus képlékeny tönkremenetel',
+    metaTitle: 'Klasszikus képlékeny tönkremenetel — Stabileo Research',
+    metaDescription: 'Egy portálkeret, összevetve a gerenda-, a kilendüléses és a kombinált mechanizmus kézi számításával.',
+    thumbnailAlt: 'Tönkremenetelkor deformált portálkeret az éles megoldó futásából',
+    lead: 'Egy befogott lábú portálkeret, három kézzel számított mechanizmus és az alkalmazás 3D képlékeny tönkremeneteli megoldója.',
+    citation: '”, a mechanizmusmódszer kidolgozott példája a következő alapján:',
+    model: 'Fesztáv L = {span} m, magasság h = {height} m, állandó Mp = {mp} kN·m. Mindkét oszloptalp befogott. A gerendára a bal sarokban jobbra mutató λH = λ × {horizontal} kN, a fesztáv közepén lefelé mutató λV = λ × {vertical} kN erő hat. A gerendát a teher helyén megosztjuk. A keret az XZ síkban fekszik; síkra merőleges teher nincs.',
+    method: 'A merev rudakkal és kis elfordulásokkal felírt virtuális munka adja az alábbi három felső korlátot. A kombinált mechanizmusban a bal felső sarok csuklója kiesik: a belső munka 6Mpθ, a külső munka λ(Hh + VL/2)θ. A legkisebb érték a mértékadó. A tengelyirányú alakváltozás rugalmas; a normálerő és a nyíróerő okozta folyás, a keményedés és a geometriai instabilitás ezen a kézi számításon kívül esik.',
+    provenance: 'A három korlátot magunk vezettük le kézzel, a virtuális munkán alapuló mechanizmusmódszerrel, Horne Plastic Theory of Structures (1979) című könyvének módszerével; a könyvet háttérolvasmányként idézzük, oldal- vagy egyenletszámot nem ellenőriztünk benne. A méretek a sajátjaink; a könyvből sem ábrát, sem kidolgozott példát nem reprodukálunk. A Crossref a címet és az évet szerzők nélkül adja meg; a kiadó',
+    provenanceEnd: 'M. R. Horne-t nevezi meg szerzőként.',
+    referenceLabel: 'Összevetés a kézi számítással',
+    publishedNote: 'A könyvből sem ábrát, sem táblázatot nem használunk: a példa és a méretei a sajátjaink, ezért a referencia a kézi számítás.',
+    checksHeading: 'Ellenőrzések',
+    checks: {
+      collapse: 'A tönkremeneteli teherszorzó 1 × 10⁻⁶ pontossággal megegyezik a kombinált 6Mp / (Hh + VL/2) korláttal.',
+      mechanism: 'A megoldó teljes mechanizmust jelez, figyelmeztetés nélkül.',
+      hinges: 'Csukló alakul ki mindkét oszloptalpnál, a fesztáv közepén és a jobb felső sarokban; a bal felső sarok sosem folyik meg.',
+      yield: 'Tönkremenetelkor minden rúdvégen |My| ≤ Mp.',
+      equilibrium: 'A támaszerők egyensúlyt tartanak a működő terhekkel: ΣFx, ΣFz és ΣMy 1 × 10⁻⁹ pontossággal.',
+      corner: 'A statika szerint a bal felső sarokban a nyomaték 3Mp − λHh = {corner} kN·m, és teljesül a gerenda 3Mp + M = λVL/2 egyenlete.',
+    },
+    passed: 'teljesül', failed: 'nem teljesül',
+    comparison: 'Kézi számítás és Stabileo', mechanism: 'Mechanizmus', reference: 'Kézi λ', difference: 'Δ (Stabileo − kézi)',
+    beam: 'Gerenda', sway: 'Kilendülés', combined: 'Kombinált',
+    explanation: 'Csak a legkisebb érték a várható tönkremeneteli teherszorzó. A másik két felső korláttól való eltérés várható, nem a megoldó hibája. A λ-ra vonatkozó 1 × 10⁻⁶ tűrés regressziós korlát, nem pontossági cél: ez a kicsi, jól kondicionált feladat a natív futtatásban 1,4 × 10⁻¹¹ pontossággal egyezik a kombinált korláttal.',
+    scope: 'Hatókör', limits: ['Nem méretezési ellenőrzés.', 'Egyetlen teherarány és állandó keresztmetszet; normálerő–nyomaték interakció, kihajlás és nagy elmozdulások nélkül.', 'A 2D képlékeny megoldót itt nem használjuk; az oldal a 3D megoldót futtatja (lásd: issue #758).', 'A néző egyenes vonalakkal köti össze az elmozdult csomópontokat, és nem rajzol csuklószimbólumokat.'],
+    run: 'Újraszámítás élőben', stop: 'Leállítás', restart: 'Újraindítás', running: 'Élő számítás…', replay: 'Előre kiszámított visszajátszás (ugyanaz a megoldó)', live: 'Élő számítás',
+    error: 'Az élő számítás nem sikerült; az előre kiszámított visszajátszás látható', errorDetail: 'A megoldó üzenete',
+    step: 'Csuklóképződés', displacement: 'Csomóponti elmozdulás',
+    pending: 'Nincs elérhető előre kiszámított futás', warning: 'Megoldói figyelmeztetés / hiányos mechanizmus',
+    amplified: 'Elmozdulások ×{scale}', planeNote: 'Az XZ síkot laposan rajzoljuk: X jobbra, Z felfelé.',
+    eventsHeading: 'Csuklóképződések', event: 'Esemény', location: 'Csukló helye', moment: 'My · kN·m',
+    places: { leftBase: 'Bal oszloptalp', leftCorner: 'Bal felső sarok', midspan: 'Fesztávközép', rightCorner: 'Jobb felső sarok', rightBase: 'Jobb oszloptalp' },
+    nodalHeading: 'Csomóponti elmozdulások a(z) {event}. eseménynél · m', node: 'Csomópont',
   },
 };
 

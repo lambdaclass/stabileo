@@ -897,17 +897,16 @@ fn validation_th_ext_8_ground_motion_base_shear() {
         "Nodes should have non-zero acceleration response"
     );
 
-    // Verify that peak reactions are present and non-zero
-    // The peak_reactions field captures the maximum reaction over time
-    let peak_rx_sum: f64 = result
-        .peak_reactions
-        .iter()
-        .map(|r| r.rx.abs())
-        .sum();
+    assert!(result.peak_reactions.is_empty());
+    assert!(result.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("peakReactions")));
+    let root = result.node_histories.iter().find(|h| h.node_id == 1).unwrap();
+    let next = result.node_histories.iter().find(|h| h.node_id == 2).unwrap();
+    let axial_stiffness = E * 1000.0 * A / (length / n_elem as f64);
+    let peak_rx_sum = root.ux.iter().zip(&next.ux).map(|(a, b)| (axial_stiffness * (a - b)).abs()).fold(0.0_f64, f64::max);
 
     assert!(
         peak_rx_sum > 0.0,
-        "Peak base shear reactions should be non-zero under ground excitation"
+        "Elastic base force from the displacement history should be non-zero under ground excitation"
     );
 
     // The base shear should be bounded: for a ground acceleration of a_max,
@@ -925,7 +924,7 @@ fn validation_th_ext_8_ground_motion_base_shear() {
     let upper_bound = 4.0 * total_mass * a_max;
     assert!(
         peak_rx_sum < upper_bound,
-        "Peak base shear ({:.2}) should be bounded by ~4*m*a_max ({:.2})",
+        "Elastic base force ({:.2}) should be bounded by ~4*m*a_max ({:.2})",
         peak_rx_sum,
         upper_bound
     );

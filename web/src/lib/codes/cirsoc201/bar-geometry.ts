@@ -462,9 +462,13 @@ export function buildStraightBarWithHooks(opts: {
 export function samplePath(path: BarPath, maxChord = 0.005): Point3[] {
   const out: Point3[] = [];
   for (const seg of path.segments) {
-    if (out.length === 0) out.push(seg.start);
+    const sourceStart = seg.start;
+    const sourceEnd = seg.end;
+    const start = { x: sourceStart.x, y: sourceStart.y, z: sourceStart.z };
+    const end = { x: sourceEnd.x, y: sourceEnd.y, z: sourceEnd.z };
+    if (out.length === 0) out.push(start);
     if (seg.kind === 'straight') {
-      out.push(seg.end);
+      out.push(end);
       continue;
     }
     const r = seg.radius ?? 0;
@@ -481,9 +485,10 @@ export function samplePath(path: BarPath, maxChord = 0.005): Point3[] {
     // `n`. Every bend in the model was being collision-checked as a straight line cutting
     // its own corner — 5,9 mm inboard for a Ø8 stirrup's 90° corner, 12,3 mm for its 135°
     // hook, both larger than the bars the check compares them against.
-    const c = seg.centre;
-    const v0 = c && { x: seg.start.x - c.x, y: seg.start.y - c.y, z: seg.start.z - c.z };
-    const v1 = c && { x: seg.end.x - c.x, y: seg.end.y - c.y, z: seg.end.z - c.z };
+    const centre = seg.centre;
+    const c = centre && { x: centre.x, y: centre.y, z: centre.z };
+    const v0 = c && { x: start.x - c.x, y: start.y - c.y, z: start.z - c.z };
+    const v1 = c && { x: end.x - c.x, y: end.y - c.y, z: end.z - c.z };
     const cross = v0 && v1 && {
       x: v0.y * v1.z - v0.z * v1.y,
       y: v0.z * v1.x - v0.x * v1.z,
@@ -525,9 +530,9 @@ export function samplePath(path: BarPath, maxChord = 0.005): Point3[] {
     for (let i = 1; i <= n; i++) {
       const t = i / n;
       out.push({
-        x: seg.start.x + (seg.end.x - seg.start.x) * t,
-        y: seg.start.y + (seg.end.y - seg.start.y) * t,
-        z: seg.start.z + (seg.end.z - seg.start.z) * t,
+        x: start.x + (end.x - start.x) * t,
+        y: start.y + (end.y - start.y) * t,
+        z: start.z + (end.z - start.z) * t,
       });
     }
   }

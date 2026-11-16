@@ -8,6 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { runSteelVerification } from '../verification-service';
+import { extractGoverningDemands } from '../station-design-forces';
 import { designDemands } from '../design/behaviour-demands';
 import { memberContexts } from '../design/other-codes/run';
 import type { AnalysisResults3D } from '../types-3d';
@@ -50,11 +51,14 @@ describe('one-way members in the steel check', () => {
 });
 
 describe('the same rule on every design path', () => {
-  const demands = new Map([[1, { elementId: 1, length: 5, demands: [
-    { category: 'N_compression', value: -300, absValue: 300 },
-    { category: 'N_tension', value: 20, absValue: 20 },
-    { category: 'My+', value: 5, absValue: 5 },
-  ] }]]) as never;
+  const demands = new Map([[1, extractGoverningDemands({ elementId: 1, length: 5, stationTs: [0, 1], comboResults: [{
+    comboId: 1, comboName: 'C', stations: [
+      { t: 0, x: 0, n: -300, my: 5, mz: 0, vy: 0, vz: 0, torsion: 0 },
+      { t: 1, x: 5, n: 20, my: 5, mz: 0, vy: 0, vz: 0, torsion: 0 },
+    ],
+  }] })]]);
+
+  for (const d of demands.values()) d.demands = d.demands.filter(x => x.absValue > 0);
 
   it('design demands: an inactive member is out, a tension-only one keeps no compression', () => {
     const cats = (b?: string) => designDemands(demands, () => b).get(1)?.demands.map((d) => d.category);

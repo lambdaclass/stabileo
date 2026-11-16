@@ -1,0 +1,1178 @@
+nix develop
+warning: Git tree '/root/audit/soundness-2026-11-11/repo' is dirty
+warning: Git tree '/root/audit/soundness-2026-11-11/repo' is dirty
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /root/audit/soundness-2026-11-11/repo/engine/Cargo.toml
+workspace: /root/audit/soundness-2026-11-11/repo/Cargo.toml
+warning: unused import: `SolverInput3D`
+  --> engine/src/reproduce.rs:15:33
+   |
+15 | use crate::types::{SolverInput, SolverInput3D};
+   |                                 ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `rx` is never read
+    --> engine/src/solver/linear.rs:2901:22
+     |
+2901 |         let mut rx = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+2954 |             rx = vals[0];
+     |             ------------ `rx` is overwritten here before the previous value is read
+     |
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `rz` is never read
+    --> engine/src/solver/linear.rs:2902:22
+     |
+2902 |         let mut rz = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+2955 |             rz = vals[1];
+     |             ------------ `rz` is overwritten here before the previous value is read
+
+warning: value assigned to `my` is never read
+    --> engine/src/solver/linear.rs:2903:22
+     |
+2903 |         let mut my = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+2956 |             my = vals[2];
+     |             ------------ `my` is overwritten here before the previous value is read
+
+warning: variable does not need to be mutable
+    --> engine/src/solver/pre_solve_gates.rs:1193:9
+     |
+1193 |     let mut link = |p: &mut Vec<usize>, nodes: &[usize]| -> bool {
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `not` is never used
+   --> engine/src/postprocess/cirsoc201_check.rs:194:4
+    |
+194 | fn not(t: Tri) -> Tri {
+    |    ^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `c_norm` and `n_params` are never read
+   --> engine/src/certify/reassembly/system.rs:360:9
+    |
+355 | pub struct E2eBound {
+    |            -------- fields in this struct
+...
+360 |     pub c_norm: f64,
+    |         ^^^^^^
+...
+365 |     pub n_params: usize,
+    |         ^^^^^^^^
+
+warning: field `rot` is never read
+   --> engine/src/metamorphic/transform.rs:183:12
+    |
+183 |     Both { rot: bool },
+    |     ----   ^^^
+    |     |
+    |     field in this variant
+
+warning: variable `bA` should have a snake case name
+   --> engine/src/certify/reassembly/system.rs:180:14
+    |
+180 |     for (bi, bA) in blocks.iter().enumerate() {
+    |              ^^ help: convert the identifier to snake case: `b_a`
+    |
+    = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: variable `bB` should have a snake case name
+   --> engine/src/certify/reassembly/system.rs:181:18
+    |
+181 |         for (bj, bB) in blocks.iter().enumerate() {
+    |                  ^^ help: convert the identifier to snake case: `b_b`
+
+warning: `dedaliano-engine` (lib) generated 10 warnings (run `cargo fix --lib -p dedaliano-engine` to apply 2 suggestions)
+   Compiling dedaliano-engine v0.5.0 (/root/audit/soundness-2026-11-11/repo/engine)
+warning: unused import: `dedaliano_engine::solver::corotational`
+   --> engine/tests/metamorphic/generated.rs:356:9
+    |
+356 |     use dedaliano_engine::solver::corotational;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `linear` and `modal`
+   --> engine/tests/metamorphic/generated.rs:770:18
+    |
+770 |         solver::{linear, modal},
+    |                  ^^^^^^  ^^^^^
+
+warning: unused imports: `linear` and `modal`
+   --> engine/tests/metamorphic/generated.rs:824:18
+    |
+824 |         solver::{linear, modal},
+    |                  ^^^^^^  ^^^^^
+
+warning: unused import: `linear`
+   --> engine/tests/metamorphic/analysis_accuracy.rs:635:36
+    |
+635 |     use dedaliano_engine::solver::{linear, moving_loads};
+    |                                    ^^^^^^
+
+warning: unused import: `linear`
+   --> engine/tests/metamorphic/analysis_accuracy.rs:694:36
+    |
+694 |     use dedaliano_engine::solver::{linear, moving_loads};
+    |                                    ^^^^^^
+
+warning: unnecessary parentheses around closure body
+   --> engine/tests/metamorphic/analysis_accuracy.rs:714:25
+    |
+714 |             .filter(|i| (i.tag == "M" || i.tag == "My" || i.tag == "Mz"))
+    |                         ^                                              ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+714 -             .filter(|i| (i.tag == "M" || i.tag == "My" || i.tag == "Mz"))
+714 +             .filter(|i| i.tag == "M" || i.tag == "My" || i.tag == "Mz")
+    |
+
+warning: unused imports: `buckling`, `corotational`, `material_nonlinear`, `moving_loads`, `pdelta`, and `plastic`
+  --> engine/tests/metamorphic/ana2.rs:10:5
+   |
+10 |     buckling, cable, constraints, contact, corotational, creep_shrinkage, fiber_nonlinear, harmonic, kinematic, linear, load_cases,
+   |     ^^^^^^^^                               ^^^^^^^^^^^^
+11 |     material_nonlinear, modal, moving_loads, pdelta, plastic, spectral, ssi, staged, time_integration, winkler,
+   |     ^^^^^^^^^^^^^^^^^^         ^^^^^^^^^^^^  ^^^^^^  ^^^^^^^
+
+warning: unused import: `rect`
+ --> engine/tests/metamorphic/ana3.rs:3:25
+  |
+3 | use crate::ana2::{conv, rect, Law};
+  |                         ^^^^
+
+warning: unused imports: `buckling`, `corotational`, `linear`, `pdelta`, `plastic`, and `spectral`
+  --> engine/tests/metamorphic/ana3.rs:10:5
+   |
+10 |     buckling, cable, constraints, contact, corotational, creep_shrinkage, fiber_nonlinear, harmonic, kinematic, linear, load_cases,
+   |     ^^^^^^^^                               ^^^^^^^^^^^^                                                         ^^^^^^
+11 |     material_nonlinear, modal, moving_loads, pdelta, plastic, spectral, ssi, staged, time_integration, winkler,
+   |                                              ^^^^^^  ^^^^^^^  ^^^^^^^^
+
+warning: unused import: `Dim`
+ --> engine/tests/metamorphic/checks2.rs:5:23
+  |
+5 | use crate::response::{Dim, Kind, Resp};
+  |                       ^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+   --> engine/tests/metamorphic/checks2.rs:804:9
+    |
+804 |     use dedaliano_engine::solver::linear;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+   --> engine/tests/metamorphic/checks2.rs:862:9
+    |
+862 |     use dedaliano_engine::solver::modal;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `self`
+  --> engine/tests/metamorphic/modal_checks.rs:19:39
+   |
+19 | use dedaliano_engine::solver::modal::{self, ModalResult, ModalResult3D};
+   |                                       ^^^^
+
+warning: unused import: `Verdict`
+ --> engine/tests/metamorphic/quick.rs:5:27
+  |
+5 | use crate::tally::{Tally, Verdict};
+  |                           ^^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+   --> engine/tests/metamorphic/quick.rs:512:36
+    |
+512 |     use dedaliano_engine::solver::{linear, pdelta};
+    |                                    ^^^^^^  ^^^^^^
+
+warning: unused imports: `corotational`, `moving_loads`, and `spectral`
+ --> engine/tests/metamorphic/regressions.rs:9:45
+  |
+9 | use dedaliano_engine::solver::{constraints, corotational, kinematic, linear, load_cases, moving_loads, plastic, spectral, staged, win...
+  |                                             ^^^^^^^^^^^^                                 ^^^^^^^^^^^^           ^^^^^^^^
+
+warning: unused import: `linear`
+  --> engine/tests/metamorphic/linear_identities.rs:10:32
+   |
+10 | use dedaliano_engine::solver::{linear, load_cases};
+   |                                ^^^^^^
+
+warning: unused imports: `corotational`, `modal`, and `pdelta`
+ --> engine/tests/metamorphic/completeness.rs:7:34
+  |
+7 |     cable, constraints, contact, corotational, fiber_nonlinear, linear, load_cases, material_nonlinear, modal, pdelta, ssi, staged, w...
+  |                                  ^^^^^^^^^^^^                                                           ^^^^^  ^^^^^^
+
+warning: unused imports: `solve_2d` and `solve_3d`
+   --> engine/tests/metamorphic/stability.rs:733:44
+    |
+733 |     use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
+    |                                            ^^^^^^^^  ^^^^^^^^
+
+warning: unused imports: `linear` and `types::*`
+ --> engine/tests/metamorphic/conditioning_accuracy.rs:3:52
+  |
+3 | use dedaliano_engine::{solver::{dof::DofNumbering, linear}, types::*};
+  |                                                    ^^^^^^   ^^^^^^^^
+
+warning: constant `REL_TOL_DISP` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:23:15
+   |
+23 |     pub const REL_TOL_DISP: f64 = 1e-6;
+   |               ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `REL_TOL_FORCE` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:24:15
+   |
+24 |     pub const REL_TOL_FORCE: f64 = 1e-4;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `ABS_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:25:15
+   |
+25 |     pub const ABS_TOL: f64 = 1e-8;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:31:15
+   |
+31 |     pub const REL_TOL: f64 = 0.02;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL_TIGHT` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:33:15
+   |
+33 |     pub const REL_TOL_TIGHT: f64 = 0.01;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `REL_TOL_LOOSE` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:35:15
+   |
+35 |     pub const REL_TOL_LOOSE: f64 = 0.05;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `ABS_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:37:15
+   |
+37 |     pub const ABS_TOL: f64 = 1e-6;
+   |               ^^^^^^^
+
+warning: constant `EQUILIBRIUM_ABS` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:39:15
+   |
+39 |     pub const EQUILIBRIUM_ABS: f64 = 1e-6;
+   |               ^^^^^^^^^^^^^^^
+
+warning: constant `REL_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:44:15
+   |
+44 |     pub const REL_TOL: f64 = 0.03;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL_LOOSE` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:45:15
+   |
+45 |     pub const REL_TOL_LOOSE: f64 = 0.05;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `ABS_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:46:15
+   |
+46 |     pub const ABS_TOL: f64 = 1e-6;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:51:15
+   |
+51 |     pub const REL_TOL: f64 = 0.08;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL_LOOSE` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:52:15
+   |
+52 |     pub const REL_TOL_LOOSE: f64 = 0.10;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `ABS_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:53:15
+   |
+53 |     pub const ABS_TOL: f64 = 1e-3;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL_FUNDAMENTAL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:59:15
+   |
+59 |     pub const REL_TOL_FUNDAMENTAL: f64 = 0.02;
+   |               ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `REL_TOL_HIGHER` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:61:15
+   |
+61 |     pub const REL_TOL_HIGHER: f64 = 0.05;
+   |               ^^^^^^^^^^^^^^
+
+warning: constant `REL_TOL_BUCKLING` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:63:15
+   |
+63 |     pub const REL_TOL_BUCKLING: f64 = 0.08;
+   |               ^^^^^^^^^^^^^^^^
+
+warning: field `natural` is never read
+  --> engine/tests/metamorphic/dynamic_accuracy.rs:10:9
+   |
+ 7 | pub struct Accuracy {
+   |            -------- field in this struct
+...
+10 |     pub natural: f64,
+   |         ^^^^^^^
+
+warning: field `0` is never read
+  --> engine/tests/metamorphic/tally.rs:18:18
+   |
+18 |     Inconclusive(f64),
+   |     ------------ ^^^
+   |     |
+   |     field in this variant
+   |
+   = note: `Verdict` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+help: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+   |
+18 -     Inconclusive(f64),
+18 +     Inconclusive(()),
+   |
+
+warning: function `solve_arc_length` is never used
+  --> engine/tests/metamorphic/../audit_capture.rs:76:8
+   |
+76 | pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, String> {
+   |        ^^^^^^^^^^^^^^^^
+
+warning: `dedaliano-engine` (test "metamorphic") generated 40 warnings (run `cargo fix --test "metamorphic" -p dedaliano-engine` to apply 20 suggestions)
+    Finished `release` profile [optimized] target(s) in 25.96s
+     Running tests/metamorphic/main.rs (/root/audit/soundness-2026-11-11/target-repo/release/deps/metamorphic-c1f2328328e2d3c0)
+
+running 1 test
+test stability::accuracy::every_loaded_c08_copy_agrees_with_its_physical_reference_and_other_solved_copies ... REFUSED issue-1008 original: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 units 0.001/1000: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 units 25/0.01: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 units 0.3048/4.448: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 units 1000/1000: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 rotation 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 quarter turn 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 mirror 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 rotation 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 quarter turn 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 mirror 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 rotation 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 quarter turn 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 mirror 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 mirror x: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 relabel 0: the structure is a mechanism at nodes [476]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 relabel 1: the structure is a mechanism at nodes [938]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 relabel 2: the structure is a mechanism at nodes [868]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1008 relabel 3: the structure is a mechanism at nodes [98]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+OUTCOMES issue-1008: 0 solved, 19 refused, 0 splits
+REFUSED issue-1028 original: {"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[0],"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","nodeIds":[5],"phase":"input","severity":"error"}]}
+REFUSED issue-1028 units 0.001/1000: {"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[0],"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","nodeIds":[5],"phase":"input","severity":"error"}]}
+REFUSED issue-1028 units 25/0.01: {"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[0],"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","nodeIds":[5],"phase":"input","severity":"error"}]}
+REFUSED issue-1028 units 0.3048/4.448: {"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[0],"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","nodeIds":[5],"phase":"input","severity":"error"}]}
+REFUSED issue-1028 units 1000/1000: {"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[0],"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","nodeIds":[5],"phase":"input","severity":"error"}]}
+REFUSED issue-1028 quarter turn 0: {"message":"Support 2 (node 5): ky contradicts the rigid restraint type=rollerX (uz) on the same DOF. Remove ky to keep it rigid, or release type=rollerX (uz) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[1],"message":"Support 2 (node 5): ky contradicts the rigid restraint type=rollerX (uz) on the same DOF. Remove ky to keep it rigid, or release type=rollerX (uz) to use the spring.","nodeIds":[5],"phase":"input","severity":"error"}]}
+REFUSED issue-1028 quarter turn 1: {"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[0],"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","nodeIds":[5],"phase":"input","severity":"error"}]}
+REFUSED issue-1028 quarter turn 2: {"message":"Support 2 (node 5): ky contradicts the rigid restraint type=rollerX (uz) on the same DOF. Remove ky to keep it rigid, or release type=rollerX (uz) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[1],"message":"Support 2 (node 5): ky contradicts the rigid restraint type=rollerX (uz) on the same DOF. Remove ky to keep it rigid, or release type=rollerX (uz) to use the spring.","nodeIds":[5],"phase":"input","severity":"error"}]}
+REFUSED issue-1028 mirror x: {"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[0],"message":"Support 2 (node 5): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","nodeIds":[5],"phase":"input","severity":"error"}]}
+REFUSED issue-1028 relabel 0: {"message":"Support 484 (node 341): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[0],"message":"Support 484 (node 341): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","nodeIds":[341],"phase":"input","severity":"error"}]}
+REFUSED issue-1028 relabel 1: {"message":"Support 560 (node 1026): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[0],"message":"Support 560 (node 1026): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","nodeIds":[1026],"phase":"input","severity":"error"}]}
+REFUSED issue-1028 relabel 2: {"message":"Support 989 (node 690): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[0],"message":"Support 989 (node 690): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","nodeIds":[690],"phase":"input","severity":"error"}]}
+REFUSED issue-1028 relabel 3: {"message":"Support 1088 (node 1177): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","structuredDiagnostics":[{"code":"conflicting_support_spring","dofIndices":[0],"message":"Support 1088 (node 1177): kx contradicts the rigid restraint type=rollerZ (ux) on the same DOF. Remove kx to keep it rigid, or release type=rollerZ (ux) to use the spring.","nodeIds":[1177],"phase":"input","severity":"error"}]}
+OUTCOMES issue-1028: 0 solved, 13 refused, 0 splits
+REFUSED issue-1029 original: the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned
+REFUSED issue-1029 units 0.001/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 1.6e6; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1029 units 25/0.01: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 1.6e6; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1029 units 0.3048/4.448: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 1.6e6; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1029 units 1000/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 1.6e6; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1029 rotation 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 1.6e6; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1029 quarter turn 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 1.4e11, node anisotropy 1.6e6; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1029 mirror 0: the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned
+REFUSED issue-1029 rotation 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 1.6e6; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1029 quarter turn 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 2.3e11, node anisotropy 1.6e6; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1029 mirror 1: the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned
+REFUSED issue-1029 rotation 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 1.6e6; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1029 quarter turn 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number 6.6e12, node anisotropy 1.6e6; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1029 mirror 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 1.6e6; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1029 mirror x: the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned
+REFUSED issue-1029 relabel 0: the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned
+REFUSED issue-1029 relabel 1: the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned
+REFUSED issue-1029 relabel 2: the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned
+REFUSED issue-1029 relabel 3: the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned
+OUTCOMES issue-1029: 0 solved, 19 refused, 0 splits
+REFUSED issue-1083 original: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 units 0.001/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 units 25/0.01: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 units 0.3048/4.448: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number 6.8e12, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 units 1000/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 rotation 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number 3.0e13, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 quarter turn 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 mirror 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number 1.0e13, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 rotation 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 quarter turn 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 mirror 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 rotation 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number 9.5e14, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 quarter turn 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 mirror 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 mirror x: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 relabel 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [645, 804] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 relabel 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [560, 930] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 relabel 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [171, 612] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1083 relabel 3: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [432, 1046] (scaled condition number inf, node anisotropy 9.3e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+OUTCOMES issue-1083: 0 solved, 19 refused, 0 splits
+ACCURACY issue-1086 original
+ACCURACY issue-1086 units 0.001/1000
+ACCURACY issue-1086 units 25/0.01
+ACCURACY issue-1086 units 0.3048/4.448
+ACCURACY issue-1086 units 1000/1000
+ACCURACY issue-1086 rotation 0
+ACCURACY issue-1086 quarter turn 0
+ACCURACY issue-1086 mirror 0
+ACCURACY issue-1086 rotation 1
+ACCURACY issue-1086 quarter turn 1
+ACCURACY issue-1086 mirror 1
+ACCURACY issue-1086 rotation 2
+ACCURACY issue-1086 quarter turn 2
+ACCURACY issue-1086 mirror 2
+ACCURACY issue-1086 mirror x
+ACCURACY issue-1086 relabel 0
+ACCURACY issue-1086 relabel 1
+ACCURACY issue-1086 relabel 2
+ACCURACY issue-1086 relabel 3
+OUTCOMES issue-1086: 19 solved, 0 refused, 0 splits
+ACCURACY issue-1090 original
+ACCURACY issue-1090 units 0.001/1000
+ACCURACY issue-1090 units 25/0.01
+ACCURACY issue-1090 units 0.3048/4.448
+ACCURACY issue-1090 units 1000/1000
+ACCURACY issue-1090 rotation 0
+ACCURACY issue-1090 axis permutation 0
+ACCURACY issue-1090 mirror 0
+ACCURACY issue-1090 rotation 1
+ACCURACY issue-1090 axis permutation 1
+ACCURACY issue-1090 mirror 1
+ACCURACY issue-1090 rotation 2
+ACCURACY issue-1090 axis permutation 2
+ACCURACY issue-1090 mirror 2
+ACCURACY issue-1090 relabel 0
+ACCURACY issue-1090 relabel 1
+ACCURACY issue-1090 relabel 2
+ACCURACY issue-1090 relabel 3
+OUTCOMES issue-1090: 18 solved, 0 refused, 0 splits
+REFUSED issue-1091 original: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 units 0.001/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 units 25/0.01: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 units 0.3048/4.448: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 units 1000/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 rotation 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number 1.6e13, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 quarter turn 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number 2.2e14, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 mirror 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 rotation 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 quarter turn 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 mirror 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number 4.2e15, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 rotation 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 quarter turn 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 mirror 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number 2.2e13, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 mirror x: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [1, 2] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 relabel 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [6, 603] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 relabel 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [13, 554] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 relabel 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [130, 176] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1091 relabel 3: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [566, 794] (scaled condition number inf, node anisotropy 6.7e3; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+OUTCOMES issue-1091: 0 solved, 19 refused, 0 splits
+REFUSED issue-1095 original: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 units 0.001/1000: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 units 25/0.01: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 units 0.3048/4.448: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 units 1000/1000: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 rotation 0: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 quarter turn 0: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 mirror 0: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 rotation 1: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 quarter turn 1: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 mirror 1: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 rotation 2: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 quarter turn 2: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 mirror 2: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 mirror x: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 relabel 0: the structure is a mechanism at nodes [780]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 relabel 1: the structure is a mechanism at nodes [343]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 relabel 2: the structure is a mechanism at nodes [45]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1095 relabel 3: the structure is a mechanism at nodes [1131]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+OUTCOMES issue-1095: 0 solved, 19 refused, 0 splits
+ACCURACY issue-1097 original
+ACCURACY issue-1097 units 0.001/1000
+ACCURACY issue-1097 units 25/0.01
+ACCURACY issue-1097 units 0.3048/4.448
+ACCURACY issue-1097 units 1000/1000
+ACCURACY issue-1097 rotation 0
+ACCURACY issue-1097 quarter turn 0
+ACCURACY issue-1097 mirror 0
+ACCURACY issue-1097 rotation 1
+ACCURACY issue-1097 quarter turn 1
+ACCURACY issue-1097 mirror 1
+ACCURACY issue-1097 rotation 2
+ACCURACY issue-1097 quarter turn 2
+ACCURACY issue-1097 mirror 2
+ACCURACY issue-1097 mirror x
+ACCURACY issue-1097 relabel 0
+ACCURACY issue-1097 relabel 1
+ACCURACY issue-1097 relabel 2
+ACCURACY issue-1097 relabel 3
+OUTCOMES issue-1097: 19 solved, 0 refused, 0 splits
+REFUSED issue-1099 original: Connector 1: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 units 0.001/1000: Connector 1: a shear spring on a connector of non-zero length (L = 0.005439) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 units 25/0.01: Connector 1: a shear spring on a connector of non-zero length (L = 135.965058) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 units 0.3048/4.448: Connector 1: a shear spring on a connector of non-zero length (L = 1.657686) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 units 1000/1000: Connector 1: a shear spring on a connector of non-zero length (L = 5438.602300) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 rotation 0: Connector 1: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 quarter turn 0: Connector 1: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 mirror 0: Connector 1: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 rotation 1: Connector 1: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 quarter turn 1: Connector 1: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 mirror 1: Connector 1: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 rotation 2: Connector 1: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 quarter turn 2: Connector 1: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 mirror 2: Connector 1: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 mirror x: Connector 1: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 relabel 0: Connector 774: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 relabel 1: Connector 356: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 relabel 2: Connector 329: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+REFUSED issue-1099 relabel 3: Connector 812: a shear spring on a connector of non-zero length (L = 5.438602) needs rotation DOFs to carry its moment V·L, and this model has none (no frame elements). Make the nodes coincide, set the shear stiffness to 0, or add a frame element.
+OUTCOMES issue-1099: 0 solved, 19 refused, 0 splits
+ACCURACY issue-1101 original
+ACCURACY issue-1101 units 0.001/1000
+ACCURACY issue-1101 units 25/0.01
+ACCURACY issue-1101 units 0.3048/4.448
+ACCURACY issue-1101 units 1000/1000
+ACCURACY issue-1101 rotation 0
+ACCURACY issue-1101 axis permutation 0
+ACCURACY issue-1101 mirror 0
+ACCURACY issue-1101 rotation 1
+ACCURACY issue-1101 axis permutation 1
+ACCURACY issue-1101 mirror 1
+ACCURACY issue-1101 rotation 2
+ACCURACY issue-1101 axis permutation 2
+ACCURACY issue-1101 mirror 2
+ACCURACY issue-1101 relabel 0
+ACCURACY issue-1101 relabel 1
+ACCURACY issue-1101 relabel 2
+ACCURACY issue-1101 relabel 3
+OUTCOMES issue-1101: 18 solved, 0 refused, 0 splits
+ACCURACY issue-1102 original
+ACCURACY issue-1102 units 0.001/1000
+ACCURACY issue-1102 units 25/0.01
+ACCURACY issue-1102 units 0.3048/4.448
+ACCURACY issue-1102 units 1000/1000
+ACCURACY issue-1102 rotation 0
+ACCURACY issue-1102 quarter turn 0
+ACCURACY issue-1102 mirror 0
+ACCURACY issue-1102 rotation 1
+ACCURACY issue-1102 quarter turn 1
+ACCURACY issue-1102 mirror 1
+ACCURACY issue-1102 rotation 2
+ACCURACY issue-1102 quarter turn 2
+ACCURACY issue-1102 mirror 2
+ACCURACY issue-1102 mirror x
+ACCURACY issue-1102 relabel 0
+ACCURACY issue-1102 relabel 1
+ACCURACY issue-1102 relabel 2
+ACCURACY issue-1102 relabel 3
+OUTCOMES issue-1102: 19 solved, 0 refused, 0 splits
+REFUSED issue-1103 original: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 units 0.001/1000: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 units 25/0.01: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 units 0.3048/4.448: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 units 1000/1000: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 rotation 0: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 quarter turn 0: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 mirror 0: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 rotation 1: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 quarter turn 1: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 mirror 1: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 rotation 2: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 quarter turn 2: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 mirror 2: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 mirror x: the structure is a mechanism at nodes [2, 7]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 relabel 0: the structure is a mechanism at nodes [453, 1406]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 relabel 1: the structure is a mechanism at nodes [531, 1089]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 relabel 2: the structure is a mechanism at nodes [95, 1140]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1103 relabel 3: the structure is a mechanism at nodes [866, 1401]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+OUTCOMES issue-1103: 0 solved, 19 refused, 0 splits
+REFUSED issue-1106 original: Nodal moment at node 4 is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell
+REFUSED issue-1106 units 0.001/1000: Nodal moment at node 4 is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell
+REFUSED issue-1106 units 25/0.01: Nodal moment at node 4 is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell
+REFUSED issue-1106 units 0.3048/4.448: Nodal moment at node 4 is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell
+REFUSED issue-1106 units 1000/1000: Nodal moment at node 4 is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell
+REFUSED issue-1106 axis permutation 0: Nodal moment at node 4 is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell
+REFUSED issue-1106 axis permutation 1: Nodal moment at node 4 is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell
+REFUSED issue-1106 axis permutation 2: Nodal moment at node 4 is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell
+REFUSED issue-1106 relabel 0: Nodal moment at node 647 is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell
+REFUSED issue-1106 relabel 1: Nodal moment at node 35 is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell
+REFUSED issue-1106 relabel 2: Nodal moment at node 178 is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell
+REFUSED issue-1106 relabel 3: Nodal moment at node 129 is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell
+OUTCOMES issue-1106: 0 solved, 12 refused, 0 splits
+REFUSED issue-1112 original: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 units 0.001/1000: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 units 25/0.01: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 units 0.3048/4.448: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 units 1000/1000: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 rotation 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 quarter turn 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 mirror 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 rotation 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 quarter turn 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 mirror 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 rotation 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 quarter turn 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 mirror 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 mirror x: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 relabel 0: the structure is a mechanism at nodes [531]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 relabel 1: the structure is a mechanism at nodes [164]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 relabel 2: the structure is a mechanism at nodes [826]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1112 relabel 3: the structure is a mechanism at nodes [612]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+OUTCOMES issue-1112: 0 solved, 19 refused, 0 splits
+ACCURACY issue-1115 original
+ACCURACY issue-1115 units 0.001/1000
+ACCURACY issue-1115 units 25/0.01
+ACCURACY issue-1115 units 0.3048/4.448
+ACCURACY issue-1115 units 1000/1000
+ACCURACY issue-1115 rotation 0
+ACCURACY issue-1115 axis permutation 0
+ACCURACY issue-1115 mirror 0
+ACCURACY issue-1115 rotation 1
+ACCURACY issue-1115 axis permutation 1
+ACCURACY issue-1115 mirror 1
+ACCURACY issue-1115 rotation 2
+ACCURACY issue-1115 axis permutation 2
+ACCURACY issue-1115 mirror 2
+ACCURACY issue-1115 relabel 0
+ACCURACY issue-1115 relabel 1
+ACCURACY issue-1115 relabel 2
+ACCURACY issue-1115 relabel 3
+OUTCOMES issue-1115: 18 solved, 0 refused, 0 splits
+ACCURACY issue-1116 original
+ACCURACY issue-1116 units 0.001/1000
+ACCURACY issue-1116 units 25/0.01
+ACCURACY issue-1116 units 0.3048/4.448
+ACCURACY issue-1116 units 1000/1000
+ACCURACY issue-1116 rotation 0
+ACCURACY issue-1116 quarter turn 0
+ACCURACY issue-1116 mirror 0
+ACCURACY issue-1116 rotation 1
+ACCURACY issue-1116 quarter turn 1
+ACCURACY issue-1116 mirror 1
+ACCURACY issue-1116 rotation 2
+ACCURACY issue-1116 quarter turn 2
+ACCURACY issue-1116 mirror 2
+ACCURACY issue-1116 mirror x
+ACCURACY issue-1116 relabel 0
+ACCURACY issue-1116 relabel 1
+ACCURACY issue-1116 relabel 2
+ACCURACY issue-1116 relabel 3
+OUTCOMES issue-1116: 19 solved, 0 refused, 0 splits
+ACCURACY issue-1117 original
+ACCURACY issue-1117 units 0.001/1000
+ACCURACY issue-1117 units 25/0.01
+ACCURACY issue-1117 units 0.3048/4.448
+ACCURACY issue-1117 units 1000/1000
+ACCURACY issue-1117 rotation 0
+ACCURACY issue-1117 axis permutation 0
+ACCURACY issue-1117 mirror 0
+ACCURACY issue-1117 rotation 1
+ACCURACY issue-1117 axis permutation 1
+ACCURACY issue-1117 mirror 1
+ACCURACY issue-1117 rotation 2
+ACCURACY issue-1117 axis permutation 2
+ACCURACY issue-1117 mirror 2
+ACCURACY issue-1117 relabel 0
+ACCURACY issue-1117 relabel 1
+ACCURACY issue-1117 relabel 2
+ACCURACY issue-1117 relabel 3
+OUTCOMES issue-1117: 18 solved, 0 refused, 0 splits
+ACCURACY issue-1118 original
+ACCURACY issue-1118 units 0.001/1000
+ACCURACY issue-1118 units 25/0.01
+ACCURACY issue-1118 units 0.3048/4.448
+ACCURACY issue-1118 units 1000/1000
+ACCURACY issue-1118 axis permutation 0
+ACCURACY issue-1118 axis permutation 1
+ACCURACY issue-1118 axis permutation 2
+ACCURACY issue-1118 relabel 0
+ACCURACY issue-1118 relabel 1
+ACCURACY issue-1118 relabel 2
+ACCURACY issue-1118 relabel 3
+OUTCOMES issue-1118: 12 solved, 0 refused, 0 splits
+ACCURACY issue-1193 original
+ACCURACY issue-1193 units 0.001/1000
+ACCURACY issue-1193 units 25/0.01
+ACCURACY issue-1193 units 0.3048/4.448
+ACCURACY issue-1193 units 1000/1000
+ACCURACY issue-1193 rotation 0
+ACCURACY issue-1193 axis permutation 0
+ACCURACY issue-1193 mirror 0
+ACCURACY issue-1193 rotation 1
+ACCURACY issue-1193 axis permutation 1
+ACCURACY issue-1193 mirror 1
+ACCURACY issue-1193 rotation 2
+ACCURACY issue-1193 axis permutation 2
+ACCURACY issue-1193 mirror 2
+ACCURACY issue-1193 relabel 0
+ACCURACY issue-1193 relabel 1
+ACCURACY issue-1193 relabel 2
+ACCURACY issue-1193 relabel 3
+OUTCOMES issue-1193: 18 solved, 0 refused, 0 splits
+ACCURACY issue-1216 original
+ACCURACY issue-1216 units 0.001/1000
+ACCURACY issue-1216 units 25/0.01
+ACCURACY issue-1216 units 0.3048/4.448
+ACCURACY issue-1216 units 1000/1000
+ACCURACY issue-1216 rotation 0
+ACCURACY issue-1216 quarter turn 0
+ACCURACY issue-1216 mirror 0
+ACCURACY issue-1216 rotation 1
+ACCURACY issue-1216 quarter turn 1
+ACCURACY issue-1216 mirror 1
+ACCURACY issue-1216 rotation 2
+ACCURACY issue-1216 quarter turn 2
+ACCURACY issue-1216 mirror 2
+ACCURACY issue-1216 mirror x
+ACCURACY issue-1216 relabel 0
+ACCURACY issue-1216 relabel 1
+ACCURACY issue-1216 relabel 2
+ACCURACY issue-1216 relabel 3
+OUTCOMES issue-1216: 19 solved, 0 refused, 0 splits
+ACCURACY issue-1265 original
+ACCURACY issue-1265 units 0.001/1000
+ACCURACY issue-1265 units 25/0.01
+ACCURACY issue-1265 units 0.3048/4.448
+ACCURACY issue-1265 units 1000/1000
+ACCURACY issue-1265 quarter turn 0
+ACCURACY issue-1265 quarter turn 1
+ACCURACY issue-1265 quarter turn 2
+ACCURACY issue-1265 mirror x
+ACCURACY issue-1265 relabel 0
+ACCURACY issue-1265 relabel 1
+ACCURACY issue-1265 relabel 2
+ACCURACY issue-1265 relabel 3
+OUTCOMES issue-1265: 13 solved, 0 refused, 0 splits
+ACCURACY issue-1351 original
+ACCURACY issue-1351 units 0.001/1000
+ACCURACY issue-1351 units 25/0.01
+ACCURACY issue-1351 units 0.3048/4.448
+ACCURACY issue-1351 units 1000/1000
+ACCURACY issue-1351 rotation 0
+ACCURACY issue-1351 axis permutation 0
+ACCURACY issue-1351 mirror 0
+ACCURACY issue-1351 rotation 1
+ACCURACY issue-1351 axis permutation 1
+ACCURACY issue-1351 mirror 1
+ACCURACY issue-1351 rotation 2
+ACCURACY issue-1351 axis permutation 2
+ACCURACY issue-1351 mirror 2
+ACCURACY issue-1351 relabel 0
+ACCURACY issue-1351 relabel 1
+ACCURACY issue-1351 relabel 2
+ACCURACY issue-1351 relabel 3
+OUTCOMES issue-1351: 18 solved, 0 refused, 0 splits
+REFUSED issue-1353 original: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 units 0.001/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 units 25/0.01: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 units 0.3048/4.448: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 units 1000/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 rotation 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 axis permutation 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 mirror 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 rotation 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 axis permutation 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 mirror 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 rotation 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 axis permutation 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 mirror 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [4, 5] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 relabel 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [427, 1010] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 relabel 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [249, 334] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 relabel 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [295, 1170] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1353 relabel 3: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [321, 1138] (scaled condition number 3.3e10, node anisotropy 2.7e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+OUTCOMES issue-1353: 0 solved, 18 refused, 0 splits
+REFUSED issue-1355 original: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [3, 4] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 units 0.001/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [3, 4] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 units 25/0.01: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [3, 4] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 units 0.3048/4.448: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [3, 4] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 units 1000/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [3, 4] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 axis permutation 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [3, 4] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 mirror 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [3, 4] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 axis permutation 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [3, 4] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 mirror 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [3, 4] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 axis permutation 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [3, 4] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 mirror 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [3, 4] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 relabel 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [60, 162] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 relabel 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [635, 1138] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 relabel 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [721, 740] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1355 relabel 3: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [922, 978] (scaled condition number 3.1e13, node anisotropy 2.1e10; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+OUTCOMES issue-1355: 0 solved, 15 refused, 0 splits
+ACCURACY issue-1357 original
+ACCURACY issue-1357 units 0.001/1000
+ACCURACY issue-1357 units 25/0.01
+ACCURACY issue-1357 units 0.3048/4.448
+ACCURACY issue-1357 units 1000/1000
+ACCURACY issue-1357 axis permutation 0
+ACCURACY issue-1357 mirror 0
+ACCURACY issue-1357 axis permutation 1
+ACCURACY issue-1357 mirror 1
+ACCURACY issue-1357 axis permutation 2
+ACCURACY issue-1357 mirror 2
+ACCURACY issue-1357 relabel 0
+ACCURACY issue-1357 relabel 1
+ACCURACY issue-1357 relabel 2
+ACCURACY issue-1357 relabel 3
+OUTCOMES issue-1357: 15 solved, 0 refused, 0 splits
+REFUSED issue-1359 original: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 units 0.001/1000: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 units 25/0.01: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 units 0.3048/4.448: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 units 1000/1000: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 rotation 0: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 quarter turn 0: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 mirror 0: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 rotation 1: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 quarter turn 1: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 mirror 1: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 rotation 2: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 quarter turn 2: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 mirror 2: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 mirror x: the structure is a mechanism at nodes [5]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 relabel 0: the structure is a mechanism at nodes [1089]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 relabel 1: the structure is a mechanism at nodes [207]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 relabel 2: the structure is a mechanism at nodes [858]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1359 relabel 3: the structure is a mechanism at nodes [1096]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+OUTCOMES issue-1359: 0 solved, 19 refused, 0 splits
+REFUSED issue-1362 original: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 units 0.001/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 units 25/0.01: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 units 0.3048/4.448: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 units 1000/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 rotation 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 quarter turn 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 mirror 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 rotation 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 quarter turn 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 mirror 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 rotation 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 quarter turn 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 mirror 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 mirror x: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 relabel 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [95, 314] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 relabel 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [381, 757] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 relabel 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [350, 918] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-1362 relabel 3: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [70, 974] (scaled condition number 3.8e13, node anisotropy 2.6e8; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+OUTCOMES issue-1362: 0 solved, 19 refused, 0 splits
+ACCURACY issue-1635 original
+ACCURACY issue-1635 units 0.001/1000
+ACCURACY issue-1635 units 25/0.01
+ACCURACY issue-1635 units 0.3048/4.448
+ACCURACY issue-1635 units 1000/1000
+ACCURACY issue-1635 rotation 0
+ACCURACY issue-1635 axis permutation 0
+ACCURACY issue-1635 mirror 0
+ACCURACY issue-1635 rotation 1
+ACCURACY issue-1635 axis permutation 1
+ACCURACY issue-1635 mirror 1
+ACCURACY issue-1635 rotation 2
+ACCURACY issue-1635 axis permutation 2
+ACCURACY issue-1635 mirror 2
+ACCURACY issue-1635 relabel 0
+ACCURACY issue-1635 relabel 1
+ACCURACY issue-1635 relabel 2
+ACCURACY issue-1635 relabel 3
+OUTCOMES issue-1635: 18 solved, 0 refused, 0 splits
+ACCURACY issue-1647 original
+ACCURACY issue-1647 units 0.001/1000
+ACCURACY issue-1647 units 25/0.01
+ACCURACY issue-1647 units 0.3048/4.448
+ACCURACY issue-1647 units 1000/1000
+ACCURACY issue-1647 rotation 0
+ACCURACY issue-1647 quarter turn 0
+ACCURACY issue-1647 mirror 0
+ACCURACY issue-1647 rotation 1
+ACCURACY issue-1647 quarter turn 1
+ACCURACY issue-1647 mirror 1
+ACCURACY issue-1647 rotation 2
+ACCURACY issue-1647 quarter turn 2
+ACCURACY issue-1647 mirror 2
+ACCURACY issue-1647 mirror x
+ACCURACY issue-1647 relabel 0
+ACCURACY issue-1647 relabel 1
+ACCURACY issue-1647 relabel 2
+ACCURACY issue-1647 relabel 3
+OUTCOMES issue-1647: 19 solved, 0 refused, 0 splits
+REFUSED issue-1648 original: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 units 0.001/1000: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 units 25/0.01: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 units 0.3048/4.448: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 units 1000/1000: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 rotation 0: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 quarter turn 0: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 mirror 0: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 rotation 1: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 quarter turn 1: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 mirror 1: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 rotation 2: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 quarter turn 2: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 mirror 2: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 mirror x: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 relabel 0: the structure is a mechanism at nodes [564]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 relabel 1: the structure is a mechanism at nodes [1009]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 relabel 2: the structure is a mechanism at nodes [67]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1648 relabel 3: the structure is a mechanism at nodes [1078]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+OUTCOMES issue-1648: 0 solved, 19 refused, 0 splits
+REFUSED issue-1651 original: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 units 0.001/1000: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 units 25/0.01: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 units 0.3048/4.448: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 units 1000/1000: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 rotation 0: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 quarter turn 0: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 mirror 0: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 rotation 1: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 quarter turn 1: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 mirror 1: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 rotation 2: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 quarter turn 2: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 mirror 2: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 mirror x: the structure is a mechanism at nodes [3]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 relabel 0: the structure is a mechanism at nodes [559]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 relabel 1: the structure is a mechanism at nodes [426]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 relabel 2: the structure is a mechanism at nodes [540]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-1651 relabel 3: the structure is a mechanism at nodes [389]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+OUTCOMES issue-1651: 0 solved, 19 refused, 0 splits
+ACCURACY issue-1653 original
+ACCURACY issue-1653 units 0.001/1000
+ACCURACY issue-1653 units 25/0.01
+ACCURACY issue-1653 units 0.3048/4.448
+ACCURACY issue-1653 units 1000/1000
+ACCURACY issue-1653 rotation 0
+ACCURACY issue-1653 quarter turn 0
+ACCURACY issue-1653 mirror 0
+ACCURACY issue-1653 rotation 1
+ACCURACY issue-1653 quarter turn 1
+ACCURACY issue-1653 mirror 1
+ACCURACY issue-1653 rotation 2
+ACCURACY issue-1653 quarter turn 2
+ACCURACY issue-1653 mirror 2
+ACCURACY issue-1653 mirror x
+ACCURACY issue-1653 relabel 0
+ACCURACY issue-1653 relabel 1
+ACCURACY issue-1653 relabel 2
+ACCURACY issue-1653 relabel 3
+OUTCOMES issue-1653: 19 solved, 0 refused, 0 splits
+ACCURACY issue-954 original
+ACCURACY issue-954 units 0.001/1000
+ACCURACY issue-954 units 25/0.01
+ACCURACY issue-954 units 0.3048/4.448
+ACCURACY issue-954 units 1000/1000
+ACCURACY issue-954 rotation 0
+ACCURACY issue-954 quarter turn 0
+ACCURACY issue-954 mirror 0
+ACCURACY issue-954 rotation 1
+ACCURACY issue-954 quarter turn 1
+ACCURACY issue-954 mirror 1
+ACCURACY issue-954 rotation 2
+ACCURACY issue-954 quarter turn 2
+ACCURACY issue-954 mirror 2
+ACCURACY issue-954 mirror x
+ACCURACY issue-954 relabel 0
+ACCURACY issue-954 relabel 1
+ACCURACY issue-954 relabel 2
+ACCURACY issue-954 relabel 3
+OUTCOMES issue-954: 19 solved, 0 refused, 0 splits
+ACCURACY issue-956 original
+ACCURACY issue-956 units 0.001/1000
+ACCURACY issue-956 units 25/0.01
+ACCURACY issue-956 units 0.3048/4.448
+ACCURACY issue-956 units 1000/1000
+ACCURACY issue-956 rotation 0
+ACCURACY issue-956 quarter turn 0
+ACCURACY issue-956 mirror 0
+ACCURACY issue-956 rotation 1
+ACCURACY issue-956 quarter turn 1
+ACCURACY issue-956 mirror 1
+ACCURACY issue-956 rotation 2
+ACCURACY issue-956 quarter turn 2
+ACCURACY issue-956 mirror 2
+ACCURACY issue-956 mirror x
+ACCURACY issue-956 relabel 0
+ACCURACY issue-956 relabel 1
+ACCURACY issue-956 relabel 2
+ACCURACY issue-956 relabel 3
+OUTCOMES issue-956: 19 solved, 0 refused, 0 splits
+ACCURACY issue-960 original
+ACCURACY issue-960 units 0.001/1000
+ACCURACY issue-960 units 25/0.01
+ACCURACY issue-960 units 0.3048/4.448
+ACCURACY issue-960 units 1000/1000
+ACCURACY issue-960 rotation 0
+ACCURACY issue-960 quarter turn 0
+ACCURACY issue-960 mirror 0
+ACCURACY issue-960 rotation 1
+ACCURACY issue-960 quarter turn 1
+ACCURACY issue-960 mirror 1
+ACCURACY issue-960 rotation 2
+ACCURACY issue-960 quarter turn 2
+ACCURACY issue-960 mirror 2
+ACCURACY issue-960 mirror x
+ACCURACY issue-960 relabel 0
+ACCURACY issue-960 relabel 1
+ACCURACY issue-960 relabel 2
+ACCURACY issue-960 relabel 3
+OUTCOMES issue-960: 19 solved, 0 refused, 0 splits
+REFUSED issue-964 original: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 units 0.001/1000: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 units 25/0.01: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 units 0.3048/4.448: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 units 1000/1000: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 rotation 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 quarter turn 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 mirror 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 rotation 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 quarter turn 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 mirror 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 rotation 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 quarter turn 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 mirror 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 mirror x: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 relabel 0: the structure is a mechanism at nodes [719]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 relabel 1: the structure is a mechanism at nodes [614]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 relabel 2: the structure is a mechanism at nodes [44]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-964 relabel 3: the structure is a mechanism at nodes [552]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+OUTCOMES issue-964: 0 solved, 19 refused, 0 splits
+REFUSED issue-966 original: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 units 0.001/1000: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 units 25/0.01: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 units 0.3048/4.448: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 units 1000/1000: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 rotation 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 quarter turn 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 mirror 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 rotation 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 quarter turn 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 mirror 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 rotation 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 quarter turn 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 mirror 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 mirror x: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 relabel 0: the structure is a mechanism at nodes [757]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 relabel 1: the structure is a mechanism at nodes [454]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 relabel 2: the structure is a mechanism at nodes [857]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-966 relabel 3: the structure is a mechanism at nodes [848]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+OUTCOMES issue-966: 0 solved, 19 refused, 0 splits
+REFUSED issue-967 original: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 units 0.001/1000: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 units 25/0.01: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 units 0.3048/4.448: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 units 1000/1000: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 rotation 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 quarter turn 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 mirror 0: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 rotation 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 quarter turn 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 mirror 1: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 rotation 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 quarter turn 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 mirror 2: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 mirror x: the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 relabel 0: the structure is a mechanism at nodes [552]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 relabel 1: the structure is a mechanism at nodes [281]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 relabel 2: the structure is a mechanism at nodes [129]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+REFUSED issue-967 relabel 3: the structure is a mechanism at nodes [625]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases
+OUTCOMES issue-967: 0 solved, 19 refused, 0 splits
+ACCURACY issue-972 original
+ACCURACY issue-972 units 0.001/1000
+ACCURACY issue-972 units 25/0.01
+ACCURACY issue-972 units 0.3048/4.448
+ACCURACY issue-972 units 1000/1000
+ACCURACY issue-972 rotation 0
+ACCURACY issue-972 axis permutation 0
+ACCURACY issue-972 mirror 0
+ACCURACY issue-972 rotation 1
+ACCURACY issue-972 axis permutation 1
+ACCURACY issue-972 mirror 1
+ACCURACY issue-972 rotation 2
+ACCURACY issue-972 axis permutation 2
+ACCURACY issue-972 mirror 2
+ACCURACY issue-972 relabel 0
+ACCURACY issue-972 relabel 1
+ACCURACY issue-972 relabel 2
+ACCURACY issue-972 relabel 3
+OUTCOMES issue-972: 18 solved, 0 refused, 0 splits
+REFUSED issue-973 original: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 9.6e10, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 units 0.001/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2] (scaled condition number inf, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 units 25/0.01: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2] (scaled condition number inf, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 units 0.3048/4.448: the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned
+REFUSED issue-973 units 1000/1000: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2] (scaled condition number inf, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 rotation 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2] (scaled condition number inf, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 quarter turn 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 9.6e10, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 mirror 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2] (scaled condition number 1.7e13, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 rotation 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 7.8e11, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 quarter turn 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2] (scaled condition number inf, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 mirror 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2] (scaled condition number inf, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 rotation 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2] (scaled condition number 5.8e12, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 quarter turn 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 3.4e11, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 mirror 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 1.2e11, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 mirror x: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 9.6e10, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 relabel 0: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 9.6e10, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 relabel 1: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 9.6e10, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 relabel 2: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 9.6e10, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+REFUSED issue-973 relabel 3: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 9.6e10, node anisotropy 6.3e5; limits 1e12 and 1e8, conditional accuracy 1e-4): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts
+OUTCOMES issue-973: 0 solved, 19 refused, 0 splits
+ACCURACY issue-993 original
+ACCURACY issue-993 units 0.001/1000
+ACCURACY issue-993 units 25/0.01
+ACCURACY issue-993 units 0.3048/4.448
+ACCURACY issue-993 units 1000/1000
+ACCURACY issue-993 quarter turn 0
+ACCURACY issue-993 quarter turn 1
+ACCURACY issue-993 quarter turn 2
+ACCURACY issue-993 mirror x
+ACCURACY issue-993 relabel 0
+ACCURACY issue-993 relabel 1
+ACCURACY issue-993 relabel 2
+ACCURACY issue-993 relabel 3
+OUTCOMES issue-993: 13 solved, 0 refused, 0 splits
+ACCURACY issue-994 original
+ACCURACY issue-994 units 0.001/1000
+ACCURACY issue-994 units 25/0.01
+ACCURACY issue-994 units 0.3048/4.448
+ACCURACY issue-994 units 1000/1000
+ACCURACY issue-994 quarter turn 0
+ACCURACY issue-994 quarter turn 1
+ACCURACY issue-994 quarter turn 2
+ACCURACY issue-994 mirror x
+ACCURACY issue-994 relabel 0
+ACCURACY issue-994 relabel 1
+ACCURACY issue-994 relabel 2
+ACCURACY issue-994 relabel 3
+OUTCOMES issue-994: 13 solved, 0 refused, 0 splits
+LOADED C08: 400 solved copies, 0 splits, worst comparison 1.8623288718840833e-7
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 359 filtered out; finished in 0.21s

@@ -14,12 +14,42 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Stand 10. November 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 und SA-2026-025 bis 047 in Version 0.5.0 (SA-2026-040 eingedämmt: Die Prüfung ist als unvollständig gekennzeichnet), außer SA-2026-044: Der plastische Kollaps in 2D bleibt abgelehnt, bis #758 geschlossen ist. SA-2026-048 wurde nach Version 0.5.0 behoben und ist seit dem 8. November 2026 auf stabileo.com online. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 und SA-2026-053 wurden nach Version 0.5.0 behoben und sind seit dem 9. November 2026 auf stabileo.com online. Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben. SA-2026-054 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-055 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-056 — Entwurf: ungelöst; keine Korrektur integriert oder veröffentlicht. SA-2026-057 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-059 — In PR #1921 behoben, Veröffentlichung ausstehend."
+      "t": "Stand 12. November 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 und SA-2026-025 bis 047 in Version 0.5.0 (SA-2026-040 eingedämmt: Die Prüfung ist als unvollständig gekennzeichnet), außer SA-2026-044: Der plastische Kollaps in 2D bleibt abgelehnt, bis #758 geschlossen ist. SA-2026-048 wurde nach Version 0.5.0 behoben und ist seit dem 8. November 2026 auf stabileo.com online. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 und SA-2026-053 wurden nach Version 0.5.0 behoben und sind seit dem 9. November 2026 auf stabileo.com online. Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben. SA-2026-054 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-055 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-056 — Entwurf: ungelöst; keine Korrektur integriert oder veröffentlicht. SA-2026-057 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-059 — In PR #1921 behoben, Veröffentlichung ausstehend. SA-2026-060 — Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung. SA-2026-062 — Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung."
     },
     {
       "k": "note",
       "t": "SA-2026-058 — In PR #1922 behoben, Veröffentlichung ausstehend."
     },
+    {
+      "k": "note",
+      "t": "SA-2026-061 — Behoben in PR #1952, Veröffentlichung ausstehend."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-063 — In PR #2009 behoben, Veröffentlichung ausstehend."
+    },
+    {"k": "note", "t": "SA-2026-064 — Behoben in 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-064-steel-cb-combination.md", "label": "SA-2026-064", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-065 — Behoben in 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-065-snow-roof-step.md", "label": "SA-2026-065", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-066 — Behoben in 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-066-cirsoc201-transverse-cm.md", "label": "SA-2026-066", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-067 — Behoben in 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-068 — Behoben in 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-069 — Entwurf 2026-11-15; in PR #2169 behoben, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-070 — Behoben in PR #2170, Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-070-interior-member-couples.md", "label": "SA-2026-070", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-071 — Entwurf 2026-11-15; in PR #2173 behoben, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-071-incomplete-concurrent-demands.md", "label": "SA-2026-071", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-072 — In PR #2175 behoben, Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-073 — PR #2197; Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-074 — PR #2197; Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -384,6 +414,26 @@ const body: PostBody = {
           "Hoch",
           "In PR #1921 behoben, Veröffentlichung ausstehend"
         ],
+        [
+          "SA-2026-061",
+          "Bogenlängen- und Verschiebungssteuerung ließen Reaktionen weg und verwendeten unskalierte Stablasten; auch fehlende Ergebnisse bei 2D/3D-Zwangsbedingungen, Guyan, Bauphasen und Zeitverläufen prüfen. Betroffene Ergebnisse neu berechnen oder unabhängig prüfen; 0.2.0–0.5.0 und spätere betroffene main-Builds.",
+          "Hoch",
+          "Behoben in PR #1952, Veröffentlichung ausstehend"
+        ],
+        ["SA-2026-060", "Die Bauphasenanalyse konnte reale Drehungen nach Einheitenwechseln oder an freigegebenen Enden mit Auflagerfedern ohne Warnung versteifen; Bauphasenmodelle mit Freigaben erneut prüfen", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
+        ["SA-2026-062", "Die rohe plastische 3D-Analyse konnte beim Scheitern des elastischen Anfangszustands ohne Warnung null melden; ältere zertifizierte Versionen behielten diesen Faktor. Main liefert bereits eine positive zertifizierte Schranke mit Warnung; PR #1943 gibt die anfängliche Ablehnung weiter", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
+        ["SA-2026-063", "Bauphasen- und nichtlineare Analysen mit Zwangsbedingungen verloren vorgegebene Masterbewegungen; Seil- und Zeitverlaufsanalysen lehnen nicht unterstützte Auflagerbewegungen nun ab. Bestehende allgemeine Dynamikwarnungen benannten diese Auslassung nicht", "Hoch", "In PR #2009 behoben, Veröffentlichung ausstehend"],
+        ["SA-2026-064", "Cb für Stahl konnte aus einer anderen Kombination oder einem kurzen Abschnitt ohne bekannte Halterungspositionen stammen (#1316, #2088). CIRSOC-301-Nachweise erneut ausführen und Biegetragfähigkeit, Interaktionsausnutzung und maßgebende Kombinationen prüfen.", "Hoch", "Behoben in 0.6.1"],
+        ["SA-2026-065", "Schneeverwehungen an Dachstufen konnten auf geneigten aufnehmenden Dachflächen fehlen (#2082). CIRSOC-104-Schneelasten neu erzeugen und betroffene Analysen und Nachweise wiederholen.", "Hoch", "Behoben in 0.6.1"],
+        ["SA-2026-066", "Cm für Beton konnte trotz Querlast zwischen den Auflagern durch Endmomente reduziert werden (#2089). Schlanke Stützen und Wände, vergrößerte Momente und Bewehrung erneut prüfen.", "Hoch", "Behoben in 0.6.1"],
+        ["SA-2026-067", "Eine Grundrissdrehung konnte erzeugte Schneelasten ändern (#2093). Lasten mit der tatsächlichen Dachgeometrie neu erzeugen und Analysen und Nachweise wiederholen; Zurückdrehen repariert alte Ergebnisse nicht.", "Hoch", "Behoben in 0.6.1"],
+        ["SA-2026-068", "Der Torsionsnachweis konnte mit unzureichenden bemessenen Bügeln bestehen (#2141). Betonnachweise erneut ausführen und tatsächliche Querbewehrungstragfähigkeit, Bügelabstände und Torsionsversagen prüfen. Ungeprüfte Längsbewehrung bedeutet keinen bestandenen Bewehrungskorb.", "Hoch", "Behoben in 0.6.1"],
+        ["SA-2026-069", "Die Torsionsquerschnittsgrenze ließ die gleichzeitige sekundäre Querkraft aus (#2142). Betonbemessungen erneut ausführen und Querschnittsversagen sowie fehlende Bügel prüfen; zusätzliche Bügel beheben eine überschrittene Querschnittsgrenze nicht.", "Hoch", "Entwurf 2026-11-15; in PR #2169 behoben, Zusammenführung und Veröffentlichung ausstehend"],
+        ["SA-2026-070", "Innere Stabdurchbiegung und Rotation ließen Stablasten aus (#2143). Verformte Linien, Lernanzeigen und Gebrauchstauglichkeitsprüfungen für Stahl und Beton prüfen, einschließlich voller und partieller Trapezlasten. Belastete Stäbe ohne ausreichendes EI werden nun ausdrücklich abgelehnt.", "Hoch", "Behoben in PR #2170, Veröffentlichung ausstehend"],
+        ["SA-2026-071", "Bauteilnachweise konnten mit unvollständigen gleichzeitigen Beanspruchungen bestehen (#2096). Beton- und Stahlbemessungen erneut ausführen und Kombinationen, Bauteile, Stationen sowie Zertifikate prüfen.", "Hoch", "Entwurf 2026-11-15; in PR #2173 behoben, Zusammenführung und Veröffentlichung ausstehend"],
+        ["SA-2026-072", "Eine ungleiche Unterteilung der Dachränder konnte den First verschieben und erzeugte Schneelasten ändern (#2144). Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "In PR #2175 behoben, Veröffentlichung ausstehend"],
+        ["SA-2026-073", "Stäbe über den First erhielten gleichmäßigen Druck und verloren das physikalische Lastmoment. Lasten werden jetzt am geometrischen First geteilt. Alle betroffenen erzeugten Flächenlasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht. (#2176).", "Hoch", "PR #2197; Zusammenführung und Veröffentlichung ausstehend"],
+        ["SA-2026-074", "Die Unterteilung eines geneigten Sparrens konnte ein explizites Dachfeld als Geschossdecke einstufen und seine Traufschneelast ohne Warnung entfernen. Die Einstufung verwendet jetzt die physischen Feldgrundrisse. Alle betroffenen erzeugten Flächenlasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht. (#2172). Ein ungeteilter geneigter Sparren über einem separaten tieferen Feld konnte dieses ebenfalls als Dach einstufen, Dach- und Geschossflächenlasten ändern und im Breitenmodus ohne Warnung Schnee hinzufügen.", "Hoch", "PR #2197; Zusammenführung und Veröffentlichung ausstehend"],
       ]
     },
     {

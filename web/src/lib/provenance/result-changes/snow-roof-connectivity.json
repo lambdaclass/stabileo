@@ -1,0 +1,37 @@
+{
+  "id": "snow-roof-connectivity",
+  "date": "2026-11-15",
+  "prs": [
+    2095
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "snow",
+      "generatedLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Snow fetch follows continuous roofs and selected geometry",
+    "es": "La nieve usa cubiertas continuas y la geometría seleccionada",
+    "pt": "A neve usa coberturas contínuas e a geometria selecionada",
+    "de": "Schnee verwendet durchgehende Dächer und ausgewählte Geometrie",
+    "fr": "La neige suit les toits continus et la géométrie sélectionnée",
+    "tr": "Kar yükleri sürekli çatıları ve seçilen geometriyi izliyor"
+  },
+  "explanation": {
+    "en": "Roof joins check all surface boundaries before extending drift fetch or receiving sliding snow. Selected roofs determine their own snow frame, width and directions. Regenerate snow loads and rerun analyses, combinations and design checks (#2095). This correction is included in 0.6.1.",
+    "es": "Las uniones verifican todos los límites de superficie antes de ampliar la longitud de acumulación o recibir nieve deslizada. La cubierta seleccionada define sus ejes, ancho y direcciones. Regenere las cargas de nieve y recalcule análisis, combinaciones y verificaciones (#2095). Corrección incluida en 0.6.1.",
+    "pt": "As uniões verificam todos os limites de superfície antes de ampliar o comprimento de acumulação ou receber neve deslizada. A cobertura selecionada define seus eixos, largura e direções. Gere novamente as cargas de neve e recalcule análises, combinações e verificações (#2095). Correção incluída na versão 0.6.1.",
+    "de": "Dachverbindungen prüfen alle Flächengrenzen, bevor sie die Verwehungslänge erweitern oder abrutschenden Schnee aufnehmen. Ausgewählte Dächer bestimmen ihre eigenen Achsen, Breiten und Richtungen. Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2095). In 0.6.1 enthalten.",
+    "fr": "Les jonctions vérifient toutes les limites de surface avant de prolonger la longueur de congère ou de recevoir la neige glissée. Le toit sélectionné définit ses propres axes, largeur et directions. Régénérez les charges de neige et relancez analyses, combinaisons et vérifications (#2095). Correction incluse dans 0.6.1.",
+    "tr": "Çatı bağlantıları sürüklenme uzunluğunu artırmadan veya kayan karı almadan önce tüm yüzey sınırlarını denetler. Seçilen çatılar kendi eksenlerini, genişliklerini ve yönlerini belirler. Kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri çalıştırın (#2095). Düzeltme 0.6.1 sürümüne dahildir."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-snow-roof-connectivity.md",
+    "heading": "Snow fetch follows continuous roofs and selected geometry"
+  }
+}

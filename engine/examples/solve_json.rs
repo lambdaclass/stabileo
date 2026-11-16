@@ -1,5 +1,5 @@
 //! Tiny JSON CLI around the solvers, used by the OpenSees differential
-//! harness (tools/opensees/).
+//! harness (testing/opensees/).
 //!
 //!   solve_json [--2d|--3d] [FILE]     solve a SolverInput / SolverInput3D
 //!                                     (stdin when FILE is absent; the

@@ -120,3 +120,10 @@ describe('result-change registry', () => {
     expect(conditionGroups({ any: ['a', 'b'], all: ['c'], allOf: [['d', 'e']] })).toEqual([['a', 'b'], ['c'], ['d', 'e']]);
   });
 });
+
+it('rejects missing or malformed PR metadata before a consumer reads includes', () => {
+  const entry = { ...RESULT_CHANGES.changes[0], resultsVersion: RESULT_CHANGES.currentResultsVersion };
+  for (const prs of [undefined, null, '2095', [0], [-1], [1.5], ['2095']]) {
+    expect(validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, prs } as typeof entry] }, new Set(FEATURE_IDS))).toContain(`change ${entry.id}: prs must be a list of positive integer issue or PR numbers`);
+  }
+});

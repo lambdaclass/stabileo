@@ -4,9 +4,9 @@
 Computes every verification metric it can from the repository and from GitHub
 (issue counts and the latest CI artifacts, through the `gh` CLI), and writes
 
-    docs/verification/dashboard.json   machine-readable, for the app / docs site
-    docs/verification/DASHBOARD.md     current values + per-release history
-    docs/verification/MATURITY.md      highest verification level per analysis,
+    testing/docs/dashboard.json   machine-readable, for the app / docs site
+    testing/docs/DASHBOARD.md     current values + per-release history
+    testing/docs/MATURITY.md      highest verification level per analysis,
                                        element family and design check
 
 A metric that cannot be measured is written as "not yet measured" with the
@@ -27,7 +27,7 @@ CI: .github/workflows/verification-dashboard.yml (weekly, on release tags, on de
 
 Artifact contracts (a metric appears as soon as CI publishes it):
 
-    differential-<program>   tools/differential/out/ci/*.json (run.py --report)
+    differential-<program>   testing/differential/out/ci/*.json (run.py --report)
     opensees-report          opensees-report.json
     codeaster-report         codeaster-report.json
     mutants-report-<k>       cargo-mutants output dir (caught.txt, missed.txt, ...)
@@ -53,7 +53,7 @@ import unicodedata
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = "lambdaclass/stabileo"
-VDIR = os.path.join(ROOT, "docs", "verification")
+VDIR = os.path.join(ROOT, "testing", "docs")
 OUT_JSON = os.path.join(VDIR, "dashboard.json")
 OUT_MD = os.path.join(VDIR, "DASHBOARD.md")
 OUT_MATURITY = os.path.join(VDIR, "MATURITY.md")
@@ -228,7 +228,7 @@ def find_artifacts(gh: GH, workflow: str, pattern: str, max_runs: int, all_match
 
 
 def feature_matrix():
-    text = read("docs/verification/FEATURE_MATRIX.md")
+    text = read("testing/docs/FEATURE_MATRIX.md")
     out = {}
     for dim in ("2D", "3D"):
         body = section(text, dim)
@@ -247,7 +247,7 @@ def feature_matrix():
 
 
 def ts_engine_logic():
-    text = read("docs/verification/TS_ENGINE_LOGIC.md")
+    text = read("testing/docs/TS_ENGINE_LOGIC.md")
     inv = section(text, "Inventory")
     base = os.path.join(ROOT, "web", "src", "lib", "engine")
     by_class = {c: {"modules": 0, "lines": 0} for c in "abcd"}
@@ -288,7 +288,7 @@ def ts_engine_logic():
 
 
 def certified_design_checks():
-    text = read("docs/verification/CERTIFY.md")
+    text = read("testing/docs/CERTIFY.md")
     sec = section(text, "Certified design checks")
     catalog = DESIGN_CHECKS
     out = []
@@ -299,7 +299,7 @@ def certified_design_checks():
 
 
 def design_examples():
-    text = read("docs/verification/DESIGN_EXAMPLES.md")
+    text = read("testing/docs/DESIGN_EXAMPLES.md")
     cov = section(text, "Coverage")
     counts = {}
     for row in table_rows(cov):
@@ -624,13 +624,13 @@ def coverage(gh: GH, max_runs: int, local: str | None, require_sha: str | None =
 
 DIFF = {
     # harness -> (document, analyses it compares, element/feature families it exercises)
-    "Frame3DD": ("../../tools/differential/frame3dd/README.md", "frame3dd"),
-    "PyNite": ("../../tools/differential/pynite/README.md", "pynite"),
-    "MYSTRAN": ("../../tools/differential/mystran/README.md", "mystran"),
-    "Kratos": ("../../tools/differential/kratos/README.md", "kratos"),
-    "CalculiX": ("../../tools/differential/calculix/README.md", "calculix"),
-    "OpenSees": ("../../tools/opensees/README.md", None),
-    "Code_Aster": ("../../tools/differential/codeaster/README.md", None),
+    "Frame3DD": ("../../testing/differential/frame3dd/README.md", "frame3dd"),
+    "PyNite": ("../../testing/differential/pynite/README.md", "pynite"),
+    "MYSTRAN": ("../../testing/differential/mystran/README.md", "mystran"),
+    "Kratos": ("../../testing/differential/kratos/README.md", "kratos"),
+    "CalculiX": ("../../testing/differential/calculix/README.md", "calculix"),
+    "OpenSees": ("../../testing/opensees/README.md", None),
+    "Code_Aster": ("../../testing/differential/codeaster/README.md", None),
 }
 
 # OpenSees categories from its README table (category column) and Code_Aster's static scope.
@@ -763,11 +763,11 @@ def harness_sources() -> dict:
     """What each differential harness in the repository compares, read from its own files."""
     adapters = {}
     for prog in ("frame3dd", "pynite", "mystran", "kratos", "calculix"):
-        m = re.search(r"^ANALYSES\s*=\s*\(([^)]*)\)", read(f"tools/differential/{prog}/adapter.py"), re.M)
+        m = re.search(r"^ANALYSES\s*=\s*\(([^)]*)\)", read(f"testing/differential/{prog}/adapter.py"), re.M)
         adapters[prog] = set(re.findall(r'"(\w+)"', m.group(1))) if m else set()
-    return {"adapters": adapters, "opensees": read("tools/opensees/README.md"),
-            "codeaster": read("tools/differential/codeaster/README.md"),
-            "docs": {h: bool(read(os.path.normpath(os.path.join("docs/verification", d)))) for h, (d, _) in DIFF.items()}}
+    return {"adapters": adapters, "opensees": read("testing/opensees/README.md"),
+            "codeaster": read("testing/differential/codeaster/README.md"),
+            "docs": {h: bool(read(os.path.normpath(os.path.join("testing/docs", d)))) for h, (d, _) in DIFF.items()}}
 
 
 def harness_covers(src: dict, h: str, analysis: str) -> bool:
@@ -789,13 +789,13 @@ def harness_covers(src: dict, h: str, analysis: str) -> bool:
 
 
 def maturity(fm, issue_state):
-    certify = read("docs/verification/CERTIFY.md")
+    certify = read("testing/docs/CERTIFY.md")
     certify_h = set(headings(certify))
     bench = section(read("docs/BENCHMARKS.md"), "Solver Capability Matrix")
     bench_rows = {r[0]: r[1] for r in table_rows(bench) if len(r) >= 2}
-    symbolic = read("docs/verification/SYMBOLIC.md")
-    examples = read("docs/verification/DESIGN_EXAMPLES.md")
-    ts_logic = section(read("docs/verification/TS_ENGINE_LOGIC.md"), "2. Differential tests, TypeScript against Rust")
+    symbolic = read("testing/docs/SYMBOLIC.md")
+    examples = read("testing/docs/DESIGN_EXAMPLES.md")
+    ts_logic = section(read("testing/docs/TS_ENGINE_LOGIC.md"), "2. Differential tests, TypeScript against Rust")
 
     hsrc = harness_sources()
 
@@ -835,7 +835,7 @@ def maturity(fm, issue_state):
             ev["Certified"] = ", ".join(f"[{h}](CERTIFY.md#{slug(h)})" for h in present)
         b = bench_ok(bench_names)
         if b:
-            ev["Benchmarked"] = "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): " + "; ".join(
+            ev["Benchmarked"] = "[BENCHMARKS](../../docs/BENCHMARKS.md#solver-capability-matrix): " + "; ".join(
                 f"{n} ({bench_rows[n]})" for n in b)
         progs = [h for h, a in diffs if harness_does(h, a)]
         if progs:
@@ -852,7 +852,7 @@ def maturity(fm, issue_state):
         rows["analyses"].append({"name": name, "level": level(ev), "evidence": ev, "issues": open_issues(issues)})
 
     fm_features = {}
-    fm_text = read("docs/verification/FEATURE_MATRIX.md")
+    fm_text = read("testing/docs/FEATURE_MATRIX.md")
     for dim in ("2D", "3D"):
         body = section(fm_text, dim)
         feats = dict((m.group(2), int(m.group(1))) for m in re.finditer(r"^- \*\*F(\d+)\*\* (.+)$", body, re.M))
@@ -867,7 +867,7 @@ def maturity(fm, issue_state):
             ev["Certified"] = "[symbolic derivation](SYMBOLIC.md): " + ", ".join(f"`{x}`" for x in k)
         b = bench_ok(bench_names)
         if b:
-            ev["Benchmarked"] = "[BENCHMARKS](../BENCHMARKS.md#solver-capability-matrix): " + "; ".join(
+            ev["Benchmarked"] = "[BENCHMARKS](../../docs/BENCHMARKS.md#solver-capability-matrix): " + "; ".join(
                 f"{n} ({bench_rows[n]})" for n in b)
         live = [h for h in harnesses if harness_does(h, "static")]
         for h in set(harnesses) - set(live):
@@ -955,8 +955,8 @@ def write_maturity(rows, generated, commit, unmapped=None):
         "| Level | Meaning | Evidence source |",
         "|---|---|---|",
         "| **Certified** | The result carries a machine-checked bound (analyses, design checks: an interval certificate, its checker proved in Lean), or the element matrices are checked exactly against a first-principles derivation (elements) | [CERTIFY.md](CERTIFY.md), [SYMBOLIC.md](SYMBOLIC.md) |",
-        "| **Benchmarked** | Reproduces published reference values (textbook, benchmark report, published worked example) | [BENCHMARKS.md](../BENCHMARKS.md) capability matrix (rows rated Strong or Good), [DESIGN_EXAMPLES.md](DESIGN_EXAMPLES.md); the acceptance suite (#337) when merged |",
-        "| **Differential** | Agrees with an independent implementation (another FE program, or an independent TypeScript statement of the clause) | [tools/differential](../../tools/differential/README.md), [tools/opensees](../../tools/opensees/README.md), [TS_ENGINE_LOGIC.md](TS_ENGINE_LOGIC.md) §2 |",
+        "| **Benchmarked** | Reproduces published reference values (textbook, benchmark report, published worked example) | [BENCHMARKS.md](../../docs/BENCHMARKS.md) capability matrix (rows rated Strong or Good), [DESIGN_EXAMPLES.md](DESIGN_EXAMPLES.md); the acceptance suite (#337) when merged |",
+        "| **Differential** | Agrees with an independent implementation (another FE program, or an independent TypeScript statement of the clause) | [testing/differential](../../testing/differential/README.md), [testing/opensees](../../testing/opensees/README.md), [TS_ENGINE_LOGIC.md](TS_ENGINE_LOGIC.md) §2 |",
         "| **Tested** | Covered by tests against an independent reference in the feature matrix, or by unit/integration tests | [FEATURE_MATRIX.md](FEATURE_MATRIX.md), engine and web tests |",
         "| **Unverified** | None of the above | |",
         "",
@@ -1016,7 +1016,8 @@ def write_dashboard(doc):
         f"Generated {doc['generated']} at commit `{doc['commit']}`.",
         "",
         "These are the metrics behind the exit criteria of the backlog sections of",
-        "[PRODUCT_ROADMAP.md](../roadmap/PRODUCT_ROADMAP.md). Per-item verification levels are in",
+        "[PRODUCT_ROADMAP.md](../../docs/roadmap/PRODUCT_ROADMAP.md) and",
+        "[testing/ROADMAP.md](../ROADMAP.md). Per-item verification levels are in",
         "[MATURITY.md](MATURITY.md).",
         "",
         "## Current values",
@@ -1056,7 +1057,7 @@ def write_dashboard(doc):
                          f"{r['mismatch']} | {other} |")
         lines += ["", "*Compared* counts models where both programs produced a comparable answer "
                   "(ok, mismatch, or known); ill-conditioned, unsupported and refused models are reported but "
-                  "not compared ([statuses](../../tools/differential/README.md#statuses)).", ""]
+                  "not compared ([statuses](../../testing/differential/README.md#statuses)).", ""]
     fmc = d.get("feature_matrix")
     if fmc:
         lines += ["### Feature-matrix cells by status", "", "| Status | 2D | 3D |", "|---|---|---|"]
@@ -1198,7 +1199,7 @@ def count_metrics() -> dict:
 
 def certified_metrics(rows) -> dict:
     out = {}
-    have = bool(read("docs/verification/CERTIFY.md"))
+    have = bool(read("testing/docs/CERTIFY.md"))
     for key, lab in (("analyses", "certified_analyses"), ("design", "certified_design")):
         label = f"{'Analyses' if key == 'analyses' else 'Design checks'} certified"
         if not have or not rows.get(key):
@@ -1334,7 +1335,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--offline", action="store_true", help="repository only; keep GitHub values from dashboard.json")
     ap.add_argument("--record", metavar="RELEASE",
-                    help="write docs/verification/releases/RELEASE.json; HEAD must be the tag's commit")
+                    help="write testing/docs/releases/RELEASE.json; HEAD must be the tag's commit")
     ap.add_argument("--allow-untagged-record", dest="allow_untagged", action="store_true",
                     help="allow --record when HEAD is not the tag's commit (the row records HEAD)")
     ap.add_argument("--max-runs", type=int, default=15, help="CI runs to look back per workflow")

@@ -14,12 +14,42 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "État au 10 novembre 2026 : SA-2026-001 à 020 sont corrigés dans la version 0.3.0, SA-2026-021 à 024 dans la version 0.4.0 et SA-2026-025 à 047 dans la version 0.5.0 (SA-2026-040 contenu : la vérification est marquée comme incomplète), sauf SA-2026-044 : le calcul de ruine plastique 2D reste refusé tant que #758 est ouvert. SA-2026-048 a été corrigé après la version 0.5.0 et est en ligne sur stabileo.com depuis le 8 novembre 2026. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 et SA-2026-053 ont été corrigés après la version 0.5.0 et sont en ligne sur stabileo.com depuis le 9 novembre 2026. Les publier fait partie de notre manière de vérifier les résultats ; ce n'est pas le signe qu'ils sont encore ouverts. Un avis est considéré comme corrigé lorsque la correction est en ligne sur stabileo.com, et non lorsque la modification existe. Tant qu'un avis est ouvert, appliquez sa solution de contournement et vérifiez à la main le résultat concerné avant de signer. SA-2026-054 — Brouillon : correction pas encore fusionnée ni publiée. SA-2026-055 — Brouillon : correction pas encore fusionnée ni publiée. SA-2026-056 — Brouillon : non résolu ; aucun correctif intégré ni déployé. SA-2026-057 — Brouillon : correction pas encore fusionnée ni publiée. SA-2026-059 — Corrigé dans PR #1921, en attente de publication."
+      "t": "État au 12 novembre 2026 : SA-2026-001 à 020 sont corrigés dans la version 0.3.0, SA-2026-021 à 024 dans la version 0.4.0 et SA-2026-025 à 047 dans la version 0.5.0 (SA-2026-040 contenu : la vérification est marquée comme incomplète), sauf SA-2026-044 : le calcul de ruine plastique 2D reste refusé tant que #758 est ouvert. SA-2026-048 a été corrigé après la version 0.5.0 et est en ligne sur stabileo.com depuis le 8 novembre 2026. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 et SA-2026-053 ont été corrigés après la version 0.5.0 et sont en ligne sur stabileo.com depuis le 9 novembre 2026. Les publier fait partie de notre manière de vérifier les résultats ; ce n'est pas le signe qu'ils sont encore ouverts. Un avis est considéré comme corrigé lorsque la correction est en ligne sur stabileo.com, et non lorsque la modification existe. Tant qu'un avis est ouvert, appliquez sa solution de contournement et vérifiez à la main le résultat concerné avant de signer. SA-2026-054 — Brouillon : correction pas encore fusionnée ni publiée. SA-2026-055 — Brouillon : correction pas encore fusionnée ni publiée. SA-2026-056 — Brouillon : non résolu ; aucun correctif intégré ni déployé. SA-2026-057 — Brouillon : correction pas encore fusionnée ni publiée. SA-2026-059 — Corrigé dans PR #1921, en attente de publication. SA-2026-060 — Brouillon : correction locale en attente de revue et de publication. SA-2026-062 — Brouillon : correction locale en attente de revue et de publication."
     },
     {
       "k": "note",
       "t": "SA-2026-058 — Corrigé dans PR #1922, publication en attente."
     },
+    {
+      "k": "note",
+      "t": "SA-2026-061 — Corrigé dans PR #1952, publication en attente."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-063 — Corrigé dans PR #2009, en attente de publication."
+    },
+    {"k": "note", "t": "SA-2026-064 — Corrigé dans 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-064-steel-cb-combination.md", "label": "SA-2026-064", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-065 — Corrigé dans 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-065-snow-roof-step.md", "label": "SA-2026-065", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-066 — Corrigé dans 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-066-cirsoc201-transverse-cm.md", "label": "SA-2026-066", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-067 — Corrigé dans 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-068 — Corrigé dans 0.6.1."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-069 — Brouillon 2026-11-15 ; corrigé dans la PR #2169, fusion et publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-070 — Corrigé dans PR #2170, publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-070-interior-member-couples.md", "label": "SA-2026-070", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-071 — Brouillon 2026-11-15 ; corrigé dans la PR #2173, fusion et publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-071-incomplete-concurrent-demands.md", "label": "SA-2026-071", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-072 — Corrigé dans la PR #2175, publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-073 — PR #2197; fusion et publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-074 — PR #2197; fusion et publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Données concernées et actions requises."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -384,6 +414,26 @@ const body: PostBody = {
           "Élevée",
           "Corrigé dans PR #1921, en attente de publication"
         ],
+        [
+          "SA-2026-061",
+          "La longueur d’arc et le contrôle en déplacement omettaient les réactions et utilisaient les charges de barres sans mise à l’échelle ; vérifier aussi les omissions des résultats 2D/3D avec liaisons, Guyan, phases et historiques temporels. Recalculer ou vérifier indépendamment ; 0.2.0–0.5.0 et compilations ultérieures de main concernées.",
+          "Élevée",
+          "Corrigé dans PR #1952, publication en attente"
+        ],
+        ["SA-2026-060", "Le calcul par phases pouvait raidir sans avertissement des rotations réelles après un changement d’unités ou aux extrémités articulées avec ressorts d’appui ; revérifiez les modèles par phases avec libérations", "Haute", "Brouillon : correction locale en attente de revue et de publication"],
+        ["SA-2026-062", "Le calcul plastique 3D brut pouvait annoncer zéro sans avertissement en cas d’échec de l’état élastique initial ; les anciennes versions certifiées conservaient ce facteur. Main renvoie déjà une borne certifiée positive avec avertissement ; la PR #1943 transmet le refus initial", "Haute", "Brouillon : correction locale en attente de revue et de publication"],
+        ["SA-2026-063", "Les analyses par phases et non linéaires avec contraintes perdaient le mouvement imposé du maître ; les analyses de câbles et les historiques temporels refusent désormais les mouvements d’appui non pris en charge. Les avertissements dynamiques généraux existants ne signalaient pas cette omission", "Haute", "Corrigé dans PR #2009, en attente de publication"],
+        ["SA-2026-064", "Le Cb de l’acier pouvait provenir d’une autre combinaison ou d’un court tronçon dont les maintiens étaient inconnus (#1316, #2088). Relancez les vérifications CIRSOC 301 et examinez résistance en flexion, taux d’interaction et combinaisons déterminantes.", "Élevée", "Corrigé dans 0.6.1"],
+        ["SA-2026-065", "L’accumulation à un décrochement pouvait être omise sur une toiture réceptrice inclinée (#2082). Régénérez les charges de neige CIRSOC 104 et recalculez les analyses et vérifications concernées.", "Élevée", "Corrigé dans 0.6.1"],
+        ["SA-2026-066", "Le Cm du béton pouvait être réduit d’après les moments d’extrémité malgré une charge transversale entre appuis (#2089). Revérifiez poteaux et voiles élancés, moments amplifiés et armatures.", "Élevée", "Corrigé dans 0.6.1"],
+        ["SA-2026-067", "Une rotation en plan pouvait modifier les charges de neige générées (#2093). Régénérez les charges avec la géométrie réelle puis relancez analyses et vérifications ; revenir à l’orientation initiale ne répare pas les résultats.", "Élevée", "Corrigé dans 0.6.1"],
+        ["SA-2026-068", "La torsion pouvait être validée avec des étriers dimensionnés insuffisants (#2141). Relancez les vérifications béton et examinez résistance transversale réelle, espacement des étriers et échecs en torsion. Des armatures longitudinales non vérifiées ne constituent pas une cage validée.", "Élevée", "Corrigé dans 0.6.1"],
+        ["SA-2026-069", "La limite de section en torsion omettait le cisaillement secondaire concomitant (#2142). Relancez les calculs béton et examinez les échecs de section et les étriers absents ; ajouter des étriers ne corrige pas une section qui dépasse sa limite.", "Élevée", "Brouillon 2026-11-15 ; corrigé dans la PR #2169, fusion et publication en attente"],
+        ["SA-2026-070", "La flèche et la rotation intérieures omettaient des charges de barre (#2143). Vérifiez déformées, lectures pédagogiques et contrôles de service acier/béton, y compris les charges trapézoïdales complètes et partielles. La récupération sous charge sans EI suffisant est désormais explicitement refusée.", "Élevée", "Corrigé dans PR #2170, publication en attente"],
+        ["SA-2026-071", "La vérification pouvait réussir avec des sollicitations concomitantes incomplètes (#2096). Relancez les calculs béton et acier et examinez combinaisons, éléments, sections et certificats.", "Élevée", "Brouillon 2026-11-15 ; corrigé dans la PR #2173, fusion et publication en attente"],
+        ["SA-2026-072", "Une subdivision inégale des bords du toit pouvait déplacer le faîtage et modifier les charges de neige générées (#2144). Régénérez les charges puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2175, publication en attente"],
+        ["SA-2026-073", "Les barres traversant le faîtage recevaient une pression uniforme et perdaient le moment physique. Les charges sont désormais divisées au faîtage géométrique. Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. (#2176).", "Élevée", "PR #2197; fusion et publication en attente"],
+        ["SA-2026-074", "Subdiviser un chevron incliné pouvait classer un panneau explicite du toit comme plancher et supprimer silencieusement sa neige en rive. Le classement utilise désormais les emprises physiques des panneaux. Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. (#2172). Un chevron incliné non subdivisé au-dessus d’un panneau inférieur distinct pouvait aussi le classer comme toit, modifier les charges surfaciques de toit et de plancher et ajouter silencieusement de la neige en mode par largeur.", "Élevée", "PR #2197; fusion et publication en attente"],
       ]
     },
     {

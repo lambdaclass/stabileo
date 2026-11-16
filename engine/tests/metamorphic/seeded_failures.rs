@@ -339,23 +339,15 @@ fn seeded_failure_reaches_nightly_findings() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap();
-    let out = root
-        .join("target")
-        .join(format!("seeded-failure-nightly-{}", std::process::id()));
-    struct Cleanup(std::path::PathBuf);
-    impl Drop for Cleanup {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
-        }
-    }
+    let scratch = tempfile::tempdir().unwrap();
+    let out = scratch.path().join("nightly");
     assert!(!out.exists());
-    let _cleanup = Cleanup(out.clone());
     for (fault, code) in [("control", 0), ("sign", 1)] {
         let destination = out.join(fault);
         let output = std::process::Command::new("python3")
             .arg("-B")
             .arg("-I")
-            .arg(root.join("scripts/nightly-models.py"))
+            .arg(root.join("testing/scripts/nightly-models.py"))
             .arg("--model")
             .arg(root.join("engine/tests/fixtures/ex-cantilever-input.json"))
             .args([
@@ -475,17 +467,10 @@ fn seeded_failure_inverse_load_scaling() {
 
 #[test]
 fn seeded_failure_replay_reaches_numerical_assertion() {
-    let destination = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap().join("target")
-        .join(format!("seeded-replay-assertion-{}.json", std::process::id()));
+    let scratch = tempfile::tempdir().unwrap();
+    let destination = scratch.path().join("replay-results.json");
     for (fault, code) in [("control", 0), ("sign", 101)] {
-        let output = std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--ignored", "--exact", "metamorphic_replay", "--nocapture"])
-            .env("NIGHTLY_MODEL", concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ex-cantilever-input.json"))
-            .env("NIGHTLY_RESULTS", &destination)
-            .env("METAMORPHIC_SEED", "1919")
-            .env("STABILEO_SELFTEST_REPLAY", fault)
-            .output().unwrap();
+        let output = replay_output(&destination, fault);
         assert_eq!(output.status.code(), Some(code), "{output:?}");
         let result: serde_json::Value = serde_json::from_slice(&std::fs::read(&destination).unwrap()).unwrap();
         std::fs::remove_file(&destination).unwrap();
@@ -495,6 +480,92 @@ fn seeded_failure_replay_reaches_numerical_assertion() {
             assert!(stderr.contains("metamorphic violations:"), "replay failed outside its numerical assertion: {stderr}");
         } else {
             assert!(result["failures"].as_array().unwrap().is_empty(), "{result}");
+        }
+    }
+}
+
+fn replay_output(destination: &std::path::Path, fault: &str) -> std::process::Output {
+    std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--ignored", "--exact", "metamorphic_replay", "--nocapture"])
+        .env("NIGHTLY_MODEL", concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ex-cantilever-input.json"))
+        .env("NIGHTLY_RESULTS", destination)
+        .env("METAMORPHIC_SEED", "1919")
+        .env("STABILEO_SELFTEST_REPLAY", fault)
+        .output().unwrap()
+}
+
+#[test]
+fn seeded_failure_replay_write_error_names_destination() {
+    let scratch = tempfile::tempdir().unwrap();
+    for destination in [scratch.path().join("missing/results.json"), scratch.path().to_owned()] {
+        let output = replay_output(&destination, "control");
+        assert_eq!(output.status.code(), Some(101), "{output:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(&destination.display().to_string()), "write error omitted destination {}: {stderr}", destination.display());
+        assert!(!stderr.contains("metamorphic violations:"), "{stderr}");
+    }
+}
+
+#[test]
+fn seeded_failure_nightly_reversal_and_symmetry() {
+    for (issue, invariant) in [(1970, "reversal"), (1971, "symmetry")] {
+        for fault in [Fault::Sign, Fault::Unit, Fault::Stiffness] {
+            let mut c = crate::nightly_harness::witness(issue);
+            if invariant == "symmetry" {
+                let mut tip = c.s.nodes["2"].clone();
+                tip.id = 3;
+                let start = c.s.nodes["1"].clone();
+                let mid = c.s.nodes.get_mut("2").unwrap();
+                mid.x = start.x + (tip.x - start.x) * 0.5;
+                mid.z = start.z + (tip.z - start.z) * 0.5;
+                c.s.nodes.insert("3".into(), tip);
+                let mut element = c.s.elements["1"].clone();
+                (element.id, element.node_i, element.node_j) = (2, 2, 3);
+                c.s.elements.get_mut("1").unwrap().hinge_end = false;
+                c.s.elements.insert("2".into(), element);
+                let mut loads = Vec::new();
+                for load in &mut c.s.loads {
+                    if let dedaliano_engine::types::SolverLoad::Distributed(d) = load {
+                        let mut next = d.clone();
+                        next.element_id = 2;
+                        d.q_j = (d.q_i + d.q_j) * 0.5;
+                        next.q_i = d.q_j;
+                        loads.push(dedaliano_engine::types::SolverLoad::Distributed(next));
+                    }
+                }
+                c.s.loads.extend(loads);
+            }
+            let c3 = crate::case::Case3::new(c.name.clone(), dedaliano_engine::metamorphic::planes::embed_2d(&c.s, dedaliano_engine::metamorphic::planes::Plane::XZ).unwrap());
+            let check2 = || {
+                let mut a = crate::ana2::rows().into_iter().find(|a| a.name == "linear").unwrap();
+                a.run = static_2d;
+                let t = Tally::default();
+                if invariant == "symmetry" {
+                    let sym = crate::symmetry::symmetrize_2d(&c.name, &c.s, true).unwrap();
+                    crate::symmetry::check_2d(&t, &sym, true, &[a]);
+                } else {
+                    crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: 1919 }, &c, &[a], &[invariant]);
+                }
+                t.replay_results()
+            };
+            let control = check2();
+            assert_eq!(control["verdicts"][0]["pass"], 1, "{control}");
+            assert_red(&seeded(if invariant == "symmetry" { 0 } else { 1 }, fault, check2), invariant);
+            let check3 = || {
+                let mut a = crate::ana3::rows().into_iter().find(|a| a.name == "linear").unwrap();
+                a.run = static_3d;
+                let t = Tally::default();
+                if invariant == "symmetry" {
+                    let sym = crate::symmetry::symmetrize_3d(&c3.name, &c3.s, true).unwrap();
+                    crate::symmetry::check_3d(&t, &sym, true, &[a]);
+                } else {
+                    crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: 1919 }, &c3, &[a], &[invariant]);
+                }
+                t.replay_results()
+            };
+            let control = check3();
+            assert_eq!(control["verdicts"][0]["pass"], 1, "{control}");
+            assert_red(&seeded(if invariant == "symmetry" { 0 } else { 1 }, fault, check3), invariant);
         }
     }
 }
