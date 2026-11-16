@@ -8,10 +8,14 @@
 import { test, expect, designPlace, loadModel, solveModel, ribbonCmd } from './fixtures';
 
 test.describe('@smoke design data', () => {
-  test('the usual covers are flagged under the table, the CIRSOC preset sets them, it undoes', async ({ pro: page }) => {
+  test('the default covers meet the table, a cover under it is flagged, the CIRSOC preset sets them, it undoes', async ({ pro: page }) => {
     await designPlace(page, 'designData');
     await expect(page.getByTestId('design-data-panel')).toBeVisible();
-    await expect(page.getByTestId('design-data-cover-beam')).toHaveValue('25');
+    await expect(page.getByTestId('design-data-cover-beam')).toHaveValue('30');
+    await expect(page.getByTestId('design-data-cover-footing')).toHaveValue('55');
+    await expect(page.getByTestId('design-data-under')).toHaveCount(0);
+    await page.getByTestId('design-data-cover-beam').fill('25');
+    await page.getByTestId('design-data-cover-beam').press('Enter');
     await expect(page.getByTestId('design-data-under')).toBeVisible();
     await page.getByTestId('design-data-cirsoc').click();
     await expect(page.getByTestId('design-data-cover-beam')).toHaveValue('30');

@@ -6,8 +6,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { historyStore, modelStore, resultsStore } from '../index';
 import { verificationStore } from '../verification.svelte';
 import { designData, designContextOptions, patchDesignData, setDesignData, verifyOptions } from '../design-data';
-import { coversUnderMinimum, concreteFc, defaultDesignData, migrateDesignData, minimumCover, withCirsocCovers } from '../../model/design-data';
-import { buildMemberContext, DEFAULT_COVER, DEFAULT_REBAR_FY, DEFAULT_STIRRUP_DIA } from '../../engine/design/member-context';
+import { coversUnderMinimum, concreteFc, defaultDesignData, largestBar, migrateDesignData, minimumCover, withCirsocCovers } from '../../model/design-data';
+import { buildMemberContext, DEFAULT_REBAR_FY, DEFAULT_STIRRUP_DIA } from '../../engine/design/member-context';
 import { buildRegionOptions } from '../../engine/design/candidate-enumerate-beam';
 import { syntheticBeamContext } from '../../engine/design/__tests__/helpers';
 import { wallBarDiameterMm } from '../detailing-project-inputs';
@@ -27,11 +27,25 @@ const model = {
 describe('the project design data', () => {
   beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 
-  it('states nothing: the values the code always used', () => {
+  it('states nothing: the steel the code always used, and the covers of Table 20.5.1.3.1', () => {
     expect(designContextOptions()).toMatchObject({ stirrupDia: DEFAULT_STIRRUP_DIA, rebarFy: DEFAULT_REBAR_FY });
-    expect(designContextOptions().coverFor('beam')).toBe(DEFAULT_COVER);
-    expect(verifyOptions()).toEqual({ rebarFy: 420, cover: 0.025, columnCover: 0.025, stirrupDia: 8 });
+    expect(designContextOptions().coverFor('beam')).toBe(0.03);
+    expect(verifyOptions()).toEqual({ rebarFy: 420, cover: 0.03, columnCover: 0.03, stirrupDia: 8 });
     expect(wallBarDiameterMm()).toBe(12);
+    expect(defaultDesignData().covers).toEqual({ beam: 0.03, column: 0.03, slab: 0.025, wall: 0.025, footing: 0.055 });
+    expect(withCirsocCovers(defaultDesignData()).covers).toEqual(defaultDesignData().covers);
+    expect(coversUnderMinimum(defaultDesignData())).toEqual([]);
+  });
+
+  it('a saved project keeps the covers it stored; one that stored none takes the new defaults', () => {
+    const saved = JSON.parse(JSON.stringify({ ...defaultDesignData(), covers: { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 } }));
+    modelStore.setDesignData(migrateDesignData(saved));
+    expect(designContextOptions().coverFor('beam')).toBe(0.025);
+    expect(designData().covers.footing).toBe(0.025);
+    modelStore.setDesignData(migrateDesignData(JSON.parse(JSON.stringify({ rebarFy: 500 }))));
+    expect(designData().covers).toEqual(defaultDesignData().covers);
+    modelStore.setDesignData(null);
+    expect(verifyOptions().cover).toBe(0.03);
   });
 
   it('the steel and the covers reach the member contexts, a column\'s and a beam\'s apart', () => {
@@ -114,13 +128,16 @@ describe('covers against CIRSOC 201-2025 Table 20.5.1.3.1', () => {
   });
 
   it('says which covers are under it, and the preset sets them all to it, rounded up to 5 mm', () => {
-    const d = defaultDesignData();
-    // The usual 25 mm to a Ø8 stirrup leaves Ø32 main bars 33 mm deep, a slab of Ø32 bars needs 37 mm, a footing 55 mm.
-    expect(coversUnderMinimum(d).map((x) => x.kind)).toEqual(['beam', 'column', 'slab', 'footing']);
+    const d = { ...defaultDesignData(), covers: { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 } };
+    expect(coversUnderMinimum(d).map((x) => x.kind)).toEqual(['beam', 'column', 'footing']);
     const p = withCirsocCovers(d);
-    expect(p.covers).toEqual({ beam: 0.03, column: 0.03, slab: 0.04, wall: 0.025, footing: 0.055 });
+    expect(p.covers).toEqual({ beam: 0.03, column: 0.03, slab: 0.025, wall: 0.025, footing: 0.055 });
     expect(coversUnderMinimum(p)).toEqual([]);
     expect(coversUnderMinimum({ ...p, executionControl: false }).map((x) => x.kind)).toEqual(['beam', 'column', 'slab', 'wall', 'footing']);
+    expect(largestBar(p, 'slab')).toBe(16);
+    expect(largestBar(p, 'beam')).toBe(25);
+    expect(largestBar(p, 'column')).toBe(32);
+    expect(largestBar({ ...p, longDiametersMm: [32] }, 'beam')).toBe(32);
     expect(migrateDesignData(JSON.parse(JSON.stringify({ executionControl: false }))).executionControl).toBe(false);
     expect(migrateDesignData({ executionControl: true }).executionControl).toBeUndefined();
   });

@@ -10,7 +10,7 @@ import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
 import { mainCoverCheck } from './beam-row';
 import { columnSeismic, type Seismic } from './seismic';
 import type { Fmt } from './format';
-import { check, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup } from './types';
+import { COLUMN_BAR_RANGE, check, inRange, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup } from './types';
 
 const EDITION = '2025' as const;
 
@@ -292,7 +292,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
   const compressionDominated = puMax > 0.1 * c.mat.fc * 1000 * Ag;
   const klrMax = Math.max(0, ...results.flatMap((r) => [r.x.klr, r.y.klr]));
 
-  const dias = c.diameters.filter((x) => x >= 12 && x <= 32);
+  const dias = c.diameters.filter((x) => inRange(x, COLUMN_BAR_RANGE));
   const refDia = dias.includes(16) ? 16 : dias[0] ?? 16;
   const ref = evenLayout(d, c, refDia, tieDiaFor(refDia), 0.2);
   const refArea = columnArea(ref);

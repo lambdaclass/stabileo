@@ -16,10 +16,7 @@ import { barActsAt } from '../../rc-sheets/beam-line';
 import { bendAngles } from '../../rc-sheets/shape';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
 import { goToRow, resizeHints, lineResizeHint } from '../rc-sheets-resize';
-import { designData, patchDesignData } from '../design-data';
 
-/** 30 mm to Ø8 stirrups: the main bars at Table 20.5.1.3.1's 35 mm (the 25 mm default leaves them at 33). */
-const tableCovers = () => patchDesignData({ covers: { ...designData().covers, beam: 0.03, column: 0.03 } });
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -203,7 +200,7 @@ describe('reinforcement sheets from a solved model', () => {
   });
 
   it('arms the two-span beam as one run: continuous bars, an extra top bar over the middle support cut where it is no longer needed, every station verified', () => {
-    frame(); tableCovers(); solve();
+    frame(); solve();
     const rows = buildSheetRows();
     expect(rows.line).toHaveLength(1);
     const ln = rows.line[0]!;
@@ -713,7 +710,6 @@ describe('reinforcement sheets from a solved model', () => {
 
   it('gives a beam too shallow the depth it needs, never more than the one that holds, and a column with room the smaller section that still holds', () => {
     frame();
-    tableCovers();
     solve();
     const rows = buildSheetRows();
     const ok = rows.beam[0]!;

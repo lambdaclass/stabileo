@@ -28,6 +28,7 @@ import { DEFAULT_DESIGN_FAMILIES } from '../../design/design-families';
 import { isSolverReady } from '../../wasm-solver';
 import type { RebarLayer } from '../../../design-contract/reinforcement';
 import '../../design/adapters/cirsoc201-adapter';
+import { stateSuiteCovers } from '../../../store/__tests__/suite-covers';
 import '../../design/adapters/unsupported-adapter';
 
 /** The design's seat: cover 25 mm, Ø6 stirrup, the bar's centre half its diameter inside. */
@@ -71,6 +72,7 @@ describe('the blog beam clamped at its right end, designed and laid', () => {
     expect(isSolverReady()).toBe(true);
     modelStore.clear(); resultsStore.clear(); detailingStore.clear(); designRunStore.resetMarks(); verificationStore.clear();
     await modelStore.loadExample('rc-beam-flexure');
+    stateSuiteCovers();
     const right = [...modelStore.supports.values()].find((x) => x.nodeId === 3)!;
     modelStore.removeSupport(right.id);
     modelStore.addSupport(3, 'fixed3d');

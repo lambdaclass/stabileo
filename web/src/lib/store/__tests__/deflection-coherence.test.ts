@@ -24,6 +24,7 @@ import { readinessBanner } from '../../engine/detailing/document-render';
 import type { DocumentModel } from '../../engine/detailing/document-model';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { stateSuiteLateral } from './suite-lateral';
+import { stateSuiteCovers } from './suite-covers';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -38,6 +39,7 @@ async function qa8(n?: number): Promise<DocumentModel> {
   await modelStore.loadExample('rc-design-qa-8');
   // The reading of the beams' role in the lateral system this suite was written under (`suite-lateral.ts`).
   stateSuiteLateral();
+  stateSuiteCovers();
   if (n) modelStore.setDeflectionLimits({ rules: [{ id: 1, scope: { kind: 'memberKind', value: 'beam' }, n, direction: 'resultant' }] });
   const solved = await modelStore.solveCombinations3DParallel(true, false, true) as { perCase: never; perCombo: never; envelope: never };
   resultsStore.setCombinationResults3D(solved.perCase, solved.perCombo, solved.envelope);

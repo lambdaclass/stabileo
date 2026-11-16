@@ -4,6 +4,7 @@ import type { BeamContext } from './beam-row';
 import { barArea, meshArea, meshLabel, proposeMesh } from './bars';
 import type { Fmt } from './format';
 import { developedLength, legLengths, shapeWeight, type BarShape } from './shape';
+import { barHeights, cornerBars, integrityBars, stripCheck, type ExtraBarsPlan } from './slab-corner-integrity';
 import { cirsocSlabDevelopment, cirsocSlabLap, type SlabBarLayout, type SlabFace, type SlabRow } from './slab-row';
 import type { Materials, MeshBars } from './types';
 
@@ -243,6 +244,7 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
     return !linesOf(p, other(d)).some((s) => s.kind !== 'joint');
   };
   const halfAt = (p: Panel, d: PlanDir, at: number) => Math.max(0, ...linesOf(p, d).filter((s) => Math.abs(s.at - at) <= TOL).map((s) => s.half));
+  const clearSpan = (p: Panel, d: PlanDir) => hi(p.rect, d) - lo(p.rect, d) - halfAt(p, d, lo(p.rect, d)) - halfAt(p, d, hi(p.rect, d));
   /** The panel beyond a line on one side: its clear span to the next support, and where a bar there must stop. */
   const sideOf = (s: PlanSupport, side: 'below' | 'above') => {
     const p = byKey.get(s[side]!)!;
@@ -262,9 +264,9 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
   }
 
   const packages: SlabPackage[] = [];
-  const yBottom = (p: Panel, d: PlanDir, dia: number) => c.cover + (d === 'x' ? dia / 2000 : p.row.adopted.bottomX.dia / 1000 + dia / 2000);
-  const yTop = (h: number, d: PlanDir, dia: number, outerDia: number) => h - c.cover - (d === 'x' ? dia / 2000 : outerDia / 1000 + dia / 2000);
-  const legDown = (h: number, dia: number) => Math.max(0.05, h - 2 * c.cover - dia / 1000);
+  const heights = barHeights(c.cover);
+  const yBottom = (p: Panel, d: PlanDir, dia: number) => heights.bottom(p.row, d, dia);
+  const yTop = heights.top, legDown = heights.leg;
   const add = (pk: Omit<SlabPackage, 'id' | 'mark' | 'count' | 'length' | 'weight'>, bars?: number) => {
     const count = bars ?? barsAcross(pk.band.to - pk.band.from, pk.bars.spacing);
     packages.push({ ...pk, id: '', mark: '', count, length: developedLength(pk.shape), weight: shapeWeight(pk.shape, count) });
@@ -405,109 +407,16 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
     }
   }
 
-  const cornerSamples = code.corners ? cornerBars(code.corners) : [];
-  const integrity = code.integrity ? integrityBars(code.integrity.bars) : [];
-
-  function cornerBars(rule: NonNullable<SlabPlanCode['corners']>) {
-    const samples: Array<{ layer: PlanLayer; dir: PlanDir; along: number; across: number; where: string; required: number; sMax: number }> = [];
-    for (const p of panels) {
-      if (p.row.oneWay || isCantilever(p, 'x') || isCantilever(p, 'y')) continue;
-      const meshes = [p.row.adopted.bottomX, p.row.adopted.bottomY].filter((m) => m.dia > 0 && m.spacing > 0);
-      if (!meshes.length) continue;
-      const mesh = meshes.reduce((m, n) => (meshArea(n) > meshArea(m) ? n : m));
-      const required = Math.max(meshArea(mesh), p.row.faces.bottomX.asReq, p.row.faces.bottomY.asReq);
-      const ln = (d: PlanDir) => hi(p.rect, d) - lo(p.rect, d) - halfAt(p, d, lo(p.rect, d)) - halfAt(p, d, hi(p.rect, d));
-      const side = up(rule.side * Math.max(ln('x'), ln('y')));
-      const edgeAt = (d: PlanDir, end: 'lo' | 'hi', across: number) => edgeSupports(p, d, end)
-        .find((s) => (s.kind === 'beam' || s.kind === 'wall') && !(s.below && s.above) && across >= s.from - TOL && across <= s.to + TOL);
-      for (const ex of ['lo', 'hi'] as const) for (const ey of ['lo', 'hi'] as const) {
-        const corner = { x: ex === 'lo' ? p.rect.x0 : p.rect.x1, y: ey === 'lo' ? p.rect.y0 : p.rect.y1 };
-        const ends = { x: edgeAt('x', ex, corner.y), y: edgeAt('y', ey, corner.x) };
-        const ex0 = ends.x, ey0 = ends.y;
-        if (!ex0 || !ey0) continue;
-        const held = { x: ex0, y: ey0 };
-        const inward = { x: ex === 'lo' ? 1 : -1, y: ey === 'lo' ? 1 : -1 };
-        const faceAt = { x: corner.x + inward.x * held.x.half, y: corner.y + inward.y * held.y.half };
-        for (const layer of rule.faces) for (const d of ['x', 'y'] as const) {
-          const a = other(d), e = held[d], sign = inward[d];
-          const sMax = p.row.faces[face(d, 'bottom')].sMax;
-          const along = faceAt[d] + sign * side / 2, across = faceAt[a] + inward[a] * side / 2;
-          samples.push({ layer, dir: d, along, across, where: p.name, required, sMax });
-          const have = stripCheck(packages, layer, d, along, across, p.name, required, sMax);
-          if (have.provided >= required - 1e-6) continue;
-          const bars = have.provided <= 1e-6 ? mesh : proposeMesh(required - have.provided, sMax, c.diameters);
-          const start = corner[d] - sign * (e.half - c.cover), end = faceAt[d] + sign * side;
-          const x0 = Math.min(start, end), x1 = Math.max(start, end);
-          const yv = layer === 'top' ? yTop(p.h, d, bars.dia, p.row.adopted.topX.dia || bars.dia) : yBottom(p, d, bars.dia);
-          const legY = yv + (layer === 'top' ? -1 : 1) * legDown(p.h, bars.dia);
-          const pts: Array<[number, number]> = sign > 0 ? [[0, legY], [0, yv], [x1 - x0, yv]] : [[0, yv], [x1 - x0, yv], [x1 - x0, legY]];
-          const b0 = faceAt[a], b1 = faceAt[a] + inward[a] * side;
-          const available = Math.max(0, 2 * e.half - c.cover);
-          add({
-            layer, dir: d, kind: 'corner', bars, from: x0, to: x1, band: { from: Math.min(b0, b1), to: Math.max(b0, b1) },
-            shape: { pts, mandrel: mandrel(bars.dia), dia: bars.dia }, runs: [{ face: layer, from: x0, to: x1 }], panels: [p.key], reach: [],
-            ...(layer === 'top' ? { anchor: { available, needed: ldh(bars.dia), ok: ldh(bars.dia) <= available + 1e-9 } } : {}),
-          });
-        }
-      }
-    }
-    return samples;
-  }
-
-  function integrityBars(required: number): PlanIntegrity[] {
-    const out: PlanIntegrity[] = [];
-    const inset = c.columnInset ?? 0.05;
-    const touches = (b: PlanBeam, k: PlanColumn) => {
-      const dx = b.x2 - b.x1, dy = b.y2 - b.y1, l2 = dx * dx + dy * dy;
-      const t = l2 > 0 ? Math.max(0, Math.min(1, ((k.x - b.x1) * dx + (k.y - b.y1) * dy) / l2)) : 0;
-      return Math.hypot(b.x1 + t * dx - k.x, b.y1 + t * dy - k.y) <= Math.max(k.b, k.h) / 2 + b.b / 2 + TOL;
-    };
-    for (const k of geom.columns.filter((q) => q.b > 0 && q.h > 0 && !geom.beams.some((b) => touches(b, q)))) {
-      const host = panels.filter((p) => k.x >= p.rect.x0 - TOL && k.x <= p.rect.x1 + TOL && k.y >= p.rect.y0 - TOL && k.y <= p.rect.y1 + TOL);
-      if (!host.length) continue;
-      for (const d of ['x', 'y'] as const) {
-        const a = other(d);
-        const at = (dd: PlanDir) => (dd === 'x' ? k.x : k.y), ext = (dd: PlanDir) => (dd === 'x' ? k.b : k.h);
-        const core: [number, number] = [at(d) - ext(d) / 2 + inset, at(d) + ext(d) / 2 - inset];
-        const across: [number, number] = [at(a) - ext(a) / 2 + inset, at(a) + ext(a) / 2 - inset];
-        if (core[1] - core[0] < TOL || across[1] - across[0] < TOL) continue;
-        const slab: [number, number] = [Math.min(...host.map((p) => lo(p.rect, d))) + c.cover, Math.max(...host.map((p) => hi(p.rect, d))) - c.cover];
-        const h = Math.min(...host.map((p) => p.h));
-        const bottomRuns = (pk: SlabPackage) => (pk.dir === d && pk.layer === 'bottom' ? pk.runs.filter((r) => r.face === 'bottom') : []);
-        const continuous = (v: number, from: number, to: number) => {
-          let reach = from;
-          const runs = packages.filter((pk) => v >= pk.band.from - 1e-9 && v <= pk.band.to + 1e-9).flatMap(bottomRuns).sort((r, q) => r.from - q.from);
-          for (const r of runs) if (r.from <= reach + 1e-6) reach = Math.max(reach, r.to);
-          return reach >= to - 1e-6;
-        };
-        const through = (pk: SlabPackage) => {
-          if (!bottomRuns(pk).some((r) => r.from <= core[0] + 1e-6 && r.to >= core[1] - 1e-6)) return 0;
-          const l = lap(pk.bars.dia, false, h, pk.bars.spacing);
-          const from = Math.max(core[0] - l, slab[0]), to = Math.min(core[1] + l, slab[1]);
-          return barPositions(pk).filter((v) => v >= across[0] - 1e-9 && v <= across[1] + 1e-9 && continuous(v, from, to)).length;
-        };
-        let bars = packages.reduce((t, pk) => t + through(pk), 0);
-        const dia = Math.max(0, ...host.map((p) => p.row.adopted[face(d, 'bottom')].dia)) || 12;
-        if (bars < required) {
-          const width = across[1] - across[0];
-          const l = lap(dia, false, h, width);
-          const x0 = Math.max(core[0] - l, slab[0]), x1 = Math.min(core[1] + l, slab[1]);
-          const y = yBottom(host[0]!, d, dia), leg = legDown(h, dia);
-          const pts: Array<[number, number]> = [
-            ...(x0 <= slab[0] + 1e-9 ? [[0, y + leg] as [number, number]] : []), [0, y], [x1 - x0, y],
-            ...(x1 >= slab[1] - 1e-9 ? [[x1 - x0, y + leg] as [number, number]] : []),
-          ];
-          add({
-            layer: 'bottom', dir: d, kind: 'integrity', bars: { dia, spacing: width }, from: x0, to: x1, band: { from: across[0], to: across[1] },
-            shape: { pts, mandrel: mandrel(dia), dia }, runs: [{ face: 'bottom', from: x0, to: x1 }], panels: host.map((p) => p.key), reach: [],
-          }, required);
-          bars += required;
-        }
-        out.push({ x: k.x, y: k.y, dir: d, bars, required, dia });
-      }
-    }
-    return out;
-  }
+  const extra: ExtraBarsPlan = {
+    panels: panels.map((p) => ({
+      ...p, twoWay: !p.row.oneWay && !isCantilever(p, 'x') && !isCantilever(p, 'y'),
+      ln: { x: clearSpan(p, 'x'), y: clearSpan(p, 'y') },
+      edges: (d: PlanDir, end: 'lo' | 'hi') => edgeSupports(p, d, end),
+    })),
+    packages, add, cover: c.cover, diameters: c.diameters, mandrel, ldh, lap,
+  };
+  const cornerSamples = code.corners ? cornerBars(extra, code.corners) : [];
+  const integrity = code.integrity ? integrityBars(extra, geom, code.integrity.bars, c.columnInset ?? 0.05) : [];
 
   const bottomMeshes = panels.flatMap((p) => [p.row.adopted.bottomX, p.row.adopted.bottomY]);
   const uniform = !c.bent && bottomMeshes.length > 0 && bottomMeshes.every((m) => m.dia > 0 && m.dia === bottomMeshes[0]!.dia && Math.abs(m.spacing - bottomMeshes[0]!.spacing) < 1e-9);
@@ -548,22 +457,7 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
   };
 }
 
-/** Where across its strip each bar of a package lies, m: as `barsAcross` spaces them, and an integrity pair at the core's two sides. */
-export function barPositions(pk: Pick<SlabPackage, 'kind' | 'band' | 'bars' | 'count'>): number[] {
-  if (pk.kind === 'integrity') return pk.count === 1 ? [(pk.band.from + pk.band.to) / 2] : Array.from({ length: pk.count }, (_, i) => pk.band.from + (i * (pk.band.to - pk.band.from)) / Math.max(1, pk.count - 1));
-  const edge = Math.min(0.05, pk.bars.spacing / 2);
-  return Array.from({ length: pk.count }, (_, i) => pk.band.from + edge + i * pk.bars.spacing);
-}
-
-/** The bars of one face and direction lying at a point, added up per metre against what is required there. */
-function stripCheck(packages: readonly SlabPackage[], layer: PlanLayer, d: PlanDir, at: number, across: number, where: string, required: number, sMax: number): SlabPlanCheck {
-  const present = packages.filter((pk) => pk.dir === d && across >= pk.band.from - 1e-9 && across <= pk.band.to + 1e-9
-    && pk.runs.some((r) => r.face === layer && at >= r.from - 1e-9 && at <= r.to + 1e-9));
-  const provided = present.reduce((t, pk) => t + meshArea(pk.bars), 0);
-  const perM = present.reduce((t, pk) => t + 1 / pk.bars.spacing, 0);
-  const spacing = perM > 0 ? 1 / perM : Infinity;
-  return { layer, dir: d, where, required, provided, spacing, sMax, ok: provided >= required - 1e-6 && spacing <= sMax + 1e-6 };
-}
+export { barPositions } from './slab-corner-integrity';
 
 export interface PlanBarDrawing {
   id: string; mark: string; layer: PlanLayer; dir: PlanDir; kind: PackageKind;

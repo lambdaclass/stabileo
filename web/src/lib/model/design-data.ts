@@ -4,12 +4,12 @@
  * depth arithmetic assumes, the clear cover by kind of element, the bar diameters the design may
  * choose from, and the diameter of a wall's bars.
  *
- * The defaults are the values the code used, so a project that states nothing designs as it did.
- * The exposure of each kind of element is recorded with its cover, and the minimum cover of
+ * The default covers are CIRSOC 201-2025 Table 20.5.1.3.1's under execution control for the
+ * default bars, rounded up to 5 mm; a project that stored its own keeps them. The exposure of each kind of element is recorded with its cover, and the minimum cover of
  * CIRSOC 201-2025 Table 20.5.1.3.1 is known for it: a cover under it is said, and a click sets
  * every cover to it.
  */
-import { SHEET_CODE_LIST, type SheetCode } from '../rc-sheets/types';
+import { BEAM_BAR_RANGE, COLUMN_BAR_RANGE, SHEET_CODE_LIST, SLAB_MESH_DIAMETERS, inRange, type SheetCode } from '../rc-sheets/types';
 import { migrateSeismicDesign } from './seismic-design';
 import { migrateLateralSystem } from './lateral-system';
 import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
@@ -135,7 +135,7 @@ export function defaultDesignData(): ProjectDesignData {
     version: 1,
     rebarGrade: 'ADN 420', rebarFy: 420,
     stirrupDiaMm: 8,
-    covers: { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 },
+    covers: { beam: 0.03, column: 0.03, slab: 0.025, wall: 0.025, footing: 0.055 },
     exposure: { beam: 'interior', column: 'interior', slab: 'interior', wall: 'interior', footing: 'ground' },
     longDiametersMm: BAR_DIAMETERS_MM.filter((d) => d >= 10),
     stirrupDiametersMm: BAR_DIAMETERS_MM.filter((d) => d <= 12),
@@ -156,9 +156,14 @@ export function minimumCover(kind: DesignKind, exposure: Exposure, largestBarMm:
 export const minimumCoverFor = (d: ProjectDesignData, kind: DesignKind): number =>
   minimumCover(kind, d.exposure[kind], largestBar(d, kind), { stirrupMm: d.stirrupDiaMm, control: d.executionControl !== false });
 
-/** The largest bar a kind of element may take under these data, mm. */
-export const largestBar = (d: ProjectDesignData, kind: DesignKind): number =>
-  kind === 'wall' ? d.wallBarDiaMm : Math.max(0, ...d.longDiametersMm);
+/** The largest bar a kind of element takes under these data, mm: from the bars its rows choose among, not another family's. */
+export function largestBar(d: ProjectDesignData, kind: DesignKind): number {
+  if (kind === 'wall') return d.wallBarDiaMm;
+  if (kind === 'slab') return Math.max(...SLAB_MESH_DIAMETERS);
+  const range = kind === 'beam' ? BEAM_BAR_RANGE : kind === 'column' ? COLUMN_BAR_RANGE : null;
+  const own = range ? d.longDiametersMm.filter((x) => inRange(x, range)) : d.longDiametersMm;
+  return Math.max(0, ...(own.length ? own : d.longDiametersMm));
+}
 
 /** The kinds whose stated cover is under the table's minimum for their exposure. */
 export function coversUnderMinimum(d: ProjectDesignData): Array<{ kind: DesignKind; cover: number; minimum: number }> {

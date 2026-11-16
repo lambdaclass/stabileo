@@ -33,7 +33,7 @@ describe('the skin of a deep beam', () => {
     const rebar = modelStore.elements.get(e1)!.reinforcement!;
     expect(rebar.regions?.skin).toEqual({ diameter: 10, spacing: 0.275 });
     const check = verificationStore.providedFor(e1)!.checks.find((c) => c.category.startsWith('Skin'));
-    expect(check?.ratio).toBeCloseTo(0.275 / 0.2975, 3);
+    expect(check?.ratio).toBeCloseTo(0.275 / (0.38 - 2.5 * (0.03 + 0.008)), 3);
   });
 });
 
