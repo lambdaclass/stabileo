@@ -1,6 +1,6 @@
 <script lang="ts">
   /** What to draw to scale, on which sheet and in which files; the drawings themselves are `rc-sheets/plans`. */
-  import { t, tp } from '../../../lib/i18n';
+  import { t, tp, tpn } from '../../../lib/i18n';
   import { uiStore } from '../../../lib/store';
   import type { SheetRows } from '../../../lib/store/rc-sheets.svelte';
   import { defaultPlanAuthor, exportRcPlans } from '../../../lib/store/rc-plans-export';
@@ -33,7 +33,7 @@
       : { families: PLAN_FAMILIES.filter((f) => families[f] && has(f)), levels: allLevels.filter(levelOn) };
     const n = exportRcPlans(rows, { selection, format, scales: { elevation, plan }, dxf, pdf, author, licence }, tp);
     if (!n) { nothing = true; return; }
-    uiStore.toast(tp('rcSheets.plans.done', { n }), 'success');
+    uiStore.toast(tpn('rcSheets.plans.done', n), 'success');
     onclose();
   }
 </script>

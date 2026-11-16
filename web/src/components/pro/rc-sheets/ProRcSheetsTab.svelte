@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, tp } from '../../../lib/i18n';
+  import { t, tp, tpn } from '../../../lib/i18n';
   import { modelStore, resultsStore } from '../../../lib/store';
   import { downloadRcSheets, meshWallsForSheets, setColumnEndZones, rcSheetsData, setRcOption, setTorsionMode, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { physicalGroups } from '../../../lib/store/physical';
@@ -54,7 +54,7 @@
     <RcSheetsProgress progress={sheetsRun.progress} />
   {:else if !rows}
     {#if wallsToMesh > 0}
-      <p class="rcp-basis warn">{tp('rcSheets.wallsToMesh', { n: wallsToMesh })}</p>
+      <p class="rcp-basis warn">{tpn('rcSheets.wallsToMesh', wallsToMesh)}</p>
       <button type="button" class="rcs-btn" onclick={meshWalls} disabled={solving} data-testid="rc-mesh-walls">{t('rcSheets.meshWalls')}</button>
     {/if}
     <div data-testid="rc-panel-code"><RcCodePicker /></div>
@@ -62,7 +62,7 @@
     <button type="button" class="rcs-btn primary" onclick={designSheets} disabled={solving} data-testid="rc-design">{t('rcSheets.design')}</button>
   {:else}
     {#if wallsToMesh > 0}
-      <p class="rcp-basis warn">{tp('rcSheets.wallsToMesh', { n: wallsToMesh })}</p>
+      <p class="rcp-basis warn">{tpn('rcSheets.wallsToMesh', wallsToMesh)}</p>
       <button type="button" class="rcs-btn" onclick={meshWalls} disabled={solving} data-testid="rc-mesh-walls">{t('rcSheets.meshWalls')}</button>
     {/if}
     {#if stale}
@@ -72,7 +72,7 @@
     <div data-testid="rc-panel-code"><RcCodePicker /></div>
     <p class="rcp-note">{t('rcSheets.codeHint')}</p>
     <p class="rcp-basis" class:warn={rows.basis !== 'combinations'}>
-      {rows.basis === 'combinations' ? tp('rcSheets.basis.combinations', { n: rows.combos }) : t(`rcSheets.basis.${rows.basis}`)}
+      {rows.basis === 'combinations' ? tpn('rcSheets.basis.combinations', rows.combos) : t(`rcSheets.basis.${rows.basis}`)}
     </p>
     <ul class="rcp-fams">
       {#each SHEET_FAMILIES as f (f)}
@@ -80,7 +80,7 @@
         <li>
           <button type="button" onclick={() => openAt(f)} disabled={!s.n} data-testid={`rc-open-${f}`}>
             <span>{t(`rcSheets.family.${f}`)}</span>
-            <span class="cnt">{s.n ? tp('rcSheets.counts', { n: s.n, fail: s.fail }) : '—'}</span>
+            <span class="cnt">{s.n ? `${tpn('rcSheets.countMembers', s.n)} · ${tpn('rcSheets.countFailing', s.fail)}` : '—'}</span>
           </button>
         </li>
       {/each}

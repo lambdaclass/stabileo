@@ -4,7 +4,7 @@
    * control perimeter (straight at d/2, or rounded at 2d in EN 1992-1-1) cut at the free edges,
    * and the lines of stirrups when the concrete alone does not carry the shear.
    */
-  import { t, tp, i18n } from '../../../lib/i18n';
+  import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import type { PunchingFigure } from '../../../lib/rc-sheets/punching-row';
 
@@ -83,7 +83,7 @@
     <li>{tp('rcSheets.punchFig.perimeter', { bo: fmt(fig.bo), d: cm(fig.d) })} — {fig.clause}</li>
     <li>{t(`rcSheets.punchFig.pos.${fig.position}`)}</li>
     {#if fig.reinforcement}
-      <li class="warn">{tp('rcSheets.punchFig.stirrups', { n: fig.reinforcement.lines, dia: fig.reinforcement.legDiameter, s: cm(fig.reinforcement.spacing), legs: fig.reinforcement.legs, ext: cm(fig.reinforcement.extent) })} — §22.6.7</li>
+      <li class="warn">{tpn('rcSheets.punchFig.stirrups', fig.reinforcement.lines, { dia: fig.reinforcement.legDiameter, s: cm(fig.reinforcement.spacing), legs: fig.reinforcement.legs, ext: cm(fig.reinforcement.extent) })} — §22.6.7</li>
       {#if fig.reinforcement.overCeiling}<li class="bad">{t('rcSheets.punchFig.overCeiling')}</li>{/if}
     {/if}
   </ul>
