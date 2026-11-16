@@ -10,7 +10,6 @@ import { solidSignCf } from '../../../codes/cirsoc102/other-structures';
 import { windHeightField, windHeightLoads } from '../wind-pressure-field';
 import { velocityPressure } from '../../../codes/cirsoc102/wind';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
 
 const generate = (model: ReturnType<typeof mesh>, region?: number[]) => {
   const sink: PlanSink = { cases: [], nodal: [], distributed: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
@@ -53,9 +52,10 @@ const hand = (model: ReturnType<typeof mesh>, c: PlanSink['cases'][number]) => {
   });
 };
 
-for (const variant of variants) knownWrong(`known wrong result: #2220 #2204 integrated eccentric wind stays a plan force couple ${variant}`, () => {
+for (const variant of variants) it(`#2204 integrated eccentric wind stays a plan force couple ${variant}`, () => {
   const model = remeshWind(columns(), variant).model;
   const sink = generate(model);
+  expect(sink.cases.length).toBeGreaterThan(0);
   for (const [caseIndex, c] of sink.cases.entries()) {
     const loads = windEndResultants(model, sink.distributed.filter(n => n.caseIndex === caseIndex), sink.nodal.filter(n => n.caseIndex === caseIndex));
     expect(loads.length).toBeGreaterThan(0);

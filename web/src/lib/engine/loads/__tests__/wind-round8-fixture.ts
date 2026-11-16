@@ -18,7 +18,7 @@ export const apexPressure = (entry: ApexEntry) => {
   return { exponent, factor };
 };
 export function apexIntegral(from: number, to: number, power: number, exponent: number, factor: number) {
-  return factor * ((to ** (exponent + power + 2) - from ** (exponent + power + 2)) / (exponent + power + 2) - 6 * (to ** (exponent + power + 1) - from ** (exponent + power + 1)) / (exponent + power + 1)) / 2;
+  return factor * ((to ** (exponent + power + 2) - from ** (exponent + power + 2)) / (exponent + power + 2) - 6 * (to ** (exponent + power + 1) - from ** (exponent + power + 1)) / (exponent + power + 1)) / 4;
 }
 export function apexLoads(model: ReturnType<typeof mesh>, axis: 'x' | 'y', entry: ApexEntry) {
   if (entry === 'field') return windHeightLoads(windHeightField({ model, axis, from: 0, to: 10, width: 2, pressure: z => z }), axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0).distributed;

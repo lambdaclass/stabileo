@@ -4,7 +4,7 @@ import type { WindDirection, WindAxis, WindModel } from '../wind-cases';
 
 export { mesh };
 export const windProject = { basicSpeed: 40, exposure: 'C' as const, siteAltitudeM: 0, kzt: 1, kztSurveyed: true, structureKind: 'building' as const, enclosure: 'open' as const, meanRoofHeight: 3, L: 10, B: 6, roofSlopeDeg: 0, rigid: true };
-export const windAxis: WindAxis = { axis: 'x', across: 6, along: 10, pressureField: { loads: new Map(), baseLoads: new Map(), couple: new Map(), members: [] }, project: windProject, qhNm2: 1000, gcpi: 0, G: 0.85 };
+export const windAxis: WindAxis = { axis: 'x', across: 6, along: 10, pressureField: { loads: new Map(), baseLoads: new Map(), torque: 'resolved' as const, members: [] }, project: windProject, qhNm2: 1000, gcpi: 0, G: 0.85 };
 export const variants = ['base', 'uniform', 'uneven', 'rotate', 'mirror'] as const;
 export type Variant = typeof variants[number];
 export function remeshWind(model: ReturnType<typeof mesh>, variant: Variant) {

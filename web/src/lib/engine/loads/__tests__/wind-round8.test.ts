@@ -10,7 +10,7 @@ import { expectWindTips } from './wind-tip-assertions';
 import type { SolverInput } from '../../types';
 import type { SolverInput3D } from '../../types-3d';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
+const solved = new Map<string, ReturnType<typeof solve> | ReturnType<typeof solve3D>>();
 const nativeCases: Array<Record<string, unknown>> = [];
 afterAll(() => {
   if (!nativeCases.length) return;
@@ -24,9 +24,19 @@ afterAll(() => {
   for (const candidate of nativeCases) expect(fixtures.find(c => c.kind === candidate.kind && c.variant === candidate.variant && c.dimension === candidate.dimension)).toEqual(JSON.parse(JSON.stringify(candidate)));
 });
 
-for (const entry of apexEntries) for (const variant of variants) knownWrong(`known wrong result: #2220 lower apex above clamp ${entry} ${variant}`, () => {
+const generated = new Map<string, ReturnType<typeof apexCaseUncached>>();
+const apexCaseUncached = (entry: typeof apexEntries[number], variant: typeof variants[number]) => {
   const { model, sources } = remeshWind(apexSource(), variant), axis = variant === 'rotate' ? 'y' : 'x';
-  const lines = apexLoads(model, axis, entry);
+  return { model, sources, axis, lines: apexLoads(model, axis, entry) };
+};
+const apexCase = (entry: typeof apexEntries[number], variant: typeof variants[number]) => {
+  const key = `${entry}:${variant}`;
+  if (!generated.has(key)) generated.set(key, apexCaseUncached(entry, variant));
+  return generated.get(key)!;
+};
+
+for (const entry of apexEntries) for (const variant of variants) it(`#2220 lower apex above clamp ${entry} ${variant}`, () => {
+  const { model, sources, axis, lines } = apexCase(entry, variant);
   expect([...new Set(lines.map(p => p.elementId))].sort((a, b) => a - b)).toEqual([...model.elements.keys()]);
   const { exponent, factor } = apexPressure(entry);
   const upper = lines.filter(p => sources.get(p.elementId)! > 1);
@@ -34,17 +44,19 @@ for (const entry of apexEntries) for (const variant of variants) knownWrong(`kno
   assertWindResultants(windResultants(model, upper.map(p => ({ ...p, q: 0 }))), axis === 'x' ? [force, 0, 0, 0, moment, 0] : [0, force, 0, -moment, 0, 0]);
 });
 
-for (const end of ['lower', 'upper'] as const) for (const offset of [0, 1e-7]) for (const sign of [-1, 1]) knownWrong(`known wrong result: #2220 physical apex ${end} offset=${offset} sign=${sign}`, () => {
+for (const end of ['lower', 'upper'] as const) for (const offset of [0, 1e-7]) for (const sign of [-1, 1]) it(`#2220 physical apex ${end} offset=${offset} sign=${sign}`, () => {
   const model = mesh([-1, 1].map(side => [[0, side * (end === 'lower' ? offset : 1), 6], [0, side * (end === 'lower' ? 1 : offset), 10]]));
   const pressure = (z: number, width: number) => { expect(width).toBeGreaterThan(0); return sign * (end === 'lower' ? z : 16 - z); };
-  const loads = windHeightLoads(windHeightField({ model, axis: 'x', from: 6, to: 10, pressure }), 1, 0).distributed;
+  const field = windHeightField({ model, axis: 'x', from: 6, to: 10, pressure });
+  expect(() => windHeightLoads(field, 1, 0, 1)).toThrow('wind.pressure.distributedTorqueUnsupported');
+  const loads = windHeightLoads(field, 1, 0).distributed;
   expect([...new Set(loads.map(p => p.elementId))]).toEqual([1, 2]);
   expect(loads.every(p => sign * p.qX >= 0 && sign * p.qXJ! >= 0)).toBe(true);
   const force = sign * (104 / 3 + offset * 88 / 3);
   expect(windResultants(model, loads)[0]).toBeCloseTo(force, 10);
 });
 
-for (const span of [0.05 - 1e-7, 0.05, 0.05 + 1e-7]) for (const width of [undefined, -1e-7, 0, 1e-7, 2]) knownWrong(`known wrong result: #2220 apex width boundary span=${span} declared=${width}`, () => {
+for (const span of [0.05 - 1e-7, 0.05, 0.05 + 1e-7]) for (const width of [undefined, -1e-7, 0, 1e-7, 2]) it(`#2220 apex width boundary span=${span} declared=${width}`, () => {
   const model = mesh([-1, 1].map(side => [[0, 0, 6], [0, side * span / 2, 10]]));
   const run = () => windHeightField({ model, axis: 'x', from: 6, to: 10, width, pressure: z => z });
   if (span <= 0.05 && !(width !== undefined && width > 0)) expect(run).toThrow('wind.pressure.missingWidth');
@@ -54,9 +66,8 @@ for (const span of [0.05 - 1e-7, 0.05, 0.05 + 1e-7]) for (const width of [undefi
   }
 });
 
-for (const entry of apexEntries) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const sign of [-1, 1]) knownWrong(`known wrong result: #2220 apex mechanics ${entry} ${variant} spatial=${spatial} nonlinear=${nonlinear} sign=${sign}`, () => {
-  const { model, sources } = remeshWind(apexSource(), variant), axis = variant === 'rotate' ? 'y' : 'x';
-  const lines = apexLoads(model, axis, entry), { exponent, factor } = apexPressure(entry);
+for (const entry of apexEntries) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const sign of [-1, 1]) it(`#2220 apex mechanics ${entry} ${variant} spatial=${spatial} nonlinear=${nonlinear} sign=${sign}`, () => {
+  const { model, sources, axis, lines } = apexCase(entry, variant), { exponent, factor } = apexPressure(entry);
   for (const e of model.elements.values()) {
     if (sources.get(e.id) === 1) continue;
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
@@ -92,11 +103,26 @@ for (const entry of apexEntries) for (const variant of variants) for (const spat
     let wire: unknown;
     if (spatial) {
       const input: SolverInput3D = { ...common, nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: length }]]), elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, type: 'frame', localYx: 1, localYy: 0, localYz: 0, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]), supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]), loads: parts.map(p => ({ type: 'distributed', data: { elementId: 1, a: p.a, b: p.b, qYI: component(p), qYJ: component(p, true), qZI: 0, qZJ: 0 } })) };
-      wire = input3DToWireObject(input); check(nonlinear ? solvePDelta3D(input).results : solve3D(input));
+      wire = input3DToWireObject(input);
+      const key = `3:${nonlinear}:${JSON.stringify(wire)}`;
+      if (!solved.has(key)) solved.set(key, nonlinear ? solvePDelta3D(input).results : solve3D(input));
+      check(solved.get(key)!);
     } else {
       const input: SolverInput = { ...common, nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 0, z: length }]]), elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, type: 'frame', hingeStart: false, hingeEnd: false }]]), supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]), loads: parts.map(p => ({ type: 'distributed', data: { elementId: 1, a: p.a, b: p.b, qI: -component(p), qJ: -component(p, true) } })) };
-      wire = input2DToWireObject(input); check(nonlinear ? solvePDelta(input).results : solve(input));
+      wire = input2DToWireObject(input);
+      const key = `2:${nonlinear}:${JSON.stringify(wire)}`;
+      if (!solved.has(key)) solved.set(key, nonlinear ? solvePDelta(input).results : solve(input));
+      check(solved.get(key)!);
     }
     if (variant === 'base' && !nonlinear) nativeCases.push({ kind: `apex:${entry}`, variant: `${e.id}:${sign}`, dimension: spatial ? 3 : 2, axis: 'z', displacement: 'ux', tip: 2, length, heightDensity: { from: a.z, scale, exponent, factor: sign * factor }, input: wire });
   }
+});
+
+it('zero pressure at a physical apex keeps its zero answer with eccentricity', () => {
+  const model = mesh([-1, 1].map(side => [[0, 0, 6], [0, side, 10]]));
+  const field = windHeightField({ model, axis: 'x', from: 6, to: 10, pressure: () => 0 });
+  expect(field.torque).toBe('unsupported');
+  const loads = windHeightLoads(field, 1, 0, 1).distributed;
+  expect(loads.map(p => p.elementId)).toEqual([1, 2]);
+  assertWindResultants(windResultants(model, loads), [0, 0, 0, 0, 0, 0]);
 });

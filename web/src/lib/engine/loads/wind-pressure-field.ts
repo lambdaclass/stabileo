@@ -1,5 +1,5 @@
 import type { WindModel, WindCaseLoads } from './wind-cases';
-import { prepareLevelLoads } from './wind-plan-forces';
+import { levelLoadTorqueSupportedAlong, prepareLevelLoads } from './wind-plan-forces';
 
 export class WindPressureRefusal extends Error {}
 
@@ -77,17 +77,19 @@ export function windStationCuts(start: number, end: number, zones: readonly numb
 type Point = { id: number; x: number; y: number; z?: number };
 const Z = (p: Point) => p.z ?? 0;
 
-export interface WindHeightResult {
+type HeightMember = { elementId: number; a: number; b: number; q: number; qJ: number };
+type TorqueMember = HeightMember & { cx: number; cxJ: number; cy: number; cyJ: number; cm: number; cmJ: number };
+export type WindHeightResult = {
   loads: Map<number, number>;
   baseLoads: Map<number, number>;
-  couple: Map<number, { fx: number; fy: number; mz: number }>;
-  members: Array<{ elementId: number; a: number; b: number; q: number; qJ: number; cx: number; cxJ: number; cy: number; cyJ: number; cm: number; cmJ: number }>;
-}
+} & ({ torque: 'unsupported'; members: HeightMember[] } | { torque: 'resolved'; members: TorqueMember[] });
 
 export function windHeightLoads(field: WindHeightResult, fx: number, fy: number, eccentricity = 0): Pick<WindCaseLoads, 'nodal' | 'baseLoads' | 'distributed'> {
-  const distributed = field.members.map(p => {
-    if (eccentricity !== 0 && (p.cm !== 0 || p.cmJ !== 0)) throw new WindPressureRefusal('wind.pressure.distributedTorqueUnsupported');
-    return { elementId: p.elementId, a: p.a, b: p.b, q: 0, qJ: 0, qX: fx * p.q + eccentricity * p.cx, qXJ: fx * p.qJ + eccentricity * p.cxJ, qY: fy * p.q + eccentricity * p.cy, qYJ: fy * p.qJ + eccentricity * p.cyJ, frame: 'global' as const, facet: -1 };
+  if (eccentricity !== 0 && field.torque === 'unsupported' && field.members.some(p => p.q !== 0 || p.qJ !== 0)) throw new WindPressureRefusal('wind.pressure.distributedTorqueUnsupported');
+  const distributed = field.members.map((p, i) => {
+    const torque = field.torque === 'resolved' ? field.members[i]! : { cx: 0, cxJ: 0, cy: 0, cyJ: 0, cm: 0, cmJ: 0 };
+    if (eccentricity !== 0 && (torque.cm !== 0 || torque.cmJ !== 0)) throw new WindPressureRefusal('wind.pressure.distributedTorqueUnsupported');
+    return { elementId: p.elementId, a: p.a, b: p.b, q: 0, qJ: 0, qX: fx * p.q + eccentricity * torque.cx, qXJ: fx * p.qJ + eccentricity * torque.cxJ, qY: fy * p.q + eccentricity * torque.cy, qYJ: fy * p.qJ + eccentricity * torque.cyJ, frame: 'global' as const, facet: -1 };
   });
   return { nodal: [], baseLoads: [], distributed };
 }
@@ -190,8 +192,12 @@ export function windHeightField(input: {
   if (!members.length && to > from) throw new WindPressureRefusal('wind.pressure.noHeightCarriers');
   const cuts = [...new Set([from, to, ...members.flatMap(m => [Z(m.a), Z(m.b)]), ...(input.boundaries ?? [])])].filter(z => z >= from && z <= to).sort((a, b) => a - b);
   const loads = new Map<number, number>(), baseLoads = new Map<number, number>();
-  const couple: WindHeightResult['couple'] = new Map();
-  const memberLoads: WindHeightResult['members'] = [];
+  const memberLoads: TorqueMember[] = [];
+  const torqueSupported = cuts.slice(1).every((hi, k) => {
+    const lo = cuts[k]!, mid = (lo + hi) / 2;
+    const active = members.filter(m => Z(m.a) < mid && Z(m.b) > mid);
+    return levelLoadTorqueSupportedAlong(sectionAt(active, lo), sectionAt(active, hi));
+  });
   const add = (id: number, f: number) => { const map = Z(model.nodes.get(id)!) <= from ? baseLoads : loads; map.set(id, (map.get(id) ?? 0) + f); };
   const cross = axis === 'x' ? 'y' : 'x';
   const carrierCuts = [...new Set([from, to, ...members.flatMap(m => [m.lo, m.hi])])].filter(z => z >= from && z <= to).sort((a, b) => a - b);
@@ -207,6 +213,7 @@ export function windHeightField(input: {
       const pts = sectionAt(active, z);
       const coords = [...new Set(pts.map(p => p[cross]))].sort((a, b) => a - b);
       const width = coords[coords.length - 1]! - coords[0]!;
+      if (widthKind === 'physical' && width === 0 && (z === lo || z === hi)) return null;
       const actual = widthKind === 'physical' ? width : input.width;
       if (!(actual !== undefined && actual > 0)) throw new WindPressureRefusal('wind.pressure.missingWidth');
       const shares = carrierShares(pts);
@@ -218,6 +225,10 @@ export function windHeightField(input: {
     const station = (z: number) => {
       if (!stations.has(z)) {
         const g = fixedGeometry ?? geometry(z);
+        if (g === null) {
+          stations.set(z, { density: active.map(() => 0), torsion: active.map((_m, nodeId) => ({ nodeId, fx: 0, fy: 0, mz: 0 })) });
+          return stations.get(z)!;
+        }
         const pressure = input.pressure(z, g.width, widthKind);
         const density = g.weights.map(share => pressure * share);
         const torque = density.reduce((sum, p) => sum + p, 0);
@@ -229,7 +240,7 @@ export function windHeightField(input: {
       const density = (z: number) => station(z).density[j]!;
       const length = Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y, Z(m.b) - Z(m.a));
       const scale = (Z(m.b) - Z(m.a)) / length;
-      const components = [density, ...(['fx', 'fy', 'mz'] as const).map(c => (z: number) => station(z).torsion[j]![c])];
+      const components = torqueSupported ? [density, ...(['fx', 'fy', 'mz'] as const).map(c => (z: number) => station(z).torsion[j]![c])] : [density];
       const parts = components.map(f => integrateWindPressure(hi - lo, [], s => f(lo + s)));
       const cuts = [...new Set(parts.flatMap(ps => ps.flatMap(p => [p.a, p.b])))].sort((a, b) => a - b);
       const cursors = parts.map(() => 0);
@@ -246,20 +257,12 @@ export function windHeightField(input: {
         const forward = m.e.nodeI === m.a.id;
         const start = (lo + a - Z(m.a)) / scale, end = (lo + b - Z(m.a)) / scale;
         const endpoints = values.map(p => forward ? [p.q * scale, p.qJ * scale] : [p.qJ * scale, p.q * scale]);
-        memberLoads.push({ elementId: m.e.id, a: forward ? start : length - end, b: forward ? end : length - start, q: endpoints[0]![0]!, qJ: endpoints[0]![1]!, cx: endpoints[1]![0]!, cxJ: endpoints[1]![1]!, cy: endpoints[2]![0]!, cyJ: endpoints[2]![1]!, cm: endpoints[3]![0]!, cmJ: endpoints[3]![1]! });
+        memberLoads.push({ elementId: m.e.id, a: forward ? start : length - end, b: forward ? end : length - start, q: endpoints[0]![0]!, qJ: endpoints[0]![1]!, cx: endpoints[1]?.[0] ?? 0, cxJ: endpoints[1]?.[1] ?? 0, cy: endpoints[2]?.[0] ?? 0, cyJ: endpoints[2]?.[1] ?? 0, cm: endpoints[3]?.[0] ?? 0, cmJ: endpoints[3]?.[1] ?? 0 });
         const p = values[0]!;
         const upper = (p.first + (lo + a - Z(m.a)) * p.force) / (Z(m.b) - Z(m.a));
         add(m.a.id, p.force - upper); add(m.b.id, upper);
-        for (const [i, component] of (['fx', 'fy', 'mz'] as const).entries()) {
-          const p = values[i + 1]!;
-          const upper = (p.first + (lo + a - Z(m.a)) * p.force) / (Z(m.b) - Z(m.a));
-          for (const [id, f] of [[m.a.id, p.force - upper], [m.b.id, upper]] as const) {
-            const point = couple.get(id) ?? { fx: 0, fy: 0, mz: 0 };
-            point[component] += f; couple.set(id, point);
-          }
-        }
       }
     });
   }
-  return { loads, baseLoads, couple, members: memberLoads };
+  return torqueSupported ? { loads, baseLoads, torque: 'resolved', members: memberLoads } : { loads, baseLoads, torque: 'unsupported', members: memberLoads.map(({ elementId, a, b, q, qJ }) => ({ elementId, a, b, q, qJ })) };
 }

@@ -44,9 +44,38 @@ fn issue_2220_tower_mast_reaches_native_members() {
     check_pressure_cases(cases);
 }
 
+#[test]
+fn issue_2220_apex_pressure_reaches_native_members() {
+    let fixtures: Value = serde_json::from_str(include_str!("wind_apex_2220.json")).unwrap();
+    let cases: Vec<_> = fixtures.as_array().unwrap().iter().collect();
+    assert_eq!(cases.len(), 48);
+    check_pressure_cases(cases);
+}
+
 fn check_pressure_cases(cases: Vec<&Value>) {
+    let mut apex_results = std::collections::HashMap::<String, Value>::new();
     for case in cases {
         let integral = |station: f64, power: i32| -> f64 {
+            if let Some(density) = case["heightDensity"].as_object() {
+                let from = density["from"].as_f64().unwrap();
+                let scale = density["scale"].as_f64().unwrap();
+                let exponent = density["exponent"].as_f64().unwrap();
+                let factor = density["factor"].as_f64().unwrap();
+                let a = from + station * scale;
+                let b = from + case["length"].as_f64().unwrap() * scale;
+                let mut result = 0.0;
+                let mut binomial = 1.0;
+                for k in 0..=power {
+                    let n = exponent + f64::from(k) + 1.0;
+                    let moment = ((b.powf(n + 1.0) - a.powf(n + 1.0)) / (n + 1.0)
+                        - 6.0 * (b.powf(n) - a.powf(n)) / n)
+                        * factor
+                        / 4.0;
+                    result += binomial * (-from).powi(power - k) * moment / scale.powi(power);
+                    binomial *= f64::from(power - k) / f64::from(k + 1);
+                }
+                return result;
+            }
             if let Some(coefficients) = case["polynomial"].as_array() {
                 let length = case["length"].as_f64().unwrap();
                 return coefficients
@@ -92,22 +121,36 @@ fn check_pressure_cases(cases: Vec<&Value>) {
             }).collect();
         }
         for nonlinear in [false, true] {
-            let result = if case["dimension"] == 2 {
-                let model: SolverInput = serde_json::from_value(input.clone()).unwrap();
-                serde_json::to_value(if nonlinear {
-                    pdelta::solve_pdelta_2d(&model, 50, 1e-8).unwrap().results
+            let run = || {
+                if case["dimension"] == 2 {
+                    let model: SolverInput = serde_json::from_value(input.clone()).unwrap();
+                    serde_json::to_value(if nonlinear {
+                        pdelta::solve_pdelta_2d(&model, 50, 1e-8).unwrap().results
+                    } else {
+                        linear::solve_2d(&model).unwrap()
+                    })
+                    .unwrap()
                 } else {
-                    linear::solve_2d(&model).unwrap()
-                })
-                .unwrap()
+                    let model: SolverInput3D = serde_json::from_value(input.clone()).unwrap();
+                    serde_json::to_value(if nonlinear {
+                        pdelta::solve_pdelta_3d(&model, 50, 1e-8).unwrap().results
+                    } else {
+                        linear::solve_3d(&model).unwrap()
+                    })
+                    .unwrap()
+                }
+            };
+            let result = if case["heightDensity"].is_object() {
+                let key = format!("{}:{}:{}", case["dimension"], nonlinear, input);
+                if let Some(result) = apex_results.get(&key) {
+                    result.clone()
+                } else {
+                    let result = run();
+                    apex_results.insert(key, result.clone());
+                    result
+                }
             } else {
-                let model: SolverInput3D = serde_json::from_value(input.clone()).unwrap();
-                serde_json::to_value(if nonlinear {
-                    pdelta::solve_pdelta_3d(&model, 50, 1e-8).unwrap().results
-                } else {
-                    linear::solve_3d(&model).unwrap()
-                })
-                .unwrap()
+                run()
             };
             let displacement = result["displacements"]
                 .as_array()

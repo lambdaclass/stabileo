@@ -7,7 +7,6 @@ import { velocityPressure } from '../../../codes/cirsoc102/wind';
 import { solidSignCf } from '../../../codes/cirsoc102/other-structures';
 import { mesh, windProject, windResultants, assertWindResultants } from './wind-integration-fixture';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
 
 for (const pressure of [0.4, 0.8, 1.2]) for (const direction of ['+x', '-x', '+y', '-y'] as const) it(`#2220 solid sign eccentric minimum pressure=${pressure} ${direction}`, () => {
   const axis = direction.endsWith('x') ? 'x' : 'y', sign = direction.startsWith('-') ? -1 : 1;
@@ -31,7 +30,7 @@ for (const pressure of [0.4, 0.8, 1.2]) for (const direction of ['+x', '-x', '+y
   }
 });
 
-for (const height of [0, 576 * Number.EPSILON, 2304 * Number.EPSILON, 1e-10, 3]) knownWrong(`known wrong result: #2220 triangular median partitions and collinear boundary height=${height}`, () => {
+for (const height of [0, 576 * Number.EPSILON, 2304 * Number.EPSILON, 1e-10, 3]) it(`#2220 triangular median partitions and collinear boundary height=${height}`, () => {
   const model = mesh([[[0, 0, 0], [0, 0, 4]], [[2, 0, 0], [2, 0, 4]], [[6, height, 0], [6, height, 4]]]);
   const loads = windHeightLoads(windHeightField({ model, axis: 'y', from: 0, to: 4, pressure: () => 1 }), 0, 1).distributed;
   expect(loads.map(p => p.elementId).sort((a, b) => a - b)).toEqual([1, 2, 3]);
