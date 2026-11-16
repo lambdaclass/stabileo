@@ -1,4 +1,4 @@
-import { tp } from '../i18n';
+import { tpn } from '../i18n';
 import { runGlobalSolve, type GlobalSolveOutcome } from '../engine/live-calc';
 import { errorText } from '../utils/error-text';
 import { resultsStore } from './results.svelte';
@@ -30,7 +30,7 @@ export async function solveAndDesign(solve: () => Promise<GlobalSolveOutcome> = 
 export async function holdWallBasesAndDesign(rows: readonly SheetRow[], solve?: () => Promise<GlobalSolveOutcome>): Promise<number> {
   const added = supportWallBases(rows);
   if (!added) return 0;
-  uiStore.toast(tp('rcSheets.resize.baseHeld', { n: added }), 'info');
+  uiStore.toast(tpn('rcSheets.resize.baseHeld', added), 'info');
   await solveAndDesign(solve);
   return added;
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { t, tp, i18n } from '../../../lib/i18n';
+  import { t, i18n, tpn } from '../../../lib/i18n';
+  import { fullScreenWorkspace } from '../../../lib/store/fullscreen-workspace.svelte';
   import { adoptAll, downloadRcSheets, type SheetRow, type SheetRows } from '../../../lib/store/rc-sheets.svelte';
   import { designSheets, followSheetEdits, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
@@ -54,7 +55,7 @@
   const slabCover = $derived.by(() => { void modelStore.designData; return designData().covers.slab; });
   const endZones = $derived.by(() => { void modelStore.designData; return designData().columnEndZones === true; });
   const rows = $derived(sheetsRun.rows ?? EMPTY);
-  const basisText = $derived(rows.basis === 'combinations' ? tp('rcSheets.basis.combinations', { n: rows.combos }) : t(`rcSheets.basis.${rows.basis}`));
+  const basisText = $derived(rows.basis === 'combinations' ? tpn('rcSheets.basis.combinations', rows.combos) : t(`rcSheets.basis.${rows.basis}`));
   const spansOf = (l: LineLayout) => rows.beam.filter((r) => r.demand.line?.group === l.group);
   const lineStatus = (l: LineLayout) => (l.status === 'fail' || spansOf(l).some((r) => r.status === 'fail') ? 'fail' : spansOf(l).some((r) => r.status === 'warn') ? 'warn' : 'ok');
   type ListRow = SheetRow | (LineLayout & { family: 'line'; status: 'ok' | 'warn' | 'fail' });
@@ -91,13 +92,34 @@
     const target = plan ? document.querySelector('[data-testid="rc-plan-svg"]') : document.querySelector(`[data-testid="rc-row"][data-key="${CSS.escape(el.key)}"]`);
     target?.scrollIntoView({ block: 'start' });
   }
+  $effect(() => fullScreenWorkspace.enter());
+
+  let head = $state<HTMLElement | null>(null);
+  const FIT_STEPS = 3;
+  // An expression, not a literal: with data-fit="0" written out the compiler drops every [data-fit="2"] rule as unused.
+  const fitStart: number = 0;
+  $effect(() => {
+    const el = head;
+    if (!el) return;
+    const refit = () => {
+      for (let step = 0; step <= FIT_STEPS; step++) {
+        el.dataset.fit = String(step);
+        if (el.scrollWidth <= el.clientWidth) break;
+      }
+    };
+    refit();
+    const ro = new ResizeObserver(refit);
+    ro.observe(el);
+    const mo = new MutationObserver(refit);
+    mo.observe(el, { childList: true, subtree: true, characterData: true });
+    return () => { ro.disconnect(); mo.disconnect(); };
+  });
 </script>
 
 <svelte:window onkeydown={onkey} />
 
 <div class="rcw" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile} use:portal role="dialog" aria-modal="true" aria-label={t('rcSheets.title')} data-testid="rc-sheets-workspace">
-  <!-- One row at any width: what matters least gives way first (the container queries below). -->
-  <header class="rcw-head" title={basisText}>
+  <header class="rcw-head" title={basisText} bind:this={head} data-testid="rc-head" data-fit={fitStart}>
     <strong class="rcw-name">{t('rcSheets.title')}</strong>
     <span class="rcw-code" data-testid="rc-code"><RcCodePicker compact /></span>
     <span class="rcw-dim rcw-basis">{basisText}</span>
@@ -271,17 +293,22 @@
 
 <style>
   .rcw { position: fixed; inset: 0; z-index: 1000; background: var(--st-surface); color: var(--st-text); display: flex; flex-direction: column; }
-  .rcw-head { container-type: inline-size; display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--st-hair); }
+  .rcw-head { display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--st-hair); }
   .rcw-name { flex: none; white-space: nowrap; }
   .rcw-code { flex: none; }
   .rcw-basis { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rcw-tools { flex: none; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
   .rcw-close { flex: none; min-width: 30px; min-height: 28px; font-size: 0.85rem; }
   .narrow { display: none; }
-  @container (max-width: 1500px) { .rcw-basis { display: none; } .rcw-tabs { margin-left: auto; } }
-  @container (max-width: 1320px) { .rcw-code :global(.rcc > span) { display: none; } .rcw-tools .wide { display: none; } .rcw-tools .narrow { display: inline; } }
-  @container (max-width: 1120px) { .rcw-tabs small { display: none; } .rcw-name { display: none; } }
-  @container (max-width: 940px) { .rcw-tabs { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin; } }
+  .rcw-head:not([data-fit="0"]) .rcw-basis { display: none; }
+  .rcw-head:not([data-fit="0"]) .rcw-tabs { margin-left: auto; }
+  .rcw-head:not([data-fit="0"]) .rcw-code :global(.rcc > span) { display: none; }
+  .rcw-head:not([data-fit="0"]) .rcw-tools .wide { display: none; }
+  .rcw-head:not([data-fit="0"]) .rcw-tools .narrow { display: inline; }
+  .rcw-head[data-fit="2"] .rcw-tabs small, .rcw-head[data-fit="3"] .rcw-tabs small { display: none; }
+  .rcw-head[data-fit="2"] .rcw-name, .rcw-head[data-fit="3"] .rcw-name { display: none; }
+  .rcw-head[data-fit="2"] .rcw-code :global(select), .rcw-head[data-fit="3"] .rcw-code :global(select) { max-width: 11rem; }
+  .rcw-head[data-fit="3"] .rcw-tabs { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
   .rcw-head strong { font-family: var(--st-display); font-size: 0.9rem; }
   .rcw-dim { font-size: 0.72rem; color: var(--st-text-3); }
   .rcw-stale { color: var(--st-warn); }
@@ -313,7 +340,7 @@
   .tag { margin-left: 4px; font-size: 0.6rem; border: 1px solid var(--st-hair); border-radius: 3px; padding: 0 3px; color: var(--st-text-3); }
   .stc { font-weight: 600; }
   tr.st-ok .stc { color: var(--st-ok); }
-  tr.st-warn .stc { color: var(--st-warn); }
+  tr.st-warn .stc { color: var(--st-text-2); }
   tr.st-fail .stc { color: var(--st-danger); }
   tr.detail td { white-space: normal; padding: 8px; background: var(--st-surface); }
   tr.detail :global(.rce) { margin-bottom: 8px; }

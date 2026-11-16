@@ -323,7 +323,8 @@ export async function solveParallel(
   await ensurePool();
 
   const results = new Map<number, any>();
-  const settle = (id: number, result: any) => { results.set(id, result); caseSolved?.(results.size, cases.length); };
+  const told = caseSolved;
+  const settle = (id: number, result: any) => { results.set(id, result); told?.(results.size, cases.length); };
   const queue = [...cases];
 
   /*

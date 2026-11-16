@@ -2,7 +2,7 @@
   import { resultCaseName } from '../../lib/engine/settlement-case';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { knownIssueMessage } from '../../lib/engine/known-issue-message';
+  import { knownIssueMessage, withoutIssueRef } from '../../lib/engine/known-issue-message';
   import NoticeRow from '../notices/NoticeRow.svelte';
   import { shellRef } from '../../lib/engine/model-findings';
   import { toDisplay, unitLabel } from '../../lib/utils/units';
@@ -276,7 +276,7 @@
           <tr>
             <td class="id-cell">{d.source}</td>
             <td>{d.type}</td>
-            <td>{d.message}</td>
+            <td title={withoutIssueRef(d.message) !== d.message ? d.message : undefined} data-testid="results-diag-message">{withoutIssueRef(d.message)}</td>
             <td class={d.severity === 'warning' ? 'severity-warn' : d.severity === 'error' ? 'severity-err' : ''}>{d.severity}</td>
           </tr>
         {/each}

@@ -88,7 +88,7 @@
   .rcd-span { border: 1px solid var(--st-hair); border-radius: 6px; padding: 4px 8px; margin-bottom: 4px; }
   .rcd-toggle { background: none; border: none; color: var(--st-text); font-size: 0.74rem; cursor: pointer; display: flex; gap: 8px; padding: 2px 0; }
   .st-ok .rcd-toggle span { color: var(--st-ok); }
-  .st-warn .rcd-toggle span { color: var(--st-warn); }
+  .st-warn .rcd-toggle span { color: var(--st-text-2); }
   .st-fail .rcd-toggle span { color: var(--st-danger); }
   .rcd-secs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
   .rcd-toggles { display: flex; flex-wrap: wrap; gap: 4px 14px; }

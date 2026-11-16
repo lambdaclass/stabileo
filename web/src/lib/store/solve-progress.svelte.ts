@@ -3,6 +3,8 @@
  * how many, and once it ends, whether it worked and what it left to read. Live calc does not report
  * here: it runs on every edit and would flash a card at each one.
  */
+import { tp } from '../i18n';
+
 export type SolvePhase = 'prepare' | 'mesh' | 'single' | 'cases' | 'shells' | 'combine' | 'envelope' | 'checks' | 'publish' | 'done' | 'failed';
 
 export interface SolveProgress {
@@ -40,4 +42,9 @@ export const solveProgress = {
 export function secondsLeft(p: SolveProgress, at = performance.now()): number | null {
   if (p.phase !== 'cases' || p.casesAt === undefined || p.doneAt === undefined || p.done < 1 || p.total <= p.done) return null;
   return Math.max(0, ((p.doneAt - p.casesAt) / p.done) * (p.total - p.done) - (at - p.doneAt)) / 1000;
+}
+
+/** "{n} notices to review", pointing where the workspace lists them: PRO's Diagnostics tab, Basic's results table. */
+export function noticesToReview(n: number, pro: boolean): string {
+  return tp(`solveProgress.${pro ? 'warnings' : 'warningsBasic'}.${n === 1 ? 'one' : 'other'}`, { n });
 }

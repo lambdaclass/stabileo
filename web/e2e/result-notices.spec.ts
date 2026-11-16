@@ -50,7 +50,10 @@ test('@smoke a second-order notice is one plain line, opens to the engine text, 
 
   const panel = page.locator('[data-testid="basic-panel"]');
   await panel.getByRole('button', { name: /^Diagnostics \(\d+\)$/ }).click();
-  await expect(panel.locator('.results-content table').filter({ hasText: '#1551' })).toBeVisible();
+  const diagRow = panel.locator('.results-content table [data-testid="results-diag-message"]').filter({ hasText: /second-order/i }).first();
+  await expect(diagRow).toBeVisible();
+  await expect(diagRow).not.toContainText('#1551');
+  await expect(diagRow).toHaveAttribute('title', /#1551/);
 
   await page.getByTestId('rb-settings').click();
   const settings = page.getByTestId('cfg-result-notices');

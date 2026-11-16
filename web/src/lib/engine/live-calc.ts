@@ -37,9 +37,10 @@ import { singleSolveFactors } from './case-effects';
 import { reportSolverErrors, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
-import { solveProgress } from '../store/solve-progress.svelte';
+import { solveProgress, type SolvePhase } from '../store/solve-progress.svelte';
+import { reviewCount } from '../pro/diagnostics-list';
 import { onCaseSolved } from './solver-pool';
-import { onSolveStep, solveStep } from './solve-steps';
+import { onSolveStep, solveSteps } from './solve-steps';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -261,6 +262,7 @@ async function liveCalc2D(isStale: () => boolean): Promise<void> {
  */
 let cancelPendingLiveCalc: (() => void) | null = null;
 let manualSolves = 0;
+let latestRun = 0;
 let deferredLive: [string, string, string | undefined] | null = null;
 let solvedInput: string | null = null;
 
@@ -270,24 +272,29 @@ export function registerLiveCalcCanceller(cancel: (() => void) | null): void {
 
 export async function runGlobalSolve(options: { directBase?: boolean } = {}): Promise<GlobalSolveOutcome> {
   manualSolves++;
+  const run = ++latestRun;
+  const latest = () => run === latestRun;
+  const step: ProgressStep = (phase, done = 0, total = 0) => { if (latest()) solveProgress.step(phase, done, total); };
   solvedInput = null;
   solveProgress.begin();
-  onCaseSolved((done, total) => solveProgress.step('cases', done, total));
-  onSolveStep((step, done, total) => solveProgress.step(step, done, total));
+  onCaseSolved((done, total) => step('cases', done, total));
+  onSolveStep(step);
   let outcome: GlobalSolveOutcome | undefined;
   try {
-    outcome = await globalSolve(options);
+    outcome = await globalSolve(options, { latest, step });
     return outcome;
   } catch (e) {
     outcome = { ok: false, error: e instanceof Error ? e.message : String(e) };
     throw e;
   } finally {
-    onCaseSolved(null);
-    onSolveStep(null);
-    const warnings = uiStore.is3DWorkspace
-      ? resultsStore.diagnostics3D.length + resultsStore.solverDiagnostics3D.length + resultsStore.structuredDiagnostics3D.length
-      : resultsStore.diagnostics.length + resultsStore.solverDiagnostics.length + resultsStore.structuredDiagnostics.length;
-    solveProgress.finish(outcome?.ok ? { ok: true, warnings } : { ok: false, error: outcome && !outcome.ok ? outcome.error : '', warnings });
+    if (latest()) {
+      onCaseSolved(null);
+      onSolveStep(null);
+      const warnings = uiStore.analysisMode === 'pro' ? reviewCount(uiStore.is3DWorkspace).total : uiStore.is3DWorkspace
+        ? resultsStore.diagnostics3D.length + resultsStore.solverDiagnostics3D.length + resultsStore.structuredDiagnostics3D.length
+        : resultsStore.diagnostics.length + resultsStore.solverDiagnostics.length + resultsStore.structuredDiagnostics.length;
+      solveProgress.finish(outcome?.ok ? { ok: true, warnings } : { ok: false, error: outcome && !outcome.ok ? outcome.error : '', warnings });
+    }
     manualSolves--;
     const held = deferredLive;
     if (manualSolves === 0 && held) {
@@ -297,7 +304,9 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   }
 }
 
-async function globalSolve(options: { directBase?: boolean }): Promise<GlobalSolveOutcome> {
+type ProgressStep = (phase: Exclude<SolvePhase, 'done' | 'failed'>, done?: number, total?: number) => void;
+
+async function globalSolve(options: { directBase?: boolean }, run: { latest: () => boolean; step: ProgressStep }): Promise<GlobalSolveOutcome> {
   cancelPendingLiveCalc?.();
   // A solve that was asked for the combinations and did not get them must not end the stale state
   // (`store/recheck.svelte.ts`): its single-solve publish stamps the project, so the stamp before it
@@ -316,8 +325,9 @@ async function globalSolve(options: { directBase?: boolean }): Promise<GlobalSol
     }
     // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
-    solveProgress.step('mesh');
+    run.step('mesh');
     const p = await preparePlatesForAnalysisAsync();
+    if (!run.latest()) return { ok: false, error: t('results.editedDuringSolve') };
     if (!p.ok) {
       const error = tp(p.reason === 'needsMesh' ? 'plates.analysisNeedsMesh' : p.reason === 'localLoads' ? 'plates.analysisLocalLoads' : 'plates.analysisMeshRefused', { names: p.plates.join(', ') });
       uiStore.toast(error, 'error');
@@ -348,7 +358,7 @@ async function globalSolve(options: { directBase?: boolean }): Promise<GlobalSol
   let outcome: GlobalSolveOutcome;
   if (uiStore.is3DWorkspace) {
     await ensureWasmReady('runGlobalSolve');
-    outcome = await globalSolve3D(isStale, options.directBase ?? false);
+    outcome = await globalSolve3D(isStale, options.directBase ?? false, run.step);
   } else if (uiStore.analysisMode === 'edu') {
     // Education owns its own solve lifecycle (results are withheld until the
     // student answers), so dispatch to it explicitly.
@@ -403,7 +413,7 @@ function isMechanismError(msg: string): boolean {
     || lc.includes('mechanism') || lc.includes('hypostatic') || lc.includes('unstable');
 }
 
-async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promise<GlobalSolveOutcome> {
+async function globalSolve3D(isStale: () => boolean, directBase: boolean, step: ProgressStep): Promise<GlobalSolveOutcome> {
   const isPro = uiStore.analysisMode === 'pro';
   const leftHand = uiStore.axisConvention3D === 'leftHand';
   // Basic with load cases off shows no combinations: none are solved.
@@ -414,7 +424,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
   const failed = (error: string): GlobalSolveOutcome => ({ ok: false, error });
 
   const runSingleSolve = async (announceSuccess = true): Promise<GlobalSolveOutcome> => {
-    solveProgress.step('single');
+    step('single');
     const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
     if (isStale()) return stale;
     if (typeof r === 'string') {
@@ -451,7 +461,8 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     // edit already cleared. Discard silently instead (no fallback re-solve, no
     // toast): the next live-calc pass / manual solve will pick up the new model.
     const solveEpoch = modelStore.modelVersion;
-    solveProgress.step('cases', 0, modelStore.model.loadCases.length);
+    const solveStep = solveSteps();
+    step('cases', 0, modelStore.model.loadCases.length);
     const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined);
     if (isStale()) return stale;
     if (typeof comboResult === 'string') return comboResult;

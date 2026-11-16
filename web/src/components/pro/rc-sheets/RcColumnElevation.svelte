@@ -1,6 +1,6 @@
 <script lang="ts">
   /** A column's storey in elevation: its bars, the lap of the bars from below, every tie where its code puts it, and the zones dimensioned (`rc-sheets/column-ties.ts`). */
-  import { t, tp, i18n } from '../../../lib/i18n';
+  import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { columnTieLayout, tieSegments, tiesIn } from '../../../lib/rc-sheets/column-ties';
   import type { ColumnRow } from '../../../lib/rc-sheets/column-row';
@@ -78,7 +78,7 @@
   </svg>
   <ul class="rce-notes">
     {#each segs as z, i (i)}<li>{t(kindKey(z.kind))}: Ø{layout.dia} c/{sp(z.spacing)} — {z.clause}</li>{/each}
-    <li class="dimnote">{tp('rcSheets.elev.totals', { n: layout.ties.length, h: cm(total) })}</li>
+    <li class="dimnote">{tpn('rcSheets.elev.totals', layout.ties.length, { h: cm(total) })}</li>
     {#each layout.notes as n, i (i)}<li class="why" data-testid="rc-elev-note">{t(n)}</li>{/each}
   </ul>
 </figure>

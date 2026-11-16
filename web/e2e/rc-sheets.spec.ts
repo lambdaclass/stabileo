@@ -52,9 +52,12 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   const ws = page.getByTestId('rc-sheets-workspace');
   await expect(ws).toBeVisible();
   // The close button stays at the top right of the header however its controls wrap, and the table scrolls inside with the panels' scrollbars.
-  for (const width of [1440, 1100, 900]) {
+  for (const width of [1920, 1600, 1440, 1280, 1100, 900]) {
     await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => ws.getByTestId('rc-head').evaluate((h) => h.scrollWidth - h.clientWidth), { message: `header overflow at ${width} px` }).toBeLessThanOrEqual(0);
     const head = (await ws.locator('.rcw-head').boundingBox())!, close = (await ws.getByTestId('rc-close').boundingBox())!;
+    expect(close.x + close.width, `close inside the window at ${width} px`).toBeLessThanOrEqual(width);
+    await expect(ws.getByTestId('rc-plans-export')).toBeInViewport({ ratio: 1 });
     expect(close.y - head.y).toBeLessThan(14);
     // Everything on one row: the header no taller than its tallest control.
     expect(head.height, `header at ${width} px`).toBeLessThan(52);
@@ -67,6 +70,17 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(ws.getByTestId('rc-code').getByTestId('rc-code-select')).toHaveValue('cirsoc201-2025');
   const first = ws.getByTestId('rc-row').first();
   await expect(first).toContainText('Verifica');
+  const generous = ws.locator('tr.st-warn .stc').first();
+  if (await generous.count()) {
+    const [colour, warn] = await generous.evaluate((el) => {
+      const probe = el.appendChild(document.createElement('span'));
+      probe.style.color = 'var(--st-warn)';
+      const w = getComputedStyle(probe).color;
+      probe.remove();
+      return [getComputedStyle(el).color, w];
+    });
+    expect(colour, 'a generous row is not painted as a warning').not.toBe(warn);
+  }
 
   await first.click();
   await expect(ws.getByTestId('rc-line-svg')).toBeVisible();

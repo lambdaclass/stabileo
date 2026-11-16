@@ -92,7 +92,7 @@
           {#if grouped}
             <tr class="gh" data-testid="rc-bbs-group-head">
               <td colspan={perElement ? 5 : 4}>
-                <button type="button" class="fold" aria-expanded={open} onclick={() => toggle(g.id)} data-testid="rc-bbs-fold">{open ? '▾' : '▸'}</button>
+                <button type="button" class="fold" aria-expanded={open} aria-label={t('rcSheets.bbs.foldGroup')} onclick={() => toggle(g.id)} data-testid="rc-bbs-fold">{open ? '▾' : '▸'}</button>
                 {#if perElement && g.elements}
                   {#each g.elements.slice(0, unfolded.has(g.id) ? undefined : COMPACT) as el, k (el.key)}
                     {#if k}<span class="eq">=</span>{/if}

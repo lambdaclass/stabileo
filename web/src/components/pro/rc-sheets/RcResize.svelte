@@ -4,7 +4,7 @@
    * smaller one that still does, for a column or a wall), worked out a frame after it opens, and
    * the way to its element in the model, where the size is changed.
    */
-  import { t, tp, i18n } from '../../../lib/i18n';
+  import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { nextFrame } from '../../../lib/store/mesh-progress.svelte';
   import { goToRow, lineResizeHint, resizeHints, rowTargets, wallsToHold, type GotoTarget, type ResizeHint } from '../../../lib/store/rc-sheets-resize';
@@ -54,12 +54,12 @@
     {#if hints.length}<span class="dim">{t('rcSheets.resize.note')}</span>{/if}
   {/if}
   {#if baseUnheld > 0 && onFoundation}
-    <span class="hint none" data-testid="rc-wall-base-unheld">{tp('rcSheets.resize.baseUnheld', { n: baseUnheld })}</span>
+    <span class="hint none" data-testid="rc-wall-base-unheld">{tpn('rcSheets.resize.baseUnheld', baseUnheld)}</span>
     <button type="button" class="rcz-btn" onclick={() => holdWallBasesAndDesign(toHold)} disabled={sheetsSolve.busy} data-testid="rc-wall-hold-base">
       {toHold.length > 1 ? tp('rcSheets.resize.holdBases', { n: toHold.length }) : t('rcSheets.resize.holdBase')}
     </button>
   {:else if baseUnheld > 0}
-    <span class="hint none" data-testid="rc-wall-base-unheld">{tp('rcSheets.resize.baseUnheldAbove', { n: baseUnheld })}</span>
+    <span class="hint none" data-testid="rc-wall-base-unheld">{tpn('rcSheets.resize.baseUnheldAbove', baseUnheld)}</span>
   {/if}
   <span class="sp"></span>
   {#each targets as g (g)}

@@ -3,18 +3,17 @@
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, i18n } from '../../lib/i18n';
   import type { SolverDiagnostic } from '../../lib/engine/types';
-  import { checkModel } from '../../lib/engine/model-diagnostics';
-  import { mergeFindings, selectionOf, shellRef } from '../../lib/engine/model-findings';
-  import { reviewModelSanity, sanityDiagnostics } from '../../lib/engine/model-sanity';
+  import { selectionOf, shellRef } from '../../lib/engine/model-findings';
+  import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
-  import { plateDiagnostics, zoneDiagnostics } from '../../lib/store/plate-diagnostics';
+  import { collectDiagnostics, groupDiagnostics, numbersMasked, withoutIssueRef } from '../../lib/pro/diagnostics-list';
   import { postAnalysisLines, partLines, postAnalysisRows, postAnalysisHtml, type PostAnalysisLine } from '../../lib/engine/post-analysis';
   import { staticsRows } from '../../lib/store/statics-rows';
   import { instability } from '../../lib/store/instability.svelte';
   import { verificationStore } from '../../lib/store/verification.svelte';
   import { verdictApproves, verdictReasons } from '../../lib/store/member-verdict';
   import { toCsv } from '../../lib/engine/result-tables';
-  import { tp } from '../../lib/i18n';
+  import { tp, tpn } from '../../lib/i18n';
   import { containmentDismissal } from '../../lib/store/containment-dismissal.svelte';
   import { noticePrefs } from '../../lib/store/notice-prefs.svelte';
 
@@ -28,69 +27,7 @@
 
   const is3D = $derived(uiStore.is3DWorkspace);
 
-  // Auto-run model check reactively when model changes
-  const autoModelDiags = $derived.by(() => {
-    // Touch reactive dependencies so this re-runs on model changes
-    const _n = modelStore.nodes.size;
-    const _e = modelStore.elements.size;
-    const _s = modelStore.supports.size;
-    const _l = modelStore.loads.length;
-    const _m = modelStore.materials.size;
-    const _sec = modelStore.sections.size;
-    const _lc = modelStore.model.loadCases.length;
-    const _p = modelStore.model.plates?.size ?? 0;
-    const _q = modelStore.model.quads?.size ?? 0;
-    // Avoid unused var warnings
-    void(_n + _e + _s + _l + _m + _sec + _lc + _p + _q);
-
-    return checkModel({
-      nodes: modelStore.nodes,
-      elements: modelStore.elements,
-      materials: modelStore.materials,
-      sections: modelStore.sections,
-      supports: modelStore.supports,
-      loads: modelStore.loads as any,
-      loadCases: modelStore.model.loadCases,
-      plates: modelStore.model.plates,
-      quads: modelStore.model.quads,
-      connectors: modelStore.model.connectors,
-      constraints: modelStore.model.constraints,
-      combinations: modelStore.combinations,
-      selfWeightCaseIds: (modelStore.analysis?.selfWeight ?? []).map((w) => w.caseId),
-    });
-  });
-
-  // The engine's model sanity review (`engine/model-sanity.ts`): the modelling errors the solve
-  // cannot see — units, load directions, self-weight, weight per floor area, period, tributary
-  // loads, supports and springs — and which of its checks could not run on this model, and why.
-  const sanityDiags = $derived.by(() => {
-    if (!is3D) return [];
-    const perCase = resultsStore.perCase3D;
-    const reviewed = reviewModelSanity({
-      model: { ...(modelStore.model as any), nodes: modelStore.nodes, elements: modelStore.elements, materials: modelStore.materials,
-        sections: modelStore.sections, supports: modelStore.supports, loads: modelStore.loads as any, loadCases: modelStore.model.loadCases },
-      perCase,
-      single: perCase.size === 0 ? resultsStore.results3D : null,
-      modal: resultsStore.modalResult3D,
-      includeSelfWeight: uiStore.includeSelfWeight,
-      leftHand: uiStore.axisConvention3D === 'leftHand',
-    });
-    return reviewed ? sanityDiagnostics(reviewed.report, reviewed.shellKeys, t, i18n.locale) : [];
-  });
-
-  // Merge: model checks + general diagnostics + solver diagnostics
-  const allDiagnostics = $derived.by(() => {
-    const general = is3D ? resultsStore.diagnostics3D : resultsStore.diagnostics;
-    const solver = is3D ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
-    // The gates' own findings about the model, which nothing read until now.
-    // Where `checkModel` found the same thing under its own code (coincident
-    // nodes), `sameFinding` recognises it and it is reported once.
-    const fromGates = is3D ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
-    // The modelling objects above the analysis entities: physical plates and their meshes.
-    void modelStore.modelVersion; void modelStore.model.groups;
-    const objects = is3D ? [...plateDiagnostics(t), ...zoneDiagnostics(t)] : [];
-    return [...objects, ...mergeFindings([...autoModelDiags, ...sanityDiags], general, solver, fromGates)];
-  });
+  const allDiagnostics = $derived(collectDiagnostics(is3D));
 
   /** The report after the analysis: the findings above, then the analysis's own checks and, with the design on, what does not verify. */
   const postInput = $derived.by(() => {
@@ -142,22 +79,14 @@
     await downloadReport(format, { title, html: postAnalysisHtml(postLines(), tp as never, title, subtitle), stem: `post-analysis-${name}` });
   }
 
-  // Apply severity filter
-  const diagnostics = $derived(
-    severityFilter === 'all'
-      ? allDiagnostics
-      : allDiagnostics.filter(d => d.severity === severityFilter)
-  );
+  const groups = $derived(groupDiagnostics(allDiagnostics));
+  const shownGroups = $derived(severityFilter === 'all' ? groups : groups.filter((g) => g.first.severity === severityFilter));
 
-  const errors = $derived(allDiagnostics.filter(d => d.severity === 'error'));
-  const warnings = $derived(allDiagnostics.filter(d => d.severity === 'warning'));
-  const infos = $derived(allDiagnostics.filter(d => d.severity === 'info'));
-  const hasAny = $derived(allDiagnostics.length > 0);
-
-  // By what each finding is about: the gates' findings describe the model as
-  // much as checkModel's do, and used to be counted as solver checks.
-  const modelCount = $derived(allDiagnostics.filter((d) => d.source === 'model').length);
-  const solverCount = $derived(allDiagnostics.length - modelCount);
+  const errors = $derived(groups.filter((g) => g.first.severity === 'error'));
+  const warnings = $derived(groups.filter((g) => g.first.severity === 'warning'));
+  const infos = $derived(groups.filter((g) => g.first.severity === 'info'));
+  const hasAny = $derived(groups.length > 0);
+  const toReview = $derived({ model: errors.length + warnings.length, results: notice.messages.length });
 
   function severityIcon(s: SolverDiagnostic['severity']): string {
     if (s === 'error') return '\u2717';
@@ -226,6 +155,8 @@
       .join(' | ');
   }
 
+  const messageOf = (d: SolverDiagnostic) => withoutIssueRef(t(d.message) !== d.message ? t(d.message) : localizeEngineText(d.message));
+
   function shellLabel(key: string): string {
     const { kind, id } = shellRef(key);
     return t(kind === 'plate' ? 'results.plateLabel' : 'results.quadLabel').replace('{id}', String(id));
@@ -235,11 +166,9 @@
 <div class="diag-panel" data-tour="diagnostics-panel">
   <!-- Action bar -->
   <div class="diag-action-bar">
-    <span class="diag-auto-label">
-      {t('diag.modelChecks')}: {modelCount}
-      {#if solverCount > 0}
-        &nbsp;|&nbsp;{t('diag.solverChecks')}: {solverCount}
-      {/if}
+    <span class="diag-auto-label" data-testid="diag-review-count" data-count={toReview.model + toReview.results}>
+      {tpn('diag.reviewSummary', toReview.model + toReview.results, { model: toReview.model, results: toReview.results })}
+      <small>{t('diag.reviewSummaryHint')}</small>
     </span>
   </div>
 
@@ -258,9 +187,9 @@
         <ul class="post-list" data-testid="post-{key}">
           {#each lines as l, i (i)}
             <li>
-              <button class="post-line sev-{l.severity}" disabled={!l.selection} onclick={() => selectLine(l)}>
+              <button class="post-line sev-{l.severity}" disabled={!l.selection} onclick={() => selectLine(l)} title={l.text !== withoutIssueRef(l.text) ? l.text : undefined}>
                 <span class="post-sev">{t(`post.sev.${l.severity}`)}</span>
-                <span>{l.text}{#if l.detail}<small>{l.detail}</small>{/if}</span>
+                <span>{withoutIssueRef(l.text)}{#if l.detail}<small>{l.detail}</small>{/if}</span>
               </button>
             </li>
           {/each}
@@ -365,37 +294,52 @@
       {/if}
     </div>
 
-    <!-- Diagnostic list -->
+    {#snippet headline(diag: SolverDiagnostic, tooltip: string, masked = false)}
+      <span class="diag-icon {severityClass(diag.severity)}">{severityIcon(diag.severity)}</span>
+      <span class="diag-source">{sourceLabel(diag.source)}</span>
+      <div class="diag-content">
+        <span class="diag-msg">{masked ? numbersMasked(messageOf(diag)) : messageOf(diag)}</span>
+        {#if tooltip}
+          <span class="diag-tooltip-text">{tooltip}</span>
+        {/if}
+      </div>
+    {/snippet}
+    {#snippet refs(diag: SolverDiagnostic)}
+      {#if diag.elementIds && diag.elementIds.length > 0}
+        <span class="diag-refs">{t('diag.elements')}: {diag.elementIds.join(', ')}</span>
+      {/if}
+      {#if diag.shellKeys && diag.shellKeys.length > 0}
+        <span class="diag-refs">{t('diag.shells')}: {diag.shellKeys.map(shellLabel).join(', ')}</span>
+      {/if}
+      {#if diag.nodeIds && diag.nodeIds.length > 0}
+        <span class="diag-refs">{t('diag.nodes')}: {diag.nodeIds.join(', ')}</span>
+      {/if}
+      {#if diag.details}
+        <span class="diag-details">{formatDetails(diag.details)}</span>
+      {/if}
+    {/snippet}
     <div class="diag-list">
-      {#each diagnostics as diag}
-        {@const tooltip = codeTooltip(diag.code)}
-        <button
-          class="diag-item {severityClass(diag.severity)}"
-          onclick={() => handleClick(diag)}
-          title={tooltip || undefined}
-          data-tour="diagnostic-item"
-        >
-          <span class="diag-icon {severityClass(diag.severity)}">{severityIcon(diag.severity)}</span>
-          <span class="diag-source">{sourceLabel(diag.source)}</span>
-          <div class="diag-content">
-            <span class="diag-msg">{t(diag.message) !== diag.message ? t(diag.message) : diag.message}</span>
-            {#if tooltip}
-              <span class="diag-tooltip-text">{tooltip}</span>
-            {/if}
-          </div>
-          {#if diag.elementIds && diag.elementIds.length > 0}
-            <span class="diag-refs">{t('diag.elements')}: {diag.elementIds.join(', ')}</span>
-          {/if}
-          {#if diag.shellKeys && diag.shellKeys.length > 0}
-            <span class="diag-refs">{t('diag.shells')}: {diag.shellKeys.map(shellLabel).join(', ')}</span>
-          {/if}
-          {#if diag.nodeIds && diag.nodeIds.length > 0}
-            <span class="diag-refs">{t('diag.nodes')}: {diag.nodeIds.join(', ')}</span>
-          {/if}
-          {#if diag.details}
-            <span class="diag-details">{formatDetails(diag.details)}</span>
-          {/if}
-        </button>
+      {#each shownGroups as g (g.key)}
+        {@const tooltip = codeTooltip(g.first.code)}
+        {#if g.items.length === 1}
+          <button class="diag-item {severityClass(g.first.severity)}" onclick={() => handleClick(g.first)} title={tooltip || undefined} data-tour="diagnostic-item" data-testid="diag-item">
+            {@render headline(g.first, tooltip)}
+            {@render refs(g.first)}
+          </button>
+        {:else}
+          {@const varies = g.items.some((d) => d.message !== g.first.message)}
+          <details class="diag-group" data-testid="diag-group" data-count={g.items.length}>
+            <summary class="diag-item {severityClass(g.first.severity)}" title={tooltip || undefined} data-tour="diagnostic-item">
+              {@render headline(g.first, tooltip, varies)}
+              <span class="diag-count" data-testid="diag-group-count">×{g.items.length}</span>
+            </summary>
+            <div class="diag-group-items">
+              {#each g.items as item, k (k)}
+                <button class="diag-sub" onclick={() => handleClick(item)} data-testid="diag-group-item">{#if varies}<span class="diag-sub-msg">{messageOf(item)}</span>{/if}{@render refs(item)}</button>
+              {/each}
+            </div>
+          </details>
+        {/if}
       {/each}
     </div>
   {/if}
@@ -589,6 +533,15 @@
     color: var(--st-text-3);
     font-style: italic;
   }
+
+  .diag-group > summary { list-style: none; cursor: pointer; }
+  .diag-group > summary::-webkit-details-marker { display: none; }
+  .diag-count { flex: none; font-size: 0.68rem; font-weight: 600; padding: 1px 6px; border-radius: 9px; background: var(--st-surface-3); color: var(--st-text-2); }
+  .diag-group-items { display: flex; flex-direction: column; gap: 1px; padding: 0 0 6px 38px; }
+  .diag-sub { display: flex; flex-wrap: wrap; gap: 6px; text-align: left; border: none; background: none; color: inherit; padding: 3px 6px; cursor: pointer; border-radius: 3px; }
+  .diag-sub:hover { background: rgba(127, 212, 204, 0.05); }
+  .diag-sub .diag-details { width: auto; padding-left: 0; }
+  .diag-sub-msg { width: 100%; font-size: 0.72rem; }
 
   .diag-refs {
     font-family: monospace;

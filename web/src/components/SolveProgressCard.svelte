@@ -1,9 +1,10 @@
 <script lang="ts">
   /** At the viewer's foot, with the toasts: the solve the engineer asked for, step by step, and how it ended (`store/solve-progress.svelte.ts`). */
   import { t, tp, i18n } from '../lib/i18n';
-  import { solveProgress, secondsLeft } from '../lib/store/solve-progress.svelte';
+  import { solveProgress, secondsLeft, noticesToReview } from '../lib/store/solve-progress.svelte';
   import { meshProgress } from '../lib/store/mesh-progress.svelte';
   import { uiStore } from '../lib/store';
+  import { fullScreenWorkspace } from '../lib/store/fullscreen-workspace.svelte';
 
   const AUTO_CLOSE_MS = 6000;
   const p = $derived(solveProgress.now);
@@ -24,31 +25,39 @@
   const left = $derived(p ? secondsLeft(p, tick) : null);
   const ended = $derived(!!p && (p.phase === 'done' || p.phase === 'failed'));
   const canDiagnose = $derived(uiStore.analysisMode === 'pro');
+  const compact = $derived(fullScreenWorkspace.open);
+  const mesh = $derived(meshProgress.now);
+  const meshShare = $derived(mesh && mesh.total > 0 ? (mesh.phase === 'planning' ? 0 : 0.5) + 0.5 * Math.min(1, mesh.done / mesh.total) : 0);
   function diagnose() { uiStore.proActiveTab = 'diagnostics'; solveProgress.dismiss(); }
 </script>
 
 {#if p}
-  <div class="spc" class:ok={p.phase === 'done'} class:bad={p.phase === 'failed'} role="status" aria-live="polite" data-testid="solve-progress" data-phase={p.phase}>
+  <div class="spc" class:ok={p.phase === 'done'} class:bad={p.phase === 'failed'} class:compact role="status" aria-live="polite" data-testid="solve-progress" data-phase={p.phase} data-compact={compact}>
     <div class="spc-head">
       <strong>{t(`solveProgress.phase.${p.phase}`)}</strong>
-      <span class="spc-time">{secs(elapsed)} s</span>
+      <span class="spc-time" aria-hidden="true" data-testid="solve-progress-elapsed">{secs(elapsed)} s</span>
+      {#if compact && ended}
+        <button type="button" class="spc-btn spc-primary" onclick={() => solveProgress.dismiss()} data-testid="solve-progress-done">{t('solveProgress.done')}</button>
+      {/if}
     </div>
-    {#if !ended}
-      {#if p.phase === 'mesh' && meshProgress.now}
-        <progress max={meshProgress.now.total} value={meshProgress.now.done}></progress>
-        <span class="spc-sub">{tp('solveProgress.meshing', { done: meshProgress.now.done, total: meshProgress.now.total })}</span>
+    {#if compact}
+      {#if !ended}<progress class:spc-busy={p.total === 0} max={p.total || undefined} value={p.total ? p.done : undefined} aria-label={t(`solveProgress.phase.${p.phase}`)}></progress>{/if}
+    {:else if !ended}
+      {#if p.phase === 'mesh' && mesh}
+        <progress max="1" value={meshShare} aria-label={t(`solveProgress.phase.${p.phase}`)} data-testid="solve-progress-mesh"></progress>
+        <span class="spc-sub">{tp(mesh.phase === 'planning' ? 'plates.progressPlanning' : 'plates.progressMeshing', { done: mesh.done, total: mesh.total })}</span>
       {:else if (p.phase === 'shells' || p.phase === 'combine') && p.total > 0}
-        <progress max={p.total} value={p.done}></progress>
+        <progress max={p.total} value={p.done} aria-label={t(`solveProgress.phase.${p.phase}`)}></progress>
         <span class="spc-sub">{tp(p.phase === 'shells' ? 'solveProgress.cases' : 'solveProgress.combos', { done: p.done, total: p.total })}</span>
       {:else if p.phase === 'cases' && p.total > 0}
-        <progress max={p.total} value={p.done} data-testid="solve-progress-cases"></progress>
-        <span class="spc-sub">{tp('solveProgress.cases', { done: p.done, total: p.total })}{#if left !== null} · {tp('solveProgress.left', { s: secs(left * 1000) })}{/if}</span>
+        <progress max={p.total} value={p.done} aria-label={t(`solveProgress.phase.${p.phase}`)} data-testid="solve-progress-cases"></progress>
+        <span class="spc-sub">{tp('solveProgress.cases', { done: p.done, total: p.total })}{#if left !== null}<span aria-hidden="true">{` · ${tp('solveProgress.left', { s: secs(left * 1000) })}`}</span>{/if}</span>
       {:else}
-        <progress class="spc-busy"></progress>
+        <progress class="spc-busy" aria-label={t(`solveProgress.phase.${p.phase}`)}></progress>
       {/if}
     {:else}
       {#if p.phase === 'failed' && p.error}<p class="spc-error" data-testid="solve-progress-error">{p.error}</p>{/if}
-      {#if p.warnings > 0}<p class="spc-sub" data-testid="solve-progress-warnings">{tp('solveProgress.warnings', { n: p.warnings })}</p>{/if}
+      {#if p.warnings > 0}<p class="spc-sub" data-testid="solve-progress-warnings">{noticesToReview(p.warnings, canDiagnose)}</p>{/if}
       <div class="spc-actions">
         {#if canDiagnose && (p.warnings > 0 || p.phase === 'failed')}
           <button type="button" class="spc-btn" onclick={diagnose} data-testid="solve-progress-diagnostics">{t('solveProgress.diagnostics')}</button>
@@ -62,6 +71,8 @@
 <style>
   .spc { pointer-events: auto; display: flex; flex-direction: column; gap: 5px; min-width: 260px; max-width: 360px; padding: 0.6rem 1rem; border-radius: 6px; background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-left: 3px solid var(--st-accent); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); font-size: 0.8rem; color: var(--st-text); }
   .spc.ok { border-left-color: var(--st-ok); }
+  .spc.compact { min-width: 0; padding: 0.35rem 0.7rem; gap: 3px; }
+  .spc.compact .spc-head { align-items: center; }
   .spc.bad { border-left-color: var(--st-danger); }
   .spc-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
   .spc-head strong { font-weight: 600; }

@@ -16,9 +16,9 @@
  *     acknowledged, even when a solve (live calc) has already made the numbers current. It
  *     cannot be dismissed any other way: no close button, no Escape, no click outside. Acknowledging is a statement the engineer makes ("I have read what
  *     changed"), so it is a checkbox and a button, not a reflex.
- *   - Acknowledged is per stamp and remembered in this browser, so a reload or a restart does not
- *     ask again for what was already read. Another browser (a colleague) is asked, and a stamp
- *     the notice has not been read for (a newer change registered) is asked about anew.
+ *   - Acknowledged is per stamp and the set of changes and advisories shown, remembered in this
+ *     browser, so a reload or a restart does not ask again for what was already read. Another
+ *     browser (a colleague) is asked, and a change or advisory registered later reopens it.
  *   - Until the model is solved again in this build, its results are STALE, acknowledged or
  *     not, and say so (`stale`). A solve stamps the current version and clears it; the static
  *     (linear) solve, not a modal or P-Δ run alone. An advisory about one analysis (harmonic)
@@ -73,6 +73,8 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
   const openAdvisories = (): Advisory[] => assessment?.advisories.filter((a) => !rerun(a.analysis ?? 'linear')) ?? [];
   const stale = (): boolean =>
     !!assessment && (((pending || assessment.changes.length > 0) && !rerun('linear')) || openAdvisories().length > 0);
+  const ackKey = (stampId: string): string =>
+    [stampId, ...[...(assessment?.changes ?? []).map((c) => `change:${c.id}`), ...(assessment?.advisories ?? []).map((a) => `advisory:${a.id}`)].sort()].join('|');
 
   return {
     get pending() { return pending; },
@@ -90,7 +92,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
     get noticeOpen() {
       // Not tied to `stale`: live calc may re-solve the moment a project opens, and the notice
       // must still be read. What changed is worth knowing even once the numbers are current.
-      return !!assessment && (pending || assessment.changes.length > 0 || assessment.advisories.length > 0) && assessedStampId !== null && !acknowledged.has(assessedStampId);
+      return !!assessment && (pending || assessment.changes.length > 0 || assessment.advisories.length > 0) && assessedStampId !== null && !acknowledged.has(ackKey(assessedStampId));
     },
     /** Opened in an older build than the one that solved it. */
     get solvedWithNewer() { return !!stamp && stamp.resultsVersion > RESULTS_VERSION; },
@@ -190,14 +192,14 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
     /** The engineer read the notice. Results stay marked stale until re-run. */
     acknowledge(): void {
       if (!pending && assessedStampId) {
-        acknowledged = new Set([...acknowledged, assessedStampId]);
+        acknowledged = new Set([...acknowledged, ackKey(assessedStampId)]);
         if (remember) writeAcknowledged(acknowledged);
       }
     },
 
     captureNotice(): PendingRecheckNotice | undefined {
       if (!outstanding) return undefined;
-      if (acknowledged.has(outstanding.stamp.id) && !(stale() && stamp?.id !== outstanding.stamp.id)) return undefined;
+      if (acknowledged.has(ackKey(outstanding.stamp.id)) && !(stale() && stamp?.id !== outstanding.stamp.id)) return undefined;
       return { stamp: { ...outstanding.stamp, analyses: [...outstanding.stamp.analyses] }, features: [...outstanding.features] };
     },
 
