@@ -107,3 +107,53 @@ partial-load representation. Solver algorithms and constitutive behaviour are
 unchanged. The saved-project notice is scoped to generated W or Wa and remains
 until the load basis is regenerated. Manual wind and generated gravity are
 negative notice controls.
+
+## PR #2220 second review: eccentric plan couples and sign faces
+
+The second review found two defects on the unmerged branch `bbba79b0f`.
+They are not additional main/release exposure. Cases 2 and 4 applied each
+integrated endpoint force as a singleton level; their eccentric moment became
+a column torque instead of a force couple across the plan. Total Mz was
+preserved, but member bending, torsion and reactions changed. The height-field
+representation now requires an integrated unit-eccentricity couple. At each
+pressure station the shared plan distributor forms the couple on the active
+cross-section, then the same endpoint shape functions transfer all components.
+The same representation carries solid-sign eccentricity. Only a physically
+coincident cross-section uses the existing local-moment fallback.
+
+Solid-sign B used every model level, including supports below the face. A
+2 m face on a 6 m base therefore took B = 6 for the coefficient and the
+prescribed eccentricity. Width now comes from the same physical carriers
+clipped to [clearance, H], including intersections at clearance. A clearance
+inside the taper is tested as well as one at the face boundary. Empty faces
+retain the existing refusal.
+
+Signed reproducer commit `7289a015a` retains the ignored tests first, using
+Vitest's `RUN_KNOWN_WRONG=2204`, `2206` and `2203` switches. Against its parent
+`bbba79b0f`, the wall tests fail on nodal force distribution and on member
+forces/reactions in linear and nonlinear WASM solves. The sign test fails
+because it reads B = 6 instead of B = 2. The editor test fails because it
+cannot remove wall records. The fix removes those skips. Target the
+`wind-round2.test.ts` and `wind-enclosure-editor.test.ts` files with
+`make test.web.unit FILE=...`.
+
+The independent rectangular-frame distribution uses the checked-in exposure C
+power-law pressure integral and its first moment, plus the plan polar sum of
+the corner coordinates. It checks cases 1–4, both senses on both axes,
+foundation shares, service wind, coarse/uniform/uneven meshes, rotations and
+reflections. Member-force and reaction comparisons cover 2D projections and
+3D linear/nonlinear analyses, with a diaphragm as a separate spatial case.
+The sign tests cover both axes, a support wider than the face, clearance
+intersections, and both sides of the face and empty-face boundaries. Correct
+case 1 and service distributions and a zero-clearance sign remain controls.
+No native Rust wind generator exists: these loads are generated in TypeScript
+before the common solver load boundary.
+
+The enclosure editor shares the classifier's minimum record count and allows
+individual records to be removed, so a triangular building needs no fictitious
+fourth wall. Spanish instructions use voseo. The coordinator assigned
+[SA-2026-076](../advisories/SA-2026-076-wind-enclosure.md) to #2203,
+[SA-2026-077](../advisories/SA-2026-077-wind-wall-height-transfer.md) to #2204 and
+[SA-2026-078](../advisories/SA-2026-078-wind-roof-pressure-zones.md) to #2205.
+Their catalogs and regeneration notice cover all six public locales. #2206's
+main witness is conservative and has no advisory.

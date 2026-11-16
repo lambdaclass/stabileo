@@ -160,8 +160,10 @@ export interface EnclosureInputs {
   roof: WallOpenings;
 }
 
+export const MIN_ENCLOSURE_WALLS = 2;
+
 export function classifyEnclosure(i: EnclosureInputs): Enclosure {
-  if (!i.walls || i.walls.length < 2 || !i.roof) throw new Error('wind.enclosure.incompleteEnvelope');
+  if (!i.walls || i.walls.length < MIN_ENCLOSURE_WALLS || !i.roof) throw new Error('wind.enclosure.incompleteEnvelope');
   const envelope = [...i.walls, i.roof];
   if (envelope.some(w => !Number.isFinite(w.gross) || !Number.isFinite(w.openings) || w.gross <= 0 || w.openings < 0 || w.openings > w.gross)) throw new Error('wind.enclosure.invalidAreas');
   if (i.walls.every(w => w.openings >= 0.8 * w.gross)) return 'open';

@@ -102,6 +102,9 @@ snow loads before re-solving.
 | [SA-2026-068](SA-2026-068-provided-torsion-stirrups.md) | Concrete torsion accepted inadequate designed stirrups | High | [#2141](https://github.com/lambdaclass/stabileo/issues/2141) | [#2080](https://github.com/lambdaclass/stabileo/pull/2080) | 0.6.1 | Published 2026-11-15 |
 | [SA-2026-069](SA-2026-069-torsion-secondary-shear.md) | Concrete torsion section limits omitted concurrent secondary shear | High | [#2142](https://github.com/lambdaclass/stabileo/issues/2142) | [#2169](https://github.com/lambdaclass/stabileo/pull/2169) | Pending | Draft 2026-11-15; fixed in PR #2169, pending merge and release |
 | [SA-2026-072](SA-2026-072-snow-ridge-subdivision.md) | Unequal roof subdivision moved the inferred snow ridge and changed generated loads | High | [#2144](https://github.com/lambdaclass/stabileo/issues/2144) | Fixed in PR #2175 | Pending merge and release | Draft 2026-11-15 |
+| [SA-2026-076](SA-2026-076-wind-enclosure.md) | One open wall could misclassify a building as open | High | [#2203](https://github.com/lambdaclass/stabileo/issues/2203) | Fixed in PR #2220 | Pending merge and release | Draft 2026-11-16 |
+| [SA-2026-077](SA-2026-077-wind-wall-height-transfer.md) | Wall wind loads omitted foundation forces and depended on subdivision | High | [#2204](https://github.com/lambdaclass/stabileo/issues/2204) | Fixed in PR #2220 | Pending merge and release | Draft 2026-11-16 |
+| [SA-2026-078](SA-2026-078-wind-roof-pressure-zones.md) | Roof pressure zones depended on member subdivision | High | [#2205](https://github.com/lambdaclass/stabileo/issues/2205) | Fixed in PR #2220 | Pending merge and release | Draft 2026-11-16 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

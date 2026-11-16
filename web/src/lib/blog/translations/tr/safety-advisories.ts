@@ -42,6 +42,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-072 — PR #2175 ile düzeltildi, birleştirme ve yayın bekleniyor."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-076 — PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md", "label": "SA-2026-076", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-077 — PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-077-wind-wall-height-transfer.md", "label": "SA-2026-077", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-078 — PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -422,6 +428,9 @@ const body: PostBody = {
         ["SA-2026-068", "Burulma kontrolü yetersiz tasarlanmış etriyelerle başarılı olabiliyordu (#2141). Beton kontrollerini yeniden çalıştırıp gerçek enine kapasiteyi, etriye aralığını ve burulma başarısızlıklarını inceleyin. Kontrol edilmemiş boyuna donatı, başarılı bir donatı kafesi anlamına gelmez.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
         ["SA-2026-069", "Burulma kesit sınırı eşzamanlı ikincil kesmeyi atlıyordu (#2142). Betonarme tasarımlarını yeniden çalıştırın, kesit hatalarını ve eksik etriyeleri inceleyin; etriye eklemek aşılmış kesit sınırını gidermez.", "Yüksek", "Taslak 2026-11-15; PR #2169 ile düzeltildi, birleştirme ve yayın bekleniyor"],
         ["SA-2026-072", "Çatı kenarlarının eşit olmayan bölünmesi mahyayı kaydırıp üretilen kar yüklerini değiştirebiliyordu (#2144). Kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez.", "Yüksek", "PR #2175 ile düzeltildi, birleştirme ve yayın bekleniyor"],
+        ["SA-2026-076", "Tek bir açık duvar, binanın açık sınıflandırılmasına ve iç basıncın kaldırılmasına yol açabiliyordu (#2203). Her duvar ve çatının açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez.", "Yüksek", "PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor"],
+        ["SA-2026-077", "Duvar rüzgâr yüklerinde temel kuvvetleri eksikti ve yükler bölünmeye göre değişiyordu (#2204). Her duvar ve çatının açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez.", "Yüksek", "PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor"],
+        ["SA-2026-078", "Çatı basınç bölgeleri ve bunların birinci momentleri bölünmeye bağlıydı (#2205). Her duvar ve çatının açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez.", "Yüksek", "PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor"],
       ]
     },
     {

@@ -42,6 +42,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Données concernées et actions requises."},
     {"k": "note", "t": "SA-2026-072 — Corrigé dans la PR #2175, fusion et publication en attente."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-076 — Corrigé dans la PR #2220, fusion et publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md", "label": "SA-2026-076", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-077 — Corrigé dans la PR #2220, fusion et publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-077-wind-wall-height-transfer.md", "label": "SA-2026-077", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-078 — Corrigé dans la PR #2220, fusion et publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Données concernées et actions requises."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -422,6 +428,9 @@ const body: PostBody = {
         ["SA-2026-068", "La torsion pouvait être validée avec des étriers dimensionnés insuffisants (#2141). Relancez les vérifications béton et examinez résistance transversale réelle, espacement des étriers et échecs en torsion. Des armatures longitudinales non vérifiées ne constituent pas une cage validée.", "Élevée", "Corrigé dans 0.6.1"],
         ["SA-2026-069", "La limite de section en torsion omettait le cisaillement secondaire concomitant (#2142). Relancez les calculs béton et examinez les échecs de section et les étriers absents ; ajouter des étriers ne corrige pas une section qui dépasse sa limite.", "Élevée", "Brouillon 2026-11-15 ; corrigé dans la PR #2169, fusion et publication en attente"],
         ["SA-2026-072", "Une subdivision inégale des bords du toit pouvait déplacer le faîtage et modifier les charges de neige générées (#2144). Régénérez les charges puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2175, fusion et publication en attente"],
+        ["SA-2026-076", "Une paroi ouverte pouvait faire classer le bâtiment comme ouvert et supprimer la pression intérieure (#2203). Vérifiez les ouvertures de chaque paroi et du toit, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2220, fusion et publication en attente"],
+        ["SA-2026-077", "Le vent sur les parois omettait des forces aux fondations et variait avec la subdivision (#2204). Vérifiez les ouvertures de chaque paroi et du toit, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2220, fusion et publication en attente"],
+        ["SA-2026-078", "Les zones de pression du toit et leurs premiers moments dépendaient de la subdivision (#2205). Vérifiez les ouvertures de chaque paroi et du toit, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2220, fusion et publication en attente"],
       ]
     },
     {

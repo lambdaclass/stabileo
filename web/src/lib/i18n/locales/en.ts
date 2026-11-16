@@ -11132,6 +11132,7 @@ const en: Record<string, string> = {
   'autoLoad.windOpenings': 'Enclosure from the openings',
   "autoLoad.windWall": "Wall",
   "autoLoad.windRoof": "Roof",
+  "autoLoad.windRemoveWall": "Remove wall",
   "autoLoad.windAddWall": "Add wall",
   "autoLoad.windOpeningsHint": "Enter openings and gross areas for every wall and the roof (Art. 1.2). An open building requires every wall to meet the opening criterion.",
   "autoLoad.windMinimumCase": "Wind {dir}, building minimum (§2.1.5)",

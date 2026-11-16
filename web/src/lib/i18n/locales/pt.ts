@@ -10492,6 +10492,7 @@ const pt: Translations = {
   'autoLoad.windOpenings': 'Vedação conforme as aberturas',
   "autoLoad.windWall": "Parede",
   "autoLoad.windRoof": "Cobertura",
+  "autoLoad.windRemoveWall": "Remover parede",
   "autoLoad.windAddWall": "Adicionar parede",
   "autoLoad.windOpeningsHint": "Informe aberturas e áreas brutas de todas as paredes e da cobertura (Art. 1.2). Um edifício aberto exige que cada parede cumpra o critério de aberturas.",
   "autoLoad.windMinimumCase": "Vento {dir}, mínimo do edifício (§2.1.5)",

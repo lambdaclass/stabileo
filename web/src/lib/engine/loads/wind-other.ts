@@ -5,7 +5,7 @@ import {
 } from '../../codes/cirsoc102/other-structures';
 import { levelLoads, type WindModel, type WindDirection } from './wind-cases';
 import { windRoofCarriers } from './wind-roof-geometry';
-import { integrateWindPressure, windStationCuts, windHeightField, windPressureCoordinate } from './wind-pressure-field';
+import { integrateWindPressure, windStationCuts, windHeightField, windHeightLoads, windHeightWidth, windPressureCoordinate } from './wind-pressure-field';
 import { msg, round, type EngineMessage } from '../../codes/message';
 
 export type OtherStructure =
@@ -131,16 +131,12 @@ export function otherStructureWind(i: {
     return v.length ? Math.max(...v) - Math.min(...v) : 0;
   };
   const base = Math.max(0, Math.min(...zs));
-  const pointLoads = (f: ReturnType<typeof windHeightField>, fx: number, fy: number, eccentricity = 0) => {
-    const convert = (loads: Map<number, number>) => [...loads].map(([nodeId, F]) => ({ nodeId, fx: F * fx, fy: F * fy, mz: F * eccentricity }));
-    return { nodal: [...convert(f.baseLoads), ...convert(f.loads)], baseLoads: convert(f.baseLoads) };
-  };
   if (s.kind === 'solidSign') {
     const sH = H - s.clearance;
     if (!(sH > 0) || s.clearance < base) { notes.push(msg('wind.other.noSign')); return { cases, derivation, notes }; }
     for (const d of i.directions) {
-      const axis = d.endsWith('x') ? 'x' : 'y', cross = axis === 'x' ? 'y' : 'x';
-      const B = Math.max(...levelNodes.map(ids => span(ids, cross)), 0);
+      const axis = d.endsWith('x') ? 'x' : 'y';
+      const B = windHeightWidth(model, axis, s.clearance, H);
       if (!(B > 0)) { notes.push(msg('wind.other.noSign')); continue; }
       const cf = solidSignCf(B / sH, sH / H);
       const pressure = qz(H) * gOf(axis) * cf;
@@ -148,9 +144,9 @@ export function otherStructureWind(i: {
       derivation.push(msg('wind.other.solidSign', { dir: dirLabel(d), b: round(B, 2), s: round(sH, 2), h: round(H, 2), cf: round(cf, 3), f: round(F, 1) }));
       const field = windHeightField({ model, axis, from: s.clearance, to: H, pressure: () => pressure, width: B });
       const minimum = windHeightField({ model, axis, from: s.clearance, to: H, pressure: () => MIN_OTHER_KNM2, width: B });
-      const minimumCase: OtherWindCase = { nameKey: 'wind.other.minimumOtherCase', nameParams: { dir: dirLabel(d) }, ...pointLoads(minimum, axis === 'x' ? sign : 0, axis === 'y' ? sign : 0), distributed: [] };
+      const minimumCase: OtherWindCase = { nameKey: 'wind.other.minimumOtherCase', nameParams: { dir: dirLabel(d) }, ...windHeightLoads(minimum, axis === 'x' ? sign : 0, axis === 'y' ? sign : 0), distributed: [] };
       if (pressure < MIN_OTHER_KNM2) cases.push(minimumCase);
-      for (const ecc of [0, 1, -1] as const) cases.push({ nameKey: 'wind.other.signCase', nameParams: { dir: dirLabel(d), c: ecc === 0 ? 'A' : `B${ecc > 0 ? '+' : '−'}` }, ...pointLoads(field, axis === 'x' ? sign : 0, axis === 'y' ? sign : 0, ecc * sign * 0.2 * B), distributed: [] });
+      for (const ecc of [0, 1, -1] as const) cases.push({ nameKey: 'wind.other.signCase', nameParams: { dir: dirLabel(d), c: ecc === 0 ? 'A' : `B${ecc > 0 ? '+' : '−'}` }, ...windHeightLoads(field, axis === 'x' ? sign : 0, axis === 'y' ? sign : 0, ecc * sign * 0.2 * B), distributed: [] });
       if (pressure >= MIN_OTHER_KNM2) cases.push(minimumCase);
       if (B / sH >= 2) notes.push(msg('wind.other.signCaseC'));
     }
@@ -198,8 +194,8 @@ export function otherStructureWind(i: {
     const sum = (f: typeof field) => [...f.loads.values(), ...f.baseLoads.values()].reduce((sum, n) => sum + n, 0);
     const total = sum(field);
     derivation.push(msg('wind.other.byHeight', { kind: msg(`wind.other.kind.${s.kind}`), dir: d.label, levels: zs.length, f: round(total, 1) }));
-    const normalCase: OtherWindCase = { nameKey: 'wind.other.case', nameParams: { dir: d.label }, ...pointLoads(field, d.fx, d.fy), distributed: [] };
-    const minimumCase: OtherWindCase = { nameKey: 'wind.other.minimumOtherCase', nameParams: { dir: d.label }, ...pointLoads(minimum, d.fx, d.fy), distributed: [] };
+    const normalCase: OtherWindCase = { nameKey: 'wind.other.case', nameParams: { dir: d.label }, ...windHeightLoads(field, d.fx, d.fy), distributed: [] };
+    const minimumCase: OtherWindCase = { nameKey: 'wind.other.minimumOtherCase', nameParams: { dir: d.label }, ...windHeightLoads(minimum, d.fx, d.fy), distributed: [] };
     cases.push(...(sum(minimum) > total ? [minimumCase, normalCase] : [normalCase, minimumCase]));
   }
   return { cases, derivation, notes };

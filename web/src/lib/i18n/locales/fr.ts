@@ -10929,6 +10929,7 @@ const fr: Translations = {
   'autoLoad.windOpenings': 'Perméabilité selon les ouvertures',
   "autoLoad.windWall": "Paroi",
   "autoLoad.windRoof": "Toiture",
+  "autoLoad.windRemoveWall": "Retirer la paroi",
   "autoLoad.windAddWall": "Ajouter une paroi",
   "autoLoad.windOpeningsHint": "Saisissez les ouvertures et surfaces brutes de chaque paroi et du toit (Art. 1.2). Chaque paroi doit satisfaire le critère pour un bâtiment ouvert.",
   "autoLoad.windMinimumCase": "Vent {dir}, minimum du bâtiment (§2.1.5)",

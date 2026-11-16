@@ -10938,6 +10938,7 @@ const tr: Translations = {
   'autoLoad.windOpenings': 'Boşluklara göre kapalılık',
   "autoLoad.windWall": "Duvar",
   "autoLoad.windRoof": "Çatı",
+  "autoLoad.windRemoveWall": "Duvarı kaldır",
   "autoLoad.windAddWall": "Duvar ekle",
   "autoLoad.windOpeningsHint": "Her duvarın ve çatının açıklık ve brüt alanlarını girin (Madde 1.2). Açık bina için her duvar açıklık ölçütünü sağlamalıdır.",
   "autoLoad.windMinimumCase": "Rüzgâr {dir}, bina asgari yükü (§2.1.5)",

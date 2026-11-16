@@ -10929,6 +10929,7 @@ const de: Translations = {
   'autoLoad.windOpenings': 'Umschließung aus den Öffnungen',
   "autoLoad.windWall": "Wand",
   "autoLoad.windRoof": "Dach",
+  "autoLoad.windRemoveWall": "Wand entfernen",
   "autoLoad.windAddWall": "Wand hinzufügen",
   "autoLoad.windOpeningsHint": "Öffnungen und Bruttoflächen aller Wände und des Dachs eingeben (Art. 1.2). Bei einem offenen Gebäude muss jede Wand das Öffnungskriterium erfüllen.",
   "autoLoad.windMinimumCase": "Wind {dir}, Mindestlast für Gebäude (§2.1.5)",

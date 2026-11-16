@@ -7,11 +7,15 @@ const snapshot = (type = 'W', generatedBy = 'load-plan'): FeatureSnapshot => ({ 
 for (const mode of ['2d', '3d', 'pro']) for (const analysis of ['linear', 'pdelta', 'plastic'] as const) for (const type of ['W', 'Wa']) {
   it(`wind regeneration remains required after re-solving ${type} in ${mode} with ${analysis}`, () => {
     const assessment = assessProject(snapshot(type), stampSolve(analysis, null), mode, RESULT_CHANGES, undefined, 0);
-    expect(assessment.changes.map(c => c.id).sort()).toEqual(['generated-area-loads-headroom', 'wind-physical-pressure-field']);
+    expect(assessment.changes.map(c => c.id).sort()).toEqual(['generated-area-loads-headroom', 'wind-physical-pressure-field', 'wind-plan-couple-and-sign-face']);
   });
 }
 it('current generated loads clear wind notices; manual wind and generated gravity do not get this notice', () => {
-  for (const s of [snapshot('W', ''), snapshot('Wa', ''), snapshot('D')]) expect(assessProject(s, null).changes.map(c => c.id)).not.toContain('wind-physical-pressure-field');
+  for (const s of [snapshot('W', ''), snapshot('Wa', ''), snapshot('D')]) {
+    const ids = assessProject(s, null).changes.map(c => c.id);
+    expect(ids).not.toContain('wind-physical-pressure-field');
+    expect(ids).not.toContain('wind-plan-couple-and-sign-face');
+  }
   const assessment = assessProject(snapshot(), stampSolve('linear', null), '3d', RESULT_CHANGES, undefined, RESULT_CHANGES.currentResultsVersion);
   expect(assessment.changes.map(c => c.id)).toEqual([]);
 });

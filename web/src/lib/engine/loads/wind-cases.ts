@@ -3,8 +3,11 @@ import {
 } from '../../codes/cirsoc102/wind';
 import { msg, type EngineMessage } from '../../codes/message';
 import { flexibleEccentricity, type GustResult } from '../../codes/cirsoc102/gust';
-import { integrateWindPressure, windStationCuts, windPressureCoordinate } from './wind-pressure-field';
+import { integrateWindPressure, windStationCuts, windPressureCoordinate, windHeightLoads } from './wind-pressure-field';
 import { windRoofCarriers } from './wind-roof-geometry';
+import { levelLoads } from './wind-plan-forces';
+export { levelLoads } from './wind-plan-forces';
+import type { WindHeightResult } from './wind-pressure-field';
 import { gravityLayout } from './plan-gravity';
 
 export type WindCaseSet = 'case1' | 'cases13' | 'all';
@@ -30,15 +33,12 @@ export interface WindLevel {
   pressureForce: number;
 }
 
-export interface WindAxis {
+interface WindAxisGeometry {
   axis: Axis;
   /** Building width across the wind, m. */
   across: number;
   /** Plan dimension along the wind, m. */
   along: number;
-  levels: WindLevel[];
-  baseLoads?: WindLevel[];
-  minimumLevels?: WindLevel[];
   project: WindProject;
   qhNm2: number;
   /** (GC_pi) magnitude for the building's enclosure. */
@@ -50,6 +50,11 @@ export interface WindAxis {
   /** Shear centre to mass centre for Eq. (2.4-5), m. */
   eR?: number;
 }
+
+export type WindAxis = WindAxisGeometry & (
+  | { levels: WindLevel[]; baseLoads?: WindLevel[]; minimumLevels?: WindLevel[]; pressureField?: never; minimumField?: never }
+  | { pressureField: WindHeightResult; minimumField?: WindHeightResult; levels?: never; baseLoads?: never; minimumLevels?: never }
+);
 
 /**
  * The torsional eccentricity of cases 2 and 4 on an axis (§2.4.6): ±0,15·B from the geometric
@@ -77,28 +82,6 @@ export interface WindCaseLoads {
 
 const Z = (n: { z?: number }) => n.z ?? 0;
 const round = (v: number, d = 3) => Math.round(v * 10 ** d) / 10 ** d;
-
-/** Forces `fx`, `fy` and moment `mt` about the vertical, over the nodes of one level. */
-export function levelLoads(
-  nodes: WindModel['nodes'], ids: number[], fx: number, fy: number, mt: number,
-): WindCaseLoads['nodal'] {
-  const pts = ids.map((id) => nodes.get(id)).filter((n): n is NonNullable<typeof n> => !!n);
-  if (pts.length === 0) return [];
-  const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
-  const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
-  const ip = pts.reduce((s, p) => s + (p.x - cx) ** 2 + (p.y - cy) ** 2, 0);
-  const n = pts.length;
-  if (ip < 1e-9) {
-    // Every node on one point: the moment goes on as a moment.
-    return pts.map((p, i) => ({ nodeId: p.id, fx: fx / n, fy: fy / n, mz: i === 0 ? mt : 0 }));
-  }
-  return pts.map((p) => ({
-    nodeId: p.id,
-    fx: fx / n - (mt * (p.y - cy)) / ip,
-    fy: fy / n + (mt * (p.x - cx)) / ip,
-    mz: 0,
-  }));
-}
 
 export interface RoofMember { id: number; mid: { x: number; y: number }; dx: number; dy: number; dz: number; lh: number; a: { x: number; y: number; z?: number }; b: { x: number; y: number; z?: number }; facets?: Array<{ a: number; b: number; gradient: [number, number]; share: number }> }
 export interface WindRoofLoad { elementId: number; q: number; a: number; b: number; qX: number; qY: number; frame: 'global'; facet: number }
@@ -186,7 +169,7 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
   const v = input.speed;
 
   const roofFor = (a: WindAxis, s: Sense, g: 1 | -1) => roofLoads(roof, a, s, g, input.tributaryWidth, bounds);
-  const baseIds = new Set(input.axes.flatMap(a => (a.baseLoads ?? []).flatMap(l => l.nodeIds)));
+  const baseIds = new Set(input.axes.flatMap(a => a.pressureField ? [...a.pressureField.baseLoads.keys()] : (a.baseLoads ?? []).flatMap(l => l.nodeIds)));
   const push = (nameKey: string, nameParams: WindCaseLoads['nameParams'], nodal: WindCaseLoads['nodal'], roofQ: WindRoofLoad[]) => {
     cases.push({ nameKey, nameParams, nodal, baseLoads: nodal.filter(n => baseIds.has(n.nodeId)), distributed: roofQ.filter(p => Math.hypot(p.q, p.qX, p.qY) > 0) });
   };
@@ -206,14 +189,15 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
     }
     return out;
   };
-  const allLevels = (a: WindAxis) => [...(a.baseLoads ?? []), ...a.levels];
+  const fieldLevels = (field: WindHeightResult): WindLevel[] => [...field.baseLoads, ...field.loads].map(([id, force]) => ({ elevation: model.nodes.get(id)!.z ?? 0, nodeIds: [id], force, pressureForce: force }));
+  const allLevels = (a: WindAxis) => a.pressureField ? fieldLevels(a.pressureField) : [...(a.baseLoads ?? []), ...a.levels];
 
   // ── Case 1 ──
   for (const a of input.axes) {
     for (const s of sensesOf(a.axis)) {
       const nodal = allLevels(a).flatMap((lv) => levelLoads(model.nodes, lv.nodeIds,
         a.axis === 'x' ? s * lv.force : 0, a.axis === 'y' ? s * lv.force : 0, 0));
-      const minimum = a.minimumLevels;
+      const minimum = a.minimumField ? fieldLevels(a.minimumField) : a.minimumLevels;
       const minimumFirst = minimum && minimum.reduce((sum, l) => sum + l.force, 0) > allLevels(a).reduce((sum, l) => sum + l.force, 0);
       const pushMinimum = () => {
         if (!minimum) return;
@@ -231,12 +215,13 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
   }
   if (set === 'case1') return { cases, notes };
 
-  const lateral = (a: WindAxis, s: Sense, k: number, e: number) => allLevels(a).flatMap((lv) => {
-    const F = s * k * lv.pressureForce;
-    // MT = F·e about the vertical, e = ±0,15 B measured across the wind.
-    const mt = Math.abs(F) * e;
-    return levelLoads(model.nodes, lv.nodeIds, a.axis === 'x' ? F : 0, a.axis === 'y' ? F : 0, mt);
-  });
+  const lateral = (a: WindAxis, s: Sense, k: number, e: number) => {
+    if (a.pressureField) return windHeightLoads(a.pressureField, a.axis === 'x' ? s * k : 0, a.axis === 'y' ? s * k : 0, k * e).nodal;
+    return allLevels(a).flatMap(lv => {
+      const F = s * k * lv.pressureForce;
+      return levelLoads(model.nodes, lv.nodeIds, a.axis === 'x' ? F : 0, a.axis === 'y' ? F : 0, Math.abs(F) * e);
+    });
+  };
 
   // ── Case 2 ──
   if (set === 'all') {
