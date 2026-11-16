@@ -1136,7 +1136,7 @@ mod tests {
 
     #[test]
     fn test_3d_endpoint_parity() {
-        let ef = ElementForces3D { member_moments: Vec::new(),
+        let ef = ElementForces3D { point_torques: Vec::new(), member_moments: Vec::new(),
             element_id: 1, length: 5.0,
             n_start: 10.0, n_end: -10.0,
             vy_start: 20.0, vy_end: -20.0,

@@ -740,11 +740,19 @@ pub struct MemberMomentInfo<L = f64, F = f64> {
     pub moments: MemberMoments<F>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PointTorqueInfo<L = f64, M = f64> {
+    pub a: L,
+    pub p: M,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ElementForces3D {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub member_moments: Vec<MemberMomentInfo>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub point_torques: Vec<PointTorqueInfo>,
     pub element_id: usize,
     pub length: f64,
     pub n_start: f64,

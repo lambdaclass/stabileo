@@ -32,6 +32,14 @@ const dot = (a: P2, b: P2) => a[0] * b[0] + a[1] * b[1];
 const along = (e: Side, p: P2) => (p[0] - e.a[0]) * e.u[0] + (p[1] - e.a[1]) * e.u[1];
 const dist = (e: Side, p: P2) => (p[0] - e.a[0]) * e.n[0] + (p[1] - e.a[1]) * e.n[1];
 
+export function positionallyCollinear(a: P2, b: P2, c: P2, d: P2): boolean {
+  const len = Math.hypot(b[0]-a[0],b[1]-a[1]), otherLen = Math.hypot(d[0]-c[0],d[1]-c[1]);
+  if (!(len > 0 && otherLen > 0)) return false;
+  const tolerance = 64*Number.EPSILON*Math.max(1,len,otherLen);
+  const distance = (a: P2,b: P2,p: P2,length: number) => Math.abs((p[0]-a[0])*(a[1]-b[1])+(p[1]-a[1])*(b[0]-a[0]))/length;
+  return len >= otherLen ? [c,d].every(p => distance(a,b,p,len) <= tolerance) : [a,b].every(p => distance(c,d,p,otherLen) <= tolerance);
+}
+
 function signedArea(p: readonly P2[]): number {
   let a = 0;
   const origin = p[0];
@@ -256,19 +264,41 @@ function projectionStrip(region: PhysicalRegion, side: Side): PhysicalRegion {
 
 function partitionRegionToSides(sides: Side[], region: PhysicalRegion): PhysicalRegion[] {
   const out = partitionRegionToSidesUnchecked(sides,region);
-  const expected = regionIntegral(region).area,actual = out.reduce((sum,r) => sum+regionIntegral(r).area,0);
+  const integral = regionIntegral(region), shares = out.map(regionIntegral);
+  const expected = integral.area,actual = shares.reduce((sum,r) => sum+r.area,0);
   const coordinateError = 64*Number.EPSILON*region.polygons.flat().reduce((sum,ring) => sum+ring.reduce((perimeter,p,i) => { const next=ring[(i+1)%ring.length]!; return perimeter+Math.hypot(next[0]-p[0],next[1]-p[1])*Math.max(Math.abs(p[0]),Math.abs(p[1]),Math.abs(next[0]),Math.abs(next[1])); },0),0);
   if (Math.abs(expected-actual) > coordinateError+256*Number.EPSILON*Math.max(expected,actual)*Math.max(1,out.length)) throw new Error(`Incomplete physical carrier partition: ${JSON.stringify({expected,actual,sides:sides.map(s=>[s.a,s.b]),region:region.polygons})}`);
+  for (const axis of [0,1] as const) {
+    const actualFirst = shares.reduce((sum,r) => sum+r.first[axis],0);
+    const scale = Math.max(1,...region.polygons.flat(2).map(p => Math.abs(p[axis])));
+    if (Math.abs(integral.first[axis]-actualFirst) > (coordinateError+256*Number.EPSILON*Math.max(expected,actual)*Math.max(1,out.length))*scale) throw new Error('Incomplete physical carrier partition first moments');
+  }
   return out;
+}
+
+function distanceDifference(side: Side, sign: number, other: Side, otherSign: number): (p: P2) => number {
+  const shared = [side.a,side.b].find(p => [other.a,other.b].some(q => p[0] === q[0] && p[1] === q[1]));
+  const origin = shared ?? side.a;
+  const offset = shared ? 0 : -otherSign*dist(other,origin);
+  let normal: P2 = [sign*side.n[0]-otherSign*other.n[0],sign*side.n[1]-otherSign*other.n[1]];
+  if (shared && sign*otherSign*dot(side.u,other.u) > 0) {
+    const dx = new BigNumber(side.b[0]).minus(side.a[0]), dy = new BigNumber(side.b[1]).minus(side.a[1]);
+    const ox = new BigNumber(other.b[0]).minus(other.a[0]), oy = new BigNumber(other.b[1]).minus(other.a[1]);
+    const orientation = dx.times(oy).minus(dy.times(ox)).comparedTo(0)!*sign*otherSign;
+    normal = [orientation*(sign*side.u[0]+otherSign*other.u[0]),orientation*(sign*side.u[1]+otherSign*other.u[1])];
+  }
+  return p => (p[0]-origin[0])*normal[0]+(p[1]-origin[1])*normal[1]+offset;
 }
 
 function partitionRegionToSidesUnchecked(sides: Side[], region: PhysicalRegion): PhysicalRegion[] {
   const groups: Array<{ side: Side; members: number[] }> = [];
   for (const [k,side] of sides.entries()) {
-    const group = groups.find(g => Math.abs(Math.abs(dot(g.side.u,side.u))-1) <= 32*Number.EPSILON && Math.abs(dist(g.side,side.a)) <= 64*Number.EPSILON*Math.max(1,g.side.len,side.len));
+    const group = groups.find(g => positionallyCollinear(g.side.a,g.side.b,side.a,side.b));
     if (!group) { groups.push({ side: { ...side }, members: [k] }); continue; }
-    const lo = Math.min(0,along(group.side,side.a),along(group.side,side.b)), hi = Math.max(group.side.len,along(group.side,side.a),along(group.side,side.b));
-    group.side = { ...group.side, a: [group.side.a[0]+lo*group.side.u[0],group.side.a[1]+lo*group.side.u[1]], b: [group.side.a[0]+hi*group.side.u[0],group.side.a[1]+hi*group.side.u[1]], len: hi-lo };
+    const endpoints = [group.side.a,group.side.b,side.a,side.b].sort((a,b) => along(group.side,a)-along(group.side,b));
+    const a = endpoints[0]!, b = endpoints[endpoints.length-1]!;
+    const len = Math.hypot(b[0]-a[0],b[1]-a[1]), u: P2 = [(b[0]-a[0])/len,(b[1]-a[1])/len];
+    group.side = { ...group.side, a, b, u, n: [-u[1],u[0]], len };
     group.members.push(k);
   }
   if (groups.length === 1) return sides.map(side => projectionStrip(region,side));
@@ -281,8 +311,9 @@ function partitionRegionToSidesUnchecked(sides: Side[], region: PhysicalRegion):
   hull.pop();
   const signs = groups.map(({side}) => Math.sign(hull.reduce((sum,p) => sum+dist(side,p),0)));
   const compatible = groups.every(({side},k) => {
-    const eps = 64*Number.EPSILON*Math.max(1,side.len,...hull.flat().map(Math.abs));
-    return signs[k] !== 0 && hull.every(p => signs[k]!*dist(side,p) >= -eps) && region.polygons.flat(2).every(p => signs[k]!*dist(side,p) >= -eps);
+    const dx = new BigNumber(side.b[0]).minus(side.a[0]), dy = new BigNumber(side.b[1]).minus(side.a[1]);
+    const inside = (p: P2) => signs[k]!*dx.times(new BigNumber(p[1]).minus(side.a[1])).minus(dy.times(new BigNumber(p[0]).minus(side.a[0]))).comparedTo(0)! >= 0;
+    return signs[k] !== 0 && hull.every(inside) && region.polygons.flat(2).every(inside);
   });
   const cells=regionCells(region);
   const out: P2[][][] = sides.map(() => []);
@@ -291,7 +322,7 @@ function partitionRegionToSidesUnchecked(sides: Side[], region: PhysicalRegion):
     if (compatible) {
       for (const cell of cells) {
         let part=cell;
-        groups.forEach((other,j) => { if(j!==k) part=clipExact(part,p=>signs[k]!*dist(side,p)-signs[j]!*dist(other.side,p)); });
+        groups.forEach((other,j) => { if(j!==k) part=clipExact(part,distanceDifference(side,signs[k]!,other.side,signs[j]!)); });
         if(part.length>=3) owned.push(part);
       }
     } else for(const sign of [-1,1]) {
@@ -301,7 +332,7 @@ function partitionRegionToSidesUnchecked(sides: Side[], region: PhysicalRegion):
         parts=parts.flatMap(part=>{
           const outside=[clipExact(part,p=>along(other.side,p)),clipExact(part,p=>other.side.len-along(other.side,p))];
           const eligible=clipExact(clipExact(part,p=>-along(other.side,p)),p=>along(other.side,p)-other.side.len);
-          const inside=[-1,1].map(s=>clipExact(clipExact(eligible,p=>-s*dist(other.side,p)),p=>sign*dist(side,p)-s*dist(other.side,p)));
+          const inside=[-1,1].map(s=>clipExact(clipExact(eligible,p=>-s*dist(other.side,p)),distanceDifference(side,sign,other.side,s)));
           return [...outside,...inside].filter(p=>p.length>=3);
         });
       }

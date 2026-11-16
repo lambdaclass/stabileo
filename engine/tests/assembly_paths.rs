@@ -289,7 +289,7 @@ fn forces_2d(input: &SolverInput, axial: &HashMap<usize, f64>) -> Vec<ElementFor
 fn forces_3d(input: &SolverInput3D, axial: &HashMap<usize, f64>) -> Vec<ElementForces3D> {
     let mut v: Vec<ElementForces3D> = axial
         .iter()
-        .map(|(&id, &n)| ElementForces3D { member_moments: Vec::new(),
+        .map(|(&id, &n)| ElementForces3D { point_torques: Vec::new(), member_moments: Vec::new(),
             element_id: id, length: 0.0, n_start: n, n_end: n, vy_start: 0.0, vy_end: 0.0, vz_start: 0.0,
             vz_end: 0.0, mx_start: 0.0, mx_end: 0.0, my_start: 0.0, my_end: 0.0, mz_start: 0.0, mz_end: 0.0,
             release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false,

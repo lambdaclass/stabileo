@@ -404,6 +404,10 @@ function parentForces(m: VariableMember, byId: Map<number, ElementForces3D>, dis
     distributedLoadsY: along((f) => f.distributedLoadsY),
     distributedLoadsZ: along((f) => f.distributedLoadsZ),
     ...xLoads,
+    pointTorques: m.pieces.flatMap((p,k) => [
+      ...shift(fs[k]!.pointTorques,p.x0),
+      ...(k > 0 && fs[k]!.mxStart !== fs[k-1]!.mxEnd ? [{ a: p.x0, p: fs[k]!.mxStart-fs[k-1]!.mxEnd }] : []),
+    ]),
     memberMoments: m.pieces.flatMap((p,k) => (fs[k]!.memberMoments ?? []).map(load => ({ ...load, a: load.a+p.x0, b: load.b+p.x0 }))),
     pointLoadsY: m.pieces.flatMap((p, k) => shift(fs[k]!.pointLoadsY, p.x0)),
     pointLoadsZ: m.pieces.flatMap((p, k) => shift(fs[k]!.pointLoadsZ, p.x0)),

@@ -1,4 +1,5 @@
 use dedaliano_engine::postprocess::diagrams_3d::evaluate_diagram_3d_at;
+use dedaliano_engine::postprocess::combinations::CombinationFactor;
 use dedaliano_engine::solver::{linear, pdelta, corotational};
 use dedaliano_engine::types::*;
 use serde_json::{json, Value};
@@ -201,18 +202,26 @@ fn round4_check_torque(density: Option<f64>) {
                 }
                 let roundtrip: ElementForces3D = serde_json::from_str(&serde_json::to_string(&recovered).unwrap()).unwrap();
                 assert!((evaluate_diagram_3d_at(&roundtrip,"torsion",0.5)-(start+q*3.0+couple)).abs()<1e-8);
+                let mut single = result.clone();
+                single.element_forces = vec![roundtrip];
+                for factor in [-2.0, 0.0, 2.0] {
+                    let combined = dedaliano_engine::postprocess::combinations::combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor }], &[(1, &single)]).unwrap().unwrap();
+                    let force = &combined.element_forces[0];
+                    for x in [0.0,1.5-1e-6,1.5+1e-6,3.0,6.0] {
+                        let expected = factor*(start+q*x+if x>1.5 {couple} else {0.0});
+                        assert!((evaluate_diagram_3d_at(force,"torsion",x/6.0)-expected).abs()<1e-8);
+                    }
+                }
+
             }
         }
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round4_concentrated_torque_keeps_station_jumps() { round4_check_torque(None); }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round4_bending_density_torque_keeps_station_jumps() { round4_check_torque(Some(0.0)); }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round4_torsional_density_torque_keeps_station_jumps() { round4_check_torque(Some(0.2)); }

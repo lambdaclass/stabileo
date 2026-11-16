@@ -6,6 +6,7 @@ import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
 import { variableExpansionFor, collapseVariableResults } from '../../engine/variable-members';
 import { buildSolverInput3D } from '../../engine/solver-service';
+import { compute_diagram_value_at_3d } from '../../wasm/dedaliano_engine.js';
 import { evaluateDiagramAt } from '../../engine/diagrams-3d';
 
 beforeAll(async()=>{await initSolver();});
@@ -32,6 +33,7 @@ for(const width of [0.5e-12,1.5e-12,0.5e-9,1.5e-9]) for(const distribution of ['
       const first=r.elementForces.find(f=>f.elementId===elements[0])!;
       expect(evaluateDiagramAt(first,'torsion',0.25)).toBeCloseTo(0.375,8);
       expect(evaluateDiagramAt(first,'torsion',0.75)).toBeCloseTo(-0.125,8);
+      for(const [t,expected] of [[0.25,0.375],[0.75,-0.125]]) expect(compute_diagram_value_at_3d(JSON.stringify({elementForces:first,kind:'torsion',t}))).toBeCloseTo(expected!,8);
     }
   });
 }

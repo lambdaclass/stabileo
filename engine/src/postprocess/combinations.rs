@@ -552,7 +552,7 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
         .map(|r| Reaction3D { node_id: r.node_id, fx: 0.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bimoment: None })
         .collect();
     let mut element_forces: Vec<ElementForces3D> = tr.element_forces.iter()
-        .map(|f| ElementForces3D { member_moments: Vec::new(),
+        .map(|f| ElementForces3D { point_torques: Vec::new(), member_moments: Vec::new(),
             element_id: f.element_id, length: f.length,
             n_start: 0.0, n_end: 0.0,
             vy_start: 0.0, vy_end: 0.0, vz_start: 0.0, vz_end: 0.0,
@@ -611,6 +611,7 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
             out.my_end += f * ef.my_end;
             out.mz_start += f * ef.mz_start;
             out.mz_end += f * ef.mz_end;
+            out.point_torques.extend(ef.point_torques.iter().map(|p| PointTorqueInfo { a: p.a, p: p.p * f }));
             out.member_moments.extend(ef.member_moments.iter().map(|m| MemberMomentInfo { a: m.a, b: m.b, moments: m.moments.scaled(f) }));
             out.q_yi += f * ef.q_yi;
             out.q_yj += f * ef.q_yj;

@@ -451,6 +451,7 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
             1 if !elem_ids.is_empty() => {
                 let elem_id = elem_ids[rng.gen_range(0..elem_ids.len())];
                 loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                    moments: None,
                     q_xi: 0.0, q_xj: 0.0,
                     element_id: elem_id,
                     q_yi: rng.gen_range(-100.0..100.0),

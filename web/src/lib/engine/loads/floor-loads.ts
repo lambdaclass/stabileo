@@ -1,3 +1,4 @@
+import { positionallyCollinear } from './physical-region-loads';
 import { MIN_GRAVITY_MEMBER_SPAN, memberLoadSpans } from './member-load-spans';
 import { linearProfile } from '../linear-profile';
 /**
@@ -563,10 +564,8 @@ function insidePolygon(pt: P2, poly: P2[]): boolean {
 }
 
 function collinear(a: P2, b: P2, c: P2): boolean {
-  const cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
-  const l1 = Math.hypot(b[0] - a[0], b[1] - a[1]), l2 = Math.hypot(c[0] - b[0], c[1] - b[1]);
   const dp = (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1]);
-  return Math.abs(cr) <= 1e-6 * l1 * l2 && dp > 0;
+  return positionallyCollinear(a,b,b,c) && dp > 0;
 }
 
 function properCross(a: P2, b: P2, c: P2, d: P2): boolean {

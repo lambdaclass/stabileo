@@ -317,6 +317,7 @@ pub fn scale_results_3d(r: &AnalysisResults3D, u: &Units) -> AnalysisResults3D {
         for m in [&mut e.mx_start, &mut e.mx_end, &mut e.my_start, &mut e.my_end, &mut e.mz_start, &mut e.mz_end] {
             *m *= u.moment();
         }
+        for p in &mut e.point_torques { p.a *= u.length; p.p *= u.moment(); }
         for m in &mut e.member_moments { m.a *= u.length; m.b *= u.length; m.moments = m.moments.scaled(u.force); }
         e.length *= u.length;
     }

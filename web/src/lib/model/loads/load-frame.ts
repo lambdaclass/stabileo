@@ -14,7 +14,7 @@ import { mapMoments } from '../../engine/member-moments';
  * member.
  */
 import { memberRef3D, type ModelData } from '../../engine/solver-service';
-import { distributedGlobalEnds, dot, type DistributedLoad3DLike, type MemberAxes, type Vec3 } from '../../engine/member-loads';
+import { distributedGlobalEnds, distributedGlobalMoments, dot, type DistributedLoad3DLike, type MemberAxes, type Vec3 } from '../../engine/member-loads';
 import { pointGlobal, type PointLoad3DLike } from '../../engine/member-point-loads';
 
 export type LoadFrame = 'global' | 'local';
@@ -36,10 +36,7 @@ export function reframedDistributed(d: DistributedLoad3DLike, axes: MemberAxes, 
   const I = onFrame(gI, axes, to, leftHand), J = onFrame(gJ, axes, to, leftHand);
   return {
     frame: to === 'global' ? 'global' as const : undefined,
-    ...(d.moments ? { moments: mapMoments(d.moments, v => {
-      const g = d.frame && d.frame !== 'local' ? v : [0,1,2].map(i => v[0]*axes.ex[i]! + v[1]*(leftHand ? -1 : 1)*axes.ey[i]! + v[2]*axes.ez[i]!) as [number,number,number];
-      return onFrame(g,axes,to,leftHand);
-    }) } : {}),
+    ...(d.moments ? { moments: mapMoments(distributedGlobalMoments(d,axes,leftHand)!, v => onFrame(v,axes,to,leftHand)) } : {}),
     qXI: I[0], qYI: I[1], qZI: I[2], qXJ: J[0], qYJ: J[1], qZJ: J[2],
   };
 }

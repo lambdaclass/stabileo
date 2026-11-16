@@ -1,3 +1,4 @@
+import { mapMoments } from './member-moments';
 /**
  * What a combination bundle is made of, after the cases are solved:
  *
@@ -166,6 +167,8 @@ function scaledForces(ef: ElementForces3D, f: number): ElementForces3D {
     distributedLoadsY: q(ef.distributedLoadsY), distributedLoadsZ: q(ef.distributedLoadsZ),
     ...(ef.distributedLoadsX ? { distributedLoadsX: q(ef.distributedLoadsX) } : {}),
     pointLoadsY: p(ef.pointLoadsY), pointLoadsZ: p(ef.pointLoadsZ),
+    pointTorques: p(ef.pointTorques ?? []),
+    memberMoments: (ef.memberMoments ?? []).map(m => ({ ...m, moments: mapMoments(m.moments,v => v.map(x => x*f) as [number,number,number]) })),
     ...(ef.pieces ? { pieces: ef.pieces.map((pc): ResultPiece => ({
       ...pc, forces: scaledForces(pc.forces, f),
       ...(pc.dI ? { dI: scaledRow(pc.dI, f, NODE_KEEP) } : {}),
@@ -242,6 +245,8 @@ function summedForces(parts: ReadonlyArray<{ ef: ElementForces3D; f: number }>):
     distributedLoadsY: scaled.flatMap((e) => e.distributedLoadsY), distributedLoadsZ: scaled.flatMap((e) => e.distributedLoadsZ),
     distributedLoadsX: scaled.flatMap((e) => e.distributedLoadsX ?? []),
     pointLoadsY: scaled.flatMap((e) => e.pointLoadsY), pointLoadsZ: scaled.flatMap((e) => e.pointLoadsZ),
+    pointTorques: scaled.flatMap(e => e.pointTorques ?? []),
+    memberMoments: scaled.flatMap(e => e.memberMoments ?? []),
     pieces, combined: undefined,
   };
 }

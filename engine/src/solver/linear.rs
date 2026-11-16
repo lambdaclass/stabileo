@@ -4608,7 +4608,7 @@ pub fn compute_internal_forces_3d_with_loads(
                     if pl.px != 0.0 { axial_points.push(PointLoadInfo3D { a: pl.a, p: pl.px }); }
                 }
             }
-            forces.push(ElementForces3D { member_moments: Vec::new(),
+            forces.push(ElementForces3D { point_torques: Vec::new(), member_moments: Vec::new(),
                 element_id: elem.id, length: l,
                 n_start: n_axial + axial_fef[0], n_end: n_axial - axial_fef[1],
                 vy_start: 0.0, vy_end: 0.0,
@@ -4797,7 +4797,7 @@ pub fn compute_internal_forces_3d_with_loads(
         let bimoment_start = if ndof_elem == 14 { Some(-f_local[6]) } else { None };
         let bimoment_end = if ndof_elem == 14 { Some(f_local[13]) } else { None };
 
-        forces.push(ElementForces3D { member_moments,
+        forces.push(ElementForces3D { point_torques: Vec::new(), member_moments,
             element_id: elem.id,
             length: l,
             n_start: -f_local[i_n],

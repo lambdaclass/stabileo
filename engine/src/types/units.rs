@@ -1041,6 +1041,8 @@ mod wire {
     pub struct ElementForces3D {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         pub member_moments: Vec<super::super::MemberMomentInfo<Length, Force>>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pub point_torques: Vec<super::super::PointTorqueInfo<Length, Moment>>,
         pub element_id: usize,
         pub length: Length,
         pub n_start: Force,
@@ -1616,6 +1618,7 @@ impl From<&super::ElementForces3D> for TypedElementForces3D {
     fn from(f: &super::ElementForces3D) -> Self {
         let super::ElementForces3D {
             member_moments,
+            point_torques,
             element_id,
             length,
             n_start,
@@ -1650,6 +1653,7 @@ impl From<&super::ElementForces3D> for TypedElementForces3D {
             bimoment_end,
         } = f;
         Self {
+            point_torques: point_torques.iter().map(|p| super::PointTorqueInfo { a: Length::from_m(p.a), p: Moment::from_kn_m(p.p) }).collect(),
             member_moments: member_moments.iter().map(|m| super::MemberMomentInfo { a: Length::from_m(m.a), b: Length::from_m(m.b), moments: super::MemberMoments { x: m.moments.x.map(Force::from_kn), y: m.moments.y.map(Force::from_kn), z: m.moments.z.map(Force::from_kn) } }).collect(),
             element_id: *element_id,
             length: Length::from_m(*length),

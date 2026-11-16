@@ -24,7 +24,7 @@ import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from '
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
-import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
+import { distributedGlobalEnds, distributedGlobalMoments, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
 import { selfWeightFor, selfWeightSolverLoads } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
@@ -1527,7 +1527,7 @@ export function buildSolverLoads3D(
       solverLoads.push(...globalDistributedToSolver(m, g.gI, g.gJ, g.a, g.b));
       if (d.moments) {
         if (hasMemberMoments(d.moments) && memberTakesNoBending(model.elements.get(d.elementId)!)) throw new Error(`Member ${d.elementId}: distributed moments require a frame`);
-        const global = d.frame && d.frame !== 'local' ? d.moments : mapMoments(d.moments, v => [0,1,2].map(i => v[0]*m.axes.ex[i]! + v[1]*(userLeftHand ? -1 : 1)*m.axes.ey[i]! + v[2]*m.axes.ez[i]!) as [number,number,number]);
+        const global = distributedGlobalMoments(d,m.axes,userLeftHand)!;
         const local = mapMoments(global, v => [m.axes.ex,m.axes.ey,m.axes.ez].map(axis => v.reduce((sum,x,i) => sum+x*axis[i]!,0)) as [number,number,number]);
         solverLoads.push({ type: 'distributed', data: { elementId: d.elementId, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, a: g.a, b: g.b, moments: local } });
       }

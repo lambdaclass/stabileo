@@ -40,6 +40,7 @@ pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
         "momentZ" | "shearY" => &ef.point_loads_y,
         "momentY" | "shearZ" => &ef.point_loads_z,
         "axial" => &ef.point_loads_x,
+        "torsion" => return build_sampling_positions(ef.length, ef.point_torques.iter().map(|p| p.a)),
         _ => &[],
     };
     build_sampling_positions(ef.length, relevant_pl.iter().map(|p| p.a))
@@ -164,8 +165,9 @@ pub fn evaluate_diagram_3d_at(
             value
         },
         "torsion" => {
-            if ef.member_moments.is_empty() { return ef.mx_start + t * (ef.mx_end - ef.mx_start); }
+            if ef.member_moments.is_empty() && ef.point_torques.is_empty() { return ef.mx_start + t * (ef.mx_end - ef.mx_start); }
             ef.mx_start + ef.member_moments.iter().map(|m| MemberMoments::integral(m.moments.x, m.a, m.b, x)).sum::<f64>()
+                + ef.point_torques.iter().filter(|p| p.a < x - 1e-10).map(|p| p.p).sum::<f64>()
         },
         _ => 0.0,
     }

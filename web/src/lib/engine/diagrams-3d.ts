@@ -67,7 +67,7 @@ export function computeDiagram3D(
       ? ef.pointLoadsY
       : kind === 'momentY' || kind === 'shearZ'
         ? ef.pointLoadsZ
-        : [];
+        : kind === 'torsion' ? ef.pointTorques ?? [] : [];
 
   const positions = buildSamplingPositions(ef.length, relevantPointLoads, ef.pieces);
   const points: DiagramPoint3D[] = [];
@@ -251,8 +251,11 @@ export function evaluateDiagramAt(
       }
       return value;
     }
-    case 'torsion':
-      return ef.memberMoments?.length ? ef.mxStart + ef.memberMoments.reduce((sum,m) => sum+integrateQuadratic(m.moments.x,m.a,m.b,x),0) : ef.mxStart + t * (ef.mxEnd - ef.mxStart);
+    case 'torsion': {
+      if (!ef.memberMoments?.length && !ef.pointTorques?.length) return ef.mxStart + t * (ef.mxEnd - ef.mxStart);
+      return ef.mxStart + (ef.memberMoments ?? []).reduce((sum,m) => sum+integrateQuadratic(m.moments.x,m.a,m.b,x),0)
+        + (ef.pointTorques ?? []).reduce((sum,p) => sum+(p.a < x - 1e-10 ? p.p : 0),0);
+    }
   }
 }
 

@@ -1,3 +1,4 @@
+import { mapMoments, type MemberMoments } from './member-moments';
 /**
  * Member loads in one representation: a global force per unit of member length at each end of
  * the loaded stretch. Everything that reads a member load goes through here, so the solve, the
@@ -49,17 +50,16 @@ export const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 /** The load's global intensity per metre of member at each end of its stretch, and the stretch. */
 export function distributedGlobalEnds(d: DistributedLoad3DLike, axes: MemberAxes, leftHand = false): { gI: Vec3; gJ: Vec3; a: number; b: number } {
   const a = d.a ?? 0, b = d.b ?? axes.L;
-  const frame = d.frame ?? 'local';
-  const xI = d.qXI ?? 0, xJ = d.qXJ ?? 0;
-  if (frame === 'local') {
-    const ys = leftHand ? -1 : 1;
-    const at = (x: number, y: number, z: number): Vec3 => add(add(scale(axes.ex, x), axes.ey, ys * y), axes.ez, z);
-    return { gI: at(xI, d.qYI, d.qZI), gJ: at(xJ, d.qYJ, d.qZJ), a, b };
-  }
-  const k: Vec3 = frame === 'projected'
-    ? [Math.sqrt(Math.max(0, 1 - axes.ex[0] ** 2)), Math.sqrt(Math.max(0, 1 - axes.ex[1] ** 2)), Math.sqrt(Math.max(0, 1 - axes.ex[2] ** 2))]
-    : [1, 1, 1];
-  return { gI: [xI * k[0], d.qYI * k[1], d.qZI * k[2]], gJ: [xJ * k[0], d.qYJ * k[1], d.qZJ * k[2]], a, b };
+  return { gI: distributedGlobalVector(d.frame, axes, [d.qXI ?? 0, d.qYI, d.qZI], leftHand), gJ: distributedGlobalVector(d.frame, axes, [d.qXJ ?? 0, d.qYJ, d.qZJ], leftHand), a, b };
+}
+
+function distributedGlobalVector(frame: MemberFrame | undefined, axes: MemberAxes, v: Vec3, leftHand: boolean): Vec3 {
+  if (!frame || frame === 'local') return add(add(scale(axes.ex, v[0]), axes.ey, (leftHand ? -1 : 1) * v[1]), axes.ez, v[2]);
+  return v.map((value, k) => value * (frame === 'projected' ? Math.sqrt(Math.max(0, 1 - axes.ex[k]! ** 2)) : 1)) as Vec3;
+}
+
+export function distributedGlobalMoments(d: DistributedLoad3DLike, axes: MemberAxes, leftHand = false): MemberMoments | undefined {
+  return d.moments && mapMoments(d.moments, v => distributedGlobalVector(d.frame, axes, v, leftHand));
 }
 
 /**

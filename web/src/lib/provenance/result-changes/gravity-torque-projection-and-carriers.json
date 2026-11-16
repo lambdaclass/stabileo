@@ -1,0 +1,40 @@
+{
+  "id": "gravity-torque-projection-and-carriers",
+  "date": "2026-11-16",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "memberLoads",
+      "generatedLoads",
+      "floorLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Gravity torque recovery and carrier geometry",
+    "es": "Recuperación de torsión y geometría de portantes",
+    "pt": "Recuperação de torção e geometria dos portantes",
+    "de": "Torsionsauswertung und Trägergeometrie",
+    "fr": "Récupération de torsion et géométrie des porteurs",
+    "tr": "Burulma hesabı ve taşıyıcı geometrisi",
+    "hu": "Gravitációs csavarás és tartógeometria"
+  },
+  "explanation": {
+    "en": "Concentrated torque jumps, projected moment densities and near-collinear gravity carriers are corrected. Regenerate affected floor and area loads, then rerun analyses, combinations and checks (#2219).",
+    "es": "Se corrigen saltos de torsión, densidades de momento proyectadas y portantes casi colineales. Regenere las cargas de piso y área afectadas y repita análisis, combinaciones y verificaciones (#2219).",
+    "pt": "Corrigidos saltos de torção, densidades de momento projetadas e portantes quase colineares. Gere novamente as cargas afetadas e refaça análises, combinações e verificações (#2219).",
+    "de": "Torsionssprünge, projizierte Momentendichten und fast kollineare Träger werden korrigiert. Betroffene Flächenlasten neu erzeugen und Analysen, Kombinationen und Nachweise erneut ausführen (#2219).",
+    "fr": "Les sauts de torsion, densités de moment projetées et porteurs presque colinéaires sont corrigés. Régénérez les charges concernées et relancez analyses, combinaisons et vérifications (#2219).",
+    "tr": "Tekil burulma sıçramaları, izdüşüm moment yoğunlukları ve neredeyse doğrusal taşıyıcılar düzeltildi. Etkilenen alan yüklerini yeniden üretin; analizleri, birleşimleri ve kontrolleri tekrarlayın (#2219).",
+    "hu": "A koncentrált csavarónyomaték ugrásai, a vetületi nyomatéksűrűségek és a közel kollineáris tartók javítva. Generálja újra az érintett felületi terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round4.md",
+    "heading": "Gravity torque recovery, projection and carrier geometry"
+  }
+}

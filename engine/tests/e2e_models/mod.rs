@@ -346,6 +346,7 @@ pub fn stable_3d(seed: u64) -> SolverInput3D {
                 let a = if partial { rng.gen_range(0.0..0.5 * l) } else { 0.0 };
                 let b = if partial { rng.gen_range(a + 0.1 * l..l) } else { l };
                 loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                    moments: None,
                     q_xi: rng.gen_range(-3.0..3.0), q_xj: rng.gen_range(-3.0..3.0),
                     element_id,
                     q_yi: rng.gen_range(-10.0..10.0), q_yj: rng.gen_range(-10.0..10.0),
