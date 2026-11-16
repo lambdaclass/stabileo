@@ -80,7 +80,7 @@ export function planDrawings(rows: PlanRows, sel: PlanSelection, o: PlanOptions)
   }
   for (const row of rows.footing ?? []) {
     if (!want('footing', row.key, row.level)) continue;
-    drawings.push(...footingPlans(row, { ...e, code: o.code, group: group('footing', row.level, row.name) }));
+    drawings.push(...footingPlans(row, { ...e, code: o.code, group: group('footing', row.level) }));
   }
   return { drawings, levels };
 }
