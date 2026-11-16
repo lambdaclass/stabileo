@@ -4,6 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../load-plan';
+import { windEndResultants } from './wind-integration-fixture';
 import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
 import { SERVICE_WIND_FACTOR } from '../../../codes/cirsoc102/wind';
 import { generateServiceCombinations } from '../../../codes/cirsoc101/service-combinations';
@@ -41,7 +42,7 @@ describe('service wind Wa', () => {
     expect(wa.every((c) => Number(c.nameParams?.v) === +(40 * SERVICE_WIND_FACTOR[10]).toFixed(1))).toBe(true);
     // The same geometry at a lower speed: the force goes with the square of the speed (at 70 m/s
     // the pressures govern W over §2.1.5's minimum, which Wa does not carry).
-    const force = (type: string) => p.nodal.filter((n) => n.caseType === type && n.caseIndex === p.cases.findIndex((c) => c.type === type)).reduce((s, n) => s + n.fx, 0);
+    const force = (type: string) => { const index = p.cases.findIndex(c => c.type === type); return windEndResultants(box(), p.distributed.filter(d => d.caseIndex === index), p.nodal.filter(d => d.caseIndex === index)).reduce((s, n) => s + n.fx, 0); };
     expect(force('Wa') / force('W')).toBeCloseTo(((40 * 0.84) / 70) ** 2, 6);
   });
 

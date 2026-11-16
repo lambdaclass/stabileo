@@ -32,6 +32,7 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await alSection(page, 'wind');
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
+    expect(Number(await page.getByTestId('al-after-dist').innerText())).toBeGreaterThan(0);
     await page.getByTestId('al-back').click();
     const read = async () => Promise.all(['x', 'y'].map(async (axis) => {
       const text = await page.getByTestId(`wind-gust-${axis}`).innerText();
@@ -46,6 +47,7 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await alSection(page, 'wind');
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
+    expect(Number(await page.getByTestId('al-after-dist').innerText())).toBeGreaterThan(0);
     await page.getByTestId('al-back').click();
     expect(await read()).toEqual(reduced);
   });
@@ -67,6 +69,7 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await page.getByTestId('al-roof-dead').press('Tab');
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
+    expect(Number(await page.getByTestId('al-after-dist').innerText())).toBeGreaterThan(0);
     await page.getByTestId('al-back').click();
     await alSection(page, 'wind');
     await expect(page.getByTestId('wind-gust-y')).toContainText('n₁ = 0.400 Hz < 1 Hz → flexible');
@@ -84,6 +87,7 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await page.getByTestId('wind-n1-y').press('Tab');
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
+    expect(Number(await page.getByTestId('al-after-dist').innerText())).toBeGreaterThan(0);
     // The reading sits with the wind's inputs, one step back from the before-and-after.
     await page.getByTestId('al-back').click();
 
