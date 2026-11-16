@@ -33,5 +33,13 @@
     "file": "docs/results-changes/2026-11-narrow-partial-loads.md",
     "heading": "Compensated force totals and remapped load refusal (round 6–7, #2223)"
   },
-  "when": {}
+  "when": {
+    "any": [
+      "members",
+      "shells",
+      "curvedShells",
+      "connectors",
+      "springs"
+    ]
+  }
 }

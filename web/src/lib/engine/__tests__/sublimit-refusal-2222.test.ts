@@ -119,7 +119,7 @@ describe('known wrong result: #2222 — sublimit refusal', () => {
     });
   }
 
-  for (const entry of ['Maxwell', 'plastic']) it.skip(`${entry} refuses rounded generated geometry before returning an answer`, () => {
+  for (const entry of ['Maxwell', 'plastic']) it(`${entry} refuses rounded generated geometry before returning an answer`, () => {
     const origin = 2 ** 49 + 0.125;
     const input = buildSolverInput2D(planeModel([[1, origin, 0], [2, origin + 4, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'fixed']]), false)!;
     const loads: any = [{ type: 'distributed', data: { elementId: 1, qI: -2, qJ: -4 } }];
@@ -252,7 +252,7 @@ describe('known wrong result: #2222 — sublimit refusal', () => {
 });
 
 
-describe.skip('known wrong result: #2222 — rounded child lengths', () => {
+describe('known wrong result: #2222 — rounded child lengths', () => {
   for (const dim of [2, 3]) for (const mode of ['edit', 'analysis', 'variable']) it(`${dim}D ${mode} refuses changed spans and preserves supported partial endpoints`, () => {
     modelStore.clear();
     try {

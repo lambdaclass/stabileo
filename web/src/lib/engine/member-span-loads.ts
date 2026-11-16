@@ -30,10 +30,13 @@ export function remapSpanInterval(id: number, a: number, b: number, start: numbe
   if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(length) || end <= start || length <= 0) {
     throw new Error('Invalid generated member load piece');
   }
+  if (length !== end - start) {
+    throw new Error(`Element ${id}: generated member geometry changes source span ${end - start} to length ${length}; distributed loads cannot be rescaled`);
+  }
   const lo = Math.max(a, start), hi = Math.min(b, end);
   if (hi <= lo) return null;
   validateMemberLoadInterval(id, lo - start, hi - start, end - start);
-  const local = (x: number) => length === end - start ? x - start : length * ((x - start) / (end - start));
+  const local = (x: number) => x - start;
   const endpoints = spanEndpoints(lo === start ? 0 : local(lo), hi === end ? length : local(hi), length, id);
   return { lo, hi, ...endpoints };
 }

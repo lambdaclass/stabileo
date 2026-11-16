@@ -258,7 +258,6 @@ fn issue_2222_saved_3d_certified_demands_refuse_mutated_intervals() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_checked_combinations_report_overflow_before_recovery() {
     use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs};
     let planar = results_2d().remove(0);

@@ -29,7 +29,7 @@ const load = (dim: number, id: number, a?: number, b?: number) => dim === 2
   ? { type: 'distributed', data: { id: 1, elementId: id, qI: 2, qJ: 4, a, b } }
   : { type: 'distributed3d', data: { id: 1, elementId: id, qXI: 2, qXJ: 4, qYI: -2, qYJ: -4, qZI: 3, qZJ: 6, a, b } };
 
-describe.skip('known wrong result: #2222 — refused split is atomic', () => {
+describe('known wrong result: #2222 — refused split is atomic', () => {
   for (const dim of [2, 3]) for (const keepOriginalId of [true, false]) for (const interval of [[1, 2 + 2 ** -51], [0, 0], [-1, 3]]) {
     it(`${dim}D keepOriginalId=${keepOriginalId} interval=${interval} preserves every model byte and id`, () => {
       try {
@@ -48,7 +48,7 @@ describe.skip('known wrong result: #2222 — refused split is atomic', () => {
   }
 });
 
-describe.skip('known wrong result: #2222 — rounded geometry conserves or refuses', () => {
+describe('known wrong result: #2222 — rounded geometry conserves or refuses', () => {
   for (const type of ['distributed', 'axialDistributed'] as const) for (const qJ of [2, 4, -2]) {
     it(`${type} qJ=${qJ} refuses a changed child span before rescaling`, () => {
       const source = { type, data: { elementId: 1, qI: 2, qJ } };

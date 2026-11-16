@@ -1153,7 +1153,6 @@ fn buckling_818_coupled_structures_use_compensated_modes() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_overflow_cannot_omit_one_of_several_combinations_2d() {
     use dedaliano_engine::solver::load_cases::{solve_multi_case_2d, MultiCaseInput};
     for per_case in [false, true] {

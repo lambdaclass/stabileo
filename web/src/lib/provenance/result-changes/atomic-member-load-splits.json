@@ -1,0 +1,43 @@
+{
+  "id": "atomic-member-load-splits",
+  "date": "2026-11-16",
+  "prs": [
+    2222,
+    2223
+  ],
+  "area": "analysis",
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Rounded member splits preserve loads or refuse",
+    "es": "Las divisiones redondeadas conservan las cargas o se rechazan",
+    "pt": "Divisões arredondadas preservam cargas ou são recusadas",
+    "de": "Gerundete Stabteilungen erhalten Lasten oder werden abgelehnt",
+    "fr": "Les divisions arrondies conservent les charges ou sont refusées",
+    "hu": "A kerekített rúdfelosztás megőrzi a terheket vagy elutasított",
+    "tr": "Yuvarlanan çubuk bölmeleri yükleri korur veya reddedilir"
+  },
+  "explanation": {
+    "en": "Rerun analyses that split loaded members. A generated child whose geometric length differs from its source span now refuses distributed-load remapping, including one-ULP discrepancies, instead of stretching load coordinates and changing force and moment. Refused manual splits leave the complete model unchanged. Planar combination overflow now withholds the result instead of omitting a combination. Native and WASM checks share these refusal paths (#2222, #2223).",
+    "es": "Repita los análisis que dividen barras cargadas. Si la longitud geométrica de un tramo difiere de la original, incluso en una ULP, se rechaza la transformación de cargas distribuidas en vez de cambiar fuerza y momento. Una división manual rechazada conserva todo el modelo. El desbordamiento de combinaciones planas retira el resultado en lugar de omitir una combinación (#2222, #2223).",
+    "pt": "Refaça análises que dividem barras carregadas. Diferenças entre comprimento geométrico e intervalo original, mesmo de uma ULP, recusam o remapeamento de cargas distribuídas sem alterar força e momento. Divisões manuais recusadas preservam o modelo inteiro. Combinações planas com transbordamento retêm o resultado em vez de omitir uma combinação (#2222, #2223).",
+    "de": "Analysen mit geteilten belasteten Stäben erneut berechnen. Abweichungen zwischen geometrischer Länge und Quellintervall, auch um eine ULP, verhindern die Lastabbildung statt Kraft und Moment zu ändern. Abgelehnte manuelle Teilungen lassen das gesamte Modell unverändert. Überlaufende ebene Kombinationen werden abgelehnt statt ausgelassen (#2222, #2223).",
+    "fr": "Relancer les analyses divisant des barres chargées. Un écart entre longueur géométrique et intervalle source, même d’une ULP, entraîne un refus de transformation des charges réparties au lieu de modifier force et moment. Un refus de division manuelle préserve tout le modèle. Un débordement de combinaison plane refuse le résultat au lieu d’omettre la combinaison (#2222, #2223).",
+    "hu": "Újra kell futtatni a terhelt rudakat felosztó számításokat. A geometriai hossz és a forrásintervallum eltérése, akár egy ULP is, elutasítja a megoszló teher átvitelét az erő és nyomaték megváltoztatása helyett. Elutasított kézi felosztáskor a teljes modell változatlan. A síkbeli kombináció túlcsordulása elutasítást okoz, nem hagy ki kombinációt (#2222, #2223).",
+    "tr": "Yüklü çubukları bölen analizleri yeniden çalıştırın. Geometrik uzunluk kaynak aralıktan bir ULP bile farklıysa kuvvet ve momenti değiştirmek yerine yayılı yük aktarımı reddedilir. Reddedilen elle bölme tüm modeli korur. Düzlemsel birleşim taşması bir birleşimi atlamak yerine sonucu reddeder (#2222, #2223)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-atomic-load-splits.md",
+    "heading": "Atomic member splits and load-conserving geometry (2026-11-16)"
+  },
+  "when": {
+    "all": [
+      "members"
+    ],
+    "any": [
+      "memberLoads",
+      "combinations"
+    ]
+  }
+}

@@ -55,7 +55,7 @@ describe('known wrong result: #2222 — saved-result boundaries', () => {
   }
 });
 
-describe.skip('known wrong result: #2222 — combination overflow remains a refusal', () => {
+describe('known wrong result: #2222 — combination overflow remains a refusal', () => {
   for (const dim of [2, 3]) for (const perCase of [false, true]) it(`${dim}D settlement=${perCase} never returns an incomplete combination set`, () => {
     const input: any = structuredClone(overflow);
     if (dim === 2) {

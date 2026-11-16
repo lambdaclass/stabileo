@@ -1444,12 +1444,12 @@ function createModelStore() {
    * whose cuts no section can name is not cut (null), and `variableCutRefused` says why.
    */
   /** A section of the model equal to `data` in what it is (geometry, rotation, shear areas), or a new one. */
-  function sectionLike(data: Omit<Section, 'id'>): number {
+  function sectionLike(data: Omit<Section, 'id'>, sections: Map<number, Section>, ids: typeof nextId): number {
     const what = (s: Omit<Section, 'id'>) => JSON.stringify([s.built ?? null, s.drawn ?? null, s.rotation ?? 0, s.shearAreas ?? null]);
     const key = what(data);
-    for (const s of model.sections.values()) if ((s.built || s.drawn) && what(s) === key) return s.id;
-    const id = nextId.section++;
-    model.sections = new Map(model.sections).set(id, resolveOnCreate({ id, ...data }));
+    for (const s of sections.values()) if ((s.built || s.drawn) && what(s) === key) return s.id;
+    const id = ids.section++;
+    sections.set(id, resolveOnCreate({ id, ...data }));
     return id;
   }
 
@@ -1505,49 +1505,53 @@ function createModelStore() {
       : [];
     if (cutSections.some((c) => c === null)) return null;
 
+    const nodes = new Map(model.nodes);
+    const elements = new Map(model.elements);
+    const sections = new Map(model.sections);
+    const ids = { ...nextId };
+    const hasZ = ni.z !== undefined || nj.z !== undefined;
+    const embed3D = shouldEmbedFlat2DModelIn3D(model);
+    const L = elem.offset && !embed3D
+      ? flexibleMemberLength(elem, ni, nj, sections.get(elem.sectionId)?.rotation)
+      : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
+    const fractions = [0, ...cuts, 1];
+    const nodeIds = cutAt.map((k) => {
+      if (k.id !== null) return k.id;
+      const id = ids.node++, p = pointAt(k.t);
+      nodes.set(id, { id, x: p.x, y: p.y, ...(hasZ ? { z: p.z } : {}) });
+      return id;
+    });
+    const chain = [elem.nodeI, ...nodeIds, elem.nodeJ];
+    const count = chain.length - 1;
+    const segmentIds = Array.from({ length: count }, (_, k) =>
+      k === 0 && opts.keepOriginalId ? elementId : ids.element++);
+    const original = JSON.parse(JSON.stringify(elem)) as Element;
+    if (!opts.keepOriginalId) elements.delete(elementId);
+    const ends = variable ? [elem.sectionId, ...cutSections.map((c) => sectionLike(c!, sections, ids)), variable.sectionJ] : [];
+    for (let k = 0; k < count; k++) {
+      elements.set(segmentIds[k]!, {
+        id: segmentIds[k]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...segmentFields(original, k, count, fractions[k], fractions[k + 1]),
+        ...(variable ? { sectionId: ends[k]!, variableSection: { ...variable, sectionJ: ends[k + 1]! } } : {}),
+      });
+    }
+    const bounds = segmentBounds(L, cuts);
+    const lengths = segmentIds.map((sid) => {
+      const child = elements.get(sid)!;
+      const a = nodes.get(child.nodeI)!, b = nodes.get(child.nodeJ)!;
+      return child.offset && !embed3D
+        ? memberLoadLength(child, a, b, sections.get(child.sectionId)?.rotation)
+        : memberLoadLength({ ...child, offset: undefined }, a, b);
+    });
+    const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => ids.load++, lengths);
+
     if (!_undoBatching) _pushUndo?.();
     const outerBatching = _undoBatching;
     _undoBatching = true;
     try {
-      const hasZ = ni.z !== undefined || nj.z !== undefined;
-      const L = elem.offset && !shouldEmbedFlat2DModelIn3D(model)
-        ? flexibleMemberLength(elem, ni, nj, model.sections.get(elem.sectionId)?.rotation)
-        : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
-      const fractions = [0, ...cuts, 1];
-      const nodeIds: number[] = [];
-      for (const k of cutAt) {
-        const p = pointAt(k.t);
-        let id = k.id;
-        if (id === null) {
-          id = nextId.node++;
-          model.nodes.set(id, { id, x: p.x, y: p.y, ...(hasZ ? { z: p.z } : {}) });
-        }
-        nodeIds.push(id);
-      }
-      const chain = [elem.nodeI, ...nodeIds, elem.nodeJ];
-      const count = chain.length - 1;
-      const segmentIds = Array.from({ length: count }, (_, k) =>
-        k === 0 && opts.keepOriginalId ? elementId : nextId.element++);
-      const original = JSON.parse(JSON.stringify(elem)) as Element;
-      if (!opts.keepOriginalId) model.elements.delete(elementId);
-      // A member of variable section: end I's section, each cut's (an equal one the model has, or a new one), end J's.
-      const ends = variable ? [elem.sectionId, ...cutSections.map((c) => sectionLike(c!)), variable.sectionJ] : [];
-      for (let k = 0; k < count; k++) {
-        model.elements.set(segmentIds[k]!, {
-          id: segmentIds[k]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...segmentFields(original, k, count, fractions[k], fractions[k + 1]),
-          ...(variable ? { sectionId: ends[k]!, variableSection: { ...variable, sectionJ: ends[k + 1]! } } : {}),
-        });
-      }
-
-      const bounds = segmentBounds(L, cuts);
-      const lengths = segmentIds.map((sid) => {
-        const child = model.elements.get(sid)!;
-        const a = model.nodes.get(child.nodeI)!, b = model.nodes.get(child.nodeJ)!;
-        return child.offset && !shouldEmbedFlat2DModelIn3D(model)
-          ? memberLoadLength(child, a, b, model.sections.get(child.sectionId)?.rotation)
-          : memberLoadLength({ ...child, offset: undefined }, a, b);
-      });
-      const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => nextId.load++, lengths);
+      Object.assign(nextId, ids);
+      model.nodes = nodes;
+      model.elements = elements;
+      model.sections = sections;
       model.loads = [...kept, ...added];
 
       // A group that held the member now holds every segment of it.
