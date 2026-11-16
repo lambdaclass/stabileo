@@ -211,8 +211,8 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
       if (id === undefined) continue;
       const qJ = d.qJ ?? d.q;
       if (d.frame === 'global' || d.frame === 'projected') {
-        modelStore.addDistributedLoad3D(d.elementId, d.qY ?? 0, d.qY ?? 0, d.q, qJ, d.a, d.b, id,
-          { moments: d.moments, frame: d.frame, ...(d.qX ? { qXI: d.qX, qXJ: d.qX } : {}) });
+        modelStore.addDistributedLoad3D(d.elementId, d.qY ?? 0, d.qYJ ?? d.qY ?? 0, d.q, qJ, d.a, d.b, id,
+          { moments: d.moments, frame: d.frame, ...(d.qX || d.qXJ ? { qXI: d.qX ?? 0, qXJ: d.qXJ ?? d.qX ?? 0 } : {}) });
       } else {
         modelStore.addDistributedLoad3D(d.elementId, 0, 0, d.q, qJ, d.a, d.b, id, { moments: d.moments });
       }

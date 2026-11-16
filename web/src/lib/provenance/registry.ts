@@ -102,7 +102,7 @@ export function changelogUrl(c: Pick<ResultChange, 'changelog'>): string {
 }
 
 export function concernsGeneratedLoads(w: ChangeCondition = {}): boolean {
-  return conditionGroups(w).some((g) => g.includes('generatedLoads'));
+  return conditionGroups(w).some((g) => g.includes('generatedLoads') || g.includes('generatedWindLoads'));
 }
 
 export function concernsFloorLoads(w: ChangeCondition = {}): boolean {

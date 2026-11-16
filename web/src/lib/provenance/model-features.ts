@@ -38,7 +38,7 @@ export const FEATURE_IDS = [
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
-  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'floorLoads', 'generatedLoads',
+  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'floorLoads', 'generatedLoads', 'generatedWindLoads',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -267,7 +267,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     const dead = caseType.get(d.caseId as number) === 'D' || d.caseId === undefined;
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
     if (d.fromDef !== undefined || d.floorLoadsVersion !== undefined) f.add('floorLoads');
-    if (fromLoadPlan(d.generatedBy)) f.add('generatedLoads');
+    if (fromLoadPlan(d.generatedBy)) {
+      f.add('generatedLoads');
+      if (['W', 'Wa'].includes(caseType.get(d.caseId as number) ?? '')) f.add('generatedWindLoads');
+    }
   }
   if (s.designData?.site?.phases?.length) {
     f.add('stagedConstruction');
@@ -280,7 +283,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const types = new Set(cases.map((c) => c.type));
   if (types.has('E') || cases.some((c) => c.spectral) || s.massSource) f.add('seismic');
   if (types.has('S')) f.add('snow');
-  if (types.has('W')) f.add('wind');
+  if (types.has('W') || types.has('Wa')) f.add('wind');
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (combos) {
     f.add('combinations');

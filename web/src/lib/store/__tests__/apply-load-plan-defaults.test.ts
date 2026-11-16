@@ -101,3 +101,27 @@ describe('the example cases and combinations of a new project, when the generato
     expect(modelStore.model.combinations.map((c) => c.name)).toEqual(expect.arrayContaining(defaultComboNames));
   });
 });
+
+it('#2220 applying a signed wind profile preserves both horizontal member-load endpoints', () => {
+  newProjectFrame();
+  const input = planInput();
+  const plan = buildLoadPlan({ ...input, wind: { enabled: true, basicSpeed: 40, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, directions: { x: false, y: true }, senses: ['+y'], caseSet: 'case1', profile: [[0, -1.5], [3, 1.5]] } });
+  expect(plan.outcome).toBe('READY');
+  const wind = plan.distributed.filter(p => p.caseType === 'W');
+  expect(wind).toHaveLength(3);
+  expect(plan.nodal.filter(p => p.caseType === 'W')).toEqual([]);
+  applyLoadPlan(plan, { clearExisting: true, bothSenses: false, nameOf });
+  const windCase = modelStore.model.loadCases.find(c => c.type === 'W')!;
+  const loads = modelStore.loads.filter(l => l.type === 'distributed3d' && l.data.caseId === windCase.id);
+  expect(loads).toHaveLength(3);
+  for (const p of wind) {
+    const load = loads.find(l => l.type === 'distributed3d' && l.data.elementId === p.elementId)!;
+    expect(load.type).toBe('distributed3d');
+    if (load.type !== 'distributed3d') throw new Error('Expected a member pressure load');
+    const member = input.model.elements.get(p.elementId)!, n = input.model.nodes.get(member.nodeI)!;
+    const width = n.x === 5 ? 5 : 2.5;
+    expect(load.data.qYI).toBeCloseTo(-1.5 * width, 10);
+    expect(load.data.qYJ).toBeCloseTo(1.5 * width, 10);
+    expect(load.data.frame).toBe('global');
+  }
+});
