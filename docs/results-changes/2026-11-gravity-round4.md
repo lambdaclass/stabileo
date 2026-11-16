@@ -55,5 +55,8 @@ first moments and carrier profiles.
 
 Regenerate affected floor and area loading, then rerun analyses, combinations,
 diagrams and checks. Re-solving saved generated loading does not repair its
-partition. The previous round-3 short-span mitigation and the separately ignored
+partition. Every applicable floor correction notice now compares its introduction
+version with the stored floor-load generation version, including orphaned shares;
+re-solving alone cannot clear it. Current regenerated loading clears the notice.
+The previous round-3 short-span mitigation and the separately ignored
 engine issue #2222 are unchanged by this round.

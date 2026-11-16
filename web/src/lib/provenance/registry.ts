@@ -104,6 +104,10 @@ export function concernsGeneratedLoads(w: ChangeCondition = {}): boolean {
   return conditionGroups(w).some((g) => g.includes('generatedLoads'));
 }
 
+export function concernsFloorLoads(w: ChangeCondition = {}): boolean {
+  return conditionGroups(w).some(g => g.includes('floorLoads'));
+}
+
 /** Every condition group of an entry, normalised to OR-groups that must all hold. */
 export { conditionGroups } from '../../../scripts/results-snapshot/applicability.mjs';
 
