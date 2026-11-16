@@ -24,6 +24,7 @@
   import { drawPlacementGhost } from '../lib/canvas/draw-placement';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
   import { computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
+  import { solverBendingForces2D } from '../lib/engine/transverse-sign-2d';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
   import { computeLocalAxes3D } from '../lib/engine/local-axes-3d';
   import { drawDeformed, maxDeformedDisplacement2D } from '../lib/canvas/draw-deformed';
@@ -2508,6 +2509,7 @@
                 }
                 // A truss member stays straight between its nodes (see draw-deformed.ts).
                 const truss = elem?.type === 'truss';
+                const recovery = solverBendingForces2D(ef, nj.x - ni.x, nj.y - ni.y);
                 const disp = computeDisplacementAt(
                   t,
                   ni.x, ni.y, nj.x, nj.y,
@@ -2515,13 +2517,12 @@
                   dj.ux, dj.uz ?? dj.uy, dj.ry ?? dj.rz,
                   ef.length,
                   truss || ef.hingeStart, truss || ef.hingeEnd,
-                  truss ? undefined : EI, truss ? 0 : ef.qI, truss ? 0 : ef.qJ,
-                  truss ? [] : ef.pointLoads, truss ? [] : ef.distributedLoads,
+                  truss ? undefined : EI, truss ? 0 : recovery.qI, truss ? 0 : recovery.qJ,
+                  truss ? [] : recovery.pointLoads, truss ? [] : recovery.distributedLoads,
                 );
                 const ux = disp.ux * 1000; // mm
                 const uz = get2DDisplayDisplacementVertical(disp) * 1000; // mm
-                // Rotation: interpolate linearly between end rotations (good enough for display)
-                const ry = (di.ry ?? di.rz) + t * ((dj.ry ?? dj.rz) - (di.ry ?? di.rz));
+                const ry = disp.ry;
                 const totalDisp = Math.sqrt(ux * ux + uz * uz);
                 diagramHover = {
                   elementId: nearElem.id, t, value: totalDisp, worldX: wx, worldY: wy,
