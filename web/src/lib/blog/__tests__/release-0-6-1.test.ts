@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { findPost } from '..';
 import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from '../../../../scripts/public-paths';
 
-const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
+const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh'] as const;
 const repo = 'https://github.com/lambdaclass/stabileo/blob/main';
 const route = '/blog/stabileo-0-6-1';
 

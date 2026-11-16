@@ -838,7 +838,7 @@ const steelZh: Translations = {
   "steel.workflow.documents.body": "文档将包含钢结构清单、每根杆件的假设及其来源、已评估和未评估的条文，以及每个结点的状态。只要不存在钢结构设计规范依据，就不会有任何内容被标记为已验算。",
   "steel.state.done": "已完成",
   "steel.state.current": "进行中",
-  "steel.state.blocked": "阻塞",
+  "steel.state.blocked": "被阻挡",
   "steel.state.optional": "可选",
   "bolted.missing.layout": "请选择螺栓直径、等级和数量。",
   "bolted.missing.plateThickness": "板厚",

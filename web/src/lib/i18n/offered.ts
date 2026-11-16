@@ -19,4 +19,4 @@ export const OFFERED_LOCALES: readonly Locale[] = (['es', 'en', 'pt', 'de', 'fr'
 
 export const PUBLIC_LOCALES: readonly Locale[] = (['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', ...(research ? ['hu' as const] : [])] as const).filter(isComplete);
 
-export const LOCALE_NAMES: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar', zh: '简体中文' };
+export const LOCALE_NAMES: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar', zh: '中文' };

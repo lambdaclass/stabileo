@@ -19,6 +19,7 @@ const NOTES_BASE = 'https://github.com/lambdaclass/stabileo/blob/main/docs/relea
 
 const NOTES_LOCALES = ['es', 'pt', 'de', 'fr', 'tr'];
 NOTES_LOCALES.push('hu');
+NOTES_LOCALES.push('zh');
 
 /** The release notes in the reader's language (English for any locale without a translation). */
 export function releaseNotesUrl(locale: string, version: string = RESULTS_CHANGED_IN): string {

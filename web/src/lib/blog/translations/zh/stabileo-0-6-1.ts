@@ -174,7 +174,7 @@ const body: PostBody = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.1.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.1.zh.md",
       "label": "0.6.1 完整版本说明",
       "t": "自 v0.6.0 以来的全部结果变更通知："
     },

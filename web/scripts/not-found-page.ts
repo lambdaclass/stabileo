@@ -18,7 +18,7 @@ const LANGUAGE: Record<Locale, string> = {
   fr: 'Français',
   tr: 'Türkçe',
   hu: 'Magyar',
-  zh: '简体中文',
+  zh: '中文',
 };
 
 const COPY: Record<Locale, Copy> = {

@@ -17,7 +17,7 @@ import {
 } from '..';
 import { findStandingPage } from '../../blog/pages';
 
-const LOCALES = ['es', 'en', 'pt', 'de', 'fr', 'tr', 'hu'] as const;
+const LOCALES = ['es', 'en', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const;
 const changelogPage = findStandingPage('/changelog')!;
 const SCREENSHOTS = resolve(__dirname, '../../../../public/screenshots');
 
@@ -99,6 +99,7 @@ describe('the changelog', () => {
     expect(formatChangeDate('2026-10-23', 'fr')).toBe('23 octobre 2026');
     expect(formatChangeDate('2026-10-23', 'tr')).toBe('23 Ekim 2026');
     expect(formatChangeDate('2026-10-23', 'hu')).toBe('2026. október 23.');
+    expect(formatChangeDate('2026-10-23', 'zh')).toBe('2026年10月23日');
   });
 });
 
@@ -169,5 +170,7 @@ describe('the changelog helpers', () => {
     expect(formatChangeMonth('2026-10-01', 'de')).toBe('Oktober 2026');
     expect(changeStamp(week, 'hu')).toEqual({ big: '2', small: 'okt' });
     expect(formatChangeMonth('2026-02-01', 'hu')).toBe('2026. február');
+    expect(changeStamp(week, 'zh')).toEqual({ big: '2', small: '10月' });
+    expect(formatChangeMonth('2026-02-01', 'zh')).toBe('2026年2月');
   });
 });
