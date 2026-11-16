@@ -14,6 +14,7 @@ import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, setAdopted, setSheetCode, sheetRowsSteps } from '../rc-sheets.svelte';
 import { clearSheets, designSheets, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
+import { solveAndDesign } from '../rc-sheets-solve.svelte';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -96,5 +97,16 @@ describe('designing the sheets on asking', () => {
     if (!b || typeof b === 'string') throw new Error(String(b));
     publishCombinations3D(b);
     expect(sheetsStale()).toBe(true);
+  });
+});
+
+describe('solving from the sheets', () => {
+  it('designs the rows on the results the solve gives, with no step between', async () => {
+    let solved = 0;
+    const ok = await solveAndDesign(async () => { solved++; solvedFrame(); return { ok: true, combinationsLeftOut: null }; });
+    expect(ok).toBe(true);
+    expect(solved).toBe(1);
+    expect(sheetsRun.rows!.beam.length).toBeGreaterThan(0);
+    expect(sheetsStale()).toBe(false);
   });
 });

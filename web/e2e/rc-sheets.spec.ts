@@ -3,7 +3,7 @@ import { test, expect, loadModel, solveModel } from './fixtures';
 /**
  * Reinforcement by sheets on the seven-storey concrete example: solved, its physical members
  * recognised (walls meshed by a second solve), every family has rows and the beams and columns their
- * sections, the core's ground-floor walls are failed for resting on one node, a continuous beam's run
+ * sections, the core's ground-floor walls fail for resting on one node until one click holds their bases and designs again, a continuous beam's run
  * adopted short fails and says why, going back to the proposal makes it verify again, and a span
  * opens into its checks by combination.
  */
@@ -132,12 +132,20 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(slabFig.getByTestId('rc-slab-plan-bottomY')).toHaveCount(1);
   await ws.getByTestId('rc-tab-wall').click();
   await expect(ws.getByTestId('rc-table-wall')).toBeVisible();
-  // The example's core stands on the corner column alone: its ground-floor walls rest on one node each.
+  // The fixture as tests load it, without the card's correction, stands its core on the corner column alone.
   const ground = ws.getByTestId('rc-row').filter({ hasText: 'N0' });
   await expect(ground).toHaveCount(3);
   await expect(ground.first()).toContainText('No verifica');
   await ground.first().click();
   await expect(ws.getByTestId('rc-checks').first()).toContainText('La base del tabique apoya en toda su longitud');
+  await expect(ws.getByTestId('rc-resize-hint')).toHaveCount(0);
+  // One click holds the three bases, solves again and designs again, with the window kept open.
+  await ws.getByTestId('rc-wall-hold-base').click();
+  await expect(ws.getByTestId('rc-row').filter({ hasText: 'N0' })).toHaveCount(3, { timeout: 120_000 });
+  await expect(ws.getByTestId('rc-wall-hold-base')).toHaveCount(0);
+  await expect(ws.getByTestId('rc-wall-base-unheld')).toHaveCount(0);
+  await expect(ws.getByTestId('rc-solve-design')).toHaveCount(0);
+  await expect(ws.getByTestId('rc-row').filter({ hasText: 'N0' }).filter({ hasText: 'No verifica' })).toHaveCount(0);
   await expect(ws.getByTestId('rc-row').filter({ hasText: 'N1' }).first()).toContainText('Verifica');
   // A wall's bars: the verticals and the horizontals, the U-bars that close its edges, each kind switched by itself.
   await ws.getByTestId('rc-row').filter({ hasText: 'N1' }).first().click();

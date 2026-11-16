@@ -15,7 +15,7 @@ import { beamFlangeSides } from '../engine/design/beam-flange';
 import { jointChecks } from '../rc-sheets/joints';
 import { concreteFc } from '../model/design-data';
 import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
-import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
+import { slabPlan, slabSpanKind, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { LineAdopted, LineLayout } from '../rc-sheets/beam-line';
@@ -117,12 +117,21 @@ export function setRcOption(option: 'faces' | 'flange' | 'seismic' | 'bentBars' 
   save(d);
 }
 
-/** Storey names from the grid's levels, else from the elevations the physical members span; never from mesh nodes. */
+/** Never from mesh nodes: a mesh's rows of nodes are not storeys. */
+function memberElevations(): number[] {
+  return [...new Set(physicalGroups().flatMap((g) => [g.physical.levelFrom, g.physical.levelTo])
+    .filter((id): id is string => !!id?.startsWith('z:')).map((id) => Math.round(Number(id.slice(2)) * 1000) / 1000))].sort((p, q) => p - q);
+}
+
+function storeyElevations(): number[] {
+  const grid = modelStore.grid?.levels ?? [];
+  return grid.length ? grid.map((l) => l.z) : memberElevations();
+}
+
 function storeyNamer(): (z: number) => string {
   const grid = modelStore.grid?.levels ?? [];
   if (grid.length) return (z) => grid.find((l) => Math.abs(l.z - z) < 0.05)?.name ?? `+${z.toFixed(2)}`;
-  const zs = [...new Set(physicalGroups().flatMap((g) => [g.physical.levelFrom, g.physical.levelTo])
-    .filter((id): id is string => !!id?.startsWith('z:')).map((id) => Math.round(Number(id.slice(2)) * 1000) / 1000))].sort((p, q) => p - q);
+  const zs = memberElevations();
   return (z) => { const i = zs.findIndex((v) => Math.abs(v - z) < 0.05); return i >= 0 ? defaultLevelName(i) : `+${z.toFixed(2)}`; };
 }
 
@@ -172,7 +181,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
         { b: sec?.b ?? 0.2, h: sec?.h ?? 0.4, cover: designData().covers.beam, stirrupDia: designData().stirrupDiaMm });
       return cs ? (end === 'i' ? cs.start.halfDepth : cs.end.halfDepth) : 0;
     },
-    levelZs: (modelStore.grid?.levels ?? []).map((l) => l.z),
+    levelZs: storeyElevations(),
     levelAt: namer,
     psi: (id) => computeJointPsiFromModel(id, modelStore.nodes as never, modelStore.elements as never, modelStore.sections as never, modelStore.materials as never, supportsByNode as never),
   };
@@ -405,7 +414,14 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   }
   const columnsFinal = seismic ? jointChecks(column, beam, modelStore.nodes, fmt, { fc: (r) => fcOfElement(groupOf(r.key)?.members.elements?.[0]), beamFc: (b) => fcOfElement(groupOf(b.key)?.members.elements?.[0]), fy, cover: dd.covers.column, beamCover: dd.covers.beam, settings: seismicSettings() }) : column;
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
-  return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), code: codeName, basis, combos: sets.length };
+  return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab.map((r) => asSpanned(r, slabPlans, fmt))), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), code: codeName, basis, combos: sets.length };
+}
+
+function asSpanned(row: SlabRow, plans: readonly LevelPlan[], fmt: Fmt): SlabRow {
+  if (slabSpanKind(row, plans) !== 'cantilever') return row;
+  const length = Math.max(...plans.filter((p) => p.level === (row.level ?? '')).flatMap((p) => p.cantilevers.filter((c) => c.panel === row.name).map((c) => c.length)));
+  const span = { label: 'rcSheets.s.cantilever', formula: 'Lv', value: `${fmt(length)} m` };
+  return { ...row, steps: row.steps.map((g) => ({ ...g, steps: g.steps.map((x) => (x.label === 'rcSheets.s.oneWay' || x.label === 'rcSheets.s.twoWay' ? span : x)) })) };
 }
 
 export const familyRows = (rows: SheetRows, f: SheetFamily): SheetRow[] => rows[f];

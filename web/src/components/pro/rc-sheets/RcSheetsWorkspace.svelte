@@ -32,7 +32,8 @@
   import { tick } from 'svelte';
   import { editedKeys, sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { designData } from '../../../lib/store/design-data';
-  import { modelStore } from '../../../lib/store';
+  import { modelStore, resultsStore } from '../../../lib/store';
+  import { sheetsSolve, solveAndDesign } from '../../../lib/store/rc-sheets-solve.svelte';
 
   let { onclose, family = $bindable<SheetFamily>('beam') }: { onclose: () => void; family?: SheetFamily } = $props();
 
@@ -131,6 +132,9 @@
   <div class="rcw-body">
     {#if sheetsRun.progress}
       <div class="rcw-empty"><RcSheetsProgress progress={sheetsRun.progress} /></div>
+    {:else if !sheetsRun.rows && !resultsStore.results3D}
+      <p class="rcw-empty" data-testid="rc-not-solved">{t(sheetsSolve.busy ? 'rcSheets.solving' : 'rcSheets.solveFirst')}</p>
+      <button type="button" class="rcs-btn primary" onclick={() => solveAndDesign()} disabled={sheetsSolve.busy} data-testid="rc-solve-design">{t('rcSheets.solveAndDesign')}</button>
     {:else if !sheetsRun.rows}
       <p class="rcw-empty" data-testid="rc-not-designed">{t('rcSheets.designHint')}</p>
       <button type="button" class="rcs-btn primary" onclick={designSheets} data-testid="rc-design">{t('rcSheets.design')}</button>
@@ -228,7 +232,7 @@
                   {#if r.family === 'line'}
                     <RcLineDetail line={r} spans={spansOf(r)} onleave={onclose} {highlight} />
                   {:else}
-                  <RcResize row={r} onleave={onclose} />
+                  <RcResize row={r} walls={rows.wall} onleave={onclose} />
                   {#if r.family !== 'punching'}<RcRowEditor row={r} />{/if}
                   {#if r.family === 'column'}
                     <div class="rcw-secs">

@@ -11,6 +11,7 @@ import { plateOfShell } from './physical-plates';
 import { redesignerOf, type SheetRow } from './rc-sheets.svelte';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { ColumnRow } from '../rc-sheets/column-row';
+import type { WallRow } from '../rc-sheets/wall-row';
 import type { LineLayout } from '../rc-sheets/beam-line';
 
 export type ResizeWhat = 'beamH' | 'column' | 'slabH' | 'wallT' | 'punchSlab' | 'punchColumn' | 'punchCapital' | 'punchDrop';
@@ -76,6 +77,7 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
     }
     case 'wall': {
       const d = row.demand;
+      if (d.base?.unheld?.length) return [];
       if (fail) return [{ what: 'wallT', direction: 'grow', from: [d.thickness], to: grow(row.key, [d.thickness], 0.05, [2 * d.thickness], ([t]) => ({ ...d, thickness: t })) }];
       if (!row.generous && row.utilization >= ROOM) return [];
       const to = shrink(row.key, [d.thickness], 0.05, 0.1, ([t]) => ({ ...d, thickness: t }));
@@ -152,27 +154,31 @@ export function rowTargets(row: SheetRow | LineLayout): GotoTarget[] {
   return ['plates'];
 }
 
-/** Selects the row's element in the model and opens the tab where its dimensions are changed. */
-/**
- * Hold a wall's base all along: the base nodes nothing holds get the support the base already has
- * (the most common one there), fixed where it has none, in one undo step. The model must be solved again.
- */
-export function supportWallBase(row: SheetRow): number {
-  if (row.family !== 'wall') return 0;
-  const unheld = row.demand.base?.unheld ?? [];
-  if (!unheld.length) return 0;
-  const kinds = new Map<string, number>();
-  const baseZ = Math.min(...unheld.map((n) => modelStore.nodes.get(n)?.z ?? 0));
-  for (const s of modelStore.supports.values()) {
-    const p = modelStore.nodes.get(s.nodeId);
-    if (p && Math.abs((p.z ?? 0) - baseZ) < 1e-3) kinds.set(s.type, (kinds.get(s.type) ?? 0) + 1);
-  }
-  const type = ([...kinds.entries()].sort((p, q) => q[1] - p[1])[0]?.[0] ?? 'fixed3d') as Parameters<typeof modelStore.addSupport>[1];
-  let added = 0;
-  modelStore.batch(() => { for (const n of unheld) if (modelStore.nodes.has(n)) { modelStore.addSupport(n, type); added++; } });
-  return added;
+export function wallsToHold(rows: readonly SheetRow[]): WallRow[] {
+  const zOf = (n: number) => modelStore.nodes.get(n)?.z ?? 0;
+  const supported = [...modelStore.supports.values()].map((s) => zOf(s.nodeId));
+  const ground = supported.length ? Math.min(...supported) : Math.min(...[...modelStore.nodes.values()].map((n) => n.z ?? 0));
+  return rows.filter((r): r is WallRow => r.family === 'wall' && !!r.demand.base?.unheld?.length
+    && r.demand.base.unheld.every((n) => modelStore.nodes.has(n) && Math.abs(zOf(n) - ground) < 1e-3));
 }
 
+/** Each base node gets the support most common at the foundation's level, fixed where it has none, in one undo step. */
+export function supportWallBases(rows: readonly SheetRow[]): number {
+  const held = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
+  const nodes = [...new Set(wallsToHold(rows).flatMap((r) => r.demand.base!.unheld!))].filter((n) => !held.has(n));
+  if (!nodes.length) return 0;
+  const ground = modelStore.nodes.get(nodes[0]!)?.z ?? 0;
+  const kinds = new Map<string, number>();
+  for (const s of modelStore.supports.values()) {
+    const p = modelStore.nodes.get(s.nodeId);
+    if (p && Math.abs((p.z ?? 0) - ground) < 1e-3) kinds.set(s.type, (kinds.get(s.type) ?? 0) + 1);
+  }
+  const type = ([...kinds.entries()].sort((p, q) => q[1] - p[1])[0]?.[0] ?? 'fixed3d') as Parameters<typeof modelStore.addSupport>[1];
+  modelStore.batch(() => { for (const n of nodes) modelStore.addSupport(n, type); });
+  return nodes.length;
+}
+
+/** Selects the row's element in the model and opens the tab where its dimensions are changed. */
 export function goToRow(row: SheetRow | LineLayout, target: GotoTarget): boolean {
   let members: number[] = [], plates: number[] = [];
   if ('spanAdopted' in row) members = membersOf(row.group);

@@ -11,10 +11,12 @@ import { planRecognition } from './physical-recognition';
 import { useZones, zoneLoadPlan } from './use-zones';
 import { zoneHasShells, zoneOverUnmeshedPlate, zoneOverlap, zoneStatus, zoneUnsupported, zoneUseOf } from '../model/use-zones';
 import type { DefinitionModel } from '../model/loads/floor-definitions';
+import { constraintNodes } from '../engine/steel/unbraced-length';
+import { plateLoops } from '../model/physical/plate';
 
-/** Nodes through which a shell takes or gives load: a member's end, a support, or a node two shells share. */
+/** Nodes through which a shell takes or gives load: a member's end, a support, a constraint, or a node two shells share. */
 function connectingNodes(): Set<number> {
-  const s = new Set<number>();
+  const s = constraintNodes(modelStore.model.constraints);
   for (const el of modelStore.elements.values()) { s.add(el.nodeI); s.add(el.nodeJ); }
   for (const sup of modelStore.supports.values()) s.add(sup.nodeId);
   const count = new Map<number, number>();
@@ -24,13 +26,40 @@ function connectingNodes(): Set<number> {
   return s;
 }
 
+const at = (n: number): [number, number, number] | null => { const p = modelStore.nodes.get(n); return p ? [p.x, p.y, p.z ?? 0] : null; };
+
+function onSide(a: [number, number, number], b: [number, number, number], p: [number, number, number]): boolean {
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], w = [p[0] - a[0], p[1] - a[1], p[2] - a[2]];
+  const L2 = d[0]! ** 2 + d[1]! ** 2 + d[2]! ** 2;
+  if (L2 < 1e-18) return false;
+  const t = (w[0]! * d[0]! + w[1]! * d[1]! + w[2]! * d[2]!) / L2;
+  return t > -1e-9 && t < 1 + 1e-9 && Math.hypot(w[0]! - t * d[0]!, w[1]! - t * d[1]!, w[2]! - t * d[2]!) < 1e-6;
+}
+
+/** A plate held along a whole side may have free corners, as a balcony's tip has; a wall's foot may not. */
+function looseNodes(p: ReturnType<typeof physicalPlates>[number], connecting: ReadonlySet<number>): Set<number> {
+  const nodes = new Set<number>();
+  for (const q of p.group.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) nodes.add(n);
+  for (const q of p.group.members.plates ?? []) for (const n of modelStore.plates.get(q)?.nodes ?? []) nodes.add(n);
+  const loose = new Set([...nodes].filter((n) => !connecting.has(n)));
+  if (!loose.size) return loose;
+  const outer = plateLoops(p.group).outer;
+  const heldSide = outer.some((a, i) => {
+    const A = at(a), B = at(outer[(i + 1) % outer.length]!);
+    return !!A && !!B && [...nodes].every((n) => { const P = at(n); return !P || !onSide(A, B, P) || connecting.has(n); });
+  });
+  if (!heldSide) return loose;
+  const zs = [...nodes].map((n) => at(n)?.[2] ?? 0);
+  const foot = Math.min(...zs);
+  if (p.physical.kind !== 'wall' || Math.max(...zs) - foot < 1e-6) return new Set();
+  return new Set([...loose].filter((n) => Math.abs((at(n)?.[2] ?? 0) - foot) < 1e-6));
+}
+
 export function plateDiagnostics(t: (key: string) => string): SolverDiagnostic[] {
   const out: SolverDiagnostic[] = [];
   const connecting = connectingNodes();
   for (const p of physicalPlates()) {
-    const loose = new Set<number>();
-    for (const q of p.group.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) if (!connecting.has(n)) loose.add(n);
-    for (const q of p.group.members.plates ?? []) for (const n of modelStore.plates.get(q)?.nodes ?? []) if (!connecting.has(n)) loose.add(n);
+    const loose = looseNodes(p, connecting);
     if (loose.size) out.push({ source: 'model', objects: [{ kind: 'plate', id: p.id }], severity: 'warning', code: 'PLATE_LOOSE_CORNER', message: t('plates.diag.looseCorner'), details: { plate: p.name, nodes: [...loose].sort((a, b) => a - b).join(', ') } });
   }
   const review = planRecognition().proposals.filter((x) => x.status !== 'same').length;
