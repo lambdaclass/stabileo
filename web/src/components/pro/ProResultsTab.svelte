@@ -365,7 +365,7 @@
       count: () => results?.quadStresses?.filter(qs => qs.nodalVonMises?.length).length ?? 0 },
     { id: 'constraints', labelKey: 'pro.constraintForces',
       count: () => (results?.constraintForces?.length ?? 0) || resultsStore.constraintForces3D.length },
-    { id: 'diagnostics', labelKey: 'pro.diagnosticsTitle', count: () => results?.diagnostics?.length ?? 0 },
+    { id: 'diagnostics', labelKey: 'pro.elementQualityTitle', count: () => results?.diagnostics?.length ?? 0 },
     { id: 'query', labelKey: 'pro.queryTitle', count: () => 1, always: true },
     // Always offered, like the query: a report you cannot reach until the model is solved is a
     // report whose configuration you cannot read either, and its own blockers say what is

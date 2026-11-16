@@ -38,6 +38,7 @@ import { reportSolverErrors, reportModelDiagnostics } from './solve-diagnostics'
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
 import { solveProgress, type SolvePhase } from '../store/solve-progress.svelte';
+import { reviewCount } from '../store/diagnostics-list';
 import { onCaseSolved } from './solver-pool';
 import { onSolveStep, solveSteps } from './solve-steps';
 
@@ -289,7 +290,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     if (latest()) {
       onCaseSolved(null);
       onSolveStep(null);
-      const warnings = uiStore.is3DWorkspace
+      const warnings = uiStore.analysisMode === 'pro' ? reviewCount(uiStore.is3DWorkspace).total : uiStore.is3DWorkspace
         ? resultsStore.diagnostics3D.length + resultsStore.solverDiagnostics3D.length + resultsStore.structuredDiagnostics3D.length
         : resultsStore.diagnostics.length + resultsStore.solverDiagnostics.length + resultsStore.structuredDiagnostics.length;
       solveProgress.finish(outcome?.ok ? { ok: true, warnings } : { ok: false, error: outcome && !outcome.ok ? outcome.error : '', warnings });
