@@ -71,6 +71,25 @@ for (const variant of variants) it(`#2204 integrated eccentric wind stays a plan
   }
 });
 
+function compareWindMemberForces(ids: Iterable<number>, a: { elementId: number }[], b: { elementId: number }[], compare: (x: unknown, y: unknown) => void) {
+  for (const f of b) { const actual = a.find(p => p.elementId === f.elementId)!;
+    for (const [key, value] of Object.entries(f)) if (key.endsWith('Start') || key.endsWith('End')) compare((actual as unknown as Record<string, unknown>)[key], value);
+  }
+}
+
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
+for (const missing of ['both-empty', 'both-partial', 'actual', 'reference', 'duplicate', 'extra']) knownWrong(`known wrong result: #2220 member-force comparison rejects ${missing}`, () => {
+  const row = (elementId: number) => ({ elementId, vStart: 1, vEnd: 0 });
+  const complete = [row(1), row(2)];
+  const a = missing === 'both-empty' ? [] : missing === 'duplicate' ? [row(1), row(1)] : missing === 'extra' ? [...complete, row(3)] : missing === 'reference' ? complete : [row(1)];
+  const b = missing === 'both-empty' ? [] : ['both-partial', 'reference'].includes(missing) ? [row(1)] : complete;
+  expect(() => compareWindMemberForces([1, 2], a, b, (x, y) => expect(x).toEqual(y))).toThrow();
+});
+it('#2220 member-force comparison accepts every model member in either order', () => {
+  const rows = [{ elementId: 1, vStart: 1, vEnd: 0 }, { elementId: 2, vStart: 2, vEnd: 0 }];
+  compareWindMemberForces([1, 2], rows, rows.toReversed(), (x, y) => expect(x).toEqual(y));
+});
+
 for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) for (const dimension of ['2d', '3d']) it(`#2204 hand wind distribution matches member forces and reactions ${dimension} nonlinear=${nonlinear} diaphragm=${diaphragm}`, () => {
   const model = columns();
   const sink = generate(model);
@@ -115,9 +134,7 @@ for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) fo
       else expect(x).toEqual(y);
     };
     compare(a.reactions, b.reactions);
-    for (const f of b.elementForces) { const actual = a.elementForces.find((p: { elementId: number }) => p.elementId === f.elementId)!;
-      for (const [key, value] of Object.entries(f)) if (key.endsWith('Start') || key.endsWith('End')) compare((actual as unknown as Record<string, unknown>)[key], value);
-    }
+    compareWindMemberForces(model.elements.keys(), a.elementForces, b.elementForces, compare);
     compare(a.displacements, b.displacements);
   }
 });

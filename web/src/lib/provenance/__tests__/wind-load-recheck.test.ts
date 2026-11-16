@@ -41,3 +41,9 @@ it('#2220 manual wind plus generated gravity does not require wind regeneration'
     expect(ids).not.toContain('wind-band-width-and-shares');
     expect(ids).not.toContain('wind-physical-apex');
 });
+
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
+knownWrong('known wrong result: #2220 Hungarian wind explanation keeps minimum cases separate', async () => {
+  const { default: entry } = await import('../result-changes/wind-physical-pressure-field.json');
+  expect(entry.explanation.hu).toContain('A minimális vízszintes teheresetek elkülönülnek a számított nyomásmezőktől.');
+});
