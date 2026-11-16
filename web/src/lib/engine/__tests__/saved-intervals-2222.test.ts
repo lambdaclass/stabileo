@@ -10,7 +10,7 @@ beforeAll(async () => {
 
 const section = { shape: 'rect', a: 1, iy: 1, iz: 1, h: 1, b: 1 };
 
-describe.skip('known wrong result: #2222 — saved-result boundaries', () => {
+describe('known wrong result: #2222 — saved-result boundaries', () => {
   for (const dim of [2, 3]) for (const entry of ['envelope', 'combination', 'diagrams', 'value', 'section', 'stations', 'grouped']) {
     it(`${dim}D ${entry} refuses invalid intervals before the kernel`, () => {
       const input: any = structuredClone(model);

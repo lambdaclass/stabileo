@@ -658,7 +658,7 @@ pub fn compute_diagrams_2d(json: &str) -> Result<String, JsValue> {
     let data: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     for ef in &data.results.element_forces {
-        postprocess::diagrams::validate_diagram_loads_2d(ef).map_err(|e| JsValue::from_str(&e))?;
+        postprocess::diagrams::validate_diagram_input_2d(ef).map_err(|e| JsValue::from_str(&e))?;
     }
     let diagrams = postprocess::diagrams::compute_diagrams_2d(&data.input, &data.results);
     to_json(&diagrams)
@@ -670,7 +670,7 @@ pub fn compute_diagrams_3d(json: &str) -> Result<String, JsValue> {
     let results: types::AnalysisResults3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     for ef in &results.element_forces {
-        postprocess::diagrams_3d::validate_diagram_loads_3d(ef).map_err(|e| JsValue::from_str(&e))?;
+        postprocess::diagrams_3d::validate_diagram_input_3d(ef).map_err(|e| JsValue::from_str(&e))?;
     }
     let diagrams = postprocess::diagrams_3d::compute_diagrams_3d(&results);
     to_json(&diagrams)
@@ -822,6 +822,7 @@ pub fn compute_influence_line_3d(json: &str) -> Result<String, JsValue> {
 pub fn compute_section_stress_2d(json: &str) -> Result<String, JsValue> {
     let input: postprocess::section_stress::SectionStressInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    postprocess::diagrams::validate_diagram_input_2d(&input.element_forces).map_err(|e| JsValue::from_str(&e))?;
     let result = postprocess::section_stress::compute_section_stress_2d(&input);
     to_json(&result)
 }
@@ -831,6 +832,7 @@ pub fn compute_section_stress_2d(json: &str) -> Result<String, JsValue> {
 pub fn compute_section_stress_3d(json: &str) -> Result<String, JsValue> {
     let input: postprocess::section_stress_3d::SectionStressInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    postprocess::diagrams_3d::validate_diagram_input_3d(&input.element_forces).map_err(|e| JsValue::from_str(&e))?;
     let result = postprocess::section_stress_3d::compute_section_stress_3d(&input);
     to_json(&result)
 }
@@ -883,7 +885,7 @@ pub fn compute_diagram_value_at(json: &str) -> Result<f64, JsValue> {
     }
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    postprocess::diagrams::validate_diagram_loads_2d(&d.element_forces).map_err(|e| JsValue::from_str(&e))?;
+    postprocess::diagrams::validate_diagram_input_2d(&d.element_forces).map_err(|e| JsValue::from_str(&e))?;
     postprocess::diagrams::check_diagram_kind_2d(&d.kind).map_err(|e| JsValue::from_str(&e))?;
     boundary::finite_scalar(postprocess::diagrams::compute_diagram_value_at(&d.kind, d.t, &d.element_forces), &d.kind).map_err(|e| JsValue::from_str(&e))
 }
@@ -900,7 +902,7 @@ pub fn compute_diagram_value_at_3d(json: &str) -> Result<f64, JsValue> {
     }
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    postprocess::diagrams_3d::validate_diagram_loads_3d(&d.element_forces).map_err(|e| JsValue::from_str(&e))?;
+    postprocess::diagrams_3d::validate_diagram_input_3d(&d.element_forces).map_err(|e| JsValue::from_str(&e))?;
     postprocess::diagrams_3d::check_diagram_kind_3d(&d.kind).map_err(|e| JsValue::from_str(&e))?;
     boundary::finite_scalar(postprocess::diagrams_3d::evaluate_diagram_3d_at(&d.element_forces, &d.kind, d.t), &d.kind).map_err(|e| JsValue::from_str(&e))
 }
@@ -1738,6 +1740,11 @@ pub fn extract_beam_station_buffer_3d(json: &str) -> Result<Vec<f64>, JsValue> {
 pub fn extract_beam_stations(json: &str) -> Result<String, JsValue> {
     let input: postprocess::beam_stations::BeamStationInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    for combination in &input.combinations {
+        for ef in &combination.results.element_forces {
+            postprocess::diagrams::validate_diagram_input_2d(ef).map_err(|e| JsValue::from_str(&e))?;
+        }
+    }
     let result = postprocess::beam_stations::extract_beam_stations(&input);
     to_json(&result)
 }
@@ -1747,6 +1754,11 @@ pub fn extract_beam_stations(json: &str) -> Result<String, JsValue> {
 pub fn extract_beam_stations_3d(json: &str) -> Result<String, JsValue> {
     let input: postprocess::beam_stations::BeamStationInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    for combination in &input.combinations {
+        for ef in &combination.results.element_forces {
+            postprocess::diagrams_3d::validate_diagram_input_3d(ef).map_err(|e| JsValue::from_str(&e))?;
+        }
+    }
     let result = postprocess::beam_stations::extract_beam_stations_3d(&input);
     to_json(&result)
 }
@@ -1756,6 +1768,11 @@ pub fn extract_beam_stations_3d(json: &str) -> Result<String, JsValue> {
 pub fn extract_beam_stations_grouped(json: &str) -> Result<String, JsValue> {
     let input: postprocess::beam_stations::BeamStationInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    for combination in &input.combinations {
+        for ef in &combination.results.element_forces {
+            postprocess::diagrams::validate_diagram_input_2d(ef).map_err(|e| JsValue::from_str(&e))?;
+        }
+    }
     let result = postprocess::beam_stations::extract_beam_stations_grouped(&input);
     to_json(&result)
 }
@@ -1765,6 +1782,11 @@ pub fn extract_beam_stations_grouped(json: &str) -> Result<String, JsValue> {
 pub fn extract_beam_stations_grouped_3d(json: &str) -> Result<String, JsValue> {
     let input: postprocess::beam_stations::BeamStationInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    for combination in &input.combinations {
+        for ef in &combination.results.element_forces {
+            postprocess::diagrams_3d::validate_diagram_input_3d(ef).map_err(|e| JsValue::from_str(&e))?;
+        }
+    }
     let result = postprocess::beam_stations::extract_beam_stations_grouped_3d(&input);
     to_json(&result)
 }

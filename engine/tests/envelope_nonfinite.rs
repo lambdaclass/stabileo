@@ -174,7 +174,6 @@ proptest! {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_saved_planar_intervals_return_errors_before_sampling() {
     for axis in 0..2 {
         for (a, b) in [(-1.0, 1.0), (2.0, 4.0), (0.0, 0.0), (0.0, 1e-11), (f64::NAN, 1.0), (0.0, f64::INFINITY)] {
@@ -195,7 +194,6 @@ fn issue_2222_saved_planar_intervals_return_errors_before_sampling() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_saved_spatial_intervals_return_errors_before_sampling() {
     for axis in 0..3 {
         for (a, b) in [(-1.0, 1.0), (2.0, 4.0), (0.0, 0.0), (0.0, 1e-11), (f64::NAN, 1.0), (0.0, f64::INFINITY)] {
@@ -216,7 +214,6 @@ fn issue_2222_saved_spatial_intervals_return_errors_before_sampling() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_saved_2d_certified_demands_refuse_mutated_intervals() {
     use dedaliano_engine::certify::combinations::*;
     use dedaliano_engine::certify::design::steel_demands_from_combinations_2d;
@@ -239,7 +236,6 @@ fn issue_2222_saved_2d_certified_demands_refuse_mutated_intervals() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_saved_3d_certified_demands_refuse_mutated_intervals() {
     use dedaliano_engine::certify::combinations::*;
     use dedaliano_engine::certify::design::steel_demands_from_combinations_3d;

@@ -45,7 +45,7 @@ import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
 import type { CombinationRule } from '../engine/loads/combination-rules';
-import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength } from '../model/edit/member-split';
+import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength, memberLoadLength } from '../model/edit/member-split';
 import { variableCutSection, variableRefusal } from '../section/variable';
 import { findCoincidentNode } from '../engine/mesh-weld';
 import { NodeIndex } from '../model/edit/node-index';
@@ -1540,7 +1540,14 @@ function createModelStore() {
       }
 
       const bounds = segmentBounds(L, cuts);
-      const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => nextId.load++);
+      const lengths = segmentIds.map((sid) => {
+        const child = model.elements.get(sid)!;
+        const a = model.nodes.get(child.nodeI)!, b = model.nodes.get(child.nodeJ)!;
+        return child.offset && !shouldEmbedFlat2DModelIn3D(model)
+          ? memberLoadLength(child, a, b, model.sections.get(child.sectionId)?.rotation)
+          : memberLoadLength({ ...child, offset: undefined }, a, b);
+      });
+      const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => nextId.load++, lengths);
       model.loads = [...kept, ...added];
 
       // A group that held the member now holds every segment of it.

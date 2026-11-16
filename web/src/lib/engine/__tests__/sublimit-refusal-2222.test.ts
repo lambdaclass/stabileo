@@ -102,7 +102,7 @@ describe('known wrong result: #2222 — sublimit refusal', () => {
       for (const [a, b, valid] of intervals) {
         const data = type === 'distributed' ? { id: 1, elementId: 1, a, b, qI: -2, qJ: -2 } : { id: 1, elementId: 1, a, b, qXI: -2, qXJ: -2, qYI: -2, qYJ: -2, qZI: -2, qZJ: -2 };
         const loads: any = [{ type, data }];
-        const run = () => splitElementLoads(loads, 1, [0, 1.5, 3], [4, 5], () => 2);
+        const run = () => splitElementLoads(loads, 1, [0, 1.5, 3], [4, 5], () => 2, [1.5, 1.5]);
         const subdivide = () => subdivideForAnalysis({ ...m, loads }, 2);
         if (valid) {
           expect(run().added.length).toBeGreaterThan(0);
@@ -115,7 +115,7 @@ describe('known wrong result: #2222 — sublimit refusal', () => {
       const loads: any = [{ type, data: type === 'distributed'
         ? { id: 1, elementId: 1, a: 1, b: 1.5 + 2 ** -52, qI: -2, qJ: -2 }
         : { id: 1, elementId: 1, a: 1, b: 1.5 + 2 ** -52, qYI: -2, qYJ: -2, qZI: 0, qZJ: 0 } }];
-      expect(() => splitElementLoads(loads, 1, [0, 1.5, 3], [4, 5], () => 2)).toThrow(/Element 5.*interval.*geometry limit/);
+      expect(() => splitElementLoads(loads, 1, [0, 1.5, 3], [4, 5], () => 2, [1.5, 1.5])).toThrow(/Element 5.*interval.*geometry limit/);
     });
   }
 
@@ -220,7 +220,7 @@ describe('known wrong result: #2222 — sublimit refusal', () => {
   it('splitter preserves a supported narrow trapezoid across a cut', () => {
     const a = 1.5 - 3e-10, b = 1.5 + 3e-10;
     const loads: any = [{ type: 'distributed', data: { id: 1, elementId: 1, a, b, qI: -2, qJ: 4 } }];
-    const result = splitElementLoads(loads, 1, [0, 1.5, 3], [4, 5], () => 2);
+    const result = splitElementLoads(loads, 1, [0, 1.5, 3], [4, 5], () => 2, [1.5, 1.5]);
     expect(result.added).toHaveLength(2);
     const left: any = result.added[0].data, right: any = result.added[1].data;
     expect(left.a).toBe(a);
@@ -233,7 +233,7 @@ describe('known wrong result: #2222 — sublimit refusal', () => {
   it('splitter preserves supported near-full endpoints exactly', () => {
     const a = 1e-12, b = 3 - 1e-12;
     const loads: any = [{ type: 'distributed3d', data: { id: 1, elementId: 1, a, b, qXI: 2, qXJ: 2, qYI: -2, qYJ: -2, qZI: 4, qZJ: 4 } }];
-    const result = splitElementLoads(loads, 1, [0, 1.5, 3], [4, 5], () => 2);
+    const result = splitElementLoads(loads, 1, [0, 1.5, 3], [4, 5], () => 2, [1.5, 1.5]);
     expect(result.added).toHaveLength(2);
     expect((result.added[0].data as any).a).toBe(a);
     expect((result.added[1].data as any).b).toBe(b - 1.5);
@@ -242,7 +242,7 @@ describe('known wrong result: #2222 — sublimit refusal', () => {
 });
 
 
-describe.skip('known wrong result: #2222 — rounded child lengths', () => {
+describe('known wrong result: #2222 — rounded child lengths', () => {
   for (const dim of [2, 3]) for (const mode of ['edit', 'analysis', 'variable']) it(`${dim}D ${mode} keeps translated partial endpoints inside children`, () => {
     modelStore.clear();
     try {

@@ -77,7 +77,13 @@ export function refineInput(input: SolverInput, n: number): Refined {
       parent.set(pid, id);
     });
     pieces.set(id, list);
-    const split = splitElementLoads(loads, id, bounds, ids, () => nextLoad++);
+    const lengths = ids.map((id) => {
+      const child = elements.get(id)!;
+      const a = nodes.get(child.nodeI)!, b = nodes.get(child.nodeJ)!;
+      const dx = b.x - a.x, dz = b.z - a.z;
+      return Math.sqrt(dx * dx + dz * dz);
+    });
+    const split = splitElementLoads(loads, id, bounds, ids, () => nextLoad++, lengths);
     loads = [...split.kept, ...split.added];
   }
 

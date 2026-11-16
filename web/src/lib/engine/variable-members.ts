@@ -56,7 +56,7 @@ import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, ElementForces3D, Displacement3D, FullEnvelope3D, EnvelopeDiagramData3D, Constraint3D, ConnectorElement } from './types-3d';
 import type { ElementBucklingData3D } from './result-types';
 import type { Element, Section } from '../store/model.svelte';
-import { segmentBounds, segmentFields, splitElementLoads, flexibleMemberLength } from '../model/edit/member-split';
+import { segmentBounds, segmentFields, splitElementLoads, flexibleMemberLength, memberLoadLength } from '../model/edit/member-split';
 import { variableSectionPlan, isVariableMember as solvedAsVariable } from '../section/variable';
 import { eiOf, type ElementEI } from './member-deflection';
 import { memberFrame3D, takesNoBending, type Vec3 } from './member-loads';
@@ -354,7 +354,11 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
   const renamed = new Map<number, number[]>();
   for (const m of exp.members.values()) {
     const ids = m.pieces.map((p) => p.id);
-    const split = splitElementLoads(loads, m.parentId, planned.bounds.get(m.parentId)!, ids, () => nextLoad++);
+    const lengths = ids.map((id) => {
+      const child = elements.get(id)!;
+      return memberLoadLength(child, nodes.get(child.nodeI)!, nodes.get(child.nodeJ)!, model.sections.get(child.sectionId)?.rotation);
+    });
+    const split = splitElementLoads(loads, m.parentId, planned.bounds.get(m.parentId)!, ids, () => nextLoad++, lengths);
     loads = [...split.kept, ...split.added];
     renamed.set(m.parentId, ids);
   }

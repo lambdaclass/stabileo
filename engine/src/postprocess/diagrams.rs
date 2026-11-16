@@ -464,7 +464,7 @@ impl MemberDeflection {
         kappa: f64,
     ) -> Self {
         for &(_, _, a, b) in &dist {
-            if let Err(error) = crate::element::validate_member_load_width("Member recovery", l, a, b) { panic!("{error}"); }
+            if let Err(error) = crate::element::validate_member_load_interval("Member recovery", l, a, b) { panic!("{error}"); }
         }
         let loads = points.into_iter().map(|(a, p)| MemberLoad::Force { a, p })
             .chain(dist.into_iter().map(|(qi, qj, a, b)| MemberLoad::Distributed { qi, qj, a, b }))
@@ -879,13 +879,11 @@ mod tests {
         }
     }
     #[test]
-    #[ignore = "known wrong result: #2222"]
     fn issue_2222_member_deflection_refuses_start_overhang() {
         assert!(std::panic::catch_unwind(|| MemberDeflection::new(3.0, 1000.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, vec![], vec![(-2.0, -2.0, -1.0, 1.0)], vec![])).is_err());
     }
 
     #[test]
-    #[ignore = "known wrong result: #2222"]
     fn issue_2222_member_deflection_refuses_end_overhang() {
         assert!(std::panic::catch_unwind(|| MemberDeflection::curved(3.0, 1000.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, vec![], vec![(-2.0, -2.0, 2.0, 4.0)], vec![], 0.0)).is_err());
     }
@@ -1160,4 +1158,9 @@ pub fn validate_diagram_loads_2d(ef: &ElementForces) -> Result<(), String> {
         crate::element::validate_member_load_interval(&format!("Element {}", ef.element_id), ef.length, d.a, d.b)?;
     }
     Ok(())
+}
+
+pub fn validate_diagram_input_2d(ef: &ElementForces) -> Result<(), String> {
+    crate::boundary::require_finite(ef)?;
+    validate_diagram_loads_2d(ef)
 }

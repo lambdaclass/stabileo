@@ -195,3 +195,8 @@ pub fn validate_diagram_loads_3d(ef: &ElementForces3D) -> Result<(), String> {
     }
     Ok(())
 }
+
+pub fn validate_diagram_input_3d(ef: &ElementForces3D) -> Result<(), String> {
+    crate::boundary::require_finite(ef)?;
+    validate_diagram_loads_3d(ef)
+}

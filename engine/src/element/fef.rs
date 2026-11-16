@@ -122,7 +122,7 @@ pub fn fef_distributed_2d(q_i: f64, q_j: f64, l: f64, phi: f64) -> [f64; 6] {
 /// degree 3 and left a ~1e-6 relative error, found by differential testing
 /// against OpenSees.)
 pub fn fef_partial_distributed_2d(q_i: f64, q_j: f64, a: f64, b: f64, l: f64, phi: f64) -> [f64; 6] {
-    require_member_load_interval("Member load kernel", l, a, b);
+    require_member_load_interval(l, a, b);
     let half = 0.5 * (b - a);
     let mid = 0.5 * (a + b);
     let g = (0.6f64).sqrt();
@@ -794,12 +794,21 @@ mod tests {
 /// Consistent axial nodal forces of a trapezoid on [a,b], per unit member length.
 /// Integrates the linear axial shape functions, retaining couples of opposite-sign ends.
 pub fn axial_distributed_fef(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64; 2] {
-    require_member_load_interval("Member load kernel", l, a, b);
+    require_member_load_interval(l, a, b);
+    axial_distributed_fef_integral(q_i, q_j, a, b, l)
+}
+
+fn axial_distributed_fef_integral(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64; 2] {
     let span = b - a;
     let f_i = q_i * span / 2.0;
     let f_j = q_j * span / 2.0;
     let at_j = (f_i * (a + span / 3.0) + f_j * (a + 2.0 * span / 3.0)) / l;
     [f_i + f_j - at_j, at_j]
+}
+
+#[cfg(kani)]
+pub(crate) fn axial_distributed_fef_integral_for_proof(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64; 2] {
+    axial_distributed_fef_integral(q_i, q_j, a, b, l)
 }
 
 /// A plane frame's fixed-end forces for an axial span load (`SolverAxialDistributedLoad`):
@@ -819,18 +828,20 @@ pub fn distributed_resultant(q_i: f64, q_j: f64, a: f64, b: f64) -> f64 {
 
 pub const MEMBER_GEOMETRY_LIMIT: f64 = 1e-10;
 
+pub fn member_load_interval_is_supported(length: f64, a: f64, b: f64) -> bool {
+    length.is_finite() && length > 0.0 && a.is_finite() && b.is_finite()
+        && a >= 0.0 && b >= a && b <= length
+        && (b - a) / length >= MEMBER_GEOMETRY_LIMIT
+}
+
 pub fn validate_member_load_interval(member: &str, length: f64, a: f64, b: f64) -> Result<(), String> {
+    if member_load_interval_is_supported(length, a, b) {
+        return Ok(());
+    }
     if !length.is_finite() || length <= 0.0 || !a.is_finite() || !b.is_finite() || a < 0.0 || b < a || b > length {
         return Err(format!("{member}: invalid distributed load interval [{a}, {b}] on length {length}"));
     }
-    validate_member_load_width(member, length, a, b)
-}
-
-pub(crate) fn validate_member_load_width(member: &str, length: f64, a: f64, b: f64) -> Result<(), String> {
-    if !length.is_finite() || length <= 0.0 || !a.is_finite() || !b.is_finite() || (b - a) / length < MEMBER_GEOMETRY_LIMIT {
-        return Err(format!("{member}: distributed load interval [{a}, {b}] on length {length} is below the relative geometry limit {MEMBER_GEOMETRY_LIMIT}"));
-    }
-    Ok(())
+    Err(format!("{member}: distributed load interval [{a}, {b}] on length {length} is below the relative geometry limit {MEMBER_GEOMETRY_LIMIT}"))
 }
 
 pub(crate) fn distributed_load_terms(q_i: f64, q_j: f64, a: f64, b: f64, x: f64) -> (f64, f64) {
@@ -843,8 +854,6 @@ pub(crate) fn distributed_load_terms(q_i: f64, q_j: f64, a: f64, b: f64, x: f64)
      q_i * (d * s - s * s / 2.0) + dq * (d * s * s / 2.0 - s * s * s / 3.0))
 }
 
-pub(crate) fn require_member_load_interval(member: &str, length: f64, a: f64, b: f64) {
-    if let Err(error) = validate_member_load_interval(member, length, a, b) {
-        panic!("{error}");
-    }
+fn require_member_load_interval(length: f64, a: f64, b: f64) {
+    assert!(member_load_interval_is_supported(length, a, b), "unsupported distributed member load interval");
 }
