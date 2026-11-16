@@ -1,3 +1,4 @@
+import { RESULTS_VERSION } from '../../../provenance/registry';
 /**
  * Floor loads kept as definitions and load zones: what they expand to, against the closed forms,
  * and their loads following the model when it moves under them.
@@ -57,7 +58,7 @@ describe('a floor-load definition', () => {
     const { caseId, quad } = bay();
     const def: FloorLoadDef = { caseId, q: 3, target: { by: 'level', z: 3 }, distribution: 'slab' };
     const e = expandDefinition(m(), def, {}, 2, { leftHand: false });
-    expect(e.loads).toEqual([{ type: 'surface3d', data: { id: 0, quadId: quad, q: 3, caseId, fromDef: 2 } }]);
+    expect(e.loads).toEqual([{ type: 'surface3d', data: { id: 0, quadId: quad, q: 3, caseId, fromDef: 2, floorLoadsVersion: RESULTS_VERSION } }]);
   });
 
   it('in a box of coordinates', () => {

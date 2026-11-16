@@ -142,6 +142,14 @@ export interface FloorLoadResult {
 const EPS = 1e-9;
 
 export function floorLoad(input: FloorLoadInput): FloorLoadResult {
+  return calculateFloorLoad(input);
+}
+
+export function physicalFloorLoad(input: FloorLoadInput): FloorLoadResult {
+  return calculateFloorLoad(input);
+}
+
+function calculateFloorLoad(input: FloorLoadInput): FloorLoadResult {
   const tol = input.tol ?? 1e-3;
   const skipped = { trusses: 0, notHorizontal: 0, otherLevel: 0, open: 0, crossings: 0, zoneAcrossSpan: 0, unresolved: 0 };
   const res: FloorLoadResult = { z: null, panels: [], loads: [], concentrated: [], nodal: [], normal: [0, 0, 1], perBeam: new Map(), loadedArea: 0, totalKN: 0, skipped };
@@ -388,7 +396,11 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     for (const seg of side.segments) {
       const s0 = Math.max(pc.s0, seg.s0), s1 = Math.min(pc.s1, seg.s1);
       if (!(s1 > s0)) continue;
-      const at = (s: number) => pc.q0 + ((pc.q1 - pc.q0) * (s - pc.s0)) / (pc.s1 - pc.s0 || 1);
+      const at = (s: number) => {
+        const value = pc.q0 + ((pc.q1 - pc.q0) * (s - pc.s0)) / (pc.s1 - pc.s0 || 1);
+        const error = 16 * Number.EPSILON * (Math.abs(pc.q0) + Math.abs(pc.q1));
+        return Math.abs(value) <= error ? 0 : value;
+      };
       const q0 = at(s0), q1 = at(s1);
       const len = seg.s1 - seg.s0;
       // Along the member, from node I.

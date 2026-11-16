@@ -53,6 +53,26 @@ const body: PostBody = {
     {"k": "note", "t": "SA-2026-080 — Javítva a #2219 PR-ben, beolvasztásra és kiadásra vár."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-080-floor-zone-eccentricity.md", "label": "SA-2026-080", "t": "Érintett modellek és szükséges teendők."},
     {
+      "k": "note",
+      "t": "SA-2026-073 — PR #2197; egyesítésre és kiadásra vár."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md",
+      "label": "SA-2026-073",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-074 — PR #2197; egyesítésre és kiadásra vár."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md",
+      "label": "SA-2026-074",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
       "k": "img",
       "base": "blog/recheck-stale",
       "w": 1600,
@@ -465,6 +485,18 @@ const body: PostBody = {
           "A tetőélek egyenlőtlen felosztása eltolhatta a gerinc helyzetét és megváltoztathatta a generált hóterheket (#2144). Generálja újra a hóterheket, majd ismételje meg az analíziseket, a teherkombinációkat és a méretezési ellenőrzéseket. A mentett terhek puszta újraszámítása nem javítja ki őket.",
           "Magas",
           "Javítva a #2175 PR-ben, kiadásra vár"
+        ],
+        [
+          "SA-2026-073",
+          "A hógerincet keresztező rudak egyetlen egyenletes nyomást kaptak, így elveszett a fizikai teher nyomatéka. A terhek most a fizikai gerincnél oszlanak meg. Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket. (#2176).",
+          "Magas",
+          "PR #2197; egyesítésre és kiadásra vár"
+        ],
+        [
+          "SA-2026-074",
+          "A ferde szarufa felosztása a megadott tetőpanelt födémmé minősíthette, és figyelmeztetés nélkül eltüntethette az eresz hóterhét. Az osztályozás most a panelek fizikai alaprajzát használja. Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket. (#2172). Egy különálló alsó panel fölötti felosztatlan ferde szarufa is tetőnek minősíthette a panelt, megváltoztatva a tető és födém felületi terheit, és szélességalapú módban figyelmeztetés nélkül hóterhet adhatott hozzá.",
+          "Magas",
+          "PR #2197; egyesítésre és kiadásra vár"
         ]
       ]
     },

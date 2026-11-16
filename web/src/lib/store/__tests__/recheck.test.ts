@@ -60,7 +60,7 @@ describe('recheckStore', () => {
     recheckStore.openProject(solved as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.noticeOpen).toBe(true);
-    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom', 'gravity-physical-regions', 'gravity-member-loading', 'gravity-torque-projection-and-carriers', 'gravity-stations-and-edits']);
+    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom', 'gravity-physical-regions', 'gravity-member-loading', 'gravity-torque-projection-and-carriers', 'gravity-stations-and-edits', 'snow-panel-geometry']);
     recheckStore.reset();
     recheckStore.openProject({ ...solved, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } } as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
@@ -74,18 +74,19 @@ describe('recheckStore', () => {
     recheckStore.openProject(generated(headroom), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.noticeOpen).toBe(true);
-    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['gravity-physical-regions', 'gravity-member-loading', 'gravity-torque-projection-and-carriers', 'gravity-stations-and-edits']);
+    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['gravity-physical-regions', 'gravity-member-loading', 'gravity-torque-projection-and-carriers', 'gravity-stations-and-edits', 'snow-panel-geometry']);
     recheckStore.reset();
     const previousGravity = RESULT_CHANGES.changes.find(c => c.id === 'gravity-torque-projection-and-carriers')!.resultsVersion;
     recheckStore.openProject(generated(previousGravity), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.noticeOpen).toBe(true);
-    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['gravity-stations-and-edits']);
+    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['gravity-stations-and-edits', 'snow-panel-geometry']);
     recheckStore.reset();
     const gravity = RESULT_CHANGES.changes.find(c => c.id === 'gravity-stations-and-edits')!.resultsVersion;
     recheckStore.openProject(generated(gravity), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-    expect(recheckStore.noticeOpen).toBe(false);
+    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['snow-panel-geometry']);
+    expect(recheckStore.noticeOpen).toBe(true);
     recheckStore.reset();
     const { designData: _basis, ...unstamped } = generated() as unknown as Record<string, unknown>;
     recheckStore.openProject(unstamped as never, 'pro');
@@ -102,10 +103,10 @@ describe('recheckStore', () => {
       solvedWith: recheckStore.capture(),
     };
     const expected = [
-      'generated-area-loads-headroom', 'gravity-member-loading', 'gravity-physical-regions', 'gravity-stations-and-edits', 'gravity-torque-projection-and-carriers', 'snow-drift-coverage', 'snow-fallback-runs',
-      'snow-flat-frame', 'snow-local-boundaries', 'snow-orientation-factors',
+      'generated-area-loads-headroom', 'gravity-member-loading', 'gravity-physical-regions', 'gravity-stations-and-edits', 'gravity-torque-projection-and-carriers', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
+      'snow-flat-frame', 'snow-local-boundaries', 'snow-member-loading', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-quadratic-intensity',
       'snow-ridge-mesh', 'snow-ridge-orientations', 'snow-roof-connectivity',
-      'snow-roof-rotation', 'snow-roof-step', 'snow-surface-regions', 'snow-surface-support',
+      'snow-roof-rotation', 'snow-roof-step', 'snow-selected-subsets', 'snow-surface-regions', 'snow-surface-support',
     ];
     recheckStore.openProject(snapshot, mode);
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));

@@ -11776,6 +11776,7 @@ const en: Record<string, string> = {
   'snow.derivation.parapet': "A {hp} m parapet on an edge of the roof at +{z} m (Ch. 8): lu = {lu} m, hb = {hb} m, hc = {hc} m, 0.75 hd = {hd} m; a triangle {h} m high and {w} m wide, pd = {pd} kN/m², added to the balanced snow.",
   'snow.derivation.partialExempt': "The spans along {axis}, perpendicular to the ridge, take no partial loads: the slope of {slope}° is over 21/W + 0.5 = {limit}° (§5.1).",
   'snow.derivation.noPartial': "Partial loads (§5.1): the roof has no three spans in a row in either direction; there is no arrangement to add.",
+  'snow.derivation.intensityBound': "Quadratic tributary intensities use piecewise linear loads conserving force and both plan moments. Pointwise error is at most {relativePercent}% of the maximum sampled intensity on each complete physical strip; the largest absolute bound is {absolute} kN/m.",
   'snow.derivation.partial': "Partial loads (§5.1): {n} arrangements of the balanced snow, whole on some spans and half on the rest, entering the combinations in place of the balanced one where snow is the principal action.",
   'snow.case.unbalancedValleys': "Unbalanced snow, gathered in the valleys",
   'snow.case.partialPair': "Partial snow, spans beside {axis} = {at} m",
