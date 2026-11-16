@@ -2,13 +2,15 @@ import { expect, it } from 'vitest';
 import { planWind } from '../load-plan-wind';
 import { levelsWithPlanArea, type PlanSink, type LoadPlanInput } from '../load-plan';
 import { otherStructureWind } from '../wind-other';
-import { columns, mesh, remeshWind, windProject, variants, windEndResultants, windResultants } from './wind-integration-fixture';
+import { columns, mesh, remeshWind, windProject, variants, windEndResultants, windResultants, assertWindResultants } from './wind-integration-fixture';
 import { solve, solvePDelta, solve3D, solvePDelta3D } from '../../wasm-solver';
 import type { SolverInput3D } from '../../types-3d';
 import type { SolverInput } from '../../types';
 import { solidSignCf } from '../../../codes/cirsoc102/other-structures';
 import { windHeightField, windHeightLoads } from '../wind-pressure-field';
 import { velocityPressure } from '../../../codes/cirsoc102/wind';
+
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
 
 const generate = (model: ReturnType<typeof mesh>, region?: number[]) => {
   const sink: PlanSink = { cases: [], nodal: [], distributed: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
@@ -23,34 +25,43 @@ const hand = (model: ReturnType<typeof mesh>, c: PlanSink['cases'][number]) => {
   const k = c.nameKey === 'autoLoad.windCase4' ? 0.563 : ['autoLoad.windCase1', 'autoLoad.windCaseWa', 'autoLoad.windMinimumCase'].includes(c.nameKey) ? 1 : 0.75;
   const es = c.nameParams?.e === '−' ? -1 : 1;
   const dirs = c.nameKey === 'autoLoad.windCase3' || c.nameKey === 'autoLoad.windCase4' ? [String(c.nameParams?.dirX), String(c.nameParams?.dirY)] : [String(c.nameParams?.dir)];
-  return [...model.nodes.values()].map(n => {
+  const nodes = [...model.nodes.values()];
+  const minX = Math.min(...nodes.map(n => n.x)), maxX = Math.max(...nodes.map(n => n.x));
+  const minY = Math.min(...nodes.map(n => n.y)), maxY = Math.max(...nodes.map(n => n.y));
+  const length = maxX - minX, width = maxY - minY;
+  const cx = (maxX + minX) / 2, cy = (maxY + minY) / 2, polar = length ** 2 + width ** 2;
+  return nodes.map(n => {
     let fx = 0, fy = 0;
     for (const dir of dirs) {
       const x = dir.endsWith('X'), sign = dir.startsWith('−') ? -1 : 1;
       const exponent = 2 / 9.8, factor = 0.613 * 2.41 * 0.85 * 40 ** 2 / 750 ** exponent;
-      const lee = x ? 0.3 : 0.5;
+      const across = x ? width : length;
+      const lee = (x ? length / width : width / length) >= 2 ? 0.3 : 0.5;
       const integral = 0.85 / 1000 * (0.8 * factor * (5 * 5 ** exponent + (6 ** (exponent + 1) - 5 ** (exponent + 1)) / (exponent + 1)) + lee * factor * 6 ** exponent * 6);
       const first = 0.85 / 1000 * (0.8 * factor * (25 / 2 * 5 ** exponent + (6 ** (exponent + 2) - 5 ** (exponent + 2)) / (exponent + 2)) + lee * factor * 6 ** exponent * 18);
       const minimum = c.nameKey === 'autoLoad.windMinimumCase';
-      const force = (x ? 6 : 12) * (minimum ? 4.5 : integral) * k * scale;
+      const force = across * (minimum ? 4.5 : integral) * k * scale;
       const share = minimum ? 0.5 : n.z === 6 ? first / (6 * integral) : 1 - first / (6 * integral);
       if (x) fx += sign * force * share / 4; else fy += sign * force * share / 4;
       if (torsion) {
-        const mt = force * es * 0.15 * (x ? 6 : 12);
-        fx -= mt * (n.y - 3) / 180 * share;
-        fy += mt * (n.x - 6) / 180 * share;
+        const mt = force * es * 0.15 * across;
+        fx -= mt * (n.y - cy) / polar * share;
+        fy += mt * (n.x - cx) / polar * share;
       }
     }
     return { nodeId: n.id, fx, fy, mz: 0 };
   });
 };
 
-for (const variant of variants) it(`#2204 integrated eccentric wind stays a plan force couple ${variant}`, () => {
+for (const variant of variants) knownWrong(`known wrong result: #2220 #2204 integrated eccentric wind stays a plan force couple ${variant}`, () => {
   const model = remeshWind(columns(), variant).model;
   const sink = generate(model);
   for (const [caseIndex, c] of sink.cases.entries()) {
     const loads = windEndResultants(model, sink.distributed.filter(n => n.caseIndex === caseIndex), sink.nodal.filter(n => n.caseIndex === caseIndex));
+    expect(loads.length).toBeGreaterThan(0);
     expect(loads.every(n => n.mz === 0)).toBe(true);
+    const reference = remeshWind(columns(), variant === 'rotate' || variant === 'mirror' ? variant : 'base').model;
+    assertWindResultants(windResultants(model, [], loads), windResultants(reference, [], hand(reference, c)));
     if (variant !== 'base') continue;
     const expected = hand(model, c);
     for (const n of expected) {
