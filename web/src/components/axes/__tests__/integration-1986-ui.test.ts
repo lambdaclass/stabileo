@@ -29,10 +29,10 @@ it.skip('known wrong result: #1986 custom curve directions are printed in user c
   const members = createArc(a, { x: 2, y: 0, z: 2 }, b, 4);
   expect(members).toHaveLength(4);
   const arcId = modelStore.elements.get(members[0]!)!.arc!.id;
-  addCurveLoad({ arcId, caseId: 1, q: 5, dir: [1, 2, 3] });
+  addCurveLoad({ arcId, caseId: 1, q: 5, dir: [0.6, 0, 0.8] });
   uiStore.selectElements(members);
   axesStore.choice = { up: '+Y', right: '-Z', hand: 'left' };
-  expect(render(Piece).body).toContain('(2.00, 3.00, -1.00)');
+  expect(render(Piece).body).toContain('(0.00, 0.80, -0.60)');
 });
 
 it.skip('known wrong result: #1986 storey shears use the axis names and signs of their columns', () => {
@@ -45,7 +45,7 @@ it.skip('known wrong result: #1986 storey shears use the axis names and signs of
     elements: [], notices: { automatic: [], manual: [] },
     quantities: { byLevel: [], byType: [], rebar: [], steel: [], connections: [] },
   };
-  const html = renderMemoriaHtml(m as never, new Set(['global']), { tr: (k) => k, msg: (m) => m.key, fmt: (v, d) => v.toFixed(d) });
+  const html = renderMemoriaHtml(m as never, new Set(['global', 'global.storeyShear']), { tr: (k) => k, msg: (m) => m.key, fmt: (v, d) => v.toFixed(d) });
   expect(html).toContain('Vz (kN)');
   expect(html).toContain('Vx (kN)');
   expect(html).toContain('Kz (kN/m)');
