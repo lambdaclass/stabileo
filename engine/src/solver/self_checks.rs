@@ -511,3 +511,22 @@ mod tests {
         assert!(checks.check(&[f64::NAN,1.0], 1.0, &[0.0,1.0], &[0.0,1.0], &[0.0,1.0]).is_err());
     }
 }
+
+#[cfg(test)]
+mod narrow_span_2222 {
+    use super::*;
+    #[test]
+    #[ignore = "known wrong result: #2222"]
+    fn issue_2222_planted_dropped_load_cannot_balance_itself() {
+        let input: SolverInput = serde_json::from_str(include_str!("../../tests/fixtures/narrow-span-2222.json")).unwrap();
+        let dofs = crate::solver::dof::DofNumbering::build_2d(&input);
+        let zero = vec![0.0; dofs.n_total];
+        let eq = crate::solver::reaction_recovery::balance_2d(&input,&dofs,&zero,&zero,&[],&[],1e-9);
+        assert!(statics(&eq, std::iter::empty(), 2, 0.0).unwrap_err().contains("static_balance"));
+        let input = crate::metamorphic::planes::embed_2d(&input,crate::metamorphic::planes::Plane::XY).unwrap();
+        let dofs = crate::solver::dof::DofNumbering::build_3d(&input);
+        let zero = vec![0.0; dofs.n_total];
+        let eq = crate::solver::reaction_recovery::balance_3d(&input,&dofs,&zero,&zero,&[],&[],1e-9);
+        assert!(statics(&eq, std::iter::empty(), 3, 0.0).unwrap_err().contains("static_balance"));
+    }
+}
