@@ -100,7 +100,7 @@ export const beamFrame = defineExample<Model>({
       const pts = engine.computeDeformedShape({
         nodeIx: ni.x, nodeIy: ni.z, nodeJx: nj.x, nodeJy: nj.z, uIx: di.ux, uIy: di.uz, rIz: di.ry, uJx: dj.ux, uJy: dj.uz, rJz: dj.ry,
         scale: 1, length: ef.length, hingeStart: false, hingeEnd: false, ei: EI, loadQi: ef.qI, loadQj: ef.qJ,
-        loadPoints: ef.pointLoads.map(p => [p.a, p.p]), distLoads: ef.distributedLoads.map(d => [d.qI, d.qJ, d.a, d.b]),
+        loadPoints: ef.pointLoads, distLoads: ef.distributedLoads.map(d => [d.qI, d.qJ, d.a, d.b]),
       }) as { x: number; y: number }[];
       deformed.push(pts.map((p, k) => {
         const t = k / (pts.length - 1);

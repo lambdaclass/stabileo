@@ -16,6 +16,7 @@
     emptySketch, gradeSketch, type Sketch, type SketchVerdict,
   } from './diagram-sketch';
   import { computeDisplacementAt } from '../../lib/engine/diagrams';
+  import { solverBendingForces2D } from '../../lib/engine/transverse-sign-2d';
   import { diagramValueAsShown } from './exercise-spec';
   import { modelStore } from '../../lib/store';
   import { effectiveBendingInertia } from '../../lib/engine/solver-service';
@@ -137,6 +138,7 @@
     const sec = modelStore.sections.get(elem.sectionId);
     const EI = mat && sec ? mat.e * 1000 * effectiveBendingInertia(sec) : undefined;
 
+    const recovery = solverBendingForces2D(ef, nj.x - ni.x, nj.y - ni.y);
     return Array.from({ length: SKETCH_STATIONS }, (_, k) => {
       const disp = computeDisplacementAt(
         k / (SKETCH_STATIONS - 1),
@@ -144,7 +146,7 @@
         di.ux, di.uz, di.ry,
         dj.ux, dj.uz, dj.ry,
         ef.length, ef.hingeStart, ef.hingeEnd,
-        EI, ef.qI, ef.qJ, ef.pointLoads, ef.distributedLoads,
+        EI, recovery.qI, recovery.qJ, recovery.pointLoads, recovery.distributedLoads,
       );
       return get2DDisplayDisplacementVertical(disp) * 1000;
     });
