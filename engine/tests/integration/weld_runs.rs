@@ -256,79 +256,66 @@ fn invalid_nonpositive_size() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_negative_size() {
     weld_run_case("invalid_negative_size");
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_negative_size_along_length() {
     weld_run_case("invalid_negative_size_along_length");
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_negative_size_default() {
     weld_run_case("invalid_negative_size_default");
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_smallest_negative_size() {
     weld_run_case("invalid_smallest_negative_size");
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_negative_size_unloaded() {
     weld_run_case("invalid_negative_size_unloaded");
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_negative_size_zero_length() {
     weld_run_case("invalid_negative_size_zero_length");
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_negative_size_with_valid_run() {
     weld_run_case("invalid_negative_size_with_valid_run");
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_overflow_x_forward() {
     weld_run_case("invalid_overflow_x_forward");
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_overflow_x_reverse() {
     weld_run_case("invalid_overflow_x_reverse");
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_overflow_y_forward() {
     weld_run_case("invalid_overflow_y_forward");
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_overflow_y_reverse() {
     weld_run_case("invalid_overflow_y_reverse");
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_overflow_hypot() {
     weld_run_case("invalid_overflow_hypot");
 }
 
 #[test]
-#[ignore = "known wrong result: #2258"]
 fn invalid_overflow_run_length() {
     weld_run_case("invalid_overflow_run_length");
 }
@@ -366,7 +353,6 @@ fn invalid_native_geometry(segment: WeldSegment, loaded: bool) {
 macro_rules! nonfinite_geometry_case {
     ($loaded:ident, $unloaded:ident, $field:ident, $value:expr) => {
         #[test]
-        #[ignore = "known wrong result: #2258"]
         fn $loaded() {
             invalid_native_geometry(
                 WeldSegment {
@@ -378,7 +364,6 @@ macro_rules! nonfinite_geometry_case {
         }
 
         #[test]
-        #[ignore = "known wrong result: #2258"]
         fn $unloaded() {
             invalid_native_geometry(
                 WeldSegment {
