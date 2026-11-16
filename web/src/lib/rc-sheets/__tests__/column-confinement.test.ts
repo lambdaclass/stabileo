@@ -54,6 +54,20 @@ describe('chapter 18 confinement of a column', () => {
     expect(r.steps.find((g) => g.title === 'rcSheets.g.seismic')!.steps.find((s) => s.label === 'rcSheets.s.seisColAsh')!.formula).toContain('kf·kn');
   });
 
+  it('takes fewer, thicker bars when the thinner ones fill the faces and leave no room for the hoop Ash needs', () => {
+    const ground: ColumnDemand = {
+      key: 'column:8:0', name: 'C8', level: 'N0', b: 0.5, h: 0.5, length: 3.4, lu: 3.075, psiTop: 4.59, psiBot: 0.2, joints: { bottom: 0, top: 0.65 },
+      cases: [
+        { combo: 'U2', pu: 3979, puMin: 3954, puD: 2716, mxTop: 0, mxBot: 0, myTop: -0.86, myBot: 0.17, vx: 0, vy: 0.3 },
+        { combo: 'U4', pu: 3505, puMin: 3480, puD: 2716, mxTop: 148, mxBot: -226, myTop: -0.76, myBot: 0.15, vx: 110, vy: 0.27 },
+      ],
+    };
+    for (const fc of [25, 30]) {
+      const r = columnRow(ground, { ...ctx, mat: { fc, fy: 420 } }, undefined, f);
+      expect(failing(r), `f'c ${fc}`).toEqual([]);
+    }
+  });
+
   it('adds held bars in the middle of the longest run between those §25.7.2.3 holds', () => {
     expect(confinedFaceBars(0.35, 3, 12, 12, { cover: 0.03 }, 8, 1)).toEqual([2]);
     expect(confinedFaceBars(0.35, 4, 12, 12, { cover: 0.03 }, 8, 2)).toEqual([2, 3]);

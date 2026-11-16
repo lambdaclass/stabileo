@@ -353,7 +353,15 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     const first = proposeColumn(d, c, ast, dias, all, stack.pattern, tieDiaFor, { short: shortOf(target), rhoMax: rhoTop });
     let layout = first.layout, iterations = first.iterations;
     if (c.seismic) {
-      const confined = confineColumn(d, c, layout, fmt, (a) => clearOk(d, c, a) && !(demands.length && utilisation(d, c, a, demands) > 1 + 1e-6) && columnArea(a) <= rhoTop * Ag * 1e4 + 1e-6);
+      const fits = (a: ColumnAdopted) => clearOk(d, c, a) && !(demands.length && utilisation(d, c, a, demands) > 1 + 1e-6) && columnArea(a) <= rhoTop * Ag * 1e4 + 1e-6;
+      let confined = confineColumn(d, c, layout, fmt, fits);
+      for (const dia of dias.filter((x) => x > Math.max(layout.corner, layout.dx, layout.dy)).sort((p, q) => p - q)) {
+        if (confined.ok) break;
+        const thicker = proposeColumn(d, c, ast, dias.filter((x) => x >= dia), all, undefined, tieDiaFor, { short: shortOf(target), rhoMax: rhoTop });
+        if (thicker.exhausted) break;
+        const again = confineColumn(d, c, thicker.layout, fmt, fits);
+        if (again.ok) confined = { ...again, iterations: confined.iterations + again.iterations };
+      }
       layout = confined.layout; iterations += confined.iterations;
     }
     return { layout, iterations, exhausted: first.exhausted };
@@ -483,11 +491,12 @@ const CONFINED_MIN_SPACING = 0.05;
  * 0.3·Ag·f'c); then a thicker hoop; and only then a bar more on each face for a crosstie to hold.
  * Where nothing does, the most it reached, and the row fails.
  */
-function confineColumn(d: ColumnDemand, c: ColumnContext, start: ColumnAdopted, fmt: Fmt, fits: (a: ColumnAdopted) => boolean): { layout: ColumnAdopted; iterations: number } {
+function confineColumn(d: ColumnDemand, c: ColumnContext, start: ColumnAdopted, fmt: Fmt, fits: (a: ColumnAdopted) => boolean): { layout: ColumnAdopted; iterations: number; ok: boolean } {
   const seismic = { ...c, overstrength: c.seismic!.overstrength };
   const high = highAxialColumn({ b: d.b, h: d.h, fc: c.mat.fc, pu: Math.max(0, ...d.cases.map((k) => k.pu)) });
   let iterations = 0, last = start;
   const settle = (base: ColumnAdopted): ColumnAdopted | null => {
+    let mpr: { x: number; y: number } | undefined;
     const bx = crossties(d.b, base.nx, base.dx, base.corner, c, base.tieDia), by = crossties(d.h, base.ny, base.dy, base.corner, c, base.tieDia);
     const pairs: Array<[number, number]> = [];
     for (let x = high ? base.nx : bx; x <= base.nx; x++) for (let y = high ? base.ny : by; y <= base.ny; y++) pairs.push([x, y]);
@@ -501,7 +510,9 @@ function confineColumn(d: ColumnDemand, c: ColumnContext, start: ColumnAdopted, 
       if (ct.hx > conf.hxMax + 1e-6 || (high && ct.held < ct.perimeter)) continue;
       for (let s = roundDown(Math.min(start.tieSpacing, conf.so, conf.ashSpacing) + 1e-9); s >= CONFINED_MIN_SPACING - 1e-9; s = Math.round((s - 0.025) * 1000) / 1000) {
         const a = { ...held, tieSpacing: s };
-        const k = columnSeismic(d, seismic, a, columnBars(d, a, c), ct, fmt).checks;
+        const run = columnSeismic(d, seismic, a, columnBars(d, a, c), ct, fmt, mpr);
+        mpr = run.mpr;
+        const k = run.checks;
         if (['rcSheets.v.seisColSo', 'rcSheets.v.seisColAsh', 'rcSheets.v.seisColVe', 'rcSheets.v.seisColHx'].every((l) => k.find((v) => v.label === l)?.ok !== false)) return a;
       }
     }
@@ -514,13 +525,13 @@ function confineColumn(d: ColumnDemand, c: ColumnContext, start: ColumnAdopted, 
       const base = { ...bars, tieDia };
       if ((more > 0 || tieDia !== start.tieDia) && !fits(base)) continue;
       const done = settle(base);
-      if (done) return { layout: done, iterations };
+      if (done) return { layout: done, iterations, ok: true };
     }
     const next = { ...bars, nx: bars.nx + 1, ny: bars.ny + 1 };
     if (!fits(next)) break;
     bars = next;
   }
-  return { layout: last, iterations };
+  return { layout: last, iterations, ok: false };
 }
 
 function slenderSteps(g: CaseResult, f: Fmt): StepGroup {
