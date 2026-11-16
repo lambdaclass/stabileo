@@ -1,3 +1,5 @@
+import { completeMemberDemands } from '../engine/member-demand-gate';
+import { ConcurrentDemand } from '../engine/concurrent-demand';
 // Verification store — the single source of truth for RC design state.
 //
 // PR15 ARCHITECTURE
@@ -30,7 +32,7 @@ import type { SteelVerification } from '../engine/codes/argentina/cirsoc301';
 import type { MemberDesignResult, DesignCheckSummary } from '../engine/design-check-results';
 import type { ProvidedReinforcement } from './model.svelte';
 import type { ProvidedRebarResult } from '../engine/station-design-forces';
-import type { MemberContext } from '../engine/design/member-context';
+import { declaredContextMembers, type MemberContext } from '../engine/design/member-context';
 import { regulationsStore } from './regulations.svelte';
 import type { DesignRunSummary, MemberDesignOutcome } from '../engine/design/outcome';
 import { utilizationStatus } from '../engine/design/outcome';
@@ -214,6 +216,7 @@ function createVerificationStore() {
   const providedCache = new Map<number, { key: string; result: ProvidedRebarResult }>();
   /** Bumped whenever the cache is invalidated, so $derived consumers recompute. */
   let providedRevision = $state(0);
+  let cachedDemandSnapshot: { context: MemberContext; elementId: number; demands: MemberContext['demands']; stations: MemberContext['stations']; memberIds: MemberContext['demandMemberIds'] }[] | undefined;
 
   let reinforcementProvider: ((elementId: number) => ProvidedReinforcement | undefined) | null = null;
   /** The conditions the detailing left open on the member, by key (wired in index.ts). */
@@ -240,6 +243,7 @@ function createVerificationStore() {
   }
 
   function dropCache() {
+    cachedDemandSnapshot = undefined;
     providedCache.clear();
     providedRevision++;
   }
@@ -262,6 +266,44 @@ function createVerificationStore() {
   }
 
   /** Compute (or reuse) the authoritative provided-rebar verification. */
+  function validateCachedDemands() {
+    const current = [...contexts.values()].filter(ctx => ctx.demands || ctx.stations);
+    if (cachedDemandSnapshot?.length === current.length && current.every((ctx, index) => {
+      const previous = cachedDemandSnapshot![index]!;
+      return previous.context === ctx && previous.elementId === ctx.elementId && previous.demands === ctx.demands && previous.stations === ctx.stations && previous.memberIds === ctx.demandMemberIds;
+    })) return;
+    completeMemberDemands(current.map(ctx => ({
+      elementId: ctx.elementId, demands: ctx.demands?.demands ?? [],
+      tuples: ctx.demands?.concurrent ?? (ctx.stations ? ConcurrentDemand.fromStations(ctx.stations) : undefined),
+      expectedCombinationIds: ctx.demands?.expectedCombinationIds ?? ctx.stations?.expectedCombinationIds,
+      stationTs: ctx.demands?.stationTs ?? ctx.stations?.stationTs,
+    })), declaredContextMembers(current));
+    for (const ctx of current) {
+      if (ctx.demands) {
+        for (const d of ctx.demands.demands) { Object.freeze(d.forces); Object.freeze(d); }
+        Object.freeze(ctx.demands.demands);
+        Object.freeze(ctx.demands.concurrent);
+        Object.freeze(ctx.demands.expectedCombinationIds);
+        Object.freeze(ctx.demands.stationTs);
+        Object.freeze(ctx.demands);
+      }
+      if (ctx.stations) {
+        for (const combo of ctx.stations.comboResults) {
+          for (const forces of combo.stations) Object.freeze(forces);
+          Object.freeze(combo.stations);
+          Object.freeze(combo.transverseLoading);
+          Object.freeze(combo);
+        }
+        Object.freeze(ctx.stations.comboResults);
+        Object.freeze(ctx.stations.stationTs);
+        Object.freeze(ctx.stations.expectedCombinationIds);
+        Object.freeze(ctx.stations);
+      }
+    }
+    cachedDemandSnapshot = current.map(context => ({ context, elementId: context.elementId, demands: context.demands, stations: context.stations, memberIds: context.demandMemberIds }));
+    providedCache.clear();
+  }
+
   function providedFor(elementId: number): ProvidedRebarResult | null {
     void providedRevision;   // explicit reactive dependency
     void demandRevision;
@@ -275,6 +317,7 @@ function createVerificationStore() {
     const codeId = regulationsStore.concreteDesignCode();
     if (!codeId) return null;
     const key = `${rebarHash(reinf)}|${demandRevision}|${codeId}`;
+    validateCachedDemands();
     const hit = providedCache.get(elementId);
     if (hit && hit.key === key) return hit.result;
     const adapter = getDesignCode(codeId);

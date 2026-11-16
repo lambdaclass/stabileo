@@ -1,0 +1,191 @@
+import { expect, it } from 'vitest';
+import { mesh, transform } from './snow-surface-round2-fixture';
+import { snow, pressure, regulations } from './snow-roof-plane-fixture';
+import { assertSnowRemeshInvariant, remeshSnowRoof, snowDistributedResultant } from './snow-remesh-invariance';
+import { boundedSnowIntensity } from '../snow-roof-surfaces';
+import { gravityLayout } from '../plan-gravity';
+import { snowLoadCases } from '../snow-loads';
+import { buildLoadPlan, type LoadModelData } from '../load-plan';
+
+const regression = it;
+
+function dome(angle: number) {
+  const rim = [[0, 0, 3], [8, 0, 3], [8, 8, 3], [0, 8, 3]], crown = [4, 4, 5];
+  return transform(mesh(rim.map((p, k) => [p, rim[(k + 1) % rim.length]!, crown])), angle, 0);
+}
+
+for (const angle of [0, 0.37, Math.PI / 2]) for (const mode of ['projected', 'width', 'panels'] as const) {
+  regression(`#2172 faceted dome physical panels ${mode} ${angle}`, () => {
+    const model = dome(angle);
+    const expected = 0.7 * (70 - Math.atan(2 / Math.hypot(4, 4)) * 180 / Math.PI) / 65;
+    const generate = (m: LoadModelData) => {
+      const layout = mode === 'projected' ? undefined : gravityLayout(m, { mode, tributaryWidth: 1, loadEveryPanel: true });
+      const out = snowLoadCases({ model: m, layout, snow: { ...snow, roofKind: 'dome' }, tributaryWidth: 1 })!;
+      expect(out.result.refused).toBeUndefined();
+      const eave = m.elements.get(1)!, a = m.nodes.get(eave.nodeI)!, b = m.nodes.get(eave.nodeJ)!;
+      const station = Math.min(1, Math.hypot(b.x - a.x, b.y - a.y) / 2);
+      expect(pressure(out.cases[0]!.distributed.filter(d => d.elementId === 1).map(d => ({ ...d, b: d.b ?? Math.hypot(b.x - a.x, b.y - a.y) })), 1, station)).toBeCloseTo(expected * (mode === 'panels' ? station : 1), 10);
+      if (mode === 'panels') expect(layout!.panels.find(p => p.z === 3)!.roof).toBe(true);
+      return out;
+    };
+    const refinedRafter = remeshSnowRoof(model, new Map([[2, 8]])).model;
+    for (const witness of [model, refinedRafter]) {
+      if (mode === 'panels') expect(gravityLayout(witness, { mode, tributaryWidth: 1, loadEveryPanel: true }).pieces).toHaveLength(8);
+      generate(witness);
+    }
+    for (const id of model.elements.keys()) assertSnowRemeshInvariant(model, new Map([[id, 8]]), generate);
+    assertSnowRemeshInvariant(model, new Map([...model.elements.keys()].map(id => [id, 3])), generate);
+    assertSnowRemeshInvariant(model, new Map([...model.elements.keys()].map(id => [id, 2 + id % 4])), generate);
+  });
+}
+
+for (const angle of [0, 0.37]) regression(`#2172 complete explicit-panel planner retains dome snow ${angle}`, () => {
+  const model = remeshSnowRoof(dome(angle), new Map([[2, 8]])).model;
+  const out = buildLoadPlan({ regulations: regulations(), model, dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, gravity: { mode: 'panels', loadEveryPanel: true }, tributaryWidth: 1, snow: { ...snow, roofKind: 'dome', enabled: true, source: 'site' } });
+  expect(out.outcome).toBe('READY');
+  const index = out.cases.findIndex(c => c.type === 'S' && c.nameKey === 'snow.case.balancedShaped');
+  const expected = 0.7 * (70 - Math.atan(2 / Math.hypot(4, 4)) * 180 / Math.PI) / 65;
+  expect(pressure(out.distributed.filter(d => d.caseIndex === index), 1, 1)).toBeCloseTo(expected, 10);
+});
+
+for (const angle of [0, 0.37]) for (const separation of [0.049, 0.051, 3]) {
+  it(`#2172 physical upper panel preserves the coverage boundary ${angle} ${separation}`, () => {
+    const ring = (z: number) => [[0, 0, z], [8, 0, z], [8, 8, z], [0, 8, z]];
+    const model = transform(mesh([ring(3), ring(3 + separation)]), angle, 0);
+    const generate = (m: LoadModelData) => {
+      const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true });
+      expect(layout.panels).toHaveLength(2);
+      const lower = layout.panels.find(p => Math.abs(p.z - 3) < 1e-12)!;
+      expect(lower.roof).toBe(!(separation > 0.05));
+      expect(layout.panels.find(p => p !== lower)!.roof).toBe(true);
+      const out = snowLoadCases({ model: m, layout, snow: { ...snow, roofKind: 'mono' }, tributaryWidth: 1 })!;
+      expect(out.result.refused).toBeUndefined();
+      return out;
+    };
+    assertSnowRemeshInvariant(model, new Map([[1, 3], [5, 5]]), generate);
+  });
+}
+
+it('#2172 physical panel widths retain full precision under thirds', () => {
+  const model = remeshSnowRoof(dome(0), new Map([[1, 3]])).model;
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true });
+  const first = layout.pieces.find(p => p.elementId === 1)!;
+  expect(first.wI).toBe(0);
+  expect(first.wJ).toBeCloseTo(8 / 3, 12);
+});
+
+it('#2172 shaped pressure times triangular width retains physical force and moment', () => {
+  const model = dome(0), layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true });
+  layout.panels.forEach(p => { p.roof = true; });
+  layout.pieces.forEach(p => { p.roof = true; });
+  const out = snowLoadCases({ model, layout, snow: { ...snow, roofKind: 'dome' }, tributaryWidth: 1 })!;
+  expect(out.result.refused).toBeUndefined();
+  const p = 2 * 0.7 * (70 - Math.atan(2 / Math.hypot(4, 4)) * 180 / Math.PI) / 65;
+  const [force, moment] = snowDistributedResultant(model, out.cases[3]!.distributed, new Set([1]), [0, 0], [1, 0]);
+  expect(force).toBeCloseTo(-8 * p, 10);
+  expect(moment).toBeCloseTo(-80 * p / 3, 10);
+});
+
+for (const angle of [0, 0.37]) it(`#2172 default overlapping roof tributaries retain their warning ${angle}`, () => {
+  const model = dome(angle);
+  for (const m of [model, remeshSnowRoof(model, new Map([[2, 8]])).model]) {
+    const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 1 });
+    expect(layout.notes.some(n => n.key === 'loadPlan.gravity.headroomUnclearRoof')).toBe(true);
+  }
+});
+
+function integratePolynomial(coefficients: number[], lo: number, hi: number) {
+  return coefficients.reduce((sum, value, k) => sum + value * (hi ** (k + 1) - lo ** (k + 1)) / (k + 1), 0);
+}
+
+function multiply(a: number[], b: number[]) {
+  const out = Array<number>(a.length + b.length - 1).fill(0);
+  a.forEach((v, i) => b.forEach((w, j) => { out[i + j]! += v * w; }));
+  return out;
+}
+
+type PolynomialPiece = { a: number; b: number; q: number[] };
+function beamResponse(pieces: PolynomialPiece[], x: number) {
+  const integral = (weight: number[], end = 8) => pieces.reduce((sum, p) => sum + (end > p.a ? integratePolynomial(multiply(p.q, weight), p.a, Math.min(p.b, end)) : 0), 0);
+  const left = -integral([8, -1]) / 8;
+  const cubic = (s: number) => [s ** 3, -3 * s * s, 3 * s, -1];
+  const c = -(left * 8 ** 3 + integral(cubic(8))) / (6 * 8);
+  return [left + integral([1], x), left * x + integral([x, -1], x), left * x ** 3 / 6 + integral(cubic(x), x) / 6 + c * x];
+}
+
+for (const angle of [0, 0.37]) for (const reversed of [false, true]) {
+  const check = () => {
+    const model = dome(angle);
+    if (reversed) {
+      const e = model.elements.get(1)!;
+      [e.nodeI, e.nodeJ] = [e.nodeJ, e.nodeI];
+    }
+    const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true });
+    const out = snowLoadCases({ model, layout, snow: { ...snow, roofKind: 'dome' }, tributaryWidth: 1 })!;
+    expect(out.result.refused).toBeUndefined();
+    const p = 2 * 0.7 * (70 - Math.atan(2 / Math.hypot(4, 4)) * 180 / Math.PI) / 65;
+    const caseIndex = reversed ? 4 : 3;
+    const loads = out.cases[caseIndex]!.distributed.filter(d => d.elementId === 1);
+    const exact: PolynomialPiece[] = [{ a: 0, b: 4, q: [0, -p, p / 8] }, { a: 4, b: 8, q: [-8 * p, 2 * p, -p / 8] }];
+    const affine = loads.map(d => {
+      const a = d.a ?? 0, b = d.b ?? 8, slope = ((d.qJ ?? d.q) - d.q) / (b - a);
+      return { a: reversed ? 8 - b : a, b: reversed ? 8 - a : b, q: reversed ? [d.q + slope * (8 - a), -slope] : [d.q - slope * a, slope] };
+    });
+    for (let k = 1; k < 160; k++) {
+      const x = k / 20, physical = x <= 4 ? -p * x * (1 - x / 8) : -p * (8 - x) * (1 - x / 8);
+      const actual = -pressure(loads, 1, reversed ? 8 - x : x);
+      expect.soft(Math.abs(actual - physical)).toBeLessThanOrEqual(2 * p * 1e-4 + 1e-12);
+    }
+    for (const x of [1, 2, 3, 4, 5, 6, 7]) {
+      const actual = beamResponse(affine, x), expected = beamResponse(exact, x);
+      expect.soft(Math.abs(actual[0]! - expected[0]!)).toBeLessThan(8 * p * 1e-4);
+      expect.soft(Math.abs(actual[1]! - expected[1]!)).toBeLessThan(64 * p * 1e-4);
+      expect.soft(Math.abs(actual[2]! - expected[2]!)).toBeLessThan(4096 * p * 1e-6);
+    }
+    for (const direction of [[Math.cos(angle), Math.sin(angle)], [-Math.sin(angle), Math.cos(angle)]]) {
+      const [force, moment] = snowDistributedResultant(model, out.cases[caseIndex]!.distributed, new Set([1]), [0, 0], direction);
+      expect(force).toBeCloseTo(-8 * p, 10);
+      expect(moment).toBeCloseTo(direction[0] === Math.cos(angle) ? -80 * p / 3 : 0, 10);
+    }
+  };
+  if (angle === 0 && !reversed) it('#2172 quadratic strip intensity and simply supported response', check);
+  else it(`#2172 quadratic strip intensity and simply supported response ${angle} ${reversed}`, check);
+}
+
+it('bounded snow intensity retains zero and affine controls and refuses invalid pressure', () => {
+  for (const samples of [[0, 0, 0], [-2, -2, -2], [0, -1, -2], [-2, -1, 0]]) {
+    const profile = boundedSnowIntensity(samples[0]!, samples[1]!, samples[2]!);
+    expect(profile.approximated).toBe(false);
+    expect(profile.absoluteErrorBound).toBe(0);
+    for (const segment of profile.segments) {
+      expect(segment.q).toBe(samples[0]! + (samples[2]! - samples[0]!) * segment.a);
+      expect(segment.qJ).toBe(samples[0]! + (samples[2]! - samples[0]!) * segment.b);
+    }
+  }
+  for (const invalid of [1e-12, Infinity, NaN]) expect(() => boundedSnowIntensity(-1, invalid, -1)).toThrow('snow.refused.roofPlane');
+  expect(() => boundedSnowIntensity(-1, -1e-12, -1)).not.toThrow();
+});
+
+it('bounded snow intensity preserves both sides of a stationary zero and the subdivision boundary', () => {
+  for (const delta of [0, 0.000299999999, 0.000300000001, 0.25, -0.25]) {
+    const samples = delta === 0.25 ? [-0.25, 0, -0.25] : [-1, -0.5 + delta, 0];
+    const profile = boundedSnowIntensity(samples[0]!, samples[1]!, samples[2]!);
+    let force = 0, moment = 0, largestError = 0;
+    for (const segment of profile.segments) {
+      const span = segment.b - segment.a;
+      force += span * (segment.q + segment.qJ) / 2;
+      moment += span * (segment.a * (segment.q + segment.qJ) / 2 + span * (segment.q + 2 * segment.qJ) / 6);
+      for (const t of [0, 1 / 3, 0.5, 2 / 3, 1]) {
+        const x = segment.a + span * t;
+        const physical = samples[0]! + (samples[2]! - samples[0]!) * x + 4 * delta * x * (1 - x);
+        largestError = Math.max(largestError, Math.abs(segment.q + (segment.qJ - segment.q) * t - physical));
+      }
+    }
+    expect(largestError).toBeLessThanOrEqual(profile.absoluteErrorBound + 1e-14);
+    expect(profile.absoluteErrorBound).toBeLessThanOrEqual(1e-4 * Math.max(...samples.map(Math.abs)));
+    expect(force).toBeCloseTo((samples[0]! + samples[2]!) / 2 + 2 * delta / 3, 13);
+    expect(moment).toBeCloseTo(samples[0]! / 2 + (samples[2]! - samples[0]!) / 3 + delta / 3, 13);
+    if (delta > 0.0003 && delta < 0.001) expect(profile.segments.length).toBeGreaterThan(2);
+    if (Math.abs(delta) < 0.0003) expect(profile.segments).toHaveLength(2);
+  }
+});

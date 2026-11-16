@@ -1,3 +1,4 @@
+import { CompleteDemandSet, IncompleteConcurrentDemandError, requireDemandInventories, demandCoverage, memberDemandScope } from './complete-demand-set';
 import { copyVerificationCheck } from './verification-steps';
 import { withBiaxialCapacityCache } from './station-design-forces';
 import { verificationForElement } from './element-verification-copy';
@@ -29,11 +30,24 @@ function completeCaseKeys(): (input: ConcurrentVerificationInput) => string | un
   };
 }
 
-export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationInput[]): ElementVerification {
-  return withBiaxialCapacityCache(() => verifyConcurrentCases(inputs));
+export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationInput[] | CompleteDemandSet<{ elementId: number; comboId: number; stationT: number; input: ConcurrentVerificationInput }>): ElementVerification {
+  requireDemandInventories((inputs instanceof CompleteDemandSet ? inputs.values.map(r => r.input) : inputs).map(i => i.demand.source));
+  if (inputs instanceof CompleteDemandSet) { inputs.assertComplete(); return withBiaxialCapacityCache(() => verifyConcurrentCases(inputs)); }
+  if (!inputs.length) throw new IncompleteConcurrentDemandError([{ code: 'missing-scope' }], 'Concurrent demands are required for verification');
+  const byMember = new Map<number, ConcurrentVerificationInput[]>();
+  for (const input of inputs) {
+    const list = byMember.get(input.elementId) ?? [];
+    list.push(input); byMember.set(input.elementId, list);
+  }
+  const coverage = [...byMember].map(([elementId, list]) => ({ elementId, ...demandCoverage({}, list.map(i => i.demand.source)) }));
+  const complete = CompleteDemandSet.require(memberDemandScope(coverage), inputs.map(input => ({
+      elementId: input.elementId, comboId: input.demand.source.comboId, stationT: input.demand.source.stationT, input, inventory: input.demand.source.inventory,
+    })));
+  return withBiaxialCapacityCache(() => verifyConcurrentCases(complete));
 }
 
-function verifyConcurrentCases(inputs: readonly ConcurrentVerificationInput[]): ElementVerification {
+function verifyConcurrentCases(complete: CompleteDemandSet<{ elementId: number; comboId: number; stationT: number; input: ConcurrentVerificationInput }>): ElementVerification {
+  const inputs = complete.values.map(r => r.input);
   if (!inputs.length) throw new Error('Concurrent demands are required for verification');
   const first = inputs[0]!;
   const params = { b: first.b, h: first.h, fc: first.fc, fy: first.fy, cover: first.cover, stirrupDia: first.stirrupDia };

@@ -1,3 +1,5 @@
+import { declaredTestDemands } from './helpers/declared-demands';
+import { CompleteDemandSet } from '../complete-demand-set';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyConcurrentElement } from '../concurrent-verification';
@@ -7,14 +9,14 @@ import * as engine from '../codes/argentina/cirsoc201-engine';
 import { autoVerifyFromResults, type AutoVerifyModelData } from '../auto-verify';
 import * as concurrentVerification from '../concurrent-verification';
 import { runUnifiedVerification, runCirsocDesign } from '../verification-service';
-import { extractGoverningDemands } from '../station-design-forces';
+import { extractGoverningDemands, type ElementDesignDemands } from '../station-design-forces';
 import type { AnalysisResults3D } from '../types-3d';
 
 const cases = (['beam', 'column', 'wall'] as const).flatMap(elementType =>
   (['My', 'Mz'] as const).flatMap(axis => (['2005', '2025'] as const).map(edition => ({ elementType, axis, edition }))));
 
 function inputsFor({ elementType, axis, edition }: typeof cases[number]): ConcurrentVerificationInput[] {
-  return ConcurrentDemand.fromTuples([0, 1, 2, 3].map(i => ({ comboId: i + 1, comboName: `comb ${i + 1}`,
+  return declaredTestDemands([0, 1, 2, 3].map(i => ({ comboId: i + 1, comboName: `comb ${i + 1}`,
     forces: { n: [0, -100, 100, -300][i]!, my: [20, -65, 55, 20][i]!, mz: [15, 25, -35, 10][i]!,
       vy: 5 + i, vz: 10 - i, torsion: i, t: i / 3, x: i / 3 * 0.4 },
   }))).map(demand => ({ elementId: 1, elementType, edition, demand: demand.section(axis),
@@ -59,7 +61,10 @@ it.each(cases)('#2080 — $elementType $axis $edition sizes each station once wh
 it.each(cases)('$elementType $axis $edition retains every exact shared-cage result and certificate', options => {
   const inputs = inputsFor(options);
   expect(verifyConcurrentElement(inputs).concurrentChecks).toEqual(referenceChecks(inputs));
-  expect(verifyConcurrentElement([inputs[0]!]).concurrentChecks).toEqual(referenceChecks([inputs[0]!]));
+  const source = inputs[0]!.demand.source;
+  const single = { ...inputs[0]!, demand: declaredTestDemands([{ comboId: source.comboId, comboName: source.comboName,
+    forces: source.forces, transverseLoading: source.transverseLoading }])[0]!.section(options.axis) };
+  expect(verifyConcurrentElement([single]).concurrentChecks).toEqual(referenceChecks([single]));
 });
 
 it('refuses an empty concurrent set', () => {
@@ -213,10 +218,16 @@ function sharedBeamModel() {
   return { model, results, demands };
 }
 
+function sharedDemands(demands: ElementDesignDemands, uncached = false) {
+  return new Map([1, 2].map(elementId => [elementId, { ...demands, elementId,
+    concurrent: uncached ? [...demands.concurrent!] : demands.concurrent,
+  }]));
+}
+
 it.each(['auto', 'unified', 'design'] as const)('#2080 — $0 verifies identical shared-span inputs once per run', entry => {
   const { model, results, demands } = sharedBeamModel();
   const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
-  const shared = new Map([[1, demands], [2, demands]]);
+  const shared = sharedDemands(demands);
   const output = entry === 'auto' ? autoVerifyFromResults(results, model, null, undefined, shared).concrete
     : entry === 'unified' ? runUnifiedVerification(results, model, null, shared)
       : runCirsocDesign(results, model, shared, new Map([[1, 'RC'], [2, 'RC']]), null).concrete;
@@ -232,10 +243,10 @@ it.each(['b', 'h', 'fc'] as const)('keeps separate checks when shared-demand mem
   model.sections.set(2, { ...model.sections.get(1)!, id: 2, ...(field !== 'fc' ? { [field]: 0.5 } : {}) });
   model.materials.set(2, { ...model.materials.get(1)!, id: 2, ...(field === 'fc' ? { fc: 25 } : {}) });
   const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
-  const actual = autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, demands]])).concrete;
+  const actual = autoVerifyFromResults(results, model, null, undefined, sharedDemands(demands)).concrete;
   expect(verify).toHaveBeenCalledTimes(2);
-  const expected = results.elementForces.flatMap(ef => autoVerifyFromResults({ ...results, elementForces: [ef] }, model,
-    null, undefined, new Map([[ef.elementId, demands]])).concrete);
+  const expected = autoVerifyFromResults(results, model, null, undefined, sharedDemands(demands, true)).concrete;
+  expect(verify).toHaveBeenCalledTimes(4);
   expect(actual).toEqual(expected);
 });
 
@@ -245,16 +256,17 @@ it('shared-span reuse preserves exact results, diagnostics, brands and independe
   const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement').mockImplementation(inputs => {
     const value = real(inputs);
     const diagnostic = { severity: 'warning' as const, code: 'VERIF_WARN_FLEXURE', message: 'diag.verifWarnFlexure',
-      source: 'verification' as const, elementIds: [inputs[0]!.elementId], details: { ratio: value.flexure.ratio } };
+      source: 'verification' as const, elementIds: [(inputs instanceof CompleteDemandSet ? inputs.values[0]!.input : inputs[0]!).elementId], details: { ratio: value.flexure.ratio } };
     value.diagnostics = [diagnostic];
     value.concurrentChecks![0]!.verification.diagnostics = [diagnostic];
     return value;
   });
-  const run = (forces: typeof results.elementForces) => autoVerifyFromResults({ ...results, elementForces: forces }, model,
-    null, undefined, new Map([[1, demands], [2, demands]])).concrete;
+  const run = (forces: typeof results.elementForces, uncached = false) => autoVerifyFromResults({ ...results, elementForces: forces }, model,
+    null, undefined, sharedDemands(demands, uncached)).concrete;
   const actual = run(results.elementForces);
   expect(verify).toHaveBeenCalledTimes(1);
-  const expected = results.elementForces.flatMap(ef => run([ef]));
+  const expected = run(results.elementForces, true);
+  expect(verify).toHaveBeenCalledTimes(3);
   expect(actual).toEqual(expected);
   expect(actual[1]!.concurrentChecks![0]!.demand.section('My').source).toBe(demands.concurrent![0]);
   actual[1]!.flexure.steps.push('changed');
@@ -265,7 +277,7 @@ it('shared-span reuse preserves exact results, diagnostics, brands and independe
 it('a new verification run recomputes shared-span checks', () => {
   const { model, results, demands } = sharedBeamModel();
   const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
-  const run = () => autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, demands]]));
+  const run = () => autoVerifyFromResults(results, model, null, undefined, sharedDemands(demands));
   run();
   expect(verify).toHaveBeenCalledTimes(1);
   expect(run()).toEqual(run());
@@ -275,9 +287,9 @@ it('a new verification run recomputes shared-span checks', () => {
 it('distinct tuple sets and incomplete data cannot reuse a previous member check', () => {
   const { model, results, demands } = sharedBeamModel();
   const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
-  autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, { ...demands, concurrent: [...demands.concurrent!] }]]));
+  autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, { ...demands, elementId: 2, concurrent: [...demands.concurrent!] }]]));
   expect(verify).toHaveBeenCalledTimes(2);
-  expect(() => autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, { ...demands, concurrent: [] }]])))
+  expect(() => autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, { ...demands, elementId: 2, concurrent: [] }]])))
     .toThrow('Incomplete concurrent demand');
 });
 
@@ -286,17 +298,17 @@ it('uncertified shared-span checks are recomputed with each member id', () => {
   const real = concurrentVerification.verifyConcurrentElement;
   const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement').mockImplementation(inputs => {
     const value = real(inputs);
-    value.engineRecheck!.certified = { ok: false, lower: 0, upper: Infinity, reason: `member ${inputs[0]!.elementId}` };
+    value.engineRecheck!.certified = { ok: false, lower: 0, upper: Infinity, reason: `member ${(inputs instanceof CompleteDemandSet ? inputs.values[0]!.input : inputs[0]!).elementId}` };
     return value;
   });
-  const actual = autoVerifyFromResults(results, model, null, undefined, new Map([[1, demands], [2, demands]])).concrete;
+  const actual = autoVerifyFromResults(results, model, null, undefined, sharedDemands(demands)).concrete;
   expect(verify).toHaveBeenCalledTimes(2);
   expect(actual.map(v => v.engineRecheck!.certified!.reason)).toEqual(['member 1', 'member 2']);
 });
 
 it('a changed tuple in the same array cannot reuse a previous shared-span check', () => {
   const { model, results, demands } = sharedBeamModel();
-  const shared = new Map([[1, demands], [2, demands]]);
+  const shared = sharedDemands(demands);
   const get = shared.get.bind(shared);
   vi.spyOn(shared, 'get').mockImplementation(id => {
     if (id === 2) (demands.concurrent as ConcurrentDemand[])[0] = demands.concurrent![0]!.withAxial(-100);
@@ -319,12 +331,14 @@ for (const edition of ['2005', '2025'] as const) for (const entry of ['auto', 'u
         t, x: 2 * t, n: 0, my: 20, mz: 15, vy: 2, vz: 5, torsion: 0,
       })) }] });
     const forces = reverse ? [...results.elementForces].reverse() : results.elementForces;
-    const shared = new Map([[1, demands], [2, demands]]);
-    const run = (elementForces: typeof forces) => entry === 'auto'
+    const run = (elementForces: typeof forces, uncached = false) => {
+      const shared = sharedDemands(demands, uncached);
+      return entry === 'auto'
       ? autoVerifyFromResults({ ...results, elementForces }, model, null, { edition }, shared).concrete
       : entry === 'unified' ? runUnifiedVerification({ ...results, elementForces }, model, null, shared, { edition })
         : runCirsocDesign({ ...results, elementForces }, model, shared, new Map(), null, { edition }).concrete;
-    const expected = forces.flatMap(ef => run([ef]));
+    };
+    const expected = run(forces, true);
     expect(new Set(expected.map(v => v.flexureAxis)).size).toBe(2);
     expect(expected.every(v => v.engineRecheck?.certified?.ok)).toBe(true);
     expect(run(forces)).toEqual(expected);
@@ -337,10 +351,13 @@ it.each(cases)('every shared $elementType $axis $edition fixture equals an uncac
     for (const node of model.nodes.values()) { node.z = node.x; node.x = 0; }
   }
   const inputs = inputsFor(options);
-  const demands = extractGoverningDemands({ elementId: 1, length: 2, stationTs: inputs.map(i => i.demand.source.stationT),
-    comboResults: inputs.map(i => ({ comboId: i.demand.source.comboId, comboName: i.demand.source.comboName,
-      stations: [{ ...i.demand.source.forces }] })) });
-  const run = (elementForces: typeof results.elementForces) => autoVerifyFromResults({ ...results, elementForces }, model,
-    null, { edition: options.edition }, new Map([[1, demands], [2, demands]])).concrete;
-  expect(run(results.elementForces)).toEqual(results.elementForces.flatMap(ef => run([ef])));
+  const perCombo = inputs.map(i => extractGoverningDemands({ elementId: 1, length: 2, stationTs: [i.demand.source.stationT],
+    comboResults: [{ comboId: i.demand.source.comboId, comboName: i.demand.source.comboName,
+      stations: [{ ...i.demand.source.forces }] }] }));
+  const demands = { elementId: 1, length: 2, demands: perCombo.flatMap(d => d.demands), concurrent: inputs.map(i => i.demand.source) };
+  const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
+  const run = (uncached = false) => autoVerifyFromResults(results, model,
+    null, { edition: options.edition }, sharedDemands(demands, uncached)).concrete;
+  expect(run()).toEqual(run(true));
+  expect(verify).toHaveBeenCalledTimes(options.elementType === 'beam' ? 3 : 4);
 });

@@ -1,3 +1,4 @@
+import { completeResultDemands } from '../engine/result-demand-gate';
 /**
  * Lightest passing steel profiles: propose against the analysis on hand, write them to the
  * model, and say plainly whether they still hold after the model is solved again.
@@ -106,12 +107,14 @@ export function membersFor(ids: readonly number[]): { members: OptimiseMember[];
   let combos = activeCombinations();
   // The one solve stands in only when it is the design load: never the loads at factor 1 while
   // combinations are defined (`designCombinationsWithheld`), never an SRSS or ABS magnitude.
-  const single = perCombo.size === 0 ? activeResultSet3D() : null;
+  const single = perCombo.size === 0 && combos.length === 0 ? activeResultSet3D() : null;
   if (single) {
     perCombo = new Map([[0, single]]);
     combos = [{ id: 0, name: '', factors: [] }] as never;
   }
   const { demands, stations } = computeStationDemands(perCombo, combos, md as never);
+  const scopedIds = ids.filter(id => isDesignedMember(modelStore.elements.get(id), modelStore.sections));
+  completeResultDemands(resultsStore.results3D ?? { elementForces: [], displacements: [], reactions: [] }, scopedIds, demands, undefined, scopedIds);
   const lengths = memberLengths(modelStore.model);
   const forces = new Map((resultsStore.results3D?.elementForces ?? []).map((f) => [f.elementId, f]));
   const members: OptimiseMember[] = [];

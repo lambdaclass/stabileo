@@ -1,7 +1,8 @@
+import { checkDeclaredSteelMember } from './helpers/declared-demands';
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it, vi } from 'vitest';
 import * as steelChecks from '../codes/argentina/cirsoc301';
-import { ConcurrentDemand } from '../concurrent-demand';
-import { checkSteelMember, steelDemandOf, steelMemberLengths, runSteelVerification, type SteelMemberDemand } from '../verification-service';
+import { steelDemandOf, steelMemberLengths, runSteelVerification, type SteelMemberDemand } from '../verification-service';
 import { extractGoverningDemands, type ElementStationResult } from '../station-design-forces';
 import { profileByName, profileToSectionFull } from '../../data/steel-profiles';
 import { steelSectionConstants } from '../steel/section-constants';
@@ -25,12 +26,12 @@ for (const screen of [false, true]) for (const sign of [1, -1]) for (const t of 
       stations: ts.map(t => ({ t, x: 10 * t, n: -100, my: sign * (t < 0.5 ? 80 - 80 * t : 40), mz: 0, vy: 0, vz: 0, torsion: 0 })) }] };
     const d = steelDemandOf(ef, extractGoverningDemands(stations), stations);
     const at = d.concurrent![0]!.interpolate(d.concurrent!.at(-1)!, t);
-    const point = ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'C', forces: { ...at.forces, my: sign * (t < 0.5 ? 80 - 80 * t : 40) } }])[0]!;
-    const selected = { ...d, concurrent: [point], tuples: [{ N: 100, MStrong: point.my, MWeak: 0, VStrong: 0, VWeak: 0, comboId: 1, comboName: 'C', t }] };
+    const point = declaredTestDemands([{ comboId: 1, comboName: 'C', forces: { ...at.forces, my: sign * (t < 0.5 ? 80 - 80 * t : 40) } }])[0]!;
+    const selected = { ...d, coverage: point.coverage, concurrent: [point], tuples: [{ N: 100, MStrong: point.my, MWeak: 0, VStrong: 0, VWeak: 0, comboId: 1, comboName: 'C', t }] };
     const lengths = steelMemberLengths({ bracing: { top: [5], bottom: [5] }, steelLoadHeight: 'web' }, { L: 10, Lb: 10 });
-    const physical = checkSteelMember(1, selected, section, steel, lengths, undefined, { screen })!;
-    const tuple = checkSteelMember(1, { ...selected, concurrent: undefined }, section, steel, lengths, undefined, { screen })!;
-    const unity = checkSteelMember(1, { ...selected, diagrams: undefined }, section, steel, lengths, undefined, { screen })!;
+    const physical = checkDeclaredSteelMember(1, selected, section, steel, lengths, undefined, { screen })!;
+    const tuple = checkDeclaredSteelMember(1, { ...selected, concurrent: undefined }, section, steel, lengths, undefined, { screen })!;
+    const unity = checkDeclaredSteelMember(1, { ...selected, diagrams: undefined }, section, steel, lengths, undefined, { screen })!;
     const cb = t >= 0.5 ? 1 : momentGradient({ stations: d.diagrams!.get(1)!, tStart: 0, tEnd: 0.5, shape: 'I' }).cb;
     expect(physical.flexureZ.phiMn).toBeCloseTo(unity.flexureZ.phiMn * cb, 8);
     expect(tuple.flexureZ.phiMn).toBe(physical.flexureZ.phiMn);
@@ -42,7 +43,7 @@ for (const screen of [false, true]) for (const sign of [1, -1]) for (const t of 
       expect(candidate({ ...selected, concurrent: undefined })).toEqual(candidate(selected));
     }
     for (const diagramLength of [undefined, 0, -1, NaN, Infinity]) {
-      const unknown = checkSteelMember(1, { ...selected, concurrent: undefined, diagramLength }, section, steel, lengths, undefined, { screen })!;
+      const unknown = checkDeclaredSteelMember(1, { ...selected, concurrent: undefined, diagramLength }, section, steel, lengths, undefined, { screen })!;
       expect(unknown.flexureZ.phiMn).toBe(unity.flexureZ.phiMn);
       expect(unknown.interaction!.ratio).toBe(unity.interaction!.ratio);
     }
@@ -60,7 +61,7 @@ for (const screen of [false, true]) for (const weakGoverns of [false, true]) for
     const d = steelDemandOf(ef, extractGoverningDemands(stations), stations);
     const lengths = { L: 10, Lb: 10, loadPosition: 'web' as const };
     for (const input of [d, { ...d, concurrent: undefined }]) {
-      const v = checkSteelMember(1, input, section, steel, lengths, undefined, { screen })!;
+      const v = checkDeclaredSteelMember(1, input, section, steel, lengths, undefined, { screen })!;
       expect(v.shear.Vu).toBe(weakGoverns ? strong : weak);
       expect(v.shear.ratio).toBe(v.shear.Vu / v.shear.phiVn);
       expect(v.shearWeak!.Vu).toBe(weakGoverns ? weak : strong);
@@ -108,7 +109,7 @@ for (const nonlinear of [false, true]) for (const spatial of [false, true]) it(`
   const force = raw.elementForces[0]!;
   const d = steelDemandOf(force);
   const lengths = { L: 10, Lb: 10, loadPosition: 'web' as const };
-  const v = checkSteelMember(1, d, section, steel, lengths)!;
+  const v = checkDeclaredSteelMember(1, d, section, steel, lengths)!;
   expect(v.shear.Vu).toBe(Math.max(Math.abs(force.vzStart), Math.abs(force.vzEnd)));
   expect(v.Vu).toBe(v.shear.Vu);
   expect(v.shear.ratio).toBe(v.shear.Vu / v.shear.phiVn);

@@ -24,7 +24,8 @@ import { isDesignedMember } from './design/behaviour-demands';
 import { primaryAxis } from './design/design-axes';
 import { verifyConcurrentElement } from './concurrent-verification';
 import { canReuseCirsoc201Certificate } from './codes/argentina/cirsoc201-engine-gate';
-import { ConcurrentDemand, requireCompleteConcurrentDemand } from './concurrent-demand';
+import { ConcurrentDemand } from './concurrent-demand';
+import { completeResultDemands, type CompleteResultDemands } from './result-demand-gate';
 import { CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 import type { RegulationEdition } from '../codes/regulation';
 
@@ -158,9 +159,16 @@ export function autoVerifyFromResults(
   options?: AutoVerifyOptions,
   stationDemands?: Map<number, ElementDesignDemands>,
 ): AutoVerifyResult {
+  const ids = [...model.elements].filter(([, elem]) => rcCheckability(elem, model) === 'checkable'
+    && isDesignedMember(elem as never, model.sections as never)).map(([id]) => id);
+  return verifyCompleteResults(completeResultDemands(results, ids, stationDemands, governing, ids), model, options);
+}
+
+function verifyCompleteResults(complete: CompleteResultDemands, model: AutoVerifyModelData, options?: AutoVerifyOptions): AutoVerifyResult {
   const concrete: ElementVerification[] = [];
   const shared = new WeakMap<readonly ConcurrentDemand[], Array<{ base: VerificationBase; axis: 'My' | 'Mz'; tuples: readonly ConcurrentDemand[]; value: ElementVerification }>>();
-  for (const ef of results.elementForces) {
+  for (const [member, verified] of complete.partition(r => r.member)) {
+    const { ef, demands, tuples } = member;
     const elem = model.elements.get(ef.elementId);
     if (!elem || rcCheckability(elem, model) !== 'checkable' || !isDesignedMember(elem as never, model.sections as never)) continue;
     const nodeI = model.nodes.get(elem.nodeI), nodeJ = model.nodes.get(elem.nodeJ);
@@ -169,14 +177,6 @@ export function autoVerifyFromResults(
     const material = model.materials.get(elem.materialId)!;
     const b = section.b!, h = section.h!;
     const elementType = classifyElement(nodeI.x, nodeI.y, nodeI.z ?? 0, nodeJ.x, nodeJ.y, nodeJ.z ?? 0, b, h);
-    const demands = stationDemands?.get(ef.elementId);
-    if (stationDemands !== undefined || governing?.has(ef.elementId)) {
-      const expected = [...(demands?.expectedCombinationIds ?? []), ...(demands?.demands.map(d => d.comboId) ?? []),
-        ...(demands?.concurrent?.map(d => d.comboId) ?? [])];
-      requireCompleteConcurrentDemand(expected, demands?.concurrent?.map(d => d.comboId) ?? [],
-        `every combination requires concurrent tuples for element ${ef.elementId}`);
-    }
-    const tuples = demands?.concurrent ?? ConcurrentDemand.endpoints(ef);
     const my = Math.max(...tuples.map(d => Math.abs(d.forces.my))), mz = Math.max(...tuples.map(d => Math.abs(d.forces.mz)));
     const axis = primaryAxis(elementType, { b, h }, my, mz);
     const isVertical = elementType !== 'beam';
@@ -195,7 +195,7 @@ export function autoVerifyFromResults(
       entry.tuples.length === tuples.length && entry.tuples.every((d, index) => d === tuples[index])
       && entry.axis === axis && sameVerificationBase(base, entry.base)) : undefined;
     let v = previous ? verificationForElement(previous.value, ef.elementId)
-      : verifyConcurrentElement(tuples.map(d => ({ ...base, elementId: ef.elementId, demand: d.section(axis) })));
+      : verifyConcurrentElement(verified.forMembers([ef.elementId]).map(r => ({ input: { ...base, elementId: ef.elementId, demand: r.tuple.section(axis) } })));
     if (!previous && elementType === 'beam' && v.engineRecheck && canReuseCirsoc201Certificate(v.engineRecheck.certified)
       && !v.engineRecheck.unavailable && v.engineRecheck.disagreements.length === 0) {
       const entries = shared.get(tuples) ?? [];

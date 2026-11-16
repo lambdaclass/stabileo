@@ -1,10 +1,10 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { afterEach, expect, it } from 'vitest';
 import { solve, solvePDelta, solve3D, solvePDelta3D } from '../wasm-solver';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
 import { computeStationDemands, setCompactStationTransfer, runUnifiedVerification, runCirsocDesign } from '../verification-service';
 import { autoVerifyFromResults, type AutoVerifyModelData } from '../auto-verify';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { checkTorsion, verifyElement, prepareElementVerification } from '../codes/argentina/cirsoc201';
 
@@ -55,7 +55,7 @@ for (const nonlinear of [false, true]) it(`2D WASM nonlinear=${nonlinear} remain
   const raw = nonlinear ? solvePDelta(solver).results : solve(solver);
   const ef = raw.elementForces[0]!;
   expect(Math.abs(ef.mStart)).toBeCloseTo(20, 10);
-  const inputs = ConcurrentDemand.fromTuples(([0, 1] as const).map(t => ({ comboId: 1, comboName: '2D moment', forces: {
+  const inputs = declaredTestDemands(([0, 1] as const).map(t => ({ comboId: 1, comboName: '2D moment', forces: {
     t, x: t * ef.length, n: t ? ef.nEnd : ef.nStart, my: t ? ef.mEnd : ef.mStart, mz: 0,
     vy: 0, vz: t ? ef.vEnd : ef.vStart, torsion: 0,
   } }))).map(d => ({ ...params, elementId: 1, elementType: 'beam' as const, demand: d.section('My') }));
