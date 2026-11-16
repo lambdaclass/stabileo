@@ -61,7 +61,7 @@ export interface ColumnRow {
   proposed: ColumnAdopted;
   adopted: ColumnAdopted;
   isAdopted: boolean;
-  checks: { ratio: number; ok: boolean; area: number; spacingOk: boolean; tieOk: boolean; tieMax: number; crossties: { x: number; y: number }; rhoOk: boolean; shearX: number; shearY: number };
+  checks: { ratio: number; ok: boolean; area: number; spacingOk: boolean; tieOk: boolean; tieMax: number; crossties: { x: number; y: number; inner?: { x: number; y: number } }; rhoOk: boolean; shearX: number; shearY: number };
   verifications: CheckLine[];
   combos: ComboTable;
   iterations: number;
@@ -74,7 +74,31 @@ export interface ColumnRow {
   confinement?: { lo: number; so: number };
 }
 
-const coverToBar = (c: ColumnContext, tie: number, dia: number) => c.cover + tie / 1000 + dia / 2000;
+const coverToBar = (c: Pick<ColumnContext, 'cover'>, tie: number, dia: number) => c.cover + tie / 1000 + dia / 2000;
+
+/** The row inside each face, from the section's centre, m: its bars along b at `xs` and ±`yIn`, along h at ±`xIn` and `ys`. */
+export function innerRow(d: { b: number; h: number }, a: ColumnAdopted, c: Pick<ColumnContext, 'cover'>): { xIn: number; yIn: number; xs: number[]; ys: number[] } | null {
+  const inn = a.inner;
+  if (!inn || (inn.nx <= 0 && inn.ny <= 0)) return null;
+  const xc = d.b / 2 - coverToBar(c, a.tieDia, a.corner), yc = d.h / 2 - coverToBar(c, a.tieDia, a.corner);
+  const step = (outer: number) => outer / 2000 + layerClearBetween('2025', outer, inn.dia) + inn.dia / 2000;
+  return {
+    yIn: d.h / 2 - coverToBar(c, a.tieDia, Math.max(a.corner, a.dx)) - step(Math.max(a.corner, a.dx)),
+    xIn: d.b / 2 - coverToBar(c, a.tieDia, Math.max(a.corner, a.dy)) - step(Math.max(a.corner, a.dy)),
+    xs: Array.from({ length: Math.max(0, inn.nx) }, (_, i) => -xc + (2 * xc * (i + 1)) / (inn.nx + 1)),
+    ys: Array.from({ length: Math.max(0, inn.ny) }, (_, i) => -yc + (2 * yc * (i + 1)) / (inn.ny + 1)),
+  };
+}
+
+/**
+ * The crossties that hold the inner row (§25.7.2.3: no tie runs along it, so every bar of it needs
+ * one), one through each pair of facing bars: `x` of them across h for the bars along b, `y` across
+ * b for those along h, each `length` between the corners of its hooks, m.
+ */
+export function innerCrossties(d: { b: number; h: number }, a: ColumnAdopted, c: Pick<ColumnContext, 'cover'>): { x: number; y: number; lengthX: number; lengthY: number } {
+  const r = innerRow(d, a, c), wrap = ((a.inner?.dia ?? 0) + a.tieDia) / 1000;
+  return r ? { x: r.xs.length, y: r.ys.length, lengthX: 2 * r.yIn + wrap, lengthY: 2 * r.xIn + wrap } : { x: 0, y: 0, lengthX: 0, lengthY: 0 };
+}
 
 export function columnBars(d: { b: number; h: number }, a: ColumnAdopted, c: ColumnContext): Bar[] {
   const out: Bar[] = [];
@@ -89,19 +113,10 @@ export function columnBars(d: { b: number; h: number }, a: ColumnAdopted, c: Col
     const y = -yc + (2 * yc * i) / (a.ny + 1);
     for (const sx of [-1, 1]) out.push({ x: sx * xf, y, area: barArea(a.dy) * 1e-4 });
   }
-  const inn = a.inner;
-  if (inn && (inn.nx > 0 || inn.ny > 0)) {
-    const step = (outer: number) => outer / 2000 + layerClearBetween('2025', outer, inn.dia) + inn.dia / 2000;
-    const yIn = d.h / 2 - coverToBar(c, a.tieDia, Math.max(a.corner, a.dx)) - step(Math.max(a.corner, a.dx));
-    const xIn = d.b / 2 - coverToBar(c, a.tieDia, Math.max(a.corner, a.dy)) - step(Math.max(a.corner, a.dy));
-    for (let i = 1; i <= inn.nx; i++) {
-      const x = -xc + (2 * xc * i) / (inn.nx + 1);
-      for (const sy of [-1, 1]) out.push({ x, y: sy * yIn, area: barArea(inn.dia) * 1e-4 });
-    }
-    for (let i = 1; i <= inn.ny; i++) {
-      const y = -yc + (2 * yc * i) / (inn.ny + 1);
-      for (const sx of [-1, 1]) out.push({ x: sx * xIn, y, area: barArea(inn.dia) * 1e-4 });
-    }
+  const inn = innerRow(d, a, c);
+  if (inn && a.inner) {
+    for (const x of inn.xs) for (const sy of [-1, 1]) out.push({ x, y: sy * inn.yIn, area: barArea(a.inner.dia) * 1e-4 });
+    for (const y of inn.ys) for (const sx of [-1, 1]) out.push({ x: sx * inn.xIn, y, area: barArea(a.inner.dia) * 1e-4 });
   }
   return out;
 }
@@ -282,6 +297,8 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
   const tieDiaOk = a.tieDia >= tieDiaFor(longest);
   const tieOk = a.tieSpacing <= tieMax + 1e-6 && tieDiaOk;
   const ct = { x: crossties(d.b, a.nx, a.dx, a.corner, c, a.tieDia), y: crossties(d.h, a.ny, a.dy, a.corner, c, a.tieDia) };
+  const ict = innerCrossties(d, a, c);
+  const ctText = `${ct.x} (b) · ${ct.y} (h)${ict.x + ict.y ? ` · ${ict.x} (b, 2) · ${ict.y} (h, 2)` : ''}`;
   const sh = shearRatios(d, c, a, ct);
   const shearX = Math.max(0, ...sh.map((x) => x.x)), shearY = Math.max(0, ...sh.map((x) => x.y));
   const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
@@ -299,7 +316,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     check('rcSheets.v.shearY', shearY <= 1 + 1e-6, { clause: '§22.5', demand: `${fmt(vyMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.py)))} kN`, ratio: shearY }),
     check('rcSheets.v.tieDia', tieDiaOk, { clause: '§25.7.2.2', demand: `Ø${a.tieDia}`, capacity: `≥ Ø${tieDiaFor(longest)}` }),
     check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '§25.7.2.1', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ ${fmt(tieMax * 100, 1)} cm` }),
-    check('rcSheets.v.crossties', true, { clause: '§25.7.2.3', capacity: `${ct.x} (b) · ${ct.y} (h)` }),
+    check('rcSheets.v.crossties', true, { clause: '§25.7.2.3', capacity: ctText }),
     ...(stack.fromBelow ? [check(splice.tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC', true, { clause: splice.tension ? '§25.5.2' : '§25.5.5.1', capacity: `${fmt(splice.length * 100, 0)} cm (Ø${longest})` })] : []),
     ...((stack.offset ?? 0) > 0.075 + 1e-6 ? [check('rcSheets.v.colOffset', true, { clause: '§10.7.4.1', demand: `${fmt((stack.offset ?? 0) * 100, 1)} cm`, capacity: '> 7.5 cm' })] : []),
     ...(seis?.checks ?? []),
@@ -344,7 +361,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
       steps: [
         { label: 'rcSheets.s.tieDia', formula: 'db ≤ 16 → Ø6; ≤ 25 → Ø8; > 25 → Ø10', value: `Ø${a.tieDia}`, ok: tieDiaOk },
         { label: 'rcSheets.s.tieSpacing', formula: 's ≤ min(16·db; 48·de; b) (§25.7.2.1)', value: `${tieLabel(a)} ≤ ${fmt(tieMax * 100, 0)} cm`, ok: a.tieSpacing <= tieMax + 1e-6 },
-        { label: 'rcSheets.s.crossties', formula: '≤ min(15·dbe; 150 mm) (§25.7.2.3)', value: `${ct.x} (b) · ${ct.y} (h)` },
+        { label: 'rcSheets.s.crossties', formula: '≤ min(15·dbe; 150 mm) (§25.7.2.3)', value: ctText },
         { label: 'rcSheets.s.colShear', formula: 'φVn = φ·(Vc(Nu) + Av·fyt·d/s)', value: `${fmt(Math.max(shearX, shearY), 3)}`, ok: shearX <= 1 + 1e-6 && shearY <= 1 + 1e-6 },
       ],
     },
@@ -359,7 +376,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     family: 'column', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, cover: c.cover, demand: d,
     req: { rho: ast / (Ag * 1e4), ast, impossible, governing: gov?.c.combo ?? '', compressionDominated },
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations,
-    checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: ct, rhoOk, shearX, shearY },
+    checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: { ...ct, ...(ict.x + ict.y ? { inner: { x: ict.x, y: ict.y } } : {}) }, rhoOk, shearX, shearY },
     verifications, combos,
     status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     ...(stack.fromBelow ? { lap: splice } : {}),

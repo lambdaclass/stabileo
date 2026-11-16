@@ -47,10 +47,22 @@ export interface SheetRows {
 
 const DEFAULT_FC = 25;
 
+/** The sheets' data; adopted bars saved before adoptions were stamped count as set by hand, stamped with the code and seismic option in force. */
 export function rcSheetsData(): RcSheetsData {
   const d = designData().rcSheets;
-  return d ? { ...defaultRcSheetsData(), ...d } : defaultRcSheetsData();
+  if (!d) return defaultRcSheetsData();
+  const full = { ...defaultRcSheetsData(), ...d };
+  const keys = Object.keys(full.adopted);
+  if (full.adoptedCode || !keys.length) return full;
+  const code = codeOf(full);
+  return { ...full, edited: [...new Set([...(full.edited ?? []), ...keys])], ...adoptionStamp(full, code) };
 }
+
+const seismicIn = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): boolean => d.seismic === true && rulesFor(code).seismic;
+
+/** What adopted proposals hold under: the code and whether the seismic provisions apply. */
+const adoptionStamp = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): Pick<RcSheetsData, 'adoptedCode' | 'adoptedSeismic'> =>
+  ({ adoptedCode: code, adoptedSeismic: seismicIn(d, code) ? true : undefined });
 
 function save(next: RcSheetsData): void {
   patchOwnDesignData({ rcSheets: next });
@@ -65,7 +77,7 @@ export function setAdopted(key: string, value: Adopted | null, byHand = true): v
   const adopted = { ...(byHand ? d.adopted : liveAdopted(d, code)) };
   const edited = new Set(d.edited ?? []);
   if (value) { adopted[key] = JSON.parse(JSON.stringify(value)) as Adopted; if (byHand) edited.add(key); else edited.delete(key); } else { delete adopted[key]; edited.delete(key); }
-  save({ ...d, adopted, ...(edited.size ? { edited: [...edited] } : { edited: undefined }), ...(byHand ? {} : { adoptedCode: code }) });
+  save({ ...d, adopted, ...(edited.size ? { edited: [...edited] } : { edited: undefined }), ...(byHand ? {} : adoptionStamp(d, code)) });
 }
 
 export function adoptAll(rows: ReadonlyArray<{ key: string; proposed: unknown }>): void {
@@ -73,12 +85,12 @@ export function adoptAll(rows: ReadonlyArray<{ key: string; proposed: unknown }>
   const live = liveAdopted(d, sheetCode());
   const adopted = { ...live };
   for (const r of rows) if (!adopted[r.key]) adopted[r.key] = JSON.parse(JSON.stringify(r.proposed)) as Adopted;
-  save({ ...d, adopted, adoptedCode: sheetCode() });
+  save({ ...d, adopted, ...adoptionStamp(d, sheetCode()) });
 }
 
-/** The adopted bars that hold under `code`: those set by hand always, the adopted proposals only under the code they were adopted for. */
+/** The adopted bars that hold under `code`: those set by hand always, the adopted proposals only under the code and seismic option they were adopted for. */
 export function liveAdopted(d: RcSheetsData, code: SheetCode): Record<string, Adopted> {
-  if (!d.adoptedCode || d.adoptedCode === code) return d.adopted;
+  if (!d.adoptedCode || (d.adoptedCode === code && (d.adoptedSeismic === true) === seismicIn(d, code))) return d.adopted;
   const edited = new Set(d.edited ?? []);
   return Object.fromEntries(Object.entries(d.adopted).filter(([k]) => edited.has(k)));
 }
@@ -91,7 +103,11 @@ const FROM_PROJECT: Record<string, SheetCode> = { aci318: 'aci318-19', ec2: 'en1
 
 /** The code the sheets design to: the one chosen for them, else the project's concrete code. */
 export function sheetCode(): SheetCode {
-  const own = rcSheetsData().code;
+  return codeOf(designData().rcSheets);
+}
+
+function codeOf(d: Pick<RcSheetsData, 'code'> | undefined): SheetCode {
+  const own = d?.code;
   if (own && SHEET_CODES[own]) return own;
   return FROM_PROJECT[designData().foreignCodes?.concrete ?? ''] ?? FROM_LOAD_FAMILY[loadFamilyOfRegulations(regulationsStore.roles) ?? 'cirsoc'];
 }
@@ -326,10 +342,14 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   for (const r of proposals) { const g = r.demand.line?.group ?? -1; byLine.set(g, [...(byLine.get(g) ?? []), r]); }
   const line: LineLayout[] = [];
   const derived = new Map<string, BeamAdopted>();
+  const edited = new Set(data.edited ?? []);
+  const linesAdopted = new Set<number>();
   for (const [g, rows] of byLine) {
     const first = rows[0]!;
     const ctx = beamCtx(first.demand);
-    const la = adoptedNow[`line:${g}`] as LineAdopted | undefined;
+    const own = adoptedNow[`line:${g}`] as LineAdopted | undefined;
+    const la = own && ctx.seismic && !edited.has(`line:${g}`) && own.bent?.some((x) => x.count > 0) ? undefined : own;
+    if (la) linesAdopted.add(g);
     const layout = cachedLine(first.demand, [code, ctx, la, dec, rows.map((r) => r.key)], () => rules.beamLine(rows, ctx, la, fmt));
     line.push(layout);
     const sortedRows = [...rows].sort((p, q) => (p.demand.line?.index ?? 0) - (q.demand.line?.index ?? 0));
@@ -343,7 +363,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const own = adoptedNow[d.key] as BeamAdopted | undefined;
     let a = own ?? derived.get(d.key);
     let row = cached(d, [code, ctx, a, dec], () => rules.beamRow(d, ctx, a, fmt));
-    const lineAdopted = !!adoptedNow[`line:${d.line?.group}`];
+    const lineAdopted = linesAdopted.has(d.line?.group ?? -1);
     for (let guard = 0; ctx.seismic && !own && !lineAdopted && a && guard < 8; guard++) {
       const bad = row.verifications.some((v) => (v.label === 'rcSheets.v.seisBeamVe' || v.label === 'rcSheets.v.seisBeamHoops') && !v.ok);
       if (!bad || a.stirrups.spacing <= 0.05 + 1e-9) break;
@@ -352,7 +372,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
       row = cached(d, [code, ctx, tight, dec], () => rules.beamRow(d, ctx, tight, fmt));
       derived.set(d.key, tight);
     }
-    beam.push(own ? row : { ...row, isAdopted: !!adoptedNow[`line:${d.line?.group}`], proposed: derived.get(d.key) ?? row.proposed });
+    beam.push(own ? row : { ...row, isAdopted: lineAdopted, proposed: derived.get(d.key) ?? row.proposed });
     yield step();
   }
   const below = new Map<number, ColumnRow>();

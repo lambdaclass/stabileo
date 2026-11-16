@@ -11,7 +11,7 @@ import { clearPlateMesh, physicalPlates, plateStatus, preparePlatesForAnalysis }
 import { ensurePhysicalModel } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 const modelEntryShells = (id: number) => modelStore.model.groups.get(id)!.members.quads?.length ?? 0;
-import { buildSheetRows, redesignerOf, setSheetCode, rcSheetsData, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
+import { buildSheetRows, redesignerOf, setSheetCode, rcSheetsData, saveRcSheetsData, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
 import { barActsAt } from '../../rc-sheets/beam-line';
 import { bendAngles } from '../../rc-sheets/shape';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
@@ -293,6 +293,52 @@ describe('reinforcement sheets from a solved model', () => {
     expect(rows.column.every((r) => r.isAdopted)).toBe(true);
     setAdopted(col.key, null);
     expect(rcSheetsData().edited ?? []).toEqual([]);
+  });
+
+  it('designs again when the seismic option is toggled everything but what the engineer set by hand; bent bars set by hand fail under it', () => {
+    frame();
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    const wide = modelStore.addSection({ name: '60×60', a: 0.36, iy: 0.6 ** 4 / 12, iz: 0.6 ** 4 / 12, j: 0.1406 * 0.6 ** 4, b: 0.6, h: 0.6, shape: 'rect' } as never);
+    for (const e of modelStore.elements.values()) {
+      const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
+      if (Math.abs((a.z ?? 0) - (b.z ?? 0)) < 1e-6) modelStore.addDistributedLoad3D(e.id, 0, 0, -60, -60, undefined, undefined, D);
+      else modelStore.updateElementSection(e.id, wide);
+    }
+    solve();
+    setSheetCode('cirsoc201-2025');
+    setRcOption('bentBars', true);
+    let rows = buildSheetRows();
+    const ln = rows.line[0]!;
+    expect(ln.adopted.bent?.some((g) => g.count > 0)).toBe(true);
+    adoptAll([...rows.column, ...rows.line]);
+    setRcOption('seismic', true);
+    rows = buildSheetRows();
+    expect(rows.line[0]!.isAdopted).toBe(false);
+    expect(rows.line[0]!.bars.some((b) => b.kind === 'bent')).toBe(false);
+    expect(rows.column.every((r) => !r.isAdopted)).toBe(true);
+    setRcOption('seismic', false);
+    expect(buildSheetRows().line[0]!.isAdopted).toBe(true);
+    setAdopted(ln.key, ln.adopted);
+    setRcOption('seismic', true);
+    const byHand = buildSheetRows().line[0]!;
+    expect(byHand.isAdopted).toBe(true);
+    expect(byHand.verifications.find((v) => v.label === 'rcSheets.v.lineSeismicBent')?.ok).toBe(false);
+    expect(byHand.status).toBe('fail');
+  });
+
+  it('keeps the bars adopted before adoptions were stamped as set by hand, whatever is adopted or chosen after', () => {
+    frame(); solve();
+    setSheetCode('cirsoc201-2025');
+    let rows = buildSheetRows();
+    const col = rows.column[0]!;
+    saveRcSheetsData({ version: 1, torsion: 'equilibrium', code: 'cirsoc201-2025', adopted: { [col.key]: { ...col.proposed, tieSpacing: 0.1 } } });
+    expect(rcSheetsData().edited).toEqual([col.key]);
+    expect(rcSheetsData().adoptedCode).toBe('cirsoc201-2025');
+    adoptAll([...rows.column, ...rows.line]);
+    setSheetCode('en1992-1-1');
+    rows = buildSheetRows();
+    expect(rows.column.find((r) => r.key === col.key)!.adopted.tieSpacing).toBeCloseTo(0.1, 9);
+    expect(rows.column.filter((r) => r.key !== col.key).every((r) => !r.isAdopted)).toBe(true);
   });
 
   it('under chapter 18 laps the bottom bars at midspan, never in a joint (§18.6.3.3)', () => {

@@ -1,7 +1,7 @@
 /** The bending schedule written out: a workbook sheet, CSV, and BVBS records for bending machines. */
 import { csvCell } from '../../engine/result-query';
 import { safeText, type WorkbookSheet } from '../../export/workbook-cells';
-import { legLengths, type BarShape } from '../shape';
+import { lapLength, legLengths, type BarShape } from '../shape';
 import { bvbsFile, legsOf, type BvbsBar } from './bvbs';
 import type { BendingSchedule, ScheduleRow } from './schedule';
 import type { PieceKind } from './pieces';
@@ -17,9 +17,9 @@ const LINE_KINDS: readonly PieceKind[] = ['continuous', 'support', 'span', 'bent
 /** The i18n key naming a piece: a line's bars by the elevation's own words. */
 export const kindKey = (k: PieceKind): string => (LINE_KINDS.includes(k) ? `rcSheets.line.kind.${k}` : `rcSheets.bbs.kind.${k}`);
 
-/** The legs as a schedule writes them in text: a, b, c… in cm between the intersections of their centrelines. */
+/** The legs as a schedule writes them in text: a, b, c… in cm between the intersections of their centrelines, then the laps. */
 export const shapeText = (s: BarShape): string =>
-  legLengths(s).map((l, i) => `${String.fromCharCode(97 + (i % 26))}=${Math.round(l * 100)}`).join(' ');
+  legLengths(s).map((l, i) => `${String.fromCharCode(97 + (i % 26))}=${Math.round(l * 100)}`).join(' ') + (s.laps ? ` + ${s.laps.count}×${Math.round(s.laps.length * 100)}` : '');
 
 /** The sums under a table, in its Ø, count and total length columns (kg and kg with waste right of the length). */
 function summary(s: BendingSchedule, tr: Tr, col: { dia: number; count: number; length: number }): Array<Array<string | number>> {
@@ -93,10 +93,12 @@ export function scheduleCsv(s: BendingSchedule, tr: Tr, view: ScheduleView = 'el
   return viewTable(s, view, tr).map((r) => r.map(csvCell).join(',')).join('\n');
 }
 
-/** A shape's BVBS legs and turns, from its polyline. */
+/** A shape's BVBS legs and turns, from its polyline; its laps are cut along its longest leg. */
 export function bvbsLegs(s: BarShape): BvbsBar['legs'] {
   const segments = s.pts.slice(1).map((p, i) => ({ start: { x: s.pts[i]![0], y: s.pts[i]![1], z: 0 }, end: { x: p[0], y: p[1], z: 0 } }));
-  return legsOf({ segments });
+  const legs = legsOf({ segments });
+  const longest = legs.reduce((k, x, i) => (x.l > legs[k]!.l ? i : k), 0);
+  return legs.map((x, i) => (i === longest ? { ...x, l: x.l + lapLength(s) * 1000 } : x));
 }
 
 /** One record per row: its element is the record's plan, so the marks of each element stay apart. */

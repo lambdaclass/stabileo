@@ -3,7 +3,7 @@ import { beamLine as layoutLine, type CutoffInput, type LineAdopted, type LineCo
 import type { BeamContext, BeamRow } from '../beam-row';
 import type { Fmt } from '../format';
 import type { CutoffLegality } from '../cutoff';
-import { isTopBar, lapOf, lbOf, rhoMinBeam, ts500Mat } from './basis';
+import { isTopBar, lapOf, lbOf, rhoMinBeam, TS500_BENDS, ts500Mat } from './basis';
 import { beamStrip } from './beam-flexure';
 import { shearState, vrOf } from './beam-shear';
 import { stripCapacity } from './section';
@@ -45,6 +45,8 @@ export const TS500_LINE: LineCode = {
   },
   cutoff,
   stirrupMax: (_c, _b, d) => Math.min(d / 2, 0.6),
+  mandrel: (dia) => TS500_BENDS.mandrel(dia, 'longitudinal'),
+  hookExtension: (dia) => TS500_BENDS.extension(dia, 90, 'longitudinal'),
   text: {
     cutoff: {
       notInTension: 'TS 500: M = 0',

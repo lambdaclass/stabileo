@@ -1,0 +1,172 @@
+/**
+ * How a beam line's bars are bent, laid out and scheduled: hooks turned where they fit, bent bars
+ * in the deepest span's frame and labelled on the face they run at, stirrups from the support
+ * faces, laps of bars longer than a stock bar in their length and weight, and bent bars under the
+ * seismic provisions.
+ */
+import { describe, it, expect } from 'vitest';
+import { beamRow, type BeamDemand, type BeamEnd, type SectionEnv } from '../beam-row';
+import { beamLine, type LineAdopted } from '../beam-line';
+import { makeFmt } from '../format';
+import { developedLength, lapLength } from '../shape';
+import { hookLegOf, hookTurn, marksAt, stirrupPositions } from '../line-geometry';
+import { barPolyline } from '../plans/beam-elevation';
+import { bendingSchedule } from '../schedule/schedule';
+import { scheduleView, SCHEDULE_VIEWS } from '../schedule/views';
+import { bvbsLegs, scheduleBvbs, shapeText } from '../schedule/exports';
+import { TS500_LINE } from '../ts500/line';
+import { rulesFor } from '../codes';
+import { twoSpanLine } from '../plans/__tests__/fixtures';
+
+const fmt = makeFmt('.');
+const env = (x: number, pos: number, neg: number): SectionEnv => ({ x, pos: { value: pos, source: { combo: 'U', x } }, neg: { value: neg, source: { combo: 'U', x } }, nPos: 0, nNeg: 0 });
+const bctx = { mat: { fc: 30, fy: 420 }, cover: 0.025, stirrupDia: 8, diameters: [10, 12, 16, 20, 25], torsion: 'equilibrium' as const };
+const column: BeamEnd = { kind: 'column', half: 0.2 };
+
+interface SpanSpec { L: number; h: number }
+
+/** A continuous line on columns, hogging 80 kN·m over every support and sagging 140 kN·m mid-span. */
+function rowsOf(spans: SpanSpec[], c: object, ends: [BeamEnd, BeamEnd] = [column, column]) {
+  const n = spans.length;
+  const mAt = (t: number) => 220 * 4 * t * (1 - t) - 80;
+  return spans.map(({ L, h }, k) => {
+    const stations = Array.from({ length: 33 }, (_, i) => { const x = (i / 32) * L, t = x / L, m = mAt(t); return { x, pos: Math.max(0, m), neg: Math.max(0, -m), v: 200 * Math.abs(1 - 2 * t) + 40 }; });
+    const d: BeamDemand = {
+      key: `beam:1:${k}`, name: `V1-${k + 1}`, level: 'N1', length: L, b: 0.3, h,
+      start: env(0, 0, -mAt(0)), span: env(L / 2, mAt(0.5), 0), end: env(L, 0, -mAt(1)),
+      negAny: { value: 0 }, nNegAny: 0, vu: { value: 240 }, nAtV: 0, tu: { value: 0 }, combos: [], env: stations,
+      supportHalf: { start: k === 0 ? ends[0].half : 0.2, end: k === n - 1 ? ends[1].half : 0.2 },
+      ends: { start: k === 0 ? ends[0] : column, end: k === n - 1 ? ends[1] : column },
+      line: { group: 1, index: k, spans: n, startNode: k + 1, endNode: k + 2, lineName: 'V1' },
+    };
+    return beamRow(d, c as never, undefined, fmt);
+  });
+}
+
+const lineOf = (spans: SpanSpec[], extra: object = {}, adopted?: LineAdopted, ends?: [BeamEnd, BeamEnd]) => {
+  const c = { ...bctx, ...extra };
+  const rows = rowsOf(spans, c, ends);
+  return { line: beamLine(rows, c, adopted, fmt), rows };
+};
+
+const fixed: LineAdopted = { bottom: { count: 2, dia: 25 }, top: { count: 2, dia: 12 }, supportTop: [{ count: 0, dia: 16 }, { count: 2, dia: 16 }, { count: 0, dia: 16 }], spanBottom: [{ count: 0, dia: 16 }, { count: 0, dia: 16 }] };
+
+describe('hooks of a beam line', () => {
+  it('turns the bottom bars\' end hooks down into the end columns and draws them as long as they are cut', () => {
+    const { line } = lineOf([{ L: 5, h: 0.4 }, { L: 5, h: 0.4 }], {}, fixed);
+    const b = line.bars.find((x) => x.kind === 'continuous' && x.face === 'bottom')!;
+    expect(hookTurn(b, 0)).toBeLessThan(0);
+    expect(hookTurn(b, 1)).toBeLessThan(0);
+    const pts = barPolyline(line, b, 0);
+    expect(Math.abs(pts[0]!.y - pts[1]!.y) / 1000).toBeCloseTo(hookLegOf(b), 6);
+    expect((pts[0]!.y - pts[1]!.y) / 1000).toBeCloseTo(hookTurn(b, 0), 6);
+    const top = line.bars.find((x) => x.kind === 'continuous' && x.face === 'top')!;
+    expect(hookTurn(top, 0)).toBeLessThan(0);
+    expect(line.verifications.find((v) => v.label === 'rcSheets.v.lineHookFit')).toBeUndefined();
+  });
+
+  it('keeps a cantilever tip\'s hooks within the depth, and fails the check rather than shorten a leg that does not fit', () => {
+    const free: BeamEnd = { kind: 'free', half: 0 };
+    const { line } = lineOf([{ L: 5, h: 0.4 }, { L: 5, h: 0.4 }], {}, fixed, [column, free]);
+    const b = line.bars.find((x) => x.kind === 'continuous' && x.face === 'bottom')!;
+    expect(hookTurn(b, 0)).toBeLessThan(0);
+    expect(hookTurn(b, 1)).toBeGreaterThan(0);
+    const leg = hookTurn(b, 1);
+    expect(leg).toBeCloseTo(hookLegOf({ ...b, hooks: [false, true] }), 9);
+    const fit = line.verifications.find((v) => v.label === 'rcSheets.v.lineHookFit')!;
+    expect(fit.ok).toBe(false);
+    expect(fit.demand).toContain(`${b.mark}: Ø25`);
+    expect(line.status).toBe('fail');
+    const pts = barPolyline(line, b, 0);
+    expect((pts[pts.length - 1]!.y - pts[pts.length - 2]!.y) / 1000).toBeCloseTo(leg, 6);
+  });
+});
+
+describe('bent bars', () => {
+  it('are marked on the top face where they run on top and on the bottom face in the span', () => {
+    const { line } = lineOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], { bentBars: true });
+    const bent = line.bars.filter((b) => b.kind === 'bent');
+    expect(bent.length).toBeGreaterThan(0);
+    expect(marksAt(line, 'top', 6)).toContain(bent[0]!.mark);
+    expect(marksAt(line, 'bottom', 6)).not.toContain(bent[0]!.mark);
+    expect(marksAt(line, 'bottom', 3)).toContain(bent[0]!.mark);
+  });
+
+  it('run in the deepest span\'s frame, the spans aligned at the top', () => {
+    const { line } = lineOf([{ L: 6, h: 0.6 }, { L: 6, h: 0.45 }], { bentBars: true });
+    const bent = line.bars.find((b) => b.kind === 'bent' && b.runs[1]!.from > 6)!;
+    expect(bent).toBeDefined();
+    const inner = bctx.cover + (line.adopted.stirrups?.[1]?.dia ?? bctx.stirrupDia) / 1000 + bent.bars.dia / 2000;
+    const ys = bent.shape.pts.map((p) => p[1]);
+    expect(Math.min(...ys.filter((_, i) => !(bent.hooks[0] && i === 0) && !(bent.hooks[1] && i === ys.length - 1)))).toBeCloseTo(0.6 - 0.45 + inner, 9);
+    expect(Math.max(...ys)).toBeCloseTo(0.6 - inner, 9);
+  });
+
+  it('adopted ones under the seismic provisions fail a check instead of being laid out silently', () => {
+    const { line: l0 } = lineOf([{ L: 6, h: 0.55 }, { L: 6, h: 0.55 }, { L: 6, h: 0.55 }], { bentBars: true });
+    expect(l0.adopted.bent?.some((g) => g.count > 0)).toBe(true);
+    const { line } = lineOf([{ L: 6, h: 0.55 }, { L: 6, h: 0.55 }, { L: 6, h: 0.55 }], { bentBars: true, seismic: { overstrength: 1.25 } }, l0.adopted);
+    const v = line.verifications.find((x) => x.label === 'rcSheets.v.lineSeismicBent')!;
+    expect(v.ok).toBe(false);
+    expect(v.clause).toBe('§18.6.3');
+    expect(line.status).toBe('fail');
+  });
+});
+
+describe('stirrups', () => {
+  it('start at the support faces, none inside a column, as the schedule counts them', () => {
+    const { line } = twoSpanLine();
+    const axes = [0, 5, 9];
+    const all = stirrupPositions(line);
+    expect(all.filter((s) => axes.some((xs, j) => Math.abs(s.x - xs) < (line.supportWidths[j] ?? 0) / 2 - 1e-9))).toEqual([]);
+    expect(all[0]!.x).toBeCloseTo(line.supportWidths[0]! / 2 + 0.05, 9);
+    expect(line.zones[0]!.from).toBeCloseTo(line.supportWidths[0]! / 2, 9);
+    expect(line.zones[line.zones.length - 1]!.to).toBeCloseTo(9 - line.supportWidths[2]! / 2, 9);
+    const s = bendingSchedule({ line: [line], column: [], slab: [], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    expect(s.rows.filter((r) => r.kind === 'stirrup').reduce((n, r) => n + r.total, 0)).toBe(all.length);
+  });
+});
+
+describe('a line longer than a stock bar', () => {
+  const { line } = lineOf([{ L: 6, h: 0.55 }, { L: 6, h: 0.55 }, { L: 6, h: 0.55 }]);
+  const cont = line.bars.filter((b) => b.kind === 'continuous');
+
+  it('laps its continuous bars into pieces no longer than 12 m, the laps in their length and weight', () => {
+    for (const b of cont) {
+      const at = line.splices.filter((sp) => sp.mark === b.mark);
+      expect(at.length).toBeGreaterThan(0);
+      expect(b.shape.laps).toEqual({ count: at.length, length: at[0]!.length });
+      const bare = developedLength({ ...b.shape, laps: undefined });
+      expect(b.length).toBeCloseTo(bare + at.length * at[0]!.length, 9);
+      expect(b.weight).toBeCloseTo(b.bars.count * (Math.PI * (b.bars.dia / 1000) ** 2 / 4) * b.length * 7850, 6);
+      const edges = [b.from - 1, ...at.map((sp) => sp.x), b.to + 1];
+      for (let i = 1; i < edges.length; i++) expect(edges[i]! - edges[i - 1]!).toBeGreaterThan(0);
+    }
+    expect(line.verifications.find((v) => v.label === 'rcSheets.v.lineSplices')!.capacity).toContain(cont[0]!.mark);
+  });
+
+  it('schedules the lapped length and orders the stock bars it is cut from, the same in every view, the CSV text and BVBS', () => {
+    const s = bendingSchedule({ line: [line], column: [], slab: [], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    const row = s.rows.find((r) => r.elevation.concat(r.mark).includes(cont[0]!.mark) && r.kind === 'continuous')!;
+    expect(row.unitLength).toBeCloseTo(cont[0]!.length, 9);
+    expect(row.long).toBe(true);
+    expect(shapeText(row.shape)).toContain(` + ${row.shape.laps!.count}×`);
+    const legs = bvbsLegs(row.shape);
+    expect(legs.reduce((a, x) => a + x.l, 0)).toBeGreaterThan(lapLength(row.shape) * 1000 + 12000);
+    expect(scheduleBvbs(s, { project: 'P', index: '', grade: 'ADN 420' })).toContain(`@l${Math.round(row.unitLength * 1000)}@`);
+    for (const v of SCHEDULE_VIEWS) expect(scheduleView(s, v).total.kg, v).toBeCloseTo(s.total.kg, 9);
+    const d = s.byDiameter.find((x) => x.dia === row.dia)!;
+    expect(d.stockBars).toBeGreaterThanOrEqual(row.total * Math.ceil(row.unitLength / 12));
+  });
+});
+
+describe('TS 500 lines', () => {
+  it('bend their bars on the mandrels the schedule cites', () => {
+    const R = rulesFor('ts500-2000').bends;
+    for (const dia of [12, 25, 28, 32]) {
+      expect(TS500_LINE.mandrel!(dia)).toBeCloseTo(R.mandrel(dia, 'longitudinal'), 12);
+      expect(TS500_LINE.hookExtension!(dia)).toBeCloseTo(R.extension(dia, 90, 'longitudinal'), 12);
+    }
+    expect(TS500_LINE.mandrel!(32)).toBeCloseTo(8 * 0.032, 12);
+  });
+});

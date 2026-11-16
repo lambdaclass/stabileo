@@ -13462,6 +13462,8 @@ const en: Record<string, string> = {
   "rcSheets.v.lineHooks": "Hooked anchorage at the ends",
   "rcSheets.v.lineEndAnchor": "Hook inside the end column",
   "rcSheets.v.lineSplices": "Splices of the continuous bars (12 m bars)",
+  "rcSheets.v.lineHookFit": "Hook leg within the depth of the beam",
+  "rcSheets.v.lineSeismicBent": "Bent bars under the seismic provisions: chapter 18 beams take straight bars",
   "rcSheets.g.lineMethod": "Continuous beam layout",
   "rcSheets.g.anchorage": "Development and splices",
   "rcSheets.s.lineRun": "Continuous bars",

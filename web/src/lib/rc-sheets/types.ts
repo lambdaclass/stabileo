@@ -77,6 +77,8 @@ export interface RcSheetsData {
   edited?: string[];
   /** The code the proposals were adopted under: under another, those not edited by hand are designed again. */
   adoptedCode?: SheetCode;
+  /** The proposals were adopted with the seismic provisions applying: with them off, or on when this is absent, those not edited by hand are designed again. */
+  adoptedSeismic?: true;
 }
 
 export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });

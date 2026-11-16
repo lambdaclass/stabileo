@@ -20,7 +20,7 @@ import { sheetsProgress } from './rc-sheets-progress.svelte';
 /** What the rows were designed from: what makes them out of date when it changes. */
 interface Stamp {
   results: unknown; perCombo: unknown; groups: unknown;
-  /** The design data but the bars adopted in the sheets. */
+  /** The design data but the bars adopted in the sheets and how their schedule is ordered. */
   design: string;
   adopted: string;
   locale: string;
@@ -33,7 +33,7 @@ const setProgress = (p: SheetProgress | null) => { sheetsProgress.now = p; };
 
 function stampNow(): Stamp {
   void modelStore.designData;
-  const { adopted, edited: _edited, adoptedCode: _adoptedCode, ...sheets } = rcSheetsData();
+  const { adopted, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, schedule: _schedule, ...sheets } = rcSheetsData();
   const { rcSheets: _, ...rest } = designData() as { rcSheets?: unknown };
   return {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.

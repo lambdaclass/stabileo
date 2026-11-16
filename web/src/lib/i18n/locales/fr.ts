@@ -13302,6 +13302,8 @@ const fr: Translations = {
   "rcSheets.v.lineHooks": "Ancrage par crochet aux extrémités",
   "rcSheets.v.lineEndAnchor": "Crochet dans le poteau d'extrémité",
   "rcSheets.v.lineSplices": "Recouvrements des barres filantes (barres de 12 m)",
+  "rcSheets.v.lineHookFit": "Retour du crochet dans la hauteur de la poutre",
+  "rcSheets.v.lineSeismicBent": "Barres relevées sous les dispositions sismiques : les poutres du chapitre 18 reçoivent des barres droites",
   "rcSheets.g.lineMethod": "Ferraillage de la poutre continue",
   "rcSheets.g.anchorage": "Ancrages et recouvrements",
   "rcSheets.s.lineRun": "Barres filantes",

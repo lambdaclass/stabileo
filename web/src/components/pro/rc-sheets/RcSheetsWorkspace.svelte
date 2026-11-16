@@ -196,7 +196,7 @@
                 <td class="n">{f2(r.req.rho * 100)} %</td>
                 <td>{columnLabel(r.adopted)} <span class="dim">({f2(r.checks.area)})</span></td>
                 <td>{tieLabel(r.adopted)}</td>
-                <td>{r.checks.crossties.x} · {r.checks.crossties.y}</td>
+                <td>{r.checks.crossties.x} · {r.checks.crossties.y}{#if r.checks.crossties.inner} + {r.checks.crossties.inner.x + r.checks.crossties.inner.y}{/if}</td>
                 <td class="n">{fmt(r.checks.ratio, 2)}</td>
               {:else if r.family === 'punching'}
                 <td>{r.position}</td>
@@ -233,7 +233,7 @@
                   {#if r.family === 'column'}
                     <div class="rcw-secs">
                       <RcSectionSvg drawing={columnSection(r.b, r.h, r.cover, r.adopted)} title="{r.name} · {fmt(r.b * 100, 0)}×{fmt(r.h * 100, 0)}"
-                        notes={[columnLabel(r.adopted), `${tieLabel(r.adopted)} · ${t('rcSheets.col.crossties')} ${r.checks.crossties.x} · ${r.checks.crossties.y}`]} />
+                        notes={[columnLabel(r.adopted), `${tieLabel(r.adopted)} · ${t('rcSheets.col.crossties')} ${r.checks.crossties.x} · ${r.checks.crossties.y}${r.checks.crossties.inner ? ` + ${r.checks.crossties.inner.x + r.checks.crossties.inner.y}` : ''}`]} />
                       <RcColumnElevation row={r} {code} {endZones} />
                     </div>
                   {:else if r.family === 'slab'}

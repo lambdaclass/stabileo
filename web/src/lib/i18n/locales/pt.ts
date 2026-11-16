@@ -13103,6 +13103,8 @@ const pt: Translations = {
   "rcSheets.v.lineHooks": "Ancoragem com gancho nas extremidades",
   "rcSheets.v.lineEndAnchor": "Gancho dentro do pilar de extremidade",
   "rcSheets.v.lineSplices": "Emendas das barras corridas (barras de 12 m)",
+  "rcSheets.v.lineHookFit": "Perna do gancho dentro da altura da viga",
+  "rcSheets.v.lineSeismicBent": "Barras dobradas com as disposições sísmicas: as vigas do capítulo 18 levam barras retas",
   "rcSheets.g.lineMethod": "Armação da viga contínua",
   "rcSheets.g.anchorage": "Ancoragens e emendas",
   "rcSheets.s.lineRun": "Barras corridas",

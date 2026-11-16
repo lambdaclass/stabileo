@@ -13302,6 +13302,8 @@ const tr: Translations = {
   "rcSheets.v.lineHooks": "Uçlarda kancalı kenetlenme",
   "rcSheets.v.lineEndAnchor": "Uç kolon içinde kanca",
   "rcSheets.v.lineSplices": "Sürekli çubuk bindirmeleri (12 m çubuk)",
+  "rcSheets.v.lineHookFit": "Kanca kolu kiriş yüksekliği içinde",
+  "rcSheets.v.lineSeismicBent": "Deprem hükümleriyle pilye: 18. bölüm kirişleri düz çubuklarla donatılır",
   "rcSheets.g.lineMethod": "Sürekli kiriş donatısı",
   "rcSheets.g.anchorage": "Kenetlenme ve bindirmeler",
   "rcSheets.s.lineRun": "Sürekli çubuklar",

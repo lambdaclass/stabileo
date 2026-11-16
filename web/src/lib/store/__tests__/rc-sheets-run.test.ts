@@ -14,6 +14,7 @@ import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, setAdopted, setSheetCode, sheetRowsSteps } from '../rc-sheets.svelte';
 import { clearSheets, designSheets, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
+import { setScheduleSettings } from '../rc-sheets-schedule';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -87,6 +88,13 @@ describe('designing the sheets on asking', () => {
     await designSheets();
     expect(sheetsStale()).toBe(false);
     expect(sheetsRun.rows!.code).not.toBe(before!.code);
+  });
+
+  it('no older when the schedule\'s waste or mark scope change, which only order the bars', async () => {
+    solvedFrame();
+    await designSheets();
+    setScheduleSettings({ waste: 0.2, scope: 'project' });
+    expect(sheetsStale()).toBe(false);
   });
 
   it('out of date when the results change', async () => {

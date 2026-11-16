@@ -13302,6 +13302,8 @@ const de: Translations = {
   "rcSheets.v.lineHooks": "Hakenverankerung an den Enden",
   "rcSheets.v.lineEndAnchor": "Haken innerhalb der Endstütze",
   "rcSheets.v.lineSplices": "Stöße der durchlaufenden Stäbe (12-m-Stäbe)",
+  "rcSheets.v.lineHookFit": "Hakenschenkel innerhalb der Balkenhöhe",
+  "rcSheets.v.lineSeismicBent": "Aufgebogene Stäbe unter den Erdbebenbestimmungen: Balken nach Kapitel 18 erhalten gerade Stäbe",
   "rcSheets.g.lineMethod": "Bewehrung des Durchlaufträgers",
   "rcSheets.g.anchorage": "Verankerung und Stöße",
   "rcSheets.s.lineRun": "Durchlaufende Stäbe",

@@ -3,11 +3,11 @@
  * many an element takes. Beams give their line bars as laid out and the stirrups of each zone;
  * columns their bars per storey (lapped into the storey above, cranked where its faces step in by
  * 75 mm at most, hooked into the slab at the top or where they step in more, and dowels then),
- * their hoops and cross ties; slabs each layer's bars; walls their verticals, horizontals, edge
+ * their hoops and cross ties (the inner row's too); slabs each layer's bars; walls their verticals, horizontals, edge
  * U-bars, boundary hoops and cross ties. Mandrels and hooks are the code's (`BendRules`).
  */
 import type { LineBar, LineLayout } from '../beam-line';
-import type { ColumnRow } from '../column-row';
+import { innerCrossties, type ColumnRow } from '../column-row';
 import { columnTieLayout } from '../column-ties';
 import { SLAB_FACES, type SlabRow } from '../slab-row';
 import type { LevelPlan } from '../slab-plan';
@@ -132,6 +132,9 @@ function columnPieces(rows: readonly ColumnRow[], r: ColumnRow, o: PieceOptions,
   pieces.push({ kind: 'hoop', count: n, shape: hoop(w, h, t, R) });
   if (r.checks.crossties.x) pieces.push({ kind: 'crossTie', count: n * r.checks.crossties.x, shape: tieAcross(h, t, R) });
   if (r.checks.crossties.y) pieces.push({ kind: 'crossTie', count: n * r.checks.crossties.y, shape: tieAcross(w, t, R) });
+  const inner = innerCrossties(r, r.adopted, r);
+  if (inner.x) pieces.push({ kind: 'crossTie', count: n * inner.x, shape: tieAcross(inner.lengthX, t, R) });
+  if (inner.y) pieces.push({ kind: 'crossTie', count: n * inner.y, shape: tieAcross(inner.lengthY, t, R) });
   return { key: r.key, name: r.name, level: r.level, family: 'column', pieces };
 }
 
@@ -205,7 +208,7 @@ export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElem
     ...rows.line.map((l) => linePieces(l, R)),
     ...rows.column.map((r) => columnPieces(rows.column, r, o, R)),
     ...(rows.slabPlan ?? []).filter((p) => planned.has(p.level)).map(levelPieces),
-    ...rows.slab.filter((r) => !r.level || !planned.has(r.level)).map((r) => slabPieces(r, o, R)),
+    ...rows.slab.filter((r) => !planned.has(r.level ?? '')).map((r) => slabPieces(r, o, R)),
     ...rows.wall.map((r) => wallPieces(rows.wall, r, o, R)),
   ].map((e) => ({ ...e, pieces: e.pieces.filter((p) => p.count > 0) }));
 }

@@ -4,7 +4,7 @@
  * through it. The workspace's elevation and the exported drawing both read these, so screen and
  * paper agree; each maps the metres to its own scale.
  */
-import type { LineBar, LineLayout } from './beam-line';
+import { barActsAt, type LineBar, type LineLayout } from './beam-line';
 import type { BeamRow } from './beam-row';
 import { groupsLabel, stirrupsLabel } from './bars';
 import { beamSection, type SectionDrawing } from './drawing';
@@ -33,8 +33,14 @@ export function barTrace(line: Spans, bar: Pick<LineBar, 'kind' | 'from' | 'to' 
 
 /** A 90° hook's leg as the bar's shape bends it, m. */
 export function hookLegOf(bar: Pick<LineBar, 'shape' | 'hooks'>): number {
-  const p = bar.shape.pts, [a, b] = bar.hooks[0] ? [p[0]!, p[1]!] : [p[p.length - 1]!, p[p.length - 2]!];
-  return Math.abs(a[1] - b[1]);
+  return Math.abs(hookTurn(bar, bar.hooks[0] ? 0 : 1));
+}
+
+/** How far the hook at an end runs from the bar, m: up positive, down negative, 0 with none there. */
+export function hookTurn(bar: Pick<LineBar, 'shape' | 'hooks'>, end: 0 | 1): number {
+  if (!bar.hooks[end]) return 0;
+  const p = bar.shape.pts, [a, b] = end === 0 ? [p[0]!, p[1]!] : [p[p.length - 1]!, p[p.length - 2]!];
+  return a[1] - b[1];
 }
 
 /** Every stirrup along the line as the schedule counts them; `every` keeps one in so many of a spacing, for a drawing too small to show them all. */
@@ -63,7 +69,7 @@ export function setOut(line: Spans, bar: Pick<LineBar, 'kind' | 'from' | 'to'>):
 
 /** The marks of the bars a face has at x along the line. */
 export const marksAt = (line: Pick<LineLayout, 'bars'>, face: 'top' | 'bottom', x: number): string[] =>
-  line.bars.filter((b) => b.face === face && b.from <= x + 1e-6 && b.to >= x - 1e-6).map((b) => b.mark);
+  line.bars.filter((b) => barActsAt(b, face, x, 1e-6)).map((b) => b.mark);
 
 export interface LineSection {
   key: string; drawing: SectionDrawing; notes: string[]; tags: string[]; title: string;

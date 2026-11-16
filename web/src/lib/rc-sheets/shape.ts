@@ -10,11 +10,16 @@ export interface BarShape {
   mandrel: number;
   /** Bar diameter, mm. */
   dia: number;
+  /** Laps a bar longer than a stock bar is cut into pieces for, each of `length` m: steel the polyline does not show. */
+  laps?: { count: number; length: number };
 }
 
 const STEEL_DENSITY = 7850;
 
 const legOf = (a: [number, number], b: [number, number]) => Math.hypot(b[0] - a[0], b[1] - a[1]);
+
+/** The steel of a shape's laps, m. */
+export const lapLength = (s: Pick<BarShape, 'laps'>): number => (s.laps ? s.laps.count * s.laps.length : 0);
 
 /** Each straight leg vertex to vertex, m. */
 export function legLengths(s: BarShape): number[] {
@@ -34,11 +39,11 @@ export function bendAngles(s: BarShape): number[] {
   return out;
 }
 
-/** Length of steel to cut, m: the legs less what each arc on the mandrel saves on the corner it rounds. */
+/** Length of steel to cut, m: the legs less what each arc on the mandrel saves on the corner it rounds, and the laps. */
 export function developedLength(s: BarShape): number {
   const r = (s.mandrel + s.dia / 1000) / 2;
   const saved = bendAngles(s).reduce((acc, t) => acc + (t > 1e-9 ? 2 * r * Math.tan(t / 2) - r * t : 0), 0);
-  return legLengths(s).reduce((a, b) => a + b, 0) - saved;
+  return legLengths(s).reduce((a, b) => a + b, 0) - saved + lapLength(s);
 }
 
 export function shapeWeight(s: BarShape, count = 1): number {
@@ -48,14 +53,16 @@ export function shapeWeight(s: BarShape, count = 1): number {
 
 /**
  * A straight bar from x0 to x1 at height y, with a 90° hook at either end turned `toward`
- * (+1 up, −1 down); the hook's leg runs the bend radius and its extension past the corner.
+ * (+1 up, −1 down; one for both ends or each its own); the hook's leg runs the bend radius and its
+ * extension past the corner.
  */
-export function hookedStraight(x0: number, x1: number, y: number, dia: number, mandrel: number, hooks: [boolean, boolean], toward: 1 | -1, extension: number): BarShape {
+export function hookedStraight(x0: number, x1: number, y: number, dia: number, mandrel: number, hooks: [boolean, boolean], toward: 1 | -1 | [1 | -1, 1 | -1], extension: number): BarShape {
   const leg = (mandrel + dia / 1000) / 2 + extension;
+  const [t0, t1] = Array.isArray(toward) ? toward : [toward, toward];
   const pts: Array<[number, number]> = [];
-  if (hooks[0]) pts.push([x0, y + toward * leg]);
+  if (hooks[0]) pts.push([x0, y + t0 * leg]);
   pts.push([x0, y], [x1, y]);
-  if (hooks[1]) pts.push([x1, y + toward * leg]);
+  if (hooks[1]) pts.push([x1, y + t1 * leg]);
   return { pts, mandrel, dia };
 }
 
@@ -149,7 +156,7 @@ export function planarLegs(s: BarShape): Array<{ l: number; w: number }> {
   });
 }
 
-/** What makes two bars the same piece to bend: diameter, mandrel, legs to the mm and turns to the degree, whichever end first and whichever face up. */
+/** What makes two bars the same piece to bend: diameter, mandrel, legs to the mm and turns to the degree, whichever end first and whichever face up, and the laps. */
 export function shapeKey(s: BarShape): string {
   const legs = planarLegs(s).map((x) => ({ l: Math.round(x.l * 1000), w: Math.round(x.w) }));
   const signed = (seq: Array<{ l: number; w: number }>) => {
@@ -158,5 +165,5 @@ export function shapeKey(s: BarShape): string {
   };
   const back = legs.map((_, i) => ({ l: legs[legs.length - 1 - i]!.l, w: i < legs.length - 1 ? -legs[legs.length - 2 - i]!.w : 0 }));
   const a = signed(legs), b = signed(back);
-  return `${s.dia}|${Math.round(s.mandrel * 1000)}|${a < b ? a : b}`;
+  return `${s.dia}|${Math.round(s.mandrel * 1000)}|${a < b ? a : b}${s.laps ? `|${s.laps.count}×${Math.round(s.laps.length * 1000)}` : ''}`;
 }

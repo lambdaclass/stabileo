@@ -70,14 +70,23 @@ describe('schedule rows and totals', () => {
     expect(d16.withWaste).toBeCloseTo(kg16 * 1.15, 9);
     // Eight 5 m bars: two from each 12 m bar.
     expect(d16.stockBars).toBe(4);
-    // A 13 m bar takes a stock bar each, and is said to be spliced.
-    expect(s.byDiameter.find((d) => d.dia === 10)!.stockBars).toBe(10);
+    // A 13 m bar is cut from two stock bars, and is said to be spliced.
+    expect(s.byDiameter.find((d) => d.dia === 10)!.stockBars).toBe(20);
     expect(s.rows.find((r) => r.dia === 10)!.long).toBe(true);
     expect(s.byFamily.map((x) => x.family)).toEqual(['column', 'slab']);
     expect(s.byFamily[0]!.kg).toBeCloseTo(kg16 + kg8, 9);
     expect(s.total.kg).toBeCloseTo(kg16 + kg8 + kg10, 9);
     expect(s.total.withWaste).toBeCloseTo((kg16 + kg8 + kg10) * 1.15, 9);
     expect(scheduleOf(els, { code: 'cirsoc201-2025' }).waste).toBe(0.1);
+  });
+
+  it('a mark longer than a stock bar is cut from as many stock bars as its length needs', () => {
+    const s = scheduleOf([el('V1', [{ kind: 'continuous', count: 3, shape: bar(18.5) }], { family: 'beam' })], { code: 'cirsoc201-2025' });
+    expect(s.byDiameter[0]!.stockBars).toBe(6);
+    const lapped = scheduleOf([el('V1', [{ kind: 'continuous', count: 3, shape: { ...bar(11.6), laps: { count: 1, length: 0.8 } } }], { family: 'beam' })], { code: 'cirsoc201-2025' });
+    expect(lapped.rows[0]!.unitLength).toBeCloseTo(12.4, 9);
+    expect(lapped.rows[0]!.kg).toBeCloseTo(shapeWeight(bar(12.4), 3), 9);
+    expect(lapped.byDiameter[0]!.stockBars).toBe(6);
   });
 
   it('TS 500 bends to the ACI rule and says so; the other codes cite their own clauses', () => {
@@ -162,6 +171,28 @@ describe('pieces of each family', () => {
     const els = scheduleElements({ line: [], column: [], slab: [r, other], wall: [], slabPlan: [plan] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
     expect(els.map((e) => e.key)).toEqual(['slabplan:N1', 'slab:2']);
     expect(els[0]!.pieces).toEqual([{ kind: 'slabTop', count: 23, shape: crossing, elevation: '7' }]);
+  });
+
+  it('slabs with no level are scheduled once, by the plan of the unnamed level', () => {
+    const m = (v: number) => ({ bottomX: { value: v }, bottomY: { value: v }, topX: { value: v }, topY: { value: v } });
+    const r = slabRow({ key: 'slab:1', name: 'L1', lx: 5, ly: 4, h: 0.15, m: m(8) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
+    const crossing = hookedStraight(0, 9.4, 0.12, 10, 0.06, [true, true], -1, 0.11);
+    const plan = { level: '', packages: [{ mark: '1', layer: 'top', count: 23, shape: crossing }] } as never;
+    const els = scheduleElements({ line: [], column: [], slab: [r], wall: [], slabPlan: [plan] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    expect(els.map((e) => e.key)).toEqual(['slabplan:']);
+  });
+
+  it('the columns\' inner row is held by a cross tie through each pair of facing bars, counted with the hoops', () => {
+    const { low } = stack(0.4);
+    const a = { ...low.adopted, inner: { nx: 2, ny: 1, dia: 16 } };
+    const r = { ...low, adopted: a };
+    const [e] = scheduleElements({ line: [], column: [r], slab: [], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    const hoops = e!.pieces.find((p) => p.kind === 'hoop')!.count;
+    const ties = e!.pieces.filter((p) => p.kind === 'crossTie').reduce((s, p) => s + p.count, 0);
+    expect(ties).toBe(hoops * (low.checks.crossties.x + low.checks.crossties.y + 3));
+    const row = columnRow(demand(0, 0.4), ctx, a, f);
+    expect(row.checks.crossties.inner).toEqual({ x: 2, y: 1 });
+    expect(row.verifications.find((v) => v.label === 'rcSheets.v.crossties')!.capacity).toContain('2 (b, 2) · 1 (h, 2)');
   });
 
   it('a wall: verticals and boundary bars, horizontals, edge U-bars of the lap, by the storey', () => {

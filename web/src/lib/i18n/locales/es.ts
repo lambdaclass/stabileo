@@ -13451,6 +13451,8 @@ const es: Record<string, string> = {
   "rcSheets.v.lineHooks": "Anclaje con gancho en los extremos",
   "rcSheets.v.lineEndAnchor": "Gancho dentro de la columna extrema",
   "rcSheets.v.lineSplices": "Empalmes de las barras corridas (barras de 12 m)",
+  "rcSheets.v.lineHookFit": "Pata del gancho dentro de la altura de la viga",
+  "rcSheets.v.lineSeismicBent": "Barras dobladas con las disposiciones sísmicas: las vigas del capítulo 18 se arman con barras rectas",
   "rcSheets.g.lineMethod": "Armado de la viga continua",
   "rcSheets.g.anchorage": "Anclajes y empalmes",
   "rcSheets.s.lineRun": "Barras corridas",
