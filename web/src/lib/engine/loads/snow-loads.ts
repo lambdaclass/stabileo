@@ -1,5 +1,5 @@
 import { roofMembers, type WindModel } from './wind-cases';
-import { roofSurfaceModel, type SnowPlane, type RoofGeometry } from './snow-roof-surfaces';
+import { roofSurfaceModel, SNOW_INTENSITY_RELATIVE_ERROR, type SnowPlane, type RoofGeometry } from './snow-roof-surfaces';
 import type { GravityLayout, GravityModel } from './plan-gravity';
 import { driftAndSlidingLoads, snowDriftRefusal } from './snow-drift-loads';
 import { layoutSpans, layoutUnits, partialSnowPatterns } from './plan-spans';
@@ -295,5 +295,6 @@ export function snowLoadCases(input: SnowCasesInput): {
   }
   const surfaces = [...bySlope.entries()].filter(([key, value]) => used.has(key) && Math.abs(value.result.ps - result.ps) > 1e-9)
     .map(([, value]) => ({ slopeDeg: value.slopeDeg, cs: value.result.cs, ps: value.result.ps })).sort((a, b) => a.slopeDeg - b.slopeDeg);
+  if (surfaceModel.approximation.maxAbsoluteError > 0) derivation.push(msg('snow.derivation.intensityBound', { relativePercent: 100 * SNOW_INTENSITY_RELATIVE_ERROR, absolute: surfaceModel.approximation.maxAbsoluteError }));
   return { result, geometry, cases, derivation, refs, surfaces: shaped ? [] : surfaces };
 }

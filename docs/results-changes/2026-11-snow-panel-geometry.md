@@ -30,9 +30,9 @@ Class tests also exposed rounding of tributary widths and loss of the moment of
 a varying pressure times a varying width. The floor allocation kernel now has
 a physical output path that preserves full precision; its display output retains
 its existing rounding. Both call the same calculation. Snow reconstructs complete
-physical tributary strips before restricting the load to mesh members. Each
-quadratic strip intensity is integrated with a pair of affine segments whose
-force and first moment agree with that profile. Strip boundaries and internal
+physical tributary strips before restricting the load to mesh members. Quadratic strip intensities use bounded piecewise linear loads, conserving
+force and both plan moments on every subcell; the bound and beam-response
+regression are documented in [the intensity correction](2026-11-snow-quadratic-intensity.md). Strip boundaries and internal
 knots follow geometry, not member subdivisions. The independent triangular-strip
 regression checks both force and moment; the thirds regression detects the old
 six-decimal width quantization. On the parent source, the thirds width is
@@ -66,12 +66,22 @@ printed in the drift module. The flat balanced pressure includes the existing
 low-slope minimum.
 
 Generation precedes 2D/3D, linear/nonlinear and native/WASM solver selection.
-Regenerate affected saved-project snow loads, then rerun analyses, combinations
+Regenerate all affected generated area loads in saved projects, then rerun analyses, combinations
 and design checks. Re-solving stored generated loads alone does not correct
 them. The notice applies conservatively to all generated area loads because the shared
 classification and full-precision widths also affect roof/floor loads. It persists
 after a new solve until the loads are regenerated.
 The coordinator reserved [SA-2026-074](../advisories/SA-2026-074-snow-panel-subdivision.md).
-Fix PR pending. The polygon classification is also used by other generated
+Fix PR #2197. The polygon classification is also used by other generated
 roof/floor area loads; their roof-dependent classification follows the same
 physical correction.
+
+The deliberate snapshot refresh in #2197 covers `snow-subdivided-override`,
+`snow-hip-facets` and `snow-roof-rotation`. The first corrects the ridge-side
+pressure applied to varying tributary widths; the hip case retains every committed physical load value and adds only the
+explicit intensity-bound derivation. Candidate duplicated hip loads were
+rejected by the independent oracle before the final refresh. Element IDs and
+stations are compared as geometry, not treated as physical quantities moving
+up or down. The rotated
+roof changes two numerical zero residues only; their magnitudes decrease.
+See the intensity correction record for the independent checks and derivation.

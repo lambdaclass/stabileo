@@ -1,13 +1,13 @@
 import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { ridgeRoofs } from './snow-surface-round3-fixture';
-import { mesh } from './snow-surface-round2-fixture';
+import { roofSurfaceModel } from '../snow-roof-surfaces';
+import { remeshSnowRoof, snowDistributedResultant } from './snow-remesh-invariance';
+import { mesh, transform } from './snow-surface-round2-fixture';
 import { snow, pressure } from './snow-roof-plane-fixture';
 import { gravityLayout } from '../plan-gravity';
 import { snowLoadCases } from '../snow-loads';
 import { parseSnapshot } from '../../../../../scripts/results-snapshot/compare.mjs';
-
-const oracleRegression = process.env.RUN_KNOWN_WRONG === '2172' ? it : it.skip;
 
 type Load = { elementId: number; q: number; qJ?: number; a?: number; b?: number };
 function stored(name: string, caseIndex: number): Load[] {
@@ -23,27 +23,32 @@ function stored(name: string, caseIndex: number): Load[] {
   return [...entries.values()] as Load[];
 }
 
-function hipPressure(x: number, y: number, direction?: number[]) {
+function hipPressure(x: number, y: number, direction?: number[], partialFactor = 1) {
   const distances = [x, 8 - x, y, 12 - y], low = Math.min(...distances);
   const gradients = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const factors = distances.flatMap((d, k) => {
     if (Math.abs(d - low) > 1e-10) return [];
-    if (!direction) return [1];
+    if (!direction) return [k < 2 ? partialFactor : 1];
     const side = gradients[k]![0]! * direction[0]! + gradients[k]![1]! * direction[1]!;
     return [side === 0 ? 1 : side < 0 ? 1.5 : 0];
   });
   return factors.reduce((a, b) => a + b, 0) / factors.length;
 }
 
-oracleRegression('known wrong result: #2172 hip snapshot balanced and directional intensities approach independent physical facet integrals', () => {
+it('#2172 hip snapshot balanced and directional intensities approach independent physical facet integrals', () => {
   const model = ridgeRoofs('hip'), layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   const out = snowLoadCases({ model, layout, snow: { ...snow, partial: true }, tributaryWidth: 1 })!;
   const ps = 0.7 * (70 - Math.atan(0.5) * 180 / Math.PI) / 65;
   let maxOld = 0, maxNew = 0, worsened = 0;
   for (const [caseIndex, c] of out.cases.entries()) {
-    if (c.pattern) continue;
     const dir = c.nameParams.dir;
     const direction = dir === '−X' ? [-1, 0] : dir === '+X' ? [1, 0] : dir === '−Y' ? [0, -1] : dir === '+Y' ? [0, 1] : undefined;
+    const factorAt = (y: number) => {
+      if (!c.pattern) return 1;
+      const spans = [0, 1, 2].filter(k => y >= 4 * k - 1e-10 && y <= 4 * (k + 1) + 1e-10);
+      const full = c.nameParams.c === 1 ? [0, 2] : c.nameParams.c === 2 ? [1] : c.nameParams.at === -8 ? [1, 2] : [0, 1];
+      return spans.some(k => full.includes(k)) ? 1 : 0.5;
+    };
     const old = stored('snow-hip-facets', caseIndex);
     for (const e of model.elements.values()) {
       const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
@@ -55,7 +60,7 @@ oracleRegression('known wrong result: #2172 hip snapshot balanced and directiona
       for (let j = 1; j < cuts.length; j++) for (const t of [0.001, 0.25, 0.5, 0.75, 0.999]) {
         const station = cuts[j - 1]! + t * (cuts[j]! - cuts[j - 1]!);
         const x = a.x + (b.x - a.x) * station / length, y = a.y + (b.y - a.y) * station / length;
-        let expected = layout.widthMembers.some(w => w.elementId === e.id) ? ps * hipPressure(x, y, direction) : 0;
+        let expected = layout.widthMembers.some(w => w.elementId === e.id) ? ps * hipPressure(x, y, direction, factorAt((a.y + b.y) / 2)) : 0;
         for (const p of pieces) {
           const lo = p.a ?? 0, hi = p.b ?? length;
           if (station <= lo || station >= hi) continue;
@@ -72,7 +77,7 @@ oracleRegression('known wrong result: #2172 hip snapshot balanced and directiona
           ds.sort((a, b) => a - b);
           for (let m = 1; m < ds.length; m++) {
             const mid = (ds[m - 1]! + ds[m]!) / 2;
-            expected += ps * (ds[m]! - ds[m - 1]!) * hipPressure(x + nx * mid, y + ny * mid, direction);
+            expected += ps * (ds[m]! - ds[m - 1]!) * hipPressure(x + nx * mid, y + ny * mid, direction, factorAt(6));
           }
         }
         const current = pressure(c.distributed.map(d => ({ ...d, b: d.b ?? length })), e.id, station);
@@ -106,4 +111,29 @@ it('subdivided override snapshot retains the physical ridge discontinuity with t
   }
   console.log('subdivided physical oracle', { maxOld, maxNew });
   expect(maxNew).toBeLessThan(1e-12);
+});
+
+for (const angle of [0, 0.37]) for (const subdivisions of [1, 3, 7]) for (const scale of [1, 1e-12]) it(`overlapping affine tributary sources emit once after normalization ${angle} ${subdivisions} ${scale}`, () => {
+  const base = transform(mesh([[[0, 0, 3], [8, 0, 3], [8, 4, 3], [0, 4, 3]]]), angle, 0);
+  const refined = remeshSnowRoof(base, new Map([[1, subdivisions]])), model = refined.model;
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  layout.panels = [{ polygon: [...base.nodes.values()].map(n => [n.x, n.y]), z: 3, roof: true }];
+  const carriers = refined.segments.filter(s => s.source === 1);
+  layout.pieces = carriers.flatMap(s => [[0, 8], [2, 6]].flatMap(([lo, hi]) => {
+    const a = Math.max(lo!, 8 * s.from), b = Math.min(hi!, 8 * s.to);
+    return a < b ? [{ elementId: s.id, panel: 0, roof: true, a: a - 8 * s.from, b: b - 8 * s.from, wI: a, wJ: b }] : [];
+  }));
+  const surfaces = roofSurfaceModel(model);
+  const loads = layout.pieces.flatMap(pc => surfaces.pieceLoads(pc, layout, (_, pt) => scale * (1 - (pt[0] * Math.cos(angle) + pt[1] * Math.sin(angle)) / 16)));
+  const ids = new Set(carriers.map(s => s.id));
+  const [force, moment] = snowDistributedResultant(model, loads, ids, [0, 0], [Math.cos(angle), Math.sin(angle)]);
+  const f = (x: number) => -x * x / 2 + x ** 3 / 48;
+  const m = (x: number) => -(x ** 3) / 3 + x ** 4 / 64;
+  expect(force! / scale).toBeCloseTo(f(8) - f(0) + f(6) - f(2), 10);
+  expect(moment! / scale).toBeCloseTo(m(8) - m(0) + m(6) - m(2), 10);
+  for (const segment of carriers) for (const t of [0.17, 0.43, 0.79]) {
+    const x = 8 * (segment.from + t * (segment.to - segment.from));
+    const physical = x * (1 - x / 16) * (x > 2 && x < 6 ? 2 : 1);
+    expect(Math.abs(pressure(loads, segment.id, 8 * t * (segment.to - segment.from)) / scale - physical)).toBeLessThan(2 * 4 * 1e-4);
+  }
 });

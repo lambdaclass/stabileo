@@ -40,3 +40,10 @@ pending until a PR number is available. This work does not fix #2172.
 The subsequent #2172 class correction extends the same integration to varying
 tributary widths: complete physical strips are integrated before member
 restriction. See [the panel geometry record](2026-11-snow-panel-geometry.md).
+
+PR #2197 refreshes `snow-subdivided-override`: the leeward triangular edge now
+reaches the full ridge-side intensity and the windward half remains unloaded.
+The force and first moments follow the pressure discontinuity, rather than a
+ramp crossing the ridge. `snow-hip-facets` and `snow-roof-rotation` are also
+refreshed with the panel correction; see the
+[bounded intensity record](2026-11-snow-quadratic-intensity.md).

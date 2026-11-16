@@ -11255,6 +11255,7 @@ const tr: Translations = {
   'snow.derivation.parapet': '+{z} m kotundaki çatının bir kenarında {hp} m parapet (Bölüm 8): lu = {lu} m, hb = {hb} m, hc = {hc} m, 0.75 hd = {hd} m; {h} m yüksekliğinde ve {w} m genişliğinde bir üçgen, pd = {pd} kN/m², dengeli kara eklenir.',
   'snow.derivation.partialExempt': '{axis} boyunca, mahyaya dik açıklıklar kısmi yük almaz: {slope}° eğim 21/W + 0.5 = {limit}° değerini aşıyor (§5.1).',
   'snow.derivation.noPartial': 'Kısmi yükler (§5.1): çatının hiçbir doğrultuda art arda üç açıklığı yok; eklenecek düzen yok.',
+  'snow.derivation.intensityBound': "İkinci derece yük toplama şiddetleri, kuvveti ve plandaki iki momenti koruyan parçalı doğrusal yüklerle temsil edilir. Noktasal hata her tam fiziksel yük toplama şeridinde örneklenen en büyük şiddetin %{relativePercent} değerini aşmaz; en büyük mutlak sınır {absolute} kN/m olur.",
   'snow.derivation.partial': 'Kısmi yükler (§5.1): dengeli karın {n} düzeni, bazı açıklıklarda tam, kalanlarda yarım; karın esas etki olduğu kombinasyonlara dengeli kar yerine girer.',
   'snow.case.unbalancedValleys': 'Dengesiz kar, derelerde toplanmış',
   'snow.case.partialPair': 'Kısmi kar, {axis} = {at} m yanındaki açıklıklar',

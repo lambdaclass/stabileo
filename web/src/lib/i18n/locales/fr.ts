@@ -11246,6 +11246,7 @@ const fr: Translations = {
   'snow.derivation.parapet': 'Un acrotère de {hp} m sur un bord de la toiture à +{z} m (chap. 8) : lu = {lu} m, hb = {hb} m, hc = {hc} m, 0.75 hd = {hd} m ; un triangle de {h} m de haut et {w} m de large, pd = {pd} kN/m², ajouté à la neige équilibrée.',
   'snow.derivation.partialExempt': 'Les travées selon {axis}, perpendiculaires au faîtage, ne prennent pas de charges partielles : la pente de {slope}° dépasse 21/W + 0.5 = {limit}° (§5.1).',
   'snow.derivation.noPartial': 'Charges partielles (§5.1) : la toiture n\'a pas trois travées consécutives dans aucune direction ; il n\'y a aucune disposition à ajouter.',
+  'snow.derivation.intensityBound': "Les intensités tributaires quadratiques utilisent des charges linéaires par morceaux conservant la force et les deux moments en plan. L’erreur ponctuelle ne dépasse pas {relativePercent}% de l’intensité maximale échantillonnée par bande tributaire physique complète ; la borne absolue maximale est {absolute} kN/m.",
   'snow.derivation.partial': 'Charges partielles (§5.1) : {n} dispositions de la neige équilibrée, entière sur certaines travées et à moitié sur les autres, qui entrent dans les combinaisons à la place de la neige équilibrée lorsque la neige est l\'action principale.',
   'snow.case.unbalancedValleys': 'Neige dissymétrique, accumulée dans les noues',
   'snow.case.partialPair': 'Neige partielle, travées de part et d\'autre de {axis} = {at} m',

@@ -7,7 +7,6 @@ import { snowLoadCases } from '../snow-loads';
 import type { LoadModelData } from '../load-plan';
 
 const regression = it;
-const ridgeRegression = process.env.RUN_KNOWN_WRONG === '2176' ? it : it.skip;
 
 for (const mode of ['projected', 'width', 'panels'] as const) for (const angle of [0, 0.37]) for (const selected of [false, true]) for (const W of [2, 6 - 1e-12, 6, 6 + 1e-12]) {
   const check = () => {
@@ -43,6 +42,6 @@ for (const mode of ['projected', 'width', 'panels'] as const) for (const angle o
     }
     for (const subdivisions of [new Map([[2, 2], [4, 2]]), new Map([[2, 3], [4, 5]]), new Map([[1, 8], [2, 5], [3, 3], [4, 7]])]) assertSnowRemeshInvariant(model, subdivisions, generate);
   };
-  if (mode === 'panels' && angle === 0 && !selected && W === 2) ridgeRegression('known wrong result: #2176 physical ridge force and moment panels 0 false 2', check);
+  if (mode === 'panels' && angle === 0 && !selected && W === 2) it('#2176 physical ridge force and moment panels 0 false 2', check);
   else regression(`#2176 physical ridge force and moment ${mode} ${angle} ${selected} ${W}`, check);
 }

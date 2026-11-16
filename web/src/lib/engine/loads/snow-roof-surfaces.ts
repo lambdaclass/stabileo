@@ -7,10 +7,33 @@ import { UNBALANCED_WIDTH_LIMIT } from '../../codes/cirsoc104/snow';
 type P2 = [number, number];
 type Point = { x: number; y: number; z?: number };
 const Z = (p: Point) => p.z ?? 0;
+export const SNOW_INTENSITY_RELATIVE_ERROR = 1e-4;
 
 class SnowRoofPlaneRefusal extends Error {
   constructor() { super('snow.refused.roofPlane'); }
 }
+export function boundedSnowIntensity(qI: number, centre: number, qJ: number, referenceScale = 0) {
+  const scale = Math.max(referenceScale, Math.abs(qI), Math.abs(qJ), Math.abs(centre));
+  if (!Number.isFinite(scale) || Math.max(qI, centre, qJ) > 0) throw new SnowRoofPlaneRefusal();
+  const rawDelta = centre - (qI + qJ) / 2;
+  if (!Number.isFinite(rawDelta)) throw new SnowRoofPlaneRefusal();
+  const delta = Math.abs(rawDelta) <= 128 * Number.EPSILON * scale ? 0 : rawDelta;
+  const count = Math.max(1, Math.ceil(Math.sqrt(Math.abs(delta) / (3 * SNOW_INTENSITY_RELATIVE_ERROR * scale)) || 0));
+  const value = (t: number) => qI + (qJ - qI) * t + 4 * delta * t * (1 - t);
+  const vertex = delta === 0 ? -1 : (qJ - qI + 4 * delta) / (8 * delta);
+  const cuts = Array.from({ length: count + 1 }, (_, j) => j / count);
+  if (vertex > 0 && vertex < 1 && cuts.every(t => t !== vertex)) cuts.push(vertex);
+  cuts.sort((a, b) => a - b);
+  const segments: Array<{ a: number; b: number; q: number; qJ: number }> = [];
+  for (let j = 1; j < cuts.length; j++) {
+    const start = cuts[j - 1]!, end = cuts[j]!, mid = (start + end) / 2;
+    const first = value(start), last = value(end), middle = (8 * value(mid) - first - last) / 6;
+    if (![first, middle, last].every(Number.isFinite) || Math.max(first, middle, last) > 128 * Number.EPSILON * scale) throw new SnowRoofPlaneRefusal();
+    segments.push({ a: start, b: mid, q: Math.min(0, first), qJ: Math.min(0, middle) }, { a: mid, b: end, q: Math.min(0, middle), qJ: Math.min(0, last) });
+  }
+  return { segments, approximated: delta !== 0, absoluteErrorBound: Math.abs(delta) / (3 * count * count) + Math.abs(rawDelta - delta) };
+}
+
 const cross = (a: P2, b: P2, c: P2) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 
 
@@ -342,6 +365,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     if (!value.resolved) throw new SnowRoofPlaneRefusal();
     return value;
   };
+  const approximation = { maxAbsoluteError: 0 };
   const pieceLoads = (pc: GravityLayout['pieces'][number], layout: GravityLayout, pressure: (plane: SnowPlane | undefined, pt: P2, inside: P2) => number, boundaries: P2[][] = []) => {
     const e = model.elements.get(pc.elementId)!;
     const memberA = model.nodes.get(e.nodeI)!, memberB = model.nodes.get(e.nodeJ)!;
@@ -362,14 +386,18 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
       const edge = model.elements.get(p.elementId)!, i = model.nodes.get(edge.nodeI)!, j = model.nodes.get(edge.nodeJ)!;
       const length = Math.hypot(j.x - i.x, j.y - i.y, Z(j) - Z(i)), start = position(i), sign = position(j) >= start ? 1 : -1;
       const lo = start + sign * (p.a ?? 0), hi = start + sign * (p.b ?? length);
-      return lo < hi ? { a: lo, b: hi, wI: p.wI, wJ: p.wJ } : { a: hi, b: lo, wI: p.wJ, wJ: p.wI };
+      return lo < hi ? { a: lo, b: hi, wI: p.wI, wJ: p.wJ, sources: new Set([p]) } : { a: hi, b: lo, wI: p.wJ, wJ: p.wI, sources: new Set([p]) };
     }).sort((a, b) => a.a - b.a);
     const merged: typeof strips = [];
     for (const strip of strips) {
-      const last = merged[merged.length - 1];
-      if (last && Math.abs(last.b - strip.a) < 1e-8 && Math.abs(last.wJ - strip.wI) < 1e-9
-        && Math.abs((last.wJ - last.wI) / (last.b - last.a) - (strip.wJ - strip.wI) / (strip.b - strip.a)) < 1e-9) { last.b = strip.b; last.wJ = strip.wJ; }
-      else merged.push({ ...strip });
+      const slope = (strip.wJ - strip.wI) / (strip.b - strip.a);
+      const joined = merged.find(p => strip.a <= p.b + 1e-8
+        && Math.abs((p.wJ - p.wI) / (p.b - p.a) - slope) < 1e-9
+        && Math.abs(p.wI + slope * (strip.a - p.a) - strip.wI) < 1e-9);
+      if (joined) {
+        if (strip.b > joined.b) { joined.b = strip.b; joined.wJ = strip.wJ; }
+        for (const source of strip.sources) joined.sources.add(source);
+      } else merged.push({ ...strip, sources: new Set(strip.sources) });
     }
     const physicalPolygon = (polygon: P2[]) => polygon.filter((p, k) => {
       const prev = polygon[(k + polygon.length - 1) % polygon.length]!, next = polygon[(k + 1) % polygon.length]!;
@@ -382,7 +410,10 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
       const start = Math.max(lo, Math.min(from, to)), end = Math.min(hi, Math.max(from, to));
       const error = 64 * Number.EPSILON * (L + Math.abs(from) + Math.abs(to));
       if (end - start <= error) return;
-      const q = (x: number) => qI + (qJ - qI) * (x - lo) / (hi - lo);
+      const q = (x: number) => {
+        const t = (x - lo) / (hi - lo);
+        return (1 - t) * qI + t * qJ;
+      };
       const first = sense > 0 ? start : end, last = sense > 0 ? end : start;
       const station = (x: number) => {
         const value = (x - offset) * sense;
@@ -390,7 +421,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
       };
       out.push({ a: station(first), b: station(last), q: q(first), qJ: q(last) });
     };
-    for (const strip of merged) {
+    for (const strip of merged.filter(strip => strip.sources.has(pc))) {
       const overlap = Math.min(strip.b, Math.max(from, to)) - Math.max(strip.a, Math.min(from, to));
       if (overlap <= 64 * Number.EPSILON * (L + Math.abs(from) + Math.abs(to))) continue;
       const x0 = strip.a, x1 = strip.b;
@@ -414,28 +445,49 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
         }
         return -q;
       };
-      const xs = [x0, x1];
+      const sourceEvents = strips.filter(p => strip.sources.has([...p.sources][0]!))
+        .flatMap(p => [{ x: p.a, delta: 1 }, { x: p.b, delta: -1 }]).sort((a, b) => a.x - b.x);
+      const coverageChanges: typeof sourceEvents = [];
+      for (const event of sourceEvents) {
+        const last = coverageChanges[coverageChanges.length - 1];
+        if (last && Math.abs(last.x - event.x) < 1e-8) last.delta += event.delta;
+        else coverageChanges.push({ ...event });
+      }
+      const xs = [x0, x1, ...coverageChanges.filter(e => e.delta !== 0).map(e => e.x)];
       for (const d of [0, 1]) for (const t of cuts(point(x0, d * depth(x0)), point(x1, d * depth(x1)))) xs.push(x0 + (x1 - x0) * t);
       for (const polygon of polygons) for (const v of polygon) {
         const x = ((v[0] - a.x) * dir[0] + (v[1] - a.y) * dir[1]) / (dir[0] ** 2 + dir[1] ** 2);
         if (x > x0 && x < x1) xs.push(x);
       }
       const sorted = [x0, ...xs.filter(x => x > x0 + 1e-8 && x < x1 - 1e-8).sort((a, b) => a - b).filter((x, k, all) => k === 0 || x - all[k - 1]! > 1e-8), x1];
-      for (let k = 1; k < sorted.length; k++) {
-        const lo = sorted[k - 1]!, hi = sorted[k]!, mid = (lo + hi) / 2;
-        const qI = intensity(lo, lo + (hi - lo) * 1e-6), qJ = intensity(hi, hi - (hi - lo) * 1e-6);
-        const centre = intensity(mid, mid), middle = (8 * centre - qI - qJ) / 6;
-        const error = 128 * Number.EPSILON * Math.max(Math.abs(qI), Math.abs(qJ), Math.abs(centre));
-        if (middle > error) throw new SnowRoofPlaneRefusal();
-        const qM = Math.min(0, middle);
-        append(lo, mid, qI, qM); append(mid, hi, qM, qJ);
+      const intervals = sorted.slice(1).map((hi, k) => {
+        const lo = sorted[k]!, mid = (lo + hi) / 2;
+        return { lo, hi, qI: intensity(lo, lo + (hi - lo) * 1e-6), qJ: intensity(hi, hi - (hi - lo) * 1e-6), centre: intensity(mid, mid) };
+      });
+      const referenceScale = intervals.reduce((scale, p) => Math.max(scale, Math.abs(p.qI), Math.abs(p.qJ), Math.abs(p.centre)), 0);
+      for (const { lo, hi, qI, qJ, centre } of intervals) {
+        const profile = boundedSnowIntensity(qI, centre, qJ, referenceScale);
+        if (profile.approximated) approximation.maxAbsoluteError = Math.max(approximation.maxAbsoluteError, profile.absoluteErrorBound);
+        for (const segment of profile.segments) append(lo + (hi - lo) * segment.a, lo + (hi - lo) * segment.b, segment.q, segment.qJ);
       }
     }
     out.sort((a, b) => a.a - b.a);
     const loads: typeof out = [];
+    const loadScale = out.reduce((scale, p) => Math.max(scale, Math.abs(p.q), Math.abs(p.qJ)), 0);
+    const coordinateScale = Math.abs(a.x) + Math.abs(a.y) + Math.abs(b.x) + Math.abs(b.y) + L;
+    const depthScale = strips.reduce((scale, p) => Math.min(scale, ...[p.wI, p.wJ].filter(w => w > 0)), L);
+    const coalescingRoundoff = Math.min(1e-9, 128 * Number.EPSILON * loadScale * (1 + coordinateScale / depthScale));
     for (const p of out) {
       const last = loads[loads.length - 1];
-      if (last && Math.abs(last.b - p.a) < 1e-8 && Math.abs(last.qJ - p.q) < 1e-9 && Math.abs((last.qJ - last.q) / (last.b - last.a) - (p.qJ - p.q) / (p.b - p.a)) < 1e-9) { last.b = p.b; last.qJ = p.qJ; }
+      const combined = (x: number) => {
+        const t = (x - last!.a) / (p.b - last!.a);
+        return (1 - t) * last!.q + t * p.qJ;
+      };
+      if (last && Math.abs(last.b - p.a) < 1e-8
+        && Math.abs(last.qJ - p.q) < 1e-9
+        && Math.abs((last.qJ - last.q) / (last.b - last.a) - (p.qJ - p.q) / (p.b - p.a)) < 1e-9
+        && Math.abs(last.qJ - combined(last.b)) <= coalescingRoundoff
+        && Math.abs(p.q - combined(p.a)) <= coalescingRoundoff) { last.b = p.b; last.qJ = p.qJ; }
       else loads.push(p);
     }
     return loads.map(p => ({ elementId: pc.elementId, q: p.q, qJ: p.qJ, ...(loads.length === 1 && pc.a === undefined ? {} : { a: p.a, b: p.b }), frame: 'projected' as const }));
@@ -551,7 +603,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     };
     return { at: field, boundaries, memberLoads };
   };
-  return { geometry, roofPoint, profilePoints, pressureProfile, memberValues, planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets, runs, panel, resolves };
+  return { approximation, geometry, roofPoint, profilePoints, pressureProfile, memberValues, planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets, runs, panel, resolves };
 }
 
 export function snowRoofSurfaces(model: WindModel, layout?: GravityLayout, surfaces = roofSurfaceModel(model)) {

@@ -2,12 +2,12 @@ import { expect, it } from 'vitest';
 import { mesh, transform } from './snow-surface-round2-fixture';
 import { snow, pressure, regulations } from './snow-roof-plane-fixture';
 import { assertSnowRemeshInvariant, remeshSnowRoof, snowDistributedResultant } from './snow-remesh-invariance';
+import { boundedSnowIntensity } from '../snow-roof-surfaces';
 import { gravityLayout } from '../plan-gravity';
 import { snowLoadCases } from '../snow-loads';
 import { buildLoadPlan, type LoadModelData } from '../load-plan';
 
 const regression = it;
-const shapeRegression = process.env.RUN_KNOWN_WRONG === '2172' ? it : it.skip;
 
 function dome(angle: number) {
   const rim = [[0, 0, 3], [8, 0, 3], [8, 8, 3], [0, 8, 3]], crown = [4, 4, 5];
@@ -148,6 +148,44 @@ for (const angle of [0, 0.37]) for (const reversed of [false, true]) {
       expect(moment).toBeCloseTo(direction[0] === Math.cos(angle) ? -80 * p / 3 : 0, 10);
     }
   };
-  if (angle === 0 && !reversed) shapeRegression('known wrong result: #2172 quadratic strip intensity and simply supported response', check);
-  else shapeRegression(`known wrong result: #2172 quadratic strip intensity and simply supported response ${angle} ${reversed}`, check);
+  if (angle === 0 && !reversed) it('#2172 quadratic strip intensity and simply supported response', check);
+  else it(`#2172 quadratic strip intensity and simply supported response ${angle} ${reversed}`, check);
 }
+
+it('bounded snow intensity retains zero and affine controls and refuses invalid pressure', () => {
+  for (const samples of [[0, 0, 0], [-2, -2, -2], [0, -1, -2], [-2, -1, 0]]) {
+    const profile = boundedSnowIntensity(samples[0]!, samples[1]!, samples[2]!);
+    expect(profile.approximated).toBe(false);
+    expect(profile.absoluteErrorBound).toBe(0);
+    for (const segment of profile.segments) {
+      expect(segment.q).toBe(samples[0]! + (samples[2]! - samples[0]!) * segment.a);
+      expect(segment.qJ).toBe(samples[0]! + (samples[2]! - samples[0]!) * segment.b);
+    }
+  }
+  for (const invalid of [1e-12, Infinity, NaN]) expect(() => boundedSnowIntensity(-1, invalid, -1)).toThrow('snow.refused.roofPlane');
+  expect(() => boundedSnowIntensity(-1, -1e-12, -1)).not.toThrow();
+});
+
+it('bounded snow intensity preserves both sides of a stationary zero and the subdivision boundary', () => {
+  for (const delta of [0, 0.000299999999, 0.000300000001, 0.25, -0.25]) {
+    const samples = delta === 0.25 ? [-0.25, 0, -0.25] : [-1, -0.5 + delta, 0];
+    const profile = boundedSnowIntensity(samples[0]!, samples[1]!, samples[2]!);
+    let force = 0, moment = 0, largestError = 0;
+    for (const segment of profile.segments) {
+      const span = segment.b - segment.a;
+      force += span * (segment.q + segment.qJ) / 2;
+      moment += span * (segment.a * (segment.q + segment.qJ) / 2 + span * (segment.q + 2 * segment.qJ) / 6);
+      for (const t of [0, 1 / 3, 0.5, 2 / 3, 1]) {
+        const x = segment.a + span * t;
+        const physical = samples[0]! + (samples[2]! - samples[0]!) * x + 4 * delta * x * (1 - x);
+        largestError = Math.max(largestError, Math.abs(segment.q + (segment.qJ - segment.q) * t - physical));
+      }
+    }
+    expect(largestError).toBeLessThanOrEqual(profile.absoluteErrorBound + 1e-14);
+    expect(profile.absoluteErrorBound).toBeLessThanOrEqual(1e-4 * Math.max(...samples.map(Math.abs)));
+    expect(force).toBeCloseTo((samples[0]! + samples[2]!) / 2 + 2 * delta / 3, 13);
+    expect(moment).toBeCloseTo(samples[0]! / 2 + (samples[2]! - samples[0]!) / 3 + delta / 3, 13);
+    if (delta > 0.0003 && delta < 0.001) expect(profile.segments.length).toBeGreaterThan(2);
+    if (Math.abs(delta) < 0.0003) expect(profile.segments).toHaveLength(2);
+  }
+});
