@@ -11,16 +11,16 @@ const readAdvisory = (file: string) => readFileSync(new URL(`../../../../../docs
 
 describe('SA-2026-070 interior member recovery', () => {
   it.each<[PublicLocale, string, string]>([
-    ['en', 'High', 'Fixed in PR #2170, pending merge and release'],
-    ['es', 'Alta', 'Corregido en PR #2170, pendiente de integración y publicación'],
-    ['pt', 'Alta', 'Corrigido no PR #2170, aguardando integração e publicação'],
-    ['de', 'Hoch', 'Behoben in PR #2170, Zusammenführung und Veröffentlichung ausstehend'],
-    ['fr', 'Élevée', 'Corrigé dans PR #2170, fusion et publication en attente'],
-    ['tr', 'Yüksek', 'PR #2170 içinde düzeltildi, birleştirme ve yayın bekleniyor'],
+    ['en', 'High', 'Fixed in PR #2170, pending release'],
+    ['es', 'Alta', 'Corregido en PR #2170, pendiente de publicación'],
+    ['pt', 'Alta', 'Corrigido no PR #2170, aguardando publicação'],
+    ['de', 'Hoch', 'Behoben in PR #2170, Veröffentlichung ausstehend'],
+    ['fr', 'Élevée', 'Corrigé dans PR #2170, publication en attente'],
+    ['tr', 'Yüksek', 'PR #2170 içinde düzeltildi, yayın bekleniyor'],
   ])('%s lists the pending fix in the catalog, status, link and saved-project notice', checkAdvisory);
 
-  it.skip('known wrong result: #2099 — hu lists the interior recovery advisory and saved-project notice', () => {
-    checkAdvisory('hu', 'Magas', 'Javítva a #2170 PR-ben, beolvasztásra és kiadásra vár');
+  it('known wrong result: #2099 — hu lists the interior recovery advisory and saved-project notice', () => {
+    checkAdvisory('hu', 'Magas', 'Javítva a #2170 PR-ben, kiadásra vár');
   });
 
   function checkAdvisory(locale: PublicLocale, severity: string, status: string) {
@@ -39,7 +39,7 @@ describe('SA-2026-070 interior member recovery', () => {
     expect(post.updated).toBe('2026-11-15');
   }
 
-  it.skip('known wrong result: #2099 — Hungarian recovery wording preserves the engineering scope and actions', () => {
+  it('known wrong result: #2099 — Hungarian recovery wording preserves the engineering scope and actions', () => {
     const table = huBody.blocks.find(b => b.k === 'table');
     if (table?.k !== 'table') throw new Error('Missing advisory table');
     const row = table.rows.find(r => r[0] === 'SA-2026-070');
@@ -55,7 +55,7 @@ describe('SA-2026-070 interior member recovery', () => {
     expect((notice.title as Record<string, string>).hu).toContain('rúdon belüli lehajlás');
   });
 
-  it.skip('known wrong result: #2099 — Hungarian round-4 notice retains shear rigidity, spatial stiffness and review actions', () => {
+  it('known wrong result: #2099 — Hungarian round-4 notice retains shear rigidity, spatial stiffness and review actions', () => {
     expect((recoveryNotice.title as Record<string, string>).hu?.trim()).toBeTruthy();
     const explanation = (recoveryNotice.explanation as Record<string, string>).hu;
     for (const phrase of ['nyírási merevség', 'véges pozitív hajlítási merevség', 'Rust', 'globális koordináták', 'lehajlásokat', 'elfordulásokat', 'használhatóságot', 'csomóponti megoldások', 'tanúsítvány korlátai', '#2143', '#2170']) {
@@ -63,14 +63,14 @@ describe('SA-2026-070 interior member recovery', () => {
     }
   });
 
-  it('retains the reference structure and distinguishes an unmerged fix from a released version', () => {
+  it('retains the reference structure and distinguishes a merged fix from a released version', () => {
     const text = readAdvisory(advisoryFile);
     const reference = readAdvisory('SA-2026-068-provided-torsion-stirrups.md');
     expect(text.match(/^## .+$/gm)).toEqual(reference.match(/^## .+$/gm));
     const fields = (s: string) => [...s.matchAll(/^\| ([^|]+) \|/gm)].map(m => m[1]);
     expect(fields(text)).toEqual(fields(reference));
     expect(text).toContain('| Severity | High |');
-    expect(text).toContain('Draft 2026-11-15; fixed in PR #2170, pending merge and release');
+    expect(text).toContain('Draft 2026-11-15; fixed in PR #2170, pending release');
     expect(text).toContain('| Fixed release | Not yet released |');
     expect(text).toContain('44966b6e75f72ce268ec87798d5cd880a6dba144');
     expect(readAdvisory('README.md')).toContain(`[SA-2026-070](${advisoryFile})`);

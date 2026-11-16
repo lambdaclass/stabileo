@@ -30,6 +30,16 @@ const body: PostBody = {
     },
     {
       "k": "note",
+      "t": "SA-2026-070 — Javítva a #2170 PR-ben, kiadásra vár."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-070-interior-member-couples.md",
+      "label": "SA-2026-070",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
       "t": "SA-2026-072 — Javítva a #2175 PR-ben, kiadásra vár."
     },
     {
@@ -437,6 +447,12 @@ const body: PostBody = {
           "A kényszeres fázisos és nemlineáris analízisek elveszítették a mestercsomópont előírt mozgását; a kábel- és időtörténeti analízis most elutasítja a nem támogatott támaszmozgást. A meglévő általános dinamikai figyelmeztetések ettől a hiánytól különállók.",
           "Magas",
           "Javítva a #2009 PR-ben, közzétételre vár"
+        ],
+        [
+          "SA-2026-070",
+          "A rúdon belüli lehajlás és elfordulás számítása kihagyta a rúd menti terheket, köztük a rúd belsejében ható koncentrált erőpárokat (#2143). Ellenőrizze újra a deformált alakokat, az oktatási kijelzéseket és az acél- és betonszerkezetek használhatósági ellenőrzéseit, a teljes és részleges trapézterheket is beleértve. Terhelt rúd esetén a program elegendő EI hajlítási merevség hiányában most kifejezetten elutasítja a belső elmozdulás és elfordulás számítását.",
+          "Magas",
+          "Javítva a #2170 PR-ben, kiadásra vár"
         ],
         [
           "SA-2026-072",

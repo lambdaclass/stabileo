@@ -40,7 +40,7 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
     {"k": "note", "t": "SA-2026-069 — Entwurf 2026-11-15; in PR #2169 behoben, Zusammenführung und Veröffentlichung ausstehend."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
-    {"k": "note", "t": "SA-2026-070 — Behoben in PR #2170, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "note", "t": "SA-2026-070 — Behoben in PR #2170, Veröffentlichung ausstehend."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-070-interior-member-couples.md", "label": "SA-2026-070", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
     {"k": "note", "t": "SA-2026-072 — In PR #2175 behoben, Veröffentlichung ausstehend."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
@@ -423,7 +423,7 @@ const body: PostBody = {
         ["SA-2026-067", "Eine Grundrissdrehung konnte erzeugte Schneelasten ändern (#2093). Lasten mit der tatsächlichen Dachgeometrie neu erzeugen und Analysen und Nachweise wiederholen; Zurückdrehen repariert alte Ergebnisse nicht.", "Hoch", "Behoben in 0.6.1"],
         ["SA-2026-068", "Der Torsionsnachweis konnte mit unzureichenden bemessenen Bügeln bestehen (#2141). Betonnachweise erneut ausführen und tatsächliche Querbewehrungstragfähigkeit, Bügelabstände und Torsionsversagen prüfen. Ungeprüfte Längsbewehrung bedeutet keinen bestandenen Bewehrungskorb.", "Hoch", "Behoben in 0.6.1"],
         ["SA-2026-069", "Die Torsionsquerschnittsgrenze ließ die gleichzeitige sekundäre Querkraft aus (#2142). Betonbemessungen erneut ausführen und Querschnittsversagen sowie fehlende Bügel prüfen; zusätzliche Bügel beheben eine überschrittene Querschnittsgrenze nicht.", "Hoch", "Entwurf 2026-11-15; in PR #2169 behoben, Zusammenführung und Veröffentlichung ausstehend"],
-        ["SA-2026-070", "Innere Stabdurchbiegung und Rotation ließen Stablasten aus (#2143). Verformte Linien, Lernanzeigen und Gebrauchstauglichkeitsprüfungen für Stahl und Beton prüfen, einschließlich voller und partieller Trapezlasten. Belastete Stäbe ohne ausreichendes EI werden nun ausdrücklich abgelehnt.", "Hoch", "Behoben in PR #2170, Zusammenführung und Veröffentlichung ausstehend"],
+        ["SA-2026-070", "Innere Stabdurchbiegung und Rotation ließen Stablasten aus (#2143). Verformte Linien, Lernanzeigen und Gebrauchstauglichkeitsprüfungen für Stahl und Beton prüfen, einschließlich voller und partieller Trapezlasten. Belastete Stäbe ohne ausreichendes EI werden nun ausdrücklich abgelehnt.", "Hoch", "Behoben in PR #2170, Veröffentlichung ausstehend"],
         ["SA-2026-072", "Eine ungleiche Unterteilung der Dachränder konnte den First verschieben und erzeugte Schneelasten ändern (#2144). Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "In PR #2175 behoben, Veröffentlichung ausstehend"],
       ]
     },
