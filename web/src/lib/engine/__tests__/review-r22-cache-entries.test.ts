@@ -8,7 +8,7 @@ import { autoVerifyFromResults } from '../auto-verify';
 import { runUnifiedVerification, runCirsocDesign } from '../verification-service';
 
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const edition of ['2005', '2025'] as const) for (const entry of ['auto', 'unified', 'design'] as const) {
-  it.fails(`known wrong result: #2080 shared span equals uncached WASM spatial=${spatial} nonlinear=${nonlinear} ${edition} ${entry}`, () => {
+  it(`known wrong result: #2080 shared span equals uncached WASM spatial=${spatial} nonlinear=${nonlinear} ${edition} ${entry}`, () => {
     const model = {
       nodes: new Map([1, 2, 3].map(id => [id, { id, x: (id - 1) * 0.4, y: 0, z: 0 }])),
       elements: new Map([1, 2].map(id => [id, { id, nodeI: id, nodeJ: id + 1, type: 'frame' as const, sectionId: id, materialId: 1 }])),
@@ -44,17 +44,43 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
     const tuples = ConcurrentDemand.endpoints(raw.elementForces[0]!);
     const demands = extractGoverningDemands({ elementId: 1, length: 0.8, stationTs: [0, 1],
       comboResults: [{ comboId: 1, comboName: 'shared', stations: tuples.map(d => ({ ...d.forces })) }] });
-    const shared = new Map([[1, demands], [2, demands]]);
-    const run = (elementForces: typeof raw.elementForces) => entry === 'auto'
-      ? autoVerifyFromResults({ ...raw, elementForces }, model, null, { edition }, shared).concrete
-      : entry === 'unified' ? runUnifiedVerification({ ...raw, elementForces }, model, null, shared, { edition })
-        : runCirsocDesign({ ...raw, elementForces }, model, shared, new Map(), null, { edition }).concrete;
+    const shared = new Map([1, 2].map(elementId => [elementId, { ...demands, elementId }]));
+    const run = (elementForces: typeof raw.elementForces, inputModel = model, stationDemands = shared) => entry === 'auto'
+      ? autoVerifyFromResults({ ...raw, elementForces }, inputModel, null, { edition }, stationDemands).concrete
+      : entry === 'unified' ? runUnifiedVerification({ ...raw, elementForces }, inputModel, null, stationDemands, { edition })
+        : runCirsocDesign({ ...raw, elementForces }, inputModel, stationDemands, new Map(), null, { edition }).concrete;
     expect(shared.get(2)!.elementId).toBe(2);
     expect(shared.get(2)!.concurrent).toBe(shared.get(1)!.concurrent);
-    const expected = raw.elementForces.flatMap(ef => run([ef]));
+    const expected = raw.elementForces.flatMap(ef => run([ef], {
+      ...model, elements: new Map([[ef.elementId, model.elements.get(ef.elementId)!]]),
+    }, new Map([[ef.elementId, shared.get(ef.elementId)!]])));
+    const uncached = new Map([...shared].map(([id, d]) => [id, { ...d, concurrent: [...d.concurrent!] }]));
+    expect(uncached.get(1)!.concurrent).not.toBe(uncached.get(2)!.concurrent);
     expect(expected).toHaveLength(2);
     expect(new Set(expected.map(v => v.flexureAxis)).size).toBe(spatial ? 2 : 1);
     expect(expected.every(v => v.engineRecheck?.certified?.ok)).toBe(true);
+    expect(run(raw.elementForces, model, uncached)).toEqual(expected);
     expect(run(raw.elementForces)).toEqual(expected);
+    expect(() => run(raw.elementForces.slice(0, 1))).toThrow(expect.objectContaining({
+      code: 'incomplete-concurrent-demand', diagnostics: expect.arrayContaining([
+        expect.objectContaining({ code: 'missing-member', comboId: 0, elementId: 2 }),
+      ]),
+    }));
+    const mislabeled = new Map(shared);
+    mislabeled.set(2, demands);
+    expect(() => run(raw.elementForces, model, mislabeled)).toThrow(expect.objectContaining({
+      code: 'incomplete-concurrent-demand', diagnostics: expect.arrayContaining([
+        expect.objectContaining({ code: 'missing-member', comboId: 1, elementId: 2 }),
+      ]),
+    }));
+    for (const stationT of [0, 1]) {
+      const partial = new Map(shared);
+      partial.set(2, { ...shared.get(2)!, concurrent: demands.concurrent!.filter(d => d.stationT !== stationT) });
+      expect(() => run(raw.elementForces, model, partial)).toThrow(expect.objectContaining({
+        code: 'incomplete-concurrent-demand', diagnostics: expect.arrayContaining([
+          expect.objectContaining({ code: 'missing-station', comboId: 1, elementId: 2, stationT }),
+        ]),
+      }));
+    }
   });
 }

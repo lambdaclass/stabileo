@@ -38,8 +38,11 @@ for (const count of [1, 2, 255, 256, 257]) {
     });
   }
 }
-it.fails('known wrong result: #2080 still refuses an empty concurrent demand', () => {
-  expect(() => checkSteelMember(1, demand(0), section, steel, lengths)).toThrow('Concurrent steel demands are required');
+it('known wrong result: #2080 still refuses an empty concurrent demand', () => {
+  expect(() => checkSteelMember(1, demand(0), section, steel, lengths)).toThrow(expect.objectContaining({
+    name: 'IncompleteConcurrentDemandError', code: 'incomplete-concurrent-demand',
+    diagnostics: [{ code: 'missing-scope', elementId: 1 }],
+  }));
 });
 for (const phase of ['screen', 'trace']) for (const failure of ['missing', 'reordered', 'unavailable']) {
   it(`a ${failure} ${phase} batch cannot publish a passing member`, () => {

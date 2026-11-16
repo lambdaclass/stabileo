@@ -30,11 +30,11 @@ for (const screen of [false, true]) {
   }
 }
 
-it.fails('known wrong result: #2080 both moment signs in one combination use their own span regardless of station order', () => {
+it('known wrong result: #2080 both moment signs in one combination use their own span regardless of station order', () => {
   const s = { ...stations, comboResults: [{ ...stations.comboResults[0]!, stations: stations.comboResults[0]!.stations.map((s, i) => ({ ...s, my: i === 0 ? 1 : s.my })) }] };
   const d = steelDemandOf(ef, extractGoverningDemands(s), s);
   const full = checkSteelMember(1, d, section, steel, { L: 16, Lb: 8, LbNeg: 16, loadPosition: 'web' })!;
-  const negative = checkSteelMember(1, { ...d, concurrent: d.concurrent!.slice(1) }, section, steel, { L: 16, Lb: 16, loadPosition: 'web' })!;
+  const negative = checkSteelMember(1, d, section, steel, { L: 16, Lb: 16, loadPosition: 'web' })!;
   expect(full.flexureZ.phiMn).toBe(negative.flexureZ.phiMn);
   expect(full.interaction!.ratio).toBe(negative.interaction!.ratio);
 });
