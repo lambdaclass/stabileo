@@ -421,5 +421,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   "wb.stations5",
   "writeLoad.sameAsI",
   "writeLoad.sketch.plan",
-  "xls.col.supportType"
+  "xls.col.supportType",
+  "rcSheets.coversNotice.buttonItem"
 ];

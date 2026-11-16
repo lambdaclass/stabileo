@@ -52,7 +52,7 @@
     {/each}
   </tbody>
 </table>
-<RcChecks lines={line.verifications} />
+<RcChecks lines={line.verifications} kind="beam" />
 <details>
   <summary>{t('rcSheets.steps')}</summary>
   <RcSteps groups={line.steps} />
@@ -64,7 +64,7 @@
       <strong>{s.name}</strong> <span>{t(`rcSheets.status.${s.status}`)}</span>
     </button>
     {#if open === s.key}
-      <RcChecks lines={s.verifications} />
+      <RcChecks lines={s.verifications} kind="beam" />
       <details open={s.status === 'fail'}>
         <summary>{t('rcSheets.combo.title')} ({s.combos.rows.length})</summary>
         <RcCombos table={s.combos} />

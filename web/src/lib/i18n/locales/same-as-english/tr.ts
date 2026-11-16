@@ -370,4 +370,5 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'rcSheets.exportShort',
   'rcSheets.bbs.csv',
   'rcSheets.bbs.bvbs',
+  'rcSheets.coversNotice.buttonItem',
 ];

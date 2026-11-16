@@ -768,4 +768,5 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'rcSheets.bbs.csv',
   'rcSheets.bbs.bvbs',
   'rcSheets.col.slabKind',
+  'rcSheets.coversNotice.buttonItem',
 ];
