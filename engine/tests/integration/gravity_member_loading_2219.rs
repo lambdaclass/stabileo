@@ -303,3 +303,30 @@ fn round5_solved_point_force_stations_match_the_cantilever_hand_solution() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round7_density_boundaries_and_quadratic_extrema_reach_native_diagrams() {
+    use dedaliano_engine::postprocess::diagrams_3d::compute_diagrams_3d;
+    for axis in ["x", "y", "z"] { for sign in [1.0, -1.0] { for quadratic in [false, true] {
+        let mut input = model(0.0);
+        input.nodes.remove("3"); input.elements.remove("2"); input.supports.remove("3");
+        input.nodes.get_mut("2").unwrap().x = 100.0;
+        let (values, cancel) = if quadratic { ([3.0*sign/16.0,-sign/16.0,3.0*sign/16.0],-sign/48.0) } else { ([sign;3],-sign) };
+        let moment = |v: [f64;3]| { let mut m=json!({"x":[0,0,0],"y":[0,0,0],"z":[0,0,0]}); m[axis]=json!(v); m };
+        input.loads = serde_json::from_value(json!([
+            {"type":"distributed","data":{"elementId":1,"a":1,"b":2,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":moment(values)}},
+            {"type":"distributed","data":{"elementId":1,"a":2,"b":3,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":moment([cancel;3])}}
+        ])).unwrap();
+        for result in [linear::solve_3d(&input).unwrap(),pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results] {
+            let d=compute_diagrams_3d(&result);
+            let d=match axis {"x"=>&d.torsion[0],"y"=>&d.moment_y[0],_=>&d.moment_z[0]};
+            let peak=if quadratic {1.0/48.0} else {1.0};
+            assert!((d.max_value-if sign>0.0 {peak} else {0.0}).abs()<1e-10,"{} {} {}",axis,quadratic,d.max_value);
+            assert!((d.min_value-if sign<0.0 {-peak} else {0.0}).abs()<1e-10);
+            assert!((d.max_abs_value-sign*peak).abs()<1e-10);
+            let xs=if quadratic {vec![1.0,1.25,1.75,2.0,3.0]} else {vec![1.0,2.0,3.0]};
+            for x in xs { assert!(d.points.iter().any(|p|(p.t-x/100.0).abs()<1e-12)); }
+        }
+    } } }
+}
