@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { axisTextShown } from '../lib/axes/user-names';
+  import { modelLoad3D, twoD } from '../lib/axes/display';
   import { uiStore, modelStore, resultsStore } from '../lib/store';
   import { t } from '../lib/i18n';
   import { variableCutRefused } from '../lib/section/variable';
@@ -44,11 +46,10 @@
     } else if (action === 'add-load' && ctx.nodeId != null) {
       if (is3D()) {
         /* As the load tool would place it; a 2D nodal load became a horizontal fy in 3D. */
-        const d = uiStore.nodalLoadDir3D, v = uiStore.loadValue;
-        modelStore.addNodalLoad3D(ctx.nodeId, d === 'fx' ? v : 0, d === 'fy' ? v : 0, d === 'fz' ? v : 0,
-          d === 'mx' ? v : 0, d === 'my' ? v : 0, d === 'mz' ? v : 0, uiStore.activeLoadCaseId);
+        const m = modelLoad3D(uiStore.nodalLoadDir3D, uiStore.loadValue);
+        modelStore.addNodalLoad3D(ctx.nodeId, m.fx, m.fy, m.fz, m.mx, m.my, m.mz, uiStore.activeLoadCaseId);
       } else {
-        modelStore.addNodalLoad(ctx.nodeId, 0, uiStore.loadValue, 0, uiStore.activeLoadCaseId);
+        modelStore.addNodalLoad(ctx.nodeId, 0, twoD.fromZ(uiStore.loadValue), 0, uiStore.activeLoadCaseId);
       }
       resultsStore.clear();
     } else if (action === 'select-node' && ctx.nodeId != null) {
@@ -163,8 +164,8 @@
     {:else}
       {#if uiStore.selectedNodes.size > 0}
         <span class="ctx-label">{t('ctx.transformSelection')} ({uiStore.selectedNodes.size})</span>
-        <button class="ctx-item" onclick={() => handleContextAction('mirror-x')}>{t('ctx.mirrorX')}</button>
-        <button class="ctx-item" onclick={() => handleContextAction('mirror-y')}>{t('ctx.mirrorY')}</button>
+        <button class="ctx-item" onclick={() => handleContextAction('mirror-x')}>{axisTextShown(t('ctx.mirrorX'), uiStore.is3DWorkspace)}</button>
+        <button class="ctx-item" onclick={() => handleContextAction('mirror-y')}>{axisTextShown(t('ctx.mirrorY'), uiStore.is3DWorkspace)}</button>
         <button class="ctx-item" onclick={() => handleContextAction('rotate-90')}>{t('ctx.rotate90cw')}</button>
         <button class="ctx-item" onclick={() => handleContextAction('rotate-neg90')}>{t('ctx.rotate90ccw')}</button>
       {:else}

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { axesKey } from '../../lib/axes/display';
+  import { untrack } from 'svelte';
   import Hint from './Hint.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   /**
@@ -23,6 +25,7 @@
   // in engine/src/types/input.rs. Both `equalDOF` and `linearMPC` keep
   // the all-caps acronym; using camelCase here surfaces as a runtime
   // `Parse error: unknown variant ...` from the solver.
+  import { modelDof, modelFlags6, modelPlane, typedFrame, userPlane } from '../../lib/axes/typed-frame';
   type ConstraintKind = 'rigidLink' | 'diaphragm' | 'equalDOF' | 'linearMPC' | 'eccentricConnection';
 
   const constraintKinds = $derived([
@@ -48,7 +51,15 @@
   // Diaphragm state
   let dMaster = $state('');
   let dSlaves = $state('');
-  let dPlane = $state<'XY' | 'XZ' | 'YZ'>('XY');
+  let dPlane = $state<'XY' | 'XZ' | 'YZ'>(userPlane('XY'));
+
+  let shownAxes = axesKey();
+  $effect(() => {
+    const k = axesKey();
+    if (k === shownAxes) return;
+    shownAxes = k;
+    untrack(() => { dPlane = userPlane('XY'); });
+  });
 
   // Equal DOF state
   let eqMaster = $state('');
@@ -102,7 +113,8 @@
     if (master === null || slave === null || master === slave) return;
     // Rust RigidLinkConstraint.dofs is Vec<usize> — emit integer indices
     // (3D: 0=ux, 1=uy, 2=uz, 3=rx, 4=ry, 5=rz), NOT name strings.
-    const activeDofs = dofLabels.map((_, i) => i).filter(i => rlDofs[i]);
+    const rl = modelFlags6(rlDofs);
+    const activeDofs = dofLabels.map((_, i) => i).filter(i => rl[i]);
     if (activeDofs.length === 0) return;
     modelStore.addConstraint({
       type: 'rigidLink',
@@ -123,7 +135,7 @@
       type: 'diaphragm',
       masterNode: master,
       slaveNodes: slaveIds,
-      plane: dPlane,
+      plane: modelPlane(dPlane),
     });
     dMaster = '';
     dSlaves = '';
@@ -134,7 +146,8 @@
     const slave = validateNode(eqSlave);
     if (master === null || slave === null || master === slave) return;
     // Rust EqualDOFConstraint.dofs is Vec<usize>. Same indexing as RigidLink.
-    const activeDofs = dofLabels.map((_, i) => i).filter(i => eqDofs[i]);
+    const eq = modelFlags6(eqDofs);
+    const activeDofs = dofLabels.map((_, i) => i).filter(i => eq[i]);
     if (activeDofs.length === 0) return;
     modelStore.addConstraint({
       // Rust serde rename: equalDOF (all-caps acronym), NOT equalDof.
@@ -167,9 +180,9 @@
       const nodeId = parseInt(parts[0]);
       const dofName = parts[1].trim();
       const coefficient = parseNum(parts[2]);
-      const dofIdx = dofLabels.indexOf(dofName as typeof dofLabels[number]);
-      if (isNaN(nodeId) || isNaN(coefficient) || dofIdx < 0) return;
-      parsed.push({ nodeId, dof: dofIdx, coefficient });
+      const dof = modelDof(dofName);
+      if (isNaN(nodeId) || isNaN(coefficient) || !dof) return;
+      parsed.push({ nodeId, dof: dof.index, coefficient: dof.sign * coefficient });
     }
     if (parsed.length === 0) return;
     modelStore.addConstraint({
@@ -183,10 +196,8 @@
     const master = validateNode(ecMaster);
     const slave = validateNode(ecSlave);
     if (master === null || slave === null || master === slave) return;
-    const ox = ecOffsetX;
-    const oy = ecOffsetY;
-    const oz = ecOffsetZ;
-    if (isNaN(ox) || isNaN(oy) || isNaN(oz)) return;
+    if (isNaN(ecOffsetX) || isNaN(ecOffsetY) || isNaN(ecOffsetZ)) return;
+    const [ox, oy, oz] = typedFrame.vec([ecOffsetX, ecOffsetY, ecOffsetZ]);
     modelStore.addConstraint({
       type: 'eccentricConnection',
       masterNode: master,
@@ -195,7 +206,7 @@
       offsetY: oy,
       offsetZ: oz,
       // Pass the full 6-bool array — solver Vec<bool> length must match dimension.
-      releases: [...ecReleases],
+      releases: modelFlags6(ecReleases),
     });
     ecMaster = '';
     ecSlave = '';

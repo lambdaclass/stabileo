@@ -11,6 +11,7 @@ import type { Element, Load, LoadCase, Material, ModelGroup, Plate, Quad, Sectio
 import { codeToModel, modelToCode } from '../code/format';
 import type { Fragment } from './fragment';
 import type { JSONModel } from '../../templates/load-fixture';
+import { axesStore } from '../../axes/axes.svelte';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
@@ -47,7 +48,8 @@ export function fragmentFromSnapshot(s: Partial<ModelSnapshot>): Fragment {
   };
 }
 
-export const fragmentToCode = (frag: Fragment): string => modelToCode(fragmentToSnapshot(frag) as ModelSnapshot);
+export const fragmentToCode = (frag: Fragment): string =>
+  modelToCode(fragmentToSnapshot(frag) as ModelSnapshot, axesStore.frame.identity ? undefined : axesStore.choice);
 
 /** The fragment written in `text`, or null when it is not model code or has errors. */
 export function fragmentFromCode(text: string): Fragment | null {

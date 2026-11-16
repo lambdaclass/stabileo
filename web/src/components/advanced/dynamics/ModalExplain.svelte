@@ -4,6 +4,7 @@
    * participation and effective mass, and their sum; with the participation
    * factors of the mode on screen, which the panel's line leaves out.
    */
+  import { along, modelAxisOf, twoD } from '../../../lib/axes/display';
   import CourseSection from './CourseSection.svelte';
   import { t, tp } from '../../../lib/i18n';
   import { numText } from '../../../lib/engine/steps/format';
@@ -13,7 +14,10 @@
   let { result, mode, is3D }: { result: { modes: Mode[]; totalMass: number }; mode: number; is3D: boolean } = $props();
 
   const m = $derived(result.modes[mode]);
-  const dirs = $derived(is3D ? (['X', 'Y', 'Z'] as const) : (['X', 'Z'] as const));
+  const dirs = $derived((is3D ? (['X', 'Y', 'Z'] as const).map((u) => {
+    const k = modelAxisOf(u);
+    return { name: u, d: (['X', 'Y', 'Z'] as const)[k.index], sign: k.sign };
+  }) : [{ name: twoD.horizontal, d: 'X' as const, sign: along(0).sign }, { name: twoD.vertical, d: 'Z' as const, sign: along(2).sign }]));
   const gamma = (d: string) => (d === 'X' ? m.participationX : d === 'Y' ? (is3D ? m.participationY : 0) : is3D ? (m.participationZ ?? 0) : m.participationY);
   const meff = (d: string) => (d === 'X' ? m.effectiveMassX : d === 'Y' ? (is3D ? m.effectiveMassY : 0) : is3D ? (m.effectiveMassZ ?? 0) : m.effectiveMassY);
 </script>
@@ -27,7 +31,7 @@
       <thead><tr><th></th><th>Γ</th><th>M_ef (t)</th><th>%</th></tr></thead>
       <tbody>
         {#each dirs as d}
-          <tr><td>{d}</td><td>{numText(gamma(d), 4)}</td><td>{numText(meff(d), 4)}</td><td>{result.totalMass > 0 ? numText((100 * meff(d)) / result.totalMass, 3) : '—'}</td></tr>
+          <tr><td>{d.name}</td><td>{numText(d.sign * gamma(d.d), 4)}</td><td>{numText(meff(d.d), 4)}</td><td>{result.totalMass > 0 ? numText((100 * meff(d.d)) / result.totalMass, 3) : '—'}</td></tr>
         {/each}
       </tbody>
     </table>

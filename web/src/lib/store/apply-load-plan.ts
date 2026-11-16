@@ -193,7 +193,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     const caseIdByType = new Map<string, number[]>();
     for (const pc of p.cases) {
       const name = opts.nameOf(pc.nameKey, pc.nameParams);
-      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own, reduced: pc.reduced });
+      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own, reduced: pc.reduced, axisNamed: true });
       caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];
       list.push(id);

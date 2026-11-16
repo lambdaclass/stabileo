@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { upLabel } from '../../lib/axes/frame';
   import { uiStore, resultsStore } from '../../lib/store';
   import LocaleSelect from '../LocaleSelect.svelte';
 
@@ -67,6 +69,10 @@
     usageConsent.set(granted ? 'granted' : 'denied');
     if (authStore.isAuthenticated) void authStore.recordConsent('usage_analytics', granted).catch(() => {});
   }
+  const axesSummary = $derived(t('axes.configSummary')
+    .replace('{up}', upLabel(axesStore.frame).replace('+', ''))
+    .replace('{hand}', t(axesStore.choice.hand === 'right' ? 'axes.right' : 'axes.left'))
+    .replace('{local}', t(uiStore.axisConvention3D === 'leftHand' ? 'axes.left' : 'axes.right')));
 </script>
 
 <div class="toolbar-section" data-tour="config-section">
@@ -359,13 +365,9 @@
           </select>
         </div>
         <div class="input-group">
-          <HelpTip text={t('config.tip.axisConvention')}><label>{t('config.localAxes')}:</label></HelpTip>
-          <select bind:value={uiStore.axisConvention3D}>
-            <option value="rightHand">{t('config.rightHand')}</option>
-            <option value="leftHand">{t('config.leftHand')}</option>
-          </select>
-          <span class="help-hint"
-            title={t('config.axisConventionHelp')}>?</span>
+          <HelpTip text={t('axes.configTip')}><label>{t('axes.configLabel')}:</label></HelpTip>
+          <span class="axes-summary" data-testid="cfg-axes-summary">{axesSummary}</span>
+          <button type="button" class="axes-open-btn" data-testid="cfg-axes-open" onclick={() => { axesStore.pickerOpen = true; }}>{t('axes.configOpen')}</button>
         </div>
         {#if is3Dm}
           <div class="input-group">
@@ -797,5 +799,11 @@
   .live-calc-active:hover {
     background: var(--st-surface-3);
     color: white;
+  }
+  .axes-summary { font-size: 0.75rem; color: var(--st-text-2); flex: 1; min-width: 0; }
+  .axes-open-btn {
+    font: inherit; font-size: 0.75rem; padding: 3px 10px; cursor: pointer;
+    color: var(--st-interactive); background: var(--st-surface-3);
+    border: 1px solid var(--st-border); border-radius: var(--st-radius);
   }
 </style>

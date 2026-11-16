@@ -5,6 +5,7 @@
 </script>
 
 <script lang="ts">
+  import { planNamesIn } from '../../lib/axes/typed-frame';
   /**
    * How the regulation load generator makes the seismic action of INPRES-CIRSOC 103: the static
    * method or the modal response spectrum one, the vertical component, the accidental torsion and
@@ -32,7 +33,7 @@
       </select>
     </label>
   </div>
-  {#if config.method === 'modal'}<Hint text={t('autoLoad.seismic.modalHint')} />{/if}
+  {#if config.method === 'modal'}<Hint text={planNamesIn(t('autoLoad.seismic.modalHint'))} />{/if}
   <label class="al-check" title={t('autoLoad.seismic.verticalHint')}>
     <input type="checkbox" bind:checked={config.vertical} data-testid="al-seismic-vertical" /> {t('autoLoad.seismic.vertical')}
   </label>

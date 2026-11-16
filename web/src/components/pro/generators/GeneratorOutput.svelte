@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { along, modelVec, userVec } from '../../../lib/axes/display';
+  import { axesStore } from '../../../lib/axes/axes.svelte';
+  import { signedAxisText, userPlane } from '../../../lib/axes/typed-frame';
   import Hint from '../Hint.svelte';
   /**
    * Where a generated structure goes, as a paste does: with the mouse (its ghost follows the
@@ -74,6 +77,14 @@
   });
   $effect(() => { if (part === 'actions' && st.anchorIndex >= anchors.length) st.anchorIndex = 0; });
 
+  const turn = $derived(axesStore.frame.det * along(2).sign);
+  const atShown = () => userVec(Number(st.px) || 0, Number(st.py) || 0, Number(st.pz) || 0);
+  function setAt(i: number, v: number) {
+    const u = atShown();
+    u[i] = v;
+    const [x, y, z] = modelVec(u[0], u[1], u[2]).map((c) => (c === 0 ? 0 : c));
+    st.px = x; st.py = y; st.pz = z;
+  }
   const rotation = $derived((st.plane === 'YZ' ? 90 : 0) + (Number(st.rot) || 0));
 
   function useAxis(id: string) {
@@ -182,8 +193,8 @@
       if (Math.abs(Math.abs(dy) - 1) < 1e-9) return dy > 0 ? '+Y' : '−Y';
       return `${Math.round(((Math.atan2(dy, dx) * 180) / Math.PI) * 10) / 10}°`;
     };
-    const hName = name(Math.cos(r), Math.sin(r));
-    const vName = planView ? name(-Math.sin(r), Math.cos(r)) : '+Z';
+    const hName = signedAxisText(name(Math.cos(r), Math.sin(r)));
+    const vName = signedAxisText(planView ? name(-Math.sin(r), Math.cos(r)) : '+Z');
     return { lines, dots, planView, h: hName, v: vName };
   });
 </script>
@@ -218,7 +229,7 @@
             {#if Math.abs(rotation % 360) > 1e-9}
               <path d="M{W - 30},{H - 12} a10,10 0 1,0 12,-12" class="go-rot" />
               <path d="M{W - 18},{H - 24} l2,5 l-5,-1 z" class="go-arrow" />
-              <text x={W - 36} y={H - 28} data-testid="gen-schema-rot">{Math.round(rotation * 10) / 10}°</text>
+              <text x={W - 36} y={H - 28} data-testid="gen-schema-rot">{Math.round(turn * rotation * 10) / 10}°</text>
             {/if}
           </g>
           {#each schema.dots as d, i (i)}
@@ -236,10 +247,10 @@
         </select>
       </GenRow>
       <GenRow name={t('generator.out.plane')}>
-        <select class="go-short" bind:value={st.plane} data-testid="gen-plane"><option value="XZ">XZ</option><option value="YZ">YZ</option></select>
+        <select class="go-short" bind:value={st.plane} data-testid="gen-plane"><option value="XZ">{userPlane('XZ')}</option><option value="YZ">{userPlane('YZ')}</option></select>
       </GenRow>
       <GenRow name={t('generator.out.rotation')} hint={t('generator.out.rotHint')} hintId="gen-out-rot-hint">
-        <input type="number" step="15" bind:value={st.rot} aria-describedby="gen-out-rot-hint" data-testid="gen-rot" />
+        <input type="number" step="15" bind:value={() => turn * (Number(st.rot) || 0), (v) => (st.rot = turn * v)} aria-describedby="gen-out-rot-hint" data-testid="gen-rot" />
       </GenRow>
       {#if gridAxes.length > 0}
         <GenRow name={t('generator.out.onAxis')}>
@@ -252,9 +263,9 @@
       {#if st.mode === 'atPoint'}
         <GenRow name={t('generator.out.at')} hint={t('generator.out.atHint')} hintId="gen-out-at-hint" as="div">
           <span class="go-xyz">
-            <span class="go-ax">X</span><QuantityInput quantity="length" bind:value={st.px} cls="go-xyz-in" ariaLabel="X" describedBy="gen-out-at-hint" showUnit={false} testid="gen-x" />
-            <span class="go-ax">Y</span><QuantityInput quantity="length" bind:value={st.py} cls="go-xyz-in" ariaLabel="Y" describedBy="gen-out-at-hint" showUnit={false} testid="gen-y" />
-            <span class="go-ax">Z</span><QuantityInput quantity="length" bind:value={st.pz} cls="go-xyz-in" ariaLabel="Z" describedBy="gen-out-at-hint" showUnit={false} testid="gen-z" />
+            {#each ['X', 'Y', 'Z'] as a, i (a)}
+              <span class="go-ax">{a}</span><QuantityInput quantity="length" bind:value={() => atShown()[i]!, (v) => setAt(i, v)} cls="go-xyz-in" ariaLabel={a} describedBy="gen-out-at-hint" showUnit={false} testid="gen-{a.toLowerCase()}" />
+            {/each}
             <span class="go-unit">{unitLabel('length', uiStore.unitSystem)}</span>
           </span>
         </GenRow>

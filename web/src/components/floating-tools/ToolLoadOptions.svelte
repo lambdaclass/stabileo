@@ -1,10 +1,14 @@
 <script lang="ts" module>
+  import { axisName, twoD } from '../../lib/axes/display';
+  import { TWO_D_NODAL_LOAD_LABELS } from '../../lib/geometry/coordinate-system';
   import type { Quantity } from '../../lib/utils/units';
   /** What `uiStore.loadValue` was last shown as; kept while the toolbar is closed. */
   let loadValueShownAs: Quantity | null = null;
 </script>
 
 <script lang="ts">
+  import { planeLettersShown, userAxisText } from '../../lib/axes/user-names';
+  import { caseNameShown } from '../../lib/axes/case-names';
   import { untrack } from 'svelte';
   import ToolGlyph from './ToolGlyph.svelte';
   import { uiStore, modelStore } from '../../lib/store';
@@ -12,6 +16,7 @@
   import UnitInput from '../UnitInput.svelte';
   import { unitQ } from '../../lib/store/display-units.svelte';
   import { keepTypedNumber } from '../../lib/utils/unit-input';
+  const qAxis = (k: 1 | 2) => (uiStore.distLoadFrame3D === 'global' ? axisName(k) : k === 1 ? 'Y' : 'Z');
 
   /*
    * Values are typed in the unit system chosen under Settings and kept in SI
@@ -93,7 +98,7 @@
   onchange={(e) => uiStore.activeLoadCaseId = parseInt(e.currentTarget.value)}
   title={t('float.activeLoadCase')} data-testid="load-case-select">
   {#each modelStore.loadCases as lc}
-    <option value={String(lc.id)}>{lc.type || lc.name}</option>
+    <option value={String(lc.id)}>{lc.type || caseNameShown(lc)}</option>
   {/each}
 </select>
 <span class="ft-sep">|</span>
@@ -111,17 +116,17 @@
   {#if uiStore.is3DWorkspace}
     <!-- 3D: 6 DOF directions -->
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'fx'}
-      onclick={() => uiStore.nodalLoadDir3D = 'fx'} title={t('float.loadForceX3d')}>Fx</button>
+      onclick={() => uiStore.nodalLoadDir3D = 'fx'} title={userAxisText(t, (m) => `float.loadForce${m}3d`, 'X')}>Fx</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'fy'}
-      onclick={() => uiStore.nodalLoadDir3D = 'fy'} title={t('float.loadForceY3d')}>Fy</button>
+      onclick={() => uiStore.nodalLoadDir3D = 'fy'} title={userAxisText(t, (m) => `float.loadForce${m}3d`, 'Y')}>Fy</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'fz'}
-      onclick={() => uiStore.nodalLoadDir3D = 'fz'} title={t('float.loadForceZ3d')}>Fz</button>
+      onclick={() => uiStore.nodalLoadDir3D = 'fz'} title={userAxisText(t, (m) => `float.loadForce${m}3d`, 'Z')}>Fz</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'mx'}
-      onclick={() => uiStore.nodalLoadDir3D = 'mx'} title={t('float.loadMomentX3d')}>Mx</button>
+      onclick={() => uiStore.nodalLoadDir3D = 'mx'} title={userAxisText(t, (m) => `float.loadMoment${m}3d`, 'X')}>Mx</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'my'}
-      onclick={() => uiStore.nodalLoadDir3D = 'my'} title={t('float.loadMomentY3d')}>My</button>
+      onclick={() => uiStore.nodalLoadDir3D = 'my'} title={userAxisText(t, (m) => `float.loadMoment${m}3d`, 'Y')}>My</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'mz'}
-      onclick={() => uiStore.nodalLoadDir3D = 'mz'} title={t('float.loadMomentZ3d')}>Mz</button>
+      onclick={() => uiStore.nodalLoadDir3D = 'mz'} title={userAxisText(t, (m) => `float.loadMoment${m}3d`, 'Z')}>Mz</button>
     <label class="ft-input-group">
       <span>{['mx','my','mz'].includes(uiStore.nodalLoadDir3D) ? 'M:' : 'F:'}</span>
       <UnitInput value={uiStore.loadValue} qty={nodalQty3D} onchange={(v) => (uiStore.loadValue = v)} unit={false} live />
@@ -131,16 +136,16 @@
   <!-- 2D: 3 directions -->
   <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir === 'fx'}
     onclick={() => uiStore.nodalLoadDir = 'fx'}
-    title={uiStore.loadIsGlobal ? t('float.loadForceXGlobal') : t('float.loadForceXLocal')}
-  >{uiStore.loadIsGlobal ? 'Fx' : 'Fi'}</button>
+    title={uiStore.loadIsGlobal ? planeLettersShown(t('float.loadForceXGlobal')) : t('float.loadForceXLocal')}
+  >{uiStore.loadIsGlobal ? TWO_D_NODAL_LOAD_LABELS.horizontal : 'Fi'}</button>
   <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir === 'fz'}
     onclick={() => uiStore.nodalLoadDir = 'fz'}
-    title={uiStore.loadIsGlobal ? t('float.loadForceYGlobal') : t('float.loadForceYLocal')}
-  >{uiStore.loadIsGlobal ? 'Fz' : 'Fj'}</button>
+    title={uiStore.loadIsGlobal ? planeLettersShown(t('float.loadForceYGlobal')) : t('float.loadForceYLocal')}
+  >{uiStore.loadIsGlobal ? TWO_D_NODAL_LOAD_LABELS.vertical : 'Fj'}</button>
   <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir === 'my'}
     onclick={() => uiStore.nodalLoadDir = 'my'}
     title={t('float.loadMomentZ')}
-  >My</button>
+  >{TWO_D_NODAL_LOAD_LABELS.moment}</button>
   <label class="ft-input-group">
     <span>{uiStore.nodalLoadDir === 'my' ? 'M:' : 'F:'}</span>
     <UnitInput value={uiStore.loadValue} qty={nodalQty2D} onchange={(v) => (uiStore.loadValue = v)} unit={false} live />
@@ -156,7 +161,7 @@
     {@const alongX = uiStore.nodalLoadDir === 'fx'}
     <span class="ft-sep">|</span>
     <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = true}
-      title={alongX ? t('float.loadGlobalXDir') : t('float.loadGlobalYDir')} data-testid="load-axes-global">{alongX ? 'X' : 'Z'}</button>
+      title={planeLettersShown(alongX ? t('float.loadGlobalXDir') : t('float.loadGlobalYDir'))} data-testid="load-axes-global">{alongX ? twoD.horizontal : twoD.vertical}</button>
     <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = false}
       title={alongX ? t('float.loadAxialDir') : t('float.loadPerpDir')} data-testid="load-axes-member">{alongX ? '∥' : '⊥'}</button>
     <label class="ft-input-group">
@@ -180,12 +185,12 @@
 {:else if uiStore.loadType === 'distributed'}
   {#if uiStore.is3DWorkspace}
     <label class="ft-input-group">
-      <span>qYI:</span>
+      <span>q{qAxis(1)}I:</span>
       <UnitInput value={uiStore.loadValueY3D} qty={'distributedLoad'} onchange={(v) => (uiStore.loadValueY3D = v)} unit={false} live />
       <span class="ft-unit">{unitQ('distributedLoad')}</span>
     </label>
     <label class="ft-input-group">
-      <span>qYJ:</span>
+      <span>q{qAxis(1)}J:</span>
       <UnitInput value={uiStore.loadValueYJ3D} qty={'distributedLoad'} onchange={(v) => (uiStore.loadValueYJ3D = v)} unit={false} live />
       <span class="ft-unit">{unitQ('distributedLoad')}</span>
     </label>
@@ -203,12 +208,12 @@
   {/if}
   {#if uiStore.is3DWorkspace}
     <label class="ft-input-group">
-      <span>qZI:</span>
+      <span>q{qAxis(2)}I:</span>
       <UnitInput value={uiStore.loadValueZ} qty={'distributedLoad'} onchange={(v) => (uiStore.loadValueZ = v)} unit={false} live />
       <span class="ft-unit">{unitQ('distributedLoad')}</span>
     </label>
     <label class="ft-input-group">
-      <span>qZJ:</span>
+      <span>q{qAxis(2)}J:</span>
       <UnitInput value={uiStore.loadValueZJ} qty={'distributedLoad'} onchange={(v) => (uiStore.loadValueZJ = v)} unit={false} live />
       <span class="ft-unit">{unitQ('distributedLoad')}</span>
     </label>
@@ -221,7 +226,7 @@
     {@render stretch()}
   {:else}
   <span class="ft-sep">|</span>
-  <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = true} title={t('float.loadGlobalYDir')}>Z</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = true} title={planeLettersShown(t('float.loadGlobalYDir'))}>{twoD.vertical}</button>
   <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = false} title={t('float.loadPerpDir')}>⊥</button>
   <label class="ft-input-group">
     <span>α:</span>

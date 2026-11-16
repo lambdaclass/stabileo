@@ -12,18 +12,22 @@
   import Step9InternalForces from './Step9InternalForces.svelte';
   import MatrixExplorer from './MatrixExplorer.svelte';
   import DsmAxialOption from './DsmAxialOption.svelte';
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { dsmInFrame } from '../../lib/axes/dsm-frame';
+  import { relabelComponents } from '../../lib/axes/user-names';
 
   import StepsHeader from '../steps/StepsHeader.svelte';
   import StepFrame from '../steps/StepFrame.svelte';
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
 
   let showExplorer = $state(false);
+  const shown = $derived(dsmStepsStore.stepData ? dsmInFrame(dsmStepsStore.stepData, axesStore.frame) : null);
 
   const is3D = $derived(
     dsmStepsStore.stepData ? dsmStepsStore.stepData.dofNumbering.dofsPerNode > 3 : false
   );
-  const banner = $derived(is3D ? t('dsm.mode3dBanner')
-    : dsmStepsStore.stepData?.dofNumbering.dofsPerNode === 2 ? t('dsm.mode2dBanner2dof') : t('dsm.mode2dBanner3dof'));
+  const banner = $derived(relabelComponents(is3D ? t('dsm.mode3dBanner')
+    : dsmStepsStore.stepData?.dofNumbering.dofsPerNode === 2 ? t('dsm.mode2dBanner2dof').replace(/\buy\b/, 'uz') : t('dsm.mode2dBanner3dof')));
   /* Opened from the catalog of methods, "back" goes to that list. */
   const fromCatalog = $derived(explainedSteps.returnToCatalog);
 
@@ -50,7 +54,7 @@
     backTitle={fromCatalog ? t('steps.view.backToCatalog') : t('adv.backToList')} onBack={close}
     name={t('steps.catalog.title')} backTestid="dsm-back" />
 
-  <StepFrame title={showExplorer ? t('dsm.matrixExplorer') : t('steps.m.dsm.title')} subtitle={banner}
+  <StepFrame space={is3D} title={showExplorer ? t('dsm.matrixExplorer') : t('steps.m.dsm.title')} subtitle={banner}
     step={dsmStepsStore.currentStep} last={9} onGo={(k) => dsmStepsStore.goToStep(k)} showNav={!showExplorer}
     stepTitle={t('dsm.step' + dsmStepsStore.currentStep + 'Name')} tabTitle={(k) => `${k}. ${t('dsm.step' + k + 'Name')}`}
     tabTestid={(k) => `dsm-dot-${k}`} headingTestid="dsm-step-name" prevTestid="dsm-prev" nextTestid="dsm-next">
@@ -62,38 +66,38 @@
     {/snippet}
     {#snippet top()}
       {#if dsmStepsStore.stepData?.dofNumbering.dofsPerNode === 3 && dsmStepsStore.stepData.elements.some((e) => e.type === 'frame')}<DsmAxialOption />{/if}
-      {#if dsmStepsStore.stepData && dsmStepsStore.stepData.nullModes.length > 0}
+      {#if dsmStepsStore.stepData && shown!.nullModes.length > 0}
         <!--
           A mechanism the loads do not excite: the equilibrium solution exists and
           is shown, but it is not the only one — say which DOFs are free, rather
           than let a reader take a stable-looking answer for a stable structure.
         -->
         <div class="mode-warn" data-testid="dsm-null-modes">
-          {t('dsm.nullModes').replace('{dofs}', dsmStepsStore.stepData.nullModes.slice(0, 12).join(', ') + (dsmStepsStore.stepData.nullModes.length > 12 ? '…' : ''))}
+          {t('dsm.nullModes').replace('{dofs}', shown!.nullModes.slice(0, 12).join(', ') + (shown!.nullModes.length > 12 ? '…' : ''))}
         </div>
       {/if}
     {/snippet}
     {#if dsmStepsStore.stepData}
       {#if showExplorer}
-        <MatrixExplorer data={dsmStepsStore.stepData} editable={dsmStepsStore.quizMode} />
+        <MatrixExplorer data={shown!} editable={dsmStepsStore.quizMode} />
       {:else if dsmStepsStore.currentStep === 1}
-        <Step1DOFNumbering data={dsmStepsStore.stepData} />
+        <Step1DOFNumbering data={shown!} />
       {:else if dsmStepsStore.currentStep === 2}
-        <Step2LocalMatrices data={dsmStepsStore.stepData} editable={dsmStepsStore.quizMode} />
+        <Step2LocalMatrices data={shown!} editable={dsmStepsStore.quizMode} />
       {:else if dsmStepsStore.currentStep === 3}
-        <Step3Transformation data={dsmStepsStore.stepData} editable={dsmStepsStore.quizMode} />
+        <Step3Transformation data={shown!} editable={dsmStepsStore.quizMode} />
       {:else if dsmStepsStore.currentStep === 4}
-        <Step4Assembly data={dsmStepsStore.stepData} editable={dsmStepsStore.quizMode} />
+        <Step4Assembly data={shown!} editable={dsmStepsStore.quizMode} />
       {:else if dsmStepsStore.currentStep === 5}
-        <Step5LoadVector data={dsmStepsStore.stepData} />
+        <Step5LoadVector data={shown!} />
       {:else if dsmStepsStore.currentStep === 6}
-        <Step6Partitioning data={dsmStepsStore.stepData} editable={dsmStepsStore.quizMode} />
+        <Step6Partitioning data={shown!} editable={dsmStepsStore.quizMode} />
       {:else if dsmStepsStore.currentStep === 7}
-        <Step7Solution data={dsmStepsStore.stepData} />
+        <Step7Solution data={shown!} />
       {:else if dsmStepsStore.currentStep === 8}
-        <Step8Reactions data={dsmStepsStore.stepData} />
+        <Step8Reactions data={shown!} />
       {:else if dsmStepsStore.currentStep === 9}
-        <Step9InternalForces data={dsmStepsStore.stepData} />
+        <Step9InternalForces data={shown!} />
       {/if}
     {/if}
   </StepFrame>

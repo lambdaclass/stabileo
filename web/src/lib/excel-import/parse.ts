@@ -36,6 +36,8 @@ import { SHEETS, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from 
 import { unguardText } from '../export/workbook-cells';
 import { massPresetById, type MassPresetParamValue } from '../engine/dynamics/mass-presets';
 import type { MassSource, MassSourceFactor, MassWeight } from '../engine/dynamics/mass-source';
+import { DEFAULT_AXES, makeFrame, pseudoToModel, relabelAxesWith, toModel, userAxisAlong, validChoice, type AxesFrame } from '../axes/frame';
+import { AXES_SHEET } from './schema';
 
 const DEFAULT_CASE_IDS = new Set(defaultLoadCases().map((c) => c.id));
 
@@ -379,6 +381,59 @@ function readMassSource(rows: Row[], caseIds: ReadonlySet<number>, problems: Row
   return preset ? { kind: 'preset', presetId, params, ...withW } : { kind: 'custom', factors, ...withW };
 }
 
+function supportToModel(f: AxesFrame, s: Record<string, number>, flat: boolean): void {
+  if (flat) {
+    const h = userAxisAlong(f, 0).sign, v = userAxisAlong(f, 2).sign;
+    if (s.dx !== undefined) s.dx = h * s.dx + 0;
+    for (const k of ['dy', 'dz']) if (s[k] !== undefined) s[k] = v * s[k]! + 0;
+    if (s.angle !== undefined) s.angle = h * v * s.angle + 0;
+    return;
+  }
+  const permute = (keys: readonly [string, string, string]) => {
+    const src = keys.map((k) => s[k]);
+    if (src.every((x) => x === undefined)) return;
+    f.rows.forEach((row, i) => {
+      const m = row.findIndex((c) => c !== 0);
+      if (src[i] === undefined) delete s[keys[m]!]; else s[keys[m]!] = src[i]!;
+    });
+  };
+  permute(['kx', 'ky', 'kz']);
+  permute(['krx', 'kry', 'krz']);
+  const d = ['dx', 'dy', 'dz'] as const;
+  const had = d.map((k) => s[k] !== undefined);
+  if (!had.some(Boolean)) return;
+  const out = toModel(f, [s.dx ?? 0, s.dy ?? 0, s.dz ?? 0]);
+  f.rows.forEach((row, i) => {
+    const m = row.findIndex((c) => c !== 0);
+    if (had[i] || out[m] !== 0) s[d[m]!] = out[m]! + 0; else delete s[d[m]!];
+  });
+}
+
+function readAxes(aoa: unknown[][], problems: RowProblem[]): AxesFrame {
+  const rows = readSheet(aoa, AXES_SHEET, problems);
+  if (rows.length === 0) return makeFrame(DEFAULT_AXES);
+  const row = rows[0]!;
+  const c = { up: str(row.cells.up).toUpperCase(), right: str(row.cells.right).toUpperCase(), hand: str(row.cells.hand).toLowerCase() };
+  if (validChoice(c as never)) return makeFrame(c as never);
+  problems.push({ sheet: AXES_SHEET, row: row.n, message: tp('xls.err.missing', { k: 'up, right, hand' }) });
+  return makeFrame(DEFAULT_AXES);
+}
+
+function boxToModel(f: AxesFrame, region: MassWeight['region']): MassWeight['region'] {
+  if (region.kind !== 'box') return region;
+  const out: { kind: 'box'; x?: [number, number]; y?: [number, number]; z?: [number, number] } = { kind: 'box' };
+  const keys = ['x', 'y', 'z'] as const;
+  f.rows.forEach((row, i) => {
+    const range = region[keys[i]!];
+    if (!range) return;
+    const m = row.findIndex((c) => c !== 0);
+    const sign = row[m]!;
+    const a = sign * range[0] + 0, b = sign * range[1] + 0;
+    out[keys[m]!] = a <= b ? [a, b] : [b, a];
+  });
+  return out;
+}
+
 /**
  * Turn the sheets of a workbook into a model.
  *
@@ -393,7 +448,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
 
   const defined = new Set(SHEETS.map((s) => s.name.toLowerCase()));
   const unknownSheets = Object.keys(sheets).filter(
-    (n) => !defined.has(n.trim().toLowerCase()) && n.trim().toLowerCase() !== 'instrucciones',
+    (n) => !defined.has(n.trim().toLowerCase()) && n.trim().toLowerCase() !== 'instrucciones' && n.trim().toLowerCase() !== AXES_SHEET.toLowerCase(),
   );
 
   /** Find a sheet by the format's name, whatever case the file used. */
@@ -419,38 +474,37 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
    * every row, with missing coordinates filled as zero. A row with neither Y
    * nor Z is invalid; a nonempty coordinate must be numeric.
    */
+  const frame = readAxes(grab(AXES_SHEET), problems);
+  const col = (modelAxis: number): string => userAxisAlong(frame, modelAxis).name.toLowerCase();
+  const along = col(0), depth = col(1), height = col(2);
   const nodeRows = readSheet(grab('Nodes'), 'Nodes', problems);
-  // Choose one coordinate convention for the sheet. Any stated Y (including zero)
-  // makes it native XYZ; blank Y cells in that model mean zero, not a rotated node.
-  const flatFromZ = nodeRows.every((row) => str(row.cells.y) === '');
+  const flatFromZ = nodeRows.every((row) => str(row.cells[depth]) === '');
   const firstNode = idGuard('Nodes', problems);
   for (const row of nodeRows) {
     const id = reqNum(row, 'id', 'Nodes', problems);
-    const x = reqNum(row, 'x', 'Nodes', problems);
-    const yCell = num(row.cells.y);
-    const zCell = num(row.cells.z);
-    if (id === null || x === null) continue;
+    const first = reqNum(row, along, 'Nodes', problems);
+    const cell = (k: string) => num(row.cells[k]);
+    if (id === null || first === null) continue;
     let invalidCoordinate = false;
-    for (const key of ['y', 'z'] as const) {
+    for (const key of [depth, height]) {
       if (str(row.cells[key]) !== '' && num(row.cells[key]) === null) {
         problems.push({ sheet: 'Nodes', row: row.n, column: key, message: t('xls.err.notANumber') });
         invalidCoordinate = true;
       }
     }
     if (invalidCoordinate) continue;
-    if (yCell === null && zCell === null) {
-      problems.push({ sheet: 'Nodes', row: row.n, column: 'z', message: t('xls.err.noPosition') });
+    if (cell(depth) === null && cell(height) === null) {
+      problems.push({ sheet: 'Nodes', row: row.n, column: height, message: relabelAxesWith(frame, t('xls.err.noPosition')) });
       continue;
     }
     if (!firstNode(id, row)) continue;
-    /* Flat: the height was given as Z, which is what it is called everywhere
-       else. It is stored where a flat model keeps its height. */
+    const [x, y, z] = toModel(frame, [cell('x') ?? 0, cell('y') ?? 0, cell('z') ?? 0]).map((v) => v + 0);
     // Written by `safeText`: a leading "-" went out as "−" and comes back as it was.
     const nodeName = unguardText(str(row.cells.name));
     model.nodes.push({
-      id, x,
-      y: flatFromZ ? (zCell ?? 0) : (yCell ?? 0),
-      z: flatFromZ ? 0 : (zCell ?? 0),
+      id, x: x!,
+      y: flatFromZ ? z! : y!,
+      z: flatFromZ ? 0 : z!,
       ...(nodeName ? { name: nodeName } : {}),
     });
   }
@@ -654,6 +708,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       const v = num(row.cells[k.toLowerCase()]);
       if (v !== null) extra[k] = v;
     }
+    if (!frame.identity) supportToModel(frame, extra, flatFromZ);
     model.supports.push({ id: supportId++, nodeId, type: canonical, ...extra });
   }
   counts.Supports = model.supports.length;
@@ -860,6 +915,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   counts.PointMasses = pointMasses.length;
 
   const massSource = readMassSource(readSheet(grab('MassSource'), 'MassSource', problems), caseIds, problems);
+  if (massSource?.weights && !frame.identity) massSource.weights = massSource.weights.map((w) => ({ ...w, region: boxToModel(frame, w.region) }));
   if (massSource) model.massSource = massSource;
   counts.MassSource = massSource ? 1 : 0;
 
@@ -927,7 +983,21 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
      */
     const n = (k: string) => num(row.cells[k]) ?? 0;
     const data: Record<string, unknown> = { id: loadId++, caseId };
-    if (wantsNode) {
+    if (wantsNode && !frame.identity) {
+      data.nodeId = target;
+      const [fx, fy, fz] = toModel(frame, [n('fx'), n('fy'), n('fz')]).map((v) => v + 0);
+      if (type === 'nodal3d') {
+        const [mx, my, mz] = pseudoToModel(frame, [n('mx'), n('my'), n('mz')]).map((v) => v + 0);
+        Object.assign(data, { fx, fy, fz, mx, my, mz });
+      } else {
+        const h = userAxisAlong(frame, 0), v = userAxisAlong(frame, 2), nrm = userAxisAlong(frame, 1);
+        const vertical = num(row.cells[`f${v.name.toLowerCase()}`]) ?? num(row.cells[`f${nrm.name.toLowerCase()}`]) ?? 0;
+        Object.assign(data, {
+          fx: h.sign * n(`f${h.name.toLowerCase()}`) + 0, fy: 0, fz: v.sign * vertical + 0,
+          my: h.sign * v.sign * n(`m${nrm.name.toLowerCase()}`) + 0,
+        });
+      }
+    } else if (wantsNode) {
       Object.assign(data, { nodeId: target, fx: n('fx'), fy: n('fy'), fz: n('fz') });
       if (type === 'nodal3d') Object.assign(data, { mx: n('mx'), my: n('my'), mz: n('mz') });
       else {
@@ -952,7 +1022,14 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
          * no sign of which happened.
          */
         const dir = str(row.cells.dir).toLowerCase();
-        if (dir === 'global') data.isGlobal = true;
+        if (dir === 'global') {
+          data.isGlobal = true;
+          if (!frame.identity) {
+            const sv = userAxisAlong(frame, 2).sign;
+            if (typeof data.qI === 'number') data.qI = sv * data.qI + 0;
+            if (typeof data.qJ === 'number') data.qJ = sv * data.qJ + 0;
+          }
+        }
         else if (dir !== '' && dir !== 'local') {
           problems.push({
             sheet: 'Loads', row: row.n, column: 'dir',
@@ -976,7 +1053,15 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
           continue;
         }
         Object.assign(data, { qYI: n('qi'), qYJ: n('qj'), qZI: n('qzi'), qZJ: n('qzj') });
-        if (dir === 'global' || dir === 'projected') data.frame = dir;
+        if (dir === 'global' || dir === 'projected') {
+          data.frame = dir;
+          if (!frame.identity) {
+            for (const end of ['I', 'J'] as const) {
+              const [qx, qy, qz] = toModel(frame, [0, data[`qY${end}`] as number, data[`qZ${end}`] as number]).map((v) => v + 0);
+              Object.assign(data, { [`qY${end}`]: qy, [`qZ${end}`]: qz, ...(qx !== 0 ? { [`qX${end}`]: qx } : {}) });
+            }
+          }
+        }
       } else if (type === 'pointOnElement') {
         Object.assign(data, { p: n('p'), a: n('a') });
       } else if (type === 'thermal') {

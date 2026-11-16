@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { planNamesIn } from '../../../lib/axes/typed-frame';
+  import { axisName } from '../../../lib/axes/display';
   import Hint from '../Hint.svelte';
   /**
    * The Building panel's tools beyond placing one kind of element: a ramp across a bay, copying a
@@ -56,10 +58,10 @@
   <section class="pk-card" data-testid="building-ramp">
     <h5 class="bt-h">{t('building.rampTitle')}</h5>
     <div class="bt-grid">
-      <span>{t('grid.dir.x')}</span>
+      <span>{planNamesIn(t('grid.dir.x'))}</span>
       <select bind:value={rx0}>{#each xs as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
       <select bind:value={rx1}>{#each xs as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
-      <span>{t('grid.dir.y')}</span>
+      <span>{planNamesIn(t('grid.dir.y'))}</span>
       <select bind:value={ry0}>{#each ys as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
       <select bind:value={ry1}>{#each ys as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
       <span>{t('building.rampLevels')}</span>
@@ -68,7 +70,7 @@
     </div>
     <div class="bt-row">
       <label class="bt-inline">{t('building.rises')}
-        <select bind:value={rises}><option value="x">X</option><option value="y">Y</option></select>
+        <select bind:value={rises}><option value="x">{axisName(0)}</option><option value="y">{axisName(1)}</option></select>
       </label>
       <label class="bt-inline">{t('building.thickness')} <input type="number" min="0.05" step="0.01" bind:value={rampThickness} /></label>
       <button class="pk-btn pk-btn-primary" onclick={ramp} data-testid="building-place-ramp">{t('building.place')}</button>

@@ -4,6 +4,8 @@
    * component, or the plastic rotation of a hinge. One point per event, straight
    * between them, and the collapse plateau. Saved as CSV or PNG.
    */
+  import { twoD } from '../../../lib/axes/display';
+  import { TWO_D_DISPLACEMENT_LABELS } from '../../../lib/geometry/coordinate-system';
   import { t, tp } from '../../../lib/i18n';
   import type { PlasticCollapseResult } from '../../../lib/engine/plastic-collapse';
   import { curveSeries, defaultAxis, niceTicks, curveCsv, type CurveAxis } from '../../../lib/engine/plastic/curve';
@@ -28,18 +30,19 @@
     return kind === 'n' ? { kind: 'node', node: +a, dof: b as 'ux' | 'uz' | 'ry' } : { kind: 'hinge', hinge: +a };
   };
   const quantity = $derived(axis?.kind === 'node' && axis.dof !== 'ry' ? 'displacement' : 'rotation');
-  const dofName = (d: string) => (d === 'ry' ? 'θ' : d);
+  const dofName = (d: string) => (d === 'ry' ? 'θ' : d === 'ux' ? TWO_D_DISPLACEMENT_LABELS.horizontal : TWO_D_DISPLACEMENT_LABELS.vertical);
+  const flip = $derived(axis?.kind !== 'node' ? 1 : axis.dof === 'ux' ? twoD.x(1) : axis.dof === 'uz' ? twoD.z(1) : twoD.rot(1));
   const label = $derived(!axis ? '' : axis.kind === 'node'
     ? tp('course.plastic.curve.nodeAxis', { dof: dofName(axis.dof), node: axis.node })
     : tp('course.plastic.curve.hingeAxis', { i: axis.hinge + 1 }));
 
-  const pts = $derived(axis ? curveSeries(r, axis).map((p) => ({ ...p, x: toQ(p.x, quantity) })) : []);
+  const pts = $derived(axis ? curveSeries(r, axis).map((p) => ({ ...p, x: toQ(flip * p.x, quantity) })) : []);
   const geo = $derived.by(() => {
     if (pts.length < 2) return null;
     const xs = pts.map((p) => p.x);
     const span = Math.max(...xs) - Math.min(...xs) || 1;
     const dir = axis ? plateauSign(r, plasticCourse.collapse, axis) : null;
-    const plateau = dir ? xs[xs.length - 1] + dir * 0.2 * span : null;
+    const plateau = dir ? xs[xs.length - 1] + flip * dir * 0.2 * span : null;
     const lo = Math.min(0, ...xs, plateau ?? 0), hi = Math.max(0, ...xs, plateau ?? 0);
     const xt = niceTicks(lo, hi), yt = niceTicks(0, Math.max(...pts.map((p) => p.lambda)) * 1.08);
     const x0 = Math.min(lo, xt[0]), x1 = Math.max(hi, xt[xt.length - 1]) || 1;

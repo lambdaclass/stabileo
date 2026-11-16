@@ -19,6 +19,7 @@
   import { inclinePatch } from '../../lib/model/edit/support-incline';
   import { unitQ } from '../../lib/store/display-units.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
+  import { modelIndexOfUser, userVec, XYZ } from '../../lib/axes/display';
 
   let { support }: { support: Support } = $props();
 
@@ -30,6 +31,16 @@
     { key: 'ry', label: 'ry', k: 'kry', q: 'springKr', c: null },
     { key: 'rz', label: 'rz', k: 'krz', q: 'springKr', c: null },
   ] as const;
+
+  const rows = $derived.by(() => {
+    if (support.dofFrame === 'local' || support.dofLocalElementId !== undefined) return DOF;
+    const order = XYZ.map((_, i) => modelIndexOfUser(i));
+    return [
+      ...order.map((m, i) => ({ ...DOF[m], label: `u${XYZ[i]}` })),
+      ...order.map((m, i) => ({ ...DOF[m + 3], label: `r${XYZ[i]}` })),
+    ];
+  });
+  const shownNormal = $derived(userVec(support.normalX ?? 0, support.normalY ?? 0, support.normalZ ?? 0));
 
   const isCustom = $derived(support.type === 'custom3d');
   const restraints = $derived(support.dofRestraints ?? { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false });
@@ -90,7 +101,7 @@
   <table class="se-grid">
     <thead><tr><th></th><th>{t('support.fixed')}</th><th>{t('support.spring')}</th><th>{t('support.curve')}</th></tr></thead>
     <tbody>
-      {#each DOF as d (d.key)}
+      {#each rows as d (d.key)}
         <tr>
           <!-- The spring's unit beside its DOF: as a placeholder it went away once a value was typed. -->
           <td class="se-dof">{d.label} <span class="se-unit">{unitQ(d.q)}</span></td>
@@ -115,7 +126,7 @@
   <div class="se-row">
     <span>{t('support.inclined')}:</span>
     {#if inclined}
-      <span class="se-mono">n = ({support.normalX?.toFixed(3)}, {support.normalY?.toFixed(3)}, {support.normalZ?.toFixed(3)})</span>
+      <span class="se-mono">n = ({shownNormal.map((c) => c.toFixed(3)).join(', ')})</span>
       <button type="button" onclick={() => setNormal(null)}>{t('support.inclinedOff')}</button>
     {/if}
     <button type="button" onclick={normalFromPoints} data-testid="sup-normal-points-{support.id}">{t('support.normalPoints')}</button>

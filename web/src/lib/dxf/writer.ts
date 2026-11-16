@@ -26,6 +26,17 @@
  * are; the RESULTS layer states the set and the scale used, and that an SRSS or ABS set's values
  * are magnitudes (printed without a sign).
  *
+ * The drawing is in the user's global axes (`DxfWriteOptions.axes`, `dxfPaperAxes`):
+ *
+ * - in space, each point is written in the user's coordinates. CAD is right-handed, so under a
+ *   left-handed choice the third axis (the one that is neither up nor right) is written with its
+ *   sign changed: the drawing keeps the user's up and right and is not a mirror image of the model;
+ * - a projection is the view the user knows (the plan from above, the front and side elevations
+ *   with up on top and the user's right to the right), and its two axes are the user's, signed;
+ * - every component written as text (reactions, nodal moments, imposed displacements, the support
+ *   types) is in the user's axes. Under a non-default choice the file starts with a 999 comment
+ *   that states the drawing's axes.
+ *
  * R12 (AC1009): LINE, POINT, TEXT, 3DFACE and 3D POLYLINE, which every CAD program reads. Pure:
  * the store part is `pro/dxf-export.ts`.
  */
@@ -40,6 +51,7 @@ import { distributedGlobalEnds, memberFrame3D } from '../engine/member-loads';
 import { projectNodeToScene } from '../geometry/coordinate-system';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { magnitudeLabel } from '../engine/result-scopes';
+import { AXIS_NAMES, DEFAULT_AXES, makeFrame, pseudoToUser, signedLabel, supportTypeIn, toUser, userAxisAlong, type AxesChoice, type AxesFrame, type AxisName, type Sign } from '../axes/frame';
 
 export type DxfProjection = 'space' | 'top' | 'front' | 'side';
 
@@ -69,6 +81,27 @@ export interface DxfWriteOptions {
   leftHand?: boolean;
   /** Draw positive values toward the local axes (the results setting). */
   towardLocalAxes?: boolean;
+  /** The user's global axes; the default frame when left out. */
+  axes?: AxesChoice;
+  /** Load case names as the user reads them, by case id (the stored name otherwise). */
+  caseNames?: ReadonlyMap<number, string>;
+}
+
+export interface DxfPaperAxis { name: AxisName; sign: Sign }
+
+/** Under a left-handed choice the space drawing reverses the third axis: CAD is right-handed, and the drawing must not be a mirror image. */
+export function dxfPaperAxes(projection: DxfProjection, axes: AxesChoice = DEFAULT_AXES): DxfPaperAxis[] {
+  const f = makeFrame(axes);
+  if (projection === 'space') {
+    const depth = userAxisAlong(f, 1).name;
+    return AXIS_NAMES.map((name) => ({ name, sign: (f.det < 0 && name === depth ? -1 : 1) as Sign }));
+  }
+  const pair: [0 | 1 | 2, 0 | 1 | 2] = projection === 'top' ? [0, 1] : projection === 'front' ? [0, 2] : [1, 2];
+  return pair.map((k) => userAxisAlong(f, k));
+}
+
+export function dxfPaperAxesText(projection: DxfProjection, axes: AxesChoice = DEFAULT_AXES): string {
+  return dxfPaperAxes(projection, axes).map((a, i) => `${'xyz'[i]} = ${signedLabel(a).replace('+', '')}`).join(', ');
 }
 
 export interface DxfModel {
@@ -109,6 +142,13 @@ const fmt = (v: number) => (Math.abs(v) >= 1e4 || (Math.abs(v) < 0.01 && v !== 0
 
 export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: string) => string): string {
   const f = PER_METRE[opts.units];
+  const choice = opts.axes ?? DEFAULT_AXES;
+  const frame: AxesFrame = makeFrame(choice);
+  const paper = dxfPaperAxes(opts.projection, choice).map((a) => ({ i: AXIS_NAMES.indexOf(a.name), sign: a.sign }));
+  const userParts = (prefix: string, v: V3, moment: boolean, scale = 1): Array<[string, number]> => {
+    const u = moment ? pseudoToUser(frame, v) : toUser(frame, v);
+    return u.map((value, i) => [`${prefix}${AXIS_NAMES[i]!.toLowerCase()}`, value * scale]);
+  };
   const scene = (id: number): P3 | undefined => {
     const n = model.nodes.get(id);
     if (!n) return undefined;
@@ -117,12 +157,9 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
   };
   /** A model point in the drawing: projected, in the drawing's unit. */
   const out = (p: P3): V3 => {
-    switch (opts.projection) {
-      case 'top': return [p.x * f, p.y * f, 0];
-      case 'front': return [p.x * f, p.z * f, 0];
-      case 'side': return [p.y * f, p.z * f, 0];
-      default: return [p.x * f, p.y * f, p.z * f];
-    }
+    const u = toUser(frame, [p.x, p.y, p.z]);
+    const at = (k: number) => (paper[k] ? paper[k]!.sign * u[paper[k]!.i]! * f : 0);
+    return [at(0), at(1), at(2)];
   };
 
   // The structure's size, which sets the text, the arrows, the diagrams and the deformed shape.
@@ -211,7 +248,7 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
       // A small pyramid under the node: it reads as a support in every projection.
       const base = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => ({ x: p.x + u! * h * 0.6, y: p.y + v! * h * 0.6, z: p.z - h }));
       for (let i = 0; i < 4; i++) { line(L, p, base[i]!); line(L, base[i]!, base[(i + 1) % 4]!); }
-      text(L, { x: p.x + h, y: p.y, z: p.z - 1.6 * h }, supportLabel(s.type, tr), textH * 0.8);
+      text(L, { x: p.x + h, y: p.y, z: p.z - 1.6 * h }, supportLabel(s.type, tr, frame), textH * 0.8);
     }
   }
   if (c.numbering) {
@@ -230,7 +267,7 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
     // "Viento X" are both LOADS_VIENTO_X) each take their case's id, so no case shares a layer.
     const caseLayer = new Map<number, string>();
     {
-      const named = model.loadCases.map((lc) => [lc.id, layerName(`${tr('dxf.layerLoads')}_${lc.name}`)] as const);
+      const named = model.loadCases.map((lc) => [lc.id, layerName(`${tr('dxf.layerLoads')}_${opts.caseNames?.get(lc.id) ?? lc.name}`)] as const);
       const seen = new Map<string, number>();
       for (const [, l] of named) seen.set(l, (seen.get(l) ?? 0) + 1);
       const taken = new Set<string>();
@@ -274,8 +311,10 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
           const D: V3 = [q.dx ?? 0, q.dy ?? 0, q.dz ?? 0];
           const mag = Math.hypot(...D);
           if (mag > 1e-12) arrow(L, p, D, arrowL);
-          const parts = ([['dx', q.dx, 1000], ['dy', q.dy, 1000], ['dz', q.dz, 1000], ['rx', q.drx, 1], ['ry', q.dry, 1], ['rz', q.drz, 1]] as Array<[string, number | undefined, number]>)
-            .filter(([, v]) => v !== undefined && v !== 0).map(([k, v, f]) => `${k}=${fmt(v! * f)}${f === 1 ? ' rad' : ' mm'}`);
+          const parts = [
+            ...userParts('d', [q.dx ?? 0, q.dy ?? 0, q.dz ?? 0], false, 1000).map(([k, v]) => [k, v, ' mm'] as const),
+            ...userParts('r', [q.drx ?? 0, q.dry ?? 0, q.drz ?? 0], true).map(([k, v]) => [k, v, ' rad'] as const),
+          ].filter(([, v]) => v !== 0).map(([k, v, u]) => `${k}=${fmt(v)}${u}`);
           if (parts.length) text(L, { x: p.x + 0.5 * textH, y: p.y, z: p.z - 2.4 * textH }, parts.join(' '));
         } else if (ld.type === 'nodal3d') {
           const q = ld.data; const p = scene(q.nodeId); if (!p) return;
@@ -283,7 +322,8 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
           const mag = Math.hypot(...F);
           if (mag > 1e-9) { arrow(L, p, F, arrowL); text(L, { x: p.x - F[0] / mag * arrowL, y: p.y - F[1] / mag * arrowL, z: p.z - F[2] / mag * arrowL }, `${fmt(mag)} kN`); }
           const M = Math.hypot(q.mx, q.my, q.mz);
-          if (M > 1e-9) text(L, { x: p.x + 0.5 * textH, y: p.y, z: p.z - 1.2 * textH }, `M ${fmt(q.mx)}, ${fmt(q.my)}, ${fmt(q.mz)} kN·m`);
+          const Mu = pseudoToUser(frame, [q.mx, q.my, q.mz]);
+          if (M > 1e-9) text(L, { x: p.x + 0.5 * textH, y: p.y, z: p.z - 1.2 * textH }, `M ${fmt(Mu[0])}, ${fmt(Mu[1])}, ${fmt(Mu[2])} kN·m`);
         } else if (ld.type === 'distributed3d') {
           const q = ld.data; const e = model.elements.get(q.elementId); if (!e) return;
           const fr = memberFrame3D(model as never, e); if (!fr) return;
@@ -408,8 +448,10 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
     if (!oneState) notes.push(tr('dxf.reactionsValuesOnly'));
     for (const r of r3d.reactions) {
       const p = scene(r.nodeId); if (!p) continue;
-      const parts = ([['Fx', r.fx], ['Fy', r.fy], ['Fz', r.fz], ['Mx', r.mx], ['My', r.my], ['Mz', r.mz]] as Array<[string, number]>)
-        .filter(([, v]) => Math.abs(v) > 1e-3).map(([k, v]) => `${k}=${fmt(v)}`);
+      // An SRSS or ABS set's components are magnitudes: a reversed user axis must not sign them.
+      const mag = (v: number) => (r3d.magnitude ? Math.abs(v) : v);
+      const parts = [...userParts('F', [r.fx, r.fy, r.fz], false), ...userParts('M', [r.mx, r.my, r.mz], true)]
+        .filter(([, v]) => Math.abs(v) > 1e-3).map(([k, v]) => `${k}=${fmt(mag(v))}`);
       if (parts.length) text(L, { x: p.x + textH, y: p.y, z: p.z - 3 * textH }, parts.join(' '));
       const F: V3 = [r.fx, r.fy, r.fz];
       if (oneState && Math.hypot(...F) > 1e-6) arrow(L, p, F, arrowL);
@@ -424,18 +466,19 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
     lines.forEach((s, i) => text(L, opts.projection === 'top' ? { ...at, y: at.y - i * 1.6 * textH } : { ...at, z: at.z - i * 1.6 * textH }, s));
   }
 
-  const head = ['0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$INSUNITS', '70', String(INSUNITS[opts.units]), '0', 'ENDSEC'];
+  const stated = frame.identity ? [] : ['999', `stabileo axes: up=${choice.up} right=${choice.right} hand=${choice.hand}; ${dxfPaperAxesText(opts.projection, choice)}`];
+  const head = [...stated, '0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$INSUNITS', '70', String(INSUNITS[opts.units]), '0', 'ENDSEC'];
   const table = ['0', 'SECTION', '2', 'TABLES', '0', 'TABLE', '2', 'LAYER', '70', String(layers.size)];
   for (const [name, colour] of layers) table.push('0', 'LAYER', '2', name, '70', '0', '62', String(colour), '6', 'CONTINUOUS');
   table.push('0', 'ENDTAB', '0', 'ENDSEC');
   return [...head, ...table, '0', 'SECTION', '2', 'ENTITIES', ...body, '0', 'ENDSEC', '0', 'EOF'].join('\n');
 }
 
-function supportLabel(type: string, tr: (key: string) => string): string {
+function supportLabel(type: string, tr: (key: string) => string, frame: AxesFrame): string {
   switch (type) {
     case 'fixed': case 'fixed3d': return tr('dxf.supportFixed');
     case 'pinned': case 'pinned3d': return tr('dxf.supportPinned');
     case 'spring': case 'spring3d': return tr('dxf.supportSpring');
-    default: return layerName(type);
+    default: return layerName(supportTypeIn(frame, type));
   }
 }

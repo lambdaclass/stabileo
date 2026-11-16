@@ -16,7 +16,7 @@
   import VectorDisplay from '../dsm/VectorDisplay.svelte';
   import FmSketch from './FmSketch.svelte';
   import FmDiagramPicker from './FmDiagramPicker.svelte';
-  import { xName, num, componentName, sub, redundantText, redundantUnit } from './fm-text';
+  import { xName, num, componentShown, sub, redundantText, redundantUnit } from './fm-text';
   import FmClassTerms from './FmClassTerms.svelte';
   import { deltaTex, delta0Tex } from './fm-formulas';
 
@@ -161,7 +161,7 @@
   <table class="fm-table">
     <tbody>
       {#each r.final.reactions.filter((q) => Math.abs(q.value) > 1e-9) as q (q.nodeId + ':' + q.component)}
-        <tr><td>{q.nodeId}</td><td>{componentName(q.component, rotated(q.nodeId), is3D)}</td><td>{num(q.value)}</td></tr>
+        <tr><td>{q.nodeId}</td><td>{componentShown(q.component, rotated(q.nodeId), is3D).name}</td><td>{num(componentShown(q.component, rotated(q.nodeId), is3D).sign * q.value)}</td></tr>
       {/each}
     </tbody>
   </table>
@@ -201,7 +201,7 @@
     <tbody>
       {#each r.stiffness.reactions.filter((q) => Math.abs(q.value) > 1e-9) as q (q.nodeId + ':' + q.component)}
         {@const mine = r.final.reactions.find((m) => m.nodeId === q.nodeId && m.component === q.component)}
-        <tr><td>{q.nodeId}</td><td>{componentName(q.component, rotated(q.nodeId), is3D)}</td><td>{num(mine?.value ?? 0)}</td><td>{num(q.value)}</td></tr>
+        <tr><td>{q.nodeId}</td><td>{componentShown(q.component, rotated(q.nodeId), is3D).name}</td><td>{num(componentShown(q.component, rotated(q.nodeId), is3D).sign * (mine?.value ?? 0))}</td><td>{num(componentShown(q.component, rotated(q.nodeId), is3D).sign * q.value)}</td></tr>
       {/each}
     </tbody>
   </table>

@@ -11,6 +11,9 @@
   import { fmtQ, fmtCoord, unitQ, toQ } from '../../lib/store/display-units.svelte';
   import { certificateStore, formatBound } from '../../lib/store/certificate.svelte';
   import { forceReactionBound } from '../../lib/engine/certificate-read';
+  import { userVec } from '../../lib/axes/display';
+  import { nodeShown3D } from '../../lib/axes/node-coords';
+  import { supportTypeShown } from '../../lib/axes/user-names';
   import type { ReactionBound3D } from '../../lib/engine/wasm-solver';
 
   const node = $derived(viewState.quickInfo && uiStore.selectedNodes.size === 1 && uiStore.selectedElements.size === 0 ? modelStore.nodes.get([...uiStore.selectedNodes][0]!) : undefined);
@@ -34,10 +37,10 @@
   <div class="qi" data-testid="quick-info">
     {#if node}
       <div class="qi-title">{t('quick.node')} {node.id}</div>
-      <div>x, y, z = {fmtCoord(node.x)}; {fmtCoord(node.y)}; {fmtCoord(node.z ?? 0)} {unitQ('length')}</div>
-      {#if support}<div>{t('quick.support')}: {support.type}</div>{/if}
-      {#if disp}<div>u = {fmtQ(disp.ux, 'displacement')}; {fmtQ(disp.uy, 'displacement')}; {fmtQ(disp.uz, 'displacement')} {unitQ('displacement')}</div>{/if}
-      {#if reac}<div>R = {fmtQ(reac.fx, 'force')}; {fmtQ(reac.fy, 'force')}; {fmtQ(reac.fz, 'force')}{reacBound !== null ? ` ± ${formatBound(toQ(reacBound, 'force'))}` : ''} {unitQ('force')}</div>{/if}
+      <div>x, y, z = {nodeShown3D(node).map((c) => fmtCoord(c)).join('; ')} {unitQ('length')}</div>
+      {#if support}<div>{t('quick.support')}: {supportTypeShown(support.type)}</div>{/if}
+      {#if disp}<div>u = {userVec(disp.ux, disp.uy, disp.uz).map((c) => fmtQ(c, 'displacement')).join('; ')} {unitQ('displacement')}</div>{/if}
+      {#if reac}<div>R = {userVec(reac.fx, reac.fy, reac.fz).map((c) => fmtQ(c, 'force')).join('; ')}{reacBound !== null ? ` ± ${formatBound(toQ(reacBound, 'force'))}` : ''} {unitQ('force')}</div>{/if}
     {:else if elem}
       <div class="qi-title">{t('quick.member')} {elem.id} · {elem.type}</div>
       <div>{elem.nodeI} → {elem.nodeJ} · L = {fmtCoord(length)} {unitQ('length')}</div>

@@ -4,6 +4,9 @@
  * reaction of 45 kN and for a flexibility coefficient of 1e-5 m/kN.
  */
 import { t } from '../../lib/i18n';
+import { along } from '../../lib/axes/display';
+import { axesStore } from '../../lib/axes/axes.svelte';
+import { planeSigns } from '../../lib/axes/frame';
 import type { Redundant, Geometry } from '../../lib/engine/force-method/solve';
 import type { ReleaseOption } from '../../lib/engine/force-method/releases';
 
@@ -13,6 +16,12 @@ export function sub(n: number | string): string {
 
 export const xName = (i: number) => `X${sub(i)}`;
 
+/** A 3D redundant's text, its axis letter the user's, signed when the user axis points the other way. */
+function spaceAxisIn(text: string, k: number): string {
+  const a = along(k as 0 | 1 | 2);
+  return text.replace(/(?<![A-Za-z])[xyz](?![A-Za-z])/, `${a.sign < 0 ? '−' : ''}${a.name.toLowerCase()}`);
+}
+
 export function redundantText(r: Redundant, g: Geometry): string {
   if (r.kind === 'reaction') {
     const sup = g.supports.find((s) => s.nodeId === r.nodeId);
@@ -20,7 +29,7 @@ export function redundantText(r: Redundant, g: Geometry): string {
       /* 3D: forces along x, y, z and moments about them; 0 is the normal on an inclined support. */
       const inclined = sup && sup.restrained.length === 6 && sup.restrained[0] && !sup.restrained[1] && !sup.restrained[2] && r.component === 0;
       const key = inclined ? 'fm.x3.normal' : `fm.x3.reaction${r.component}`;
-      return t(key).replace('{node}', String(r.nodeId));
+      return inclined ? t(key).replace('{node}', String(r.nodeId)) : spaceAxisIn(t(key), (r.component ?? 0) % 3).replace('{node}', String(r.nodeId));
     }
     const key = r.component === 1 && sup?.angle !== undefined ? 'fm.x.reaction1n' : `fm.x.reaction${r.component}`;
     return t(key).replace('{node}', String(r.nodeId));
@@ -55,10 +64,20 @@ export function num(v: number, digits = 3): string {
 
 /** "Rx", "Rz", "M" — or "Rn" on a node that has its own axes; six names in 3D. */
 export function componentName(c: number, rotated = false, is3D = false): string {
-  if (is3D) return rotated && c === 0 ? 'Rn' : ['Rx', 'Ry', 'Rz', 'Mx', 'My', 'Mz'][c];
-  if (c === 2) return 'M';
-  if (rotated) return c === 0 ? 'Rt' : 'Rn';
-  return c === 0 ? 'Rx' : 'Rz';
+  return componentShown(c, rotated, is3D).name;
+}
+
+/** A reaction component of the method (model axes) as the user reads it: its name and the sign its value takes. */
+export function componentShown(c: number, rotated = false, is3D = false): { name: string; sign: number } {
+  if (is3D) {
+    if (rotated && c === 0) return { name: 'Rn', sign: 1 };
+    const a = along((c % 3) as 0 | 1 | 2);
+    return { name: `${c < 3 ? 'R' : 'M'}${a.name.toLowerCase()}`, sign: c < 3 ? a.sign : axesStore.frame.det * a.sign };
+  }
+  const p = planeSigns(axesStore.frame);
+  if (c === 2) return { name: 'M', sign: p.sr };
+  if (rotated) return { name: c === 0 ? 'Rt' : 'Rn', sign: 1 };
+  return c === 0 ? { name: `R${p.h.toLowerCase()}`, sign: p.sx } : { name: `R${p.v.toLowerCase()}`, sign: p.sz };
 }
 
 /** Units of a redundant: moments in kN·m, forces in kN. */

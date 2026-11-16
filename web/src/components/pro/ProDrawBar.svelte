@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { along, axisName } from '../../lib/axes/display';
+  import { userPlane } from '../../lib/axes/typed-frame';
   import { editorActivity } from '../../lib/utils/editor-activity';
   const editorActive = editorActivity();
   import { OSNAP_MODES } from '../../lib/model/osnap-modes';
@@ -45,7 +47,8 @@
     }
   });
 
-  const levelAxis = $derived(({ XY: 'Z', XZ: 'Y', YZ: 'X' } as const)[uiStore.workingPlane]);
+  const levelK = $derived(({ XY: 2, XZ: 1, YZ: 0 } as const)[uiStore.workingPlane]);
+  const levelAxis = $derived(axisName(levelK));
   const materials = $derived([...modelStore.materials.values()]);
 
   $effect(() => {
@@ -93,11 +96,11 @@
       {#if tool === 'node'}
         <label>{t('drawBar.plane')}
           <select bind:value={uiStore.workingPlane} data-testid="draw-plane">
-            <option value="XY">XY</option><option value="XZ">XZ</option><option value="YZ">YZ</option>
+            <option value="XY">{userPlane('XY')}</option><option value="XZ">{userPlane('XZ')}</option><option value="YZ">{userPlane('YZ')}</option>
           </select>
         </label>
         <label>{levelAxis} =
-          <QuantityInput value={uiStore.nodeCreateZ} quantity="length" cls="db-num" onchange={(v) => (uiStore.nodeCreateZ = v)} testid="draw-level" />
+          <QuantityInput value={along(levelK).sign * uiStore.nodeCreateZ} quantity="length" cls="db-num" onchange={(v) => (uiStore.nodeCreateZ = along(levelK).sign * v)} testid="draw-level" />
         </label>
       {:else if tool === 'element'}
         <NextMemberFields />

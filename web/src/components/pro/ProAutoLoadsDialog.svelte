@@ -1,6 +1,7 @@
 <script lang="ts">
   import OutdatedNotice from './design/OutdatedNotice.svelte';
   import { AUTO_LOAD_AUDIT_FEATURES, LOAD_AUDIT_FEATURES } from '../../lib/provenance/under-audit';
+  import { axisName } from '../../lib/axes/display';
   import Hint from './Hint.svelte';
   import { roleSelectOptions } from './design/role-select-options';
   import { untrack } from 'svelte';
@@ -1170,8 +1171,8 @@
                   <ProSeismicMethod bind:config={seismicMethod} />
                   <div class="al-row">
                     <span class="al-label">{t('autoLoad.seismicDirections')}</span>
-                    <label class="al-check"><input type="checkbox" bind:checked={seismicDirectionX} data-testid="al-seismic-dir-x" /> X</label>
-                    <label class="al-check"><input type="checkbox" bind:checked={seismicDirectionZ} data-testid="al-seismic-dir-y" /> Y</label>
+                    <label class="al-check"><input type="checkbox" bind:checked={seismicDirectionX} data-testid="al-seismic-dir-x" /> {axisName(0)}</label>
+                    <label class="al-check"><input type="checkbox" bind:checked={seismicDirectionZ} data-testid="al-seismic-dir-y" /> {axisName(1)}</label>
                   </div>
 
                 {/if}
