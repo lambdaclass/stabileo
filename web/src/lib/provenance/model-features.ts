@@ -34,7 +34,7 @@ export const LEGACY_RECORDED_ANALYSES: readonly AnalysisKind[] = ['linear', 'pde
 export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
-  'concreteMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
+  'concreteMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'defaultDesignCovers',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities', 'coarseShellsPro',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear',
@@ -94,7 +94,7 @@ export interface FeatureSnapshot {
   regulations?: { roles?: Record<string, { adapterId?: string | null } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
-  designData?: { loadBasis?: { resultsVersion?: unknown } };
+  designData?: { loadBasis?: { resultsVersion?: unknown }; covers?: unknown };
 }
 
 export interface FeatureContext {
@@ -209,6 +209,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (concreteCode === 'aci-aisc') f.add('aci318');
   }
   if (values(s.footings).length) f.add('footings');
+  if ((concrete || values(s.footings).length) && !s.designData?.covers) f.add('defaultDesignCovers');
   const jd = s.jointDesigns;
   if (jd && (Array.isArray(jd) ? jd.length : typeof jd === 'object' && Object.keys(jd as object).length)) f.add('jointDesigns');
 

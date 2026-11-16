@@ -1,4 +1,4 @@
-import { migrateDesignData } from '../model/design-data';
+import { defaultDesignData, migrateDesignData } from '../model/design-data';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
 import {
@@ -3492,7 +3492,7 @@ function createModelStore() {
       const id = nextId.footing++;
       const f = newFooting(id, nodeId, name ?? `Z${id}`, {
         // The project's footing cover, from its design data.
-        cover: model.designData?.covers.footing ?? DEFAULT_COVER,
+        cover: model.designData?.covers.footing ?? defaultDesignData().covers.footing,
         // The underside sits at the supported node unless the engineer moves it. The node
         // is where the column lands, so this is the only non-arbitrary starting point.
         foundingElevation: model.nodes.get(nodeId)?.z ?? 0,

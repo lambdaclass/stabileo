@@ -1,0 +1,28 @@
+{
+  "id": "default-covers-table-20-5-1-3-1",
+  "date": "2026-11-16",
+  "prs": [],
+  "area": "design",
+  "when": { "allOf": [["defaultDesignCovers"]] },
+  "quantities": ["rc", "member"],
+  "title": {
+    "en": "The default covers are CIRSOC 201-2025 Table 20.5.1.3.1's: 30 mm for beams and columns, 55 mm under footings",
+    "es": "Los recubrimientos por defecto son los de la Tabla 20.5.1.3.1 del CIRSOC 201-2025: 30 mm en vigas y columnas, 55 mm bajo zapatas",
+    "pt": "Os cobrimentos padrão são os da Tabela 20.5.1.3.1 do CIRSOC 201-2025: 30 mm em vigas e pilares, 55 mm sob sapatas",
+    "de": "Die Standard-Betondeckungen sind die der Tabelle 20.5.1.3.1 des CIRSOC 201-2025: 30 mm bei Balken und Stützen, 55 mm unter Einzelfundamenten",
+    "fr": "Les enrobages par défaut sont ceux du tableau 20.5.1.3.1 du CIRSOC 201-2025 : 30 mm pour les poutres et poteaux, 55 mm sous les semelles",
+    "tr": "Varsayılan paspaylar CIRSOC 201-2025 Tablo 20.5.1.3.1'dekiler: kiriş ve kolonlarda 30 mm, temellerin altında 55 mm"
+  },
+  "explanation": {
+    "en": "A project that did not state its covers was designed with 25 mm to the stirrups of beams and columns, which leaves the main bars 33 mm deep behind Ø8 stirrups, under the 35 mm of Table 20.5.1.3.1 under execution control. The defaults are now the table's: 30 mm for beams and columns, 25 mm for slabs and walls, 55 mm under footings. In such a project every beam and column has a smaller effective depth, so its flexural and shear capacities drop by about 1 to 2 % and its ratios rise as much. A project that stored its own covers keeps them and gives the same numbers.",
+    "es": "Un proyecto que no declaraba sus recubrimientos se diseñaba con 25 mm a los estribos de vigas y columnas, lo que deja la armadura principal a 33 mm detrás de estribos Ø8, por debajo de los 35 mm de la Tabla 20.5.1.3.1 con control de ejecución. Los valores por defecto son ahora los de la tabla: 30 mm en vigas y columnas, 25 mm en losas y tabiques, 55 mm bajo zapatas. En un proyecto así cada viga y columna tiene menor altura útil, de modo que sus resistencias a flexión y corte bajan entre 1 y 2 % y sus relaciones suben otro tanto. Un proyecto que guardó sus propios recubrimientos los conserva y da los mismos números.",
+    "pt": "Um projeto que não declarava seus cobrimentos era dimensionado com 25 mm até os estribos de vigas e pilares, o que deixa a armadura principal a 33 mm atrás de estribos Ø8, abaixo dos 35 mm da Tabela 20.5.1.3.1 com controle de execução. Os valores padrão agora são os da tabela: 30 mm em vigas e pilares, 25 mm em lajes e paredes, 55 mm sob sapatas. Num projeto assim cada viga e pilar tem altura útil menor, de modo que suas resistências à flexão e ao cortante caem cerca de 1 a 2 % e suas relações sobem na mesma medida. Um projeto que guardou seus próprios cobrimentos os mantém e dá os mesmos números.",
+    "de": "Ein Projekt ohne angegebene Betondeckung wurde mit 25 mm bis zu den Bügeln von Balken und Stützen bemessen; hinter Ø8-Bügeln liegt die Längsbewehrung damit 33 mm tief, unter den 35 mm der Tabelle 20.5.1.3.1 mit Ausführungskontrolle. Die Standardwerte sind jetzt die der Tabelle: 30 mm bei Balken und Stützen, 25 mm bei Platten und Wänden, 55 mm unter Einzelfundamenten. In einem solchen Projekt hat jeder Balken und jede Stütze eine kleinere statische Höhe, ihre Biege- und Schubtragfähigkeit sinkt um etwa 1 bis 2 % und ihre Ausnutzung steigt entsprechend. Ein Projekt, das eigene Betondeckungen gespeichert hat, behält sie und ergibt dieselben Zahlen.",
+    "fr": "Un projet qui n'indiquait pas ses enrobages était dimensionné avec 25 mm jusqu'aux étriers des poutres et poteaux, ce qui laisse les armatures principales à 33 mm derrière des étriers Ø8, sous les 35 mm du tableau 20.5.1.3.1 avec contrôle d'exécution. Les valeurs par défaut sont désormais celles du tableau : 30 mm pour les poutres et poteaux, 25 mm pour les dalles et voiles, 55 mm sous les semelles. Dans un tel projet chaque poutre et chaque poteau a une hauteur utile plus faible, si bien que leurs résistances en flexion et à l'effort tranchant baissent d'environ 1 à 2 % et leurs taux augmentent d'autant. Un projet qui a enregistré ses propres enrobages les conserve et donne les mêmes valeurs.",
+    "tr": "Paspaylarını belirtmeyen bir proje, kiriş ve kolonların etriyelerine kadar 25 mm ile tasarlanıyordu; bu, Ø8 etriyelerin arkasında boyuna donatıyı 33 mm derinlikte, uygulama denetimli Tablo 20.5.1.3.1'in 35 mm'sinin altında bırakır. Varsayılanlar artık tablonunkiler: kiriş ve kolonlarda 30 mm, döşeme ve perdelerde 25 mm, temellerin altında 55 mm. Böyle bir projede her kiriş ve kolonun faydalı yüksekliği küçülür; eğilme ve kesme dayanımları yaklaşık %1–2 düşer, oranları da o kadar artar. Kendi paspaylarını kaydetmiş bir proje onları korur ve aynı sayıları verir."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-default-covers.md",
+    "heading": "The default covers are CIRSOC 201-2025 Table 20.5.1.3.1's (2026-11-16)"
+  }
+}

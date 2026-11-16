@@ -9,7 +9,7 @@ import { mainBarCoverMm } from '../codes/cirsoc201/cover';
 import { barArea, faceLayout, groupsArea, groupsLabel, proposeBeamFace, roundDown, stirrupsLabel } from './bars';
 import type { Fmt } from './format';
 import { beamSeismic, type Seismic } from './seismic';
-import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode } from './types';
+import { BEAM_BAR_RANGE, check, inRange, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode } from './types';
 
 const EDITION = '2025' as const;
 const PHI_V = 0.75;
@@ -204,7 +204,7 @@ function evaluate(d: BeamDemand, c: BeamContext, a: BeamAdopted, req: Requiremen
   return { flex, fitBottom: fb.fits, fitTop: ft.fits, areaBottom, areaTop, crackBottom, crackTop, shear, perLegProvided, perLegRequired, transverseMin, transverseProvided, alProvided, alSpacing, alDiaMin, ok, all };
 }
 
-const LONG = (c: BeamContext) => c.diameters.filter((x) => x >= 10 && x <= 25);
+const LONG = (c: BeamContext) => c.diameters.filter((x) => inRange(x, BEAM_BAR_RANGE));
 
 function bumpFace(groups: BarGroup[], d: BeamDemand, c: BeamContext, sd: number): BarGroup[] {
   const cur = groups.find((g) => g.count > 0)?.dia ?? 16;

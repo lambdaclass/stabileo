@@ -23,7 +23,7 @@ import type { ColumnRow } from '../rc-sheets/column-row';
 import type { SlabRow } from '../rc-sheets/slab-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import { makeFmt, type Fmt } from '../rc-sheets/format';
-import { defaultRcSheetsData, SHEET_CODES, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
+import { defaultRcSheetsData, SHEET_CODES, SLAB_MESH_DIAMETERS, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 
 export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow;
@@ -376,7 +376,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const slab: SlabRow[] = [];
   for (const d of D.slabs) {
     const g = groupOf(d.key);
-    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: [6, 8, 10, 12, 16] };
+    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: SLAB_MESH_DIAMETERS };
     const a = adoptedNow[d.key] as SlabAdopted | undefined;
     redesigners.set(d.key, ((x: typeof d) => rules.slabRow(x, ctx, undefined, fmt)) as Redesign);
     slab.push(cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt)));
@@ -385,7 +385,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const slabPlans = D.levels.map((g) => {
     const rows = slab.filter((r) => (r.level ?? '') === g.level);
     const first = groupOf(rows[0]?.key ?? '');
-    const ctx = { mat: { fc: fcOfShells(first?.members.quads ?? [], first?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: [6, 8, 10, 12, 16], bent: data.slabBentBars === true, columnInset: dd.covers.column + dd.stirrupDiaMm / 1000 + Math.max(0, ...dd.longDiametersMm.filter((x) => x <= 16)) / 2000 };
+    const ctx = { mat: { fc: fcOfShells(first?.members.quads ?? [], first?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: SLAB_MESH_DIAMETERS, bent: data.slabBentBars === true, columnInset: dd.covers.column + dd.stirrupDiaMm / 1000 + Math.max(0, ...dd.longDiametersMm.filter((x) => x <= 16)) / 2000 };
     return slabPlan(g.level, rows, g, ctx, rules.slabPlan);
   }).filter((p) => p.panels.length);
   const wall: WallRow[] = [];

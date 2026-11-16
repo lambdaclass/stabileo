@@ -16,6 +16,12 @@ export const SHEET_CODES: Record<SheetCode, { name: string; country: string }> =
 
 export type RowStatus = 'ok' | 'warn' | 'fail' | 'none';
 
+/** The bars each family's rows choose from, mm: the slabs' meshes, and the range of the project's list beams and columns take their longitudinal bars from. */
+export const SLAB_MESH_DIAMETERS: readonly number[] = [6, 8, 10, 12, 16];
+export const BEAM_BAR_RANGE = { min: 10, max: 25 } as const;
+export const COLUMN_BAR_RANGE = { min: 12, max: 32 } as const;
+export const inRange = (dia: number, r: { min: number; max: number }): boolean => dia >= r.min && dia <= r.max;
+
 /** Diameters in mm, spacings in m. */
 export interface BarGroup { count: number; dia: number }
 
