@@ -33,14 +33,17 @@ pub struct DiagramResults3D {
 }
 
 pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
-    let relevant_pl: &[PointLoadInfo3D] = match kind {
-        "momentZ" | "shearY" => &ef.point_loads_y,
-        "momentY" | "shearZ" => &ef.point_loads_z,
-        "axial" => &ef.point_loads_x,
-        "torsion" => return build_sampling_positions(ef.length, ef.point_torques.iter().map(|p| p.a)),
-        _ => &[],
+    let relevant_pl: Vec<f64> = match kind {
+        "momentZ" | "shearY" => ef.point_loads_y.iter().map(|p| p.a).collect(),
+        "momentY" | "shearZ" => ef.point_loads_z.iter().map(|p| p.a).collect(),
+        "axial" => ef.point_loads_x.iter().map(|p| p.a).collect(),
+        "torsion" => ef.point_torques.iter().map(|p| p.a).collect(),
+        _ => vec![],
     };
-    build_sampling_positions(ef.length, relevant_pl.iter().map(|p| p.a))
+    build_sampling_positions(ef.length, relevant_pl.into_iter(),
+        ef.distributed_loads_y.iter().chain(ef.distributed_loads_z.iter()).chain(ef.distributed_loads_x.iter()).flat_map(|d| [d.a, d.b])
+            .chain(ef.member_moments.iter().flat_map(|d| [d.a, d.b])),
+        &|t| evaluate_diagram_3d_at(ef, kind, t))
 }
 
 // ==================== Evaluate at t ====================

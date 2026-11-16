@@ -11966,6 +11966,8 @@ const fr: Translations = {
   'float.distFrameLocal3D': 'qY et qZ selon les axes locaux de chaque barre.',
   'viewport3d.pointLoadOnMemberApplied': 'Charge ponctuelle appliquée sur la barre {id}',
   'edit.refused.prestress': '{n} nœuds ont été conservés : une barre y porte un câble de précontrainte, et les câbles de deux barres ne forment pas une seule parabole.',
+  'svc.memberMomentsSpatial': 'Barre {n} : les moments répartis nécessitent un calcul de portique spatial.',
+  'svc.memberMomentsFrame': 'Barre {n} : les moments répartis nécessitent une barre de portique.',
   'svc.memberLoadSpan': 'Barre {n} : la longueur portant la force ou le moment réparti est inférieure au minimum accepté par le moteur. Le pas de charge est refusé pour éviter de déplacer la charge de barre vers un nœud.',
   'svc.pointMomentOnTruss': 'La barre {n} ne reprend pas de flexion (barre de treillis ou unilatérale) et porte un moment concentré. Déplacez le moment sur un nœud ou changez le type de la barre.',
   'svc.loadOnMissingMember': 'La charge {load} est sur la barre {n}, que le modèle ne contient pas. Supprimez la charge ou placez-la sur une barre.',

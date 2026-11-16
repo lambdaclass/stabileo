@@ -12500,6 +12500,8 @@ const en: Record<string, string> = {
   'float.distFrameLocal3D': 'qY and qZ along each member\'s local axes.',
   'viewport3d.pointLoadOnMemberApplied': 'Point load applied on member {id}',
   'edit.refused.prestress': '{n} joints were kept: a member there carries a tendon, and two members\' tendons are not one parabola.',
+  'svc.memberMomentsSpatial': 'Member {n}: distributed member moments require a spatial frame solve.',
+  'svc.memberMomentsFrame': 'Member {n}: distributed member moments require a frame member.',
   'svc.memberLoadSpan': 'Member {n}: the distributed force or moment span is below the native supported minimum. The load step was refused to avoid moving member loading to a node.',
   'svc.pointMomentOnTruss': 'Member {n} takes no bending (a truss or one-way member) and carries a concentrated moment. Move the moment to a node or change the member\'s type.',
   'svc.loadOnMissingMember': 'Load {load} is on member {n}, which the model does not have. Delete the load or put it on a member.',

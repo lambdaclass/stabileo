@@ -3174,16 +3174,15 @@ fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
             let r = solve(&loads)?;
             for ef in &r.element_forces {
                 if let Some(e) = env.get_mut(&ef.element_id) {
-                    let mut xs: Vec<f64> = (0..=20).map(|i| ef.length * i as f64 / 20.0).collect();
-                    xs.extend(ef.point_loads_z.iter().map(|p| p.a));
-                    for dl in &ef.distributed_loads_z { xs.extend([dl.a, dl.b]); }
+                    let ts = dedaliano_engine::postprocess::diagrams_3d::diagram_positions_3d(ef, "momentY");
                     e[0] = e[0].max(ef.my_start).max(ef.my_end);
                     e[1] = e[1].min(ef.my_start).min(ef.my_end);
                     let start = ef.vz_start + ef.point_loads_z.iter().filter(|p| p.a.abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>();
                     let end = ef.vz_end - ef.point_loads_z.iter().filter(|p| (p.a - ef.length).abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>();
                     e[2] = e[2].max(start).max(end);
                     e[3] = e[3].min(start).min(end);
-                    for x in xs.into_iter().filter(|&x| x > 8.0 * f64::EPSILON * ef.length && ef.length - x > 8.0 * f64::EPSILON * ef.length) {
+                    for t in ts.into_iter().filter(|&t|t>0.0 && t<1.0) {
+                        let x=t*ef.length;
                         let (mut moment, mut shear) = (ef.my_end - ef.vz_end * (ef.length - x), ef.vz_end);
                         for dl in &ef.distributed_loads_z {
                             let a = x.max(dl.a);
@@ -3196,14 +3195,16 @@ fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
                             moment += force * (a - x) + qa * width * width / 2.0 + slope * width.powi(3) / 3.0;
                         }
                         for p in &ef.point_loads_z {
-                            if p.a >= x {
+                            if p.a / ef.length >= t {
                                 shear -= p.p;
                                 moment += p.p * (p.a - x);
                             }
                         }
-                        let jump: f64 = ef.point_loads_z.iter().filter(|p| p.a == x).map(|p| p.p).sum();
-                        e[0] = e[0].max(moment);
-                        e[1] = e[1].min(moment);
+                        let jump: f64 = ef.point_loads_z.iter().filter(|p| p.a / ef.length == t).map(|p| p.p).sum();
+                        let sampled = dedaliano_engine::postprocess::diagrams_3d::evaluate_diagram_3d_at(ef, "momentY", t);
+                        assert!((sampled-moment).abs()<1e-9);
+                        e[0] = e[0].max(sampled);
+                        e[1] = e[1].min(sampled);
                         e[2] = e[2].max(shear).max(shear + jump);
                         e[3] = e[3].min(shear).min(shear + jump);
                     }

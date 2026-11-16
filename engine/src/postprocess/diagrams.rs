@@ -45,34 +45,46 @@ const NUM_POINTS: usize = 21;
 pub(crate) fn build_sampling_positions(
     length: f64,
     point_positions: impl Iterator<Item = f64>,
+    boundaries: impl Iterator<Item = f64>,
+    evaluate: &dyn Fn(f64) -> f64,
 ) -> Vec<f64> {
     let mut positions: Vec<f64> = (0..NUM_POINTS)
         .map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect();
+    let mut cuts = vec![0.0, 1.0];
     for a in point_positions {
+        cuts.push(a / length);
         let t = a / length;
         if t > 0.0 { positions.push(t.next_down()); }
         positions.push(t);
         if t < 1.0 { positions.push(t.next_up()); }
     }
+    cuts.extend(boundaries.map(|x| x / length));
+    cuts.retain(|t| t.is_finite() && *t >= 0.0 && *t <= 1.0);
+    cuts.sort_by(f64::total_cmp);
+    cuts.dedup();
+    positions.extend(cuts.iter().copied());
+    for &t in &cuts {
+        if t > 0.0 { positions.push(t.next_down()); }
+        if t < 1.0 { positions.push(t.next_up()); }
+    }
+    for w in cuts.windows(2) { positions.extend(cubic_stationary_points(evaluate, w[0], w[1])); }
     positions.sort_by(f64::total_cmp);
     positions.dedup();
     positions
 }
 
 pub fn diagram_positions_2d(ef: &ElementForces, kind: &str) -> Vec<f64> {
-    let has_axial_pl = ef.point_loads.iter().any(|pl| pl.px.is_some_and(|px| px.abs() > 1e-15));
-    if kind == "axial" && !has_axial_pl {
-        (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect()
-    } else {
-        build_sampling_positions(ef.length, ef.point_loads.iter().map(|p| p.a))
-    }
+    let sorted = sorted_point_loads(ef);
+    build_sampling_positions(ef.length, sorted.iter().map(|p| p.a),
+        ef.distributed_loads.iter().chain(ef.distributed_loads_x.iter()).flat_map(|d| [d.a, d.b]),
+        &|t| compute_diagram_value_at_sorted(kind, t, ef, &sorted))
 }
 
 /// Where the cubic through `g` at four Chebyshev points of (lo, hi) is stationary, inside (lo, hi):
 /// exact when `g` is a cubic there, as M, V and N are between load discontinuities.
 pub fn cubic_stationary_points(g: &dyn Fn(f64) -> f64, lo: f64, hi: f64) -> Vec<f64> {
     let w = hi - lo;
-    if !(w > 1e-9) {
+    if !(w > 0.0) {
         return vec![];
     }
     let s: [f64; 4] = std::array::from_fn(|k| (1.0 - ((2 * k + 1) as f64 * std::f64::consts::PI / 8.0).cos()) / 2.0);
@@ -112,31 +124,9 @@ pub fn cubic_stationary_points(g: &dyn Fn(f64) -> f64, lo: f64, hi: f64) -> Vec<
 /// Stations (t ∈ [0, 1]) where diagram `kind` of one member can peak off the regular grid: both
 /// sides of each point load, every load discontinuity, and every stationary point of each piece between them.
 pub fn diagram_peak_stations_2d(ef: &ElementForces, kind: &str, sorted_pl: &[PointLoadInfo]) -> Vec<f64> {
-    let len = ef.length;
-    if !(len > 0.0) {
-        return vec![];
-    }
-    let mut out = Vec::new();
-    let mut cuts = vec![0.0, 1.0];
-    for pl in sorted_pl {
-        let t = (pl.a / len).clamp(0.0, 1.0);
-        cuts.push(t);
-        out.push((t - 1e-9).max(0.0));
-        out.push((t + 1e-9).min(1.0));
-    }
-    for d in ef.distributed_loads.iter().chain(ef.distributed_loads_x.iter()) {
-        cuts.push((d.a / len).clamp(0.0, 1.0));
-        cuts.push((d.b / len).clamp(0.0, 1.0));
-    }
-    cuts.sort_by(|a, b| a.total_cmp(b));
-    cuts.dedup();
-    out.extend(cuts.iter().copied());
-    let g = |t: f64| compute_diagram_value_at_sorted(kind, t, ef, sorted_pl);
-    for w in cuts.windows(2) {
-        out.extend(cubic_stationary_points(&g, w[0], w[1]));
-    }
-    out.retain(|t| t.is_finite());
-    out
+    build_sampling_positions(ef.length, sorted_pl.iter().map(|p| p.a),
+        ef.distributed_loads.iter().chain(ef.distributed_loads_x.iter()).flat_map(|d| [d.a, d.b]),
+        &|t| compute_diagram_value_at_sorted(kind, t, ef, sorted_pl))
 }
 
 // ==================== Diagram Value At ====================

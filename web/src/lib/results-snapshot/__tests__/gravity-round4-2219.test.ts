@@ -52,7 +52,7 @@ function depthHand(profile: number[][], x: number, mirror: number) {
   return {shear:R-integral(x,0),moment:M0+R*x-integral(x,1),torque:mirror*(T0-integral(x,0,true)),deflection:(M0*x*x/2+R*x**3/6-integral(x,3)/6)/1000,twist:-mirror*(T0*x-integral(x,1,true))/1000};
 }
 
-for(const source of ['floor','region']) for(const epsilon of [0,1e-7]) for(const angle of [0,0.37]) for(const mirror of [1,-1]) for(const split of [false,true]) (source === 'floor' && epsilon === 1e-7 && angle === 0.37 && mirror === -1 ? it.skip : it)(`near-collinear carrier hand solution ${source}, epsilon=${epsilon}, angle=${angle}, mirror=${mirror}, split=${split}`,()=>{
+for(const source of ['floor','region']) for(const epsilon of [0,1e-7]) for(const angle of [0,0.37]) for(const mirror of [1,-1]) for(const split of [false,true]) it(`near-collinear carrier hand solution ${source}, epsilon=${epsilon}, angle=${angle}, mirror=${mirror}, split=${split}`,()=>{
   const transform=([x,y]:number[]):[number,number]=>[mirror*x!*Math.cos(angle)-y!*Math.sin(angle),mirror*x!*Math.sin(angle)+y!*Math.cos(angle)];
   const corners=[[0,0],[1,0],[2,epsilon],[2,1],[1,1],[0,1+epsilon]].map(transform),fractions=split?[0,0.3,0.5]:[0,0.5];
   const ring=corners.flatMap((p,k)=>k===0?fractions.map(t=>{const q=corners[1]!;return [p[0]+t*(q[0]-p[0]),p[1]+t*(q[1]-p[1])];}):[p]);

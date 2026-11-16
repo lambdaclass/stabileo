@@ -9,8 +9,8 @@ import { modelStore } from '../../../store/model.svelte';
 import '../../../store/index';
 import { buildSolverInput2D, buildSolverInput3D, loadRefusal } from '../../solver-service';
 
-const regression = it.skip;
-const empty = { elementId: 1, length: 100, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0, mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0, pointLoadsX: [], pointLoadsY: [], pointLoadsZ: [], distributedLoadsY: [], distributedLoadsZ: [] } as ElementForces3D;
+const regression = it;
+const empty = { elementId: 1, length: 100, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0, mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0, pointLoadsY: [], pointLoadsZ: [], distributedLoadsY: [], distributedLoadsZ: [], qYI:0,qYJ:0,qZI:0,qZJ:0,releaseMyStart:false,releaseMyEnd:false,releaseMzStart:false,releaseMzEnd:false,releaseTStart:false,releaseTEnd:false } satisfies ElementForces3D;
 for (const axis of ['x', 'y', 'z'] as const) for (const sign of [1, -1]) for (const width of [1, 1e-8]) regression(`density boundaries retain cancelling ${axis} peak sign=${sign} width=${width}`, () => {
   const moments = (value: number) => ({ x: [0, 0, 0], y: [0, 0, 0], z: [0, 0, 0], [axis]: [value, value, value] }) as NonNullable<ElementForces3D['memberMoments']>[number]['moments'];
   const a = 1, b = a + width, c = b + width;
@@ -42,19 +42,24 @@ for (const angle of [0, 0.37]) for (const mirror of [1, -1]) for (const split of
   const model = regionModel([ring]);
   const full = transferRegionToCarriers(model, physicalRegion(corners.map(transform)), [...model.elements.keys()]);
   expect(full.pieces.reduce((s, p) => s + (p.wI + p.wJ) * (p.b - p.a) / 2, 0)).toBeCloseTo(98, 10);
-  const patch = transferRegionToCarriers(model, physicalRegion([[4.9, 8.8], [5.1, 8.8], [5.1, 8.9], [4.9, 8.9]].map(transform)), [...model.elements.keys()]);
+  const patch = transferRegionToCarriers(model, physicalRegion([[4.99, 8.89], [5.01, 8.89], [5.01, 8.91], [4.99, 8.91]].map(transform)), [...model.elements.keys()]);
   const ids = split ? [4, 13] : [2, 7];
   expect([...new Set(patch.pieces.map(p => p.elementId))].sort((a, b) => a - b)).toEqual(ids);
   for (const id of ids) {
     const pieces = patch.pieces.filter(p => p.elementId === id);
-    expect(pieces.reduce((s, p) => s + (p.wI + p.wJ) * (p.b - p.a) / 2, 0)).toBeCloseTo(0.01, 12);
-    for (const p of pieces) { expect(p.wI).toBeCloseTo(0.1, 10); expect(p.wJ).toBeCloseTo(0.1, 10); }
+    expect(pieces.reduce((s, p) => s + (p.wI + p.wJ) * (p.b - p.a) / 2, 0)).toBeCloseTo(0.0002, 12);
+    for (const fraction of [0.25,0.5,0.75]) {
+      const a=Math.min(...pieces.map(p=>p.a)),b=Math.max(...pieces.map(p=>p.b)),x=a+(b-a)*fraction;
+      const q=pieces.filter(p=>p.a<=x&&p.b>=x).reduce((sum,p)=>sum+p.wI+(p.wJ-p.wI)*(x-p.a)/(p.b-p.a),0);
+      expect(q).toBeCloseTo(0.01,10);
+    }
   }
-  expect(floorLoad({ nodes: model.nodes, beams: [...model.elements.values()], q: 1, distribution: 'twoWay' }).totalKN).toBeCloseTo(98, 10);
+  expect(floorLoad({ nodes: model.nodes, beams: [...model.elements.values()].map(e=>({...e,type:'frame' as const})), q: 1, distribution: 'twoWay' }).totalKN).toBeCloseTo(98, 10);
 });
 for (const plane of [true, false]) regression(`moment refusals reach the localized load channel plane=${plane}`, () => {
   modelStore.clear();
   const i = modelStore.addNode(0, 0, 0), j = modelStore.addNode(2, 0, 0), elementId = modelStore.addElement(i, j);
+  modelStore.addSupport(i, 'fixed');
   modelStore.addLoadEntry({ type: 'distributed3d', data: { id: 1, elementId, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, moments: { x: [1, 1, 1], y: [0, 0, 0], z: [0, 0, 0] } } });
   if (!plane) modelStore.updateElement(elementId, { type: 'truss' });
   let caught = false;

@@ -82,8 +82,7 @@ fn bar_with_partial_trapezoid() -> SolverInput {
 }
 
 /// The largest excursion of N outside the envelope of the values at consecutive stations.
-fn worst_excursion(ef: &ElementForces) -> f64 {
-    let ts = diagram_positions_2d(ef, "axial");
+fn worst_excursion(ef: &ElementForces, ts: &[f64]) -> f64 {
     let mut worst: f64 = 0.0;
     for w in ts.windows(2) {
         let (n0, n1) = (compute_diagram_value_at("axial", w[0], ef), compute_diagram_value_at("axial", w[1], ef));
@@ -115,8 +114,12 @@ fn diagram_certificate_keeps_axial_point_load_jumps_beside_a_span_load() {
     let r = solve_2d(&input).unwrap();
     let ef = &r.element_forces[0];
     let gap = diagram_gaps_2d(ef).axial;
-    let worst = worst_excursion(ef);
-    assert!(worst > 1e-9, "the case must exercise the gap (worst excursion {worst})");
+    let legacy: Vec<f64>=(0..=20).map(|i|i as f64/20.0).collect();
+    let witness = worst_excursion(ef, &legacy);
+    assert!(witness > 1e-9, "the original grid must exercise the jump: {witness}");
+    let worst = worst_excursion(ef, &diagram_positions_2d(ef,"axial"));
+    assert!(diagram_positions_2d(ef,"axial").iter().any(|t| *t>0.5 && *t<0.500000001));
+    assert!((compute_diagram_value_at("axial",0.5_f64.next_up(),ef)-compute_diagram_value_at("axial",0.5,ef)-30.0).abs()<1e-9);
     assert!(worst <= gap + 1e-9, "N leaves the station envelope by {worst} > certified gap {gap}");
 }
 
@@ -139,7 +142,11 @@ fn diagram_certificate_bounds_n_between_stations_under_an_axial_span_load() {
             worst = worst.max(n - hi).max(lo - n);
         }
     }
-    assert!(worst > 1e-9, "the case must exercise the gap (worst excursion {worst})");
+    let legacy: Vec<f64>=(0..=20).map(|i|i as f64/20.0).collect();
+    assert!(worst_excursion(ef,&legacy)>1e-9,"the original grid must exercise the polynomial peak");
+    let critical=(0.37+(2.91-0.37)*30.0/80.0)/4.0;
+    assert!(ts.iter().any(|t|(*t-critical).abs()<1e-12));
+    assert!(worst<=1e-9,"critical stations must bound the polynomial: {worst}");
     assert!(worst <= gap + 1e-9, "N leaves the station envelope by {worst} > certified gap {gap}");
 }
 

@@ -166,6 +166,31 @@ function loadedRegion(sides: Side[], holes: Side[][], zone: Zone2D | undefined, 
   return subtractRegions(r, unionRegions(excluded.map(p => physicalRegion(p))));
 }
 
+function coalesceMomentPieces(pieces: SideShare['moments']): SideShare['moments'] {
+  const out: SideShare['moments'] = [];
+  const at = (p: SideShare['moments'][number], x: number): P2 => {
+    const t=(x-p.s0)/(p.s1-p.s0);
+    return [0,1].map(axis => p.first[0][axis]!*(2*t*t-3*t+1)+p.first[1][axis]!*(4*t-4*t*t)+p.first[2][axis]!*(2*t*t-t)) as P2;
+  };
+  for (const p of pieces) {
+    const last=out.at(-1);
+    if (last && last.s1===p.s0) {
+      const middle=(last.s0+p.s1)/2;
+      const merged={s0:last.s0,s1:p.s1,first:[last.first[0],at(middle<=last.s1?last:p,middle),p.first[2]] as [P2,P2,P2]};
+      const scale=last.first.flat().concat(p.first.flat()).reduce((sum,v)=>sum+Math.abs(v),0);
+      const matches=[last,p].every(part => [part.s0,(part.s0+part.s1)/2,part.s1].every(x => at(part,x).every((v,k)=>Math.abs(v-at(merged,x)[k]!)<=32*Number.EPSILON*scale)));
+      if(matches) {out[out.length-1]=merged;continue;}
+    }
+    out.push(p);
+  }
+  return out;
+}
+
+function coalesceMomentProfile(pieces: SideShare['moments']): SideShare['moments'] {
+  const reverse = (values: SideShare['moments']): SideShare['moments'] => [...values].reverse().map(p => ({s0:-p.s1,s1:-p.s0,first:[p.first[2],p.first[1],p.first[0]]}));
+  return reverse(coalesceMomentPieces(reverse(coalesceMomentPieces(pieces))));
+}
+
 export function transferRegionToSide(e: Side, region: PhysicalRegion, q: number, direction: P2 = e.n): SideShare {
   const ratio = dot(direction, e.u) / dot(direction, e.n);
   const local = (p: P2): P2 => {
@@ -207,6 +232,7 @@ export function transferRegionToSide(e: Side, region: PhysicalRegion, q: number,
       out.moments.push({ s0, s1, first: [momentAt(s0), momentAt((s0 + s1) / 2), momentAt(s1)] });
     }
   }
+  out.moments=coalesceMomentProfile(out.moments);
   out.pieces=linearProfile(out.pieces.map(p=>({a:p.s0,b:p.s1,qa:p.q0,qb:p.q1}))).map(p=>({s0:p.a,s1:p.b,q0:p.qa,q1:p.qb}));
   return out;
 }
@@ -301,6 +327,16 @@ function partitionRegionToSidesUnchecked(sides: Side[], region: PhysicalRegion):
     group.side = { ...group.side, a, b, u, n: [-u[1],u[0]], len };
     group.members.push(k);
   }
+  const intervals = groups.map(({ side, members }) => {
+    const sorted = members.map(i => [along(side, sides[i]!.a), along(side, sides[i]!.b)].sort((a,b) => a-b)).sort((a,b) => a[0]!-b[0]!);
+    const union: Array<[number, number]> = [];
+    for (const span of sorted) {
+      const last = union.at(-1);
+      if (last && span[0]! <= last[1]) last[1] = Math.max(last[1], span[1]!);
+      else union.push([span[0]!, span[1]!]);
+    }
+    return union;
+  });
   if (groups.length === 1) return sides.map(side => projectionStrip(region,side));
   const points = sides.flatMap(s => [s.a,s.b]).sort((a,b) => a[0]-b[0] || a[1]-b[1]);
   const cross = (a: P2,b: P2,c: P2) => (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
@@ -311,6 +347,7 @@ function partitionRegionToSidesUnchecked(sides: Side[], region: PhysicalRegion):
   hull.pop();
   const signs = groups.map(({side}) => Math.sign(hull.reduce((sum,p) => sum+dist(side,p),0)));
   const compatible = groups.every(({side},k) => {
+    if (intervals[k]!.length !== 1) return false;
     const dx = new BigNumber(side.b[0]).minus(side.a[0]), dy = new BigNumber(side.b[1]).minus(side.a[1]);
     const inside = (p: P2) => signs[k]!*dx.times(new BigNumber(p[1]).minus(side.a[1])).minus(dy.times(new BigNumber(p[0]).minus(side.a[0]))).comparedTo(0)! >= 0;
     return signs[k] !== 0 && hull.every(inside) && region.polygons.flat(2).every(inside);
@@ -326,12 +363,12 @@ function partitionRegionToSidesUnchecked(sides: Side[], region: PhysicalRegion):
         if(part.length>=3) owned.push(part);
       }
     } else for(const sign of [-1,1]) {
-      let parts=cells.map(cell=>clipExact(clipExact(clipExact(cell,p=>-along(side,p)),p=>along(side,p)-side.len),p=>-sign*dist(side,p))).filter(p=>p.length>=3);
+      let parts=intervals[k]!.flatMap(([lo,hi])=>cells.map(cell=>clipExact(clipExact(clipExact(cell,p=>lo-along(side,p)),p=>along(side,p)-hi),p=>-sign*dist(side,p)))).filter(p=>p.length>=3);
       for(const [j,other] of groups.entries()) {
         if(j===k) continue;
-        parts=parts.flatMap(part=>{
-          const outside=[clipExact(part,p=>along(other.side,p)),clipExact(part,p=>other.side.len-along(other.side,p))];
-          const eligible=clipExact(clipExact(part,p=>-along(other.side,p)),p=>along(other.side,p)-other.side.len);
+        for (const [lo,hi] of intervals[j]!) parts=parts.flatMap(part=>{
+          const outside=[clipExact(part,p=>along(other.side,p)-lo),clipExact(part,p=>hi-along(other.side,p))];
+          const eligible=clipExact(clipExact(part,p=>lo-along(other.side,p)),p=>along(other.side,p)-hi);
           const inside=[-1,1].map(s=>clipExact(clipExact(eligible,p=>-s*dist(other.side,p)),distanceDifference(side,sign,other.side,s)));
           return [...outside,...inside].filter(p=>p.length>=3);
         });

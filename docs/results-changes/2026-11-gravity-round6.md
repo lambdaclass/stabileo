@@ -1,4 +1,4 @@
-# Gravity station jumps and member load edits
+# Short gravity densities retain their member spans
 
 PR #2219 round 6 contains the remaining short-density endpoint path. Physical-region
 allocation (SA-2026-079) and eccentric member loading (SA-2026-080) remain together.

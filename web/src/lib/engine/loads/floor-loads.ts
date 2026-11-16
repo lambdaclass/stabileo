@@ -381,7 +381,10 @@ function calculateFloorLoad(input: FloorLoadInput): FloorLoadResult {
         const moments = sliceMoments({ x: values.map(v => v[0]!) as [number, number, number], y: values.map(v => v[1]!) as [number, number, number], z: values.map(v => v[2]!) as [number, number, number] },
           ((seg.forward ? s0 : s1) - moment.s0) / h, ((seg.forward ? s1 : s0) - moment.s0) / h);
         if ([moments.x, moments.y, moments.z].every(v => v.every(x => x === 0))) continue;
-        const a = seg.forward ? s0 - seg.s0 : seg.s1 - s1, b = seg.forward ? s1 - seg.s0 : seg.s1 - s0;
+        const ni = pos(beam.nodeI)!, nj = pos(beam.nodeJ)!;
+        const length = Math.sqrt((nj.x-ni.x)**2+(nj.y-ni.y)**2+((nj.z??0)-(ni.z??0))**2);
+        const station = (s: number) => length === seg.s1-seg.s0 ? s-seg.s0 : s === seg.s0 ? 0 : s === seg.s1 ? length : (s-seg.s0)/(seg.s1-seg.s0)*length;
+        const a = seg.forward ? station(s0) : length-station(s1), b = seg.forward ? station(s1) : length-station(s0);
         memberMoments.push({ panel: k, load: { elementId: seg.elementId, a, b, ...(s1-s0 < MIN_GRAVITY_MEMBER_SPAN ? { spanLength: s1-s0 } : {}), qI: 0, qJ: 0, qXI: 0, qXJ: 0, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, moments } });
       }
 

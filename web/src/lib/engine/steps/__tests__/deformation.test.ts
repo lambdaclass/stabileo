@@ -498,7 +498,7 @@ function genSpanLoads(e: number, L: number, r: ReturnType<typeof rng>) {
   if (kind === 0) modelStore.addDistributedLoad(e, w, w);
   else if (kind === 1) modelStore.addDistributedLoad(e, 0, w);
   else if (kind === 2) modelStore.addDistributedLoad(e, w / 2, w);
-  else if (kind === 3) { const a = r.real(0.5, L / 2); modelStore.addDistributedLoad(e, w, w, undefined, undefined, undefined, a, Math.min(L - 0.5, a + r.real(1, L / 2))); }
+  else if (kind === 3) { const a = r.real(0.5, L / 2); modelStore.addDistributedLoad(e, w, w, undefined, undefined, undefined, a, Math.min(L, a + r.real(1, L / 2))); }
   else if (kind === 4) modelStore.addPointLoadOnElement(e, r.real(0.5, L - 0.5), -r.real(10, 60, 5));
   else modelStore.addPointLoadOnElement(e, r.real(0.5, L - 0.5), 0, { my: r.pick([-1, 1]) * r.real(5, 40, 5) });
 }

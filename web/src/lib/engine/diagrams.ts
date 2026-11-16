@@ -1,4 +1,4 @@
-import { concentratedLoadStations, loadPrecedesStation } from './load-station';
+import { diagramStations, loadPrecedesStation } from './load-station';
 // Diagram calculation: M(x), V(x), N(x) along each element
 // Given end forces and distributed load, compute intermediate values
 
@@ -25,21 +25,6 @@ export interface ElementDiagram {
   maxAbsValue: number;
 }
 
-const NUM_POINTS = 21; // number of sampling points per element
-
-/**
- * Build sorted, unique sampling positions (as t ∈ [0,1]) including
- * regular grid points and positions just before/after each point load
- * to capture discontinuities.
- */
-function buildSamplingPositions(
-  length: number,
-  pointLoads: Array<{ a: number; p: number; px?: number; my?: number }>,
-): number[] {
-  const tSet = new Set(concentratedLoadStations(length, pointLoads));
-  return [...tSet].sort((a, b) => a - b);
-}
-
 /**
  * Helper: build an ElementDiagram by sampling computeDiagramValueAt at each position.
  */
@@ -50,9 +35,8 @@ function buildDiagram(
   nodeJx: number, nodeJy: number,
   pointLoads: Array<{ a: number; p: number; px?: number; my?: number }>,
 ): ElementDiagram {
-  const positions = kind === 'axial' && !pointLoads.some(pl => pl.px && Math.abs(pl.px) > 1e-15)
-    ? Array.from({ length: NUM_POINTS }, (_, i) => i / (NUM_POINTS - 1))
-    : buildSamplingPositions(ef.length, pointLoads);
+  const densities = [...ef.distributedLoads ?? [], ...ef.distributedLoadsX ?? []];
+  const positions = diagramStations(ef.length, pointLoads, densities.flatMap(d => [d.a, d.b]), t => computeDiagramValueAt(kind, t, ef));
 
   const points: DiagramPoint[] = [];
   let maxVal = -Infinity, minVal = Infinity;

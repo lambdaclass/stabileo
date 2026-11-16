@@ -35,6 +35,6 @@
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-gravity-round6.md",
-    "heading": "Gravity station jumps and member load edits"
+    "heading": "Short gravity densities retain their member spans"
   }
 }

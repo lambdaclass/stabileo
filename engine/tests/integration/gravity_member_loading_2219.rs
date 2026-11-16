@@ -305,7 +305,6 @@ fn round5_solved_point_force_stations_match_the_cantilever_hand_solution() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round7_density_boundaries_and_quadratic_extrema_reach_native_diagrams() {
     use dedaliano_engine::postprocess::diagrams_3d::compute_diagrams_3d;
     for axis in ["x", "y", "z"] { for sign in [1.0, -1.0] { for quadratic in [false, true] {
@@ -329,4 +328,22 @@ fn round7_density_boundaries_and_quadratic_extrema_reach_native_diagrams() {
             for x in xs { assert!(d.points.iter().any(|p|(p.t-x/100.0).abs()<1e-12)); }
         }
     } } }
+}
+
+#[test]
+fn round7_plane_span_extrema_reach_native_diagrams() {
+    use dedaliano_engine::postprocess::diagrams::{compute_diagrams_2d,diagram_positions_2d};
+    for sign in [1.0,-1.0] {
+        let mut input=crate::common::make_input(
+            vec![(1,0.0,0.0),(2,100.0,0.0)],vec![(1,1000.0,0.0)],vec![(1,0.1,0.001)],
+            vec![(1,"frame",1,2,1,1,false,false)],vec![(1,1,"fixed")],vec![]);
+        input.loads=serde_json::from_value(json!([{"type":"distributed","data":{"elementId":1,"a":1,"b":2,"qI":sign,"qJ":-sign}}])).unwrap();
+        for r in [linear::solve_2d(&input).unwrap(),pdelta::solve_pdelta_2d(&input,100,1e-10).unwrap().results] {
+            let d=compute_diagrams_2d(&input,&r);
+            let offset=r.element_forces[0].v_start;
+            assert!((d.shear[0].max_value-offset-if sign>0.0 {0.25} else {0.0}).abs()<1e-10);
+            assert!((d.shear[0].min_value-offset-if sign<0.0 {-0.25} else {0.0}).abs()<1e-10);
+            assert!(diagram_positions_2d(&r.element_forces[0],"shear").iter().any(|t|(*t-0.015).abs()<1e-12));
+        }
+    }
 }

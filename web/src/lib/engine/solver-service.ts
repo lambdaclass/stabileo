@@ -247,11 +247,20 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
 
 // ─── 2D: validateAndSolve2D ───────────────────────────────────────
 
+class MemberMomentRefusal extends Error {
+  constructor(readonly elementId: number, readonly reason: 'spatial' | 'frame') {
+    super(reason === 'spatial' ? 'Distributed member moments require a spatial frame solve' : `Member ${elementId}: distributed moments require a frame`);
+  }
+}
+
+
 /** Build only the solver loads array for a 2D input. Shared by
  *  validateAndSolve2D and the multi-case combo path so both produce
  *  identical per-case loads on the wire. */
+
 function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: boolean): SolverInput['loads'] {
-  if(loads.some(l=>l.type==='distributed3d' && hasMemberMoments(l.data.moments))) throw new Error('Distributed member moments require a spatial frame solve');
+  const unsupported = loads.find(l=>l.type==='distributed3d' && hasMemberMoments(l.data.moments));
+  if (unsupported && 'elementId' in unsupported.data) throw new MemberMomentRefusal(unsupported.data.elementId, 'spatial');
   /*
    * One builder for every 2D path. The linear solve and the combinations had
    * their own, which passed a distributed or point load's value straight to
@@ -1542,7 +1551,7 @@ export function buildSolverLoads3D(
       const g = distributedGlobalEnds(d, m.axes, userLeftHand);
       solverLoads.push(...globalDistributedToSolver(m, g.gI, g.gJ, g.a, g.b));
       if (d.moments) {
-        if (hasMemberMoments(d.moments) && memberTakesNoBending(model.elements.get(d.elementId)!)) throw new Error(`Member ${d.elementId}: distributed moments require a frame`);
+        if (hasMemberMoments(d.moments) && memberTakesNoBending(model.elements.get(d.elementId)!)) throw new MemberMomentRefusal(d.elementId, 'frame');
         const global = distributedGlobalMoments(d,m.axes,userLeftHand)!;
         const local = mapMoments(global, v => [m.axes.ex,m.axes.ey,m.axes.ez].map(axis => v.reduce((sum,x,i) => sum+x*axis[i]!,0)) as [number,number,number]);
         solverLoads.push({ type: 'distributed', data: { elementId: d.elementId, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, a: g.a, b: g.b, moments: local } });
@@ -1986,6 +1995,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): Solv
 
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
 export function loadRefusal(err: unknown): string | null {
+  if (err instanceof MemberMomentRefusal) return tp(err.reason === 'spatial' ? 'svc.memberMomentsSpatial' : 'svc.memberMomentsFrame', { n: err.elementId });
   if (err instanceof MemberLoadSpanRefusal) return tp('svc.memberLoadSpan', { n: err.elementId });
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }

@@ -1,4 +1,4 @@
-import { concentratedLoadStations, loadPrecedesStation } from './load-station';
+import { diagramStations, loadPrecedesStation } from './load-station';
 import { integrateQuadratic } from './member-moments';
 // 3D Diagram Computation — Analytical equations
 // Compute diagram values (My, Mz, Vy, Vz, N, Mx) along each 3D element
@@ -29,14 +29,12 @@ export interface ElementDiagram3D {
  * regular grid points and positions just before/after each point load
  * to capture discontinuities in shear diagrams.
  */
-function buildSamplingPositions(
-  length: number,
-  pointLoads: Array<{ a: number; p: number }>,
-  pieces?: ElementForces3D['pieces'],
-): number[] {
-  const tSet = new Set(concentratedLoadStations(length, pointLoads));
-  for (const p of pieces ?? []) tSet.add(Math.min(1, p.x1 / length));
-  return [...tSet].sort((a, b) => a - b);
+function samplingPositions(ef: ElementForces3D, kind: Diagram3DKind): number[] {
+  if (ef.pieces?.length) return [...new Set(ef.pieces.flatMap(p => samplingPositions(p.forces, kind).map(t => (p.x0 + t * (p.x1 - p.x0)) / ef.length)))].sort((a, b) => a - b);
+  if (ef.combined) return [...new Set(ef.combined.parts.flatMap(p => samplingPositions(p, kind)))].sort((a, b) => a - b);
+  const loads = kind === 'momentZ' || kind === 'shearY' ? ef.pointLoadsY : kind === 'momentY' || kind === 'shearZ' ? ef.pointLoadsZ : kind === 'torsion' ? ef.pointTorques ?? [] : [];
+  const densities = [...ef.distributedLoadsY ?? [], ...ef.distributedLoadsZ ?? [], ...ef.distributedLoadsX ?? [], ...ef.memberMoments ?? []];
+  return diagramStations(ef.length, loads, densities.flatMap(d => [d.a, d.b]), t => evaluateDiagramAt(ef, kind, t));
 }
 
 /**
@@ -47,14 +45,7 @@ export function computeDiagram3D(
   ef: ElementForces3D,
   kind: Diagram3DKind,
 ): ElementDiagram3D {
-  const relevantPointLoads =
-    kind === 'momentZ' || kind === 'shearY'
-      ? ef.pointLoadsY
-      : kind === 'momentY' || kind === 'shearZ'
-        ? ef.pointLoadsZ
-        : kind === 'torsion' ? ef.pointTorques ?? [] : [];
-
-  const positions = buildSamplingPositions(ef.length, relevantPointLoads, ef.pieces);
+  const positions = samplingPositions(ef, kind);
   const points: DiagramPoint3D[] = [];
   let maxVal = -Infinity;
   let minVal = Infinity;

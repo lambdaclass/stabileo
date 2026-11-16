@@ -11975,6 +11975,8 @@ const tr: Translations = {
   'float.distFrameLocal3D': 'qY ve qZ her çubuğun yerel eksenleri boyunca.',
   'viewport3d.pointLoadOnMemberApplied': '{id} numaralı çubuğa tekil yük uygulandı',
   'edit.refused.prestress': '{n} ara düğüm korundu: oradaki bir çubuk öngerme kablosu taşıyor ve iki çubuğun kabloları tek bir parabol oluşturmaz.',
+  'svc.memberMomentsSpatial': '{n} numaralı eleman: yayılı eleman momentleri uzaysal çerçeve çözümü gerektirir.',
+  'svc.memberMomentsFrame': '{n} numaralı eleman: yayılı eleman momentleri bir çerçeve elemanı gerektirir.',
   'svc.memberLoadSpan': 'Çubuk {n}: yayılı kuvvet veya moment aralığı, motorun desteklediği alt sınırın altında. Çubuk yükünün bir düğüme taşınmasını önlemek için yük adımı reddedildi.',
   'svc.pointMomentOnTruss': '{n} numaralı çubuk eğilme almaz (kafes veya tek yönlü çubuk) ve tekil moment taşıyor. Momenti bir düğüme taşıyın veya çubuğun türünü değiştirin.',
   'svc.loadOnMissingMember': 'Yük {load}, modelde bulunmayan {n} numaralı çubuk üzerinde. Yükü silin veya bir çubuğa yerleştirin.',

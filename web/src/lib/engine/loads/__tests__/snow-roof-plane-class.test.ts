@@ -1,4 +1,3 @@
-import { assertMemberLoadSpan } from '../member-load-spans';
 import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
 import { snow, run, pressure, skewRoof, regulations } from './snow-roof-plane-fixture';
@@ -75,14 +74,14 @@ for (const slope of [0, 20]) for (const angle of [0, 0.37, 1.1]) {
     expect(out.derivation.some(d => d.key === 'snow.derivation.drift')).toBe(false);
     const want = slope === 0 ? 1 : 0.7 * (70 - 20) / 65;
     const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
-    for (const piece of layout.pieces.filter(p => p.roof && p.wI > 0)) {
-      const load = out.cases[0]!.distributed.find(d => d.elementId === piece.elementId && d.a === piece.a && d.b === piece.b)!;
-      const e = model.elements.get(piece.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-      const start = piece.a ?? 0, end = piece.b ?? Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
-      if (end - start < 1e-12) {
-        expect(() => assertMemberLoadSpan(piece.elementId, start, end)).toThrow(/Member .*span.*native/);
-        expect(load).toBeUndefined();
-      } else expect(-load.q / piece.wI).toBeCloseTo(want, 9);
+    expect(out.result.refused).toBeUndefined();
+    for (const id of new Set(layout.pieces.filter(p => p.roof).map(p => p.elementId))) {
+      const e=model.elements.get(id)!, a=model.nodes.get(e.nodeI)!, b=model.nodes.get(e.nodeJ)!;
+      const length=Math.hypot(b.x-a.x,b.y-a.y,(b.z??0)-(a.z??0));
+      const width=layout.pieces.filter(p=>p.roof && p.elementId===id).reduce((sum,p)=>sum+(p.wI+p.wJ)*((p.b??length)-(p.a??0))/2,0);
+      const force=out.cases[0]!.distributed.filter(d=>d.elementId===id).reduce((sum,d)=>sum-(d.q+(d.qJ??d.q))*((d.b??length)-(d.a??0))/2,0);
+      expect(width).toBeGreaterThan(0);
+      expect(force/width).toBeCloseTo(want,9);
     }
   });
 }

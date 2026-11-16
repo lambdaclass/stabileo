@@ -12489,6 +12489,8 @@ const es: Record<string, string> = {
   'float.distFrameLocal3D': 'qY y qZ según los ejes locales de cada barra.',
   'viewport3d.pointLoadOnMemberApplied': 'Carga puntual aplicada sobre la barra {id}',
   'edit.refused.prestress': '{n} uniones se mantuvieron: una barra ahí lleva un cable de pretensado, y el cable de dos barras no es una sola parábola.',
+  'svc.memberMomentsSpatial': 'Barra {n}: los momentos distribuidos requieren un cálculo de pórtico espacial.',
+  'svc.memberMomentsFrame': 'Barra {n}: los momentos distribuidos requieren una barra de pórtico.',
   'svc.memberLoadSpan': 'Barra {n}: el tramo de fuerza o momento distribuido es menor que el mínimo admitido por el motor. Se rechazó el paso de carga para evitar trasladar la carga de la barra a un nodo.',
   'svc.pointMomentOnTruss': 'La barra {n} no toma flexión (es reticulada o de un solo sentido) y lleva un momento concentrado. Pasá el momento a un nodo o cambiá el tipo de barra.',
   'svc.loadOnMissingMember': 'La carga {load} está en la barra {n}, que el modelo no tiene. Borrá la carga o ponela en una barra.',
