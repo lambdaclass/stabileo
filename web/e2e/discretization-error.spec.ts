@@ -33,6 +33,13 @@ test('a frame-and-shell model shows its estimated discretization error and runs 
   await expect(estimate).toContainText(/not certified/i);
   await expect(status).not.toContainText(/not available/i);
 
+  const warning = status.getByTestId('discretization-warning');
+  await expect(warning).toBeVisible();
+  await warning.getByTestId('notice-hide-kind').click();
+  await expect(status.getByTestId('discretization-warning')).toHaveCount(0);
+  await expect(page.getByTestId('result-checks')).toHaveAttribute('data-flagged', 'false');
+  await expect(estimate).toContainText('%');
+
   await page.getByTestId('discretization-run-study').first().click();
   await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().study), { timeout: 240_000 })
     .not.toBe('running');

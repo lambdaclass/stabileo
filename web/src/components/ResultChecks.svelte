@@ -22,11 +22,14 @@
     discretizationHigh ? t('resultChecks.discretizationHigh') : null,
   ].filter(Boolean).join(' · '));
 
+  const flagged = $derived(notCertified || discretizationHigh);
+
   let open = $state(false);
+  $effect(() => { if (notCertified) open = true; });
 </script>
 
 {#if cert.status !== 'idle' || discretizationShown}
-  <details class="rc" class:flagged={discretizationHigh} bind:open data-testid="result-checks" data-flagged={discretizationHigh}>
+  <details class="rc" class:flagged class:warn={notCertified} bind:open data-testid="result-checks" data-flagged={flagged} data-flag-level={notCertified ? 'warn' : discretizationHigh ? 'info' : undefined}>
     <summary data-testid="result-checks-toggle">
       <span class="rc-title">{t('resultChecks.title')}</span>
       {#if summary}<span class="rc-summary">{summary}</span>{/if}
@@ -46,4 +49,6 @@
   .rc-summary { min-width: 0; overflow-wrap: anywhere; color: var(--st-text-3); font-size: 12px; }
   .flagged > summary { border-left: 3px solid var(--st-info); padding-left: 6px; }
   .flagged .rc-summary { color: var(--st-info); }
+  .flagged.warn > summary { border-left-color: var(--st-warn); }
+  .flagged.warn .rc-summary { color: var(--st-warn); }
 </style>

@@ -94,13 +94,11 @@
 
     {#if claims?.warnUnestimable}
       <div class="warning" data-testid="discretization-warning">{t(claims.warnUnestimable)}</div>
-    {:else if warn}
+    {:else if warn && !noticePrefs.isHidden('discretization')}
       <div class="warning" data-testid="discretization-warning">
         <strong>{t('notices.kind.discretization')}</strong>
         {t('discretization.warning').replace('{threshold}', threshold)}
-        {#if !noticePrefs.isHidden('discretization')}
-          <button class="link" onclick={() => noticePrefs.hide('discretization')} data-testid="notice-hide-kind">{t('notices.hideKind')}</button>
-        {/if}
+        <button class="link" onclick={() => noticePrefs.hide('discretization')} data-testid="notice-hide-kind">{t('notices.hideKind')}</button>
       </div>
     {/if}
 
