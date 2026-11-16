@@ -140,3 +140,20 @@ it('known wrong result: #2099 — renders a complete English snow notice when Hu
     }
   } finally { vi.unstubAllEnvs(); }
 });
+
+it('known wrong result: #2233 hand-entered snow still offers regeneration after a current solve', async () => {
+  recheckStore.reset();
+  recheckStore.noteSolved('linear');
+  recheckStore.openProject({
+    analysisMode: 'pro',
+    loadCases: [{ id: 1, type: 'S' }],
+    loads: [{ type: 'distributed3d', data: { caseId: 1, elementId: 1 } }],
+    combinations: [{ id: 1, name: 'Saved CIRSOC companion', factors: [{ caseId: 1, factor: 0.5 }] }],
+    solvedWith: recheckStore.capture(),
+  });
+  await recheckStore.retry();
+  const html = render(RecheckNotice).body;
+  for (const id of ['snow-companion-basis', 'snow-combination-validation']) expect(html).toContain(`data-change-id="${id}"`);
+  expect(html).toContain('data-testid="recheck-regenerate"');
+  expect(html).not.toContain('data-testid="recheck-rerun"');
+});

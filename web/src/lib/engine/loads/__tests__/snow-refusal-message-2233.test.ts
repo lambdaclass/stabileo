@@ -2,7 +2,6 @@ import { expect, it } from 'vitest';
 import type { LoadCombinationSpec } from '../../../codes/cirsoc101/combinations';
 import { expandCombinations } from '../combination-cases';
 
-const regression = it.skipIf(process.env.SNOW_ROUND5_REPRO !== '1');
 const physical = { id: 1, type: 'S', name: 'physical', alternatives: 'roof' };
 const flat = { id: 2, type: 'S', name: 'flat', alternatives: 'roof', snowBasis: 'flatRoof' as const };
 const spec = (terms: LoadCombinationSpec['terms'], legacy = false): LoadCombinationSpec => ({
@@ -17,7 +16,7 @@ const inputs = [
   { rule: spec([{ symbol: 'S', factor: 1 }]), cases: [flat], key: 'snow.refused.flatRoofCase' },
 ];
 
-regression('known wrong result: #2233 every snow combination refusal carries a pure message', () => {
+it('known wrong result: #2233 every snow combination refusal carries a pure message', () => {
   for (const { rule, cases, key } of inputs) {
     let caught: unknown;
     try { expandCombinations([rule], cases); } catch (error) { caught = error; }

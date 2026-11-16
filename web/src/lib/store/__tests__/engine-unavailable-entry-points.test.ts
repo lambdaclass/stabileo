@@ -173,7 +173,7 @@ describe('the remaining entry points route the engine error to the screen', () =
     ['lib/store/design-run.svelte.ts', /isEngineUnavailable\(err\)/, /fail\('engine\.unavailable'\)/],
     ['lib/export/excel.ts', /runEngineActionAsync\(\(\) => buildExcelWorkbook/, /export async function buildExcelWorkbook/],
     ['lib/pro/report-export.ts', /runEngineActionAsync\(\(\) => exportReportWithEngine/, /async function exportReportWithEngine/],
-    ['lib/store/model.svelte.ts', /engineFailureMessage\(err\)/, /return tp\(m\.key, m\.params \?\? \{\}\);/],
+    ['lib/store/model.svelte.ts', /engineFailureMessage\(err\)/, /return te\(m\);/],
     ['lib/engine/codes/argentina/serviceability.ts', /isEngineUnavailable\(err\)/, /no verificado/],
     ['components/pro/ProAdvancedTab.svelte', /previewCodeSpectrum\(/, /from '..\/..\/lib\/store\/spectrum-preview'/],
     ['components/pro/ProAutoLoadsDialog.svelte', /previewCodeSpectrum\(/, /from '..\/..\/lib\/store\/spectrum-preview'/],

@@ -1,4 +1,5 @@
 import { t } from '../../i18n';
+import { errorText } from '../engine-action';
 import { expect, it } from 'vitest';
 import { modelStore } from '../model.svelte';
 import '../index';
@@ -58,9 +59,16 @@ it('#2211 preview and apply refuse legacy seismic and unavailable flat-roof load
     const plan = { ...base, distributed: [], nodal: [], surface: [], thermal: [],
       cases: base.cases.filter(c => kind === 'legacy' || (kind === 'physical-only' && !c.snowBasis) || c.type !== 'S'),
       combinations: [kind === 'legacy' ? legacy : flat] };
-    const message = t(kind === 'legacy' ? 'snow.refused.legacyCombination' : 'snow.refused.flatRoofCase');
-    expect.soft(() => describePlanDelta(plan, { distributed: 0, nodal: 0, combinations: 0, caseTypes: [] },
-      { replaceExisting: true, bothSenses: { E: both } })).toThrow(message);
-    expect.soft(() => applyLoadPlan(plan, { clearExisting: true, bothSenses: both, nameOf: key => key })).toThrow(message);
+    const key = kind === 'legacy' ? 'snow.refused.legacyCombination' : 'snow.refused.flatRoofCase';
+    const refuses = (action: () => unknown) => {
+      let caught: unknown;
+      try { action(); } catch (error) { caught = error; }
+      expect(caught).toBeInstanceOf(Error);
+      expect(caught).toMatchObject({ key, params: undefined });
+      expect(errorText(caught)).toBe(t(key));
+    };
+    refuses(() => describePlanDelta(plan, { distributed: 0, nodal: 0, combinations: 0, caseTypes: [] },
+      { replaceExisting: true, bothSenses: { E: both } }));
+    refuses(() => applyLoadPlan(plan, { clearExisting: true, bothSenses: both, nameOf: key => key }));
   }
 });

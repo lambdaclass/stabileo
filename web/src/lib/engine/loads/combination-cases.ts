@@ -44,7 +44,7 @@
  * cases the regulation generator makes (the same forces on every node of a level, mirrored),
  * and a statement about any case loaded by hand, which the option says where it is offered.
  */
-import { t as translate } from '../../i18n';
+import { EngineMessageError, msg } from '../../codes/message';
 import type { LoadCombinationSpec, LoadSymbol, CombinationInputs } from '../../codes/cirsoc101/combinations';
 
 /** Symbols whose cases are alternatives (one direction at a time), not summands. */
@@ -139,13 +139,13 @@ export function expandCombinations(
     const legacyFlatRoof = spec.notes?.some(n => n.key === 'loads.cirsoc101.note.snowAsFlatRoof');
     const seismic = terms.some(t => t.symbol === 'E');
     const selected = new Map(terms.map(t => {
-      if (t.snowBasis && t.symbol !== 'S') throw new Error(translate('snow.refused.flatRoofCase'));
-      if (t.symbol === 'S' && !t.snowBasis && legacyFlatRoof && seismic) throw new Error(translate('snow.refused.legacyCombination'));
+      if (t.snowBasis && t.symbol !== 'S') throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
+      if (t.symbol === 'S' && !t.snowBasis && legacyFlatRoof && seismic) throw new EngineMessageError(msg('snow.refused.legacyCombination'));
       const all = bySymbol.get(t.symbol) ?? [];
       const basis = t.snowBasis ?? (t.symbol === 'S' && legacyFlatRoof ? 'flatRoof' : undefined);
       const matching = all.filter(c => t.symbol !== 'S' || c.snowBasis === basis);
-      if (basis === 'flatRoof' && all.some(c => !c.snowBasis && !matching.some(m => m.alternatives && m.alternatives === c.alternatives))) throw new Error(translate('snow.refused.flatRoofCase'));
-      if ((basis === 'flatRoof' || all.length > 0) && !matching.length) throw new Error(translate('snow.refused.flatRoofCase'));
+      if (basis === 'flatRoof' && all.some(c => !c.snowBasis && !matching.some(m => m.alternatives && m.alternatives === c.alternatives))) throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
+      if ((basis === 'flatRoof' || all.length > 0) && !matching.length) throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
       return [t, matching] as const;
     }));
     if (terms.some((t) => !bySymbol.has(t.symbol))) continue;

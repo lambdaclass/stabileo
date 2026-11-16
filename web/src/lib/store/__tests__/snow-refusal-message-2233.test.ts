@@ -4,12 +4,11 @@ import { runEngineAction, runEngineActionAsync, engineGuarded, errorText } from 
 import { uiStore } from '../ui.svelte';
 import { setLocale, t } from '../../i18n';
 
-const regression = it.skipIf(process.env.SNOW_ROUND5_REPRO !== '1');
 
-regression('known wrong result: #2233 snow refusals translate at every engine action boundary', async () => {
+it('known wrong result: #2233 snow refusals translate at every engine action boundary', async () => {
   let refusal: unknown;
   try {
-    expandCombinations([{ id: 'flat', label: 'flat', refs: [], terms: [{ symbol: 'S', factor: 1, snowBasis: 'flatRoof' }] }], []);
+    expandCombinations([{ id: 'flat', label: 'flat', refs: [], notes: [], terms: [{ symbol: 'S', factor: 1, snowBasis: 'flatRoof' }] }], []);
   } catch (error) { refusal = error; }
   expect(refusal).toBeInstanceOf(Error);
   try {

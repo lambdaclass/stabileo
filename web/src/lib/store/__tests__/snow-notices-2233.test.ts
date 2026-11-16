@@ -5,7 +5,6 @@ import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { modelFeatures, type FeatureSnapshot } from '../../provenance/model-features';
 import type { SolveStamp } from '../../provenance/solve-stamp';
 
-const regression = it.skipIf(process.env.SNOW_ROUND5_REPRO !== '1');
 const ids = ['snow-combination-validation', 'snow-companion-basis'];
 const notices = (changes: Array<{ id: string }>) => changes.map(c => c.id).filter(id => ids.includes(id)).sort();
 const current = RESULT_CHANGES.currentResultsVersion;
@@ -18,7 +17,7 @@ for (const mode of ['2d', '3d', 'pro']) for (const generated of [false, true]) {
     combinations: [{ id: 1, name: 'Saved CIRSOC companion', factors: [{ caseId: 1, factor: 0.5 }] }],
   };
 
-  regression(`known wrong result: #2233 snow notices survive re-solving and reopening ${mode} generated=${generated}`, async () => {
+  it(`known wrong result: #2233 snow notices survive re-solving and reopening ${mode} generated=${generated}`, async () => {
     expect(modelFeatures(snapshot).has('generatedLoads')).toBe(generated);
     const store = createRecheckStore();
     let saved = { ...snapshot, solvedWith: { ...store.capture()!, resultsVersion: 0 } };
@@ -43,7 +42,7 @@ for (const mode of ['2d', '3d', 'pro']) for (const generated of [false, true]) {
     expect(store.noticeOpen).toBe(false);
   });
 
-  regression(`known wrong result: #2233 snow notice load-basis boundaries ${mode} generated=${generated}`, () => {
+  it(`known wrong result: #2233 snow notice load-basis boundaries ${mode} generated=${generated}`, () => {
     const stamp = { resultsVersion: current, analyses: ['linear'] } as SolveStamp;
     for (const id of ids) {
       const version = RESULT_CHANGES.changes.find(c => c.id === id)!.resultsVersion;

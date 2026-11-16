@@ -36,3 +36,28 @@ member-response oracle are retained in
 are distinguished from that main defect in the advisory. No historical release
 binary exposure is claimed. Regenerate snow loads and combinations and rerun
 analyses and design checks.
+
+## Hand-entered snow notices in #2233 round 5
+
+Both this notice and `snow-companion-basis` apply to every snow model, including
+hand-entered snow used by generated CIRSOC combinations. A saved combination
+can select the wrong snow field regardless of who entered its member loading.
+Re-solving the saved cases and combinations cannot correct that selection.
+
+Applicability is now independent of regeneration: each entry declares
+`requiresLoadRegeneration`, and the assessment and notice actions use the same
+`concernsLoadBasis` predicate. A snow model with no load-basis stamp is treated
+as having an unknown basis even when its member loads were entered by hand.
+Only a sufficiently recent load-basis stamp clears the regeneration notice;
+a current solve stamp alone does not. Models without snow retain their existing
+applicability. These notice and message-transport changes introduce no new
+numerical engine result change and require no snapshot replacement.
+
+The round-5 regressions exercise hand-entered and generated snow in all three
+workspaces, before and after linear, P-Delta and plastic re-solving and JSON
+save/reopen. They cover both sides of each notice's load-basis version boundary,
+missing basis, missing solve history, and snow-absent controls. A rendered notice
+also requires the regeneration action after a current solve. The pure expander
+now throws an `EngineMessageError` containing an `EngineMessage`; UI action
+boundaries translate it when displaying the refusal. Every snow refusal branch
+retains its key, and valid physical and flat-roof selections retain their factors.

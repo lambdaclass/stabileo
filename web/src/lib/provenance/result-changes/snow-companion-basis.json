@@ -5,8 +5,7 @@
   "area": "loads",
   "when": {
     "all": [
-      "snow",
-      "generatedLoads"
+      "snow"
     ]
   },
   "quantities": [
@@ -33,5 +32,6 @@
   "changelog": {
     "file": "docs/results-changes/2026-11-snow-companion-basis.md",
     "heading": "Flat-roof snow in companion combinations"
-  }
+  },
+  "requiresLoadRegeneration": true
 }

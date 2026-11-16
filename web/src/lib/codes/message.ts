@@ -46,6 +46,17 @@ export interface EngineMessage {
   readonly params?: Readonly<Record<string, MessageParam>>;
 }
 
+export class EngineMessageError extends Error implements EngineMessage {
+  readonly key: string;
+  readonly params: EngineMessage['params'];
+  constructor(message: EngineMessage) {
+    super(message.key);
+    this.name = 'EngineMessageError';
+    this.key = message.key;
+    this.params = message.params;
+  }
+}
+
 /** Construct a message. Terse because engines build a lot of these. */
 export function msg(
   key: string, params?: Record<string, MessageParam>,
