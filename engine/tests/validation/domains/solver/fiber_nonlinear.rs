@@ -835,7 +835,7 @@ fn issue_2222_fiber_increment_satisfies_independent_balance() {
     for material in [concrete, FiberMaterial::Elastic { e: 200_000.0 }] {
         for tolerance in [1e-3, 1e-6, 1e-9] {
             let input = cantilever_fiber_2d(4.0, 0.3, 0.5, 20, material.clone(), -p, 0.0, 0.0, 40, 200, tolerance);
-            cases.push((2, serde_json::to_value(&input).unwrap()));
+            cases.push((2, vec![0.0, -p], serde_json::to_value(&input).unwrap()));
             let mut section = input.fiber_sections.clone();
             for s in section.values_mut() {
                 s.fibers = s.fibers.iter().flat_map(|f| [-0.3 / 4.0, 0.3 / 4.0].map(|z| {
@@ -853,14 +853,15 @@ fn issue_2222_fiber_increment_satisfies_independent_balance() {
                     solver: embed_2d(&input.solver, plane).unwrap(), fiber_sections: section.clone(),
                     n_integration_points: 5, max_iter: 200, tolerance, n_increments: 40, modified_nr: false,
                 };
-                cases.push((3, serde_json::to_value(spatial).unwrap()));
+                let expected = if matches!(plane, Plane::XY) { vec![0.0, -p, 0.0] } else { vec![0.0, 0.0, -p] };
+                cases.push((3, expected, serde_json::to_value(spatial).unwrap()));
             }
         }
     }
     if let Ok(path) = std::env::var("FIBER_ACCEPTANCE_CASES") {
-        std::fs::write(path, serde_json::to_string_pretty(&cases).unwrap()).unwrap();
+        std::fs::write(path, serde_json::to_string_pretty(&cases.iter().map(|(d, _, v)| (d, v)).collect::<Vec<_>>()).unwrap()).unwrap();
     }
-    for (dimension, value) in cases {
+    for (dimension, expected_force, value) in cases {
         let (complete, eq) = if dimension == 2 {
             let result = solve_fiber_nonlinear_2d(&serde_json::from_value(value).unwrap()).unwrap();
             (result.converged, result.results.equilibrium.unwrap())
@@ -871,6 +872,8 @@ fn issue_2222_fiber_increment_satisfies_independent_balance() {
         assert!(complete, "{dimension}D: {eq:?}");
         assert!(eq.residual_ok && eq.equilibrium_ok, "{dimension}D: {eq:?}");
         for k in 0..dimension {
+            assert!((eq.applied_force_sum[k] - expected_force[k]).abs() < 1e-6 * p.max(1.0), "{dimension}D applied component {k}: {eq:?}");
+            assert!((eq.reaction_force_sum[k] + expected_force[k]).abs() < 1e-6 * p.max(1.0), "{dimension}D reaction component {k}: {eq:?}");
             let force_imbalance = (eq.applied_force_sum[k] + eq.reaction_force_sum[k]).abs();
             assert!(force_imbalance < 1e-6 * p.max(1.0), "{dimension}D component {k}: {eq:?}");
         }

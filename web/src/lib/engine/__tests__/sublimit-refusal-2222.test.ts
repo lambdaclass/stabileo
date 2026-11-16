@@ -54,7 +54,8 @@ describe('known wrong result: #2222 — sublimit refusal', () => {
           : JSON.parse(wasm[`solve_corotational_${dim}d`](JSON.stringify(input), 40, 1e-12, 1)).results;
         try {
           for (const [a, b, valid] of intervals) for (const ratio of [0, 1, -1]) {
-            const q = b === a || !Number.isFinite(1 / (b - a)) ? -7 : -1 / (b - a);
+            const span = b - a;
+            const q = b === a || !Number.isFinite(1 / span) ? -7 : ratio === -1 && axis !== 'x' ? -6e-6 / span / span : -1 / span;
             const input = { ...base, loads: [{ type: dim === 2 && axis === 'x' ? 'axialDistributed' : 'distributed', data: dim === 2
               ? { elementId: 1, a, b, qI: q, qJ: q * ratio }
               : { elementId: 1, a, b, qXI: axis === 'x' ? q : 0, qXJ: axis === 'x' ? q * ratio : 0, qYI: axis === 'y' ? q : 0, qYJ: axis === 'y' ? q * ratio : 0, qZI: axis === 'z' ? q : 0, qZJ: axis === 'z' ? q * ratio : 0 } }] };
@@ -63,6 +64,16 @@ describe('known wrong result: #2222 — sublimit refusal', () => {
               const result = run(input);
               const key = dim === 2 ? axis === 'x' ? 'rx' : 'rz' : 'f' + axis;
               expect(result.reactions.reduce((sum: number, r: any) => sum + r[key], 0)).toBeCloseTo((1 + ratio) / 2, 10);
+              if (ratio === -1 && axis !== 'x') {
+                const appliedMoment = -q * span * span / 6;
+                const reactionMoment = result.reactions.reduce((sum: number, r: any) => {
+                  const node = base.nodes[r.nodeId];
+                  return sum + (dim === 2 ? r.my + node.x * r.rz - node.z * r.rx
+                    : axis === 'y' ? r.mz + node.x * r.fy - node.y * r.fx
+                    : r.my + node.z * r.fx - node.x * r.fz);
+                }, 0);
+                expect(reactionMoment).toBeCloseTo(dim === 3 && axis === 'z' ? appliedMoment : -appliedMoment, 10);
+              }
             }
           }
         } finally { session?.free(); }
@@ -313,4 +324,58 @@ describe('known wrong result: #2222 — rounded child lengths', () => {
     expect(result.reactions[0].rz).toBeCloseTo(2 * (2.66666666666665 - 0.5), 10);
   });
 
+});
+
+
+describe('known wrong result: #2222 — wind endpoint arithmetic', () => {
+  for (const dim of [2, 3]) for (const mode of ['linear', 'session', 'pdelta', 'corotational', 'fiber']) {
+    it.skip(`${dim}D ${mode} maps coincident wind endpoints and refuses distinct overhangs`, () => {
+      for (const [origin, tip, endpoint] of [
+        [[1000.1, 0], [1004.1, 0], adjacent(4, 1n)],
+        [[-0.665, 0.17], [-0.435, 0.63], 0.5142956348249517],
+        [[0, 4.4999812501171865], [0, 6], 1.500018749882814],
+      ] as Array<[number[], number[], number]>) {
+        const base: any = structuredClone(model);
+        base.materials[1].e = 200000;
+        const dx = tip[0] - origin[0], dz = tip[1] - origin[1];
+        for (const n of Object.values(base.nodes) as any[]) {
+          n.x = origin[0] + (n.id - 1) * dx;
+          n.z = origin[1] + (n.id - 1) * dz;
+          if (dim === 3) n.y = 0;
+        }
+        if (dim === 3) {
+          for (const s of Object.values(base.sections) as any[]) Object.assign(s, { iy: 1, j: 1 });
+          for (const s of Object.values(base.supports) as any[]) Object.assign(s, { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true });
+        }
+        base.loads = [];
+        const session = mode === 'session' ? new wasm[`LoadSession${dim}D`](base) : undefined;
+        const run = (input: any) => mode === 'linear' ? wasm[`solve_${dim}d`](input)
+          : mode === 'session' ? session.solve(input.loads)
+          : mode === 'fiber' ? JSON.parse(wasm[`solve_fiber_nonlinear_${dim}d`](JSON.stringify({ solver: input, fiberSections: {}, nIntegrationPoints: 5, maxIter: 40, tolerance: 1e-9, nIncrements: 1 }))).results
+          : mode === 'pdelta' ? JSON.parse(wasm[`solve_pdelta_${dim}d`](JSON.stringify(input), 20, 1e-9)).linearResults
+          : JSON.parse(wasm[`solve_corotational_${dim}d`](JSON.stringify(input), 40, 1e-12, 1)).results;
+        try {
+          for (const b of [endpoint, endpoint + 1e-10]) {
+            const a = b * 0.2;
+            const input = { ...base, loads: [{ type: 'distributed', data: dim === 2
+              ? { elementId: 1, a, b, qI: -2, qJ: -4 }
+              : { elementId: 1, a, b, qYI: -2, qYJ: -4, qZI: 0, qZJ: 0 } }] };
+            if (b !== endpoint) expect(() => run(input)).toThrow(/interval/);
+            else {
+              const result = run(input);
+              const force = result.reactions.reduce((sum: number[], r: any) => dim === 2
+                ? [sum[0] + r.rx, sum[1] + r.rz, 0]
+                : [sum[0] + r.fx, sum[1] + r.fy, sum[2] + r.fz], [0, 0, 0]);
+              expect(Math.hypot(...force)).toBeCloseTo(3 * (b - a), 10);
+              for (const f of result.elementForces) {
+                for (const key of dim === 2 ? ['distributedLoads'] : ['distributedLoadsY']) {
+                  for (const load of f[key] ?? []) expect(load.b).toBeLessThanOrEqual(f.length);
+                }
+              }
+            }
+          }
+        } finally { session?.free(); }
+      }
+    });
+  }
 });
