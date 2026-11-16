@@ -1,21 +1,17 @@
-import { test, expect, loadModel, solveModel, designPlace } from './fixtures';
+import { test, expect, loadModel, solveModel } from './fixtures';
 
 /**
  * Reinforcement by sheets on the seven-storey concrete example: solved, its physical members
  * recognised (walls meshed by a second solve), every family has rows and the beams and columns their
  * sections, the core's ground-floor walls are failed for resting on one node, a continuous beam's run
  * adopted short fails and says why, going back to the proposal makes it verify again, and a span
- * opens into its checks by combination. The example's beams and columns are given 30 mm covers, what
- * Table 20.5.1.3.1 asks of main bars behind Ø8 stirrups (25 mm leaves them at 33 mm, under 35).
+ * opens into its checks by combination.
  */
 test.use({ appLocale: 'es' });
 
 test('@slow the reinforcement sheets design beams, columns, slabs and walls of a solved building', async ({ pro: page }) => {
   test.setTimeout(180_000);
   await loadModel(page, 'pro-edificio-7p');
-  await designPlace(page, 'designData');
-  for (const k of ['beam', 'column']) { await page.getByTestId(`design-data-cover-${k}`).fill('30'); await page.getByTestId(`design-data-cover-${k}`).press('Enter'); }
-  await expect(page.getByTestId('design-data-cover-column')).toHaveValue('30');
   await page.evaluate(() => window.__stabileoActions.setMeshBeforeAnalysis(false));
   // Two combinations by the same name, as a file of one's own beside the generated ones can hold: each keeps its row.
   await page.evaluate(() => {
