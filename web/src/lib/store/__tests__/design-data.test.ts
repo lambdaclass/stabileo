@@ -5,8 +5,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { historyStore, modelStore, resultsStore } from '../index';
 import { verificationStore } from '../verification.svelte';
-import { designData, designContextOptions, patchDesignData, setDesignData, verifyOptions } from '../design-data';
-import { coversUnderMinimum, concreteFc, defaultDesignData, largestBar, migrateDesignData, minimumCover, withCirsocCovers } from '../../model/design-data';
+import { designData, designContextOptions, patchDesignData, patchOwnDesignData, setDesignData, verifyOptions } from '../design-data';
+import { setColumnEndZones, setRcOption, setTorsionMode } from '../rc-sheets.svelte';
+import { coversUnderMinimum, concreteFc, defaultDesignData, largestBar, migrateDesignData, migrateStoredDesignData, minimumCover, withCirsocCovers } from '../../model/design-data';
 import { buildMemberContext, DEFAULT_REBAR_FY, DEFAULT_STIRRUP_DIA } from '../../engine/design/member-context';
 import { buildRegionOptions } from '../../engine/design/candidate-enumerate-beam';
 import { syntheticBeamContext } from '../../engine/design/__tests__/helpers';
@@ -106,6 +107,37 @@ describe('the project design data', () => {
     expect(designData()).toMatchObject({ rebarFy: 500, wallBarDiaMm: 10 });
     setDesignData(null);
     expect(designData()).toEqual(defaultDesignData());
+  });
+});
+
+describe('what the project stores of it', () => {
+  beforeEach(() => { modelStore.clear(); historyStore.clear(); });
+
+  it('touching a sheets option stores that option and leaves the covers and the steel to the defaults', () => {
+    setRcOption('seismic', true);
+    setTorsionMode('compatibility');
+    setColumnEndZones(true);
+    patchOwnDesignData({ frameToleranceMm: 10 });
+    patchDesignData({ rebarFy: 500 });
+    const stored = modelStore.designData as Record<string, unknown>;
+    expect(stored.covers).toBeUndefined();
+    expect(stored.exposure).toBeUndefined();
+    expect(stored.longDiametersMm).toBeUndefined();
+    expect(stored).toMatchObject({ rebarFy: 500, columnEndZones: true, frameToleranceMm: 10, rcSheets: { seismic: true, torsion: 'compatibility' } });
+    expect(designData().covers).toEqual(defaultDesignData().covers);
+  });
+
+  it('a cover set by hand is stored alone, its kind\'s, and survives a save and reopen without the others', () => {
+    patchDesignData({ covers: { beam: 0.04 } });
+    const reopened = migrateStoredDesignData(JSON.parse(JSON.stringify(modelStore.snapshot().designData)));
+    expect(reopened?.covers).toEqual({ beam: 0.04 });
+    modelStore.setDesignData(reopened ?? null);
+    expect(designData().covers).toEqual({ ...defaultDesignData().covers, beam: 0.04 });
+  });
+
+  it('reading a stored shape keeps only what it states', () => {
+    expect(migrateStoredDesignData({ rcSheets: { adopted: {} }, covers: { column: 0.035, slab: 'x' } })).toEqual({ version: 1, rcSheets: { version: 1, torsion: 'equilibrium', adopted: {} }, covers: { column: 0.035 } });
+    expect(migrateStoredDesignData(null)).toBeUndefined();
   });
 });
 

@@ -1,4 +1,4 @@
-import { defaultDesignData, migrateDesignData } from '../model/design-data';
+import { defaultDesignData, migrateStoredDesignData } from '../model/design-data';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
 import {
@@ -953,7 +953,7 @@ export interface StructureModel {
   /** Background drawings laid at levels (`model/underlay.ts`). Absent: none. */
   underlays?: import('../model/underlay').Underlay[];
   /** The project's design data (`model/design-data.ts`). Absent: the defaults. */
-  designData?: import('../model/design-data').ProjectDesignData;
+  designData?: import('../model/design-data').StoredDesignData;
   /** Locks, last proposals and saved copies of the bars (`design-contract/decisions.ts`). */
   designDecisions?: import('../design-contract/decisions').StoredDecisions;
   constraints: Constraint3D[];
@@ -2465,7 +2465,7 @@ function createModelStore() {
     model.projectInfo = s.projectInfo ? JSON.parse(JSON.stringify(s.projectInfo)) : undefined;
     model.notes = s.notes ? JSON.parse(JSON.stringify(s.notes)) : undefined;
     model.underlays = s.underlays ? JSON.parse(JSON.stringify(s.underlays)) : undefined;
-    model.designData = s.designData ? migrateDesignData(s.designData) : undefined;
+    model.designData = migrateStoredDesignData(s.designData);
     model.designDecisions = s.designDecisions ? migrateStoredDecisions(s.designDecisions) : undefined;
       model.constraints = (s as any).constraints
         ? ((s as any).constraints as any[])
@@ -3492,7 +3492,7 @@ function createModelStore() {
       const id = nextId.footing++;
       const f = newFooting(id, nodeId, name ?? `Z${id}`, {
         // The project's footing cover, from its design data.
-        cover: model.designData?.covers.footing ?? defaultDesignData().covers.footing,
+        cover: model.designData?.covers?.footing ?? defaultDesignData().covers.footing,
         // The underside sits at the supported node unless the engineer moves it. The node
         // is where the column lands, so this is the only non-arbitrary starting point.
         foundingElevation: model.nodes.get(nodeId)?.z ?? 0,
@@ -4285,7 +4285,7 @@ function createModelStore() {
      * State the project's design data, or withdraw it (null: the defaults). Undoable on the views
      * channel: the solve survives it; the design it changes is retired by `store/design-data.ts`.
      */
-    setDesignData(d: import('../model/design-data').ProjectDesignData | null): void {
+    setDesignData(d: import('../model/design-data').StoredDesignData | null): void {
       if (!_undoBatching) _pushUndoView?.();
       model.designData = d ? JSON.parse(JSON.stringify(d)) : undefined;
     },

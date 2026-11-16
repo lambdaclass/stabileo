@@ -127,6 +127,34 @@ export interface ProjectDesignData {
   slabBase?: Partial<Record<'topX' | 'topY' | 'bottomX' | 'bottomY', { diameter: number; spacing: number }>>;
 }
 
+/**
+ * The design data as the project stores it: only what someone stated. What it leaves out is read
+ * from the defaults in force (`migrateDesignData`), so a default that later changes is not frozen.
+ */
+export type StoredDesignData = { version: 1 } & Partial<Omit<ProjectDesignData, 'version' | 'covers' | 'exposure'>>
+  & { covers?: Partial<Record<DesignKind, number>>; exposure?: Partial<Record<DesignKind, Exposure>> };
+
+const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'stirrupDiaMm', 'longDiametersMm', 'stirrupDiametersMm', 'wallBarDiaMm'] as const;
+
+/** Read any stored shape keeping only what it states: the defaults stay out, to be read when the data is. */
+export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const e = raw as Record<string, unknown>;
+  const full = migrateDesignData(raw);
+  const out: Record<string, unknown> = { version: 1 };
+  for (const [k, v] of Object.entries(full)) {
+    if (k === 'version' || k === 'covers' || k === 'exposure') continue;
+    if ((STATED_BY_DEFAULT as readonly string[]).includes(k) && !(k in e)) continue;
+    out[k] = v;
+  }
+  for (const k of ['covers', 'exposure'] as const) {
+    const own = e[k] && typeof e[k] === 'object' ? e[k] as Record<string, unknown> : {};
+    const kinds = DESIGN_KINDS.filter((kind) => kind in own && full[k][kind] === own[kind]);
+    if (kinds.length) out[k] = Object.fromEntries(kinds.map((kind) => [kind, full[k][kind]]));
+  }
+  return out as StoredDesignData;
+}
+
 /** Every diameter the bar table knows, mm. */
 export const BAR_DIAMETERS_MM: readonly number[] = REBAR_DB.map((r) => r.diameter);
 

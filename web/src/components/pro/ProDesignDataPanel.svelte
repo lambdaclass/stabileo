@@ -16,7 +16,7 @@
     BAR_DIAMETERS_MM, DESIGN_KINDS, REBAR_GRADES, coversUnderMinimum, minimumCoverFor, withCirsocCovers,
     type DesignKind, type Exposure, type ProjectDesignData,
   } from '../../lib/model/design-data';
-  import { designData, patchDesignData, setDesignData } from '../../lib/store/design-data';
+  import { designData, patchDesignData, setDesignData, storedDesignData } from '../../lib/store/design-data';
   import ProDeflectionLimits from './ProDeflectionLimits.svelte';
   import ProConcreteByLevel from './ProConcreteByLevel.svelte';
   import { setBeamsLateral } from '../../lib/store/lateral-system';
@@ -26,8 +26,8 @@
   const under = $derived(coversUnderMinimum(d));
   const EXPOSURES: Exposure[] = ['interior', 'exterior', 'ground'];
 
-  const setCover = (k: DesignKind, mm: number) => { if (mm >= 0) patchDesignData({ covers: { ...d.covers, [k]: mm / 1000 } }); };
-  const setExposure = (k: DesignKind, e: Exposure) => patchDesignData({ exposure: { ...d.exposure, [k]: e } });
+  const setCover = (k: DesignKind, mm: number) => { if (mm >= 0) patchDesignData({ covers: { ...storedDesignData().covers, [k]: mm / 1000 } }); };
+  const setExposure = (k: DesignKind, e: Exposure) => patchDesignData({ exposure: { ...storedDesignData().exposure, [k]: e } });
   const toggle = (key: 'longDiametersMm' | 'stirrupDiametersMm', dia: number) => {
     const list = d[key];
     const next = list.includes(dia) ? list.filter((x) => x !== dia) : [...list, dia].sort((a, b) => a - b);
@@ -45,7 +45,7 @@
     <h4 class="pk-heading">{t('designData.title')}</h4>
     <Hint text={t('designData.explain')} />
     <div class="dd-row">
-      <button class="pk-btn pk-btn-primary" onclick={() => setDesignData(withCirsocCovers({ ...d, rebarGrade: 'ADN 420', rebarFy: 420 }))} data-testid="design-data-cirsoc">{t('designData.cirsocPreset')}</button>
+      <button class="pk-btn pk-btn-primary" onclick={() => patchDesignData({ rebarGrade: 'ADN 420', rebarFy: 420, covers: withCirsocCovers({ ...d, rebarGrade: 'ADN 420', rebarFy: 420 }).covers })} data-testid="design-data-cirsoc">{t('designData.cirsocPreset')}</button>
       {#if stated}<button class="pk-btn" onclick={() => setDesignData(null)} data-testid="design-data-reset">{t('designData.reset')}</button>{/if}
     </div>
   </section>

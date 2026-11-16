@@ -5,7 +5,7 @@ import { rulesFor } from '../rc-sheets/codes';
 import { resultsStore } from './results.svelte';
 import { physicalGroups, physicalThickness } from './physical';
 import { applyPlateMeshes, clearPlateMesh, physicalPlates, planPlateMesh, plateShellKeys, plateStatus, setPlateMeshSpec, type PlateMeshPlan } from './physical-plates';
-import { designData, patchOwnDesignData, setDesignData } from './design-data';
+import { designData, patchOwnDesignData, setDesignData, storedDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
 import { seismicCaseIds, seismicSettings } from './seismic-design.svelte';
 import { defaultLevelName } from '../model/grid';
@@ -125,7 +125,7 @@ export function setTorsionMode(torsion: TorsionMode): void {
 
 /** The project's denser column ends (`columnEndZones`), the same setting the design reads. */
 export function setColumnEndZones(on: boolean): void {
-  const d = { ...designData() };
+  const d = { ...storedDesignData() };
   if (on) d.columnEndZones = true; else delete d.columnEndZones;
   setDesignData(d);
 }
