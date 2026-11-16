@@ -354,7 +354,7 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
   const renamed = new Map<number, number[]>();
   for (const m of exp.members.values()) {
     const ids = m.pieces.map((p) => p.id);
-    const split = splitElementLoads(loads, m.parentId, planned.bounds.get(m.parentId)!, ids, () => nextLoad++);
+    const split = splitElementLoads(loads, m.parentId, planned.bounds.get(m.parentId)!, ids, () => nextLoad++, memberFrame3D(model, model.elements.get(m.parentId)!)?.ax);
     loads = [...split.kept, ...split.added];
     renamed.set(m.parentId, ids);
   }

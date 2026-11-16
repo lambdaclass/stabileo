@@ -1,3 +1,4 @@
+import { concentratedLoadStations, loadPrecedesStation } from './load-station';
 // Diagram calculation: M(x), V(x), N(x) along each element
 // Given end forces and distributed load, compute intermediate values
 
@@ -35,23 +36,8 @@ function buildSamplingPositions(
   length: number,
   pointLoads: Array<{ a: number; p: number; px?: number; my?: number }>,
 ): number[] {
-  const tSet = new Set<number>();
-
-  // Regular grid
-  for (let i = 0; i < NUM_POINTS; i++) {
-    tSet.add(i / (NUM_POINTS - 1));
-  }
-
-  // Add positions around point loads
-  const eps = 1e-6;
-  for (const pl of pointLoads) {
-    const tPl = pl.a / length;
-    if (tPl > eps) tSet.add(tPl - eps);
-    tSet.add(tPl);
-    if (tPl < 1 - eps) tSet.add(tPl + eps);
-  }
-
-  return Array.from(tSet).sort((a, b) => a - b);
+  const tSet = new Set(concentratedLoadStations(length, pointLoads));
+  return [...tSet].sort((a, b) => a - b);
 }
 
 /**
@@ -179,7 +165,7 @@ export function computeDiagramValueAt(
       }
     }
     for (const pl of sortedPL) {
-      if (pl.a < xi - 1e-10) {
+      if (loadPrecedesStation(pl.a, ef.length, t)) {
         value -= pl.p * (xi - pl.a);
         /*
          * A couple jumps the diagram by +my. With m(x) = mStart − vStart·x
@@ -205,7 +191,7 @@ export function computeDiagramValueAt(
       }
     }
     for (const pl of sortedPL) {
-      if (pl.a < xi - 1e-10) {
+      if (loadPrecedesStation(pl.a, ef.length, t)) {
         value += pl.p;
       }
     }
@@ -228,7 +214,7 @@ export function computeDiagramValueAt(
     const qxAll = axial.reduce((s, d) => s + axialLoadUpTo(d, ef.length), 0);
     let value = ef.nStart + t * (ef.nEnd + pxAll + qxAll - ef.nStart);
     for (const pl of sortedPL) {
-      if (pl.px && pl.a < xi - 1e-10) {
+      if (pl.px && loadPrecedesStation(pl.a, ef.length, t)) {
         value -= pl.px;
       }
     }

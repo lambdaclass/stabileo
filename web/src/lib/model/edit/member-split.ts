@@ -1,3 +1,4 @@
+import { normalizedProjectedLoad, type MemberAxes } from '../../engine/member-loads';
 import { memberLoadSpans } from '../../engine/loads/member-load-spans';
 import { sliceMoments } from '../../engine/member-moments';
 /**
@@ -57,7 +58,7 @@ export function segmentBounds(L: number, ts: readonly number[]): number[] {
 }
 
 function lerp(qa: number, qb: number, a: number, b: number, s: number): number {
-  return b - a > EPS ? qa + (qb - qa) * (s - a) / (b - a) : qa;
+  return b > a ? qa + (qb - qa) * (s - a) / (b - a) : qa;
 }
 
 /**
@@ -98,6 +99,7 @@ export function splitElementLoads(
   bounds: readonly number[],
   segmentIds: readonly number[],
   newId: () => number,
+  axes?: MemberAxes,
 ): { kept: Load[]; added: Load[] } {
   const kept: Load[] = [];
   const added: Load[] = [];
@@ -123,13 +125,13 @@ export function splitElementLoads(
         break;
       }
       case 'distributed3d': {
-        const d = l.data as DistributedLoad3D;
+        const d = normalizedProjectedLoad(l.data as DistributedLoad3D, axes);
         for (let k = 0; k < segmentIds.length; k++) {
           const c = clipTrapezoid(d.a ?? 0, d.b ?? L, [[d.qYI, d.qYJ], [d.qZI, d.qZJ], [d.qXI ?? 0, d.qXJ ?? 0]], bounds[k]!, bounds[k + 1]!, true);
           if (!c) continue;
           const { id: _id, elementId: _e, a: _a, b: _b, qXI: _xi, qXJ: _xj, ...meta } = d;
           const data: DistributedLoad3D = {
-            ...meta, id: newId(), elementId: segmentIds[k]!,
+            ...meta, id: _id, elementId: segmentIds[k]!,
             ...(d.moments ? { moments: sliceMoments(d.moments, (Math.max(d.a??0,bounds[k]!)-(d.a??0))/((d.b??L)-(d.a??0)), (Math.min(d.b??L,bounds[k+1]!)-(d.a??0))/((d.b??L)-(d.a??0))) } : {}),
             qYI: c.values[0]![0], qYJ: c.values[0]![1], qZI: c.values[1]![0], qZJ: c.values[1]![1],
             // The axial (or global X) part is clipped like the others, and kept only when given.
@@ -138,8 +140,8 @@ export function splitElementLoads(
           if (c.a !== undefined) data.a = c.a;
           if (c.b !== undefined) data.b = c.b;
           const bounded = memberLoadSpans([data], () => bounds[k+1]!-bounds[k]!);
-          added.push(...bounded.distributed.map(data => ({ type: 'distributed3d' as const, data })));
-          added.push(...bounded.concentrated.map(data => ({ type: 'pointOnElement3d' as const, data })));
+          added.push(...bounded.distributed.map(data => ({ type: 'distributed3d' as const, data: { ...data, id: newId() } })));
+          added.push(...bounded.concentrated.map(data => ({ type: 'pointOnElement3d' as const, data: { ...data, id: newId() } })));
         }
         break;
       }

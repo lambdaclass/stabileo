@@ -1,3 +1,4 @@
+import { memberFrame3D } from '../../engine/member-loads';
 /**
  * Insert a fragment under one or more isometries as ONE undo step: the operation behind repeat,
  * polar repeat, mirror, rotate-with-copy, paste, placing a generated structure and importing a
@@ -253,7 +254,7 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
 
       const sig = (id: number) => signs.get(id) ?? { sy: 1 as const, sz: 1 as const };
       for (const l of loads0) {
-        const c = carriedLoad(T, l, nodeMap, elementMap, quadMap, sig, plateMap);
+        const c = carriedLoad(T, l, nodeMap, elementMap, quadMap, sig, plateMap, id => { const e = elements0.get(id); return e ? memberFrame3D({ nodes: nodes0, sections: sourceSection }, e)?.ax : undefined; });
         if (!c) continue;
         if (c.warning) warn(c.warning);
         /*

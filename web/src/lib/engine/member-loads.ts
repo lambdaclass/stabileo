@@ -62,6 +62,17 @@ export function distributedGlobalMoments(d: DistributedLoad3DLike, axes: MemberA
   return d.moments && mapMoments(d.moments, v => distributedGlobalVector(d.frame, axes, v, leftHand));
 }
 
+export function normalizedProjectedLoad<T extends DistributedLoad3DLike>(d: T, axes: MemberAxes | undefined): T {
+  if (d.frame !== 'projected') return d;
+  if (!axes) throw new Error('Projected member loading requires source member geometry');
+  const { gI, gJ } = distributedGlobalEnds(d, axes);
+  return {
+    ...d, frame: 'global',
+    qXI: gI[0], qYI: gI[1], qZI: gI[2], qXJ: gJ[0], qYJ: gJ[1], qZJ: gJ[2],
+    ...(d.moments ? { moments: distributedGlobalMoments(d, axes)! } : {}),
+  };
+}
+
 /**
  * The resultant of a linear load between a and b, and its position from end I: two triangles,
  * each at its third point, so a couple (ends of opposite sign) keeps its moment.

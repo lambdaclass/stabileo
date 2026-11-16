@@ -46,35 +46,19 @@ pub(crate) fn build_sampling_positions(
     length: f64,
     point_positions: impl Iterator<Item = f64>,
 ) -> Vec<f64> {
-    let mut positions = std::collections::BTreeSet::new();
-
-    // Regular grid
-    for i in 0..NUM_POINTS {
-        let t = i as f64 / (NUM_POINTS - 1) as f64;
-        // Use integer-keyed representation to avoid f64 in BTreeSet
-        positions.insert((t * 1e12) as i64);
-    }
-
-    // Around point loads
-    let eps = 1e-6;
+    let mut positions: Vec<f64> = (0..NUM_POINTS)
+        .map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect();
     for a in point_positions {
-        let t_pl = a / length;
-        if t_pl > eps {
-            positions.insert(((t_pl - eps) * 1e12) as i64);
-        }
-        positions.insert((t_pl * 1e12) as i64);
-        if t_pl < 1.0 - eps {
-            positions.insert(((t_pl + eps) * 1e12) as i64);
-        }
+        let t = a / length;
+        if t > 0.0 { positions.push(t.next_down()); }
+        positions.push(t);
+        if t < 1.0 { positions.push(t.next_up()); }
     }
-
-    positions.into_iter().map(|k| k as f64 / 1e12).collect()
+    positions.sort_by(f64::total_cmp);
+    positions.dedup();
+    positions
 }
 
-/// The stations (t ∈ [0, 1]) at which `compute_diagrams_2d` samples diagram
-/// `kind` of one member: a regular grid of 21, plus each point load's position
-/// and its ±1e-6 neighbours (the axial diagram only when it has axial point
-/// loads). The certified gaps between stations (`certify::stations`) use this.
 pub fn diagram_positions_2d(ef: &ElementForces, kind: &str) -> Vec<f64> {
     let has_axial_pl = ef.point_loads.iter().any(|pl| pl.px.is_some_and(|px| px.abs() > 1e-15));
     if kind == "axial" && !has_axial_pl {
@@ -234,7 +218,7 @@ pub fn compute_diagram_value_at_sorted(
 
             // Point loads
             for pl in sorted_pl {
-                if pl.a < xi - 1e-10 {
+                if super::load_station::load_precedes_station(pl.a, ef.length, t) {
                     value -= pl.p * (xi - pl.a);
                     // With m(x) = m_start − v_start·x and P entering as
                     // −P·(x − a), equilibrium of the piece left of x puts a
@@ -266,7 +250,7 @@ pub fn compute_diagram_value_at_sorted(
             }
 
             for pl in sorted_pl {
-                if pl.a < xi - 1e-10 {
+                if super::load_station::load_precedes_station(pl.a, ef.length, t) {
                     value += pl.p;
                 }
             }
@@ -281,7 +265,7 @@ pub fn compute_diagram_value_at_sorted(
             let mut value = ef.n_start;
             for pl in sorted_pl {
                 if let Some(px) = pl.px {
-                    if pl.a < xi - 1e-10 {
+                    if super::load_station::load_precedes_station(pl.a, ef.length, t) {
                         value -= px;
                     }
                 }

@@ -494,11 +494,11 @@ impl SolverDistributedLoad3D {
         let a = self.a.unwrap_or(0.0);
         let b = self.b.unwrap_or(l);
         let mut f = if a.abs() < 1e-12 && (b - l).abs() < 1e-12 {
-            crate::element::fef_distributed_3d(self.q_yi, self.q_yj, self.q_zi, self.q_zj, l, phi_y, phi_z)
+            crate::element::fef::fef_distributed_3d(self.q_yi, self.q_yj, self.q_zi, self.q_zj, l, phi_y, phi_z)
         } else {
-            crate::element::fef_partial_distributed_3d(self.q_yi, self.q_yj, self.q_zi, self.q_zj, a, b, l, phi_y, phi_z)
+            crate::element::fef::fef_partial_distributed_3d(self.q_yi, self.q_yj, self.q_zi, self.q_zj, a, b, l, phi_y, phi_z)
         };
-        let axial = crate::element::axial_distributed_fef(self.q_xi, self.q_xj, a, b, l);
+        let axial = crate::element::fef::axial_distributed_fef(self.q_xi, self.q_xj, a, b, l);
         f[0] = axial[0]; f[6] = axial[1];
         if let Some(m) = &self.moments {
             let r = (3.0_f64 / 5.0).sqrt();
@@ -507,7 +507,7 @@ impl SolverDistributedLoad3D {
                 let mx = MemberMoments::at(m.x,t) * (b-a)*w;
                 f[3] += mx * (1.0-x/l); f[9] += mx*x/l;
                 for (values, phi, indices, signs) in [(m.y,phi_y,[2,4,8,10],[-1.0,1.0,-1.0,1.0]),(m.z,phi_z,[1,5,7,11],[1.0;4])] {
-                    let shapes = crate::element::timoshenko_rotation_shapes(x,l,phi);
+                    let shapes = crate::element::fef::timoshenko_rotation_shapes(x,l,phi);
                     let value = MemberMoments::at(values,t) * (b-a)*w;
                     for k in 0..4 { f[indices[k]] += signs[k] * value * shapes[k]; }
                 }

@@ -32,9 +32,6 @@ pub struct DiagramResults3D {
     pub torsion: Vec<ElementDiagram3D>,
 }
 
-/// The stations (t ∈ [0, 1]) at which `compute_diagrams_3d` samples diagram
-/// `kind` of one member: a regular grid of 21, plus the position and ±1e-6
-/// neighbours of each point load acting in that diagram's plane.
 pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
     let relevant_pl: &[PointLoadInfo3D] = match kind {
         "momentZ" | "shearY" => &ef.point_loads_y,
@@ -86,7 +83,7 @@ pub fn evaluate_diagram_3d_at(
                        + dq / span * (s * s / 2.0 * (x - a) - s * s * s / 3.0);
             }
             for pl in &ef.point_loads_y {
-                if pl.a < x - 1e-10 {
+                if super::load_station::load_precedes_station(pl.a, l, t) {
                     value -= pl.p * (x - pl.a);
                 }
             }
@@ -108,7 +105,7 @@ pub fn evaluate_diagram_3d_at(
                        + dq / span * (s * s / 2.0 * (x - a) - s * s * s / 3.0);
             }
             for pl in &ef.point_loads_z {
-                if pl.a < x - 1e-10 {
+                if super::load_station::load_precedes_station(pl.a, l, t) {
                     value += pl.p * (x - pl.a);
                 }
             }
@@ -128,7 +125,7 @@ pub fn evaluate_diagram_3d_at(
                 value += dl.q_i * s + dq * s * s / (2.0 * span);
             }
             for pl in &ef.point_loads_y {
-                if pl.a < x - 1e-10 { value += pl.p; }
+                if super::load_station::load_precedes_station(pl.a, l, t) { value += pl.p; }
             }
             value
         }
@@ -146,7 +143,7 @@ pub fn evaluate_diagram_3d_at(
                 value += dl.q_i * s + dq * s * s / (2.0 * span);
             }
             for pl in &ef.point_loads_z {
-                if pl.a < x - 1e-10 { value += pl.p; }
+                if super::load_station::load_precedes_station(pl.a, l, t) { value += pl.p; }
             }
             value
         }
@@ -160,14 +157,14 @@ pub fn evaluate_diagram_3d_at(
                 value -= dl.q_i * s + (dl.q_j - dl.q_i) * s * s / (2.0 * span);
             }
             for pl in &ef.point_loads_x {
-                if pl.a < x - 1e-10 { value -= pl.p; }
+                if super::load_station::load_precedes_station(pl.a, l, t) { value -= pl.p; }
             }
             value
         },
         "torsion" => {
             if ef.member_moments.is_empty() && ef.point_torques.is_empty() { return ef.mx_start + t * (ef.mx_end - ef.mx_start); }
             ef.mx_start + ef.member_moments.iter().map(|m| MemberMoments::integral(m.moments.x, m.a, m.b, x)).sum::<f64>()
-                + ef.point_torques.iter().filter(|p| p.a < x - 1e-10).map(|p| p.p).sum::<f64>()
+                + ef.point_torques.iter().filter(|p| super::load_station::load_precedes_station(p.a, l, t)).map(|p| p.p).sum::<f64>()
         },
         _ => 0.0,
     }

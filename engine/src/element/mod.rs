@@ -1,6 +1,6 @@
 mod frame;
 mod truss;
-mod fef;
+pub(crate) mod fef;
 mod transform;
 pub mod cable;
 pub mod curved_beam;

@@ -1,4 +1,4 @@
-import { mapMoments } from '../../engine/member-moments';
+import { memberFrame3D } from '../../engine/member-loads';
 /**
  * Move, rotate or mirror a set of entities where it is, keeping its connections.
  *
@@ -12,7 +12,7 @@ import { mapMoments } from '../../engine/member-moments';
 
 import { modelStore } from '../../store/model.svelte';
 import type { Element, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D, SurfaceLoad3D } from '../../store/model.svelte';
-import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
+import { carryDistributedLoad, carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
 import { applyAxial, applyPoint, applyVector, compose, isReflection, reflection, rotation, type Affine } from './affine';
 import { generatedMetadata } from './generated-metadata';
 import { carriedJoint, carriedOffset, carriedOrientation, carriedSupport, type EditWarning } from './transform-fields';
@@ -55,6 +55,7 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
       report.movedNodes++;
     }
 
+    const sourceAxes = new Map(rigid.map(e => [e.id, memberFrame3D({ nodes: before, sections: modelStore.sections }, e)?.ax]));
     const signs = new Map<number, { sy: 1 | -1; sz: 1 | -1 }>();
     for (const e0 of rigid) {
       const e = JSON.parse(JSON.stringify(e0)) as Element;
@@ -122,12 +123,7 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
         }
         case 'distributed3d': {
           const q = l.data as DistributedLoad3D; const g = signs.get(q.elementId); if (!g) return null;
-          // A load on the global axes turns with the structure; a local one keeps its components.
-          if (q.frame === 'global' || q.frame === 'projected') {
-            const I = applyVector(T, [q.qXI ?? 0, q.qYI, q.qZI]), J = applyVector(T, [q.qXJ ?? 0, q.qYJ, q.qZJ]);
-            return { type: 'distributed3d', data: { ...q, ...(q.moments ? { moments: mapMoments(q.moments, v => applyAxial(T,v)) } : {}), qXI: I[0], qYI: I[1], qZI: I[2], qXJ: J[0], qYJ: J[1], qZJ: J[2] } };
-          }
-          return { type: 'distributed3d', data: { ...q, ...(q.moments ? { moments: mapMoments(q.moments, v => [g.sy*g.sz*v[0],g.sz*v[1],g.sy*v[2]]) } : {}), qYI: g.sy * q.qYI, qYJ: g.sy * q.qYJ, qZI: g.sz * q.qZI, qZJ: g.sz * q.qZJ } };
+          return { type: 'distributed3d', data: carryDistributedLoad(q, T, g, sourceAxes.get(q.elementId)) };
         }
         case 'pointOnElement3d': {
           const q = l.data as PointLoadOnElement3D; const g = signs.get(q.elementId); if (!g) return null;

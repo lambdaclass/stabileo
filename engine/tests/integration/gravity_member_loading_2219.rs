@@ -227,7 +227,6 @@ fn round4_bending_density_torque_keeps_station_jumps() { round4_check_torque(Som
 fn round4_torsional_density_torque_keeps_station_jumps() { round4_check_torque(Some(0.2)); }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round5_torque_and_force_jumps_have_no_absolute_dead_zone() {
     use dedaliano_engine::postprocess::diagrams::compute_diagram_value_at;
     for length in [1.0_f64, 6.0] {
@@ -248,6 +247,10 @@ fn round5_torque_and_force_jumps_have_no_absolute_dead_zone() {
                     "pointLoads":[{"a":a,"p":p,"px":p,"my":p}]
                 })).unwrap();
                 let at = a / length;
+                let positions = dedaliano_engine::postprocess::diagrams_3d::diagram_positions_3d(&spatial, "torsion");
+                assert!(positions.contains(&at));
+                if at > 0.0 { assert!(positions.contains(&at.next_down())); }
+                if at < 1.0 { assert!(positions.contains(&at.next_up())); }
                 for t in [at.next_down().max(0.0), at, at.next_up().min(1.0), ((a + 5e-11) / length).min(1.0), 1.0] {
                     let jump = if t > at { p } else { 0.0 };
                     for (kind, expected) in [("torsion",jump),("shearY",jump),("shearZ",jump),("axial",-jump)] {
@@ -259,6 +262,44 @@ fn round5_torque_and_force_jumps_have_no_absolute_dead_zone() {
                     }
                 }
             }
+        }
+    }
+}
+
+#[test]
+fn round5_solved_point_force_stations_match_the_cantilever_hand_solution() {
+    use dedaliano_engine::postprocess::diagrams::compute_diagram_value_at;
+    for a in [1.5_f64, 3.0 - 5e-11] {
+        let mut input = model(0.0);
+        input.nodes.retain(|id,_| id != "3");
+        input.elements.retain(|id,_| id == "1");
+        input.supports.retain(|id,_| id == "1");
+        input.loads = vec![serde_json::from_value(json!({"type":"pointOnElement","data":{"elementId":1,"a":a,"py":1e-6,"pz":1e-6}})).unwrap()];
+        let plane: SolverInput = serde_json::from_value(json!({
+            "nodes":{"1":{"id":1,"x":0,"z":0},"2":{"id":2,"x":3,"z":0}},
+            "elements":{"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeStart":false,"hingeEnd":false}},
+            "materials":input.materials,"sections":input.sections,
+            "supports":{"1":{"id":1,"nodeId":1,"type":"fixed"}},
+            "loads":[{"type":"pointOnElement","data":{"elementId":1,"a":a,"p":1e-6}}]
+        })).unwrap();
+        let deflection = 1e-6*a*a*(9.0-a)/(6.0*1000.0);
+        for r in [linear::solve_3d(&input).unwrap(),pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results,corotational::solve_corotational_3d(&input,100,1e-10,4,false).unwrap().results] {
+            let ef = &r.element_forces[0];
+            for x in [a-5e-11,a,(a+5e-11).min(3.0),3.0] {
+                let expected = if x > a { 0.0 } else { -1e-6 };
+                for kind in ["shearY","shearZ"] { assert!((evaluate_diagram_3d_at(ef,kind,x/3.0)-expected).abs()<1e-12); }
+            }
+            let d = r.displacements.iter().find(|d|d.node_id==2).unwrap();
+            assert!((d.uz-deflection).abs()<1e-12);
+        }
+        for r in [linear::solve_2d(&plane).unwrap(),pdelta::solve_pdelta_2d(&plane,100,1e-10).unwrap().results] {
+            let ef = &r.element_forces[0];
+            for x in [a-5e-11,a,(a+5e-11).min(3.0),3.0] {
+                let expected = if x > a { 0.0 } else { -1e-6 };
+                assert!((compute_diagram_value_at("shear",x/3.0,ef)-expected).abs()<1e-12);
+            }
+            let d = r.displacements.iter().find(|d|d.node_id==2).unwrap();
+            assert!((d.uz-deflection).abs()<1e-14);
         }
     }
 }

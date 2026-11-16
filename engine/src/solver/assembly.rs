@@ -2155,10 +2155,6 @@ fn assemble_element_loads_3d(
     for load in loads {
         match load {
             SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
-                let a = dl.a.unwrap_or(0.0);
-                let b = dl.b.unwrap_or(l);
-                let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
-
                 let mut fef = dl.fef(l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 accumulate_frame_load(&fef, t, 12, elem_dofs, None, f_global, rounding);
@@ -2253,10 +2249,6 @@ fn assemble_element_loads_3d_mapped(
     for load in loads {
         match load {
             SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
-                let a = dl.a.unwrap_or(0.0);
-                let b = dl.b.unwrap_or(l);
-                let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
-
                 let mut fef = dl.fef(l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 accumulate_frame_load(&fef, t12, 12, elem_dofs, Some(&DOF_MAP_12_TO_14), f_global, rounding);

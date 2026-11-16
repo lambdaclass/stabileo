@@ -1,3 +1,4 @@
+import { memberFrame3D } from '../../engine/member-loads';
 /**
  * Every member cut into `n` equal segments for one analysis, the model left as
  * it is: the same split the "Subdivide" command makes (member-split.ts), applied
@@ -49,7 +50,7 @@ export function subdivideForAnalysis(model: ModelData, n: number): Subdivision {
     const ids = ends.slice(1).map((_, k) => (k === 0 ? id : nextElem++));
     ids.forEach((sid, k) => elements.set(sid, { ...segmentFields(e, k, n), id: sid, nodeI: ends[k], nodeJ: ends[k + 1] } as Element));
     const L = Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
-    const split = splitElementLoads(loads, id, segmentBounds(L, ts), ids, () => nextLoad++);
+    const split = splitElementLoads(loads, id, segmentBounds(L, ts), ids, () => nextLoad++, memberFrame3D(model, e)?.ax);
     loads = [...split.kept, ...split.added];
     segments.set(id, ids);
     inner.set(id, added);

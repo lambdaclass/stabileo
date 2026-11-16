@@ -1,5 +1,5 @@
 import { orphanFloorLoadData } from '../loads/floor-definitions';
-import { mapMoments } from '../../engine/member-moments';
+import type { MemberAxes } from '../../engine/member-loads';
 /**
  * What an isometry does to each thing a member, a shell, a support or a load carries.
  *
@@ -30,7 +30,7 @@ import { mapMoments } from '../../engine/member-moments';
 import { supportDofs3D } from '../../engine/support-dofs-3d';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
 import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D, SurfaceLoad3D } from '../../store/model.svelte';
-import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
+import { carryDistributedLoad, carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
 import type { MemberOffset } from '../element-3d-metadata';
 import { applyAxial, applyVector, axisPermutation, dot, isReflection, type Affine, type Vec3 } from './affine';
 
@@ -222,6 +222,7 @@ export function carriedLoad(
   nodeMap: Map<number, number>, elementMap: Map<number, number>, quadMap: Map<number, number>,
   signsOf: (elementId: number) => { sy: 1 | -1; sz: 1 | -1 },
   plateMap: Map<number, number> = new Map(),
+  sourceAxes?: (elementId: number) => MemberAxes | undefined,
 ): { load?: Load; warning?: EditWarning } | null {
   // A copy of a floor-load definition's load is a plain load (`fromDef` dropped): the definition
   // loads the original, and its rewrite deleted the copies, which lost their loads at the next solve.
@@ -245,11 +246,7 @@ export function carriedLoad(
       const to = elementMap.get(q.elementId);
       if (to === undefined) return null;
       const { sy, sz } = signsOf(q.elementId);
-      if (q.frame === 'global' || q.frame === 'projected') {
-        const I = applyVector(T, [q.qXI ?? 0, q.qYI, q.qZI]), J = applyVector(T, [q.qXJ ?? 0, q.qYJ, q.qZJ]);
-        return { load: { type: 'distributed3d', data: { ...q, elementId: to, ...(q.moments ? { moments: mapMoments(q.moments, v => applyAxial(T,v)) } : {}), qXI: I[0], qYI: I[1], qZI: I[2], qXJ: J[0], qYJ: J[1], qZJ: J[2] } } };
-      }
-      return { load: { type: 'distributed3d', data: { ...q, elementId: to, ...(q.moments ? { moments: mapMoments(q.moments, v => [sy*sz*v[0],sz*v[1],sy*v[2]]) } : {}), qYI: sy * q.qYI, qYJ: sy * q.qYJ, qZI: sz * q.qZI, qZJ: sz * q.qZJ } } };
+      return { load: { type: 'distributed3d', data: { ...carryDistributedLoad(q, T, { sy, sz }, sourceAxes?.(q.elementId)), elementId: to } } };
     }
     case 'pointOnElement3d': {
       const q = l.data as PointLoadOnElement3D;

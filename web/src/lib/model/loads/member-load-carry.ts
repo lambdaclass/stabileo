@@ -1,3 +1,5 @@
+import { normalizedProjectedLoad, type MemberAxes } from '../../engine/member-loads';
+import { mapMoments } from '../../engine/member-moments';
 /**
  * Member loads carried by a geometric edit: a copy or a transform in place (the structure moved by
  * an affine map, each member's local y and z keeping or changing sign, `sy` and `sz`), and a member
@@ -12,11 +14,25 @@
  * One place for these, so a point load, a thermal load and a tendon are carried alike by every
  * edit (`transform-fields.ts`, `transform-in-place.ts`, `flip-members.ts`, `reverse-element.ts`).
  */
-import type { PointLoadOnElement3D, PrestressLoad3D, SurfaceLoad3D, ThermalLoad } from '../../store/model.svelte';
+import type { DistributedLoad3D, PointLoadOnElement3D, PrestressLoad3D, SurfaceLoad3D, ThermalLoad } from '../../store/model.svelte';
 import { applyAxial, applyPoint, applyVector, det, type Affine, type Vec3 } from '../edit/affine';
 import { reexpressPointLocal } from '../../engine/member-point-loads';
 
 export interface AxisSigns { sy: 1 | -1; sz: 1 | -1 }
+
+export function carryDistributedLoad<D extends DistributedLoad3D>(d: D, T: Affine, s: AxisSigns, axes?: MemberAxes): D {
+  const q = normalizedProjectedLoad(d, axes);
+  if (q.frame === 'global') {
+    const I = applyVector(T, [q.qXI ?? 0, q.qYI, q.qZI]);
+    const J = applyVector(T, [q.qXJ ?? 0, q.qYJ, q.qZJ]);
+    return { ...q, qXI: I[0], qYI: I[1], qZI: I[2], qXJ: J[0], qYJ: J[1], qZJ: J[2],
+      ...(q.moments ? { moments: mapMoments(q.moments, v => applyAxial(T, v)) } : {}),
+    };
+  }
+  return { ...q, qYI: s.sy * q.qYI, qYJ: s.sy * q.qYJ, qZI: s.sz * q.qZI, qZJ: s.sz * q.qZJ,
+    ...(q.moments ? { moments: mapMoments(q.moments, v => [s.sy * s.sz * v[0], s.sz * v[1], s.sy * v[2]]) } : {}),
+  };
+}
 
 /** A point load on the copy of its member under `T`. */
 export function carryPointLoad<P extends PointLoadOnElement3D>(d: P, T: Affine, s: AxisSigns): P {

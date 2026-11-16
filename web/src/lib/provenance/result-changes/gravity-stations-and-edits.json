@@ -1,0 +1,40 @@
+{
+  "id": "gravity-stations-and-edits",
+  "date": "2026-11-16",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "memberLoads",
+      "generatedLoads",
+      "floorLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Gravity station jumps and member load edits",
+    "es": "Saltos de diagramas y edición de cargas de barras",
+    "pt": "Saltos nos diagramas e edição de cargas de barras",
+    "de": "Lastsprünge und Bearbeitung von Stablasten",
+    "fr": "Sauts de diagrammes et modification des charges de barre",
+    "tr": "Yük sıçramaları ve çubuk yükü düzenlemeleri",
+    "hu": "Teherugrások és rúdterhek szerkesztése"
+  },
+  "explanation": {
+    "en": "Concentrated force and torque diagrams now jump immediately after the load station. Projected member loads retain their physical intensities through rotation, reflection and subdivision; split components receive unique IDs. Restore affected edits from original loading, regenerate area loads, then rerun analyses, combinations and checks (#2219).",
+    "es": "Los diagramas de fuerzas y torsión concentradas saltan inmediatamente después de la carga. Las cargas proyectadas conservan sus intensidades al girar, reflejar y subdividir; cada componente recibe un ID único. Restaure las ediciones desde las cargas originales, regenere las cargas de área y repita análisis, combinaciones y verificaciones (#2219).",
+    "pt": "Os diagramas de forças e torques concentrados saltam imediatamente após a carga. Cargas projetadas conservam suas intensidades após rotação, reflexão e subdivisão; cada componente recebe um ID único. Restaure as edições das cargas originais, gere novamente as cargas de área e refaça análises, combinações e verificações (#2219).",
+    "de": "Diagramme konzentrierter Kräfte und Torsionsmomente springen unmittelbar nach der Laststelle. Projizierte Stablasten behalten ihre Intensitäten bei Drehung, Spiegelung und Unterteilung; jede Komponente erhält eine eigene ID. Änderungen aus den ursprünglichen Lasten wiederherstellen, Flächenlasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2219).",
+    "fr": "Les diagrammes de forces et de couples concentrés sautent immédiatement après la charge. Les charges projetées conservent leurs intensités après rotation, réflexion et subdivision ; chaque composante reçoit un identifiant unique. Restaurez les modifications à partir des charges initiales, régénérez les charges surfaciques puis relancez analyses, combinaisons et vérifications (#2219).",
+    "tr": "Tekil kuvvet ve burulma diyagramları yük konumunun hemen ardından sıçrar. İzdüşüm çubuk yükleri dönüş, yansıma ve bölme sırasında şiddetlerini korur; her bileşen benzersiz kimlik alır. Düzenlemeleri özgün yüklerden yeniden oluşturun, alan yüklerini yeniden üretin ve analizleri, birleşimleri ve kontrolleri tekrarlayın (#2219).",
+    "hu": "A koncentrált erők és csavarónyomatékok diagramjai közvetlenül a teher helye után ugranak. A vetített rúdterhek forgatás, tükrözés és felosztás során megőrzik intenzitásukat; minden összetevő egyedi azonosítót kap. Állítsa helyre a szerkesztéseket az eredeti terhekből, generálja újra a felületi terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round5.md",
+    "heading": "Gravity station jumps and member load edits"
+  }
+}

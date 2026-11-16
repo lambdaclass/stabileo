@@ -1,3 +1,4 @@
+import { memberFrame3D } from '../engine/member-loads';
 import { migrateDesignData } from '../model/design-data';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
@@ -1530,6 +1531,7 @@ function createModelStore() {
       const segmentIds = Array.from({ length: count }, (_, k) =>
         k === 0 && opts.keepOriginalId ? elementId : nextId.element++);
       const original = JSON.parse(JSON.stringify(elem)) as Element;
+      const sourceAxes = memberFrame3D(model, original)?.ax;
       if (!opts.keepOriginalId) model.elements.delete(elementId);
       // A member of variable section: end I's section, each cut's (an equal one the model has, or a new one), end J's.
       const ends = variable ? [elem.sectionId, ...cutSections.map((c) => sectionLike(c!)), variable.sectionJ] : [];
@@ -1541,7 +1543,7 @@ function createModelStore() {
       }
 
       const bounds = segmentBounds(L, cuts);
-      const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => nextId.load++);
+      const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => nextId.load++, sourceAxes);
       model.loads = [...kept, ...added];
 
       // A group that held the member now holds every segment of it.

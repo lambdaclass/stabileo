@@ -4724,7 +4724,6 @@ pub fn compute_internal_forces_3d_with_loads(
                 SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
                     let a_param = dl.a.unwrap_or(0.0);
                     let b_param = dl.b.unwrap_or(l);
-                    let is_full_fef = (a_param.abs() < 1e-12) && ((b_param - l).abs() < 1e-12);
                     if let Some(moments) = &dl.moments { member_moments.push(MemberMomentInfo { a: a_param, b: b_param, moments: moments.clone() }); }
                     let mut fef12 = dl.fef(l, phi_y, phi_z);
                     element::adjust_fef_for_hinges_3d(&mut fef12, l, element::Hinge3D::from_elem(elem), phi_y, phi_z);
