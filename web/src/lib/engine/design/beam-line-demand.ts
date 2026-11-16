@@ -1,4 +1,5 @@
 import { ConcurrentDemand } from '../concurrent-demand';
+import { IncompleteConcurrentDemandError } from '../complete-demand-set';
 /**
  * What a beam line asks of its bars along it: at each station of each member, the largest sagging
  * and hogging moment of all combinations on the member's governing axis, and the area of bottom
@@ -11,6 +12,32 @@ import { tupleMoment, tupleShear } from './design-axes';
 import { checkShear, checkTorsion } from '../codes/argentina/cirsoc201';
 import { CIRSOC201_DESIGN_EDITION } from '../codes/argentina/cirsoc201-basis';
 import type { BeamStirrupZone } from '../../design-contract/beam-line';
+
+function lineStationGroups(stations: NonNullable<MemberContext['stations']>, comboId?: number) {
+  const complete = ConcurrentDemand.completeStations(stations);
+  const ts = [...new Set(complete.values.map(row => row.stationT))].sort((a, b) => a - b);
+  const grid = new Map(ts.map(t => [t, [] as ConcurrentDemand[]]));
+  for (const [id, combination] of complete.partition(row => row.comboId)) {
+    const field = [...combination.partition(row => row.stationT)].sort(([a], [b]) => a - b);
+    let i = 0;
+    for (const t of ts) {
+      while (i + 1 < field.length && field[i + 1]![0] <= t) i++;
+      const left = field[i]!, right = field[i + 1];
+      let demands: readonly ConcurrentDemand[];
+      if (left[0] === t) demands = left[1].values.map(row => row.demand);
+      else {
+        if (!(left[0] < t && right && t < right[0] && right[0] - left[0] > 1e-9)
+          || left[1].values.length !== 1 || right[1].values.length !== 1) {
+          throw new IncompleteConcurrentDemandError([{ code: 'missing-station', elementId: stations.elementId, comboId: id, stationT: t }],
+            'Beam-line station requires an unambiguous interpolation bracket');
+        }
+        demands = [left[1].values[0]!.demand.interpolate(right[1].values[0]!.demand, t)];
+      }
+      if (comboId === undefined || comboId === id) grid.get(t)!.push(...demands);
+    }
+  }
+  return [...grid].filter(([, demands]) => demands.length > 0);
+}
 
 export interface DemandPoint {
   /** Metres along the line. */
@@ -46,12 +73,10 @@ export function lineDemand(
     if (!ctx || !st) continue;
     const b = ctx.axes.bFlex, h = ctx.axes.hFlex;
     const d = h - ctx.material.cover - ctx.material.stirrupDia / 1000 - 0.01;
-    const ts = st.stationTs;
-    ts.forEach((t, i) => {
+    for (const [t, demands] of lineStationGroups(st, comboId)) {
       let mPos = 0, mNeg = 0;
-      for (const c of st.comboResults) {
-        if (comboId !== undefined && c.comboId !== comboId) continue;
-        const s = c.stations[i];
+      for (const demand of demands) {
+        const s = demand.forces;
         // The verifier's convention: a positive moment on the governing axis sags.
         const sag = s ? tupleMoment(s, ctx.axes.flexure) : 0;
         if (sag > mPos) mPos = sag;
@@ -59,7 +84,7 @@ export function lineDemand(
       }
       const x = m.offset + (m.forward ? t : 1 - t) * m.L;
       out.push({ x, mPos, mNeg, asBottom: requiredArea(mPos, b, d, ctx.material.fc, ctx.material.fy), asTop: requiredArea(mNeg, b, d, ctx.material.fc, ctx.material.fy), d });
-    });
+    }
   }
   return out.sort((p, q) => p.x - q.x);
 }
@@ -139,23 +164,21 @@ export function lineTransverseDemand(
     const ctx = m.ctx, st = ctx?.stations;
     if (!ctx || !st) continue;
     const params = { fc: ctx.material.fc, fy: ctx.material.fy, cover: ctx.material.cover, b: ctx.axes.bFlex, h: ctx.axes.hFlex, stirrupDia: ctx.material.stirrupDia };
-    st.stationTs.forEach((t, i) => {
+    for (const [t, demands] of lineStationGroups(st, comboId)) {
       let shear = 0, torsion = 0, min = 0;
-      for (const c of st.comboResults) {
-        if (comboId !== undefined && c.comboId !== comboId) continue;
-        const s = c.stations[i];
-        if (!s) continue;
+      for (const demand of demands) {
+        const s = demand.forces;
         const Vu = Math.abs(tupleShear(s, ctx.axes.shear));
         const v = checkShear(params, Vu, 0, { edition: CIRSOC201_DESIGN_EDITION });
         shear = Math.max(shear, v.AvOverSReq ?? v.AvOverS);
         min = Math.max(min, v.AvOverSMin);
         if (Math.abs(s.torsion) > 1e-3) {
-          const tr = checkTorsion(params, ConcurrentDemand.fromTuples([{ comboId: c.comboId, comboName: c.comboName, forces: s }])[0]!.section(ctx.axes.flexure), CIRSOC201_DESIGN_EDITION);
+          const tr = checkTorsion(params, demand.section(ctx.axes.flexure), CIRSOC201_DESIGN_EDITION);
           if (!tr.neglect) torsion = Math.max(torsion, 2 * tr.AtOverS);
         }
       }
       out.push({ x: m.offset + (m.forward ? t : 1 - t) * m.L, shear, torsion, min });
-    });
+    }
   }
   return out.sort((p, q) => p.x - q.x);
 }

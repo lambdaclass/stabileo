@@ -183,7 +183,7 @@ describe('results versions', () => {
 });
 
 
-it.each([-1, 0, 1])('#2198 shows exact notices across recovery merge orders, offset %s', (recoveryOffset) => {
+for (const completenessOffset of [-1, 0, 1]) it.each([-1, 0, 1])(`#2198 shows exact notices across recovery merge orders, offset %s, completeness ${completenessOffset}`, (recoveryOffset) => {
   const entry = RESULT_CHANGES.changes.find(c => c.id === 'directional-stirrup-legs')!;
   const frame: FeatureSnapshot = { analysisMode: 'pro',
     materials: [[1, { id: 1, name: 'H25', fc: 25, fy: 25, e: 25000, nu: 0.2, rho: 25 }]] as never,
@@ -191,19 +191,35 @@ it.each([-1, 0, 1])('#2198 shows exact notices across recovery merge orders, off
     supports: [], loads: [], loadCases: [{ id: 1, type: 'D' }],
   };
   const registry = { ...RESULT_CHANGES, changes: RESULT_CHANGES.changes.map(c =>
-    c.id === 'member-recovery-round4' ? { ...c, resultsVersion: entry.resultsVersion + recoveryOffset } : c),
-    currentResultsVersion: Math.max(RESULT_CHANGES.currentResultsVersion, entry.resultsVersion + recoveryOffset),
+    c.id === 'member-recovery-round4' ? { ...c, resultsVersion: entry.resultsVersion + recoveryOffset }
+      : c.id === 'shared-demand-completeness' ? { ...c, resultsVersion: entry.resultsVersion + completenessOffset } : c),
+    currentResultsVersion: Math.max(RESULT_CHANGES.currentResultsVersion, entry.resultsVersion + recoveryOffset, entry.resultsVersion + completenessOffset),
   };
   for (const analysisMode of ['2d', 'pro']) for (const analysis of ['linear', 'pdelta', 'nonlinear'] as const) {
     const seen = (snapshot: FeatureSnapshot, resultsVersion: number) => assessProject(
       { ...snapshot, analysisMode }, { resultsVersion, analyses: [analysis], recorded: [...ANALYSIS_KINDS] } as SolveStamp, analysisMode, registry,
     ).changes.map(c => c.id).sort();
-    expect(seen(frame, entry.resultsVersion - 1)).toEqual(recoveryOffset < 0
-      ? ['directional-stirrup-legs'] : ['directional-stirrup-legs', 'member-recovery-round4']);
-    expect(seen(frame, entry.resultsVersion)).toEqual(recoveryOffset > 0 ? ['member-recovery-round4'] : []);
+    const prior = ['directional-stirrup-legs', ...(recoveryOffset < 0 ? [] : ['member-recovery-round4']), ...(completenessOffset < 0 ? [] : ['shared-demand-completeness'])];
+    const current = [...(recoveryOffset > 0 ? ['member-recovery-round4'] : []), ...(completenessOffset > 0 ? ['shared-demand-completeness'] : [])];
+    expect(seen(frame, entry.resultsVersion - 1)).toEqual(prior);
+    expect(seen(frame, entry.resultsVersion)).toEqual(current);
     expect(seen(frame, entry.resultsVersion + 1)).toEqual([]);
     expect(seen({ ...frame, materials: [] }, entry.resultsVersion - 1)).toEqual(
       recoveryOffset < 0 ? [] : ['member-recovery-round4'],
     );
+  }
+});
+
+for (const mode of ['2d', '3d', 'pro']) it(`retains the exact generated snow notices after a current solve in ${mode}`, () => {
+  const snapshot: FeatureSnapshot = { loadCases: [{ id: 1, type: 'S' }], loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }] };
+  const expected = [
+    'generated-area-loads-headroom', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
+    'snow-flat-frame', 'snow-local-boundaries', 'snow-member-loading', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-quadratic-intensity', 'snow-ridge-mesh',
+    'snow-ridge-orientations', 'snow-roof-connectivity', 'snow-roof-rotation', 'snow-roof-step', 'snow-selected-subsets',
+    'snow-surface-regions', 'snow-surface-support',
+  ];
+  for (const analysis of ['linear', 'pdelta', 'plastic']) {
+    const stamp = { resultsVersion: RESULT_CHANGES.currentResultsVersion, recorded: [analysis] } as SolveStamp;
+    expect(assessProject(snapshot, stamp, mode, RESULT_CHANGES, undefined, 0).changes.map(c => c.id).sort()).toEqual(expected);
   }
 });

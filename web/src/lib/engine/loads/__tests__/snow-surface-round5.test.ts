@@ -1,3 +1,4 @@
+import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
 import { concave, mesh, transform } from './snow-surface-round2-fixture';
 import { ridgeRoofs } from './snow-surface-round3-fixture';
@@ -55,7 +56,7 @@ for (const angle of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) for (const mirro
       const length = Math.hypot(b.x - a.x, b.y - a.y, b.z! - a.z!);
       const horizontal = Math.hypot(b.x - a.x, b.y - a.y);
       const factor = mode === 'panels' ? 0.2 : mode === 'projected' ? (horizontal / length) ** 2 : 1;
-      expect(pressure(out.cases[0]!.distributed, id, 0.5)).toBeCloseTo(expected(0.2, 4).ps * factor, 9);
+      expect(pressure(mode === 'projected' ? transverseSnowLoads(model, out.cases[0]!.distributed) : out.cases[0]!.distributed, id, 0.5)).toBeCloseTo(expected(0.2, 4).ps * factor, 9);
     }
   });
 }

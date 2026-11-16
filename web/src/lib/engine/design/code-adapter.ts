@@ -51,6 +51,7 @@ export interface DemandRequirement {
 }
 
 export interface InputValidation {
+  diagnostics?: readonly import('../complete-demand-set').IncompleteDemandDiagnostic[];
   ok: boolean;
   blocking: LimitingConstraint[];
   reasons: DesignReason[];

@@ -25,3 +25,13 @@ export const secondaryLegsCannotReachPrimaryShear: Assert<Refuses<DirectionalLeg
 export const scalarLegsCannotReachSecondaryShear: Assert<Refuses<number, Parameters<typeof shearProvision<'secondary'>>[1]>> = true;
 
 export const primaryShearCannotBeSecondary: Assert<Refuses<import('../codes/argentina/cirsoc201').ShearResult<'primary'>, import('../codes/argentina/cirsoc201').ShearResult<'secondary'>>> = true;
+import type { CompleteDemandSet, ScopedDemand, DemandScope, DemandInventory } from '../complete-demand-set';
+import type { CompleteMemberContexts } from '../member-demand-gate';
+import type { MemberContext } from '../design/other-codes/types';
+export const rawRowsCannotBeComplete: Assert<Refuses<ScopedDemand[], CompleteDemandSet<ScopedDemand>>> = true;
+export const rawContextsCannotBeComplete: Assert<Refuses<MemberContext[], CompleteMemberContexts>> = true;
+export const forgedSetCannotBeComplete: Assert<Refuses<{ values: ScopedDemand[] }, CompleteDemandSet<ScopedDemand>>> = true;
+
+export const cartesianScopeCannotReachGate: Assert<Refuses<{ combinations: { comboId: number }[]; members: { elementId: number; stationTs: number[] }[] }, DemandScope>> = true;
+export const rawTuplesCannotUseVerifiedConversion: Assert<Refuses<ScopedDemand[], Parameters<typeof ConcurrentDemand.fromCompleteTuples>[0]>> = true;
+export const forgedInventoryCannotBeDeclared: Assert<Refuses<{ scope: DemandScope }, DemandInventory>> = true;

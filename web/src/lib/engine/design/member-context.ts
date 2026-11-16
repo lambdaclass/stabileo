@@ -85,6 +85,7 @@ export interface ContextModelData {
 }
 
 export interface MemberContext {
+  readonly demandMemberIds?: readonly number[];
   /**
    * The span this element is a piece of, when the analysis cut a beam into several elements
    * (`design-spans.ts`). Present, the context IS the span's — its length, stations, demands and
@@ -426,6 +427,8 @@ export function buildAllMemberContexts(
     }
     out.set(id, ctx);
   }
+  const demandMemberIds = Object.freeze([...out.values()].filter(ctx => ctx.demands || ctx.stations).map(ctx => ctx.elementId));
+  for (const ctx of out.values()) Object.defineProperty(ctx, 'demandMemberIds', { value: demandMemberIds, enumerable: true });
   return out;
 }
 
@@ -445,6 +448,8 @@ export function buildAllMemberContextsUnfiltered(
     const ctx = buildMemberContext(id, model, opts);
     if (ctx) out.set(id, ctx);
   }
+  const demandMemberIds = Object.freeze([...out.values()].filter(ctx => ctx.demands || ctx.stations).map(ctx => ctx.elementId));
+  for (const ctx of out.values()) Object.defineProperty(ctx, 'demandMemberIds', { value: demandMemberIds, enumerable: true });
   return out;
 }
 
@@ -459,4 +464,9 @@ export function verifierSection(ctx: MemberContext) {
     stirrupDia: ctx.material.stirrupDia,
     ...(ctx.flange ? { flange: { bf: ctx.flange.bf, hf: ctx.flange.hf } } : {}),
   };
+}
+
+export function declaredContextMembers(contexts: readonly MemberContext[]): readonly number[] | undefined {
+  if (contexts.some(c => c.demandMemberIds === undefined)) return undefined;
+  return [...new Set([...new Set(contexts.map(c => c.demandMemberIds!))].flatMap(ids => [...ids]))];
 }

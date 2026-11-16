@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { ConcurrentDemand } from '../concurrent-demand';
+import { CompleteDemandSet, IncompleteConcurrentDemandError, memberDemandScope } from '../complete-demand-set';
 import { autoVerifyFromResults, type AutoVerifyModelData } from '../auto-verify';
 import { computeStationDemands, setCompactStationTransfer } from '../verification-service';
 import * as stationBuffer from '../station-buffer';
@@ -26,7 +26,7 @@ for (const count of [32, 64]) {
     let reads = 0;
     const tuples = active(count).map(c => ({ get comboId() { reads++; return c.id; } }));
     const required = active(count).map(c => ({ comboId: c.id }));
-    expect(ConcurrentDemand.hasCompleteTuples(tuples, required)).toBe(true);
+    expect(hasCompleteTuples(tuples, required)).toBe(true);
     expect(reads).toBeLessThanOrEqual(4 * count);
   });
 
@@ -39,7 +39,7 @@ for (const count of [32, 64]) {
       get(target, key) { if (key === 'comboId') reads++; return Reflect.get(target, key, target); },
     }));
     data.set(1, { ...demand, expectedCombinationIds: [...combinations.map(c => c.id), count + 1], concurrent });
-    expect(() => autoVerifyFromResults(raw, model, null, undefined, data)).toThrow(/Incomplete concurrent demand/);
+    expect(() => autoVerifyFromResults(raw, model, null, undefined, data)).toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand' }));
     expect(reads).toBeLessThanOrEqual(4 * concurrent.length);
   });
 
@@ -58,14 +58,26 @@ for (const count of [32, 64]) {
 }
 
 it('tuple coverage retains empty, missing, duplicate, extra and complete combination decisions', () => {
-  expect(ConcurrentDemand.hasCompleteTuples([{ comboId: NaN }], [{ comboId: NaN }])).toBe(false);
-  expect(ConcurrentDemand.hasCompleteTuples(undefined, [])).toBe(false);
-  expect(ConcurrentDemand.hasCompleteTuples([], [])).toBe(false);
-  expect(ConcurrentDemand.hasCompleteTuples([], [{ comboId: 1 }])).toBe(false);
-  expect(ConcurrentDemand.hasCompleteTuples([{ comboId: 1 }], [])).toBe(true);
-  expect(ConcurrentDemand.hasCompleteTuples([{ comboId: 1 }], [{ comboId: 1 }])).toBe(true);
-  expect(ConcurrentDemand.hasCompleteTuples([{ comboId: 1 }], [{ comboId: 1 }, { comboId: 2 }])).toBe(false);
-  expect(ConcurrentDemand.hasCompleteTuples([{ comboId: 2 }], [{ comboId: 1 }, { comboId: 2 }])).toBe(false);
-  expect(ConcurrentDemand.hasCompleteTuples([{ comboId: 1 }, { comboId: 1 }], [{ comboId: 1 }, { comboId: 1 }])).toBe(true);
-  expect(ConcurrentDemand.hasCompleteTuples([{ comboId: 1 }, { comboId: 2 }], [{ comboId: 1 }])).toBe(true);
+  expect(hasCompleteTuples([{ comboId: NaN }], [{ comboId: NaN }])).toBe(false);
+  expect(hasCompleteTuples(undefined, [])).toBe(false);
+  expect(hasCompleteTuples([], [])).toBe(false);
+  expect(hasCompleteTuples([], [{ comboId: 1 }])).toBe(false);
+  expect(hasCompleteTuples([{ comboId: 1 }], [])).toBe(true);
+  expect(hasCompleteTuples([{ comboId: 1 }], [{ comboId: 1 }])).toBe(true);
+  expect(hasCompleteTuples([{ comboId: 1 }], [{ comboId: 1 }, { comboId: 2 }])).toBe(false);
+  expect(hasCompleteTuples([{ comboId: 2 }], [{ comboId: 1 }, { comboId: 2 }])).toBe(false);
+  expect(hasCompleteTuples([{ comboId: 1 }, { comboId: 1 }], [{ comboId: 1 }, { comboId: 1 }])).toBe(true);
+  expect(hasCompleteTuples([{ comboId: 1 }, { comboId: 2 }], [{ comboId: 1 }])).toBe(true);
 });
+
+function hasCompleteTuples(tuples: readonly { comboId: number }[] | undefined, required: readonly { comboId: number }[]): boolean {
+  const rows = (tuples ?? []).map(d => ({ elementId: 0, get comboId() { return d.comboId; }, stationT: 0 }));
+  const combinations = [...new Set([...required.map(d => d.comboId), ...(tuples ?? []).map(d => d.comboId)])].map(comboId => ({ comboId }));
+  try {
+    CompleteDemandSet.require(memberDemandScope([{ elementId: 0, combinationIds: combinations.map(c => c.comboId), stationTs: [0] }]), rows);
+    return true;
+  } catch (error) {
+    if (!(error instanceof IncompleteConcurrentDemandError)) throw error;
+    return false;
+  }
+}
