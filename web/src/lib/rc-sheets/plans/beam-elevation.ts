@@ -12,7 +12,7 @@ import type { P, Primitive } from '../../sheets/primitives';
 import type { LineBar, LineLayout } from '../beam-line';
 import type { BeamRow } from '../beam-row';
 import { stirrupsLabel } from '../bars';
-import { barTrace, hookLegOf, lineSections, lineSupports, setOut, stirrupPositions } from '../line-geometry';
+import { barTrace, hookTurn, lineSections, lineSupports, markPlaces, setOut, stirrupPositions } from '../line-geometry';
 import { scheduleElements } from '../schedule/pieces';
 import { scheduleOf, type ScheduleRow } from '../schedule/schedule';
 import type { SheetCode } from '../types';
@@ -22,7 +22,7 @@ import { sectionPrimitives } from './section';
 import { scheduleTables } from './schedule-table';
 
 const K = 1000;
-/** How far the columns stand above and below the beam, mm. */
+/** How far the columns stand above and, at least, below the beam, mm. */
 const STUB = 250;
 
 export interface BeamPlanOptions extends PlanCtx {
@@ -37,7 +37,7 @@ const barLayer = (b: Pick<LineBar, 'kind' | 'face'>): ArmLayer => (b.kind === 'b
 /** The stirrup diameter of a span, mm. */
 const stirrupDiaOf = (line: LineLayout, k: number) => line.zones.find((z) => z.span === k)?.stirrups.dia ?? line.adopted.stirrups?.[k]?.dia ?? 8;
 
-/** A straight bar's centreline in the elevation: its pieces span by span at their faces, joined, with its hooks. */
+/** A straight bar's centreline in the elevation: its pieces span by span at their faces, joined, with its hooks as its shape turns them. */
 export function barPolyline(line: LineLayout, bar: LineBar, offset: number): P[] {
   const hMax = Math.max(...line.spans.map((s) => s.h));
   if (bar.kind === 'bent') return bar.shape.pts.map(([x, y]) => pt(x * K, (y - hMax) * K));
@@ -54,22 +54,23 @@ export function barPolyline(line: LineLayout, bar: LineBar, offset: number): P[]
     pts.push(pt(g.to * K, y));
   }
   if (!pts.length) return pts;
-  const room = (k: number) => line.spans[k]!.h * K - 2 * (line.cover * K + stirrupDiaOf(line, k));
-  const dir = bar.face === 'top' ? -1 : 1, legOf = (k: number) => Math.min(hookLegOf(bar) * K, room(k));
-  const trace = barTrace(line, bar);
-  if (bar.hooks[0]) pts.unshift(pt(pts[0]!.x, pts[0]!.y + dir * legOf(trace[0]!.span)));
-  if (bar.hooks[1]) { const e = pts[pts.length - 1]!; pts.push(pt(e.x, e.y + dir * legOf(trace[trace.length - 1]!.span))); }
+  if (bar.hooks[0]) pts.unshift(pt(pts[0]!.x, pts[0]!.y + hookTurn(bar, 0) * K));
+  if (bar.hooks[1]) { const e = pts[pts.length - 1]!; pts.push(pt(e.x, e.y + hookTurn(bar, 1) * K)); }
   return pts;
 }
+
+/** How far the columns stand below the beam, mm: deep enough for every hook turned down into them. */
+const stubBelow = (line: LineLayout) => Math.max(STUB, ...line.bars.flatMap((b) => [-hookTurn(b, 0), -hookTurn(b, 1)]).map((d) => d * K + 50));
 
 /** The elevation itself, whole: concrete, stirrups, bars, marks, cuts, splices, zones and the dimensions between axes. */
 function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, c: PlanCtx): { ps: Primitive[]; below: number } {
   const s = c.scale, hMax = Math.max(...line.spans.map((x) => x.h)) * K, ps: Primitive[] = [];
   const supports = lineSupports(line).map((x) => x * K);
+  const stub = stubBelow(line);
   supports.forEach((xs, j) => {
     const w = (line.supportWidths[j] ?? 0) * K;
     if (w <= 0) return;
-    ps.push(rect(HORM, xs - w / 2, 0, xs + w / 2, STUB), rect(HORM, xs - w / 2, -hMax - STUB, xs + w / 2, -hMax));
+    ps.push(rect(HORM, xs - w / 2, 0, xs + w / 2, STUB), rect(HORM, xs - w / 2, -hMax - stub, xs + w / 2, -hMax));
   });
   line.spans.forEach((sp) => {
     ps.push(rect(HORM, sp.x0 * K, -sp.h * K, sp.x1 * K, 0));
@@ -79,6 +80,7 @@ function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, 
     const sp = line.spans[p.span]!, z = line.zones[p.zone]!, d = z.stirrups.dia, cov = line.cover * K + d / 2;
     ps.push(seg(arm('EST', d), pt(p.x * K, -cov), pt(p.x * K, -sp.h * K + cov), d));
   }
+  const along = markPlaces(line, (6 * s) / K);
   for (const bar of line.bars) {
     const off = bar.kind === 'continuous' || bar.kind === 'bent' ? 0 : 0.8 * s;
     const pts = barPolyline(line, bar, off);
@@ -86,7 +88,7 @@ function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, 
     ps.push({ kind: 'polyline', layer: arm(barLayer(bar), bar.bars.dia), points: pts, dia: bar.bars.dia });
     const g = barTrace(line, bar).reduce((a, b) => (b.to - b.from > a.to - a.from ? b : a));
     const y = pts.find((q) => q.x >= g.from * K - 1e-6)?.y ?? pts[0]!.y;
-    ps.push(...bubble(pt(((g.from + g.to) / 2) * K, y + (bar.face === 'top' ? -4 : 4) * s), bar.mark, s));
+    ps.push(...bubble(pt((along.get(bar.mark) ?? (g.from + g.to) / 2) * K, y + (bar.face === 'top' ? -4 : 4) * s), bar.mark, s));
   }
   for (const cut of cuts) {
     const x = cut.x * K;
@@ -99,7 +101,7 @@ function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, 
     const h = (line.spans[Math.max(0, k)]?.h ?? hMax / K) * K, y = sp.face === 'top' ? -line.cover * K - 2.5 * s : -h + line.cover * K + 1.5 * s;
     ps.push(label(pt(sp.x * K, y), `${c.tr('rcSheets.line.splice')} ${cm(c.fmt, sp.length)}`, 2, 'center'));
   }
-  const yZone = -hMax, below0 = STUB / s + 6;
+  const yZone = -hMax, below0 = stub / s + 6;
   for (const z of line.zones) {
     if (z.to - z.from < 1e-6) continue;
     ps.push(dim(pt(z.from * K, yZone), pt(z.to * K, yZone), -below0, cm(c.fmt, z.to - z.from)));
@@ -171,7 +173,7 @@ export function beamPlans(line: LineLayout, spans: readonly BeamRow[], o: BeamPl
     out.push(framed(`${line.key}:sec-${g.label}`, o.tr('rcSheets.plans.section', { n: g.label }), ps2, s, o.group));
   }
   const marks = new Map(line.bars.map((b) => [b.mark, b]));
-  const layerOf = (r: ScheduleRow): ArmLayer => (r.kind === 'stirrup' || r.kind === 'stirrupTie' ? 'EST' : marks.get(r.mark) ? barLayer(marks.get(r.mark)!) : 'INF');
+  const layerOf = (r: ScheduleRow): ArmLayer => (r.kind === 'stirrup' || r.kind === 'stirrupTie' || r.kind === 'hanger' ? 'EST' : marks.get(r.mark) ? barLayer(marks.get(r.mark)!) : 'INF');
   out.push(...scheduleTables(line.key, o.tr('rcSheets.plans.schedule', { name: line.name }), beamScheduleRows(line, o.code), layerOf, o, o.group));
   return out;
 }

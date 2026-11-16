@@ -4,7 +4,7 @@
  * the sections cut once each.
  */
 import { describe, it, expect } from 'vitest';
-import { barTrace, hookLegOf, lineSections, lineSupports, setOut, stirrupPositions } from '../line-geometry';
+import { barTrace, hookLegOf, lineSections, lineSupports, markPlaces, placeLabels, setOut, stirrupPositions } from '../line-geometry';
 import { stirrupsOver } from '../schedule/pieces';
 import { fmt, twoSpanLine } from '../plans/__tests__/fixtures';
 
@@ -45,5 +45,17 @@ describe('beam line geometry', () => {
     expect(secs.map((s) => s.label)).toEqual(secs.map((_, i) => String(i + 1)));
     expect(secs.reduce((n, s) => n + s.at.length, 0)).toBe(3 * line.spans.length);
     expect(secs[0]!.title.startsWith('1–1 · V1-1 · i')).toBe(true);
+  });
+
+  it('keeps labels of a row apart and off the fixed things on it, each as near its place as it can stand', () => {
+    expect(placeLabels([1, 1, 3], 0.5)).toEqual([1, 1.5, 3]);
+    const [x] = placeLabels([2], 0.5, [2.1], 0.4);
+    expect(Math.abs(x! - 2.1)).toBeGreaterThanOrEqual(0.4 - 1e-9);
+    expect(x).toBeCloseTo(1.7, 9);
+    const marks = markPlaces(line, 0.3);
+    for (const face of ['top', 'bottom'] as const) {
+      const xs = line.bars.filter((b) => b.face === face).map((b) => marks.get(b.mark)!).sort((p, q) => p - q);
+      xs.slice(1).forEach((v, i) => expect(v - xs[i]!).toBeGreaterThanOrEqual(0.3 - 1e-9));
+    }
   });
 });

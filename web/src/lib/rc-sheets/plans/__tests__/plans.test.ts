@@ -61,7 +61,8 @@ describe('beam elevation', () => {
     expect(poly.points[0]!.x).toBeCloseTo(cont.from * 1000, 6);
     expect(poly.points[poly.points.length - 1]!.x).toBeCloseTo(cont.to * 1000, 6);
     const leg = poly.points[0]!.y - poly.points[1]!.y;
-    expect(leg).toBeCloseTo(Math.abs(cont.shape.pts[0]![1] - cont.shape.pts[1]![1]) * 1000, 6);
+    expect(leg).toBeCloseTo((cont.shape.pts[0]![1] - cont.shape.pts[1]![1]) * 1000, 6);
+    expect(leg).toBeLessThan(0);
   });
 
   it('marks every bar on the elevation, and every one of those marks is in the schedule and its table', () => {

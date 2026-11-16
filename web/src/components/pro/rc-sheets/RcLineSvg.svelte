@@ -3,12 +3,12 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { stirrupsLabel } from '../../../lib/rc-sheets/bars';
   import type { LineBar, LineLayout } from '../../../lib/rc-sheets/beam-line';
-  import { barTrace, hookLegOf, lineSupports, setOut as setOutOf, stirrupPositions } from '../../../lib/rc-sheets/line-geometry';
+  import { barTrace, bentLegs, hookTurn, lineSupports, markPlaces, placeLabels, setOut as setOutOf, stirrupPositions } from '../../../lib/rc-sheets/line-geometry';
 
   let { line, marks = false, envelope = false, cuts = [], highlight = [] }: { line: LineLayout; marks?: boolean; envelope?: boolean; cuts?: Array<{ x: number; label: string }>; highlight?: string[] } = $props();
   const hl = (b: LineBar) => highlight.includes(b.mark);
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
-  const W = 1200, M = 56, TOP = 40, STUB = 22, BELOW = 12, ROW = 30;
+  const W = 1200, M = 56, TOP = 40, STUB = 22, ROW = 30;
   const x0 = $derived(Math.min(0, line.ends.from)), x1 = $derived(Math.max(line.length, line.ends.to));
   const sx = $derived((W - 2 * M) / Math.max(x1 - x0, 1e-6));
   const hMax = $derived(Math.max(...line.spans.map((s) => s.h), 0.1));
@@ -18,6 +18,7 @@
   const bottomOf = (h: number) => TOP + h * sy;
   const yBeamBottom = $derived(bottomOf(hMax));
   const coverPx = $derived(Math.max(9, (line.cover + 0.012) * sy));
+  const BELOW = $derived(Math.max(12, ...line.bars.flatMap((b) => [-hookTurn(b, 0), -hookTurn(b, 1)]).map((d) => d * sy - coverPx + 4)));
 
   function trace(bar: LineBar): Array<{ x1: number; x2: number; y: number }> {
     if (bar.kind === 'bent') {
@@ -27,11 +28,25 @@
     const inner = bar.kind === 'continuous' ? 0 : 6;
     return barTrace(line, bar).map((g) => ({ x1: X(g.from), x2: X(g.to), y: bar.face === 'top' ? TOP + coverPx + inner : bottomOf(line.spans[g.span]!.h) - coverPx - inner }));
   }
-  const hookTo = (bar: LineBar, y: number) => {
-    const leg = Math.max(8, Math.min(hMax * sy - 2 * coverPx, hookLegOf(bar) * sy));
-    return bar.face === 'top' ? y + leg : y - leg;
-  };
+  const hookTo = (bar: LineBar, y: number, end: 0 | 1) => y - hookTurn(bar, end) * sy;
 
+  const MARK_GAP = 17;
+  const marksAlong = $derived.by(() => {
+    const along = markPlaces(line, MARK_GAP / sx), out = new Map<string, { x: number; y: number }>();
+    for (const b of line.bars) {
+      const segs = trace(b), x = along.get(b.mark);
+      if (!segs.length || x === undefined) continue;
+      const mid = segs.reduce((a, c) => (c.x2 - c.x1 > a.x2 - a.x1 ? c : a));
+      out.set(b.mark, { x: X(x), y: b.face === 'top' ? mid.y - 13 : mid.y + 13 });
+    }
+    return out;
+  });
+  /** The zones' stirrup labels, kept off each other and off the cuts' boxes under the beam. */
+  const zoneLabelX = $derived.by(() => {
+    const texts = line.zones.map((z) => stirrupsLabel(z.stirrups));
+    const w = Math.max(40, ...texts.map((x) => 6.2 * x.length));
+    return placeLabels(line.zones.map((z) => X((z.from + z.to) / 2)), w + 6, cuts.map((c) => X(c.x)), w / 2 + 12);
+  });
   const ticks = $derived(stirrupPositions(line, (s) => Math.ceil(5 / sx / Math.max(s, 1e-6)))
     .map((p) => ({ x: X(p.x), y1: TOP + coverPx - 2, y2: bottomOf(line.spans[p.span]!.h) - coverPx + 2 })));
 
@@ -103,18 +118,16 @@
     {#each segs as sg, i (i)}
       <line x1={sg.x1} y1={sg.y} x2={sg.x2} y2={sg.y} class="bar {bar.kind}" class:hl={hl(bar)} />
     {/each}
-    {#if segs.length && bar.hooks[0]}<line x1={segs[0]!.x1} y1={segs[0]!.y} x2={segs[0]!.x1} y2={hookTo(bar, segs[0]!.y)} class="bar {bar.kind}" />{/if}
-    {#if segs.length && bar.hooks[1]}<line x1={segs[segs.length - 1]!.x2} y1={segs[segs.length - 1]!.y} x2={segs[segs.length - 1]!.x2} y2={hookTo(bar, segs[segs.length - 1]!.y)} class="bar {bar.kind}" />{/if}
+    {#if segs.length && bar.hooks[0]}<line x1={segs[0]!.x1} y1={segs[0]!.y} x2={segs[0]!.x1} y2={hookTo(bar, segs[0]!.y, 0)} class="bar {bar.kind}" />{/if}
+    {#if segs.length && bar.hooks[1]}<line x1={segs[segs.length - 1]!.x2} y1={segs[segs.length - 1]!.y} x2={segs[segs.length - 1]!.x2} y2={hookTo(bar, segs[segs.length - 1]!.y, 1)} class="bar {bar.kind}" />{/if}
   {/each}
   {#if marks}
     <g data-testid="rc-line-marks">
       {#each line.bars as bar (bar.mark)}
-        {@const segs = trace(bar)}
-        {#if segs.length}
-          {@const mid = segs.reduce((a, b) => (b.x2 - b.x1 > a.x2 - a.x1 ? b : a))}
-          {@const cy = bar.face === 'top' ? mid.y - 13 : mid.y + 13}
-          <circle cx={(mid.x1 + mid.x2) / 2} cy={cy} r="7.5" class="mark onbeam {bar.kind}" class:hl={hl(bar)} data-testid={hl(bar) ? 'rc-line-mark-hl' : undefined} data-mark={bar.mark} />
-          <text x={(mid.x1 + mid.x2) / 2} y={cy + 3.2} class="markt small-mark">{bar.mark}</text>
+        {@const at = marksAlong.get(bar.mark)}
+        {#if at}
+          <circle cx={at.x} cy={at.y} r="7.5" class="mark onbeam {bar.kind}" class:hl={hl(bar)} data-testid={hl(bar) ? 'rc-line-mark-hl' : undefined} data-mark={bar.mark} />
+          <text x={at.x} y={at.y + 3.2} class="markt small-mark">{bar.mark}</text>
         {/if}
       {/each}
     </g>
@@ -137,7 +150,7 @@
     <text x={X(sp.x)} y={sp.face === 'top' ? y + 14 : y - 7} class="small">{t('rcSheets.line.splice')} {fmt(sp.length * 100, 0)} cm</text>
   {/each}
   {#each line.zones as z, i (i)}
-    <text x={X((z.from + z.to) / 2)} y={yBeamBottom + BELOW + 12} class="small">{stirrupsLabel(z.stirrups)}</text>
+    <text x={zoneLabelX[i]} y={yBeamBottom + BELOW + 12} class="small" data-testid="rc-zone-label">{stirrupsLabel(z.stirrups)}</text>
   {/each}
 
   {#if envelope && line.envelope.length}
@@ -180,11 +193,15 @@
     <text x={M - 26} y={y + 3.5} class="markt">{bar.mark}</text>
     {#if bar.kind === 'bent'}
       {@const base = Math.min(...bar.shape.pts.map((p) => p[1]))}
-      <polyline points={bar.shape.pts.map((p) => `${X(p[0]).toFixed(1)},${(y + 8 - (p[1] - base) * Math.min(sy, 60) * 0.35).toFixed(1)}`).join(' ')} class="bar bent" />
+      {@const yy = (v: number) => y + 8 - (v - base) * Math.min(sy, 60) * 0.35}
+      <polyline points={bar.shape.pts.map((p) => `${X(p[0]).toFixed(1)},${yy(p[1]).toFixed(1)}`).join(' ')} class="bar bent" />
+      {#each bentLegs(bar) as g, i (i)}
+        <text x={X(g.at[0])} y={yy(g.at[1]) + 12} class="small" data-testid="rc-bent-leg">{fmt(g.length)}</text>
+      {/each}
     {:else}
       <line x1={X(bar.from)} y1={y} x2={X(bar.to)} y2={y} class="bar {bar.kind}" />
-      {#if bar.hooks[0]}<line x1={X(bar.from)} y1={y} x2={X(bar.from)} y2={bar.face === 'top' ? y + 8 : y - 8} class="bar {bar.kind}" />{/if}
-      {#if bar.hooks[1]}<line x1={X(bar.to)} y1={y} x2={X(bar.to)} y2={bar.face === 'top' ? y + 8 : y - 8} class="bar {bar.kind}" />{/if}
+      {#if bar.hooks[0]}<line x1={X(bar.from)} y1={y} x2={X(bar.from)} y2={y - Math.sign(hookTurn(bar, 0)) * 8} class="bar {bar.kind}" />{/if}
+      {#if bar.hooks[1]}<line x1={X(bar.to)} y1={y} x2={X(bar.to)} y2={y - Math.sign(hookTurn(bar, 1)) * 8} class="bar {bar.kind}" />{/if}
     {/if}
     <text x={X((bar.from + bar.to) / 2)} y={y - 5} class="lab">{bar.bars.count} Ø{bar.bars.dia} · L = {fmt(bar.length)} m</text>
     {#if so}

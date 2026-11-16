@@ -14,13 +14,17 @@ test.describe('@smoke design data', () => {
     await expect(page.getByTestId('design-data-cover-beam')).toHaveValue('25');
     await expect(page.getByTestId('design-data-under')).toBeVisible();
     await page.getByTestId('design-data-cirsoc').click();
-    await expect(page.getByTestId('design-data-cover-beam')).toHaveValue('40');
-    await expect(page.getByTestId('design-data-cover-footing')).toHaveValue('75');
+    await expect(page.getByTestId('design-data-cover-beam')).toHaveValue('30');
+    await expect(page.getByTestId('design-data-cover-footing')).toHaveValue('55');
     await expect(page.getByTestId('design-data-under')).toHaveCount(0);
     await page.getByTestId('design-data-grade').selectOption('ADN 500');
     await expect(page.getByTestId('design-data-fy')).toHaveValue('500');
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
     await expect(page.getByTestId('design-data-fy')).toHaveValue('420');
+    await page.getByTestId('design-data-control').uncheck();
+    await expect(page.getByTestId('design-data-under')).toBeVisible();
+    await page.getByTestId('design-data-control').check();
+    await expect(page.getByTestId('design-data-under')).toHaveCount(0);
   });
 });
 

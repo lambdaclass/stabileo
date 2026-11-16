@@ -1,23 +1,24 @@
 /**
  * Every bar the sheets place, element by element, as the piece a bender makes: its shape and how
- * many an element takes. Beams give their line bars as laid out and the stirrups of each zone;
+ * many an element takes. Beams give their line bars as laid out, the stirrups of each zone and the
+ * closed stirrups that hang an end bearing on another beam (placed in that beam);
  * columns their bars per storey (lapped into the storey above, cranked where its faces step in by
  * 75 mm at most, hooked into the slab at the top or where they step in more, and dowels then),
- * their hoops and cross ties; slabs each layer's bars; walls their verticals, horizontals, edge
+ * their hoops and cross ties (the inner row's too); slabs each layer's bars; walls their verticals, horizontals, edge
  * U-bars, boundary hoops and cross ties. Mandrels and hooks are the code's (`BendRules`).
  */
 import type { LineBar, LineLayout } from '../beam-line';
-import type { ColumnRow } from '../column-row';
+import { innerCrossties, type ColumnRow } from '../column-row';
 import { columnTieLayout } from '../column-ties';
 import { SLAB_FACES, type SlabRow } from '../slab-row';
 import type { LevelPlan } from '../slab-plan';
 import { wallDetail } from '../wall-detail';
 import type { WallRow } from '../wall-row';
 import { rulesFor } from '../codes';
-import { closedHoop, crankedBar, crossTie, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
+import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
 
-export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
+export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
   | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie';
 
 export interface Piece {
@@ -43,6 +44,8 @@ export interface PieceOptions {
 /** The largest offset a column bar is cranked through (§10.7.4.1; the same practice elsewhere), m. */
 export const MAX_CRANK = 0.075;
 
+const STOCK = 12;
+
 /** Bars at a spacing over a length, both ends included. */
 export const spread = (length: number, spacing: number): number => (spacing > 0 ? Math.max(2, Math.floor(length / spacing + 1e-9) + 1) : 0);
 
@@ -65,6 +68,22 @@ const topHooked = (length: number, dia: number, R: BendRules): BarShape =>
 const straight = (length: number, dia: number, R: BendRules): BarShape =>
   hookedStraight(0, length, 0, dia, R.mandrel(dia, 'longitudinal'), [false, false], 1, 0);
 
+/**
+ * A vertical bar over `length`, hooked into the slab at its top when `hooked`, as the pieces a
+ * bender cuts: one when it fits a stock bar, else as few equal pieces as fit, each lapped `lap` onto
+ * the next.
+ */
+export function stockPieces(length: number, lap: number, dia: number, R: BendRules, hooked: boolean): Array<{ shape: BarShape; count: number }> {
+  const whole = hooked ? topHooked(length, dia, R) : straight(length, dia, R);
+  if (developedLength(whole) <= STOCK + 1e-9 || lap >= STOCK / 2) return [{ shape: whole, count: 1 }];
+  const hookExtra = developedLength(whole) - length;
+  let n = 2;
+  while ((length + (n - 1) * lap) / n + hookExtra > STOCK + 1e-9 && n < 20) n++;
+  const piece = (length + (n - 1) * lap) / n;
+  if (!hooked) return [{ shape: straight(piece, dia, R), count: n }];
+  return [{ shape: straight(piece, dia, R), count: n - 1 }, { shape: topHooked(piece, dia, R), count: 1 }];
+}
+
 function stirrupPieces(line: LineLayout, R: BendRules): Piece[] {
   const out: Piece[] = [];
   for (const z of line.zones) {
@@ -76,6 +95,12 @@ function stirrupPieces(line: LineLayout, R: BendRules): Piece[] {
     const w = sp.b - 2 * line.cover - d, h = sp.h - 2 * line.cover - d;
     out.push({ kind: 'stirrup', count: n, shape: hoop(w, h, st.dia, R) });
     if (st.legs > 2) out.push({ kind: 'stirrupTie', count: n * (st.legs - 2), shape: tieAcross(h, st.dia, R) });
+  }
+  for (const hg of line.hangers ?? []) {
+    const sp = line.spans[hg.end === 'start' ? 0 : line.spans.length - 1];
+    if (!sp) continue;
+    const d = hg.stirrups.dia / 1000;
+    out.push({ kind: 'hanger', count: hg.count, shape: hoop(sp.b - 2 * line.cover - d, sp.h - 2 * line.cover - d, hg.stirrups.dia, R) });
   }
   return out;
 }
@@ -104,7 +129,7 @@ const columnDias = (r: ColumnRow): Array<{ dia: number; count: number }> => {
   const a = r.adopted, m = new Map<number, number>();
   const add = (dia: number, n: number) => { if (n > 0 && dia > 0) m.set(dia, (m.get(dia) ?? 0) + n); };
   add(a.corner, 4); add(a.dx, 2 * a.nx); add(a.dy, 2 * a.ny);
-  if (a.inner) add(a.inner.dia, 2 * (a.inner.nx + a.inner.ny));
+  if (a.inner) add(a.inner.dia, 2 * Math.max(1, a.inner.rows ?? 1) * (a.inner.nx + a.inner.ny));
   return [...m].map(([dia, count]) => ({ dia, count }));
 };
 
@@ -116,11 +141,13 @@ function columnPieces(rows: readonly ColumnRow[], r: ColumnRow, o: PieceOptions,
   const H = r.length;
   for (const { dia, count } of columnDias(r)) {
     const mandrel = R.mandrel(dia, 'longitudinal');
-    if (!up) { pieces.push({ kind: 'column', count, shape: topHooked(H - r.cover, dia, R) }); continue; }
+    const own = r.lap?.length ?? up?.lap?.length ?? 0;
+    const column = (length: number, hooked: boolean) => { for (const pc of stockPieces(length, own, dia, R, hooked)) pieces.push({ kind: 'column', count: count * pc.count, shape: pc.shape }); };
+    if (!up) { column(H - r.cover, true); continue; }
     const lap = up.lap?.length ?? 0, e = offsetTo(r, up);
-    if (e > MAX_CRANK) pieces.push({ kind: 'column', count, shape: topHooked(H - r.cover, dia, R) });
+    if (e > MAX_CRANK) column(H - r.cover, true);
     else if (e > 1e-3) pieces.push({ kind: 'cranked', count, shape: crankedBar(H, e, lap, dia, mandrel) });
-    else pieces.push({ kind: 'column', count, shape: straight(H + lap, dia, R) });
+    else column(H + lap, false);
   }
   if (down && offsetTo(down, r) > MAX_CRANK) {
     const lap = r.lap?.length ?? 0;
@@ -132,6 +159,7 @@ function columnPieces(rows: readonly ColumnRow[], r: ColumnRow, o: PieceOptions,
   pieces.push({ kind: 'hoop', count: n, shape: hoop(w, h, t, R) });
   if (r.checks.crossties.x) pieces.push({ kind: 'crossTie', count: n * r.checks.crossties.x, shape: tieAcross(h, t, R) });
   if (r.checks.crossties.y) pieces.push({ kind: 'crossTie', count: n * r.checks.crossties.y, shape: tieAcross(w, t, R) });
+  for (const tie of innerCrossties(r, r.adopted, r).ties) pieces.push({ kind: 'crossTie', count: n, shape: tieAcross(tie.length, t, R) });
   return { key: r.key, name: r.name, level: r.level, family: 'column', pieces };
 }
 
@@ -168,8 +196,7 @@ function wallPieces(rows: readonly WallRow[], r: WallRow, o: PieceOptions, R: Be
   }
   for (const g of groups.values()) {
     const lap = r.vLaps?.find((x) => x.dia === g.dia)?.lap ?? r.hLap * g.dia / Math.max(1, det.horizontals.dia);
-    const shape = up ? straight(H + lap, g.dia, R) : topHooked(H - c, g.dia, R);
-    pieces.push({ kind: g.boundary ? 'boundary' : 'vertical', count: g.count, shape });
+    for (const pc of stockPieces(up ? H + lap : H - c, lap, g.dia, R, !up)) pieces.push({ kind: g.boundary ? 'boundary' : 'vertical', count: g.count * pc.count, shape: pc.shape });
   }
   const hd = det.horizontals.dia, levels = spread(H, det.horizontals.spacing);
   const len = r.length - 2 * c;
@@ -205,7 +232,7 @@ export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElem
     ...rows.line.map((l) => linePieces(l, R)),
     ...rows.column.map((r) => columnPieces(rows.column, r, o, R)),
     ...(rows.slabPlan ?? []).filter((p) => planned.has(p.level)).map(levelPieces),
-    ...rows.slab.filter((r) => !r.level || !planned.has(r.level)).map((r) => slabPieces(r, o, R)),
+    ...rows.slab.filter((r) => !planned.has(r.level ?? '')).map((r) => slabPieces(r, o, R)),
     ...rows.wall.map((r) => wallPieces(rows.wall, r, o, R)),
   ].map((e) => ({ ...e, pieces: e.pieces.filter((p) => p.count > 0) }));
 }

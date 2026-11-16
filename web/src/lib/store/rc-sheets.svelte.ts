@@ -15,7 +15,7 @@ import { beamFlangeSides } from '../engine/design/beam-flange';
 import { jointChecks } from '../rc-sheets/joints';
 import { concreteFc } from '../model/design-data';
 import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
-import { slabPlan, slabSpanKind, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
+import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { LineAdopted, LineLayout } from '../rc-sheets/beam-line';
@@ -47,10 +47,22 @@ export interface SheetRows {
 
 const DEFAULT_FC = 25;
 
+/** The sheets' data; adopted bars saved before adoptions were stamped count as set by hand, stamped with the code and seismic option in force. */
 export function rcSheetsData(): RcSheetsData {
   const d = designData().rcSheets;
-  return d ? { ...defaultRcSheetsData(), ...d } : defaultRcSheetsData();
+  if (!d) return defaultRcSheetsData();
+  const full = { ...defaultRcSheetsData(), ...d };
+  const keys = Object.keys(full.adopted);
+  if (full.adoptedCode || !keys.length) return full;
+  const code = codeOf(full);
+  return { ...full, edited: [...new Set([...(full.edited ?? []), ...keys])], ...adoptionStamp(full, code) };
 }
+
+const seismicIn = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): boolean => d.seismic === true && rulesFor(code).seismic;
+
+/** What adopted proposals hold under: the code and whether the seismic provisions apply. */
+const adoptionStamp = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): Pick<RcSheetsData, 'adoptedCode' | 'adoptedSeismic'> =>
+  ({ adoptedCode: code, adoptedSeismic: seismicIn(d, code) ? true : undefined });
 
 function save(next: RcSheetsData): void {
   patchOwnDesignData({ rcSheets: next });
@@ -65,7 +77,7 @@ export function setAdopted(key: string, value: Adopted | null, byHand = true): v
   const adopted = { ...(byHand ? d.adopted : liveAdopted(d, code)) };
   const edited = new Set(d.edited ?? []);
   if (value) { adopted[key] = JSON.parse(JSON.stringify(value)) as Adopted; if (byHand) edited.add(key); else edited.delete(key); } else { delete adopted[key]; edited.delete(key); }
-  save({ ...d, adopted, ...(edited.size ? { edited: [...edited] } : { edited: undefined }), ...(byHand ? {} : { adoptedCode: code }) });
+  save({ ...d, adopted, ...(edited.size ? { edited: [...edited] } : { edited: undefined }), ...(byHand ? {} : adoptionStamp(d, code)) });
 }
 
 export function adoptAll(rows: ReadonlyArray<{ key: string; proposed: unknown }>): void {
@@ -73,12 +85,12 @@ export function adoptAll(rows: ReadonlyArray<{ key: string; proposed: unknown }>
   const live = liveAdopted(d, sheetCode());
   const adopted = { ...live };
   for (const r of rows) if (!adopted[r.key]) adopted[r.key] = JSON.parse(JSON.stringify(r.proposed)) as Adopted;
-  save({ ...d, adopted, adoptedCode: sheetCode() });
+  save({ ...d, adopted, ...adoptionStamp(d, sheetCode()) });
 }
 
-/** The adopted bars that hold under `code`: those set by hand always, the adopted proposals only under the code they were adopted for. */
+/** The adopted bars that hold under `code`: those set by hand always, the adopted proposals only under the code and seismic option they were adopted for. */
 export function liveAdopted(d: RcSheetsData, code: SheetCode): Record<string, Adopted> {
-  if (!d.adoptedCode || d.adoptedCode === code) return d.adopted;
+  if (!d.adoptedCode || (d.adoptedCode === code && (d.adoptedSeismic === true) === seismicIn(d, code))) return d.adopted;
   const edited = new Set(d.edited ?? []);
   return Object.fromEntries(Object.entries(d.adopted).filter(([k]) => edited.has(k)));
 }
@@ -91,7 +103,11 @@ const FROM_PROJECT: Record<string, SheetCode> = { aci318: 'aci318-19', ec2: 'en1
 
 /** The code the sheets design to: the one chosen for them, else the project's concrete code. */
 export function sheetCode(): SheetCode {
-  const own = rcSheetsData().code;
+  return codeOf(designData().rcSheets);
+}
+
+function codeOf(d: Pick<RcSheetsData, 'code'> | undefined): SheetCode {
+  const own = d?.code;
   if (own && SHEET_CODES[own]) return own;
   return FROM_PROJECT[designData().foreignCodes?.concrete ?? ''] ?? FROM_LOAD_FAMILY[loadFamilyOfRegulations(regulationsStore.roles) ?? 'cirsoc'];
 }
@@ -126,6 +142,16 @@ function memberElevations(): number[] {
 function storeyElevations(): number[] {
   const grid = modelStore.grid?.levels ?? [];
   return grid.length ? grid.map((l) => l.z) : memberElevations();
+}
+
+/** One line laid out with bent bars (`true`), without them (`false`), or as the project says (`null`); its adopted proposal, unless edited by hand, goes with the old choice. */
+export function setLineBentBars(key: string, on: boolean | null): void {
+  const d = rcSheetsData();
+  const bentLines = { ...d.bentLines };
+  if (on === null) delete bentLines[key]; else bentLines[key] = on;
+  const adopted = { ...d.adopted };
+  if (!(d.edited ?? []).includes(key)) delete adopted[key];
+  save({ ...d, adopted, bentLines: Object.keys(bentLines).length ? bentLines : undefined });
 }
 
 function storeyNamer(): (z: number) => string {
@@ -173,7 +199,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     supportNodes: new Set(supportsByNode.keys()),
     shells: { nodes: modelStore.nodes, quads: modelStore.quads, plates: modelStore.plates },
     groups, sets, dead, faces: opts.faces,
-    ...(opts.flange ? { flangeSides: ((f) => (id: number) => f.get(id)?.sides)(beamFlangeSides({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: modelStore.quads })) } : {}),
+    ...((f) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, ...(opts.flange ? { flangeSides: (id: number) => f.get(id)?.sides } : {}) }))(beamFlangeSides({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: modelStore.quads })),
     faceOffset: (id, end) => {
       const e = modelStore.elements.get(id);
       const sec = e ? modelStore.sections.get(e.sectionId) : undefined;
@@ -324,7 +350,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const fy = dd.rebarFy;
   const dec = fmt(1.5, 1);
   const seismic = data.seismic && rules.seismic ? { overstrength: seismicSettings().overstrength } : undefined;
-  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion, seismic, ...(data.bentBars ? { bentBars: true } : {}) });
+  const bentIn = (d: (typeof D.beams)[number]) => data.bentLines?.[`line:${d.line?.group ?? -1}`] ?? data.bentBars === true;
+  const coverTable = rules.coverTable ? { coverTable: { control: dd.executionControl !== false } } : {};
+  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion, seismic, ...(bentIn(d) ? { bentBars: true } : {}), ...coverTable });
   const proposals: BeamRow[] = [];
   for (const d of D.beams) {
     const ctx = beamCtx(d);
@@ -335,10 +363,14 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   for (const r of proposals) { const g = r.demand.line?.group ?? -1; byLine.set(g, [...(byLine.get(g) ?? []), r]); }
   const line: LineLayout[] = [];
   const derived = new Map<string, BeamAdopted>();
+  const edited = new Set(data.edited ?? []);
+  const linesAdopted = new Set<number>();
   for (const [g, rows] of byLine) {
     const first = rows[0]!;
     const ctx = beamCtx(first.demand);
-    const la = adoptedNow[`line:${g}`] as LineAdopted | undefined;
+    const own = adoptedNow[`line:${g}`] as LineAdopted | undefined;
+    const la = own && ctx.seismic && !edited.has(`line:${g}`) && own.bent?.some((x) => x.count > 0) ? undefined : own;
+    if (la) linesAdopted.add(g);
     const layout = cachedLine(first.demand, [code, ctx, la, dec, rows.map((r) => r.key)], () => rules.beamLine(rows, ctx, la, fmt));
     line.push(layout);
     const sortedRows = [...rows].sort((p, q) => (p.demand.line?.index ?? 0) - (q.demand.line?.index ?? 0));
@@ -352,7 +384,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const own = adoptedNow[d.key] as BeamAdopted | undefined;
     let a = own ?? derived.get(d.key);
     let row = cached(d, [code, ctx, a, dec], () => rules.beamRow(d, ctx, a, fmt));
-    const lineAdopted = !!adoptedNow[`line:${d.line?.group}`];
+    const lineAdopted = linesAdopted.has(d.line?.group ?? -1);
     for (let guard = 0; ctx.seismic && !own && !lineAdopted && a && guard < 8; guard++) {
       const bad = row.verifications.some((v) => (v.label === 'rcSheets.v.seisBeamVe' || v.label === 'rcSheets.v.seisBeamHoops') && !v.ok);
       if (!bad || a.stirrups.spacing <= 0.05 + 1e-9) break;
@@ -361,13 +393,13 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
       row = cached(d, [code, ctx, tight, dec], () => rules.beamRow(d, ctx, tight, fmt));
       derived.set(d.key, tight);
     }
-    beam.push(own ? row : { ...row, isAdopted: !!adoptedNow[`line:${d.line?.group}`], proposed: derived.get(d.key) ?? row.proposed });
+    beam.push(own ? row : { ...row, isAdopted: lineAdopted, proposed: derived.get(d.key) ?? row.proposed });
     yield step();
   }
   const below = new Map<number, ColumnRow>();
   const column: ColumnRow[] = [];
   for (const d of D.columns) {
-    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, seismic };
+    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, seismic, ...coverTable };
     const a = adoptedNow[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
@@ -390,12 +422,26 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     slab.push(cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt)));
     yield step();
   }
-  const slabPlans = D.levels.map((g) => {
+  const planOf = (g: LevelGeometry) => {
     const rows = slab.filter((r) => (r.level ?? '') === g.level);
     const first = groupOf(rows[0]?.key ?? '');
-    const ctx = { mat: { fc: fcOfShells(first?.members.quads ?? [], first?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: [6, 8, 10, 12, 16], bent: data.slabBentBars === true };
+    const ctx = { mat: { fc: fcOfShells(first?.members.quads ?? [], first?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: [6, 8, 10, 12, 16], bent: data.slabBentBars === true, columnInset: dd.covers.column + dd.stirrupDiaMm / 1000 + Math.max(0, ...dd.longDiametersMm.filter((x) => x <= 16)) / 2000 };
     return slabPlan(g.level, rows, g, ctx, rules.slabPlan);
-  }).filter((p) => p.panels.length);
+  };
+  let slabPlans = D.levels.map(planOf).filter((p) => p.panels.length);
+  const spanned = new Set<string>();
+  slab.forEach((r, i) => {
+    const k = slabPlans.find((p) => p.level === (r.level ?? ''))?.cantilevers.find((x) => x.panel === r.name);
+    if (!k) return;
+    const d = D.slabs.find((x) => x.key === r.key)!;
+    const g = groupOf(d.key);
+    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: [6, 8, 10, 12, 16], span: { kind: 'cantilever' as const, dir: k.dir, length: k.length } };
+    const a = adoptedNow[d.key] as SlabAdopted | undefined;
+    redesigners.set(d.key, ((x: typeof d) => rules.slabRow(x, ctx, undefined, fmt)) as Redesign);
+    slab[i] = cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt));
+    spanned.add(r.level ?? '');
+  });
+  if (spanned.size) slabPlans = D.levels.map((g) => (spanned.has(g.level) ? planOf(g) : slabPlans.find((p) => p.level === g.level))).filter((p): p is LevelPlan => !!p && p.panels.length > 0);
   const wall: WallRow[] = [];
   for (const d of D.walls) {
     const g = groupOf(d.key);
@@ -407,22 +453,19 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   }
   const punching: PunchingRow[] = [];
   for (const d of D.punching) {
-    const ctx = { fc: fcOfElement(d.joint.columnElementId), fy, cover: dd.covers.slab, topBarDia: 12 };
+    const plan = slabPlans.find((p) => p.level === (d.level ?? ''));
+    const at = (dir: 'x' | 'y') => plan?.integrity.find((k) => k.dir === dir && Math.hypot(k.x - d.joint.at.x, k.y - d.joint.at.y) < 0.05);
+    const ix = at('x'), iy = at('y');
+    const ctx = { fc: fcOfElement(d.joint.columnElementId), fy, cover: dd.covers.slab, topBarDia: 12, ...(ix && iy ? { integrity: { x: ix.bars, y: iy.bars, required: ix.required, dia: Math.max(ix.dia, iy.dia) } } : {}) };
     redesigners.set(d.key, ((x: typeof d) => rules.punchingRow(x, ctx, fmt)) as Redesign);
     punching.push(cached(d, [code, ctx, dec], () => rules.punchingRow(d, ctx, fmt)));
     yield step();
   }
   const columnsFinal = seismic ? jointChecks(column, beam, modelStore.nodes, fmt, { fc: (r) => fcOfElement(groupOf(r.key)?.members.elements?.[0]), beamFc: (b) => fcOfElement(groupOf(b.key)?.members.elements?.[0]), fy, cover: dd.covers.column, beamCover: dd.covers.beam, settings: seismicSettings() }) : column;
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
-  return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab.map((r) => asSpanned(r, slabPlans, fmt))), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), code: codeName, basis, combos: sets.length };
+  return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), code: codeName, basis, combos: sets.length };
 }
 
-function asSpanned(row: SlabRow, plans: readonly LevelPlan[], fmt: Fmt): SlabRow {
-  if (slabSpanKind(row, plans) !== 'cantilever') return row;
-  const length = Math.max(...plans.filter((p) => p.level === (row.level ?? '')).flatMap((p) => p.cantilevers.filter((c) => c.panel === row.name).map((c) => c.length)));
-  const span = { label: 'rcSheets.s.cantilever', formula: 'Lv', value: `${fmt(length)} m` };
-  return { ...row, steps: row.steps.map((g) => ({ ...g, steps: g.steps.map((x) => (x.label === 'rcSheets.s.oneWay' || x.label === 'rcSheets.s.twoWay' ? span : x)) })) };
-}
 
 export const familyRows = (rows: SheetRows, f: SheetFamily): SheetRow[] => rows[f];
 

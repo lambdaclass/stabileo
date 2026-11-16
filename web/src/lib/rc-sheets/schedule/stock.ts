@@ -60,6 +60,8 @@ export interface StockTable<R = string, P = string> {
 /**
  * Build the bar bending schedule from the marks.
  *
+ * A mark longer than a stock bar is cut from as many as its length, laps included, needs.
+ *
  * Stock and offcut are computed per mark, matching how a shop cuts: identical bars are
  * nested together, different marks are not mixed on one stock length. Presenting an
  * optimal cross-mark nesting the shop will not follow would understate the order.
@@ -73,8 +75,9 @@ export function buildSchedule<R = string, P = string>(
 
   for (const m of marks) {
     const perStock = m.cuttingLength > stockLength ? 0 : Math.max(1, Math.floor(stockLength / m.cuttingLength));
-    const stockBars = perStock === 0 ? m.quantity : Math.ceil(m.quantity / perStock);
-    const offcut = perStock === 0 ? 0 : stockLength - perStock * m.cuttingLength;
+    const perMark = Math.ceil(m.cuttingLength / stockLength - 1e-9);
+    const stockBars = perStock === 0 ? m.quantity * perMark : Math.ceil(m.quantity / perStock);
+    const offcut = perStock === 0 ? stockLength - m.cuttingLength / perMark : stockLength - perStock * m.cuttingLength;
     if (perStock === 0) {
       notes.push(
         `La marca ${m.mark} (${m.cuttingLength.toFixed(2)} m) excede la barra comercial de ` +

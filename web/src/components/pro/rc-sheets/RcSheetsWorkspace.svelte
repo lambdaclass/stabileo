@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { t, i18n, tpn } from '../../../lib/i18n';
+  import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { fullScreenWorkspace } from '../../../lib/store/fullscreen-workspace.svelte';
+  import { extraBarsText } from '../../../lib/rc-sheets/line-geometry';
   import { adoptAll, downloadRcSheets, type SheetRow, type SheetRows } from '../../../lib/store/rc-sheets.svelte';
   import { designSheets, followSheetEdits, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
@@ -198,12 +199,13 @@
               <td class="nm">{r.name}{#if !r.isAdopted}<span class="tag" title={t('rcSheets.showingProposal')}>P</span>{:else if edited.has(r.key)}<span class="tag" title={t('rcSheets.editedByHand')} data-testid="rc-edited-tag">✎</span>{/if}</td>
               <td>{r.level ?? ''}</td>
               {#if r.family === 'line'}
+                {@const extra = extraBarsText(r, t('rcSheets.line.bentShort'))}
                 <td class="n">{r.spans.length}</td>
                 <td class="n">{f2(r.length)}</td>
                 <td>{r.adopted.bottom.count} Ø{r.adopted.bottom.dia}</td>
                 <td>{r.adopted.top.count} Ø{r.adopted.top.dia}</td>
-                <td>{r.adopted.supportTop.map((g, j) => (g.count ? `${j + 1}: ${g.count}Ø${g.dia}` : '')).filter(Boolean).join(' · ') || '—'}</td>
-                <td>{r.adopted.spanBottom.map((g, k) => (g.count ? `${k + 1}: ${g.count}Ø${g.dia}` : '')).filter(Boolean).join(' · ') || '—'}</td>
+                <td data-testid="rc-line-supports">{extra.supports}</td>
+                <td data-testid="rc-line-spans">{extra.spans}</td>
                 <td>{[...new Set((r.adopted.stirrups ?? []).map((x) => stirrupsLabel(x)))].join(' · ')}</td>
                 <td class="n">{fmt(r.utilization, 2)}</td>
               {:else if r.family === 'beam'}
@@ -222,7 +224,7 @@
                 <td class="n">{f2(r.req.rho * 100)} %</td>
                 <td>{columnLabel(r.adopted)} <span class="dim">({f2(r.checks.area)})</span></td>
                 <td>{tieLabel(r.adopted)}</td>
-                <td>{r.checks.crossties.x} · {r.checks.crossties.y}</td>
+                <td>{r.checks.crossties.x} · {r.checks.crossties.y}{#if r.checks.crossties.inner} + {r.checks.crossties.inner.x + r.checks.crossties.inner.y}{/if}</td>
                 <td class="n">{fmt(r.checks.ratio, 2)}</td>
               {:else if r.family === 'punching'}
                 <td>{r.position}</td>
@@ -259,7 +261,7 @@
                   {#if r.family === 'column'}
                     <div class="rcw-secs">
                       <RcSectionSvg drawing={columnSection(r.b, r.h, r.cover, r.adopted)} title="{r.name} · {fmt(r.b * 100, 0)}×{fmt(r.h * 100, 0)}"
-                        notes={[columnLabel(r.adopted), `${tieLabel(r.adopted)} · ${t('rcSheets.col.crossties')} ${r.checks.crossties.x} · ${r.checks.crossties.y}`]} />
+                        notes={[columnLabel(r.adopted), `${tieLabel(r.adopted)} · ${t('rcSheets.col.crossties')} ${r.checks.crossties.x} · ${r.checks.crossties.y}${r.checks.crossties.inner ? ` + ${r.checks.crossties.inner.x + r.checks.crossties.inner.y}` : ''}`]} />
                       <RcColumnElevation row={r} {code} {endZones} />
                     </div>
                   {:else if r.family === 'slab'}

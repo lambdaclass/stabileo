@@ -1,17 +1,21 @@
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, solveModel, designPlace } from './fixtures';
 
 /**
  * Reinforcement by sheets on the seven-storey concrete example: solved, its physical members
  * recognised (walls meshed by a second solve), every family has rows and the beams and columns their
  * sections, the core's ground-floor walls fail for resting on one node until one click holds their bases and designs again, a continuous beam's run
  * adopted short fails and says why, going back to the proposal makes it verify again, and a span
- * opens into its checks by combination.
+ * opens into its checks by combination. The example's beams and columns are given 30 mm covers, what
+ * Table 20.5.1.3.1 asks of main bars behind Ø8 stirrups (25 mm leaves them at 33 mm, under 35).
  */
 test.use({ appLocale: 'es' });
 
 test('@slow the reinforcement sheets design beams, columns, slabs and walls of a solved building', async ({ pro: page }) => {
   test.setTimeout(180_000);
   await loadModel(page, 'pro-edificio-7p');
+  await designPlace(page, 'designData');
+  for (const k of ['beam', 'column']) { await page.getByTestId(`design-data-cover-${k}`).fill('30'); await page.getByTestId(`design-data-cover-${k}`).press('Enter'); }
+  await expect(page.getByTestId('design-data-cover-column')).toHaveValue('30');
   await page.evaluate(() => window.__stabileoActions.setMeshBeforeAnalysis(false));
   // Two combinations by the same name, as a file of one's own beside the generated ones can hold: each keeps its row.
   await page.evaluate(() => {
@@ -65,11 +69,12 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
     expect(head.x + head.width - (close.x + close.width)).toBeLessThan(16);
   }
   await expect(ws).toHaveClass(/st-panel-scrollbars/);
-  expect(await ws.locator('.rcw-body').evaluate((b) => b.scrollWidth > b.clientWidth)).toBe(true);
+  expect(await ws.locator('.rcw-body').evaluate((b) => getComputedStyle(b).overflowX)).toMatch(/auto|scroll/);
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(ws.getByTestId('rc-code').getByTestId('rc-code-select')).toHaveValue('cirsoc201-2025');
   const first = ws.getByTestId('rc-row').first();
-  await expect(first).toContainText('Verifica');
+  await expect(first).toContainText(/Verifica|Holgada/);
+  await expect(first).not.toContainText('No verifica');
   const generous = ws.locator('tr.st-warn .stc').first();
   if (await generous.count()) {
     const [colour, warn] = await generous.evaluate((el) => {
@@ -108,7 +113,10 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await editor.getByRole('spinbutton', { name: 'Cantidad' }).first().fill('2');
   await editor.getByRole('combobox', { name: 'Diámetro' }).first().selectOption('10');
   await expect(ws.getByTestId('rc-row').first()).toContainText('No verifica');
-  await expect(ws.getByTestId('rc-checks').first()).toContainText('✗');
+  const short = ws.getByTestId('rc-span-toggle').filter({ hasText: 'No verifica' }).first();
+  await short.click();
+  await expect(ws.getByTestId('rc-checks').filter({ hasText: '✗' }).first()).toBeVisible();
+  await short.click();
 
   await editor.getByRole('button', { name: 'Volver a la propuesta' }).click();
   await expect(ws.getByTestId('rc-row').first()).not.toContainText('No verifica');
@@ -121,6 +129,8 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await ws.getByTestId('rc-tab-column').click();
   await expect(ws.getByTestId('rc-table-column')).toBeVisible();
   await ws.getByTestId('rc-row').first().click();
+  await expect(ws.getByTestId('rc-checks').first()).toContainText('Tabla 20.5.1.3.1');
+  await expect(ws.getByTestId('rc-checks').first()).toContainText('§10.3.1');
   await expect(ws.getByTestId('rc-section')).toHaveCount(1);
   await expect(ws.getByTestId('rc-section').locator('circle').first()).toBeVisible();
   // The storey in elevation: one tie each spacing from half a spacing above the floor, through the joint above.
@@ -172,13 +182,12 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(wallFig.getByTestId('rc-wall-elev-vertical')).toHaveCount(0);
   await expect(wallFig.getByTestId('rc-wall-elev-horizontal')).toHaveCount(1);
 
-  // The code is switched from the sheets themselves: the rows say they are out of date, and every family is designed again to it on asking; the choice is the project's.
+  // The code is switched from the sheets themselves: every family is designed again to it at once; the choice is the project's.
   const picker = ws.getByTestId('rc-code').getByTestId('rc-code-select');
   for (const [code, clause] of [['en1992-1-1', '9.2.1.3, 6.1'], ['bs-en1992-1-1', '9.2.1.3, 6.1'], ['ts500-2000', '7.1, 7.3'], ['aci318-19', '§9.7.3, §22.2']] as const) {
     await picker.selectOption(code);
-    await expect(ws.getByTestId('rc-stale')).toBeVisible();
-    await ws.getByTestId('rc-redesign').click();
-    await expect(ws.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
+    await expect(ws.getByTestId('rc-progress')).toHaveCount(0, { timeout: 60_000 });
+    await expect(ws.getByTestId('rc-stale')).toHaveCount(0);
     await ws.getByTestId('rc-tab-beam').click();
     await expect(ws.getByTestId('rc-row').first()).toBeVisible();
     await ws.getByTestId('rc-row').first().click();

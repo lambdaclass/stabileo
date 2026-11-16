@@ -1,16 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { makeFmt } from '../format';
 import type { SlabDemand } from '../slab-row';
-import { planDrawing, slabPlan, slabSpanKind, type LevelGeometry, type PlanBeam, type SlabPackage } from '../slab-plan';
+import { CIRSOC_SLAB_PLAN, planDrawing, slabPlan, slabSpanKind, type LevelGeometry, type PlanBeam, type SlabPackage } from '../slab-plan';
 import { rulesFor } from '../codes';
-import { CIRSOC_LINE } from '../beam-line';
 import { meshArea } from '../bars';
 import { SHEET_CODE_LIST, type SheetCode } from '../types';
 
 const f = makeFmt('.');
 const ctx = { mat: { fc: 25, fy: 420 }, cover: 0.02, diameters: [6, 8, 10, 12, 16] };
 const plan = { ...ctx, bent: false };
-const bctx = { mat: ctx.mat, cover: ctx.cover, stirrupDia: 0, diameters: ctx.diameters, torsion: 'equilibrium' as const };
 
 const demand = (key: string, x0: number, x1: number, y0: number, y1: number, m: [number, number, number, number]): SlabDemand => ({
   key, name: key, level: 'N1', lx: x1 - x0, ly: y1 - y0, h: 0.15, bounds: { x0, x1, y0, y1, z: 3 },
@@ -40,7 +38,7 @@ describe('level plan of slab bars', () => {
     const pk = over[0]!;
     expect(pk.kind).toBe('support');
     expect(pk.panels.sort()).toEqual(['A', 'B']);
-    const ld = CIRSOC_LINE.development(bctx, pk.bars.dia, true, 0.15);
+    const ld = CIRSOC_SLAB_PLAN.development!(ctx.mat, pk.bars.dia, true, 0.15, { cover: ctx.cover, spacing: pk.bars.spacing });
     const lnA = 4 - 0.1 - 0.1, lnB = 5 - 0.1 - 0.1;
     const leftReach = 3.9 - pk.from, rightReach = pk.to - 4.1;
     expect(leftReach).toBeGreaterThanOrEqual(Math.max(ld, 0.3 * lnA) - 1e-9);
@@ -116,7 +114,7 @@ describe('level plan of slab bars', () => {
     expect(pk.to).toBeCloseTo(5.8 - 0.02, 9);
     const back = 3.9 - pk.from;
     expect(back).toBeGreaterThanOrEqual(1.7 - 1e-9);
-    expect(back).toBeGreaterThanOrEqual(CIRSOC_LINE.development(bctx, pk.bars.dia, true, 0.15) - 1e-9);
+    expect(back).toBeGreaterThanOrEqual(CIRSOC_SLAB_PLAN.development!(ctx.mat, pk.bars.dia, true, 0.15, { cover: ctx.cover, spacing: pk.bars.spacing }) - 1e-9);
     expect(meshArea(pk.bars)).toBeGreaterThanOrEqual(rows[1]!.faces.topY.asReq - 1e-6);
     expect(pk.shape.pts[3]![1]).toBeLessThan(pk.shape.pts[2]![1]);
     expect(p.packages.filter((x) => x.layer === 'top' && x.dir === 'y' && crossing(x, 4))).toHaveLength(1);
@@ -137,7 +135,7 @@ describe('level plan of slab bars', () => {
     expect(a.runs[0]!.from).toBeLessThan(0);
     expect(a.shape.pts).toHaveLength(8);
     const ln = 3.8;
-    expect(a.runs[1]!.from).toBeCloseTo(0.1 + 0.2 * ln, 9);
+    expect(a.runs[1]!.from).toBeCloseTo(0.1 + ln / 8, 9);
     expect(p.packages.filter((pk) => pk.dir === 'x' && (pk.layer === 'top' || pk.kind === 'bent') && crossing(pk, 4)).length).toBeGreaterThanOrEqual(2);
     expect(p.baseMesh).toBeUndefined();
   });
@@ -191,5 +189,37 @@ describe('level plan of slab bars', () => {
     expect(slabSpanKind({ name: 'L4', level: 'N1', oneWay: true }, plans)).toBe('cantilever');
     expect(slabSpanKind({ name: 'L4', level: 'N2', oneWay: true }, plans)).toBe('oneWay');
     expect(slabSpanKind({ name: 'L1', level: 'N1', oneWay: false }, plans)).toBe('twoWay');
+  });
+
+  it('a cantilever row takes its span from the plan in every code: the step, one-way, and one-way shear only across its support', () => {
+    const q = { x: { value: 20 }, y: { value: 90 } };
+    for (const code of SHEET_CODE_LIST) {
+      const rules = rulesFor(code);
+      const d = { ...demand('L4', 0, 1.85, 0, 5, [0, 0, 12, 2]), q };
+      const plain = rules.slabRow(d, ctx, undefined, f);
+      expect(plain.verifications.some((v) => v.label === 'rcSheets.v.slabShearY'), code).toBe(true);
+      const row = rules.slabRow(d, { ...ctx, span: { kind: 'cantilever', dir: 'x', length: 1.85 } }, undefined, f);
+      expect(row.oneWay, code).toBe(true);
+      expect(row.steps.flatMap((g) => g.steps).find((x) => x.label === 'rcSheets.s.cantilever')?.value, code).toBe('1.85 m');
+      expect(row.verifications.some((v) => v.label === 'rcSheets.v.slabShearX'), code).toBe(true);
+      expect(row.verifications.some((v) => v.label === 'rcSheets.v.slabShearY'), code).toBe(false);
+    }
+  });
+});
+
+describe('slab one-way shear near the columns', () => {
+  it('leaves out the elements within d of a column footprint', async () => {
+    const { shellsNearColumns } = await import('../demands');
+    const nodes = new Map([[1, { id: 1, x: 2, y: 2, z: 0 }], [2, { id: 2, x: 2, y: 2, z: 3 }]]);
+    const elements = new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, type: 'frame' }]]);
+    const sections = new Map([[1, { id: 1, b: 0.4, h: 0.4 }]]);
+    const boxes = new Map([
+      ['q1', { x0: 2.2, x1: 2.7, y0: 2.0, y1: 2.5 }],
+      ['q2', { x0: 2.3, x1: 2.8, y0: 1.5, y1: 2.0 }],
+      ['q3', { x0: 2.4, x1: 2.9, y0: 2.0, y1: 2.5 }],
+      ['q4', { x0: 3.0, x1: 3.5, y0: 2.0, y1: 2.5 }],
+    ]);
+    const near = shellsNearColumns({ nodes, elements, sections } as never, boxes, { x0: 0, x1: 5, y0: 0, y1: 5, z: 3 }, 0.12);
+    expect([...near].sort()).toEqual(['q1', 'q2']);
   });
 });

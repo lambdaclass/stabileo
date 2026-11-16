@@ -4,12 +4,13 @@
  * them; what a code does not check is said in its rows, never left out silently.
  */
 import { beamRow } from '../beam-row';
-import { beamLine } from '../beam-line';
-import { columnRow } from '../column-row';
-import { slabRow } from '../slab-row';
+import { beamLine, CIRSOC_2025_LINE } from '../beam-line';
+import { ACI_COLUMN, CIRSOC_COLUMN, columnRowFor } from '../column-row';
+import { CIRSOC_SLAB_ROW, slabRow, slabRowFor } from '../slab-row';
 import { wallRow } from '../wall-row';
 import { punchingRow } from '../punching-row';
-import { CIRSOC_SLAB_PLAN, type SlabPlanCode } from '../slab-plan';
+import { ACI_SLAB_PLAN, CIRSOC_SLAB_PLAN, type SlabPlanCode } from '../slab-plan';
+import { bentBarMandrel } from '../../codes/cirsoc201/bar-geometry';
 import { ec2Rules, ukRules } from '../ec2';
 import { ts500Rules } from '../ts500';
 import type { SheetCode } from '../types';
@@ -19,7 +20,7 @@ import type { BendRules } from '../shape';
 export interface SheetRules {
   beamRow: typeof beamRow;
   beamLine: typeof beamLine;
-  columnRow: typeof columnRow;
+  columnRow: ReturnType<typeof columnRowFor>;
   slabRow: typeof slabRow;
   wallRow: typeof wallRow;
   punchingRow: typeof punchingRow;
@@ -29,13 +30,19 @@ export interface SheetRules {
   seismic: boolean;
   /** Mandrels and hooks of the bars the sheets bend. */
   bends: BendRules;
+  /** Whether beam and column rows check their main bars' cover against CIRSOC 201 Table 20.5.1.3.1. */
+  coverTable?: boolean;
 }
 
-const aciFamily: SheetRules = { beamRow, beamLine, columnRow, slabRow, wallRow, punchingRow, slabPlan: CIRSOC_SLAB_PLAN, seismic: true, bends: ACI_BENDS };
+/** CIRSOC 201-2025's mandrels and hooks, and for bent-up bars the FIUBA course's 9·db, 12·db and 15·db (§11.4), which the code does not give. */
+export const CIRSOC_BENDS: BendRules = { ...ACI_BENDS, bentMandrel: bentBarMandrel, clause: '§25.3.1, §25.3.2; FIUBA §11.4' };
+
+const aciRules: SheetRules = { beamRow, beamLine, columnRow: columnRowFor(ACI_COLUMN), slabRow, wallRow, punchingRow, slabPlan: ACI_SLAB_PLAN, seismic: true, bends: ACI_BENDS };
+const cirsocRules: SheetRules = { ...aciRules, beamLine: (rows, c, a, fmt) => beamLine(rows, c, a, fmt, CIRSOC_2025_LINE), columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: true };
 
 const RULES: Record<SheetCode, SheetRules> = {
-  'cirsoc201-2025': aciFamily,
-  'aci318-19': aciFamily,
+  'cirsoc201-2025': cirsocRules,
+  'aci318-19': aciRules,
   'en1992-1-1': ec2Rules,
   'bs-en1992-1-1': ukRules,
   'ts500-2000': ts500Rules,

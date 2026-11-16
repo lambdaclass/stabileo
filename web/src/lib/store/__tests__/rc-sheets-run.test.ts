@@ -13,8 +13,9 @@ import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, setAdopted, setSheetCode, sheetRowsSteps } from '../rc-sheets.svelte';
-import { clearSheets, designSheets, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
+import { changeSheetCode, clearSheets, designSheets, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
 import { solveAndDesign } from '../rc-sheets-solve.svelte';
+import { setScheduleSettings } from '../rc-sheets-schedule';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -88,6 +89,29 @@ describe('designing the sheets on asking', () => {
     await designSheets();
     expect(sheetsStale()).toBe(false);
     expect(sheetsRun.rows!.code).not.toBe(before!.code);
+  });
+
+  it('no older when the schedule\'s waste or mark scope change, which only order the bars', async () => {
+    solvedFrame();
+    await designSheets();
+    setScheduleSettings({ waste: 0.2, scope: 'project' });
+    expect(sheetsStale()).toBe(false);
+  });
+
+  it('a change of code designs again at once, keeping the rows edited by hand; the code in force changes nothing', async () => {
+    solvedFrame();
+    await designSheets();
+    const before = sheetsRun.rows!;
+    await changeSheetCode('cirsoc201-2025');
+    expect(sheetsRun.rows).toBe(before);
+    setSheetCode('cirsoc201-2025');
+    expect(sheetsStale()).toBe(false);
+    const col = before.column[0]!;
+    setAdopted(col.key, { ...col.proposed, tieSpacing: 0.1 } as never);
+    await changeSheetCode('aci318-19');
+    expect(sheetsStale()).toBe(false);
+    expect(sheetsRun.rows!.code).not.toBe(before.code);
+    expect(sheetsRun.rows!.column.find((r) => r.key === col.key)!.adopted.tieSpacing).toBeCloseTo(0.1, 9);
   });
 
   it('out of date when the results change', async () => {

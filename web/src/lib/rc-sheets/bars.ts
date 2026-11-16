@@ -29,8 +29,9 @@ const rowCapacity = (inner: number, dia: number) => {
 /**
  * Each bar of a face, row by row from the face in: across from the left side and in from the face, m.
  * The first group's two bars hold the corners; the rest fill the first row symmetrically, the largest
- * first, as many as the least clear spacing lets in, and only what does not fit goes to the next row,
- * so the steel sits as far from the neutral axis as it can.
+ * first, as many as the least clear spacing lets in: equal bars mirrored in pairs, then the odd ones
+ * mirrored by size with the largest left over in the middle. Only what does not fit goes to the next
+ * row, so the steel sits as far from the neutral axis as it can.
  */
 export function faceBars(groups: readonly BarGroup[], b: number, cover: number, stirrupDia: number): Array<{ x: number; depth: number; dia: number; row: number }> {
   const used = groups.filter((g) => g.count > 0);
@@ -48,20 +49,18 @@ export function faceBars(groups: readonly BarGroup[], b: number, cover: number, 
     const edgeDias = first && corner.count >= 2 ? [corner.dia, corner.dia] : [];
     const big = Math.max(...edgeDias, ...pool.slice(0, 1), 0);
     const slots = rowCapacity(inner, big) - edgeDias.length;
-    const inside: number[] = [];
     const counts = new Map<number, number>();
     for (const d of pool) counts.set(d, (counts.get(d) ?? 0) + 1);
+    const pairs: Array<[number, number]> = [];
     for (const d of [...counts.keys()].sort((p, q) => q - p)) {
-      while ((counts.get(d) ?? 0) >= 2 && inside.length + 2 <= slots) { inside.push(d, d); counts.set(d, counts.get(d)! - 2); }
+      while ((counts.get(d) ?? 0) >= 2 && 2 * pairs.length + 2 <= slots) { pairs.push([d, d]); counts.set(d, counts.get(d)! - 2); }
     }
-    if (inside.length < slots && inside.length % 2 === 0) {
-      const single = [...counts.entries()].filter(([, n]) => n > 0).sort((p, q) => q[0] - p[0])[0];
-      if (single && inside.length < slots) { inside.push(single[0]); counts.set(single[0], single[1] - 1); }
-    }
-    const pairs: number[] = [];
-    for (let i = 0; i + 1 < inside.length; i += 2) pairs.push(inside[i]!);
-    const centre = inside.length % 2 === 1 ? [inside[inside.length - 1]!] : [];
-    const ordered = [...edgeDias.slice(0, 1), ...pairs, ...centre, ...[...pairs].reverse(), ...edgeDias.slice(1)];
+    const singles = [...counts.entries()].flatMap(([d, n]) => Array<number>(n).fill(d)).sort((p, q) => q - p);
+    const taken = singles.slice(0, Math.max(0, Math.min(singles.length, slots - 2 * pairs.length)));
+    const centre = taken.length % 2 === 1 ? [taken.shift()!] : [];
+    for (let i = 0; i + 1 < taken.length; i += 2) pairs.push([taken[i]!, taken[i + 1]!]);
+    const inside = [...pairs.flat(), ...centre];
+    const ordered = [...edgeDias.slice(0, 1), ...pairs.map((p) => p[0]), ...centre, ...[...pairs].reverse().map((p) => p[1]), ...edgeDias.slice(1)];
     if (!ordered.length) break;
     rows.push(ordered);
     for (const d of inside) pool.splice(pool.indexOf(d), 1);

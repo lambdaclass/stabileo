@@ -23,6 +23,15 @@ describe('bars of a beam face', () => {
     expect(faceLayout([{ count: 2, dia: 16 }, { count: 6, dia: 20 }], 0.25, 0.025, 8).fits).toBe(true);
   });
 
+  it('fills the row with odd bars of different sizes while it has room, mirrored about the middle', () => {
+    const bars = faceBars([{ count: 2, dia: 16 }, { count: 1, dia: 20 }, { count: 1, dia: 12 }, { count: 1, dia: 10 }], 0.4, 0.025, 8);
+    expect(new Set(bars.map((b) => b.row))).toEqual(new Set([0]));
+    expect(bars.map((b) => b.dia)).toEqual([16, 12, 20, 10, 16]);
+    const xs = bars.map((b) => b.x);
+    xs.forEach((x, i) => expect(x + xs[xs.length - 1 - i]!).toBeCloseTo(0.4, 9));
+    expect(faceBars([{ count: 2, dia: 16 }, { count: 1, dia: 20 }, { count: 1, dia: 12 }], 0.4, 0.025, 8).map((b) => b.row)).toEqual([0, 0, 0, 0]);
+  });
+
   it('sits the steel nearer the face than one row per group did', () => {
     const one = faceLayout([{ count: 2, dia: 12 }, { count: 3, dia: 16 }], 0.3, 0.025, 8).centroidFromFace;
     expect(one).toBeCloseTo(0.025 + 0.008 + 0.016 / 2, 9);

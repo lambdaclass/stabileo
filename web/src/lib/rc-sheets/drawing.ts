@@ -1,5 +1,5 @@
 import { faceBars } from './bars';
-import { bracedFaceBars, columnBars } from './column-row';
+import { bracedFaceBars, columnBars, innerCrossties } from './column-row';
 import type { BarGroup, ColumnAdopted, Stirrups } from './types';
 
 /** A rectangular section to draw, in metres from its bottom-left corner. */
@@ -25,7 +25,7 @@ export function beamSection(b: number, h: number, cover: number, top: readonly B
   return { b, h, cover, tieDia: sd, bars, ties };
 }
 
-/** A column section: its bars as the design places them, and the crossties §25.7.2.3 asks for. */
+/** A column section: its bars as the design places them, and the crossties §25.7.2.3 asks for, the inner row's among them. */
 export function columnSection(b: number, h: number, cover: number, a: ColumnAdopted): SectionDrawing {
   const ctx = { mat: { fc: 0, fy: 0 }, cover, tieDia: a.tieDia, diameters: [] };
   const diaAt = (i: number) => (i < 4 ? a.corner : i < 4 + 2 * a.nx ? a.dx : i < 4 + 2 * a.nx + 2 * a.ny ? a.dy : a.inner?.dia ?? a.dy);
@@ -38,6 +38,9 @@ export function columnSection(b: number, h: number, cover: number, a: ColumnAdop
   for (const i of bracedFaceBars(h, a.ny, a.dy, a.corner, { cover }, a.tieDia)) {
     const y = edge + (i * (h - 2 * edge)) / (a.ny + 1);
     ties.push({ x1: leg, y1: y, x2: b - leg, y2: y });
+  }
+  for (const t of innerCrossties({ b, h }, a, { cover }).ties) {
+    ties.push(t.across === 'h' ? { x1: b / 2 + t.at, y1: (h - t.length) / 2, x2: b / 2 + t.at, y2: (h + t.length) / 2 } : { x1: (b - t.length) / 2, y1: h / 2 + t.at, x2: (b + t.length) / 2, y2: h / 2 + t.at });
   }
   return { b, h, cover, tieDia: a.tieDia, bars, ties };
 }

@@ -3,7 +3,7 @@
  * fitted to a box of its own (a 15 cm tie leg and a 7 m bar share no scale worth drawing at).
  * The legs are labelled once per distinct length and direction, as a schedule writes them.
  */
-import { bendAngles, developedLength, legLengths, type BarShape } from '../shape';
+import { bendAngles, developedLength, lapLength, legLengths, type BarShape } from '../shape';
 import type { Pt2, RcShapeDiagram, RcShapeLeg } from './bar-shape-diagram';
 
 /** A bar shape as a schedule diagram: legs between the intersections of their centrelines. */
@@ -15,7 +15,7 @@ export function sketchOf(s: BarShape): RcShapeDiagram {
   });
   const r = (s.mandrel + s.dia / 1000) / 2;
   const tangents = bendAngles(s).reduce((acc, t) => acc + 2 * r * Math.tan(t / 2), 0);
-  const straightM = legs.reduce((acc, l) => acc + l.lengthM, 0) - tangents;
+  const straightM = legs.reduce((acc, l) => acc + l.lengthM, 0) - tangents + lapLength(s);
   const xs = points.map((p) => p.x), ys = points.map((p) => p.y);
   return {
     points,

@@ -52,6 +52,8 @@ export interface DemandInput {
   faceOffset?: (elementId: number, end: 'i' | 'j') => number;
   /** The slab beside a beam element as flange sides; given only when beams are designed with the slab as a compression flange (Table 6.3.2.1). */
   flangeSides?: (elementId: number) => readonly FlangeSide[] | undefined;
+  /** On how many sides a beam element has slab. */
+  slabSides?: (elementId: number) => number;
 }
 
 const zOf = (p: Pt | undefined) => p?.z ?? 0;
@@ -212,19 +214,22 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       const faceJ = m.faces && m.faceOffset ? Math.min(L / 3, m.faceOffset(lastEl.e.id, lastEl.forward ? 'j' : 'i')) : 0;
       const x0 = faceI, x1 = L - faceJ;
       const dv = 0.9 * (turned ? sec.b : sec.h);
-      const v0 = m.faces ? Math.min(x0 + dv, L / 2) : 0, v1 = m.faces ? Math.max(x1 - dv, L / 2) : L;
+      const startNode = span[0]!.forward ? first.nodeI : first.nodeJ, endNode = lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI;
+      const endS = endOf(m, inc, mine, startNode, m.faceOffset?.(first.id, span[0]!.forward ? 'i' : 'j') ?? 0);
+      const endE = endOf(m, inc, mine, endNode, m.faceOffset?.(lastEl.e.id, lastEl.forward ? 'j' : 'i') ?? 0);
+      const v0 = !m.faces ? 0 : endS.kind === 'beam' ? x0 : Math.min(x0 + dv, L / 2), v1 = !m.faces ? L : endE.kind === 'beam' ? x1 : Math.max(x1 - dv, L / 2);
       let xStar = (x0 + x1) / 2, best = 0;
       stations.forEach((list) => { for (const { x, s } of list) if (x >= x0 - 1e-9 && x <= x1 + 1e-9 && s[flex] > best) { best = s[flex]; xStar = x; } });
       const start = emptySection(x0), mid = emptySection(xStar), end = emptySection(x1);
       let negAny: Signed = { value: 0 }, nNegAny = 0, vu: Signed = { value: 0 }, nV = 0, tu: Signed = { value: 0 };
       const combos: BeamComboForces[] = [];
       const xs = [...new Set([...Array.from({ length: 33 }, (_, i) => (i / 32) * L), x0, x1, xStar].map((x) => Math.round(x * 1e4) / 1e4))].sort((p, q) => p - q);
-      const env = xs.map((x) => ({ x, pos: 0, neg: 0, v: 0, vPos: 0, vNeg: 0 }));
+      const env = xs.map((x) => ({ x, pos: 0, neg: 0, v: 0, vPos: 0, vNeg: 0, t: 0 }));
       m.sets.forEach((set, i) => {
         const list = stations[i]!;
         if (!list.length) return;
         const at = (x: number) => forcesAt(m, span, set, x) ?? list.reduce((a, b) => (Math.abs(b.x - x) < Math.abs(a.x - x) ? b : a)).s;
-        xs.forEach((x, k) => { const f = at(x); const e = env[k]!; e.pos = Math.max(e.pos, f[flex]); e.neg = Math.max(e.neg, -f[flex]); e.v = Math.max(e.v, Math.abs(f[shear])); e.vPos = Math.max(e.vPos, f[shear]); e.vNeg = Math.max(e.vNeg, -f[shear]); });
+        xs.forEach((x, k) => { const f = at(x); const e = env[k]!; e.pos = Math.max(e.pos, f[flex]); e.neg = Math.max(e.neg, -f[flex]); e.v = Math.max(e.v, Math.abs(f[shear])); e.vPos = Math.max(e.vPos, f[shear]); e.vNeg = Math.max(e.vNeg, -f[shear]); e.t = Math.max(e.t, Math.abs(f.torsion)); });
         const s0 = at(x0), sm = at(xStar), s1 = at(x1);
         const extra = m.faces ? [{ x: v0, s: at(v0) }, { x: v1, s: at(v1) }] : [];
         take(start, s0[flex], -s0.n, set.name); take(mid, sm[flex], -sm.n, set.name); take(end, s1[flex], -s1.n, set.name);
@@ -250,10 +255,8 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         faces: m.faces ? { start: faceI, end: faceJ, shearAt: dv } : undefined,
         ...(m.faceOffset ? { supportHalf: { start: m.faceOffset(first.id, span[0]!.forward ? 'i' : 'j'), end: m.faceOffset(lastEl.e.id, lastEl.forward ? 'j' : 'i') } } : {}),
         line: { group: g.id, index: k, spans: spans.length, startNode: span[0]!.forward ? first.nodeI : first.nodeJ, endNode: lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI, lineName: g.name },
-        ends: {
-          start: endOf(m, inc, mine, span[0]!.forward ? first.nodeI : first.nodeJ, m.faceOffset?.(first.id, span[0]!.forward ? 'i' : 'j') ?? 0),
-          end: endOf(m, inc, mine, lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI, m.faceOffset?.(lastEl.e.id, lastEl.forward ? 'j' : 'i') ?? 0),
-        },
+        ends: { start: endS, end: endE },
+        ...(m.slabSides ? { perimeter: span.some(({ e }) => m.slabSides!(e.id) < 2) } : {}),
         env,
         ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, span, sec.b, x1 - x0) : null),
       });
@@ -368,6 +371,26 @@ function wideBeamShear(rows: ReadonlyArray<{ key: string; q: readonly number[] }
 }
 
 /**
+ * The shell elements within d of a column's footprint at the slab: the shear there belongs to
+ * punching or to the beam–column joint, not to one-way shear. Footprints b along X, h along Y.
+ */
+export function shellsNearColumns(m: Pick<DemandInput, 'elements' | 'nodes' | 'sections'>, boxes: ReadonlyMap<string, { x0: number; x1: number; y0: number; y1: number }>, ext: { x0: number; x1: number; y0: number; y1: number; z: number }, d: number): Set<string> {
+  const feet: Array<{ x0: number; x1: number; y0: number; y1: number }> = [];
+  for (const e of m.elements.values()) {
+    if (!isVertical(m as DemandInput, e)) continue;
+    const sec = m.sections.get(e.sectionId), b = sec?.b ?? 0.3, h = sec?.h ?? 0.3;
+    for (const n of [e.nodeI, e.nodeJ]) {
+      const p = m.nodes.get(n);
+      if (!p || Math.abs(zOf(p) - ext.z) > 0.05 || p.x < ext.x0 - b || p.x > ext.x1 + b || p.y < ext.y0 - h || p.y > ext.y1 + h) continue;
+      feet.push({ x0: p.x - b / 2 - d, x1: p.x + b / 2 + d, y0: p.y - h / 2 - d, y1: p.y + h / 2 + d });
+    }
+  }
+  const out = new Set<string>();
+  for (const [k, q] of boxes) if (feet.some((f) => q.x0 < f.x1 - 1e-9 && q.x1 > f.x0 + 1e-9 && q.y0 < f.y1 - 1e-9 && q.y1 > f.y0 + 1e-9)) out.add(k);
+  return out;
+}
+
+/**
  * One-way shear of a slab where the code reads it, d beyond the support face (§22.5, §7.4.3.2): the
  * largest of the shear interpolated at d between the rows of elements on either side, and the
  * shear of every row farther in. Samples are each element's distance from the face, m, and |q|.
@@ -430,16 +453,19 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     const h = thickness(g);
     if (!h) continue;
     const posts = slabPosts(m, keys, h);
-    const centre = new Map([...keys].map((k) => {
+    const boxOf = new Map([...keys].map((k) => {
       const pts = (k[0] === 'q' ? quadNodes(Number(k.slice(1))) : plateNodes(Number(k.slice(1)))).map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p);
-      return [k, { x: pts.reduce((a, p) => a + p.x, 0) / Math.max(pts.length, 1), y: pts.reduce((a, p) => a + p.y, 0) / Math.max(pts.length, 1) }] as const;
+      const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+      return [k, { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }] as const;
     }));
+    const centre = new Map([...boxOf].map(([k, b]) => [k, { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }] as const));
     const best: Record<SlabFace, Signed> = { bottomX: { value: 0 }, bottomY: { value: 0 }, topX: { value: 0 }, topY: { value: 0 } };
     const q = { x: { value: 0 } as Signed, y: { value: 0 } as Signed };
     const xs0 = pts.map((p) => p.x), ys0 = pts.map((p) => p.y);
     const ext = { x0: Math.min(...xs0), x1: Math.max(...xs0), y0: Math.min(...ys0), y1: Math.max(...ys0), z: pts.reduce((a, p) => a + zOf(p), 0) / pts.length };
     const faces = edgeFaces(m, ext);
     const dSlab = Math.max(0.05, h - 0.03);
+    const nearColumn = shellsNearColumns(m, boxOf, ext, dSlab);
     const fromFace = (c: { x: number; y: number }, axis: 'x' | 'y') =>
       axis === 'x' ? Math.min(c.x - ext.x0 - faces.x0, ext.x1 - faces.x1 - c.x) : Math.min(c.y - ext.y0 - faces.y0, ext.y1 - faces.y1 - c.y);
     const combos: SlabComboForces[] = [];
@@ -457,7 +483,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
           if (wa[f] > best[f].value) best[f] = { value: wa[f], source: { combo: set.name } };
         }
         const sh = row.global.shear;
-        if (sh) { shears.push({ key, q: sh }); c.qx = Math.max(c.qx, Math.abs(sh[0])); c.qy = Math.max(c.qy, Math.abs(sh[1])); }
+        if (sh && !nearColumn.has(key)) { shears.push({ key, q: sh }); c.qx = Math.max(c.qx, Math.abs(sh[0])); c.qy = Math.max(c.qy, Math.abs(sh[1])); }
       }
       const wide = wideBeamShear(shears, centre, posts);
       if (wide) { c.qx = wide.qx; c.qy = wide.qy; }

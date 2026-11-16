@@ -315,6 +315,11 @@ export interface FlexureOptions {
   edition?: RegulationEdition;
   /** A compression flange (T or L section), m. Absent: a rectangle of width `b`. */
   flange?: { bf: number; hf: number };
+  /**
+   * §9.6.1.3: the minimum of §9.6.1.1–2 need not be met where the steel placed is at least a third
+   * more than required, so the requirement is max(As; min(As,min; 4/3·As)). Absent: the full minimum.
+   */
+  minimumExemption?: boolean;
 }
 
 interface EngineFlexureDesign {
@@ -375,7 +380,7 @@ export function checkFlexure(
     AsMin = minFlexuralSteelCm2(fc, fy, b, d);
     // No steel within the engine's search (tension steel up to 10 % of Ag) works: report that
     // bound, which is above every feasible requirement, so the answer never falls as Mu rises.
-    AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, AsMin);
+    AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, opts.minimumExemption ? Math.min(AsMin, (4 / 3) * design.As) : AsMin);
     first ??= { d, design, AsMin, AsDesign };
     rebar = selectRebar(AsDesign);
     rebarComp = design.kind === 'doubly' ? selectRebar(Math.max(design.AsComp, AsMin * 0.5)) : undefined;
