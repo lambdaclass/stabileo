@@ -57,6 +57,7 @@ for (const swap of [false, true]) for (const vcZero of [false, true]) for (const
 for (const swap of [false, true]) for (const fallback of [
   { diameter: 16, legs: 4, secondaryLegs: 4, spacing: 0.2 },
   { diameter: 8, legs: 1, secondaryLegs: 2, spacing: 0.05 },
+  { diameter: 8, legs: 2, secondaryLegs: 2, spacing: 0.2 },
 ]) for (const explicit of ['both', 'start', 'end'] as const) {
   it(`known wrong result: #2198 seismic overridden fallback ${swap} ${JSON.stringify(fallback)} ${explicit}`, () => {
     state.ve = 120;
@@ -80,9 +81,15 @@ for (const swap of [false, true]) for (const fallback of [
       return limits.some(s => s === null) ? [] : [{ diameter: dia, spacing: Math.floor(Math.min(0.15, ...limits as number[], ...used.map(c => c.spacing)) * 40 + 1e-9) / 40 }];
     });
     expect(candidates.length).toBeGreaterThan(0);
-    for (const [key, prior] of [['stirrupsStart', start], ['stirrupsEnd', end]] as const) {
-      if (!original.regions[key]) continue;
-      expect(state.reinforcement.regions![key]).toEqual({ ...prior, ...candidates[0] });
+    for (const [key, prior] of [['stirrupsStart', used[0]!], ['stirrupsEnd', used[1]!]] as const) {
+      const cage = state.reinforcement.regions![key] ?? state.reinforcement.regions!.stirrupsSupport!;
+      expect(cage).toEqual({ ...prior, ...candidates[0] });
+      const d = 0.6 - 0.025 - cage.diameter / 1000 - 0.008;
+      const strength = 0.75 * cage.legs * (Math.PI * (cage.diameter / 1000) ** 2 / 4) * 420000 * d / cage.spacing;
+      expect(strength).toBeGreaterThanOrEqual(state.ve);
+    }
+    if (explicit !== 'both') {
+      expect(state.reinforcement.regions!.stirrupsSupport).toEqual({ ...fallback, ...candidates[0] });
     }
   });
 }
