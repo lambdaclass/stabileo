@@ -117,6 +117,8 @@ export const barActsAt = (b: Pick<LineBar, 'runs'>, face: 'top' | 'bottom', x: n
   b.runs.some((r) => r.face === face && x >= r.from - tol && x <= r.to + tol);
 
 const BEND_ANGLE = 45;
+/** The most bars the proposal puts in a continuous run before it takes a larger diameter. */
+const RUN_BARS = 4;
 /** Clear distance between the two halves of a staggered lap, m. */
 const STAGGER_GAP = 0.1;
 
@@ -235,9 +237,10 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
   };
 
   const propose = (): LineAdopted => {
-    const minBottom = Math.max(...spans.map((s) => code.minBottom(c, s.b, s.d)));
+    const minBottom = Math.min(Math.max(...spans.map((s) => code.minBottom(c, s.b, s.d))), (4 / 3) * Math.max(...sorted.map((r) => r.req.bottom)));
     const aCb = Math.max(minBottom, bottomRunNeed());
-    const bottom = { dia: botDia, count: Math.max(2, Math.ceil(aCb / barArea(botDia) - 1e-9)) };
+    const runDia = [...c.diameters].filter((d) => d >= botDia).sort((p, q) => p - q).find((d) => Math.ceil(aCb / barArea(d) - 1e-9) <= RUN_BARS) ?? botDia;
+    const bottom = { dia: runDia, count: Math.max(2, Math.ceil(aCb / barArea(runDia) - 1e-9)) };
     const spanHog = Math.max(0, ...sorted.map((r) => reqAt(r, 'neg', 'span')));
     const topNeed = Math.max(spanHog, negMax / 6), hangers = Math.max(2, Math.ceil(topNeed / barArea(hanger) - 1e-9));
     const top = hangers <= 3 ? { dia: hanger, count: hangers } : { dia: topDia, count: Math.max(2, Math.ceil(topNeed / barArea(topDia) - 1e-9)) };
@@ -482,11 +485,16 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
       if (JSON.stringify(next) !== JSON.stringify(proposed)) { proposed = next; bars = layout(proposed); env = verify(proposed, bars); iterate(); }
     }
     const piOk = () => inflectionsOf(env, proposed.bottom).every((x) => x.ld <= x.reach + 1e-6);
-    for (const dia of [...c.diameters].filter((d) => d >= 10 && d < proposed.bottom.dia).sort((p, q) => q - p)) {
-      if (piOk()) break;
-      const next: LineAdopted = JSON.parse(JSON.stringify(proposed));
-      next.bottom = { dia, count: Math.max(2, Math.ceil((proposed.bottom.count * barArea(proposed.bottom.dia)) / barArea(dia) - 1e-9)) };
-      proposed = next; bars = layout(proposed); env = verify(proposed, bars); iterate();
+    if (!piOk()) {
+      const kept = { proposed, bars, env, iterations };
+      let found = false;
+      for (const dia of [...c.diameters].filter((d) => d >= 10 && d < kept.proposed.bottom.dia).sort((p, q) => q - p)) {
+        const next: LineAdopted = JSON.parse(JSON.stringify(kept.proposed));
+        next.bottom = { dia, count: Math.max(2, Math.ceil((kept.proposed.bottom.count * barArea(kept.proposed.bottom.dia)) / barArea(dia) - 1e-9)) };
+        proposed = next; bars = layout(proposed); env = verify(proposed, bars); iterate();
+        if (piOk()) { found = true; break; }
+      }
+      if (!found) ({ proposed, bars, env, iterations } = kept);
     }
   }
   const a = adopted ?? proposed;

@@ -205,6 +205,14 @@ describe('TS 500 lines', () => {
 describe('the course notes and CIRSOC 201-2025 on a line', () => {
   const simple: BeamEnd = { kind: 'support', half: 0.15 };
 
+  it('sizes a light line\'s bottom run to min(As,min; 4/3·As) (§9.6.1.3) in at most four bars', () => {
+    const { line, rows } = lineOf([{ L: 6, h: 0.75 }, { L: 6, h: 0.75 }, { L: 6, h: 0.75 }], {}, undefined, undefined, 10);
+    const req = Math.max(...rows.map((r) => r.req.bottom));
+    const asMin = CIRSOC_LINE.minBottom(bctx, 0.3, 0.75 - 0.025 - 0.008 - 0.01);
+    expect(line.adopted.bottom.count).toBeLessThanOrEqual(4);
+    expect(line.adopted.bottom.count * Math.PI * (line.adopted.bottom.dia / 20) ** 2).toBeGreaterThanOrEqual(Math.min(asMin, (4 / 3) * req) - 1e-9);
+  });
+
   it('carries a third of the span steel and 0.75·Vu/fy into a simple support, a quarter into a column', () => {
     const { line, rows } = lineOf([{ L: 6, h: 0.5 }], {}, undefined, [simple, simple], 0);
     const area = line.adopted.bottom.count * Math.PI * (line.adopted.bottom.dia / 20) ** 2;
