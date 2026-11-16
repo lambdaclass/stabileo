@@ -31,7 +31,7 @@
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-narrow-partial-loads.md",
-    "heading": "Compensated force totals and remapped load integrals (round 6, #2223)"
+    "heading": "Compensated force totals and remapped load refusal (round 6–7, #2223)"
   },
   "when": {}
 }

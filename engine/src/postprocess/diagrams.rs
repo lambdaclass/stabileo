@@ -76,11 +76,12 @@ pub(crate) fn build_sampling_positions(
 /// and its ±1e-6 neighbours (the axial diagram only when it has axial point
 /// loads). The certified gaps between stations (`certify::stations`) use this.
 pub fn diagram_positions_2d(ef: &ElementForces, kind: &str) -> Vec<f64> {
+    if let Err(error) = validate_diagram_loads_2d(ef) { panic!("{error}"); }
     let has_axial_pl = ef.point_loads.iter().any(|pl| pl.px.is_some_and(|px| px.abs() > 1e-15));
     if kind == "axial" && !has_axial_pl {
         (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect()
     } else {
-        build_sampling_positions(ef.length, ef.point_loads.iter().map(|p| p.a).chain(narrow_positions(&ef.distributed_loads).filter(|_| kind != "axial")))
+        build_sampling_positions(ef.length, ef.point_loads.iter().map(|p| p.a))
     }
 }
 
@@ -128,13 +129,14 @@ pub fn cubic_stationary_points(g: &dyn Fn(f64) -> f64, lo: f64, hi: f64) -> Vec<
 /// Stations (t ∈ [0, 1]) where diagram `kind` of one member can peak off the regular grid: both
 /// sides of each point load, every load discontinuity, and every stationary point of each piece between them.
 pub fn diagram_peak_stations_2d(ef: &ElementForces, kind: &str, sorted_pl: &[PointLoadInfo]) -> Vec<f64> {
+    if let Err(error) = validate_diagram_loads_2d(ef) { panic!("{error}"); }
     let len = ef.length;
     if !(len > 0.0) {
         return vec![];
     }
     let mut out = Vec::new();
     let mut cuts = vec![0.0, 1.0];
-    for a in sorted_pl.iter().map(|p| p.a).chain(narrow_positions(&ef.distributed_loads)) {
+    for a in sorted_pl.iter().map(|p| p.a) {
         let t = (a / len).clamp(0.0, 1.0);
         cuts.push(t);
         out.push((t - 1e-9).max(0.0));
@@ -198,6 +200,7 @@ pub fn compute_diagram_value_at_sorted(
     ef: &ElementForces,
     sorted_pl: &[PointLoadInfo],
 ) -> f64 {
+    if let Err(error) = validate_diagram_loads_2d(ef) { panic!("{error}"); }
     let xi = t * ef.length;
 
     let v_start = ef.v_start;
@@ -372,7 +375,6 @@ pub fn compute_diagrams_2d(
 enum MemberLoad {
     Force { a: f64, p: f64 },
     Couple { a: f64, c: f64 },
-    ForceCouple { a: f64, c: f64 },
     Distributed { qi: f64, qj: f64, a: f64, b: f64 },
 }
 
@@ -418,13 +420,12 @@ impl MemberDeflection {
         for load in &self.loads {
             match *load {
                 MemberLoad::Force { a, p } => add(&mut out, p, x - a),
-                MemberLoad::Couple { a, c } | MemberLoad::ForceCouple { a, c } => {
+                MemberLoad::Couple { a, c } => {
                     let d = x - a;
                     if d > 0.0 {
                         out[0] -= c;
                         out[1] -= c * d;
                         out[2] -= c * d * d / 2.0;
-                        if matches!(load, MemberLoad::ForceCouple { .. }) { out[3] -= c; }
                     }
                 }
                 MemberLoad::Distributed { qi, qj, a, b } => {
@@ -462,14 +463,11 @@ impl MemberDeflection {
         points: Vec<(f64, f64)>, dist: Vec<(f64, f64, f64, f64)>, couples: Vec<(f64, f64)>,
         kappa: f64,
     ) -> Self {
+        for &(_, _, a, b) in &dist {
+            if let Err(error) = crate::element::validate_member_load_width("Member recovery", l, a, b) { panic!("{error}"); }
+        }
         let loads = points.into_iter().map(|(a, p)| MemberLoad::Force { a, p })
-            .chain(dist.into_iter().flat_map(|(qi, qj, a, b)| {
-                if b <= a {
-                    Vec::new()
-                } else if let Some((p, c, at)) = crate::element::narrow_distributed_load(qi, qj, a, b) {
-                    vec![MemberLoad::Force { a: at, p }, MemberLoad::ForceCouple { a: at, c }]
-                } else { vec![MemberLoad::Distributed { qi, qj, a, b }] }
-            }))
+            .chain(dist.into_iter().map(|(qi, qj, a, b)| MemberLoad::Distributed { qi, qj, a, b }))
             .chain(couples.into_iter().map(|(a, c)| MemberLoad::Couple { a, c }))
             .collect();
         let mut d = MemberDeflection { ei, flex_s, v_i, theta_i: 0.0, m0: 0.0, s0: 0.0, loads };
@@ -483,7 +481,7 @@ impl MemberDeflection {
         );
         let end_couples: f64 = d.loads.iter().filter_map(|load| match *load {
             MemberLoad::Couple { a, c } if a >= l => Some(c),
-            MemberLoad::Couple { .. } | MemberLoad::ForceCouple { .. } | MemberLoad::Force { .. } | MemberLoad::Distributed { .. } => None,
+            MemberLoad::Couple { .. } | MemberLoad::Force { .. } | MemberLoad::Distributed { .. } => None,
         }).sum();
         let r3 = if hinge_end {
             ([0.0, 1.0, l], free + end_couples - mql)
@@ -650,6 +648,9 @@ pub struct MemberSample {
 }
 
 pub fn recover_member(input: &MemberRecoveryInput) -> Result<Vec<MemberSample>, String> {
+    for d in &input.dist {
+        crate::element::validate_member_load_interval("Member recovery", input.length, d.a, d.b)?;
+    }
     let minimum_ei = match input.space {
         RecoverySpace::Planar => 1e-6,
         RecoverySpace::Spatial => 0.0,
@@ -1142,7 +1143,9 @@ mod recovery_round4_2143 {
 }
 
 
-pub(super) fn narrow_positions(loads: &[DistributedLoadInfo]) -> impl Iterator<Item = f64> + '_ {
-    loads.iter().filter_map(|d| crate::element::narrow_distributed_load(d.q_i,d.q_j,d.a,d.b)
-        .map(|(_,_,a)| a))
+pub fn validate_diagram_loads_2d(ef: &ElementForces) -> Result<(), String> {
+    for d in ef.distributed_loads.iter().chain(&ef.distributed_loads_x) {
+        crate::element::validate_member_load_interval(&format!("Element {}", ef.element_id), ef.length, d.a, d.b)?;
+    }
+    Ok(())
 }

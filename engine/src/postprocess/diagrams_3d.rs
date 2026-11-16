@@ -1,6 +1,6 @@
 use crate::types::*;
 use serde::{Deserialize, Serialize};
-use super::diagrams::{build_sampling_positions,narrow_positions};
+use super::diagrams::build_sampling_positions;
 
 // ==================== Types ====================
 
@@ -36,18 +36,14 @@ pub struct DiagramResults3D {
 /// `kind` of one member: a regular grid of 21, plus the position and ±1e-6
 /// neighbours of each point load acting in that diagram's plane.
 pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
+    if let Err(error) = validate_diagram_loads_3d(ef) { panic!("{error}"); }
     let relevant_pl: &[PointLoadInfo3D] = match kind {
         "momentZ" | "shearY" => &ef.point_loads_y,
         "momentY" | "shearZ" => &ef.point_loads_z,
         "axial" => &ef.point_loads_x,
         _ => &[],
     };
-    let dist: &[DistributedLoadInfo] = match kind {
-        "momentZ" | "shearY" => &ef.distributed_loads_y,
-        "momentY" | "shearZ" => &ef.distributed_loads_z,
-        _ => &[],
-    };
-    build_sampling_positions(ef.length, relevant_pl.iter().map(|p| p.a).chain(narrow_positions(dist)))
+    build_sampling_positions(ef.length, relevant_pl.iter().map(|p| p.a))
 }
 
 // ==================== Evaluate at t ====================
@@ -70,6 +66,7 @@ pub fn evaluate_diagram_3d_at(
     kind: &str,
     t: f64,
 ) -> f64 {
+    if let Err(error) = validate_diagram_loads_3d(ef) { panic!("{error}"); }
     let l = ef.length;
     let x = t * l;
 
@@ -190,4 +187,11 @@ pub fn compute_diagrams_3d(results: &AnalysisResults3D) -> DiagramResults3D {
         axial: all.remove(0),
         torsion: all.remove(0),
     }
+}
+
+pub fn validate_diagram_loads_3d(ef: &ElementForces3D) -> Result<(), String> {
+    for d in ef.distributed_loads_x.iter().chain(&ef.distributed_loads_y).chain(&ef.distributed_loads_z) {
+        crate::element::validate_member_load_interval(&format!("Element {}", ef.element_id), ef.length, d.a, d.b)?;
+    }
+    Ok(())
 }

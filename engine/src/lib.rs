@@ -657,6 +657,9 @@ pub fn compute_diagrams_2d(json: &str) -> Result<String, JsValue> {
     }
     let data: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    for ef in &data.results.element_forces {
+        postprocess::diagrams::validate_diagram_loads_2d(ef).map_err(|e| JsValue::from_str(&e))?;
+    }
     let diagrams = postprocess::diagrams::compute_diagrams_2d(&data.input, &data.results);
     to_json(&diagrams)
 }
@@ -666,6 +669,9 @@ pub fn compute_diagrams_2d(json: &str) -> Result<String, JsValue> {
 pub fn compute_diagrams_3d(json: &str) -> Result<String, JsValue> {
     let results: types::AnalysisResults3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    for ef in &results.element_forces {
+        postprocess::diagrams_3d::validate_diagram_loads_3d(ef).map_err(|e| JsValue::from_str(&e))?;
+    }
     let diagrams = postprocess::diagrams_3d::compute_diagrams_3d(&results);
     to_json(&diagrams)
 }
@@ -877,6 +883,7 @@ pub fn compute_diagram_value_at(json: &str) -> Result<f64, JsValue> {
     }
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    postprocess::diagrams::validate_diagram_loads_2d(&d.element_forces).map_err(|e| JsValue::from_str(&e))?;
     postprocess::diagrams::check_diagram_kind_2d(&d.kind).map_err(|e| JsValue::from_str(&e))?;
     boundary::finite_scalar(postprocess::diagrams::compute_diagram_value_at(&d.kind, d.t, &d.element_forces), &d.kind).map_err(|e| JsValue::from_str(&e))
 }
@@ -893,6 +900,7 @@ pub fn compute_diagram_value_at_3d(json: &str) -> Result<f64, JsValue> {
     }
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    postprocess::diagrams_3d::validate_diagram_loads_3d(&d.element_forces).map_err(|e| JsValue::from_str(&e))?;
     postprocess::diagrams_3d::check_diagram_kind_3d(&d.kind).map_err(|e| JsValue::from_str(&e))?;
     boundary::finite_scalar(postprocess::diagrams_3d::evaluate_diagram_3d_at(&d.element_forces, &d.kind, d.t), &d.kind).map_err(|e| JsValue::from_str(&e))
 }

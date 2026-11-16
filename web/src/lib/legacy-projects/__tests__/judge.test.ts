@@ -63,7 +63,7 @@ describe('which values a registered change declares it moves', () => {
 });
 
 describe('analysis-specific result changes', () => {
-  it('#2222 keeps point-load numerical changes unexplained and distributed corrections covered', () => {
+  it('#2222 keeps point-load changes unexplained and covers partial-load subdivision corrections', () => {
     const registered = RESULT_CHANGES.changes.find(c => c.id === 'narrow-partial-loads')!;
     const entry = { ...registered, quantities: declaredQuantities[registered.id]!.filter((q): q is string => typeof q === 'string') };
     const summary = RESULT_CHANGES.changes.find(c => c.id === 'independent-applied-force-checks')!;
@@ -73,8 +73,7 @@ describe('analysis-specific result changes', () => {
         const features = [...modelFeatures({ analysisMode, loads: [{ type, data: { a: 1.5, b: 1.5 + 5e-13 } }] }), `analysis:${analysis}`];
         const prefix = analysis === 'linear' ? 'base' : `${analysis}.results`;
         for (const field of ['elementForces[e1].nStart', 'displacements[n2].uz']) {
-          const distributed = type.startsWith('distributed');
-          expect(fieldCovered(entry, `${prefix}.${field}`, features), `${type}: ${field}`).toBe(distributed);
+          expect(fieldCovered(entry, `${prefix}.${field}`, features), `${type}: ${field}`).toBe(type.startsWith('distributed'));
           expect(fieldCovered(summaryEntry, `${prefix}.${field}`, features)).toBe(false);
         }
         expect(fieldCovered(summaryEntry, `${prefix}.equilibrium.appliedForceSum`, features)).toBe(type !== 'nodal');
@@ -305,13 +304,13 @@ describe('against real corpus files', () => {
           'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
           'harmonic-modal-residual-checked', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
-          'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'independent-applied-force-checks',
+          'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'independent-applied-force-checks', 'compensated-applied-force-totals',
           ...(includeSSI ? ['ssi-support-reactions'] : []),
         ]));
         if (includeSSI) {
-        if (mainFirst) expect(opened.changes.slice(-12).map(c => c.id)).toEqual(orderedIds(['independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        if (mainFirst) expect(opened.changes.slice(-13).map(c => c.id)).toEqual(orderedIds(['compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
         } else {
-        if (mainFirst) expect(opened.changes.slice(-11).map(c => c.id)).toEqual(orderedIds(['independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        if (mainFirst) expect(opened.changes.slice(-12).map(c => c.id)).toEqual(orderedIds(['compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
         }
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
@@ -340,16 +339,16 @@ describe('against real corpus files', () => {
     const opened = await openAndSolve(readCorpusText('v0.4.0/cable-stayed-bridge.ded'));
     const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'cable-stayed-bridge')!;
     const then = readResults(`v0.4.0/${entry.results}`);
-    expect(resultFingerprint(opened.values)).toBe(appliedForceEvidence.afterFingerprint);
-    const mainValues = { ...opened.values };
+    expect(resultFingerprint(opened.values)).toBe(appliedForceEvidence.mainFingerprint);
+    const uncompensatedValues = { ...opened.values };
     for (const delta of appliedForceEvidence.changes) {
-      expect(opened.values[delta.path]).toBe(delta.after);
-      mainValues[delta.path] = delta.before;
+      expect(opened.values[delta.path]).toBe(delta.before);
+      uncompensatedValues[delta.path] = delta.after;
     }
-    expect(resultFingerprint(mainValues)).toBe(appliedForceEvidence.mainFingerprint);
+    expect(resultFingerprint(uncompensatedValues)).toBe(appliedForceEvidence.afterFingerprint);
     const baseline = judge('recorded bridge', then, opened.values, opened.changes);
     expect(baseline.kind, baseline.report).toBe('explained');
-    expect(baseline.explainedBy.some((id) => id.startsWith('independent-applied-force-checks '))).toBe(true);
+    expect(baseline.explainedBy).toEqual([`linear-stability-refusals (results v${RESULT_CHANGES.changes.find(c => c.id === 'linear-stability-refusals')!.resultsVersion})`]);
     for (const field of ['displacements.rz', 'displacements.uz', 'reactions.mz', 'elementForces.nStart']) {
       const [collection, component] = field.split('.');
       const path = Object.keys(then).find((k) => k.startsWith(`base.${collection}[`) && k.endsWith(`.${component}`) && typeof then[k] === 'number' && then[k] !== 0 && typeof opened.values[k] === 'number' && opened.values[k] !== 0)!;

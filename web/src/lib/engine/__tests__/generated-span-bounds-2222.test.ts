@@ -30,9 +30,12 @@ it('keeps a complete inclined influence load on its member #2222', () => {
   step.setBigUint64(0, bits - 1n);
   const inside = step.getFloat64(0);
   for (const [a, b] of [[-Number.MIN_VALUE, L], [0, outside], [L, 0]]) {
-    expect(() => uniformAlong(input, 1, a, b, 1, { x: 0, z: -1 })).toThrow('Invalid generated member load interval');
+    expect(() => uniformAlong(input, 1, a, b, 1, { x: 0, z: -1 })).toThrow('invalid distributed load interval');
   }
-  for (const [a, b] of [[0, 0], [L, L], [Number.MIN_VALUE, inside], [L / 4, 3 * L / 4]]) {
+  for (const [a, b] of [[0, 0], [L, L]]) {
+    expect(() => uniformAlong(input, 1, a, b, 1, { x: 0, z: -1 })).toThrow(/Element 1.*interval.*geometry limit/);
+  }
+  for (const [a, b] of [[Number.MIN_VALUE, inside], [L / 4, 3 * L / 4]]) {
     const partial = uniformAlong(input, 1, a, b, 1, { x: 0, z: -1 });
     const result = solve({ ...input, loads: partial });
     expect(result.reactions[0].rz).toBeCloseTo(b - a, 12);

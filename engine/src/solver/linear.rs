@@ -3463,7 +3463,7 @@ pub(crate) fn validate_input_2d_for_analysis(input: &SolverInput, analysis: crat
         let dx = nj.x - ni.x;
         let dz = nj.z - ni.z;
         let l = (dx * dx + dz * dz).sqrt();
-        if l < 1e-10 {
+        if l < crate::element::MEMBER_GEOMETRY_LIMIT {
             return Err(format!("Element {} has zero length", elem.id));
         }
     }
@@ -3506,14 +3506,10 @@ fn validate_distributed_load(
     components: impl IntoIterator<Item = (f64, f64)>,
 ) -> Result<(), String> {
     let (a, b) = (a.unwrap_or(0.0), b.unwrap_or(length));
-    if !a.is_finite() || !b.is_finite() || a < 0.0 || b < a || b > length {
-        return Err(format!("Element {id}: invalid distributed load interval [{a}, {b}] on length {length}"));
-    }
+    crate::element::validate_member_load_interval(&format!("Element {id}"), length, a, b)?;
     for (qi, qj) in components {
         if !qi.is_finite() || !qj.is_finite()
             || !crate::element::distributed_resultant(qi, qj, a, b).is_finite()
-            || crate::element::narrow_distributed_load(qi, qj, a, b)
-                .is_some_and(|(p, m, x)| !p.is_finite() || !m.is_finite() || !x.is_finite())
         {
             return Err(format!("Element {id}: non-finite distributed load resultant"));
         }
@@ -3947,7 +3943,7 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
         let dy = nj.y - ni.y;
         let dz = nj.z - ni.z;
         let l = (dx * dx + dy * dy + dz * dz).sqrt();
-        if l < 1e-10 {
+        if l < crate::element::MEMBER_GEOMETRY_LIMIT {
             return Err(format!("Element {} has zero length", elem.id));
         }
     }

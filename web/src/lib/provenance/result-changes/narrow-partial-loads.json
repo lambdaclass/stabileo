@@ -10,26 +10,26 @@
     "solve.ok"
   ],
   "title": {
-    "en": "Narrow partial member loads retain force and couple",
-    "es": "Las cargas parciales estrechas conservan fuerza y momento",
-    "pt": "Cargas parciais estreitas preservam força e momento",
-    "de": "Sehr kurze Teillasten behalten Kraft und Moment",
-    "fr": "Les charges partielles très courtes conservent force et moment",
-    "hu": "A keskeny részleges terhek ereje és nyomatéka megmarad",
-    "tr": "Çok kısa kısmi yüklerde kuvvet ve moment korunur"
+    "en": "Sub-limit member load intervals are refused",
+    "es": "Se rechazan intervalos de carga inferiores al límite geométrico",
+    "pt": "Intervalos de carga abaixo do limite geométrico são recusados",
+    "de": "Stablastintervalle unter der Geometriegrenze werden abgelehnt",
+    "fr": "Les intervalles de charge sous la limite géométrique sont refusés",
+    "hu": "A geometriai határ alatti teherintervallumok elutasítva",
+    "tr": "Geometri sınırının altındaki yük aralıkları reddedilir"
   },
   "explanation": {
-    "en": "Very narrow distributed member loads could disappear from the solution and recovery while balance checks passed (#2222). These loads now retain their force and couple, and applied totals are checked independently of assembly. Rerun affected analyses and review reactions, deflections, forces and dependent designs.",
-    "es": "Las cargas distribuidas muy estrechas podían desaparecer de la solución y recuperación pese a superar el equilibrio (#2222). Ahora conservan su fuerza y momento; los totales aplicados se verifican independientemente del ensamblaje. Repita los análisis afectados y revise reacciones, deformaciones, esfuerzos y diseños derivados.",
-    "pt": "Cargas distribuídas muito estreitas podiam desaparecer da solução e recuperação com verificações de equilíbrio aprovadas (#2222). Agora preservam força e momento, e os totais aplicados são verificados independentemente da montagem. Execute novamente as análises afetadas e reveja reações, deslocamentos, esforços e projetos dependentes.",
-    "de": "Sehr kurze verteilte Stablasten konnten trotz bestandener Gleichgewichtsprüfung aus Lösung und Rückrechnung verschwinden (#2222). Kraft und Moment bleiben nun erhalten; die Lastsummen werden unabhängig von der Assemblierung geprüft. Betroffene Analysen erneut berechnen und Reaktionen, Verformungen, Schnittgrößen sowie abhängige Bemessungen prüfen.",
-    "fr": "Des charges réparties sur des segments très courts pouvaient disparaître des résultats malgré un équilibre validé (#2222). Leur force et leur moment sont désormais conservés et les totaux appliqués sont vérifiés indépendamment de l’assemblage. Relancez les analyses concernées et vérifiez réactions, déformations, efforts et dimensionnements associés.",
-    "hu": "A nagyon keskeny megoszló rúdterhek eltűnhettek a megoldásból és a visszaszámításból sikeres egyensúlyellenőrzés mellett (#2222). Erejük és nyomatékuk most megmarad, a terhek összege az összeállítástól függetlenül ellenőrzött. Futtassa újra az érintett elemzéseket, és ellenőrizze a reakciókat, alakváltozásokat, igénybevételeket és méretezéseket.",
-    "tr": "Çok kısa aralıklara uygulanan yayılı çubuk yükleri denge kontrolü geçerken çözümden kaybolabiliyordu (#2222). Artık kuvvet ve moment korunuyor; uygulanan yük toplamları montajdan bağımsız denetleniyor. Etkilenen analizleri yeniden çalıştırın, tepkileri, yer değiştirmeleri, iç kuvvetleri ve bunlara bağlı tasarımları inceleyin."
+    "en": "Rerun analyses with partial member loads. Intervals narrower than 1e-10 of the member length are refused with the member and interval identified. Loads are never discarded or converted into forces or couples. Previously, very narrow loads could disappear while balance checks passed (#2222). Supported partial loads survive subdivision with interpolated intensities and exact partial endpoints; dependent results can change.",
+    "es": "Repita los análisis con cargas parciales. Los intervalos menores que 1e-10 de la longitud de la barra se rechazan indicando barra e intervalo. No se descartan ni convierten en fuerzas o pares. Antes podían desaparecer pese a superar el equilibrio (#2222).",
+    "pt": "Refaça análises com cargas parciais. Intervalos menores que 1e-10 do comprimento da barra são recusados com identificação da barra e do intervalo. Não são descartados nem convertidos em forças ou momentos. Antes podiam desaparecer com equilíbrio aprovado (#2222).",
+    "de": "Analysen mit Teillasten erneut berechnen. Intervalle kleiner als 1e-10 der Stablänge werden mit Stab und Intervall abgelehnt, weder verworfen noch in Kräfte oder Momente umgewandelt. Zuvor konnten sie trotz bestandener Gleichgewichtsprüfung verschwinden (#2222).",
+    "fr": "Relancer les analyses avec charges partielles. Les intervalles inférieurs à 1e-10 de la longueur de barre sont refusés en identifiant barre et intervalle. Ils ne sont ni supprimés ni convertis en forces ou couples. Ils pouvaient auparavant disparaître malgré un équilibre validé (#2222).",
+    "hu": "Futtassa újra a részleges rúdterhes elemzéseket. A rúdhossz 1e-10 részénél kisebb intervallumok elutasítást kapnak a rúd és intervallum megjelölésével. Nem törlődnek és nem alakulnak erővé vagy nyomatékká. Korábban sikeres egyensúlyellenőrzés mellett eltűnhettek (#2222).",
+    "tr": "Kısmi çubuk yükleri içeren analizleri yeniden çalıştırın. Çubuk uzunluğunun 1e-10 oranından dar aralıklar çubuk ve aralık belirtilerek reddedilir. Yükler atılmaz veya kuvvet ya da momente dönüştürülmez. Önceden denge kontrolü geçerken kaybolabiliyorlardı (#2222)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-narrow-partial-loads.md",
-    "heading": "Narrow partial member loads retain force and couple (2026-11-16)"
+    "heading": "Sub-limit member load intervals are refused (2026-11-16)"
   },
   "when": {
     "any": [

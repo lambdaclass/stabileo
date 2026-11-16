@@ -870,7 +870,9 @@ fn issue_2222_fiber_increment_satisfies_independent_balance() {
         };
         assert!(complete, "{dimension}D: {eq:?}");
         assert!(eq.residual_ok && eq.equilibrium_ok, "{dimension}D: {eq:?}");
-        let force_imbalance = (eq.applied_force_sum[1] + eq.reaction_force_sum[1]).abs();
-        assert!(force_imbalance < 1e-6 * p.max(1.0));
+        for k in 0..dimension {
+            let force_imbalance = (eq.applied_force_sum[k] + eq.reaction_force_sum[k]).abs();
+            assert!(force_imbalance < 1e-6 * p.max(1.0), "{dimension}D component {k}: {eq:?}");
+        }
     }
 }

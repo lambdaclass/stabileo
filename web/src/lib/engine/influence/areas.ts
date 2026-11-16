@@ -153,7 +153,7 @@ export function ilExtremes(
 /** The loads of `w` per unit length along `dir` on [a, b] of a member, as the static solve takes them. */
 export function uniformAlong(solver: SolverInput, elementId: number, a: number, b: number, w: number, dir: Dir): SolverLoad[] {
   const { e, L, c, s } = memberGeom(solver, elementId);
-  const endpoints = spanEndpoints(a, b, L);
+  const endpoints = spanEndpoints(a, b, L, elementId);
   const Fx = w * dir.x, Fz = w * dir.z;
   if (e.type === 'truss') {
     const W = (b - a);

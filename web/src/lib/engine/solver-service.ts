@@ -1,3 +1,4 @@
+import { validateMemberLoadInterval } from './member-span-loads';
 import { knownIssueRefusal } from './known-issues';
 import { isContainmentRefusal } from './containment-error';
 // Solver service — pure functions extracted from model.svelte.ts
@@ -344,6 +345,13 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
       }
     } else if (l.type === 'distributed') {
       const d = l.data as DistributedLoad;
+      const member = model.elements.get(d.elementId);
+      const ni = member && model.nodes.get(member.nodeI), nj = member && model.nodes.get(member.nodeJ);
+      if (ni && nj) {
+        const dx = nj.x - ni.x, dy = nj.y - ni.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        validateMemberLoadInterval(d.elementId, d.a ?? 0, d.b ?? length, length);
+      }
       const angle = d.angle ?? 0;
       const isGlobal = d.isGlobal ?? false;
 
@@ -1461,6 +1469,8 @@ export function buildSolverLoads3D(
       });
     } else if (l.type === 'distributed') {
       const d = l.data as DistributedLoad;
+      const member = refOf(d.elementId);
+      if (member) validateMemberLoadInterval(d.elementId, d.a ?? 0, d.b ?? member.axes.L, member.axes.L);
       const angle = d.angle ?? 0;
       const isGlobal = d.isGlobal ?? false;
 
@@ -1521,6 +1531,7 @@ export function buildSolverLoads3D(
       const d = l.data as DistributedLoad3D;
       const m = refOf(d.elementId);
       if (!m) continue;
+      validateMemberLoadInterval(d.elementId, d.a ?? 0, d.b ?? m.axes.L, m.axes.L);
       const g = distributedGlobalEnds(d, m.axes, userLeftHand);
       solverLoads.push(...globalDistributedToSolver(m, g.gI, g.gJ, g.a, g.b));
     } else if (l.type === 'pointOnElement') {

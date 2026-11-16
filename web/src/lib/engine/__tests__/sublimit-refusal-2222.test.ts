@@ -33,7 +33,7 @@ const intervals: Array<[number, number, boolean]> = [
   [0, Number.MIN_VALUE, false], [1, 2, true], [0, 3, true],
 ];
 
-describe.skip('known wrong result: #2222 — sublimit refusal', () => {
+describe('known wrong result: #2222 — sublimit refusal', () => {
   for (const dim of [2, 3]) for (const axis of dim === 2 ? ['y', 'x'] : ['y', 'z', 'x']) {
     for (const mode of ['linear', 'session', 'pdelta', 'corotational', 'fiber']) {
       it(`${dim}D ${axis} ${mode} refuses sublimit intervals and retains valid loads`, () => {
