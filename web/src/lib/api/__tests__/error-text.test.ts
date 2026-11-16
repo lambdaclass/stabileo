@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { ApiError } from '../client';
 import { errorText, fieldErrors, fieldText } from '../error-text';
 import { setLocale, tAt } from '../../i18n/store.svelte';
@@ -35,4 +35,34 @@ describe('product error text', () => {
       country: 'Use a two-letter ISO code, e.g. AR.',
     });
   });
+});
+
+afterEach(() => {
+  setLocale('en');
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
+
+it.skip('known wrong result: #2099 — invalid credentials keep their own translation in every dictionary and offered locale', async () => {
+  vi.stubEnv('VITE_RESEARCH', '1');
+  vi.resetModules();
+  const { ALL_DICTS } = await import('../../i18n/locales/all');
+  const store = await import('../../i18n/store.svelte');
+  const { errorText: translate } = await import('../error-text');
+  const { ApiError: ErrorType } = await import('../client');
+  const key = 'account.err.invalid_credentials';
+  for (const [locale, dict] of Object.entries(ALL_DICTS)) {
+    expect(dict[key], locale).toBeTruthy();
+    expect(dict[key], locale).not.toBe(dict['account.err.refresh_failed']);
+  }
+  store.registerFeatureDictionaries(ALL_DICTS);
+  expect(store.OFFERED_LOCALES).toContain('hu');
+  for (const locale of store.OFFERED_LOCALES) {
+    store.setLocale(locale);
+    for (const status of [400, 401, 403]) {
+      expect(translate(new ErrorType(status, 'invalid_credentials', 'Server text')), locale).toBe(ALL_DICTS[locale][key]);
+    }
+    expect(translate(new ErrorType(401, 'unknown', 'Server text'))).toBe(ALL_DICTS[locale]['account.err.refresh_failed']);
+    expect(translate(new ErrorType(400, 'unknown', 'Server text'))).toBe('Server text');
+  }
 });

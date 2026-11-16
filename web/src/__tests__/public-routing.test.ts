@@ -79,7 +79,7 @@ describe('merged public routes', () => {
     const root = source('../Root.svelte');
     const app = source('../App.svelte');
     for (const text of [root, app]) {
-      expect(text).not.toMatch(/import\s+\w+\s+from\s+['"][^'"]*(?:ResearchPage|ToolsPage|DiagramGamePage|PaperPage)\.svelte/);
+      expect(text).not.toMatch(/import\s+\w+\s+from\s+['"][^'"]*(?:ResearchPage|ToolsPage|DiagramGamePage|ExamplesPage|PaperPage)\.svelte/);
       expect(text).toContain("loadPublicPage");
     }
     const loader = source('../lib/public-navigation.ts');
