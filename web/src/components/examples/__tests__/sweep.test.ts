@@ -5,7 +5,7 @@ import { defaults, refusedOutcome, type Example, type Outcome, type Param, type 
 import { exampleStrings } from '../strings';
 import { rcColumn, barsTied } from '../rc-column';
 
-const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
+const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'] as const;
 const CERTIFICATE_STATUSES = ['certified', 'uncertified', 'failed', 'unavailable'];
 const MAX_REFUSED_SHARE = 0.2;
 const SAMPLES = 300;

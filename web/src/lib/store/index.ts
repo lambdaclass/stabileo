@@ -9,6 +9,7 @@ import { historyStore } from './history.svelte';
 import { dsmStepsStore } from './dsmSteps.svelte';
 import { fmStepsStore } from './fmSteps.svelte';
 import { tabManager } from './tabs.svelte';
+import { cloudLink } from './cloud-link.svelte';
 import { tourStore } from './tour.svelte';
 import { verificationStore } from './verification.svelte';
 import { storedRefusal } from './design-refusals';
@@ -67,6 +68,7 @@ modelStore._setOnNewProject(() => {
   clearMaterialChecks();
   // A new project was made in this build: nothing of it is stale.
   recheckStore.reset();
+  if (!tabManager.isTabSwitching) cloudLink.forgetTab(tabManager.activeTabId ?? 'default');
 });
 
 /*

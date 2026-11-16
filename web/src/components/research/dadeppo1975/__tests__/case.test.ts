@@ -4,7 +4,7 @@ import { archStrings, strings } from '../i18n';
 import replay from '../../../../../../research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json';
 import reference from '../../../../../../research/benchmarks/dadeppo-arch-1975/reference-results/limit-load.json';
 
-const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
+const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'] as const;
 
 describe('DaDeppo–Schmidt shared benchmark', () => {
   it('defines the 215° clamped–hinged arch of the paper', () => {

@@ -11,6 +11,97 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
+### BREAKING (results)
+
+#### Snow ridges and slopes follow physical roof geometry (2026-11-15)
+
+Unequal subdivision of roof edges could move the inferred snow ridge and change
+snow loads without warning, including on flat models with an entered roof slope.
+The shared roof-surface path now derives ridges, slopes and shaped-roof profiles
+from complete physical runs, so inserting nodes does not change that geometry
+(#2144). Each member segment
+uses its own position relative to the stable ridge for side pressure, restoring
+the correct force and moment on members split at the ridge. A member that itself
+crosses the ridge retains its previous uniform treatment, tracked in #2176.
+Highest profile points are grouped with the existing elevation tolerance, preventing tiny corner-height changes from moving the ridge;
+points above that tolerance remain distinct. Regenerate affected snow loads,
+then rerun analyses, combinations and design checks; re-solving stored generated loads is insufficient.
+See [the results-change record](docs/results-changes/2026-11-snow-ridge-mesh.md).
+See [SA-2026-072](docs/advisories/SA-2026-072-snow-ridge-subdivision.md), pending merge and release.
+
+#### Interior deflection and rotation retain concentrated member couples (2026-11-15)
+
+Member hover readings and deformed shapes now include concentrated couples inside a span. The hover and both spatial bending curves use the engine's shared recovery, including point and distributed loads and released ends. Reopen saved projects with member loads, rerun analysis, and review displayed deflections and serviceability checks. Loaded recovery without sufficient bending stiffness is refused explicitly. Nodal solutions and member forces are unchanged. See [the results-change record](docs/results-changes/2026-11-interior-member-couples.md) ([SA-2026-070](docs/advisories/SA-2026-070-interior-member-couples.md), #2143; PR #2170, pending merge and release).
+
+#### CIRSOC 201 torsion section limits include both concurrent shear axes (2026-11-15)
+
+The solid-section shear–torsion limit now checks both orientations from the complete concurrent demand, for beams, columns and walls in both supported editions. The provided-beam verifier also checks torsion when primary shear is zero or stirrups are absent; non-negligible torsion without stirrups explicitly fails. Previously accepted sections can fail; additional stirrups cannot repair an exceeded concrete-section limit. Re-run saved concrete member designs and review section failures. See the [results-change record](docs/results-changes/2026-11-torsion-secondary-shear.md) and [SA-2026-069](docs/advisories/SA-2026-069-torsion-secondary-shear.md) (#2142, PR #2169).
+
+### Added
+
+#### A blog post on Stabileo 0.6.1 (2026-11-15)
+
+The blog announces 0.6.1 in English, Spanish, Portuguese, German, French and Turkish.
+It leads with re-running affected member checks and regenerating snow loads before
+recalculating, covers fixed advisories SA-2026-064 through SA-2026-068 and all 24 new
+results-change notices, and preserves the known open wrong results and limitations.
+Its facts follow `docs/releases/v0.6.1*.md` and the 0.6.1 changelog. Release-note links
+open in the reader's language.
+
+### Changed
+
+#### Test systems gathered under testing/ (2026-11-15)
+
+Gather the standalone differential, symbolic, fuzz and test-system scripts under `testing/`, with a checked map of testing techniques. Existing make targets, CI job names, test cases and acceptance limits stay unchanged.
+
+#### Verification documents and testing roadmap gathered under testing/ (2026-11-15)
+
+Move verification documents and data to `testing/docs/`, with one-off investigations in `testing/docs/audits/`, and extract the testing and verification backlog into `testing/ROADMAP.md`. Update references and dashboard output paths, and check local documentation links. Existing make targets, CI job names, tests and acceptance limits stay unchanged.
+
+#### Torsion regression tests require each verification entry point to return its result (2026-11-15)
+
+The section-boundary and zero-secondary-shear regressions now require torsion results from direct, prepared and concurrent verification. Only the standalone torsion entry invokes the torsion checker directly, so a missing wrapper result fails instead of being replaced by a passing fallback (PR #2169, #2142).
+
+### Fixed
+
+#### Teaching shape tests require every recovered sample (2026-11-16)
+
+Require all 21 samples in both the loaded teaching displacement sketch and the load-free mode before comparing ordinates, so empty or truncated recovery cannot pass the fixed-fixed couple regression tests (PR #2170). Preserve the member-recovery and snow-ridge advisories and saved-project notices when merging main. Engine results are unchanged.
+
+#### Spatial unloaded-shape test uses the required force record (2026-11-15)
+
+The 3D deformed-shape test now supplies forces from the same model solved without loads to match the required API signature. The loaded recovery refusal and unloaded zero-displacement assertions are unchanged, restoring the web typecheck without changing engine results (#2143, PR #2170).
+
+#### Member recovery certificate checks build against the fallible shape API (2026-11-15)
+
+The 2D and 3D displayed-result certificate tests now require successful load-free shape recovery before checking the same displacement bounds. Remove the stale fallback allow-list entry, retain validated bending stiffness as an option, select end couples explicitly, and register the shared recovery WASM export as postprocessing. Numerical results, limits and assertions are unchanged (#2143, PR #2170).
+
+#### Saved-project notice expectations retain merged recovery and torsion changes (2026-11-15)
+
+Retain both SA-2026-069 and SA-2026-070 in every localized advisory catalog after merging PR #2169, and update the exact saved-project notice expectations to include member recovery alongside the concurrent torsion change (PR #2170). Engine results are unchanged by this integration update.
+
+#### Modal saved-project notice tests include member recovery (2026-11-16)
+
+Update every affected exact notice list in the results-version tests to include member-recovery-round4 for older modal frame models, with and without the SSI notice registered (PR #2170). Notice applicability and engine results are unchanged.
+
+#### Member recovery preserves shear rigidity and valid spatial stiffness (2026-11-15)
+
+Forward shear rigidity through the planar deflection and rotation adapters, and preserve small scalar span loads when sharing their request builder. Preserve spatial recovery for every finite positive bending stiffness while retaining planar stiffness refusals. Hover displacement now reads the drawing's shared Rust curve evaluation before world coordinates are added, so certificate comparisons avoid coordinate cancellation. These correct regressions on the unmerged #2143 branch (PR #2170); nodal solutions and certificate bounds are unchanged.
+
+#### Reject links satisfied only inside indented fences and retain historical provenance (2026-11-15)
+
+Follow CommonMark fence indentation, matching marker lengths, closing whitespace and end-of-file rules when checking documentation links and anchors. Restore the original read-only source archive paths in staged-rotation replay provenance, add a separate link to the current audit record, and align remaining verification link labels with their testing destinations. Pinned historical audit commands remain unchanged.
+
+#### Preserve audit evidence and release snapshots after the testing documentation move (2026-11-15)
+
+Recognize moved Markdown and JSON documents in the results snapshot build classifier. Preserve release snapshots from pending dashboard branches that still use the old directory. Restore recorded audit bytes changed by the move, check their integrity, and reject documentation links whose anchors appear only in code blocks. Align documentation index labels with their new destinations.
+
+### Performance
+
+#### Sample reinforcement coordinates once before projecting the workspace (2026-11-15)
+
+Bar-path sampling now copies source coordinates into plain points before bounds and mesh construction. Opening and reopening the reinforcement workspace no longer carry reactive endpoint objects through those passes, and arc sampling reads each source coordinate once. Sampling tolerance, subdivision counts, geometry and analysis results are unchanged. Regression checks count source reads instead of depending on runner speed; the existing workspace timing budgets are unchanged.
+
 ## 0.6.1 (2026-11-15)
 
 Release notes: [`docs/releases/v0.6.1.md`](docs/releases/v0.6.1.md) (also in [Spanish](docs/releases/v0.6.1.es.md), [Portuguese](docs/releases/v0.6.1.pt.md), [German](docs/releases/v0.6.1.de.md), [French](docs/releases/v0.6.1.fr.md) and [Turkish](docs/releases/v0.6.1.tr.md)).

@@ -15,7 +15,7 @@ function stubBrowser(openReturns: unknown) {
   const anchor = { href: '', download: '', click: vi.fn(), remove: vi.fn() };
   const open = vi.fn(() => openReturns);
   vi.stubGlobal('window', { open });
-  vi.stubGlobal('document', { createElement: vi.fn(() => anchor), body: { appendChild: vi.fn() } });
+  vi.stubGlobal('document', { createElement: vi.fn(() => anchor), body: { appendChild: vi.fn(), removeChild: vi.fn() } });
   return { anchor, open };
 }
 

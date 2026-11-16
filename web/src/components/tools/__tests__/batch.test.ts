@@ -1,8 +1,9 @@
+import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
 import { it, expect } from 'vitest';
-import { BATCH_IDS, DEFAULT_BATCH as P, batchModel, continuousReactions, continuousInfluence, frequencies, jointForces, parseTruss, portalSway, simpleInfluence, validateBatch } from '../batch';
+import { BatchToolError, BATCH_IDS, DEFAULT_BATCH as P, batchModel, continuousReactions, continuousInfluence, frequencies, jointForces, parseTruss, portalSway, simpleInfluence, validateBatch } from '../batch';
 import { calculateBatch } from '../batch-solve';
 import { batchTranslations } from '../batch-i18n';
-import { readFileSync } from 'node:fs';
+import { toolPaths } from '../registry';
 for(const id of BATCH_IDS) it(`${id}: default engine/reference agreement`,async()=>{
  const r=await calculateBatch(id,{...P});
  console.info(id, JSON.stringify({comparisons:r.comparisons,deflection:r.maxDeflection,sagging:r.sagging,hogging:r.hogging}));
@@ -40,17 +41,19 @@ it('influence curves agree with statics and compatibility, including shear disco
 it('three bending modes match all boundary conditions',async()=>{
  for(const boundary of ['simple','cantilever','fixed'] as const) {const r=await calculateBatch('beam-natural-frequency',{...P,boundary});expect(r.modes).toHaveLength(3);expect(r.difference).toBeLessThan(2e-5);}
 });
-it('covers every key and every tool SEO title and description in six locales',()=>{
+it('covers every key and every tool SEO title and description in every offered locale',()=>{
  const keys=Object.keys(batchTranslations.en).sort();
- for(const locale of ['en','es','pt','de','fr','tr']) {
+ for(const locale of PUBLIC_LOCALES) {
   expect(Object.keys(batchTranslations[locale]).sort()).toEqual(keys);
   for(const id of BATCH_IDS) for(const suffix of ['', '.subtitle']) expect(batchTranslations[locale][`tools.${id}${suffix}`].length).toBeGreaterThan(5);
  }
- const script=readFileSync(new URL('../../../../scripts/public-paths.ts',import.meta.url),'utf8');for(const id of BATCH_IDS) expect(script).toContain(`/tools/${id}`);
+ for(const id of BATCH_IDS) expect(toolPaths()).toContain(`/tools/${id}`);
 });
 
 it('distinguishes mechanisms from statically indeterminate stable trusses', async () => {
- await expect(calculateBatch('truss-2d', {...P, supports:'1, rollerX\n5, rollerX'})).rejects.toThrow();
+ const mechanism = calculateBatch('truss-2d', {...P, supports:'1, rollerX\n5, rollerX'});
+ await expect(mechanism).rejects.toThrow(BatchToolError);
+ await expect(mechanism).rejects.toMatchObject({ key: 'tools.batch.unstable' });
  const r = await calculateBatch('truss-2d', {...P, members:P.members+'\n2, 7'});
  expect(r.difference).toBeNull();
  expect(r.maxDeflection).toBeGreaterThan(0);
@@ -63,4 +66,12 @@ it('continuous beam sign convention is sagging positive and hogging negative', a
  const r = await calculateBatch('continuous-beam', P);
  expect(r.sagging).toBeCloseTo(25.3125, 8);
  expect(r.hogging).toBeCloseTo(-45, 8);
+});
+
+it('batch validation carries its translation key independently of error wording', () => {
+  expect(() => validateBatch('continuous-beam', P)).not.toThrow();
+  let failure: unknown;
+  try { validateBatch('continuous-beam', { ...P, e: NaN }); } catch (error) { failure = error; }
+  expect(failure).toBeInstanceOf(BatchToolError);
+  expect(failure).toMatchObject({ key: 'tools.batch.invalid' });
 });

@@ -144,13 +144,7 @@ defmodule StabileoAuth.Controllers.Admin.OAuthControllerTest do
     Application.put_env(:stabileo_auth, :admin_password_login, false)
     on_exit(fn -> Application.put_env(:stabileo_auth, :admin_password_login, true) end)
 
-    session =
-      request(:post, "/register", %{
-        "email" => "staff@example.com",
-        "password" => "long-enough",
-        "name" => "Squatter"
-      })
-      |> json_body(201)
+    session = log_in(Factory.insert(:account, email: "staff@example.com"))
 
     assert admin_request(:post, "/auth/login", %{
              "email" => "staff@example.com",
@@ -158,6 +152,6 @@ defmodule StabileoAuth.Controllers.Admin.OAuthControllerTest do
            })
            |> json_body(404)
 
-    assert admin_request(:get, "/users", %{}, session["access_token"]) |> json_body(401)
+    assert admin_request(:get, "/users", %{}, session.access_token) |> json_body(401)
   end
 end

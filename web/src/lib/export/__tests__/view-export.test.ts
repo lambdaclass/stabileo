@@ -161,3 +161,13 @@ describe('copy image', () => {
     expect(seen).toHaveLength(0);
   });
 });
+
+it('known wrong result: #765 T133 — copy wrapper forwards rejection', async () => {
+  vi.stubGlobal('ClipboardItem', class { constructor() { throw new Error('clipboard failed'); } });
+  const error = new Error('toast failed');
+  const toast = vi.spyOn(uiStore, 'toast').mockImplementation(() => { throw error; });
+  const result = copyView({ format: 'png', contents: [], options: { ...DEFAULT_FIGURE_OPTIONS }, sheet: false }).then(() => 'copied', e => e.message);
+  expect(await Promise.race([result, new Promise(r => setTimeout(() => r('pending'), 20))])).toBe('toast failed');
+  toast.mockRestore();
+  vi.unstubAllGlobals();
+});

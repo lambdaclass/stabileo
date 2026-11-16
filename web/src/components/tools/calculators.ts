@@ -1,7 +1,8 @@
+import { MAIN_CALCULATOR_IDS as TOOL_IDS } from '../../lib/main-tool-routes';
 import type { SolverInput } from '../../lib/engine/types';
 import { MESH_TOLERANCE, MIN_EI, meshPoints } from './validity';
 
-export const TOOL_IDS = ['simply-supported-beam', 'cantilever-beam', 'column-buckling'] as const;
+export { TOOL_IDS };
 export type ToolId = typeof TOOL_IDS[number];
 export type Parameters = { length: number; e: number; i: number; load: number; position: number; uniform: boolean; k: number };
 export const EXAMPLE: Parameters = { length: 6, e: 200000, i: 0.00008, load: 10, position: 3, uniform: true, k: 1 };

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { SITE_NAV } from '../src/components/site/site-nav';
+import { BUILD_FEATURES, TOOLS_SKIP_REASON } from './build-features';
 import { EXPERIMENTS } from '../src/components/research/experiments';
 
 /**
@@ -8,7 +8,7 @@ import { EXPERIMENTS } from '../src/components/research/experiments';
  *
  *   npx playwright test --grep "@smoke site header"
  */
-const ITEMS = SITE_NAV.map(({ id }) => id);
+const ITEMS = ['basic', ...(BUILD_FEATURES.tools ? [] : ['examples']), 'tools', ...(BUILD_FEATURES.diagramGame ? ['game'] : []), 'research', 'pricing', 'blog'];
 const PAGES: Array<[string, string | null]> = [
   ['/en/', null],
   ['/en/blog/', 'blog'],
@@ -18,13 +18,15 @@ const PAGES: Array<[string, string | null]> = [
   ['/en/paper/', 'research'],
   ['/en/research/', 'research'],
   ['/en/tools/', 'tools'],
-  ['/en/examples/', 'examples'],
+  ...(BUILD_FEATURES.tools ? [] : [['/en/examples/', 'examples'] as [string, string]]),
+  ['/en/tools/beam-frame/', 'tools'],
   ...EXPERIMENTS.map(({ path }): [string, string] => [`/en${path}/`, 'research']),
 ];
 
 test.describe('@smoke site header', () => {
   for (const [path, current] of PAGES) {
     test(`${path} has the shared header${current ? `, ${current} current` : ''}`, async ({ page }) => {
+      test.skip(path === '/en/tools/beam-frame/' && !BUILD_FEATURES.tools, TOOLS_SKIP_REASON);
       await page.goto(path);
       const header = page.locator('nav.site-header');
       await expect(header).toHaveCount(1);

@@ -66,7 +66,7 @@ describe('four-cable model handoff', () => {
     try {
       for (const locale of PUBLIC_LOCALES) {
         setLocale(locale);
-        expect(paperTextLocale('pastrana-2026')).toBe(['es', 'pt'].includes(locale) ? locale : 'en');
+        expect(paperTextLocale('pastrana-2026')).toBe(['es', 'pt', 'hu'].includes(locale) ? locale : 'en');
         expect(researchLocale()).toBe(locale);
         expect(rs().researchLanguages.length).toBeGreaterThan(40);
         expect(rs().formScope).toContain('2.1');

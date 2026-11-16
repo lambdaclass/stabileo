@@ -4,21 +4,25 @@ import { carriedWarnings, exportMessages, warningHtml } from './containment';
  * the PDF is printed by the browser from the report's HTML (a blocked window falls back to the
  * HTML as a file, a real deliverable and not a silent failure); the other four are downloaded.
  */
+import { trackUsage } from '../telemetry/usage';
 import { loadXlsxModule } from './excel';
 import { reportFile, type DocxOptions, type ReportFormat, type ReportProvenance } from './report-formats';
 import { rasterizeForPrint } from './rasterize';
 import { APP_VERSION } from '../build-info';
 import { t, tp } from '../i18n';
 import type { DocBlock } from './docx';
+import { saveFile, runFileExport } from './save-file';
 
 function save(name: string, type: string, data: BlobPart) {
-  const url = URL.createObjectURL(new Blob([data], { type }));
-  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  saveFile(name, () => new Blob([data], { type }));
 }
 
 /** Print a report's HTML (the PDF), or download it when the window is blocked. */
 export function printHtml(html: string, stem: string): void {
+  void runFileExport(() => printNow(html, stem), undefined);
+}
+
+function printNow(html: string, stem: string): void {
   const warnings = exportMessages(); if (warnings === null) return;
   html = warningHtml(html, warnings);
   const w = window.open('', '_blank');
@@ -37,21 +41,24 @@ export function docxLayout(title: string, date = new Date().toISOString().slice(
 }
 
 export async function downloadReport(format: ReportFormat, r: { title: string; html: string; stem: string; blocks?: DocBlock[]; provenance?: ReportProvenance; docx?: DocxOptions }): Promise<string | null> {
-  const current = exportMessages(); if (current === null) return null;
-  const warnings = [...new Set([...current, ...carriedWarnings(r.html)])];
-  r = {
-    ...r,
-    html: warningHtml(r.html, warnings),
-    ...(r.blocks ? { blocks: [...warnings.map(text => ({ kind: 'paragraph' as const, text })), ...r.blocks] } : {}),
-    // CSV exports only tables, so their mandatory warnings also belong in its comment header.
-    ...(warnings.length ? { provenance: {
-      title: r.provenance?.title ?? t('knownIssue.exportHeading'),
-      lines: [...warnings.map(w => ['⚠', w] as const), ...(r.provenance?.lines ?? [])],
-    } } : {}),
-  };
-  if (format === 'pdf') { printHtml(r.html, r.stem); return `${r.stem}.pdf`; }
-  const f = await reportFile(format, { ...r, docx: r.docx ?? docxLayout(r.title), loadXlsx: loadXlsxModule });
-  if (!f) return null;
-  save(f.filename, f.mime, f.bytes as BlobPart);
-  return f.filename;
+  return runFileExport(async check => {
+    trackUsage('export', { format: `report-${format}` });
+    const current = exportMessages(); if (current === null) return null;
+    const warnings = [...new Set([...current, ...carriedWarnings(r.html)])];
+    r = {
+      ...r,
+      html: warningHtml(r.html, warnings),
+      ...(r.blocks ? { blocks: [...warnings.map(text => ({ kind: 'paragraph' as const, text })), ...r.blocks] } : {}),
+      // CSV exports only tables, so their mandatory warnings also belong in its comment header.
+      ...(warnings.length ? { provenance: {
+        title: r.provenance?.title ?? t('knownIssue.exportHeading'),
+        lines: [...warnings.map(w => ['⚠', w] as const), ...(r.provenance?.lines ?? [])],
+      } } : {}),
+    };
+    if (format === 'pdf') { if (!check()) return null; printNow(r.html, r.stem); return `${r.stem}.pdf`; }
+    const f = await reportFile(format, { ...r, docx: r.docx ?? docxLayout(r.title), loadXlsx: loadXlsxModule });
+    if (!f || !check()) return null;
+    save(f.filename, f.mime, f.bytes as BlobPart);
+    return f.filename;
+  }, null);
 }

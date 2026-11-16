@@ -385,6 +385,12 @@ pub fn compute_diagrams_2d(
 
 // ==================== Deformed Shape ====================
 
+enum MemberLoad {
+    Force { a: f64, p: f64 },
+    Couple { a: f64, c: f64 },
+    Distributed { qi: f64, qj: f64, a: f64, b: f64 },
+}
+
 /// Transverse deflection of a loaded 2D member, exact for Euler–Bernoulli
 /// (`flex_s = 0`) and Timoshenko (`flex_s = 1/(G·As)`) beams.
 ///
@@ -407,9 +413,7 @@ struct MemberDeflection {
     theta_i: f64,
     m0: f64,
     s0: f64,
-    points: Vec<(f64, f64)>,
-    dist: Vec<(f64, f64, f64, f64)>,
-    couples: Vec<(f64, f64)>,
+    loads: Vec<MemberLoad>,
 }
 
 impl MemberDeflection {
@@ -417,7 +421,7 @@ impl MemberDeflection {
     /// change m_q but carry no shear.
     fn load_terms(&self, x: f64) -> [f64; 5] {
         let mut out = [0.0; 5];
-        let mut add = |p: f64, d: f64| {
+        let add = |out: &mut [f64; 5], p: f64, d: f64| {
             if d > 0.0 {
                 out[0] += p * d;
                 out[1] += p * d * d / 2.0;
@@ -426,30 +430,30 @@ impl MemberDeflection {
                 out[4] += p;
             }
         };
-        for &(a, p) in &self.points {
-            add(p, x - a);
-        }
-        // A linear load against (x − t)^k, k ≤ 3: degree ≤ 4 in t on
-        // [a, min(b, x)], so 3-point Gauss is exact.
-        let g = (0.6f64).sqrt();
-        for &(qi, qj, a, b) in &self.dist {
-            let hi = b.min(x);
-            if hi <= a || b - a < 1e-12 {
-                continue;
-            }
-            let (half, mid) = (0.5 * (hi - a), 0.5 * (hi + a));
-            for (t, w) in [(-g, 5.0 / 9.0), (0.0, 8.0 / 9.0), (g, 5.0 / 9.0)] {
-                let tt = mid + half * t;
-                let q = qi + (qj - qi) * (tt - a) / (b - a);
-                add(q * w * half, x - tt);
-            }
-        }
-        for &(a, c) in &self.couples {
-            let d = x - a;
-            if d > 0.0 {
-                out[0] -= c;
-                out[1] -= c * d;
-                out[2] -= c * d * d / 2.0;
+        for load in &self.loads {
+            match *load {
+                MemberLoad::Force { a, p } => add(&mut out, p, x - a),
+                MemberLoad::Couple { a, c } => {
+                    let d = x - a;
+                    if d > 0.0 {
+                        out[0] -= c;
+                        out[1] -= c * d;
+                        out[2] -= c * d * d / 2.0;
+                    }
+                }
+                MemberLoad::Distributed { qi, qj, a, b } => {
+                    let hi = b.min(x);
+                    if hi <= a || b - a < 1e-12 {
+                        continue;
+                    }
+                    let g = (0.6f64).sqrt();
+                    let (half, mid) = (0.5 * (hi - a), 0.5 * (hi + a));
+                    for (t, w) in [(-g, 5.0 / 9.0), (0.0, 8.0 / 9.0), (g, 5.0 / 9.0)] {
+                        let tt = mid + half * t;
+                        let q = qi + (qj - qi) * (tt - a) / (b - a);
+                        add(&mut out, q * w * half, x - tt);
+                    }
+                }
             }
         }
         out
@@ -472,7 +476,11 @@ impl MemberDeflection {
         points: Vec<(f64, f64)>, dist: Vec<(f64, f64, f64, f64)>, couples: Vec<(f64, f64)>,
         kappa: f64,
     ) -> Self {
-        let mut d = MemberDeflection { ei, flex_s, v_i, theta_i: 0.0, m0: 0.0, s0: 0.0, points, dist, couples };
+        let loads = points.into_iter().map(|(a, p)| MemberLoad::Force { a, p })
+            .chain(dist.into_iter().map(|(qi, qj, a, b)| MemberLoad::Distributed { qi, qj, a, b }))
+            .chain(couples.into_iter().map(|(a, c)| MemberLoad::Couple { a, c }))
+            .collect();
+        let mut d = MemberDeflection { ei, flex_s, v_i, theta_i: 0.0, m0: 0.0, s0: 0.0, loads };
         let [mql, mq1, mq2, sql, _] = d.load_terms(l);
         let free = ei * kappa;
         // Unknowns x = [θ_i, m0, s0].
@@ -481,7 +489,10 @@ impl MemberDeflection {
             [l, l * l / (2.0 * ei), l * l * l / (6.0 * ei) - flex_s * l],
             v_j - v_i - mq2 / ei + flex_s * sql,
         );
-        let end_couples: f64 = d.couples.iter().filter(|c| c.0 >= l).map(|c| c.1).sum();
+        let end_couples: f64 = d.loads.iter().filter_map(|load| match *load {
+            MemberLoad::Couple { a, c } if a >= l => Some(c),
+            MemberLoad::Couple { .. } | MemberLoad::Force { .. } | MemberLoad::Distributed { .. } => None,
+        }).sum();
         let r3 = if hinge_end {
             ([0.0, 1.0, l], free + end_couples - mql)
         } else {
@@ -609,6 +620,79 @@ pub(crate) fn deflection_shape_cubics(
     out
 }
 
+#[derive(Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RecoverySpace {
+    #[default]
+    Planar,
+    Spatial,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemberRecoveryInput {
+    #[serde(default)]
+    pub space: RecoverySpace,
+    pub length: f64,
+    pub ei: Option<f64>,
+    pub gas: Option<f64>,
+    pub v_i: f64,
+    pub r_i: f64,
+    pub v_j: f64,
+    pub r_j: f64,
+    #[serde(default)]
+    pub hinge_start: bool,
+    #[serde(default)]
+    pub hinge_end: bool,
+    #[serde(default)]
+    pub points: Vec<PointLoadInfo>,
+    #[serde(default)]
+    pub dist: Vec<DistributedLoadInfo>,
+    pub positions: Vec<f64>,
+}
+
+#[derive(Serialize)]
+pub struct MemberSample {
+    pub v: f64,
+    pub rotation: f64,
+}
+
+pub fn recover_member(input: &MemberRecoveryInput) -> Result<Vec<MemberSample>, String> {
+    let minimum_ei = match input.space {
+        RecoverySpace::Planar => 1e-6,
+        RecoverySpace::Spatial => 0.0,
+    };
+    let ei = input.ei.filter(|ei| ei.is_finite() && *ei > minimum_ei);
+    let has_ei = ei.is_some();
+    let loaded = input.points.iter().any(|p| p.p != 0.0 || p.my.is_some_and(|c| c != 0.0))
+        || input.dist.iter().any(|d| d.q_i != 0.0 || d.q_j != 0.0);
+    if loaded && !has_ei {
+        return Err(format!("Member recovery requires finite EI greater than {minimum_ei} for nonzero span loads."));
+    }
+    let flex_s = match input.gas {
+        Some(k) if has_ei && k > 0.0 && k.is_finite() => 1.0 / k,
+        _ => 0.0,
+    };
+    let mut points = Vec::new();
+    let mut couples = Vec::new();
+    let mut dist = Vec::new();
+    if has_ei {
+        for &PointLoadInfo { a, p, px: _, my } in &input.points {
+            points.push((a, p));
+            if let Some(c) = my { couples.push((a, c)); }
+        }
+        for &DistributedLoadInfo { q_i, q_j, a, b } in &input.dist {
+            dist.push((q_i, q_j, a, b));
+        }
+    }
+    let member = MemberDeflection::new(input.length, ei.unwrap_or(1.0), flex_s,
+        input.v_i, input.r_i, input.v_j, input.r_j, input.hinge_start, input.hinge_end, points, dist, couples);
+    Ok(input.positions.iter().map(|t| {
+        let x = t.clamp(0.0, 1.0) * input.length;
+        MemberSample { v: member.v(x), rotation: member.rotation(x) }
+    }).collect())
+}
+
 /// Compute deformed shape for a 2D element: the exact deflection of the
 /// loaded member (Euler–Bernoulli, or Timoshenko when `gas` = G·As is given
 /// together with `ei`), see [`MemberDeflection`].
@@ -625,74 +709,61 @@ pub fn compute_deformed_shape(
     gas: Option<f64>,
     load_qi: Option<f64>,
     load_qj: Option<f64>,
-    load_points: &[(f64, f64)], // (a, p)
-    dist_loads: &[(f64, f64, f64, f64)], // (qi, qj, a, b)
-) -> Vec<DeformedPoint> {
-    let l = length;
-    let cos = (node_jx - node_ix) / l;
-    let sin = (node_jy - node_iy) / l;
+    load_points: &[PointLoadInfo],
+    dist_loads: &[(f64, f64, f64, f64)],
+) -> Result<Vec<DeformedPoint>, String> {
+    let positions: Vec<_> = (0..21).map(|i| i as f64 / 20.0).collect();
+    let displacements = compute_member_displacements_2d(
+        node_ix, node_iy, node_jx, node_jy, u_ix, u_iy, r_iz, u_jx, u_jy, r_jz,
+        length, hinge_start, hinge_end, ei, gas, load_qi, load_qj, load_points, dist_loads, &positions,
+    )?;
+    Ok(positions.iter().zip(displacements).map(|(&t, d)| DeformedPoint {
+        x: node_ix + t * (node_jx - node_ix) + d.ux * scale,
+        y: node_iy + t * (node_jy - node_iy) + d.uz * scale,
+    }).collect())
+}
 
-    // Transform to local
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct MemberDisplacement2D {
+    pub ux: f64,
+    pub uz: f64,
+    pub ry: f64,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compute_member_displacements_2d(
+    node_ix: f64, node_iy: f64, node_jx: f64, node_jy: f64,
+    u_ix: f64, u_iy: f64, r_iz: f64, u_jx: f64, u_jy: f64, r_jz: f64,
+    length: f64, hinge_start: bool, hinge_end: bool,
+    ei: Option<f64>, gas: Option<f64>, load_qi: Option<f64>, load_qj: Option<f64>,
+    load_points: &[PointLoadInfo], dist_loads: &[(f64, f64, f64, f64)], positions: &[f64],
+) -> Result<Vec<MemberDisplacement2D>, String> {
+    let cos = (node_jx - node_ix) / length;
+    let sin = (node_jy - node_iy) / length;
     let v_i = -u_ix * sin + u_iy * cos;
     let v_j = -u_jx * sin + u_jy * cos;
     let u_i = u_ix * cos + u_iy * sin;
     let u_j = u_jx * cos + u_jy * sin;
-
-    // Build distributed loads list
-    let mut all_dist: Vec<(f64, f64, f64, f64)> = Vec::new();
-    if !dist_loads.is_empty() {
-        all_dist.extend_from_slice(dist_loads);
-    } else {
+    let mut all_dist = dist_loads.to_vec();
+    if all_dist.is_empty() {
         let q0 = load_qi.unwrap_or(0.0);
         let q1 = load_qj.unwrap_or(0.0);
-        if q0.abs() > 1e-10 || q1.abs() > 1e-10 {
-            all_dist.push((q0, q1, 0.0, l));
+        if q0 != 0.0 || q1 != 0.0 {
+            all_dist.push((q0, q1, 0.0, length));
         }
     }
-
-    // Without EI the loads cannot be turned into curvature: the shape is the
-    // (load-free) Hermite interpolation of the end displacements.
-    let ei_val = ei.unwrap_or(0.0);
-    let has_ei = ei_val > 1e-6;
-    let flex_s = match gas {
-        Some(k) if has_ei && k > 0.0 && k.is_finite() => 1.0 / k,
-        _ => 0.0,
-    };
-    let member = if has_ei {
-        MemberDeflection::new(
-            l, ei_val, flex_s, v_i, r_iz, v_j, r_jz, hinge_start, hinge_end,
-            load_points.to_vec(), all_dist, Vec::new(),
-        )
-    } else {
-        MemberDeflection::new(
-            l, 1.0, 0.0, v_i, r_iz, v_j, r_jz, hinge_start, hinge_end, Vec::new(), Vec::new(), Vec::new(),
-        )
-    };
-
-    let n_pts = 21;
-    let mut points = Vec::with_capacity(n_pts);
-
-    for i in 0..n_pts {
-        let xi = i as f64 / (n_pts - 1) as f64;
-        let v_local = member.v(xi * l);
-
-        // Axial (linear)
-        let u_local = u_i + xi * (u_j - u_i);
-
-        // Transform back to global
-        let base_x = node_ix + xi * (node_jx - node_ix);
-        let base_y = node_iy + xi * (node_jy - node_iy);
-
-        let dx = u_local * cos - v_local * sin;
-        let dy = u_local * sin + v_local * cos;
-
-        points.push(DeformedPoint {
-            x: base_x + dx * scale,
-            y: base_y + dy * scale,
-        });
-    }
-
-    points
+    let samples = recover_member(&MemberRecoveryInput {
+        space: RecoverySpace::Planar,
+        length, ei, gas, v_i, r_i: r_iz, v_j, r_j: r_jz, hinge_start, hinge_end,
+        points: load_points.to_vec(),
+        dist: all_dist.into_iter().map(|(q_i, q_j, a, b)| DistributedLoadInfo { q_i, q_j, a, b }).collect(),
+        positions: positions.to_vec(),
+    })?;
+    Ok(positions.iter().zip(samples).map(|(&t, sample)| {
+        let xi = t.clamp(0.0, 1.0);
+        let u = u_i + xi * (u_j - u_i);
+        MemberDisplacement2D { ux: u * cos - sample.v * sin, uz: u * sin + sample.v * cos, ry: sample.rotation }
+    }).collect())
 }
 
 #[cfg(test)]
@@ -706,8 +777,9 @@ mod tests {
         let [v_i, r_i, v_j, r_j] = ends;
         compute_deformed_shape(
             0.0, 0.0, l, 0.0, 0.0, v_i, r_i, 0.0, v_j, r_j, 1.0, l, hinges.0, hinges.1,
-            Some(ei), gas, None, None, pts, dist,
+            Some(ei), gas, None, None, &pts.iter().map(|&(a, p)| PointLoadInfo { a, p, px: None, my: None }).collect::<Vec<_>>(), dist,
         )
+        .unwrap()
         .iter()
         .map(|p| p.y)
         .collect()
@@ -813,4 +885,266 @@ mod tests {
             }
         }
     }
+}
+
+#[cfg(test)]
+mod interior_couples_2143 {
+    use super::*;
+
+    fn expected(x: f64, a: f64, c: f64) -> (f64, f64) {
+        let l = 5.0;
+        let ei = 20_000.0;
+        let b = l - a;
+        let m = c * b * (l - 3.0 * a) / (l * l);
+        let v = 6.0 * c * a * b / (l * l * l);
+        let d = (x - a).max(0.0);
+        ((m * x * x / 2.0 + v * x * x * x / 6.0 - c * d * d / 2.0) / ei,
+         (m * x + v * x * x / 2.0 - c * d) / ei)
+    }
+
+    #[test]
+    fn public_shape_keeps_interior_couples() {
+        for a in [0.000005, 1.0, 2.0, 2.5, 4.0, 4.999995] {
+            for c in [-6.0, 6.0] {
+                let input = serde_json::json!({
+                    "nodeIx": 0.0, "nodeIy": 0.0, "nodeJx": 5.0, "nodeJy": 0.0,
+                    "uIx": 0.0, "uIy": 0.0, "rIz": 0.0, "uJx": 0.0, "uJy": 0.0, "rJz": 0.0,
+                    "scale": 1.0, "length": 5.0, "hingeStart": false, "hingeEnd": false,
+                    "ei": 20_000.0, "loadCouples": [[a, c]]
+                });
+                let raw = crate::compute_deformed_shape(&input.to_string()).unwrap();
+                let points: serde_json::Value = serde_json::from_str(&raw).unwrap();
+                for i in 0..21 {
+                    let x = i as f64 / 4.0;
+                    let actual = points[i]["y"].as_f64().unwrap();
+                    assert!((actual - expected(x, a, c).0).abs() < 2e-13, "a={a}, c={c}, x={x}: {actual} vs {:?}", expected(x, a, c));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn section_rotation_and_deflection_already_include_couples() {
+        for a in [0.0, 0.000005, 2.0, 2.5, 4.999995, 5.0] {
+            for c in [-6.0, 6.0] {
+                let plane = SpanRotation::new(5.0, 20_000.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, vec![], vec![], vec![(a, c)], 0.0);
+                for i in 0..21 {
+                    let x = i as f64 / 4.0;
+                    let (v, r) = expected(x, a, c);
+                    assert!((plane.at(x) - r).abs() < 2e-13);
+                    assert!((plane.deflection(x) - v).abs() < 2e-13);
+                }
+            }
+        }
+    }
+    #[test]
+    fn split_nodal_couples_recover_both_3d_planes_linear_and_pdelta() {
+        for (plane, my, mz) in [(0, 0.0, 6.0), (1, -6.0, 0.0)] {
+            for a in [0.05, 1.0, 2.0, 4.0, 4.95] {
+                let mut model: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
+                model["nodes"]["1"]["x"] = 5.0.into();
+                model["nodes"]["2"] = serde_json::json!({"id": 2, "x": a, "y": 0.0, "z": 0.0});
+                model["supports"]["1"] = serde_json::json!({"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true});
+                model["elements"]["1"]["nodeJ"] = 2.into();
+                model["elements"]["2"] = serde_json::json!({"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 1, "materialId": 1, "sectionId": 1});
+                model["loads"] = serde_json::json!([{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": my, "mz": mz}}]);
+                let model: SolverInput3D = serde_json::from_value(model).unwrap();
+                let linear = crate::solver::linear::solve_3d(&model).unwrap();
+                let nonlinear = crate::solver::pdelta::solve_pdelta_3d(&model, 20, 1e-10).unwrap();
+                assert!(nonlinear.converged);
+                for r in [linear, nonlinear.results] {
+                    let d = |id| r.displacements.iter().find(|d| d.node_id == id).unwrap();
+                    for (i, j, x0, length) in [(0, 2, 0.0, a), (2, 1, a, 5.0 - a)] {
+                        let end = |id| { let d = d(id); if plane == 0 { (d.uy, d.rz) } else { (d.uz, -d.ry) } };
+                        let ((vi, ri), (vj, rj)) = (end(i), end(j));
+                        let span = SpanRotation::new(length, 20_000.0, 0.0, vi, ri, vj, rj, false, false, vec![], vec![], vec![], 0.0);
+                        for k in 0..21 {
+                            let x = length * k as f64 / 20.0;
+                            let (v, rotation) = expected(x0 + x, a, 6.0);
+                            assert!((span.deflection(x) - v).abs() < 2e-13);
+                            assert!((span.at(x) - rotation).abs() < 2e-13);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn no_couple_shapes_are_identical_to_parent_build() {
+        let baseline: serde_json::Value = serde_json::from_str(include_str!("../../../docs/results-changes/2143-no-couple-shapes.json")).unwrap();
+        for case in baseline["cases"].as_array().unwrap() {
+            let actual: serde_json::Value = serde_json::from_str(&crate::compute_deformed_shape(&case["input"].to_string()).unwrap()).unwrap();
+            assert_eq!(actual, case["expected"]);
+        }
+    }
+
+    #[test]
+    fn linear_and_pdelta_2d_results_keep_the_member_couple_in_recovery() {
+        let mut model: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-2d.json")).unwrap();
+        model["nodes"]["1"]["x"] = 5.0.into();
+        model["nodes"]["2"] = serde_json::json!({"id": 2, "x": 0.0, "z": 1.0});
+        model["elements"]["2"] = serde_json::json!({"id": 2, "type": "frame", "nodeI": 0, "nodeJ": 2, "materialId": 1, "sectionId": 1});
+        model["supports"]["1"] = serde_json::json!({"id": 1, "nodeId": 1, "type": "fixed"});
+        model["loads"] = serde_json::json!([{"type": "pointOnElement", "data": {"elementId": 1, "a": 2.0, "p": 0.0, "my": 6.0}}]);
+        let model: SolverInput = serde_json::from_value(model).unwrap();
+        let linear = crate::solver::linear::solve_2d(&model).unwrap();
+        let nonlinear = crate::solver::pdelta::solve_pdelta_2d(&model, 20, 1e-10).unwrap();
+        assert!(nonlinear.converged);
+        for result in [linear, nonlinear.results] {
+            let ef = result.element_forces.iter().find(|f| f.element_id == 1).unwrap();
+            assert_eq!(ef.point_loads[0].my, Some(6.0));
+            let recovered = recover_member(&MemberRecoveryInput {
+                space: RecoverySpace::Planar,
+                length: 5.0, ei: Some(20_000.0), gas: None, v_i: 0.0, r_i: 0.0, v_j: 0.0, r_j: 0.0,
+                hinge_start: false, hinge_end: false, points: ef.point_loads.clone(), dist: ef.distributed_loads.clone(),
+                positions: (0..21).map(|k| k as f64 / 20.0).collect(),
+            }).unwrap();
+            for (k, sample) in recovered.iter().enumerate() {
+                let (v, r) = expected(k as f64 / 4.0, 2.0, 6.0);
+                assert!((sample.v - v).abs() < 2e-13);
+                assert!((sample.rotation - r).abs() < 2e-13);
+            }
+        }
+    }
+
+    #[test]
+    fn loaded_recovery_refuses_missing_or_below_limit_stiffness() {
+        for ei in [None, Some(0.0), Some(1e-6 * (1.0 - 1e-6)), Some(1e-6), Some(1e-6 * (1.0 + 1e-6))] {
+            let mut input = MemberRecoveryInput {
+                space: RecoverySpace::Planar,
+                length: 5.0, ei, gas: None, v_i: 0.0, r_i: 0.0, v_j: 0.0, r_j: 0.0,
+                hinge_start: false, hinge_end: false,
+                points: vec![PointLoadInfo { a: 2.0, p: 0.0, px: None, my: Some(6e-10) }], dist: vec![], positions: vec![0.2],
+            };
+            assert_eq!(recover_member(&input).is_ok(), ei.is_some_and(|e| e > 1e-6));
+            input.points.clear();
+            assert_eq!(recover_member(&input).unwrap()[0].v, 0.0);
+        }
+    }
+
+    #[test]
+    fn spatial_recovery_keeps_positive_ei_below_planar_cutoff_2143() {
+        for ei in [1e-12, 5e-7, 1e-6, 1.000001e-6] {
+            let input: MemberRecoveryInput = serde_json::from_value(serde_json::json!({
+                "length": 5.0, "ei": ei, "space": "spatial", "vI": 0.0, "rI": 0.0, "vJ": 0.0, "rJ": 0.0,
+                "hingeStart": false, "hingeEnd": false, "points": [],
+                "dist": [{"qI": -ei * 1e-4, "qJ": -ei * 1e-4, "a": 0.0, "b": 5.0}], "positions": [0.5]
+            })).unwrap();
+            let result = recover_member(&input).unwrap();
+            let expected = -1e-4 * 5.0_f64.powi(4) / 384.0;
+            assert!((result[0].v - expected).abs() <= 1e-12 * expected.abs());
+        }
+    }
+
+}
+
+#[cfg(test)]
+mod recovery_round4_2143 {
+    use super::*;
+
+    #[test]
+    fn spatial_loaded_recovery_accepts_positive_stiffness_in_both_solvers_and_planes() {
+        for ei in [5e-7, 1e-6, 1.000001e-6] {
+            for plane in [0, 1] {
+                let mut model: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
+                model["nodes"]["1"]["x"] = 5.0.into();
+                model["sections"]["1"]["iy"] = (ei / 200_000_000.0).into();
+                model["sections"]["1"]["iz"] = (ei / 200_000_000.0).into();
+                let q = -ei * 1e-4;
+                model["loads"] = serde_json::json!([{"type": "distributed", "data": {
+                    "elementId": 1, "qYI": if plane == 0 { q } else { 0.0 }, "qYJ": if plane == 0 { q } else { 0.0 },
+                    "qZI": if plane == 1 { q } else { 0.0 }, "qZJ": if plane == 1 { q } else { 0.0 }
+                }}]);
+                let model: SolverInput3D = serde_json::from_value(model).unwrap();
+                let linear = crate::solver::linear::solve_3d(&model).unwrap();
+                let nonlinear = crate::solver::pdelta::solve_pdelta_3d(&model, 20, 1e-10).unwrap();
+                assert!(nonlinear.converged);
+                for r in [linear, nonlinear.results] {
+                    let tip = r.displacements.iter().find(|d| d.node_id == 1).unwrap();
+                    let ef = &r.element_forces[0];
+                    let (v, rotation, dist) = if plane == 0 { (tip.uy, tip.rz, &ef.distributed_loads_y) }
+                        else { (tip.uz, -tip.ry, &ef.distributed_loads_z) };
+                    let input: MemberRecoveryInput = serde_json::from_value(serde_json::json!({
+                        "space": "spatial", "length": 5.0, "ei": ei, "vI": 0.0, "rI": 0.0, "vJ": v, "rJ": rotation,
+                        "dist": dist, "positions": [0.25, 0.5, 0.75]
+                    })).unwrap();
+                    for (k, d) in recover_member(&input).unwrap().iter().enumerate() {
+                        let x = 5.0 * (k + 1) as f64 / 4.0;
+                        let expected = q * x * x * (150.0 - 20.0 * x + x * x) / (24.0 * ei);
+                        assert!((d.v - expected).abs() <= 1e-12 * expected.abs());
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn planar_raw_curve_and_shape_share_shear_recovery_in_both_solvers() {
+        for gas in [None, Some(20_000.0)] {
+            let mut model: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-2d.json")).unwrap();
+            model["nodes"]["1"]["x"] = 5.0.into();
+            if let Some(gas) = gas { model["sections"]["1"]["asY"] = (gas * 2.6 / 200_000_000.0).into(); }
+            model["loads"] = serde_json::json!([{"type": "nodal", "data": {"nodeId": 1, "fx": 0.0, "fz": 1.0, "my": 0.0}}]);
+            let model: SolverInput = serde_json::from_value(model).unwrap();
+            let linear = crate::solver::linear::solve_2d(&model).unwrap();
+            let nonlinear = crate::solver::pdelta::solve_pdelta_2d(&model, 20, 1e-10).unwrap();
+            assert!(nonlinear.converged);
+            for r in [linear, nonlinear.results] {
+                let tip = r.displacements.iter().find(|d| d.node_id == 1).unwrap();
+                let positions: Vec<_> = (0..21).map(|k| k as f64 / 20.0).collect();
+                for offset in [0.0, 4.0, 1e6] {
+                    let mut input = serde_json::json!({
+                        "nodeIx": 0.0, "nodeIy": offset, "nodeJx": 5.0, "nodeJy": offset,
+                        "uIx": 0.0, "uIy": 0.0, "rIz": 0.0, "uJx": tip.ux, "uJy": tip.uz, "rJz": tip.ry,
+                        "length": 5.0, "ei": 20_000.0, "gas": gas, "scale": 1.0, "hingeStart": false, "hingeEnd": false,
+                        "positions": positions, "displacementsOnly": true
+                    });
+                    let raw: Vec<serde_json::Value> = serde_json::from_str(&crate::compute_deformed_shape(&input.to_string()).unwrap()).unwrap();
+                    input["displacementsOnly"] = false.into();
+                    let drawn: Vec<DeformedPoint> = serde_json::from_str(&crate::compute_deformed_shape(&input.to_string()).unwrap()).unwrap();
+                    for (k, (d, p)) in raw.iter().zip(drawn).enumerate() {
+                        let x = 5.0 * positions[k];
+                        let v = x * x * (15.0 - x) / 120_000.0 + gas.map_or(0.0, |g| x / g);
+                        let rotation = x * (10.0 - x) / 40_000.0;
+                        let actual = d["uz"].as_f64().unwrap();
+                        assert!((actual - v).abs() <= 1e-12 * v.abs());
+                        assert!((d["ry"].as_f64().unwrap() - rotation).abs() <= 1e-12 * rotation.abs());
+                        assert_eq!(p.y, offset + actual);
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn spatial_recovery_refuses_missing_nonpositive_and_nonfinite_loaded_stiffness() {
+        for ei in [None, Some(0.0), Some(-1e-12), Some(f64::NAN), Some(f64::INFINITY), Some(f64::NEG_INFINITY)] {
+            let mut input: MemberRecoveryInput = serde_json::from_value(serde_json::json!({
+                "space": "spatial", "length": 5.0, "vI": 0.0, "rI": 0.0, "vJ": 0.0, "rJ": 0.0,
+                "points": [{"a": 2.0, "p": 1.0}], "positions": [0.5]
+            })).unwrap();
+            input.ei = ei;
+            assert!(recover_member(&input).is_err());
+            input.points.clear();
+            let unloaded = recover_member(&input).unwrap();
+            assert_eq!(unloaded[0].v, 0.0);
+            assert_eq!(unloaded[0].rotation, 0.0);
+        }
+    }
+
+    #[test]
+    fn scalar_span_loads_are_preserved_on_both_sides_of_the_legacy_filter() {
+        for q in [-1.000001e-10, -1e-10, -9.99999e-11, 0.0] {
+            let input = serde_json::json!({
+                "nodeIx": 0.0, "nodeIy": 0.0, "nodeJx": 5.0, "nodeJy": 0.0,
+                "uIx": 0.0, "uIy": 0.0, "rIz": 0.0, "uJx": 0.0, "uJy": 0.0, "rJz": 0.0,
+                "scale": 1.0, "length": 5.0, "hingeStart": false, "hingeEnd": false,
+                "ei": 20_000.0, "loadQi": q, "loadQj": q
+            });
+            let raw: Vec<DeformedPoint> = serde_json::from_str(&crate::compute_deformed_shape(&input.to_string()).unwrap()).unwrap();
+            let expected = q * 5.0_f64.powi(4) / (384.0 * 20_000.0);
+            assert!((raw[10].y - expected).abs() <= 1e-12 * expected.abs().max(1e-12));
+        }
+    }
+
 }
