@@ -90,7 +90,6 @@ const COUPLED = [
   'lib/store/budget.ts',
   'lib/store/cracked-deflection.ts',
   'lib/store/ifc-export.ts',
-  'lib/store/work-drawings.ts',
 ];
 
 function coupled(): string[] {
