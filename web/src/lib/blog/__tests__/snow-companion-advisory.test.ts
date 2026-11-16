@@ -33,6 +33,7 @@ it('#2211 records the main-source scope separately from unmerged review defects'
   expect(advisory).toContain('unmerged-branch reinterpretation is not claimed as a released defect');
   expect(document('advisories/README.md')).toContain(`[SA-2026-082](${name})`);
   expect(document('SAFETY_ADVISORIES.md')).toContain(`[SA-2026-082](advisories/${name})`);
-  expect(notice.when).toEqual({ all: ['snow', 'generatedLoads'] });
+  expect(notice.when).toEqual({ all: ['snow'] });
+  expect(notice.requiresLoadRegeneration).toBe(true);
   expect(document(notice.changelog.file.replace('docs/', ''))).toContain('#2233');
 });
