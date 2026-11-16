@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
+  "underAudit.text": "Felülvizsgálat alatt: egy belső ellenőrzés hibákat tárt fel az automatikus tehergenerálásban és a vasbeton méretezésben. A javítások még folyamatban vannak. A tervezésben való felhasználás előtt ellenőrizze ezeket az eredményeket független számítással.",
+  "underAudit.details": "A felülvizsgálat nyitott hibajegyei",
   "advanced.finiteSpectrum": "Csak {n} véges rezgésalak létezik. A tömeg nélküli irányokhoz nem tartozik véges frekvencia.",
   "advanced.finiteSpectrumOne": "Csak 1 véges rezgésalak létezik. A tömeg nélküli irányokhoz nem tartozik véges frekvencia.",
   "advanced.modalIncomplete": "A modális analízist elutasítottuk: a kiszámított {m} rezgésalakból csak {n} rendelkezik pozitív frekvenciával (ω² > 0). Hiányos rezgésalak-készletet nem adtunk vissza. Ellenőrizze a merevség és a tömeg kondicionáltságát, valamint a támaszokat.",

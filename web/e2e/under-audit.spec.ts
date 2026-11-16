@@ -1,7 +1,7 @@
-import { test, expect, loadModel, alSection, designAll, designPlace } from './fixtures';
+import { test, expect, loadModel, alSection, designAll, designPlace, open3D } from './fixtures';
 
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }, { width: 820, height: 1180 }]) {
-  test.skip(`@smoke known wrong result: #2199 wind and RC results retain the audit notice at ${viewport.width}px`, async ({ pro: page }) => {
+  test(`@smoke known wrong result: #2199 wind and RC results retain the audit notice at ${viewport.width}px`, async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-loads').click();
@@ -17,7 +17,8 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     await page.setViewportSize(viewport);
     const notice = page.getByTestId('under-audit-notice').filter({ visible: true }).first();
     await expect(notice).toBeVisible();
-    const checkLayout = async (name: string) => {
+    const checkLayout = async (name: string, viewerSelector = '.viewport-container') => {
+      const notice = viewerSelector.includes('rebar-canvas') ? page.getByTestId('rebar-workspace').getByTestId('under-audit-notice') : page.getByTestId('under-audit-notice').filter({ visible: true }).first();
       await expect(notice).toContainText('Check these results independently');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const box = (await notice.boundingBox())!;
@@ -28,7 +29,8 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       const link = (await notice.getByRole('link').boundingBox())!;
       expect(link.height).toBeGreaterThanOrEqual(44);
       expect(link.width).toBeGreaterThanOrEqual(44);
-      const viewer = (await page.locator('.viewport-container').boundingBox())!;
+      expect(await notice.getByRole('link').evaluate((el) => { const r = el.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === el; })).toBe(true);
+      const viewer = (await page.locator(viewerSelector).boundingBox())!;
       expect(viewer.y + viewer.height).toBeLessThanOrEqual(viewport.height);
       expect(viewer.height).toBeGreaterThan(100);
       await page.screenshot({ path: test.info().outputPath(`${name}-${viewport.width}.png`) });
@@ -39,7 +41,13 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     await designPlace(page, 'list');
     await expect(page.getByTestId('design-desk').getByTestId('under-audit-notice')).toBeVisible();
     await page.getByTestId('pr-stage-model').click();
+    if (await page.getByTestId('pro-panel-close').isVisible()) await page.getByTestId('pro-panel-close').click();
     await page.setViewportSize(viewport);
     await checkLayout('rc-audit');
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await open3D(page);
+    await page.setViewportSize(viewport);
+    await expect(page.getByTestId('rebar-canvas')).toBeVisible();
+    await checkLayout('cage-audit', '[data-testid="rebar-canvas"]');
   });
 }

@@ -812,7 +812,7 @@
     <p class="line" data-testid="steel-stage-documents-body">{t('steel.workflow.documents.body')}</p>
     <!-- The framing, anchor and joint drawings read the model and the joints: no detailing. -->
     <MemoriaButton />
-    <SheetsPanel resolve={() => null} projectName={modelStore.model.detailing?.titleBlock?.project || t('detailing.doc.project')} />
+    <SheetsPanel auditNotice={false} resolve={() => null} projectName={modelStore.model.detailing?.titleBlock?.project || t('detailing.doc.project')} />
     <ExchangePanel projectName={modelStore.model.detailing?.titleBlock?.project || modelStore.model.name} />
   </StageSection>
 

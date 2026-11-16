@@ -1,4 +1,5 @@
 <script lang="ts">
+  import OutdatedNotice from './design/OutdatedNotice.svelte';
   /**
    * Member checks under a code other than CIRSOC, through the engine's own checkers.
    *
@@ -215,6 +216,7 @@
     {#if failure && failure.key !== 'engine.unavailable'}<p class="pk-warn">{failure.message}</p>{/if}
   {:else if run}
     <section class="pk-card" data-testid="other-codes-results">
+      <OutdatedNotice audit={code.family === 'concrete' ? ['rc-design'] : []} />
       <ProDesignCompleteness {missing} />
       {#if run.errorKey}
         <p class="pk-warn" data-testid="other-codes-run-error">{t(run.errorKey)}</p>
