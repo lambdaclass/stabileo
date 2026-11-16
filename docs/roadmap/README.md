@@ -13,16 +13,67 @@ silent wrong results down to (g) growth and SaaS; sections 3 to 6 follow the sam
 measurable exit criteria, and the metrics behind them are regenerated on the
 [verification dashboard](../../testing/docs/DASHBOARD.md).
 
-As of **2026-11-15**, the RC and steel interaction fixes
-([#2080](https://github.com/lambdaclass/stabileo/pull/2080)), the snow roof-plane fixes
-([#2095](https://github.com/lambdaclass/stabileo/pull/2095)) and the legacy-project fingerprint
-([#2091](https://github.com/lambdaclass/stabileo/pull/2091)) are on main, and 0.6.1 carries
-SA-2026-064 to SA-2026-068. Next are four silent wrong results found while landing them
-([#2096](https://github.com/lambdaclass/stabileo/issues/2096),
-[#2142](https://github.com/lambdaclass/stabileo/issues/2142),
-[#2143](https://github.com/lambdaclass/stabileo/issues/2143),
-[#2144](https://github.com/lambdaclass/stabileo/issues/2144)), then the design and load layer
-audit; the full order is **Priority now** in PRODUCT_ROADMAP.
+As of **2026-11-16**, release **0.6.1** is out with SA-2026-064 through SA-2026-068.
+The follow-on fixes are done on main and await **0.6.2**:
+[#2142](https://github.com/lambdaclass/stabileo/issues/2142) in
+[#2169](https://github.com/lambdaclass/stabileo/pull/2169),
+[#2143](https://github.com/lambdaclass/stabileo/issues/2143) in
+[#2170](https://github.com/lambdaclass/stabileo/pull/2170),
+[#2096](https://github.com/lambdaclass/stabileo/issues/2096) in
+[#2173](https://github.com/lambdaclass/stabileo/pull/2173),
+[#2144](https://github.com/lambdaclass/stabileo/issues/2144) in
+[#2175](https://github.com/lambdaclass/stabileo/pull/2175), and
+[#2176](https://github.com/lambdaclass/stabileo/issues/2176) and
+[#2172](https://github.com/lambdaclass/stabileo/issues/2172) in
+[#2197](https://github.com/lambdaclass/stabileo/pull/2197). These cover SA-2026-069 through
+SA-2026-074. Re-run affected member designs and analyses. Regenerate all affected generated
+area loads, including roof and floor loads, before recalculating; stored loads alone are insufficient.
+
+**Soundness remains first.** Wave 1 of the design and load audit has open findings; wave 2 has
+started on design dispatch, steel and detailing. The complete issue and PR map is in
+[PRODUCT_ROADMAP, Design and load audit](PRODUCT_ROADMAP.md#design-and-load-audit-active-work-2026-11-16):
+
+- In flight: secondary stirrup legs [#2171](https://github.com/lambdaclass/stabileo/issues/2171) in
+  [#2198](https://github.com/lambdaclass/stabileo/pull/2198); gravity and floor regions
+  [#2199](https://github.com/lambdaclass/stabileo/issues/2199)/[#2200](https://github.com/lambdaclass/stabileo/issues/2200)/[#2201](https://github.com/lambdaclass/stabileo/issues/2201)/[#2210](https://github.com/lambdaclass/stabileo/issues/2210)
+  in [#2219](https://github.com/lambdaclass/stabileo/pull/2219); wind
+  [#2203](https://github.com/lambdaclass/stabileo/issues/2203)/[#2204](https://github.com/lambdaclass/stabileo/issues/2204)/[#2205](https://github.com/lambdaclass/stabileo/issues/2205)
+  (also [#2206](https://github.com/lambdaclass/stabileo/issues/2206)) in
+  [#2220](https://github.com/lambdaclass/stabileo/pull/2220); narrow member loads
+  [#2222](https://github.com/lambdaclass/stabileo/issues/2222) in
+  [#2223](https://github.com/lambdaclass/stabileo/pull/2223); companion snow
+  [#2211](https://github.com/lambdaclass/stabileo/issues/2211) in
+  [#2233](https://github.com/lambdaclass/stabileo/pull/2233); concentrated live load
+  [#2207](https://github.com/lambdaclass/stabileo/issues/2207); equilibrium property oracles
+  [#2108](https://github.com/lambdaclass/stabileo/issues/2108)/[#2109](https://github.com/lambdaclass/stabileo/issues/2109)
+  in [#2229](https://github.com/lambdaclass/stabileo/pull/2229); the **under audit** notice in
+  [#2228](https://github.com/lambdaclass/stabileo/pull/2228); release 0.6.2.
+- Wave 1 open findings: [#2202](https://github.com/lambdaclass/stabileo/issues/2202),
+  [#2206](https://github.com/lambdaclass/stabileo/issues/2206),
+  [#2208](https://github.com/lambdaclass/stabileo/issues/2208),
+  [#2209](https://github.com/lambdaclass/stabileo/issues/2209),
+  [#2212](https://github.com/lambdaclass/stabileo/issues/2212),
+  [#2213](https://github.com/lambdaclass/stabileo/issues/2213),
+  [#2214](https://github.com/lambdaclass/stabileo/issues/2214),
+  [#2215](https://github.com/lambdaclass/stabileo/issues/2215),
+  [#2216](https://github.com/lambdaclass/stabileo/issues/2216),
+  [#2217](https://github.com/lambdaclass/stabileo/issues/2217),
+  [#2218](https://github.com/lambdaclass/stabileo/issues/2218) and
+  [#2225](https://github.com/lambdaclass/stabileo/issues/2225).
+  [#2202](https://github.com/lambdaclass/stabileo/issues/2202) is conservative;
+  [#2218](https://github.com/lambdaclass/stabileo/issues/2218) follows the physical-region transfer in
+  [#2219](https://github.com/lambdaclass/stabileo/pull/2219). In-flight corrections and the notice have
+  not yet landed on main.
+- Follow-ups: [#2224](https://github.com/lambdaclass/stabileo/issues/2224),
+  [#2226](https://github.com/lambdaclass/stabileo/issues/2226) and
+  [#2227](https://github.com/lambdaclass/stabileo/issues/2227).
+
+Testing phases 1 and 2 are done in [#2165](https://github.com/lambdaclass/stabileo/pull/2165)
+and [#2167](https://github.com/lambdaclass/stabileo/pull/2167); the tools, verification documents
+and testing backlog now live in `testing/`. Further consolidation and generated coverage reporting
+remain planned. The Hungarian integration [#2099](https://github.com/lambdaclass/stabileo/pull/2099)
+is on main; expanded Research, consolidated Tools, the diagram game, accounts and advertising
+measurement remain disabled by default.
 
 As of **2026-11-13 evening**, [#1846](https://github.com/lambdaclass/stabileo/issues/1846)
 and [#1085](https://github.com/lambdaclass/stabileo/issues/1085) are done in
@@ -69,7 +120,7 @@ audit [#1946](https://github.com/lambdaclass/stabileo/pull/1946) have merged. Th
 ([#2070](https://github.com/lambdaclass/stabileo/pull/2070)) established no new silent wrong results;
 false refusals and harness defects remain distinct from corrected engineering results.
 
-In flight: [#2023](https://github.com/lambdaclass/stabileo/issues/2023) in
+Done on main: [#2023](https://github.com/lambdaclass/stabileo/issues/2023) in
 [#2074](https://github.com/lambdaclass/stabileo/pull/2074), preserving zero-work released loads
 across rotations and unit changes. Follow-ups:
 [#2073](https://github.com/lambdaclass/stabileo/issues/2073) for test-strength and deferred review
@@ -93,7 +144,7 @@ order and dates its historical cause-count snapshot separately; the dashboard ha
 
 | Document | Answers | Status | Owner |
 |---|---|---|---|
-| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-14): v0.6.0 released; open wrong-result fixes (#2080, #2095, #2091) land first for 0.6.1; then a design and load layer audit, nightly invariance tests for design and loads, refusal of incomplete design inputs, and triage of the nightly candidates; #1040 parked for a new approach | Federico Carrone |
+| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-16): 0.6.1 released; #2142/#2143/#2096/#2144/#2176/#2172 fixed on main for 0.6.2; wave-1 audit findings and their fixes take priority; wave 2 (design dispatch, steel, detailing) started; under-audit notice pending; #1040 parked for a new approach | Federico Carrone |
 | [testing/ROADMAP.md](../../testing/ROADMAP.md) | Testing and verification backlog, solver proofs, prevention and CI feedback; follows PRODUCT_ROADMAP “Priority now” item 6 | Current | Maintainers |
 | [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver mechanics, numerical methods, long-term solver sequence (Steps 1–14+) | Long-term sequence current; its "Where we are" and "Wave 1" sections predate v0.2.0 (see the note at its top) | Diego K (last editor) |
 | [../../research/DESIGN.md](../../research/DESIGN.md) | Stabileo Research: what it is, its rules, the engine-benchmarks track and the ordered paper queue (summary in PRODUCT_ROADMAP "Stabileo Research") | Current (2026-10-29) | Federico Carrone |
