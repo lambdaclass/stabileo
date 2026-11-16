@@ -179,17 +179,20 @@ test.describe('@smoke PRO shell — a toast does not land on the panel', () => {
 });
 
 test.describe('@smoke PRO shell — the diagnostics warning', () => {
-  test('an untouched PRO says nothing about being empty', async ({ pro: page }) => {
-    // The bug report, asserted at the surface. The model is empty and `checkModel` has three
-    // complaints about that; none of them is the user's problem yet.
-    await expect(page.getByTestId('design-diagnostics-warning')).toHaveCount(0);
-    await expect(page.getByTestId('pro-error-count'), 'and the old panel-header chip is gone')
-      .toHaveCount(0);
+  test('an untouched PRO reads as no model, not as a model with errors', async ({ pro: page }) => {
+    // The model is empty and `checkModel` has three complaints about that; none of them is the
+    // user's problem yet, so the diagnostics say there is no model rather than list faults.
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('pr-cmd-advanced').click();
+    await expect(page.getByTestId('diag-kind')).toHaveAttribute('data-kind', 'empty');
   });
 
-  test('it stays silent on a model that loads clean', async ({ pro: page }) => {
+  test('a model that loads clean reads as clean, with nothing to hide', async ({ pro: page }) => {
     await loadModel(page, SMALL);
-    await expect(page.getByTestId('design-diagnostics-warning')).toHaveCount(0);
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('pr-cmd-advanced').click();
+    await expect(page.getByTestId('diag-kind')).toHaveAttribute('data-kind', 'clean');
+    await expect(page.getByTestId('diag-hide-warning')).toBeDisabled();
   });
 
   test('Diagnostics carries the control that hides it, and states its scope', async ({ pro: page }) => {

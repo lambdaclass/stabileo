@@ -28,7 +28,7 @@ ACQUIRE_LINE = re.compile(
     r'|nix develop --command cargo fetch --locked(?: --manifest-path [\w/.-]+)?'
     r'|nix develop --command bash -c "cd web && npx playwright install-deps [a-z ]+")'
     r'|if \[ "[\w-]+" = [\w-]+ \]; then|else|fi')
-TEST_STEP = re.compile(r'\bmake (?:test|e2e\.web\.(?:smoke|slow|flaky|visual|build)|typecheck|lint|check)'
+TEST_STEP = re.compile(r'\bmake (?:test|e2e\.web\.(?:smoke|slow|flaky|build)|typecheck|lint|check)'
                        r'|vitest|nextest|playwright test|cargo (?:test|clippy)|mix test|check\.mjs|run-area-e2e')
 BUILD_LINE = re.compile(r'nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/[\w/.-]+/wasm/build\.sh'
                         r'|(?:nix develop --command )?make wasm(?: NIX_RUN=)?')
