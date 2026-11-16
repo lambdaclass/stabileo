@@ -1,3 +1,4 @@
+import { expectWindTips } from './wind-tip-assertions';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { computeDiagramValueAt } from '../../diagrams';
 import { evaluateDiagramAt } from '../../diagrams-3d';
@@ -289,7 +290,7 @@ for (const kind of ['bracedTower', 'taperCrossing'] as const) for (const variant
   const expectedDeflection = (3 * length * integral(0, 2) - integral(0, 3)) / (6 * 200000 * 1000 * 1e-4);
   const check = (out: ReturnType<typeof solve> | ReturnType<typeof solve3D>) => {
     expect(out.elementForces.map((f: { elementId: number }) => f.elementId).sort((a: number, b: number) => a - b)).toEqual(carriers.map(e => e.id).sort((a, b) => a - b));
-    for (const d of out.displacements) if (nodes.get(d.nodeId)!.z === 6) expect(rotated && 'uy' in d ? d.uy : d.ux).toBeCloseTo(expectedDeflection, 8);
+    expectWindTips(out.displacements, [...nodes.values()].filter(n => n.z === 6).map(n => n.id), spatial && rotated ? 'uy' : 'ux', expectedDeflection, 8);
     for (const f of out.elementForces) {
       const z = nodes.get(model.elements.get(f.elementId)!.nodeI)!.z! / scale;
       for (const t of [0, 0.2, 0.5, 0.8, 1]) {
@@ -371,7 +372,7 @@ for (const entry of ['field', 'planner'] as const) for (const variant of variant
   const check = (out: ReturnType<typeof solve> | ReturnType<typeof solve3D>) => {
     checkLoads();
     expect(out.elementForces.map((f: { elementId: number }) => f.elementId).sort((a: number, b: number) => a - b)).toEqual(carriers.map(e => e.id).sort((a, b) => a - b));
-    for (const d of out.displacements) if (nodes.get(d.nodeId)!.z === 1) expect(rotated && 'uy' in d ? d.uy : d.ux).toBeCloseTo((3 * length * integral(0, 2) - integral(0, 3)) / (6 * 200000 * 1000 * 1e-4), 12);
+    expectWindTips(out.displacements, [...nodes.values()].filter(n => n.z === 1).map(n => n.id), spatial && rotated ? 'uy' : 'ux', (3 * length * integral(0, 2) - integral(0, 3)) / (6 * 200000 * 1000 * 1e-4), 12);
     for (const f of out.elementForces) for (const t of [0, 0.2, 0.5, 0.8, 1]) {
       const at = nodes.get(model.elements.get(f.elementId)!.nodeI)!.z! / scale + t * f.length;
       const shear = integral(at, 0), moment = integral(at, 1) - at * shear;
