@@ -14,9 +14,9 @@ import type { DesignAxes } from '../design/design-axes';
 
 const section = { b: 0.2, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const bars = { count: 4, diameter: 16 };
-const expectedPrimaryCapacity = (cage: StirrupDef, sec = section, edition: '2005' | '2025' = '2025') =>
+const expectedPrimaryCapacity = (cage: StirrupDef, sec: Pick<typeof section, 'b' | 'h' | 'fc' | 'fy' | 'cover'> = section, edition: '2005' | '2025' = '2025') =>
   computeDirectionalShearCapacity('primary', cage.diameter, stirrupLegs(cage, 'primary'), cage.spacing,
-    sec.b, sec.h - sec.cover - sec.stirrupDia / 1000 - bars.diameter / 2000, sec.fc, sec.fy, 0,
+    sec.b, sec.h - sec.cover - cage.diameter / 1000 - bars.diameter / 2000, sec.fc, sec.fy, 0,
     { h: sec.h, Ag: sec.b * sec.h, edition });
 
 for (const example of [
@@ -25,7 +25,7 @@ for (const example of [
   { edition: '2025', h: 0.6, diameter: 6, legs: 2, spacing: 0.05, phiVn: 271.57 },
   { edition: '2025', h: 0.6, diameter: 12, legs: 2, spacing: 0.05, phiVn: 345.49 },
 ] as const) {
-  it.skip(`known wrong result: #2171 primary capacity expectation agrees with hand arithmetic ${example.edition} ${example.h} ${example.diameter}`, () => {
+  it(`known wrong result: #2171 primary capacity expectation agrees with hand arithmetic ${example.edition} ${example.h} ${example.diameter}`, () => {
     expect(expectedPrimaryCapacity(example, { ...section, h: example.h }, example.edition).phiVn).toBe(example.phiVn);
   });
 }
