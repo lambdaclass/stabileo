@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import OutdatedNotice from '../pro/design/OutdatedNotice.svelte';
+import RebarWorkspaceHeader from '../pro/design/RebarWorkspaceHeader.svelte';
 
 const registry = import.meta.glob('../../lib/provenance/under-audit.ts');
 async function audit() {
@@ -76,3 +77,16 @@ it('known wrong result: #2199 the audit notice is translated in every shipped lo
   expect(texts.size).toBe(7);
 });
 
+
+it.skip('known wrong result: #2228 the cage header owns the audit notice within the component ceiling', () => {
+  const html = render(RebarWorkspaceHeader, { props: {
+    readiness: null, revision: null, summary: null, fmt: String, railOpen: false,
+    canGoBack: false, onBack: () => {}, onFitView: () => {}, onClose: () => {},
+  } }).body;
+  expect(html).toContain('data-testid="under-audit-notice"');
+  expect(html).toContain('Check these results independently');
+  const workspace = source('../pro/design/RebarWorkspace.svelte');
+  expect(workspace).toContain('<RebarWorkspaceHeader');
+  expect(workspace).not.toContain('<OutdatedNotice');
+  expect(workspace.split('\n').length).toBeLessThan(600);
+});

@@ -1,6 +1,35 @@
 import { test, expect, loadModel, alSection, designAll, designPlace, open3D } from './fixtures';
+import type { DedalFile } from '../src/lib/store/file';
 
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }, { width: 820, height: 1180 }]) {
+  test.skip(`@smoke known wrong result: #2228 RC results independently trigger the main-view notice at ${viewport.width}px`, async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    const checkManualLoads = async () => {
+      const { snapshot } = JSON.parse(await page.evaluate(() => window.__stabileo.serializeProject())) as DedalFile;
+      expect(snapshot.loads.length).toBeGreaterThan(0);
+      expect(snapshot.loads.some(({ data }) => 'generatedBy' in data || 'fromDef' in data)).toBe(false);
+      expect(snapshot.designData?.loadBasis).toBeUndefined();
+      expect(snapshot.groups?.some(([, group]) => group.kind === 'floorLoad') ?? false).toBe(false);
+    };
+    await page.getByTestId('pr-stage-model').click();
+    if (await page.getByTestId('pro-panel-close').isVisible()) await page.getByTestId('pro-panel-close').click();
+    await checkManualLoads();
+    await expect(page.getByTestId('under-audit-notice').filter({ visible: true })).toHaveCount(0);
+    await designAll(page);
+    expect(await page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0)).toBeGreaterThan(0);
+    await page.getByTestId('pr-stage-model').click();
+    if (await page.getByTestId('pro-panel-close').isVisible()) await page.getByTestId('pro-panel-close').click();
+    await page.setViewportSize(viewport);
+    await checkManualLoads();
+    const notice = page.getByTestId('under-audit-notice').filter({ visible: true });
+    await expect(notice).toHaveCount(1);
+    await expect(notice).toContainText('Check these results independently');
+    await expect(page.getByTestId('design-desk')).not.toBeVisible();
+    await expect(page.getByTestId('rebar-workspace')).not.toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`rc-only-audit-${viewport.width}.png`) });
+  });
+
   test(`@smoke known wrong result: #2199 wind and RC results retain the audit notice at ${viewport.width}px`, async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await page.getByTestId('pr-stage-model').click();
