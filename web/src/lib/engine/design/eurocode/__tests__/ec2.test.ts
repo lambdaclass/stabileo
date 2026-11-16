@@ -180,7 +180,7 @@ describe('EC2 torsion, 6.3.2', () => {
   // With the minimum steel at the bottom (2,996 cm²) VRd,c = vmin·b·d = 0,38770·0,3·0,557 = 64,784 kN.
   const demand = (t: number, v: number) => ({ category: 'My+' as const, value: 10, absValue: 10, comboId: 1, comboName: 'C1', stationT: 0.5, stationX: 3,
     forces: { t: 0.5, x: 3, n: 0, vy: 0, vz: v, my: 10, mz: 0, torsion: t } });
-  const member = (t: number, v: number) => ec2MemberDesign({ kind: 'beam', b: 0.3, h: 0.6, L: 6, demands: [demand(t, v)], cover: 0.025, linkDia: 8, barDia: 20, fck: 30, fyk: 420, params: EC2_RECOMMENDED });
+  const member = (t: number, v: number) => pointMember({ kind: 'beam', b: 0.3, h: 0.6, L: 6, demands: [demand(t, v)], cover: 0.025, linkDia: 8, barDia: 20, fck: 30, fyk: 420, params: EC2_RECOMMENDED });
 
   it('below the screen of 6.3.2(5): no torsion steel', () => {
     // 5/27,034 + 30/64,784 = 0,6480.
@@ -205,7 +205,7 @@ describe('EC2 torsion, 6.3.2', () => {
   });
 
   it('a beam\'s axial force: left out up to 0,1·fcd·Ac in compression (360 kN here), said above it', () => {
-    const at = (n: number) => ec2MemberDesign({ kind: 'beam', b: 0.3, h: 0.6, L: 6, demands: [{ ...demand(0, 30), forces: { ...demand(0, 30).forces, n } }], cover: 0.025, linkDia: 8, barDia: 20, fck: 30, fyk: 420, params: EC2_RECOMMENDED });
+    const at = (n: number) => pointMember({ kind: 'beam', b: 0.3, h: 0.6, L: 6, demands: [{ ...demand(0, 30), forces: { ...demand(0, 30).forces, n } }], cover: 0.025, linkDia: 8, barDia: 20, fck: 30, fyk: 420, params: EC2_RECOMMENDED });
     const flag = (n: number) => { const d = at(n); if ('skip' in d) throw new Error(d.skip); return d.rows.find((r) => r.titleKey === 'check.ec2.axialNotEvaluated')?.status; };
     expect(flag(-350)).toBeUndefined();
     expect(flag(-370)).toBe('notVerified');
@@ -221,7 +221,7 @@ describe('EC2: the bars a beam holds', () => {
     // As = 100/(365 217·0,52915) = 5,1745 cm² against 3 Ø16 = 6,0319 cm²: 0,8579.
     // VEd = 100 kN > VRd,c: links max(100/(0,5013·365 217·2,5) = 2,185; ρw,min·b = 3,1298) = 3,1298 cm²/m against
     // Ø8 two legs every 0,20 m = 5,0265 cm²/m: 0,6227 (s/s,max = 0,2/0,4178 = 0,479 does not govern).
-    const d = ec2MemberDesign({ kind: 'beam', b: 0.3, h: 0.6, L: 6, cover: 0.025, linkDia: 8, barDia: 20, fck: 30, fyk: 420, params: EC2_RECOMMENDED,
+    const d = pointMember({ kind: 'beam', b: 0.3, h: 0.6, L: 6, cover: 0.025, linkDia: 8, barDia: 20, fck: 30, fyk: 420, params: EC2_RECOMMENDED,
       demands: [{ category: 'My+', value: 100, absValue: 100, comboId: 1, comboName: 'C1', stationT: 0.5, stationX: 3, forces: { t: 0.5, x: 3, n: 0, vy: 0, vz: 100, my: 100, mz: 0, torsion: 0 } }],
       provided: { bottom: { count: 3, diameter: 16 }, stirrups: { diameter: 8, legs: 2, spacing: 0.2 } } });
     if ('skip' in d) throw new Error(d.skip);
@@ -229,3 +229,7 @@ describe('EC2: the bars a beam holds', () => {
     expect(d.rows.find((r) => r.titleKey === 'check.ec2.linksProvided')!.ratio).toBeCloseTo(0.6227, 3);
   });
 });
+
+function pointMember(i: Parameters<typeof ec2MemberDesign>[0]) {
+  return ec2MemberDesign({ ...i, expectedCombinationIds: [1], stationTs: [0.5], tuples: i.demands });
+}

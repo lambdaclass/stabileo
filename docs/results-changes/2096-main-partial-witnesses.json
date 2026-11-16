@@ -1,0 +1,249 @@
+{
+  "main": "8e5c026b7125f920c7a29141aa375c98c178f9b3",
+  "missingMember": [
+    {
+      "elementId": 1,
+      "Mu": 20,
+      "Nu": 0,
+      "Vu": 1,
+      "overallStatus": "ok",
+      "flexure": {
+        "AsReq": 4.76,
+        "AsProv": 6.284,
+        "phiMn": 81.72691981835293,
+        "ratio": 0.24471740822304575
+      },
+      "shear": {
+        "ratio": 0.006049963878845501,
+        "phiVn": 165.2902430536209
+      }
+    }
+  ],
+  "missingStations": [
+    {
+      "t": 0,
+      "complete": [
+        {
+          "elementId": 1,
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 1,
+          "overallStatus": "ok",
+          "flexure": {
+            "AsReq": 4.76,
+            "AsProv": 6.284,
+            "phiMn": 81.72691981835293,
+            "ratio": 0.24471740822304575
+          },
+          "shear": {
+            "ratio": 0.006049963878845501,
+            "phiVn": 165.2902430536209
+          }
+        },
+        {
+          "elementId": 2,
+          "Mu": 2000,
+          "Nu": 0,
+          "Vu": 1,
+          "overallStatus": "fail",
+          "flexure": {
+            "AsReq": 160.00000000000003,
+            "AsProv": 160.84,
+            "phiMn": 363.78699468203973,
+            "ratio": 5.497722648793581
+          },
+          "shear": {
+            "ratio": 0.006049963878845501,
+            "phiVn": 165.2902430536209
+          }
+        }
+      ],
+      "returned": [
+        {
+          "elementId": 1,
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 1,
+          "overallStatus": "ok",
+          "flexure": {
+            "AsReq": 4.76,
+            "AsProv": 6.284,
+            "phiMn": 81.72691981835293,
+            "ratio": 0.24471740822304575
+          },
+          "shear": {
+            "ratio": 0.006049963878845501,
+            "phiVn": 165.2902430536209
+          }
+        },
+        {
+          "elementId": 2,
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 1,
+          "overallStatus": "ok",
+          "flexure": {
+            "AsReq": 4.76,
+            "AsProv": 6.284,
+            "phiMn": 81.72691981835293,
+            "ratio": 0.24471740822304575
+          },
+          "shear": {
+            "ratio": 0.006049963878845501,
+            "phiVn": 165.2902430536209
+          }
+        }
+      ]
+    },
+    {
+      "t": 0.5,
+      "complete": [
+        {
+          "elementId": 1,
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 1,
+          "overallStatus": "ok",
+          "flexure": {
+            "AsReq": 4.76,
+            "AsProv": 6.284,
+            "phiMn": 81.72691981835293,
+            "ratio": 0.24471740822304575
+          },
+          "shear": {
+            "ratio": 0.006049963878845501,
+            "phiVn": 165.2902430536209
+          }
+        },
+        {
+          "elementId": 2,
+          "Mu": 2000,
+          "Nu": 0,
+          "Vu": 1,
+          "overallStatus": "fail",
+          "flexure": {
+            "AsReq": 160.00000000000003,
+            "AsProv": 160.84,
+            "phiMn": 363.78699468203973,
+            "ratio": 5.497722648793581
+          },
+          "shear": {
+            "ratio": 0.006049963878845501,
+            "phiVn": 165.2902430536209
+          }
+        }
+      ],
+      "returned": [
+        {
+          "elementId": 1,
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 1,
+          "overallStatus": "ok",
+          "flexure": {
+            "AsReq": 4.76,
+            "AsProv": 6.284,
+            "phiMn": 81.72691981835293,
+            "ratio": 0.24471740822304575
+          },
+          "shear": {
+            "ratio": 0.006049963878845501,
+            "phiVn": 165.2902430536209
+          }
+        },
+        {
+          "elementId": 2,
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 1,
+          "overallStatus": "ok",
+          "flexure": {
+            "AsReq": 4.76,
+            "AsProv": 6.284,
+            "phiMn": 81.72691981835293,
+            "ratio": 0.24471740822304575
+          },
+          "shear": {
+            "ratio": 0.006049963878845501,
+            "phiVn": 165.2902430536209
+          }
+        }
+      ]
+    },
+    {
+      "t": 1,
+      "complete": [
+        {
+          "elementId": 1,
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 1,
+          "overallStatus": "ok",
+          "flexure": {
+            "AsReq": 4.76,
+            "AsProv": 6.284,
+            "phiMn": 81.72691981835293,
+            "ratio": 0.24471740822304575
+          },
+          "shear": {
+            "ratio": 0.006049963878845501,
+            "phiVn": 165.2902430536209
+          }
+        },
+        {
+          "elementId": 2,
+          "Mu": 2000,
+          "Nu": 0,
+          "Vu": 1,
+          "overallStatus": "fail",
+          "flexure": {
+            "AsReq": 160.00000000000003,
+            "AsProv": 160.84,
+            "phiMn": 363.78699468203973,
+            "ratio": 5.497722648793581
+          },
+          "shear": {
+            "ratio": 0.006049963878845501,
+            "phiVn": 165.2902430536209
+          }
+        }
+      ],
+      "returned": [
+        {
+          "elementId": 1,
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 1,
+          "overallStatus": "ok",
+          "flexure": {
+            "AsReq": 4.76,
+            "AsProv": 6.284,
+            "phiMn": 81.72691981835293,
+            "ratio": 0.24471740822304575
+          },
+          "shear": {
+            "ratio": 0.006049963878845501,
+            "phiVn": 165.2902430536209
+          }
+        },
+        {
+          "elementId": 2,
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 1,
+          "overallStatus": "ok",
+          "flexure": {
+            "AsReq": 4.76,
+            "AsProv": 6.284,
+            "phiMn": 81.72691981835293,
+            "ratio": 0.24471740822304575
+          },
+          "shear": {
+            "ratio": 0.006049963878845501,
+            "phiVn": 165.2902430536209
+          }
+        }
+      ]
+    }
+  ]
+}

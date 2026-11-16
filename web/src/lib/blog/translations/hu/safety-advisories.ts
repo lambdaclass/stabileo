@@ -40,6 +40,16 @@ const body: PostBody = {
     },
     {
       "k": "note",
+      "t": "SA-2026-071 — Tervezet 2026-11-15; javítva a #2173 PR-ben, beolvasztásra és kiadásra vár."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-071-incomplete-concurrent-demands.md",
+      "label": "SA-2026-071",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
       "t": "SA-2026-072 — Javítva a #2175 PR-ben, kiadásra vár."
     },
     {
@@ -473,6 +483,12 @@ const body: PostBody = {
           "A rúdon belüli lehajlás és elfordulás számítása kihagyta a rúd menti terheket, köztük a rúd belsejében ható koncentrált erőpárokat (#2143). Ellenőrizze újra a deformált alakokat, az oktatási kijelzéseket és az acél- és betonszerkezetek használhatósági ellenőrzéseit, a teljes és részleges trapézterheket is beleértve. Terhelt rúd esetén a program elegendő EI hajlítási merevség hiányában most kifejezetten elutasítja a belső elmozdulás és elfordulás számítását.",
           "Magas",
           "Javítva a #2170 PR-ben, kiadásra vár"
+        ],
+        [
+          "SA-2026-071",
+          "A rúdelemek ellenőrzése hiányos egyidejű igénybevételekkel is megfelelt eredményt adhatott (#2096). Számítsa újra a beton- és acélszerkezetek méretezését, és ellenőrizze a teherkombinációkat, a rúdelemeket, a vizsgált szelvényeket és a tanúsítványokat.",
+          "Magas",
+          "Tervezet 2026-11-15; javítva a #2173 PR-ben, beolvasztásra és kiadásra vár"
         ],
         [
           "SA-2026-072",

@@ -1,6 +1,7 @@
+import { checkDeclaredSteelMember } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
 import { appendFileSync } from 'node:fs';
-import { steelDemandOf, checkSteelMember, checkVariableSteelMember, type SteelMemberDemand } from '../verification-service';
+import { steelDemandOf, checkVariableSteelMember, type SteelMemberDemand } from '../verification-service';
 import { profileByName, profileToSectionFull } from '../../data/steel-profiles';
 import type { AnalysisResults3D } from '../types-3d';
 import { extractGoverningDemands, type ElementStationResult } from '../station-design-forces';
@@ -18,19 +19,19 @@ const tuples = [
 const base: SteelMemberDemand = { Nc: 300, Nt: 0, MuStrong: 60, MuWeak: 0, Vu: 20, diagram: [] };
 
 it('#1316 — the endpoint adapter never rates steel N at one end with M at the other', () => {
-  const expected = checkSteelMember(1, { ...base, tuples }, section, steel, lengths)!;
-  const actual = checkSteelMember(1, steelDemandOf(ef), section, steel, lengths)!;
+  const expected = checkDeclaredSteelMember(1, { ...base, tuples }, section, steel, lengths)!;
+  const actual = checkDeclaredSteelMember(1, steelDemandOf(ef), section, steel, lengths)!;
   expect(actual.interaction!.ratio).toBe(expected.interaction!.ratio);
   expect(actual.governingCombos!.interaction!.t).toBe(expected.governingCombos!.interaction!.t);
   expect(steelDemandOf(ef).tuples).toEqual(tuples.map(t => expect.objectContaining(t)));
   const control = { ...ef, nEnd: ef.nStart, myEnd: ef.myStart, vzEnd: ef.vzStart };
-  expect(checkSteelMember(1, steelDemandOf(control), section, steel, lengths)!.interaction!.ratio)
-    .toBe(checkSteelMember(1, { ...base, MuStrong: 0, Vu: 0, tuples: [tuples[0]!] }, section, steel, lengths)!.interaction!.ratio);
+  expect(checkDeclaredSteelMember(1, steelDemandOf(control), section, steel, lengths)!.interaction!.ratio)
+    .toBe(checkDeclaredSteelMember(1, { ...base, MuStrong: 0, Vu: 0, tuples: [tuples[0]!] }, section, steel, lengths)!.interaction!.ratio);
 });
 
 it('#1316 — a steel force envelope is refused and a declared simultaneous case is answered', () => {
-  expect(() => checkSteelMember(1, base, section, steel, lengths)).toThrow(/concurrent/i);
-  expect(checkSteelMember(1, { ...base, tuples: [{ ...tuples[0]!, MStrong: 60 }] }, section, steel, lengths)!.interaction!.ratio).toBeGreaterThan(0);
+  expect(() => checkDeclaredSteelMember(1, base, section, steel, lengths)).toThrow(/concurrent/i);
+  expect(checkDeclaredSteelMember(1, { ...base, tuples: [{ ...tuples[0]!, MStrong: 60 }] }, section, steel, lengths)!.interaction!.ratio).toBeGreaterThan(0);
 });
 
 it('#1316 — variable-section steel keeps each station combination concurrent', () => {
@@ -40,7 +41,7 @@ it('#1316 — variable-section steel keeps each station combination concurrent',
   ] };
   const sections = new Map([[1, { ...section, id: 1 }]]);
   const actual = checkVariableSteelMember(1, { sectionId: 1 }, sections as never, steel, stations, lengths)!;
-  const expected = checkSteelMember(1, { ...base, tuples: tuples.map((t, k) => ({ ...t, comboId: k + 1, comboName: k ? 'moment' : 'axial', t: 0.5 })) }, section, steel, lengths)!;
+  const expected = checkDeclaredSteelMember(1, { ...base, tuples: tuples.map((t, k) => ({ ...t, comboId: k + 1, comboName: k ? 'moment' : 'axial', t: 0.5 })) }, section, steel, lengths)!;
   expect(actual.interaction!.ratio).toBe(expected.interaction!.ratio);
   expect(actual.governingCombos!.interaction).toEqual(expected.governingCombos!.interaction);
 });
@@ -49,7 +50,7 @@ for (const fraction of [0.5, 0.7]) {
   it(`#1316 — steel interaction uses its own Cb at M/Mn=${fraction}`, () => {
     const sec = { ...section, fabrication: 'rolled' as const };
     const len = { L: 8, Lb: 8, loadPosition: 'web' as const };
-    const seed = checkSteelMember(1, { ...base, Nc: 1, MuStrong: 1, Vu: 0, tuples: [{ ...tuples[0]!, N: 1, MStrong: 1 }] }, sec, steel, len)!;
+    const seed = checkDeclaredSteelMember(1, { ...base, Nc: 1, MuStrong: 1, Vu: 0, tuples: [{ ...tuples[0]!, N: 1, MStrong: 1 }] }, sec, steel, len)!;
     const N = 0.4 * seed.compression!.phiPn;
     const M = fraction * seed.flexureZ.phiMn;
     const ts = [0, 0.25, 0.5, 0.75, 1];
@@ -59,11 +60,11 @@ for (const fraction of [0.5, 0.7]) {
     ] };
     const own = stations.comboResults.map(c => {
       const single = { ...stations, comboResults: [c] };
-      return checkSteelMember(1, steelDemandOf(ef, extractGoverningDemands(single), single), sec, steel, len)!;
+      return checkDeclaredSteelMember(1, steelDemandOf(ef, extractGoverningDemands(single), single), sec, steel, len)!;
     });
     const hand = 0.4 + (8 / 9) * fraction;
     expect(own[0]!.interaction!.ratio).toBeCloseTo(hand, 8);
-    const actual = checkSteelMember(1, steelDemandOf(ef, extractGoverningDemands(stations), stations), sec, steel, len)!;
+    const actual = checkDeclaredSteelMember(1, steelDemandOf(ef, extractGoverningDemands(stations), stations), sec, steel, len)!;
     if (process.env.SA_064_RECORD) appendFileSync(process.env.SA_064_RECORD, JSON.stringify({
       fraction, input: { section: sec, material: steel, lengths: len, elementForces: ef, stations },
       oracle: { axialFraction: 0.4, momentFraction: fraction, utilization: hand },

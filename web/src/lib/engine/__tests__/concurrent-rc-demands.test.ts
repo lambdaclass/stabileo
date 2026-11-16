@@ -13,7 +13,7 @@ import type { AnalysisResults3D } from '../types-3d';
 const force = (n: number, my: number, mz = 0, t = 0): StationForces => ({ n, my, mz, vy: 5, vz: 10, torsion: 0, t, x: 0.4 * t });
 const stations = (pairs: StationForces[][]): ElementStationResult => ({
   elementId: 1, length: 0.4, stationTs: [0, 1],
-  comboResults: pairs.map((s, i) => ({ comboId: i + 1, comboName: ['gravity', 'wind', 'interior'][i]!, stations: s })),
+  comboResults: pairs.map((s, i) => ({ comboId: i + 1, comboName: ['gravity', 'wind', 'interior'][i]!, stations: [...s, ...[0, 1].filter(t => !s.some(p => p.t === t)).map(t => ({ ...s[0]!, t, x: 0.4 * t }))] })),
 });
 const model = (beam = false): AutoVerifyModelData => ({
   elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, type: 'frame' }]]),
@@ -104,9 +104,9 @@ describe('concurrent design demands #1316', () => {
       const b = { ...force(-100, 65, 5), torsion: 2, vz: 90 };
       const esr = stations([[a], [b]]);
       const v = run(esr, '2025', beam);
-      expect((v as any).concurrentChecks).toHaveLength(2);
+      expect((v as any).concurrentChecks).toHaveLength(4);
       expect((v as any).concurrentChecks.map((x: any) => [x.demand.comboName, x.demand.forces.n, x.demand.forces.my, x.demand.forces.mz, x.demand.forces.torsion]))
-        .toEqual([['gravity', -200, 30, 55, 12], ['wind', -100, 65, 5, 2]]);
+        .toEqual([['gravity', -200, 30, 55, 12], ['gravity', -200, 30, 55, 12], ['wind', -100, 65, 5, 2], ['wind', -100, 65, 5, 2]]);
       expect(normalizeCirsoc201([v], new Map())[0]!.checks.every(c => !c.comboName?.startsWith('N '))).toBe(true);
       const own = (esr.comboResults).map(cr => cr.stations[0]!);
       const params = { b: v.b, h: v.h, fc: v.fc, fy: v.fy, cover: v.cover, stirrupDia: 8 };
@@ -124,11 +124,11 @@ describe('concurrent design demands #1316', () => {
   it('#1316 — demand extraction retains intermediate stations, steel reads the same tuples, masking preserves concurrency', () => {
     const esr = stations([[force(-300, 50)], [force(-100, 70)], [force(10, 60, 0, 0.5)]]);
     const d = extractGoverningDemands(esr);
-    expect((d as any).concurrent).toHaveLength(3);
+    expect((d as any).concurrent).toHaveLength(7);
     const steel = steelDemandOf(results(esr.comboResults[0]!.stations[0]!).elementForces[0]!, d);
-    expect(steel.tuples).toHaveLength(3);
+    expect(steel.tuples).toHaveLength(7);
     const masked = maskDemands(d, 'compressionOnly');
-    expect((masked as any).concurrent.map((x: any) => x.forces.n)).toEqual([-300, -100, 0]);
+    expect((masked as any).concurrent.map((x: any) => x.forces.n)).toEqual([-300, -300, -100, -100, 0, 0, 0]);
   });
 
   it('#1316 — all RC orchestration entry points keep the same concurrent governing pair', () => {
@@ -144,16 +144,16 @@ describe('concurrent design demands #1316', () => {
 
   it('#1316 — an envelope with provenance and no concurrent data is refused, a real single result is answered', () => {
     const r = results(force(-300, 50));
-    expect(() => autoVerifyFromResults(r, model(), new Map([[1, {} as never]]))).toThrow(/concurrent/i);
+    expect(() => autoVerifyFromResults(r, model(), new Map([[1, {} as never]]))).toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand' }));
     expect(autoVerifyFromResults(r, model(), null).concrete[0]!.column!.ratio).toBeGreaterThan(0);
   });
 });
 
 it('#1316 — explicit wall verification projects only the concurrent N–M packet, with hand equilibrium', () => {
   const esr = stations([[force(-257.36, 86.53234137)], [force(-210.8416155, 88.8908859)]]);
-  const d = extractGoverningDemands(esr) as any;
+  const d = extractGoverningDemands(esr);
   const v = verifyConcurrent({ elementId: 1, elementType: 'wall', b: 0.4, h: 0.4, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8,
-    Mu: 88.8908859, Nu: 257.36, Vu: 10, demand: d.concurrent?.[1]?.section('My') } as any);
+    Mu: 88.8908859, Nu: 257.36, Vu: 10, demand: d.concurrent?.find(c => c.comboId === 2)?.section('My') } as any);
   const c = v.column!;
   const capacity = handMomentAtAxial(210.8416155, c.barCount, c.barDia, '2025');
   expect(c.ratio).toBeCloseTo(1 / Number((capacity / 88.8908859).toFixed(3)), 10);

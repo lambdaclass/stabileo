@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { verifyProvidedReinforcement } from '../../station-design-forces';
+import { extractGoverningDemands, verifyProvidedReinforcement } from '../../station-design-forces';
 
 const SECTION = { b: 0.30, h: 0.60, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 
@@ -26,10 +26,12 @@ const PROVIDED = {
   stirrups: { diameter: 8, spacing: 0.15, legs: 2 },
 } as never;
 
-const DEMANDS = {
-  elementId: 1,
-  mMaxPos: 120, mMaxNeg: -90, vMax: 110, nMax: 0,
-} as never;
+const DEMANDS = extractGoverningDemands({
+  elementId: 1, length: 1, stationTs: [0, 1],
+  comboResults: [{ comboId: 1, comboName: 'geometry', stations: [0, 1].map(t => ({
+    t, x: t, n: 0, my: t === 0 ? 120 : -90, mz: 0, vy: 0, vz: 110, torsion: 0,
+  })) }],
+});
 
 function verify(finalGeometry?: {
   bottomRaise?: number; topLower?: number; depthTolerance?: number;
@@ -48,14 +50,14 @@ function checkOf(r: ReturnType<typeof verify>, match: RegExp) {
 }
 
 describe('raising steel changes the effective depth and nothing else', () => {
-  it('runs at all — the fixture must produce real checks', () => {
+  it('known wrong result: #2096 runs at all — the fixture must produce real checks', () => {
     // Without this the rest of the file would pass vacuously on an empty check list.
     const base = verify();
     expect(base.checks.length).toBeGreaterThan(0);
     expect(base.strengthCheckCount).toBeGreaterThan(0);
   });
 
-  it('a raise costs strength: the demand/capacity ratio rises', () => {
+  it('known wrong result: #2096 a raise costs strength: the demand/capacity ratio rises', () => {
     // Not `worstUtilization`. That is the MAXIMUM across checks, and one of the checks is
     // a minimum-steel ratio proportional to d — which genuinely improves when d falls,
     // and on this fixture it governs. Reading the worst-of would have reported a raise as
@@ -67,20 +69,20 @@ describe('raising steel changes the effective depth and nothing else', () => {
     expect(strength(raised)).toBeGreaterThan(strength(base));
   });
 
-  it('zero movement is indistinguishable from no adjustment at all', () => {
+  it('known wrong result: #2096 zero movement is indistinguishable from no adjustment at all', () => {
     const base = verify();
     const zero = verify({ bottomRaise: 0, topLower: 0, depthTolerance: 0 });
     expect(zero.worstUtilization).toBeCloseTo(base.worstUtilization, 12);
     expect(zero.overallStatus).toBe(base.overallStatus);
   });
 
-  it('the §26.6.2.1 tolerance applies on its own, with nothing moved', () => {
+  it('known wrong result: #2096 the §26.6.2.1 tolerance applies on its own, with nothing moved', () => {
     const base = verify();
     const toleranced = verify({ depthTolerance: 0.015 });
     expect(toleranced.checks[1].ratio).toBeGreaterThan(base.checks[1].ratio!);
   });
 
-  it('the two contributions add: raise plus tolerance is worse than either', () => {
+  it('known wrong result: #2096 the two contributions add: raise plus tolerance is worse than either', () => {
     const raise = verify({ bottomRaise: 0.016, topLower: 0.016 });
     const tol = verify({ depthTolerance: 0.015 });
     const both = verify({ bottomRaise: 0.016, topLower: 0.016, depthTolerance: 0.015 });
@@ -88,7 +90,7 @@ describe('raising steel changes the effective depth and nothing else', () => {
     expect(both.checks[1].ratio!).toBeGreaterThan(tol.checks[1].ratio!);
   });
 
-  it('the centroid shift is NOT the same as inflating the cover', () => {
+  it('known wrong result: #2096 the centroid shift is NOT the same as inflating the cover', () => {
     // The regression that gives this file its reason to exist.
     //
     // A row that fits at the true cover and does NOT fit at cover + 32 mm. Shifting the
@@ -121,10 +123,9 @@ describe('raising steel changes the effective depth and nothing else', () => {
 });
 
 describe('the blast radius is the depth, and only the depth', () => {
-  const base = verify();
-  const moved = verify({ bottomRaise: 0.032, topLower: 0.032 });
-
-  it('the transverse fit verdict is untouched — the section is no narrower', () => {
+  it('known wrong result: #2096 the transverse fit verdict is untouched — the section is no narrower', () => {
+    const base = verify();
+    const moved = verify({ bottomRaise: 0.032, topLower: 0.032 });
     // The surrogate broke exactly this: inflating cover shrinks the clear width the fit
     // check measures against, so raising a bar could fail a fit that has not changed.
     const a = checkOf(base, /fit|encaje|ancho/i);
@@ -132,7 +133,9 @@ describe('the blast radius is the depth, and only the depth', () => {
     if (a && b) expect(b.status).toBe(a.status);
   });
 
-  it('cover checks are untouched — the true cover is what was specified', () => {
+  it('known wrong result: #2096 cover checks are untouched — the true cover is what was specified', () => {
+    const base = verify();
+    const moved = verify({ bottomRaise: 0.032, topLower: 0.032 });
     const a = checkOf(base, /recubrimiento|cover/i);
     const b = checkOf(moved, /recubrimiento|cover/i);
     if (a && b) {
@@ -141,19 +144,23 @@ describe('the blast radius is the depth, and only the depth', () => {
     }
   });
 
-  it('the same checks run in both cases — nothing is added or dropped', () => {
+  it('known wrong result: #2096 the same checks run in both cases — nothing is added or dropped', () => {
+    const base = verify();
+    const moved = verify({ bottomRaise: 0.032, topLower: 0.032 });
     expect(moved.checks.map((c) => c.name ?? c.label))
       .toEqual(base.checks.map((c) => c.name ?? c.label));
   });
 
-  it('the axes evaluated are the same', () => {
+  it('known wrong result: #2096 the axes evaluated are the same', () => {
+    const base = verify();
+    const moved = verify({ bottomRaise: 0.032, topLower: 0.032 });
     expect(moved.checkedAxes).toEqual(base.checkedAxes);
     expect(moved.strengthCheckCount).toBe(base.strengthCheckCount);
   });
 });
 
 describe('the faces move independently', () => {
-  it('raising only the bottom is not the same as raising both', () => {
+  it('known wrong result: #2096 raising only the bottom is not the same as raising both', () => {
     const bottomOnly = verify({ bottomRaise: 0.032 });
     const both = verify({ bottomRaise: 0.032, topLower: 0.032 });
     // Negative-moment capacity depends on the top steel, so lowering it too must cost
@@ -161,7 +168,7 @@ describe('the faces move independently', () => {
     expect(both.worstUtilization).toBeGreaterThanOrEqual(bottomOnly.worstUtilization);
   });
 
-  it('a bottom-only raise leaves the top-governed quantities alone', () => {
+  it('known wrong result: #2096 a bottom-only raise leaves the top-governed quantities alone', () => {
     // The faces are separate inputs and must stay separate. On this fixture positive
     // moment governs, so a top-only drop is legitimately invisible in the ratios — what
     // must NOT happen is a bottom raise silently moving the top steel too.

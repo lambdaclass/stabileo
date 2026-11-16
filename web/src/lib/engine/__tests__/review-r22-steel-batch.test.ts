@@ -1,5 +1,5 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { afterEach, expect, it, vi } from 'vitest';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyByFlange, verifyByFlanges, type SteelDesignParams } from '../codes/argentina/cirsoc301';
 import * as kernel from '../codes/argentina/cirsoc301-kernel';
 import { profileByName, profileToSectionFull } from '../../data/steel-profiles';
@@ -10,7 +10,7 @@ const params: SteelDesignParams = { Fy: 250, Fu: 400, E: 200000, A: section.a!, 
   L: 8, Lb: 1, LbNeg: 8, loadPosition: 'web' };
 const inputs = (count: number) => Array.from({ length: count }, (_, i) => ({ elementId: i % 2 ? 19 : 7,
   params: { ...params, Cb: i % 3 ? 1 : 2 }, combinedShear: i % 2 === 0,
-  demand: ConcurrentDemand.fromTuples([{ comboId: i + 1, comboName: `C${i + 1}`, forces: {
+  demand: declaredTestDemands([{ comboId: i + 1, comboName: `C${i + 1}`, forces: {
     t: 0.5, x: 4, n: i % 3 ? -i : i, my: i % 2 ? -20 : 20, mz: i % 2 ? 3 : -3, vy: i % 7, vz: i % 11, torsion: 0,
   } }])[0]!.section(i % 2 ? 'Mz' : 'My'),
 }));
