@@ -11,7 +11,7 @@ const overlaps = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width 
 async function solveAndCheck(page: Page, shot: string, width: number, overSheet = false) {
   await page.evaluate(() => { void window.__stabileoActions.solve(); });
   const card = page.getByTestId('solve-progress');
-  await expect(card).toHaveAttribute('data-phase', 'done', { timeout: 60_000 });
+  await expect(card).toHaveAttribute('data-phase', 'done', { timeout: 45_000 });
   const toasts = page.locator('.toast');
   await expect(toasts.first()).toBeVisible();
   await page.evaluate(() => Promise.all([...document.querySelectorAll('.toast')].flatMap((el) => el.getAnimations().map((a) => a.finished))));
