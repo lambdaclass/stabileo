@@ -8,6 +8,7 @@
   import { runGlobalSolve } from '../../../lib/engine/live-calc';
   import { designSheets, followSheetEdits, sheetSize, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
+  import RcCoversNotice from './RcCoversNotice.svelte';
   import { SHEET_FAMILIES, type SheetFamily, type TorsionMode } from '../../../lib/rc-sheets/types';
   import RcSheetsWorkspace from './RcSheetsWorkspace.svelte';
   import RcCodePicker from './RcCodePicker.svelte';
@@ -46,6 +47,7 @@
 
 <div class="rcp" data-testid="rc-sheets-panel">
   <p class="rcp-intro">{tp('rcSheets.desc', { code: SHEET_CODES[code].name })}</p>
+  <RcCoversNotice />
 
   {#if !solved}
     <p class="rcp-note">{t('rcSheets.solveFirst')}</p>

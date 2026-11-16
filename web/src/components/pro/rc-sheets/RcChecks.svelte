@@ -2,9 +2,12 @@
   import { t, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import type { CheckLine } from '../../../lib/rc-sheets/types';
+  import { applyTableCovers, sheetCoversUnder } from '../../../lib/store/rc-sheets-covers';
+  import { modelStore } from '../../../lib/store';
 
   let { lines }: { lines: CheckLine[] } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
+  const coversUnder = $derived.by(() => { void modelStore.designData; return sheetCoversUnder().length > 0; });
 </script>
 
 <table class="rcc" data-testid="rc-checks">
@@ -14,7 +17,7 @@
   <tbody>
     {#each lines as l, i (i)}
       <tr class:bad={!l.ok}>
-        <td>{t(l.label)}</td>
+        <td>{t(l.label)}{#if !l.ok && l.label === 'rcSheets.v.mainCover' && coversUnder} <button type="button" class="fix" onclick={() => applyTableCovers()} data-testid="rc-check-covers-apply">{t('rcSheets.coversApply')}</button>{/if}</td>
         <td class="cl">{l.clause ?? ''}</td>
         <td class="n">{l.demand ?? ''}</td>
         <td class="n">{l.capacity ?? ''}</td>
@@ -34,4 +37,5 @@
   .st { width: 1.4em; text-align: center; font-weight: 700; color: var(--st-ok); }
   tr.bad td { color: var(--st-danger); }
   tr.bad .st { color: var(--st-danger); }
+  .fix { margin-left: 6px; font-size: 0.68rem; border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text); border-radius: 4px; padding: 1px 6px; cursor: pointer; }
 </style>

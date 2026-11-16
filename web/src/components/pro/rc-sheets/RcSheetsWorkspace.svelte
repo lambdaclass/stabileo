@@ -5,6 +5,7 @@
   import { adoptAll, downloadRcSheets, type SheetRow, type SheetRows } from '../../../lib/store/rc-sheets.svelte';
   import { designSheets, followSheetEdits, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
+  import RcCoversNotice from './RcCoversNotice.svelte';
   import { uiStore } from '../../../lib/store';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { groupsArea, groupsLabel, meshArea, meshLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
@@ -161,6 +162,7 @@
     <RcPlansExport {rows} current={openRow && openRow.family !== 'punching' ? { key: openRow.key, name: openRow.name } : null} onclose={() => (plansOpen = false)} />
   {/if}
   <div class="rcw-body">
+    <RcCoversNotice />
     {#if sheetsRun.progress}
       <div class="rcw-empty"><RcSheetsProgress progress={sheetsRun.progress} /></div>
     {:else if !sheetsRun.rows && !resultsStore.results3D}
