@@ -1,6 +1,6 @@
 /**
  * §24.3.2 crack-control bar spacing against StructurePoint's published examples. Recorded in
- * docs/verification/DESIGN_EXAMPLES.md (serviceability).
+ * testing/docs/DESIGN_EXAMPLES.md (serviceability).
  *
  * [SP-WALL] StructurePoint, "Reinforced Concrete Cantilever Retaining Wall Analysis and Design
  *           (ACI 318-19)", spWall v10.50 (Mar. 2026), p. 14.

@@ -10,7 +10,7 @@
 //! beam), consistent and lumped mass, geometric stiffness, and the 2D/3D
 //! transformations. Expectations are the correctly rounded f64 of the exact
 //! value; the kernels must match to 1e-13 relative.
-//! See docs/verification/SYMBOLIC.md.
+//! See testing/docs/SYMBOLIC.md.
 //!
 //! Coverage (594 kernel calls):
 //!   truss_stiffness_exact: 32 checks

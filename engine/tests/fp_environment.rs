@@ -1,4 +1,4 @@
-//! The floating-point environment the certificates assume (docs/verification/TRUSTED_BASE.md,
+//! The floating-point environment the certificates assume (testing/docs/TRUSTED_BASE.md,
 //! "Floating point where the code runs"), checked where the tests run.
 //!
 //! The outward rounding of `certify/interval.rs` (round to nearest, then `next_down` /

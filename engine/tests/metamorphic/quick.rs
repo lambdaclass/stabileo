@@ -1,4 +1,4 @@
-//! The per-PR invariance tier: docs/verification/METAMORPHIC.md, "Corpus and tiers".
+//! The per-PR invariance tier: testing/docs/METAMORPHIC.md, "Corpus and tiers".
 
 use crate::case::{Case2, Case3};
 use crate::corpus::{self, Model};

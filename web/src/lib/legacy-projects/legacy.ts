@@ -508,7 +508,7 @@ export function unexplainedMessage(v: Verdict, version: string): string {
     v.applicable.length === 0
       ? `No registered result change explains it: the registry lists none introduced after ${version} that applies to this model.`
       : `No registered result change explains these values: of the entries introduced after ${version} that apply to this model (${v.applicable.join(', ')}), none declares in its "quantities" that it moves them.`,
-    'If the change is deliberate, register it, or declare the quantities an existing entry moves (docs/verification/PROVENANCE.md). If not, it is a regression, or a migration that reads the old file wrongly: fix the code, not the corpus.',
+    'If the change is deliberate, register it, or declare the quantities an existing entry moves (testing/docs/PROVENANCE.md). If not, it is a regression, or a migration that reads the old file wrongly: fix the code, not the corpus.',
   ].join('\n');
 }
 

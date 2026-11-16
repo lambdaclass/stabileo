@@ -249,7 +249,7 @@ function solveIn(tree, list) {
 }
 
 export function headEngineServesBase(changedPaths) {
-  return changedPaths.every((path) => (/^(web|docs|changelog\.d)\//.test(path) && !/^web\/src\/lib\/wasm\//.test(path)) || (/^research\//.test(path) && !/\.(rs|toml|lock)$/.test(path)));
+  return changedPaths.every((path) => (/^(web|docs|changelog\.d)\//.test(path) && !/^web\/src\/lib\/wasm\//.test(path)) || /^testing\/docs\/.*\.(md|json)$/.test(path) || (/^research\//.test(path) && !/\.(rs|toml|lock)$/.test(path)));
 }
 
 async function checkoutBase(base, root, git) {

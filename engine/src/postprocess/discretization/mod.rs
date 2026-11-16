@@ -1,10 +1,10 @@
 //! Discretization (mesh) error: estimated, never certified.
 //!
-//! The certificates (`crate::certify`, docs/verification/CERTIFY.md) bound how far the computed
+//! The certificates (`crate::certify`, testing/docs/CERTIFY.md) bound how far the computed
 //! displacements are from the exact solution of the *assembled* system `K u = f`. They say
 //! nothing about how far that system's solution is from the solution of the structure the mesh
 //! stands for. A coarse shell mesh can be certified to twelve digits and still be wrong by 30 %.
-//! This module estimates that second error (docs/verification/DISCRETIZATION.md):
+//! This module estimates that second error (testing/docs/DISCRETIZATION.md):
 //!
 //! * `estimate_3d`: a recovery-based a posteriori estimate (Zienkiewicz–Zhu with
 //!   superconvergent patch recovery) of the energy-norm error of every shell-type element and of

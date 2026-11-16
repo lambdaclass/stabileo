@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The certified modal result (docs/verification/CERTIFY.md): each frequency enclosed, and no
+   * The certified modal result (testing/docs/CERTIFY.md): each frequency enclosed, and no
    * mode missed below a cutoff. Computed in the background once the modes are shown
    * (`store/analysis-certificate.svelte.ts`); `mode` is the one on screen, whose interval is
    * spelled out, the rest are listed on demand.

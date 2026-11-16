@@ -17,7 +17,7 @@ produce a structured warning with phase `PL-3D-CERTIFICATE-MISMATCH`.
 
 All thirteen 3D issue artifacts return exactly their certified lower bounds.
 The cantilever and in-plane portal cases in the
-[raw-factor boundary report](../verification/PLASTIC_3D_RAW_FACTOR.md) also return
+[raw-factor boundary report](../../testing/docs/PLASTIC_3D_RAW_FACTOR.md) also return
 the certified lower bound with a warning; their small above-interval differences
 are raw-factor rounding at the certificate boundary.
 
@@ -26,5 +26,5 @@ paths are unchanged. Only the combined API's returned collapse factor and
 interval are certified; its retained raw steps, hinges and mechanism flag are
 not certified by that interval. Native and actual-WASM regressions check lower
 bound equality, preserved raw comparisons, serialization and warnings.
-See [the bounded replay evidence](../verification/plastic-certified-lower-results.json)
-and [the resource replay report](../verification/PLASTIC_LP_BUDGET.md).
+See [the bounded replay evidence](../../testing/docs/plastic-certified-lower-results.json)
+and [the resource replay report](../../testing/docs/PLASTIC_LP_BUDGET.md).

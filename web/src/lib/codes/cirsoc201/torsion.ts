@@ -10,14 +10,15 @@
  * through 20.2.1.3). The section limit's 0,66·√f'c and the minimums of 9.6.4 read √f'c as is:
  * the text limits only Tth, Tcr and Vc.
  */
+import type { ConcurrentSectionDemand } from '../../engine/concurrent-demand';
 import { shearFy, shearSqrtFc } from '../../engine/codes/argentina/cirsoc201-basis';
 
 export interface TorsionInput {
-  b: number; h: number; d: number;
+  b: number; h: number; d: number; dSecondary: number;
   /** Clear cover to the stirrup, m, and the stirrup's diameter, mm. */
   cover: number; stirrupDiaMm: number;
   fc: number; fy: number; fyt: number;
-  Vu: number; Tu: number;
+  demand: ConcurrentSectionDemand;
   /** The stirrups there are: diameter, mm; legs; spacing, m. */
   stirrup?: { diameter: number; legs: number; spacing: number };
 }
@@ -28,6 +29,7 @@ export interface TorsionCheck {
   neglect: boolean;
   /** Cross-section limit: demand / capacity under V and T together. */
   sectionRatio: number;
+  shearSectionRatio: number;
   /** (Av + 2At)/s needed for shear and torsion together, with its minimum, m²/m. */
   transverseRequired: number;
   /** At/s needed for torsion, m²/m: what one outer leg must carry. */
@@ -44,6 +46,11 @@ export interface TorsionCheck {
 
 const PHI = 0.75;
 
+export function providedTorsionStirrups(stirrup: NonNullable<TorsionInput['stirrup']>) {
+  const Ab = (Math.PI * (stirrup.diameter / 1000) ** 2) / 4;
+  return { transverseProvided: (stirrup.legs * Ab) / stirrup.spacing, outerLegProvided: Ab / stirrup.spacing };
+}
+
 export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const i = { ...input, fy: shearFy(input.fy), fyt: shearFy(input.fyt) };
   const sq = Math.sqrt(i.fc), sqLim = shearSqrtFc(i.fc);
@@ -53,18 +60,20 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const Aoh = x1 * y1, ph = 2 * (x1 + y1), Ao = 0.85 * Aoh;
   const Tth = 0.083 * sqLim * 1000 * (Acp * Acp) / pcp;
   const phiTth = PHI * Tth;
-  const Tu = Math.abs(i.Tu), Vu = Math.abs(i.Vu);
+  const { Tu, Vu, VuSecondary } = i.demand;
   const vc = 0.17 * sqLim * 1000; // Vc / (bw·d), kN/m²
-  const lhs = Math.hypot(Vu / (i.b * i.d), (Tu * ph) / (1.7 * Aoh * Aoh));
+  const shearStress = Math.max(Vu / (i.b * i.d), VuSecondary / (i.h * i.dSecondary));
+  const shearSectionRatio = Math.hypot(shearStress, 0) / (PHI * (vc + 0.66 * sq * 1000));
+  const lhs = Math.hypot(shearStress, (Tu * ph) / (1.7 * Aoh * Aoh));
   const sectionRatio = lhs / (PHI * (vc + 0.66 * sq * 1000));
   const AtOverS = Tu / (PHI * 2 * Ao * i.fyt * 1000);
   const Vs = Math.max(0, Vu / PHI - vc * i.b * i.d);
-  const AvOverS = Vs / (i.fyt * 1000 * i.d);
+  const VsSecondary = Math.max(0, VuSecondary / PHI - vc * i.h * i.dSecondary);
+  const AvOverS = Math.max(Vs / (i.fyt * 1000 * i.d), VsSecondary / (i.fyt * 1000 * i.dSecondary));
   const min = Math.max(0.062 * sq, 0.35) * i.b / i.fyt;
   const transverseRequired = Math.max(AvOverS + 2 * AtOverS, min);
-  const Ab = i.stirrup ? (Math.PI * (i.stirrup.diameter / 1000) ** 2) / 4 : 0;
-  const transverseProvided = i.stirrup ? (i.stirrup.legs * Ab) / i.stirrup.spacing : 0;
-  const outerLegProvided = i.stirrup ? Ab / i.stirrup.spacing : 0;
+  const { transverseProvided, outerLegProvided } = i.stirrup
+    ? providedTorsionStirrups(i.stirrup) : { transverseProvided: 0, outerLegProvided: 0 };
   const Al = AtOverS * ph * (i.fyt / i.fy);
   const AlMin = Math.max(0, (0.42 * sq * Acp) / i.fy - Math.max(AtOverS, (0.175 * i.b) / i.fyt) * ph * (i.fyt / i.fy));
   const sMax = Math.min(ph / 8, 0.3);
@@ -75,5 +84,5 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
     outerLegProvided > 0 ? AtOverS / outerLegProvided : Number.POSITIVE_INFINITY,
     i.stirrup ? i.stirrup.spacing / sMax : Number.POSITIVE_INFINITY,
   ];
-  return { phiTth, neglect, sectionRatio, transverseRequired, AtOverS, transverseProvided, outerLegProvided, Al, AlMin, sMax, ratio: Math.max(...ratios) };
+  return { phiTth, neglect, sectionRatio, shearSectionRatio, transverseRequired, AtOverS, transverseProvided, outerLegProvided, Al, AlMin, sMax, ratio: Math.max(...ratios) };
 }

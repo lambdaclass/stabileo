@@ -54,7 +54,7 @@ an independent 60/100-digit strain-energy assembly in 2D and all three 3D planes
 The original 2D P-Delta replay still rejects its explicitly unconverged iterate;
 its old conditioning-refusal expectation was stale. Converged 3D nonlinear
 solutions agree with the independent reference. #1901's closure stays valid.
-See [the reference and replay evidence](../verification/candidate-1901-after-truss-balance.md).
+See [the reference and replay evidence](../../testing/docs/audits/candidate-1901-after-truss-balance.md).
 The review changes no engine results or limits and needs no additional registry
 entry beyond `truss-member-load-balance`.
 

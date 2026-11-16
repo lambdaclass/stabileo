@@ -1,6 +1,6 @@
 //! Certified bounds on the member deflection curves the deformed-shape views
 //! draw and the hover reads. See "Diagrams, extremes, deflections and
-//! reactions" in `docs/verification/CERTIFY.md`.
+//! reactions" in `testing/docs/CERTIFY.md`.
 //!
 //! The curve of one member (`postprocess::diagrams::compute_deformed_shape`;
 //! TypeScript `computeDisplacementAt` and `memberLocalCurve`, which implement

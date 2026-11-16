@@ -51,4 +51,4 @@ deliverable issued from a pre-0.2.0 run should be re-checked.
 ## Credits and references
 
 Clause-by-clause review of the load generators against the CIRSOC texts and published examples
-(October 2026 safety wave, PR #292; `docs/verification/LOADS.md`).
+(October 2026 safety wave, PR #292; `testing/docs/LOADS.md`).

@@ -12449,7 +12449,7 @@ const fr: Translations = {
   'floorLoad.readOnlyLoad': 'Une charge écrite par une définition de charge de plancher se modifie ou se supprime depuis sa définition (Charges › Plancher) : elle est réécrite à partir de celle-ci.',
   'floorLoad.rangeInvalid': 'Indiquez les deux bornes de chaque axe de la boîte, ou aucune.',
 
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'Certifié : erreur de déplacement ≤ {abs} ({rel} relative)',
   'certificate.notCertified': 'Non certifié : {reason}',
   'certificate.e2eCertified': 'Vérifié de bout en bout : un réassemblage indépendant du modèle concorde ; erreur de déplacement ≤ {abs}',
@@ -12877,7 +12877,7 @@ const fr: Translations = {
   'proReport.letterhead': 'En-tête',
   'proReport.shellFigure': 'Composante de la figure',
 
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'Certifié : erreur de déplacement ≤ {abs}',
   'certificate.envelopeCertified': 'Enveloppe certifiée : chaque valeur à moins de {abs} de l\'enveloppe exacte (déplacements)',
   'certificate.comboTooltip': 'Borne rigoureuse, prouvée en Lean : chaque cas de charge est certifié par rapport à la solution exacte du système assemblé ; la borne d\'une combinaison additionne les bornes des cas multipliées par |coefficient| et l\'arrondi de la combinaison elle-même ; l\'enveloppe se trouve, par rapport à l\'enveloppe exacte, à moins de la plus grande borne des combinaisons. Le ± à côté d\'un effort de barre borne son erreur de la même façon.',

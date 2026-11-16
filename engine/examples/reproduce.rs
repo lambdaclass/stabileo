@@ -1,4 +1,4 @@
-//! Reproduce a linear solve from its provenance (docs/verification/PROVENANCE.md).
+//! Reproduce a linear solve from its provenance (testing/docs/PROVENANCE.md).
 //!
 //!   reproduce [--2d|--3d] FILE [--expect-input SHA] [--expect-results SHA]
 //!

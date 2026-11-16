@@ -1,5 +1,5 @@
 /**
- * Cross-runtime determinism of the WASM engine (docs/verification/TRUSTED_BASE.md,
+ * Cross-runtime determinism of the WASM engine (testing/docs/TRUSTED_BASE.md,
  * "Determinism across runtimes"). The same module runs in Node and in each browser:
  * `runCases(wasm, fixtures)` calls a fixed list of engine entry points (solves and
  * certificates) on fixed models and returns, per case, a canonical string of the output in

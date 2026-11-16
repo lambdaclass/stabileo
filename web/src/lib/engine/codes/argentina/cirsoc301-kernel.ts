@@ -74,7 +74,7 @@ export function engineCheckMembers(members: readonly object[], forces: readonly 
   return out;
 }
 
-/** Certified result of one member over its demand sets (`docs/verification/CERTIFY.md`). */
+/** Certified result of one member over its demand sets (`testing/docs/CERTIFY.md`). */
 export interface CertifiedResult {
   elementId: number;
   certified: boolean;

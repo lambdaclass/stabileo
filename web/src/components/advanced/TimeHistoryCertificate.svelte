@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The certified time-history integration (docs/verification/CERTIFY.md): whether the scheme is
+   * The certified time-history integration (testing/docs/CERTIFY.md): whether the scheme is
    * certified stable for this model and step, and the largest residual of the discrete equations
    * along the computed trajectory. Not a bound on the error against the continuous motion. In
    * the background, once the result is shown.

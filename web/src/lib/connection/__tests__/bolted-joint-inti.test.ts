@@ -5,7 +5,7 @@
  * CIRSOC 301-2018*, INTI-CIRSOC, July 2018, Ejemplo 1 (Ej. 1-4 … 1-6): angle in tension,
  * Tu = 180 kN, three A325 5/8" (15,87 mm) bolts in a line, threads excluded, bearing type,
  * s = 85 mm, end distance 35 mm, angle leg and gusset t = 6,4 mm, Fu = 370 MPa.
- * Coverage table: `docs/verification/DESIGN_EXAMPLES.md`.
+ * Coverage table: `testing/docs/DESIGN_EXAMPLES.md`.
  */
 
 import { describe, it, expect } from 'vitest';

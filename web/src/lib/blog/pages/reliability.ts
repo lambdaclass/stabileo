@@ -4,11 +4,11 @@
  *
  * Every claim has a source and must stay no stronger than it:
  *  - the how-stabileo-checks-its-results post (five ways, certificates, what they do not say);
- *  - the end-to-end-certificates post and docs/verification/CERTIFY.md (frames and trusses);
+ *  - the end-to-end-certificates post and testing/docs/CERTIFY.md (frames and trusses);
  *  - docs/advisories/README.md (SA-2026-001…004 fixed in 0.2.0, 005…020 in 0.3.0, 021…024 in 0.4.0,
  *    025…047 in 0.5.0 except 044, with 040 a containment);
  *  - the 0.3.0 release notes (known limitations: material-nonlinear secant model, #428);
- *  - docs/verification/MATURITY.md (the level of every analysis, element and design code).
+ *  - testing/docs/MATURITY.md (the level of every analysis, element and design code).
  */
 import type { StandingPage } from './cirsoc';
 
@@ -65,7 +65,7 @@ export const reliabilityPage: StandingPage = {
         },
         { k: 'p', t: 'En resumen: Stabileo sirve para análisis que se pueden contrastar, para enseñar y para diseñar cuando un ingeniero revisa los resultados que gobiernan, como con cualquier programa. Si tu proceso exige un programa comercial revisado o certificado de forma independiente, Stabileo todavía no llegó ahí, y lo decimos.' },
         { k: 'link', slug: 'how-stabileo-checks-its-results', t: 'El detalle de cada verificación y de sus límites:' },
-        { k: 'ext', href: `${REPO}/docs/verification/MATURITY.md`, label: 'Matriz de madurez', t: 'El nivel de verificación de cada parte:' },
+        { k: 'ext', href: `${REPO}/testing/docs/MATURITY.md`, label: 'Matriz de madurez', t: 'El nivel de verificación de cada parte:' },
       ],
       faqTitle: 'Preguntas frecuentes',
       faq: [
@@ -121,7 +121,7 @@ export const reliabilityPage: StandingPage = {
         },
         { k: 'p', t: 'In short: Stabileo fits analysis you can cross-check, teaching, and design work where an engineer reviews the governing results, as with any program. If your process requires independently reviewed or certified commercial software, Stabileo is not there yet, and we say so.' },
         { k: 'link', slug: 'how-stabileo-checks-its-results', t: 'Each check in detail, and its limits:' },
-        { k: 'ext', href: `${REPO}/docs/verification/MATURITY.md`, label: 'Maturity matrix', t: 'The verification level of every part:' },
+        { k: 'ext', href: `${REPO}/testing/docs/MATURITY.md`, label: 'Maturity matrix', t: 'The verification level of every part:' },
       ],
       faqTitle: 'Frequently asked questions',
       faq: [
@@ -177,7 +177,7 @@ export const reliabilityPage: StandingPage = {
         },
         { k: 'p', t: 'Em resumo: o Stabileo serve para análises que podem ser confrontadas, para ensinar e para dimensionar quando um engenheiro revisa os resultados que governam, como com qualquer programa. Se o seu processo exige um programa comercial revisado ou certificado de forma independente, o Stabileo ainda não chegou lá, e dizemos isso.' },
         { k: 'link', slug: 'how-stabileo-checks-its-results', t: 'O detalhe de cada verificação e de seus limites:' },
-        { k: 'ext', href: `${REPO}/docs/verification/MATURITY.md`, label: 'Matriz de maturidade', t: 'O nível de verificação de cada parte:' },
+        { k: 'ext', href: `${REPO}/testing/docs/MATURITY.md`, label: 'Matriz de maturidade', t: 'O nível de verificação de cada parte:' },
       ],
       faqTitle: 'Perguntas frequentes',
       faq: [

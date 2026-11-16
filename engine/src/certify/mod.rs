@@ -1,4 +1,4 @@
-//! A posteriori certification of solver results. See `docs/verification/CERTIFY.md`.
+//! A posteriori certification of solver results. See `testing/docs/CERTIFY.md`.
 
 pub mod buckling;
 pub mod bundle;

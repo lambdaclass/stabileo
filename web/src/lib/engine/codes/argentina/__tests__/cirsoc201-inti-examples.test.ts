@@ -7,7 +7,7 @@
  * `checkFlexure` and `checkShear` DESIGN (they size steel for a demand), which is also what
  * these examples do, so the comparison is direct: same inputs, same required quantities.
  * Printed rounding is three significant figures → 0.5 % relative.
- * Coverage table: `docs/verification/DESIGN_EXAMPLES.md`.
+ * Coverage table: `testing/docs/DESIGN_EXAMPLES.md`.
  */
 
 import { describe, it, expect } from 'vitest';

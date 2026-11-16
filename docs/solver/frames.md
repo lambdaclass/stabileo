@@ -8,7 +8,7 @@ curved beams, connectors and fiber beams are in [special-elements.md](special-el
 
 Every matrix here is also derived independently from shape functions in SymPy and compared to the
 Rust kernels at random points with a tolerance of 1e-13 (`testing/symbolic/derive.py`,
-`engine/tests/symbolic_elements.rs`, [SYMBOLIC.md](../verification/SYMBOLIC.md)). So for this
+`engine/tests/symbolic_elements.rs`, [SYMBOLIC.md](../../testing/docs/SYMBOLIC.md)). So for this
 family a reviewer is checking that the *formulation* is the right one. The algebra from the
 formulation to the code is already checked mechanically.
 
@@ -300,7 +300,7 @@ $F \mathrel{+}= T^{\mathsf T}f_e$.
 The interdependent shapes are exact homogeneous solutions, so by reciprocity
 $f_e$ equals minus the exact fixed-end reactions of the loaded Timoshenko member. The symbolic
 generator verifies this case by case against a piecewise exact solution of the loaded member
-([SYMBOLIC.md](../verification/SYMBOLIC.md), "Equivalent loads checked against an independent
+([SYMBOLIC.md](../../testing/docs/SYMBOLIC.md), "Equivalent loads checked against an independent
 solution").
 
 ### 6.2 Closed forms (one plane, local transverse load $q$ along $+y$)
@@ -467,7 +467,7 @@ physical one. Shell thermal loads, by contrast, take an optional `alpha`. See
 | Statically determinate structures exactly (end forces, reactions) | `engine/tests/determinate_exact.rs` |
 | Warping cantilever against Vlasov's closed form; release kills twist transmission | `engine/tests/validation/domains/response/warping_torsion.rs` (`validation_warping_cantilever_end_torque_matches_vlasov`, `validation_warping_torsion_release_kills_twist_transmission`) |
 | Differential comparison with OpenSees (frames, Timoshenko, releases, loads) | `engine/tests/opensees_differential_regressions.rs`, `testing/opensees/` |
-| Result certificates (solution of the assembled system) | [CERTIFY.md](../verification/CERTIFY.md) |
+| Result certificates (solution of the assembled system) | [CERTIFY.md](../../testing/docs/CERTIFY.md) |
 | Moment/shear sign, bimoment recovery, left-handed axes (this document) | `engine/tests/derivation_frames.rs` |
 
 ## References
@@ -496,4 +496,4 @@ physical one. Shell thermal loads, by contrast, take an optional `alpha`. See
 | FR-5 | **Warping DOF continuity at joints.** $\theta_x'$ is one nodal DOF shared by every warping member at a node, which assumes full warping transmission. That is correct for collinear continuous members. At a column–beam joint or a change of section, the real transmission depends on the detail (stiffeners, end plates). There is no per-member warping release. | OPEN (modelling assumption) | n/a |
 | FR-6 | **The bimoment recovery was never checked.** Before this work no test compared the recovered element bimoment with a closed form. It now converges to Vlasov's $(T/k)\tanh kL$ (4 elements: 1e-3; 16 elements: 1e-5), and the support reaction balances it. | VERIFIED (gap closed) | `derivation_frames.rs::warping_bimoment_matches_vlasov` |
 | FR-7 | **2D rotation is about $-Y$.** The 2D θ and the 2D nodal `my` are right-hand about $-Y$ in the global XZ embedding, while the 3D $\theta_Y$/`my` are about $+Y$. This is consistent inside 2D, and the engine's 2D and 3D paths agree when the mapping negates it (`derivation_assembly_constraints.rs::plane_2d_matches_3d_xz_embedding`). But the web's flat-2D-to-3D embedding passes nodal moments and prescribed rotations through **without** negating them ([AC-15](assembly-constraints.md)), so from the code, a flat model solved through the 3D path responds to a nodal moment in the opposite sense. | DOCUMENTED-CHOICE (engine); web: OPEN, AC-15 | `plane_2d_matches_3d_xz_embedding` |
-| FR-8 | **Documented formulation choices** (from [SYMBOLIC.md](../verification/SYMBOLIC.md)): $K_g$ ignores shear flexibility and the torsional $P\,I_p/A$ term; released rotations in $K_g$ follow the Euler–Bernoulli map; consistent mass has no rotary inertia. Their quantitative impact is in [mass-geometric-dynamics.md](mass-geometric-dynamics.md). | DOCUMENTED-CHOICE | `symbolic_elements.rs` |
+| FR-8 | **Documented formulation choices** (from [SYMBOLIC.md](../../testing/docs/SYMBOLIC.md)): $K_g$ ignores shear flexibility and the torsional $P\,I_p/A$ term; released rotations in $K_g$ follow the Euler–Bernoulli map; consistent mass has no rotary inertia. Their quantitative impact is in [mass-geometric-dynamics.md](mass-geometric-dynamics.md). | DOCUMENTED-CHOICE | `symbolic_elements.rs` |

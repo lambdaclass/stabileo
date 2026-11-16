@@ -1,5 +1,5 @@
 //! Certified design-code utilization. See "Certified design checks" in
-//! `docs/verification/CERTIFY.md`.
+//! `testing/docs/CERTIFY.md`.
 //!
 //! Given demand enclosures `[F − ΔF, F + ΔF]` (from the force / combination
 //! certificates), the code formulas are evaluated in outward-rounded interval
