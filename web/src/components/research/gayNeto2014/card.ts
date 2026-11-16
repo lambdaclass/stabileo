@@ -6,4 +6,5 @@ export const riserTitle = {
   fr: 'Un riser soulevé du fond marin',
   tr: 'Deniz tabanından kaldırılan bir riser',
   hu: 'Tengerfenékről felemelt riser',
+  zh: '从海床抬起的立管',
 };

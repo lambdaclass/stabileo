@@ -223,6 +223,37 @@ const hu: Strings = {
   largest: 'Legnagyobb PR²/EI az úton',
   chartLabel: 'PR²/EI a lépésszám függvényében', chartData: 'A görbe adatai (20 lépésenként)', slider: '{step}. lépés: PR²/EI = {load}',
 };
+const zh: Strings = {
+  title: 'DaDeppo–Schmidt：处于极限状态的深拱',
+  hook: '一个 215° 的拱，拱顶受荷载，用生产环境的弧长求解器计算，并与已发表的极限荷载和拱顶状态核对。',
+  model: '一个固定–铰接的拱',
+  description: '一个圆弧拱，左端固定，右端铰接，在拱顶承受一个方向不变的向下集中荷载。四十个直线共旋框架单元近似 215° 的开口。不对称的支座使拱顶在第一个极值点之前向铰接端侧移。',
+  units: '我们取 R = 1 m，EI = 1 kN·m²，EA = 10⁶ kN。参考荷载为 1 kN，因此求解器的荷载系数等于 PR²/EI。常被引用的 P = 897 采用 R = 100 和 EI = 10⁶：其归一化值是 8.97，而不是 897。',
+  comparison: '与论文的比较',
+  referenceText: '我们与 1975 年论文的表 1 比较，数值取自其合著者 R. Schmidt 在 2000 年一篇讨论中的引用（J. Eng. Mech. 126(12)，第 1308 页）：在极值点处 PR²/EI = 8.97，拱顶 u/R = 0.6116，v/R = 1.1372，转角 0.0498，均按所示位数舍入。',
+  signs: 'u 朝向铰接端为正，v 向下为正；转角与 Stabileo 的拱顶转角 ry 比较，该转角在极值点处为正。',
+  sourceLink: '查看 Schmidt 引用的数值',
+  method: '生产环境的 Crisfield 弧长求解器借助现有的共旋框架单元，追踪越过峰值后的平衡路径。极值点由最大荷载附近三步的抛物线确定；该处的拱顶状态由在这三步停止的运行插值得到。查看器采用真实位移比例。',
+  studyHeading: '网格研究与容差',
+  studyText: '同一个拱分别用 20、40 和 80 个单元求解。每项容差为 40 个单元离散误差估计值（按观测到的阶数做 Richardson 外推）的 1.25 倍，再加上已发表数值末位的半个单位。外推到单元长度为零时，每个量都与已发表的数值在其舍入误差和 80 个单元的误差估计范围内一致，因此 40 个单元时极限荷载的 +0.46% 是离散误差。将弧长步长减半，极限荷载的变化小于 10⁻⁶（相对值）；轴向刚度增大十倍，变化小于 10⁻⁴。',
+  studyCaption: '20、40 和 80 个单元时极值点处的数值',
+  extrapolated: '外推值',
+  inspect: '查看峰值附近的拱（第 260 步）',
+  replayNote: '回放帧是同一求解器多次运行、每二十步停止一次所得的端点结果。实时 worker 会重复这些运行，因为生产环境的 API 只在端点处返回完整的节点位移。曲线显示每个已收敛的步；其横轴是步数，不是拱顶位移。',
+  notYet: '不在本页范围内',
+  limitations: ['完整的已发表平衡曲线和第二个极值点。', '其他开口角度、平面外屈曲、接触或材料非线性。'],
+  noAuthorCode: '未比较：未使用作者的代码。',
+  livePath: '实时路径', shortPath: '短路径 · 20 步（峰值之前）', fullPath: '完整基准算例 · 400 步',
+  replay: '预先计算的回放（同一求解器）', live: '实时计算', cached: '浏览器缓存的结果', running: '计算中…',
+  run: '实时重新计算', stop: '停止', restart: '重新开始', step: '步', displacement: '位移大小',
+  limit: '在极值点处', quantity: '量', reference: '已发表', stabileo: 'Stabileo，40 个单元', difference: '差异', tolerance: '容差',
+  pass: '通过', fail: '未通过',
+  verdictPass: '四项均在容差之内；已到达下降段', verdictFail: '超出容差', incomplete: '路径不完整：共 {total} 步，完成 {n} 步',
+  errorSolve: '求解器未能完成此路径。', errorInvalid: '求解器返回了不完整的结果。',
+  qLoad: '极限荷载 PR²/EI', qU: '拱顶 u/R', qV: '拱顶 v/R', qRot: '拱顶转角 (rad)',
+  largest: '路径上最大的 PR²/EI',
+  chartLabel: 'PR²/EI 随步数的变化', chartData: '曲线数据（每 20 步）', slider: '第 {step} 步：PR²/EI = {load}',
+};
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu', Strings> = { en, es, pt, de, fr, tr, hu };
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', Strings> = { en, es, pt, de, fr, tr, hu, zh };
 export const archStrings = (locale: string): Strings => strings[locale as keyof typeof strings] ?? en;

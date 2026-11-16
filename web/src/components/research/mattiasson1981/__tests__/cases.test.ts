@@ -68,7 +68,7 @@ describe('Mattiasson evidence', () => {
     }
   });
   it('has seven complete, translated dictionaries and no unresolved claims', () => {
-    expect(Object.keys(strings)).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']);
+    expect(Object.keys(strings)).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh']);
     for (const [locale, dictionary] of Object.entries(strings)) {
       expect(Object.keys(dictionary)).toEqual(Object.keys(strings.en));
       expect(Object.values(dictionary).every(s => s.length > 0)).toBe(true);
