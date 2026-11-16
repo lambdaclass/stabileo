@@ -86,6 +86,7 @@ describe('INPRES-CIRSOC 103 [3.16]: the seismic combination takes f2 S, not 0,2 
   it('and CIRSOC 101\'s 0,2 S where the roof sheds it', () => {
     const p = buildLoadPlan(input({}, { snowRetaining: false }));
     const five = p.combinations.filter((c) => c.basic === 5 && c.terms.some((t) => t.symbol === 'S' && !t.snowBasis));
+    expect(five.length).toBeGreaterThan(0);
     for (const c of five) expect(c.terms.find((t) => t.symbol === 'S')!.factor).toBe(0.2);
   });
 });
