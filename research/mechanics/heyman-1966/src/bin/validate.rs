@@ -93,7 +93,12 @@ fn main() {
         json!({"alpha": row["alpha"], "eta": row["heyman"]["eta"], "beta": row["heyman"]["beta"], "h": row["heyman"]["h"], "milankovitch_over_heyman": ours["milankovitch"]["eta"].as_f64().unwrap() / row["heyman"]["eta"].as_f64().unwrap() - 1.0})
     }).collect();
 
+    let convergence: Vec<Value> = [51, 101, 201]
+        .iter()
+        .map(|&n| json!({"n": n, "eta": least_thickness(std::f64::consts::FRAC_PI_2, n, Weights::True, 1e-12).unwrap().eta}))
+        .collect();
     let out = json!({
+        "convergence": convergence,
         "checks": checks,
         "least_thickness": table,
         "heyman_closed_form": heyman,
