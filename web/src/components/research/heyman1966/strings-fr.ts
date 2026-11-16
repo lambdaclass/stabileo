@@ -15,7 +15,7 @@ export const fr: Strings = {
   methodHeading: 'Comment nous le reproduisons',
   method: 'L’épaisseur minimale sous poids propre est cherchée par dichotomie sur t/r. À chaque pas, le programme linéaire trouve l’état qui viole le moins les conditions aux joints ; l’épaisseur est acceptée quand cette violation n’est pas positive. La charge de ruine d’une charge ponctuelle est le plus grand λ que le programme linéaire admet. Comme contrôle cinématique, tous les mécanismes à quatre rotules sur des faces alternées sont énumérés ; le plus petit multiplicateur parmi eux est une borne supérieure et coïncide avec la valeur statique. Le solveur est notre propre code Rust, compilé en WebAssembly pour cette page.',
   runHeading: 'Ce que montre le calcul',
-  runText: 'La lecture est le calcul du solveur lui-même sur un demi-cercle de {n} voussoirs avec les poids réels. Les premiers pas encadrent la réponse ; un joint rouge ou bleu signifie que la ligne des pressions touche une face, et aux pas où l’arc est trop mince la ligne sort de la pierre. À t/r = {eta} la ligne touche cinq faces : l’extrados à la clé et aux deux naissances, l’intrados aux deux reins, à {beta}° de la clé. L’arc s’ouvre alors en mécanisme.',
+  runText: 'La lecture est le calcul du solveur lui-même sur un demi-cercle de {n} voussoirs avec les poids réels. Les premiers pas encadrent la réponse : aux pas où l’arc est trop mince, la ligne des pressions sort de la pierre et devient rouge. À t/r = {eta} la ligne touche cinq faces : l’extrados à la clé et aux deux naissances, l’intrados aux deux reins, à {beta}° de la clé. L’arc s’ouvre alors en mécanisme autour de ces cinq rotules.',
   watchBisection: 'Voir la dichotomie',
   watchLeast: 'Cinq rotules',
   watchMechanism: 'Le mécanisme',
@@ -25,7 +25,7 @@ export const fr: Strings = {
   tryDeep: 'Essayer α = 145°',
 
   checksHeading: 'Comparaison avec les solutions publiées',
-  tableIntro: 'Rizzi, Cocchetti, Colasante et Rusconi (2010) donnent dans leur tableau 1 l’épaisseur minimale t/r, l’angle β de la rotule du rein mesuré depuis la clé et la poussée h = H/(w r), avec w = γ t d, pour quatre angles d’ouverture. Nos calculs utilisent 2·round(800·α/90) voussoirs ; β est le sommet de la parabole passant par les excentricités autour de la rotule du rein. ✓ indique un accord à 10⁻⁴ près en relatif pour t/r et h et à 0,01° près pour β.',
+  tableIntro: 'Rizzi, Cocchetti, Colasante et Rusconi (2010) donnent dans leur tableau 1 (p. 469) l’épaisseur minimale t/r, l’angle β de la rotule du rein mesuré depuis la clé et la poussée h = H/(w r), avec w = γ t d, pour quatre angles d’ouverture. Nos calculs utilisent 2·round(800·α/90) voussoirs ; β est le sommet de la parabole passant par les excentricités autour de la rotule du rein. ✓ indique un accord à 10⁻⁴ près en relatif pour t/r et h et à 0,01° près pour β.',
   table: { quantity: 'Grandeur', published: 'Publié', ours: 'Stabileo', difference: 'Écart' },
   milankovitch: 'α = {a}°, poids réels comparés à Milankovitch',
   ccr: 'α = {a}°, poids sur la ligne moyenne comparé à CCR',
@@ -34,7 +34,7 @@ export const fr: Strings = {
   convergence: 'Avec peu de voussoirs, les rotules ne peuvent se placer que sur des joints ; t/r approche donc la valeur publiée par en dessous : {n51} avec 51 voussoirs, {n101} avec 101 et {n201} avec 201. Une implémentation indépendante du même modèle en Python avec le solveur HiGHS donne les mêmes valeurs à {python} près.',
 
   ringHeading: 'Un anneau sous une charge ponctuelle',
-  ringText: 'Le second onglet charge un anneau semi-circulaire de rayon intérieur 2,35 m, d’épaisseur 0,30 m, de profondeur 1 m et de γ = 20 kN/m³, par une charge verticale sur l’extrados au-dessus du quart de la portée libre. C’est l’anneau de la thèse d’Orduña (Université du Minho, 2004) sans son remplissage ; ce n’est donc pas le cas publié à 18 kN, dont nous n’avons pas la géométrie du remplissage. La charge croît jusqu’à ce que la ligne des pressions touche quatre faces ; l’arc devient alors trois corps rigides.',
+  ringText: 'Le second onglet charge un anneau semi-circulaire de rayon intérieur 2,35 m, d’épaisseur 0,30 m, de profondeur 1 m et de γ = 20 kN/m³, sans remplissage, par une charge verticale sur l’extrados au-dessus du quart de la portée libre. Aucune charge de ruine publiée n’est comparée pour cet anneau : il est contrôlé par la borne cinématique et par l’implémentation indépendante. La charge croît jusqu’à ce que la ligne des pressions touche quatre faces ; l’arc devient alors trois corps rigides.',
   ringTable: { voussoirs: 'Voussoirs', static: 'Statique (kN)', kinematic: 'Cinématique (kN)' },
   ringHinges: 'Avec 31 voussoirs, les rotules se forment à {list}, mesurés depuis la naissance gauche. Jusqu’à 40 voussoirs, où tous les mécanismes sont énumérés, les deux bornes coïncident à 10⁻¹³ près.',
   notEnumerated: 'non énuméré',
@@ -46,9 +46,9 @@ export const fr: Strings = {
 
   caseLabel: 'Cas',
   tabs: { weight: 'Poids propre', load: 'Charge ponctuelle' },
-  viewerTitle: 'Pression dans le joint e/(t/2)',
-  captionWeight: 'Bleu : pression vers l’intrados ; rouge : vers l’extrados ; la couleur pleine est une rotule. Longueurs en unités de r.',
-  captionLoad: 'Bleu : pression vers l’intrados ; rouge : vers l’extrados ; la couleur pleine est une rotule. Longueurs en m.',
+  viewerTitle: 'Arc en maçonnerie : voussoirs, ligne des pressions et rotules',
+  captionWeight: 'Longueurs en unités de r. Le mouvement du mécanisme est dessiné à une échelle arbitraire.',
+  captionLoad: 'Longueurs en m. Le mouvement du mécanisme est dessiné à une échelle arbitraire.',
   frames: {
     bisection: 'Pas de dichotomie {k} : t/r = {t}',
     least: 'Épaisseur minimale',
@@ -87,5 +87,9 @@ export const fr: Strings = {
   error: 'Le solveur n’a pas pu se charger ou terminer. Le résultat précédent reste disponible.',
   thin: 'Cet anneau est trop mince pour tenir sous son propre poids : aucune ligne des pressions ne tient, il n’y a donc pas de charge de ruine à chercher.',
   staleResult: 'Les résultats précédents sont affichés. Recalculez pour obtenir ceux des réglages actuels.',
-  notOrduna: 'Pas le cas publié à 18 kN : sans remplissage.',
+  legend: { title: 'Légende', stone: 'Voussoirs', line: 'Ligne des pressions', outside: 'Ligne hors de la pierre', hinge: 'Rotule, sur la face où elle se forme', load: 'Charge ponctuelle P' },
+  neverStands: 'Aucune épaisseur jusqu’à t/r = 1,99 ne permet à cet arc de tenir : aucune ligne des pressions ne tient, il n’y a donc pas d’épaisseur minimale à montrer.',
+  unbounded: 'Dans ce modèle, aucune charge à cette position ne fait s’effondrer l’anneau : une ligne des pressions tient dans les joints pour toute charge. Les conditions ne sont vérifiées qu’aux joints, si bien qu’un anneau de peu de voussoirs peut y parvenir.',
+  noMechanism: 'Aucun mécanisme n’est animé ici : la ligne touche {k} faces, et non les {m} rotules alternées d’un mécanisme.',
+  positionAt: 'charge à {p} de la portée',
 };

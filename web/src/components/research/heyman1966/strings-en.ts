@@ -14,7 +14,7 @@ export const en = {
   methodHeading: 'How we reproduce it',
   method: 'The least thickness under self-weight is found by bisection on t/r. Each step solves the linear program for the state that breaks the joint conditions least; the thickness is accepted when that violation is not positive. The collapse load of a point load is the largest λ the linear program allows. As a kinematic check every mechanism with four hinges on alternating faces is enumerated; the smallest load multiplier among them is an upper bound, and it equals the static value. The solver is our own Rust code, compiled to WebAssembly for this page.',
   runHeading: 'What the run shows',
-  runText: 'The replay is the solver’s own run on a semicircle of {n} voussoirs with true weights. The first steps bracket the answer; a red or blue joint means the thrust touches a face, and on the steps where the arch is too thin the line leaves the stone. At t/r = {eta} the line touches five faces: the extrados at the crown and at both springings, the intrados at both haunches, {beta}° from the crown. The arch then opens as a mechanism.',
+  runText: 'The replay is the solver’s own run on a semicircle of {n} voussoirs with true weights. The first steps bracket the answer: on the steps where the arch is too thin, the line of thrust leaves the stone and turns red. At t/r = {eta} the line touches five faces: the extrados at the crown and at both springings, the intrados at both haunches, {beta}° from the crown. The arch then opens as a mechanism about those five hinges.',
   watchBisection: 'Watch the bisection',
   watchLeast: 'Five hinges',
   watchMechanism: 'The mechanism',
@@ -24,7 +24,7 @@ export const en = {
   tryDeep: 'Try α = 145°',
 
   checksHeading: 'Comparison with published solutions',
-  tableIntro: 'Rizzi, Cocchetti, Colasante and Rusconi (2010) list, in their Table 1, the least thickness t/r, the haunch hinge angle β from the crown and the thrust h = H/(w r), with w = γ t d, for four angles of embrace. Our runs use 2·round(800·α/90) voussoirs; β is the vertex of the parabola through the eccentricities around the haunch hinge. ✓ marks agreement within 10⁻⁴ relative for t/r and h and 0.01° for β.',
+  tableIntro: 'Rizzi, Cocchetti, Colasante and Rusconi (2010) list, in their Table 1 (p. 469), the least thickness t/r, the haunch hinge angle β from the crown and the thrust h = H/(w r), with w = γ t d, for four angles of embrace. Our runs use 2·round(800·α/90) voussoirs; β is the vertex of the parabola through the eccentricities around the haunch hinge. ✓ marks agreement within 10⁻⁴ relative for t/r and h and 0.01° for β.',
   table: { quantity: 'Quantity', published: 'Published', ours: 'Stabileo', difference: 'Difference' },
   milankovitch: 'α = {a}°, true weights against Milankovitch',
   ccr: 'α = {a}°, weight on the centreline against CCR',
@@ -33,7 +33,7 @@ export const en = {
   convergence: 'With few voussoirs the hinges can only sit on joints, so t/r approaches the published value from below: {n51} with 51 voussoirs, {n101} with 101 and {n201} with 201. An independent implementation of the same model in Python with the HiGHS solver gives the same values to {python}.',
 
   ringHeading: 'A ring under a point load',
-  ringText: 'The second tab loads a semicircular ring, inner radius 2.35 m, thickness 0.30 m, depth 1 m and γ = 20 kN/m³, with a vertical load on the extrados above a quarter of the clear span. It is the ring of Orduña’s thesis (University of Minho, 2004) without its backfill, so it is not the published 18 kN case, whose backfill geometry we do not have. The load grows until the thrust line touches four faces; then the arch turns into three rigid bodies.',
+  ringText: 'The second tab loads a semicircular ring, inner radius 2.35 m, thickness 0.30 m, depth 1 m and γ = 20 kN/m³, without backfill, with a vertical load on the extrados above a quarter of the clear span. No published collapse load is compared for this ring: it is checked against the kinematic bound and the independent implementation. The load grows until the thrust line touches four faces; then the arch turns into three rigid bodies.',
   ringTable: { voussoirs: 'Voussoirs', static: 'Static (kN)', kinematic: 'Kinematic (kN)' },
   ringHinges: 'With 31 voussoirs the hinges form at {list}, measured from the left springing. Up to 40 voussoirs, where every mechanism is enumerated, the two bounds agree to 10⁻¹³.',
   notEnumerated: 'not enumerated',
@@ -45,9 +45,9 @@ export const en = {
 
   caseLabel: 'Case',
   tabs: { weight: 'Self-weight', load: 'Point load' },
-  viewerTitle: 'Thrust across the joint e/(t/2)',
-  captionWeight: 'Blue: thrust towards the intrados; red: towards the extrados; full colour is a hinge. Lengths in units of r.',
-  captionLoad: 'Blue: thrust towards the intrados; red: towards the extrados; full colour is a hinge. Lengths in m.',
+  viewerTitle: 'Masonry arch: voussoirs, line of thrust and hinges',
+  captionWeight: 'Lengths in units of r. The mechanism’s motion is drawn to an arbitrary scale.',
+  captionLoad: 'Lengths in m. The mechanism’s motion is drawn to an arbitrary scale.',
   frames: {
     bisection: 'Bisection step {k}: t/r = {t}',
     least: 'Least thickness',
@@ -86,7 +86,11 @@ export const en = {
   error: 'The solver could not load or complete. The previous result remains available.',
   thin: 'This ring is too thin to stand under its own weight: no thrust line fits, so there is no collapse load to find.',
   staleResult: 'Previous results are shown. Recompute to obtain results for the current settings.',
-  notOrduna: 'Not the published 18 kN case: no backfill.',
+  legend: { title: 'Legend', stone: 'Voussoirs', line: 'Line of thrust', outside: 'Line outside the stone', hinge: 'Hinge, on the face where it forms', load: 'Point load P' },
+  neverStands: 'No thickness up to t/r = 1.99 lets this arch stand: no thrust line fits, so there is no least thickness to show.',
+  unbounded: 'In this model no load at this position collapses the ring: a thrust line fits inside the joints for any load. The conditions are checked at the joints only, so a ring with few voussoirs can do this.',
+  noMechanism: 'No mechanism is animated here: the line touches {k} faces, not the {m} alternating hinges of a mechanism.',
+  positionAt: 'load at {p} of the span',
 };
 
 export type Strings = typeof en;

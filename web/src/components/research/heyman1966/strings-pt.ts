@@ -15,7 +15,7 @@ export const pt: Strings = {
   methodHeading: 'Como reproduzimos',
   method: 'A espessura mínima sob peso próprio é encontrada por bissecção em t/r. Em cada passo o programa linear encontra o estado que menos viola as condições das juntas; a espessura é aceita quando essa violação não é positiva. A carga de colapso de uma carga concentrada é o maior λ que o programa linear admite. Como verificação cinemática enumeram-se todos os mecanismos de quatro rótulas em faces alternadas; o menor multiplicador entre eles é um limite superior e coincide com o valor estático. O solver é código Rust próprio, compilado para WebAssembly para esta página.',
   runHeading: 'O que a execução mostra',
-  runText: 'A reprodução é a execução do próprio solver sobre um semicírculo de {n} aduelas com pesos reais. Os primeiros passos cercam a resposta; uma junta vermelha ou azul indica que a linha de pressões toca uma face, e nos passos em que o arco é fino demais a linha sai da pedra. Com t/r = {eta} a linha toca cinco faces: o extradorso no fecho e nos dois arranques, o intradorso nos dois rins, a {beta}° do fecho. Depois o arco se abre como mecanismo.',
+  runText: 'A reprodução é a execução do próprio solver sobre um semicírculo de {n} aduelas com pesos reais. Os primeiros passos cercam a resposta: nos passos em que o arco é fino demais, a linha de pressões sai da pedra e fica vermelha. Com t/r = {eta} a linha toca cinco faces: o extradorso no fecho e nos dois arranques, o intradorso nos dois rins, a {beta}° do fecho. Depois o arco se abre como mecanismo em torno dessas cinco rótulas.',
   watchBisection: 'Ver a bissecção',
   watchLeast: 'Cinco rótulas',
   watchMechanism: 'O mecanismo',
@@ -25,7 +25,7 @@ export const pt: Strings = {
   tryDeep: 'Experimente α = 145°',
 
   checksHeading: 'Comparação com soluções publicadas',
-  tableIntro: 'Rizzi, Cocchetti, Colasante e Rusconi (2010) dão na sua tabela 1 a espessura mínima t/r, o ângulo β da rótula do rim medido a partir do fecho e o empuxo h = H/(w r), com w = γ t d, para quatro ângulos de abertura. Nossas execuções usam 2·round(800·α/90) aduelas; β é o vértice da parábola que passa pelas excentricidades em torno da rótula do rim. ✓ indica concordância dentro de 10⁻⁴ relativo em t/r e h, e de 0,01° em β.',
+  tableIntro: 'Rizzi, Cocchetti, Colasante e Rusconi (2010) dão na sua tabela 1 (p. 469) a espessura mínima t/r, o ângulo β da rótula do rim medido a partir do fecho e o empuxo h = H/(w r), com w = γ t d, para quatro ângulos de abertura. Nossas execuções usam 2·round(800·α/90) aduelas; β é o vértice da parábola que passa pelas excentricidades em torno da rótula do rim. ✓ indica concordância dentro de 10⁻⁴ relativo em t/r e h, e de 0,01° em β.',
   table: { quantity: 'Grandeza', published: 'Publicado', ours: 'Stabileo', difference: 'Diferença' },
   milankovitch: 'α = {a}°, pesos reais frente a Milankovitch',
   ccr: 'α = {a}°, peso sobre o eixo frente a CCR',
@@ -34,7 +34,7 @@ export const pt: Strings = {
   convergence: 'Com poucas aduelas as rótulas só podem ficar em juntas, então t/r se aproxima do valor publicado por baixo: {n51} com 51 aduelas, {n101} com 101 e {n201} com 201. Uma implementação independente do mesmo modelo em Python com o solver HiGHS dá os mesmos valores com uma diferença de {python}.',
 
   ringHeading: 'Um anel sob uma carga concentrada',
-  ringText: 'A segunda aba carrega um anel semicircular de raio interno 2,35 m, espessura 0,30 m, profundidade 1 m e γ = 20 kN/m³, com uma carga vertical sobre o extradorso acima de um quarto do vão livre. É o anel da tese de Orduña (Universidade do Minho, 2004) sem o enchimento, portanto não é o caso publicado de 18 kN, cuja geometria de enchimento não temos. A carga cresce até a linha de pressões tocar quatro faces; então o arco se transforma em três corpos rígidos.',
+  ringText: 'A segunda aba carrega um anel semicircular de raio interno 2,35 m, espessura 0,30 m, profundidade 1 m e γ = 20 kN/m³, sem enchimento, com uma carga vertical sobre o extradorso acima de um quarto do vão livre. Nenhuma carga de colapso publicada é comparada para este anel: ele é verificado com o limite cinemático e com a implementação independente. A carga cresce até a linha de pressões tocar quatro faces; então o arco se transforma em três corpos rígidos.',
   ringTable: { voussoirs: 'Aduelas', static: 'Estático (kN)', kinematic: 'Cinemático (kN)' },
   ringHinges: 'Com 31 aduelas as rótulas se formam em {list}, medidos a partir do arranque esquerdo. Até 40 aduelas, onde todos os mecanismos são enumerados, os dois limites coincidem a 10⁻¹³.',
   notEnumerated: 'não enumerado',
@@ -46,9 +46,9 @@ export const pt: Strings = {
 
   caseLabel: 'Caso',
   tabs: { weight: 'Peso próprio', load: 'Carga concentrada' },
-  viewerTitle: 'Pressão na junta e/(t/2)',
-  captionWeight: 'Azul: pressão para o intradorso; vermelho: para o extradorso; a cor plena é uma rótula. Comprimentos em unidades de r.',
-  captionLoad: 'Azul: pressão para o intradorso; vermelho: para o extradorso; a cor plena é uma rótula. Comprimentos em m.',
+  viewerTitle: 'Arco de alvenaria: aduelas, linha de pressões e rótulas',
+  captionWeight: 'Comprimentos em unidades de r. O movimento do mecanismo é desenhado em escala arbitrária.',
+  captionLoad: 'Comprimentos em m. O movimento do mecanismo é desenhado em escala arbitrária.',
   frames: {
     bisection: 'Passo de bissecção {k}: t/r = {t}',
     least: 'Espessura mínima',
@@ -87,5 +87,9 @@ export const pt: Strings = {
   error: 'O solver não pôde carregar ou terminar. O resultado anterior continua disponível.',
   thin: 'Este anel é fino demais para se sustentar com o próprio peso: nenhuma linha de pressões cabe, então não há carga de colapso a encontrar.',
   staleResult: 'Resultados anteriores são mostrados. Recalcule para obter os da configuração atual.',
-  notOrduna: 'Não é o caso publicado de 18 kN: sem enchimento.',
+  legend: { title: 'Legenda', stone: 'Aduelas', line: 'Linha de pressões', outside: 'Linha fora da pedra', hinge: 'Rótula, na face onde se forma', load: 'Carga pontual P' },
+  neverStands: 'Nenhuma espessura até t/r = 1,99 permite que este arco fique de pé: nenhuma linha de pressões cabe, então não há espessura mínima a mostrar.',
+  unbounded: 'Neste modelo nenhuma carga nesta posição faz o anel colapsar: uma linha de pressões cabe nas juntas para qualquer carga. As condições são verificadas só nas juntas, então um anel com poucas aduelas pode fazer isso.',
+  noMechanism: 'Nenhum mecanismo é animado aqui: a linha toca {k} faces, não as {m} rótulas alternadas de um mecanismo.',
+  positionAt: 'carga a {p} do vão',
 };

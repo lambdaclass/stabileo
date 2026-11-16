@@ -15,7 +15,7 @@ export const es: Strings = {
   methodHeading: 'Cómo lo reproducimos',
   method: 'El espesor mínimo bajo peso propio se busca por bisección sobre t/r. En cada paso el programa lineal encuentra el estado que menos viola las condiciones de las juntas; el espesor se acepta cuando esa violación no es positiva. La carga de colapso de una carga puntual es el mayor λ que admite el programa lineal. Como control cinemático se enumeran todos los mecanismos de cuatro rótulas en caras alternadas; el menor multiplicador entre ellos es una cota superior y coincide con el valor estático. El solver es código Rust propio, compilado a WebAssembly para esta página.',
   runHeading: 'Qué muestra la ejecución',
-  runText: 'La reproducción es la ejecución del propio solver sobre un semicírculo de {n} dovelas con pesos reales. Los primeros pasos acotan la respuesta; una junta roja o azul indica que la línea de presiones toca una cara, y en los pasos en que el arco es demasiado delgado la línea sale de la piedra. Con t/r = {eta} la línea toca cinco caras: el extradós en la clave y en los dos arranques, el intradós en los dos riñones, a {beta}° de la clave. Después el arco se abre como mecanismo.',
+  runText: 'La reproducción es la ejecución del propio solver sobre un semicírculo de {n} dovelas con pesos reales. Los primeros pasos acotan la respuesta: en los pasos en que el arco es demasiado delgado, la línea de presiones sale de la piedra y se vuelve roja. Con t/r = {eta} la línea toca cinco caras: el extradós en la clave y en los dos arranques, el intradós en los dos riñones, a {beta}° de la clave. Después el arco se abre como mecanismo alrededor de esas cinco rótulas.',
   watchBisection: 'Ver la bisección',
   watchLeast: 'Cinco rótulas',
   watchMechanism: 'El mecanismo',
@@ -25,7 +25,7 @@ export const es: Strings = {
   tryDeep: 'Probá α = 145°',
 
   checksHeading: 'Comparación con soluciones publicadas',
-  tableIntro: 'Rizzi, Cocchetti, Colasante y Rusconi (2010) dan en su tabla 1 el espesor mínimo t/r, el ángulo β de la rótula del riñón medido desde la clave y el empuje h = H/(w r), con w = γ t d, para cuatro ángulos de apertura. Nuestras corridas usan 2·round(800·α/90) dovelas; β es el vértice de la parábola que pasa por las excentricidades alrededor de la rótula del riñón. ✓ indica coincidencia dentro de 10⁻⁴ relativo en t/r y h, y de 0,01° en β.',
+  tableIntro: 'Rizzi, Cocchetti, Colasante y Rusconi (2010) dan en su tabla 1 (p. 469) el espesor mínimo t/r, el ángulo β de la rótula del riñón medido desde la clave y el empuje h = H/(w r), con w = γ t d, para cuatro ángulos de apertura. Nuestras corridas usan 2·round(800·α/90) dovelas; β es el vértice de la parábola que pasa por las excentricidades alrededor de la rótula del riñón. ✓ indica coincidencia dentro de 10⁻⁴ relativo en t/r y h, y de 0,01° en β.',
   table: { quantity: 'Magnitud', published: 'Publicado', ours: 'Stabileo', difference: 'Diferencia' },
   milankovitch: 'α = {a}°, pesos reales frente a Milankovitch',
   ccr: 'α = {a}°, peso sobre el eje frente a CCR',
@@ -34,7 +34,7 @@ export const es: Strings = {
   convergence: 'Con pocas dovelas las rótulas solo pueden caer en juntas, así que t/r se acerca al valor publicado desde abajo: {n51} con 51 dovelas, {n101} con 101 y {n201} con 201. Una implementación independiente del mismo modelo en Python con el solver HiGHS da los mismos valores con una diferencia de {python}.',
 
   ringHeading: 'Un anillo bajo una carga puntual',
-  ringText: 'La segunda pestaña carga un anillo semicircular de radio interior 2,35 m, espesor 0,30 m, profundidad 1 m y γ = 20 kN/m³, con una carga vertical sobre el extradós encima de un cuarto de la luz libre. Es el anillo de la tesis de Orduña (Universidade do Minho, 2004) sin su relleno, así que no es el caso publicado de 18 kN, cuya geometría de relleno no tenemos. La carga crece hasta que la línea de presiones toca cuatro caras; entonces el arco se convierte en tres cuerpos rígidos.',
+  ringText: 'La segunda pestaña carga un anillo semicircular de radio interior 2,35 m, espesor 0,30 m, profundidad 1 m y γ = 20 kN/m³, sin relleno, con una carga vertical sobre el extradós encima de un cuarto de la luz libre. Para este anillo no se compara ninguna carga de colapso publicada: se controla con la cota cinemática y con la implementación independiente. La carga crece hasta que la línea de presiones toca cuatro caras; entonces el arco se convierte en tres cuerpos rígidos.',
   ringTable: { voussoirs: 'Dovelas', static: 'Estático (kN)', kinematic: 'Cinemático (kN)' },
   ringHinges: 'Con 31 dovelas las rótulas se forman en {list}, medidos desde el arranque izquierdo. Hasta 40 dovelas, donde se enumeran todos los mecanismos, las dos cotas coinciden a 10⁻¹³.',
   notEnumerated: 'sin enumerar',
@@ -46,9 +46,9 @@ export const es: Strings = {
 
   caseLabel: 'Caso',
   tabs: { weight: 'Peso propio', load: 'Carga puntual' },
-  viewerTitle: 'Presión en la junta e/(t/2)',
-  captionWeight: 'Azul: presión hacia el intradós; rojo: hacia el extradós; el color pleno es una rótula. Longitudes en unidades de r.',
-  captionLoad: 'Azul: presión hacia el intradós; rojo: hacia el extradós; el color pleno es una rótula. Longitudes en m.',
+  viewerTitle: 'Arco de mampostería: dovelas, línea de presiones y rótulas',
+  captionWeight: 'Longitudes en unidades de r. El movimiento del mecanismo se dibuja a una escala arbitraria.',
+  captionLoad: 'Longitudes en m. El movimiento del mecanismo se dibuja a una escala arbitraria.',
   frames: {
     bisection: 'Paso de bisección {k}: t/r = {t}',
     least: 'Espesor mínimo',
@@ -87,5 +87,9 @@ export const es: Strings = {
   error: 'El solver no pudo cargarse o terminar. El resultado anterior sigue disponible.',
   thin: 'Este anillo es demasiado delgado para sostenerse con su propio peso: no entra ninguna línea de presiones, así que no hay carga de colapso que buscar.',
   staleResult: 'Se muestran resultados anteriores. Recalculá para obtener los de la configuración actual.',
-  notOrduna: 'No es el caso publicado de 18 kN: no tiene relleno.',
+  legend: { title: 'Referencias', stone: 'Dovelas', line: 'Línea de presiones', outside: 'Línea fuera de la piedra', hinge: 'Rótula, sobre la cara donde se forma', load: 'Carga puntual P' },
+  neverStands: 'Ningún espesor hasta t/r = 1,99 permite que este arco se sostenga: no entra ninguna línea de presiones, así que no hay espesor mínimo que mostrar.',
+  unbounded: 'En este modelo ninguna carga en esta posición hace colapsar el anillo: una línea de presiones entra en las juntas para cualquier carga. Las condiciones se controlan solo en las juntas, así que un anillo con pocas dovelas puede hacerlo.',
+  noMechanism: 'Acá no se anima ningún mecanismo: la línea toca {k} caras, no las {m} rótulas alternadas de un mecanismo.',
+  positionAt: 'carga a {p} de la luz',
 };

@@ -1,4 +1,4 @@
-import { decodeRun, type LoadSettings, type WeightSettings } from './protocol';
+import { solverOutcome, type LoadSettings, type WeightSettings } from './protocol';
 
 export type ArchRequest = { case: 'weight'; settings: WeightSettings } | { case: 'load'; settings: LoadSettings };
 
@@ -16,12 +16,7 @@ self.onmessage = async (event: MessageEvent<ArchRequest>) => {
     const out = JSON.parse(request.case === 'weight'
       ? wasm.self_weight_run(request.settings.alpha, request.settings.n, request.settings.centreline)
       : wasm.point_load_run(request.settings.n, request.settings.t, request.settings.position));
-    if (out.error === 'Infeasible') {
-      self.postMessage({ error: 'thin' });
-      return;
-    }
-    if (out.error) throw new Error(out.error);
-    self.postMessage({ result: decodeRun(out) });
+    self.postMessage(solverOutcome(out));
   } catch {
     self.postMessage({ error: 'solver' });
   }

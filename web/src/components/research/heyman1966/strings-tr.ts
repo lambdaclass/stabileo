@@ -15,7 +15,7 @@ export const tr: Strings = {
   methodHeading: 'Nasıl yeniden ürettik',
   method: 'Öz ağırlık altındaki en küçük kalınlık t/r üzerinde ikiye bölme ile bulunur. Her adımda doğrusal program, derz koşullarını en az ihlal eden durumu bulur; bu ihlal pozitif değilse kalınlık kabul edilir. Tekil yükün göçme yükü, doğrusal programın izin verdiği en büyük λ değeridir. Kinematik kontrol olarak, ardışık yüzlerde dört mafsallı tüm mekanizmalar sayılır; aralarındaki en küçük yük çarpanı bir üst sınırdır ve statik değere eşittir. Çözücü kendi Rust kodumuzdur ve bu sayfa için WebAssembly’ye derlenmiştir.',
   runHeading: 'Hesap ne gösteriyor',
-  runText: 'Tekrar oynatma, çözücünün gerçek ağırlıklı {n} kemer taşlı bir yarım daire üzerindeki kendi çalışmasıdır. İlk adımlar cevabı daraltır; kırmızı ya da mavi bir derz, basınç çizgisinin bir yüze değdiğini gösterir ve kemerin fazla ince olduğu adımlarda çizgi taşın dışına çıkar. t/r = {eta} değerinde çizgi beş yüze değer: kilit taşında ve iki üzengide sırta, iki böğürde, kilitten {beta}° uzakta, karına. Ardından kemer bir mekanizma olarak açılır.',
+  runText: 'Tekrar oynatma, çözücünün gerçek ağırlıklı {n} kemer taşlı bir yarım daire üzerindeki kendi çalışmasıdır. İlk adımlar cevabı daraltır: kemerin fazla ince olduğu adımlarda basınç çizgisi taşın dışına çıkar ve kırmızıya döner. t/r = {eta} değerinde çizgi beş yüze değer: kilit taşında ve iki üzengide sırta, iki böğürde, kilitten {beta}° uzakta, karına. Ardından kemer bu beş mafsal etrafında bir mekanizma olarak açılır.',
   watchBisection: 'İkiye bölmeyi izleyin',
   watchLeast: 'Beş mafsal',
   watchMechanism: 'Mekanizma',
@@ -25,7 +25,7 @@ export const tr: Strings = {
   tryDeep: 'α = 145° deneyin',
 
   checksHeading: 'Yayımlanmış çözümlerle karşılaştırma',
-  tableIntro: 'Rizzi, Cocchetti, Colasante ve Rusconi (2010), Tablo 1’de dört açıklık açısı için en küçük kalınlık t/r’yi, kilitten ölçülen böğür mafsalı açısı β’yı ve w = γ t d olmak üzere itki h = H/(w r)’yi verir. Hesaplarımız 2·round(800·α/90) kemer taşı kullanır; β, böğür mafsalı çevresindeki dış merkezliklerden geçen parabolün tepe noktasıdır. ✓, t/r ve h için 10⁻⁴ bağıl, β için 0,01° içinde uyumu gösterir.',
+  tableIntro: 'Rizzi, Cocchetti, Colasante ve Rusconi (2010), Tablo 1’de (s. 469) dört açıklık açısı için en küçük kalınlık t/r’yi, kilitten ölçülen böğür mafsalı açısı β’yı ve w = γ t d olmak üzere itki h = H/(w r)’yi verir. Hesaplarımız 2·round(800·α/90) kemer taşı kullanır; β, böğür mafsalı çevresindeki dış merkezliklerden geçen parabolün tepe noktasıdır. ✓, t/r ve h için 10⁻⁴ bağıl, β için 0,01° içinde uyumu gösterir.',
   table: { quantity: 'Büyüklük', published: 'Yayımlanan', ours: 'Stabileo', difference: 'Fark' },
   milankovitch: 'α = {a}°, gerçek ağırlıklar ve Milankovitch',
   ccr: 'α = {a}°, eksen üzerinde ağırlık ve CCR',
@@ -34,7 +34,7 @@ export const tr: Strings = {
   convergence: 'Az sayıda kemer taşıyla mafsallar yalnızca derzlerde oluşabilir; bu yüzden t/r yayımlanan değere alttan yaklaşır: 51 kemer taşıyla {n51}, 101 ile {n101}, 201 ile {n201}. Aynı modelin HiGHS çözücüsüyle Python’daki bağımsız bir uygulaması aynı değerleri {python} farkla verir.',
 
   ringHeading: 'Tekil yük altında bir halka',
-  ringText: 'İkinci sekme, iç yarıçapı 2,35 m, kalınlığı 0,30 m, derinliği 1 m ve γ = 20 kN/m³ olan yarım daire biçiminde bir halkayı, net açıklığın dörtte biri üzerinde sırta etkiyen düşey bir yükle yükler. Bu, Orduña’nın tezindeki (Minho Üniversitesi, 2004) halkanın dolgusuz hâlidir; dolayısıyla dolgu geometrisine sahip olmadığımız, yayımlanmış 18 kN durumu değildir. Yük, basınç çizgisi dört yüze değene kadar artar; sonra kemer üç rijit cisme dönüşür.',
+  ringText: 'İkinci sekme, iç yarıçapı 2,35 m, kalınlığı 0,30 m, derinliği 1 m ve γ = 20 kN/m³ olan, dolgusuz, yarım daire biçiminde bir halkayı, net açıklığın dörtte biri üzerinde sırta etkiyen düşey bir yükle yükler. Bu halka için yayımlanmış bir göçme yükü karşılaştırılmaz: kinematik sınırla ve bağımsız uygulamayla denetlenir. Yük, basınç çizgisi dört yüze değene kadar artar; sonra kemer üç rijit cisme dönüşür.',
   ringTable: { voussoirs: 'Kemer taşı', static: 'Statik (kN)', kinematic: 'Kinematik (kN)' },
   ringHinges: '31 kemer taşıyla mafsallar sol üzengiden ölçülerek {list} konumlarında oluşur. Tüm mekanizmaların sayıldığı 40 kemer taşına kadar iki sınır 10⁻¹³ içinde örtüşür.',
   notEnumerated: 'sayılmadı',
@@ -46,9 +46,9 @@ export const tr: Strings = {
 
   caseLabel: 'Durum',
   tabs: { weight: 'Öz ağırlık', load: 'Tekil yük' },
-  viewerTitle: 'Derzdeki basınç e/(t/2)',
-  captionWeight: 'Mavi: basınç karına doğru; kırmızı: sırta doğru; tam renk bir mafsaldır. Uzunluklar r biriminde.',
-  captionLoad: 'Mavi: basınç karına doğru; kırmızı: sırta doğru; tam renk bir mafsaldır. Uzunluklar m.',
+  viewerTitle: 'Yığma kemer: kemer taşları, basınç çizgisi ve mafsallar',
+  captionWeight: 'Uzunluklar r biriminde. Mekanizmanın hareketi keyfî bir ölçekte çizilmiştir.',
+  captionLoad: 'Uzunluklar m. Mekanizmanın hareketi keyfî bir ölçekte çizilmiştir.',
   frames: {
     bisection: 'İkiye bölme adımı {k}: t/r = {t}',
     least: 'En küçük kalınlık',
@@ -87,5 +87,9 @@ export const tr: Strings = {
   error: 'Çözücü yüklenemedi veya tamamlanamadı. Önceki sonuç kullanılabilir durumda.',
   thin: 'Bu halka kendi ağırlığı altında durmak için fazla ince: hiçbir basınç çizgisi sığmıyor, bu yüzden aranacak bir göçme yükü yok.',
   staleResult: 'Önceki sonuçlar gösteriliyor. Mevcut ayarların sonuçlarını almak için yeniden hesaplayın.',
-  notOrduna: 'Yayımlanmış 18 kN durumu değildir: dolgu yok.',
+  legend: { title: 'Açıklama', stone: 'Kemer taşları', line: 'Basınç çizgisi', outside: 'Taşın dışındaki çizgi', hinge: 'Mafsal, oluştuğu yüzde', load: 'Tekil yük P' },
+  neverStands: 't/r = 1,99’a kadar hiçbir kalınlık bu kemeri ayakta tutmuyor: hiçbir basınç çizgisi sığmıyor, bu yüzden gösterilecek bir en küçük kalınlık yok.',
+  unbounded: 'Bu modelde bu konumdaki hiçbir yük halkayı göçertmez: her yük için derzlerin içine bir basınç çizgisi sığar. Koşullar yalnızca derzlerde denetlendiğinden az sayıda kemer taşlı bir halka bunu yapabilir.',
+  noMechanism: 'Burada bir mekanizma canlandırılmaz: çizgi {k} yüze değer, bir mekanizmanın {m} dönüşümlü mafsalına değil.',
+  positionAt: 'yük açıklığın {p} noktasında',
 };

@@ -29,4 +29,4 @@ experiments:
 environment: {rust: 1.99.1}
 excluded:
   - Heyman's closed form, which imposes tangency on the resultant rather than the line of thrust; shown for comparison only
-  - sliding, finite compressive strength, backfill and the published 18 kN ring case (its backfill geometry is not available)
+  - sliding, finite compressive strength and backfill; no published collapse load is compared for the ring

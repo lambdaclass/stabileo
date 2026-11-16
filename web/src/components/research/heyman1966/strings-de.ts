@@ -15,7 +15,7 @@ export const de: Strings = {
   methodHeading: 'Wie wir es nachrechnen',
   method: 'Die Mindestdicke unter Eigengewicht wird durch Bisektion über t/r gesucht. In jedem Schritt findet das lineare Programm den Zustand, der die Fugenbedingungen am wenigsten verletzt; die Dicke gilt als ausreichend, wenn diese Verletzung nicht positiv ist. Die Traglast einer Einzellast ist das größte λ, das das lineare Programm zulässt. Als kinematische Kontrolle werden alle Mechanismen mit vier Gelenken auf abwechselnden Seiten aufgezählt; der kleinste Lastfaktor unter ihnen ist eine obere Schranke und stimmt mit dem statischen Wert überein. Der Löser ist unser eigener Rust-Code, für diese Seite nach WebAssembly kompiliert.',
   runHeading: 'Was die Rechnung zeigt',
-  runText: 'Die Wiedergabe ist der Lauf des Lösers selbst an einem Halbkreis aus {n} Wölbsteinen mit wahren Gewichten. Die ersten Schritte grenzen die Antwort ein; eine rote oder blaue Fuge bedeutet, dass die Stützlinie eine Oberfläche berührt, und in den Schritten, in denen der Bogen zu dünn ist, verlässt die Linie den Stein. Bei t/r = {eta} berührt die Linie fünf Oberflächen: den Bogenrücken am Scheitel und an beiden Kämpfern, die Leibung an beiden Bogenschultern, {beta}° vom Scheitel entfernt. Danach öffnet sich der Bogen als Mechanismus.',
+  runText: 'Die Wiedergabe ist der Lauf des Lösers selbst an einem Halbkreis aus {n} Wölbsteinen mit wahren Gewichten. Die ersten Schritte grenzen die Antwort ein: In den Schritten, in denen der Bogen zu dünn ist, verlässt die Stützlinie den Stein und wird rot. Bei t/r = {eta} berührt die Linie fünf Oberflächen: den Bogenrücken am Scheitel und an beiden Kämpfern, die Leibung an beiden Bogenschultern, {beta}° vom Scheitel entfernt. Danach öffnet sich der Bogen als Mechanismus um diese fünf Gelenke.',
   watchBisection: 'Bisektion ansehen',
   watchLeast: 'Fünf Gelenke',
   watchMechanism: 'Der Mechanismus',
@@ -25,7 +25,7 @@ export const de: Strings = {
   tryDeep: 'α = 145° ausprobieren',
 
   checksHeading: 'Vergleich mit veröffentlichten Lösungen',
-  tableIntro: 'Rizzi, Cocchetti, Colasante und Rusconi (2010) geben in ihrer Tabelle 1 die Mindestdicke t/r, den Winkel β des Schultergelenks vom Scheitel und den Horizontalschub h = H/(w r) mit w = γ t d für vier Öffnungswinkel an. Unsere Rechnungen verwenden 2·round(800·α/90) Wölbsteine; β ist der Scheitel der Parabel durch die Exzentrizitäten um das Schultergelenk. ✓ bedeutet Übereinstimmung innerhalb von 10⁻⁴ relativ für t/r und h und 0,01° für β.',
+  tableIntro: 'Rizzi, Cocchetti, Colasante und Rusconi (2010) geben in ihrer Tabelle 1 (S. 469) die Mindestdicke t/r, den Winkel β des Schultergelenks vom Scheitel und den Horizontalschub h = H/(w r) mit w = γ t d für vier Öffnungswinkel an. Unsere Rechnungen verwenden 2·round(800·α/90) Wölbsteine; β ist der Scheitel der Parabel durch die Exzentrizitäten um das Schultergelenk. ✓ bedeutet Übereinstimmung innerhalb von 10⁻⁴ relativ für t/r und h und 0,01° für β.',
   table: { quantity: 'Größe', published: 'Veröffentlicht', ours: 'Stabileo', difference: 'Abweichung' },
   milankovitch: 'α = {a}°, wahre Gewichte gegen Milankovitch',
   ccr: 'α = {a}°, Gewicht auf der Achse gegen CCR',
@@ -34,7 +34,7 @@ export const de: Strings = {
   convergence: 'Mit wenigen Wölbsteinen können die Gelenke nur in Fugen liegen, daher nähert sich t/r dem veröffentlichten Wert von unten: {n51} mit 51 Wölbsteinen, {n101} mit 101 und {n201} mit 201. Eine unabhängige Implementierung desselben Modells in Python mit dem HiGHS-Löser liefert dieselben Werte bis auf {python}.',
 
   ringHeading: 'Ein Ring unter einer Einzellast',
-  ringText: 'Der zweite Reiter belastet einen halbkreisförmigen Ring mit 2,35 m Innenradius, 0,30 m Dicke, 1 m Tiefe und γ = 20 kN/m³ durch eine senkrechte Last auf dem Bogenrücken über einem Viertel der lichten Weite. Es ist der Ring aus Orduñas Dissertation (Universität Minho, 2004) ohne Hinterfüllung, also nicht der veröffentlichte Fall mit 18 kN, dessen Hinterfüllungsgeometrie uns fehlt. Die Last wächst, bis die Stützlinie vier Oberflächen berührt; dann zerfällt der Bogen in drei starre Körper.',
+  ringText: 'Der zweite Reiter belastet einen halbkreisförmigen Ring mit 2,35 m Innenradius, 0,30 m Dicke, 1 m Tiefe und γ = 20 kN/m³, ohne Hinterfüllung, durch eine senkrechte Last auf dem Bogenrücken über einem Viertel der lichten Weite. Für diesen Ring wird keine veröffentlichte Traglast verglichen: Er wird mit der kinematischen Schranke und der unabhängigen Implementierung geprüft. Die Last wächst, bis die Stützlinie vier Oberflächen berührt; dann zerfällt der Bogen in drei starre Körper.',
   ringTable: { voussoirs: 'Wölbsteine', static: 'Statisch (kN)', kinematic: 'Kinematisch (kN)' },
   ringHinges: 'Mit 31 Wölbsteinen bilden sich die Gelenke bei {list}, gemessen vom linken Kämpfer. Bis 40 Wölbsteine, wo alle Mechanismen aufgezählt werden, stimmen beide Schranken auf 10⁻¹³ überein.',
   notEnumerated: 'nicht aufgezählt',
@@ -46,9 +46,9 @@ export const de: Strings = {
 
   caseLabel: 'Fall',
   tabs: { weight: 'Eigengewicht', load: 'Einzellast' },
-  viewerTitle: 'Stützlinie in der Fuge e/(t/2)',
-  captionWeight: 'Blau: Stützlinie zur Leibung hin; Rot: zum Bogenrücken hin; volle Farbe ist ein Gelenk. Längen in Einheiten von r.',
-  captionLoad: 'Blau: Stützlinie zur Leibung hin; Rot: zum Bogenrücken hin; volle Farbe ist ein Gelenk. Längen in m.',
+  viewerTitle: 'Mauerwerksbogen: Wölbsteine, Stützlinie und Gelenke',
+  captionWeight: 'Längen in Einheiten von r. Die Bewegung des Mechanismus ist in beliebigem Maßstab gezeichnet.',
+  captionLoad: 'Längen in m. Die Bewegung des Mechanismus ist in beliebigem Maßstab gezeichnet.',
   frames: {
     bisection: 'Bisektionsschritt {k}: t/r = {t}',
     least: 'Mindestdicke',
@@ -87,5 +87,9 @@ export const de: Strings = {
   error: 'Der Löser konnte nicht geladen werden oder nicht abschließen. Das vorige Ergebnis bleibt verfügbar.',
   thin: 'Dieser Ring ist zu dünn, um unter Eigengewicht zu stehen: Keine Stützlinie passt hinein, also gibt es keine Traglast.',
   staleResult: 'Frühere Ergebnisse werden angezeigt. Rechnen Sie neu, um die Ergebnisse für die aktuellen Einstellungen zu erhalten.',
-  notOrduna: 'Nicht der veröffentlichte Fall mit 18 kN: ohne Hinterfüllung.',
+  legend: { title: 'Legende', stone: 'Wölbsteine', line: 'Stützlinie', outside: 'Linie außerhalb des Steins', hinge: 'Gelenk, auf der Seite, an der es sich bildet', load: 'Einzellast P' },
+  neverStands: 'Keine Dicke bis t/r = 1,99 lässt diesen Bogen stehen: Keine Stützlinie passt hinein, also gibt es keine Mindestdicke zu zeigen.',
+  unbounded: 'In diesem Modell bringt keine Last an dieser Stelle den Ring zum Einsturz: Für jede Last passt eine Stützlinie in die Fugen. Die Bedingungen werden nur in den Fugen geprüft, deshalb kann ein Ring mit wenigen Wölbsteinen das.',
+  noMechanism: 'Hier wird kein Mechanismus animiert: Die Linie berührt {k} Oberflächen, nicht die {m} abwechselnden Gelenke eines Mechanismus.',
+  positionAt: 'Last bei {p} der Spannweite',
 };

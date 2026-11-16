@@ -15,7 +15,7 @@ export const hu: Strings = {
   methodHeading: 'Hogyan reprodukáljuk',
   method: 'Az önsúly alatti legkisebb vastagságot t/r szerinti felezéssel keressük. Minden lépésben a lineáris program megkeresi azt az állapotot, amely a legkevésbé sérti a hézagfeltételeket; a vastagság elfogadható, ha ez a sértés nem pozitív. Egy koncentrált teher tönkremeneteli terhe a lineáris program által megengedett legnagyobb λ. Kinematikai ellenőrzésként felsoroljuk az összes, váltakozó oldalakon elhelyezkedő négycsuklós mechanizmust; köztük a legkisebb teherszorzó felső korlát, és megegyezik a statikus értékkel. A megoldó saját Rust-kódunk, ehhez az oldalhoz WebAssemblyre fordítva.',
   runHeading: 'Mit mutat a futtatás',
-  runText: 'A visszajátszás maga a megoldó futása egy {n} ívkőből álló, valódi súlyú félkörön. Az első lépések közrefogják a választ; a piros vagy kék hézag azt jelzi, hogy a támaszvonal eléri a falazat szélét, és azokban a lépésekben, ahol az ív túl vékony, a vonal kilép a kőből. t/r = {eta} értéknél a vonal öt helyen éri el a szélét: a hátoldalt a zárókőnél és mindkét vállnál, a belső oldalt a két ívvállnál, a zárókőtől {beta}°-ra. Ezután az ív mechanizmusként nyílik ki.',
+  runText: 'A visszajátszás maga a megoldó futása egy {n} ívkőből álló, valódi súlyú félkörön. Az első lépések közrefogják a választ: azokban a lépésekben, ahol az ív túl vékony, a támaszvonal kilép a kőből és pirosra vált. t/r = {eta} értéknél a vonal öt helyen éri el a szélét: a hátoldalt a zárókőnél és mindkét vállnál, a belső oldalt a két ívvállnál, a zárókőtől {beta}°-ra. Ezután az ív e körül az öt csukló körül mechanizmusként nyílik ki.',
   watchBisection: 'A felezés megtekintése',
   watchLeast: 'Öt csukló',
   watchMechanism: 'A mechanizmus',
@@ -25,7 +25,7 @@ export const hu: Strings = {
   tryDeep: 'Próbálja: α = 145°',
 
   checksHeading: 'Összevetés közölt megoldásokkal',
-  tableIntro: 'Rizzi, Cocchetti, Colasante és Rusconi (2010) 1. táblázata négy nyílásszögre megadja a legkisebb t/r vastagságot, az ívvállcsukló zárókőtől mért β szögét és a h = H/(w r) vízszintes erőt, ahol w = γ t d. Számításaink 2·round(800·α/90) ívkövet használnak; β az ívvállcsukló körüli excentricitásokon átmenő parabola csúcspontja. A ✓ t/r és h esetén 10⁻⁴ relatív, β esetén 0,01° egyezést jelöl.',
+  tableIntro: 'Rizzi, Cocchetti, Colasante és Rusconi (2010) 1. táblázata (469. o.) négy nyílásszögre megadja a legkisebb t/r vastagságot, az ívvállcsukló zárókőtől mért β szögét és a h = H/(w r) vízszintes erőt, ahol w = γ t d. Számításaink 2·round(800·α/90) ívkövet használnak; β az ívvállcsukló körüli excentricitásokon átmenő parabola csúcspontja. A ✓ t/r és h esetén 10⁻⁴ relatív, β esetén 0,01° egyezést jelöl.',
   table: { quantity: 'Mennyiség', published: 'Közölt', ours: 'Stabileo', difference: 'Eltérés' },
   milankovitch: 'α = {a}°, valódi súlyok, Milankovitch-csal összevetve',
   ccr: 'α = {a}°, súly a középvonalon, CCR-rel összevetve',
@@ -34,7 +34,7 @@ export const hu: Strings = {
   convergence: 'Kevés ívkővel a csuklók csak hézagokban alakulhatnak ki, ezért t/r alulról közelíti a közölt értéket: 51 ívkővel {n51}, 101-gyel {n101}, 201-gyel {n201}. Ugyanennek a modellnek egy független, Pythonban, HiGHS-megoldóval készült implementációja {python} eltéréssel ugyanezeket az értékeket adja.',
 
   ringHeading: 'Egy gyűrű koncentrált teher alatt',
-  ringText: 'A második fül egy 2,35 m belső sugarú, 0,30 m vastag, 1 m mély, γ = 20 kN/m³ fajsúlyú félkörgyűrűt terhel a hátoldalon, a szabad nyílás negyede fölött ható függőleges teherrel. Ez Orduña disszertációjának (Minhói Egyetem, 2004) gyűrűje a háttöltés nélkül, tehát nem a közölt 18 kN-os eset, amelynek háttöltési geometriája nincs meg nekünk. A teher addig nő, amíg a támaszvonal négy helyen el nem éri a szélet; ekkor az ív három merev testté válik.',
+  ringText: 'A második fül egy 2,35 m belső sugarú, 0,30 m vastag, 1 m mély, γ = 20 kN/m³ fajsúlyú, háttöltés nélküli félkörgyűrűt terhel a hátoldalon, a szabad nyílás negyede fölött ható függőleges teherrel. Ehhez a gyűrűhöz nem hasonlítunk közölt tönkremeneteli terhet: a kinematikai korláttal és a független megvalósítással ellenőrizzük. A teher addig nő, amíg a támaszvonal négy helyen el nem éri a szélet; ekkor az ív három merev testté válik.',
   ringTable: { voussoirs: 'Ívkövek', static: 'Statikus (kN)', kinematic: 'Kinematikai (kN)' },
   ringHinges: '31 ívkővel a csuklók a bal vállától mérve itt alakulnak ki: {list}. 40 ívkőig, ahol minden mechanizmust felsorolunk, a két korlát 10⁻¹³ pontossággal egyezik.',
   notEnumerated: 'nincs felsorolva',
@@ -46,9 +46,9 @@ export const hu: Strings = {
 
   caseLabel: 'Eset',
   tabs: { weight: 'Önsúly', load: 'Koncentrált teher' },
-  viewerTitle: 'Támaszvonal a hézagban e/(t/2)',
-  captionWeight: 'Kék: a támaszvonal a belső oldal felé; piros: a hátoldal felé; a telt szín csukló. Hosszak r egységben.',
-  captionLoad: 'Kék: a támaszvonal a belső oldal felé; piros: a hátoldal felé; a telt szín csukló. Hosszak m-ben.',
+  viewerTitle: 'Falazott ív: ívkövek, támaszvonal és csuklók',
+  captionWeight: 'Hosszak r egységben. A mechanizmus mozgása tetszőleges léptékben van rajzolva.',
+  captionLoad: 'Hosszak m-ben. A mechanizmus mozgása tetszőleges léptékben van rajzolva.',
   frames: {
     bisection: '{k}. felezési lépés: t/r = {t}',
     least: 'Legkisebb vastagság',
@@ -87,5 +87,9 @@ export const hu: Strings = {
   error: 'A megoldó nem töltődött be vagy nem futott le. Az előző eredmény továbbra is elérhető.',
   thin: 'Ez a gyűrű túl vékony ahhoz, hogy önsúly alatt megálljon: egyetlen támaszvonal sem fér el, így nincs keresendő tönkremeneteli teher.',
   staleResult: 'Korábbi eredmények láthatók. Számítsa újra az aktuális beállítások eredményeit.',
-  notOrduna: 'Nem a közölt 18 kN-os eset: háttöltés nélkül.',
+  legend: { title: 'Jelmagyarázat', stone: 'Ívkövek', line: 'Támaszvonal', outside: 'A kövön kívüli vonal', hinge: 'Csukló, azon az oldalon, ahol kialakul', load: 'Koncentrált teher P' },
+  neverStands: 't/r = 1,99-ig egyetlen vastagság mellett sem áll meg ez az ív: egyetlen támaszvonal sem fér el, így nincs megmutatható legkisebb vastagság.',
+  unbounded: 'Ebben a modellben ezen a helyen egyetlen teher sem dönti össze a gyűrűt: bármekkora teherhez elfér egy támaszvonal a hézagokban. A feltételeket csak a hézagokban ellenőrizzük, ezért egy kevés ívkőből álló gyűrű erre képes.',
+  noMechanism: 'Itt nincs animált mechanizmus: a vonal {k} helyen éri el a szélét, nem egy mechanizmus {m} váltakozó csuklójánál.',
+  positionAt: 'teher a nyílás {p} részénél',
 };

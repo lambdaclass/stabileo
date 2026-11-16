@@ -18,8 +18,8 @@ tension, unlimited compressive strength, no sliding.
   centreline with the CCR solution.
 - **Collapse of a ring under a point load**: inner radius 2.35 m, thickness 0.30 m, depth 1 m,
   γ = 20 kN/m³, a vertical load on the extrados above a quarter of the clear span (x = −1.175 m),
-  no backfill. This is the geometry of Orduña's ring (PhD thesis, University of Minho, 2004, as
-  quoted by Nela et al. 2021) without its backfill, so it is **not** the published 18 kN case.
+  no backfill. No published collapse load is compared for this ring; it is checked against the
+  kinematic bound and the independent Python implementation.
 
 ## How
 
