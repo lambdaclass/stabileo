@@ -225,3 +225,40 @@ fn round4_bending_density_torque_keeps_station_jumps() { round4_check_torque(Som
 
 #[test]
 fn round4_torsional_density_torque_keeps_station_jumps() { round4_check_torque(Some(0.2)); }
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round5_torque_and_force_jumps_have_no_absolute_dead_zone() {
+    use dedaliano_engine::postprocess::diagrams::compute_diagram_value_at;
+    for length in [1.0_f64, 6.0] {
+        for a in [0.0, length / 4.0, length - 5e-11, length] {
+            for p in [-1.0, 0.0, 1.0] {
+                let spatial: ElementForces3D = serde_json::from_value(json!({
+                    "elementId":1,"length":length,"nStart":0,"nEnd":-p,
+                    "vyStart":0,"vyEnd":p,"vzStart":0,"vzEnd":p,
+                    "myStart":0,"myEnd":0,"mzStart":0,"mzEnd":0,"mxStart":0,"mxEnd":p,
+                    "qYI":0,"qYJ":0,"qZI":0,"qZJ":0,
+                    "releaseMyStart":false,"releaseMyEnd":false,"releaseMzStart":false,"releaseMzEnd":false,"releaseTStart":false,"releaseTEnd":false,
+                    "distributedLoadsX":[],"distributedLoadsY":[],"distributedLoadsZ":[],
+                    "pointLoadsX":[{"a":a,"p":p}],"pointLoadsY":[{"a":a,"p":p}],"pointLoadsZ":[{"a":a,"p":p}],"pointTorques":[{"a":a,"p":p}],"memberMoments":[]
+                })).unwrap();
+                let plane: ElementForces = serde_json::from_value(json!({
+                    "elementId":1,"length":length,"nStart":0,"nEnd":-p,"vStart":0,"vEnd":p,"mStart":0,"mEnd":p,
+                    "qI":0,"qJ":0,"hingeStart":false,"hingeEnd":false,"distributedLoads":[],
+                    "pointLoads":[{"a":a,"p":p,"px":p,"my":p}]
+                })).unwrap();
+                let at = a / length;
+                for t in [at.next_down().max(0.0), at, at.next_up().min(1.0), ((a + 5e-11) / length).min(1.0), 1.0] {
+                    let jump = if t > at { p } else { 0.0 };
+                    for (kind, expected) in [("torsion",jump),("shearY",jump),("shearZ",jump),("axial",-jump)] {
+                        assert!((evaluate_diagram_3d_at(&spatial,kind,t)-expected).abs()<1e-12,"{kind} a={a} t={t}");
+                    }
+                    let arm = t * length - a;
+                    for (kind, expected) in [("moment",jump*(1.0-arm)),("shear",jump),("axial",-jump)] {
+                        assert!((compute_diagram_value_at(kind,t,&plane)-expected).abs()<1e-12,"{kind} a={a} t={t}");
+                    }
+                }
+            }
+        }
+    }
+}
