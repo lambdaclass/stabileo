@@ -605,3 +605,261 @@ fn sparse_not_slower_than_dense_3d() {
         || format!("Sparse path ({}us) is more than 2x slower than dense ({}us) on 10x10 plate — regression", sparse_us, dense_us),
     );
 }
+
+// ==================== Per-load-case cost on a prepared model ====================
+
+/// How long this thread takes to do a fixed amount of the solver's kind of arithmetic: forty
+/// dense 400 × 400 matrix-vector products. A budget in units of it holds on a slow runner and
+/// under a loaded one, where a budget in milliseconds does not (these gates ran three times
+/// slower under the web suite than alone).
+fn calibration_ms() -> f64 {
+    let n = 400;
+    let a: Vec<f64> = (0..n * n).map(|i| 1.0 + (i % 97) as f64 * 1e-3).collect();
+    let mut x: Vec<f64> = (0..n).map(|i| (i as f64).sin()).collect();
+    let t0 = Instant::now();
+    for _ in 0..40 {
+        let mut y = vec![0.0; n];
+        for (i, yi) in y.iter_mut().enumerate() {
+            *yi = a[i * n..(i + 1) * n].iter().zip(&x).map(|(p, q)| p * q).sum();
+        }
+        let scale = y.iter().map(|v| v.abs()).fold(0.0f64, f64::max).max(1e-300);
+        for v in &mut y { *v /= scale; }
+        x = y;
+    }
+    assert!(x.iter().all(|v| v.is_finite()));
+    t0.elapsed().as_secs_f64() * 1000.0
+}
+
+/// The median over three rounds of `run`'s time in calibrations, each round calibrated first.
+fn cost_in_calibrations(mut run: impl FnMut()) -> (f64, f64) {
+    let mut rounds: Vec<(f64, f64)> = (0..3).map(|_| {
+        let unit = calibration_ms();
+        let t0 = Instant::now();
+        run();
+        let ms = t0.elapsed().as_secs_f64() * 1000.0;
+        (ms, ms / unit)
+    }).collect();
+    rounds.sort_by(|a, b| a.1.total_cmp(&b.1));
+    rounds[1]
+}
+
+/// Gate: on a prepared 600-element 2D frame, ten load cases through `solve_loads` cost at most
+/// `CASES_2D_LIMIT` calibrations together. The per-case path (load vector, triangular solve,
+/// recovery, the small-displacement and second-order screens, the self-checks) is what every case
+/// of a combination solve pays; in November 2026 the screens alone cost 15 times the solve, and
+/// these ten cases measured 12,2 calibrations (3D: 9,0) against 1,6 (3D: 1,1) once fixed. Each
+/// limit is near the geometric mean of the two: the regression fails it and the fixed cost has
+/// close to three times its room.
+const CASES_2D_LIMIT: f64 = 4.5;
+const CASES_3D_LIMIT: f64 = 3.0;
+
+#[test]
+fn prepared_2d_ten_load_cases_within_budget() {
+    let input = make_2d_beam(600);
+    let prepared = linear::prepare_static_2d(&input).expect("prepare failed");
+    let cases: Vec<Vec<SolverLoad>> = (1..=10)
+        .map(|k| vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 60 * k - 30, fx: 0.0, fz: -10.0 * k as f64, my: 0.0 })])
+        .collect();
+
+    // Warmup
+    let _ = prepared.solve_loads(&cases[0]).expect("case solve failed");
+
+    let (ms, ratio) = cost_in_calibrations(|| {
+        for loads in &cases {
+            let result = prepared.solve_loads(loads).expect("case solve failed");
+            assert!(!result.displacements.is_empty());
+        }
+    });
+
+    println!("600-element 2D frame, 10 prepared cases: {ms:.1}ms, {ratio:.2} calibrations");
+
+    dedaliano_engine::wall_clock::budget(
+        ratio < CASES_2D_LIMIT,
+        || format!("10 prepared 2D load cases took {ms:.0}ms, {ratio:.2} calibrations (limit: {CASES_2D_LIMIT})"),
+    );
+}
+
+// ==================== 3D frame builder (as engine/benches/workflow_bench.rs) ====================
+
+fn make_input_3d(
+    nodes: Vec<(usize, f64, f64, f64)>,
+    mats: Vec<(usize, f64, f64)>,
+    secs: Vec<(usize, f64, f64, f64, f64)>,
+    elems: Vec<(usize, &str, usize, usize, usize, usize)>,
+    sups: Vec<(usize, usize, bool, bool, bool, bool, bool, bool)>,
+    loads: Vec<SolverLoad3D>,
+) -> SolverInput3D {
+    let mut nodes_map = HashMap::new();
+    for (id, x, y, z) in nodes {
+        nodes_map.insert(id.to_string(), SolverNode3D { id, x, y, z });
+    }
+    let mut mats_map = HashMap::new();
+    for (id, e, nu) in mats {
+        mats_map.insert(id.to_string(), SolverMaterial { id, e, nu });
+    }
+    let mut secs_map = HashMap::new();
+    for (id, a, iy, iz, j) in secs {
+        secs_map.insert(
+            id.to_string(),
+            SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None },
+        );
+    }
+    let mut elems_map = HashMap::new();
+    for (id, t, ni, nj, mi, si) in elems {
+        elems_map.insert(
+            id.to_string(),
+            SolverElement3D {
+                id,
+                elem_type: t.to_string(),
+                node_i: ni,
+                node_j: nj,
+                material_id: mi,
+                section_id: si,
+                release_my_start: false,
+                release_my_end: false,
+                release_mz_start: false,
+                release_mz_end: false,
+                release_t_start: false,
+                release_t_end: false,
+                local_yx: None,
+                local_yy: None,
+                local_yz: None,
+                roll_angle: None,
+            },
+        );
+    }
+    let mut sups_map = HashMap::new();
+    for (id, nid, rx, ry, rz, rrx, rry, rrz) in sups {
+        sups_map.insert(
+            id.to_string(),
+            SolverSupport3D {
+                node_id: nid,
+                rx, ry, rz, rrx, rry, rrz,
+                kx: None, ky: None, kz: None,
+                krx: None, kry: None, krz: None,
+                dx: None, dy: None, dz: None,
+                drx: None, dry: None, drz: None,
+                normal_x: None, normal_y: None, normal_z: None,
+                is_inclined: None, rw: None, kw: None,
+            },
+        );
+    }
+    SolverInput3D {
+        nodes: nodes_map,
+        materials: mats_map,
+        sections: secs_map,
+        elements: elems_map,
+        supports: sups_map,
+        loads,
+        constraints: vec![],
+        left_hand: None,
+        plates: HashMap::new(),
+        quads: HashMap::new(), quad9s: HashMap::new(),
+        solid_shells: HashMap::new(), curved_shells: HashMap::new(),
+        curved_beams: vec![],
+        connectors: HashMap::new(),
+
+        solver_options: None, masses: Default::default(),    }
+}
+
+fn make_frame_3d(n_stories: usize, n_bays: usize) -> SolverInput3D {
+    let h = 3.0;
+    let w = 6.0;
+    let e = 200_000.0;
+    let a = 0.01;
+    let iy = 1e-4;
+    let iz = 1e-4;
+    let j = 1.5e-4;
+    let cols = n_bays + 1;
+
+    let mut nodes = Vec::new();
+    let mut node_id = 1;
+    for level in 0..=n_stories {
+        for col in 0..=n_bays {
+            nodes.push((node_id, col as f64 * w, 0.0, level as f64 * h));
+            node_id += 1;
+        }
+    }
+
+    let mut elems = Vec::new();
+    let mut eid = 1;
+    for level in 0..n_stories {
+        for col in 0..=n_bays {
+            let ni = level * cols + col + 1;
+            let nj = (level + 1) * cols + col + 1;
+            elems.push((eid, "frame", ni, nj, 1, 1));
+            eid += 1;
+        }
+    }
+    for level in 1..=n_stories {
+        for bay in 0..n_bays {
+            let ni = level * cols + bay + 1;
+            let nj = level * cols + bay + 2;
+            elems.push((eid, "frame", ni, nj, 1, 1));
+            eid += 1;
+        }
+    }
+
+    let mut sups = Vec::new();
+    for col in 0..=n_bays {
+        sups.push((col + 1, col + 1, true, true, true, true, true, true));
+    }
+
+    let mut loads = Vec::new();
+    for level in 1..=n_stories {
+        loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: level * cols + 1,
+            fx: 10.0, fy: 0.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        }));
+        for col in 0..=n_bays {
+            loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: level * cols + col + 1,
+                fx: 0.0, fy: 0.0, fz: -50.0,
+                mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+            }));
+        }
+    }
+
+    make_input_3d(
+        nodes,
+        vec![(1, e, 0.3)],
+        vec![(1, a, iy, iz, j)],
+        elems,
+        sups,
+        loads,
+    )
+}
+
+
+/// Gate: on a prepared 20-storey, 5-bay 3D frame (220 members), ten load cases through
+/// `solve_loads` cost at most `CASES_3D_LIMIT` calibrations together; see
+/// `prepared_2d_ten_load_cases_within_budget`.
+#[test]
+fn prepared_3d_ten_load_cases_within_budget() {
+    let input = make_frame_3d(20, 5);
+    let prepared = linear::prepare_static_3d(&input).expect("prepare failed");
+    let cases: Vec<Vec<SolverLoad3D>> = (1..=10)
+        .map(|k| input.loads.iter().cloned().map(|l| match l {
+            SolverLoad3D::Nodal(mut n) => { n.fz *= k as f64; SolverLoad3D::Nodal(n) }
+            other => other,
+        }).collect())
+        .collect();
+
+    // Warmup
+    let _ = prepared.solve_loads(&cases[0]).expect("case solve failed");
+
+    let (ms, ratio) = cost_in_calibrations(|| {
+        for loads in &cases {
+            let result = prepared.solve_loads(loads).expect("case solve failed");
+            assert!(!result.displacements.is_empty());
+        }
+    });
+
+    println!("20x5 3D frame, 10 prepared cases: {ms:.1}ms, {ratio:.2} calibrations");
+
+    dedaliano_engine::wall_clock::budget(
+        ratio < CASES_3D_LIMIT,
+        || format!("10 prepared 3D load cases took {ms:.0}ms, {ratio:.2} calibrations (limit: {CASES_3D_LIMIT})"),
+    );
+}
