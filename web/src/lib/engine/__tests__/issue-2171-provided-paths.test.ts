@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from 'vitest';
-import { verifyProvidedReinforcement, computeDirectionalShearCapacity } from '../station-design-forces';
+import { verifyProvidedReinforcement, computeDirectionalShearCapacity, layerCentroid, rebarGroupArea } from '../station-design-forces';
 import { stirrupLegs } from '../../design-contract/directional-stirrups';
 import { LENGTH_EPS, transverseSpacingForDemand } from '../../codes/cirsoc201/transverse-spacing';
 import { lineFromMembers, membersFromLine } from '../design/beam-line';
@@ -94,7 +94,7 @@ for (const swap of [false, true]) for (const spacing of [0.1, 0.15]) {
     expect(strengths).toHaveLength(2);
     for (const cage of ends) {
       const cap = computeDirectionalShearCapacity('primary', cage.diameter, stirrupLegs(cage, 'primary'), cage.spacing,
-        sec.b, sec.h - sec.cover - cage.diameter / 1000 - 0.008, sec.fc, sec.fy, 0, { h: sec.h, Ag: sec.b * sec.h, edition: '2025' });
+        sec.b, sec.h - sec.cover - sec.stirrupDia / 1000 - 0.008, sec.fc, sec.fy, 0, { h: sec.h, Ag: sec.b * sec.h, edition: '2025' });
       expect(strengths.some(c => c.capacity === cap.phiVn)).toBe(true);
     }
   });
@@ -135,13 +135,19 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
     const raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
     setCompactStationTransfer(compact);
     const complete = computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'C1', factors: [] }], model);
-    for (const kind of ['beam', 'column', 'wall'] as const) for (const secondaryLegs of [2, 5]) {
-      const cage = { diameter: 8, legs: 6, secondaryLegs, spacing: 0.05 };
+    for (const kind of ['beam', 'column', 'wall'] as const) for (const secondaryLegs of [2, 5]) for (const diameter of [6, 8]) {
+      const cage = { diameter, legs: 6, secondaryLegs, spacing: 0.05 };
       const result = verifyProvidedReinforcement(1, kind, provided(kind, cage), undefined, {}, section, complete.stations.get(1), undefined,
         { axes: axesFor('My'), spacingRule: { edition, maxAggregateSizeMm: 0 } });
       const rows = result.checks.filter(c => c.demandCategory === 'Vy' && c.limiting === 'shear');
       expect(rows.length).toBeGreaterThan(0);
-      for (const row of rows) expect(row.ratio).toBeLessThan(1);
+      const depth = section.b - layerCentroid([{ ...bars, row: 0 }], section.cover, section.stirrupDia);
+      const expected = computeDirectionalShearCapacity('secondary', diameter, stirrupLegs(cage, 'secondary'), cage.spacing, section.h, depth, section.fc, section.fy, 0,
+        { edition, Ag: section.b * section.h, h: kind === 'column' ? section.h : section.b, rhoW: kind === 'column' ? rebarGroupArea(bars) / 3 / (section.b * section.h * 1e4) : 0 });
+      for (const row of rows) {
+        expect(row.ratio).toBeLessThan(1);
+        expect(row.capacity).toBe(expected.phiVn);
+      }
       expect(result.checks.some(c => c.category.includes('(Vy)') && c.category.endsWith('s,max across'))).toBe(edition === '2025' && secondaryLegs < 5);
     }
   });
@@ -159,12 +165,21 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
     const stations = { elementId: 1, length: f.length, stationTs: [0, 1], comboResults: [{ comboId: 1, comboName: 'C1', stations: [0, 1].map(t => ({
       t, x: t * f.length, n: t ? f.nEnd : f.nStart, my: t ? f.mEnd : f.mStart, mz: 0, vy: 0, vz: t ? f.vEnd : f.vStart, torsion: 0,
     })) }] };
-    const result = verifyProvidedReinforcement(1, 'beam', provided('beam', { diameter: 8, legs: 2, spacing: 0.05 }), undefined, {}, section, stations, undefined,
+    for (const diameter of [6, 8]) {
+    const cage = { diameter, legs: 2, spacing: 0.05 };
+    const result = verifyProvidedReinforcement(1, 'beam', provided('beam', cage), undefined, {}, section, stations, undefined,
       { axes: axesFor('My'), spacingRule: { edition, maxAggregateSizeMm: 0 } });
     const rows = result.checks.filter(c => c.demandCategory === 'Vz' && c.limiting === 'shear');
     expect(rows.length).toBeGreaterThan(0);
-    for (const row of rows) expect(row.ratio).toBeLessThan(1);
+    const depth = section.h - layerCentroid([{ ...bars, row: 0 }], section.cover, section.stirrupDia);
+    const expected = computeDirectionalShearCapacity('primary', diameter, stirrupLegs(cage, 'primary'), cage.spacing, section.b, depth, section.fc, section.fy, 0,
+      { edition, Ag: section.b * section.h, h: section.h });
+    for (const row of rows) {
+      expect(row.ratio).toBeLessThan(1);
+      expect(row.capacity).toBe(expected.phiVn);
+    }
     expect(result.checks.some(c => c.demandCategory === 'Vy')).toBe(false);
+    }
   });
 }
 
@@ -213,7 +228,7 @@ for (const secondaryLegs of [undefined, 2, 3, 6]) it(`known wrong result: #2171 
   expect(generated.bars.length).toBeGreaterThan(0);
 });
 
-for (const swap of [false, true]) it(`known wrong result: #2171 each support torsion check uses its actual stirrup depth ${swap}`, () => {
+for (const swap of [false, true]) it(`known wrong result: #2171 each support torsion check retains the declared longitudinal geometry ${swap}`, () => {
   const start = { diameter: 6, legs: 2, secondaryLegs: 6, spacing: 0.1 };
   const end = { diameter: 8, legs: 6, secondaryLegs: 6, spacing: 0.15 };
   const cages = swap ? [end, start] : [start, end];
@@ -222,7 +237,7 @@ for (const swap of [false, true]) it(`known wrong result: #2171 each support tor
   const actual = verify('beam', start, '2025', 'My', 'primary', 220.235, sec, reinforcement, undefined, 30);
   for (const [index, side] of ['Start', 'End'].entries()) {
     const cage = cages[index]!;
-    const isolated = verify('beam', cage, '2025', 'My', 'primary', 220.235, { ...sec, stirrupDia: cage.diameter }, provided('beam', cage), undefined, 30);
+    const isolated = verify('beam', cage, '2025', 'My', 'primary', 220.235, sec, provided('beam', cage), undefined, 30);
     const row = actual.checks.find(c => c.category === `Torsion Support ${side} (Vz)`);
     const expected = isolated.checks.find(c => c.category === 'Torsion Support (Vz)');
     expect(row).toBeDefined();

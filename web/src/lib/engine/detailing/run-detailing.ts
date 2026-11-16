@@ -2576,7 +2576,7 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       // The bars seat in the stirrups that are laid: the designed ones.
       cover: ctx.material.cover,
       stirrupDia: designedStirrups
-        ? Math.max(designedStirrups.support.diameter, designedStirrups.span.diameter) : ctx.material.stirrupDia,
+        ? Math.max(designedStirrups.support.diameter, designedStirrups.span.diameter, designedStirrups.start?.diameter ?? 0, designedStirrups.end?.diameter ?? 0) : ctx.material.stirrupDia,
       fc: ctx.material.fc, fy: ctx.material.fy,
       maxAggregateSizeMm: input.maxAggregateSizeMm,
       edition: input.edition,

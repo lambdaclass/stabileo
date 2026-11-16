@@ -44,7 +44,7 @@
             0,
             0.25
           ],
-          "description": "e\u00d88 2L c/15 [0.00\u20130.25], 2 tuples",
+          "description": "eØ8 2L c/15 [0.00–0.25], 2 tuples",
           "comboName": "C1",
           "stationX": 0,
           "limiting": "shear",
@@ -80,7 +80,7 @@
             0.25,
             0.75
           ],
-          "description": "e\u00d86 6L c/10 [0.25\u20130.75], 1 tuples",
+          "description": "eØ6 6L c/10 [0.25–0.75], 1 tuples",
           "comboName": "C1",
           "stationX": 2,
           "limiting": "shear",
@@ -119,7 +119,7 @@
             0,
             0.25
           ],
-          "description": "e\u00d86 2L c/10 [0.00\u20130.25], 2 tuples",
+          "description": "eØ6 2L c/10 [0.00–0.25], 2 tuples",
           "comboName": "C1",
           "stationX": 0,
           "limiting": "shear",
@@ -138,7 +138,7 @@
             0.25,
             0.75
           ],
-          "description": "e\u00d86 6L c/10 [0.25\u20130.75], 1 tuples",
+          "description": "eØ6 6L c/10 [0.25–0.75], 1 tuples",
           "comboName": "C1",
           "stationX": 2,
           "limiting": "shear",
@@ -181,7 +181,7 @@
           "category": "Shear Support Start (Vz)",
           "demandCategory": "Vz",
           "demand": 1,
-          "capacity": 162.47,
+          "capacity": 161.23,
           "unit": "kN",
           "method": "capacity",
           "tuplesChecked": 1,
@@ -189,7 +189,7 @@
             0,
             0.25
           ],
-          "description": "e\u00d86 6L c/10 [0.00\u20130.25], 1 tuples",
+          "description": "eØ6 6L c/10 [0.00–0.25], 1 tuples",
           "comboName": "C1",
           "stationX": 0,
           "limiting": "shear",
@@ -208,7 +208,7 @@
             0.75,
             1
           ],
-          "description": "e\u00d88 2L c/15 [0.75\u20131.00], 1 tuples",
+          "description": "eØ8 2L c/15 [0.75–1.00], 1 tuples",
           "comboName": "C1",
           "stationX": 4,
           "limiting": "shear",
@@ -236,7 +236,7 @@
           "category": "Shear Span (Vz)",
           "demandCategory": "Vz",
           "demand": 1,
-          "capacity": 162.47,
+          "capacity": 161.23,
           "unit": "kN",
           "method": "capacity",
           "tuplesChecked": 1,
@@ -244,7 +244,7 @@
             0.25,
             0.75
           ],
-          "description": "e\u00d86 6L c/10 [0.25\u20130.75], 1 tuples",
+          "description": "eØ6 6L c/10 [0.25–0.75], 1 tuples",
           "comboName": "C1",
           "stationX": 2,
           "limiting": "shear",
@@ -253,5 +253,6 @@
         }
       ]
     }
-  }
+  },
+  "geometry": "The declared longitudinal-bar geometry remains fixed when the end cages change."
 }

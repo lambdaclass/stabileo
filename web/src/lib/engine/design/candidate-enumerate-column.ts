@@ -93,7 +93,7 @@ export function buildTieOptions(ctx: MemberContext, cornerDia: number): StirrupD
     const peak = (axis: 'Vy' | 'Vz') => Math.max(0, ...(ctx.stations?.comboResults ?? []).flatMap(c => c.stations.map(s => Math.abs(tupleShear(s, axis)))));
     const limits = (width: number, depth: number, Vu: number) => Vu >= 0.001 && ctx.codeEdition === '2025'
       ? transverseSpacingForDemand(ctx.codeEdition, { Vu, bw: width, d: depth, fc: ctx.material.fc, cover: ctx.material.cover, stirrupDiaMm: dia }) : undefined;
-    const effectiveDepth = (depth: number) => depth - ctx.material.cover - dia / 1000 - 0.008;
+    const effectiveDepth = (depth: number) => depth - ctx.material.cover - ctx.material.stirrupDia / 1000 - 0.008;
     const webs = ctx.shape ? shapedShearWebs(ctx.shape) : [
       { axis: ctx.axes.shear, bw: ctx.axes.bFlex, d: effectiveDepth(ctx.axes.hFlex) },
       { axis: ctx.axes.secondaryShear, bw: ctx.axes.hFlex, d: effectiveDepth(ctx.axes.bFlex) },

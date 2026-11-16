@@ -44,7 +44,7 @@ import {
 } from '../codes/cirsoc201/transverse-spacing';
 import type { RegulationEdition } from '../codes/regulation';
 import { deriveDevelopment, deriveCompressionDevelopment, deriveHookedDevelopment, topBarFactor, concreteBelowTopBars } from '../codes/cirsoc201/anchorage';
-import { REBAR_DB, classifyElement, slenderMinimumMoment } from './codes/argentina/cirsoc201';
+import { REBAR_DB, classifyElement, slenderMinimumMoment, ASSUMED_FLEXURE_BAR_DIA_MM } from './codes/argentina/cirsoc201';
 // Axis resolution + the shared utilization convention. Both modules import only
 // TYPES from this file, so there is no runtime import cycle.
 import {
@@ -2196,6 +2196,9 @@ export function verifyProvidedReinforcement(
     // Shear d falls back to a nominal 0.9h when no bottom steel exists yet, so the
     // shear check still runs (and can still fail) on an incomplete arrangement.
     const d = bottomLayers.length > 0 ? dBottom : 0.9 * section.h;
+    const sideDiameters = [...bottomLayers, ...topStartLayers, ...topEndLayers].filter(layer => layer.count > 0).map(layer => layer.diameter);
+    const sideBarDiameter = sideDiameters.length ? Math.max(...sideDiameters) : ASSUMED_FLEXURE_BAR_DIA_MM;
+    const dSecondary = section.b - layerCentroid([{ count: 1, diameter: sideBarDiameter, row: 0 }], section.cover, section.stirrupDia);
 
     const userT = reg?.regionT;
     const tStartEnd = critSections ? critSections.start.tCritShear : (userT ?? 0.25);
@@ -2622,8 +2625,7 @@ export function verifyProvidedReinforcement(
       .flatMap(ss => (['primary', 'secondary'] as const).map(direction => {
         const primary = direction === 'primary';
         const axis = primary ? axes.shear : axes.secondaryShear;
-        const diameter = ss.stir?.diameter ?? section.stirrupDia;
-        const depth = primary ? d - (diameter - section.stirrupDia) / 1000 : section.b - section.cover - diameter / 1000 - 0.008;
+        const depth = primary ? d : dSecondary;
         return { ...ss, label: `Shear ${ss.label} (${axis})`, direction, axis, read: primary ? V : V2,
           width: primary ? section.b : section.h, depth, height: primary ? section.h : section.b, rhoW: primary ? ss.rhoW : 0 };
       }));
@@ -2740,7 +2742,7 @@ export function verifyProvidedReinforcement(
         const evaluated: Array<{ r: ReturnType<typeof checkTorsion2025>; t: Tuple }> = [];
         for (const t of ss.tuples) {
           if (Math.abs(t.tq) < 0.01) continue;
-          const r = checkTorsion2025({ b: section.b, h: section.h, d: ss.depth, dSecondary: section.b - section.cover - (ss.stir?.diameter ?? section.stirrupDia) / 1000 - 0.008, cover: section.cover, stirrupDiaMm: ss.stir?.diameter ?? section.stirrupDia, fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure), stirrup: ss.stir });
+          const r = checkTorsion2025({ b: section.b, h: section.h, d: ss.depth, dSecondary, cover: section.cover, stirrupDiaMm: ss.stir?.diameter ?? section.stirrupDia, fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure), stirrup: ss.stir });
           if (!r.neglect) evaluated.push({ r, t });
         }
         let tw: { r: ReturnType<typeof checkTorsion2025>; t: Tuple } | null = null;
@@ -3049,7 +3051,7 @@ export function verifyProvidedReinforcement(
       // Effective depth per shear axis: primary shear bends over h, secondary
       // over b — using one d for both overstated φVn on the secondary axis
       // whenever h > b.
-      const dTieFor = (depth: number) => depth - section.cover - ((provided.stirrups?.diameter ?? section.stirrupDia) / 1000) - 0.008;
+      const dTieFor = (depth: number) => depth - section.cover - (section.stirrupDia / 1000) - 0.008;
       // Row (c) needs ρw: a third of the column's bars as the tension side (a face and half of
       // the sides), over the gross section; used only where the ties are below Av,min.
       const colArea = colLayout?.totalArea ?? (provided.longitudinal ? rebarGroupArea(provided.longitudinal) : 0);

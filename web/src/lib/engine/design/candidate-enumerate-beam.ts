@@ -157,7 +157,7 @@ export function buildStirrupOptions(ctx: MemberContext, Vu: number, VuSecondary 
     // The table's across-width limit depends on the stirrup diameter (it sets the leg
     // centre), so the limits are evaluated per diameter rather than once per member.
     const table = transverseSpacingFor(Vu, b, d, ctx.material.fc, cover, dia, ctx.codeEdition);
-    const secondary = VuSecondary >= 0.001 ? transverseSpacingFor(VuSecondary, h, b - cover - dia / 1000 - 0.008, ctx.material.fc, cover, dia, ctx.codeEdition) : undefined;
+    const secondary = VuSecondary >= 0.001 ? transverseSpacingFor(VuSecondary, h, b - cover - stirrupDia / 1000 - 0.008, ctx.material.fc, cover, dia, ctx.codeEdition) : undefined;
     const secondaryLegs = secondary?.requiredLegs ?? 2;
     if (secondaryLegs > BEAM_LIMITS.maxLegs) continue;
     const top = Math.floor(Math.min(table.alongMax, secondary?.alongMax ?? Infinity) / SPACING_GRID) * SPACING_GRID;
