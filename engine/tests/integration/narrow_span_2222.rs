@@ -582,3 +582,77 @@ fn issue_2222_near_full_bounds_spatial() {
         }
     }
 }
+
+
+fn cancellation_input() -> SolverInput {
+    let mut input = witness();
+    input.loads = [(1, 1e16), (3, 1.0), (1, -1e16)].into_iter().map(|(node_id, fz)| {
+        SolverLoad::Nodal(SolverNodalLoad { node_id, fx: 0.0, fz, my: 0.0 })
+    }).collect();
+    input
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_cancelling_nodal_forces_planar() {
+    use dedaliano_engine::{load_session::LoadSession2D, solver::fiber_nonlinear::*};
+    for cancel in [true, false] {
+        let mut input = cancellation_input();
+        if !cancel { input.loads = vec![input.loads[1].clone()]; }
+        let mut base = input.clone();
+        base.loads.clear();
+        let typed = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+        let fiber = FiberNonlinearInput { solver: input.clone(), fiber_sections: Default::default(),
+            n_integration_points: 5, max_iter: 40, tolerance: 1e-9, n_increments: 1, modified_nr: false };
+        for (entry, result) in [
+            ("linear", linear::solve_2d(&input)),
+            ("typed", linear::solve_2d_typed(&typed)),
+            ("prepared", linear::prepare_static_2d(&base).unwrap().solve_loads(&input.loads)),
+            ("dense", linear::prepare_static_2d_dense_reference(&base).unwrap().solve_loads(&input.loads)),
+            ("session", LoadSession2D::from_input(base).unwrap().solve_loads(&input.loads)),
+            ("pdelta", pdelta::solve_pdelta_2d(&input, 20, 1e-9).map(|r| r.linear_results)),
+            ("corotational", corotational::solve_corotational_2d(&input, 40, 1e-9, 1, false).map(|r| r.results)),
+            ("fiber", solve_fiber_nonlinear_2d(&fiber).map(|r| r.results)),
+        ] {
+            let r = result.unwrap_or_else(|e| panic!("{entry}: {e}"));
+            assert_eq!(r.reactions.iter().find(|r| r.node_id == 3).unwrap().rz, -1.0, "{entry}");
+            if let Some(eq) = r.equilibrium {
+                assert!(eq.equilibrium_ok, "{entry}: {eq:?}");
+                assert_eq!(eq.applied_force_sum[1], 1.0, "{entry}");
+            } else { assert_eq!(entry, "corotational"); }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_cancelling_nodal_forces_spatial() {
+    use dedaliano_engine::{load_session::LoadSession3D, solver::fiber_nonlinear::*};
+    for plane in [Plane::XY, Plane::XZ] {
+        for cancel in [true, false] {
+            let mut planar = cancellation_input();
+            if !cancel { planar.loads = vec![planar.loads[1].clone()]; }
+            let input = embed_2d(&planar, plane).unwrap();
+            let mut base = input.clone();
+            base.loads.clear();
+            let fiber = FiberNonlinearInput3D { solver: input.clone(), fiber_sections: Default::default(),
+                n_integration_points: 5, max_iter: 40, tolerance: 1e-9, n_increments: 1, modified_nr: false };
+            for (entry, result) in [
+                ("linear", linear::solve_3d(&input)),
+                ("prepared", linear::prepare_static_3d(&base).unwrap().solve_loads(&input.loads)),
+                ("session", LoadSession3D::from_input(base).unwrap().solve_loads(&input.loads)),
+                ("pdelta", pdelta::solve_pdelta_3d(&input, 20, 1e-9).map(|r| r.linear_results)),
+                ("corotational", corotational::solve_corotational_3d(&input, 40, 1e-9, 1, false).map(|r| r.results)),
+                ("fiber", solve_fiber_nonlinear_3d(&fiber).map(|r| r.results)),
+            ] {
+                let r = result.unwrap_or_else(|e| panic!("{entry}: {e}"));
+                let reaction = r.reactions.iter().find(|r| r.node_id == 3).unwrap();
+                assert_eq!(if matches!(plane, Plane::XY) { reaction.fy } else { reaction.fz }, -1.0, "{entry}");
+                if let Some(eq) = r.equilibrium {
+                    assert!(eq.equilibrium_ok, "{entry}: {eq:?}");
+                    assert_eq!(eq.applied_force_sum[if matches!(plane, Plane::XY) { 1 } else { 2 }], 1.0, "{entry}");
+                } else { assert_eq!(entry, "corotational"); }
+            }
+        }
+    }
+}

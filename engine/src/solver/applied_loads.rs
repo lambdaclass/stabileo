@@ -407,4 +407,29 @@ mod tests {
             }
         }
     }
+    #[test]
+    #[ignore = "known wrong result: #2222"]
+    fn issue_2222_compensated_force_totals_keep_small_terms() {
+        for dimensions in [2, 3] {
+            for axis in 0..dimensions {
+                for values in [[1e16, 1.0, -1e16], [-1e16, 1.0, 1e16], [1.0, 1e16, -1e16]] {
+                    for imbalance in [0.0, 0.5e-6, 1e-6, 2e-6] {
+                        let mut eq = EquilibriumSummary {
+                            relative_residual: 0.0, residual_ok: true, applied_force_components: vec![],
+                            applied_force_sum: vec![0.0; if dimensions == 2 { 3 } else { 6 }],
+                            reaction_force_sum: vec![0.0; if dimensions == 2 { 3 } else { 6 }],
+                            max_imbalance: 0.0, equilibrium_ok: true,
+                        };
+                        eq.reaction_force_sum[axis] = -1.0 + imbalance;
+                        replace(&mut eq, values.into_iter().map(|v| {
+                            let mut f = vec![0.0; dimensions]; f[axis] = v; f
+                        }).collect());
+                        assert_eq!(eq.applied_force_sum[axis], 1.0);
+                        assert_eq!(eq.equilibrium_ok, (1.0 + (-1.0 + imbalance)).abs() < 1e-6);
+                    }
+                }
+            }
+        }
+    }
+
 }
