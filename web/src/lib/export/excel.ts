@@ -1,3 +1,4 @@
+import { resultComponents } from '../axes/result-components';
 /**
  * Excel Export Module
  * Generates a professional structural analysis report in Excel format
@@ -49,7 +50,7 @@ import {
   get2DDisplayRotation,
   get2DDisplayedVertical,
 } from '../geometry/coordinate-system';
-import { coordLabels, shownCoords, twoD, userRot, userVec } from '../axes/display';
+import { coordLabels, shownCoords, twoD } from '../axes/display';
 import { nodeShown3D, standingPlane } from '../axes/node-coords';
 import { axesStore } from '../axes/axes.svelte';
 import { axesStatement } from '../axes/statement';
@@ -191,7 +192,7 @@ function createSummarySheet(): Xlsx.WorkSheet {
 
     let sumFx = 0, sumFy = 0, sumFz = 0, sumMx2 = 0, sumMy2 = 0, sumMz2 = 0;
     for (const r of r3d.reactions) {
-      const [fx, fy, fz] = userVec(r.fx, r.fy, r.fz), [mx, my, mz] = userRot(r.mx, r.my, r.mz);
+      const [fx, fy, fz] = resultComponents(axesStore.frame, r3d).vec(r.fx, r.fy, r.fz), [mx, my, mz] = resultComponents(axesStore.frame, r3d).rot(r.mx, r.my, r.mz);
       sumFx += fx; sumFy += fy; sumFz += fz;
       sumMx2 += mx; sumMy2 += my; sumMz2 += mz;
     }
@@ -358,7 +359,7 @@ function createNodesSheet(): Xlsx.WorkSheet {
     if (hasResults && is3D && r3d) {
       const d = r3d.displacements.find(d => d.nodeId === node.id);
       if (d) {
-        row.push(...[...userVec(d.ux, d.uy, d.uz), ...userRot(d.rx, d.ry, d.rz)].map((v) => Number((v * 1000).toFixed(4))));
+        row.push(...[...resultComponents(axesStore.frame, r3d).vec(d.ux, d.uy, d.uz), ...resultComponents(axesStore.frame, r3d).rot(d.rx, d.ry, d.rz)].map((v) => Number((v * 1000).toFixed(4))));
       } else {
         row.push('-', '-', '-', '-', '-', '-');
       }
@@ -398,8 +399,8 @@ function createReactionsSheet(): Xlsx.WorkSheet {
     const data: (string | number)[][] = [headers];
 
     const shown = r3d.reactions.map((r) => {
-      const [fx, fy, fz] = userVec(r.fx, r.fy, r.fz);
-      const [mx, my, mz] = userRot(r.mx, r.my, r.mz);
+      const [fx, fy, fz] = resultComponents(axesStore.frame, r3d).vec(r.fx, r.fy, r.fz);
+      const [mx, my, mz] = resultComponents(axesStore.frame, r3d).rot(r.mx, r.my, r.mz);
       return { nodeId: r.nodeId, fx, fy, fz, mx, my, mz };
     });
     for (const r of shown) {

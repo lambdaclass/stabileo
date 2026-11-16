@@ -14936,6 +14936,11 @@ const fr: Translations = {
   'viewer.copyLink': "Copier le lien en lecture seule",
   'viewer.linkTip': "Qui l'ouvre voit le modèle en 3D et en plan, sans l'éditeur, et peut le dupliquer pour modifier sa copie.",
   'viewer.linkCopied': "Lien en lecture seule copié.",
+  "xls.err.selfWeightRule": "Règle de poids propre invalide ou non prise en charge dans {field}. Seules les sources de cas visant toutes les barres ou une liste explicite sont importables.",
+  "landing.secKern": "NC",
+  "landing.secNeutralAxis": "AN",
+  "landing.secPressureCenter": "CP",
+
 };
 
 export default fr;

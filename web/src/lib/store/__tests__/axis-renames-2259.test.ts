@@ -5,7 +5,7 @@ import { caseNameShown, combinationNameShown } from '../../axes/case-names';
 
 afterEach(() => { axesStore.reset(); modelStore.clear(); });
 
-it.skip('known wrong result: #2259 explicit renames compare against displayed case and combination names', () => {
+it('known wrong result: #2259 explicit renames compare against displayed case and combination names', () => {
   uiStore.analysisMode = 'pro';
   modelStore.clear();
   axesStore.choice = { up: '+Z', right: '+Y', hand: 'left' };

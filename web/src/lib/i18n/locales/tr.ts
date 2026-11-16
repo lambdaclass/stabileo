@@ -14936,6 +14936,11 @@ const tr: Translations = {
   'viewer.copyLink': "Salt okunur bağlantıyı kopyala",
   'viewer.linkTip': "Açan kişi modeli düzenleyici olmadan 3B ve planda görür ve kendi kopyasını düzenlemek için çoğaltabilir.",
   'viewer.linkCopied': "Salt okunur bağlantı kopyalandı.",
+  "xls.err.selfWeightRule": "{field} alanındaki öz ağırlık kuralı geçersiz veya desteklenmiyor. Yalnızca tüm çubuklara ya da açık bir çubuk listesine uygulanan yük durumu kaynakları içe aktarılabilir.",
+  "landing.secKern": "ÇB",
+  "landing.secNeutralAxis": "TE",
+  "landing.secPressureCenter": "BM",
+
 };
 
 export default tr;

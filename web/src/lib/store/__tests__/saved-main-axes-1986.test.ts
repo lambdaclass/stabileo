@@ -1,7 +1,7 @@
 import { beforeAll, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { modelStore, uiStore } from '../../store';
-import { serializeProject, deserializeProject } from '../file';
+import { deserializeProject } from '../file';
 import { initSolver, solve, solve3D, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 
 import { axesStore } from '../../axes/axes.svelte';
@@ -26,8 +26,7 @@ it('#1986 projects saved before global axes retain canonical inputs and exact li
     for (const [name, mode] of [['cantilever', '2d'], ['portal-second-order', '2d'], ['3d-portal-frame', 'pro']] as const) {
       uiStore.analysisMode = mode;
       axesStore.reset();
-      await modelStore.loadExample(name);
-      const savedProject = serializeProject();
+      const savedProject = readFileSync(new URL(`./fixtures/pre-axes-${name}.ded.json`, import.meta.url), 'utf8');
       for (const c of choices) {
         axesStore.choice = c;
         expect(deserializeProject(savedProject)).toBe(true);

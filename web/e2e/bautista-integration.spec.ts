@@ -88,7 +88,7 @@ for (const [label, width, height] of [['phone', 390, 844], ['tablet', 768, 1024]
 }
 
 for (const dirMode of ['global', 'projected']) for (const change of ['hand', 'right', 'up']) {
-  test.skip(`known wrong result: #2259 @smoke changing ${change} clears a drafted ${dirMode} shell load`, async ({ pro: page }) => {
+  test(`known wrong result: #2259 @smoke changing ${change} clears a drafted ${dirMode} shell load`, async ({ pro: page }) => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-loads').click();
     await page.getByTestId('write-load').click();
@@ -106,7 +106,7 @@ for (const dirMode of ['global', 'projected']) for (const change of ['hand', 'ri
   });
 }
 
-test.skip('known wrong result: #2259 @smoke a solved automatic modal note follows the current axes', async ({ pro: page }) => {
+test('known wrong result: #2259 @smoke a solved automatic modal note follows the current axes', async ({ pro: page }) => {
   await page.evaluate(async () => {
     await window.__stabileoActions.loadExample('3d-portal-frame');
     window.__stabileoActions.openProTab('advanced');
@@ -123,3 +123,31 @@ test.skip('known wrong result: #2259 @smoke a solved automatic modal note follow
   await page.getByTestId('axes-done').click();
   await expect(note).toHaveText(before.replace(/\bY\b/g, 'Z'));
 });
+
+for (const hand of ['right', 'left'] as const) {
+  test(`@smoke #2259 the distributed tool stores the reflected ${hand}-handed vertical direction`, async ({ page }) => {
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileoActions);
+    await page.evaluate(() => window.__stabileoActions.loadExample('3d-portal-frame'));
+    const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
+    await page.mouse.click(triad.x + triad.width / 2, triad.y + triad.height / 2);
+    await page.getByTestId('axes-up--Y').click();
+    await page.getByTestId(`axes-hand-${hand}`).click();
+    await page.getByTestId('axes-done').click();
+    await page.getByTestId('rb-cmd-load').click();
+    await page.getByRole('button', { name: /Distributed/ }).first().click();
+    await page.getByTestId('dist-frame-global').click();
+    await page.locator('label.ft-input-group').filter({ hasText: 'qYI:' }).locator('input').fill('7');
+    await page.locator('label.ft-input-group').filter({ hasText: 'qYJ:' }).locator('input').fill('11');
+    const m = await page.evaluate(() => {
+      const e = window.__stabileo.elementEnds(5)!;
+      const a = window.__stabileo.nodeScreenPos(e.i)!, b = window.__stabileo.nodeScreenPos(e.j)!;
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    });
+    const before = await page.evaluate(() => window.__stabileo.allLoads().length);
+    await page.mouse.click(m.x + 4, m.y + 4);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.allLoads().length)).toBe(before + 1);
+    const last = await page.evaluate(() => window.__stabileo.allLoads().at(-1));
+    expect(last).toMatchObject({ type: 'distributed3d', data: { elementId: 5, frame: 'global', qZI: -7, qZJ: -11 } });
+  });
+}

@@ -15085,5 +15085,10 @@ const es: Record<string, string> = {
   'viewer.copyLink': "Copiar link de solo lectura",
   'viewer.linkTip': "Quien lo abre ve el modelo en 3D y en planta, sin el editor, y puede duplicarlo para editar su copia.",
   'viewer.linkCopied': "Link de solo lectura copiado.",
+  "xls.err.selfWeightRule": "Regla de peso propio no válida o no admitida en {field}. Solo se pueden importar cargas de casos aplicadas a todos los elementos o a una lista explícita.",
+  "landing.secKern": "NC",
+  "landing.secNeutralAxis": "EN",
+  "landing.secPressureCenter": "CP",
+
 };
 export default es;

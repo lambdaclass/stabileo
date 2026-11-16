@@ -427,7 +427,10 @@ test.describe('@landing landing page', () => {
   });
 
   test('a figure that finishes loading late does not replace the one chosen after it', async ({ page }) => {
+    let requests = 0;
+    const finished = page.waitForEvent('requestfinished', { predicate: r => /\/ShedFigure-.*\.js/.test(r.url()) });
     await page.route('**/ShedFigure-*.js', async (route) => {
+      requests++;
       await new Promise((r) => setTimeout(r, 2500));
       await route.continue();
     });
@@ -436,7 +439,11 @@ test.describe('@landing landing page', () => {
     await page.locator('.landing [data-figure="building"]').click();
     await page.mouse.move(0, 0);
     await page.waitForTimeout(4000); // slow-ok: the delayed chunk lands 2.5 s after the click and must change nothing
+    expect(requests).toBeGreaterThan(0);
+    await finished;
     await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
+    await expect(page.locator('.landing .hero-figure .bld-fig')).toBeVisible();
+    await expect(page.locator('.landing .hero-figure .shed-fig')).toHaveCount(0);
   });
 
   test('a figure that fails to load is skipped, not requested every frame', async ({ page }) => {

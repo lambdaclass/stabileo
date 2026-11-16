@@ -14645,7 +14645,18 @@ const hu: Translations = {
   "steps.common.dirCw": "az óramutató járásával megegyezően",
   "proExport.dxfAxes": "Rajzi tengelyek: {axes}.",
   "proExport.dxfLeftHandNote": "A választott tengelyrendszer balkezes, a CAD jobbkezes: {axis} ellentétes előjellel kerül a fájlba, így a rajz nem tükröződik.",
+  "xls.err.selfWeightRule": "Érvénytelen vagy nem támogatott önsúlyszabály a(z) {field} mezőben. Csak teheresethez rendelt, minden rúdra vagy kifejezett rúdlistára vonatkozó terhek importálhatók.",
+  "landing.secKern": "KM",
+  "landing.secNeutralAxis": "ST",
+  "landing.secPressureCenter": "NK",
+
+  "landing.modTitle": "Egy hatszintes nyírási keret első három rezgésalakja",
+  "landing.modDesc": "Hatszintes, háromnyílású nyírási keret, minden szinten azonos tömeggel. Az első, második és harmadik rezgésalak egymás után leng; jobb oldalon az alakfüggvény és a frekvenciaarány látható.",
+  "landing.modTag": "REZGÉSVIZSGÁLAT",
+  "landing.modMode": "{n}. rezgésalak",
+
   "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes."
+
 };
 
 export default hu;

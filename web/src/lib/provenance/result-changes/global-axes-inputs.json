@@ -5,27 +5,28 @@
     1986
   ],
   "area": "analysis",
-  "when": {},
-  "quantities": [
-    "*"
-  ],
+  "when": {
+    "all": [
+      "axisNamedLoads"
+    ]
+  },
   "title": {
     "en": "Global axes input conversions",
-    "es": "Global axes input conversions",
-    "pt": "Global axes input conversions",
-    "de": "Global axes input conversions",
-    "fr": "Global axes input conversions",
-    "hu": "Global axes input conversions",
-    "tr": "Global axes input conversions"
+    "es": "Conversión de entradas en ejes globales",
+    "pt": "Conversão de entradas nos eixos globais",
+    "de": "Umrechnung von Eingaben in globalen Achsen",
+    "fr": "Conversion des entrées dans les axes globaux",
+    "hu": "Globális tengelyekben megadott adatok átszámítása",
+    "tr": "Genel eksenlerdeki girdilerin dönüştürülmesi"
   },
   "explanation": {
     "en": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986).",
-    "es": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986).",
-    "pt": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986).",
-    "de": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986).",
-    "fr": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986).",
-    "hu": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986).",
-    "tr": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986)."
+    "es": "Los modelos guardados en ejes canónicos conservan sus resultados. Vuelva a importar los modelos introducidos con la función de ejes globales aún no integrada: la geometría 2D explícita, las curvas de resortes reflejadas y las direcciones de apoyos en libros de cálculo ahora conservan su significado físico (#1986).",
+    "pt": "Os modelos guardados nos eixos canónicos mantêm os seus resultados. Volte a importar os modelos introduzidos com a função de eixos globais ainda não integrada: a geometria 2D explícita, as curvas de molas refletidas e as direções dos apoios nas folhas de cálculo preservam agora o seu significado físico (#1986).",
+    "de": "In kanonischen Achsen gespeicherte Modelle behalten ihre Ergebnisse. Importieren Sie Modelle erneut, die mit der noch nicht integrierten Funktion für globale Achsen eingegeben wurden: Explizite 2D-Geometrie, gespiegelte nichtlineare Federkennlinien und Auflagerrichtungen in Arbeitsmappen behalten nun ihre physikalische Bedeutung (#1986).",
+    "fr": "Les modèles enregistrés dans les axes canoniques conservent leurs résultats. Réimportez les modèles saisis avec la fonction d’axes globaux encore non intégrée : la géométrie 2D explicite, les courbes de ressorts réfléchies et les directions des appuis dans les classeurs conservent désormais leur sens physique (#1986).",
+    "hu": "A kanonikus tengelyekben mentett modellek eredményei változatlanok. Importálja újra azokat a modelleket, amelyeket a még be nem olvasztott globálistengely-funkcióval adott meg: a kifejezetten 2D-ként megadott geometria, a tükrözött nemlineáris rugógörbék és a munkafüzetek támaszirányai most megőrzik fizikai jelentésüket (#1986).",
+    "tr": "Kanonik eksenlerde kaydedilmiş modellerin sonuçları değişmez. Henüz ana dala alınmamış genel eksen özelliğiyle girilen modelleri yeniden içe aktarın: açıkça belirtilen 2B geometri, yansıtılmış doğrusal olmayan yay eğrileri ve çalışma kitaplarındaki mesnet yönleri artık fiziksel anlamlarını korur (#1986)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-global-axes-inputs.md",

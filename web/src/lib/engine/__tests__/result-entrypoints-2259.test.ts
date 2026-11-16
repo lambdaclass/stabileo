@@ -14,7 +14,7 @@ import { t } from '../../i18n';
 beforeAll(async () => { await initSolver(); });
 afterEach(() => { axesStore.reset(); resultsStore.clear(); modelStore.clear(); });
 
-it.skip.each(['basic table', 'pro table', 'CSV', 'Excel'] as const)('known wrong result: #2259 %s retains SRSS and ABS component magnitudes', async entry => {
+it.each(['basic table', 'pro table', 'CSV', 'Excel'] as const)('known wrong result: #2259 %s retains SRSS and ABS component magnitudes', async entry => {
   uiStore.analysisMode = 'pro';
   uiStore.unitSystem = 'SI';
   await modelStore.loadExample('3d-portal-frame');

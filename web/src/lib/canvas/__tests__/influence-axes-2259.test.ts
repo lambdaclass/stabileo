@@ -9,7 +9,7 @@ import { drawIlEnvelope } from '../draw-il-envelope';
 vi.mock('../draw-il-envelope', () => ({ drawIlEnvelope: vi.fn() }));
 afterEach(() => { axesStore.reset(); influenceTool.envelope = null; vi.clearAllMocks(); });
 
-it.skip('known wrong result: #2259 influence envelopes negate and exchange bounds with their response', () => {
+it('known wrong result: #2259 influence envelopes negate and exchange bounds with their response', () => {
   const env = { quantity: 'N' as const, globalMax: 9, members: [{ elementId: 1, t: [0, 1], max: [0, 9], min: [-2, -3] }] };
   for (const c of allChoices()) for (const quantity of ['Rx', 'Rz', 'ry', 'N'] as const) {
     axesStore.choice = c;

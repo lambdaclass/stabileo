@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { twoD, userRot, userVec } from '../../lib/axes/display';
+  import { resultComponents } from '../../lib/axes/result-components';
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  const components = $derived(resultComponents(axesStore.frame, resultsStore.results3D));
+  import { twoD } from '../../lib/axes/display';
   import { resultCaseName } from '../../lib/engine/settlement-case';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
@@ -142,8 +145,8 @@
         </thead>
         <tbody>
           {#each resultsStore.results3D.displacements as d}
-            {@const u = userVec(d.ux, d.uy, d.uz)}
-            {@const r = userRot(d.rx, d.ry, d.rz)}
+            {@const u = components.vec(d.ux, d.uy, d.uz)}
+            {@const r = components.rot(d.rx, d.ry, d.rz)}
             <tr>
               <td class="id-cell">{d.nodeId}</td>
               {#each u as c}<td class="num">{dsp(c)}</td>{/each}
@@ -160,8 +163,8 @@
         </thead>
         <tbody>
           {#each resultsStore.results3D.reactions as r}
-            {@const f = userVec(r.fx, r.fy, r.fz)}
-            {@const m = userRot(-r.mx, -r.my, -r.mz)}
+            {@const f = components.vec(r.fx, r.fy, r.fz)}
+            {@const m = components.rot(r.mx, r.my, r.mz, -1)}
             <tr>
               <td class="id-cell">{r.nodeId}</td>
               {#each f as c}<td class="num">{frc(c)}</td>{/each}

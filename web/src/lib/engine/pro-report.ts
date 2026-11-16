@@ -1,3 +1,4 @@
+import { resultComponents } from '../axes/result-components';
 import { knownIssueResultDisposition, type knownIssueDisposition } from './known-issues';
 import { standingPlane } from '../axes/node-coords';
 import { ContainmentExportError } from './containment-error';
@@ -28,7 +29,7 @@ import type { StaticsRows } from '../store/statics-rows';
 import type { ProjectInfo } from '../model/project-info';
 import type { SolverDiagnostic } from './types';
 import { membranePrincipals } from './shell-stress';
-import { DEFAULT_AXES, makeFrame, pseudoToUser, supportTypeIn, toUser, userAxisAlong, type AxesChoice } from '../axes/frame';
+import { DEFAULT_AXES, makeFrame, supportTypeIn, toUser, userAxisAlong, type AxesChoice } from '../axes/frame';
 import { axesStatement } from '../axes/statement';
 
 /** Translation function type — accepts key, returns translated string */
@@ -279,7 +280,7 @@ export function generateReportHtml(data: ReportData): string {
   const axes = data.config?.axes ?? DEFAULT_AXES;
   const frame = makeFrame(axes);
   const vec = (x: number, y: number, z: number) => toUser(frame, [x, y, z]).map((v) => v + 0);
-  const rot = (x: number, y: number, z: number) => pseudoToUser(frame, [x, y, z]).map((v) => v + 0);
+  const { vec: resultVec, rot } = resultComponents(frame, results);
   const alongName = (k: 0 | 1 | 2) => userAxisAlong(frame, k).name;
 
   const html: string[] = [];
@@ -601,7 +602,7 @@ export function generateReportHtml(data: ReportData): string {
   if (showTable('reactions')) {
   html.push(`<table data-printed="reactions"><thead><tr><th>${escHtml(tr('pro.nodeLabel'))}</th><th>${km('F_x')} (kN)</th><th>${km('F_y')} (kN)</th><th>${km('F_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
   for (const r of results.reactions) {
-    const v = [...vec(r.fx, r.fy, r.fz), ...rot(r.mx, r.my, r.mz)];
+    const v = [...resultVec(r.fx, r.fy, r.fz), ...rot(r.mx, r.my, r.mz)];
     html.push(`<tr><td>${r.nodeId}</td>${v.map((x) => `<td class="num">${fmtNum(x)}</td>`).join('')}</tr>`);
   }
   html.push(`</tbody></table>`);
@@ -625,7 +626,7 @@ export function generateReportHtml(data: ReportData): string {
   if (showTable('displacements')) {
     html.push(`<table data-printed="displacements"><thead><tr><th>${escHtml(tr('pro.nodeLabel'))}</th><th>${km('u_x')} (m)</th><th>${km('u_y')} (m)</th><th>${km('u_z')} (m)</th><th>${km('\\theta_x')} (rad)</th><th>${km('\\theta_y')} (rad)</th><th>${km('\\theta_z')} (rad)</th></tr></thead><tbody>`);
     for (const d of results.displacements) {
-      const v = [...vec(d.ux, d.uy, d.uz), ...rot(d.rx, d.ry, d.rz)];
+      const v = [...resultVec(d.ux, d.uy, d.uz), ...rot(d.rx, d.ry, d.rz)];
       html.push(`<tr><td>${d.nodeId}</td>${v.map((x) => `<td class="num">${fmtNum(x, 6)}</td>`).join('')}</tr>`);
     }
     html.push(`</tbody></table>`);

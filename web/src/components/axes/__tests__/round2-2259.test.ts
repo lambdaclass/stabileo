@@ -8,7 +8,7 @@ import hu from '../../../lib/i18n/locales/hu';
 
 afterEach(() => axesStore.reset());
 
-it.skip('known wrong result: #2259 varying shell sketches keep coordinate endpoints and intensities together', () => {
+it('known wrong result: #2259 varying shell sketches keep coordinate endpoints and intensities together', () => {
   for (const c of allChoices()) for (const index of [0, 1]) {
     axesStore.choice = c;
     const f = makeFrame(c);
@@ -30,7 +30,7 @@ it.skip('known wrong result: #2259 varying shell sketches keep coordinate endpoi
   }
 });
 
-it.skip('known wrong result: #2259 Hungarian modal copy and result notices are translated', () => {
+it('known wrong result: #2259 Hungarian modal copy and result notices are translated', () => {
   for (const key of ['landing.modTitle', 'landing.modDesc', 'landing.modTag', 'landing.modMode']) expect(hu[key]).toBeTruthy();
   expect(hu['landing.modMode']).toContain('{n}');
   for (const locale of ['es', 'pt', 'de', 'fr', 'hu', 'tr'] as const) {

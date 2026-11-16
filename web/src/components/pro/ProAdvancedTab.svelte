@@ -240,7 +240,8 @@
   let numModes = $state(6);
   /** Add modes until 90 % of the mass participates in X and in Y (INPRES-CIRSOC 103 asks for it). */
   let modalAuto = $state(false);
-  let modalAutoNote = $state<string | null>(null);
+  let modalAutoSummary = $state<{ kind: 'mass'; reached: boolean; modes: number; x: number; y: number } | { kind: 'constrained' } | null>(null);
+  const modalAutoNote = $derived(modalAutoSummary === null ? null : modalAutoSummary.kind === 'constrained' ? t('pro.modalAutoConstrained') : planNamesIn(tp(modalAutoSummary.reached ? 'pro.modalAutoReached' : 'pro.modalAutoShort', { n: modalAutoSummary.modes, x: (modalAutoSummary.x * 100).toFixed(1), y: (modalAutoSummary.y * 100).toFixed(1) })));
 
   const modalCum = $derived(cumulativeMassRatios(modalResult?.modes ?? []));
   /*
@@ -258,7 +259,7 @@
   function forgetModal() {
     modalResult = null;
     modalModelVersion = null;
-    modalAutoNote = null;
+    modalAutoSummary = null;
     spectralResult = null;
     const { modal: _modal, spectral: _spectral, ...rest } = advancedResults;
     advancedResults = rest;
@@ -276,14 +277,14 @@
       let res: any;
       const t0 = performance.now();
       modalConstrained = (input.constraints?.length ?? 0) > 0;
-      modalAutoNote = null;
+      modalAutoSummary = null;
       if (modalAuto && !modalConstrained) {
         const r = modalUntilMass((n) => wasmModal3D(input, densities, n), numModes);
         res = r.result;
-        if (typeof res !== 'string') modalAutoNote = planNamesIn(tp(r.reached ? 'pro.modalAutoReached' : 'pro.modalAutoShort', { n: r.modes, x: (r.x * 100).toFixed(1), y: (r.y * 100).toFixed(1) }));
+        if (typeof res !== 'string') modalAutoSummary = { kind: 'mass', reached: r.reached, modes: r.modes, x: r.x, y: r.y };
       } else {
         res = wasmModal3D(input, densities, numModes);
-        if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
+        if (modalAuto) modalAutoSummary = { kind: 'constrained' };
       }
       const elapsed = performance.now() - t0;
       if (typeof res === 'string') { forgetModal(); solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: eigenRefusalText(errorText(res, t('pro.unknownError')), t) }); solving = false; return; }

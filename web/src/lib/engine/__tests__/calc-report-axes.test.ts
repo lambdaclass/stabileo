@@ -51,7 +51,7 @@ describe('the calculation report in the user axes', () => {
   });
 });
 
-it.skip('known wrong result: #2259 calculation reports retain SRSS and ABS magnitudes in plane and space frames', () => {
+it('known wrong result: #2259 calculation reports retain SRSS and ABS magnitudes in plane and space frames', () => {
   for (const method of ['srss', 'abs'] as const) for (const c of allChoices()) {
     axesStore.choice = c;
     for (const is3D of [false, true]) {

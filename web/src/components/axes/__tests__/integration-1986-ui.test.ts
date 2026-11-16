@@ -53,7 +53,7 @@ it('known wrong result: #1986 storey shear magnitudes use the axis names of thei
   expect(html).toContain('<td>6.0</td><td>8.0</td>');
 });
 
-it.skip('known wrong result: #2259 Explore maps every spatial roller option to its selected user axis', async () => {
+it('known wrong result: #2259 Explore maps every spatial roller option to its selected user axis', async () => {
   uiStore.analysisMode = 'pro';
   await modelStore.loadExample('3d-portal-frame');
   whatIf.open();

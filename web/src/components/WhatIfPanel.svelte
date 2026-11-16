@@ -16,15 +16,14 @@
    * component's: see whatif.svelte.ts for why, and for how it recomputes.
    */
   let { docked = false }: { docked?: boolean } = $props();
-  import { planeGlobalValue, twoD } from '../lib/axes/display';
-  import { userVecParts } from '../lib/axes/user-names';
+  import { planeGlobalValue } from '../lib/axes/display';
+  import { supportNameShown, userVecParts } from '../lib/axes/user-names';
   import { uiStore, modelStore, resultsStore } from '../lib/store';
   import { whatIf, type MemberFactors } from '../lib/store/whatif.svelte';
   import { showDiagram } from '../lib/store/view-mode';
   import type { DiagramType } from '../lib/store/results.svelte';
   import type { SupportType } from '../lib/store/model.svelte';
   import { t } from '../lib/i18n';
-  import { userPlane, type Plane } from '../lib/axes/typed-frame';
   import { fmtQ, unitQ } from '../lib/store/display-units.svelte';
   import type { Quantity } from '../lib/utils/units';
   import {
@@ -96,14 +95,13 @@
   ];
   const SUPPORTS_3D: Array<{ v: SupportType; k: string }> = [
     { v: 'fixed3d', k: 'pro.fixed3d' }, { v: 'pinned3d', k: 'pro.pinned3d' },
+    { v: 'rollerX', k: 'pro.rollerX' }, { v: 'rollerY', k: 'pro.rollerY' }, { v: 'rollerZ', k: 'pro.rollerY' },
     { v: 'rollerXY', k: 'pro.rollerXY' }, { v: 'rollerXZ', k: 'pro.rollerXZ' }, { v: 'rollerYZ', k: 'pro.rollerYZ' },
   ];
   const supportOptions = $derived(is3D ? SUPPORTS_3D : SUPPORTS_2D);
   function supportLabel(o: { v: SupportType; k: string }): string {
-    const s = t(o.k);
-    if (o.v === 'rollerX') return s.replace(/\bX\b/, twoD.horizontal);
-    if (o.v === 'rollerZ') return s.replace(/\b[YZ]\b/, twoD.vertical);
-    return s.replace(/\b(XY|XZ|YZ)\b/, (m) => userPlane(m as Plane));
+    const s = is3D && o.v === 'rollerZ' ? t(o.k).replace(/\bY\b/, 'Z') : t(o.k);
+    return supportNameShown(o.v, s, is3D);
   }
 
   function releaseOf(id: number, end: 'i' | 'j') {

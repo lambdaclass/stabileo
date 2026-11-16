@@ -96,7 +96,7 @@ describe('the project workbook in the user axes', () => {
   });
 });
 
-it.skip('known wrong result: #2259 self-weight directions and signed factors round trip in every frame', () => {
+it('known wrong result: #2259 self-weight directions and signed factors round trip in every frame', () => {
   portal();
   const weights = ['X', 'Y', 'Z'].flatMap(direction => [-1, 0, 2].map(factor => ({ caseId: 1, direction, factor })));
   modelStore.setAnalysis({ selfWeight: weights as never });
@@ -106,5 +106,29 @@ it.skip('known wrong result: #2259 self-weight directions and signed factors rou
     expect(back.model.analysis?.selfWeight).toEqual(weights);
     expect(back.problems.filter(p => p.sheet === 'SelfWeight')).toEqual([]);
     expect(back.unknownSheets).not.toContain('SelfWeight');
+  }
+});
+
+it('self-weight import refuses invalid rules without broadening their scope', () => {
+  const headers = ['source', 'case', 'direction', 'factor', 'scope', 'members', 'group'];
+  const parsed = (row: unknown[]) => parseWorkbook({ SelfWeight: [headers, row] });
+  for (const row of [
+    ['case', 1, 'Q', -1, 'all', '', ''],
+    ['case', 1, 'Z', 'bad', 'all', '', ''],
+    ['case', 9999, 'Z', -1, 'all', '', ''],
+    ['single', '', 'Z', -1, 'all', '', ''],
+    ['case', 1, 'Z', -1, 'group', '', 1],
+    ['case', 1, 'Z', -1, 'members', '', ''],
+    ['case', 1, 'Z', -1, 'members', 9999, ''],
+    ['case', 1, 'Z', -1, 'all', 1, ''],
+  ]) {
+    const r = parsed(row);
+    expect(r.problems.some(p => p.sheet === 'SelfWeight')).toBe(true);
+    expect(r.model.analysis?.selfWeight).toEqual([]);
+  }
+  for (const factor of [-1, 0, 1]) {
+    const r = parsed(['case', 1, 'Z', factor, 'all', '', '']);
+    expect(r.problems).toEqual([]);
+    expect(r.model.analysis?.selfWeight).toEqual([{ caseId: 1, direction: 'Z', factor }]);
   }
 });

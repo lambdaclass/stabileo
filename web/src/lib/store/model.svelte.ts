@@ -1,3 +1,4 @@
+import { caseNameShown, combinationNameShown } from '../axes/case-names';
 import { migrateDesignData } from '../model/design-data';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
@@ -4399,7 +4400,7 @@ function createModelStore() {
     updateLoadCase(id: number, name: string): void {
       if (!_undoBatching) _pushUndo?.();
       const lc = model.loadCases.find(c => c.id === id);
-      if (lc && lc.name !== name) { lc.name = name; delete lc.axisNamed; }
+      if (lc && caseNameShown(lc) !== name) { lc.name = name; delete lc.axisNamed; }
     },
 
     updateLoadCaseType(id: number, type: LoadCaseType): void {
@@ -4429,7 +4430,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const combo = model.combinations.find(c => c.id === id);
       if (!combo) return;
-      if (data.name !== undefined && data.name !== combo.name) { combo.name = data.name; if (combo.origin) combo.nameTyped = true; }
+      if (data.name !== undefined && data.name !== combinationNameShown(combo)) { combo.name = data.name; if (combo.origin) combo.nameTyped = true; }
       if (data.factors !== undefined) {
         // Factors edited by hand make the combination the user's: "replace generated loads" takes
         // back only what a code wrote, and deleted the edit with it. It keeps its purpose, so a

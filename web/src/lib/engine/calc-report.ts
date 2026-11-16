@@ -1,3 +1,4 @@
+import { resultComponents } from '../axes/result-components';
 /**
  * Basic Structural Calc-Book Report Generator
  *
@@ -12,7 +13,7 @@ import type { AnalysisResults, FullEnvelope } from './types';
 import type { AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import { releaseLabel } from '../export/excel';
 import { t, tp, i18n } from '../i18n';
-import { coordLabels, shownCoords, twoD, userRot, userVec } from '../axes/display';
+import { coordLabels, shownCoords } from '../axes/display';
 import { nodeShown3D, standingPlane } from '../axes/node-coords';
 import { TWO_D_DISPLACEMENT_LABELS, TWO_D_REACTION_LABELS } from '../geometry/coordinate-system';
 import { modelFigureSvg } from './report/model-figure';
@@ -401,7 +402,7 @@ function buildReactionsSection(data: CalcReportData, num = '3', figureHtml = '',
     h.push(`<table><tr><th>${t('table.nodeLabel')}</th><th>Fx (${uf})</th><th>Fy (${uf})</th><th>Fz (${uf})</th><th>Mx (${um})</th><th>My (${um})</th><th>Mz (${um})</th></tr>`);
     let sumFx = 0, sumFy = 0, sumFz = 0;
     for (const r of reactions) {
-      const [fx, fy, fz] = userVec(r.fx, r.fy, r.fz), [mx, my, mz] = userRot(r.mx, r.my, r.mz);
+      const [fx, fy, fz] = resultComponents(axesStore.frame, data.results3D).vec(r.fx, r.fy, r.fz), [mx, my, mz] = resultComponents(axesStore.frame, data.results3D).rot(r.mx, r.my, r.mz);
       h.push(`<tr><td>${r.nodeId}</td><td class="num">${F(fx)}</td><td class="num">${F(fy)}</td><td class="num">${F(fz)}</td><td class="num">${M(mx)}</td><td class="num">${M(my)}</td><td class="num">${M(mz)}</td></tr>`);
       sumFx += fx; sumFy += fy; sumFz += fz;
     }
@@ -413,8 +414,8 @@ function buildReactionsSection(data: CalcReportData, num = '3', figureHtml = '',
     h.push(`<table><tr><th>${t('table.nodeLabel')}</th><th>${TWO_D_REACTION_LABELS.horizontal} (${uf})</th><th>${TWO_D_REACTION_LABELS.vertical} (${uf})</th><th>${TWO_D_REACTION_LABELS.moment} (${um})</th></tr>`);
     let sumRx = 0, sumRz = 0;
     for (const r of reactions) {
-      const rx = twoD.x(r.rx), rz = twoD.z(r.rz);
-      h.push(`<tr><td>${r.nodeId}</td><td class="num">${F(rx)}</td><td class="num">${F(rz)}</td><td class="num">${M(twoD.rot(r.my))}</td></tr>`);
+      const rx = resultComponents(axesStore.frame, data.results2D).plane(r.rx, 'x'), rz = resultComponents(axesStore.frame, data.results2D).plane(r.rz, 'z');
+      h.push(`<tr><td>${r.nodeId}</td><td class="num">${F(rx)}</td><td class="num">${F(rz)}</td><td class="num">${M(resultComponents(axesStore.frame, data.results2D).plane(r.my, 'rot'))}</td></tr>`);
       sumRx += rx; sumRz += rz;
     }
     h.push(`<tr style="font-weight:700;border-top:2px solid #333"><td>ΣR</td><td class="num">${F(sumRx)}</td><td class="num">${F(sumRz)}</td><td></td></tr>`);
@@ -469,7 +470,7 @@ function buildDisplacementsSection(data: CalcReportData, num = '4', figureHtml =
     for (const d of show) {
       const mag = Math.sqrt(d.ux ** 2 + d.uy ** 2 + d.uz ** 2);
       const isMax = d.nodeId === maxNodeId;
-      const [ux, uy, uz] = userVec(d.ux, d.uy, d.uz);
+      const [ux, uy, uz] = resultComponents(axesStore.frame, data.results3D).vec(d.ux, d.uy, d.uz);
       h.push(`<tr${isMax ? ' class="governing"' : ''}><td>${d.nodeId}</td><td class="num">${U.d(ux)}</td><td class="num">${U.d(uy)}</td><td class="num">${U.d(uz)}</td><td class="num">${U.d(mag)}</td></tr>`);
     }
     h.push('</table>');
@@ -488,7 +489,7 @@ function buildDisplacementsSection(data: CalcReportData, num = '4', figureHtml =
       const uz = d.uz ?? 0;
       const mag = Math.sqrt(d.ux ** 2 + uz ** 2);
       const isMax = d.nodeId === maxNodeId;
-      h.push(`<tr${isMax ? ' class="governing"' : ''}><td>${d.nodeId}</td><td class="num">${U.d(twoD.x(d.ux))}</td><td class="num">${U.d(twoD.z(uz))}</td><td class="num">${fmt(twoD.rot(d.ry ?? 0), 6)}</td><td class="num">${U.d(mag)}</td></tr>`);
+      h.push(`<tr${isMax ? ' class="governing"' : ''}><td>${d.nodeId}</td><td class="num">${U.d(resultComponents(axesStore.frame, data.results2D).plane(d.ux, 'x'))}</td><td class="num">${U.d(resultComponents(axesStore.frame, data.results2D).plane(uz, 'z'))}</td><td class="num">${fmt(resultComponents(axesStore.frame, data.results2D).plane(d.ry ?? 0, 'rot'), 6)}</td><td class="num">${U.d(mag)}</td></tr>`);
     }
     h.push('</table>');
   }

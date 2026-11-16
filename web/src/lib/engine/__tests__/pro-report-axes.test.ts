@@ -70,7 +70,7 @@ describe('the report in the user axes', () => {
   });
 });
 
-it.skip('known wrong result: #2259 SRSS and ABS tables and reports permute component magnitudes in every frame', () => {
+it('known wrong result: #2259 SRSS and ABS tables and reports permute component magnitudes in every frame', () => {
   solvedPortal();
   for (const method of ['srss', 'abs'] as const) {
     const base = buildProReportData({ config: config(), t })!;
@@ -88,7 +88,7 @@ it.skip('known wrong result: #2259 SRSS and ABS tables and reports permute compo
         const html = generateReportHtml({ ...base, results: r, config: { ...config(), axes } });
         const table = printedTables(html).find(p => p.key === kind)!;
         expect(table).toBeDefined();
-        expect(table.rows.find(x => x.label === '1')!.cells.every(c => !c.trim().startsWith('-'))).toBe(true);
+        expect(table.rows.find(x => x.label === '1')!.cells.map(c => Number(c.replace(/\s/g, '')))).toEqual(want);
       }
     }
   }

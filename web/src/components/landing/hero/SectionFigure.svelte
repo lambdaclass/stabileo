@@ -82,7 +82,7 @@
         points="{SEC.cx},{SEC.cy - KERN.h} {SEC.cx + KERN.b},{SEC.cy} {SEC.cx},{SEC.cy + KERN.h} {SEC.cx - KERN.b},{SEC.cy}"
       />
       <rect class="sa-section" x={LEFT_EDGE} y={sy(H / 2)} width={B * SEC.k} height={H * SEC.k} />
-      <text class="sa-tag-nc" x={SEC.cx} y={SEC.cy - KERN.h - 4}>NC</text>
+      <text class="sa-tag-nc" x={SEC.cx} y={SEC.cy - KERN.h - 4}>{t('landing.secKern')}</text>
 
       {#each hatch as h}
         <line class="sa-hatch" x1={BASE} y1={h.y} x2={h.x} y2={h.y} stroke={h.s < 0 ? 'var(--sa-c)' : 'var(--sa-t)'} />
@@ -94,14 +94,14 @@
 
       {#if axisInside && axisY !== null}
         <line class="sa-en" x1={LEFT_EDGE - 14} y1={sy(axisY)} x2={BASE + 12} y2={sy(axisY)} />
-        <text class="sa-tag-en" x={LEFT_EDGE - 16} y={sy(axisY) + 3}>EN</text>
+        <text class="sa-tag-en" x={LEFT_EDGE - 16} y={sy(axisY) + 3}>{t('landing.secNeutralAxis')}</text>
       {/if}
       <g class="sa-cp" transform="translate({SEC.cx} {sy(pressureShown)})">
         <circle r="5" />
         <line x1="-8" y1="0" x2="8" y2="0" />
         <line x1="0" y1="-8" x2="0" y2="8" />
       </g>
-      <text class="sa-tag-cp" x={SEC.cx + 10} y={sy(pressureShown) + 3}>CP</text>
+      <text class="sa-tag-cp" x={SEC.cx + 10} y={sy(pressureShown) + 3}>{t('landing.secPressureCenter')}</text>
       {#if pressureOut}<text class="sa-out" x={SEC.cx + 10} y={sy(pressureShown) + (pressureShown > 0 ? -7 : 12)}>({t('landing.secOut')})</text>{/if}
     </g>
 

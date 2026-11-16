@@ -15096,5 +15096,10 @@ const en: Record<string, string> = {
   'viewer.copyLink': "Copy read-only link",
   'viewer.linkTip': "Whoever opens it sees the model in 3D and in plan, without the editor, and can duplicate it to edit their copy.",
   'viewer.linkCopied': "Read-only link copied.",
+  "xls.err.selfWeightRule": "Invalid or unsupported self-weight rule in {field}. Only case sources with all-member or explicit-member scopes can be imported.",
+  "landing.secKern": "K",
+  "landing.secNeutralAxis": "NA",
+  "landing.secPressureCenter": "PC",
+
 };
 export default en;

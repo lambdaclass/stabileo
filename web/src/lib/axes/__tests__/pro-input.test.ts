@@ -77,6 +77,7 @@ describe('the Add load card types global values in the user frame and stores the
     const [q] = loadsOf(buildWrittenLoads(form('distributed', (f) => { f.frame = 'global'; f.q.yI = -10; f.q.zI = 3; }), ctx([e])));
     expect(data(q!)).toMatchObject({ qZI: -10, qZJ: -10, qXI: -3, qXJ: -3, qYI: 0, qYJ: 0 });
     const tri = loadsOf(buildWrittenLoads(form('distributed', (f) => { f.frame = 'global'; f.shape = 'triangle'; f.peak = 6; f.peakComp = 'z'; }), ctx([e])));
+    expect(tri).toHaveLength(2);
     expect(tri.every((l) => (data(l).qXI ?? 0) <= 0 && (data(l).qXJ ?? 0) <= 0 && Math.min(data(l).qXI ?? 0, data(l).qXJ ?? 0) === -6)).toBe(true);
     const local = loadsOf(buildWrittenLoads(form('distributed', (f) => { f.q.yI = -10; }), ctx([e])));
     expect(data(local[0]!)).toMatchObject({ qYI: -10 });

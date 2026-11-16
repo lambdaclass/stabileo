@@ -1,3 +1,4 @@
+import { resultComponents } from '../axes/result-components';
 import { exportMessages, warningImage, warningCanvas } from '../export/containment';
 // File operations: save/load projects, export results, autosave
 
@@ -35,7 +36,7 @@ import {
   TWO_D_DISPLACEMENT_LABELS,
   TWO_D_REACTION_LABELS,
 } from '../geometry/coordinate-system';
-import { twoD, userRot, userVec } from '../axes/display';
+import { twoD } from '../axes/display';
 import { axesStore } from '../axes/axes.svelte';
 import { axesStatement } from '../axes/statement';
 
@@ -767,7 +768,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
     lines.push(`# ${t('file.displacements')}`);
     lines.push(`${t('file.node')},ux (m),uy (m),uz (m),rx (rad),ry (rad),rz (rad)`);
     for (const d of r3d.displacements) {
-      lines.push([d.nodeId, ...userVec(d.ux, d.uy, d.uz), ...userRot(d.rx, d.ry, d.rz)].join(','));
+      lines.push([d.nodeId, ...resultComponents(axesStore.frame, r3d).vec(d.ux, d.uy, d.uz), ...resultComponents(axesStore.frame, r3d).rot(d.rx, d.ry, d.rz)].join(','));
     }
     lines.push('');
 
@@ -775,7 +776,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
     lines.push(`# ${t('file.reactions')}`);
     lines.push(`${t('file.node')},Fx (kN),Fy (kN),Fz (kN),Mx (kN·m),My (kN·m),Mz (kN·m)`);
     for (const r of r3d.reactions) {
-      lines.push([r.nodeId, ...userVec(r.fx, r.fy, r.fz), ...userRot(r.mx, r.my, r.mz)].join(','));
+      lines.push([r.nodeId, ...resultComponents(axesStore.frame, r3d).vec(r.fx, r.fy, r.fz), ...resultComponents(axesStore.frame, r3d).rot(r.mx, r.my, r.mz)].join(','));
     }
     lines.push('');
 

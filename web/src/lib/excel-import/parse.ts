@@ -451,7 +451,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   const model = EMPTY_MODEL();
   const counts: Record<string, number> = {};
 
-  const defined = new Set(SHEETS.map((s) => s.name.toLowerCase()));
+  const defined = new Set([...SHEETS.map((s) => s.name.toLowerCase()), 'selfweight']);
   const unknownSheets = Object.keys(sheets).filter(
     (n) => !defined.has(n.trim().toLowerCase()) && n.trim().toLowerCase() !== 'instrucciones' && n.trim().toLowerCase() !== AXES_SHEET.toLowerCase(),
   );
@@ -924,6 +924,33 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   if (massSource?.weights && !frame.identity) massSource.weights = massSource.weights.map((w) => ({ ...w, region: boxToModel(frame, w.region) }));
   if (massSource) model.massSource = massSource;
   counts.MassSource = massSource ? 1 : 0;
+
+  const weightRows = grab('SelfWeight');
+  if (weightRows.length) {
+    const selfWeight: NonNullable<JSONModel['analysis']>['selfWeight'] = [];
+    const memberIds = new Set(model.elements.map(e => e.id));
+    for (const row of readSheet(weightRows, 'SelfWeight', problems)) {
+      const invalid = (field: string) => problems.push({ sheet: 'SelfWeight', row: row.n, column: field, message: tp('xls.err.selfWeightRule', { field }) });
+      const source = str(row.cells.source), scope = str(row.cells.scope);
+      if (source !== 'case') { invalid('source'); continue; }
+      const caseId = reqNum(row, 'case', 'SelfWeight', problems);
+      const factor = reqNum(row, 'factor', 'SelfWeight', problems);
+      if (caseId === null || factor === null) continue;
+      if (!(caseIds.size ? caseIds : DEFAULT_CASE_IDS).has(caseId)) { invalid('case'); continue; }
+      const dir = str(row.cells.direction);
+      if (!['X', 'Y', 'Z'].includes(dir)) { invalid('direction'); continue; }
+      if (!['all', 'members'].includes(scope) || str(row.cells.group) !== '') { invalid('scope'); continue; }
+      const membersText = str(row.cells.members);
+      const elements = membersText === '' ? [] : membersText.split(/\s+/).map(Number);
+      if (scope === 'members' ? !elements.length || elements.some(id => !memberIds.has(id)) : elements.length > 0) { invalid('members'); continue; }
+      const userIndex = 'XYZ'.indexOf(dir);
+      const modelIndex = frame.rows[userIndex]!.findIndex(v => v !== 0);
+      selfWeight.push({ caseId, direction: (['X', 'Y', 'Z'] as const)[modelIndex]!, factor: factor * frame.rows[userIndex]![modelIndex]! + 0, ...(scope === 'members' ? { elements } : {}) });
+    }
+    model.analysis = { ...model.analysis, selfWeight };
+    counts.SelfWeight = selfWeight.length;
+  }
+
 
   // ── Loads ────────────────────────────────────────────────────────
   const elemIds = new Set(model.elements.map((e) => e.id));

@@ -14738,5 +14738,10 @@ const pt: Translations = {
   'viewer.copyLink': "Copiar link somente leitura",
   'viewer.linkTip': "Quem abre vê o modelo em 3D e em planta, sem o editor, e pode duplicá-lo para editar sua cópia.",
   'viewer.linkCopied': "Link somente leitura copiado.",
+  "xls.err.selfWeightRule": "Regra de peso próprio inválida ou não suportada em {field}. Só podem ser importadas cargas de casos aplicadas a todos os elementos ou a uma lista explícita.",
+  "landing.secKern": "NC",
+  "landing.secNeutralAxis": "LN",
+  "landing.secPressureCenter": "CP",
+
 };
 export default pt;

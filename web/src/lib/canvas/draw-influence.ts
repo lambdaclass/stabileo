@@ -34,7 +34,7 @@ export function drawInfluenceLine(
   if (shownSign !== 1) il = { ...il, points: il.points.map((p) => ({ ...p, value: shownSign * p.value })) };
   const env = influenceTool.envelope;
   if (env) {
-    drawIlEnvelope(env, dc);
+    drawIlEnvelope(shownSign === 1 ? env : { ...env, members: env.members.map(m => ({ ...m, max: m.min.map(v => -v + 0), min: m.max.map(v => -v + 0) })) }, dc);
     drawTitle(ctx, il, dc);
     return;
   }

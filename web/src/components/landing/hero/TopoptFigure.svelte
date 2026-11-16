@@ -60,7 +60,6 @@
   const cy = (c: number) => CH.y + CH.h - (share(c) / 100) * CH.h;
   const CURVE = FRAME_ITERATION.map((it, i) => `${cx(it).toFixed(1)},${cy(FRAME_COMPLIANCE[i]).toFixed(1)}`).join(' ');
   const fmt0 = $derived(new Intl.NumberFormat(i18n.locale, { maximumFractionDigits: 0 }));
-  const fmt = $derived(new Intl.NumberFormat(i18n.locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 
   const W = 2 * NELX * CELL, HGT = NELY * CELL;
 </script>
