@@ -49,7 +49,7 @@ export interface BeamDemand {
   /** The physical beam this span belongs to and its place in it. */
   line?: { group: number; index: number; spans: number; startNode: number; endNode: number; lineName: string };
   /** Envelope along the span over all combinations: largest sagging, hogging (kN·m) and shear (kN). */
-  env?: Array<{ x: number; pos: number; neg: number; v: number; vPos?: number; vNeg?: number }>;
+  env?: Array<{ x: number; pos: number; neg: number; v: number; vPos?: number; vNeg?: number; t?: number }>;
   /** Half the support's extent along the beam at each end, m. */
   supportHalf?: { start: number; end: number };
   /** What holds each end of the span: a column or wall, a support alone, a beam it frames into, or nothing (a cantilever's tip). */
@@ -84,6 +84,8 @@ export interface BeamRow {
     /** cm²/m per stirrup leg, shear and torsion together. */
     stirrupPerLeg: number; legs: number; sMax: number;
     al: number; torsionNeglected: boolean; tuDesign: number;
+    /** The torsion below which it may be neglected, kN·m, where the code gives one to read station by station. */
+    tuNeglect?: number;
     skin: MeshBars | null;
     /** What each section asks of its tension face, cm². */
     bySection: Array<{ section: SectionName; sign: 'pos' | 'neg'; req: number }>;
@@ -358,7 +360,7 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
 
   return {
     family: 'beam', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, demand: d,
-    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: Math.max(alReq, alMin), torsionNeglected: tor.neglect, tuDesign, skin: skin ? { dia: skin.diameter, spacing: skin.spacing } : null, bySection },
+    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: Math.max(alReq, alMin), torsionNeglected: tor.neglect, tuDesign, tuNeglect: PHI_V * tor0.Tcr / 4, skin: skin ? { dia: skin.diameter, spacing: skin.spacing } : null, bySection },
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, flexure: e.flex, verifications, combos: comboTable(d, c, a, fmt),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
   };

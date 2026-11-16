@@ -1,5 +1,5 @@
 import { faceBars } from './bars';
-import { bracedFaceBars, columnBars, innerCrossties, innerRow } from './column-row';
+import { bracedFaceBars, columnBars, innerCrossties } from './column-row';
 import type { BarGroup, ColumnAdopted, Stirrups } from './types';
 
 /** A rectangular section to draw, in metres from its bottom-left corner. */
@@ -39,8 +39,8 @@ export function columnSection(b: number, h: number, cover: number, a: ColumnAdop
     const y = edge + (i * (h - 2 * edge)) / (a.ny + 1);
     ties.push({ x1: leg, y1: y, x2: b - leg, y2: y });
   }
-  const inn = innerRow({ b, h }, a, { cover }), ict = innerCrossties({ b, h }, a, { cover });
-  for (const x of inn?.xs ?? []) ties.push({ x1: b / 2 + x, y1: (h - ict.lengthX) / 2, x2: b / 2 + x, y2: (h + ict.lengthX) / 2 });
-  for (const y of inn?.ys ?? []) ties.push({ x1: (b - ict.lengthY) / 2, y1: h / 2 + y, x2: (b + ict.lengthY) / 2, y2: h / 2 + y });
+  for (const t of innerCrossties({ b, h }, a, { cover }).ties) {
+    ties.push(t.across === 'h' ? { x1: b / 2 + t.at, y1: (h - t.length) / 2, x2: b / 2 + t.at, y2: (h + t.length) / 2 } : { x1: (b - t.length) / 2, y1: h / 2 + t.at, x2: (b + t.length) / 2, y2: h / 2 + t.at });
+  }
   return { b, h, cover, tieDia: a.tieDia, bars, ties };
 }

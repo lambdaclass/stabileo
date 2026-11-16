@@ -1,11 +1,13 @@
 <script lang="ts">
   import { t, i18n } from '../../../lib/i18n';
-  import { setAdopted } from '../../../lib/store/rc-sheets.svelte';
+  import { modelStore } from '../../../lib/store';
+  import { rcSheetsData, setAdopted, setLineBentBars } from '../../../lib/store/rc-sheets.svelte';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import type { LineAdopted, LineLayout } from '../../../lib/rc-sheets/beam-line';
   import type { BarGroup } from '../../../lib/rc-sheets/types';
 
   let { line }: { line: LineLayout } = $props();
+  const bentChoice = $derived.by(() => { void modelStore.designData; const v = rcSheetsData().bentLines?.[line.key]; return v === undefined ? 'project' : v ? 'on' : 'off'; });
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const LONG = [10, 12, 16, 20, 25, 32];
   const SMALL = [6, 8, 10, 12];
@@ -61,6 +63,14 @@
       </label>
     {/each}
   </fieldset>
+  <label class="rle-bent">
+    <span>{t('rcSheets.line.bentOverride')}</span>
+    <select value={bentChoice} data-testid="rc-line-bent-choice" onchange={(e) => { const v = e.currentTarget.value; setLineBentBars(line.key, v === 'project' ? null : v === 'on'); }}>
+      <option value="project">{t('rcSheets.line.bentProject')}</option>
+      <option value="on">{t('rcSheets.line.bentOn')}</option>
+      <option value="off">{t('rcSheets.line.bentOff')}</option>
+    </select>
+  </label>
   {#if line.adopted.bent}
     <fieldset data-testid="rc-line-bent">
       <legend>{t('rcSheets.line.kind.bent')}</legend>

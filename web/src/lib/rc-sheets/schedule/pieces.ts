@@ -104,7 +104,7 @@ const columnDias = (r: ColumnRow): Array<{ dia: number; count: number }> => {
   const a = r.adopted, m = new Map<number, number>();
   const add = (dia: number, n: number) => { if (n > 0 && dia > 0) m.set(dia, (m.get(dia) ?? 0) + n); };
   add(a.corner, 4); add(a.dx, 2 * a.nx); add(a.dy, 2 * a.ny);
-  if (a.inner) add(a.inner.dia, 2 * (a.inner.nx + a.inner.ny));
+  if (a.inner) add(a.inner.dia, 2 * Math.max(1, a.inner.rows ?? 1) * (a.inner.nx + a.inner.ny));
   return [...m].map(([dia, count]) => ({ dia, count }));
 };
 
@@ -132,9 +132,7 @@ function columnPieces(rows: readonly ColumnRow[], r: ColumnRow, o: PieceOptions,
   pieces.push({ kind: 'hoop', count: n, shape: hoop(w, h, t, R) });
   if (r.checks.crossties.x) pieces.push({ kind: 'crossTie', count: n * r.checks.crossties.x, shape: tieAcross(h, t, R) });
   if (r.checks.crossties.y) pieces.push({ kind: 'crossTie', count: n * r.checks.crossties.y, shape: tieAcross(w, t, R) });
-  const inner = innerCrossties(r, r.adopted, r);
-  if (inner.x) pieces.push({ kind: 'crossTie', count: n * inner.x, shape: tieAcross(inner.lengthX, t, R) });
-  if (inner.y) pieces.push({ kind: 'crossTie', count: n * inner.y, shape: tieAcross(inner.lengthY, t, R) });
+  for (const tie of innerCrossties(r, r.adopted, r).ties) pieces.push({ kind: 'crossTie', count: n, shape: tieAcross(tie.length, t, R) });
   return { key: r.key, name: r.name, level: r.level, family: 'column', pieces };
 }
 

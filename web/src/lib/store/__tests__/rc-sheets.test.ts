@@ -11,7 +11,7 @@ import { clearPlateMesh, physicalPlates, plateStatus, preparePlatesForAnalysis }
 import { ensurePhysicalModel } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 const modelEntryShells = (id: number) => modelStore.model.groups.get(id)!.members.quads?.length ?? 0;
-import { buildSheetRows, redesignerOf, setSheetCode, rcSheetsData, saveRcSheetsData, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
+import { buildSheetRows, redesignerOf, setSheetCode, rcSheetsData, saveRcSheetsData, setLineBentBars, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
 import { barActsAt } from '../../rc-sheets/beam-line';
 import { bendAngles } from '../../rc-sheets/shape';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
@@ -324,6 +324,30 @@ describe('reinforcement sheets from a solved model', () => {
     expect(byHand.isAdopted).toBe(true);
     expect(byHand.verifications.find((v) => v.label === 'rcSheets.v.lineSeismicBent')?.ok).toBe(false);
     expect(byHand.status).toBe('fail');
+  });
+
+  it('lays one line out with bent bars or without them whatever the project says, and keeps the choice when reopened', async () => {
+    frame();
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    const wide = modelStore.addSection({ name: '60×60', a: 0.36, iy: 0.6 ** 4 / 12, iz: 0.6 ** 4 / 12, j: 0.1406 * 0.6 ** 4, b: 0.6, h: 0.6, shape: 'rect' } as never);
+    for (const e of modelStore.elements.values()) {
+      const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
+      if (Math.abs((a.z ?? 0) - (b.z ?? 0)) < 1e-6) modelStore.addDistributedLoad3D(e.id, 0, 0, -60, -60, undefined, undefined, D);
+      else modelStore.updateElementSection(e.id, wide);
+    }
+    solve();
+    const key = buildSheetRows().line[0]!.key;
+    expect(buildSheetRows().line[0]!.bars.some((b) => b.kind === 'bent')).toBe(false);
+    setLineBentBars(key, true);
+    expect(buildSheetRows().line[0]!.bars.some((b) => b.kind === 'bent')).toBe(true);
+    const { migrateDesignData } = await import('../../model/design-data');
+    expect(migrateDesignData(JSON.parse(JSON.stringify(modelStore.designData))).rcSheets?.bentLines).toEqual({ [key]: true });
+    setRcOption('bentBars', true);
+    setLineBentBars(key, false);
+    expect(buildSheetRows().line[0]!.bars.some((b) => b.kind === 'bent')).toBe(false);
+    setLineBentBars(key, null);
+    expect(rcSheetsData().bentLines).toBeUndefined();
+    expect(buildSheetRows().line[0]!.bars.some((b) => b.kind === 'bent')).toBe(true);
   });
 
   it('keeps the bars adopted before adoptions were stamped as set by hand, whatever is adopted or chosen after', () => {

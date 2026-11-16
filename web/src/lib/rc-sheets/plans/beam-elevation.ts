@@ -12,7 +12,7 @@ import type { P, Primitive } from '../../sheets/primitives';
 import type { LineBar, LineLayout } from '../beam-line';
 import type { BeamRow } from '../beam-row';
 import { stirrupsLabel } from '../bars';
-import { barTrace, hookTurn, lineSections, lineSupports, setOut, stirrupPositions } from '../line-geometry';
+import { barTrace, hookTurn, lineSections, lineSupports, markPlaces, setOut, stirrupPositions } from '../line-geometry';
 import { scheduleElements } from '../schedule/pieces';
 import { scheduleOf, type ScheduleRow } from '../schedule/schedule';
 import type { SheetCode } from '../types';
@@ -80,6 +80,7 @@ function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, 
     const sp = line.spans[p.span]!, z = line.zones[p.zone]!, d = z.stirrups.dia, cov = line.cover * K + d / 2;
     ps.push(seg(arm('EST', d), pt(p.x * K, -cov), pt(p.x * K, -sp.h * K + cov), d));
   }
+  const along = markPlaces(line, (6 * s) / K);
   for (const bar of line.bars) {
     const off = bar.kind === 'continuous' || bar.kind === 'bent' ? 0 : 0.8 * s;
     const pts = barPolyline(line, bar, off);
@@ -87,7 +88,7 @@ function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, 
     ps.push({ kind: 'polyline', layer: arm(barLayer(bar), bar.bars.dia), points: pts, dia: bar.bars.dia });
     const g = barTrace(line, bar).reduce((a, b) => (b.to - b.from > a.to - a.from ? b : a));
     const y = pts.find((q) => q.x >= g.from * K - 1e-6)?.y ?? pts[0]!.y;
-    ps.push(...bubble(pt(((g.from + g.to) / 2) * K, y + (bar.face === 'top' ? -4 : 4) * s), bar.mark, s));
+    ps.push(...bubble(pt((along.get(bar.mark) ?? (g.from + g.to) / 2) * K, y + (bar.face === 'top' ? -4 : 4) * s), bar.mark, s));
   }
   for (const cut of cuts) {
     const x = cut.x * K;

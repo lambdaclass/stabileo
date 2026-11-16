@@ -9,7 +9,7 @@ import { beamRow, type BeamDemand, type BeamEnd, type SectionEnv } from '../beam
 import { beamLine, type LineAdopted } from '../beam-line';
 import { makeFmt } from '../format';
 import { developedLength, lapLength } from '../shape';
-import { hookLegOf, hookTurn, marksAt, stirrupPositions } from '../line-geometry';
+import { bentLegs, extraBarsText, hookLegOf, hookTurn, marksAt, setOut, stirrupPositions } from '../line-geometry';
 import { barPolyline } from '../plans/beam-elevation';
 import { bendingSchedule } from '../schedule/schedule';
 import { scheduleView, SCHEDULE_VIEWS } from '../schedule/views';
@@ -26,15 +26,16 @@ const column: BeamEnd = { kind: 'column', half: 0.2 };
 interface SpanSpec { L: number; h: number }
 
 /** A continuous line on columns, hogging 80 kN·m over every support and sagging 140 kN·m mid-span. */
-function rowsOf(spans: SpanSpec[], c: object, ends: [BeamEnd, BeamEnd] = [column, column]) {
+function rowsOf(spans: SpanSpec[], c: object, ends: [BeamEnd, BeamEnd] = [column, column], torsion?: (x: number, L: number) => number) {
   const n = spans.length;
   const mAt = (t: number) => 220 * 4 * t * (1 - t) - 80;
   return spans.map(({ L, h }, k) => {
-    const stations = Array.from({ length: 33 }, (_, i) => { const x = (i / 32) * L, t = x / L, m = mAt(t); return { x, pos: Math.max(0, m), neg: Math.max(0, -m), v: 200 * Math.abs(1 - 2 * t) + 40 }; });
+    const stations = Array.from({ length: 33 }, (_, i) => { const x = (i / 32) * L, t = x / L, m = mAt(t); return { x, pos: Math.max(0, m), neg: Math.max(0, -m), v: 200 * Math.abs(1 - 2 * t) + 40, ...(torsion ? { t: torsion(x, L) } : {}) }; });
+    const tu = torsion ? Math.max(...stations.map((e) => e.t ?? 0)) : 0;
     const d: BeamDemand = {
       key: `beam:1:${k}`, name: `V1-${k + 1}`, level: 'N1', length: L, b: 0.3, h,
       start: env(0, 0, -mAt(0)), span: env(L / 2, mAt(0.5), 0), end: env(L, 0, -mAt(1)),
-      negAny: { value: 0 }, nNegAny: 0, vu: { value: 240 }, nAtV: 0, tu: { value: 0 }, combos: [], env: stations,
+      negAny: { value: 0 }, nNegAny: 0, vu: { value: 240 }, nAtV: 0, tu: { value: tu }, combos: [], env: stations,
       supportHalf: { start: k === 0 ? ends[0].half : 0.2, end: k === n - 1 ? ends[1].half : 0.2 },
       ends: { start: k === 0 ? ends[0] : column, end: k === n - 1 ? ends[1] : column },
       line: { group: 1, index: k, spans: n, startNode: k + 1, endNode: k + 2, lineName: 'V1' },
@@ -92,6 +93,18 @@ describe('bent bars', () => {
     expect(marksAt(line, 'bottom', 3)).toContain(bent[0]!.mark);
   });
 
+  it('are set out by their legs, and the table names them with the support and span bars they work beside', () => {
+    const { line } = lineOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], { bentBars: true });
+    const bent = line.bars.find((b) => b.kind === 'bent')!;
+    expect(setOut(line, bent)).toBeNull();
+    const legs = bentLegs(bent);
+    expect(legs.every((g) => g.length > 0)).toBe(true);
+    expect(legs.length).toBe(bent.shape.pts.length - 1 - (bent.hooks[0] ? 1 : 0) - (bent.hooks[1] ? 1 : 0));
+    const text = extraBarsText(line, 'lev.');
+    expect(text.supports).toContain(`2: ${line.adopted.supportTop[1]!.count ? `${line.adopted.supportTop[1]!.count}Ø${line.adopted.supportTop[1]!.dia} + ` : ''}${bent.bars.count}Ø${bent.bars.dia} lev.`);
+    expect(text.spans).toContain(`${bent.bars.count}Ø${bent.bars.dia} lev.`);
+  });
+
   it('run in the deepest span\'s frame, the spans aligned at the top', () => {
     const { line } = lineOf([{ L: 6, h: 0.6 }, { L: 6, h: 0.45 }], { bentBars: true });
     const bent = line.bars.find((b) => b.kind === 'bent' && b.runs[1]!.from > 6)!;
@@ -114,6 +127,22 @@ describe('bent bars', () => {
 });
 
 describe('stirrups', () => {
+  it('take the torsion stirrups only where the torsion cannot be neglected, the middle of the span at the shear spacing', () => {
+    const torsion = (x: number, L: number) => (x <= 1 + 1e-9 || x >= L - 1 - 1e-9 ? 30 : 1);
+    const c = { ...bctx };
+    const rows = rowsOf([{ L: 8, h: 0.6 }], c, [column, column], torsion);
+    expect(rows[0]!.req.torsionNeglected).toBe(false);
+    const line = beamLine(rows, c, undefined, fmt);
+    const z = line.zones;
+    expect(z.length).toBe(3);
+    expect(z[1]!.stirrups.spacing).toBeGreaterThan(z[0]!.stirrups.spacing);
+    expect(z[0]!.to).toBeGreaterThanOrEqual(1 - 1e-9);
+    expect(z[2]!.from).toBeLessThanOrEqual(8 - 1 + 1e-9);
+    const everywhere = beamLine(rowsOf([{ L: 8, h: 0.6 }], c, [column, column], () => 30), c, undefined, fmt);
+    expect(everywhere.zones.length).toBe(1);
+  });
+
+
   it('start at the support faces, none inside a column, as the schedule counts them', () => {
     const { line } = twoSpanLine();
     const axes = [0, 5, 9];

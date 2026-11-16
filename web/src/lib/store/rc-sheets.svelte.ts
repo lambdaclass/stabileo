@@ -133,6 +133,16 @@ export function setRcOption(option: 'faces' | 'flange' | 'seismic' | 'bentBars' 
   save(d);
 }
 
+/** One line laid out with bent bars (`true`), without them (`false`), or as the project says (`null`); its adopted proposal, unless edited by hand, goes with the old choice. */
+export function setLineBentBars(key: string, on: boolean | null): void {
+  const d = rcSheetsData();
+  const bentLines = { ...d.bentLines };
+  if (on === null) delete bentLines[key]; else bentLines[key] = on;
+  const adopted = { ...d.adopted };
+  if (!(d.edited ?? []).includes(key)) delete adopted[key];
+  save({ ...d, adopted, bentLines: Object.keys(bentLines).length ? bentLines : undefined });
+}
+
 /** Storey names from the grid's levels, else from the elevations the physical members span; never from mesh nodes. */
 function storeyNamer(): (z: number) => string {
   const grid = modelStore.grid?.levels ?? [];
@@ -331,7 +341,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const fy = dd.rebarFy;
   const dec = fmt(1.5, 1);
   const seismic = data.seismic && rules.seismic ? { overstrength: seismicSettings().overstrength } : undefined;
-  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion, seismic, ...(data.bentBars ? { bentBars: true } : {}) });
+  const bentIn = (d: (typeof D.beams)[number]) => data.bentLines?.[`line:${d.line?.group ?? -1}`] ?? data.bentBars === true;
+  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion, seismic, ...(bentIn(d) ? { bentBars: true } : {}) });
   const proposals: BeamRow[] = [];
   for (const d of D.beams) {
     const ctx = beamCtx(d);

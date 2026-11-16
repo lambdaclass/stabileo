@@ -39,8 +39,8 @@ export interface ColumnAdopted {
   nx: number; dx: number;
   ny: number; dy: number;
   tieDia: number; tieSpacing: number;
-  /** A second row inside each face, held off the outer row by the clear spacing between layers: nx bars on each b face, ny on each h face. */
-  inner?: { nx: number; ny: number; dia: number };
+  /** Rows inside each face, each held off the one outside it by the clear spacing between layers: nx bars on each b face, ny on each h face, in `rows` rows (one when absent). */
+  inner?: { nx: number; ny: number; dia: number; rows?: number };
 }
 
 export interface SlabAdopted { bottomX: MeshBars; bottomY: MeshBars; topX: MeshBars; topY: MeshBars }
@@ -67,6 +67,8 @@ export interface RcSheetsData {
   seismic?: boolean;
   /** Beams whose span bars rise over the supports to carry the hogging moment there. */
   bentBars?: boolean;
+  /** Lines laid out with bent bars or without them whatever `bentBars` says, by line key. */
+  bentLines?: Record<string, boolean>;
   /** Slabs whose span bars, every other one, rise over both supports in the level plan. */
   slabBentBars?: boolean;
   /** The bending schedule: waste on the order (a fraction, 0.1 when absent) and where equal bars share a mark ('element' when absent). */

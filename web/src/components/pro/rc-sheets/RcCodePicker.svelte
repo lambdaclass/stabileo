@@ -1,7 +1,8 @@
 <script lang="ts">
   import { t } from '../../../lib/i18n';
   import { modelStore } from '../../../lib/store';
-  import { setSheetCode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { changeSheetCode } from '../../../lib/store/rc-sheets-view.svelte';
   import { SHEET_CODE_LIST, SHEET_CODES, type SheetCode } from '../../../lib/rc-sheets/types';
 
   let { compact = false }: { compact?: boolean } = $props();
@@ -10,7 +11,7 @@
 
 <label class="rcc" class:compact title={t('rcSheets.codeHint')}>
   <span>{t('rcSheets.code')}</span>
-  <select value={code} onchange={(e) => setSheetCode(e.currentTarget.value as SheetCode)} data-testid="rc-code-select">
+  <select value={code} onchange={(e) => void changeSheetCode(e.currentTarget.value as SheetCode)} data-testid="rc-code-select">
     {#each SHEET_CODE_LIST as c (c)}<option value={c}>{SHEET_CODES[c].name} · {t(`rcSheets.country.${SHEET_CODES[c].country}`)}</option>{/each}
   </select>
 </label>

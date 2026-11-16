@@ -150,13 +150,12 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(wallFig.getByTestId('rc-wall-elev-vertical')).toHaveCount(0);
   await expect(wallFig.getByTestId('rc-wall-elev-horizontal')).toHaveCount(1);
 
-  // The code is switched from the sheets themselves: the rows say they are out of date, and every family is designed again to it on asking; the choice is the project's.
+  // The code is switched from the sheets themselves: every family is designed again to it at once; the choice is the project's.
   const picker = ws.getByTestId('rc-code').getByTestId('rc-code-select');
   for (const [code, clause] of [['en1992-1-1', '9.2.1.3, 6.1'], ['bs-en1992-1-1', '9.2.1.3, 6.1'], ['ts500-2000', '7.1, 7.3'], ['aci318-19', '§9.7.3, §22.2']] as const) {
     await picker.selectOption(code);
-    await expect(ws.getByTestId('rc-stale')).toBeVisible();
-    await ws.getByTestId('rc-redesign').click();
-    await expect(ws.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
+    await expect(ws.getByTestId('rc-progress')).toHaveCount(0, { timeout: 60_000 });
+    await expect(ws.getByTestId('rc-stale')).toHaveCount(0);
     await ws.getByTestId('rc-tab-beam').click();
     await expect(ws.getByTestId('rc-row').first()).toBeVisible();
     await ws.getByTestId('rc-row').first().click();

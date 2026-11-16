@@ -4,14 +4,15 @@
  * steps that let the page draw between them (`sheetRowsSteps`), with how many are done of how many
  * (`sheetsRun.progress`). When the results, the model's members or the design data change after
  * that, the rows say they are out of date (`sheetsStale`) until designed again; nothing is designed
- * again by itself. A bar layout adopted in the sheets is their own edit: the rows follow it at
+ * again by itself but for a change of code (`changeSheetCode`). A bar layout adopted in the sheets is their own edit: the rows follow it at
  * once, each row from its cache.
  */
 import { i18n } from '../i18n';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { nextFrame } from './mesh-progress.svelte';
-import { buildSheetRows, rcSheetsData, sheetRowsSteps, type SheetProgress, type SheetRows } from './rc-sheets.svelte';
+import { buildSheetRows, rcSheetsData, setSheetCode, sheetCode, sheetRowsSteps, type SheetProgress, type SheetRows } from './rc-sheets.svelte';
+import type { SheetCode } from '../rc-sheets/types';
 import { designData } from './design-data';
 import { activeResultSet3D } from './active-results';
 import { decimalFor, makeFmt } from '../rc-sheets/format';
@@ -33,12 +34,12 @@ const setProgress = (p: SheetProgress | null) => { sheetsProgress.now = p; };
 
 function stampNow(): Stamp {
   void modelStore.designData;
-  const { adopted, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, schedule: _schedule, ...sheets } = rcSheetsData();
+  const { adopted, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
   const { rcSheets: _, ...rest } = designData() as { rcSheets?: unknown };
   return {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
     results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,
-    design: JSON.stringify({ rest, sheets }), adopted: JSON.stringify(adopted ?? null), locale: i18n.locale,
+    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify(adopted ?? null), locale: i18n.locale,
   };
 }
 
@@ -79,6 +80,13 @@ export async function designSheets(): Promise<void> {
   } finally {
     if (id === runId) setProgress(null);
   }
+}
+
+/** Design to another code: at once when there are results, the rows edited by hand kept; the code in force already changes nothing. */
+export async function changeSheetCode(code: SheetCode): Promise<void> {
+  if (code === sheetCode()) return;
+  setSheetCode(code);
+  if (resultsStore.results3D) await designSheets();
 }
 
 /** Forget the rows (a new project): the sheets ask to be designed again. */

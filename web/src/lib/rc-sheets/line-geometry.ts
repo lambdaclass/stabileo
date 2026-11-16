@@ -55,9 +55,9 @@ export function stirrupPositions(line: Pick<LineLayout, 'spans' | 'zones'>, ever
   });
 }
 
-/** The axes an extra bar's ends are set out from and its distance to each, m; none for a continuous bar. */
+/** The axes an extra bar's ends are set out from and its distance to each, m; none for a continuous bar, nor a bent one, which is given by its legs. */
 export function setOut(line: Spans, bar: Pick<LineBar, 'kind' | 'from' | 'to'>): { axes: [number, number]; d: [number, number] } | null {
-  if (bar.kind === 'continuous') return null;
+  if (bar.kind === 'continuous' || bar.kind === 'bent') return null;
   const mid = (bar.from + bar.to) / 2;
   if (bar.kind === 'support') {
     const xs = lineSupports(line).reduce((p, q) => (Math.abs(q - mid) < Math.abs(p - mid) ? q : p));
@@ -65,6 +65,69 @@ export function setOut(line: Spans, bar: Pick<LineBar, 'kind' | 'from' | 'to'>):
   }
   const s = line.spans[spanIndexAt(line, mid)]!;
   return { axes: [s.x0, s.x1], d: [bar.from - s.x0, s.x1 - bar.to] };
+}
+
+/** A bent bar's straight legs but its hooks, each with its length and where its middle stands in the bar's plane, m. */
+export function bentLegs(bar: Pick<LineBar, 'shape' | 'hooks'>): Array<{ length: number; at: [number, number] }> {
+  const p = bar.shape.pts;
+  const legs = p.slice(1).map((q, i) => ({ length: Math.hypot(q[0] - p[i]![0], q[1] - p[i]![1]), at: [(q[0] + p[i]![0]) / 2, (q[1] + p[i]![1]) / 2] as [number, number] }));
+  return legs.slice(bar.hooks[0] ? 1 : 0, legs.length - (bar.hooks[1] ? 1 : 0));
+}
+
+/** The line's extra bars as its table row writes them: each support's top bars and each span's bottom bars, the bent bars that work there marked `bentWord`. */
+export function extraBarsText(line: Pick<LineLayout, 'spans' | 'bars' | 'adopted'>, bentWord: string): { supports: string; spans: string } {
+  const bent = line.bars.filter((b) => b.kind === 'bent');
+  const add = (own: string, at: (b: LineBar) => boolean) => [own, ...bent.filter(at).map((b) => `${b.bars.count}Ø${b.bars.dia} ${bentWord}`)].filter(Boolean).join(' + ');
+  const supports = lineSupports(line).map((xs, j) => {
+    const g = line.adopted.supportTop[j];
+    const text = add(g?.count ? `${g.count}Ø${g.dia}` : '', (b) => barActsAt(b, 'top', xs, 1e-6));
+    return text ? `${j + 1}: ${text}` : '';
+  });
+  const spans = line.spans.map((s, k) => {
+    const g = line.adopted.spanBottom[k];
+    const text = add(g?.count ? `${g.count}Ø${g.dia}` : '', (b) => barActsAt(b, 'bottom', (s.x0 + s.x1) / 2, 1e-6));
+    return text ? `${k + 1}: ${text}` : '';
+  });
+  return { supports: supports.filter(Boolean).join(' · ') || '—', spans: spans.filter(Boolean).join(' · ') || '—' };
+}
+
+/**
+ * Labels along one row kept apart: each as near its wanted place as it can stand at least `gap`
+ * from the next and `fixedGap` from every fixed thing on the row (a cut, a mark of another row).
+ * Returns the places in the order the labels were given.
+ */
+export function placeLabels(wanted: readonly number[], gap: number, fixed: readonly number[] = [], fixedGap = gap): number[] {
+  const order = wanted.map((x, i) => ({ x, i })).sort((p, q) => p.x - q.x || p.i - q.i);
+  const out = new Array<number>(wanted.length);
+  let prev = -Infinity;
+  for (const { x, i } of order) {
+    let at = Math.max(x, prev + gap);
+    for (let guard = 0; guard < fixed.length + 1; guard++) {
+      const hit = fixed.find((f) => Math.abs(f - at) < fixedGap - 1e-9);
+      if (hit === undefined) break;
+      const left = hit - fixedGap;
+      at = left >= prev + gap - 1e-9 && x - left <= hit + fixedGap - x ? left : hit + fixedGap;
+    }
+    out[i] = at;
+    prev = at;
+  }
+  return out;
+}
+
+/** Where each bar's mark stands along the line, m: over the middle of its longest piece, the marks of a face at least `gap` apart. */
+export function markPlaces(line: Spans & Pick<LineLayout, 'bars'>, gap: number): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const face of ['top', 'bottom'] as const) {
+    const list = line.bars.filter((b) => b.face === face).flatMap((b) => {
+      const t = barTrace(line, b);
+      if (!t.length) return [];
+      const g = t.reduce((a, c) => (c.to - c.from > a.to - a.from ? c : a));
+      return [{ mark: b.mark, x: (g.from + g.to) / 2 }];
+    });
+    const xs = placeLabels(list.map((m) => m.x), gap);
+    list.forEach((m, i) => out.set(m.mark, xs[i]!));
+  }
+  return out;
 }
 
 /** The marks of the bars a face has at x along the line. */

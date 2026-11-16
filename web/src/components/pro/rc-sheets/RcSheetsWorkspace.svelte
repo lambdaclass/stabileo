@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { extraBarsText } from '../../../lib/rc-sheets/line-geometry';
   import { t, tp, i18n } from '../../../lib/i18n';
   import { adoptAll, downloadRcSheets, type SheetRow, type SheetRows } from '../../../lib/store/rc-sheets.svelte';
   import { designSheets, followSheetEdits, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
@@ -172,12 +173,13 @@
               <td class="nm">{r.name}{#if !r.isAdopted}<span class="tag" title={t('rcSheets.showingProposal')}>P</span>{:else if edited.has(r.key)}<span class="tag" title={t('rcSheets.editedByHand')} data-testid="rc-edited-tag">✎</span>{/if}</td>
               <td>{r.level ?? ''}</td>
               {#if r.family === 'line'}
+                {@const extra = extraBarsText(r, t('rcSheets.line.bentShort'))}
                 <td class="n">{r.spans.length}</td>
                 <td class="n">{f2(r.length)}</td>
                 <td>{r.adopted.bottom.count} Ø{r.adopted.bottom.dia}</td>
                 <td>{r.adopted.top.count} Ø{r.adopted.top.dia}</td>
-                <td>{r.adopted.supportTop.map((g, j) => (g.count ? `${j + 1}: ${g.count}Ø${g.dia}` : '')).filter(Boolean).join(' · ') || '—'}</td>
-                <td>{r.adopted.spanBottom.map((g, k) => (g.count ? `${k + 1}: ${g.count}Ø${g.dia}` : '')).filter(Boolean).join(' · ') || '—'}</td>
+                <td data-testid="rc-line-supports">{extra.supports}</td>
+                <td data-testid="rc-line-spans">{extra.spans}</td>
                 <td>{[...new Set((r.adopted.stirrups ?? []).map((x) => stirrupsLabel(x)))].join(' · ')}</td>
                 <td class="n">{fmt(r.utilization, 2)}</td>
               {:else if r.family === 'beam'}

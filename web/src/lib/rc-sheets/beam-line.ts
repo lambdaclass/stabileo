@@ -440,13 +440,15 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     const row1 = code.stirrupMax(c, s.b, s.d, st.dia);
     const sMid = roundDown(Math.min(row1, s.row.req.sMax > 0 ? Math.max(s.row.req.sMax, st.spacing) : row1));
     const extra = lastCuts.some((x) => x.legality === 'extraStirrups' && x.x >= s.x0 - 1e-6 && x.x <= s.x0 + s.L + 1e-6);
-    if (extra || !s.row.req.torsionNeglected || sMid <= st.spacing + 1e-9 || !env1.length) return whole;
+    const tLimit = s.row.req.torsionNeglected ? Infinity : s.row.req.tuNeglect;
+    if (extra || tLimit === undefined || sMid <= st.spacing + 1e-9 || !env1.length) return whole;
     const phiVnMid = code.shear(c, query(s, [a.bottom], [a.top], st.dia, false), { ...st, spacing: sMid }).design;
-    const need = env1.filter((e) => e.v > phiVnMid + 1e-6);
+    const needs = (e: (typeof env1)[number]) => e.v > phiVnMid + 1e-6 || (e.t ?? Infinity) > tLimit + 1e-6;
+    const need = env1.filter(needs);
     const left = need.filter((e) => e.x < s.L / 2), right = need.filter((e) => e.x >= s.L / 2);
     const xa = Math.max(faceL, left.length ? step(Math.max(...left.map((e) => e.x)) + 0.05) : 0);
     const xb = Math.min(faceR, right.length ? s.L - step(s.L - Math.min(...right.map((e) => e.x)) + 0.05) : s.L);
-    if (xa >= xb - 0.1) return whole;
+    if (xa >= xb - 0.1 || !env1.some((e) => e.x > xa && e.x < xb && !needs(e))) return whole;
     return [
       ...(xa > faceL + 1e-6 ? [{ span: k, from: s.x0 + faceL, to: s.x0 + xa, stirrups: st }] : []),
       { span: k, from: s.x0 + xa, to: s.x0 + xb, stirrups: { ...st, spacing: sMid } },
