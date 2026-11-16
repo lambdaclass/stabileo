@@ -1,8 +1,10 @@
+import { checkDeclaredSteelMember } from './helpers/declared-demands';
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it, vi } from 'vitest';
 import * as steelKernel from '../codes/argentina/cirsoc301-kernel';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { checkSteelInteraction, interactionRatios, verifySteelElement, type SteelDesignParams } from '../codes/argentina/cirsoc301';
-import { checkSteelMember, steelDemandOf, checkVariableSteelMember, type SteelMemberDemand } from '../verification-service';
+import { steelDemandOf, checkVariableSteelMember, type SteelMemberDemand } from '../verification-service';
 import { normalizeCirsoc301 } from '../design-check-results';
 import { maskAxialDemand } from '../design/behaviour-demands';
 import { profileByName, profileToSectionFull } from '../../data/steel-profiles';
@@ -12,7 +14,7 @@ import type { ElementStationResult } from '../station-design-forces';
 const section = { ...profileToSectionFull(profileByName('IPE 300')!), fabrication: 'rolled' as const };
 const steel = { fy: 250, fu: 400, e: 200000 };
 const lengths = { L: 8, Lb: 8, loadPosition: 'web' as const };
-const packet = (n: number, m: number, comboId = 1, axis: 'My' | 'Mz' = 'My') => ConcurrentDemand.fromTuples([{
+const packet = (n: number, m: number, comboId = 1, axis: 'My' | 'Mz' = 'My') => declaredTestDemands([{
   comboId, comboName: `comb ${comboId}`, forces: { n, my: axis === 'My' ? m : 0, mz: axis === 'Mz' ? m : 0,
     vy: 0, vz: 0, torsion: 0, t: 0.5, x: 4 },
 }])[0]!;
@@ -28,7 +30,7 @@ const params: SteelDesignParams = { Fy: steel.fy, Fu: steel.fu, E: steel.e, A: s
 
 it('#1316 — held D.2 retains maximum tension and its own combination apart from interaction', () => {
   const a = packet(100, 0, 1), b = packet(40, 60, 2);
-  const v = checkSteelMember(1, demand([a, b], 0, 100), section, steel, lengths)!;
+  const v = checkDeclaredSteelMember(1, demand([a, b], 0, 100), section, steel, lengths)!;
   expect(v.tension!.Pu).toBe(100);
   expect(v.governingCombos).toMatchObject({ tension: { comboId: 1 }, interaction: { comboId: 2 } });
   const row = normalizeCirsoc301([v], new Map())[0]!.checks.find(c => c.name === 'Tension')!;
@@ -40,9 +42,9 @@ for (const connected of [false, true]) {
   it(`#2080 — tension and shear maxima survive order reversal with connection=${connected}`, () => {
     const a = packet(100, 0, 1), b = packet(40, 60, 2);
     const len = connected ? { ...lengths, tensionConnection: { resolved: { Ae: section.a!, steps: [] } } } : lengths;
-    const v = checkSteelMember(1, demand([b, a], 0, 100), section, steel, len)!;
+    const v = checkDeclaredSteelMember(1, demand([b, a], 0, 100), section, steel, len)!;
     expect(v.tension!.Pu).toBe(100);
-    const single = checkSteelMember(1, demand([a], 0, 100), section, steel, len)!;
+    const single = checkDeclaredSteelMember(1, demand([a], 0, 100), section, steel, len)!;
     expect(v.tension).toEqual(single.tension);
   });
 }
@@ -75,13 +77,13 @@ for (const n of [-100, 100]) {
   for (const entry of ['concurrent', 'tuples', 'stations'] as const) {
     it(`#2080 — ${entry} preserves interior signed axial ${n} with zero endpoint envelopes`, () => {
       const d = packet(n, 20);
-      const expected = checkSteelMember(1, demand([d], Math.max(0, -n), Math.max(0, n)), section, steel, lengths)!;
+      const expected = checkDeclaredSteelMember(1, demand([d], Math.max(0, -n), Math.max(0, n)), section, steel, lengths)!;
       const stations: ElementStationResult = { elementId: 1, length: 8, stationTs: [0.5],
         comboResults: [{ comboId: 1, comboName: 'comb 1', stations: [{ ...d.forces }] }] };
       const input = entry === 'stations' ? steelDemandOf(ef, undefined, stations) : entry === 'tuples'
         ? { ...demand([]), concurrent: undefined, tuples: [{ N: -n, MStrong: 20, MWeak: 0, VStrong: 0, VWeak: 0, comboId: 1, comboName: 'comb 1', t: 0.5 }] }
         : demand([d]);
-      const v = checkSteelMember(1, input, section, steel, lengths)!;
+      const v = checkDeclaredSteelMember(1, input, section, steel, lengths)!;
       expect(v.interaction!.ratio).toBe(expected.interaction!.ratio);
       expect(n < 0 ? v.compression!.Pu : v.tension!.Pu).toBe(Math.abs(n));
     });
@@ -92,7 +94,7 @@ for (const behaviour of ['tensionOnly', 'cable', 'compressionOnly', undefined]) 
   it(`#2080 — explicit behaviour ${behaviour} masks tuples and packets together`, () => {
     const ds = [packet(-100, 0, 1), packet(100, 0, 2)];
     const input = maskAxialDemand(demand(ds, 100, 100), behaviour);
-    const v = checkSteelMember(1, input, section, steel, lengths)!;
+    const v = checkDeclaredSteelMember(1, input, section, steel, lengths)!;
     expect(!!v.compression).toBe(behaviour !== 'tensionOnly' && behaviour !== 'cable');
     expect(!!v.tension).toBe(behaviour !== 'compressionOnly');
     const stations: ElementStationResult = { elementId: 1, length: 8, stationTs: [0.5],
@@ -104,15 +106,15 @@ for (const behaviour of ['tensionOnly', 'cable', 'compressionOnly', undefined]) 
 }
 
 it('#2080 — flexure attribution follows utilization with its own Cb instead of the moment envelope', () => {
-  const seed = checkSteelMember(1, demand([packet(-1, 1)], 1), section, steel, lengths)!;
+  const seed = checkDeclaredSteelMember(1, demand([packet(-1, 1)], 1), section, steel, lengths)!;
   const M = 0.5 * seed.flexureZ.phiMn;
   const ts = [0, 0.25, 0.5, 0.75, 1];
   const stations: ElementStationResult = { elementId: 1, length: 8, stationTs: ts, comboResults: [
     { comboId: 1, comboName: 'uniform', stations: ts.map(t => ({ ...packet(0, M).forces, t, x: 8 * t })) },
     { comboId: 2, comboName: 'end moment', stations: ts.map(t => ({ ...packet(0, t === 0 ? 1.8 * M : 0).forces, t, x: 8 * t })) },
   ] };
-  const actual = checkSteelMember(1, steelDemandOf(ef, undefined, stations), section, steel, lengths)!;
-  const own = stations.comboResults.map(c => checkSteelMember(1, steelDemandOf(ef, undefined, { ...stations, comboResults: [c] }), section, steel, lengths)!);
+  const actual = checkDeclaredSteelMember(1, steelDemandOf(ef, undefined, stations), section, steel, lengths)!;
+  const own = stations.comboResults.map(c => checkDeclaredSteelMember(1, steelDemandOf(ef, undefined, { ...stations, comboResults: [c] }), section, steel, lengths)!);
   expect(own[0]!.flexureZ.ratio).toBeGreaterThan(own[1]!.flexureZ.ratio);
   expect(actual.flexureZ.ratio).toBe(own[0]!.flexureZ.ratio);
   expect(actual.governingCombos!.flexure!.comboId).toBe(1);
@@ -120,7 +122,7 @@ it('#2080 — flexure attribution follows utilization with its own Cb instead of
 
 for (const reverse of [false, true]) {
   it(`#2080 — independent shear and axial checks keep separate maxima, reversed=${reverse}`, () => {
-    const ds = ConcurrentDemand.fromTuples([
+    const ds = declaredTestDemands([
       { comboId: 1, comboName: 'tension', forces: { ...packet(100, 0).forces, vz: 1, vy: 2 } },
       { comboId: 2, comboName: 'strong shear', forces: { ...packet(40, 20).forces, vz: 40, vy: 3 } },
       { comboId: 3, comboName: 'weak shear', forces: { ...packet(-60, 0).forces, vz: 2, vy: 30 } },
@@ -128,7 +130,7 @@ for (const reverse of [false, true]) {
     const input = demand(reverse ? ds.reverse() : ds, 60, 100);
     const len = { ...lengths, tensionConnection: { resolved: { Ae: section.a!, steps: [] } } };
     for (const screen of [false, true]) {
-      const v = checkSteelMember(1, input, section, steel, len, undefined, { screen })!;
+      const v = checkDeclaredSteelMember(1, input, section, steel, len, undefined, { screen })!;
       expect(v.tension!.Pu).toBe(100);
       expect(v.compression!.Pu).toBe(60);
       expect(v.shear.Vu).toBe(40);
@@ -147,7 +149,7 @@ it('known wrong result: #2080 concurrent steel stations use a batch whole-member
   const ds = Array.from({ length: 64 }, (_, i) => packet(-i, i + 1, i + 1));
   const calls = vi.spyOn(steelKernel, 'engineCheckMembers');
   try {
-    const v = checkSteelMember(1, demand(ds, 63), section, steel, lengths)!;
+    const v = checkDeclaredSteelMember(1, demand(ds, 63), section, steel, lengths)!;
     expect(v.compression!.Pu).toBe(63);
     expect(calls).toHaveBeenCalledTimes(2);
   } finally { calls.mockRestore(); }

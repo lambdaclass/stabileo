@@ -1,3 +1,4 @@
+import { checkDeclaredSteelMember } from '../../__tests__/helpers/declared-demands';
 import { manualSteelDemand } from '../../__tests__/helpers/manual-interactions';
 /**
  * The model's end connections reach the CIRSOC 301 tension check, travel with the member
@@ -5,7 +6,7 @@ import { manualSteelDemand } from '../../__tests__/helpers/manual-interactions';
  * rupture still NOT EVALUATED.
  */
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { checkSteelMember, resolveTensionEnds, type SteelMemberDemand } from '../../verification-service';
+import { resolveTensionEnds, type SteelMemberDemand } from '../../verification-service';
 import { verdictFor } from '../profile-optimise';
 import { memberEndsFor, type EndConnection } from '../tension-connection';
 import { profileToSectionFull, PROFILE_FAMILIES } from '../../../data/steel-profiles';
@@ -27,7 +28,7 @@ describe('CIRSOC 301 D.2(b) from the model connection', () => {
   const ends = (j?: EndConnection) => [{ elementId: 1, end: 'i' as const, connection: flanges }, { elementId: 1, end: 'j' as const, connection: j }];
 
   it('both ends described: rupture is evaluated on Ae = An·U', () => {
-    const v = checkSteelMember(1, manualSteelDemand({ ...noDemand, Nt: 300 }), IPE200, steel, { L: 3, Lb: 3, tensionEnds: ends(flanges) })!;
+    const v = checkDeclaredSteelMember(1, manualSteelDemand({ ...noDemand, Nt: 300 }), IPE200, steel, { L: 3, Lb: 3, tensionEnds: ends(flanges) })!;
     expect(v.tension?.notEvaluated).toBeUndefined();
     // Ae = 2170·0,76945 = 1669,7 mm²; φPn = 0,75·360·1669,7/1000 = 450,8 kN < 0,9·235·2850/1000 = 602,8
     expect(v.tension!.phiPn).toBeCloseTo(0.75 * 360 * 1669.7 / 1000, 0);
@@ -39,7 +40,7 @@ describe('CIRSOC 301 D.2(b) from the model connection', () => {
   });
 
   it('an end left undescribed keeps the check NOT EVALUATED, naming the end', () => {
-    const v = checkSteelMember(1, manualSteelDemand({ ...noDemand, Nt: 300 }), IPE200, steel, { L: 3, Lb: 3, tensionEnds: ends(undefined) })!;
+    const v = checkDeclaredSteelMember(1, manualSteelDemand({ ...noDemand, Nt: 300 }), IPE200, steel, { L: 3, Lb: 3, tensionEnds: ends(undefined) })!;
     expect(v.tension?.notEvaluated).toMatch(/falta la union extrema.*extremo J/);
     // held, not failed: a refused check is never a pass and proves no failure (`cirsoc301-verdict.ts`).
     expect(v.overallStatus).toBe('held');
@@ -58,7 +59,7 @@ describe('CIRSOC 301 D.2(b) from the model connection', () => {
     expect(Number.isFinite(small!.ratio)).toBe(true);
     expect(big!.ratio).toBeLessThan(small!.ratio);
     // And a candidate's own An: the check with the candidate's section equals a direct one.
-    const direct = checkSteelMember(1, members[0]!.demand, profileToSectionFull(PROFILE_FAMILIES.IPE[2]!), steel, members[0]!.lengths)!;
+    const direct = checkDeclaredSteelMember(1, members[0]!.demand, profileToSectionFull(PROFILE_FAMILIES.IPE[2]!), steel, members[0]!.lengths)!;
     expect(direct.tension!.ratio).toBeCloseTo(small!.ratio, 9);
   });
 });

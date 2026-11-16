@@ -1,5 +1,5 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { checkFlexure, prepareElementVerification, verifyElement, type ConcurrentVerificationInput } from '../codes/argentina/cirsoc201';
 import { checkFlexureFlanged } from '../codes/argentina/cirsoc201-flanged';
@@ -18,7 +18,7 @@ for (const edition of ['2005', '2025'] as const) {
   }
   for (const axis of ['My', 'Mz'] as const) for (const elementType of ['beam', 'column', 'wall'] as const) {
     it(`#2080 ${edition} ${axis} ${elementType} keeps required and provided strains distinct`, () => {
-      const inputs: ConcurrentVerificationInput[] = ConcurrentDemand.fromTuples([20, 100].map((m, i) => ({ comboId: i + 1, comboName: `C${i + 1}`,
+      const inputs: ConcurrentVerificationInput[] = declaredTestDemands([20, 100].map((m, i) => ({ comboId: i + 1, comboName: `C${i + 1}`,
         forces: { t: 0.5, x: 2, n: 0, my: m, mz: m, vy: 1, vz: 1, torsion: 0 } })))
         .map(d => ({ elementId: 1, elementType, edition, demand: d.section(axis), b: 0.4, h: 0.4, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 }));
       const required = inputs.map(i => verifyElement(i).flexure);
@@ -40,7 +40,7 @@ for (const edition of ['2005', '2025'] as const) {
 
 for (const edition of ['2005', '2025'] as const) for (const delta of [-1e-8, 0, 1e-8]) {
   it(`#2080 ${edition} shared minimum boundary ${delta}`, () => {
-    const demand = ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'zero', forces: { t: 0, x: 0, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: 0 } }])[0]!;
+    const demand = declaredTestDemands([{ comboId: 1, comboName: 'zero', forces: { t: 0, x: 0, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: 0 } }])[0]!;
     const i: ConcurrentVerificationInput = { elementId: 1, elementType: 'beam', edition, demand: demand.section('My'), b: 0.4, h: 0.4, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 };
     const f = verifyElement(i).flexure;
     const fixed = { ...f, AsProv: f.AsMin + delta };

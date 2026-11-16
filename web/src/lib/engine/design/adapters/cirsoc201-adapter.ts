@@ -1,4 +1,6 @@
-import { hasCompleteConcurrentDemand } from '../../concurrent-demand';
+import { ConcurrentDemand } from '../../concurrent-demand';
+import { completeMemberDemands } from '../../member-demand-gate';
+import { IncompleteConcurrentDemandError, type IncompleteDemandDiagnostic } from '../../complete-demand-set';
 /**
  * CIRSOC 201 design-code adapter.
  *
@@ -107,7 +109,16 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
   validateInputs(ctx: MemberContext): InputValidation {
     const blocking: LimitingConstraint[] = [];
     const reasons: DesignReason[] = [];
-    const missingStations = !hasCompleteConcurrentDemand(ctx.stations?.comboResults.map(c => c.stations) ?? []);
+    let diagnostics: readonly IncompleteDemandDiagnostic[] = [];
+    try {
+      completeMemberDemands([{ elementId: ctx.elementId, demands: ctx.demands?.demands ?? [],
+        tuples: ctx.stations ? ConcurrentDemand.fromStations(ctx.stations) : undefined,
+        expectedCombinationIds: ctx.demands?.expectedCombinationIds, stationTs: ctx.demands?.stationTs ?? ctx.stations?.stationTs }], [ctx.elementId]);
+    } catch (error) {
+      if (!(error instanceof IncompleteConcurrentDemandError)) throw error;
+      diagnostics = error.diagnostics;
+    }
+    const missingStations = diagnostics.length > 0;
     for (const b of new Set([...ctx.blocking, ...(missingStations ? ['missingDemand' as const] : [])])) {
       blocking.push(b);
       switch (b) {
@@ -131,7 +142,7 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
       blocking.push('missingMaterial');
       reasons.push({ key: 'design.reason.notConcrete', params: { fc: ctx.material.fc } });
     }
-    return { ok: blocking.length === 0, blocking: [...new Set(blocking)], reasons };
+    return { ok: blocking.length === 0, blocking: [...new Set(blocking)], reasons, diagnostics };
   },
 
   detailingLimits(ctx: MemberContext): DetailingLimits {

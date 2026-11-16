@@ -1,9 +1,9 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { afterEach, expect, it, vi } from 'vitest';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import * as gate from '../codes/argentina/cirsoc201-engine-gate';
 
-const inputs = ConcurrentDemand.fromTuples([1, 2].map(comboId => ({ comboId, comboName: `comb ${comboId}`,
+const inputs = declaredTestDemands([1, 2].map(comboId => ({ comboId, comboName: `comb ${comboId}`,
   forces: { n: 0, my: 0, mz: 20 / comboId, vy: 5, vz: 0, torsion: 0, t: 0, x: 0 },
 }))).map(d => ({ elementId: 1, elementType: 'beam' as const, b: 0.4, h: 0.4, fc: 30, fy: 420,
   cover: 0.025, stirrupDia: 8, demand: d.section('Mz') }));

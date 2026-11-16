@@ -1,3 +1,4 @@
+import { checkDeclaredSteelMember } from '../../__tests__/helpers/declared-demands';
 import { manualSteelDemand } from '../../__tests__/helpers/manual-interactions';
 /**
  * Unbraced lengths, tension apart from compression, and the lightest passing profile — each
@@ -6,7 +7,7 @@ import { manualSteelDemand } from '../../__tests__/helpers/manual-interactions';
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { memberLengths } from '../unbraced-length';
 import { familyByWeight, lightestPassing, verdictFor } from '../profile-optimise';
-import { checkSteelMember, steelGoverningRatio, type SteelMemberDemand } from '../../verification-service';
+import { steelGoverningRatio, type SteelMemberDemand } from '../../verification-service';
 import { profileToSectionFull, PROFILE_FAMILIES } from '../../../data/steel-profiles';
 import { modelStore } from '../../../store/model.svelte';
 import { resultsStore } from '../../../store/results.svelte';
@@ -52,14 +53,14 @@ describe('tension is not checked as compression', () => {
     const sec = profileToSectionFull(PROFILE_FAMILIES.IPE[0]!);
     // Welded through every element, no holes (D.3(1)): the rupture check needs the connection.
     const welded = { L: 6, Lb: 6, tensionConnection: { allElementsConnected: true } };
-    const pull = checkSteelMember(1, manualSteelDemand({ ...noDemand, Nt: 20 }), sec, steel, welded)!;
-    const push = checkSteelMember(1, manualSteelDemand({ ...noDemand, Nc: 20 }), sec, steel, welded)!;
+    const pull = checkDeclaredSteelMember(1, manualSteelDemand({ ...noDemand, Nt: 20 }), sec, steel, welded)!;
+    const push = checkDeclaredSteelMember(1, manualSteelDemand({ ...noDemand, Nc: 20 }), sec, steel, welded)!;
     expect(pull.tension).toBeDefined();
     expect(pull.compression).toBeUndefined();
     expect(steelGoverningRatio(pull)).toBeLessThan(1);
     expect(steelGoverningRatio(push)).toBeGreaterThan(steelGoverningRatio(pull));
     // Without the connection the tension check is refused (D.2(b) cannot be evaluated).
-    const blind = checkSteelMember(1, manualSteelDemand({ ...noDemand, Nt: 20 }), sec, steel, { L: 6, Lb: 6 })!;
+    const blind = checkDeclaredSteelMember(1, manualSteelDemand({ ...noDemand, Nt: 20 }), sec, steel, { L: 6, Lb: 6 })!;
     expect(blind.tension?.notEvaluated).toBeTruthy();
     // held, not failed: a refused check is never a pass and proves no failure (`cirsoc301-verdict.ts`).
     expect(blind.overallStatus).toBe('held');
@@ -67,9 +68,9 @@ describe('tension is not checked as compression', () => {
 
   it('a member that sees both is checked for both and reports the worse', () => {
     const sec = profileToSectionFull(PROFILE_FAMILIES.IPE[3]!);
-    const both = checkSteelMember(1, manualSteelDemand({ ...noDemand, Nc: 50, Nt: 80 }), sec, steel, { L: 4, Lb: 4 })!;
-    const c = checkSteelMember(1, manualSteelDemand({ ...noDemand, Nc: 50 }), sec, steel, { L: 4, Lb: 4 })!;
-    const tn = checkSteelMember(1, manualSteelDemand({ ...noDemand, Nt: 80 }), sec, steel, { L: 4, Lb: 4 })!;
+    const both = checkDeclaredSteelMember(1, manualSteelDemand({ ...noDemand, Nc: 50, Nt: 80 }), sec, steel, { L: 4, Lb: 4 })!;
+    const c = checkDeclaredSteelMember(1, manualSteelDemand({ ...noDemand, Nc: 50 }), sec, steel, { L: 4, Lb: 4 })!;
+    const tn = checkDeclaredSteelMember(1, manualSteelDemand({ ...noDemand, Nt: 80 }), sec, steel, { L: 4, Lb: 4 })!;
     expect(steelGoverningRatio(both)).toBe(Math.max(steelGoverningRatio(c), steelGoverningRatio(tn)));
   });
 });
