@@ -256,3 +256,28 @@ fn issue_2222_saved_3d_certified_demands_refuse_mutated_intervals() {
         assert!(!checked.combinations[0].certified);
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_checked_combinations_report_overflow_before_recovery() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs};
+    let planar = results_2d().remove(0);
+    let spatial = results_3d().remove(0);
+    for factor in [1.0, f64::MAX] {
+        let factors = vec![CombinationFactor { case_id: 1, factor }, CombinationFactor { case_id: 1, factor }];
+        let input = CombinationInput { factors: factors.clone(), cases: vec![CaseEntry { case_id: 1, results: planar.clone() }] };
+        let input3 = CombinationInput3D { factors: factors.clone(), cases: vec![CaseEntry3D { case_id: 1, results: spatial.clone() }], plate_thicknesses: vec![] };
+        let planar_checked = combine_results_checked(&input);
+        let spatial_checked = combine_results_3d(&input3);
+        let spatial_refs = combine_results_3d_refs(&factors, &[(1, &spatial)]);
+        if factor == 1.0 {
+            dedaliano_engine::boundary::require_finite(&planar_checked.unwrap().unwrap()).unwrap();
+            for out in [spatial_checked, spatial_refs] { dedaliano_engine::boundary::require_finite(&out.unwrap().unwrap()).unwrap(); }
+        } else {
+            for error in [planar_checked.unwrap_err(), spatial_checked.unwrap_err(), spatial_refs.unwrap_err()] {
+                assert!(error.contains("non-finite number"), "{error}");
+            }
+            assert!(combine_results(&input).is_none());
+        }
+    }
+}

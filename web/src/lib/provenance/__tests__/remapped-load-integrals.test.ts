@@ -29,3 +29,10 @@ it('#2223 compensated nodal force provenance covers summaries without numerical 
   for (const field of ['base.displacements[0].uz', 'base.elementForces[0].mStart', 'base.reactions[0].rz']) expect(fieldCovered(totals, field, [...nodal])).toBe(false);
   expect(totals.quantities).not.toContain('*');
 });
+
+it.skip('known wrong result: #2222 — compensated force summaries require a model with structural stiffness', () => {
+  for (const structure of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+    for (const analysis of ANALYSIS_KINDS) expect(conditionHolds(totals.when, new Set([structure, `analysis:${analysis}`]))).toBe(true);
+  }
+  for (const analysis of ANALYSIS_KINDS) expect(conditionHolds(totals.when, new Set([`analysis:${analysis}`]))).toBe(false);
+});
