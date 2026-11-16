@@ -186,10 +186,7 @@ pub struct WeldGroupResult {
     pub phi_fnw: f64,
     /// Total weld length (m)
     pub total_length: f64,
-    /// Total EFFECTIVE throat area (m²): Σ 0.707·w·β·l.
     pub total_throat_area: f64,
-    /// Smallest end-loaded length factor β over the segments
-    /// (J2.2b(d)); 1 when no segment is long enough to be reduced.
     #[serde(default = "one")]
     pub min_beta: f64,
 }
@@ -355,6 +352,117 @@ pub fn check_weld_groups(input: &WeldGroupInput) -> Vec<WeldGroupResult> {
     results
 }
 
+struct PhysicalWeldRun<'a> {
+    segments: Vec<&'a WeldSegment>,
+    beta: f64,
+    throat: f64,
+}
+
+pub const AMBIGUOUS_WELD_RUN: &str = "ambiguous physical weld run at a branching endpoint";
+pub const INVALID_WELD_GEOMETRY: &str =
+    "physical weld run requires finite coordinates, finite length and nonnegative size";
+
+fn weld_coordinate_key(value: f64) -> u64 {
+    if value == 0.0 {
+        0
+    } else {
+        value.to_bits()
+    }
+}
+
+fn physical_weld_runs(segments: &[WeldSegment]) -> Result<Vec<PhysicalWeldRun<'_>>, &'static str> {
+    use std::collections::BTreeMap;
+
+    let mut active = Vec::new();
+    for segment in segments {
+        if ![segment.x1, segment.y1, segment.x2, segment.y2, segment.size]
+            .iter()
+            .all(|v| v.is_finite())
+            || segment.size < 0.0
+        {
+            return Err(INVALID_WELD_GEOMETRY);
+        }
+        let length = (segment.x2 - segment.x1).hypot(segment.y2 - segment.y1);
+        if !length.is_finite() {
+            return Err(INVALID_WELD_GEOMETRY);
+        }
+        if length > 0.0 {
+            active.push(segment);
+        }
+    }
+    let point_key = |x: f64, y: f64| (weld_coordinate_key(x), weld_coordinate_key(y));
+    let segment_key = |s: &WeldSegment| {
+        let a = point_key(s.x1, s.y1);
+        let b = point_key(s.x2, s.y2);
+        (
+            a.min(b),
+            a.max(b),
+            weld_coordinate_key(s.size),
+            s.end_loaded.unwrap_or(true),
+        )
+    };
+    active.sort_by_key(|s| segment_key(s));
+    let mut endpoints = BTreeMap::<_, Vec<usize>>::new();
+    for (index, segment) in active.iter().enumerate() {
+        for (x, y) in [(segment.x1, segment.y1), (segment.x2, segment.y2)] {
+            let key = (
+                point_key(x, y),
+                weld_coordinate_key(segment.size),
+                segment.end_loaded.unwrap_or(true),
+            );
+            endpoints.entry(key).or_default().push(index);
+        }
+    }
+    if endpoints.values().any(|neighbors| neighbors.len() > 2) {
+        return Err(AMBIGUOUS_WELD_RUN);
+    }
+    let mut visited = vec![false; active.len()];
+    let mut runs = Vec::new();
+    for start in 0..active.len() {
+        if visited[start] {
+            continue;
+        }
+        let mut pending = vec![start];
+        let mut members = Vec::new();
+        visited[start] = true;
+        while let Some(index) = pending.pop() {
+            let segment = active[index];
+            members.push(index);
+            for (x, y) in [(segment.x1, segment.y1), (segment.x2, segment.y2)] {
+                let key = (
+                    point_key(x, y),
+                    weld_coordinate_key(segment.size),
+                    segment.end_loaded.unwrap_or(true),
+                );
+                for &neighbor in &endpoints[&key] {
+                    if !visited[neighbor] {
+                        visited[neighbor] = true;
+                        pending.push(neighbor);
+                    }
+                }
+            }
+        }
+        members.sort_unstable();
+        let segments: Vec<_> = members.into_iter().map(|index| active[index]).collect();
+        let length: f64 = segments
+            .iter()
+            .map(|s| (s.x2 - s.x1).hypot(s.y2 - s.y1))
+            .sum();
+        if !length.is_finite() {
+            return Err(INVALID_WELD_GEOMETRY);
+        }
+        let size = segments[0].size;
+        let beta = end_loaded_beta(length, size, segments[0].end_loaded.unwrap_or(true));
+        let throat = 0.707 * size.min(length / 4.0) * beta;
+        runs.push(PhysicalWeldRun {
+            segments,
+            beta,
+            throat,
+        });
+    }
+    Ok(runs)
+}
+
 fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> WeldGroupResult {
     let phi = group.phi.unwrap_or(0.75);
 
@@ -362,45 +470,47 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
     let fnw = 0.60 * group.fexx;
     let phi_fnw = phi * fnw;
 
-    // Compute weld properties
+    let runs = match physical_weld_runs(&group.segments) {
+        Ok(runs) => runs,
+        Err(reason) => {
+            return WeldGroupResult {
+                connection_id: group.connection_id,
+                unity_ratio: f64::INFINITY,
+                unevaluated: vec![reason.to_string()],
+                max_weld_stress: f64::NAN,
+                phi_fnw,
+                total_length: 0.0,
+                total_throat_area: 0.0,
+                min_beta: 1.0,
+            }
+        }
+    };
     let mut total_length = 0.0_f64;
     let mut total_throat_area = 0.0_f64;
     let mut weld_cx = 0.0_f64;
     let mut weld_cy = 0.0_f64;
 
-    // Throat = 0.707 * leg size for equal-leg fillet welds
-    struct SegProps {
+    struct SegProps<'a> {
+        segment: &'a WeldSegment,
         length: f64,
-        /// Effective throat (0.707·w·β): β of J2.2b(d) reduces the
-        /// effective length, which for the elastic method is the same as
-        /// thinning the segment's throat uniformly — its area, centroid
-        /// weight and inertia all scale by β, and the stress computed on
-        /// the reduced area is checked against φ·Fnw unchanged.
-        throat: f64,
         throat_area: f64,
         mid_x: f64,
         mid_y: f64,
     }
 
-    let seg_props: Vec<SegProps> = group
-        .segments
+    let seg_props: Vec<_> = runs
         .iter()
-        .map(|s| {
-            let dx = s.x2 - s.x1;
-            let dy = s.y2 - s.y1;
-            let length = (dx * dx + dy * dy).sqrt();
-            let beta = end_loaded_beta(length, s.size, s.end_loaded.unwrap_or(true));
-            let throat = 0.707 * s.size * beta;
-            let throat_area = throat * length;
-            let mid_x = (s.x1 + s.x2) / 2.0;
-            let mid_y = (s.y1 + s.y2) / 2.0;
-            SegProps {
-                length,
-                throat,
-                throat_area,
-                mid_x,
-                mid_y,
-            }
+        .flat_map(|run| {
+            run.segments.iter().map(|&segment| {
+                let length = (segment.x2 - segment.x1).hypot(segment.y2 - segment.y1);
+                SegProps {
+                    segment,
+                    length,
+                    throat_area: run.throat * length,
+                    mid_x: segment.x1 / 2.0 + segment.x2 / 2.0,
+                    mid_y: segment.y1 / 2.0 + segment.y2 / 2.0,
+                }
+            })
         })
         .collect();
 
@@ -411,17 +521,16 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
         weld_cy += sp.throat_area * sp.mid_y;
     }
 
-    let min_beta = group
-        .segments
-        .iter()
-        .zip(&seg_props)
-        .map(|(s, sp)| end_loaded_beta(sp.length, s.size, s.end_loaded.unwrap_or(true)))
-        .fold(1.0_f64, f64::min);
+    let min_beta = runs.iter().map(|run| run.beta).fold(1.0_f64, f64::min);
 
     let m = forces.m.unwrap_or(0.0);
     if !(total_throat_area > 0.0) {
         let loaded = forces.vx != 0.0 || forces.vy != 0.0 || m != 0.0;
-        let (unity_ratio, unevaluated) = if loaded { (f64::INFINITY, vec![NO_THROAT.to_string()]) } else { (0.0, vec![]) };
+        let (unity_ratio, unevaluated) = if loaded {
+            (f64::INFINITY, vec![NO_THROAT.to_string()])
+        } else {
+            (0.0, vec![])
+        };
         return WeldGroupResult {
             connection_id: group.connection_id,
             unity_ratio,
@@ -437,28 +546,11 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
     weld_cx /= total_throat_area;
     weld_cy /= total_throat_area;
 
-    // Polar moment of weld group about centroid (using line property: Ip = sum(A_i * r_i²))
     let mut ip = 0.0_f64;
-    for (i, sp) in seg_props.iter().enumerate() {
-        let seg = &group.segments[i];
-        let throat = sp.throat;
-
-        // Use segment midpoint for simplicity (elastic method approximation)
+    for sp in &seg_props {
         let dx = sp.mid_x - weld_cx;
         let dy = sp.mid_y - weld_cy;
-        ip += sp.throat_area * (dx * dx + dy * dy);
-
-        // Add self-inertia of segment (Ix + Iy about its own centroid)
-        let seg_dx = seg.x2 - seg.x1;
-        let seg_dy = seg.y2 - seg.y1;
-        let self_ix = throat * sp.length * sp.length * sp.length / 12.0;
-        let _norm = sp.length;
-        if sp.length > 0.0 {
-            // Project self-inertia
-            let cos_a = seg_dx / sp.length;
-            let sin_a = seg_dy / sp.length;
-            ip += self_ix * (sin_a * sin_a + cos_a * cos_a); // = self_ix always
-        }
+        ip += sp.throat_area * (dx * dx + dy * dy + sp.length * sp.length / 12.0);
     }
 
     // Direct stress
@@ -468,7 +560,8 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
     // Find max stress point (check segment endpoints)
     let mut max_stress = 0.0_f64;
 
-    for seg in &group.segments {
+    for sp in &seg_props {
+        let seg = sp.segment;
         for (px, py) in [(seg.x1, seg.y1), (seg.x2, seg.y2)] {
             let dx = px - weld_cx;
             let dy = py - weld_cy;
@@ -488,7 +581,13 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
         }
     }
 
-    let (unity_ratio, unevaluated) = group_ratio(max_stress, phi_fnw, [forces.vx, forces.vy, m], ip, WELD_CAPACITY);
+    let (unity_ratio, unevaluated) = group_ratio(
+        max_stress,
+        phi_fnw,
+        [forces.vx, forces.vy, m],
+        ip,
+        WELD_CAPACITY,
+    );
 
     WeldGroupResult {
         connection_id: group.connection_id,
