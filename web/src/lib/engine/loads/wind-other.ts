@@ -125,7 +125,6 @@ export function otherStructureWind(i: {
   }
 
   const zs = [...new Set(nodes.map(Z))].sort((a, b) => a - b);
-  const levelNodes = zs.map(z => nodes.filter(n => Z(n) === z).map(n => n.id));
   const span = (ids: number[], axis: 'x' | 'y') => {
     const v = ids.map(id => model.nodes.get(id)![axis]);
     return v.length ? Math.max(...v) - Math.min(...v) : 0;
@@ -170,27 +169,21 @@ export function otherStructureWind(i: {
       dirsHere.push({ label: `${sign(sx)}X${sign(sy)}Y`, fx: sx * Math.SQRT1_2, fy: sy * Math.SQRT1_2, diagonal: true });
     }
   }
-  // The width the reader gives, for the levels whose nodes span none.
   const given = s.kind === 'chimney' ? s.diameter : s.width;
-  const widthAt = (k: number, d: { fx: number; diagonal: boolean }): number | null => {
-    const across = d.fx !== 0 && !d.diagonal ? 'y' : 'x';
-    const fromNodes = d.diagonal ? Math.max(span(levelNodes[k]!, 'x'), span(levelNodes[k]!, 'y')) : span(levelNodes[k]!, across);
-    if (fromNodes > 0.05) return fromNodes;
-    return given !== undefined && given > 0 ? given : null;
-  };
-  if (zs.some((_z, k) => dirsHere.some((d) => widthAt(k, d) === null))) {
+  const axisFor = (d: typeof dirsHere[number]) => d.diagonal ? (span(nodes.map(n => n.id), 'y') >= span(nodes.map(n => n.id), 'x') ? 'x' : 'y') : d.fx !== 0 ? 'x' : 'y';
+  if (dirsHere.some(d => windHeightWidth(model, axisFor(d), base, H) <= 0.05 && !(given !== undefined && given > 0))) {
     notes.push(msg(s.kind === 'chimney' ? 'wind.other.noDiameter' : 'wind.other.noWidth', { kind: msg(`wind.other.kind.${s.kind}`) }));
     return { cases, derivation, notes };
   }
   for (const d of dirsHere) {
-    const axis = d.diagonal ? (span(nodes.map(n => n.id), 'y') >= span(nodes.map(n => n.id), 'x') ? 'x' : 'y') : d.fx !== 0 ? 'x' : 'y';
+    const axis = axisFor(d);
     const G = d.diagonal ? Math.max(gOf('x'), gOf('y')) : gOf(axis);
-    const fieldFor = (minimum: boolean) => windHeightField({ model, axis, from: base, to: H, boundaries: [5, EXPOSURE_CONSTANTS[project.exposure].zg], width: given, pressure: (z, width, measuredWidth) => {
+    const fieldFor = (minimum: boolean) => windHeightField({ model, axis, from: base, to: H, boundaries: [5, EXPOSURE_CONSTANTS[project.exposure].zg], width: given, pressure: (z, width, widthKind) => {
       const q = qz(z);
       let cf: number, solidity = 1, projection = 1;
       if (s.kind === 'latticeTower') { cf = towerCf(s.solidity, s.section, s.round, d.diagonal); solidity = s.solidity; }
       else if (s.kind === 'openSign') { cf = openSignCf(s.solidity, s.members); solidity = s.solidity; }
-      else { cf = chimneyCf(s.section, H / width, width * Math.sqrt(q * 1000)); if (s.section === 'squareDiagonal' && measuredWidth <= 0.05) projection = Math.SQRT2; }
+      else { cf = chimneyCf(s.section, H / width, width * Math.sqrt(q * 1000)); if (s.section === 'squareDiagonal' && widthKind === 'declared') projection = Math.SQRT2; }
       return (minimum ? MIN_OTHER_KNM2 : q * G * cf) * solidity * projection;
     } });
     const field = fieldFor(false), minimum = fieldFor(true);

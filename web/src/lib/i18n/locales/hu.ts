@@ -14562,7 +14562,6 @@ const hu: Translations = {
   "advHelp.mohr.text": "Mohr-kör síkbeli feszültségállapotra, illetve a három Mohr-kör térbeli állapotra. Adja meg a feszültségkomponenseket, vagy vegye át őket a keresztmetszet-vizsgálat valamely szálából: megkapja a főfeszültségeket és főirányokat, a legnagyobb nyírófeszültséget, a feszültséget bármely elforgatott síkon és a von Mises-féle egyenértékű feszültséget. Nem szükséges hozzá kiszámított modell. Ugyanez az eszköz a Stabileo nyilvános eszközei között is elérhető, és mindkettő azonos értékekkel nyitja meg a másikat.",
   "stress.openMohr": "Megnyitás a Mohr-körben",
   "edu.game.open": "Válassza ki a helyes ábrát",
-  "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes.",
   "autoLoad.windWall": "Fal",
   "autoLoad.windRoof": "Tető",
   "autoLoad.windRemoveWall": "Fal eltávolítása",
@@ -14583,6 +14582,7 @@ const hu: Translations = {
   "wind.pressure.distributedTorqueUnsupported": "Ez a szélmező megoszló rúdcsavarást igényel, amelyet a megoldó nem tud ábrázolni.",
   "wind.pressure.carrierPartitionUnresolved": "A fizikai szélteher hatásterületi felosztása nem határozható meg ezekhez a teherviselőkhöz.",
   "wind.other.minimumSignCase": "Szél {dir}, tömör tábla minimális terhe {c} (§4.8)",
+  "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes."
 };
 
 export default hu;

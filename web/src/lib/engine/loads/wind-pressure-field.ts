@@ -80,12 +80,37 @@ export function windHeightLoads(field: WindHeightResult, fx: number, fy: number,
 }
 
 function heightMembers(model: WindModel, from: number, to: number, region?: ReadonlySet<number>) {
-  return [...model.elements.values()].flatMap(e => {
+  const members = [...model.elements.values()].flatMap(e => {
     const p = model.nodes.get(e.nodeI)!, q = model.nodes.get(e.nodeJ)!;
     const a = Z(p) <= Z(q) ? p : q, b = a === p ? q : p;
-    if (Z(b) - Z(a) <= 1e-8 || Z(b) <= from || Z(a) >= to) return [];
-    if (region && !(region.has(a.id) && region.has(b.id)) && !(region.has(b.id) && Z(a) <= from)) return [];
+    if (Z(b) - Z(a) <= 1e-8) return [];
     return [{ a, b, e }];
+  });
+  const at = (m: typeof members[number], z: number) => {
+    const t = (z - Z(m.a)) / (Z(m.b) - Z(m.a));
+    return { x: m.a.x + t * (m.b.x - m.a.x), y: m.a.y + t * (m.b.y - m.a.y) };
+  };
+  const coincides = (p: { x: number; y: number }, q: { x: number; y: number }) => Math.hypot(p.x - q.x, p.y - q.y) <= 64 * Number.EPSILON * Math.max(1, Math.abs(p.x), Math.abs(p.y), Math.abs(q.x), Math.abs(q.y));
+  const chains = members.map(m => {
+    const intervals = members.filter(n => coincides(at(m, Z(n.a)), n.a) && coincides(at(m, Z(n.b)), n.b))
+      .map(n => [Z(n.a), Z(n.b)] as [number, number]).sort((a, b) => a[0] - b[0]);
+    const merged: Array<[number, number]> = [];
+    for (const interval of intervals) {
+      const last = merged[merged.length - 1];
+      if (last && interval[0] <= last[1]) last[1] = Math.max(last[1], interval[1]);
+      else merged.push([...interval]);
+    }
+    const [lo, hi] = merged.find(([lo, hi]) => lo <= Z(m.a) && hi >= Z(m.b))!;
+    const slope = Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y) / (Z(m.b) - Z(m.a));
+    return { m, lo, hi, slope };
+  });
+  return members.filter((m, i) => {
+    if (Z(m.b) <= from || Z(m.a) >= to) return false;
+    if (region && !(region.has(m.a.id) && region.has(m.b.id)) && !(region.has(m.b.id) && Z(m.a) <= from)) return false;
+    const chain = chains[i]!;
+    const legs = chains.filter(c => c.lo <= chain.lo && c.hi >= chain.hi && c.slope < chain.slope - 64 * Number.EPSILON * Math.max(c.slope, chain.slope));
+    const connectsLegs = legs.some(c => coincides(at(c.m, chain.lo), at(m, chain.lo))) && legs.some(c => coincides(at(c.m, chain.hi), at(m, chain.hi)));
+    return !connectsLegs;
   });
 }
 
@@ -95,8 +120,11 @@ const sectionAt = (members: ReturnType<typeof heightMembers>, z: number) => memb
 });
 
 export function windHeightWidth(model: WindModel, axis: 'x' | 'y', from: number, to: number): number {
+  return heightWidth(heightMembers(model, from, to), axis, from, to);
+}
+
+function heightWidth(members: ReturnType<typeof heightMembers>, axis: 'x' | 'y', from: number, to: number): number {
   const cross = axis === 'x' ? 'y' : 'x';
-  const members = heightMembers(model, from, to);
   const cuts = [...new Set([from, to, ...members.flatMap(m => [Z(m.a), Z(m.b)])])].filter(z => z >= from && z <= to).sort((a, b) => a - b);
   let width = 0;
   for (let k = 1; k < cuts.length; k++) {
@@ -139,7 +167,7 @@ export function windHeightField(input: {
   axis: 'x' | 'y';
   from: number;
   to: number;
-  pressure: (z: number, width: number, measuredWidth: number) => number;
+  pressure: (z: number, width: number, widthKind: 'physical' | 'declared') => number;
   boundaries?: readonly number[];
   width?: number;
   region?: ReadonlySet<number>;
@@ -153,6 +181,7 @@ export function windHeightField(input: {
   const memberLoads: WindHeightResult['members'] = [];
   const add = (id: number, f: number) => { const map = Z(model.nodes.get(id)!) <= from ? baseLoads : loads; map.set(id, (map.get(id) ?? 0) + f); };
   const cross = axis === 'x' ? 'y' : 'x';
+  const widthKind = heightWidth(members, axis, from, to) > 0.05 ? 'physical' : 'declared';
   for (let k = 1; k < cuts.length; k++) {
     const lo = cuts[k - 1]!, hi = cuts[k]!, mid = (lo + hi) / 2;
     const active = members.filter(m => Z(m.a) < mid && Z(m.b) > mid);
@@ -161,23 +190,23 @@ export function windHeightField(input: {
       const pts = sectionAt(active, z);
       const coords = [...new Set(pts.map(p => p[cross]))].sort((a, b) => a - b);
       const width = coords[coords.length - 1]! - coords[0]!;
-      const actual = width > 0.05 ? width : input.width;
+      const actual = widthKind === 'physical' ? width : input.width;
       if (!(actual !== undefined && actual > 0)) throw new WindPressureRefusal('wind.pressure.missingWidth');
       const shares = carrierShares(pts);
-      return pts.map((_p, j) => ({ width: actual, measuredWidth: width, share: actual * shares[j]! }));
+      return pts.map((_p, j) => ({ width: actual, share: actual * shares[j]! }));
     };
     const stations = new Map<number, { weights: ReturnType<typeof weights>; torsion: ReturnType<typeof levelLoads> }>();
     const station = (z: number) => {
       if (!stations.has(z)) {
         const w = weights(z);
         const pts = new Map(sectionAt(active, z).map((p, id) => [id, { ...p, id }]));
-        const torque = w.reduce((sum, p) => sum + input.pressure(z, p.width, p.measuredWidth) * p.share, 0);
+        const torque = w.reduce((sum, p) => sum + input.pressure(z, p.width, widthKind) * p.share, 0);
         stations.set(z, { weights: w, torsion: levelLoads(pts, [...pts.keys()], 0, 0, torque) });
       }
       return stations.get(z)!;
     };
     active.forEach((m, j) => {
-      const density = (z: number) => { const w = station(z).weights[j]!; return input.pressure(z, w.width, w.measuredWidth) * w.share; };
+      const density = (z: number) => { const w = station(z).weights[j]!; return input.pressure(z, w.width, widthKind) * w.share; };
       const length = Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y, Z(m.b) - Z(m.a));
       const scale = (Z(m.b) - Z(m.a)) / length;
       const components = [density, ...(['fx', 'fy', 'mz'] as const).map(c => (z: number) => station(z).torsion[j]![c])];

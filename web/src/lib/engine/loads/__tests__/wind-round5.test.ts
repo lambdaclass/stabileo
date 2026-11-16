@@ -4,9 +4,7 @@ import { planWind } from '../load-plan-wind';
 import { levelsWithPlanArea, type LoadModelData, type LoadPlanInput, type PlanSink } from '../load-plan';
 
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
-
-for (const service of [false, true]) knownWrong(`known wrong result: #2220 — the seven-storey wind preview completes all cases service=${service}`, () => {
+for (const service of [false, true]) it(`#2220 — the seven-storey wind preview completes all cases service=${service}`, () => {
   const fixture = JSON.parse(readFileSync('src/lib/templates/fixtures/pro-edificio-7p.json', 'utf8'));
   const model = Object.fromEntries(['nodes', 'elements', 'sections', 'materials', 'quads'].map(k => [k, new Map(fixture[k].map((p: { id: number }) => [p.id, p]))])) as unknown as LoadModelData;
   model.loadCases = fixture.loadCases;
@@ -23,7 +21,7 @@ import { otherStructureWind } from '../wind-other';
 import { windHeightField, windHeightLoads } from '../wind-pressure-field';
 import { mesh, windProject } from './wind-integration-fixture';
 
-for (const split of [false, true]) for (const angle of [0, 0.37, Math.PI / 2]) for (const mirror of [1, -1]) knownWrong(`known wrong result: #2220 — a face diagonal leaves column tributaries intact split=${split} angle=${angle} mirror=${mirror}`, () => {
+for (const split of [false, true]) for (const angle of [0, 0.37, Math.PI / 2]) for (const mirror of [1, -1]) it(`#2220 — a face diagonal leaves column tributaries intact split=${split} angle=${angle} mirror=${mirror}`, () => {
   const model = mesh([0, 2].flatMap(x => [-1, 1].map(y => [[x, y, 0], [x, y, 6]])));
   const brace = model.elements.size + 1;
   const first = model.elements.get(1)!, last = model.elements.get(2)!;
@@ -52,7 +50,7 @@ for (const split of [false, true]) for (const angle of [0, 0.37, Math.PI / 2]) f
   }
 });
 
-for (const entry of ['field', 'other', 'planner'] as const) knownWrong(`known wrong result: #2220 — braced square tower through ${entry}`, () => {
+for (const entry of ['field', 'other', 'planner'] as const) it(`#2220 — braced square tower through ${entry}`, () => {
   const model = mesh([0, 2].flatMap(x => [-1, 1].map(y => [[x, y, 0], [x, y, 6]])));
   model.elements.set(5, { ...model.elements.get(1)!, id: 5, nodeI: 1, nodeJ: 4 });
   let lines: Array<{ elementId: number; a?: number; b?: number; qX?: number; qXJ?: number }>;
@@ -84,7 +82,7 @@ for (const entry of ['field', 'other', 'planner'] as const) knownWrong(`known wr
   }
 });
 
-for (const [bottom, top] of [[0.03, 0.09], [0.03, 0.05], [0.03, 0.049], [0.051, 0.09]]) for (const split of [false, true]) knownWrong(`known wrong result: #2220 — taper uses one width interpretation bottom=${bottom} top=${top} split=${split}`, () => {
+for (const [bottom, top] of [[0.03, 0.09], [0.03, 0.05], [0.03, 0.049], [0.051, 0.09]]) for (const split of [false, true]) it(`#2220 — taper uses one width interpretation bottom=${bottom} top=${top} split=${split}`, () => {
   const model = mesh([-1, 1].map(sign => [[0, sign * bottom! / 2, 0], [0, sign * top! / 2, 6]]));
   if (split) {
     const e = model.elements.get(1)!, nodeId = model.nodes.size + 1;
@@ -105,7 +103,7 @@ for (const [bottom, top] of [[0.03, 0.09], [0.03, 0.05], [0.03, 0.049], [0.051, 
   }
 });
 
-knownWrong('known wrong result: #2220 — crossed face braces and a partial height band keep the four columns', () => {
+it('#2220 — crossed face braces and a partial height band keep the four columns', () => {
   const model = mesh([0, 2].flatMap(x => [-1, 1].flatMap(y => [[[x, y, 0], [x, y, 3]], [[x, y, 3], [x, y, 6]]])));
   model.elements.set(9, { ...model.elements.get(1)!, id: 9, nodeI: 1, nodeJ: 6 });
   model.elements.set(10, { ...model.elements.get(1)!, id: 10, nodeI: 4, nodeJ: 3 });
@@ -122,7 +120,7 @@ it('#2220 a sloping isolated carrier retains its declared physical load', () => 
   expect((lines[0]!.qX + lines[0]!.qXJ!) * (lines[0]!.b - lines[0]!.a) / 2).toBeCloseTo(12, 10);
 });
 
-for (const entry of ['building', 'chimney', 'diagonalChimney', 'latticeTower', 'openSign', 'solidSign'] as const) for (const split of [false, true]) knownWrong(`known wrong result: #2220 taper width stays physical through ${entry} split=${split}`, () => {
+for (const entry of ['building', 'chimney', 'diagonalChimney', 'latticeTower', 'openSign', 'solidSign'] as const) for (const split of [false, true]) it(`#2220 taper width stays physical through ${entry} split=${split}`, () => {
   const model = mesh([-1, 1].map(sign => [[0, sign * 0.015, 0], [0, sign * 0.045, 6]]));
   if (split) {
     const e = model.elements.get(1)!, nodeId = model.nodes.size + 1;

@@ -246,8 +246,7 @@ it('#2220 an oblique grid retains each physical carrier tributary', () => {
   }
 });
 
-const round5Reproducer = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
-for (const kind of ['bracedTower', 'taperCrossing'] as const) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const sign of [1, -1]) round5Reproducer(`known wrong result: #2220 — ${kind} per-carrier response ${variant} spatial=${spatial} nonlinear=${nonlinear} sign=${sign}`, () => {
+for (const kind of ['bracedTower', 'taperCrossing'] as const) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const sign of [1, -1]) it(`#2220 — ${kind} per-carrier response ${variant} spatial=${spatial} nonlinear=${nonlinear} sign=${sign}`, () => {
   const source = kind === 'bracedTower'
     ? mesh([0, 2].flatMap(x => [-1, 1].map(y => [[x, y, 0], [x, y, 6]])))
     : mesh([-1, 1].map(s => [[0, s * 0.015, 0], [0, s * 0.045, 6]]));

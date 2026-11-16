@@ -5,7 +5,7 @@ use serde_json::Value;
 #[test]
 fn issue_2220_generated_pressure_reaches_native_members() {
     let fixtures: Value = serde_json::from_str(include_str!("wind_member_2220.json")).unwrap();
-    assert_eq!(fixtures.as_array().unwrap().len(), 152);
+    assert_eq!(fixtures.as_array().unwrap().len(), 184);
     for case in fixtures.as_array().unwrap() {
         let integral = |station: f64, power: i32| -> f64 {
             case["segments"]
@@ -18,8 +18,13 @@ fn issue_2220_generated_pressure_reaches_native_members() {
                     if b <= a {
                         return 0.0;
                     }
-                    part["q"].as_f64().unwrap() * (b.powi(power + 1) - a.powi(power + 1))
+                    let q = part["q"].as_f64().unwrap();
+                    let start = part["a"].as_f64().unwrap();
+                    let gradient = (part["qJ"].as_f64().unwrap_or(q) - q)
+                        / (part["b"].as_f64().unwrap() - start);
+                    (q - gradient * start) * (b.powi(power + 1) - a.powi(power + 1))
                         / f64::from(power + 1)
+                        + gradient * (b.powi(power + 2) - a.powi(power + 2)) / f64::from(power + 2)
                 })
                 .sum()
         };
@@ -60,6 +65,34 @@ fn issue_2220_generated_pressure_reaches_native_members() {
                     .abs()
                     < 5e-9
             );
+            let tip_coordinate =
+                &case["input"]["nodes"][tip.to_string()][case["axis"].as_str().unwrap()];
+            for displacement in result["displacements"].as_array().unwrap() {
+                let node = displacement["nodeId"].as_u64().unwrap();
+                if &case["input"]["nodes"][node.to_string()][case["axis"].as_str().unwrap()]
+                    != tip_coordinate
+                {
+                    continue;
+                }
+                let element = case["input"]["elements"]
+                    .as_object()
+                    .unwrap()
+                    .iter()
+                    .find(|(_, element)| element["nodeJ"].as_u64() == Some(node))
+                    .unwrap()
+                    .0;
+                let scale = case["scales"][element].as_f64().unwrap_or(1.0);
+                let expected = scale * (3.0 * length * integral(0.0, 2) - integral(0.0, 3))
+                    / (6.0 * 200000.0 * 1000.0 * 1e-4);
+                assert!(
+                    (displacement[case["displacement"].as_str().unwrap()]
+                        .as_f64()
+                        .unwrap()
+                        - expected)
+                        .abs()
+                        < 5e-9
+                );
+            }
             let mut expected_ids: Vec<u64> = case["input"]["elements"]
                 .as_object()
                 .unwrap()
@@ -84,7 +117,8 @@ fn issue_2220_generated_pressure_reaches_native_members() {
                     .to_string();
                 let station = case["input"]["nodes"][&node][case["axis"].as_str().unwrap()]
                     .as_f64()
-                    .unwrap();
+                    .unwrap()
+                    * case["coordinateScale"].as_f64().unwrap_or(1.0);
                 let (shear, moment, torsion) = if case["dimension"] == 2 {
                     ("vStart", "mStart", None)
                 } else if case["axis"] == "z" {
@@ -117,6 +151,47 @@ fn issue_2220_generated_pressure_reaches_native_members() {
                 );
                 if let Some(key) = torsion {
                     assert!(force[key].as_f64().unwrap().abs() < 5e-11);
+                }
+                for t in [0.2, 0.5, 0.8] {
+                    let at = station + t * force["length"].as_f64().unwrap();
+                    let expected_shear = scale * shear_sign * integral(at, 0);
+                    let expected_moment =
+                        scale * moment_sign * (integral(at, 1) - at * integral(at, 0));
+                    let (actual_shear, actual_moment) = if case["dimension"] == 2 {
+                        let member = serde_json::from_value(force.clone()).unwrap();
+                        (
+                            dedaliano_engine::postprocess::diagrams::compute_diagram_value_at(
+                                "shear", t, &member,
+                            ),
+                            dedaliano_engine::postprocess::diagrams::compute_diagram_value_at(
+                                "moment", t, &member,
+                            ),
+                        )
+                    } else {
+                        let member = serde_json::from_value(force.clone()).unwrap();
+                        let (shear, moment) = if case["axis"] == "z" {
+                            ("shearY", "momentZ")
+                        } else {
+                            ("shearZ", "momentY")
+                        };
+                        assert!(
+                            dedaliano_engine::postprocess::diagrams_3d::evaluate_diagram_3d_at(
+                                &member, "torsion", t
+                            )
+                            .abs()
+                                < 5e-11
+                        );
+                        (
+                            dedaliano_engine::postprocess::diagrams_3d::evaluate_diagram_3d_at(
+                                &member, shear, t,
+                            ),
+                            dedaliano_engine::postprocess::diagrams_3d::evaluate_diagram_3d_at(
+                                &member, moment, t,
+                            ),
+                        )
+                    };
+                    assert!((actual_shear - expected_shear).abs() < 5e-9);
+                    assert!((actual_moment - expected_moment).abs() < 5e-9);
                 }
             }
         }

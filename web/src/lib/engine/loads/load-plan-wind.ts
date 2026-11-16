@@ -24,7 +24,10 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
   const work = { ...sink, cases: [...sink.cases], nodal: [...sink.nodal], distributed: [...sink.distributed], derivation: [...sink.derivation], refs: [...sink.refs], assumptions: [...sink.assumptions], unsupportedKeys: [...sink.unsupportedKeys], blockedKeys: [...sink.blockedKeys] };
   try {
     const result = planWindUnchecked(input, levels, work);
-    for (const key of keys) (sink[key] as unknown[]).push(...work[key].slice(sink[key].length));
+    for (const key of keys) {
+      const target = sink[key] as unknown[];
+      for (let i = target.length; i < work[key].length; i++) target.push(work[key][i]);
+    }
     return result;
   } catch (error) {
     if (!(error instanceof WindPressureRefusal)) throw error;
