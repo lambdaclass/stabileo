@@ -1,9 +1,10 @@
 import { CIRSOC_LINE, type LineCode } from './beam-line';
+import { bentBarMandrel } from '../codes/cirsoc201/bar-geometry';
 import type { BeamContext } from './beam-row';
 import { barArea, meshArea, meshLabel, proposeMesh } from './bars';
 import type { Fmt } from './format';
 import { developedLength, legLengths, shapeWeight, type BarShape } from './shape';
-import type { SlabFace, SlabRow } from './slab-row';
+import { cirsocSlabDevelopment, cirsocSlabLap, type SlabBarLayout, type SlabFace, type SlabRow } from './slab-row';
 import type { Materials, MeshBars } from './types';
 
 export type PlanDir = 'x' | 'y';
@@ -24,20 +25,44 @@ export interface LevelGeometry { level: string; beams: PlanBeam[]; columns: Plan
  */
 export interface SlabPlanCode {
   line: LineCode;
+  /** ld and the tension lap of a slab bar from its layout, m, where the code's general expression reads it; absent, the line's. */
+  development?(mat: Materials, dia: number, top: boolean, h: number, layout: SlabBarLayout): number;
+  lap?(mat: Materials, dia: number, top: boolean, h: number, layout: SlabBarLayout): number;
   topReach: { interior: number; end: number; middle: number };
-  /** Where a bent bar leaves the bottom, as a fraction of the clear span from the support face. */
-  bendAt: number;
+  /** Where a bent bar leaves the bottom, as a fraction of the clear span from the support face, in a one-way and a two-way panel. */
+  bendAt: { oneWay: number; twoWay: number };
+  /** Inside diameter a bent-up bar is bent on, m; absent, the line's mandrel. */
+  bentMandrel?(dia: number): number;
   /** How far a bottom bar runs past the face of a beam or wall, before the support's far face stops it, m. */
   bottomEmbed(dia: number): number;
-  clause: { topReach: string; cantilever: string; bottomEmbed: string; development: string };
+  /** Bars at the exterior corners of two-way panels held by edge beams or walls: the side of the square as a fraction of the longer clear span, and the faces. */
+  corners?: { side: number; faces: readonly PlanLayer[] };
+  /** Bottom bars per direction a slab resting on a column with no beam must carry continuous through its core. */
+  integrity?: { bars: number };
+  clause: { topReach: string; cantilever: string; bottomEmbed: string; development: string; bendAt?: string; corners?: string; integrity?: string };
 }
 
-export const CIRSOC_SLAB_PLAN: SlabPlanCode = {
+const ACI_PLAN_CLAUSES = { topReach: '§8.7.4.1.3 (Fig. 8.7.4.1.3)', cantilever: '§25.4', bottomEmbed: '§8.7.4.2', development: '§25.4.2, §25.4.3, §25.5.2', corners: '§8.7.3.1', integrity: '§8.7.4.2.2' };
+
+/** ACI 318-19: the corner and integrity bars of §8.7.3.1 and §8.7.4.2 as CIRSOC has them; its own development and bends. */
+export const ACI_SLAB_PLAN: SlabPlanCode = {
   line: CIRSOC_LINE,
   topReach: { interior: 0.3, end: 0.3, middle: 0.22 },
-  bendAt: 0.2,
+  bendAt: { oneWay: 0.2, twoWay: 0.2 },
   bottomEmbed: () => 0.15,
-  clause: { topReach: '§8.7.4.1.3 (Fig. 8.7.4.1.3)', cantilever: '§25.4', bottomEmbed: '§8.7.4.2', development: '§25.4.2, §25.4.3, §25.5.2' },
+  corners: { side: 0.2, faces: ['top', 'bottom'] },
+  integrity: { bars: 2 },
+  clause: ACI_PLAN_CLAUSES,
+};
+
+/** CIRSOC 201-2025, with the FIUBA course's bend points and bent-bar mandrels where the code is silent. */
+export const CIRSOC_SLAB_PLAN: SlabPlanCode = {
+  ...ACI_SLAB_PLAN,
+  development: (mat, dia, top, h, layout) => cirsocSlabDevelopment(mat, dia, top, h, layout).ldM,
+  lap: cirsocSlabLap,
+  bendAt: { oneWay: 1 / 7, twoWay: 1 / 8 },
+  bentMandrel: bentBarMandrel,
+  clause: { ...ACI_PLAN_CLAUSES, development: '§25.4.2.4, §25.4.3, §25.5.2', bendAt: 'FIUBA §13.1–13.2, §11.4' },
 };
 
 export type SupportKind = 'beam' | 'wall' | 'columns' | 'joint' | 'free';
@@ -54,7 +79,7 @@ export interface PlanSupport {
   below?: string; above?: string;
 }
 
-export type PackageKind = 'span' | 'bent' | 'support' | 'edge' | 'cantilever';
+export type PackageKind = 'span' | 'bent' | 'support' | 'edge' | 'cantilever' | 'corner' | 'integrity';
 
 export interface SlabPackage {
   id: string;
@@ -91,7 +116,12 @@ export interface SlabPlanCheck {
   required: number; provided: number;
   spacing: number; sMax: number;
   ok: boolean;
+  /** A corner's square (areas, cm²/m), or a column's integrity bars (`required` and `provided` are bars). */
+  kind?: 'corner' | 'integrity';
 }
+
+/** A column a slab rests on with no beam: the bottom bars of each direction continuous through its core. */
+export interface PlanIntegrity { x: number; y: number; dir: PlanDir; bars: number; required: number; dia: number }
 
 export interface PlanPanel { key: string; name: string; rect: PlanRect; h: number; status: SlabRow['status'] }
 
@@ -107,12 +137,17 @@ export interface LevelPlan {
   checks: SlabPlanCheck[];
   anchorage: Array<{ dia: number; ld: number; ldTop: number; ldh: number; lap: number }>;
   cantilevers: Array<{ panel: string; dir: PlanDir; length: number }>;
+  integrity: PlanIntegrity[];
   bent: boolean;
-  rules: { reach: SlabPlanCode['topReach']; clause: SlabPlanCode['clause'] };
+  rules: { reach: SlabPlanCode['topReach']; clause: SlabPlanCode['clause']; bendAt: SlabPlanCode['bendAt']; corners?: SlabPlanCode['corners']; integrity?: SlabPlanCode['integrity'] };
   ok: boolean;
 }
 
-export interface SlabPlanContext { mat: Materials; cover: number; diameters: readonly number[]; bent: boolean }
+export interface SlabPlanContext {
+  mat: Materials; cover: number; diameters: readonly number[]; bent: boolean;
+  /** From a column's face to the centres of its outer bars, m, which bound the core integrity bars pass through. */
+  columnInset?: number;
+}
 
 const TOL = 0.05;
 const STEP = 0.05;
@@ -142,10 +177,11 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
   const byKey = new Map(panels.map((p) => [p.key, p]));
   const hMin = panels.length ? Math.min(...panels.map((p) => p.h)) : 0.15;
   const bctx: BeamContext = { mat: c.mat, cover: c.cover, stirrupDia: 0, diameters: c.diameters, torsion: 'equilibrium' };
-  const ld = (dia: number, top: boolean, h: number) => code.line.development(bctx, dia, top, h);
+  const ld = (dia: number, top: boolean, h: number, spacing: number) => (code.development ? code.development(c.mat, dia, top, h, { cover: c.cover, spacing }) : code.line.development(bctx, dia, top, h));
   const ldh = (dia: number) => code.line.hooked(bctx, dia);
-  const lap = (dia: number, top: boolean, h: number) => code.line.lap(bctx, dia, top, h);
+  const lap = (dia: number, top: boolean, h: number, spacing: number) => (code.lap ? code.lap(c.mat, dia, top, h, { cover: c.cover, spacing }) : code.line.lap(bctx, dia, top, h));
   const mandrel = (dia: number) => code.line.mandrel?.(dia) ?? 6 * dia / 1000;
+  const bentMandrel = (dia: number) => code.bentMandrel?.(dia) ?? mandrel(dia);
 
   const supportOn = (d: PlanDir, at: number, a0: number, a1: number): { kind: 'beam' | 'wall'; half: number } | null => {
     let covered = 0, half = 0, kind: 'beam' | 'wall' = 'wall';
@@ -229,8 +265,8 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
   const yBottom = (p: Panel, d: PlanDir, dia: number) => c.cover + (d === 'x' ? dia / 2000 : p.row.adopted.bottomX.dia / 1000 + dia / 2000);
   const yTop = (h: number, d: PlanDir, dia: number, outerDia: number) => h - c.cover - (d === 'x' ? dia / 2000 : outerDia / 1000 + dia / 2000);
   const legDown = (h: number, dia: number) => Math.max(0.05, h - 2 * c.cover - dia / 1000);
-  const add = (pk: Omit<SlabPackage, 'id' | 'mark' | 'count' | 'length' | 'weight'>) => {
-    const count = barsAcross(pk.band.to - pk.band.from, pk.bars.spacing);
+  const add = (pk: Omit<SlabPackage, 'id' | 'mark' | 'count' | 'length' | 'weight'>, bars?: number) => {
+    const count = bars ?? barsAcross(pk.band.to - pk.band.from, pk.bars.spacing);
     packages.push({ ...pk, id: '', mark: '', count, length: developedLength(pk.shape), weight: shapeWeight(pk.shape, count) });
   };
 
@@ -247,14 +283,14 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
   };
 
   /** Where a top bar crossing `s` stops on one side, and how far past the face it had to reach. */
-  const topEnd = (s: PlanSupport, side: 'below' | 'above', dia: number, frac: number) => {
+  const topEnd = (s: PlanSupport, side: 'below' | 'above', dia: number, frac: number, spacing: number) => {
     const sign = side === 'above' ? 1 : -1;
     const faceAt = s.at + sign * s.half;
     if (!s[side]) return { end: s.at + sign * (s.half - c.cover), needed: 0, reach: Math.max(0, s.half * 2 - c.cover), edge: true };
     const me = sideOf(s, side);
     const opp = s[side === 'above' ? 'below' : 'above'] ? sideOf(s, side === 'above' ? 'below' : 'above') : null;
     if (me.cantilever) return { end: me.stop, needed: Math.max(0, me.ln - c.cover), reach: Math.abs(me.stop - faceAt), edge: false };
-    const needed = Math.max(ld(dia, true, me.p.h), frac * me.ln, opp?.cantilever ? opp.ln : 0);
+    const needed = Math.max(ld(dia, true, me.p.h, spacing), frac * me.ln, opp?.cantilever ? opp.ln : 0);
     const reach = Math.min(up(needed), Math.abs(me.stop - faceAt));
     return { end: faceAt + sign * reach, needed, reach, edge: false };
   };
@@ -270,7 +306,7 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
         if (!e.length) return { x: at - sign * c.cover, leg: true };
         const half = Math.max(...e.map((s) => s.half));
         if (half > 0) return { x: at + sign * (-half + Math.max(Math.min(code.bottomEmbed(mesh.dia), 2 * half - c.cover), 2 * half - c.cover)), leg: true };
-        if (e.some((s) => s.below && s.above)) return { x: at + sign * up(lap(mesh.dia, false, p.h) / 2), leg: false };
+        if (e.some((s) => s.below && s.above)) return { x: at + sign * up(lap(mesh.dia, false, p.h, mesh.spacing) / 2), leg: false };
         return { x: at - sign * c.cover, leg: true };
       });
       const ends = endsHooked.map((e) => e.x);
@@ -295,14 +331,15 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
       const faceLo = sLo.at + sLo.half, faceHi = sHi.at - sHi.half, ln = faceHi - faceLo;
       const yt = yTop(p.h, d, mesh.dia, p.row.adopted.topX.dia || mesh.dia), yb = y;
       const run = yt - yb;
-      const e0 = topEnd(sLo, 'below', mesh.dia, sLo.below ? code.topReach.interior : code.topReach.end);
-      const e1 = topEnd(sHi, 'above', mesh.dia, sHi.above ? code.topReach.interior : code.topReach.end);
+      const e0 = topEnd(sLo, 'below', mesh.dia, sLo.below ? code.topReach.interior : code.topReach.end, mesh.spacing);
+      const e1 = topEnd(sHi, 'above', mesh.dia, sHi.above ? code.topReach.interior : code.topReach.end, mesh.spacing);
       const x0 = e0.end, x1 = e1.end;
-      const r0 = faceLo + code.bendAt * ln, r1 = faceHi - code.bendAt * ln;
+      const bendAt = p.row.oneWay ? code.bendAt.oneWay : code.bendAt.twoWay;
+      const r0 = faceLo + bendAt * ln, r1 = faceHi - bendAt * ln;
       const leg = legDown(p.h, mesh.dia);
       const pts: Array<[number, number]> = [[0, yt - leg], [0, yt], [r0 - run - x0, yt], [r0 - x0, yb], [r1 - x0, yb], [r1 + run - x0, yt], [x1 - x0, yt], [x1 - x0, yt - leg]];
       add({
-        layer: 'bottom', dir: d, kind: 'bent', bars: half2, from: x0, to: x1, band, shape: { pts, mandrel: mandrel(mesh.dia), dia: mesh.dia },
+        layer: 'bottom', dir: d, kind: 'bent', bars: half2, from: x0, to: x1, band, shape: { pts, mandrel: bentMandrel(mesh.dia), dia: mesh.dia },
         runs: [{ face: 'top', from: x0, to: r0 - run }, { face: 'bottom', from: r0, to: r1 }, { face: 'top', from: r1 + run, to: x1 }],
         panels: [p.key, ...[sLo.below, sHi.above].filter((k): k is string => !!k)],
         reach: [{ at: sLo.at, length: e0.reach, needed: e0.needed }, { at: sHi.at, length: e1.reach, needed: e1.needed }],
@@ -352,8 +389,9 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
     const outer = Math.max(...sides.map((p) => p.row.adopted.topX.dia), bars.dia);
     const yt = yTop(h, s.dir, bars.dia, outer);
     const leg = legDown(h, bars.dia);
+    const developedAt = 1 / (1 / bars.spacing + bentPerM);
     for (const st of strips) {
-      const e0 = topEnd(s, 'below', bars.dia, st.frac), e1 = topEnd(s, 'above', bars.dia, st.frac);
+      const e0 = topEnd(s, 'below', bars.dia, st.frac, developedAt), e1 = topEnd(s, 'above', bars.dia, st.frac, developedAt);
       const x0 = e0.end, x1 = e1.end;
       const edge = e0.edge || e1.edge;
       const anchor = edge && s.half > 0 ? { available: Math.max(0, 2 * s.half - c.cover), needed: ldh(bars.dia), ok: ldh(bars.dia) <= 2 * s.half - c.cover + 1e-9 } : undefined;
@@ -367,10 +405,114 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
     }
   }
 
+  const cornerSamples = code.corners ? cornerBars(code.corners) : [];
+  const integrity = code.integrity ? integrityBars(code.integrity.bars) : [];
+
+  function cornerBars(rule: NonNullable<SlabPlanCode['corners']>) {
+    const samples: Array<{ layer: PlanLayer; dir: PlanDir; along: number; across: number; where: string; required: number; sMax: number }> = [];
+    for (const p of panels) {
+      if (p.row.oneWay || isCantilever(p, 'x') || isCantilever(p, 'y')) continue;
+      const meshes = [p.row.adopted.bottomX, p.row.adopted.bottomY].filter((m) => m.dia > 0 && m.spacing > 0);
+      if (!meshes.length) continue;
+      const mesh = meshes.reduce((m, n) => (meshArea(n) > meshArea(m) ? n : m));
+      const required = Math.max(meshArea(mesh), p.row.faces.bottomX.asReq, p.row.faces.bottomY.asReq);
+      const ln = (d: PlanDir) => hi(p.rect, d) - lo(p.rect, d) - halfAt(p, d, lo(p.rect, d)) - halfAt(p, d, hi(p.rect, d));
+      const side = up(rule.side * Math.max(ln('x'), ln('y')));
+      const edgeAt = (d: PlanDir, end: 'lo' | 'hi', across: number) => edgeSupports(p, d, end)
+        .find((s) => (s.kind === 'beam' || s.kind === 'wall') && !(s.below && s.above) && across >= s.from - TOL && across <= s.to + TOL);
+      for (const ex of ['lo', 'hi'] as const) for (const ey of ['lo', 'hi'] as const) {
+        const corner = { x: ex === 'lo' ? p.rect.x0 : p.rect.x1, y: ey === 'lo' ? p.rect.y0 : p.rect.y1 };
+        const ends = { x: edgeAt('x', ex, corner.y), y: edgeAt('y', ey, corner.x) };
+        const ex0 = ends.x, ey0 = ends.y;
+        if (!ex0 || !ey0) continue;
+        const held = { x: ex0, y: ey0 };
+        const inward = { x: ex === 'lo' ? 1 : -1, y: ey === 'lo' ? 1 : -1 };
+        const faceAt = { x: corner.x + inward.x * held.x.half, y: corner.y + inward.y * held.y.half };
+        for (const layer of rule.faces) for (const d of ['x', 'y'] as const) {
+          const a = other(d), e = held[d], sign = inward[d];
+          const sMax = p.row.faces[face(d, 'bottom')].sMax;
+          const along = faceAt[d] + sign * side / 2, across = faceAt[a] + inward[a] * side / 2;
+          samples.push({ layer, dir: d, along, across, where: p.name, required, sMax });
+          const have = stripCheck(packages, layer, d, along, across, p.name, required, sMax);
+          if (have.provided >= required - 1e-6) continue;
+          const bars = have.provided <= 1e-6 ? mesh : proposeMesh(required - have.provided, sMax, c.diameters);
+          const start = corner[d] - sign * (e.half - c.cover), end = faceAt[d] + sign * side;
+          const x0 = Math.min(start, end), x1 = Math.max(start, end);
+          const yv = layer === 'top' ? yTop(p.h, d, bars.dia, p.row.adopted.topX.dia || bars.dia) : yBottom(p, d, bars.dia);
+          const legY = yv + (layer === 'top' ? -1 : 1) * legDown(p.h, bars.dia);
+          const pts: Array<[number, number]> = sign > 0 ? [[0, legY], [0, yv], [x1 - x0, yv]] : [[0, yv], [x1 - x0, yv], [x1 - x0, legY]];
+          const b0 = faceAt[a], b1 = faceAt[a] + inward[a] * side;
+          const available = Math.max(0, 2 * e.half - c.cover);
+          add({
+            layer, dir: d, kind: 'corner', bars, from: x0, to: x1, band: { from: Math.min(b0, b1), to: Math.max(b0, b1) },
+            shape: { pts, mandrel: mandrel(bars.dia), dia: bars.dia }, runs: [{ face: layer, from: x0, to: x1 }], panels: [p.key], reach: [],
+            ...(layer === 'top' ? { anchor: { available, needed: ldh(bars.dia), ok: ldh(bars.dia) <= available + 1e-9 } } : {}),
+          });
+        }
+      }
+    }
+    return samples;
+  }
+
+  function integrityBars(required: number): PlanIntegrity[] {
+    const out: PlanIntegrity[] = [];
+    const inset = c.columnInset ?? 0.05;
+    const touches = (b: PlanBeam, k: PlanColumn) => {
+      const dx = b.x2 - b.x1, dy = b.y2 - b.y1, l2 = dx * dx + dy * dy;
+      const t = l2 > 0 ? Math.max(0, Math.min(1, ((k.x - b.x1) * dx + (k.y - b.y1) * dy) / l2)) : 0;
+      return Math.hypot(b.x1 + t * dx - k.x, b.y1 + t * dy - k.y) <= Math.max(k.b, k.h) / 2 + b.b / 2 + TOL;
+    };
+    for (const k of geom.columns.filter((q) => q.b > 0 && q.h > 0 && !geom.beams.some((b) => touches(b, q)))) {
+      const host = panels.filter((p) => k.x >= p.rect.x0 - TOL && k.x <= p.rect.x1 + TOL && k.y >= p.rect.y0 - TOL && k.y <= p.rect.y1 + TOL);
+      if (!host.length) continue;
+      for (const d of ['x', 'y'] as const) {
+        const a = other(d);
+        const at = (dd: PlanDir) => (dd === 'x' ? k.x : k.y), ext = (dd: PlanDir) => (dd === 'x' ? k.b : k.h);
+        const core: [number, number] = [at(d) - ext(d) / 2 + inset, at(d) + ext(d) / 2 - inset];
+        const across: [number, number] = [at(a) - ext(a) / 2 + inset, at(a) + ext(a) / 2 - inset];
+        if (core[1] - core[0] < TOL || across[1] - across[0] < TOL) continue;
+        const slab: [number, number] = [Math.min(...host.map((p) => lo(p.rect, d))) + c.cover, Math.max(...host.map((p) => hi(p.rect, d))) - c.cover];
+        const h = Math.min(...host.map((p) => p.h));
+        const bottomRuns = (pk: SlabPackage) => (pk.dir === d && pk.layer === 'bottom' ? pk.runs.filter((r) => r.face === 'bottom') : []);
+        const continuous = (v: number, from: number, to: number) => {
+          let reach = from;
+          const runs = packages.filter((pk) => v >= pk.band.from - 1e-9 && v <= pk.band.to + 1e-9).flatMap(bottomRuns).sort((r, q) => r.from - q.from);
+          for (const r of runs) if (r.from <= reach + 1e-6) reach = Math.max(reach, r.to);
+          return reach >= to - 1e-6;
+        };
+        const through = (pk: SlabPackage) => {
+          if (!bottomRuns(pk).some((r) => r.from <= core[0] + 1e-6 && r.to >= core[1] - 1e-6)) return 0;
+          const l = lap(pk.bars.dia, false, h, pk.bars.spacing);
+          const from = Math.max(core[0] - l, slab[0]), to = Math.min(core[1] + l, slab[1]);
+          return barPositions(pk).filter((v) => v >= across[0] - 1e-9 && v <= across[1] + 1e-9 && continuous(v, from, to)).length;
+        };
+        let bars = packages.reduce((t, pk) => t + through(pk), 0);
+        const dia = Math.max(0, ...host.map((p) => p.row.adopted[face(d, 'bottom')].dia)) || 12;
+        if (bars < required) {
+          const width = across[1] - across[0];
+          const l = lap(dia, false, h, width);
+          const x0 = Math.max(core[0] - l, slab[0]), x1 = Math.min(core[1] + l, slab[1]);
+          const y = yBottom(host[0]!, d, dia), leg = legDown(h, dia);
+          const pts: Array<[number, number]> = [
+            ...(x0 <= slab[0] + 1e-9 ? [[0, y + leg] as [number, number]] : []), [0, y], [x1 - x0, y],
+            ...(x1 >= slab[1] - 1e-9 ? [[x1 - x0, y + leg] as [number, number]] : []),
+          ];
+          add({
+            layer: 'bottom', dir: d, kind: 'integrity', bars: { dia, spacing: width }, from: x0, to: x1, band: { from: across[0], to: across[1] },
+            shape: { pts, mandrel: mandrel(dia), dia }, runs: [{ face: 'bottom', from: x0, to: x1 }], panels: host.map((p) => p.key), reach: [],
+          }, required);
+          bars += required;
+        }
+        out.push({ x: k.x, y: k.y, dir: d, bars, required, dia });
+      }
+    }
+    return out;
+  }
+
   const bottomMeshes = panels.flatMap((p) => [p.row.adopted.bottomX, p.row.adopted.bottomY]);
   const uniform = !c.bent && bottomMeshes.length > 0 && bottomMeshes.every((m) => m.dia > 0 && m.dia === bottomMeshes[0]!.dia && Math.abs(m.spacing - bottomMeshes[0]!.spacing) < 1e-9);
   if (uniform) for (const pk of packages) if (pk.kind === 'span') pk.base = true;
-  const order: PackageKind[] = ['span', 'bent', 'support', 'edge', 'cantilever'];
+  const order: PackageKind[] = ['span', 'bent', 'integrity', 'support', 'edge', 'cantilever', 'corner'];
   packages.sort((p, q) => (p.layer === q.layer ? 0 : p.layer === 'bottom' ? -1 : 1) || order.indexOf(p.kind) - order.indexOf(q.kind) || (p.dir < q.dir ? -1 : p.dir > q.dir ? 1 : 0) || p.band.from - q.band.from || p.from - q.from);
   packages.forEach((pk, i) => { pk.id = `${pk.layer[0]}${pk.dir}${i + 1}`; pk.mark = String(i + 1); });
 
@@ -394,13 +536,23 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
     const worst = samples.map((v) => stripCheck(packages, 'top', s.dir, along, v, s.id, req, sMax)).sort((p, q) => p.provided - q.provided)[0]!;
     checks.push(worst);
   }
+  for (const x of cornerSamples) checks.push({ ...stripCheck(packages, x.layer, x.dir, x.along, x.across, x.where, x.required, x.sMax), kind: 'corner' });
+  for (const x of integrity) checks.push({ layer: 'bottom', dir: x.dir, where: `(${x.x.toFixed(2)}; ${x.y.toFixed(2)})`, required: x.required, provided: x.bars, spacing: 0, sMax: 0, ok: x.bars >= x.required, kind: 'integrity' });
   const usedDias = [...new Set(packages.map((pk) => pk.bars.dia))].sort((p, q) => p - q);
-  const anchorage = usedDias.map((dia) => ({ dia, ld: ld(dia, false, hMin), ldTop: ld(dia, true, hMin), ldh: ldh(dia), lap: lap(dia, true, hMin) }));
+  const closest = (dia: number) => Math.min(...packages.filter((pk) => pk.bars.dia === dia).map((pk) => pk.bars.spacing));
+  const anchorage = usedDias.map((dia) => ({ dia, ld: ld(dia, false, hMin, closest(dia)), ldTop: ld(dia, true, hMin, closest(dia)), ldh: ldh(dia), lap: lap(dia, true, hMin, closest(dia)) }));
   const ok = checks.every((x) => x.ok) && packages.every((pk) => pk.reach.every((r) => r.length >= r.needed - 1e-6));
   return {
     level, panels: panels.map((p) => ({ key: p.key, name: p.name, rect: p.rect, h: p.h, status: p.row.status })), beams: geom.beams, columns: geom.columns,
-    supports, packages, ...(uniform ? { baseMesh: bottomMeshes[0] } : {}), checks, anchorage, cantilevers, bent: c.bent, rules: { reach: code.topReach, clause: code.clause }, ok,
+    supports, packages, ...(uniform ? { baseMesh: bottomMeshes[0] } : {}), checks, anchorage, cantilevers, integrity, bent: c.bent, rules: { reach: code.topReach, clause: code.clause, bendAt: code.bendAt, ...(code.corners ? { corners: code.corners } : {}), ...(code.integrity ? { integrity: code.integrity } : {}) }, ok,
   };
+}
+
+/** Where across its strip each bar of a package lies, m: as `barsAcross` spaces them, and an integrity pair at the core's two sides. */
+export function barPositions(pk: Pick<SlabPackage, 'kind' | 'band' | 'bars' | 'count'>): number[] {
+  if (pk.kind === 'integrity') return pk.count === 1 ? [(pk.band.from + pk.band.to) / 2] : Array.from({ length: pk.count }, (_, i) => pk.band.from + (i * (pk.band.to - pk.band.from)) / Math.max(1, pk.count - 1));
+  const edge = Math.min(0.05, pk.bars.spacing / 2);
+  return Array.from({ length: pk.count }, (_, i) => pk.band.from + edge + i * pk.bars.spacing);
 }
 
 /** The bars of one face and direction lying at a point, added up per metre against what is required there. */
@@ -427,7 +579,8 @@ export interface PlanBarDrawing {
 }
 
 /** Package labels: diameter, spacing and the cut length. */
-export const packageLabel = (pk: Pick<SlabPackage, 'bars' | 'length'>, fmt: Fmt): string => `${meshLabel(pk.bars)} L=${fmt(pk.length, 2)}`;
+export const packageLabel = (pk: Pick<SlabPackage, 'bars' | 'length'> & Partial<Pick<SlabPackage, 'kind' | 'count'>>, fmt: Fmt): string =>
+  `${pk.kind === 'integrity' ? `${pk.count}Ø${pk.bars.dia}` : meshLabel(pk.bars)} L=${fmt(pk.length, 2)}`;
 
 /**
  * One bar drawn for each package, its legs and bends folded 90° about its axis so they show in plan

@@ -62,6 +62,9 @@
   const lines = $derived(fig.reinforcement ? Array.from({ length: fig.reinforcement.lines }, (_, i) => fig.reinforcement!.spacing / 2 + i * fig.reinforcement!.spacing) : []);
   const cm = (m: number) => fmt(m * 100, 0);
   const offLabel = $derived(fig.rounded ? `2d = ${cm(fig.offset)} cm` : `d/2 = ${cm(fig.offset)} cm`);
+  const ties = (n: number, half: number) => Array.from({ length: n }, (_, i) => (n === 1 ? 0 : -half / 2 + (i * half) / (n - 1)));
+  const integrityX = $derived(fig.integrity ? ties(fig.integrity.bars, by) : []);
+  const integrityY = $derived(fig.integrity ? ties(fig.integrity.bars, bx) : []);
   const edges = $derived([...free].map((s) => s === 'px' ? { x1: X(bx), y1: Y(box.y0), x2: X(bx), y2: Y(box.y1) } : s === 'nx' ? { x1: X(-bx), y1: Y(box.y0), x2: X(-bx), y2: Y(box.y1) } : s === 'py' ? { x1: X(box.x0), y1: Y(by), x2: X(box.x1), y2: Y(by) } : { x1: X(box.x0), y1: Y(-by), x2: X(box.x1), y2: Y(-by) }));
 </script>
 
@@ -73,6 +76,8 @@
     {#each lines as off, i (i)}<path d={ring(off, false)} class="studs" data-testid="rc-punching-line" />{/each}
     <path d={ring(fig.offset, fig.rounded)} class="perim" data-testid="rc-punching-perimeter" />
     <rect x={X(-bx)} y={Y(by)} width={fig.b * k} height={fig.h * k} class="col" />
+    {#each integrityX as y, i (i)}<line x1={X(box.x0)} y1={Y(y)} x2={X(box.x1)} y2={Y(y)} class="integ" data-testid="rc-punching-integrity" />{/each}
+    {#each integrityY as x, i (i)}<line x1={X(x)} y1={Y(box.y0)} x2={X(x)} y2={Y(box.y1)} class="integ" data-testid="rc-punching-integrity" />{/each}
     <text x={X(0)} y={Y(0) + 3} class="lbl">{cm(fig.b)}×{cm(fig.h)}</text>
     {#if !free.has('px')}
       <line x1={X(bx)} y1={Y(0)} x2={X(bx + fig.offset)} y2={Y(0)} class="dim" />
@@ -82,6 +87,7 @@
   <ul class="rpu-notes">
     <li>{tp('rcSheets.punchFig.perimeter', { bo: fmt(fig.bo), d: cm(fig.d) })} — {fig.clause}</li>
     <li>{t(`rcSheets.punchFig.pos.${fig.position}`)}</li>
+    {#if fig.integrity}<li>{tp('rcSheets.punchFig.integrity', { n: fig.integrity.bars, dia: fig.integrity.dia })} — §8.7.4.2.2</li>{/if}
     {#if fig.reinforcement}
       <li class="warn">{tp('rcSheets.punchFig.stirrups', { n: fig.reinforcement.lines, dia: fig.reinforcement.legDiameter, s: cm(fig.reinforcement.spacing), legs: fig.reinforcement.legs, ext: cm(fig.reinforcement.extent) })} — §22.6.7</li>
       {#if fig.reinforcement.overCeiling}<li class="bad">{t('rcSheets.punchFig.overCeiling')}</li>{/if}
@@ -97,6 +103,7 @@
   .col { fill: rgba(128, 128, 128, 0.45); stroke: var(--st-text-2); stroke-width: 1; }
   .perim { fill: none; stroke: var(--st-accent, #4ecdc4); stroke-width: 1.8; stroke-dasharray: 6 3; }
   .studs { fill: none; stroke: #e0a03c; stroke-width: 1.2; }
+  .integ { stroke: #2a9d8f; stroke-width: 1.6; }
   .dim { stroke: var(--st-text-3); stroke-width: 1; }
   .lbl { font-size: 10px; fill: var(--st-text); text-anchor: middle; font-family: var(--st-mono); }
   .lbl.small { font-size: 9px; fill: var(--st-text-2); }

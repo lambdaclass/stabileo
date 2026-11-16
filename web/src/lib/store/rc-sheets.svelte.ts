@@ -315,7 +315,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const fy = dd.rebarFy;
   const dec = fmt(1.5, 1);
   const seismic = data.seismic && rules.seismic ? { overstrength: seismicSettings().overstrength } : undefined;
-  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion, seismic, ...(data.bentBars ? { bentBars: true } : {}) });
+  const coverTable = rules.coverTable ? { coverTable: { control: dd.executionControl !== false } } : {};
+  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion, seismic, ...(data.bentBars ? { bentBars: true } : {}), ...coverTable });
   const proposals: BeamRow[] = [];
   for (const d of D.beams) {
     const ctx = beamCtx(d);
@@ -358,7 +359,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const below = new Map<number, ColumnRow>();
   const column: ColumnRow[] = [];
   for (const d of D.columns) {
-    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, seismic };
+    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, seismic, ...coverTable };
     const a = adoptedNow[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
@@ -384,7 +385,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const slabPlans = D.levels.map((g) => {
     const rows = slab.filter((r) => (r.level ?? '') === g.level);
     const first = groupOf(rows[0]?.key ?? '');
-    const ctx = { mat: { fc: fcOfShells(first?.members.quads ?? [], first?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: [6, 8, 10, 12, 16], bent: data.slabBentBars === true };
+    const ctx = { mat: { fc: fcOfShells(first?.members.quads ?? [], first?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: [6, 8, 10, 12, 16], bent: data.slabBentBars === true, columnInset: dd.covers.column + dd.stirrupDiaMm / 1000 + Math.max(0, ...dd.longDiametersMm.filter((x) => x <= 16)) / 2000 };
     return slabPlan(g.level, rows, g, ctx, rules.slabPlan);
   }).filter((p) => p.panels.length);
   const wall: WallRow[] = [];
@@ -398,7 +399,10 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   }
   const punching: PunchingRow[] = [];
   for (const d of D.punching) {
-    const ctx = { fc: fcOfElement(d.joint.columnElementId), fy, cover: dd.covers.slab, topBarDia: 12 };
+    const plan = slabPlans.find((p) => p.level === (d.level ?? ''));
+    const at = (dir: 'x' | 'y') => plan?.integrity.find((k) => k.dir === dir && Math.hypot(k.x - d.joint.at.x, k.y - d.joint.at.y) < 0.05);
+    const ix = at('x'), iy = at('y');
+    const ctx = { fc: fcOfElement(d.joint.columnElementId), fy, cover: dd.covers.slab, topBarDia: 12, ...(ix && iy ? { integrity: { x: ix.bars, y: iy.bars, required: ix.required, dia: Math.max(ix.dia, iy.dia) } } : {}) };
     redesigners.set(d.key, ((x: typeof d) => rules.punchingRow(x, ctx, fmt)) as Redesign);
     punching.push(cached(d, [code, ctx, dec], () => rules.punchingRow(d, ctx, fmt)));
     yield step();

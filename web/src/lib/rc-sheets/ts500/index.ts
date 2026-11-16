@@ -12,7 +12,7 @@ import type { SlabPlanCode } from '../slab-plan';
 const ts500SlabPlan: SlabPlanCode = {
   line: TS500_LINE,
   topReach: { interior: 0.25, end: 0.2, middle: 0.25 },
-  bendAt: 0.2,
+  bendAt: { oneWay: 0.2, twoWay: 0.2 },
   bottomEmbed: (dia) => Math.max(0.15, 10 * dia / 1000),
   clause: { topReach: '11.4', cantilever: '9.1', bottomEmbed: '11.4', development: '9.1, 9.3' },
 };

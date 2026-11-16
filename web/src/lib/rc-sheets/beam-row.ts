@@ -5,6 +5,7 @@ import { crackControlFaceSpacing } from '../engine/design/crack-spacing';
 import { checkTorsion2025 } from '../codes/cirsoc201/torsion';
 import { transverseSpacingLimits } from '../codes/cirsoc201/transverse-spacing';
 import { proposeSkin } from '../codes/cirsoc201/skin';
+import { mainBarCoverMm } from '../codes/cirsoc201/cover';
 import { barArea, faceLayout, groupsArea, groupsLabel, proposeBeamFace, roundDown, stirrupsLabel } from './bars';
 import type { Fmt } from './format';
 import { beamSeismic, type Seismic } from './seismic';
@@ -70,6 +71,8 @@ export interface BeamContext {
   seismic?: Seismic;
   /** Span bars bent up over the supports, where a continuous beam's run is laid out. */
   bentBars?: boolean;
+  /** Check the main bars' cover of CIRSOC 201 Table 20.5.1.3.1, under execution control or not. */
+  coverTable?: { control: boolean };
 }
 
 export interface FlexureCheck { section: SectionName; sign: 'pos' | 'neg'; phiMn: number; mu: number; epsT: number; epsTMin: number; d: number; ok: boolean; ductile: boolean }
@@ -259,7 +262,7 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   const p = paramsOf(d, c);
   const fc = c.mat.fc, fy = c.mat.fy;
 
-  const flexReq = (mu: number, nc: number, sagging = false) => checkFlexure(p, mu, nc, { edition: EDITION, ...(sagging && d.flange ? { flange: d.flange } : {}) });
+  const flexReq = (mu: number, nc: number, sagging = false) => checkFlexure(p, mu, nc, { edition: EDITION, minimumExemption: true, ...(sagging && d.flange ? { flange: d.flange } : {}) });
   const posReq = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).pos.value, sectionOf(d, s).nPos, true), env: sectionOf(d, s).pos, n: sectionOf(d, s).nPos }));
   const negList = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).neg.value, sectionOf(d, s).nNeg), env: sectionOf(d, s).neg, n: sectionOf(d, s).nNeg }));
   if (d.negAny.value > Math.max(...negList.map((x) => x.env.value)) + 1e-6) negList.push({ s: 'span', r: flexReq(d.negAny.value, d.nNegAny), env: d.negAny, n: d.nNegAny });
@@ -321,8 +324,8 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
       clause: '§22.2, §21.2', demand: `${f2(x.mu)} kN·m`, capacity: `${f2(x.phiMn)} kN·m`, ratio: ratioOf(x.mu, x.phiMn),
     })),
     ...e.flex.filter((x) => x.mu > 1e-6 && !x.ductile).map((x) => check('rcSheets.v.ductility', false, { clause: '§9.3.3.1', demand: `εt = ${fmt(x.epsT * 1000)} ‰`, capacity: `≥ ${fmt(x.epsTMin * 1000)} ‰` })),
-    check('rcSheets.v.minBottom', e.areaBottom, { clause: '§9.6.1.2', demand: `${f2(bottomReq)} cm²`, capacity: `${f2(groupsArea(a.bottom))} cm²`, ratio: ratioOf(bottomReq, groupsArea(a.bottom)) }),
-    ...(topReq > 0 ? [check('rcSheets.v.minTop', e.areaTop, { clause: '§9.6.1.2', demand: `${f2(topReq)} cm²`, capacity: `${f2(groupsArea(a.top))} cm²`, ratio: ratioOf(topReq, groupsArea(a.top)) })] : []),
+    check('rcSheets.v.minBottom', e.areaBottom, { clause: '§9.6.1.2, §9.6.1.3', demand: `${f2(bottomReq)} cm²`, capacity: `${f2(groupsArea(a.bottom))} cm²`, ratio: ratioOf(bottomReq, groupsArea(a.bottom)) }),
+    ...(topReq > 0 ? [check('rcSheets.v.minTop', e.areaTop, { clause: '§9.6.1.2, §9.6.1.3', demand: `${f2(topReq)} cm²`, capacity: `${f2(groupsArea(a.top))} cm²`, ratio: ratioOf(topReq, groupsArea(a.top)) })] : []),
     check('rcSheets.v.fitBottom', e.fitBottom, { clause: '§25.2.1' }),
     check('rcSheets.v.fitTop', e.fitTop, { clause: '§25.2.1' }),
     check('rcSheets.v.crack', e.crackBottom.ok && e.crackTop.ok, { clause: '§24.3.2', demand: `s = ${fmt(Math.max(e.crackBottom.s, topReq > 0 ? e.crackTop.s : 0) * 100, 1)} cm`, capacity: `≤ ${fmt(e.crackBottom.max * 100, 1)} cm` }),
@@ -336,6 +339,7 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
       check('rcSheets.v.alDia', e.ok.alDia, { clause: '§9.7.5.2', demand: a.torsionLong ? `Ø${a.torsionLong.dia}` : '—', capacity: `≥ Ø${fmt(e.alDiaMin, 1)}` }),
       check('rcSheets.v.torsionSection', e.ok.torsionSection, { clause: '§22.7.7.1' }),
     ]),
+    ...(c.coverTable ? [mainCoverCheck(c.cover, a.stirrups.dia, largestBar(a), c.coverTable.control, fmt)] : []),
     ...(skin ? [check('rcSheets.v.skin', true, { clause: '§9.7.2.3', capacity: `Ø${skin.diameter} c/${fmt(skin.spacing * 100, 1)} cm` })] : []),
     ...(seisA?.checks ?? []),
   ];
@@ -363,6 +367,15 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
   };
 }
+
+/** Table 20.5.1.3.1: the cover to the stirrup plus the stirrup, at least max(35; db + 5) mm under execution control. */
+export function mainCoverCheck(cover: number, stirrupMm: number, db: number, control: boolean, fmt: Fmt): CheckLine {
+  const have = cover * 1000 + stirrupMm, need = mainBarCoverMm(db, control);
+  return check('rcSheets.v.mainCover', have >= need - 1e-6, { clause: 'Tabla 20.5.1.3.1', demand: `${fmt(have, 0)} mm`, capacity: `≥ ${control ? 'max(35; db + 5)' : 'max(40; db + 10)'} = ${fmt(need, 0)} mm` });
+}
+
+const largestBar = (a: BeamAdopted): number =>
+  Math.max(0, ...[...a.top, ...a.bottom, ...Object.values(a.at ?? {}).flatMap((x) => [...x.top, ...x.bottom])].filter((g) => g.count > 0).map((g) => g.dia));
 
 function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): ComboTable {
   const sd = a.stirrups.dia;
@@ -459,7 +472,7 @@ function flexureSteps(
   }
   steps.push(
     { label: 'rcSheets.s.asMin', formula: "As,min = max(√f'c/(4·fy); 1.4/fy)·bw·d", value: `${f(r.AsMin)} cm²` },
-    { label: 'rcSheets.s.asReq', formula: 'As,nec', value: `${f(r.AsReq)} cm²` },
+    { label: 'rcSheets.s.asReq', formula: 'As,nec = max(As; min(As,min; 4/3·As)) (§9.6.1.3)', value: `${f(r.AsReq)} cm²` },
     { label: 'rcSheets.s.adopted', formula: groupsLabel(bars), value: `${f(groupsArea(bars))} cm²`, ok: groupsArea(bars) >= r.AsReq - 1e-6 },
   );
   for (const k of checks.filter((x) => x.mu > 1e-6)) {

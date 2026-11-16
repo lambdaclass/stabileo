@@ -7,6 +7,7 @@ import { layerClearBetween, minClearSpacingColumn } from '../codes/cirsoc201/spa
 import { barArea, roundDown } from './bars';
 import { compressionLapMm, deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
 import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
+import { mainCoverCheck } from './beam-row';
 import { columnSeismic, type Seismic } from './seismic';
 import type { Fmt } from './format';
 import { check, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup } from './types';
@@ -44,6 +45,8 @@ export interface ColumnContext {
   tieDia: number;
   diameters: readonly number[];
   seismic?: Seismic;
+  /** Check the main bars' cover of CIRSOC 201 Table 20.5.1.3.1, under execution control or not. */
+  coverTable?: { control: boolean };
 }
 
 interface AxisResult { klr: number; lim: number; slender: boolean; m1: number; m2: number; delta: number; mc: number; k: number }
@@ -171,7 +174,27 @@ export function bracedFaceBars(side: number, n: number, dia: number, cornerDia: 
 
 const crossties = (side: number, n: number, dia: number, cornerDia: number, c: ColumnContext, tie: number): number => bracedFaceBars(side, n, dia, cornerDia, c, tie).length;
 
-export const tieDiaFor = (longDia: number): number => (longDia <= 16 ? 6 : longDia <= 25 ? 8 : 10);
+/** Table 25.7.2.2 of CIRSOC 201-2025: Ø6 up to Ø16, Ø8 up to Ø25, Ø10 up to Ø32, Ø12 above and for bundles. */
+export const tieDiaFor = (longDia: number): number => (longDia <= 16 ? 6 : longDia <= 25 ? 8 : longDia <= 32 ? 10 : 12);
+
+/** What differs between the codes that design columns with this row: the least tie for a bar, and the least side and bar of §10.3.1 where the code has one. */
+export interface ColumnCode {
+  tieDia(longDia: number): number;
+  tie: { clause: string; formula: string };
+  minimum?: { side: number; bar: number; clause: string };
+}
+
+export const CIRSOC_COLUMN: ColumnCode = {
+  tieDia: tieDiaFor,
+  tie: { clause: '§25.7.2.2', formula: 'db ≤ 16 → Ø6; ≤ 25 → Ø8; ≤ 32 → Ø10; > 32 → Ø12' },
+  minimum: { side: 0.2, bar: 12, clause: '§10.3.1' },
+};
+
+/** ACI 318-19 §25.7.2.2: No. 10 ties for No. 32 bars and smaller, No. 13 (taken as Ø12) for larger bars and bundles. */
+export const ACI_COLUMN: ColumnCode = {
+  tieDia: (longDia) => (longDia <= 32 ? 10 : 12),
+  tie: { clause: '§25.7.2.2', formula: 'db ≤ No. 32 → No. 10 (Ø10); > No. 32 → No. 13 (Ø12)' },
+};
 
 
 
@@ -224,7 +247,13 @@ export function columnSplice(c: ColumnContext, dia: number, tension: boolean): {
   return { length: compressionLapMm(c.mat.fy, dia) / 1000, tension };
 }
 
-export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted | undefined, fmt: Fmt, stack: StackPlace = {}): ColumnRow {
+export const columnRowFor = (code: ColumnCode) => (d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted | undefined, fmt: Fmt, stack: StackPlace = {}): ColumnRow =>
+  designColumn(d, c, adopted, fmt, stack, code);
+
+export const columnRow = columnRowFor(CIRSOC_COLUMN);
+
+function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted | undefined, fmt: Fmt, stack: StackPlace, code: ColumnCode): ColumnRow {
+  const tieDiaFor = code.tieDia;
   const Ag = d.b * d.h;
   const results: CaseResult[] = d.cases.map((cs) => {
     const x = axis(d, c, cs, 'x'), y = axis(d, c, cs, 'y');
@@ -253,7 +282,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     }
   }
 
-  const first = proposeColumn(d, c, ast, dias, all, stack.pattern);
+  const first = proposeColumn(d, c, ast, dias, all, stack.pattern, tieDiaFor);
   let proposed = first.layout, iterations = first.iterations;
   if (c.seismic) {
     for (let guard = 0; guard < 12; guard++) {
@@ -279,6 +308,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
   const spacingOk = clearOk(d, c, a);
   const longest = Math.max(a.corner, a.dx, a.dy), thinnest = Math.min(a.corner, a.nx > 0 ? a.dx : 99, a.ny > 0 ? a.dy : 99);
   const tieMax = columnTieSpacing(EDITION, thinnest, a.tieDia, Math.min(d.b, d.h)).spacing;
+  const smallest = Math.min(thinnest, a.inner && a.inner.nx + a.inner.ny > 0 ? a.inner.dia : 99);
   const tieDiaOk = a.tieDia >= tieDiaFor(longest);
   const tieOk = a.tieSpacing <= tieMax + 1e-6 && tieDiaOk;
   const ct = { x: crossties(d.b, a.nx, a.dx, a.corner, c, a.tieDia), y: crossties(d.h, a.ny, a.dy, a.corner, c, a.tieDia) };
@@ -297,7 +327,12 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     check('rcSheets.v.slenderMax', klrMax <= 100 + 1e-9, { clause: '§6.2.6', demand: `k·lu/r = ${fmt(klrMax, 1)}`, capacity: '≤ 100' }),
     check('rcSheets.v.shearX', shearX <= 1 + 1e-6, { clause: '§22.5', demand: `${fmt(vxMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.px)))} kN`, ratio: shearX }),
     check('rcSheets.v.shearY', shearY <= 1 + 1e-6, { clause: '§22.5', demand: `${fmt(vyMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.py)))} kN`, ratio: shearY }),
-    check('rcSheets.v.tieDia', tieDiaOk, { clause: '§25.7.2.2', demand: `Ø${a.tieDia}`, capacity: `≥ Ø${tieDiaFor(longest)}` }),
+    check('rcSheets.v.tieDia', tieDiaOk, { clause: code.tie.clause, demand: `Ø${a.tieDia}`, capacity: `≥ Ø${tieDiaFor(longest)}` }),
+    ...(c.coverTable ? [mainCoverCheck(c.cover, a.tieDia, Math.max(longest, a.inner?.dia ?? 0), c.coverTable.control, fmt)] : []),
+    ...(code.minimum ? [
+      check('rcSheets.v.colMinSide', Math.min(d.b, d.h) >= code.minimum.side - 1e-9, { clause: code.minimum.clause, demand: `${fmt(Math.min(d.b, d.h) * 100, 0)} cm`, capacity: `≥ ${fmt(code.minimum.side * 100, 0)} cm` }),
+      check('rcSheets.v.colMinBar', smallest >= code.minimum.bar, { clause: code.minimum.clause, demand: `Ø${smallest}`, capacity: `≥ Ø${code.minimum.bar}` }),
+    ] : []),
     check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '§25.7.2.1', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ ${fmt(tieMax * 100, 1)} cm` }),
     check('rcSheets.v.crossties', true, { clause: '§25.7.2.3', capacity: `${ct.x} (b) · ${ct.y} (h)` }),
     ...(stack.fromBelow ? [check(splice.tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC', true, { clause: splice.tension ? '§25.5.2' : '§25.5.5.1', capacity: `${fmt(splice.length * 100, 0)} cm (Ø${longest})` })] : []),
@@ -342,7 +377,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     {
       title: 'rcSheets.g.ties',
       steps: [
-        { label: 'rcSheets.s.tieDia', formula: 'db ≤ 16 → Ø6; ≤ 25 → Ø8; > 25 → Ø10', value: `Ø${a.tieDia}`, ok: tieDiaOk },
+        { label: 'rcSheets.s.tieDia', formula: `${code.tie.formula} (${code.tie.clause})`, value: `Ø${a.tieDia}`, ok: tieDiaOk },
         { label: 'rcSheets.s.tieSpacing', formula: 's ≤ min(16·db; 48·de; b) (§25.7.2.1)', value: `${tieLabel(a)} ≤ ${fmt(tieMax * 100, 0)} cm`, ok: a.tieSpacing <= tieMax + 1e-6 },
         { label: 'rcSheets.s.crossties', formula: '≤ min(15·dbe; 150 mm) (§25.7.2.3)', value: `${ct.x} (b) · ${ct.y} (h)` },
         { label: 'rcSheets.s.colShear', formula: 'φVn = φ·(Vc(Nu) + Av·fyt·d/s)', value: `${fmt(Math.max(shearX, shearY), 3)}`, ok: shearX <= 1 + 1e-6 && shearY <= 1 + 1e-6 },
@@ -376,7 +411,7 @@ function slenderSteps(g: CaseResult, f: Fmt): StepGroup {
   return { title: 'rcSheets.g.slenderness', steps: [{ label: 'rcSheets.s.governs', formula: '', value: g.c.combo }, ...ax('x', g.x), ...ax('y', g.y)] };
 }
 
-function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: readonly number[], tuples: Tuple[], pattern?: StackPlace['pattern']): { layout: ColumnAdopted; iterations: number } {
+function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: readonly number[], tuples: Tuple[], pattern: StackPlace['pattern'], tieDiaFor: (longDia: number) => number): { layout: ColumnAdopted; iterations: number } {
   const ok: Array<{ a: ColumnAdopted; it: number }> = [];
   const demands = governing(tuples);
   if (pattern) {

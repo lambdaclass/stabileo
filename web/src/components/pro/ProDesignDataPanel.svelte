@@ -13,7 +13,7 @@
   import { modelStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import {
-    BAR_DIAMETERS_MM, DESIGN_KINDS, REBAR_GRADES, coversUnderMinimum, largestBar, minimumCover, withCirsocCovers,
+    BAR_DIAMETERS_MM, DESIGN_KINDS, REBAR_GRADES, coversUnderMinimum, minimumCoverFor, withCirsocCovers,
     type DesignKind, type Exposure, type ProjectDesignData,
   } from '../../lib/model/design-data';
   import { designData, patchDesignData, setDesignData } from '../../lib/store/design-data';
@@ -71,11 +71,12 @@
   <section class="pk-card" data-testid="design-data-covers">
     <h5 class="dd-h">{t('designData.covers')}</h5>
     <Hint text={t('designData.coversHint')} />
+    <label class="dd-inline"><input type="checkbox" checked={d.executionControl !== false} onchange={(e) => patchDesignData({ executionControl: e.currentTarget.checked ? undefined : false })} data-testid="design-data-control" /> {t('designData.executionControl')}</label>
     <table class="dd-table">
       <thead><tr><th></th><th>{t('designData.exposure')}</th><th>{t('designData.cover')}</th><th>{t('designData.minimum')}</th></tr></thead>
       <tbody>
         {#each DESIGN_KINDS as k (k)}
-          {@const min = minimumCover(k, d.exposure[k], largestBar(d, k))}
+          {@const min = minimumCoverFor(d, k)}
           <tr class:dd-under={d.covers[k] < min - 1e-9}>
             <td>{t(`designData.kind.${k}`)}</td>
             <td>

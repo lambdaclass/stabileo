@@ -3,7 +3,8 @@ import { test, expect, loadModel, solveModel } from './fixtures';
 /**
  * The slabs of a level of the seven-storey example in one plan: one bar per package with its legs
  * folded onto the plan, bottom and top switched apart, the strips adding up to what the panels
- * require, and the bent-bar option laying every other span bar over both supports.
+ * require, the corner bars of the exterior corners, and the bent-bar option laying every other span
+ * bar over both supports, bent at ln/8 of a two-way panel.
  */
 test.use({ appLocale: 'es' });
 
@@ -43,6 +44,8 @@ test('@slow the reinforcement sheets draw the slabs of a level as one plan', asy
   await expect(fig.getByTestId('rc-plan-checks')).toHaveText(/Franjas verificadas: (\d+) de \1 /);
   await expect(fig.getByTestId('rc-plan-short')).toHaveCount(0);
   await expect(fig.getByTestId('rc-plan-cantilever')).toHaveCount(1);
+  await expect(fig.getByTestId('rc-plan-corners')).toContainText('§8.7.3.1');
+  await expect(fig.locator('[data-testid="rc-plan-bar"][data-kind="corner"]').first()).toBeVisible();
   await fig.screenshot({ path: test.info().outputPath('slab-plan.png') });
 
   await fig.getByTestId('rc-plan-show-top').uncheck();
@@ -65,6 +68,7 @@ test('@slow the reinforcement sheets draw the slabs of a level as one plan', asy
   await ws.getByTestId('rc-slab-view-plan').click();
   await level.selectOption({ label: second });
   await expect(fig.locator('[data-testid="rc-plan-bar"][data-kind="bent"]').first()).toBeVisible();
+  await expect(fig.getByTestId('rc-plan-bend')).toContainText('1/8·ln');
   await expect(fig.getByTestId('rc-plan-checks')).toHaveText(/Franjas verificadas: (\d+) de \1 /);
   await expect(fig.getByTestId('rc-plan-short')).toHaveCount(0);
   await fig.screenshot({ path: test.info().outputPath('slab-plan-bent.png') });
