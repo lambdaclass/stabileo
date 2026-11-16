@@ -85,3 +85,12 @@ The row-2 fixture explicitly records the four column secondary-crosstie holds ra
 The main branch already reports physical cover failures and refuses exhausted sizing; those are not newly discovered silent overall passes. The new guard and sizing changes therefore introduce no additional advisory. The existing #2171 silent directional-strength witnesses and assigned SA-2026-075 remain applicable.
 
 The undeclared-lateral-role run is also recorded for every member in the same table and JSON. It changes from 359 to 360 capacity passes, with the same four recoveries and three new exhausted searches: 204, 207 and 223. The filtered transverse choices steer the bounded search to longitudinal arrangements whose hooks do not develop in the supports; the final verifier refuses them on anchorage. For 204/207 the retained top continuous pair needs 368 mm against 353 mm available and its bottom pair needs 589 mm against 249 mm. For 223 the bottom rows need 368 mm against 267 and 221 mm. None receives accepted bars or a certificate, and none is labelled SECTION_INADEQUATE. Their previous reinforcement had the omitted two-leg secondary distribution defect; this is not evidence that no reinforcement could work. Relative to the declared-gravity run, sixteen members are refused: nine on anchorage and seven on congestion. The declared/undeclared comparison's exact counts are updated accordingly.
+
+The four two-metre-mesh conflicts are retained exactly in the span trace record. All belong to assembly `level-6.00`, whose constructibility verdict is `CONFLICTED` and whose state is `COORDINATED`, never `CONSTRUCTIBLE`:
+
+| Beam bar | Joint crosstie | Affected members |
+| --- | --- | --- |
+| `e51-topI-2` | `joint-13:ties:crosstie1:0.2274` | 14, 48, 51 |
+| `e54-topI-1` | `joint-14:ties:crosstie1:0.2274` | 15, 48, 54 |
+| `e60-topJ-2` | `joint-17:ties:crosstie1:0.2274` | 22, 60, 66 |
+| `e63-topJ-1` | `joint-18:ties:crosstie1:0.2274` | 24, 63, 66 |

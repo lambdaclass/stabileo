@@ -625,5 +625,2197 @@
         "round": 2
       }
     ]
+  },
+  "undeclaredTwoMetreConflicts": {
+    "conflicts": [
+      {
+        "severity": "overlap",
+        "barA": "e51-topI-2",
+        "barB": "joint-13:ties:crosstie1:0.2274",
+        "at": {
+          "x": -0.10600000000000001,
+          "y": -0.019796362432175335,
+          "z": 6.1111843593128805
+        },
+        "clearance": -0.00859,
+        "required": 0,
+        "pairClass": "prohibitedOverlap",
+        "classLabelKey": "detailing.pairClass.prohibitedOverlap",
+        "shortfall": 0.00859,
+        "elementIds": [
+          14,
+          48,
+          51
+        ]
+      },
+      {
+        "severity": "overlap",
+        "barA": "e54-topI-1",
+        "barB": "joint-14:ties:crosstie1:0.2274",
+        "at": {
+          "x": -0.10600000000000001,
+          "y": 5.019796362432175,
+          "z": 6.1111843593128805
+        },
+        "clearance": -0.00859,
+        "required": 0,
+        "pairClass": "prohibitedOverlap",
+        "classLabelKey": "detailing.pairClass.prohibitedOverlap",
+        "shortfall": 0.00859,
+        "elementIds": [
+          15,
+          48,
+          54
+        ]
+      },
+      {
+        "severity": "overlap",
+        "barA": "e60-topJ-2",
+        "barB": "joint-17:ties:crosstie1:0.2274",
+        "at": {
+          "x": 12.106,
+          "y": -0.019796362432175304,
+          "z": 6.1111843593128805
+        },
+        "clearance": -0.00859,
+        "required": 0,
+        "pairClass": "prohibitedOverlap",
+        "classLabelKey": "detailing.pairClass.prohibitedOverlap",
+        "shortfall": 0.00859,
+        "elementIds": [
+          22,
+          60,
+          66
+        ]
+      },
+      {
+        "severity": "overlap",
+        "barA": "e63-topJ-1",
+        "barB": "joint-18:ties:crosstie1:0.2274",
+        "at": {
+          "x": 12.106,
+          "y": 5.019796362432175,
+          "z": 6.1111843593128805
+        },
+        "clearance": -0.00859,
+        "required": 0,
+        "pairClass": "prohibitedOverlap",
+        "classLabelKey": "detailing.pairClass.prohibitedOverlap",
+        "shortfall": 0.00859,
+        "elementIds": [
+          24,
+          63,
+          66
+        ]
+      }
+    ],
+    "assemblies": [
+      {
+        "id": "level-6.00",
+        "state": "COORDINATED",
+        "elementIds": [
+          14,
+          15,
+          17,
+          19,
+          22,
+          24,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68
+        ],
+        "verdict": "CONFLICTED",
+        "unsupported": [
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                48,
+                49,
+                50
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                48,
+                49,
+                50
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                48,
+                49,
+                50
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                51,
+                52,
+                53
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                51,
+                52,
+                53
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                51,
+                52,
+                53
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                54,
+                55,
+                56
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                54,
+                55,
+                56
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                54,
+                55,
+                56
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                60,
+                61,
+                62
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                60,
+                61,
+                62
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                60,
+                61,
+                62
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                63,
+                64,
+                65
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                63,
+                64,
+                65
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                63,
+                64,
+                65
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                66,
+                67,
+                68
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                66,
+                67,
+                68
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          },
+          {
+            "key": "generation",
+            "scope": {
+              "elementIds": [
+                66,
+                67,
+                68
+              ]
+            },
+            "message": "Secondary stirrup legs (4) require horizontal crossties that beam detailing does not generate.",
+            "refs": [
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.1",
+                "label": "separaci\u00f3n libre m\u00ednima entre barras paralelas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.2.2",
+                "label": "separaci\u00f3n libre entre capas"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.8.2",
+                "label": "prolongaci\u00f3n de la armadura de momento positivo en el apoyo"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.3.1",
+                "label": "geometr\u00eda del gancho normal para el anclaje de barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "25.7.1.2",
+                "label": "cada doblez del estribo debe contener una barra longitudinal"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.3",
+                "label": "prolongaci\u00f3n m\u00e1s all\u00e1 del punto de corte"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.5",
+                "label": "terminaci\u00f3n en zona de tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "9.7.3.4",
+                "label": "longitud embebida de la armadura continua"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.4.2.3",
+                "label": "longitud de anclaje para barras conformadas en tracci\u00f3n"
+              },
+              {
+                "regulation": "cirsoc-201",
+                "edition": "2025",
+                "clause": "Tabla 25.5.2.1",
+                "label": "longitud de empalme por yuxtaposici\u00f3n en tracci\u00f3n"
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }
