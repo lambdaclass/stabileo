@@ -11966,6 +11966,7 @@ const de: Translations = {
   'float.distFrameLocal3D': 'qY und qZ entlang der lokalen Achsen jedes Stabs.',
   'viewport3d.pointLoadOnMemberApplied': 'Einzellast auf Stab {id} aufgebracht',
   'edit.refused.prestress': '{n} Verbindungen wurden beibehalten: Ein Stab dort führt ein Spannglied, und die Spannglieder zweier Stäbe bilden keine gemeinsame Parabel.',
+  'svc.memberLoadSpan': 'Stab {n}: Der Abschnitt der verteilten Kraft oder des verteilten Moments liegt unter dem vom Rechenkern unterstützten Minimum. Der Lastschritt wurde abgelehnt, damit die Stablast nicht an einen Knoten verschoben wird.',
   'svc.pointMomentOnTruss': 'Stab {n} nimmt keine Biegung auf (Fachwerkstab oder einseitig wirkender Stab) und trägt ein Einzelmoment. Verschieben Sie das Moment auf einen Knoten oder ändern Sie den Stabtyp.',
   'svc.loadOnMissingMember': 'Last {load} liegt auf Stab {n}, den das Modell nicht hat. Löschen Sie die Last oder setzen Sie sie auf einen Stab.',
   'svc.loadOnMissingNode': 'Last {load} liegt auf Knoten {n}, den das Modell nicht hat. Löschen Sie die Last oder setzen Sie sie auf einen Knoten.',

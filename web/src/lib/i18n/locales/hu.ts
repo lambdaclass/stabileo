@@ -11669,6 +11669,7 @@ const hu: Translations = {
   "float.distFrameLocal3D": "A qY és qZ az egyes rudak lokális tengelyei mentén.",
   "viewport3d.pointLoadOnMemberApplied": "Koncentrált erő felvíve a(z) {id} rúdra",
   "edit.refused.prestress": "{n} csomópont megmaradt: az ottani rúd feszítőbetétet hordoz, és két rúd feszítőbetétei nem alkotnak egyetlen parabolát.",
+  "svc.memberLoadSpan": "{n}. rúd: a megoszló erő vagy nyomaték terhelt szakasza rövidebb a számítási motor által támogatott minimumnál. A teherlépést elutasítottuk, hogy a rúdterhet ne helyezzük át egy csomópontra.",
   "svc.pointMomentOnTruss": "A(z) {n} rúd nem vesz fel hajlítást (rácsos vagy egyirányú rúd), mégis koncentrált nyomatékot hordoz. Helyezze át a nyomatékot egy csomópontra, vagy változtassa meg a rúd típusát.",
   "svc.loadOnMissingMember": "A(z) {load} teher a(z) {n} rúdon van, amely nincs a modellben. Törölje a terhet, vagy vigye fel egy rúdra.",
   "svc.loadOnMissingNode": "A(z) {load} teher a(z) {n} csomóponton van, amely nincs a modellben. Törölje a terhet, vagy vigye fel egy csomópontra.",

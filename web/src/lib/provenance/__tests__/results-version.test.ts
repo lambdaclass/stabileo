@@ -185,7 +185,7 @@ describe('results versions', () => {
 it.each(['2d', '3d', 'pro'])('retains the exact gravity regeneration notices after a current solve in %s', mode => {
   const snapshot: FeatureSnapshot = { loadCases: [{ id: 1, type: 'D' }], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'load-plan' } }], designData: { loadBasis: { resultsVersion: 0 } } };
   const stamp = { resultsVersion: RESULT_CHANGES.currentResultsVersion, analyses: ['linear'], recorded: [...ANALYSIS_KINDS] } as unknown as SolveStamp;
-  expect(assessProject(snapshot, stamp, mode).changes.map(c => c.id)).toEqual(['generated-area-loads-headroom', 'gravity-physical-regions', 'gravity-member-loading', 'gravity-torque-projection-and-carriers', 'gravity-stations-and-edits']);
+  expect(assessProject(snapshot, stamp, mode).changes.map(c => c.id)).toEqual(['generated-area-loads-headroom', 'gravity-physical-regions', 'gravity-member-loading', 'gravity-torque-projection-and-carriers', 'gravity-stations-and-edits', 'snow-panel-geometry']);
 });
 
 for (const mode of ['2d', '3d', 'pro']) it(`retains the exact generated snow notices after a current solve in ${mode}`, () => {

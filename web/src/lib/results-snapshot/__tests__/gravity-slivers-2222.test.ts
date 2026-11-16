@@ -23,6 +23,10 @@ for(const width of [0.5e-12,1.5e-12,0.5e-9,1.5e-9]) for(const distribution of ['
     modelStore.updateSection(section.id,{a:0.1,iy:0.001,iz:0.001,j:0.002});
     for(const l of load.loads.filter(l=>l.elementId<=2)) modelStore.addLoadEntry({type:'distributed3d',data:{...l,id:0,elementId:elements[l.elementId-1]!}});
     for(const l of load.concentrated.filter(l=>l.elementId<=2)) modelStore.addLoadEntry({type:'pointOnElement3d',data:{...l,id:0,elementId:elements[l.elementId-1]!}});
+    if (width < 1e-12) {
+      expect(() => buildSolverInput3D(modelStore.model)).toThrow(/Member .*span.*native/);
+      return;
+    }
     const input=buildSolverInput3D(modelStore.model)!;
     for(const section of input.sections.values()) Object.assign(section,{a:0.1,iy:0.001,iz:0.001,j:0.002,asY:undefined,asZ:undefined,cw:undefined});
     for(const material of input.materials.values()) Object.assign(material,{e:1000,nu:0});

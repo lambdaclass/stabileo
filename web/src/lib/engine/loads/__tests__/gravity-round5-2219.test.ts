@@ -55,7 +55,9 @@ for (const kind of ['components', 'opposite', 'forceAndMoment'] as const) regres
   let id = 10;
   const result = splitElementLoads([{ type: 'distributed3d', data: d }], 1, [0, 2, 6], [2, 3], () => id++);
   const points = result.added.filter(l => l.type === 'pointOnElement3d');
-  expect(points.length).toBeGreaterThan(1);
+  expect(points).toEqual([]);
+  expect(result.added.every(l => l.type === 'distributed3d')).toBe(true);
+  expect(result.added.length).toBe(kind === 'opposite' ? 1 : 2);
   expect(new Set(result.added.map(l => l.data.id)).size).toBe(result.added.length);
   modelStore.clear();
   for (const l of result.added) modelStore.addLoadEntry(l);
@@ -67,8 +69,9 @@ for (const operation of ['store', 'analysis', 'variable'] as const) for (const w
   modelStore.addLoadEntry({ type: 'distributed3d', data: { id: 1, elementId: id, a: cut - width, b: axes.L, frame: 'projected', qXI: 2, qXJ: 2, qYI: 3, qYJ: 3, qZI: -4, qZJ: -4, moments: { x: [1, 1, 1], y: [2, 2, 2], z: [3, 3, 3] } } });
   const original = modelStore.loads[0]!.data as DistributedLoad3D;
   const g = distributedGlobalEnds(original, axes).gI, m = distributedGlobalMoments(original, axes)!;
-  let loads: Load[];
-  let first: number;
+  let loads: Load[] = [];
+  let first = 0;
+  const run = () => {
   if (operation === 'store') {
     const split = modelStore.splitElementAtPoint(id, 0.5)!;
     first = split.elemA; loads = modelStore.loads;
@@ -81,6 +84,8 @@ for (const operation of ['store', 'analysis', 'variable'] as const) for (const w
     const split = expandVariableMembers(modelStore.model);
     first = variableExpansionFor(modelStore.model)!.members.get(id)!.pieces[0]!.id; loads = split.loads;
   }
+  };
+  run();
   const part = loads.filter(l => 'elementId' in l.data && l.data.elementId === first);
   const h = cut - original.a!;
   expect(part.length).toBeGreaterThan(0);
@@ -121,19 +126,13 @@ for (const operation of ['inPlace', 'copy'] as const) regression(`known wrong re
   expect(Math.hypot(m.x[0], m.y[0], m.z[0])).toBeCloseTo(1, 12);
 });
 
-it.skip('known wrong result: #2219 short-span couples still reach endpoint snapping in the point adapter', async () => {
+it('short-span torque stays a density and never reaches endpoint snapping', async () => {
   const { memberLoadSpans } = await import('../member-load-spans');
-  const { pointToSolver, pointNeedsCut } = await import('../../member-point-loads');
   const a = 2 - 0.5e-9, h = 2 - a;
-  const result = memberLoadSpans([{ elementId: 1, a, b: 2, frame: 'global' as const, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, moments: { x: [1 / h, 1 / h, 1 / h] as [number, number, number], y: [0, 0, 0] as [number, number, number], z: [0, 0, 0] as [number, number, number] } }], () => 2);
-  const d = result.concentrated[0]!;
-  const axes = { ex: [1, 0, 0] as Vec3, ey: [0, 1, 0] as Vec3, ez: [0, 0, 1] as Vec3, L: 2 };
-  expect(d.a).toBeGreaterThan(0);
-  expect(d.a).toBeLessThan(2);
-  expect(d.mx).toBeCloseTo(1, 12);
-  const adapter = pointToSolver({ elementId: 1, nodeI: 1, nodeJ: 2, axes }, d);
-  expect(adapter.some(l => l.type === 'nodal')).toBe(false);
-  expect(pointNeedsCut(d, axes)).toBe(true);
+  const load = { elementId: 1, a, b: 2, frame: 'global' as const, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, moments: { x: [1 / h, 1 / h, 1 / h] as [number, number, number], y: [0, 0, 0] as [number, number, number], z: [0, 0, 0] as [number, number, number] } };
+  const result = memberLoadSpans([load], () => 2);
+  expect(result.concentrated).toEqual([]);
+  expect(result.distributed).toEqual([load]);
 });
 
 it('projected subdivision refuses missing source geometry before emitting any loads', () => {

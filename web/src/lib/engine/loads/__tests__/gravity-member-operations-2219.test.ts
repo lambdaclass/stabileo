@@ -87,5 +87,7 @@ for(const h of [0.5e-12,1.5e-12,0.5e-9,1.5e-9]) it(`member subdivision retains s
   const torque=part.reduce((s,l)=>s+(l.type==='pointOnElement3d'?(l.data.mx??0):l.type==='distributed3d'?((l.data.b??b)-(l.data.a??0))*l.data.moments!.x[0]:0),0);
   expect(force/(b-a)).toBeCloseTo(-1,12);
   expect(torque/(b-a)).toBeCloseTo(-1,12);
-  expect(part.filter(l=>l.type==='distributed3d').every(l=>(l.data.b??b)-(l.data.a??0)>=1e-9)).toBe(true);
+  expect(part).toHaveLength(1);
+  expect(part[0]!.type).toBe('distributed3d');
+  expect(part[0]!.data).toMatchObject({ a, qZI: -1, qZJ: -1, moments: original.data.moments });
 });

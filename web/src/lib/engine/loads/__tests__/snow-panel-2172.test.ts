@@ -1,3 +1,4 @@
+import { assertMemberLoadSpan } from '../member-load-spans';
 import { expect, it } from 'vitest';
 import { mesh, transform } from './snow-surface-round2-fixture';
 import { snow, pressure, regulations } from './snow-roof-plane-fixture';
@@ -30,7 +31,14 @@ for (const angle of [0, 0.37, Math.PI / 2]) for (const mode of ['projected', 'wi
     };
     const refinedRafter = remeshSnowRoof(model, new Map([[2, 8]])).model;
     for (const witness of [model, refinedRafter]) {
-      if (mode === 'panels') expect(gravityLayout(witness, { mode, tributaryWidth: 1, loadEveryPanel: true }).pieces).toHaveLength(8);
+      if (mode === 'panels') {
+        const pieces = gravityLayout(witness, { mode, tributaryWidth: 1, loadEveryPanel: true }).pieces;
+        expect(pieces).toHaveLength(angle === Math.PI / 2 ? 9 : 8);
+        const unsupported = pieces.filter(p => (p.b ?? Infinity) - (p.a ?? 0) < 1e-12);
+        expect(unsupported).toHaveLength(angle === Math.PI / 2 ? 1 : 0);
+        expect(pieces.filter(p => !unsupported.includes(p))).toHaveLength(8);
+        for (const p of unsupported) expect(() => assertMemberLoadSpan(p.elementId, p.a ?? 0, p.b!)).toThrow(/Member .*span.*native/);
+      }
       generate(witness);
     }
     for (const id of model.elements.keys()) assertSnowRemeshInvariant(model, new Map([[id, 8]]), generate);

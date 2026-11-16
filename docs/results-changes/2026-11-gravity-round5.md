@@ -52,10 +52,7 @@ regenerate affected area loading, then rerun analyses, combinations, diagrams
 and design checks. Re-solving already damaged saved loading cannot reconstruct
 its lost components.
 
-A separate existing endpoint-snapping limitation remains in the web point-load
-adapter: a concentrated couple less than `1e-6` from an end is moved to that
-end. Fixing diagram station comparisons does not remove this allocation rule.
-The ignored short-span adapter regression documents it. The eccentric torque
-channel should not be considered complete while this remains; the handoff
-recommends separating physical-region allocation (SA-079) from that channel
-(SA-080). The separate native short-span issue #2222 also remains ignored.
+Round 6 [contains the remaining density-to-point endpoint path](2026-11-gravity-round6.md).
+Short densities stay distributed and unsupported native spans refuse. The existing
+point adapter's broader endpoint policy and the native issue_2222 witness remain
+#2223's work. Both assigned gravity advisory records remain in this PR.

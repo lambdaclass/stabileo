@@ -1,3 +1,4 @@
+import { assertMemberLoadSpan, MemberLoadSpanRefusal } from './loads/member-load-spans';
 import { hasMemberMoments, mapMoments } from './member-moments';
 import { knownIssueRefusal } from './known-issues';
 import { isContainmentRefusal } from './containment-error';
@@ -418,7 +419,19 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
     }
   }
 
+  for (const load of solverLoads) if (load.type === 'distributed' || load.type === 'axialDistributed') {
+    const e = model.elements.get(load.data.elementId);
+    const a = e && model.nodes.get(e.nodeI), b = e && model.nodes.get(e.nodeJ);
+    if (a && b) assertMemberLoadSpan(load.data.elementId, load.data.a ?? 0, load.data.b ?? Math.hypot(b.x - a.x, b.y - a.y), undefined,
+      load.type === 'distributed' && (load.data.qI !== 0 || load.data.qJ !== 0) ? undefined : 0);
+  }
+
   return solverLoads;
+}
+
+function buildSolveLoads2D(...args: Parameters<typeof buildSolverLoads2D>): SolverInput['loads'] | string {
+  try { return buildSolverLoads2D(...args); }
+  catch (err) { const refusal = loadRefusal(err); if (refusal) return refusal; throw err; }
 }
 
 /**
@@ -897,7 +910,9 @@ function prepareSolve2D(
   }
 
   // Build solver loads array (shared with the multi-case combo path)
-  const input: SolverInput = { ...frame, loads: buildSolverLoads2D(model, model.loads, includeSelfWeight) };
+  const loads = buildSolveLoads2D(model, model.loads, includeSelfWeight);
+  if (typeof loads === 'string') return loads;
+  const input: SolverInput = { ...frame, loads };
 
   // A moment on a node nothing there can turn against is a modeling error said by
   // name, not a vanishing-spring reaction that leaves the loads unbalanced.
@@ -1261,7 +1276,8 @@ function solveCombinations2DCore(
 
   for (const lc of loadCases) {
     const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
-    const loads = buildSolverLoads2D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight).length > 0);
+    const loads = buildSolveLoads2D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight).length > 0);
+    if (typeof loads === 'string') return loads;
     mcLoadCases.push({ name: lc.name, loads });
     caseNameToId.set(lc.name, lc.id);
   }
@@ -1619,6 +1635,12 @@ export function buildSolverLoads3D(
 
   // A truss takes no bending, and the engine drops a transverse load on one: its end nodes take
   // the simply supported reactions instead.
+  for (const load of solverLoads) if (load.type === 'distributed') {
+    const member = refOf(load.data.elementId);
+    if (member) assertMemberLoadSpan(load.data.elementId, load.data.a ?? 0, load.data.b ?? member.axes.L, undefined,
+      [load.data.qYI, load.data.qYJ, load.data.qZI, load.data.qZJ].some(v => v !== 0) ? undefined : 0);
+  }
+
   return transverseToNodes(solverLoads, (id) => (takesNoBending(id) ? refOf(id) : null));
 }
 
@@ -1964,6 +1986,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): Solv
 
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
 export function loadRefusal(err: unknown): string | null {
+  if (err instanceof MemberLoadSpanRefusal) return tp('svc.memberLoadSpan', { n: err.elementId });
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }
 

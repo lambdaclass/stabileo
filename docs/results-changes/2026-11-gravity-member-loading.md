@@ -80,7 +80,7 @@ The engine's existing partial-force kernel discards spans below `1e-12`.
 That kernel is unchanged here and its native boundary witness remains ignored
 with `known wrong result: #2222`; the separate engine branch owns its correction.
 Gravity output instead passes through `memberLoadSpans`, with a minimum emitted
-span of `1e-9`. Short force pieces become member point loads at their resultant
+span of `1e-9` in the earlier implementation. The conversion described below is superseded by [round 6 containment](2026-11-gravity-round6.md): densities now remain distributed and unsupported native spans refuse. Short force pieces become member point loads at their resultant
 positions; short quadratic moment densities become concentrated member couples
 at their resultant positions. Signed densities with no interior resultant keep
 separate point contributions. No load is transferred to a support to evade the

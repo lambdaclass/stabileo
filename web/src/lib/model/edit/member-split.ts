@@ -114,7 +114,7 @@ export function splitElementLoads(
       case 'distributed': {
         const d = l.data as DistributedLoad;
         for (let k = 0; k < segmentIds.length; k++) {
-          const c = clipTrapezoid(d.a ?? 0, d.b ?? L, [[d.qI, d.qJ]], bounds[k]!, bounds[k + 1]!);
+          const c = clipTrapezoid(d.a ?? 0, d.b ?? L, [[d.qI, d.qJ]], bounds[k]!, bounds[k + 1]!, true);
           if (!c) continue;
           const { id: _id, elementId: _e, a: _a, b: _b, qI: _qi, qJ: _qj, ...meta } = d;
           const data: DistributedLoad = { ...meta, id: newId(), elementId: segmentIds[k]!, qI: c.values[0]![0], qJ: c.values[0]![1] };
@@ -141,7 +141,6 @@ export function splitElementLoads(
           if (c.b !== undefined) data.b = c.b;
           const bounded = memberLoadSpans([data], () => bounds[k+1]!-bounds[k]!);
           added.push(...bounded.distributed.map(data => ({ type: 'distributed3d' as const, data: { ...data, id: newId() } })));
-          added.push(...bounded.concentrated.map(data => ({ type: 'pointOnElement3d' as const, data: { ...data, id: newId() } })));
         }
         break;
       }

@@ -75,6 +75,11 @@ for(const source of ['floor','region']) for(const epsilon of [0,1e-7]) for(const
   }
   const norm=Math.hypot(1,epsilon),r=epsilon/(norm+1),left=(1+epsilon)/(1+norm+epsilon),rightY=1/(1+norm-epsilon*r),right=1-r*rightY;
   const profile=[[0,left,0,left],[left,right,left,rightY],...(epsilon?[[right,1,rightY,0]]:[])];
+  if (source === 'floor' && epsilon === 1e-7 && angle === 0.37 && mirror === -1) {
+    expect(() => solve_3d(s)).toThrow(/Member .*distributed moment span must lie within the member/);
+    expect(() => solve_pdelta_3d(JSON.stringify(s), 100, 1e-10)).toThrow(/Member .*distributed moment span must lie within the member/);
+    return;
+  }
   for(const result of [solve_3d(s),JSON.parse(solve_pdelta_3d(JSON.stringify(s),100,1e-10)).results] as AnalysisResults3D[]) {
     for(const [k,id] of ids.entries()) {const ef=result.elementForces.find(f=>f.elementId===id)!;for(const t of [0.1,0.4,0.7,0.9]) {
       const x=fractions[k]!+t*ef.length,hand=depthHand(profile,x,mirror);

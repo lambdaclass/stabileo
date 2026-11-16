@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { physicalRoofRuns, snowCoordinate, sameSnowPoint, collinearSnowMembers, connectedSnowMembers } from './physical-roof-geometry';
 export { snowCoordinate } from './physical-roof-geometry';
 import { roofMembers, type WindModel } from './wind-cases';
@@ -153,7 +154,7 @@ export function snowSegmentCuts(a: P2, b: P2, polygons: ReadonlyArray<ReadonlyAr
   if (l2 === 0) return ts;
   for (const poly of polygons) for (const [k, c] of poly.entries()) {
     const d = poly[(k + 1) % poly.length]!, cd: P2 = [d[0] - c[0], d[1] - c[1]];
-    const ac: P2 = [c[0] - a[0], c[1] - a[1]], det = cross([0, 0], ab, cd);
+    const det = cross([0, 0], ab, cd);
     const error = 32 * Number.EPSILON * (Math.abs(ab[0]) * (Math.abs(c[1]) + Math.abs(d[1])) + Math.abs(ab[1]) * (Math.abs(c[0]) + Math.abs(d[0]))
       + (Math.abs(a[0]) + Math.abs(b[0])) * Math.abs(cd[1]) + (Math.abs(a[1]) + Math.abs(b[1])) * Math.abs(cd[0]));
     if (Math.abs(det) <= error) {
@@ -161,7 +162,11 @@ export function snowSegmentCuts(a: P2, b: P2, polygons: ReadonlyArray<ReadonlyAr
         for (const v of [c, d]) ts.push(((v[0] - a[0]) * ab[0] + (v[1] - a[1]) * ab[1]) / l2);
       }
     } else {
-      const t = cross([0, 0], ac, cd) / det, u = cross([0, 0], ac, ab) / det;
+      const delta = (p: P2, q: P2) => [new BigNumber(q[0]).minus(p[0]), new BigNumber(q[1]).minus(p[1])] as const;
+      const exactCross = (p: ReturnType<typeof delta>, q: ReturnType<typeof delta>) => p[0].times(q[1]).minus(p[1].times(q[0]));
+      const abExact = delta(a, b), cdExact = delta(c, d), acExact = delta(a, c);
+      const divisor = exactCross(abExact, cdExact);
+      const t = exactCross(acExact, cdExact).div(divisor).toNumber(), u = exactCross(acExact, abExact).div(divisor).toNumber();
       if (u >= -1e-9 && u <= 1 + 1e-9) ts.push(t);
     }
   }
