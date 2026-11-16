@@ -14,6 +14,31 @@ import type { DesignAxes } from '../design/design-axes';
 
 const section = { b: 0.2, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const bars = { count: 4, diameter: 16 };
+const expectedPrimaryCapacity = (cage: StirrupDef, sec = section, edition: '2005' | '2025' = '2025') =>
+  computeDirectionalShearCapacity('primary', cage.diameter, stirrupLegs(cage, 'primary'), cage.spacing,
+    sec.b, sec.h - sec.cover - sec.stirrupDia / 1000 - bars.diameter / 2000, sec.fc, sec.fy, 0,
+    { h: sec.h, Ag: sec.b * sec.h, edition });
+
+for (const example of [
+  { edition: '2025', h: 0.3, diameter: 6, legs: 6, spacing: 0.1, phiVn: 162.47 },
+  { edition: '2005', h: 0.6, diameter: 6, legs: 2, spacing: 0.05, phiVn: 270.17 },
+  { edition: '2025', h: 0.6, diameter: 6, legs: 2, spacing: 0.05, phiVn: 271.57 },
+  { edition: '2025', h: 0.6, diameter: 12, legs: 2, spacing: 0.05, phiVn: 345.49 },
+] as const) {
+  it.skip(`known wrong result: #2171 primary capacity expectation agrees with hand arithmetic ${example.edition} ${example.h} ${example.diameter}`, () => {
+    expect(expectedPrimaryCapacity(example, { ...section, h: example.h }, example.edition).phiVn).toBe(example.phiVn);
+  });
+}
+
+for (const example of [
+  { h: 0.3, diameter: 8, legs: 2, spacing: 0.1, phiVn: 115.10 },
+  { h: 0.3, diameter: 8, legs: 2, spacing: 0.15, phiVn: 87.74 },
+  { h: 0.6, diameter: 8, legs: 2, spacing: 0.05, phiVn: 347.98 },
+]) {
+  it(`primary capacity expectation retains nominal cage hand arithmetic ${example.h} ${example.spacing}`, () => {
+    expect(expectedPrimaryCapacity(example, { ...section, h: example.h }).phiVn).toBe(example.phiVn);
+  });
+}
 const axesFor = (axis: 'My' | 'Mz'): DesignAxes => ({ flexure: axis, shear: axis === 'My' ? 'Vz' : 'Vy',
   secondaryFlexure: axis === 'My' ? 'Mz' : 'My', secondaryShear: axis === 'My' ? 'Vy' : 'Vz',
   bFlex: section.b, hFlex: section.h, biaxial: false, sagCategory: `${axis}+`, hogCategory: `${axis}-`, basis: 'stress-proxy', secondaryRatio: 0 });
@@ -93,8 +118,7 @@ for (const swap of [false, true]) for (const spacing of [0.1, 0.15]) {
     const strengths = result.checks.filter(c => c.category.startsWith('Shear Support') && c.limiting === 'shear');
     expect(strengths).toHaveLength(2);
     for (const cage of ends) {
-      const cap = computeDirectionalShearCapacity('primary', cage.diameter, stirrupLegs(cage, 'primary'), cage.spacing,
-        sec.b, sec.h - sec.cover - sec.stirrupDia / 1000 - 0.008, sec.fc, sec.fy, 0, { h: sec.h, Ag: sec.b * sec.h, edition: '2025' });
+      const cap = expectedPrimaryCapacity(cage, sec);
       expect(strengths.some(c => c.capacity === cap.phiVn)).toBe(true);
     }
   });
@@ -171,9 +195,7 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
       { axes: axesFor('My'), spacingRule: { edition, maxAggregateSizeMm: 0 } });
     const rows = result.checks.filter(c => c.demandCategory === 'Vz' && c.limiting === 'shear');
     expect(rows.length).toBeGreaterThan(0);
-    const depth = section.h - layerCentroid([{ ...bars, row: 0 }], section.cover, section.stirrupDia);
-    const expected = computeDirectionalShearCapacity('primary', diameter, stirrupLegs(cage, 'primary'), cage.spacing, section.b, depth, section.fc, section.fy, 0,
-      { edition, Ag: section.b * section.h, h: section.h });
+    const expected = expectedPrimaryCapacity(cage, section, edition);
     for (const row of rows) {
       expect(row.ratio).toBeLessThan(1);
       expect(row.capacity).toBe(expected.phiVn);
