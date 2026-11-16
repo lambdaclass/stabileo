@@ -3128,6 +3128,84 @@ fn translation_invariants(k: &[f64], n: usize) -> Vec<f64> {
     invariants(&b, 3)
 }
 
+fn moving_reference_section_3d(ef: &ElementForces3D, x: f64) -> (f64, f64) {
+    let (mut moment, mut shear) = (ef.my_start + ef.vz_start * x, ef.vz_start);
+    for dl in &ef.distributed_loads_z {
+        let width = (x - dl.a).clamp(0.0, dl.b - dl.a);
+        let slope = (dl.q_j - dl.q_i) / (dl.b - dl.a);
+        let force = dl.q_i * width + slope * width * width / 2.0;
+        shear += force;
+        moment += force * (x - dl.a) - dl.q_i * width * width / 2.0 - slope * width.powi(3) / 3.0;
+    }
+    for p in &ef.point_loads_z {
+        if p.a < x {
+            shear += p.p;
+            moment += p.p * (x - p.a);
+        }
+    }
+    for m in &ef.member_moments {
+        let u = ((x - m.a) / (m.b - m.a)).clamp(0.0, 1.0);
+        let [a, mid, b] = m.moments.y;
+        let c1 = 4.0 * mid - 3.0 * a - b;
+        let c2 = 2.0 * (a + b - 2.0 * mid);
+        moment += (m.b - m.a) * (a*u + c1*u*u/2.0 + c2*u.powi(3)/3.0);
+    }
+    (moment, shear)
+}
+
+fn moving_reference_stations_3d(ef: &ElementForces3D) -> Vec<f64> {
+    let mut xs = vec![0.0, ef.length];
+    xs.extend(ef.point_loads_z.iter().map(|p| p.a));
+    xs.extend(ef.distributed_loads_z.iter().flat_map(|d| [d.a, d.b]));
+    xs.extend(ef.member_moments.iter().flat_map(|m| [m.a, m.b]));
+    xs.sort_by(f64::total_cmp);
+    xs.dedup();
+    let boundaries = xs.clone();
+    xs.extend((0..=20).map(|i| ef.length * (i as f64 / 20.0)));
+    for x in &boundaries {
+        let t = x / ef.length;
+        if t > 0.0 { xs.push(t.next_down() * ef.length); }
+        if t < 1.0 { xs.push(t.next_up() * ef.length); }
+    }
+    for w in boundaries.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let derivative = |u: f64| {
+            let x = a + (b-a) * u;
+            let mut value = moving_reference_section_3d(ef, x).1;
+            if u == 0.0 { value += ef.point_loads_z.iter().filter(|p| p.a == a).map(|p| p.p).sum::<f64>(); }
+            for m in &ef.member_moments {
+                if m.a <= a && m.b >= b {
+                    let t = (x - m.a) / (m.b - m.a);
+                    let [v0, vm, v1] = m.moments.y;
+                    value += v0 + (4.0*vm-3.0*v0-v1)*t + 2.0*(v0+v1-2.0*vm)*t*t;
+                }
+            }
+            value
+        };
+        let (v0, vm, v1) = (derivative(0.0), derivative(0.5), derivative(1.0));
+        let c1 = 4.0*vm - 3.0*v0 - v1;
+        let c2 = 2.0*(v0 + v1 - 2.0*vm);
+        let mut roots = Vec::new();
+        if c2.abs() <= 32.0*f64::EPSILON*(v0.abs()+vm.abs()+v1.abs()) {
+            if c1 != 0.0 { roots.push(-v0/c1); }
+        } else {
+            let discriminant = c1*c1 - 4.0*c2*v0;
+            if discriminant >= 0.0 {
+                let q = -0.5*(c1 + discriminant.sqrt().copysign(c1));
+                roots.extend([q/c2, v0/q]);
+            }
+        }
+        let q = |x| ef.distributed_loads_z.iter().filter(|d| d.a <= a && d.b >= b)
+            .map(|d| d.q_i + (d.q_j-d.q_i)*(x-d.a)/(d.b-d.a)).sum::<f64>();
+        let (qa, qb) = (q(a), q(b));
+        if qa != qb { roots.push(-qa/(qb-qa)); }
+        xs.extend(roots.into_iter().filter(|u| *u > 0.0 && *u < 1.0).map(|u| a+(b-a)*u));
+    }
+    xs.sort_by(f64::total_cmp);
+    xs.dedup();
+    xs
+}
+
 fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
     let path = c.path.clone().ok_or("no path")?;
     let m = &c.with;
@@ -3174,37 +3252,21 @@ fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
             let r = solve(&loads)?;
             for ef in &r.element_forces {
                 if let Some(e) = env.get_mut(&ef.element_id) {
-                    let ts = dedaliano_engine::postprocess::diagrams_3d::diagram_positions_3d(ef, "momentY");
+                    let xs = moving_reference_stations_3d(ef);
                     e[0] = e[0].max(ef.my_start).max(ef.my_end);
                     e[1] = e[1].min(ef.my_start).min(ef.my_end);
                     let start = ef.vz_start + ef.point_loads_z.iter().filter(|p| p.a.abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>();
                     let end = ef.vz_end - ef.point_loads_z.iter().filter(|p| (p.a - ef.length).abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>();
                     e[2] = e[2].max(start).max(end);
                     e[3] = e[3].min(start).min(end);
-                    for t in ts.into_iter().filter(|&t|t>0.0 && t<1.0) {
-                        let x=t*ef.length;
-                        let (mut moment, mut shear) = (ef.my_end - ef.vz_end * (ef.length - x), ef.vz_end);
-                        for dl in &ef.distributed_loads_z {
-                            let a = x.max(dl.a);
-                            if a >= dl.b { continue; }
-                            let slope = (dl.q_j - dl.q_i) / (dl.b - dl.a);
-                            let qa = dl.q_i + slope * (a - dl.a);
-                            let width = dl.b - a;
-                            let force = qa * width + slope * width * width / 2.0;
-                            shear -= force;
-                            moment += force * (a - x) + qa * width * width / 2.0 + slope * width.powi(3) / 3.0;
-                        }
-                        for p in &ef.point_loads_z {
-                            if p.a / ef.length >= t {
-                                shear -= p.p;
-                                moment += p.p * (p.a - x);
-                            }
-                        }
-                        let jump: f64 = ef.point_loads_z.iter().filter(|p| p.a / ef.length == t).map(|p| p.p).sum();
+                    for x in xs.into_iter().filter(|&x| x > 0.0 && x < ef.length) {
+                        let t = x / ef.length;
+                        let (moment, shear) = moving_reference_section_3d(ef, x);
+                        let jump: f64 = ef.point_loads_z.iter().filter(|p| p.a == x).map(|p| p.p).sum();
                         let sampled = dedaliano_engine::postprocess::diagrams_3d::evaluate_diagram_3d_at(ef, "momentY", t);
                         assert!((sampled-moment).abs()<1e-9);
-                        e[0] = e[0].max(sampled);
-                        e[1] = e[1].min(sampled);
+                        e[0] = e[0].max(moment);
+                        e[1] = e[1].min(moment);
                         e[2] = e[2].max(shear).max(shear + jump);
                         e[3] = e[3].min(shear).min(shear + jump);
                     }
@@ -3389,5 +3451,37 @@ fn issue_1782_endpoint_3d_reference_obeys_equilibrium() {
         c.path = Some(vec![1]);
         let Out::S(values, _) = moving_reference_3d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
         for value in values { assert!(value.abs() < 1e-9, "support carries endpoint loads: {value}"); }
+    }
+}
+
+#[test]
+fn round12_moving_reference_3d_keeps_independent_load_events_and_stationary_points() {
+    for (qi, qj) in [(-1000.0, -1000.0), (-1000.0, -3000.0), (1000.0, 3000.0)] {
+        let mut m = beam3(1, 3.7, 1);
+        m.sup(1, [true, true, true, true, false, false]);
+        m.sup(2, [false, true, true, true, false, false]);
+        m.load(serde_json::from_value(serde_json::json!({"type":"distributed","data":{
+            "elementId":1,"a":0.31,"b":2.19,"qYI":0,"qYJ":0,"qZI":qi,"qZJ":qj
+        }})).unwrap());
+        let solved = linear::solve_3d(&m.s).unwrap();
+        let ef = &solved.element_forces[0];
+        let stations = moving_reference_stations_3d(ef);
+        assert!(stations.contains(&0.31));
+        assert!(stations.contains(&2.19));
+        let slope = (qj-qi)/(2.19-0.31);
+        let shear_a = ef.vz_start;
+        let h = if slope == 0.0 { -shear_a/qi }
+            else { -2.0*shear_a/(qi+(qi*qi-2.0*slope*shear_a).sqrt().copysign(qi)) };
+        let stationary = 0.31+h;
+        assert!(stationary > 0.31 && stationary < 2.19);
+        assert!(stations.iter().any(|x| (x-stationary).abs() < 1e-12));
+        let mut c = Case3::base("baseline frame", "partial permanent load", &[], m.clone(), m, vec![1, 2]);
+        c.path = Some(vec![1]);
+        let Out::S(reference, _) = moving_reference_3d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
+        let a = rows_3d().into_iter().find(|a| a.name == "moving loads").unwrap();
+        let Out::S(actual, _) = (a.run)(&c.with, &c).unwrap() else { panic!("scalar envelope required") };
+        for (actual, expected) in actual.iter().zip(reference) {
+            assert!((actual-expected).abs() < 1e-9, "qi={qi} qj={qj}: {actual} vs {expected}");
+        }
     }
 }

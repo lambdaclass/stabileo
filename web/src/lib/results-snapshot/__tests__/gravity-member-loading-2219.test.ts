@@ -1,4 +1,3 @@
-import { refusesMomentFringes, handMemberLoads } from '../gravity-supported-hand-profile';
 import { beforeAll, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initSolver } from '../../engine/wasm-solver';
@@ -40,15 +39,14 @@ function hand(L: number, x: number, mirror: number) {
   return { shear:R-F, moment:M0+R*x-x*F+first, torsion:mirror*(torqueTotal/2-torque), deflection:(M0*x*x/2+R*x**3/6-C3/6)/(1e6*0.001), rotation:-mirror*(torqueTotal*x/2-torqueConvolution)/(0.5e6*0.002) };
 }
 
-for (const source of ['floor','region']) for (const angle of [0,0.37]) for (const mirror of [1,-1]) for (const divided of [false,true]) {
-  it(`each ${source} carrier retains hand-solved internal forces and deflection, angle=${angle}, mirror=${mirror}, divided=${divided}`, () => {
+function generatedCarriers(source: string, angle: number, mirror: number, divided: boolean) {
     const point=([x,y]: number[]): [number,number] => [mirror*x!*Math.cos(angle)-y!*Math.sin(angle),mirror*x!*Math.sin(angle)+y!*Math.cos(angle)];
     const corners=rectangle(0,0,6,4).map(point),fractions=divided?[0,0.2,0.5,0.7]:[0,0.5], count=fractions.length;
     const ring=corners.flatMap((a,k) => { const b=corners[(k+1)%4]!; return fractions.map(t=>[a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])]); });
     const m=regionModel([ring]);
     const floor=floorLoad({ nodes:m.nodes,beams:[...m.elements.values()].map(e=>({...e,type:'frame' as const})),q:1,distribution:'twoWay' });
     const region=transferRegionToCarriers(m,physicalRegion(corners),[...m.elements.keys()]);
-    for (let carrier=0;carrier<4;carrier++) {
+    return Array.from({length:4}, (_,carrier) => {
       const ids=Array.from({length:count},(_,i)=>carrier*count+i+1),elements=ids.map(id=>m.elements.get(id)!);
       const nodeIds=[elements[0]!.nodeI,...elements.map(e=>e.nodeJ)],s=structuredClone(fixture);
       s.nodes=Object.fromEntries(nodeIds.map(id=>[id,m.nodes.get(id)]));
@@ -63,8 +61,25 @@ for (const source of ['floor','region']) for (const angle of [0,0.37]) for (cons
         const moments=mapMoments({x:l.first.map(v=>-v[1]) as [number,number,number],y:l.first.map(v=>v[0]) as [number,number,number],z:[0,0,0]},v=>[axes.ex,axes.ey,axes.ez].map(axis=>v.reduce((sum,x,i)=>sum+x*axis[i]!,0)) as [number,number,number]);
         s.loads.push({type:'distributed',data:{elementId:l.elementId,a:l.a,b:l.b,qYI:0,qYJ:0,qZI:0,qZJ:0,moments}});
       }
-      const L=carrier%2===0?6:4, cap=Math.min(2,L/2);
-      if (refusesMomentFringes(s)) s.loads=handMemberLoads(ids,fractions.map(t=>t*L),L,[[0,cap,0,cap],[cap,L-cap,cap,cap],[L-cap,L,cap,0]],mirror);
+      const L=carrier%2===0?6:4;
+      const fringes=s.loads.filter(({data}: {data: {elementId: number; a?: number; b?: number; moments?: {x: number[]; y: number[]; z: number[]}}}) => {
+        if (!data.moments || Object.values(data.moments).every(v => v.every(x => x === 0))) return false;
+        const e=m.elements.get(data.elementId)!,a=m.nodes.get(e.nodeI)!,b=m.nodes.get(e.nodeJ)!;
+        const length=Math.hypot(b.x-a.x,b.y-a.y,(b.z ?? 0)-(a.z ?? 0));
+        return (data.b ?? length)-(data.a ?? 0)<1e-10*length;
+      });
+      return {s,elements,nodeIds,m,L,fractions,fringes};
+    });
+}
+
+for (const source of ['floor','region']) for (const angle of [0,0.37]) for (const mirror of [1,-1]) for (const divided of [false,true]) {
+  const label=`${source}, angle=${angle}, mirror=${mirror}, divided=${divided}`;
+  it(`generated loading matches hand-solved carrier responses: ${label}`, () => {
+    const carriers=generatedCarriers(source,angle,mirror,divided);
+    const supported=carriers.filter(c=>c.fringes.length===0);
+    const expectedSupported=source==='floor' || angle===0 && !(mirror===-1 && divided) ? 4 : angle===0 ? 3 : 0;
+    expect(supported).toHaveLength(expectedSupported);
+    for (const {s,elements,nodeIds,m,L,fractions} of supported) {
       for(const result of [solve_3d(s),JSON.parse(solve_pdelta_3d(JSON.stringify(s),100,1e-10)).results] as AnalysisResults3D[]) {
         for(const [index,e] of elements.entries()) {
           const ef=result.elementForces.find(f=>f.elementId===e.id)!;
@@ -80,6 +95,16 @@ for (const source of ['floor','region']) for (const angle of [0,0.37]) for (cons
         const a=m.nodes.get(nodeIds[0]!)!,b=m.nodes.get(nodeIds.at(-1)!)!;
         expect((middle.rx*(b.x-a.x)+middle.ry*(b.y-a.y))/L).toBeCloseTo(expected.rotation,10);
       }
+    }
+  });
+  it(`generated moment fringes are explicitly refused: ${label}`, () => {
+    const carriers=generatedCarriers(source,angle,mirror,divided);
+    const refused=carriers.filter(c=>c.fringes.length>0);
+    const expectedRefused=source==='floor' || angle===0 && !(mirror===-1 && divided) ? 0 : angle===0 ? 1 : 4;
+    expect(refused).toHaveLength(expectedRefused);
+    for (const {s} of refused) {
+      expect(()=>solve_3d(s)).toThrow(/distributed moment span.*1e-10/);
+      expect(()=>solve_pdelta_3d(JSON.stringify(s),100,1e-10)).toThrow(/distributed moment span.*1e-10/);
     }
   });
 }

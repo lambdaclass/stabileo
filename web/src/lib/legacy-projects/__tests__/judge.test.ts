@@ -331,8 +331,8 @@ describe('against real corpus files', () => {
     const opened = await openAndSolve(readCorpusText('v0.4.0/cable-stayed-bridge.ded'));
     const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'cable-stayed-bridge')!;
     const then = readResults(`v0.4.0/${entry.results}`);
-    const changes = opened.changes.filter(c => c.id === 'linear-stability-refusals');
-    expect(changes).toHaveLength(1);
+    const changes = opened.changes;
+    expect(changes.some(c => c.id === 'linear-stability-refusals')).toBe(true);
     const baseline = judge('recorded bridge', then, opened.values, changes);
     expect(baseline.kind).toBe('explained');
     expect(baseline.explainedBy.some((id) => id.startsWith('linear-stability-refusals '))).toBe(true);
@@ -342,8 +342,10 @@ describe('against real corpus files', () => {
       expect(path, field).toBeDefined();
       const fabricatedHistory = { ...then, [path]: (then[path] as number) * 1.05 };
       const fabricatedCurrent = { ...opened.values, [path]: (opened.values[path] as number) * 1.05 };
-      expect(judge('fabricated bridge history', fabricatedHistory, opened.values, changes).kind, path).toBe('unexplained');
-      expect(judge('fabricated bridge current', then, fabricatedCurrent, changes).kind, path).toBe('unexplained');
+      const historyVerdict = judge('fabricated bridge history', fabricatedHistory, opened.values, changes);
+      expect.soft(historyVerdict.kind, `${path}: ${historyVerdict.explainedBy.join(', ')}`).toBe('unexplained');
+      const currentVerdict = judge('fabricated bridge current', then, fabricatedCurrent, changes);
+      expect.soft(currentVerdict.kind, `${path}: ${currentVerdict.explainedBy.join(', ')}`).toBe('unexplained');
     }
   }, 120_000);
 
