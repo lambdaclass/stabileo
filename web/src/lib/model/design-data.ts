@@ -13,6 +13,7 @@ import { SHEET_CODE_LIST, type SheetCode } from '../rc-sheets/types';
 import { migrateSeismicDesign } from './seismic-design';
 import { migrateLateralSystem } from './lateral-system';
 import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
+import { specifiedCoverMm } from '../codes/cirsoc201/cover';
 
 export type DesignKind = 'beam' | 'column' | 'slab' | 'wall' | 'footing';
 export const DESIGN_KINDS: readonly DesignKind[] = ['beam', 'column', 'slab', 'wall', 'footing'];
@@ -47,6 +48,8 @@ export interface ProjectDesignData {
   /** Clear cover to the outermost bar, m, by kind of element. */
   covers: Record<DesignKind, number>;
   exposure: Record<DesignKind, Exposure>;
+  /** `false` when the work is not under execution control: Table 20.5.1.3.1's second column, 5 mm more cover. Absent: under control. */
+  executionControl?: false;
   /** Diameters the design may choose from, mm. */
   longDiametersMm: number[];
   stirrupDiametersMm: number[];
@@ -141,16 +144,17 @@ export function defaultDesignData(): ProjectDesignData {
 }
 
 /**
- * The minimum clear cover, m, of CIRSOC 201-2025 Table 20.5.1.3.1 for cast-in-place concrete
- * that is not prestressed, for a kind of element, its exposure and the largest bar it holds.
+ * The minimum clear cover to the outermost steel, m, of CIRSOC 201-2025 Table 20.5.1.3.1 for
+ * cast-in-place concrete that is not prestressed: by kind of element, exposure, the largest bar
+ * and, for beams and columns, the stirrup it is measured to; under execution control unless said.
  */
-export function minimumCover(kind: DesignKind, exposure: Exposure, largestBarMm: number): number {
-  if (exposure === 'ground' || kind === 'footing') return 0.075;
-  if (exposure === 'exterior') return largestBarMm >= 19 ? 0.05 : 0.04;
-  // Not exposed: slabs and walls by bar size; beams and columns 40 mm to their stirrups and ties.
-  if (kind === 'slab' || kind === 'wall') return largestBarMm >= 43 ? 0.04 : 0.02;
-  return 0.04;
+export function minimumCover(kind: DesignKind, exposure: Exposure, largestBarMm: number, o: { stirrupMm?: number; control?: boolean } = {}): number {
+  return specifiedCoverMm({ element: kind, exposure, dbMm: largestBarMm, ...o }) / 1000;
 }
+
+/** A kind's minimum cover under these data: their stirrup, largest bar and execution control. */
+export const minimumCoverFor = (d: ProjectDesignData, kind: DesignKind): number =>
+  minimumCover(kind, d.exposure[kind], largestBar(d, kind), { stirrupMm: d.stirrupDiaMm, control: d.executionControl !== false });
 
 /** The largest bar a kind of element may take under these data, mm. */
 export const largestBar = (d: ProjectDesignData, kind: DesignKind): number =>
@@ -158,14 +162,14 @@ export const largestBar = (d: ProjectDesignData, kind: DesignKind): number =>
 
 /** The kinds whose stated cover is under the table's minimum for their exposure. */
 export function coversUnderMinimum(d: ProjectDesignData): Array<{ kind: DesignKind; cover: number; minimum: number }> {
-  return DESIGN_KINDS.map((kind) => ({ kind, cover: d.covers[kind], minimum: minimumCover(kind, d.exposure[kind], largestBar(d, kind)) }))
+  return DESIGN_KINDS.map((kind) => ({ kind, cover: d.covers[kind], minimum: minimumCoverFor(d, kind) }))
     .filter((x) => x.cover < x.minimum - 1e-9);
 }
 
-/** Every cover set to the table's minimum for its exposure: the CIRSOC preset. */
+/** Every cover set to the table's minimum for its exposure, rounded up to 5 mm: the CIRSOC preset. */
 export function withCirsocCovers(d: ProjectDesignData): ProjectDesignData {
   const covers = { ...d.covers };
-  for (const k of DESIGN_KINDS) covers[k] = minimumCover(k, d.exposure[k], largestBar(d, k));
+  for (const k of DESIGN_KINDS) covers[k] = Math.ceil(minimumCoverFor(d, k) * 200 - 1e-9) / 200;
   return { ...d, covers };
 }
 
@@ -210,6 +214,7 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     stirrupDiametersMm: known(e.stirrupDiametersMm, def.stirrupDiametersMm),
     wallBarDiaMm: BAR_DIAMETERS_MM.includes(e.wallBarDiaMm as number) ? (e.wallBarDiaMm as number) : def.wallBarDiaMm,
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
+    ...(e.executionControl === false ? { executionControl: false as const } : {}),
     ...(Array.isArray(e.joistTypes) ? { joistTypes: (e.joistTypes as Array<{ id?: unknown; name?: unknown }>).filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string') as never } : {}),
     ...(e.slabBase && typeof e.slabBase === 'object' ? { slabBase: e.slabBase as ProjectDesignData['slabBase'] } : {}),
     ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), torsion: (e.rcSheets as { torsion?: unknown }).torsion === 'compatibility' ? 'compatibility' as const : 'equilibrium' as const, ...((e.rcSheets as { faces?: unknown }).faces === true ? { faces: true } : {}), ...((e.rcSheets as { flange?: unknown }).flange === true ? { flange: true } : {}), ...((e.rcSheets as { seismic?: unknown }).seismic === true ? { seismic: true } : {}), ...((e.rcSheets as { bentBars?: unknown }).bentBars === true ? { bentBars: true } : {}), ...bentLinesOf((e.rcSheets as { bentLines?: unknown }).bentLines), ...((e.rcSheets as { slabBentBars?: unknown }).slabBentBars === true ? { slabBentBars: true } : {}), ...scheduleOf((e.rcSheets as { schedule?: unknown }).schedule), ...(Array.isArray((e.rcSheets as { edited?: unknown }).edited) ? { edited: ((e.rcSheets as { edited: unknown[] }).edited).filter((k): k is string => typeof k === 'string') } : {}), ...(SHEET_CODE_LIST.includes((e.rcSheets as { adoptedCode?: unknown }).adoptedCode as never) ? { adoptedCode: (e.rcSheets as { adoptedCode: SheetCode }).adoptedCode } : {}), ...((e.rcSheets as { adoptedSeismic?: unknown }).adoptedSeismic === true ? { adoptedSeismic: true as const } : {}), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),

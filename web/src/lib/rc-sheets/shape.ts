@@ -91,6 +91,8 @@ export type BarUse = 'longitudinal' | 'transverse';
 export interface BendRules {
   /** Inside diameter of a bend. */
   mandrel(dia: number, use: BarUse): number;
+  /** Inside diameter of the bends of a bent-up bar, where the code or its course sets one apart from a hook's. */
+  bentMandrel?(dia: number): number;
   /** Straight leg past a hook's bend. */
   extension(dia: number, angle: HookAngle, use: BarUse): number;
   /** The hooks of a cross tie, start and end. */

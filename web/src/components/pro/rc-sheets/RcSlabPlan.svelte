@@ -32,6 +32,9 @@
   const anchorsShort = $derived(plan.packages.filter((pk) => pk.anchor && !pk.anchor.ok));
   const reachShort = $derived(plan.packages.filter((pk) => pk.reach.some((r) => r.length < r.needed - 1e-6)));
   const has = (layer: 'bottom' | 'top') => plan.packages.some((pk) => pk.layer === layer);
+  const corners = $derived(plan.checks.filter((c) => c.kind === 'corner'));
+  const integrity = $derived(plan.checks.filter((c) => c.kind === 'integrity'));
+  const fraction = (x: number) => `1/${Math.round(1 / x)}`;
 </script>
 
 <figure class="rsp" data-testid="rc-slab-plan-level" data-level={plan.level}>
@@ -75,7 +78,12 @@
   <p class="note">{tp('rcSheets.planFig.rules', { interior: fmt(plan.rules.reach.interior, 2), end: fmt(plan.rules.reach.end, 2), clause: plan.rules.clause.topReach })}</p>
   {#each plan.cantilevers as c (c.panel + c.dir)}<p class="note" data-testid="rc-plan-cantilever">{tp('rcSheets.planFig.cantilever', { panel: c.panel, length: fmt(c.length, 2) })}</p>{/each}
   <p class="note" class:bad={short.length > 0} data-testid="rc-plan-checks">{tp('rcSheets.planFig.checks', { ok: plan.checks.length - short.length, n: plan.checks.length })}</p>
-  {#each short as c, i (i)}<p class="note bad" data-testid="rc-plan-short">{tp('rcSheets.planFig.short', { where: c.where, face: t(`rcSheets.face.${c.layer}${c.dir.toUpperCase()}`), provided: fmt(c.provided), required: fmt(c.required) })}</p>{/each}
+  {#if plan.bent}<p class="note" data-testid="rc-plan-bend">{tp('rcSheets.planFig.bendAt', { oneWay: fraction(plan.rules.bendAt.oneWay), twoWay: fraction(plan.rules.bendAt.twoWay), clause: plan.rules.clause.bendAt ?? '' })}</p>{/if}
+  {#if plan.rules.corners && corners.length}<p class="note" data-testid="rc-plan-corners">{tp('rcSheets.planFig.corners', { side: fraction(plan.rules.corners.side), n: corners.length / (2 * plan.rules.corners.faces.length), clause: plan.rules.clause.corners ?? '' })}</p>{/if}
+  {#if plan.rules.integrity && integrity.length}<p class="note" data-testid="rc-plan-integrity">{tp('rcSheets.planFig.integrity', { n: plan.rules.integrity.bars, columns: integrity.length / 2, clause: plan.rules.clause.integrity ?? '' })}</p>{/if}
+  {#each short as c, i (i)}<p class="note bad" data-testid="rc-plan-short">{c.kind === 'integrity'
+    ? tp('rcSheets.planFig.integrityShort', { where: c.where, dir: c.dir.toUpperCase(), provided: c.provided, required: c.required })
+    : tp(c.kind === 'corner' ? 'rcSheets.planFig.cornerShort' : 'rcSheets.planFig.short', { where: c.where, face: t(`rcSheets.face.${c.layer}${c.dir.toUpperCase()}`), provided: fmt(c.provided), required: fmt(c.required) })}</p>{/each}
   {#each reachShort as pk (pk.id)}{@const r = pk.reach.find((x) => x.length < x.needed - 1e-6)!}<p class="note bad" data-testid="rc-plan-short">{tp('rcSheets.planFig.reachShort', { mark: pk.mark, length: cm(r.length), needed: cm(r.needed) })}</p>{/each}
   {#each anchorsShort as pk (pk.id)}<p class="note warn">{tp('rcSheets.planFig.anchorShort', { mark: pk.mark, needed: cm(pk.anchor!.needed), available: cm(pk.anchor!.available) })}</p>{/each}
   <details>
@@ -84,7 +92,7 @@
       <thead><tr><th>{t('rcSheets.line.mark')}</th><th>{t('rcSheets.line.kind')}</th><th>Ø · s</th><th>n</th><th>L (m)</th><th>cm²/m</th><th>kg</th></tr></thead>
       <tbody>
         {#each plan.packages as pk (pk.id)}
-          <tr><td>{pk.mark}</td><td>{t(`rcSheets.planFig.kind.${pk.kind}`)} ({t(pk.layer === 'top' ? 'rcSheets.col.top' : 'rcSheets.col.bottom')} {pk.dir.toUpperCase()})</td><td>{meshLabel(pk.bars)}</td><td>{pk.count}</td><td>{fmt(pk.length, 2)}</td><td>{fmt(meshArea(pk.bars))}</td><td>{fmt(pk.weight, 1)}</td></tr>
+          <tr><td>{pk.mark}</td><td>{t(`rcSheets.planFig.kind.${pk.kind}`)} ({t(pk.layer === 'top' ? 'rcSheets.col.top' : 'rcSheets.col.bottom')} {pk.dir.toUpperCase()})</td><td>{pk.kind === 'integrity' ? `Ø${pk.bars.dia}` : meshLabel(pk.bars)}</td><td>{pk.count}</td><td>{fmt(pk.length, 2)}</td><td>{pk.kind === 'integrity' ? '—' : fmt(meshArea(pk.bars))}</td><td>{fmt(pk.weight, 1)}</td></tr>
         {/each}
       </tbody>
     </table>
@@ -118,6 +126,8 @@
   .top-x { --c: #d08a1e; }
   .top-y { --c: #c64a6a; }
   .k-bent .rod { stroke-width: 2.2; }
+  .k-corner .rod { stroke-dasharray: 6 2; }
+  .k-integrity .rod { stroke-width: 2.6; }
   .hl .rod { stroke-width: 4; filter: drop-shadow(0 0 3px var(--st-warn)); }
   .hl .lbl { font-weight: 700; fill: var(--st-warn); }
   .note { margin: 0; font-size: 0.68rem; color: var(--st-text-3); max-width: 110ch; }

@@ -58,11 +58,18 @@ describe('beam row', () => {
     expect(short.status).toBe('fail');
   });
 
-  it('fails bars under the minimum steel even where they carry the moment', () => {
-    const light: BeamDemand = { ...v0001, start: env(0, 0, 30), span: env(4.9, 40, 0), end: env(9.8, 0, 30), tu: { value: 1 } };
+  it('asks the minimum steel or a third more than the moment needs, whichever is less (§9.6.1.3), and fails bars under it', () => {
+    const light: BeamDemand = { ...v0001, start: env(0, 0, 30), span: env(4.9, 25, 0), end: env(9.8, 0, 30), tu: { value: 1 } };
     const good = beamRow(light, beamCtx, undefined, f);
-    const under = beamRow(light, beamCtx, { ...good.proposed, bottom: [{ count: 1, dia: 16 }] }, f);
-    expect(under.flexure.find((x) => x.section === 'span' && x.sign === 'pos')!.phiMn).toBeGreaterThan(40);
+    const asMin = (1.4 / 420) * 30 * 75.9;
+    const g = good.steps.find((s) => s.title === 'rcSheets.g.flexBottom')!.steps;
+    const strength = Number(g.find((s) => s.label === 'rcSheets.s.asStrength')!.value!.split(' ')[0]);
+    expect(good.req.bottom).toBeCloseTo(Math.max(strength, Math.min(asMin, (4 / 3) * strength)), 1);
+    expect(good.req.bottom).toBeLessThan(asMin / 2);
+    const enough = beamRow(light, beamCtx, { ...good.proposed, bottom: [{ count: 1, dia: 16 }] }, f);
+    expect(ok(enough, 'rcSheets.v.minBottom')).toBe(true);
+    const under = beamRow(light, beamCtx, { ...good.proposed, bottom: [{ count: 1, dia: 12 }] }, f);
+    expect(under.flexure.find((x) => x.section === 'span' && x.sign === 'pos')!.phiMn).toBeGreaterThan(25);
     expect(ok(under, 'rcSheets.v.minBottom')).toBe(false);
     expect(under.status).toBe('fail');
   });

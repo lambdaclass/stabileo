@@ -95,21 +95,33 @@ describe('the project design data', () => {
 });
 
 describe('covers against CIRSOC 201-2025 Table 20.5.1.3.1', () => {
-  it('knows the minimum by kind, exposure and bar', () => {
-    expect(minimumCover('beam', 'interior', 25)).toBe(0.04);
-    expect(minimumCover('slab', 'interior', 16)).toBe(0.02);
-    expect(minimumCover('slab', 'exterior', 16)).toBe(0.04);
-    expect(minimumCover('column', 'exterior', 20)).toBe(0.05);
-    expect(minimumCover('footing', 'interior', 16)).toBe(0.075);
+  it('knows the minimum by kind, exposure and bar, under execution control or not', () => {
+    expect(minimumCover('beam', 'interior', 25, { stirrupMm: 8 })).toBe(0.027);
+    expect(minimumCover('beam', 'interior', 32, { stirrupMm: 6 })).toBe(0.031);
+    expect(minimumCover('beam', 'interior', 16, { stirrupMm: 12 })).toBe(0.025);
+    expect(minimumCover('column', 'interior', 25)).toBe(0.035);
+    expect(minimumCover('beam', 'interior', 25, { stirrupMm: 8, control: false })).toBe(0.032);
+    expect(minimumCover('slab', 'interior', 16)).toBe(0.025);
+    expect(minimumCover('slab', 'interior', 25)).toBe(0.03);
+    expect(minimumCover('slab', 'interior', 16, { control: false })).toBe(0.03);
+    expect(minimumCover('wall', 'interior', 40)).toBe(0.045);
+    expect(minimumCover('slab', 'exterior', 16)).toBe(0.035);
+    expect(minimumCover('column', 'exterior', 20)).toBe(0.04);
+    expect(minimumCover('column', 'ground', 20, { control: false })).toBe(0.045);
+    expect(minimumCover('footing', 'ground', 16)).toBe(0.055);
+    expect(minimumCover('footing', 'interior', 16, { control: false })).toBe(0.06);
   });
 
-  it('says which covers are under it, and the preset sets them all to it', () => {
+  it('says which covers are under it, and the preset sets them all to it, rounded up to 5 mm', () => {
     const d = defaultDesignData();
-    // The usual 25 mm is under the table for beams, columns and footings; slabs and walls take 20 mm.
-    expect(coversUnderMinimum(d).map((x) => x.kind)).toEqual(['beam', 'column', 'footing']);
+    // The usual 25 mm to a Ø8 stirrup leaves Ø32 main bars 33 mm deep, a slab of Ø32 bars needs 37 mm, a footing 55 mm.
+    expect(coversUnderMinimum(d).map((x) => x.kind)).toEqual(['beam', 'column', 'slab', 'footing']);
     const p = withCirsocCovers(d);
-    expect(p.covers).toEqual({ beam: 0.04, column: 0.04, slab: 0.02, wall: 0.02, footing: 0.075 });
+    expect(p.covers).toEqual({ beam: 0.03, column: 0.03, slab: 0.04, wall: 0.025, footing: 0.055 });
     expect(coversUnderMinimum(p)).toEqual([]);
+    expect(coversUnderMinimum({ ...p, executionControl: false }).map((x) => x.kind)).toEqual(['beam', 'column', 'slab', 'wall', 'footing']);
+    expect(migrateDesignData(JSON.parse(JSON.stringify({ executionControl: false }))).executionControl).toBe(false);
+    expect(migrateDesignData({ executionControl: true }).executionControl).toBeUndefined();
   });
 
   it('a stored shape is read back, and anything it does not state or states wrong is the default', () => {

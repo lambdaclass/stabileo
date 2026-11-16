@@ -12,7 +12,7 @@ import type { SlabPlanCode } from '../slab-plan';
 const ec2SlabPlan = (set: Ec2Set): SlabPlanCode => ({
   line: ec2LineCode(set),
   topReach: { interior: 0.3, end: 0.2, middle: 0.3 },
-  bendAt: 0.2,
+  bendAt: { oneWay: 0.2, twoWay: 0.2 },
   bottomEmbed: (dia) => Math.max(0.15, 10 * dia / 1000),
   clause: { topReach: '9.3.1.2(2), 9.3.1.1(4)', cantilever: '8.4.4', bottomEmbed: '9.3.1.1(4), 9.2.1.4(3)', development: '8.4.3, 8.4.4, 8.7.3' },
 });

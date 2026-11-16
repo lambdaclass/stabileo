@@ -68,7 +68,7 @@ describe('the code the sheets design to', () => {
     }
   });
 
-  it('designs to ACI 318-19 with the provisions CIRSOC 201-2025 adopts from it: the same bars and the same capacities', () => {
+  it('designs to ACI 318-19 with the provisions CIRSOC 201-2025 adopts from it: the same bars and capacities, its own column ties and no Argentine cover table', () => {
     portal();
     setSheetCode('cirsoc201-2025');
     const cirsoc = buildSheetRows();
@@ -77,6 +77,11 @@ describe('the code the sheets design to', () => {
     expect(aci.code).toBe('ACI 318-19');
     expect(aci.beam.map((r) => r.proposed)).toEqual(cirsoc.beam.map((r) => r.proposed));
     expect(aci.beam.map((r) => r.flexure.map((f) => f.phiMn))).toEqual(cirsoc.beam.map((r) => r.flexure.map((f) => f.phiMn)));
-    expect(aci.column.map((r) => r.proposed)).toEqual(cirsoc.column.map((r) => r.proposed));
+    const bars = (p: { corner: number; nx: number; dx: number; ny: number; dy: number; tieSpacing: number }) => ({ corner: p.corner, nx: p.nx, dx: p.dx, ny: p.ny, dy: p.dy });
+    expect(aci.column.map((r) => bars(r.proposed))).toEqual(cirsoc.column.map((r) => bars(r.proposed)));
+    expect(aci.column.every((r) => r.proposed.tieDia >= 10)).toBe(true);
+    expect(cirsoc.column.every((r) => r.proposed.tieDia < 10)).toBe(true);
+    expect(cirsoc.beam.every((r) => r.verifications.some((v) => v.label === 'rcSheets.v.mainCover'))).toBe(true);
+    expect(aci.beam.some((r) => r.verifications.some((v) => v.label === 'rcSheets.v.mainCover'))).toBe(false);
   });
 });
