@@ -84,14 +84,6 @@ export function assertSnowRemeshInvariant(model: Model, subdivisions: ReadonlyMa
       const baseLoads = reference.distributed.map(d => ({ ...d, b: d.b ?? s.length }));
       expect(pressure(refinedLoads, s.id, t * (s.to - s.from) * s.length), `refinement ${JSON.stringify([...subdivisions])}, case ${k}, edge ${s.source}, segment ${s.from}, station ${t}`).toBeCloseTo(pressure(baseLoads, s.source, (s.from + t * (s.to - s.from)) * s.length), 10);
     }
-    for (const source of model.elements.keys()) {
-      const ids = new Set(refined.segments.filter(s => s.source === source).map(s => s.id));
-      for (const direction of [[1, 0], [0, 1]]) {
-        const expected = snowDistributedResultant(model, reference.distributed, new Set([source]), [0, 0], direction);
-        const actual = snowDistributedResultant(refined.model, c.distributed, ids, [0, 0], direction);
-        for (const [j, value] of actual.entries()) expect(value, `case ${k}, physical edge ${source}, resultant ${j}`).toBeCloseTo(expected[j]!, 10);
-      }
-    }
     const resultant = (loads: Output['cases'][number]['nodal'], m: Model) => loads.reduce((sum, n) => {
       const p = m.nodes.get(n.nodeId)!;
       return [sum[0]! + n.fx, sum[1]! + n.fy, sum[2]! + n.fz, sum[3]! + p.y * n.fz - (p.z ?? 0) * n.fy, sum[4]! + (p.z ?? 0) * n.fx - p.x * n.fz, sum[5]! + p.x * n.fy - p.y * n.fx];

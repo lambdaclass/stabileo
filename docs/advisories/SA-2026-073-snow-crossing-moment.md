@@ -36,7 +36,11 @@ This is a main-source replay; historical release binaries were not assessed.
 Review generated snow on members that cross a pressure boundary. Compare the
 integrated force and moment against the physical roof profile and check that
 inserting nodes leaves both unchanged. Successful solving does not establish
-correct load generation. The notice conservatively selects generated snow loads.
+correct load generation. This correction also affects generated roof and floor
+area loads through shared physical classification and full-precision tributary
+widths. Regenerate all affected generated area loads. The panel-geometry notice
+conservatively selects all generated area loads alongside the snow-specific
+ridge-crossing notice.
 
 ## Fixed in
 
@@ -52,8 +56,10 @@ independently verified loads.
 
 ## What to do with results you already have
 
-After upgrading to a release containing the correction, regenerate affected
-snow loads and rerun analyses, combinations and design checks. Re-solving stored
+After upgrading to a release containing the correction:
+
+Regenerate all affected generated area loads, then rerun analyses, combinations
+and design checks. Re-solving stored
 loads alone does not correct them. Review sizing, calculations and deliverables
 based on the previous loads.
 

@@ -13,7 +13,8 @@
 ## Affected features
 
 Generated CIRSOC 104 snow with explicit panels (`loadEveryPanel: true`), including
-faceted domes. Classification is shared by generated roof/floor area loads.
+faceted domes. Physical classification and full-precision tributary widths are
+shared by generated roof and floor area loads; those loads are also affected.
 Snow generation precedes native/WASM and linear/nonlinear solver selection,
 with the saved-project notice applying in 2D, 3D and Pro.
 
@@ -59,8 +60,10 @@ solve or the absence of a warning when explicit panels are enabled.
 
 ## What to do with results you already have
 
-After upgrading to a release containing the correction, regenerate affected
-snow loads, then rerun analyses, combinations and design checks. Re-solving
+After upgrading to a release containing the correction:
+
+Regenerate all affected generated area loads, then rerun analyses, combinations
+and design checks. Re-solving
 stored loads alone does not correct them. Review sizing, calculations and
 deliverables based on the earlier generated loads.
 
