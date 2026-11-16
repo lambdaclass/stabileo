@@ -8,6 +8,9 @@ import type { AnalysisResults3D } from '../types-3d';
 const raw: AnalysisResults3D = { displacements: [], reactions: [], elementForces: [{
   elementId: 1, length: 1, nStart: 0, nEnd: 0, myStart: 1, myEnd: 1,
   mzStart: 0, mzEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0, mxStart: 0, mxEnd: 0,
+  releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+  releaseTStart: false, releaseTEnd: false, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0,
+  distributedLoadsY: [], distributedLoadsZ: [], pointLoadsY: [], pointLoadsZ: [],
 }] };
 
 for (const source of ['stations', 'common', 'per-combination', 'cached'] as const) {
@@ -24,10 +27,15 @@ for (const source of ['stations', 'common', 'per-combination', 'cached'] as cons
         combinationStations: source === 'per-combination' ? [1, 2].map(comboId => ({ comboId, stationTs: common })) : [] };
       if (source !== 'cached') return ConcurrentDemand.fromTuples(tuples, declared);
       const cached = demandCoverage(declared, tuples);
+      const partial = tuples.filter(t => !(t.comboId === 1 && t.forces.t === extra));
+      expect(() => ConcurrentDemand.fromTuples(partial.map(t => ({ ...t, coverage: cached })), declared))
+        .toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand', diagnostics: expect.arrayContaining([
+          expect.objectContaining({ code: 'missing-station', comboId: 1, stationT: extra }),
+        ]) }));
       return ConcurrentDemand.fromTuples(tuples.map(t => ({ ...t, coverage: cached })), declared);
     };
     for (const entry of ['result', 'member', 'tuple'] as const) {
-      it.fails(`known wrong result: #2096 round7 ${source} retains observed station ${extra} through ${entry}`, () => {
+      it(`known wrong result: #2096 round7 ${source} retains observed station ${extra} through ${entry}`, () => {
         const concurrent = build();
         const check = (rows: readonly ConcurrentDemand[]) => {
           if (entry === 'tuple') return ConcurrentDemand.fromTuples(rows);

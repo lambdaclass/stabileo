@@ -73,7 +73,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
     contexts[0] = { ...contexts[0]!, demands: demands.demands, tuples: [...demands.concurrent!], stationTs: [0, 1] };
     for (const adapter of [AISC360, EC3, ACI318, EC2, AISI_S100]) expect(runOtherCode(adapter, contexts).rows).toHaveLength(1);
   });
-  it.fails(`known wrong result: #2096 round7 converted extra station cannot disappear ${label}`, () => {
+  it(`known wrong result: #2096 round7 converted extra station cannot disappear ${label}`, () => {
     const raw = solveModel();
     const data = computeStationDemands(new Map([[1, raw], [2, raw]]), combinations, model);
     const source = data.stations.get(1)!;

@@ -144,7 +144,7 @@ export function demandCoverage(
       for (const id of coverage.combinationIds) include(id, coverage.stationTs);
       for (const c of coverage.combinationStations ?? []) include(c.comboId, c.stationTs);
     }
-    if (declared.stationTs === undefined && tuple.forces) include(comboId, [tuple.forces.t]);
+    if (tuple.forces) include(comboId, [tuple.forces.t]);
   }
   return Object.freeze({ combinationIds: Object.freeze([...ids]), stationTs: Object.freeze([...stations]),
     combinationStations: Object.freeze([...byCombo].map(([comboId, ts]) => Object.freeze({ comboId, stationTs: Object.freeze([...ts]) }))),
