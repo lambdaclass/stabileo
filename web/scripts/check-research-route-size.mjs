@@ -22,6 +22,7 @@ const outDir = mkdtempSync(join(tmpdir(), 'research-route-size-'));
 process.env.GITHUB_SHA = '000000000000';
 delete process.env.VITE_E2E;
 delete process.env.VITE_APP_TYPE;
+const featureSwitches = {};
 const researchChunks = new Set();
 const toolsChunks = new Set();
 const blogPostsChunks = new Set();
@@ -30,7 +31,12 @@ try {
   // A deterministic engine stub makes this gate independent of locally built WASM. It measures
   // web dependency isolation, not the engine binary, which has its own build/validation gates.
   await build({
-    plugins: [{ name: 'route-size-engine-stub', enforce: 'pre', resolveId(id) {
+    plugins: [{ name: 'route-size-engine-stub', enforce: 'pre', configResolved(config) {
+      for (const feature of ['research', 'tools']) {
+        const key = `VITE_${feature.toUpperCase()}`;
+        featureSwitches[feature] = JSON.parse(config.define[`import.meta.env.${key}`]);
+      }
+    }, resolveId(id) {
       if (id.includes('dedaliano_engine_bg.wasm')) return '\0route-size-wasm';
       if (id.includes('wasm/dedaliano_engine') && id.endsWith('.js')) return '\0route-size-engine';
     }, transform(code, id) {
@@ -91,12 +97,23 @@ try {
   }
   const landing = footprint(false), app = footprint(true);
   const measured = { '/en/': landing, '/es/': landing, '/pt/': landing,
-    '/app/basic': app, '/app/education': app, '/app/pro': app,
-    '/en/research/': footprint(false, 'research'), '/en/tools/': footprint(false, 'tools'),
-    '/en/tools/simply-supported-beam/': footprint(false, 'tools', 'CalculatorTool.svelte'),
-    '/en/tools/continuous-beam/': footprint(false, 'tools', 'BatchTool.svelte'),
-    '/en/tools/beam-frame/': footprint(false, 'tools', 'ModelTool.svelte'),
-    '/en/tools/mohr-2d/': footprint(false, 'tools', 'MohrTool.svelte') };
+    '/app/basic': app, '/app/education': app, '/app/pro': app };
+  const featureRoutes = {
+    research: { '/en/research/': null },
+    tools: {
+      '/en/tools/': null,
+      '/en/tools/simply-supported-beam/': 'CalculatorTool.svelte',
+      '/en/tools/continuous-beam/': 'BatchTool.svelte',
+      '/en/tools/beam-frame/': 'ModelTool.svelte',
+      '/en/tools/mohr-2d/': 'MohrTool.svelte',
+    },
+  };
+  for (const [feature, routes] of Object.entries(featureRoutes)) {
+    for (const [route, detail] of Object.entries(routes)) {
+      if (featureSwitches[feature] === '0') console.log(`${route}: skipped (VITE_${feature.toUpperCase()}=0)`);
+      else measured[route] = footprint(false, feature, detail);
+    }
+  }
   for (const [route, bytes] of Object.entries(measured)) console.log(`${route}: ${bytes} bytes`);
   if (ceilingPath) {
     const over = overCeilings(measured, JSON.parse(readFileSync(ceilingPath, 'utf8')).routes);

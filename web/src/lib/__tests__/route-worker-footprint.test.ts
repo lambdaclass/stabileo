@@ -80,9 +80,8 @@ describe('route worker footprint', () => {
   });
 });
 
-
 describe('route size build switches', () => {
-  it.skip.each([
+  it.each([
     ['0', '0'], ['0', '1'], ['1', '0'],
   ])('known wrong result: #2099 — measure built routes and report disabled routes for research=%s tools=%s', async (research, tools) => {
     const missing = [
