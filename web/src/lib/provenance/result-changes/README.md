@@ -97,3 +97,14 @@ The bundled-example scope and its two-engine equivalence proof remain as
 specified above. Retrospective entries identify the original PR in `prs`; their
 new results version is the registration merge's version, not a rewritten
 historical stamp.
+
+## Manual member load restoration
+
+A change that requires restoring stored manual member loads sets
+`requiresMemberLoadRestoration: true`. Applicability then checks each manual
+member load's `memberLoadsVersion` independently of the solve stamp. Missing
+versions mean unknown provenance; the oldest manual load version controls.
+Loads from generated plans and stored floor definitions retain their separate
+regeneration provenance. Recreating manual loads from the original loading
+through the authoring methods records the current version. Copying or updating
+existing loads preserves their provenance and cannot certify restoration.

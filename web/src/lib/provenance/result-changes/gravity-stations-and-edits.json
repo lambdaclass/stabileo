@@ -36,5 +36,6 @@
   "changelog": {
     "file": "docs/results-changes/2026-11-gravity-round6.md",
     "heading": "Short gravity densities retain their member spans"
-  }
+  },
+  "requiresMemberLoadRestoration": true
 }

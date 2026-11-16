@@ -638,7 +638,7 @@ fn loads_at_3d(solver: &SolverInput3D, factor: f64) -> SolverInput3D {
                 n.bw = n.bw.map(|v| v * factor);
             }
             SolverLoad3D::Distributed(d) => {
-                d.moments = d.moments.as_ref().map(|m| m.scaled(factor));
+                d.moments = d.moments().map(|m| m.scaled(factor));
                 for v in [&mut d.q_xi, &mut d.q_xj, &mut d.q_yi, &mut d.q_yj, &mut d.q_zi, &mut d.q_zj] {
                     *v *= factor;
                 }

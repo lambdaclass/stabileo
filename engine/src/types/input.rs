@@ -486,6 +486,10 @@ impl MemberMoments {
         h * (values[0] * t + (-3.0 * values[0] + 4.0 * values[1] - values[2]) * t * t / 2.0 + (2.0 * values[0] - 4.0 * values[1] + 2.0 * values[2]) * t * t * t / 3.0)
     }
 
+    pub fn is_zero(&self) -> bool {
+        self.x.iter().chain(&self.y).chain(&self.z).all(|v| *v == 0.0)
+    }
+
     pub fn scaled(&self, factor: f64) -> Self {
         Self { x: self.x.map(|v| v * factor), y: self.y.map(|v| v * factor), z: self.z.map(|v| v * factor) }
     }
@@ -496,10 +500,14 @@ impl MemberMoments {
     }
 }
 
+fn deserialize_member_moments<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<MemberMoments>, D::Error> {
+    Ok(Option::<MemberMoments>::deserialize(deserializer)?.filter(|m| !m.is_zero()))
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverDistributedLoad3D {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, deserialize_with = "deserialize_member_moments", skip_serializing_if = "Option::is_none")]
     pub moments: Option<MemberMoments>,
     #[serde(default, rename = "qXI")]
     pub q_xi: f64,
@@ -550,13 +558,17 @@ impl MemberMomentSpan {
 }
 
 impl SolverDistributedLoad3D {
+    pub fn moments(&self) -> Option<&MemberMoments> {
+        self.moments.as_ref().filter(|m| !m.is_zero())
+    }
+
     pub(crate) fn moment_span(&self, length: f64) -> Result<MemberMomentSpan, String> {
         MemberMomentSpan::new(self.a.unwrap_or(0.0), self.b.unwrap_or(length), length)
             .map_err(|()| format!("Member {}: distributed moment span must have representable support within the member and width at least 1e-10 of member length (a={:?}, b={:?}, L={length})", self.element_id, self.a, self.b))
     }
 
     pub fn fef(&self, l: f64, phi_y: f64, phi_z: f64) -> [f64; 12] {
-        let (a, b) = if self.moments.is_some() {
+        let (a, b) = if self.moments().is_some() {
             self.moment_span(l).expect("distributed moments require a validated support").endpoints()
         } else {
             (self.a.unwrap_or(0.0), self.b.unwrap_or(l))
@@ -568,7 +580,7 @@ impl SolverDistributedLoad3D {
         };
         let axial = crate::element::fef::axial_distributed_fef(self.q_xi, self.q_xj, a, b, l);
         f[0] = axial[0]; f[6] = axial[1];
-        if let Some(m) = &self.moments {
+        if let Some(m) = self.moments() {
             let r = (3.0_f64 / 5.0).sqrt();
             for (t, w) in [((1.0-r)/2.0,5.0/18.0),(0.5,4.0/9.0),((1.0+r)/2.0,5.0/18.0)] {
                 let x = a + (b-a)*t;

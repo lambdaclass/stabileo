@@ -79,18 +79,26 @@ for (const axis of ['x', 'y', 'z'] as const) {
   });
 }
 
-for (const [entry, solve] of solves.entries()) it.skipIf(process.env.RUN_KNOWN_WRONG_RESULT !== '1')(`known wrong result: #2219 round11 zero moments match absent moments entry=${entry}`, () => {
+for (const [entry, solve] of solves.entries()) it(`known wrong result: #2219 round11 zero moments match absent moments entry=${entry}`, () => {
   for (const [a, b] of [[0, 5e-11], [0, 1e-10], [0, 2e-10], [0.25, 0.75]]) {
     const zero = fixture(a!, b!, 'x');
     zero.loads[0].data.moments.x = [0, -0, 0];
-    zero.loads[0].data.qZI = zero.loads[0].data.qZJ = -1 / (b! - a!);
+    zero.loads[0].data.qZI = zero.loads[0].data.qZJ = -0.001 / (b! - a!);
     const absent = structuredClone(zero);
     delete absent.loads[0].data.moments;
     const expected = solve(absent), actual = solve(zero);
     expect(actual).toEqual(expected);
     const ef = actual.elementForces[0]!;
     expect(ef.memberMoments ?? []).toEqual([]);
-    expect(evaluateDiagramAt(ef, 'shearZ', 0)).toBeCloseTo(1, 10);
-    expect(evaluateDiagramAt(ef, 'momentY', 0)).toBeCloseTo(-(a! + b!) / 2, 10);
+    expect(evaluateDiagramAt(ef, 'shearZ', 0)).toBeCloseTo(0.001, 10);
+    expect(evaluateDiagramAt(ef, 'momentY', 0)).toBeCloseTo(-0.001 * (a! + b!) / 2, 10);
+    for (const x of [0, a!, a! + (b!-a!)/4, (a!+b!)/2, b!, 1]) {
+      const u = Math.max(0,Math.min(x-a!,b!-a!));
+      expect(evaluateDiagramAt(ef,'shearZ',x)).toBeCloseTo(0.001*(1-u/(b!-a!)),10);
+      expect(evaluateDiagramAt(ef,'momentY',x)).toBeCloseTo(-0.001*(a!+b!)/2+0.001*x-0.001/(b!-a!)*(u*(x-a!)-u*u/2),10);
+      expect(evaluateDiagramAt(ef,'torsion',x)).toBeCloseTo(0,10);
+    }
+    const deflection = -0.001*((b!**3-a!**3)-(b!**4-a!**4)/4)/(6*1000*(b!-a!));
+    expect(actual.displacements.find(d=>d.nodeId===2)!.uz).toBeCloseTo(deflection,10);
   }
 });

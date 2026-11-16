@@ -1,0 +1,39 @@
+{
+  "id": "gravity-governing-moment-extrema",
+  "date": "2026-11-16",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "frameMembers"
+    ]
+  },
+  "quantities": [
+    "envelope"
+  ],
+  "title": {
+    "en": "Governing member moment extrema",
+    "es": "Extremos de momento gobernantes en barras",
+    "pt": "Extremos de momento governantes nas barras",
+    "de": "Maßgebende Stabmomentextrema",
+    "fr": "Extrema des moments déterminants des barres",
+    "tr": "Belirleyici eleman momenti ekstremumları",
+    "hu": "Mértékadó rúdnyomatéki szélsőértékek"
+  },
+  "explanation": {
+    "en": "Governing member moments now include interior extrema of distributed forces, including self-weight on frames without explicit member loads. The audited PRO snapshots change only 80 governing momentY values, each checked by independent integration and stationary points. Rerun analyses, combinations, diagrams and checks (#2219).",
+    "es": "Los momentos gobernantes incluyen extremos interiores de fuerzas distribuidas, incluido el peso propio sin cargas explícitas de barra. Las instantáneas PRO auditadas cambian solo 80 valores gobernantes de momentY, verificados por integración independiente y puntos estacionarios. Repita análisis, combinaciones, diagramas y verificaciones (#2219).",
+    "pt": "Os momentos governantes incluem extremos interiores de forças distribuídas, inclusive peso próprio sem cargas explícitas de barra. Os registros PRO auditados alteram apenas 80 valores governantes de momentY, verificados por integração independente e pontos estacionários. Refaça análises, combinações, diagramas e verificações (#2219).",
+    "de": "Maßgebende Stabmomente berücksichtigen innere Extrema verteilter Kräfte, einschließlich Eigengewicht ohne explizite Stablasten. Die geprüften PRO-Snapshots ändern nur 80 maßgebende momentY-Werte, unabhängig durch Integration und stationäre Punkte geprüft. Analysen, Kombinationen, Diagramme und Nachweise erneut ausführen (#2219).",
+    "fr": "Les moments déterminants incluent les extrema intérieurs des forces réparties, dont le poids propre sans charges explicites de barre. Les instantanés PRO audités ne changent que 80 valeurs déterminantes de momentY, vérifiées par intégration indépendante et points stationnaires. Relancez analyses, combinaisons, diagrammes et vérifications (#2219).",
+    "tr": "Belirleyici eleman momentleri, açık eleman yükü olmayan çerçevelerde öz ağırlık dahil yayılı kuvvetlerin iç ekstremumlarını içerir. Denetlenen PRO kayıtlarında yalnızca bağımsız integral ve durağan noktalarla doğrulanan 80 momentY değeri değişir. Analizleri, birleşimleri, diyagramları ve kontrolleri yineleyin (#2219).",
+    "hu": "A mértékadó rúdnyomatékok tartalmazzák a megoszló erők belső szélsőértékeit, az explicit rúdteher nélküli keretek önsúlyát is. Az ellenőrzött PRO-pillanatképekben csak 80 mértékadó momentY érték változik, független integrálással és stacionárius pontokkal igazolva. Ismételje meg az elemzéseket, kombinációkat, diagramokat és ellenőrzéseket (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round11.md",
+    "heading": "Audited governing moment changes"
+  }
+}

@@ -47,6 +47,7 @@ export interface ScopedQuantity {
 }
 
 export interface ResultChange {
+  requiresMemberLoadRestoration?: boolean;
   id: string;
   resultsVersion: number;
   /** When the change reached main (ISO date). */
@@ -131,6 +132,7 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(c.date)) problems.push(`${where}: date must be YYYY-MM-DD`);
     if (!Array.isArray(c.prs) || c.prs.some(pr => !Number.isInteger(pr) || pr <= 0)) problems.push(`${where}: prs must be a list of positive integer issue or PR numbers`);
+    if (c.requiresMemberLoadRestoration !== undefined && typeof c.requiresMemberLoadRestoration !== 'boolean') problems.push(`${where}: requiresMemberLoadRestoration must be boolean`);
     if (!['analysis', 'design', 'loads'].includes(c.area)) problems.push(`${where}: unknown area ${c.area}`);
     for (const loc of REGISTRY_LOCALES) {
       if (!c.title?.[loc]?.trim()) problems.push(`${where}: missing title.${loc}`);

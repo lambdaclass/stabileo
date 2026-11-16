@@ -263,7 +263,7 @@ fn split_member(input: &mut SolverInput3D, m: &mut Member3, t: f64, next_node: &
                     let (xs, ys, zs) = (at(dl.q_xi, dl.q_xj, s), at(dl.q_yi, dl.q_yj, s), at(dl.q_zi, dl.q_zj, s));
                     let (oa, ob) = opt(a, s, s);
                     loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
-                        moments: dl.moments.as_ref().map(|m| m.slice(0.0, (s-a)/(b-a))),
+                        moments: dl.moments().map(|m| m.slice(0.0, (s-a)/(b-a))),
                         q_xj: xs,
                         q_yj: ys,
                         q_zj: zs,
@@ -273,7 +273,7 @@ fn split_member(input: &mut SolverInput3D, m: &mut Member3, t: f64, next_node: &
                     }));
                     let (oa, ob) = opt(0.0, b - s, l_new);
                     loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
-                        moments: dl.moments.as_ref().map(|m| m.slice((s-a)/(b-a), 1.0)),
+                        moments: dl.moments().map(|m| m.slice((s-a)/(b-a), 1.0)),
                         element_id: eid,
                         q_xi: xs,
                         q_yi: ys,

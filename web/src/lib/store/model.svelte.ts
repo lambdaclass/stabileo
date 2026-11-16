@@ -1,3 +1,4 @@
+import { RESULTS_VERSION } from '../provenance/registry';
 import { memberFrame3D } from '../engine/member-loads';
 import { migrateDesignData } from '../model/design-data';
 import { migrateStoredDecisions } from '../design-contract/decisions';
@@ -555,6 +556,7 @@ export interface NodalLoad {
 }
 
 export interface DistributedLoad {
+  memberLoadsVersion?: number;
   id: number;
   elementId: number;
   qI: number; // kN/m at node I (or at position a if partial)
@@ -567,6 +569,7 @@ export interface DistributedLoad {
 }
 
 export interface PointLoadOnElement {
+  memberLoadsVersion?: number;
   id: number;
   elementId: number;
   a: number; // distance from node I (m)
@@ -616,6 +619,7 @@ export interface NodalLoad3D {
 }
 
 export interface DistributedLoad3D {
+  memberLoadsVersion?: number;
   moments?: import('../engine/member-moments').MemberMoments;
   id: number;
   elementId: number;
@@ -636,6 +640,7 @@ export interface DistributedLoad3D {
 }
 
 export interface PointLoadOnElement3D {
+  memberLoadsVersion?: number;
   id: number;
   elementId: number;
   a: number;    // distance from node I (m)
@@ -2934,7 +2939,7 @@ function createModelStore() {
     addDistributedLoad(elementId: number, qI: number, qJ?: number, angle?: number, isGlobal?: boolean, caseId?: number, a?: number, b?: number): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.load++;
-      const data: DistributedLoad = { id, elementId, qI, qJ: qJ ?? qI };
+      const data: DistributedLoad = { memberLoadsVersion: RESULTS_VERSION, id, elementId, qI, qJ: qJ ?? qI };
       if (angle !== undefined && angle !== 0) data.angle = angle;
       if (isGlobal) data.isGlobal = true;
       if (caseId !== undefined) data.caseId = caseId;
@@ -2949,7 +2954,7 @@ function createModelStore() {
     addPointLoadOnElement(elementId: number, a: number, p: number, opts?: { px?: number; my?: number; mz?: number; angle?: number; isGlobal?: boolean; caseId?: number }): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.load++;
-      const data: PointLoadOnElement = { id, elementId, a, p };
+      const data: PointLoadOnElement = { memberLoadsVersion: RESULTS_VERSION, id, elementId, a, p };
       if (opts?.px !== undefined && opts.px !== 0) data.px = opts.px;
       const pointMy = opts?.my ?? opts?.mz;
       if (pointMy !== undefined && pointMy !== 0) data.my = pointMy;
@@ -2995,7 +3000,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       this.ensureSpaceCoordinates();
       const id = nextId.load++;
-      const data: DistributedLoad3D = { id, elementId, qYI, qYJ, qZI, qZJ, ...(opts.moments ? { moments: opts.moments } : {}) };
+      const data: DistributedLoad3D = { memberLoadsVersion: RESULTS_VERSION, id, elementId, qYI, qYJ, qZI, qZJ, ...(opts.moments ? { moments: opts.moments } : {}) };
       if (opts.frame && opts.frame !== 'local') data.frame = opts.frame;
       if (opts.qXI || opts.qXJ) { data.qXI = opts.qXI ?? 0; data.qXJ = opts.qXJ ?? opts.qXI ?? 0; }
       if (a !== undefined && a > 0) data.a = a;
@@ -3011,7 +3016,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       this.ensureSpaceCoordinates();
       const id = nextId.load++;
-      const data: PointLoadOnElement3D = { id, elementId, a, py, pz, ...extra };
+      const data: PointLoadOnElement3D = { memberLoadsVersion: RESULTS_VERSION, id, elementId, a, py, pz, ...extra };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'pointOnElement3d' as const, data };
       if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);

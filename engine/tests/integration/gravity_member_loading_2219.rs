@@ -461,14 +461,12 @@ fn round10_supported_quadratic_extrema_keep_local_parameter_values() {
     }
 }
 
-#[test]
-#[ignore = "known wrong result: #2219"]
-fn round11_zero_moments_match_absent_moments_in_every_spatial_entry() {
+fn round11_zero_moments_match_absent_moments_in_entry(entry: usize) {
     for (a, b) in [(0.0, 5e-11), (0.0, 1e-10), (0.0, 2e-10), (0.25, 0.75)] {
         let mut absent = round8_endpoint_model(a, b, "x");
         if let SolverLoad3D::Distributed(d) = &mut absent.loads[0] {
             d.moments = None;
-            d.q_zi = -1.0 / (b - a); d.q_zj = d.q_zi;
+            d.q_zi = -0.001 / (b - a); d.q_zj = d.q_zi;
         }
         let mut zero = absent.clone();
         if let SolverLoad3D::Distributed(d) = &mut zero.loads[0] {
@@ -482,14 +480,37 @@ fn round11_zero_moments_match_absent_moments_in_every_spatial_entry() {
             2 => pdelta::solve_pdelta_3d(input, 100, 1e-10).map(|r| r.results),
             _ => corotational::solve_corotational_3d(input, 100, 1e-10, 4, false).map(|r| r.results),
         };
-        for entry in 0..4 {
+        {
             let expected = solve(&absent, entry).unwrap();
             let actual = solve(&zero, entry).unwrap();
             assert_eq!(serde_json::to_value(&actual).unwrap(), serde_json::to_value(&expected).unwrap(), "entry={entry} [{a},{b}]");
             let ef = &actual.element_forces[0];
             assert!(ef.member_moments.is_empty());
-            assert!((evaluate_diagram_3d_at(ef, "shearZ", 0.0) - 1.0).abs() < 1e-10);
-            assert!((evaluate_diagram_3d_at(ef, "momentY", 0.0) + (a + b) / 2.0).abs() < 1e-10);
+            assert!((evaluate_diagram_3d_at(ef, "shearZ", 0.0) - 0.001).abs() < 1e-10, "entry={entry} a={a} b={b} ef={ef:?}");
+            assert!((evaluate_diagram_3d_at(ef, "momentY", 0.0) + 0.001 * (a + b) / 2.0).abs() < 1e-10);
+            for x in [0.0, a, a + (b-a)/4.0, (a+b)/2.0, b, 1.0] {
+                let u = (x-a).clamp(0.0,b-a);
+                let shear = 0.001 * (1.0-u/(b-a));
+                let moment = -0.001*(a+b)/2.0+0.001*x-0.001/(b-a)*(u*(x-a)-u*u/2.0);
+                assert!((evaluate_diagram_3d_at(ef,"shearZ",x)-shear).abs()<1e-10);
+                assert!((evaluate_diagram_3d_at(ef,"momentY",x)-moment).abs()<1e-10);
+                assert!(evaluate_diagram_3d_at(ef,"torsion",x).abs()<1e-10);
+            }
+            let tip = actual.displacements.iter().find(|d|d.node_id==2).unwrap();
+            let deflection = -0.001*((b.powi(3)-a.powi(3))-(b.powi(4)-a.powi(4))/4.0)/(6.0*1000.0*(b-a));
+            assert!((tip.uz-deflection).abs()<1e-10);
+            if let SolverLoad3D::Distributed(parsed) = serde_json::from_value::<SolverLoad3D>(serde_json::to_value(&zero.loads[0]).unwrap()).unwrap() {
+                assert!(parsed.moments.is_none());
+            } else { panic!("distributed load changed type"); }
         }
     }
 }
+
+#[test]
+fn round11_zero_moments_match_absent_moments_linear() { round11_zero_moments_match_absent_moments_in_entry(0); }
+#[test]
+fn round11_zero_moments_match_absent_moments_prepared() { round11_zero_moments_match_absent_moments_in_entry(1); }
+#[test]
+fn round11_zero_moments_match_absent_moments_pdelta() { round11_zero_moments_match_absent_moments_in_entry(2); }
+#[test]
+fn round11_zero_moments_match_absent_moments_corotational() { round11_zero_moments_match_absent_moments_in_entry(3); }

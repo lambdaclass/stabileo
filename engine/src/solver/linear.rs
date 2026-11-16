@@ -3721,7 +3721,7 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
                 && l.bw.is_none_or(|v| v.is_finite()),
             SolverLoad3D::Distributed(l) => l.q_xi.is_finite() && l.q_xj.is_finite() && l.q_yi.is_finite() && l.q_yj.is_finite()
                 && l.q_zi.is_finite() && l.q_zj.is_finite()
-                && l.moments.as_ref().is_none_or(|m| m.x.iter().chain(&m.y).chain(&m.z).all(|v| v.is_finite()))
+                && l.moments().is_none_or(|m| m.x.iter().chain(&m.y).chain(&m.z).all(|v| v.is_finite()))
                 && l.a.is_none_or(|v| v.is_finite()) && l.b.is_none_or(|v| v.is_finite()),
             SolverLoad3D::PointOnElement(l) => l.a.is_finite() && l.px.is_finite() && l.py.is_finite() && l.pz.is_finite(),
             SolverLoad3D::Thermal(l) => l.dt_uniform.is_finite()
@@ -4006,7 +4006,7 @@ pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -
                 }
             }
             SolverLoad3D::Distributed(l) => {
-                if let Some(m) = &l.moments {
+                if let Some(m) = l.moments() {
                     if !m.x.iter().chain(&m.y).chain(&m.z).all(|v| v.is_finite()) { return Err("Distributed member moments must be finite".into()); }
                     if let Some(e) = crate::ordered::values(&input.elements).find(|e| e.id == l.element_id) {
                         let ni = node_map[&e.node_i]; let nj = node_map[&e.node_j];
@@ -4722,12 +4722,12 @@ pub fn compute_internal_forces_3d_with_loads(
         for load in loads_by_elem.get(&elem.id).unwrap_or(&empty_loads) {
             match load {
                 SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
-                    let (a_param, b_param) = if dl.moments.is_some() {
+                    let (a_param, b_param) = if dl.moments().is_some() {
                         dl.moment_span(l).expect("distributed moments require a validated support").endpoints()
                     } else {
                         (dl.a.unwrap_or(0.0), dl.b.unwrap_or(l))
                     };
-                    if let Some(moments) = &dl.moments { member_moments.push(MemberMomentInfo { a: a_param, b: b_param, moments: moments.clone() }); }
+                    if let Some(moments) = dl.moments() { member_moments.push(MemberMomentInfo { a: a_param, b: b_param, moments: moments.clone() }); }
                     let mut fef12 = dl.fef(l, phi_y, phi_z);
                     element::adjust_fef_for_hinges_3d(&mut fef12, l, element::Hinge3D::from_elem(elem), phi_y, phi_z);
                     if ndof_elem == 14 {

@@ -34,7 +34,7 @@
     "hu": "A diagramok minden sűrűséghatárt és polinomiális szélsőértéket tartalmaznak. A teherfelosztás kizárja az egy egyenesbe eső rudak közötti hézagokat; az egyenértékű nyomatékdarabok érvényes rúdkoordinátákat őriznek. Generálja újra a födém- és felületi terheket, majd ismételje meg az elemzéseket, diagramokat, kombinációkat és ellenőrzéseket (#2219)."
   },
   "changelog": {
-    "file": "docs/results-changes/2026-11-gravity-round7.md",
-    "heading": "Gravity density extrema and finite carrier intervals"
+    "file": "docs/results-changes/2026-11-gravity-round11.md",
+    "heading": "Audited governing moment changes"
   }
 }

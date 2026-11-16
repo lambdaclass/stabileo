@@ -24,7 +24,7 @@ function cantilever(angle = 0) {
   return { i, j, elementId };
 }
 
-for (const width of [0.5e-12, 1.5e-12, 0.5e-9, 1.5e-9]) for (const at of ['interior', 'j'] as const) for (const count of [1, 2]) for (const angle of [0, 0.37]) it(`short torque density has its hand torsion and twist: ${at} ${width} subdivisions=${count} angle=${angle}`, () => {
+for (const width of [0.5e-12, 1.5e-12, 1e-10, 2e-10, 0.5e-9, 1.5e-9]) for (const at of ['interior', 'j'] as const) for (const count of [1, 2]) for (const angle of [0, 0.37]) it(`short torque density has its hand torsion and twist: ${at} ${width} subdivisions=${count} angle=${angle}`, () => {
   const { j, elementId } = cantilever(angle);
   const a = at === 'j' ? 2 - width : 1, b = at === 'j' ? 2 : a + width, h = b - a;
   const load = { id: 1, elementId, a, b, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, moments: { x: [1 / h, 1 / h, 1 / h] as [number, number, number], y: [0, 0, 0] as [number, number, number], z: [0, 0, 0] as [number, number, number] } };
@@ -34,6 +34,17 @@ for (const width of [0.5e-12, 1.5e-12, 0.5e-9, 1.5e-9]) for (const at of ['inter
   const subdivided = count === 1 ? modelStore.model : subdivideForAnalysis(modelStore.model, count).model;
   const input = buildSolverInput3D(subdivided)!;
   expect(input.loads.every(l => l.type === 'distributed')).toBe(true);
+  const unsupported = input.loads.some(l => {
+    if (l.type !== 'distributed' || !l.data.moments) return false;
+    const e = input.elements.get(l.data.elementId)!, i = input.nodes.get(e.nodeI)!, j = input.nodes.get(e.nodeJ)!;
+    const length = Math.hypot(j.x - i.x, j.y - i.y, j.z - i.z);
+    return (l.data.b ?? length) - (l.data.a ?? 0) < 1e-10 * length;
+  });
+  if (unsupported) {
+    expect(() => solve3D(input)).toThrow(/distributed moment span.*1e-10/);
+    expect(() => solvePDelta3D(input, 100, 1e-10)).toThrow(/distributed moment span.*1e-10/);
+    return;
+  }
   for (const result of [solve3D(input), solvePDelta3D(input, 100, 1e-10).results]) {
     for (const force of result.elementForces) {
       const member = input.elements.get(force.elementId)!;

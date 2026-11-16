@@ -1,3 +1,4 @@
+import { refusesMomentFringes, handMemberLoads } from './gravity-supported-hand-profile';
 import { buildSolverLoads3D, type ModelData } from '../../engine/solver-service';
 import { floorLoad } from '../../engine/loads/floor-loads';
 import { physicalRegion, transferRegionToCarriers } from '../../engine/loads/physical-region-loads';
@@ -75,6 +76,7 @@ for(const source of ['floor','region']) for(const epsilon of [0,1e-7]) for(const
   }
   const norm=Math.hypot(1,epsilon),r=epsilon/(norm+1),left=(1+epsilon)/(1+norm+epsilon),rightY=1/(1+norm-epsilon*r),right=1-r*rightY;
   const profile=[[0,left,0,left],[left,right,left,rightY],...(epsilon?[[right,1,rightY,0]]:[])];
+  if (refusesMomentFringes(s)) s.loads=handMemberLoads(ids,fractions,1,profile as Array<[number,number,number,number]>,mirror);
   for(const result of [solve_3d(s),JSON.parse(solve_pdelta_3d(JSON.stringify(s),100,1e-10)).results] as AnalysisResults3D[]) {
     for(const [k,id] of ids.entries()) {const ef=result.elementForces.find(f=>f.elementId===id)!;for(const t of [0.1,0.4,0.7,0.9]) {
       const x=fractions[k]!+t*ef.length,hand=depthHand(profile,x,mirror);

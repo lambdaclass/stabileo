@@ -315,11 +315,25 @@ describe('against real corpus files', () => {
     }
   });
 
+  it('manual load restoration provenance is separate from the physical load fingerprint', () => {
+    modelStore.clear();
+    const i = modelStore.addNode(0, 0), j = modelStore.addNode(2, 0), elementId = modelStore.addElement(i, j);
+    modelStore.addDistributedLoad(elementId, -1);
+    const before = modelFingerprint();
+    const load = modelStore.loads[0]!;
+    modelStore.replaceLoads([{ ...load, data: { ...load.data, memberLoadsVersion: 0 } } as never]);
+    expect(modelFingerprint()).toEqual(before);
+    modelStore.replaceLoads([{ type: 'distributed', data: { id: 1, elementId, qI: -2, qJ: -1, memberLoadsVersion: 0 } }]);
+    expect(fingerprintDifference('changed physical intensity', before, modelFingerprint())).toContain('qI');
+  });
+
   it('the recorded bridge correction does not explain another value change in the same project', async () => {
     const opened = await openAndSolve(readCorpusText('v0.4.0/cable-stayed-bridge.ded'));
     const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'cable-stayed-bridge')!;
     const then = readResults(`v0.4.0/${entry.results}`);
-    const baseline = judge('recorded bridge', then, opened.values, opened.changes);
+    const changes = opened.changes.filter(c => c.id === 'linear-stability-refusals');
+    expect(changes).toHaveLength(1);
+    const baseline = judge('recorded bridge', then, opened.values, changes);
     expect(baseline.kind).toBe('explained');
     expect(baseline.explainedBy.some((id) => id.startsWith('linear-stability-refusals '))).toBe(true);
     for (const field of ['displacements.rz', 'displacements.uz', 'reactions.mz', 'elementForces.nStart']) {
@@ -328,8 +342,8 @@ describe('against real corpus files', () => {
       expect(path, field).toBeDefined();
       const fabricatedHistory = { ...then, [path]: (then[path] as number) * 1.05 };
       const fabricatedCurrent = { ...opened.values, [path]: (opened.values[path] as number) * 1.05 };
-      expect(judge('fabricated bridge history', fabricatedHistory, opened.values, opened.changes).kind, path).toBe('unexplained');
-      expect(judge('fabricated bridge current', then, fabricatedCurrent, opened.changes).kind, path).toBe('unexplained');
+      expect(judge('fabricated bridge history', fabricatedHistory, opened.values, changes).kind, path).toBe('unexplained');
+      expect(judge('fabricated bridge current', then, fabricatedCurrent, changes).kind, path).toBe('unexplained');
     }
   }, 120_000);
 

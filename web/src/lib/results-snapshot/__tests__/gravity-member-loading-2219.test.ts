@@ -1,3 +1,4 @@
+import { refusesMomentFringes, handMemberLoads } from './gravity-supported-hand-profile';
 import { beforeAll, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initSolver } from '../../engine/wasm-solver';
@@ -62,7 +63,8 @@ for (const source of ['floor','region']) for (const angle of [0,0.37]) for (cons
         const moments=mapMoments({x:l.first.map(v=>-v[1]) as [number,number,number],y:l.first.map(v=>v[0]) as [number,number,number],z:[0,0,0]},v=>[axes.ex,axes.ey,axes.ez].map(axis=>v.reduce((sum,x,i)=>sum+x*axis[i]!,0)) as [number,number,number]);
         s.loads.push({type:'distributed',data:{elementId:l.elementId,a:l.a,b:l.b,qYI:0,qYJ:0,qZI:0,qZJ:0,moments}});
       }
-      const L=carrier%2===0?6:4;
+      const L=carrier%2===0?6:4, cap=Math.min(2,L/2);
+      if (refusesMomentFringes(s)) s.loads=handMemberLoads(ids,fractions.map(t=>t*L),L,[[0,cap,0,cap],[cap,L-cap,cap,cap],[L-cap,L,cap,0]],mirror);
       for(const result of [solve_3d(s),JSON.parse(solve_pdelta_3d(JSON.stringify(s),100,1e-10)).results] as AnalysisResults3D[]) {
         for(const [index,e] of elements.entries()) {
           const ef=result.elementForces.find(f=>f.elementId===e.id)!;

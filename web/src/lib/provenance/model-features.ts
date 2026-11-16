@@ -148,6 +148,12 @@ export function loadsGeneratedWith(s: FeatureSnapshot): number {
   return (Array.isArray(s.loads) ? s.loads : []).some((l) => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
 }
 
+export function memberLoadsRestoredWith(s: FeatureSnapshot): number {
+  const loads = (s.loads ?? []).filter(l => ['distributed', 'distributed3d', 'pointOnElement', 'pointOnElement3d'].includes(l.type)
+    && !fromLoadPlan(l.data?.generatedBy) && l.data?.fromDef === undefined && l.data?.floorLoadsVersion === undefined);
+  return loads.length ? Math.min(...loads.map(l => Number.isInteger(l.data?.memberLoadsVersion) ? l.data!.memberLoadsVersion as number : 0)) : Infinity;
+}
+
 export function floorLoadsCorrectedWith(s: FeatureSnapshot): number {
   const loads = (Array.isArray(s.loads) ? s.loads : []).filter(l => l.data?.fromDef !== undefined || l.data?.floorLoadsVersion !== undefined);
   if (!loads.length) return values(s.groups).some(g => g?.kind === 'floorLoad') ? 0 : Infinity;

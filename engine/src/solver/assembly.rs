@@ -2199,10 +2199,6 @@ fn assemble_element_loads_3d_warping(
     for load in loads {
         match load {
             SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
-                let a = dl.a.unwrap_or(0.0);
-                let b = dl.b.unwrap_or(l);
-                let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
-
                 let mut fef12 = dl.fef(l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);

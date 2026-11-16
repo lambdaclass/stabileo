@@ -1,0 +1,41 @@
+{
+  "id": "gravity-zero-member-moments",
+  "date": "2026-11-16",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "frameMembers",
+      "memberLoads"
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "elementForces"
+  ],
+  "title": {
+    "en": "Zero member moments are absent",
+    "es": "Los momentos nulos de barra son ausentes",
+    "pt": "Momentos nulos de barra são ausentes",
+    "de": "Null-Stabmomente gelten als nicht vorhanden",
+    "fr": "Les moments nuls de barre sont absents",
+    "tr": "Sıfır eleman momentleri yok kabul edilir",
+    "hu": "A nulla rúdnyomaték hiányzónak számít"
+  },
+  "explanation": {
+    "en": "All-zero member moment densities now behave exactly like omitted moments, including narrow supported force spans. Restore affected manual loads from original loading before re-solving; a current solve cannot repair stored load edits. The separate nonzero moment support limit remains 1e-10 of member length (#2219).",
+    "es": "Las densidades de momento nulas equivalen a omitir los momentos, incluso en tramos cortos de fuerza admitidos. Restaure las cargas manuales desde las originales antes de recalcular; resolver no repara las ediciones guardadas. El límite para momentos no nulos sigue siendo 1e-10 de la longitud de barra (#2219).",
+    "pt": "Densidades de momento nulas equivalem à ausência de momentos, inclusive em trechos curtos de força suportados. Restaure cargas manuais das originais antes de resolver; resolver não corrige edições salvas. O limite para momentos não nulos continua em 1e-10 do comprimento da barra (#2219).",
+    "de": "Null-Momentdichten entsprechen fehlenden Momenten, auch auf unterstützten kurzen Kraftabschnitten. Manuelle Lasten vor Neuberechnung aus den Originalen wiederherstellen; Neuberechnung repariert keine gespeicherten Laständerungen. Für von null verschiedene Momente bleibt die Grenze 1e-10 der Stablänge (#2219).",
+    "fr": "Les densités de moment nulles équivalent à des moments absents, même sur de courts intervalles de force pris en charge. Restaurez les charges manuelles initiales avant de recalculer ; résoudre ne répare pas les modifications enregistrées. La limite des moments non nuls reste 1e-10 de la longueur de barre (#2219).",
+    "tr": "Sıfır moment yoğunlukları, desteklenen kısa kuvvet aralıklarında da moment yokluğuna eşdeğerdir. Yeniden çözmeden önce elle girilen yükleri özgün yüklerden geri yükleyin; çözüm kaydedilmiş düzenlemeleri onarmaz. Sıfır olmayan momentler için sınır eleman uzunluğunun 1e-10 değeridir (#2219).",
+    "hu": "A nulla nyomatéksűrűség hiányzó nyomatéknak felel meg, támogatott rövid erőszakaszokon is. Újraszámítás előtt állítsa helyre a kézi terheket az eredetiekből; a számítás nem javítja a tárolt szerkesztéseket. A nem nulla nyomatékok határa továbbra is a rúdhossz 1e-10 része (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round11.md",
+    "heading": "Zero moments and stored load restoration"
+  }
+}

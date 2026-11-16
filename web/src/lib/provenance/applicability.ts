@@ -10,7 +10,7 @@
  */
 import { concernsGeneratedLoads, concernsFloorLoads, type ResultChange, type ResultChangeRegistry } from './registry';
 import { RESULT_CHANGES } from './full-registry';
-import { LEGACY_RECORDED_ANALYSES, floorLoadsCorrectedWith, loadsGeneratedWith, modelFeatures, type FeatureSnapshot } from './model-features';
+import { LEGACY_RECORDED_ANALYSES, floorLoadsCorrectedWith, loadsGeneratedWith, memberLoadsRestoredWith, modelFeatures, type FeatureSnapshot } from './model-features';
 import { analysesContext, type SolveStamp } from './solve-stamp';
 import { advisoriesFor, type Advisory } from './advisories';
 
@@ -45,9 +45,10 @@ export function assessProject(
   const solvedVersion = stamp?.resultsVersion ?? 0;
   const currentVersion = registry.currentResultsVersion;
   const features = originalFeatures ?? modelFeatures(snapshot, { analysisMode, ...(stamp ? analysesContext(stamp) : { analysesRun: null }) });
+  const restoredVersion = memberLoadsRestoredWith(snapshot);
   const changes = registry.changes
     .filter((c) => c.resultsVersion <= currentVersion && c.scope !== 'examples')
-    .filter((c) => c.resultsVersion > solvedVersion || (c.resultsVersion > loadsVersion && concernsGeneratedLoads(c.when)) || (concernsFloorLoads(c.when) && c.resultsVersion > floorLoadsCorrectedWith(snapshot)))
+    .filter((c) => c.resultsVersion > solvedVersion || (c.resultsVersion > loadsVersion && concernsGeneratedLoads(c.when)) || (c.requiresMemberLoadRestoration && c.resultsVersion > restoredVersion) || (concernsFloorLoads(c.when) && c.resultsVersion > floorLoadsCorrectedWith(snapshot)))
     .filter((c) => conditionHolds(c.when ?? {}, features))
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   const advisories = advisoriesFor(solvedVersion, (w) => conditionHolds(w, features), registry);

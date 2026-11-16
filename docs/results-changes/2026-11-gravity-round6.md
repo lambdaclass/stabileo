@@ -21,9 +21,11 @@ normalizes them against the original member axes before slicing.
 The native-input boundary is the refusal point. All plane and spatial load builders check their final member-load arrays
 through the same span invariant, including embedded plane loads. The existing native transverse-force integrator discards spans below `1e-12`,
 so nonzero transverse forces on those spans are refused. Equality and both sides are tested.
-Axial-only and moment-only native loading integrate every positive represented span
-directly and stay distributed even below that transverse-force limit. A nonpositive or unrepresentable
-support is refused. The localized message names the member and explains that the
+Axial-only native loading stays distributed on positive represented spans below
+that transverse-force limit. As finalized in rounds 10–11, nonzero bending-moment
+and torque densities require a canonical span at least 1e-10 of member length.
+All-zero moments are absent and do not impose the moment limit on force loading.
+A nonpositive or unrepresentable support is refused. The localized message names the member and explains that the
 step cannot be represented without moving its loading. No nodal force or couple is
 substituted. The native issue_2222 witness remains ignored for #2223; this change
 does not alter the raw Rust input contract or repair arbitrary existing point loads.
