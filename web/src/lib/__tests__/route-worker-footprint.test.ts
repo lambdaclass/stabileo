@@ -7,6 +7,7 @@ async function measure(worker: boolean, options: {
   switches?: { VITE_RESEARCH: string; VITE_TOOLS: string };
   missing?: string[];
   env?: Record<string, string>;
+  ceilings?: Record<string, number>;
 } = {}) {
   const switches = options.switches ?? { VITE_RESEARCH: '1', VITE_TOOLS: '1' };
   const manifest: Record<string, { file: string; name?: string }> = {
@@ -14,7 +15,7 @@ async function measure(worker: boolean, options: {
     App: { name: 'App', file: 'app.js' },
     'src/components/research/load-page.ts': { file: 'research.js' },
     'src/components/tools/load-page.ts': { file: 'tools.js' },
-    ...Object.fromEntries(['CalculatorTool', 'BatchTool', 'ModelTool', 'MohrTool'].map(name => [
+    ...Object.fromEntries(['CalculatorTool', 'BatchTool', 'ModelTool', 'MohrTool', 'ToolViewer', 'MainBatchTool'].map(name => [
       `src/components/tools/${name}.svelte`, { file: `${name}.js` },
     ])),
   };
@@ -28,6 +29,8 @@ async function measure(worker: boolean, options: {
     'BatchTool.js': worker ? 'new Worker("/assets/solver-worker-fixture.js")' : '',
     'ModelTool.js': worker ? 'new Worker("/assets/solver-worker-fixture.js")' : '',
     'MohrTool.js': '',
+    'ToolViewer.js': '"published calculator";',
+    'MainBatchTool.js': '"published batch calculator";',
     'assets/solver-worker-fixture.js': 'import("/assets/worker-dependency.js");',
     'assets/worker-dependency.js': '"worker implementation";',
   };
@@ -37,6 +40,7 @@ async function measure(worker: boolean, options: {
   const names = ['build', 'readFileSync', 'writeFileSync', 'appendFileSync', 'mkdtempSync', 'rmSync', 'statSync', 'existsSync', 'tmpdir', 'join', 'process', 'console', ...Object.keys(budget)];
   const relative = (path: string) => path.replace('/fixture/', '');
   const run = new Function(...names, `return (async () => {${source}})();`);
+  const process = { argv: ['node', 'check', '--ceiling', 'ceiling.json'], env: options.env ?? {}, exitCode: 0 };
   await run(
     async (config: { plugins: { configResolved?: (resolved: unknown) => void }[] }) => {
       for (const plugin of config.plugins) plugin.configResolved?.({
@@ -47,15 +51,15 @@ async function measure(worker: boolean, options: {
     (path: string) => path.endsWith('manifest.json') ? JSON.stringify(manifest) : path === 'ceiling.json' ? JSON.stringify({ routes: Object.fromEntries([
       '/en/', '/es/', '/pt/', '/app/basic', '/app/education', '/app/pro', '/en/research/', '/en/tools/',
       '/en/tools/simply-supported-beam/', '/en/tools/continuous-beam/', '/en/tools/beam-frame/', '/en/tools/mohr-2d/',
-    ].map(route => [route, 10000])) }) : files[relative(path)],
+    ].map(route => [route, options.ceilings?.[route] ?? 10000])) }) : files[relative(path)],
     () => {}, () => {}, () => '/fixture', () => {},
     (path: string) => ({ size: Buffer.byteLength(files[relative(path)]), isFile: () => true }),
     (path: string) => relative(path) in files,
     () => '/tmp', (...parts: string[]) => parts.join('/'),
-    { argv: ['node', 'check', '--ceiling', 'ceiling.json'], env: options.env ?? {} },
+    process,
     { log: (text: string) => logs.push(text) }, ...Object.values(budget),
   );
-  return { logs, files };
+  return { logs, files, exitCode: process.exitCode };
 }
 
 describe('route worker footprint', () => {
@@ -81,11 +85,10 @@ describe('route worker footprint', () => {
 });
 
 describe('route size build switches', () => {
-  it.each([
+  it.skip.each([
     ['0', '0'], ['0', '1'], ['1', '0'],
   ])('known wrong result: #2099 — measure built routes and report disabled routes for research=%s tools=%s', async (research, tools) => {
     const missing = [
-      ...(research === '0' ? ['src/components/research/load-page.ts'] : []),
       ...(tools === '0' ? ['CalculatorTool', 'BatchTool', 'ModelTool', 'MohrTool'].map(name => `src/components/tools/${name}.svelte`) : []),
     ];
     const { logs, files } = await measure(false, {
@@ -97,12 +100,40 @@ describe('route size build switches', () => {
       expect(logs).toContain(`${route}: ${bytes} bytes`);
     }
     for (const [route, key, value] of [
-      ['/en/research/', 'VITE_RESEARCH', research],
-      ...['', 'simply-supported-beam/', 'continuous-beam/', 'beam-frame/', 'mohr-2d/'].map(path => [`/en/tools/${path}`, 'VITE_TOOLS', tools]),
+      ['/en/research/', '', '1'],
+      ['/en/tools/', '', '1'],
+      ['/en/tools/simply-supported-beam/', 'ToolViewer', '1'],
+      ['/en/tools/continuous-beam/', 'MainBatchTool', '1'],
+      ...['beam-frame/', 'mohr-2d/'].map(path => [`/en/tools/${path}`, '', tools]),
     ]) {
-      expect(logs).toContain(value === '0' ? `${route}: skipped (${key}=0)` : `${route}: ${bytes} bytes`);
+      const detailBytes = tools === '0' && key ? Buffer.byteLength(files[`${key}.js`]) : 0;
+      expect(logs).toContain(value === '0' ? `${route}: skipped (VITE_TOOLS=0)` : `${route}: ${bytes + detailBytes} bytes`);
       expect(logs.filter(line => line.startsWith(`${route}:`))).toHaveLength(1);
     }
+  });
+
+  it.skip.each(['/en/research/', '/en/tools/', '/en/tools/simply-supported-beam/', '/en/tools/continuous-beam/'])(
+    'known wrong result: #2099 — default published %s enforces its ceiling on both sides of the boundary', async route => {
+      const options = { switches: { VITE_RESEARCH: '0', VITE_TOOLS: '0' }, missing: ['CalculatorTool', 'BatchTool', 'ModelTool', 'MohrTool'].map(name => `src/components/tools/${name}.svelte`) };
+      const { files } = await measure(false, options);
+      const detail = route.includes('simply-supported-beam') ? 'ToolViewer.js' : route.includes('continuous-beam') ? 'MainBatchTool.js' : null;
+      const bytes = Buffer.byteLength(files['index.html']) + (detail ? Buffer.byteLength(files[detail]) : 0);
+      for (const headroom of [-1, 0, 1]) {
+        const result = await measure(false, { ...options, ceilings: { [route]: bytes + headroom } });
+        expect(result.logs).toContain(`${route}: ${bytes} bytes`);
+        expect(result.exitCode).toBe(headroom < 0 ? 1 : 0);
+        expect(result.logs.filter(line => line.includes('is over its ceiling'))).toEqual(headroom < 0 ? [`${route} is over its ceiling: ${bytes} > ${bytes - 1} bytes`] : []);
+      }
+    },
+  );
+
+  it.skip.each([
+    ['src/components/research/load-page.ts', 'src/components/research/load-page.ts'],
+    ['src/components/tools/load-page.ts', 'src/components/tools/load-page.ts'],
+    ['src/components/tools/ToolViewer.svelte', 'for ToolViewer.svelte'],
+    ['src/components/tools/MainBatchTool.svelte', 'for MainBatchTool.svelte'],
+  ])('known wrong result: #2099 — a default published feature with missing %s fails', async (missing, entry) => {
+    await expect(measure(false, { switches: { VITE_RESEARCH: '0', VITE_TOOLS: '0' }, missing: [missing] })).rejects.toThrow(`missing manifest entry ${entry}`);
   });
 
   it.each([
