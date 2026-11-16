@@ -61,6 +61,7 @@ web/src/lib/engine/live-calc.ts: return lc.includes('mecanismo') || lc.includes(
 web/src/lib/engine/live-calc.ts: || lc.includes('mechanism') || lc.includes('hypostatic') || lc.includes('unstable');
 web/src/lib/engine/verification-service.ts: if (steps[steps.length - 1]?.startsWith('=== Resultado global')) steps[steps.length - 1] = steelResultLine(overallStatus);
 web/src/lib/i18n/engine-text.ts: for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
+web/src/lib/i18n/engine-text.ts: out = out.replace(CONFLICTING_CONSTRAINTS, (_whole, dof: string, node: string, n: string) => fill('svc.engine.conflictingConstraints', { dof, node, n }));
 web/src/lib/i18n/engine-text.ts: const known = SELF_CHECK_REASONS.find(([pattern]) => pattern.test(reason));
 
 ## Matches an i18n key, a code prefix, an enum value or the JSON payload of a structured refusal carried in a message-named field, or a prefix shared through one constant with its producer: not prose.
