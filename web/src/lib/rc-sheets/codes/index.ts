@@ -9,6 +9,7 @@ import { ACI_COLUMN, CIRSOC_COLUMN, columnRowFor } from '../column-row';
 import { CIRSOC_SLAB_ROW, slabRow, slabRowFor } from '../slab-row';
 import { wallRow } from '../wall-row';
 import { punchingRow } from '../punching-row';
+import { aciFootingRow, footingRow, type FootingRowFn } from '../footing-row';
 import { ACI_SLAB_PLAN, CIRSOC_SLAB_PLAN, type SlabPlanCode } from '../slab-plan';
 import { bentBarMandrel } from '../../codes/cirsoc201/bar-geometry';
 import { ec2Rules, ukRules } from '../ec2';
@@ -24,6 +25,7 @@ export interface SheetRules {
   slabRow: typeof slabRow;
   wallRow: typeof wallRow;
   punchingRow: typeof punchingRow;
+  footingRow: FootingRowFn;
   /** How a level's slab bars reach past their supports. */
   slabPlan: SlabPlanCode;
   /** Whether the special moment frame provisions are the code's (chapter 18 of ACI 318 and CIRSOC 201). */
@@ -37,8 +39,8 @@ export interface SheetRules {
 /** CIRSOC 201-2025's mandrels and hooks, and for bent-up bars the FIUBA course's 9·db, 12·db and 15·db (§11.4), which the code does not give. */
 export const CIRSOC_BENDS: BendRules = { ...ACI_BENDS, bentMandrel: bentBarMandrel, clause: '§25.3.1, §25.3.2; FIUBA §11.4' };
 
-const aciRules: SheetRules = { beamRow, beamLine, columnRow: columnRowFor(ACI_COLUMN), slabRow, wallRow, punchingRow, slabPlan: ACI_SLAB_PLAN, seismic: true, bends: ACI_BENDS };
-const cirsocRules: SheetRules = { ...aciRules, beamLine: (rows, c, a, fmt) => beamLine(rows, c, a, fmt, CIRSOC_2025_LINE), columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: true };
+const aciRules: SheetRules = { beamRow, beamLine, columnRow: columnRowFor(ACI_COLUMN), slabRow, wallRow, punchingRow, footingRow: aciFootingRow, slabPlan: ACI_SLAB_PLAN, seismic: true, bends: ACI_BENDS };
+const cirsocRules: SheetRules = { ...aciRules, beamLine: (rows, c, a, fmt) => beamLine(rows, c, a, fmt, CIRSOC_2025_LINE), columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), footingRow, slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: true };
 
 const RULES: Record<SheetCode, SheetRules> = {
   'cirsoc201-2025': cirsocRules,

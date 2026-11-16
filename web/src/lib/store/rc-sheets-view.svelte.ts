@@ -17,6 +17,7 @@ import { designData } from './design-data';
 import { activeResultSet3D } from './active-results';
 import { decimalFor, makeFmt } from '../rc-sheets/format';
 import { sheetsProgress } from './rc-sheets-progress.svelte';
+import { foundationStamp } from './rc-sheets-footings';
 
 /** What the rows were designed from: what makes them out of date when it changes. */
 interface Stamp {
@@ -25,6 +26,7 @@ interface Stamp {
   design: string;
   adopted: string;
   locale: string;
+  foundation: string;
 }
 
 export const sheetsRun = $state<{ rows: SheetRows | null; stamp: Stamp | null; readonly progress: SheetProgress | null }>({
@@ -39,11 +41,11 @@ function stampNow(): Stamp {
   return {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
     results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,
-    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify(adopted ?? null), locale: i18n.locale,
+    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify(adopted ?? null), locale: i18n.locale, foundation: foundationStamp(),
   };
 }
 
-const sameInputs = (a: Stamp, b: Stamp) => a.results === b.results && a.perCombo === b.perCombo && a.groups === b.groups && a.design === b.design;
+const sameInputs = (a: Stamp, b: Stamp) => a.results === b.results && a.perCombo === b.perCombo && a.groups === b.groups && a.design === b.design && a.foundation === b.foundation;
 
 /** The rows were designed and something they were designed from has changed since (reactive). */
 export function sheetsStale(): boolean {

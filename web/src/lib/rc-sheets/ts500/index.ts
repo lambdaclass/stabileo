@@ -5,6 +5,7 @@ import { columnRow } from './column';
 import { slabRow } from './slab';
 import { wallRow } from './wall';
 import { punchingRow } from './punching';
+import { uncoveredFootingRow } from '../footing-row';
 import { TS500_LINE } from './line';
 import { TS500_BENDS } from './basis';
 import type { SlabPlanCode } from '../slab-plan';
@@ -19,4 +20,4 @@ const ts500SlabPlan: SlabPlanCode = {
 
 export { TS500_LINE } from './line';
 
-export const ts500Rules: SheetRules = { beamRow, beamLine, columnRow, slabRow, wallRow, punchingRow, slabPlan: ts500SlabPlan, seismic: false, bends: TS500_BENDS };
+export const ts500Rules: SheetRules = { beamRow, beamLine, columnRow, slabRow, wallRow, punchingRow, footingRow: uncoveredFootingRow, slabPlan: ts500SlabPlan, seismic: false, bends: TS500_BENDS };
