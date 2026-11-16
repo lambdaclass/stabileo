@@ -422,13 +422,13 @@ const body: PostBody = {
           "Hoch",
           "In PR #1921 behoben, Veröffentlichung ausstehend"
         ],
+        ["SA-2026-060", "Die Bauphasenanalyse konnte reale Drehungen nach Einheitenwechseln oder an freigegebenen Enden mit Auflagerfedern ohne Warnung versteifen; Bauphasenmodelle mit Freigaben erneut prüfen", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         [
           "SA-2026-061",
           "Bogenlängen- und Verschiebungssteuerung ließen Reaktionen weg und verwendeten unskalierte Stablasten; auch fehlende Ergebnisse bei 2D/3D-Zwangsbedingungen, Guyan, Bauphasen und Zeitverläufen prüfen. Betroffene Ergebnisse neu berechnen oder unabhängig prüfen; 0.2.0–0.5.0 und spätere betroffene main-Builds.",
           "Hoch",
           "Behoben in PR #1952, Veröffentlichung ausstehend"
         ],
-        ["SA-2026-060", "Die Bauphasenanalyse konnte reale Drehungen nach Einheitenwechseln oder an freigegebenen Enden mit Auflagerfedern ohne Warnung versteifen; Bauphasenmodelle mit Freigaben erneut prüfen", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         ["SA-2026-062", "Die rohe plastische 3D-Analyse konnte beim Scheitern des elastischen Anfangszustands ohne Warnung null melden; ältere zertifizierte Versionen behielten diesen Faktor. Main liefert bereits eine positive zertifizierte Schranke mit Warnung; PR #1943 gibt die anfängliche Ablehnung weiter", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         ["SA-2026-063", "Bauphasen- und nichtlineare Analysen mit Zwangsbedingungen verloren vorgegebene Masterbewegungen; Seil- und Zeitverlaufsanalysen lehnen nicht unterstützte Auflagerbewegungen nun ab. Bestehende allgemeine Dynamikwarnungen benannten diese Auslassung nicht", "Hoch", "In PR #2009 behoben, Veröffentlichung ausstehend"],
         ["SA-2026-064", "Cb für Stahl konnte aus einer anderen Kombination oder einem kurzen Abschnitt ohne bekannte Halterungspositionen stammen (#1316, #2088). CIRSOC-301-Nachweise erneut ausführen und Biegetragfähigkeit, Interaktionsausnutzung und maßgebende Kombinationen prüfen.", "Hoch", "Behoben in 0.6.1"],

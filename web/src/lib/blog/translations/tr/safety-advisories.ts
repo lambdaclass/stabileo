@@ -422,13 +422,13 @@ const body: PostBody = {
           "Yüksek",
           "PR #1921 ile düzeltildi, sürüm yayını bekleniyor"
         ],
+        ["SA-2026-060", "Aşamalı analiz, birim değişiminden sonra veya mesnet yaylı mafsallı uçlarda gerçek dönmeleri uyarı vermeden sertleştirebiliyordu; serbestlik içeren aşamalı modelleri yeniden kontrol edin", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
         [
           "SA-2026-061",
           "Yay uzunluğu ve yer değiştirme kontrolü tepkileri atlıyor ve ölçeklenmemiş eleman yüklerini kullanıyordu; 2D/3D kısıt, Guyan, aşamalı ve zaman tanım alanı sonuçlarındaki eksiklikler de incelenmelidir. Etkilenen sonuçları yeniden hesaplayın veya bağımsız doğrulayın; 0.2.0–0.5.0 ve etkilenen sonraki main derlemeleri.",
           "Yüksek",
           "PR #1952 içinde düzeltildi, yayın bekleniyor"
         ],
-        ["SA-2026-060", "Aşamalı analiz, birim değişiminden sonra veya mesnet yaylı mafsallı uçlarda gerçek dönmeleri uyarı vermeden sertleştirebiliyordu; serbestlik içeren aşamalı modelleri yeniden kontrol edin", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
         ["SA-2026-062", "Ham 3D plastik analiz, başlangıç elastik durumu çözülemediğinde uyarısız sıfır bildirebiliyordu; eski sertifikalı sürümler bu katsayıyı koruyordu. Main artık uyarıyla pozitif sertifikalı sınır döndürüyor; PR #1943 başlangıç reddini iletiyor", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
         ["SA-2026-063", "Kısıtlı aşamalı ve doğrusal olmayan analizler tanımlı ana düğüm hareketini kaybediyordu; kablo ve zaman tanım alanı analizleri artık desteklenmeyen mesnet hareketlerini reddediyor. Mevcut genel dinamik uyarıları bu eksikliği belirtmiyordu", "Yüksek", "PR #2009 ile düzeltildi, sürüm yayını bekleniyor"],
         ["SA-2026-064", "Çelik Cb katsayısı başka bir birleşimden veya yanal mesnet konumları bilinmeyen kısa bir aralıktan alınabiliyordu (#1316, #2088). CIRSOC 301 çelik kontrollerini yeniden çalıştırıp eğilme kapasitesini, etkileşim kullanım oranını ve belirleyici birleşimleri inceleyin.", "Yüksek", "0.6.1 sürümünde düzeltildi"],

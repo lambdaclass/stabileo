@@ -422,13 +422,13 @@ const body: PostBody = {
           "Élevée",
           "Corrigé dans PR #1921, en attente de publication"
         ],
+        ["SA-2026-060", "Le calcul par phases pouvait raidir sans avertissement des rotations réelles après un changement d’unités ou aux extrémités articulées avec ressorts d’appui ; revérifiez les modèles par phases avec libérations", "Haute", "Brouillon : correction locale en attente de revue et de publication"],
         [
           "SA-2026-061",
           "La longueur d’arc et le contrôle en déplacement omettaient les réactions et utilisaient les charges de barres sans mise à l’échelle ; vérifier aussi les omissions des résultats 2D/3D avec liaisons, Guyan, phases et historiques temporels. Recalculer ou vérifier indépendamment ; 0.2.0–0.5.0 et compilations ultérieures de main concernées.",
           "Élevée",
           "Corrigé dans PR #1952, publication en attente"
         ],
-        ["SA-2026-060", "Le calcul par phases pouvait raidir sans avertissement des rotations réelles après un changement d’unités ou aux extrémités articulées avec ressorts d’appui ; revérifiez les modèles par phases avec libérations", "Haute", "Brouillon : correction locale en attente de revue et de publication"],
         ["SA-2026-062", "Le calcul plastique 3D brut pouvait annoncer zéro sans avertissement en cas d’échec de l’état élastique initial ; les anciennes versions certifiées conservaient ce facteur. Main renvoie déjà une borne certifiée positive avec avertissement ; la PR #1943 transmet le refus initial", "Haute", "Brouillon : correction locale en attente de revue et de publication"],
         ["SA-2026-063", "Les analyses par phases et non linéaires avec contraintes perdaient le mouvement imposé du maître ; les analyses de câbles et les historiques temporels refusent désormais les mouvements d’appui non pris en charge. Les avertissements dynamiques généraux existants ne signalaient pas cette omission", "Haute", "Corrigé dans PR #2009, en attente de publication"],
         ["SA-2026-064", "Le Cb de l’acier pouvait provenir d’une autre combinaison ou d’un court tronçon dont les maintiens étaient inconnus (#1316, #2088). Relancez les vérifications CIRSOC 301 et examinez résistance en flexion, taux d’interaction et combinaisons déterminantes.", "Élevée", "Corrigé dans 0.6.1"],
