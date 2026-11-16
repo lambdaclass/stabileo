@@ -18,4 +18,12 @@ for (const axis of ['x','y'] as const) for (const split of [false,true]) for (co
  it(`a run inside the cover boundary may move outward ${axis} ${split} ${side}`,()=>{
   expect(envelope.reject(bar,{x:0,y:0,z:side*0.01})).toBeNull();
  });
+ const room=members[0]!.h/2-members[0]!.cover-members[0]!.stirrupDiaMm/1000-bar.diameterMm/2000;
+ it(`the exact cover boundary is retained ${axis} ${split} ${side}`,()=>{
+  expect(envelope.reject(bar,{x:0,y:0,z:side*(room-0.25)})).toBeNull();
+ });
+ knownWrong(`known wrong result: #2171 a run beyond the cover boundary is refused ${axis} ${split} ${side}`,()=>{
+  expect(envelope.reject(bar,{x:0,y:0,z:side*(room-0.25+0.001)})?.reason).toBe('outsideSection');
+ });
+
 }

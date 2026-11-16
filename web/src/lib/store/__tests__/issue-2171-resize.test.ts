@@ -28,3 +28,16 @@ it('an intentionally zero-round sizing limit leaves refused members without cert
     expect(o?.limiting.length).toBeGreaterThan(0);
   }
 },180_000);
+
+for (const maxRounds of [1, 2]) knownWrong(`known wrong result: #2171 sizing reports the boundary at ${maxRounds} rounds`, async () => {
+  building(1);
+  const run=await designWithResizing({edited:'overwrite',steel:false,maxRounds});
+  expect(run.rounds).toBe(maxRounds);
+  expect(run.stopped).toBe(maxRounds===1?'maxRounds':'verified');
+  const refused=[...verificationStore.contexts.keys()].map(id=>verificationStore.outcomeFor(id)).filter(o=>o?.outcome==='SEARCH_EXHAUSTED');
+  expect(refused.length>0).toBe(maxRounds===1);
+  for(const outcome of refused) {
+    expect(outcome?.accepted).toBeUndefined();
+    expect(outcome?.certificate).toBeUndefined();
+  }
+},180_000);
