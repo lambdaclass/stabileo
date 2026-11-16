@@ -111,6 +111,14 @@ export interface ShapedCheck {
 
 export interface ShapedTuple { n: number; my: number; mz: number; vy: number; vz: number; comboName: string; stationX: number }
 
+export function shapedShearWebs(shape: ColumnShape): Array<{ axis: 'Vy' | 'Vz'; bw: number; d: number; read: (t: ShapedTuple) => number }> {
+  return shape.kind === 'circle'
+    ? [{ axis: 'Vz', bw: shape.D, d: 0.8 * shape.D, read: (t) => t.vz }, { axis: 'Vy', bw: shape.D, d: 0.8 * shape.D, read: (t) => t.vy }]
+    : shape.kind === 'tee'
+      ? [{ axis: 'Vz', bw: shape.bw, d: 0.8 * shape.h, read: (t) => t.vz }, { axis: 'Vy', bw: shape.hf, d: 0.8 * shape.bf, read: (t) => t.vy }]
+      : [{ axis: 'Vz', bw: shape.tw, d: 0.8 * shape.h, read: (t) => t.vz }, { axis: 'Vy', bw: shape.tf, d: 0.8 * shape.b, read: (t) => t.vy }];
+}
+
 /**
  * The checks of a shaped column: P–M at every tuple in the demand's own direction, the steel
  * ratio, the bars' clear spacing, shear along both directions and the ties or the spiral.
@@ -124,7 +132,7 @@ export function checkShapedColumn(input: {
   /** δns·δs on both moment axes. */
   magnifier: number;
   maxTieSpacing: number;
-  shearCapacity: (bw: number, d: number, Nu: number) => number;
+  shearCapacity: (bw: number, d: number, Nu: number, axis: 'Vy' | 'Vz', Vu: number) => number;
 }): ShapedCheck[] {
   const { shape, bars } = input;
   const out: ShapedCheck[] = [];
@@ -178,17 +186,13 @@ export function checkShapedColumn(input: {
   out.push({ category: 'Bar spacing', utilization: need / Math.max(clear, 1e-9), unit: 'cm', required: +(need * 100).toFixed(1), provided: +(clear * 100).toFixed(1), description: `clear ${(clear * 100).toFixed(1)} cm ≥ max(40 mm, 1.5·db) (§25.2.3)`, limiting: 'congestion' });
 
   // ── Shear along each direction, on the web that carries it ──
-  const webs: Array<{ axis: 'Vy' | 'Vz'; bw: number; d: number; read: (t: ShapedTuple) => number }> = shape.kind === 'circle'
-    ? [{ axis: 'Vz', bw: shape.D, d: 0.8 * shape.D, read: (t) => t.vz }, { axis: 'Vy', bw: shape.D, d: 0.8 * shape.D, read: (t) => t.vy }]
-    : shape.kind === 'tee'
-      ? [{ axis: 'Vz', bw: shape.bw, d: 0.8 * shape.h, read: (t) => t.vz }, { axis: 'Vy', bw: shape.hf, d: 0.8 * shape.bf, read: (t) => t.vy }]
-      : [{ axis: 'Vz', bw: shape.tw, d: 0.8 * shape.h, read: (t) => t.vz }, { axis: 'Vy', bw: shape.tf, d: 0.8 * shape.b, read: (t) => t.vy }];
+  const webs = shapedShearWebs(shape);
   for (const w of webs) {
     let wv: { u: number; Vu: number; cap: number; t: ShapedTuple } | null = null;
     for (const t of input.tuples) {
       const Vu = Math.abs(w.read(t));
       if (Vu < 1e-3) continue;
-      const cap = input.shearCapacity(w.bw, w.d, -t.n);
+      const cap = input.shearCapacity(w.bw, w.d, -t.n, w.axis, Vu);
       const u = cap > 1e-9 ? Vu / cap : Number.POSITIVE_INFINITY;
       if (!wv || u > wv.u) wv = { u, Vu, cap, t };
     }

@@ -55,3 +55,23 @@ it('known wrong result: #2171 the conservative default keeps its identity and ad
   expect(rebarHash(before)).toBe(rebarHash({ stirrups: { ...before.stirrups, secondaryLegs: 2 } }));
   expect(rebarHash(before)).not.toBe(rebarHash({ stirrups: { ...before.stirrups, secondaryLegs: 3 } }));
 });
+
+it('known wrong result: #2171 manual support edits preserve both actual cages and update both ends', () => {
+  restore();
+  const r = getReinforcement(1)!;
+  const start = { diameter: 6, legs: 6, secondaryLegs: 3, spacing: 0.1 };
+  const end = { diameter: 8, legs: 2, secondaryLegs: 6, spacing: 0.15 };
+  r.regions = { ...r.regions, stirrupsStart: start, stirrupsEnd: end };
+  modelStore.reinforcementTransaction(api => api.setReinforcement(1, r));
+  setStirrups(1, 'stirrupsSupport', { spacing: 0.075 });
+  expect(getReinforcement(1)!.regions!.stirrupsStart).toEqual({ ...start, spacing: 0.075 });
+  expect(getReinforcement(1)!.regions!.stirrupsEnd).toEqual({ ...end, spacing: 0.075 });
+  setStirrups(1, 'stirrupsSupport', { secondaryLegs: 7 });
+  expect(getReinforcement(1)!.regions!.stirrupsStart!.secondaryLegs).toBe(6);
+  expect(getReinforcement(1)!.regions!.stirrupsEnd!.secondaryLegs).toBe(6);
+  const saved = modelStore.snapshot();
+  modelStore.clear();
+  modelStore.restore(saved);
+  expect(getReinforcement(1)!.regions!.stirrupsStart).toEqual({ ...start, spacing: 0.075, secondaryLegs: 6 });
+  expect(getReinforcement(1)!.regions!.stirrupsEnd).toEqual({ ...end, spacing: 0.075, secondaryLegs: 6 });
+});

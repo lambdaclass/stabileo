@@ -1,0 +1,257 @@
+{
+  "mainRevision": "e6cf6cb0a42cc5776d7552eb77c1663b80095c0f",
+  "branchParent": "ee1b2b07c",
+  "input": {
+    "start": {
+      "diameter": 6,
+      "legs": 6,
+      "secondaryLegs": 6,
+      "spacing": 0.1
+    },
+    "end": {
+      "diameter": 8,
+      "legs": 2,
+      "secondaryLegs": 6,
+      "spacing": 0.15
+    }
+  },
+  "records": {
+    "main": {
+      "projection": {
+        "regions": {
+          "stirrupsSupport": {
+            "diameter": 8,
+            "legs": 2,
+            "spacing": 0.15
+          },
+          "stirrupsSpan": {
+            "diameter": 6,
+            "legs": 6,
+            "spacing": 0.1
+          }
+        }
+      },
+      "shearRows": [
+        {
+          "category": "Shear Support (Vz)",
+          "demandCategory": "Vz",
+          "demand": 1,
+          "capacity": 87.74,
+          "unit": "kN",
+          "method": "capacity",
+          "tuplesChecked": 2,
+          "regionRange": [
+            0,
+            0.25
+          ],
+          "description": "e\u00d88 2L c/15 [0.00\u20130.25], 2 tuples",
+          "comboName": "C1",
+          "stationX": 0,
+          "limiting": "shear",
+          "ratio": 0.011,
+          "status": "ok"
+        },
+        {
+          "category": "Shear Support (Vz) s,max",
+          "demandCategory": null,
+          "required": 13,
+          "provided": 15,
+          "unit": "cm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "regionRange": [
+            0,
+            0.25
+          ],
+          "description": "stirrup spacing 15.0 cm exceeds s,max along the member = 13.0 cm (Table 9.7.6.2.2 row1)",
+          "limiting": "tieSpacing",
+          "ratio": 1.158,
+          "status": "fail"
+        },
+        {
+          "category": "Shear Span (Vz)",
+          "demandCategory": "Vz",
+          "demand": 1,
+          "capacity": 161.23,
+          "unit": "kN",
+          "method": "capacity",
+          "tuplesChecked": 1,
+          "regionRange": [
+            0.25,
+            0.75
+          ],
+          "description": "e\u00d86 6L c/10 [0.25\u20130.75], 1 tuples",
+          "comboName": "C1",
+          "stationX": 2,
+          "limiting": "shear",
+          "ratio": 0.006,
+          "status": "ok"
+        }
+      ]
+    },
+    "branchParent": {
+      "projection": {
+        "regions": {
+          "stirrupsSupport": {
+            "diameter": 6,
+            "legs": 2,
+            "secondaryLegs": 6,
+            "spacing": 0.1
+          },
+          "stirrupsSpan": {
+            "diameter": 6,
+            "legs": 6,
+            "secondaryLegs": 6,
+            "spacing": 0.1
+          }
+        }
+      },
+      "shearRows": [
+        {
+          "category": "Shear Support (Vz)",
+          "demandCategory": "Vz",
+          "demand": 1,
+          "capacity": 79.2,
+          "unit": "kN",
+          "method": "capacity",
+          "tuplesChecked": 2,
+          "regionRange": [
+            0,
+            0.25
+          ],
+          "description": "e\u00d86 2L c/10 [0.00\u20130.25], 2 tuples",
+          "comboName": "C1",
+          "stationX": 0,
+          "limiting": "shear",
+          "ratio": 0.013,
+          "status": "ok"
+        },
+        {
+          "category": "Shear Span (Vz)",
+          "demandCategory": "Vz",
+          "demand": 1,
+          "capacity": 161.23,
+          "unit": "kN",
+          "method": "capacity",
+          "tuplesChecked": 1,
+          "regionRange": [
+            0.25,
+            0.75
+          ],
+          "description": "e\u00d86 6L c/10 [0.25\u20130.75], 1 tuples",
+          "comboName": "C1",
+          "stationX": 2,
+          "limiting": "shear",
+          "ratio": 0.006,
+          "status": "ok"
+        }
+      ]
+    },
+    "fixed": {
+      "projection": {
+        "regions": {
+          "stirrupsSupport": {
+            "diameter": 6,
+            "legs": 2,
+            "secondaryLegs": 6,
+            "spacing": 0.1
+          },
+          "stirrupsStart": {
+            "diameter": 6,
+            "legs": 6,
+            "secondaryLegs": 6,
+            "spacing": 0.1
+          },
+          "stirrupsEnd": {
+            "diameter": 8,
+            "legs": 2,
+            "secondaryLegs": 6,
+            "spacing": 0.15
+          },
+          "stirrupsSpan": {
+            "diameter": 6,
+            "legs": 6,
+            "secondaryLegs": 6,
+            "spacing": 0.1
+          }
+        }
+      },
+      "shearRows": [
+        {
+          "category": "Shear Support Start (Vz)",
+          "demandCategory": "Vz",
+          "demand": 1,
+          "capacity": 162.47,
+          "unit": "kN",
+          "method": "capacity",
+          "tuplesChecked": 1,
+          "regionRange": [
+            0,
+            0.25
+          ],
+          "description": "e\u00d86 6L c/10 [0.00\u20130.25], 1 tuples",
+          "comboName": "C1",
+          "stationX": 0,
+          "limiting": "shear",
+          "ratio": 0.006,
+          "status": "ok"
+        },
+        {
+          "category": "Shear Support End (Vz)",
+          "demandCategory": "Vz",
+          "demand": 1,
+          "capacity": 87.74,
+          "unit": "kN",
+          "method": "capacity",
+          "tuplesChecked": 1,
+          "regionRange": [
+            0.75,
+            1
+          ],
+          "description": "e\u00d88 2L c/15 [0.75\u20131.00], 1 tuples",
+          "comboName": "C1",
+          "stationX": 4,
+          "limiting": "shear",
+          "ratio": 0.011,
+          "status": "ok"
+        },
+        {
+          "category": "Shear Support End (Vz) s,max",
+          "demandCategory": null,
+          "required": 13,
+          "provided": 15,
+          "unit": "cm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "regionRange": [
+            0.75,
+            1
+          ],
+          "description": "stirrup spacing 15.0 cm exceeds s,max along the member = 13.0 cm (Table 9.7.6.2.2 row1)",
+          "limiting": "tieSpacing",
+          "ratio": 1.158,
+          "status": "fail"
+        },
+        {
+          "category": "Shear Span (Vz)",
+          "demandCategory": "Vz",
+          "demand": 1,
+          "capacity": 162.47,
+          "unit": "kN",
+          "method": "capacity",
+          "tuplesChecked": 1,
+          "regionRange": [
+            0.25,
+            0.75
+          ],
+          "description": "e\u00d86 6L c/10 [0.25\u20130.75], 1 tuples",
+          "comboName": "C1",
+          "stationX": 2,
+          "limiting": "shear",
+          "ratio": 0.006,
+          "status": "ok"
+        }
+      ]
+    }
+  }
+}

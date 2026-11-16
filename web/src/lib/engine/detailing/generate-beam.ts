@@ -226,8 +226,10 @@ export interface BeamGenerationInput {
    * Absent, the generator sizes the cage itself from Table 9.7.6.2.2, as it did before.
    */
   designedStirrups?: {
-    support: { diameter: number; legs: number; spacing: number };
-    span: { diameter: number; legs: number; spacing: number };
+    support: { diameter: number; legs: number; secondaryLegs?: number; spacing: number };
+    start?: { diameter: number; legs: number; secondaryLegs?: number; spacing: number };
+    end?: { diameter: number; legs: number; secondaryLegs?: number; spacing: number };
+    span: { diameter: number; legs: number; secondaryLegs?: number; spacing: number };
     regionI: number;
     regionJ: number;
   };
@@ -1493,8 +1495,9 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   const designed = input.designedStirrups;
   const zoneFor = (
     from: number, to: number, reason: StirrupZone['reason'], refs: ClauseRef[],
-    set?: { diameter: number; legs: number; spacing: number },
+    set?: { diameter: number; legs: number; secondaryLegs?: number; spacing: number },
   ): StirrupZone => {
+    if ((set?.secondaryLegs ?? 2) > 2) unsupported.push(`Secondary stirrup legs (${set!.secondaryLegs}) require horizontal crossties that beam detailing does not generate.`);
     const dia = set?.diameter ?? designed?.span.diameter ?? input.stirrupDia;
     const table = transverseSpacingForDemand(input.edition, {
       Vu: peakShearIn(from, to), bw: input.b, d: dTable, fc: input.fc,
@@ -1541,7 +1544,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     const shearRefs = [c('9.7.6.2.2', 'separación máxima de ramas')];
     for (const z of input.lineStirrups) {
       const from = Math.max(z.from, faceI), to = Math.min(z.to, faceJ);
-      if (to > from + 1e-9) raw.push(zoneFor(from, to, 'shear', shearRefs, { diameter: z.diameter, legs: z.legs, spacing: z.spacing }));
+      if (to > from + 1e-9) raw.push(zoneFor(from, to, 'shear', shearRefs, { diameter: z.diameter, legs: z.legs, secondaryLegs: z.secondaryLegs, spacing: z.spacing }));
     }
     trace.push(`${input.lineStirrups.length} zona(s) de estribos tal como las dibuja la línea guardada.`);
   } else if (designed) {
@@ -1555,9 +1558,9 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     const rI = Math.min(Math.max(designed.regionI, faceI), faceJ);
     const rJ = Math.max(Math.min(input.L - designed.regionJ, faceJ), rI);
     const shearRefs = [c('9.7.6.2.2', 'separación máxima de ramas')];
-    if (rI > faceI + 1e-9) raw.push(zoneFor(faceI, rI, 'shear', shearRefs, designed.support));
+    if (rI > faceI + 1e-9) raw.push(zoneFor(faceI, rI, 'shear', shearRefs, designed.start ?? designed.support));
     if (rJ > rI + 1e-9) raw.push(zoneFor(rI, rJ, 'minimum', [c('9.6.3', 'armadura mínima de corte'), ...shearRefs], designed.span));
-    if (faceJ > rJ + 1e-9) raw.push(zoneFor(rJ, faceJ, 'shear', shearRefs, designed.support));
+    if (faceJ > rJ + 1e-9) raw.push(zoneFor(rJ, faceJ, 'shear', shearRefs, designed.end ?? designed.support));
   } else {
     const supportZone = Math.min(2 * input.h, clear / 2);
     // §9.6.3 minimum shear reinforcement over the whole clear span, at the span's own demand.

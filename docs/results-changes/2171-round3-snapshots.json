@@ -1,0 +1,1516 @@
+{
+  "base": "b53fb6d76",
+  "main": "e6cf6cb0a",
+  "basis": "Every directional capacity and ratio checked by issue-2171-snapshots.test.ts against the native section evaluator using the actual legs, depth, spacing, concurrent axial force and tension steel. Primary capacities may increase because the secondary two-leg requirement reduces the common spacing. Statuses fail independently when the actual count is below requiredLegs. Added rows are previously omitted secondary beam shear. All differences are RC design and derived display values; analysis forces, flexure capacities and non-RC results are unchanged.",
+  "cases": [
+    {
+      "name": "design-rc-design-qa-row2",
+      "changed": 16,
+      "added": 0,
+      "removed": 0,
+      "diff": {
+        "changed": [
+          {
+            "path": "design.rc[e1].status",
+            "before": "warn",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e1].checks[2].capacity",
+            "before": 362.2178444,
+            "after": 329.8950644
+          },
+          {
+            "path": "design.rc[e1].checks[2].ratio",
+            "before": 0.2058785737,
+            "after": 0.2260503452
+          },
+          {
+            "path": "design.rc[e1].checks[2].status",
+            "before": "ok",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e2].status",
+            "before": "warn",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e2].checks[2].capacity",
+            "before": 362.2178444,
+            "after": 329.8950644
+          },
+          {
+            "path": "design.rc[e2].checks[2].ratio",
+            "before": 0.2058785737,
+            "after": 0.2260503452
+          },
+          {
+            "path": "design.rc[e2].checks[2].status",
+            "before": "ok",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e3].status",
+            "before": "warn",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e3].checks[2].capacity",
+            "before": 362.2178444,
+            "after": 329.8950644
+          },
+          {
+            "path": "design.rc[e3].checks[2].ratio",
+            "before": 0.2058785737,
+            "after": 0.2260503452
+          },
+          {
+            "path": "design.rc[e3].checks[2].status",
+            "before": "ok",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e4].status",
+            "before": "warn",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e4].checks[2].capacity",
+            "before": 362.2178444,
+            "after": 329.8950644
+          },
+          {
+            "path": "design.rc[e4].checks[2].ratio",
+            "before": 0.2058785737,
+            "after": 0.2260503452
+          },
+          {
+            "path": "design.rc[e4].checks[2].status",
+            "before": "ok",
+            "after": "fail"
+          }
+        ],
+        "removed": [],
+        "added": [],
+        "differs": true
+      },
+      "directionalNativeChecks": [
+        {
+          "elementId": 1,
+          "direction": "primary",
+          "width": 0.5,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 3,
+          "requiredLegs": 3,
+          "spacing": 0.225,
+          "phiVn": 362.2178443579804,
+          "nativePhiVn": 362.2178443579804,
+          "demand": 74.57289317658451,
+          "ratio": 0.2058785737316796,
+          "status": "ok"
+        },
+        {
+          "elementId": 1,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 3,
+          "spacing": 0.225,
+          "phiVn": 329.8950643579804,
+          "nativePhiVn": 329.8950643579804,
+          "demand": 74.57289317658451,
+          "ratio": 0.22605034519601944,
+          "status": "fail"
+        },
+        {
+          "elementId": 2,
+          "direction": "primary",
+          "width": 0.5,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 3,
+          "requiredLegs": 3,
+          "spacing": 0.225,
+          "phiVn": 348.3519383638925,
+          "nativePhiVn": 348.3519383638925,
+          "demand": 79.43809366674625,
+          "ratio": 0.22803976357887895,
+          "status": "ok"
+        },
+        {
+          "elementId": 2,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 3,
+          "spacing": 0.225,
+          "phiVn": 329.8950643579804,
+          "nativePhiVn": 329.8950643579804,
+          "demand": 74.57289317658451,
+          "ratio": 0.22605034519601944,
+          "status": "fail"
+        },
+        {
+          "elementId": 3,
+          "direction": "primary",
+          "width": 0.5,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 3,
+          "requiredLegs": 3,
+          "spacing": 0.225,
+          "phiVn": 362.21784435798037,
+          "nativePhiVn": 362.21784435798037,
+          "demand": 74.57289317658451,
+          "ratio": 0.20587857373167961,
+          "status": "ok"
+        },
+        {
+          "elementId": 3,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 3,
+          "spacing": 0.225,
+          "phiVn": 329.8950643579804,
+          "nativePhiVn": 329.8950643579804,
+          "demand": 74.5728931765845,
+          "ratio": 0.22605034519601938,
+          "status": "fail"
+        },
+        {
+          "elementId": 4,
+          "direction": "primary",
+          "width": 0.5,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 3,
+          "requiredLegs": 3,
+          "spacing": 0.225,
+          "phiVn": 348.3519383638925,
+          "nativePhiVn": 348.3519383638925,
+          "demand": 79.43809366674617,
+          "ratio": 0.2280397635788787,
+          "status": "ok"
+        },
+        {
+          "elementId": 4,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 3,
+          "spacing": 0.225,
+          "phiVn": 329.8950643579804,
+          "nativePhiVn": 329.8950643579804,
+          "demand": 74.57289317658447,
+          "ratio": 0.2260503451960193,
+          "status": "fail"
+        },
+        {
+          "elementId": 5,
+          "direction": "primary",
+          "width": 0.3,
+          "height": 0.55,
+          "depth": 0.509,
+          "legs": 3,
+          "requiredLegs": 3,
+          "spacing": 0.05000000000000001,
+          "phiVn": 529.2685128254628,
+          "nativePhiVn": 529.2685128254628,
+          "demand": 457.425,
+          "ratio": 0.8642588571121844,
+          "status": "ok"
+        },
+        {
+          "elementId": 6,
+          "direction": "primary",
+          "width": 0.3,
+          "height": 0.55,
+          "depth": 0.509,
+          "legs": 3,
+          "requiredLegs": 3,
+          "spacing": 0.05000000000000001,
+          "phiVn": 529.2685128254628,
+          "nativePhiVn": 529.2685128254628,
+          "demand": 457.42500000000007,
+          "ratio": 0.8642588571121845,
+          "status": "ok"
+        },
+        {
+          "elementId": 7,
+          "direction": "primary",
+          "width": 0.3,
+          "height": 0.55,
+          "depth": 0.509,
+          "legs": 3,
+          "requiredLegs": 3,
+          "spacing": 0.05000000000000001,
+          "phiVn": 529.2685128254628,
+          "nativePhiVn": 529.2685128254628,
+          "demand": 457.425,
+          "ratio": 0.8642588571121844,
+          "status": "ok"
+        },
+        {
+          "elementId": 8,
+          "direction": "primary",
+          "width": 0.3,
+          "height": 0.55,
+          "depth": 0.509,
+          "legs": 3,
+          "requiredLegs": 3,
+          "spacing": 0.05000000000000001,
+          "phiVn": 529.2685128254628,
+          "nativePhiVn": 529.2685128254628,
+          "demand": 457.425,
+          "ratio": 0.8642588571121844,
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "name": "design-rc-qa-diagnostic",
+      "changed": 68,
+      "added": 98,
+      "removed": 0,
+      "diff": {
+        "changed": [
+          {
+            "path": "design.member[e13].ratio",
+            "before": 0.898111539,
+            "after": 0.868535094
+          },
+          {
+            "path": "design.member[e14].ratio",
+            "before": 0.8931581871,
+            "after": 0.8272694555
+          },
+          {
+            "path": "design.member[e15].ratio",
+            "before": 0.8941538582,
+            "after": 0.8935185892
+          },
+          {
+            "path": "design.member[e16].ratio",
+            "before": 0.8861780356,
+            "after": 0.7641792092
+          },
+          {
+            "path": "design.member[e17].ratio",
+            "before": 0.8965555362,
+            "after": 0.8668240715
+          },
+          {
+            "path": "design.member[e18].ratio",
+            "before": 0.8934460536,
+            "after": 0.8292080684
+          },
+          {
+            "path": "design.member[e19].ratio",
+            "before": 0.8900734894,
+            "after": 0.8895848887
+          },
+          {
+            "path": "design.member[e20].ratio",
+            "before": 0.8837688356,
+            "after": 0.7623164507
+          },
+          {
+            "path": "design.rc[e13].governingCheck",
+            "before": "Shear",
+            "after": "Flexure"
+          },
+          {
+            "path": "design.rc[e13].status",
+            "before": "warn",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e13].utilization",
+            "before": 0.898111539,
+            "after": 0.868535094
+          },
+          {
+            "path": "design.rc[e13].checks[1].capacity",
+            "before": 135.18592,
+            "after": 215.99287
+          },
+          {
+            "path": "design.rc[e13].checks[1].ratio",
+            "before": 0.898111539,
+            "after": 0.562111308
+          },
+          {
+            "path": "design.rc[e14].comboName",
+            "before": "1.2D+1.6L",
+            "after": "1.2D+L+W-X"
+          },
+          {
+            "path": "design.rc[e14].governingCheck",
+            "before": "Shear",
+            "after": "Flexure"
+          },
+          {
+            "path": "design.rc[e14].status",
+            "before": "ok",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e14].utilization",
+            "before": 0.8931581871,
+            "after": 0.8272694555
+          },
+          {
+            "path": "design.rc[e14].checks[1].capacity",
+            "before": 168.2704921,
+            "after": 245.5686056
+          },
+          {
+            "path": "design.rc[e14].checks[1].ratio",
+            "before": 0.8931581871,
+            "after": 0.6120170261
+          },
+          {
+            "path": "design.rc[e15].governingCheck",
+            "before": "Shear",
+            "after": "Flexure"
+          },
+          {
+            "path": "design.rc[e15].status",
+            "before": "warn",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e15].utilization",
+            "before": 0.8941538582,
+            "after": 0.8935185892
+          },
+          {
+            "path": "design.rc[e15].checks[1].capacity",
+            "before": 141.5509388,
+            "after": 222.3578888
+          },
+          {
+            "path": "design.rc[e15].checks[1].ratio",
+            "before": 0.8941538582,
+            "after": 0.5692099288
+          },
+          {
+            "path": "design.rc[e16].governingCheck",
+            "before": "Shear",
+            "after": "Flexure"
+          },
+          {
+            "path": "design.rc[e16].status",
+            "before": "ok",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e16].utilization",
+            "before": 0.8861780356,
+            "after": 0.7641792092
+          },
+          {
+            "path": "design.rc[e16].checks[1].capacity",
+            "before": 175.8894066,
+            "after": 253.1875201
+          },
+          {
+            "path": "design.rc[e16].checks[1].ratio",
+            "before": 0.8861780356,
+            "after": 0.6156280088
+          },
+          {
+            "path": "design.rc[e17].governingCheck",
+            "before": "Shear",
+            "after": "Flexure"
+          },
+          {
+            "path": "design.rc[e17].status",
+            "before": "warn",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e17].utilization",
+            "before": 0.8965555362,
+            "after": 0.8668240715
+          },
+          {
+            "path": "design.rc[e17].checks[1].capacity",
+            "before": 135.4224078,
+            "after": 216.2293578
+          },
+          {
+            "path": "design.rc[e17].checks[1].ratio",
+            "before": 0.8965555362,
+            "after": 0.561504278
+          },
+          {
+            "path": "design.rc[e18].comboName",
+            "before": "1.2D+1.6L",
+            "after": "1.2D+L+W-X"
+          },
+          {
+            "path": "design.rc[e18].governingCheck",
+            "before": "Shear",
+            "after": "Flexure"
+          },
+          {
+            "path": "design.rc[e18].status",
+            "before": "ok",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e18].utilization",
+            "before": 0.8934460536,
+            "after": 0.8292080684
+          },
+          {
+            "path": "design.rc[e18].checks[1].capacity",
+            "before": 168.4838983,
+            "after": 245.7820118
+          },
+          {
+            "path": "design.rc[e18].checks[1].ratio",
+            "before": 0.8934460536,
+            "after": 0.6124584666
+          },
+          {
+            "path": "design.rc[e19].governingCheck",
+            "before": "Shear",
+            "after": "Flexure"
+          },
+          {
+            "path": "design.rc[e19].status",
+            "before": "warn",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e19].utilization",
+            "before": 0.8900734894,
+            "after": 0.8895848887
+          },
+          {
+            "path": "design.rc[e19].checks[1].capacity",
+            "before": 142.260723,
+            "after": 223.067673
+          },
+          {
+            "path": "design.rc[e19].checks[1].ratio",
+            "before": 0.8900734894,
+            "after": 0.5676416327
+          },
+          {
+            "path": "design.rc[e20].governingCheck",
+            "before": "Shear",
+            "after": "Flexure"
+          },
+          {
+            "path": "design.rc[e20].status",
+            "before": "ok",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e20].utilization",
+            "before": 0.8837688356,
+            "after": 0.7623164507
+          },
+          {
+            "path": "design.rc[e20].checks[1].capacity",
+            "before": 176.5621829,
+            "after": 253.8602963
+          },
+          {
+            "path": "design.rc[e20].checks[1].ratio",
+            "before": 0.8837688356,
+            "after": 0.614669395
+          },
+          {
+            "path": "design.rc[e21].status",
+            "before": "ok",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e21].checks[1].capacity",
+            "before": 137.0719497,
+            "after": 217.8788997
+          },
+          {
+            "path": "design.rc[e21].checks[1].ratio",
+            "before": 0.3728674778,
+            "after": 0.2345783471
+          },
+          {
+            "path": "design.rc[e22].status",
+            "before": "warn",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e22].checks[1].capacity",
+            "before": 137.1464977,
+            "after": 217.9534477
+          },
+          {
+            "path": "design.rc[e22].checks[1].ratio",
+            "before": 0.4185626563,
+            "after": 0.2633791894
+          },
+          {
+            "path": "design.rc[e23].status",
+            "before": "ok",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e23].checks[1].capacity",
+            "before": 137.0710734,
+            "after": 217.8780234
+          },
+          {
+            "path": "design.rc[e23].checks[1].ratio",
+            "before": 0.3760300531,
+            "after": 0.2365674253
+          },
+          {
+            "path": "design.rc[e24].status",
+            "before": "ok",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e24].checks[1].capacity",
+            "before": 139.6207094,
+            "after": 220.4276594
+          },
+          {
+            "path": "design.rc[e24].checks[1].ratio",
+            "before": 0.3370218825,
+            "after": 0.2134724582
+          },
+          {
+            "path": "design.rc[e25].status",
+            "before": "ok",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e25].checks[1].capacity",
+            "before": 140.7271781,
+            "after": 221.5341281
+          },
+          {
+            "path": "design.rc[e25].checks[1].ratio",
+            "before": 0.3652638311,
+            "after": 0.2320299299
+          },
+          {
+            "path": "design.rc[e26].status",
+            "before": "ok",
+            "after": "fail"
+          },
+          {
+            "path": "design.rc[e26].checks[1].capacity",
+            "before": 139.5953673,
+            "after": 220.4023173
+          },
+          {
+            "path": "design.rc[e26].checks[1].ratio",
+            "before": 0.3393466332,
+            "after": 0.2149306708
+          }
+        ],
+        "removed": [],
+        "added": [
+          "design.rc[e15].checks[2].capacity",
+          "design.rc[e15].checks[2].comboName",
+          "design.rc[e15].checks[2].demand",
+          "design.rc[e15].checks[2].name",
+          "design.rc[e15].checks[2].ratio",
+          "design.rc[e15].checks[2].status",
+          "design.rc[e15].checks[2].unit",
+          "design.rc[e22].checks[2].capacity",
+          "design.rc[e22].checks[2].comboName",
+          "design.rc[e22].checks[2].demand",
+          "design.rc[e22].checks[2].name",
+          "design.rc[e22].checks[2].ratio",
+          "design.rc[e22].checks[2].status",
+          "design.rc[e22].checks[2].unit",
+          "design.rc[e19].checks[2].capacity",
+          "design.rc[e19].checks[2].comboName",
+          "design.rc[e19].checks[2].demand",
+          "design.rc[e19].checks[2].name",
+          "design.rc[e19].checks[2].ratio",
+          "design.rc[e19].checks[2].status",
+          "design.rc[e19].checks[2].unit",
+          "design.rc[e13].checks[2].capacity",
+          "design.rc[e13].checks[2].comboName",
+          "design.rc[e13].checks[2].demand",
+          "design.rc[e13].checks[2].name",
+          "design.rc[e13].checks[2].ratio",
+          "design.rc[e13].checks[2].status",
+          "design.rc[e13].checks[2].unit",
+          "design.rc[e17].checks[2].capacity",
+          "design.rc[e17].checks[2].comboName",
+          "design.rc[e17].checks[2].demand",
+          "design.rc[e17].checks[2].name",
+          "design.rc[e17].checks[2].ratio",
+          "design.rc[e17].checks[2].status",
+          "design.rc[e17].checks[2].unit",
+          "design.rc[e18].checks[2].capacity",
+          "design.rc[e18].checks[2].comboName",
+          "design.rc[e18].checks[2].demand",
+          "design.rc[e18].checks[2].name",
+          "design.rc[e18].checks[2].ratio",
+          "design.rc[e18].checks[2].status",
+          "design.rc[e18].checks[2].unit",
+          "design.rc[e14].checks[2].capacity",
+          "design.rc[e14].checks[2].comboName",
+          "design.rc[e14].checks[2].demand",
+          "design.rc[e14].checks[2].name",
+          "design.rc[e14].checks[2].ratio",
+          "design.rc[e14].checks[2].status",
+          "design.rc[e14].checks[2].unit",
+          "design.rc[e16].checks[2].capacity",
+          "design.rc[e16].checks[2].comboName",
+          "design.rc[e16].checks[2].demand",
+          "design.rc[e16].checks[2].name",
+          "design.rc[e16].checks[2].ratio",
+          "design.rc[e16].checks[2].status",
+          "design.rc[e16].checks[2].unit",
+          "design.rc[e20].checks[2].capacity",
+          "design.rc[e20].checks[2].comboName",
+          "design.rc[e20].checks[2].demand",
+          "design.rc[e20].checks[2].name",
+          "design.rc[e20].checks[2].ratio",
+          "design.rc[e20].checks[2].status",
+          "design.rc[e20].checks[2].unit",
+          "design.rc[e23].checks[2].capacity",
+          "design.rc[e23].checks[2].comboName",
+          "design.rc[e23].checks[2].demand",
+          "design.rc[e23].checks[2].name",
+          "design.rc[e23].checks[2].ratio",
+          "design.rc[e23].checks[2].status",
+          "design.rc[e23].checks[2].unit",
+          "design.rc[e21].checks[2].capacity",
+          "design.rc[e21].checks[2].comboName",
+          "design.rc[e21].checks[2].demand",
+          "design.rc[e21].checks[2].name",
+          "design.rc[e21].checks[2].ratio",
+          "design.rc[e21].checks[2].status",
+          "design.rc[e21].checks[2].unit",
+          "design.rc[e25].checks[2].capacity",
+          "design.rc[e25].checks[2].comboName",
+          "design.rc[e25].checks[2].demand",
+          "design.rc[e25].checks[2].name",
+          "design.rc[e25].checks[2].ratio",
+          "design.rc[e25].checks[2].status",
+          "design.rc[e25].checks[2].unit",
+          "design.rc[e26].checks[2].capacity",
+          "design.rc[e26].checks[2].comboName",
+          "design.rc[e26].checks[2].demand",
+          "design.rc[e26].checks[2].name",
+          "design.rc[e26].checks[2].ratio",
+          "design.rc[e26].checks[2].status",
+          "design.rc[e26].checks[2].unit",
+          "design.rc[e24].checks[2].capacity",
+          "design.rc[e24].checks[2].comboName",
+          "design.rc[e24].checks[2].demand",
+          "design.rc[e24].checks[2].name",
+          "design.rc[e24].checks[2].ratio",
+          "design.rc[e24].checks[2].status",
+          "design.rc[e24].checks[2].unit"
+        ],
+        "differs": true
+      },
+      "directionalNativeChecks": [
+        {
+          "elementId": 1,
+          "direction": "primary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 189.91271915922619,
+          "nativePhiVn": 189.91271915922619,
+          "demand": 22.410562643634247,
+          "ratio": 0.11800453778372176,
+          "status": "ok"
+        },
+        {
+          "elementId": 1,
+          "direction": "secondary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 186.4977372331047,
+          "nativePhiVn": 186.4977372331047,
+          "demand": 12.053367087057111,
+          "ratio": 0.06463009828366728,
+          "status": "ok"
+        },
+        {
+          "elementId": 2,
+          "direction": "primary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 217.8578223806915,
+          "nativePhiVn": 217.8578223806915,
+          "demand": 17.146130300948112,
+          "ratio": 0.07870330343698394,
+          "status": "ok"
+        },
+        {
+          "elementId": 2,
+          "direction": "secondary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 224.55392916366412,
+          "nativePhiVn": 224.55392916366412,
+          "demand": 16.637953110356168,
+          "ratio": 0.07409335108195655,
+          "status": "ok"
+        },
+        {
+          "elementId": 3,
+          "direction": "primary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 196.29354406310065,
+          "nativePhiVn": 196.29354406310065,
+          "demand": 27.051964994917306,
+          "ratio": 0.13781382940552117,
+          "status": "ok"
+        },
+        {
+          "elementId": 3,
+          "direction": "secondary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 191.64444996733306,
+          "nativePhiVn": 191.64444996733306,
+          "demand": 12.22821564709399,
+          "ratio": 0.06380678203401331,
+          "status": "ok"
+        },
+        {
+          "elementId": 4,
+          "direction": "primary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 171.66877815418115,
+          "nativePhiVn": 171.66877815418115,
+          "demand": 35.90584621773089,
+          "ratio": 0.20915769660504435,
+          "status": "ok"
+        },
+        {
+          "elementId": 4,
+          "direction": "secondary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 173.3120646714641,
+          "nativePhiVn": 173.3120646714641,
+          "demand": 17.20447070781155,
+          "ratio": 0.09926874242958732,
+          "status": "ok"
+        },
+        {
+          "elementId": 5,
+          "direction": "primary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 186.18019972595005,
+          "nativePhiVn": 186.18019972595005,
+          "demand": 22.742366430020777,
+          "ratio": 0.1221524440488121,
+          "status": "ok"
+        },
+        {
+          "elementId": 5,
+          "direction": "secondary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 189.68842666078825,
+          "nativePhiVn": 189.68842666078825,
+          "demand": 16.857936845190984,
+          "ratio": 0.08887172054696471,
+          "status": "ok"
+        },
+        {
+          "elementId": 6,
+          "direction": "primary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 174.71924975407322,
+          "nativePhiVn": 174.71924975407322,
+          "demand": 44.91972581845122,
+          "ratio": 0.2570966043047813,
+          "status": "ok"
+        },
+        {
+          "elementId": 6,
+          "direction": "secondary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 176.55596317970998,
+          "nativePhiVn": 176.55596317970998,
+          "demand": 17.295346050494956,
+          "ratio": 0.09795956896052638,
+          "status": "ok"
+        },
+        {
+          "elementId": 7,
+          "direction": "primary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 185.6063270569145,
+          "nativePhiVn": 185.6063270569145,
+          "demand": 22.544748331236775,
+          "ratio": 0.12146540847351413,
+          "status": "ok"
+        },
+        {
+          "elementId": 7,
+          "direction": "secondary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 181.47361311374098,
+          "nativePhiVn": 181.47361311374098,
+          "demand": 6.8450861397847715,
+          "ratio": 0.037719456963115204,
+          "status": "ok"
+        },
+        {
+          "elementId": 8,
+          "direction": "primary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 217.9182501136921,
+          "nativePhiVn": 217.9182501136921,
+          "demand": 16.881432825581086,
+          "ratio": 0.07746681527028472,
+          "status": "ok"
+        },
+        {
+          "elementId": 8,
+          "direction": "secondary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 210.11619682239083,
+          "nativePhiVn": 210.11619682239083,
+          "demand": 11.90719885028538,
+          "ratio": 0.056669590590155305,
+          "status": "ok"
+        },
+        {
+          "elementId": 9,
+          "direction": "primary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 191.7793373620201,
+          "nativePhiVn": 191.7793373620201,
+          "demand": 26.801609723097837,
+          "ratio": 0.13975233250756666,
+          "status": "ok"
+        },
+        {
+          "elementId": 9,
+          "direction": "secondary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 186.37787548273906,
+          "nativePhiVn": 186.37787548273906,
+          "demand": 7.020001974829629,
+          "ratio": 0.0376654254516372,
+          "status": "ok"
+        },
+        {
+          "elementId": 10,
+          "direction": "primary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 169.9674941283571,
+          "nativePhiVn": 169.9674941283571,
+          "demand": 35.84134127283003,
+          "ratio": 0.21087174025030425,
+          "status": "ok"
+        },
+        {
+          "elementId": 10,
+          "direction": "secondary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 167.95185890219284,
+          "nativePhiVn": 167.95185890219284,
+          "demand": 1.6426503549979385,
+          "ratio": 0.009780483322631992,
+          "status": "ok"
+        },
+        {
+          "elementId": 11,
+          "direction": "primary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 187.04303526669358,
+          "nativePhiVn": 187.04303526669358,
+          "demand": 17.03724877568351,
+          "ratio": 0.09108731983199003,
+          "status": "ok"
+        },
+        {
+          "elementId": 11,
+          "direction": "secondary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 183.09390976617283,
+          "nativePhiVn": 183.09390976617283,
+          "demand": 7.969559994449091,
+          "ratio": 0.04352717140961666,
+          "status": "ok"
+        },
+        {
+          "elementId": 12,
+          "direction": "primary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 172.9339807036875,
+          "nativePhiVn": 172.9339807036875,
+          "demand": 44.67084597925888,
+          "ratio": 0.2583115579569051,
+          "status": "ok"
+        },
+        {
+          "elementId": 12,
+          "direction": "secondary",
+          "width": 0.4,
+          "height": 0.4,
+          "depth": 0.359,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.175,
+          "phiVn": 170.39995497395668,
+          "nativePhiVn": 170.39995497395668,
+          "demand": 1.7424822996060776,
+          "ratio": 0.010225837793633175,
+          "status": "ok"
+        },
+        {
+          "elementId": 13,
+          "direction": "primary",
+          "width": 0.25,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 215.99287003084484,
+          "nativePhiVn": 215.99287003084484,
+          "demand": 121.4120346935269,
+          "ratio": 0.5621113080084017,
+          "status": "ok"
+        },
+        {
+          "elementId": 13,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.25,
+          "depth": 0.209,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.1,
+          "phiVn": 130.962242895981,
+          "nativePhiVn": 130.962242895981,
+          "demand": 0.6104462640894153,
+          "ratio": 0.00466123861802117,
+          "status": "fail"
+        },
+        {
+          "elementId": 14,
+          "direction": "primary",
+          "width": 0.3,
+          "height": 0.6,
+          "depth": 0.5589999999999999,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.125,
+          "phiVn": 245.56860555680421,
+          "nativePhiVn": 245.56860555680421,
+          "demand": 150.29216766955776,
+          "ratio": 0.6120170260721401,
+          "status": "ok"
+        },
+        {
+          "elementId": 14,
+          "direction": "secondary",
+          "width": 0.6,
+          "height": 0.3,
+          "depth": 0.25899999999999995,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.125,
+          "phiVn": 162.49245268452174,
+          "nativePhiVn": 162.49245268452174,
+          "demand": 0.6881827109364814,
+          "ratio": 0.0042351672312595625,
+          "status": "fail"
+        },
+        {
+          "elementId": 15,
+          "direction": "primary",
+          "width": 0.25,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 222.3578887623109,
+          "nativePhiVn": 222.3578887623109,
+          "demand": 126.56831802797797,
+          "ratio": 0.569209928788598,
+          "status": "ok"
+        },
+        {
+          "elementId": 15,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.25,
+          "depth": 0.209,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.1,
+          "phiVn": 135.37105510690535,
+          "nativePhiVn": 135.37105510690535,
+          "demand": 1.5473059709809307,
+          "ratio": 0.011430109411195702,
+          "status": "fail"
+        },
+        {
+          "elementId": 16,
+          "direction": "primary",
+          "width": 0.3,
+          "height": 0.6,
+          "depth": 0.5589999999999999,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.125,
+          "phiVn": 253.1875200632444,
+          "nativePhiVn": 253.1875200632444,
+          "demand": 155.8693288238759,
+          "ratio": 0.6156280087776083,
+          "status": "ok"
+        },
+        {
+          "elementId": 16,
+          "direction": "secondary",
+          "width": 0.6,
+          "height": 0.3,
+          "depth": 0.25899999999999995,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.125,
+          "phiVn": 167.88898985842982,
+          "nativePhiVn": 167.88898985842982,
+          "demand": 1.9109816545696527,
+          "ratio": 0.01138241201034721,
+          "status": "fail"
+        },
+        {
+          "elementId": 17,
+          "direction": "primary",
+          "width": 0.25,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 216.22935780110907,
+          "nativePhiVn": 216.22935780110907,
+          "demand": 121.41370943525818,
+          "ratio": 0.561504278003435,
+          "status": "ok"
+        },
+        {
+          "elementId": 17,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.25,
+          "depth": 0.209,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.1,
+          "phiVn": 131.21350041805547,
+          "nativePhiVn": 131.21350041805547,
+          "demand": 0.1468967638572239,
+          "ratio": 0.001119524769853715,
+          "status": "fail"
+        },
+        {
+          "elementId": 18,
+          "direction": "primary",
+          "width": 0.3,
+          "height": 0.6,
+          "depth": 0.5589999999999999,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.125,
+          "phiVn": 245.7820117539446,
+          "nativePhiVn": 245.7820117539446,
+          "demand": 150.53127403855936,
+          "ratio": 0.6124584666076298,
+          "status": "ok"
+        },
+        {
+          "elementId": 18,
+          "direction": "secondary",
+          "width": 0.6,
+          "height": 0.3,
+          "depth": 0.25899999999999995,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.125,
+          "phiVn": 162.7231655261529,
+          "nativePhiVn": 162.7231655261529,
+          "demand": 0.21307153435282392,
+          "ratio": 0.0013094111933225573,
+          "status": "fail"
+        },
+        {
+          "elementId": 19,
+          "direction": "primary",
+          "width": 0.25,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 223.0676729573921,
+          "nativePhiVn": 223.0676729573921,
+          "demand": 126.62249808697155,
+          "ratio": 0.5676416327306986,
+          "status": "ok"
+        },
+        {
+          "elementId": 19,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.25,
+          "depth": 0.209,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.1,
+          "phiVn": 136.12516859812087,
+          "nativePhiVn": 136.12516859812087,
+          "demand": 17.00619577208534,
+          "ratio": 0.12493057637483876,
+          "status": "fail"
+        },
+        {
+          "elementId": 20,
+          "direction": "primary",
+          "width": 0.3,
+          "height": 0.6,
+          "depth": 0.5589999999999999,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.125,
+          "phiVn": 253.86029633294402,
+          "nativePhiVn": 253.86029633294402,
+          "demand": 156.04015477247614,
+          "ratio": 0.6146693950432708,
+          "status": "ok"
+        },
+        {
+          "elementId": 20,
+          "direction": "secondary",
+          "width": 0.6,
+          "height": 0.3,
+          "depth": 0.25899999999999995,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.125,
+          "phiVn": 168.61632639806334,
+          "nativePhiVn": 168.61632639806334,
+          "demand": 17.164018277935387,
+          "ratio": 0.10179333546512687,
+          "status": "fail"
+        },
+        {
+          "elementId": 21,
+          "direction": "primary",
+          "width": 0.25,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 217.8788997176937,
+          "nativePhiVn": 217.8788997176937,
+          "demand": 51.10967216222687,
+          "ratio": 0.2345783470930403,
+          "status": "ok"
+        },
+        {
+          "elementId": 21,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.25,
+          "depth": 0.209,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.1,
+          "phiVn": 132.32045617231287,
+          "nativePhiVn": 132.32045617231287,
+          "demand": 1.0862862318745012,
+          "ratio": 0.00820951093502804,
+          "status": "fail"
+        },
+        {
+          "elementId": 22,
+          "direction": "primary",
+          "width": 0.25,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 217.95344773060074,
+          "nativePhiVn": 217.95344773060074,
+          "demand": 57.40440239214557,
+          "ratio": 0.2633791894088307,
+          "status": "ok"
+        },
+        {
+          "elementId": 22,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.25,
+          "depth": 0.209,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.1,
+          "phiVn": 132.31236852910777,
+          "nativePhiVn": 132.31236852910777,
+          "demand": 0.17272240722825896,
+          "ratio": 0.0013054139166911011,
+          "status": "fail"
+        },
+        {
+          "elementId": 23,
+          "direction": "primary",
+          "width": 0.25,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 217.878023442111,
+          "nativePhiVn": 217.878023442111,
+          "demand": 51.542843030295245,
+          "ratio": 0.23656742527770314,
+          "status": "ok"
+        },
+        {
+          "elementId": 23,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.25,
+          "depth": 0.209,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.1,
+          "phiVn": 132.31952516927902,
+          "nativePhiVn": 132.31952516927902,
+          "demand": 1.069800475817831,
+          "ratio": 0.00808497819538888,
+          "status": "fail"
+        },
+        {
+          "elementId": 24,
+          "direction": "primary",
+          "width": 0.25,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 220.4276594192899,
+          "nativePhiVn": 220.4276594192899,
+          "demand": 47.05523431957987,
+          "ratio": 0.2134724582366182,
+          "status": "ok"
+        },
+        {
+          "elementId": 24,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.25,
+          "depth": 0.209,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.1,
+          "phiVn": 134.4111555797198,
+          "nativePhiVn": 134.4111555797198,
+          "demand": 3.6458264070877675,
+          "ratio": 0.02712443317195806,
+          "status": "fail"
+        },
+        {
+          "elementId": 25,
+          "direction": "primary",
+          "width": 0.25,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 221.5341281158269,
+          "nativePhiVn": 221.5341281158269,
+          "demand": 51.40254821424695,
+          "ratio": 0.2320299298867922,
+          "status": "ok"
+        },
+        {
+          "elementId": 25,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.25,
+          "depth": 0.209,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.1,
+          "phiVn": 135.35389863852382,
+          "nativePhiVn": 135.35389863852382,
+          "demand": 0.3434173173284927,
+          "ratio": 0.002537180833229068,
+          "status": "fail"
+        },
+        {
+          "elementId": 26,
+          "direction": "primary",
+          "width": 0.25,
+          "height": 0.5,
+          "depth": 0.45899999999999996,
+          "legs": 2,
+          "requiredLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 220.40231726369845,
+          "nativePhiVn": 220.40231726369845,
+          "demand": 47.37121789092858,
+          "ratio": 0.2149306707798888,
+          "status": "ok"
+        },
+        {
+          "elementId": 26,
+          "direction": "secondary",
+          "width": 0.5,
+          "height": 0.25,
+          "depth": 0.209,
+          "legs": 2,
+          "requiredLegs": 4,
+          "spacing": 0.1,
+          "phiVn": 134.38423068964696,
+          "nativePhiVn": 134.38423068964696,
+          "demand": 3.515078931524789,
+          "ratio": 0.026156930121084457,
+          "status": "fail"
+        }
+      ]
+    }
+  ]
+}

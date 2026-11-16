@@ -55,7 +55,7 @@ export interface LineBarPiece {
   place?: { seats: number; slots: number[]; besideMm?: number; mirrored?: boolean };
 }
 
-export interface LineStirrupPiece { from: number; to: number; diameter: number; legs: number; spacing: number }
+export interface LineStirrupPiece { from: number; to: number; diameter: number; legs: number; secondaryLegs?: number; spacing: number }
 
 export type { LineLap };
 
@@ -94,7 +94,7 @@ export function linePieces(
     for (const z of line.stirrups) {
       const s = Math.max(a, z.from), e = Math.min(b, z.to);
       if (e - s < EPS) continue;
-      const p = { from: s - a, to: e - a, diameter: z.diameter, legs: z.legs, spacing: z.spacing };
+      const p = { from: s - a, to: e - a, diameter: z.diameter, legs: z.legs, secondaryLegs: z.secondaryLegs ?? 2, spacing: z.spacing };
       stirrups.push(fwd ? p : { ...p, from: L - p.to, to: L - p.from });
     }
     out.set(id, { bars, stirrups: stirrups.sort((p, q) => p.from - q.from) });

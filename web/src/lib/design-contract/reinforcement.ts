@@ -121,6 +121,8 @@ export interface BeamRegions {
   // ── Longitudinal continuity (legacy boolean — superseded by barGroups when present) ──
   continuity?: BeamContinuity;
   // ── Stirrups ──
+  stirrupsStart?: StirrupDef;
+  stirrupsEnd?: StirrupDef;
   stirrupsSupport?: StirrupDef; // tighter stirrups near supports
   stirrupsSpan?: StirrupDef;    // wider stirrups at midspan
   /** Region boundary (t-value, default 0.25). Start region: [0, t1], span: [t1, 1-t1], end: [1-t1, 1] */

@@ -1,3 +1,4 @@
+import { patchSupportEnds } from '../../design-contract/directional-stirrups';
 /**
  * Batch reinforcement editing: preview, compatibility, validation.
  *
@@ -235,6 +236,7 @@ export function applyPatch(
         continue;
       }
       reg[sk] = merged;
+      if (sk === 'stirrupsSupport') patchSupportEnds(reg, p);
       if (!before || before.diameter !== merged.diameter || before.legs !== merged.legs || (before.secondaryLegs ?? 2) !== merged.secondaryLegs || Math.abs(before.spacing - merged.spacing) > 1e-9) {
         changes.push({ field: sk === 'stirrupsSupport' ? 'stirrups support' : 'stirrups span', before: fmtStir(before), after: fmtStir(merged) });
       }

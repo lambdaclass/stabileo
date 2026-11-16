@@ -1,3 +1,4 @@
+import { patchSupportEnds } from '../design-contract/directional-stirrups';
 /**
  * The seismic design of the concrete frame, as the project holds it: the settings in the design
  * data, the members' roles, the inertia factors written onto the members (a model step, so the
@@ -247,15 +248,17 @@ export function applySeismicDetailing(): { beams: number; columns: number } {
       const cur = r.regions?.stirrupsSupport ?? r.stirrups ?? { diameter: 8, legs: 2, spacing: 0.2 };
       const st = beamSteel(r), d = (ctx.axes.hFlex || ctx.section.h) - ctx.material.cover - (cur.diameter + st.minDia / 2) / 1000;
       let pick: { diameter: number; spacing: number } | null = null;
-      for (const dia of BAR_STEPS.filter((x) => x >= cur.diameter)) {
+      const endCages = [cur, r.regions?.stirrupsStart, r.regions?.stirrupsEnd].flatMap(cage => cage ? [cage] : []);
+      for (const dia of BAR_STEPS.filter((x) => x >= Math.max(...endCages.map(cage => cage.diameter)))) {
         const s = hoopSpacingFor(m.beam.ve, m.beam.vcZero, ctx.axes.bFlex || ctx.section.b, d, ctx.material.fc, ctx.material.fy, dia, cur.legs);
         if (s === null) continue;
-        pick = { diameter: dia, spacing: Math.max(0.05, Math.min(m.beam.hoops.spacing, s, cur.spacing)) };
+        pick = { diameter: dia, spacing: Math.max(0.05, Math.min(m.beam.hoops.spacing, s, ...endCages.map(cage => cage.spacing))) };
         pick.spacing = Math.floor(pick.spacing * 40 + 1e-9) / 40 || 0.05;
         break;
       }
       if (!pick) continue;
       r.regions = { ...(r.regions ?? {}), stirrupsSupport: { ...cur, ...pick }, regionT: Math.max(r.regions?.regionT ?? 0.25, Math.min(0.5, m.beam.hoops.length / ctx.L)) };
+      patchSupportEnds(r.regions, pick);
       writes.set(m.id, r);
     }
     if (m.kind === 'column' && m.confinement) {

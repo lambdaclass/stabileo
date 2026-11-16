@@ -66,6 +66,7 @@ export interface ColumnLift {
   bars: { count: number; diameterMm: number };
   /** Tie diameter, mm. */
   tieDia: number;
+  secondaryLegs?: number;
   cover: number;
   /** Denser ties at both ends of the lift (the design's `tieZones`): length from each end and spacing, m. */
   endZone?: { length: number; spacing: number };
@@ -644,7 +645,8 @@ export interface GeneratedColumnStack {
 /** Generate the physical bars for a whole column stack. */
 export function generateColumnStack(input: ColumnStackInput): GeneratedColumnStack {
   const trace: string[] = [];
-  const unsupported: string[] = [];
+  const unsupported: string[] = input.lifts.filter(l => (l.secondaryLegs ?? 2) > 2)
+    .map(l => `Declared secondary leg count (${l.secondaryLegs}) for column ${l.elementId} is not verified against generated horizontal crossties.`);
   const bars: BarPath[] = [];
   const refs: ClauseRef[] = [];
   const ties: GeneratedColumnStack['ties'] = [];

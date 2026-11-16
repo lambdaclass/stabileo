@@ -1,0 +1,312 @@
+{
+  "mainRevision": "e6cf6cb0a42cc5776d7552eb77c1663b80095c0f",
+  "cases": [
+    {
+      "kind": "beam",
+      "section": {
+        "b": 0.3,
+        "h": 0.6,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "stirrupDia": 8
+      },
+      "provided": {
+        "regions": {
+          "bottomSpan": {
+            "count": 4,
+            "diameter": 16
+          },
+          "topStart": {
+            "count": 4,
+            "diameter": 16
+          },
+          "topEnd": {
+            "count": 4,
+            "diameter": 16
+          },
+          "stirrupsSupport": {
+            "diameter": 8,
+            "legs": 6,
+            "secondaryLegs": 2,
+            "spacing": 0.05
+          },
+          "stirrupsSpan": {
+            "diameter": 8,
+            "legs": 6,
+            "secondaryLegs": 2,
+            "spacing": 0.05
+          }
+        }
+      },
+      "secondaryShear": 276.38100000000003,
+      "main": {
+        "elementId": 1,
+        "elementType": "beam",
+        "hasProvided": true,
+        "checks": [
+          {
+            "category": "Max steel (span)",
+            "demandCategory": null,
+            "required": 34.76,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 0,
+            "description": "As,max = 34.76 cm² (εt≥5.10‰ envelope + comp. steel), provided 8.04 cm²",
+            "limiting": "maxSteel",
+            "ratio": 0.231,
+            "status": "ok"
+          }
+        ],
+        "overallStatus": "ok",
+        "worstUtilization": 0.231,
+        "checkedAxes": [],
+        "strengthCheckCount": 1
+      },
+      "fixed": {
+        "elementId": 1,
+        "elementType": "beam",
+        "hasProvided": true,
+        "checks": [
+          {
+            "category": "Max steel (span)",
+            "demandCategory": null,
+            "required": 34.76,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 0,
+            "description": "As,max = 34.76 cm² (εt≥5.10‰ envelope + comp. steel), provided 8.04 cm²",
+            "limiting": "maxSteel",
+            "ratio": 0.231,
+            "status": "ok"
+          },
+          {
+            "category": "Shear Support (Vy)",
+            "demandCategory": "Vy",
+            "demand": 276.38,
+            "capacity": 263.22,
+            "unit": "kN",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "eØ8 2L c/5 [0.00–0.25], 2 tuples",
+            "comboName": "C1",
+            "stationX": 0,
+            "limiting": "shear",
+            "ratio": 1.05,
+            "status": "fail"
+          },
+          {
+            "category": "Shear Support (Vy) s,max across",
+            "demandCategory": null,
+            "required": 25.9,
+            "provided": 54.2,
+            "unit": "cm",
+            "method": "area",
+            "tuplesChecked": 0,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "leg spacing across the width 54.2 cm exceeds 25.9 cm (Table 9.7.6.2.2 row1) — 2 legs provided, 4 required",
+            "limiting": "tieSpacing",
+            "ratio": 2.093,
+            "status": "fail"
+          },
+          {
+            "category": "Shear Span (Vy)",
+            "demandCategory": "Vy",
+            "demand": 276.38,
+            "capacity": 263.22,
+            "unit": "kN",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "eØ8 2L c/5 [0.25–0.75], 1 tuples",
+            "comboName": "C1",
+            "stationX": 2,
+            "limiting": "shear",
+            "ratio": 1.05,
+            "status": "fail"
+          },
+          {
+            "category": "Shear Span (Vy) s,max across",
+            "demandCategory": null,
+            "required": 25.9,
+            "provided": 54.2,
+            "unit": "cm",
+            "method": "area",
+            "tuplesChecked": 0,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "leg spacing across the width 54.2 cm exceeds 25.9 cm (Table 9.7.6.2.2 row1) — 2 legs provided, 4 required",
+            "limiting": "tieSpacing",
+            "ratio": 2.093,
+            "status": "fail"
+          }
+        ],
+        "overallStatus": "fail",
+        "worstUtilization": 2.093,
+        "checkedAxes": [
+          "Vy"
+        ],
+        "strengthCheckCount": 5
+      }
+    },
+    {
+      "kind": "column",
+      "section": {
+        "b": 0.2,
+        "h": 0.6,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "stirrupDia": 8
+      },
+      "provided": {
+        "longitudinal": {
+          "count": 8,
+          "diameter": 16
+        },
+        "stirrups": {
+          "diameter": 8,
+          "legs": 6,
+          "secondaryLegs": 2,
+          "spacing": 0.05
+        }
+      },
+      "secondaryShear": 1,
+      "main": {
+        "elementId": 1,
+        "elementType": "column",
+        "hasProvided": true,
+        "checks": [
+          {
+            "category": "Steel ratio",
+            "demandCategory": null,
+            "required": 8,
+            "provided": 1.34,
+            "unit": "%",
+            "method": "area",
+            "tuplesChecked": 0,
+            "description": "ρ = 1.34% (limits 1%–8% Ag)",
+            "limiting": "maxSteel",
+            "ratio": 0.168,
+            "status": "ok"
+          },
+          {
+            "category": "Ties (Vy)",
+            "demandCategory": "Vy",
+            "demand": 1,
+            "capacity": 296.93,
+            "unit": "kN",
+            "method": "capacity",
+            "tuplesChecked": 3,
+            "description": "eØ8 6L c/5 → φVn varies with N, swept 3 tuples",
+            "comboName": "C1",
+            "stationX": 0,
+            "limiting": "shear",
+            "ratio": 0.003,
+            "status": "ok"
+          },
+          {
+            "category": "Tie spacing",
+            "demandCategory": null,
+            "required": 20,
+            "provided": 5,
+            "unit": "cm",
+            "method": "area",
+            "tuplesChecked": 0,
+            "description": "s = 5 cm, s,max = min(16dB, 48de, min(b,h)) = 20 cm",
+            "limiting": "tieSpacing",
+            "ratio": 0.25,
+            "status": "ok"
+          }
+        ],
+        "overallStatus": "ok",
+        "worstUtilization": 0.25,
+        "checkedAxes": [
+          "Vy"
+        ],
+        "strengthCheckCount": 3
+      },
+      "fixed": {
+        "elementId": 1,
+        "elementType": "column",
+        "hasProvided": true,
+        "checks": [
+          {
+            "category": "Steel ratio",
+            "demandCategory": null,
+            "required": 8,
+            "provided": 1.34,
+            "unit": "%",
+            "method": "area",
+            "tuplesChecked": 0,
+            "description": "ρ = 1.34% (limits 1%–8% Ag)",
+            "limiting": "maxSteel",
+            "ratio": 0.168,
+            "status": "ok"
+          },
+          {
+            "category": "Ties (Vy) s,max across",
+            "demandCategory": null,
+            "required": 15.9,
+            "provided": 54.2,
+            "unit": "cm",
+            "method": "area",
+            "tuplesChecked": 0,
+            "description": "leg spacing across the width 54.2 cm exceeds 15.9 cm (Table 9.7.6.2.2 row1) — 2 legs provided, 5 required",
+            "limiting": "tieSpacing",
+            "ratio": 3.409,
+            "status": "fail"
+          },
+          {
+            "category": "Ties (Vy)",
+            "demandCategory": "Vy",
+            "demand": 1,
+            "capacity": 161.59,
+            "unit": "kN",
+            "method": "capacity",
+            "tuplesChecked": 3,
+            "description": "eØ8 2L c/5 → φVn varies with N, swept 3 tuples",
+            "comboName": "C1",
+            "stationX": 0,
+            "limiting": "shear",
+            "ratio": 0.006,
+            "status": "ok"
+          },
+          {
+            "category": "Tie spacing",
+            "demandCategory": null,
+            "required": 20,
+            "provided": 5,
+            "unit": "cm",
+            "method": "area",
+            "tuplesChecked": 0,
+            "description": "s = 5 cm, s,max = min(16dB, 48de, min(b,h)) = 20 cm",
+            "limiting": "tieSpacing",
+            "ratio": 0.25,
+            "status": "ok"
+          }
+        ],
+        "overallStatus": "fail",
+        "worstUtilization": 3.409,
+        "checkedAxes": [
+          "Vy"
+        ],
+        "strengthCheckCount": 4
+      }
+    }
+  ]
+}

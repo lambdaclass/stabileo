@@ -113,9 +113,9 @@ export function lineFromMembers(members: readonly LineMember[]): BeamLineReinfor
     };
     topAt('start'); topAt('end');
     // ── Stirrups ──
-    zone(a, s, reg.stirrupsSupport ?? r.stirrups);
+    zone(a, s, reg.stirrupsStart ?? reg.stirrupsSupport ?? r.stirrups);
     zone(s, e, reg.stirrupsSpan ?? r.stirrups);
-    zone(e, b, reg.stirrupsSupport ?? r.stirrups);
+    zone(e, b, reg.stirrupsEnd ?? reg.stirrupsSupport ?? r.stirrups);
     if (reg.skin) skin[String(m.id)] = { ...reg.skin };
   });
 
@@ -273,6 +273,10 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
       legs: Math.min(zs.legs, ze.legs), secondaryLegs: Math.min(zs.secondaryLegs ?? 2, ze.secondaryLegs ?? 2),
     } : (zs ?? ze);
     if (sup) regions.stirrupsSupport = stirrupOf(sup);
+    if (zs && ze && !sameZone(zs, ze)) {
+      regions.stirrupsStart = stirrupOf(zs);
+      regions.stirrupsEnd = stirrupOf(ze);
+    }
     if (zm) regions.stirrupsSpan = stirrupOf(zm);
     const skin = line.skin?.[String(m.id)];
     if (skin) regions.skin = { ...skin };

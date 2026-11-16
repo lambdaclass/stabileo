@@ -23,7 +23,16 @@ export function migrateDirectionalStirrups(provided: ProvidedReinforcement | und
     ...(provided.stirrups ? { stirrups: migrate(provided.stirrups) } : {}),
     ...(provided.regions ? { regions: { ...provided.regions,
       ...(provided.regions.stirrupsSupport ? { stirrupsSupport: migrate(provided.regions.stirrupsSupport) } : {}),
+      ...(provided.regions.stirrupsStart ? { stirrupsStart: migrate(provided.regions.stirrupsStart) } : {}),
+      ...(provided.regions.stirrupsEnd ? { stirrupsEnd: migrate(provided.regions.stirrupsEnd) } : {}),
       ...(provided.regions.stirrupsSpan ? { stirrupsSpan: migrate(provided.regions.stirrupsSpan) } : {}),
     } } : {}),
   };
+}
+
+export function patchSupportEnds(regions: NonNullable<ProvidedReinforcement['regions']>, patch: Partial<StirrupDef>): void {
+  for (const key of ['stirrupsStart', 'stirrupsEnd'] as const) {
+    const cage = regions[key];
+    if (cage) regions[key] = { ...cage, ...patch };
+  }
 }

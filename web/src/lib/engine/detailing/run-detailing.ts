@@ -696,6 +696,7 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       // A shaped column draws the ties its design chose; a rectangular one keeps the project's
       // stirrup, which its joint cages and the threading search are coordinated against.
       ...(accepted?.tieZones ? { endZone: { length: accepted.tieZones.endLength, spacing: accepted.tieZones.endSpacing } } : {}),
+      secondaryLegs: accepted?.stirrups?.secondaryLegs,
       bars, tieDia: ctx.shape ? (accepted?.stirrups?.diameter ?? accepted?.shaped?.spiral?.diameter ?? ctx.material.stirrupDia) : ctx.material.stirrupDia, cover: ctx.material.cover,
     });
     stacks.set(key, list);
@@ -2488,7 +2489,7 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
     ) ?? undefined : undefined);
     const t = rebar?.regions?.regionT ?? 0.25;
     return {
-      support, span,
+      support, span, start: rebar?.regions?.stirrupsStart, end: rebar?.regions?.stirrupsEnd,
       regionI: (cs ? cs.start.tCritShear : t) * ctx.L,
       regionJ: (cs ? cs.end.tCritShear : t) * ctx.L,
     };

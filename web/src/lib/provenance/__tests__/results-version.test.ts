@@ -191,5 +191,5 @@ it('shows the exact directional stirrup notice to a concrete project solved imme
     supports: [], loads: [], loadCases: [{ id: 1, type: 'D' }],
   };
   expect(assessProject(frame, { resultsVersion: entry.resultsVersion - 1, analyses: ['linear'] } as SolveStamp, 'pro')
-    .changes.map(c => c.id).sort()).toEqual(['directional-stirrup-legs']);
+    .changes.map(c => c.id).sort()).toEqual(['directional-stirrup-legs', 'member-recovery-round4']);
 });

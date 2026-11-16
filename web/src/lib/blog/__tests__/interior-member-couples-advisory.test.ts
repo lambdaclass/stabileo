@@ -27,7 +27,7 @@ describe('SA-2026-070 interior member recovery', () => {
     expect(blocks.some(b => b.k === 'note' && b.t === `SA-2026-070 — ${status}.`)).toBe(true);
     expect(blocks.some(b => b.k === 'ext' && b.label === 'SA-2026-070' && b.href.endsWith(`/docs/advisories/${advisoryFile}`))).toBe(true);
     expect(notice.explanation[locale]).toContain('SA-2026-070');
-    expect(post.updated).toBe('2026-11-15');
+    expect(post.updated).toBe('2026-11-16');
   });
 
   it('retains the reference structure and distinguishes an unmerged fix from a released version', () => {

@@ -123,7 +123,19 @@ function distributeRows(n: number, rows: number, perRow: number, dia: number): R
  * would report SEARCH_EXHAUSTED on a member that is perfectly buildable with a crosstie.
  * That class of generator/verifier disagreement is what the shared evaluator prevents.
  */
-export function buildStirrupOptions(ctx: MemberContext, Vu: number): StirrupDef[] {
+export function peakSecondaryShear(ctx: MemberContext, region?: 'support' | 'span'): number {
+  const start = ctx.criticalSections?.start.tCritShear ?? 0.25;
+  const end = 1 - (ctx.criticalSections?.end.tCritShear ?? 0.25);
+  let peak = 0;
+  for (const combo of ctx.stations?.comboResults ?? []) for (const station of combo.stations) {
+    const support = station.t <= start || station.t >= end;
+    if (region && support !== (region === 'support')) continue;
+    peak = Math.max(peak, Math.abs(tupleShear(station, ctx.axes.secondaryShear)));
+  }
+  return peak;
+}
+
+export function buildStirrupOptions(ctx: MemberContext, Vu: number, VuSecondary = peakSecondaryShear(ctx)): StirrupDef[] {
   const { bFlex: b, hFlex: h } = ctx.axes;
   const { cover, stirrupDia } = ctx.material;
   const d = h - cover - stirrupDia / 1000 - 0.008;
@@ -145,7 +157,10 @@ export function buildStirrupOptions(ctx: MemberContext, Vu: number): StirrupDef[
     // The table's across-width limit depends on the stirrup diameter (it sets the leg
     // centre), so the limits are evaluated per diameter rather than once per member.
     const table = transverseSpacingFor(Vu, b, d, ctx.material.fc, cover, dia, ctx.codeEdition);
-    const top = Math.floor(table.alongMax / SPACING_GRID) * SPACING_GRID;
+    const secondary = VuSecondary >= 0.001 ? transverseSpacingFor(VuSecondary, h, b - cover - dia / 1000 - 0.008, ctx.material.fc, cover, dia, ctx.codeEdition) : undefined;
+    const secondaryLegs = secondary?.requiredLegs ?? 2;
+    if (secondaryLegs > BEAM_LIMITS.maxLegs) continue;
+    const top = Math.floor(Math.min(table.alongMax, secondary?.alongMax ?? Infinity) / SPACING_GRID) * SPACING_GRID;
     for (let legs = table.requiredLegs; legs <= BEAM_LIMITS.maxLegs; legs += 1) {
       // A wide member needs more legs; a narrow one cannot host them.
       const perRow = maxBarsPerRow(b, cover, dia, dia);
@@ -153,7 +168,7 @@ export function buildStirrupOptions(ctx: MemberContext, Vu: number): StirrupDef[
       const legArea = (REBAR_DB.find((r) => r.diameter === dia)?.area ?? (Math.PI / 4) * (dia / 10) ** 2) * 1e-4; // m²
       for (let s = top; s >= BEAM_LIMITS.minSpacing - 1e-9; s -= SPACING_GRID) {
         if (avMinPerS > 0 && (legs * legArea) / s < avMinPerS * (1 - 1e-9)) continue;
-        out.push({ diameter: dia, legs, spacing: +s.toFixed(4) });
+        out.push({ diameter: dia, legs, ...(secondary ? { secondaryLegs } : {}), spacing: +s.toFixed(4) });
       }
     }
   }
@@ -231,8 +246,8 @@ export function createBeamCandidateGenerator(ctx: MemberContext): CandidateGener
   const endSeed = Math.max(seed.MuEnd, seed.MuSpanHog);
   const startOpts = startSeed > 0 ? buildRegionOptions(ctx, seedAreaFor(startSeed, ctx)) : [];
   const endOpts = endSeed > 0 ? buildRegionOptions(ctx, seedAreaFor(endSeed, ctx)) : [];
-  const stirSupOpts = buildStirrupOptions(ctx, seed.VuSupport);
-  const stirSpanOpts = buildStirrupOptions(ctx, seed.VuSpan);
+  const stirSupOpts = buildStirrupOptions(ctx, seed.VuSupport, peakSecondaryShear(ctx, 'support'));
+  const stirSpanOpts = buildStirrupOptions(ctx, seed.VuSpan, peakSecondaryShear(ctx, 'span'));
 
   const idx: Record<Knob, number> = { span: 0, start: 0, end: 0, stirSup: 0, stirSpan: 0 };
   const len: Record<Knob, number> = {

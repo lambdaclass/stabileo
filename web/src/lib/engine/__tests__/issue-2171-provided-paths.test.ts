@@ -12,7 +12,6 @@ import { generateBeamBars, type BeamGenerationInput } from '../detailing/generat
 import type { ColumnShape } from '../design/shaped-column';
 import type { DesignAxes } from '../design/design-axes';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
 const section = { b: 0.2, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const bars = { count: 4, diameter: 16 };
 const axesFor = (axis: 'My' | 'Mz'): DesignAxes => ({ flexure: axis, shear: axis === 'My' ? 'Vz' : 'Vy',
@@ -21,17 +20,17 @@ const axesFor = (axis: 'My' | 'Mz'): DesignAxes => ({ flexure: axis, shear: axis
 const provided = (kind: 'beam' | 'column' | 'wall', cage: StirrupDef): ProvidedReinforcement => kind === 'column'
   ? { longitudinal: bars, stirrups: cage }
   : { regions: { bottomSpan: bars, topStart: bars, topEnd: bars, stirrupsSpan: cage, stirrupsSupport: cage } };
-function verify(kind: 'beam' | 'column' | 'wall', cage: StirrupDef, edition: '2005' | '2025', axis: 'My' | 'Mz', direction: 'primary' | 'secondary', shear: number, sec = section, reinforcement = provided(kind, cage), shape?: ColumnShape) {
+function verify(kind: 'beam' | 'column' | 'wall', cage: StirrupDef, edition: '2005' | '2025', axis: 'My' | 'Mz', direction: 'primary' | 'secondary', shear: number, sec = section, reinforcement = provided(kind, cage), shape?: ColumnShape, torque = 0) {
   const axes = axesFor(axis);
   const loadAxis = direction === 'primary' ? axes.shear : axes.secondaryShear;
   return verifyProvidedReinforcement(1, kind, reinforcement, undefined, {}, sec,
     { elementId: 1, length: 4, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'C1', stations: [0, 0.5, 1].map(t => ({
-      t, x: t * 4, n: 0, my: 0, mz: 0, vy: loadAxis === 'Vy' ? shear : 0, vz: loadAxis === 'Vz' ? shear : 0, torsion: 0,
+      t, x: t * 4, n: 0, my: 0, mz: 0, vy: loadAxis === 'Vy' ? shear : 0, vz: loadAxis === 'Vz' ? shear : 0, torsion: torque,
     })) }] }, undefined, { axes, shape, spacingRule: { edition, maxAggregateSizeMm: 0 } });
 }
 for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) {
   for (const kind of ['beam', 'wall'] as const) for (const primary of [2, 6]) for (const secondary of [5, 6]) for (const factor of [0.999, 1.001]) {
-    regression(`known wrong result: #2171 provided ${kind} zero-torque secondary strength ${edition} ${axis} ${primary}/${secondary} ${factor}`, () => {
+    it(`known wrong result: #2171 provided ${kind} zero-torque secondary strength ${edition} ${axis} ${primary}/${secondary} ${factor}`, () => {
       const cage = { diameter: 8, legs: primary, secondaryLegs: secondary, spacing: 0.05 };
       const cap = computeDirectionalShearCapacity('secondary', cage.diameter, stirrupLegs(cage, 'secondary'), cage.spacing,
         section.h, section.b - section.cover - 0.008 - 0.008, section.fc, section.fy, 0, { h: section.b, Ag: section.b * section.h, edition });
@@ -48,7 +47,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
     });
   }
   for (const kind of ['column', 'beam', 'wall'] as const) for (const direction of ['primary', 'secondary'] as const) for (const legs of [2, 4, 5, 6]) {
-    regression(`known wrong result: #2171 provided ${kind} low-demand distribution ${edition} ${axis} ${direction} ${legs}`, () => {
+    it(`known wrong result: #2171 provided ${kind} low-demand distribution ${edition} ${axis} ${direction} ${legs}`, () => {
       const sec = direction === 'primary' ? { ...section, b: section.h, h: section.b } : section;
       const cage = { diameter: 8, legs: direction === 'primary' ? legs : 6, secondaryLegs: direction === 'secondary' ? legs : 6, spacing: 0.05 };
       const result = verify(kind, cage, edition, axis, direction, 1, sec);
@@ -63,7 +62,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
     });
   }
   for (const offset of [-2 * LENGTH_EPS, 0, 2 * LENGTH_EPS]) for (const direction of ['primary', 'secondary'] as const) {
-    regression(`known wrong result: #2171 provided column two-leg geometry boundary ${edition} ${axis} ${direction} ${offset}`, () => {
+    it(`known wrong result: #2171 provided column two-leg geometry boundary ${edition} ${axis} ${direction} ${offset}`, () => {
       const depth = section.b - section.cover - 0.008 - 0.008;
       const width = depth + 2 * section.cover + 0.008 + offset;
       const sec = direction === 'primary' ? { ...section, b: width, h: section.b } : { ...section, h: width };
@@ -76,7 +75,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
 }
 
 for (const swap of [false, true]) for (const spacing of [0.1, 0.15]) {
-  regression(`known wrong result: #2171 line end cages keep their own spacing and diameter ${swap} ${spacing}`, () => {
+  it(`known wrong result: #2171 line end cages keep their own spacing and diameter ${swap} ${spacing}`, () => {
     const start = { diameter: 6, legs: 6, secondaryLegs: 6, spacing: 0.1 };
     const end = { diameter: 8, legs: 2, secondaryLegs: 6, spacing };
     const ends = swap ? [end, start] : [start, end];
@@ -103,16 +102,17 @@ for (const swap of [false, true]) for (const spacing of [0.1, 0.15]) {
 
 for (const edition of ['2005', '2025'] as const) for (const shape of [
   { kind: 'circle', D: 0.4 }, { kind: 'tee', bf: 0.6, bw: 0.2, h: 0.6, hf: 0.2 }, { kind: 'L', b: 0.6, h: 0.6, tw: 0.2, tf: 0.2 },
-] as const) for (const secondaryLegs of [2, 6]) for (const factor of [0.999, 1.001]) {
-  regression(`known wrong result: #2171 shaped column secondary strength ${edition} ${shape.kind} ${secondaryLegs} ${factor}`, () => {
+] as const) for (const axis of ['My', 'Mz'] as const) for (const secondaryLegs of [2, 6]) for (const factor of [0.999, 1.001]) {
+  it(`known wrong result: #2171 shaped column secondary strength ${edition} ${shape.kind} ${axis} ${secondaryLegs} ${factor}`, () => {
     const cage = { diameter: 8, legs: 6, secondaryLegs, spacing: 0.05 };
-    const bw = shape.kind === 'circle' ? shape.D : shape.kind === 'tee' ? shape.hf : shape.tf;
-    const d = 0.8 * (shape.kind === 'circle' ? shape.D : shape.kind === 'tee' ? shape.bf : shape.b);
+    const alongDepth = axesFor(axis).secondaryShear === 'Vz';
+    const bw = shape.kind === 'circle' ? shape.D : shape.kind === 'tee' ? (alongDepth ? shape.bw : shape.hf) : (alongDepth ? shape.tw : shape.tf);
+    const d = 0.8 * (shape.kind === 'circle' ? shape.D : alongDepth ? shape.h : shape.kind === 'tee' ? shape.bf : shape.b);
     const Ag = shape.kind === 'circle' ? Math.PI * shape.D ** 2 / 4 : shape.kind === 'tee' ? shape.bw * shape.h + (shape.bf - shape.bw) * shape.hf : shape.tw * shape.h + (shape.b - shape.tw) * shape.tf;
     const cap = computeDirectionalShearCapacity('secondary', cage.diameter, stirrupLegs(cage, 'secondary'), cage.spacing, bw, d, section.fc, section.fy, 0, { Ag, rhoW: 0, edition });
-    const result = verify('column', cage, edition, 'My', 'secondary', cap.phiVn * factor, section,
+    const result = verify('column', cage, edition, axis, 'secondary', cap.phiVn * factor, section,
       { shaped: { count: 8, diameter: 16 }, stirrups: cage }, shape);
-    const row = result.checks.find(c => c.category === 'Ties (Vy)')!;
+    const row = result.checks.find(c => c.category === `Ties (${axesFor(axis).secondaryShear})`)!;
     expect(row).toBeDefined();
     expect(row.capacity).toBe(cap.phiVn);
     expect(row.ratio).toBe(factor);
@@ -122,7 +122,7 @@ for (const edition of ['2005', '2025'] as const) for (const shape of [
 
 afterEach(() => setCompactStationTransfer(true));
 for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  regression(`known wrong result: #2171 spatial solved provided cages ${edition} ${nonlinear} ${compact}`, () => {
+  it(`known wrong result: #2171 spatial solved provided cages ${edition} ${nonlinear} ${compact}`, () => {
     const model = {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0.04, y: 0, z: 0 }]]),
       elements: new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]),
@@ -169,7 +169,7 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
 }
 
 for (const secondaryLegs of [undefined, 2, 3, 6]) for (const source of ['regions', 'line'] as const) {
-  regression(`known wrong result: #2171 beam detailing refuses ungenerated horizontal crossties ${source} ${secondaryLegs}`, () => {
+  it(`known wrong result: #2171 beam detailing refuses ungenerated horizontal crossties ${source} ${secondaryLegs}`, () => {
     const cage = { diameter: 8, legs: 2, secondaryLegs, spacing: 0.05 };
     const input: BeamGenerationInput = {
       elementId: 7, L: 6, b: 0.3, h: 0.6, d: 0.55, cover: 0.025, stirrupDia: 8,
@@ -188,7 +188,7 @@ for (const secondaryLegs of [undefined, 2, 3, 6]) for (const source of ['regions
   });
 }
 
-regression('known wrong result: #2171 line detailing transfer and round trip retain both end cages', () => {
+it('known wrong result: #2171 line detailing transfer and round trip retain both end cages', () => {
   const members = [{ id: 1, L: 4, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }];
   const start = { diameter: 6, legs: 6, secondaryLegs: 3, spacing: 0.1 };
   const end = { diameter: 8, legs: 2, secondaryLegs: 6, spacing: 0.15 };
@@ -204,11 +204,30 @@ regression('known wrong result: #2171 line detailing transfer and round trip ret
   expect(pieces.stirrups.at(-1)).toMatchObject(end);
 });
 
-for (const secondaryLegs of [undefined, 2, 3, 6]) regression(`known wrong result: #2171 column detailing refuses an unverified secondary cage ${secondaryLegs}`, () => {
+for (const secondaryLegs of [undefined, 2, 3, 6]) it(`known wrong result: #2171 column detailing refuses an unverified secondary cage ${secondaryLegs}`, () => {
   const generated = generateColumnStack({ stackId: 'C-B2', lifts: [{ elementId: 100, baseZ: 0, topZ: 3, b: 0.4, h: 0.4,
     centre: { x: 0, y: 0 }, bars: { count: 8, diameterMm: 20 }, tieDia: 8, cover: 0.025, secondaryLegs }],
     fc: 25, fy: 420, maxAggregateSizeMm: 20, edition: '2025', lapSplice: d => 0.05 * d,
     beamDepthAtTop: new Map([[0, 0.6]]), roofTermination: false });
   expect(generated.unsupported.some(s => s.includes('horizontal crossties'))).toBe((secondaryLegs ?? 2) > 2);
   expect(generated.bars.length).toBeGreaterThan(0);
+});
+
+for (const swap of [false, true]) it(`known wrong result: #2171 each support torsion check uses its actual stirrup depth ${swap}`, () => {
+  const start = { diameter: 6, legs: 2, secondaryLegs: 6, spacing: 0.1 };
+  const end = { diameter: 8, legs: 6, secondaryLegs: 6, spacing: 0.15 };
+  const cages = swap ? [end, start] : [start, end];
+  const sec = { ...section, b: 0.3, h: 0.6 };
+  const reinforcement = { regions: { ...provided('beam', start).regions, stirrupsStart: cages[0], stirrupsEnd: cages[1] } };
+  const actual = verify('beam', start, '2025', 'My', 'primary', 220.235, sec, reinforcement, undefined, 30);
+  for (const [index, side] of ['Start', 'End'].entries()) {
+    const cage = cages[index]!;
+    const isolated = verify('beam', cage, '2025', 'My', 'primary', 220.235, { ...sec, stirrupDia: cage.diameter }, provided('beam', cage), undefined, 30);
+    const row = actual.checks.find(c => c.category === `Torsion Support ${side} (Vz)`);
+    const expected = isolated.checks.find(c => c.category === 'Torsion Support (Vz)');
+    expect(row).toBeDefined();
+    expect(expected).toBeDefined();
+    expect(row!.ratio).toBe(expected!.ratio);
+    expect(row!.status).toBe(expected!.status);
+  }
 });

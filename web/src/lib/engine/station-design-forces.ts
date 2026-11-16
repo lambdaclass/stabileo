@@ -31,7 +31,7 @@ import { tensionControlledStrain, shearSqrtFc, shearFy, CIRSOC201_DESIGN_EDITION
 /** fy as Po reads it, kN/m²: CIRSOC 201-2025 §22.4.2.1 limits it to 500 MPa. */
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
 import { memberOffsetAt, type OffsetCarrier } from './member-offsets';
-import { checkShapedColumn, grossAreaOf, type ColumnShape } from './design/shaped-column';
+import { checkShapedColumn, grossAreaOf, shapedShearWebs, type ColumnShape } from './design/shaped-column';
 import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
 import { seatedLongitudinalHalfExtents } from '../codes/cirsoc201/transverse-cage';
 import type { ProvidedReinforcement, RebarGroup, RebarLayer, StirrupDef, BeamContinuity, LongBarGroup, ColumnReinforcement } from '../store/model.svelte';
@@ -1975,6 +1975,60 @@ export function verifyProvidedReinforcement(
     checks.push({ ...rest, ratio: +utilization.toFixed(3), status: utilizationStatus(utilization) });
   };
 
+  const pushSpacingCheck = (c: Omit<ProvidedRebarCheck, 'status' | 'ratio'> & { utilization: number }) => {
+    const prior = checks.findIndex(p => p.category === c.category && String(p.regionRange) === String(c.regionRange));
+    if (prior >= 0 && checks[prior]!.ratio >= c.utilization) return;
+    const { utilization, ...rest } = c;
+    const check = { ...rest, ratio: +utilization.toFixed(3), status: utilizationStatus(utilization) };
+    if (prior >= 0) checks[prior] = check;
+    else checks.push(check);
+  };
+
+  const pushTransverseSpacing = (label: string, cage: StirrupDef, direction: ShearDirection, width: number, depth: number, Vu: number, range?: [number, number]) => {
+    const tbl = checkTransverseSpacing(
+      spacingRule.edition,
+      {
+        VsRequired: requiredVsForTable(Vu, width, depth, section!.fc),
+        bw: width, d: depth, fc: section!.fc,
+        cover: section!.cover, stirrupDiaMm: cage.diameter,
+      },
+      { spacing: cage.spacing, legs: stirrupLegs(cage, direction).count },
+    );
+    if (!transverseSpacingIsSupported(tbl.limits)) {
+
+      pushSpacingCheck({
+        category: `${label} s,max`, demandCategory: null,
+        required: 0, provided: 0, utilization: Number.POSITIVE_INFINITY,
+        unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: range,
+        description: `Table 9.7.6.2.2 not evaluated — ${tbl.limits.unsupported.join(', ')}`,
+        limiting: 'unsupportedCheck',
+      });
+    } else {
+      if (!tbl.alongOk) {
+        pushSpacingCheck({
+          category: `${label} s,max`, demandCategory: null,
+          required: +(tbl.limits.alongMax * 100).toFixed(1),
+          provided: +(cage.spacing * 100).toFixed(1),
+          utilization: tbl.alongUtilization,
+          unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: range,
+          description: `stirrup spacing ${(cage.spacing * 100).toFixed(1)} cm exceeds s,max along the member = ${(tbl.limits.alongMax * 100).toFixed(1)} cm (Table 9.7.6.2.2 ${tbl.limits.row})`,
+          limiting: 'tieSpacing',
+        });
+      }
+      if (!tbl.acrossOk) {
+        pushSpacingCheck({
+          category: `${label} s,max across`, demandCategory: null,
+          required: +(tbl.limits.acrossMax * 100).toFixed(1),
+          provided: +(tbl.acrossProvided * 100).toFixed(1),
+          utilization: tbl.acrossUtilization,
+          unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: range,
+          description: `leg spacing across the width ${(tbl.acrossProvided * 100).toFixed(1)} cm exceeds ${(tbl.limits.acrossMax * 100).toFixed(1)} cm (Table 9.7.6.2.2 ${tbl.limits.row}) — ${stirrupLegs(cage, direction).count} legs provided, ${tbl.limits.requiredLegs} required`,
+          limiting: 'tieSpacing',
+        });
+      }
+    }
+  };
+
   /*
    * Ductility of a flexural member: CIRSOC 201-2025 9.3.3.1 wants a beam with Pu < 0,10·f'c·Ag
    * tension-controlled (εt ≥ εty + 0,003); 2005 asked for εt ≥ 0,004 (10.3.5). The φ ramp only
@@ -2560,25 +2614,33 @@ export function verifyProvidedReinforcement(
     const rhoOf = (cm2: number) => cm2 / (section.b * d * 1e4);
     const rhoSupport = rhoOf(Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers)));
     const rhoSpan = rhoOf(layersTotalArea(bottomLayers));
-    const shearSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number]; rhoW: number }> = [
-      { label: `Shear Support (${axes.shear})`, stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], rhoW: rhoSupport },
-      { label: `Shear Span (${axes.shear})`, stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart], rhoW: rhoSpan },
-    ];
+    const supportSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number]; rhoW: number }> = reg?.stirrupsStart || reg?.stirrupsEnd ? [
+      { label: 'Support Start', stir: reg.stirrupsStart ?? stirSupport, tuples: startTuples, range: [0, tStartEnd], rhoW: rhoSupport },
+      { label: 'Support End', stir: reg.stirrupsEnd ?? stirSupport, tuples: endTuples, range: [tEndStart, 1], rhoW: rhoSupport },
+    ] : [{ label: 'Support', stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], rhoW: rhoSupport }];
+    const shearSpecs = [...supportSpecs, { label: 'Span', stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart] as [number, number], rhoW: rhoSpan }]
+      .flatMap(ss => (['primary', 'secondary'] as const).map(direction => {
+        const primary = direction === 'primary';
+        const axis = primary ? axes.shear : axes.secondaryShear;
+        const diameter = ss.stir?.diameter ?? section.stirrupDia;
+        const depth = primary ? d - (diameter - section.stirrupDia) / 1000 : section.b - section.cover - diameter / 1000 - 0.008;
+        return { ...ss, label: `Shear ${ss.label} (${axis})`, direction, axis, read: primary ? V : V2,
+          width: primary ? section.b : section.h, depth, height: primary ? section.h : section.b, rhoW: primary ? ss.rhoW : 0 };
+      }));
     /*
      * CIRSOC 201-2025 §9.6.3.1 and Tabla 9.6.3.1: a beam «de poca altura» (h ≤ 250 mm) is exempt
      * from Av,min only where Vu ≤ φVc; where Vu > φVc «se debe colocar al menos Av,min». The
      * engine's checker exempts it everywhere (`min_shear_missing` returns False for h ≤ 0,25 m),
      * so a region where Vu > φVc with Av < Av,min is not approved here: it is held (below).
      */
-    const shallowBeam = elementType === 'beam' && section.h <= SHALLOW_BEAM_MAX_H + 1e-9;
     /*
      * §9.6.3.1 on every other beam: Av,min «en todas las secciones donde Vu > φ·0,085·λ·√f'c·bw·d»
      * (2025; 2005 §11.5.6.1: Vu > φVc/2), Av,min of §9.6.3.4 (2025: max(0,062·√f'c, 0,35)·bw·s/fyt,
      * as the engine computes it with the project's fyt). An evaluated check: failing, with its row.
      */
-    const minShearThreshold = (phiVc: number) => (spacingRule.edition === '2005'
+    const minShearThreshold = (phiVc: number, width: number, depth: number) => (spacingRule.edition === '2005'
       ? 0.5 * phiVc
-      : 0.75 * 0.085 * shearSqrtFc(section.fc) * section.b * d * 1000);
+      : 0.75 * 0.085 * shearSqrtFc(section.fc) * width * depth * 1000);
     for (const ss of shearSpecs) {
       let worst: { ratio: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
       let held: ShallowMinShearHold | null = null;
@@ -2586,7 +2648,7 @@ export function verifyProvidedReinforcement(
       let count = 0;
       let peakVu = 0; let peakCombo = ''; let peakX = 0;
       for (const t of ss.tuples) {
-        const Vu = Math.abs(V(t));
+        const Vu = Math.abs(ss.read(t));
         if (Vu < 0.001) continue;
         count++;
         if (Vu > peakVu) { peakVu = Vu; peakCombo = t.comboName; peakX = t.stationX; }
@@ -2595,20 +2657,20 @@ export function verifyProvidedReinforcement(
         // + = compression (CIRSOC enhancement) — pass -t.n. Previously
         // compression took the tension branch (Vc reduced to 0 → gross false
         // failures) and tension the enhancement branch (Vc inflated → unsafe).
-        const cap = computeShearCapacity(ss.stir.diameter, ss.stir.legs, ss.stir.spacing, section.b, d, section.fc, section.fy, -t.n,
-          { Ag: section.b * section.h, rhoW: ss.rhoW, h: section.h, edition: spacingRule.edition });
+        const cap = computeDirectionalShearCapacity(ss.direction, ss.stir.diameter, stirrupLegs(ss.stir, ss.direction), ss.stir.spacing, ss.width, ss.depth, section.fc, section.fy, -t.n,
+          { Ag: section.b * section.h, rhoW: ss.rhoW, h: ss.height, edition: spacingRule.edition });
         const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
         if (!worst || u > worst.ratio) worst = { ratio: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
-        if (shallowBeam && cap.evaluated && cap.avBelowMin && Vu > cap.phiVc + 1e-9
+        if (ss.height <= SHALLOW_BEAM_MAX_H + 1e-9 && cap.evaluated && cap.avBelowMin && Vu > cap.phiVc + 1e-9
           && (!held || Vu / Math.max(cap.phiVc, 1e-9) > held.Vu / Math.max(held.phiVc, 1e-9))) {
           held = {
             region: ss.label, Vu: +Vu.toFixed(2), phiVc: cap.phiVc,
-            Av: +(ss.stir.legs * (REBAR_DB.find((r) => r.diameter === ss.stir!.diameter)?.area ?? (Math.PI / 4) * (ss.stir.diameter / 10) ** 2)).toFixed(3),
-            AvMin: +(cap.AvMin ?? 0).toFixed(3), spacing: ss.stir.spacing, h: section.h, comboName: t.comboName,
+            Av: +(stirrupLegs(ss.stir, ss.direction).count * (REBAR_DB.find((r) => r.diameter === ss.stir!.diameter)?.area ?? (Math.PI / 4) * (ss.stir.diameter / 10) ** 2)).toFixed(3),
+            AvMin: +(cap.AvMin ?? 0).toFixed(3), spacing: ss.stir.spacing, h: ss.height, comboName: t.comboName,
           };
         }
-        if (elementType === 'beam' && !shallowBeam && cap.evaluated && cap.avBelowMin) {
-          const threshold = minShearThreshold(cap.phiVc);
+        if (elementType === 'beam' && ss.height > SHALLOW_BEAM_MAX_H + 1e-9 && cap.evaluated && cap.avBelowMin) {
+          const threshold = minShearThreshold(cap.phiVc, ss.width, ss.depth);
           if (Vu > threshold + 1e-9 && (!minShort || Vu - threshold > minShort.Vu - minShort.threshold)) {
             minShort = { Vu, threshold, AvMin: cap.AvMin ?? 0, comboName: t.comboName, stationX: t.stationX };
           }
@@ -2616,7 +2678,7 @@ export function verifyProvidedReinforcement(
       }
       if (held) shallowMinShear.push(held);
       if (minShort && ss.stir) {
-        const av = ss.stir.legs * (REBAR_DB.find((r) => r.diameter === ss.stir!.diameter)?.area ?? (Math.PI / 4) * (ss.stir.diameter / 10) ** 2);
+        const av = stirrupLegs(ss.stir, ss.direction).count * (REBAR_DB.find((r) => r.diameter === ss.stir!.diameter)?.area ?? (Math.PI / 4) * (ss.stir.diameter / 10) ** 2);
         const clause = spacingRule.edition === '2005' ? '§11.5.6.1' : '§9.6.3.1';
         const rule = spacingRule.edition === '2005' ? 'φVc/2' : 'φ·0,085·√f\'c·bw·d';
         pushStrength({
@@ -2625,7 +2687,7 @@ export function verifyProvidedReinforcement(
           utilization: av > 0 ? minShort.AvMin / av : Number.POSITIVE_INFINITY,
           unit: 'cm²', method: 'area', tuplesChecked: count, regionRange: ss.range,
           description: `Vu = ${minShort.Vu.toFixed(1)} kN > ${rule} = ${minShort.threshold.toFixed(1)} kN: Av,min required (${clause}); `
-            + `eØ${ss.stir.diameter} ${ss.stir.legs}L c/${(ss.stir.spacing * 100).toFixed(0)} gives Av = ${av.toFixed(2)} cm² < Av,min = ${minShort.AvMin.toFixed(2)} cm² (${spacingRule.edition === '2005' ? '§11.5.6.3' : '§9.6.3.4'}, fyt = ${section.fy} MPa)`,
+            + `eØ${ss.stir.diameter} ${stirrupLegs(ss.stir, ss.direction).count}L c/${(ss.stir.spacing * 100).toFixed(0)} gives Av = ${av.toFixed(2)} cm² < Av,min = ${minShort.AvMin.toFixed(2)} cm² (${spacingRule.edition === '2005' ? '§11.5.6.3' : '§9.6.3.4'}, fyt = ${section.fy} MPa)`,
           comboName: minShort.comboName, stationX: minShort.stationX,
           limiting: 'shear',
         });
@@ -2635,7 +2697,7 @@ export function verifyProvidedReinforcement(
       // A beam only: a column's ties are checked by their own rules. Below φ·Tth it is
       // neglected and says nothing; above it, the cross-section, the closed stirrups and the
       // longitudinal steel torsion adds are checked at the worst tuple of the region.
-      if (elementType === 'beam') {
+      if (elementType === 'beam' && ss.direction === 'primary') {
         // ── The longitudinal steel torsion adds (§22.7.6.1, §9.5.4.3, §9.6.4.3) ──
         //
         // CIRSOC 201-2025 asks it at every section where torsion is not negligible: §9.5.4.1 and
@@ -2664,7 +2726,7 @@ export function verifyProvidedReinforcement(
             : { top: topIntoSpanArea, bottom: layersTotalArea(bottomLayers) });
         const longitudinalNeed = (r: ReturnType<typeof checkTorsion2025>, t: Tuple) => {
           const AlReq = Math.max(r.Al, r.AlMin);
-          const AsFlex = Math.abs(M(t)) / (0.9 * section.fy * 1000 * 0.9 * d);
+          const AsFlex = Math.abs(M(t)) / (0.9 * section.fy * 1000 * 0.9 * ss.depth);
           const f = facesAt(t), sag = M(t) >= 0;
           const tension = (sag ? f.bottom : f.top) / 1e4, other = (sag ? f.top : f.bottom) / 1e4;
           const uT = tension > 0 ? (AsFlex + AlReq / 2) / tension : Number.POSITIVE_INFINITY;
@@ -2678,7 +2740,7 @@ export function verifyProvidedReinforcement(
         const evaluated: Array<{ r: ReturnType<typeof checkTorsion2025>; t: Tuple }> = [];
         for (const t of ss.tuples) {
           if (Math.abs(t.tq) < 0.01) continue;
-          const r = checkTorsion2025({ b: section.b, h: section.h, d, dSecondary: section.b - section.cover - (ss.stir?.diameter ?? section.stirrupDia) / 1000 - 0.008, cover: section.cover, stirrupDiaMm: ss.stir?.diameter ?? section.stirrupDia, fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure), stirrup: ss.stir });
+          const r = checkTorsion2025({ b: section.b, h: section.h, d: ss.depth, dSecondary: section.b - section.cover - (ss.stir?.diameter ?? section.stirrupDia) / 1000 - 0.008, cover: section.cover, stirrupDiaMm: ss.stir?.diameter ?? section.stirrupDia, fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure), stirrup: ss.stir });
           if (!r.neglect) evaluated.push({ r, t });
         }
         let tw: { r: ReturnType<typeof checkTorsion2025>; t: Tuple } | null = null;
@@ -2714,10 +2776,10 @@ export function verifyProvidedReinforcement(
       }
 
       if (count === 0) continue;
-      checkedAxes.add(axes.shear);
+      checkedAxes.add(ss.axis);
       if (!ss.stir) {
         pushStrength({
-          category: ss.label, demandCategory: axes.shear === 'Vy' ? 'Vy' : 'Vz',
+          category: ss.label, demandCategory: ss.axis === 'Vy' ? 'Vy' : 'Vz',
           demand: +peakVu.toFixed(2), capacity: 0,
           utilization: Number.POSITIVE_INFINITY,
           unit: 'kN', method: 'capacity', tuplesChecked: count, regionRange: ss.range,
@@ -2729,11 +2791,11 @@ export function verifyProvidedReinforcement(
       }
       if (!worst) continue;
       pushStrength({
-        category: ss.label, demandCategory: axes.shear === 'Vy' ? 'Vy' : 'Vz',
+        category: ss.label, demandCategory: ss.axis === 'Vy' ? 'Vy' : 'Vz',
         demand: +worst.Vu.toFixed(2), capacity: +worst.phiVn.toFixed(2),
         utilization: worst.ratio,
         unit: 'kN', method: 'capacity', tuplesChecked: count, regionRange: ss.range,
-        description: `eØ${ss.stir.diameter} ${ss.stir.legs}L c/${(ss.stir.spacing * 100).toFixed(0)} [${ss.range[0].toFixed(2)}–${ss.range[1].toFixed(2)}], ${count} tuples`
+        description: `eØ${ss.stir.diameter} ${stirrupLegs(ss.stir, ss.direction).count}L c/${(ss.stir.spacing * 100).toFixed(0)} [${ss.range[0].toFixed(2)}–${ss.range[1].toFixed(2)}], ${count} tuples`
           + (section.fy > shearFy(section.fy) ? `; Vs with fyt = ${shearFy(section.fy)} MPa (§22.5.3.3)` : '')
           + (Math.sqrt(section.fc) > shearSqrtFc(section.fc) ? `; Vc with √f'c = ${shearSqrtFc(section.fc)} MPa (§22.5.3.1)` : ''),
         comboName: worst.comboName, stationX: worst.stationX,
@@ -2747,48 +2809,7 @@ export function verifyProvidedReinforcement(
       // that forces crossties into wide members and into any member in row 2 whose web is
       // wider than the row-2 limit — a 300 mm web has 242 mm between its two leg centres
       // against a 200 mm row-2 limit, so a third leg is required.
-      const tbl = checkTransverseSpacing(
-        spacingRule.edition,
-        {
-          VsRequired: requiredVsForTable(worst.Vu, section.b, d, section.fc),
-          bw: section.b, d, fc: section.fc,
-          cover: section.cover, stirrupDiaMm: ss.stir.diameter,
-        },
-        { spacing: ss.stir.spacing, legs: ss.stir.legs },
-      );
-      if (!transverseSpacingIsSupported(tbl.limits)) {
-        // Prestressing is the only gap the table has, and it is not silently ignored.
-        pushStrength({
-          category: `${ss.label} s,max`, demandCategory: null,
-          required: 0, provided: 0, utilization: Number.POSITIVE_INFINITY,
-          unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: ss.range,
-          description: `Table 9.7.6.2.2 not evaluated — ${tbl.limits.unsupported.join(', ')}`,
-          limiting: 'unsupportedCheck',
-        });
-      } else {
-        if (!tbl.alongOk) {
-          pushStrength({
-            category: `${ss.label} s,max`, demandCategory: null,
-            required: +(tbl.limits.alongMax * 100).toFixed(1),
-            provided: +(ss.stir.spacing * 100).toFixed(1),
-            utilization: tbl.alongUtilization,
-            unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: ss.range,
-            description: `stirrup spacing ${(ss.stir.spacing * 100).toFixed(1)} cm exceeds s,max along the member = ${(tbl.limits.alongMax * 100).toFixed(1)} cm (Table 9.7.6.2.2 ${tbl.limits.row})`,
-            limiting: 'tieSpacing',
-          });
-        }
-        if (!tbl.acrossOk) {
-          pushStrength({
-            category: `${ss.label} s,max across`, demandCategory: null,
-            required: +(tbl.limits.acrossMax * 100).toFixed(1),
-            provided: +(tbl.acrossProvided * 100).toFixed(1),
-            utilization: tbl.acrossUtilization,
-            unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: ss.range,
-            description: `leg spacing across the width ${(tbl.acrossProvided * 100).toFixed(1)} cm exceeds ${(tbl.limits.acrossMax * 100).toFixed(1)} cm (Table 9.7.6.2.2 ${tbl.limits.row}) — ${ss.stir.legs} legs provided, ${tbl.limits.requiredLegs} required`,
-            limiting: 'tieSpacing',
-          });
-        }
-      }
+      pushTransverseSpacing(ss.label, ss.stir, ss.direction, ss.width, ss.depth, peakVu, ss.range);
     }
 
     // ─── Constructibility: row fit checks ───
@@ -2833,13 +2854,18 @@ export function verifyProvidedReinforcement(
     const sh = options.shape;
     const ties = provided.stirrups;
     const sMaxTie = ties && provided.shaped
-      ? columnTieSpacing(spacingRule.edition, provided.shaped.diameter, ties.diameter, sh.kind === 'circle' ? sh.D : Math.min(sh.kind === 'tee' ? sh.bw : sh.tw, sh.kind === 'tee' ? sh.hf : sh.tf)).spacing
+      ? columnTieSpacing(spacingRule.edition, provided.shaped.diameter, ties.diameter, Math.min(...shapedShearWebs(sh).map(web => web.bw))).spacing
       : 0.3;
     const shaped = checkShapedColumn({
       shape: sh, bars: provided.shaped, ties, fc: section.fc, fy: section.fy, cover: section.cover,
       tuples: hasTuples ? allTuples : [], magnifier: deltaNs, maxTieSpacing: sMaxTie,
-      shearCapacity: (bw, d, Nu) => ties ? computeShearCapacity(ties.diameter, ties.legs, ties.spacing, bw, d, section.fc, section.fy, Nu, { Ag: grossAreaOf(sh), rhoW: 0, edition: spacingRule.edition }).phiVn
-        : computeShearCapacity(0, 0, 1, bw, d, section.fc, section.fy, Nu, { Ag: grossAreaOf(sh), rhoW: 0, edition: spacingRule.edition }).phiVn,
+      shearCapacity: (bw, d, Nu, axis, Vu) => {
+        const direction = axis === axes.shear ? 'primary' : 'secondary';
+        if (!ties) return computeShearCapacity(0, 0, 1, bw, d, section.fc, section.fy, Nu, { Ag: grossAreaOf(sh), rhoW: 0, edition: spacingRule.edition }).phiVn;
+        pushTransverseSpacing(`Ties (${axis})`, ties, direction, bw, d, Vu);
+        return computeDirectionalShearCapacity(direction, ties.diameter, stirrupLegs(ties, direction), ties.spacing, bw, d, section.fc, section.fy, Nu,
+          { Ag: grossAreaOf(sh), rhoW: 0, edition: spacingRule.edition }).phiVn;
+      },
     });
     for (const c of shaped) {
       pushStrength({ ...c, demandCategory: c.limiting === 'shear' ? (c.category.includes('Vy') ? 'Vy' : 'Vz') : c.limiting === 'biaxial' ? 'N_compression' : null, method: c.demand !== undefined ? 'capacity' : 'area', tuplesChecked: c.limiting === 'biaxial' ? allTuples.length : 0 } as never);
@@ -3023,7 +3049,7 @@ export function verifyProvidedReinforcement(
       // Effective depth per shear axis: primary shear bends over h, secondary
       // over b — using one d for both overstated φVn on the secondary axis
       // whenever h > b.
-      const dTieFor = (depth: number) => depth - section.cover - (section.stirrupDia / 1000) - 0.008;
+      const dTieFor = (depth: number) => depth - section.cover - ((provided.stirrups?.diameter ?? section.stirrupDia) / 1000) - 0.008;
       // Row (c) needs ρw: a third of the column's bars as the tension side (a face and half of
       // the sides), over the gross section; used only where the ties are below Av,min.
       const colArea = colLayout?.totalArea ?? (provided.longitudinal ? rebarGroupArea(provided.longitudinal) : 0);
@@ -3048,6 +3074,7 @@ export function verifyProvidedReinforcement(
           const sTie = atEnd ? Math.min(z!.endSpacing, provided.stirrups.spacing) : provided.stirrups.spacing;
           // Solver convention is + = tension; computeShearCapacity expects
           // + = compression — pass -t.n (see the beam shear path above).
+          pushTransverseSpacing(`Ties (${ts.axis})`, { ...provided.stirrups, spacing: sTie }, ts.direction, ts.width, ts.dTie, Vu);
           const cap = computeDirectionalShearCapacity(ts.direction, provided.stirrups.diameter, stirrupLegs(provided.stirrups, ts.direction), sTie, ts.width, ts.dTie, section.fc, section.fy, -t.n,
             { Ag: section.b * section.h, rhoW: colRhoW, h: Math.max(ts.dTie, section.h), edition: spacingRule.edition });
           const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
@@ -3072,7 +3099,7 @@ export function verifyProvidedReinforcement(
           demand: +worst.Vu.toFixed(2), capacity: +worst.phiVn.toFixed(2),
           utilization: worst.util,
           unit: 'kN', method: 'capacity', tuplesChecked: count,
-          description: `eØ${provided.stirrups.diameter} ${provided.stirrups.legs}L c/${(provided.stirrups.spacing * 100).toFixed(0)} → φVn varies with N, swept ${count} tuples`,
+          description: `eØ${provided.stirrups.diameter} ${stirrupLegs(provided.stirrups, ts.direction).count}L c/${(provided.stirrups.spacing * 100).toFixed(0)} → φVn varies with N, swept ${count} tuples`,
           comboName: worst.comboName, stationX: worst.stationX,
           limiting: 'shear',
         });
