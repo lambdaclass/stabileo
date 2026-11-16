@@ -5,7 +5,7 @@
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { selectionOf, shellRef } from '../../lib/engine/model-findings';
   import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
-  import { collectDiagnostics, groupDiagnostics, withoutIssueRef } from '../../lib/store/diagnostics-list';
+  import { collectDiagnostics, groupDiagnostics, withoutIssueRef } from '../../lib/pro/diagnostics-list';
   import { postAnalysisLines, partLines, postAnalysisRows, postAnalysisHtml, type PostAnalysisLine } from '../../lib/engine/post-analysis';
   import { staticsRows } from '../../lib/store/statics-rows';
   import { instability } from '../../lib/store/instability.svelte';

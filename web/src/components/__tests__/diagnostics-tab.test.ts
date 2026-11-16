@@ -6,8 +6,8 @@ const loose = (plate: string, nodes: string): SolverDiagnostic => ({
   source: 'model', severity: 'warning', code: 'PLATE_LOOSE_CORNER', message: 'plates.diag.looseCorner', objects: [{ kind: 'plate', id: 1 }], details: { plate, nodes },
 });
 
-vi.mock('../../lib/store/diagnostics-list', async (original) => ({
-  ...(await original<typeof import('../../lib/store/diagnostics-list')>()),
+vi.mock('../../lib/pro/diagnostics-list', async (original) => ({
+  ...(await original<typeof import('../../lib/pro/diagnostics-list')>()),
   collectDiagnostics: () => [loose('M2', '118'), loose('M3', '119'), loose('L4', '17, 27')],
 }));
 

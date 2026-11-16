@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { collectDiagnostics, groupDiagnostics, reviewCount, withoutIssueRef } from '../diagnostics-list';
-import { modelStore, resultsStore, uiStore } from '../index';
+import { modelStore, resultsStore, uiStore } from '../../store/index';
 import type { SolverDiagnostic } from '../../engine/types';
 
 const loose = (plate: string): SolverDiagnostic => ({

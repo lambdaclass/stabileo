@@ -7,10 +7,10 @@ import type { SolverDiagnostic } from '../engine/types';
 import { checkModel } from '../engine/model-diagnostics';
 import { mergeFindings } from '../engine/model-findings';
 import { reviewModelSanity, sanityDiagnostics } from '../engine/model-sanity';
-import { plateDiagnostics, zoneDiagnostics } from './plate-diagnostics';
-import { modelStore } from './model.svelte';
-import { resultsStore } from './results.svelte';
-import { uiStore } from './ui.svelte';
+import { plateDiagnostics, zoneDiagnostics } from '../store/plate-diagnostics';
+import { modelStore } from '../store/model.svelte';
+import { resultsStore } from '../store/results.svelte';
+import { uiStore } from '../store/ui.svelte';
 import { t, i18n } from '../i18n';
 
 export interface DiagnosticGroup {

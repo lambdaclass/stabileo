@@ -38,7 +38,7 @@ import { reportSolverErrors, reportModelDiagnostics } from './solve-diagnostics'
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
 import { solveProgress, type SolvePhase } from '../store/solve-progress.svelte';
-import { reviewCount } from '../store/diagnostics-list';
+import { reviewCount } from '../pro/diagnostics-list';
 import { onCaseSolved } from './solver-pool';
 import { onSolveStep, solveSteps } from './solve-steps';
 
