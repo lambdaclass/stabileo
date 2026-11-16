@@ -9,7 +9,7 @@ import { proposeSkin } from '../codes/cirsoc201/skin';
 import { mainBarCoverMm } from '../codes/cirsoc201/cover';
 import { barArea, faceLayout, groupsArea, groupsLabel, proposeBeamFace, roundDown, stirrupsLabel } from './bars';
 import type { Fmt } from './format';
-import { beamSeismic, type Seismic } from './seismic';
+import { beamSeismic, faceRule, type Seismic } from './seismic';
 import { BEAM_BAR_RANGE, check, inRange, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode, isGenerous } from './types';
 
 const EDITION = '2025' as const;
@@ -275,8 +275,11 @@ function improveSeismic(a: BeamAdopted, s: NonNullable<ReturnType<typeof beamSei
     else if (next.stirrups.dia < 12) next.stirrups = { ...next.stirrups, dia: next.stirrups.dia + 2 };
     else if (!s.veCapped && moreLegsHold(next)) next.stirrups.legs += 2;
   }
-  if (bad('rcSheets.v.seisBeamHalf') || bad('rcSheets.v.seisBeamQuarter')) next.bottom = bumpFace(next.bottom, d, c, next.stirrups.dia);
-  if (bad('rcSheets.v.seisBeamQuarter') && groupsArea(next.top) < groupsArea(next.bottom)) next.top = bumpFace(next.top, d, c, next.stirrups.dia);
+  if (bad('rcSheets.v.seisBeamHalf') || bad('rcSheets.v.seisBeamQuarter')) {
+    const more = faceRule(barsAt(a, 'start'), barsAt(a, 'span'), barsAt(a, 'end')).more;
+    if (more.bottom > 1e-6) next.bottom = bumpFace(next.bottom, d, c, next.stirrups.dia);
+    if (more.top > 1e-6) next.top = bumpFace(next.top, d, c, next.stirrups.dia);
+  }
   return next;
 }
 

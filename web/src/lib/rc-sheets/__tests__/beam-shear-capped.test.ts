@@ -22,4 +22,17 @@ describe('a beam whose shear the section cannot carry', () => {
     const r = beamRow({ ...grade, vu: { value: 300 } }, { ...ctx, seismic: { overstrength: 1.25 } }, undefined, f);
     expect(r.proposed.stirrups.legs).toBeLessThanOrEqual(Math.max(2, r.proposed.bottom[0]!.count));
   });
+
+  it('with chapter 18, adds no bottom bars to a face §18.6.3.2 finds full, which would only raise Ve', () => {
+    const d: BeamDemand = {
+      key: 'beam:62:6', name: 'V6-7', length: 4.5, b: 0.2, h: 0.6,
+      start: env(0, 173.3, 0), span: env(0, 173.3, 0), end: env(4.5, 0, 33.9),
+      negAny: { value: 33.9 }, nNegAny: 0, vu: { value: 311 }, nAtV: 0, tu: { value: 0.7 }, combos: [{ combo: 'U1', v: 311 } as never],
+    };
+    const seismic = { ...ctx, seismic: { overstrength: 1.25 } };
+    const narrow = beamRow(d, seismic, undefined, f);
+    expect(narrow.proposed.bottom).toEqual([{ count: 2, dia: 25 }]);
+    expect(narrow.verifications.filter((v) => !v.ok).map((v) => v.label)).toEqual(['rcSheets.v.seisBeamVe']);
+    expect(beamRow({ ...d, b: 0.3 }, seismic, undefined, f).status).not.toBe('fail');
+  });
 });
