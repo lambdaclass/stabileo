@@ -1257,3 +1257,8 @@ test.testing-move:
 
 test.design.completeness-2096:
 	$(SUBMAKE) test.web.unit FILE='src/lib/engine/__tests__/issue-2096-completeness.test.ts src/lib/engine/__tests__/issue-2096-solved-entries.test.ts src/lib/engine/__tests__/issue-2096-reference.test.ts src/lib/store/__tests__/issue-2096-active-scope.test.ts' VITEST_WORKERS=$(or $(VITEST_WORKERS),2)
+
+.PHONY: test.web.gravity-determinism
+
+test.web.gravity-determinism:
+	nix develop .\#e2e --command bash -c 'cd web && npx playwright test -c determinism/playwright.config.ts gravity-density.spec.ts'

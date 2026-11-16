@@ -17,3 +17,27 @@ export function integrateQuadratic(v: Quadratic, a: number, b: number, x: number
 }
 
 export const hasMemberMoments = (m?: MemberMoments) => !!m && [m.x,m.y,m.z].some(v=>v.some(x=>x!==0));
+
+export interface QuadraticProfilePiece { a: number; b: number; values: Quadratic[] }
+export function coalesceQuadraticProfile(pieces: QuadraticProfilePiece[]): QuadraticProfilePiece[] {
+  const at = (p: QuadraticProfilePiece, x: number) => p.values.map(v => quadraticAt(v, (x - p.a) / (p.b - p.a)));
+  const forward = (ps: QuadraticProfilePiece[]) => {
+    const out: QuadraticProfilePiece[] = [];
+    for (const p of ps) {
+      const last = out.at(-1);
+      if (last && last.b === p.a) {
+        const middle = (last.a + p.b) / 2, mid = at(middle <= last.b ? last : p, middle);
+        const merged = { a: last.a, b: p.b, values: last.values.map((v, k) => [v[0], mid[k]!, p.values[k]![2]] as Quadratic) };
+        const scale = last.values.flat().concat(p.values.flat()).reduce((sum, v) => sum + Math.abs(v), 0);
+        if ([last, p].every(part => [part.a, (part.a + part.b) / 2, part.b].every(x => at(part, x).every((v, k) => Math.abs(v - at(merged, x)[k]!) <= 32 * Number.EPSILON * scale)))) {
+          out[out.length - 1] = merged;
+          continue;
+        }
+      }
+      out.push(p);
+    }
+    return out;
+  };
+  const reverse = (ps: QuadraticProfilePiece[]) => [...ps].reverse().map(p => ({ a: -p.b, b: -p.a, values: p.values.map(v => [v[2], v[1], v[0]] as Quadratic) }));
+  return reverse(forward(reverse(forward(pieces))));
+}

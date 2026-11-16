@@ -45,7 +45,7 @@ import { linearProfile } from '../linear-profile';
  *
  * Pure: no store.
  */
-import { sliceMoments, type MemberMoments } from '../member-moments';
+import { coalesceQuadraticProfile, sliceMoments, type MemberMoments } from '../member-moments';
 import { computeLocalAxes3D } from '../local-axes-3d';
 import { twoWayShares, oneWayShares, signedArea, type Piece, type Side, type SideShare, type Zone2D } from './floor-tributary';
 import type { P2 } from './floor-skeleton';
@@ -383,7 +383,7 @@ function calculateFloorLoad(input: FloorLoadInput): FloorLoadResult {
         if ([moments.x, moments.y, moments.z].every(v => v.every(x => x === 0))) continue;
         const ni = pos(beam.nodeI)!, nj = pos(beam.nodeJ)!;
         const length = Math.sqrt((nj.x-ni.x)**2+(nj.y-ni.y)**2+((nj.z??0)-(ni.z??0))**2);
-        const station = (s: number) => length === seg.s1-seg.s0 ? s-seg.s0 : s === seg.s0 ? 0 : s === seg.s1 ? length : (s-seg.s0)/(seg.s1-seg.s0)*length;
+        const station = (s: number) => s === seg.s0 ? 0 : s === seg.s1 ? length : length === seg.s1-seg.s0 ? s-seg.s0 : (s-seg.s0)/(seg.s1-seg.s0)*length;
         const a = seg.forward ? station(s0) : length-station(s1), b = seg.forward ? station(s1) : length-station(s0);
         memberMoments.push({ panel: k, load: { elementId: seg.elementId, a, b, ...(s1-s0 < MIN_GRAVITY_MEMBER_SPAN ? { spanLength: s1-s0 } : {}), qI: 0, qJ: 0, qXI: 0, qXJ: 0, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, moments } });
       }
@@ -432,13 +432,15 @@ function calculateFloorLoad(input: FloorLoadInput): FloorLoadResult {
     const fx = -axes.ex[2], fy = -axes.ey[2] * ySign, fz = -axes.ez[2];
     const loads: FloorMemberLoad[] = [];
     let total = 0;
-    for (const p of [...mergePieces(list.filter(p => (p.spanLength ?? p.b-p.a) >= MIN_GRAVITY_MEMBER_SPAN)), ...list.filter(p => (p.spanLength ?? p.b-p.a) < MIN_GRAVITY_MEMBER_SPAN)]) {
-      const endpointRoundoff=64*Number.EPSILON*p.len;
-      const full = Math.abs(p.a)<=endpointRoundoff && Math.abs(p.b-p.len)<=endpointRoundoff;
+    for (const p of [...mergePieces(list.filter(p => p.b > p.a)), ...list.filter(p => p.b <= p.a)]) {
+      const length = Math.sqrt((nj.x-ni.x)**2+(nj.y-ni.y)**2+((nj.z??0)-(ni.z??0))**2);
+      const station = (s: number) => s === 0 ? 0 : s === p.len ? length : p.len === length ? s : s / p.len * length;
+      const a = station(p.a), b = station(p.b);
+      const full = a === 0 && b === length;
       loads.push({
         elementId,
         ...(p.spanLength !== undefined && p.spanLength < MIN_GRAVITY_MEMBER_SPAN ? { spanLength: p.spanLength } : {}),
-        ...(full ? {} : { a: p.a, b: p.b }),
+        ...(full ? {} : { a, b }),
         qI: p.qa, qJ: p.qb,
         qXI: fx * p.qa, qXJ: fx * p.qb,
         qYI: fy * p.qa, qYJ: fy * p.qb, qZI: fz * p.qa, qZJ: fz * p.qb,
@@ -466,7 +468,21 @@ function calculateFloorLoad(input: FloorLoadInput): FloorLoadResult {
       panel.own.sides.set(elementId, mine.map((p) => ({ t0: p.a / p.len, t1: p.b / p.len, side: p.side })));
     }
   });
-  for (const { panel, load } of memberMoments) { res.loads.push(load); res.panels[panel]!.own?.loads.push(load); }
+  const momentGroups = new Map<string, typeof memberMoments>();
+  for (const item of memberMoments) {
+    const key = `${item.panel}/${item.load.elementId}`;
+    const list = momentGroups.get(key) ?? [];
+    list.push(item); momentGroups.set(key, list);
+  }
+  for (const list of momentGroups.values()) {
+    const { panel, load } = list[0]!;
+    const profiles = coalesceQuadraticProfile(list.map(({ load }) => ({ a: load.a!, b: load.b!, values: [load.moments!.x, load.moments!.y, load.moments!.z] })).sort((a, b) => a.a - b.a));
+    for (const p of profiles) {
+      const { spanLength: _span, ...base } = load;
+      const merged = { ...base, a: p.a, b: p.b, moments: { x: p.values[0]!, y: p.values[1]!, z: p.values[2]! } };
+      res.loads.push(merged); res.panels[panel]!.own?.loads.push(merged);
+    }
+  }
   const length = (id: number) => { const beam = beamById.get(id)!; const a = P(beam.nodeI), b = P(beam.nodeJ); return Math.hypot(...a.map((v, i) => b[i]! - v)); };
   const bounded = memberLoadSpans(res.loads, length);
   res.loads = bounded.distributed;

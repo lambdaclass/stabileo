@@ -4,7 +4,7 @@ import { codeToModel } from '../../../model/code/format';
 import { floorLoad } from '../floor-loads';
 import { beamLike, gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
-import { assertRegionInvariant, regionModel, expectResultant, loadResultant, type RegionModel, type Resultant } from './physical-region-invariance';
+import { assertRegionInvariant, regionModel, expectResultant, loadResultant, regionVariant, type RegionModel, type Resultant } from './physical-region-invariance';
 
 const fixtureDir = new URL('../../../templates/fixtures/', import.meta.url);
 const codeDir = new URL('../../../templates/examples/', import.meta.url);
@@ -60,3 +60,17 @@ for (const example of examples) it(`physical gravity region invariance: ${exampl
   }
   for (const region of regions) assertRegionInvariant(regionModel([region]), generate);
 });
+
+for (const example of examples) for (const variant of ['rotate', 'mirror', 'remesh', 'ids'] as const) {
+  it(`complete physical gravity fixture: ${example.id}, ${variant}`, () => {
+    const text = readFileSync(example.file, 'utf8');
+    const data = example.code ? codeToModel(text).snapshot! : JSON.parse(text);
+    const entries = (items: unknown[] = []): Array<[number, unknown]> => items.map((v, i) => Array.isArray(v) ? [v[0] as number, v[1]] : [(v as { id?: number }).id ?? i + 1, v]);
+    const model = { nodes: new Map(entries(data.nodes)), elements: new Map(entries(data.elements)), quads: new Map(entries(data.quads)),
+      sections: new Map(entries(data.sections)), materials: new Map(entries(data.materials)), loadCases: data.loadCases ?? [] } as unknown as RegionModel;
+    const generate = (m: RegionModel) => loadResultant(m, planAreaLoads({ layout: gravityLayout(m, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true }), tributaryWidth: 1, floor: { dead: 1, lo: 0, liveOf: () => 0 } }));
+    const expected = generate(model), changed = regionVariant(model, variant);
+    expect(expected.every(Number.isFinite)).toBe(true);
+    expectResultant(changed.back(generate(changed.model)), expected, `${example.id} ${variant}`);
+  });
+}

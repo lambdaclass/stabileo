@@ -9,7 +9,7 @@ const solves = {
   corotational: (s: object) => solve_corotational_2d(JSON.stringify(s), 100, 1e-10, 4),
 };
 for (const [entry, solve] of Object.entries(solves)) for (const axis of ['x', 'y', 'z']) {
-  it.skip(`known wrong result: #2219 plane ${entry} refuses member moment fields ${axis}`, () => {
+  it(`known wrong result: #2219 plane ${entry} refuses member moment fields ${axis}`, () => {
     const s = {
       nodes: { 1: { id: 1, x: 0, z: 0 }, 2: { id: 2, x: 1, z: 0 } },
       elements: { 1: { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 } },
@@ -19,5 +19,9 @@ for (const [entry, solve] of Object.entries(solves)) for (const axis of ['x', 'y
       loads: [{ type: 'distributed', data: { elementId: 1, qI: 0, qJ: 0, a: 0, b: 1, moments: { x: [0, 0, 0], y: [0, 0, 0], z: [0, 0, 0], [axis]: [1, 1, 1] } } }],
     };
     expect(() => solve(s)).toThrow(/moments/);
+    const { moments: _moments, ...force } = s.loads[0]!.data;
+    const good = solve({ ...s, loads: [{ type: 'distributed', data: { ...force, qI: -1, qJ: -1 } }] });
+    const result = typeof good === 'string' ? JSON.parse(good).results : good;
+    expect(result.displacements.find((d: { nodeId: number }) => d.nodeId === 2).uz).toBeCloseTo(-1 / (8 * 1000), 10);
   });
 }

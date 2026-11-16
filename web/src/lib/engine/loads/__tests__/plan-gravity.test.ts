@@ -492,7 +492,6 @@ describe('a share at a re-entrant corner weighs the same in the plan and in the 
     const corner = planned.nodal.filter((n) => n.caseType === 'D');
     expect(corner).toEqual([]);
     expect(planned.distributed.some(d=>d.caseType==='D' && d.moments !== undefined)).toBe(true);
-    expect(corner.every((n) => n.carrier !== undefined && [m.elements.get(n.carrier)!.nodeI, m.elements.get(n.carrier)!.nodeJ].includes(n.nodeId))).toBe(true);
     // The Floor tool, on the same floor standing on columns.
     const nodes = new Map<number, { id: number; x: number; y: number; z: number }>();
     for (const [id, n] of m.nodes) { nodes.set(id, { id, x: n.x, y: n.y, z: 3 }); nodes.set(id + 100, { id: id + 100, x: n.x, y: n.y, z: 0 }); }

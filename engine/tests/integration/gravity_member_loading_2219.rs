@@ -357,7 +357,7 @@ fn round8_endpoint_model(a: f64, b: f64, axis: &str) -> SolverInput3D {
     input.loads.truncate(1);
     if let SolverLoad3D::Distributed(d) = &mut input.loads[0] {
         d.q_zi = 0.0; d.q_zj = 0.0; d.a = Some(a); d.b = Some(b);
-        let values = [1.0 / (b - a); 3];
+        let values = [if b > a { 1.0 / (b - a) } else { 1.0 }; 3];
         let m = d.moments.as_mut().unwrap();
         match axis { "x" => m.x = values, "y" => m.y = values, "z" => m.z = values, _ => unreachable!() }
     }
@@ -365,10 +365,9 @@ fn round8_endpoint_model(a: f64, b: f64, axis: &str) -> SolverInput3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round8_endpoint_straddling_moment_densities_refuse_in_every_spatial_solve() {
     for axis in ["x", "y", "z"] {
-        for (a, b) in [(-1e-14, 1e-14), (1.0 - 1e-14, 1.0 + 1e-14), (-1e-14, 0.0), (1.0, 1.0 + 1e-14), (0.5, 0.5_f64.next_up())] {
+        for (a, b) in [(-1e-14, 1e-14), (1.0 - 1e-14, 1.0 + 1e-14), (-1e-14, 0.0), (1.0, 1.0 + 1e-14), (0.5, 0.5)] {
             let input = round8_endpoint_model(a, b, axis);
             let mut unloaded = input.clone(); unloaded.loads.clear();
             let prepared = linear::prepare_static_3d(&unloaded).unwrap();
@@ -386,10 +385,9 @@ fn round8_endpoint_straddling_moment_densities_refuse_in_every_spatial_solve() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round8_representable_moment_support_has_identical_assembly_and_recovery_endpoints() {
     let allowance = 64.0 * f64::EPSILON;
-    for (a, b) in [(0.0, 1.0), (0.25, 0.75), (-allowance, 0.5), (0.5, 1.0 + allowance), (0.0, 4.0 * allowance), (1.0 - 4.0 * allowance, 1.0)] {
+    for (a, b) in [(0.0, 1.0), (0.25, 0.75), (0.5, 0.5_f64.next_up()), (-allowance, 0.5), (0.5, 1.0 + allowance), (0.0, 4.0 * allowance), (1.0 - 4.0 * allowance, 1.0)] {
         let input = round8_endpoint_model(a, b, "x");
         let mut unloaded = input.clone(); unloaded.loads.clear();
         let prepared = linear::prepare_static_3d(&unloaded).unwrap();

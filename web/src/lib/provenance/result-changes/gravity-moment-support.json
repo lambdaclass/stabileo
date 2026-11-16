@@ -1,0 +1,40 @@
+{
+  "id": "gravity-moment-support",
+  "date": "2026-11-16",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "memberLoads",
+      "generatedLoads",
+      "floorLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Representable member moment supports",
+    "es": "Tramos representables de momentos de barra",
+    "pt": "Trechos representáveis de momentos de barra",
+    "de": "Darstellbare Stabmomentbereiche",
+    "fr": "Supports représentables des moments de barre",
+    "tr": "Temsil edilebilir eleman moment aralıkları",
+    "hu": "Ábrázolható rúdnyomaték-tartományok"
+  },
+  "explanation": {
+    "en": "Member moment densities use the same in-member endpoints for assembly and diagrams. Unsafe endpoint rounding and unrepresentable integration supports refuse. Regenerate affected loading and rerun analyses and checks (#2219).",
+    "es": "Las densidades de momento usan los mismos extremos interiores en el cálculo y los diagramas. Se rechazan redondeos inseguros y tramos no representables. Regenere las cargas afectadas y repita análisis y verificaciones (#2219).",
+    "pt": "As densidades de momento usam os mesmos extremos interiores na montagem e nos diagramas. Arredondamentos inseguros e trechos não representáveis são recusados. Gere as cargas novamente e repita análises e verificações (#2219).",
+    "de": "Momentdichten verwenden bei Montage und Diagrammen dieselben Stabkoordinaten. Unsichere Endpunktrundung und nicht darstellbare Integrationsbereiche werden abgelehnt. Betroffene Lasten neu erzeugen und Berechnungen und Nachweise wiederholen (#2219).",
+    "fr": "Les densités de moment utilisent les mêmes extrémités dans la barre pour le calcul et les diagrammes. Les arrondis dangereux et supports non représentables sont refusés. Régénérer les charges et refaire analyses et vérifications (#2219).",
+    "tr": "Moment yoğunlukları montaj ve diyagramlarda aynı eleman içi uçları kullanır. Güvensiz uç yuvarlamaları ve temsil edilemeyen aralıklar reddedilir. Etkilenen yükleri yeniden üretip analiz ve kontrolleri yineleyin (#2219).",
+    "hu": "A nyomatéksűrűségek az összeállításban és a diagramokban azonos rúdon belüli végpontokat használnak. A nem biztonságos kerekítés és nem ábrázolható tartomány elutasítást kap. Generálja újra a terheket és ismételje meg az elemzéseket és ellenőrzéseket (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round8.md",
+    "heading": "Representable member moment supports"
+  }
+}

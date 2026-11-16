@@ -4008,6 +4008,11 @@ pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -
             SolverLoad3D::Distributed(l) => {
                 if let Some(m) = &l.moments {
                     if !m.x.iter().chain(&m.y).chain(&m.z).all(|v| v.is_finite()) { return Err("Distributed member moments must be finite".into()); }
+                    if let Some(e) = crate::ordered::values(&input.elements).find(|e| e.id == l.element_id) {
+                        let ni = node_map[&e.node_i]; let nj = node_map[&e.node_j];
+                        let length = ((nj.x-ni.x).powi(2)+(nj.y-ni.y).powi(2)+(nj.z-ni.z).powi(2)).sqrt();
+                        l.moment_span(length)?;
+                    }
                     if m.x.iter().chain(&m.y).chain(&m.z).any(|v| *v != 0.0) {
                         if let Some(e) = crate::ordered::values(&input.elements).find(|e| e.id == l.element_id) {
                             let sec = crate::ordered::values(&input.sections).find(|s| s.id == e.section_id).unwrap();
@@ -4015,11 +4020,6 @@ pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -
                             if e.elem_type == "truss" || e.elem_type == "cable" || sec.cw.is_some_and(|v| v > 0.0) {
                                 return Err(format!("Member {}: distributed moments require a frame without warping", l.element_id));
                             }
-                            let ni = node_map[&e.node_i]; let nj = node_map[&e.node_j];
-                            let length = ((nj.x-ni.x).powi(2)+(nj.y-ni.y).powi(2)+(nj.z-ni.z).powi(2)).sqrt();
-                            let a = l.a.unwrap_or(0.0); let b = l.b.unwrap_or(length);
-                            let roundoff = 64.0*f64::EPSILON*length;
-                            if !a.is_finite() || !b.is_finite() || a < -roundoff || b > length+roundoff || b <= a { return Err(format!("Member {}: distributed moment span must lie within the member",l.element_id)); }
                         }
                     }
                 }
@@ -4722,8 +4722,11 @@ pub fn compute_internal_forces_3d_with_loads(
         for load in loads_by_elem.get(&elem.id).unwrap_or(&empty_loads) {
             match load {
                 SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
-                    let a_param = dl.a.unwrap_or(0.0);
-                    let b_param = dl.b.unwrap_or(l);
+                    let (a_param, b_param) = if dl.moments.is_some() {
+                        dl.moment_span(l).expect("distributed moments require a validated support").endpoints()
+                    } else {
+                        (dl.a.unwrap_or(0.0), dl.b.unwrap_or(l))
+                    };
                     if let Some(moments) = &dl.moments { member_moments.push(MemberMomentInfo { a: a_param, b: b_param, moments: moments.clone() }); }
                     let mut fef12 = dl.fef(l, phi_y, phi_z);
                     element::adjust_fef_for_hinges_3d(&mut fef12, l, element::Hinge3D::from_elem(elem), phi_y, phi_z);
@@ -4737,8 +4740,7 @@ pub fn compute_internal_forces_3d_with_loads(
                             f_local[i] -= fef12[i];
                         }
                     }
-                    let a = dl.a.unwrap_or(0.0);
-                    let b = dl.b.unwrap_or(l);
+                    let (a, b) = (a_param, b_param);
                     let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
                     if is_full {
                         q_yi_total += dl.q_yi;

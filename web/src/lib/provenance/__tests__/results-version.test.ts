@@ -185,13 +185,13 @@ describe('results versions', () => {
 it.each(['2d', '3d', 'pro'])('retains the exact gravity regeneration notices after a current solve in %s', mode => {
   const snapshot: FeatureSnapshot = { loadCases: [{ id: 1, type: 'D' }], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'load-plan' } }], designData: { loadBasis: { resultsVersion: 0 } } };
   const stamp = { resultsVersion: RESULT_CHANGES.currentResultsVersion, analyses: ['linear'], recorded: [...ANALYSIS_KINDS] } as unknown as SolveStamp;
-  expect(assessProject(snapshot, stamp, mode).changes.map(c => c.id)).toEqual(['generated-area-loads-headroom', 'gravity-physical-regions', 'gravity-member-loading', 'gravity-torque-projection-and-carriers', 'gravity-stations-and-edits', 'snow-panel-geometry', 'gravity-density-extrema']);
+  expect(assessProject(snapshot, stamp, mode).changes.map(c => c.id)).toEqual(['generated-area-loads-headroom', 'gravity-physical-regions', 'gravity-member-loading', 'gravity-torque-projection-and-carriers', 'gravity-stations-and-edits', 'snow-panel-geometry', 'gravity-density-extrema', 'gravity-moment-support']);
 });
 
 for (const mode of ['2d', '3d', 'pro']) it(`retains the exact generated snow notices after a current solve in ${mode}`, () => {
   const snapshot: FeatureSnapshot = { loadCases: [{ id: 1, type: 'S' }], loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }] };
   const expected = [
-    'generated-area-loads-headroom', 'gravity-density-extrema', 'gravity-member-loading', 'gravity-physical-regions', 'gravity-stations-and-edits', 'gravity-torque-projection-and-carriers', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
+    'generated-area-loads-headroom', 'gravity-density-extrema', 'gravity-member-loading', 'gravity-moment-support', 'gravity-physical-regions', 'gravity-stations-and-edits', 'gravity-torque-projection-and-carriers', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
     'snow-flat-frame', 'snow-local-boundaries', 'snow-member-loading', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-quadratic-intensity', 'snow-ridge-mesh',
     'snow-ridge-orientations', 'snow-roof-connectivity', 'snow-roof-rotation', 'snow-roof-step', 'snow-selected-subsets',
     'snow-surface-regions', 'snow-surface-support',

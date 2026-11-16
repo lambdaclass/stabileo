@@ -9,7 +9,7 @@ const PORT = Number(process.env.DETERMINISM_PORT ?? 5195);
 
 export default defineConfig({
   testDir: '.',
-  testMatch: 'determinism.spec.ts',
+  testMatch: ['determinism.spec.ts', 'gravity-density.spec.ts'],
   outputDir: './.artifacts',
   fullyParallel: false,
   workers: 1,

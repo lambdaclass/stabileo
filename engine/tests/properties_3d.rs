@@ -813,6 +813,7 @@ fn cancelling_member_load_input(kind: usize, factor: f64) -> SolverInput3D {
                 pz: if kind == 1 { value } else { 0.0 },
             }),
             2..5 => SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                moments: None,
                 element_id: 1, a: None, b: None,
                 q_xi: if kind == 2 { value / len } else { 0.0 },
                 q_xj: if kind == 2 { value / len } else { 0.0 },

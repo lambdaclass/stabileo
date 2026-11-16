@@ -82,8 +82,28 @@ pub struct SolverNodalLoad {
     pub my: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+fn refuse_plane_member_moments<'de, D: serde::Deserializer<'de>>(_: D) -> Result<(), D::Error> {
+    Err(serde::de::Error::custom("Distributed member moments require a spatial frame solve"))
+}
+
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PlaneDistributedLoadData<Q, L> {
+    pub(crate) element_id: usize,
+    #[serde(rename = "qI")]
+    pub(crate) q_i: Q,
+    #[serde(rename = "qJ")]
+    pub(crate) q_j: Q,
+    #[serde(default)]
+    pub(crate) a: Option<L>,
+    #[serde(default)]
+    pub(crate) b: Option<L>,
+    #[serde(default, deserialize_with = "refuse_plane_member_moments")]
+    moments: (),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", from = "PlaneDistributedLoadData<f64, f64>")]
 pub struct SolverDistributedLoad {
     pub element_id: usize,
     #[serde(rename = "qI")]
@@ -94,6 +114,12 @@ pub struct SolverDistributedLoad {
     pub a: Option<f64>,
     #[serde(default)]
     pub b: Option<f64>,
+}
+
+impl From<PlaneDistributedLoadData<f64, f64>> for SolverDistributedLoad {
+    fn from(data: PlaneDistributedLoadData<f64, f64>) -> Self {
+        Self { element_id: data.element_id, q_i: data.q_i, q_j: data.q_j, a: data.a, b: data.b }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -489,10 +515,47 @@ pub struct SolverDistributedLoad3D {
     pub b: Option<f64>,
 }
 
+pub(crate) struct MemberMomentSpan {
+    a: f64,
+    b: f64,
+}
+
+impl MemberMomentSpan {
+    fn new(a: f64, b: f64, length: f64) -> Result<Self, ()> {
+        let allowance = 64.0 * f64::EPSILON * length;
+        if !a.is_finite() || !b.is_finite() || !length.is_finite() || length <= 0.0
+            || a < -allowance || b > length + allowance || b <= a {
+            return Err(());
+        }
+        let ca = a.max(0.0);
+        let cb = b.min(length);
+        let h = cb - ca;
+        if h <= 0.0 || !h.is_finite() || (ca - a) + (b - cb) > 128.0 * f64::EPSILON * (b - a) {
+            return Err(());
+        }
+        if ca / length >= cb / length {
+            return Err(());
+        }
+        Ok(Self { a: ca, b: cb })
+    }
+
+    pub(crate) fn endpoints(&self) -> (f64, f64) {
+        (self.a, self.b)
+    }
+}
+
 impl SolverDistributedLoad3D {
+    pub(crate) fn moment_span(&self, length: f64) -> Result<MemberMomentSpan, String> {
+        MemberMomentSpan::new(self.a.unwrap_or(0.0), self.b.unwrap_or(length), length)
+            .map_err(|()| format!("Member {}: distributed moment span must have representable support within the member (a={:?}, b={:?}, L={length})", self.element_id, self.a, self.b))
+    }
+
     pub fn fef(&self, l: f64, phi_y: f64, phi_z: f64) -> [f64; 12] {
-        let a = self.a.unwrap_or(0.0);
-        let b = self.b.unwrap_or(l);
+        let (a, b) = if self.moments.is_some() {
+            self.moment_span(l).expect("distributed moments require a validated support").endpoints()
+        } else {
+            (self.a.unwrap_or(0.0), self.b.unwrap_or(l))
+        };
         let mut f = if a.abs() < 1e-12 && (b - l).abs() < 1e-12 {
             crate::element::fef::fef_distributed_3d(self.q_yi, self.q_yj, self.q_zi, self.q_zj, l, phi_y, phi_z)
         } else {

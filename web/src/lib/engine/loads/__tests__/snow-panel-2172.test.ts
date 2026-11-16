@@ -33,11 +33,15 @@ for (const angle of [0, 0.37, Math.PI / 2]) for (const mode of ['projected', 'wi
     for (const witness of [model, refinedRafter]) {
       if (mode === 'panels') {
         const pieces = gravityLayout(witness, { mode, tributaryWidth: 1, loadEveryPanel: true }).pieces;
-        expect(pieces).toHaveLength(angle === Math.PI / 2 ? 9 : 8);
+        expect(pieces).toHaveLength(8);
         const unsupported = pieces.filter(p => (p.b ?? Infinity) - (p.a ?? 0) < 1e-12);
-        expect(unsupported).toHaveLength(angle === Math.PI / 2 ? 1 : 0);
+        expect(unsupported).toEqual([]);
         expect(pieces.filter(p => !unsupported.includes(p))).toHaveLength(8);
-        for (const p of unsupported) expect(() => assertMemberLoadSpan(p.elementId, p.a ?? 0, p.b!)).toThrow(/Member .*span.*native/);
+        for (const p of pieces) {
+          const e = witness.elements.get(p.elementId)!, a = witness.nodes.get(e.nodeI)!, b = witness.nodes.get(e.nodeJ)!;
+          const length = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
+          expect(() => assertMemberLoadSpan(p.elementId, p.a ?? 0, p.b ?? length)).not.toThrow();
+        }
       }
       generate(witness);
     }

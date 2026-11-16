@@ -1032,7 +1032,7 @@
                     bind:service={windService}
                     speed={windV} exposure={windExposure} altitude={windAltitude}
                     kzt={windKztSurveyed ? windKzt : 1}
-                    elevations={levelsWithPlanArea({ nodes: modelStore.nodes } as never).map((l) => l.elevation)}
+                    elevations={levelsWithPlanArea(modelSlice()).map((l) => l.elevation)}
                   />
                   <ProWindStructure bind:config={windStructure} />
                   {#if windStructure.kind === 'building'}

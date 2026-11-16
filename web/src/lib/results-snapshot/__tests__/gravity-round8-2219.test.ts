@@ -14,7 +14,7 @@ function fixture(a: number, b: number, axis: 'x' | 'y' | 'z') {
   s.nodes = { 1: { id: 1, x: 0, y: 0, z: 0 }, 2: { id: 2, x: 1, y: 0, z: 0 } };
   s.elements = { 1: { ...s.elements['1'], nodeI: 1, nodeJ: 2 } };
   s.supports = { 1: { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true } };
-  const q = 1 / (b - a);
+  const q = b > a ? 1 / (b - a) : 1;
   s.loads = [{ type: 'distributed', data: { elementId: 1, a, b, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, moments: { x: [0, 0, 0], y: [0, 0, 0], z: [0, 0, 0], [axis]: [q, q, q] } } }];
   return s;
 }
@@ -23,18 +23,18 @@ const solves = [
   (s: ReturnType<typeof fixture>): AnalysisResults3D => JSON.parse(solve_pdelta_3d(JSON.stringify(s), 100, 1e-10)).results,
   (s: ReturnType<typeof fixture>): AnalysisResults3D => JSON.parse(solve_corotational_3d(JSON.stringify(s), 100, 1e-10, 4)).results,
 ];
-for (const axis of ['x', 'y', 'z'] as const) for (const [a, b] of [[-1e-14, 1e-14], [1 - 1e-14, 1 + 1e-14], [-1e-14, 0], [1, 1 + 1e-14], [0.5, 0.5 + Number.EPSILON / 2]]) {
-  it.skip(`known wrong result: #2219 WASM refuses unsafe moment support ${axis} [${a},${b}]`, () => {
+for (const axis of ['x', 'y', 'z'] as const) for (const [a, b] of [[-1e-14, 1e-14], [1 - 1e-14, 1 + 1e-14], [-1e-14, 0], [1, 1 + 1e-14], [0.5, 0.5]]) {
+  it(`known wrong result: #2219 WASM refuses unsafe moment support ${axis} [${a},${b}]`, () => {
     for (const solve of solves) expect(() => solve(fixture(a!, b!, axis))).toThrow(/distributed moment span/);
   });
 }
 const allowance = 64 * Number.EPSILON;
-for (const [a, b] of [[0, 1], [0.25, 0.75], [-allowance, 0.5], [0.5, 1 + allowance], [0, 4 * allowance], [1 - 4 * allowance, 1]]) {
-  it.skip(`known wrong result: #2219 WASM uses canonical support in assembly and recovery [${a},${b}]`, () => {
+for (const [a, b] of [[0, 1], [0.25, 0.75], [0.5, 0.5 + Number.EPSILON / 2], [-allowance, 0.5], [0.5, 1 + allowance], [0, 4 * allowance], [1 - 4 * allowance, 1]]) {
+  it(`known wrong result: #2219 WASM uses canonical support in assembly and recovery [${a},${b}]`, () => {
     const ca = Math.max(0, a!), cb = Math.min(1, b!), q = 1 / (b! - a!), total = q * (cb - ca);
     for (const solve of solves) {
       const result = solve(fixture(a!, b!, 'x')), ef = result.elementForces[0]!;
-      expect(ef.memberMoments[0]!.a).toBe(ca); expect(ef.memberMoments[0]!.b).toBe(cb);
+      expect(ef.memberMoments![0]!.a).toBe(ca); expect(ef.memberMoments![0]!.b).toBe(cb);
       expect(ef.mxStart).toBeCloseTo(-total, 10);
       for (const x of [0, ca, ca + (cb - ca) / 4, ca + (cb - ca) / 2, cb, 1]) {
         expect(evaluateDiagramAt(ef, 'torsion', x)).toBeCloseTo(-total + q * Math.max(0, Math.min(x - ca, cb - ca)), 10);
@@ -45,8 +45,8 @@ for (const [a, b] of [[0, 1], [0.25, 0.75], [-allowance, 0.5], [0.5, 1 + allowan
   });
 }
 
-for (const [a, b] of [[-allowance, 0.49], [0.51, 1 + allowance], [-allowance, 4 * allowance], [1 - 4 * allowance, 1 + allowance], [-allowance, allowance], [1 - allowance, 1 + allowance], [-allowance - Number.EPSILON ** 2, 0.5], [0.5, 1 + allowance + Number.EPSILON]]) {
-  it.skip(`known wrong result: #2219 WASM refuses endpoint rounding beyond span precision [${a},${b}]`, () => {
+for (const [a, b] of [[-allowance, 0.49], [0.51, 1 + allowance], [-allowance, 4 * allowance], [1 - 4 * allowance, 1 + allowance], [-allowance, allowance], [1 - allowance, 1 + allowance], [-allowance - allowance * Number.EPSILON, 0.5], [0.5, 1 + allowance + Number.EPSILON]]) {
+  it(`known wrong result: #2219 WASM refuses endpoint rounding beyond span precision [${a},${b}]`, () => {
     for (const solve of solves) expect(() => solve(fixture(a!, b!, 'x'))).toThrow(/distributed moment span/);
   });
 }

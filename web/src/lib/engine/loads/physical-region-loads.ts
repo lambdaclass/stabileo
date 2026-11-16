@@ -1,3 +1,4 @@
+import { coalesceQuadraticProfile } from '../member-moments';
 import { linearProfile } from '../linear-profile';
 import fastClipping from 'polygon-clipping';
 import BigNumber from 'bignumber.js';
@@ -166,29 +167,9 @@ function loadedRegion(sides: Side[], holes: Side[][], zone: Zone2D | undefined, 
   return subtractRegions(r, unionRegions(excluded.map(p => physicalRegion(p))));
 }
 
-function coalesceMomentPieces(pieces: SideShare['moments']): SideShare['moments'] {
-  const out: SideShare['moments'] = [];
-  const at = (p: SideShare['moments'][number], x: number): P2 => {
-    const t=(x-p.s0)/(p.s1-p.s0);
-    return [0,1].map(axis => p.first[0][axis]!*(2*t*t-3*t+1)+p.first[1][axis]!*(4*t-4*t*t)+p.first[2][axis]!*(2*t*t-t)) as P2;
-  };
-  for (const p of pieces) {
-    const last=out.at(-1);
-    if (last && last.s1===p.s0) {
-      const middle=(last.s0+p.s1)/2;
-      const merged={s0:last.s0,s1:p.s1,first:[last.first[0],at(middle<=last.s1?last:p,middle),p.first[2]] as [P2,P2,P2]};
-      const scale=last.first.flat().concat(p.first.flat()).reduce((sum,v)=>sum+Math.abs(v),0);
-      const matches=[last,p].every(part => [part.s0,(part.s0+part.s1)/2,part.s1].every(x => at(part,x).every((v,k)=>Math.abs(v-at(merged,x)[k]!)<=32*Number.EPSILON*scale)));
-      if(matches) {out[out.length-1]=merged;continue;}
-    }
-    out.push(p);
-  }
-  return out;
-}
-
 function coalesceMomentProfile(pieces: SideShare['moments']): SideShare['moments'] {
-  const reverse = (values: SideShare['moments']): SideShare['moments'] => [...values].reverse().map(p => ({s0:-p.s1,s1:-p.s0,first:[p.first[2],p.first[1],p.first[0]]}));
-  return reverse(coalesceMomentPieces(reverse(coalesceMomentPieces(pieces))));
+  return coalesceQuadraticProfile(pieces.map(p => ({ a: p.s0, b: p.s1, values: [0, 1].map(k => p.first.map(v => v[k]!) as [number, number, number]) })))
+    .map(p => ({ s0: p.a, s1: p.b, first: [0, 1, 2].map(k => [p.values[0]![k]!, p.values[1]![k]!]) as [P2, P2, P2] }));
 }
 
 export function transferRegionToSide(e: Side, region: PhysicalRegion, q: number, direction: P2 = e.n): SideShare {
@@ -394,14 +375,17 @@ export function transferRegionToCarriers(model: { nodes: Map<number, { x: number
     if (!(len > 0)) throw new Error('Physical load region has a zero-length carrier');
     const u: P2 = [(b.x - a.x) / len, (b.y - a.y) / len];
     const side: Side = { a: [a.x, a.y], b: [b.x, b.y], u, n: [-u[1], u[0]], len, nodeA: e.nodeI, nodeB: e.nodeJ, segments: [{ elementId: id, s0: 0, s1: len, forward: true }] };
-    return { id, side };
+    const length = Math.sqrt((b.x-a.x)**2+(b.y-a.y)**2);
+    return { id, side, length };
   });
   if (!carriers.length && region.polygons.length) throw new Error('Physical load region has no carrier');
   const owned = partitionRegionToSides(carriers.map(c => c.side), region);
   for (const [k,c] of carriers.entries()) {
     const share = transferRegionToSide(c.side, owned[k]!, 1);
     pieces.push(...share.pieces.map(p => ({ elementId: c.id, a: p.s0, b: p.s1, wI: p.q0, wJ: p.q1 })));
-    moments.push(...share.moments.map(p => ({ elementId: c.id, a: p.s0, b: p.s1, first: p.first })));
+    const station = (s: number) => s === 0 ? 0 : s === c.side.len ? c.length : c.length === c.side.len ? s : s / c.side.len * c.length;
+    const scale = c.side.len / c.length;
+    moments.push(...share.moments.map(p => ({ elementId: c.id, a: station(p.s0), b: station(p.s1), first: p.first.map(v => v.map(x => x * scale) as P2) as [P2, P2, P2] })));
   }
   const expected = regionIntegral(region).area;
   const actual = pieces.reduce((s, p) => s + (p.wI + p.wJ) * (p.b - p.a) / 2, 0) + couples.reduce((s, p) => s + p.w, 0);

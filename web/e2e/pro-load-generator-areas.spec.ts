@@ -57,10 +57,10 @@ test.describe('@smoke torsion of edge beams under one-sided slab load (#1401)', 
     await openDialog(page);
     await page.getByTestId('al-preview-btn').click();
     const box = page.getByTestId('al-assumptions');
-    await expect(box).toContainText('Torsion from one-sided slab load is not included');
-    await expect(box).toContainText(/Check these edge beams for torsion: \d+(, \d+)*\./);
+    await expect(box).toContainText('including the eccentric moments transferred with generated floor loads');
+    await expect(box).toContainText(/Check these edge beams for torsion, including the eccentric moments transferred with generated floor loads: \d+(, \d+)*\./);
     await page.getByTestId('al-derivation').locator('summary').click();
-    await expect(page.getByTestId('al-derivation')).toContainText('Torsion from one-sided slab load is not included');
+    await expect(page.getByTestId('al-derivation')).toContainText('including the eccentric moments transferred with generated floor loads');
   });
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 }]) {

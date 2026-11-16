@@ -722,7 +722,7 @@ mod wire {
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase", deny_unknown_fields)]
+    #[serde(rename_all = "camelCase", from = "super::super::PlaneDistributedLoadData<LineLoad, Length>")]
     pub struct SolverDistributedLoad {
         pub element_id: usize,
         #[serde(rename = "qI")]
@@ -733,6 +733,12 @@ mod wire {
         pub a: Option<Length>,
         #[serde(default)]
         pub b: Option<Length>,
+    }
+
+    impl From<super::super::PlaneDistributedLoadData<LineLoad, Length>> for SolverDistributedLoad {
+        fn from(data: super::super::PlaneDistributedLoadData<LineLoad, Length>) -> Self {
+            Self { element_id: data.element_id, q_i: data.q_i, q_j: data.q_j, a: data.a, b: data.b }
+        }
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]

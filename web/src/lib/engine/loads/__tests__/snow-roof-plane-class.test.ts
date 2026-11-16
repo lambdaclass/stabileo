@@ -68,7 +68,7 @@ for (const factor of [0.999, 1.001]) {
 }
 
 for (const slope of [0, 20]) for (const angle of [0, 0.37, 1.1]) {
-  it.skip(`a roof without a step keeps its balanced answer: slope ${slope}, rotation ${angle}`, () => {
+  it(`a roof without a step keeps its balanced answer: slope ${slope}, rotation ${angle}`, () => {
     const model = transformed(auditRoof('gable', slope), angle, 1, 0);
     const out = run(model);
     expect(out.derivation.some(d => d.key === 'snow.derivation.drift')).toBe(false);
@@ -128,11 +128,14 @@ it('an isolated diagonal cannot determine a plane over a two-dimensional footpri
   expect(() => snowRoofSurfaces(model, layout)(0)).toThrow('snow.refused.roofPlane');
 });
 
-function compareCases(actual: ReturnType<typeof run>, expected: ReturnType<typeof run>) {
+function compareCases(actual: ReturnType<typeof run>, expected: ReturnType<typeof run>, actualModel = stepRoof(), expectedModel = stepRoof()) {
   expect(actual.cases.length).toBe(expected.cases.length);
   for (const [i, c] of actual.cases.entries()) {
-    const list = (xs: typeof c.distributed) => [...xs].sort((a, b) => a.elementId - b.elementId || (a.a ?? 0) - (b.a ?? 0) || (a.b ?? 1e9) - (b.b ?? 1e9) || a.q - b.q);
-    const a = list(c.distributed), b = list(expected.cases[i]!.distributed);
+    const list = (xs: typeof c.distributed, model: typeof actualModel) => xs.map(d => {
+      const e = model.elements.get(d.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+      return { ...d, a: d.a ?? 0, b: d.b ?? Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)), qJ: d.qJ ?? d.q };
+    }).sort((a, b) => a.elementId - b.elementId || (a.a ?? 0) - (b.a ?? 0) || (a.b ?? 1e9) - (b.b ?? 1e9) || a.q - b.q);
+    const a = list(c.distributed, actualModel), b = list(expected.cases[i]!.distributed, expectedModel);
     expect(a.length).toBe(b.length);
     for (const [j, load] of a.entries()) {
       expect(load.elementId).toBe(b[j]!.elementId);
@@ -152,7 +155,7 @@ for (const angle of [0.37, -0.8, 1.1, Math.PI / 2]) {
       const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 1 });
       const out = snowLoadCases({ model: m, snow: { ...snow, partial: true }, layout, tributaryWidth: 1 })!;
       const ref = snowLoadCases({ model: base, snow: { ...snow, partial: true }, layout: gravityLayout(base, { mode: 'panels', tributaryWidth: 1 }), tributaryWidth: 1 })!;
-      compareCases(out, ref);
+      compareCases(out, ref, m, base);
     }
   });
 }
@@ -217,7 +220,7 @@ for (const angle of [0.37, 1.1, Math.PI / 2]) {
   it(`unbalanced snow uses the roof direction at rotation ${angle}`, () => {
     const base = auditRoof('gable', 20);
     const rotated = transformed(auditRoof('gable', 20), angle, 1, 1);
-    compareCases(run(rotated), run(base));
+    compareCases(run(rotated), run(base), rotated, base);
     expect(run(rotated).cases.filter(c => c.nameKey === 'snow.case.unbalanced')).toHaveLength(2);
   });
 }
