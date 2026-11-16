@@ -3396,6 +3396,8 @@ const zh: Translations = {
   'design.batch.fieldTies': '箍筋',
   'design.batch.count': '数量',
   'design.batch.diameter': '直径',
+  'design.batch.legsOutOfRange': '{field}：{legs} 肢；请输入 2 到 6 的整数。',
+  'design.batch.secondaryLegs': '次方向抗剪肢数（含拉筋）',
   'design.batch.legs': '肢数',
   'design.batch.spacing': '间距 (m)',
   'design.batch.spacingShort': 's',

@@ -1,3 +1,4 @@
+import { migrateDirectionalStirrups } from '../../design-contract/directional-stirrups';
 /**
  * Stable canonical hash of a ProvidedReinforcement.
  *
@@ -26,7 +27,7 @@ import { canonicalJson, fnv1a } from './canonical-hash';
  */
 export function canonicalRebarJson(reinf: ProvidedReinforcement | undefined): string {
   if (!reinf) return 'none';
-  return canonicalJson(reinf);
+  return canonicalJson(migrateDirectionalStirrups(reinf));
 }
 
 /**

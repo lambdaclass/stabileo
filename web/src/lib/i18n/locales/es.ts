@@ -7369,6 +7369,8 @@ const es: Record<string, string> = {
   'design.batch.fieldTies': 'Estribos',
   'design.batch.count': 'cantidad',
   'design.batch.diameter': 'Ø',
+  'design.batch.legsOutOfRange': '{field}: {legs} ramas; ingresá un entero entre 2 y 6.',
+  'design.batch.secondaryLegs': 'ramas para corte secundario (incluye trabas)',
   'design.batch.legs': 'ramas',
   'design.batch.spacing': 's (m)',
   'design.batch.perFace': 'por cara',

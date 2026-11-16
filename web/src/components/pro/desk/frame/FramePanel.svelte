@@ -85,6 +85,7 @@
       <div class="fp-grid">
         <label>eØ<select value={zone.diameter} onchange={(e) => apply(updateZone(line, zone.id, { diameter: Number(e.currentTarget.value) }))}>{#each DIAS.filter((d) => d <= 12) as d}<option value={d}>{d}</option>{/each}</select></label>
         <label>{t('frameEd.legs')}<input type="number" min="2" max="6" value={zone.legs} onchange={(e) => apply(updateZone(line, zone.id, { legs: num(e) }))} /></label>
+        <label>{t('design.batch.secondaryLegs')}<input type="number" min="2" max="6" value={zone.secondaryLegs ?? 2} onchange={(e) => apply(updateZone(line, zone.id, { secondaryLegs: num(e) }))} /></label>
         <label>{t('frameEd.spacing')}<input type="number" min="5" max="50" step="2.5" value={(zone.spacing * 100).toFixed(1)} onchange={(e) => apply(updateZone(line, zone.id, { spacing: num(e) / 100 }))} data-testid="frame-zone-spacing" /> cm</label>
       </div>
       <div class="fp-row">

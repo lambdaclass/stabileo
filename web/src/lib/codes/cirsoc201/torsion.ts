@@ -10,6 +10,8 @@
  * through 20.2.1.3). The section limit's 0,66·√f'c and the minimums of 9.6.4 read √f'c as is:
  * the text limits only Tth, Tcr and Vc.
  */
+import type { StirrupDef } from '../../design-contract/reinforcement';
+import { stirrupLegs, shearProvision } from '../../design-contract/directional-stirrups';
 import type { ConcurrentSectionDemand } from '../../engine/concurrent-demand';
 import { shearFy, shearSqrtFc } from '../../engine/codes/argentina/cirsoc201-basis';
 
@@ -20,7 +22,7 @@ export interface TorsionInput {
   fc: number; fy: number; fyt: number;
   demand: ConcurrentSectionDemand;
   /** The stirrups there are: diameter, mm; legs; spacing, m. */
-  stirrup?: { diameter: number; legs: number; spacing: number };
+  stirrup?: StirrupDef;
 }
 
 export interface TorsionCheck {
@@ -32,6 +34,9 @@ export interface TorsionCheck {
   shearSectionRatio: number;
   /** (Av + 2At)/s needed for shear and torsion together, with its minimum, m²/m. */
   transverseRequired: number;
+  transversePrimaryRequired: number;
+  transverseSecondaryRequired: number;
+  transverseSecondaryProvided: number;
   /** At/s needed for torsion, m²/m: what one outer leg must carry. */
   AtOverS: number;
   /** What the stirrups give: all legs, and one outer leg, m²/m. */
@@ -48,7 +53,8 @@ const PHI = 0.75;
 
 export function providedTorsionStirrups(stirrup: NonNullable<TorsionInput['stirrup']>) {
   const Ab = (Math.PI * (stirrup.diameter / 1000) ** 2) / 4;
-  return { transverseProvided: (stirrup.legs * Ab) / stirrup.spacing, outerLegProvided: Ab / stirrup.spacing };
+  return { transverseProvided: shearProvision('primary', stirrupLegs(stirrup, 'primary'), Ab, stirrup.spacing),
+    transverseSecondaryProvided: shearProvision('secondary', stirrupLegs(stirrup, 'secondary'), Ab, stirrup.spacing), outerLegProvided: Ab / stirrup.spacing };
 }
 
 export function checkTorsion2025(input: TorsionInput): TorsionCheck {
@@ -69,20 +75,24 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const AtOverS = Tu / (PHI * 2 * Ao * i.fyt * 1000);
   const Vs = Math.max(0, Vu / PHI - vc * i.b * i.d);
   const VsSecondary = Math.max(0, VuSecondary / PHI - vc * i.h * i.dSecondary);
-  const AvOverS = Math.max(Vs / (i.fyt * 1000 * i.d), VsSecondary / (i.fyt * 1000 * i.dSecondary));
+  const AvOverS = Vs / (i.fyt * 1000 * i.d);
+  const AvSecondaryOverS = VsSecondary / (i.fyt * 1000 * i.dSecondary);
   const min = Math.max(0.062 * sq, 0.35) * i.b / i.fyt;
-  const transverseRequired = Math.max(AvOverS + 2 * AtOverS, min);
-  const { transverseProvided, outerLegProvided } = i.stirrup
-    ? providedTorsionStirrups(i.stirrup) : { transverseProvided: 0, outerLegProvided: 0 };
+  const transversePrimaryRequired = Math.max(AvOverS + 2 * AtOverS, min);
+  const transverseSecondaryRequired = Math.max(AvSecondaryOverS + 2 * AtOverS, min);
+  const transverseRequired = Math.max(transversePrimaryRequired, transverseSecondaryRequired);
+  const { transverseProvided, transverseSecondaryProvided, outerLegProvided } = i.stirrup
+    ? providedTorsionStirrups(i.stirrup) : { transverseProvided: 0, transverseSecondaryProvided: 0, outerLegProvided: 0 };
   const Al = AtOverS * ph * (i.fyt / i.fy);
   const AlMin = Math.max(0, (0.42 * sq * Acp) / i.fy - Math.max(AtOverS, (0.175 * i.b) / i.fyt) * ph * (i.fyt / i.fy));
   const sMax = Math.min(ph / 8, 0.3);
   const neglect = Tu < phiTth;
   const ratios = neglect ? [0] : [
     sectionRatio,
-    transverseProvided > 0 ? transverseRequired / transverseProvided : Number.POSITIVE_INFINITY,
+    transverseProvided > 0 ? transversePrimaryRequired / transverseProvided : Number.POSITIVE_INFINITY,
+    transverseSecondaryProvided > 0 ? transverseSecondaryRequired / transverseSecondaryProvided : Number.POSITIVE_INFINITY,
     outerLegProvided > 0 ? AtOverS / outerLegProvided : Number.POSITIVE_INFINITY,
     i.stirrup ? i.stirrup.spacing / sMax : Number.POSITIVE_INFINITY,
   ];
-  return { phiTth, neglect, sectionRatio, shearSectionRatio, transverseRequired, AtOverS, transverseProvided, outerLegProvided, Al, AlMin, sMax, ratio: Math.max(...ratios) };
+  return { phiTth, neglect, sectionRatio, shearSectionRatio, transverseRequired, transversePrimaryRequired, transverseSecondaryRequired, transverseSecondaryProvided, AtOverS, transverseProvided, outerLegProvided, Al, AlMin, sMax, ratio: Math.max(...ratios) };
 }

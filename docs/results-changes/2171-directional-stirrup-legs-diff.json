@@ -1,0 +1,574 @@
+{
+  "mainRevision": "9d925a78093db05bf8b50eb125aa829fa5dd955d",
+  "search": {
+    "cases": 288,
+    "silentOverallPasses": 168,
+    "widths": [
+      0.2,
+      0.3,
+      0.4
+    ],
+    "heights": [
+      0.3,
+      0.4,
+      0.6
+    ],
+    "exclude": "height < width",
+    "spacings": [
+      0.05,
+      0.1,
+      0.15
+    ],
+    "primaryLegs": [
+      4,
+      6
+    ],
+    "torques": [
+      0,
+      10,
+      30
+    ],
+    "editions": [
+      "2005",
+      "2025"
+    ],
+    "secondaryShear": "1.05 times the native section evaluator capacity with two effective horizontal legs"
+  },
+  "reproducerCommit": "05d6dd937688ad21a6d5ceede53353cd0e95cb8b",
+  "editions": {
+    "2005": [
+      {
+        "input": {
+          "b": 0.2,
+          "h": 0.4,
+          "shear": 94.6422855,
+          "torque": 0,
+          "spacing": 0.1,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "primaryLegs": 4,
+          "secondaryLegs": "absent: 2 effective horizontal legs",
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 0,
+          "AlProv": 100
+        },
+        "main": {
+          "overallStatus": "ok",
+          "flexureStatus": "ok",
+          "columnStatus": "ok",
+          "shear": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 224.37499999999997,
+            "ratio": 0,
+            "status": "ok"
+          },
+          "shearSecondary": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 140.52102,
+            "ratio": 0.6735098101337437,
+            "status": "ok"
+          }
+        },
+        "fixed": {
+          "overallStatus": "fail",
+          "flexureStatus": "ok",
+          "columnStatus": "ok",
+          "shear": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 224.37499999999997,
+            "ratio": 0,
+            "status": "ok"
+          },
+          "shearSecondary": {
+            "stirrupLegs": 2,
+            "spacing": 0.1,
+            "phiVn": 90.13551,
+            "ratio": 1.05,
+            "status": "fail"
+          }
+        },
+        "source": "zero-torque case captured in the 288-case main search; verified by the final silent-pass test"
+      },
+      {
+        "input": {
+          "b": 0.2,
+          "h": 0.4,
+          "shear": 94.6422855,
+          "torque": 10,
+          "spacing": 0.1,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "primaryLegs": 4,
+          "secondaryLegs": "absent: 2 effective horizontal legs",
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 0,
+          "AlProv": 100
+        },
+        "main": {
+          "overallStatus": "ok",
+          "flexureStatus": "ok",
+          "columnStatus": "ok",
+          "shear": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 224.37499999999997,
+            "ratio": 0,
+            "status": "ok"
+          },
+          "shearSecondary": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 140.52102,
+            "ratio": 0.6735098101337437,
+            "status": "ok"
+          },
+          "torsion": {
+            "ratio": 0.8831665627356527,
+            "status": "ok",
+            "reinforcementRatio": 0.8408284901770852,
+            "AtOverS": 3.8452632240332636,
+            "AtOverSProv": 4.573183793074638,
+            "AlReq": 3.7222148008641995,
+            "AlProv": 100
+          }
+        },
+        "fixed": {
+          "overallStatus": "fail",
+          "flexureStatus": "ok",
+          "columnStatus": "ok",
+          "shear": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 224.37499999999997,
+            "ratio": 0,
+            "status": "ok"
+          },
+          "shearSecondary": {
+            "stirrupLegs": 2,
+            "spacing": 0.1,
+            "phiVn": 90.13551,
+            "ratio": 1.05,
+            "status": "fail"
+          },
+          "torsion": {
+            "ratio": 0.8831665627356527,
+            "status": "fail",
+            "reinforcementRatio": "Infinity",
+            "AtOverS": 3.8452632240332636,
+            "AtOverSProv": 0,
+            "AlReq": 3.7222148008641995,
+            "AlProv": 100
+          }
+        }
+      },
+      {
+        "input": {
+          "b": 0.3,
+          "h": 0.6,
+          "shear": 220.235,
+          "torque": 30,
+          "spacing": 0.1,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "primaryLegs": 4,
+          "secondaryLegs": "absent: 2 effective horizontal legs",
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 0,
+          "AlProv": 100
+        },
+        "main": {
+          "overallStatus": "fail",
+          "flexureStatus": "ok",
+          "columnStatus": "ok",
+          "shear": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 459.0955199999999,
+            "ratio": 0,
+            "status": "ok"
+          },
+          "shearSecondary": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 261.27401999999995,
+            "ratio": 0.8429272837766267,
+            "status": "ok"
+          },
+          "torsion": {
+            "ratio": 0.58040638195114,
+            "status": "fail",
+            "reinforcementRatio": 1.7028804379165154,
+            "AtOverS": 4.271172651305651,
+            "AtOverSProv": 2.5082046608812165,
+            "AlReq": 6.69719871724726,
+            "AlProv": 100
+          }
+        },
+        "fixed": {
+          "overallStatus": "fail",
+          "flexureStatus": "ok",
+          "columnStatus": "ok",
+          "shear": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 459.0955199999999,
+            "ratio": 0,
+            "status": "ok"
+          },
+          "shearSecondary": {
+            "stirrupLegs": 2,
+            "spacing": 0.1,
+            "phiVn": 179.19950999999995,
+            "ratio": 1.2289933158857413,
+            "status": "fail"
+          },
+          "torsion": {
+            "ratio": 0.58040638195114,
+            "status": "fail",
+            "reinforcementRatio": "Infinity",
+            "AtOverS": 4.271172651305651,
+            "AtOverSProv": 0,
+            "AlReq": 6.69719871724726,
+            "AlProv": 100
+          }
+        }
+      }
+    ],
+    "2025": [
+      {
+        "input": {
+          "b": 0.2,
+          "h": 0.4,
+          "shear": 95.4770355,
+          "torque": 0,
+          "spacing": 0.1,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "primaryLegs": 4,
+          "secondaryLegs": "absent: 2 effective horizontal legs",
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 0,
+          "AlProv": 100
+        },
+        "main": {
+          "overallStatus": "ok",
+          "flexureStatus": "ok",
+          "columnStatus": "ok",
+          "shear": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 223.4775,
+            "ratio": 0,
+            "status": "ok"
+          },
+          "shearSecondary": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 141.31601999999998,
+            "ratio": 0.6756278269087964,
+            "status": "ok"
+          }
+        },
+        "fixed": {
+          "overallStatus": "fail",
+          "flexureStatus": "ok",
+          "columnStatus": "ok",
+          "shear": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 223.4775,
+            "ratio": 0,
+            "status": "ok"
+          },
+          "shearSecondary": {
+            "stirrupLegs": 2,
+            "spacing": 0.1,
+            "phiVn": 90.93051,
+            "ratio": 1.05,
+            "status": "fail"
+          }
+        },
+        "source": "zero-torque case captured in the 288-case main search; verified by the final silent-pass test"
+      },
+      {
+        "input": {
+          "b": 0.2,
+          "h": 0.4,
+          "shear": 95.4770355,
+          "torque": 10,
+          "spacing": 0.1,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "primaryLegs": 4,
+          "secondaryLegs": "absent: 2 effective horizontal legs",
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 0,
+          "AlProv": 100
+        },
+        "main": {
+          "overallStatus": "ok",
+          "flexureStatus": "ok",
+          "columnStatus": "ok",
+          "shear": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 223.4775,
+            "ratio": 0,
+            "status": "ok"
+          },
+          "shearSecondary": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 141.31601999999998,
+            "ratio": 0.6756278269087964,
+            "status": "ok"
+          },
+          "torsion": {
+            "ratio": 0.885494039744633,
+            "status": "ok",
+            "reinforcementRatio": 0.8415587295287219,
+            "AtOverS": 3.8452632240332636,
+            "AtOverSProv": 4.569215539106385,
+            "AlReq": 3.7222148008641995,
+            "AlProv": 100
+          }
+        },
+        "fixed": {
+          "overallStatus": "fail",
+          "flexureStatus": "ok",
+          "columnStatus": "ok",
+          "shear": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 223.4775,
+            "ratio": 0,
+            "status": "ok"
+          },
+          "shearSecondary": {
+            "stirrupLegs": 2,
+            "spacing": 0.1,
+            "phiVn": 90.93051,
+            "ratio": 1.05,
+            "status": "fail"
+          },
+          "torsion": {
+            "ratio": 0.885494039744633,
+            "status": "fail",
+            "reinforcementRatio": "Infinity",
+            "AtOverS": 3.8452632240332636,
+            "AtOverSProv": 0,
+            "AlReq": 3.7222148008641995,
+            "AlProv": 100
+          }
+        }
+      },
+      {
+        "input": {
+          "b": 0.3,
+          "h": 0.6,
+          "shear": 222.18,
+          "torque": 30,
+          "spacing": 0.1,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "primaryLegs": 4,
+          "secondaryLegs": "absent: 2 effective horizontal legs",
+          "Mu": 20,
+          "Nu": 0,
+          "Vu": 0,
+          "AlProv": 100
+        },
+        "main": {
+          "overallStatus": "fail",
+          "flexureStatus": "ok",
+          "columnStatus": "ok",
+          "shear": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 461.1917699999999,
+            "ratio": 0,
+            "status": "ok"
+          },
+          "shearSecondary": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 263.21652,
+            "ratio": 0.8440959556793776,
+            "status": "ok"
+          },
+          "torsion": {
+            "ratio": 0.5817576777030741,
+            "status": "fail",
+            "reinforcementRatio": 1.7029844652366977,
+            "AtOverS": 4.271172651305651,
+            "AtOverSProv": 2.508051446442291,
+            "AlReq": 6.69719871724726,
+            "AlProv": 100
+          }
+        },
+        "fixed": {
+          "overallStatus": "fail",
+          "flexureStatus": "ok",
+          "columnStatus": "ok",
+          "shear": {
+            "stirrupLegs": 4,
+            "spacing": 0.1,
+            "phiVn": 461.1917699999999,
+            "ratio": 0,
+            "status": "ok"
+          },
+          "shearSecondary": {
+            "stirrupLegs": 2,
+            "spacing": 0.1,
+            "phiVn": 181.14201,
+            "ratio": 1.2265514774844335,
+            "status": "fail"
+          },
+          "torsion": {
+            "ratio": 0.5817576777030741,
+            "status": "fail",
+            "reinforcementRatio": "Infinity",
+            "AtOverS": 4.271172651305651,
+            "AtOverSProv": 0,
+            "AlReq": 6.69719871724726,
+            "AlProv": 100
+          }
+        }
+      }
+    ]
+  },
+  "twoLegControls": {
+    "2005": {
+      "main": {
+        "overallStatus": "ok",
+        "flexureStatus": "ok",
+        "columnStatus": "ok",
+        "shear": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 130.63700999999998,
+          "ratio": 0,
+          "status": "ok"
+        },
+        "shearSecondary": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 130.63700999999998,
+          "ratio": 0.306191943615366,
+          "status": "ok"
+        }
+      },
+      "fixed": {
+        "overallStatus": "ok",
+        "flexureStatus": "ok",
+        "columnStatus": "ok",
+        "shear": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 130.63700999999998,
+          "ratio": 0,
+          "status": "ok"
+        },
+        "shearSecondary": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 130.63700999999998,
+          "ratio": 0.306191943615366,
+          "status": "ok"
+        }
+      },
+      "input": {
+        "b": 0.3,
+        "h": 0.3,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "stirrupDia": 8,
+        "primaryLegs": 2,
+        "secondaryLegs": 2,
+        "spacing": 0.1,
+        "Mu": 20,
+        "Vu": 0,
+        "VuSecondary": 40,
+        "Nu": 0,
+        "Tu": 0
+      }
+    },
+    "2025": {
+      "main": {
+        "overallStatus": "ok",
+        "flexureStatus": "ok",
+        "columnStatus": "ok",
+        "shear": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 131.60826,
+          "ratio": 0,
+          "status": "ok"
+        },
+        "shearSecondary": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 131.60826,
+          "ratio": 0.3039322911799001,
+          "status": "ok"
+        }
+      },
+      "fixed": {
+        "overallStatus": "ok",
+        "flexureStatus": "ok",
+        "columnStatus": "ok",
+        "shear": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 131.60826,
+          "ratio": 0,
+          "status": "ok"
+        },
+        "shearSecondary": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 131.60826,
+          "ratio": 0.3039322911799001,
+          "status": "ok"
+        }
+      },
+      "input": {
+        "b": 0.3,
+        "h": 0.3,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "stirrupDia": 8,
+        "primaryLegs": 2,
+        "secondaryLegs": 2,
+        "spacing": 0.1,
+        "Mu": 20,
+        "Vu": 0,
+        "VuSecondary": 40,
+        "Nu": 0,
+        "Tu": 0
+      }
+    }
+  }
+}

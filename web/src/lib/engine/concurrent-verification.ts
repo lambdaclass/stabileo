@@ -1,7 +1,7 @@
 import { copyVerificationCheck } from './verification-steps';
 import { withBiaxialCapacityCache } from './station-design-forces';
 import { verificationForElement } from './element-verification-copy';
-import { sharedTorsionReinforcement, checkColumn, prepareElementVerification, verificationCase, amplifiedDemand, type ConcurrentVerificationInput, type ElementVerification, type DemandLocation } from './codes/argentina/cirsoc201';
+import { sharedTorsionReinforcement, checkColumn, prepareElementVerification, verificationCase, amplifiedDemand, type FixedVerificationReinforcement, type ConcurrentVerificationInput, type ElementVerification, type DemandLocation } from './codes/argentina/cirsoc201';
 import { canReuseCirsoc201Certificate, engineRecheckElement } from './codes/argentina/cirsoc201-engine-gate';
 
 function completeCaseKeys(): (input: ConcurrentVerificationInput) => string | undefined {
@@ -29,11 +29,11 @@ function completeCaseKeys(): (input: ConcurrentVerificationInput) => string | un
   };
 }
 
-export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationInput[]): ElementVerification {
-  return withBiaxialCapacityCache(() => verifyConcurrentCases(inputs));
+export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationInput[], provided?: FixedVerificationReinforcement): ElementVerification {
+  return withBiaxialCapacityCache(() => verifyConcurrentCases(inputs, provided));
 }
 
-function verifyConcurrentCases(inputs: readonly ConcurrentVerificationInput[]): ElementVerification {
+function verifyConcurrentCases(inputs: readonly ConcurrentVerificationInput[], provided?: FixedVerificationReinforcement): ElementVerification {
   if (!inputs.length) throw new Error('Concurrent demands are required for verification');
   const first = inputs[0]!;
   const params = { b: first.b, h: first.h, fc: first.fc, fy: first.fy, cover: first.cover, stirrupDia: first.stirrupDia };
@@ -50,17 +50,17 @@ function verifyConcurrentCases(inputs: readonly ConcurrentVerificationInput[]): 
   });
   const amplified = unique.map(amplifiedDemand);
   const column = first.elementType !== 'beam'
-    ? checkColumn(params, amplified, { edition: first.edition }) : undefined;
+    ? checkColumn(params, amplified, { edition: first.edition, fixed: provided?.column }) : undefined;
   const fixedColumn = column ? { barCount: column.barCount, barDia: column.barDia } : undefined;
   const prepared = unique.map(prepareElementVerification);
-  const initial = prepared.map(verify => verify({ column: fixedColumn }));
+  const initial = prepared.map(verify => verify({ ...provided, column: fixedColumn }));
   const preliminary = indices.map(index => initial[index]!);
   const maxFlexure = preliminary.reduce((a, b) => b.flexure.AsProv > a.flexure.AsProv ? b : a).flexure;
   const maxCompression = preliminary.reduce((a, b) => (b.flexure.AsComp ?? 0) > (a.flexure.AsComp ?? 0) ? b : a).flexure;
   const flexure = Object.assign(copyVerificationCheck(maxFlexure), { AsComp: maxCompression.AsComp, barCountComp: maxCompression.barCountComp,
     barDiaComp: maxCompression.barDiaComp, barsComp: maxCompression.barsComp, isDoublyReinforced: maxCompression.isDoublyReinforced });
   const { shear, requirements } = sharedTorsionReinforcement(preliminary);
-  const fixed = prepared.map(verify => verify({ column: fixedColumn, flexure, shear }));
+  const fixed = prepared.map(verify => verify({ column: fixedColumn, flexure, shear, ...provided }));
   const used = new Set<number>();
   const checked = new Map<number, ElementVerification>();
   const checks = inputs.map((i, index) => {

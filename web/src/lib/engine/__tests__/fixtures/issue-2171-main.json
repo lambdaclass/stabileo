@@ -1,0 +1,85 @@
+{
+  "mainRevision": "9d925a78093db05bf8b50eb125aa829fa5dd955d",
+  "twoLegControls": {
+    "2005": {
+      "main": {
+        "overallStatus": "ok",
+        "flexureStatus": "ok",
+        "columnStatus": "ok",
+        "shear": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 130.63700999999998,
+          "ratio": 0,
+          "status": "ok"
+        },
+        "shearSecondary": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 130.63700999999998,
+          "ratio": 0.306191943615366,
+          "status": "ok"
+        }
+      },
+      "fixed": {
+        "overallStatus": "ok",
+        "flexureStatus": "ok",
+        "columnStatus": "ok",
+        "shear": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 130.63700999999998,
+          "ratio": 0,
+          "status": "ok"
+        },
+        "shearSecondary": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 130.63700999999998,
+          "ratio": 0.306191943615366,
+          "status": "ok"
+        }
+      }
+    },
+    "2025": {
+      "main": {
+        "overallStatus": "ok",
+        "flexureStatus": "ok",
+        "columnStatus": "ok",
+        "shear": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 131.60826,
+          "ratio": 0,
+          "status": "ok"
+        },
+        "shearSecondary": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 131.60826,
+          "ratio": 0.3039322911799001,
+          "status": "ok"
+        }
+      },
+      "fixed": {
+        "overallStatus": "ok",
+        "flexureStatus": "ok",
+        "columnStatus": "ok",
+        "shear": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 131.60826,
+          "ratio": 0,
+          "status": "ok"
+        },
+        "shearSecondary": {
+          "stirrupLegs": 2,
+          "spacing": 0.1,
+          "phiVn": 131.60826,
+          "ratio": 0.3039322911799001,
+          "status": "ok"
+        }
+      }
+    }
+  }
+}

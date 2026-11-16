@@ -7262,6 +7262,8 @@ const tr: Translations = {
   'design.batch.fieldTies': 'Etriyeler',
   'design.batch.count': 'adet',
   'design.batch.diameter': 'Ø',
+  'design.batch.legsOutOfRange': '{field}: {legs} kol; 2 ile 6 arasında bir tam sayı girin.',
+  'design.batch.secondaryLegs': 'ikincil kesme kolları (çirozlar dahil)',
   'design.batch.legs': 'kol',
   'design.batch.spacing': 's (m)',
   'design.batch.perFace': 'yüz başına',

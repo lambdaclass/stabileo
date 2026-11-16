@@ -7253,6 +7253,8 @@ const fr: Translations = {
   'design.batch.fieldTies': 'Cadres',
   'design.batch.count': 'nombre',
   'design.batch.diameter': 'Ø',
+  'design.batch.legsOutOfRange': '{field} : {legs} brins ; saisir un entier de 2 à 6.',
+  'design.batch.secondaryLegs': 'brins pour cisaillement secondaire (avec épingles)',
   'design.batch.legs': 'brins',
   'design.batch.spacing': 's (m)',
   'design.batch.perFace': 'par face',

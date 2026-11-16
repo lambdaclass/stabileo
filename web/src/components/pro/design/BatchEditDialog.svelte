@@ -49,15 +49,18 @@
   let teDia = $state<number | undefined>(undefined);
   let supDia = $state<number | undefined>(undefined);
   let supLegs = $state<number | undefined>(undefined);
+  let supSecondaryLegs = $state<number | undefined>(undefined);
   let supSp = $state<number | null>(null);
   let spanDia = $state<number | undefined>(undefined);
   let spanLegs = $state<number | undefined>(undefined);
+  let spanSecondaryLegs = $state<number | undefined>(undefined);
   let spanSp = $state<number | null>(null);
   let colCorner = $state<number | undefined>(undefined);
   let colFace = $state<number | undefined>(undefined);
   let colPerFace = $state<number | undefined>(undefined);
   let tieDia = $state<number | undefined>(undefined);
   let tieLegs = $state<number | undefined>(undefined);
+  let tieSecondaryLegs = $state<number | undefined>(undefined);
   let tieSp = $state<number | null>(null);
   // Beam: skin, support region, end shape. `keep` leaves each member's own.
   let skinMode = $state<'keep' | 'none' | 'set'>('keep');
@@ -81,14 +84,14 @@
     if (bsCount !== undefined || bsDia !== undefined) p.bottomSpan = { count: bsCount, diameter: bsDia };
     if (tsCount !== undefined || tsDia !== undefined) p.topStart = { count: tsCount, diameter: tsDia };
     if (teCount !== undefined || teDia !== undefined) p.topEnd = { count: teCount, diameter: teDia };
-    if (supDia !== undefined || supLegs !== undefined || supSp !== null)
-      p.stirrupsSupport = { diameter: supDia, legs: supLegs, spacing: supSp ?? undefined };
-    if (spanDia !== undefined || spanLegs !== undefined || spanSp !== null)
-      p.stirrupsSpan = { diameter: spanDia, legs: spanLegs, spacing: spanSp ?? undefined };
+    if (supDia !== undefined || supLegs !== undefined || supSecondaryLegs !== undefined || supSp !== null)
+      p.stirrupsSupport = { diameter: supDia, legs: supLegs, secondaryLegs: supSecondaryLegs, spacing: supSp ?? undefined };
+    if (spanDia !== undefined || spanLegs !== undefined || spanSecondaryLegs !== undefined || spanSp !== null)
+      p.stirrupsSpan = { diameter: spanDia, legs: spanLegs, secondaryLegs: spanSecondaryLegs, spacing: spanSp ?? undefined };
     if (colCorner !== undefined || colFace !== undefined || colPerFace !== undefined)
       p.column = { cornerDia: colCorner, faceDia: colFace, perFace: colPerFace };
-    if (tieDia !== undefined || tieLegs !== undefined || tieSp !== null)
-      p.ties = { diameter: tieDia, legs: tieLegs, spacing: tieSp ?? undefined };
+    if (tieDia !== undefined || tieLegs !== undefined || tieSecondaryLegs !== undefined || tieSp !== null)
+      p.ties = { diameter: tieDia, legs: tieLegs, secondaryLegs: tieSecondaryLegs, spacing: tieSp ?? undefined };
     if (skinMode === 'none') p.skin = null;
     else if (skinMode === 'set') p.skin = { diameter: skinDia, spacing: skinSp };
     if (regionPct !== undefined) p.regionT = regionPct / 100;
@@ -224,6 +227,7 @@
           </select></label>
         <label>{t('design.batch.legs')}<input type="number" min="2" max="6" data-testid="batch-sup-legs"
                value={supLegs ?? ''} oninput={(e) => supLegs = e.currentTarget.value === '' ? undefined : +e.currentTarget.value} /></label>
+        <label>{t('design.batch.secondaryLegs')}<input type="number" min="2" max="6" data-testid="batch-sup-secondary-legs" bind:value={supSecondaryLegs} /></label>
         <label>{t('design.batch.spacingShort')}<QuantityInput quantity="sectionDim" nullable min={0.05} max={0.5}
                wrap="qi-fill" testid="batch-sup-spacing" bind:value={supSp} /></label>
       </fieldset>
@@ -235,6 +239,7 @@
           </select></label>
         <label>{t('design.batch.legs')}<input type="number" min="2" max="6" data-testid="batch-span-legs"
                value={spanLegs ?? ''} oninput={(e) => spanLegs = e.currentTarget.value === '' ? undefined : +e.currentTarget.value} /></label>
+        <label>{t('design.batch.secondaryLegs')}<input type="number" min="2" max="6" data-testid="batch-span-secondary-legs" bind:value={spanSecondaryLegs} /></label>
         <label>{t('design.batch.spacingShort')}<QuantityInput quantity="sectionDim" nullable min={0.05} max={0.5}
                wrap="qi-fill" testid="batch-span-spacing" bind:value={spanSp} /></label>
       </fieldset>
@@ -289,6 +294,7 @@
           </select></label>
         <label>{t('design.batch.legs')}<input type="number" min="2" max="6" data-testid="batch-tie-legs"
                value={tieLegs ?? ''} oninput={(e) => tieLegs = e.currentTarget.value === '' ? undefined : +e.currentTarget.value} /></label>
+        <label>{t('design.batch.secondaryLegs')}<input type="number" min="2" max="6" data-testid="batch-tie-secondary-legs" bind:value={tieSecondaryLegs} /></label>
         <label>{t('design.batch.spacingShort')}<QuantityInput quantity="sectionDim" nullable min={0.05} max={0.5}
                wrap="qi-fill" testid="batch-tie-spacing" bind:value={tieSp} /></label>
       </fieldset>

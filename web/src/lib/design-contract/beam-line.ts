@@ -29,6 +29,7 @@ export interface BeamLineBar {
 }
 
 export interface BeamStirrupZone {
+  secondaryLegs?: number;
   id: string;
   from: number;
   to: number;

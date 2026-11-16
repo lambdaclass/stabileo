@@ -1,3 +1,4 @@
+import type { DirectionalLegs, shearProvision } from '../../design-contract/directional-stirrups';
 import type { TorsionInput } from '../../codes/cirsoc201/torsion';
 import type { ConcurrentDemand, ConcurrentSectionDemand } from '../concurrent-demand';
 import type { ElementDesignDemands } from '../station-design-forces';
@@ -18,3 +19,9 @@ export const envelopeCannotReachSteelVerifier: Assert<Refuses<SteelVerificationI
 export const scalarTorsionCannotReachSection: Assert<Refuses<{ Vu: number; Tu: number }, TorsionInput['demand']>> = true;
 export const partialTorsionCannotReachSection: Assert<Refuses<Pick<ConcurrentSectionDemand, 'Vu' | 'Tu'>, TorsionInput['demand']>> = true;
 export const secondaryDepthIsRequired: Assert<Refuses<Omit<TorsionInput, 'dSecondary'>, TorsionInput>> = true;
+
+export const primaryLegsCannotReachSecondaryShear: Assert<Refuses<DirectionalLegs<'primary'>, Parameters<typeof shearProvision<'secondary'>>[1]>> = true;
+export const secondaryLegsCannotReachPrimaryShear: Assert<Refuses<DirectionalLegs<'secondary'>, Parameters<typeof shearProvision<'primary'>>[1]>> = true;
+export const scalarLegsCannotReachSecondaryShear: Assert<Refuses<number, Parameters<typeof shearProvision<'secondary'>>[1]>> = true;
+
+export const primaryShearCannotBeSecondary: Assert<Refuses<import('../codes/argentina/cirsoc201').ShearResult<'primary'>, import('../codes/argentina/cirsoc201').ShearResult<'secondary'>>> = true;

@@ -3407,6 +3407,8 @@ const hi: Translations = {
   'design.batch.fieldTies': 'टाई',
   'design.batch.count': 'संख्या',
   'design.batch.diameter': 'Ø',
+  'design.batch.legsOutOfRange': '{field}: {legs} भुजाएँ; 2 से 6 तक का पूर्णांक दर्ज करें।',
+  'design.batch.secondaryLegs': 'द्वितीयक कतरनी भुजाएँ (क्रॉसटाई सहित)',
   'design.batch.legs': 'भुजाएँ',
   'design.batch.spacing': 's (m)',
   'design.batch.spacingShort': 's',

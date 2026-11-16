@@ -3363,6 +3363,8 @@ const ja: Translations = {
   'design.batch.fieldTies': '帯筋',
   'design.batch.count': '本数',
   'design.batch.diameter': '径',
+  'design.batch.legsOutOfRange': '{field}：{legs} 脚。2〜6の整数を入力してください。',
+  'design.batch.secondaryLegs': '副方向せん断脚数（中子筋含む）',
   'design.batch.legs': '脚数',
   'design.batch.spacing': '間隔 (m)',
   'design.batch.spacingShort': 's',

@@ -3395,6 +3395,8 @@ const ar: Translations = {
   'design.batch.fieldTies': 'الكانات',
   'design.batch.count': 'العدد',
   'design.batch.diameter': 'Ø',
+  'design.batch.legsOutOfRange': '{field}: {legs} أفرع؛ أدخل عددًا صحيحًا من 2 إلى 6.',
+  'design.batch.secondaryLegs': 'أفرع القص الثانوي (تشمل الروابط)',
   'design.batch.legs': 'الأفرع',
   'design.batch.spacing': 's (m)',
   'design.batch.spacingShort': 's',

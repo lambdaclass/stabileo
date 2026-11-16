@@ -1271,6 +1271,8 @@ const pt: Translations = {
   'design.batch.fieldTopEnd': 'Apoio final superior',
   'design.batch.fieldTopStart': 'Apoio inicial superior',
   'design.batch.leaveUnchanged': 'manter inalterado',
+  'design.batch.legsOutOfRange': '{field}: {legs} ramos; informe um inteiro entre 2 e 6.',
+  'design.batch.secondaryLegs': 'ramos para corte secundário (inclui grampos)',
   'design.batch.legs': 'ramos',
   'design.batch.legsTooFew': '{field}: {legs} ramos está abaixo do mínimo de 2.',
   'design.batch.mixed': 'misto',

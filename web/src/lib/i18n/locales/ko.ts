@@ -3394,6 +3394,8 @@ const ko: Translations = {
   'design.batch.fieldTies': '띠철근',
   'design.batch.count': '개수',
   'design.batch.diameter': '직경',
+  'design.batch.legsOutOfRange': '{field}: {legs}개; 2에서 6 사이의 정수를 입력하세요.',
+  'design.batch.secondaryLegs': '보조 방향 전단 다리 수 (크로스타이 포함)',
   'design.batch.legs': '지지대 수',
   'design.batch.spacing': '간격 (m)',
   'design.batch.spacingShort': 's',

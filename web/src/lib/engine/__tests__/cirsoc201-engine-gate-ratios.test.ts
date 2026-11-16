@@ -81,6 +81,7 @@ describe('engine gate ratios', () => {
     expect(new Set(g.engineRecheck.notRechecked)).toEqual(new Set([
       ...(col.torsion && !col.torsion.neglect ? ['torsion'] : []),
       ...(col.slender?.isSlender ? ['slenderness'] : []),
+      ...(col.shearSecondary ? ['shear-secondary'] : []),
     ]));
     // Biaxial bending is re-checked now, on the engine's load contour.
     expect(col.biaxial).toBeDefined();
@@ -90,7 +91,7 @@ describe('engine gate ratios', () => {
     expect(beam.engineRecheck.notRechecked).toEqual([]);
     const sheared = engineRecheckElement(verifyElement({ ...base, elementType: 'column', b: 0.4, h: 0.4, Mu: 40, Nu: 800, VuSecondary: 60 }), { stirrupDia: 8, NuShear: 0 });
     expect(sheared.engineRecheck.notRechecked).toContain('shear-secondary');
-    expect(g.engineRecheck.notRechecked).not.toContain('shear-secondary');
+    expect(beam.engineRecheck.notRechecked).not.toContain('shear-secondary');
     expect(beam.diagnostics?.some((d) => d.code.startsWith('VERIF_ENGINE'))).toBeFalsy();
   });
 

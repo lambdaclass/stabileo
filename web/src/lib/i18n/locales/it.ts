@@ -3408,6 +3408,8 @@ const it: Translations = {
   'design.batch.fieldTies': 'Staffe',
   'design.batch.count': 'numero',
   'design.batch.diameter': 'Ø',
+  'design.batch.legsOutOfRange': '{field}: {legs} bracci; inserire un intero da 2 a 6.',
+  'design.batch.secondaryLegs': 'bracci per taglio secondario (con legature)',
   'design.batch.legs': 'bracci',
   'design.batch.spacing': 's (m)',
   'design.batch.spacingShort': 's',

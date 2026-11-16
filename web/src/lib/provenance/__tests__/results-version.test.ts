@@ -181,3 +181,15 @@ describe('results versions', () => {
     expect(ids.filter((id) => RELEASED[1].includes(id))).toEqual([]);
   });
 });
+
+
+it('shows the exact directional stirrup notice to a concrete project solved immediately before the correction', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'directional-stirrup-legs')!;
+  const frame: FeatureSnapshot = { analysisMode: 'pro',
+    materials: [[1, { id: 1, name: 'H25', fc: 25, fy: 25, e: 25000, nu: 0.2, rho: 25 }]] as never,
+    elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]] as never,
+    supports: [], loads: [], loadCases: [{ id: 1, type: 'D' }],
+  };
+  expect(assessProject(frame, { resultsVersion: entry.resultsVersion - 1, analyses: ['linear'] } as SolveStamp, 'pro')
+    .changes.map(c => c.id).sort()).toEqual(['directional-stirrup-legs']);
+});

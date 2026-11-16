@@ -127,6 +127,7 @@ export function setStirrups(elemId: number, field: StirrupField, patch: Partial<
     // capacity unchecked, so a typed legs=20 would verify green on fantasy
     // reinforcement. The editors advertise max=6; enforce it here too.
     legs: Math.max(2, Math.min(6, Math.round(patch.legs ?? cur?.legs ?? 2))),
+    secondaryLegs: Math.max(2, Math.min(6, Math.round(patch.secondaryLegs ?? cur?.secondaryLegs ?? 2))),
     spacing: Math.max(0.05, patch.spacing ?? cur?.spacing ?? 0.15),
   };
   commitManual(elemId, p);
@@ -200,6 +201,7 @@ export function setTies(elemId: number, patch: Partial<StirrupDef>): void {
   p.stirrups = {
     diameter: patch.diameter ?? cur?.diameter ?? 8,
     legs: Math.max(2, Math.min(6, Math.round(patch.legs ?? cur?.legs ?? 2))),
+    secondaryLegs: Math.max(2, Math.min(6, Math.round(patch.secondaryLegs ?? cur?.secondaryLegs ?? 2))),
     spacing: Math.max(0.05, patch.spacing ?? cur?.spacing ?? 0.15),
   };
   commitManual(elemId, p);

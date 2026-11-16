@@ -3397,6 +3397,8 @@ const id: Translations = {
   'design.batch.fieldTies': 'Sengkang',
   'design.batch.count': 'jumlah',
   'design.batch.diameter': 'Ø',
+  'design.batch.legsOutOfRange': '{field}: {legs} kaki; masukkan bilangan bulat dari 2 hingga 6.',
+  'design.batch.secondaryLegs': 'kaki geser sekunder (termasuk pengikat silang)',
   'design.batch.legs': 'kaki',
   'design.batch.spacing': 's (m)',
   'design.batch.spacingShort': 's',

@@ -1,3 +1,4 @@
+import { migrateDirectionalStirrups } from '../design-contract/directional-stirrups';
 import { migrateDesignData } from '../model/design-data';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
@@ -1818,7 +1819,7 @@ function createModelStore() {
         if (!elem) continue;
         const plain = $state.snapshot(elem) as Element;
         plain.reinforcement = r
-          ? (JSON.parse(JSON.stringify($state.snapshot(r))) as ProvidedReinforcement)
+          ? migrateDirectionalStirrups(JSON.parse(JSON.stringify($state.snapshot(r))) as ProvidedReinforcement)
           : undefined;
         model.elements.set(elemId, plain);
         written.add(elemId);
@@ -1858,7 +1859,7 @@ function createModelStore() {
         if (curKey === nextKey) continue;
         model.elements.set(id, {
           ...elem,
-          reinforcement: nextReinf ? (JSON.parse(JSON.stringify(nextReinf)) as ProvidedReinforcement) : undefined,
+          reinforcement: nextReinf ? migrateDirectionalStirrups(JSON.parse(JSON.stringify(nextReinf)) as ProvidedReinforcement) : undefined,
         });
         written.add(id);
       }
@@ -2377,6 +2378,7 @@ function createModelStore() {
       );
       model.elements = new Map(s.elements.map(([k, v]) => [k, {
         ...v,
+        ...(v.reinforcement ? { reinforcement: migrateDirectionalStirrups(v.reinforcement) } : {}),
         releaseI: { ...(v.releaseI ?? NO_RELEASE) },
         releaseJ: { ...(v.releaseJ ?? NO_RELEASE) },
       }]));

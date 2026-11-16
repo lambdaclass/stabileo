@@ -1,3 +1,4 @@
+import { stirrupLegs, shearProvision, type DirectionalLegs, type ShearDirection } from '../design-contract/directional-stirrups';
 import { ConcurrentDemand } from './concurrent-demand';
 import { getColumnCapacityKernel, columnCapacityKernelRegistered } from './column-capacity-kernel';
 import { evaluateBeamSection, evaluateBeamSections } from './codes/argentina/cirsoc201-beam-kernel';
@@ -1476,10 +1477,18 @@ export function computeShearCapacity(
   /** Gross area (m², b·h) and the tension steel ratio As/(bw·d), when the caller has them. */
   opts: { Ag?: number; rhoW?: number; h?: number; edition?: RegulationEdition } = {},
 ): { phiVn: number; phiVc: number; VsProv: number; phi: number; avBelowMin: boolean; capped: boolean; evaluated: boolean; AvMin?: number } {
+  return computeDirectionalShearCapacity('primary', stirrupDia, stirrupLegs({ legs: legs === 0 ? 2 : legs }, 'primary'), spacing, b, d, fc, fy, Nu, opts, legs === 0);
+}
+
+export function computeDirectionalShearCapacity<D extends ShearDirection>(direction: D,
+  stirrupDia: number, legs: DirectionalLegs<NoInfer<D>>, spacing: number,
+  b: number, d: number, fc: number, fy: number, Nu = 0,
+  opts: { Ag?: number; rhoW?: number; h?: number; edition?: RegulationEdition } = {}, absent = false,
+): ReturnType<typeof computeShearCapacity> {
   const phi = 0.75;
   const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia);
   const legArea = stirrupBar ? stirrupBar.area : (Math.PI / 4) * (stirrupDia / 10) ** 2; // cm²
-  const Av = legs * legArea; // cm²
+  const Av = absent ? 0 : shearProvision(direction, legs, legArea, 1);
   const r = evaluateBeamSection({
     edition: opts.edition ?? '2025',
     fc: fc * 1e6, fy: fy * 1e6, b, h: Math.max(opts.h ?? d, d), d,
@@ -2686,7 +2695,7 @@ export function verifyProvidedReinforcement(
             demand: +Math.abs(tw.t.tq).toFixed(2), capacity: 0,
             utilization: tr.ratio,
             unit: 'kN·m', method: 'capacity', tuplesChecked: ss.tuples.length, regionRange: ss.range,
-            description: `${ss.stir ? '' : 'no stirrups provided in this region — '}§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transverseRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
+            description: `${ss.stir ? '' : 'no stirrups provided in this region — '}§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transversePrimaryRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; secundario ${(tr.transverseSecondaryRequired * 1e4).toFixed(2)} de ${(tr.transverseSecondaryProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
             comboName: tw.t.comboName, stationX: tw.t.stationX,
             limiting: 'torsion', ...(!ss.stir ? { missingReinforcement: true } : {}),
           });
@@ -3019,9 +3028,9 @@ export function verifyProvidedReinforcement(
       // the sides), over the gross section; used only where the ties are below Av,min.
       const colArea = colLayout?.totalArea ?? (provided.longitudinal ? rebarGroupArea(provided.longitudinal) : 0);
       const colRhoW = colArea / 3 / (section.b * section.h * 1e4);
-      const tieSpecs: Array<{ axis: string; read: (t: Tuple) => number; width: number; dTie: number }> = [
-        { axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) },
-        { axis: axes.secondaryShear, read: V2, width: section.h, dTie: dTieFor(section.b) },
+      const tieSpecs: Array<{ direction: ShearDirection; axis: string; read: (t: Tuple) => number; width: number; dTie: number }> = [
+        { direction: 'primary', axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) },
+        { direction: 'secondary', axis: axes.secondaryShear, read: V2, width: section.h, dTie: dTieFor(section.b) },
       ];
       for (const ts of tieSpecs) {
         let worst: { util: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
@@ -3039,7 +3048,7 @@ export function verifyProvidedReinforcement(
           const sTie = atEnd ? Math.min(z!.endSpacing, provided.stirrups.spacing) : provided.stirrups.spacing;
           // Solver convention is + = tension; computeShearCapacity expects
           // + = compression — pass -t.n (see the beam shear path above).
-          const cap = computeShearCapacity(provided.stirrups.diameter, provided.stirrups.legs, sTie, ts.width, ts.dTie, section.fc, section.fy, -t.n,
+          const cap = computeDirectionalShearCapacity(ts.direction, provided.stirrups.diameter, stirrupLegs(provided.stirrups, ts.direction), sTie, ts.width, ts.dTie, section.fc, section.fy, -t.n,
             { Ag: section.b * section.h, rhoW: colRhoW, h: Math.max(ts.dTie, section.h), edition: spacingRule.edition });
           const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
           if (!worst || u > worst.util) worst = { util: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };

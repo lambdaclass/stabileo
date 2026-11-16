@@ -78,7 +78,7 @@ export function lineFromMembers(members: readonly LineMember[]): BeamLineReinfor
   const skin: Record<string, { diameter: number; spacing: number }> = {};
   let n = 0;
   const bar = (b: Omit<BeamLineBar, 'id'>) => bars.push({ ...b, id: `b${++n}` });
-  const zone = (from: number, to: number, s?: StirrupDef) => { if (s && to > from + EPS) stirrups.push({ id: `z${stirrups.length + 1}`, from, to, diameter: s.diameter, legs: s.legs, spacing: s.spacing }); };
+  const zone = (from: number, to: number, s?: StirrupDef) => { if (s && to > from + EPS) stirrups.push({ id: `z${stirrups.length + 1}`, from, to, diameter: s.diameter, legs: s.legs, secondaryLegs: s.secondaryLegs ?? 2, spacing: s.spacing }); };
 
   members.forEach((m, k) => {
     const r = m.reinforcement;
@@ -137,7 +137,7 @@ function mergeOverSupports(bars: BeamLineBar[]): BeamLineBar[] {
   return out;
 }
 
-const sameZone = (p: BeamStirrupZone, q: BeamStirrupZone) => p.diameter === q.diameter && p.legs === q.legs && Math.abs(p.spacing - q.spacing) < EPS;
+const sameZone = (p: BeamStirrupZone, q: BeamStirrupZone) => p.diameter === q.diameter && p.legs === q.legs && (p.secondaryLegs ?? 2) === (q.secondaryLegs ?? 2) && Math.abs(p.spacing - q.spacing) < EPS;
 
 function mergeZones(zs: BeamStirrupZone[]): BeamStirrupZone[] {
   const out: BeamStirrupZone[] = [];
@@ -212,7 +212,7 @@ function layersOf(bs: readonly BeamLineBar[]): RebarLayer[] {
 const groupOfLayers = (ls: RebarLayer[]) => ({ count: ls.reduce((s, l) => s + l.count, 0), diameter: Math.max(...ls.map((l) => l.diameter)) });
 
 const avs = (z: BeamStirrupZone) => (z.legs * Math.PI * z.diameter ** 2 / 4) / z.spacing;
-const stirrupOf = (z?: BeamStirrupZone): StirrupDef | undefined => (z ? { diameter: z.diameter, legs: z.legs, spacing: z.spacing } : undefined);
+const stirrupOf = (z?: BeamStirrupZone): StirrupDef | undefined => (z ? { diameter: z.diameter, legs: z.legs, secondaryLegs: z.secondaryLegs ?? 2, spacing: z.spacing } : undefined);
 
 /** Project a line onto its members' regions. */
 export function membersFromLine(line: BeamLineReinforcement, members: readonly LineMember[]): Map<number, ProvidedReinforcement> {
@@ -268,7 +268,10 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
     // ── Stirrups: the span zone, and the weaker of the two end zones ──
     const zAt = (x: number) => line.stirrups.find((z) => z.from <= x + EPS && z.to >= x - EPS);
     const zs = zAt((a + s) / 2), ze = zAt((e + b) / 2), zm = zAt(mid);
-    const sup = zs && ze ? (avs(zs) <= avs(ze) ? zs : ze) : (zs ?? ze);
+    const sup = zs && ze ? {
+      ...(avs(zs) / zs.legs <= avs(ze) / ze.legs ? zs : ze),
+      legs: Math.min(zs.legs, ze.legs), secondaryLegs: Math.min(zs.secondaryLegs ?? 2, ze.secondaryLegs ?? 2),
+    } : (zs ?? ze);
     if (sup) regions.stirrupsSupport = stirrupOf(sup);
     if (zm) regions.stirrupsSpan = stirrupOf(zm);
     const skin = line.skin?.[String(m.id)];
@@ -374,6 +377,7 @@ export function updateZone(line: BeamLineReinforcement, id: string, patch: Parti
   return withZones(line, line.stirrups.map((z) => z.id === id ? {
     ...z, ...patch,
     legs: Math.max(2, Math.min(6, Math.round(patch.legs ?? z.legs))),
+    secondaryLegs: Math.max(2, Math.min(6, Math.round(patch.secondaryLegs ?? z.secondaryLegs ?? 2))),
     spacing: Math.max(0.05, patch.spacing ?? z.spacing),
   } : z));
 }
@@ -392,8 +396,10 @@ export function deleteZone(line: BeamLineReinforcement, id: string): BeamLineRei
 export function equalizeZones(line: BeamLineReinforcement, ids: readonly string[]): BeamLineReinforcement {
   const sel = line.stirrups.filter((z) => ids.includes(z.id));
   if (sel.length < 2) return line;
-  const best = sel.reduce((p, q) => (avs(q) > avs(p) ? q : p));
-  return withZones(line, line.stirrups.map((z) => ids.includes(z.id) ? { ...z, diameter: best.diameter, legs: best.legs, spacing: best.spacing } : z));
+  const best = sel.reduce((p, q) => (avs(q) / q.legs > avs(p) / p.legs ? q : p));
+  const legs = Math.max(...sel.map(z => z.legs));
+  const secondaryLegs = Math.max(...sel.map(z => z.secondaryLegs ?? 2));
+  return withZones(line, line.stirrups.map((z) => ids.includes(z.id) ? { ...z, diameter: best.diameter, legs, secondaryLegs, spacing: best.spacing } : z));
 }
 
 /** Area of a face's bars at x, cm². */

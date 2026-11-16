@@ -105,7 +105,7 @@ function fmtLayers(layers: RebarLayer[]): string {
   return layers.map(l => `${l.count}Ø${l.diameter}`).join('+');
 }
 function fmtStir(s: StirrupDef | undefined): string {
-  return s ? `eØ${s.diameter} ${s.legs}L c/${(s.spacing * 100).toFixed(0)}` : '—';
+  return s ? `eØ${s.diameter} ${s.legs}/${s.secondaryLegs ?? 2}L c/${(s.spacing * 100).toFixed(0)}` : '—';
 }
 
 /** Rebuild a region's layers for a new (count, diameter), honouring bars-per-row. */
@@ -219,6 +219,7 @@ export function applyPatch(
       const merged: StirrupDef = {
         diameter: p.diameter ?? before?.diameter ?? 8,
         legs: p.legs ?? before?.legs ?? 2,
+        secondaryLegs: p.secondaryLegs ?? before?.secondaryLegs ?? 2,
         spacing: p.spacing ?? before?.spacing ?? 0.15,
       };
       if (merged.spacing < BEAM_LIMITS.minSpacing - 1e-9) {
@@ -229,8 +230,12 @@ export function applyPatch(
         blocks.push({ reason: 'invalidValue', messageKey: 'design.batch.legsTooFew', params: { field: sk, legs: merged.legs } });
         continue;
       }
+      if (!Number.isInteger(merged.secondaryLegs) || merged.secondaryLegs! < 2 || merged.secondaryLegs! > 6) {
+        blocks.push({ reason: 'invalidValue', messageKey: 'design.batch.legsOutOfRange', params: { field: sk, legs: merged.secondaryLegs! } });
+        continue;
+      }
       reg[sk] = merged;
-      if (!before || before.diameter !== merged.diameter || before.legs !== merged.legs || Math.abs(before.spacing - merged.spacing) > 1e-9) {
+      if (!before || before.diameter !== merged.diameter || before.legs !== merged.legs || (before.secondaryLegs ?? 2) !== merged.secondaryLegs || Math.abs(before.spacing - merged.spacing) > 1e-9) {
         changes.push({ field: sk === 'stirrupsSupport' ? 'stirrups support' : 'stirrups span', before: fmtStir(before), after: fmtStir(merged) });
       }
     }
@@ -298,11 +303,14 @@ export function applyPatch(
       const merged: StirrupDef = {
         diameter: patch.ties.diameter ?? before?.diameter ?? 8,
         legs: patch.ties.legs ?? before?.legs ?? 2,
+        secondaryLegs: patch.ties.secondaryLegs ?? before?.secondaryLegs ?? 2,
         spacing: patch.ties.spacing ?? before?.spacing ?? 0.15,
       };
       const cornerDia = next.column?.cornerDia ?? beforeCol?.cornerDia ?? 16;
       const sMax = maxTieSpacing(cornerDia, merged.diameter, b, h, ctx.codeEdition);
-      if (merged.spacing < COLUMN_LIMITS.minSpacing - 1e-9) {
+      if (!Number.isInteger(merged.secondaryLegs) || merged.secondaryLegs! < 2 || merged.secondaryLegs! > 6) {
+        blocks.push({ reason: 'invalidValue', messageKey: 'design.batch.legsOutOfRange', params: { field: 'ties', legs: merged.secondaryLegs! } });
+      } else if (merged.spacing < COLUMN_LIMITS.minSpacing - 1e-9) {
         blocks.push({ reason: 'invalidValue', messageKey: 'design.batch.spacingTooSmall', params: { field: 'ties', spacing: merged.spacing } });
       } else if (merged.spacing > sMax + 1e-9) {
         blocks.push({

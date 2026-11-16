@@ -7376,6 +7376,8 @@ const en: Record<string, string> = {
   'design.batch.fieldTies': 'Ties',
   'design.batch.count': 'count',
   'design.batch.diameter': 'Ø',
+  'design.batch.legsOutOfRange': '{field}: {legs} legs must be an integer from 2 to 6.',
+  'design.batch.secondaryLegs': 'secondary shear legs (including crossties)',
   'design.batch.legs': 'legs',
   'design.batch.spacing': 's (m)',
   'design.batch.perFace': 'per face',

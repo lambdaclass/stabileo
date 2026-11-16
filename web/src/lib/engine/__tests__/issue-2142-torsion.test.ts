@@ -14,7 +14,7 @@ import type { SolverInput3D } from '../types-3d';
 const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const clause = 'CIRSOC 201-2025 §22.7.7.1(a), C22.7.7.1, docs/codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-22-resistencia-de-las-secciones-de-los-elementos.md#c22.7.7.1';
 const depth = (h: number) => h - p.cover - p.stirrupDia / 1000 - 16 / 2000;
-const fixed = { shear: { spacing: 0.05, legs: 4 }, torsion: { AlProv: 100 } };
+const fixed = { shear: { spacing: 0.05, legs: 4, secondaryLegs: 4 }, torsion: { AlProv: 100 } };
 const demand = (primary: number, secondary: number, torque: number, axis: 'My' | 'Mz' = 'My') => ConcurrentDemand.fromTuples([
   { comboId: 1, comboName: 'concurrent', forces: { t: 0, x: 0, n: 0,
     my: axis === 'My' ? 20 : 0, mz: axis === 'Mz' ? 20 : 0,
@@ -55,7 +55,7 @@ for (const edition of ['2005', '2025'] as const) {
           const expected = reference(primary, secondary, torque);
           const input = { ...p, edition, elementId: 1, elementType, demand: demand(primary, secondary, torque, axis) };
           const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed)
-            : entry === 'concurrent' ? verifyConcurrentElement([input]) : undefined;
+            : entry === 'concurrent' ? verifyConcurrentElement([input], fixed) : undefined;
           if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
           const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition) : v!.torsion!;
           expect(t.phiTn).toBeCloseTo(expected.phiTn, 11);
@@ -71,7 +71,7 @@ for (const edition of ['2005', '2025'] as const) {
       it(`zero secondary shear preserves main ${edition} ${axis} ${elementType} ${entry}`, () => {
         const input = { ...p, edition, elementId: 1, elementType, demand: demand(100, 0, 30, axis) };
         const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed)
-          : entry === 'concurrent' ? verifyConcurrentElement([input]) : undefined;
+          : entry === 'concurrent' ? verifyConcurrentElement([input], fixed) : undefined;
         if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
         const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition) : v!.torsion!;
         const { steps: _steps, status: _status, ...baseline } = main.results[edition].control.torsion;
@@ -164,7 +164,7 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) {
       expect(d.Tu).toBeCloseTo(57, 10);
       for (const elementType of ['beam', 'column', 'wall'] as const) {
         const input = { ...p, elementId: 1, elementType, demand: d };
-        for (const v of [verifyElement(input, fixed), prepareElementVerification(input)(fixed), verifyConcurrentElement([input])]) {
+        for (const v of [verifyElement(input, fixed), prepareElementVerification(input)(fixed), verifyConcurrentElement([input], fixed)]) {
           expect(v.torsion!.ratio).toBeCloseTo(reference(d.Vu, d.VuSecondary, d.Tu).ratio, 12);
           expect(v.torsion!.status).toBe('fail');
           expect(v.overallStatus).toBe('fail');

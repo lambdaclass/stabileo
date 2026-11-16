@@ -136,6 +136,11 @@
                data-testid={`stir-legs-${st.field}-${elementId}`}
                aria-label={t('design.batch.legs')}
                onchange={(e) => setStirrups(elementId, st.field, { legs: +e.currentTarget.value })} />
+        <label>{t('design.batch.secondaryLegs')}
+          <input type="number" class="num num-sm" min="2" max="6" value={st.def?.secondaryLegs ?? 2}
+            data-testid={`stir-secondary-legs-${st.field}-${elementId}`}
+            onchange={(e) => setStirrups(elementId, st.field, { secondaryLegs: +e.currentTarget.value })} />
+        </label>
         <span class="sub">L c/</span>
         <QuantityInput quantity="sectionDim" cls="num num-sp" min={0.05} max={0.5} value={st.def?.spacing ?? 0.15}
                testid={`stir-spacing-${st.field}-${elementId}`}

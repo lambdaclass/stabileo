@@ -7253,6 +7253,8 @@ const de: Translations = {
   'design.batch.fieldTies': 'Bügel',
   'design.batch.count': 'Anzahl',
   'design.batch.diameter': 'Ø',
+  'design.batch.legsOutOfRange': '{field}: {legs} Schnitte; eine ganze Zahl von 2 bis 6 eingeben.',
+  'design.batch.secondaryLegs': 'Schnitte für sekundäre Querkraft (mit Querbügeln)',
   'design.batch.legs': 'Schnitte',
   'design.batch.spacing': 's (m)',
   'design.batch.perFace': 'je Seite',

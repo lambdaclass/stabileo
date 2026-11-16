@@ -176,6 +176,21 @@ describe('batch edit — preview, compatibility, validation', () => {
     expect(patchTouchesColumn({ ties: { spacing: 0.1 } })).toBe(true);
   });
 
+  for (const secondaryLegs of [1, 2, 6, 7]) for (const kind of ['beam', 'column'] as const) {
+    it(`known wrong result: #2171 batch directional leg boundary ${kind} ${secondaryLegs}`, () => {
+      const ctx = solvedQa.contexts.get(kind === 'beam' ? beamId : colId)!;
+      const cage = { diameter: 8, legs: 4, secondaryLegs, spacing: 0.1 };
+      const result = applyPatch(ctx, undefined, kind === 'beam' ? { stirrupsSupport: cage } : { ties: cage });
+      if (secondaryLegs < 2 || secondaryLegs > 6) {
+        expect(result.candidate).toBeUndefined();
+        expect(result.blocks).toContainEqual(expect.objectContaining({ reason: 'invalidValue', messageKey: 'design.batch.legsOutOfRange' }));
+      } else {
+        expect(result.blocks).toEqual([]);
+        expect(kind === 'beam' ? result.candidate!.regions!.stirrupsSupport!.secondaryLegs : result.candidate!.stirrups!.secondaryLegs).toBe(secondaryLegs);
+      }
+    });
+  }
+
   it('writes a fitting beam arrangement and rebuilds the layers', () => {
     const ctx = solvedQa.contexts.get(beamId)!;
     const { candidate, blocks } = applyPatch(ctx, undefined, { bottomSpan: { count: 4, diameter: 20 } });

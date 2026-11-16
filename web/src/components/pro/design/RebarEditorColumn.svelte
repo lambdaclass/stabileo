@@ -108,6 +108,11 @@
       <input type="number" class="num num-sm" min="2" max="6" value={state.ties?.legs ?? 2}
              data-testid={`tie-legs-${elementId}`} aria-label={t('design.batch.legs')}
              onchange={(e) => setTies(elementId, { legs: +e.currentTarget.value })} />
+      <label>{t('design.batch.secondaryLegs')}
+        <input type="number" class="num num-sm" min="2" max="6" value={state.ties?.secondaryLegs ?? 2}
+          data-testid={`tie-secondary-legs-${elementId}`}
+          onchange={(e) => setTies(elementId, { secondaryLegs: +e.currentTarget.value })} />
+      </label>
       <span class="sub">L c/</span>
       <!-- A spacing reads as a section's dimension (cm, mm in SI (mm), in), as s,max beside it. -->
       <QuantityInput quantity="sectionDim" cls="num num-sp" min={0.05} max={0.5}
