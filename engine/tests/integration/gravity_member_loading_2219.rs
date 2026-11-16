@@ -164,3 +164,55 @@ fn issue_2222_narrow_member_spans_keep_force_on_both_sides_of_the_old_span_cutof
         }
     }
 }
+
+fn round4_check_torque(density: Option<f64>) {
+    use dedaliano_engine::postprocess::diagrams_3d::diagram_positions_3d;
+        for couple in [-0.5, 0.5, 0.0] {
+            let mut input = model(0.0);
+            input.nodes.values_mut().find(|n| n.id==2).unwrap().x = 1.5;
+            input.loads = vec![serde_json::from_value(json!({"type":"nodal","data":{"nodeId":2,"fx":0,"fy":0,"fz":0,"mx":couple,"my":0,"mz":0}})).unwrap()];
+            if let Some(q) = density {
+                for id in [1, 2] {
+                    input.loads.push(serde_json::from_value(json!({"type":"distributed","data":{"elementId":id,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":{"x":[q,q,q],"y":[0.01,0.01,0.01],"z":[0,0,0]}}})).unwrap());
+                }
+            }
+            for result in [linear::solve_3d(&input).unwrap(), pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results, corotational::solve_corotational_3d(&input,100,1e-10,4,false).unwrap().results] {
+                let first = result.element_forces.iter().find(|f| f.element_id == 1).unwrap();
+                let last = result.element_forces.iter().find(|f| f.element_id == 2).unwrap();
+                let q = density.unwrap_or(0.0);
+                let start = -couple * (6.0-1.5)/6.0 - q*6.0/2.0;
+                assert!((first.mx_start-start).abs()<1e-8);
+                assert!((last.mx_end-(start+couple+q*6.0)).abs()<1e-8);
+                let mut wire = serde_json::to_value(first).unwrap();
+                wire["length"] = json!(6.0);
+                wire["mxEnd"] = json!(last.mx_end);
+                wire["pointTorques"] = json!([{"a":1.5,"p":couple}]);
+                wire["memberMoments"] = density.map_or(json!([]), |q| json!([{"a":0,"b":6,"moments":{"x":[q,q,q],"y":[0.01,0.01,0.01],"z":[0,0,0]}}]));
+                let recovered: ElementForces3D = serde_json::from_value(wire).unwrap();
+                for x in [0.0, 1.5-1e-6, 1.5, 1.5+1e-6, 3.0, 6.0] {
+                    let expected = start + q*x + if x>1.5 { couple } else { 0.0 };
+                    assert!((evaluate_diagram_3d_at(&recovered,"torsion",x/6.0)-expected).abs()<1e-8, "density={density:?}, couple={couple}, x={x}");
+                }
+                if couple != 0.0 {
+                    let positions = diagram_positions_3d(&recovered,"torsion");
+                    assert!(positions.contains(&(1.5/6.0)));
+                    assert!(positions.iter().any(|t| *t<0.25 && *t>0.24999));
+                    assert!(positions.iter().any(|t| *t>0.25 && *t<0.25001));
+                }
+                let roundtrip: ElementForces3D = serde_json::from_str(&serde_json::to_string(&recovered).unwrap()).unwrap();
+                assert!((evaluate_diagram_3d_at(&roundtrip,"torsion",0.5)-(start+q*3.0+couple)).abs()<1e-8);
+            }
+        }
+}
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round4_concentrated_torque_keeps_station_jumps() { round4_check_torque(None); }
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round4_bending_density_torque_keeps_station_jumps() { round4_check_torque(Some(0.0)); }
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round4_torsional_density_torque_keeps_station_jumps() { round4_check_torque(Some(0.2)); }
