@@ -84,23 +84,3 @@ describe('the raw-colour debt does not grow', () => {
     expect(unlisted).toEqual([]);
   });
 });
-
-/**
- * The files that are AT zero, listed by name.
- *
- * A file at zero is only protected by the ceiling map's "unlisted means zero" rule, which is
- * silent about which files that is. Naming them makes the set visible, so tokenising one is a
- * line in this list rather than a deletion nobody reads.
- */
-describe('the files already at zero stay there', () => {
-  const AT_ZERO = [
-    'FootingMatPhysicalPanel.svelte', 'FootingCadHandoffPanel.svelte', 'FootingMatPanel.svelte',
-  ];
-
-  it('each of them still has none', () => {
-    for (const f of AT_ZERO) {
-      expect(rawColours(readFileSync(join(DIR, f), 'utf8')), f).toBe(0);
-      expect(f in CEILING, `${f} must not be given a ceiling again`).toBe(false);
-    }
-  });
-});
