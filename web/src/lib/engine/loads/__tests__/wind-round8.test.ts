@@ -44,9 +44,7 @@ for (const entry of apexEntries) for (const variant of variants) it(`#2220 lower
   assertWindResultants(windResultants(model, upper.map(p => ({ ...p, q: 0 }))), axis === 'x' ? [force, 0, 0, 0, moment, 0] : [0, force, 0, -moment, 0, 0]);
 });
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
-
-for (const end of ['lower', 'upper'] as const) for (const offset of [0, 1e-7]) for (const sign of [-1, 1]) (offset === 0 ? knownWrong : it)(`${offset === 0 ? "known wrong result: " : ""}#2220 physical apex ${end} offset=${offset} sign=${sign}`, () => {
+for (const end of ['lower', 'upper'] as const) for (const offset of [0, 1e-7]) for (const sign of [-1, 1]) it(`#2220 physical apex ${end} offset=${offset} sign=${sign}`, () => {
   const model = mesh([-1, 1].map(side => [[0, side * (end === 'lower' ? offset : 1), 6], [0, side * (end === 'lower' ? 1 : offset), 10]]));
   const pressure = (z: number, width: number) => { expect(width).toBeGreaterThan(0); return sign * (end === 'lower' ? z : 16 - z); };
   const field = windHeightField({ model, axis: 'x', from: 6, to: 10, pressure });
@@ -132,7 +130,7 @@ for (const entry of apexEntries) for (const variant of variants) for (const spat
 it('zero pressure at a physical apex keeps its zero answer with eccentricity', () => {
   const model = mesh([-1, 1].map(side => [[0, 0, 6], [0, side, 10]]));
   const field = windHeightField({ model, axis: 'x', from: 6, to: 10, pressure: () => 0 });
-  expect(field.torque).toBe('unsupported');
+  expect(field.torque).toBe('resolved');
   const loads = windHeightLoads(field, 1, 0, 1).distributed;
   expect(loads.map(p => p.elementId)).toEqual([1, 2]);
   assertWindResultants(windResultants(model, loads), [0, 0, 0, 0, 0, 0]);

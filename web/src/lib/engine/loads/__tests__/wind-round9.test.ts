@@ -15,7 +15,6 @@ import { evaluateDiagramAt } from '../../diagrams-3d';
 import type { SolverInput } from '../../types';
 import type { SolverInput3D } from '../../types-3d';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
 const entries = ['field', 'cases', 'case4', 'sign', 'planner', 'planner4', 'load-plan', 'load-plan4'] as const;
 const fixtures: Array<Record<string, unknown>> = [];
 afterAll(() => {
@@ -25,13 +24,13 @@ afterAll(() => {
   for (const candidate of fixtures) expect(saved.find(c => c.kind === candidate.kind && c.variant === candidate.variant && c.dimension === candidate.dimension)).toEqual(JSON.parse(JSON.stringify(candidate)));
 });
 
-for (const entry of entries) for (const variant of variants) for (const upper of [false, true]) for (const eccentricSign of [-1, 1]) knownWrong(`known wrong result: #2220 finite endpoint torque ${entry} ${variant} upper=${upper} e=${eccentricSign}`, () => {
+for (const entry of entries) for (const variant of variants) for (const upper of [false, true]) for (const eccentricSign of [-1, 1]) it(`#2220 finite endpoint torque ${entry} ${variant} upper=${upper} e=${eccentricSign}`, () => {
   const corners = entry === 'field' ? [[0, -1], [0, 1]] : [-1, 1].flatMap(x => [-1, 1].map(y => [x, y]));
   const source = mesh(corners.map(([x, y]) => [[upper ? x! : 0, upper ? y! : 0, 0], [upper ? 0 : x!, upper ? 0 : y!, 4]]));
   const { model, sources, back } = remeshWind(source, variant), axis = variant === 'rotate' ? 'y' : 'x';
   const simultaneous = entry.endsWith('4');
   let pressure = 1, eccentricity = eccentricSign * 0.3;
-  let lines: ReturnType<typeof windHeightLoads>['distributed'];
+  let lines: Array<{ elementId: number; a?: number; b?: number; q: number; qJ?: number; qX?: number; qXJ?: number; qY?: number; qYJ?: number }>;
   if (entry === 'field' || entry === 'cases' || entry === 'case4') {
     const field = windHeightField({ model, axis, from: 0, to: 4, pressure: () => pressure });
     if (entry === 'field') lines = windHeightLoads(field, axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, eccentricity).distributed;
@@ -127,7 +126,7 @@ for (const entry of entries) for (const variant of variants) for (const upper of
   }
 });
 
-for (const upper of [false, true]) knownWrong(`known wrong result: #2220 coincident endpoint geometry does not depend on shared node IDs upper=${upper}`, () => {
+for (const upper of [false, true]) it(`#2220 coincident endpoint geometry does not depend on shared node IDs upper=${upper}`, () => {
   const model = mesh([-1, 1].map(side => [[0, upper ? side : 0, 0], [0, upper ? 0 : side, 4]]));
   const e = model.elements.get(2)!;
   const key = upper ? 'nodeJ' : 'nodeI';
@@ -143,7 +142,7 @@ for (const upper of [false, true]) knownWrong(`known wrong result: #2220 coincid
   expect(resultants[5]).toBeCloseTo(1.2, 10);
 });
 
-for (const span of [0.05 - 1e-7, 0.05, 0.05 + 1e-7]) for (const upper of [false, true]) knownWrong(`known wrong result: #2220 finite endpoint transfer follows physical width mode span=${span} upper=${upper}`, () => {
+for (const span of [0.05 - 1e-7, 0.05, 0.05 + 1e-7]) for (const upper of [false, true]) it(`#2220 finite endpoint transfer follows physical width mode span=${span} upper=${upper}`, () => {
   const model = mesh([-1, 1].map(side => [[0, upper ? side * span / 2 : 0, 0], [0, upper ? 0 : side * span / 2, 4]]));
   const field = windHeightField({ model, axis: 'x', from: 0, to: 4, width: 2, pressure: () => 1 });
   if (span <= 0.05) expect(() => windHeightLoads(field, 1, 0, 0.3)).toThrow('wind.pressure.distributedTorqueUnsupported');

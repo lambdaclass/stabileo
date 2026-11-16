@@ -72,13 +72,14 @@ for (const variant of variants) it(`#2204 integrated eccentric wind stays a plan
 });
 
 function compareWindMemberForces(ids: Iterable<number>, a: { elementId: number }[], b: { elementId: number }[], compare: (x: unknown, y: unknown) => void) {
+  const expected = [...ids].sort((a, b) => a - b);
+  for (const rows of [a, b]) expect(rows.map(f => f.elementId).sort((a, b) => a - b)).toEqual(expected);
   for (const f of b) { const actual = a.find(p => p.elementId === f.elementId)!;
     for (const [key, value] of Object.entries(f)) if (key.endsWith('Start') || key.endsWith('End')) compare((actual as unknown as Record<string, unknown>)[key], value);
   }
 }
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
-for (const missing of ['both-empty', 'both-partial', 'actual', 'reference', 'duplicate', 'extra']) knownWrong(`known wrong result: #2220 member-force comparison rejects ${missing}`, () => {
+for (const missing of ['both-empty', 'both-partial', 'actual', 'reference', 'duplicate', 'extra']) it(`#2220 member-force comparison rejects ${missing}`, () => {
   const row = (elementId: number) => ({ elementId, vStart: 1, vEnd: 0 });
   const complete = [row(1), row(2)];
   const a = missing === 'both-empty' ? [] : missing === 'duplicate' ? [row(1), row(1)] : missing === 'extra' ? [...complete, row(3)] : missing === 'reference' ? complete : [row(1)];

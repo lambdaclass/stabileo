@@ -107,8 +107,8 @@ function heightMembers(model: WindModel, from: number, to: number, region?: Read
   };
   const coincides = (p: { x: number; y: number }, q: { x: number; y: number }) => Math.hypot(p.x - q.x, p.y - q.y) <= 64 * Number.EPSILON * Math.max(1, Math.abs(p.x), Math.abs(p.y), Math.abs(q.x), Math.abs(q.y));
   const chains = members.map(m => {
-    const intervals = members.filter(n => coincides(at(m, Z(n.a)), n.a) && coincides(at(m, Z(n.b)), n.b))
-      .map(n => [Z(n.a), Z(n.b)] as [number, number]).sort((a, b) => a[0] - b[0]);
+    const connected = members.filter(n => coincides(at(m, Z(n.a)), n.a) && coincides(at(m, Z(n.b)), n.b));
+    const intervals = connected.map(n => [Z(n.a), Z(n.b)] as [number, number]).sort((a, b) => a[0] - b[0]);
     const merged: Array<[number, number]> = [];
     for (const interval of intervals) {
       const last = merged[merged.length - 1];
@@ -117,7 +117,7 @@ function heightMembers(model: WindModel, from: number, to: number, region?: Read
     }
     const [lo, hi] = merged.find(([lo, hi]) => lo <= Z(m.a) && hi >= Z(m.b))!;
     const slope = Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y) / (Z(m.b) - Z(m.a));
-    return { m, lo, hi, slope };
+    return { m, lo, hi, slope, lower: connected.find(n => Z(n.a) === lo)!.a, upper: connected.find(n => Z(n.b) === hi)!.b };
   });
   return members.flatMap((m, i) => {
     if (Z(m.b) <= from || Z(m.a) >= to) return [];
@@ -125,7 +125,7 @@ function heightMembers(model: WindModel, from: number, to: number, region?: Read
     const chain = chains[i]!;
     const legs = chains.filter(c => c.lo <= chain.lo && c.hi >= chain.hi && c.slope < chain.slope - 64 * Number.EPSILON * Math.max(c.slope, chain.slope));
     const connectsLegs = legs.some(c => coincides(at(c.m, chain.lo), at(m, chain.lo))) && legs.some(c => coincides(at(c.m, chain.hi), at(m, chain.hi)));
-    return connectsLegs ? [] : [{ ...m, lo: chain.lo, hi: chain.hi }];
+    return connectsLegs ? [] : [{ ...m, lo: chain.lo, hi: chain.hi, lower: chain.lower, upper: chain.upper }];
   });
 }
 
@@ -193,21 +193,28 @@ export function windHeightField(input: {
   const cuts = [...new Set([from, to, ...members.flatMap(m => [Z(m.a), Z(m.b)]), ...(input.boundaries ?? [])])].filter(z => z >= from && z <= to).sort((a, b) => a - b);
   const loads = new Map<number, number>(), baseLoads = new Map<number, number>();
   const memberLoads: TorqueMember[] = [];
-  const torqueSupported = cuts.slice(1).every((hi, k) => {
-    const lo = cuts[k]!, mid = (lo + hi) / 2;
-    const active = members.filter(m => Z(m.a) < mid && Z(m.b) > mid);
-    return levelLoadTorqueSupportedAlong(sectionAt(active, lo), sectionAt(active, hi));
-  });
   const add = (id: number, f: number) => { const map = Z(model.nodes.get(id)!) <= from ? baseLoads : loads; map.set(id, (map.get(id) ?? 0) + f); };
   const cross = axis === 'x' ? 'y' : 'x';
   const carrierCuts = [...new Set([from, to, ...members.flatMap(m => [m.lo, m.hi])])].filter(z => z >= from && z <= to).sort((a, b) => a - b);
   const widthModes: Array<'physical' | 'declared'> = carrierCuts.slice(1).map((hi, k) => heightWidth(members, axis, carrierCuts[k]!, hi) > 0.05 ? 'physical' : 'declared');
-  for (let k = 1; k < cuts.length; k++) {
-    const lo = cuts[k - 1]!, hi = cuts[k]!, mid = (lo + hi) / 2;
+  const bands = cuts.slice(1).map((hi, k) => {
+    const lo = cuts[k]!, mid = (lo + hi) / 2;
     const active = members.filter(m => Z(m.a) < mid && Z(m.b) > mid);
-    if (!active.length) throw new WindPressureRefusal('wind.pressure.heightGap');
     const band = carrierCuts.findIndex(z => z > mid);
     const widthKind = widthModes[band - 1]!;
+    const endpoint = (key: 'lower' | 'upper') => active.length > 1 && active.every(m => m[key].x === active[0]![key].x && m[key].y === active[0]![key].y && Z(m[key]) === Z(active[0]![key]));
+    const referenceZ = endpoint('lower') ? Math.min(...active.map(m => m.hi)) : endpoint('upper') ? Math.max(...active.map(m => m.lo)) : undefined;
+    const reference = referenceZ === undefined || widthKind !== 'physical' ? undefined : sectionAt(active, referenceZ);
+    const coords = reference?.map(p => p[cross]);
+    const width = coords ? Math.max(...coords) - Math.min(...coords) : 0;
+    const apex = reference && width > 0 && levelLoadTorqueSupportedAlong(reference, reference)
+      ? prepareLevelLoads(new Map(reference.map((p, id) => [id, { ...p, id }])), reference.map((_p, id) => id))(0, 0, width)
+      : undefined;
+    return { lo, hi, mid, active, widthKind, apex, supported: !!apex || levelLoadTorqueSupportedAlong(sectionAt(active, lo), sectionAt(active, hi)) };
+  });
+  const torqueSupported = bands.every(b => b.supported);
+  for (const { lo, hi, mid, active, widthKind, apex } of bands) {
+    if (!active.length) throw new WindPressureRefusal('wind.pressure.heightGap');
     const stationary = active.every(m => m.a.x === m.b.x && m.a.y === m.b.y);
     const geometry = (z: number) => {
       const pts = sectionAt(active, z);
@@ -236,11 +243,18 @@ export function windHeightField(input: {
       }
       return stations.get(z)!;
     };
+    const torsion = (z: number) => {
+      if (!apex) return station(z).torsion;
+      const pts = sectionAt(active, z), coords = pts.map(p => p[cross]);
+      const width = Math.max(...coords) - Math.min(...coords);
+      const pressure = input.pressure(z, width, 'physical');
+      return apex.map(p => ({ nodeId: p.nodeId, fx: pressure * p.fx, fy: pressure * p.fy, mz: 0 }));
+    };
     active.forEach((m, j) => {
       const density = (z: number) => station(z).density[j]!;
       const length = Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y, Z(m.b) - Z(m.a));
       const scale = (Z(m.b) - Z(m.a)) / length;
-      const components = torqueSupported ? [density, ...(['fx', 'fy', 'mz'] as const).map(c => (z: number) => station(z).torsion[j]![c])] : [density];
+      const components = torqueSupported ? [density, ...(['fx', 'fy', 'mz'] as const).map(c => (z: number) => torsion(z)[j]![c])] : [density];
       const parts = components.map(f => integrateWindPressure(hi - lo, [], s => f(lo + s)));
       const cuts = [...new Set(parts.flatMap(ps => ps.flatMap(p => [p.a, p.b])))].sort((a, b) => a - b);
       const cursors = parts.map(() => 0);

@@ -52,6 +52,14 @@ fn issue_2220_apex_pressure_reaches_native_members() {
     check_pressure_cases(cases);
 }
 
+#[test]
+fn issue_2220_endpoint_torque_reaches_native_members() {
+    let fixtures: Value = serde_json::from_str(include_str!("wind_endpoint_2220.json")).unwrap();
+    let cases: Vec<_> = fixtures.as_array().unwrap().iter().collect();
+    assert_eq!(cases.len(), 464);
+    check_pressure_cases(cases);
+}
+
 fn check_pressure_cases(cases: Vec<&Value>) {
     let mut apex_results = std::collections::HashMap::<String, Value>::new();
     for case in cases {
