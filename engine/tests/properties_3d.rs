@@ -800,6 +800,54 @@ fn issue_2109_support_load_cancellation_keeps_roundoff_budget() {
     check_internal_force_consistency(&inp, &res, equilibrium_oracle_length(&inp)).unwrap();
 }
 
+fn cancelling_member_load_input(kind: usize, factor: f64) -> SolverInput3D {
+    let mut inp = equilibrium_oracle_input();
+    inp.loads.clear();
+    let len = elem_len(&inp, 1);
+    for value in std::iter::repeat_n(0.1 * factor, 8192).chain(std::iter::repeat_n(-0.2 * factor, 4096)) {
+        inp.loads.push(match kind {
+            0..2 => SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                element_id: 1, a: len / 2.0, px: 0.0,
+                py: if kind == 0 { value } else { 0.0 },
+                pz: if kind == 1 { value } else { 0.0 },
+            }),
+            2..5 => SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                element_id: 1, a: None, b: None,
+                q_xi: if kind == 2 { value / len } else { 0.0 },
+                q_xj: if kind == 2 { value / len } else { 0.0 },
+                q_yi: if kind == 3 { value / len } else { 0.0 },
+                q_yj: if kind == 3 { value / len } else { 0.0 },
+                q_zi: if kind == 4 { value / len } else { 0.0 },
+                q_zj: if kind == 4 { value / len } else { 0.0 },
+            }),
+            _ => unreachable!(),
+        });
+    }
+    inp
+}
+
+#[test]
+#[ignore = "known wrong result: #2229"]
+fn equilibrium_oracle_cancelling_member_loads_keep_roundoff_budget() {
+    let mut failures = Vec::new();
+    for (name, kind) in [("point y", 0), ("point z", 1), ("distributed x", 2), ("distributed y", 3), ("distributed z", 4)] {
+        for factor in [1e-12, 1.0, 1e12] {
+            let inp = cancelling_member_load_input(kind, factor);
+            let mut unloaded = inp.clone();
+            unloaded.loads.clear();
+            let res = solve(&unloaded).unwrap();
+            let length = equilibrium_oracle_length(&inp);
+            if let Err(error) = check_internal_force_consistency(&inp, &res, length) {
+                failures.push(format!("{name} scale {factor:e}: {error}"));
+            }
+            let mut altered = res.clone();
+            altered.element_forces[0].n_start += 1e-6 * 0.1 * factor;
+            assert!(check_internal_force_consistency(&inp, &altered, length).is_err());
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
 fn assert_equilibrium_oracle_rejects_node_imbalance(inp: &SolverInput3D) {
     let length = equilibrium_oracle_length(inp);
     let res = solve(inp).unwrap();
