@@ -14,12 +14,14 @@ import { SLAB_FACES, type SlabRow } from '../slab-row';
 import type { LevelPlan } from '../slab-plan';
 import { wallDetail } from '../wall-detail';
 import type { WallRow } from '../wall-row';
+import type { FootingRow } from '../footing-types';
+import { footingDetail } from '../footing-detail';
 import { rulesFor } from '../codes';
 import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
 
 export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
-  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie';
+  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY';
 
 export interface Piece {
   kind: PieceKind;
@@ -31,7 +33,7 @@ export interface Piece {
 
 export interface ScheduleElement { key: string; name: string; level?: string; family: SheetFamily; pieces: Piece[] }
 
-export interface PieceRows { line: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; slabPlan?: readonly LevelPlan[] }
+export interface PieceRows { line: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; slabPlan?: readonly LevelPlan[]; footing?: readonly FootingRow[] }
 
 export interface PieceOptions {
   code: SheetCode;
@@ -224,7 +226,15 @@ function levelPieces(plan: LevelPlan): ScheduleElement {
   return { key: `slabplan:${plan.level}`, name: plan.level, level: plan.level, family: 'slab', pieces };
 }
 
-/** Every element's pieces, beams, columns, slabs and walls in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */
+/** A footing's two bottom layers, hooked up where they need it, and its dowels with their feet. */
+function footingPieces(r: FootingRow, R: BendRules): ScheduleElement {
+  const det = footingDetail(r, R);
+  const pieces: Piece[] = det.layers.map((l) => ({ kind: l.dir === 'x' ? 'footingX' : 'footingY', count: l.positions.length, shape: l.shape }));
+  if (det.dowels) pieces.push({ kind: 'dowel', count: det.dowels.count, shape: det.dowels.shape });
+  return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces };
+}
+
+/** Every element's pieces, beams, columns, slabs, walls and footings in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */
 export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElement[] {
   const R = rulesFor(o.code).bends;
   const planned = new Set((rows.slabPlan ?? []).filter((p) => p.packages.length).map((p) => p.level));
@@ -234,5 +244,6 @@ export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElem
     ...(rows.slabPlan ?? []).filter((p) => planned.has(p.level)).map(levelPieces),
     ...rows.slab.filter((r) => !planned.has(r.level ?? '')).map((r) => slabPieces(r, o, R)),
     ...rows.wall.map((r) => wallPieces(rows.wall, r, o, R)),
+    ...(rows.footing ?? []).filter((r) => !r.uncovered && r.B > 0).map((r) => footingPieces(r, R)),
   ].map((e) => ({ ...e, pieces: e.pieces.filter((p) => p.count > 0) }));
 }
