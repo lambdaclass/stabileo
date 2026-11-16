@@ -1,7 +1,9 @@
 defmodule StabileoWeb.EndpointTest do
   use StabileoWeb.ConnCase, async: true
 
-  test "a JSON sign-up goes through the endpoint, records consent and authenticates", %{conn: conn} do
+  test "a JSON sign-up goes through the endpoint, records consent and authenticates", %{
+    conn: conn
+  } do
     {:ok, _} = StabileoRepo.Features.set_user_login_enabled(true)
     verifier = "endpoint-signup-verifier"
     email = "endpoint@gmail.com"

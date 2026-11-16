@@ -73,7 +73,7 @@ try {
     if (feature) {
       const pageLoader = `src/components/${feature}/load-page.ts`;
       if (!manifest[pageLoader]) throw new Error(`missing manifest entry ${pageLoader}`);
-      const featureRoots = [pageLoader, ...(manifest[pageLoader].dynamicImports ?? []).filter((dep) => !/load-detail\.ts$/.test(dep))];
+      const featureRoots = [pageLoader, ...(manifest[pageLoader].dynamicImports ?? []).filter((dep) => !/load-(?:main-)?detail\.ts$/.test(dep))];
       if (detail) {
         const name = detail.replace(/\.svelte$/, '');
         const key = manifest[`src/components/${feature}/${detail}`] ? `src/components/${feature}/${detail}` : Object.keys(manifest).find((k) => manifest[k].name === name && manifest[k].src === undefined);
@@ -99,18 +99,20 @@ try {
   const measured = { '/en/': landing, '/es/': landing, '/pt/': landing,
     '/app/basic': app, '/app/education': app, '/app/pro': app };
   const featureRoutes = {
-    research: { '/en/research/': null },
+    research: { '/en/research/': { published: null, expanded: null } },
     tools: {
-      '/en/tools/': null,
-      '/en/tools/simply-supported-beam/': 'CalculatorTool.svelte',
-      '/en/tools/continuous-beam/': 'BatchTool.svelte',
-      '/en/tools/beam-frame/': 'ModelTool.svelte',
-      '/en/tools/mohr-2d/': 'MohrTool.svelte',
+      '/en/tools/': { published: null, expanded: null },
+      '/en/tools/simply-supported-beam/': { published: 'ToolViewer.svelte', expanded: 'CalculatorTool.svelte' },
+      '/en/tools/continuous-beam/': { published: 'MainBatchTool.svelte', expanded: 'BatchTool.svelte' },
+      '/en/tools/beam-frame/': { expanded: 'ModelTool.svelte' },
+      '/en/tools/mohr-2d/': { expanded: 'MohrTool.svelte' },
     },
   };
   for (const [feature, routes] of Object.entries(featureRoutes)) {
-    for (const [route, detail] of Object.entries(routes)) {
-      if (featureSwitches[feature] === '0') console.log(`${route}: skipped (VITE_${feature.toUpperCase()}=0)`);
+    const expanded = featureSwitches[feature] !== '0';
+    for (const [route, details] of Object.entries(routes)) {
+      const detail = expanded ? details.expanded : details.published;
+      if (detail === undefined) console.log(`${route}: skipped (VITE_${feature.toUpperCase()}=0)`);
       else measured[route] = footprint(false, feature, detail);
     }
   }

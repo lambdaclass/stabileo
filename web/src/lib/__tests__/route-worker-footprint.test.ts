@@ -85,7 +85,7 @@ describe('route worker footprint', () => {
 });
 
 describe('route size build switches', () => {
-  it.skip.each([
+  it.each([
     ['0', '0'], ['0', '1'], ['1', '0'],
   ])('known wrong result: #2099 — measure built routes and report disabled routes for research=%s tools=%s', async (research, tools) => {
     const missing = [
@@ -112,7 +112,7 @@ describe('route size build switches', () => {
     }
   });
 
-  it.skip.each(['/en/research/', '/en/tools/', '/en/tools/simply-supported-beam/', '/en/tools/continuous-beam/'])(
+  it.each(['/en/research/', '/en/tools/', '/en/tools/simply-supported-beam/', '/en/tools/continuous-beam/'])(
     'known wrong result: #2099 — default published %s enforces its ceiling on both sides of the boundary', async route => {
       const options = { switches: { VITE_RESEARCH: '0', VITE_TOOLS: '0' }, missing: ['CalculatorTool', 'BatchTool', 'ModelTool', 'MohrTool'].map(name => `src/components/tools/${name}.svelte`) };
       const { files } = await measure(false, options);
@@ -127,7 +127,7 @@ describe('route size build switches', () => {
     },
   );
 
-  it.skip.each([
+  it.each([
     ['src/components/research/load-page.ts', 'src/components/research/load-page.ts'],
     ['src/components/tools/load-page.ts', 'src/components/tools/load-page.ts'],
     ['src/components/tools/ToolViewer.svelte', 'for ToolViewer.svelte'],
