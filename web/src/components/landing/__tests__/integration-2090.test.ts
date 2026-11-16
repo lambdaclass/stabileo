@@ -30,3 +30,10 @@ it('known wrong result: #2090 the truss visibly identifies normalized deformatio
     expect(caption).not.toContain('landing.fig');
   }
 });
+
+it.skip('known wrong result: #2090 every section description distinguishes the fixed kern from load-dependent quantities', async () => {
+  const dictionaries = import.meta.glob('../../../lib/i18n/locales/{en,es,pt,de,fr,tr}.ts', { eager: true }) as Record<string, { default: Record<string, string> }>;
+  for (const [path, { default: dict }] of Object.entries(dictionaries)) {
+    expect(dict['landing.secDesc'], path).toMatch(/fixed|fijo|fixo|fest|fixe|sabit/i);
+  }
+});
