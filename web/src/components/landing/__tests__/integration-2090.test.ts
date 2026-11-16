@@ -41,6 +41,6 @@ it('known wrong result: #2090 every section description distinguishes the fixed 
 it('known wrong result: #2090 #1986 main Hungarian coverage includes every new hero and axes label', async () => {
   const en = (await import('../../../lib/i18n/locales/en')).default;
   const hu = (await import('../../../lib/i18n/locales/hu')).default;
-  const keys = Object.keys(en).filter((k) => /^(axes\.|landing\.(heroFig|bld|shed|truss|sec|mohr|top))/.test(k));
+  const keys = Object.keys(en).filter((k) => /^(axes\.|landing\.(heroFig|bld|shed|truss|sec|mohr|top|mod))/.test(k));
   for (const key of keys) expect(hu[key], key).toBeTypeOf('string');
 });

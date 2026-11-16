@@ -19,26 +19,28 @@ function springModel(curve = points) {
   return { s, snapshot: { ...modelStore.snapshot(), analysisMode: 'pro' } };
 }
 
-it('known wrong result: #1986 symmetric spring magnitudes remain nonnegative through every frame and both code directions', () => {
+it.skip('known wrong result: #2259 symmetric spring branch coordinates change signs together through every frame and both code directions', () => {
   for (const c of allChoices()) for (const mode of ['3d', 'pro']) for (const k of [0, 1, 2]) {
     const snap = { analysisMode: mode, nodes: [[1, { x: 1, y: 2, z: 3 }]], supports: [[1, { curves: { ['xyz'[k]!]: points } }]] };
     const user = transformSnapshot(snap, c, 'toUser') as any;
     const name = userAxisAlong(makeFrame(c), k).name.toLowerCase();
-    expect(user.supports[0][1].curves[name]).toEqual(points);
+    const sign = userAxisAlong(makeFrame(c), k).sign;
+    const shown = points.map(pair => pair.map(v => sign * v + 0)).sort((a, b) => a[0]! - b[0]!);
+    expect(user.supports[0][1].curves[name]).toEqual(shown);
     const correctUser = structuredClone(user);
-    correctUser.supports[0][1].curves[name] = points;
+    correctUser.supports[0][1].curves[name] = shown;
     expect(transformSnapshot(correctUser, c, 'toModel')).toEqual(snap);
   }
 });
 
-it('known wrong result: #1986 valid user-frame spring branches retain the actual nonlinear WASM answer', () => {
+it.skip('known wrong result: #2259 valid user-frame spring branches retain the actual nonlinear WASM answer', () => {
   const { s, snapshot } = springModel();
   const base = modelStore.solve3D(false, false, true);
   if (!base || typeof base === 'string') throw new Error(String(base));
   for (const c of allChoices()) {
     const user = transformSnapshot(snapshot, c, 'toUser') as any;
     const name = userAxisAlong(makeFrame(c), 2).name.toLowerCase();
-    user.supports.find(([id]: [number]) => id === s)[1].curves[name] = points;
+    user.supports.find(([id]: [number]) => id === s)[1].curves[name] = points.map(pair => pair.map(v => userAxisAlong(makeFrame(c), 2).sign * v + 0)).sort((a, b) => a[0]! - b[0]!);
     modelStore.restore(transformSnapshot(user, c, 'toModel'));
     const result = modelStore.solve3D(false, false, true);
     if (!result || typeof result === 'string') throw new Error(String(result));

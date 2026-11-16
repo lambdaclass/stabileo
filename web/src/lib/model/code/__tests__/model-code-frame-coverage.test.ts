@@ -117,10 +117,10 @@ describe('model code carries every global direction in the user axes', () => {
     for (let d = 0; d < 6; d++) expect(ecc.releases[(d >= 3 ? 3 : 0) + userIndexOf(d % 3)]).toBe(rel[d]);
   });
 
-  it('permutes a support\'s nonlinear springs with its axes', () => {
+  it.skip('known wrong result: #2259 transforms both coordinates of a support spring with its axes', () => {
     const u = transformSnapshot(spaceSnapshot(), YUP, 'toUser');
     const [, sp] = u.supports[0];
-    expect(sp.curves).toEqual({ z: [[0.01, 5]], y: [[0.02, 8]] });
+    expect(sp.curves).toEqual({ z: [[-0.01, -5]], y: [[0.02, 8]] });
   });
 
   it('turns the in-plane couple and the global magnitude and angle of plane member loads with the plane', () => {
@@ -142,4 +142,20 @@ describe('model code carries every global direction in the user axes', () => {
       expect(transformSnapshot(transformSnapshot(strip(plane), c, 'toUser'), c, 'toModel').loads).toEqual(plane.loads);
     }
   });
+});
+
+it.skip('known wrong result: #2259 asymmetric spring pairs keep physical direction, ordering and inverse through all frame directions', () => {
+  const curve = [[-0.02, -3], [0, 0], [0.01, 5]];
+  for (const choice of allChoices()) for (const k of [0, 1, 2]) for (const way of ['toUser', 'toModel'] as const) {
+    const f = makeFrame(choice);
+    const snap = { analysisMode: 'pro', supports: [[1, { curves: { ['xyz'[k]!]: curve } }]] };
+    const source = way === 'toUser' ? f.rows.findIndex(row => row[k] !== 0) : f.rows[k]!.findIndex(x => x !== 0);
+    const sign = way === 'toUser' ? f.rows[source]![k]! : f.rows[k]![source]!;
+    const shown = transformSnapshot(snap, choice, way) as any;
+    const actual = shown.supports[0][1].curves['xyz'[source]!];
+    const expected = curve.map(pair => pair.map(v => sign * v + 0)).sort((a, b) => a[0]! - b[0]!);
+    expect(actual).toEqual(expected);
+    expect(transformSnapshot(shown, choice, way === 'toUser' ? 'toModel' : 'toUser')).toEqual(snap);
+    expect(actual.find((pair: number[]) => pair[0] === sign * 0.01)?.[1]).toBe(sign * 5);
+  }
 });

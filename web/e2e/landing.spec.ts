@@ -593,6 +593,7 @@ test.describe('@landing landing page', () => {
     const legend = (await page.locator('.landing .hero-figure .truss-fig .hf-row').textContent()) ?? '';
     expect(legend).toContain('Tension');
     expect(legend).toContain('Compression');
+    await expect(page.getByTestId('truss-zero')).toContainText('Near zero');
   });
 
 
