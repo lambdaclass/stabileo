@@ -43,7 +43,7 @@
   const view = $derived.by((): [number, number, number, number] => {
     const x = outer * (run.alpha >= 90 ? 1 : Math.sin(alpha)) + 0.05 * run.r;
     const top = run.load ? run.load.y + run.t_max / 2 + 0.35 * run.r : outer + 0.05 * run.r;
-    return [-x, Math.min(0, outer * Math.cos(alpha)) - 0.05 * run.r, x, top];
+    return [-x, Math.min(0, outer * Math.cos(alpha)) - 0.3 * outer, x + 0.35 * outer, top];
   });
   const stale = $derived(thin || (tab === 'weight' ? !sameWeight(weightOf(run), weight) : !sameLoad(loadOf(run), load)));
   const atPaper = $derived(tab === 'weight' ? sameWeight(weight, PAPER_WEIGHT) : sameLoad(load, PAPER_LOAD));
@@ -62,11 +62,11 @@
     if (tab === 'weight') {
       if (weight.alpha !== PAPER_WEIGHT.alpha) list.push(`α = ${num(weight.alpha)}°`);
       if (weight.n !== PAPER_WEIGHT.n) list.push(`N = ${weight.n}`);
-      if (weight.centreline) list.push(s.centrelineShort);
+      if (weight.centreline) list.push(s.centrelineShort.toLocaleLowerCase(publicI18n.locale));
     } else {
       if (load.n !== PAPER_LOAD.n) list.push(`N = ${load.n}`);
       if (Math.abs(load.t - PAPER_LOAD.t) > 1e-9) list.push(`t = ${num(load.t, { dp: 2 })} m`);
-      if (Math.abs(load.position - PAPER_LOAD.position) > 1e-9) list.push(`${s.position} ${num(load.position, { dp: 2 })}`);
+      if (Math.abs(load.position - PAPER_LOAD.position) > 1e-9) list.push(`${s.position.toLocaleLowerCase(publicI18n.locale)} ${num(load.position, { dp: 2 })}`);
     }
     return list.join(', ');
   });
@@ -187,13 +187,13 @@
       <PaneTabs label={s.caseLabel} tabs={[{ id: 'weight', label: s.tabs.weight }, { id: 'load', label: s.tabs.load }]}
         bind:active={() => tab, setTab} oninteract={() => playback.interact()} />
       <p class="source">{source === 'replay' ? shared.replaySource : shared.liveSource}</p>
-      <p class="caption result-settings">{s.computedWith}: {#if tab === 'weight'}α = {num(run.alpha)}°, N = {run.n}, {run.weights === 'centreline' ? s.centrelineShort : s.trueShort}{:else}N = {run.n}, t = {num(run.t_max, { dp: 2 })} m, {s.position} {num(run.position ?? 0, { dp: 2 })}{/if}.</p>
+      <p class="caption result-settings">{s.computedWith}: {#if tab === 'weight'}α = {num(run.alpha)}°, N = {run.n}, {(run.weights === 'centreline' ? s.centrelineShort : s.trueShort).toLocaleLowerCase(publicI18n.locale)}{:else}N = {run.n}, t = {num(run.t_max, { dp: 2 })} m, {s.position.toLocaleLowerCase(publicI18n.locale)} {num(run.position ?? 0, { dp: 2 })}{/if}.</p>
       {#if stale}<p class="result-stale" role="status">{thin ? s.thin : s.staleResult}</p>{/if}
       <div id={`rs-panel-${tab}`} role="tabpanel" aria-labelledby={`rs-tab-${tab}`} class:stale={stale}>
         <StabileoViewer editorButton={false} xy={geometry.xy} cells={geometry.cells} cellSize={2} values={shown.values} displacement={shown.displacement} deformScale={1}
           range={{ min: -1, max: 1 }} colourMap="diverging" title={s.viewerTitle} height="max(280px, min(22rem, 42svh))" {view} lineWidth={2} showAxes={false}
           lengthUnit={tab === 'load' ? 'm' : undefined} oninteract={() => playback.interact()} />
-        <p class="caption">{tab === 'weight' ? s.captionWeight : s.captionLoad}{#if tab === 'load'} {s.notOrduna}{/if}</p>
+        <p class="caption">{tab === 'weight' ? s.captionWeight : s.captionLoad}{#if tab === 'load'}{' '}{s.notOrduna}{/if}</p>
         <dl class="summary">
           <dt>{s.summary.shown}</dt><dd>{stepLabel}</dd>
           {#if tab === 'weight'}

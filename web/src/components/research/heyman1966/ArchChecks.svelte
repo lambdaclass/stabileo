@@ -15,7 +15,7 @@
     rows: (['eta', 'beta', 'h'] as const).map(q => {
       const c = byId(`${key}-${row.alpha}-${q}`);
       const dp = q === 'beta' ? 4 : 7;
-      const difference = q === 'beta' ? `${signed(c.computed! - c.reference!, 4)}°` : `${signed(100 * (c.computed! - c.reference!) / c.reference!, 4)} %`;
+      const difference = q === 'beta' ? `${signed(c.computed! - c.reference!, 5)}°` : `${signed(100 * (c.computed! - c.reference!) / c.reference!, 5)} %`;
       return { quantity: s.quantities[q], published: num(c.reference!, { dp: q === 'beta' ? 4 : undefined, sig: q === 'beta' ? undefined : 6 }), ours: num(c.computed!, { dp }), difference, passed: c.passed };
     }),
   }))));

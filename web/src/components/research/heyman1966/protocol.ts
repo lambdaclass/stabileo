@@ -71,8 +71,9 @@ export function archMesh(run: ArchRun, frame: ArchFrame) {
     point(-rho0 * Math.cos(angle), rho0 * Math.sin(angle), -rho * Math.cos(angle), rho * Math.sin(angle), k, value);
   const ring = (offset: number) => [r + offset * run.t_max, r + offset * frame.t] as const;
   const ratio = (j: number) => Math.max(-1, Math.min(1, frame.e[j] / (frame.t / 2)));
+  const joint = (j: number) => (Math.abs(ratio(j)) > 0.999 ? ratio(j) : 0);
   for (let k = 0; k < n; k++) {
-    for (const j of [k, k + 1]) cells.push(polar(phi(j), ...ring(-0.5), k, ratio(j)), polar(phi(j), ...ring(0.5), k, ratio(j)));
+    for (const j of [k, k + 1]) cells.push(polar(phi(j), ...ring(-0.5), k, joint(j)), polar(phi(j), ...ring(0.5), k, joint(j)));
     for (const side of [-0.5, 0.5]) {
       let prev = polar(phi(k), ...ring(side), k, 0);
       for (let i = 1; i <= segments; i++) {
@@ -82,12 +83,14 @@ export function archMesh(run: ArchRun, frame: ArchFrame) {
       }
     }
   }
-  let prev = -1;
-  for (let j = 0; j <= n; j++) {
-    const e = Math.max(-frame.t, Math.min(frame.t, frame.e[j]));
-    const id = polar(phi(j), r, r + e, Math.min(j, n - 1), ratio(j));
-    if (prev >= 0) cells.push(prev, id);
-    prev = id;
+  for (const width of [-0.004, 0, 0.004]) {
+    let prev = -1;
+    for (let j = 0; j <= n; j++) {
+      const e = Math.max(-frame.t, Math.min(frame.t, frame.e[j])) + width * r;
+      const id = polar(phi(j), r, r + e, Math.min(j, n - 1), ratio(j));
+      if (prev >= 0) cells.push(prev, id);
+      prev = id;
+    }
   }
   if (run.load) {
     const { x, y, block } = run.load;
