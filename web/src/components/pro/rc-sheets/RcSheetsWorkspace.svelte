@@ -95,6 +95,8 @@
 
   let head = $state<HTMLElement | null>(null);
   const FIT_STEPS = 3;
+  // An expression, not a literal: with data-fit="0" written out the compiler drops every [data-fit="2"] rule as unused.
+  const fitStart: number = 0;
   $effect(() => {
     const el = head;
     if (!el) return;
@@ -116,7 +118,7 @@
 <svelte:window onkeydown={onkey} />
 
 <div class="rcw" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile} use:portal role="dialog" aria-modal="true" aria-label={t('rcSheets.title')} data-testid="rc-sheets-workspace">
-  <header class="rcw-head" title={basisText} bind:this={head} data-testid="rc-head" data-fit="0">
+  <header class="rcw-head" title={basisText} bind:this={head} data-testid="rc-head" data-fit={fitStart}>
     <strong class="rcw-name">{t('rcSheets.title')}</strong>
     <span class="rcw-code" data-testid="rc-code"><RcCodePicker compact /></span>
     <span class="rcw-dim rcw-basis">{basisText}</span>
