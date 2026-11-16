@@ -3656,7 +3656,7 @@ const zh: Translations = {
   "file.internalForces": "内力",
   "file.node": "节点",
   "file.element": "杆件",
-  "file.htmlLang": "zh-CN",
+  "file.htmlLang": "zh",
   "file.report": "报告",
   "file.structuralAnalysisReport": "结构分析报告",
   "file.nodes": "节点",
