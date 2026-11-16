@@ -48,6 +48,9 @@ for (const [label, width, height] of [['phone', 390, 844], ['tablet', 768, 1024]
     await expect(figure.locator('svg')).toBeVisible();
     const box = (await figure.boundingBox())!;
     expect(box.y + 100).toBeLessThan(height);
+    const sticky = page.locator('.landing .mobile-sticky');
+    const footer = await sticky.isVisible() ? (await sticky.boundingBox())!.height : 0;
+    expect(box.y + box.height).toBeLessThanOrEqual(height - footer);
     const size = await page.evaluate(() => ({ page: document.documentElement.scrollWidth, view: innerWidth }));
     expect(size.page).toBeLessThanOrEqual(size.view);
     for (const button of await figure.locator('.hero-fig-switch button').all()) {
@@ -57,11 +60,12 @@ for (const [label, width, height] of [['phone', 390, 844], ['tablet', 768, 1024]
     }
     const textSize = await figure.locator('.hero-fig-switch button.on').evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
     expect(textSize).toBeGreaterThanOrEqual(12);
-    await page.screenshot({ path: `e2e/.artifacts/bautista-${label}-landing.png` });
+    await page.screenshot({ path: `../.handoff-assets/bautista-${label}-landing.png` });
   });
 
   test(`@smoke the axes picker fits and the viewer remains available on ${label}`, async ({ pro: page }) => {
     await page.setViewportSize({ width, height });
+    await page.evaluate(() => window.__stabileoActions.openProTab('nodes'));
     const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
     expect(triad.y + triad.height).toBeLessThanOrEqual(height);
     await page.mouse.click(triad.x + triad.width / 2, triad.y + triad.height / 2);
@@ -72,7 +76,7 @@ for (const [label, width, height] of [['phone', 390, 844], ['tablet', 768, 1024]
     expect(box.x + box.width).toBeLessThanOrEqual(width);
     expect(box.y + box.height).toBeLessThanOrEqual(height);
     await expect(picker.getByTestId('axes-done')).toBeVisible();
-    await page.screenshot({ path: `e2e/.artifacts/bautista-${label}-axes.png` });
+    await page.screenshot({ path: `../.handoff-assets/bautista-${label}-axes.png` });
     await picker.getByTestId('axes-done').click();
     await expect(page.locator('canvas:not(.axis-gizmo)').first()).toBeVisible();
   });
