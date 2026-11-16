@@ -134,3 +134,7 @@ Draft 2026-11-15; fixed in PR #2169, pending merge and release:
 Draft 2026-11-15; fixed in PR #2173, pending merge and release:
 [SA-2026-071](advisories/SA-2026-071-incomplete-concurrent-demands.md)
 (member verdicts from incomplete concurrent demands, #2096).
+
+Draft 2026-11-15; fixed in PR #2175, pending merge and release:
+[SA-2026-072](advisories/SA-2026-072-snow-ridge-subdivision.md)
+(unequal roof subdivision moved the snow ridge and changed generated loads, #2144).
