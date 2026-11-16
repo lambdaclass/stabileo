@@ -750,6 +750,7 @@ export const loadMemberId = (l: Load): number | undefined =>
 export type LoadCaseType = string;
 
 export interface LoadCase {
+  snowBasis?: 'flatRoof';
   id: number;
   type: LoadCaseType;
   name: string;
@@ -4179,10 +4180,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category']; generated?: boolean } = {}): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category']; generated?: boolean; snowBasis?: 'flatRoof' } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}), ...(opts.generated ? { generated: true } : {}) });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}), ...(opts.generated ? { generated: true } : {}), ...(opts.snowBasis ? { snowBasis: opts.snowBasis } : {}) });
       return id;
     },
 
@@ -4370,16 +4371,21 @@ function createModelStore() {
      * `reduced`: the loads come reduced already (the generator's live load), and a case reduced by
      * hand (`LoadCase.reduction`) is never the one they go into, whatever its name.
      */
-    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; reduced?: boolean; category?: LoadCase['category'] } = {}): number {
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; reduced?: boolean; category?: LoadCase['category']; snowBasis?: 'flatRoof' } = {}): number {
       const found = findPlannedCase(model.loadCases, name, type, opts);
       if (!found) {
         let fresh = name;
         for (let k = 2; opts.own && model.loadCases.some((c) => c.type === type && c.name === fresh); k++) fresh = `${name} (${k})`;
-        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category });
+        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category, snowBasis: opts.snowBasis });
       }
       if (opts.category && found.category !== opts.category) {
         if (!_undoBatching) _pushUndo?.();
         found.category = opts.category;
+        model.loadCases = [...model.loadCases];
+      }
+      if (found.snowBasis !== opts.snowBasis) {
+        if (!_undoBatching) _pushUndo?.();
+        if (opts.snowBasis) found.snowBasis = opts.snowBasis; else delete found.snowBasis;
         model.loadCases = [...model.loadCases];
       }
       const pattern = opts.pattern ? true : undefined;
@@ -5060,12 +5066,12 @@ function createModelStore() {
  * finds the same cases apply will write into (`apply-load-plan.ts`). Loads reduced already
  * (`reduced`) are never found a case reduced by hand, by name: they would be reduced twice.
  */
-export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' | 'alternatives'> & { reduction?: unknown }>(
-  cases: readonly C[], name: string, type: string, opts: { existingId?: number | null; alternatives?: string; own?: boolean; reduced?: boolean } = {},
+export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' | 'alternatives' | 'snowBasis'> & { reduction?: unknown }>(
+  cases: readonly C[], name: string, type: string, opts: { existingId?: number | null; alternatives?: string; own?: boolean; reduced?: boolean; snowBasis?: 'flatRoof' } = {},
 ): C | undefined {
   const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
-  const open = (c: C) => !(opts.reduced && c.reduction !== undefined);
-  return (opts.existingId != null ? cases.find((c) => c.id === opts.existingId) : undefined)
+  const open = (c: C) => c.snowBasis === opts.snowBasis && !(opts.reduced && c.reduction !== undefined);
+  return (opts.existingId != null ? cases.find((c) => c.id === opts.existingId && open(c)) : undefined)
     ?? (opts.own
       ? cases.find((c) => c.type === type && c.alternatives === opts.alternatives && numbered(c.name) && open(c))
       : cases.find((c) => c.type === type && c.name === name && open(c)));

@@ -1,0 +1,37 @@
+{
+  "id": "snow-companion-basis",
+  "date": "2026-11-16",
+  "prs": [],
+  "area": "loads",
+  "when": {
+    "all": [
+      "snow",
+      "generatedLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Flat-roof snow in companion combinations",
+    "es": "Nieve de cubierta plana en combinaciones complementarias",
+    "pt": "Neve de cobertura plana em combinações acompanhantes",
+    "de": "Flachdachschnee in Begleitkombinationen",
+    "fr": "Neige de toiture plate dans les combinaisons accompagnatrices",
+    "tr": "Eşlikçi birleşimlerde düz çatı kar yükü",
+    "hu": "Lapos tető hóterhe a kísérő kombinációkban"
+  },
+  "explanation": {
+    "en": "Companion combinations now select separate pf member loading instead of slope-reduced roof snow. Physical snow remains in principal and seismic combinations and mass. Regenerate snow loads and combinations, then rerun analyses and checks. (#2211).",
+    "es": "Las combinaciones complementarias seleccionan una carga de miembro pf separada en lugar de nieve reducida por pendiente. La nieve física permanece en las combinaciones principales, sísmicas y en la masa. Regenere las cargas de nieve y las combinaciones y repita los análisis y verificaciones. (#2211).",
+    "pt": "As combinações acompanhantes selecionam uma carga pf separada no membro em vez da neve reduzida pela inclinação. A neve física permanece nas combinações principais, sísmicas e na massa. Gere novamente as cargas de neve e combinações e repita as análises e verificações. (#2211).",
+    "de": "Begleitkombinationen wählen eine eigene pf-Stablast statt der durch Dachneigung reduzierten Schneelast. Physischer Schnee bleibt in Haupt- und Erdbebenkombinationen sowie in der Masse. Schneelasten und Kombinationen neu erzeugen, danach Analysen und Nachweise wiederholen. (#2211).",
+    "fr": "Les combinaisons accompagnatrices sélectionnent une charge de barre pf distincte au lieu de la neige réduite par la pente. La neige physique reste dans les combinaisons principales et sismiques et dans la masse. Régénérez les charges de neige et les combinaisons, puis relancez analyses et vérifications. (#2211).",
+    "tr": "Eşlikçi birleşimler eğimle azaltılmış çatı karı yerine ayrı pf eleman yükünü seçer. Fiziksel kar ana ve deprem birleşimlerinde ve kütlede korunur. Kar yüklerini ve birleşimleri yeniden üretip analizleri ve kontrolleri tekrarlayın. (#2211).",
+    "hu": "A kísérő kombinációk a lejtéssel csökkentett tetőhó helyett külön pf rúdterhet választanak. A fizikai hóteher megmarad a fő- és földrengési kombinációkban, valamint a tömegben. Generálja újra a hóterheket és a kombinációkat, majd futtassa újra az analíziseket és ellenőrzéseket. (#2211)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-snow-companion-basis.md",
+    "heading": "Flat-roof snow in companion combinations"
+  }
+}

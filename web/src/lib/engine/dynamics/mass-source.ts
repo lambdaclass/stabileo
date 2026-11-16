@@ -116,7 +116,7 @@ export interface ResolvedFactor {
 }
 
 export function resolveMassFactors(
-  cases: ReadonlyArray<{ id: number; name: string; type: string; includes?: ReadonlyArray<unknown> }>,
+  cases: ReadonlyArray<{ id: number; name: string; type: string; includes?: ReadonlyArray<unknown>; snowBasis?: 'flatRoof' }>,
   source?: MassSource | null,
 ): ResolvedFactor[] {
   const row = (c: { id: number; name: string; type: string }, factor: number, basis: FactorBasis): ResolvedFactor =>
@@ -135,6 +135,7 @@ export function resolveMassFactors(
   return cases.map((c) => {
     // A composite case is not a load of its type (`combination-cases.ts` `isCompositeCase`).
     if (isCompositeCase(c)) return row(c, 0, 'composite');
+    if (c.snowBasis === 'flatRoof') return row(c, 0, 'notMass');
     const f = preset.factorFor(c.type, params);
     return f === null ? row(c, 0, 'notMass') : row(c, f, 'preset');
   });

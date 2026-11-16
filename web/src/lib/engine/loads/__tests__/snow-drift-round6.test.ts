@@ -1,3 +1,4 @@
+import { physicalSnowCases } from './snow-physical-cases';
 import { expect, it } from 'vitest';
 import { mesh, transform } from './snow-surface-round2-fixture';
 import { pressure, regulations, snow } from './snow-roof-plane-fixture';
@@ -31,7 +32,7 @@ function publicSnow(input: Parameters<typeof snowLoadCases>[0], refused?: string
   expect(out.result.refused).toBeUndefined();
   expect(planned).toBe(true);
   expect(sink.blockedKeys).toEqual([]);
-  expect(sink.cases).toHaveLength(out.cases.length);
+  expect(physicalSnowCases(sink)).toHaveLength(out.cases.length);
   for (const [k, c] of out.cases.entries()) expect(sink.distributed.filter(d => d.caseIndex === k).map(({ caseIndex, caseType, ...d }) => d)).toEqual(c.distributed);
   return out;
 }

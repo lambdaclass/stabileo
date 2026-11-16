@@ -44,6 +44,7 @@
  * cases the regulation generator makes (the same forces on every node of a level, mirrored),
  * and a statement about any case loaded by hand, which the option says where it is offered.
  */
+import { t as translate } from '../../i18n';
 import type { LoadCombinationSpec, LoadSymbol, CombinationInputs } from '../../codes/cirsoc101/combinations';
 
 /** Symbols whose cases are alternatives (one direction at a time), not summands. */
@@ -120,15 +121,15 @@ const VARIABLE: ReadonlySet<LoadSymbol> = new Set(['L', 'Lr', 'S', 'R', 'W', 'Wa
 
 export function expandCombinations(
   specs: readonly LoadCombinationSpec[],
-  cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string; pattern?: boolean; includes?: ReadonlyArray<unknown> }>,
+  cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string; pattern?: boolean; includes?: ReadonlyArray<unknown>; snowBasis?: 'flatRoof' }>,
   opts: ExpandOptions = {},
 ): CaseCombination[] {
-  type Case = { id: number; name: string; alternatives?: string; pattern?: boolean };
+  type Case = { id: number; name: string; alternatives?: string; pattern?: boolean; snowBasis?: 'flatRoof' };
   const bySymbol = new Map<LoadSymbol, Case[]>();
   for (const c of cases) {
     const s = symbolOfCase(c);
     if (!s) continue;
-    bySymbol.set(s, [...(bySymbol.get(s) ?? []), { id: c.id, name: c.name, alternatives: c.alternatives, pattern: c.pattern }]);
+    bySymbol.set(s, [...(bySymbol.get(s) ?? []), { id: c.id, name: c.name, alternatives: c.alternatives, pattern: c.pattern, snowBasis: c.snowBasis }]);
   }
   /** One way of taking a term: the cases it adds, their sign, and what names it. */
   type Pick = { cases: Case[]; sense: 1 | -1; label: string };
@@ -136,6 +137,15 @@ export function expandCombinations(
   for (const spec of specs) {
     const terms = spec.terms.filter((t) => t.factor !== 0);
     if (terms.some((t) => !bySymbol.has(t.symbol))) continue;
+    const casesFor = (t: (typeof terms)[number]) => {
+      if (t.snowBasis && t.symbol !== 'S') throw new Error(translate('snow.refused.flatRoofCase'));
+      const all = bySymbol.get(t.symbol)!;
+      const basis = t.snowBasis ?? (t.symbol === 'S' && spec.notes?.some(n => n.key === 'loads.cirsoc101.note.snowAsFlatRoof') ? 'flatRoof' : undefined);
+      const matching = all.filter(c => t.symbol !== 'S' || c.snowBasis === basis);
+      if (basis === 'flatRoof' && all.some(c => !c.snowBasis && !matching.some(m => m.alternatives && m.alternatives === c.alternatives))) throw new Error(translate('snow.refused.flatRoofCase'));
+      if (!matching.length) throw new Error(translate('snow.refused.flatRoofCase'));
+      return matching;
+    };
     /*
      * Each term offers one or more picks, and a combination takes one pick of every term.
      * A directional symbol (W, Wa, E) offers each of its cases on its own, and each sense when
@@ -145,14 +155,14 @@ export function expandCombinations(
      * is taken one case at a time too; it used to sum every direction of it.
      */
     const principal = Math.max(0, ...terms.filter((t) => VARIABLE.has(t.symbol)).map((t) => Math.abs(t.factor)));
-    const arranged = (t: (typeof terms)[number]) => !ALTERNATIVE.has(t.symbol) && bySymbol.get(t.symbol)!.some((c) => c.pattern);
+    const arranged = (t: (typeof terms)[number]) => !ALTERNATIVE.has(t.symbol) && casesFor(t).some((c) => c.pattern);
     // The terms that may be the principal one and have arrangements to vary (see the header).
     const tied = terms.flatMap((t, i) => (VARIABLE.has(t.symbol) && Math.abs(t.factor) >= principal - 1e-9 && arranged(t) ? [i] : []));
     /** The slots of the rule with the patterned term `varying` the principal (null: none varies). */
     const slotsFor = (varying: number | null) => {
       const slots: Array<{ factor: number; picks: Pick[] }> = [];
       terms.forEach((t, i) => {
-        const all = bySymbol.get(t.symbol)!;
+        const all = casesFor(t);
         if (ALTERNATIVE.has(t.symbol)) {
           const reverse = !!opts.bothSenses?.[t.symbol as 'W' | 'E'];
           const sensesOf = (c: Case): Array<1 | -1> =>
@@ -172,7 +182,7 @@ export function expandCombinations(
           // A companion takes its action whole: the group's cases that are no pattern.
           const whole = g0.filter((c) => !c.pattern);
           const g = companion && whole.length > 0 ? whole : g0;
-          slots.push({ factor: t.factor, picks: g.map((c) => ({ cases: [c], sense: 1, label: g.length > 1 ? c.name : '' })) });
+          slots.push({ factor: t.factor, picks: g.map((c) => ({ cases: [c], sense: 1, label: g.length > 1 || c.snowBasis === 'flatRoof' ? c.name : '' })) });
         }
       });
       return slots;

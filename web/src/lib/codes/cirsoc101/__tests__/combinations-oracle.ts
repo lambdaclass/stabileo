@@ -47,11 +47,6 @@
  * combination with H is also emitted without its principal load (1,2 D + 1,6 H, 0,9 D + 1,6 H),
  * and with neither W nor E there, 0,9 D + H is emitted all the same (6 and 7 with W, E not acting).
  *
- * Seismic combinations. INPRES-CIRSOC 103-2018 Parte I §3.7.1 defines the combinations that
- * include the earthquake as [3.16] 1,2 D ± 1,0 E + f1 L + f2 S and [3.17] 0,9 D ± 1,0 E, f1 and
- * f2 from its Tabla 3.3: f2 = 0,70 on a roof that is horizontal or does not shed its snow, where
- * combination 5 above prints 0,2 S. With `seismicCompanions` the companions of combination 5
- * take the larger of the two codes' factors, so the combination satisfies both.
  *
  * Pure: no store, no runes.
  */
@@ -70,6 +65,7 @@ export type LoadSymbol = 'D' | 'L' | 'Lr' | 'S' | 'R' | 'W' | 'Wa' | 'E' | 'F' |
 export interface CombinationTerm {
   symbol: LoadSymbol;
   factor: number;
+  snowBasis?: 'flatRoof';
 }
 
 export interface LoadCombinationSpec {
@@ -122,11 +118,6 @@ export interface CombinationInputs {
   earthPressureAction?: 'adds' | 'opposes' | 'unknown';
   /** True when H is a permanent load, which allows 0,9 rather than 0 when it opposes. */
   earthPressurePermanent?: boolean;
-  /**
-   * The companions of the seismic combination by INPRES-CIRSOC 103-2018 [3.16] (Tabla 3.3):
-   * f1 for L, f2 for S. Combination 5 takes the larger of these and its own factor for each.
-   * Absent: combination 5 as CIRSOC 101 prints it.
-   */
   seismicCompanions?: { f1?: number; f2?: number };
   /**
    * Also emit each combination without each subset of its companion loads (§2.3.2, "se deberán
@@ -228,7 +219,8 @@ export function generateCombinations(inputs: CombinationInputs): LoadCombination
     refs: ClauseRef[],
     notes: EngineMessage[],
   ) => {
-    const withFH = applyFluidAndEarth(basic, terms, inputs);
+    const selected = terms.map(t => t.symbol === 'S' && [2, 4, 5].includes(basic) && suffix !== '-seismic' ? { ...t, snowBasis: 'flatRoof' as const } : t);
+    const withFH = applyFluidAndEarth(basic, selected, inputs);
     for (const variant of withFH) {
       out.push({
         id: `${basic}${suffix}${variant.suffix}`,
@@ -309,11 +301,19 @@ export function generateCombinations(inputs: CombinationInputs): LoadCombination
     push(5, '', [
       { symbol: 'D', factor: 1.2 }, { symbol: 'E', factor: 1.0 },
       ...(p.L ? [{ symbol: 'L' as LoadSymbol, factor: lE }] : []),
-      ...(p.S ? [{ symbol: 'S' as LoadSymbol, factor: sE }] : []),
+      ...(p.S ? [{ symbol: 'S' as LoadSymbol, factor: 0.2 }] : []),
     ], [REF_BASIC, REF_EXC1, ...(p.S ? [REF_EXC2] : []), ...(sc ? [REF_103_COMB] : [])],
     [...(p.L && excNote ? [excNote] : []),
      ...(p.S ? [msg('loads.cirsoc101.note.snowAsFlatRoof')] : []),
-     ...(raised ? [msg('loads.cirsoc101.note.seismicCompanions', { l: lE, s: sE })] : [])]);
+     ...(p.L && lE > lCompanion ? [msg('loads.cirsoc101.note.seismicCompanions', { l: lE, s: 0.2 })] : [])]);
+    if (p.S && sc?.f2 !== undefined) push(5, '-seismic', [
+      { symbol: 'D', factor: 1.2 }, { symbol: 'E', factor: 1 },
+      ...(p.L ? [{ symbol: 'L' as LoadSymbol, factor: lE }] : []),
+      { symbol: 'S', factor: sE },
+    ], [REF_BASIC, REF_EXC1, REF_EXC2, REF_103_COMB], [
+      ...(p.L && excNote ? [excNote] : []),
+      ...(raised ? [msg('loads.cirsoc101.note.seismicCompanions', { l: lE, s: sE })] : []),
+    ]);
   }
 
   // ── 6. 0,9 D + 1,0 W ──
@@ -373,7 +373,7 @@ export function generateCombinations(inputs: CombinationInputs): LoadCombination
 
 /** A combination's terms as a set, for telling two combinations apart whatever their order. */
 function termKey(terms: readonly CombinationTerm[]): string {
-  return terms.filter((t) => t.factor !== 0).map((t) => `${t.symbol}:${+t.factor.toFixed(4)}`).sort().join(' ');
+  return terms.filter((t) => t.factor !== 0).map((t) => `${t.symbol}:${+t.factor.toFixed(4)}:${t.snowBasis ?? "roof"}`).sort().join(' ');
 }
 
 interface Variant {
