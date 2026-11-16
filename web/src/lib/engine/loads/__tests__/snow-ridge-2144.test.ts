@@ -42,7 +42,6 @@ for (const mode of ['projected', 'width', 'panels'] as const) for (const angle o
     const model = flat(2, angle), polygon = [...model.nodes.values()].map(n => [n.x, n.y] as [number, number]);
     const generate = generator(mode, { ...snow, roofSlopeDeg: 20 }, polygon);
     const base = generate(model);
-    const ps = 0.7 * (70 - 20) / (70 - 5), leeward = 1.5 * ps;
     expect(pressure(base.cases[1]!.distributed, 2, 1)).toBeCloseTo(0, 10);
     const witness = generate(remeshSnowRoof(model, new Map([[1, 8]])).model);
     expect(pressure(witness.cases[1]!.distributed, 2, 1)).toBeCloseTo(0, 10);
@@ -59,7 +58,7 @@ for (const mode of ['projected', 'width', 'panels'] as const) for (const W of [6
   it(`#2144 ridge preserves both sides of width limit ${mode} ${W}`, () => {
     const model = flat(W), polygon = [...model.nodes.values()].map(n => [n.x, n.y] as [number, number]);
     const { out } = assertSnowRemeshInvariant(model, new Map([[1, 8]]), generator(mode, { ...snow, roofSlopeDeg: 20 }, polygon));
-    const ps = 0.7 * 50 / 65, windward = W <= 6 ? 0 : 0.3 * ps, leeward = (W <= 6 ? 1.5 : 1.2 * 1.5) * ps;
+    const ps = 0.7 * 50 / 65, windward = W <= 6 ? 0 : 0.3 * ps;
     expect(pressure(out.cases[1]!.distributed, 2, 1)).toBeCloseTo(windward, 10);
   });
 }
@@ -152,11 +151,7 @@ for (const mode of ['projected', 'width'] as const) {
   it(`#2144 faceted dome retains its geometry-derived pressure ${mode}`, () => facetedDome(mode));
 }
 
-if (process.env.RUN_KNOWN_WRONG === '2172') {
-  it('known wrong result: #2172 faceted dome retains its geometry-derived pressure panels', () => facetedDome('panels'));
-} else {
-  it.skip('known wrong result: #2172 faceted dome retains its geometry-derived pressure panels', () => facetedDome('panels'));
-}
+it('#2172 faceted dome retains its geometry-derived pressure panels', () => facetedDome('panels'));
 
 it('#2144 nodal tributaries receive the same ridge-crossing pressure', () => {
   const model = flat();

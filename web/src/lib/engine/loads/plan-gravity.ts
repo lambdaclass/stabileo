@@ -42,8 +42,9 @@
  *
  * Pure: no store.
  */
+import { physicalRoofRuns } from './physical-roof-geometry';
 import polygonClipping from 'polygon-clipping';
-import { floorLoad, type FloorBeam, type SideStretch } from './floor-loads';
+import { physicalFloorLoad as floorLoad, type FloorBeam, type SideStretch } from './floor-loads';
 import { msg, round, type EngineMessage } from '../../codes/message';
 
 export interface GravityModel {
@@ -1013,12 +1014,13 @@ function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<n
     if (pts.some((p) => !p)) continue;
     coverAt(Math.min(...pts.map((p) => p!.z ?? 0))).polys.push(pts.map((p) => [p!.x, p!.y] as [number, number]));
   }
-  for (const id of zOf.keys()) {
-    const e = model.elements.get(id)!;
-    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-    coverAt(Math.min(a.z ?? 0, b.z ?? 0)).segs.push([[a.x, a.y], [b.x, b.y]]);
-  }
-  return (pt, zTop) => covers.reduce((h, c) => (c.z > zTop + 0.05
+  const geometry = [...zOf.keys()].map(id => {
+    const e = model.elements.get(id)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    const dx = b.x - a.x, dy = b.y - a.y, dz = (b.z ?? 0) - (a.z ?? 0);
+    return { id, a, b, dx, dy, dz, lh: Math.hypot(dx, dy) };
+  });
+  for (const { a, b } of physicalRoofRuns(geometry)) coverAt(Math.min(a.z ?? 0, b.z ?? 0)).segs.push([[a.x, a.y], [b.x, b.y]]);
+  return (pt: [number, number], zTop: number) => covers.reduce((h, c) => (c.z > zTop + 0.05
     && (c.polys.some((poly) => inside(pt, poly)) || c.segs.some(([a, b]) => nearSegment(pt, a, b, 0.05))) ? Math.min(h, c.z - zTop) : h), Infinity);
 }
 

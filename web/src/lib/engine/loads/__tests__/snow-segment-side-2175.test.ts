@@ -122,7 +122,8 @@ for (const mode of ['projected', 'width', 'panels'] as const) for (const offset 
     model.elements.set(6, { ...edge, id: 6, nodeI: 6 });
     const out = generate(model, mode, false), leeward = 1.5 * 0.7 * 50 / 65;
     const p = offset > 0 ? leeward : offset < 0 ? 0 : leeward;
-    expect(pressure(out.cases[1]!.distributed, 5, 0.1)).toBeCloseTo(p, 10);
+    expect(pressure(out.cases[1]!.distributed, 5, offset === 0 ? 0.1 + 1e-12 : 0.1)).toBeCloseTo(p, 10);
+    if (offset === 0) expect(pressure(out.cases[1]!.distributed, 5, 0.1 - 1e-12)).toBeCloseTo(0, 10);
     const [force, moment] = resultant(model, out.cases[1]!.distributed, 5, 0);
     const lo = Math.max(0, offset - 0.1), hi = Math.max(0, offset + 0.1);
     expect(force).toBeCloseTo(-leeward * (hi - lo), 10);

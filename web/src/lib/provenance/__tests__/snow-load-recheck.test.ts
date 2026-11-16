@@ -4,7 +4,7 @@ import { RESULT_CHANGES } from '../full-registry';
 import { stampSolve } from '../solve-stamp';
 import type { FeatureSnapshot } from '../model-features';
 
-const ids = ['snow-roof-step', 'snow-roof-rotation', 'snow-surface-regions', 'snow-ridge-orientations', 'snow-orientation-factors', 'snow-surface-support', 'snow-drift-coverage', 'snow-local-boundaries', 'snow-fallback-runs', 'snow-roof-connectivity', 'snow-flat-frame', 'snow-ridge-mesh', 'snow-crossing-profile'];
+const ids = ['snow-roof-step', 'snow-roof-rotation', 'snow-surface-regions', 'snow-ridge-orientations', 'snow-orientation-factors', 'snow-surface-support', 'snow-drift-coverage', 'snow-local-boundaries', 'snow-fallback-runs', 'snow-roof-connectivity', 'snow-flat-frame', 'snow-ridge-mesh', 'snow-crossing-profile', 'snow-panel-geometry'];
 
 function snapshot(type = 'S', generatedBy: string | undefined = 'load-plan'): FeatureSnapshot {
   return { loadCases: [{ id: 1, type }], loads: [{ type: 'distributed', data: { caseId: 1, elementId: 1, q: -1, generatedBy } }] };
@@ -22,9 +22,9 @@ it('current loads and solve clear both snow notices', () => {
   for (const id of ids) expect(assessment.changes.map(c => c.id)).not.toContain(id);
 });
 
-it('manual snow and generated non-snow controls have no snow regeneration notice', () => {
-  for (const s of [snapshot('S', ''), snapshot('D')]) {
-    const assessment = assessProject(s, null);
-    for (const id of ids) expect(assessment.changes.map(c => c.id)).not.toContain(id);
-  }
+it('manual snow is unchanged and generated non-snow retains the shared panel notice', () => {
+  const manual = assessProject(snapshot('S', ''), null);
+  for (const id of ids) expect(manual.changes.map(c => c.id)).not.toContain(id);
+  const generated = assessProject(snapshot('D'), null);
+  expect(generated.changes.map(c => c.id).filter(id => ids.includes(id))).toEqual(['snow-panel-geometry']);
 });

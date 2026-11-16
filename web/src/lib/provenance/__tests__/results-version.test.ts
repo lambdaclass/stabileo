@@ -186,7 +186,7 @@ for (const mode of ['2d', '3d', 'pro']) it(`retains the exact generated snow not
   const snapshot: FeatureSnapshot = { loadCases: [{ id: 1, type: 'S' }], loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }] };
   const expected = [
     'generated-area-loads-headroom', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
-    'snow-flat-frame', 'snow-local-boundaries', 'snow-orientation-factors', 'snow-ridge-mesh',
+    'snow-flat-frame', 'snow-local-boundaries', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-ridge-mesh',
     'snow-ridge-orientations', 'snow-roof-connectivity', 'snow-roof-rotation', 'snow-roof-step',
     'snow-surface-regions', 'snow-surface-support',
   ];

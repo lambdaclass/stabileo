@@ -36,3 +36,7 @@ insufficient. The saved-project notice selects generated snow in every mode,
 including after a new solve. The coordinator reserved
 [SA-2026-073](../advisories/SA-2026-073-snow-crossing-moment.md); the Fix row is
 pending until a PR number is available. This work does not fix #2172.
+
+The subsequent #2172 class correction extends the same integration to varying
+tributary widths: complete physical strips are integrated before member
+restriction. See [the panel geometry record](2026-11-snow-panel-geometry.md).

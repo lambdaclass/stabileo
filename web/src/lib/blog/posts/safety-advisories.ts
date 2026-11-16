@@ -51,6 +51,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Datos afectados y acciones necesarias."},
         {"k": "note", "t": "SA-2026-073 — Pendiente."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Datos afectados y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-074 — Pendiente."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Datos afectados y acciones necesarias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -130,6 +132,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-069", "El límite de sección por torsión omitía el corte secundario concurrente (#2142). Repetí los diseños de hormigón y revisá las fallas de sección y los estribos ausentes; agregar estribos no resuelve una sección excedida.", "Alta", "Borrador 2026-11-15; corregido en PR #2169, pendiente de integración y publicación"],
             ["SA-2026-072", "La subdivisión desigual de los bordes de la cubierta podía desplazar la cumbrera y cambiar las cargas de nieve (#2144). Regenerá las cargas y repetí análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige.", "Alta", "Corregido en PR #2175, pendiente de integración y publicación"],
             ["SA-2026-073", "Los miembros que cruzaban una cumbrera recibían una presión uniforme y perdían el momento físico. Las cargas ahora se dividen en la cumbrera física. Regenere las cargas de nieve y repita análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige. (#2176).", "Alta", "Pendiente"],
+            ["SA-2026-074", "Subdividir un cabio inclinado podía clasificar un panel explícito de cubierta como piso y eliminar su nieve de alero sin aviso. La clasificación ahora usa las huellas físicas de los paneles. Regenere las cargas y repita análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige. (#2172).", "Alta", "Pendiente"],
           ],
         },
         {
@@ -336,6 +339,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-073 — Pending."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-074 — Pending."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Affected inputs and user action."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -415,6 +420,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-069", "The torsion section limit omitted concurrent secondary shear (#2142). Re-run concrete designs and review section failures and missing stirrups; adding stirrups cannot repair an exceeded section limit.", "High", "Draft 2026-11-15; fixed in PR #2169, pending merge and release"],
             ["SA-2026-072", "Unequal roof-edge subdivision could move the snow ridge and change generated loads (#2144). Regenerate snow loads, then rerun analyses, combinations and design checks. Re-solving stored loads alone does not correct them.", "High", "Fixed in PR #2175, pending merge and release"],
             ["SA-2026-073", "Members crossing a snow ridge received one uniform pressure and lost the physical load moment. Loads now split at the physical ridge. Regenerate snow loads, then rerun analyses, combinations and design checks. Re-solving stored generated loads alone does not correct them. (#2176).", "High", "Pending"],
+            ["SA-2026-074", "Subdividing a sloped rafter could classify an explicit roof panel as a floor and silently remove its eave snow. Panel roof classification now uses physical panel footprints. Regenerate snow loads, then rerun analyses, combinations and design checks. Re-solving stored loads alone does not correct them. (#2172).", "High", "Pending"],
           ],
         },
         {
@@ -621,6 +627,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-073 — Pendente."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-074 — Pendente."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Entradas afetadas e ações necessárias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -700,6 +708,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-069", "O limite da seção à torção omitia o esforço cortante secundário simultâneo (#2142). Refaça os projetos de concreto e revise falhas de seção e estribos ausentes; adicionar estribos não corrige uma seção que excede o limite.", "Alta", "Rascunho 2026-11-15; corrigido no PR #2169, aguardando integração e lançamento"],
             ["SA-2026-072", "A subdivisão desigual das bordas da cobertura podia deslocar a cumeeira e alterar as cargas de neve (#2144). Gere novamente as cargas e refaça análises, combinações e verificações. Recalcular somente as cargas salvas não as corrige.", "Alta", "Corrigido no PR #2175, aguardando integração e publicação"],
             ["SA-2026-073", "Membros que cruzavam a cumeeira recebiam pressão uniforme e perdiam o momento físico. As cargas agora são divididas na cumeeira física. Gere novamente as cargas de neve e repita análises, combinações e verificações. Recalcular somente as cargas salvas não as corrige. (#2176).", "Alta", "Pendente"],
+            ["SA-2026-074", "Subdividir uma viga inclinada podia classificar um painel explícito da cobertura como piso e remover silenciosamente a neve do beiral. A classificação agora usa as projeções físicas dos painéis. Gere novamente as cargas e repita análises, combinações e verificações. Recalcular somente as cargas salvas não as corrige. (#2172).", "Alta", "Pendente"],
           ],
         },
         {

@@ -132,6 +132,14 @@ export interface FloorLoadResult {
 const EPS = 1e-9;
 
 export function floorLoad(input: FloorLoadInput): FloorLoadResult {
+  return calculateFloorLoad(input, round);
+}
+
+export function physicalFloorLoad(input: FloorLoadInput): FloorLoadResult {
+  return calculateFloorLoad(input, value => value);
+}
+
+function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => number): FloorLoadResult {
   const tol = input.tol ?? 1e-3;
   const skipped = { trusses: 0, notHorizontal: 0, otherLevel: 0, open: 0, crossings: 0, zoneAcrossSpan: 0, unresolved: 0 };
   const res: FloorLoadResult = { z: null, panels: [], loads: [], nodal: [], normal: [0, 0, 1], perBeam: new Map(), loadedArea: 0, totalKN: 0, skipped };
@@ -362,7 +370,11 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     for (const seg of side.segments) {
       const s0 = Math.max(pc.s0, seg.s0), s1 = Math.min(pc.s1, seg.s1);
       if (s1 - s0 < 1e-6) continue;
-      const at = (s: number) => pc.q0 + ((pc.q1 - pc.q0) * (s - pc.s0)) / (pc.s1 - pc.s0 || 1);
+      const at = (s: number) => {
+        const value = pc.q0 + ((pc.q1 - pc.q0) * (s - pc.s0)) / (pc.s1 - pc.s0 || 1);
+        const error = 16 * Number.EPSILON * (Math.abs(pc.q0) + Math.abs(pc.q1));
+        return Math.abs(value) <= error ? 0 : value;
+      };
       const q0 = at(s0), q1 = at(s1);
       const len = seg.s1 - seg.s0;
       // Along the member, from node I.
@@ -392,10 +404,12 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     const loads: FloorMemberLoad[] = [];
     let total = 0;
     for (const p of mergePieces(list)) {
+      const error = 32 * Number.EPSILON * (Math.abs(ni.x) + Math.abs(ni.y) + Math.abs(ni.z ?? 0) + Math.abs(nj.x) + Math.abs(nj.y) + Math.abs(nj.z ?? 0) + p.len);
+      const station = (x: number) => Math.abs(x) <= error ? 0 : Math.abs(x - p.len) <= error ? p.len : x;
       const full = p.a < 1e-6 && p.b > p.len - 1e-6;
       loads.push({
         elementId,
-        ...(full ? {} : { a: round(p.a), b: round(p.b) }),
+        ...(full ? {} : { a: round(station(p.a)), b: round(station(p.b)) }),
         qI: round(p.qa), qJ: round(p.qb),
         qXI: round(fx * p.qa), qXJ: round(fx * p.qb),
         qYI: round(fy * p.qa), qYJ: round(fy * p.qb), qZI: round(fz * p.qa), qZJ: round(fz * p.qb),
