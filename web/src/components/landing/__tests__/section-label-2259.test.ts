@@ -5,7 +5,7 @@ import { ensurePublicLocale, i18n } from '../../../lib/i18n/store.svelte';
 
 afterEach(() => { i18n.locale = 'en'; });
 
-it.skip('known wrong result: #2259 the section kern annotation uses the selected language', async () => {
+it('known wrong result: #2259 the section kern annotation uses the selected language', async () => {
   await ensurePublicLocale('de');
   i18n.locale = 'de';
   const german = render(SectionFigure, { props: { prefersReducedMotion: true } }).body;

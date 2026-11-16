@@ -14954,7 +14954,7 @@ const de: Translations = {
   'viewer.linkTip': "Wer ihn öffnet, sieht das Modell in 3D und im Grundriss ohne den Editor und kann es duplizieren, um seine Kopie zu bearbeiten.",
   'viewer.linkCopied': "Nur-Lese-Link kopiert.",
   "xls.err.selfWeightRule": "Ungültige oder nicht unterstützte Eigengewichtsregel in {field}. Importiert werden nur Lastfallquellen für alle Stäbe oder eine ausdrückliche Stabliste.",
-  "landing.secKern": "K",
+  "landing.secKern": "Kern",
   "landing.secNeutralAxis": "NL",
   "landing.secPressureCenter": "DM",
 
