@@ -1,35 +1,51 @@
 import { expect, it, vi } from 'vitest';
 import { windHeightField, windHeightLoads } from '../wind-pressure-field';
-import { windLoadCases } from '../wind-cases';
+import { windLoadCases, type WindCasesInput, type WindDirection } from '../wind-cases';
 import { otherStructureWind } from '../wind-other';
 import { planWind } from '../load-plan-wind';
 import { buildLoadPlan, levelsWithPlanArea, type LoadPlanInput, type PlanSink } from '../load-plan';
 import { defaultRegulations } from '../../../codes/roles';
-import { mesh, remeshWind, variants, windAxis, windProject, windResultants, assertWindResultants } from './wind-integration-fixture';
+import { mesh, remeshWind, variants, type Variant, windAxis, windProject, windResultants, assertWindResultants } from './wind-integration-fixture';
 import { expectHeightCarrierTips } from './wind-tip-assertions';
 
 const refusal = 'wind.pressure.triangularCentroidUnsupported';
 const structure = { kind: 'latticeTower' as const, section: 'triangle' as const, round: false, solidity: 1, diagonal: false, width: 2 };
 const sink = (): PlanSink => ({ cases: [], nodal: [], distributed: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] });
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
-function expectWindCaseRefusal(model: ReturnType<typeof mesh>, axis: 'x' | 'y', direction: '+x' | '-x' | '+y' | '-y', generate = windLoadCases) {
-  expect(() => generate({ model, axes: [{ ...windAxis, axis, pressureField: windHeightField({ model, axis, from: 0, to: 4, pressure: () => 1 }) }], set: 'all', directions: [direction], tributaryWidth: 2, speed: 40 })).toThrow(refusal);
+const torqueRefusal = 'wind.pressure.distributedTorqueUnsupported';
+function windCaseRefusalInput(variant: Variant, direction: WindDirection): WindCasesInput {
+  const { model, direction: transformDirection } = remeshWind(mesh([[[0, 0, 0], [0, 0, 4]]]), variant);
+  const d = transformDirection(direction), axis = d.endsWith('x') ? 'x' : 'y';
+  const pressureField = windHeightField({ model, axis, from: 0, to: 4, width: 2, pressure: () => 1 });
+  return { model, axes: [{ ...windAxis, axis, across: 2, pressureField }], set: 'all', directions: [d], tributaryWidth: 2, speed: 40 };
+}
+function expectWindCaseRefusal(input: WindCasesInput, generate = windLoadCases) {
+  expect(() => generate(input)).toThrow(torqueRefusal);
 }
 
-knownWrong('known wrong result: #2220 case refusal rejects a generator that silently accepts the input', () => {
-  const model = mesh([[[0, 0, 0], [0, 0, 4]], [[0, 2, 0], [0, 2, 4]], [[2, 0, 0], [2, 0, 4]]]);
+it('#2220 case refusal rejects a generator that silently accepts the input', () => {
+  const input = windCaseRefusalInput('base', '+x');
   const broken = vi.fn(() => ({ cases: [], notes: [] }));
-  expect(() => expectWindCaseRefusal(model, 'x', '+x', broken)).toThrow();
-  expect(broken).toHaveBeenCalledOnce();
+  expect(() => expectWindCaseRefusal(input, broken)).toThrow();
+  expect(broken).toHaveBeenCalledExactlyOnceWith(input);
 });
 
-for (const entry of ['field', 'cases', 'other', 'planner', 'plannerOther', 'loadPlan', 'loadPlanOther'] as const) for (const variant of variants) for (const direction of ['+x', '-x', '+y', '-y'] as const) it(`#2220 asymmetric triangle refuses ${entry} ${variant} ${direction}`, () => {
+for (const variant of variants) for (const direction of ['+x', '-x', '+y', '-y'] as const) it(`#2220 case generation refuses unsupported member torque ${variant} ${direction}`, () => {
+  const input = windCaseRefusalInput(variant, direction);
+  const generate = vi.fn(windLoadCases);
+  expectWindCaseRefusal(input, generate);
+  expect(generate).toHaveBeenCalledExactlyOnceWith(input);
+  const concentric = windLoadCases({ ...input, set: 'case1' });
+  expect(concentric.cases).toHaveLength(1);
+  expect(concentric.cases[0]!.distributed.length).toBeGreaterThan(0);
+  expect(concentric.cases[0]!.nodal).toEqual([]);
+});
+
+for (const entry of ['field', 'other', 'planner', 'plannerOther', 'loadPlan', 'loadPlanOther'] as const) for (const variant of variants) for (const direction of ['+x', '-x', '+y', '-y'] as const) it(`#2220 asymmetric triangle refuses ${entry} ${variant} ${direction}`, () => {
   const { model, direction: transformDirection } = remeshWind(mesh([[[0, 0, 0], [0, 0, 4]], [[0, 2, 0], [0, 2, 4]], [[2, 0, 0], [2, 0, 4]]]), variant);
   const d = transformDirection(direction), axis = d.endsWith('x') ? 'x' : 'y';
   const field = () => windHeightField({ model, axis, from: 0, to: 4, pressure: () => 1 });
   if (entry === 'field') expect(field).toThrow(refusal);
-  else if (entry === 'cases') expectWindCaseRefusal(model, axis, d);
   else if (entry === 'other') expect(() => otherStructureWind({ model, structure, project: windProject, directions: [d], tributaryWidth: 2 })).toThrow(refusal);
   else {
     const other = entry.endsWith('Other');

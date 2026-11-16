@@ -125,32 +125,53 @@ for (const dimension of ['2d', '3d'] as const) it(`#2220 member-force comparison
   }
 });
 
-function compareWindMechanics(model: ReturnType<typeof mesh>, a: ReturnType<typeof solve> | ReturnType<typeof solve3D>, b: ReturnType<typeof solve> | ReturnType<typeof solve3D>, dimension: '2d' | '3d') {
-  const compare = (x: unknown, y: unknown) => {
-    if (typeof y === 'number') expect(x).toBeCloseTo(y, 8);
-    else if (Array.isArray(y)) { expect(x).toHaveLength(y.length); y.forEach((v, i) => compare((x as unknown[])[i], v)); }
-    else if (y && typeof y === 'object') for (const [key, value] of Object.entries(y)) compare((x as Record<string, unknown>)[key], value);
-    else expect(x).toEqual(y);
-  };
-  compare(a.reactions, b.reactions);
-  compareWindMemberForces(model.elements.keys(), a.elementForces, b.elementForces, compare, dimension);
-  compare(a.displacements, b.displacements);
+function compareWindNodeResults(ids: Iterable<number>, a: unknown, b: unknown, keys: readonly string[], compare: (x: unknown, y: unknown) => void) {
+  const expected = [...ids].sort((a, b) => a - b);
+  for (const rows of [a, b]) {
+    expect(Array.isArray(rows)).toBe(true);
+    const result = rows as Array<Record<string, unknown>>;
+    expect(result.map(row => row.nodeId).sort((a, b) => Number(a) - Number(b))).toEqual(expected);
+    for (const row of result) for (const key of keys) {
+      expect(typeof row[key]).toBe('number');
+      expect(Number.isFinite(row[key])).toBe(true);
+    }
+  }
+  const actual = a as Array<Record<string, unknown>>, reference = b as Array<Record<string, unknown>>;
+  for (const row of reference) {
+    const match = actual.find(p => p.nodeId === row.nodeId)!;
+    for (const key of keys) compare(match[key], row[key]);
+  }
 }
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
-const mechanicsModel = () => mesh([[[0, 0, 0], [0, 0, 4]]]);
-const mechanicsRows = (dimension: '2d' | '3d') => dimension === '2d' ? {
-  reactions: [{ nodeId: 1, rx: 1, rz: 2, my: 3 }],
-  displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }, { nodeId: 2, ux: 1, uz: 2, ry: 3 }],
-  elementForces: [{ elementId: 1, nStart: 0, nEnd: 0, vStart: 1, vEnd: 0, mStart: 0, mEnd: 0 }],
-} : {
-  reactions: [{ nodeId: 1, fx: 1, fy: 2, fz: 3, mx: 4, my: 5, mz: 6 }],
-  displacements: [{ nodeId: 1, ux: 0, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }, { nodeId: 2, ux: 1, uy: 2, uz: 3, rx: 4, ry: 5, rz: 6 }],
-  elementForces: [{ elementId: 1, nStart: 0, nEnd: 0, vyStart: 1, vyEnd: 0, vzStart: 1, vzEnd: 0, mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0 }],
+function compareWindMechanics(model: ReturnType<typeof mesh>, a: ReturnType<typeof solve> | ReturnType<typeof solve3D>, b: ReturnType<typeof solve> | ReturnType<typeof solve3D>, dimension: '2d' | '3d', supportIds: Iterable<number>) {
+  const compare = (x: unknown, y: unknown) => expect(x).toBeCloseTo(y as number, 8);
+  const reactions = dimension === '2d' ? ['rx', 'rz', 'my'] : ['fx', 'fy', 'fz', 'mx', 'my', 'mz'];
+  const displacements = dimension === '2d' ? ['ux', 'uz', 'ry'] : ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
+  compareWindNodeResults(supportIds, a.reactions, b.reactions, reactions, compare);
+  compareWindMemberForces(model.elements.keys(), a.elementForces, b.elementForces, compare, dimension);
+  compareWindNodeResults(model.nodes.keys(), a.displacements, b.displacements, displacements, compare);
+}
+
+const mechanicsModel = () => mesh([[[0, 0, 0], [0, 0, 4]], [[0, 2, 0], [0, 2, 4]]]);
+const mechanicsRows = (dimension: '2d' | '3d') => {
+  const first = dimension === '2d' ? {
+    reactions: [{ nodeId: 1, rx: 1, rz: 2, my: 3 }],
+    displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }, { nodeId: 2, ux: 1, uz: 2, ry: 3 }],
+    elementForces: [{ elementId: 1, nStart: 0, nEnd: 0, vStart: 1, vEnd: 0, mStart: 0, mEnd: 0 }],
+  } : {
+    reactions: [{ nodeId: 1, fx: 1, fy: 2, fz: 3, mx: 4, my: 5, mz: 6 }],
+    displacements: [{ nodeId: 1, ux: 0, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }, { nodeId: 2, ux: 1, uy: 2, uz: 3, rx: 4, ry: 5, rz: 6 }],
+    elementForces: [{ elementId: 1, nStart: 0, nEnd: 0, vyStart: 1, vyEnd: 0, vzStart: 1, vzEnd: 0, mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0 }],
+  };
+  return {
+    reactions: [...first.reactions, { ...first.reactions[0]!, nodeId: 3 }],
+    displacements: [...first.displacements, ...first.displacements.map(row => ({ ...row, nodeId: row.nodeId + 2 }))],
+    elementForces: [...first.elementForces, { ...first.elementForces[0]!, elementId: 2 }],
+  };
 };
 type MechanicsOutput = Parameters<typeof compareWindMechanics>[1];
 
-for (const dimension of ['2d', '3d'] as const) for (const kind of ['reactions', 'displacements'] as const) for (const side of ['actual', 'reference', 'both'] as const) for (const defect of ['missing-property', 'empty', 'partial', 'missing-id', 'duplicate', 'extra', 'wrong-id', 'id-only', 'missing-component', 'nan', 'infinity', 'string'] as const) knownWrong(`known wrong result: #2220 mechanics completeness ${dimension} ${kind} ${side} ${defect}`, () => {
+for (const dimension of ['2d', '3d'] as const) for (const kind of ['reactions', 'displacements'] as const) for (const side of ['actual', 'reference', 'both'] as const) for (const defect of ['missing-property', 'empty', 'partial', 'missing-id', 'duplicate', 'extra', 'wrong-id', 'id-only', 'missing-component', 'nan', 'infinity', 'string'] as const) it(`#2220 mechanics completeness ${dimension} ${kind} ${side} ${defect}`, () => {
   const correct = mechanicsRows(dimension);
   const broken = structuredClone(correct) as unknown as Record<string, Array<Record<string, unknown>>>;
   const rows = broken[kind]!;
@@ -168,30 +189,35 @@ for (const dimension of ['2d', '3d'] as const) for (const kind of ['reactions', 
   else row[component] = defect === 'nan' ? NaN : defect === 'infinity' ? Infinity : '1';
   const a = (side === 'reference' ? correct : broken) as unknown as MechanicsOutput;
   const b = (side === 'actual' ? correct : broken) as unknown as MechanicsOutput;
-  expect(() => compareWindMechanics(mechanicsModel(), a, b, dimension)).toThrow();
+  expect(() => compareWindMechanics(mechanicsModel(), a, b, dimension, [1, 3])).toThrow();
 });
 
 for (const dimension of ['2d', '3d'] as const) it(`#2220 mechanics comparison accepts complete ${dimension} results`, () => {
   const rows = mechanicsRows(dimension);
-  expect(() => compareWindMechanics(mechanicsModel(), rows as unknown as MechanicsOutput, structuredClone(rows) as unknown as MechanicsOutput, dimension)).not.toThrow();
+  expect(() => compareWindMechanics(mechanicsModel(), rows as unknown as MechanicsOutput, structuredClone(rows) as unknown as MechanicsOutput, dimension, [1, 3])).not.toThrow();
+  const reordered = structuredClone(rows);
+  reordered.displacements.reverse();
+  reordered.reactions.reverse();
+  expect(() => compareWindMechanics(mechanicsModel(), rows as unknown as MechanicsOutput, reordered as unknown as MechanicsOutput, dimension, [1, 3])).not.toThrow();
 });
 
-for (const dimension of ['2d', '3d'] as const) for (const kind of ['reactions', 'displacements'] as const) knownWrong(`known wrong result: #2220 mechanics checks every ${dimension} ${kind} component`, () => {
+for (const dimension of ['2d', '3d'] as const) for (const kind of ['reactions', 'displacements'] as const) it(`#2220 mechanics checks every ${dimension} ${kind} component`, () => {
   const correct = mechanicsRows(dimension);
   const row = correct[kind].at(-1)!;
-  for (const key of Object.keys(row).filter(key => key !== 'nodeId')) for (const side of ['actual', 'reference', 'both']) for (const defect of ['missing', 'nan', 'infinity', 'string', 'changed']) {
+  for (const key of Object.keys(row).filter(key => key !== 'nodeId')) for (const side of ['actual', 'reference', 'both']) for (const defect of side === 'both' ? ['missing', 'nan', 'infinity', 'string'] : ['missing', 'nan', 'infinity', 'string', 'changed']) {
     const broken = structuredClone(correct) as unknown as Record<string, Array<Record<string, unknown>>>;
     const last = broken[kind]!.at(-1)!;
     if (defect === 'missing') delete last[key];
     else last[key] = defect === 'nan' ? NaN : defect === 'infinity' ? Infinity : defect === 'string' ? '0' : 99;
     const a = (side === 'reference' ? correct : broken) as unknown as MechanicsOutput;
     const b = (side === 'actual' ? correct : broken) as unknown as MechanicsOutput;
-    if (defect !== 'changed' || side !== 'both') expect(() => compareWindMechanics(mechanicsModel(), a, b, dimension)).toThrow();
+    expect(() => compareWindMechanics(mechanicsModel(), a, b, dimension, [1, 3])).toThrow();
   }
 });
 
 for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) for (const dimension of ['2d', '3d'] as const) it(`#2204 hand wind distribution matches member forces and reactions ${dimension} nonlinear=${nonlinear} diaphragm=${diaphragm}`, () => {
   const model = columns();
+  const supportIds = [...model.nodes.values()].filter(n => n.z === 0).map(n => n.id);
   const sink = generate(model);
   for (const [caseIndex, c] of sink.cases.entries()) {
     if (!['autoLoad.windCase2', 'autoLoad.windCase4', 'autoLoad.windCase1', 'autoLoad.windCase3'].includes(c.nameKey)) continue;
@@ -204,7 +230,7 @@ for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) fo
         elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, type: 'frame', localYx: 0, localYy: 1, localYz: 0, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }])),
         materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
         sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4 }]]),
-        supports: new Map([...model.nodes.values()].filter(n => n.z === 0).map(n => [n.id, { nodeId: n.id, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }])),
+        supports: new Map(supportIds.map(nodeId => [nodeId, { nodeId, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }])),
         loads: lines.map(p => ({ type: 'distributed', data: { elementId: p.elementId, a: p.a, b: p.b, qYI: p.qY ?? 0, qYJ: p.qYJ ?? p.qY ?? 0, qZI: -(p.qX ?? 0), qZJ: -(p.qXJ ?? p.qX ?? 0) } })),
         constraints: diaphragm && dimension === '3d' ? [{ type: 'diaphragm', masterNode: top[0]!, slaveNodes: top.slice(1), plane: 'XY' }] : [],
       };
@@ -227,7 +253,7 @@ for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) fo
     };
     const a = run(actual), b = run(reference);
     expect(a).toBeDefined(); expect(b).toBeDefined();
-    compareWindMechanics(model, a, b, dimension);
+    compareWindMechanics(model, a, b, dimension, supportIds);
   }
 });
 
