@@ -60,6 +60,10 @@ The 2D and 3D displayed-result certificate tests now require successful load-fre
 
 Retain both SA-2026-069 and SA-2026-070 in every localized advisory catalog after merging PR #2169, and update the exact saved-project notice expectations to include member recovery alongside the concurrent torsion change (PR #2170). Engine results are unchanged by this integration update.
 
+#### Modal saved-project notice tests include member recovery (2026-11-16)
+
+Update every affected exact notice list in the results-version tests to include member-recovery-round4 for older modal frame models, with and without the SSI notice registered (PR #2170). Notice applicability and engine results are unchanged.
+
 #### Member recovery preserves shear rigidity and valid spatial stiffness (2026-11-15)
 
 Forward shear rigidity through the planar deflection and rotation adapters, and preserve small scalar span loads when sharing their request builder. Preserve spatial recovery for every finite positive bending stiffness while retaining planar stiffness refusals. Hover displacement now reads the drawing's shared Rust curve evaluation before world coordinates are added, so certificate comparisons avoid coordinate cancellation. These correct regressions on the unmerged #2143 branch (PR #2170); nodal solutions and certificate bounds are unchanged.
