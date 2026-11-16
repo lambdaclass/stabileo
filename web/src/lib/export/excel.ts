@@ -405,7 +405,7 @@ function createReactionsSheet(): Xlsx.WorkSheet {
     for (const r of shown) {
       const sup = [...modelStore.supports.values()].find(s => s.nodeId === r.nodeId);
       data.push([
-        r.nodeId, sup ? supportTypeShown(sup.type) : '-',
+        r.nodeId, sup ? supportTypeShown(sup.type, is3D) : '-',
         Number(r.fx.toFixed(4)), Number(r.fy.toFixed(4)), Number(r.fz.toFixed(4)),
         Number(r.mx.toFixed(4)), Number(r.my.toFixed(4)), Number(r.mz.toFixed(4)),
       ]);

@@ -6,7 +6,8 @@ export interface NamedCombination { name: string; origin?: unknown; nameTyped?: 
 
 export function axisTokensIn(f: AxesFrame, text: string): string {
   if (f.identity) return text;
-  return text.replace(/(?<![A-Za-z0-9])([+−-]?)([XYZ])(?![A-Za-z])/g, (_, sign: string, letter: string) => {
+  return text.replace(/(?:(?<=[XYZ])([+−-])|(?<![A-Za-z0-9])([+−-]?))([XYZ])(?![A-Za-z])/g, (_, adjacent: string | undefined, first: string | undefined, letter: string) => {
+    const sign = adjacent ?? first ?? '';
     const a = userAxisAlong(f, 'XYZ'.indexOf(letter));
     if (!sign) return a.name;
     const s = (sign === '+' ? 1 : -1) * a.sign;

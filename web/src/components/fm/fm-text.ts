@@ -17,8 +17,9 @@ export function sub(n: number | string): string {
 export const xName = (i: number) => `X${sub(i)}`;
 
 /** A 3D redundant's text, its axis letter the user's, signed when the user axis points the other way. */
-function spaceAxisIn(text: string, k: number): string {
-  const a = along(k as 0 | 1 | 2);
+function spaceAxisIn(text: string, component: number): string {
+  const shown = componentShown(component, false, true);
+  const a = { sign: shown.sign, name: shown.name[1]! };
   return text.replace(/(?<![A-Za-z])[xyz](?![A-Za-z])/, `${a.sign < 0 ? '−' : ''}${a.name.toLowerCase()}`);
 }
 
@@ -29,7 +30,7 @@ export function redundantText(r: Redundant, g: Geometry): string {
       /* 3D: forces along x, y, z and moments about them; 0 is the normal on an inclined support. */
       const inclined = sup && sup.restrained.length === 6 && sup.restrained[0] && !sup.restrained[1] && !sup.restrained[2] && r.component === 0;
       const key = inclined ? 'fm.x3.normal' : `fm.x3.reaction${r.component}`;
-      return inclined ? t(key).replace('{node}', String(r.nodeId)) : spaceAxisIn(t(key), (r.component ?? 0) % 3).replace('{node}', String(r.nodeId));
+      return inclined ? t(key).replace('{node}', String(r.nodeId)) : spaceAxisIn(t(key), r.component ?? 0).replace('{node}', String(r.nodeId));
     }
     const key = r.component === 1 && sup?.angle !== undefined ? 'fm.x.reaction1n' : `fm.x.reaction${r.component}`;
     return t(key).replace('{node}', String(r.nodeId));

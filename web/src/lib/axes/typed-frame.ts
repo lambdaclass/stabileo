@@ -11,7 +11,7 @@ export const typedFrame: ToModelFrame = {
 export const verticalNameIn = (s: string): string => s.replace(/\bZ\b/, axisName(2));
 export const gravityNameIn = (s: string): string => s.replace('−Z', signedModelName(2, -1));
 export const gravityFactorIn = (s: string): string => verticalNameIn(s).replace('−1', along(2).sign > 0 ? '−1' : '+1');
-export const verticalCoordIn = (s: string): string => s.replace('− z)', `− ${axisName(2).toLowerCase()})`);
+export const verticalCoordIn = (s: string): string => s.replace(/\(([^()]+) − z\)/, (_, level: string) => along(2).sign < 0 ? `(${axisName(2).toLowerCase()} − ${level})` : `(${level} − ${axisName(2).toLowerCase()})`);
 
 export function userSlot(i: number, moment = false): { k: 0 | 1 | 2; sign: Sign } {
   const m = modelAxisOf((['X', 'Y', 'Z'] as const)[i]!);

@@ -91,9 +91,9 @@ describe('support names', () => {
   });
 
   it('every place that shows a support type goes through the user names', () => {
-    expect(read('lib/engine/calc-report.ts')).toContain('supportTypeShown(s.type)');
-    expect(read('lib/engine/pro-report.ts')).toContain('supportTypeIn(frame, s.type)');
-    expect(read('lib/export/excel.ts')).toContain('supportTypeShown(sup.type)');
+    expect(read('lib/engine/calc-report.ts')).toContain('supportTypeShown(s.type, data.is3D)');
+    expect(read('lib/engine/pro-report.ts')).toContain('supportTypeIn(frame, s.type, true)');
+    expect(read('lib/export/excel.ts')).toContain('supportTypeShown(sup.type, is3D)');
     expect(read('components/tables/SupportsTable.svelte')).toContain("planeLettersShown(t('table.rollerY'))");
     expect(read('components/floating-tools/SelectedEntityPanel.svelte')).toContain('supportNameShown(selectedSup.type');
     expect(read('lib/ai/capabilities/build-model.ts')).toContain('supportTypeShown(');

@@ -557,6 +557,8 @@ const es: Record<string, string> = {
   'landing.heroFigMohr': "Análisis de tensiones",
   'landing.mohrFigTitle': 'Un plano de corte recorriendo un estado tensional 3D',
   'landing.mohrFigDesc': 'Cubo elemental con un plano de corte que gira; a la derecha, los tres círculos de Mohr y el punto (σn, τ) de ese plano, que recorre el círculo de σ₁ y σ₂ mientras el plano gira alrededor de z y entra en la zona entre los círculos cuando se inclina. Rojo tracción, azul compresión, amarillo corte.',
+  'landing.figZero': 'CASI NULO  ≈0',
+  'landing.figDeformedNorm': 'DEFORMADA · NORMALIZADA',
   'landing.trussTag': "MODO BÁSICO · EN VIVO",
   'landing.trussTension': "Tracción",
   'landing.trussTMax': "T máx",

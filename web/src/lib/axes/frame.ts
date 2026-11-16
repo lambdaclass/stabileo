@@ -136,10 +136,10 @@ export function relabelAxesWith(f: AxesFrame, text: string): string {
   });
 }
 
-export function supportTypeIn(f: AxesFrame, type: string): string {
+export function supportTypeIn(f: AxesFrame, type: string, is3D = false): string {
   const m = /^(roller|guided)([XYZ]{1,2})$/.exec(type);
   // 2D's legacy rollerY is the vertical, the model's Z.
-  return m ? `${m[1]}${relabelAxesWith(f, m[2] === 'Y' ? 'Z' : m[2]!)}` : type;
+  return m ? `${m[1]}${relabelAxesWith(f, !is3D && m[2] === 'Y' ? 'Z' : m[2]!)}` : type;
 }
 
 export function planeLettersIn(f: AxesFrame, text: string): string {
@@ -154,4 +154,9 @@ export function relabelComponentsWith(f: AxesFrame, text: string): string {
 export function planeSigns(f: AxesFrame): { h: AxisName; v: AxisName; n: AxisName; sx: Sign; sz: Sign; sr: Sign } {
   const h = userAxisAlong(f, 0), v = userAxisAlong(f, 2), n = userAxisAlong(f, 1);
   return { h: h.name, v: v.name, n: n.name, sx: h.sign, sz: v.sign, sr: (h.sign * v.sign) as Sign };
+}
+
+export function supportTypeToModel(f: AxesFrame, type: string): string {
+  const m = /^(roller|guided)([XYZ]{1,2})$/.exec(type);
+  return m ? `${m[1]}${[...m[2]!].map((letter) => AXIS_NAMES[f.rows[AXIS_NAMES.indexOf(letter as AxisName)]!.findIndex((c) => c !== 0)]!).sort().join('')}` : type;
 }

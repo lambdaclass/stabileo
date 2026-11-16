@@ -36,7 +36,7 @@ import { SHEETS, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from 
 import { unguardText } from '../export/workbook-cells';
 import { massPresetById, type MassPresetParamValue } from '../engine/dynamics/mass-presets';
 import type { MassSource, MassSourceFactor, MassWeight } from '../engine/dynamics/mass-source';
-import { DEFAULT_AXES, makeFrame, pseudoToModel, relabelAxesWith, toModel, userAxisAlong, validChoice, type AxesFrame } from '../axes/frame';
+import { DEFAULT_AXES, makeFrame, pseudoToModel, relabelAxesWith, supportTypeToModel, toModel, userAxisAlong, validChoice, type AxesFrame } from '../axes/frame';
 import { AXES_SHEET } from './schema';
 
 const DEFAULT_CASE_IDS = new Set(defaultLoadCases().map((c) => c.id));
@@ -383,10 +383,15 @@ function readMassSource(rows: Row[], caseIds: ReadonlySet<number>, problems: Row
 
 function supportToModel(f: AxesFrame, s: Record<string, number>, flat: boolean): void {
   if (flat) {
-    const h = userAxisAlong(f, 0).sign, v = userAxisAlong(f, 2).sign;
-    if (s.dx !== undefined) s.dx = h * s.dx + 0;
-    for (const k of ['dy', 'dz']) if (s[k] !== undefined) s[k] = v * s[k]! + 0;
-    if (s.angle !== undefined) s.angle = h * v * s.angle + 0;
+    const h = userAxisAlong(f, 0), v = userAxisAlong(f, 2), normal = userAxisAlong(f, 1);
+    const src = { ...s };
+    for (const k of ['kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz']) delete s[k];
+    for (const [target, source] of [['kx', `k${h.name.toLowerCase()}`], ['ky', `k${v.name.toLowerCase()}`], ['kz', `kr${normal.name.toLowerCase()}`]]) {
+      if (src[source!] !== undefined) s[target!] = src[source!]!;
+    }
+    if (src[`d${h.name.toLowerCase()}`] !== undefined) s.dx = h.sign * src[`d${h.name.toLowerCase()}`]! + 0;
+    if (src[`d${v.name.toLowerCase()}`] !== undefined) s.dz = v.sign * src[`d${v.name.toLowerCase()}`]! + 0;
+    if (s.angle !== undefined) s.angle = h.sign * v.sign * s.angle + 0;
     return;
   }
   const permute = (keys: readonly [string, string, string]) => {
@@ -709,7 +714,8 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       if (v !== null) extra[k] = v;
     }
     if (!frame.identity) supportToModel(frame, extra, flatFromZ);
-    model.supports.push({ id: supportId++, nodeId, type: canonical, ...extra });
+    const modelType = frame.identity ? canonical : supportTypeToModel(frame, canonical);
+    model.supports.push({ id: supportId++, nodeId, type: modelType, ...extra });
   }
   counts.Supports = model.supports.length;
 

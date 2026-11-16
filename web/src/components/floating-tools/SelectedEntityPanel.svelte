@@ -369,7 +369,7 @@
 
 {#if selectedSup}
   <div class="ft-load-edit" class:in-bar={inBar}>
-    <span class="ft-load-tag">{t('selEntity.support')} {supportNameShown(selectedSup.type, t(supTypeLabelKeys[selectedSup.type] ?? '')) || supportTypeShown(selectedSup.type)}</span>
+    <span class="ft-load-tag">{t('selEntity.support')} {supportNameShown(selectedSup.type, t(supTypeLabelKeys[selectedSup.type] ?? '')) || supportTypeShown(selectedSup.type, uiStore.is3DWorkspace)}</span>
     <span class="ft-sep">|</span>
     {#if is3DSupport(selectedSup.type)}
       <!-- 3D per-DOF editing for selected support -->

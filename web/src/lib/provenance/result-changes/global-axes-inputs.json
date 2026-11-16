@@ -1,0 +1,34 @@
+{
+  "id": "global-axes-inputs",
+  "date": "2026-11-16",
+  "prs": [
+    1986
+  ],
+  "area": "analysis",
+  "when": {},
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Global axes input conversions",
+    "es": "Global axes input conversions",
+    "pt": "Global axes input conversions",
+    "de": "Global axes input conversions",
+    "fr": "Global axes input conversions",
+    "hu": "Global axes input conversions",
+    "tr": "Global axes input conversions"
+  },
+  "explanation": {
+    "en": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986).",
+    "es": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986).",
+    "pt": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986).",
+    "de": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986).",
+    "fr": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986).",
+    "hu": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986).",
+    "tr": "Canonical saved models keep their results. Reimport models entered through the unmerged global-axes feature: explicit 2D geometry, reflected nonlinear spring curves and workbook support directions now retain their physical meaning (#1986)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-global-axes-inputs.md",
+    "heading": "Global axes input conversions (2026-11-16)"
+  }
+}

@@ -458,7 +458,7 @@ export function generateReportHtml(data: ReportData): string {
   html.push(`<h2>${subNo('sec-model-data')} ${escHtml(tr('report.supports'))} (${supports.length})</h2>`);
   html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.nodes'))}</th><th>${escHtml(tr('report.type'))}</th></tr></thead><tbody>`);
   for (const s of supports) {
-    html.push(`<tr><td>${s.id}</td><td>${s.nodeId}</td><td>${escHtml(supportTypeIn(frame, s.type))}</td></tr>`);
+    html.push(`<tr><td>${s.id}</td><td>${s.nodeId}</td><td>${escHtml(supportTypeIn(frame, s.type, true))}</td></tr>`);
   }
   html.push(`</tbody></table>`);
   }

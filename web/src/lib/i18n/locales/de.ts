@@ -227,6 +227,8 @@ const de: Translations = {
   'landing.heroFigMohr': "Spannungsanalyse",
   'landing.mohrFigTitle': 'Eine Schnittebene durchläuft einen 3D-Spannungszustand',
   'landing.mohrFigDesc': 'Spannungswürfel mit einer drehenden Schnittebene; rechts die drei Kreise nach Mohr und der Punkt (σn, τ) dieser Ebene. Er läuft auf dem Kreis von σ₁ und σ₂, solange sich die Ebene um z dreht, und wandert in den Bereich zwischen den Kreisen, wenn sie sich neigt. Rot Zug, blau Druck, gelb Schub.',
+  'landing.figZero': 'NAHEZU NULL  ≈0',
+  'landing.figDeformedNorm': 'VERFORMUNGSFIGUR · NORMIERT',
   'landing.trussTag': "BASISMODUS · LIVE",
   'landing.trussTension': "Zug",
   'landing.trussTMax': "Z max",

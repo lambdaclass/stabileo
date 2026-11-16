@@ -8,7 +8,7 @@ import { i18n } from '../../../lib/i18n/store.svelte';
 
 afterEach(() => { vi.restoreAllMocks(); i18n.locale = 'en'; });
 
-it.skip('known wrong result: #2090 numerical topology results select a stored solved frame', () => {
+it('known wrong result: #2090 numerical topology results select a stored solved frame', () => {
   for (const seconds of [0, 0.04, 0.1, 0.3, 2, 6, 10, 12]) {
     vi.spyOn(HeroLoop.prototype, 'seconds', 'get').mockReturnValue(seconds);
     const html = render(Topopt).body;
@@ -20,7 +20,7 @@ it.skip('known wrong result: #2090 numerical topology results select a stored so
   }
 });
 
-it.skip('known wrong result: #2090 the truss visibly identifies normalized deformation and near-zero members', () => {
+it('known wrong result: #2090 the truss visibly identifies normalized deformation and near-zero members', () => {
   for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
     i18n.locale = locale;
     const html = render(Truss, { props: { prefersReducedMotion: true } }).body;

@@ -8,7 +8,7 @@ import { uiStore } from '../../../lib/store';
 
 afterEach(() => axesStore.reset());
 
-it.skip('known wrong result: #1986 the positive moment sweep agrees with the axial direction', () => {
+it('known wrong result: #1986 the positive moment sweep agrees with the axial direction', () => {
   for (const c of [DEFAULT_AXES, ...allChoices()]) {
     const f = makeFrame(c);
     const html = render(AxesFigure, { props: { frame: f, kind: 'plane' } }).body;

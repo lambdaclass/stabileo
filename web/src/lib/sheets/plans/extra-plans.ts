@@ -50,7 +50,7 @@ export function setoutPlan(level: string, cols: readonly SetoutColumn[], axes: r
   if (!withTable) return [plan];
   const ox = ref.kind === 'fixed' ? ref.x : (xs.length ? Math.min(...xs) : 0), oy = ref.kind === 'fixed' ? ref.y : (ys.length ? Math.min(...ys) : 0);
   const [ax, ay] = [along(0), along(1)];
-  const rows = [...cols].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map((c) => [c.name, fmt(ax.sign * (c.x - ox) + 0, 3), fmt(ay.sign * (c.y - oy) + 0, 3), `${Math.round(c.b * 100)}×${Math.round(c.h * 100)}`, c.rotDeg ? `${fmt(c.rotDeg, 1)}°` : '0°']);
+  const rows = [...cols].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map((c) => [c.name, fmt(ax.sign * (c.x - ox) + 0, 3), fmt(ay.sign * (c.y - oy) + 0, 3), `${Math.round(c.b * 100)}×${Math.round(c.h * 100)}`, c.rotDeg ? `${fmt(ax.sign * ay.sign * c.rotDeg, 1)}°` : '0°']);
   const t = drawTable({ columns: [{ label: tr('plan.setout.col'), width: 18 }, { label: `${ax.name} (m)`, width: 22, align: 'right' }, { label: `${ay.name} (m)`, width: 22, align: 'right' }, { label: tr('plan.setout.section'), width: 20 }, { label: tr('plan.setout.rot'), width: 14, align: 'right' }], rows });
   const refText = ref.kind === 'fixed' ? planNamesIn(tr('plan.setout.refFixed', { x: fmt(ax.sign * ref.x + 0, 3), y: fmt(ay.sign * ref.y + 0, 3) })) : tr('plan.setout.refAxes');
   return [plan, tableInput(`setout-${level}-table`, `${tr('plan.setout.table', { level })} — ${refText}`, t)];

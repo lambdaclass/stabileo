@@ -28,7 +28,7 @@ import { t } from '../i18n';
 import { uiStore } from '../store';
 import { SHEETS, INSTRUCTIONS_SHEET, AXES_SHEET, headerFor, LOAD_TYPES } from './schema';
 import { axesStore } from '../axes/axes.svelte';
-import { makeFrame, pseudoToUser, relabelAxesWith, toUser, userAxisAlong, type AxesChoice, type AxesFrame } from '../axes/frame';
+import { makeFrame, pseudoToUser, relabelAxesWith, toUser, userAxisAlong, supportTypeIn, type AxesChoice, type AxesFrame } from '../axes/frame';
 import type { SheetSpec } from './schema';
 
 /** Column widths, so a header is readable without dragging anything. */
@@ -113,6 +113,7 @@ export function buildTemplateWorkbook(XLSX: NonNullable<Awaited<ReturnType<typeo
 }
 
 function examplesIn(sheet: SheetSpec, f: AxesFrame): Array<Array<string | number>> {
+  if (f.identity) return sheet.examples;
   const at = (key: string) => sheet.columns.findIndex((c) => c.key === key);
   const num = (v: string | number | undefined) => (typeof v === 'number' ? v : 0);
   const h = userAxisAlong(f, 0), v = userAxisAlong(f, 2);
@@ -124,11 +125,24 @@ function examplesIn(sheet: SheetSpec, f: AxesFrame): Array<Array<string | number
       for (const k of ['x', 'y', 'z']) row[at(k)] = '';
       row[at(lower(h))] = h.sign * x + 0;
       row[at(lower(v))] = v.sign * z + 0;
+    } else if (sheet.name === 'Supports') {
+      row[at('type')] = supportTypeIn(f, String(example[at('type')]));
+      for (const key of ['kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz']) row[at(key)] = '';
+      const normal = userAxisAlong(f, 1);
+      for (const [source, target, sign] of [
+        ['kx', `k${lower(h)}`, 1], ['ky', `k${lower(v)}`, 1], ['kz', `kr${lower(normal)}`, 1],
+        ['dx', `d${lower(h)}`, h.sign], ['dy', `d${lower(v)}`, v.sign], ['dz', `d${lower(v)}`, v.sign],
+      ] as const) if (example[at(source)] !== '' && example[at(source)] !== undefined) row[at(target)] = sign * num(example[at(source)]) + 0;
+      if (example[at('angle')] !== '') row[at('angle')] = h.sign * v.sign * num(example[at('angle')]) + 0;
     } else if (sheet.name === 'Loads' && example[0] === 'nodal') {
       const fx = num(example[at('fx')]), fz = num(example[at('fz')]) || num(example[at('fy')]);
       for (const k of ['fx', 'fy', 'fz']) row[at(k)] = '';
       row[at(`f${lower(h)}`)] = h.sign * fx + 0;
       row[at(`f${lower(v)}`)] = v.sign * fz + 0;
+      const normal = userAxisAlong(f, 1);
+      const moment = num(example[at('mz')]);
+      for (const key of ['mx', 'my', 'mz']) row[at(key)] = '';
+      row[at(`m${lower(normal)}`)] = h.sign * v.sign * moment + 0;
     } else if (sheet.name === 'Loads' && example[0] === 'nodal3d') {
       const F = toUser(f, [num(example[at('fx')]), num(example[at('fy')]), num(example[at('fz')])]);
       const M = pseudoToUser(f, [num(example[at('mx')]), num(example[at('my')]), num(example[at('mz')])]);

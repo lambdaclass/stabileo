@@ -92,7 +92,7 @@ describe('names and values of the Basic screens under a frame with Y up, Z to th
     expect(ilShown('Rx')).toEqual({ symbol: 'Rz', sign: -1 });
     expect(ilShown('My')).toEqual({ symbol: 'Mx', sign: -1 });
     expect(ilShown('M')).toEqual({ symbol: 'M', sign: 1 });
-    expect(ilText('Rx', 'Signo: Rx es positiva hacia +X.')).toBe('Signo: Rz es positiva hacia +Z.');
+    expect(ilText('Rx', 'Signo: Rx es positiva hacia +X.')).toBe('Signo: Rz es positiva hacia −Z.');
     expect(ilText('uz', 'uz vertical')).toBe('uy vertical');
     expect(ilText('ry', 'θ giro')).toBe('θ giro');
   });

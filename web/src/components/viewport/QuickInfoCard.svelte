@@ -38,7 +38,7 @@
     {#if node}
       <div class="qi-title">{t('quick.node')} {node.id}</div>
       <div>x, y, z = {nodeShown3D(node).map((c) => fmtCoord(c)).join('; ')} {unitQ('length')}</div>
-      {#if support}<div>{t('quick.support')}: {supportTypeShown(support.type)}</div>{/if}
+      {#if support}<div>{t('quick.support')}: {supportTypeShown(support.type, uiStore.is3DWorkspace)}</div>{/if}
       {#if disp}<div>u = {userVec(disp.ux, disp.uy, disp.uz).map((c) => fmtQ(c, 'displacement')).join('; ')} {unitQ('displacement')}</div>{/if}
       {#if reac}<div>R = {userVec(reac.fx, reac.fy, reac.fz).map((c) => fmtQ(c, 'force')).join('; ')}{reacBound !== null ? ` ± ${formatBound(toQ(reacBound, 'force'))}` : ''} {unitQ('force')}</div>{/if}
     {:else if elem}

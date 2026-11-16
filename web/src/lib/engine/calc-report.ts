@@ -325,7 +325,7 @@ function buildModelSection(data: CalcReportData, num = '1', fig?: ReturnType<typ
   h.push(`<h2>${num}.5 ${t('report.supports')} (${data.supports.length})</h2>`);
   h.push(`<table><tr><th>ID</th><th>${t('table.nodeLabel')}</th><th>${t('report.type')}</th></tr>`);
   for (const s of data.supports) {
-    h.push(`<tr><td>${s.id}</td><td>${s.nodeId}</td><td>${esc(supportTypeShown(s.type))}</td></tr>`);
+    h.push(`<tr><td>${s.id}</td><td>${s.nodeId}</td><td>${esc(supportTypeShown(s.type, data.is3D))}</td></tr>`);
   }
   h.push('</table>');
 

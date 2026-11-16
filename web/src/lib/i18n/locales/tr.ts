@@ -236,6 +236,8 @@ const tr: Translations = {
   'landing.heroFigMohr': "Gerilme analizi",
   'landing.mohrFigTitle': '3B gerilme durumunu tarayan bir kesit düzlemi',
   'landing.mohrFigDesc': 'Dönen bir kesit düzlemiyle gerilme küpü; sağda üç Mohr dairesi ve o düzlemin (σn, τ) noktası. Düzlem z ekseni etrafında dönerken nokta σ₁–σ₂ dairesi üzerinde ilerler, düzlem eğildiğinde daireler arasındaki bölgeye girer. Kırmızı çekme, mavi basınç, sarı kayma.',
+  'landing.figZero': 'SIFIRA YAKIN  ≈0',
+  'landing.figDeformedNorm': 'ŞEKİL DEĞİŞTİRMİŞ DURUM · NORMALLEŞTİRİLMİŞ',
   'landing.trussTag': "TEMEL MOD · CANLI",
   'landing.trussTension': "Çekme",
   'landing.trussTMax': "Ç maks",

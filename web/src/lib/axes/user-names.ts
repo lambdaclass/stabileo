@@ -1,5 +1,6 @@
 import { modelIndexOfUser, twoD, userFlags, userRot, userVec } from './display';
 import { planeLettersIn, relabelAxesWith, supportTypeIn, userLetterIn, type AxisName } from './frame';
+import { axisTokensIn } from './case-names';
 import { axesStore } from './axes.svelte';
 import { TWO_D_DISPLACEMENT_LABELS, TWO_D_REACTION_LABELS } from '../geometry/coordinate-system';
 
@@ -59,14 +60,15 @@ export function ilShown(q: string): { symbol: string; sign: number } {
 }
 
 /** The sign sentence of these says up or counterclockwise: with the user's axis reversed it reads backwards. */
-export const ilSignReversed = (q: string): boolean => ['Rz', 'Ry', 'uz', 'My', 'Mz'].includes(q) && ilShown(q).sign === -1;
+export const ilSignReversed = (q: string): boolean => ilShown(q).sign === -1;
 
 export function ilText(q: string, text: string): string {
   const shown = ilShown(q);
-  return shown.symbol === q || q === 'ry' ? text : relabelAxes(text.replace(new RegExp(`(?<![A-Za-z])${q}(?![A-Za-z])`, 'g'), shown.symbol));
+  const symbol = q === 'ry' ? q : shown.symbol;
+  return text.replace(new RegExp(`(?<![A-Za-z])${q}(?![A-Za-z])|(?<![A-Za-z0-9])[+−-]?[XYZ](?![A-Za-z])`, 'g'), (token) => token === q ? symbol : axisTokensIn(axesStore.frame, token));
 }
 
-export const supportTypeShown = (type: string): string => supportTypeIn(axesStore.frame, type);
+export const supportTypeShown = (type: string, is3D = false): string => supportTypeIn(axesStore.frame, type, is3D);
 
 /** A 2D text whose X is the horizontal and whose Y or Z is the vertical, in the user's names. */
 export const planeLettersShown = (text: string): string => planeLettersIn(axesStore.frame, text);

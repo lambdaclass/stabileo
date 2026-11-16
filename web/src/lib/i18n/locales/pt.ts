@@ -555,6 +555,8 @@ const pt: Translations = {
   'landing.heroFigMohr': "Análise de tensões",
   'landing.mohrFigTitle': 'Um plano de corte percorrendo um estado de tensões 3D',
   'landing.mohrFigDesc': 'Cubo elementar com um plano de corte que gira; à direita, os três círculos de Mohr e o ponto (σn, τ) desse plano, que percorre o círculo de σ₁ e σ₂ enquanto o plano gira em torno de z e entra na região entre os círculos quando se inclina. Vermelho tração, azul compressão, amarelo cisalhamento.',
+  'landing.figZero': 'QUASE NULO  ≈0',
+  'landing.figDeformedNorm': 'DEFORMADA · NORMALIZADA',
   'landing.trussTag': "MODO BÁSICO · AO VIVO",
   'landing.trussTension': "Tração",
   'landing.trussTMax': "T máx",

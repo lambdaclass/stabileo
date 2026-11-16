@@ -227,6 +227,8 @@ const fr: Translations = {
   'landing.heroFigMohr': "Analyse des contraintes",
   'landing.mohrFigTitle': 'Un plan de coupe qui parcourt un état de contrainte 3D',
   'landing.mohrFigDesc': 'Cube élémentaire avec un plan de coupe qui tourne ; à droite, les trois cercles de Mohr et le point (σn, τ) de ce plan, qui suit le cercle de σ₁ et σ₂ tant que le plan tourne autour de z et entre dans la zone entre les cercles quand il s’incline. Rouge traction, bleu compression, jaune cisaillement.',
+  'landing.figZero': 'QUASI NUL  ≈0',
+  'landing.figDeformedNorm': 'DÉFORMÉE · NORMALISÉE',
   'landing.trussTag': "MODE BASIQUE · EN DIRECT",
   'landing.trussTension': "Traction",
   'landing.trussTMax': "T max",

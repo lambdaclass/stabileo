@@ -120,7 +120,7 @@ describe('model code carries every global direction in the user axes', () => {
   it('permutes a support\'s nonlinear springs with its axes', () => {
     const u = transformSnapshot(spaceSnapshot(), YUP, 'toUser');
     const [, sp] = u.supports[0];
-    expect(sp.curves).toEqual({ z: [[0.01, 5]], y: [[0.02, 8]] });
+    expect(sp.curves).toEqual({ z: [[-0.01, -5]], y: [[0.02, 8]] });
   });
 
   it('turns the in-plane couple and the global magnitude and angle of plane member loads with the plane', () => {

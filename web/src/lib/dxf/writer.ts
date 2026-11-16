@@ -248,7 +248,7 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
       // A small pyramid under the node: it reads as a support in every projection.
       const base = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => ({ x: p.x + u! * h * 0.6, y: p.y + v! * h * 0.6, z: p.z - h }));
       for (let i = 0; i < 4; i++) { line(L, p, base[i]!); line(L, base[i]!, base[(i + 1) % 4]!); }
-      text(L, { x: p.x + h, y: p.y, z: p.z - 1.6 * h }, supportLabel(s.type, tr, frame), textH * 0.8);
+      text(L, { x: p.x + h, y: p.y, z: p.z - 1.6 * h }, supportLabel(s.type, tr, frame, !model.flat), textH * 0.8);
     }
   }
   if (c.numbering) {
@@ -474,11 +474,11 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
   return [...head, ...table, '0', 'SECTION', '2', 'ENTITIES', ...body, '0', 'ENDSEC', '0', 'EOF'].join('\n');
 }
 
-function supportLabel(type: string, tr: (key: string) => string, frame: AxesFrame): string {
+function supportLabel(type: string, tr: (key: string) => string, frame: AxesFrame, is3D: boolean): string {
   switch (type) {
     case 'fixed': case 'fixed3d': return tr('dxf.supportFixed');
     case 'pinned': case 'pinned3d': return tr('dxf.supportPinned');
     case 'spring': case 'spring3d': return tr('dxf.supportSpring');
-    default: return layerName(supportTypeIn(frame, type));
+    default: return layerName(supportTypeIn(frame, type, is3D));
   }
 }

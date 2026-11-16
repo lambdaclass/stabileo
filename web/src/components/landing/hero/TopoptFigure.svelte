@@ -26,7 +26,7 @@
 
   const time = $derived(loop.seconds);
   const position = $derived(smooth(time / RUN) * 0.35 + clamp01(time / RUN) * 0.65);
-  const frame = $derived(Math.round(position * (FRAMES.length - 1) * 8) / 8);
+  const frame = $derived(Math.round(position * (FRAMES.length - 1)));
   const fade = $derived(Math.min(loop.laps > 0 ? smooth(time / 0.6) : 1, 1 - smooth((time - FADE_AT) / (PERIOD - FADE_AT))));
 
   const layers = $derived.by(() => {
@@ -49,15 +49,9 @@
     return paths;
   });
 
-  const exactIteration = $derived.by(() => {
-    const i = Math.min(FRAMES.length - 2, Math.floor(frame)), w = frame - i;
-    return FRAME_ITERATION[i] + (FRAME_ITERATION[i + 1] - FRAME_ITERATION[i]) * w;
-  });
-  const iteration = $derived(Math.round(exactIteration));
-  const compliance = $derived.by(() => {
-    const i = Math.min(FRAMES.length - 2, Math.floor(frame)), w = frame - i;
-    return FRAME_COMPLIANCE[i] + (FRAME_COMPLIANCE[i + 1] - FRAME_COMPLIANCE[i]) * w;
-  });
+  const exactIteration = $derived(FRAME_ITERATION[frame]);
+  const iteration = $derived(exactIteration);
+  const compliance = $derived(FRAME_COMPLIANCE[frame]);
 
   const CH = { x: 452, y: 44, w: 96, h: 84 };
   const INITIAL = FRAME_COMPLIANCE[0];

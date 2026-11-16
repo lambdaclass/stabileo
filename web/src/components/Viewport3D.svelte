@@ -3767,7 +3767,7 @@
         if (el) tooltipText = `Elem ${el.id} [${el.type}] ${el.nodeI}→${el.nodeJ}`;
       } else if (newHover.type === 'support') {
         const s = modelStore.supports.get(newHover.id);
-        if (s) tooltipText = t('viewport3d.supportTooltip').replace('{id}', String(s.id)).replace('{type}', supportTypeShown(s.type));
+        if (s) tooltipText = t('viewport3d.supportTooltip').replace('{id}', String(s.id)).replace('{type}', supportTypeShown(s.type, is3D));
       } else if (newHover.type === 'plate' || newHover.type === 'quad') {
         const sh = newHover.type === 'plate' ? modelStore.plates.get(newHover.id) : modelStore.quads.get(newHover.id);
         if (sh) tooltipText = `${newHover.type === 'plate' ? 'Plate' : 'Quad'} ${newHover.id} · t=${sh.thickness}m`;
