@@ -54,10 +54,16 @@ for (const rotated of [false, true]) for (const sign of [1, -1]) it(`#2220 solve
   expect(memberIntensity({ qX: 2, qY: 4 }, rotated, sign)).toEqual(rotated ? [4 * sign, 4 * sign] : [2 * sign, 2 * sign]);
 });
 
-for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign', 'triangularTower', 'solidSignMinimumPositive', 'solidSignMinimumNegative']) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const pressureSign of [1, -1]) {
+for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign', 'triangularTower', 'solidSignMinimumPositive', 'solidSignMinimumNegative']) for (const variant of kind === 'triangularTower' ? [...variants, 'oneCarrier', 'oneCarrierRotate', 'oneCarrierMirror'] as const : variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const pressureSign of [1, -1]) {
   it(`#2220 ${kind} member loading ${variant} spatial=${spatial} nonlinear=${nonlinear} pressure=${pressureSign}`, () => {
-    const { model } = remeshWind(mesh(kind === 'triangularTower' ? [[[-2, -1, 0], [-2, -1, 6]], [[2, -1, 0], [2, -1, 6]], [[0, 2, 0], [0, 2, 6]]] : kind.startsWith('solidSign') ? [[[0, 0, 0], [0, 0, 6]], [[0, 2, 0], [0, 2, 6]]] : [[[0, 0, 0], [0, 0, 6]]]), variant);
-    const rotated = variant === 'rotate';
+    const orientation = variant === 'oneCarrierRotate' ? 'rotate' : variant === 'oneCarrierMirror' ? 'mirror' : variant === 'oneCarrier' ? 'base' : variant;
+    const { model } = remeshWind(mesh(kind === 'triangularTower' ? [[[-1, -1.5, 0], [-1, -1.5, 6]], [[-1, 1.5, 0], [-1, 1.5, 6]], [[2, 0, 0], [2, 0, 6]]] : kind.startsWith('solidSign') ? [[[0, 0, 0], [0, 0, 6]], [[0, 2, 0], [0, 2, 6]]] : [[[0, 0, 0], [0, 0, 6]]]), orientation);
+    if (variant.startsWith('oneCarrier')) {
+      const e = model.elements.get(1)!, a = model.nodes.get(e.nodeI)!;
+      model.nodes.set(7, { ...a, id: 7, z: 1 }); model.nodes.set(8, { ...a, id: 8, z: 3 });
+      model.elements.set(1, { ...e, nodeJ: 7 }); model.elements.set(4, { ...e, id: 4, nodeI: 7, nodeJ: 8 }); model.elements.set(5, { ...e, id: 5, nodeI: 8 });
+    }
+    const rotated = orientation === 'rotate';
     const { points, lines } = generate(model, kind, rotated);
     const component = (p: { qX?: number; qXJ?: number; qY?: number; qYJ?: number }, endpoint = 0) => memberIntensity(p, rotated, pressureSign)[endpoint]!;
     const w = pressureSign * (kind === 'wall' ? 2 : kind.startsWith('solidSign') || kind === 'triangularTower' ? 0.8 : 1.6);

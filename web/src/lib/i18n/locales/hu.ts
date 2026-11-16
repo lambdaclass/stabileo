@@ -14584,6 +14584,7 @@ const hu: Translations = {
   "wind.enclosure.invalidAreas": "A területek legyenek végesek és pozitívak; a nyílások területe nulla és a teljes terület közé essen.",
   "wind.pressure.openBuildingRequiresFreeRoof": "Nyitott épülethez meg kell adni a szabad tető típusát és elzártságát.",
   "wind.pressure.distributedTorqueUnsupported": "Ez a szélmező megoszló rúdcsavarást igényel, amelyet a megoldó nem tud ábrázolni.",
+  "wind.pressure.triangularCentroidUnsupported": "A háromszög alaprajzú szélteherhordóknak a szélirányra szimmetrikusnak kell lenniük; más háromszög alaprajz nem támogatott, mert ez a felosztás nem őrzi meg a vetített nyomás súlypontját.",
   "wind.pressure.carrierPartitionUnresolved": "A fizikai szélteher hatásterületi felosztása nem határozható meg ezekhez a teherviselőkhöz.",
   "wind.other.minimumSignCase": "Szél {dir}, tömör tábla minimális terhe {c} (§4.8)",
   "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes."

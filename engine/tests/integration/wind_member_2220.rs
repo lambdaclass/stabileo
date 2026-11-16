@@ -14,7 +14,7 @@ fn issue_2220_generated_pressure_reaches_native_members() {
             !kind.starts_with("cubicGrid:") && !kind.starts_with("towerMast:")
         })
         .collect();
-    assert_eq!(cases.len(), 184);
+    assert_eq!(cases.len(), 196);
     check_pressure_cases(cases);
 }
 
@@ -57,6 +57,14 @@ fn issue_2220_endpoint_torque_reaches_native_members() {
     let fixtures: Value = serde_json::from_str(include_str!("wind_endpoint_2220.json")).unwrap();
     let cases: Vec<_> = fixtures.as_array().unwrap().iter().collect();
     assert_eq!(cases.len(), 464);
+    check_pressure_cases(cases);
+}
+
+#[test]
+fn issue_2220_unloaded_band_retains_supported_native_member_loading() {
+    let fixtures: Value = serde_json::from_str(include_str!("wind_band_2220.json")).unwrap();
+    let cases: Vec<_> = fixtures.as_array().unwrap().iter().collect();
+    assert_eq!(cases.len(), 160);
     check_pressure_cases(cases);
 }
 

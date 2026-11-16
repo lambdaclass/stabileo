@@ -15034,6 +15034,7 @@ const en: Record<string, string> = {
   'viewer.linkCopied': "Read-only link copied.",
   "wind.pressure.openBuildingRequiresFreeRoof": "An open building requires an explicit free-roof kind and blockage declaration.",
   "wind.pressure.distributedTorqueUnsupported": "This wind field requires distributed member torque, which the solver cannot represent.",
+  "wind.pressure.triangularCentroidUnsupported": "Triangular wind carriers must be symmetric about the wind direction; other triangular plans are not supported because their projected pressure centroid cannot be preserved by this partition.",
   "wind.pressure.carrierPartitionUnresolved": "The physical wind tributary partition cannot be resolved for these carriers.",
   "wind.other.minimumSignCase": "Wind {dir}, solid-sign minimum {c} (§4.8)",
 };

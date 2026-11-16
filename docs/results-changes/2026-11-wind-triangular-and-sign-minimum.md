@@ -1,5 +1,11 @@
 # Triangular wind tributaries and eccentric sign minima
 
+The unrestricted triangular median partition described below was withdrawn
+in [round 11](2026-11-wind-triangular-centroid.md): it does not generally
+preserve the projected pressure centroid. Only triangles symmetric about
+the wind direction retain that partition. The description below records the
+round-4 change and does not define the current supported domain.
+
 PR #2220 round 4 corrects two regressions on the unmerged branch. Regenerate
 W and Wa after upgrading, then rerun analyses, combinations and design checks.
 Re-solving stored loads alone does not correct their load basis. No new

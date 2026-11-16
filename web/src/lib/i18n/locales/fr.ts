@@ -14874,6 +14874,7 @@ const fr: Translations = {
   'viewer.linkCopied': "Lien en lecture seule copié.",
   "wind.pressure.openBuildingRequiresFreeRoof": "Un bâtiment ouvert exige de déclarer le type de toiture libre et son obstruction.",
   "wind.pressure.distributedTorqueUnsupported": "Ce champ de vent nécessite une torsion répartie sur les barres que le solveur ne peut pas représenter.",
+  "wind.pressure.triangularCentroidUnsupported": "Les porteurs de vent triangulaires doivent être symétriques par rapport à la direction du vent ; les autres plans triangulaires ne sont pas pris en charge car cette partition ne préserve pas le centre de pression projeté.",
   "wind.pressure.carrierPartitionUnresolved": "La partition physique des zones tributaires du vent ne peut pas être déterminée pour ces barres.",
   "wind.other.minimumSignCase": "Vent {dir}, minimum du panneau plein {c} (§4.8)",
 };

@@ -84,16 +84,19 @@ type Point = { id: number; x: number; y: number; z?: number };
 const Z = (p: Point) => p.z ?? 0;
 
 type HeightMember = { elementId: number; a: number; b: number; q: number; qJ: number };
-type TorqueMember = HeightMember & { cx: number; cxJ: number; cy: number; cyJ: number; cm: number; cmJ: number };
+type TorqueMember = HeightMember & { torque: 'resolved'; cx: number; cxJ: number; cy: number; cyJ: number; cm: number; cmJ: number };
+type WindHeightMember = TorqueMember | (HeightMember & { torque: 'unsupported' });
 export type WindHeightResult = {
   loads: Map<number, number>;
   baseLoads: Map<number, number>;
-} & ({ torque: 'unsupported'; members: HeightMember[] } | { torque: 'resolved'; members: TorqueMember[] });
+  torque: 'unsupported' | 'resolved';
+  members: WindHeightMember[];
+};
 
 export function windHeightLoads(field: WindHeightResult, fx: number, fy: number, eccentricity = 0): Pick<WindCaseLoads, 'nodal' | 'baseLoads' | 'distributed'> {
-  if (eccentricity !== 0 && field.torque === 'unsupported' && field.members.some(p => p.q !== 0 || p.qJ !== 0)) throw new WindPressureRefusal('wind.pressure.distributedTorqueUnsupported');
-  const distributed = field.members.map((p, i) => {
-    const torque = field.torque === 'resolved' ? field.members[i]! : { cx: 0, cxJ: 0, cy: 0, cyJ: 0, cm: 0, cmJ: 0 };
+  const distributed = field.members.map(p => {
+    if (eccentricity !== 0 && p.torque === 'unsupported' && (p.q !== 0 || p.qJ !== 0)) throw new WindPressureRefusal('wind.pressure.distributedTorqueUnsupported');
+    const torque = p.torque === 'resolved' ? p : { cx: 0, cxJ: 0, cy: 0, cyJ: 0, cm: 0, cmJ: 0 };
     if (eccentricity !== 0 && (torque.cm !== 0 || torque.cmJ !== 0)) throw new WindPressureRefusal('wind.pressure.distributedTorqueUnsupported');
     return { elementId: p.elementId, a: p.a, b: p.b, q: 0, qJ: 0, qX: fx * p.q + eccentricity * torque.cx, qXJ: fx * p.qJ + eccentricity * torque.cxJ, qY: fy * p.q + eccentricity * torque.cy, qYJ: fy * p.qJ + eccentricity * torque.cyJ, frame: 'global' as const, facet: -1 };
   });
@@ -159,7 +162,7 @@ function heightWidth(members: ReturnType<typeof heightMembers>, axis: 'x' | 'y',
   return width;
 }
 
-function carrierShares(points: Array<{ x: number; y: number }>): number[] {
+function carrierShares(points: Array<{ x: number; y: number }>, axis: 'x' | 'y'): number[] {
   const unique = points.filter((p, i) => points.findIndex(q => q.x === p.x && q.y === p.y) === i);
   if (unique.length === 1) return points.map(() => 1 / points.length);
   const origin = unique[0]!;
@@ -168,7 +171,12 @@ function carrierShares(points: Array<{ x: number; y: number }>): number[] {
   if (unique.length === 3) {
     const [a, b, c] = unique;
     const area2 = (b!.x - a!.x) * (c!.y - a!.y) - (b!.y - a!.y) * (c!.x - a!.x);
-    if (Math.abs(area2) > tolerance * diameter) return points.map(p => 1 / (3 * points.filter(q => p.x === q.x && p.y === q.y).length));
+    if (Math.abs(area2) > tolerance * diameter) {
+      const cross = axis === 'x' ? 'y' : 'x';
+      const [lo, mid, hi] = [...unique].sort((p, q) => p[cross] - q[cross]);
+      if (Math.abs((mid![cross] - lo![cross]) - (hi![cross] - mid![cross])) > tolerance || Math.abs(lo![axis] - hi![axis]) > tolerance) throw new WindPressureRefusal('wind.pressure.triangularCentroidUnsupported');
+      return points.map(p => 1 / (3 * points.filter(q => p.x === q.x && p.y === q.y).length));
+    }
   }
   for (const p of unique.slice(1)) {
     const length = Math.hypot(p.x - origin.x, p.y - origin.y), ux = (p.x - origin.x) / length, uy = (p.y - origin.y) / length;
@@ -198,7 +206,7 @@ export function windHeightField(input: {
   if (!members.length && to > from) throw new WindPressureRefusal('wind.pressure.noHeightCarriers');
   const cuts = [...new Set([from, to, ...members.flatMap(m => [Z(m.a), Z(m.b)]), ...(input.boundaries ?? [])])].filter(z => z >= from && z <= to).sort((a, b) => a - b);
   const loads = new Map<number, number>(), baseLoads = new Map<number, number>();
-  const memberLoads: TorqueMember[] = [];
+  const memberLoads: WindHeightMember[] = [];
   const add = (id: number, f: number) => { const map = Z(model.nodes.get(id)!) <= from ? baseLoads : loads; map.set(id, (map.get(id) ?? 0) + f); };
   const cross = axis === 'x' ? 'y' : 'x';
   const carrierCuts = [...new Set([from, to, ...members.flatMap(m => [m.lo, m.hi])])].filter(z => z >= from && z <= to).sort((a, b) => a - b);
@@ -218,8 +226,7 @@ export function windHeightField(input: {
       : undefined;
     return { lo, hi, mid, active, widthKind, apex, supported: !!apex || levelLoadTorqueSupportedAlong(sectionAt(active, lo), sectionAt(active, hi)) };
   });
-  const torqueSupported = bands.every(b => b.supported);
-  for (const { lo, hi, mid, active, widthKind, apex } of bands) {
+  for (const { lo, hi, mid, active, widthKind, apex, supported } of bands) {
     if (!active.length) throw new WindPressureRefusal('wind.pressure.heightGap');
     const stationary = active.every(m => m.a.x === m.b.x && m.a.y === m.b.y);
     const geometry = (z: number) => {
@@ -229,7 +236,7 @@ export function windHeightField(input: {
       if (widthKind === 'physical' && width === 0 && (z === lo || z === hi)) return null;
       const actual = widthKind === 'physical' ? width : input.width;
       if (!(actual !== undefined && actual > 0)) throw new WindPressureRefusal('wind.pressure.missingWidth');
-      const shares = carrierShares(pts);
+      const shares = carrierShares(pts, axis);
       const points = new Map(pts.map((p, id) => [id, { ...p, id }]));
       return { width: actual, weights: pts.map((_p, j) => actual * shares[j]!), torsion: prepareLevelLoads(points, [...points.keys()]) };
     };
@@ -261,7 +268,7 @@ export function windHeightField(input: {
       const density = (z: number) => station(z).density[j]!;
       const length = Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y, Z(m.b) - Z(m.a));
       const scale = (Z(m.b) - Z(m.a)) / length;
-      const components = torqueSupported ? [density, ...(['fx', 'fy', 'mz'] as const).map(c => (z: number) => torsion(z)[j]![c])] : [density];
+      const components = supported ? [density, ...(['fx', 'fy', 'mz'] as const).map(c => (z: number) => torsion(z)[j]![c])] : [density];
       const componentKeys = fixedGeometry ? [`density:${fixedGeometry.weights[j]}`, `fx:${m.a.y}`, `fy:${m.a.x}`, 'mz'] : [];
       const parts = components.map((f, i) => {
         const key = componentKeys[i];
@@ -285,12 +292,15 @@ export function windHeightField(input: {
         const forward = m.e.nodeI === m.a.id;
         const start = (lo + a - Z(m.a)) / scale, end = (lo + b - Z(m.a)) / scale;
         const endpoints = values.map(p => forward ? [p.q * scale, p.qJ * scale] : [p.qJ * scale, p.q * scale]);
-        memberLoads.push({ elementId: m.e.id, a: forward ? start : length - end, b: forward ? end : length - start, q: endpoints[0]![0]!, qJ: endpoints[0]![1]!, cx: endpoints[1]?.[0] ?? 0, cxJ: endpoints[1]?.[1] ?? 0, cy: endpoints[2]?.[0] ?? 0, cyJ: endpoints[2]?.[1] ?? 0, cm: endpoints[3]?.[0] ?? 0, cmJ: endpoints[3]?.[1] ?? 0 });
+        const member = { elementId: m.e.id, a: forward ? start : length - end, b: forward ? end : length - start, q: endpoints[0]![0]!, qJ: endpoints[0]![1]! };
+        memberLoads.push(supported
+          ? { ...member, torque: 'resolved', cx: endpoints[1]![0]!, cxJ: endpoints[1]![1]!, cy: endpoints[2]![0]!, cyJ: endpoints[2]![1]!, cm: endpoints[3]![0]!, cmJ: endpoints[3]![1]! }
+          : { ...member, torque: 'unsupported' });
         const p = values[0]!;
         const upper = (p.first + (lo + a - Z(m.a)) * p.force) / (Z(m.b) - Z(m.a));
         add(m.a.id, p.force - upper); add(m.b.id, upper);
       }
     });
   }
-  return torqueSupported ? { loads, baseLoads, torque: 'resolved', members: memberLoads } : { loads, baseLoads, torque: 'unsupported', members: memberLoads.map(({ elementId, a, b, q, qJ }) => ({ elementId, a, b, q, qJ })) };
+  return { loads, baseLoads, torque: bands.every(b => b.supported) ? 'resolved' : 'unsupported', members: memberLoads };
 }

@@ -10,5 +10,6 @@ export function expectWindTips(displacements: Array<{ nodeId: number; ux: number
 }
 
 export function expectHeightCarrierTips(displacements: Array<{ nodeId: number; ux: number; uy?: number }>, tips: number[], component: 'ux' | 'uy', expected: (id: number) => number, digits: number) {
-  expect(displacements.find(d => d.nodeId === tips[0])![component]).toBeCloseTo(expected(tips[0]!), digits);
+  expect(tips.length).toBeGreaterThan(0);
+  for (const id of tips) expectWindTips(displacements, [id], component, expected(id), digits);
 }

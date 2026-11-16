@@ -14874,6 +14874,7 @@ const de: Translations = {
   'viewer.linkCopied': "Nur-Lese-Link kopiert.",
   "wind.pressure.openBuildingRequiresFreeRoof": "Ein offenes Gebäude erfordert eine Angabe der freien Dachform und der Blockierung.",
   "wind.pressure.distributedTorqueUnsupported": "Dieses Windfeld erfordert verteilte Stabtorsion, die der Solver nicht darstellen kann.",
+  "wind.pressure.triangularCentroidUnsupported": "Dreieckige Windlastträger müssen zur Windrichtung symmetrisch sein; andere dreieckige Grundrisse werden nicht unterstützt, da diese Aufteilung den Schwerpunkt des projizierten Drucks nicht erhält.",
   "wind.pressure.carrierPartitionUnresolved": "Die physische Lasteinzugsaufteilung des Windes kann für diese Stäbe nicht bestimmt werden.",
   "wind.other.minimumSignCase": "Wind {dir}, Mindestlast für geschlossenes Schild {c} (§4.8)",
 };

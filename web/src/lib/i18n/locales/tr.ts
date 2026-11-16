@@ -14874,6 +14874,7 @@ const tr: Translations = {
   'viewer.linkCopied': "Salt okunur bağlantı kopyalandı.",
   "wind.pressure.openBuildingRequiresFreeRoof": "Açık bir bina için serbest çatı tipi ve engelleme durumu belirtilmelidir.",
   "wind.pressure.distributedTorqueUnsupported": "Bu rüzgâr alanı, çözücünün temsil edemediği yayılı çubuk burulması gerektirir.",
+  "wind.pressure.triangularCentroidUnsupported": "Üçgen rüzgâr taşıyıcıları rüzgâr yönüne göre simetrik olmalıdır; bu paylaşım izdüşüm basıncının ağırlık merkezini koruyamadığı için diğer üçgen planlar desteklenmez.",
   "wind.pressure.carrierPartitionUnresolved": "Bu çubuklar için fiziksel rüzgâr yük alanı paylaşımı belirlenemiyor.",
   "wind.other.minimumSignCase": "Rüzgâr {dir}, dolu levha asgari yükü {c} (§4.8)",
 };

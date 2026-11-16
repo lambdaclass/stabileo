@@ -15023,6 +15023,7 @@ const es: Record<string, string> = {
   'viewer.linkCopied': "Link de solo lectura copiado.",
   "wind.pressure.openBuildingRequiresFreeRoof": "Un edificio abierto requiere declarar el tipo de cubierta libre y su obstrucción.",
   "wind.pressure.distributedTorqueUnsupported": "Este campo de viento requiere torsión distribuida sobre los miembros, que el solver no puede representar.",
+  "wind.pressure.triangularCentroidUnsupported": "Los portadores de viento triangulares deben ser simétricos respecto de la dirección del viento; los demás planos triangulares no se admiten porque esta partición no conserva el centroide de la presión proyectada.",
   "wind.pressure.carrierPartitionUnresolved": "No se puede determinar la partición tributaria física del viento para estos miembros.",
   "wind.other.minimumSignCase": "Viento {dir}, mínimo de cartel macizo {c} (§4.8)",
 };

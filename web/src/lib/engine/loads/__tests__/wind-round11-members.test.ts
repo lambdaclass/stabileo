@@ -9,7 +9,6 @@ import { evaluateDiagramAt } from '../../diagrams-3d';
 import type { SolverInput } from '../../types';
 import type { SolverInput3D } from '../../types-3d';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
 const fixtures: Array<Record<string, unknown>> = [];
 afterAll(() => {
   if (!fixtures.length) return;
@@ -18,7 +17,7 @@ afterAll(() => {
   for (const candidate of fixtures) expect(saved.find(c => c.kind === candidate.kind && c.variant === candidate.variant && c.dimension === candidate.dimension)).toEqual(JSON.parse(JSON.stringify(candidate)));
 });
 
-for (const entry of ['field', 'cases'] as const) for (const variant of variants) for (const eccentricity of [-0.3, 0.3]) for (const pressureSign of [-1, 1]) knownWrong(`known wrong result: #2220 unloaded lower band retains upper member mechanics ${entry} ${variant} ${eccentricity} pressure=${pressureSign}`, () => {
+for (const entry of ['field', 'cases'] as const) for (const variant of variants) for (const eccentricity of [-0.3, 0.3]) for (const pressureSign of [-1, 1]) it(`#2220 unloaded lower band retains upper member mechanics ${entry} ${variant} ${eccentricity} pressure=${pressureSign}`, () => {
   const { model, sources, back } = remeshWind(mesh([[[0, 0, 0], [0, 0, 2]], [[0, 0, 2], [0, -1, 6]], [[0, 0, 2], [0, 1, 6]]]), variant);
   const axis = variant === 'rotate' ? 'y' : 'x', reflected = variant === 'mirror' ? -1 : 1;
   const field = windHeightField({ model, axis, from: 0, to: 6, width: 2, boundaries: [2], pressure: z => z < 2 ? 0 : pressureSign });
@@ -44,7 +43,7 @@ for (const entry of ['field', 'cases'] as const) for (const variant of variants)
     const common = { materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]), sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4 }]]) };
     for (const spatial of [false, true]) {
       const input: SolverInput = { ...common, nodes, elements, supports: new Map([[base, { id: base, nodeId: base, type: 'fixed' }]]), loads: parts.map(p => ({ type: 'distributed', data: { elementId: p.elementId, a: p.a, b: p.b, qI: -component(p), qJ: -component(p, true) } })) };
-      const input3: SolverInput3D = { ...common, nodes: new Map([...nodes].map(([id, n]) => [id, { ...n, y: 0 }])), elements: new Map([...elements].map(([id, m]) => [id, { ...m, type: 'frame', localYx: 1, localYy: 0, localYz: 0, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }])), supports: new Map([[base, { nodeId: base, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]), loads: parts.map(p => ({ type: 'distributed', data: { elementId: p.elementId, a: p.a, b: p.b, qYI: component(p), qYJ: component(p, true), qZI: 0, qZJ: 0 } })) };
+      const input3: SolverInput3D = { ...common, nodes: new Map([...nodes].map(([id, n]) => [id, { ...n, y: 0 }])), elements: new Map([...elements].map(([id, m]) => [id, { id, nodeI: m.nodeI, nodeJ: m.nodeJ, materialId: m.materialId, sectionId: m.sectionId, type: 'frame', localYx: 1, localYy: 0, localYz: 0, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }])), supports: new Map([[base, { nodeId: base, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]), loads: parts.map(p => ({ type: 'distributed', data: { elementId: p.elementId, a: p.a, b: p.b, qYI: component(p), qYJ: component(p, true), qZI: 0, qZJ: 0 } })) };
       fixtures.push({ kind: `${entry}:${carrier}:${eccentricity}:${pressureSign}`, variant, dimension: spatial ? 3 : 2, axis: 'z', displacement: 'ux', length, polynomial: [q, gradient], base, tip, input: spatial ? input3DToWireObject(input3) : input2DToWireObject(input) });
       expect(parts.length).toBeGreaterThan(0);
       for (const p of parts) {
@@ -53,7 +52,7 @@ for (const entry of ['field', 'cases'] as const) for (const variant of variants)
         expect(component(p, true)).toBeCloseTo(q + gradient * (s + p.b), 10);
       }
       for (const nonlinear of [false, true]) {
-        const out = spatial ? nonlinear ? solvePDelta3D(input3).results : solve3D(input3) : nonlinear ? solvePDelta(input).results : solve(input);
+        const out: ReturnType<typeof solve> | ReturnType<typeof solve3D> = spatial ? nonlinear ? solvePDelta3D(input3).results : solve3D(input3) : nonlinear ? solvePDelta(input).results : solve(input);
         expect(out.elementForces.map(f => f.elementId).sort((a, b) => a - b)).toEqual([...elements.keys()].sort((a, b) => a - b));
         const tips = out.displacements.filter(d => d.nodeId === tip);
         expect(tips).toHaveLength(1);
