@@ -25,6 +25,9 @@ it.each<[PublicLocale | 'hu', string, string]>([
   const blocks = locale === 'hu' ? hu.blocks : post.i18n[locale]!.blocks;
   const table = blocks.find(b => b.k === 'table');
   if (table?.k !== 'table') throw new Error('Missing advisory table');
+  const ids = table.rows.map(row => row[0]!);
+  expect(ids).toEqual([...ids].sort());
+  for (const id of ['SA-2026-071', 'SA-2026-073', 'SA-2026-074', ...entries.map(([id]) => id)]) expect(ids.filter(value => value === id)).toHaveLength(1);
   for (const [id, issue, slug] of entries) {
     const rows = table.rows.filter(r => r[0] === id);
     expect(rows).toHaveLength(1);

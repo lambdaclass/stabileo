@@ -57,8 +57,6 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Datos afectados y acciones necesarias."},
         {"k": "note", "t": "SA-2026-074 — PR #2197; pendiente de integración y publicación."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Datos afectados y acciones necesarias."},
-        ],
-        [
         {"k": "note", "t": "SA-2026-076 — Corregido en PR #2220, pendiente de integración y publicación."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md", "label": "SA-2026-076", "t": "Datos afectados y acciones necesarias."},
         {"k": "note", "t": "SA-2026-077 — Corregido en PR #2220, pendiente de integración y publicación."},
@@ -362,8 +360,6 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-074 — PR #2197; pending merge and release."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Affected inputs and user action."},
-        ],
-        [
         {"k": "note", "t": "SA-2026-076 — Fixed in PR #2220, pending merge and release."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md", "label": "SA-2026-076", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-077 — Fixed in PR #2220, pending merge and release."},
@@ -667,8 +663,6 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-074 — PR #2197; aguardando integração e publicação."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Entradas afetadas e ações necessárias."},
-        ],
-        [
         {"k": "note", "t": "SA-2026-076 — Corrigido no PR #2220, aguardando integração e publicação."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md", "label": "SA-2026-076", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-077 — Corrigido no PR #2220, aguardando integração e publicação."},

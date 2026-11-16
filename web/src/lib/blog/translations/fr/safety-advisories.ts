@@ -50,8 +50,6 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Données concernées et actions requises."},
     {"k": "note", "t": "SA-2026-074 — PR #2197; fusion et publication en attente."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Données concernées et actions requises."},
-        ],
-        [
     {"k": "note", "t": "SA-2026-076 — Corrigé dans la PR #2220, fusion et publication en attente."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md", "label": "SA-2026-076", "t": "Données concernées et actions requises."},
     {"k": "note", "t": "SA-2026-077 — Corrigé dans la PR #2220, fusion et publication en attente."},
