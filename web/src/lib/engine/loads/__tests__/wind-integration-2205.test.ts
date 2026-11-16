@@ -39,7 +39,7 @@ for (const kind of ['monoslope', 'pitched', 'troughed'] as const) for (const blo
     const original = mesh([[[0, 0, 3], [10, 0, 3], [10, 6, 3], [0, 6, 3]]]);
     const generate = (v: typeof variants[number]) => {
       const m = remeshWind(original, v);
-      const out = otherStructureWind({ model: m.model, structure: { kind: 'freeRoof', roof: kind, blocked, area: { x: 12, y: 20 } }, project: { ...windProject, basicSpeed: 1 }, directions: ['+x', '-x', '+y', '-y'].map(d => m.direction(d as '+x')), tributaryWidth: 1 });
+      const out = otherStructureWind({ model: m.model, structure: { kind: 'freeRoof', roof: kind, blocked, area: v === 'rotate' ? { x: 20, y: 12 } : { x: 12, y: 20 } }, project: { ...windProject, basicSpeed: 1 }, directions: ['+x', '-x', '+y', '-y'].map(d => m.direction(d as '+x')), tributaryWidth: 1 });
       return { ...m, out };
     };
     const base = generate('base'), current = generate(variant);

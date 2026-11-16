@@ -7,8 +7,7 @@
   "area": "loads",
   "when": {
     "all": [
-      "wind",
-      "generatedLoads"
+      "generatedWindLoads"
     ]
   },
   "quantities": [

@@ -20,8 +20,9 @@ for (const profile of [true, false]) for (const variant of variants) for (const 
     const first = !profile && dir.endsWith('y') ? rawMoment : (profile ? 1 : 0.75) * 18;
     const F = sign * across * integral, M = sign * across * first;
     const fx = dir.endsWith('x') ? F : 0, fy = dir.endsWith('y') ? F : 0;
-    assertWindResultants(windResultants(model, [], loads, back), [fx, fy, 0, dir.endsWith('y') ? -M : 0, dir.endsWith('x') ? M : 0, 6 * fy - 3 * fx]);
-    expect(loads.some(n => model.nodes.get(n.nodeId)!.z === 0 && Math.hypot(n.fx, n.fy) > 0)).toBe(true);
+    assertWindResultants(windResultants(model, sink.distributed.filter(n => n.caseIndex === 0), loads, back), [fx, fy, 0, dir.endsWith('y') ? -M : 0, dir.endsWith('x') ? M : 0, 6 * fy - 3 * fx]);
+    expect(loads).toEqual([]);
+    expect(sink.distributed.some(d => d.caseIndex === 0 && d.a === 0)).toBe(true);
   });
 }
 
@@ -34,7 +35,7 @@ for (const variant of variants) for (const region of [false, true]) it(`#2204 W 
   planWind({ model: m.model, tributaryWidth: 1, wind: { enabled: true, basicSpeed: 40, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, senses: [direction], directions: { x: direction.endsWith('x'), y: direction.endsWith('y') }, bothSenses: false, caseSet: 'case1', profile: [[0, 0.5], [3, 0.5], [8, 2], [20, 2]], service: { enabled: true, v50: 20, mri: 50 }, ...(region ? { region: selected } : {}) } } as LoadPlanInput, levels, sink);
   for (const [caseIndex, c] of sink.cases.entries()) {
     const scale = c.type === 'Wa' ? 0.25 : 1;
-    const r = windResultants(m.model, [], sink.nodal.filter(n => n.caseIndex === caseIndex), m.back);
+    const r = windResultants(m.model, sink.distributed.filter(n => n.caseIndex === caseIndex), sink.nodal.filter(n => n.caseIndex === caseIndex), m.back);
     assertWindResultants(r, [190.5 * scale, 0, 0, 0, 2254.5 * scale, -571.5 * scale]);
   }
   expect(sink.cases.map(c => c.type)).toEqual(['W', 'Wa']);
@@ -70,7 +71,7 @@ it('#2204 inserting a node on only one column cannot alter effective wind dimens
   expect(b.sink.cases).toEqual(a.sink.cases);
   expect(b.sink.unsupportedKeys).toEqual(a.sink.unsupportedKeys);
   expect(b.result.windGust).toEqual(a.result.windGust);
-  for (const k of a.sink.cases.keys()) assertWindResultants(windResultants(b.model, [], b.sink.nodal.filter(n => n.caseIndex === k)), windResultants(a.model, [], a.sink.nodal.filter(n => n.caseIndex === k)));
+  for (const k of a.sink.cases.keys()) assertWindResultants(windResultants(b.model, b.sink.distributed.filter(n => n.caseIndex === k), b.sink.nodal.filter(n => n.caseIndex === k)), windResultants(a.model, a.sink.distributed.filter(n => n.caseIndex === k), a.sink.nodal.filter(n => n.caseIndex === k)));
 });
 
 it('#2204 the building minimum is horizontal and separate from roof pressure cases', () => {
@@ -85,11 +86,11 @@ it('#2204 the building minimum is horizontal and separate from roof pressure cas
   planWind({ model, tributaryWidth: 1, wind: { enabled: true, basicSpeed: 1, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, directions: { x: true, y: false }, bothSenses: false, caseSet: 'case1' } } as LoadPlanInput, levels, sink);
   const minimum = sink.cases.findIndex(c => c.nameKey === 'autoLoad.windMinimumCase');
   expect(minimum).toBeGreaterThanOrEqual(0);
-  expect(sink.distributed.filter(d => d.caseIndex === minimum)).toEqual([]);
-  assertWindResultants(windResultants(model, [], sink.nodal.filter(n => n.caseIndex === minimum)), [27, 0, 0, 0, 81, -81]);
+  expect(sink.distributed.filter(d => d.caseIndex === minimum).every(d => d.q === 0)).toBe(true);
+  assertWindResultants(windResultants(model, sink.distributed.filter(n => n.caseIndex === minimum), sink.nodal.filter(n => n.caseIndex === minimum)), [27, 0, 0, 0, 81, -81]);
   const code = sink.cases.findIndex(c => c.nameKey.startsWith('autoLoad.windCase1'));
   expect(sink.distributed.filter(d => d.caseIndex === code).length).toBeGreaterThan(0);
-  expect(windResultants(model, [], sink.nodal.filter(n => n.caseIndex === code))[0]).toBeLessThan(27);
+  expect(windResultants(model, sink.distributed.filter(n => n.caseIndex === code), sink.nodal.filter(n => n.caseIndex === code))[0]).toBeLessThan(27);
 });
 
 for (const length of [6 - 1e-5, 6, 6 + 1e-5]) it(`#2204 physical effective dimensions preserve both sides of the approximate-frequency limit ${length}`, () => {

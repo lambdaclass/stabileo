@@ -5,7 +5,6 @@ import { msg, type EngineMessage } from '../../codes/message';
 import { flexibleEccentricity, type GustResult } from '../../codes/cirsoc102/gust';
 import { integrateWindPressure, windStationCuts, windPressureCoordinate, windHeightLoads } from './wind-pressure-field';
 import { windRoofCarriers } from './wind-roof-geometry';
-import { levelLoads } from './wind-plan-forces';
 export { levelLoads } from './wind-plan-forces';
 import type { WindHeightResult } from './wind-pressure-field';
 import { gravityLayout } from './plan-gravity';
@@ -51,10 +50,7 @@ interface WindAxisGeometry {
   eR?: number;
 }
 
-export type WindAxis = WindAxisGeometry & (
-  | { levels: WindLevel[]; baseLoads?: WindLevel[]; minimumLevels?: WindLevel[]; pressureField?: never; minimumField?: never }
-  | { pressureField: WindHeightResult; minimumField?: WindHeightResult; levels?: never; baseLoads?: never; minimumLevels?: never }
-);
+export type WindAxis = WindAxisGeometry & { pressureField: WindHeightResult; minimumField?: WindHeightResult };
 
 /**
  * The torsional eccentricity of cases 2 and 4 on an axis (§2.4.6): ±0,15·B from the geometric
@@ -84,7 +80,7 @@ const Z = (n: { z?: number }) => n.z ?? 0;
 const round = (v: number, d = 3) => Math.round(v * 10 ** d) / 10 ** d;
 
 export interface RoofMember { id: number; mid: { x: number; y: number }; dx: number; dy: number; dz: number; lh: number; a: { x: number; y: number; z?: number }; b: { x: number; y: number; z?: number }; facets?: Array<{ a: number; b: number; gradient: [number, number]; share: number }> }
-export interface WindRoofLoad { elementId: number; q: number; a: number; b: number; qX: number; qY: number; frame: 'global'; facet: number }
+export interface WindRoofLoad { elementId: number; q: number; a: number; b: number; qX: number; qXJ?: number; qY: number; qYJ?: number; qJ?: number; frame: 'global'; facet: number }
 
 /**
  * The members the roof pressures go on (see the header): beam-like members above the ground
@@ -138,7 +134,7 @@ export function roofLoads(
         const cp = gcpiSign > 0 ? Math.min(...cps) : Math.max(...cps);
         return -(qh * (w.G ?? G_RIGID) * cp - qi) / 1000 * tributaryWidth * facet.share;
       });
-      for (const p of parts) out.push({ elementId: m.id, a: p.a + facet.a, b: p.b + facet.a, q: p.q / norm, qX: -p.q * gradient[0] / norm, qY: -p.q * gradient[1] / norm, frame: 'global', facet: facetIndex });
+      for (const p of parts) out.push({ elementId: m.id, a: p.a + facet.a, b: p.b + facet.a, q: p.q / norm, qJ: p.qJ / norm, qX: -p.q * gradient[0] / norm, qXJ: -p.qJ * gradient[0] / norm, qY: -p.q * gradient[1] / norm, qYJ: -p.qJ * gradient[1] / norm, frame: 'global', facet: facetIndex });
     }
   }
   return out;
@@ -169,11 +165,10 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
   const v = input.speed;
 
   const roofFor = (a: WindAxis, s: Sense, g: 1 | -1) => roofLoads(roof, a, s, g, input.tributaryWidth, bounds);
-  const baseIds = new Set(input.axes.flatMap(a => a.pressureField ? [...a.pressureField.baseLoads.keys()] : (a.baseLoads ?? []).flatMap(l => l.nodeIds)));
   const push = (nameKey: string, nameParams: WindCaseLoads['nameParams'], nodal: WindCaseLoads['nodal'], roofQ: WindRoofLoad[]) => {
-    cases.push({ nameKey, nameParams, nodal, baseLoads: nodal.filter(n => baseIds.has(n.nodeId)), distributed: roofQ.filter(p => Math.hypot(p.q, p.qX, p.qY) > 0) });
+    cases.push({ nameKey, nameParams, nodal, baseLoads: [], distributed: roofQ.filter(p => Math.hypot(p.q, p.qJ ?? p.q, p.qX, p.qXJ ?? p.qX, p.qY, p.qYJ ?? p.qY) > 0) });
   };
-  const scaled = (loads: WindRoofLoad[], k: number) => loads.map(p => ({ ...p, q: p.q * k, qX: p.qX * k, qY: p.qY * k }));
+  const scaled = (loads: WindRoofLoad[], k: number) => loads.map(p => ({ ...p, q: p.q * k, qJ: (p.qJ ?? p.q) * k, qX: p.qX * k, qXJ: (p.qXJ ?? p.qX) * k, qY: p.qY * k, qYJ: (p.qYJ ?? p.qY) * k }));
   const larger = (a: WindRoofLoad[], b: WindRoofLoad[]) => {
     const out: WindRoofLoad[] = [];
     for (const key of new Set([...a, ...b].map(p => `${p.elementId}:${p.facet}`))) {
@@ -189,39 +184,27 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
     }
     return out;
   };
-  const fieldLevels = (field: WindHeightResult): WindLevel[] => [...field.baseLoads, ...field.loads].map(([id, force]) => ({ elevation: model.nodes.get(id)!.z ?? 0, nodeIds: [id], force, pressureForce: force }));
-  const allLevels = (a: WindAxis) => a.pressureField ? fieldLevels(a.pressureField) : [...(a.baseLoads ?? []), ...a.levels];
+  const total = (field: WindHeightResult) => [...field.loads.values(), ...field.baseLoads.values()].reduce((s, f) => s + f, 0);
+  const memberLateral = (a: WindAxis, s: Sense, k: number, e: number) => windHeightLoads(a.pressureField, a.axis === 'x' ? s * k : 0, a.axis === 'y' ? s * k : 0, k * e).distributed;
 
-  // ── Case 1 ──
   for (const a of input.axes) {
     for (const s of sensesOf(a.axis)) {
-      const nodal = allLevels(a).flatMap((lv) => levelLoads(model.nodes, lv.nodeIds,
-        a.axis === 'x' ? s * lv.force : 0, a.axis === 'y' ? s * lv.force : 0, 0));
-      const minimum = a.minimumField ? fieldLevels(a.minimumField) : a.minimumLevels;
-      const minimumFirst = minimum && minimum.reduce((sum, l) => sum + l.force, 0) > allLevels(a).reduce((sum, l) => sum + l.force, 0);
+      const minimumFirst = a.minimumField && total(a.minimumField) > total(a.pressureField);
       const pushMinimum = () => {
-        if (!minimum) return;
-        const forces = minimum.flatMap(l => levelLoads(model.nodes, l.nodeIds, a.axis === 'x' ? s * l.force : 0, a.axis === 'y' ? s * l.force : 0, 0));
-        push('autoLoad.windMinimumCase', { dir: dirTxt(a.axis, s), v }, forces, []);
+        if (!a.minimumField) return;
+        const member = windHeightLoads(a.minimumField, a.axis === 'x' ? s : 0, a.axis === 'y' ? s : 0);
+        push('autoLoad.windMinimumCase', { dir: dirTxt(a.axis, s), v }, member.nodal, member.distributed);
       };
       if (minimumFirst) pushMinimum();
       const gSigns: Array<1 | -1> = roof.length > 0 && a.gcpi > 0 ? [1, -1] : [1];
       for (const g of gSigns) {
         push(gSigns.length > 1 ? 'autoLoad.windCase1Gcpi' : 'autoLoad.windCase1',
-          { dir: dirTxt(a.axis, s), v, gcpi: signTxt(g) }, nodal, roofFor(a, s, g));
+          { dir: dirTxt(a.axis, s), v, gcpi: signTxt(g) }, [], [...memberLateral(a, s, 1, 0), ...roofFor(a, s, g)]);
       }
       if (!minimumFirst) pushMinimum();
     }
   }
   if (set === 'case1') return { cases, notes };
-
-  const lateral = (a: WindAxis, s: Sense, k: number, e: number) => {
-    if (a.pressureField) return windHeightLoads(a.pressureField, a.axis === 'x' ? s * k : 0, a.axis === 'y' ? s * k : 0, k * e).nodal;
-    return allLevels(a).flatMap(lv => {
-      const F = s * k * lv.pressureForce;
-      return levelLoads(model.nodes, lv.nodeIds, a.axis === 'x' ? F : 0, a.axis === 'y' ? F : 0, Math.abs(F) * e);
-    });
-  };
 
   // ── Case 2 ──
   if (set === 'all') {
@@ -229,7 +212,7 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
       for (const s of sensesOf(a.axis)) {
         for (const es of [1, -1] as const) {
           push('autoLoad.windCase2', { dir: dirTxt(a.axis, s), e: signTxt(es), v },
-            lateral(a, s, 0.75, caseEccentricity(a, es)), scaled(roofFor(a, s, 1), 0.75));
+            [], [...memberLateral(a, s, 0.75, caseEccentricity(a, es)), ...scaled(roofFor(a, s, 1), 0.75)]);
         }
       }
     }
@@ -242,24 +225,15 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
     notes.push(msg('loadPlan.note.windCases34NeedBothAxes'));
     return { cases, notes };
   }
-  const merge = (p: WindCaseLoads['nodal'], q: WindCaseLoads['nodal']) => {
-    const m = new Map<number, { nodeId: number; fx: number; fy: number; mz: number }>();
-    for (const r of [...p, ...q]) {
-      const c = m.get(r.nodeId) ?? { nodeId: r.nodeId, fx: 0, fy: 0, mz: 0 };
-      c.fx += r.fx; c.fy += r.fy; c.mz += r.mz;
-      m.set(r.nodeId, c);
-    }
-    return [...m.values()];
-  };
   for (const [sx, sy] of quadrants) {
     const roofQ = larger(roofFor(ax, sx, 1), roofFor(ay, sy, 1));
     push('autoLoad.windCase3', { dirX: dirTxt('x', sx), dirY: dirTxt('y', sy), v },
-      merge(lateral(ax, sx, 0.75, 0), lateral(ay, sy, 0.75, 0)), roofQ);
+      [], [...memberLateral(ax, sx, 0.75, 0), ...memberLateral(ay, sy, 0.75, 0), ...roofQ]);
     if (set !== 'all') continue;
     for (const es of [1, -1] as const) {
       push('autoLoad.windCase4', { dirX: dirTxt('x', sx), dirY: dirTxt('y', sy), e: signTxt(es), v },
-        merge(lateral(ax, sx, 0.563, caseEccentricity(ax, es)), lateral(ay, sy, 0.563, caseEccentricity(ay, es))),
-        scaled(roofQ, 0.75));
+        [],
+        [...memberLateral(ax, sx, 0.563, caseEccentricity(ax, es)), ...memberLateral(ay, sy, 0.563, caseEccentricity(ay, es)), ...scaled(roofQ, 0.75)]);
     }
   }
   if (roof.length > 0) notes.push(msg('loadPlan.note.windRoofApplied', { members: roof.length, width: round(input.tributaryWidth, 2) }));

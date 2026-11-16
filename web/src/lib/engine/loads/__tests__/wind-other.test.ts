@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { otherStructureWind } from '../wind-other';
 import { velocityPressure, G_RIGID, type WindProject } from '../../../codes/cirsoc102/wind';
 import { towerCf, solidSignCf, freeRoofCn, chimneyCf } from '../../../codes/cirsoc102/other-structures';
+import type { OtherWindCase } from '../wind-other';
 import type { WindModel } from '../wind-cases';
 
 const project = (kind: WindProject['structureKind']): WindProject => ({
@@ -27,7 +28,7 @@ describe('wind on other structures', () => {
     expect(out.cases.filter(c => c.nameKey === 'wind.other.case').map((c) => c.nameParams.dir)).toEqual(['+X', '+X+Y']);
     const cf = towerCf(0.2, 'square', false);
     const expected = referenceIntegral(9, z => (velocityPressure(z, p) / 1000 * G_RIGID * cf) * 0.2 * 2);
-    const fx = out.cases[0]!.nodal.reduce((s, n) => s + n.fx, 0);
+    const fx = force(out.cases[0]!, 'x');
     expect(fx).toBeCloseTo(expected, 6);
   });
 
@@ -40,8 +41,8 @@ describe('wind on other structures', () => {
     expect(out.cases).toHaveLength(4);
     const cf = solidSignCf(4 / 2, 2 / 5);
     const F = (velocityPressure(5, p) / 1000) * G_RIGID * cf * 4 * 2;
-    for (const c of out.cases.filter(c => c.nameKey === 'wind.other.signCase')) expect(c.nodal.reduce((s, n) => s + n.fx, 0)).toBeCloseTo(F, 6);
-    expect(out.cases.find(c => c.nameKey === 'wind.other.minimumOtherCase')!.nodal.reduce((s, n) => s + n.fx, 0)).toBeCloseTo(0.8 * 4 * 2, 6);
+    for (const c of out.cases.filter(c => c.nameKey === 'wind.other.signCase')) expect(force(c, 'x')).toBeCloseTo(F, 6);
+    expect(force(out.cases.find(c => c.nameKey === 'wind.other.minimumOtherCase')!, 'x')).toBeCloseTo(0.8 * 4 * 2, 6);
     // B: no net force across, a moment of F · 0,2 B about the vertical.
     const b = out.cases[1]!.nodal;
     expect(b.reduce((s, n) => s + n.fy, 0)).toBeCloseTo(0, 9);
@@ -108,7 +109,7 @@ describe('wind on other structures: a monoslope free roof, and stick models', ()
       const q = velocityPressure(z, p) / 1000;
       return (q * G_RIGID * chimneyCf('roundRough', 20 / 3, 3 * Math.sqrt(q * 1000))) * 3;
     });
-    expect(out.cases[0]!.nodal.reduce((t, n) => t + n.fx, 0)).toBeCloseTo(expected, 6);
+    expect(force(out.cases[0]!, 'x')).toBeCloseTo(expected, 6);
   });
 
   it('a lattice tower modelled as a stick takes the face width given', () => {
@@ -121,7 +122,7 @@ describe('wind on other structures: a monoslope free roof, and stick models', ()
     const out = otherStructureWind({ model: m, structure: { ...tower, width: 2 }, project: p, directions: ['+x'], tributaryWidth: 1 });
     const cf = towerCf(0.2, 'square', false);
     const expected = referenceIntegral(12, z => (velocityPressure(z, p) / 1000 * G_RIGID * cf) * 0.2 * 2);
-    expect(out.cases[0]!.nodal.reduce((t, n) => t + n.fx, 0)).toBeCloseTo(expected, 6);
+    expect(force(out.cases[0]!, 'x')).toBeCloseTo(expected, 6);
   });
 });
 
@@ -140,10 +141,10 @@ describe('wind on other structures: diagonals, the projected width, and a flexib
     });
     const diag = out.cases.filter((c) => c.nameKey === 'wind.other.case' && String(c.nameParams.dir).length === 4);
     expect(diag.map((c) => c.nameParams.dir)).toEqual(['+X+Y', '+X-Y', '-X+Y', '-X-Y']);
-    const along = out.cases.find((c) => c.nameParams.dir === '+X')!.nodal.reduce((s, n) => s + n.fx, 0);
+    const along = force(out.cases.find((c) => c.nameParams.dir === '+X')!, 'x');
     for (const c of diag) {
       const [sx, sy] = [String(c.nameParams.dir)[0] === '+' ? 1 : -1, String(c.nameParams.dir)[2] === '+' ? 1 : -1];
-      const fx = c.nodal.reduce((s, n) => s + n.fx, 0), fy = c.nodal.reduce((s, n) => s + n.fy, 0);
+      const fx = force(c, 'x'), fy = force(c, 'y');
       expect(Math.sign(fx)).toBe(sx);
       expect(Math.sign(fy)).toBe(sy);
       expect(Math.abs(fx)).toBeCloseTo(Math.abs(fy), 9);
@@ -160,7 +161,7 @@ describe('wind on other structures: diagonals, the projected width, and a flexib
       const q = velocityPressure(z, p) / 1000;
       return (q * G_RIGID * chimneyCf('squareDiagonal', 20 / 2, 2 * Math.sqrt(q * 1000))) * 2 * Math.SQRT2;
     });
-    expect(out.cases[0]!.nodal.reduce((t, n) => t + n.fx, 0)).toBeCloseTo(expected, 6);
+    expect(force(out.cases[0]!, 'x')).toBeCloseTo(expected, 6);
   });
 
   it('a flexible structure says G = 0,85 of a rigid one was used, since G_f is not implemented', () => {
@@ -179,7 +180,7 @@ describe('§2.1.5: the minimum wind force on an open building, for a free roof',
     [[1, 2], [2, 3], [4, 5], [5, 6], [2, 5], [7, 1], [8, 3], [9, 4], [10, 6]],
   );
   const low = (): WindProject => ({ ...project('building'), basicSpeed: 20 });
-  const fx = (c: { nodal: Array<{ fx: number }> }) => c.nodal.reduce((t, n) => t + n.fx, 0);
+  const fx = (c: OtherWindCase) => force(c, 'x');
 
   it('is a horizontal case of its own per direction, 0,75 kN/m² over the whole vertical projection by default', () => {
     const out = otherStructureWind({ model: shed(), structure: { kind: 'freeRoof', roof: 'pitched', blocked: false }, project: low(), directions: ['+x', '-x', '+y'], tributaryWidth: 3 });
@@ -188,9 +189,10 @@ describe('§2.1.5: the minimum wind force on an open building, for a free roof',
     // Wind along X sees 5 m (ground to ridge) × 6 m; along Y, 5 m × 10 m.
     expect(fx(min[0]!)).toBeCloseTo(0.75 * 5 * 6, 9);
     expect(fx(min[1]!)).toBeCloseTo(-0.75 * 5 * 6, 9);
-    expect(min[2]!.nodal.reduce((t, n) => t + n.fy, 0)).toBeCloseTo(0.75 * 5 * 10, 9);
+    expect(force(min[2]!, 'y')).toBeCloseTo(0.75 * 5 * 10, 9);
     // At the roof's nodes only, never on the column bases.
-    expect(new Set(min[0]!.nodal.map((n) => n.nodeId))).toEqual(new Set([1, 2, 3, 4, 5, 6]));
+    expect(min[0]!.nodal).toEqual([]);
+    expect(new Set(min[0]!.distributed.map(d => d.elementId))).toEqual(new Set([1, 2, 3, 4, 5]));
     expect(out.derivation.filter((m) => m.key === 'wind.other.minimumOpenEnvelope')).toHaveLength(3);
   });
 
@@ -207,7 +209,7 @@ describe('§2.1.5: the minimum wind force on an open building, for a free roof',
     const out = otherStructureWind({ model: shed(), structure: { kind: 'freeRoof', roof: 'pitched', blocked: false, area: { x: 8 } }, project: low(), directions: ['+x', '+y'], tributaryWidth: 3 });
     const min = out.cases.filter((c) => c.nameKey === 'wind.other.minimumCase');
     expect(fx(min[0]!)).toBeCloseTo(0.75 * 8, 9);
-    expect(min[1]!.nodal.reduce((t, n) => t + n.fy, 0)).toBeCloseTo(0.75 * 50, 9);
+    expect(force(min[1]!, 'y')).toBeCloseTo(0.75 * 50, 9);
     expect(out.derivation.map((m) => m.key).filter((k) => k.startsWith('wind.other.minimumOpen'))).toEqual(['wind.other.minimumOpen', 'wind.other.minimumOpenEnvelope']);
   });
 
@@ -231,4 +233,8 @@ function referenceIntegral(h: number, density: (z: number) => number) {
     sum += v * dz / 3;
   }
   return sum;
+}
+
+function force(c: OtherWindCase, axis: 'x' | 'y') {
+  return c.nodal.reduce((sum, p) => sum + (axis === 'x' ? p.fx : p.fy), 0) + c.distributed.reduce((sum, p) => sum + (axis === 'x' ? (p.qX + (p.qXJ ?? p.qX)) : (p.qY + (p.qYJ ?? p.qY))) * (p.b - p.a) / 2, 0);
 }

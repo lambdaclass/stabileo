@@ -1,3 +1,5 @@
+import { windHeightField } from '../wind-pressure-field';
+import { windEndResultants } from './wind-integration-fixture';
 /**
  * The four design wind load cases of CIRSOC 102-2025 Fig. 2.4-8, checked by statics: each case's
  * resultant force and torsional moment per level against the figure's fractions and e = ±0,15 B,
@@ -28,20 +30,20 @@ const project = (along: number, across: number, h: number): WindProject => ({
 });
 
 function axes(bx: number, by: number, h: number, fx: number, fy: number): WindAxis[] {
-  const top = [5, 6, 7, 8];
+  const model = box(bx, by, h);
   return [
-    { axis: 'x', across: by, along: bx, levels: [{ elevation: h, nodeIds: top, force: fx, pressureForce: fx }], project: project(bx, by, h), qhNm2: 800, gcpi: 0.18 },
-    { axis: 'y', across: bx, along: by, levels: [{ elevation: h, nodeIds: top, force: fy, pressureForce: fy }], project: project(by, bx, h), qhNm2: 800, gcpi: 0.18 },
+    { axis: 'x', across: by, along: bx, pressureField: windHeightField({ model, axis: 'x', from: 0, to: h, pressure: () => fx / (by * h) }), project: project(bx, by, h), qhNm2: 800, gcpi: 0.18 },
+    { axis: 'y', across: bx, along: by, pressureField: windHeightField({ model, axis: 'y', from: 0, to: h, pressure: () => fy / (bx * h) }), project: project(by, bx, h), qhNm2: 800, gcpi: 0.18 },
   ];
 }
 
 /** Resultant of a case's nodal loads: forces and the moment about the vertical through (cx, cy). */
-function resultant(model: WindModel, nodal: Array<{ nodeId: number; fx: number; fy: number; mz: number }>, cx: number, cy: number) {
+function resultant(model: WindModel, nodal: Array<{ nodeId: number; fx: number; fy: number; mz?: number }>, cx: number, cy: number) {
   let fx = 0, fy = 0, mz = 0;
   for (const n of nodal) {
     const p = model.nodes.get(n.nodeId)!;
     fx += n.fx; fy += n.fy;
-    mz += (p.x - cx) * n.fy - (p.y - cy) * n.fx + n.mz;
+    mz += (p.x - cx) * n.fy - (p.y - cy) * n.fx + (n.mz ?? 0);
   }
   return { fx, fy, mz };
 }
@@ -70,26 +72,26 @@ describe('the cases of Fig. 2.4-8', () => {
 
   it('case 1: the full force along one axis, in each sense, with no torsion', () => {
     for (const c of byKey('autoLoad.windCase1Gcpi', { dir: '+X' })) {
-      const r = resultant(m, c.nodal, bx / 2, by / 2);
+      const r = resultant(m, windEndResultants(m, c.distributed, c.nodal), bx / 2, by / 2);
       expect(r.fx).toBeCloseTo(FX, 9); expect(r.fy).toBeCloseTo(0, 9); expect(r.mz).toBeCloseTo(0, 9);
     }
     for (const c of byKey('autoLoad.windCase1Gcpi', { dir: '−Y' })) {
-      expect(resultant(m, c.nodal, bx / 2, by / 2).fy).toBeCloseTo(-FY, 9);
+      expect(resultant(m, windEndResultants(m, c.distributed, c.nodal), bx / 2, by / 2).fy).toBeCloseTo(-FY, 9);
     }
   });
 
   it('case 2: three quarters of it with MT = 0,75·F·(±0,15 B)', () => {
     const [plus] = byKey('autoLoad.windCase2', { dir: '+X', e: '+' });
-    const r = resultant(m, plus!.nodal, bx / 2, by / 2);
+    const r = resultant(m, windEndResultants(m, plus!.distributed, plus!.nodal), bx / 2, by / 2);
     expect(r.fx).toBeCloseTo(0.75 * FX, 9);
     expect(r.mz).toBeCloseTo(0.75 * FX * 0.15 * by, 9);
     const [minus] = byKey('autoLoad.windCase2', { dir: '+X', e: '−' });
-    expect(resultant(m, minus!.nodal, bx / 2, by / 2).mz).toBeCloseTo(-0.75 * FX * 0.15 * by, 9);
+    expect(resultant(m, windEndResultants(m, minus!.distributed, minus!.nodal), bx / 2, by / 2).mz).toBeCloseTo(-0.75 * FX * 0.15 * by, 9);
   });
 
   it('case 3: three quarters along both axes at once, without torsion', () => {
     const [c] = byKey('autoLoad.windCase3', { dirX: '+X', dirY: '−Y' });
-    const r = resultant(m, c!.nodal, bx / 2, by / 2);
+    const r = resultant(m, windEndResultants(m, c!.distributed, c!.nodal), bx / 2, by / 2);
     expect(r.fx).toBeCloseTo(0.75 * FX, 9);
     expect(r.fy).toBeCloseTo(-0.75 * FY, 9);
     expect(r.mz).toBeCloseTo(0, 9);
@@ -97,7 +99,7 @@ describe('the cases of Fig. 2.4-8', () => {
 
   it('case 4: 0,563 along both axes, with both torsions in one sense', () => {
     const [c] = byKey('autoLoad.windCase4', { dirX: '+X', dirY: '+Y', e: '+' });
-    const r = resultant(m, c!.nodal, bx / 2, by / 2);
+    const r = resultant(m, windEndResultants(m, c!.distributed, c!.nodal), bx / 2, by / 2);
     expect(r.fx).toBeCloseTo(0.563 * FX, 9);
     expect(r.fy).toBeCloseTo(0.563 * FY, 9);
     expect(r.mz).toBeCloseTo(0.563 * (FX * 0.15 * by + FY * 0.15 * bx), 9);

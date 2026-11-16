@@ -14343,5 +14343,8 @@ const pt: Translations = {
   'viewer.copyLink': "Copiar link somente leitura",
   'viewer.linkTip': "Quem abre vê o modelo em 3D e em planta, sem o editor, e pode duplicá-lo para editar sua cópia.",
   'viewer.linkCopied': "Link somente leitura copiado.",
+  "wind.pressure.openBuildingRequiresFreeRoof": "Um edifício aberto exige declarar o tipo de cobertura livre e sua obstrução.",
+  "wind.pressure.distributedTorqueUnsupported": "Este campo de vento exige torção distribuída nos membros, que o solver não pode representar.",
+  "wind.pressure.carrierPartitionUnresolved": "Não é possível determinar a partição tributária física do vento para estes membros.",
 };
 export default pt;

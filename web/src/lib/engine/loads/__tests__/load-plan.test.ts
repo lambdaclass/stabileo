@@ -1,3 +1,4 @@
+import { windEndResultants } from './wind-integration-fixture';
 import { expandCombinations } from '../combination-cases';
 import { describe, it, expect } from 'vitest';
 import { teAllAt, teAt } from '../../../i18n/engine-text';
@@ -312,9 +313,9 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
     },
   }));
 
-  it('produces nodal wind forces and a q_h factor', () => {
+  it('produces member wind forces and a q_h factor', () => {
     const p = windOn();
-    expect(p.nodal.some((n) => n.caseType === 'W')).toBe(true);
+    expect(p.distributed.some((n) => n.caseType === 'W')).toBe(true);
     expect(p.factors.windQh?.value).toBeGreaterThan(0);
   });
 
@@ -358,7 +359,7 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
     const zOf = new Map([...frame(11, bay, 3).nodes.values()].map((n) => [n.id, n.z ?? 0]));
     // Case 1 from +X only: the plan now also carries −X and cases 2 to 4.
     const first = p.cases.findIndex((c) => c.nameKey.startsWith('autoLoad.windCase1') && c.nameParams?.dir === '+X');
-    for (const n of p.nodal.filter((x) => x.caseType === 'W' && x.caseIndex === first)) {
+    for (const n of windEndResultants(frame(11, bay, 3), p.distributed.filter(x => x.caseType === 'W' && x.caseIndex === first), p.nodal.filter(x => x.caseType === 'W' && x.caseIndex === first))) {
       const z = zOf.get(n.nodeId)!;
       byLevel.set(z, (byLevel.get(z) ?? 0) + n.fx);
     }

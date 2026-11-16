@@ -1,3 +1,4 @@
+import { windEndResultants } from './wind-integration-fixture';
 /**
  * Review of PRO 25's regions: snow on a roof chosen by a region (its columns and covered floors
  * are not roof), the service wind Wa on a profile and on a region, an empty region, and the wind
@@ -144,7 +145,7 @@ const plan = (wind: Partial<NonNullable<LoadPlanInput['wind']>>, model = tower()
 });
 const shear = (p: ReturnType<typeof buildLoadPlan>, type: 'W' | 'Wa', index = 0) => {
   const at = p.cases.map((c, i) => [c, i] as const).filter(([c]) => c.type === type)[index]![1];
-  return p.nodal.filter((n) => n.caseIndex === at).reduce((s, n) => s + n.fy, 0);
+  return windEndResultants(tower(), p.distributed.filter(d => d.caseIndex === at), p.nodal.filter(d => d.caseIndex === at)).reduce((s, n) => s + n.fy, 0);
 };
 
 describe('service wind Wa on a profile and on a region', () => {
@@ -154,7 +155,7 @@ describe('service wind Wa on a profile and on a region', () => {
     const p = plan({ profile: [[0, 1], [12, 1]], service });
     const wa = p.cases.filter((c) => c.type === 'Wa');
     expect(wa).toHaveLength(1);
-    expect(p.distributed.filter((d) => d.caseType === 'Wa')).toHaveLength(0);
+    expect(p.distributed.filter((d) => d.caseType === 'Wa' && d.q !== 0)).toHaveLength(0);
     expect(shear(p, 'W')).toBeCloseTo(240, 6);
     const vs = 30 * SERVICE_WIND_FACTOR[10];
     expect(shear(p, 'Wa')).toBeCloseTo(240 * (vs / 45) ** 2, 6);
@@ -194,7 +195,7 @@ describe('wind on a box over the upper storeys', () => {
     const m = tower();
     const upper = regionNodes(defModel(m), { kind: 'box', z: [6, 12] })!;
     const p = plan({ profile: [[0, 1], [12, 1]], region: upper }, m);
-    const at = (z: number) => p.nodal.filter((n) => n.caseType === 'W' && m.nodes.get(n.nodeId)!.z === z).reduce((s, n) => s + n.fy, 0);
+    const at = (z: number) => windEndResultants(m, p.distributed.filter(d => d.caseType === 'W'), p.nodal.filter(d => d.caseType === 'W')).filter(n => m.nodes.get(n.nodeId)!.z === z).reduce((s, n) => s + n.fy, 0);
     // Level +6 m: the band 4,5 to 7,5 m, as in the whole model: 1 kPa × 20 m × 3 m = 60 kN.
     expect(at(6)).toBeCloseTo(60, 6);
     expect(at(9)).toBeCloseTo(60, 6);

@@ -14542,6 +14542,9 @@ const de: Translations = {
   'viewer.copyLink': "Nur-Lese-Link kopieren",
   'viewer.linkTip': "Wer ihn öffnet, sieht das Modell in 3D und im Grundriss ohne den Editor und kann es duplizieren, um seine Kopie zu bearbeiten.",
   'viewer.linkCopied': "Nur-Lese-Link kopiert.",
+  "wind.pressure.openBuildingRequiresFreeRoof": "Ein offenes Gebäude erfordert eine Angabe der freien Dachform und der Blockierung.",
+  "wind.pressure.distributedTorqueUnsupported": "Dieses Windfeld erfordert verteilte Stabtorsion, die der Solver nicht darstellen kann.",
+  "wind.pressure.carrierPartitionUnresolved": "Die physische Lasteinzugsaufteilung des Windes kann für diese Stäbe nicht bestimmt werden.",
 };
 
 export default de;

@@ -14542,6 +14542,9 @@ const tr: Translations = {
   'viewer.copyLink': "Salt okunur bağlantıyı kopyala",
   'viewer.linkTip': "Açan kişi modeli düzenleyici olmadan 3B ve planda görür ve kendi kopyasını düzenlemek için çoğaltabilir.",
   'viewer.linkCopied': "Salt okunur bağlantı kopyalandı.",
+  "wind.pressure.openBuildingRequiresFreeRoof": "Açık bir bina için serbest çatı tipi ve engelleme durumu belirtilmelidir.",
+  "wind.pressure.distributedTorqueUnsupported": "Bu rüzgâr alanı, çözücünün temsil edemediği yayılı çubuk burulması gerektirir.",
+  "wind.pressure.carrierPartitionUnresolved": "Bu çubuklar için fiziksel rüzgâr yük alanı paylaşımı belirlenemiyor.",
 };
 
 export default tr;

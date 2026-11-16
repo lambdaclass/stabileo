@@ -7,7 +7,7 @@ const snapshot = (type = 'W', generatedBy = 'load-plan'): FeatureSnapshot => ({ 
 for (const mode of ['2d', '3d', 'pro']) for (const analysis of ['linear', 'pdelta', 'plastic'] as const) for (const type of ['W', 'Wa']) {
   it(`wind regeneration remains required after re-solving ${type} in ${mode} with ${analysis}`, () => {
     const assessment = assessProject(snapshot(type), stampSolve(analysis, null), mode, RESULT_CHANGES, undefined, 0);
-    expect(assessment.changes.map(c => c.id).sort()).toEqual(['generated-area-loads-headroom', 'wind-physical-pressure-field', 'wind-plan-couple-and-sign-face']);
+    expect(assessment.changes.map(c => c.id).sort()).toEqual(['generated-area-loads-headroom', 'wind-member-pressure-transfer', 'wind-physical-pressure-field', 'wind-plan-couple-and-sign-face']);
   });
 }
 it('current generated loads clear wind notices; manual wind and generated gravity do not get this notice', () => {
@@ -15,12 +15,13 @@ it('current generated loads clear wind notices; manual wind and generated gravit
     const ids = assessProject(s, null).changes.map(c => c.id);
     expect(ids).not.toContain('wind-physical-pressure-field');
     expect(ids).not.toContain('wind-plan-couple-and-sign-face');
+    expect(ids).not.toContain('wind-member-pressure-transfer');
   }
   const assessment = assessProject(snapshot(), stampSolve('linear', null), '3d', RESULT_CHANGES, undefined, RESULT_CHANGES.currentResultsVersion);
   expect(assessment.changes.map(c => c.id)).toEqual([]);
 });
 
-(process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip)('known wrong result: #2220 manual wind plus generated gravity does not require wind regeneration', () => {
+it('#2220 manual wind plus generated gravity does not require wind regeneration', () => {
   const s: FeatureSnapshot = { loadCases: [{ id: 1, type: 'W' }, { id: 2, type: 'D' }], loads: [
     { type: 'nodal3d', data: { caseId: 1, nodeId: 1, fx: 1 } },
     { type: 'distributed3d', data: { caseId: 2, elementId: 1, qZI: -1, qZJ: -1, generatedBy: 'load-plan' } },
@@ -28,4 +29,5 @@ it('current generated loads clear wind notices; manual wind and generated gravit
   const ids = assessProject(s, null).changes.map(c => c.id);
   expect(ids).not.toContain('wind-physical-pressure-field');
   expect(ids).not.toContain('wind-plan-couple-and-sign-face');
+    expect(ids).not.toContain('wind-member-pressure-transfer');
 });

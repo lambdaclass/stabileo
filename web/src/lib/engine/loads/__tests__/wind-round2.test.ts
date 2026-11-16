@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { planWind } from '../load-plan-wind';
 import { levelsWithPlanArea, type PlanSink, type LoadPlanInput } from '../load-plan';
 import { otherStructureWind } from '../wind-other';
-import { columns, mesh, remeshWind, windProject, variants } from './wind-integration-fixture';
+import { columns, mesh, remeshWind, windProject, variants, windEndResultants, windResultants } from './wind-integration-fixture';
 import { solve, solvePDelta, solve3D, solvePDelta3D } from '../../wasm-solver';
 import type { SolverInput3D } from '../../types-3d';
 import type { SolverInput } from '../../types';
@@ -49,7 +49,7 @@ for (const variant of variants) it(`#2204 integrated eccentric wind stays a plan
   const model = remeshWind(columns(), variant).model;
   const sink = generate(model);
   for (const [caseIndex, c] of sink.cases.entries()) {
-    const loads = sink.nodal.filter(n => n.caseIndex === caseIndex);
+    const loads = windEndResultants(model, sink.distributed.filter(n => n.caseIndex === caseIndex), sink.nodal.filter(n => n.caseIndex === caseIndex));
     expect(loads.every(n => n.mz === 0)).toBe(true);
     if (variant !== 'base') continue;
     const expected = hand(model, c);
@@ -65,23 +65,23 @@ for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) fo
   const sink = generate(model);
   for (const [caseIndex, c] of sink.cases.entries()) {
     if (!['autoLoad.windCase2', 'autoLoad.windCase4', 'autoLoad.windCase1', 'autoLoad.windCase3'].includes(c.nameKey)) continue;
-    const reference = hand(model, c);
-    const actual = sink.nodal.filter(n => n.caseIndex === caseIndex);
+    const reference = handMembers(model, c);
+    const actual = sink.distributed.filter(n => n.caseIndex === caseIndex);
     const top = [...model.nodes.values()].filter(n => n.z === 6).map(n => n.id);
-    const run = (points: Array<{ nodeId: number; fx: number; fy: number; mz?: number }>) => {
+    const run = (lines: Array<{ elementId: number; a?: number; b?: number; qX?: number; qXJ?: number; qY?: number; qYJ?: number }>) => {
       const input: SolverInput3D = {
         nodes: new Map([...model.nodes].map(([id, n]) => [id, { ...n, z: n.z ?? 0 }])),
         elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, type: 'frame', localYx: 0, localYy: 1, localYz: 0, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }])),
         materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
         sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4 }]]),
         supports: new Map([...model.nodes.values()].filter(n => n.z === 0).map(n => [n.id, { nodeId: n.id, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }])),
-        loads: points.map(p => ({ type: 'nodal', data: { ...p, mz: p.mz ?? 0, fz: 0, mx: 0, my: 0 } })),
+        loads: lines.map(p => ({ type: 'distributed', data: { elementId: p.elementId, a: p.a, b: p.b, qYI: p.qY ?? 0, qYJ: p.qYJ ?? p.qY ?? 0, qZI: -(p.qX ?? 0), qZJ: -(p.qXJ ?? p.qX ?? 0) } })),
         constraints: diaphragm && dimension === '3d' ? [{ type: 'diaphragm', masterNode: top[0]!, slaveNodes: top.slice(1), plane: 'XY' }] : [],
       };
       if (dimension === '3d') {
         const out = nonlinear ? solvePDelta3D(input).results : solve3D(input);
         if (diaphragm) {
-          const rotations = top.map(id => out.displacements.find(d => d.nodeId === id)!.rz);
+          const rotations = top.map(id => out.displacements.find((d: { nodeId: number; rz: number }) => d.nodeId === id)!.rz);
           for (const rotation of rotations) expect(rotation).toBeCloseTo(rotations[0]!, 12);
           if (c.nameKey === 'autoLoad.windCase2') expect(Math.abs(rotations[0]!)).toBeGreaterThan(0);
         }
@@ -91,7 +91,7 @@ for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) fo
         ...input, nodes: new Map([...model.nodes].map(([id, n]) => [id, { id, x: n.x, z: n.z ?? 0 }])),
         elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, type: 'frame', hingeStart: false, hingeEnd: false }])),
         supports: new Map([...input.supports].map(([id]) => [id, { id, nodeId: id, type: 'fixed' }])),
-        loads: points.map(p => ({ type: 'nodal', data: { nodeId: p.nodeId, fx: p.fx, fz: 0, my: 0 } })),
+        loads: lines.map(p => ({ type: 'distributed', data: { elementId: p.elementId, a: p.a, b: p.b, qI: -(p.qX ?? 0), qJ: -(p.qXJ ?? p.qX ?? 0) } })),
       };
       return nonlinear ? solvePDelta(planar).results : solve(planar);
     };
@@ -103,7 +103,11 @@ for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) fo
       else if (y && typeof y === 'object') for (const [key, value] of Object.entries(y)) compare((x as Record<string, unknown>)[key], value);
       else expect(x).toEqual(y);
     };
-    compare(a.reactions, b.reactions); compare(a.elementForces, b.elementForces);
+    compare(a.reactions, b.reactions);
+    for (const f of b.elementForces) { const actual = a.elementForces.find((p: { elementId: number }) => p.elementId === f.elementId)!;
+      for (const [key, value] of Object.entries(f)) if (key.endsWith('Start') || key.endsWith('End')) compare((actual as unknown as Record<string, unknown>)[key], value);
+    }
+    compare(a.displacements, b.displacements);
   }
 });
 
@@ -120,8 +124,9 @@ for (const axis of ['x', 'y'] as const) for (const clearance of [-1e-5, 0, 1, 2 
   const a = result.cases.find(c => c.nameParams.c === 'A')!;
   const b = result.cases.find(c => c.nameParams.c === 'B+')!;
   expect(b.nodal.every(p => p.mz === 0)).toBe(true);
-  const sumForce = (c: typeof a) => c.nodal.reduce((s, p) => s + (axis === 'x' ? p.fx : -p.fy), 0);
-  const moment = (c: typeof a) => c.nodal.reduce((s, p) => { const n = model.nodes.get(p.nodeId)!; return s + n.x * p.fy - n.y * p.fx + p.mz; }, 0);
+  const resultant = (c: typeof a) => windResultants(model, c.distributed.map(p => ({ ...p, q: p.qZ, qJ: p.qZJ })), c.nodal);
+  const sumForce = (c: typeof a) => (axis === 'x' ? resultant(c)[0]! : -resultant(c)[1]!);
+  const moment = (c: typeof a) => resultant(c)[5]!;
   expect((moment(b) - moment(a)) / sumForce(a)).toBeCloseTo((axis === 'x' ? 1 : -1) * 0.2 * B, 10);
   if (clearance >= 2) expect(sumForce(a)).toBeCloseTo(velocityPressure(6, windProject) / 1000 * 0.85 * cf * B * (6 - clearance), 10);
 });
@@ -130,9 +135,11 @@ for (const ratio of [0.999, 1, 1.001]) it(`physical cross-section retains both s
   const width = Math.sqrt(2e-9) * ratio;
   const model = mesh([[[0, -width / 2, 0], [0, -width / 2, 6]], [[0, width / 2, 0], [0, width / 2, 6]]]);
   const field = windHeightField({ model, axis: 'x', from: 0, to: 6, width: 2, pressure: () => 1 });
-  const loads = windHeightLoads(field, 1, 0, 0.4);
+  if (ratio < 1) { expect(() => windHeightLoads(field, 1, 0, 0.4)).toThrow('wind.pressure.distributedTorqueUnsupported'); return; }
+  const generated = windHeightLoads(field, 1, 0, 0.4);
+  const loads = { ...generated, nodal: windEndResultants(model, generated.distributed, generated.nodal) };
   expect(loads.nodal.reduce((sum, p) => sum + p.fx, 0)).toBeCloseTo(12, 10);
-  const torque = loads.nodal.reduce((sum, p) => sum - model.nodes.get(p.nodeId)!.y * p.fx + p.mz, 0);
+  const torque = loads.nodal.reduce((sum, p) => sum - model.nodes.get(p.nodeId)!.y * p.fx + (p.mz ?? 0), 0);
   expect(torque).toBeCloseTo(4.8, 10);
   expect(loads.nodal.some(p => p.mz !== 0)).toBe(ratio < 1);
 });
@@ -149,7 +156,7 @@ for (const region of [false, true]) it(`#2204 an intermediate node on one carrie
   const sink = generate(model, selected);
   const coefficient = 0.613 * 2.41 * (5 / 750) ** (2 / 9.8) * 0.85 * 40 ** 2 * 0.85 / 1000;
   for (const [caseIndex, c] of sink.cases.entries()) {
-    const actual = sink.nodal.filter(n => n.caseIndex === caseIndex);
+    const actual = windEndResultants(model, sink.distributed.filter(n => n.caseIndex === caseIndex), sink.nodal.filter(n => n.caseIndex === caseIndex));
     const es = c.nameParams?.e === '−' ? -1 : 1;
     const eccentric = ['autoLoad.windCase2', 'autoLoad.windCase4'].includes(c.nameKey);
     const k = c.nameKey === 'autoLoad.windCase4' ? 0.563 : ['autoLoad.windCase2', 'autoLoad.windCase3'].includes(c.nameKey) ? 0.75 : 1;
@@ -180,3 +187,37 @@ for (const region of [false, true]) it(`#2204 an intermediate node on one carrie
     }
   }
 });
+
+function handMembers(model: ReturnType<typeof mesh>, c: PlanSink['cases'][number]) {
+  const scale = c.type === 'Wa' ? 0.25 : 1;
+  const torsion = ['autoLoad.windCase2', 'autoLoad.windCase4'].includes(c.nameKey);
+  const k = c.nameKey === 'autoLoad.windCase4' ? 0.563 : c.nameKey === 'autoLoad.windCase1' ? 1 : 0.75;
+  const es = c.nameParams?.e === '−' ? -1 : 1;
+  const dirs = c.nameKey === 'autoLoad.windCase3' || c.nameKey === 'autoLoad.windCase4' ? [String(c.nameParams?.dirX), String(c.nameParams?.dirY)] : [String(c.nameParams?.dir)];
+  const lines = [];
+  for (const e of model.elements.values()) {
+    const n = model.nodes.get(e.nodeI)!;
+    const cuts = [0, 5, ...Array.from({ length: 64 }, (_, i) => 5 + (i + 1) / 64)];
+    for (let i = 1; i < cuts.length; i++) {
+      const a = cuts[i - 1]!, b = cuts[i]!, length = b - a;
+      const endpoints = [0, 0].map(() => ({ fx: 0, fy: 0 }));
+      for (const dir of dirs) {
+        const x = dir.endsWith('X'), sign = dir.startsWith('−') ? -1 : 1;
+        const exponent = 2 / 9.8, factor = 0.613 * 2.41 * 0.85 * 40 ** 2 / 750 ** exponent;
+        const powerIntegral = b <= 5 ? 5 ** exponent * length : (b ** (exponent + 1) - a ** (exponent + 1)) / (exponent + 1);
+        const firstIntegral = b <= 5 ? 5 ** exponent * (b ** 2 - a ** 2) / 2 : (b ** (exponent + 2) - a ** (exponent + 2)) / (exponent + 2);
+        const lee = (x ? 0.3 : 0.5) * 6 ** exponent;
+        const force = (0.8 * powerIntegral + lee * length) * factor * 0.85 / 1000;
+        const first = (0.8 * firstIntegral + lee * (b ** 2 - a ** 2) / 2) * factor * 0.85 / 1000;
+        const mean = force / length, delta = 6 * (first - (a + b) / 2 * force) / length ** 2;
+        for (const [j, intensity] of [mean - delta, mean + delta].entries()) {
+          const f = intensity * (x ? 6 : 12) * k * scale, p = endpoints[j]!;
+          if (x) p.fx += sign * f / 4; else p.fy += sign * f / 4;
+          if (torsion) { const torque = f * es * 0.15 * (x ? 6 : 12); p.fx -= torque * (n.y - 3) / 180; p.fy += torque * (n.x - 6) / 180; }
+        }
+      }
+      lines.push({ elementId: e.id, a, b, qX: endpoints[0]!.fx, qXJ: endpoints[1]!.fx, qY: endpoints[0]!.fy, qYJ: endpoints[1]!.fy });
+    }
+  }
+  return lines;
+}

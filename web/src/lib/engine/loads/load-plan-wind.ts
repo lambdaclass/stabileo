@@ -72,6 +72,7 @@ function planWindUnchecked(input: LoadPlanInput, levels: LevelMass[], sink: Plan
      */
     const dyn = input.wind.dynamics;
     const kind = input.wind.structure?.kind ?? 'building';
+    if (kind === 'building' && input.wind.enclosure === 'open') throw new WindPressureRefusal('wind.pressure.openBuildingRequiresFreeRoof');
     const lowRise = isLowRise(h, bx, by, input.wind.enclosure, kind);
     const extent = (ids: readonly number[], k: 'x' | 'y') => {
       const v = ids.map((id) => input.model.nodes.get(id)?.[k] ?? 0);
@@ -151,7 +152,7 @@ function planWindUnchecked(input: LoadPlanInput, levels: LevelMass[], sink: Plan
           basicSpeed: speed, exposure: input.wind!.exposure,
           siteAltitudeM: input.wind!.siteAltitudeM, kzt: input.wind!.kzt,
           kztSurveyed: input.wind!.kztSurveyed, structureKind: 'building',
-          enclosure: profile ? 'enclosed' : input.wind!.enclosure, meanRoofHeight: Math.max(h, 1),
+          enclosure: input.wind!.enclosure, meanRoofHeight: Math.max(h, 1),
           L: Math.max(along, 1), B: Math.max(across, 1),
           roofSlopeDeg: input.wind!.roofSlopeDeg, rigid: input.wind!.rigid,
         };
@@ -203,7 +204,7 @@ function planWindUnchecked(input: LoadPlanInput, levels: LevelMass[], sink: Plan
         const lowest = Math.min(...levels.map(l => l.elevation));
         const from = lowest > 0 ? Math.max(0, ...modelElevations.filter(z => z < lowest - 1e-6)) : Math.max(0, lowest);
         const boundaries = [5, EXPOSURE_CONSTANTS[project.exposure].zg, ...(profile?.map(([z]) => z) ?? [])];
-        const pressure = region && across === 0 ? { loads: new Map<number, number>(), baseLoads: new Map<number, number>(), couple: new Map() } : windHeightField({ model: input.model, axis: dir, from, to: h, region: region ?? undefined, boundaries, pressure: density, width: across > 0 ? across : input.tributaryWidth });
+        const pressure = region && across === 0 ? { loads: new Map<number, number>(), baseLoads: new Map<number, number>(), couple: new Map(), members: [] } : windHeightField({ model: input.model, axis: dir, from, to: h, region: region ?? undefined, boundaries, pressure: density, width: across > 0 ? across : input.tributaryWidth });
         const design = service || profile || (region && across === 0) ? pressure : windHeightField({ model: input.model, axis: dir, from, to: h, region: region ?? undefined, boundaries, pressure: () => 0.75, width: across > 0 ? across : input.tributaryWidth });
         const atNodes = (loads: Map<number, number>, raw: Map<number, number>): WindLevel[] => [...loads].map(([id, force]) => ({ elevation: input.model.nodes.get(id)!.z ?? 0, nodeIds: [id], force, pressureForce: raw.get(id) ?? 0 }));
         const windLevels = atNodes(pressure.loads, pressure.loads);
@@ -276,7 +277,7 @@ function planWindUnchecked(input: LoadPlanInput, levels: LevelMass[], sink: Plan
         const index = cases.length;
         cases.push({ existingId: null, type: 'W', nameKey: c.nameKey, nameParams: c.nameParams });
         for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'W', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, ...(n.mz ? { mz: n.mz } : {}) });
-        for (const d of c.distributed) distributed.push({ ...d, elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.qZ, qX: d.qX, qY: d.qY, frame: 'global' });
+        for (const d of c.distributed) distributed.push({ ...d, elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.qZ, qJ: d.qZJ, qX: d.qX, qY: d.qY, frame: 'global' });
       }
     } else windAxes.push(...axesFor(input.wind.basicSpeed, false));
     if (windAxes.length > 0) {
@@ -295,7 +296,7 @@ function planWindUnchecked(input: LoadPlanInput, levels: LevelMass[], sink: Plan
         const index = cases.length;
         cases.push({ existingId: null, type: 'W', nameKey: c.nameKey, nameParams: c.nameParams });
         for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'W', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, mz: n.mz });
-        for (const d of c.distributed) if (roofLoaded(d.elementId)) distributed.push({ ...d, elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.q });
+        for (const d of c.distributed) if (d.facet === -1 || roofLoaded(d.elementId)) distributed.push({ ...d, elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.q });
       }
     }
 
@@ -324,7 +325,7 @@ function planWindUnchecked(input: LoadPlanInput, levels: LevelMass[], sink: Plan
           const index = cases.length;
           cases.push({ existingId: null, type: 'Wa', nameKey: c.nameKey.replace('windCase1', 'windCaseWa'), nameParams: { ...c.nameParams, mri: sw.mri } });
           for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'Wa', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, mz: n.mz });
-          for (const d of c.distributed) if (roofLoaded(d.elementId)) distributed.push({ ...d, elementId: d.elementId, caseType: 'Wa', caseIndex: index, q: d.q });
+          for (const d of c.distributed) if (d.facet === -1 || roofLoaded(d.elementId)) distributed.push({ ...d, elementId: d.elementId, caseType: 'Wa', caseIndex: index, q: d.q });
         }
       }
     }
