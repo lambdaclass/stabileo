@@ -50,6 +50,10 @@ export function flipElementForces2D(ef: ElementForces): ElementForces {
   };
 }
 
+export function solverBendingForces2D(ef: ElementForces, dx: number, dv: number): ElementForces {
+  return transverseSign(dx, dv) < 0 ? flipElementForces2D(ef) : ef;
+}
+
 export type SignOf = (elementId: number) => 1 | -1;
 
 export function resultsToDrawnAxes(r: AnalysisResults, signOf: SignOf): AnalysisResults {

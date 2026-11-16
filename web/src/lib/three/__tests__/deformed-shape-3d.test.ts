@@ -279,7 +279,7 @@ describe('computeDeformedShape3D', () => {
       expect(midPoint.y).toBeCloseTo(expected, 5);
     });
 
-    it('without EI data, fixed-fixed beam shows zero deflection (linear only)', () => {
+    it('without EI data, loaded recovery refuses and the unloaded interpolation remains zero', () => {
       const input = buildInput(
         [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
         [frameElement(1, 1, 2)],
@@ -297,10 +297,14 @@ describe('computeDeformedShape3D', () => {
       const dJ = getDisp(results, 2);
       const ef = getEF(results, 1);
 
-      // Without eiData, particular solution is skipped
+      expect(() => computeDeformedShape3D(
+        { x: 0, y: 0, z: 0 }, { x: L, y: 0, z: 0 }, dI, dJ, ef, SCALE, undefined,
+      )).toThrow();
+      const unloadedResults = solve3D({ ...input, loads: [] });
+      assertSuccess(unloadedResults);
       const points = computeDeformedShape3D(
         { x: 0, y: 0, z: 0 }, { x: L, y: 0, z: 0 },
-        dI, dJ, ef, SCALE, undefined,
+        dI, dJ, getEF(unloadedResults, 1), SCALE, undefined,
       );
 
       // All points should be at y ≈ 0 (Hermite with zero end disp/rot)
