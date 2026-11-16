@@ -59,7 +59,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
     const data = computeStationDemands(new Map([[1, raw], [2, raw]]), combinations, model);
     const source = data.stations.get(1)!;
     const extra = source.stationTs.find(t => t > 0 && t < 1)!;
-    const demands = extractGoverningDemands({ ...source, stationTs: [0, 1], comboResults: source.comboResults.map(c => ({ ...c,
+    const demands = extractGoverningDemands({ ...source, inventory: undefined, stationTs: [0, 1], comboResults: source.comboResults.map(c => ({ ...c,
       stations: c.stations.filter(s => s.t === 0 || s.t === 1 || c.comboId === 1 && s.t === extra),
     })) });
     const supplied = new Map([[1, demands]]);
@@ -80,7 +80,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
     const extra = source.stationTs.find(t => t > 0 && t < 1)!;
     expect(extra).toBeGreaterThan(0);
     expect(extra).toBeLessThan(1);
-    const demands = extractGoverningDemands({ ...source, stationTs: [0, 1], comboResults: source.comboResults.map(c => ({ ...c,
+    const demands = extractGoverningDemands({ ...source, inventory: undefined, stationTs: [0, 1], comboResults: source.comboResults.map(c => ({ ...c,
       stations: c.stations.filter(s => s.t === 0 || s.t === 1 || c.comboId === 1 && s.t === extra),
     })) });
     expect(completeResultDemands(raw, [1], new Map([[1, demands]])).values).toHaveLength(5);

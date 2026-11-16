@@ -1,5 +1,5 @@
 import { ConcurrentDemand } from './concurrent-demand';
-import { CompleteDemandSet, demandCoverage, memberDemandScope } from './complete-demand-set';
+import { CompleteDemandSet, IncompleteConcurrentDemandError, requireDemandInventories, demandCoverage, memberDemandScope, type DemandCoverage } from './complete-demand-set';
 import { completeResultDemands } from './result-demand-gate';
 /**
  * Shared verification service — centralized station-based demand computation
@@ -136,10 +136,16 @@ function computeStationDemandsWasm(
   }
 
   const complete = (data: StationDemandData): StationDemandData => {
-    if (members.length > 0) {
-      CompleteDemandSet.require({ combinations: combinations.map(c => ({ comboId: c.id, comboName: c.name,
-        members: members.map(m => ({ elementId: m.elementId, stationTs: requestedStationTs })) })) },
-        [...data.demands].flatMap(([elementId, d]) => (d.concurrent ?? []).map(t => ({ elementId, comboId: t.comboId, stationT: t.stationT }))));
+    const inventory = ConcurrentDemand.inventoryForStations(members.map(member => data.stations.get(member.elementId) ?? {
+      elementId: member.elementId, length: member.length, expectedCombinationIds: combinations.map(c => c.id),
+      stationTs: requestedStationTs, comboResults: [],
+    }));
+    const checked = CompleteDemandSet.require(inventory.scope, [...data.stations.values()].flatMap(esr => esr.comboResults.flatMap(c =>
+      c.stations.map(s => ({ elementId: esr.elementId, comboId: c.comboId, stationT: s.t, inventory })))));
+    for (const [id, source] of data.stations) {
+      const esr = { ...source, inventory: checked.inventory };
+      data.stations.set(id, esr);
+      data.demands.set(id, extractGoverningDemands(esr));
     }
     return data;
   };
@@ -159,7 +165,7 @@ function computeStationDemandsWasm(
       for (const decoded of decodeStationBuffer(buffer, comboNameMap)) {
         const esr = withLoading(decoded);
         stations.set(esr.elementId, esr);
-        demands.set(esr.elementId, extractGoverningDemands(esr));
+
       }
       return complete({ demands, stations });
     }
@@ -183,7 +189,7 @@ function computeStationDemandsWasm(
   for (const member of grouped.members) {
     const esr = withLoading(wasmMemberToStationResult(member, comboNameMap));
     stationMap.set(member.memberId, esr);
-    demands.set(member.memberId, extractGoverningDemands(esr));
+
   }
 
   return complete({ demands, stations: stationMap });
@@ -482,7 +488,7 @@ export function runSteelVerification(
       && !(elem as { composite?: unknown }).composite && isDesigned((elem as { behaviour?: string }).behaviour)
       && steelCheckerFor(section as never).implemented;
   }).map(([id]) => id);
-  completeResultDemands(results3D, ids, stationDemands);
+  completeResultDemands(results3D, ids, stationDemands, undefined, ids);
   for (const ef of results3D.elementForces) {
     const elem = model.elements.get(ef.elementId);
     if (!elem) continue;
@@ -534,6 +540,7 @@ export function runSteelVerification(
  * the lightest passing profile would have climbed the catalogue to satisfy it.
  */
 export interface SteelMemberDemand {
+  readonly memberId?: number;
   /** Largest compression, kN, ≥ 0. */
   Nc: number;
   /** Largest tension, kN, ≥ 0. */
@@ -553,7 +560,8 @@ export interface SteelMemberDemand {
    * the largest weak moment as if they acted at once, from different combinations and stations.
    */
   concurrent?: readonly ConcurrentDemand[];
-  tuples?: Array<{ N: number; MStrong: number; MWeak: number; VStrong: number; VWeak: number; comboId: number; comboName: string; t: number }>;
+  coverage?: DemandCoverage;
+  tuples?: Array<{ concurrent?: ConcurrentDemand; N: number; MStrong: number; MWeak: number; VStrong: number; VWeak: number; comboId: number; comboName: string; t: number }>;
   /** Where each maximum came from, for the record. */
   governing?: { axial?: { comboId: number; comboName: string }; flexure?: { comboId: number; comboName: string }; shear?: { comboId: number; comboName: string } };
 }
@@ -607,7 +615,7 @@ export function steelDemandOf(
     ? { VuStrong: sd.demands.find((d) => d.category === 'Vz')?.absValue ?? 0, VuWeak: sd.demands.find((d) => d.category === 'Vy')?.absValue ?? 0,
       MuStrongPos: sd.demands.find((d) => d.category === 'My+')?.absValue ?? 0, MuStrongNeg: sd.demands.find((d) => d.category === 'My-')?.absValue ?? 0 }
     : { VuStrong: Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd)), VuWeak: Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd)) };
-  return { Nc, Nt, MuStrong, MuWeak, Vu, ...byAxis, diagram, diagrams, diagramLength: stations?.length ?? ef.length, concurrent, ...(tuples ? { tuples } : {}), ...(governing ? { governing } : {}) };
+  return { memberId: ef.elementId, Nc, Nt, MuStrong, MuWeak, Vu, ...byAxis, diagram, diagrams, diagramLength: stations?.length ?? ef.length, concurrent, ...(tuples ? { tuples } : {}), ...(governing ? { governing } : {}) };
 }
 
 function stationMomentEnvelope(stations: ElementStationResult): StationMoment[] {
@@ -879,9 +887,14 @@ export function checkSteelMember(
    */
   opts: { screen?: boolean } = {},
 ): (SteelVerification & { engineRecheck: SteelEngineRecheck }) | null {
-  const concurrent = steelConcurrentDemands(demand);
+  const concurrent = steelConcurrentDemands(demand, elementId);
+  requireDemandInventories(concurrent, elementId);
   const coverage = demandCoverage({}, concurrent);
-  const complete = CompleteDemandSet.require(memberDemandScope([{ elementId, ...coverage }]), concurrent.map(d => ({ elementId, comboId: d.comboId, stationT: d.stationT, demand: d })));
+  const memberId = demand.memberId;
+  if (memberId !== undefined && memberId !== elementId) throw new IncompleteConcurrentDemandError([{ code: 'missing-scope', elementId }]);
+  const complete = CompleteDemandSet.require(memberDemandScope(memberId === undefined ? [] : [{ elementId, ...coverage }]),
+    concurrent.map(d => ({ elementId: memberId ?? d.elementId, comboId: d.comboId, stationT: d.stationT, demand: d, inventory: d.inventory })),
+    undefined, memberId === undefined ? undefined : [memberId]).forMembers([elementId]);
   return checkCompleteSteelMember(complete, [elementId, demand, section, material, lengths, segment, opts]);
 }
 
@@ -1138,13 +1151,13 @@ function checkCompleteSteelMember(
   return engineGateSteelCases(v, cases);
 }
 
-function steelConcurrentDemands(demand: SteelMemberDemand): readonly ConcurrentDemand[] {
+function steelConcurrentDemands(demand: SteelMemberDemand, elementId: number): readonly ConcurrentDemand[] {
   if (demand.concurrent) return demand.concurrent;
   const length = demand.diagramLength;
   const physicalLength = length !== undefined && Number.isFinite(length) && length > 0 ? length : NaN;
-  return ConcurrentDemand.fromTuples((demand.tuples ?? []).map(t => ({ comboId: t.comboId, comboName: t.comboName, forces: {
+  return ConcurrentDemand.fromMemberTuples((demand.tuples ?? []).map(t => ({ elementId, coverage: t.concurrent?.coverage, inventory: t.concurrent?.inventory, comboId: t.comboId, comboName: t.comboName, forces: {
     n: -t.N, my: t.MStrong, mz: t.MWeak, vy: t.VWeak, vz: t.VStrong, torsion: 0, t: t.t, x: t.t * physicalLength,
-  } })));
+  } })), elementId, demand.coverage);
 }
 
 /**

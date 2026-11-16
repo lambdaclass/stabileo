@@ -114,7 +114,7 @@ export function membersFor(ids: readonly number[]): { members: OptimiseMember[];
   }
   const { demands, stations } = computeStationDemands(perCombo, combos, md as never);
   const scopedIds = ids.filter(id => isDesignedMember(modelStore.elements.get(id), modelStore.sections));
-  completeResultDemands(resultsStore.results3D ?? { elementForces: [], displacements: [], reactions: [] }, scopedIds, demands);
+  completeResultDemands(resultsStore.results3D ?? { elementForces: [], displacements: [], reactions: [] }, scopedIds, demands, undefined, scopedIds);
   const lengths = memberLengths(modelStore.model);
   const forces = new Map((resultsStore.results3D?.elementForces ?? []).map((f) => [f.elementId, f]));
   const members: OptimiseMember[] = [];

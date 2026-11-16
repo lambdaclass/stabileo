@@ -99,7 +99,7 @@ export function runMaterialChecks(): { checked: number } | { refused: 'noResults
   }
   // Cold-formed: the AISI S100 checker CIRSOC 303 adopts, its governing reading per member.
   if (cfs.length) {
-    const run = runOtherCode(AISI_S100, cfs);
+    const run = runOtherCode(AISI_S100, cfs, { memberIds: cfs.map(c => c.elementId) });
     for (const r of run.rows) {
       const rows: CheckRow[] = r.status === 'checked'
         ? [{ code: 'cirsoc-303', edition: '2009', clause: r.reading.clause ?? 'C', title: r.reading.governing, titleKey: r.reading.governing, formula: 'Ru ≤ φ·Rn', inputs: [],

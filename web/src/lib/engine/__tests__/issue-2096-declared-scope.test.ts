@@ -1,3 +1,5 @@
+import { checkDeclaredSteelMember } from './helpers/declared-demands';
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it, vi } from 'vitest';
 import { lineDemand, lineTransverseDemand } from '../design/beam-line-demand';
 import { resolveSectionState } from '../../section/state';
@@ -5,11 +7,10 @@ import { isVariableMember } from '../../section/variable';
 import type { Section } from '../../store/model.svelte';
 import { autoVerifyFromResults } from '../auto-verify';
 import { CompleteDemandSet } from '../complete-demand-set';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { completeMemberDemands } from '../member-demand-gate';
 import { completeResultDemands } from '../result-demand-gate';
 import { extractGoverningDemands, type ElementStationResult } from '../station-design-forces';
-import { checkSteelMember, checkVariableSteelMember, steelGoverningRatio, runSteelVerification, runUnifiedVerification, runCirsocDesign } from '../verification-service';
+import { checkVariableSteelMember, steelGoverningRatio, runSteelVerification, runUnifiedVerification, runCirsocDesign } from '../verification-service';
 import { profileByName, profileToSectionFull } from '../../data/steel-profiles';
 import { ec2MemberDesign } from '../design/eurocode/ec2-member';
 import { EC2_RECOMMENDED } from '../design/eurocode/ec2-params';
@@ -35,9 +36,9 @@ for (const extra of [0, 0.5, 1]) it(`known wrong result: #2096 round4 variable s
   input.comboResults[0]!.stations = [0.25, extra, 0.75].map(force);
   input.comboResults[1]!.stations = [0.25, 0.75].map(force);
   const actual = variable(input);
-  const controls = input.comboResults.flatMap(c => c.stations.map(s => checkSteelMember(1, {
+  const controls = input.comboResults.flatMap(c => c.stations.map(s => checkDeclaredSteelMember(1, {
     Nc: 300, Nt: 0, MuStrong: Math.abs(s.my), MuWeak: 0, Vu: 20, VuStrong: 20, VuWeak: 0, diagram: [],
-    concurrent: ConcurrentDemand.fromTuples([{ comboId: c.comboId, comboName: c.comboName, forces: s }]),
+    concurrent: declaredTestDemands([{ comboId: c.comboId, comboName: c.comboName, forces: s }]),
   }, section, steel, lengths)!));
   expect(steelGoverningRatio(actual)).toBe(Math.max(...controls.map(steelGoverningRatio)));
   expect(actual.governingCombos!.interaction!.comboId).toBe(1);

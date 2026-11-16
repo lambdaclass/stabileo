@@ -53,7 +53,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
     expect(shared.get(2)!.concurrent).toBe(shared.get(1)!.concurrent);
     const expected = raw.elementForces.flatMap(ef => run([ef], {
       ...model, elements: new Map([[ef.elementId, model.elements.get(ef.elementId)!]]),
-    }, new Map([[ef.elementId, shared.get(ef.elementId)!]])));
+    }, shared));
     const uncached = new Map([...shared].map(([id, d]) => [id, { ...d, concurrent: [...d.concurrent!] }]));
     expect(uncached.get(1)!.concurrent).not.toBe(uncached.get(2)!.concurrent);
     expect(expected).toHaveLength(2);

@@ -1,4 +1,4 @@
-import { CompleteDemandSet, demandCoverage, memberDemandScope } from './complete-demand-set';
+import { CompleteDemandSet, requireDemandInventories, demandCoverage, memberDemandScope, type DemandInventory } from './complete-demand-set';
 import { ConcurrentDemand } from './concurrent-demand';
 import { getColumnCapacityKernel, columnCapacityKernelRegistered } from './column-capacity-kernel';
 import { evaluateBeamSection, evaluateBeamSections } from './codes/argentina/cirsoc201-beam-kernel';
@@ -80,6 +80,7 @@ export interface ComboStationResult {
 
 /** Full station-based results for one element across all combos. */
 export interface ElementStationResult {
+  readonly inventory?: DemandInventory;
   readonly expectedCombinationIds?: readonly number[];
   elementId: number;
   length: number;
@@ -1957,10 +1958,11 @@ export function verifyProvidedReinforcement(
   });
   if (!provided) return emptyResult('none');
   const suppliedTuples = stationResult ? ConcurrentDemand.fromStations(stationResult) : demands?.concurrent;
+  requireDemandInventories(suppliedTuples ?? [], elementId);
   const coverage = demandCoverage({ combinationIds: [...(demands?.expectedCombinationIds ?? []), ...(demands?.demands.map(d => d.comboId) ?? [])],
     stationTs: demands?.stationTs ?? stationResult?.stationTs }, suppliedTuples);
   const complete = CompleteDemandSet.require(memberDemandScope([{ elementId, ...coverage }]),
-    (suppliedTuples ?? []).map(demand => ({ elementId, comboId: demand.comboId, stationT: demand.stationT, demand })));
+    (suppliedTuples ?? []).map(demand => ({ elementId, comboId: demand.comboId, stationT: demand.stationT, demand, inventory: demand.inventory })), undefined, [elementId]);
 
   const checks: ProvidedRebarCheck[] = [];
   const checkedAxes = new Set<string>();

@@ -113,7 +113,7 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
     try {
       completeMemberDemands([{ elementId: ctx.elementId, demands: ctx.demands?.demands ?? [],
         tuples: ctx.stations ? ConcurrentDemand.fromStations(ctx.stations) : undefined,
-        expectedCombinationIds: ctx.demands?.expectedCombinationIds, stationTs: ctx.demands?.stationTs ?? ctx.stations?.stationTs }]);
+        expectedCombinationIds: ctx.demands?.expectedCombinationIds, stationTs: ctx.demands?.stationTs ?? ctx.stations?.stationTs }], [ctx.elementId]);
     } catch (error) {
       if (!(error instanceof IncompleteConcurrentDemandError)) throw error;
       diagnostics = error.diagnostics;

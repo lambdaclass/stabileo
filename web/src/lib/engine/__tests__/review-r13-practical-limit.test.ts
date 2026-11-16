@@ -1,12 +1,12 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { checkFlexure, prepareElementVerification, verifyElement, type ConcurrentVerificationInput } from '../codes/argentina/cirsoc201';
 
 const params = { fc: 25, fy: 420, cover: 0.025, b: 0.2, h: 0.5, stirrupDia: 8 };
 const practicalNotice = (steps: string[]) => steps.filter(s => s.includes('4 %·b·h') && s.includes('agrandar la sección'));
 function input(Mu: number, edition: '2005' | '2025', axis: 'My' | 'Mz', elementType: 'beam' | 'column' | 'wall'): ConcurrentVerificationInput {
-  const demand = ConcurrentDemand.fromTuples([{ comboId: Mu, comboName: `M=${Mu}`, forces: {
+  const demand = declaredTestDemands([{ comboId: Mu, comboName: `M=${Mu}`, forces: {
     n: 0, my: axis === 'My' ? Mu : 0, mz: axis === 'Mz' ? Mu : 0, vy: 0, vz: 0, torsion: 0, t: 0, x: 0,
   } }])[0]!.section(axis);
   return { ...params, edition, elementId: 1, elementType, demand };

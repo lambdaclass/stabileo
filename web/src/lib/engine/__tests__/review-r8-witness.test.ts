@@ -1,6 +1,6 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyElement } from '../codes/argentina/cirsoc201';
 import { computeStationDemands } from '../verification-service';
 import { autoVerifyFromResults } from '../auto-verify';
@@ -11,7 +11,7 @@ it('#2080 the recorded shared cage is regenerated from the selected bars', () =>
   const fixture = JSON.parse(readFileSync(path, 'utf8'));
   const { momentCases, ...geometry } = fixture.sharedCage.input;
   const inputs = momentCases.map((m: number, i: number) => ({ ...geometry, elementId: 1,
-    demand: ConcurrentDemand.fromTuples([{ comboId: i + 1, comboName: `C${i + 1}`, forces: {
+    demand: declaredTestDemands([{ comboId: i + 1, comboName: `C${i + 1}`, forces: {
       t: 0.5, x: 2, n: 0, my: m, mz: m, vy: 1, vz: 1, torsion: 0,
     } }])[0]!.section('My') }));
   const record = (f: ReturnType<typeof verifyElement>['flexure']) => ({ d: f.providedDepth, AsProv: f.AsProv, bars: f.bars, phiMn: f.phiMn, ratio: f.ratio, steps: f.steps });

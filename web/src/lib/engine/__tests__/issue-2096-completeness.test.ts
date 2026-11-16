@@ -174,12 +174,12 @@ it('known wrong result: #2096 round3 sizing accepts independent combination stat
   const tuples = [0, 1, 2, 3].map(i => ({ comboId: i + 1, comboName: `C${i + 1}`,
     forces: { t: i / 3, x: 4 * i / 3, n: 0, my: 20, mz: 0, vy: 0, vz: 1, torsion: 0 },
   }));
-  const ds = ConcurrentDemand.fromTuples(tuples);
+  const ds = ConcurrentDemand.fromTuples(tuples.map(t => ({ ...t, elementId: 1 })), { combinationIds: [1, 2, 3, 4], stationTs: [] });
   expect(ds.map(d => d.forces)).toEqual(tuples.map(d => d.forces));
   const inputs = ds.map(d => ({ elementId: 1, elementType: 'beam' as const, b: 0.4, h: 0.4, fc: 30, fy: 420,
     cover: 0.025, stirrupDia: 8, demand: d.section('My') }));
   expect(verifyConcurrentElement(inputs).concurrentChecks!.map(c => c.demand)).toEqual(ds);
-  expect(verifyConcurrentElement([inputs[0]!]).concurrentChecks).toHaveLength(1);
+  refusal(() => verifyConcurrentElement([inputs[0]!]), { code: 'missing-combination', comboId: 2 });
   const separate = [1, 2].flatMap(comboId => ConcurrentDemand.fromStations({ elementId: 1, length: 4,
     stationTs: comboId === 1 ? [0, 0.5] : [0.5, 1], comboResults: [{ comboId, comboName: `C${comboId}`,
       stations: (comboId === 1 ? [0, 0.5] : [0.5, 1]).map(t => ({ ...tuples[0]!.forces, t, x: 4 * t })),
@@ -209,7 +209,7 @@ for (const kind of ['beam', 'column'] as const) {
   it(`known wrong result: #2096 round3 EC2 ${kind} preserves the verified grid with combination-specific extra stations`, () => {
     const ctx = combinationSpecificContext();
     expect(completeMemberDemands([ctx]).values).toHaveLength(5);
-    const input = { kind, b: 0.4, h: 0.4, L: 4, demands: ctx.demands, tuples: ctx.tuples,
+    const input = { elementId: ctx.elementId, kind, b: 0.4, h: 0.4, L: 4, demands: ctx.demands, tuples: ctx.tuples,
       expectedCombinationIds: [1, 2], stationTs: [0, 1], cover: 0.025, linkDia: 8, barDia: 16, fck: 30, fyk: 420, params: EC2_RECOMMENDED };
     const expected = ec2MemberDesign({ ...input, tuples: context().tuples });
     expect(ec2MemberDesign(input)).toEqual(expected);

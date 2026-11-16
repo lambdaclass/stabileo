@@ -91,6 +91,7 @@ export function memberContexts(
 
 /** How `runOtherCode` reads each member. */
 export interface RunOptions {
+  memberIds?: readonly number[];
   /**
    * Every combination at every station (`MemberContext.tuples`) besides the governing demands. A
    * check that combines N, My, Mz and V (6.2, 6.3.2, 6.3.3) can be governed by a tuple that is no
@@ -117,7 +118,7 @@ const CHUNK = 48;
  * tuples) carries every member's pairs.
  */
 export function runOtherCode(code: OtherCode, contexts: MemberContext[], opts: RunOptions = {}): OtherCodeRun {
-  return runCompleteOtherCode(code, completeMemberCases(completeMemberDemands(contexts)), opts);
+  return runCompleteOtherCode(code, completeMemberCases(completeMemberDemands(contexts, opts.memberIds)), opts);
 }
 
 function runCompleteOtherCode(code: OtherCode, complete: CompleteMemberContexts, opts: RunOptions): OtherCodeRun {
@@ -130,7 +131,7 @@ function runCompleteOtherCode(code: OtherCode, complete: CompleteMemberContexts,
     if ('skip' in m) { rows.set(ctx.elementId, { elementId: ctx.elementId, status: 'skipped', reasonKey: m.skip }); continue; }
     if (ctx.demands.length === 0) { rows.set(ctx.elementId, { elementId: ctx.elementId, status: 'skipped', reasonKey: 'otherCodes.skip.noDemand' }); continue; }
     // The governing demands first, then every other combination and station, each pair once.
-    const converted = ConcurrentDemand.fromCompleteTuples(byMember.get(ctx)!).values;
+    const converted = ConcurrentDemand.fromCompleteTuples(byMember.get(ctx)!.forMembers([ctx.elementId])).values;
     const governing = converted.filter(r => r.governing).map(r => r.demand);
     const seen = new Set(governing.map(d => `${d.comboId}|${d.stationT}`));
     const rest = converted.filter(r => !r.governing).map(r => r.demand).filter(d => { const k = `${d.comboId}|${d.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
@@ -257,7 +258,7 @@ async function certifyCompleteOtherCode(
     const m = code.member(ctx);
     if ('skip' in m || ctx.demands.length === 0) continue;
     if ((m.unevaluated ?? []).length > 0) { refuse(ctx.elementId, 'otherCodes.cert.partial'); continue; }
-    ready.push({ ctx, data: m.data, all: ConcurrentDemand.fromCompleteTuples(byMember.get(ctx)!).values.map(r => r.demand) });
+    ready.push({ ctx, data: m.data, all: ConcurrentDemand.fromCompleteTuples(byMember.get(ctx)!.forMembers([ctx.elementId])).values.map(r => r.demand) });
   }
   const rounds = ready.reduce((n, r) => Math.max(n, r.all.length), 0);
   for (let k = 0; k < rounds; k++) {

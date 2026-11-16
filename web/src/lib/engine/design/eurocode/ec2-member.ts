@@ -81,7 +81,7 @@ export const BEAM_AXIAL_COMPRESSION_SHARE = 0.1;
 export const BEAM_AXIAL_TENSION_SHARE = 0.01;
 
 export function ec2MemberDesign(i: Ec2MemberInput): Ec2MemberDesign {
-  const complete = completeMemberCases(completeMemberDemands([{ ...i, elementId: i.elementId ?? 0 }]));
+  const complete = completeMemberCases(completeMemberDemands([{ ...i, elementId: i.elementId ?? 0 }], [i.elementId ?? 0]));
   return designCompleteEc2Member(i, complete);
 }
 

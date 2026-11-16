@@ -51,7 +51,7 @@ export interface MemberContext {
 }
 
 /** One combination at one station: the forces that act together there. */
-export type StationTuple = Pick<GoverningDemand, 'comboId' | 'comboName' | 'stationT' | 'stationX' | 'forces'>;
+export type StationTuple = Pick<GoverningDemand, 'comboId' | 'comboName' | 'stationT' | 'stationX' | 'forces'> & { readonly inventory?: import('../../complete-demand-set').DemandInventory; readonly coverage?: import('../../complete-demand-set').DemandCoverage };
 
 /** What a code's checker returned for one member, read into one shape. */
 export interface CheckReading {

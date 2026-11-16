@@ -1,6 +1,7 @@
+import { checkDeclaredSteelMember } from './helpers/declared-demands';
 import { expect, it, vi } from 'vitest';
 import * as flange from '../codes/argentina/cirsoc301';
-import { checkSteelMember, steelDemandOf, steelMemberLengths } from '../verification-service';
+import { steelDemandOf, steelMemberLengths } from '../verification-service';
 import { extractGoverningDemands, type ElementStationResult } from '../station-design-forces';
 import { profileByName, profileToSectionFull } from '../../data/steel-profiles';
 import { momentGradient } from '../steel/moment-gradient';
@@ -23,10 +24,10 @@ const demand = (t?: number) => {
   };
   return steelDemandOf(ef, extractGoverningDemands(source), source);
 };
-function checkAt(d: ReturnType<typeof demand>, lengths: Parameters<typeof checkSteelMember>[4], t: number, screen = false) {
+function checkAt(d: ReturnType<typeof demand>, lengths: Parameters<typeof checkDeclaredSteelMember>[4], t: number, screen = false) {
   const cases = vi.spyOn(flange, 'verifyFlangeCases');
   try {
-    checkSteelMember(1, d, section, steel, lengths, undefined, { screen });
+    checkDeclaredSteelMember(1, d, section, steel, lengths, undefined, { screen });
     const checks = cases.mock.calls.flatMap(([inputs], i) => inputs.map((input, j) => ({
       t: input.demand.source.stationT, verification: { ...cases.mock.results[i]!.value[j]!.verification, interaction: cases.mock.results[i]!.value[j]!.interaction },
     })));
@@ -64,8 +65,8 @@ for (const t of [0.499999, 0.5, 0.500001, 1]) {
 }
 for (const Lb of [0, 16 - 1e-12, 16, 16 + 1e-12, 16.000001]) it(`whole or unavailable span remains correct ${Lb}`, () => {
   const d = demand(), lengths = { L: 16, Lb, loadPosition: 'web' as const };
-  const a = checkSteelMember(1, d, section, steel, lengths)!;
-  const u = checkSteelMember(1, { ...d, diagrams: undefined }, section, steel, lengths)!;
+  const a = checkDeclaredSteelMember(1, d, section, steel, lengths)!;
+  const u = checkDeclaredSteelMember(1, { ...d, diagrams: undefined }, section, steel, lengths)!;
   const cb = Lb === 16 ? momentGradient({ stations: d.diagrams!.get(1)!, tStart: 0, tEnd: 1, shape: 'I' }).cb : 1;
   expect(a.flexureZ.phiMn).toBeCloseTo(u.flexureZ.phiMn * cb, 8);
 });
@@ -76,7 +77,7 @@ for (const screen of [false, true]) for (const reverse of [false, true]) for (co
     const d = steelDemandOf(ef, extractGoverningDemands(stations), stations);
     if (reverse) d.concurrent = [...d.concurrent!].reverse();
     const lengths = steelMemberLengths({ bracing: { top: [8], bottom: [8] }, steelLoadHeight: 'web' }, { L: 16, Lb: 16 });
-    const full = checkSteelMember(1, d, section, steel, lengths, undefined, { screen })!;
+    const full = checkDeclaredSteelMember(1, d, section, steel, lengths, undefined, { screen })!;
     const own = checkAt(d, lengths, 1, screen);
     const unity = checkAt({ ...d, diagrams: undefined }, lengths, 1, screen);
     const cb = momentGradient({ stations: d.diagrams!.get(1)!, tStart: 0.5, tEnd: 1, shape: 'I' }).cb;

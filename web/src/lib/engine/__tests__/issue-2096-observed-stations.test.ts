@@ -17,7 +17,7 @@ for (const source of ['stations', 'common', 'per-combination', 'cached'] as cons
   for (const extra of [0, 0.5, 1]) {
     const common = [0, 0.5, 1].filter(t => t !== extra);
     const tuples = [1, 2].flatMap(comboId => (comboId === 1 ? [0, 0.5, 1] : common).map(t => ({
-      comboId, comboName: `C${comboId}`, forces: { t, x: t, n: 0, my: t === extra ? 2 : 1, mz: 0, vy: 0, vz: 0, torsion: 0 },
+      elementId: 1, comboId, comboName: `C${comboId}`, forces: { t, x: t, n: 0, my: t === extra ? 2 : 1, mz: 0, vy: 0, vz: 0, torsion: 0 },
     })));
     const build = () => {
       if (source === 'stations') return ConcurrentDemand.fromStations({ elementId: 1, length: 1, stationTs: common,
@@ -57,9 +57,9 @@ for (const source of ['stations', 'common', 'per-combination', 'cached'] as cons
 
 it('observed stations without a common grid retain independent combination inventories', () => {
   const tuples = [1, 2].flatMap(comboId => (comboId === 1 ? [0, 0.5, 1] : [0, 1]).map(t => ({
-    comboId, comboName: `C${comboId}`, forces: { t, x: t, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: 0 },
+    elementId: 1, comboId, comboName: `C${comboId}`, forces: { t, x: t, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: 0 },
   })));
-  const complete = ConcurrentDemand.fromTuples(tuples);
+  const complete = ConcurrentDemand.fromTuples(tuples, { combinationIds: [1, 2], stationTs: [] });
   expect(ConcurrentDemand.fromTuples(complete)).toHaveLength(5);
   expect(() => ConcurrentDemand.fromTuples(complete.filter(d => !(d.comboId === 1 && d.stationT === 0.5))))
     .toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand' }));

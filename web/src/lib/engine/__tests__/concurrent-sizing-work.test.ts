@@ -1,3 +1,4 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { CompleteDemandSet } from '../complete-demand-set';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ConcurrentDemand } from '../concurrent-demand';
@@ -15,7 +16,7 @@ const cases = (['beam', 'column', 'wall'] as const).flatMap(elementType =>
   (['My', 'Mz'] as const).flatMap(axis => (['2005', '2025'] as const).map(edition => ({ elementType, axis, edition }))));
 
 function inputsFor({ elementType, axis, edition }: typeof cases[number]): ConcurrentVerificationInput[] {
-  return ConcurrentDemand.fromTuples([0, 1, 2, 3].map(i => ({ comboId: i + 1, comboName: `comb ${i + 1}`,
+  return declaredTestDemands([0, 1, 2, 3].map(i => ({ comboId: i + 1, comboName: `comb ${i + 1}`,
     forces: { n: [0, -100, 100, -300][i]!, my: [20, -65, 55, 20][i]!, mz: [15, 25, -35, 10][i]!,
       vy: 5 + i, vz: 10 - i, torsion: i, t: i / 3, x: i / 3 * 0.4 },
   }))).map(demand => ({ elementId: 1, elementType, edition, demand: demand.section(axis),
@@ -60,7 +61,10 @@ it.each(cases)('#2080 — $elementType $axis $edition sizes each station once wh
 it.each(cases)('$elementType $axis $edition retains every exact shared-cage result and certificate', options => {
   const inputs = inputsFor(options);
   expect(verifyConcurrentElement(inputs).concurrentChecks).toEqual(referenceChecks(inputs));
-  expect(verifyConcurrentElement([inputs[0]!]).concurrentChecks).toEqual(referenceChecks([inputs[0]!]));
+  const source = inputs[0]!.demand.source;
+  const single = { ...inputs[0]!, demand: declaredTestDemands([{ comboId: source.comboId, comboName: source.comboName,
+    forces: source.forces, transverseLoading: source.transverseLoading }])[0]!.section(options.axis) };
+  expect(verifyConcurrentElement([single]).concurrentChecks).toEqual(referenceChecks([single]));
 });
 
 it('refuses an empty concurrent set', () => {

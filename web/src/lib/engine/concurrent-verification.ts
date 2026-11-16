@@ -1,4 +1,4 @@
-import { CompleteDemandSet, demandCoverage, memberDemandScope } from './complete-demand-set';
+import { CompleteDemandSet, IncompleteConcurrentDemandError, requireDemandInventories, demandCoverage, memberDemandScope } from './complete-demand-set';
 import { copyVerificationCheck } from './verification-steps';
 import { withBiaxialCapacityCache } from './station-design-forces';
 import { verificationForElement } from './element-verification-copy';
@@ -31,7 +31,9 @@ function completeCaseKeys(): (input: ConcurrentVerificationInput) => string | un
 }
 
 export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationInput[] | CompleteDemandSet<{ elementId: number; comboId: number; stationT: number; input: ConcurrentVerificationInput }>): ElementVerification {
-  if (inputs instanceof CompleteDemandSet) return withBiaxialCapacityCache(() => verifyConcurrentCases(inputs));
+  requireDemandInventories((inputs instanceof CompleteDemandSet ? inputs.values.map(r => r.input) : inputs).map(i => i.demand.source));
+  if (inputs instanceof CompleteDemandSet) { inputs.assertComplete(); return withBiaxialCapacityCache(() => verifyConcurrentCases(inputs)); }
+  if (!inputs.length) throw new IncompleteConcurrentDemandError([{ code: 'missing-scope' }], 'Concurrent demands are required for verification');
   const byMember = new Map<number, ConcurrentVerificationInput[]>();
   for (const input of inputs) {
     const list = byMember.get(input.elementId) ?? [];
@@ -39,7 +41,7 @@ export function verifyConcurrentElement(inputs: readonly ConcurrentVerificationI
   }
   const coverage = [...byMember].map(([elementId, list]) => ({ elementId, ...demandCoverage({}, list.map(i => i.demand.source)) }));
   const complete = CompleteDemandSet.require(memberDemandScope(coverage), inputs.map(input => ({
-      elementId: input.elementId, comboId: input.demand.source.comboId, stationT: input.demand.source.stationT, input,
+      elementId: input.elementId, comboId: input.demand.source.comboId, stationT: input.demand.source.stationT, input, inventory: input.demand.source.inventory,
     })));
   return withBiaxialCapacityCache(() => verifyConcurrentCases(complete));
 }

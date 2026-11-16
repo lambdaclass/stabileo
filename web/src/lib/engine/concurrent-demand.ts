@@ -1,9 +1,24 @@
-import { CompleteDemandSet, demandCoverage, memberDemandScope, type DemandCoverage, type ScopedDemand } from './complete-demand-set';
+import { CompleteDemandSet, demandCoverage, memberDemandScope, IncompleteConcurrentDemandError, DemandInventory, type DemandCoverage, type ScopedDemand } from './complete-demand-set';
 import type { ElementStationResult } from './station-design-forces';
 import type { StationForces } from './station-forces';
 import type { AnalysisResults3D } from './types-3d';
 
+type ScalarFields<T> = { [K in keyof T]-?: T[K] extends number | string | boolean | undefined | DemandInventory ? true : never };
+function scalarKeys<T extends object>(fields: ScalarFields<T>): readonly (keyof T)[] { return Object.freeze(Object.keys(fields) as (keyof T)[]); }
+function readScalars<T extends object, K extends keyof T>(source: T, keys: readonly K[], state?: unknown[]): Pick<T, K> {
+  const copied = {} as { -readonly [P in K]: T[P] };
+  for (const key of keys) { const value = source[key]; copied[key] = value; state?.push(value); }
+  return copied;
+}
+const forceFields = scalarKeys<StationForces>({ t: true, x: true, n: true, my: true, mz: true, vy: true, vz: true, torsion: true });
+const resultFields = scalarKeys<Omit<ElementStationResult, 'stationTs' | 'expectedCombinationIds' | 'comboResults'>>({ inventory: true, elementId: true, length: true });
+type ComboStations = ElementStationResult['comboResults'][number];
+const comboFields = scalarKeys<Omit<ComboStations, 'stations' | 'transverseLoading'>>({ comboId: true, comboName: true });
+const loadingFields = scalarKeys<NonNullable<ComboStations['transverseLoading']>>({ My: true, Mz: true });
+
 interface ConcurrentTuple {
+  readonly elementId?: number;
+  readonly inventory?: DemandInventory;
   readonly comboId: number;
   readonly comboName: string;
   readonly forces: Readonly<StationForces>;
@@ -11,13 +26,25 @@ interface ConcurrentTuple {
   readonly transverseLoading?: Readonly<{ My?: boolean; Mz?: boolean }>;
 }
 
+function captureTuple(tuple: ConcurrentTuple): ConcurrentTuple {
+  const loading = tuple.transverseLoading;
+  return Object.freeze({ elementId: tuple.elementId, comboId: tuple.comboId, comboName: tuple.comboName,
+    inventory: tuple.inventory, coverage: tuple.coverage,
+    forces: Object.freeze(readScalars(tuple.forces, forceFields)),
+    transverseLoading: loading === undefined ? undefined : Object.freeze(readScalars(loading, loadingFields)),
+  });
+}
+
 export class ConcurrentDemand {
+  static readonly #stationCache = new WeakMap<ElementStationResult, { state: readonly unknown[]; complete: ReturnType<typeof ConcurrentDemand.completeCoveredTuples> }>();
   readonly #concurrent = true;
   readonly #complete: CompleteDemandSet<ScopedDemand>;
   readonly #coverage: DemandCoverage;
+  readonly #elementId: number;
   private constructor(
     complete: CompleteDemandSet<ScopedDemand>,
     readonly comboId: number,
+    elementId: number,
     coverage: DemandCoverage,
     readonly comboName: string,
     readonly forces: Readonly<StationForces>,
@@ -26,9 +53,14 @@ export class ConcurrentDemand {
   ) {
     if (!complete.values.length) throw new TypeError('Complete concurrent demand required');
     this.#complete = complete;
+    this.#elementId = elementId;
     this.#coverage = coverage;
     Object.freeze(this);
   }
+
+  get elementId(): number { return this.#elementId; }
+
+  get inventory(): DemandInventory { return this.#complete.inventory; }
 
   get coverage(): DemandCoverage { return this.#coverage; }
 
@@ -46,43 +78,102 @@ export class ConcurrentDemand {
   }
 
   static completeStations(result: ElementStationResult) {
-    const tuples = result.comboResults.flatMap(c => c.stations.map(forces => ({
+    const state: unknown[] = [];
+    const metadata = readScalars(result, resultFields, state);
+    const expected = result.expectedCombinationIds;
+    const expectedCombinationIds = expected === undefined ? undefined : [...expected];
+    const stationTs = [...(result.stationTs ?? [])];
+    const groups = [...result.comboResults];
+    state.push(expectedCombinationIds?.length, ...(expectedCombinationIds ?? []), stationTs.length, ...stationTs, groups.length);
+    const comboResults = groups.map(combo => {
+      const comboMetadata = readScalars(combo, comboFields, state);
+      const loading = combo.transverseLoading;
+      state.push(loading !== undefined);
+      const transverseLoading = loading === undefined ? undefined : readScalars(loading, loadingFields, state);
+      const stations = [...combo.stations];
+      state.push(stations.length);
+      return { ...comboMetadata, transverseLoading, stations: stations.map(forces => readScalars(forces, forceFields, state)) };
+    });
+    const snapshot: ElementStationResult = { ...metadata, expectedCombinationIds, stationTs, comboResults };
+    const previous = ConcurrentDemand.#stationCache.get(result);
+    if (previous?.state.length === state.length && state.every((value, index) => Object.is(value, previous.state[index]))) return previous.complete;
+    const tuples = snapshot.comboResults.flatMap(c => c.stations.map(forces => ({
       comboId: c.comboId, comboName: c.comboName, forces, transverseLoading: c.transverseLoading,
     })));
-    const coverage = demandCoverage({ combinationIds: [...(result.expectedCombinationIds ?? []), ...result.comboResults.map(c => c.comboId)],
-      combinations: result.comboResults.map(c => ({ comboId: c.comboId, comboName: c.comboName })), stationTs: result.stationTs }, tuples);
-    return ConcurrentDemand.completeCoveredTuples(tuples, coverage, result.elementId);
+    const complete = ConcurrentDemand.completeCoveredTuples(tuples, ConcurrentDemand.stationCoverage(snapshot), snapshot.elementId, snapshot.inventory);
+    ConcurrentDemand.#stationCache.set(result, { state: Object.freeze(state), complete });
+    return complete;
   }
 
-  static fromTuples(tuples: readonly ConcurrentTuple[], declared?: DemandCoverage): ConcurrentDemand[] {
-    if (!tuples.length && !declared) return [];
+  static inventoryForStations(results: readonly ElementStationResult[]): DemandInventory {
+    return DemandInventory.declare(memberDemandScope(results.map(result => ({ elementId: result.elementId, ...ConcurrentDemand.stationCoverage(result) }))));
+  }
+
+  private static stationCoverage(result: ElementStationResult): DemandCoverage {
+    return demandCoverage({ combinationIds: [...(result.expectedCombinationIds ?? []), ...result.comboResults.map(c => c.comboId)],
+      combinations: result.comboResults.map(c => ({ comboId: c.comboId, comboName: c.comboName })), stationTs: result.stationTs },
+    result.comboResults.flatMap(c => c.stations.map(forces => ({ comboId: c.comboId, forces }))));
+  }
+
+  static fromTuples(source: readonly ConcurrentTuple[], declared?: DemandCoverage): ConcurrentDemand[] {
+    const tuples = source.map(captureTuple);
+    ConcurrentDemand.requireInventory(tuples, declared);
     const coverage = demandCoverage(declared ?? {}, tuples);
-    const independent = declared === undefined && tuples.every(t => t.coverage === undefined);
-    return ConcurrentDemand.completeCoveredTuples(tuples, coverage, 0, independent).values.map(row => row.demand);
+    const elementIds = [...new Set(tuples.map(t => t.elementId ?? 0))];
+    const inherited = tuples.length > 0 && tuples.every(t => t.inventory ?? t.coverage?.inventory);
+    if (!inherited && !declared?.inventory && elementIds.length > 1) throw new IncompleteConcurrentDemandError([{ code: 'missing-scope' }], 'A declared member inventory is required for multi-member tuples');
+    const scope = inherited && !declared ? { combinations: [] } : memberDemandScope([{ elementId: elementIds[0] ?? 0, ...coverage }]);
+    const complete = CompleteDemandSet.require(scope,
+      tuples.map(tuple => ({ elementId: tuple.elementId ?? 0, comboId: tuple.comboId, stationT: tuple.forces.t, tuple, coverage,
+        inventory: tuple.inventory ?? tuple.coverage?.inventory ?? declared?.inventory })));
+    return ConcurrentDemand.convertCompleteTuples(complete).values.map(row => row.demand);
   }
 
-  private static completeCoveredTuples(tuples: readonly ConcurrentTuple[], coverage: DemandCoverage, elementId: number, independent = false) {
+  private static requireInventory(tuples: readonly ConcurrentTuple[], declared?: DemandCoverage): void {
+    if (!declared && (!tuples.length || tuples.some(t => !t.inventory && !t.coverage))) {
+      throw new IncompleteConcurrentDemandError([{ code: 'missing-scope' }], 'A declared coverage inventory is required for raw tuples');
+    }
+  }
+
+  static fromMemberTuples(source: readonly ConcurrentTuple[], elementId: number, declared?: DemandCoverage): ConcurrentDemand[] {
+    const tuples = source.map(captureTuple);
+    ConcurrentDemand.requireInventory(tuples, declared);
+    return ConcurrentDemand.completeCoveredTuples(tuples, demandCoverage(declared ?? {}, tuples), elementId, declared?.inventory).values.map(r => r.demand);
+  }
+
+  private static completeCoveredTuples(source: readonly ConcurrentTuple[], coverage: DemandCoverage, elementId: number, inventory?: DemandInventory) {
+    const tuples = source.map(captureTuple);
     const complete = CompleteDemandSet.require(memberDemandScope([{ elementId, ...coverage }]),
-      tuples.map(tuple => ({ elementId, comboId: tuple.comboId, stationT: tuple.forces.t, tuple, coverage })));
-    return ConcurrentDemand.convertCompleteTuples(complete, independent);
+      tuples.map(tuple => ({ elementId, comboId: tuple.comboId, stationT: tuple.forces.t, tuple, coverage, inventory: inventory ?? tuple.inventory ?? tuple.coverage?.inventory })), undefined, [elementId]);
+    return ConcurrentDemand.convertCompleteTuples(complete);
   }
 
   static fromCompleteTuples<T extends ScopedDemand & { readonly tuple: ConcurrentTuple; readonly coverage: DemandCoverage }>(complete: CompleteDemandSet<T>) {
     return ConcurrentDemand.convertCompleteTuples(complete);
   }
 
-  private static convertCompleteTuples<T extends ScopedDemand & { readonly tuple: ConcurrentTuple; readonly coverage: DemandCoverage }>(complete: CompleteDemandSet<T>, independent = false) {
+  private static convertCompleteTuples<T extends ScopedDemand & { readonly tuple: ConcurrentTuple; readonly coverage: DemandCoverage }>(complete: CompleteDemandSet<T>) {
+    complete.assertComplete();
+    const captured = new Map<T, ConcurrentTuple>();
+    for (const row of complete.values) {
+      const tuple = captureTuple(row.tuple);
+      if (tuple.comboId !== row.comboId) throw new IncompleteConcurrentDemandError([{ code: 'missing-combination', comboId: row.comboId }]);
+      if (tuple.forces.t !== row.stationT) throw new IncompleteConcurrentDemandError([{ code: 'missing-station', elementId: row.elementId, comboId: row.comboId, stationT: row.stationT }]);
+      captured.set(row, tuple);
+    }
     const ends = new Map<string, ConcurrentDemand['ends']>();
-    const coverages = new Map<string, DemandCoverage>();
     const key = (row: ScopedDemand) => `${row.elementId}|${row.comboId}`;
     for (const [k, group] of complete.partition(key)) {
       const ordered = [...group.values].sort((a, b) => a.stationT - b.stationT);
-      const first = ordered[0]!.tuple.forces, last = ordered[ordered.length - 1]!.tuple.forces;
+      const first = captured.get(ordered[0]!)!.forces, last = captured.get(ordered[ordered.length - 1]!)!.forces;
       ends.set(k, Object.freeze({ my: Object.freeze([first.my, last.my] as [number, number]), mz: Object.freeze([first.mz, last.mz] as [number, number]) }));
-      coverages.set(k, independent ? demandCoverage({ combinationIds: [ordered[0]!.comboId] }, ordered.map(r => r.tuple)) : ordered[0]!.coverage);
     }
-    return complete.map(row => ({ ...row, demand: new ConcurrentDemand(complete, row.comboId, coverages.get(key(row))!, row.tuple.comboName,
-      Object.freeze({ ...row.tuple.forces }), Object.freeze({ ...row.tuple.transverseLoading }), ends.get(key(row))!) }));
+    return complete.map(row => {
+      const tuple = captured.get(row)!;
+      const coverage = complete.inventory.coverageForMember(row.elementId);
+      return { ...row, demand: new ConcurrentDemand(complete, row.comboId, row.elementId, coverage, tuple.comboName,
+        Object.freeze({ ...tuple.forces }), Object.freeze({ ...tuple.transverseLoading }), ends.get(key(row))!) };
+    });
   }
 
   static loadingOf(ef: AnalysisResults3D['elementForces'][number] | undefined): Readonly<{ My?: boolean; Mz?: boolean }> {
@@ -114,13 +205,13 @@ export class ConcurrentDemand {
     const span = other.stationT - this.stationT;
     const w = span > 1e-9 ? (t - this.stationT) / span : 0;
     const lerp = (key: 'n' | 'my' | 'mz' | 'vy' | 'vz' | 'torsion' | 'x') => this.forces[key] + (other.forces[key] - this.forces[key]) * w;
-    return new ConcurrentDemand(this.#complete, this.comboId, this.coverage, this.comboName, Object.freeze({ t, x: lerp('x'), n: lerp('n'),
+    return new ConcurrentDemand(this.#complete, this.comboId, this.elementId, this.coverage, this.comboName, Object.freeze({ t, x: lerp('x'), n: lerp('n'),
       my: lerp('my'), mz: lerp('mz'), vy: lerp('vy'), vz: lerp('vz'), torsion: lerp('torsion') }), this.transverseLoading, this.ends);
   }
 
   withAxial(n: number): ConcurrentDemand {
     if (!this.#concurrent) throw new Error('Concurrent demand required');
-    return new ConcurrentDemand(this.#complete, this.comboId, this.coverage, this.comboName, Object.freeze({ ...this.forces, n }), this.transverseLoading, this.ends);
+    return new ConcurrentDemand(this.#complete, this.comboId, this.elementId, this.coverage, this.comboName, Object.freeze({ ...this.forces, n }), this.transverseLoading, this.ends);
   }
 
   section(axis: 'My' | 'Mz'): ConcurrentSectionDemand {

@@ -161,7 +161,7 @@ export function autoVerifyFromResults(
 ): AutoVerifyResult {
   const ids = [...model.elements].filter(([, elem]) => rcCheckability(elem, model) === 'checkable'
     && isDesignedMember(elem as never, model.sections as never)).map(([id]) => id);
-  return verifyCompleteResults(completeResultDemands(results, ids, stationDemands, governing), model, options);
+  return verifyCompleteResults(completeResultDemands(results, ids, stationDemands, governing, ids), model, options);
 }
 
 function verifyCompleteResults(complete: CompleteResultDemands, model: AutoVerifyModelData, options?: AutoVerifyOptions): AutoVerifyResult {
@@ -195,7 +195,7 @@ function verifyCompleteResults(complete: CompleteResultDemands, model: AutoVerif
       entry.tuples.length === tuples.length && entry.tuples.every((d, index) => d === tuples[index])
       && entry.axis === axis && sameVerificationBase(base, entry.base)) : undefined;
     let v = previous ? verificationForElement(previous.value, ef.elementId)
-      : verifyConcurrentElement(verified.map(r => ({ input: { ...base, elementId: ef.elementId, demand: r.tuple.section(axis) } })));
+      : verifyConcurrentElement(verified.forMembers([ef.elementId]).map(r => ({ input: { ...base, elementId: ef.elementId, demand: r.tuple.section(axis) } })));
     if (!previous && elementType === 'beam' && v.engineRecheck && canReuseCirsoc201Certificate(v.engineRecheck.certified)
       && !v.engineRecheck.unavailable && v.engineRecheck.disagreements.length === 0) {
       const entries = shared.get(tuples) ?? [];
