@@ -1,28 +1,27 @@
 import { expect, it } from 'vitest';
 import { modelStore, uiStore } from '../index';
 import { applyLoadPlan } from '../apply-load-plan';
-import { buildLoadPlan } from '../../engine/loads/load-plan';
+import { buildLoadPlan, type LoadPlan } from '../../engine/loads/load-plan';
 import { describePlanDelta } from '../../engine/loads/load-plan-delta';
 import { expandCombinations } from '../../engine/loads/combination-cases';
 import { mesh } from '../../engine/loads/__tests__/snow-surface-round2-fixture';
 import { regulations } from '../../engine/loads/__tests__/snow-roof-plane-fixture';
 import { flatSpec, legacyOmittedE, snowCases } from '../../engine/loads/__tests__/snow-provenance-2233-fixture';
 
-const regression = it.skipIf(process.env.SNOW_ROUND8_REPRO !== '1');
 const empty = { distributed: 0, nodal: 0, combinations: 0, caseTypes: [] };
-const planFor = (legacy: boolean) => {
+const planFor = (legacy: boolean): LoadPlan => {
   const base = buildLoadPlan({ model: mesh([[[0, 0, 3], [10, 0, 3]]]), regulations: regulations(), dead: [],
     occupancyKey: 'vivienda', tributaryWidth: 1, reductionElementKind: 'interiorBeam', floorsSupported: 1,
     applyLiveReduction: false, generateCombinations: false });
   expect(base.outcome).toBe('READY');
   return { ...base, distributed: [], nodal: [], surface: [], thermal: [],
-    cases: snowCases.map(c => ({ type: c.type, nameKey: c.name, ...('snowBasis' in c ? { snowBasis: c.snowBasis } : {}),
+    cases: snowCases.map(c => ({ existingId: null, type: c.type, nameKey: c.name, ...('snowBasis' in c ? { snowBasis: c.snowBasis } : {}),
       ...(legacy && c.type === 'S' ? { alternatives: 'roof' } : {}) })),
     combinations: [legacy ? legacyOmittedE() : flatSpec()] };
 };
 
 for (const mode of ['2d', '3d', 'pro'] as const) for (const analysis of ['linear', 'pdelta'] as const) for (const entry of ['preview', 'apply'] as const) {
-  regression(`known wrong result: #2233 preview and apply refuse omitted-E legacy snow ${mode} ${analysis} ${entry}`, () => {
+  it(`known wrong result: #2233 preview and apply refuse omitted-E legacy snow ${mode} ${analysis} ${entry}`, () => {
     for (const both of [false, true]) {
       modelStore.clear();
       uiStore.analysisMode = mode;
@@ -35,7 +34,7 @@ for (const mode of ['2d', '3d', 'pro'] as const) for (const analysis of ['linear
     }
   });
 
-  regression(`known wrong result: #2233 preview apply and reopen accept one ungrouped snow pair ${mode} ${analysis} ${entry}`, () => {
+  it(`known wrong result: #2233 preview apply and reopen accept one ungrouped snow pair ${mode} ${analysis} ${entry}`, () => {
     for (const both of [false, true]) {
       modelStore.clear();
       uiStore.analysisMode = mode;

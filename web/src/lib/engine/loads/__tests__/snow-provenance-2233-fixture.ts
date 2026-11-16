@@ -1,6 +1,6 @@
 import type { LoadCombinationSpec } from '../../../codes/cirsoc101/combinations';
 
-export const snowCases = [
+export const snowCases: Array<{ id: number; type: 'D' | 'L' | 'H' | 'S'; name: string; snowBasis?: 'flatRoof' }> = [
   { id: 1, type: 'D', name: 'D' },
   { id: 2, type: 'L', name: 'L' },
   { id: 3, type: 'H', name: 'H' },

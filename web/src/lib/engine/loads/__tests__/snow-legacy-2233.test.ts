@@ -46,6 +46,6 @@ it('#2211 explicit seismic and flat-roof specifications retain distinct case fac
   expect(expandCombinations([flat], cases.filter(c => c.type !== 'L'))).toEqual([]);
   const zero: LoadCombinationSpec = { ...flat, terms: flat.terms.map(t => t.symbol === 'S' ? { ...t, factor: 0 } : t) };
   expect(expandCombinations([zero], cases.filter(c => c.type !== 'S'))).toHaveLength(1);
-  const nonseismic = { ...legacy(0.5), terms: legacy(0.5).terms.filter(t => t.symbol !== 'E') };
+  const nonseismic: LoadCombinationSpec = { ...legacy(0.5), id: '2-S', basic: 2, terms: legacy(0.5).terms.filter(t => t.symbol !== 'E') };
   expect(expandCombinations([nonseismic], cases)[0]!.factors.find(f => f.caseId === 5)!.factor).toBe(0.5);
 });

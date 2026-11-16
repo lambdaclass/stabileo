@@ -557,7 +557,7 @@ const body: PostBody = {
           "A tető nyomászónái és első nyomatékai a felosztástól függtek (#2205). Ellenőrizze minden fal és a tető nyílásait, sorolja be újra az épületet, állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és méretezési ellenőrzéseket. A mentett terhek újraszámítása nem javítja ki őket.",
           "Magas",
           "Javítva a #2220 PR-ben, összevonásra és kiadásra vár"
-        ]
+        ],
         ["SA-2026-082", "A kísérő kombinációk figyelmeztetés nélkül a lejtéssel csökkentett havat használták a lapos tető rúdterhe helyett. A régi földrengési előírások a fizikai havat és a lapos tető havát is összekeverhetik. Generálja újra a hóterheket és a kombinációkat, majd futtassa újra az analíziseket és ellenőrzéseket. (#2211).", "Magas", "Tervezet 2026-11-16; beolvasztásra és kiadásra vár"],
       ]
     },

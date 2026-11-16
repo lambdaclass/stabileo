@@ -119,6 +119,13 @@ export interface ExpandOptions {
 /** Actions that vary: the ones a rule has a principal among. D, F and H are permanent. */
 const VARIABLE: ReadonlySet<LoadSymbol> = new Set(['L', 'Lr', 'S', 'R', 'W', 'Wa', 'E', 'T', 'A', 'I']);
 
+function hasSeismicProvenance(spec: LoadCombinationSpec): boolean {
+  return spec.basic === 5 || spec.terms.some(t => t.symbol === 'E') || !!spec.notes?.some(n =>
+    n.key === 'loads.cirsoc101.note.seismicCompanions'
+    || (n.key === 'loads.cirsoc101.note.notActing' && typeof n.params?.loads === 'string'
+      && n.params.loads.split(',').some(s => s.trim() === 'E')));
+}
+
 export function expandCombinations(
   specs: readonly LoadCombinationSpec[],
   cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string; pattern?: boolean; includes?: ReadonlyArray<unknown>; snowBasis?: 'flatRoof' }>,
@@ -137,14 +144,21 @@ export function expandCombinations(
   for (const spec of specs) {
     const terms = spec.terms.filter((t) => t.factor !== 0);
     const legacyFlatRoof = spec.notes?.some(n => n.key === 'loads.cirsoc101.note.snowAsFlatRoof');
-    const seismic = terms.some(t => t.symbol === 'E');
+    const seismic = hasSeismicProvenance(spec);
     const selected = new Map(terms.map(t => {
       if (t.snowBasis && t.symbol !== 'S') throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
       if (t.symbol === 'S' && !t.snowBasis && legacyFlatRoof && seismic) throw new EngineMessageError(msg('snow.refused.legacyCombination'));
       const all = bySymbol.get(t.symbol) ?? [];
       const basis = t.snowBasis ?? (t.symbol === 'S' && legacyFlatRoof ? 'flatRoof' : undefined);
       const matching = all.filter(c => t.symbol !== 'S' || c.snowBasis === basis);
-      if (basis === 'flatRoof' && all.some(c => !c.snowBasis && !matching.some(m => m.alternatives && m.alternatives === c.alternatives))) throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
+      if (basis === 'flatRoof') {
+        const ungroupedPair = all.filter(c => !c.snowBasis && !c.alternatives).length === 1
+          && matching.filter(c => !c.alternatives).length === 1;
+        const covered = (c: Case) => c.alternatives
+          ? matching.some(m => m.alternatives === c.alternatives)
+          : ungroupedPair;
+        if (all.some(c => !c.snowBasis && !covered(c))) throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
+      }
       if ((basis === 'flatRoof' || all.length > 0) && !matching.length) throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
       return [t, matching] as const;
     }));

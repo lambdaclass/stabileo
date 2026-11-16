@@ -2,11 +2,10 @@ import { expect, it } from 'vitest';
 import { expandCombinations } from '../combination-cases';
 import { legacyOmittedE, flatSpec, snowCases } from './snow-provenance-2233-fixture';
 
-const regression = it.skipIf(process.env.SNOW_ROUND8_REPRO !== '1');
 const grouped = snowCases.map(c => c.type === 'S' ? { ...c, alternatives: 'roof' } : c);
 
 for (const provenance of ['basic', 'omission-note', 'zero-E', 'seismic-note'] as const) {
-  regression(`known wrong result: #2233 omitted-E legacy snow refuses using ${provenance}`, () => {
+  it(`known wrong result: #2233 omitted-E legacy snow refuses using ${provenance}`, () => {
     for (const factor of [0.2, 0.7]) for (const both of [false, true]) for (const patterns of [false, true]) {
       const spec = legacyOmittedE(factor);
       spec.id = 'renamed saved rule';
@@ -24,7 +23,7 @@ for (const provenance of ['basic', 'omission-note', 'zero-E', 'seismic-note'] as
   });
 }
 
-regression('known wrong result: #2233 an ungrouped physical and flat-roof pair retains both answers', () => {
+it('known wrong result: #2233 an ungrouped physical and flat-roof pair retains both answers', () => {
   for (const legacy of [false, true]) for (const both of [false, true]) for (const patterns of [false, true]) {
     const flat = flatSpec();
     if (legacy) {
