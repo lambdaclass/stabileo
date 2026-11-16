@@ -1,8 +1,6 @@
 import { expect, it } from 'vitest';
 import { gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
-const wrong2199 = process.env.RUN_KNOWN_WRONG === '2199' ? it : it.skip;
-const wrong2200 = process.env.RUN_KNOWN_WRONG === '2200' ? it : it.skip;
 function model(w=4.76,angle=0) {
   const p=[[0,0],[10,0],[10,6],[0,6],[0,0],[w,0],[w,6],[0,6]];
   const nodes=new Map(p.map(([x,y],k)=>[k+1,{id:k+1,x:x!*Math.cos(angle)-y!*Math.sin(angle),y:x!*Math.sin(angle)+y!*Math.cos(angle),z:3}]));
@@ -25,7 +23,7 @@ function totals(m:ReturnType<typeof model>,angle=0) {
   for (const n of out.nodal) { const p=m.nodes.get(n.nodeId)!; const c=n as typeof n & { mx?:number; my?:number }; force-=n.fz; first+=-n.fz*(p.x*Math.cos(angle)+p.y*Math.sin(angle))+(c.my??0)*Math.cos(angle)-(c.mx??0)*Math.sin(angle); }
   return {force,first};
 }
-wrong2199('known wrong result: #2199 partial shell coverage preserves total vertical area load',()=>{expect(totals(model()).force).toBeCloseTo(60,8)});
-wrong2200('known wrong result: #2200 partial shell coverage preserves first moment',()=>{expect(totals(model(5)).first).toBeCloseTo(300,8)});
-wrong2199('known wrong result: #2199 partial shell coverage is invariant to plan rotation',()=>{expect(totals(model(4.76,0.37),0.37).force).toBeCloseTo(totals(model()).force,8)});
+it('known wrong result: #2199 partial shell coverage preserves total vertical area load',()=>{expect(totals(model()).force).toBeCloseTo(60,8)});
+it('known wrong result: #2200 partial shell coverage preserves first moment',()=>{expect(totals(model(5)).first).toBeCloseTo(300,8)});
+it('known wrong result: #2199 partial shell coverage is invariant to plan rotation',()=>{expect(totals(model(4.76,0.37),0.37).force).toBeCloseTo(totals(model()).force,8)});
 it('full beam panel retains force and moment',()=>{const m=model();m.quads.clear();expect(totals(m)).toEqual({force:60,first:300})});

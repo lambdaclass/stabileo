@@ -162,7 +162,8 @@ describe('what is not loaded', () => {
     expect(t[1]).toBeCloseTo(t[6]!, 6);
     expect(t[3]! + (r.nodal.filter((n) => n.elementId === 3).reduce((s, n) => s - n.fz, 0))).toBeCloseTo(t[4]! + r.nodal.filter((n) => n.elementId === 4).reduce((s, n) => s - n.fz, 0), 6);
     // The share past the sides' ends at the re-entrant corner goes to its node.
-    expect(r.nodal.every((n) => n.nodeId === 4)).toBe(true);
+    expect(r.nodal.filter(n => n.fz !== 0).every((n) => n.nodeId === 4)).toBe(true);
+    expect(r.nodal.some(n => n.mx !== 0 || n.my !== 0)).toBe(true);
   });
 
   it('a cantilever beam bounds nothing', () => {
@@ -253,15 +254,15 @@ describe('zones, suction and inclined floors', () => {
     expect(r.perBeam.get(2) ?? 0).toBeCloseTo(0, 9);
   });
 
-  it('one way, a zone edge along the span is exact; across it the panel is reported', () => {
+  it('one way, zones along and across the span carry their exact force and moments', () => {
     const m = panelModel([[0, 0], [8, 0], [8, 6], [0, 6]]);
     const along = { outer: [[0, 0, 3], [8, 0, 3], [8, 2, 3], [0, 2, 3]] as Array<[number, number, number]> };
     const r = floorLoad({ ...m, q: 1, distribution: 'oneWay', spanAxis: 'x', zone: along });
     expect(r.totalKN).toBeCloseTo(16, 6);
     const across = { outer: [[0, 0, 3], [3, 0, 3], [3, 6, 3], [0, 6, 3]] as Array<[number, number, number]> };
     const r2 = floorLoad({ ...m, q: 1, distribution: 'oneWay', spanAxis: 'x', zone: across });
-    expect(r2.skipped.zoneAcrossSpan).toBe(1);
-    expect(r2.totalKN).toBe(0);
+    expect(r2.skipped.zoneAcrossSpan).toBe(0);
+    expect(r2.totalKN).toBe(18);
   });
 
   it('a suction lifts: the same pattern upward', () => {

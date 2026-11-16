@@ -217,7 +217,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     for (const n of p.nodal) {
       const id = caseOf(n.caseType, n.caseIndex);
       if (id === undefined) continue;
-      const loadId = modelStore.addNodalLoad3D(n.nodeId, n.fx, n.fy, n.fz, 0, 0, n.mz ?? 0, id);
+      const loadId = modelStore.addNodalLoad3D(n.nodeId, n.fx, n.fy, n.fz, n.mx ?? 0, n.my ?? 0, n.mz ?? 0, id);
       if (n.carrier !== undefined) carrierOf.set(loadId, n.carrier);
     }
     for (const th of p.thermal) {
@@ -229,7 +229,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     for (const s of p.surface) {
       const id = caseOf(s.caseType, s.caseIndex);
       if (id === undefined) continue;
-      modelStore.addSurfaceLoad3D(s.quadId, s.q, id, s.frame ? { frame: s.frame, dir: s.dir, vary: s.vary } : undefined);
+      modelStore.addSurfaceLoad3D(s.quadId, s.q, id, s.frame || s.region ? { frame: s.frame, dir: s.dir, vary: s.vary, region: s.region } : undefined);
     }
 
     // The user's own cases of a type the plan generates into a group of its own (the live load

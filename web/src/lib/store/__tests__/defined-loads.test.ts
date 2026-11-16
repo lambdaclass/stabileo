@@ -69,12 +69,12 @@ describe('a shared link', () => {
 
   it('a load whose definition is not there stays, as a plain load', () => {
     const { defId } = bay();
-    const n = fromDef().length;
+    const original = fromDef().map(l => ({ ...l, data: { ...l.data } }));
     const snap = modelStore.snapshot();
     modelStore.restore({ ...snap, groups: (snap.groups ?? []).filter(([id]) => id !== defId) });
     expect(syncDefinedLoads()).not.toBeNull();
     expect(fromDef()).toHaveLength(0);
-    expect(modelStore.loads.filter((l) => l.type === 'distributed3d')).toHaveLength(n);
+    expect(modelStore.loads).toEqual(original.map(l => ({ ...l, data: Object.fromEntries(Object.entries(l.data).filter(([key]) => key !== 'fromDef')) })));
   });
 });
 

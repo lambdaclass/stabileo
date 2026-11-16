@@ -1,3 +1,4 @@
+import type { ShellLoadSpec } from '../shell-load-integration';
 /**
  * The single authoritative regulation-backed load generator.
  *
@@ -31,6 +32,8 @@
  * Pure: no store, no runes. Forces kN, lengths m, pressures kPa.
  */
 
+import { physicalRegion, unionRegions, regionIntegral } from './physical-region-loads';
+import { floorLoad } from './floor-loads';
 import { engineFailureMessage } from '../engine-unavailable';
 import { memberMeanArea } from '../../section/variable';
 import type { CombinationInputs, LoadCombinationSpec, LoadSymbol } from '../../codes/cirsoc101/combinations';
@@ -326,6 +329,7 @@ export interface PlannedDistributed {
 
 /** An area load on a quad, kN/m², positive downward (`SurfaceLoad3D`). */
 export interface PlannedSurface {
+  region?: ShellLoadSpec['region'];
   quadId: number;
   caseType: PlannedCase['type'];
   caseIndex?: number;
@@ -346,6 +350,8 @@ export interface PlannedNodal {
   fz: number;
   /** Moment about the vertical, kN·m (a wind torsion on a one-node level). */
   mz?: number;
+  mx?: number;
+  my?: number;
   /** The member a floor's share at a re-entrant corner belongs to (`NodalLoad3D.carrier`). */
   carrier?: number;
 }
@@ -469,12 +475,15 @@ export function levelsWithPlanArea(
   }
   for (const b of buckets) {
     b.nodeIds.sort((x, y) => x - y);
-    const pts = b.nodeIds.map((id) => model.nodes.get(id)!).filter(Boolean);
-    if (pts.length < 3) { b.planAreaM2 = 0; continue; }
-    // Axis-aligned extent of the nodes at this level. Real geometry, not an assumption.
-    const xs = pts.map((p) => p.x);
-    const ys = pts.map((p) => p.y);
-    b.planAreaM2 = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+    const ids = new Set(b.nodeIds);
+    const beams = [...model.elements.values()].filter(e => ids.has(e.nodeI) && ids.has(e.nodeJ)).map(e => ({ ...e, type: e.type === 'truss' ? 'truss' as const : 'frame' as const }));
+    const floor = floorLoad({ nodes: model.nodes, beams, q: 1, distribution: 'twoWay', outlineOnly: true });
+    const panels = floor.panels.filter(p => p.reason !== 'crossing').map(p => physicalRegion(p.polygon, p.holes));
+    const shells = [...(model.quads?.values() ?? [])].flatMap(q => {
+      if (!q.nodes.every(id => ids.has(id))) return [];
+      return [physicalRegion(q.nodes.map(id => { const n = model.nodes.get(id)!; return [n.x, n.y]; }))];
+    });
+    b.planAreaM2 = regionIntegral(unionRegions([...panels, ...shells])).area;
   }
   return buckets;
 }

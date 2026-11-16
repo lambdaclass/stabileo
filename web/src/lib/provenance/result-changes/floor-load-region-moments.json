@@ -1,0 +1,40 @@
+{
+  "id": "floor-load-region-moments",
+  "date": "2026-11-16",
+  "prs": [
+    2199,
+    2200,
+    2201,
+    2210
+  ],
+  "area": "loads",
+  "when": {
+    "any": [
+      "areaDeadLoads",
+      "floorLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Floor loads retain eccentric moments",
+    "es": "Las cargas de piso conservan los momentos excéntricos",
+    "pt": "As cargas de piso conservam os momentos excêntricos",
+    "de": "Deckenlasten erhalten exzentrische Momente",
+    "fr": "Les charges de plancher conservent leurs moments excentrés",
+    "tr": "Döşeme yükleri dışmerkez momentlerini korur"
+  },
+  "explanation": {
+    "en": "Floor zones could lose the eccentric moment when transferred to beam lines. Reapply floor loads or refresh their definitions, then rerun analyses, combinations and design checks (#2201).",
+    "es": "Las zonas de piso podían perder el momento excéntrico al transferirse a las vigas. Vuelva a aplicar las cargas o actualice sus definiciones y recalcule análisis, combinaciones y verificaciones (#2201).",
+    "pt": "As zonas de piso podiam perder o momento excêntrico na transferência às vigas. Reaplique as cargas ou atualize suas definições e recalcule análises, combinações e verificações (#2201).",
+    "de": "Deckenlastzonen konnten bei der Übertragung auf Stabachsen ihr exzentrisches Moment verlieren. Lasten erneut anwenden oder Definitionen aktualisieren, dann Analysen, Kombinationen und Nachweise wiederholen (#2201).",
+    "fr": "Les zones de plancher pouvaient perdre leur moment excentré lors du transfert aux poutres. Réappliquez les charges ou actualisez leurs définitions, puis relancez analyses, combinaisons et vérifications (#2201).",
+    "tr": "Döşeme bölgeleri kiriş eksenlerine aktarılırken dışmerkez momentlerini kaybedebiliyordu. Yükleri yeniden uygulayın veya tanımlarını güncelleyin; ardından analizleri, birleşimleri ve kontrolleri tekrarlayın (#2201)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-physical-regions.md",
+    "heading": "Gravity loads conserve the physical loaded region"
+  }
+}

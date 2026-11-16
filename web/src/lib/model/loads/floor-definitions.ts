@@ -14,6 +14,7 @@
  *
  * Pure: the model in, the loads and what was found out.
  */
+import { physicalRegion, regionIntegral } from '../../engine/loads/physical-region-loads';
 import { floorLoad, type FloorBeam, type FloorLoadResult } from '../../engine/loads/floor-loads';
 import { shellLoadForces } from '../../engine/shell-load-integration';
 import { applyPoint, axisPermutation, type Affine } from '../edit/affine';
@@ -191,7 +192,7 @@ export function expandDefinition(m: DefinitionModel, def: FloorLoadDef, own: Gro
     // The part along an inclined member's axis too (qX), or the load would not stay vertical.
     ...res.loads.map((l): Load => ({ type: 'distributed3d', data: { id: 0, elementId: l.elementId, ...(l.qXI || l.qXJ ? { qXI: l.qXI, qXJ: l.qXJ } : {}), qYI: l.qYI, qYJ: l.qYJ, qZI: l.qZI, qZJ: l.qZJ, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), ...mark } })),
     // A share at a re-entrant corner names the member it belongs to, which carries its mass.
-    ...res.nodal.map((n): Load => ({ type: 'nodal3d', data: { id: 0, nodeId: n.nodeId, fx: 0, fy: 0, fz: n.fz, mx: 0, my: 0, mz: 0, carrier: n.elementId, ...mark } })),
+    ...res.nodal.map((n): Load => ({ type: 'nodal3d', data: { id: 0, nodeId: n.nodeId, fx: 0, fy: 0, fz: n.fz, mx: n.mx, my: n.my, mz: 0, carrier: n.elementId, ...mark } })),
   ];
   return { defId, loads, result: res, totalKN: res.totalKN, ...(loads.length ? {} : { problem: 'nothingTargeted' as const }) };
 }
@@ -257,16 +258,12 @@ export function definitionName(m: Pick<DefinitionModel, 'groups'>, defId: number
 }
 
 /** The area of a polygon in plan, m². */
-function planArea(pts: readonly P3[]): number {
-  let s = 0;
-  for (let i = 0; i < pts.length; i++) { const a = pts[i]!, b = pts[(i + 1) % pts.length]!; s += a[0] * b[1] - b[0] * a[1]; }
-  return Math.abs(s / 2);
-}
+
 
 /** A zone's area in plan less its openings', m². */
 export function zoneArea(m: DefinitionModel, zoneId: number): number {
   const z = zoneOutline(m, zoneId);
-  return z ? planArea(z.outer) - z.holes.reduce((s, h) => s + planArea(h), 0) : 0;
+  return z ? regionIntegral(physicalRegion(z.outer.map(p => [p[0], p[1]]), z.holes.map(h => h.map(p => [p[0], p[1]])))).area : 0;
 }
 
 /** Whether a node of the zone's outline has been deleted since it was drawn. */

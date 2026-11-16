@@ -42,7 +42,7 @@
  *
  * Pure: no store.
  */
-import polygonClipping from 'polygon-clipping';
+import { physicalRegion, unionRegions, subtractRegions, regionIntegral, intersectRegions, transferRegionToCarriers, sameCarrierPlane, type PhysicalRegion } from './physical-region-loads';
 import { floorLoad, type FloorBeam, type SideStretch } from './floor-loads';
 import { msg, round, type EngineMessage } from '../../codes/message';
 
@@ -81,6 +81,7 @@ export function widthSpans(m: { spans?: WidthSpan[] }, tributaryWidth: number): 
 export interface GravityLayout {
   pieces: GravityPiece[];
   points: GravityPoint[];
+  couples: Array<{ nodeId: number; w: number; mx: number; my: number; elementId: number; roof: boolean; panel: number }>;
   /** Area each member collects from floors, m². */
   areaOf: Map<number, number>;
   /** Area each member collects from roofs, m². A beam at a step has both. */
@@ -97,7 +98,7 @@ export interface GravityLayout {
    * plan area over surface area (1 when horizontal), which turns a load per plan m² into one per
    * m² of shell.
    */
-  shellQuads: Array<{ quadId: number; area: number; z: number; cos: number }>;
+  shellQuads: Array<{ quadId: number; area: number; z: number; cos: number; region?: PhysicalRegion }>;
   /** Loaded plan area per level elevation (rounded to the millimetre), m². */
   areaByLevel: Map<number, number>;
   /** Members that carry roof: a roof panel, or (loaded by width) nothing higher over them. */
@@ -133,17 +134,12 @@ export function beamLike(model: GravityModel, el: { nodeI: number; nodeJ: number
 }
 
 function planArea(pts: Array<{ x: number; y: number }>): number {
-  let s = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const a = pts[i]!, b = pts[(i + 1) % pts.length]!;
-    s += a.x * b.y - b.x * a.y;
-  }
-  return Math.abs(s) / 2;
+  return regionIntegral(physicalRegion(pts.map(p => [p.x, p.y]))).area;
 }
 
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
   const out: GravityLayout = {
-    pieces: [], points: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
+    pieces: [], points: [], couples: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
     roof: new Set(), roofQuads: new Set(), zOf: new Map(), panelColour: [], widthColour: new Map(), panels: [], oneSided: [], notes: [],
   };
   const sidesOf = new Map<number, SideStretch[]>();
@@ -213,25 +209,16 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   /** A point lies in a carrying shell's surface: inside its plan and at its height there. */
   const inShell = (p: [number, number, number]) => opts.mode === 'panels'
     && carriers.some((c) => inside([p[0], p[1]], c.poly) && Math.abs(heightIn(c.pts, p) - p[2]) <= 0.05);
-  /**
-   * How much of a panel of level `z` the shells springing from that level cover, 0 to 1, by a
-   * 20 × 20 grid of points over it. It used to test the panel's centre alone, so a slab over half
-   * a bay unloaded the whole bay or none of it.
-   */
-  const shellCover = (poly: Array<[number, number]>, z: number): number => {
-    if (opts.mode !== 'panels') return 0;
-    const over = carriers.filter((c) => Math.abs(c.z0 - z) <= TOL);
-    if (over.length === 0) return 0;
-    const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
-    const x0 = Math.min(...xs), y0 = Math.min(...ys), dx = (Math.max(...xs) - x0) / 20, dy = (Math.max(...ys) - y0) / 20;
-    let n = 0, hit = 0;
-    for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
-      const pt: [number, number] = [x0 + (i + 0.5) * dx, y0 + (j + 0.5) * dy];
-      if (!inside(pt, poly, 0)) continue;
-      n++;
-      if (over.some((c) => inside(pt, c.poly))) hit++;
-    }
-    return n > 0 ? hit / n : 0;
+  const footprints = new Map<number, PhysicalRegion>();
+  const shellFootprint = (z: number) => {
+    let region = footprints.get(z);
+    if (!region) { region = unionRegions(opts.mode === 'panels' ? carriers.filter(c => Math.abs(c.z0 - z) <= TOL).map(c => physicalRegion(c.poly)) : []); footprints.set(z, region); }
+    return region;
+  };
+  const shellCoverage = (panel: { polygon: Array<[number, number]>; holes?: Array<Array<[number, number]>> }, z: number) => {
+    const region = physicalRegion(panel.polygon, panel.holes), footprint = shellFootprint(z);
+    return { full: region.polygons.length > 0 && subtractRegions(region, footprint).polygons.length === 0,
+      partial: intersectRegions(region, footprint).polygons.length > 0 };
   };
   const midpoint = (e: { nodeI: number; nodeJ: number }): [number, number, number] => {
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
@@ -304,9 +291,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   for (const z of [...beamsAt.keys()].sort((a, b) => b - a)) {
     for (const panel of deck ? levels.get(z)?.res.panels ?? [] : []) {
       if (!panel.loaded || !panel.own) continue;
-      const cover = shellCover(panel.polygon, z);
-      if (cover >= 0.98) continue;
-      const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
+      const cover = shellCoverage(panel, z);
+      if (cover.full) continue;
+      const why = !cover.partial ? deckless(panel.polygon, z) : null;
       if (why === 'wide') continue;
       if (why === 'lowHeadroom') {
         const within = (o: { polygon: Array<[number, number]>; area: number }, p: { polygon: Array<[number, number]>; area: number }) => o !== p && o.area < p.area && o.polygon.every((q) => inside(q, p.polygon));
@@ -336,19 +323,15 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
         const axis = { p: [a[0], a[1]] as [number, number], u: [(b[0] - a[0]) / L, (b[1] - a[1]) / L] as [number, number], L };
         const { share, kept } = deck!.uncarried(tributaryStrip([a[0], a[1]], [b[0], b[1]], opts.tributaryWidth), z, held);
-        const bins = share > 0 ? areaAlong(kept, axis, FRINGE_BINS) : [];
-        const spans: WidthSpan[] = [];
-        bins.forEach(({ area, first }, k) => {
-          if (!(area > 0)) return;
-          const w = L / bins.length, c = first / area;
-          const half = Math.abs(c - (k + 0.5) * w) <= 1e-9 * w ? w / 2 : Math.min(w / 2, c - k * w, (k + 1) * w - c);
-          const [t0, t1] = half > 1e-9 ? [(c - half) / L, (c + half) / L] : [k / bins.length, (k + 1) / bins.length];
-          const width = area / (L * (t1 - t0));
-          const last = spans[spans.length - 1];
-          if (last && Math.abs(last.t1 - t0) < 1e-12 && Math.abs(last.width - width) <= 1e-9 * width) last.t1 = t1;
-          else spans.push({ t0, t1, width });
-        });
-        if (spans.length === 0) { droppedMembers.add(e.id); continue; }
+        const physical = unionRegions(kept.map(p => physicalRegion(p[0]!, p.slice(1))));
+        const moved = share > 0 ? transferRegionToCarriers(model, physical, [e.id]) : { pieces: [], points: [], couples: [] };
+        const spans: WidthSpan[] = moved.pieces.map(p => ({ t0: p.a / L, t1: p.b / L, width: p.wI }));
+        for (const p of moved.points) {
+          out.points.push({ ...p, roof: true, panel: -1 });
+          addArea(out.roofAreaOf, p.elementId, p.w);
+        }
+        for (const p of moved.couples) out.couples.push({ ...p, roof: true, panel: -1 });
+        if (spans.length === 0 && moved.points.length === 0) { droppedMembers.add(e.id); continue; }
         fringeRoof.set(e.id, spans);
         fringeSides.set(e.id, loadedSides(kept, axis));
         held.kept.push({ region: kept, z });
@@ -364,12 +347,32 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       out.shellQuads.push(...quads.map((q) => ({ ...q, z, cos: 1 })));
       const area = quads.reduce((s, q) => s + q.area, 0);
       out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + area);
-      out.notes.push(msg('loadPlan.gravity.shellLevel', { z: round(z, 2), n: quads.length, area: round(area, 1) }));
     }
     if (slopedQuads.length > 0) {
       out.shellQuads.push(...slopedQuads);
-      out.notes.push(msg('loadPlan.gravity.slopedShells', { n: slopedQuads.length, area: round(slopedQuads.reduce((s, q) => s + q.area, 0), 1) }));
     }
+    const occupied: Array<{ region: PhysicalRegion; bounds: number[]; xyz: Array<[number, number, number]> }> = [];
+    out.shellQuads = out.shellQuads.map(sq => {
+      const quad = model.quads!.get(sq.quadId)!;
+      const vertices = quad.nodes.map(nodeId => { const p = model.nodes.get(nodeId)!; return { nodeId, point: [p.x, p.y] as [number, number] }; });
+      const full = physicalRegion(vertices.map(v => v.point));
+      const xyz = quad.nodes.map(id => { const p = model.nodes.get(id)!; return [p.x, p.y, p.z ?? 0] as [number, number, number]; });
+      const points = vertices.map(v => v.point);
+      const bounds = [Math.min(...points.map(p => p[0])), Math.min(...points.map(p => p[1])), Math.max(...points.map(p => p[0])), Math.max(...points.map(p => p[1]))];
+      const previous = occupied;
+      const prior = unionRegions(previous.filter(p => p.bounds[0]! < bounds[2]! && p.bounds[2]! > bounds[0]! && p.bounds[1]! < bounds[3]! && p.bounds[3]! > bounds[1]! && sameCarrierPlane(p.xyz, xyz)).map(p => p.region));
+      const owned = subtractRegions(full, prior);
+      previous.push({ region: full, bounds, xyz });
+      const area = regionIntegral(owned).area;
+      if (sq.cos === 1) out.areaByLevel.set(sq.z, (out.areaByLevel.get(sq.z) ?? 0) - sq.area + area);
+      return { ...sq, area, ...(regionIntegral(intersectRegions(full, prior)).area > 0 ? { region: owned } : {}) };
+    });
+    for (const z of quadsAt.keys()) {
+      const loaded = out.shellQuads.filter(q => q.z === z && q.cos === 1 && q.area > 0);
+      out.notes.push(msg('loadPlan.gravity.shellLevel', { z: round(z, 2), n: loaded.length, area: round(loaded.reduce((s, q) => s + q.area, 0), 1) }));
+    }
+    const loadedSlopes = out.shellQuads.filter(q => q.cos !== 1 && q.area > 0);
+    if (loadedSlopes.length) out.notes.push(msg('loadPlan.gravity.slopedShells', { n: loadedSlopes.length, area: round(loadedSlopes.reduce((s, q) => s + q.area, 0), 1) }));
     if (steep.length > 0) out.notes.push(msg('loadPlan.gravity.steepShells', { n: steep.length, ids: steep.slice(0, 10).join(', ') + (steep.length > 10 ? '…' : '') }));
   }
 
@@ -380,59 +383,59 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   for (const [z, { beams, res }] of levels) {
     unresolved += res.skipped.unresolved;
     const loaded = panelLoadedAt.get(z)!;
+    const excluded = opts.mode === 'panels' ? carriers.filter(c => Math.abs(c.z0 - z) <= TOL).map(c => c.pts) : [];
+    const uncovered = excluded.length ? floorLoad({ nodes: model.nodes, beams, q: 1, ...slab, excluded }) : res;
     for (const panel of res.panels) {
       if (!panel.loaded || !panel.own) continue;
-      // Under shells the panel's load is theirs; partly under, its beams take the rest, spread as
-      // the whole panel spreads it (the share is right, the shape over the beams approximate).
-      const cover = shellCover(panel.polygon, z);
-      if (cover >= 0.98) continue;
-      const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
+      const cover = shellCoverage(panel, z);
+      if (cover.full) continue;
+      const why = !cover.partial ? deckless(panel.polygon, z) : null;
       if (dropped.has(panel)) { lowPanels++; continue; }
       if (why === 'lowHeadroom') fringes++;
       if (why === 'wide') { widePanels++; continue; }
       if (why === 'headroomUnclear') { if (covered(centroid(panel.polygon), z)) unclear++; else unclearRoof++; }
-      const share = fringeShare.get(panel) ?? (cover > 0.02 ? 1 - cover : 1);
-      if (!fringeShare.has(panel) && share < 1) partly++;
+      if (!fringeShare.has(panel) && cover.partial) partly++;
       // The panel's own part of the level's result. Loading its members again on their own found
       // an opening's ring as a panel too, and the ring, loaded on its own as well, counted twice.
-      const one = panel.own;
+      const kept = fringeKept.get(panel);
+      const filtered = kept ? res : uncovered;
+      const one = filtered.panels[res.panels.indexOf(panel)]?.own;
+      if (!one) continue;
       const c = centroid(panel.polygon);
       const roof = why === 'lowHeadroom' || !covered(c, z);
       const index = panelBeams.length;
       panelBeams.push(new Set(one.perBeam.keys()));
       panelLevel.push(levelOrder.indexOf(z));
       out.panels.push({ polygon: panel.polygon, z, roof });
-      const region = fringeKept.get(panel);
-      if (region) {
-        let kept = 0;
-        const moved = regionToBeams(model, region, [...one.perBeam.keys()]);
+      if (kept) {
+        const region = unionRegions(kept.map(p => physicalRegion(p[0]!, p.slice(1))));
+        const moved = transferRegionToCarriers(model, region, [...one.perBeam.keys()]);
+        let carried = 0;
         for (const pc of moved.pieces) {
           out.pieces.push({ ...pc, roof, panel: index });
           addSides(pc.elementId, one.sides.get(pc.elementId));
-          const a = pc.wI * (pc.b - pc.a);
-          addArea(out.roofAreaOf, pc.elementId, a);
-          out.roof.add(pc.elementId);
-          kept += a;
+          const area = pc.wI * (pc.b - pc.a); carried += area;
+          addArea(out.roofAreaOf, pc.elementId, area); out.roof.add(pc.elementId);
         }
         for (const pt of moved.points) {
-          out.points.push({ ...pt, roof, panel: index });
-          addArea(out.roofAreaOf, pt.elementId, pt.w);
-          out.roof.add(pt.elementId);
-          kept += pt.w;
+          out.points.push({ ...pt, roof, panel: index }); carried += pt.w;
+          addArea(out.roofAreaOf, pt.elementId, pt.w); out.roof.add(pt.elementId);
         }
-        out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + kept);
+        for (const moment of moved.couples) out.couples.push({ ...moment, roof, panel: index });
+        out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + carried);
         continue;
       }
       for (const l of one.loads) {
         addSides(l.elementId, one.sides.get(l.elementId));
-        out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI * share, wJ: l.qJ * share, roof, panel: index });
+        out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI, wJ: l.qJ, roof, panel: index });
       }
       for (const n of one.nodal) {
-        out.points.push({ nodeId: n.nodeId, w: -n.fz * share, elementId: n.elementId, roof, panel: index });
-        addArea(roof ? out.roofAreaOf : out.areaOf, n.elementId, -n.fz * share);
+        if (n.fz !== 0 && n.transfer !== 'roundoff') out.points.push({ nodeId: n.nodeId, w: -n.fz, elementId: n.elementId, roof, panel: index });
+        if (n.mx !== 0 || n.my !== 0 || n.transfer === 'roundoff') out.couples.push({ nodeId: n.nodeId, w: n.transfer === 'roundoff' ? -n.fz : 0, mx: n.mx, my: n.my, elementId: n.elementId, roof, panel: index });
+        addArea(roof ? out.roofAreaOf : out.areaOf, n.elementId, -n.fz);
       }
-      for (const [id, a] of one.perBeam) { addArea(roof ? out.roofAreaOf : out.areaOf, id, a * share); if (roof) out.roof.add(id); }
-      out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + one.area * share);
+      for (const [id, a] of one.perBeam) { addArea(roof ? out.roofAreaOf : out.areaOf, id, a); if (roof) out.roof.add(id); }
+      out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + one.area);
     }
     for (const b of beams) {
       if (loaded.has(b.id) || inShell(midpoint(b))) continue;
@@ -553,42 +556,34 @@ function notADeck(
     }
     return h;
   };
-  /**
-   * The part of `area` that no load already kept less than a storey above carries, and its share
-   * of `area`: what is left once the loaded panels, the tributary strips of members kept by width
-   * (over the stretch of each that is low), the shells loaded by panels (all of whose corners are
-   * low) and what panels and members within the roof's structure kept for themselves are taken
-   * away, as are `holes`, the outermost panels nested in it that load their own area. Geometry that cannot be
-   * resolved keeps all of `area`.
-   */
   const uncarried = (area: Array<[number, number]>, z: number, held: Held, holes: Array<Array<[number, number]>> = []): { share: number; kept: Region } => {
     const low = (dz: number) => dz > TOL && dz < MIN_STOREY_HEADROOM;
     const whole: Region = [[closeRing(area)]];
     const cover: Region[] = holes.map((h) => [[closeRing(h)]]);
-    const total = regionArea(whole) - cover.reduce((s, h) => s + regionArea(h), 0);
-    if (!(total > 1e-12)) return { share: 1, kept: whole };
+    const total = regionIntegral(physicalRegion(area, holes)).area;
+    if (!(total > 0)) return { share: 0, kept: [] };
     for (const p of held.panels) if (low(p.z - z)) cover.push([[closeRing(p.poly)]]);
     for (const k of held.kept) if (low(k.z - z)) cover.push(k.region);
     if (shellsLoaded) for (const c of carriers) if (c.pts.every((p) => low(p[2] - z))) cover.push([[closeRing(c.poly)]]);
     for (const [a, b] of held.members) {
       const range = lowRange(a[2] - z, b[2] - z, TOL, MIN_STOREY_HEADROOM);
-      if (!range || Math.hypot(b[0] - a[0], b[1] - a[1]) * (range[1] - range[0]) <= 1e-9) continue;
+      if (!range) continue;
       const at = (t: number): [number, number] => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
       cover.push([[closeRing(tributaryStrip(at(range[0]), at(range[1]), tributaryWidth))]]);
     }
     if (cover.length === 0) return { share: 1, kept: whole };
-    const o = area[0]!;
-    for (const step of [1e-9, 1e-6, 1e-4]) {
-      try {
-        const local = (r: Region) => snap(shift(r, -o[0], -o[1]), step);
-        const rest = polygonClipping.difference(local(whole) as never, ...(cover.map(local) as never[])) as unknown as Region;
-        const kept = shift(rest.filter((poly) => regionArea([poly]) > 1e-9 * total), o[0], o[1]);
-        return { share: Math.min(1, Math.max(0, regionArea(kept) / total)), kept };
-      } catch {
-        continue;
-      }
-    }
-    return { share: 1, kept: whole };
+    const o = area[0]!, end = area.find(p => p[0] !== o[0] || p[1] !== o[1]) ?? [o[0] + 1, o[1]];
+    const length = Math.hypot(end[0] - o[0], end[1] - o[1]), ux = (end[0] - o[0]) / length, uy = (end[1] - o[1]) / length;
+    const local = (p: [number, number]): [number, number] => {
+      const dx = p[0] - o[0], dy = p[1] - o[1];
+      return [Math.round((dx * ux + dy * uy) * 1e12) / 1e12, Math.round((-dx * uy + dy * ux) * 1e12) / 1e12];
+    };
+    const world = ([x, y]: [number, number]): [number, number] => [o[0] + ux * x - uy * y, o[1] + uy * x + ux * y];
+    const base = physicalRegion(area.map(local), holes.map(h => h.map(local)));
+    const covered = unionRegions(cover.flatMap(r => r.map(p => physicalRegion(p[0]!.map(local), p.slice(1).map(h => h.map(local))))));
+    const kept = subtractRegions(physicalRegion(area.map(local)), covered);
+    const original = regionIntegral(base).area;
+    return { share: original > 0 ? regionIntegral(kept).area / original : 0, kept: kept.polygons.map(p => p.map(r => r.map(world))) };
   };
   const why = (poly: Array<[number, number]>, z: number): 'lowHeadroom' | 'wide' | 'headroomUnclear' | null => {
     const probes: Array<[number, number]> = [centroid(poly)];
@@ -661,7 +656,6 @@ type Region = Array<Array<Array<[number, number]>>>;
 /** What the loads already kept carry: whole panels, members' strips, and what fringe panels and members kept. */
 type Held = { panels: Array<{ poly: Array<[number, number]>; z: number }>; members: Segment[]; kept: Array<{ region: Region; z: number }> };
 
-type Axis = { p: [number, number]; u: [number, number]; L: number };
 
 function signedArea(ring: Array<[number, number]>): number {
   const o = ring[0];
@@ -684,21 +678,11 @@ function openRing(ring: Array<[number, number]>): Array<[number, number]> {
   return n > 1 && ring[0]![0] === ring[n - 1]![0] && ring[0]![1] === ring[n - 1]![1] ? ring.slice(0, -1) : ring;
 }
 
-function shift(r: Region, dx: number, dy: number): Region {
-  return r.map((poly) => poly.map((ring) => ring.map(([x, y]) => [x + dx, y + dy] as [number, number])));
-}
 
-/** A region with its coordinates rounded to `step`, which polygon-clipping needs to close rings whose edges nearly coincide. */
-function snap(r: Region, step: number): Region {
-  return r.map((poly) => poly.map((ring) => ring.map(([x, y]) => [Math.round(x / step) * step, Math.round(y / step) * step] as [number, number])));
-}
 
-/** Area of a region: outer rings less their holes. */
-function regionArea(r: Region): number {
-  let s = 0;
-  for (const poly of r) poly.forEach((ring, k) => { s += (k === 0 ? 1 : -1) * Math.abs(signedArea(openRing(ring))); });
-  return s;
-}
+
+
+
 
 /** Where along [0, 1] a height above the level, linear from `d0` to `d1`, lies strictly between `lo` and `hi`. */
 function lowRange(d0: number, d1: number, lo: number, hi: number): [number, number] | null {
@@ -780,131 +764,8 @@ export function oneSidedSomewhere(list: SideStretch[]): boolean {
 }
 
 /** A region cut on a grid of `cells` × `cells` over its bounding box: each piece's area (holes taken away) and centroid. */
-function regionPieces(r: Region, cells: number): Array<{ area: number; c: [number, number] }> {
-  const pts = r.flat(2);
-  if (pts.length === 0) return [];
-  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
-  const x0 = Math.min(...xs), y0 = Math.min(...ys);
-  const dx = (Math.max(...xs) - x0) / cells || 1, dy = (Math.max(...ys) - y0) / cells || 1;
-  const out: Array<{ area: number; c: [number, number] }> = [];
-  for (let i = 0; i < cells; i++) for (let j = 0; j < cells; j++) {
-    const box = { x0: x0 + i * dx, y0: y0 + j * dy, x1: x0 + (i + 1) * dx, y1: y0 + (j + 1) * dy };
-    let area = 0, mx = 0, my = 0;
-    for (const poly of r) poly.forEach((ring, k) => {
-      const part = clipToBox(openRing(ring), box);
-      if (part.length < 3) return;
-      const a = (k === 0 ? 1 : -1) * Math.abs(signedArea(part));
-      const c = areaCentroid(part);
-      area += a; mx += a * c[0]; my += a * c[1];
-    });
-    if (area > 1e-12) out.push({ area, c: [mx / area, my / area] });
-  }
-  return out;
-}
 
-/** A region's area, and its first moment about `axis.p` along the axis, in each of `n` equal stretches along `axis`. */
-function areaAlong(r: Region, axis: Axis, n: number): Array<{ area: number; first: number }> {
-  const bins = Array.from({ length: n }, () => ({ area: 0, first: 0 }));
-  const w = axis.L / n;
-  const local = (q: [number, number]): [number, number] => {
-    const dx = q[0] - axis.p[0], dy = q[1] - axis.p[1];
-    return [dx * axis.u[0] + dy * axis.u[1], dy * axis.u[0] - dx * axis.u[1]];
-  };
-  for (const poly of r) poly.forEach((ring, k) => {
-    const pts = openRing(ring).map(local);
-    for (let b = 0; b < n; b++) {
-      const part = clipToBox(pts, { x0: b * w, y0: -1e9, x1: (b + 1) * w, y1: 1e9 });
-      if (part.length < 3) continue;
-      const a = (k === 0 ? 1 : -1) * Math.abs(signedArea(part));
-      bins[b]!.area += a;
-      bins[b]!.first += a * areaCentroid(part)[0];
-    }
-  });
-  return bins;
-}
 
-/**
- * What a panel kept for itself, cut on a 20 × 20 grid, carried to its beams as a one-way slab: each cell from the
- * nearest beam across to the beam opposite (or, where nothing lies opposite, as in a notch of a
- * concave panel, between the beams first met either way along some line through the cell's
- * centroid), split by the lever rule, so the beams' loads keep the cells' resultant and both its
- * plan moments. On each beam a uniform piece per fortieth, centred
- * on the moment of what it took; one at an end goes to the end's node.
- */
-function regionToBeams(model: GravityModel, region: Region, beamIds: number[]): {
-  pieces: Array<{ elementId: number; a: number; b: number; wI: number; wJ: number }>;
-  points: Array<{ nodeId: number; w: number; elementId: number }>;
-} {
-  const BINS = 40;
-  const beams = beamIds.flatMap((id) => {
-    const e = model.elements.get(id);
-    const p = e && model.nodes.get(e.nodeI), q = e && model.nodes.get(e.nodeJ);
-    if (!e || !p || !q) return [];
-    const L = Math.hypot(q.x - p.x, q.y - p.y);
-    return L > 0 ? [{ id, ends: [e.nodeI, e.nodeJ] as [number, number], p: [p.x, p.y] as [number, number], u: [(q.x - p.x) / L, (q.y - p.y) / L] as [number, number], L, area: new Array(BINS).fill(0) as number[], first: new Array(BINS).fill(0) as number[] }] : [];
-  });
-  const out = { pieces: [] as Array<{ elementId: number; a: number; b: number; wI: number; wJ: number }>, points: [] as Array<{ nodeId: number; w: number; elementId: number }> };
-  if (beams.length === 0) return out;
-  type B = (typeof beams)[number];
-  const along = (bm: B, c: [number, number]) => Math.max(0, Math.min(bm.L, (c[0] - bm.p[0]) * bm.u[0] + (c[1] - bm.p[1]) * bm.u[1]));
-  const distance = (bm: B, c: [number, number]) => {
-    const t = along(bm, c);
-    return Math.hypot(c[0] - bm.p[0] - t * bm.u[0], c[1] - bm.p[1] - t * bm.u[1]);
-  };
-  type Hit = { bm: B; s: number; t: number };
-  const across = (c: [number, number], v: [number, number]): [Hit, Hit] | null => {
-    let back: Hit | null = null, ahead: Hit | null = null;
-    for (const bm of beams) {
-      const den = v[0] * bm.u[1] - v[1] * bm.u[0];
-      if (Math.abs(den) < 1e-12) continue;
-      const wx = bm.p[0] - c[0], wy = bm.p[1] - c[1];
-      const t = (wx * bm.u[1] - wy * bm.u[0]) / den;
-      const s = (wx * v[1] - wy * v[0]) / den;
-      if (s < -1e-9 || s > bm.L + 1e-9) continue;
-      const hit = { bm, s: Math.max(0, Math.min(bm.L, s)), t };
-      if (t > 1e-9 && (!ahead || t < ahead.t)) ahead = hit;
-      if (t < -1e-9 && (!back || t > back.t)) back = hit;
-    }
-    return back && ahead ? [back, ahead] : null;
-  };
-  const put = (bm: B, s: number, a: number) => {
-    const k = Math.min(BINS - 1, Math.floor((s / bm.L) * BINS + 1e-9));
-    bm.area[k]! += a;
-    bm.first[k]! += a * s;
-  };
-  const transfer = (near: B, c: [number, number], area: number) => {
-    const s0 = along(near, c);
-    const foot: [number, number] = [near.p[0] + s0 * near.u[0], near.p[1] + s0 * near.u[1]];
-    const d = Math.hypot(c[0] - foot[0], c[1] - foot[1]);
-    if (d <= 1e-9) { put(near, s0, area); return; }
-    const directions: Array<[number, number]> = [[(c[0] - foot[0]) / d, (c[1] - foot[1]) / d]];
-    for (let k = 0; k < 90; k++) directions.push([Math.cos((k * Math.PI) / 90), Math.sin((k * Math.PI) / 90)]);
-    let pair: [Hit, Hit] | null = null;
-    for (const v of directions) if ((pair = across(c, v))) break;
-    if (!pair) { put(near, s0, area); return; }
-    const [back, ahead] = pair;
-    put(back.bm, back.s, (area * ahead.t) / (ahead.t - back.t));
-    put(ahead.bm, ahead.s, (area * -back.t) / (ahead.t - back.t));
-  };
-  for (const { area, c } of regionPieces(region, 20)) {
-    const least = Math.min(...beams.map((bm) => distance(bm, c)));
-    const nearest = beams.filter((bm) => distance(bm, c) <= least + 1e-9);
-    for (const near of nearest) transfer(near, c, area / nearest.length);
-  }
-  for (const bm of beams) {
-    const w = bm.L / BINS;
-    bm.area.forEach((a, k) => {
-      if (!(a > 0)) return;
-      const c = bm.first[k]! / a;
-      const half = Math.min(w / 2, c, bm.L - c);
-      if (half > 1e-9) { out.pieces.push({ elementId: bm.id, a: c - half, b: c + half, wI: a / (2 * half), wJ: a / (2 * half) }); return; }
-      out.points.push({ nodeId: c < bm.L / 2 ? bm.ends[0] : bm.ends[1], w: a, elementId: bm.id });
-    });
-  }
-  return out;
-}
-
-/** The least width of `poly` across any direction: its convex hull's, by the normals of the hull's sides. */
 function narrowestWidth(poly: Array<[number, number]>): number {
   const pts = [...poly].sort((p, q) => p[0] - q[0] || p[1] - q[1]);
   const cross = (o: [number, number], p: [number, number], q: [number, number]) => (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]);
@@ -928,18 +789,6 @@ function narrowestWidth(poly: Array<[number, number]>): number {
   return least;
 }
 
-function areaCentroid(poly: Array<[number, number]>): [number, number] {
-  const o = poly[0];
-  if (!o) return [0, 0];
-  let a = 0, x = 0, y = 0;
-  poly.forEach((p0, k) => {
-    const q0 = poly[(k + 1) % poly.length]!;
-    const p = [p0[0] - o[0], p0[1] - o[1]], q = [q0[0] - o[0], q0[1] - o[1]];
-    const cross = p[0]! * q[1]! - q[0]! * p[1]!;
-    a += cross; x += (p[0]! + q[0]!) * cross; y += (p[1]! + q[1]!) * cross;
-  });
-  return Math.abs(a) > 1e-15 ? [o[0] + x / (3 * a), o[1] + y / (3 * a)] : centroid(poly);
-}
 
 type Box = { x0: number; y0: number; x1: number; y1: number };
 

@@ -27,6 +27,7 @@
  *
  * Pure: no store, no engine.
  */
+import { physicalRegion, intersectRegions, regionCells } from './loads/physical-region-loads';
 import { shellLocalAxes } from './shell-results';
 
 export type Vec3 = [number, number, number];
@@ -230,49 +231,6 @@ export function clipHalfPlane(poly: readonly P2[], g: (p: P2) => number): P2[] {
  * outline, and the same rule the drawing samples (`shellLoadSamples`): in the outline, in no
  * opening.
  */
-function regionCells(el: readonly P2[], outer: readonly P2[], holes: readonly P2[][]): P2[][] {
-  const xs = el.map((p) => p[0]), ys = el.map((p) => p[1]);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs);
-  const tol = 1e-10 * Math.max(x1 - x0, Math.max(...ys) - Math.min(...ys), 1e-300);
-  const edges: Array<[P2, P2]> = [];
-  for (const poly of [el, outer, ...holes]) {
-    for (let i = 0; i < poly.length; i++) {
-      const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
-      // Only an edge reaching the element's strip, and not across x (it lies on a strip's side).
-      if (Math.max(a[0], b[0]) < x0 - tol || Math.min(a[0], b[0]) > x1 + tol || Math.abs(b[0] - a[0]) <= tol) continue;
-      edges.push(a[0] <= b[0] ? [a, b] : [b, a]);
-    }
-  }
-  const cuts = [x0, x1];
-  for (const [a, b] of edges) cuts.push(a[0], b[0]);
-  for (let i = 0; i < edges.length; i++) {
-    for (let j = i + 1; j < edges.length; j++) {
-      const [a, b] = edges[i]!, [c, d] = edges[j]!;
-      const r: P2 = [b[0] - a[0], b[1] - a[1]], s: P2 = [d[0] - c[0], d[1] - c[1]];
-      const den = r[0] * s[1] - r[1] * s[0];
-      if (Math.abs(den) < 1e-300) continue;
-      const t = ((c[0] - a[0]) * s[1] - (c[1] - a[1]) * s[0]) / den, u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den;
-      if (t > 0 && t < 1 && u > 0 && u < 1) cuts.push(a[0] + t * r[0]);
-    }
-  }
-  const strips = cuts.filter((x) => x >= x0 - tol && x <= x1 + tol).sort((a, b) => a - b)
-    .filter((x, i, arr) => i === 0 || x - arr[i - 1]! > tol);
-  const yAt = ([a, b]: [P2, P2], x: number) => a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]);
-  const inside = (p: P2) => insidePolygon(p, el) && insidePolygon(p, outer) && !holes.some((h) => insidePolygon(p, h));
-  const cells: P2[][] = [];
-  for (let k = 0; k + 1 < strips.length; k++) {
-    const xa = strips[k]!, xb = strips[k + 1]!, xm = (xa + xb) / 2;
-    const across = edges.filter(([a, b]) => a[0] <= xa + tol && b[0] >= xb - tol)
-      .map((e) => ({ ya: yAt(e, xa), yb: yAt(e, xb), ym: yAt(e, xm) })).sort((p, q) => p.ym - q.ym);
-    for (let i = 0; i + 1 < across.length; i++) {
-      const lo = across[i]!, hi = across[i + 1]!;
-      if (hi.ym - lo.ym <= tol || !inside([xm, (lo.ym + hi.ym) / 2])) continue;
-      cells.push([[xa, lo.ya], [xb, lo.yb], [xb, hi.yb], [xa, hi.ya]]);
-    }
-  }
-  return cells;
-}
-
 /** A polygon clipped by a convex one (counter-clockwise). The subject may be any simple polygon. */
 function clipConvex(subject: readonly P2[], convexCcw: readonly P2[]): P2[] {
   let out = [...subject];
@@ -383,18 +341,16 @@ function loadedPieces(el: Element, spec: Pick<ShellLoadSpec, 'vary' | 'region'>)
   };
   const cut = (poly: P2[]): P2[] => inRange(clipConvex(poly, ccw));
   if (!spec.region) return [cut([...ccw])].filter((p) => p.length >= 3);
+  if (spec.region.normal[0] === 0 && spec.region.normal[1] === 0 && spec.region.normal[2] !== 0 && el.ez[2] !== 0) {
+    const xy = (p: Vec3): P2 => [p[0], p[1]];
+    const region = intersectRegions(physicalRegion(el.X.map(xy)), physicalRegion(spec.region.points.map(xy), (spec.region.holes ?? []).map(h => h.map(xy))));
+    return regionCells(region).map(cell => cell.map(p => toPlane([p[0], p[1], el.X[0]![2]], spec.region!.normal)!)).map(inRange).filter(p => p.length >= 3);
+  }
   const outer = spec.region.points.map((P) => toPlane(P, spec.region!.normal));
   if (outer.some((p) => !p)) return [];
-  // The openings that reach the element; one projected edge-on covers nothing.
-  const xs = ccw.map((p) => p[0]), ys = ccw.map((p) => p[1]);
-  const near = (h: P2[]) => Math.max(...h.map((p) => p[0])) > Math.min(...xs) && Math.min(...h.map((p) => p[0])) < Math.max(...xs)
-    && Math.max(...h.map((p) => p[1])) > Math.min(...ys) && Math.min(...h.map((p) => p[1])) < Math.max(...ys);
-  const holes = (spec.region.holes ?? []).map((h) => h.map((P) => toPlane(P, spec.region!.normal)))
-    .filter((h): h is P2[] => h.length >= 3 && h.every((p) => !!p)).filter(near);
-  if (!holes.length) return [cut(outer as P2[])].filter((p) => p.length >= 3);
-  // In the outline and in no opening, as the drawing shows it: an opening is not subtracted
-  // whole, since it may reach past the outline or overlap another.
-  return regionCells(ccw, outer as P2[], holes).map(inRange).filter((p) => p.length >= 3);
+  const holes = (spec.region.holes ?? []).map(h => h.map(P => toPlane(P, spec.region!.normal)))
+    .filter((h): h is P2[] => h.length >= 3 && h.every(p => p !== null));
+  return regionCells(intersectRegions(physicalRegion(ccw), physicalRegion(outer as P2[], holes))).map(inRange).filter(p => p.length >= 3);
 }
 
 /**

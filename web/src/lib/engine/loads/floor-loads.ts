@@ -67,6 +67,7 @@ export interface FloorLoadInput {
   q: number;
   /** Only inside this outline less its openings, projected vertically onto the floor. */
   zone?: { outer: P3[]; holes?: P3[][] };
+  excluded?: P3[][];
   /** An inclined floor's q per plan area (q·cos of the slope) instead of per true area. */
   perPlanArea?: boolean;
   distribution: 'twoWay' | 'oneWay';
@@ -75,6 +76,7 @@ export interface FloorLoadInput {
   /** The user's local-axis convention: a left-handed y is entered negated (`buildSolverLoads3D`). */
   leftHand?: boolean;
   tol?: number;
+  outlineOnly?: boolean;
 }
 
 export interface FloorMemberLoad {
@@ -94,6 +96,7 @@ export interface FloorMemberLoad {
 
 export interface FloorPanel {
   polygon: P2[];
+  holes?: P2[][];
   area: number;
   loaded: boolean;
   /**
@@ -119,7 +122,7 @@ export interface FloorLoadResult {
   panels: FloorPanel[];
   loads: FloorMemberLoad[];
   /** Load of a panel's share past a side's end, at that end's node: kN along −Z; the side's member there. */
-  nodal: Array<{ nodeId: number; fz: number; elementId: number }>;
+  nodal: Array<{ nodeId: number; fz: number; mx: number; my: number; elementId: number; transfer?: 'roundoff' }>;
   /** The plane's normal, upward (0, 0, 1 on a level). */
   normal: P3;
   /** kN per beam. */
@@ -186,6 +189,7 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     return toPlane([p[0], p[1], o[2] - (n[0] * (p[0] - o[0]) + n[1] * (p[1] - o[1])) / n[2]]);
   };
   const zone: Zone2D | undefined = input.zone ? { outer: input.zone.outer.map(dropped), holes: (input.zone.holes ?? []).map((h) => h.map(dropped)) } : undefined;
+  const excluded = (input.excluded ?? []).map(p => p.map(dropped));
   const qEff = input.q * (input.perPlanArea ? Math.abs(res.normal[2]) : 1);
   const spanAxis: P3 = input.spanAxis === 'y' ? [0, 1, 0] : [1, 0, 0];
   const spanDir = ((): P2 => { const d = plane ? [dot3(spanAxis, plane.e1), dot3(spanAxis, plane.e2)] : [spanAxis[0], spanAxis[1]]; const l = Math.hypot(d[0]!, d[1]!); return [d[0]! / l, d[1]! / l]; })();
@@ -320,15 +324,16 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
   panelsFound.forEach(({ face, cycle, poly, area, inner, ties }, k) => {
     const sides = mergeSides(cycle, poly, elementOf, (e, p) => beamById.get(e)!.nodeI === p);
     const holeCycles = [...inner, ...(holesOf.get(k) ?? [])];
-    const panel: FloorPanel = { polygon: poly, area, loaded: false };
+    const panel: FloorPanel = { polygon: poly, holes: holeCycles.map(h => h.map(xy)), area, loaded: false };
     res.panels.push(panel);
     if (face.some((n) => invalid.has(n))) { panel.reason = 'crossing'; return; }
     if (holeCycles.some((h) => h.some((n) => invalid.has(n)))) { panel.reason = 'crossing'; return; }
+    if (input.outlineOnly) return;
     const holes = holeCycles.map((h) => mergeSides(h, h.map(xy), elementOf, (e, p) => beamById.get(e)!.nodeI === p));
     // Shares at unit load: the area each side takes, scaled by q when written.
     const shares: SideShare[] | null = input.distribution === 'oneWay'
-      ? oneWayShares(sides, holes, spanDir, 1, zone)
-      : twoWayShares(sides, holes, 1, zone);
+      ? oneWayShares(sides, holes, spanDir, 1, zone, excluded)
+      : twoWayShares(sides, holes, 1, zone, excluded);
     if (!shares) {
       panel.reason = input.distribution === 'oneWay' && zone ? 'zoneAcrossSpan' : 'unresolved';
       if (panel.reason === 'zoneAcrossSpan') skipped.zoneAcrossSpan++; else skipped.unresolved++;
@@ -344,15 +349,28 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     all.forEach((side, i) => {
       const sh = shares[i]!;
       for (const pc of sh.pieces) { emit(side, { ...pc, q0: pc.q0 * qEff, q1: pc.q1 * qEff }, k); carried += (pc.q0 + pc.q1) / 2 * (pc.s1 - pc.s0); }
+      if (sh.roundoffForce !== 0) {
+        res.nodal.push({ nodeId: side.nodeA, elementId: side.segments[0]!.elementId, fz: -qEff * sh.roundoffForce, mx: 0, my: 0, transfer: 'roundoff' });
+        nodalPanel.push(k); res.totalKN += qEff * sh.roundoffForce; carried += sh.roundoffForce;
+      }
+      const [dx, dy] = sh.eccentricFirst;
+      const mx = -qEff * ((plane?.e1[1] ?? 0) * dx + (plane?.e2[1] ?? 1) * dy);
+      const my = qEff * ((plane?.e1[0] ?? 1) * dx + (plane?.e2[0] ?? 0) * dy);
+      if (mx !== 0 || my !== 0) {
+        for (const [nodeId, seg] of [[side.nodeA, side.segments[0]!], [side.nodeB, side.segments[side.segments.length - 1]!]] as const) {
+          res.nodal.push({ nodeId, fz: 0, mx: mx / 2, my: my / 2, elementId: seg.elementId });
+          nodalPanel.push(k);
+        }
+      }
       for (const [node, a, seg] of [[side.nodeA, sh.atA, side.segments[0]!], [side.nodeB, sh.atB, side.segments[side.segments.length - 1]!]] as const) {
-        if (Math.abs(a) < 1e-12) continue;
-        res.nodal.push({ nodeId: node, fz: -qEff * a, elementId: seg.elementId });
+        if (a === 0) continue;
+        res.nodal.push({ nodeId: node, fz: -qEff * a, mx: 0, my: 0, elementId: seg.elementId, ...(Math.abs(a) < 1e-12 ? { transfer: 'roundoff' as const } : {}) });
         nodalPanel.push(k);
         res.totalKN += qEff * a;
         carried += a;
       }
     });
-    if (carried <= 1e-12) return;
+    if (!(carried > 0)) return;
     panel.loaded = true;
     panel.own = { loads: [], nodal: res.nodal.filter((_, i) => nodalPanel[i] === k), perBeam: new Map(), area: carried, sides: new Map() };
     res.loadedArea += carried;
@@ -361,13 +379,13 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
   function emit(side: Side, pc: Piece, panel: number) {
     for (const seg of side.segments) {
       const s0 = Math.max(pc.s0, seg.s0), s1 = Math.min(pc.s1, seg.s1);
-      if (s1 - s0 < 1e-6) continue;
+      if (!(s1 > s0)) continue;
       const at = (s: number) => pc.q0 + ((pc.q1 - pc.q0) * (s - pc.s0)) / (pc.s1 - pc.s0 || 1);
       const q0 = at(s0), q1 = at(s1);
       const len = seg.s1 - seg.s0;
       // Along the member, from node I.
       const [a, b, qa, qb] = seg.forward ? [s0 - seg.s0, s1 - seg.s0, q0, q1] : [seg.s1 - s1, seg.s1 - s0, q1, q0];
-      if (Math.abs(qa) < 1e-12 && Math.abs(qb) < 1e-12) continue;
+      if (qa === 0 && qb === 0) continue;
       addLoad(seg.elementId, a, b, qa, qb, len, panel, seg.forward ? 1 : -1);
     }
   }
@@ -377,7 +395,7 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
   }
 
   /** A member's pieces as loads in its local axes, and the kN they add up to. */
-  const asLoads = (elementId: number, list: Array<{ a: number; b: number; qa: number; qb: number; len: number }>): { loads: FloorMemberLoad[]; total: number } => {
+  const asLoads = (elementId: number, list: Array<{ a: number; b: number; qa: number; qb: number; len: number }>): { loads: FloorMemberLoad[]; total: number; correction: FloorLoadResult['nodal'][number] } => {
     const beam = beamById.get(elementId)!;
     const ni = pos(beam.nodeI)!, nj = pos(beam.nodeJ)!;
     const axes = computeLocalAxes3D(
@@ -392,24 +410,36 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     const loads: FloorMemberLoad[] = [];
     let total = 0;
     for (const p of mergePieces(list)) {
+      if (!(round(p.b) > round(p.a))) continue;
       const full = p.a < 1e-6 && p.b > p.len - 1e-6;
       loads.push({
         elementId,
         ...(full ? {} : { a: round(p.a), b: round(p.b) }),
         qI: round(p.qa), qJ: round(p.qb),
-        qXI: round(fx * p.qa), qXJ: round(fx * p.qb),
-        qYI: round(fy * p.qa), qYJ: round(fy * p.qb), qZI: round(fz * p.qa), qZJ: round(fz * p.qb),
+        qXI: fx * round(p.qa), qXJ: fx * round(p.qb),
+        qYI: fy * round(p.qa), qYJ: fy * round(p.qb), qZI: fz * round(p.qa), qZJ: fz * round(p.qb),
       });
       total += ((p.qa + p.qb) / 2) * (p.b - p.a);
     }
-    return { loads, total };
+    const integral = (a: number, b: number, qa: number, qb: number) => {
+      const h = b - a, force = (qa + qb) * h / 2;
+      return [force, a * force + h * h * (qa + 2 * qb) / 6] as const;
+    };
+    let target = 0, targetFirst = 0, first = 0;
+    for (const p of list) { const v = integral(p.a, p.b, p.qa, p.qb); target += v[0]; targetFirst += v[1]; }
+    total = 0;
+    const L = Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
+    for (const l of loads) { const v = integral(l.a ?? 0, l.b ?? L, l.qI, l.qJ); total += v[0]; first += v[1]; }
+    const delta = targetFirst - first;
+    return { loads, total, correction: { nodeId: beam.nodeI, elementId, transfer: 'roundoff', fz: -(target - total), mx: -(nj.y - ni.y) / L * delta, my: (nj.x - ni.x) / L * delta } };
   };
 
   for (const [elementId, list] of raw) {
-    const { loads, total } = asLoads(elementId, list);
+    const { loads, total, correction } = asLoads(elementId, list);
+    if (correction.fz !== 0 || correction.mx !== 0 || correction.my !== 0) res.nodal.push(correction);
     res.loads.push(...loads);
     res.perBeam.set(elementId, total);
-    res.totalKN += total;
+    res.totalKN += total - correction.fz;
   }
   // Each loaded panel's own part, from its own pieces alone.
   res.panels.forEach((panel, k) => {
@@ -417,7 +447,8 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     for (const [elementId, list] of raw) {
       const mine = list.filter((p) => p.panel === k);
       if (!mine.length) continue;
-      const { loads, total } = asLoads(elementId, mine);
+      const { loads, total, correction } = asLoads(elementId, mine);
+      if (correction.fz !== 0 || correction.mx !== 0 || correction.my !== 0) panel.own.nodal.push(correction);
       panel.own.loads.push(...loads);
       panel.own.perBeam.set(elementId, total);
       panel.own.sides.set(elementId, mine.map((p) => ({ t0: p.a / p.len, t1: p.b / p.len, side: p.side })));
@@ -525,7 +556,6 @@ function inclinedPlane(pts: P3[], tol: number): { o: P3; e1: P3; e2: P3; n: P3 }
   const e2: P3 = [n[1] * e1[2] - n[2] * e1[1], n[2] * e1[0] - n[0] * e1[2], n[0] * e1[1] - n[1] * e1[0]];
   return { o, e1, e2, n };
 }
-const round = (v: number) => (Math.round(v * 1e6) / 1e6) || 0;
 
 /** Strictly inside a simple polygon, by the crossing count. */
 function insidePolygon(pt: P2, poly: P2[]): boolean {
@@ -549,3 +579,5 @@ function properCross(a: P2, b: P2, c: P2, d: P2): boolean {
   const d1 = o(a, b, c), d2 = o(a, b, d), d3 = o(c, d, a), d4 = o(c, d, b);
   return d1 * d2 < -1e-12 && d3 * d4 < -1e-12;
 }
+
+const round = (n: number) => Math.round(n * 1e6) / 1e6 || 0;

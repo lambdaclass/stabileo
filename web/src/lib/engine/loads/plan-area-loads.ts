@@ -1,3 +1,4 @@
+import type { ShellLoadSpec } from '../shell-load-integration';
 /**
  * The area loads of a load plan, dead, live and roof live, on what carries them
  * (`plan-gravity.ts`), and the weight each level adds to the seismic mass.
@@ -61,11 +62,11 @@ export interface AreaLoad {
   /** The arrangement this load belongs to, by `AreaLoadsResult.arrangements`; absent: the full load. */
   arrangement?: number;
 }
-export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number }
+export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number; region?: ShellLoadSpec['region'] }
 
 /** A panel's share past a side's end, at its node: kN along Z (negative down). */
 /** A panel's share at a re-entrant corner: at the node, `carrier` the side's member it belongs to. */
-export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; carrier: number; arrangement?: number }
+export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; mx: number; my: number; carrier?: number; arrangement?: number }
 
 export interface AreaLoadsResult {
   distributed: AreaLoad[];
@@ -120,17 +121,17 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
     arrangement?: { index: number; loads: (u: Unit) => boolean }) => {
     const arr = arrangement !== undefined ? { arrangement: arrangement.index } : {};
     for (const p of layout.pieces) {
-      if (arrangement !== undefined && !arrangement.loads({ panel: p.panel })) continue;
+      if (arrangement !== undefined && !arrangement.loads(p.panel < 0 ? { member: p.elementId } : { panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
-      if (Math.abs(q * Math.max(p.wI, p.wJ)) <= 1e-3) continue;
+      if (q === 0 || (p.wI === 0 && p.wJ === 0)) continue;
       out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr });
       if (arrangement === undefined) out.planned.add(caseType);
     }
-    for (const p of layout.points) {
-      if (arrangement !== undefined && !arrangement.loads({ panel: p.panel })) continue;
+    for (const p of [...layout.points.map(p => ({ ...p, mx: 0, my: 0 })), ...layout.couples]) {
+      if (arrangement !== undefined && !arrangement.loads(p.panel < 0 ? { member: p.elementId } : { panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
-      if (Math.abs(q * p.w) <= 1e-3) continue;
-      out.nodal.push({ nodeId: p.nodeId, caseType, fz: -q * p.w, carrier: p.elementId, ...arr });
+      if (q === 0 || (p.w === 0 && p.mx === 0 && p.my === 0)) continue;
+      out.nodal.push({ nodeId: p.nodeId, caseType, fz: -q * p.w, mx: q * p.mx, my: q * p.my, carrier: p.elementId, ...arr });
     }
     for (const m of layout.widthMembers) {
       if (arrangement !== undefined && !arrangement.loads({ member: m.elementId })) continue;
@@ -139,7 +140,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       // horizontal thrust, and the live loads per sloped metre instead of per metre of plan.
       for (const s of widthSpans(m, i.tributaryWidth)) {
         const q = -qOf(m.elementId, isRoof(m.elementId)) * s.width;
-        if (Math.abs(q) <= 1e-3) continue;
+        if (q === 0) continue;
         const span = m.spans ? { a: s.t0 * m.length, b: s.t1 * m.length } : {};
         out.distributed.push({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr });
         if (arrangement === undefined) out.planned.add(caseType);
@@ -150,7 +151,14 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
     for (const sq of layout.shellQuads) {
       // `SurfaceLoad3D` is per m² of shell: a load per plan m² on a sloped one is scaled by cos.
       const q = qOfQuad(sq.quadId) * (perProjection ? sq.cos : 1);
-      if (q > 1e-6) { out.surface.push({ quadId: sq.quadId, caseType, q }); out.planned.add(caseType); }
+      if (q !== 0 && sq.area > 0) {
+        if (sq.region) for (const polygon of sq.region.polygons) {
+          const xyz = (r: Array<[number, number]>): Array<[number, number, number]> => r.map(p => [p[0], p[1], sq.z]);
+          out.surface.push({ quadId: sq.quadId, caseType, q, region: { normal: [0, 0, 1], points: xyz(polygon[0]!), holes: polygon.slice(1).map(xyz) } });
+        }
+        else out.surface.push({ quadId: sq.quadId, caseType, q });
+        out.planned.add(caseType);
+      }
     }
   };
 

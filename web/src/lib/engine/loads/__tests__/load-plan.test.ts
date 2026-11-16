@@ -119,11 +119,11 @@ describe('role gating', () => {
 // ─── Real geometry, no assumed floor area ────────────────────────
 
 describe('level plan areas come from real geometry', () => {
-  it('computes each level extent from the actual nodes', () => {
+  it('computes area from bounded floors and leaves the support-only level empty', () => {
     const lv = levelsWithPlanArea(frame(2, 6));
     expect(lv.map((l) => l.elevation)).toEqual([0, 3, 6]);
     // 6 × 6 bay -> 36 m², not an assumed constant.
-    for (const l of lv) expect(l.planAreaM2).toBeCloseTo(36, 6);
+    expect(lv.map(l => l.planAreaM2)).toEqual([0, 36, 36]);
   });
 
   it('scales with the actual bay, which a 50 m² literal could not', () => {
