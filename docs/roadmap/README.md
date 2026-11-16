@@ -30,7 +30,8 @@ SA-2026-074. Re-run affected member designs and analyses. Regenerate all affecte
 area loads, including roof and floor loads, before recalculating; stored loads alone are insufficient.
 
 **Soundness remains first.** Wave 1 of the design and load audit has open findings; wave 2 has
-started on design dispatch, steel and detailing. The complete issue and PR map is in
+filed 12 findings in design dispatch, steel welds and Cb, detailing and EC2.
+The complete issue and PR map is in
 [PRODUCT_ROADMAP, Design and load audit](PRODUCT_ROADMAP.md#design-and-load-audit-active-work-2026-11-16):
 
 - In flight: secondary stirrup legs [#2171](https://github.com/lambdaclass/stabileo/issues/2171) in
@@ -64,6 +65,19 @@ started on design dispatch, steel and detailing. The complete issue and PR map i
   [#2218](https://github.com/lambdaclass/stabileo/issues/2218) follows the physical-region transfer in
   [#2219](https://github.com/lambdaclass/stabileo/pull/2219). In-flight corrections and the notice have
   not yet landed on main.
+- Wave 2 open findings, in audit harm order:
+  [#2238](https://github.com/lambdaclass/stabileo/issues/2238) (reversed span demands),
+  [#2239](https://github.com/lambdaclass/stabileo/issues/2239) (mixed column bars),
+  [#2240](https://github.com/lambdaclass/stabileo/issues/2240) (distinct concurrent EC2 states),
+  [#2241](https://github.com/lambdaclass/stabileo/issues/2241) (short bottom-bar extent),
+  [#2242](https://github.com/lambdaclass/stabileo/issues/2242) (rotated joint shear),
+  [#2243](https://github.com/lambdaclass/stabileo/issues/2243) (segmented weld length reduction),
+  [#2244](https://github.com/lambdaclass/stabileo/issues/2244) (short weld leg limit),
+  [#2245](https://github.com/lambdaclass/stabileo/issues/2245) (weak stirrup intervals),
+  [#2246](https://github.com/lambdaclass/stabileo/issues/2246) (EC2 support-region steel),
+  [#2247](https://github.com/lambdaclass/stabileo/issues/2247) (curved-diagram Cb),
+  [#2248](https://github.com/lambdaclass/stabileo/issues/2248) (another member's certificate) and
+  [#2249](https://github.com/lambdaclass/stabileo/issues/2249) (zero-moment anchorage check).
 - Follow-ups: [#2224](https://github.com/lambdaclass/stabileo/issues/2224),
   [#2226](https://github.com/lambdaclass/stabileo/issues/2226) and
   [#2227](https://github.com/lambdaclass/stabileo/issues/2227).
@@ -144,7 +158,7 @@ order and dates its historical cause-count snapshot separately; the dashboard ha
 
 | Document | Answers | Status | Owner |
 |---|---|---|---|
-| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-16): 0.6.1 released; #2142/#2143/#2096/#2144/#2176/#2172 fixed on main for 0.6.2; wave-1 audit findings and their fixes take priority; wave 2 (design dispatch, steel, detailing) started; under-audit notice pending; #1040 parked for a new approach | Federico Carrone |
+| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-16): 0.6.1 released; #2142/#2143/#2096/#2144/#2176/#2172 fixed on main for 0.6.2; wave-1 audit findings and their fixes take priority; 12 wave-2 findings filed (#2238–#2249): design dispatch, steel welds and Cb, detailing and EC2; under-audit notice pending; #1040 parked for a new approach | Federico Carrone |
 | [testing/ROADMAP.md](../../testing/ROADMAP.md) | Testing and verification backlog, solver proofs, prevention and CI feedback; follows PRODUCT_ROADMAP “Priority now” item 6 | Current | Maintainers |
 | [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver mechanics, numerical methods, long-term solver sequence (Steps 1–14+) | Long-term sequence current; its "Where we are" and "Wave 1" sections predate v0.2.0 (see the note at its top) | Diego K (last editor) |
 | [../../research/DESIGN.md](../../research/DESIGN.md) | Stabileo Research: what it is, its rules, the engine-benchmarks track and the ordered paper queue (summary in PRODUCT_ROADMAP "Stabileo Research") | Current (2026-10-29) | Federico Carrone |

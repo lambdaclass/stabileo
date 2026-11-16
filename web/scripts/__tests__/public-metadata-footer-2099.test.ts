@@ -40,7 +40,7 @@ it.each([undefined, '0', '1'])('known wrong result: #2099 — tools index keeps 
   expect(POST_LASTMOD.get('/blog')).toBe([...POST_LASTMOD].filter(([path]) => path.startsWith('/blog/')).map(([, date]) => date).sort().at(-1));
 });
 
-it.skip.each(['0001-01-01', '9999-12-31'])('known wrong result: #2099 — blog metadata ignores unrelated route dates (%s)', async date => {
+it.each(['0001-01-01', '9999-12-31'])('known wrong result: #2099 — blog metadata ignores unrelated route dates (%s)', async date => {
   await publicPaths();
   const expected = [...POST_LASTMOD].filter(([path]) => path.startsWith('/blog/')).map(([, day]) => day).sort().at(-1);
   expect(expected).toBeDefined();
