@@ -489,3 +489,98 @@ fn issue_2222_isolated_endpoint_moment() {
     let q = -1.0 / (b - a);
     endpoint_moment_near(distributed_load_terms(q, q, a, b, b).1, -(b - a) / 2.0);
 }
+
+fn bounded_interval_cases() -> Vec<(f64, f64, bool)> {
+    vec![
+        (-5e-13, 3.0, false), (0.0, 3.0 + 5e-13, false),
+        (-f64::from_bits(1), 3.0, false), (0.0, 3.0_f64.next_up(), false),
+        (-1e-12, 3.0, false), (0.0, 3.0 + 1e-12, false),
+        (0.0, 3.0, true), (f64::from_bits(1), 3.0, true),
+        (0.0, 3.0_f64.next_down(), true), (5e-13, 3.0 - 5e-13, true),
+        (0.0, 0.0, true), (3.0, 3.0, true), (1.0, 2.0, true),
+        (1.0, 1.0_f64.next_down(), false),
+    ]
+}
+
+fn interval_result(result: Result<(), String>, valid: bool, entry: &str, a: f64, b: f64) {
+    if valid {
+        result.unwrap_or_else(|e| panic!("{entry} refused [{a}, {b}]: {e}"));
+    } else {
+        let error = result.expect_err(&format!("{entry} accepted [{a}, {b}]"));
+        assert!(error.contains("invalid distributed load interval"), "{entry}: {error}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_near_full_bounds_planar() {
+    for (a, b, valid) in bounded_interval_cases() {
+        for axial in [false, true] {
+            let mut input = witness();
+            let load = SolverDistributedLoad { element_id: 1, q_i: -2.0, q_j: -2.0, a: Some(a), b: Some(b) };
+            input.loads = vec![if axial { SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: load.element_id, q_i: load.q_i, q_j: load.q_j, a: load.a, b: load.b }) } else { SolverLoad::Distributed(load) }];
+            let mut base = input.clone();
+            base.loads.clear();
+            let typed = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+            let fiber = dedaliano_engine::solver::fiber_nonlinear::FiberNonlinearInput {
+                solver: input.clone(), fiber_sections: Default::default(), n_integration_points: 5,
+                max_iter: 40, tolerance: 1e-9, n_increments: 1, modified_nr: false,
+            };
+            for (entry, result) in [
+                ("linear", linear::solve_2d(&input).map(|_| ())),
+                ("typed", linear::solve_2d_typed(&typed).map(|_| ())),
+                ("prepared", linear::prepare_static_2d(&base).unwrap().solve_loads(&input.loads).map(|_| ())),
+                ("dense", linear::prepare_static_2d_dense_reference(&base).unwrap().solve_loads(&input.loads).map(|_| ())),
+                ("session", dedaliano_engine::load_session::LoadSession2D::from_input(base).unwrap().solve_loads(&input.loads).map(|_| ())),
+                ("pdelta", pdelta::solve_pdelta_2d(&input, 20, 1e-9).map(|_| ())),
+                ("corotational", corotational::solve_corotational_2d(&input, 40, 1e-9, 1, false).map(|_| ())),
+                ("fiber", dedaliano_engine::solver::fiber_nonlinear::solve_fiber_nonlinear_2d(&fiber).map(|_| ())),
+            ] {
+                interval_result(result, valid, entry, a, b);
+            }
+            if valid {
+                let result = linear::solve_2d(&input).unwrap();
+                let reaction: f64 = result.reactions.iter().map(|r| if axial { r.rx } else { r.rz }).sum();
+                near(reaction, 2.0 * (b - a));
+                if b > a { assert!(result.displacements.iter().any(|d| d.ux != 0.0 || d.uz != 0.0)); }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_near_full_bounds_spatial() {
+    for (a, b, valid) in bounded_interval_cases() {
+        for plane in [Plane::XY, Plane::XZ] {
+            for axial in [false, true] {
+                let mut input = witness();
+                let load = SolverDistributedLoad { element_id: 1, q_i: -2.0, q_j: -2.0, a: Some(a), b: Some(b) };
+                input.loads = vec![if axial { SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: load.element_id, q_i: load.q_i, q_j: load.q_j, a: load.a, b: load.b }) } else { SolverLoad::Distributed(load) }];
+                let input = embed_2d(&input, plane).unwrap();
+                let mut base = input.clone();
+                base.loads.clear();
+                let fiber = dedaliano_engine::solver::fiber_nonlinear::FiberNonlinearInput3D {
+                    solver: input.clone(), fiber_sections: Default::default(), n_integration_points: 5,
+                    max_iter: 40, tolerance: 1e-9, n_increments: 1, modified_nr: false,
+                };
+                for (entry, result) in [
+                    ("linear", linear::solve_3d(&input).map(|_| ())),
+                    ("prepared", linear::prepare_static_3d(&base).unwrap().solve_loads(&input.loads).map(|_| ())),
+                    ("session", dedaliano_engine::load_session::LoadSession3D::from_input(base).unwrap().solve_loads(&input.loads).map(|_| ())),
+                    ("pdelta", pdelta::solve_pdelta_3d(&input, 20, 1e-9).map(|_| ())),
+                    ("corotational", corotational::solve_corotational_3d(&input, 40, 1e-9, 1, false).map(|_| ())),
+                    ("fiber", dedaliano_engine::solver::fiber_nonlinear::solve_fiber_nonlinear_3d(&fiber).map(|_| ())),
+                ] {
+                    interval_result(result, valid, entry, a, b);
+                }
+                if valid {
+                    let result = linear::solve_3d(&input).unwrap();
+                    let reaction: f64 = result.reactions.iter().map(|r| if axial { r.fx } else if matches!(plane, Plane::XY) { r.fy } else { r.fz }).sum();
+                    near(reaction, 2.0 * (b - a));
+                    if b > a { assert!(result.displacements.iter().any(|d| d.ux != 0.0 || d.uy != 0.0 || d.uz != 0.0)); }
+                }
+            }
+        }
+    }
+}

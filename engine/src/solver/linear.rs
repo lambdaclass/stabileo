@@ -5708,3 +5708,35 @@ mod released_orphan_2074_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod distributed_interval_review_tests {
+    use super::*;
+    use crate::known_issues::Analysis;
+    use crate::metamorphic::planes::{embed_2d, Plane};
+
+    fn analyses() -> [Analysis; 13] {
+        [Analysis::Linear, Analysis::StaticReduction, Analysis::MaterialNonlinear, Analysis::Cable,
+         Analysis::Ssi, Analysis::Plastic, Analysis::Modal, Analysis::TimeHistory, Analysis::Contact,
+         Analysis::Fiber, Analysis::Corotational, Analysis::Buckling, Analysis::Harmonic]
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2222"]
+    fn issue_2222_near_full_bounds_every_analysis() {
+        let original: SolverInput = serde_json::from_str(include_str!("../../tests/fixtures/narrow-span-2222.json")).unwrap();
+        for analysis in analyses() {
+            for (a,b,valid) in [(-5e-13,3.0,false),(0.0,3.0+5e-13,false),(0.0,3.0,true),(5e-13,3.0-5e-13,true)] {
+                let mut input = original.clone();
+                input.loads = vec![SolverLoad::Distributed(SolverDistributedLoad { element_id:1, q_i:-2.0, q_j:-2.0, a:Some(a), b:Some(b) })];
+                let planar = validate_input_2d_for_analysis(&input, analysis);
+                assert_eq!(planar.is_ok(), valid, "2D {analysis:?}: [{a}, {b}]: {planar:?}");
+                for plane in [Plane::XY,Plane::XZ] {
+                    let input = embed_2d(&input, plane).unwrap();
+                    let spatial = validate_input_3d_for_analysis(&input, analysis);
+                    assert_eq!(spatial.is_ok(), valid, "3D {analysis:?}: [{a}, {b}]: {spatial:?}");
+                }
+            }
+        }
+    }
+}
