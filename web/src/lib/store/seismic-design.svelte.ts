@@ -248,7 +248,7 @@ export function applySeismicDetailing(): { beams: number; columns: number } {
       const cur = r.regions?.stirrupsSupport ?? r.stirrups ?? { diameter: 8, legs: 2, spacing: 0.2 };
       const st = beamSteel(r);
       let pick: { diameter: number; spacing: number } | null = null;
-      const endCages = [cur, r.regions?.stirrupsStart, r.regions?.stirrupsEnd].flatMap(cage => cage ? [cage] : []);
+      const endCages = [r.regions?.stirrupsStart ?? cur, r.regions?.stirrupsEnd ?? cur];
       for (const dia of BAR_STEPS.filter((x) => x >= Math.max(...endCages.map(cage => cage.diameter)))) {
         const d = (ctx.axes.hFlex || ctx.section.h) - ctx.material.cover - (dia + st.minDia / 2) / 1000;
         const limits = endCages.map(cage => hoopSpacingFor(m.beam!.ve, m.beam!.vcZero, ctx.axes.bFlex || ctx.section.b, d, ctx.material.fc, ctx.material.fy, dia, cage.legs));

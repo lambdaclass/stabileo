@@ -18,7 +18,7 @@
  * Pure: no store access, no side effects.
  */
 
-import { boundedDirectionalOptions, secondaryLegCounts } from './directional-cage-options';
+import { boundedDirectionalOptions, candidateShearDepth, secondaryLegCounts } from './directional-cage-options';
 import { stirrupLegs } from '../../design-contract/directional-stirrups';
 import { proposeSkin } from '../../codes/cirsoc201/skin';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
@@ -139,8 +139,7 @@ export function peakSecondaryShear(ctx: MemberContext, region?: 'support' | 'spa
 
 export function buildStirrupOptions(ctx: MemberContext, Vu: number, VuSecondary = peakSecondaryShear(ctx)): StirrupDef[] {
   const { bFlex: b, hFlex: h } = ctx.axes;
-  const { cover, stirrupDia } = ctx.material;
-  const d = h - cover - stirrupDia / 1000 - 0.008;
+  const { cover } = ctx.material;
   const out: StirrupDef[] = [];
   const minimumOptions: StirrupDef[] = [];
   /*
@@ -152,16 +151,17 @@ export function buildStirrupOptions(ctx: MemberContext, Vu: number, VuSecondary 
    */
   const sq = shearSqrtFc(ctx.material.fc);
   const e2005 = ctx.codeEdition === '2005';
-  const threshold = e2005 ? 0.5 * 0.75 * 0.17 * sq * b * d * 1000 : 0.75 * 0.085 * sq * b * d * 1000;
-  const avMinPerS = h > SHALLOW_BEAM_MAX_H + 1e-9 && Math.abs(Vu) > threshold
-    ? (e2005 ? Math.max(sq / 16, 0.33) : Math.max(0.062 * sq, 0.35)) * b / ctx.material.fy // m²/m
-    : 0;
   for (const dia of ctx.material.stirrupDiametersMm ?? STANDARD_STIRRUP_DIAS) {
+    const d = candidateShearDepth(h, cover, dia);
+    const threshold = e2005 ? 0.5 * 0.75 * 0.17 * sq * b * d * 1000 : 0.75 * 0.085 * sq * b * d * 1000;
+    const avMinPerS = h > SHALLOW_BEAM_MAX_H + 1e-9 && Math.abs(Vu) > threshold
+      ? (e2005 ? Math.max(sq / 16, 0.33) : Math.max(0.062 * sq, 0.35)) * b / ctx.material.fy // m²/m
+      : 0;
     // The table's across-width limit depends on the stirrup diameter (it sets the leg
     // centre), so the limits are evaluated per diameter rather than once per member.
     const table = transverseSpacingFor(Vu, b, d, ctx.material.fc, cover, dia, ctx.codeEdition);
-    const secondary = VuSecondary >= 0.001 ? transverseSpacingFor(VuSecondary, h, b - cover - stirrupDia / 1000 - 0.008, ctx.material.fc, cover, dia, ctx.codeEdition) : undefined;
-    const secondaryCounts = secondaryLegCounts(secondary?.requiredLegs, BEAM_LIMITS.maxLegs);
+    const secondary = VuSecondary >= 0.001 ? transverseSpacingFor(VuSecondary, h, candidateShearDepth(b, cover, dia), ctx.material.fc, cover, dia, ctx.codeEdition) : undefined;
+    const secondaryCounts = secondaryLegCounts(secondary?.requiredLegs, VuSecondary >= 0.001 ? BEAM_LIMITS.maxLegs : 2);
     if (!secondaryCounts.length) continue;
     const top = Math.floor(Math.min(table.alongMax, secondary?.alongMax ?? Infinity) / SPACING_GRID) * SPACING_GRID;
     for (let legs = table.requiredLegs; legs <= BEAM_LIMITS.maxLegs; legs += 1) {
@@ -182,7 +182,7 @@ export function buildStirrupOptions(ctx: MemberContext, Vu: number, VuSecondary 
   // Preference: fewer legs, smaller diameter, wider spacing (least steel).
   out.sort((x, y) => x.legs - y.legs || (x.secondaryLegs ?? 2) - (y.secondaryLegs ?? 2) || x.diameter - y.diameter || y.spacing - x.spacing);
   return boundedDirectionalOptions(out, BEAM_LIMITS.maxStirrupOptions, cage => VuSecondary / computeDirectionalShearCapacity(
-    'secondary', cage.diameter, stirrupLegs(cage, 'secondary'), cage.spacing, h, b - cover - cage.diameter / 1000 - 0.008, ctx.material.fc, ctx.material.fy, 0,
+    'secondary', cage.diameter, stirrupLegs(cage, 'secondary'), cage.spacing, h, candidateShearDepth(b, cover, cage.diameter), ctx.material.fc, ctx.material.fy, 0,
     { Ag: b * h, h: b, edition: ctx.codeEdition }).phiVn, minimumOptions);
 }
 

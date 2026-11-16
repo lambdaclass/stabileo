@@ -6,7 +6,6 @@ import { buildTieOptions, COLUMN_LIMITS } from '../design/candidate-enumerate-co
 import { verifyProvidedReinforcement } from '../station-design-forces';
 import { transverseSpacingForDemand } from '../../codes/cirsoc201/transverse-spacing';
 import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
 
 const section = { b: 0.4, h: 0.4, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
@@ -49,10 +48,9 @@ for (const diameters of [[6, 8, 12], [12, 8, 6], [8, 8, 8]]) {
   });
 }
 
-const round7 = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 
 for (const edition of ['2005', '2025'] as const) for (const kind of ['beam', 'column'] as const) for (const axis of ['My', 'Mz'] as const) for (const needed of [2, 3, 4, 5]) {
-  (edition === '2005' ? round7 : it)(`known wrong result: #2198 enumerate secondary strength ${edition} ${kind} ${axis} needs ${needed} legs`, () => {
+  it(`known wrong result: #2198 enumerate secondary strength ${edition} ${kind} ${axis} needs ${needed} legs`, () => {
     const ctx = syntheticBeamContext({ elementType: kind, codeEdition: edition });
     ctx.section = { ...ctx.section, b: 0.45, h: 0.45 };
     ctx.axes = { ...ctx.axes, bFlex: 0.45, hFlex: 0.45, ...(axis === 'Mz' ? { flexure: 'Mz', shear: 'Vy', secondaryFlexure: 'My', secondaryShear: 'Vz', sagCategory: 'Mz+', hogCategory: 'Mz-' } : {}) };

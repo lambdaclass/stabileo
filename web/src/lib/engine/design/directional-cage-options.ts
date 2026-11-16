@@ -1,8 +1,8 @@
 import type { StirrupDef } from '../../design-contract/reinforcement';
 
 export function secondaryLegCounts(minimum: number | undefined, maximum: number): Array<number | undefined> {
-  if (minimum === undefined) return [undefined];
-  return Array.from({ length: Math.max(0, maximum - minimum + 1) }, (_, i) => minimum + i);
+  const first = minimum ?? 2;
+  return Array.from({ length: Math.max(0, maximum - first + 1) }, (_, i) => minimum === undefined && i === 0 ? undefined : first + i);
 }
 
 export function boundedDirectionalOptions(options: StirrupDef[], limit: number, secondaryUtilization: (cage: StirrupDef) => number, minimumOptions: StirrupDef[]): StirrupDef[] {
@@ -23,4 +23,8 @@ export function boundedDirectionalOptions(options: StirrupDef[], limit: number, 
     retained.add(cage);
   }
   return [...baseline.filter(c => retained.has(c)), ...options.filter(c => retained.has(c) && !baseline.includes(c))];
+}
+
+export function candidateShearDepth(sectionDepth: number, cover: number, stirrupDiameterMm: number): number {
+  return sectionDepth - cover - stirrupDiameterMm / 1000 - 0.008;
 }

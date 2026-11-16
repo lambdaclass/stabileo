@@ -91,7 +91,7 @@ describe('flagship 408-member RC frame designs completely', () => {
     // threshold; this verifier only checks the primary axis for beams, so it
     // refuses rather than falsely certify them (PR78 review fix). 22 until
     // self-weight bent the beams (see the header).
-    // 372 since main's concrete in the engine (rc-baseline-digest.test.ts, fingerprint): the columns read on the load contour carry bars on every face, and 11 more edge beams find no layout through those cages.
+    // 376 verified after the engine capacity and cage-depth corrections (rc-baseline-digest.test.ts, fingerprint).
     expect(s.verified).toBe(376);   // 383 until main's concrete in the engine, 379 until §9.6.3.1 (header)
     // 16 refused on congestion: an exhausted search, not a proven section (`section-bounds.ts`).
     // 22 until the ductility check (header).

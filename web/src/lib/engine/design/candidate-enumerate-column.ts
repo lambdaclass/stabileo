@@ -16,7 +16,7 @@
  * Pure: no store access, no side effects.
  */
 
-import { boundedDirectionalOptions, secondaryLegCounts } from './directional-cage-options';
+import { boundedDirectionalOptions, candidateShearDepth, secondaryLegCounts } from './directional-cage-options';
 import { stirrupLegs } from '../../design-contract/directional-stirrups';
 import type { RegulationEdition } from '../../codes/regulation';
 import { transverseSpacingForDemand, columnTieSpacing } from '../../codes/cirsoc201/transverse-spacing';
@@ -96,7 +96,7 @@ export function buildTieOptions(ctx: MemberContext, cornerDia: number): StirrupD
     const peak = (axis: 'Vy' | 'Vz') => Math.max(0, ...(ctx.stations?.comboResults ?? []).flatMap(c => c.stations.map(s => Math.abs(tupleShear(s, axis)))));
     const limits = (width: number, depth: number, Vu: number) => Vu >= 0.001 && ctx.codeEdition === '2025'
       ? transverseSpacingForDemand(ctx.codeEdition, { Vu, bw: width, d: depth, fc: ctx.material.fc, cover: ctx.material.cover, stirrupDiaMm: dia }) : undefined;
-    const effectiveDepth = (depth: number) => depth - ctx.material.cover - ctx.material.stirrupDia / 1000 - 0.008;
+    const effectiveDepth = (depth: number) => candidateShearDepth(depth, ctx.material.cover, dia);
     const webs = ctx.shape ? shapedShearWebs(ctx.shape) : [
       { axis: ctx.axes.shear, bw: ctx.axes.bFlex, d: effectiveDepth(ctx.axes.hFlex) },
       { axis: ctx.axes.secondaryShear, bw: ctx.axes.hFlex, d: effectiveDepth(ctx.axes.bFlex) },
@@ -125,7 +125,7 @@ export function buildTieOptions(ctx: MemberContext, cornerDia: number): StirrupD
   }
   out.sort((x, y) => x.legs - y.legs || (x.secondaryLegs ?? 2) - (y.secondaryLegs ?? 2) || x.diameter - y.diameter || y.spacing - x.spacing);
   return boundedDirectionalOptions(out, COLUMN_LIMITS.maxTieOptions, cage => {
-    const depth = ctx.axes.bFlex - ctx.material.cover - cage.diameter / 1000 - 0.008;
+    const depth = candidateShearDepth(ctx.axes.bFlex, ctx.material.cover, cage.diameter);
     const web = ctx.shape ? shapedShearWebs(ctx.shape).find(w => w.axis === ctx.axes.secondaryShear)! : { bw: ctx.axes.hFlex, d: depth };
     return Math.max(0, ...(ctx.stations?.comboResults ?? []).flatMap(c => c.stations.map(s => Math.abs(tupleShear(s, ctx.axes.secondaryShear)))))
       / computeDirectionalShearCapacity('secondary', cage.diameter, stirrupLegs(cage, 'secondary'), cage.spacing, web.bw, web.d, ctx.material.fc, ctx.material.fy, 0,

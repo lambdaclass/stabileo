@@ -4,10 +4,9 @@ import { buildStirrupOptions } from '../design/candidate-enumerate-beam';
 import { buildTieOptions } from '../design/candidate-enumerate-column';
 import { transverseSpacingForDemand } from '../../codes/cirsoc201/transverse-spacing';
 
-const round7 = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 
 for (const kind of ['beam', 'column'] as const) for (const axis of ['My', 'Mz'] as const) for (const direction of ['primary', 'secondary'] as const) for (const h of [1.121, 1.125, 1.138, 1.139, 1.140]) {
-  round7(`known wrong result: #2198 candidate diameter spacing boundary ${kind} ${axis} ${direction} ${h}`, () => {
+  it(`known wrong result: #2198 candidate diameter spacing boundary ${kind} ${axis} ${direction} ${h}`, () => {
     const ctx = syntheticBeamContext({ elementType: kind, codeEdition: '2025' });
     const [bFlex, hFlex] = direction === 'secondary' ? [0.4, h] : [h, 0.4];
     ctx.section = { ...ctx.section, b: bFlex, h: hFlex };

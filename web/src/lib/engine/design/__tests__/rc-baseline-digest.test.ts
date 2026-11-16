@@ -102,11 +102,9 @@ describe('RC design baseline — the flagship frame, member by member', () => {
      * the 22 reach a passing arrangement that threads the cages (see the fingerprint).
      */
     // 383 and 12 since the minimum shear reinforcement of §9.6.3.1 (see the fingerprint).
-    // 372 and 23 since the design met main's concrete in the engine (see the fingerprint): the
-    // columns are read on the engine's load contour and carry bars on every face, and 11 more
-    // edge beams find no layout through those cages.
+    // 376 verified and 19 exhausted after the engine capacity and cage-depth corrections (see the fingerprint).
     expect(summary.verified).toBe(376);
-    // The 23 congested beams are an exhausted search, not a proven section (`section-bounds.ts`).
+    // The 19 congested beams are an exhausted search, not a proven section (`section-bounds.ts`).
     expect(summary.searchExhausted).toBe(19);
     expect(summary.provisionalBiaxial).toBe(13);
     expect(summary.sectionInadequate).toBe(0);

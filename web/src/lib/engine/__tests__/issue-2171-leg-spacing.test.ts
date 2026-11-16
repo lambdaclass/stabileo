@@ -1,6 +1,5 @@
 import { declaredTestDemands } from './helpers/declared-demands';
 import { afterEach, expect, it } from 'vitest';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { checkShear, prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { transverseSpacingLimits } from '../../codes/cirsoc201/transverse-spacing';

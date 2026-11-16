@@ -1,6 +1,5 @@
 import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { checkShear, prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';

@@ -54,12 +54,11 @@ for (const swap of [false, true]) for (const vcZero of [false, true]) for (const
   });
 }
 
-const round7 = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 for (const swap of [false, true]) for (const fallback of [
   { diameter: 16, legs: 4, secondaryLegs: 4, spacing: 0.2 },
   { diameter: 8, legs: 1, secondaryLegs: 2, spacing: 0.05 },
 ]) for (const explicit of ['both', 'start', 'end'] as const) {
-  round7(`known wrong result: #2198 seismic overridden fallback ${swap} ${JSON.stringify(fallback)} ${explicit}`, () => {
+  it(`known wrong result: #2198 seismic overridden fallback ${swap} ${JSON.stringify(fallback)} ${explicit}`, () => {
     state.ve = 120;
     state.vcZero = true;
     const weak = { diameter: 8, legs: 2, secondaryLegs: 2, spacing: 0.2 };

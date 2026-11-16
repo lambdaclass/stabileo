@@ -104,3 +104,5 @@ parent failures, independent capacity arithmetic, correct controls and refusal
 boundaries. Two pre-existing main defects are deferred with ready-to-file issue
 text as directed by the coordinator. SA-2026-075 screening now includes equal
 counts and omitted checks, including two-primary/two-secondary cages.
+
+Round 7 also corrects missing secondary counts without a spacing seed, candidate-diameter spacing seeds and overridden seismic fallback cages. See the [round-7 results record](2198-round7-candidates.md).

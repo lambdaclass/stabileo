@@ -83,7 +83,7 @@ describe('rc-design-qa-8', () => {
 describe('rc-design-frame, 408 members', () => {
   const gravity = run(frame, { beams: 'gravity' }), undeclared = run(frame, null);
 
-  // 372 since main's concrete in the engine (rc-baseline-digest.test.ts, fingerprint): the columns read on the load contour carry bars on every face, and 11 more edge beams find no layout through those cages. Not declared: 359; of the 13 it loses, 6 refuse on their anchorage and 7 on congestion.
+  // 376 verified with gravity declared; 362 undeclared, with seven additional anchorage and seven congestion refusals.
   it('outside the system 376 designed; not declared 362, the 14 it loses refusing on their anchorage or congestion', () => {
     expect(counts(gravity.s)).toEqual({ verified: 376, searchExhausted: 19, provisionalBiaxial: 13, sectionInadequate: 0 });
     expect(counts(undeclared.s)).toEqual({ verified: 362, searchExhausted: 33, provisionalBiaxial: 13, sectionInadequate: 0 });

@@ -1,7 +1,6 @@
 import { declaredTestDemands } from './helpers/declared-demands';
 import main from './fixtures/issue-2171-main.json';
 import { afterEach, expect, it } from 'vitest';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyElement, prepareElementVerification } from '../codes/argentina/cirsoc201';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { verifyProvidedReinforcement } from '../station-design-forces';
@@ -86,9 +85,10 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
       expect(v.shearSecondary!.stirrupLegs).toBe(2);
       for (const c of v.concurrentChecks!) expect(c.verification.shearSecondary!.stirrupLegs).toBe(2);
     }
-    for (const source of complete.demands.get(1)!.concurrent!) {
-      const input = { ...p, edition, elementId: 1, elementType: 'column' as const, demand: source.section('My') };
-      const v = verifyConcurrentElement([input]);
+    const inputs = complete.demands.get(1)!.concurrent!.map(source => ({ ...p, edition, elementId: 1, elementType: 'column' as const, demand: source.section('My') }));
+    const concurrent = verifyConcurrentElement(inputs);
+    expect(concurrent.concurrentChecks).toHaveLength(inputs.length);
+    for (const v of [concurrent, ...inputs.flatMap(input => [verifyElement(input), prepareElementVerification(input)()])]) {
       expect(v.shearSecondary!.stirrupLegs).toBe(2);
     }
   });
