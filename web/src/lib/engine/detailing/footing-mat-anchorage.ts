@@ -56,7 +56,7 @@
 
 import { clause, type ClauseRef, type RegulationEdition } from '../../codes/regulation';
 import { msg, type EngineMessage } from '../../codes/message';
-import { deriveDevelopment } from '../../codes/cirsoc201/anchorage';
+import { deriveDevelopment, type DevelopmentResult } from '../../codes/cirsoc201/anchorage';
 import { columnOffsetFromCentroid } from './footing-actions';
 import type { FootingDirectionDesign, FootingMatAxis, FootingMatDesign }
   from './footing-flexure';
@@ -87,7 +87,7 @@ export interface FootingDirectionAnchorage {
   /** l_d required, m — from `deriveDevelopment`, never a second formula. */
   requiredLd: number;
   /** Which Table 25.4.2.3 row was taken, and the value before the §25.4.2.1(b) floor. */
-  tableRow: 'favourable' | 'other';
+  tableRow: DevelopmentResult['tableRow'];
   computedLd: number;
   governedByMinimum: boolean;
   /** Both sides, always — the shorter one is not always the one a reader expects. */

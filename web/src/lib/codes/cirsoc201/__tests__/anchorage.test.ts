@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveHookedDevelopment } from '../anchorage';
+import { confinementOf, deriveDevelopment, deriveHookedDevelopment, favourableRow, sizeFactor } from '../anchorage';
 
 describe('§25.4.3.1 — hooked development length', () => {
   it('the formula term governs for a typical bar: ldh = 0,24·fy/√f\'c·db', () => {
@@ -35,5 +35,44 @@ describe('§25.4.3.1 — hooked development length', () => {
   it('cites §25.4.3.1', () => {
     const r = deriveHookedDevelopment({ diameterMm: 20, fy: 420, fc: 25, edition: '2025' });
     expect(r.refs.some((c) => c.clause === '25.4.3.1')).toBe(true);
+  });
+});
+
+describe('§25.4.2.4 — general development length', () => {
+  const base = { fy: 420, fc: 25, favourableSpacing: false, edition: '2025' as const };
+
+  it('Ø20 at f\'c 25: 153 cm by the "other cases" row, 61 cm with (cb + Ktr)/db at its 2,5 cap', () => {
+    expect(deriveDevelopment({ ...base, diameterMm: 20 }).ldM).toBeCloseTo(420 / (1.1 * 5) * 0.02, 9);
+    const g = deriveDevelopment({ ...base, diameterMm: 20, confinement: { cbMm: 80 } });
+    expect(g.confinementTerm).toBe(2.5);
+    expect(g.tableRow).toBe('general');
+    expect(g.ldM).toBeCloseTo(420 / (1.1 * 5 * 2.5) * 0.02, 9);
+    expect(g.refs.map((r) => r.clause)).toEqual(expect.arrayContaining(['25.4.2.4', 'Tabla 25.4.2.5']));
+    expect(g.derivation.key).toBe('codes.cirsoc201.anchorage.developmentGeneral');
+  });
+
+  it('takes ψs = 0,8 at Ø16 and below, 1,0 above, and the real cb below the cap', () => {
+    expect([12, 16, 20].map(sizeFactor)).toEqual([0.8, 0.8, 1.0]);
+    const r = deriveDevelopment({ ...base, diameterMm: 16, confinement: { cbMm: 24 } });
+    expect(r.confinementTerm).toBeCloseTo(1.5, 12);
+    expect(r.ldM).toBeCloseTo(420 * 0.8 / (1.1 * 5 * 1.5) * 0.016, 9);
+    expect(deriveDevelopment({ ...base, diameterMm: 16, confinement: { cbMm: 24, ktrMm: 16 } }).confinementTerm).toBe(2.5);
+  });
+
+  it('grades ψg 1,15 for ADN 500 and floors at 300 mm', () => {
+    const a = deriveDevelopment({ ...base, fy: 500, diameterMm: 25, confinement: { cbMm: 40 } });
+    expect(a.ldM).toBeCloseTo(500 * 1.15 / (1.1 * 5 * 1.6) * 0.025, 9);
+    const small = deriveDevelopment({ ...base, diameterMm: 8, confinement: { cbMm: 40 } });
+    expect(small.ldM).toBe(0.3);
+    expect(small.derivation.key).toBe('codes.cirsoc201.anchorage.developmentGeneralMinimum');
+  });
+
+  it('cb is the lesser of the cover to the bar centre and half the spacing; the table\'s first row only where its conditions hold', () => {
+    expect(confinementOf(10, 25, 150).cbMm).toBe(30);
+    expect(confinementOf(16, 40, 50).cbMm).toBe(25);
+    expect(favourableRow({ diameterMm: 20, clearSpacingMm: 25, clearCoverMm: 33, minimumStirrups: true })).toBe(true);
+    expect(favourableRow({ diameterMm: 20, clearSpacingMm: 25, clearCoverMm: 33, minimumStirrups: false })).toBe(false);
+    expect(favourableRow({ diameterMm: 25, clearSpacingMm: 50, clearCoverMm: 20, minimumStirrups: true })).toBe(false);
+    expect(favourableRow({ diameterMm: 10, clearSpacingMm: 140, clearCoverMm: 25, minimumStirrups: false })).toBe(true);
   });
 });

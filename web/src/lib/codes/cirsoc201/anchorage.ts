@@ -24,13 +24,13 @@
  * ψe = 1 always: §25.4.2.4's commentary states epoxy coating is not permitted under this
  * regulation, so there is no coated case to model.
  *
- * ── What is NOT implemented ────────────────────────────────────────
+ * §25.4.2.4 — the general equation (25.4.2.4a), where the caller knows the bar layout:
  *
- * The general equation (25.4.2.4a) with an explicit (cb + Ktr)/db. It needs the real bar
- * layout, which the caller does not have at the point ld is first needed. The simplified
- * table is the conservative choice of the two for the "other cases" row and is what §25.4.2.1
- * permits, so using it is a documented decision rather than a gap. `deriveDevelopment`
- * records which row was taken.
+ *   ld = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f'c·(cb + Ktr)/db) · db,   (cb + Ktr)/db ≤ 2,5
+ *
+ * cb the lesser of the cover to the bar's centre and half the centre-to-centre spacing; Ktr = 0
+ * is allowed «aún si hay armadura transversal presente», and is what `confinementOf` takes.
+ * ψs (Table 25.4.2.5) is 0,8 for db ≤ 16 mm and 1,0 above.
  *
  * Pure: no store, no runes, no i18n.
  */
@@ -74,16 +74,44 @@ export interface DevelopmentInputs {
    */
   favourableSpacing: boolean;
   /**
+   * The bar layout, for the general equation of §25.4.2.4: when given, it is used and
+   * `favourableSpacing` is not read.
+   */
+  confinement?: Confinement;
+  /**
    * ψt, §25.4.2.5 — bar location factor. 1,3 for horizontal top reinforcement placed such
    * that more than 300 mm of fresh concrete is cast below it, 1,0 otherwise.
    */
   psiT?: number;
-  /** ψg, §25.4.2.5 — grade factor. 1,0 for fy ≤ 420, 1,15 for 550, 1,3 for 690. */
+  /** ψg, Table 25.4.2.5 — grade factor. 1,0 for fy = 220 or 420 MPa, 1,15 for 500. */
   psiG?: number;
   /** λ, §25.4.2.5 — lightweight concrete factor. 1,0 for normal weight. */
   lambda?: number;
   edition: RegulationEdition;
 }
+
+/** cb of §25.4.2.4 and the transverse index Ktr, mm. */
+export interface Confinement { cbMm: number; ktrMm?: number }
+
+/** §25.4.2.4: (cb + Ktr)/db is not taken greater than 2,5. */
+export const MAX_CONFINEMENT_TERM = 2.5;
+
+/**
+ * cb of §25.4.2.4 for a row of bars at `spacingMm` between centres with `clearCoverMm` to the
+ * outside of the bar: the lesser of the cover to the bar's centre and half the spacing. Ktr = 0.
+ */
+export const confinementOf = (diameterMm: number, clearCoverMm: number, spacingMm: number): Confinement =>
+  ({ cbMm: Math.min(clearCoverMm + diameterMm / 2, spacingMm / 2) });
+
+/**
+ * Whether the first row of Table 25.4.2.3 holds: clear spacing ≥ db and clear cover ≥ db with at
+ * least the code's minimum stirrups along ld, or clear spacing ≥ 2·db and clear cover ≥ db.
+ */
+export const favourableRow = (o: { diameterMm: number; clearSpacingMm: number; clearCoverMm: number; minimumStirrups: boolean }): boolean =>
+  o.clearCoverMm >= o.diameterMm - 1e-9 && o.clearSpacingMm >= (o.minimumStirrups ? 1 : 2) * o.diameterMm - 1e-9;
+
+/** ψs of Table 25.4.2.5. */
+export const sizeFactor = (diameterMm: number): number => (diameterMm <= TABLE_25_4_2_3_DIAMETER_BREAK_MM ? 0.8 : 1.0);
 
 export interface DevelopmentResult {
   /** Development length ld, in METRES, to match the generators' units. */
@@ -92,11 +120,13 @@ export interface DevelopmentResult {
   computedM: number;
   /** True when §25.4.2.1(b) governed. */
   governedByMinimum: boolean;
-  /** Which cell of Table 25.4.2.3 was used. */
-  tableRow: 'favourable' | 'other';
+  /** Which cell of Table 25.4.2.3 was used, or the general equation of §25.4.2.4. */
+  tableRow: 'favourable' | 'other' | 'general';
   tableColumn: 'db<=16' | 'db>16';
-  /** The denominator coefficient actually applied (2,1 / 1,7 / 1,4 / 1,1). */
+  /** The denominator coefficient actually applied (2,1 / 1,7 / 1,4 / 1,1; 1,1·(cb + Ktr)/db/ψs for the general equation). */
   coefficient: number;
+  /** (cb + Ktr)/db as taken, after the 2,5 cap, when the general equation was used. */
+  confinementTerm?: number;
   refs: ClauseRef[];
   derivation: EngineMessage;
 }
@@ -125,7 +155,7 @@ export function concreteBelowTopBars(h: number, cover: number, stirrupDiaMm: num
   return h - cover - (stirrupDiaMm + barDiaMm) / 1000;
 }
 
-/** ψg from §25.4.2.5, by specified grade. */
+/** ψg from Table 25.4.2.5, by specified grade: the table lists 220, 420 and 500 MPa; above 550 the 1,3 is ACI 318's. */
 export function gradeFactor(fy: number): number {
   if (fy <= 420) return 1.0;
   if (fy <= 550) return 1.15;
@@ -145,42 +175,46 @@ export function deriveDevelopment(input: DevelopmentInputs): DevelopmentResult {
   const lambda = input.lambda ?? 1.0;
 
   const large = db > TABLE_25_4_2_3_DIAMETER_BREAK_MM;
-  const coefficient = favourableSpacing
-    ? (large ? 1.7 : 2.1)
-    : (large ? 1.1 : 1.4);
+  const general = input.confinement;
+  const term = general ? Math.min((general.cbMm + (general.ktrMm ?? 0)) / db, MAX_CONFINEMENT_TERM) : undefined;
+  const psiS = sizeFactor(db);
+  const coefficient = term !== undefined
+    ? (1.1 * term) / psiS
+    : favourableSpacing ? (large ? 1.7 : 2.1) : (large ? 1.1 : 1.4);
 
-  // Table 25.4.2.3 is written in mm with f'c in MPa; the result is a multiple of db.
   const computedMm = (fy * psiT * psiE * psiG) / (coefficient * lambda * developmentSqrtFc(fc)) * db;
   const ldMm = Math.max(computedMm, MIN_DEVELOPMENT_MM);
 
   const refs = [
-    clause('cirsoc-201', edition, 'Tabla 25.4.2.3',
-      'longitud de anclaje para barras conformadas en tracción'),
+    term !== undefined
+      ? clause('cirsoc-201', edition, '25.4.2.4', 'longitud de anclaje para barras conformadas en tracción, expresión general')
+      : clause('cirsoc-201', edition, 'Tabla 25.4.2.3', 'longitud de anclaje para barras conformadas en tracción'),
+    ...(term !== undefined ? [clause('cirsoc-201', edition, 'Tabla 25.4.2.5', 'factores de modificación')] : []),
     clause('cirsoc-201', edition, '25.4.2.1', 'longitud de anclaje mínima'),
     ...capRef(fc, edition),
   ];
+  const minimum = ldMm > computedMm;
 
   return {
     ldM: ldMm / 1000,
     computedM: computedMm / 1000,
-    governedByMinimum: ldMm > computedMm,
-    tableRow: favourableSpacing ? 'favourable' : 'other',
+    governedByMinimum: minimum,
+    tableRow: term !== undefined ? 'general' : favourableSpacing ? 'favourable' : 'other',
     tableColumn: large ? 'db>16' : 'db<=16',
     coefficient,
+    ...(term !== undefined ? { confinementTerm: term } : {}),
     refs,
-    derivation: msg(
-      ldMm > computedMm
-        ? 'codes.cirsoc201.anchorage.developmentMinimum'
-        : 'codes.cirsoc201.anchorage.development',
-      {
+    derivation: term !== undefined
+      ? msg(minimum ? 'codes.cirsoc201.anchorage.developmentGeneralMinimum' : 'codes.cirsoc201.anchorage.developmentGeneral', {
+        db, psiT, psiS, psiG, lambda, cb: round(general!.cbMm, 1), term: round(term, 2),
+        computed: round(computedMm, 0), minimum: MIN_DEVELOPMENT_MM, ld: round(ldMm, 0),
+      })
+      : msg(minimum ? 'codes.cirsoc201.anchorage.developmentMinimum' : 'codes.cirsoc201.anchorage.development', {
         db, coefficient, psiT, psiG, lambda,
         computed: round(computedMm, 0), minimum: MIN_DEVELOPMENT_MM,
         ld: round(ldMm, 0),
-        row: favourableSpacing
-          ? 'codes.cirsoc201.anchorage.rowFavourable'
-          : 'codes.cirsoc201.anchorage.rowOther',
-      },
-    ),
+        row: favourableSpacing ? 'codes.cirsoc201.anchorage.rowFavourable' : 'codes.cirsoc201.anchorage.rowOther',
+      }),
   };
 }
 
