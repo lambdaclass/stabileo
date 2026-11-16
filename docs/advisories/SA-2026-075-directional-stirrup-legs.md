@@ -1,4 +1,4 @@
-# SA-2026-075: Primary stirrup legs were credited to secondary shear
+# SA-2026-075: Incorrect directional stirrup legs and primary shear depth
 
 | | |
 |---|---|
@@ -7,7 +7,7 @@
 | Issue | [#2171](https://github.com/lambdaclass/stabileo/issues/2171) |
 | Fix | PR #2198; pending merge and release |
 | Fixed release | Not released |
-| Affected versions | Confirmed on origin/main `9d925a780`; earlier introduction and historical release binaries not assessed |
+| Affected versions | Directional legs confirmed on origin/main `9d925a780`; primary shear depth on origin/main `db3ebf092`; earlier introduction and historical release binaries not assessed |
 | Re-check registry | [`directional-stirrup-legs`](../../web/src/lib/provenance/result-changes/directional-stirrup-legs.json) |
 
 ## Affected features
@@ -17,10 +17,16 @@ shear and torsion, insufficient leg distribution or omitted secondary-shear chec
 regardless of the relationship between primary and secondary leg counts. This
 includes designed members and provided reinforcement, including cages with
 two primary and two secondary legs.
+Provided beam and wall reinforcement is also affected when the actual stirrup
+diameter differs from the nominal section diameter, including cages selected
+by the beam generator. Using nominal depth for a larger actual cage can
+overstate primary shear capacity and change a prior pass to failure even with
+adequate leg distribution and no
+secondary shear or torsion. Support, explicit end and span cages are included.
 The saved-project notice selects concrete members in 2D, 3D and Pro. Planar
 models have no secondary shear or torsion degrees of freedom. Primary leg
-distribution still applies in 2D; spatial models also expose the secondary
-direction. Both editions use the native section
+distribution and actual-cage primary shear depth still apply in 2D; spatial
+models also expose the secondary direction. Both editions use the native section
 evaluator through WASM; the direction selection occurs in the web layer.
 
 ## What was wrong
@@ -52,6 +58,18 @@ These are witnesses, not error bounds for other members. This is a main-source
 replay, not a historical release-binary replay. Earlier introduction and
 historical release exposure have not been assessed.
 
+The inherited primary shear depth defect is documented in the
+[round-10 results record](../results-changes/2198-round10-primary-depth.md) and
+[changelog entry](../../changelog.d/2198-round10-primary-depth.md). Provided beam
+and wall checks paired the actual cage reinforcement area with a primary
+effective depth derived from the nominal stirrup diameter. A larger actual
+diameter reduces effective depth, so the old calculation could overstate
+capacity and accept primary shear above the actual capacity. A smaller actual
+cage received the wrong depth in the opposite direction. This defect does not
+require secondary shear, torsion or inadequate leg distribution. The record
+confirms it on main source at `db3ebf092`; historical release binaries were not
+assessed.
+
 ## How to tell if your model is affected
 
 Review concrete cages with secondary shear or torsion and every cage whose leg
@@ -63,6 +81,12 @@ establish that the steel credited in each direction exists. The saved-project
 notice conservatively selects concrete members; it does not prove every
 selected member had an incorrect result.
 
+Also review every provided beam and wall support, explicit end and span cage
+whose actual stirrup diameter differs from the nominal section diameter,
+including generated cages. Check primary effective depth, shear capacity,
+steel ratio and spacing using each actual cage. Adequate leg distribution and
+zero secondary shear and torsion do not rule out this exposure.
+
 ## Fixed in
 
 Fixed in PR #2198, pending merge and release. Separate immutable directional
@@ -72,6 +96,10 @@ torsion remains limited by one leg of the outer closed hoop. Shared spacing
 no longer copies one direction's legs to the other. The required distributed
 leg count is checked independently of strength in each direction, retaining
 the supplied reinforcement and failing when it is insufficient.
+Both directional effective depths now come from one shared cage-bound geometry
+resolver. Each provided beam and wall support, explicit end and span check uses
+its actual cage diameter consistently for primary shear capacity, steel ratio
+and spacing.
 
 The separate secondary-width minimum and edition-specific torsion minimum
 questions remain outside this correction. This fix does not add native
@@ -80,19 +108,27 @@ Existing engineering limits, tolerances and strength assertions are unchanged.
 
 ## Workaround
 
-Until the correction is merged and released, independently verify secondary
-shear and combined shear–torsion reinforcement using the legs actually
-present in each direction. Do not credit additional primary legs as horizontal
-crossties. Check transverse leg spacing independently of total steel area.
+Until the correction is merged and released, independently verify primary and
+secondary shear and combined shear–torsion reinforcement using the legs actually
+present in each direction. For provided beam and wall support, explicit end and
+span cages, derive primary effective depth from each actual stirrup diameter
+and longitudinal bar arrangement, including final bar shifts, and use that
+same depth for capacity, steel ratio and spacing. Do this even with adequate
+leg distribution and zero secondary shear and torsion. Do not credit additional
+primary legs as horizontal crossties. Check transverse leg spacing independently of total steel area.
 
 ## What to do with results you already have
 
 After upgrading to a release containing the correction, rerun saved concrete
-member design and provided-reinforcement checks. Review secondary shear,
-torsion, governing checks, stirrup counts and spacing, calculations and
+member design and provided-reinforcement checks. Review primary and secondary
+shear, torsion, governing checks, actual cage diameters, effective depths, steel
+ratios, stirrup counts and spacing, calculations and
 deliverables based on the old results. Declare horizontal crossties only when
 the physical reinforcement provides them. Adding primary legs alone does not
-correct an inadequate secondary cage.
+correct an inadequate secondary cage. Recheck beam and wall cages against
+primary shear even if their leg distribution is adequate and they have no
+secondary shear or torsion; a larger actual diameter can turn a prior primary
+shear pass into failure.
 
 ## Credits and references
 

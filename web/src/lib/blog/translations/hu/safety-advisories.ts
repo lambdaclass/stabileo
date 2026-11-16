@@ -540,7 +540,7 @@ const body: PostBody = {
           "Magas",
           "PR #2197; egyesítésre és kiadásra vár"
         ],
-        ["SA-2026-075", "A kengyelek főirányú szárait a másodlagos nyíráshoz is beszámította a program, ezért túl kevés vízszintes szárral is figyelmeztetés nélküli megfelelést adhatott (#2171). Futtassa újra a betonellenőrzéseket, és vizsgálja felül a másodlagos nyírást, a csavarást és az egyes irányokban megadott szárakat.", "Magas", "Javítva a #2198 PR-ben, összevonásra és kiadásra vár"],
+        ["SA-2026-075", "A kengyelek főirányú szárait a másodlagos nyíráshoz is beszámította a program, ezért túl kevés vízszintes szárral is figyelmeztetés nélküli megfelelést adhatott (#2171). A gerendák és falak megadott vasalásánál a névlegesnél nagyobb tényleges kengyelátmérő a főirányú nyírási teherbírást is túlbecsülhette, megfelelő száreloszlás mellett, másodlagos nyírás és csavarás nélkül is. A frissítésig ellenőrizze függetlenül a főirányú nyírást a támaszok, végek és mezők minden tényleges vasalási kosarának hasznos magasságával. Futtassa újra a betonellenőrzéseket, és vizsgálja felül a főirányú és másodlagos nyírást, a csavarást, a tényleges átmérőket, a hasznos magasságokat, a vasalási hányadokat, a szárakat és a távolságokat.", "Magas", "Javítva a #2198 PR-ben, összevonásra és kiadásra vár"],
         [
           "SA-2026-076",
           "Egy nyitott fal az egész épületet nyitottnak minősíthette, elhagyva a belső nyomást (#2203). Ellenőrizze minden fal és a tető nyílásait, sorolja be újra az épületet, állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és méretezési ellenőrzéseket. A mentett terhek újraszámítása nem javítja ki őket.",
