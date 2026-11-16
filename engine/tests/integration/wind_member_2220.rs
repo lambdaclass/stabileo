@@ -1,6 +1,6 @@
 use dedaliano_engine::solver::{linear, pdelta};
 use dedaliano_engine::types::{SolverInput, SolverInput3D};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 #[test]
 fn issue_2220_generated_pressure_reaches_native_members() {
@@ -16,7 +16,6 @@ fn issue_2220_generated_pressure_reaches_native_members() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2220"]
 fn issue_2220_cubic_grid_reaches_native_members() {
     let fixtures: Value = serde_json::from_str(include_str!("wind_member_2220.json")).unwrap();
     let cases: Vec<_> = fixtures
@@ -65,9 +64,20 @@ fn check_pressure_cases(cases: Vec<&Value>) {
                 .sum()
         };
         let tip = case["tip"].as_u64().unwrap();
+        let mut input = case["input"].clone();
+        if let Some(loads) = case["memberLoads"].as_array() {
+            input["loads"] = loads.iter().map(|p| {
+                let data = if case["dimension"] == 2 {
+                    json!({"elementId": p[0], "a": p[1], "b": p[2], "qI": p[3], "qJ": p[4]})
+                } else {
+                    json!({"elementId": p[0], "a": p[1], "b": p[2], "qYI": p[3], "qYJ": p[4], "qZI": 0, "qZJ": 0})
+                };
+                json!({"type": "distributed", "data": data})
+            }).collect();
+        }
         for nonlinear in [false, true] {
             let result = if case["dimension"] == 2 {
-                let model: SolverInput = serde_json::from_value(case["input"].clone()).unwrap();
+                let model: SolverInput = serde_json::from_value(input.clone()).unwrap();
                 serde_json::to_value(if nonlinear {
                     pdelta::solve_pdelta_2d(&model, 50, 1e-8).unwrap().results
                 } else {
@@ -75,7 +85,7 @@ fn check_pressure_cases(cases: Vec<&Value>) {
                 })
                 .unwrap()
             } else {
-                let model: SolverInput3D = serde_json::from_value(case["input"].clone()).unwrap();
+                let model: SolverInput3D = serde_json::from_value(input.clone()).unwrap();
                 serde_json::to_value(if nonlinear {
                     pdelta::solve_pdelta_3d(&model, 50, 1e-8).unwrap().results
                 } else {

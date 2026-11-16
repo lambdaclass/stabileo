@@ -44,7 +44,7 @@ for (const variant of variants) it(`tapered physical width and varying pressure 
   expect(force).toBeCloseTo(44, 9); expect(first).toBeCloseTo(138, 9);
 });
 
-for (const offset of [0, 1]) for (const sign of [-1, 1]) it.skipIf(process.env.RUN_KNOWN_WRONG !== '2220')(`#2220 known wrong result: #2220 cubic Gauss alias retains all four moments offset=${offset} sign=${sign}`, () => {
+for (const offset of [0, 1]) for (const sign of [-1, 1]) it(`#2220 cubic Gauss alias retains all four moments offset=${offset} sign=${sign}`, () => {
   const parts = integrateWindPressure(1, [], s => sign * (offset + s ** 2 * (1.5 - s)));
   expect(parts.length).toBeGreaterThan(1);
   for (const p of parts) { expect(sign * p.q).toBeGreaterThanOrEqual(0); expect(sign * p.qJ).toBeGreaterThanOrEqual(0); }
@@ -57,7 +57,7 @@ for (const offset of [0, 1]) for (const sign of [-1, 1]) it.skipIf(process.env.R
   }
 });
 
-for (const offset of [-1e-7, 0, 1e-7]) it.skipIf(process.env.RUN_KNOWN_WRONG !== '2220')(`#2220 known wrong result: #2220 quadratic pressure keeps its physical sign at zero offset=${offset}`, () => {
+for (const offset of [-1e-7, 0, 1e-7]) it(`#2220 quadratic pressure keeps its physical sign at zero offset=${offset}`, () => {
   const parts = integrateWindPressure(1, [], s => s ** 2 + offset);
   for (const p of parts) if (p.a ** 2 + offset >= 0) { expect(p.q).toBeGreaterThanOrEqual(0); expect(p.qJ).toBeGreaterThanOrEqual(0); }
   expect(parts.reduce((sum, p) => sum + p.force, 0)).toBeCloseTo(1 / 3 + offset, 10);

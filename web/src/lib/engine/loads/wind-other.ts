@@ -139,9 +139,10 @@ export function otherStructureWind(i: {
       if (!(B > 0)) { notes.push(msg('wind.other.noSign')); continue; }
       const cf = solidSignCf(B / sH, sH / H);
       const pressure = qz(H) * gOf(axis) * cf;
-      const F = pressure * B * sH, sign = d.startsWith('-') ? -1 : 1;
-      derivation.push(msg('wind.other.solidSign', { dir: dirLabel(d), b: round(B, 2), s: round(sH, 2), h: round(H, 2), cf: round(cf, 3), f: round(F, 1) }));
+      const sign = d.startsWith('-') ? -1 : 1;
       const field = windHeightField({ model, axis, from: s.clearance, to: H, pressure: () => pressure, width: B });
+      const F = field.members.reduce((sum, p) => sum + (p.q + p.qJ) * (p.b - p.a) / 2, 0);
+      derivation.push(msg('wind.other.solidSign', { dir: dirLabel(d), b: round(B, 2), s: round(sH, 2), h: round(H, 2), cf: round(cf, 3), f: round(F, 1) }));
       const minimum = windHeightField({ model, axis, from: s.clearance, to: H, pressure: () => MIN_OTHER_KNM2, width: B });
       const signCases = (field: ReturnType<typeof windHeightField>, minimum: boolean): OtherWindCase[] => [0, 1, -1].map(ecc => ({
         nameKey: minimum ? ecc === 0 ? 'wind.other.minimumOtherCase' : 'wind.other.minimumSignCase' : 'wind.other.signCase',

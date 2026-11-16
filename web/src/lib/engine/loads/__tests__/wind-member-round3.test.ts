@@ -16,7 +16,12 @@ import type { SolverInput3D } from '../../types-3d';
 
 const nativeCases: Array<{ kind: string; variant: string; dimension: number; [key: string]: unknown }> = [];
 afterAll(() => {
-  if (process.env.WIND_MEMBER_CASES) { writeFileSync(process.env.WIND_MEMBER_CASES, JSON.stringify(nativeCases, null, 2) + '\n'); return; }
+  for (const candidate of nativeCases) if (candidate.kind.startsWith('cubicGrid:')) {
+    const input = candidate.input as { loads: Array<{ data: Record<string, number> }> };
+    candidate.memberLoads = input.loads.map(({ data: p }) => [p.elementId, p.a, p.b, p.qI ?? p.qYI, p.qJ ?? p.qYJ]);
+    input.loads = [];
+  }
+  if (process.env.WIND_MEMBER_CASES) { writeFileSync(process.env.WIND_MEMBER_CASES, JSON.stringify(nativeCases, null, 2).replace(/\[\n(?:\s+-?[0-9.eE+]+,?\n)+\s+\]/g, values => JSON.stringify(JSON.parse(values))) + '\n'); return; }
   const fixtures = JSON.parse(readFileSync(new URL('../../../../../../engine/tests/integration/wind_member_2220.json', import.meta.url), 'utf8')) as typeof nativeCases;
   for (const candidate of nativeCases) expect(fixtures.find(c => c.kind === candidate.kind && c.variant === candidate.variant && c.dimension === candidate.dimension)).toEqual(JSON.parse(JSON.stringify(candidate)));
 });
@@ -314,7 +319,7 @@ for (const kind of ['bracedTower', 'taperCrossing'] as const) for (const variant
   }
 });
 
-for (const entry of ['field', 'planner'] as const) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const sign of [-1, 1]) it.skipIf(process.env.RUN_KNOWN_WRONG !== '2220')(`#2220 known wrong result: #2220 cubic grid ${entry} ${variant} spatial=${spatial} nonlinear=${nonlinear} sign=${sign}`, () => {
+for (const entry of ['field', 'planner'] as const) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const sign of [-1, 1]) it(`#2220 cubic grid ${entry} ${variant} spatial=${spatial} nonlinear=${nonlinear} sign=${sign}`, () => {
   const source = mesh([0, 1, 2].flatMap(column => [-1, 1].map(side => [[column === 1 ? 0 : column, side * 0.75, 0], [column, side * 0.25, 1]])));
   const { model, sources } = remeshWind(source, variant), rotated = variant === 'rotate';
   const axis = rotated ? 'y' : 'x';

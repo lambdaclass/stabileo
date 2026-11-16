@@ -15,37 +15,50 @@ export interface WindPressurePart {
 export function integrateWindPressure(length: number, boundaries: readonly number[], pressure: (s: number) => number): WindPressurePart[] {
   if (!(Number.isFinite(length) && length > 0)) throw new WindPressureRefusal('wind.pressure.invalidCarrier');
   const cuts = [...new Set([0, ...boundaries.filter(s => s > 0 && s < length), length])].sort((a, b) => a - b);
-  const gauss = (a: number, b: number): [number, number] => {
-    const mid = (a + b) / 2, half = (b - a) / 2;
-    let force = 0, first = 0;
-    for (const [x, w] of [[-Math.sqrt(3 / 5), 5 / 9], [0, 8 / 9], [Math.sqrt(3 / 5), 5 / 9]] as const) {
-      const s = mid + half * x, p = pressure(s);
-      if (!Number.isFinite(p)) throw new WindPressureRefusal('wind.pressure.nonFinite');
-      force += half * w * p; first += half * w * p * s;
-    }
-    return [force, first];
+  type Moments = [number, number, number, number];
+  type Integral = { moments: Moments; min: number; max: number };
+  const inner = Math.sqrt((3 - 2 * Math.sqrt(6 / 5)) / 7), outer = Math.sqrt((3 + 2 * Math.sqrt(6 / 5)) / 7);
+  const innerWeight = (18 + Math.sqrt(30)) / 36, outerWeight = (18 - Math.sqrt(30)) / 36;
+  const value = (s: number) => {
+    const p = pressure(s);
+    if (!Number.isFinite(p)) throw new WindPressureRefusal('wind.pressure.nonFinite');
+    return p;
   };
-  const integrate = (a: number, b: number, depth: number): [number, number] => {
-    const whole = gauss(a, b), mid = (a + b) / 2, left = gauss(a, mid), right = gauss(mid, b);
-    const split: [number, number] = [left[0] + right[0], left[1] + right[1]];
-    if (split.every((v, k) => Math.abs(v - whole[k]!) <= 1e-12 * Math.max(1, Math.abs(v)))) return split;
+  const gauss = (a: number, b: number, origin: number): Integral => {
+    const mid = (a + b) / 2, half = (b - a) / 2;
+    const moments: Moments = [0, 0, 0, 0];
+    let min = Infinity, max = -Infinity;
+    for (const [x, w] of [[-outer, outerWeight], [-inner, innerWeight], [inner, innerWeight], [outer, outerWeight]]) {
+      const s = mid + half * x!, p = value(s);
+      min = Math.min(min, p); max = Math.max(max, p);
+      for (const k of [0, 1, 2, 3]) moments[k]! += half * w! * p * (s - origin) ** k;
+    }
+    return { moments, min, max };
+  };
+  const combine = (left: Integral, right: Integral): Integral => ({
+    moments: left.moments.map((v, k) => v + right.moments[k]!) as Moments,
+    min: Math.min(left.min, right.min), max: Math.max(left.max, right.max),
+  });
+  const integrate = (a: number, b: number, origin: number, depth: number): Integral => {
+    const whole = gauss(a, b, origin), mid = (a + b) / 2;
+    const split = combine(gauss(a, mid, origin), gauss(mid, b, origin));
+    if (split.moments.every((v, k) => Math.abs(v - whole.moments[k]!) <= 1e-12 * (b - a) / length * Math.max(1, Math.abs(v)))) return split;
     if (depth === 24) throw new WindPressureRefusal('wind.pressure.integrationUnresolved');
-    const l = integrate(a, mid, depth + 1), r = integrate(mid, b, depth + 1);
-    return [l[0] + r[0], l[1] + r[1]];
+    return combine(integrate(a, mid, origin, depth + 1), integrate(mid, b, origin, depth + 1));
   };
   const approximate = (a: number, b: number, depth: number): WindPressurePart[] => {
-    const span = b - a, [force, first] = integrate(a, b, 0);
-    const mean = force / span, delta = 6 * (first - (a + b) / 2 * force) / span ** 2;
-    const q = mean - delta, qJ = mean + delta;
-    let secondError = 0, thirdError = 0;
-    for (const [x, w] of [[-Math.sqrt(3 / 5), 5 / 9], [0, 8 / 9], [Math.sqrt(3 / 5), 5 / 9]] as const) {
-      const t = (x + 1) / 2, at = a + span * t;
-      const error = pressure(at) - (q + (qJ - q) * t);
-      secondError += span / 2 * w * error * at ** 2;
-      thirdError += span / 2 * w * error * at ** 3;
+    const span = b - a, integral = integrate(a, b, a, 0), [force, first] = integral.moments;
+    const mean = force / span, delta = 6 * (first - span / 2 * force) / span ** 2;
+    let q = mean - delta, qJ = mean + delta;
+    if (q < 0 || qJ < 0) {
+      if (integral.min >= 0 && value(a) >= 0 && value(b) >= 0) { q = Math.max(0, Math.min(2 * mean, q)); qJ = 2 * mean - q; }
     }
-    const accurate = Math.abs(secondError) <= 1e-12 * Math.max(1, Math.abs(force) * b ** 2) && Math.abs(thirdError) <= 1e-12 * Math.max(1, Math.abs(force) * b ** 3);
-    if (accurate) return [{ a, b, q, qJ, force, first }];
+    if (q > 0 || qJ > 0) {
+      if (integral.max <= 0 && value(a) <= 0 && value(b) <= 0) { q = Math.min(0, Math.max(2 * mean, q)); qJ = 2 * mean - q; }
+    }
+    const replacement = integral.moments.map((_v, k) => span ** (k + 1) * (q / (k + 1) + (qJ - q) / (k + 2))) as Moments;
+    const accurate = integral.moments.every((v, k) => Math.abs(v - replacement[k]!) <= 1e-14 * span / Math.max(1, length) * Math.max(1, Math.abs(force) * span ** k));
+    if (accurate) return [{ a, b, q, qJ, force: replacement[0], first: a * replacement[0] + replacement[1] }];
     if (depth === 24) throw new WindPressureRefusal('wind.pressure.integrationUnresolved');
     const mid = (a + b) / 2;
     return [...approximate(a, mid, depth + 1), ...approximate(mid, b, depth + 1)];
