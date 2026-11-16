@@ -489,7 +489,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "tools.mode": "第一阶屈曲振型",
   "tools.structure": "结构与变形图",
   "tools.deformedNote": "变形已放大，便于观察。",
-  "tools.referenceBooks": "Timoshenko & Gere, Theory of Elastic Stability, 2nd ed. (1961), Chapter 2; Young & Budynas, Roark’s Formulas for Stress and Strain, 7th ed. (2002), Table 8.1 (cantilever: cases 1a and 2a; simply supported: cases 1e and 2e).",
+  "tools.referenceBooks": "Timoshenko & Gere, Theory of Elastic Stability，第 2 版（1961），第 2 章；Young & Budynas, Roark’s Formulas for Stress and Strain，第 7 版（2002），表 8.1（悬臂：情形 1a 和 2a；简支：情形 1e 和 2e）。",
   "tools.index": (import.meta.env.VITE_TOOLS === '1' ? "免费结构工程工具" : "免费工程计算器"),
   "tools.lead": (import.meta.env.VITE_TOOLS === '1' ? "梁、框架、桁架、柱、楼板和塔架的计算器与实时模型。修改任一数值，Stabileo 正式版计算引擎会在浏览器中重新求解模型；所有图形同步更新，并在有经典解的地方与经典解并列显示。" : "梁、柱、框架、桁架、影响线和自振频率，由 Stabileo 正式版计算引擎求解，并与经典公式对比。"),
   "tools.simply-supported-beam": "简支梁",

@@ -18,7 +18,7 @@ const body: PostBody = {
     },
     {
       "k": "table",
-      "caption": "Safety advisories SA-2026-048 through SA-2026-063",
+      "caption": "安全公告 SA-2026-048 至 SA-2026-063",
       "head": [
         "公告",
         "严重程度",
@@ -123,7 +123,7 @@ const body: PostBody = {
     },
     {
       "k": "table",
-      "caption": "Selected results-change notices since 0.5.0",
+      "caption": "0.5.0 以来精选的结果变更通知",
       "head": [
         "结果版本",
         "变更的结果"
@@ -235,7 +235,7 @@ const body: PostBody = {
     },
     {
       "k": "table",
-      "caption": "Later notices for changes already shipped in 0.5.0",
+      "caption": "针对 0.5.0 中已发布更改的后续通知",
       "head": [
         "结果版本",
         "变更的结果"
