@@ -646,6 +646,97 @@ fn local_end_forces(f: &ElementForces) -> [f64; 6] {
 // Properties
 // ======================================================================
 
+fn check_internal_force_consistency(inp: &SolverInput, res: &AnalysisResults, lchar: f64) -> Result<(), TestCaseError> {
+    let ef: HashMap<usize, &ElementForces> = res.element_forces.iter().map(|f| (f.element_id, f)).collect();
+    let mut wl: HashMap<usize, [f64; 3]> = HashMap::new();
+    for l in &inp.loads {
+        match l {
+            SolverLoad::Distributed(dl) => {
+                let len = elem_len(inp, dl.element_id);
+                let (a, b) = (dl.a.unwrap_or(0.0), dl.b.unwrap_or(len));
+                let span = b - a;
+                let w = wl.entry(dl.element_id).or_default();
+                for (q, xc) in [(dl.q_i * span, a + span / 2.0), ((dl.q_j - dl.q_i) * span / 2.0, a + 2.0 * span / 3.0)] {
+                    w[1] += q; w[2] += q * xc;
+                }
+            }
+            SolverLoad::PointOnElement(pl) => {
+                let w = wl.entry(pl.element_id).or_default();
+                w[0] += pl.px.unwrap_or(0.0); w[1] += pl.p; w[2] += pl.p * pl.a + pl.my.unwrap_or(0.0);
+            }
+            _ => {}
+        }
+    }
+    let mut node_sum: HashMap<usize, [f64; 3]> = HashMap::new();
+    let mut node_abs: HashMap<usize, f64> = HashMap::new();
+    let mut fscale: f64 = 1e-9;
+    for e in inp.elements.values() {
+        let f = ef[&e.id];
+        let len = elem_len(inp, e.id);
+        let w = wl.get(&e.id).copied().unwrap_or_default();
+        for v in local_end_forces(f).iter().map(|x| x.abs()).chain([w[0].abs(), w[1].abs(), w[2].abs() / len]) {
+            fscale = fscale.max(v);
+        }
+    }
+    for e in inp.elements.values() {
+        let (_, len, c, s) = elem_geom(inp, e);
+        let f = ef[&e.id];
+        let fl = if e.elem_type == "truss" { [-f.n_start, 0.0, 0.0, f.n_end, 0.0, 0.0] } else { local_end_forces(f) };
+        let w = wl.get(&e.id).copied().unwrap_or_default();
+        let sc = fl.iter().fold(0.0f64, |a, b| a.max(b.abs())).max(w[0].abs()).max(w[1].abs()).max(w[2].abs() / len);
+        let t = 1e-7 * sc + 1e-9 * fscale;
+        prop_assert!((fl[0] + fl[3] + w[0]).abs() <= t, "elem {} ΣFx={:e}", e.id, fl[0] + fl[3] + w[0]);
+        prop_assert!((fl[1] + fl[4] + w[1]).abs() <= t, "elem {} ΣFy={:e}", e.id, fl[1] + fl[4] + w[1]);
+        if e.elem_type == "frame" {
+            let mi = fl[2] + fl[5] + len * fl[4] + w[2];
+            prop_assert!(mi.abs() <= t * len, "elem {} ΣM_I={mi:e}", e.id);
+        }
+        for (nid, o) in [(e.node_i, 0usize), (e.node_j, 3usize)] {
+            let g = [c * fl[o] - s * fl[o + 1], s * fl[o] + c * fl[o + 1], fl[o + 2]];
+            let acc = node_sum.entry(nid).or_default();
+            for k in 0..3 { acc[k] += g[k]; }
+            *node_abs.entry(nid).or_default() += g[0].abs() + g[1].abs() + g[2].abs() / len;
+        }
+    }
+    let mut rhs: HashMap<usize, [f64; 3]> = HashMap::new();
+    for l in &inp.loads {
+        if let SolverLoad::Nodal(nl) = l {
+            let a = rhs.entry(nl.node_id).or_default();
+            a[0] += nl.fx; a[1] += nl.fz; a[2] += nl.my;
+        }
+    }
+    for r in &res.reactions {
+        let a = rhs.entry(r.node_id).or_default();
+        a[0] += r.rx; a[1] += r.rz; a[2] += r.my;
+    }
+    for (nid, sum) in &node_sum {
+        let r = rhs.get(nid).copied().unwrap_or_default();
+        let t = 1e-7 * (node_abs[nid] + r[0].abs() + r[1].abs()) + 1e-9 * fscale;
+        for k in 0..3 {
+            let tk = if k == 2 { t * lchar } else { t };
+            prop_assert!((sum[k] - r[k]).abs() <= tk,
+                "node {nid} comp {k}: Σ member end = {:e}, load+reaction = {:e}", sum[k], r[k]);
+        }
+    }
+    Ok(())
+}
+
+fn equilibrium_oracle_input() -> SolverInput {
+    serde_json::from_str(include_str!("fixtures/equilibrium-oracle-2108.json")).unwrap()
+}
+
+fn equilibrium_oracle_length(inp: &SolverInput) -> f64 {
+    inp.nodes.values().map(|n| n.x.hypot(n.z)).fold(1.0, f64::max)
+}
+
+#[test]
+#[ignore = "known wrong result: #2108"]
+fn issue_2108_support_load_cancellation_keeps_roundoff_budget() {
+    let inp = equilibrium_oracle_input();
+    let res = solve(&inp).unwrap();
+    check_internal_force_consistency(&inp, &res, equilibrium_oracle_length(&inp)).unwrap();
+}
+
 proptest! {
     #![proptest_config(config(96))]
 
@@ -932,84 +1023,7 @@ proptest! {
         nightly_property(&m.input, || {
             let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::FrameMembers));
             let res = solve(&inp)?;
-            let ef: HashMap<usize, &ElementForces> = res.element_forces.iter().map(|f| (f.element_id, f)).collect();
-            // Member load resultants in local axes: (Wx, Wy, M about I).
-            let mut wl: HashMap<usize, [f64; 3]> = HashMap::new();
-            for l in &inp.loads {
-                match l {
-                    SolverLoad::Distributed(dl) => {
-                        let len = elem_len(&inp, dl.element_id);
-                        let (a, b) = (dl.a.unwrap_or(0.0), dl.b.unwrap_or(len));
-                        let span = b - a;
-                        let w = wl.entry(dl.element_id).or_default();
-                        for (q, xc) in [(dl.q_i * span, a + span / 2.0), ((dl.q_j - dl.q_i) * span / 2.0, a + 2.0 * span / 3.0)] {
-                            w[1] += q; w[2] += q * xc;
-                        }
-                    }
-                    SolverLoad::PointOnElement(pl) => {
-                        let w = wl.entry(pl.element_id).or_default();
-                        w[0] += pl.px.unwrap_or(0.0); w[1] += pl.p; w[2] += pl.p * pl.a + pl.my.unwrap_or(0.0);
-                    }
-                    _ => {}
-                }
-            }
-            let mut node_sum: HashMap<usize, [f64; 3]> = HashMap::new();
-            let mut node_abs: HashMap<usize, f64> = HashMap::new();
-            // Global force scale (largest member end force / member load), used as an
-            // absolute floor so near-zero members are not compared on pure noise.
-            let mut fscale: f64 = 1e-9;
-            for e in inp.elements.values() {
-                let f = ef[&e.id];
-                let len = elem_len(&inp, e.id);
-                let w = wl.get(&e.id).copied().unwrap_or_default();
-                for v in local_end_forces(f).iter().map(|x| x.abs()).chain([w[0].abs(), w[1].abs(), w[2].abs() / len]) {
-                    fscale = fscale.max(v);
-                }
-            }
-            for e in inp.elements.values() {
-                let (_, len, c, s) = elem_geom(&inp, e);
-                let f = ef[&e.id];
-                let fl = if e.elem_type == "truss" { [-f.n_start, 0.0, 0.0, f.n_end, 0.0, 0.0] } else { local_end_forces(f) };
-                let w = wl.get(&e.id).copied().unwrap_or_default();
-                let sc = fl.iter().fold(0.0f64, |a, b| a.max(b.abs())).max(w[0].abs()).max(w[1].abs()).max(w[2].abs() / len);
-                // (a) member equilibrium; tolerance relative to the member's own force
-                // scale, floored by 1e-9 of the model's largest member force.
-                let t = 1e-7 * sc + 1e-9 * fscale;
-                prop_assert!((fl[0] + fl[3] + w[0]).abs() <= t, "elem {} ΣFx={:e}", e.id, fl[0] + fl[3] + w[0]);
-                prop_assert!((fl[1] + fl[4] + w[1]).abs() <= t, "elem {} ΣFy={:e}", e.id, fl[1] + fl[4] + w[1]);
-                if e.elem_type == "frame" {
-                    let mi = fl[2] + fl[5] + len * fl[4] + w[2];
-                    prop_assert!(mi.abs() <= t * len, "elem {} ΣM_I={mi:e}", e.id);
-                }
-                // (b) accumulate forces exerted BY the nodes ON the member (global)
-                for (nid, o) in [(e.node_i, 0usize), (e.node_j, 3usize)] {
-                    let g = [c * fl[o] - s * fl[o + 1], s * fl[o] + c * fl[o + 1], fl[o + 2]];
-                    let acc = node_sum.entry(nid).or_default();
-                    for k in 0..3 { acc[k] += g[k]; }
-                    *node_abs.entry(nid).or_default() += g[0].abs() + g[1].abs() + g[2].abs() / len;
-                }
-            }
-            // Σ_members (force on member at node) = applied nodal load + reaction.
-            let mut rhs: HashMap<usize, [f64; 3]> = HashMap::new();
-            for l in &inp.loads {
-                if let SolverLoad::Nodal(nl) = l {
-                    let a = rhs.entry(nl.node_id).or_default();
-                    a[0] += nl.fx; a[1] += nl.fz; a[2] += nl.my;
-                }
-            }
-            for r in &res.reactions {
-                let a = rhs.entry(r.node_id).or_default();
-                a[0] += r.rx; a[1] += r.rz; a[2] += r.my;
-            }
-            for (nid, sum) in &node_sum {
-                let r = rhs.get(nid).copied().unwrap_or_default();
-                let t = 1e-7 * (node_abs[nid] + r[0].abs() + r[1].abs()) + 1e-9 * fscale;
-                for k in 0..3 {
-                    let tk = if k == 2 { t * m.lchar } else { t };
-                    prop_assert!((sum[k] - r[k]).abs() <= tk,
-                        "node {nid} comp {k}: Σ member end = {:e}, load+reaction = {:e}", sum[k], r[k]);
-                }
-            }
+            check_internal_force_consistency(&inp, &res, m.lchar)?;
             Ok(())
         })?;
     }
