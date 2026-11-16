@@ -50,7 +50,7 @@ Educational tool with step-by-step solver visualization for civil/structural eng
 - `npm run test:unit` / `npm run test:build` / `npm run test:results` — one pass on its own.
   `results` is the results snapshot gate (#716): a reference corpus solved through the app's
   path against `results-snapshots/`; after a deliberate result change, `npm run snapshots:update`
-  and register it (`docs/verification/PROVENANCE.md`, "Results snapshot gate").
+  and register it (`testing/docs/PROVENANCE.md`, "Results snapshot gate").
 - `npm run test:watch` — Watch mode (the `unit` pass)
 - In CI the three passes run as separate jobs (`results` as Results Snapshot): `web-unit` shards the unit pass two ways
   (`vitest run --project unit --shard=i/2`), `web-build` builds and runs the build pass. A test

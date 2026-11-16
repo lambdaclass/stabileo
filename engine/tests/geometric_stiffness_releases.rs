@@ -215,7 +215,7 @@ fn plane_member_released_at_one_end_buckles_as_the_pinned_column() {
 /// tangent also uses the fixed-fixed Kg whatever the releases (`frame_geo_stiffness_3d_local`),
 /// but swapping in the condensed `frame_kg_local_3d` does not change either number: the fault is
 /// in how the co-rotational element treats released ends, not in the geometric stiffness kernel.
-/// Found while checking the Kg kernels symbolically (docs/verification/SYMBOLIC.md).
+/// Found while checking the Kg kernels symbolically (testing/docs/SYMBOLIC.md).
 #[test]
 fn corotational_3d_leaning_column_matches_pdelta() {
     use dedaliano_engine::solver::corotational;

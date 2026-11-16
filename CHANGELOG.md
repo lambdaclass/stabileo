@@ -120,7 +120,7 @@ Release notes in English, Spanish, Portuguese, German, French and Turkish cover 
 
 The legacy-project corpus now detects removed or changed steel Fy, concrete f'c, ultimate strength, thermal properties, timber reference values, section geometry and design metadata. One exhaustive material/section property policy drives the fingerprint; typechecking and a schema test require every new field to be classified. Nested properties and undeclared legacy fields are included conservatively, with exact input comparisons.
 
-This corrects the regression oracle (#1318, cause:B). Analysis, design and project migrations are unchanged. A direct audit of all 187 released corpus projects preserves every saved material property. The stricter comparison exposed older files without Fu against today's example-loader default; #2091 now constructs those references from the release's recorded defaults, with no baseline or tolerance adjustment. See [the verification record](docs/verification/legacy-migration-fingerprint-1318.md).
+This corrects the regression oracle (#1318, cause:B). Analysis, design and project migrations are unchanged. A direct audit of all 187 released corpus projects preserves every saved material property. The stricter comparison exposed older files without Fu against today's example-loader default; #2091 now constructs those references from the release's recorded defaults, with no baseline or tolerance adjustment. See [the verification record](testing/docs/audits/legacy-migration-fingerprint-1318.md).
 
 #### Keep shared beam axes independent and report missing torsion provision
 
@@ -2951,7 +2951,7 @@ member temperature loads (#407, FR-4, SA-2026-019; feature `memberThermalLoads`)
 material-nonlinear yield surface (SA-2026-020) stays out: no screen of the app runs that solver.
 A project solved on 0.3.0 itself also carries version 1 and is shown these entries once more.
 `results-version.test.ts` pins each version's entries, so adding one to a version already on main
-fails, and `docs/verification/PROVENANCE.md` states the rule. The committed `.ded` fixture is
+fails, and `testing/docs/PROVENANCE.md` states the rule. The committed `.ded` fixture is
 restamped at version 2. (Version 2 was taken on main first, by #582 and #597; these entries share
 it — a build stamping 2 already carries the five fixes, so it is never shown them, and a project
 stamped 1 is shown every entry that followed.)
@@ -3039,7 +3039,7 @@ settlements, inclined supports, rigid links, diaphragms, equal-DOF, eccentric co
 MPCs, nodal, distributed, point and thermal loads; shells, connectors, curved beams and
 warping are reported out of scope. Every fixture and 350 stable random frames agree and are
 certified end to end; planted assembly bugs make it fail. Lean: `Certify.end_to_end_bound`.
-Docs: `docs/verification/CERTIFY.md`, "End-to-end certificates".
+Docs: `testing/docs/CERTIFY.md`, "End-to-end certificates".
 
 Found by it (pinned in `engine/tests/certify_end_to_end_findings.rs`): 3D diaphragms in the
 XZ plane tied the slaves with the rotation of the wrong sign (since fixed, #342); in 2D a nodal
@@ -3053,7 +3053,7 @@ certifies a model that has no solution.
 **Results move in the last bits:** the engine now iterates its inputs in a fixed order, so a model
 solves to the same bits every time; before, two solves of the same model in one session could
 differ in the last digits (2D displacements, equilibrium sums, inclined-support models) and list
-3D plate stresses in a different order. See `docs/verification/PROVENANCE.md`.
+3D plate stresses in a different order. See `testing/docs/PROVENANCE.md`.
 
 - `web/src/lib/provenance/result-changes.json`: machine-readable registry of result-affecting
   changes (results version, model features, en/es/pt explanation, changelog link), seeded with
@@ -3070,7 +3070,7 @@ differ in the last digits (2D displacements, equilibrium sums, inclined-support 
 #### Discretization error: estimated next to every certified shell result (2026-10-18)
 
 Certificates bound the algebraic error of the assembled system, not the mesh error. The engine
-now estimates the second one, and never presents it as certified (docs/verification/DISCRETIZATION.md).
+now estimates the second one, and never presents it as certified (testing/docs/DISCRETIZATION.md).
 
 - `engine/src/postprocess/discretization/`: Zienkiewicz–Zhu estimator with superconvergent
   patch recovery for DKT, MITC4, MITC9, curved shells and SHB8 solid-shells (element and global
@@ -3102,7 +3102,7 @@ now estimates the second one, and never presents it as certified (docs/verificat
 **BREAKING (results): cold-formed columns, steel columns braced about their weak axis, masonry
 walls and partially grouted masonry shear walls get lower (correct) strengths; cold-formed
 compression without `xo` is reported unevaluated.** Examples, sources and discrepancies in
-`docs/verification/DESIGN_EXAMPLES.md` (D18–D31); tests in `engine/tests/design_worked_examples_2.rs`.
+`testing/docs/DESIGN_EXAMPLES.md` (D18–D31); tests in `engine/tests/design_worked_examples_2.rs`.
 
 - `cfs_check`: flexural-torsional buckling (AISI S100 E2.2) from the new `xo`, `kx_lx`, `kt_lt`.
   It was weak-axis flexural buckling only: AISI Design Manual Ex. III-3 gave Pn = 10.4 against
@@ -3710,7 +3710,7 @@ a hand-kept copy of the 2D assembler that had drifted from the dense and linear 
 with warping members (`cw` set) — static, buckling and modal — solve differently.** Found by
 deriving the frame-family element matrices from shape functions and energy in SymPy and comparing
 the Rust kernels exactly (`tools/symbolic/`, `engine/tests/symbolic_elements.rs`,
-`docs/verification/SYMBOLIC.md`); each fix has a regression test.
+`testing/docs/SYMBOLIC.md`); each fix has a regression test.
 
 - **The 2D geometric stiffness ignored hinges.** A hinged rotation kept the fixed-fixed −4PL/30,
   held only by the solver's artificial rotational stiffness, so a plane frame with a pin-ended
@@ -3773,7 +3773,7 @@ regression test in `engine/tests/opensees_differential_regressions.rs`.
 supports, 3D modal, buckling, harmonic and reduction analyses of models with curved beams, and
 regularized sparse 3D solves solve differently.** Each was found by
 `engine/tests/assembly_paths.rs`, which compares every path that assembles the same K, load
-vector, M or K_G entry by entry (`docs/verification/ASSEMBLY.md`), and each has a regression
+vector, M or K_G entry by entry (`testing/docs/ASSEMBLY.md`), and each has a regression
 test there.
 
 - **The sparse 3D assemblers took the largest diagonal over the free DOFs only.** The dense
@@ -3896,7 +3896,7 @@ inputs needed to compute them safely are absent.**
 CIRSOC 301 noncompact/slender I-girders, CIRSOC 301 lateral-torsional buckling and EC3
 members in compression plus bending give lower capacities.** These were the unsafe
 disagreements left open by the published-example verification
-(`docs/verification/DESIGN_EXAMPLES.md`, D5, D6, D8, D11); each example is now a regression test.
+(`testing/docs/DESIGN_EXAMPLES.md`, D5, D6, D8, D11); each example is now a regression test.
 
 - **Weld groups ignored the end-loaded fillet length reduction β** (AISC 360-22 J2.2b(d),
   CIRSOC 301-2018 §J.2.2(b) eq. J.2.1). AISC Example J.1 (two 27 in. runs of a 3/16 in.
@@ -3945,7 +3945,7 @@ disagreements left open by the published-example verification
 **BREAKING (results): CIRSOC 201 shear, CIRSOC 301 web shear, doubly reinforced ACI 318 / CIRSOC 201 flexure,
 AISC flexure of sections given a flange slenderness, and EC3 strong-axis checks with
 Lb = 0 give different numbers.** Each was found by reproducing a published worked example
-clause by clause (`docs/verification/DESIGN_EXAMPLES.md`,
+clause by clause (`testing/docs/DESIGN_EXAMPLES.md`,
 `engine/tests/design_worked_examples.rs`), and each example is now a regression test.
 
 - **AISC F3/F6.2 flange local buckling was not implemented.** Every W-shape was treated as
@@ -4083,7 +4083,7 @@ they now solve the model as given or refuse it with an error that names the feat
 it is.** `engine/tests/feature_matrix.rs` runs every (feature, analysis) pair on a small model
 where the feature matters and compares it with the same structure expressed without the
 feature, an analytical value or the linear solution; the result is in
-[`docs/verification/FEATURE_MATRIX.md`](docs/verification/FEATURE_MATRIX.md), and the test fails
+[`testing/docs/FEATURE_MATRIX.md`](testing/docs/FEATURE_MATRIX.md), and the test fails
 when the file drifts or when a cell is silently ignored or wrong without a branch fixing it.
 
 Now supported (results change):
@@ -4137,7 +4137,7 @@ Now refused by name (previously solved without the feature):
 **BREAKING (results): asymmetric sections wound clockwise, the shear centre, shear areas and
 warping constant of sections with a product of inertia, thin-walled J, bolt bearing, long
 end-loaded welds, and models using the IRAM steels or the concrete/aluminium presets solve or
-check differently.** Each was found by `docs/verification/SECTIONS_CONNECTIONS.md` and has a
+check differently.** Each was found by `testing/docs/SECTIONS_CONNECTIONS.md` and has a
 regression test.
 
 - **Product of inertia ignored the winding.** `analyze_section` fixed the sign of `Iy`/`Iz`
@@ -4197,7 +4197,7 @@ regression test.
 
 **BREAKING (results): generated combinations, seismic weights and wind roof pressures change.**
 Every load table and combination rule was re-read from the official texts and checked against
-published worked examples where any exist (`docs/verification/LOADS.md`). The errors found
+published worked examples where any exist (`testing/docs/LOADS.md`). The errors found
 were all unsafe, and each has a regression test.
 
 - **Combinations with companion loads not acting were never generated.** CIRSOC 101-2025
@@ -4278,7 +4278,7 @@ constraint slave sits on a support, solve differently in every analysis.**
 
 #### Fixes found by fuzzing the WASM entry points (2026-10-17)
 
-Found by the cargo-fuzz targets in `engine/fuzz` (`docs/verification/FUZZ_MUTANTS.md`),
+Found by the cargo-fuzz targets in `engine/fuzz` (`testing/docs/FUZZ_MUTANTS.md`),
 each with a regression test.
 
 - **Several supports on one node double-counted its reaction.** Linear 2D/3D results listed
@@ -4321,7 +4321,7 @@ each with a regression test.
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,
 HHT-α time histories, spectral member forces, harmonic responses, partial distributed loads,
 2D truss axial point loads and 2D spring rollers solve differently.** Each was found by a
-certificate disagreeing with the solver (`docs/verification/CERTIFY.md`) or by the
+certificate disagreeing with the solver (`testing/docs/CERTIFY.md`) or by the
 comparison against OpenSees (`tools/opensees/`), and each has a regression test.
 
 - **Timoshenko members used Euler–Bernoulli fixed-end forces.** Members with shear areas
@@ -4651,8 +4651,8 @@ was missed), spectral, harmonic, P-Delta, plastic collapse (2D and 3D, exact rat
 and time integration. Their soundness is proved in Lean (`verify/`), and a verified Lean
 checker re-checks exported certificate bundles. The web shows the certificates beside the
 results. Kani proves the element kernels, interval rounding and sparse index code
-(`docs/verification/KANI.md`); `scripts/kani-safe.sh` runs the harnesses one at a time
-under a memory watchdog. See `docs/verification/CERTIFY.md`.
+(`testing/docs/KANI.md`); `scripts/kani-safe.sh` runs the harnesses one at a time
+under a memory watchdog. See `testing/docs/CERTIFY.md`.
 
 #### Step 4 runtime gates and CI improvements (2026-04-19)
 

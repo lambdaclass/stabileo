@@ -28,7 +28,7 @@ Discrepancies are tagged AC-n and listed at the end.
 | Nonlinear soil springs | `engine/src/solver/ssi.rs`, `soil_curves.rs` | `solve_ssi_2d/3d`, `spring_triplets`, `py_soft_clay`, `py_sand`, `py_stiff_clay`, `tz_curve`, `qz_curve`, `custom_curve` |
 
 The cross-path oracle that compares all assembly paths entry by entry is described in
-[ASSEMBLY.md](../verification/ASSEMBLY.md) (`engine/tests/assembly_paths.rs`).
+[ASSEMBLY.md](../../testing/docs/ASSEMBLY.md) (`engine/tests/assembly_paths.rs`).
 
 ## 2. DOFs, axes and the 2D embedding
 

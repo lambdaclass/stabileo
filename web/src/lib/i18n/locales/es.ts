@@ -12963,7 +12963,7 @@ const es: Record<string, string> = {
   'combos.spectral.firstOrder': 'Con P-Delta por combinación, los casos espectrales se suman en primer orden al resultado de segundo orden de los demás casos: el análisis modal es lineal, así que los efectos propios del sismo no se amplifican. Si no tiene equilibrio de segundo orden, no tiene resultados.',
   'floorLoad.readOnlyLoad': 'Una carga escrita por una carga de piso definida se cambia o se borra desde su definición (Cargas › Piso): se rehace a partir de ella.',
   'floorLoad.rangeInvalid': 'Indicá los dos límites de cada eje de la caja, o ninguno.',
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'Certificado: error de desplazamientos ≤ {abs} ({rel} relativo)',
   'certificate.notCertified': 'No certificado: {reason}',
   'certificate.e2eCertified': 'Verificado de punta a punta: un reensamblado independiente del modelo coincide; error de desplazamientos ≤ {abs}',
@@ -13390,7 +13390,7 @@ const es: Record<string, string> = {
   'proReport.noneFound': 'El modelo no tiene advertencias',
   'proReport.letterhead': 'Membrete',
   'proReport.shellFigure': 'Componente de la figura',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'Certificado: error de desplazamientos ≤ {abs}',
   'certificate.envelopeCertified': 'Envolvente certificada: cada valor a menos de {abs} de la envolvente exacta (desplazamientos)',
   'certificate.comboTooltip': 'Cota rigurosa, demostrada en Lean: cada estado de carga se certifica contra la solución exacta del sistema ensamblado; la cota de una combinación suma las cotas de los estados por |factor| y el redondeo de la propia combinación; la envolvente está a menos de la mayor cota de las combinaciones de la envolvente exacta. El ± junto a un esfuerzo de barra acota su error de la misma forma.',

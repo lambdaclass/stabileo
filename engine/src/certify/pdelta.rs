@@ -1,5 +1,5 @@
 //! Certified P-Delta (second-order) displacements. See "P-Delta" in
-//! `docs/verification/CERTIFY.md`.
+//! `testing/docs/CERTIFY.md`.
 //!
 //! The P-Delta solver iterates `(K + K_G(u)) u = f` with the geometric stiffness
 //! built from axial forces read back from the displacements. In the affine form

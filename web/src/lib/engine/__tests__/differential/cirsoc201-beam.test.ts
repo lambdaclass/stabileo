@@ -4,7 +4,7 @@
  *
  * The verifier used to compute these numbers in TypeScript (`station-design-forces.ts`). Run
  * against the Rust checker on 4 000 random sections, it disagreed on the unsafe side in four
- * ways (docs/verification/TS_ENGINE_LOGIC.md, "Differential tests"):
+ * ways (testing/docs/TS_ENGINE_LOGIC.md, "Differential tests"):
  *
  *   1. the tension steel was assumed to yield — up to 18 % too much φMn (641 of 4 000);
  *   2. φ reached 0,90 at εt = 0,005 whatever fy — CIRSOC 201-2025 Tabla 21.2.2 needs

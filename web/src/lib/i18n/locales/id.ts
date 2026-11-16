@@ -3634,7 +3634,7 @@ const id: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'Tersertifikasi: galat perpindahan ≤ {abs} ({rel} relatif)',
   'certificate.notCertified': 'Tidak tersertifikasi: {reason}',
   'certificate.pending': 'Mensertifikasi…',
@@ -3642,7 +3642,7 @@ const id: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (tersertifikasi)',
   'certificate.bucklingNotCertified': 'λ_cr tidak tersertifikasi: {reason}',
   'certificate.bucklingTooltip': 'Selang ketat, dibuktikan di Lean: struktur dipastikan stabil untuk setiap faktor beban hingga nilai bawah dan dipastikan tidak stabil pada nilai atas.',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'Tersertifikasi: galat perpindahan ≤ {abs}',
   'certificate.envelopeCertified': 'Selubung tersertifikasi: setiap nilai dalam {abs} dari selubung eksak (perpindahan)',
   'certificate.comboTooltip': 'Batas ketat, dibuktikan di Lean: setiap kasus beban disertifikasi terhadap solusi eksak sistem yang dirakit; batas suatu kombinasi menjumlahkan batas kasus dikali |faktor| dan pembulatan kombinasi itu sendiri; selubung berada dalam batas kombinasi terbesar dari selubung eksak. Tanda ± di samping gaya batang membatasi galatnya dengan cara yang sama.',

@@ -12,9 +12,10 @@
  *   Al = 3.602e−4·1.56 = 5.62e−4 m²
  */
 import { describe, it, expect } from 'vitest';
+import { torsionDemand } from '../../../engine/__tests__/helpers/manual-interactions';
 import { checkTorsion2025 } from '../torsion';
 
-const base = { b: 0.3, h: 0.6, d: 0.54, cover: 0.025, stirrupDiaMm: 10, fc: 25, fy: 420, fyt: 420, Vu: 120, Tu: 25, stirrup: { diameter: 10, legs: 2, spacing: 0.15 } };
+const base = { b: 0.3, h: 0.6, d: 0.54, dSecondary: 0.24, cover: 0.025, stirrupDiaMm: 10, fc: 25, fy: 420, fyt: 420, demand: torsionDemand(25, 120), stirrup: { diameter: 10, legs: 2, spacing: 0.15 } };
 
 describe('torsion §22.7, by hand', () => {
   it('threshold, cross-section, transverse and longitudinal', () => {
@@ -29,10 +30,10 @@ describe('torsion §22.7, by hand', () => {
     expect(r.ratio).toBeCloseTo(0.782, 2);
   });
   it('a small torque is neglected', () => {
-    expect(checkTorsion2025({ ...base, Tu: 4 }).neglect).toBe(true);
-    expect(checkTorsion2025({ ...base, Tu: 4 }).ratio).toBe(0);
+    expect(checkTorsion2025({ ...base, demand: torsionDemand(4, 120) }).neglect).toBe(true);
+    expect(checkTorsion2025({ ...base, demand: torsionDemand(4, 120) }).ratio).toBe(0);
   });
   it('closer stirrups are needed for a larger torque', () => {
-    expect(checkTorsion2025({ ...base, Tu: 40 }).ratio).toBeGreaterThan(1);
+    expect(checkTorsion2025({ ...base, demand: torsionDemand(40, 120) }).ratio).toBeGreaterThan(1);
   });
 });

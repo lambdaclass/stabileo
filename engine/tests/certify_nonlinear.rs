@@ -1,4 +1,4 @@
-//! Certified P-Delta, spectral and harmonic results (docs/verification/CERTIFY.md).
+//! Certified P-Delta, spectral and harmonic results (testing/docs/CERTIFY.md).
 //!
 //! Honesty references are independent high-accuracy solutions of the same model:
 //! P-Delta by Newton's method with the residual evaluated in double-double

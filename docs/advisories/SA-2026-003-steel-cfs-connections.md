@@ -16,7 +16,7 @@ properties of asymmetric sections (angles, Z, lipped sections).
 ## What was wrong
 
 Published examples where the old checks were unconservative
-([DESIGN_EXAMPLES.md](../verification/DESIGN_EXAMPLES.md#discrepancies)):
+([DESIGN_EXAMPLES.md](../../testing/docs/DESIGN_EXAMPLES.md#discrepancies)):
 
 - CIRSOC 301 web shear: φVn **60 % high** (INTI301 Ej. 14 V2, D7); slender-element column without
   Q: **+16 %** (D6); noncompact girder flexure **+14 %** (D8); tension rupture with Ae = Ag;
@@ -50,4 +50,4 @@ Re-check every steel member and joint designed with a pre-0.2.0 version.
 ## Credits and references
 
 Published worked examples (AISC Design Examples, INTI-CIRSOC 301, SCI) and differential testing;
-`docs/verification/DESIGN_EXAMPLES.md`, `docs/verification/SECTIONS_CONNECTIONS.md`.
+`testing/docs/DESIGN_EXAMPLES.md`, `testing/docs/SECTIONS_CONNECTIONS.md`.

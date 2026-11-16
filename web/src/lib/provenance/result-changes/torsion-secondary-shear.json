@@ -1,0 +1,37 @@
+{
+  "id": "torsion-secondary-shear",
+  "date": "2026-11-15",
+  "prs": [
+    2169
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "title": {
+    "en": "Torsion section limits include both concurrent shears",
+    "es": "El límite de sección por torsión incluye ambos cortes concurrentes",
+    "pt": "O limite da seção à torção inclui os dois esforços cortantes simultâneos",
+    "de": "Torsionsquerschnittsgrenzen berücksichtigen beide gleichzeitigen Querkräfte",
+    "fr": "La limite de section en torsion inclut les deux efforts tranchants concomitants",
+    "tr": "Burulma kesit sınırı eşzamanlı iki kesme kuvvetini de içerir"
+  },
+  "explanation": {
+    "en": "CIRSOC 201 checked the shear–torsion section limit with primary shear alone. It now checks both section orientations using the concurrent shears and torque; provided-beam torsion checks also run when primary shear is zero or stirrups are absent. Non-negligible torsion without stirrups fails. Previously accepted beams, columns or walls can fail. Re-run saved concrete member designs and review section failures; adding stirrups cannot repair an exceeded section limit (SA-2026-069, #2142; PR #2169).",
+    "es": "CIRSOC 201 verificaba el límite de sección por corte y torsión solo con el corte principal. Ahora verifica ambas orientaciones con los cortes y el torsor concurrentes; la verificación de torsión de vigas con armadura provista también se ejecuta con corte principal nulo o sin estribos. La torsión no despreciable sin estribos falla. Vigas, columnas o tabiques antes aceptados pueden fallar. Recalculá los diseños de hormigón guardados y revisá las fallas de sección; agregar estribos no resuelve un límite de sección excedido (SA-2026-069, #2142; PR #2169).",
+    "pt": "O CIRSOC 201 verificava o limite da seção para cisalhamento e torção apenas com o esforço cortante principal. Agora verifica as duas orientações com os esforços simultâneos; a verificação de torção de vigas com armadura fornecida também ocorre quando o esforço cortante principal é zero ou faltam estribos. Torção não desprezível sem estribos falha. Vigas, pilares ou paredes antes aceitos podem falhar. Recalcule os projetos de concreto salvos e revise as falhas de seção; adicionar estribos não corrige uma seção que excede o limite (SA-2026-069, #2142; PR #2169).",
+    "de": "CIRSOC 201 prüfte die Querkraft-Torsions-Grenze nur mit der primären Querkraft. Jetzt werden beide Querschnittsrichtungen mit gleichzeitigen Querkräften und Torsion geprüft; die Torsionsprüfung vorhandener Balkenbewehrung läuft auch bei primärer Querkraft null oder fehlenden Bügeln. Nicht vernachlässigbare Torsion ohne Bügel führt zum Versagen. Zuvor akzeptierte Balken, Stützen oder Wände können durchfallen. Gespeicherte Betonbemessungen erneut berechnen und Querschnittsversagen prüfen; zusätzliche Bügel beheben eine überschrittene Querschnittsgrenze nicht (SA-2026-069, #2142; PR #2169).",
+    "fr": "Le CIRSOC 201 vérifiait la limite de section sous effort tranchant et torsion avec le seul effort tranchant principal. Les deux orientations sont désormais vérifiées avec les efforts concomitants ; la vérification en torsion des armatures fournies des poutres est aussi exécutée lorsque le cisaillement principal est nul ou les étriers absents. Une torsion non négligeable sans étriers échoue. Des poutres, poteaux ou voiles auparavant acceptés peuvent échouer. Relancer les calculs béton enregistrés et examiner les échecs de section ; ajouter des étriers ne corrige pas un dépassement de cette limite (SA-2026-069, #2142; PR #2169).",
+    "tr": "CIRSOC 201 kesme-burulma kesit sınırını yalnızca birincil kesme kuvvetiyle denetliyordu. Artık her iki kesit yönü eşzamanlı kesme kuvvetleri ve burulmayla denetlenir; mevcut kiriş donatısının burulma denetimi birincil kesme sıfır olduğunda veya etriye bulunmadığında da çalışır. İhmal edilemeyen burulma etriyesizse başarısız olur. Önceden kabul edilen kiriş, kolon veya perdeler başarısız olabilir. Kayıtlı betonarme tasarımlarını yeniden hesaplayın ve kesit hatalarını inceleyin; etriye eklemek aşılmış kesit sınırını gidermez (SA-2026-069, #2142; PR #2169)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-torsion-secondary-shear.md",
+    "heading": "Concurrent secondary shear in torsion section limits (2026-11-15)"
+  }
+}

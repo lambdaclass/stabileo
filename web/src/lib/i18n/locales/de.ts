@@ -12441,7 +12441,7 @@ const de: Translations = {
   'floorLoad.readOnlyLoad': 'Eine von einer Deckenlast-Definition geschriebene Last wird über ihre Definition geändert oder entfernt (Lasten › Decke): Sie wird daraus neu erzeugt.',
   'floorLoad.rangeInvalid': 'Geben Sie für jede Achse des Bereichs beide Grenzen an oder keine.',
 
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'Zertifiziert: Verschiebungsfehler ≤ {abs} ({rel} relativ)',
   'certificate.notCertified': 'Nicht zertifiziert: {reason}',
   'certificate.e2eCertified': 'Durchgängig geprüft: Ein unabhängiger Neuaufbau des Modells stimmt überein; Verschiebungsfehler ≤ {abs}',
@@ -12869,7 +12869,7 @@ const de: Translations = {
   'proReport.letterhead': 'Briefkopf',
   'proReport.shellFigure': 'Komponente in der Abbildung',
 
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'Zertifiziert: Verschiebungsfehler ≤ {abs}',
   'certificate.envelopeCertified': 'Einhüllende zertifiziert: jeder Wert weniger als {abs} von der exakten Einhüllenden entfernt (Verschiebungen)',
   'certificate.comboTooltip': 'Strenge Schranke, in Lean bewiesen: Jeder Lastfall wird gegen die exakte Lösung des assemblierten Systems zertifiziert; die Schranke einer Kombination addiert die Schranken der Lastfälle mal |Faktor| und die Rundung der Kombination selbst; die Einhüllende liegt innerhalb der größten Kombinationsschranke der exakten Einhüllenden. Das ± neben einer Stabschnittgröße begrenzt deren Fehler auf dieselbe Weise.',

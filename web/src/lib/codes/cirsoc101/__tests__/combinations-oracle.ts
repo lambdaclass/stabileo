@@ -2,7 +2,7 @@
  * TEST ORACLE. Not imported by the app.
  *
  * The TypeScript CIRSOC 101 combination generator as it was verified clause by clause in #292
- * (docs/verification/LOADS.md). The generator now runs in the engine
+ * (testing/docs/LOADS.md). The generator now runs in the engine
  * (`engine/src/loads/cirsoc101_combinations.rs`) and `combinations.ts` is an adapter; this copy
  * is what `combinations-engine.test.ts` holds the engine to, on every subset of loads.
  */

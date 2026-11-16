@@ -12450,7 +12450,7 @@ const tr: Translations = {
   'floorLoad.readOnlyLoad': 'Bir kat yükü tanımının yazdığı yük, tanımı üzerinden değiştirilir veya silinir (Yükler › Kat): ondan yeniden yazılır.',
   'floorLoad.rangeInvalid': 'Kutunun her ekseni için iki sınırı da girin veya hiçbirini girmeyin.',
 
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'Sertifikalı: yer değiştirme hatası ≤ {abs} ({rel} bağıl)',
   'certificate.notCertified': 'Sertifikalı değil: {reason}',
   'certificate.e2eCertified': 'Uçtan uca kontrol edildi: modelin bağımsız bir yeniden birleştirmesi uyuşuyor; yer değiştirme hatası ≤ {abs}',
@@ -12878,7 +12878,7 @@ const tr: Translations = {
   'proReport.letterhead': 'Antetli başlık',
   'proReport.shellFigure': 'Şekildeki bileşen',
 
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'Sertifikalı: yer değiştirme hatası ≤ {abs}',
   'certificate.envelopeCertified': 'Zarf sertifikalı: her değer kesin zarftan en fazla {abs} uzakta (yer değiştirmeler)',
   'certificate.comboTooltip': 'Lean\'de kanıtlanmış kesin sınır: her yük durumu birleştirilmiş sistemin kesin çözümüne göre sertifikalanır; bir kombinasyonun sınırı, durumların sınırlarının |katsayı| ile çarpımlarının toplamına kombinasyonun kendi yuvarlamasının eklenmesidir; zarf, kesin zarftan en fazla en büyük kombinasyon sınırı kadar uzaktır. Bir çubuk kuvvetinin yanındaki ± hatasını aynı şekilde sınırlar.',

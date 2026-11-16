@@ -157,7 +157,7 @@ jobs:
               - 'scripts/check-message-matching.py'
               - 'scripts/message-match-allow.txt'
               - 'scripts/invariance-gate.py'
-              - 'docs/verification/METAMORPHIC.md'
+              - 'testing/docs/METAMORPHIC.md'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - '.config/**'
@@ -228,6 +228,7 @@ jobs:
               - 'scripts/check-message-matching.py'
               - 'scripts/message-match-allow.txt'
               - 'docs/roadmap/PRODUCT_ROADMAP.md'
+              - 'testing/ROADMAP.md'
               - 'Makefile'
               - 'Dockerfile'
               - '.github/scripts/**'
@@ -386,7 +387,7 @@ jobs:
       - name: Every engine test file is in exactly one test binary
         run: nix develop --command make check.test-targets NIX_RUN=
       - name: Testing map paths and runners exist
-        run: nix develop --command make check.testing-map NIX_RUN=
+        run: nix develop --command make check.testing-map check.docs-links NIX_RUN=
       - name: Stop the rest of this run
         if: failure() && github.event_name == 'pull_request'
         continue-on-error: true
@@ -575,7 +576,7 @@ jobs:
         run: make test.engine.suite SHARD=${{ matrix.shard }}/4
         timeout-minutes: 25
 
-  # Metamorphic tests, sampled tier (docs/verification/METAMORPHIC.md), in release:
+  # Metamorphic tests, sampled tier (testing/docs/METAMORPHIC.md), in release:
   # unoptimised they outlast a suite shard.
   test-engine-metamorphic:
     name: Engine Metamorphic
@@ -1560,7 +1561,7 @@ jobs:
             make admin.build
           fi
 
-  # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus
+  # The results snapshot gate (#716, testing/docs/PROVENANCE.md): the reference corpus
   # solved through the app's path must give the committed snapshots (web/results-snapshots/),
   # and a pull request that changes them must register the change (an entry in
   # web/src/lib/provenance/result-changes/ and a "BREAKING (results)" changelog fragment).
@@ -1620,7 +1621,7 @@ jobs:
           fi
 
   # The WASM engine must give bit-identical results in every runtime it ships to
-  # (docs/verification/TRUSTED_BASE.md): fixed solves and certificates in Chromium,
+  # (testing/docs/TRUSTED_BASE.md): fixed solves and certificates in Chromium,
   # Firefox and WebKit, each compared bit for bit with the same run in Node.
   determinism:
     name: Determinism

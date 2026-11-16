@@ -3632,7 +3632,7 @@ const ar: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'معتمد: خطأ الإزاحات ≤ {abs} ({rel} نسبي)',
   'certificate.notCertified': 'غير معتمد: {reason}',
   'certificate.pending': 'جارٍ الاعتماد…',
@@ -3640,7 +3640,7 @@ const ar: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (معتمد)',
   'certificate.bucklingNotCertified': 'λ_cr غير معتمد: {reason}',
   'certificate.bucklingTooltip': 'حصر صارم مُثبت في Lean: المنشأ مستقر بشكل مؤكد لكل معامل حمل حتى القيمة الدنيا وغير مستقر بشكل مؤكد عند القيمة العليا.',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'معتمد: خطأ الإزاحات ≤ {abs}',
   'certificate.envelopeCertified': 'الغلاف معتمد: كل قيمة ضمن {abs} من الغلاف الدقيق (الإزاحات)',
   'certificate.comboTooltip': 'حد صارم مُثبت في Lean: تُعتمد كل حالة تحميل مقابل الحل الدقيق للنظام المُجمَّع؛ ويجمع حد التركيبة حدود الحالات مضروبة في |المعامل| مع تقريب التركيبة نفسها؛ ويقع الغلاف ضمن أكبر حد للتركيبات من الغلاف الدقيق. والعلامة ± بجانب قوة العنصر تحد خطأها بالطريقة نفسها.',

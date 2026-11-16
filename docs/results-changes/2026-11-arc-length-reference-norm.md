@@ -38,7 +38,7 @@ retain these three actual inputs and every continuation step without rounding. T
 cases because their missing reactions are the open #1949 wrong-result defect;
 PR #1952 restores them with corrected outputs.
 
-See the [audit](../verification/soundness-regression-audit-2026-11-11.md) and its
+See the [audit](../../testing/docs/audits/soundness-regression-audit-2026-11-11.md) and its
 archived bisection evidence for the full comparison. Family sampling establishes
 the causal boundary; it is not an independent proof of every one of the 2,760
 trajectories. The PR documents separate research limitations, including paths

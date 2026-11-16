@@ -3645,7 +3645,7 @@ const it: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'Certificato: errore di spostamento ≤ {abs} ({rel} relativo)',
   'certificate.notCertified': 'Non certificato: {reason}',
   'certificate.pending': 'Certificazione…',
@@ -3653,7 +3653,7 @@ const it: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (certificato)',
   'certificate.bucklingNotCertified': 'λ_cr non certificato: {reason}',
   'certificate.bucklingTooltip': 'Intervallo rigoroso, dimostrato in Lean: la struttura è certificata stabile per ogni moltiplicatore di carico fino al valore inferiore e certificata instabile a quello superiore.',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'Certificato: errore di spostamento ≤ {abs}',
   'certificate.envelopeCertified': 'Inviluppo certificato: ogni valore entro {abs} dall\'inviluppo esatto (spostamenti)',
   'certificate.comboTooltip': 'Limite rigoroso, dimostrato in Lean: ogni caso di carico è certificato rispetto alla soluzione esatta del sistema assemblato; il limite di una combinazione somma i limiti dei casi per |fattore| e l\'arrotondamento della combinazione stessa; l\'inviluppo è entro il limite maggiore delle combinazioni dall\'inviluppo esatto. Il ± accanto a una sollecitazione dell\'asta ne limita l\'errore allo stesso modo.',

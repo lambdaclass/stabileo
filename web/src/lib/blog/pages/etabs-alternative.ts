@@ -46,7 +46,7 @@ export const etabsAlternativePage: StandingPage = {
         },
         {
           "k": "ext",
-          "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/MATURITY.md",
+          "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/MATURITY.md",
           "label": "Madurez de verificación",
           "t": ""
         },
@@ -107,7 +107,7 @@ export const etabsAlternativePage: StandingPage = {
         },
         {
           "k": "ext",
-          "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/MATURITY.md",
+          "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/MATURITY.md",
           "label": "Verification maturity",
           "t": ""
         },
@@ -168,7 +168,7 @@ export const etabsAlternativePage: StandingPage = {
         },
         {
           "k": "ext",
-          "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/MATURITY.md",
+          "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/MATURITY.md",
           "label": "Maturidade da verificação",
           "t": ""
         },

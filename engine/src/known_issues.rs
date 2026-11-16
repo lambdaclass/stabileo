@@ -1,5 +1,5 @@
 //! Known issues that can give a wrong result, contained until they are fixed (roadmap Release
-//! safety item 7, #447; the triage is docs/verification/DERIVATION_TRIAGE.md).
+//! safety item 7, #447; the triage is testing/docs/DERIVATION_TRIAGE.md).
 //!
 //! Each entry is a finding with a stable id (its code in the derivation review), the issue that
 //! tracks it, a test on the input saying whether this result is affected, and a message. Every
@@ -1326,7 +1326,7 @@ mod tests {
         assert_eq!(entry.id, "MD-ORTHOGONALITY");
         assert_eq!(entry.mode, Mode::Warn);
         assert!(has(&for_3d(&input3(), Analysis::Modal), entry.id));
-        let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
+        let ledger = include_str!("../../testing/docs/CONTAINMENT.md");
         let row = ledger.lines().find(|line| line.starts_with("| #759 |")).unwrap();
         let cells: Vec<_> = row.split('|').map(str::trim).collect();
         assert_eq!(cells[2], "`MD-ORTHOGONALITY`");
@@ -1341,14 +1341,14 @@ mod tests {
     #[test]
     fn corrected_rc_nm_pairing_is_retired_from_registry() {
         assert!(!ENTRIES.iter().any(|entry| entry.issue == 1316));
-        let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
+        let ledger = include_str!("../../testing/docs/CONTAINMENT.md");
         let row = ledger.lines().find(|line| line.starts_with("| #1316 |")).unwrap();
         assert_eq!(row.split('|').nth(3).unwrap().trim(), "CORRECTED");
     }
 
     #[test]
     fn known_issues_registry_and_ledger_agree() {
-        let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
+        let ledger = include_str!("../../testing/docs/CONTAINMENT.md");
         let mut contained = std::collections::BTreeSet::new();
         for line in ledger.lines().filter(|l| l.starts_with("| #") && l.split('|').nth(3).is_some_and(|modes| modes.contains("WARN") || modes.contains("REFUSE"))) {
             for number in line.split('|').nth(1).unwrap().split(',') {

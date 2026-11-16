@@ -1,5 +1,5 @@
 //! Metamorphic tests: physics invariants on every analysis and the corpus
-//! (docs/verification/METAMORPHIC.md).
+//! (testing/docs/METAMORPHIC.md).
 //!
 //! No reference solution is needed: each model is solved, transformed (rigid
 //! rotation, mirror, renumbering, unit change, load splitting, unit loads),
@@ -59,7 +59,7 @@ fn seed() -> u64 {
 }
 
 /// The invariants × analyses matrix of a PR-tier run, as it appears in
-/// docs/verification/METAMORPHIC.md (between the BEGIN/END markers).
+/// testing/docs/METAMORPHIC.md (between the BEGIN/END markers).
 fn render(t: &Tally, anas: &[&str], invs: &[&str]) -> String {
     let mut s = format!("| Analysis | {} |\n|---|{}\n", invs.join(" | "), ":-:|".repeat(invs.len()));
     for a in anas {
@@ -70,17 +70,17 @@ fn render(t: &Tally, anas: &[&str], invs: &[&str]) -> String {
 }
 
 fn check_doc(section: &str, table: &str) {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/verification/METAMORPHIC.md");
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../testing/docs/METAMORPHIC.md");
     let doc = std::fs::read_to_string(&path).unwrap_or_default();
     let (b, e) = (format!("<!-- BEGIN {section} -->\n"), format!("<!-- END {section} -->"));
-    let (Some(i), Some(j)) = (doc.find(&b), doc.find(&e)) else { panic!("docs/verification/METAMORPHIC.md has no {section} section") };
+    let (Some(i), Some(j)) = (doc.find(&b), doc.find(&e)) else { panic!("testing/docs/METAMORPHIC.md has no {section} section") };
     let current = &doc[i + b.len()..j];
     if current != table {
         if std::env::var("UPDATE_METAMORPHIC_DOC").is_ok() {
             let new = format!("{}{}{}", &doc[..i + b.len()], table, &doc[j..]);
             std::fs::write(&path, new).unwrap();
         } else {
-            panic!("docs/verification/METAMORPHIC.md ({section}) is out of date: rerun with UPDATE_METAMORPHIC_DOC=1\n{table}");
+            panic!("testing/docs/METAMORPHIC.md ({section}) is out of date: rerun with UPDATE_METAMORPHIC_DOC=1\n{table}");
         }
     }
 }

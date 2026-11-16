@@ -1,0 +1,113 @@
+{
+  "commit": "44966b6e75f72ce268ec87798d5cd880a6dba144",
+  "results": {
+    "2005": {
+      "witness": {
+        "edition": "2005",
+        "torsion": {
+          "Tu": 57,
+          "Tcr": 29.700000000000006,
+          "phiTn": 58.055253822359695,
+          "AtOverS": 8.115228037480739,
+          "AlReq": 12.724677562769797,
+          "neglect": false,
+          "ratio": 0.9818232846662145,
+          "status": "ok",
+          "steps": [
+            "Tu = 57.000 kN\u00b7m",
+            "Tcr = 0.33\u00b7\u221af'c\u00b7Acp\u00b2/pcp = 29.700 kN\u00b7m",
+            "Aoh = 1311.6 cm\u00b2, ph = 156.8 cm",
+            "At/s,req = 8.12 cm\u00b2/m (una rama)",
+            "Al,req = 12.72 cm\u00b2 (longitudinal por torsi\u00f3n)",
+            "\u03c6Tn,m\u00e1x = 58.055 kN\u00b7m con Vu = 0.00 kN (\u00a722.7.7.1) \u2192 Tu/\u03c6Tn = 0.982",
+            "At/s,prov = 10.05 cm\u00b2/m (descontando corte)",
+            "Al,prov = 100.00 cm\u00b2",
+            "Armadura de torsi\u00f3n y separaci\u00f3n: demanda/provisi\u00f3n = 0.807"
+          ],
+          "spacingMax": 0.19599999999999998,
+          "AtOverSProv": 10.053096491487336,
+          "AlProv": 100,
+          "longitudinalProvision": "checked",
+          "reinforcementRatio": 0.8072366603018755
+        },
+        "overallStatus": "ok"
+      },
+      "control": {
+        "edition": "2005",
+        "torsion": {
+          "Tu": 30,
+          "Tcr": 29.700000000000006,
+          "phiTn": 56.97985938247517,
+          "AtOverS": 4.271172651305651,
+          "AlReq": 6.69719871724726,
+          "neglect": false,
+          "ratio": 0.5265018258228074,
+          "status": "ok",
+          "steps": [
+            "Tu = 30.000 kN\u00b7m",
+            "Tcr = 0.33\u00b7\u221af'c\u00b7Acp\u00b2/pcp = 29.700 kN\u00b7m",
+            "Aoh = 1311.6 cm\u00b2, ph = 156.8 cm",
+            "At/s,req = 4.27 cm\u00b2/m (una rama)",
+            "Al,req = 6.70 cm\u00b2 (longitudinal por torsi\u00f3n)",
+            "\u03c6Tn,m\u00e1x = 56.980 kN\u00b7m con Vu = 100.00 kN (\u00a722.7.7.1) \u2192 Tu/\u03c6Tn = 0.527"
+          ],
+          "spacingMax": 0.19599999999999998
+        }
+      }
+    },
+    "2025": {
+      "witness": {
+        "edition": "2025",
+        "torsion": {
+          "Tu": 57,
+          "Tcr": 29.700000000000006,
+          "phiTn": 58.055253822359695,
+          "AtOverS": 8.115228037480739,
+          "AlReq": 12.724677562769797,
+          "neglect": false,
+          "ratio": 0.9818232846662145,
+          "status": "ok",
+          "steps": [
+            "Tu = 57.000 kN\u00b7m",
+            "Tcr = 0.33\u00b7\u221af'c\u00b7Acp\u00b2/pcp = 29.700 kN\u00b7m",
+            "Aoh = 1311.6 cm\u00b2, ph = 156.8 cm",
+            "At/s,req = 8.12 cm\u00b2/m (una rama)",
+            "Al,req = 12.72 cm\u00b2 (longitudinal por torsi\u00f3n)",
+            "\u03c6Tn,m\u00e1x = 58.055 kN\u00b7m con Vu = 0.00 kN (\u00a722.7.7.1) \u2192 Tu/\u03c6Tn = 0.982",
+            "At/s,prov = 10.05 cm\u00b2/m (descontando corte)",
+            "Al,prov = 100.00 cm\u00b2",
+            "Armadura de torsi\u00f3n y separaci\u00f3n: demanda/provisi\u00f3n = 0.807"
+          ],
+          "spacingMax": 0.19599999999999998,
+          "AtOverSProv": 10.053096491487336,
+          "AlProv": 100,
+          "longitudinalProvision": "checked",
+          "reinforcementRatio": 0.8072366603018755
+        },
+        "overallStatus": "ok"
+      },
+      "control": {
+        "edition": "2025",
+        "torsion": {
+          "Tu": 30,
+          "Tcr": 29.700000000000006,
+          "phiTn": 56.97985938247517,
+          "AtOverS": 4.271172651305651,
+          "AlReq": 6.69719871724726,
+          "neglect": false,
+          "ratio": 0.5265018258228074,
+          "status": "ok",
+          "steps": [
+            "Tu = 30.000 kN\u00b7m",
+            "Tcr = 0.33\u00b7\u221af'c\u00b7Acp\u00b2/pcp = 29.700 kN\u00b7m",
+            "Aoh = 1311.6 cm\u00b2, ph = 156.8 cm",
+            "At/s,req = 4.27 cm\u00b2/m (una rama)",
+            "Al,req = 6.70 cm\u00b2 (longitudinal por torsi\u00f3n)",
+            "\u03c6Tn,m\u00e1x = 56.980 kN\u00b7m con Vu = 100.00 kN (\u00a722.7.7.1) \u2192 Tu/\u03c6Tn = 0.527"
+          ],
+          "spacingMax": 0.19599999999999998
+        }
+      }
+    }
+  }
+}

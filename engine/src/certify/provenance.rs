@@ -1,6 +1,6 @@
 //! Provenance of certificate bundles: what was solved, by which engine, and which
 //! certificates the bundle carries. See "Provenance" under "Independent checking:
-//! certificate bundles" in `docs/verification/CERTIFY.md`.
+//! certificate bundles" in `testing/docs/CERTIFY.md`.
 //!
 //! The solver input is identified by the SHA-256 of its *canonical JSON*: the input
 //! as the engine parsed it, serialized by `serde_json` with object keys sorted and no

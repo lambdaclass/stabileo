@@ -3633,7 +3633,7 @@ const zh: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': '已认证：位移误差 ≤ {abs}（相对 {rel}）',
   'certificate.notCertified': '未认证：{reason}',
   'certificate.pending': '正在认证…',
@@ -3641,7 +3641,7 @@ const zh: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}]（已认证）',
   'certificate.bucklingNotCertified': 'λ_cr 未认证：{reason}',
   'certificate.bucklingTooltip': '在 Lean 中证明的严格区间：结构在直至下限值的任意荷载系数下保证稳定，在上限值处保证失稳。',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': '已认证：位移误差 ≤ {abs}',
   'certificate.envelopeCertified': '包络已认证：每个值与精确包络相差不超过 {abs}（位移）',
   'certificate.comboTooltip': '严格上界，已在 Lean 中证明：每个荷载工况都相对于组装系统的精确解进行认证；组合的上界为各工况上界乘以 |系数| 之和，再加上组合本身的舍入；包络与精确包络的差不超过最大的组合上界。构件内力旁的 ± 以同样方式界定其误差。',

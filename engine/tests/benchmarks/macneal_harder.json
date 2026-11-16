@@ -4718,7 +4718,7 @@
           0.623807922324
         ]
       },
-      "justification": "Regression pins, not accuracy claims. The existing reference floors remain enforced. Trapezoidal and parallelogram in-plane bending retain parasitic shear locking; MacNeal and Harder (1985), Table 8, documents the severe distortion sensitivity of patch-test-passing eight-node hexes. The measured native ratios above characterize this implementation, not published reference values. See docs/verification/benchmark-tolerances-1490.md."
+      "justification": "Regression pins, not accuracy claims. The existing reference floors remain enforced. Trapezoidal and parallelogram in-plane bending retain parasitic shear locking; MacNeal and Harder (1985), Table 8, documents the severe distortion sensitivity of patch-test-passing eight-node hexes. The measured native ratios above characterize this implementation, not published reference values. See testing/docs/audits/benchmark-tolerances-1490.md."
     }
   },
   "shellReferences": {

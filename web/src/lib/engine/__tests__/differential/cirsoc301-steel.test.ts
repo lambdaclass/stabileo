@@ -9,7 +9,7 @@
  * `codes/argentina/cirsoc301.ts`, now an adapter.
  *
  * Every disagreement found when the two were first run against each other was resolved against the
- * clause (docs/verification/TS_ENGINE_LOGIC.md, "CIRSOC 301"). The ones where the oracle is wrong
+ * clause (testing/docs/TS_ENGINE_LOGIC.md, "CIRSOC 301"). The ones where the oracle is wrong
  * are pinned below as such; on everything else the two must agree to 1e-9.
  */
 import { describe, it, expect } from 'vitest';

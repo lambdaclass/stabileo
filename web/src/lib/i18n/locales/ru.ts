@@ -3636,7 +3636,7 @@ const ru: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': 'Сертифицировано: погрешность перемещений ≤ {abs} ({rel} относительная)',
   'certificate.notCertified': 'Не сертифицировано: {reason}',
   'certificate.pending': 'Сертификация…',
@@ -3644,7 +3644,7 @@ const ru: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (сертифицировано)',
   'certificate.bucklingNotCertified': 'λ_cr не сертифицировано: {reason}',
   'certificate.bucklingTooltip': 'Строгая оценка, доказанная в Lean: конструкция гарантированно устойчива при любом коэффициенте нагрузки до нижнего значения и гарантированно неустойчива при верхнем.',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': 'Сертифицировано: погрешность перемещений ≤ {abs}',
   'certificate.envelopeCertified': 'Огибающая сертифицирована: каждое значение отличается от точной огибающей менее чем на {abs} (перемещения)',
   'certificate.comboTooltip': 'Строгая оценка, доказанная в Lean: каждое загружение сертифицируется относительно точного решения собранной системы; оценка сочетания складывает оценки загружений, умноженные на |коэффициент|, и округление самого сочетания; огибающая отличается от точной не более чем на наибольшую оценку сочетаний. ± рядом с усилием в стержне оценивает его погрешность так же.',

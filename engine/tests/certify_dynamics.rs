@@ -1,4 +1,4 @@
-//! Certified time-history integration (docs/verification/CERTIFY.md,
+//! Certified time-history integration (testing/docs/CERTIFY.md,
 //! "Time-history integration").
 //!
 //! Honesty: residual bounds are compared with the residuals recomputed in exact
