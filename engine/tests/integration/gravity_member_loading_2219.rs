@@ -347,3 +347,70 @@ fn round7_plane_span_extrema_reach_native_diagrams() {
         }
     }
 }
+
+fn round8_endpoint_model(a: f64, b: f64, axis: &str) -> SolverInput3D {
+    let mut input = model(0.0);
+    input.nodes.retain(|_, n| n.id != 3);
+    input.nodes.values_mut().find(|n| n.id == 2).unwrap().x = 1.0;
+    input.elements.retain(|_, e| e.id == 1);
+    input.supports.retain(|_, s| s.node_id == 1);
+    input.loads.truncate(1);
+    if let SolverLoad3D::Distributed(d) = &mut input.loads[0] {
+        d.q_zi = 0.0; d.q_zj = 0.0; d.a = Some(a); d.b = Some(b);
+        let values = [1.0 / (b - a); 3];
+        let m = d.moments.as_mut().unwrap();
+        match axis { "x" => m.x = values, "y" => m.y = values, "z" => m.z = values, _ => unreachable!() }
+    }
+    input
+}
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round8_endpoint_straddling_moment_densities_refuse_in_every_spatial_solve() {
+    for axis in ["x", "y", "z"] {
+        for (a, b) in [(-1e-14, 1e-14), (1.0 - 1e-14, 1.0 + 1e-14), (-1e-14, 0.0), (1.0, 1.0 + 1e-14), (0.5, 0.5_f64.next_up())] {
+            let input = round8_endpoint_model(a, b, axis);
+            let mut unloaded = input.clone(); unloaded.loads.clear();
+            let prepared = linear::prepare_static_3d(&unloaded).unwrap();
+            for (entry, result) in [
+                ("linear", linear::solve_3d(&input)),
+                ("prepared", prepared.solve_loads(&input.loads)),
+                ("pdelta", pdelta::solve_pdelta_3d(&input, 100, 1e-10).map(|r| r.results)),
+                ("corotational", corotational::solve_corotational_3d(&input, 100, 1e-10, 4, false).map(|r| r.results)),
+            ] {
+                assert!(result.is_err(), "{entry} accepted axis={axis} [{a},{b}]: {result:?}");
+                assert!(result.unwrap_err().contains("distributed moment span"));
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round8_representable_moment_support_has_identical_assembly_and_recovery_endpoints() {
+    let allowance = 64.0 * f64::EPSILON;
+    for (a, b) in [(0.0, 1.0), (0.25, 0.75), (-allowance, 0.5), (0.5, 1.0 + allowance), (0.0, 4.0 * allowance), (1.0 - 4.0 * allowance, 1.0)] {
+        let input = round8_endpoint_model(a, b, "x");
+        let mut unloaded = input.clone(); unloaded.loads.clear();
+        let prepared = linear::prepare_static_3d(&unloaded).unwrap();
+        for result in [linear::solve_3d(&input).unwrap(), prepared.solve_loads(&input.loads).unwrap(), pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results, corotational::solve_corotational_3d(&input, 100, 1e-10, 4, false).unwrap().results] {
+            let ef = &result.element_forces[0];
+            let ca = a.max(0.0); let cb = b.min(1.0);
+            let density = 1.0 / (b - a);
+            let force = density * (cb - ca);
+            assert_eq!(ef.member_moments[0].a, ca);
+            assert_eq!(ef.member_moments[0].b, cb);
+            assert!((ef.mx_start + force).abs() < 1e-10);
+            for x in [0.0, ca, ca + (cb - ca) / 4.0, ca + (cb - ca) / 2.0, cb, 1.0] {
+                let expected = -force + density * (x - ca).clamp(0.0, cb - ca);
+                assert!((evaluate_diagram_3d_at(ef, "torsion", x) - expected).abs() < 1e-10, "[{a},{b}] x={x}");
+                for kind in ["shearY", "shearZ", "momentY", "momentZ"] { assert!(evaluate_diagram_3d_at(ef, kind, x).abs() < 1e-10); }
+            }
+            let tip = result.displacements.iter().find(|d| d.node_id == 2).unwrap();
+            assert!((tip.rx - force * (ca + cb) / (2.0 * 1000.0)).abs() < 1e-10);
+        }
+    }
+    for (a, b) in [(-allowance.next_up(), 0.5), (-allowance, 0.49), (0.51, 1.0 + allowance), (-allowance, 4.0 * allowance), (1.0 - 4.0 * allowance, 1.0 + allowance), (0.5, (1.0 + allowance).next_up()), (-allowance, allowance), (1.0 - allowance, 1.0 + allowance)] {
+        assert!(linear::solve_3d(&round8_endpoint_model(a, b, "x")).is_err());
+    }
+}
