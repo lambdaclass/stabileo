@@ -7,6 +7,7 @@ import { snowLoadCases } from '../snow-loads';
 import { buildLoadPlan, type LoadModelData } from '../load-plan';
 
 const regression = it;
+const shapeRegression = process.env.RUN_KNOWN_WRONG === '2172' ? it : it.skip;
 
 function dome(angle: number) {
   const rim = [[0, 0, 3], [8, 0, 3], [8, 8, 3], [0, 8, 3]], crown = [4, 4, 5];
@@ -92,3 +93,61 @@ for (const angle of [0, 0.37]) it(`#2172 default overlapping roof tributaries re
     expect(layout.notes.some(n => n.key === 'loadPlan.gravity.headroomUnclearRoof')).toBe(true);
   }
 });
+
+function integratePolynomial(coefficients: number[], lo: number, hi: number) {
+  return coefficients.reduce((sum, value, k) => sum + value * (hi ** (k + 1) - lo ** (k + 1)) / (k + 1), 0);
+}
+
+function multiply(a: number[], b: number[]) {
+  const out = Array<number>(a.length + b.length - 1).fill(0);
+  a.forEach((v, i) => b.forEach((w, j) => { out[i + j]! += v * w; }));
+  return out;
+}
+
+type PolynomialPiece = { a: number; b: number; q: number[] };
+function beamResponse(pieces: PolynomialPiece[], x: number) {
+  const integral = (weight: number[], end = 8) => pieces.reduce((sum, p) => sum + (end > p.a ? integratePolynomial(multiply(p.q, weight), p.a, Math.min(p.b, end)) : 0), 0);
+  const left = -integral([8, -1]) / 8;
+  const cubic = (s: number) => [s ** 3, -3 * s * s, 3 * s, -1];
+  const c = -(left * 8 ** 3 + integral(cubic(8))) / (6 * 8);
+  return [left + integral([1], x), left * x + integral([x, -1], x), left * x ** 3 / 6 + integral(cubic(x), x) / 6 + c * x];
+}
+
+for (const angle of [0, 0.37]) for (const reversed of [false, true]) {
+  const check = () => {
+    const model = dome(angle);
+    if (reversed) {
+      const e = model.elements.get(1)!;
+      [e.nodeI, e.nodeJ] = [e.nodeJ, e.nodeI];
+    }
+    const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true });
+    const out = snowLoadCases({ model, layout, snow: { ...snow, roofKind: 'dome' }, tributaryWidth: 1 })!;
+    expect(out.result.refused).toBeUndefined();
+    const p = 2 * 0.7 * (70 - Math.atan(2 / Math.hypot(4, 4)) * 180 / Math.PI) / 65;
+    const caseIndex = reversed ? 4 : 3;
+    const loads = out.cases[caseIndex]!.distributed.filter(d => d.elementId === 1);
+    const exact: PolynomialPiece[] = [{ a: 0, b: 4, q: [0, -p, p / 8] }, { a: 4, b: 8, q: [-8 * p, 2 * p, -p / 8] }];
+    const affine = loads.map(d => {
+      const a = d.a ?? 0, b = d.b ?? 8, slope = ((d.qJ ?? d.q) - d.q) / (b - a);
+      return { a: reversed ? 8 - b : a, b: reversed ? 8 - a : b, q: reversed ? [d.q + slope * (8 - a), -slope] : [d.q - slope * a, slope] };
+    });
+    for (let k = 1; k < 160; k++) {
+      const x = k / 20, physical = x <= 4 ? -p * x * (1 - x / 8) : -p * (8 - x) * (1 - x / 8);
+      const actual = -pressure(loads, 1, reversed ? 8 - x : x);
+      expect.soft(Math.abs(actual - physical)).toBeLessThanOrEqual(2 * p * 1e-4 + 1e-12);
+    }
+    for (const x of [1, 2, 3, 4, 5, 6, 7]) {
+      const actual = beamResponse(affine, x), expected = beamResponse(exact, x);
+      expect.soft(Math.abs(actual[0]! - expected[0]!)).toBeLessThan(8 * p * 1e-4);
+      expect.soft(Math.abs(actual[1]! - expected[1]!)).toBeLessThan(64 * p * 1e-4);
+      expect.soft(Math.abs(actual[2]! - expected[2]!)).toBeLessThan(4096 * p * 1e-6);
+    }
+    for (const direction of [[Math.cos(angle), Math.sin(angle)], [-Math.sin(angle), Math.cos(angle)]]) {
+      const [force, moment] = snowDistributedResultant(model, out.cases[caseIndex]!.distributed, new Set([1]), [0, 0], direction);
+      expect(force).toBeCloseTo(-8 * p, 10);
+      expect(moment).toBeCloseTo(direction[0] === Math.cos(angle) ? -80 * p / 3 : 0, 10);
+    }
+  };
+  if (angle === 0 && !reversed) shapeRegression('known wrong result: #2172 quadratic strip intensity and simply supported response', check);
+  else shapeRegression(`known wrong result: #2172 quadratic strip intensity and simply supported response ${angle} ${reversed}`, check);
+}
