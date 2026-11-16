@@ -4,6 +4,8 @@ import { regulationsStore } from './regulations.svelte';
 import { rulesFor } from '../rc-sheets/codes';
 import { resultsStore } from './results.svelte';
 import { physicalGroups, physicalThickness } from './physical';
+import { materialFamilyOf } from '../model/material-family';
+import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { applyPlateMeshes, clearPlateMesh, physicalPlates, planPlateMesh, plateShellKeys, plateStatus, setPlateMeshSpec, type PlateMeshPlan } from './physical-plates';
 import { designData, patchOwnDesignData, setDesignData, storedDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
@@ -200,7 +202,9 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
   const namer = storeyNamer();
   const groups: DemandGroup[] = physicalGroups().map((g) => ({
     id: g.id, name: g.name, kind: g.physical.kind, level: levelName(g.physical.levelFrom, namer),
-    elements: g.members.elements ?? [], quads: g.members.quads ?? [], plates: g.members.plates ?? [],
+    elements: (g.members.elements ?? []).filter((id) => inConcrete(modelStore.elements.get(id)?.materialId)),
+    quads: (g.members.quads ?? []).filter((id) => inConcrete(modelStore.quads.get(id)?.materialId)),
+    plates: (g.members.plates ?? []).filter((id) => inConcrete(modelStore.plates.get(id)?.materialId)),
   }));
   return {
     nodes: modelStore.nodes, elements: modelStore.elements as never, sections: modelStore.sections as never,
@@ -219,6 +223,12 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     levelAt: namer,
     psi: (id) => computeJointPsiFromModel(id, modelStore.nodes as never, modelStore.elements as never, modelStore.sections as never, modelStore.materials as never, supportsByNode as never),
   };
+}
+
+/** A member of steel, timber or another metal is none of the sheets' business; one with no strength recorded is read as concrete. */
+function inConcrete(materialId: number | undefined): boolean {
+  const family = materialFamilyOf(materialId !== undefined ? (modelStore.materials.get(materialId) as never) : undefined, catalogueGradeFamily).family;
+  return family === 'concrete' || family === 'unknown';
 }
 
 function fcOfElement(id: number | undefined): number {
