@@ -14,6 +14,7 @@ async function solveAndCheck(page: Page, shot: string, width: number, overSheet 
   await expect(card).toHaveAttribute('data-phase', 'done', { timeout: 60_000 });
   const toasts = page.locator('.toast');
   await expect(toasts.first()).toBeVisible();
+  await page.evaluate(() => Promise.all([...document.querySelectorAll('.toast')].flatMap((el) => el.getAnimations().map((a) => a.finished))));
   if (overSheet) await expect(page.locator('.toast-container')).toHaveClass(/toast-over-sheet/);
   const cardBox = (await card.boundingBox())!;
   for (const toast of await toasts.all()) {
