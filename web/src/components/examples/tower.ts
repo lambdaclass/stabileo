@@ -115,7 +115,7 @@ export const tower = defineExample<Model>({
       { key: 'criticalLoad', value: lambda * v.topLoad, unit: 'kN', reference: { value: exact.pcr, source: 'π²EI/4H²' } },
     ];
     const H = model.height;
-    const draw = (field: string, shape: Shape): View => {
+    const draw = (field: string, shape: Shape, peak: { value: number; label: 'f' | 'lambda'; unit: string }): View => {
       const s = new Sketch();
       s.line(-H * 0.15, 0, H * 0.15, 0);
       s.line(0, 0, 0, H);
@@ -123,11 +123,12 @@ export const tower = defineExample<Model>({
       const top = Math.max(...shape.map(d => Math.abs(d.ux)), 1e-12);
       const pts = shape.map(d => [d.ux / top * H * 0.15, H * (d.nodeId - 1) / SEGMENTS] as [number, number]).sort((a, b) => a[1] - b[1]);
       s.polyline(pts);
-      return { ...s.view(field, '', boundsOf([-H * 0.2, 0, H * 0.2, H], 0.04)), legend: { shape: 'mode' } };
+      const at = pts.reduce((best, p) => Math.abs(p[0]) > Math.abs(best[0]) ? p : best);
+      return { ...s.view(field, '', boundsOf([-H * 0.2, 0, H * 0.2, H], 0.04)), legend: { shape: 'mode' }, peak: { ...peak, at } };
     };
     const views: Record<string, View> = {};
-    modes.forEach((m, k) => { views[`mode${k + 1}`] = draw(`mode${k + 1}`, m.displacements); });
-    views.buckling = draw('buckling', buckling.modes[0].displacements);
+    modes.forEach((m, k) => { views[`mode${k + 1}`] = draw(`mode${k + 1}`, m.displacements, { value: m.frequency, label: 'f', unit: 'Hz' }); });
+    views.buckling = draw('buckling', buckling.modes[0].displacements, { value: lambda, label: 'lambda', unit: '' });
     return { status: 'ok', readouts, certificate: bucklingCertificate(buckling), views, charts: [], notes: ['modeShapes'] };
   },
 });

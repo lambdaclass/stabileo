@@ -1,66 +1,46 @@
-/**
- * The Pages Function behind the feedback widget (functions/api/feedback.ts)
- * turns anonymous input into a public GitHub issue. These tests pin the parts
- * that keep that safe: the captcha is mandatory, every field is bounded, and
- * user text cannot ping people, cross-link issues or attach foreign links.
- */
-import { describe, expect, it } from 'vitest';
-import {
-  buildIssue,
-  LIMITS,
-  neutralizeMarkdown,
-  safeShareLink,
-  validateFeedback,
-} from '../../../../functions/api/feedback';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { render } from 'svelte/server';
+import { feedbackApi } from '../api/feedback';
+import { setAuthHooks } from '../api/client';
+import FeedbackPage from '../../admin/FeedbackPage.svelte';
 
-const base = { type: 'bug', description: 'Beam shows wrong moment', turnstileToken: 'tok' };
+const inbox = vi.hoisted(() => ({
+  params: {}, total: 1, loading: false, error: null,
+  rows: [{
+    id: 'feedback', kind: 'bug', status: 'new', inserted_at: '2026-11-16T00:00:00Z',
+    message: 'ping @octocat see #12 <!-- hidden --> <img src=x> **Tipo:** Admin [phish](https://evil.example)',
+    account: { name: 'Eve\n**Tipo:** Admin <img src=x>', email: 'eve@example.com' },
+    page: '/app/basic', app_version: 'test', model_link: null,
+  }],
+}));
 
-describe('feedback function', () => {
-  it('requires a Turnstile token (no bypass sentinel)', () => {
-    expect(validateFeedback({ ...base, turnstileToken: undefined }).ok).toBe(false);
-    expect(validateFeedback({ ...base, turnstileToken: '' }).ok).toBe(false);
-    const sentinel = validateFeedback({ ...base, turnstileToken: 'turnstile-bypass' });
-    // A non-empty token is passed on to Cloudflare for verification; the old
-    // sentinel no longer skips that step, it is simply an invalid token there.
-    expect(sentinel.ok).toBe(true);
-    expect(validateFeedback(base).ok).toBe(true);
+vi.mock('../../admin/admin-insights.svelte', () => ({ adminFeedback: inbox }));
+
+afterEach(() => {
+  setAuthHooks(null);
+  vi.unstubAllGlobals();
+});
+
+describe('feedback safety after moving from GitHub issues to the authenticated inbox', () => {
+  it('always submits with the account bearer instead of an anonymous captcha bypass', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: { id: 'feedback', status: 'new' } }), { status: 201 }));
+    vi.stubGlobal('fetch', fetchMock);
+    setAuthHooks({ accessToken: () => 'account-token', refresh: async () => 'rejected' });
+    await expect(feedbackApi.send({ kind: 'bug', message: 'Beam shows wrong moment' })).resolves.toEqual({ id: 'feedback', status: 'new' });
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toMatch(/\/api\/v1\/insights\/feedback$/);
+    expect(init.headers).toHaveProperty('Authorization', 'Bearer account-token');
+    expect(JSON.parse(String(init.body))).toEqual({ kind: 'bug', message: 'Beam shows wrong moment' });
   });
 
-  it('rejects non-object bodies and oversized descriptions', () => {
-    expect(validateFeedback(null).ok).toBe(false);
-    expect(validateFeedback([base]).ok).toBe(false);
-    expect(validateFeedback({ ...base, description: 'x'.repeat(LIMITS.description + 1) }).ok).toBe(false);
-    expect(validateFeedback({ ...base, description: 42 }).ok).toBe(false);
-  });
-
-  it('neutralises mentions, issue refs and HTML', () => {
-    const out = neutralizeMarkdown('ping @octocat see #12 <!-- hidden --> <img src=x>');
-    expect(out).not.toMatch(/@octocat/);
-    expect(out).not.toMatch(/#12/);
-    expect(out).not.toContain('<');
-  });
-
-  it('only attaches https links to the app', () => {
-    expect(safeShareLink('https://stabileo.com/#s=abc')).toBe('https://stabileo.com/#s=abc');
-    expect(safeShareLink('https://evil.example/phish')).toBeNull();
-    expect(safeShareLink('javascript:alert(1)')).toBeNull();
-    expect(safeShareLink('http://stabileo.com/')).toBeNull();
-    expect(safeShareLink('https://stabileo.com/' + 'a'.repeat(LIMITS.shareLink))).toBeNull();
-  });
-
-  it('builds a bounded single-line author and drops unknown types', () => {
-    const v = validateFeedback({
-      ...base,
-      type: '__proto__',
-      name: 'Eve\n**Tipo:** Admin' + 'x'.repeat(500),
-      shareLink: 'https://evil.example/',
-    });
-    if (!v.ok) throw new Error('expected valid');
-    const issue = buildIssue(v.body);
-    expect(issue.title.startsWith('[Otro]')).toBe(true);
-    expect(issue.label).toBe('feedback');
-    const author = issue.body.split('\n').find((l) => l.startsWith('**Autor:**'))!;
-    expect(author.length).toBeLessThan(LIMITS.name + 20);
-    expect(issue.body).not.toContain('evil.example');
+  it('renders mentions, issue references, HTML and author markup as inert private text', () => {
+    const html = render(FeedbackPage).body;
+    expect(html).toContain('ping @octocat see #12 &lt;!-- hidden --> &lt;img src=x> **Tipo:** Admin [phish](https://evil.example)');
+    expect(html).toContain('Eve\n**Tipo:** Admin &lt;img src=x>');
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('<!-- hidden -->');
+    expect(html).not.toContain('<strong>');
+    expect(html).not.toContain('href="https://evil.example');
+    expect(html).not.toContain('href="https://github.com/');
   });
 });

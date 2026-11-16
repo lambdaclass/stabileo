@@ -22,6 +22,7 @@
     "pt": "Movimento axial puro mantém rotação de corda nula",
     "de": "Reine Axialbewegung behält eine Sehnendrehung von null",
     "fr": "Le mouvement axial pur conserve une rotation de corde nulle",
+    "hu": "A tiszta tengelyirányú mozgás megőrzi a nulla húrforgást",
     "tr": "Saf eksenel hareket sıfır kiriş doğrultusu dönmesini korur"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "pt": "Refaça análises corrotacionais e de continuação 2D de barras de pórtico. Compensar ambos os produtos do produto vetorial da corda impede que movimento axial exatamente colinear introduza flexão artificial. Corrige uma implementação não integrada do PR #1940; as tolerâncias de convergência não mudam (#761).",
     "de": "2D-korotatorische und Fortsetzungsanalysen von Rahmenstäben erneut berechnen. Die Kompensation beider Produkte des Sehnenkreuzprodukts verhindert künstliche Biegung bei exakt kollinearer Axialbewegung. Dies korrigiert eine noch nicht integrierte Implementierung aus PR #1940; Konvergenztoleranzen bleiben unverändert (#761).",
     "fr": "Relancer les analyses corotationnelles et de continuation 2D des barres de portique. Compenser les deux produits du produit vectoriel de la corde empêche une translation axiale exactement colinéaire de créer une flexion artificielle. Cela corrige une implémentation non intégrée de la PR #1940 ; les tolérances de convergence restent inchangées (#761).",
+    "hu": "Futtassa újra a keretrudak 2D korotációs és folytatásos vizsgálatait. A húr keresztszorzatának mindkét szorzatát kompenzálva a pontosan egyirányú tengelymozgás nem kelt mesterséges hajlítást. Ez a még be nem olvasztott PR #1940 megvalósítását javítja; a konvergenciatűrések változatlanok (#761).",
     "tr": "Çerçeve elemanlarının 2B eşdönüşlü ve devam analizlerini yeniden çalıştırın. Kiriş doğrultusunun vektörel çarpımındaki her iki çarpımın dengelenmesi, tam eşdoğrusal eksenel hareketin yapay eğilme üretmesini önler. Bu, henüz birleştirilmemiş PR #1940 uygulamasını düzeltir; yakınsama toleransları değişmez (#761)."
   },
   "changelog": {

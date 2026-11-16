@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { findPost } from '..';
+import huBody from '../translations/hu/safety-advisories';
 import type { PublicLocale } from '../../i18n/store.svelte';
 import notice from '../../provenance/result-changes/shared-demand-completeness.json';
 import witness from '../../../../../docs/results-changes/2096-main-partial-witnesses.json';
@@ -15,9 +16,10 @@ it.each<[PublicLocale, string, string]>([
   ['pt', 'Alta', 'Rascunho 2026-11-15; corrigido no PR #2173, aguardando integração e lançamento'],
   ['de', 'Hoch', 'Entwurf 2026-11-15; in PR #2173 behoben, Zusammenführung und Veröffentlichung ausstehend'],
   ['fr', 'Élevée', 'Brouillon 2026-11-15 ; corrigé dans la PR #2173, fusion et publication en attente'],
+  ['hu', 'Magas', 'Tervezet 2026-11-15; javítva a #2173 PR-ben, beolvasztásra és kiadásra vár'],
   ['tr', 'Yüksek', 'Taslak 2026-11-15; PR #2173 ile düzeltildi, birleştirme ve yayın bekleniyor'],
 ])('#2096 %s lists the incomplete-demand advisory and pending fix', (locale, severity, translatedStatus) => {
-  const blocks = findPost('safety-advisories')!.i18n[locale]!.blocks;
+  const blocks = (locale === 'hu' ? huBody : findPost('safety-advisories')!.i18n[locale]!).blocks;
   const table = blocks.find(b => b.k === 'table');
   if (table?.k !== 'table') throw new Error('Missing advisory table');
   const rows = table.rows.filter(r => r[0] === 'SA-2026-071');

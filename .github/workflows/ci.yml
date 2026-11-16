@@ -1252,6 +1252,11 @@ jobs:
   # says so, and playwright.config.ts refuses a prebuilt dist without it.
   site-e2e:
     name: E2E Site
+    env:
+      VITE_ACCOUNTS: '0'
+      VITE_RESEARCH: '0'
+      VITE_TOOLS: '0'
+      VITE_DIAGRAM_GAME: '0'
     runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && (vars.STABILEO_E2E_POOL == 'true' && fromJSON('["self-hosted","stabileo-e2e"]') || fromJSON('["self-hosted","stabileo"]')) || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes, wasm, research-wasm]

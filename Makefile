@@ -387,7 +387,7 @@ e2e.web.setup:
 
 # The site the e2e suites test with E2E_PREBUILT=1: VITE_E2E=1 compiles the read-only test hooks in,
 # and web/playwright.config.ts refuses a prebuilt dist without the marker. Needs make e2e.web.setup.
-e2e.web.build:
+e2e.web.build: test.web.e2e-features
 	$(NIX_RUN) bash -c 'cd web && VITE_E2E=1 npm run build && echo "VITE_E2E=1 build of $${GITHUB_SHA:-$$(git rev-parse HEAD)}" > dist/e2e-build.txt'
 
 # SHARD=i/n picks whole spec files balanced by measured duration (web/scripts/e2e-shard.mjs).
@@ -882,6 +882,7 @@ FEHER_DIR = research/stability/feher-sipos-varkonyi-2026
 .PHONY: test.research.feher evidence.research.feher
 test.research.feher:
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin validate
+	$(NIX_RUN) cargo test --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml
 	$(NIX_RUN) cargo test --locked -p dedaliano-engine --test validation corotational_prescribed
 
 evidence.research.feher:
@@ -1201,6 +1202,30 @@ test.engine.constraint-rounding-2013-wasm: wasm
 	CONSTRAINT_2013_CASES=$(CURDIR)/.2013-cases $(MAKE) test.engine.constraint-rounding-2013
 	$(NIX_RUN) node scripts/tests/constraint-rounding-2013-wasm.mjs $(CURDIR)/.2013-cases.2.false.json $(CURDIR)/.2013-cases.2.true.json $(CURDIR)/.2013-cases.3.false.json $(CURDIR)/.2013-cases.3.true.json
 	rm -f $(CURDIR)/.2013-cases.*.json
+
+.PHONY: test.web.feher-result-state
+test.web.feher-result-state:
+	nix develop .\#e2e --command node --test web/scripts/tests/feher-result-state.test.mjs
+
+.PHONY: test.web.public-policy-isolation
+test.web.public-policy-isolation:
+	nix develop .\#e2e --command bash -c 'cd web && node --test scripts/landing-isolation.test.mjs scripts/public-link-policy.test.mjs scripts/prune-public-build-branches.test.mjs scripts/build-switches-2099.test.mjs'
+
+.PHONY: test.web.landing-footer-2099
+test.web.landing-footer-2099:
+	$(NIX_RUN) node --test web/scripts/tests/landing-footer-2099.test.mjs
+
+.PHONY: test.web.ci-runtime-2099
+test.web.ci-runtime-2099:
+	$(NIX_RUN) node --test web/scripts/research-locale-build.test.mjs web/scripts/site-nav-node-env-2099.test.mjs
+
+.PHONY: test.web.tool-current-result-2099
+test.web.tool-current-result-2099:
+	VITE_RESEARCH=1 VITE_TOOLS=1 nix develop .\#e2e --command node --test web/scripts/tests/tool-current-result-2099.test.mjs
+
+.PHONY: test.web.e2e-features
+test.web.e2e-features:
+	$(NIX_RUN) bash -c 'cd web && node --experimental-strip-types --test scripts/e2e-feature-build.test.mjs'
 
 .PHONY: replay.advisory.steel-cb
 replay.advisory.steel-cb:

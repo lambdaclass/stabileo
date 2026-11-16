@@ -101,9 +101,9 @@ snow loads before re-solving.
 | [SA-2026-067](SA-2026-067-snow-roof-rotation.md) | Snow loads use roof axes under plan rotation | High | [#2093](https://github.com/lambdaclass/stabileo/issues/2093) | [#2095](https://github.com/lambdaclass/stabileo/pull/2095) | 0.6.1 | Published 2026-11-15; drafted 2026-11-14 |
 | [SA-2026-068](SA-2026-068-provided-torsion-stirrups.md) | Concrete torsion accepted inadequate designed stirrups | High | [#2141](https://github.com/lambdaclass/stabileo/issues/2141) | [#2080](https://github.com/lambdaclass/stabileo/pull/2080) | 0.6.1 | Published 2026-11-15 |
 | [SA-2026-069](SA-2026-069-torsion-secondary-shear.md) | Concrete torsion section limits omitted concurrent secondary shear | High | [#2142](https://github.com/lambdaclass/stabileo/issues/2142) | [#2169](https://github.com/lambdaclass/stabileo/pull/2169) | Pending | Draft 2026-11-15; fixed in PR #2169, pending merge and release |
-| [SA-2026-070](SA-2026-070-interior-member-couples.md) | Interior member deflection and rotation omitted span loads; distributed-load recovery also affected serviceability | High | [#2143](https://github.com/lambdaclass/stabileo/issues/2143) | #2170 | not yet released | Draft 2026-11-15; pending merge and release |
+| [SA-2026-070](SA-2026-070-interior-member-couples.md) | Interior member deflection and rotation omitted span loads; distributed-load recovery also affected serviceability | High | [#2143](https://github.com/lambdaclass/stabileo/issues/2143) | #2170 | not yet released | Draft 2026-11-15; pending release |
 | [SA-2026-071](SA-2026-071-incomplete-concurrent-demands.md) | Member verification accepted incomplete concurrent demands | High | [#2096](https://github.com/lambdaclass/stabileo/issues/2096) | [#2173](https://github.com/lambdaclass/stabileo/pull/2173) | Pending | Draft 2026-11-15; fixed in PR #2173, pending merge and release |
-| [SA-2026-072](SA-2026-072-snow-ridge-subdivision.md) | Unequal roof subdivision moved the inferred snow ridge and changed generated loads | High | [#2144](https://github.com/lambdaclass/stabileo/issues/2144) | Fixed in PR #2175 | Pending merge and release | Draft 2026-11-15 |
+| [SA-2026-072](SA-2026-072-snow-ridge-subdivision.md) | Unequal roof subdivision moved the inferred snow ridge and changed generated loads | High | [#2144](https://github.com/lambdaclass/stabileo/issues/2144) | Fixed in PR #2175 | Pending release | Draft 2026-11-15 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the
@@ -117,5 +117,5 @@ SA-2026-064 through SA-2026-068 are published with 0.6.1. The snow advisories
 have moved from `drafts/` into this catalog. Regenerate affected snow loads
 before re-solving projects.
 
-**SA-2026-070 is a draft** (2026-11-15). PR #2170 is pending merge and release;
+**SA-2026-070 is a draft** (2026-11-15). PR #2170 is pending release;
 review member-load deflections, rotations and serviceability when the fix is released.

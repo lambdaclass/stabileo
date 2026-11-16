@@ -59,7 +59,11 @@ const SUMMARY = /^\d+ COMPLETED (\d+) FILES (\d+) ERRORS (\d+) WARNINGS/;
 const child = spawn(
   'npx',
   ['svelte-check', '--tsconfig', './tsconfig.json', '--output', 'machine'],
-  { stdio: ['ignore', 'pipe', 'inherit'] },
+  {
+    stdio: ['ignore', 'pipe', 'inherit'],
+    // Past ~4,750 files svelte-check outgrows Node's default 4 GB heap and dies with no summary.
+    env: { ...process.env, NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --max-old-space-size=8192`.trim() },
+  },
 );
 
 let buffer = '';

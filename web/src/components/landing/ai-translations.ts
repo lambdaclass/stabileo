@@ -79,4 +79,17 @@ export const aiTranslations: Record<string, Translations> = {
     'landingAi.shotAiTitle': 'Değişikliği önerir; siz uygularsınız',
     'landingAi.shotAiAlt': 'Stabileo AI paneli: sade bir dille yazılmış istek ve yapay zekânın uygulanmadan önce önerdiği değişiklik.',
   },
+  hu: {
+    'landingAi.ebAi': 'STABILEO AI',
+    'landingAi.badgeDevPaid': 'FEJLESZTÉS ALATT',
+    'landingAi.aiH': 'MI-asszisztens, amely modelleket épít, átnéz és elmagyaráz.',
+    'landingAi.aiP': 'Kérdezzen természetes nyelven. Ugyanazon a modellen és ugyanazzal a megoldóval dolgozik, amelyet Ön is használ: az MI javasol, a megoldó számol, és Ön dönt. A méretezés továbbra is a mérnök felelőssége.',
+    'landingAi.aiPt1': 'Leírásból modellt készít: gerendákat, rácsos tartókat és többszintes kereteket, 2D-ben és 3D-ben.',
+    'landingAi.aiPt2': 'A képernyőn módosítja a modellt, és minden változtatást megmutat, mielőtt alkalmazná.',
+    'landingAi.aiPt3': 'Átnézi a kiszámított modellt: megállapítások súlyosság szerint, az érintett rudak, az ellenőrizendő feltételezések.',
+    'landingAi.aiPt4': 'Elmagyarázza a megoldó figyelmeztetéseit, és válaszol az eredményekkel kapcsolatos kérdésekre.',
+    'landingAi.aiStatus': 'A panel már elérhető a szerkesztőben, és az Ön saját Anthropic (Claude) vagy OpenAI kulcsával működik, amelyet csak a böngészője tárol; a Stabileo saját MI-szolgáltatása később érkezik.',
+    'landingAi.shotAiTitle': 'Javasolja a változtatást; Ön alkalmazza',
+    'landingAi.shotAiAlt': 'A Stabileo AI panel: egy természetes nyelvű kérés és az MI által javasolt változtatás, mielőtt alkalmaznák.',
+  },
 };

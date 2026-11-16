@@ -27,6 +27,7 @@
 import { captureProvenanceToken, provenanceForExport, provenanceLabels, ExportChangedError } from '../store/result-provenance';
 import { provenanceTextLines, type ResultProvenance } from '../provenance/result-provenance';
 import { runEngineActionAsync } from '../store/engine-action';
+import { saveFile, runFileExport } from './save-file';
 import { memberSectionLabel } from '../section/variable';
 // Type-only: erased at build time, so it costs the bundle nothing.
 import type * as Xlsx from 'xlsx';
@@ -598,16 +599,23 @@ export function combinationPeakRows(): Array<[string, number, number, number, nu
   return data;
 }
 
+export function saveWorkbook(X: XlsxModule, wb: Xlsx.WorkBook, filename: string, sources?: unknown): void {
+  saveFile(filename, () => new Blob([X.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'export', sources);
+}
+
 /**
  * Write the workbook. False when it was not written (said to the reader already). Its result
  * sheets read station forces and checks from the engine; without it, or when it refuses, the
  * export says so (an error toast) instead of failing silently.
  */
 export async function exportToExcel(options: ExcelExportOptions = {}): Promise<boolean> {
-  const wb = await runEngineActionAsync(() => buildExcelWorkbook(options));
-  if (!wb) return false;
-  XLSX.writeFile(wb, options.filename ?? 'analisis-estructural.xlsx');
-  return true;
+  const sources = options.modelOnly && (options.onlyExtras || options.includeResults === false) ? [] : undefined;
+  return runFileExport(async check => {
+    const wb = await runEngineActionAsync(() => buildExcelWorkbook(options));
+    if (!wb || !check()) return false;
+    saveWorkbook(XLSX, wb, options.filename ?? 'analisis-estructural.xlsx', sources);
+    return true;
+  }, false, 'export', sources);
 }
 
 /**

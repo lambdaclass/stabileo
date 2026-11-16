@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-15; fixed in PR #2170, pending merge and release |
+| Status | Draft 2026-11-15; fixed in PR #2170, pending release |
 | Issue | [#2143](https://github.com/lambdaclass/stabileo/issues/2143) |
-| Fix | PR [#2170](https://github.com/lambdaclass/stabileo/pull/2170); pending merge and release |
+| Fix | PR [#2170](https://github.com/lambdaclass/stabileo/pull/2170); pending release |
 | Fixed release | Not yet released |
 | Affected versions | Confirmed on main `44966b6e75f72ce268ec87798d5cd880a6dba144`; earlier introduction not yet bisected and historical release binaries not assessed |
 | Re-check registry | [`interior-member-couples`](../../web/src/lib/provenance/result-changes/interior-member-couples.json) |
@@ -96,7 +96,7 @@ insufficient bending stiffness must be resolved before accepting a loaded curve.
 
 ## Fixed in
 
-PR #2170 fixes the recovery on branch `fix/2143`; it is pending merge and release.
+PR #2170 merged the recovery fix from branch `fix/2143`; it is pending release.
 No released version is claimed to contain the fix. A single Rust
 `MemberDeflection` solution now recovers interior displacement and section
 rotation for every member-load variant through `recover_member`. Full point
