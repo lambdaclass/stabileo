@@ -464,7 +464,9 @@ impl MemberDeflection {
     ) -> Self {
         let loads = points.into_iter().map(|(a, p)| MemberLoad::Force { a, p })
             .chain(dist.into_iter().flat_map(|(qi, qj, a, b)| {
-                if let Some((p, c, at)) = crate::element::narrow_distributed_load(qi, qj, a, b) {
+                if b <= a {
+                    Vec::new()
+                } else if let Some((p, c, at)) = crate::element::narrow_distributed_load(qi, qj, a, b) {
                     vec![MemberLoad::Force { a: at, p }, MemberLoad::ForceCouple { a: at, c }]
                 } else { vec![MemberLoad::Distributed { qi, qj, a, b }] }
             }))

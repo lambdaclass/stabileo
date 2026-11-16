@@ -38,7 +38,7 @@ export const FEATURE_IDS = [
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
-  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
+  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'partialDistributedMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -247,7 +247,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       f.add('memberLoads');
       if (axialMembers.has(d.elementId as number)) f.add('trussMemberLoads');
     }
-    if (t.startsWith('pointOnElement') || (t.startsWith('distributed') && (positive(d.a) || d.b !== undefined))) f.add('pointOrPartialMemberLoads');
+    const partialDistributed = t.startsWith('distributed') && (positive(d.a) || d.b !== undefined);
+    if (partialDistributed) f.add('partialDistributedMemberLoads');
+    if (t.startsWith('pointOnElement') || partialDistributed) f.add('pointOrPartialMemberLoads');
     if (t === 'thermal') f.add('memberThermalLoads');
     if (t === 'displacement3d' && SETTLEMENT_KEYS.some((k) => !!d[k])) f.add('caseDisplacements');
     if (t === 'thermal' && released.has(d.elementId as number)) f.add('thermalAtRelease');

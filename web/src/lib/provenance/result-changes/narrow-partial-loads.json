@@ -33,7 +33,7 @@
   },
   "when": {
     "any": [
-      "pointOrPartialMemberLoads"
+      "partialDistributedMemberLoads"
     ]
   }
 }

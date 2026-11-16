@@ -441,7 +441,6 @@ fn issue_2222_empty_reversed_and_one_sided_interval_terms() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_recovery_skips_empty_and_reversed_intervals() {
     use dedaliano_engine::postprocess::diagrams::{recover_member, MemberRecoveryInput};
     for space in ["planar", "spatial"] {
@@ -472,11 +471,10 @@ fn issue_2222_recovery_skips_empty_and_reversed_intervals() {
 }
 
 fn endpoint_moment_near(actual: f64, expected: f64) {
-    near(actual, expected);
+    assert!((actual - expected).abs() <= 1e-12 * expected.abs(), "{actual} != {expected}");
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_endpoint_moment_assertion_rejects_omission() {
     let a = 3.0 - 5e-13;
     let b = 3.0;

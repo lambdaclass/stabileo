@@ -115,7 +115,7 @@ it('#2222: WASM diagrams include collapsed loads at exact member endpoints', () 
   }
 });
 
-it.skip('#2222 WASM recovery skips reversed intervals in both spaces', () => {
+it('#2222 WASM recovery skips reversed intervals in both spaces', () => {
   for (const space of ['planar', 'spatial']) for (const gas of [null, 1700]) {
     for (const width of [-1.5e-12, -1e-12, -5e-13, -Number.EPSILON, 0, Number.EPSILON, 5e-13, 1e-12, 1.5e-12, 0.5]) {
       const a = 1.5, b = a + width, q = b === a ? -7 : -1 / Math.abs(b - a);
@@ -130,9 +130,9 @@ it.skip('#2222 WASM recovery skips reversed intervals in both spaces', () => {
   }
 });
 
-const endpointMomentNear = (actual: number, expected: number) => expect(actual).toBeCloseTo(expected, 10);
+const endpointMomentNear = (actual: number, expected: number) => expect(Math.abs(actual - expected)).toBeLessThanOrEqual(1e-12 * Math.abs(expected));
 
-it.skip('#2222 WASM endpoint moment assertion rejects omission', () => {
+it('#2222 WASM endpoint moment assertion rejects omission', () => {
   const width = 3 - (3 - 5e-13);
   expect(() => endpointMomentNear(0, -width / 2)).toThrow();
 });

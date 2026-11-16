@@ -63,7 +63,7 @@ describe('which values a registered change declares it moves', () => {
 });
 
 describe('analysis-specific result changes', () => {
-  it.skip('#2222 keeps point-load numerical changes unexplained and distributed corrections covered', () => {
+  it('#2222 keeps point-load numerical changes unexplained and distributed corrections covered', () => {
     const registered = RESULT_CHANGES.changes.find(c => c.id === 'narrow-partial-loads')!;
     const entry = { ...registered, quantities: declaredQuantities[registered.id]!.filter((q): q is string => typeof q === 'string') };
     const summary = RESULT_CHANGES.changes.find(c => c.id === 'independent-applied-force-checks')!;
