@@ -51,7 +51,7 @@ describe('works by phases', () => {
     expect(parts).toBeCloseTo(whole, 6);
 
     expect(stagesForAnalysis()).toHaveLength(4);
-    const sheets = workDrawings(null, new Set(['phases']), planContext('en', 'A1')).get('phases')!;
+    const sheets = workDrawings(new Set(['phases']), planContext('en', 'A1')).get('phases')!;
     expect(sheets[0]!.key).toBe('phases-schedule');
     expect(sheets.filter((d) => d.key.startsWith('phase-'))).toHaveLength(4);
   });

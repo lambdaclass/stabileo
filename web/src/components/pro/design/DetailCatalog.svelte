@@ -9,7 +9,7 @@
   import type { DetailFamily } from '../../../lib/sheets/details/values';
   import { chosenDetails, projectDetailValues, setChosenDetails, setDetailTarget, toggleDetail } from '../../../lib/store/detail-catalog';
   import { sheetEntries, sheetLanguage, unplacedDetails } from '../../../lib/store/sheet-set';
-  import { PLAN_KINDS, planContext } from '../../../lib/store/work-drawings';
+  import { isPlanKind, PLAN_KINDS, planContext } from '../../../lib/store/work-drawings';
   import type { DocumentModel } from '../../../lib/engine/detailing/document-model';
 
   let { doc, onChange }: { doc: DocumentModel | null; onChange: () => void } = $props();
@@ -20,7 +20,7 @@
   const values = $derived(projectDetailValues(doc));
   const ctx = $derived(planContext(sheetLanguage(), 'A1'));
   let open = $state<Set<DetailFamily>>(new Set());
-  const TARGETS = PLAN_KINDS.filter((k) => k !== 'detailing');
+  const TARGETS = PLAN_KINDS;
 
   function toggleFamily(f: DetailFamily, on: boolean) { const n = new Set(open); if (on) n.add(f); else n.delete(f); open = n; }
   function pickFamily(f: DetailFamily, on: boolean) {
@@ -61,7 +61,7 @@
         <ul>
           {#each list as d (d.id)}
             {@const s = shown(d.id)}
-            {@const target = chosen.get(d.id) ?? d.target}
+            {@const target = ((k) => (isPlanKind(k) ? k : 'details'))(chosen.get(d.id) ?? d.target)}
             <li class:on={chosen.has(d.id)} data-testid="det-{d.id}">
               <div class="preview" data-testid="det-preview-{d.id}">{@html s.svg}</div>
               <div class="body">

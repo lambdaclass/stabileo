@@ -1,50 +1,36 @@
 /**
- * The construction drawings of the works, read from the model, its design and its document:
- * general notes, formwork plans by level, the column schedule, stirrup zones and bar breakdowns
- * by beam line, the foundation plan with its setting out, punching plans, the steel arrangement
- * by level and frame, the anchor plan, one sheet per steel joint, the consolidated bending
- * schedule and the construction details. Each comes out as a `DrawingInput` the sheet set
- * composes; the drawing itself is a pure builder in `lib/sheets/plans/`.
+ * The construction drawings of the works, read from the model and its design: general notes,
+ * applied loads and formwork plans by level, the setting out, the foundation plan and its loads,
+ * stairs and tendons, the steel arrangement by level and frame, the anchor plan, one sheet per
+ * steel joint, corbels, phases and the construction details. Each comes out as a `DrawingInput`
+ * the sheet set composes; the drawing itself is a pure builder in `lib/sheets/plans/`. The
+ * reinforcement drawings are the reinforcement sheets' (`lib/rc-sheets/plans/`).
  */
 import { modelStore } from './model.svelte';
 import { detailingStore } from './detailing.svelte';
 import { jointDesignStore } from './joint-design.svelte';
 import { steelJoints } from './joint-typology';
 import { physicalGroups, physicalThickness } from './physical';
-import { memberNames, wallNames } from './member-names';
+import { memberNames } from './member-names';
 import { coverOf, designData } from './design-data';
 import { resolveConcreteProperties } from './concrete-properties';
 import { regulationsStore } from './regulations.svelte';
 import { gridFromModel, sortedLevels } from '../model/grid';
 import { columnShapeOf } from '../engine/design/shaped-column';
-import { columnStacks } from '../engine/design/column-stacks';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
-import { rcShapeForMark } from '../rc-sheets/schedule/bar-shape-diagram';
 import { teAt } from '../i18n/engine-text';
-import type { DocumentModel } from '../engine/detailing/document-model';
 import type { DrawingInput } from '../sheets/compose';
 import type { SheetFormat } from '../sheets/formats';
 import { boxOf, planScale, type PlanAxis } from '../sheets/plans/plan-common';
 import { formworkPlan, mergeCollinearBeams, type PlanBeam, type PlanColumn, type PlanSlab, type PlanWall } from '../sheets/plans/formwork-plan';
-import { columnSchedule, type ColumnLift, type ScheduleColumn } from '../sheets/plans/column-schedule';
 import { foundationPlan, type PlanFooting } from '../sheets/plans/foundation-plan';
-import { punchingPlan, type PunchingJoint } from '../sheets/plans/punching-plan';
 import { anchorPlan, jointSheet, steelFrameElevation, steelLevelPlan, type SteelBase, type SteelMember } from '../sheets/plans/steel-plans';
-import { barBreakdown, stirrupZones, type StirrupSpan } from '../sheets/plans/beam-plans';
-import { appliedLoadsPlan, columnElevation, corbelDrawing, foundationLoadsTable, setoutPlan, wallElevation, type FloorLoads, type FoundationLoad, type SetoutColumn } from '../sheets/plans/extra-plans';
+import { appliedLoadsPlan, corbelDrawing, foundationLoadsTable, setoutPlan, type FloorLoads, type FoundationLoad, type SetoutColumn } from '../sheets/plans/extra-plans';
 import { resultsStore } from './results.svelte';
-import { verificationStore } from './verification.svelte';
-import { columnLapOf } from './column-stack-store';
 import { corbelChecks } from './special-elements';
-import { anchorageFunctions } from '../codes/cirsoc201/anchorage';
-import { CIRSOC201_DESIGN_EDITION } from '../engine/codes/argentina/cirsoc201-basis';
 import { boundaryLoops } from '../model/mesh-boundary';
 import { mergeBoxes, waffleVoids } from '../sheets/plans/waffle-voids';
-import { SLAB_LAYERS, slabBreakdown, slabLayerPlan, slabMarks, type PlanSlabPanel } from '../sheets/plans/slab-plan';
-import { storedDecisions } from './design-decisions';
-import { savedLinePieces } from './beam-line-store';
-import { bendingSchedule } from '../sheets/plans/bending-schedule';
 import type { Tr } from '../sheets/details/def';
 import { generalNotes } from '../sheets/plans/general-notes';
 import { stairSchedule, stairSection, tendonPlan, tendonProfileDrawing, type TendonPanel } from '../sheets/plans/stair-pt-plans';
@@ -53,8 +39,12 @@ import { expandKey, siteData } from './site.svelte';
 import { builtBy, phaseEnd } from '../engine/site/phases';
 import { phasePlan, phaseSchedule, type PhaseGeometry } from '../sheets/plans/phase-plans';
 
-/** What a set can contain, in the order it is issued. `detailing` is the assemblies' own drawings. */
-export const PLAN_KINDS = ['notes', 'loads', 'formwork', 'setout', 'columns', 'colElev', 'beams', 'slabs', 'walls', 'detailing', 'foundations', 'fdnLoads', 'punching', 'stairs', 'tendons', 'steel', 'anchors', 'joints', 'bbs', 'details', 'corbels', 'phases'] as const;
+/**
+ * What a set can contain, in the order it is issued. The reinforcement drawings of beams, columns,
+ * slabs, walls and punching, and the bending schedule, are the reinforcement sheets' own export.
+ */
+export const PLAN_KINDS = ['notes', 'loads', 'formwork', 'setout', 'foundations', 'fdnLoads', 'stairs', 'tendons', 'steel', 'anchors', 'joints', 'details', 'corbels', 'phases'] as const;
+export const isPlanKind = (k: string): k is PlanKind => (PLAN_KINDS as readonly string[]).includes(k);
 export type PlanKind = (typeof PLAN_KINDS)[number];
 
 type V2 = { x: number; y: number };
@@ -184,101 +174,6 @@ function formwork(c: PlanContext, axes: PlanAxis[], levels: Array<{ name: string
   return out;
 }
 
-function columnScheduleOf(c: PlanContext, levels: Array<{ name: string; z: number }>): DrawingInput[] {
-  const m = modelStore.model, all = frames().filter(isVertical), names = columnNames(all);
-  const stacks = columnStacks({ nodes: m.nodes, elements: m.elements as never, columns: all.map((f) => f.id) });
-  const levelName = (z: number) => levels.find((l) => Math.abs(l.z - z) < TOL)?.name ?? `+${c.fmt(z, 2)}`;
-  const cols: ScheduleColumn[] = stacks.map((st) => ({
-    name: names.get(posKey(st)) ?? st.key,
-    lifts: st.lifts.map((l): ColumnLift => {
-      const e = m.elements.get(l.id), r = e?.reinforcement, steel = e ? isSteelFrame({ materialId: e.materialId } as Frame) : false;
-      const sec = sectionOf(l.sectionId);
-      const section: ColumnLift['section'] = steel ? { kind: 'steel', profile: m.sections.get(l.sectionId)?.name ?? '?' } : sec.kind === 'other' ? { kind: 'other', label: sec.label } : sec.kind === 'rect' ? { kind: 'rect', b: sec.b, h: sec.h } : sec;
-      const bars: ColumnLift['bars'] = r?.column ? { kind: 'faces', corner: r.column.cornerDia, face: r.column.faceDia, nB: r.column.nBottom, nT: r.column.nTop, nL: r.column.nLeft, nR: r.column.nRight }
-        : r?.shaped ? { kind: 'count', count: r.shaped.count, diameter: r.shaped.diameter }
-        : r?.longitudinal ? { kind: 'count', count: r.longitudinal.count, diameter: r.longitudinal.diameter } : undefined;
-      const ties = r?.stirrups ? { diameter: r.stirrups.diameter, spacing: r.stirrups.spacing, ...(r.tieZones ? { endSpacing: r.tieZones.endSpacing, endLength: r.tieZones.endLength } : {}) } : undefined;
-      return { level: levelName(l.zHi), zLo: l.zLo, zHi: l.zHi, section, ...(bars ? { bars } : {}), ...(ties ? { ties } : {}) };
-    }),
-  }));
-  return columnSchedule(cols, c.tr);
-}
-
-/** Beam lines: level frames on one straight line at one level, in order along it. */
-function beamLines(axes: PlanAxis[]): Array<{ id: string; spans: Frame[] }> {
-  const beams = frames().filter((f) => !isVertical(f) && isLevel(f) && !isSteelFrame(f));
-  const by = new Map<string, Frame[]>();
-  for (const f of beams) {
-    const dx = f.b.x - f.a.x, dy = f.b.y - f.a.y, L = Math.hypot(dx, dy) || 1;
-    const along = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
-    const off = along === 'x' ? f.a.y : f.a.x;
-    const ax = axes.find((a) => a.axis === (along === 'x' ? 'y' : 'x') && Math.abs(a.at - off) < TOL);
-    const key = `${f.a.z.toFixed(2)}|${along}|${ax ? ax.name : off.toFixed(2)}`;
-    if (Math.abs(dx / L) > 0.02 && Math.abs(dy / L) > 0.02) continue; // skewed beams have no line
-    by.set(key, [...(by.get(key) ?? []), f]);
-  }
-  // Level by level from the bottom, and on each level by the axis's name, the way a set is read.
-  const entries = [...by.entries()].sort(([a], [b]) => {
-    const [za, , na] = a.split('|'), [zb, , nb] = b.split('|');
-    return Number(za) - Number(zb) || na!.localeCompare(nb!, undefined, { numeric: true });
-  });
-  return entries.map(([k, fs]) => {
-    const [z, along, name] = k.split('|');
-    fs.sort((p, q) => (along === 'x' ? Math.min(p.a.x, p.b.x) - Math.min(q.a.x, q.b.x) : Math.min(p.a.y, p.b.y) - Math.min(q.a.y, q.b.y)));
-    // The pieces the slab's mesh cut a span into are one span: its first piece stands for it.
-    const named = memberNames(), seen = new Set<string>(), spans: Frame[] = [];
-    for (const f of fs) {
-      const sp = named.span(f.id);
-      if (sp && seen.has(sp.key)) continue;
-      if (sp) seen.add(sp.key);
-      const P = (id: number) => { const n = modelStore.model.nodes.get(id)!; return { x: n.x, y: n.y, z: n.z ?? 0 }; };
-      spans.push(sp ? { ...f, id: sp.representative, a: P(sp.start), b: P(sp.end), name: named.name(f.id) } : f);
-    }
-    return { id: `${name} +${Number(z).toFixed(2)}`, spans };
-  });
-}
-
-function beams(c: PlanContext, doc: DocumentModel | null, axes: PlanAxis[]): DrawingInput[] {
-  const m = modelStore.model, out: DrawingInput[] = [];
-  // The zones a saved line draws, as drawn (`line-bars.ts`), each in its member's own sense.
-  const drawn = savedLinePieces().pieces;
-  for (const line of beamLines(axes)) {
-    const spans: StirrupSpan[] = line.spans.map((f, i) => {
-      const reg = m.elements.get(f.id)?.reinforcement?.regions;
-      const len = Math.hypot(f.b.x - f.a.x, f.b.y - f.a.y);
-      const own = drawn.get(f.id)?.stirrups;
-      // The sheet lays each span from its low end (x, or y on a line along y); a member whose i
-      // node is at the high end reads its zones mirrored.
-      const el = m.elements.get(f.id), ni = el && m.nodes.get(el.nodeI), nj = el && m.nodes.get(el.nodeJ);
-      const alongX = Math.abs(f.b.x - f.a.x) >= Math.abs(f.b.y - f.a.y);
-      const flip = !!ni && !!nj && (alongX ? ni.x > nj.x : ni.y > nj.y);
-      return {
-        name: f.name && f.name.length <= 6 ? f.name : `${i + 1}`, length: len,
-        ...(own?.length ? { drawn: own.map((z) => (flip ? { from: len - z.to, to: len - z.from, diameter: z.diameter, spacing: z.spacing } : { from: z.from, to: z.to, diameter: z.diameter, spacing: z.spacing })) } : {}),
-        ...(reg?.stirrupsSupport ? { support: { diameter: reg.stirrupsSupport.diameter, spacing: reg.stirrupsSupport.spacing, length: reg.regionT ?? len / 4 } } : {}),
-        ...(reg?.stirrupsSpan ? { span: { diameter: reg.stirrupsSpan.diameter, spacing: reg.stirrupsSpan.spacing } } : {}),
-      };
-    });
-    // Each line on sheets of its own: its stirrups and its breakdown, never beside another line's.
-    const group = c.tr('plan.beam.line', { line: line.id });
-    const z = stirrupZones(line.id, spans, c.tr);
-    if (z) out.push({ ...z, group });
-    // The breakdown of the assemblies that hold this line's beams.
-    // The line's own bars: those of its spans' pieces. An assembly holds a whole level, and its
-    // every mark under each line was a breakdown of the level, the same on every line's sheet.
-    const named = memberNames();
-    const ids = new Set(line.spans.flatMap((f) => named.span(f.id)?.elements ?? [f.id]));
-    const ownBar = (a: { bars: ReadonlyArray<{ id: string; ownerElementIds: readonly number[] }> }, barId: string) => a.bars.find((b) => b.id === barId)?.ownerElementIds.some((id) => ids.has(id)) ?? false;
-    const marks = (doc?.assemblies ?? []).filter((a) => a.elementIds.some((id) => ids.has(id))).flatMap((a) => a.source.marks.filter((mk) => mk.barIds.some((b) => ownBar(a, b))).map((mk) => {
-      const r = rcShapeForMark(mk.barIds, (id) => a.bars.find((b) => b.id === id));
-      return { mark: mk.mark, count: mk.quantity, diameter: mk.diameterMm, cut: mk.cuttingLength, ...(r?.ok ? { shape: r.diagram } : {}) };
-    }));
-    const b = barBreakdown(line.id, marks, c.tr, c.fmt);
-    if (b) out.push({ ...b, group });
-  }
-  return out;
-}
-
 /** The node lists of a physical group's shells. */
 function shellFaces(members: { quads?: readonly number[]; plates?: readonly number[] }): number[][] {
   const m = modelStore.model;
@@ -304,39 +199,6 @@ function waffleOf(g: ReturnType<typeof physicalGroups>[number], loops: Array<Arr
   const voids = waffleVoids({ loops, solids, spacingX: rib.spacingX, spacingY: rib.spacingY ?? rib.spacingX, ribWidth: rib.ribBottom });
   const cm = (v: number) => Math.round(v * 100);
   return { voids, solids, label: `${cm(rib.h - rib.c)}+${cm(rib.c)} · ${cm(rib.spacingX)}×${cm(rib.spacingY ?? rib.spacingX)}` };
-}
-
-/** The level's slab panels with the bars they hold: the person's where saved, else the design's. */
-export function levelSlabPanels(): Array<PlanSlabPanel & { z: number }> {
-  const m = modelStore.model, saved = storedDecisions().slabs ?? {};
-  const out: Array<PlanSlabPanel & { z: number }> = [];
-  for (const s of detailingStore.lastFloorRun?.slabs ?? []) {
-    if (!s.panel) continue;
-    // The panel's level, from the first element it reads (a quad or a plate of its mesh).
-    const id = s.panel.input.elements[0]?.id ?? Number(s.panelId.replace(/^P/, ''));
-    const shell = m.quads.get(id) ?? m.plates.get(id);
-    const n = shell && m.nodes.get((shell as { nodes: number[] }).nodes[0]!);
-    const i = s.panel.input;
-    const outline = boundaryLoops(i.elements.map((e) => (m.quads.get(e.id) ?? m.plates.get(e.id))?.nodes ?? []), (k) => m.nodes.get(k));
-    out.push({ id: s.panelId, x0: i.x0, x1: i.x1, y0: i.y0, y1: i.y1, reinforcement: saved[s.panelId] ?? s.panel.reinforcement, z: n?.z ?? 0, ...(outline.length ? { outline } : {}) });
-  }
-  return out;
-}
-
-function slabPlans(c: PlanContext, axes: PlanAxis[], levels: Array<{ name: string; z: number }>): DrawingInput[] {
-  const panels = levelSlabPanels(), out: DrawingInput[] = [];
-  const zs = [...new Set(panels.map((p) => Math.round(p.z * 100) / 100))].sort((a, b) => a - b).filter((z) => !c.levels || c.levels.some((w) => Math.abs(w - z) < TOL));
-  for (const z of zs) {
-    const here = panels.filter((p) => Math.abs(p.z - z) < TOL);
-    const name = levels.find((l) => Math.abs(l.z - z) < TOL)?.name ?? `+${c.fmt(z, 2)}`;
-    const marks = slabMarks(here);
-    const box = boxOf(here.flatMap((p) => [{ x: p.x0 * 1000, y: p.y0 * 1000 }, { x: p.x1 * 1000, y: p.y1 * 1000 }]));
-    const scale = planScale({ x0: box.x0 - 1500, y0: box.y0 - 1500, x1: box.x1 + 1500, y1: box.y1 + 1500 }, c.format);
-    for (const layer of SLAB_LAYERS) { const d = slabLayerPlan(name, layer, here, marks, axes, scale, c.tr, c.fmt); if (d) out.push(d); }
-    const b = slabBreakdown(name, marks, c.tr, c.fmt);
-    if (b) out.push({ ...b, table: true });
-  }
-  return out;
 }
 
 // ─── The sheets the set lacked (`sheets/plans/extra-plans.ts`) ───
@@ -414,47 +276,6 @@ function appliedLoads(c: PlanContext, axes: PlanAxis[], levels: Array<{ name: st
   return out;
 }
 
-/** Each column stack at full height with its laps and its breakdown. */
-function columnElevations(c: PlanContext, levels: Array<{ name: string; z: number }>): DrawingInput[] {
-  const m = modelStore.model, cols = frames().filter(isVertical), names = columnNames(cols);
-  const stacks = columnStacks({ nodes: m.nodes, elements: m.elements as never, columns: cols.map((f) => f.id) });
-  const levelName = (z: number) => levels.find((l) => Math.abs(l.z - z) < TOL)?.name ?? `+${c.fmt(z, 2)}`;
-  const dd = designData(), out: DrawingInput[] = [];
-  for (const st of stacks) {
-    const name = names.get(posKey(st)) ?? st.key;
-    const lifts = st.lifts.map((l) => {
-      const e = m.elements.get(l.id), r = e?.reinforcement, sec = sectionOf(l.sectionId);
-      const n = r?.column ? 4 + r.column.nBottom + r.column.nTop + r.column.nLeft + r.column.nRight : r?.shaped?.count ?? r?.longitudinal?.count;
-      const dia = r?.column?.cornerDia ?? r?.shaped?.diameter ?? r?.longitudinal?.diameter;
-      const fc = verificationStore.contextFor(l.id)?.material.fc ?? 25;
-      const lap = columnLapOf(l.id) ?? (dia ? anchorageFunctions({ fy: dd.rebarFy, fc, favourableSpacing: true, psiT: 1, edition: CIRSOC201_DESIGN_EDITION } as never).lapSplice(dia) : 0);
-      // The joint above: the deepest beam framing in at the lift's top.
-      const top = [...m.elements.values()].filter((x) => x.id !== l.id && (x.nodeI === (e?.nodeJ ?? -1) || x.nodeJ === (e?.nodeJ ?? -1) || x.nodeI === (e?.nodeI ?? -1) || x.nodeJ === (e?.nodeI ?? -1)))
-        .filter((x) => { const a = m.nodes.get(x.nodeI), b = m.nodes.get(x.nodeJ); return !!a && !!b && Math.abs((a.z ?? 0) - (b.z ?? 0)) < 1e-6 && Math.abs((a.z ?? 0) - l.zHi) < TOL; })
-        .map((x) => m.sections.get(x.sectionId)?.h ?? 0);
-      const b = sec.kind === 'rect' || sec.kind === 'other' ? sec.b : sec.kind === 'circle' ? sec.D : 0.3;
-      return {
-        level: levelName(l.zHi), zLo: l.zLo, zHi: l.zHi, b,
-        bars: n && dia ? `${n}Ø${dia}` : '—', ...(dia ? { barDia: dia } : {}), ...(n ? { barCount: n } : {}),
-        ties: r?.stirrups ? `eØ${r.stirrups.diameter} c/${Math.round(r.stirrups.spacing * 100)}` : '—',
-        lap, joint: top.length ? Math.max(...top) : 0,
-      };
-    });
-    out.push(...columnElevation(name, lifts, c.tr, c.fmt, c.options?.table !== false));
-  }
-  return out;
-}
-
-function wallElevations(c: PlanContext): DrawingInput[] {
-  const saved = storedDecisions().walls ?? {};
-  const walls = detailingStore.lastFloorRun?.walls ?? [];
-  const named = wallNames(walls);
-  return walls.map((w) => {
-    const r = saved[w.wallId] ?? w.reinforcement;
-    return wallElevation({ id: w.wallId, name: named.get(w.wallId) ?? w.wallId, length: w.input.length, height: w.input.height, vertical: r.vertical, horizontal: r.horizontal, curtains: r.curtains, ...(r.boundary ? { boundary: r.boundary } : {}), ...(r.openings ? { openings: r.openings } : {}) }, c.tr, c.fmt);
-  });
-}
-
 function corbels(c: PlanContext): DrawingInput[] {
   return corbelChecks().flatMap((k) => (k.design ? [corbelDrawing({
     name: k.entry.name, bw: k.entry.bw, h: k.entry.h, ...(k.entry.hEdge ? { hEdge: k.entry.hEdge } : {}), d: k.entry.d, av: k.entry.av,
@@ -483,28 +304,6 @@ function foundations(c: PlanContext, axes: PlanAxis[]): DrawingInput[] {
   if (fs.length === 0) return [];
   const box = boxOf(fs.map((f) => ({ x: f.at.x * 1000, y: f.at.y * 1000 })));
   return foundationPlan(fs, axes, planScale({ x0: box.x0 - 1500, y0: box.y0 - 1500, x1: box.x1 + 1500, y1: box.y1 + 1500 }, c.format), c.tr, (v) => c.fmt(v, 2));
-}
-
-function punching(c: PlanContext, axes: PlanAxis[]): DrawingInput[] {
-  const m = modelStore.model, out: DrawingInput[] = [];
-  for (const a of detailingStore.assemblies) {
-    for (const r of a.families ?? []) {
-      if (r.family !== 'slab' || r.punching.length === 0) continue;
-      const joints: PunchingJoint[] = r.punching.map((p) => {
-        const n = m.nodes.get(p.nodeId);
-        return {
-          name: `N${p.nodeId}`, at: p.at ?? { x: n?.x ?? 0, y: n?.y ?? 0 },
-          ...(p.perimeter ? { halfX: p.perimeter.halfX, halfY: p.perimeter.halfY, d: p.perimeter.d } : {}),
-          utilization: p.utilization, status: p.status,
-          ...(p.reinforcement && !p.reinforcement.overCeiling ? { reinforcement: p.reinforcement } : {}),
-        };
-      });
-      const box = boxOf(joints.map((j) => ({ x: j.at.x * 1000, y: j.at.y * 1000 })));
-      const d = punchingPlan(c.tr('plan.punch.title', { slab: r.ownerId }), null, joints, axes, planScale({ x0: box.x0 - 2000, y0: box.y0 - 2000, x1: box.x1 + 2000, y1: box.y1 + 2000 }, c.format), c.tr, c.fmt);
-      if (d) out.push(d);
-    }
-  }
-  return out;
 }
 
 function steelMembers(): SteelMember[] {
@@ -662,12 +461,8 @@ function phases(c: PlanContext, axes: PlanAxis[]): DrawingInput[] {
   return out;
 }
 
-/**
- * The construction drawings of the kinds asked for, except `detailing`, in the set's order.
- * Without a document (nothing detailed yet, or a steel-only project) the plans that read the
- * model alone still come out; the breakdown and the bending schedule need the document's marks.
- */
-export function workDrawings(doc: DocumentModel | null, kinds: ReadonlySet<PlanKind>, c: PlanContext): Map<PlanKind, DrawingInput[]> {
+/** The construction drawings of the kinds asked for, in the set's order. */
+export function workDrawings(kinds: ReadonlySet<PlanKind>, c: PlanContext): Map<PlanKind, DrawingInput[]> {
   const { axes, levels: all } = gridOf();
   // An entry that covers some levels only draws those (`SheetEntry.levels`).
   const levels = c.levels ? all.filter((l) => c.levels!.some((z) => Math.abs(z - l.z) < TOL)) : all;
@@ -676,23 +471,16 @@ export function workDrawings(doc: DocumentModel | null, kinds: ReadonlySet<PlanK
   const add = (k: PlanKind, f: () => DrawingInput[]) => { if (kinds.has(k)) out.set(k, f()); };
   add('notes', () => [notes(c, hasSteel)]);
   add('formwork', () => formwork(c, axes, levels));
-  add('columns', () => columnScheduleOf(c, levels));
-  add('beams', () => beams(c, doc, axes));
-  add('slabs', () => slabPlans(c, axes, levels));
   add('setout', () => setout(c, axes));
   add('fdnLoads', () => foundationLoadsTable(foundationLoads(), c.tr, c.fmt));
   add('loads', () => appliedLoads(c, axes, levels));
-  add('colElev', () => columnElevations(c, levels));
-  add('walls', () => wallElevations(c));
   add('corbels', () => corbels(c));
   add('foundations', () => foundations(c, axes));
-  add('punching', () => punching(c, axes));
   add('stairs', () => stairs(c));
   add('tendons', () => tendons(c, axes));
   add('steel', () => steel(c, axes, levels));
   add('anchors', () => anchors(c, axes));
   add('joints', () => joints(c));
-  add('bbs', () => (doc ? bendingSchedule(doc, c.tr, c.fmt) : []));
   // The details kind draws what the catalogue places on it (`store/sheet-set.ts`, `sheets/details/catalog.ts`).
   add('details', () => []);
   add('phases', () => phases(c, axes));
