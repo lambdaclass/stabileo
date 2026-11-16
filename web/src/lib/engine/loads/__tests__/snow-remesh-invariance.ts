@@ -27,6 +27,18 @@ export function remeshSnowRoof(model: Model, subdivisions: ReadonlyMap<number, n
   return { model: { ...model, nodes, elements }, segments };
 }
 
+export function snowDistributedResultant(model: Model, loads: Output['cases'][number]['distributed'], ids: ReadonlySet<number>, origin = [0, 0], direction = [0, 1]) {
+  return loads.filter(d => ids.has(d.elementId)).reduce(([force, moment], d) => {
+    const e = model.elements.get(d.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    const length = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
+    const lo = d.a ?? 0, hi = d.b ?? length, span = hi - lo;
+    const q0 = d.q, q1 = d.qJ ?? q0, f = span * (q0 + q1) / 2;
+    const station = (a.x - origin[0]!) * direction[0]! + (a.y - origin[1]!) * direction[1]!;
+    const rate = ((b.x - a.x) * direction[0]! + (b.y - a.y) * direction[1]!) / length;
+    return [force! + f, moment! + (station + rate * lo) * f + rate * span * span * (q0 + 2 * q1) / 6];
+  }, [0, 0]);
+}
+
 export function assertSnowRemeshInvariant(model: Model, subdivisions: ReadonlyMap<number, number>, generate: (model: Model) => Output) {
   const base = generate(model), refined = remeshSnowRoof(model, subdivisions), out = generate(refined.model);
   expect(out.result.refused).toBe(base.result.refused);
@@ -46,6 +58,14 @@ export function assertSnowRemeshInvariant(model: Model, subdivisions: ReadonlyMa
       const refinedLoads = c.distributed.map(d => ({ ...d, b: d.b ?? (s.to - s.from) * s.length }));
       const baseLoads = reference.distributed.map(d => ({ ...d, b: d.b ?? s.length }));
       expect(pressure(refinedLoads, s.id, t * (s.to - s.from) * s.length), `refinement ${JSON.stringify([...subdivisions])}, case ${k}, edge ${s.source}, segment ${s.from}, station ${t}`).toBeCloseTo(pressure(baseLoads, s.source, (s.from + t * (s.to - s.from)) * s.length), 10);
+    }
+    for (const source of model.elements.keys()) {
+      const ids = new Set(refined.segments.filter(s => s.source === source).map(s => s.id));
+      for (const direction of [[1, 0], [0, 1]]) {
+        const expected = snowDistributedResultant(model, reference.distributed, new Set([source]), [0, 0], direction);
+        const actual = snowDistributedResultant(refined.model, c.distributed, ids, [0, 0], direction);
+        for (const [j, value] of actual.entries()) expect(value, `case ${k}, physical edge ${source}, resultant ${j}`).toBeCloseTo(expected[j]!, 10);
+      }
     }
     const resultant = (loads: Output['cases'][number]['nodal'], m: Model) => loads.reduce((sum, n) => {
       const p = m.nodes.get(n.nodeId)!;
