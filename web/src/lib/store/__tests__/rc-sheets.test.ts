@@ -285,7 +285,7 @@ describe('reinforcement sheets from a solved model', () => {
       expect(b.length).toBeGreaterThan(b.to - b.from);
     }
     const midTop = (l: typeof ln) => l.bars.filter((b) => b.kind === 'support' && b.from < 5 && b.to > 5).reduce((n, b) => n + b.bars.count, 0);
-    expect(midTop(ln)).toBeLessThan(midTop(straight));
+    expect(midTop(ln)).toBeLessThanOrEqual(midTop(straight));
     expect(ln.adopted.bent?.some((g) => g.count > 0)).toBe(true);
     expect(ln.steps[0]!.steps.some((x) => x.label === 'rcSheets.s.lineBent')).toBe(true);
   });

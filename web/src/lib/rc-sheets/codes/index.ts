@@ -4,7 +4,7 @@
  * them; what a code does not check is said in its rows, never left out silently.
  */
 import { beamRow } from '../beam-row';
-import { beamLine } from '../beam-line';
+import { beamLine, CIRSOC_2025_LINE } from '../beam-line';
 import { ACI_COLUMN, CIRSOC_COLUMN, columnRowFor } from '../column-row';
 import { CIRSOC_SLAB_ROW, slabRow, slabRowFor } from '../slab-row';
 import { wallRow } from '../wall-row';
@@ -38,7 +38,7 @@ export interface SheetRules {
 export const CIRSOC_BENDS: BendRules = { ...ACI_BENDS, bentMandrel: bentBarMandrel, clause: '§25.3.1, §25.3.2; FIUBA §11.4' };
 
 const aciRules: SheetRules = { beamRow, beamLine, columnRow: columnRowFor(ACI_COLUMN), slabRow, wallRow, punchingRow, slabPlan: ACI_SLAB_PLAN, seismic: true, bends: ACI_BENDS };
-const cirsocRules: SheetRules = { ...aciRules, columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: true };
+const cirsocRules: SheetRules = { ...aciRules, beamLine: (rows, c, a, fmt) => beamLine(rows, c, a, fmt, CIRSOC_2025_LINE), columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: true };
 
 const RULES: Record<SheetCode, SheetRules> = {
   'cirsoc201-2025': cirsocRules,

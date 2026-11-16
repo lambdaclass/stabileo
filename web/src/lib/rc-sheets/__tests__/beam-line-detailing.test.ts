@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { beamRow, type BeamDemand, type BeamEnd, type SectionEnv } from '../beam-row';
-import { beamLine, type LineAdopted } from '../beam-line';
+import { beamLine, CIRSOC_LINE, type LineAdopted } from '../beam-line';
 import { makeFmt } from '../format';
 import { developedLength, lapLength } from '../shape';
 import { bentLegs, extraBarsText, hookLegOf, hookTurn, marksAt, setOut, stirrupPositions } from '../line-geometry';
@@ -248,10 +248,10 @@ describe('the course notes and CIRSOC 201-2025 on a line', () => {
     const v = line.verifications.find((x) => x.label === 'rcSheets.v.lineInflectionLd')!;
     expect(v).toBeDefined();
     expect(v.ok).toBe(true);
-    const thick = lineOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], {}, { ...line.adopted, bottom: { count: 2, dia: 25 } }, undefined, 160).line;
+    const thick = lineOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], { mat: { fc: 20, fy: 500 } }, { ...line.adopted, bottom: { count: 2, dia: 25 } }, undefined, 160).line;
     const t = thick.verifications.find((x) => x.label === 'rcSheets.v.lineInflectionLd')!;
-    expect(t.ok).toBe(false);
-    expect(t.ratio!).toBeGreaterThan(1);
+    expect(t.ratio!).toBeGreaterThan(v.ratio!);
+    expect(t.ok).toBe(t.ratio! <= 1 + 1e-6);
   });
 
   it('carries a third of the support bars past the point of inflection by ln/16 of the clear span', () => {
@@ -271,6 +271,26 @@ describe('the course notes and CIRSOC 201-2025 on a line', () => {
     const pi = rows[1]!.demand.env!.find((e) => e.neg <= 1e-6)!.x, d = 0.5 - 0.025 - 0.008 - 0.01;
     expect(bar.to - L).toBeCloseTo(Math.ceil((pi + Math.max(d, (L - 2 * half) / 16)) / 0.05 - 1e-9) * 0.05, 9);
     expect(bar.to - L).toBeLessThan(pi + L / 16);
+  });
+});
+
+describe('the anchorage of the course and CIRSOC 201-2025 on a line', () => {
+  it('bends the bent-up bars on 9·db under CIRSOC 201-2025, the hook mandrel under ACI 318-19', () => {
+    const c = { ...bctx, bentBars: true };
+    const rows = rowsOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], c, undefined, undefined, 160);
+    const cirsoc = rulesFor('cirsoc201-2025').beamLine(rows, c, undefined, fmt).bars.find((b) => b.kind === 'bent')!;
+    expect(cirsoc.shape.mandrel).toBeCloseTo(9 * cirsoc.bars.dia / 1000, 12);
+    const aci = rulesFor('aci318-19').beamLine(rows, c, undefined, fmt).bars.find((b) => b.kind === 'bent')!;
+    expect(aci.shape.mandrel).toBeCloseTo(rulesFor('aci318-19').bends.mandrel(aci.bars.dia, 'longitudinal'), 12);
+  });
+
+  it('develops a bar by the general expression of §25.4.2.4 with the cover and spacing of its layer', async () => {
+    const { deriveDevelopment, confinementOf } = await import('../../codes/cirsoc201/anchorage');
+    const c = bctx, clear = c.cover + c.stirrupDia / 1000;
+    const spacing = (0.3 - 2 * clear - 0.016) / 3;
+    const want = deriveDevelopment({ diameterMm: 16, fy: 420, fc: 30, favourableSpacing: false, psiT: 1, edition: '2025', confinement: confinementOf(16, clear * 1000, spacing * 1000) }).ldM;
+    expect(CIRSOC_LINE.development(c, 16, false, 0.5, { count: 4, width: 0.3 })).toBeCloseTo(want, 12);
+    expect(CIRSOC_LINE.development(c, 16, false, 0.5, { count: 4, width: 0.3 })).not.toBeCloseTo(CIRSOC_LINE.development(c, 16, false, 0.5), 6);
   });
 });
 

@@ -1,5 +1,5 @@
-import { deriveDevelopment, deriveHookedDevelopment, deriveLap, concreteBelowTopBars, topBarFactor } from '../codes/cirsoc201/anchorage';
-import { minMandrelDiameter } from '../codes/cirsoc201/bar-geometry';
+import { confinementOf, deriveDevelopment, deriveHookedDevelopment, deriveLap, concreteBelowTopBars, topBarFactor } from '../codes/cirsoc201/anchorage';
+import { bentBarMandrel, minMandrelDiameter } from '../codes/cirsoc201/bar-geometry';
 import { transverseSpacingLimits } from '../codes/cirsoc201/transverse-spacing';
 import { evaluateCutoff, type CutoffLegality } from './cutoff';
 import { evaluateBeamSections } from '../engine/codes/argentina/cirsoc201-beam-kernel';
@@ -25,10 +25,11 @@ export type CutoffInput = Omit<Parameters<typeof evaluateCutoff>[0], 'edition'>;
 
 /** The code's rules a continuous beam's bars are laid out by: lengths in m, areas in cm², forces in kN and kN·m. */
 export interface LineCode {
-  development(c: BeamContext, dia: number, top: boolean, h: number): number;
+  /** ld; with the bars of the layer (`count` across `width`, m), by the code's general expression where it has one. */
+  development(c: BeamContext, dia: number, top: boolean, h: number, layer?: BarLayer): number;
   hooked(c: BeamContext, dia: number): number;
   /** A lap splice in tension: class B unless asked for class A (Table 25.5.2.1; another code its own rule). */
-  lap(c: BeamContext, dia: number, top: boolean, h: number, spliceClass?: 'A' | 'B'): number;
+  lap(c: BeamContext, dia: number, top: boolean, h: number, spliceClass?: 'A' | 'B', layer?: BarLayer): number;
   minBottom(c: BeamContext, b: number, d: number): number;
   /** Design moment capacity of each section. */
   moments(c: BeamContext, qs: readonly LineQuery[]): number[];
@@ -40,6 +41,8 @@ export interface LineCode {
   mandrel?(dia: number): number;
   /** Straight leg past a 90° hook's bend, m; 12 bar diameters (Table 25.3.1) when the code gives none here. */
   hookExtension?(dia: number): number;
+  /** Inside diameter a bent-up bar is bent on, m; the longitudinal mandrel when the code gives none here. */
+  bentMandrel?(dia: number): number;
   text: {
     cutoff: Record<CutoffLegality, string>;
     clause: { envelope: string; bottomRun: string; fit: string; hooks: string; splices: string; seismicBent?: string; integrity?: string; inflection?: string };
@@ -47,17 +50,22 @@ export interface LineCode {
   };
 }
 
-const cirsocDevelopment = (c: BeamContext, dia: number, top: boolean, h: number) => {
+/** The bars of one layer of a face: how many across what width, m. */
+export interface BarLayer { count: number; width: number }
+
+const cirsocDevelopment = (c: BeamContext, dia: number, top: boolean, h: number, layer?: BarLayer) => {
   const psiT = top ? topBarFactor(concreteBelowTopBars(h, c.cover, c.stirrupDia, dia)) : 1;
-  return deriveDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, psiT, edition: EDITION });
+  const clear = c.cover + c.stirrupDia / 1000;
+  const confinement = layer ? confinementOf(dia, clear * 1000, (layer.count > 1 ? (layer.width - 2 * clear - dia / 1000) / (layer.count - 1) : layer.width) * 1000) : undefined;
+  return deriveDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, psiT, edition: EDITION, ...(confinement ? { confinement } : {}) });
 };
 const kernelQuery = (c: BeamContext, q: LineQuery, shear?: Stirrups) => sectionQuery(c, q.demand, q.tension, q.compression, q.sd, 0, shear, q.sagging);
 
 /** CIRSOC 201-2025, and ACI 318-19 whose provisions it adopts with the same numbering. */
 export const CIRSOC_LINE: LineCode = {
-  development: (c, dia, top, h) => cirsocDevelopment(c, dia, top, h).ldM,
+  development: (c, dia, top, h, layer) => cirsocDevelopment(c, dia, top, h, layer).ldM,
   hooked: (c, dia) => deriveHookedDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, edition: EDITION }).ldhM,
-  lap: (c, dia, top, h, spliceClass) => deriveLap(cirsocDevelopment(c, dia, top, h), { edition: EDITION, spliceClass }).lapM,
+  lap: (c, dia, top, h, spliceClass, layer) => deriveLap(cirsocDevelopment(c, dia, top, h, layer), { edition: EDITION, spliceClass }).lapM,
   minBottom: (c, b, d) => minFlexuralSteelCm2(c.mat.fc, c.mat.fy, b, d),
   moments: (c, qs) => (evaluateBeamSections(qs.map((q) => kernelQuery(c, q))) ?? []).map(phiMnOf),
   shear: (c, q, st) => {
@@ -73,6 +81,9 @@ export const CIRSOC_LINE: LineCode = {
     formula: { capacity: 'φMn(x) ≥ Mu(x) ∀x', cut: '§9.7.3.3, §9.7.3.2: x(φMn,cont = Mu) + max(d; 12·db) ≥ c + ld', third: '§9.7.3.8.4: As⁻/3 → x(M = 0) + max(d; 12·db; ln/16)' },
   },
 };
+
+/** CIRSOC 201-2025 with the FIUBA course's mandrels for bent-up bars (9·db, 12·db, 15·db, §11.4), which the code does not give. */
+export const CIRSOC_2025_LINE: LineCode = { ...CIRSOC_LINE, bentMandrel: bentBarMandrel };
 
 /** A continuous beam's bars: a run top and bottom over its whole length, extra top bars at each support and extra bottom bars in each span. */
 export interface LineAdopted {
@@ -193,8 +204,8 @@ function commonDia(groups: BarGroup[][], fallback: number): number {
 }
 
 export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted | undefined, fmt: Fmt, code: LineCode = CIRSOC_LINE): LineLayout {
-  const dev = (_c: BeamContext, dia: number, top: boolean, h: number) => code.development(c, dia, top, h);
-  const lapOf = (_c: BeamContext, dia: number, top: boolean, h: number, spliceClass?: 'A' | 'B') => code.lap(c, dia, top, h, spliceClass);
+  const dev = (_c: BeamContext, dia: number, top: boolean, h: number, layer?: BarLayer) => code.development(c, dia, top, h, layer);
+  const lapOf = (_c: BeamContext, dia: number, top: boolean, h: number, spliceClass?: 'A' | 'B', layer?: BarLayer) => code.lap(c, dia, top, h, spliceClass, layer);
   const sorted = [...rows].sort((p, q) => (p.demand.line?.index ?? 0) - (q.demand.line?.index ?? 0));
   let x = 0;
   const spans: Span[] = sorted.map((row) => { const s = { row, x0: x, L: row.length, b: row.b, h: row.h, d: row.h - c.cover - c.stirrupDia / 1000 - 0.01 }; x += row.length; return s; });
@@ -204,7 +215,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
   const inset = c.cover + c.stirrupDia / 1000 + COLUMN_BAR;
   const reachInto = (e: BeamEnd | undefined) => (!e ? 0 : e.kind === 'free' ? -c.cover : Math.max(0, e.half - inset));
   const xFrom = -reachInto(endStart), xTo = total + reachInto(endEnd);
-  const hMax = Math.max(...spans.map((s) => s.h));
+  const hMax = Math.max(...spans.map((s) => s.h)), bMin = Math.min(...spans.map((s) => s.b));
   const mandrelOf = (dia: number) => code.mandrel?.(dia) ?? 6 * dia / 1000;
   const extensionOf = (dia: number) => code.hookExtension?.(dia) ?? HOOK_EXTENSION(dia);
   const line = supports.map((_, j) => Math.max(spans[j - 1]?.row.demand.supportHalf?.end ?? 0, spans[j]?.row.demand.supportHalf?.start ?? 0));
@@ -266,7 +277,6 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     const misfits: HookMisfit[] = [];
     let mark = 0;
     const next = () => String.fromCharCode(65 + (mark++ % 26)) + (mark > 26 ? String(Math.floor((mark - 1) / 26)) : '');
-    const legOf = (dia: number) => (mandrelOf(dia) + dia / 1000) / 2 + extensionOf(dia);
     const turnOf = (face: 'top' | 'bottom', end: BeamEnd | undefined): 1 | -1 => (face === 'top' || end?.kind === 'column' ? -1 : 1);
     const add = (face: 'top' | 'bottom', kind: LineBar['kind'], g: BarGroup, from: number, to: number, hooks: [boolean, boolean], bent?: { shape: BarShape; runs: LineBar['runs'] }) => {
       if (g.count <= 0 || to - from < 1e-6) return;
@@ -278,10 +288,11 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
         const e = i === 0 ? endStart : endEnd, s = spans[i === 0 ? 0 : spans.length - 1];
         if (!hooks[i] || !s || e?.kind === 'column') return;
         const room = s.h - 2 * (c.cover + sdOf(i === 0 ? 0 : spans.length - 1) / 1000) - g.dia / 2000;
-        if (legOf(g.dia) > room + 1e-6) misfits.push({ mark: id, dia: g.dia, leg: legOf(g.dia), room });
+        const p = shape.pts, leg = Math.abs(i === 0 ? p[0]![1] - p[1]![1] : p[p.length - 1]![1] - p[p.length - 2]![1]);
+        if (leg > room + 1e-6) misfits.push({ mark: id, dia: g.dia, leg, room });
       });
       const runs = bent?.runs ?? [{ face, from, to }];
-      const lap = step(lapOf(c, g.dia, face === 'top' || kind === 'bent', hMax));
+      const lap = step(lapOf(c, g.dia, face === 'top' || kind === 'bent', hMax, undefined, { count: g.count, width: bMin }));
       const cands = kind !== 'continuous' ? [] : face === 'bottom' && !c.seismic ? supports.slice(1, -1) : spans.map((s) => s.x0 + s.L / 2);
       const off = g.count >= 2 ? lap / 2 + STAGGER_GAP / 2 : 0;
       const at = spliceAt(shape, lap, cands, STOCK_LENGTH, off);
@@ -319,7 +330,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     supports.forEach((xs, j) => {
       const g = a.supportTop[j];
       if (!g || g.count <= 0) return;
-      const ld = dev(c, g.dia, true, Math.max(...spans.map((s) => s.h)));
+      const ld = dev(c, g.dia, true, hMax, { count: g.count + a.top.count, width: bMin });
       const reach = (k: number, fromStart: boolean): number => {
         const s = spans[k]!, env = s.row.demand.env ?? [];
         const ext = Math.max(s.d, 12 * g.dia / 1000);
@@ -345,7 +356,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
       if (!g || g.count <= 0) return;
       const env = s.row.demand.env ?? [];
       const over = env.map((e, i) => ({ e, i })).filter(({ e, i }) => e.pos > (capPos[k]![i] ?? 0) + 1e-6);
-      const ld = dev(c, g.dia, false, s.h);
+      const ld = dev(c, g.dia, false, s.h, { count: g.count + a.bottom.count, width: s.b });
       const ext = Math.max(s.d, 12 * g.dia / 1000);
       const xStar = s.row.demand.span.x;
       const xa = over.length ? Math.min(...over.map((o) => o.e.x)) : xStar, xb = over.length ? Math.max(...over.map((o) => o.e.x)) : xStar;
@@ -374,18 +385,19 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
       };
       const xl = s.x0 + bendAt(true), xr = s.x0 + s.L - bendAt(false);
       if (xr - xl < 2 * run + 0.1 || xl - s.x0 < 0.05 || s.x0 + s.L - xr < 0.05) return;
-      const ldTop = dev(c, g.dia, true, s.h);
+      const ldTop = dev(c, g.dia, true, s.h, { count: g.count + a.top.count, width: s.b });
       const reachOver = (j: number) => step(ldTop + (line[j] ?? 0));
       const from = k === 0 ? xFrom : s.x0 - reachOver(k), to = k === spans.length - 1 ? xTo : s.x0 + s.L + reachOver(k + 1);
       const hooks: [boolean, boolean] = [k === 0, k === spans.length - 1];
-      const leg = legOf(g.dia);
+      const bentMandrel = code.bentMandrel?.(g.dia) ?? mandrelOf(g.dia);
+      const leg = (bentMandrel + g.dia / 1000) / 2 + extensionOf(g.dia);
       const pts: Array<[number, number]> = [
         ...(hooks[0] ? [[from, yHigh - leg] as [number, number]] : []),
         [from, yHigh], [xl, yHigh], [xl + run, yLow], [xr - run, yLow], [xr, yHigh], [to, yHigh],
         ...(hooks[1] ? [[to, yHigh - leg] as [number, number]] : []),
       ];
       add('bottom', 'bent', g, from, to, hooks, {
-        shape: { pts, mandrel: mandrelOf(g.dia), dia: g.dia },
+        shape: { pts, mandrel: bentMandrel, dia: g.dia },
         runs: [{ face: 'top', from, to: xl }, { face: 'bottom', from: xl + run, to: xr - run }, { face: 'top', from: xr, to }],
       });
     });
@@ -414,7 +426,8 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     const qs: LineQuery[] = [];
     for (const p of pts) {
       const s = spans[p.k]!, sd = a.stirrups?.[p.k]?.dia ?? c.stirrupDia;
-      const bot = effective(bars, 'bottom', p.xl, (g) => dev(c, g.dia, false, s.h)), top = effective(bars, 'top', p.xl, (g) => dev(c, g.dia, true, s.h));
+      const layerOf = (face: 'top' | 'bottom') => ({ count: bars.filter((b) => barActsAt(b, face, p.xl)).reduce((n, b) => n + b.bars.count, 0), width: s.b });
+      const bot = effective(bars, 'bottom', p.xl, (g) => dev(c, g.dia, false, s.h, layerOf('bottom'))), top = effective(bars, 'top', p.xl, (g) => dev(c, g.dia, true, s.h, layerOf('top')));
       qs.push(query(s, bot.length ? bot : [{ count: 0, dia: 10 }], top, sd, true), query(s, top.length ? top : [{ count: 0, dia: 10 }], bot, sd, false));
     }
     const cap = capQueries(qs);
@@ -422,7 +435,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
   };
 
   /** The positive bars' ld against Mn/Vu + ℓa at every point of inflection (§9.7.3.8.3(b)), the continuous bars running ℓa = max(d; 12·db) past it. */
-  const inflectionsOf = (pts0: typeof env, dia: number) => spans.flatMap((s, k) => {
+  const inflectionsOf = (pts0: typeof env, g: BarGroup) => spans.flatMap((s, k) => {
     const pts = pts0.filter((e) => e.k === k), stations = s.row.demand.env ?? [];
     const out: Array<{ x: number; ld: number; reach: number }> = [];
     for (let i = 1; i < pts.length; i++) {
@@ -431,7 +444,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
       if (!sag || !pi) continue;
       const vu = stations[pi.i]?.v ?? 0;
       if (vu <= 1e-6) continue;
-      out.push({ x: pi.xl, ld: dev(c, dia, false, s.h), reach: sag.phiPos / 0.9 / vu + Math.max(s.d, 12 * dia / 1000) });
+      out.push({ x: pi.xl, ld: dev(c, g.dia, false, s.h, { count: g.count, width: s.b }), reach: sag.phiPos / 0.9 / vu + Math.max(s.d, 12 * g.dia / 1000) });
     }
     return out;
   });
@@ -468,7 +481,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
       if (next.bent?.length) { next.bent[0] = shrink(next.bent[0])!; next.bent[next.bent.length - 1] = shrink(next.bent[next.bent.length - 1])!; }
       if (JSON.stringify(next) !== JSON.stringify(proposed)) { proposed = next; bars = layout(proposed); env = verify(proposed, bars); iterate(); }
     }
-    const piOk = () => inflectionsOf(env, proposed.bottom.dia).every((x) => x.ld <= x.reach + 1e-6);
+    const piOk = () => inflectionsOf(env, proposed.bottom).every((x) => x.ld <= x.reach + 1e-6);
     for (const dia of [...c.diameters].filter((d) => d >= 10 && d < proposed.bottom.dia).sort((p, q) => q - p)) {
       if (piOk()) break;
       const next: LineAdopted = JSON.parse(JSON.stringify(proposed));
@@ -485,7 +498,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
   });
   bars = bars.map((b) => {
     if (!b.shape.laps || !classA(b)) return b;
-    const lapA = step(lapOf(c, b.bars.dia, b.face === 'top', hMax, 'A'));
+    const lapA = step(lapOf(c, b.bars.dia, b.face === 'top', hMax, 'A', { count: b.bars.count, width: bMin }));
     const shape = { ...b.shape, laps: { count: b.shape.laps.count, length: lapA } };
     lastSplices = lastSplices.map((sp) => (sp.mark === b.mark ? { ...sp, length: lapA, spliceClass: 'A' as const } : sp));
     return { ...b, shape, length: developedLength(shape), weight: shapeWeight(shape, b.bars.count) };
@@ -526,7 +539,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     const zi = zones.reduce((best, z, i) => (z.span !== k ? best : best < 0 || Math.max(0, z.from - xl, xl - z.to) < Math.max(0, zones[best]!.from - xl, xl - zones[best]!.to) ? i : best), -1);
     return { x: xl, v: e.v, vPos: e.vPos ?? e.v, vNeg: e.vNeg ?? e.v, phiVn: zoneVn[zi] ?? 0 };
   }));
-  const inflections = inflectionsOf(env, a.bottom.dia);
+  const inflections = inflectionsOf(env, a.bottom);
   const endAnchors = ([[endStart, xFrom, true], [endEnd, xTo, false]] as const).flatMap(([e, xe, first]) => {
     if (!e || e.kind !== 'column' || e.half <= 0) return [];
     const room = 2 * e.half - inset;
