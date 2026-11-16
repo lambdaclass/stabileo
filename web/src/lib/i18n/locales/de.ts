@@ -13552,6 +13552,7 @@ const de: Translations = {
   "rcSheets.s.crossties": "Querhaken je Seite",
   "rcSheets.s.panel": "Feld",
   "rcSheets.s.oneWay": "Einachsig gespannte Platte",
+  "rcSheets.s.cantilever": "Kragplatte",
   "rcSheets.s.twoWay": "Zweiachsig gespannte Platte",
   "rcSheets.s.slabMin": "Mindestbewehrung",
   "rcSheets.s.muSlab": "Bemessungsmoment",

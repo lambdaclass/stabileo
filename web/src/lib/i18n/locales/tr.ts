@@ -13552,6 +13552,7 @@ const tr: Translations = {
   "rcSheets.s.crossties": "Yüz başına çiroz",
   "rcSheets.s.panel": "Panel",
   "rcSheets.s.oneWay": "Tek doğrultuda çalışan döşeme",
+  "rcSheets.s.cantilever": "Konsol",
   "rcSheets.s.twoWay": "İki doğrultuda çalışan döşeme",
   "rcSheets.s.slabMin": "Minimum donatı",
   "rcSheets.s.muSlab": "Tasarım momenti",

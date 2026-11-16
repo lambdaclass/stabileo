@@ -371,6 +371,26 @@ function wideBeamShear(rows: ReadonlyArray<{ key: string; q: readonly number[] }
 }
 
 /**
+ * The shell elements within d of a column's footprint at the slab: the shear there belongs to
+ * punching or to the beam–column joint, not to one-way shear. Footprints b along X, h along Y.
+ */
+export function shellsNearColumns(m: Pick<DemandInput, 'elements' | 'nodes' | 'sections'>, boxes: ReadonlyMap<string, { x0: number; x1: number; y0: number; y1: number }>, ext: { x0: number; x1: number; y0: number; y1: number; z: number }, d: number): Set<string> {
+  const feet: Array<{ x0: number; x1: number; y0: number; y1: number }> = [];
+  for (const e of m.elements.values()) {
+    if (!isVertical(m as DemandInput, e)) continue;
+    const sec = m.sections.get(e.sectionId), b = sec?.b ?? 0.3, h = sec?.h ?? 0.3;
+    for (const n of [e.nodeI, e.nodeJ]) {
+      const p = m.nodes.get(n);
+      if (!p || Math.abs(zOf(p) - ext.z) > 0.05 || p.x < ext.x0 - b || p.x > ext.x1 + b || p.y < ext.y0 - h || p.y > ext.y1 + h) continue;
+      feet.push({ x0: p.x - b / 2 - d, x1: p.x + b / 2 + d, y0: p.y - h / 2 - d, y1: p.y + h / 2 + d });
+    }
+  }
+  const out = new Set<string>();
+  for (const [k, q] of boxes) if (feet.some((f) => q.x0 < f.x1 - 1e-9 && q.x1 > f.x0 + 1e-9 && q.y0 < f.y1 - 1e-9 && q.y1 > f.y0 + 1e-9)) out.add(k);
+  return out;
+}
+
+/**
  * One-way shear of a slab where the code reads it, d beyond the support face (§22.5, §7.4.3.2): the
  * largest of the shear interpolated at d between the rows of elements on either side, and the
  * shear of every row farther in. Samples are each element's distance from the face, m, and |q|.
@@ -433,16 +453,19 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     const h = thickness(g);
     if (!h) continue;
     const posts = slabPosts(m, keys, h);
-    const centre = new Map([...keys].map((k) => {
+    const boxOf = new Map([...keys].map((k) => {
       const pts = (k[0] === 'q' ? quadNodes(Number(k.slice(1))) : plateNodes(Number(k.slice(1)))).map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p);
-      return [k, { x: pts.reduce((a, p) => a + p.x, 0) / Math.max(pts.length, 1), y: pts.reduce((a, p) => a + p.y, 0) / Math.max(pts.length, 1) }] as const;
+      const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+      return [k, { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }] as const;
     }));
+    const centre = new Map([...boxOf].map(([k, b]) => [k, { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }] as const));
     const best: Record<SlabFace, Signed> = { bottomX: { value: 0 }, bottomY: { value: 0 }, topX: { value: 0 }, topY: { value: 0 } };
     const q = { x: { value: 0 } as Signed, y: { value: 0 } as Signed };
     const xs0 = pts.map((p) => p.x), ys0 = pts.map((p) => p.y);
     const ext = { x0: Math.min(...xs0), x1: Math.max(...xs0), y0: Math.min(...ys0), y1: Math.max(...ys0), z: pts.reduce((a, p) => a + zOf(p), 0) / pts.length };
     const faces = edgeFaces(m, ext);
     const dSlab = Math.max(0.05, h - 0.03);
+    const nearColumn = shellsNearColumns(m, boxOf, ext, dSlab);
     const fromFace = (c: { x: number; y: number }, axis: 'x' | 'y') =>
       axis === 'x' ? Math.min(c.x - ext.x0 - faces.x0, ext.x1 - faces.x1 - c.x) : Math.min(c.y - ext.y0 - faces.y0, ext.y1 - faces.y1 - c.y);
     const combos: SlabComboForces[] = [];
@@ -460,7 +483,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
           if (wa[f] > best[f].value) best[f] = { value: wa[f], source: { combo: set.name } };
         }
         const sh = row.global.shear;
-        if (sh) { shears.push({ key, q: sh }); c.qx = Math.max(c.qx, Math.abs(sh[0])); c.qy = Math.max(c.qy, Math.abs(sh[1])); }
+        if (sh && !nearColumn.has(key)) { shears.push({ key, q: sh }); c.qx = Math.max(c.qx, Math.abs(sh[0])); c.qy = Math.max(c.qy, Math.abs(sh[1])); }
       }
       const wide = wideBeamShear(shears, centre, posts);
       if (wide) { c.qx = wide.qx; c.qy = wide.qy; }

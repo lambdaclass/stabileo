@@ -412,12 +412,26 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     slab.push(cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt)));
     yield step();
   }
-  const slabPlans = D.levels.map((g) => {
+  const planOf = (g: LevelGeometry) => {
     const rows = slab.filter((r) => (r.level ?? '') === g.level);
     const first = groupOf(rows[0]?.key ?? '');
     const ctx = { mat: { fc: fcOfShells(first?.members.quads ?? [], first?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: [6, 8, 10, 12, 16], bent: data.slabBentBars === true };
     return slabPlan(g.level, rows, g, ctx, rules.slabPlan);
-  }).filter((p) => p.panels.length);
+  };
+  let slabPlans = D.levels.map(planOf).filter((p) => p.panels.length);
+  const spanned = new Set<string>();
+  slab.forEach((r, i) => {
+    const k = slabPlans.find((p) => p.level === (r.level ?? ''))?.cantilevers.find((x) => x.panel === r.name);
+    if (!k) return;
+    const d = D.slabs.find((x) => x.key === r.key)!;
+    const g = groupOf(d.key);
+    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: [6, 8, 10, 12, 16], span: { kind: 'cantilever' as const, dir: k.dir, length: k.length } };
+    const a = adoptedNow[d.key] as SlabAdopted | undefined;
+    redesigners.set(d.key, ((x: typeof d) => rules.slabRow(x, ctx, undefined, fmt)) as Redesign);
+    slab[i] = cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt));
+    spanned.add(r.level ?? '');
+  });
+  if (spanned.size) slabPlans = D.levels.map((g) => (spanned.has(g.level) ? planOf(g) : slabPlans.find((p) => p.level === g.level))).filter((p): p is LevelPlan => !!p && p.panels.length > 0);
   const wall: WallRow[] = [];
   for (const d of D.walls) {
     const g = groupOf(d.key);

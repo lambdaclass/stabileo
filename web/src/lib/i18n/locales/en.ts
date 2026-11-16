@@ -13712,6 +13712,7 @@ const en: Record<string, string> = {
   "rcSheets.s.crossties": "Crossties per face",
   "rcSheets.s.panel": "Panel",
   "rcSheets.s.oneWay": "One-way slab",
+  "rcSheets.s.cantilever": "Cantilever",
   "rcSheets.s.twoWay": "Two-way slab",
   "rcSheets.s.slabMin": "Minimum steel",
   "rcSheets.s.muSlab": "Design moment",

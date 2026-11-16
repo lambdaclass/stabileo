@@ -15,7 +15,7 @@ import type { LevelPlan } from '../slab-plan';
 import { wallDetail } from '../wall-detail';
 import type { WallRow } from '../wall-row';
 import { rulesFor } from '../codes';
-import { closedHoop, crankedBar, crossTie, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
+import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
 
 export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
@@ -44,6 +44,8 @@ export interface PieceOptions {
 /** The largest offset a column bar is cranked through (§10.7.4.1; the same practice elsewhere), m. */
 export const MAX_CRANK = 0.075;
 
+const STOCK = 12;
+
 /** Bars at a spacing over a length, both ends included. */
 export const spread = (length: number, spacing: number): number => (spacing > 0 ? Math.max(2, Math.floor(length / spacing + 1e-9) + 1) : 0);
 
@@ -65,6 +67,22 @@ const topHooked = (length: number, dia: number, R: BendRules): BarShape =>
 
 const straight = (length: number, dia: number, R: BendRules): BarShape =>
   hookedStraight(0, length, 0, dia, R.mandrel(dia, 'longitudinal'), [false, false], 1, 0);
+
+/**
+ * A vertical bar over `length`, hooked into the slab at its top when `hooked`, as the pieces a
+ * bender cuts: one when it fits a stock bar, else as few equal pieces as fit, each lapped `lap` onto
+ * the next.
+ */
+export function stockPieces(length: number, lap: number, dia: number, R: BendRules, hooked: boolean): Array<{ shape: BarShape; count: number }> {
+  const whole = hooked ? topHooked(length, dia, R) : straight(length, dia, R);
+  if (developedLength(whole) <= STOCK + 1e-9 || lap >= STOCK / 2) return [{ shape: whole, count: 1 }];
+  const hookExtra = developedLength(whole) - length;
+  let n = 2;
+  while ((length + (n - 1) * lap) / n + hookExtra > STOCK + 1e-9 && n < 20) n++;
+  const piece = (length + (n - 1) * lap) / n;
+  if (!hooked) return [{ shape: straight(piece, dia, R), count: n }];
+  return [{ shape: straight(piece, dia, R), count: n - 1 }, { shape: topHooked(piece, dia, R), count: 1 }];
+}
 
 function stirrupPieces(line: LineLayout, R: BendRules): Piece[] {
   const out: Piece[] = [];
@@ -123,11 +141,13 @@ function columnPieces(rows: readonly ColumnRow[], r: ColumnRow, o: PieceOptions,
   const H = r.length;
   for (const { dia, count } of columnDias(r)) {
     const mandrel = R.mandrel(dia, 'longitudinal');
-    if (!up) { pieces.push({ kind: 'column', count, shape: topHooked(H - r.cover, dia, R) }); continue; }
+    const own = r.lap?.length ?? up?.lap?.length ?? 0;
+    const column = (length: number, hooked: boolean) => { for (const pc of stockPieces(length, own, dia, R, hooked)) pieces.push({ kind: 'column', count: count * pc.count, shape: pc.shape }); };
+    if (!up) { column(H - r.cover, true); continue; }
     const lap = up.lap?.length ?? 0, e = offsetTo(r, up);
-    if (e > MAX_CRANK) pieces.push({ kind: 'column', count, shape: topHooked(H - r.cover, dia, R) });
+    if (e > MAX_CRANK) column(H - r.cover, true);
     else if (e > 1e-3) pieces.push({ kind: 'cranked', count, shape: crankedBar(H, e, lap, dia, mandrel) });
-    else pieces.push({ kind: 'column', count, shape: straight(H + lap, dia, R) });
+    else column(H + lap, false);
   }
   if (down && offsetTo(down, r) > MAX_CRANK) {
     const lap = r.lap?.length ?? 0;
@@ -176,8 +196,7 @@ function wallPieces(rows: readonly WallRow[], r: WallRow, o: PieceOptions, R: Be
   }
   for (const g of groups.values()) {
     const lap = r.vLaps?.find((x) => x.dia === g.dia)?.lap ?? r.hLap * g.dia / Math.max(1, det.horizontals.dia);
-    const shape = up ? straight(H + lap, g.dia, R) : topHooked(H - c, g.dia, R);
-    pieces.push({ kind: g.boundary ? 'boundary' : 'vertical', count: g.count, shape });
+    for (const pc of stockPieces(up ? H + lap : H - c, lap, g.dia, R, !up)) pieces.push({ kind: g.boundary ? 'boundary' : 'vertical', count: g.count * pc.count, shape: pc.shape });
   }
   const hd = det.horizontals.dia, levels = spread(H, det.horizontals.spacing);
   const len = r.length - 2 * c;

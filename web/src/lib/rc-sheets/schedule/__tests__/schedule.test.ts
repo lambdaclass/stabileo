@@ -209,6 +209,20 @@ describe('pieces of each family', () => {
     expect(r.vLaps!.map((x) => x.dia)).toContain(r.adopted.vertical.diameter);
   });
 
+  it('a vertical longer than a stock bar is cut into equal lapped pieces, the top one hooked into the slab', async () => {
+    const wall: WallDemand = { key: 'wall:1:0', name: 'M1', length: 4, height: 13, thickness: 0.2, combos: [{ combo: 'U', pu: 1200, mu: 5000, vu: 450, muV: 4, muH: 2 }] };
+    const r = wallRow(wall, { mat: { fc: 30, fy: 420 }, cover: 0.025, barDia: 12, diameters: [10, 12, 16, 20, 25] }, undefined, f);
+    const [e] = scheduleElements({ line: [], column: [], slab: [], wall: [r] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    const verticals = e!.pieces.filter((p) => p.kind === 'vertical' || p.kind === 'boundary');
+    expect(verticals.length).toBeGreaterThan(1);
+    expect(verticals.every((p) => developedLength(p.shape) <= 12 + 1e-9)).toBe(true);
+    expect(verticals.some((p) => p.shape.pts.length === 3)).toBe(true);
+    const { stockPieces } = await import('../pieces');
+    const pcs = stockPieces(13.6, 0.6, 16, R, false);
+    expect(pcs).toEqual([{ shape: expect.anything(), count: 2 }]);
+    expect(developedLength(pcs[0]!.shape) * 2 - 0.6).toBeCloseTo(13.6, 9);
+  });
+
   it('a beam line: its bars as laid out, and each zone\'s stirrups as the elevation places them', () => {
     const env = (x: number, pos: number, neg: number): SectionEnv => ({ x, pos: { value: pos, source: { combo: 'U', x } }, neg: { value: neg, source: { combo: 'U', x } }, nPos: 0, nNeg: 0 });
     const d: BeamDemand = { key: 'beam:1:0', name: 'V1', length: 6, b: 0.3, h: 0.6, start: env(0, 0, 0), span: env(3, 200, 0), end: env(6, 0, 0), negAny: { value: 0 }, nNegAny: 0, vu: { value: 150 }, nAtV: 0, tu: { value: 0 }, combos: [], line: { group: 1, index: 0, spans: 1, startNode: 1, endNode: 2, lineName: 'V' } };

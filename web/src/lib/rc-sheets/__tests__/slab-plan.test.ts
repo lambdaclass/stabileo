@@ -192,4 +192,36 @@ describe('level plan of slab bars', () => {
     expect(slabSpanKind({ name: 'L4', level: 'N2', oneWay: true }, plans)).toBe('oneWay');
     expect(slabSpanKind({ name: 'L1', level: 'N1', oneWay: false }, plans)).toBe('twoWay');
   });
+
+  it('a cantilever row takes its span from the plan in every code: the step, one-way, and one-way shear only across its support', () => {
+    const q = { x: { value: 20 }, y: { value: 90 } };
+    for (const code of SHEET_CODE_LIST) {
+      const rules = rulesFor(code);
+      const d = { ...demand('L4', 0, 1.85, 0, 5, [0, 0, 12, 2]), q };
+      const plain = rules.slabRow(d, ctx, undefined, f);
+      expect(plain.verifications.some((v) => v.label === 'rcSheets.v.slabShearY'), code).toBe(true);
+      const row = rules.slabRow(d, { ...ctx, span: { kind: 'cantilever', dir: 'x', length: 1.85 } }, undefined, f);
+      expect(row.oneWay, code).toBe(true);
+      expect(row.steps.flatMap((g) => g.steps).find((x) => x.label === 'rcSheets.s.cantilever')?.value, code).toBe('1.85 m');
+      expect(row.verifications.some((v) => v.label === 'rcSheets.v.slabShearX'), code).toBe(true);
+      expect(row.verifications.some((v) => v.label === 'rcSheets.v.slabShearY'), code).toBe(false);
+    }
+  });
+});
+
+describe('slab one-way shear near the columns', () => {
+  it('leaves out the elements within d of a column footprint', async () => {
+    const { shellsNearColumns } = await import('../demands');
+    const nodes = new Map([[1, { id: 1, x: 2, y: 2, z: 0 }], [2, { id: 2, x: 2, y: 2, z: 3 }]]);
+    const elements = new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, type: 'frame' }]]);
+    const sections = new Map([[1, { id: 1, b: 0.4, h: 0.4 }]]);
+    const boxes = new Map([
+      ['q1', { x0: 2.2, x1: 2.7, y0: 2.0, y1: 2.5 }],
+      ['q2', { x0: 2.3, x1: 2.8, y0: 1.5, y1: 2.0 }],
+      ['q3', { x0: 2.4, x1: 2.9, y0: 2.0, y1: 2.5 }],
+      ['q4', { x0: 3.0, x1: 3.5, y0: 2.0, y1: 2.5 }],
+    ]);
+    const near = shellsNearColumns({ nodes, elements, sections } as never, boxes, { x0: 0, x1: 5, y0: 0, y1: 5, z: 3 }, 0.12);
+    expect([...near].sort()).toEqual(['q1', 'q2']);
+  });
 });

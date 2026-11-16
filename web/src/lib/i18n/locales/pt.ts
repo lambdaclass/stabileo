@@ -13353,6 +13353,7 @@ const pt: Translations = {
   "rcSheets.s.crossties": "Grampos por face",
   "rcSheets.s.panel": "Painel",
   "rcSheets.s.oneWay": "Laje armada em uma direção",
+  "rcSheets.s.cantilever": "Balanço",
   "rcSheets.s.twoWay": "Laje armada em duas direções",
   "rcSheets.s.slabMin": "Armadura mínima",
   "rcSheets.s.muSlab": "Momento de cálculo",

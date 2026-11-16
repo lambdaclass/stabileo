@@ -13552,6 +13552,7 @@ const fr: Translations = {
   "rcSheets.s.crossties": "Épingles par face",
   "rcSheets.s.panel": "Panneau",
   "rcSheets.s.oneWay": "Dalle portant dans un sens",
+  "rcSheets.s.cantilever": "Console",
   "rcSheets.s.twoWay": "Dalle portant dans deux sens",
   "rcSheets.s.slabMin": "Armature minimale",
   "rcSheets.s.muSlab": "Moment de calcul",

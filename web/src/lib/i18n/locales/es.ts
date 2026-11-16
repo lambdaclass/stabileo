@@ -13701,6 +13701,7 @@ const es: Record<string, string> = {
   "rcSheets.s.crossties": "Ganchos por cara",
   "rcSheets.s.panel": "Paño",
   "rcSheets.s.oneWay": "Losa en una dirección",
+  "rcSheets.s.cantilever": "Voladizo",
   "rcSheets.s.twoWay": "Losa en dos direcciones",
   "rcSheets.s.slabMin": "Armadura mínima",
   "rcSheets.s.muSlab": "Momento de diseño",
