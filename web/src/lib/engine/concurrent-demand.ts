@@ -118,14 +118,15 @@ export class ConcurrentDemand {
   static fromTuples(source: readonly ConcurrentTuple[], declared?: DemandCoverage): ConcurrentDemand[] {
     const tuples = source.map(captureTuple);
     ConcurrentDemand.requireInventory(tuples, declared);
-    const coverage = demandCoverage(declared ?? {}, tuples);
     const elementIds = [...new Set(tuples.map(t => t.elementId ?? 0))];
     const inherited = tuples.length > 0 && tuples.every(t => t.inventory ?? t.coverage?.inventory);
     if (!inherited && !declared?.inventory && elementIds.length > 1) throw new IncompleteConcurrentDemandError([{ code: 'missing-scope' }], 'A declared member inventory is required for multi-member tuples');
-    const scope = inherited && !declared ? { combinations: [] } : memberDemandScope([{ elementId: elementIds[0] ?? 0, ...coverage }]);
+    const coverages = new Map((elementIds.length ? elementIds : [0]).map(elementId => [elementId,
+      demandCoverage(declared ?? {}, tuples.filter(t => (t.elementId ?? 0) === elementId))]));
+    const scope = memberDemandScope([...coverages].map(([elementId, coverage]) => ({ elementId, ...coverage })));
     const complete = CompleteDemandSet.require(scope,
-      tuples.map(tuple => ({ elementId: tuple.elementId ?? 0, comboId: tuple.comboId, stationT: tuple.forces.t, tuple, coverage,
-        inventory: tuple.inventory ?? tuple.coverage?.inventory ?? declared?.inventory })));
+      tuples.map(tuple => ({ elementId: tuple.elementId ?? 0, comboId: tuple.comboId, stationT: tuple.forces.t, tuple,
+        coverage: coverages.get(tuple.elementId ?? 0)!, inventory: tuple.inventory ?? tuple.coverage?.inventory ?? declared?.inventory })));
     return ConcurrentDemand.convertCompleteTuples(complete).values.map(row => row.demand);
   }
 

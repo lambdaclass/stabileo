@@ -2,11 +2,10 @@ import { expect, it } from 'vitest';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { DemandInventory } from '../complete-demand-set';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2096' ? it : it.skip;
 const tuple = (elementId: number, comboId: number, t: number) => ({ elementId, comboId, comboName: `C${comboId}`,
   forces: { t, x: t, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: 0 } });
 
-regression('known wrong result: #2096 round10 declared inventory preserves disjoint member combinations', () => {
+it('known wrong result: #2096 round10 declared inventory preserves disjoint member combinations', () => {
   const inventory = DemandInventory.declare({ combinations: [
     { comboId: 1, members: [{ elementId: 1, stationTs: [0] }] },
     { comboId: 2, members: [{ elementId: 2, stationTs: [1] }] },
@@ -20,7 +19,7 @@ regression('known wrong result: #2096 round10 declared inventory preserves disjo
   }
 });
 
-regression('known wrong result: #2096 round10 declared inventory preserves stations within each member combination', () => {
+it('known wrong result: #2096 round10 declared inventory preserves stations within each member combination', () => {
   const inventory = DemandInventory.declare({ combinations: [
     { comboId: 1, members: [{ elementId: 1, stationTs: [0, 1] }, { elementId: 2, stationTs: [0, 0.5, 1] }] },
     { comboId: 2, members: [{ elementId: 2, stationTs: [0, 0.2, 1] }] },
