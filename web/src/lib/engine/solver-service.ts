@@ -46,7 +46,7 @@ import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointW
 import { prestressToSolver } from './prestress';
 import { hasCaseDisplacements, imposedOf, imposedUnsupported, supportsWithImposed, casesWithDisplacements } from './case-displacements';
 import { constraintsTo2D } from './constraint-2d-remap';
-import { solveStep } from './solve-steps';
+import { solveSteps } from './solve-steps';
 import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError } from './solver-pool';
 import { i18n, t, tp } from '../i18n';
 // Counts app-side structural-solve dispatches so browser tests can assert that a
@@ -2968,6 +2968,7 @@ async function solveCombinations3DParallelCore(
   if (model.supports.size < 1) return t('svc.needSupport');
   if (combinations.length === 0) return t('svc.needCombination');
 
+  const solveStep = solveSteps();
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
 
   // Build base solver input once (structural data without loads)
