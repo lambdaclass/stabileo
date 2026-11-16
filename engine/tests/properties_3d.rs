@@ -708,6 +708,228 @@ fn to_global(ax: &[V3; 3], v: &[f64]) -> V3 {
 // Properties
 // ======================================================================
 
+fn check_internal_force_consistency(inp: &SolverInput3D, res: &AnalysisResults3D, lchar: f64) -> Result<(), TestCaseError> {
+    let ef: HashMap<usize, &ElementForces3D> = res.element_forces.iter().map(|f| (f.element_id, f)).collect();
+    let mut equilibrium = NodalEquilibrium::<6>::new(3, lchar);
+    let mut wl: HashMap<usize, MemberResultant<5>> = HashMap::new();
+    for l in &inp.loads {
+        match l {
+            SolverLoad3D::Distributed(d) => {
+                let len = elem_len(inp, d.element_id);
+                let (a, b) = (d.a.unwrap_or(0.0), d.b.unwrap_or(len));
+                let w = wl.entry(d.element_id).or_default();
+                for (q, _) in trap(d.q_xi, d.q_xj, a, b) { w.add(0, q); }
+                for (q, xc) in trap(d.q_yi, d.q_yj, a, b) { w.add(1, q); w.add(4, xc * q); }
+                for (q, xc) in trap(d.q_zi, d.q_zj, a, b) { w.add(2, q); w.add(3, -xc * q); }
+            }
+            SolverLoad3D::PointOnElement(p) => {
+                let w = wl.entry(p.element_id).or_default();
+                w.add(1, p.py); w.add(4, p.a * p.py);
+                w.add(2, p.pz); w.add(3, -p.a * p.pz);
+            }
+            _ => {}
+        }
+    }
+    let mut fscale: f64 = 0.0;
+    for e in inp.elements.values() {
+        let len = elem_len(inp, e.id);
+        if let Some(resultant) = wl.get(&e.id) {
+            equilibrium.add_model_resultant(resultant, 3, len);
+        }
+        let w = wl.get(&e.id).map(MemberResultant::values).unwrap_or_default();
+        for v in local_end_forces(ef[&e.id]).iter().map(|x| x.abs()).chain(w[..3].iter().map(|x| x.abs())).chain(w[3..].iter().map(|x| x.abs() / len)) {
+            fscale = fscale.max(v);
+        }
+    }
+    for e in inp.elements.values() {
+        let (len, ax) = local_axes(inp, e);
+        let f = local_end_forces(ef[&e.id]);
+        for (nid, o) in [(e.node_i, 0usize), (e.node_j, 6usize)] {
+            let gf = to_global(&ax, &f[o..o + 3]);
+            let gm = to_global(&ax, &f[o + 3..o + 6]);
+            equilibrium.add_member(nid, [gf[0], gf[1], gf[2], gm[0], gm[1], gm[2]], norm(&gf) + norm(&gm) / len);
+        }
+    }
+    for l in &inp.loads {
+        if let SolverLoad3D::Nodal(n) = l {
+            equilibrium.add_external(n.node_id, [n.fx, n.fy, n.fz, n.mx, n.my, n.mz]);
+        }
+    }
+    for r in &res.reactions {
+        equilibrium.add_external(r.node_id, [r.fx, r.fy, r.fz, r.mx, r.my, r.mz]);
+    }
+    for e in inp.elements.values() {
+        let (len, _) = local_axes(inp, e);
+        let f = local_end_forces(ef[&e.id]);
+        let w = wl.get(&e.id).map(MemberResultant::values).unwrap_or_default();
+        let sc = f.iter().enumerate()
+            .fold(0.0f64, |a, (k, v)| a.max(if k % 6 >= 3 { v.abs() / len } else { v.abs() }))
+            .max(w[0].abs()).max(w[1].abs()).max(w[2].abs())
+            .max(w[3].abs() / len).max(w[4].abs() / len);
+        let t = equilibrium.tolerance(sc, 1e-7 * sc + 1e-9 * fscale);
+        let checks = [
+            ("ΣFx", f[0] + f[6] + w[0], t),
+            ("ΣFy", f[1] + f[7] + w[1], t),
+            ("ΣFz", f[2] + f[8] + w[2], t),
+            ("ΣMx", f[3] + f[9], t * len),
+            ("ΣMy_I", f[4] + f[10] - len * f[8] + w[3], t * len),
+            ("ΣMz_I", f[5] + f[11] + len * f[7] + w[4], t * len),
+        ];
+        if e.elem_type == "frame" {
+            for (name, v, tol) in checks {
+                prop_assert!(v.abs() <= tol, "elem {} {name} = {v:e} (tol {tol:e})", e.id);
+            }
+        } else {
+            prop_assert!(checks[0].1.abs() <= t, "truss {} ΣFx = {:e}", e.id, checks[0].1);
+        }
+    }
+    check(equilibrium.check(fscale))
+}
+
+fn equilibrium_oracle_input() -> SolverInput3D {
+    serde_json::from_str(include_str!("fixtures/equilibrium-oracle-2109.json")).unwrap()
+}
+
+fn equilibrium_oracle_length(inp: &SolverInput3D) -> f64 {
+    inp.nodes.values().map(|n| n.x.hypot(n.y).hypot(n.z)).fold(1.0, f64::max)
+}
+
+#[test]
+fn issue_2109_support_load_cancellation_keeps_roundoff_budget() {
+    let inp = equilibrium_oracle_input();
+    let res = solve(&inp).unwrap();
+    check_internal_force_consistency(&inp, &res, equilibrium_oracle_length(&inp)).unwrap();
+}
+
+fn cancelling_member_load_input(kind: usize, factor: f64) -> SolverInput3D {
+    let mut inp = equilibrium_oracle_input();
+    inp.loads.clear();
+    let len = elem_len(&inp, 1);
+    for value in std::iter::repeat_n(0.1 * factor, 8192).chain(std::iter::repeat_n(-0.2 * factor, 4096)) {
+        inp.loads.push(match kind {
+            0..2 => SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                element_id: 1, a: len / 2.0, px: 0.0,
+                py: if kind == 0 { value } else { 0.0 },
+                pz: if kind == 1 { value } else { 0.0 },
+            }),
+            2..5 => SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                element_id: 1, a: None, b: None,
+                q_xi: if kind == 2 { value / len } else { 0.0 },
+                q_xj: if kind == 2 { value / len } else { 0.0 },
+                q_yi: if kind == 3 { value / len } else { 0.0 },
+                q_yj: if kind == 3 { value / len } else { 0.0 },
+                q_zi: if kind == 4 { value / len } else { 0.0 },
+                q_zj: if kind == 4 { value / len } else { 0.0 },
+            }),
+            _ => unreachable!(),
+        });
+    }
+    inp
+}
+
+#[test]
+fn equilibrium_oracle_cancelling_member_loads_keep_roundoff_budget() {
+    let mut failures = Vec::new();
+    for (name, kind) in [("point y", 0), ("point z", 1), ("distributed x", 2), ("distributed y", 3), ("distributed z", 4)] {
+        for factor in [1e-12, 1.0, 1e12] {
+            let inp = cancelling_member_load_input(kind, factor);
+            let mut unloaded = inp.clone();
+            unloaded.loads.clear();
+            let res = solve(&unloaded).unwrap();
+            let length = equilibrium_oracle_length(&inp);
+            if let Err(error) = check_internal_force_consistency(&inp, &res, length) {
+                failures.push(format!("{name} scale {factor:e}: {error}"));
+            }
+            let mut altered = res.clone();
+            altered.element_forces[0].n_start += 1e-6 * 0.1 * factor;
+            assert!(check_internal_force_consistency(&inp, &altered, length).is_err());
+            let mut nonzero = inp.clone();
+            nonzero.loads.extend(scale_loads(&inp.loads[..1], 10.0));
+            let solved = solve(&nonzero).unwrap();
+            check_internal_force_consistency(&nonzero, &solved, length).unwrap();
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+fn assert_equilibrium_oracle_rejects_node_imbalance(inp: &SolverInput3D) {
+    let length = equilibrium_oracle_length(inp);
+    let res = solve(inp).unwrap();
+    check_internal_force_consistency(inp, &res, length).unwrap();
+    let magnitude = |values: &[f64]| values.iter().enumerate().map(|(k, v)| {
+        if k % 6 < 3 { v.abs() } else { v.abs() / length }
+    }).fold(0.0, f64::max);
+    let scale = res.element_forces.iter().map(|f| magnitude(&local_end_forces(f)))
+        .chain(res.reactions.iter().map(|r| magnitude(&[r.fx, r.fy, r.fz, r.mx, r.my, r.mz])))
+        .chain(inp.loads.iter().filter_map(|l| match l {
+            SolverLoad3D::Nodal(n) => Some(magnitude(&[n.fx, n.fy, n.fz, n.mx, n.my, n.mz])),
+            _ => None,
+        })).fold(0.0, f64::max);
+    assert!(scale > 0.0);
+    for k in 0..6 {
+        let mut altered = res.clone();
+        let reaction = altered.reactions.iter_mut().find(|r| r.node_id == 1).unwrap();
+        let component = [&mut reaction.fx, &mut reaction.fy, &mut reaction.fz, &mut reaction.mx, &mut reaction.my, &mut reaction.mz].into_iter().nth(k).unwrap();
+        *component += 1e-6 * scale * if k < 3 { 1.0 } else { length };
+        let failure = check_internal_force_consistency(inp, &altered, length).unwrap_err().to_string();
+        assert!(failure.contains(&format!("node 1 comp {k}:")), "{failure}");
+    }
+    let mut altered = res.clone();
+    altered.element_forces[0].n_start += 1e-6 * scale;
+    let failure = check_internal_force_consistency(inp, &altered, length).unwrap_err().to_string();
+    assert!(failure.contains("elem ") && failure.contains("ΣFx"), "{failure}");
+}
+
+#[test]
+fn equilibrium_oracle_rejects_relative_imbalance_with_support_loads() {
+    for factor in [1e-12, 1.0, 1e12] {
+        let mut inp = equilibrium_oracle_input();
+        inp.loads = scale_loads(&inp.loads, factor);
+        assert_equilibrium_oracle_rejects_node_imbalance(&inp);
+    }
+}
+
+#[test]
+fn equilibrium_oracle_rejects_relative_imbalance_with_member_forces() {
+    for factor in [f64::EPSILON, 1.0, 1e12] {
+        let mut inp = equilibrium_oracle_input();
+        inp.supports.remove("2");
+        inp.loads.extend(scale_loads(&[unit_load((2, 0))], factor));
+        let res = solve(&inp).unwrap();
+        assert!(res.element_forces.iter().any(|f| f.n_start != 0.0 || f.vy_start != 0.0 || f.vz_start != 0.0));
+        assert_equilibrium_oracle_rejects_node_imbalance(&inp);
+    }
+}
+
+#[test]
+fn equilibrium_oracle_rejects_relative_imbalance_without_applied_loads() {
+    for factor in [1e-12, 1.0, 1e12] {
+        let mut inp = equilibrium_oracle_input();
+        inp.loads.clear();
+
+        inp.supports.get_mut("2").unwrap().rry = false;
+        inp.supports.get_mut("2").unwrap().dx = Some(1e-4 * factor);
+        assert!(inp.loads.is_empty());
+        assert_equilibrium_oracle_rejects_node_imbalance(&inp);
+    }
+}
+
+#[test]
+fn equilibrium_oracle_zero_model_requires_zero_residual() {
+    let mut inp = equilibrium_oracle_input();
+    inp.loads.clear();
+    let res = solve(&inp).unwrap();
+    let length = equilibrium_oracle_length(&inp);
+    check_internal_force_consistency(&inp, &res, length).unwrap();
+    for k in 0..6 {
+        let mut altered = res.clone();
+        let reaction = altered.reactions.iter_mut().find(|r| r.node_id == 1).unwrap();
+        let component = [&mut reaction.fx, &mut reaction.fy, &mut reaction.fz, &mut reaction.mx, &mut reaction.my, &mut reaction.mz].into_iter().nth(k).unwrap();
+        *component = f64::MIN_POSITIVE;
+        assert!(check_internal_force_consistency(&inp, &altered, length).is_err());
+    }
+}
+
 proptest! {
     #![proptest_config(config(64))]
 
@@ -1039,90 +1261,7 @@ proptest! {
         nightly_property(&m.input, || {
             let inp = with_loads(&m, resolve3(&m, &raws, false));
             let res = solve(&inp)?;
-            let ef: HashMap<usize, &ElementForces3D> = res.element_forces.iter().map(|f| (f.element_id, f)).collect();
-            // member-load resultants, local: [Wx, Wy, Wz, My_I, Mz_I]
-            let mut wl: HashMap<usize, [f64; 5]> = HashMap::new();
-            for l in &inp.loads {
-                match l {
-                    SolverLoad3D::Distributed(d) => {
-                        let len = elem_len(&inp, d.element_id);
-                        let (a, b) = (d.a.unwrap_or(0.0), d.b.unwrap_or(len));
-                        let w = wl.entry(d.element_id).or_default();
-                        for (q, _) in trap(d.q_xi, d.q_xj, a, b) { w[0] += q; }
-                        for (q, xc) in trap(d.q_yi, d.q_yj, a, b) { w[1] += q; w[4] += xc * q; }
-                        for (q, xc) in trap(d.q_zi, d.q_zj, a, b) { w[2] += q; w[3] -= xc * q; }
-                    }
-                    SolverLoad3D::PointOnElement(p) => {
-                        let w = wl.entry(p.element_id).or_default();
-                        w[1] += p.py; w[4] += p.a * p.py;
-                        w[2] += p.pz; w[3] -= p.a * p.pz;
-                    }
-                    _ => {}
-                }
-            }
-            let mut fscale: f64 = 1e-9;
-            for e in inp.elements.values() {
-                let len = elem_len(&inp, e.id);
-                let w = wl.get(&e.id).copied().unwrap_or_default();
-                for v in local_end_forces(ef[&e.id]).iter().map(|x| x.abs()).chain(w[..3].iter().map(|x| x.abs())).chain(w[3..].iter().map(|x| x.abs() / len)) {
-                    fscale = fscale.max(v);
-                }
-            }
-            let mut node_sum: HashMap<usize, [f64; 6]> = HashMap::new();
-            let mut node_abs: HashMap<usize, f64> = HashMap::new();
-            for e in inp.elements.values() {
-                let (len, ax) = local_axes(&inp, e);
-                let f = local_end_forces(ef[&e.id]);
-                let w = wl.get(&e.id).copied().unwrap_or_default();
-                // member force scale: end forces, end moments / L, member loads
-                let sc = f.iter().enumerate()
-                    .fold(0.0f64, |a, (k, v)| a.max(if k % 6 >= 3 { v.abs() / len } else { v.abs() }))
-                    .max(w[0].abs()).max(w[1].abs()).max(w[2].abs())
-                    .max(w[3].abs() / len).max(w[4].abs() / len);
-                let t = 1e-7 * sc + 1e-9 * fscale;
-                let checks = [
-                    ("ΣFx", f[0] + f[6] + w[0], t),
-                    ("ΣFy", f[1] + f[7] + w[1], t),
-                    ("ΣFz", f[2] + f[8] + w[2], t),
-                    ("ΣMx", f[3] + f[9], t * len),
-                    ("ΣMy_I", f[4] + f[10] - len * f[8] + w[3], t * len),
-                    ("ΣMz_I", f[5] + f[11] + len * f[7] + w[4], t * len),
-                ];
-                if e.elem_type == "frame" {
-                    for (name, v, tol) in checks {
-                        prop_assert!(v.abs() <= tol, "elem {} {name} = {v:e} (tol {tol:e})", e.id);
-                    }
-                } else {
-                    prop_assert!(checks[0].1.abs() <= t, "truss {} ΣFx = {:e}", e.id, checks[0].1);
-                }
-                for (nid, o) in [(e.node_i, 0usize), (e.node_j, 6usize)] {
-                    let gf = to_global(&ax, &f[o..o + 3]);
-                    let gm = to_global(&ax, &f[o + 3..o + 6]);
-                    let acc = node_sum.entry(nid).or_default();
-                    for k in 0..3 { acc[k] += gf[k]; acc[k + 3] += gm[k]; }
-                    *node_abs.entry(nid).or_default() += norm(&gf) + norm(&gm) / len;
-                }
-            }
-            let mut rhs: HashMap<usize, [f64; 6]> = HashMap::new();
-            for l in &inp.loads {
-                if let SolverLoad3D::Nodal(n) = l {
-                    let a = rhs.entry(n.node_id).or_default();
-                    for (k, v) in [n.fx, n.fy, n.fz, n.mx, n.my, n.mz].into_iter().enumerate() { a[k] += v; }
-                }
-            }
-            for r in &res.reactions {
-                let a = rhs.entry(r.node_id).or_default();
-                for (k, v) in [r.fx, r.fy, r.fz, r.mx, r.my, r.mz].into_iter().enumerate() { a[k] += v; }
-            }
-            for (nid, sum) in &node_sum {
-                let r = rhs.get(nid).copied().unwrap_or_default();
-                let t = 1e-7 * (node_abs[nid] + r[0].abs() + r[1].abs() + r[2].abs()) + 1e-9 * fscale;
-                for k in 0..6 {
-                    let tk = if k >= 3 { t * m.lchar } else { t };
-                    prop_assert!((sum[k] - r[k]).abs() <= tk,
-                        "node {nid} comp {k}: Σ member end = {:e}, load+reaction = {:e}", sum[k], r[k]);
-                }
-            }
+            check_internal_force_consistency(&inp, &res, m.lchar)?;
             Ok(())
         })?;
     }
