@@ -1,3 +1,4 @@
+import hu from '../translations/hu/safety-advisories';
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { findPost } from '..';
@@ -11,6 +12,7 @@ const regenerationAction: Record<PublicLocale, string> = {
   pt: 'Gere novamente todas as cargas de área geradas afetadas e repita análises, combinações e verificações.',
   de: 'Alle betroffenen erzeugten Flächenlasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen.',
   fr: 'Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications.',
+  hu: 'Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket.',
   tr: 'Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın.',
 };
 
@@ -19,9 +21,10 @@ const document = (path: string) => readFileSync(new URL(`../../../../../docs/${p
 for (const [issue, sa, name, notice] of [[2176, 'SA-2026-073', 'snow-crossing-moment', crossing], [2172, 'SA-2026-074', 'snow-panel-subdivision', panel]] as const) {
   it.each<[PublicLocale, string, string]>([
     ['en', 'High', 'PR #2197; pending merge and release'], ['es', 'Alta', 'PR #2197; pendiente de integración y publicación'], ['pt', 'Alta', 'PR #2197; aguardando integração e publicação'],
+    ['hu', 'Magas', 'PR #2197; egyesítésre és kiadásra vár'],
     ['de', 'Hoch', 'PR #2197; Zusammenführung und Veröffentlichung ausstehend'], ['fr', 'Élevée', 'PR #2197; fusion et publication en attente'], ['tr', 'Yüksek', 'PR #2197; birleştirme ve yayın bekleniyor'],
   ])(`#${issue} %s has the assigned advisory and regeneration notice`, (locale, severity, status) => {
-    const blocks = findPost('safety-advisories')!.i18n[locale]!.blocks;
+    const blocks = (locale === 'hu' ? hu : findPost('safety-advisories')!.i18n[locale]!).blocks;
     const table = blocks.find(b => b.k === 'table');
     if (table?.k !== 'table') throw new Error('Missing advisory table');
     const rows = table.rows.filter(r => r[0] === sa);

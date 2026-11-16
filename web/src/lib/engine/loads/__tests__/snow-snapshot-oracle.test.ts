@@ -38,6 +38,11 @@ function hipPressure(x: number, y: number, direction?: number[], partialFactor =
 it('#2172 hip snapshot balanced and directional intensities approach independent physical facet integrals', () => {
   const model = ridgeRoofs('hip'), layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   const out = snowLoadCases({ model, layout, snow: { ...snow, partial: true }, tributaryWidth: 1 })!;
+  expect(out.result.refused).toBeUndefined();
+  expect(out.cases).toHaveLength(9);
+  expect(out.cases.filter(c => c.nameKey === 'snow.case.balanced')).toHaveLength(1);
+  expect(out.cases.filter(c => c.pattern)).toHaveLength(4);
+  expect(out.cases.filter(c => c.nameKey === 'snow.case.unbalanced').map(c => c.nameParams.dir).sort()).toEqual(['+X', '+Y', '−X', '−Y']);
   const ps = 0.7 * (70 - Math.atan(0.5) * 180 / Math.PI) / 65;
   let maxOld = 0, maxNew = 0, worsened = 0;
   for (const [caseIndex, c] of out.cases.entries()) {
