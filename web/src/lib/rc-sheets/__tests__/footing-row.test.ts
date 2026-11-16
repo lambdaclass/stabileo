@@ -5,7 +5,7 @@
  * codes that design no footings.
  */
 import { describe, it, expect } from 'vitest';
-import { footingRow, aciFootingRow, uncoveredFootingRow } from '../footing-row';
+import { rulesFor } from '../codes';
 import { atBase, fieldOf, serviceBearing } from '../footing-mechanics';
 import { bandShare, meshArea, meshSpan } from '../footing-mesh';
 import { makeFmt } from '../format';
@@ -13,6 +13,7 @@ import { barArea } from '../bars';
 import type { FootingAdopted, FootingContext, FootingDemand } from '../footing-types';
 
 const fmt = makeFmt('.');
+const footingRow = rulesFor('cirsoc201-2025').footingRow, aciFootingRow = rulesFor('aci318-19').footingRow, uncoveredFootingRow = rulesFor('en1992-1-1').footingRow;
 const ctx: FootingContext = { fc: 25, fy: 420, cover: 0.055, sizing: 'full', diameters: [10, 12, 16, 20, 25], preferred: { x: 12, y: 12 }, columnBars: { count: 8, dia: 16, tension: false } };
 
 function demand(over: Partial<FootingDemand> = {}): FootingDemand {

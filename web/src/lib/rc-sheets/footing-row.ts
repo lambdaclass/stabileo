@@ -1,5 +1,5 @@
 import type { Fmt } from './format';
-import { analyseFooting, ACI_FOOTING, CIRSOC_FOOTING, MIN_D, proposeFooting, type FootingAnalysis, type FootingRowCode } from './footing-design';
+import { analyseFooting, CIRSOC_ONE_WAY, MIN_D, proposeFooting, type FootingAnalysis, type FootingRowCode } from './footing-design';
 import { MIN_CONTACT } from './footing-mechanics';
 import { meshText } from './footing-mesh';
 import { footingSteps } from './footing-steps';
@@ -34,7 +34,7 @@ function verifications(d: FootingDemand, r: FootingAnalysis, a: FootingAdopted, 
     out.push(check(`rcSheets.v.footSpacing${X}`, m.spacing <= r.sMax + 1e-9 && (m.outer ?? 0) <= r.sMax + 1e-9, { clause: '§8.7.2.2', demand: cm(Math.max(m.spacing, m.outer ?? 0)), capacity: `≤ ${cm(r.sMax)}` }));
     if (k.band) out.push(check(`rcSheets.v.footBand${X}`, k.band.asProvided >= k.band.asReq - 1e-6, { clause: '§13.3.3.3', demand: cm2(k.band.asReq), capacity: cm2(k.band.asProvided) }));
     out.push(check(`rcSheets.v.footShear${X}`, k.vu <= k.phiVc + 1e-6, { clause: `§13.2.7.2, ${code.oneWayClause}`, demand: kn(k.vu), capacity: kn(k.phiVc), ratio: ratioOf(k.vu, k.phiVc) }));
-    out.push(check(`rcSheets.v.footAnchor${X}`, k.anchorage.ok, { clause: k.anchorage.hooked ? '§13.2.8, §25.4.3' : '§13.2.8, §25.4.2', demand: `${k.anchorage.hooked ? 'ldh' : 'ld'} ${cm(k.anchorage.ld)}`, capacity: cm(k.anchorage.available) }));
+    out.push(check(`rcSheets.v.footAnchor${X}`, k.anchorage.ok, { clause: `§13.2.8, ${k.anchorage.hooked ? code.anchorage?.clause.hooked ?? '' : code.anchorage?.clause.straight ?? ''}`, demand: `${k.anchorage.hooked ? 'ldh' : 'ld'} ${cm(k.anchorage.ld)}`, capacity: cm(k.anchorage.available) }));
   }
   if (r.punching) out.push(check('rcSheets.v.footPunching', r.punching.utilization <= 1 + 1e-6, { clause: '§22.6, §13.2.6.2(b)', demand: `${fmt(r.punching.vu, 3)} MPa`, capacity: `${fmt(r.punching.phiVc, 3)} MPa`, ratio: r.punching.utilization }));
   const dMin = Math.min(r.layers.dx, r.layers.dy);
@@ -45,7 +45,7 @@ function verifications(d: FootingDemand, r: FootingAnalysis, a: FootingAdopted, 
   if (dw) {
     out.push(check('rcSheets.v.footDowelArea', dw.area >= dw.required - 1e-6, { clause: '§16.3.4.1', demand: cm2(dw.required), capacity: `${dw.count} Ø${dw.dia} (${cm2(dw.area)})` }));
     const need = Math.max(dw.ldc, dw.ldh);
-    out.push(check('rcSheets.v.footDowelAnchor', need <= dw.available + 1e-9, { clause: dw.tension ? '§25.4.9, §25.4.3' : '§25.4.9', demand: `${dw.tension && dw.ldh > dw.ldc ? 'ldh' : 'ldc'} ${cm(need)}`, capacity: cm(dw.available) }));
+    out.push(check('rcSheets.v.footDowelAnchor', need <= dw.available + 1e-9, { clause: dw.tension ? `${code.anchorage?.clause.compression}, ${code.anchorage?.clause.hooked}` : code.anchorage?.clause.compression, demand: `${dw.tension && dw.ldh > dw.ldc ? 'ldh' : 'ldc'} ${cm(need)}`, capacity: cm(dw.available) }));
   } else if (d.column) out.push(check('rcSheets.v.footDowelArea', false, { clause: '§16.3.4.1' }));
   return out;
 }
@@ -92,10 +92,7 @@ export function footingRowFor(code: FootingRowCode): FootingRowFn {
   };
 }
 
-export const footingRow = footingRowFor(CIRSOC_FOOTING);
-export const aciFootingRow = footingRowFor(ACI_FOOTING);
-
-const BEARING_ONLY: FootingRowCode = { ...CIRSOC_FOOTING, bearingOnly: true };
+const BEARING_ONLY: FootingRowCode = { ...CIRSOC_ONE_WAY, bearingOnly: true };
 
 /** A code the sheets design no footings to: the soil pressure under the modelled or presized base, and a line that says the rest is not covered. */
 export const uncoveredFootingRow: FootingRowFn = (d, c, adopted, fmt) => {

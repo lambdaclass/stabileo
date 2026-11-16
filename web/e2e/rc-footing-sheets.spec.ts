@@ -34,7 +34,8 @@ test('@smoke the footing sheets size, check and draw a footing under every colum
   await page.getByTestId('pr-stage-analyse').click();
   await page.getByTestId('pr-cmd-rcSheets').click();
   await page.getByTestId('rc-design').click();
-  await expect(page.getByTestId('rc-open-footing')).toBeEnabled({ timeout: 60_000 });
+  await expect(page.getByTestId('rc-building')).toHaveCount(0, { timeout: 20_000 });
+  await expect(page.getByTestId('rc-open-footing')).toBeEnabled();
   await page.getByTestId('rc-open-footing').click();
   const ws = page.getByTestId('rc-sheets-workspace');
   await expect(ws.getByTestId('rc-table-footing')).toBeVisible();

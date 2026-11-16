@@ -6,7 +6,6 @@
 import { describe, it, expect } from 'vitest';
 import { actionOf, footingDemands, type FootingDemandInput } from '../footing-demands';
 import { footingOverlaps, rectanglesOverlap, withOverlaps } from '../footing-overlaps';
-import { footingRow } from '../footing-row';
 import { footingDetail } from '../footing-detail';
 import { scheduleElements } from '../schedule/pieces';
 import { bendingSchedule } from '../schedule/schedule';
@@ -22,6 +21,7 @@ const fmt = makeFmt('.');
 const tr = (k: string, p?: Record<string, string | number>) => (p ? `${k}(${Object.values(p).join(',')})` : k);
 const ctx: FootingContext = { fc: 25, fy: 420, cover: 0.055, sizing: 'full', diameters: [10, 12, 16, 20, 25], columnBars: { count: 8, dia: 16, tension: false } };
 const R = rulesFor('cirsoc201-2025').bends;
+const footingRow = rulesFor('cirsoc201-2025').footingRow;
 
 const reaction = (nodeId: number, fz: number, extra: Partial<{ fx: number; fy: number; mx: number; my: number }> = {}) => ({ nodeId, fx: 0, fy: 0, fz, mx: 0, my: 0, mz: 0, ...extra });
 

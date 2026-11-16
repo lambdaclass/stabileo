@@ -1,6 +1,5 @@
-import { deriveHookedDevelopment } from '../codes/cirsoc201/anchorage';
 import { barArea, roundDown } from './bars';
-import { cirsocSlabDevelopment } from './slab-row';
+import type { FootingAnchorage } from './footing-design';
 import type { FootingAdopted, FootingMesh } from './footing-types';
 import type { Materials } from './types';
 
@@ -91,14 +90,15 @@ export function proposeLayer(dir: 'x' | 'y', a: Pick<FootingAdopted, 'B' | 'L' |
 
 /**
  * The anchorage of a layer past the face where its moment is largest (§13.2.8.3): straight when
- * ld (§25.4.2.4) fits between the face and the bar's end, else with a standard hook when ldh does
- * (§25.4.3).
+ * the code's ld fits between the face and the bar's end, else with a standard hook when its ldh
+ * does. Bars under a code with no anchorage rules do not anchor.
  */
-export function layerAnchorage(mat: Materials, m: FootingMesh, h: number, cover: number, cantilever: number): { ld: number; available: number; hooked: boolean; ok: boolean } {
+export function layerAnchorage(an: FootingAnchorage | undefined, mat: Materials, m: FootingMesh, h: number, cover: number, cantilever: number): { ld: number; available: number; hooked: boolean; ok: boolean } {
   const available = Math.max(0, cantilever - cover);
   if (!(m.dia > 0)) return { ld: 0, available, hooked: false, ok: true };
-  const ld = cirsocSlabDevelopment(mat, m.dia, false, h, { cover, spacing: m.spacing }).ldM;
+  if (!an) return { ld: 0, available, hooked: false, ok: false };
+  const ld = an.ld(mat, m.dia, h, { cover, spacing: m.spacing });
   if (ld <= available + 1e-9) return { ld, available, hooked: false, ok: true };
-  const ldh = deriveHookedDevelopment({ diameterMm: m.dia, fy: mat.fy, fc: mat.fc, edition: '2025' }).ldhM;
+  const ldh = an.ldh(mat, m.dia);
   return { ld: ldh, available, hooked: true, ok: ldh <= available + 1e-9 };
 }

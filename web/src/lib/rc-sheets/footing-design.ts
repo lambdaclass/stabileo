@@ -1,34 +1,46 @@
 import { computeAsFlexure, slabProvisions, stripCapacity } from '../engine/codes/argentina/losas';
 import { sqrtFcCapped } from '../engine/detailing/punching-shear';
-import { compressionLapMm, deriveCompressionDevelopment, deriveHookedDevelopment } from '../codes/cirsoc201/anchorage';
 import { presizeFooting } from '../model/foundation/presize';
 import { barArea } from './bars';
-import { tensionLap } from './column-row';
 import {
   ASSUMED_FILL_WEIGHT, bearingHolds, bearingStrength, bearingUse, faceReading, fieldOf, footingPunching, serviceBearing,
   type FootingPlan, type FootingPunching, type ServiceBearing,
 } from './footing-mechanics';
 import { bandShare, isBanded, layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingLayers, FootingMesh } from './footing-types';
+import type { Materials } from './types';
 
 const EDITION = '2025' as const;
 
-/** How a code reads what the CIRSOC and ACI footings share in another way: one-way shear of a footing without stirrups. */
+/** How a code develops and laps the footing's bars, m: the mesh in tension straight or hooked, the dowels in compression, their laps with the column's bars. */
+export interface FootingAnchorage {
+  ld(mat: Materials, dia: number, h: number, layout: { cover: number; spacing: number }): number;
+  ldh(mat: Materials, dia: number): number;
+  ldc(mat: Materials, dia: number): number;
+  lap(mat: Materials, dia: number, tension: boolean): number;
+  clause: { straight: string; hooked: string; compression: string };
+}
+
+/** How a code reads a footing where the CIRSOC and ACI footings may part: one-way shear without stirrups, and the anchorage of the bars. */
 export interface FootingRowCode {
   oneWayVc(fc: number, rhoW: number): number;
   oneWayClause: string;
   oneWayFormula: string;
+  /** Absent only where no bars are designed. */
+  anchorage?: FootingAnchorage;
   /** Size the plan for the soil and design nothing else. */
   bearingOnly?: true;
 }
 
+export type FootingShear = Pick<FootingRowCode, 'oneWayVc' | 'oneWayClause' | 'oneWayFormula'>;
+
 /** CIRSOC 201-2025 §13.2.6.2(a). */
-export const CIRSOC_FOOTING: FootingRowCode = {
+export const CIRSOC_ONE_WAY: FootingShear = {
   oneWayVc: (fc) => 0.17 * sqrtFcCapped(fc), oneWayClause: '§13.2.6.2(a)', oneWayFormula: "Vc = 0,17·λ·√f'c·bw·d",
 };
 
 /** ACI 318-19 Table 22.5.5.1(c) with λs = 1 (§13.2.6.2), no more than 0,42·λ·√f'c. */
-export const ACI_FOOTING: FootingRowCode = {
+export const ACI_ONE_WAY: FootingShear = {
   oneWayVc: (fc, rho) => Math.min(0.66 * Math.cbrt(Math.max(rho, 0)), 0.42) * sqrtFcCapped(fc),
   oneWayClause: '§22.5.5.1(c), §13.2.6.2', oneWayFormula: "Vc = 0,66·λ·ρw^(1/3)·√f'c·bw·d",
 };
@@ -78,7 +90,7 @@ function direction(dir: 'x' | 'y', c: FootingContext, a: FootingAdopted, code: F
   const rho = p.area * 1e-4 / Math.max(W * depth, 1e-9);
   const phiVc = 0.75 * code.oneWayVc(c.fc, rho) * W * depth * 1000;
   const loaded = cantilevers.filter((x) => x > c.cover + 1e-3);
-  const anchorage = layerAnchorage({ fc: c.fc, fy: c.fy }, m, a.h, c.cover, loaded.length ? Math.min(...loaded) : Infinity);
+  const anchorage = layerAnchorage(code.anchorage, { fc: c.fc, fy: c.fy }, m, a.h, c.cover, loaded.length ? Math.min(...loaded) : Infinity);
   const banded = isBanded(dir, a.B, a.L) && !!m.outer;
   const share = bandShare(a.B, a.L);
   return {
@@ -122,13 +134,14 @@ export function analyseFooting(d: FootingDemand, c: FootingContext, a: FootingAd
   const bs = bearingStrength(plan, c.columnFc ?? c.fc, c.fc);
   const dw = a.dowels;
   let dowels: FootingAnalysis['dowels'] = null;
-  if (d.column && dw && dw.count > 0 && dw.dia > 0) {
+  const an = code.anchorage;
+  if (d.column && an && dw && dw.count > 0 && dw.dia > 0) {
     const excess = Math.max(0, pu - Math.min(bs.column, bs.footing));
     const required = Math.max(0.005 * plan.b * plan.h * 1e4, (10 * excess) / (0.65 * c.fy));
     const tension = c.columnBars?.tension ?? false;
-    const ldc = deriveCompressionDevelopment({ diameterMm: dw.dia, fy: c.fy, fc: c.fc, edition: EDITION }).ldcM;
-    const ldh = tension ? deriveHookedDevelopment({ diameterMm: dw.dia, fy: c.fy, fc: c.fc, edition: EDITION }).ldhM : 0;
-    const lap = tension ? tensionLap({ fc: c.columnFc ?? c.fc, fy: c.fy }, dw.dia) : compressionLapMm(c.fy, dw.dia) / 1000;
+    const mat = { fc: c.fc, fy: c.fy };
+    const ldc = an.ldc(mat, dw.dia), ldh = tension ? an.ldh(mat, dw.dia) : 0;
+    const lap = an.lap({ fc: c.columnFc ?? c.fc, fy: c.fy }, dw.dia, tension);
     dowels = { ...dw, area: dw.count * barArea(dw.dia), required, ldc, ldh, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap, tension };
   }
   return { plan, lever, layers, bearing, x, y, punching, bearingStrength: { ...bs, pu }, dowels, sMax: slabProvisions(EDITION, c.fy, a.h).sTwoWay, combos };
@@ -178,7 +191,7 @@ export function proposeFooting(d: FootingDemand, c: FootingContext, code: Footin
   const m = d.footing && d.footing.B > 0 && d.footing.L > 0 ? d.footing : undefined;
   const col = d.column;
   if (!col) return null;
-  const dowels = proposeDowels(d, c);
+  const dowels = code.bearingOnly ? undefined : proposeDowels(d, c);
   const withBars = (s: Omit<FootingAdopted, 'x' | 'y' | 'dowels'>): FootingAdopted => {
     const size = { ...s, ...(dowels ? { dowels } : {}) };
     return { ...size, ...(code.bearingOnly ? { x: { dia: 0, spacing: 0 }, y: { dia: 0, spacing: 0 } } : proposeMeshes(d, c, size, code)) };
