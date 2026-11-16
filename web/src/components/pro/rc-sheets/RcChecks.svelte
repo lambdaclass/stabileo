@@ -12,7 +12,7 @@
 
 <table class="rcc" data-testid="rc-checks">
   <thead>
-    <tr><th>{t('rcSheets.v.title')}</th><th>{t('rcSheets.v.clause')}</th><th>{t('rcSheets.v.demand')}</th><th>{t('rcSheets.v.capacity')}</th><th>{t('rcSheets.col.ratio')}</th><th></th></tr>
+    <tr><th>{t('rcSheets.v.title')}</th><th>{t('rcSheets.v.clause')}</th><th class="n">{t('rcSheets.v.demand')}</th><th class="n">{t('rcSheets.v.capacity')}</th><th class="n">{t('rcSheets.col.ratio')}</th><th></th></tr>
   </thead>
   <tbody>
     {#each lines as l, i (i)}

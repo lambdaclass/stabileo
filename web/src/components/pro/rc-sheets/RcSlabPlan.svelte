@@ -102,16 +102,16 @@
   <details>
     <summary>{t('rcSheets.planFig.schedule')} ({plan.packages.length})</summary>
     <table class="sched" data-testid="rc-plan-schedule">
-      <thead><tr><th>{t('rcSheets.line.mark')}</th><th>{t('rcSheets.line.kind')}</th><th>Ø · s</th><th>n</th><th>L (m)</th><th>cm²/m</th><th>kg</th></tr></thead>
+      <thead><tr><th>{t('rcSheets.line.mark')}</th><th>{t('rcSheets.line.kind')}</th><th>Ø · s</th><th class="n">n</th><th class="n">L (m)</th><th class="n">cm²/m</th><th class="n">kg</th></tr></thead>
       <tbody>
         {#each plan.packages as pk (pk.id)}
-          <tr><td>{pk.mark}</td><td>{t(`rcSheets.planFig.kind.${pk.kind}`)} ({t(pk.layer === 'top' ? 'rcSheets.col.top' : 'rcSheets.col.bottom')} {pk.dir.toUpperCase()})</td><td>{pk.kind === 'integrity' ? `Ø${pk.bars.dia}` : meshLabel(pk.bars)}</td><td>{pk.count}</td><td>{fmt(pk.length, 2)}</td><td>{pk.kind === 'integrity' ? '—' : fmt(meshArea(pk.bars))}</td><td>{fmt(pk.weight, 1)}</td></tr>
+          <tr><td>{pk.mark}</td><td>{t(`rcSheets.planFig.kind.${pk.kind}`)} ({t(pk.layer === 'top' ? 'rcSheets.col.top' : 'rcSheets.col.bottom')} {pk.dir.toUpperCase()})</td><td>{pk.kind === 'integrity' ? `Ø${pk.bars.dia}` : meshLabel(pk.bars)}</td><td class="n">{pk.count}</td><td class="n">{fmt(pk.length, 2)}</td><td class="n">{pk.kind === 'integrity' ? '—' : fmt(meshArea(pk.bars))}</td><td class="n">{fmt(pk.weight, 1)}</td></tr>
         {/each}
       </tbody>
     </table>
     <table class="sched">
-      <thead><tr><th>Ø</th><th>ld</th><th>{t('rcSheets.planFig.ldTop')}</th><th>{t('rcSheets.planFig.ldh')}</th><th>{t('rcSheets.elev.lap')}</th></tr></thead>
-      <tbody>{#each plan.anchorage as a (a.dia)}<tr><td>{a.dia}</td><td>{cm(a.ld)}</td><td>{cm(a.ldTop)}</td><td>{cm(a.ldh)}</td><td>{cm(a.lap)}</td></tr>{/each}</tbody>
+      <thead><tr><th>Ø</th><th class="n">ld</th><th class="n">{t('rcSheets.planFig.ldTop')}</th><th class="n">{t('rcSheets.planFig.ldh')}</th><th class="n">{t('rcSheets.elev.lap')}</th></tr></thead>
+      <tbody>{#each plan.anchorage as a (a.dia)}<tr><td>{a.dia}</td><td class="n">{cm(a.ld)}</td><td class="n">{cm(a.ldTop)}</td><td class="n">{cm(a.ldh)}</td><td class="n">{cm(a.lap)}</td></tr>{/each}</tbody>
     </table>
   </details>
 </figure>
@@ -150,4 +150,5 @@
   summary { cursor: pointer; font-size: 0.72rem; font-weight: 600; color: var(--st-text-2); }
   .sched { border-collapse: collapse; font-size: 0.7rem; margin: 4px 0; }
   .sched th, .sched td { padding: 2px 6px; border-bottom: 1px solid var(--st-hair); text-align: left; white-space: nowrap; }
+  .sched .n { text-align: right; font-family: var(--st-mono); }
 </style>

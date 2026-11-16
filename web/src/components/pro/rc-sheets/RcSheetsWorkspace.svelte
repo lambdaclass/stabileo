@@ -195,21 +195,21 @@
       <table class="rcw-table" data-testid={`rc-table-${family}`}>
         <thead>
           {#if family === 'beam'}
-            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.line.spans')}</th><th>L</th>
-              <th>{t('rcSheets.line.runBottom')}</th><th>{t('rcSheets.line.runTop')}</th><th>{t('rcSheets.line.supports')}</th><th>{t('rcSheets.line.spans')} +</th><th>{t('rcSheets.col.stirrups')}</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th class="n">{t('rcSheets.line.spans')}</th><th class="n">L</th>
+              <th>{t('rcSheets.line.runBottom')}</th><th>{t('rcSheets.line.runTop')}</th><th>{t('rcSheets.line.supports')}</th><th>{t('rcSheets.line.spans')} +</th><th>{t('rcSheets.col.stirrups')}</th><th class="n">{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else if family === 'column'}
-            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>b × h</th><th>Pu</th><th>ρ</th>
-              <th>{t('rcSheets.col.bars')}</th><th>{t('rcSheets.col.ties')}</th><th>{t('rcSheets.col.crossties')}</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>b × h</th><th class="n">Pu</th><th class="n">ρ</th>
+              <th>{t('rcSheets.col.bars')}</th><th>{t('rcSheets.col.ties')}</th><th>{t('rcSheets.col.crossties')}</th><th class="n">{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else if family === 'punching'}
-            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.s.punchPosition')}</th><th>Vu</th><th>φVc</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.s.punchPosition')}</th><th class="n">Vu</th><th class="n">φVc</th><th class="n">{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else if family === 'footing'}
-            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>B × L × h</th><th>N</th><th>{t('rcSheets.foot.soil')}</th>
-              <th>{t('rcSheets.foot.mesh.x')}</th><th>{t('rcSheets.foot.mesh.y')}</th><th>{t('rcSheets.foot.dowels')}</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>B × L × h</th><th class="n">N</th><th class="n">{t('rcSheets.foot.soil')}</th>
+              <th>{t('rcSheets.foot.mesh.x')}</th><th>{t('rcSheets.foot.mesh.y')}</th><th>{t('rcSheets.foot.dowels')}</th><th class="n">{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else if family === 'wall'}
-            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>lw × t</th><th>Pu</th><th>Mu</th><th>Vu</th>
-              <th>ρl · ρt {t('rcSheets.req')}</th><th>{t('rcSheets.col.bars')}</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>lw × t</th><th class="n">Pu</th><th class="n">Mu</th><th class="n">Vu</th>
+              <th class="n">ρl · ρt {t('rcSheets.req')}</th><th>{t('rcSheets.col.bars')}</th><th class="n">{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else}
-            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.col.slabKind')}</th><th>h</th><th>Lx × Ly</th>
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.col.slabKind')}</th><th class="n">h</th><th>Lx × Ly</th>
               {#each SLAB_FACES as f (f)}<th>{t(`rcSheets.face.${f}`)}</th>{/each}<th>{t('rcSheets.col.status')}</th></tr>
           {/if}
         </thead>
@@ -270,7 +270,7 @@
               {:else}
                 {@const kind = slabSpanKind(r, rows.slabPlan)}
                 <td title={t(`rcSheets.slabKind.${kind}.long`)} data-testid="rc-slab-kind" data-kind={kind}>{t(`rcSheets.slabKind.${kind}`)}</td>
-                <td>{fmt(r.h * 100, 0)}</td>
+                <td class="n">{fmt(r.h * 100, 0)}</td>
                 <td>{f2(r.lx)} × {f2(r.ly)}</td>
                 {#each SLAB_FACES as f (f)}
                   <td><span class="need">{f2(r.faces[f].asReq)}</span> {r.adopted[f].dia ? meshLabel(r.adopted[f]) : '—'} <span class="dim">({f2(meshArea(r.adopted[f]))})</span></td>
