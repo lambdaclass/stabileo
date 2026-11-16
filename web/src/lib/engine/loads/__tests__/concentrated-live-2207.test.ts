@@ -113,16 +113,30 @@ it('#2207 direct application cannot write a blocked load plan', () => {
   modelStore.clear();
   const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(2, 0, 3);
   modelStore.addElement(a, b);
+  const supported = buildLoadPlan(liveInput({ occupancyKey: 'vivienda', generateCombinations: true, model: {
+    nodes: modelStore.nodes as never, elements: modelStore.elements as never,
+    sections: modelStore.model.sections as never, materials: modelStore.model.materials as never,
+    loadCases: modelStore.model.loadCases,
+  } }));
+  expect(supported.outcome).toBe('READY');
+  applyLoadPlan(supported, { clearExisting: false, bothSenses: true, nameOf: key => key });
+  expect(modelStore.loads.length).toBeGreaterThan(0);
+  expect(modelStore.model.loadCases.length).toBeGreaterThan(0);
+  expect(modelStore.model.combinations.length).toBeGreaterThan(0);
+  expect(designData().loadBasis).toBeDefined();
   const p = buildLoadPlan(liveInput({ model: {
     nodes: modelStore.nodes as never, elements: modelStore.elements as never,
     sections: modelStore.model.sections as never, materials: modelStore.model.materials as never,
     loadCases: modelStore.model.loadCases,
   } }));
+  expect(p.blockedKeys.length).toBeGreaterThan(0);
   const snapshot = () => JSON.stringify({ loads: modelStore.loads, cases: modelStore.model.loadCases,
     combinations: modelStore.model.combinations, design: designData() });
   const before = snapshot();
-  for (const outcome of ['READY', 'BLOCKED'] as const) for (const clearExisting of [false, true]) {
-    applyLoadPlan({ ...p, outcome }, { clearExisting, bothSenses: true, nameOf: key => key });
+  for (const [outcome, blockedKeys] of [
+    ['READY', p.blockedKeys], ['BLOCKED', p.blockedKeys], ['BLOCKED', []],
+  ] as const) for (const clearExisting of [false, true]) {
+    applyLoadPlan({ ...p, outcome, blockedKeys: [...blockedKeys] }, { clearExisting, bothSenses: true, nameOf: key => key });
     expect(snapshot()).toBe(before);
   }
 });
