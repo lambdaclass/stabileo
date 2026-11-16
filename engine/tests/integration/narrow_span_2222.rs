@@ -359,7 +359,6 @@ fn endpoint_input(a: f64, b: f64) -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_collapsed_endpoints_planar() {
     for (a, b) in [(3.0 - 5e-13, 3.0), (0.0, 5e-13)] {
         let input = endpoint_input(a, b);
@@ -372,16 +371,17 @@ fn issue_2222_collapsed_endpoints_planar() {
             corotational::solve_corotational_2d(&input, 40, 1e-9, 1, false).unwrap().results,
         ] {
             let f = &result.element_forces[0];
-            for (t, force, moment) in [(0.0, 0.0, 0.0), (1.0, -1.0, -3.0 + a + (b - a) / 2.0), (b / 3.0, -1.0, -(b - a) / 2.0)] {
+            for t in [0.0, 1.0, b / f.length] {
+                let force = if t == 0.0 { 0.0 } else { -1.0 };
+                let moment = if t == 0.0 { 0.0 } else { -t * f.length + a + (b - a) / 2.0 };
                 near(compute_diagram_value_at("shear", t, f), f.v_start + force);
-                near(compute_diagram_value_at("moment", t, f), f.m_start - f.v_start * t * 3.0 - moment);
+                near(compute_diagram_value_at("moment", t, f), f.m_start - f.v_start * t * f.length - moment);
             }
         }
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_collapsed_endpoints_spatial() {
     for (a, b) in [(3.0 - 5e-13, 3.0), (0.0, 5e-13)] {
         for plane in [Plane::XY, Plane::XZ] {
@@ -393,12 +393,14 @@ fn issue_2222_collapsed_endpoints_spatial() {
                 corotational::solve_corotational_3d(&input, 40, 1e-9, 1, false).unwrap().results,
             ] {
                 let f = &result.element_forces[0];
-                for (t, force, moment) in [(0.0, 0.0, 0.0), (1.0, -1.0, -3.0 + a + (b - a) / 2.0), (b / 3.0, -1.0, -(b - a) / 2.0)] {
+                for t in [0.0, 1.0, b / f.length] {
+                    let force = if t == 0.0 { 0.0 } else { -1.0 };
+                    let moment = if t == 0.0 { 0.0 } else { -t * f.length + a + (b - a) / 2.0 };
                     let (py, pz, my, mz) = if matches!(plane, Plane::XY) { (force, 0.0, 0.0, -moment) } else { (0.0, force, moment, 0.0) };
                     near(evaluate_diagram_3d_at(f, "shearY", t), f.vy_start + py);
                     near(evaluate_diagram_3d_at(f, "shearZ", t), f.vz_start + pz);
-                    near(evaluate_diagram_3d_at(f, "momentZ", t), f.mz_start - f.vy_start * t * 3.0 + mz);
-                    near(evaluate_diagram_3d_at(f, "momentY", t), f.my_start + f.vz_start * t * 3.0 + my);
+                    near(evaluate_diagram_3d_at(f, "momentZ", t), f.mz_start - f.vy_start * t * f.length + mz);
+                    near(evaluate_diagram_3d_at(f, "momentY", t), f.my_start + f.vz_start * t * f.length + my);
                 }
             }
         }
@@ -406,7 +408,6 @@ fn issue_2222_collapsed_endpoints_spatial() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_empty_reversed_and_one_sided_interval_terms() {
     for (a, b) in [(0.0, 0.0), (1.0, 0.0), (1.0, -1e300)] {
         assert_eq!(distributed_load_terms(-2.0, -2.0, a, b, 0.5), (0.0, 0.0));

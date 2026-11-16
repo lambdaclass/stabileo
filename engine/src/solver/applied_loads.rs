@@ -110,17 +110,16 @@ pub(super) fn replace(eq: &mut EquilibriumSummary, forces: Vec<Vec<f64>>) {
         eq.applied_force_sum[k] = forces.iter().map(|f| f[k]).sum();
     }
     eq.applied_force_components = forces.into_iter().flatten().collect();
-    eq.max_imbalance = eq.max_imbalance.max(
-        (0..dimensions)
-            .map(|k| (eq.applied_force_sum[k] + eq.reaction_force_sum[k]).abs())
-            .fold(0.0, f64::max),
-    );
+    let force_imbalance = (0..dimensions)
+        .map(|k| (eq.applied_force_sum[k] + eq.reaction_force_sum[k]).abs())
+        .fold(0.0, f64::max);
+    eq.max_imbalance = eq.max_imbalance.max(force_imbalance);
     let peak = eq.applied_force_sum[..dimensions]
         .iter()
         .chain(&eq.reaction_force_sum[..dimensions])
         .map(|v| v.abs())
         .fold(1.0, f64::max);
-    eq.equilibrium_ok &= eq.max_imbalance < 1e-6 * peak;
+    eq.equilibrium_ok &= force_imbalance < 1e-6 * peak;
 }
 
 type V = [f64; 3];
@@ -388,7 +387,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2222"]
     fn issue_2222_independent_force_check_preserves_the_wrench_verdict() {
         for dimensions in [2, 3] {
             for imbalance in [0.0, 0.5e-6, 1e-6, 2e-6] {

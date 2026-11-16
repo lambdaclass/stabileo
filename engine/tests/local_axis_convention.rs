@@ -194,7 +194,15 @@ fn fef_partial_distributed_2d_zero_and_subthreshold_span() {
     use dedaliano_engine::element::fef_partial_distributed_2d;
 
     let sub = fef_partial_distributed_2d(100.0, 200.0, 2.0, 2.0 + 5e-13, 6.0, 0.0);
-    assert_eq!(sub, [0.0; 6]);
+    let force = 150.0 * ((2.0 + 5e-13) - 2.0);
+    let x = 2.0 + ((2.0 + 5e-13) - 2.0) * 5.0 / 9.0;
+    let r = 6.0 - x;
+    let expected = [0.0, force * r * r * (3.0 * x + r) / 216.0, force * x * r * r / 36.0,
+        0.0, force * x * x * (x + 3.0 * r) / 216.0, -force * x * x * r / 36.0];
+    for k in 0..6 {
+        assert!((sub[k] - expected[k]).abs() <= 1e-13 * force.abs(), "dof {k}: {} vs {}", sub[k], expected[k]);
+    }
+    assert_eq!(sub[1] + sub[4], force);
 
     let zero = fef_partial_distributed_2d(100.0, 200.0, 2.0, 2.0, 6.0, 0.0);
     assert_eq!(zero, [0.0; 6]);

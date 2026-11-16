@@ -2,6 +2,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import * as applicability from '../../provenance/applicability';
 import refinementEvidence from '../../../../../docs/results-changes/1753-refinement-corpus-evidence.json';
+import appliedForceEvidence from '../../../../../docs/results-changes/2223-independent-applied-force-corpus-evidence.json';
 import declaredQuantities from 'virtual:result-change-quantities';
 import frozenInputs from '../../results-snapshot/frozen-inputs.json';
 import { initSolver, solveSSI3D } from '../../engine/wasm-solver';
@@ -61,6 +62,20 @@ describe('which values a registered change declares it moves', () => {
 });
 
 describe('analysis-specific result changes', () => {
+  it('#2222 restricts numerical load corrections to point or partial member loads', () => {
+    const registered = RESULT_CHANGES.changes.find(c => c.id === 'narrow-partial-loads')!;
+    const entry = { ...registered, quantities: declaredQuantities[registered.id] };
+    const field = 'base.elementForces[e1].nStart';
+    const features = ['plane2D', 'members', 'analysis:linear'];
+    expect(fieldCovered(entry, field, features)).toBe(false);
+    expect(fieldCovered(entry, field, [...features, 'pointOrPartialMemberLoads'])).toBe(true);
+    const summary = RESULT_CHANGES.changes.find(c => c.id === 'independent-applied-force-checks')!;
+    expect(summary).toBeDefined();
+    const summaryEntry = { ...summary, quantities: declaredQuantities[summary.id] };
+    expect(declaresMove(summaryEntry, field)).toBe(false);
+    expect(declaresMove(summaryEntry, 'base.equilibrium.appliedForceSum')).toBe(true);
+  });
+
   it('nonlinear and SSI notices cannot explain linear results', () => {
     for (const id of ['arc-length-reference-norm', 'ssi-support-reactions']) {
       const registered = RESULT_CHANGES.changes.find(c => c.id === id)!;
@@ -284,13 +299,13 @@ describe('against real corpus files', () => {
           'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
           'harmonic-modal-residual-checked', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
-          'time-history-reaction-availability', 'time-history-withheld-reaction-estimates',
+          'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'independent-applied-force-checks',
           ...(includeSSI ? ['ssi-support-reactions'] : []),
         ]));
         if (includeSSI) {
-        if (mainFirst) expect(opened.changes.slice(-11).map(c => c.id)).toEqual(orderedIds(['time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        if (mainFirst) expect(opened.changes.slice(-12).map(c => c.id)).toEqual(orderedIds(['independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
         } else {
-        if (mainFirst) expect(opened.changes.slice(-10).map(c => c.id)).toEqual(orderedIds(['time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        if (mainFirst) expect(opened.changes.slice(-11).map(c => c.id)).toEqual(orderedIds(['independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
         }
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
@@ -319,9 +334,16 @@ describe('against real corpus files', () => {
     const opened = await openAndSolve(readCorpusText('v0.4.0/cable-stayed-bridge.ded'));
     const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'cable-stayed-bridge')!;
     const then = readResults(`v0.4.0/${entry.results}`);
+    expect(resultFingerprint(opened.values)).toBe(appliedForceEvidence.afterFingerprint);
+    const mainValues = { ...opened.values };
+    for (const delta of appliedForceEvidence.changes) {
+      expect(opened.values[delta.path]).toBe(delta.after);
+      mainValues[delta.path] = delta.before;
+    }
+    expect(resultFingerprint(mainValues)).toBe(appliedForceEvidence.mainFingerprint);
     const baseline = judge('recorded bridge', then, opened.values, opened.changes);
-    expect(baseline.kind).toBe('explained');
-    expect(baseline.explainedBy.some((id) => id.startsWith('linear-stability-refusals '))).toBe(true);
+    expect(baseline.kind, baseline.report).toBe('explained');
+    expect(baseline.explainedBy.some((id) => id.startsWith('independent-applied-force-checks '))).toBe(true);
     for (const field of ['displacements.rz', 'displacements.uz', 'reactions.mz', 'elementForces.nStart']) {
       const [collection, component] = field.split('.');
       const path = Object.keys(then).find((k) => k.startsWith(`base.${collection}[`) && k.endsWith(`.${component}`) && typeof then[k] === 'number' && then[k] !== 0 && typeof opened.values[k] === 'number' && opened.values[k] !== 0)!;

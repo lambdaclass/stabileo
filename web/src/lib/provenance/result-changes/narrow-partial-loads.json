@@ -30,5 +30,10 @@
   "changelog": {
     "file": "docs/results-changes/2026-11-narrow-partial-loads.md",
     "heading": "Narrow partial member loads retain force and couple (2026-11-16)"
+  },
+  "when": {
+    "any": [
+      "pointOrPartialMemberLoads"
+    ]
   }
 }

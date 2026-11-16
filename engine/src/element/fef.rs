@@ -840,8 +840,9 @@ pub fn narrow_distributed_load(q_i: f64, q_j: f64, a: f64, b: f64) -> Option<(f6
 }
 
 pub fn distributed_load_terms(q_i: f64, q_j: f64, a: f64, b: f64, x: f64) -> (f64, f64) {
+    if b <= a { return (0.0, 0.0); }
     if let Some((p, m, at)) = narrow_distributed_load(q_i, q_j, a, b) {
-        return if at < x - 1e-10 { (p, p * (x - at) - m) } else { (0.0, 0.0) };
+        return if at < x { (p, p * (x - at) - m) } else { (0.0, 0.0) };
     }
     let span = b - a;
     let s = (x - a).clamp(0.0, span);

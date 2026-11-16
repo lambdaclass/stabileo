@@ -79,7 +79,7 @@ it('#2222 WASM keeps narrow loads in plane and space linear and nonlinear solves
 });
 
 
-it.skipIf(process.env.REPRO_2222_ENDPOINTS !== '1')('known wrong result: #2222: WASM diagrams include collapsed loads at exact member endpoints', () => {
+it('#2222: WASM diagrams include collapsed loads at exact member endpoints', () => {
   for (const dim of [2, 3]) for (const axis of dim === 2 ? ['y'] : ['y', 'z']) {
     for (const [a, b] of [[3 - 5e-13, 3], [0, 5e-13]]) {
       const input: any = structuredClone(model);
@@ -103,8 +103,8 @@ it.skipIf(process.env.REPRO_2222_ENDPOINTS !== '1')('known wrong result: #2222: 
         expect(evaluate(shear,0)).toBeCloseTo(v,10);
         expect(evaluate(moment,0)).toBeCloseTo(m,10);
         expect(evaluate(shear,1)).toBeCloseTo(v-1,10);
-        expect(evaluate(shear,b/3)).toBeCloseTo(v-1,10);
-        expect(evaluate(moment,1)).toBeCloseTo(m+sign*(v*3-3+a+(b-a)/2),10);
+        expect(evaluate(shear,b/f.length)).toBeCloseTo(v-1,10);
+        expect(evaluate(moment,1)).toBeCloseTo(m+sign*(v*f.length-f.length+a+(b-a)/2),10);
       }
     }
   }
