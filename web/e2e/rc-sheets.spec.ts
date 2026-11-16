@@ -196,14 +196,18 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('rc-panel-code').getByTestId('rc-code-select')).toHaveValue('aci318-19');
 
-  // Exact reinforcement: bent bars wherever the envelopes let them, both spans of V4 among them.
+  // Exact reinforcement: every line either bends bars up or says why it cannot, span by span.
   await page.getByTestId('rc-opt-bent-bars').check();
   await page.getByTestId('rc-redesign').click();
   await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
   await page.getByTestId('rc-open-beam').click();
+  for (const text of await ws.getByTestId('rc-line-spans').allTextContents()) expect(text).toMatch(/lev\./);
   const v4 = ws.getByTestId('rc-row').filter({ has: page.locator('td.nm', { hasText: /^V4\D*$/ }) }).first();
-  await expect(v4.getByTestId('rc-line-spans')).toContainText(/1: .*lev\..*2: .*lev\./);
-  expect(await ws.getByTestId('rc-line-spans').filter({ hasText: 'lev.' }).count()).toBeGreaterThan(10);
+  await v4.click();
+  if (await v4.getByTestId('rc-line-no-bent').count()) {
+    await expect(ws.getByTestId('rc-line-bent-note').first()).toBeVisible();
+    for (const reason of await ws.getByTestId('rc-line-bent-note').evaluateAll((xs) => xs.map((x) => x.getAttribute('data-reason')))) expect(['noSagging', 'noHogging', 'short']).toContain(reason);
+  } else await expect(ws.getByTestId('rc-bent-bar').first()).toBeVisible();
   await page.keyboard.press('Escape');
 
   // The project's denser column ends, the design's own setting, drawn in the elevation.

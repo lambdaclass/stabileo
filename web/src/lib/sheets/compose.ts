@@ -32,8 +32,8 @@ const GAP = 12, CAPTION = 8;
 export const CAPTION_MM = CAPTION;
 
 /**
- * `dense`: drawings also go beside the title block, into the room a row leaves at its right when
- * they are no taller than the row, and 8 mm apart.
+ * `dense`: each drawing hangs where it stands highest over those already placed, beside the title
+ * block too, rows 8 mm apart and side by side with only their own margins between.
  */
 export function composeSheets(drawings: readonly DrawingInput[], format: SheetFormat, geometryOf: (f: SheetFormat) => FormatGeometry = formatGeometry, dense = false): ComposedSheet[] {
   if (dense) return composeDense(drawings, format, geometryOf);

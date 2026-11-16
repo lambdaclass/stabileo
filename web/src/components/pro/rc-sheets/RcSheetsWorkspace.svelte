@@ -207,7 +207,7 @@
                 <td>{r.adopted.bottom.count} Ø{r.adopted.bottom.dia}</td>
                 <td>{r.adopted.top.count} Ø{r.adopted.top.dia}</td>
                 <td data-testid="rc-line-supports">{extra.supports}</td>
-                <td data-testid="rc-line-spans">{extra.spans}{#if r.bentNotes.length && !r.bars.some((b) => b.kind === 'bent')} <span class="dim" title={r.bentNotes.map((n) => tp(`rcSheets.line.noBent.${n.reason}`, { span: n.span !== undefined ? r.spans[n.span]?.name ?? '' : '', clause: n.clause ?? '' })).join(' ')} data-testid="rc-line-no-bent">· {t('rcSheets.line.noBentShort')}</span>{/if}</td>
+                <td data-testid="rc-line-spans">{extra.spans}{#if r.bentNotes.length && !r.bars.some((b) => b.kind === 'bent')} <span class="dim" title={r.bentNotes.map((n) => tp(`rcSheets.line.noBent.${n.reason}`, { span: n.span !== undefined ? r.spans[n.span]?.name ?? '' : '', clause: n.clause ?? '' })).join(' ')} data-testid="rc-line-no-bent">{` · ${t('rcSheets.line.noBentShort')}`}</span>{/if}</td>
                 <td>{[...new Set((r.adopted.stirrups ?? []).map((x) => stirrupsLabel(x)))].join(' · ')}</td>
                 <td class="n">{fmt(r.utilization, 2)}</td>
               {:else if r.family === 'beam'}

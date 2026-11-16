@@ -63,10 +63,10 @@ export function barPolyline(line: LineLayout, bar: LineBar, offset: number): P[]
 }
 
 /** How far the columns stand below the beam, mm: deep enough for every hook turned down into them. */
-const stubBelow = (line: LineLayout) => Math.max(STUB, ...line.bars.flatMap((b) => [-hookTurn(b, 0), -hookTurn(b, 1)]).map((d) => d * K + 50));
+const stubBelow = (line: LineLayout) => Math.max(STUB, ...line.bars.flatMap((b) => [-hookTurn(b, 0), -hookTurn(b, 1)]).map((d) => d * K + 30));
 
 /** The elevation itself, whole: concrete, stirrups, bars, cuts, splices, zones and the dimensions between axes, in centimetres. The marks go on by band. */
-function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, c: PlanCtx): { ps: Primitive[]; below: number } {
+function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, c: PlanCtx, whole: boolean): { ps: Primitive[]; below: number } {
   const s = c.scale, hMax = Math.max(...line.spans.map((x) => x.h)) * K, ps: Primitive[] = [];
   const supports = lineSupports(line).map((x) => x * K);
   const stub = stubBelow(line);
@@ -108,10 +108,11 @@ function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, 
     if (!spanDims.some(([a, b]) => same(a, z.from * K) && same(b, z.to * K))) ps.push(dim(pt(z.from * K, yZone), pt(z.to * K, yZone), -below0, cm(c.fmt, z.to - z.from)));
     ps.push(label(pt(((z.from + z.to) / 2) * K, yZone - (below0 + 4.5) * s), stirrupsLabel(z.stirrups), 2.2, 'center'));
   }
-  const chain = below0 + 10;
+  const chain = below0 + 9;
   for (const [a, b] of spanDims) ps.push(dim(pt(a, yZone), pt(b, yZone), -chain, cm(c.fmt, (b - a) / K)));
-  if (supports.length > 2) ps.push(dim(pt(supports[0]!, yZone), pt(supports[supports.length - 1]!, yZone), -(chain + 7), cm(c.fmt, line.length)));
-  return { ps, below: hMax + (chain + (supports.length > 2 ? 12 : 5)) * s };
+  const total = whole && supports.length > 2;
+  if (total) ps.push(dim(pt(supports[0]!, yZone), pt(supports[supports.length - 1]!, yZone), -(chain + 7), cm(c.fmt, line.length)));
+  return { ps, below: hMax + (chain + (total ? 11 : 4)) * s };
 }
 
 /** The marks of the bars that show within [x0, x1], mm: each over its longest piece there, inside the beam beside its own bar, kept off the other marks of its face. */
@@ -207,12 +208,12 @@ export function beamPlans(line: LineLayout, spans: readonly BeamRow[], o: BeamPl
   const s = o.scale;
   const sections = lineSections(line, spans, o.fmt, true);
   const cuts = sections.flatMap((g) => g.at.map((x) => ({ x, label: g.label })));
-  const { ps, below } = elevation(line, cuts, o);
   const supports = lineSupports(line).map((x) => x * K);
   const half = Math.max(...line.supportWidths.map((w) => w * K / 2), 0);
   const from = Math.min(line.ends.from * K, -half) - 10 * s, to = Math.max(line.ends.to * K, line.length * K + half) + 10 * s;
   const room = Math.max(50, o.maxWidth - 20);
   const windows = bands(from, to, room * s, supports.slice(1, -1));
+  const { ps, below } = elevation(line, cuts, o, windows.length === 1);
   const hMax = Math.max(...line.spans.map((x) => x.h)) * K;
   const axes = (a: number, b: number, y0: number, y1: number, sc: number) => supports.flatMap((xs, j) => (xs < a - 1e-6 || xs > b + 1e-6 ? [] : [seg(EJES, pt(xs, y0), pt(xs, y1)), ...bubble(pt(xs, y0 + 3 * sc), String(j + 1), sc)]));
   const out: DrawingInput[] = [];
@@ -228,17 +229,17 @@ export function beamPlans(line: LineLayout, spans: readonly BeamRow[], o: BeamPl
       return;
     }
     body.push(...axes(a, b, STUB_UP + 5 * s, -below + 4 * s, s));
-    out.push(framed(`${line.key}:elev-${i + 1}`, `${o.tr('rcSheets.plans.beamElevation', { name: line.name })} (${i + 1}/${windows.length})`, body, s, o.group, 3));
+    out.push(framed(`${line.key}:elev-${i + 1}`, `${o.tr('rcSheets.plans.beamElevation', { name: line.name })} (${i + 1}/${windows.length})`, body, s, o.group, 2));
   });
-  if (!whole) {
-    const sb = SCALES.find((x) => x >= s && (to - from) / x <= room) ?? s;
-    const bd = breakdown(line, 0, from, to, { ...o, scale: sb });
-    out.push(framed(`${line.key}:bars`, o.tr('rcSheets.plans.beamBars', { name: line.name }), [...bd.ps, ...axes(from, to, 6 * sb, bd.bottom, sb)], sb, o.group));
-  }
   for (const g of sections) {
     const notes = g.notes.map((n) => n.replace(/^↑ /, `${o.tr('rcSheets.col.top')}: `).replace(/^↓ /, `${o.tr('rcSheets.col.bottom')}: `));
     const ps2 = sectionPrimitives(g.drawing, o, g.marks, [g.tags.length <= 2 ? g.tags.join(', ') : `${g.tags[0]} … (${g.tags.length})`, ...notes]);
     out.push(framed(`${line.key}:sec-${g.label}`, o.tr('rcSheets.plans.section', { n: g.label }), ps2, s, o.group));
+  }
+  if (!whole) {
+    const sb = SCALES.find((x) => x >= s && (to - from) / x <= room) ?? s;
+    const bd = breakdown(line, 0, from, to, { ...o, scale: sb });
+    out.push(framed(`${line.key}:bars`, o.tr('rcSheets.plans.beamBars', { name: line.name }), [...bd.ps, ...axes(from, to, 6 * sb, bd.bottom, sb)], sb, o.group));
   }
   const marks = new Map(line.bars.map((b) => [b.mark, b]));
   const layerOf = (r: ScheduleRow): ArmLayer => (r.kind === 'stirrup' || r.kind === 'stirrupTie' || r.kind === 'hanger' ? 'EST' : marks.get(r.mark) ? barLayer(marks.get(r.mark)!) : 'INF');
