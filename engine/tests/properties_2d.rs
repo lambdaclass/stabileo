@@ -649,7 +649,7 @@ fn local_end_forces(f: &ElementForces) -> [f64; 6] {
 fn check_internal_force_consistency(inp: &SolverInput, res: &AnalysisResults, lchar: f64) -> Result<(), TestCaseError> {
     let ef: HashMap<usize, &ElementForces> = res.element_forces.iter().map(|f| (f.element_id, f)).collect();
     let mut equilibrium = NodalEquilibrium::<3>::new(2, lchar);
-    let mut wl: HashMap<usize, [f64; 3]> = HashMap::new();
+    let mut wl: HashMap<usize, MemberResultant<3>> = HashMap::new();
     for l in &inp.loads {
         match l {
             SolverLoad::Distributed(dl) => {
@@ -658,15 +658,15 @@ fn check_internal_force_consistency(inp: &SolverInput, res: &AnalysisResults, lc
                 let span = b - a;
                 let w = wl.entry(dl.element_id).or_default();
                 for (q, xc) in [(dl.q_i * span, a + span / 2.0), ((dl.q_j - dl.q_i) * span / 2.0, a + 2.0 * span / 3.0)] {
-                    w[1] += q; w[2] += q * xc;
-                    equilibrium.add_model_terms(&[q, q * xc / len]);
+                    w.add(1, q);
+                    w.add(2, q * xc);
                 }
             }
             SolverLoad::PointOnElement(pl) => {
-                let len = elem_len(inp, pl.element_id);
-                equilibrium.add_model_terms(&[pl.px.unwrap_or(0.0), pl.p, pl.p * pl.a / len, pl.my.unwrap_or(0.0) / len]);
                 let w = wl.entry(pl.element_id).or_default();
-                w[0] += pl.px.unwrap_or(0.0); w[1] += pl.p; w[2] += pl.p * pl.a + pl.my.unwrap_or(0.0);
+                w.add(0, pl.px.unwrap_or(0.0));
+                w.add(1, pl.p);
+                w.add_terms(2, &[pl.p * pl.a, pl.my.unwrap_or(0.0)]);
             }
             _ => {}
         }
@@ -675,7 +675,10 @@ fn check_internal_force_consistency(inp: &SolverInput, res: &AnalysisResults, lc
     for e in inp.elements.values() {
         let f = ef[&e.id];
         let len = elem_len(inp, e.id);
-        let w = wl.get(&e.id).copied().unwrap_or_default();
+        if let Some(resultant) = wl.get(&e.id) {
+            equilibrium.add_model_resultant(resultant, 2, len);
+        }
+        let w = wl.get(&e.id).map(MemberResultant::values).unwrap_or_default();
         for v in local_end_forces(f).iter().map(|x| x.abs()).chain([w[0].abs(), w[1].abs(), w[2].abs() / len]) {
             fscale = fscale.max(v);
         }
@@ -701,7 +704,7 @@ fn check_internal_force_consistency(inp: &SolverInput, res: &AnalysisResults, lc
         let (_, len, _, _) = elem_geom(inp, e);
         let f = ef[&e.id];
         let fl = if e.elem_type == "truss" { [-f.n_start, 0.0, 0.0, f.n_end, 0.0, 0.0] } else { local_end_forces(f) };
-        let w = wl.get(&e.id).copied().unwrap_or_default();
+        let w = wl.get(&e.id).map(MemberResultant::values).unwrap_or_default();
         let previous_sc = fl.iter().fold(0.0f64, |a, b| a.max(b.abs())).max(w[0].abs()).max(w[1].abs()).max(w[2].abs() / len);
         let sc = fl.iter().enumerate()
             .fold(0.0f64, |a, (k, v)| a.max(if k % 3 == 2 { v.abs() / len } else { v.abs() }))
@@ -755,7 +758,6 @@ fn cancelling_member_load_input(kind: usize, factor: f64) -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #2229"]
 fn equilibrium_oracle_cancelling_member_loads_keep_roundoff_budget() {
     let mut failures = Vec::new();
     for (name, kind) in [("point transverse", 0), ("point axial", 1), ("point moment", 2), ("distributed", 3)] {
@@ -771,6 +773,10 @@ fn equilibrium_oracle_cancelling_member_loads_keep_roundoff_budget() {
             let mut altered = res.clone();
             altered.element_forces[0].n_start += 1e-6 * 0.1 * factor;
             assert!(check_internal_force_consistency(&inp, &altered, length).is_err());
+            let mut nonzero = inp.clone();
+            nonzero.loads.extend(scale_loads(&inp.loads[..1], 10.0));
+            let solved = solve(&nonzero).unwrap();
+            check_internal_force_consistency(&nonzero, &solved, length).unwrap();
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
@@ -899,6 +905,76 @@ fn equilibrium_oracle_preserves_previous_nonzero_budget_unless_roundoff_exceeds_
             assert!(tolerance > previous && tolerance < 1e-6 * scale);
         }
     }
+}
+
+fn check_member_resultant_roundoff_boundary<const M: usize, const N: usize>(force_components: usize) {
+    for member_length in [0.125, 8.0] {
+        for scale in [1e-12, 1.0, 1e12] {
+            for source_component in 0..M {
+                for members in [1, 2] {
+                    let floor = equilibrium_tolerance(0.0, 2.0 * scale, 2 * members + N, 0.0);
+                    for target_component in 0..N {
+                        for (residue, accepted) in [(floor.next_down(), true), (floor, true), (floor.next_up(), false)] {
+                            let mut equilibrium = NodalEquilibrium::<N>::new(force_components, 8.0);
+                            for _ in 0..members {
+                                let mut resultant = MemberResultant::<M>::default();
+                                let value = scale * if source_component < force_components { 1.0 } else { member_length };
+                                if members == 1 {
+                                    resultant.add_terms(source_component, &[value, -value]);
+                                } else {
+                                    resultant.add(source_component, value);
+                                    resultant.add(source_component, -value);
+                                }
+                                assert_eq!(resultant.values(), [0.0; M]);
+                                equilibrium.add_model_resultant(&resultant, force_components, member_length);
+                            }
+                            let mut target = [0.0; N];
+                            target[target_component] = residue * if target_component < force_components { 1.0 } else { 8.0 };
+                            equilibrium.add_external(1, target);
+                            assert_eq!(equilibrium.tolerance(0.0, 0.0), floor);
+                            assert_eq!(equilibrium.check(0.0).is_ok(), accepted,
+                                "source {source_component}, target {target_component}, members {members}, length {member_length}, scale {scale:e}, residue {residue:e}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn equilibrium_oracle_member_resultant_roundoff_has_sharp_boundaries() {
+    check_member_resultant_roundoff_boundary::<3, 3>(2);
+    check_member_resultant_roundoff_boundary::<5, 6>(3);
+}
+
+fn check_member_resultant_nonzero_budget<const M: usize, const N: usize>(force_components: usize) {
+    for scale in [1e-12, 1.0, 1e12] {
+        for count in [1, 12, 120, 1200, 8192] {
+            let mut resultant = MemberResultant::<M>::default();
+            for k in 0..M {
+                let unit = scale * if k < force_components { 1.0 } else { 8.0 };
+                for value in std::iter::repeat_n(0.1 * unit, count).chain(std::iter::repeat_n(-0.2 * unit, count / 2)).chain([unit]) {
+                    resultant.add(k, value);
+                }
+            }
+            let local = resultant.values().iter().enumerate().map(|(k, value)| {
+                if k < force_components { value.abs() } else { value.abs() / 8.0 }
+            }).fold(0.0, f64::max);
+            assert!(local > 0.0);
+            let previous = 1e-7 * local + 1e-9 * local;
+            let mut equilibrium = NodalEquilibrium::<N>::new(force_components, 8.0);
+            equilibrium.add_model_resultant(&resultant, force_components, 8.0);
+            assert_eq!(equilibrium.tolerance(local, previous), previous);
+            assert!(equilibrium.tolerance(local, previous) < 1e-6 * scale);
+        }
+    }
+}
+
+#[test]
+fn equilibrium_oracle_member_resultants_preserve_previous_nonzero_budget() {
+    check_member_resultant_nonzero_budget::<3, 3>(2);
+    check_member_resultant_nonzero_budget::<5, 6>(3);
 }
 
 proptest! {

@@ -7,6 +7,42 @@ pub fn equilibrium_tolerance(local_scale: f64, model_scale: f64, terms: usize, p
     previous_budget.max(roundoff)
 }
 
+pub struct MemberResultant<const N: usize> {
+    values: [f64; N],
+    absolute: [f64; N],
+    terms: usize,
+}
+
+impl<const N: usize> Default for MemberResultant<N> {
+    fn default() -> Self {
+        Self { values: [0.0; N], absolute: [0.0; N], terms: 0 }
+    }
+}
+
+impl<const N: usize> MemberResultant<N> {
+    pub fn add(&mut self, component: usize, value: f64) {
+        self.add_terms(component, &[value]);
+    }
+
+    pub fn add_terms(&mut self, component: usize, values: &[f64]) {
+        self.values[component] += values.iter().copied().reduce(|a, b| a + b).unwrap_or(0.0);
+        for value in values {
+            self.absolute[component] += value.abs();
+            self.terms += 1;
+        }
+    }
+
+    pub fn values(&self) -> [f64; N] {
+        self.values
+    }
+
+    fn magnitude(&self, force_components: usize, length: f64) -> f64 {
+        self.absolute.iter().enumerate().map(|(k, value)| {
+            if k < force_components { *value } else { *value / length }
+        }).fold(0.0, f64::max)
+    }
+}
+
 struct Balance<const N: usize> {
     member: [f64; N],
     external: [f64; N],
@@ -56,11 +92,10 @@ impl<const N: usize> NodalEquilibrium<N> {
         self.add(node, values, None);
     }
 
-    pub fn add_model_terms(&mut self, values: &[f64]) {
-        self.terms += values.len();
-        for value in values {
-            self.model_scale = self.model_scale.max(value.abs());
-        }
+    pub fn add_model_resultant<const M: usize>(&mut self, resultant: &MemberResultant<M>, force_components: usize, length: f64) {
+        assert!(force_components <= M && length.is_finite() && length > 0.0);
+        self.terms += resultant.terms;
+        self.model_scale = self.model_scale.max(resultant.magnitude(force_components, length));
     }
 
     pub fn tolerance(&self, local_scale: f64, previous_budget: f64) -> f64 {

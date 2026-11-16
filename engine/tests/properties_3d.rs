@@ -711,23 +711,21 @@ fn to_global(ax: &[V3; 3], v: &[f64]) -> V3 {
 fn check_internal_force_consistency(inp: &SolverInput3D, res: &AnalysisResults3D, lchar: f64) -> Result<(), TestCaseError> {
     let ef: HashMap<usize, &ElementForces3D> = res.element_forces.iter().map(|f| (f.element_id, f)).collect();
     let mut equilibrium = NodalEquilibrium::<6>::new(3, lchar);
-    let mut wl: HashMap<usize, [f64; 5]> = HashMap::new();
+    let mut wl: HashMap<usize, MemberResultant<5>> = HashMap::new();
     for l in &inp.loads {
         match l {
             SolverLoad3D::Distributed(d) => {
                 let len = elem_len(inp, d.element_id);
                 let (a, b) = (d.a.unwrap_or(0.0), d.b.unwrap_or(len));
                 let w = wl.entry(d.element_id).or_default();
-                for (q, _) in trap(d.q_xi, d.q_xj, a, b) { w[0] += q; equilibrium.add_model_terms(&[q]); }
-                for (q, xc) in trap(d.q_yi, d.q_yj, a, b) { w[1] += q; w[4] += xc * q; equilibrium.add_model_terms(&[q, xc * q / len]); }
-                for (q, xc) in trap(d.q_zi, d.q_zj, a, b) { w[2] += q; w[3] -= xc * q; equilibrium.add_model_terms(&[q, xc * q / len]); }
+                for (q, _) in trap(d.q_xi, d.q_xj, a, b) { w.add(0, q); }
+                for (q, xc) in trap(d.q_yi, d.q_yj, a, b) { w.add(1, q); w.add(4, xc * q); }
+                for (q, xc) in trap(d.q_zi, d.q_zj, a, b) { w.add(2, q); w.add(3, -xc * q); }
             }
             SolverLoad3D::PointOnElement(p) => {
-                let len = elem_len(inp, p.element_id);
-                equilibrium.add_model_terms(&[p.py, p.pz, p.a * p.py / len, p.a * p.pz / len]);
                 let w = wl.entry(p.element_id).or_default();
-                w[1] += p.py; w[4] += p.a * p.py;
-                w[2] += p.pz; w[3] -= p.a * p.pz;
+                w.add(1, p.py); w.add(4, p.a * p.py);
+                w.add(2, p.pz); w.add(3, -p.a * p.pz);
             }
             _ => {}
         }
@@ -735,7 +733,10 @@ fn check_internal_force_consistency(inp: &SolverInput3D, res: &AnalysisResults3D
     let mut fscale: f64 = 0.0;
     for e in inp.elements.values() {
         let len = elem_len(inp, e.id);
-        let w = wl.get(&e.id).copied().unwrap_or_default();
+        if let Some(resultant) = wl.get(&e.id) {
+            equilibrium.add_model_resultant(resultant, 3, len);
+        }
+        let w = wl.get(&e.id).map(MemberResultant::values).unwrap_or_default();
         for v in local_end_forces(ef[&e.id]).iter().map(|x| x.abs()).chain(w[..3].iter().map(|x| x.abs())).chain(w[3..].iter().map(|x| x.abs() / len)) {
             fscale = fscale.max(v);
         }
@@ -760,7 +761,7 @@ fn check_internal_force_consistency(inp: &SolverInput3D, res: &AnalysisResults3D
     for e in inp.elements.values() {
         let (len, _) = local_axes(inp, e);
         let f = local_end_forces(ef[&e.id]);
-        let w = wl.get(&e.id).copied().unwrap_or_default();
+        let w = wl.get(&e.id).map(MemberResultant::values).unwrap_or_default();
         let sc = f.iter().enumerate()
             .fold(0.0f64, |a, (k, v)| a.max(if k % 6 >= 3 { v.abs() / len } else { v.abs() }))
             .max(w[0].abs()).max(w[1].abs()).max(w[2].abs())
@@ -827,7 +828,6 @@ fn cancelling_member_load_input(kind: usize, factor: f64) -> SolverInput3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #2229"]
 fn equilibrium_oracle_cancelling_member_loads_keep_roundoff_budget() {
     let mut failures = Vec::new();
     for (name, kind) in [("point y", 0), ("point z", 1), ("distributed x", 2), ("distributed y", 3), ("distributed z", 4)] {
@@ -843,6 +843,10 @@ fn equilibrium_oracle_cancelling_member_loads_keep_roundoff_budget() {
             let mut altered = res.clone();
             altered.element_forces[0].n_start += 1e-6 * 0.1 * factor;
             assert!(check_internal_force_consistency(&inp, &altered, length).is_err());
+            let mut nonzero = inp.clone();
+            nonzero.loads.extend(scale_loads(&inp.loads[..1], 10.0));
+            let solved = solve(&nonzero).unwrap();
+            check_internal_force_consistency(&nonzero, &solved, length).unwrap();
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));

@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 
 mod equilibrium;
-pub use equilibrium::{equilibrium_tolerance, NodalEquilibrium};
+pub use equilibrium::{equilibrium_tolerance, MemberResultant, NodalEquilibrium};
 
 use proptest::test_runner::{Config, FileFailurePersistence};
 
