@@ -1,0 +1,55 @@
+{
+  "id": "planar-remapped-load-integrals",
+  "date": "2026-11-16",
+  "prs": [
+    2222,
+    2223
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "plane2D"
+      ],
+      [
+        "frameMembers"
+      ],
+      [
+        "analysis:plastic"
+      ],
+      [
+        "partialDistributedMemberLoads"
+      ]
+    ]
+  },
+  "quantities": [
+    "collapseFactor",
+    "hinges",
+    "steps",
+    "isMechanism",
+    "unresolved",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Remapped planar member loads retain force and moment",
+    "es": "Las cargas planas remapeadas conservan fuerza y momento",
+    "pt": "Cargas planas remapeadas preservam força e momento",
+    "de": "Neu zugeordnete ebene Stablasten erhalten Kraft und Moment",
+    "fr": "Les charges planes remappées conservent force et moment",
+    "hu": "Az áthelyezett síkbeli rúdterhek megőrzik az erőt és nyomatékot",
+    "tr": "Yeniden eşlenen düzlemsel çubuk yükleri kuvvet ve momenti korur"
+  },
+  "explanation": {
+    "en": "Rerun planar plastic analyses containing partial member loads. Splits preserve force and first moment despite geometric roundoff. A positive interval whose mapped endpoints coincide becomes an interior point force with its residual couple instead of a zero load. Collapse factors, mechanisms and histories can change.",
+    "es": "Repita los análisis plásticos planos con cargas parciales. Las divisiones conservan fuerza y primer momento pese al redondeo geométrico. Un intervalo positivo cuyos extremos remapeados coinciden se convierte en fuerza puntual interior con su par residual. Pueden cambiar factores, mecanismos e historias.",
+    "pt": "Refaça análises plásticas planas com cargas parciais. As divisões preservam força e primeiro momento apesar do arredondamento geométrico. Um intervalo positivo cujas extremidades remapeadas coincidem vira força pontual interior com seu momento residual. Fatores, mecanismos e históricos podem mudar.",
+    "de": "Ebene plastische Analysen mit Teillasten erneut rechnen. Teilungen erhalten Kraft und erstes Moment trotz geometrischer Rundung. Ein positives Intervall mit zusammenfallenden zugeordneten Endpunkten wird zur inneren Punktlast mit Restmoment. Faktoren, Mechanismen und Verläufe können sich ändern.",
+    "fr": "Relancer les analyses plastiques planes avec charges partielles. Les divisions conservent force et premier moment malgré les arrondis géométriques. Un intervalle positif dont les extrémités remappées coïncident devient une force ponctuelle intérieure avec son couple résiduel. Facteurs, mécanismes et historiques peuvent changer.",
+    "hu": "Futtassa újra a részleges rúdterheket tartalmazó síkbeli képlékeny elemzéseket. Az osztások geometriai kerekítés mellett is megőrzik az erőt és első nyomatékot. Az egybeeső áthelyezett végpontú pozitív intervallum belső pontszerű erővé és maradék nyomatékká alakul. Tényezők, mechanizmusok és előzmények változhatnak.",
+    "tr": "Kısmi çubuk yükleri içeren düzlemsel plastik analizleri yeniden çalıştırın. Bölmeler geometrik yuvarlamaya rağmen kuvveti ve birinci momenti korur. Eşlenen uçları çakışan pozitif aralık, iç noktada kuvvete ve artık momente dönüşür. Katsayılar, mekanizmalar ve geçmişler değişebilir."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-narrow-partial-loads.md",
+    "heading": "Compensated force totals and remapped load integrals (round 6, #2223)"
+  }
+}

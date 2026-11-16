@@ -593,7 +593,6 @@ fn cancellation_input() -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_cancelling_nodal_forces_planar() {
     use dedaliano_engine::{load_session::LoadSession2D, solver::fiber_nonlinear::*};
     for cancel in [true, false] {
@@ -625,7 +624,6 @@ fn issue_2222_cancelling_nodal_forces_planar() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_cancelling_nodal_forces_spatial() {
     use dedaliano_engine::{load_session::LoadSession3D, solver::fiber_nonlinear::*};
     for plane in [Plane::XY, Plane::XZ] {

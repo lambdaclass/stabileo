@@ -40,7 +40,7 @@ function integrals(loads: SolverLoad[], length: number, about: number): [number,
 }
 
 for (const type of ['distributed', 'axialDistributed'] as const) {
-  it.skip(`known wrong result: #2222 ${type} preserves force and first moment when remapped endpoints collapse`, () => {
+  it(`#2222 ${type} preserves force and first moment when remapped endpoints collapse`, () => {
     const length = 2 - 2 ** -51, a = 1.5 - 2 ** -52, b = 1.5, width = b - a;
     for (const [qI, qJ] of [[2 ** 52, 2 ** 52], [0, 2 ** 53], [-6 / width / width, 6 / width / width]]) {
       const load = { type, data: { elementId: 1, a, b, qI, qJ } };
@@ -59,7 +59,7 @@ for (const type of ['distributed', 'axialDistributed'] as const) {
     }
   });
 
-  it.skip(`known wrong result: #2222 ${type} remapping preserves integrals on both sides of collapse`, () => {
+  it(`#2222 ${type} remapping preserves integrals on both sides of collapse`, () => {
     for (const childLength of [next(2, -1n), 2, next(2, 1n)]) {
       for (const [a, b] of [[1.5 - 2 ** -52, 1.5], [1.5 - 2 ** -51, 1.5], [0, 2], [0.25, 1.75], [0, 2 ** -52], [2 - 2 ** -52, 2]]) {
         for (const ratio of [0, 1, -1]) {
@@ -84,7 +84,7 @@ for (const type of ['distributed', 'axialDistributed'] as const) {
 }
 
 for (const mode of ['linear', 'session', 'pdelta', 'corotational', 'fiber']) {
-  it.skip(`known wrong result: #2222 remapped collapsed load reaches ${mode} with its force and couple`, () => {
+  it(`#2222 remapped collapsed load reaches ${mode} with its force and couple`, () => {
     const input: any = structuredClone(model);
     const length = 2 - 2 ** -51;
     input.nodes['2'].x = length;
@@ -109,7 +109,7 @@ for (const mode of ['linear', 'session', 'pdelta', 'corotational', 'fiber']) {
 }
 
 for (const dim of [2, 3]) for (const mode of ['linear', 'session', 'pdelta', 'corotational', 'fiber']) {
-  it.skip(`known wrong result: #2222 ${dim}D ${mode} accepts balanced cancelling nodal forces`, () => {
+  it(`#2222 ${dim}D ${mode} accepts balanced cancelling nodal forces`, () => {
     const base: any = structuredClone(model);
     base.loads = [];
     if (dim === 3) {
@@ -139,7 +139,7 @@ for (const dim of [2, 3]) for (const mode of ['linear', 'session', 'pdelta', 'co
 }
 
 
-it.skip('known wrong result: #2222 Maxwell section splitting preserves the narrow interior load', () => {
+it('#2222 Maxwell section splitting preserves the narrow interior load', () => {
   const input = buildSolverInput2D(planeModel([[1, 2.1, 0], [2, 6.1, 0]], [[1, 1, 2]], [[1, 'fixed']]), false)!;
   const length = 6.1 - 2.1, t = 2 / length, a = 1.5 - 2 ** -52, b = 1.5;
   const target = { kind: 'section' as const, elementId: 1, t };
@@ -157,7 +157,7 @@ it.skip('known wrong result: #2222 Maxwell section splitting preserves the narro
   } finally { spy.mockRestore(); }
 });
 
-it.skip('known wrong result: #2222 plastic hinge splitting preserves the narrow interior load', () => {
+it('#2222 plastic hinge splitting preserves the narrow interior load', () => {
   const input = buildSolverInput2D(planeModel([[1, 2.1, 0], [2, 6.1, 0]], [[1, 1, 2]], [[1, 'pinned'], [2, 'rollerX']]), false)!;
   const a = 1.5 - 2 ** -52, b = 1.5;
   input.loads = [{ type: 'distributed', data: { elementId: 1, a, b, qI: 2 ** 52, qJ: 2 ** 52 } }, { type: 'pointOnElement', data: { elementId: 1, a: 2, p: 1 } }];
@@ -176,7 +176,7 @@ it.skip('known wrong result: #2222 plastic hinge splitting preserves the narrow 
 });
 
 
-it.skip('known wrong result: #2222 collapsed member loads refuse an unrepresentable interior station', () => {
+it('#2222 collapsed member loads refuse an unrepresentable interior station', () => {
   const load = { type: 'distributed' as const, data: { elementId: 1, a: 1.5 - 2 ** -52, b: 1.5, qI: 2 ** 52, qJ: 2 ** 52 } };
   expect(() => splitSpanLoad(load, 2, [{ id: 1, start: 0, end: 2, length: Number.MIN_VALUE }])).toThrow('no representable interior load station');
   const nearEnd = { ...load, data: { ...load.data, a: 1.75 - 2 ** -52, b: 1.75 } };
@@ -186,7 +186,7 @@ it.skip('known wrong result: #2222 collapsed member loads refuse an unrepresenta
 });
 
 
-it.skip('known wrong result: #2222 subnormal positive widths retain a representable resultant', () => {
+it('#2222 subnormal positive widths retain a representable resultant', () => {
   for (const type of ['distributed', 'axialDistributed'] as const) {
     const load = { type, data: { elementId: 1, a: 0, b: Number.MIN_VALUE, qI: 2 ** 1000, qJ: 2 ** 1000 } };
     const moved = splitSpanLoad(load, 2, [{ id: 1, start: 0, end: 2, length: 1 }]);
@@ -199,7 +199,7 @@ it.skip('known wrong result: #2222 subnormal positive widths retain a representa
 });
 
 
-it.skip('known wrong result: #2222 equivalent corrections refuse non-finite loads and unrepresentable axial pairs', () => {
+it('#2222 equivalent corrections refuse non-finite loads and unrepresentable axial pairs', () => {
   const axial = { type: 'axialDistributed' as const, data: { elementId: 1, a: 1, b: 2, qI: 4 * Number.MIN_VALUE, qJ: 4 * Number.MIN_VALUE } };
   expect(() => splitSpanLoad(axial, 2, [{ id: 1, start: 0, end: 2, length: 2 * Number.MIN_VALUE }])).toThrow('no representable axial load pair');
   const pair = splitSpanLoad(axial, 2, [{ id: 1, start: 0, end: 2, length: 3 * Number.MIN_VALUE }]).filter(l => l.type === 'pointOnElement');

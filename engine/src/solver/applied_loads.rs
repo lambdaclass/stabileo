@@ -107,7 +107,18 @@ pub(super) fn replace(eq: &mut EquilibriumSummary, forces: Vec<Vec<f64>>) {
         Vec::len,
     );
     for k in 0..dimensions {
-        eq.applied_force_sum[k] = forces.iter().map(|f| f[k]).sum();
+        let (mut sum, mut correction) = (0.0_f64, 0.0_f64);
+        for force in &forces {
+            let value = force[k];
+            let next = sum + value;
+            correction += if sum.abs() >= value.abs() {
+                (sum - next) + value
+            } else {
+                (value - next) + sum
+            };
+            sum = next;
+        }
+        eq.applied_force_sum[k] = sum + correction;
     }
     eq.applied_force_components = forces.into_iter().flatten().collect();
     let force_imbalance = (0..dimensions)
@@ -408,7 +419,6 @@ mod tests {
         }
     }
     #[test]
-    #[ignore = "known wrong result: #2222"]
     fn issue_2222_compensated_force_totals_keep_small_terms() {
         for dimensions in [2, 3] {
             for axis in 0..dimensions {

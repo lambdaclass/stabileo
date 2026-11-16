@@ -1,0 +1,37 @@
+{
+  "id": "compensated-applied-force-totals",
+  "date": "2026-11-16",
+  "prs": [
+    2222,
+    2223
+  ],
+  "area": "analysis",
+  "quantities": [
+    "equilibrium",
+    "diagnosticCodes",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Cancelling applied forces retain small resultants",
+    "es": "Las fuerzas que se cancelan conservan resultantes pequeñas",
+    "pt": "Forças que se cancelam preservam resultantes pequenas",
+    "de": "Sich aufhebende Lasten erhalten kleine Resultierende",
+    "fr": "Les forces opposées conservent les petites résultantes",
+    "hu": "A kioltó erők megőrzik a kis eredőket",
+    "tr": "Birbirini götüren kuvvetler küçük bileşkeleri korur"
+  },
+  "explanation": {
+    "en": "Applied-force summaries now use Neumaier compensated summation in every dimension and analysis that reports independent equilibrium. Cancelling large nodal forces no longer erase a small force at another node and cause a false imbalance. Reactions and acceptance limits are unchanged. Rerun affected analyses.",
+    "es": "Los totales de fuerzas usan suma compensada de Neumaier en cada dimensión y análisis con equilibrio independiente. Las fuerzas nodales grandes que se cancelan ya no borran una fuerza pequeña en otro nodo ni causan un falso desequilibrio. Las reacciones y los límites no cambian. Repita los análisis afectados.",
+    "pt": "Os totais de forças usam soma compensada de Neumaier em cada dimensão e análise com equilíbrio independente. Forças nodais grandes que se cancelam não apagam uma força pequena em outro nó nem causam falso desequilíbrio. Reações e limites permanecem iguais. Refaça as análises afetadas.",
+    "de": "Lastsummen verwenden die kompensierte Neumaier-Summation in jeder Dimension und Analyse mit unabhängiger Gleichgewichtsprüfung. Große sich aufhebende Knotenlasten löschen keine kleine Last an einem anderen Knoten mehr und erzeugen kein falsches Ungleichgewicht. Reaktionen und Grenzwerte bleiben gleich. Betroffene Analysen erneut rechnen.",
+    "fr": "Les totaux utilisent la sommation compensée de Neumaier dans chaque dimension et analyse avec équilibre indépendant. Les grandes forces nodales opposées ne suppriment plus une petite force sur un autre nœud et ne causent plus de faux déséquilibre. Réactions et limites inchangées. Relancer les analyses concernées.",
+    "hu": "Az erőösszegek Neumaier kompenzált összegzést használnak minden dimenzióban és független egyensúlyt jelentő elemzésben. A nagy kioltó csomóponti erők nem törlik egy másik csomópont kis erejét, így nem okoznak hamis egyensúlyhibát. A reakciók és határértékek változatlanok. Az érintett elemzéseket újra kell futtatni.",
+    "tr": "Kuvvet toplamları, bağımsız denge bildiren her boyutta ve analizde Neumaier telafili toplamasını kullanır. Birbirini götüren büyük düğüm kuvvetleri başka bir düğümdeki küçük kuvveti silerek yanlış dengesizlik oluşturmaz. Tepkiler ve sınırlar değişmez. Etkilenen analizleri yeniden çalıştırın."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-narrow-partial-loads.md",
+    "heading": "Compensated force totals and remapped load integrals (round 6, #2223)"
+  },
+  "when": {}
+}
