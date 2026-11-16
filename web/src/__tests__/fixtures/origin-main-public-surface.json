@@ -126,7 +126,8 @@
     "/research": [
       "en",
       "es",
-      "pt"
+      "pt",
+      "zh"
     ],
     "/research/optimization/andreassen-2011": [
       "en",
@@ -134,7 +135,8 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/mechanics/biggins-2026": [
       "en",
@@ -142,7 +144,8 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/mechanics/gay-neto-2014": [
       "en",
@@ -150,7 +153,8 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/benchmarks/cqc-1981": [
       "en",
@@ -158,7 +162,8 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/benchmarks/dadeppo-arch-1975": [
       "en",
@@ -166,7 +171,8 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/optimisation/fairclough-2026": [
       "en",
@@ -174,17 +180,20 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/stability/feher-sipos-varkonyi-2026": [
       "en",
       "es",
-      "pt"
+      "pt",
+      "zh"
     ],
     "/research/stability/ferrari-sigmund-2025": [
       "en",
       "es",
-      "pt"
+      "pt",
+      "zh"
     ],
     "/research/metamaterials/grossman-2026": [
       "en",
@@ -192,7 +201,8 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/benchmarks/lee-frame-1968": [
       "en",
@@ -200,7 +210,8 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/benchmarks/macneal-harder-1985": [
       "en",
@@ -208,7 +219,8 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/benchmarks/mattiasson-elastica": [
       "en",
@@ -216,7 +228,8 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/benchmarks/navier-plate": [
       "en",
@@ -224,17 +237,20 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/benchmarks/newmark-1959": [
       "en",
       "es",
-      "pt"
+      "pt",
+      "zh"
     ],
     "/research/form-finding/pastrana-2026": [
       "en",
       "es",
-      "pt"
+      "pt",
+      "zh"
     ],
     "/research/benchmarks/plastic-collapse": [
       "en",
@@ -242,7 +258,8 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/benchmarks/riks-crisfield": [
       "en",
@@ -250,7 +267,8 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/fracture/shauer-2025": [
       "en",
@@ -258,7 +276,8 @@
       "pt",
       "de",
       "fr",
-      "tr"
+      "tr",
+      "zh"
     ],
     "/research/benchmarks/shell-obstacle-course": [
       "en"
