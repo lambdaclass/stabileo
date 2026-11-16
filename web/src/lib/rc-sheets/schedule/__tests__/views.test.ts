@@ -41,6 +41,22 @@ describe('schedule views', () => {
     expect(v.groups[0]!.rows.map((r) => r.dia)).toEqual([...v.groups[0]!.rows.map((r) => r.dia)].sort((a, b) => a - b));
   });
 
+  it('every row carries its kg with the waste the totals add, and its merged marks in order', () => {
+    for (const v of SCHEDULE_VIEWS) for (const g of scheduleView(s, v).groups) for (const r of g.rows) {
+      expect(r.withWaste).toBeCloseTo(r.kg * 1.1, 9);
+      expect(r.marks).toEqual([...r.marks].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+    }
+    const merged = scheduleOf([
+      el('line:V3', 'beam', 'N1', [{ kind: 'stirrup', count: 5, shape: hoop() }, { kind: 'continuous', count: 2, shape: bar(6) }, { kind: 'support', count: 2, shape: bar(7) }]),
+      el('line:V4', 'beam', 'N1', [{ kind: 'continuous', count: 2, shape: bar(3) }, { kind: 'support', count: 2, shape: bar(4) }, { kind: 'stirrup', count: 5, shape: hoop() }]),
+    ], { code: 'cirsoc201-2025', waste: 0.1 });
+    const row = scheduleView(merged, 'unified').groups[0]!.rows.find((r) => r.key === shapeKey(hoop()))!;
+    expect(row.marks.length).toBeGreaterThan(1);
+    expect(row.marks).toEqual([...row.marks].sort());
+    const csv = scheduleCsv(merged, (k) => k, 'unified').split('\n').find((l) => l.includes(row.marks.join(', ')))!;
+    expect(csv.split(',').at(-1)).toBe(String(Math.round(row.withWaste * 10) / 10));
+  });
+
   it('by family: one section per family in the sheets\' order, equal bars merged inside it only', () => {
     const v = scheduleView(s, 'family');
     expect(v.groups.map((g) => g.family)).toEqual(['beam', 'column', 'slab', 'wall']);

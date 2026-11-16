@@ -94,6 +94,8 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await ws.getByTestId('rc-marks-toggle').check();
   await expect(ws.getByTestId('rc-line-envelope')).toBeVisible();
   await expect(ws.getByTestId('rc-env-phivn')).toHaveAttribute('d', /^(M[\d.]+,[\d.]+( L[\d.]+,[\d.]+)+ ?)+$/);
+  await expect(ws.getByTestId('rc-env-mu-scale')).toHaveText(/^\d+ kN·m$/);
+  await expect(ws.getByTestId('rc-env-vu-scale')).toHaveText(/^\d+ kN$/);
   await ws.getByTestId('rc-envelope-toggle').uncheck();
   await expect(ws.getByTestId('rc-line-envelope')).toHaveCount(0);
   await ws.getByTestId('rc-envelope-toggle').check();
@@ -193,6 +195,16 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   }
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('rc-panel-code').getByTestId('rc-code-select')).toHaveValue('aci318-19');
+
+  // Exact reinforcement: bent bars wherever the envelopes let them, both spans of V4 among them.
+  await page.getByTestId('rc-opt-bent-bars').check();
+  await page.getByTestId('rc-redesign').click();
+  await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
+  await page.getByTestId('rc-open-beam').click();
+  const v4 = ws.getByTestId('rc-row').filter({ has: page.locator('td.nm', { hasText: /^V4\D*$/ }) }).first();
+  await expect(v4.getByTestId('rc-line-spans')).toContainText(/1: .*lev\..*2: .*lev\./);
+  expect(await ws.getByTestId('rc-line-spans').filter({ hasText: 'lev.' }).count()).toBeGreaterThan(10);
+  await page.keyboard.press('Escape');
 
   // The project's denser column ends, the design's own setting, drawn in the elevation.
   await page.getByTestId('rc-opt-end-zones').check();

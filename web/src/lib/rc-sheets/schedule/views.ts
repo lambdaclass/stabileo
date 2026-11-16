@@ -29,6 +29,8 @@ export interface ViewRow {
   unitLength: number;
   totalLength: number;
   kg: number;
+  /** The kg with the schedule's waste, as the totals carry it. */
+  withWaste: number;
   long: boolean;
   uses: BarUse[];
   /** The element view's: pieces per element and how many equal elements. */
@@ -61,11 +63,15 @@ function totals(rows: readonly { count: number; totalLength: number; kg: number 
   return { count, length, kg, withWaste: kg * (1 + waste) };
 }
 
-function finish(row: ViewRow): ViewRow {
+const markOrder = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
+
+function finish(row: ViewRow, waste: number): ViewRow {
   row.unitLength = developedLength(row.shape);
   row.totalLength = row.unitLength * row.count;
   row.kg = shapeWeight(row.shape, row.count);
+  row.withWaste = row.kg * (1 + waste);
   row.long = row.unitLength > STOCK_LENGTH + 1e-9;
+  row.marks.sort(markOrder);
   return row;
 }
 
@@ -81,7 +87,7 @@ function merged(s: BendingSchedule, groupOf: (e: MarkedElement, dia: number) => 
       groups.set(g, rows);
       let row = rows.get(m.key);
       if (!row) {
-        row = { key: m.key, marks: [], kinds: [], dia: m.shape.dia, shape: m.shape, count: 0, unitLength: 0, totalLength: 0, kg: 0, long: false, uses: [] };
+        row = { key: m.key, marks: [], kinds: [], dia: m.shape.dia, shape: m.shape, count: 0, unitLength: 0, totalLength: 0, kg: 0, withWaste: 0, long: false, uses: [] };
         rows.set(m.key, row);
       }
       row.count += m.count;
@@ -90,7 +96,7 @@ function merged(s: BendingSchedule, groupOf: (e: MarkedElement, dia: number) => 
       row.uses.push({ ...refOf(e), mark: m.mark, elevation: [...new Set(m.elevation)], count: m.count });
     }
   }
-  return new Map([...groups].map(([g, rows]) => [g, [...rows.values()].map(finish).sort(byDiameterThenLength)]));
+  return new Map([...groups].map(([g, rows]) => [g, [...rows.values()].map((r) => finish(r, s.waste)).sort(byDiameterThenLength)]));
 }
 
 function elementView(s: BendingSchedule): ViewGroup[] {
@@ -107,7 +113,7 @@ function elementView(s: BendingSchedule): ViewGroup[] {
     });
     g.rows.push({
       key: r.key, marks: [r.mark], kinds: [r.kind], dia: r.dia, shape: r.shape, count: r.total, unitLength: r.unitLength,
-      totalLength: r.totalLength, kg: r.kg, long: r.long, uses, perElement: r.perElement, equal: r.equal,
+      totalLength: r.totalLength, kg: r.kg, withWaste: r.kg * (1 + s.waste), long: r.long, uses, perElement: r.perElement, equal: r.equal,
     });
   }
   return [...groups.values()];

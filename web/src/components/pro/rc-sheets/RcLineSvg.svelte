@@ -172,10 +172,10 @@
       <path d={phiVPos.outside + ' ' + phiVNeg.outside} class="phiv off" />
       <text x={M - 6} y={yV - ENV_V / 2 + 10} class="small end">Vu</text>
       <text x={W - M + 4} y={yV - ENV_V / 2 + 10} class="small start">±φVn</text>
-      <text x={W - M + 4} y={yM + 4} class="small start">{fmt(muTop, 0)}</text>
-      <text x={W - M + 4} y={yV - 2} class="small start">{fmt(vuTop, 0)}</text>
-      {#if phiMTop > mMax}<text x={W - M + 4} y={yM + ENV_M / 2 - 2} class="small start" data-testid="rc-env-phimn-off">↧ {fmt(phiMTop, 0)}</text>{/if}
-      {#if phiVTop > vMax}<text x={W - M + 4} y={yV - ENV_V / 2 + 22} class="small start" data-testid="rc-env-phivn-off">↥ {fmt(phiVTop, 0)}</text>{/if}
+      <text x={W - M + 4} y={yM + 4} class="small start" data-testid="rc-env-mu-scale">{fmt(muTop, 0)} kN·m</text>
+      <text x={W - M + 4} y={yV - 2} class="small start" data-testid="rc-env-vu-scale">{fmt(vuTop, 0)} kN</text>
+      {#if phiMTop > mMax}<text x={W - M + 4} y={yM + ENV_M / 2 - 2} class="small start" data-testid="rc-env-phimn-off">↧ {fmt(phiMTop, 0)} kN·m</text>{/if}
+      {#if phiVTop > vMax}<text x={W - M + 4} y={yV - ENV_V / 2 + 22} class="small start" data-testid="rc-env-phivn-off">↥ {fmt(phiVTop, 0)} kN</text>{/if}
     </g>
   {/if}
 

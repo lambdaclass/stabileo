@@ -67,7 +67,7 @@ function mergedTable(s: BendingSchedule, view: Exclude<ScheduleView, 'element'>,
     for (const r of g.rows) {
       out.push([
         ...(grouped ? [safeText(title)] : []), safeText(usesText(r.uses)), r.marks.join(', '), r.dia, r.kinds.map((k) => tr(kindKey(k))).join(', '), r.count,
-        shapeText(r.shape), r2(r.unitLength), r2(r.totalLength), r1(r.kg),
+        shapeText(r.shape), r2(r.unitLength), r2(r.totalLength), r1(r.kg), r1(r.withWaste),
       ]);
     }
     if (grouped) out.push([safeText(title), bbs('subtotal'), '', '', '', g.count, '', '', r2(g.length), r1(g.kg), r1(g.withWaste)]);

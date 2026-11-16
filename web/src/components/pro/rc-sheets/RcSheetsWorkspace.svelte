@@ -134,7 +134,8 @@
       <button type="button" role="tab" aria-selected={schedule} class:on={schedule} data-testid="rc-tab-schedule" onclick={() => { schedule = true; openKey = null; }}>{t('rcSheets.bbs.title')}</button>
     </div>
     <div class="rcw-tools">
-      <label class="rcw-ctl" title={t('rcSheets.col.level')}><span class="wide">{t('rcSheets.col.level')}</span>
+      {#if !schedule}
+      <label class="rcw-ctl" title={t('rcSheets.col.level')} data-testid="rc-level-filter"><span class="wide">{t('rcSheets.col.level')}</span>
         <select bind:value={level} aria-label={t('rcSheets.col.level')}>
           <option value="">{t('rcSheets.allLevels')}</option>
           {#each levels as l (l)}<option value={l}>{l || '—'}</option>{/each}
@@ -142,6 +143,7 @@
       </label>
       <label class="rcw-ctl" title={t('rcSheets.onlyFailing')}><input type="checkbox" bind:checked={failingOnly} aria-label={t('rcSheets.onlyFailing')} /> <span class="wide">{t('rcSheets.onlyFailing')}</span><span class="narrow">✗</span></label>
       <label class="rcw-ctl" title={t('rcSheets.onlyEdited')}><input type="checkbox" bind:checked={editedOnly} aria-label={t('rcSheets.onlyEdited')} data-testid="rc-only-edited" /> <span class="wide">{t('rcSheets.onlyEdited')}</span><span class="narrow">✎</span></label>
+      {/if}
       <button type="button" class="rcs-btn" title={t('rcSheets.adoptAll')} onclick={() => adoptAll(shown.filter((r): r is Exclude<ListRow, { family: 'punching' }> => r.family !== 'punching'))} disabled={!shown.length}><span class="wide">{t('rcSheets.adoptAll')}</span><span class="narrow">{t('rcSheets.adoptAllShort')}</span></button>
       <button type="button" class="rcs-btn" title={t('rcSheets.plans.export')} onclick={() => (plansOpen = true)} disabled={!sheetsRun.rows || !drawable} data-testid="rc-plans-export"><span class="wide">{t('rcSheets.plans.export')}</span><span class="narrow">{t('rcSheets.plans.exportShort')}</span></button>
       <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} disabled={!rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">{t('rcSheets.exportShort')}</span></button>
