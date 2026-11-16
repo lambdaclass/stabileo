@@ -8,6 +8,7 @@
   import { navigateScalarField, SCALAR_FIELD_SHORTCUTS } from './scalar-field-navigation';
   import { formatLocalizedContourLabel } from './scalar-field-labels';
   import { scalarFieldScale } from './scalar-field-scale';
+  import { fitScalarFieldCamera, pickingPlane, planeRotationX, projectedDataAxes, worldToPlane, type ScalarFieldPlane } from './scalar-field-plane';
   /**
    * The 3D viewport's look and navigation showing one scalar field on a 2D mesh, for views that
    * have a mesh and a field but no editor model (research experiments). Shares the app's scene
@@ -15,8 +16,9 @@
    * bar styles.
    *
    * Navigation as in the app: left drag orbits (in 3D), right drag pans, the wheel zooms to the
-   * pointer. "2D" is the app's plan view: looking down at the XY plane, orbit locked. With the
-   * canvas focused, arrows pan, Shift+arrows orbit in 3D, + and - zoom, 0 or Home fits.
+   * pointer. "2D" looks straight at the model's plane (down at a plan, along Y at an elevation),
+   * orbit locked. With the canvas focused, arrows pan, Shift+arrows orbit in 3D, + and - zoom,
+   * 0 or Home fits.
    */
   import { onDestroy, onMount, tick, untrack, type Snippet } from 'svelte';
   import * as THREE from 'three';
@@ -85,7 +87,8 @@
     geometryOnly?: boolean;
     /** Length unit of the coordinates, for the zoom readout. */
     lengthUnit?: string;
-    /** Hide the axis triad when the drawn plane is not the global XY plane. */
+    /** The global plane the data's (x, y) lies in, Z up: 'plan' is XY, 'elevation' is XZ (y becomes Z). */
+    plane?: ScalarFieldPlane;
     showAxes?: boolean;
     /** False drops the camera buttons, the viewer mark and the status bar; drag, wheel and keys still navigate. */
     chrome?: boolean;
@@ -98,7 +101,7 @@
     lineWidth = 3,
     values,
     displayMode = 'field',
-    renderDiagnostics = false,
+    renderDiagnostics = import.meta.env.VITE_E2E === '1',
     perCell = false,
     range,
     title,
@@ -120,6 +123,7 @@
     editorButton = true,
     geometryOnly = false,
     lengthUnit,
+    plane = 'plan',
     showAxes = true,
     chrome = true,
   }: Props = $props();
@@ -154,7 +158,11 @@
       const canvas = renderer.domElement;
       canvas.dataset.renderedTriangles = String(renderer.info.render.triangles);
       const box = field ? new THREE.Box3().setFromObject(field.group) : new THREE.Box3();
+      if (field) box.applyMatrix4(field.group.matrixWorld.clone().invert());
       canvas.dataset.geometryBounds = JSON.stringify([box.min.toArray(), box.max.toArray()]);
+      canvas.dataset.plane = plane;
+      canvas.dataset.projection = projection;
+      canvas.dataset.axes = JSON.stringify(projectedDataAxes(plane, camera, bounds(), container.clientWidth, container.clientHeight));
     }
     drawAxisGizmoOn(gizmo, camera);
     if (damping > 0) {
@@ -181,32 +189,21 @@
     return [x0, y0, x1, y1];
   }
 
-  /** Fit the region: in the plan view the app's top view (tipped 1° so Z stays the orbit axis), in 3D an oblique view. */
+  /** Fit the region: in 2D looking straight at the model's plane, in 3D an oblique view. */
   export function fit() {
     if (!renderer) return;
     pendingFit = true;
     if (container.clientWidth <= 0 || container.clientHeight <= 0) return;
     pendingFit = false;
-    const [x0, y0, x1, y1] = bounds();
-    const cx = (x0 + x1) / 2;
-    const cy = (y0 + y1) / 2;
-    const w = Math.max(1e-9, x1 - x0);
-    const h = Math.max(1e-9, y1 - y0);
     const aspect = container.clientWidth / Math.max(1, container.clientHeight);
-    const fov = THREE.MathUtils.degToRad(camera.fov);
-    const dist = (1.08 * Math.max(h, w / aspect)) / 2 / Math.tan(fov / 2);
-    if (projection === 'plan') {
-      const tip = 0.018;
-      camera.position.set(cx, cy - dist * Math.sin(tip), dist * Math.cos(tip));
-    } else {
-      camera.position.set(cx + dist * 0.45, cy - dist * 0.75, dist * 0.6);
-    }
-    camera.near = dist / 1000;
-    camera.far = dist * 100;
+    const { position, target, near, far } = fitScalarFieldCamera(plane, projection, bounds(), aspect, camera.fov);
+    camera.position.copy(position);
+    camera.near = near;
+    camera.far = far;
     camera.updateProjectionMatrix();
-    controls.target.set(cx, cy, 0);
+    controls.target.copy(target);
     controls.enableRotate = projection === 'orbit';
-    camera.lookAt(cx, cy, 0);
+    camera.lookAt(target);
     updateZoom();
     invalidate();
   }
@@ -240,15 +237,16 @@
   }
 
   const ray = new THREE.Raycaster();
-  const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+  const picking = $derived(pickingPlane(plane));
   function onPointerMove(e: PointerEvent) {
     if (!renderer) return;
     const r = renderer.domElement.getBoundingClientRect();
     ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
     const p = new THREE.Vector3();
-    if (!ray.ray.intersectPlane(plane, p)) return;
+    if (!ray.ray.intersectPlane(picking, p)) return;
     const f = new Intl.NumberFormat(locale ?? i18n.locale, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-    pointer = `(${f.format(p.x)}; ${f.format(p.y)})`;
+    const [x, y] = worldToPlane(plane, p);
+    pointer = `(${f.format(x)}; ${f.format(y)})`;
   }
 
   function onKey(e: KeyboardEvent) {
@@ -325,6 +323,11 @@
   $effect(() => {
     if (!field) return;
     field.setEdgesVisible(showMesh);
+    invalidate();
+  });
+  $effect(() => {
+    if (!field) return;
+    field.group.rotation.x = planeRotationX(plane);
     invalidate();
   });
   $effect(() => {

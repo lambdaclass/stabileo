@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import * as THREE from 'three';
+import { fitScalarFieldCamera } from '../../../components/viewport/scalar-field-plane';
 
 // Exercise the component's actual camera functions with a real Three camera, without requiring
 // WebGL in Node. Only renderer/DOM services are stubbed; no copy of the fit/resize algorithm.
@@ -20,7 +21,7 @@ it.each([[0, 0], [0, 400], [600, 0]])('defers fitting a hidden %s×%s container 
   const setSize = vi.fn();
   const controls = { target: new THREE.Vector3(), enableRotate: true };
   const api = runInNewContext(`let pendingFit = true; let zoomText = ''; ${js}; ({ fit, resize })`, {
-    THREE, camera, container, controls, renderer: { setSize }, field: null,
+    THREE, camera, container, controls, renderer: { setSize }, field: null, fitScalarFieldCamera, plane: 'plan',
     bounds: () => [-0.5, -0.5, 0.5, 0.5], projection: 'plan', invalidate: vi.fn(),
     scalarFieldScale: () => '', lengthUnit: undefined,
   }) as { fit(): void; resize(): void };
@@ -48,7 +49,7 @@ it('fits displaced corners at the chosen scale and preserves explicit cropping',
   const boundsJs = ts.transpileModule(boundsFunction.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const camera = new THREE.PerspectiveCamera(50, 1.5, 0.1, 1000);
   const context = {
-    THREE, camera, container: { clientWidth: 600, clientHeight: 400 },
+    THREE, camera, container: { clientWidth: 600, clientHeight: 400 }, fitScalarFieldCamera, plane: 'plan',
     controls: { target: new THREE.Vector3(), enableRotate: true }, renderer: {},
     xy: [0, 0, 1, 1], displacement: [-3, -2, 4, 5], deformScale: 2,
     view: null as number[] | null, projection: 'plan', invalidate: vi.fn(), scalarFieldScale: () => '', lengthUnit: undefined,

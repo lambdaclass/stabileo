@@ -77,7 +77,7 @@
         <label>{s.mesh}<input data-testid="mesh-slider" type="range" min="0" max={meshes.length - 1} step="1" bind:value={meshIndex} />{current.mesh} × {current.mesh}</label>
         <label>{s.scale}<input type="range" min="0" max="10" step="0.5" bind:value={scale} />×{fmt(deformation)}</label>
         <label><input type="checkbox" bind:checked={showMesh} />{s.mesh}</label>
-        <ScalarFieldViewer {...view} cellSize={4} deformScale={deformation} {showMesh} title={label(selected)} unit="" height="23rem" onOpenEditor={open} />
+        <ScalarFieldViewer plane="elevation" {...view} cellSize={4} deformScale={deformation} {showMesh} title={label(selected)} unit="" height="23rem" onOpenEditor={open} />
         <p>{s.projection}</p>
         <button onclick={open}>{s.open}</button>
         <p data-testid="selected-result">{current.mesh} × {current.mesh} · {s.reference}: {fmt(signedReference(current))}{copy.stabileo}{fmt(shown(result).value)} · {s.error}: {fmt(shown(result).error == null ? null : shown(result).error! * 100)}% · {result ? (result.refused ? s.withheld : result.pass ? s.pass : s.fail) : s.pending}</p>

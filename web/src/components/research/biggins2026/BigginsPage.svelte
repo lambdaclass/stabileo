@@ -90,7 +90,7 @@
     <div lang={publicI18n.locale} class="arches-app" bind:this={host} data-source={source} data-step={playback.shown} data-threshold={run.threshold} data-width={run.width} data-compression={run.compression} data-alpha={frame.alpha} data-force={frame.force}
       onpointerdowncapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} onclickcapture={() => playback.interact()} role="group" aria-label={s.title}>
       <p>{source === 'replay' ? shared.replaySource : shared.liveSource}</p>
-      <StabileoViewer editorButton={false} {xy} {cells} cellSize={2} values={heights} {displacement} deformScale={1}
+      <StabileoViewer plane="elevation" editorButton={false} {xy} {cells} cellSize={2} values={heights} {displacement} deformScale={1}
         range={{ min: -0.12, max: 0.12 }} title={showMode ? s.mode : s.arch} height="17rem" view={[-0.05, narrow ? -0.5 : -0.3, 1.05, 0.13]} lineWidth={5} />
       <p>{s.coordinates}</p>
       <label class="mode-toggle"><input type="checkbox" bind:checked={showMode} />{s.mode}</label>
