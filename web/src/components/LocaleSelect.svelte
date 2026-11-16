@@ -104,6 +104,11 @@
     <span class="ls-caret" aria-hidden="true"></span>
   </button>
 
+  <!-- The widest name, unseen, so the button is never narrower than the list it opens. -->
+  <span class="ls-sizer" aria-hidden="true">
+    {#each options as code (code)}<span data-label={label(code)}></span>{/each}
+  </span>
+
   {#if open}
     <!--
       Anchored to the button's own box and overlapping it by a hair, so the
@@ -142,8 +147,24 @@
 <style>
   .ls {
     position: relative;
-    display: inline-flex;
+    display: inline-grid;
   }
+
+  .ls-btn { grid-area: 1 / 1; justify-content: space-between; }
+
+  .ls-sizer {
+    grid-area: 2 / 1;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0 calc(0.5rem + 1px + 0.35rem + 7px) 0 calc(0.5rem + 1px);
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .ls-sizer > span::before { content: attr(data-label); }
 
   .ls-btn {
     display: inline-flex;
