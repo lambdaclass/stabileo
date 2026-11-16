@@ -21,8 +21,8 @@
     "de": "Windbreite beim Übergang vom Turm zum Mast",
     "fr": "Largeur au vent aux transitions de tour à mât",
     "tr": "Kule ile direk geçişlerinde rüzgâr genişliği",
-    "hu": "Szélterhelési szélesség torony és árbóc átmeneténél",
-    "zh": "塔架向桅杆过渡处的风荷载宽度"
+    "zh": "塔架向桅杆过渡处的风荷载宽度",
+    "hu": "Szélterhelési szélesség torony és árbóc átmeneténél"
   },
   "explanation": {
     "en": "Unmerged PR #2220 builds could refuse a tower with multiple legs below a single mast despite a valid declared mast width. Width mode now follows continuous carrier bands and preserves physical taper. Wall force derivations identify equivalent nodal shares rather than claiming a whole-wall mean pressure. Regenerate W/Wa and rerun analyses, combinations and design checks (#2220).",
@@ -31,8 +31,8 @@
     "de": "Nicht zusammengeführte Builds von PR #2220 konnten einen Turm mit mehreren Beinen unter einem einzelnen Mast trotz gültiger deklarierter Mastbreite ablehnen. Der Breitenmodus folgt nun durchgehenden Trägerbändern und erhält die physische Verjüngung. Die Herleitung kennzeichnet äquivalente Knotenkräfte. W/Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2220).",
     "fr": "Les versions non fusionnées de la PR #2220 pouvaient refuser une tour à plusieurs pieds sous un mât unique malgré une largeur déclarée valide. Le mode de largeur suit les bandes de porteurs continus et conserve le rétrécissement physique. La dérivation identifie les forces nodales équivalentes. Régénérez W/Wa et relancez analyses, combinaisons et vérifications (#2220).",
     "tr": "Birleştirilmemiş PR #2220 sürümleri, geçerli direk genişliğine rağmen üstünde tek direk bulunan çok ayaklı kuleyi reddedebiliyordu. Genişlik modu artık sürekli taşıyıcı bantlarını izler ve fiziksel daralmayı korur. Türetim eşdeğer düğüm kuvvetlerini belirtir. W/Wa yüklerini yeniden üretip analiz, birleşim ve kontrolleri tekrarlayın (#2220).",
-    "hu": "A még nem egyesített #2220 PR az érvényes megadott árbócszélesség ellenére elutasíthatta a több lábon álló, felül egyetlen árbóccal folytatódó tornyot. A szélesség módja most a folytonos teherhordók sávjait követi és megőrzi a fizikai szűkülést. A levezetés egyenértékű csomóponti erőket jelöl. Állítsa elő újra a W/Wa terheket, és ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket (#2220).",
-    "zh": "尚未合并的 PR #2220 构建，可能拒绝单根桅杆下方有多根塔腿的塔架，尽管声明的桅杆宽度有效。宽度模式现在沿连续的承载构件高度带取值，并保留实际的收分。墙面受力推导给出等效的节点分配份额，而不再声称是整面墙的平均压力。请重新生成 W 和 Wa，然后重新运行分析、组合和设计验算。（#2220）"
+    "zh": "尚未合并的 PR #2220 构建，可能拒绝单根桅杆下方有多根塔腿的塔架，尽管声明的桅杆宽度有效。宽度模式现在沿连续的承载构件高度带取值，并保留实际的收分。墙面受力推导给出等效的节点分配份额，而不再声称是整面墙的平均压力。请重新生成 W 和 Wa，然后重新运行分析、组合和设计验算。（#2220）",
+    "hu": "A még nem egyesített #2220 PR az érvényes megadott árbócszélesség ellenére elutasíthatta a több lábon álló, felül egyetlen árbóccal folytatódó tornyot. A szélesség módja most a folytonos teherhordók sávjait követi és megőrzi a fizikai szűkülést. A levezetés egyenértékű csomóponti erőket jelöl. Állítsa elő újra a W/Wa terheket, és ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket (#2220)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-wind-band-width-and-shares.md",

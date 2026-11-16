@@ -21,8 +21,8 @@
     "de": "Winddruck bleibt eine Stablast",
     "fr": "La pression du vent reste une charge de barre",
     "tr": "Rüzgâr basıncı çubuk yükü olarak korunur",
-    "hu": "A szélnyomás megoszló rúdteher marad",
-    "zh": "风压仍作为杆件荷载施加"
+    "zh": "风压仍作为杆件荷载施加",
+    "hu": "A szélnyomás megoszló rúdteher marad"
   },
   "explanation": {
     "en": "Generated continuous wind could become endpoint forces, preserving global resultants while changing member shear, bending and deflection. Regenerate W and Wa loads, then rerun analyses, combinations and design checks. Open buildings require the declared free-roof procedure and blockage, including when a pressure profile is supplied. Unresolved carrier partitions and distributed torques refuse explicitly. Re-solving stored loads does not correct them (#2220).",
@@ -31,8 +31,8 @@
     "de": "Erzeugter kontinuierlicher Wind konnte zu Endkräften werden: Globale Resultierende blieben erhalten, während sich Stabquerkräfte, Biegung und Verformung änderten. W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Offene Gebäude erfordern das Verfahren für freie Dächer und die Blockierungsangabe, auch mit Druckprofil. Ungeklärte Lastaufteilungen und verteilte Torsion werden ausdrücklich abgelehnt. Erneutes Lösen gespeicherter Lasten korrigiert sie nicht (#2220).",
     "fr": "Le vent continu généré pouvait devenir des forces aux extrémités, conservant les résultantes globales mais modifiant les efforts tranchants, moments et déplacements des barres. Régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Les bâtiments ouverts exigent de déclarer la procédure de toiture libre et son obstruction, même avec un profil de pression. Les répartitions non résolues et les torsions réparties sont explicitement refusées. Recalculer les charges enregistrées ne les corrige pas (#2220).",
     "tr": "Üretilen sürekli rüzgâr, toplam bileşkeleri korurken çubuk kesme kuvvetlerini, eğilmesini ve deplasmanını değiştiren uç kuvvetlerine dönüşebiliyordu. W ve Wa yüklerini yeniden üretin; analiz, birleşim ve kontrolleri tekrarlayın. Açık binalarda basınç profili verilse bile serbest çatı yöntemi ve engelleme durumu belirtilmelidir. Çözülemeyen yük alanı paylaşımları ve yayılı burulmalar açıkça reddedilir. Kayıtlı yükleri yeniden çözmek bunları düzeltmez (#2220).",
-    "hu": "A folytonos szél végponti erőkké alakulhatott, megtartva a globális eredőket, de megváltoztatva a rudak nyíróerejét, hajlítását és lehajlását. Állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. Nyitott épületnél nyomásprofil esetén is meg kell adni a szabad tető típusát és elzártságát. A nem meghatározható teherviselő felosztás és a megoszló csavarás kifejezett elutasítást eredményez. A mentett terhek újraszámítása nem javítja ki őket (#2220).",
-    "zh": "生成的连续风荷载可能变成端点集中力，整体合力不变，但杆件的剪力、弯矩和挠度改变。请重新生成 W 和 Wa 荷载，然后重新运行分析、组合和设计验算。开敞式建筑须采用声明的独立屋盖方法和阻塞程度，提供压力分布时也是如此。无法确定的承载构件划分和分布扭矩会被明确拒绝。仅重新求解已存储的荷载并不能纠正它们（#2220）。"
+    "zh": "生成的连续风荷载可能变成端点集中力，整体合力不变，但杆件的剪力、弯矩和挠度改变。请重新生成 W 和 Wa 荷载，然后重新运行分析、组合和设计验算。开敞式建筑须采用声明的独立屋盖方法和阻塞程度，提供压力分布时也是如此。无法确定的承载构件划分和分布扭矩会被明确拒绝。仅重新求解已存储的荷载并不能纠正它们（#2220）。",
+    "hu": "A folytonos szél végponti erőkké alakulhatott, megtartva a globális eredőket, de megváltoztatva a rudak nyíróerejét, hajlítását és lehajlását. Állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. Nyitott épületnél nyomásprofil esetén is meg kell adni a szabad tető típusát és elzártságát. A nem meghatározható teherviselő felosztás és a megoszló csavarás kifejezett elutasítást eredményez. A mentett terhek újraszámítása nem javítja ki őket (#2220)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-wind-member-pressure-transfer.md",
