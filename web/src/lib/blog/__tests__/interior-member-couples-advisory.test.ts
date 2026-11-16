@@ -36,7 +36,7 @@ describe('SA-2026-070 interior member recovery', () => {
     expect(blocks.some(b => b.k === 'ext' && b.label === 'SA-2026-070' && b.href.endsWith(`/docs/advisories/${advisoryFile}`))).toBe(true);
     expect((notice.title as Record<string, string>)[locale]?.trim()).toBeTruthy();
     expect((notice.explanation as Record<string, string>)[locale]).toContain('SA-2026-070');
-    expect(post.updated).toBe('2026-11-15');
+    expect(post.updated).toBe('2026-11-16');
   }
 
   it('known wrong result: #2099 — Hungarian recovery wording preserves the engineering scope and actions', () => {

@@ -103,24 +103,24 @@ describe('§1.6 Table 1.6-1 — directionality', () => {
 });
 
 describe('§1.10 / Table 1.11-1 — enclosure and internal pressure', () => {
-  it('classifies an open building at A0 >= 0,8 Ag', () => {
-    expect(classifyEnclosure({ a0: 80, ag: 100, a0i: 5, agi: 300 })).toBe('open');
+  it('refuses to call one open wall an open building', () => {
+    expect(classifyEnclosure({ walls: [{ openings: 80, gross: 100 }, { openings: 0, gross: 1 }], roof: { openings: 5, gross: 300 - 1 } })).toBe('partiallyEnclosed');
   });
 
   it('classifies an enclosed building at A0 <= min(0,01 Ag, 0,4 m²)', () => {
     // Ag = 100 -> 0,01 Ag = 1 m², so the 0,4 m² limit governs.
-    expect(classifyEnclosure({ a0: 0.3, ag: 100, a0i: 20, agi: 300 })).toBe('enclosed');
+    expect(classifyEnclosure({ walls: [{ openings: 0.3, gross: 100 }, { openings: 0, gross: 1 }], roof: { openings: 20, gross: 300 - 1 } })).toBe('enclosed');
   });
 
   it('classifies partially enclosed when the three criteria hold together', () => {
     // A0 > 1,10 A0i, A0 > 0,4 m², A0i/Agi <= 0,20
-    expect(classifyEnclosure({ a0: 20, ag: 100, a0i: 10, agi: 300 })).toBe('partiallyEnclosed');
+    expect(classifyEnclosure({ walls: [{ openings: 20, gross: 100 }, { openings: 0, gross: 1 }], roof: { openings: 10, gross: 300 - 1 } })).toBe('partiallyEnclosed');
   });
 
   it('falls through to partially open when nothing else fits', () => {
     // A0 = 5 is not > 1,10 * 20 = 22, and 5 > 0,4, so it is neither enclosed nor
     // partially enclosed nor open.
-    expect(classifyEnclosure({ a0: 5, ag: 100, a0i: 20, agi: 300 })).toBe('partiallyOpen');
+    expect(classifyEnclosure({ walls: [{ openings: 5, gross: 100 }, { openings: 0, gross: 1 }], roof: { openings: 20, gross: 300 - 1 } })).toBe('partiallyOpen');
   });
 
   it('gives the Table 1.11-1 (GC_pi) magnitudes', () => {
