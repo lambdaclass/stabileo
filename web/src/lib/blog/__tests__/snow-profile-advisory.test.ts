@@ -18,8 +18,8 @@ const document = (path: string) => readFileSync(new URL(`../../../../../docs/${p
 
 for (const [issue, sa, name, notice] of [[2176, 'SA-2026-073', 'snow-crossing-moment', crossing], [2172, 'SA-2026-074', 'snow-panel-subdivision', panel]] as const) {
   it.each<[PublicLocale, string, string]>([
-    ['en', 'High', 'Pending'], ['es', 'Alta', 'Pendiente'], ['pt', 'Alta', 'Pendente'],
-    ['de', 'Hoch', 'Ausstehend'], ['fr', 'Élevée', 'En attente'], ['tr', 'Yüksek', 'Bekleniyor'],
+    ['en', 'High', 'PR #2197; pending merge and release'], ['es', 'Alta', 'PR #2197; pendiente de integración y publicación'], ['pt', 'Alta', 'PR #2197; aguardando integração e publicação'],
+    ['de', 'Hoch', 'PR #2197; Zusammenführung und Veröffentlichung ausstehend'], ['fr', 'Élevée', 'PR #2197; fusion et publication en attente'], ['tr', 'Yüksek', 'PR #2197; birleştirme ve yayın bekleniyor'],
   ])(`#${issue} %s has the assigned advisory and regeneration notice`, (locale, severity, status) => {
     const blocks = findPost('safety-advisories')!.i18n[locale]!.blocks;
     const table = blocks.find(b => b.k === 'table');
@@ -35,7 +35,7 @@ for (const [issue, sa, name, notice] of [[2176, 'SA-2026-073', 'snow-crossing-mo
     expect(blocks.some(b => b.k === 'ext' && b.label === sa && b.href.endsWith(`/docs/advisories/${sa}-${name}.md`))).toBe(true);
     expect(notice.explanation[locale]).toContain(sa);
     expect(notice.when).toEqual({ all: issue === 2172 ? ['generatedLoads'] : ['snow', 'generatedLoads'] });
-    expect(document(`advisories/${sa}-${name}.md`)).toContain('| Fix | pending |');
+    expect(document(`advisories/${sa}-${name}.md`)).toContain('| Fix | PR [#2197](https://github.com/lambdaclass/stabileo/pull/2197); pending merge and release |');
     expect(document('advisories/README.md')).toContain(`[${sa}](${sa}-${name}.md)`);
     expect(document(notice.changelog.file.replace('docs/', ''))).toContain(`#${issue}`);
   });

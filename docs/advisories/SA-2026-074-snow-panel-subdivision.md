@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-16; pending merge and release |
+| Status | Draft 2026-11-16; PR #2197; pending merge and release |
 | Issue | [#2172](https://github.com/lambdaclass/stabileo/issues/2172) |
-| Fix | pending |
+| Fix | PR [#2197](https://github.com/lambdaclass/stabileo/pull/2197); pending merge and release |
 | Fixed release | Not released |
 | Affected versions | Confirmed on origin/main `9d925a78093db05bf8b50eb125aa829fa5dd955d`; earlier introduction and historical release binaries not assessed |
 | Re-check registry | [`snow-panel-geometry`](../../web/src/lib/provenance/result-changes/snow-panel-geometry.json) |
@@ -46,7 +46,7 @@ A successful solve does not establish that the generated loads are correct.
 
 ## Fixed in
 
-Fix PR pending, pending merge and release. Panel classification uses physical
+PR #2197; pending merge and release. Panel classification uses physical
 panel footprints and complete physical roof runs, independently of raw-member
 fragmentation. Gravity and snow share that geometry layer. Full-precision
 tributary widths and physical strip integration preserve force and moment. Existing engineering
@@ -71,4 +71,4 @@ deliverables based on the earlier generated loads.
 
 The coordinator reserved SA-2026-074 for #2172. The
 [results-change record](../results-changes/2026-11-snow-panel-geometry.md)
-contains the exact witness and independent physical expectation. Fix PR pending.
+contains the exact witness and independent physical expectation. PR #2197; pending merge and release.

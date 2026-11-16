@@ -1001,11 +1001,11 @@ function nearSegment(p: [number, number], a: [number, number], b: [number, numbe
 
 /** How far above `zTop` the lowest panel, slab or beam over a plan point is (see the header); Infinity when none is. */
 function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<number, Array<Array<[number, number]>>>): (pt: [number, number], zTop: number) => number {
-  type Cover = { z: number; polys: Array<Array<[number, number]>>; segs: Array<[[number, number], [number, number]]> };
+  type Cover = { z: number; polys: Array<Array<[number, number]>> };
   const covers: Cover[] = [];
   const coverAt = (z: number) => {
     let c = covers.find((x) => Math.abs(x.z - z) <= TOL);
-    if (!c) { c = { z, polys: [], segs: [] }; covers.push(c); }
+    if (!c) { c = { z, polys: [] }; covers.push(c); }
     return c;
   };
   for (const [z, polys] of panelsAt) coverAt(z).polys.push(...polys);
@@ -1019,9 +1019,48 @@ function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<n
     const dx = b.x - a.x, dy = b.y - a.y, dz = (b.z ?? 0) - (a.z ?? 0);
     return { id, a, b, dx, dy, dz, lh: Math.hypot(dx, dy) };
   });
-  for (const { a, b } of physicalRoofRuns(geometry)) coverAt(Math.min(a.z ?? 0, b.z ?? 0)).segs.push([[a.x, a.y], [b.x, b.y]]);
-  return (pt: [number, number], zTop: number) => covers.reduce((h, c) => (c.z > zTop + 0.05
-    && (c.polys.some((poly) => inside(pt, poly)) || c.segs.some(([a, b]) => nearSegment(pt, a, b, 0.05))) ? Math.min(h, c.z - zTop) : h), Infinity);
+  const runs = physicalRoofRuns(geometry).map(({ a, b }) => {
+    const start: [number, number] = [a.x, a.y], end: [number, number] = [b.x, b.y];
+    const dx = b.x - a.x, dy = b.y - a.y, length2 = dx * dx + dy * dy;
+    const eave = (a.z ?? 0) <= (b.z ?? 0) ? a : b;
+    const within = (poly: Array<[number, number]>) => {
+      if (!inside(start, poly, TOL) || !inside(end, poly, TOL)) return false;
+      const cuts = [0, 1];
+      poly.forEach((p, i) => {
+        const q = poly[(i + 1) % poly.length]!;
+        const ex = q[0] - p[0], ey = q[1] - p[1], det = dx * ey - dy * ex;
+        if (Math.abs(det) <= 1e-12) return;
+        const t = ((p[0] - a.x) * ey - (p[1] - a.y) * ex) / det;
+        const u = ((p[0] - a.x) * dy - (p[1] - a.y) * dx) / det;
+        if (t > 0 && t < 1 && u >= 0 && u <= 1) cuts.push(t);
+      });
+      cuts.sort((x, y) => x - y);
+      return cuts.slice(1).every((t, i) => {
+        const mid = (cuts[i]! + t) / 2;
+        return inside([a.x + mid * dx, a.y + mid * dy], poly, TOL);
+      });
+    };
+    const ownPanels = [...panelsAt].flatMap(([z, polys]) => Math.abs(z - (eave.z ?? 0)) <= TOL
+      ? polys.filter(poly => poly.some((p, i) => nearSegment([eave.x, eave.y], p, poly[(i + 1) % poly.length]!, TOL)) && within(poly)).map(poly => ({ z, poly }))
+      : []);
+    return {
+      start, end, ownPanels,
+      heightAt: (pt: [number, number]) => {
+        const t = Math.max(0, Math.min(1, ((pt[0] - a.x) * dx + (pt[1] - a.y) * dy) / length2));
+        return (a.z ?? 0) + t * ((b.z ?? 0) - (a.z ?? 0));
+      },
+    };
+  });
+  return (pt: [number, number], zTop: number) => {
+    let h = covers.reduce((h, c) => c.z > zTop + 0.05 && c.polys.some(poly => inside(pt, poly)) ? Math.min(h, c.z - zTop) : h, Infinity);
+    for (const run of runs) {
+      if (!nearSegment(pt, run.start, run.end, 0.05)) continue;
+      if (run.ownPanels.some(({ z, poly }) => Math.abs(z - zTop) <= TOL && inside(pt, poly, TOL))) continue;
+      const z = run.heightAt(pt);
+      if (z > zTop + 0.05) h = Math.min(h, z - zTop);
+    }
+    return h;
+  };
 }
 
 /**

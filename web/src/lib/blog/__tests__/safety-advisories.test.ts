@@ -12,7 +12,7 @@ describe('safety-advisories SA-2026-061', () => {
     const text = readFileSync(advisoryUrl, 'utf8');
     const draftDate = text.match(/\| Status \| Draft (\d{4}-\d{2}-\d{2});/)?.[1];
     expect(draftDate).toBe('2026-11-12');
-    expect(findPost('safety-advisories')!.updated).toBe('2026-11-16');
+    expect(findPost('safety-advisories')!.updated).toBe('2026-11-15');
   });
 
   it.each<[PublicLocale, string, string]>([
@@ -32,7 +32,7 @@ describe('safety-advisories SA-2026-061', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.slice(2)).toEqual([severity, status]);
     expect(blocks.some((b) => b.k === 'note' && b.t === `SA-2026-061 — ${status}.`)).toBe(true);
-    expect(post.updated).toBe('2026-11-16');
+    expect(post.updated).toBe('2026-11-15');
   });
 
   it.each([2, 3])('known wrong result: #1952 — %iD determined replay retains answers without withholding notices', dim => {

@@ -27,7 +27,7 @@ it.each<[PublicLocale, string, string]>([
   expect(blocks.some(b => b.k === 'note' && b.t === `SA-2026-072 — ${status}.`)).toBe(true);
   expect(blocks.some(b => b.k === 'ext' && b.label === 'SA-2026-072' && b.href.endsWith('/docs/advisories/SA-2026-072-snow-ridge-subdivision.md'))).toBe(true);
   expect(notice.explanation[locale]).toContain('SA-2026-072');
-  expect(post.updated).toBe('2026-11-16');
+  expect(post.updated).toBe('2026-11-15');
 });
 
 it('#2144 follows the assigned advisory structure and retains only the recorded main witness', () => {
