@@ -460,3 +460,36 @@ fn round10_supported_quadratic_extrema_keep_local_parameter_values() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round11_zero_moments_match_absent_moments_in_every_spatial_entry() {
+    for (a, b) in [(0.0, 5e-11), (0.0, 1e-10), (0.0, 2e-10), (0.25, 0.75)] {
+        let mut absent = round8_endpoint_model(a, b, "x");
+        if let SolverLoad3D::Distributed(d) = &mut absent.loads[0] {
+            d.moments = None;
+            d.q_zi = -1.0 / (b - a); d.q_zj = d.q_zi;
+        }
+        let mut zero = absent.clone();
+        if let SolverLoad3D::Distributed(d) = &mut zero.loads[0] {
+            d.moments = Some(MemberMoments { x: [0.0; 3], y: [-0.0; 3], z: [0.0; 3] });
+        }
+        let mut unloaded = absent.clone(); unloaded.loads.clear();
+        let prepared = linear::prepare_static_3d(&unloaded).unwrap();
+        let solve = |input: &SolverInput3D, entry| match entry {
+            0 => linear::solve_3d(input),
+            1 => prepared.solve_loads(&input.loads),
+            2 => pdelta::solve_pdelta_3d(input, 100, 1e-10).map(|r| r.results),
+            _ => corotational::solve_corotational_3d(input, 100, 1e-10, 4, false).map(|r| r.results),
+        };
+        for entry in 0..4 {
+            let expected = solve(&absent, entry).unwrap();
+            let actual = solve(&zero, entry).unwrap();
+            assert_eq!(serde_json::to_value(&actual).unwrap(), serde_json::to_value(&expected).unwrap(), "entry={entry} [{a},{b}]");
+            let ef = &actual.element_forces[0];
+            assert!(ef.member_moments.is_empty());
+            assert!((evaluate_diagram_3d_at(ef, "shearZ", 0.0) - 1.0).abs() < 1e-10);
+            assert!((evaluate_diagram_3d_at(ef, "momentY", 0.0) + (a + b) / 2.0).abs() < 1e-10);
+        }
+    }
+}

@@ -78,3 +78,19 @@ for (const axis of ['x', 'y', 'z'] as const) {
     }
   });
 }
+
+for (const [entry, solve] of solves.entries()) it.skipIf(process.env.RUN_KNOWN_WRONG_RESULT !== '1')(`known wrong result: #2219 round11 zero moments match absent moments entry=${entry}`, () => {
+  for (const [a, b] of [[0, 5e-11], [0, 1e-10], [0, 2e-10], [0.25, 0.75]]) {
+    const zero = fixture(a!, b!, 'x');
+    zero.loads[0].data.moments.x = [0, -0, 0];
+    zero.loads[0].data.qZI = zero.loads[0].data.qZJ = -1 / (b! - a!);
+    const absent = structuredClone(zero);
+    delete absent.loads[0].data.moments;
+    const expected = solve(absent), actual = solve(zero);
+    expect(actual).toEqual(expected);
+    const ef = actual.elementForces[0]!;
+    expect(ef.memberMoments ?? []).toEqual([]);
+    expect(evaluateDiagramAt(ef, 'shearZ', 0)).toBeCloseTo(1, 10);
+    expect(evaluateDiagramAt(ef, 'momentY', 0)).toBeCloseTo(-(a! + b!) / 2, 10);
+  }
+});
