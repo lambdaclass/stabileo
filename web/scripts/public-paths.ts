@@ -57,6 +57,7 @@ export async function publicPaths(): Promise<string[]> {
   const source = await readFile(join(ROOT, 'src/lib/blog/index.ts'), 'utf8');
   const imports = [...source.matchAll(/from '\.\/posts\/([\w-]+)'/g)].map((m) => m[1]);
   const slugs: string[] = [];
+  const postLastmods: string[] = [];
   for (const file of imports) {
     const post = await readFile(join(ROOT, `src/lib/blog/posts/${file}.ts`), 'utf8');
     const fields = metadata(post);
@@ -65,12 +66,15 @@ export async function publicPaths(): Promise<string[]> {
       slugs.push(slug);
       const published = fields.date;
       const day = fields.updated ?? published;
-      if (day) POST_LASTMOD.set(`/blog/${slug}`, day);
+      if (day) {
+        POST_LASTMOD.set(`/blog/${slug}`, day);
+        postLastmods.push(day);
+      }
       if (published) POST_DATE.set(`/blog/${slug}`, published);
     }
   }
   if (slugs.length === 0) throw new Error('prerender: found no blog posts — the scan is broken');
-  POST_LASTMOD.set('/blog', [...POST_LASTMOD.values()].sort().at(-1)!);
+  POST_LASTMOD.set('/blog', postLastmods.sort().at(-1)!);
   const publishedTools = TOOLS.filter(tool => publicFeatureEnabled(`/tools/${tool.id}`, flags));
   for (const tool of publishedTools) POST_LASTMOD.set(`/tools/${tool.id}`, toolLastmod(tool, toolReviews.batches));
   POST_LASTMOD.set('/tools', publishedTools.map((tool) => toolLastmod(tool, toolReviews.batches)).sort().at(-1)!);
